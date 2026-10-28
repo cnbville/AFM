@@ -61,7 +61,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let pos = p.player.position;
     let (ovr, own, eye) = any_read(w, i);
     let reader = views::reader_key(w);
-    let attrs = reads::attributes(&p.player, own, eye, reader);
+    let attrs = reads::attributes_of(w, p, own, eye, reader);
     let pool = norms::pool_of(w, i);
     let level_mark = |rated: Rated| pool.and_then(|pl| crate::lane_ratings::marks_cached(w, pl, pos, rated));
     let team = views::team_of(w, p);

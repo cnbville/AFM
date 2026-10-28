@@ -1,6 +1,6 @@
 # The living NFL: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28.
+Checked against main at 8e145de with update 3 lanes 5, 3 and 4 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
@@ -196,6 +196,14 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`).
 - **Stand-in games** (when the engine is off): win odds are a logit of 0.52 x strength gap in sd + 0.24 x staff gap + 0.2 home. Ties 0.3% (`world/nfl_year.rs`, `PER_SD`, `win_prob`).
 - **Club finance**: revenue and cost lines, gates, stadiums and NFLPA report cards (`world/finance/nfl.rs`). The cards feed free agents' scores (`card_pull`). `spend_level` sets support-staff budgets (`world/people.rs`, `staff_support`).
+
+### Schedules, numbers and news (update 3, lane 4)
+
+- Christmas Day games: 1999-2025 from the real schedules (1 in 1999, 2 in 2004; minor bug 45), three a year after 2025 (proposed, not confirmed) (`world/nfl_year.rs`, `christmas_games`).
+- College holiday games keep the real 2001-2025 Thanksgiving and Black Friday days per pair, each pair keeping its 2025 day from 2026 (minor bug 46; `world/schedule.rs`, `HOLIDAY_GAMES`).
+- NFL players may wear 0 from 2023 (minor bug 47; `world/stories/numbers.rs`).
+- A flex story pairs each game with the stored game of the same meeting, so a division rival's second game no longer reads as a flex every day (B4, minor bug 57; `world/stories/nfl.rs`, `season_day`).
+- The trial reads the world's trades and comp picks year by year against the real counts: 40-102 trades a year in 2002-2025 (86-96 since 2021) and 29-38 comp picks (minor bug 48; `afm-tools` `world_trial.rs`, `real_trades_and_comp`).
 
 ### Placing a player at cutdown (update 3, lane 5)
 

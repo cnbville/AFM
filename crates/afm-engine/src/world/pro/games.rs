@@ -461,7 +461,7 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
         let Some(&(i, _)) = sides[team].who.get(&inj.id) else { continue };
         let days = (inj.weeks * 7.0).ceil().max(1.0) as u32;
         let weeks = days.div_ceil(7);
-        w.hurt_pros.0.push(i);
+        w.hurt_pros.0.push(w.people[i].player.id);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.hurt_for(1 + days);
         if weeks >= 6 {
@@ -556,7 +556,7 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
         let days = (inj.weeks * (1.0 - 0.12 * med) * 7.0).ceil().max(1.0) as u32;
         let weeks = days.div_ceil(7);
         let ir = weeks >= ir_minimum(year);
-        w.hurt_pros.0.push(i);
+        w.hurt_pros.0.push(w.people[i].player.id);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.hurt_for(1 + days);
         if ir && c.status == Status::Roster {
@@ -641,7 +641,7 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
             let weeks = days.div_ceil(7);
             let vested = c.accrued >= 4;
             let squad = c.status == Status::PracticeSquad;
-            w.hurt_pros.0.push(i);
+            w.hurt_pros.0.push(w.people[i].player.id);
             let c = w.people[i].pro.as_mut().unwrap();
             c.hurt_for(days);
             let ir = if camp { weeks >= 6 && vested } else { weeks >= ir_minimum(year) && !squad };

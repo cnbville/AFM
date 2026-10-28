@@ -67,6 +67,49 @@ pub fn attributes(p: &Player, own: bool, eye: f64, reader: u64) -> Vec<(Attr, Re
         .collect()
 }
 
+/// Your staff's read of a person (minor bug 25): as `attributes`, but an
+/// outside high schooler's physical ratings show only once someone has
+/// measured him. His speed and burst come from his recorded times (the
+/// world's read of them, `times::seen`, as wide as the times leave it); the
+/// rest once your staff has tested him at a camp or a showcase. A kid
+/// nobody timed or tested shows "Not seen" there.
+pub fn attributes_of(
+    w: &afm_engine::world::World,
+    q: &afm_engine::world::Person,
+    own: bool,
+    eye: f64,
+    reader: u64,
+) -> Vec<(Attr, Read)> {
+    use afm_engine::world::Stage;
+    let mut v = attributes(&q.player, own, eye, reader);
+    if own || !matches!(q.stage, Stage::HighSchool | Stage::PrepSchool) {
+        return v;
+    }
+    let tested = hs_tested(w, q.player.id);
+    let s = afm_engine::world::times::seen(w, q);
+    let half = 2.0 + (20.0 - eye.clamp(1.0, 20.0)) * 0.12;
+    for (a, r) in v.iter_mut() {
+        if a.category() != Category::Physical {
+            continue;
+        }
+        *r = match a {
+            Attr::Speed | Attr::Acceleration if s.timed => {
+                let read = if *a == Attr::Speed { s.now.0 } else { s.now.1 };
+                range(read, half + (1.5 * s.sd).clamp(1.0, 6.0), reader, q.player.id, a.index())
+            }
+            _ if tested => *r,
+            _ => Read::NotSeen,
+        };
+    }
+    v
+}
+
+/// Whether your staff has measured a high schooler (a camp or a showcase look).
+pub fn hs_tested(w: &afm_engine::world::World, id: u32) -> bool {
+    use afm_engine::world::scouting::Kind;
+    w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| matches!(l.kind, Kind::Camp | Kind::Showcase)))
+}
+
 /// Your staff's read of his Dynamic Links (`docs/design/dynamic-links.md`):
 /// each link it sees, how strong it looks and the numbers it is named by.
 /// Your own players are measured by your staff; a pro or a combine invite

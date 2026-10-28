@@ -1999,8 +1999,11 @@ pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
     let year = w.year;
     let in_season = d >= y.cutdown.date && d <= y.super_bowl;
     if d.weekday() == crate::calendar::Weekday::Tue || w.hurt_pros.1 != Some(d.add(-1)) {
-        let all = (0..w.people.len())
-            .filter(|&i| w.people[i].stage == Stage::Pro && w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks > 0))
+        let all = w
+            .people
+            .iter()
+            .filter(|p| p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.out_weeks > 0))
+            .map(|p| p.player.id)
             .collect();
         w.hurt_pros.0 = all;
     }
@@ -2009,7 +2012,8 @@ pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
     list.sort_unstable();
     list.dedup();
     let mut healed = Vec::new();
-    list.retain(|&i| {
+    list.retain(|&id| {
+        let Ok(i) = w.people.binary_search_by_key(&id, |p| p.player.id) else { return false };
         let Some(c) = w.people[i].pro.as_mut() else { return false };
         if c.out_days == 0 && c.out_weeks > 0 {
             c.out_days = c.out_weeks * 7;

@@ -584,7 +584,7 @@ pub(crate) fn read_now(w: &World, i: usize, season: i32) -> KeptRead {
     let p = &w.people[i];
     let pos = p.player.position;
     let (ovr, own, eye) = any_read(w, i);
-    let attrs = reads::attributes(&p.player, own, eye, views::reader_key(w));
+    let attrs = reads::attributes_of(w, p, own, eye, views::reader_key(w));
     let pair = |r: Read| match r {
         Read::Range(lo, hi) => [lo, hi],
         Read::NotSeen => [0, 0],

@@ -1766,7 +1766,9 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
     };
     let slot_room = |feared: bool| if feared { 3.0 * fear } else { 0.0 };
     // The deep safety leans to the burner's side before the snap (S10b),
-    // which takes help from the middle.
+    // which takes help from the middle, and the safeties play deeper (up to
+    // 1.5 yards in two-high, 2 in single-high), which leaves room underneath
+    // for his teammates (proposed, not confirmed).
     let lean = burner_y.map_or(0.0, |y| clamp((y - by) * 0.3 * fear, -5.0, 5.0));
     let two_high = s.dcall.coverage.high() == 2 || s.dcall.disguise;
     let three_four =
@@ -1834,16 +1836,16 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                     if two_high {
                         let y = mid() - 9.0 * st;
                         let near = burner_y.is_some_and(|b| (b - by) * (y - mid()) > 0.0);
-                        v2(los + 12.5 + if near { fear } else { 0.0 }, y + 0.5 * lean)
+                        v2(los + 12.5 + 1.5 * fear + if near { fear } else { 0.0 }, y + 0.5 * lean)
                     } else {
-                        v2(los + 13.0, by + lean)
+                        v2(los + 13.0 + 2.0 * fear, by + lean)
                     }
                 }
                 DSlot::SS => {
                     if two_high {
                         let y = mid() + 9.0 * st;
                         let near = burner_y.is_some_and(|b| (b - by) * (y - mid()) > 0.0);
-                        v2(los + 12.5 + if near { fear } else { 0.0 }, y + 0.5 * lean)
+                        v2(los + 12.5 + 1.5 * fear + if near { fear } else { 0.0 }, y + 0.5 * lean)
                     } else {
                         v2(los + 7.5, by + st * 4.5)
                     }

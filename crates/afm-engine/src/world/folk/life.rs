@@ -817,7 +817,7 @@ fn rushed_week(w: &mut World, d: Date) {
         let weeks = 2 + (super::roll(w, 0x8E1B ^ d.0 as u64, id as u64) * 5.0) as u32;
         if let Some(c) = w.people[i].pro.as_mut() {
             c.out_for(7 * weeks);
-            w.hurt_pros.0.push(i);
+            w.hurt_pros.0.push(w.people[i].player.id);
         }
         w.folk.rushed.retain(|x| x.0 != id);
         let name = w.people[i].name.clone();

@@ -1764,7 +1764,7 @@ fn record(w: &mut World, k: u8, teams: [u16; 2], r: &GameResult, who: [&HashMap<
         let Some(&i) = who[team].get(&inj.id) else { continue };
         if let Some(c) = w.people[i].pro.as_mut() {
             c.hurt_for(1 + (inj.weeks * 7.0).ceil().max(1.0) as u32);
-            w.hurt_pros.0.push(i);
+            w.hurt_pros.0.push(w.people[i].player.id);
         }
     }
 }

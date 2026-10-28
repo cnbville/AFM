@@ -2329,6 +2329,32 @@ pub(crate) const SERVICE_SPECIALIST_MAX: u8 = 3;
 /// players) goes to that many players at the regular positions, and a
 /// specialist ranked among them gets the tier's stars up to
 /// `SERVICE_SPECIALIST_MAX` without using a place.
+/// The stars with S5's speed floors: a floored kid is raised to his floor,
+/// and each tier's lowest-ranked kids without a floor there step down a
+/// tier until it holds its quota again (a tier that is all floors keeps
+/// them, a few over).
+fn service_stars_floored(specialist: &[bool], floors: &[u8], quotas: &[(u8, usize)]) -> Vec<u8> {
+    let mut out = service_stars(specialist, quotas);
+    for (k, &f) in floors.iter().enumerate() {
+        if f > out[k] && !specialist[k] {
+            out[k] = f;
+        }
+    }
+    for (t, &(stars, quota)) in quotas.iter().enumerate() {
+        let next = quotas.get(t + 1).map_or(0, |q| q.0);
+        let mut count = out.iter().zip(specialist).filter(|(s, sp)| **s == stars && !**sp).count();
+        let mut k = out.len();
+        while count > quota && k > 0 {
+            k -= 1;
+            if out[k] == stars && !specialist[k] && floors[k] < stars {
+                out[k] = next;
+                count -= 1;
+            }
+        }
+    }
+    out
+}
+
 fn service_stars(specialist: &[bool], quotas: &[(u8, usize)]) -> Vec<u8> {
     let mut out = vec![0u8; specialist.len()];
     let (mut tier, mut used) = (0, 0);
@@ -2361,7 +2387,9 @@ fn service_stars(specialist: &[bool], quotas: &[(u8, usize)]) -> Vec<u8> {
 /// 62% of 5-stars are drafted, as in real classes. A first try at 3.4
 /// moved the rate only from 87.6% to 84.5%: at the very top of a class of
 /// 250,000 the services need a lot of noise before a kid who won't make
-/// it ranks among the best 32.
+/// it ranks among the best 32. Speed update S9: with recorded times and
+/// S5 driving stars, the misread is 6 points (proposed, not confirmed; the
+/// share of 5-stars drafted is checked on the review list, R2).
 fn service_bias(p: &Person, world_seed: u64) -> f64 {
     let older = if p.born == crate::calendar::born::UNKNOWN {
         0.0
@@ -2373,7 +2401,7 @@ fn service_bias(p: &Person, world_seed: u64) -> f64 {
 }
 
 const SERVICE_MATURITY: f64 = 1.6;
-const SERVICE_MISREAD: f64 = 9.0;
+const SERVICE_MISREAD: f64 = 6.0;
 
 /// How many of a class of 250,000 the services rate at 5, 4, 3 and 2
 /// stars (minor bug 17). The 247 Composite's own counts: about 32 five-stars
@@ -2697,6 +2725,13 @@ const FIT_EVAL: f64 = 0.3;
 /// confirmed.
 const STAR_EVAL: f64 = 0.5;
 
+/// What a desperate school (S7, S7a) adds for a timed burner, in film
+/// standard deviations, half again with two or more signs (proposed, not
+/// confirmed). A head coach is on the hot seat (a sign) from a third of the
+/// pressure the staff feels (`pressure`, from results under expectation).
+const BURNER_EVAL: f64 = 1.0;
+const HOT_SEAT: f64 = 0.34;
+
 /// What a recruit or transfer sees of a roster beyond the school's grades
 /// (trial 3 item 4, Raichel 2026-10-14): the room at his own position, and
 /// the units his position leans on. A QB wants receivers and a line, a corner
@@ -2819,12 +2854,38 @@ impl RosterView {
 /// What staffs judge a recruit on before they align it by position: his
 /// season's play, or for a kicker or punter what the kicking camps measure
 /// (fix list 1.4).
-pub(crate) fn film_raw(p: &Person) -> f64 {
+pub(crate) fn film_raw(p: &Person, played: &[f64]) -> f64 {
     if p.player.position.kicks() {
-        specialist_grade(&p.player)
-    } else {
-        p.last_performance.unwrap_or(p.player.overall())
+        return specialist_grade(&p.player);
     }
+    let now = p.last_performance.unwrap_or(p.player.overall());
+    let f = if p.stage == Stage::HighSchool { played.get(p.home_state).copied().unwrap_or(1.0) } else { 1.0 };
+    if f >= 1.0 {
+        return now;
+    }
+    // Minor bug 20: the season's row is written before its games, so while
+    // they are played his film is last season's, giving way week by week.
+    let rows = &p.player.history;
+    let start = rows.last().map_or(now, |h| h.overall_start);
+    let before = rows.len().checked_sub(2).and_then(|k| rows[k].performance.get()).unwrap_or(start);
+    let now = p.last_performance.unwrap_or(start);
+    (1.0 - f) * before + f * now
+}
+
+/// How much of each state's high school regular season has been played
+/// (minor bug 20), 1 outside the season: film holds only the games played.
+pub(crate) fn hs_played(w: &World) -> Vec<f64> {
+    let Some(hs) = w.hs_season.as_ref() else { return vec![1.0; w.states.len()] };
+    hs.states
+        .iter()
+        .map(|st| {
+            if st.developed && !st.done {
+                st.weeks.iter().filter(|&&g| g < w.today).count() as f64 / st.weeks.len().max(1) as f64
+            } else {
+                1.0
+            }
+        })
+        .collect()
 }
 
 /// Kicking and snapping camps (fix list 1.5, 1.7). Kickers and punters, and
@@ -2966,12 +3027,13 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
     let era = if pass <= 2 { clamp((d.year() - 2000) as f64 / 15.0 + 0.25, 0.25, 1.0) } else { 1.0 };
     let most = most * era;
     // Film first: only the top of the class gets a look.
+    let played = hs_played(w);
     let mut class: Vec<(f64, usize)> = w
         .people
         .iter()
         .enumerate()
         .filter(|(_, p)| p.stage == Stage::HighSchool && p.class_of == class_of && p.cal.signed.is_none())
-        .map(|(i, p)| (film_raw(p), i))
+        .map(|(i, p)| (film_raw(p, &played), i))
         .collect();
     if class.len() < 10 {
         return;
@@ -2995,7 +3057,7 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
                 None => rep.potential,
             };
             p.cal.service_read = Some(read);
-            (i, 0.6 * film_raw(p) + 0.4 * read)
+            (i, 0.6 * film_raw(p, &played) + 0.4 * read)
         })
         .collect();
     let mut ranked = reads;
@@ -3589,7 +3651,9 @@ fn recruit_visibility(w: &World, p: &Person, film: f64, all_mean_sd: (f64, f64),
     } else {
         hs.coach.map_or(0.4, |c| w.coaches[c].ability().network / 20.0)
     };
-    let camps = 0.3 + 0.7 * p.bg.money;
+    // The camps and showcases he has tested at (S6d): none reads as the
+    // old floor, two or more as full.
+    let camps = 0.3 + 0.35 * super::times::tested_at(w, p.player.id).min(2) as f64;
     let tape = clamp((film - all_mean_sd.0) / (3.0 * all_mean_sd.1) + 0.3, 0.0, 1.0);
     let traffic = 0.1 * (w.states[p.home_state].culture + 0.6);
     let viral_odds = if p.family.parent_style == super::background::ParentStyle::SocialMedia { 0.06 } else { 0.02 };
@@ -3636,9 +3700,10 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
     let seed = world_seed ^ (class_of as u64) << 20;
     let mut pos_stats: [(f64, f64, f64); POSITION_COUNT] = [(0.0, 0.0, 0.0); POSITION_COUNT];
     let mut members: Vec<usize> = Vec::new();
+    let played = hs_played(w);
     for (i, p) in w.people.iter().enumerate() {
         if p.stage == Stage::HighSchool && p.class_of == class_of && p.cal.signed.is_none() {
-            let f = film_raw(p);
+            let f = film_raw(p, &played);
             let s = &mut pos_stats[p.player.position.index()];
             s.0 += 1.0;
             s.1 += f;
@@ -3667,7 +3732,7 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
     };
     let film_of = |p: &Person| {
         let (m, sd) = pos_mean_sd[p.player.position.index()];
-        all_mean_sd.0 + all_mean_sd.1 * (film_raw(p) - m) / sd
+        all_mean_sd.0 + all_mean_sd.1 * (film_raw(p, &played) - m) / sd
     };
     // Who they look at: the top of the class on film, and every kid a
     // college offered, the state honored, the camps ranked or they rated
@@ -3688,7 +3753,15 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
             looked.push(i);
         }
     }
+    // S5: the class's fastest timed kids, whatever their film.
+    let mut class_n = [0.0; POSITION_COUNT];
+    for (n, s) in class_n.iter_mut().zip(&pos_stats) {
+        *n = s.0;
+    }
+    let floors = super::times::speed_floors(w, &members, &class_n);
+    looked.extend(floors.keys().copied());
     looked.sort_unstable();
+    looked.dedup();
     let promos = super::scouting::hs::promos(w);
     let wr: &World = w;
     let scored: Vec<(usize, f64, f64)> = looked
@@ -3705,7 +3778,7 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
                 Some(prev) => prev + 0.5 * (seen - prev),
                 None => seen,
             };
-            let gift = crate::links::gift(&crate::links::projected(&p.player));
+            let gift = crate::links::gift(&super::times::seen_links(p, &super::times::seen(wr, p)));
             let sheet = offer_sheet(&wr.programs, p, wr.year);
             (i, read, star_score(film, read, vis, gift, sheet, all_mean_sd.1))
         })
@@ -3725,7 +3798,8 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
         .zip(reach)
         .map(|(&(stars, share), r)| (stars, (share * class * r).round() as usize))
         .collect();
-    for (x, stars) in order.iter().zip(service_stars(&specialist, &quotas)) {
+    let floor: Vec<u8> = order.iter().map(|x| floors.get(&x.0).copied().unwrap_or(0)).collect();
+    for (x, stars) in order.iter().zip(service_stars_floored(&specialist, &floor, &quotas)) {
         w.people[x.0].stars = stars;
     }
     underclass_camps(w, &members, seed, reach[0]);
@@ -3794,6 +3868,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // Film aligned by position: each position's top looks the same.
     let mut pos_stats: [(f64, f64, f64); POSITION_COUNT] = [(0.0, 0.0, 0.0); POSITION_COUNT];
     let mut candidates: Vec<usize> = Vec::new();
+    let played = hs_played(w);
     for i in 0..n {
         let p = &w.people[i];
         let unsigned = p.cal.signed.is_none();
@@ -3810,7 +3885,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         }
         // Film is aligned against the whole class, signed or not.
         if in_class {
-            let f = film_raw(p);
+            let f = film_raw(p, &played);
             let s = &mut pos_stats[p.player.position.index()];
             s.0 += 1.0;
             s.1 += f;
@@ -3846,14 +3921,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         .map(|&i| {
             // (Visibility and film read only; the person's own stream isn't touched here.)
             let p = &wr.people[i];
-            let raw = film_raw(p);
+            let raw = film_raw(p, &played);
             let (m, sd) = pos_mean_sd[p.player.position.index()];
             let film = all_mean_sd.0 + all_mean_sd.1 * (raw - m) / sd;
             let juco_mover = p.stage == Stage::College;
             let promo =
                 promos.get(&p.player.id).copied().unwrap_or(0.0) + seen_trips.get(&p.player.id).copied().unwrap_or(0.0);
             let (visibility, went_viral) = recruit_visibility(wr, p, film, all_mean_sd, seed, promo);
-            let gift = crate::links::gift(&crate::links::projected(&p.player));
+            let gift = crate::links::gift(&super::times::seen_links(p, &super::times::seen(wr, p)));
             // What his tape holds (SK1, SK2, SK5): every staff and service
             // sees the same film, so they lean the same way. A kid seen at
             // the big camps and showcases has been seen against good
@@ -3932,6 +4007,16 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
 
     // --- Star ratings: the services only rank kids they have seen -------------------------
     let seniors: Vec<usize> = (0..pool.len()).filter(|&k| !pool[k].juco_mover).collect();
+    // S5: the class's fastest timed kids are owed stars (and S7's desperate
+    // schools gamble on them).
+    let floors = {
+        let mut class_n = [0.0; POSITION_COUNT];
+        for (n, s) in class_n.iter_mut().zip(&pos_stats) {
+            *n = s.0;
+        }
+        let kids: Vec<usize> = seniors.iter().map(|&k| pool[k].person).collect();
+        super::times::speed_floors(w, &kids, &class_n)
+    };
     let class = 250_000.0 * w.options.scale;
     // The services rate the class at each summer wave and again in the
     // senior season. Each rating replaces the last, so a kid holds only the
@@ -3954,7 +4039,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             by_star.iter().map(|&k| w.people[pool[k].person].player.position.is_specialist()).collect();
         let quotas: Vec<(u8, usize)> =
             SERVICE_TIERS.iter().map(|&(stars, share)| (stars, (share * class).round() as usize)).collect();
-        for (&k, stars) in by_star.iter().zip(service_stars(&specialist, &quotas)) {
+        let floor: Vec<u8> = by_star.iter().map(|&k| floors.get(&pool[k].person).copied().unwrap_or(0)).collect();
+        for (&k, stars) in by_star.iter().zip(service_stars_floored(&specialist, &floor, &quotas)) {
             w.people[pool[k].person].stars = stars;
         }
         // Kickers, punters and long snappers get their own stars from the
@@ -4085,6 +4171,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         committed: Option<usize>,
         /// His fit to each system (S6).
         fit: [f64; 11],
+        /// His S5 speed floor: 3 for the fastest 1 in 100 timed at his
+        /// position, 4 for 1 in 1,000, else 0.
+        fast: u8,
     }
     let cands: Vec<Cand> = interest
         .par_iter()
@@ -4123,10 +4212,19 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 juco_mover: r.juco_mover,
                 committed: p.cal.commit.map(|x| x.0),
                 fit: super::systems::fits(&p.player, p.player.position, &w.system_norms),
+                fast: floors.get(&r.person).copied().unwrap_or(0),
             }
         })
         .collect();
     let programs = &w.programs;
+    // S7a: the schools whose good players keep moving up to bigger
+    // programs: the Group of 5 and FCS (proposed, not confirmed: by level,
+    // as the portal's real flow runs, not by each school's own losses).
+    let poached: Vec<bool> = programs
+        .iter()
+        .map(|g| matches!(g.division, Division::FBS | Division::FCS) && !g.power_conference(year))
+        .collect();
+    let late = matches!(stage, SignStage::JanuaryEnrollees | SignStage::Final);
     let coaches = &w.coaches;
     // Each staff's class plan per position (fix list 1.1, 1.2, 1.6).
     let habit_seed = w.options.seed as u64;
@@ -4188,6 +4286,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 .head_coach
                 .map_or(0.0, |c| clamp(-3.0 * coaches[c].recent.last().copied().unwrap_or(0.0), 0.0, 1.0));
             let pseed = seed ^ (prog.id as u64).wrapping_mul(0x1000_0001);
+            // S7a: how desperate the school is, by the signs it shows.
+            let signs_at = |pos: Position| {
+                u8::from(late && plan.scholarship[pos.index()] > 0)
+                    + u8::from(pressure >= HOT_SEAT)
+                    + u8::from(poached[prog.id])
+            };
             // The staff's own ties to high schools, carried from their old jobs (note 4).
             let mut ties: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
             for c in [prog.head_coach, prog.oc, prog.dc].into_iter().chain(prog.position_coaches).flatten() {
@@ -4221,7 +4325,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let see = (prog.footprint[c.state] + 1.2 * local) * c.vis * 1.6 + bonus;
                 // A staff knows every rated recruit in its own state (fix list 2.4).
                 let home = c.state == prog.state && c.stars >= 2;
-                if !ours && !home && see < 1.0 && key_uniform(pseed, c.id) > see {
+                // S7: a desperate school reads the track lists in its own
+                // footprint for burners.
+                let signs = if c.fast >= 3 { signs_at(c.pos) } else { 0 };
+                let burner = signs > 0 && (c.state == prog.state || prog.footprint[c.state] >= 0.2);
+                if !ours && !home && !burner && see < 1.0 && key_uniform(pseed, c.id) > see {
                     continue;
                 }
                 // The NCAA floor can't be bent; a school's own bar can, a few times a class.
@@ -4274,6 +4382,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // recruited on their camps' stars already.
                 if !c.pos.is_specialist() {
                     eval += STAR_EVAL * all_mean_sd.1 * (c.stars as f64 - 2.0).max(0.0);
+                }
+                // S7: the gamble on recorded speed alone, bigger with two signs.
+                if burner {
+                    eval += BURNER_EVAL * all_mean_sd.1 * if signs >= 2 { 1.5 } else { 1.0 };
                 }
                 // A borderline student can lose his eligibility in college. Strong
                 // academic support takes that risk more easily, and so does a

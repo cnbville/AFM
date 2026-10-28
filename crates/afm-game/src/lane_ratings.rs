@@ -186,7 +186,7 @@ fn combine_line(w: &World, k: usize, attr: Attr, lo: u8, hi: u8) -> Option<Strin
     let own = views::team_of(w, p).is_some_and(|t| views::is_mine(w, t));
     let eye = views::team_of(w, p).filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
     // The other ratings a drill reads are taken at your read's middle.
-    let reads = reads::attributes(&p.player, own, eye, views::reader_key(w));
+    let reads = reads::attributes_of(w, p, own, eye, views::reader_key(w));
     let mid = |a: Attr| match reads.iter().find(|x| x.0 == a).map(|x| x.1) {
         Some(Read::Range(l, h)) => (l as f64 + h as f64) / 2.0,
         _ => p.player.attributes.get(a).round(),

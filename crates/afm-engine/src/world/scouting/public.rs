@@ -431,29 +431,6 @@ pub(crate) fn board_hit_rate(ids: &[u32], picks: &HashMap<u32, u32>) -> Option<u
     Some((100.0 * hits as f64 / n as f64).round().min(100.0) as u8)
 }
 
-/// A service's read of a recruit (topic 14): its star rating and national
-/// rank from the shared film read and its own lean; the composite averages
-/// the services (from 2012).
-pub fn service_read(w: &World, desk: &Desk, i: usize) -> (u8, f64) {
-    let p = &w.people[i];
-    let id = p.player.id as u64;
-    let base = super::super::recruiting::film_raw(p);
-    let sd = 1.4 - 0.04 * desk.skill as f64;
-    let mut g = base + 3.0 * sd * key_normal(desk.key ^ 0x5E41, id);
-    let big_camp = p.camp_stars >= 4;
-    g += match desk.lean {
-        Lean::BigPrograms if big_camp => 1.2,
-        Lean::Viral if p.player.attributes.get(crate::attributes::Attr::Speed) >= 80.0 => 1.0,
-        Lean::Size => {
-            0.5 * clamp((p.player.body.weight - crate::body::combine_size(p.player.position).2) / 20.0, -1.0, 1.0)
-        }
-        _ => 0.0,
-    };
-    // Stars stay within one of the shared read (services agree on most kids).
-    let s = p.stars as f64 + clamp((g - base) / 4.0, -0.6, 0.6);
-    (s.round().clamp(2.0, 5.0) as u8, g)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

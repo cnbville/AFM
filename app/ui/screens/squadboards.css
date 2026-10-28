@@ -428,6 +428,12 @@ i.v-strength { background: var(--sb-strength); }
 .sb-me { fill: var(--sb-gold); stroke: var(--sb-panel); stroke-width: 2; }
 .sb-mel { fill: var(--sb-gold); }
 .sb-melt { fill: var(--sb-on-gold); font-size: 11.5px; font-weight: 800; }
+.sb-pt { cursor: pointer; }
+.sb-pt:hover .sb-dot { opacity: 1; }
+.sb-hov { pointer-events: none; }
+.sb-hdot { fill: none; stroke: var(--sb-text); stroke-width: 1.6; }
+.sb-hlab { fill: var(--sb-panel); stroke: var(--sb-line); }
+.sb-hlabt { fill: var(--sb-text); font-size: 11.5px; font-weight: 700; }
 .sb-axl { fill: var(--sb-faint); font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-anchor: end; }
 .sb-axl.l { text-anchor: start; }
 .sb-bh, .sb-br { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) 48px; column-gap: 10px; align-items: center; padding: 0 4px; }

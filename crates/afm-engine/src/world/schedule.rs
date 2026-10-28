@@ -734,12 +734,15 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
     games
 }
 
+/// Each pair's spans of years: first, last, Thanksgiving (true) or the day after.
+type Spans = &'static [(i32, i32, bool)];
+
 /// Rivalry-week games played on Thanksgiving (true) or the day after
 /// (false), by years (part B 31; minor bug 46): the real 2001-2025
 /// schedules (`data/real-world/memory_checks.json`, `college_holiday_games`
 /// `by_pair`), earlier years from memory, and from 2026 each pair keeps its
 /// 2025 day. Years not listed stay on Saturday or the MAC's weeknights.
-const HOLIDAY_GAMES: &[(&str, &str, &[(i32, i32, bool)])] = &[
+const HOLIDAY_GAMES: &[(&str, &str, Spans)] = &[
     ("Texas", "Texas A&M", &[(1984, 2000, true), (2001, 2007, false), (2008, 2011, true), (2025, 9999, false)]),
     (
         "Ole Miss",

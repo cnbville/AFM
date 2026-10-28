@@ -5,7 +5,10 @@
 //! Usage: star_mix <world file> [days] | star_mix build <seed> <history years> [scale]
 //! (`build` plays the history on the stand-in, as `AFM_ENGINE_FROM=2100`;
 //! `AFM_SAVE=path` writes the built world; `days` plays that many days on
-//! before counting, to see the fall roster).
+//! before counting, to see the fall roster). The speed section (speed
+//! update S5-S7) reads the class still in high school: who has a recorded
+//! time, and what the fastest 1 in 100 at each position with below-average
+//! film got in stars and offers.
 
 use afm_engine::world::data::{Division, HISTORY_LAST};
 use afm_engine::world::program::Program;
@@ -306,4 +309,75 @@ fn main() {
     by_team.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
     println!("by group: {}", by_group.join(", "));
     println!("most titles: {}", by_team.iter().take(8).map(|(n, c)| format!("{n} {c}")).collect::<Vec<_>>().join(", "));
+    speed(&w);
+    // Minor bug 48: the world's trades and comp picks a year (real 2021-25: 86-96 trades, 29-38 comp picks).
+    let years: Vec<String> =
+        w.market.years.iter().map(|m| format!("{} {} trades, {} comp", m.year, m.trades, m.comp_picks)).collect();
+    println!("NFL market: {}", years.join("; "));
+}
+
+/// Speed update S5-S7: the senior class still in high school.
+fn speed(w: &World) {
+    use afm_engine::attributes::Attr;
+    use afm_engine::positions::{POSITION_COUNT, Position};
+    use afm_engine::world::times::{At, Timed};
+    let class = w.people.iter().filter(|p| p.stage == Stage::HighSchool).map(|p| p.class_of).min().unwrap_or(w.year);
+    let kids: Vec<&afm_engine::world::Person> =
+        w.people.iter().filter(|p| p.stage == Stage::HighSchool && p.class_of == class).collect();
+    let n = kids.len().max(1) as f64;
+    let has = |p: &afm_engine::world::Person, f: &dyn Fn(&afm_engine::world::times::Time) -> bool| {
+        w.times.of(p.player.id).iter().any(f)
+    };
+    let track = kids.iter().filter(|p| has(p, &|t| matches!(t.at, At::Meet | At::StateMeet))).count();
+    let laser = kids.iter().filter(|p| has(p, &|t| t.timed == Timed::Laser)).count();
+    let school = kids.iter().filter(|p| has(p, &|t| t.at == At::School)).count();
+    let elec = kids.iter().filter(|p| has(p, &|t| t.timed != Timed::Hand)).count();
+    println!(
+        "\nspeed, class of {class} ({} kids): track times {:.1}%, laser (camps, showcases) {:.1}%, school forties {:.1}%, any electronic time {:.1}%",
+        kids.len(),
+        100.0 * track as f64 / n,
+        100.0 * laser as f64 / n,
+        100.0 * school as f64 / n,
+        100.0 * elec as f64 / n
+    );
+    // The fastest 1 in 100 at each position by his true play speed, with film below his position's median.
+    let mut stars = [0u32; 6];
+    let (mut fast_n, mut offered, mut timed) = (0, 0, 0);
+    for k in 0..POSITION_COUNT {
+        let pos = Position::ALL[k];
+        if pos.is_specialist() {
+            continue;
+        }
+        let mut at: Vec<(f64, f64, &afm_engine::world::Person)> = kids
+            .iter()
+            .filter(|p| p.player.position == pos)
+            .filter_map(|p| {
+                let a = &p.player.attributes;
+                let mix = afm_engine::body::play_speed(pos, a.get(Attr::Speed), a.get(Attr::Acceleration))?;
+                Some((mix, p.last_performance.unwrap_or(p.player.overall()), *p))
+            })
+            .collect();
+        if at.len() < 100 {
+            continue;
+        }
+        let mut films: Vec<f64> = at.iter().map(|x| x.1).collect();
+        films.sort_by(|a, b| a.total_cmp(b));
+        let median = films[films.len() / 2];
+        at.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let top = at.len() / 100;
+        for &(_, film, p) in at.iter().take(top) {
+            if film >= median {
+                continue;
+            }
+            fast_n += 1;
+            stars[(p.stars as usize).min(5)] += 1;
+            offered +=
+                usize::from(!p.cal.offers.is_empty() || !p.cal.early_offers.is_empty() || p.cal.signed.is_some());
+            timed += usize::from(has(p, &|t| t.timed != Timed::Hand));
+        }
+    }
+    println!(
+        "fastest 1% at their position with below-median film: {fast_n}; timed {timed}; with an offer or signed {offered}; stars 0/2/3/4/5: {}/{}/{}/{}/{}",
+        stars[0], stars[2], stars[3], stars[4], stars[5]
+    );
 }

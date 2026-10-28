@@ -237,7 +237,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let pos = p.player.position;
     let (ovr, own, eye) = any_read(w, i);
     let reader = views::reader_key(w);
-    let attrs = reads::attributes(&p.player, own, eye, reader);
+    let attrs = reads::attributes_of(w, p, own, eye, reader);
     let keys = key_attrs(pos);
     let hist = &p.player.history;
     let seasons_rows = crate::lane_core::pages::seasons(w, i);
@@ -405,7 +405,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let ghosts: Vec<Value> = near
         .iter()
         .take(12)
-        .map(|a| json!({ "name": a.name, "d": a.deltas.iter().map(|x| (x * 10.0).round() / 10.0).collect::<Vec<_>>() }))
+        .map(|a| json!({ "name": a.name, "id": a.id, "d": a.deltas.iter().map(|x| (x * 10.0).round() / 10.0).collect::<Vec<_>>() }))
         .collect();
     let named: Vec<Value> = near
         .iter()

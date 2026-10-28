@@ -71,6 +71,7 @@ pub mod stories;
 pub mod storylines;
 pub mod systems;
 pub mod tape;
+pub mod times;
 pub mod trends;
 pub mod voters;
 
@@ -692,10 +693,11 @@ pub struct World {
     /// tapes, so a new career has film of its first opponents (tape.rs).
     #[serde(skip)]
     pub(crate) world_tapes: bool,
-    /// Pros out injured, for the morning's heal (B1), and the day it last
-    /// ran; rebuilt from everyone each Tuesday and after a load.
+    /// Pros out injured by player id, for the morning's heal (B1), and the
+    /// day it last ran; rebuilt from everyone each Tuesday and after a load.
+    /// Ids, not places in `people`, since the people list is purged.
     #[serde(skip)]
-    pub(crate) hurt_pros: (Vec<usize>, Option<crate::calendar::Date>),
+    pub(crate) hurt_pros: (Vec<u32>, Option<crate::calendar::Date>),
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -783,6 +785,9 @@ pub struct World {
     /// contracts and your network (`folk`).
     #[serde(default)]
     pub folk: folk::Folk,
+    /// Every high schooler's recorded times (speed update S6e).
+    #[serde(default)]
+    pub times: times::Times,
     /// Your game being played live today (section 9): the day books it
     /// when it runs.
     #[serde(default)]
@@ -1147,6 +1152,7 @@ impl World {
             recording: false,
             world_tapes: false,
             hurt_pros: (Vec::new(), None),
+            times: times::Times::default(),
             game_log: game_log::GameLog::default(),
             stats: records::StatBook::default(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],

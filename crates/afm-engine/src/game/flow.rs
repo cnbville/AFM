@@ -24,6 +24,9 @@ use crate::positions::Position;
 use crate::rng::{Rng, clamp};
 use crate::spots::{self, Spot, best_order, fill_in};
 
+/// Who lines up where on a snap: the offense by role, the defense by slot.
+type Lineup = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>);
+
 /// Seconds from the end of a play until the ball is spotted (and the chains
 /// set) and the referee's ready signal starts a stopped clock again
 /// (proposed, not confirmed).
@@ -2888,7 +2891,7 @@ impl<'a> Game<'a> {
         }
     }
 
-    fn lineup(&self, call: &OffCall, dcall: &DefCall) -> (Vec<(ORole, usize)>, Vec<(DSlot, usize)>) {
+    fn lineup(&self, call: &OffCall, dcall: &DefCall) -> Lineup {
         let o = &self.sides[self.poss];
         let d = &self.sides[1 - self.poss];
         let mut used = Vec::new();
