@@ -32,6 +32,9 @@ on:
       keep:
         description: "Keep the built world as a run artifact for 3 days (yes or no)"
         default: "no"
+      knockout:
+        description: "A dynasty test switch (AFM_KO: coach4, frozen or flatdev); empty for none, never published"
+        default: ""
 jobs:
   world:
     runs-on: ubuntu-latest
@@ -44,7 +47,9 @@ jobs:
         if: inputs.check == '' && inputs.quick != 'yes'
         env:
           AFM_COMMIT: ${{ github.sha }}
+          AFM_KO: ${{ inputs.knockout }}
         run: |
+          if [ -n "$AFM_KO" ] && [ "${{ inputs.publish }}" = yes ]; then echo "A knockout world is never published"; exit 1; fi
           # The world log beside the world runs to tens of GB, so both go on
           # the runner's big temporary disk when it has one.
           if sudo mkdir -p /mnt/afm-out && sudo chown "$(id -u)" /mnt/afm-out; then ln -sfn /mnt/afm-out out; else mkdir -p out; fi

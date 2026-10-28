@@ -488,12 +488,13 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                     (h, c) => h.or(c),
                 };
                 scheme = Some((prog.installed.offense(), prog.installed.front()));
+                let flat = prog.division == Division::FBS && super::knockout::flat_development();
                 (
                     division_level(prog.division),
                     // C57: position coach 0.4, coordinator 0.25, head coach
                     // 0.2, facilities 0.15.
-                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
-                    (prog.facilities - 0.5) * 0.15,
+                    if flat { 13.0 } else { 0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities) },
+                    if flat { 0.0 } else { (prog.facilities - 0.5) * 0.15 },
                     crate::career::PIPELINE.college_trouble.chance,
                 )
             }

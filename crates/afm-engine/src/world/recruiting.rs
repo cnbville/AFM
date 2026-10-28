@@ -399,7 +399,9 @@ fn credit_impact(w: &mut World, i: usize, c: usize, weight: f64, year: i32) {
     }
     let (state, hs) = (w.people[i].home_state, w.people[i].hs);
     let area = w.high_schools[hs].area;
-    record_impact(&mut w.programs[c], state, hs, area, weight, year);
+    if !super::knockout::frozen_form() {
+        record_impact(&mut w.programs[c], state, hs, area, weight, year);
+    }
     let group = super::coach::Group::of(w.people[i].player.position);
     let prog = &w.programs[c];
     let coord = if group.offense() { prog.oc } else { prog.dc };
@@ -496,7 +498,9 @@ pub(crate) fn honors(w: &mut World) {
         for (i, c, weight) in regulars {
             let (state, hs) = (w.people[i].home_state, w.people[i].hs);
             let area = w.high_schools[hs].area;
-            record_impact(&mut w.programs[c], state, hs, area, weight, year);
+            if !super::knockout::frozen_form() {
+                record_impact(&mut w.programs[c], state, hs, area, weight, year);
+            }
         }
     }
     let n_all_america = honors.iter().filter(|h| h.1 >= 1.0).count();
@@ -4783,8 +4787,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         };
                         let rel = known
                             * (0.025 * hc_time
-                                + 0.006 * (hc_skill - 10.0) * hc_time
-                                + 0.003 * (pc_skill - 10.0) * pc_time)
+                                + 0.006 * super::knockout::coach_bond() * (hc_skill - 10.0) * hc_time
+                                + 0.003 * super::knockout::coach_bond() * (pc_skill - 10.0) * pc_time)
                             + 0.03 * tie
                             + babysat
                             + early_offer
