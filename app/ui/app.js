@@ -53,6 +53,9 @@ function initials(name) {
   return String(name || "").split(/\s+/).filter((w) => /^[A-Z]/.test(w)).slice(0, 3).map((w) => w[0]).join("");
 }
 function mark(team, size) {
+  // A logo from an installed pack takes the drawn mark's place (screens/logos.js).
+  const lg = typeof logoFor === "function" ? logoFor(team) : null;
+  if (lg) return logoMark(lg, team, size);
   const c = team && team.colors ? team.colors : ["#444", "#222"];
   return `<span class="st-mark" style="background:${c[0]};${size ? `--s:${size}px;` : ""}box-shadow:inset 0 0 0 2px ${c[1]}55">${esc(initials(team && team.name))}</span>`;
 }
@@ -178,6 +181,9 @@ function enterCareer() {
   S.back = [];
   S.fwd = [];
   go("home", {}, { push: false, root: true });
+  // This world's logos from an installed pack; the screen is drawn again
+  // with them once they are known.
+  if (typeof logosLoad === "function") logosLoad().then((on) => { if (on) render(); });
   // "Previously" (storylines): where your stories stood when a saved
   // career opens, once a world day.
   if (S.savedOn && typeof slPrevious === "function") slPrevious();

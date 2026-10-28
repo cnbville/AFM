@@ -138,7 +138,9 @@
       const ix = this.film.ix;
       const [h, a] = ix.teams;
       const u = this.film.uni;
-      const teamChip = (t, side) => `<span class="vw-bug-team" style="--c:${u[side].c1}"><i></i><b>${esc(t.short || t.name)}</b><span class="vw-bug-pts" data-side="${side}">0</span></span>`;
+      // A team's logo from an installed pack beside its colour (screens/logos.js).
+      const bugLogo = (t) => { const lg = typeof logoFor === "function" ? logoFor(t) : null; return lg ? logoImg(lg, "lgo-bug") : ""; };
+      const teamChip = (t, side) => `<span class="vw-bug-team" style="--c:${u[side].c1}"><i></i>${bugLogo(t)}<b>${esc(t.short || t.name)}</b><span class="vw-bug-pts" data-side="${side}">0</span></span>`;
       const side = this.inline
         ? ""
         : `<aside class="vw-side">
