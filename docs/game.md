@@ -902,7 +902,7 @@ The game ships no logos (later extras, topic 2). Settings, Logos (`screens/logos
 
 - The names packs use for schools the world calls by another (`ALIASES` in `lane_logos.rs`: UMass, FIU, ULM, Ole Miss, App State, UIW, LIU, SFA and the rest) and the state short forms (`STATES`).
 - The dark threshold (0.3), the 512-pixel cap for pictures that aren't drawings, 2 MB a picture, and a later pack winning over an earlier one.
-- The jersey logo's size and place (college 0.34 units square centred 0.25 under the V's point; the shield 0.26 on the point), the light disc's colour (`#ece9e2`) and the hero watermark's strength (24%, 14% for dark logos).
+- The jersey logo's size and place (a college's 0.42 units wide at most, its top just under the V's trim; the shield 0.26 tall, its top just over the collar's point), the light disc's colour (`#ece9e2`) and the hero watermark's strength (24%, 14% for dark logos).
 - Drawn heads kept under an old logo's key stay on disk until the save is deleted.
 
 ## Not built yet (section 8's design, for the next builds)

@@ -1,5 +1,5 @@
 # Logo packs: how it works today
-Checked against main at COMMIT on 2026-10-28.
+Checked against main at b9acd15 on 2026-10-28.
 
 The game ships no logos. Every logo on screen comes from a pack the player installed or a picture they chose for one team.
 
@@ -38,7 +38,7 @@ The game ships no logos. Every logo on screen comes from a pack the player insta
 ## Where the knobs are
 - `MAX_PICTURE` (2 MB), `ALIASES`, `STATES`, `POSTAL`, `FILLER`, `VARIANT` in `lane_logos.rs`.
 - The dark threshold 0.3 and the 512-pixel cap in `logos.js`, `lgPrepare`; the disc colour `#ece9e2` in `logos.css`.
-- The jersey logo's place and size in `heads.src.js`, `setLogo` (college centred at y 5.31, 0.34 square; shield at y 5.43, 0.26).
+- The jersey logo's place and size in `heads.src.js`, `setLogo` (a college's in a 0.42-unit box with its top at y 5.52, just under the V's trim; the shield in a 0.26 box with its top at y 5.58, over the collar's point at 5.56).
 
 ## Related pages
 - [people.md](people.md) (faces and photos live in the same save folder).
