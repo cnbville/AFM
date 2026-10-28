@@ -290,7 +290,7 @@ const NAV = [
   { go: "leaders", label: "Leaderboards", icon: "leader", sec: "world" },
   { go: "history", label: "History", icon: "history", sec: "world" },
   { go: "team", label: "Team history", icon: "team", sec: "world" },
-  { go: "you", label: "Your profile", icon: "you", sec: "world" },
+  { go: "you", label: "Your career", icon: "you", sec: "world" },
 ];
 const NAV_SECS = [["top", ""], ["team", "Your team"], ["world", "World"]];
 function navAdd(item) {

@@ -13,8 +13,11 @@ Object.assign(I, {
   portal: '<path d="M4 12h12M12 7l5 5-5 5M20 4v16"/>',
   nil: '<circle cx="12" cy="12" r="8.5"/><path d="M14.8 9.2c-.6-.9-1.6-1.3-2.8-1.3-1.6 0-2.8.8-2.8 2.1 0 3 5.8 1.5 5.8 4.3 0 1.3-1.3 2.2-3 2.2-1.3 0-2.4-.5-3-1.4M12 6.5v11"/>',
 });
+// The board holds the plain Recruiting table's job, and the watch, portal
+// and JUCO lists as tabs (SC1).
+foNavHide("recruiting", "college");
 foNavAdd("college", [
-  ["recruit_board", "Recruiting", "board"],
+  ["recruit_board", "Recruiting board", "board"],
   ["recruit_find", "Find recruits", "find"],
   ["visits_desk", "Visits", "visit"],
   ["portal_desk", "Transfer portal", "portal"],
@@ -152,12 +155,14 @@ screens.recruit_board = async (a) => {
       [sg ? String(sg.in) : "-", sg ? "Days to signing" : "No signing date"],
     ])}
     <div class="fc-open"><span class="st-label">Open spots</span>${openPos.length ? openPos.map((p) => `<button class="st-pill" data-fc="planpos" data-v="${p.pos}" title="See the ${p.pos}s on your board">${p.pos} ${p.open}</button>`).join("") : '<span class="sub">Every spot your staff planned is filled.</span>'}</div>`;
-  const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["map", "Map"], ["plan", "Class plan and staff"]];
+  const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["map", "Map"], ["plan", "Class plan and staff"], ["watch", "Watch list"], ["portal", "Portal"], ["juco", "JUCO"]];
   let body = "";
   if (k.tab === "targets") body = await fcTargets(x, k);
   else if (k.tab === "board") body = fcBoardTable(x, k, yours);
   else if (k.tab === "map") body = await fcMap();
-  else body = fcPlan(x);
+  else if (k.tab === "plan") body = fcPlan(x);
+  // Your staff's watch list, the portal and JUCO (screens/scouting.js).
+  else body = await scRecruitList(k.tab, x);
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · ${esc(x.conference)} · Recruiting`, title: `Class of ${year}`, line: heroLine, sub, big: String(year).slice(2), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar">${fcTabs("fcb", tabs, k.tab)}${fcGoto([["recruit_find", "Find recruits"], ["visits_desk", "Visits"], ["scouting", "Scouting"], ["calendar", "Calendar"], ["roster", "Squad"]])}</div>
@@ -514,12 +519,20 @@ screens.portal_desk = async () => {
 };
 
 // ---------- NIL ----------
+// The scholarships and the roster limit (the budget map's numbers), for the
+// desk's header (SC1).
+function fcAidTiles(sch) {
+  if (!sch) return [];
+  const aid = sch.aid === "none" ? ["None", "Athletic aid (Division III)"] : [`${sch.onAid}${sch.limit ? "/" + sch.limit : ""}`, sch.aid === "equivalency" ? `On aid · ${sch.equiv} equivalencies` : "On scholarship"];
+  return [aid, sch.whole ? [`${sch.counted}/${sch.cap}`, "Roster places used"] : [String(sch.roster), `On the roster · ${sch.walkOns} walk-ons`]];
+}
 screens.nil_desk = async () => {
-  const x = await api("nil_desk");
+  const [x, cap] = await Promise.all([api("nil_desk"), api("board_cap").catch(() => null)]);
   setColors(x.team.colors);
   const b = x.budget;
+  const aid = fcAidTiles(cap && cap.scholarships);
   if (!x.era) {
-    return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: "<span>Before July 1, 2021 a college player can't be paid for his name, image or likeness.</span>" })}
+    return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: "<span>Before July 1, 2021 a college player can't be paid for his name, image or likeness.</span>", panel: aid.length ? `<h2>Scholarships <small>${esc(cap.level_name || "")}</small></h2>${fcTiles(aid)}` : "" })}
   <div class="pad fc-pad"><div class="fc-bar"><span></span>${fcGoto([["roster", "Squad"], ["portal_desk", "Transfer portal"], ["recruit_board", "Recruiting board"]])}</div>
     <div class="panel"><div class="empty">The NCAA's amateur rules hold: scholarships, cost of attendance and nothing more. NIL opens on July 1, 2021.</div></div></div></div>`;
   }
@@ -534,7 +547,7 @@ screens.nil_desk = async () => {
       <div class="item"><span>Promised to recruits</span><b>${m(b.recruits)}</b></div>
       <div class="item"><span>Offered in the portal</span><b>${m(b.portal)}</b></div>
       <div class="item tot"><span>Left</span><b class="${b.left < 0 ? "fc-over" : ""}">${m(b.left)}</b></div></div></div>`;
-  const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)}</small></h2>${fcTiles([[m(b.total), "Budget"], [m(b.left), "Left"], [String(x.rows.filter((r) => r.deal != null).length), "Deals set"], [x.trend, "Boosters"]])}`;
+  const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)}</small></h2>${fcTiles([[m(b.total), "Budget"], [m(b.left), "Left"], [String(x.rows.filter((r) => r.deal != null).length), "Deals set"], [x.trend, "Boosters"], ...aid])}`;
   const cols = [
     { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
     { k: "pos", t: "Pos", l: true },

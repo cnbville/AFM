@@ -46,9 +46,9 @@ Object.assign(I, {
   plans: '<path d="M5 3h10l4 4v14H5z M15 3v4h4"/><circle cx="9" cy="12" r="1.6"/><path d="M13 11l3 3M16 11l-3 3M9 17c2 0 4-1 6-3"/>',
   design: '<path d="M4 20l4-1 11-11-3-3L5 16z M14 6l3 3"/>',
 });
-navAdd({ go: "plans", label: "Plans", icon: "plans", sec: "team", after: "training", seats: ["college", "nfl", "hs"] });
+navAdd({ go: "plans", label: "Playbook", icon: "plans", sec: "team", after: "training", seats: ["college", "nfl", "hs"] });
 navAdd({ go: "designer", label: "Play designer", icon: "design", sec: "team", after: "plans", seats: ["college", "nfl", "hs"] });
-Object.assign(CRUMBS, { plans: "Plans", designer: "Play designer", roster: "Squad", depth: "Depth chart", training: "Training" });
+Object.assign(CRUMBS, { plans: "Playbook", designer: "Play designer", roster: "Squad", depth: "Depth chart", training: "Training" });
 GOTO.training = () => [["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Plans", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]];
 GOTO.plans = () => [["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"], ["Schedule", "schedule"]];
 GOTO.designer = () => [["Plans", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"], ["Depth chart", "depth"]];
@@ -765,7 +765,7 @@ screens.training = async (a) => {
   const list = ["This week", "Players", "Templates", "The year", "Reports"];
   const tab = tabOf("trtab", list, a);
   title("Training", tab);
-  const body = tab === "This week" ? weekTab(x) : tab === "Players" ? playersTab(x) : tab === "Templates" ? templatesTab(x) : tab === "The year" ? yearTab(x) : reportsTab(x);
+  const body = tab === "This week" ? weekTab(x) : tab === "Players" ? playersTab(x) : tab === "Templates" ? templatesTab(x) : tab === "The year" ? (await yrBoard(a)) + yearTab(x) : reportsTab(x);
   const head = pageHead({
     kicker: `${esc(trCap(x.tier))} · ${esc(x.block_label)} · week of ${esc(x.monday)}`,
     title: "Training",
@@ -988,7 +988,15 @@ function squadCols(view, x) {
       ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr, { k: "deal", t: "New deal", l: true, tip: "Talk terms before he reaches the market", v: (r) => (r.deal ? 1 : 0), f: (r) => (r.deal ? moveBtn({ k: "deal", t: r.deal }, { id: r.id, name: r.name }, "st-btn small glass") : '<span class="muted">-</span>') }]
       : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "rs", t: "This season", l: true, hide: x.tier === "high school", tip: "Redshirt him or play him. From 2018 a redshirt may play four games and keep his year.", v: (r) => (r.rs ? r.rs.games : -1), f: sqRedshirt }, { k: "offers", t: "College offers", hide: x.tier !== "high school", f: (r) => (r.offers ? linkTo("player", { id: r.id, tab: "Recruiting" }, String(r.offers)) : '<span class="muted">0</span>') }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
   };
-  return views[view];
+  return x.squads ? [...views[view], trTeamCol(x.squads)] : views[view];
+}
+// A high school player's team (varsity, JV or freshman) and the switch to
+// move him, from the squads' own answer (SC1).
+function trTeamCol(sq) {
+  const by = new Map();
+  for (const t of sq.teams) for (const r of t.players) if (!by.has(r.id)) by.set(r.id, { r, t });
+  const yours = sq.owner === "you";
+  return { k: "team", t: "Team", l: true, div: true, v: (r) => (by.has(r.id) ? by.get(r.id).t.name : ""), f: (r) => (by.has(r.id) ? `${esc(by.get(r.id).t.name)} ${fsMoveCell(by.get(r.id).r, yours)}` : '<span class="muted">-</span>') };
 }
 // The Eligibility view's redshirt call (bug 77): his games so far, and the button.
 function sqRedshirt(r) {
@@ -1002,6 +1010,7 @@ function sqRedshirt(r) {
 screens.roster = async (a) => {
   if (!trMine(a)) return rosterBase(a);
   const x = await api("squad");
+  if (x.tier === "high school") x.squads = await api("school_squads").catch(() => null);
   setColors(x.team.colors);
   const viewNames = SQUAD_VIEWS.map((v) => (v === "Contract" && x.tier !== "nfl" ? "Eligibility" : v));
   const k = keep("sqview", { v: "General" });
