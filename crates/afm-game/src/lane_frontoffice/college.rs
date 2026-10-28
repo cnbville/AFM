@@ -1539,7 +1539,6 @@ fn nil(w: &World, j: usize) -> Reply {
             "role": p.last_role.map(views::role_words), "read": reads::overall(&p.player, true, eye, reader).json(),
             "usual": usual.get(&p.player.id).copied().unwrap_or(0.0), "deal": deals.get(&p.player.id).copied(),
             "now": p.nil_income, "stars": stars_of(p), "left": eligibility_left(w, p),
-            "max": ncaa::position_nil_max(p.player.position) * 2.5,
             // Public: his followers and the brand money he earns himself,
             // apart from the collective (lane 1's fame); his presence on
             // camera only in his position coach's words.
