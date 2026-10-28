@@ -257,7 +257,8 @@ fn your_cut_plan_stands_with_the_staff_on_the_cutdown() {
     w.front_office.set_owner(Duty::Cutdown, Owner::Staff);
     let (ranked, _, _) = roster::staff_cut(&w, t);
     let best = ranked[0].0;
-    roster::set_plan(&mut w, w.people[best].player.id, Some(roster::Cut::Release)).unwrap();
+    let best_id = w.people[best].player.id;
+    roster::set_plan(&mut w, best_id, Some(roster::Cut::Release)).unwrap();
     assert_eq!(w.front_office.owner(Duty::Cutdown), Owner::Staff, "a move took the duty back");
     let d = w.today;
     pro::cutdown(&mut w, d);

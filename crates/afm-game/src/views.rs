@@ -708,7 +708,7 @@ pub(crate) fn decision_go(e: &afm_engine::calendar::Event) -> Option<(&'static s
         _ => None,
     });
     let t = e.text.as_str();
-    let rule: &str = &e.rule;
+    let rule: &str = e.rule;
     Some(match rule {
         "Your front office" => {
             if t.contains("offer sheet") || t.contains("tag deadline") || t.contains("Fifth-year option") {
