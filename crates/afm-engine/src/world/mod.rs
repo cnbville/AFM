@@ -32,6 +32,7 @@ pub mod front_office;
 pub mod game_log;
 pub mod geo;
 pub mod guide;
+pub mod help;
 pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;

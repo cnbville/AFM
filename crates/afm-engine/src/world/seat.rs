@@ -759,6 +759,7 @@ impl World {
             staff_book: Default::default(),
             kept_reads: Vec::new(),
             kept_through: 0,
+            help: Default::default(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -838,6 +839,10 @@ pub struct Career {
     /// before the kept reads starts keeping at the next season's end).
     #[serde(default)]
     pub kept_through: i16,
+    /// Your in-game help: the Help setting, the guided week, the calendar
+    /// moments explained and the Handbook pages read (update 3, lane 8).
+    #[serde(default)]
+    pub help: super::help::Help,
 }
 
 /// One player's kept reads, oldest season first.

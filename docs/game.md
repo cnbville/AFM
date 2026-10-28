@@ -932,6 +932,28 @@ The game ships no logos (later extras, topic 2). Settings, Logos (`screens/logos
 - The jersey logo's size and place (a college's 0.42 units wide at most, its top just under the V's trim; the shield 0.26 tall, its top just over the collar's point), the light disc's colour (`#ece9e2`) and the hero watermark's strength (24%, 14% for dark logos).
 - Drawn heads kept under an old logo's key stay on disk until the save is deleted.
 
+### Lane 8: the Handbook and your first week (H8-H15)
+
+The Handbook (boards 38 and 39 on the mock-ups canvas, https://claude.ai/artifact/25zGscf9DC3WXPGMbeQwgU) is a sidebar screen under World (`screens/handbook.js`, `handbook-pages.js`, `handbook.css`; the commands in `lane_handbook.rs`; the save's part is `world/help.rs`). How it works is in `docs/reference/how-it-works/help.md`.
+
+- **14 pages** (H8): ratings, body and speed, scouting ranges, development and hidden potential, tendencies, Dynamic Links, recruiting, portal and NIL, the draft, contracts and the cap, the game plan, training, people and morale, the calendar. Each has how it works in four points, the three levels with yours first (H9), where it shows up in the game, and the pages it touches. The text comes from `docs/reference/how-it-works/`.
+- **From your save** (H10): every page shows a live example from your team, read through your staff's eyes (a range, never a true rating), with a table beside it. The body page's strips are the level's real forty spread (starters' timed forties, anonymous), your fastest player's read on top.
+- **Coming up and due**: each page lists its dates on your level's calendar for the next 31 days; a gold dot on the left list marks a page whose date is near, a tick a page you've read.
+- **The "?"** (H11) in every screen's header opens that screen's page in the side panel, with the screen's own parts pinned ("On this screen").
+- **Your first week** (H12): your No. 2 sends one memo a day, six days, each with one task, why now, and two links (the screen and its Handbook page). Every level starts with the depth chart, the game plan and the training week; then high school gets two-way players, practice limits and Friday night; college the recruiting board, the contact calendar and the portal; the NFL the 53-man cut, the cap and the practice squad. A club in another league gets the cut, its schedule and its squad.
+- **Getting started** (H13) sits at the top of Home in the first week: six tasks, today's in gold, each ticked when done; it goes when all six are.
+- **First times** (H14): the first time your calendar reaches signing day (and the early period), the portal window, the draft, the trade deadline, the combine or the playoffs (selection day in college, the state playoffs in high school), the staff member in charge sends one short memo with a Handbook link. Never a pop-up.
+- **Help** (H15): Full (the guided week, first-time notes and warnings), Hints only (no guided week) or Off. Setup asks on the last step; Settings changes it. Off also switches off lane 6's lineup warnings (`lane_handbook::warnings_on`).
+- **Other lanes' pages**: `hbAdd({...})` in a lane's own script adds a page (same fields as the 14), `hbScreen(screen, id, on)` points a screen's "?" at it, and an arm in `live` in `lane_handbook.rs` gives it an example from the save.
+
+#### Claude's picks (proposed, not confirmed)
+
+- H15's two lines read together: setup offers Full on the first career on this computer and Hints only after that; a new job mid-career keeps your setting, so with Full every new job gets its guided week.
+- Your No. 2: the coordinator with the better reputation; the head coach when you're an assistant; at high school your longest-serving coordinator; a club's chief of staff when there's no coordinator.
+- Tasks you look at (the contact calendar, the cap) tick when you open their screen; tasks you do (the depth chart, the game plan, the training week, two-way players, the cut) tick when you save a change there, or by "Mark done". A missed day's memo still comes, dated on its day.
+- The card sits above Home's hero during the week; first-time notes come up to 14 days late (a career that starts after a moment doesn't get it).
+- The body page's hand times use section 6b's agreed 0.2-0.3 s, not the board's 0.1-0.2.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

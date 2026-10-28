@@ -349,6 +349,8 @@ const SCREENS: &[&str] = &[
     "card",
     "money_books",
     "money_league",
+    "l8_started",
+    "l8_help",
 ];
 
 /// Screens a club in another league doesn't have: it practises on its own
@@ -359,6 +361,10 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     let mut players = BTreeSet::new();
     let mut coaches = BTreeSet::new();
     let mut teams = BTreeSet::new();
+    // The Handbook's pages with their live examples (lane 8).
+    for p in afm_game::lane_handbook::PAGES {
+        run.call(g, "l8_page", json!({ "page": p, "panel": true }));
+    }
     for s in SCREENS {
         if seat == "other" && NOT_OTHER.contains(s) {
             continue;
