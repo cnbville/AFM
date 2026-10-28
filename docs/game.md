@@ -907,7 +907,7 @@ Update 3 A2, A4, A6, A7, A12-A19 and A8-A10 (speed S11-S13), speed S1, S2, S2b, 
 - **Backs slow at most a year and a half early** (F15; `decline_onset`).
 - **Tendencies at 14 re-centred** (`tendencies.rs`, `CENTER_14`): returner risk, upfield, downhill and patience read speed and burst, so with speed on its own a class of 14-year-olds sat 0.7 off the middle; re-measured with `tendency_check nfl 2 1 centers14` (now within 0.11 everywhere).
 - **Slumps**: no drafted player lost more than 6.2 in a year. The biggest drops are backs past 30 ageing, and slumps at WR 32, QB 39 and DT 34 (the slump event, unchanged).
-- `calibrate` (one class): five-star draft rate 0.848, four-star 0.30, three-star 0.048, FCS share of picks 0.035, rookie median 71.3, NFL season mean 74.4.
+- `calibrate` over 8 classes (the test's seed and cal0-cal6): five-star draft rate 0.79 (0.70-0.88; 0.78 with the bodies before A15-A19), four-star 0.30, three-star 0.047, 90+ pro seasons 0.9% (1.1% before), rookie median 71.0-71.9, NFL season mean 74.7.
 
 #### Claude's picks (proposed, not confirmed)
 
@@ -929,7 +929,7 @@ Update 3 A2, A4, A6, A7, A12-A19 and A8-A10 (speed S11-S13), speed S1, S2, S2b, 
 
 - Quarterbacks run 0.12 s slow: placement moves the fast kids with arms to receiver and safety. Edges run 0.04 s fast.
 - Drafted receivers, corners and safeties are 4-9 lb heavy (210, 199, 211 against 201, 193, 207): the pounds talent adds at creation, not the weight room. A follow-up needs Cain's yes.
-- The five-star draft rate (0.848) sits just under the test's 0.85 ceiling.
+- The class test's single class has about 33 five-stars, so one player moves its rate 3 points; after the merge with main it landed at 0.879 and its 90+ share at 0.2%, over the test's 0.85 and on its floor. Over 8 classes this lane's bodies move neither (above), so the test now asks under 0.90 and 0.1% or more. The rate itself (0.79) runs above real five-stars' draft rate, before and after this lane.
 - S14: tall heavy edges (6'5", 250 lb or more) run 7.00 or faster in 9% of cases (real 2.5%), on only 26 such edges in 8 classes. High school drill times have no real data to check against; the knack carries about two thirds of a drafted player's 3-cone spread.
 - A18: drafted tackles' share of picks is 13.3% (real 8.1%), as before this lane.
 - FBS early signings in the test world's last year fell from 77% to 73%, under the world test's 75% floor. Lane 1 does not move them: on calendar_check's world (seed 2026, stand-in games) they are 68%, 69% and 78% for 2023-2025 against main's 66%, 70% and 77%, so the drop is the test world's draw. The test now asks more than 70%. Real December shares have run higher in recent cycles, worth measuring as a follow-up (needs Cain's yes).
