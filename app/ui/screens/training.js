@@ -49,10 +49,10 @@ Object.assign(I, {
 navAdd({ go: "plans", label: "Playbook", icon: "plans", sec: "team", after: "training", seats: ["college", "nfl", "hs"] });
 navAdd({ go: "designer", label: "Play designer", icon: "design", sec: "team", after: "plans", seats: ["college", "nfl", "hs"] });
 Object.assign(CRUMBS, { plans: "Playbook", designer: "Play designer", roster: "Squad", depth: "Depth chart", training: "Training" });
-GOTO.training = () => [["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Plans", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]];
+GOTO.training = () => [["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Playbook", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]];
 GOTO.plans = () => [["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"], ["Schedule", "schedule"]];
-GOTO.designer = () => [["Plans", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"], ["Depth chart", "depth"]];
-GOTO.depth = () => [["Squad", "roster"], ["Training", "training"], ["Plans", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]];
+GOTO.designer = () => [["Playbook", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"], ["Depth chart", "depth"]];
+GOTO.depth = () => [["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]];
 // Your Squad's one line in every view (screens topic 17): the Fitness view
 // is its Health, and the money desk is the cap sheet at the NFL, the
 // recruiting board in college. Another league's club has no training.
@@ -770,7 +770,7 @@ screens.training = async (a) => {
     kicker: `${esc(trCap(x.tier))} · ${esc(x.block_label)} · week of ${esc(x.monday)}`,
     title: "Training",
     sub: x.own ? "The players are on their own: the rules keep your staff away." : `${esc(x.slot_label)}. ${x.yours ? "You set this week." : "Your staff's week."}`,
-    goto: trGoto([["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Plans", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]]),
+    goto: trGoto([["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Playbook", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]]),
   });
   return `<div class="film"><div class="pad tr-pad">${head}${tabs("trtab", list.map((t) => (t === "Reports" && x.cases.length ? { name: t, badge: x.cases.length } : t)), tab)}<div class="tabbody">${body}</div></div></div>`;
 };
@@ -946,7 +946,7 @@ screens.designer = async (a) => {
   const saved = des.k != null ? x.designs.find((q) => q.k === des.k) : null;
   const review = saved && saved.review.length ? `<div class="panel warm"><h2>${esc(x.coordinator || "Your coordinator")}'s review</h2><div class="items">${saved.review.map((r) => `<div class="item story"><span>${esc(r)}</span></div>`).join("")}</div>${saved.read && saved.read.snaps ? `<p class="sub">Called ${trPlural(saved.read.snaps, "time")}: ${saved.read.yards} yards a play, ${trPlural(saved.read.completions, "completion")}.</p>` : ""}</div>` : "";
   const list = x.designs.map((q) => `<button class="tr-dl ${des.k === q.k ? "on" : ""}" data-act="tr-dopen" data-k="${q.k}">${fieldSvg(q.geometry, { small: true })}<span><b>${esc(q.design.name)}</b><small>${esc(q.design.personnel)} · ${esc(q.design.set)} · ${esc(q.words)}</small></span></button>`).join("");
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · plays and tactics`, title: "Play designer", sub: "Draw a pass play from a formation and routes. It goes into your playbook, your players learn it in team periods, and your play caller can call it once it's on the card.", goto: trGoto([["Plans", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"]]) })}
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · plays and tactics`, title: "Play designer", sub: "Draw a pass play from a formation and routes. It goes into your playbook, your players learn it in team periods, and your play caller can call it once it's on the card.", goto: trGoto([["Playbook", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"]]) })}
     <div class="tr-des"><aside class="tr-dlist"><button class="st-btn small primary" data-act="tr-dnew">New play</button>${list || '<div class="empty">No plays yet.</div>'}</aside>
     <div class="tr-dboard"><div class="panel warm tr-dfield">${fieldSvg(g.geometry, { click: true, sel: des.role })}<p class="sub">Click a player to pick his row. Numbers are the quarterback's reads in order.</p></div>${issues}
     <div class="panel warm"><h2>Routes and reads <small>a player with no route runs his job in the protection</small></h2><div class="tbl"><table><thead><tr><th class="l">Player</th><th class="l">Route</th><th class="l">Depth</th><th>Read</th></tr></thead><tbody>${roleRows}</tbody></table></div></div>${review}</div>
@@ -1061,7 +1061,7 @@ screens.depth = async (a) => {
   const names = [...x.boards.map((b) => b.label), "By position"];
   const tab = tabOf("trboard", names, a);
   title("Depth chart", tab);
-  const head = pageHead({ kicker: `${esc(trCap(x.tier))} · game day`, title: "Depth chart", sub: "Drag a player onto a spot, or click a spot and then a player. Your position coaches' picks show under each spot; where you set an order, the engine plays yours.", goto: trGoto([["Squad", "roster"], ["Training", "training"], ["Plans", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
+  const head = pageHead({ kicker: `${esc(trCap(x.tier))} · game day`, title: "Depth chart", sub: "Drag a player onto a spot, or click a spot and then a player. Your position coaches' picks show under each spot; where you set an order, the engine plays yours.", goto: trGoto([["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
   const tabsHtml = tabs("trboard", names.map((n) => { const b = x.boards.find((q) => q.label === n); return b && b.yours ? { name: n, badge: "●" } : n; }), tab);
   if (tab === "By position") {
     const inner = await depthBase(a);

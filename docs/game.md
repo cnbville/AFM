@@ -932,6 +932,21 @@ The game ships no logos (later extras, topic 2). Settings, Logos (`screens/logos
 - The jersey logo's size and place (a college's 0.42 units wide at most, its top just under the V's trim; the shield 0.26 tall, its top just over the collar's point), the light disc's colour (`#ece9e2`) and the hero watermark's strength (24%, 14% for dark logos).
 - Drawn heads kept under an old logo's key stay on disk until the save is deleted.
 
+### Moves where you look: minor bugs 62-81 and SC1-SC7
+
+From the screens audit (`/mnt/project-files/afm/screens-intuitive/findings.md`). One list of moves per player, coach and team, by your seat and who he is to you (`crates/afm-game/src/lane_core/moves.rs`, command `moves`), drawn the same way everywhere (`app/ui/screens/core.js`, the moves section):
+
+- **Right-click** a player, coach or team link: the menu is that list (62). **The player page's hero** shows up to four main moves, the list button and More (63). **The hover card** shows the three that fit the screen you're on (`PEEK_MOVES`; 64). **A row's ⋯** opens the same menu, and **any player table** gets tick boxes and a move bar for the common moves (SC4, SC5; the cut desk's bar keeps, squads or releases).
+- NFL: a new deal, Restructure and Release with their cap numbers (`lane_frontoffice/nfl.rs`, `cap_moves`), the trading block, injured reserve, Trade for him (the Trades screen opens filled in from `{team, get}`, 71), a visit, the four pre-draft lists. Extensions from the Squad's Contract view (70); Make an offer on the street and tryouts (72).
+- College: stay talks, stay or go, Redshirt him or Play him (also in the Squad's Eligibility view, with his games out of four; 77), Cut him, a portal offer, the recruit's offer, board, visit, NIL and file. High school: move to a squad, Call a college (the box opens on him, 80).
+- Injured reserve is your call (73): your medical staff recommends, you place and bring back (`world/front_office/reserve.rs`; the Injured reserve duty hands it to your staff).
+- Pinned decisions, the Continue stop's toast and the Calendar's lines open their desk on him (`views.rs`, `decision_go`; `lane_calendar.rs`, `home_of`; 69).
+- Links (65-68, 79, 81): Go to lines match the link map, links keep what you were looking at, numbers with a story are links, every Contracts link opens the Cap sheet, navigation drawn as buttons became quiet links. Home's own Go to line waits for lane 16's new Home.
+- The sidebar (SC1-SC3): one entry where two did one job, related pages as tabs under one entry (`app/ui/screens/hosts.js`, `hostTabs`), and clearer names (Plans is Playbook; Follow is Add to my players).
+- A duty at your staff keeps its buttons (SC6): a move you make stands and the staff keeps the rest (NFL contracts, tags, free agency, trades, cutdown, waivers, protections; college visits, portal, NIL; high school squads). The board's offers follow lane 7's chain. Each desk names who runs it with the switch.
+- Portal NIL (76): your number goes with a portal offer whoever runs NIL.
+- Proposed, not confirmed: the hover card's three moves per screen (`PEEK_MOVES`), the move bar's 60-row pick limit, and an 8-second toast for a decision stop.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

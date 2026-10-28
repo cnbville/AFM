@@ -98,8 +98,12 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         })(),
         // Injured reserve on your club (minor bug 73) and redshirts on your
         // college team (minor bug 77): your call.
-        "ir_place" => id_arg(args).and_then(|id| afm_engine::world::front_office::reserve::place(w, id as u32)).map(|t| json!({ "text": t })),
-        "ir_back" => id_arg(args).and_then(|id| afm_engine::world::front_office::reserve::activate(w, id as u32)).map(|t| json!({ "text": t })),
+        "ir_place" => id_arg(args)
+            .and_then(|id| afm_engine::world::front_office::reserve::place(w, id as u32))
+            .map(|t| json!({ "text": t })),
+        "ir_back" => id_arg(args)
+            .and_then(|id| afm_engine::world::front_office::reserve::activate(w, id as u32))
+            .map(|t| json!({ "text": t })),
         "redshirt_set" => (|| {
             let on = args.get("on").and_then(Value::as_bool).unwrap_or(true);
             afm_engine::world::front_office::redshirt::set(w, id_arg(args)? as u32, on).map(|t| json!({ "text": t }))

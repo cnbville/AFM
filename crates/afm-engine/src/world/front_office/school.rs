@@ -233,6 +233,10 @@ pub struct SchoolDesk {
     pub year: i32,
     /// Your squad choices this season, by player id.
     pub moves: Vec<(u32, Squad)>,
+    /// The players you moved yourself while your staff has the squads: it
+    /// leaves them where you put them (SC6).
+    #[serde(default)]
+    pub mine: Vec<u32>,
     pub principal: SchoolPerson,
     pub ad: SchoolPerson,
     pub superintendent: SchoolPerson,
@@ -933,10 +937,8 @@ pub(crate) fn squad_roles(w: &World, roles: &mut [(usize, PlayingTime)]) {
 /// state associations and leagues bar them), and only freshmen play on
 /// the freshman team.
 pub fn set_squad(w: &mut World, id: u32, to: Squad) -> Result<String, String> {
+    // A move you make stands while your staff keeps the rest (SC6).
     let h = your_school(w).ok_or("You don't coach a high school.")?;
-    if w.front_office.owner(Duty::Squads) == Owner::Staff {
-        return Err("Your staff has the squads. Take them back first.".into());
-    }
     let i =
         super::index_of(w, id).filter(|i| w.high_schools[h].roster.contains(i)).ok_or("He isn't on your roster.")?;
     let p = &w.people[i];
@@ -954,6 +956,9 @@ pub fn set_squad(w: &mut World, id: u32, to: Squad) -> Result<String, String> {
     let desk = &mut w.front_office.school;
     desk.moves.retain(|m| m.0 != id);
     desk.moves.push((id, to));
+    if !desk.mine.contains(&id) {
+        desk.mine.push(id);
+    }
     desk.set_on = Some(today);
     desk.suggestions.retain(|s| s.id != id);
     super::note(w, format!("Moved {name} to {}.", to.name().to_lowercase()), Some(id));
@@ -964,6 +969,7 @@ pub fn set_squad(w: &mut World, id: u32, to: Squad) -> Result<String, String> {
 pub fn reset_squads(w: &mut World) {
     let desk = &mut w.front_office.school;
     desk.moves.clear();
+    desk.mine.clear();
     desk.set_on = None;
 }
 
@@ -1191,7 +1197,9 @@ fn ready_to_move_up(w: &mut World, h: usize, d: Date) {
                 if v.len() >= need { "last man" } else { "players" },
                 pos.name()
             );
-            ups.push((staff_read(w, i), pos, l.id, to, why));
+            if !w.front_office.school.mine.contains(&l.id) {
+                ups.push((staff_read(w, i), pos, l.id, to, why));
+            }
         }
     }
     // The best one at each spot: one place opens, one player is named.
@@ -1242,6 +1250,7 @@ fn call_ups(w: &mut World, d: Date) {
     let mut jv: Vec<(f64, usize)> = sq
         .iter()
         .filter(|x| x.1 == Squad::Jv && grade(w, w.people[x.0].class_of) >= 10)
+        .filter(|x| !w.front_office.school.mine.contains(&w.people[x.0].player.id))
         .map(|x| (staff_read(w, x.0), x.0))
         .collect();
     if jv.is_empty() {
@@ -1909,6 +1918,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         desk.lines.clear();
         desk.suggestions.clear();
         desk.moves.clear();
+        desk.mine.clear();
         desk.set_on = None;
         desk.regular_wins = None;
         desk.in_playoffs = false;

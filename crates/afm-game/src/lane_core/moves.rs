@@ -129,8 +129,14 @@ fn nfl_moves(w: &World, k: usize, own: bool, out: &mut Vec<Value>) {
     if prospect {
         for (n, name) in predraft::LIST_NAMES.iter().enumerate() {
             let on = w.scouting.predraft.lists.iter().any(|x| x.0 == id && x.1 as usize == n);
-            let mut v =
-                mv("predraft", if on { format!("Take off {}", name.to_lowercase()) } else { format!("Add to {}", name.to_lowercase()) });
+            let mut v = mv(
+                "predraft",
+                if on {
+                    format!("Take off {}", name.to_lowercase())
+                } else {
+                    format!("Add to {}", name.to_lowercase())
+                },
+            );
             v["list"] = json!(n);
             v["on"] = json!(!on);
             out.push(v);
@@ -209,7 +215,10 @@ fn school_moves(w: &World, k: usize, h: usize, own: bool, out: &mut Vec<Value>) 
             school::Squad::Freshman => fr && grade == 9,
         };
         if fits && Some(to) != now {
-            let mut v = mv("squad", format!("Move to {}", if to == school::Squad::Jv { "JV".into() } else { to.name().to_lowercase() }));
+            let mut v = mv(
+                "squad",
+                format!("Move to {}", if to == school::Squad::Jv { "JV".into() } else { to.name().to_lowercase() }),
+            );
             v["squad"] = json!(to.key());
             out.push(v);
         }

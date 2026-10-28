@@ -17,7 +17,7 @@ use crate::world::pro::market::{self, Ideal, Offer, Sheet};
 use crate::world::pro::{self, DeadWhy, Status, money};
 use crate::world::{Stage, World};
 
-use super::{Duty, Owner};
+use super::Duty;
 
 /// What kind of talk it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -464,8 +464,7 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
     let t = club(w)?;
     let i = person(w, id)?;
     let kind = negotiable(w, i).ok_or("He isn't someone you can talk terms with today.")?;
-    // Acting on a duty takes it back from your staff.
-    w.front_office.set_owner(kind_duty(kind), Owner::You);
+    // A talk you open is yours; your staff keeps the rest of the duty (SC6).
     check(w, t, i, &p, kind)?;
     let today = w.today;
     if let Some(cold) = w.front_office.nfl.talk(id).and_then(|x| x.cold_until)
@@ -614,13 +613,6 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
 /// A free agent no club holds: off the street or on the open market.
 fn free_now(w: &World, i: usize) -> bool {
     w.people[i].pro.as_ref().is_some_and(|c| c.status == Status::FreeAgent && c.team.is_none() && !c.on_waivers)
-}
-
-fn kind_duty(k: TalkKind) -> Duty {
-    match k {
-        TalkKind::ReSign | TalkKind::Extension => Duty::Contracts,
-        TalkKind::FreeAgent | TalkKind::OfferSheet => Duty::FreeAgency,
-    }
 }
 
 /// What the agent claims about other interest, and your read of it. An
@@ -824,11 +816,28 @@ pub(crate) fn sheet_match(w: &World, s: &Sheet) -> Option<bool> {
 
 /// Your fifth-year option choice on a player of yours.
 pub(crate) fn option_choice(w: &World, t: usize, i: usize) -> Option<bool> {
+    let id = w.people[i].player.id;
+    let set = w.front_office.nfl.options.iter().find(|x| x.0 == id);
+    // A choice you made stands whoever holds the duty (SC6).
+    if super::seat_head_club(w, t)
+        && let Some(x) = set
+    {
+        return Some(x.1);
+    }
     if !super::yours(w, t, Duty::Contracts) {
         return None;
     }
-    let id = w.people[i].player.id;
-    Some(w.front_office.nfl.options.iter().find(|x| x.0 == id).is_some_and(|x| x.1))
+    Some(set.is_some_and(|x| x.1))
+}
+
+/// Whether you are in talks with player `i` of club `t` (your club): your
+/// staff leaves him to you while it runs the rest of the duty (SC6).
+pub(crate) fn talking(w: &World, t: usize, i: usize) -> bool {
+    super::seat_head_club(w, t)
+        && w.front_office
+            .nfl
+            .talk(w.people[i].player.id)
+            .is_some_and(|x| matches!(x.state, TalkState::Open | TalkState::Standing | TalkState::Agreed))
 }
 
 /// Sets a fifth-year option choice (it takes effect on the deadline).
@@ -847,7 +856,6 @@ pub fn set_option(w: &mut World, id: u32, take: bool) -> Result<(), String> {
     if w.today > w.dates.fifth_year_option {
         return Err("The option deadline has passed.".into());
     }
-    w.front_office.set_owner(Duty::Contracts, Owner::You);
     w.front_office.nfl.options.retain(|x| x.0 != id);
     w.front_office.nfl.options.push((id, take));
     let name = w.people[i].name.clone();
@@ -1003,7 +1011,6 @@ pub fn tag(w: &mut World, id: u32, what: &str) -> Result<String, String> {
         crate::calendar::Kind::Signing,
         format!("{who} gets the {label} tag (${:.1}M).", price / 1e6),
     );
-    w.front_office.set_owner(Duty::Tags, Owner::You);
     let text = format!("Tagged {pname} ({label}, {} for one year).", super::dollars(price));
     super::note(w, text.clone(), Some(id));
     Ok(text)
@@ -1081,7 +1088,6 @@ pub fn tender(w: &mut World, id: u32, level: &str) -> Result<String, String> {
     if rfa.is_some() {
         w.market.year_mut(year).tenders += 1;
     }
-    w.front_office.set_owner(Duty::Tags, Owner::You);
     let line = format!("Tendered {pname}: {text}, {}.", super::dollars(deal_price));
     super::note(w, line.clone(), Some(id));
     Ok(line)

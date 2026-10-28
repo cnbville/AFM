@@ -77,7 +77,11 @@ pub fn set(w: &mut World, id: u32, on: bool) -> Result<String, String> {
     }
     let text = match (on, r.four) {
         (true, true) if r.games < 4 => {
-            format!("{first} redshirts: he can still play {} more game{} and keep the year.", 4 - r.games, if 4 - r.games == 1 { "" } else { "s" })
+            format!(
+                "{first} redshirts: he can still play {} more game{} and keep the year.",
+                4 - r.games,
+                if 4 - r.games == 1 { "" } else { "s" }
+            )
         }
         (true, _) => format!("{first} redshirts: he sits the rest of the season."),
         (false, true) => format!("{first} plays: four games or fewer and he still keeps his redshirt year."),

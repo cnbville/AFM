@@ -99,7 +99,11 @@ pub fn activate_words(w: &World, id: u32) -> Result<String, String> {
         return Err("He isn't on injured reserve.".into());
     }
     if c.out_weeks > 0 {
-        return Err(format!("He can't come back for {} more week{}.", c.out_weeks, if c.out_weeks == 1 { "" } else { "s" }));
+        return Err(format!(
+            "He can't come back for {} more week{}.",
+            c.out_weeks,
+            if c.out_weeks == 1 { "" } else { "s" }
+        ));
     }
     let year = w.year;
     let left = games::ir_returns(year).saturating_sub(w.clubs[t].ir_used);

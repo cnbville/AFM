@@ -344,6 +344,7 @@ fn cap_sheet(w: &World) -> Reply {
     Ok(json!({
         "team": views::team_brief(w, TeamRef::Nfl(t)),
         "year": year, "years": years, "rows": rows,
+        "owner": if w.front_office.owner(Duty::Cap) == Owner::You { "you" } else { "staff" },
         "books": years.iter().map(|&y| book(y)).collect::<Vec<_>>(),
         "top51": top51, "capped": money::capped(year),
         "dead": dead, "picks": picks,
@@ -493,6 +494,8 @@ fn expiring(w: &World) -> Reply {
     Ok(json!({
         "team": views::team_brief(w, TeamRef::Nfl(t)),
         "year": year, "rows": rows,
+        "owner": if w.front_office.owner(Duty::Contracts) == Owner::You { "you" } else { "staff" },
+        "owner_tags": if w.front_office.owner(Duty::Tags) == Owner::You { "you" } else { "staff" },
         "window": nfl::tag_window(w),
         "window_open": views::date_text(w.dates.tag_window_open),
         "deadline": views::date_text(w.dates.tag_deadline.date),

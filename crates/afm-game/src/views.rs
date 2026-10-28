@@ -726,7 +726,9 @@ pub(crate) fn decision_go(e: &afm_engine::calendar::Event) -> Option<(&'static s
             }
         }
         "Your school" => match who {
-            Some(id) if t.contains("college") || t.contains("offer") => ("player", json!({ "id": id, "tab": "Recruiting" })),
+            Some(id) if t.contains("college") || t.contains("offer") => {
+                ("player", json!({ "id": id, "tab": "Recruiting" }))
+            }
             _ => ("squads", json!({})),
         },
         "The May review" => ("evaluate", json!({})),

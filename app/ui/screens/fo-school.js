@@ -93,8 +93,9 @@ screens.school = async () => {
 // ---------- squads ----------
 // A player's squad switch: who moved him, and the teams he could go to
 // (the Squad's Team column uses it too).
+// With your staff on the squads a move you make still stands (SC6).
 function fsMoveCell(r, yours) {
-  if (!yours) return r.moved ? '<span class="st-pill gold">Moved</span>' : "";
+  if (!yours && r.moved && !(r.can || []).length) return '<span class="st-pill gold">Moved</span>';
   const opts = r.can.map((c) => `<option value="${c}">${c === "jv" ? "JV" : c[0].toUpperCase() + c.slice(1)}</option>`).join("");
   return `${r.moved ? `<span class="st-pill gold" title="Your staff had him on ${esc(r.staff)}">You moved him</span> ` : ""}${opts ? `<select class="fs-move" data-fs-move="${r.id}"><option value="">Move to…</option>${opts}</select>` : ""}`;
 }

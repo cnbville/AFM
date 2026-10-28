@@ -434,7 +434,7 @@ async function dpPackagesPage(a) {
   setColors(bx.team.colors);
   title("Depth chart", "Packages");
   const names = [...bx.boards.map((b) => b.label), "Packages", "By position"];
-  const head = pageHead({ kicker: `${esc(typeof trCap === "function" ? trCap(bx.tier) : bx.tier)} · game day`, title: "Depth chart", sub: "Who plays in each package, three deep, and how the defensive line rotates. Your position coaches fill what you leave.", goto: gotoLine([["Squad", "roster"], ["Training", "training"], ["Plans", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
+  const head = pageHead({ kicker: `${esc(typeof trCap === "function" ? trCap(bx.tier) : bx.tier)} · game day`, title: "Depth chart", sub: "Who plays in each package, three deep, and how the defensive line rotates. Your position coaches fill what you leave.", goto: gotoLine([["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
   const tabsHtml = tabs("trboard", names.map((n) => { const b = bx.boards.find((q) => q.label === n); return b && b.yours ? { name: n, badge: "●" } : n; }), "Packages");
   const want = keep("dppk", { board: "Nickel" });
   const x = await dpGet("dp_packages", { board: want.board });

@@ -856,7 +856,9 @@ pub(crate) fn coach_moves(w: &World, c: usize) -> Vec<Value> {
             continue;
         }
         let role = cap(r.name());
-        out.push(json!({ "k": "interview", "t": format!("Interview him for {role}"), "coach": c, "role": role_key(r) }));
+        out.push(
+            json!({ "k": "interview", "t": format!("Interview him for {role}"), "coach": c, "role": role_key(r) }),
+        );
         out.push(json!({ "k": "hire", "t": format!("Offer him {role}"), "coach": c, "role": role_key(r), "salary": x.asks, "asks": money(x.asks) }));
     }
     out

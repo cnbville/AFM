@@ -245,6 +245,13 @@ pub(crate) fn yours(w: &World, t: usize, d: Duty) -> bool {
     w.career.is_some() && w.seat_club(t) && w.seat_head() && w.front_office.owner(d) == Owner::You
 }
 
+/// Whether NFL club `t` is your club as its head man, whoever holds each
+/// duty: a move you make yourself stands while your staff keeps the rest
+/// (SC6).
+pub(crate) fn seat_head_club(w: &World, t: usize) -> bool {
+    w.career.is_some() && w.seat_club(t) && w.seat_head()
+}
+
 /// Whether college program `p` is yours and the duty is yours.
 pub(crate) fn yours_program(w: &World, p: usize, d: Duty) -> bool {
     w.career.is_some() && w.seat_program(p) && w.seat_head() && w.front_office.owner(d) == Owner::You

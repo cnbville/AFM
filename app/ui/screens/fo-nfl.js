@@ -40,8 +40,10 @@ function foHead(team, title, sub, extra = "") {
 function foBtn(fo, text, data = {}, cls = "glass") {
   return `<button class="st-btn small ${cls}" data-act="fo" data-fo="${fo}"${Object.entries(data).map(([k, v]) => ` data-${k}="${esc(v)}"`).join("")}>${esc(text)}</button>`;
 }
-function foOwner(key, owner) {
-  return `<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
+// Who runs a duty; with your staff, a move you make yourself still stands (SC6).
+function foOwner(key, owner, label) {
+  const note = owner === "staff" ? `<small class="muted fo-ownernote">${label ? esc(label) + ": y" : "Y"}our staff runs it; a move you make yourself stands.</small>` : label ? `<small class="muted fo-ownernote">${esc(label)}</small>` : "";
+  return `${note}<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
 }
 function foPick(p) {
   return `<span class="fo-pick ${p.comp ? "comp" : ""}" title="${esc(p.text)} · ${p.points} point${p.points === 1 ? "" : "s"} on your chart">${mark(p.from, 18)}<b>${p.year} R${p.round}</b>${p.own ? "" : `<small>${esc(p.from.name.split(" ").pop())}</small>`}${p.comp ? "<small>comp</small>" : ""}</span>`;
@@ -124,7 +126,7 @@ screens.fo_cap = async (a) => {
   const dead = x.dead.map((d) => `<tr><td class="l">${d.year}</td><td class="l">${playerLink(d.id, d.name)}</td><td class="l">${esc(d.why)}</td><td>${foM(d.amount)}</td></tr>`).join("") || `<tr><td class="l" colspan="4"><div class="empty">No dead money on the books.</div></td></tr>`;
   const picks = x.picks.map(foPick).join("") || '<span class="muted">No picks.</span>';
   return `<div class="film"><div class="pad fo">
-    ${foHead(x.team, "Cap sheet", `Every contract's cap number for five league years, with what a release costs and saves today. ${x.top51 ? "<b>The rule of 51 is on:</b> until the first game only the 51 biggest cap numbers count. " : ""}${x.after_june1 ? "After June 1 a release splits its dead money over two years by itself." : `Post-June 1 designations used: ${x.june1_used} of 2.`}`)}
+    ${foHead(x.team, "Cap sheet", `Every contract's cap number for five league years, with what a release costs and saves today. ${x.top51 ? "<b>The rule of 51 is on:</b> until the first game only the 51 biggest cap numbers count. " : ""}${x.after_june1 ? "After June 1 a release splits its dead money over two years by itself." : `Post-June 1 designations used: ${x.june1_used} of 2.`}`, foOwner("cap", x.owner))}
     <div class="fo-books">${book}</div>
     <div class="fo-legend"><span><i class="fo-gtd">Underlined</i> fully guaranteed</span><span><i class="fo-void">In italics</i> a void year: only the bonus spread</span><span><i class="neg">In red</i> a release costs room</span><span>Hover a cap number for its parts.</span></div>
     ${table("fo_cap", cols, x.rows, { sort: "y" + yrs[0], groups: [{ t: "", span: 4 }, { t: "Cap number by league year", span: yrs.length, div: true }, { t: "The deal", span: 3, div: true }, { t: `Released today${x.after_june1 ? " (split)" : ""}`, span: 3, div: true }] })}
@@ -172,7 +174,7 @@ screens.fo_expiring = async () => {
     { k: "act", t: "", l: true, f: act },
   ];
   return `<div class="film"><div class="pad fo">
-    ${foHead(x.team, "Deals and tags", `Players whose deals end at the new league year (${esc(x.league_year)}), rookies with a fifth-year option, and stars due an extension. ${x.window ? `<b>The tag window is open until ${esc(x.deadline)}.</b>` : `The tag window runs ${esc(x.window_open)} to ${esc(x.deadline)}.`} ${x.one_tag ? "One tag a club a year." : "A franchise and a transition tag a club a year."} Undecided options are declined on ${esc(x.option_deadline)}. Cap room ${foM(x.room)}.`)}
+    ${foHead(x.team, "Deals and tags", `Players whose deals end at the new league year (${esc(x.league_year)}), rookies with a fifth-year option, and stars due an extension. ${x.window ? `<b>The tag window is open until ${esc(x.deadline)}.</b>` : `The tag window runs ${esc(x.window_open)} to ${esc(x.deadline)}.`} ${x.one_tag ? "One tag a club a year." : "A franchise and a transition tag a club a year."} Undecided options are declined on ${esc(x.option_deadline)}. Cap room ${foM(x.room)}.`, `${foOwner("contracts", x.owner, "Contracts")}${foOwner("tags", x.owner_tags, "Tags")}`)}
     ${table("fo_exp", cols, x.rows, { groupBy: (r) => r.group, empty: "Nobody's deal is running out, and no option or extension is due." })}
   </div></div>`;
 };

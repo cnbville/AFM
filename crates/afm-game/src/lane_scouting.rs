@@ -651,7 +651,8 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
 /// The looks you can ask your staff for on this player, by your seat.
 /// A free agent your club can make an offer to today.
 fn can_sign(w: &World, i: usize) -> bool {
-    afm_engine::world::front_office::nfl::negotiable(w, i) == Some(afm_engine::world::front_office::nfl::TalkKind::FreeAgent)
+    afm_engine::world::front_office::nfl::negotiable(w, i)
+        == Some(afm_engine::world::front_office::nfl::TalkKind::FreeAgent)
 }
 
 pub(crate) fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
