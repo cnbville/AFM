@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
+Checked against main at 81c9f0c with update 2 lane 8 and the lane 10 follow-up (the Group of 5 step, the staffs' star read, the commitment read) on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
