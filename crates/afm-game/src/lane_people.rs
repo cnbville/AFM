@@ -865,22 +865,48 @@ fn contacts(w: &World) -> Value {
     let today = w.today;
     let mut list: Vec<&network::Contact> = w.folk.network.contacts.iter().collect();
     list.sort_by(|a, b| b.warmth.total_cmp(&a.warmth));
+    // Coaches and, from lane 5 (C13, C15, C19), former players in their
+    // lives after football, agents and athletic directors.
     let rows: Vec<Value> = list
         .iter()
-        .filter(|c| c.coach < w.coaches.len())
-        .map(|c| {
-            let co = &w.coaches[c.coach];
-            json!({
-                "coach": c.coach,
-                "link": folk::coach_link(w, c.coach),
-                "now": facts::team_of_coach(w, c.coach).map_or_else(|| if co.retired { "Retired".to_string() } else { "Out of work".to_string() }, |t| format!("{}, {}", cap(&facts::coach_role(w, c.coach)), t.link(w))),
+        .filter_map(|c| {
+            let (link, now, coach) = match (c.coach_id(), c.other) {
+                (Some(k), _) if k < w.coaches.len() => {
+                    let co = &w.coaches[k];
+                    let now = facts::team_of_coach(w, k).map_or_else(
+                        || if co.retired { "Retired".to_string() } else { "Out of work".to_string() },
+                        |t| format!("{}, {}", cap(&facts::coach_role(w, k)), t.link(w)),
+                    );
+                    (folk::coach_link(w, k), now, Some(k))
+                }
+                (_, Some(network::Other::Former(id))) => {
+                    let f = w.formers.get(id)?;
+                    (f.name.clone(), f.now(w), None)
+                }
+                (_, Some(network::Other::Agent(a))) => {
+                    let g = w.market.agents.get(a)?;
+                    (g.name.clone(), format!("Agent, {}", g.agency), None)
+                }
+                (_, Some(network::Other::Ad(p, since))) => {
+                    let ad = w.programs.get(p)?.ad.as_ref().filter(|a| a.since == since)?;
+                    (ad.name.clone(), format!("Athletic director, {}", Team::College(p).link(w)), None)
+                }
+                _ => return None,
+            };
+            let record = (c.record.0 > 0).then(|| format!("{} of {} tips held up", c.record.1, c.record.0));
+            Some(json!({
+                "coach": coach,
+                "link": link,
+                "now": now,
                 "how": c.how,
                 "warmth": c.warmth,
                 "warmthWords": warmth_words(c.warmth),
                 "last": c.last.map(date_text),
                 "recent": c.recent.iter().filter(|d| d.days_to(today) < 30).count(),
                 "balance": c.balance,
-            })
+                "record": record,
+                "sent": c.sent,
+            }))
         })
         .collect();
     let ledger: Vec<Value> = w
@@ -904,6 +930,7 @@ fn contacts(w: &World) -> Value {
         .collect();
     json!({
         "rows": rows,
+        "tips": crate::lane_coaching::tips(w),
         "ledger": ledger,
         "interest": interest,
         "clinics": w.folk.network.clinics,

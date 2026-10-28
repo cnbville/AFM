@@ -233,8 +233,8 @@ pub(crate) fn draw_person(w: &World, key: u64, title: &str, pay: f64, subject: O
     let t = term(w, key);
     let k = key ^ (t as u64) << 48;
     let u = |n: u64| super::roll(w, k, n);
-    let black = u(1) < 0.33;
-    let eth = if black { crate::world::ethnicity::Ethnicity::Black } else { crate::world::ethnicity::Ethnicity::White };
+    // Minor bug 19: staffs of every background, by era, as the scouts.
+    let eth = crate::world::pro::scouts::staff_ethnicity_at(u(1), w.year);
     let age = 27 + (u(2) * 33.0) as u32;
     let mut rng = crate::rng::Rng::new((k ^ k >> 32) as u32 ^ 0x57AF);
     let name = crate::world::names::person_name(eth, w.year - age as i32, &mut rng);
@@ -423,6 +423,8 @@ pub fn candidates(w: &World, role: Role) -> Vec<Candidate> {
         if !fits {
             continue;
         }
+        // C17: a recruit's high school coach, only while you recruit his five-star.
+        let Ok(star) = super::backchannel::hs_hire(w, c) else { continue };
         let warm = super::network::warmth(w, c);
         let free = co.job.is_none();
         let step = co.job.map_or(0.0, |j| match (j.role, role) {
@@ -468,13 +470,16 @@ pub fn candidates(w: &World, role: Role) -> Vec<Candidate> {
             }),
         };
         let asks = (base * (0.85 + 0.35 * co.reputation / 20.0) * if co.job.is_some() { 1.15 } else { 0.95 }).round();
-        let known = if warm >= 0.6 {
+        let mut known = if warm >= 0.6 {
             "A close contact".to_string()
         } else if warm >= 0.3 {
             "Someone you know".to_string()
         } else {
             "A stranger: you know his name and his record".to_string()
         };
+        if let Some(i) = star.and_then(|id| super::person(w, id)) {
+            known.push_str(&format!("; he coaches {}, a five-star you're recruiting", w.people[i].name));
+        }
         v.push((
             score,
             Candidate {
@@ -720,6 +725,7 @@ pub fn offer(w: &mut World, c: usize, role: Role, salary: f64, years: i32) -> Re
         return Err("That job isn't open on your staff. Let someone go first.".into());
     }
     let co = w.coaches.get(c).ok_or("No such coach.")?.clone();
+    super::backchannel::hs_hire(w, c)?;
     let emp = team.employer();
     let now = w.folk.staff.deal(c).map_or(co.job.map_or(0.0, |j| pay(w, j.employer, j.role)), |d| d.salary);
     let same_level = co.job.is_some_and(|j| std::mem::discriminant(&j.employer) == std::mem::discriminant(&emp));

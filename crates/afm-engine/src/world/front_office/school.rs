@@ -399,7 +399,8 @@ fn wants(rng: &mut Rng, base: [f64; 4]) -> [f32; 4] {
 /// Your first trust with the school's people: your name, a local man
 /// (grew up in the town, went to the school) and your presence.
 fn first_trust(w: &World, h: usize, rng: &mut Rng) -> f32 {
-    let rep = w.career.as_ref().and_then(|c| w.coaches.get(c.coach)).map_or(8.0, |c| c.reputation);
+    // A small school's people read your name as much as your standing (C10).
+    let rep = crate::world::folk::facts::read_by(w, crate::world::folk::Team::High(h));
     let you = w.career.as_ref().map(|c| &c.you);
     let school = &w.high_schools[h];
     let local = you.is_some_and(|y| {

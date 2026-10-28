@@ -419,7 +419,7 @@ pub fn propose(w: &mut World, p: &Proposal) -> Result<Answer, String> {
 /// Executes a trade between your club and another: players move with
 /// their contracts, the seller keeps each player's bonus on its cap, picks
 /// change hands, a conditional pick goes on the books.
-fn execute(w: &mut World, me: usize, p: &Proposal) {
+pub(crate) fn execute(w: &mut World, me: usize, p: &Proposal) {
     let d = w.today;
     let year = w.year;
     let june1 = pro::after_june1(w, d);

@@ -308,6 +308,19 @@ pub struct Coach {
     /// Your own coach's four extra ratings; None for every AI coach.
     #[serde(default)]
     pub(crate) yours: Option<Yours>,
+    /// What he played and how good he was (C11); None if he never played
+    /// past high school.
+    #[serde(default)]
+    pub played: Option<super::former::Played>,
+    /// His name (C10), 1-20: what fans, boosters, recruits and small
+    /// schools know of him. `reputation` is his standing: what owners,
+    /// general managers, big programs' athletic directors and other coaches
+    /// think of his coaching. 0 in a world written before the split.
+    #[serde(default)]
+    pub renown: f64,
+    /// The part of his name that comes from his playing days, fading.
+    #[serde(default)]
+    pub fame: f64,
 }
 
 /// A college head coach's contract (trial 4 topic 4): the last season it
@@ -355,6 +368,20 @@ pub fn generate_coach(
     age: u32,
     rng: &mut Rng,
 ) -> Coach {
+    generate_coach_as(id, name, ethnicity, tier, age, None, rng)
+}
+
+/// The same, with whether he played in the NFL already known (a former
+/// player of the world's own, C11).
+pub fn generate_coach_as(
+    id: usize,
+    name: String,
+    ethnicity: Ethnicity,
+    tier: CoachTier,
+    age: u32,
+    pro: Option<bool>,
+    rng: &mut Rng,
+) -> Coach {
     let (mean, sd) = level_ability(tier);
     let core = rng.normal(mean, sd);
     let part = |rng: &mut Rng, spread: f64| clamp(core + rng.normal(0.0, spread), 1.0, 20.0);
@@ -372,11 +399,12 @@ pub fn generate_coach(
         .filter(|g| g.offense() == offense && *g != Group::Specialists)
         .max_by(|a, b| teaching[*a as usize].total_cmp(&teaching[*b as usize]))
         .unwrap_or(Group::ALL[0]);
-    let ex_pro = rng.chance(match tier {
+    let drawn = rng.chance(match tier {
         CoachTier::HighSchool => 0.04,
         CoachTier::Nfl => 0.35,
         _ => 0.12,
     });
+    let ex_pro = pro.unwrap_or(drawn);
     let mut ability = Ability {
         teaching,
         scheme: part(rng, 2.0),
@@ -443,6 +471,9 @@ pub fn generate_coach(
         style_set: None,
         freedom_norm: 0.0,
         yours: None,
+        played: None,
+        renown: 0.0,
+        fame: 0.0,
     }
 }
 
@@ -638,6 +669,20 @@ impl Coach {
         self.reputation += speed * 0.3 * (shown - self.reputation);
         self.reputation -= speed * 0.6 * locker_room;
         self.reputation = clamp(self.reputation, 1.0, 20.0);
+        // His name (C10) follows what he did as a player, fading, or what
+        // his coaching shows, whichever is bigger: a head coach's work is
+        // seen more than an assistant's (proposed, not confirmed: 0.75 and
+        // 0.5 of his standing, the roads' agreed name and standing pairs).
+        self.fame *= 0.99;
+        let seen = if head { 0.75 } else { 0.5 } * self.reputation;
+        let target = self.fame.max(seen);
+        let now = self.name_value();
+        self.renown = clamp(now + speed * 0.3 * (target - now), 1.0, 20.0);
+    }
+
+    /// His name (C10), 1-20.
+    pub fn name_value(&self) -> f64 {
+        if self.renown > 0.0 { self.renown } else { clamp(self.fame.max(0.5 * self.reputation), 1.0, 20.0) }
     }
 
     /// A title's boost, when it is won.
@@ -654,15 +699,32 @@ impl Coach {
                 TitleKind::National => 5.0,
             };
         self.reputation = clamp(self.reputation, 1.0, 20.0);
+        // A title makes a name as much as a standing (proposed, not
+        // confirmed: the same boost).
+        let name = self.name_value();
+        let room = ((20.0 - name) / 8.0).min(1.0);
+        let boost = match title {
+            TitleKind::None => 0.0,
+            TitleKind::Conference | TitleKind::State => 3.0,
+            TitleKind::National => 5.0,
+        };
+        self.renown = clamp(name + speed * room * (0.5 + 0.5 * stage.clamp(0.0, 1.0)) * boost, 1.0, 20.0);
     }
 
     /// What a hiring committee sees: reputation, bent by recency bias. The last
     /// season counts double and the one before it once; anything older is forgotten.
     pub fn hiring_buzz(&self) -> f64 {
+        self.hiring_buzz_for(0.0)
+    }
+
+    /// The same for a search that reads his name as well as his standing
+    /// (C10): `name` is the name's share, 0-1.
+    pub fn hiring_buzz_for(&self, name: f64) -> f64 {
         let n = self.recent.len();
         let last = if n >= 1 { self.recent[n - 1] } else { 0.0 };
         let before = if n >= 2 { self.recent[n - 2] } else { 0.0 };
-        self.reputation + 10.0 * last + 4.0 * before + self.stat_buzz
+        let base = (1.0 - name) * self.reputation + name * self.name_value();
+        base + 10.0 * last + 4.0 * before + self.stat_buzz
     }
 }
 
@@ -682,14 +744,17 @@ pub struct HiringNeeds {
     pub network: f64,
     pub teaching: f64,
     pub recruiting: f64,
+    /// How much the search reads his name rather than his standing (C10).
+    #[serde(default)]
+    pub name: f64,
 }
 
 pub fn hiring_needs(prestige: f64, is_high_school: bool) -> HiringNeeds {
     let p = clamp(prestige, 0.0, 1.0);
     if is_high_school {
-        HiringNeeds { network: 0.6 * (1.0 - p) + 0.05, teaching: 0.3 + 0.6 * p, recruiting: 0.0 }
+        HiringNeeds { network: 0.6 * (1.0 - p) + 0.05, teaching: 0.3 + 0.6 * p, recruiting: 0.0, name: 0.0 }
     } else {
-        HiringNeeds { network: 0.25 * (1.0 - p), teaching: 0.35 + 0.25 * p, recruiting: 0.4 - 0.1 * p }
+        HiringNeeds { network: 0.25 * (1.0 - p), teaching: 0.35 + 0.25 * p, recruiting: 0.4 - 0.1 * p, name: 0.0 }
     }
 }
 
@@ -699,7 +764,7 @@ pub fn candidate_score(c: &Coach, needs: HiringNeeds, rng: &mut Rng) -> f64 {
     let a = &c.ability;
     let teach: f64 = a.teaching.iter().sum::<f64>() / GROUP_COUNT as f64;
     let read = |v: f64, rng: &mut Rng| v + rng.normal(0.0, 2.5);
-    c.hiring_buzz()
+    c.hiring_buzz_for(needs.name)
         + needs.network * (read(a.network, rng) - 10.0) * 1.2
         + needs.teaching * (read(teach, rng) - 10.0) * 0.6
         + needs.recruiting * (read(a.recruiting, rng) - 10.0) * 0.6
