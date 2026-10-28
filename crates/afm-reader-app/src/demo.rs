@@ -86,6 +86,8 @@ pub fn write(path: &Path) -> Result<(), String> {
         COMMIT;",
     )
     .map_err(|e| e.to_string())?;
+    // One transaction: thousands of rows in milliseconds.
+    db.execute_batch("BEGIN").map_err(|e| e.to_string())?;
     let mut r = Lcg(2026);
     for (k, v) in [
         ("name", "Stand-in book (made-up numbers, for the look)"),
@@ -430,5 +432,6 @@ pub fn write(path: &Path) -> Result<(), String> {
             params![t, c, l, w, u, f, fun, src, yrs, dbg],
         ))?;
     }
+    db.execute_batch("COMMIT").map_err(|e| e.to_string())?;
     Ok(())
 }
