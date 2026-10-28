@@ -2112,6 +2112,8 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "ovr": reads::overall(w, k).json(),
         "yours": reads::mine(w, k).json(),
         "yours_looks": reads::seen(w, k).mine_looks,
+        "stake": stake_json(w, k),
+        "pitch": pitch_json(w, k),
         "potential": potential,
         "groups": groups,
         "tendencies": tendencies,
@@ -2794,4 +2796,40 @@ pub fn contracts(w: &World) -> Value {
         "room": (pro::money::price_cap(w.year) + carry - counted - dead).round(),
         "top51": top51,
     })
+}
+
+/// Your stake on him (SK40): whether you can stake your name on him here,
+/// and the call you made if you did.
+fn stake_json(w: &World, k: usize) -> Value {
+    use afm_engine::calendar::Level as L;
+    let p = &w.people[k];
+    let can = match w.seat.map(|s| s.level) {
+        Some(L::Nfl) => matches!(p.stage, Stage::College | Stage::Declared) && p.pro.is_none(),
+        Some(L::College) => matches!(p.stage, Stage::HighSchool | Stage::PrepSchool),
+        _ => false,
+    };
+    let on = afm_engine::world::scouting::stake::on(w, p.player.id).map(|s| {
+        json!({ "date": date_text(s.date), "public": s.public, "done": s.done, "hit": s.settled, "turned": s.turned })
+    });
+    json!({ "can": can, "on": on })
+}
+
+/// Your pitch to his family (SK42): whether a high school coach can try to
+/// bring him to his school, and where it stands if he did.
+fn pitch_json(w: &World, k: usize) -> Value {
+    let p = &w.people[k];
+    let Some(h) = afm_engine::world::front_office::school::your_school(w) else { return Value::Null };
+    let can = p.stage == Stage::HighSchool
+        && p.hs != h
+        && p.class_of > w.dates.season
+        && w.high_schools.get(p.hs).map(|x| x.state) == w.high_schools.get(h).map(|x| x.state);
+    let on = w
+        .scouting
+        .pitches
+        .list
+        .iter()
+        .rev()
+        .find(|x| x.id == p.player.id)
+        .map(|x| json!({ "date": date_text(x.date), "moved": x.moved, "done": x.done }));
+    json!({ "can": can, "on": on })
 }

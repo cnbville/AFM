@@ -49,6 +49,17 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             follow(w, pid, &text("why"))?;
             scout_file(w, pid)
         })(),
+        "hs_pitch" => (|| {
+            let pid = id()?;
+            let w = game.wm()?;
+            Ok(json!({ "text": afm_engine::world::scouting::pitch::pitch(w, pid)? }))
+        })(),
+        "stake_name" => (|| {
+            let pid = id()?;
+            let w = game.wm()?;
+            let public = args.get("public").and_then(Value::as_bool).unwrap_or(false);
+            Ok(json!({ "text": afm_engine::world::scouting::stake::stake(w, pid, public)? }))
+        })(),
         "unfollow" => (|| {
             let pid = id()?;
             let w = game.wm()?;

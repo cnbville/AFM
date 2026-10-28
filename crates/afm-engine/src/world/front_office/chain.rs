@@ -596,7 +596,7 @@ pub fn record(w: &World, coach: usize) -> Vec<&Call> {
 }
 
 /// How a kid turned out three years on: (a hit at your level, the words).
-fn turned(w: &World, id: u32, mine: Division) -> (bool, String) {
+pub(crate) fn turned(w: &World, id: u32, mine: Division) -> (bool, String) {
     let Some(i) = scouting::place(w, id) else { return (false, "out of football".into()) };
     let p = &w.people[i];
     if let Some((year, round, _, _)) = p.pro.as_ref().and_then(|x| x.draft) {

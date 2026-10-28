@@ -953,6 +953,18 @@ async function coreAct(act, el, ev) {
     }
     case "besideclose": closeBeside(); return true;
     case "besidefull": { const b = S.beside; closeBeside(); go(b.screen, b.args); return true; }
+    case "l7pitch": {
+      if (!(await sure(`Talk to ${d.name}'s family about your school?`, "Most state associations bar recruiting. In Texas an athletic transfer sits out a year. If it comes out, your school forfeits the games he played and you are suspended for a year.", "Make the pitch"))) return true;
+      try { const r = await api("hs_pitch", { id: Number(d.id) }); toast(r.text); refresh(el); } catch (e) { toast(e.message); }
+      return true;
+    }
+    case "l7stake": {
+      const id = Number(d.id);
+      let pub = await sure(`Say it in public: ${d.name} is your guy?`, "The press hears it. If he hits, the credit is bigger; if he busts, it costs you more. Three years will tell.", "Say it in public");
+      if (!pub && !(await sure(`Keep your call on ${d.name} between you and your staff?`, "Your staff knows. A hit still earns their respect; a bust costs a little.", "Keep it private"))) return true;
+      try { const r = await api("stake_name", { id, public: pub }); toast(r.text); refresh(el); } catch (e) { toast(e.message); }
+      return true;
+    }
     case "listadd":
     case "listremove": {
       const id = Number(d.id);
@@ -1334,9 +1346,23 @@ screens.player = async (a) => {
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
       <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
-      <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button></div></div></div></div>
+      <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button>${l7Stake(p)}</div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
+// Your name on him (lane 7, SK40): the button, or the call you made. At a
+// high school, the pitch to his family instead (SK42).
+function l7Stake(p) {
+  const hp = p.pitch;
+  if (hp && hp.on) return `<span class="st-pill ${hp.on.moved ? "good" : "gold"}" title="You talked to his family on ${esc(hp.on.date)}">${hp.on.moved ? "Came to your school" : hp.on.done ? "Stayed put" : "Family deciding by June"}</span>`;
+  if (hp && hp.can) return `<button class="st-btn glass" data-act="l7pitch" data-id="${p.id}" data-name="${esc(p.name)}" title="Talk his family into a transfer to your school: most states bar it">Recruit him to your school</button>`;
+  const s = p.stake;
+  if (!s) return "";
+  if (s.on) {
+    const how = s.on.done ? (s.on.hit ? `came true: ${s.on.turned}` : `didn't come through: ${s.on.turned}`) : "three years will tell";
+    return `<span class="st-pill ${s.on.done ? (s.on.hit ? "good" : "bad") : "gold"}" title="You staked your name on him ${s.on.public ? "in public" : "privately"} on ${esc(s.on.date)}; ${esc(how)}">Your guy${s.on.public ? ", on record" : ""}</span>`;
+  }
+  return s.can ? `<button class="st-btn glass" data-act="l7stake" data-id="${p.id}" data-name="${esc(p.name)}" title="Mark him as your guy: credit if he hits, a cost if he busts">Stake your name</button>` : "";
+}
 GOTO.player = (a, p) => [p.team ? ["Squad", "roster", p.team.ref ? { kind: p.team.ref.kind, id: p.team.ref.id } : {}] : null, p.team ? ["Schedule", "schedule", p.team.ref ? { kind: p.team.ref.kind, id: p.team.ref.id } : {}] : null, ["Leaderboards", "leaders"], ["My players", "myplayers"]];
 
 // ---------- compare (S8) ----------

@@ -1154,7 +1154,8 @@ pub(crate) fn squad_team(
             GamePlayer::from_player(p, know, 0.7 * years)
         })
         .collect();
-    let coach = school.coach;
+    // A suspended coach (SK42) is off the sideline: his staff coaches.
+    let coach = if super::scouting::pitch::sits(w, h) { None } else { school.coach };
     // Your guidelines pick your varsity's systems (update 2, G2) at camp:
     // at a high school the head coach calls both sides himself.
     let level = crate::calendar::Level::HighSchool;
