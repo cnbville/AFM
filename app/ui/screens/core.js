@@ -733,11 +733,14 @@ function letterHead(m) {
   const when = `${esc(m.pretty)}`;
   switch (m.head) {
     case "school":
-    case "club":
-      return `<div class="lh lh-school" style="--c1:${c[0]};--c2:${c[1]}"><span class="lh-crest">${esc(initials(m.org))}</span><div><b>${esc(m.org)}</b><small>${esc(m.org_line)}</small></div></div><div class="lh-date">${when}</div>`;
+    case "club": {
+      // The sender's own logo when a pack has it (screens/logos.js).
+      const lg = typeof logoFor === "function" ? logoFor({ name: m.org }) : null;
+      return `<div class="lh lh-school" style="--c1:${c[0]};--c2:${c[1]}">${lg ? `<span class="lh-crest lgo-lh">${logoImg(lg)}</span>` : `<span class="lh-crest">${esc(initials(m.org))}</span>`}<div><b>${esc(m.org)}</b><small>${esc(m.org_line)}</small></div></div><div class="lh-date">${when}</div>`;
+    }
     case "conference":
     case "league":
-      return `<div class="lh lh-office"><div class="lh-seal">${esc(initials(m.org))}</div><b>${esc(m.org)}</b><small>${esc(m.org_line)}</small></div><div class="lh-date">${when}</div>`;
+      return `<div class="lh lh-office">${(() => { const lg = typeof compLogo === "function" ? compLogo(m.org) : null; return lg ? `<div class="lh-seal lgo-seal">${logoImg(lg)}</div>` : `<div class="lh-seal">${esc(initials(m.org))}</div>`; })()}<b>${esc(m.org)}</b><small>${esc(m.org_line)}</small></div><div class="lh-date">${when}</div>`;
     case "paper":
       return `<div class="lh lh-paper"><div class="mast">${esc(m.org)}</div><small>${esc(m.org_line)}</small></div>`;
     case "email":
@@ -1269,7 +1272,7 @@ const PT = {
     return `${honors.length ? `<div class="panel"><h2>Honors</h2><div class="honors">${honors.map((h) => `<span class="tag gold">${esc(h)}</span>`).join("")}</div></div>` : ""}${pos}
       <div class="panel"><h2>Year by year</h2>${table("pcareer", [
         { k: "age", t: "Age" }, { k: "level", t: "Level", l: true }, { k: "pos", t: "Pos", l: true }, { k: "role", t: "Role", l: true },
-        { k: "team", t: "Team", l: true }, { k: "missed", t: "Missed" }, { k: "events", t: "What happened", l: true, wrap: true, f: (r) => esc((r.events || []).map(words).join(", ")) },
+        { k: "team", t: "Team", l: true, f: (r) => (r.team ? logoIn({ name: r.team }) + esc(r.team) : "") }, { k: "missed", t: "Missed" }, { k: "events", t: "What happened", l: true, wrap: true, f: (r) => esc((r.events || []).map(words).join(", ")) },
       ], p.history, { tools: false })}</div>
       ${p.career_story.length ? `<div class="panel"><h2>His story</h2><div class="items">${p.career_story.map((s) => `<div class="item story"><span>${rich(s)}</span></div>`).join("")}</div></div>` : ""}`;
   },
@@ -1328,7 +1331,7 @@ screens.player = async (a) => {
     : `<button class="st-btn glass" data-act="listadd" data-id="${p.id}">${icon("star")} Add to my players</button>`;
   return `<div class="hero phero" style="--c1:${c[0]};--c2:${c[1] || c[0]}"><div class="art"></div><div class="jersey" aria-hidden="true">${esc(p.jersey != null ? p.jersey : p.pos)}</div>
     <div class="phero-in">${face({ ...p, colors: c }, 132)}<div class="copy">
-      <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? teamA(p.team) : esc(p.where)}</div>
+      <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
       <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
       <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button></div></div></div></div>
@@ -1436,9 +1439,9 @@ screens.team = async (a) => {
     : `<div class="empty">${pro ? "The league's book of seasons starts with this world's next season." : "No seasons kept."}</div>`;
   const leaders = (t.leaders || []).length ? `<div class="panel"><h2>Last season's leaders</h2><div class="items">${t.leaders.map((l) => `<div class="item"><span class="when">${esc(l.label)}</span><span>${playerLink(l.id, l.name)} <small class="muted">${esc(l.pos)}</small><br><small>${esc(l.line)}</small></span></div>`).join("")}</div></div>` : "";
   const news = t.news.length ? `<div class="items">${t.news.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><small class="muted">${esc(n.kind)}</small> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing in the last two months.</div>';
-  return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div><div class="st-outline">${esc(initials(t.name))}</div><div class="copy"><div class="st-label">${esc(t.level)}</div><h1>${esc(t.name)}</h1>
+  return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(t.level)}</div><h1>${esc(t.name)}</h1>
     <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}${t.coach ? `<span>Head coach ${coachLink(t.coach.id, t.coach.name)}</span>` : ""}</div>
-    <div class="st-actions">${linkTo("roster", ta, "Roster", "st-btn glass")}${linkTo("schedule", ta, "Schedule", "st-btn glass")}${linkTo("staff", ta, "Staff", "st-btn glass")}</div></div></div>
+    <div class="st-actions">${linkTo("roster", ta, "Roster", "st-btn glass")}${linkTo("schedule", ta, "Schedule", "st-btn glass")}${linkTo("staff", ta, "Staff", "st-btn glass")}${logoChange(t)}</div></div></div>
     <div class="pad">${gotoFor("team", a, t)}<div class="grid2"><div class="col"><div class="panel"><h2>Lately</h2>${news}</div>${leaders}</div>
     <div class="col"><div class="panel"><h2>Seasons</h2>${seasons}</div>${t.rivals.length ? `<div class="panel"><h2>${pro ? "Division" : t.ref.kind === "hs" ? "Its group" : "Rivals"}</h2><div class="chips">${t.rivals.map((r) => teamChip(r, 20)).join("")}</div></div>` : ""}</div></div></div>`;
 };
@@ -1504,7 +1507,7 @@ screens.standings = async (a) => {
   let body = "";
   if (tab === "Standings") {
     const x = await api("standings", a.conference ? { conference: a.conference } : {});
-    const groups = x.groups.map((g) => `<div class="panel"><h2>${esc(g.name)}</h2>${table("st:" + g.name, [
+    const groups = x.groups.map((g) => `<div class="panel"><h2>${compIn(g.name)}${esc(g.name)}</h2>${table("st:" + g.name, [
       { k: "team", t: "Team", l: true, f: (t) => teamChip(t.team, 20), v: (t) => t.team.name },
       ...(g.teams[0] && g.teams[0].cw != null ? [{ k: "conf", t: "Conf", f: (t) => `${t.cw}-${t.cl}`, v: (t) => t.cw - t.cl + t.cw / 100 }] : []),
       { k: "all", t: "Overall", f: (t) => `<b>${t.w}-${t.l}${t.t ? "-" + t.t : ""}</b>`, v: (t) => t.w - t.l + t.w / 100 },
@@ -1654,6 +1657,7 @@ screens.settings = async () => {
     <div class="panel"><h2>Reading</h2>
     ${row("Hover cards", "A card when you rest on a name", seg("hover", [["", "On"], ["off", "Off"]], prefs.hover || ""))}
     ${row("Hover delay", "How long to rest first", seg("hoverDelay", [["250", "Quick"], ["", "Normal"], ["900", "Slow"]], prefs.hoverDelay || ""))}</div></div>
+    <div class="panel"><h2>Logos</h2>${row("Logo packs", "AFM has no logos of its own: install a pack, the way Football Manager's work", linkTo("logos", {}, "Logos", "st-btn small"))}</div>
     <div class="panel"><h2>Keys and clicks</h2><div class="keys">${keys.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join("")}</div></div></div>`;
 };
 
