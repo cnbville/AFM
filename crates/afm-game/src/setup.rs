@@ -957,8 +957,10 @@ pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
         ethnicity,
         home_state,
         ex_pro: b.ex_pro,
-        reputation: b.reputation,
-        teaching,
+        // Your standing and your name (C10's agreed values).
+        reputation: b.standing,
+        renown: b.name_rep,
+        played: played_grade(b.key),
         scheme: at("scheme"),
         game_management: at("game_management"),
         motivation: at("motivation"),
@@ -986,8 +988,25 @@ pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
         // Read from your road and your people ratings when the career starts.
         aura: 0.0,
         came_up: group.map(|g| afm_engine::world::coach::Group::ALL[g]),
+        teaching,
     };
     Ok(you)
+}
+
+/// How good a player a road was (C11): the pros' grades, a college
+/// starter, and the coaching roads as college backups (they played in
+/// college, `played_college`); none for the man who never played.
+fn played_grade(key: &str) -> Option<u8> {
+    use afm_engine::world::former as f;
+    match key {
+        "nfl_star" => Some(f::STAR),
+        "nfl_pro_bowl" => Some(f::PRO_BOWLER),
+        "nfl_starter" => Some(f::NFL_STARTER),
+        "nfl_journeyman" => Some(f::JOURNEYMAN),
+        "college_player" => Some(f::STARTER),
+        "never_played" => None,
+        _ => Some(f::BACKUP),
+    }
 }
 
 /// How strong each tie your road brings starts (C9; proposed, not

@@ -16,6 +16,7 @@
 //! Every size no real source publishes is Claude's pick (proposed, not
 //! confirmed), listed in `docs/world-model.md`.
 
+pub mod backchannel;
 pub mod boss;
 pub mod cast;
 pub mod courts;
@@ -30,6 +31,7 @@ pub mod staffing;
 pub mod takeover;
 pub mod talks;
 pub mod ties;
+pub mod tips;
 pub mod voice;
 
 use super::World;
@@ -291,6 +293,10 @@ pub struct Folk {
     pub goals: Vec<boss::Goal>,
     pub asks: Vec<boss::Ask>,
     pub network: network::Network,
+    /// Tips from people you know (SK35, C14).
+    pub tips: tips::Tips,
+    /// What people you know do for you besides tips (C15-C19).
+    pub backchannel: backchannel::Backchannel,
     pub ties: ties::Ties,
     pub hs_staffs: staffing::HsStaffs,
     pub staff: staffing::Staffs,
@@ -364,6 +370,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     talks::day(w, d);
     boss::day(w, d);
     network::day(w, d);
+    backchannel::day(w, d);
     press::day(w, d);
     if w.seat.is_some() {
         takeover::day(w, d);
