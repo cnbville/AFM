@@ -29,6 +29,9 @@ on:
       quick:
         description: "A quick stand-in world for the star mix check only (yes or no)"
         default: "no"
+      keep:
+        description: "Keep the built world as a run artifact for 3 days (yes or no)"
+        default: "no"
 jobs:
   world:
     runs-on: ubuntu-latest
@@ -78,6 +81,14 @@ jobs:
           path: |
             star_mix.txt
             dynasty_why.txt
+      - uses: actions/upload-artifact@v4
+        if: inputs.keep == 'yes' && inputs.check == '' && inputs.quick != 'yes'
+        continue-on-error: true
+        with:
+          name: world
+          path: out/*.afmworld
+          retention-days: 3
+          compression-level: 0
       # A release file may be at most 2 GB, so a bigger world goes up in parts
       # (name.afmworld.001, .002, ...), which the game joins.
       - name: Publish it on the worlds page
