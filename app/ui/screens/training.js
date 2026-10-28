@@ -643,7 +643,7 @@ function twWhere(x) {
   return `<div class="grid2 tw-g2">${box("Rehab group, with the trainers' step", `${w.rehab.length}`, w.rehab.map((r) => [pl(r.p), `${esc(r.what)}${r.since ? ` · since ${esc(r.since)}` : ""}`, esc(r.step), esc(r.back)]), "Nobody in rehab this week.")}
     ${box("New arrivals", "the last four weeks", w.arrivals.map((a) => [pl(a.p), esc(a.how), esc(a.at)]), "Nobody new in the last four weeks.")}
     ${box("At another sport, or away", w.away.length ? `${w.away.length} at other sports` : "", away, w.tier === "nfl" ? "Nobody away: NFL players play no other sport." : "Nobody away this week.")}
-    ${box("Study hall", w.tier === "nfl" ? "" : `${w.flagged} flagged · under a ${w.line.toFixed(1)} GPA${w.tier === "college" ? ", or first semester" : ""}`, w.study.map((s) => [pl(s.p), `<span class="${s.risk ? "amber" : ""}">${esc(s.why)}</span>`]), w.tier === "nfl" ? "No study hall at this level." : "Nobody flagged.")}</div>`;
+    ${box("Study hall", w.tier === "nfl" ? "" : `${w.flagged} flagged · ${esc(w.line)}`, w.study.map((s) => [pl(s.p), `<span class="${s.risk ? "amber" : ""}">${esc(s.why)}</span>`]), w.tier === "nfl" ? "No study hall at this level." : "Nobody flagged.")}</div>`;
 }
 function twHow() {
   return `${twPh("How prep plays out", "")}

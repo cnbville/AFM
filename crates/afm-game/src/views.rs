@@ -516,6 +516,17 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
                 None => format!("Non-football injury list, {back}"),
             }
         });
+    // Another team's player hurt in a game or practice (update 3, A1, F13).
+    let hurt = hurt.or_else(|| {
+        w.training.other_hurt(p.player.id, w.today).map(|(until, kind)| {
+            let days = w.today.days_to(until);
+            let back = if days <= 7 { format!("{days} d") } else { format!("{} wk", (days + 6) / 7) };
+            match kind {
+                Some(k) => format!("Injured ({}), {back}", k.name().to_lowercase()),
+                None => format!("Out, {back}"),
+            }
+        })
+    });
     if let Some(c) = &p.pro {
         use afm_engine::world::pro::Status;
         let s = match c.status {

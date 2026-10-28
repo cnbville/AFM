@@ -232,6 +232,20 @@ pub fn city(w: &World, t: usize, year: i32) -> (String, String) {
         .map_or(("".into(), "".into()), |e| (e.city.to_string(), e.state.to_string()))
 }
 
+/// Whether a club's home field is artificial turf (update 3, F24): the
+/// real field to 2026; after that the same stadium keeps its field and a
+/// new one is turf under a roof and grass in the open (proposed, not
+/// confirmed: as the domes and the open stadiums built since 2016 are).
+pub fn turf(w: &World, t: usize, year: i32) -> bool {
+    let real = data::stint(t, year.min(franchise::PRESENT)).map(|st| st.name);
+    match w.finance.nfl.get(t) {
+        Some(c) if year > franchise::PRESENT && !c.home.name.is_empty() && Some(c.home.name.as_str()) != real => {
+            c.home.dome
+        }
+        _ => data::turf(t, year.min(franchise::PRESENT)),
+    }
+}
+
 /// Whether a club's stadium has a roof (the real one to 2026, then the
 /// stadium it plays in).
 pub fn roof(w: &World, t: usize, year: i32) -> Roof {

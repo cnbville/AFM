@@ -35,6 +35,12 @@ pub struct TeamWeek {
     pub battle: Vec<(super::plan::Kind, super::plan::Who, u8, f32)>,
     /// What the week gives each role for its prep (TR36, TR42).
     pub prep: super::prep::PrepWeek,
+    /// For college and high school practice injuries (update 3, F13): days
+    /// with field work, full contact against the neutral week's (to the
+    /// 0.7) and the week's mobility work (`seat::limber_of`).
+    pub practices: f64,
+    pub contact: f64,
+    pub limber: f64,
 }
 
 /// The year's frames: each college division, the NFL, each state.
@@ -126,8 +132,51 @@ fn bucket_style(k: u8) -> Style {
     Style { physical: v(k / 9), freedom: v(k / 3 % 3), risk: v(k % 3), ..Style::default() }
 }
 
+/// The days of a week a state's heat rule cuts (update 3, F9): July to
+/// September days with a 3 pm heat index of 104 F or more, as bits from
+/// Monday, with each day's index.
+pub fn hot_days(seed: u64, state: usize, code: &str, monday: Date) -> (u8, [f64; 7]) {
+    let mut bits = 0u8;
+    let mut hi = [0.0; 7];
+    for (k, h) in hi.iter_mut().enumerate() {
+        let date = monday.add(k as i32);
+        if !(7..=9).contains(&date.parts().1) {
+            continue;
+        }
+        *h = crate::calendar::weather::weather_at(seed, state, code, date, 15).heat_index();
+        if *h >= 104.0 {
+            bits |= 1 << k;
+        }
+    }
+    (bits, hi)
+}
+
+/// A heat rule's cut (update 3, F9): on a hot day the practice runs an hour,
+/// moved to the evening or indoors; every field period shrinks to fit and
+/// the meetings and the weight room stay. Returns the days it cut.
+pub fn heat_cut(wk: &mut Week, hot: u8) -> u8 {
+    let mut cut = 0u8;
+    for (k, day) in wk.days.iter_mut().enumerate() {
+        if hot & (1 << k) == 0 || day.game {
+            continue;
+        }
+        let field: f64 = day.periods.iter().filter(|p| p.kind.on_field()).map(|p| p.min as f64).sum();
+        if field <= 60.0 {
+            continue;
+        }
+        let f = 60.0 / field;
+        for p in day.periods.iter_mut().filter(|p| p.kind.on_field()) {
+            p.min = (p.min as f64 * f).round() as u8;
+        }
+        day.periods.retain(|p| !p.kind.on_field() || p.min > 0);
+        cut |= 1 << k;
+    }
+    cut
+}
+
 /// Works out a week for a staff style and the week's games: the plan, the
-/// neutral plan, and what each role gets against it.
+/// neutral plan, and what each role gets against it. `hot` is the days a
+/// heat rule cuts (`hot_days`).
 #[allow(clippy::too_many_arguments)]
 pub fn work_out(
     tier: Tier,
@@ -138,10 +187,14 @@ pub fn work_out(
     bowl: bool,
     state: &str,
     heat: bool,
+    hot: u8,
 ) -> (TeamWeek, Week) {
     let block = block_of_week(f, monday);
     let bk = books(f, monday, state, heat);
-    let wk = staff_week(tier, f, monday, games, bowl, state, heat, &|s| styled(tier, s, style));
+    let mut wk = staff_week(tier, f, monday, games, bowl, state, heat, &|s| styled(tier, s, style));
+    if heat {
+        heat_cut(&mut wk, hot);
+    }
     let nk = staff_week(tier, f, monday, games, bowl, state, heat, &|s| neutral(tier, s));
     (team_week(f, block, &bk, &wk, &nk), wk)
 }
@@ -224,7 +277,10 @@ pub fn team_week(f: &Frame, block: Block, bk: &[Book; 7], wk: &Week, nk: &Week) 
     let _ = f;
     let battle = if own { Vec::new() } else { super::practice::team_snaps(wk) };
     let prep = super::prep::prep_week(wk, nk, camp, own);
-    TeamWeek { block, r, load, risk, own, voluntary, battle, prep }
+    let practices = wk.days.iter().filter(|x| x.periods.iter().any(|p| p.kind.on_field())).count() as f64;
+    let contact = ((full + 10.0) / (nfull + 10.0)).powf(0.7);
+    let limber = super::seat::limber_of(wk, nk);
+    TeamWeek { block, r, load, risk, own, voluntary, battle, prep, practices, contact, limber }
 }
 
 /// How hard a player works on his own (topic 9): his professionalism and
@@ -342,6 +398,13 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     keys.extend(prog_key.iter().chain(club_key.iter()).chain(school_key.iter()).copied());
     keys.sort_by_key(|k| (k.tier, k.unit, k.style, k.mask, k.bowl));
     keys.dedup();
+    // Each heat-rule state's hot days this week (update 3, F9).
+    let hot: Vec<u8> = frames
+        .states
+        .iter()
+        .enumerate()
+        .map(|(s, (_, _, code, heat))| if *heat { hot_days(w.options.seed as u64, s, code, d).0 } else { 0 })
+        .collect();
     let worked: HashMap<Key, TeamWeek> = keys
         .par_iter()
         .map(|k| {
@@ -350,13 +413,13 @@ pub(crate) fn monday(w: &mut World, d: Date) {
             let tw = match k.tier {
                 0 => {
                     let (f, _, code, heat) = &frames.states[k.unit as usize];
-                    work_out(Tier::High, f, d, &st, &games, false, code, *heat).0
+                    work_out(Tier::High, f, d, &st, &games, false, code, *heat, hot[k.unit as usize]).0
                 }
                 1 => {
                     let f = &frames.college[k.unit as usize];
-                    work_out(Tier::College, f, d, &st, &games, k.bowl, "", false).0
+                    work_out(Tier::College, f, d, &st, &games, k.bowl, "", false, 0).0
                 }
-                _ => work_out(Tier::Pro, &frames.pro, d, &st, &games, false, "", false).0,
+                _ => work_out(Tier::Pro, &frames.pro, d, &st, &games, false, "", false, 0).0,
             };
             (*k, tw)
         })
@@ -439,6 +502,7 @@ pub(crate) fn monday(w: &mut World, d: Date) {
         skip[i] = true;
     }
     let (people, programs, schools) = (&mut w.people, &w.programs, &w.high_schools);
+    let others_hurt = &w.training.others_hurt;
     let n_progs = programs.len();
     let _ = n_progs;
     let year = w.year;
@@ -473,10 +537,16 @@ pub(crate) fn monday(w: &mut World, d: Date) {
                 Stage::Done | Stage::Away => return None,
             };
             let block = block_of_week(frame, d);
-            let out = p.pro.as_ref().is_some_and(|c| super::prep::out_this_week(c.out_weeks));
+            // A college or high school player hurt in a game or practice
+            // (update 3, A1, F13) is out while he isn't back within three
+            // days of Monday, as on your team.
+            let out = p.pro.as_ref().is_some_and(|c| super::prep::out_this_week(c.out_weeks))
+                || others_hurt.get(&p.player.id).is_some_and(|x| x.0 > d.add(3));
             let absent = tw.is_some_and(|tw| !tw.own && tw.voluntary) && !attends(&p.player, pkey);
+            // Not at a voluntary week, he doesn't take the team week's load
+            // (update 3, F10).
             let load = match tw {
-                Some(tw) if !tw.own && !out => tw.load[role as usize],
+                Some(tw) if !tw.own && !out && !absent => tw.load[role as usize],
                 _ => 150.0,
             };
             p.player.train.add_load(load);
@@ -565,6 +635,62 @@ pub(crate) fn monday(w: &mut World, d: Date) {
         .collect();
     if block_of_week(&frames.pro, d) == Block::Otas {
         absent_news(w, &missing);
+    }
+    // Practice injuries on every other college and high school team (update
+    // 3, F13), by your team's rules: the block's rate, the week's contact
+    // against the neutral week's, his proneness and load spike, a quarter
+    // for specialists, the week's mobility work. Not for a player hurt
+    // already or absent from a voluntary week.
+    let hurt_seed = w.options.seed ^ d.0 as u32 ^ 0x1A7E;
+    let others_hurt = &w.training.others_hurt;
+    let new_hurt: Vec<(u32, Date, crate::game::sim::InjuryKind)> = w
+        .people
+        .par_iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            if skip[i] {
+                return None;
+            }
+            let (tw, tier) = match p.stage {
+                Stage::HighSchool | Stage::PrepSchool => (worked.get(&school_key[p.hs])?, Tier::High),
+                Stage::College => (worked.get(&prog_key[p.college?])?, Tier::College),
+                _ => return None,
+            };
+            if tw.own || tw.practices == 0.0 || others_hurt.get(&p.player.id).is_some_and(|x| x.0 > d) {
+                return None;
+            }
+            if tw.voluntary && !attends(&p.player, pkey) {
+                return None;
+            }
+            let id = p.player.id;
+            let role = Role::of(p.player.position, p.last_role);
+            let exposure = if role == Role::Specialist { 0.25 } else { 1.0 };
+            let spike = p.player.train.spike();
+            let chance = super::seat::injury_chance(
+                tier,
+                tw.block,
+                tw.practices,
+                tw.contact,
+                p.player.injury_proneness,
+                exposure,
+                spike,
+            ) * (0.77 + 0.23 * tw.limber);
+            let mut rng = crate::rng::Rng::new(hurt_seed ^ id.wrapping_mul(0x9E37_79B1));
+            if !rng.chance(chance) {
+                return None;
+            }
+            let kind = super::seat::practice_kind(&mut rng, tw.contact, super::seat::soft_tissue(spike) * tw.limber);
+            let weeks = crate::game::sim::injury_weeks(kind, &mut rng) * (1.3 - 0.03 * p.player.game.recovery);
+            let days = (weeks * 7.0).round().max(1.0) as i32;
+            let day = rng.int(0, 5);
+            Some((id, d.add(day + days), kind))
+        })
+        .collect();
+    for (id, back, kind) in new_hurt {
+        let e = w.training.others_hurt.entry(id).or_insert((back, Some(kind)));
+        if back > e.0 {
+            *e = (back, Some(kind));
+        }
     }
     // The week's growth reaches the college teams kept for the season.
     refresh_college_teams(w);
