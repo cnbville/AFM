@@ -474,5 +474,32 @@
     if (!queued) { queued = true; requestAnimationFrame(scan); }
   }).observe(document.getElementById("app"), { childList: true, subtree: true });
 
-  window.AFMFaces = { refresh, silhouette, dot };
+  // Pictures for any screen (the Home hero's plates, team photo and wall):
+  // put(id, src) for each face as it comes, from the cache, the save's
+  // folder, or drawn now; a face without one keeps its initials.
+  async function pics(ids, put) {
+    const need = [];
+    for (const id of ids) {
+      const f = cache.get(id);
+      if (f && (f.photo || f.drawn)) put(id, f.photo || f.drawn);
+      else if (f && f.spec) drawHead(f.id, f.key, f.spec).then((url) => url && put(id, url));
+      else if (!f) need.push(id);
+    }
+    for (let k = 0; k < need.length; k += 200) {
+      let x;
+      try { x = await api("faces", { ids: need.slice(k, k + 200) }); } catch (e) { return; }
+      for (const f of x.faces) {
+        cache.set(f.id, f);
+        if (f.photo || f.drawn) put(f.id, f.photo || f.drawn);
+        else if (f.spec) {
+          drawHead(f.id, f.key, f.spec).then((url) => {
+            if (!url) return;
+            cache.set(f.id, { ...f, drawn: url, spec: null });
+            put(f.id, url);
+          });
+        }
+      }
+    }
+  }
+  window.AFMFaces = { refresh, silhouette, dot, pics };
 })();

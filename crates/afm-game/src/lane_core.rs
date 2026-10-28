@@ -11,6 +11,7 @@
 //! file the morning's mail.
 
 pub mod desk;
+pub mod hero;
 pub mod links;
 pub mod mail;
 pub mod pages;

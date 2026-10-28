@@ -107,8 +107,9 @@ pub fn dashboard(w: &World) -> Value {
     let texts: Vec<&str> = recent.iter().map(|(_, e)| e.text.as_str()).collect();
     let linker = Linker::new(w, &texts, matches!(me, TeamRef::HighSchool(_)));
 
-    // 9a: the hero's slides.
-    let mut slides = Vec::new();
+    // 9a: the hero's slides: the three big ones first (lane 16, HH1-HH4),
+    // then the season's own.
+    let mut slides = super::hero::slides(w, me);
     if let Some(g) = views::next_game(w, me) {
         let opp = &g["opp"];
         let home = g["home"].as_bool().unwrap_or(false);
@@ -263,6 +264,7 @@ pub fn dashboard(w: &World) -> Value {
         "words": words,
         "around": around,
         "mail": mail_rows,
+        "know": super::hero::know(w, me),
     })
 }
 

@@ -884,6 +884,30 @@ The world's former players (`world/former.rs`), what playing does for a coach, h
 - C18: every state on California's rule for now, ruled two times in five (a year out and half a point of standing), the call's window (March-June Thursdays, an eighth of the weeks, once a year), a broken promise costing 0.3 warmth.
 - C19: the ten days before the market, a fifth of weekdays, once a year; the ask shaded by 0.25 × (1 - honesty); a leak one time in ten, ruled on June 1; the first word worth 2% on his offer score.
 
+### Lane 16: the Home hero (HH1-HH5)
+
+Home opens on three big slides before the season's own (`lane_core/hero.rs` builds them, `screens/hero.js` and `hero.css` draw them; `pages.rs` puts them first in `dashboard`). Every old slide stays after them: the next game, the last result, the loud news, the recruiting class and your team. The slides are a list the game builds, so more can join it.
+
+- **A, under the lights (HH1).** The stadium at night from the end-zone camera, drawn in SVG. The seats fill to last season's real crowd share (average home crowd over capacity), empty seats grey. End zones and midfield carry the team's colors, nickname (the school's name at high school) and crest. The captains stand in a row of nameplates below midfield, each with his drawn head, position, class and one line. The board at the far end says "Welcome, Coach <surname>" on day one. Cards: the headline and line, the road from here (the next seven dated things), the lower third (crest, stadium, place, record, seats, crowd with its bar, season tickets, boosters, sell-outs or waitlist), and what's asked of you (the boss's words, the expectation, the rival line).
+- **B, the program's story (HH2).** "You are the Nth head coach since 1996", three big numbers by level, the wins of every season on record as bars shaded by coach with gold tops for titles, this season's bar dashed, the next mark as a dashed line. "What you could be the first to do" lists up to five marks from the record book, and "On the wall" four legends with drawn heads (initials once retired). At high school the wall is "Leaving in June": the seniors who signed or committed.
+- **C, the room (HH3).** A team photo on three risers (offense back, defense middle, captains and specialists front) with an empty "You" spot in the middle of the front row, a real caption naming each row, and the facts: how many, who is unhappy, who is hurt, the seniors leaving or signees arriving, the mood.
+- **Switching (HH4).** Arrows and dots sit in a bar under the slide, always visible, with the slide's name. A picked slide is remembered by its kind, so Home opens on it next time. The 8-second timer stays and pauses while the pointer is over the slides.
+- **After day one (HH5).** A shows the next game when it is two weeks away or less, then the last result (the board shows the final), the record and the last home crowd. B's marks turn done or missed as this season goes. C shows this season's starters and record once the games begin, and its facts follow the room.
+- **Under the hero.** The go-to chips (the inbox with its unread count, History added), and "People to know first": three people with drawn heads and why (the unhappiest player, a captain, the most hurt).
+
+#### Claude's picks (proposed, not confirmed)
+
+- Day one is the day the career starts. A's headline after it: a game within 14 days, else a result within 14 days, else "This season" or "Between seasons" with the program's story.
+- The board is drawn at high school and college only. The crowd comes from last season's home games on the season pages, else the books' last closed season. The fill is capped at 100%.
+- Captains: up to six plates below midfield. When a plate would cover a card, the row moves up, then drops its stat line. NFL crests use the city (DAL, KC; NYG and NYJ, LAR and LAC add the nickname).
+- The road lists your own dated things and the calendar's dated loud events.
+- The rival line: the first rivalry series at college, the stored rival at high school, the division standings by win share at the NFL.
+- The story headline picks, in order: a title streak, defending champions, a drought (no winning record in 3+ years, no ten-win season in 8+ years at college, no playoffs in 4+ years at the NFL), a winning streak.
+- Marks by level. College: a winning season, beat the rival, ten wins, a conference title, a first-round pick (when none for two years), a national title. High school: the title streak or a state title, an unbeaten season, the Nth title, the coach wins record, sending seniors up. NFL: back to the playoffs, a Super Bowl, one win better than the best season, your first draft class. A mark is done by one of your seasons or this one, missed once this season can't reach it.
+- The wall's order. College: Hall of Fame 100, each award 30, each All-America 12, each all-conference 2, each NFL award 20, ten at least. NFL: MVP 40, Super Bowl MVP 35, offensive or defensive player of the year 30, comeback 12, the rest 15. A thin wall fills with the program's highest draft picks.
+- People to know: the unhappiest player first, then a captain, the most hurt, more captains.
+- An assistant's career: B names the head coach you join ("You join X, the Nth head coach since 1996"), and C's empty spot shows your job.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).
