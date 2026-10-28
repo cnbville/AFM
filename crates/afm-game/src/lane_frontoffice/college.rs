@@ -1217,6 +1217,8 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
     v["nil_era"] = json!(ncaa::nil_era(w.year));
     v["nil_yours"] = json!(w.front_office.owner(Duty::Nil) == Owner::You);
     v["board_yours"] = json!(w.front_office.owner(Duty::Board) == Owner::You);
+    // Whether he can be recruited now: a player page shows your moves only then (minor bug 58).
+    v["recruitable"] = json!(desk::recruitable(w, i).is_ok());
     v["visits_yours"] = json!(w.front_office.owner(Duty::Visits) == Owner::You);
     v["nil_max"] = json!(ncaa::position_nil_max(p.player.position));
     v["budget"] = budget_json(w, j);
