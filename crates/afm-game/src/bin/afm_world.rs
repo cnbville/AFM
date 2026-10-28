@@ -18,4 +18,12 @@ fn main() {
     })
     .unwrap_or_else(|e| panic!("{e}"));
     eprintln!("{} written in {:.0}s", to.display(), t.elapsed().as_secs_f64());
+    // The world log beside it (world reader): its size on disk.
+    let log = to.with_extension("afmlog");
+    if let Ok(meta) = std::fs::read(log.join("meta.json"))
+        && let Ok(m) = serde_json::from_slice::<serde_json::Value>(&meta)
+    {
+        let gb = m["bytes"].as_f64().unwrap_or(0.0) / 1e9;
+        eprintln!("{} written: {gb:.2} GB", log.display());
+    }
 }

@@ -627,6 +627,10 @@ fn rollover(w: &mut World) {
     w.prev_dates = Some(std::mem::replace(&mut w.dates, dates));
     print_profile(w.year);
     w.year = next;
+    // Every game of the seasons before is played: their log files close.
+    if let Some(l) = w.wlog.as_mut() {
+        l.close_before(next);
+    }
 }
 
 /// February signing day, then the year-end book for `season`: program

@@ -1493,6 +1493,37 @@ pub(crate) fn ratio_starters_from(
     changed.into_iter().map(|li| (lists[li].0, lists[li].1.iter().map(|x| x.1).collect())).collect()
 }
 
+/// The world reader's game log: an other-league game's row, its snaps and
+/// its situation totals (teams are franchise numbers). Only watches.
+fn log_game(
+    w: &mut World,
+    (k, year, wk, round, neutral, d): (u8, i32, usize, u8, bool, Date),
+    teams: [usize; 2],
+    r: &GameResult,
+    sides: [&GameTeam; 2],
+) {
+    let league = league_name(k, year);
+    let mut head = serde_json::Map::new();
+    head.insert("level".into(), "other".into());
+    head.insert("league".into(), league.into());
+    head.insert("season".into(), year.into());
+    head.insert("date".into(), d.to_string().into());
+    head.insert("week".into(), (wk + 1).into());
+    head.insert("kind".into(), if round > 0 { "playoff" } else { "regular" }.into());
+    head.insert("round".into(), round.into());
+    head.insert("teams".into(), serde_json::json!(teams));
+    head.insert("names".into(), serde_json::json!(teams.map(|t| name(t, year))));
+    head.insert("neutral".into(), neutral.into());
+    let row = crate::world::log_games::game_row(head, r, Some(sides));
+    let plays = crate::world::log_games::plays_json(&r.stats);
+    let situ = crate::world::game_log::game_situations(&r.stats);
+    let Some(l) = w.wlog.as_mut() else { return };
+    l.add_situations(year, "other", league, teams, situ);
+    let id = l.next_id(year, "other");
+    l.line(year, "games-other", &crate::world::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
+    l.line(year, "plays-other", &crate::world::log_games::plays_line(id, &plays));
+}
+
 /// A week of games (or a playoff round): each on the engine under the
 /// league's rule book, all cores; the lines go on each player's page.
 fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
@@ -1585,6 +1616,9 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             let (Some(Some(sh)), Some(Some(sa))) = (sides.get(&h), sides.get(&a)) else { continue };
             record(w, k, [h, a], &r, [&sh.who, &sa.who]);
             let teams = [h as usize, a as usize];
+            if w.logging() {
+                log_game(w, (k, year, wk, round, neutral, d), teams, &r, [&sh.team, &sa.team]);
+            }
             w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref());
             w.seat_line(crate::calendar::Level::Other, teams, None, neutral);
             crate::world::stories::other_game(w, teams, &r.stats, round > 0);

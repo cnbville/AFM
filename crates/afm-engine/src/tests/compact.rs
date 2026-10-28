@@ -41,6 +41,26 @@ fn a_stat_row_keeps_every_value_and_the_file_shape() {
     }
 }
 
+/// A world file from before the world reader's stats (65 a row) still
+/// loads: the stats it lacks read as zero.
+#[test]
+fn an_older_shorter_stat_row_still_reads() {
+    #[derive(serde::Serialize)]
+    struct Old {
+        s: Vec<f32>,
+    }
+    #[derive(serde::Deserialize)]
+    struct New {
+        s: StatSet,
+    }
+    let old: Vec<f32> = (0..65).map(|k| k as f32 + 0.5).collect();
+    let bytes = rmp_serde::to_vec_named(&Old { s: old.clone() }).unwrap();
+    let back: New = rmp_serde::from_slice(&bytes).unwrap();
+    for k in 0..STAT_COUNT {
+        assert_eq!(back.s.get(k), old.get(k).copied().unwrap_or(0.0), "stat {k}");
+    }
+}
+
 #[test]
 fn season_rows_grow_by_one_not_by_doubling() {
     use crate::development::{SeasonContext, develop_season};

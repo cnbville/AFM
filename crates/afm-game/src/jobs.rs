@@ -133,20 +133,43 @@ pub fn build_world_file_named(
     let to = worlds.join(format!("{name}.afmworld"));
     let mut seasons = 0;
     let names = if fictional { NameMode::Fictional } else { NameMode::Real };
-    let opts =
-        WorldOptions { seed, history_years: years, scale, names, fictional_league: fictional, ..Default::default() };
-    let w = World::new_stoppable(opts, |w, _| {
+    // The world log (world reader): every recorded season's games, plays
+    // and situations, written beside the world file as the history plays.
+    let log_to = worlds.join(format!("{name}.afmlog"));
+    let log_part = worlds.join(format!("{name}.afmlog.part"));
+    let _ = std::fs::remove_dir_all(&log_part);
+    let opts = WorldOptions {
+        seed,
+        history_years: years,
+        scale,
+        names,
+        fictional_league: fictional,
+        log_dir: Some(log_part.clone()),
+        ..Default::default()
+    };
+    let mut w = World::new_stoppable(opts, |w, _| {
         seasons += 1;
         each(seasons, w.year - 1)
     })
     .ok_or(STOPPED)?;
     // Seasons done: 0 says the world is being written.
     each(0, 0);
+    let logged = w.finish_log();
     let part = to.with_extension("afmworld.part");
     let commit = option_env!("AFM_COMMIT").unwrap_or(env!("CARGO_PKG_VERSION"));
     afm_engine::save::write_world(&w, &part, commit, &files::now_utc(), Some(crate::cards::card(&w)))
         .and_then(|_| std::fs::rename(&part, &to))
         .map_err(|e| format!("Could not write the world: {e}"))?;
+    // The log goes beside the world it belongs to; a log that failed is
+    // left as `.afmlog.part` with its error in the build's output.
+    match logged {
+        Some(Ok(_)) => {
+            let _ = std::fs::remove_dir_all(&log_to);
+            std::fs::rename(&log_part, &log_to).map_err(|e| format!("Could not keep the world log: {e}"))?;
+        }
+        Some(Err(e)) => eprintln!("The world log stopped: {e}"),
+        None => {}
+    }
     Ok(to)
 }
 

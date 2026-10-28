@@ -177,6 +177,10 @@ struct HsPlayed {
     tally: super::charts::Tally,
     /// A final at a neutral site.
     neutral: bool,
+    /// The world reader's game log: the game's row, when a log is open,
+    /// and its situation totals (for it or the trial game log).
+    log: Option<Vec<u8>>,
+    situ: Option<super::game_log::GameSitu>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -939,6 +943,9 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     let (mut homecomings, mut senior_nights) = (0, 0);
     let mut outcomes: Vec<(usize, usize)> = Vec::new();
     let mut engine: Vec<(usize, usize, u64)> = Vec::new();
+    // Games decided off the engine, for the world reader's game log: home,
+    // away, whether the home side won, a forfeit.
+    let mut standins: Vec<(usize, usize, bool, bool)> = Vec::new();
     for g in hs.groups.iter().filter(|g| g.state == s) {
         let Some(week) = g.schedule.get(k) else { continue };
         for &(h, a) in week {
@@ -981,6 +988,7 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
                 );
                 key_uniform(seed ^ 0x55, key) < p
             };
+            standins.push((h, a, home_wins, fh || fa));
             let (wn, l) = if home_wins { (h, a) } else { (a, h) };
             hs.results[wn].wins += 1;
             hs.results[l].losses += 1;
@@ -992,6 +1000,12 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     w.log.hs_no_contests += no_contests;
     w.log.hs_homecomings += homecomings;
     w.log.hs_senior_nights += senior_nights;
+    if w.logging() {
+        for (h, a, home_wins, forfeit) in standins {
+            let head = hs_head(w, s, k, d, [h, a], false);
+            log_hs_standin(w, head, home_wins, forfeit);
+        }
+    }
     let played = engine_games(w, s, k, &engine, (d, &wx), false, seed ^ 0x55);
     let hs = w.hs_season.as_mut().unwrap();
     let mut all: Vec<(usize, usize)> = outcomes.clone();
@@ -1304,6 +1318,54 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     })
 }
 
+/// The world reader's game log: a high school game's facts (the state,
+/// the week, regular or playoff, the teams).
+fn hs_head(
+    w: &World,
+    s: usize,
+    week: usize,
+    day: Date,
+    teams: [usize; 2],
+    final_game: bool,
+) -> serde_json::Map<String, serde_json::Value> {
+    let regular = w.hs_season.as_ref().map_or(usize::MAX, |hs| hs.states[s].weeks.len());
+    let mut head = serde_json::Map::new();
+    head.insert("level".into(), "hs".into());
+    head.insert("season".into(), w.year.into());
+    head.insert("state".into(), w.states[s].code.as_str().into());
+    head.insert("date".into(), day.to_string().into());
+    head.insert("week".into(), (week + 1).into());
+    let kind = if final_game {
+        "state final"
+    } else if week >= regular {
+        "playoff"
+    } else {
+        "regular"
+    };
+    head.insert("kind".into(), kind.into());
+    if week >= regular {
+        head.insert("round".into(), (week - regular + 1).into());
+    }
+    head.insert("teams".into(), serde_json::json!(teams));
+    head.insert("neutral".into(), final_game.into());
+    head.insert("kickoff".into(), "19:00 local".into());
+    head
+}
+
+/// Logs a high school game decided off the engine (the stand-in, or a
+/// forfeit): the winner only.
+fn log_hs_standin(w: &mut World, mut head: serde_json::Map<String, serde_json::Value>, home_won: bool, forfeit: bool) {
+    let year = w.year;
+    if forfeit {
+        head.insert("forfeit".into(), true.into());
+    }
+    let row = super::log_games::standin_row(head, home_won, None);
+    if let Some(l) = w.wlog.as_mut() {
+        let id = l.next_id(year, "hs");
+        l.line(year, "games-hs", &super::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
+    }
+}
+
 /// Plays a state's engine games for one week (regular week `week`, or a
 /// playoff round) and files the results and lines. Each game is played in
 /// its home town's weather (U-e: the town's own climate normals, with the
@@ -1329,6 +1391,8 @@ fn engine_games(
         crate::game::Rules::for_level(crate::player::Level::HS)
     };
     let seat = w.seat_school();
+    let logging = w.logging();
+    let trial_log = w.options.keep_game_log && w.recording;
     let world: &World = w;
     // Your game, played live on the game day screens (section 9).
     let live = world.live_result(Level::HighSchool);
@@ -1390,6 +1454,14 @@ fn engine_games(
             let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
             let mut tally = super::charts::Tally::default();
             tally.add_game(&r.stats);
+            let log = logging.then(|| {
+                let mut head = hs_head(world, s, week, day, [h, a], final_game);
+                head.insert("weather".into(), serde_json::json!(wx));
+                head.insert("conditions".into(), serde_json::json!(cond));
+                let row = super::log_games::game_row(head, &r, Some([&home, &away]));
+                serde_json::to_vec(&row).unwrap_or_default()
+            });
+            let situ = (logging || trial_log).then(|| super::game_log::game_situations(&r.stats));
             Ok(HsPlayed {
                 score: [ha.max(0) as u32, hb.max(0) as u32],
                 team: r.stats.team.clone(),
@@ -1397,6 +1469,8 @@ fn engine_games(
                 full,
                 tally,
                 neutral: final_game,
+                log,
+                situ,
             })
         })
         .collect();
@@ -1405,6 +1479,10 @@ fn engine_games(
         let g = match g {
             Ok(g) => g,
             Err(home_wins) => {
+                if w.logging() {
+                    let head = hs_head(w, s, week, day, [h, a], final_game);
+                    log_hs_standin(w, head, home_wins, true);
+                }
                 let (wn, l) = if home_wins { (h, a) } else { (a, h) };
                 let hs = w.hs_season.as_mut().unwrap();
                 hs.results[wn].wins += 1;
@@ -1419,6 +1497,20 @@ fn engine_games(
             }
         };
         let home_wins = if g.score[0] == g.score[1] { key & 1 == 0 } else { g.score[0] > g.score[1] };
+        if let Some(situ) = g.situ {
+            let year = w.year;
+            if w.options.keep_game_log && w.recording {
+                for (k, v) in &situ.league {
+                    let e = w.game_log.level_situations.entry((year, "HS".to_string(), k.clone())).or_default();
+                    super::game_log::bump(e, v);
+                }
+            }
+            if let (Some(row), Some(l)) = (g.log, w.wlog.as_mut()) {
+                l.add_situations(year, "hs", w.states[s].code.as_str(), [h, a], situ);
+                let id = l.next_id(year, "hs");
+                l.line(year, "games-hs", &super::wlog::with_id(id, &row));
+            }
+        }
         let (wn, l) = if home_wins { (h, a) } else { (a, h) };
         let hs = w.hs_season.as_mut().unwrap();
         hs.results[wn].wins += 1;
@@ -1593,6 +1685,7 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     } else {
         vec![None; pairs.len()]
     };
+    let off_engine: Vec<bool> = played.iter().map(|x| x.is_none()).collect();
     let hs = w.hs_season.as_mut().unwrap();
     let mut outcomes: Vec<(usize, usize)> = Vec::new();
     let mut by_bracket: HashMap<usize, Vec<(u32, u32)>> = HashMap::new();
@@ -1621,6 +1714,16 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         kept.push((r as u8, a as u32, b as u32, wn as u32));
     }
     w.log.hs_games += pairs.len() as u32;
+    // The world reader's game log: the games the stand-in decided (the
+    // engine's games are logged as they are played).
+    if w.logging() {
+        for (&(_, a, b, wn), off) in kept.iter().zip(off_engine) {
+            if off {
+                let head = hs_head(w, s, week, d, [a as usize, b as usize], r == last);
+                log_hs_standin(w, head, wn == a, false);
+            }
+        }
+    }
     let hs = w.hs_season.as_mut().unwrap();
     hs.playoff_games.extend(kept);
     for bi in 0..hs.brackets.len() {

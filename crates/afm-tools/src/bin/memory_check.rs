@@ -3,6 +3,7 @@
 //! heap after the history and after each future season, then weighs each
 //! of the world's stores by dropping it, biggest first.
 //! Usage: memory_check [seed] [history_years] [future_years] [scale]
+//! (`AFM_LOG=folder` writes the world log there.)
 
 use std::time::Instant;
 
@@ -35,8 +36,17 @@ fn main() {
         std::mem::size_of::<afm_engine::player::SeasonRecord>()
     );
     let t = Instant::now();
-    let opts =
-        WorldOptions { seed, history_years: years, keep_game_log: false, scale, engine_from, ..Default::default() };
+    // AFM_LOG=folder: write the world log there, as the world build does.
+    let log_dir = std::env::var("AFM_LOG").ok().map(std::path::PathBuf::from);
+    let opts = WorldOptions {
+        seed,
+        history_years: years,
+        keep_game_log: false,
+        scale,
+        engine_from,
+        log_dir,
+        ..Default::default()
+    };
     let mut w = World::new_watched(opts, year_line);
     println!(
         "history of {years} years built in {:.0}s: heap {:.2} GB, resident {}",
@@ -61,6 +71,11 @@ fn main() {
     // The same seed must give the same world whatever the stores' layout:
     // a hash of what the years produced (compare it across builds).
     println!("fingerprint {:016x}", fingerprint(&w));
+    match w.finish_log() {
+        Some(Ok(bytes)) => println!("world log: {:.3} GB on disk", bytes as f64 / 1e9),
+        Some(Err(e)) => println!("world log failed: {e}"),
+        None => {}
+    }
     // Parts first (inside the stores), then whole stores.
     let mut rows: Vec<(String, f64)> = Vec::new();
     let mut weigh = |name: &str, w: &mut World, f: &dyn Fn(&mut World)| {
