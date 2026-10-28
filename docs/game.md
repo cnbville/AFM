@@ -864,10 +864,6 @@ The calendar in the Press Box look to board 41 (`screens/calendar.js` and `.css`
 - The comparison panel's figures: "everything else" is the mean of a coach's ten ratings past teaching (play calling read as 0.6 scheme + 0.4 game management, adaptation as game management, the engine's reads), and the top tenth at high school is taken rating by rating, then averaged.
 - Name and standing on the roads screen are display only until lane 5.
 
-## Update 3 (2026-10-28)
-
-The combined update 3 with speed, coaching and scouting, built in lanes (plan `afm/next-updates-plan/plan.md`).
-
 ### Lane 1: bodies and the speed core
 
 Update 3 A2, A4, A6, A7, A12-A14 and A8-A10 (speed S11-S13), speed S1, S2, S2b and S4, code fixes F14 and F15. How each works: `docs/reference/how-it-works/body.md` and `development.md`. Measured with `positions` (8 classes of 250,000 pooled, drafted players on draft day) and `calibrate`.
