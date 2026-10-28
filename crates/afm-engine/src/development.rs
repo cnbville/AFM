@@ -26,6 +26,9 @@ pub struct SeasonContext {
     /// First-year dip after a step up, 0-1 (see `first_year_adjustment` in career).
     /// He plays below his rating while he adjusts, and grows a little slower.
     pub adjustment: f64,
+    /// A holdout who missed camp (update 3, F1): extra dip on top of
+    /// `adjustment`, 0-1. He plays below his rating while he catches up.
+    pub missed_camp: f64,
     /// How his surroundings help or hurt him, -1 to 1: the supporting cast, the
     /// scheme and how well run the organisation is. A bad situation drags his
     /// play and his confidence; a good one lifts both.
@@ -73,6 +76,7 @@ impl SeasonContext {
             playing_time,
             trouble: None,
             adjustment: 0.0,
+            missed_camp: 0.0,
             situation: 0.0,
             payday: false,
             snaps: None,
@@ -308,7 +312,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let pt = ctx.playing_time;
     let no_games = matches!(pt, PlayingTime::Redshirt | PlayingTime::PracticeSquad | PlayingTime::Unsigned)
         || ctx.trouble.is_some();
-    let dip = ctx.adjustment;
+    let dip = clamp(ctx.adjustment + ctx.missed_camp, 0.0, 1.0);
     let situation = ctx.situation;
     let mut games_missed = 0;
     // The hidden traits drift a little each year, on their own stream.
@@ -332,7 +336,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // A first year at a new level is named on the row, so a page or a slump
     // list can give it as the reason he played below his rating. (A mark
     // only: it draws nothing.)
-    if dip > 0.0 {
+    if ctx.adjustment > 0.0 {
         events.add(Ev::FirstYear);
     }
 

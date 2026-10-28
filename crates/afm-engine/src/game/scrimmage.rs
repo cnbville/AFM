@@ -87,6 +87,8 @@ pub struct Snap<'a> {
     /// per player index, per team.
     pub energy: [&'a [f64]; 2],
     pub edge: [&'a [f64]; 2],
+    /// Who plays hurt, and with what (update 3, F7: `sim::hampered`).
+    pub hurt: [&'a [Option<super::sim::InjuryKind>]; 2],
     /// How much each player's coach lets him freelance, 0-1 (topic 3.1).
     pub trust: [&'a [f64]; 2],
     pub call: OffCall,
@@ -305,9 +307,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let mut role_of: Vec<Option<ORole>> = Vec::new();
     let mut slot_of: Vec<Option<DSlot>> = Vec::new();
     for &(r, p) in s.offense {
-        let gp = &s.teams[0][p];
+        let gp = super::sim::hampered(&s.teams[0][p], s.hurt[0][p]);
         let pos = if s.fake_punt.is_some() { punt_spot(&f, r, los, by, s.rules.level) } else { align(&f, r, los, by) };
-        agents.push(Agent::new(0, p, gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]));
+        agents.push(Agent::new(0, p, &gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]));
         role_of.push(Some(r));
         slot_of.push(None);
     }
@@ -337,8 +339,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let def_spots =
         if s.fake_punt.is_some() { return_spots(s, &agents, &role_of) } else { align_defense(s, &agents, &role_of) };
     for (k, &(d, p)) in s.defense.iter().enumerate() {
-        let gp = &s.teams[1][p];
-        agents.push(Agent::new(1, p, gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]));
+        let gp = super::sim::hampered(&s.teams[1][p], s.hurt[1][p]);
+        agents.push(Agent::new(1, p, &gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]));
         role_of.push(None);
         slot_of.push(Some(d));
     }
@@ -494,8 +496,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let fam = if slot.is_line() { Family::Front } else { cov_fam };
         // Measured against a starter who knows his job well (0.9).
         let slow = 0.12 * (0.9 - sim.player(i).know[fam as usize] as f64);
-        // A week of poor prep reads late, a sharp one a touch early (TR38).
-        let prep = 0.1 * (sim.player(i).prep as f64 - 1.0);
+        // A week of poor prep reads late, a sharp one a touch early (TR38):
+        // up to a tenth of a second for Unprepared, a beat (update 3, F34).
+        let prep = 0.3 * (sim.player(i).prep as f64 - 1.0);
         let freeze = if jet && slot.is_lb() { 0.10 * bite } else { 0.0 };
         sim.agents[i].read_at = (base + extra + tend + slow + prep + freeze + 0.12 * tac.novelty).max(0.12);
     }
@@ -3098,8 +3101,9 @@ fn quarterback(
     // fitted with it.
     let shown = (1.0 - 0.2 * (s.tac.pre_read - PRE_READ)) * if s.tac.fooled { 1.15 } else { 1.0 };
     // A man who holds for the big play stays on each read a little longer.
-    // A week of poor prep throws off his timing (TR38).
-    let prep = 1.0 + 0.3 * (sim.player(qb).prep as f64 - 1.0);
+    // A week of poor prep throws off his timing (TR38): each read runs as
+    // much longer as his busts rise, up to a third (update 3, F34).
+    let prep = sim.player(qb).prep as f64;
     let per_read =
         clamp(0.62 - 0.0045 * (iq - 50.0), 0.3, 0.95) * shown * (1.0 + 0.6 * sim.lean(qb, Tend::Hold)) * prep;
     // He stays on a read until that route has made its break.
