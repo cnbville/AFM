@@ -214,6 +214,13 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
     let seed = crate::setup::career_seed(args);
     w.start_with(&you, start, seed, known);
     w.add_resume(&resume);
+    // Your past stays with the career (your old teammates and players come
+    // from it, C13), and the college you played for with your coach (C11).
+    let college = placement.college.filter(|_| placement.played).map(|c| c.0);
+    if let Some(c) = w.career.as_mut() {
+        c.past = Some(placement.clone());
+    }
+    w.set_your_college(college);
     // The high schools your road knows (C9).
     let stops: Vec<Employer> = placement.stops.iter().map(|s| s.0).collect();
     crate::setup::road_ties(w, args, placement.high_school.map(|h| h.0), &stops);

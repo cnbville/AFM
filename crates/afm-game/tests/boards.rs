@@ -40,42 +40,37 @@ fn start(g: &mut Game, path: &str, level: &str, bg: &str) {
 }
 
 /// Continues until `n` of your games are kept; the last one's index. An
-/// NFL seat hired in February stops for its first meetings and every big
-/// signing of the spring, about every two or three days in this small
-/// world, so the count leaves room for the world's draw.
+/// NFL club with a pick drafts live (the war room holds Continue): the
+/// staff makes your picks. An NFL seat hired in February also stops for its
+/// first meetings and every big signing of the spring, every two or three
+/// days in this small world, so the count leaves room for the world's draw.
 fn play_to(g: &mut Game, n: usize) -> u64 {
     for _ in 0..150 {
         let games = ok(g, "games", json!({}))["games"].as_array().unwrap().clone();
         if games.len() >= n {
             return games.iter().map(|x| x["index"].as_u64().unwrap()).max().unwrap();
         }
-        let r = ok(g, "continue", json!({ "max_days": 30 }));
-        if r["status"]["draft_live"].as_bool().unwrap_or(false) {
-            draft(g);
-        }
+        ok(g, "continue", json!({ "max_days": 30 }));
+        draft_through(g);
     }
     panic!("never kept {n} games");
 }
 
-/// Your staff make your picks: nothing moves while the draft is live in
-/// your war room, which happens when your club picks that day.
-fn draft(g: &mut Game) {
-    for _ in 0..400 {
+fn draft_through(g: &mut Game) {
+    for _ in 0..200 {
         let room = ok(g, "draft_live", json!({}));
         if !room["live"].as_bool().unwrap_or(false) {
             return;
         }
         if room["rush"].as_bool().unwrap_or(false) {
             ok(g, "draft_rush", json!({}));
-            return;
-        }
-        if room["on_clock"].as_bool().unwrap_or(false) {
+        } else if room["on_clock"].as_bool().unwrap_or(false) {
             ok(g, "draft_auto", json!({}));
         } else {
             ok(g, "draft_go", json!({ "until": "yours" }));
         }
     }
-    panic!("the draft never finished");
+    panic!("the draft didn't finish");
 }
 
 /// The line chart and the throws sit on your games and your schedule's

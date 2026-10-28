@@ -1,0 +1,5218 @@
+{
+ "source": "ESPN college box scores (sportsdataverse-data espn_cfb_player_box) 2004-2025, positions from CollegeFootballData rosters (cfbfastR-data)",
+ "holes": "Before 2004 nothing open; full tackles and sacks only for 2024-2025 (defensive interceptions every year); FCS, D2, D3 not included; positions missing for about 2% of players ('unknown').",
+ "note": "Season lines sum every game an FBS team played (bowls and FCS games too). Regulars: QB 150+ attempts, backs 100+ carries, receivers 25+ catches, defenders 8+ games, kickers 12+ tries, punters 30+ punts.",
+ "by_season": {
+  "2004": {
+   "teams": 119,
+   "passers_4000": 3,
+   "passers_3000": 14,
+   "rushers_1000": 41,
+   "receivers_1000": 22,
+   "catches_80": 13,
+   "pass_td_30": 8,
+   "rush_td_15": 14,
+   "qb_pass_yds": {
+    "p10": 1282.6,
+    "p50": 2115.0,
+    "p90": 3150.8,
+    "p99": 4237.5
+   },
+   "qb_ypa": {
+    "p10": 6.1,
+    "p50": 7.2,
+    "p90": 8.2,
+    "p99": 9.9
+   },
+   "qb_cmp_pct": {
+    "p10": 51.0,
+    "p50": 57.2,
+    "p90": 65.3,
+    "p99": 70.4
+   },
+   "rb_rush_yds": {
+    "p10": 402.0,
+    "p50": 720.0,
+    "p90": 1239.0,
+    "p99": 1873.2
+   },
+   "rb_ypc": {
+    "p10": 3.3,
+    "p50": 4.7,
+    "p90": 6.0,
+    "p99": 6.8
+   },
+   "rec_yds": {
+    "p10": 276.0,
+    "p50": 466.0,
+    "p90": 928.4,
+    "p99": 1296.9
+   },
+   "kicker_fg_pct": {
+    "p10": 53.8,
+    "p50": 69.4,
+    "p90": 84.6
+   },
+   "punter_gross": {
+    "p10": 37.7,
+    "p50": 40.8,
+    "p90": 43.4
+   },
+   "ints_6": 11
+  },
+  "2005": {
+   "teams": 119,
+   "passers_4000": 2,
+   "passers_3000": 13,
+   "rushers_1000": 45,
+   "receivers_1000": 23,
+   "catches_80": 12,
+   "pass_td_30": 4,
+   "rush_td_15": 11,
+   "qb_pass_yds": {
+    "p10": 1128.0,
+    "p50": 2218.5,
+    "p90": 3054.5,
+    "p99": 4190.1
+   },
+   "qb_ypa": {
+    "p10": 5.7,
+    "p50": 7.0,
+    "p90": 8.5,
+    "p99": 9.6
+   },
+   "qb_cmp_pct": {
+    "p10": 50.7,
+    "p50": 59.1,
+    "p90": 64.7,
+    "p99": 68.7
+   },
+   "rb_rush_yds": {
+    "p10": 400.0,
+    "p50": 673.0,
+    "p90": 1242.0,
+    "p99": 1637.4
+   },
+   "rb_ypc": {
+    "p10": 3.1,
+    "p50": 4.7,
+    "p90": 6.0,
+    "p99": 7.4
+   },
+   "rec_yds": {
+    "p10": 279.2,
+    "p50": 474.0,
+    "p90": 875.4,
+    "p99": 1226.2
+   },
+   "kicker_fg_pct": {
+    "p10": 53.1,
+    "p50": 72.2,
+    "p90": 85.4
+   },
+   "punter_gross": {
+    "p10": 37.6,
+    "p50": 40.2,
+    "p90": 43.8
+   },
+   "ints_6": 6
+  },
+  "2006": {
+   "teams": 119,
+   "passers_4000": 3,
+   "passers_3000": 17,
+   "rushers_1000": 38,
+   "receivers_1000": 19,
+   "catches_80": 9,
+   "pass_td_30": 8,
+   "rush_td_15": 11,
+   "qb_pass_yds": {
+    "p10": 1181.0,
+    "p50": 2108.5,
+    "p90": 3134.0,
+    "p99": 4464.6
+   },
+   "qb_ypa": {
+    "p10": 5.9,
+    "p50": 7.0,
+    "p90": 8.4,
+    "p99": 9.7
+   },
+   "qb_cmp_pct": {
+    "p10": 52.2,
+    "p50": 59.0,
+    "p90": 66.3,
+    "p99": 69.9
+   },
+   "rb_rush_yds": {
+    "p10": 381.5,
+    "p50": 697.0,
+    "p90": 1243.0,
+    "p99": 1756.5
+   },
+   "rb_ypc": {
+    "p10": 3.4,
+    "p50": 4.6,
+    "p90": 5.8,
+    "p99": 7.4
+   },
+   "rec_yds": {
+    "p10": 271.8,
+    "p50": 489.0,
+    "p90": 867.0,
+    "p99": 1276.8
+   },
+   "kicker_fg_pct": {
+    "p10": 57.7,
+    "p50": 73.0,
+    "p90": 86.2
+   },
+   "punter_gross": {
+    "p10": 37.7,
+    "p50": 40.8,
+    "p90": 44.1
+   },
+   "ints_6": 24
+  },
+  "2007": {
+   "teams": 119,
+   "passers_4000": 5,
+   "passers_3000": 33,
+   "rushers_1000": 56,
+   "receivers_1000": 35,
+   "catches_80": 22,
+   "pass_td_30": 15,
+   "rush_td_15": 20,
+   "qb_pass_yds": {
+    "p10": 1357.4,
+    "p50": 2311.0,
+    "p90": 3676.6,
+    "p99": 4931.1
+   },
+   "qb_ypa": {
+    "p10": 5.9,
+    "p50": 6.9,
+    "p90": 8.2,
+    "p99": 9.4
+   },
+   "qb_cmp_pct": {
+    "p10": 53.3,
+    "p50": 59.5,
+    "p90": 66.1,
+    "p99": 71.1
+   },
+   "rb_rush_yds": {
+    "p10": 421.5,
+    "p50": 707.5,
+    "p90": 1356.5,
+    "p99": 2020.0
+   },
+   "rb_ypc": {
+    "p10": 3.7,
+    "p50": 4.8,
+    "p90": 6.0,
+    "p99": 6.5
+   },
+   "rec_yds": {
+    "p10": 264.0,
+    "p50": 489.5,
+    "p90": 960.8,
+    "p99": 1303.5
+   },
+   "kicker_fg_pct": {
+    "p10": 58.3,
+    "p50": 73.9,
+    "p90": 85.8
+   },
+   "punter_gross": {
+    "p10": 38.6,
+    "p50": 41.0,
+    "p90": 44.1
+   },
+   "ints_6": 27
+  },
+  "2008": {
+   "teams": 120,
+   "passers_4000": 6,
+   "passers_3000": 25,
+   "rushers_1000": 54,
+   "receivers_1000": 33,
+   "catches_80": 25,
+   "pass_td_30": 13,
+   "rush_td_15": 21,
+   "qb_pass_yds": {
+    "p10": 1050.1,
+    "p50": 2344.0,
+    "p90": 3483.3,
+    "p99": 4957.0
+   },
+   "qb_ypa": {
+    "p10": 5.6,
+    "p50": 7.0,
+    "p90": 8.4,
+    "p99": 9.8
+   },
+   "qb_cmp_pct": {
+    "p10": 52.3,
+    "p50": 58.9,
+    "p90": 66.7,
+    "p99": 72.4
+   },
+   "rb_rush_yds": {
+    "p10": 411.0,
+    "p50": 697.0,
+    "p90": 1307.0,
+    "p99": 1753.1
+   },
+   "rb_ypc": {
+    "p10": 3.5,
+    "p50": 4.7,
+    "p90": 6.1,
+    "p99": 7.4
+   },
+   "rec_yds": {
+    "p10": 270.7,
+    "p50": 497.0,
+    "p90": 952.4,
+    "p99": 1374.6
+   },
+   "kicker_fg_pct": {
+    "p10": 58.1,
+    "p50": 71.4,
+    "p90": 86.4
+   },
+   "punter_gross": {
+    "p10": 38.4,
+    "p50": 40.7,
+    "p90": 44.1
+   },
+   "ints_6": 16
+  },
+  "2009": {
+   "teams": 120,
+   "passers_4000": 3,
+   "passers_3000": 25,
+   "rushers_1000": 53,
+   "receivers_1000": 29,
+   "catches_80": 21,
+   "pass_td_30": 6,
+   "rush_td_15": 18,
+   "qb_pass_yds": {
+    "p10": 1382.0,
+    "p50": 2369.0,
+    "p90": 3438.0,
+    "p99": 4213.4
+   },
+   "qb_ypa": {
+    "p10": 6.2,
+    "p50": 7.3,
+    "p90": 8.5,
+    "p99": 9.6
+   },
+   "qb_cmp_pct": {
+    "p10": 53.8,
+    "p50": 59.3,
+    "p90": 66.0,
+    "p99": 70.2
+   },
+   "rb_rush_yds": {
+    "p10": 367.6,
+    "p50": 723.0,
+    "p90": 1354.6,
+    "p99": 1801.3
+   },
+   "rb_ypc": {
+    "p10": 2.9,
+    "p50": 4.8,
+    "p90": 6.2,
+    "p99": 7.4
+   },
+   "rec_yds": {
+    "p10": 280.6,
+    "p50": 503.0,
+    "p90": 897.2,
+    "p99": 1482.1
+   },
+   "kicker_fg_pct": {
+    "p10": 61.5,
+    "p50": 73.3,
+    "p90": 87.9
+   },
+   "punter_gross": {
+    "p10": 38.3,
+    "p50": 41.2,
+    "p90": 44.0
+   },
+   "ints_6": 22
+  },
+  "2010": {
+   "teams": 120,
+   "passers_4000": 3,
+   "passers_3000": 28,
+   "rushers_1000": 48,
+   "receivers_1000": 32,
+   "catches_80": 20,
+   "pass_td_30": 13,
+   "rush_td_15": 20,
+   "qb_pass_yds": {
+    "p10": 1317.2,
+    "p50": 2358.0,
+    "p90": 3467.8,
+    "p99": 4612.2
+   },
+   "qb_ypa": {
+    "p10": 6.1,
+    "p50": 7.2,
+    "p90": 8.9,
+    "p99": 10.1
+   },
+   "qb_cmp_pct": {
+    "p10": 53.8,
+    "p50": 59.9,
+    "p90": 66.6,
+    "p99": 72.5
+   },
+   "rb_rush_yds": {
+    "p10": 369.8,
+    "p50": 720.0,
+    "p90": 1243.8,
+    "p99": 1697.2
+   },
+   "rb_ypc": {
+    "p10": 3.1,
+    "p50": 4.8,
+    "p90": 6.1,
+    "p99": 7.0
+   },
+   "rec_yds": {
+    "p10": 264.4,
+    "p50": 474.0,
+    "p90": 925.8,
+    "p99": 1372.3
+   },
+   "kicker_fg_pct": {
+    "p10": 61.6,
+    "p50": 77.3,
+    "p90": 88.2
+   },
+   "punter_gross": {
+    "p10": 38.5,
+    "p50": 41.7,
+    "p90": 45.1
+   },
+   "ints_6": 14
+  },
+  "2011": {
+   "teams": 120,
+   "passers_4000": 8,
+   "passers_3000": 39,
+   "rushers_1000": 45,
+   "receivers_1000": 40,
+   "catches_80": 26,
+   "pass_td_30": 15,
+   "rush_td_15": 18,
+   "qb_pass_yds": {
+    "p10": 1206.5,
+    "p50": 2194.5,
+    "p90": 3591.0,
+    "p99": 4661.0
+   },
+   "qb_ypa": {
+    "p10": 5.8,
+    "p50": 7.2,
+    "p90": 8.5,
+    "p99": 10.6
+   },
+   "qb_cmp_pct": {
+    "p10": 53.2,
+    "p50": 60.1,
+    "p90": 68.4,
+    "p99": 73.3
+   },
+   "rb_rush_yds": {
+    "p10": 440.0,
+    "p50": 713.0,
+    "p90": 1255.4,
+    "p99": 1714.8
+   },
+   "rb_ypc": {
+    "p10": 3.6,
+    "p50": 4.8,
+    "p90": 6.1,
+    "p99": 7.6
+   },
+   "rec_yds": {
+    "p10": 279.6,
+    "p50": 486.0,
+    "p90": 995.2,
+    "p99": 1423.0
+   },
+   "kicker_fg_pct": {
+    "p10": 59.2,
+    "p50": 75.4,
+    "p90": 87.5
+   },
+   "punter_gross": {
+    "p10": 38.2,
+    "p50": 41.2,
+    "p90": 44.9
+   },
+   "ints_6": 12
+  },
+  "2012": {
+   "teams": 124,
+   "passers_4000": 9,
+   "passers_3000": 38,
+   "rushers_1000": 61,
+   "receivers_1000": 36,
+   "catches_80": 25,
+   "pass_td_30": 15,
+   "rush_td_15": 28,
+   "qb_pass_yds": {
+    "p10": 1315.4,
+    "p50": 2629.0,
+    "p90": 3734.2,
+    "p99": 4252.1
+   },
+   "qb_ypa": {
+    "p10": 6.0,
+    "p50": 7.3,
+    "p90": 8.5,
+    "p99": 9.5
+   },
+   "qb_cmp_pct": {
+    "p10": 52.8,
+    "p50": 60.7,
+    "p90": 67.6,
+    "p99": 71.6
+   },
+   "rb_rush_yds": {
+    "p10": 448.8,
+    "p50": 759.0,
+    "p90": 1406.0,
+    "p99": 1828.8
+   },
+   "rb_ypc": {
+    "p10": 3.6,
+    "p50": 4.9,
+    "p90": 6.3,
+    "p99": 7.3
+   },
+   "rec_yds": {
+    "p10": 286.6,
+    "p50": 490.0,
+    "p90": 957.4,
+    "p99": 1381.4
+   },
+   "kicker_fg_pct": {
+    "p10": 62.5,
+    "p50": 75.0,
+    "p90": 87.4
+   },
+   "punter_gross": {
+    "p10": 39.1,
+    "p50": 41.8,
+    "p90": 45.2
+   },
+   "ints_6": 10
+  },
+  "2013": {
+   "teams": 125,
+   "passers_4000": 9,
+   "passers_3000": 32,
+   "rushers_1000": 51,
+   "receivers_1000": 44,
+   "catches_80": 24,
+   "pass_td_30": 13,
+   "rush_td_15": 18,
+   "qb_pass_yds": {
+    "p10": 1185.0,
+    "p50": 2260.0,
+    "p90": 3641.0,
+    "p99": 4637.3
+   },
+   "qb_ypa": {
+    "p10": 6.0,
+    "p50": 7.2,
+    "p90": 8.8,
+    "p99": 10.4
+   },
+   "qb_cmp_pct": {
+    "p10": 52.6,
+    "p50": 60.2,
+    "p90": 67.2,
+    "p99": 70.8
+   },
+   "rb_rush_yds": {
+    "p10": 421.4,
+    "p50": 736.5,
+    "p90": 1276.4,
+    "p99": 1883.3
+   },
+   "rb_ypc": {
+    "p10": 3.5,
+    "p50": 4.8,
+    "p90": 6.2,
+    "p99": 7.8
+   },
+   "rec_yds": {
+    "p10": 281.0,
+    "p50": 500.0,
+    "p90": 1003.8,
+    "p99": 1455.0
+   },
+   "kicker_fg_pct": {
+    "p10": 62.4,
+    "p50": 77.8,
+    "p90": 92.4
+   },
+   "punter_gross": {
+    "p10": 39.2,
+    "p50": 41.6,
+    "p90": 44.5
+   },
+   "ints_6": 17
+  },
+  "2014": {
+   "teams": 128,
+   "passers_4000": 4,
+   "passers_3000": 39,
+   "rushers_1000": 57,
+   "receivers_1000": 37,
+   "catches_80": 18,
+   "pass_td_30": 13,
+   "rush_td_15": 23,
+   "qb_pass_yds": {
+    "p10": 1255.2,
+    "p50": 2466.0,
+    "p90": 3538.8,
+    "p99": 4640.1
+   },
+   "qb_ypa": {
+    "p10": 6.1,
+    "p50": 7.1,
+    "p90": 8.7,
+    "p99": 9.5
+   },
+   "qb_cmp_pct": {
+    "p10": 53.4,
+    "p50": 59.1,
+    "p90": 66.3,
+    "p99": 70.2
+   },
+   "rb_rush_yds": {
+    "p10": 420.4,
+    "p50": 693.0,
+    "p90": 1391.8,
+    "p99": 1874.3
+   },
+   "rb_ypc": {
+    "p10": 3.4,
+    "p50": 4.9,
+    "p90": 6.5,
+    "p99": 8.4
+   },
+   "rec_yds": {
+    "p10": 271.5,
+    "p50": 508.5,
+    "p90": 947.0,
+    "p99": 1466.8
+   },
+   "kicker_fg_pct": {
+    "p10": 60.0,
+    "p50": 75.0,
+    "p90": 85.7
+   },
+   "punter_gross": {
+    "p10": 38.3,
+    "p50": 41.5,
+    "p90": 44.3
+   },
+   "ints_6": 19
+  },
+  "2015": {
+   "teams": 128,
+   "passers_4000": 12,
+   "passers_3000": 33,
+   "rushers_1000": 66,
+   "receivers_1000": 38,
+   "catches_80": 28,
+   "pass_td_30": 14,
+   "rush_td_15": 19,
+   "qb_pass_yds": {
+    "p10": 1104.5,
+    "p50": 2267.5,
+    "p90": 3820.5,
+    "p99": 4866.6
+   },
+   "qb_ypa": {
+    "p10": 5.5,
+    "p50": 7.3,
+    "p90": 8.8,
+    "p99": 9.9
+   },
+   "qb_cmp_pct": {
+    "p10": 50.8,
+    "p50": 59.8,
+    "p90": 66.8,
+    "p99": 69.4
+   },
+   "rb_rush_yds": {
+    "p10": 429.6,
+    "p50": 754.0,
+    "p90": 1344.6,
+    "p99": 1939.0
+   },
+   "rb_ypc": {
+    "p10": 3.5,
+    "p50": 5.0,
+    "p90": 6.5,
+    "p99": 7.3
+   },
+   "rec_yds": {
+    "p10": 283.3,
+    "p50": 542.5,
+    "p90": 965.8,
+    "p99": 1428.1
+   },
+   "kicker_fg_pct": {
+    "p10": 61.5,
+    "p50": 76.5,
+    "p90": 85.7
+   },
+   "punter_gross": {
+    "p10": 38.9,
+    "p50": 41.5,
+    "p90": 45.3
+   },
+   "ints_6": 19
+  },
+  "2016": {
+   "teams": 128,
+   "passers_4000": 8,
+   "passers_3000": 37,
+   "rushers_1000": 70,
+   "receivers_1000": 37,
+   "catches_80": 25,
+   "pass_td_30": 17,
+   "rush_td_15": 25,
+   "qb_pass_yds": {
+    "p10": 1299.9,
+    "p50": 2421.5,
+    "p90": 3562.7,
+    "p99": 4610.0
+   },
+   "qb_ypa": {
+    "p10": 6.2,
+    "p50": 7.4,
+    "p90": 8.6,
+    "p99": 10.3
+   },
+   "qb_cmp_pct": {
+    "p10": 54.3,
+    "p50": 59.5,
+    "p90": 64.9,
+    "p99": 69.9
+   },
+   "rb_rush_yds": {
+    "p10": 450.7,
+    "p50": 796.0,
+    "p90": 1373.6,
+    "p99": 1836.5
+   },
+   "rb_ypc": {
+    "p10": 3.5,
+    "p50": 5.1,
+    "p90": 6.6,
+    "p99": 7.9
+   },
+   "rec_yds": {
+    "p10": 295.6,
+    "p50": 515.0,
+    "p90": 957.4,
+    "p99": 1530.4
+   },
+   "kicker_fg_pct": {
+    "p10": 61.7,
+    "p50": 76.5,
+    "p90": 90.8
+   },
+   "punter_gross": {
+    "p10": 38.3,
+    "p50": 41.3,
+    "p90": 44.4
+   },
+   "ints_6": 11
+  },
+  "2017": {
+   "teams": 130,
+   "passers_4000": 8,
+   "passers_3000": 33,
+   "rushers_1000": 59,
+   "receivers_1000": 30,
+   "catches_80": 14,
+   "pass_td_30": 12,
+   "rush_td_15": 18,
+   "qb_pass_yds": {
+    "p10": 1180.0,
+    "p50": 2099.0,
+    "p90": 3671.4,
+    "p99": 4486.4
+   },
+   "qb_ypa": {
+    "p10": 6.0,
+    "p50": 7.3,
+    "p90": 8.8,
+    "p99": 10.1
+   },
+   "qb_cmp_pct": {
+    "p10": 53.1,
+    "p50": 59.8,
+    "p90": 66.3,
+    "p99": 69.7
+   },
+   "rb_rush_yds": {
+    "p10": 468.2,
+    "p50": 748.0,
+    "p90": 1359.4,
+    "p99": 1970.2
+   },
+   "rb_ypc": {
+    "p10": 3.5,
+    "p50": 5.0,
+    "p90": 6.4,
+    "p99": 8.5
+   },
+   "rec_yds": {
+    "p10": 280.0,
+    "p50": 513.0,
+    "p90": 904.0,
+    "p99": 1390.2
+   },
+   "kicker_fg_pct": {
+    "p10": 60.0,
+    "p50": 75.0,
+    "p90": 85.7
+   },
+   "punter_gross": {
+    "p10": 39.0,
+    "p50": 42.0,
+    "p90": 44.4
+   },
+   "ints_6": 10
+  },
+  "2018": {
+   "teams": 130,
+   "passers_4000": 3,
+   "passers_3000": 34,
+   "rushers_1000": 64,
+   "receivers_1000": 39,
+   "catches_80": 19,
+   "pass_td_30": 12,
+   "rush_td_15": 19,
+   "qb_pass_yds": {
+    "p10": 1237.8,
+    "p50": 2389.0,
+    "p90": 3560.1,
+    "p99": 4639.0
+   },
+   "qb_ypa": {
+    "p10": 6.0,
+    "p50": 7.5,
+    "p90": 8.6,
+    "p99": 10.9
+   },
+   "qb_cmp_pct": {
+    "p10": 52.2,
+    "p50": 60.7,
+    "p90": 67.1,
+    "p99": 70.6
+   },
+   "rb_rush_yds": {
+    "p10": 426.0,
+    "p50": 778.0,
+    "p90": 1216.0,
+    "p99": 1743.7
+   },
+   "rb_ypc": {
+    "p10": 3.3,
+    "p50": 5.0,
+    "p90": 6.4,
+    "p99": 8.8
+   },
+   "rec_yds": {
+    "p10": 282.2,
+    "p50": 525.0,
+    "p90": 973.2,
+    "p99": 1341.9
+   },
+   "kicker_fg_pct": {
+    "p10": 62.5,
+    "p50": 76.2,
+    "p90": 87.5
+   },
+   "punter_gross": {
+    "p10": 38.9,
+    "p50": 41.7,
+    "p90": 44.9
+   },
+   "ints_6": 9
+  },
+  "2019": {
+   "teams": 130,
+   "passers_4000": 4,
+   "passers_3000": 35,
+   "rushers_1000": 56,
+   "receivers_1000": 42,
+   "catches_80": 18,
+   "pass_td_30": 16,
+   "rush_td_15": 15,
+   "qb_pass_yds": {
+    "p10": 1077.5,
+    "p50": 2445.5,
+    "p90": 3634.5,
+    "p99": 5073.6
+   },
+   "qb_ypa": {
+    "p10": 6.1,
+    "p50": 7.6,
+    "p90": 8.9,
+    "p99": 11.3
+   },
+   "qb_cmp_pct": {
+    "p10": 54.1,
+    "p50": 61.1,
+    "p90": 66.9,
+    "p99": 72.7
+   },
+   "rb_rush_yds": {
+    "p10": 405.0,
+    "p50": 726.0,
+    "p90": 1257.0,
+    "p99": 2003.0
+   },
+   "rb_ypc": {
+    "p10": 3.4,
+    "p50": 5.0,
+    "p90": 6.3,
+    "p99": 7.5
+   },
+   "rec_yds": {
+    "p10": 282.2,
+    "p50": 515.0,
+    "p90": 948.2,
+    "p99": 1357.7
+   },
+   "kicker_fg_pct": {
+    "p10": 61.6,
+    "p50": 76.9,
+    "p90": 88.2
+   },
+   "punter_gross": {
+    "p10": 39.3,
+    "p50": 42.4,
+    "p90": 45.8
+   },
+   "ints_6": 6
+  },
+  "2020": {
+   "teams": 128,
+   "passers_4000": 2,
+   "passers_3000": 10,
+   "rushers_1000": 14,
+   "receivers_1000": 10,
+   "catches_80": 2,
+   "pass_td_30": 6,
+   "rush_td_15": 6,
+   "qb_pass_yds": {
+    "p10": 1127.2,
+    "p50": 1928.0,
+    "p90": 2961.8,
+    "p99": 4296.0
+   },
+   "qb_ypa": {
+    "p10": 6.2,
+    "p50": 7.5,
+    "p90": 9.4,
+    "p99": 11.2
+   },
+   "qb_cmp_pct": {
+    "p10": 54.9,
+    "p50": 62.0,
+    "p90": 68.8,
+    "p99": 73.7
+   },
+   "rb_rush_yds": {
+    "p10": 456.0,
+    "p50": 643.0,
+    "p90": 1050.4,
+    "p99": 1466.8
+   },
+   "rb_ypc": {
+    "p10": 4.1,
+    "p50": 5.1,
+    "p90": 6.5,
+    "p99": 7.7
+   },
+   "rec_yds": {
+    "p10": 271.9,
+    "p50": 455.5,
+    "p90": 764.9,
+    "p99": 1188.7
+   },
+   "kicker_fg_pct": {
+    "p10": 62.8,
+    "p50": 76.9,
+    "p90": 90.9
+   },
+   "punter_gross": {
+    "p10": 40.3,
+    "p50": 43.0,
+    "p90": 45.1
+   },
+   "ints_6": 2
+  },
+  "2021": {
+   "teams": 130,
+   "passers_4000": 9,
+   "passers_3000": 34,
+   "rushers_1000": 53,
+   "receivers_1000": 39,
+   "catches_80": 27,
+   "pass_td_30": 15,
+   "rush_td_15": 18,
+   "qb_pass_yds": {
+    "p10": 1217.0,
+    "p50": 2493.0,
+    "p90": 3532.0,
+    "p99": 4832.1
+   },
+   "qb_ypa": {
+    "p10": 6.1,
+    "p50": 7.8,
+    "p90": 8.9,
+    "p99": 10.0
+   },
+   "qb_cmp_pct": {
+    "p10": 55.3,
+    "p50": 62.0,
+    "p90": 68.2,
+    "p99": 73.7
+   },
+   "rb_rush_yds": {
+    "p10": 419.6,
+    "p50": 701.0,
+    "p90": 1251.0,
+    "p99": 1605.8
+   },
+   "rb_ypc": {
+    "p10": 3.5,
+    "p50": 4.9,
+    "p90": 6.2,
+    "p99": 6.8
+   },
+   "rec_yds": {
+    "p10": 283.0,
+    "p50": 512.0,
+    "p90": 964.2,
+    "p99": 1504.2
+   },
+   "kicker_fg_pct": {
+    "p10": 61.9,
+    "p50": 76.9,
+    "p90": 90.6
+   },
+   "punter_gross": {
+    "p10": 40.3,
+    "p50": 43.1,
+    "p90": 46.9
+   },
+   "ints_6": 3
+  },
+  "2022": {
+   "teams": 131,
+   "passers_4000": 8,
+   "passers_3000": 38,
+   "rushers_1000": 40,
+   "receivers_1000": 31,
+   "catches_80": 14,
+   "pass_td_30": 14,
+   "rush_td_15": 15,
+   "qb_pass_yds": {
+    "p10": 1286.4,
+    "p50": 2530.5,
+    "p90": 3675.9,
+    "p99": 4608.8
+   },
+   "qb_ypa": {
+    "p10": 6.1,
+    "p50": 7.5,
+    "p90": 8.8,
+    "p99": 9.5
+   },
+   "qb_cmp_pct": {
+    "p10": 55.6,
+    "p50": 62.5,
+    "p90": 68.0,
+    "p99": 72.0
+   },
+   "rb_rush_yds": {
+    "p10": 410.2,
+    "p50": 701.0,
+    "p90": 1202.0,
+    "p99": 1663.2
+   },
+   "rb_ypc": {
+    "p10": 3.6,
+    "p50": 4.9,
+    "p90": 6.3,
+    "p99": 7.2
+   },
+   "rec_yds": {
+    "p10": 282.5,
+    "p50": 496.0,
+    "p90": 922.0,
+    "p99": 1264.4
+   },
+   "kicker_fg_pct": {
+    "p10": 63.8,
+    "p50": 78.6,
+    "p90": 91.7
+   },
+   "punter_gross": {
+    "p10": 39.2,
+    "p50": 42.4,
+    "p90": 45.6
+   },
+   "ints_6": 10
+  },
+  "2023": {
+   "teams": 133,
+   "passers_4000": 2,
+   "passers_3000": 34,
+   "rushers_1000": 45,
+   "receivers_1000": 33,
+   "catches_80": 24,
+   "pass_td_30": 10,
+   "rush_td_15": 14,
+   "qb_pass_yds": {
+    "p10": 1326.0,
+    "p50": 2248.0,
+    "p90": 3529.4,
+    "p99": 4326.6
+   },
+   "qb_ypa": {
+    "p10": 6.2,
+    "p50": 7.4,
+    "p90": 8.9,
+    "p99": 10.5
+   },
+   "qb_cmp_pct": {
+    "p10": 54.6,
+    "p50": 62.1,
+    "p90": 68.1,
+    "p99": 73.4
+   },
+   "rb_rush_yds": {
+    "p10": 406.6,
+    "p50": 736.0,
+    "p90": 1194.4,
+    "p99": 1612.3
+   },
+   "rb_ypc": {
+    "p10": 3.3,
+    "p50": 4.9,
+    "p90": 6.3,
+    "p99": 7.4
+   },
+   "rec_yds": {
+    "p10": 269.4,
+    "p50": 491.0,
+    "p90": 903.4,
+    "p99": 1391.7
+   },
+   "kicker_fg_pct": {
+    "p10": 62.1,
+    "p50": 78.3,
+    "p90": 88.4
+   },
+   "punter_gross": {
+    "p10": 39.6,
+    "p50": 42.5,
+    "p90": 45.8
+   },
+   "ints_6": 5
+  },
+  "2024": {
+   "teams": 134,
+   "passers_4000": 6,
+   "passers_3000": 30,
+   "rushers_1000": 51,
+   "receivers_1000": 28,
+   "catches_80": 19,
+   "pass_td_30": 9,
+   "rush_td_15": 25,
+   "qb_pass_yds": {
+    "p10": 1310.8,
+    "p50": 2459.0,
+    "p90": 3443.2,
+    "p99": 4300.8
+   },
+   "qb_ypa": {
+    "p10": 6.4,
+    "p50": 7.3,
+    "p90": 8.5,
+    "p99": 9.8
+   },
+   "qb_cmp_pct": {
+    "p10": 55.2,
+    "p50": 61.7,
+    "p90": 67.0,
+    "p99": 73.0
+   },
+   "rb_rush_yds": {
+    "p10": 444.0,
+    "p50": 730.0,
+    "p90": 1215.0,
+    "p99": 1659.9
+   },
+   "rb_ypc": {
+    "p10": 3.6,
+    "p50": 5.0,
+    "p90": 6.3,
+    "p99": 7.5
+   },
+   "rec_yds": {
+    "p10": 272.4,
+    "p50": 503.0,
+    "p90": 899.8,
+    "p99": 1251.0
+   },
+   "kicker_fg_pct": {
+    "p10": 63.9,
+    "p50": 77.8,
+    "p90": 90.4
+   },
+   "punter_gross": {
+    "p10": 40.5,
+    "p50": 43.0,
+    "p90": 45.7
+   },
+   "sacks_10": 15,
+   "tackles_100": 50,
+   "ints_6": 3,
+   "def_tackles": {
+    "p50": 29.0,
+    "p90": 67.0,
+    "p99": 109.4
+   },
+   "def_sacks": {
+    "p50": 2.0,
+    "p90": 5.0,
+    "p99": 10.0
+   },
+   "tfl": {
+    "p50": 3.0,
+    "p90": 8.5,
+    "p99": 15.0
+   }
+  },
+  "2025": {
+   "teams": 136,
+   "passers_4000": 1,
+   "passers_3000": 37,
+   "rushers_1000": 44,
+   "receivers_1000": 23,
+   "catches_80": 10,
+   "pass_td_30": 8,
+   "rush_td_15": 19,
+   "qb_pass_yds": {
+    "p10": 1255.4,
+    "p50": 2378.5,
+    "p90": 3516.1,
+    "p99": 3957.5
+   },
+   "qb_ypa": {
+    "p10": 6.1,
+    "p50": 7.3,
+    "p90": 8.7,
+    "p99": 9.4
+   },
+   "qb_cmp_pct": {
+    "p10": 56.8,
+    "p50": 63.2,
+    "p90": 69.0,
+    "p99": 72.4
+   },
+   "rb_rush_yds": {
+    "p10": 458.5,
+    "p50": 670.5,
+    "p90": 1123.1,
+    "p99": 1545.0
+   },
+   "rb_ypc": {
+    "p10": 3.8,
+    "p50": 4.9,
+    "p90": 6.2,
+    "p99": 7.2
+   },
+   "rec_yds": {
+    "p10": 254.0,
+    "p50": 489.0,
+    "p90": 860.5,
+    "p99": 1201.0
+   },
+   "kicker_fg_pct": {
+    "p10": 67.7,
+    "p50": 78.6,
+    "p90": 89.0
+   },
+   "punter_gross": {
+    "p10": 40.6,
+    "p50": 43.5,
+    "p90": 46.3
+   },
+   "sacks_10": 17,
+   "tackles_100": 62,
+   "ints_6": 6,
+   "def_tackles": {
+    "p50": 28.0,
+    "p90": 68.0,
+    "p99": 109.0
+   },
+   "def_sacks": {
+    "p50": 1.5,
+    "p90": 4.5,
+    "p99": 10.0
+   },
+   "tfl": {
+    "p50": 3.0,
+    "p90": 8.0,
+    "p99": 15.0
+   }
+  }
+ },
+ "per_team_game_by_position": {
+  "note": "each position group's total divided by team games (G18)",
+  "by_season": {
+   "2004": {
+    "DB": {
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.0,
+     "rushingYards": 0.0,
+     "receivingYards": 0.13,
+     "receptions": 0.01,
+     "def_int": 0.0
+    },
+    "WR": {
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "other": {
+     "passingYards": 211.11,
+     "rushingYards": 155.19,
+     "receivingYards": 209.55,
+     "receptions": 16.89,
+     "def_int": 1.0
+    }
+   },
+   "2005": {
+    "DB": {
+     "rushingYards": 0.09,
+     "receivingYards": 0.24,
+     "receptions": 0.03,
+     "def_int": 0.01
+    },
+    "DL": {},
+    "K": {},
+    "LB": {
+     "def_int": 0.0
+    },
+    "OL": {
+     "def_int": 0.0
+    },
+    "P": {},
+    "QB": {
+     "passingYards": 1.85,
+     "rushingYards": 0.01
+    },
+    "RB": {
+     "rushingYards": 0.91,
+     "receivingYards": 0.2,
+     "receptions": 0.03
+    },
+    "TE": {
+     "receivingYards": 0.28,
+     "receptions": 0.02
+    },
+    "WR": {
+     "rushingYards": 0.06,
+     "receivingYards": 0.98,
+     "receptions": 0.09
+    },
+    "other": {
+     "passingYards": 216.26,
+     "rushingYards": 153.2,
+     "receivingYards": 218.29,
+     "receptions": 17.98,
+     "def_int": 1.03
+    },
+    "unknown": {
+     "def_int": 0.0
+    }
+   },
+   "2006": {
+    "DB": {
+     "passingYards": 0.01,
+     "rushingYards": 0.46,
+     "receivingYards": 1.97,
+     "receptions": 0.19,
+     "def_int": 0.06
+    },
+    "DL": {
+     "rushingYards": 0.0,
+     "receivingYards": 0.22,
+     "receptions": 0.02,
+     "def_int": 0.01
+    },
+    "K": {
+     "rushingYards": 0.03
+    },
+    "LB": {
+     "rushingYards": 0.02,
+     "receivingYards": 0.01,
+     "receptions": 0.0,
+     "def_int": 0.01
+    },
+    "OL": {
+     "rushingYards": 0.12,
+     "receivingYards": 0.07,
+     "receptions": 0.01
+    },
+    "P": {
+     "passingYards": 0.02
+    },
+    "QB": {
+     "passingYards": 19.36,
+     "rushingYards": 2.39,
+     "receivingYards": 0.08,
+     "receptions": 0.01
+    },
+    "RB": {
+     "passingYards": 0.0,
+     "rushingYards": 14.34,
+     "receivingYards": 2.65,
+     "receptions": 0.33
+    },
+    "TE": {
+     "passingYards": 0.34,
+     "rushingYards": 0.02,
+     "receivingYards": 3.26,
+     "receptions": 0.27
+    },
+    "WR": {
+     "passingYards": 1.36,
+     "rushingYards": 1.72,
+     "receivingYards": 12.87,
+     "receptions": 0.97,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 183.09,
+     "rushingYards": 121.09,
+     "receivingYards": 180.93,
+     "receptions": 14.87,
+     "def_int": 0.94
+    },
+    "unknown": {
+     "def_int": 0.01
+    }
+   },
+   "2007": {
+    "DB": {
+     "passingYards": 1.46,
+     "rushingYards": 1.33,
+     "receivingYards": 2.15,
+     "receptions": 0.2,
+     "def_int": 0.22
+    },
+    "DL": {
+     "rushingYards": 0.01,
+     "receivingYards": 0.28,
+     "receptions": 0.02,
+     "def_int": 0.02
+    },
+    "K": {
+     "passingYards": 0.03,
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "LB": {
+     "rushingYards": 0.44,
+     "receivingYards": 0.26,
+     "receptions": 0.03,
+     "def_int": 0.04
+    },
+    "OL": {
+     "rushingYards": 0.17,
+     "receivingYards": 0.05,
+     "receptions": 0.01,
+     "def_int": 0.0
+    },
+    "P": {
+     "passingYards": 0.05
+    },
+    "QB": {
+     "passingYards": 74.43,
+     "rushingYards": 8.1,
+     "receivingYards": 0.52,
+     "receptions": 0.04,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 0.13,
+     "rushingYards": 32.65,
+     "receivingYards": 8.85,
+     "receptions": 1.05,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 2.76,
+     "rushingYards": 0.01,
+     "receivingYards": 8.32,
+     "receptions": 0.76
+    },
+    "WR": {
+     "passingYards": 0.89,
+     "rushingYards": 4.28,
+     "receivingYards": 47.64,
+     "receptions": 3.77,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 152.08,
+     "rushingYards": 113.22,
+     "receivingYards": 163.53,
+     "receptions": 13.79,
+     "def_int": 0.78
+    },
+    "unknown": {
+     "def_int": 0.0
+    }
+   },
+   "2008": {
+    "DB": {
+     "passingYards": 1.04,
+     "rushingYards": 2.01,
+     "receivingYards": 2.59,
+     "receptions": 0.25,
+     "def_int": 0.39
+    },
+    "DL": {
+     "rushingYards": 0.01,
+     "receivingYards": 0.12,
+     "receptions": 0.01,
+     "def_int": 0.03
+    },
+    "K": {
+     "rushingYards": 0.03,
+     "receivingYards": 0.01,
+     "receptions": 0.0,
+     "def_int": 0.0
+    },
+    "LB": {
+     "passingYards": 0.02,
+     "rushingYards": 0.66,
+     "receivingYards": 0.21,
+     "receptions": 0.03,
+     "def_int": 0.13
+    },
+    "OL": {
+     "rushingYards": 0.02,
+     "receivingYards": 0.09,
+     "receptions": 0.02
+    },
+    "P": {
+     "passingYards": 0.09,
+     "rushingYards": 0.06
+    },
+    "QB": {
+     "passingYards": 129.73,
+     "rushingYards": 13.69,
+     "receivingYards": 0.86,
+     "receptions": 0.06,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 1.0,
+     "rushingYards": 64.34,
+     "receivingYards": 14.81,
+     "receptions": 1.72,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.3,
+     "rushingYards": 0.26,
+     "receivingYards": 16.7,
+     "receptions": 1.4,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 2.94,
+     "rushingYards": 7.58,
+     "receivingYards": 92.4,
+     "receptions": 7.17,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 80.72,
+     "rushingYards": 68.05,
+     "receivingYards": 87.95,
+     "receptions": 7.56,
+     "def_int": 0.45
+    },
+    "unknown": {
+     "def_int": 0.0
+    }
+   },
+   "2009": {
+    "DB": {
+     "passingYards": 0.41,
+     "rushingYards": 1.46,
+     "receivingYards": 2.38,
+     "receptions": 0.2,
+     "def_int": 0.65
+    },
+    "DL": {
+     "rushingYards": 0.02,
+     "receivingYards": 0.14,
+     "receptions": 0.01,
+     "def_int": 0.05
+    },
+    "K": {
+     "passingYards": 0.06,
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "LB": {
+     "rushingYards": 1.39,
+     "receivingYards": 0.43,
+     "receptions": 0.06,
+     "def_int": 0.19
+    },
+    "OL": {
+     "rushingYards": 0.03,
+     "receivingYards": 0.02,
+     "receptions": 0.01,
+     "def_int": 0.0
+    },
+    "P": {
+     "passingYards": 0.1,
+     "rushingYards": 0.04,
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "QB": {
+     "passingYards": 209.88,
+     "rushingYards": 18.76,
+     "receivingYards": 1.12,
+     "receptions": 0.1,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 0.31,
+     "rushingYards": 97.87,
+     "receivingYards": 23.26,
+     "receptions": 2.61,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 1.2,
+     "rushingYards": 0.18,
+     "receivingYards": 25.13,
+     "receptions": 2.14,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 4.59,
+     "rushingYards": 10.73,
+     "receivingYards": 156.33,
+     "receptions": 12.04,
+     "def_int": 0.01
+    },
+    "other": {
+     "passingYards": 5.42,
+     "rushingYards": 26.94,
+     "receivingYards": 13.24,
+     "receptions": 1.12,
+     "def_int": 0.08
+    },
+    "unknown": {
+     "def_int": 0.0
+    }
+   },
+   "2010": {
+    "DB": {
+     "passingYards": 0.21,
+     "rushingYards": 1.11,
+     "receivingYards": 1.53,
+     "receptions": 0.14,
+     "def_int": 0.66
+    },
+    "DL": {
+     "rushingYards": 0.01,
+     "receivingYards": 0.36,
+     "receptions": 0.03,
+     "def_int": 0.04
+    },
+    "K": {
+     "passingYards": 0.0,
+     "rushingYards": 0.08
+    },
+    "LB": {
+     "passingYards": 0.23,
+     "rushingYards": 0.74,
+     "receivingYards": 0.23,
+     "receptions": 0.02,
+     "def_int": 0.2
+    },
+    "LS": {},
+    "OL": {
+     "rushingYards": 0.02,
+     "receivingYards": 0.13,
+     "receptions": 0.02
+    },
+    "P": {
+     "passingYards": 0.18,
+     "rushingYards": 0.09
+    },
+    "QB": {
+     "passingYards": 206.1,
+     "rushingYards": 19.74,
+     "receivingYards": 1.09,
+     "receptions": 0.1,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 0.23,
+     "rushingYards": 102.86,
+     "receivingYards": 24.42,
+     "receptions": 2.83,
+     "def_int": 0.01
+    },
+    "TE": {
+     "passingYards": 0.51,
+     "rushingYards": 0.61,
+     "receivingYards": 22.77,
+     "receptions": 1.94,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 4.36,
+     "rushingYards": 10.09,
+     "receivingYards": 158.33,
+     "receptions": 12.19,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 10.1,
+     "rushingYards": 28.96,
+     "receivingYards": 13.07,
+     "receptions": 1.15,
+     "def_int": 0.08
+    }
+   },
+   "2011": {
+    "DB": {
+     "passingYards": 0.31,
+     "rushingYards": 0.82,
+     "receivingYards": 1.72,
+     "receptions": 0.16,
+     "def_int": 0.63
+    },
+    "DL": {
+     "rushingYards": 0.06,
+     "receivingYards": 0.28,
+     "receptions": 0.02,
+     "def_int": 0.04
+    },
+    "K": {
+     "passingYards": 0.03,
+     "rushingYards": 0.12,
+     "receivingYards": 0.02,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 0.01,
+     "rushingYards": 0.63,
+     "receivingYards": 0.28,
+     "receptions": 0.04,
+     "def_int": 0.19
+    },
+    "LS": {
+     "receivingYards": 0.03,
+     "receptions": 0.0
+    },
+    "OL": {
+     "rushingYards": 0.04,
+     "receivingYards": 0.14,
+     "receptions": 0.02
+    },
+    "P": {
+     "passingYards": 0.1,
+     "rushingYards": 0.18
+    },
+    "QB": {
+     "passingYards": 218.48,
+     "rushingYards": 20.81,
+     "receivingYards": 0.83,
+     "receptions": 0.08
+    },
+    "RB": {
+     "passingYards": 0.38,
+     "rushingYards": 108.01,
+     "receivingYards": 23.57,
+     "receptions": 2.73,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.14,
+     "rushingYards": 0.31,
+     "receivingYards": 25.26,
+     "receptions": 2.23
+    },
+    "WR": {
+     "passingYards": 2.98,
+     "rushingYards": 8.03,
+     "receivingYards": 162.64,
+     "receptions": 12.59,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 7.55,
+     "rushingYards": 25.79,
+     "receivingYards": 15.15,
+     "receptions": 1.33,
+     "def_int": 0.08
+    }
+   },
+   "2012": {
+    "DB": {
+     "passingYards": 2.23,
+     "rushingYards": 1.08,
+     "receivingYards": 1.87,
+     "receptions": 0.16,
+     "def_int": 0.63
+    },
+    "DL": {
+     "rushingYards": 0.02,
+     "receivingYards": 0.19,
+     "receptions": 0.02,
+     "def_int": 0.04
+    },
+    "K": {
+     "passingYards": 0.01,
+     "rushingYards": 0.02,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 0.32,
+     "rushingYards": 0.59,
+     "receivingYards": 0.17,
+     "receptions": 0.02,
+     "def_int": 0.19
+    },
+    "OL": {
+     "rushingYards": 0.01,
+     "receivingYards": 0.16,
+     "receptions": 0.02
+    },
+    "P": {
+     "passingYards": 0.07,
+     "rushingYards": 0.1
+    },
+    "QB": {
+     "passingYards": 226.34,
+     "rushingYards": 24.08,
+     "receivingYards": 1.17,
+     "receptions": 0.1,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 0.27,
+     "rushingYards": 116.27,
+     "receivingYards": 26.17,
+     "receptions": 2.91,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.58,
+     "rushingYards": 1.01,
+     "receivingYards": 27.58,
+     "receptions": 2.34
+    },
+    "WR": {
+     "passingYards": 1.5,
+     "rushingYards": 9.12,
+     "receivingYards": 165.52,
+     "receptions": 12.88,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 5.75,
+     "rushingYards": 19.99,
+     "receivingYards": 13.68,
+     "receptions": 1.21,
+     "def_int": 0.08
+    }
+   },
+   "2013": {
+    "DB": {
+     "passingYards": 0.78,
+     "rushingYards": 1.2,
+     "receivingYards": 1.19,
+     "receptions": 0.13,
+     "def_int": 0.68
+    },
+    "DL": {
+     "passingYards": 0.12,
+     "rushingYards": 0.41,
+     "receivingYards": 0.08,
+     "receptions": 0.01,
+     "def_int": 0.04
+    },
+    "K": {
+     "passingYards": 0.01,
+     "rushingYards": 0.05,
+     "receivingYards": 0.01,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 0.01,
+     "rushingYards": 0.9,
+     "receivingYards": 0.33,
+     "receptions": 0.03,
+     "def_int": 0.17
+    },
+    "LS": {
+     "receivingYards": 0.02,
+     "receptions": 0.0
+    },
+    "OL": {
+     "rushingYards": 0.03,
+     "receivingYards": 0.14,
+     "receptions": 0.02,
+     "def_int": 0.0
+    },
+    "P": {
+     "passingYards": 0.07,
+     "rushingYards": 0.17
+    },
+    "QB": {
+     "passingYards": 224.47,
+     "rushingYards": 25.82,
+     "receivingYards": 0.72,
+     "receptions": 0.07
+    },
+    "RB": {
+     "passingYards": 0.2,
+     "rushingYards": 118.48,
+     "receivingYards": 23.52,
+     "receptions": 2.72,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 2.39,
+     "rushingYards": 1.21,
+     "receivingYards": 26.05,
+     "receptions": 2.2
+    },
+    "WR": {
+     "passingYards": 2.63,
+     "rushingYards": 10.86,
+     "receivingYards": 172.76,
+     "receptions": 13.2,
+     "def_int": 0.01
+    },
+    "other": {
+     "passingYards": 5.84,
+     "rushingYards": 18.34,
+     "receivingYards": 11.6,
+     "receptions": 1.0,
+     "def_int": 0.08
+    },
+    "unknown": {}
+   },
+   "2014": {
+    "DB": {
+     "passingYards": 0.96,
+     "rushingYards": 1.64,
+     "receivingYards": 1.63,
+     "receptions": 0.16,
+     "def_int": 0.67
+    },
+    "DL": {
+     "rushingYards": 0.09,
+     "receivingYards": 0.23,
+     "receptions": 0.01,
+     "def_int": 0.04
+    },
+    "K": {
+     "passingYards": 0.03,
+     "rushingYards": 0.05,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 0.03,
+     "rushingYards": 0.91,
+     "receivingYards": 0.26,
+     "receptions": 0.03,
+     "def_int": 0.15
+    },
+    "LS": {
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "OL": {
+     "passingYards": 0.0,
+     "rushingYards": 0.03,
+     "receivingYards": 0.07,
+     "receptions": 0.01
+    },
+    "P": {
+     "passingYards": 0.12,
+     "receptions": 0.0
+    },
+    "QB": {
+     "passingYards": 227.78,
+     "rushingYards": 26.35,
+     "receivingYards": 1.04,
+     "receptions": 0.09,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 0.8,
+     "rushingYards": 124.75,
+     "receivingYards": 23.47,
+     "receptions": 2.65,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.22,
+     "rushingYards": 0.38,
+     "receivingYards": 24.84,
+     "receptions": 2.13,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 2.69,
+     "rushingYards": 9.71,
+     "receivingYards": 171.66,
+     "receptions": 13.13,
+     "def_int": 0.01
+    },
+    "other": {
+     "passingYards": 0.26,
+     "rushingYards": 16.04,
+     "receivingYards": 9.6,
+     "receptions": 0.91,
+     "def_int": 0.06
+    },
+    "unknown": {}
+   },
+   "2015": {
+    "DB": {
+     "passingYards": 0.61,
+     "rushingYards": 1.63,
+     "receivingYards": 1.72,
+     "receptions": 0.16,
+     "def_int": 0.68
+    },
+    "DL": {
+     "passingYards": 0.01,
+     "rushingYards": 0.08,
+     "receivingYards": 0.2,
+     "receptions": 0.02,
+     "def_int": 0.03
+    },
+    "K": {
+     "rushingYards": 0.0,
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 0.81,
+     "rushingYards": 1.11,
+     "receivingYards": 0.43,
+     "receptions": 0.05,
+     "def_int": 0.16
+    },
+    "LS": {
+     "receivingYards": 0.01,
+     "receptions": 0.0
+    },
+    "OL": {
+     "rushingYards": 0.01,
+     "receivingYards": 0.08,
+     "receptions": 0.01
+    },
+    "P": {
+     "passingYards": 0.14,
+     "rushingYards": 0.11
+    },
+    "QB": {
+     "passingYards": 220.5,
+     "rushingYards": 25.1,
+     "receivingYards": 1.03,
+     "receptions": 0.09
+    },
+    "RB": {
+     "passingYards": 1.75,
+     "rushingYards": 128.86,
+     "receivingYards": 24.45,
+     "receptions": 2.7,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.28,
+     "rushingYards": 0.53,
+     "receivingYards": 25.79,
+     "receptions": 2.18,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 5.04,
+     "rushingYards": 8.57,
+     "receivingYards": 171.48,
+     "receptions": 12.94,
+     "def_int": 0.01
+    },
+    "other": {
+     "passingYards": 3.04,
+     "rushingYards": 14.06,
+     "receivingYards": 8.13,
+     "receptions": 0.69,
+     "def_int": 0.04
+    },
+    "unknown": {}
+   },
+   "2016": {
+    "DB": {
+     "passingYards": 0.01,
+     "rushingYards": 1.18,
+     "receivingYards": 1.99,
+     "receptions": 0.16,
+     "def_int": 0.68
+    },
+    "DL": {
+     "rushingYards": 0.01,
+     "receivingYards": 0.11,
+     "receptions": 0.01,
+     "def_int": 0.02
+    },
+    "K": {
+     "passingYards": 0.01,
+     "receivingYards": 0.01,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 0.79,
+     "rushingYards": 0.69,
+     "receivingYards": 0.58,
+     "receptions": 0.06,
+     "def_int": 0.15
+    },
+    "LS": {},
+    "OL": {
+     "rushingYards": 0.04,
+     "receivingYards": 0.08,
+     "receptions": 0.01
+    },
+    "P": {
+     "passingYards": 0.16,
+     "rushingYards": 0.04,
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "QB": {
+     "passingYards": 230.19,
+     "rushingYards": 27.75,
+     "receivingYards": 0.65,
+     "receptions": 0.07,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 0.37,
+     "rushingYards": 133.85,
+     "receivingYards": 25.02,
+     "receptions": 2.79,
+     "def_int": 0.01
+    },
+    "TE": {
+     "passingYards": 0.59,
+     "rushingYards": 0.4,
+     "receivingYards": 25.84,
+     "receptions": 2.12,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 2.31,
+     "rushingYards": 9.66,
+     "receivingYards": 175.86,
+     "receptions": 13.09,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 0.08,
+     "rushingYards": 11.6,
+     "receivingYards": 4.47,
+     "receptions": 0.4,
+     "def_int": 0.03
+    },
+    "unknown": {
+     "passingYards": 0.03,
+     "receivingYards": 0.21,
+     "receptions": 0.02
+    }
+   },
+   "2017": {
+    "DB": {
+     "passingYards": 0.13,
+     "rushingYards": 1.07,
+     "receivingYards": 1.66,
+     "receptions": 0.14,
+     "def_int": 0.65
+    },
+    "DL": {
+     "rushingYards": 0.04,
+     "receivingYards": 0.08,
+     "receptions": 0.01,
+     "def_int": 0.03
+    },
+    "K": {
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 1.88,
+     "rushingYards": 0.98,
+     "receivingYards": 1.01,
+     "receptions": 0.09,
+     "def_int": 0.17
+    },
+    "LS": {
+     "receivingYards": 0.02,
+     "receptions": 0.0
+    },
+    "OL": {
+     "rushingYards": 0.04,
+     "receivingYards": 0.11,
+     "receptions": 0.02,
+     "def_int": 0.0
+    },
+    "P": {
+     "passingYards": 0.1
+    },
+    "QB": {
+     "passingYards": 223.24,
+     "rushingYards": 26.3,
+     "receivingYards": 1.39,
+     "receptions": 0.13,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 0.34,
+     "rushingYards": 129.01,
+     "receivingYards": 25.09,
+     "receptions": 2.89,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.2,
+     "rushingYards": 0.72,
+     "receivingYards": 25.56,
+     "receptions": 2.16
+    },
+    "WR": {
+     "passingYards": 3.42,
+     "rushingYards": 9.31,
+     "receivingYards": 172.27,
+     "receptions": 12.75,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 0.02,
+     "rushingYards": 8.4,
+     "receivingYards": 2.02,
+     "receptions": 0.21,
+     "def_int": 0.03
+    },
+    "unknown": {
+     "passingYards": 0.02,
+     "receivingYards": 0.02,
+     "receptions": 0.01
+    }
+   },
+   "2018": {
+    "DB": {
+     "passingYards": 0.12,
+     "rushingYards": 1.12,
+     "receivingYards": 1.29,
+     "receptions": 0.14,
+     "def_int": 0.65
+    },
+    "DL": {
+     "rushingYards": 0.05,
+     "receivingYards": 0.21,
+     "receptions": 0.02,
+     "def_int": 0.04
+    },
+    "K": {
+     "passingYards": 0.02,
+     "rushingYards": 0.01,
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 1.29,
+     "rushingYards": 1.14,
+     "receivingYards": 0.18,
+     "receptions": 0.02,
+     "def_int": 0.16
+    },
+    "LS": {},
+    "OL": {
+     "rushingYards": 0.04,
+     "receivingYards": 0.14,
+     "receptions": 0.02
+    },
+    "P": {
+     "passingYards": 0.07
+    },
+    "QB": {
+     "passingYards": 224.71,
+     "rushingYards": 26.83,
+     "receivingYards": 0.41,
+     "receptions": 0.05,
+     "def_int": 0.0
+    },
+    "RB": {
+     "passingYards": 0.31,
+     "rushingYards": 136.58,
+     "receivingYards": 25.82,
+     "receptions": 2.98,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.52,
+     "rushingYards": 0.64,
+     "receivingYards": 26.95,
+     "receptions": 2.25,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 1.83,
+     "rushingYards": 8.28,
+     "receivingYards": 174.14,
+     "receptions": 13.05,
+     "def_int": 0.0
+    },
+    "other": {
+     "passingYards": 0.0,
+     "rushingYards": 3.53,
+     "receivingYards": 0.9,
+     "receptions": 0.09,
+     "def_int": 0.01
+    },
+    "unknown": {
+     "passingYards": 1.42,
+     "receivingYards": 0.11,
+     "receptions": 0.01,
+     "def_int": 0.0
+    }
+   },
+   "2019": {
+    "DB": {
+     "passingYards": 0.11,
+     "rushingYards": 0.72,
+     "receivingYards": 1.26,
+     "receptions": 0.12,
+     "def_int": 0.62
+    },
+    "DL": {
+     "rushingYards": 0.1,
+     "receivingYards": 0.52,
+     "receptions": 0.04,
+     "def_int": 0.02
+    },
+    "K": {
+     "passingYards": 0.01
+    },
+    "LB": {
+     "passingYards": 0.08,
+     "rushingYards": 0.4,
+     "receivingYards": 0.47,
+     "receptions": 0.04,
+     "def_int": 0.16
+    },
+    "LS": {},
+    "OL": {
+     "rushingYards": 0.01,
+     "receivingYards": 0.06,
+     "receptions": 0.01
+    },
+    "P": {
+     "passingYards": 0.12,
+     "rushingYards": 0.06,
+     "receivingYards": 0.01,
+     "receptions": 0.0
+    },
+    "QB": {
+     "passingYards": 228.61,
+     "rushingYards": 26.6,
+     "receivingYards": 0.28,
+     "receptions": 0.03
+    },
+    "RB": {
+     "passingYards": 0.26,
+     "rushingYards": 132.24,
+     "receivingYards": 23.93,
+     "receptions": 2.9
+    },
+    "TE": {
+     "passingYards": 0.59,
+     "rushingYards": 0.71,
+     "receivingYards": 30.26,
+     "receptions": 2.53,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 2.58,
+     "rushingYards": 10.48,
+     "receivingYards": 176.64,
+     "receptions": 13.15,
+     "def_int": 0.0
+    },
+    "other": {
+     "rushingYards": 0.26,
+     "receivingYards": 0.09,
+     "receptions": 0.01,
+     "def_int": 0.0
+    },
+    "unknown": {
+     "passingYards": 1.66,
+     "receivingYards": 0.24,
+     "receptions": 0.02,
+     "def_int": 0.0
+    }
+   },
+   "2020": {
+    "DB": {
+     "passingYards": 0.34,
+     "rushingYards": 0.44,
+     "receivingYards": 0.85,
+     "receptions": 0.09,
+     "def_int": 0.63
+    },
+    "DL": {
+     "rushingYards": 0.25,
+     "receivingYards": 0.11,
+     "receptions": 0.02,
+     "def_int": 0.03
+    },
+    "K": {
+     "passingYards": 0.03,
+     "rushingYards": 0.01
+    },
+    "LB": {
+     "passingYards": 0.19,
+     "rushingYards": 0.4,
+     "receivingYards": 0.32,
+     "receptions": 0.03,
+     "def_int": 0.17
+    },
+    "LS": {
+     "receivingYards": 0.02,
+     "receptions": 0.0
+    },
+    "OL": {
+     "receptions": 0.01,
+     "def_int": 0.0
+    },
+    "P": {
+     "passingYards": 0.08,
+     "rushingYards": 0.12
+    },
+    "QB": {
+     "passingYards": 226.63,
+     "rushingYards": 24.08,
+     "receivingYards": 0.29,
+     "receptions": 0.04
+    },
+    "RB": {
+     "passingYards": 0.42,
+     "rushingYards": 134.63,
+     "receivingYards": 25.96,
+     "receptions": 3.18,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.3,
+     "rushingYards": 0.59,
+     "receivingYards": 33.73,
+     "receptions": 2.79,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 4.37,
+     "rushingYards": 9.62,
+     "receivingYards": 171.72,
+     "receptions": 13.02,
+     "def_int": 0.0
+    },
+    "other": {},
+    "unknown": {
+     "passingYards": 2.19,
+     "receivingYards": 0.61,
+     "receptions": 0.04,
+     "def_int": 0.0
+    }
+   },
+   "2021": {
+    "DB": {
+     "rushingYards": 0.22,
+     "receivingYards": 0.72,
+     "receptions": 0.06,
+     "def_int": 0.62
+    },
+    "DL": {
+     "passingYards": 0.01,
+     "rushingYards": 0.17,
+     "receivingYards": 0.04,
+     "receptions": 0.01,
+     "def_int": 0.02
+    },
+    "K": {
+     "passingYards": 0.03,
+     "rushingYards": 0.02,
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 0.35,
+     "rushingYards": 0.41,
+     "receivingYards": 0.2,
+     "receptions": 0.02,
+     "def_int": 0.17
+    },
+    "LS": {
+     "rushingYards": 0.01,
+     "receivingYards": 0.01,
+     "receptions": 0.0
+    },
+    "OL": {
+     "rushingYards": 0.03,
+     "receptions": 0.01
+    },
+    "P": {
+     "passingYards": 0.1,
+     "rushingYards": 0.03
+    },
+    "QB": {
+     "passingYards": 223.71,
+     "rushingYards": 21.79,
+     "receivingYards": 0.45,
+     "receptions": 0.05
+    },
+    "RB": {
+     "passingYards": 0.51,
+     "rushingYards": 133.42,
+     "receivingYards": 26.37,
+     "receptions": 3.17
+    },
+    "TE": {
+     "passingYards": 0.24,
+     "rushingYards": 1.0,
+     "receivingYards": 34.07,
+     "receptions": 2.95,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 4.28,
+     "rushingYards": 7.91,
+     "receivingYards": 172.28,
+     "receptions": 12.83,
+     "def_int": 0.0
+    },
+    "other": {
+     "rushingYards": 0.02,
+     "def_int": 0.0
+    },
+    "unknown": {
+     "passingYards": 4.26,
+     "receivingYards": 0.04,
+     "receptions": 0.01,
+     "def_int": 0.0
+    }
+   },
+   "2022": {
+    "DB": {
+     "passingYards": 0.02,
+     "rushingYards": 0.63,
+     "receivingYards": 0.81,
+     "receptions": 0.08,
+     "def_int": 0.64
+    },
+    "DL": {
+     "rushingYards": 0.06,
+     "receivingYards": 0.03,
+     "receptions": 0.0,
+     "def_int": 0.03
+    },
+    "K": {
+     "rushingYards": 0.06,
+     "receivingYards": 0.03,
+     "receptions": 0.0
+    },
+    "LB": {
+     "passingYards": 0.03,
+     "rushingYards": 0.4,
+     "receivingYards": 0.12,
+     "receptions": 0.02,
+     "def_int": 0.16
+    },
+    "LS": {
+     "rushingYards": 0.0,
+     "receivingYards": 0.01,
+     "receptions": 0.0
+    },
+    "OL": {
+     "rushingYards": 0.02,
+     "receptions": 0.01
+    },
+    "P": {
+     "passingYards": 0.13,
+     "rushingYards": 0.01
+    },
+    "QB": {
+     "passingYards": 231.11,
+     "rushingYards": 22.37,
+     "receivingYards": 0.31,
+     "receptions": 0.03
+    },
+    "RB": {
+     "passingYards": 0.45,
+     "rushingYards": 131.27,
+     "receivingYards": 25.76,
+     "receptions": 3.2,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 0.33,
+     "rushingYards": 0.82,
+     "receivingYards": 34.43,
+     "receptions": 3.05,
+     "def_int": 0.0
+    },
+    "WR": {
+     "passingYards": 1.88,
+     "rushingYards": 6.32,
+     "receivingYards": 172.0,
+     "receptions": 13.0,
+     "def_int": 0.0
+    },
+    "other": {
+     "receivingYards": 0.03,
+     "receptions": 0.0,
+     "def_int": 0.0
+    },
+    "unknown": {
+     "receivingYards": 0.34,
+     "receptions": 0.03,
+     "def_int": 0.0
+    }
+   },
+   "2023": {
+    "DB": {
+     "passingYards": 0.0,
+     "rushingYards": 0.44,
+     "receivingYards": 0.51,
+     "receptions": 0.04,
+     "def_int": 0.67
+    },
+    "DL": {
+     "passingYards": 0.0,
+     "rushingYards": 0.07,
+     "receivingYards": 0.03,
+     "receptions": 0.01,
+     "def_int": 0.03
+    },
+    "K": {
+     "passingYards": 0.01,
+     "rushingYards": 0.07,
+     "receivingYards": 0.02,
+     "receptions": 0.0
+    },
+    "LB": {
+     "rushingYards": 0.17,
+     "receivingYards": 0.11,
+     "receptions": 0.02,
+     "def_int": 0.14
+    },
+    "LS": {
+     "receivingYards": 0.0,
+     "receptions": 0.0
+    },
+    "OL": {
+     "passingYards": 0.02,
+     "rushingYards": 0.06,
+     "receivingYards": 0.05,
+     "receptions": 0.01
+    },
+    "P": {
+     "passingYards": 0.16,
+     "rushingYards": 0.05
+    },
+    "QB": {
+     "passingYards": 226.07,
+     "rushingYards": 25.91,
+     "receivingYards": 0.19,
+     "receptions": 0.03
+    },
+    "RB": {
+     "passingYards": 0.55,
+     "rushingYards": 123.94,
+     "receivingYards": 24.23,
+     "receptions": 3.04,
+     "def_int": 0.0
+    },
+    "TE": {
+     "passingYards": 1.17,
+     "rushingYards": 1.42,
+     "receivingYards": 33.76,
+     "receptions": 3.0
+    },
+    "WR": {
+     "passingYards": 1.57,
+     "rushingYards": 5.8,
+     "receivingYards": 170.21,
+     "receptions": 12.8,
+     "def_int": 0.0
+    },
+    "other": {
+     "receivingYards": 0.01,
+     "receptions": 0.0,
+     "def_int": 0.0
+    },
+    "unknown": {
+     "passingYards": 0.01,
+     "receivingYards": 0.47,
+     "receptions": 0.04
+    }
+   },
+   "2024": {
+    "DB": {
+     "rushingYards": 0.1,
+     "receivingYards": 0.24,
+     "receptions": 0.02,
+     "def_int": 0.65,
+     "totalTackles": 26.86,
+     "sacks": 0.17
+    },
+    "DL": {
+     "rushingYards": 0.12,
+     "receivingYards": 0.04,
+     "receptions": 0.0,
+     "def_int": 0.03,
+     "totalTackles": 15.38,
+     "sacks": 1.2
+    },
+    "K": {
+     "passingYards": 0.02,
+     "rushingYards": 0.03,
+     "totalTackles": 0.07
+    },
+    "LB": {
+     "passingYards": 0.02,
+     "rushingYards": 0.21,
+     "receivingYards": 0.1,
+     "receptions": 0.01,
+     "def_int": 0.15,
+     "totalTackles": 20.85,
+     "sacks": 0.63
+    },
+    "LS": {
+     "receivingYards": 0.01,
+     "receptions": 0.0,
+     "totalTackles": 0.1
+    },
+    "OL": {
+     "passingYards": 0.01,
+     "rushingYards": 0.03,
+     "receivingYards": 0.01,
+     "receptions": 0.01,
+     "totalTackles": 0.17,
+     "sacks": 0.0
+    },
+    "P": {
+     "passingYards": 0.15,
+     "rushingYards": 0.06,
+     "totalTackles": 0.03
+    },
+    "QB": {
+     "passingYards": 224.11,
+     "rushingYards": 27.62,
+     "receivingYards": 0.21,
+     "receptions": 0.03,
+     "totalTackles": 0.04
+    },
+    "RB": {
+     "passingYards": 0.2,
+     "rushingYards": 125.92,
+     "receivingYards": 25.82,
+     "receptions": 3.21,
+     "totalTackles": 0.27,
+     "sacks": 0.0
+    },
+    "TE": {
+     "passingYards": 1.0,
+     "rushingYards": 1.02,
+     "receivingYards": 35.69,
+     "receptions": 3.23,
+     "def_int": 0.0,
+     "totalTackles": 0.21,
+     "sacks": 0.0
+    },
+    "WR": {
+     "passingYards": 1.68,
+     "rushingYards": 6.86,
+     "receivingYards": 164.87,
+     "receptions": 12.33,
+     "def_int": 0.0,
+     "totalTackles": 0.46
+    },
+    "other": {
+     "passingYards": 0.01,
+     "rushingYards": 0.02,
+     "receivingYards": 0.23,
+     "receptions": 0.02,
+     "def_int": 0.0,
+     "totalTackles": 0.83,
+     "sacks": 0.09
+    },
+    "unknown": {
+     "receivingYards": 0.01,
+     "receptions": 0.0,
+     "def_int": 0.0,
+     "totalTackles": 0.03
+    }
+   },
+   "2025": {
+    "DB": {
+     "rushingYards": 0.21,
+     "receivingYards": 0.37,
+     "receptions": 0.05,
+     "def_int": 0.62,
+     "totalTackles": 27.05,
+     "sacks": 0.2
+    },
+    "DL": {
+     "passingYards": 0.05,
+     "rushingYards": 0.04,
+     "receivingYards": 0.03,
+     "receptions": 0.0,
+     "def_int": 0.03,
+     "totalTackles": 15.45,
+     "sacks": 1.17
+    },
+    "K": {
+     "passingYards": 0.01,
+     "receivingYards": 0.0,
+     "receptions": 0.0,
+     "totalTackles": 0.06
+    },
+    "LB": {
+     "passingYards": 0.04,
+     "rushingYards": 0.18,
+     "receivingYards": 0.06,
+     "receptions": 0.01,
+     "def_int": 0.14,
+     "totalTackles": 21.44,
+     "sacks": 0.63
+    },
+    "LS": {
+     "receivingYards": 0.01,
+     "receptions": 0.0,
+     "totalTackles": 0.1
+    },
+    "OL": {
+     "rushingYards": 0.01,
+     "receptions": 0.01,
+     "totalTackles": 0.18,
+     "sacks": 0.0
+    },
+    "P": {
+     "passingYards": 0.1,
+     "rushingYards": 0.06,
+     "totalTackles": 0.03
+    },
+    "QB": {
+     "passingYards": 222.58,
+     "rushingYards": 30.13,
+     "receivingYards": 0.46,
+     "receptions": 0.05,
+     "def_int": 0.0,
+     "totalTackles": 0.06
+    },
+    "RB": {
+     "passingYards": 0.14,
+     "rushingYards": 122.66,
+     "receivingYards": 25.24,
+     "receptions": 3.27,
+     "def_int": 0.0,
+     "totalTackles": 0.31,
+     "sacks": 0.0
+    },
+    "TE": {
+     "passingYards": 0.13,
+     "rushingYards": 0.81,
+     "receivingYards": 35.49,
+     "receptions": 3.28,
+     "totalTackles": 0.15,
+     "sacks": 0.0
+    },
+    "WR": {
+     "passingYards": 1.43,
+     "rushingYards": 6.38,
+     "receivingYards": 162.8,
+     "receptions": 12.48,
+     "totalTackles": 0.41
+    },
+    "other": {
+     "rushingYards": 0.11,
+     "receivingYards": 0.03,
+     "receptions": 0.0,
+     "def_int": 0.0,
+     "totalTackles": 0.71,
+     "sacks": 0.07
+    },
+    "unknown": {
+     "totalTackles": 0.01,
+     "sacks": 0.0
+    }
+   }
+  }
+ },
+ "leaders": {
+  "note": "top three each season",
+  "by_season": {
+   "2004": {
+    "passingYards": [
+     [
+      "Sonny Cumbie",
+      4742.0
+     ],
+     [
+      "Timmy Chang",
+      4258.0
+     ],
+     [
+      "Omar Jacobs",
+      4002.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Omar Jacobs",
+      41.0
+     ],
+     [
+      "Timmy Chang",
+      38.0
+     ],
+     [
+      "Jason White",
+      35.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "J.J. Arrington",
+      2018.0
+     ],
+     [
+      "Adrian Peterson",
+      1925.0
+     ],
+     [
+      "DeAngelo Williams",
+      1856.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "DeAngelo Williams",
+      21.0
+     ],
+     [
+      "Eric Shelton",
+      20.0
+     ],
+     [
+      "Cedric Benson",
+      19.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Dante Ridgeway",
+      1393.0
+     ],
+     [
+      "Mike Hass",
+      1379.0
+     ],
+     [
+      "Braylon Edwards",
+      1330.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Dante Ridgeway",
+      104.0
+     ],
+     [
+      "Chad Owens",
+      102.0
+     ],
+     [
+      "Braylon Edwards",
+      97.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Chris Harris",
+      7.0
+     ],
+     [
+      "Charles Gordon",
+      7.0
+     ],
+     [
+      "Junior Rosegreen",
+      6.0
+     ]
+    ]
+   },
+   "2005": {
+    "passingYards": [
+     [
+      "Colt Brennan",
+      4301.0
+     ],
+     [
+      "Cody Hodges",
+      4238.0
+     ],
+     [
+      "Brady Quinn",
+      3919.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Colt Brennan",
+      35.0
+     ],
+     [
+      "Drew Olson",
+      34.0
+     ],
+     [
+      "Brady Quinn",
+      32.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "DeAngelo Williams",
+      1964.0
+     ],
+     [
+      "Reggie Bush",
+      1643.0
+     ],
+     [
+      "Brian Calhoun",
+      1636.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Michael Bush",
+      23.0
+     ],
+     [
+      "Brian Calhoun",
+      22.0
+     ],
+     [
+      "LenDale White",
+      22.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Mike Hass",
+      1532.0
+     ],
+     [
+      "Greg Jennings",
+      1259.0
+     ],
+     [
+      "Jeff Samardzija",
+      1249.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Greg Jennings",
+      98.0
+     ],
+     [
+      "Jeff Webb",
+      92.0
+     ],
+     [
+      "Mike Hass",
+      90.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Alan Zemaitis",
+      7.0
+     ],
+     [
+      "Dion Byrum",
+      6.0
+     ],
+     [
+      "Anthony Smith",
+      6.0
+     ]
+    ]
+   },
+   "2006": {
+    "passingYards": [
+     [
+      "Chase Holbrook",
+      4619.0
+     ],
+     [
+      "Graham Harrell",
+      4552.0
+     ],
+     [
+      "Colt Brennan",
+      4092.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Colt Brennan",
+      42.0
+     ],
+     [
+      "Graham Harrell",
+      38.0
+     ],
+     [
+      "Brady Quinn",
+      37.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Garrett Wolfe",
+      1928.0
+     ],
+     [
+      "Ray Rice",
+      1794.0
+     ],
+     [
+      "Steve Slaton",
+      1744.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Ian Johnson",
+      25.0
+     ],
+     [
+      "Ray Rice",
+      20.0
+     ],
+     [
+      "Ahmad Bradshaw",
+      19.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Chris Williams",
+      1415.0
+     ],
+     [
+      "Joel Filani",
+      1300.0
+     ],
+     [
+      "Robert Meachem",
+      1298.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Chris Williams",
+      92.0
+     ],
+     [
+      "Joel Filani",
+      91.0
+     ],
+     [
+      "Ryne Robinson",
+      91.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Stanley Franks",
+      9.0
+     ],
+     [
+      "Dwight Lowery",
+      9.0
+     ],
+     [
+      "Dante Hughes",
+      8.0
+     ]
+    ]
+   },
+   "2007": {
+    "passingYards": [
+     [
+      "Graham Harrell",
+      5221.0
+     ],
+     [
+      "Paul Smith",
+      5065.0
+     ],
+     [
+      "Matt Ryan",
+      4507.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Paul Smith",
+      47.0
+     ],
+     [
+      "Graham Harrell",
+      44.0
+     ],
+     [
+      "Andre' Woodson",
+      40.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Kevin Smith",
+      2567.0
+     ],
+     [
+      "Matt Forte",
+      2127.0
+     ],
+     [
+      "Ray Rice",
+      2012.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Kevin Smith",
+      29.0
+     ],
+     [
+      "Ray Rice",
+      24.0
+     ],
+     [
+      "Matt Forte",
+      23.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Michael Crabtree",
+      1774.0
+     ],
+     [
+      "Jordy Nelson",
+      1606.0
+     ],
+     [
+      "Donnie Avery",
+      1456.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Jordy Nelson",
+      122.0
+     ],
+     [
+      "Michael Crabtree",
+      119.0
+     ],
+     [
+      "Casey Fitzgerald",
+      111.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Jamie Silva",
+      8.0
+     ],
+     [
+      "William Moore",
+      8.0
+     ],
+     [
+      "Alphonso Smith",
+      8.0
+     ]
+    ]
+   },
+   "2008": {
+    "passingYards": [
+     [
+      "Graham Harrell",
+      5111.0
+     ],
+     [
+      "Case Keenum",
+      5020.0
+     ],
+     [
+      "Sam Bradford",
+      4720.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Sam Bradford",
+      50.0
+     ],
+     [
+      "David Johnson",
+      46.0
+     ],
+     [
+      "Graham Harrell",
+      45.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Donald Brown",
+      2083.0
+     ],
+     [
+      "Shonn Greene",
+      1850.0
+     ],
+     [
+      "MiQuale Lewis",
+      1736.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Javon Ringer",
+      22.0
+     ],
+     [
+      "MiQuale Lewis",
+      22.0
+     ],
+     [
+      "LeSean McCoy",
+      21.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Austin Collie",
+      1538.0
+     ],
+     [
+      "Dez Bryant",
+      1480.0
+     ],
+     [
+      "Naaman Roosevelt",
+      1402.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Casey Fitzgerald",
+      113.0
+     ],
+     [
+      "James Casey",
+      111.0
+     ],
+     [
+      "Austin Collie",
+      106.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Darcel McBath",
+      7.0
+     ],
+     [
+      "Alphonso Smith",
+      7.0
+     ],
+     [
+      "Kevin Sanders",
+      7.0
+     ]
+    ]
+   },
+   "2009": {
+    "passingYards": [
+     [
+      "Case Keenum",
+      5671.0
+     ],
+     [
+      "Levi Brown",
+      4254.0
+     ],
+     [
+      "Tyler Sheehan",
+      4051.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Case Keenum",
+      44.0
+     ],
+     [
+      "Kellen Moore",
+      39.0
+     ],
+     [
+      "Max Hall",
+      33.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Toby Gerhart",
+      1871.0
+     ],
+     [
+      "Ryan Mathews",
+      1808.0
+     ],
+     [
+      "Dion Lewis",
+      1799.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Toby Gerhart",
+      27.0
+     ],
+     [
+      "Ricky Dobbs",
+      27.0
+     ],
+     [
+      "Jacquizz Rodgers",
+      21.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Danario Alexander",
+      1781.0
+     ],
+     [
+      "Freddie Barnes",
+      1770.0
+     ],
+     [
+      "Greg Salas",
+      1590.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Freddie Barnes",
+      155.0
+     ],
+     [
+      "Jordan Shipley",
+      116.0
+     ],
+     [
+      "Danario Alexander",
+      113.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Rahim Moore",
+      10.0
+     ],
+     [
+      "DeAndre McDaniel",
+      8.0
+     ],
+     [
+      "Earl Thomas III",
+      8.0
+     ]
+    ]
+   },
+   "2010": {
+    "passingYards": [
+     [
+      "Bryant Moniz",
+      5040.0
+     ],
+     [
+      "Landry Jones",
+      4718.0
+     ],
+     [
+      "Brandon Weeden",
+      4277.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Bryant Moniz",
+      39.0
+     ],
+     [
+      "Landry Jones",
+      38.0
+     ],
+     [
+      "Dominique Davis",
+      37.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "LaMike James",
+      1731.0
+     ],
+     [
+      "Denard Robinson",
+      1702.0
+     ],
+     [
+      "Mikel Leshoure",
+      1697.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Chad Spann",
+      22.0
+     ],
+     [
+      "LaMike James",
+      21.0
+     ],
+     [
+      "Colin Kaepernick",
+      20.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Greg Salas",
+      1889.0
+     ],
+     [
+      "Justin Blackmon",
+      1782.0
+     ],
+     [
+      "Ryan Broyles",
+      1622.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Ryan Broyles",
+      131.0
+     ],
+     [
+      "Greg Salas",
+      119.0
+     ],
+     [
+      "Justin Blackmon",
+      111.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Jayron Hosley",
+      9.0
+     ],
+     [
+      "Mana Silva",
+      8.0
+     ],
+     [
+      "Robert Lester",
+      8.0
+     ]
+    ]
+   },
+   "2011": {
+    "passingYards": [
+     [
+      "Case Keenum",
+      5631.0
+     ],
+     [
+      "Brandon Weeden",
+      4727.0
+     ],
+     [
+      "Landry Jones",
+      4463.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Case Keenum",
+      48.0
+     ],
+     [
+      "Kellen Moore",
+      43.0
+     ],
+     [
+      "Matt Barkley",
+      39.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Montee Ball",
+      1923.0
+     ],
+     [
+      "LaMike James",
+      1805.0
+     ],
+     [
+      "Ronnie Hillman",
+      1711.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Montee Ball",
+      33.0
+     ],
+     [
+      "Collin Klein",
+      27.0
+     ],
+     [
+      "Bernard Pierce",
+      24.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Jordan White",
+      1792.0
+     ],
+     [
+      "Patrick Edwards",
+      1752.0
+     ],
+     [
+      "Kendall Wright",
+      1663.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Jordan White",
+      128.0
+     ],
+     [
+      "Justin Blackmon",
+      121.0
+     ],
+     [
+      "Mohamed Sanu",
+      115.0
+     ]
+    ],
+    "def_int": [
+     [
+      "David Amerson",
+      13.0
+     ],
+     [
+      "Bacarri Rambo",
+      8.0
+     ],
+     [
+      "Casey Hayward",
+      7.0
+     ]
+    ]
+   },
+   "2012": {
+    "passingYards": [
+     [
+      "Nick Florence",
+      4309.0
+     ],
+     [
+      "Landry Jones",
+      4267.0
+     ],
+     [
+      "Seth Doege",
+      4205.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Geno Smith",
+      42.0
+     ],
+     [
+      "Seth Doege",
+      39.0
+     ],
+     [
+      "Derek Carr",
+      37.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Ka'Deem Carey",
+      1929.0
+     ],
+     [
+      "Stefphon Jefferson",
+      1883.0
+     ],
+     [
+      "Montee Ball",
+      1830.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Kenneth Dixon",
+      27.0
+     ],
+     [
+      "Stefphon Jefferson",
+      24.0
+     ],
+     [
+      "Alex Singleton",
+      24.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Terrance Williams",
+      1832.0
+     ],
+     [
+      "Marqise Lee",
+      1721.0
+     ],
+     [
+      "Stedman Bailey",
+      1622.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Marqise Lee",
+      118.0
+     ],
+     [
+      "Tavon Austin",
+      114.0
+     ],
+     [
+      "Stedman Bailey",
+      114.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Phillip Thomas",
+      8.0
+     ],
+     [
+      "Jordan Poyer",
+      7.0
+     ],
+     [
+      "Bene Benwikere",
+      7.0
+     ]
+    ]
+   },
+   "2013": {
+    "passingYards": [
+     [
+      "Derek Carr",
+      5082.0
+     ],
+     [
+      "Sean Mannion",
+      4662.0
+     ],
+     [
+      "Connor Halliday",
+      4597.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Derek Carr",
+      50.0
+     ],
+     [
+      "Jameis Winston",
+      40.0
+     ],
+     [
+      "Rakeem Cato",
+      39.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Andre Williams",
+      2177.0
+     ],
+     [
+      "Jordan Lynch",
+      1920.0
+     ],
+     [
+      "Ka'Deem Carey",
+      1885.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Keenan Reynolds",
+      31.0
+     ],
+     [
+      "Kapri Bibbs",
+      31.0
+     ],
+     [
+      "Jordan Lynch",
+      23.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Brandin Cooks",
+      1730.0
+     ],
+     [
+      "Davante Adams",
+      1718.0
+     ],
+     [
+      "Willie Snead IV",
+      1516.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Davante Adams",
+      131.0
+     ],
+     [
+      "Brandin Cooks",
+      128.0
+     ],
+     [
+      "Justin Hardy",
+      114.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Anthony Harris",
+      8.0
+     ],
+     [
+      "Justin Gilbert",
+      7.0
+     ],
+     [
+      "Jimmie Ward",
+      7.0
+     ]
+    ]
+   },
+   "2014": {
+    "passingYards": [
+     [
+      "Brandon Doughty",
+      4830.0
+     ],
+     [
+      "Shane Carden",
+      4736.0
+     ],
+     [
+      "Marcus Mariota",
+      4454.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Brandon Doughty",
+      49.0
+     ],
+     [
+      "Marcus Mariota",
+      42.0
+     ],
+     [
+      "Rakeem Cato",
+      40.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Melvin Gordon III",
+      2587.0
+     ],
+     [
+      "Tevin Coleman",
+      2036.0
+     ],
+     [
+      "Ezekiel Elliott",
+      1878.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Melvin Gordon III",
+      29.0
+     ],
+     [
+      "Jay Ajayi",
+      28.0
+     ],
+     [
+      "James Conner",
+      26.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Rashard Higgins",
+      1750.0
+     ],
+     [
+      "Amari Cooper",
+      1727.0
+     ],
+     [
+      "Tyler Lockett",
+      1515.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Amari Cooper",
+      124.0
+     ],
+     [
+      "Justin Hardy",
+      121.0
+     ],
+     [
+      "Kevin White",
+      109.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Gerod Holliman",
+      14.0
+     ],
+     [
+      "Senquez Golson",
+      10.0
+     ],
+     [
+      "Erick Dargan",
+      7.0
+     ]
+    ]
+   },
+   "2015": {
+    "passingYards": [
+     [
+      "Brandon Doughty",
+      5055.0
+     ],
+     [
+      "Matt Quinn Johnson",
+      4946.0
+     ],
+     [
+      "Jared Goff",
+      4719.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Brandon Doughty",
+      48.0
+     ],
+     [
+      "Matt Quinn Johnson",
+      46.0
+     ],
+     [
+      "Jared Goff",
+      43.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Derrick Henry",
+      2219.0
+     ],
+     [
+      "Christian McCaffrey",
+      2019.0
+     ],
+     [
+      "Leonard Fournette",
+      1953.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Derrick Henry",
+      28.0
+     ],
+     [
+      "Keenan Reynolds",
+      24.0
+     ],
+     [
+      "Ezekiel Elliott",
+      23.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Keyarris Garrett",
+      1588.0
+     ],
+     [
+      "Roger Lewis",
+      1544.0
+     ],
+     [
+      "Taywan Taylor",
+      1467.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Tajae Sharpe",
+      111.0
+     ],
+     [
+      "Daniel Braverman",
+      108.0
+     ],
+     [
+      "Richie James",
+      108.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Shawun Lurry",
+      9.0
+     ],
+     [
+      "Damontae Kazee",
+      8.0
+     ],
+     [
+      "Desmond King II",
+      8.0
+     ]
+    ]
+   },
+   "2016": {
+    "passingYards": [
+     [
+      "Patrick Mahomes",
+      5052.0
+     ],
+     [
+      "Ryan Higgins",
+      4617.0
+     ],
+     [
+      "Deshaun Watson",
+      4593.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Logan Woodside",
+      45.0
+     ],
+     [
+      "Jake Browning",
+      43.0
+     ],
+     [
+      "Ryan Higgins",
+      41.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Donnel Pumphrey",
+      2133.0
+     ],
+     [
+      "D'Onta Foreman",
+      2028.0
+     ],
+     [
+      "Brian Hill",
+      1860.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Anthony Wales",
+      27.0
+     ],
+     [
+      "Will Worth",
+      25.0
+     ],
+     [
+      "Jeremy McNichols",
+      23.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Trent Taylor",
+      1803.0
+     ],
+     [
+      "Zay Jones",
+      1746.0
+     ],
+     [
+      "Taywan Taylor",
+      1730.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Zay Jones",
+      158.0
+     ],
+     [
+      "Trent Taylor",
+      136.0
+     ],
+     [
+      "Richie James",
+      105.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Rasul Douglas",
+      8.0
+     ],
+     [
+      "Damontae Kazee",
+      7.0
+     ],
+     [
+      "Tedric Thompson",
+      7.0
+     ]
+    ]
+   },
+   "2017": {
+    "passingYards": [
+     [
+      "Mason Rudolph",
+      4904.0
+     ],
+     [
+      "Baker Mayfield",
+      4627.0
+     ],
+     [
+      "Riley Ferguson",
+      4257.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Drew Lock",
+      44.0
+     ],
+     [
+      "Baker Mayfield",
+      43.0
+     ],
+     [
+      "Riley Ferguson",
+      38.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Rashaad Penny",
+      2248.0
+     ],
+     [
+      "Bryce Love",
+      2118.0
+     ],
+     [
+      "Jonathan Taylor",
+      1977.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Devin Singletary",
+      32.0
+     ],
+     [
+      "Rashaad Penny",
+      23.0
+     ],
+     [
+      "Myles Gaskin",
+      21.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "James Washington",
+      1549.0
+     ],
+     [
+      "Cedrick Wilson Jr.",
+      1511.0
+     ],
+     [
+      "Anthony Miller",
+      1462.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Trey Quinn",
+      114.0
+     ],
+     [
+      "Steve Ishmael",
+      105.0
+     ],
+     [
+      "Michael Gallup",
+      100.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Josh Jackson",
+      8.0
+     ],
+     [
+      "Lukas Denis",
+      7.0
+     ],
+     [
+      "Jalen Young",
+      7.0
+     ]
+    ]
+   },
+   "2018": {
+    "passingYards": [
+     [
+      "Dwayne Haskins",
+      4831.0
+     ],
+     [
+      "Gardner Minshew II",
+      4776.0
+     ],
+     [
+      "Kyler Murray",
+      4361.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Dwayne Haskins",
+      50.0
+     ],
+     [
+      "Tua Tagovailoa",
+      43.0
+     ],
+     [
+      "Kyler Murray",
+      42.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Jonathan Taylor",
+      2194.0
+     ],
+     [
+      "Darrell Henderson Jr.",
+      1909.0
+     ],
+     [
+      "Trayveon Williams",
+      1760.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Travis Etienne Jr.",
+      24.0
+     ],
+     [
+      "Darrell Henderson Jr.",
+      22.0
+     ],
+     [
+      "Devin Singletary",
+      22.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Andy Isabella",
+      1698.0
+     ],
+     [
+      "Tylan Wallace",
+      1491.0
+     ],
+     [
+      "Antoine Wesley",
+      1410.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Rondale Moore",
+      114.0
+     ],
+     [
+      "Andy Isabella",
+      102.0
+     ],
+     [
+      "Preston Williams",
+      96.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Hamp Cheevers",
+      7.0
+     ],
+     [
+      "Andre Cisco",
+      7.0
+     ],
+     [
+      "Juwan Foggie",
+      6.0
+     ]
+    ]
+   },
+   "2019": {
+    "passingYards": [
+     [
+      "Joe Burrow",
+      5671.0
+     ],
+     [
+      "Anthony Gordon",
+      5579.0
+     ],
+     [
+      "Cole McDonald",
+      4135.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Joe Burrow",
+      60.0
+     ],
+     [
+      "Anthony Gordon",
+      48.0
+     ],
+     [
+      "Justin Fields",
+      41.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Chuba Hubbard",
+      2094.0
+     ],
+     [
+      "Malcolm Perry",
+      2017.0
+     ],
+     [
+      "J.K. Dobbins",
+      2003.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Xavier Jones",
+      23.0
+     ],
+     [
+      "LeVante Bellamy",
+      23.0
+     ],
+     [
+      "Malcolm Perry",
+      21.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Ja'Marr Chase",
+      1780.0
+     ],
+     [
+      "Omar Bayless",
+      1653.0
+     ],
+     [
+      "Justin Jefferson",
+      1540.0
+     ]
+    ],
+    "receptions": [
+     [
+      "James Proche II",
+      111.0
+     ],
+     [
+      "Justin Jefferson",
+      111.0
+     ],
+     [
+      "Devin Duvernay",
+      106.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Meiko Dotson",
+      9.0
+     ],
+     [
+      "Luq Barcoo",
+      9.0
+     ],
+     [
+      "Douglas Coleman III",
+      8.0
+     ]
+    ]
+   },
+   "2020": {
+    "passingYards": [
+     [
+      "Mac Jones",
+      4500.0
+     ],
+     [
+      "Kyle Trask",
+      4283.0
+     ],
+     [
+      "Zach Wilson",
+      3692.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Kyle Trask",
+      43.0
+     ],
+     [
+      "Mac Jones",
+      41.0
+     ],
+     [
+      "Zach Wilson",
+      33.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Breece Hall",
+      1572.0
+     ],
+     [
+      "Sincere McCormick",
+      1467.0
+     ],
+     [
+      "Najee Harris",
+      1466.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Najee Harris",
+      26.0
+     ],
+     [
+      "Breece Hall",
+      21.0
+     ],
+     [
+      "Javonte Williams",
+      19.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "DeVonta Smith",
+      1856.0
+     ],
+     [
+      "Elijah Moore",
+      1193.0
+     ],
+     [
+      "Jaelon Darden",
+      1190.0
+     ]
+    ],
+    "receptions": [
+     [
+      "DeVonta Smith",
+      117.0
+     ],
+     [
+      "Elijah Moore",
+      86.0
+     ],
+     [
+      "Jonathan Adams",
+      79.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Derrick Canteen",
+      6.0
+     ],
+     [
+      "Brandon Joseph",
+      6.0
+     ],
+     [
+      "Tre Norwood",
+      5.0
+     ]
+    ]
+   },
+   "2021": {
+    "passingYards": [
+     [
+      "Bailey Zappe",
+      5967.0
+     ],
+     [
+      "Bryce Young",
+      4872.0
+     ],
+     [
+      "Will Rogers",
+      4739.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Bailey Zappe",
+      62.0
+     ],
+     [
+      "Bryce Young",
+      47.0
+     ],
+     [
+      "C.J. Stroud",
+      44.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Lew Nichols",
+      1848.0
+     ],
+     [
+      "Kenneth Walker III",
+      1636.0
+     ],
+     [
+      "Tyler Allgeier",
+      1606.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Tyler Allgeier",
+      23.0
+     ],
+     [
+      "Rasheen Ali",
+      23.0
+     ],
+     [
+      "Tavion Thomas",
+      21.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Jerreth Sterns",
+      1902.0
+     ],
+     [
+      "Jaxon Smith-Njigba",
+      1606.0
+     ],
+     [
+      "Jordan Addison",
+      1593.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Jerreth Sterns",
+      150.0
+     ],
+     [
+      "Makai Polk",
+      105.0
+     ],
+     [
+      "Wan'Dale Robinson",
+      104.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Verone McKinley III",
+      6.0
+     ],
+     [
+      "JT Woods",
+      6.0
+     ],
+     [
+      "Ji'Ayir Brown",
+      6.0
+     ]
+    ]
+   },
+   "2022": {
+    "passingYards": [
+     [
+      "Austin Reed",
+      4744.0
+     ],
+     [
+      "Michael Penix Jr.",
+      4641.0
+     ],
+     [
+      "Caleb Williams",
+      4537.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Caleb Williams",
+      42.0
+     ],
+     [
+      "C.J. Stroud",
+      41.0
+     ],
+     [
+      "Clayton Tune",
+      40.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Brad Roberts",
+      1728.0
+     ],
+     [
+      "DeWayne McBride",
+      1713.0
+     ],
+     [
+      "Mohamed Ibrahim",
+      1665.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Mohamed Ibrahim",
+      20.0
+     ],
+     [
+      "Israel Abanikanda",
+      20.0
+     ],
+     [
+      "Tyjae Spears",
+      19.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Tank Dell",
+      1398.0
+     ],
+     [
+      "Charlie Jones",
+      1361.0
+     ],
+     [
+      "Rashee Rice",
+      1355.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Charlie Jones",
+      110.0
+     ],
+     [
+      "Tank Dell",
+      109.0
+     ],
+     [
+      "Xavier Hutchinson",
+      107.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Decorian Patterson",
+      7.0
+     ],
+     [
+      "Marcus Fuqua",
+      7.0
+     ],
+     [
+      "Sydney Brown",
+      6.0
+     ]
+    ]
+   },
+   "2023": {
+    "passingYards": [
+     [
+      "Michael Penix Jr.",
+      4903.0
+     ],
+     [
+      "Bo Nix",
+      4508.0
+     ],
+     [
+      "Carson Beck",
+      3941.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Bo Nix",
+      45.0
+     ],
+     [
+      "Jayden Daniels",
+      40.0
+     ],
+     [
+      "Michael Penix Jr.",
+      36.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Ollie Gordon II",
+      1732.0
+     ],
+     [
+      "Kimani Vidal",
+      1661.0
+     ],
+     [
+      "Cody Schrader",
+      1617.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Blake Corum",
+      27.0
+     ],
+     [
+      "Ollie Gordon II",
+      21.0
+     ],
+     [
+      "Audric Estime",
+      18.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Rome Odunze",
+      1640.0
+     ],
+     [
+      "Malik Nabers",
+      1569.0
+     ],
+     [
+      "Ricky White III",
+      1483.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Malik Washington",
+      110.0
+     ],
+     [
+      "LaJohntay Wester",
+      108.0
+     ],
+     [
+      "Brennan Presley",
+      101.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Xavier Watts",
+      7.0
+     ],
+     [
+      "Ricardo Hallman",
+      7.0
+     ],
+     [
+      "Mike Sainristil",
+      6.0
+     ]
+    ]
+   },
+   "2024": {
+    "passingYards": [
+     [
+      "Kyle McCord",
+      4779.0
+     ],
+     [
+      "Cam Ward",
+      4313.0
+     ],
+     [
+      "Jaxson Dart",
+      4279.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Cam Ward",
+      39.0
+     ],
+     [
+      "Shedeur Sanders",
+      37.0
+     ],
+     [
+      "Cade Klubnik",
+      36.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Ashton Jeanty",
+      2601.0
+     ],
+     [
+      "Cam Skattebo",
+      1711.0
+     ],
+     [
+      "Omarion Hampton",
+      1660.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Bryson Daily",
+      32.0
+     ],
+     [
+      "Ashton Jeanty",
+      29.0
+     ],
+     [
+      "Tre Stewart",
+      25.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Harold Fannin Jr.",
+      1555.0
+     ],
+     [
+      "Nick Nash",
+      1382.0
+     ],
+     [
+      "Tetairoa McMillan",
+      1319.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Harold Fannin Jr.",
+      117.0
+     ],
+     [
+      "Tyler Warren",
+      104.0
+     ],
+     [
+      "Nick Nash",
+      104.0
+     ]
+    ],
+    "sacks": [
+     [
+      "Mike Green",
+      17.0
+     ],
+     [
+      "Donovan Ezeiruaku",
+      16.5
+     ],
+     [
+      "Antwaun Powell-Ryland",
+      16.0
+     ]
+    ],
+    "totalTackles": [
+     [
+      "Shaun Dolac",
+      168.0
+     ],
+     [
+      "Red Murdock",
+      156.0
+     ],
+     [
+      "Carson Schwesinger",
+      136.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Nohl Williams",
+      7.0
+     ],
+     [
+      "Xavier Watts",
+      6.0
+     ],
+     [
+      "Zah Frazier",
+      6.0
+     ]
+    ]
+   },
+   "2025": {
+    "passingYards": [
+     [
+      "Drew Mestemaker",
+      4379.0
+     ],
+     [
+      "Darian Mensah",
+      3973.0
+     ],
+     [
+      "Trinidad Chambliss",
+      3937.0
+     ]
+    ],
+    "passingTouchdowns": [
+     [
+      "Fernando Mendoza",
+      41.0
+     ],
+     [
+      "Darian Mensah",
+      34.0
+     ],
+     [
+      "Drew Mestemaker",
+      34.0
+     ]
+    ],
+    "rushingYards": [
+     [
+      "Cam Cook",
+      1659.0
+     ],
+     [
+      "Ahmad Hardy",
+      1649.0
+     ],
+     [
+      "Kewan Lacy",
+      1567.0
+     ]
+    ],
+    "rushingTouchdowns": [
+     [
+      "Caleb Hawkins",
+      25.0
+     ],
+     [
+      "Kewan Lacy",
+      24.0
+     ],
+     [
+      "Jeremiyah Love",
+      18.0
+     ]
+    ],
+    "receivingYards": [
+     [
+      "Danny Scudero",
+      1291.0
+     ],
+     [
+      "Skyler Bell",
+      1278.0
+     ],
+     [
+      "Wyatt Young",
+      1264.0
+     ]
+    ],
+    "receptions": [
+     [
+      "Malachi Toney",
+      109.0
+     ],
+     [
+      "Jacob De Jesus",
+      108.0
+     ],
+     [
+      "Easton Messer",
+      104.0
+     ]
+    ],
+    "sacks": [
+     [
+      "David Bailey",
+      14.5
+     ],
+     [
+      "Nadame Tucker",
+      14.5
+     ],
+     [
+      "Akheem Mesidor",
+      12.5
+     ]
+    ],
+    "totalTackles": [
+     [
+      "Owen Long",
+      151.0
+     ],
+     [
+      "Caden Fordham",
+      143.0
+     ],
+     [
+      "Red Murdock",
+      142.0
+     ]
+    ],
+    "def_int": [
+     [
+      "Jakari Foster",
+      8.0
+     ],
+     [
+      "John Nestor",
+      6.0
+     ],
+     [
+      "Ricardo Jones",
+      6.0
+     ]
+    ]
+   }
+  }
+ },
+ "data_era_bests": {
+  "note": "the best single season since 2004 in this data, not the all-time NCAA record",
+  "by_stat": {
+   "passingYards": [
+    2021,
+    "Bailey Zappe",
+    5967.0
+   ],
+   "passingTouchdowns": [
+    2021,
+    "Bailey Zappe",
+    62.0
+   ],
+   "rushingYards": [
+    2024,
+    "Ashton Jeanty",
+    2601.0
+   ],
+   "rushingTouchdowns": [
+    2011,
+    "Montee Ball",
+    33.0
+   ],
+   "receivingYards": [
+    2021,
+    "Jerreth Sterns",
+    1902.0
+   ],
+   "receptions": [
+    2016,
+    "Zay Jones",
+    158.0
+   ],
+   "def_int": [
+    2014,
+    "Gerod Holliman",
+    14.0
+   ],
+   "sacks": [
+    2024,
+    "Mike Green",
+    17.0
+   ],
+   "totalTackles": [
+    2024,
+    "Shaun Dolac",
+    168.0
+   ]
+  }
+ }
+}

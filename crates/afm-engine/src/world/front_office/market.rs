@@ -954,7 +954,7 @@ pub fn family_mood_words(m: f32) -> &'static str {
 // ---------------------------------------------------------------------------
 
 /// Where you were in the world's history, from your profile and your road.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Placement {
     /// Your college and the years you were there.
     pub college: Option<(usize, i32, i32)>,
@@ -1145,6 +1145,17 @@ impl World {
     /// career, kept as stints on your coach so searches read them as they
     /// read anyone's (an NFL owner's doubts about a man who never coached
     /// there, a head job's experience).
+    /// The college you played for (C11): set on your coach's playing past.
+    pub fn set_your_college(&mut self, college: Option<usize>) {
+        let Some(c) = self.career.as_ref().map(|c| c.coach) else { return };
+        if let Some(p) = self.coaches[c].played.as_mut() {
+            p.college = college;
+            if let Some(q) = college.and_then(|q| self.programs.get(q)) {
+                p.div = q.division as u8;
+            }
+        }
+    }
+
     pub fn add_resume(&mut self, stops: &[(Employer, Role, i32, i32)]) {
         let Some(me) = me(self) else { return };
         let c = &mut self.coaches[me];

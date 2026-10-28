@@ -51,6 +51,8 @@ pub enum Kind {
     Family,
     /// A story you are in (update 2, the storyline engine).
     Story,
+    /// A call from someone you know with an offer (coaching C15, C18, C19).
+    Backchannel,
 }
 
 impl Kind {
@@ -93,6 +95,7 @@ impl Kind {
             Kind::Gm => "The general manager",
             Kind::Family => "At home",
             Kind::Story => "Storyline",
+            Kind::Backchannel => "A call from someone you know",
         }
     }
 }
@@ -412,7 +415,7 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall => "talk",
         Kind::Holdover | Kind::StaffLine | Kind::Interview | Kind::Firing | Kind::Proposal => "staff",
         Kind::Discipline | Kind::Ritual => "rules",
-        Kind::ReachOut | Kind::Trip | Kind::JobCall => "network",
+        Kind::ReachOut | Kind::Trip | Kind::JobCall | Kind::Backchannel => "network",
         Kind::Story => "press",
         _ => "place",
     };
@@ -431,6 +434,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         Kind::Interview | Kind::Firing | Kind::Proposal => super::staffing::open(w, s),
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::open(w, s),
         Kind::Story => crate::world::storylines::moves::open(w, s),
+        Kind::Backchannel => super::backchannel::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -447,6 +451,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::Interview | Kind::Firing | Kind::Proposal => super::staffing::answer(w, s, code, picked),
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::answer(w, s, code, picked),
         Kind::Story => crate::world::storylines::moves::answer(w, s, code, picked),
+        Kind::Backchannel => super::backchannel::answer(w, s, code, picked),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -463,6 +468,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         Kind::Interview | Kind::Firing | Kind::Proposal => super::staffing::hand(w, s),
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::hand(w, s),
         Kind::Story => crate::world::storylines::moves::hand(w, s),
+        Kind::Backchannel => super::backchannel::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }
