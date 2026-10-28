@@ -24,6 +24,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [people.md](people.md) | Personality, morale, relationships, chemistry, talks, life off the field, media, fame and Aura |
 | [logos.md](logos.md) | Logo packs you install: matching pictures to teams, eras, your own logo per save, where logos show, the jerseys |
 | [world-log.md](world-log.md) | The world log beside each world and save: what it keeps, every why, snapshots, sizes, how to read it |
+| [book.md](book.md) | The world reader's book: one SQLite file per world, its tables, checks against real, odd things, known issues, knobs, coverage, `afm_read` |
 
 Code that does something its comment or design says it shouldn't: [oddities.md](oddities.md).
 
