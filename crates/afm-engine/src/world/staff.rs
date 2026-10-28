@@ -2319,7 +2319,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
                 + 0.8 * win
                 + if t.conference_title { 0.15 } else { 0.0 }
                 + if t.national_title { 0.3 } else { 0.0 });
-        if w.recording {
+        if w.recording && !super::knockout::frozen_form() {
             // Recent results build slowly and don't max out (11.10): a season
             // counts for a quarter, so the last four carry about two-thirds
             // (a recruit's high school years), and a title season counts more
@@ -2429,7 +2429,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
 
     // --- NIL collectives and their warnings -------------------------------------------
     for i in 0..n {
-        let win = if results[i].games() > 0 { results[i].win_pct() } else { 0.5 };
+        let win = if results[i].games() > 0 && !super::knockout::frozen_form() { results[i].win_pct() } else { 0.5 };
         let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
         let walk = super::folk::boss::booster_push(w, i);
