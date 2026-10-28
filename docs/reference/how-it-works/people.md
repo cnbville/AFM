@@ -155,6 +155,15 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - **Position-coach lines**: "keep him level" damps mood, "push him" lifts competitors, "tell me if he's slipping" flags a mood < -0.3 with odds 0.4 + 0.5 x q. All are scaled by the coach's relationships rating (`carry_lines`).
 - **Also** team talks, parent calls and exit meetings (`start_team_talk`, `parent_calls`, `exit_meetings`). Star power: a 14+ ego starter with mood < -0.15 asks for a word (30% a week) (`world/folk/life.rs`, `star_week`).
 
+## The words people say (the line bank)
+
+- **The bank** is plain text in `crates/afm-engine/data/lines/` (about 7,700 versions in 20 files after update 3, lane 13), read once by `world/folk/voice.rs` (`BANKS`, `Bank::parse`). `@key` names a part; each line under it is one version, with `[a|b]` choices and `{fact}` holes (a version whose fact is missing is skipped).
+- **Who can say a version**: tags after ` ~ ` must all fit the speaker, `!tag` rules him out, and `fact=value` or `!fact=value` checks a fact (press `result=win`). Players carry level, traits, region, era, position (`qb`, `skill`, `lineman`, `offense`...) and career stage (`freshman`... `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) (`Speaker::player`, `Speaker::position`). `@with other.key` lends another part's versions (story tone keys borrow their base key).
+- **Picking**: among fitting versions, ones the same speaker hasn't said to you in 365 days come first, weighted 1 + 0.8 per tag or check they need; if none is fresh, the one he said longest ago (`Pen::part`, `REST_DAYS`).
+- **The rest changes words only.** What a person says and does is decided before the bank is asked (`talks.rs` `landing`, `outcome`), and the pen's own random stream never feeds back into the world (`tests/lines.rs`, `the_rest_changes_the_words_only`).
+- **Memory**: each speaker's said versions with the day (`Folk::said_on`), saved with the career; a speaker silent for a season is dropped. A version's id is a hash of its part and words, so growing the bank keeps old memories (`version_id`). Saves from before the rest drop the old memory and load fine.
+- **Proof** (`a_season_of_talks_counts_its_repeats`): a season of one-on-ones at all three levels, 1,869 talks and 9,338 parts: the same man repeated a version inside the season 0 times (2.63% before), and 47% of parts were heard from anyone else inside the season (68% before).
+
 ## Life off the field
 
 - **Weekly for every rostered pro and your own players** (`world/folk/life.rs`, `players_week`, `chance`), at most one event a week. Yearly rates:
@@ -272,6 +281,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - `world/folk/ties.rs`: closeness (0.04, 0.025, 0.35), the friend cap of 6, strengths 38/55/50/90, +12, fade 0.67, drop at 15.
 - `world/folk/life.rs`: `chance` rates, `Event::mood`, coach health risk.
 - `world/folk/rules.rs`: `risk` terms, weekly bases, `see`, `nfl_fine`, `trouble_factor`, hit-fine odds 0.0055.
+- `world/folk/voice.rs`: `REST_DAYS` 365, pick weight 1 + 0.8 per need.
 - `world/folk/press.rs`: answer effects. `world/folk/cast.rs`: reporter draws.
 - `world/fame.rs`: `position_draw`, `market_households`, `aura_mult`, `brand_money` (80M, 4M, ^4), `follower_target`, `reach`.
 
