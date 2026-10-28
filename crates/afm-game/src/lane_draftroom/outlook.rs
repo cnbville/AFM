@@ -143,7 +143,7 @@ pub fn view(w: &World) -> Reply {
             json!({
                 "id": id, "name": p.name, "pos": p.player.position.name(),
                 "school": school, "class_of": p.class_of,
-                "class": if p.stage == Stage::College { format!("{} seasons played", p.college_seasons) } else { String::new() },
+                "class": if p.stage == Stage::College { format!("{} {} played", p.college_seasons, afm_engine::world::folk::noun(p.college_seasons, "season")) } else { String::new() },
                 "status": status, "group": group, "outlook": outlook, "draft": draft,
                 "advisory": advisory.map(|a| if a >= 8 { "Return to school".to_string() } else { format!("Round {a}") }),
                 "scouts": scouts.map(|r| {

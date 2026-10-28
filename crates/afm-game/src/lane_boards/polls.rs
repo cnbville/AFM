@@ -415,7 +415,7 @@ fn college_why(
             0 => String::new(),
             1 => n[0].clone(),
             2 => format!("{} and {}", n[0], n[1]),
-            k => format!("{}, {} and {} others", n[0], n[1], k - 2),
+            k => format!("{}, {} and {} {}", n[0], n[1], k - 2, if k == 3 { "other" } else { "others" }),
         }
     };
     let made_room = if fell.is_empty() {
@@ -482,7 +482,7 @@ fn college_why(
             (p, c) if opp_rank > 0 && opp_rank <= 10 && c - p <= 5 => {
                 format!("A loss to No. {opp_rank} costs less than most.")
             }
-            (p, c) => format!("The loss cost {} spots.", c - p),
+            (p, c) => format!("The loss cost {} {}.", c - p, afm_engine::world::folk::noun(c - p, "spot")),
         }
     }
 }
@@ -723,7 +723,11 @@ fn nfl(w: &World, t: usize, tab: Option<&str>) -> Reply {
                 .collect();
             let list = |v: &[usize]| {
                 let n: Vec<String> = v.iter().take(2).map(|&x| name(x)).collect();
-                if v.len() > 2 { format!("{} and {} others", n.join(", "), v.len() - 2) } else { n.join(" and ") }
+                if v.len() > 2 {
+                    format!("{} and {} {}", n.join(", "), v.len() - 2, if v.len() == 3 { "other" } else { "others" })
+                } else {
+                    n.join(" and ")
+                }
             };
             let seed = |p: usize| {
                 if p <= cut { format!("the {} seed", ord(p)) } else { format!("{} in the {}", ord(p), CONF[my_conf]) }
@@ -763,7 +767,10 @@ fn nfl(w: &World, t: usize, tab: Option<&str>) -> Reply {
                         format!(
                             "{head}, still {}{}.",
                             seed(pc),
-                            gb.map_or(String::new(), |g| format!(", {g} games back of the last seed"))
+                            gb.map_or(String::new(), |g| format!(
+                                ", {g} game{} back of the last seed",
+                                if g == 1.0 { "" } else { "s" }
+                            ))
                         )
                     }
                 }

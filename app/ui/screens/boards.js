@@ -198,10 +198,10 @@ async function frMap() {
     const topSt = m.states.slice().sort((a, b) => b.rivals - a.rivals)[0];
     const home = by[m.home];
     cells = [
-      ["Rival commits", frN(sum), `the other ${m.rivals_n} schools`],
+      ["Rival commits", frN(sum), `the other ${frPlural(m.rivals_n, "school")}`],
       [topSt && topSt.rivals ? `From ${STATE_NAMES[topSt.code] || topSt.code}` : "Biggest state", topSt ? frN(topSt.rivals) : "0", topSt ? `${frmPct(topSt.rivals, sum)} of their classes` : ""],
       ["Within your 500 miles", frN(m.rivals_near[1]), `${frmPct(m.rivals_near[1], sum)} of their classes`],
-      [`From ${STATE_NAMES[m.home] || m.home}`, frN(home ? home.rivals : 0), `you have ${home ? home.commits : 0} commits there`],
+      [`From ${STATE_NAMES[m.home] || m.home}`, frN(home ? home.rivals : 0), `you have ${frPlural(home ? home.commits : 0, "commit")} there`],
     ];
   }
   // Your class so far.

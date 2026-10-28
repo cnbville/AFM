@@ -49,7 +49,7 @@ pub enum GoalKind {
 impl GoalKind {
     pub fn words(self, level: Level) -> String {
         match self {
-            GoalKind::Wins(n) => format!("win at least {n} games"),
+            GoalKind::Wins(n) => format!("win at least {n} {}", super::noun(n, "game")),
             GoalKind::Postseason => match level {
                 Level::College => "go to a bowl".into(),
                 _ => "make the playoffs".into(),

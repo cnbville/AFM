@@ -1030,9 +1030,10 @@ fn c19_answer(w: &mut World, s: &mut Scene, code: u32) {
         let honesty = w.market.agents.get(a).map_or(0.7, |x| x.honesty);
         let ask = ideal.apy * (1.0 + 0.25 * (1.0 - honesty));
         s.outcome.push(format!(
-            "He wants about {} a year for {} years, {}% of it guaranteed. You're first in line.",
+            "He wants about {} a year for {} {}, {}% of it guaranteed. You're first in line.",
             money(ask),
             ideal.years,
+            super::noun(ideal.years, "year"),
             (100.0 * ideal.gtd).round()
         ));
         // Talking terms before the market opens is tampering (P2): it can

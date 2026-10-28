@@ -1661,7 +1661,11 @@ fn trainer(w: &mut World, s: &mut Scene, team: Team) {
             }
             (
                 if c.pup { "rehab, on the PUP list".to_string() } else { "injured".to_string() },
-                if c.out_weeks > 0 { format!("about {} weeks", c.out_weeks) } else { "by camp".into() },
+                if c.out_weeks > 0 {
+                    format!("about {} {}", c.out_weeks, super::noun(c.out_weeks, "week"))
+                } else {
+                    "by camp".into()
+                },
             )
         } else {
             let Some(h) = p.player.history.last() else { continue };

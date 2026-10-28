@@ -81,7 +81,7 @@ screens.warroom = async () => {
   const V = [["all", "Everyone"], ["needs", "Needs only"], ["hide", "Hide drafted"], ["likely", at ? `Likely at ${at}` : "Likely there"]];
   const views = `<span class="dr-seg">${V.map(([v, n]) => `<button data-act="drview" data-v="${v}" aria-pressed="${k.view === v}">${n}</button>`).join("")}</span>`;
   const gn = dr.gone_note;
-  const note = at && dr.away ? `~${gn.likely_go} of our ${gn.left} left likely go; ~${gn.off_board} picks go off our board` : at ? "You're on the clock: everyone left is yours to take" : "No more picks this draft";
+  const note = at && dr.away ? `~${gn.likely_go} of our ${gn.left} left likely go; ~${gn.off_board} ${gn.off_board === 1 ? "pick goes" : "picks go"} off our board` : at ? "You're on the clock: everyone left is yours to take" : "No more picks this draft";
   const strip = dr.strip.map((s) => `<div class="dr-sc ${s.on_clock ? "otc" : ""} ${s.guess && s.guess.id === sel.id ? "on" : ""}">
       <button class="dr-sc-main" ${s.guess ? `data-act="drsel" data-id="${s.guess.id}"` : "disabled"} aria-label="Pick ${s.pick}">
         <span class="dr-sc-h"><b>${s.pick} · ${drShort(s.team)}</b></span>

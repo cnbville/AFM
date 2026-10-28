@@ -322,7 +322,7 @@ pub(super) fn view(w: &World) -> Reply {
             "set_text": match g.front.to { Some(b) => format!("You asked for the {} as the base front ({installed} this season).", b.name()), None if you(dc) => format!("Nothing set: the {} is in this season.", own_front.name()), None => format!("Nothing said: the {} goes in as the staff likes.", own_front.name()) },
             "firm_text": firm_text(g.front.to.map(|b| b.name().to_string()), own_front.name().to_string(), g.front.firm, &dname),
             "kv": [
-                { "k": "Your roster · fit", "v": format!("Your staff reads the roster as a {} fit for the {}: {} corners, {} safeties, {} linebackers.", FIT_WORDS[fit_level(front_fit(front_pick))].to_lowercase(), front_pick.name(), cbs, ss, lbs) },
+                { "k": "Your roster · fit", "v": format!("Your staff reads the roster as a {} fit for the {}: {}, {}, {}.", FIT_WORDS[fit_level(front_fit(front_pick))].to_lowercase(), front_pick.name(), men(cbs, "corner"), men(ss, "safety"), men(lbs, "linebacker")) },
                 { "k": "The coordinator's view", "v": if you(dc) { "You call the defense yourself: your guidelines are yours to keep.".to_string() } else if g.front.to.is_none() { if own_front == best_front { format!("Nothing asked of him: the {} is his own, and the front he knows best.", own_front.name()) } else { format!("Nothing asked of him: he put in the {} for this roster, though he knows the {} best.", own_front.name(), best_front.name()) } } else if agree { format!("Agrees: {dname} knows the {} best.", best_front.name()) } else { format!("He'd rather not: {dname} knows the {} best.", best_front.name()) } },
                 { "k": "How well it gets called", "v": format!("{}.", knows(&dname, dknow[fslot(front_pick)], &format!("the {}", front_pick.name()))) },
                 { "k": "If you change it", "v": if (ov - 1.0).abs() < 1e-9 { "No new learning: the same front, more or less nickel.".to_string() } else { format!("About {:.0}% of the front's calls carry over; the rest goes in at {install_at} and is new learning for the line and the linebackers.", 100.0 * ov) } },
@@ -359,7 +359,7 @@ pub(super) fn view(w: &World) -> Reply {
             "set_text": match want { Some(t) => format!("You asked for man coverage on {:.0}% of their throws.", 100.0 * t), None => "Nothing said: the coverage mix is the coordinator's.".to_string() },
             "firm_text": firm_text(want.map(|t| format!("{:.0}%", 100.0 * t)), format!("{:.0}%", 100.0 * own), g.man.firm, &dname),
             "kv": [
-                { "k": "Your roster · fit", "v": format!("At about {:.0}% man the secondary plays mostly {}: your staff reads the roster as a {} fit for it ({} corners, {} safeties).", 100.0 * expect, SHELL_NAMES[near], FIT_WORDS[fit_level(fits[7 + near])].to_lowercase(), cbs, ss) },
+                { "k": "Your roster · fit", "v": format!("At about {:.0}% man the secondary plays mostly {}: your staff reads the roster as a {} fit for it ({}, {}).", 100.0 * expect, SHELL_NAMES[near], FIT_WORDS[fit_level(fits[7 + near])].to_lowercase(), men(cbs, "corner"), men(ss, "safety")) },
                 { "k": "The coordinator's view", "v": if you(dc) { "You call the defense yourself.".to_string() } else if g.man.to.is_none() { format!("Nothing asked of him: he knows {} best.", SHELL_NAMES[dbest]) } else if agree { format!("Agrees: close to the {} he knows best.", SHELL_NAMES[dbest]) } else { format!("He'd rather not: {dname} knows {} best.", SHELL_NAMES[dbest]) } },
                 { "k": "How well it gets called", "v": if you(dc) { format!("{}.", knows(&dname, dknow[7 + near], SHELL_NAMES[near])) } else { format!("{}; a coordinator moved off his own coverages calls them as well as he knows them.", knows(&dname, dknow[7 + near], SHELL_NAMES[near])) } },
                 { "k": "If you change it", "v": "No install of its own: the same coverages, called more or less often. A big move pulls next spring's install toward the family that plays it." },
@@ -391,7 +391,7 @@ pub(super) fn view(w: &World) -> Reply {
             "set_text": match want { Some(t) => format!("You asked for five or more rushers on {:.0}% of snaps.", 100.0 * t), None => "Nothing said: the pressure is the coordinator's.".to_string() },
             "firm_text": firm_text(want.map(|t| format!("{:.0}%", 100.0 * t)), format!("{:.0}%", 100.0 * own), g.pressure.firm, &dname),
             "kv": [
-                { "k": "Your roster · fit", "v": format!("Pressure leans on the corners behind it: your staff reads man and pressure as a {} fit ({} corners, {} edge rushers).", FIT_WORDS[fit_level(fits[9])].to_lowercase(), cbs, edges) },
+                { "k": "Your roster · fit", "v": format!("Pressure leans on the corners behind it: your staff reads man and pressure as a {} fit ({}, {}).", FIT_WORDS[fit_level(fits[9])].to_lowercase(), men(cbs, "corner"), men(edges, "edge rusher")) },
                 { "k": "The coordinator's view", "v": if you(dc) { "You call the defense yourself.".to_string() } else if g.pressure.to.is_none() { "Nothing asked of him: he sends what his nature brings.".to_string() } else if agree { "Agrees: about what his nature brings.".to_string() } else { format!("He'd rather not: {dname} sends {:.0}% on his own.", 100.0 * own) } },
                 { "k": "How well it gets called", "v": format!("{}.", knows(&dname, dknow[9], "man and pressure")) },
                 { "k": "If you change it", "v": "No new learning: the same pressures, sent more or less often." },
@@ -440,7 +440,7 @@ pub(super) fn view(w: &World) -> Reply {
             "set_text": match g.system.to { Some(o) => format!("You asked for the {} offense. This season's install: {}.", scheme_name(o), scheme_name(st.off_scheme)), None => format!("Nothing said: {} is installed.", scheme_name(st.off_scheme)) },
             "firm_text": firm_text(g.system.to.map(scheme_name), scheme_name(own_o), g.system.firm, &oname),
             "kv": [
-                { "k": "Your roster · fit", "v": format!("Your staff reads the roster as a {} fit for the {} ({} receivers, {} tight ends, {} backs).", FIT_WORDS[fit_level(ofit(pick))].to_lowercase(), scheme_name(pick), wrs, tes, rbs) },
+                { "k": "Your roster · fit", "v": format!("Your staff reads the roster as a {} fit for the {} ({}, {}, {}).", FIT_WORDS[fit_level(ofit(pick))].to_lowercase(), scheme_name(pick), men(wrs, "receiver"), men(tes, "tight end"), men(rbs, "back")) },
                 { "k": "The coordinator's view", "v": if you(oc) { "You call the offense yourself.".to_string() } else if g.system.to.is_none() { if own_o == best_o { format!("Nothing asked of him: the {} is his own, and the system he knows best.", scheme_name(own_o)) } else { format!("Nothing asked of him: he put in the {} for this roster, though he knows the {} best.", scheme_name(own_o), scheme_name(best_o)) } } else if agree { format!("Agrees: {oname} knows the {} best.", scheme_name(best_o)) } else { format!("He'd rather not: {oname} knows the {} best.", scheme_name(best_o)) } },
                 { "k": "How well it gets called", "v": how },
                 { "k": "If you change it", "v": if (ov - 1.0).abs() < 1e-9 { "Nothing to learn: it's the system in now.".to_string() } else { format!("About {:.0}% of the playbook carries over from the {}; the rest is new learning at {install_at}, and the call sheet thins until it goes in.", 100.0 * ov, scheme_name(st.off_scheme)) } },
@@ -500,7 +500,7 @@ pub(super) fn view(w: &World) -> Reply {
             "set_text": match g.personnel.to { Some(p) => format!("You asked for {} personnel as the base group.", p.name()), None => "Nothing said: the groups are the coordinator's.".to_string() },
             "firm_text": firm_text(g.personnel.to.map(|p| p.name().to_string()), own_p.name().to_string(), g.personnel.firm, &oname),
             "kv": [
-                { "k": "Your roster · fit", "v": format!("{} receivers, {} tight ends, {} backs: your staff reads {} personnel as a {} fit.", wrs, tes, rbs, pick.name(), FIT_WORDS[fit_level(pfit(pick))].to_lowercase()) },
+                { "k": "Your roster · fit", "v": format!("{}, {}, {}: your staff reads {} personnel as a {} fit.", men(wrs, "receiver"), men(tes, "tight end"), men(rbs, "back"), pick.name(), FIT_WORDS[fit_level(pfit(pick))].to_lowercase()) },
                 { "k": "The coordinator's view", "v": if you(oc) { "You call the offense yourself.".to_string() } else if g.personnel.to.is_none() { format!("Nothing asked of him: {} is his base group.", own_p.name()) } else if pick == own_p { "Agrees: it's his base group.".to_string() } else { format!("He'd rather stay in {}, his base group.", own_p.name()) } },
                 { "k": "How well it gets called", "v": "Short yardage and the hurry-up keep their own groups: the guideline wins some of the normal downs." },
                 { "k": "If you change it", "v": "No new calls: the same plays from a different group, and the depth chart's next man up gets the snaps." },
@@ -845,4 +845,9 @@ pub(super) fn talk(w: &mut World) -> Result<(), String> {
         return Err("You call it yourself: there's nobody to talk it through with.".into());
     }
     Ok(())
+}
+
+/// A count of players: "1 corner", "3 safeties".
+fn men(n: usize, one: &str) -> String {
+    format!("{n} {}", afm_engine::world::folk::noun(n, one))
 }
