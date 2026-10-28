@@ -1,6 +1,6 @@
 # Ratings: how it works today
 
-Checked against main at a423e02 on 2026-10-26.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
 
 ## Quick answers
 
@@ -114,7 +114,7 @@ Pipeline in the world, after each season (`world/season.rs`, `attach_level_ratin
 6. Read: linear between anchors; above the No. 2 anchor +0.4 per overall point (`ABOVE_TOP_SLOPE`), so 99 (98.5 before rounding) needs 5 overall points clear of No. 2; below the bottom, the first segment's slope extended; round half up, clamp 1-99 (`level_rating.rs`, `level_rating`, `clamp_rating`).
 7. Two values per season: `level_rating` from `overall_start` (what he played at) and `level_rating_end` from `overall` (`player.rs`, `SeasonRecord`).
 
-Shown: `level_rating_end`, else `level_rating`, as "N among seniors/juniors/sophomores/freshmen" for HS, "N among FBS players" for any college row (FCS too), nothing for NFL (`crates/afm-game/src/lane_core/pages.rs`, `level_rating`). The standalone class sim does the same without pooling (`career.rs`, `attach_level_ratings`, `build_level_scale`).
+Shown (update 3, lane 7): the badge reads your staff's read, not the true rating. The centre of the staff's overall read is placed on the same pooled scale as his level group, "FBS level 73" for any college player, "Senior level 89" (Junior, Sophomore, Freshman) for a high schooler by his class, nothing for the NFL; not seen, no badge (`crates/afm-game/src/lane_core/pages.rs`, `level_rating`, `level_read`; `world/season.rs`, `level_from_read`, `level_pool`). It reads the last finished season's scale, so it is filled all season. Hover shows its marks (`level_marks`, `level_rating.rs`, `marks`). High schoolers group by class, not engine age (`level_rating.rs`, `level_group`). The standalone class sim does the same without pooling (`career.rs`, `attach_level_ratings`, `build_level_scale`).
 
 Draft boards use `PositionAligner::for_draft`: K, P and LS are read off their own class ladder (best K at the grade of pick 45% of the slots, P 50%, LS 70%, each next one 25% of the draft lower, capped at the grade at 18%/27%/70%) (`level_rating.rs`, `for_draft`, `Ladder::read`).
 

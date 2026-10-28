@@ -303,6 +303,7 @@ function fcFile(f, ctx, compact) {
 function fcActions(f) {
   const b = [];
   const closed = ["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing);
+  if (!["signed", "enrolled", "gone"].includes(f.standing)) b.push(`<button class="st-btn small glass l7-film" data-fc="l7film" data-id="${f.id}" title="Watch his film yourself, today, on your own film hours: read by your own eye">Watch his film now</button>`);
   if (!f.board_yours) {
     b.push(`<p class="sub">Your coordinator runs the board: his offers and order stand until you take it back.</p>`);
   } else if (!closed) {
@@ -662,6 +663,7 @@ document.addEventListener(
       case "l7see": go("recruit_file", { id }); break;
       case "remove": fcDo("recruit_remove", { id }); break;
       case "offer": fcDo("recruit_offer", { id }); break;
+      case "l7film": api("scout_ask", { id, kind: "Watch his film now" }).then((r) => { toast(r.said); render($(".view") && $(".view").scrollTop); }).catch((e) => toast(e.message || String(e))); break;
       case "pull": if (await sure("Pull the offer?", "A committed recruit's commitment goes with it, and his high school coach remembers.", "Pull it")) fcDo("recruit_pull", { id }); break;
       case "prio": fcDo("recruit_priority", { id, on: d.on === "1" }); break;
       case "move": fcDo("recruit_move", { id, to: Number(d.to) }); break;

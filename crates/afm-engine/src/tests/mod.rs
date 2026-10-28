@@ -11,6 +11,7 @@ mod game_stats;
 mod gameplan;
 mod hs_playoffs;
 mod kick_units;
+mod lane7;
 mod leagues;
 mod legacy;
 mod level_rating;

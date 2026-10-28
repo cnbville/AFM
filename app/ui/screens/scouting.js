@@ -170,6 +170,7 @@ screens.scout = async (a) => {
       <h1>${esc(f.name)}</h1>
       <div class="meta"><span>${size}</span><span>Age <b>${f.age}</b></span>${boardLine ? `<span>${boardLine}</span>` : ""}</div>
       <div class="st-actions">
+        ${f.film_now ? `<button class="st-btn l7-film" data-act="sc-ask" data-id="${f.id}" data-kind="Watch his film now" title="You watch ${esc(f.film_now.what)} yourself, today: ${f.film_now.hours} of your ${f.film_now.left.toFixed(1)} film hours left this week (${f.film_now.week} a week). Read by your own eye.">Watch his film now <small>${f.film_now.hours} h · ${f.film_now.left.toFixed(1)} left</small></button>` : ""}
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
         <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "Following" : "Follow"}</button>
         <button class="st-btn glass" data-go="player" data-id="${f.id}">Player page</button>
@@ -196,7 +197,7 @@ screens.scout = async (a) => {
 function scFileSummary(f) {
   const s = f.summary;
   if (!s) {
-    return `<div class="panel warm sc-unseen"><h2>Your staff hasn't seen him</h2><p class="sub">No film, no live look, no call. Only his listed size and what the public says are known. ${f.can_ask.length ? "Ask for a look above and he goes on your staff's list." : "Your seat can't ask for a look at him."}</p>${f.stories.length ? `<div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}</div>`;
+    return `<div class="panel warm sc-unseen"><h2>Your staff hasn't seen him</h2><p class="sub">No film, no live look, no call. Only his listed size and what the public says are known. ${f.film_now ? "Watch his film yourself now, or ask your staff for a look above." : f.can_ask.length ? "Ask for a look above and he goes on your staff's list." : "Your seat can't ask for a look at him."}</p>${f.stories.length ? `<div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}</div>`;
   }
   const hints = s.hints.length
     ? s.hints.map((h) => `<div class="sc-hint"><span class="st-pill">Hint</span><p>${esc(h.text)}</p>${h.by ? `<small>Found by ${esc(h.by)}</small>` : ""}</div>`).join("")

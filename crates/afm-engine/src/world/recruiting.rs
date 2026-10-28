@@ -85,6 +85,9 @@ pub(crate) fn high_school_transfers(w: &mut World) {
             let dest = &w.high_schools[t];
             let gain = (dest.prestige - cur.prestige).max(0.0);
             let mut pull = 0.3 * gain;
+            // C8: a famous coach's name draws transfers (a star's name half
+            // again as many; proposed, not confirmed).
+            pull *= 1.0 + dest.coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season) / 6.0);
             if nil_state || (national && w.states[dest.state].hs_nil) {
                 pull *= 1.4;
             }
@@ -4630,8 +4633,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             official.contains(&j) || contact > 0.0 || geo::miles(p.home_state, prog.state) <= 250.0;
                         let group = super::coach::Group::of(p.player.position);
                         let hc = prog.head_coach.map(|c| *w.coaches[c].ability());
-                        let hc_skill =
-                            0.6 * hc.map_or(9.0, |a| a.recruiting) + 0.4 * hc.map_or(9.0, |a| a.relationships);
+                        // C8: a famous name pulls recruits too.
+                        let hc_skill = 0.6 * hc.map_or(9.0, |a| a.recruiting)
+                            + 0.4 * hc.map_or(9.0, |a| a.relationships)
+                            + prog.head_coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season));
                         let pc_skill =
                             prog.position_coaches[group as usize].map_or(9.0, |c| w.coaches[c].ability().recruiting);
                         // Most of a staff's recruiting time goes to its own state

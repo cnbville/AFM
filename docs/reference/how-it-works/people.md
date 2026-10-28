@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -261,6 +261,16 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - A smaller school's star before the portal (C15, `c15_week`): Thursdays in the three weeks before the winter window, a third of the weeks, once a season, the athletic director or head coach of a lower-division program at 0.3 warmth or more calls (the friend you've sent the most players first) about its best starter with a season left. Pay (from your NIL money) or take the favour: a head start and a clean exit. Call the kid yourself: his lean × 1.25, and one time in eight it leaks; from 2025 his school sues and you settle for his buyout ($100,000 at least), warmth -0.3; before, -0.2. Skip the portal (from 2018): he comes as a ghost transfer; found out one time in three, for transfers from February 25, 2026 the head coach sits through October 11 of the next season (the interim coaches) and the program pays 20% of football's spending, before that an NCAA case and -1 standing (`ghost_risk`).
 - Placing a player (C16, `place_player`): at a college, a player who doesn't start, to a coach at 0.2 warmth or more at a smaller program; he refuses when his lean is under 0.03 and your roster isn't over the limit. The friend's `sent` count and his favour balance go up.
 - A steered transfer at a high school (C18, `c18_week`): March-June Thursdays, an eighth of the weeks, once a year, a camp man or trainer in your state at 0.3 or more offers a 15-16 year old from another school, his best by his read. Taking him logs promises to start him and give him the ball; every state uses California's undue influence rule (CIF Bylaw 510) for now: ruled so two times in five, he sits a year and you lose half a point of standing. A broken promise costs you 0.3 warmth with the man who sent him (`steered_check`).
+
+## The network: favours asked of you (update 3, lane 7)
+
+`world/folk/network.rs` (`asks_week`, `ask_open`, `ask_answer`), `world/folk/tips.rs` (`ask_kid`, `from_ask`), `world/folk/backchannel.rs` (C20):
+
+- Tuesdays, when no favour call came in the last 21 days, a coach at 0.25 warmth or more may call (4% each, the first who rolls): a job for his nephew, a clinic talk, or a kid (a third each).
+- Your own staff only ask the job for a relative: no kid or clinic calls from them (SK73). No kid calls at a high school seat (SK74).
+- A kid call comes only with a kid worth it: his best kids by his read, the first above the floor whose public miss has a true reason (SK69, SK70; see [scouting.md](scouting.md), "What lane 7 added to tips"). No such kid, no call. His claim is at least "He can play for you".
+- Saying yes ("Send it over") costs an hour of your week (a clinic five), puts a favour on his ledger (+1 balance, +0.08 warmth) naming the kid with a link, sends his tape to your staff within the week, and puts the kid on My players with "<caller>'s word" as the reason (SK71, SK72; `network.rs`, `follow_on_word`). No costs 0.04 warmth; never calling back 0.05.
+- The cold call (C20): Tuesdays November-January, at a college seat, the coach of a five-star at a small school (under 1,000 students, or below the state's top two classes) whose top three includes you calls with no tie needed (8% a week, once a kid): hire him and the kid comes. From 2017 the NCAA allows only an on-field job; the job is his own group's position coach, and its holder is let go. The kid follows 25% + 60% × closeness (half a hidden draw, half his years under the coach of four); a follower commits to you two days later. December 1 after his first college season he leans 0.5 more toward the portal half the time if the coach has left your staff, else 15% + 30% × (1 − closeness) (`backchannel.rs`, `c20_week`, `c20_answer`, `c20_stay`, `closeness`).
 
 ## Where the knobs are
 

@@ -194,6 +194,10 @@ a { color: inherit; }
 .rg.l7-yours.l7-first .t i { box-shadow: inset 0 0 0 1px var(--fg3); }
 .rg.l7-yours b { font-weight: 500; color: var(--fg2); }
 .l7-pair { display: inline-flex; flex-direction: column; gap: 3px; }
+.st-btn.l7-film { background: var(--gold, #c9a227); color: #111; }
+.st-btn.l7-film small { font-weight: 500; opacity: .75; font-size: 12px; }
+tr.l7-thin td { color: var(--amber, #d08a2c); }
+tr.l7-best td b { color: var(--gold, #c9a227); }
 :root[data-theme="light"] .rg .t { background: rgba(0,0,0,.12); }
 :root[data-theme="light"] .rg .t i { box-shadow: inset 0 0 0 1px rgba(60,30,10,.35); }
 .attr { display: grid; grid-template-columns: minmax(0, 1fr) 190px; align-items: center; gap: 10px; padding: 5px 2px; border-bottom: 1px solid var(--hair); font-size: 13px; }

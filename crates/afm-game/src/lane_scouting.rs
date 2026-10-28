@@ -605,6 +605,9 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
     // he becomes).
     let now = afm_engine::body::body_now(&p.player);
     let measured = looks.iter().any(|l| matches!(l.kind, Kind::Combine | Kind::ProDay | Kind::Camp | Kind::Showcase));
+    let film_now = sc::own::film_cost(w, p.player.id)
+        .ok()
+        .map(|(_, h, what)| json!({ "hours": h, "what": what, "left": sc::own::film_left(w), "week": sc::own::film_budget(w) }));
     Ok(json!({
         "id": id,
         "name": p.name,
@@ -655,14 +658,18 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         "brand": if p.brand > 0.0 { Some(p.brand.round()) } else { None },
         "followers_n": followers,
         "nil": if p.nil_income > 0.0 { Some(p.nil_income.round()) } else { None },
-        "can_ask": ask_kinds(w, p),
+        "can_ask": ask_kinds(w, p).into_iter().filter(|k| *k != "Watch his film now").collect::<Vec<_>>(),
     }))
+    .map(|mut v: Value| {
+        v["film_now"] = film_now.unwrap_or(Value::Null);
+        v
+    })
 }
 
 /// The looks you can ask your staff for on this player, by your seat.
 fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
     let Some(s) = w.seat else { return Vec::new() };
-    match s.level {
+    let mut v = match s.level {
         CalLevel::Nfl if matches!(p.stage, Stage::College | Stage::Declared) => {
             vec!["See him again", "Cross-check", "Private workout", "Background check", "Medical recheck"]
         }
@@ -672,7 +679,12 @@ fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
         }
         CalLevel::College => vec!["Film study", "Call his old staff", "Transcript"],
         _ => Vec::new(),
+    };
+    // Bug 82: you watch his film yourself, today, on your own hours.
+    if sc::own::film_cost(w, p.player.id).is_ok() {
+        v.insert(0, "Watch his film now");
     }
+    v
 }
 
 fn ask(w: &mut World, id: u32, what: &str) -> Result<String, String> {
@@ -680,6 +692,7 @@ fn ask(w: &mut World, id: u32, what: &str) -> Result<String, String> {
     let name = p.name.clone();
     let d = w.today;
     let kind = match what {
+        "Watch his film now" => return sc::own::watch_film(w, id),
         "See him again" => Kind::School,
         "Cross-check" => Kind::CrossCheck,
         "Private workout" => Kind::Workout,

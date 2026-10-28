@@ -243,6 +243,21 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
                 (scout.map(|k| k as u32), waited >= 7 && wd == Weekday::Wed)
             }
             Kind::ProFilm => (Some(readers::PRO_SCOUT), waited >= 3),
+            // A tape sent in (SK72): the coach of his spot at a college, the
+            // area scout at a club, within the week; film uses no
+            // evaluation days.
+            Kind::HsFilm | Kind::CollegeFilm => {
+                let who = match staff {
+                    Staff::Program(p) => evaluator_for(w, p, i).map(|c| COACH + c as u32),
+                    Staff::Club(t) => w
+                        .clubs
+                        .get(t)
+                        .and_then(|c| c.scouts.iter().position(|s| s.role == crate::world::pro::scouts::Role::Area))
+                        .map(|k| k as u32),
+                    Staff::School(_) => None,
+                };
+                (who, waited >= 2 && wd != Weekday::Sun)
+            }
             _ => continue,
         };
         let Some(who) = who else {
@@ -269,9 +284,13 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
             (Some(t), Kind::School) => club_look(w, t, id, who as u8, L::School, d),
             (Some(t), Kind::Film) if who < 250 => club_look(w, t, id, who as u8, L::Film, d),
             (Some(t), Kind::CrossCheck) => club_look(w, t, id, who as u8, L::CrossCheck, d),
+            (Some(t), Kind::CollegeFilm | Kind::HsFilm) if who < 250 => club_look(w, t, id, who as u8, L::Film, d),
             _ => {}
         }
-        if who >= 250 || club.is_none() || !matches!(kind_now, Kind::School | Kind::Film | Kind::CrossCheck) {
+        if who >= 250
+            || club.is_none()
+            || !matches!(kind_now, Kind::School | Kind::Film | Kind::CrossCheck | Kind::CollegeFilm | Kind::HsFilm)
+        {
             add(w, id, who, kind_now, d);
         }
         done.push((id, kind));

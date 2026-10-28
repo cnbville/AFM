@@ -43,6 +43,9 @@ pub struct Backchannel {
     /// The last year an agent or a trainer called (C18, C19).
     pub agent_call: i32,
     pub trainer_call: i32,
+    /// C20: a small school's coach you hired on his star's promise: (the
+    /// kid, the coach, the kid's class, how close the two are, settled).
+    pub followed: Vec<(u32, usize, i32, f32, bool)>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -761,6 +764,194 @@ fn hs_offer(w: &mut World) {
 }
 
 // ---------------------------------------------------------------------------
+// C20: a small school's coach calls you cold, promising his star.
+
+/// How close a kid is to his high school coach (hidden): his years under
+/// him and a part of his own.
+fn closeness(w: &World, i: usize, h: usize) -> f32 {
+    let p = &w.people[i];
+    let years = p
+        .hs_lines
+        .iter()
+        .filter(|l| l.school as usize == h)
+        .map(|l| l.year)
+        .collect::<std::collections::HashSet<_>>()
+        .len();
+    (0.5 * roll(w, 0xC20C, p.player.id as u64) + 0.5 * (years as f64 / 4.0).min(1.0)) as f32
+}
+
+/// Tuesdays from November to January: the coach of a five-star at a small
+/// school (fewer than a thousand students, or below the state's top two
+/// classes) calls the college his star likes, cold, no tie needed: a job on
+/// your staff and the kid comes with him. College seats only, and only for
+/// a five-star (C17's line), so it's rare. Proposed, not confirmed: an 8%
+/// chance a week while you're in the kid's top three, once a kid.
+fn c20_week(w: &mut World, d: Date) {
+    let Some(Team::College(j)) = Team::seat(w) else { return };
+    let m = d.parts().1;
+    if !(m >= 11 || m == 1) || w.folk.scenes.iter().any(|s| s.kind == Kind::ReachOut && s.b == 3 && !s.done) {
+        return;
+    }
+    let season = w.dates.season;
+    let class = if m == 1 { season } else { season + 1 };
+    let me = you(w);
+    let kid = (0..w.people.len()).find(|&i| {
+        let p = &w.people[i];
+        if p.stage != Stage::HighSchool
+            || p.stars < 5
+            || p.class_of != class
+            || p.cal.signed.is_some()
+            || w.folk.backchannel.asked.contains(&p.player.id)
+        {
+            return false;
+        }
+        let h = &w.high_schools[p.hs];
+        if !(h.enrollment < 1000 || h.classification >= 2) || h.coach.is_none() || h.coach == me {
+            return false;
+        }
+        // You're among the kid's top three.
+        let mut liked: Vec<(f64, usize)> =
+            p.cal.offers.iter().map(|&k| (crate::world::recruiting::appeal(w, i, k, None), k)).collect();
+        if !p.cal.offers.contains(&j) {
+            liked.push((crate::world::recruiting::appeal(w, i, j, None), j));
+        }
+        liked.sort_by(|a, b| b.0.total_cmp(&a.0));
+        liked.iter().take(3).any(|x| x.1 == j) && roll(w, 0xC20 ^ d.0 as u64, p.player.id as u64) < 0.08
+    });
+    let Some(i) = kid else { return };
+    let Some(c) = w.high_schools[w.people[i].hs].coach else { return };
+    let id = w.people[i].player.id;
+    w.folk.backchannel.asked.push(id);
+    let mut s = Scene::new(Kind::ReachOut, d, format!("{} calls about {}", w.coaches[c].name, w.people[i].name));
+    s.a = c as u64;
+    s.b = 3;
+    s.c = id as i64;
+    s.stops = false;
+    s.team = Some(Team::College(j));
+    s.place = "On the phone".into();
+    scene::add(w, s);
+}
+
+pub(crate) fn c20_open(w: &mut World, s: &mut Scene) {
+    let c = s.a as usize;
+    let Some(i) = super::person(w, s.c as u32) else { return s.end() };
+    s.who.push(Who::Coach(c));
+    let name = w.coaches[c].name.clone();
+    let p = &w.people[i];
+    let g = w.coaches[c].came_up;
+    let school = w.school_name(p.hs).to_string();
+    s.narrate(format!("{} calls. You've never met him: he coaches {school}.", coach_link(w, c)));
+    s.them(
+        &name,
+        format!(
+            "Coach, I'll be straight with you. I've coached {} since he was a freshman. Put me on your staff, coaching {}, and he comes with me.",
+            player_link(w, i),
+            g.name().to_lowercase()
+        ),
+        None,
+    );
+    let rule = if w.dates.season >= 2017 {
+        "Since 2017 the NCAA allows it only as an on-field coaching job, for the two years around the kid's enrollment. This one is on the field."
+    } else {
+        "No NCAA rule stops it yet: any job on your staff will do."
+    };
+    s.narrate(rule.to_string());
+    let holder = w
+        .seat
+        .and_then(|x| x.program)
+        .and_then(|j| crate::world::staff::holder(w, Employer::College(j), Role::PositionCoach(g)))
+        .map(|h| w.coaches[h].name.clone());
+    let cost = holder.map_or("The spot is open.".to_string(), |h| format!("{h} loses his job to make room."));
+    s.pick(
+        87,
+        format!("\"You're hired. Coach our {}.\"", g.name().to_lowercase()),
+        "Hire him",
+        "warm",
+        &format!("{cost} The kid decides for himself."),
+    );
+    s.pick(86, "\"I don't hire for a recruit.\"", "Turn him down", "calm", "He'll call another school.");
+}
+
+pub(crate) fn c20_answer(w: &mut World, s: &mut Scene, code: u32) {
+    let c = s.a as usize;
+    let Some(i) = super::person(w, s.c as u32) else { return s.end() };
+    let Some(j) = w.seat.and_then(|x| x.program) else { return s.end() };
+    let id = w.people[i].player.id;
+    let kid = player_link(w, i);
+    if code != 87 {
+        s.outcome.push(format!("You turned {} down. {kid} hears of it.", w.coaches[c].name));
+        return s.end();
+    }
+    let h = w.people[i].hs;
+    let near = closeness(w, i, h);
+    let role = Role::PositionCoach(w.coaches[c].came_up);
+    if let Some(old) = crate::world::staff::holder(w, Employer::College(j), role) {
+        crate::world::staff::leave(w, old, "let go to make room");
+    }
+    crate::world::staff::leave(w, c, "hired by a college");
+    crate::world::staff::hire(w, c, Employer::College(j), role);
+    let prestige = crate::world::staff::employer_prestige(w, Employer::HighSchool(h));
+    crate::world::staff::fill_now(w, Employer::HighSchool(h), Role::HeadCoach, prestige);
+    // The coach can promise; the kid decides, by how close the two are
+    // (proposed, not confirmed: 25% plus 60% of his closeness).
+    let follows = roll(w, 0xC20F, id as u64) < 0.25 + 0.6 * near as f64;
+    let class = w.people[i].class_of;
+    w.folk.backchannel.followed.push((id, c, class, near, false));
+    let text = format!(
+        "{} hires {}, the high school coach of five-star {}, to coach its {}.",
+        w.program_name(j),
+        w.coaches[c].name,
+        w.people[i].name,
+        role.name()
+    );
+    news(w, Level::Recruiting, text, Some(j));
+    if follows && w.people[i].cal.commit.is_none_or(|x| x.0 != j) {
+        if !w.people[i].cal.offers.contains(&j) {
+            w.people[i].cal.offers.push(j);
+        }
+        w.people[i].cal.commit = None;
+        let d = w.today.add(2);
+        w.announcements.push((d, i, id, j, false));
+        s.outcome.push(format!(
+            "{} is on your staff, and {kid} will follow him: he commits to you in two days.",
+            w.coaches[c].name
+        ));
+    } else {
+        s.outcome.push(format!(
+            "{} is on your staff. {kid} hasn't followed him: he's taking his own visits, his mind his own.",
+            w.coaches[c].name
+        ));
+    }
+    s.end();
+}
+
+/// December 1 after his first college season: a kid who followed his coach
+/// can still leave, the more when the coach is gone or they were never
+/// close (Mitch Mustain followed Gus Malzahn to Arkansas in 2006 and
+/// transferred after one season). Proposed, not confirmed: half the time
+/// when his coach has left your staff, else 15% plus 30% of how far apart
+/// they are; leaving lifts his lean toward the portal by 0.5.
+fn c20_stay(w: &mut World, d: Date) {
+    let season = w.dates.season;
+    for k in 0..w.folk.backchannel.followed.len() {
+        let (id, c, class, near, done) = w.folk.backchannel.followed[k];
+        if done || class != season {
+            continue;
+        }
+        w.folk.backchannel.followed[k].4 = true;
+        let Some(i) = super::person(w, id) else { continue };
+        let Some(j) = w.people[i].college else { continue };
+        let stayed_on = w.coaches[c].job.is_some_and(|x| x.employer == Employer::College(j));
+        let chance = if stayed_on { 0.15 + 0.3 * (1.0 - near as f64) } else { 0.5 };
+        if roll(w, 0xC205, id as u64) < chance {
+            let p = &mut w.people[i];
+            p.cal.lean = (p.cal.lean + 0.5).min(1.0);
+            p.cal.lean_events.push((d, "came for his high school coach, and it hasn't held", 0.5));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // C18: a transfer steered to your high school.
 
 /// Spring and summer Thursdays: a 7v7 coach or trainer you're warm with
@@ -1136,6 +1327,12 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     if m == 11 && dd == 15 {
         hs_offer(w);
+    }
+    if d.weekday() == Weekday::Tue {
+        c20_week(w, d);
+    }
+    if m == 12 && dd == 1 {
+        c20_stay(w, d);
     }
     if !matches!(d.weekday(), Weekday::Sat | Weekday::Sun) {
         c19_day(w, d);
