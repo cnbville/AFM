@@ -6865,10 +6865,11 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
 /// his state, the team he grew up with, a brother, his school's pipeline),
 /// academics, the rest (stories, pro day, a showcase system, leagues
 /// without scholarships), feel; entry 14 is `utility` itself, which the
-/// first twelve add up to, and the last four split home ties (pipeline,
-/// staying in his state, the team he grew up with, a brother).
+/// first twelve add up to; then home ties split (pipeline, staying in his
+/// state, the team he grew up with, a brother); then the money: the usual
+/// offer, the same without the position's market top, and that top.
 #[cfg(feature = "debug")]
-pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 18] {
+pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 21] {
     let p = &w.people[i];
     let prog = &w.programs[j];
     let year = w.year;
@@ -6939,7 +6940,30 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 18] {
         split[1],
         split[2],
         split[3],
+        nil_offer,
+        usual_nil_uncapped(w, j, i),
+        super::ncaa::position_nil_max(p.player.position),
     ]
+}
+
+/// [`usual_nil_offer`] without the position's market top (trial tooling).
+#[cfg(feature = "debug")]
+fn usual_nil_uncapped(w: &World, j: usize, i: usize) -> f64 {
+    let prog = &w.programs[j];
+    let p = &w.people[i];
+    if prog.collective.budget <= 0.0 {
+        return 0.0;
+    }
+    let talent = match recruiting_stars(p) {
+        5 => 2.5,
+        4 => 1.0,
+        3 => 0.3,
+        2 => 0.08,
+        _ => 0.03,
+    };
+    let q = super::legacy::college::split_q(w, j, 2);
+    let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
+    (position_nil(p.player.position) * talent * pay).min(prog.collective.budget * 0.6 * 0.25 * q)
 }
 
 /// How much each of the six reasons counts with whoever decides for him,

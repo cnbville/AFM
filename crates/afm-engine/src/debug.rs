@@ -172,6 +172,6 @@ pub fn world_store(w: &crate::world::World, name: &str) -> Option<serde_json::Va
 
 /// A school's appeal to a recruit, term by term (dynasty thread trial
 /// tooling): see `world::recruiting::debug_terms`.
-pub fn recruit_terms(w: &crate::world::World, person: usize, program: usize) -> [f64; 18] {
+pub fn recruit_terms(w: &crate::world::World, person: usize, program: usize) -> [f64; 21] {
     crate::world::recruiting::debug_terms(w, person, program)
 }
