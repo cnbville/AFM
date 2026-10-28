@@ -13,6 +13,13 @@ function hrBar(r, label) {
   return `<span class="hr-bar" title="${esc(tip)}"><span class="hr-t"><i style="left:${((lo - 1) / 19) * 100}%;width:${Math.max(2, ((hi - lo) / 19) * 100)}%;background:${rateColor(m * 5)}"></i></span><b>${lo === hi ? lo : `${lo}-${hi}`}</b></span>`;
 }
 
+// The same read for a table cell: the range over a slim bar.
+function hrMini(r, label) {
+  const [lo, hi] = r;
+  const tip = `Your read of his ${label}: ${lo} to ${hi} on the hidden 1 to 20 scale. A narrow bar is a sure read.`;
+  return `<span class="hr-mini" title="${esc(tip)}"><b>${lo === hi ? lo : `${lo}-${hi}`}</b><span class="hr-t"><i style="left:${((lo - 1) / 19) * 100}%;width:${Math.max(4, ((hi - lo) / 19) * 100)}%;background:${rateColor(((lo + hi) / 2) * 5)}"></i></span></span>`;
+}
+
 // The coach page's Ratings tab for a coach who isn't on your staff (C24).
 async function hrReadTab(id) {
   let x;
@@ -71,9 +78,9 @@ async function hrOffer(coach, role) {
   const html = `<b>Offer ${esc(x.name)} the ${esc(job.name.toLowerCase())} job</b>
     <small class="sub">He asks about ${esc(job.asks)}.${x.talk ? ` ${esc(x.talk)}` : ""}${job.outside ? " It's outside the group he came up in: an adaptable man minds less." : ""} A low offer brings a warning, not the end; a promise counts by how much he believes it.</small>
     <div class="hr-form"><label>Salary a year<input name="salary" value="${Math.round(job.asksValue / 1000) * 1000}" autocomplete="off"></label>
-    <label>Years<select name="years">${[1, 2, 3, 4, 5].map((y) => `<option value="${y}" ${y === 2 ? "selected" : ""}>${y}</option>`).join("")}</select></label></div>
+    <label>Years<select class="ssel" name="years">${[1, 2, 3, 4, 5].map((y) => `<option value="${y}" ${y === 2 ? "selected" : ""}>${y}</option>`).join("")}</select></label></div>
     <span class="st-label">Promises <small>only what you control</small></span><div class="hr-proms">${prom}</div>
-    <span class="st-label">Results clauses <small>they reward results, never promise them</small></span><div class="hr-form"><select name="c1">${opts}</select><select name="c2">${opts}</select></div>`;
+    <span class="st-label">Results clauses <small>they reward results, never promise them</small></span><div class="hr-form"><select class="ssel" name="c1" aria-label="First clause">${opts}</select><select class="ssel" name="c2" aria-label="Second clause">${opts}</select></div>`;
   const { answer } = dialog(html, "Make the offer", (f) => ({
     salary: Number(String(f.elements.salary.value).replace(/[^0-9.]/g, "")),
     years: Number(f.elements.years.value),
@@ -102,26 +109,26 @@ async function hrSearch(x) {
   const F = keep("hrfilter", { page: 0 });
   const seg = `<div class="seg wrap">${roles.map(([v, t, open]) => `<button data-act="pprole" data-v="${v}" aria-pressed="${k.role === v}">${esc(t)}${open ? " <small>open</small>" : ""}</button>`).join("")}</div>`;
   const c = await api("hiring_search", { role: k.role, ...F });
+  const open = x.openings.some((o) => o.key === k.role);
   const sel = (key, list) => `<select class="ssel hr-f" data-k="${key}" aria-label="${key}">${list.map(([v, t]) => `<option value="${v}" ${(F[key] || "") === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
   const num = (key, ph) => `<input class="hr-num" data-k="${key}" value="${F[key] ?? ""}" placeholder="${ph}" inputmode="numeric" aria-label="${ph}">`;
   const chk = (key, t) => `<label class="hr-tog"><input type="checkbox" class="hr-f" data-k="${key}" ${F[key] ? "checked" : ""}>${esc(t)}</label>`;
   const filters = `<div class="hr-filters">${sel("level", HR_LEVELS)}${sel("job", HR_JOBS)}${sel("cameUp", HR_GROUPS)}${num("ageMin", "Age from")}${num("ageMax", "to")}${num("repMin", "Reputation from")}${chk("known", "Known to you")}${chk("free", "Out of work")}<span class="hr-sp"></span>${sel("sort", HR_SORTS)}</div>`;
+  // Two lines a cell keep every column in view at 1280: who he is over his
+  // age and roots, his job over his name in the game, the potential word
+  // over the hours you've put in.
+  const tags = (r) => `${r.outside ? ' <span class="tag" title="The job is outside the group he came up in">Outside his group</span>' : ""}${r.blocked ? ' <span class="tag due" title="His team can block a lateral move">Can be blocked</span>' : ""}${r.talk ? ` <span class="tag gold" title="${esc(r.talk)}">Talking</span>` : ""}`;
   const cols = [
-    { k: "link", t: "Coach", l: true, f: (r) => `${rich(r.link)}${r.blocked ? ' <span class="tag due" title="His team can block a lateral move">Can be blocked</span>' : ""}${r.outside ? ' <span class="tag" title="The job is outside the group he came up in">Outside his group</span>' : ""}${r.talk ? ` <span class="tag gold" title="${esc(r.talk)}">Talking</span>` : ""}`, v: (r) => plainText(r.link) },
-    { k: "age", t: "Age" },
-    { k: "now", t: "Now", l: true, f: (r) => rich(r.now), v: (r) => plainText(r.now) },
-    { k: "rep", t: "Reputation", l: true },
-    { k: "cameUp", t: "Came up", l: true, hide: true },
-    { k: "read", t: c.coord ? "Teaching, his side" : "Teaching", tip: "Your read on the hidden 1 to 20 scale", f: (r) => hrBar(r.read, "teaching"), v: (r) => r.read[0] + r.read[1] },
-    ...(c.coord ? [{ k: "scheme", t: "Scheme", f: (r) => hrBar(r.scheme, "scheme"), v: (r) => r.scheme[0] + r.scheme[1] }, { k: "calling", t: "Calling", f: (r) => hrBar(r.calling, "play calling"), v: (r) => r.calling[0] + r.calling[1] }] : []),
-    { k: "potential", t: "Potential", l: true, wrap: true },
-    { k: "known", t: "Known to you", l: true, wrap: true, hide: true },
-    { k: "hours", t: "Hours in", tip: "Hours you've put into him: film and talk", f: (r) => (r.hours ? r.hours : '<span class="muted">—</span>') },
+    { k: "link", t: "Coach", l: true, f: (r) => `<span class="hr-two">${rich(r.link)}<small>${r.age} · came up with the ${esc(r.cameUp)}${tags(r)}</small></span>`, v: (r) => plainText(r.link) },
+    { k: "now", t: "Now", l: true, wrap: true, f: (r) => `<span class="hr-two">${rich(r.now)}<small>${esc(cap(r.rep))}</small></span>`, v: (r) => plainText(r.now) },
+    { k: "read", t: c.coord ? "Teaching, his side" : "Teaching", tip: "Your read on the hidden 1 to 20 scale", f: (r) => hrMini(r.read, "teaching"), v: (r) => r.read[0] + r.read[1] },
+    ...(c.coord ? [{ k: "scheme", t: "Scheme", f: (r) => hrMini(r.scheme, "scheme"), v: (r) => r.scheme[0] + r.scheme[1] }, { k: "calling", t: "Calling", f: (r) => hrMini(r.calling, "play calling"), v: (r) => r.calling[0] + r.calling[1] }] : []),
+    { k: "potential", t: "Potential", l: true, wrap: true, f: (r) => `<span class="hr-two">${esc(r.potential)}${r.hours ? `<small>${r.hours} ${r.hours === 1 ? "hour" : "hours"} in</small>` : ""}</span>` },
     { k: "asks", t: "Asks", v: (r) => r.asksValue },
-    { k: "act", t: "", f: (r) => `<span class="hr-acts"><button class="st-btn small glass" data-act="ppinterview" data-id="${r.coach}" data-role="${c.role}">Interview</button><button class="st-btn small primary" data-act="hroffer" data-id="${r.coach}" data-role="${c.role}">Offer</button></span>`, v: () => 0 },
+    { k: "act", t: "", f: (r) => `<span class="hr-acts"><button class="st-btn small glass" data-act="ppinterview" data-id="${r.coach}" data-role="${c.role}">Interview</button><button class="st-btn small primary" data-act="hroffer" data-id="${r.coach}" data-role="${c.role}" ${open ? "" : 'disabled title="The job isn\'t open on your staff: let someone go first"'}>Offer</button></span>`, v: () => 0 },
   ];
   const pager = c.pages > 1 ? `<div class="hr-pager"><button class="st-btn small glass" data-act="hrpage" data-v="${c.page - 1}" ${c.page <= 0 ? "disabled" : ""}>Previous</button><span>Page ${c.page + 1} of ${c.pages}</span><button class="st-btn small glass" data-act="hrpage" data-v="${c.page + 1}" ${c.page + 1 >= c.pages ? "disabled" : ""}>Next</button></div>` : "";
-  return `<section class="panel hr"><h2>${esc(c.roleName)} <small>${Number(c.total).toLocaleString()} coaches · any of them can be offered the job · ${hrHours(c.hours)} left this week</small></h2>${seg}${filters}${table("hr-cand", cols, c.rows, { empty: "Nobody matches these filters.", tools: false })}${pager}</section>`;
+  return `<section class="panel hr"><h2>${esc(c.roleName)} <small>${Number(c.total).toLocaleString()} coaches · ${open ? "any of them can be offered the job" : "the job isn't open: let someone go first, or keep him in mind"} · ${hrHours(c.hours)} left this week</small></h2>${seg}${filters}${table("hr-cand", cols, c.rows, { empty: "Nobody matches these filters.", tools: false })}${pager}</section>`;
 }
 
 // Coaches to watch (C42).

@@ -49,7 +49,9 @@ fn a_head_coach_grows_at_two_thirds_everywhere() {
     let c = coach(Group::QB, Some(Role::HeadCoach));
     let p = c.pace();
     assert!((p[Group::QB as usize] - 2.0 / 3.0).abs() < 1e-9);
-    assert!(p[Group::DB as usize] < 2.0 / 3.0 + 1e-9);
+    // Groups he didn't come up in: two thirds times his adaptability (0.6-1.4).
+    let db = p[Group::DB as usize];
+    assert!((0.4 - 1e-9..=0.94).contains(&db), "{db}");
 }
 
 #[test]
@@ -73,8 +75,8 @@ fn a_promotion_is_worth_more_to_the_young_and_the_ambitious() {
     assert_eq!(promotion_worth(10.0, 40), 1.0);
     assert_eq!(promotion_worth(10.0, 62), 0.5);
     assert!(promotion_worth(20.0, 62) > promotion_worth(1.0, 62));
-    assert_eq!(promotion_worth(1.0, 62), 0.23);
-    assert_eq!(promotion_worth(20.0, 62), 0.8);
+    assert!((promotion_worth(1.0, 62) - 0.23).abs() < 1e-9);
+    assert!((promotion_worth(20.0, 62) - 0.8).abs() < 1e-9);
 }
 
 #[test]
