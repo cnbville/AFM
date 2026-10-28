@@ -415,7 +415,7 @@ screens.roster = async (a) => {
     kicker: `${esc(x.level_name)} · ${sbPlural(x.rows.length, "player")}`,
     title: `<span class="sb-crest">${mark(x.team, 40)}</span>${esc(x.team.name)}`,
     sub: `Your staff reads them every day. Snaps and grades from ${esc(x.season_words)}'s games.`,
-    goto: gotoLine([["Depth chart", "depth"], ["Needs map", "needs"], ["Training", "training"], ["Staff", "staff"]]),
+    goto: gotoFor("roster", a),
   });
   return `<div class="film sb"><div class="pad sb-pad">${pageH}<div class="filters">${vseg}</div>
     <div class="sb-roster">${railHtml}<div class="sb-rt" role="table">${head}${body}</div><aside class="sb-side">${pick ? sbRosterPanel(pick, x) : ""}</aside></div></div></div>`;

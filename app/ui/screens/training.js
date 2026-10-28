@@ -53,7 +53,15 @@ GOTO.training = () => [["Squad", "roster", { view: "Development" }], ["Depth cha
 GOTO.plans = () => [["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"], ["Schedule", "schedule"]];
 GOTO.designer = () => [["Plans", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"], ["Depth chart", "depth"]];
 GOTO.depth = () => [["Squad", "roster"], ["Training", "training"], ["Plans", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]];
-GOTO.roster = (a) => (trMine(a) ? [["Depth chart", "depth"], ["Training", "training"], ["Plans", "plans"], ["Staff", "staff"], ["Leaderboards", "leaders"]] : [["Schedule", "schedule", teamArgs(a)], ["Staff", "staff", teamArgs(a)], ["Team page", "team", teamArgs(a)], ["Leaderboards", "leaders"]]);
+// Your Squad's one line in every view (screens topic 17): the Fitness view
+// is its Health, and the money desk is the cap sheet at the NFL, the
+// recruiting board in college. Another league's club has no training.
+GOTO.roster = (a) => {
+  if (!trMine(a)) return [["Schedule", "schedule", teamArgs(a)], ["Staff", "staff", teamArgs(a)], ["Team page", "team", teamArgs(a)], ["Leaderboards", "leaders"]];
+  const seat = seatKind();
+  const onHealth = S.route.screen === "roster" && (S.keep.sqview || {}).v === "Fitness";
+  return [["Depth chart", "depth"], seat !== "other" ? ["Training", "training"] : null, onHealth ? null : ["Health", "roster", { view: "Fitness" }], seat === "nfl" ? ["Cap sheet", "fo_cap"] : seat === "college" ? ["Recruiting board", "recruit_board"] : null, ["Compare", "compare"]];
+};
 // These screens draw their own Go-to lines.
 for (const s of ["training", "depth", "roster"]) {
   const i = GOTO_AFTER.indexOf(s);
@@ -996,7 +1004,7 @@ screens.roster = async (a) => {
   const vseg = `<div class="seg tr-views">${SQUAD_VIEWS.map((v, i) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="${v === view}">${viewNames[i]}</button>`).join("")}</div>`;
   const out = x.rows.filter((r) => r.practice === "out").length;
   const hurt = x.rows.filter((r) => r.spike).length;
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · ${x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: trGoto([["Depth chart", "depth"], ["Training", "training"], ["Plans", "plans"], ["Staff", "staff"], ["Leaderboards", "leaders"]]) })}
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · ${x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
     <div class="filters">${vseg}${seg}</div>
     ${table("squad:" + view, squadCols(view, x), rows, { groupBy: (r) => r.pos })}</div></div>`;
 };

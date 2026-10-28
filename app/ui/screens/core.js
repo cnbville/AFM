@@ -1389,7 +1389,8 @@ screens.coach = async (a) => {
   }
   return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? names : [...names.slice(0, -1), { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
 };
-GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
+// Hiring is your staff screen's tab (people.js): only a career with a job has one.
+GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, S.status && S.status.mine && screens.people_staff ? ["Hiring", "people_staff", { tab: "Hiring" }] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
 
 const STYLE = [["risk", "Risk", "Conservative", "Aggressive"], ["freedom", "Structure or freedom", "Do your job", "Freelance"], ["physical", "Physical", "Protective", "Physical"], ["ball_hunting", "Ball hunting", "Sound", "Ball hunting"], ["mould", "Mould or adapt", "Adapt to him", "Mould him"]];
 screens.you = async (a) => {

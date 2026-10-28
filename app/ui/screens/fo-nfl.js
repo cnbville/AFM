@@ -24,7 +24,7 @@ const foM = (v) => (v == null ? "-" : Math.abs(v) < 500 ? "$0" : money(v));
 const foPct = (v) => Math.round((v || 0) * 100) + "%";
 // Where each desk screen leads (lane 9's "Go to" line under the head).
 GOTO.fo_office = () => [["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Free agency", "fo_market"], ["Trades", "fo_trades"], ["Roster moves", "fo_moves"], ["Staff", "staff"], ["Money mail", "inbox", { key: "Money" }]];
-GOTO.fo_cap = () => [["Front office", "fo_office"], ["Deals and tags", "fo_expiring"], ["Trades", "fo_trades"], ["Contracts", "contracts"], ["Squad", "roster"]];
+GOTO.fo_cap = () => [["Squad", "roster"], ["Free agency", "fo_market"], ["Trades", "fo_trades"], ["Draft board", "draftboard"]];
 GOTO.fo_expiring = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Free agency", "fo_market"], ["Squad", "roster"]];
 GOTO.fo_talk = (a) => [["Player page", "player", { id: a.id }], ["Deals and tags", "fo_expiring"], ["Free agency", "fo_market"], ["Cap sheet", "fo_cap"]];
 GOTO.fo_market = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Squad", "roster"], ["Depth chart", "depth"]];
