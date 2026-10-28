@@ -1975,6 +1975,7 @@ mod tests {
             profile: Default::default(),
             born: crate::calendar::born::unknown(),
             aura: 0.0,
+            came_up: None,
         }
     }
 

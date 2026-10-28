@@ -23,6 +23,11 @@ fn a_college_career_plays_through_its_first_games() {
     let setup = ok(&mut g, "setup", json!({}));
     assert!(setup["backgrounds"].as_array().unwrap().len() >= 10);
     assert_eq!(setup["ratings"].as_array().unwrap().len(), 19);
+    // The roads' totals, locked strengths and pool together (coaching C6).
+    let totals: Vec<f64> =
+        setup["backgrounds"].as_array().unwrap().iter().map(|b| b["pool"].as_f64().unwrap()).collect();
+    assert_eq!(totals, [245.0, 258.0, 271.0, 255.0, 234.0, 239.0, 261.0, 274.0, 276.0, 227.0, 230.0]);
+    assert!(setup["marks"]["college"]["groups"].as_array().is_some_and(|g| g.len() == 8), "{}", setup["marks"]);
     // The new-career pages' data: towns, coaches on your road, the job file.
     assert!(!ok(&mut g, "towns", json!({ "state": "TX" }))["towns"].as_array().unwrap().is_empty());
     let bg = setup["backgrounds"].as_array().unwrap().iter().find(|b| b["key"] == "college_assistant").unwrap();
@@ -126,6 +131,17 @@ fn a_college_career_plays_through_its_first_games() {
     for cmd in ["schedule", "standings", "staff", "inbox", "news", "calendar", "you", "status"] {
         ok(&mut g, cmd, json!({}));
     }
+    // The calendar (update 3, lane 2): whole weeks, the year strip, the
+    // picked day and your first game in its cell.
+    let cal = ok(&mut g, "calendar_board", json!({}));
+    let days = cal["days"].as_array().unwrap();
+    assert_eq!(days.len() % 7, 0);
+    assert_eq!(days.len() / 7, cal["weeks"].as_array().unwrap().len());
+    assert!(cal["strip"]["phases"].as_array().is_some_and(|p| !p.is_empty()), "{}", cal["strip"]);
+    let before = ok(&mut g, "calendar_board", json!({ "month": cal["prev"] }));
+    let played = |d: &Value| d["game"] == true && d["res"].as_str().is_some_and(|r| r.starts_with(['W', 'L', 'T']));
+    assert!(days.iter().chain(before["days"].as_array().unwrap()).any(played), "a played game shows its result");
+    assert!(ok(&mut g, "calendar_board", json!({ "month": cal["next"] }))["title"] != cal["title"]);
     assert!(!ok(&mut g, "search", json!({ "q": "test coach" }))["coaches"].as_array().unwrap().is_empty());
     // Every name a line names is a link (L2), and the parts rebuild the line.
     let parts_of = |x: &Value| -> Vec<Value> {
