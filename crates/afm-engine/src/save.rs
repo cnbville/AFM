@@ -48,6 +48,10 @@ pub struct WorldMeta {
     /// written by the game.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub card: Option<serde_json::Value>,
+    /// A career that ever used the no-fire override (Settings, a test
+    /// switch): the day it was first turned on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub no_fire: Option<String>,
 }
 
 /// Writes the world to `path` (see the module notes for the format), with
@@ -76,6 +80,7 @@ pub fn write_world(
             team.map_or(c.you.name.clone(), |t| format!("{}, {t}", c.you.name))
         }),
         card,
+        no_fire: w.career.as_ref().and_then(|c| c.no_fire_since).map(|d| d.to_string()),
     };
     let file = std::fs::File::create(path)?;
     let mut out = std::io::BufWriter::new(file);

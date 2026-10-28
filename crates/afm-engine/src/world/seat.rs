@@ -759,6 +759,9 @@ impl World {
             staff_book: Default::default(),
             kept_reads: Vec::new(),
             kept_through: 0,
+            no_fire: false,
+            no_fire_since: None,
+            spared: Vec::new(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -838,6 +841,19 @@ pub struct Career {
     /// before the kept reads starts keeping at the next season's end).
     #[serde(default)]
     pub kept_through: i16,
+    /// The no-fire override (Settings, a test switch): while it is on,
+    /// nothing in the world ends your job; each time it would have, the
+    /// day and the reason go in `spared` and your inbox.
+    #[serde(default)]
+    pub no_fire: bool,
+    /// The day the override was first turned on: a career that ever used
+    /// it stays marked, even after it is turned off.
+    #[serde(default)]
+    pub no_fire_since: Option<Date>,
+    /// Each time the override kept you in a job: the day, where, and the
+    /// world's reason ("fired", "not retained when his contract ran out").
+    #[serde(default)]
+    pub spared: Vec<(Date, String, String)>,
 }
 
 /// One player's kept reads, oldest season first.

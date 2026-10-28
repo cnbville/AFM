@@ -798,6 +798,47 @@ pub(crate) fn left(w: &mut World, why: &str) {
     }
 }
 
+/// The no-fire override (Settings): when the world is about to end your
+/// job (`why`, the reason it would give) and the override is on, the job
+/// stays, the day and reason are kept on your career and your inbox says
+/// what would have happened. True when the caller must skip the move.
+pub(crate) fn spared(w: &mut World, c: usize, why: &str) -> bool {
+    if !is_you(w, c) || !w.career.as_ref().is_some_and(|k| k.no_fire) {
+        return false;
+    }
+    let Some(job) = w.coaches[c].job else { return false };
+    let today = w.today;
+    let name = employer_name(w, job.employer);
+    if let Some(k) = w.career.as_mut() {
+        k.spared.push((today, name.clone(), why.to_string()));
+    }
+    log(w, format!("{name}: {why} (kept by the no-fire override)."));
+    post(
+        w,
+        today,
+        level_of(job.employer),
+        format!(
+            "No-fire override: without it you would be out at {name} today ({why}). You keep the job; turn the override off in Settings."
+        ),
+        true,
+    );
+    true
+}
+
+impl World {
+    /// Turns the no-fire override on or off (Settings). The first time it
+    /// goes on, the career is marked for good.
+    pub fn set_no_fire(&mut self, on: bool) {
+        let today = self.today;
+        if let Some(k) = self.career.as_mut() {
+            k.no_fire = on;
+            if on && k.no_fire_since.is_none() {
+                k.no_fire_since = Some(today);
+            }
+        }
+    }
+}
+
 /// A high school didn't renew your coaching stipend: you keep teaching there.
 pub(crate) fn kept_teaching(w: &mut World, s: usize) {
     if let Some(c) = w.career.as_mut() {

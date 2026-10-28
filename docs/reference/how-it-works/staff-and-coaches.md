@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at e66acb3 with update 3 lane 5 on 2026-10-28.
+Checked against main at 8198872 with the no-fire override on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -140,6 +140,8 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 - Your boss is a person with trust in you (0-1) and goals set each season (wins a little above the last three years, postseason, title, recruiting class rank, grades, clean program, beat the rival, crowds) (`world/folk/boss.rs`, `draft_goals`, `trust`). Meetings before the season, at midseason and after it (`day`).
 - Trust moves your college review by 0.1 × (0.5 − trust) + 0.015 × (goals missed − met), ±0.1 (`review_push`). It also moves a big booster's chance of leaving by up to +6 points (`booster_push`).
+- You retire only when you choose to: neither age, health nor "walking away on top" retires you (`carousel`).
+- The no-fire override (Settings, Testing; a test switch, Cain 2026-10-28): while it is on, the world still decides as always, but nothing ends your job. It covers the NFL owner's Black Monday (`nfl_firing`), the college AD's review, a deal left to run out and in-season firings (`college_review`, `in_season_firings`), a new head coach letting you go as an assistant (`fill_opening`, `nfl_firing`), your high school not renewing your stipend (`hs_review`), the other leagues' owners (`pro/other.rs`, `reviews`), an NCAA show-cause order (`ncaa.rs`) and a college giving your position-coach slot away (`folk/backchannel.rs`). Each time, `world/front_office/market.rs`, `spared` keeps the day, the place and the world's reason on `Career::spared` and posts it to your inbox. A college deal that ran out renews at the same pay. A team that stops existing (a school drops football, a franchise goes dark, a league team folds) still ends the job. The career is marked from the first day the override is on (`Career::no_fire_since`, `World::set_no_fire`), the mark stays when it goes off, and the save's header carries it (`save::WorldMeta::no_fire`, shown on Load game). The dice roll the same either way, so with the override off every seed plays the same.
 
 ## Pay
 

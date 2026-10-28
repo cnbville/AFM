@@ -16,6 +16,7 @@ mod legacy;
 mod level_rating;
 mod links;
 mod live_game;
+mod no_fire;
 mod polls;
 mod ratings;
 mod schedule;

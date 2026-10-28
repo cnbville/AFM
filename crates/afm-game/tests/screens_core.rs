@@ -112,5 +112,18 @@ fn the_desk_files_answers_and_clears_its_mail() {
     let path = csv["path"].as_str().unwrap();
     assert!(path.ends_with("my-table.csv"), "{path}");
     assert_eq!(std::fs::read_to_string(path).unwrap(), "a,b\n1,2\n");
+
+    // The no-fire override (Settings, Testing): off at the start, marks the
+    // career when turned on, keeps the mark when turned off, and the save's
+    // header carries it to Load game.
+    let nf = ok(&mut g, "no_fire", json!({}));
+    assert!(nf["career"] == true && nf["on"] == false && nf["since"].is_null(), "{nf}");
+    let nf = ok(&mut g, "no_fire_set", json!({ "on": true }));
+    assert!(nf["on"] == true && nf["since"].is_string(), "{nf}");
+    let nf = ok(&mut g, "no_fire_set", json!({ "on": false }));
+    assert!(nf["on"] == false && nf["since"].is_string() && nf["spared"].as_array().unwrap().is_empty(), "{nf}");
+    ok(&mut g, "save", json!({ "name": "no-fire test" }));
+    let lib = ok(&mut g, "library", json!({}));
+    assert!(lib["saves"].as_array().unwrap().iter().any(|s| s["meta"]["no_fire"].is_string()), "{lib}");
     let _ = std::fs::remove_dir_all(dir);
 }

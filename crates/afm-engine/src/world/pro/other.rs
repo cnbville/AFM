@@ -1898,7 +1898,10 @@ fn reviews(w: &mut World, k: u8, teams: &[usize]) {
         } else {
             0.0
         };
-        if p > 0.0 && key_uniform(w.options.seed as u64 ^ 0xF1E5 ^ (w.year as u64) << 8, hc as u64) < p {
+        if p > 0.0
+            && key_uniform(w.options.seed as u64 ^ 0xF1E5 ^ (w.year as u64) << 8, hc as u64) < p
+            && !crate::world::front_office::market::spared(w, hc, "fired")
+        {
             crate::world::staff::leave(w, hc, "fired");
             if w.recording {
                 let text =
@@ -1910,6 +1913,7 @@ fn reviews(w: &mut World, k: u8, teams: &[usize]) {
                     if role == Role::OffensiveCoordinator { w.others.teams[fr].oc } else { w.others.teams[fr].dc };
                 if let Some(a) = slot
                     && key_uniform(0x0C5 ^ w.year as u64, a as u64) < 0.5
+                    && !crate::world::front_office::market::spared(w, a, "let go by the new staff")
                 {
                     crate::world::staff::leave(w, a, "let go by the new staff");
                 }

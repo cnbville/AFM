@@ -110,7 +110,33 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "career_page" => Ok(pages::career_page(w)),
         "team_page" => crate::views::TeamRef::from_args(w, args).map(|t| pages::team_page(w, t)),
         "linked" => Ok(pages::linked(w, args)),
+        // The no-fire override (Settings, a test switch).
+        "no_fire" => Ok(no_fire(w)),
+        "no_fire_set" => {
+            w.set_no_fire(args.get("on").and_then(Value::as_bool).unwrap_or(false));
+            Ok(no_fire(w))
+        }
         _ => return None,
     };
     Some(r)
+}
+
+/// The no-fire override as Settings shows it: on or off, the day it was
+/// first turned on (the career's mark) and each time it kept you in a job,
+/// newest first.
+fn no_fire(w: &World) -> Value {
+    let k = w.career.as_ref();
+    let spared: Vec<Value> = k.map_or(Vec::new(), |k| {
+        k.spared
+            .iter()
+            .rev()
+            .map(|(d, at, why)| json!({ "date": crate::views::date_text(*d), "at": at, "why": why }))
+            .collect()
+    });
+    json!({
+        "career": k.is_some(),
+        "on": k.is_some_and(|k| k.no_fire),
+        "since": k.and_then(|k| k.no_fire_since).map(crate::views::date_text),
+        "spared": spared,
+    })
 }
