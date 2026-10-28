@@ -863,6 +863,28 @@ fn main() {
     println!("  5-stars only: {}", gaps(&top3, &next, Some(5)));
     println!("at 4-12, against the best of the top 3: {}", gaps(&next, &top3, None));
     println!("  (the terms add up to the appeal within {worst_check:.1e})");
+    let (mut bc_n, mut bc_home, mut five_n, mut five_home) = (0u32, 0u32, 0u32, 0u32);
+    for p in &w.people {
+        if p.stars < 4 || p.player.position.is_specialist() || p.class_of < w.year - 1 || p.class_of > w.year {
+            continue;
+        }
+        let Some(j) = p.cal.signed.map(|s| s.program).or(p.college) else { continue };
+        if w.programs[j].division != Division::FBS {
+            continue;
+        }
+        let home = (w.programs[j].state == p.home_state) as u32;
+        bc_n += 1;
+        bc_home += home;
+        if p.stars == 5 {
+            five_n += 1;
+            five_home += home;
+        }
+    }
+    println!(
+        "FBS blue chips signing in their home state: {:.0}% of {bc_n}, 5-stars {:.0}% of {five_n} (real 2010-2025: 41%, 5-stars 45%)",
+        100.0 * bc_home as f64 / bc_n.max(1) as f64,
+        100.0 * five_home as f64 / five_n.max(1) as f64
+    );
     // Draft: the most picks from one school in a draft, by era.
     let mut most_picks: BTreeMap<i32, (usize, u32)> = BTreeMap::new();
     for (&(y, p), &n) in &picks {
