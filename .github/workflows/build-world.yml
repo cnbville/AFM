@@ -33,7 +33,10 @@ on:
         description: "Keep the built world as a run artifact for 3 days (yes or no)"
         default: "no"
       knockout:
-        description: "A dynasty test switch (AFM_KO: coach4, frozen or flatdev); empty for none, never published"
+        description: "A dynasty test switch (AFM_KO: coach4, frozen, flatdev or brand85); empty for none, never published"
+        default: ""
+      check_run:
+        description: "A run whose kept world to check instead of building one (its run id)"
         default: ""
 jobs:
   world:
@@ -44,7 +47,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build the world
-        if: inputs.check == '' && inputs.quick != 'yes'
+        if: inputs.check == '' && inputs.check_run == '' && inputs.quick != 'yes'
         env:
           AFM_COMMIT: ${{ github.sha }}
           AFM_KO: ${{ inputs.knockout }}
@@ -82,6 +85,13 @@ jobs:
           { echo '```'; target/release/afm_read "$b" overview limit=20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           zstd -T0 -9 --rm "$b" -o "$b.zst"
           ls -la out/
+      - name: Download a kept world to check
+        if: inputs.check_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ inputs.check_run }}" --repo "${{ github.repository }}" -n world -D out
+          ls -la out
       # A check that fails never stops a world from being published.
       - name: Star mix check
         continue-on-error: true
@@ -116,7 +126,7 @@ jobs:
       # A release file may be at most 2 GB, so a bigger world goes up in parts
       # (name.afmworld.001, .002, ...), which the game joins.
       - name: Publish it on the worlds page
-        if: inputs.publish != 'no' && inputs.check == '' && inputs.quick != 'yes'
+        if: inputs.publish != 'no' && inputs.check == '' && inputs.check_run == '' && inputs.quick != 'yes'
         env:
           GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
         run: |

@@ -2708,7 +2708,7 @@ fn utility_fit(
     // leader of 30 years ago a program is one of the blue bloods, not a
     // bigger one, so a run of titles can't lift it clear of the rest of the
     // elite.
-    let brand = prog.prestige_rel.min(NAME_TIE);
+    let brand = prog.prestige_rel.min(NAME_TIE).min(super::knockout::brand_cap());
     let lv = recruit_level(prog, year);
     let mut u = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
@@ -6854,6 +6854,85 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
     ];
     let rest = appeal(w, i, j, Some(nil)) - six.iter().map(|x| x.0).sum::<f64>();
     [six[0], six[1], six[2], six[3], six[4], six[5], (rest, clamp(0.5 + rest / 0.4, 0.0, 1.0))]
+}
+
+/// Trial tooling (dynasty thread, 2026-10-28): what a school means to a
+/// recruit, term by term as [`utility_fit`] adds them, read like [`appeal`]
+/// (0.6 down a board, the collective's usual offer) with his own feel and
+/// without the process (visits, offers, a commitment, the staff's bond, his
+/// room): level, brand, 5-star pull, the prestige grades, facilities,
+/// development, money, playing time, close to home, home ties (staying in
+/// his state, the team he grew up with, a brother, his school's pipeline),
+/// academics, the rest (stories, pro day, a showcase system, leagues
+/// without scholarships), feel; the last entry is `utility` itself, which
+/// the first twelve add up to.
+#[cfg(feature = "debug")]
+pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 14] {
+    let p = &w.people[i];
+    let prog = &w.programs[j];
+    let year = w.year;
+    let nil_offer = usual_nil_offer(w, j, i);
+    let wants = p.family.decider_wants;
+    let fits = super::systems::fits(&p.player, p.player.position, &w.system_norms);
+    let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
+    let close = closeness(geo::miles(p.home_state, prog.state));
+    let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
+    let close_w = wants.close_to_home + if crisis { 0.15 } else { 0.0 };
+    let prestige = (g(GradeCat::TitleChances)
+        + g(GradeCat::StadiumAtmosphere)
+        + g(GradeCat::Tradition)
+        + g(GradeCat::BrandExposure))
+        / 4.0;
+    let money = (nil_offer.max(0.0) / 1.0e6).powf(0.6);
+    let need = clamp(0.25 + 0.75 * (1.0 - p.bg.money) + if crisis { 0.2 } else { 0.0 }, 0.1, 1.2);
+    let drive = clamp((p.family.ambition - 10.0) / 10.0, -1.0, 1.0);
+    let money_w = wants.money * need * (1.0 - 0.35 * drive);
+    let path_w = 0.35 * drive.max(0.0) * wants.money;
+    let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * 0.6);
+    let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
+    let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
+    let brand = prog.prestige_rel.min(super::knockout::brand_cap());
+    let lv = recruit_level(prog, year);
+    let mut rest = match prog.conference.as_str() {
+        "PFL" => -0.8 * (1.0 - 0.6 * p.bg.money),
+        "Ivy" => -0.4,
+        _ => 0.0,
+    };
+    rest += prog.story_push as f64;
+    rest += prog.pro_day as f64 * (0.6 + wants.development + path_w);
+    rest += SHOWCASE * super::systems::showcase(&fits, p.player.position, &prog.installed);
+    let mut home = 0.0;
+    if let Some(&(v, _)) = prog.hs_pipeline.get(&p.hs) {
+        home += 0.12 * v;
+    }
+    if prog.state == p.home_state {
+        home += p.stay_home;
+    }
+    if p.childhood_team == Some(prog.id) {
+        home += CHILDHOOD_LEAN;
+    }
+    if p.family.older_brother_at == Some(prog.id) {
+        home += if p.family.follows_brother { 0.15 } else { -0.05 };
+    }
+    let five = if p.stars == 5 { FIVE_STAR_PULL * brand.powi(3) * lv } else { 0.0 };
+    let seed = w.options.seed as u64 ^ (p.class_of as u64) << 20;
+    let feel = FEEL_SD * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
+    [
+        1.6 * lv * (0.5 + wants.prestige + wants.development),
+        (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv),
+        five,
+        wants.prestige * prestige,
+        0.1 * g(GradeCat::Facilities),
+        (wants.development + path_w) * development,
+        money_w * money * 1.5,
+        (wants.playing_time + path_w) * playing,
+        close_w * close,
+        home,
+        wants.academics * academics,
+        rest,
+        feel,
+        utility_fit(&fits, p, &wants, prog, year, nil_offer, 0.6),
+    ]
 }
 
 /// How much each of the six reasons counts with whoever decides for him,

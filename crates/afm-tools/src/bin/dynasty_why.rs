@@ -765,6 +765,92 @@ fn main() {
         corr(&hc_pr),
         by_hc.len()
     );
+    // 11. Why blue chips pick the top 3 (trial tooling, 2026-10-28): for the
+    // last two classes, each 4- or 5-star at one of the three programs with
+    // the most blue chips over the last four classes, his appeal there
+    // against the best of programs 4-12 (one that offered him when his
+    // offers are kept), term by term; then the reverse for blue chips at
+    // programs 4-12 against the best of the top 3. The process is left out:
+    // visits, the staff's bond, his room, a commitment.
+    let mut bc_rank: Vec<(usize, u32)> = (0..w.programs.len())
+        .filter(|&p| w.programs[p].division == Division::FBS)
+        .map(|p| {
+            let pts = (w.year - 4..w.year)
+                .map(|c| 3 * signed5.get(&(c, p)).copied().unwrap_or(0) + signed4.get(&(c, p)).copied().unwrap_or(0))
+                .sum();
+            (p, pts)
+        })
+        .collect();
+    bc_rank.sort_by_key(|x| std::cmp::Reverse(x.1));
+    let top3: Vec<usize> = bc_rank.iter().take(3).map(|x| x.0).collect();
+    let next: Vec<usize> = bc_rank.iter().skip(3).take(9).map(|x| x.0).collect();
+    const TERMS: [&str; 13] = [
+        "level",
+        "brand",
+        "5-star pull",
+        "prestige grades",
+        "facilities",
+        "development",
+        "money",
+        "playing time",
+        "close",
+        "home ties",
+        "academics",
+        "rest",
+        "feel",
+    ];
+    let mut worst_check = 0.0f64;
+    let mut gaps = |at: &[usize], against: &[usize], stars: Option<u8>| {
+        let (mut sum, mut n, mut ahead, mut offered) = ([0.0f64; 13], 0u32, 0u32, 0u32);
+        for (i, p) in w.people.iter().enumerate() {
+            if p.stars < 4 || stars.is_some_and(|s| p.stars != s) || p.player.position.is_specialist() {
+                continue;
+            }
+            if p.class_of < w.year - 1 || p.class_of > w.year {
+                continue;
+            }
+            let Some(j) = p.cal.signed.map(|s| s.program).or(p.college) else { continue };
+            if !at.contains(&j) {
+                continue;
+            }
+            let kept: Vec<usize> = against.iter().copied().filter(|x| p.cal.offers.contains(x)).collect();
+            let pool = if kept.is_empty() { against.to_vec() } else { kept.clone() };
+            let terms = |x: usize| afm_engine::debug::recruit_terms(&w, i, x);
+            let total = |t: &[f64; 14]| t[..13].iter().sum::<f64>();
+            let mine = terms(j);
+            let Some(alt) = pool.iter().map(|&x| terms(x)).max_by(|a, b| total(a).total_cmp(&total(b))) else {
+                continue;
+            };
+            for t in [&mine, &alt] {
+                worst_check = worst_check.max((t[..12].iter().sum::<f64>() - t[13]).abs());
+            }
+            for g in 0..13 {
+                sum[g] += mine[g] - alt[g];
+            }
+            n += 1;
+            ahead += (total(&mine) > total(&alt)) as u32;
+            offered += !kept.is_empty() as u32;
+        }
+        let nf = n.max(1) as f64;
+        let parts = (0..13).map(|g| format!("{} {:+.3}", TERMS[g], sum[g] / nf)).collect::<Vec<_>>().join(", ");
+        format!(
+            "n {n} (offers kept for {offered}), ahead on appeal {:.0}%; mean gap: {parts}; total {:+.3}",
+            100.0 * ahead as f64 / nf,
+            sum.iter().sum::<f64>() / nf
+        )
+    };
+    let names = |v: &[usize]| v.iter().map(|&p| name(p)).collect::<Vec<_>>().join(", ");
+    println!(
+        "\nwhy blue chips pick the top 3 (classes {}-{}; top 3 by blue chips over the last four classes: {}; programs 4-12: {}; the process is left out: visits, bond, room, commitment)",
+        w.year - 1,
+        w.year,
+        names(&top3),
+        names(&next)
+    );
+    println!("at the top 3, against the best of 4-12: {}", gaps(&top3, &next, None));
+    println!("  5-stars only: {}", gaps(&top3, &next, Some(5)));
+    println!("at 4-12, against the best of the top 3: {}", gaps(&next, &top3, None));
+    println!("  (the terms add up to the appeal within {worst_check:.1e})");
     // Draft: the most picks from one school in a draft, by era.
     let mut most_picks: BTreeMap<i32, (usize, u32)> = BTreeMap::new();
     for (&(y, p), &n) in &picks {
