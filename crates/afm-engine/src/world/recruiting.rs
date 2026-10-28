@@ -6644,10 +6644,11 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
 /// development, money, playing time, close to home, home ties (staying in
 /// his state, the team he grew up with, a brother, his school's pipeline),
 /// academics, the rest (stories, pro day, a showcase system, leagues
-/// without scholarships), feel; the last entry is `utility` itself, which
-/// the first twelve add up to.
+/// without scholarships), feel; entry 14 is `utility` itself, which the
+/// first twelve add up to, and the last four split home ties (pipeline,
+/// staying in his state, the team he grew up with, a brother).
 #[cfg(feature = "debug")]
-pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 14] {
+pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 18] {
     let p = &w.people[i];
     let prog = &w.programs[j];
     let year = w.year;
@@ -6681,19 +6682,20 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 14] {
     rest += prog.story_push as f64;
     rest += prog.pro_day as f64 * (0.6 + wants.development + path_w);
     rest += SHOWCASE * super::systems::showcase(&fits, p.player.position, &prog.installed);
-    let mut home = 0.0;
+    let mut split = [0.0; 4];
     if let Some(&(v, _)) = prog.hs_pipeline.get(&p.hs) {
-        home += 0.12 * v;
+        split[0] = 0.12 * v;
     }
     if prog.state == p.home_state {
-        home += p.stay_home;
+        split[1] = p.stay_home;
     }
     if p.childhood_team == Some(prog.id) {
-        home += CHILDHOOD_LEAN;
+        split[2] = CHILDHOOD_LEAN;
     }
     if p.family.older_brother_at == Some(prog.id) {
-        home += if p.family.follows_brother { 0.15 } else { -0.05 };
+        split[3] = if p.family.follows_brother { 0.15 } else { -0.05 };
     }
+    let home: f64 = split.iter().sum();
     let five = if p.stars == 5 { FIVE_STAR_PULL * brand.powi(3) * lv } else { 0.0 };
     let seed = w.options.seed as u64 ^ (p.class_of as u64) << 20;
     let feel = FEEL_SD * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
@@ -6712,6 +6714,10 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 14] {
         rest,
         feel,
         utility_fit(&fits, p, &wants, prog, year, nil_offer, 0.6),
+        split[0],
+        split[1],
+        split[2],
+        split[3],
     ]
 }
 
