@@ -60,7 +60,7 @@ screens.school = async () => {
   const ledger = b.ledger.map((l) => `<tr><td class="l">${esc(l.date)}</td><td class="l wrap">${esc(l.what)}</td><td class="${l.x < 0 ? "fs-out" : "fs-in"}">${l.x < 0 ? "-" : "+"}${money(Math.abs(l.x))}</td></tr>`).join("");
   const t = x.teaching, h = x.hours;
   const reviews = x.reviews.map((r) => `<div class="fs-review"><b>${r.year}: ${r.met} of ${r.of} goals met</b>${r.words.map(([who, text]) => `<div><span class="sub">${esc(who)}</span> ${esc(text)}</div>`).join("")}</div>`).join("");
-  return `<div class="hero small"><div class="art"></div><div class="st-outline">${esc(initials(x.school.name))}</div><div class="copy">
+  return `<div class="hero small"><div class="art"></div>${logoHero(x.school) || `<div class="st-outline">${esc(initials(x.school.name))}</div>`}<div class="copy">
       <div class="st-label" style="color:rgba(255,255,255,.7)">The ${esc(x.mascot)} · school office</div><h1>${esc(x.school.name)}</h1>
       <div class="meta"><span>Booster club <b>${esc(x.money)}</b> in the bank</span><span><b>${h.total.toFixed(0)}</b> hours this week</span><span>${esc(t.coordinator ? "Campus athletic coordinator" : t.subject + " teacher")}</span></div></div></div>
     <div class="pad">
@@ -200,7 +200,7 @@ screens.area = async () => {
     { k: "level", t: "Level", l: true, v: (r) => levels.indexOf(r.level), f: (r) => (r.level === "NFL" ? '<span class="st-pill gold">NFL</span>' : esc(r.level)) },
   ];
   const pros = x.alumni.filter((a) => a.level === "NFL").length;
-  return `<div class="hero small"><div class="art"></div><div class="st-outline">${esc(initials(x.school.name))}</div><div class="copy">
+  return `<div class="hero small"><div class="art"></div>${logoHero(x.school) || `<div class="st-outline">${esc(initials(x.school.name))}</div>`}<div class="copy">
       <div class="st-label" style="color:rgba(255,255,255,.7)">${esc(x.line)}${x.private ? " · private" : ""}</div><h1>${esc(x.school.name)}</h1>
       <div class="meta"><span><b>${thousandsFs(x.enrollment)}</b> students</span><span>${esc(x.town)}, ${esc(x.state)}</span><span><b>${esc(x.record)}</b> all time</span><span><b>${x.titles}</b> state title${x.titles === 1 ? "" : "s"}</span></div></div></div>
     <div class="pad"><div class="grid2">

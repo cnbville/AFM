@@ -57,7 +57,11 @@
     if (broken || !spec) return Promise.resolve(null);
     if (!drawing.has(id)) {
       drawing.set(id, heads()
-        .then((H) => H.queue(spec))
+        .then(async (H) => {
+          // a logo from an installed pack on the jersey (lane 15)
+          if (spec.logo && !spec.logo.img && typeof logoImageById === "function") spec.logo.img = await logoImageById(spec.logo.id);
+          return H.queue(spec);
+        })
         .then(async (r) => {
           await api("face_drawn_store", { id, key: key || "", data: r.url }).catch(() => {});
           return r.url;
@@ -116,7 +120,7 @@
       <details class="fc-looks"><summary>Looks</summary><div>${[f.looks.hair, f.looks.beard, ...f.looks.marks.map((m) => m[0].toUpperCase() + m.slice(1)), `${f.looks.build[0].toUpperCase()}${f.looks.build.slice(1)} build, ${f.looks.skin}, ${f.looks.eyes}`].map((t) => `<span>${esc(t)}</span>`).join("")}</div></details>`;
     box._face = f;
     if (!src && f.drawn_on && f.spec) {
-      drawHead(f.id, f.photo ? f.photo.key : "", f.spec).then((url) => {
+      drawHead(f.id, f.drawn_key != null ? f.drawn_key : f.photo ? f.photo.key : "", f.spec).then((url) => {
         if (url && box.isConnected) fill(box, { ...f, drawn: url, spec: null });
       });
     }
