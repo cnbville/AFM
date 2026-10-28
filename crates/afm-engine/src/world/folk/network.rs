@@ -18,7 +18,6 @@ use crate::calendar::{Date, Level, Loudness, Weekday};
 use crate::world::World;
 use crate::world::coach::{Employer, Role};
 
-
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Contact {
     /// The coach, or `NOBODY` when the contact is someone else (`other`).
@@ -330,7 +329,10 @@ fn old_mates(w: &mut World) {
                 Employer::HighSchool(h) if f.hs as usize == h && f.born != crate::calendar::born::UNKNOWN => {
                     let y = f.born.year();
                     if span(s.from, s.to, (y + 14) as i16, (y + 17) as i16) > 0 {
-                        take(if s.role == Role::HeadCoach { 0.4 } else { 0.2 }, format!("played for you at {}", w.school_name(h)));
+                        take(
+                            if s.role == Role::HeadCoach { 0.4 } else { 0.2 },
+                            format!("played for you at {}", w.school_name(h)),
+                        );
                     }
                 }
                 _ => {}
@@ -361,7 +363,8 @@ fn agents_and_ads(w: &mut World, team: Team) {
     if n > 0 && w.coaches[you].played.is_some_and(|p| p.nfl()) {
         let mut counts: Vec<u32> = vec![0; n];
         for f in &w.formers.list {
-            let mate = stops.iter().any(|&(e, a, b, playing)| playing && matches!(e, Employer::Nfl(t) if f.at_club(t, a, b)));
+            let mate =
+                stops.iter().any(|&(e, a, b, playing)| playing && matches!(e, Employer::Nfl(t) if f.at_club(t, a, b)));
             if let (true, Some(a)) = (mate, f.agent)
                 && (a as usize) < n
             {
@@ -384,7 +387,13 @@ fn agents_and_ads(w: &mut World, team: Team) {
             .collect();
         let club = w.nfl[t].name;
         for (k, r) in trusted {
-            add(w, Whom::Other(Other::Agent(k)), 0.15 + 0.4 * r as f32, format!("has done deals with the {club}"), true);
+            add(
+                w,
+                Whom::Other(Other::Agent(k)),
+                0.15 + 0.4 * r as f32,
+                format!("has done deals with the {club}"),
+                true,
+            );
         }
     }
     let stints = w.coaches[you].history.clone();
@@ -394,7 +403,13 @@ fn agents_and_ads(w: &mut World, team: Team) {
             && let Some(ad) = w.programs[p].ad.as_ref().filter(|ad| ad.since <= s.to)
         {
             let since = ad.since;
-            add(w, Whom::Other(Other::Ad(p, since)), 0.4, format!("your athletic director at {}", w.program_name(p)), true);
+            add(
+                w,
+                Whom::Other(Other::Ad(p, since)),
+                0.4,
+                format!("your athletic director at {}", w.program_name(p)),
+                true,
+            );
         }
     }
 }
@@ -409,7 +424,9 @@ fn alumni(w: &mut World, team: Team) {
         .list
         .iter()
         .filter(|f| f.colleges.iter().any(|c| c.0 as usize == p))
-        .map(|f| (f.played.grade, f.since, f.coach.map_or(Whom::Other(Other::Former(f.id)), |c| Whom::Coach(c as usize))))
+        .map(|f| {
+            (f.played.grade, f.since, f.coach.map_or(Whom::Other(Other::Former(f.id)), |c| Whom::Coach(c as usize)))
+        })
         .collect();
     v.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.cmp(&a.1)));
     let name = w.program_name(p).to_string();
@@ -864,18 +881,18 @@ fn interest_week(w: &mut World, d: Date) {
             .map(Team::College)
             .collect(),
     };
-    let Some(&target) = open.iter().find(|t| {
-        let size = super::facts::job_size(w, **t);
-        // Each job reads your name and standing its own way (C10).
-        let fits = super::facts::read_by(w, **t) / 20.0 >= 0.15 + 0.6 * size;
-        let warm = w
-            .folk
-            .network
-            .contacts
-            .iter()
-            .any(|x| x.warmth >= 0.45 && x.coach_id().and_then(|c| super::facts::team_of_coach(w, c)) == Some(**t));
-        fits || warm
-    }) else {
+    let Some(&target) =
+        open.iter().find(|t| {
+            let size = super::facts::job_size(w, **t);
+            // Each job reads your name and standing its own way (C10).
+            let fits = super::facts::read_by(w, **t) / 20.0 >= 0.15 + 0.6 * size;
+            let warm =
+                w.folk.network.contacts.iter().any(|x| {
+                    x.warmth >= 0.45 && x.coach_id().and_then(|c| super::facts::team_of_coach(w, c)) == Some(**t)
+                });
+            fits || warm
+        })
+    else {
         return;
     };
     if super::roll(w, 0x1E7E ^ d.0 as u64, 2) > 0.5 {

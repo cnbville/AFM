@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 2 on 2026-10-27.
+Checked against main at e66acb3 with update 3 lane 5 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -20,12 +20,16 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - When are coaches fired? College: the AD's review after the regular season (`college_review`); FBS in-season firings on Sundays late Sep - mid Nov (`in_season_firings`); NFL on Black Monday (`nfl_firing`); high school in late January (`hs_review`).
 - Is there a hiring bias? Yes, a hidden one against coaches of color in AI searches, biggest for head jobs (`world/ethnicity.rs`, `hiring_bias`; applied in `fill_opening`). Your own hires never carry it.
 - What's a coaching style? Five 1-20 dials (risk, freedom, physical, ball hunting, mould) from an AI coach's personality and ability, or set by you (`world/coach.rs`, `style`).
+- Did a coach play? Every coach carries what he played (`Coach::played`: position, college or NFL grade, college, last season), shown in words on his page; 92.7% of FBS coaches played college football (`world/former.rs`, `college_share`, `made_up`; C2).
+- What does playing do for a coach? His own position starts high in his teaching: an ex-pro 16-19 by how good a pro he was (journeyman to star), a former college player 13-15 (`Played::floor`, `apply`; C1, C2).
+- Where do new coaches come from? From the world's own former players who went into coaching, his old coaches hiring him first; a coach is made up only when nobody fits (`former::draw`, `to_coach`; `world/staff.rs`, `new_coach_for`; C11).
+- Name or standing? Standing (`reputation`) is what the trade thinks; name (`renown`) is what fans, boosters, recruits and small schools know. A college head search reads 0.1-0.6 name (more at a smaller job), a high school one half, assistants and the NFL none (`name_value`, `hiring_buzz_for`; `world/staff.rs`, `name_weight`; C10).
 - Do coaches get worse with age? Yes. Learning stops at 58; decline starts at a personal age ~N(59, 3.5) and speeds up 15% a year (`age_one_year`).
 
 ## The coach
 
 - `Ability` (`world/coach.rs`): `teaching[8]` per group (QB, RB, receivers, OL, DL, LB, DB, specialists), `scheme`, `game_management`, `motivation`, `discipline`, `recruiting`, `network`, `relationships`.
-- Generation (`generate_coach`): half come up on offense; their side's teaching +1, the other −1. `came_up` is his best non-special group on his side. Network = core − 1 + N(0, 3). Ex-pros (HS 4%, NFL 35%, else 12%): network +3 to +6, teaching −0 to −1.5, ambition +2, reputation +1.
+- Generation (`generate_coach`): half come up on offense; their side's teaching +1, the other −1. `came_up` is his best non-special group on his side. Network = core − 1 + N(0, 3). Ex-pros (HS 4%, NFL 35%, else 12%): network +3 to +6, teaching −0 to −1.5, ambition +2, reputation +1. A playing past then sets his own group's floor (below, "Former players and new coaches").
 - Personality: ambition, loyalty, temper, each N(10, 3.5) (`CoachPersonality`).
 - Learning ceiling = core + N(2, 2) − 0.05 per year over 30 (`learning_ceiling`). Your own coach's is 20 (`world/staff.rs`, `take_seat_as`).
 - Reputation starts at head_coach_value + N(0, 2) (+1 ex-pro) (`generate_coach`).
@@ -162,12 +166,22 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - High school ties from your road (`setup.rs`, `road_ties`, called when a career starts): high school coach 30 schools in his own school's state (his area first, then prestige); college assistant 25 top-prestige schools in his college stops' states (else his home state); every playing road his own high school. Each area tie starts at 0.06 (`TIE_AREA`), the own school at 0.16 (`TIE_OWN`); an existing stronger tie is kept. They fade and grow like any coach's (`age_coaches`, `credit_impact`).
 - Your coach is kept outside any save when a career starts: `coaches/<name>.json` in the game folder, the setup page's own record (`save_coach_profile`, `coach_profiles`, `forget_coach_profile`).
 
+## Former players and new coaches (update 3, lane 5)
+
+- The world keeps former players whose lives stay in football (`world/former.rs`, `Formers`, `Former`): at the year-end book, before the people list drops anyone, everyone leaving football who played college ball may go into coaching (8% a year for a college player, 14% for an NFL veteran), a camp or 7v7 program (0.8% / 3%), training (1.2% / 3%), scouting (0.6% / 1.5%), the media (0.3% / 2.5%, a Pro Bowler or better ×2.5) or agency work (0.2% / 0.4%), each × exp(0.8 × his trait lean); skill positions are twice as likely to run camps and train (`life_base`, `intake`). Each carries his position, grade (college backup or starter, NFL journeyman, starter, Pro Bowler, star), his colleges and clubs with years, the coaches who coached him, his area, a hidden eye and straightness (1-20), his football IQ and leadership, and his old agent.
+- Turnover (`year_end`): about one in twelve leaves coaching a year, one in thirty the other lives; all are gone by 70.
+- New coaches (`former::draw`, `world/staff.rs`, `new_coach_for`): a former player in coaching within four years of the job's age, weighted ×4 when the hiring head coach coached him, ×2.5 from the job's state, ×2 at the group, ×6 for an ex-pro at an NFL job, ×2 for an FBS player at FBS or NFL, ×1.5 for a smaller college's player at a high school. The college head coach pool of the 1990 history keeps made-up coaches, so the hiring bias calibration stands. `to_coach` makes the coach at the job's level and adds his IQ to scheme and leadership to motivation (up to about a point and a half each).
+- Playing pasts of made-up coaches (`made_up`): whether he played by `college_share` (high school 60%, small college 90%, FCS 92%, FBS 93%, NFL 95%); an ex-pro (high school 4%, NFL 35%, else 12%) is a journeyman 50%, starter 30%, Pro Bowler 15%, star 5%; a college player at FBS, FCS or a smaller college by the job's level (FBS and NFL 57/20/23, FCS 25/45/30, small college 10/20/70, high school 15/20/65), a starter 55% of the time.
+- What a playing past does (`apply`): his group is the one he came up in, and his side's teaching follows it; his own group's teaching is at least the floor (star 19, Pro Bowler 18, NFL starter 17, journeyman 16, FBS or FCS starter 15, their backups or a smaller college's starter 14, else 13); his name starts from playing (star 17, Pro Bowler 14, starter 11, journeyman 8, FBS starter 5, other college 2.5-4), fading 1% a season since he last played.
+- Name (`season_reputation`, `title_reputation`, `name_value`): each season his name moves toward the bigger of his playing name or 0.75 (head coach) / 0.5 (assistant) of his standing; a title boosts both alike. Searches read name by `name_weight` through `hiring_buzz_for`. Your name comes from your road's agreed name value (`crates/afm-game/src/setup.rs`, `you_from`); the people you meet read it (`world/folk/facts.rs`, `your_name`, `read_by`, `fit`).
+- A five-star's high school coach (C17): you may hire him onto your college staff only while you recruit his five-star and only if you're warm with him (0.2); a recruit on your board who isn't a five-star bars his coach (`world/folk/backchannel.rs`, `hs_hire`; `world/folk/staffing.rs`, `candidates`, `offer`). From 2017 the IAWP rule bars off-field and strength jobs; every coaching job here is on-field. The AI does it on December 1: one five-star's coach in twenty-five, hired by the FBS program leading for the kid to coach his own group (`ai_hs_hires`). At a high school, the college leading for your five-star senior offers you an on-field job on November 15, an even chance (`hs_offer`).
+
 ## Scouts and personnel staff as careers (update 2, lane 8)
 
 - NFL scouts move between clubs through a market: one in ten a year moves on, a sharp man at a thrifty club more often, the old retire; posts fill from the market, by a step up, or by hiring another club's man away; each man's eye grows with years and honest look-backs; an area scout builds contacts in his region (`world/pro/scouts.rs`, `staff`, `sign`, `grow`, `place_areas`). Your club runs the same rule through the May review (`world/scouting/own.rs`, `open_review`, `close_review`).
 - A third of GM openings go to another club's director of college scouting (`scouts::climb_to_gm`, called by `world/pro/office.rs`, `replace_gm`); a non-White director's old club gets the 2020 diversity picks.
 - College personnel staffs are keyed by program and post (`world/scouting/readers.rs`, `keyed_personnel`); once you hire or let go, your program's are yours (`own::personnel_market`, `hire_personnel`, `let_go_personnel`, a year on each July 1).
-- Scouts and personnel staff are drawn from seven backgrounds by era (`scouts::staff_ethnicity`; minor bug 19).
+- Scouts, personnel staff, the staffs drawn for the screens and support staff are drawn from seven backgrounds by era (`scouts::staff_ethnicity`, `staff_ethnicity_at`; `world/folk/staffing.rs`, `draw_person`; `world/people.rs`, `hire`; minor bug 19).
 - The numbers: [scouting.md](scouting.md), "The fresh look".
 
 ## Coaching styles
@@ -182,6 +196,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - `world/ethnicity.rs`: `hiring_bias`. `world/systems.rs`: `draw`, `learn_from`, `spring_install`.
 - `world/guide.rs`: `firmness` (13.5, 7.5), `leaning` (0.8, 0.15), the risk band, run lean and nickel shares in `head_guidelines`, `install_bonus` (6, 1.6, 0.3, 4 over 0.35), `wing_fit` (0.75).
 - `world/season.rs`: the coaching blend per stage, `coach_caller`. `development.rs`: `coaching_mult`, `coachability_lean`.
+- `world/former.rs`: `college_share`, `life_base`, `year_end` rates, `draw` weights, `Played::floor`, `Played::fame`, `made_up` shares. `world/staff.rs`: `name_weight`.
 - `world/folk/staffing.rs`: `deal_terms`, `candidates`, `offer`, `interview_read`. `world/folk/boss.rs`: `review_push`, `booster_push`, `draft_goals`.
 
 ## Related pages

@@ -336,13 +336,21 @@ fn c15_open(w: &mut World, s: &mut Scene) {
             "{kid}, our {pos}, is going in the portal. Put a premium on his NIL deal, {} from your collective, and we'll point him your way first and wish him well.",
             money(cost)
         ),
-        2 => format!("{kid}, our {pos}, is going in the portal. You'd get the first call. Just remember us when we need something."),
+        2 => format!(
+            "{kid}, our {pos}, is going in the portal. You'd get the first call. Just remember us when we need something."
+        ),
         _ => format!("{kid}, our {pos}, wants out. We'll give him a release to your school and nobody else's."),
     };
     s.them(&school, &ask, None);
     let deal = if cost > 0.0 { format!("Pay {}", money(cost)) } else { "Take the deal".into() };
-    s.pick(151, &format!("\"We'll do it.\" ({deal})"), "Deal", "warm", "A head start and a clean exit. He still picks.");
-    s.pick(152, "\"Let me talk to the kid myself first.\"", "Go around him", "sly", "Tampering: it can leak, and from 2025 his school can sue.");
+    s.pick(151, format!("\"We'll do it.\" ({deal})"), "Deal", "warm", "A head start and a clean exit. He still picks.");
+    s.pick(
+        152,
+        "\"Let me talk to the kid myself first.\"",
+        "Go around him",
+        "sly",
+        "Tampering: it can leak, and from 2025 his school can sue.",
+    );
     if season_of(s) >= 2018 {
         s.pick(
             153,
@@ -423,14 +431,24 @@ fn c15_answer(w: &mut World, s: &mut Scene, code: u32) {
             }
             if leak {
                 let mine = w.program_name(j).to_string();
-                news(w, Level::College, format!("Reports: {mine} reached out to {name} of {school} before the portal."), Some(p));
+                news(
+                    w,
+                    Level::College,
+                    format!("Reports: {mine} reached out to {name} of {school} before the portal."),
+                    Some(p),
+                );
                 if label >= 2025 {
                     // From 2025 his school can sue (Wisconsin and Miami, 2025).
                     let (_, buyout) = price(w, i, p, label);
                     let fine = buyout.max(100_000.0);
                     let c = &mut w.programs[j].collective;
                     c.budget = (c.budget - fine).max(0.0);
-                    news(w, Level::College, format!("{school} sues {mine} over {name}; {mine} settles for {}.", money(fine)), Some(p));
+                    news(
+                        w,
+                        Level::College,
+                        format!("{school} sues {mine} over {name}; {mine} settles for {}.", money(fine)),
+                        Some(p),
+                    );
                     warm(w, -0.3);
                     s.outcome.push(format!("It leaked, and {school} sued. You settled for {}.", money(fine)));
                 } else {
@@ -466,13 +484,27 @@ fn ghost_risk(w: &mut World, s: &mut Scene, j: usize, label: i32) {
             d.now.l[crate::world::finance::college::OTHER_COSTS] += fine as f32;
         }
         w.folk.backchannel.suspended.push((j, label + 1, None));
-        news(w, Level::College, format!("The NCAA finds a ghost transfer at {mine}: the head coach is suspended for half of next season and the program fined {}.", money(fine)), Some(j));
-        s.outcome.push(format!("It came out. You're suspended for half of next season, and {mine} pays {}.", money(fine)));
+        news(
+            w,
+            Level::College,
+            format!(
+                "The NCAA finds a ghost transfer at {mine}: the head coach is suspended for half of next season and the program fined {}.",
+                money(fine)
+            ),
+            Some(j),
+        );
+        s.outcome
+            .push(format!("It came out. You're suspended for half of next season, and {mine} pays {}.", money(fine)));
     } else {
         if let Some(c) = you(w) {
             w.coaches[c].reputation = (w.coaches[c].reputation - 1.0).max(1.0);
         }
-        news(w, Level::College, format!("The NCAA opens a case at {mine} over a transfer that skipped the portal."), Some(j));
+        news(
+            w,
+            Level::College,
+            format!("The NCAA opens a case at {mine} over a transfer that skipped the portal."),
+            Some(j),
+        );
         s.outcome.push("It came out. The NCAA has opened a case, and people are talking.".into());
     }
 }
@@ -533,7 +565,10 @@ pub fn place_player(w: &mut World, id: u32, coach: usize) -> Result<String, Stri
             let bond = (0.08 + 0.08 * warmth) * pull;
             w.folk.backchannel.placed.push(Placed { player: id, to: q, bond, made: w.today });
             let to = w.program_name(q).to_string();
-            format!("{name} will enter the next window with your blessing. {} at {to} wants him; the choice is his.", w.coaches[coach].name)
+            format!(
+                "{name} will enter the next window with your blessing. {} at {to} wants him; the choice is his.",
+                w.coaches[coach].name
+            )
         }
         (Some(Team::Nfl(t)), Some(Team::Nfl(o))) if o != t => {
             let cut = w.dates.cutdown.date;
@@ -562,7 +597,8 @@ fn swap(w: &mut World, t: usize, o: usize, id: u32) -> Result<String, String> {
     use crate::world::front_office::deals::{self, Proposal, Side};
     let year = w.year + 1;
     let late = |w: &World, team: usize| {
-        let mut v: Vec<deals::Pick> = deals::picks_of(w, team).into_iter().filter(|p| p.year == year && !p.comp).collect();
+        let mut v: Vec<deals::Pick> =
+            deals::picks_of(w, team).into_iter().filter(|p| p.year == year && !p.comp).collect();
         v.sort_by_key(|p| std::cmp::Reverse(p.round));
         v
     };
@@ -796,7 +832,7 @@ fn c18_open(w: &mut World, s: &mut Scene) {
     s.narrate(format!("{man}, who runs a 7v7 team and trains half the skill kids in the area, calls."));
     s.them(
         &man,
-        &format!(
+        format!(
             "{kid} at {school} isn't happy there. I can get him to you. He starts, and he gets the ball. That's the deal."
         ),
         None,
@@ -862,10 +898,13 @@ fn c18_answer(w: &mut World, s: &mut Scene, code: u32) {
         news(
             w,
             Level::HighSchool,
-            format!("The state association rules {name}'s move to {to_name} undue influence: he sits a year and the school is sanctioned."),
+            format!(
+                "The state association rules {name}'s move to {to_name} undue influence: he sits a year and the school is sanctioned."
+            ),
             None,
         );
-        s.outcome.push("The association ruled it undue influence: he sits a year, and the school is sanctioned.".into());
+        s.outcome
+            .push("The association ruled it undue influence: he sits a year, and the school is sanctioned.".into());
     }
     s.end();
 }
@@ -957,8 +996,14 @@ fn c19_open(w: &mut World, s: &mut Scene) {
     let agent = w.market.agents.get(s.c as usize).map_or_else(|| "An agent".to_string(), |a| a.name.clone());
     let kid = player_link(w, i);
     s.narrate(format!("{agent} calls. You go back a long way."));
-    s.them(&agent, &format!("{kid} is going to test the market. I wanted you to hear it from me first."), None);
-    s.pick(191, "\"Tell me what he's looking for.\"", "Talk numbers", "warm", "Before the window it's tampering: the league can take a pick.");
+    s.them(&agent, format!("{kid} is going to test the market. I wanted you to hear it from me first."), None);
+    s.pick(
+        191,
+        "\"Tell me what he's looking for.\"",
+        "Talk numbers",
+        "warm",
+        "Before the window it's tampering: the league can take a pick.",
+    );
     s.pick(192, "\"Call me the minute the window opens.\"", "Wait", "calm", "First in line, by the book.");
     s.pick(193, "\"We're set at that spot.\"", "Pass", "calm", "He'll shop him elsewhere.");
 }
@@ -994,7 +1039,12 @@ fn c19_answer(w: &mut World, s: &mut Scene, code: u32) {
         // leak (proposed, not confirmed: one time in ten).
         if roll(w, 0x191, id as u64 ^ (year as u64) << 32) < 0.1 {
             w.folk.backchannel.cases.push((t, year));
-            news(w, Level::Nfl, format!("Reports: the {} spoke with {name}'s camp before the window opened.", w.nfl[t].name), None);
+            news(
+                w,
+                Level::Nfl,
+                format!("Reports: the {} spoke with {name}'s camp before the window opened.", w.nfl[t].name),
+                None,
+            );
             s.outcome.push("Word got out. The league is looking into it.".into());
         }
     } else {

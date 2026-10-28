@@ -8,9 +8,9 @@ use super::coach::{
 };
 use super::data::{AcademicTier, Division};
 use super::ethnicity::{CoachPool, Ethnicity, coach_ethnicity, hiring_bias};
+use super::former::Want;
 use super::news::{self, Channel, NewsItem, NewsKind};
 use super::program::{self, GRADE_COUNT, GradeCat, NilTrend};
-use super::former::Want;
 use super::{Stage, World, names};
 use crate::player::PlayingTime;
 use crate::rng::{Rng, clamp};
@@ -82,9 +82,7 @@ pub(crate) fn name_weight(w: &World, e: Employer, role: Role) -> f64 {
         return 0.0;
     }
     match e {
-        Employer::College(p) => {
-            clamp(0.75 - super::folk::facts::job_size(w, super::folk::Team::College(p)), 0.1, 0.6)
-        }
+        Employer::College(p) => clamp(0.75 - super::folk::facts::job_size(w, super::folk::Team::College(p)), 0.1, 0.6),
         Employer::HighSchool(_) => 0.5,
         Employer::Other(_) => 0.2,
         Employer::Nfl(_) => 0.0,
@@ -2181,7 +2179,8 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     let age = w.rng.int(27, 38) as u32;
                     // A former pro of the world's own (C11): one this head
                     // coach coached first, else one from the state.
-                    let want = Want { state: Some(state), hc: w.programs[p].head_coach, group: Some(g), nfl: Some(true) };
+                    let want =
+                        Want { state: Some(state), hc: w.programs[p].head_coach, group: Some(g), nfl: Some(true) };
                     let c = new_coach_for(w, tier, age, CoachPool::Entering, want);
                     let coach = &mut w.coaches[c];
                     coach.ability.network = clamp(coach.ability.network + w.rng.range(3.0, 6.0), 1.0, 20.0);

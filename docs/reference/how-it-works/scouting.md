@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
+Checked against main at e66acb3 with update 3 lane 5 on 2026-10-28.
 
 ## Quick answers
 
@@ -173,6 +173,20 @@ All in `world/recruiting.rs`, `run_signing_stage` (the board per position):
 - Credibility with a college: starts at 0.35 + 0.02 × (your network - 10), clamped 0.1-0.7 (`credibility`).
 - A call ("worth a look", "can play for you", "a sure thing") adds (0.03 + 0.03 × strength) × (0.5 for one college, 1.0 for the area) × (0.4 + credibility) to his recruiting visibility, capped 0.12 (`promos`; read in `world/recruiting.rs`, the `visibility` sum).
 - Settled two seasons on (700 days, on September 1): played (150+ college snaps or a pro) +0.04 + 0.03 × strength; else -0.03 - 0.05 × strength; clamped 0.05-0.95 (`day`).
+- A word through a contact on a college staff (reaching out for "a word for a player", `world/folk/network.rs`, `reach_out`) is a call to that staff at "can play for you", × (1 + his warmth), and lasts through every signing stage (minor bug 21: it used to add 0.12 to visibility, which each stage rebuilt). A word to an NFL contact is a film look in his club's file.
+
+## Tips from people you know (update 3, lane 5)
+
+`world/folk/tips.rs` (SK35, C14):
+
+- Who sends them (`source`): at a college seat, high school coaches (their own players), camp and 7v7 men (March-August; no linemen or kickers), trainers (their paying clients: family money 0.4+), youth coaches and your program's alumni (kids in their area); at an NFL seat, college coaches (their own players, not May-August), area scouts (the college players in their area) and agents (January-April, players three seasons in). High schools get none (C18 covers them).
+- When (`week`): Wednesdays, from one contact who has kids for your seat that month (a coach at 0.2 warmth or more, a former player or an agent from 0.1, since they push their kids to anyone who takes the call) with no tip from him in eight weeks, a chance of 1% + 4% × warmth; at most one tip a week.
+- Which kid (`pool`): his best by his read = the kid's film (a recruit) or play (a college player) + N(0, 1.5 + 0.45 × (20 - eye)); never one he sent before. A coach's eye is his recruiting rating; a former player's or an agent's is his own.
+- What he says (`claim`): his read's place in the kid's class (or among college players two seasons in) against your level's bar (FBS top 1.5%, FCS 3%, Division II 4.5%, JUCO and NAIA 6%, Division III 8%; the NFL top 1.5%). Below twice the gap from the bar he doesn't call; above the bar "can play for you"; in the top 35% of the gap above it "a sure thing"; else "worth a look". He goes a level higher with a chance of agenda × (1 - straightness/20) × (1.2 - warmth): a high school coach's agenda 0.6, a trainer's 0.8, a camp or youth man's 0.5, an alum's 0.3, a scout's 0.1, an agent's 0.9. A coach's straightness is his own keyed 6-18.
+- What you get (`send`): a note in your inbox, a film look in your files (and your club's), and from a camp man (C14) his camp's lines: the laser-timed forty (expected + N(0, 0.03), 0.06 × his lean faster), the real height (0.6 × lean taller), how the kid took coaching (coachability + N(0, (21 - eye)/4)), the kid's real top three by his own appeal, or that nobody has offered him.
+- A favour call, "I've got a kid I think can play for you" (`network.rs`, `asks_week`), brings that coach's best kid's tape, never below "can play" (`from_ask`).
+- Settling (`settle`, September 1, from 300 days on): for a college, "worth a look" holds if he played college football, "can play" if he played 150 snaps at your level or higher, "a sure thing" 400 or the NFL, judged once he's two seasons in or gone; for an NFL club, once he's out of college, "worth a look" and "can play" hold if he made the league, "a sure thing" if he went in rounds 1-3; six years on, a missed tip. Each settled tip goes on his track record (`Contact.record`), shown on Contacts as "3 of 5 tips held up".
+- The AI's staffs find kids through their coaches' networks (the network term of a recruit's visibility) instead.
 
 ## Pro scouting
 

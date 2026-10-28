@@ -97,7 +97,7 @@ impl Played {
 
     /// "a Pro Bowl linebacker", "a starting safety at Iowa".
     pub fn words(&self, w: &World) -> String {
-        let pos = self.pos.name().to_lowercase();
+        let pos = self.pos.name();
         let at = self.college.and_then(|c| w.programs.get(c)).map(|p| format!(" at {}", w.program_name(p.id)));
         match self.grade {
             STAR => format!("a star {pos} in the NFL"),
@@ -539,9 +539,11 @@ pub(crate) fn made_up(w: &World, c: &Coach, tier: CoachTier, college: bool) -> O
     let side: Vec<Position> = Position::ALL
         .iter()
         .copied()
-        .filter(|&p| {
-            if u(6) < 0.75 { Group::of(p) == c.came_up } else { Group::of(p).offense() == c.came_up.offense() }
-        })
+        .filter(
+            |&p| {
+                if u(6) < 0.75 { Group::of(p) == c.came_up } else { Group::of(p).offense() == c.came_up.offense() }
+            },
+        )
         .filter(|&p| !matches!(p, Position::LS))
         .collect();
     let pos = if side.is_empty() { Position::LB } else { side[(u(7) * side.len() as f64) as usize % side.len()] };
@@ -589,8 +591,15 @@ pub(crate) fn to_coach(w: &mut World, k: usize, tier: CoachTier) -> usize {
     let id = w.coaches.len();
     let f = w.formers.list[k].clone();
     let age = f.age(w.year);
-    let mut c =
-        crate::world::coach::generate_coach_as(id, f.name.clone(), f.ethnicity, tier, age, Some(f.played.nfl()), &mut w.rng);
+    let mut c = crate::world::coach::generate_coach_as(
+        id,
+        f.name.clone(),
+        f.ethnicity,
+        tier,
+        age,
+        Some(f.played.nfl()),
+        &mut w.rng,
+    );
     c.born = f.born;
     c.ability.scheme = (c.ability.scheme + ((f.iq as f64 - 55.0) / 12.0).clamp(-1.5, 1.5)).clamp(1.0, 20.0);
     c.ability.motivation = (c.ability.motivation + ((f.lead as f64 - 10.0) / 3.5).clamp(-1.5, 1.5)).clamp(1.0, 20.0);

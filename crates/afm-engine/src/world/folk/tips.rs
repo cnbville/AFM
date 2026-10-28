@@ -250,7 +250,9 @@ fn percentile(w: &World, i: usize, read: f64) -> f64 {
     let (mut below, mut n) = (0usize, 0usize);
     if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
         let class = p.class_of;
-        for q in w.people.iter().filter(|q| matches!(q.stage, Stage::HighSchool | Stage::PrepSchool) && q.class_of == class) {
+        for q in
+            w.people.iter().filter(|q| matches!(q.stage, Stage::HighSchool | Stage::PrepSchool) && q.class_of == class)
+        {
             n += 1;
             below += (value(q) < read) as usize;
         }
@@ -300,7 +302,8 @@ fn camp_lines(w: &World, f: &From, i: usize, key: u64) -> Vec<String> {
     let lean = (f.agenda * (1.0 - f.straight / 20.0) * (1.2 - f.warmth as f64)).clamp(0.0, 1.0);
     let forty = Drills::of(&p.player).expected().forty + 0.03 * key_normal(key ^ 1, id) - 0.06 * lean;
     let height = body_now(&p.player).height + 0.6 * lean;
-    let mut out = vec![format!("Laser-timed {forty:.2} in the forty at our camp; {} in his socks.", height_text(height.round()))];
+    let mut out =
+        vec![format!("Laser-timed {forty:.2} in the forty at our camp; {} in his socks.", height_text(height.round()))];
     let sd = (21.0 - f.eye) / 4.0;
     let coach = p.player.personality.coachability + sd * key_normal(key ^ 2, id);
     out.push(
@@ -326,7 +329,7 @@ fn camp_lines(w: &World, f: &From, i: usize, key: u64) -> Vec<String> {
 }
 
 /// Sends the tip: the note in your inbox, the tape into your files.
-fn send(w: &mut World, f: &From, i: usize, claim: u8, nfl: bool, level: u8, camp: bool, key: u64) -> String {
+fn send(w: &mut World, f: &From, i: usize, claim: u8, (nfl, level): (bool, u8), camp: bool, key: u64) -> String {
     let d = w.today;
     let lines = if camp { camp_lines(w, f, i, key) } else { Vec::new() };
     let (coach, other) = {
@@ -335,7 +338,17 @@ fn send(w: &mut World, f: &From, i: usize, claim: u8, nfl: bool, level: u8, camp
         (x.coach, x.other)
     };
     let id = w.people[i].player.id;
-    w.folk.tips.list.push(Tip { date: d, coach, other, player: id, claim, nfl, level, lines: lines.clone(), settled: None });
+    w.folk.tips.list.push(Tip {
+        date: d,
+        coach,
+        other,
+        player: id,
+        claim,
+        nfl,
+        level,
+        lines: lines.clone(),
+        settled: None,
+    });
     let n = w.folk.tips.list.len();
     if n > 200 {
         let drop = w.folk.tips.list.iter().position(|t| t.settled.is_some()).unwrap_or(0);
@@ -359,8 +372,13 @@ fn send(w: &mut World, f: &From, i: usize, claim: u8, nfl: bool, level: u8, camp
         Stage::College => p.college.map_or(String::new(), |c| format!(", {}", w.program_name(c))),
         _ => format!(", {}", w.school_name(p.hs)),
     };
-    let mut text =
-        format!("{} sent tape on {}, {}{at}: \"{}.\"", f.link, player_link(w, i), p.player.position.name(), CLAIMS[claim as usize]);
+    let mut text = format!(
+        "{} sent tape on {}, {}{at}: \"{}.\"",
+        f.link,
+        player_link(w, i),
+        p.player.position.name(),
+        CLAIMS[claim as usize]
+    );
     for l in &lines {
         text.push(' ');
         text.push_str(l);
@@ -370,14 +388,16 @@ fn send(w: &mut World, f: &From, i: usize, claim: u8, nfl: bool, level: u8, camp
 }
 
 /// Wednesdays: a warm contact may send tape (proposed, not confirmed: a
-/// contact at 0.2 or warmer, at most one tip from him in eight weeks, a
-/// weekly chance of 1% plus 4% times his warmth, at most one tip a week).
+/// coach at 0.2 or warmer, a former player or an agent from 0.1, since
+/// camp men, trainers and agents push their kids to anyone who'll take the
+/// call; at most one tip from him in eight weeks, a weekly chance of 1%
+/// plus 4% times his warmth, at most one tip a week).
 pub(crate) fn week(w: &mut World, d: Date) {
     let Some((nfl, level, _, team)) = seat(w) else { return };
-    let mut best: Option<(f64, usize)> = None;
+    let mut best: Option<(f64, From)> = None;
     for k in 0..w.folk.network.contacts.len() {
         let x = &w.folk.network.contacts[k];
-        if x.warmth < 0.2 {
+        if x.warmth < if x.other.is_some() { 0.1 } else { 0.2 } {
             continue;
         }
         let recent = w.folk.tips.list.iter().any(|t| same(t, w, k) && t.date.days_to(d) < 56);
@@ -386,16 +406,20 @@ pub(crate) fn week(w: &mut World, d: Date) {
         }
         let chance = 0.01 + 0.04 * x.warmth as f64;
         let r = super::roll(w, 0x7195 ^ d.0 as u64, k as u64) / chance;
-        if r < 1.0 && best.is_none_or(|b| r < b.0) {
-            best = Some((r, k));
+        // Only someone who has kids for your seat this month.
+        if r < 1.0
+            && best.as_ref().is_none_or(|b| r < b.0)
+            && let Some(f) = source(w, k, nfl, team)
+        {
+            best = Some((r, f));
         }
     }
-    let Some((_, k)) = best else { return };
-    let Some(f) = source(w, k, nfl, team) else { return };
+    let Some((_, f)) = best else { return };
+    let k = f.k;
     let key = w.folk.base as u64 ^ 0x7196 ^ ((d.0 as u64) << 20) ^ k as u64;
     let Some(&(read, i)) = pool(w, &f, nfl, key).first() else { return };
     let Some(c) = claim(w, &f, i, read, nfl, level, key) else { return };
-    send(w, &f, i, c, nfl, level, f.src == Src::Camp, key);
+    send(w, &f, i, c, (nfl, level), f.src == Src::Camp, key);
 }
 
 /// A coach's favour call, "I've got a kid I think can play for you" (C14,
@@ -409,7 +433,7 @@ pub(crate) fn from_ask(w: &mut World, c: usize) -> Option<String> {
     let &(read, i) = pool(w, &f, nfl, key).first()?;
     // He asked because he believes in him: never less than "can play".
     let cl = claim(w, &f, i, read, nfl, level, key).unwrap_or(1).max(1);
-    Some(send(w, &f, i, cl, nfl, level, false, key))
+    Some(send(w, &f, i, cl, (nfl, level), false, key))
 }
 
 /// September 1: tips whose kids' roads show are settled (proposed, not
@@ -446,7 +470,9 @@ pub(crate) fn settle(w: &mut World, d: Date) {
             }
         } else {
             let lvl = p.college.map_or(0, |c| rank(w.programs[c].division));
-            let shown = pro || p.college_seasons >= 2 || !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::College);
+            let shown = pro
+                || p.college_seasons >= 2
+                || !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::College);
             if !shown && !old {
                 None
             } else {

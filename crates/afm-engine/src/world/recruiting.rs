@@ -6286,7 +6286,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 // the middle (part B 10: real FBS entrants land at FBS about
                 // half the time, mostly as depth at a program a notch down;
                 // the median bar sent four in five down a level).
-                if !allowed || (bond == 0.0 && perf + 2.0 < floor(d) - if d as usize > from as usize { 3.0 } else { 0.0 }) {
+                if !allowed
+                    || (bond == 0.0 && perf + 2.0 < floor(d) - if d as usize > from as usize { 3.0 } else { 0.0 })
+                {
                     return None;
                 }
                 let p = &wr.people[i];
