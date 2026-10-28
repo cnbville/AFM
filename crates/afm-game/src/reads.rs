@@ -87,7 +87,8 @@ impl Seen {
 }
 
 type Key = (i32, u64, usize, u64);
-static CACHE: Mutex<Option<(Key, HashMap<u32, Arc<Seen>>)>> = Mutex::new(None);
+type Kept = (Key, HashMap<u32, Arc<Seen>>);
+static CACHE: Mutex<Option<Kept>> = Mutex::new(None);
 
 fn speak(stage: Stage) -> file::Speak {
     match stage {
@@ -223,7 +224,7 @@ pub fn potential_words(w: &World, k: usize) -> serde_json::Value {
 pub fn public(w: &World, k: usize) -> Read {
     let Some(p) = w.people.get(k) else { return Read::NotSeen };
     let vis = file::visibility(w, k);
-    let miss = 4.0 * vis * afm_engine::world::key_normal(0x9AB1_1C, p.player.id as u64);
+    let miss = 4.0 * vis * afm_engine::world::key_normal(0x009A_B11C, p.player.id as u64);
     let c = p.player.overall() + miss;
     Read::of(Some(yours::range((c, 5.0 * vis))))
 }

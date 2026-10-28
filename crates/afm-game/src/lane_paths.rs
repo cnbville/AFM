@@ -126,6 +126,9 @@ fn coachable(w: &World, k: usize) -> Option<&'static str> {
     })
 }
 
+/// A man at his spot: his place, the year he leaves, and his read by year.
+type Man = (usize, i32, Box<dyn Fn(i32) -> f64>);
+
 /// A projected path at your place for a prospect (SK64), with the score
 /// boards sort "best for us" by.
 pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
@@ -135,70 +138,64 @@ pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
     let (now, ceiling) = read_of(w, k)?;
     let starters = depth_slots(pos).starters as usize;
     // (arrives, the men at his spot: name, id, read by year, the last year).
-    let (arrives, inst, teacher, men): (i32, Installed, Option<usize>, Vec<(usize, i32, Box<dyn Fn(i32) -> f64>)>) =
-        match views::mine(w)? {
-            TeamRef::College(j) if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) => {
-                let prog = &w.programs[j];
-                let mut men: Vec<(usize, i32, Box<dyn Fn(i32) -> f64>)> = Vec::new();
-                for &i in &prog.roster {
-                    let q = &w.people[i];
-                    if q.player.position != pos || i == k {
-                        continue;
-                    }
-                    let Some((n, c)) = read_of(w, i) else { continue };
-                    let left = 4i32 - q.college_seasons as i32;
-                    let young = q.college_seasons < 2;
-                    men.push((
-                        i,
-                        season + left.max(1) - 1,
-                        Box::new(move |y| if young { grown(n, c, y - season) } else { n + 2.0 * (y - season) as f64 }),
-                    ));
+    let (arrives, inst, teacher, men): (i32, Installed, Option<usize>, Vec<Man>) = match views::mine(w)? {
+        TeamRef::College(j) if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) => {
+            let prog = &w.programs[j];
+            let mut men: Vec<Man> = Vec::new();
+            for &i in &prog.roster {
+                let q = &w.people[i];
+                if q.player.position != pos || i == k {
+                    continue;
                 }
-                // Your commits ahead of him or with him (on your board).
-                for i in w.front_office.college.board.iter().filter_map(|t| views::person_index(w, t.id)) {
-                    let q = &w.people[i];
-                    if i != k
-                        && q.player.position == pos
-                        && q.cal.commit.is_some_and(|c| c.0 == j)
-                        && matches!(q.stage, Stage::HighSchool | Stage::PrepSchool)
-                        && let Some((n, c)) = read_of(w, i)
-                    {
-                        let from = q.class_of;
-                        men.push((
-                            i,
-                            from + 3,
-                            Box::new(move |y| if y < from { 0.0 } else { grown(n, c, y - season) }),
-                        ));
-                    }
-                }
-                let g = afm_engine::world::coach::Group::of(pos) as usize;
-                (p.class_of, prog.installed, prog.position_coaches[g].or(prog.head_coach), men)
+                let Some((n, c)) = read_of(w, i) else { continue };
+                let left = 4i32 - q.college_seasons as i32;
+                let young = q.college_seasons < 2;
+                men.push((
+                    i,
+                    season + left.max(1) - 1,
+                    Box::new(move |y| if young { grown(n, c, y - season) } else { n + 2.0 * (y - season) as f64 }),
+                ));
             }
-            TeamRef::Nfl(t) if matches!(p.stage, Stage::College | Stage::Declared) && p.pro.is_none() => {
-                let club = w.clubs.get(t)?;
-                let mut men: Vec<(usize, i32, Box<dyn Fn(i32) -> f64>)> = Vec::new();
-                let year = w.year;
-                for &i in &club.roster {
-                    let q = &w.people[i];
-                    if q.player.position != pos {
-                        continue;
-                    }
-                    let Some((n, _)) = read_of(w, i) else { continue };
-                    let age = q.player.age;
-                    men.push((i, pro_last(pos, age, year), Box::new(move |y| pro_grown(n, age, y - year))));
+            // Your commits ahead of him or with him (on your board).
+            for i in w.front_office.college.board.iter().filter_map(|t| views::person_index(w, t.id)) {
+                let q = &w.people[i];
+                if i != k
+                    && q.player.position == pos
+                    && q.cal.commit.is_some_and(|c| c.0 == j)
+                    && matches!(q.stage, Stage::HighSchool | Stage::PrepSchool)
+                    && let Some((n, c)) = read_of(w, i)
+                {
+                    let from = q.class_of;
+                    men.push((i, from + 3, Box::new(move |y| if y < from { 0.0 } else { grown(n, c, y - season) })));
                 }
-                let arrives = if w.today.parts().1 >= 5 { w.year + 1 } else { w.year };
-                (arrives, club.installed, w.nfl.get(t).and_then(|c| c.head_coach), men)
             }
-            _ => return None,
-        };
+            let g = afm_engine::world::coach::Group::of(pos) as usize;
+            (p.class_of, prog.installed, prog.position_coaches[g].or(prog.head_coach), men)
+        }
+        TeamRef::Nfl(t) if matches!(p.stage, Stage::College | Stage::Declared) && p.pro.is_none() => {
+            let club = w.clubs.get(t)?;
+            let mut men: Vec<Man> = Vec::new();
+            let year = w.year;
+            for &i in &club.roster {
+                let q = &w.people[i];
+                if q.player.position != pos {
+                    continue;
+                }
+                let Some((n, _)) = read_of(w, i) else { continue };
+                let age = q.player.age;
+                men.push((i, pro_last(pos, age, year), Box::new(move |y| pro_grown(n, age, y - year))));
+            }
+            let arrives = if w.today.parts().1 >= 5 { w.year + 1 } else { w.year };
+            (arrives, club.installed, w.nfl.get(t).and_then(|c| c.head_coach), men)
+        }
+        _ => return None,
+    };
     // The first year he'd be among the starters.
     let mut start = None;
     let mut ahead_then: Vec<Value> = Vec::new();
     for y in arrives..arrives + 4 {
         let his = grown(now, ceiling, y - season);
-        let ahead: Vec<&(usize, i32, Box<dyn Fn(i32) -> f64>)> =
-            men.iter().filter(|m| m.1 >= y && (m.2)(y) > his).collect();
+        let ahead: Vec<&Man> = men.iter().filter(|m| m.1 >= y && (m.2)(y) > his).collect();
         if y == arrives {
             ahead_then = ahead
                 .iter()
@@ -362,7 +359,7 @@ fn college_coverage(w: &World, j: usize, seen: &HashSet<u32>, ever: &dyn Fn(u32)
                 && !ever(p.player.id)
                 && p.class_of >= season - 3
             {
-                missed.push((p.stars as f64 * -1.0 + p.college_seasons as f64, i));
+                missed.push((-(p.stars as f64) + p.college_seasons as f64, i));
             }
         }
     }
