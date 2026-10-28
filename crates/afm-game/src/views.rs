@@ -1187,10 +1187,15 @@ pub fn news(w: &World, args: &Value) -> Value {
         let parts = link.parts(w, &e.text, &e.refs, e.program, e.nfl_team);
         // H6: a line about one of your people says why, as your staff sees it.
         let why = me.filter(|_| ours(e)).and_then(|t| {
-            e.refs.iter().find_map(|r| match r.to {
-                afm_engine::calendar::Link::Person(id) => crate::lane_help::news_why(w, t, *d, id),
+            // One person's story only: a roundup of five commitments has no single why.
+            let mut people = e.refs.iter().filter_map(|r| match r.to {
+                afm_engine::calendar::Link::Person(id) => Some(id),
                 _ => None,
-            })
+            });
+            match (people.next(), people.next()) {
+                (Some(id), None) => crate::lane_help::news_why(w, t, *d, id),
+                _ => None,
+            }
         });
         items.push(json!({ "date": date_text(*d), "text": e.text, "parts": parts, "level": format!("{:?}", e.level), "loud": e.loud.name(), "why": why }));
     }
