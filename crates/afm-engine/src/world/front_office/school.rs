@@ -1451,13 +1451,21 @@ pub fn goal_now(w: &World, h: usize, g: &Goal) -> (u32, bool) {
 /// A goal in words.
 pub fn goal_text(g: &Goal) -> String {
     match g.kind {
-        GoalKind::Wins => format!("Win at least {} games", g.target),
+        GoalKind::Wins => format!("Win at least {} {}", g.target, crate::world::folk::noun(g.target, "game")),
         GoalKind::Playoffs if g.target == 0 => "Make the playoffs".into(),
         GoalKind::Playoffs if g.target >= 4 => "Win the state title".into(),
-        GoalKind::Playoffs => format!("Win {} playoff games", g.target),
-        GoalKind::Grades => format!("No more than {} players ruled ineligible for grades", g.target),
+        GoalKind::Playoffs => format!("Win {} {}", g.target, crate::world::folk::noun(g.target, "playoff game")),
+        GoalKind::Grades => format!(
+            "No more than {} {} ruled ineligible for grades",
+            g.target,
+            crate::world::folk::noun(g.target, "player")
+        ),
         GoalKind::Numbers => format!("Keep at least {} players out for football", g.target),
-        GoalKind::Behavior => format!("No more than {} players suspended or in trouble", g.target),
+        GoalKind::Behavior => format!(
+            "No more than {} {} suspended or in trouble",
+            g.target,
+            crate::world::folk::noun(g.target, "player")
+        ),
     }
 }
 
