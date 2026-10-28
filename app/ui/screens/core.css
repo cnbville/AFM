@@ -475,6 +475,7 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 .setrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--hair); }
 .setrow b { display: block; font-size: 13.5px; }
 .setrow small { color: var(--fg3); font-size: 12px; }
+.setrow > .seg { flex-shrink: 0; }
 .setrow input[type="range"] { width: 200px; accent-color: var(--accent); }
 .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 22px; }
 .keys > div { display: flex; gap: 12px; align-items: center; font-size: 13px; }
