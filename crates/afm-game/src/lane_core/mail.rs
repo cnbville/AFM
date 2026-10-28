@@ -1737,7 +1737,6 @@ fn morale(pen: &mut Pen, d: Date) {
             why.join("; "),
         ]);
     }
-    m.why = dips.first().map(|(_, why)| why.clone()).unwrap_or_default();
     m.ids = dips.iter().map(|x| w.people[x.0].player.id).collect();
     m.keys = PEOPLE | PLAYERS;
     m.answers = vec![

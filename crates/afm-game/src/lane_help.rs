@@ -989,29 +989,26 @@ pub(crate) fn mood_dips(w: &World, t: TeamRef, d: Date) -> Vec<(usize, Vec<Strin
 
 /// The why-line of a news item about one of your people (a recruit's
 /// choice, a portal entry), as your staff sees it.
-pub(crate) fn news_why(w: &World, me: TeamRef, kind: afm_engine::calendar::Kind, id: u32) -> Option<Vec<String>> {
-    use afm_engine::calendar::Kind;
+pub(crate) fn news_why(w: &World, me: TeamRef, d: Date, id: u32) -> Option<Vec<String>> {
+    // Keyed on the day, not the story's kind: the wire, the storylines and
+    // the beat each tell a commitment their own way.
     let i = views::person_index(w, id)?;
     let p = &w.people[i];
-    match (kind, me) {
-        (Kind::Commitment, TeamRef::College(pi)) => {
-            let (j, _, _) = p.cal.commit?;
-            if j == pi {
-                Some(pick_why(w, i, j, None))
-            } else if p.cal.offers.contains(&pi) || p.cal.early_offers.iter().any(|o| o.0 == pi) {
+    let fresh = |at: Date| (at.add(-1)..=at.add(1)).contains(&d);
+    if let Some((j, at, _)) = p.cal.commit
+        && fresh(at)
+    {
+        return match me {
+            TeamRef::College(pi) if j == pi => Some(pick_why(w, i, j, None)),
+            TeamRef::College(pi) if p.cal.offers.contains(&pi) || p.cal.early_offers.iter().any(|o| o.0 == pi) => {
                 Some(pick_why(w, i, j, Some(pi)))
-            } else {
-                None
             }
-        }
-        (Kind::Commitment, TeamRef::HighSchool(h)) if p.hs == h => {
-            let (j, _, _) = p.cal.commit?;
-            Some(pick_why(w, i, j, None))
-        }
-        (Kind::Transfer, TeamRef::College(pi)) if p.college == Some(pi) => {
-            let e = p.cal.portal?;
-            Some(portal_why(w, i, e.why))
-        }
+            TeamRef::HighSchool(h) if p.hs == h => Some(pick_why(w, i, j, None)),
+            _ => None,
+        };
+    }
+    match (me, &p.cal.portal) {
+        (TeamRef::College(pi), Some(e)) if p.college == Some(pi) && fresh(e.entered) => Some(portal_why(w, i, e.why)),
         _ => None,
     }
 }

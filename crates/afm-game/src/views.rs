@@ -1188,7 +1188,7 @@ pub fn news(w: &World, args: &Value) -> Value {
         // H6: a line about one of your people says why, as your staff sees it.
         let why = me.filter(|_| ours(e)).and_then(|t| {
             e.refs.iter().find_map(|r| match r.to {
-                afm_engine::calendar::Link::Person(id) => crate::lane_help::news_why(w, t, e.kind, id),
+                afm_engine::calendar::Link::Person(id) => crate::lane_help::news_why(w, t, *d, id),
                 _ => None,
             })
         });
