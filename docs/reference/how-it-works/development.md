@@ -1,6 +1,6 @@
 # Development: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28, and for minor bug 53 the same day.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -152,7 +152,7 @@ What it reads from the world: `SeasonContext` (`development.rs`): level, coachin
 - College coaching: `0.2 * HC + 0.35 * coordinator + 0.3 * position coach + 0.15 * (6 + 12 * facilities)`, each a coach's `teaching(group)`; situation `(facilities - 0.5) * 0.15` plus background push (`world/season.rs`, `develop`).
 - Prep school: coaching 12, Rotation. Away (mission, military): coaching 2 at D2 level (`world/season.rs`, `develop`).
 - Off-field trouble chance (college base `PIPELINE.college_trouble.chance` 0.03, high school 0.012) scaled by work ethic, coachability, professionalism, temper, background and engagement staff; trouble turns role into Backup (`world/season.rs`, `develop`).
-- NFL: coaching = team coaching; situation = `reliance * (0.5 * cast + 0.5 * organisation)`, reliance QB 1.0, WR/TE/RB 0.7, others 0.4; snaps = last season's snaps / `NFL_SEASON_SNAPS` x clamp(1 + 0.1 * opponent strength, 0.8, 1.2) plus spring snaps; role from the depth chart; unsigned coaching 6 (`world/pro/mod.rs`, `camp`).
+- NFL: coaching = team coaching; situation = `reliance * (0.5 * cast + 0.5 * organisation)`, reliance QB 1.0, WR/TE/RB 0.7, others 0.4; snaps = last season's snaps, playoffs included, / `NFL_SEASON_SNAPS` x clamp(1 + 0.1 * regular-season opponent strength, 0.8, 1.2) plus spring snaps; role from the depth chart; unsigned coaching 6 (`world/pro/mod.rs`, `camp`).
 - First-year dip from `career.rs`, `first_year_adjustment`: step size x position difficulty, technique and mental readiness, body readiness, make-up, fit and luck, clamped 0-1. Set for rookies and players on a new team.
 - A holdout's missed camp adds 0.3 to his dip, kept apart from the adjustment so it marks no first year: dip = clamp(adjustment + missed camp, 0, 1), so his form falls x0.955 and his performance 2.1 points (`world/pro/mod.rs`, `camp`; `development.rs`, `SeasonContext.missed_camp`, `develop_season`).
 - The class sim (`career.rs`, `simulate_cohort` and its steps) calls the same `develop_season` with only level, coaching, role, trouble, dip, situation and payday set.

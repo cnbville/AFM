@@ -1,6 +1,6 @@
 # The living NFL: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28.
+Checked against main at b9acd15 with update 3 lanes 5 and 3, and minor bug 53, on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
@@ -29,7 +29,8 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 
 - **Statuses**: Roster, PracticeSquad, Reserve (IR or PUP), FreeAgent, Other(league) (`world/pro/mod.rs`, `Status`).
 - **Depth slots** (starters, rotation, roster): QB 1/0/3, RB 1/1/4, WR 3/1/6, TE 1/1/3, OT 2/0/4, IOL 3/0/5, EDGE 2/1/5, DT 2/1/5, LB 2/1/5, CB 2/1/6, S 2/0/4, K/P/LS 1/0/1 (`league.rs`, `depth_slots`).
-- **Depth order**: the club's `grade`. Non-specialists lose 0.6 a year past 30. Last year's 8-game starter here, if under 32, gets +3 (QB) or +1.5. Injured or holding out: -50. The owner's pet: +4 (`world/pro/mod.rs`, `order_depth`).
+- **Season lines**: a pro season's games, starts, snaps, opponent strength and stats are the regular season only. Games after Black Monday go on the season's own playoff line (`ProSeason.playoffs`, created on his first playoff game; `world/pro/games.rs`, `record`). Readers that count playoff games too, through `snaps_all`, `starts_all` and `games_all` (`world/pro/mod.rs`): career snaps for game experience (NFL and other leagues), last season's snaps for growth (opponent strength still read from the regular season), the starter reads for line chemistry, depth order, cutdown and the press, a former player's starts in your calls, a ring to sell, and your guys' bond. The player page shows a separate "NFL playoffs" row.
+- **Depth order**: the club's `grade`. Non-specialists lose 0.6 a year past 30. Last year's 8-game starter here (playoff starts counted), if under 32, gets +3 (QB) or +1.5. Injured or holding out: -50. The owner's pet: +4 (`world/pro/mod.rs`, `order_depth`).
 - **Team strength**: the average rating of the starters, long snapper left out (`league.rs`, `Team::strength`).
 - **Roster limit**: the offseason limit from the new league year to cutdown, then the regular-season limit (`world/pro/mod.rs`, `roster_limit`; the sizes are in `w.rules`).
 - **Game-day actives**: healthy, not suspended, not sitting out by your discipline, and for your own club not on the non-football injury list from report day (`training/seat.rs`, `SeatTraining::hurt_out`; preseason sides the same, `preseason_side`). Starters and rotation first, then backups in a fixed order (QB, IOL, OT, DT, EDGE, LB, CB, S, WR, RB, TE) up to the actives limit. Then practice-squad elevations (`world/pro/games.rs`, `actives`; `world/pro/squad.rs`, `elevate`).
@@ -44,7 +45,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 
 - **Cap**: the real cap from 1994. 2010 is priced as 2009 and has no hard cap. Before 1994 a notional cap of $34.6M x 1.065^(year-1994). After 2026, `future_cap` (`world/pro/money.rs`, `price_cap`, `capped`, `cap_books`).
 - **Minimum**: shares of the cap by accrued seasons: 0.301% (0), 0.344% (1), 0.369% (2), 0.394% (3), 0.419% (4-6), 0.45% (7+) (`world/pro/money.rs`, `minimum`). A practice squad week pays the rookie minimum / 17 x 0.28 (`practice_squad_week`).
-- **Free agency**: unrestricted at 4 accrued seasons, 6 in 2010 (`world/pro/money.rs`, `ufa_seasons`). A season accrues with 6+ games on full pay (`world/pro/mod.rs`, `season_end`).
+- **Free agency**: unrestricted at 4 accrued seasons, 6 in 2010 (`world/pro/money.rs`, `ufa_seasons`). A season accrues with 6+ regular-season weeks on full pay status (the roster or reserve, dressed or not; counted each Tuesday until Black Monday in `heal_week`, `ProSeason::pay_weeks`), or, held at the season's end, 6+ regular-season games; a file from before the weeks were counted falls back on a held man with no games, unless he dressed only in the playoffs (`world/pro/mod.rs`, `season_end`).
 - **Contract kinds**: Rookie, Undrafted, Veteran, Minimum, Franchise, Transition, Tender, Future, PracticeSquad, Extension (`world/pro/money.rs`, `Kind`).
 - **Dead money**: a release accelerates every later year's proration and owes the guaranteed money left. After June 1, or with a June 1 designation (from 2006, up to 2 a year), this year's proration stays and the rest moves to next year (`world/pro/money.rs`, `dead_if_cut`; `world/pro/market.rs`, `clear_room`). Each charge is kept with its player and cause (`world/pro/mod.rs`, `DeadWhy`, `add_dead`).
 - **Top 51**: until the first game, only the 51 biggest cap hits count. Clubs also hold back 5% of the cap for the season (`world/pro/mod.rs`, `payroll`, `space`, `IN_SEASON_RESERVE`). Void-year bonus lands the March after a deal's last season (`payroll`, `market::open_league_year`).

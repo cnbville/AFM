@@ -154,9 +154,10 @@ pub(crate) fn view(w: &World) -> Reply {
                 json!({ "label": "Offers", "value": (n > 0).then(|| n.to_string()), "note": (n > 0).then(|| format!("{n} college offer{}", if n == 1 { "" } else { "s" })) })
             }
         };
-        // This season's line (or the last one he played).
+        // This season's line (or the last one he played), not a playoff row.
         let seasons = crate::lane_core::pages::seasons(w, i);
-        let line = seasons.iter().rev().find(|s| s["year"].as_i64() == Some(season as i64)).or(seasons.last());
+        let played: Vec<&Value> = seasons.iter().filter(|s| s["level"] != "NFL playoffs").collect();
+        let line = played.iter().rev().find(|s| s["year"].as_i64() == Some(season as i64)).or(played.last()).copied();
         r["line"] = json!(
             line.map(|s| json!({ "year": s["year"], "games": s["games"], "line": s["line"], "level": s["level"] }))
         );

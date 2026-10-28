@@ -95,9 +95,10 @@ pub(crate) fn actives(w: &World, t: usize) -> Vec<(usize, bool)> {
     out
 }
 
-/// A pro's snaps over his career so far, both sides of the ball.
+/// A pro's snaps over his career so far, both sides of the ball, his
+/// playoff snaps too (game experience).
 fn pro_snaps(p: &super::super::Person) -> f64 {
-    p.pro.as_ref().map_or(0.0, |c| c.seasons.iter().map(|s| (s.snaps[0] + s.snaps[1]) as f64).sum())
+    p.pro.as_ref().map_or(0.0, |c| c.seasons.iter().map(|s| s.snaps_all() as f64).sum())
 }
 
 /// An NFL team for the match engine, its game-day actives dressed.
@@ -175,7 +176,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         return None;
     }
     // Line chemistry (topic 4.9): the share of the five most experienced
-    // linemen who started up front here last season.
+    // linemen who started up front here last season (its playoff games too).
     let mut line: Vec<&super::super::Person> = list
         .iter()
         .map(|x| &w.people[x.0])
@@ -186,9 +187,9 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         .iter()
         .take(5)
         .filter(|p| {
-            p.pro
-                .as_ref()
-                .is_some_and(|c| c.seasons.iter().any(|s| s.year == w.year - 1 && s.team == Some(t) && s.starts >= 8))
+            p.pro.as_ref().is_some_and(|c| {
+                c.seasons.iter().any(|s| s.year == w.year - 1 && s.team == Some(t) && s.starts_all() >= 8)
+            })
         })
         .count();
     let tm = &w.nfl[t];
@@ -486,7 +487,15 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 /// Puts a game on the players' seasons and the teams' film: games, starts,
 /// snaps and the opponent's strength, the box score, and injuries (a
 /// player out for a long spell goes on injured reserve).
-pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
+/// `neutral`: a neutral site (an international game, the Super Bowl).
+pub(crate) fn record(
+    w: &mut World,
+    teams: [usize; 2],
+    r: &GameResult,
+    sides: &[Side; 2],
+    opp_z: [f64; 2],
+    neutral: bool,
+) {
     let year = w.year;
     w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref());
     // The league's numbers for the game boards (lane 9), by season.
@@ -525,6 +534,23 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
             }
             let s = c.season_mut(year);
             s.team = Some(t);
+            // A playoff game goes on his playoff line, not the season's
+            // (minor bug 53); the opponents' strength stays a regular-season
+            // read.
+            if postseason {
+                if dressed {
+                    let po = s.playoffs.get_or_insert_with(Default::default);
+                    po.games += 1;
+                    if starter {
+                        po.starts += 1;
+                    }
+                    po.snaps[0] += l.snaps_off;
+                    po.snaps[1] += l.snaps_def;
+                    po.snaps[2] += l.snaps_st;
+                    po.stats.add(l);
+                }
+                continue;
+            }
             if dressed {
                 s.games += 1;
                 if starter {
@@ -538,6 +564,8 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
             s.stats.add(l);
         }
     }
+    // The record store's game marks (update 3, lane L20).
+    crate::world::marks::nfl_game(w, teams, &r.stats, neutral);
     for (_, inj) in &r.injuries {
         if inj.plays_on || inj.side > 1 {
             continue;

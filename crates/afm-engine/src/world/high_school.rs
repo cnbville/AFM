@@ -32,6 +32,10 @@ pub struct HsSeason {
     /// Reached the last four of its bracket (U-d; Connecticut's play-up rule).
     #[serde(default)]
     pub semifinal: bool,
+    /// The bracket it won, by its class's name (lane L20, item 25); none in
+    /// an older file.
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

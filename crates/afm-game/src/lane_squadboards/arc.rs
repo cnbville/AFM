@@ -64,7 +64,8 @@ fn what_happened(h: &afm_engine::player::SeasonRecord) -> String {
 fn reached(draft: bool, college: bool, pro: Option<&afm_engine::world::pro::ProCareer>) -> &'static str {
     match pro {
         Some(c) if c.seasons.iter().any(|s| s.starts >= 8) => "NFL starter",
-        Some(c) if c.seasons.iter().any(|s| s.games > 0) => "Played in the NFL",
+        // A playoff game is an NFL game.
+        Some(c) if c.seasons.iter().any(|s| s.games_all() > 0) => "Played in the NFL",
         _ if draft => "Drafted",
         _ if college => "College",
         _ => "High school",
@@ -78,6 +79,7 @@ fn became(draft: Option<(i32, u32, u32)>, school: &str, pro: Option<&afm_engine:
             let n = c.seasons.iter().filter(|s| s.games > 0).count();
             let bowls = c.seasons.iter().filter(|s| s.pro_bowl).count();
             match (n, bowls) {
+                (0, _) if c.seasons.iter().any(|s| s.games_all() > 0) => "played only in the playoffs".to_string(),
                 (0, _) => "never played an NFL game".to_string(),
                 (n, 0) => format!("{n} NFL season{}", if n == 1 { "" } else { "s" }),
                 (n, b) => format!("{n} NFL seasons, {b} Pro Bowl{}", if b == 1 { "" } else { "s" }),

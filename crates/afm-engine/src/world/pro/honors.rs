@@ -443,6 +443,7 @@ fn season_records(w: &mut World, d: Date) {
     for (text, id, name) in posts {
         w.calendar.post(Event::new(d, Level::Nfl, Kind::News, Loudness::Big, text).person(id, &name));
     }
+    crate::world::marks::nfl_close(w);
 }
 
 /// The Super Bowl MVP: the winning side's best game by the same read.

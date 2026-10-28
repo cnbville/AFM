@@ -1250,7 +1250,7 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
             line_back += 1;
         }
         let experience = p.college_snaps as f64 / crate::world::season::SEASON_SNAPS as f64
-            + c.seasons.iter().map(|s| (s.snaps[0] + s.snaps[1]) as f64).sum::<f64>() / 1000.0
+            + c.seasons.iter().map(|s| s.snaps_all() as f64).sum::<f64>() / 1000.0
             + c.other.iter().map(|s| s.games as f64).sum::<f64>() / 18.0;
         who.insert(p.player.id, i as usize);
         if k == CFL && w.others.national(p.player.id) {

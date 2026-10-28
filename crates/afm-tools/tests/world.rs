@@ -586,6 +586,66 @@ fn high_school_games_run_on_the_engine() {
     assert_eq!(earlier, 0, "seasons before engine_from stay on the stand-in");
 }
 
+/// The record store (update 3, lane L20) fills from the history's engine
+/// seasons at every level: single games with their game, the NFL's own
+/// lists and leaders, team books, rate records and the era column.
+#[test]
+fn the_record_store_fills_at_every_level() {
+    use afm_engine::world::marks::{CAREER, GAME, N, SEASON, Tier, team_list};
+    use afm_engine::world::records::{Book, Scope};
+    let w = &*WORLD;
+    for scope in [Scope::Nfl, Scope::Division(Division::FBS)] {
+        for j in [0, 2, 5, 7] {
+            let list = w.stats.books.get(&(scope.clone(), Book::Game(j))).expect("a single-game list");
+            assert_eq!(list.len(), 25, "{scope:?} {j}");
+            assert!(list.windows(2).all(|p| p[0].value >= p[1].value) && list.iter().all(|e| e.game.is_some()));
+        }
+    }
+    let states = w.stats.books.keys().filter(|k| matches!(k.0, Scope::State(_)) && k.1 == Book::Game(0)).count();
+    assert!(states >= 45, "{states} states with a single-game passing list");
+    // The NFL's single-season passing list: real-looking seasons, with games
+    // and the era column.
+    let nfl = &w.stats.books[&(Scope::Nfl, Book::Season(0))];
+    assert!((3500.0..6500.0).contains(&nfl[0].value), "NFL season passing record {}", nfl[0].value);
+    assert!(nfl.iter().all(|e| (1..=17).contains(&e.games) && e.era > 0.0), "{:?}", nfl[0]);
+    let rating = &w.stats.books[&(Scope::Nfl, Book::RateSeason(0))];
+    assert!(rating.iter().all(|e| (60.0..=158.3).contains(&e.value)), "passer ratings {:?}", rating.first());
+    // Each NFL season has its leaders and its analytics rows.
+    for year in 2023..=2025 {
+        assert!(w.marks.leaders.iter().any(|l| l.scope == Scope::Nfl && l.year == year && l.stat == 0), "{year}");
+        let rows = w.marks.pro_rows.iter().filter(|r| r.year as i32 == year).count();
+        assert!(rows > 1000, "{rows} NFL analytics rows in {year}");
+    }
+    // Every NFL club and nearly every FBS program has its own book.
+    let with =
+        |tier: Tier, n: usize| (0..n).filter(|&t| !team_list(w.marks.team_book(tier, t), SEASON, 0).is_empty()).count();
+    assert_eq!(with(Tier::Nfl, w.nfl.len()), w.nfl.len());
+    let fbs: Vec<usize> = (0..w.programs.len()).filter(|&p| w.programs[p].division == Division::FBS).collect();
+    let fbs_with = fbs.iter().filter(|&&p| !team_list(w.marks.team_book(Tier::College, p), GAME, 2).is_empty()).count();
+    assert!(fbs_with * 10 >= fbs.len() * 9, "{fbs_with} of {} FBS programs with a single-game rushing mark", fbs.len());
+    let schools = w.marks.hs.iter().filter(|b| !b.is_empty()).count();
+    assert!(schools > 5000, "{schools} high schools with a book");
+    for b in w.marks.college.iter().chain(&w.marks.nfl).chain(&w.marks.hs) {
+        for kind in [CAREER, SEASON, GAME] {
+            for j in 0..N {
+                assert!(team_list(b, kind, j).windows(2).all(|p| p[0].value >= p[1].value));
+            }
+        }
+    }
+    // A pro's season line is the regular season only; his playoff games
+    // are their own line (minor bug 53). A man who changed teams in season
+    // can get a game or two more (his new team's bye still ahead, or two
+    // games in a trade week), as in real life, so only a handful may.
+    let pros = || w.people.iter().filter_map(|p| p.pro.as_deref()).flat_map(|c| &c.seasons);
+    let over = |s: &&afm_engine::world::pro::ProSeason| s.games > w.changes.rules(s.year).nfl_games;
+    let most = pros().map(|s| s.games as i64 - w.changes.rules(s.year).nfl_games as i64).max().unwrap_or(0);
+    let extra = pros().filter(over).count();
+    assert!(most <= 2 && extra <= 25, "{extra} regular season lines over the season's games, the most by {most}");
+    let playoffs: Vec<_> = pros().filter_map(|s| s.playoffs.as_deref()).collect();
+    assert!(playoffs.len() > 300, "{} pro seasons with a playoff line", playoffs.len());
+    assert!(playoffs.iter().all(|l| (1..=4).contains(&l.games)), "a playoff line outside 1-4 games");
+}
+
 /// Save and load (section 8): a world written to a file and read back plays
 /// its next season exactly as the original does, so nothing that drives
 /// results is left out of the file.

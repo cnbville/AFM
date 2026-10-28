@@ -93,7 +93,7 @@ pub const HS_STAT_COUNT: usize = 21;
 
 /// The state record books a season's line can enter, with the college
 /// book's list it shares (`records::RECORD_STATS`).
-const HS_BOOKS: [(HsStat, usize); 12] = [
+pub(crate) const HS_BOOKS: [(HsStat, usize); 12] = [
     (HsStat::PassYds, 0),
     (HsStat::PassTd, 1),
     (HsStat::RushYds, 2),
@@ -134,6 +134,26 @@ struct HsAcc {
     pos: Position,
     games: u8,
     s: [i32; HS_STAT_COUNT],
+}
+
+/// The season's lines so far in one state, or every state: (person,
+/// school, position, games, counts), for the Data pages' season in
+/// progress. Only the asked state's lines are copied (memory).
+pub(crate) fn running_in(
+    w: &World,
+    state: Option<usize>,
+) -> impl Iterator<Item = (usize, usize, Position, u8, [i32; HS_STAT_COUNT])> + '_ {
+    w.hs_season
+        .iter()
+        .flat_map(|hs| hs.book.iter())
+        .filter(move |(_, e)| state.is_none_or(|st| w.high_schools[e.school as usize].state == st))
+        .map(|(&i, e)| (i, e.school as usize, e.pos, e.games, e.s))
+}
+
+/// His season so far: his school and counts (the record store's running
+/// totals).
+pub(crate) fn running(w: &World, i: usize) -> Option<(usize, [i32; HS_STAT_COUNT])> {
+    w.hs_season.as_ref()?.book.get(&i).map(|e| (e.school as usize, e.s))
 }
 
 pub(crate) fn hs_counts(l: &crate::game::stats::StatLine) -> [i32; HS_STAT_COUNT] {
@@ -1455,6 +1475,8 @@ fn engine_games(
         // medical staff.
         let side = [h, a].iter().position(|&x| seat == Some(x));
         crate::training::seat::game_injuries(w, day, &g.injuries, [0.0; 2], side);
+        // The record store's game marks (update 3, lane L20).
+        super::marks::hs_game(w, [h, a], g.score, &g.lines, g.neutral);
         if let Some((full, film, replay)) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
             w.seat_line(Level::HighSchool, [h, a], None, g.neutral);
@@ -1685,8 +1707,10 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
     }
     let schools = w.states[s].schools.clone();
     // Each school's playoff run: wins and whether it reached the last four.
+    let mut champs: HashMap<usize, String> = HashMap::new();
     let mut runs: HashMap<usize, (u8, bool)> = HashMap::new();
     for b in w.hs_season.as_ref().unwrap().brackets.iter().filter(|b| b.state as usize == s) {
+        champs.insert(b.champion as usize, b.label.clone());
         for (k, &t) in b.seeds.iter().enumerate() {
             runs.insert(t as usize, (b.wins[k], b.semi[k]));
         }
@@ -1706,6 +1730,7 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             points: [t.totals.points_for.max(0) as u32, t.totals.points_against.max(0) as u32],
             playoff_wins: runs.get(&h).map_or(0, |r| r.0),
             semifinal: runs.get(&h).is_some_and(|r| r.1),
+            title: if t.state_title { champs.get(&h).cloned() } else { None },
         });
         if t.state_title {
             school.state_titles += 1;
@@ -1745,6 +1770,7 @@ fn file_lines(w: &mut World, s: usize) {
         }
     });
     mine.sort_by_key(|x| x.0);
+    let mut filed: Vec<(usize, HsLine)> = Vec::with_capacity(mine.len());
     for (i, e) in mine {
         if e.games == 0 {
             continue;
@@ -1758,38 +1784,68 @@ fn file_lines(w: &mut World, s: usize) {
         };
         w.people[i].hs_lines.reserve_exact(1);
         w.people[i].hs_lines.push(line);
-        if !w.recording {
-            continue;
-        }
-        let p = &w.people[i];
-        let name = format!("{} ({})", p.name, w.high_schools[e.school as usize].name);
+        filed.push((i, line));
+    }
+    if !w.recording {
+        return;
+    }
+    // The state's averages first, for the era column (lane L20).
+    super::marks::hs_norms(w, s, &filed);
+    for (i, line) in &filed {
+        let p = &w.people[*i];
+        let name = p.name.clone();
         let id = p.player.id;
+        let school = line.school as usize;
         let career: Vec<&HsLine> = p.hs_lines.iter().filter(|l| w.high_schools[l.school as usize].state == s).collect();
         let first = career.first().map_or(year, |l| l.year as i32);
+        let games: u32 = career.iter().map(|l| l.games as u32).sum();
         let totals: Vec<f64> = HS_BOOKS.iter().map(|&(k, _)| career.iter().map(|l| l.get(k)).sum()).collect();
+        let expect = super::marks::hs_expect(w, s, line);
+        // Each career line's expectation once; unknown (era 0) when a
+        // season has no state norm (one before the store, say).
+        let ex: Option<Vec<super::marks::Vals>> =
+            career.iter().map(|l| super::marks::hs_expect_known(w, s, l)).collect();
+        let cexpect: Vec<f64> =
+            HS_BOOKS.iter().map(|&(_, j)| ex.as_ref().map_or(0.0, |ex| ex.iter().map(|x| x[j] as f64).sum())).collect();
         let still = p.stage == Stage::HighSchool;
+        let pos = Some(line.pos);
         for (n, &(k, j)) in HS_BOOKS.iter().enumerate() {
             let v = line.get(k);
             if v <= 0.0 {
                 continue;
             }
-            let e =
-                RecordEntry { value: v, id, name: name.clone(), program: usize::MAX, year, from: year, live: false };
+            let e = RecordEntry {
+                value: v,
+                id,
+                name: name.clone(),
+                program: school,
+                year,
+                from: year,
+                games: line.games as u16,
+                pos,
+                era: super::marks::era(v, expect[j] as f64),
+                ..Default::default()
+            };
             super::records::place_entry(w.stats.books.entry((Scope::State(s), Book::Season(j))).or_default(), e);
             let e = RecordEntry {
                 value: totals[n],
                 id,
                 name: name.clone(),
-                program: usize::MAX,
+                program: school,
                 year,
                 from: first,
                 live: still,
+                games: games.min(u16::MAX as u32) as u16,
+                pos,
+                era: super::marks::era(totals[n], cexpect[n]),
+                ..Default::default()
             };
             let list = w.stats.books.entry((Scope::State(s), Book::Career(j))).or_default();
             list.retain(|x| x.id != id);
             super::records::place_entry(list, e);
         }
     }
+    super::marks::hs_close(w, s, &filed);
 }
 
 /// All-state teams (A32): in each classification, the best starter at each

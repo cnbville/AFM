@@ -484,6 +484,16 @@ pub(crate) fn seasons(w: &World, k: usize) -> Vec<Value> {
                 "line": if s.games > 0 { mail::stat_line(p.player.position, |k| line[k as usize] as f64) } else { "Did not play".to_string() },
                 "pro_bowl": s.pro_bowl, "all_pro": s.all_pro, "awards": s.awards,
             }));
+            // His playoff games on their own row, as the league keeps them.
+            if let Some(po) = s.playoffs.as_deref() {
+                let line = afm_engine::world::records::from_line(&po.stats);
+                v.push(json!({
+                    "year": s.year, "level": "NFL playoffs",
+                    "team": s.team.map(|t| views::team_brief(w, TeamRef::Nfl(t))),
+                    "pos": p.player.position.name(), "games": po.games, "starts": po.starts,
+                    "line": mail::stat_line(p.player.position, |k| line[k as usize] as f64),
+                }));
+            }
         }
     }
     // Seasons in the other leagues (the CFL, arena football, the spring
@@ -966,6 +976,7 @@ fn book_name(b: Book) -> String {
         Book::Career(i) => format!("Career {}", RECORD_STATS.get(i).map_or("record", |s| s.name())),
         Book::Streak(i) => STREAKS.get(i).map_or("Streak".to_string(), |s| s.to_string()),
         Book::WinStreak => "Consecutive wins".to_string(),
+        Book::Game(_) | Book::RateSeason(_) | Book::RateCareer(_) => crate::lane_data::title_case(&b.name()),
     }
 }
 

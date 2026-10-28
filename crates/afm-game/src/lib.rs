@@ -15,6 +15,7 @@ pub mod lane_boards;
 pub mod lane_calendar;
 pub mod lane_coaching;
 pub mod lane_core;
+pub mod lane_data;
 pub mod lane_draftroom;
 pub mod lane_evaluate;
 pub mod lane_faces;
@@ -235,7 +236,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 23] = [
+                const LANES: [Lane; 24] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -259,6 +260,7 @@ impl Game {
                     lane_calendar::call,
                     lane_coaching::call,
                     lane_logos::call,
+                    lane_data::call,
                 ];
                 for lane in LANES {
                     if let Some(r) = lane(self, cmd, args) {
