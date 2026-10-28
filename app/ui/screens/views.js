@@ -598,8 +598,18 @@ function paintField(film, opts = {}) {
         g.restore();
       }
     }
-    // The midfield mark: the home team's monogram in a ring.
-    const ini = monogram(home.name, ix.level);
+    // The midfield mark: the home team's logo painted on the grass when a
+    // logo pack has it, else its monogram in a ring.
+    const logo = typeof logoImage === "function" ? logoImage(home) : null;
+    if (logo) {
+      const r = Math.min(logo.naturalWidth / logo.naturalHeight || 1, 1.6), h = 9 * PX / Math.max(1, r / 1.1);
+      g.save();
+      g.globalAlpha = 0.92;
+      g.drawImage(logo, X(60) - (h * r) / 2, Y(mid) - h / 2, h * r, h);
+      g.restore();
+    }
+    const ini = logo ? "" : monogram(home.name, ix.level);
+    if (ini) {
     g.save();
     g.translate(X(60), Y(mid));
     g.fillStyle = mixHex(home.colors[0], "#000", 0.1);
@@ -613,6 +623,7 @@ function paintField(film, opts = {}) {
     g.font = `900 ${[3.6, 3.6, 3.0, 2.4][ini.length - 1] * PX}px Archivo, "Arial Black", sans-serif`;
     g.fillText(ini, 0, 0.2 * PX, 7 * PX);
     g.restore();
+    }
     // The team areas: between the 25s (the 32s in the NFL), the coaching
     // box in front, the benches behind. Home on the near side.
     const area = ix.level === "nfl" ? 32 : 25;

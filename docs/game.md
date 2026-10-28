@@ -495,7 +495,7 @@ Faces items F3-F12, S4 and X4 from `docs/design/faces.md` and `docs/final-build/
   - **Files.** `app/ui/screens/heads/`: `heads.js` (built by `tools/faces/heads/build.py` from `tools/faces/heads/heads.src.js`; do not edit it by hand), `head.bin` and `head.json` (the base head and its targets, 8.2 MB), `shape.bin` and `shape.json` (the face sampler, 0.8 MB), `groom.bin` and `groom.json` (the hair library, 10 MB), `jersey.json`. All of it loads only the first time a head is drawn. How to rebuild them: `tools/faces/heads/README.md`.
   - **Speed and memory.** On the test machine (no GPU, software WebGL) a head takes 1.3-9 s; the shape and hair take 50-250 ms of that and the rest is the software renderer, so the M1's GPU should be well under a second (not measured: no Mac here). The page's script memory was 68 MB after drawing 13 heads; the game process is untouched. A computer without WebGL keeps the silhouettes for the session.
   - **Safari.** The Mac app's web view can't write WebP pictures, so there a head is kept as a JPEG on the face slots' dark grey under the same name; the game reads a stored picture's type from its contents.
-  - **Not drawn yet:** scars, a broken nose, a tooth gap, glasses, earrings and tattoos (all in his looks and his AI prompt); the jersey's number and the team's logo stay out on purpose.
+  - **Not drawn yet:** scars, a broken nose, a tooth gap, glasses, earrings and tattoos (all in his looks and his AI prompt); the jersey's number stays out on purpose; the team's logo shows only from a pack you installed (lane 15 of update 3).
 
 ## Update 2 (2026-10-24)
 
@@ -883,6 +883,27 @@ The world's former players (`world/former.rs`), what playing does for a coach, h
 - C17: the AI hiring one five-star's coach in twenty-five on December 1, to coach his own group, letting the holder go; the relationship worth 0.05; your high school offer on November 15 at an even chance.
 - C18: every state on California's rule for now, ruled two times in five (a year out and half a point of standing), the call's window (March-June Thursdays, an eighth of the weeks, once a year), a broken promise costing 0.3 warmth.
 - C19: the ten days before the market, a fifth of weekdays, once a year; the ask shaded by 0.25 × (1 - honesty); a leak one time in ten, ruled on June 1; the first word worth 2% on his offer score.
+
+### Lane 15: logo packs you install yourself
+
+The game ships no logos (later extras, topic 2). Settings, Logos (`screens/logos.js` and `.css`, the commands in `lane_logos.rs`) installs a pack the way Football Manager's logo packs work: you pick a folder, the game matches its pictures to teams, you check the matches, and only the pictures in use are copied into the game folder (`logos/packs/p<N>/`), shared by every save. Cain agreed to the mock-up and its four questions on 2026-10-28 (https://claude.ai/artifact/RtBJWBvcKb81zETpogoZfz).
+
+- **Matching.** A mapping file in the pack first (`logos.csv`: file, team, from, to; any `.csv` with those columns), then a teams list in the pack (a JSON list with a name and a logo path, like Gridiron Lab's `teams.json`), then each picture's own name (`Kansas_City_Chiefs_logo.svg`, `iowa-st.svg`): the whole name, a full name with extra words (another version: a wordmark, an old one), a short form (`coastal-caro`, `eastern-ky`), an NFL nickname alone. Names fold case, accents, "&", "St" (Saint first, State after), state short forms and a state at the end (`albany-ny`). On the three packs in `afm/logos` (911 real teams): 656 matched, 18 unsure, 162 with no team (mostly basketball-only schools), 320 spare.
+- **The review**: matched, unsure (each team it could be, one click), no match, spare (a team's other pictures: one per team and era, a mapping line first, then the plain logo, an SVG over a PNG, the bigger file), skipped. Find a team, Change, Skip; "Use these logos" keeps the pictures (SVG as it is with its size added, others shrunk to 512 pixels); Cancel keeps nothing. "Check matches" on an installed pack changes or drops a team's logo later.
+- **Eras.** Teams are keyed by their real names, so a logo covers the years its team had that name (the Titans' never shows on a 1997 Oilers line); dated mapping lines split eras further. A later pack wins over an earlier one for a team both have.
+- **Where they show**: every team mark (`mark()` in `app.js`), the team page's hero (its watermark, also the school office and history pages), the sidebar, letterheads (a club's crest, a conference's or the league's seal), the score bug and midfield in the 2D and 3D view, schedule rows and bowl tags, conference headers on standings, the player page's team and his career rows, the colleges calling at high school, the job picker. Without a logo every spot keeps today's drawn mark.
+- **Dark logos** (question 2, A): measured once when installed (the drawn pixels' mean brightness under 0.3); only those sit on a soft light disc on the dark screens, bare on the light theme and on letterheads.
+- **A world with fictional names** (question 3): a pack's logos stay off until switched on in Settings, Logos.
+- **Your own logo** (question 1): "Change logo" on any team's page takes one picture for that team, kept with the save beside your photos (`<save>.faces/logos/`, moved and copied with the save), and wins over any pack's; "Remove your logo" brings the pack's back. Generated high schools get their crest this way. Your own logos show in a fictional world too.
+- **The drawn heads' jerseys** (question 4): a college's logo just under the V-neck, the NFL shield on the collar's point, painted on the cloth's own coordinates (`tools/faces/heads/heads.src.js`, `setLogo`). The logo's id is part of the drawn picture's key, so a head is drawn again when its logo changes; high school and other-league jerseys stay plain.
+- Show logos On or Off in Settings, Logos switches every logo off at once.
+
+#### Claude's picks (proposed, not confirmed)
+
+- The names packs use for schools the world calls by another (`ALIASES` in `lane_logos.rs`: UMass, FIU, ULM, Ole Miss, App State, UIW, LIU, SFA and the rest) and the state short forms (`STATES`).
+- The dark threshold (0.3), the 512-pixel cap for pictures that aren't drawings, 2 MB a picture, and a later pack winning over an earlier one.
+- The jersey logo's size and place (a college's 0.42 units wide at most, its top just under the V's trim; the shield 0.26 tall, its top just over the collar's point), the light disc's colour (`#ece9e2`) and the hero watermark's strength (24%, 14% for dark logos).
+- Drawn heads kept under an old logo's key stay on disk until the save is deleted.
 
 ### Lane L20: the Data section (deep data items 1-3, 7, 8, 15-25; boards 43 and 46)
 

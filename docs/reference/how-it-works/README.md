@@ -22,6 +22,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [injuries.md](injuries.md) | Injury odds in games and practice, what reads them, types and lengths, recovery, carry-over |
 | [nfl.md](nfl.md) | The living NFL: contracts, the cap, free agency, tags, trades, waivers, retirement, honors |
 | [people.md](people.md) | Personality, morale, relationships, chemistry, talks, life off the field, media, fame and Aura |
+| [logos.md](logos.md) | Logo packs you install: matching pictures to teams, eras, your own logo per save, where logos show, the jerseys |
 | [records-and-data.md](records-and-data.md) | Record books at every level, single games, team books, rate records, the era column, records that fell, chasing now, player analytics and seasons like his |
 
 Code that does something its comment or design says it shouldn't: [oddities.md](oddities.md).
