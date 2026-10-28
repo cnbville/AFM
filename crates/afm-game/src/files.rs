@@ -1,9 +1,10 @@
 //! World and save files (section 8, topic 3). The format is the engine's
 //! (`afm_engine::save`, agreed with the world-building thread): an
 //! `AFMWORLD` header, a format version, a JSON block about the world, then
-//! the whole world as named MessagePack through zstd. Named fields let an
-//! older file load into a newer game: what a newer game added fills in at
-//! load (`World::after_load`).
+//! the world as named MessagePack through zstd, in parts packed and read on
+//! every core (format 2, update 3) or as one stream (format 1, still read).
+//! Named fields let an older file load into a newer game: what a newer game
+//! added fills in at load (`World::after_load`).
 
 use std::path::{Path, PathBuf};
 

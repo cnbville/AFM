@@ -14,7 +14,7 @@ Built 2026-10-20/21 overnight (thread "Build the program", PR #75), from `docs/d
 
 ## The parts
 
-- `crates/afm-engine/src/save.rs`: the world file (format 1, agreed with the world-building thread): `AFMWORLD`, the version, a JSON header (seed, history years, start year, commit, written, world date), then the whole world as named MessagePack through zstd. New fields load as their default, so an older world file opens in a newer game; `World::after_load` fills in what a newer game adds.
+- `crates/afm-engine/src/save.rs`: the world file (agreed with the world-building thread): `AFMWORLD`, the version, a JSON header (seed, history years, start year, commit, written, world date), then the world as named MessagePack through zstd level 3. Format 2 (update 3, lane 19) writes it in parts, each its own zstd stream, packed and read on every core; format 1 (one stream, every file before update 3) still loads. New fields load as their default, so an older world file opens in a newer game; `World::after_load` fills in what a newer game adds.
 - `crates/afm-engine/src/world/seat.rs`: your seat in the world. `start_career` (fresh randomness mixed from the career seed, you take the head coach's job and he goes to the market), your games kept whole (`SeatGame`, the last 40), your depth order (`seat_depth`, played by the engine before the staff's order), your training focus (`seat_focus`), your notes, your high school staff (`HsAssistant`), and plain reads for the screens (fixtures, records).
 - `crates/afm-game`: the game. One `Game::call(cmd, args)` the screens use: `library`, `import_world`, `open_world`, `load`, `save`, `build_world`, `setup`, `jobs`, `start_career`, `status`, `continue`, `day`, `holiday`, `home`, `inbox`, `news`, `calendar`, `team`, `roster`, `depth`, `set_depth`, `training`, `set_focus`, `recruiting`, `contracts`, `schedule`, `standings`, `staff`, `coach`, `player`, `games`, `game`, `search`, `you`, `note_add`, `note_delete`, `bug`, and for the pages before the game `towns`, `similar`, `card`, `rename_save`, `delete_save`, `reveal`. `reads.rs` turns true ratings into your staff's reads, `views.rs` builds every screen's data, `setup.rs` the setup and the library, `files.rs` the files, `cards.rs` the world and save cards.
 - `app/ui`: the screens, one page in plain HTML and JS. The pages before the game (opening, Load game, new career) are `pregame.js` and `pregame.css`, in their own look; everything from taking the job on is Showtime (`showtime.css`, Archivo fonts). A frosted left sidebar, the top bar with back and forward, search (⌘K), the date, what's next and Continue (space bar).
@@ -883,6 +883,32 @@ The world's former players (`world/former.rs`), what playing does for a coach, h
 - C17: the AI hiring one five-star's coach in twenty-five on December 1, to coach his own group, letting the holder go; the relationship worth 0.05; your high school offer on November 15 at an even chance.
 - C18: every state on California's rule for now, ruled two times in five (a year out and half a point of standing), the call's window (March-June Thursdays, an eighth of the weeks, once a year), a broken promise costing 0.3 warmth.
 - C19: the ten days before the market, a fifth of weekdays, once a year; the ask shaded by 0.25 × (1 - honesty); a leak one time in ten, ruled on June 1; the first word worth 2% on his offer score.
+
+### Lane 19: faster saves (SV1-SV5)
+
+Saving and loading (`crates/afm-engine/src/save.rs`; how it works: [saves.md](reference/how-it-works/saves.md)). Measured on the 30-year world for first saves, an Iowa career played to its first game (5 September 2026, 1,105,221 people), on a 4-core Linux machine, with the game's own commands:
+
+| | Before | Now |
+|---|---|---|
+| Save | 96-106 s | 17-18 s |
+| Load of a save (with `after_load`) | 87 s | 14.4 s |
+| Opening the library world (still format 1) | 69-72 s | 48-50 s |
+| Save file | 1.693 GB | 1.693 GB |
+| Memory at the end of a load | | 3.77 GB (peak) |
+| Extra memory while saving | | 0.2-0.3 GB |
+
+- **SV1 and SV3.** A 1 MB buffer between MessagePack and zstd, both ways, so zstd gets big blocks instead of one call per small value.
+- **SV2.** Compression runs on every core through the parts: each part is its own zstd stream, packed on its own core. zstd's own workers per part were tried and took 24 s against 20 s here, because each part's end drains zstd's workers and the encoding stays on one core; so the `zstdmt` feature stays off.
+- **SV4.** zstd level 3.
+- **SV5.** Format 2: the header as before, a table of parts, then the parts (the rest of the world, alumni, news, the stat book's player seasons in 16 pieces, people in 128 pieces). One thread writes the packed parts as they come; the reader opens every part on its own handle and reads the pieces of people and of the seasons straight into one list each, with no second copy. Format 1 files (every save and world before update 3) still load. A save opens only in this game or newer.
+- **Checks.** A loaded save plays on exactly as the world it came from: 3 days at the first game compared line by line (1,179,091 lines, 0 differ), and `a_saved_world_plays_on_identically` plays a season on a small world from a format 2 save and from a format 1 file. A damaged piece is an error, never a half-filled list (`tests/save.rs`).
+- The busy notes: saving "about 20 seconds", opening a world "under a minute" (the library world is format 1 until the L12 rebuild writes it in format 2).
+
+#### Claude's picks (proposed, not confirmed)
+
+- The parts and their names, 128 pieces of people and 16 of seasons, a queue of two packed parts to the writer.
+- Each reading thread keeps the static text it has met, before the shared pool.
+- The busy notes' wording.
 
 ## Not built yet (section 8's design, for the next builds)
 

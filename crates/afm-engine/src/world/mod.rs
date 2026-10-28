@@ -662,8 +662,12 @@ pub struct World {
     pub high_schools: Vec<HighSchool>,
     pub programs: Vec<Program>,
     pub coaches: Vec<Coach>,
+    /// People, alumni and news are their own parts in a save (`save.rs`).
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub people: Vec<Person>,
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub alumni: Vec<Alumnus>,
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub news: Vec<NewsItem>,
     /// Star counts per signing class (index = stars), for calibration.
     pub signing_classes: Vec<(i32, [u32; 6])>,

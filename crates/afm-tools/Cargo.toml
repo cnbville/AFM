@@ -14,3 +14,5 @@ mimalloc = "0.1.52"
 
 [dev-dependencies]
 rayon = "1.12"
+rmp-serde = "1"
+zstd = "0.13"
