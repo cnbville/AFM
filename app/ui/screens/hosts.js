@@ -118,3 +118,38 @@ hostTabs("area", [
   const page = screens.recruiting;
   screens.recruiting = (a) => (seatKind() === "hs" ? hostMove("recruiting", "hsside", a || {}) : page(a));
 }
+
+// ---------- SC2: related pages under one entry ----------
+hostTabs("news", [{ t: "News", go: "news" }, { t: "Media", go: "media" }]);
+hostTabs("standings", [
+  { t: "Standings", go: "standings", seats: HOST_SEATS },
+  { t: () => ({ nfl: "Playoff picture", hs: "State rankings" })[seatKind()] || "Polls", go: "polls", seats: HOST_SEATS, show: hostMine },
+  { t: "Other leagues", go: "leagues" },
+]);
+hostTabs("history", [
+  { t: "History", go: "history" },
+  // Another team's page stays its own page.
+  { t: "Team history", go: "team", show: (a) => hostMine() && !a.kind },
+]);
+hostTabs("you", [
+  { t: "Profile", go: "you" },
+  { t: "Career story", go: "story" },
+  { t: "Season chapters", go: "chapters" },
+  { t: "Your legacy", go: "legacy" },
+  { t: "Office", go: "office" },
+]);
+hostTabs("people", [
+  { t: "People", go: "people" },
+  { t: "Locker room", go: "locker", seats: HOST_SEATS, show: hostMine },
+  { t: "Traditions", go: "traditions", seats: HOST_SEATS, show: hostMine },
+]);
+// A club in another league: its league's page is its Standings already.
+navAdd({ go: "leagues", seats: HOST_SEATS });
+{
+  const alias = screens.leagues;
+  screens.leagues = (a) => {
+    if (seatKind() !== "other") return alias(a);
+    if (!S.besideDrawing && S.route.screen === "leagues") S.route.screen = "leagues_mine";
+    return HOST_PAGE.leagues(a || {});
+  };
+}
