@@ -859,7 +859,11 @@ fn medical_read(w: &World, i: usize, readers: &[Reader], looks: &[Evidence], rat
         };
         if let Some(what) = what {
             let lasting = if h.events.has(E::LostBurst) { "; he never got all of his burst back" } else { "" };
-            let missed = if h.games_missed > 0 { format!(", missed {} games", h.games_missed) } else { String::new() };
+            let missed = if h.games_missed > 0 {
+                format!(", missed {} {}", h.games_missed, crate::world::folk::noun(h.games_missed, "game"))
+            } else {
+                String::new()
+            };
             notes.push(format!("At {}: {what}{missed}{lasting}.", h.age));
         }
     }

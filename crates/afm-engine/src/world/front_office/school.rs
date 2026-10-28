@@ -1008,8 +1008,9 @@ fn top_lines(stats: &crate::game::stats::GameStats, side: usize) -> Vec<(u32, St
         out.push((
             id,
             format!(
-                "{} carries, {:.0} yds{}",
+                "{} {}, {:.0} yds{}",
                 l.rush,
+                crate::world::folk::noun(l.rush, "carry"),
                 l.rush_yds,
                 if l.rush_td > 0 { format!(", {} TD", l.rush_td) } else { String::new() }
             ),
@@ -1019,15 +1020,16 @@ fn top_lines(stats: &crate::game::stats::GameStats, side: usize) -> Vec<(u32, St
         out.push((
             id,
             format!(
-                "{} catches, {:.0} yds{}",
+                "{} {}, {:.0} yds{}",
                 l.rec,
+                crate::world::folk::noun(l.rec, "catch"),
                 l.rec_yds,
                 if l.rec_td > 0 { format!(", {} TD", l.rec_td) } else { String::new() }
             ),
         ));
     }
     if let Some((id, l)) = best(&|l| (l.tackles + l.assists) as f64 + 2.0 * l.sacks + 3.0 * l.ints as f64) {
-        let mut t = format!("{} tackles", l.tackles + l.assists);
+        let mut t = format!("{} {}", l.tackles + l.assists, crate::world::folk::noun(l.tackles + l.assists, "tackle"));
         if l.sacks > 0.0 {
             t += &format!(", {} sack{}", l.sacks, if l.sacks == 1.0 { "" } else { "s" });
         }

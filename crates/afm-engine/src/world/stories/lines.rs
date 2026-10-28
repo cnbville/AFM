@@ -115,10 +115,47 @@ fn fill_one(t: &str, f: &Fill, rng: &mut Rng, year: i32) -> Option<String> {
         };
         out.push_str(&v);
         rest = &after[end + 1..];
+        // A count of one takes the singular: "{days} days" reads "1 day".
+        if v == "1"
+            && let Some(&(many, one)) = COUNT_NOUNS.iter().find(|x| {
+                rest.strip_prefix(' ')
+                    .and_then(|r| r.strip_prefix(x.0))
+                    .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric()))
+            })
+        {
+            out.push(' ');
+            out.push_str(one);
+            rest = &rest[1 + many.len()..];
+        }
     }
     out.push_str(rest);
     Some(out)
 }
+
+/// One template filled, for the tests.
+#[cfg(test)]
+pub(crate) fn fill_for_test(t: &str, f: &Fill) -> Option<String> {
+    fill_one(t, f, &mut Rng::new(1u32), 2026)
+}
+
+/// The nouns the banks count with a number placeholder, plural and singular.
+const COUNT_NOUNS: [(&str, &str); 15] = [
+    ("days", "day"),
+    ("weeks", "week"),
+    ("years", "year"),
+    ("seasons", "season"),
+    ("points", "point"),
+    ("yards", "yard"),
+    ("wins", "win"),
+    ("titles", "title"),
+    ("times", "time"),
+    ("chances", "chance"),
+    ("recruits", "recruit"),
+    ("prospects", "prospect"),
+    ("coaches", "coach"),
+    ("teams", "team"),
+    ("diamonds", "diamond"),
+];
 
 impl Bank {
     /// Whether a name is one of the real legends the game never reuses.

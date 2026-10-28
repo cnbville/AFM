@@ -755,7 +755,7 @@
           return head + this.rowHtml(p);
         })
         .join("");
-      const cut = this.listName ? `<div class="vw-cutnote">Playing: <b>${esc(this.listName)}</b> · ${this.list.length} snaps <a class="link" data-vw="list" data-k="all">Back to every snap</a></div>` : "";
+      const cut = this.listName ? `<div class="vw-cutnote">Playing: <b>${esc(this.listName)}</b> · ${this.list.length} snap${this.list.length === 1 ? "" : "s"} <a class="link" data-vw="list" data-k="all">Back to every snap</a></div>` : "";
       return `${chips}${cut}<div class="vw-rows">${rows || '<div class="empty">No snaps in this list.</div>'}</div>`;
     }
     highlightRow(scroll) {
@@ -874,7 +874,7 @@
             const head = r.group !== last ? `<div class="vw-qhead">${GROUPS[r.group] || "Others"}</div>` : "";
             last = r.group;
             const tone = r.grade >= 90 ? "up" : r.grade < 80 ? "down" : "";
-            return `${head}<button class="vw-sheet" data-vw="gcut" data-id="${r.id}" title="Watch his snaps, isolated on him"><span class="vw-sheet-who"><b>#${r.num} ${esc(r.name)}</b> <small>${esc(r.pos)}</small><small class="vw-grade-notes">${r.notes.map(([k, n]) => `${esc(k)}${n > 1 ? " ×" + n : ""}`).join(" · ")}${r.busts ? ` · <span class="down">${r.busts} bust${r.busts > 1 ? "s" : ""}</span>` : ""}${r.loafs ? ` · <span class="down">${r.loafs} loaf${r.loafs > 1 ? "s" : ""}</span>` : ""}</small></span><span class="vw-sheet-n"><b class="${tone} st-tnum">${r.grade}%</b><small class="st-tnum">${r.snaps} snaps · +${r.plus} −${r.minus}</small></span></button>`;
+            return `${head}<button class="vw-sheet" data-vw="gcut" data-id="${r.id}" title="Watch his snaps, isolated on him"><span class="vw-sheet-who"><b>#${r.num} ${esc(r.name)}</b> <small>${esc(r.pos)}</small><small class="vw-grade-notes">${r.notes.map(([k, n]) => `${esc(k)}${n > 1 ? " ×" + n : ""}`).join(" · ")}${r.busts ? ` · <span class="down">${r.busts} bust${r.busts > 1 ? "s" : ""}</span>` : ""}${r.loafs ? ` · <span class="down">${r.loafs} loaf${r.loafs > 1 ? "s" : ""}</span>` : ""}</small></span><span class="vw-sheet-n"><b class="${tone} st-tnum">${r.grade}%</b><small class="st-tnum">${r.snaps} snap${r.snaps === 1 ? "" : "s"} · +${r.plus} −${r.minus}</small></span></button>`;
           })
           .join("") || `<div class="empty">${esc(this.sheet.err || "No grades for this game.")}</div>`;
       }
@@ -890,7 +890,7 @@
         <div class="vw-colors">${COLORS.map((c, i) => `<button data-vw="color" data-i="${i}" aria-pressed="${this.color === i}" style="--c:${c}" title="${COLOR_NAMES[i]}" aria-label="${COLOR_NAMES[i]}"></button>`).join("")}</div>
         <div class="vw-drawbtns"><button class="st-btn small glass" data-vw="undo" ${this.marks.length ? "" : "disabled"}>${ico(IC.undo)} Undo <kbd>Z</kbd></button><button class="st-btn small glass" data-vw="clearsnap" ${mine.length ? "" : "disabled"}>Clear this snap</button></div></div>
         <div class="vw-sec"><span class="st-label">On this snap</span>${mine.length ? mine.map(([m, i]) => `<button class="vw-markrow" data-vw="jump" data-t="${m.t}"><i style="background:${COLORS[m.color]}"></i>${KIND_TOOL[m.kind]} at ${m.t < 0 ? "the set" : m.t.toFixed(1) + " s"}<span class="link" data-vw="delmark" data-i="${i}">Delete</span></button>`).join("") : '<div class="empty">No drawings on this snap yet.</div>'}</div>
-        <div class="vw-sec"><span class="st-label">The whole game</span><p class="vw-note">${this.marks.length} drawing${this.marks.length === 1 ? "" : "s"} on ${new Set(this.marks.map((m) => m.play)).size} snaps. ${this.marks.length ? '<a class="link" data-vw="markcut">Watch the snaps you drew on</a>' : ""}</p></div>`;
+        <div class="vw-sec"><span class="st-label">The whole game</span><p class="vw-note">${this.marks.length} drawing${this.marks.length === 1 ? "" : "s"} on ${((k) => `${k} snap${k === 1 ? "" : "s"}`)(new Set(this.marks.map((m) => m.play)).size)}. ${this.marks.length ? '<a class="link" data-vw="markcut">Watch the snaps you drew on</a>' : ""}</p></div>`;
     }
     panelView() {
       const sw = (k, t, sub) => `<label class="vw-sw"><input type="checkbox" data-vw="set" data-k="${k}" ${SET[k] ? "checked" : ""}><span class="vw-sw-t"><b>${t}</b>${sub ? `<small>${sub}</small>` : ""}</span><i></i></label>`;

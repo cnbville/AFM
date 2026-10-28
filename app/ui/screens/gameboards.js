@@ -134,7 +134,7 @@ window.gamePageTabs["Game flow"] = async (g, a) => {
       <span class="bd-dq">${esc(d.q)} · ${esc(d.clock)}</span>
       <span class="bd-dbar"><i class="bd-d50"></i><i class="bd-dseg" style="left:${lo}%;width:${Math.max(0.6, hi - lo)}%"></i><i class="bd-ddot" style="left:${d.to}%"></i></span>
       <span class="bd-dres${d.bad ? " bad" : ""}${d.points > 0 ? " pts" : ""}">${esc(d.result)}${d.swing ? ` <em class="bd-let">${esc(d.swing)}</em>` : ""}</span>
-      <span class="bd-cond bd-dim">${d.plays} · ${d.yards} yds · ${esc(d.time)}</span></div>`;
+      <span class="bd-cond bd-dim">${d.plays} · ${d.yards} ${d.yards === 1 ? "yd" : "yds"} · ${esc(d.time)}</span></div>`;
   }).join("");
   const f = x.final;
   const qrow = (k, name, mine) => `<div class="bd-qg${mine ? "" : " them"}"><span>${esc(name)}</span>${f.quarters.map((q) => `<span class="bd-cond">${q[k]}</span>`).join("")}<span class="bd-cond tot">${f.score[k]}</span></div>`;
@@ -228,7 +228,7 @@ window.gamePageTabs["Line battles"] = async (g, a) => {
     const v = mk === "run" ? (q.n ? bdNum(q.v) + " yds" : "—") : String(q.n);
     const bad = mk === "pass" ? q.n >= 3 : mk === "run" ? q.n >= 3 && q.v < 3 : false;
     const sw = q.n ? 2 + (7 * q.n) / gmax : 1;
-    return `<span class="bd-farrow${bad ? " bad" : ""}${q.n ? "" : " none"}" style="left:${gx[k].toFixed(2)}%" title="${esc(gapNames[k])}: ${esc(v)}${mk === "run" ? ` over ${q.n} runs` : ""}">
+    return `<span class="bd-farrow${bad ? " bad" : ""}${q.n ? "" : " none"}" style="left:${gx[k].toFixed(2)}%" title="${esc(gapNames[k])}: ${esc(v)}${mk === "run" ? ` over ${q.n} run${q.n === 1 ? "" : "s"}` : ""}">
       <svg viewBox="0 0 28 72" aria-hidden="true"${up ? ' class="up"' : ""}><line x1="14" y1="4" x2="14" y2="54" stroke-width="${sw.toFixed(1)}"></line><path d="M${(14 - 4 - sw).toFixed(1)} 52 L14 68 L${(14 + 4 + sw).toFixed(1)} 52 Z"></path></svg>
       <small class="bd-cond">${esc(v)}</small></span>`;
   }).join("");
@@ -257,7 +257,7 @@ window.gamePageTabs["Line battles"] = async (g, a) => {
     const p = ps.find((q) => q.b === pk[r.id]) || ps[0];
     const rr = (list, who) => list && list.length ? list.map((q) => `<div class="bd-attr"><span>${esc(q.k)}</span>${range(q.r, who)}</div>`).join("") : '<div class="bd-dim">Not seen</div>';
     side = p ? `<div class="bd-card">
-      <div class="bd-line2"><span class="st-label">${esc(r.spot || r.pos)} · ${esc(r.cls || "")}</span><span class="bd-dim">${r.won + r.even + r.lost} reps</span></div>
+      <div class="bd-line2"><span class="st-label">${esc(r.spot || r.pos)} · ${esc(r.cls || "")}</span><span class="bd-dim">${r.won + r.even + r.lost} rep${r.won + r.even + r.lost === 1 ? "" : "s"}</span></div>
       <span class="bd-mtitle">${playerLink(p.a, p.aName)} <span class="bd-dim">vs</span> ${playerLink(p.b, p.bName)} <small class="bd-dim">${esc(p.bPos)}</small></span>
       ${ps.length > 1 ? `<div class="bd-segs small">${ps.map((q) => `<button class="bd-seg" data-act="bd-pick" data-k="bd:batp" data-f="${r.id}" data-v="${q.b}" aria-selected="${q.b === p.b}">${esc(bdSur(q.bName))} <small>${q.reps}</small></button>`).join("")}</div>` : ""}
       <div class="bd-hero"><b class="bd-cond bd-big">${Math.round(p.pct)}%</b><span class="bd-how"><span>${mk === "rush" ? "rush wins" : "reps won"}, ${p.won} of ${p.reps}</span><span class="bd-dim">${p.even} even · ${p.lost} lost${p.avgThrow != null ? ` · ball out in ${bdNum(p.avgThrow)} s` : ""}</span></span></div>
@@ -416,7 +416,7 @@ PLAYER_TABS.push({
       return `<button class="bd-rc${on ? " on" : ""}" data-act="bd-pick" data-k="${key}" data-f="r" data-v="${on ? "" : r.id}">
         <span class="bd-line2"><b class="${bdSur(r.name).length > 9 ? "bd-cond" : ""}" title="${esc(r.name)}">${esc(bdSur(r.name))}</b><small class="bd-dim">${esc(r.pos)}</small></span>
         <svg viewBox="0 0 125 66" aria-hidden="true">${grid}${dots}</svg>
-        <span class="bd-line2 bd-cond"><b>${r.c.length}/${r.a.length}</b><span>${r.a.filter((t) => t.td).length} TD</span></span><span class="bd-cond">${Math.round(r.y).toLocaleString()} yds</span>
+        <span class="bd-line2 bd-cond"><b>${r.c.length}/${r.a.length}</b><span>${r.a.filter((t) => t.td).length} TD</span></span><span class="bd-cond">${Math.round(r.y).toLocaleString()} ${Math.round(r.y) === 1 ? "yd" : "yds"}</span>
         <small class="bd-cond bd-dim">air ${Math.round(r.air)} · after the catch ${Math.round(r.yac)}</small></button>`;
     }).join("");
     // The detail: a receiver when one is picked, else the zone.
@@ -471,7 +471,7 @@ PLAYER_TABS.push({
     const filters = bdSegs(key, "f", [["all", "All throws"], ["clean", "Clean pocket"], ["pressure", "Under pressure"], ["third", "Third down"]], st.f);
     const views = bdSegs(key, "v", [["paths", "Paths"], ["heat", "Heat"], ["zones", "Zones"]], st.v);
     return `<div class="bd bd-pm">
-      <div class="bd-line2 bd-pmhead"><span class="bd-ps">${x.season} season · ${T.length} throws ${src}${x.throwaways ? ` · ${x.throwaways} thrown away, left out` : ""}</span>${filters}</div>
+      <div class="bd-line2 bd-pmhead"><span class="bd-ps">${x.season} season · ${T.length} ${T.length === 1 ? "throw" : "throws"} ${src}${x.throwaways ? ` · ${x.throwaways} thrown away, left out` : ""}</span>${filters}</div>
       <div class="bd-cols3">
         <section class="bd-panel bd-pml">
           <div class="bd-card"><div class="bd-line2"><span class="st-label">Passing</span><span class="bd-dim">${esc(fname)}</span></div>
@@ -480,7 +480,7 @@ PLAYER_TABS.push({
           <div class="bd-rcs">${rcv || bdEmpty("No targets on film.")}</div>
         </section>
         <section class="bd-panel bd-pmc">
-          <div class="bd-ph"><span><b class="bd-pt">Where the ball went</b> <span class="bd-ps">${esc(fname)}, ${T.length} throws</span></span>${views}</div>
+          <div class="bd-ph"><span><b class="bd-pt">Where the ball went</b> <span class="bd-ps">${esc(fname)}, ${T.length} ${T.length === 1 ? "throw" : "throws"}</span></span>${views}</div>
           <div class="bd-field"><svg viewBox="0 0 600 656" role="img" aria-label="Every throw from where ${esc(p.name)} threw it"><path class="bd-hash" d="${hash}"></path>${lines}<line class="bd-third" x1="200" x2="200" y1="0" y2="656"></line><line class="bd-third" x1="400" x2="400" y1="0" y2="656"></line>${nums}${marks}</svg>${zones}</div>
           <div class="bd-legend">${legend}</div>
         </section>

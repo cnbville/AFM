@@ -352,8 +352,8 @@ pub fn page(w: &World, args: &Value) -> Reply {
                 .enumerate()
                 .map(|(s, &j)| {
                     let fact = match k {
-                        0 => format!("{:.0} miles from home", you_mi(j)),
-                        1 => format!("{} {}s with a year left", ahead[s], p.player.position.name()),
+                        0 => format!("{:.0} {} from home", you_mi(j), if you_mi(j).round() == 1.0 { "mile" } else { "miles" }),
+                        1 => format!("{} {}{} with a year left", ahead[s], p.player.position.name(), if ahead[s] == 1 { "" } else { "s" }),
                         2 if ncaa::nil_era(w.year) => format!("{} a year", dollars(nil_of(j))),
                         2 => "no NIL before 2021".to_string(),
                         3 => format!(

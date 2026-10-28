@@ -1018,16 +1018,40 @@ pub fn stat_line(ctx: &Ctx, i: usize) -> Option<String> {
         ),
         P::RB => {
             let ypc = g(HsStat::RushYds) / g(HsStat::Rush).max(1.0);
-            format!("{} yds · {:.1} a carry · {} TD", n(HsStat::RushYds), ypc, n(HsStat::RushTd))
+            format!(
+                "{} {} · {:.1} a carry · {} TD",
+                n(HsStat::RushYds),
+                if n(HsStat::RushYds) == 1 { "yd" } else { "yds" },
+                ypc,
+                n(HsStat::RushTd)
+            )
         }
-        P::WR | P::TE => format!("{} catches · {} yds · {} TD", n(HsStat::Rec), n(HsStat::RecYds), n(HsStat::RecTd)),
-        P::OT | P::IOL => format!("{} games started up front", l.games),
+        P::WR | P::TE => format!(
+            "{} {} · {} yds · {} TD",
+            n(HsStat::Rec),
+            afm_engine::world::folk::noun(n(HsStat::Rec), "catch"),
+            n(HsStat::RecYds),
+            n(HsStat::RecTd)
+        ),
+        P::OT | P::IOL => format!("{} {} started up front", l.games, afm_engine::world::folk::noun(l.games, "game")),
         P::EDGE | P::DT | P::LB => {
-            format!("{} tackles · {:.1} TFL · {:.1} sacks", n(HsStat::Tackles), g(HsStat::Tfl), g(HsStat::Sacks))
+            format!(
+                "{} {} · {:.1} TFL · {:.1} sacks",
+                n(HsStat::Tackles),
+                afm_engine::world::folk::noun(n(HsStat::Tackles), "tackle"),
+                g(HsStat::Tfl),
+                g(HsStat::Sacks)
+            )
         }
-        P::CB | P::S => format!("{} tackles · {} INT · {} PBU", n(HsStat::Tackles), n(HsStat::Ints), n(HsStat::Pbus)),
+        P::CB | P::S => format!(
+            "{} {} · {} INT · {} PBU",
+            n(HsStat::Tackles),
+            afm_engine::world::folk::noun(n(HsStat::Tackles), "tackle"),
+            n(HsStat::Ints),
+            n(HsStat::Pbus)
+        ),
         P::K => format!("{}/{} FG · {} PAT", n(HsStat::FgMade), n(HsStat::FgAtt), n(HsStat::XpMade)),
-        P::P | P::LS => format!("{} games", l.games),
+        P::P | P::LS => format!("{} {}", l.games, afm_engine::world::folk::noun(l.games, "game")),
     };
     Some(format!("{}: {text}", l.year))
 }

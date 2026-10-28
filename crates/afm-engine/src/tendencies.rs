@@ -721,7 +721,9 @@ pub enum Instruction {
 impl Instruction {
     pub fn label(self) -> String {
         match self {
-            Instruction::KneelDeeperThan(d) => format!("Kneel if deeper than {d:.0} yards"),
+            Instruction::KneelDeeperThan(d) => {
+                format!("Kneel if deeper than {d:.0} {}", crate::world::folk::noun(d.round() as i64, "yard"))
+            }
             Instruction::FairCatchInsideTen => "Fair catch inside the 10, let it bounce".into(),
             Instruction::Slide => "Slide, don't take hits".into(),
             Instruction::TakeShots => "Take shots".into(),

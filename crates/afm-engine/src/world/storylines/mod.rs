@@ -548,6 +548,21 @@ impl Storylines {
 
 /// A person's index by player id: a binary search only (people are kept
 /// in id order), so a player who has left the world costs nothing.
+/// An older file's story lines said "has 1 interceptions this season":
+/// they read "1 interception" once loaded.
+pub(crate) fn after_load(w: &mut World) {
+    let st = &mut w.storylines;
+    for b in st.open.iter_mut().chain(st.ended.iter_mut()).flat_map(|s| s.beats.iter_mut()) {
+        if b.text.contains(" has 1 ") {
+            for n in ["passing yards", "rushing yards", "receiving yards", "sacks", "interceptions"] {
+                b.text = b
+                    .text
+                    .replace(&format!(" has 1 {n} this season"), &format!(" has 1 {} this season", &n[..n.len() - 1]));
+            }
+        }
+    }
+}
+
 pub(crate) fn pi(w: &World, id: u32) -> Option<usize> {
     super::stories::person_index(w, id)
 }
