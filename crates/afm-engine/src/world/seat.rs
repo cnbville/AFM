@@ -604,6 +604,11 @@ pub struct You {
     /// read from your road and your people ratings.
     #[serde(default)]
     pub aura: f64,
+    /// The position you played or the group you came up coaching (coaching
+    /// C5): the group your road's strength went to. None on a road with
+    /// neither, and in a file from before it: the group you teach best.
+    #[serde(default)]
+    pub came_up: Option<super::coach::Group>,
 }
 
 impl You {

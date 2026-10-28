@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
+Checked against main at 81c9f0c with update 3 lane 2 on 2026-10-27.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -79,6 +79,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 - Who gets looked at: the top 25% of the class by max(film, projection - 6), plus anyone committed or rated 2+ stars (`run_signing_stage`, `interest`).
 - Who a staff sees (`see`): (footprint[state] + 1.2 × local) × visibility × 1.6 + bonus, where local = max(HS pipeline, 0.6 × area pipeline, 0.7 × staff ties to his school); bonus 1.0 for 4-5 stars, else 0.15 × stars. Below 1.0 it's a roll. A staff always sees its own commits and every 2+ star in its own state.
+- Your own coach starts with the high school ties his road brings (update 3, lane 2): a high school coach about 30 schools in his state, a college assistant about 25 in his recruiting area, a playing road his own high school (`crates/afm-game/src/setup.rs`, `road_ties`; see [staff-and-coaches.md](staff-and-coaches.md), "Your coach at the start"). They count in `see` and the signing stage like any staffer's ties.
 - Skipped: D2/NAIA/D3 don't board 4-5 stars, FCS doesn't board 5-stars; NCAA non-qualifiers; below the school's own admissions bar unless a special admit (qualifier, GPA trending up, work ethic and coachability reads, stable home or mentor, no trouble, and the school has special admits left).
 - Evaluation (`eval`): 0.6 × (film + noise) + 0.4 × (projection + noise) + 0.3 × film-SD × system fit + 0.5 × film-SD × gift seen × eye factor − 4 × grade risk × (1 − academic support) × (1 − 0.6 × hot seat) + 5 film-SD for its own commits.
   - Noise SD = 3.5 − 0.15 × (0.6 × position coach eye + 0.4 × HC eye − 10), clamped 1-6. Eye = `Coach::evaluation` (`world/coach.rs`).
