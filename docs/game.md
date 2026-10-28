@@ -899,7 +899,8 @@ Update 3 A2, A4, A6, A7, A12-A14 and A8-A10 (speed S11-S13), speed S1, S2, S2b a
 - Drafted receivers, corners and safeties are 4-9 lb heavy (210, 199, 211 against 201, 193, 207): the pounds talent adds at creation, not the weight room. A follow-up needs Cain's yes.
 - The five-star draft rate (0.848) sits just under the test's 0.85 ceiling.
 - FBS early signings in the test world's last year fell from 77% to 73%, under the world test's 75% floor. Lane 1 does not move them: on calendar_check's world (seed 2026, stand-in games) they are 68%, 69% and 78% for 2023-2025 against main's 66%, 70% and 77%, so the drop is the test world's draw. The test now asks more than 70%. Real December shares have run higher in recent cycles, worth measuring as a follow-up (needs Cain's yes).
-- Two checks in other lanes' tests leaned on one world's draw and were fixed here: the find test now puts its own recruit on the board (its small world's coordinator board was empty in March), and a story opened after the Super Bowl no longer repeats lines told about the same person before it (`storylines`, `told_season`).
+- Two checks in other lanes' tests leaned on one world's draw and were fixed here: the find test now puts its own recruit on the board (its small world's coordinator board was empty in March), and a story opened after the Super Bowl no longer repeats lines told about the same person before it (`storylines`, `told_season`). `seat_season`'s high school seat found one more: the pass map of a passer who has left football said "No such player"; it now takes his name from your games, as the game page does (`lane_boards/passmap.rs`).
+- The high school seat in `seat_season build 365` plays one game of its own in the year, on main too (not this lane).
 
 ## Not built yet (section 8's design, for the next builds)
 
