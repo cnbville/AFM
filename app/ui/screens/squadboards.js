@@ -300,7 +300,7 @@ function sbSpotPanel(x, s, k) {
     const up = i > 0 && s.controls && x.slots[k] ? `<button class="sb-up" data-act="sbup" data-k="${k}" data-n="${i + 1}" title="Move ${esc(m.name)} up" aria-label="Move ${esc(m.name)} up">↑</button>` : "";
     const hurt = m.health !== "full" ? ` <span class="sb-tag ${m.health === "out" ? "bad" : "warn"}" title="${esc(m.health_why || "")}">${m.health === "out" ? "Out" : "Limited"}</span>` : "";
     const ready = i === 0 ? "Starter" : m.ready;
-    return `<div class="sb-dr ${i === 0 ? "first" : ""}"><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name)}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
+    return `<div class="sb-dr ${i === 0 ? "first" : ""}"><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
   }).join("");
   const coach = d && d.coach ? `<div class="sb-coach"><span class="sb-ci">${esc(String(d.coach.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span><div><div class="sb-cn">${d.coach.you ? "You" : coachLink(d.coach.id, d.coach.name || "")}, ${esc(d.coach.title)}</div><p>${esc(d.note)}</p></div></div>` : "";
   return `<span class="sb-bignum" aria-hidden="true">${p.num != null ? p.num : ""}</span>
@@ -310,7 +310,7 @@ function sbSpotPanel(x, s, k) {
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(s.pos)}</span>${keys}</div>
     <div class="sb-sec"><span class="sb-lbl">Depth at ${esc(s.slot)}</span>${depth}</div>
     ${coach}
-    <div class="st-actions">${linkTo("player", { id: p.id }, "Player page", "st-btn small")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
+    <div class="st-actions">${linkTo("player", { id: p.id, tab: "Development" }, "Player page", "st-btn small")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
 }
 
 // ---------- V2: the needs map in the stadium ----------

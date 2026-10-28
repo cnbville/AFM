@@ -226,7 +226,7 @@ function fcFile(f, ctx, compact) {
       ${f.place ? `<span class="st-outline" aria-hidden="true">${f.place}</span>` : ""}
       <div class="fc-id">
         <div class="st-label">${esc(f.rank)}</div>
-        <h2>${playerLink(f.id, f.name)}</h2>
+        <h2>${playerLink(f.id, f.name, "Recruiting")}</h2>
         <div><b>${fcSchool(f)}</b><div class="fc-town">${esc(f.town)} · ${f.juco ? "Junior college" : `Class of ${f.class_of}`} · ${esc(f.cls)}</div></div>
         <div class="fc-pills"><span class="st-pill">${esc(f.pos)}</span><span class="st-pill">${f.stars ? `${f.stars}★ public` : "Unranked"}</span>${f.priority ? '<span class="st-pill gold">Your own time</span>' : ""}${fcStanding(f)}</div>
         <dl class="fc-idkv"><dt>Decides</dt><dd>${esc(f.decides)}</dd><dt>Transcript</dt><dd>${esc(f.gpa)} core GPA · ${esc(f.qualifies)}</dd><dt>From campus</dt><dd>${Math.round(f.miles)} miles</dd>${f.camera ? `<dt>On camera</dt><dd>${esc(f.camera)}${f.followers ? ` · ${fcFollow(f.followers)} followers` : ""}</dd>` : ""}</dl>
@@ -307,7 +307,7 @@ function fcBoardTable(x, k, yours) {
   const posOpts = [["ALL", "All"], ...x.class.by_pos.map((p) => [p.pos, p.pos])].filter(([v]) => v === "ALL" || x.rows.some((r) => r.pos === v));
   const cols = [
     { k: "place", t: "#", tip: "Your order: commitments first, then this order decides who can commit when the class fills", f: (r) => fcLink("recruit_file", String(r.place), { id: r.id }) },
-    { k: "name", t: "Recruit", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.priority ? ' <span class="fc-yourtime" title="You give him your own time">●</span>' : ""}` },
+    { k: "name", t: "Recruit", l: true, f: (r) => `${playerLink(r.id, r.name, "Recruiting")}${r.priority ? ' <span class="fc-yourtime" title="You give him your own time">●</span>' : ""}` },
     { k: "pos", t: "Pos", l: true },
     { k: "cls", t: "Class", l: true, v: (r) => r.class_of },
     { k: "stars", t: "★", tip: "The services' stars", f: (r) => fcStars(r.stars) },
@@ -385,7 +385,7 @@ screens.visits_desk = async () => {
     ? table("fcvahead", [
         { k: "d", t: "Date", l: true, f: (r) => `<b>${esc(r.date)}</b> <small class="sub">${fcIn(r.in)}</small>` },
         { k: "kind", t: "Visit", l: true },
-        { k: "name", t: "Recruit", l: true, div: true, f: (r) => playerLink(r.id, r.name) },
+        { k: "name", t: "Recruit", l: true, div: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
         { k: "pos", t: "Pos", l: true },
         { k: "stars", t: "★", f: (r) => fcStars(r.stars) },
         { k: "town", t: "Hometown", l: true },
@@ -397,7 +397,7 @@ screens.visits_desk = async () => {
   const past = table("fcvpast", [
     { k: "d", t: "Date", l: true, f: (r) => esc(r.date) },
     { k: "kind", t: "Visit", l: true },
-    { k: "name", t: "Recruit", l: true, div: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "name", t: "Recruit", l: true, div: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
     { k: "pos", t: "Pos", l: true },
     { k: "stars", t: "★", f: (r) => fcStars(r.stars) },
     { k: "state", t: "", l: true, f: (r) => `${fcDot(r.state === "Done" ? "good" : r.state === "Declined" ? "bad" : "")}${esc(r.state)}` },
@@ -444,7 +444,7 @@ screens.portal_desk = async () => {
   if (k.tab === "entrants") {
     const POS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"];
     const cols = [
-      { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.contacted ? ' <span class="st-pill" title="You reached out before he entered">Talked</span>' : ""}` },
+      { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name, "Recruiting")}${r.contacted ? ' <span class="st-pill" title="You reached out before he entered">Talked</span>' : ""}` },
       { k: "pos", t: "Pos", l: true },
       { k: "from", t: "From", l: true, v: (r) => r.from.name, f: (r) => `${teamLink(r.from)} <small class="sub">${esc(r.division)}</small>` },
       { k: "division", t: "Div", l: true, hide: true },
@@ -464,7 +464,7 @@ screens.portal_desk = async () => {
       ${table("fcportal", cols, x.entrants, { sort: null, empty: open ? "Nobody in the portal matches." : "The portal is closed: entrants come when a window opens.", groups: [{ t: "Player", span: 7 }, { t: "Your staff", span: 2, div: true }, { t: "His move", span: 3, div: true }, { t: "Yours", span: 1, div: true }] })}`;
   } else if (k.tab === "targets") {
     body = table("fcptargets", [
-      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
       { k: "pos", t: "Pos", l: true },
       { k: "from", t: "From", l: true, v: (r) => r.from.name, f: (r) => teamLink(r.from) },
       { k: "status", t: "Where it stands", l: true, div: true },
@@ -477,7 +477,7 @@ screens.portal_desk = async () => {
     body = `<p class="sub">Your players by how likely they are to leave, in your staff's words. A talk sways a player the way your relationships with players do: a good one keeps him, a poor one can push him.</p>
     ${table("fcproster", [
       { k: "rank", t: "", v: (r) => -r.rank, f: (r) => fcDot(fcTone(r.tone)) },
-      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "People") },
       { k: "pos", t: "Pos", l: true },
       { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
       { k: "role", t: "Role", l: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
@@ -546,10 +546,10 @@ screens.nil_desk = async () => {
     { k: "deal", t: "Your deal", div: true, v: (r) => (r.deal != null ? r.deal : -1), f: (r) => (x.yours ? `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.deal != null ? Math.round(r.deal / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="deal" data-id="${r.id}">k</label>` : r.usual ? money(r.usual) : "-") },
   ];
   const promised = x.promised.length
-    ? x.promised.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name)} <small class="sub">· ${esc(p.pos)} · ${p.stars ? p.stars + "★" : "unrated"}${p.standing === "committed" ? " · committed" : p.standing === "signed" ? " · signed" : ""}</small></span></div>`).join("")
+    ? x.promised.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} · ${p.stars ? p.stars + "★" : "unrated"}${p.standing === "committed" ? " · committed" : p.standing === "signed" ? " · signed" : ""}</small></span></div>`).join("")
     : '<div class="empty">No promises to recruits. Set one in a recruit\'s file.</div>';
   const portal = x.portal.length
-    ? x.portal.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name)} <small class="sub">· ${esc(p.pos)} from ${teamLink(p.from)}</small></span></div>`).join("")
+    ? x.portal.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} from ${teamLink(p.from)}</small></span></div>`).join("")
     : '<div class="empty">No portal offers carry money.</div>';
   const hist = x.history.length
     ? `<div class="tbl warm"><table><thead><tr><th class="l">Season</th><th>NIL budget</th><th>From boosters</th></tr></thead><tbody>${x.history.map((h) => `<tr><td class="l">${h.season}</td><td>${m(h.budget)}</td><td>${m(h.boosters)}</td></tr>`).join("")}</tbody></table></div>`

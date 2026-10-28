@@ -487,7 +487,7 @@ screens.depth = async () => {
     const n = i < cur.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`;
     const where = r.here ? esc(r.pos) : `<span class="st-pill gold" title="Listed at ${esc(r.pos)}: the staff plays him here too">${esc(r.pos)}</span>`;
     const deep = i >= cur.listed ? ' class="deep"' : "";
-    return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${esc(r.status)}</td>
+    return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name, "Development")}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${esc(r.status)}</td>
       <td><button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="-1" ${i === 0 || !ctl ? "disabled" : ""}>Up</button> <button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="1" ${i === cur.players.length - 1 || !ctl ? "disabled" : ""}>Down</button></td></tr>`;
   }).join("");
   return `<div class="film"><div class="pad">

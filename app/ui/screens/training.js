@@ -619,7 +619,7 @@ function twNumbers(x) {
   const coach = x.staff.str ? x.staff.str.name : "the strength staff";
   if (!n.rows.length) return `<div class="panel tw-panel"><div class="empty">No testing yet this year.${n.next ? ` The next testing day is ${esc(n.next)}.` : ""}</div></div>`;
   const cols = [
-    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "Development") },
     { k: "pos", t: "Pos", l: true },
     { k: "bench", t: n.pro ? "225 bench" : "Bench", v: (r) => parseFloat(r.bench) || 0, f: (r) => esc(r.bench) },
     { k: "squat", t: "Squat", hide: n.pro, v: (r) => parseFloat(r.squat) || 0, f: (r) => esc(r.squat) },
@@ -636,7 +636,7 @@ function twNumbers(x) {
 // Who's where (TR7, TR8, TR9, TR14).
 function twWhere(x) {
   const w = x.where;
-  const pl = (p) => `${playerLink(p.id, p.name)} <span class="muted">${esc(p.pos)}</span>`;
+  const pl = (p) => `${playerLink(p.id, p.name, "Development")} <span class="muted">${esc(p.pos)}</span>`;
   const box = (t, sub, rows, empty) => `<div class="panel tw-panel">${twPh(t, sub)}${rows.length ? `<table class="tw-small">${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "muted" : ""}">${c}</td>`).join("")}</tr>`).join("")}</table>` : `<div class="tw-mini">${esc(empty)}</div>`}</div>`;
   // Many at other sports (a high school's spring): one row a sport, as a
   // coach would say it ("24 on the baseball team").
@@ -647,7 +647,7 @@ function twWhere(x) {
   const away = (many
     ? Object.entries(sports).map(([k, xs]) => [`<b>${xs.length} ${esc({ basketball: "on the basketball team", baseball: "on the baseball team", track: "at track", wrestling: "wrestling" }[k] || `at ${k}`)}</b><div class="tw-l2">${names(xs)}</div>`, esc(xs[0].what.split(":").slice(1).join(":").trim() || xs[0].what)])
     : w.away.map((a) => [pl(a.p), esc(a.what)])
-  ).concat(x.players.filter((r) => r.prep && (r.prep.status === "away" || r.prep.status === "absent") && !w.away.some((a) => a.p.id === r.id)).map((r) => [`${playerLink(r.id, r.name)} <span class="muted">${esc(r.pos)}</span>`, esc(r.prep.status_text)]));
+  ).concat(x.players.filter((r) => r.prep && (r.prep.status === "away" || r.prep.status === "absent") && !w.away.some((a) => a.p.id === r.id)).map((r) => [`${playerLink(r.id, r.name, "Development")} <span class="muted">${esc(r.pos)}</span>`, esc(r.prep.status_text)]));
   return `<div class="grid2 tw-g2">${box("Rehab group, with the trainers' step", `${w.rehab.length}`, w.rehab.map((r) => [pl(r.p), `${esc(r.what)}${r.since ? ` · since ${esc(r.since)}` : ""}`, esc(r.step), esc(r.back)]), "Nobody in rehab this week.")}
     ${box("New arrivals", "the last four weeks", w.arrivals.map((a) => [pl(a.p), esc(a.how), esc(a.at)]), "Nobody new in the last four weeks.")}
     ${box("At another sport, or away", w.away.length ? `${w.away.length} at other sports` : "", away, w.tier === "nfl" ? "Nobody away: NFL players play no other sport." : "Nobody away this week.")}
@@ -1054,10 +1054,10 @@ screens.depth = async (a) => {
   const onBoard = new Set(b.slots.filter((s) => s.player).map((s) => s.player.id));
   // The pool: everyone, the slot's position first when a slot is picked.
   const pool = x.players.slice().sort((p, q) => (want ? (q.pos === want.pos) - (p.pos === want.pos) : 0) || mid(q.ovr) - mid(p.ovr));
-  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name)}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
+  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name, "Development")}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
   const props = b.slots.some((s) => s.proposal && (!s.player || s.proposal.id !== s.player.id));
   const locked = b.slots.some((s) => !s.controls);
-  const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name)} over ${playerLink(s.player.id, s.player.name)} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");
+  const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name, "Development")} over ${playerLink(s.player.id, s.player.name, "Development")} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");
   return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}
     <div class="tr-boardwrap"><div class="panel warm tr-boardp"><h2>${esc(b.label)} <small>${b.yours ? "your order" : b.kind === "package" ? "your position coaches' picks: set it to make it yours" : "your staff's order"}${locked ? " · some spots are the head coach's" : ""}</small></h2>
       <div class="tr-board ${b.kind}" data-board="${esc(b.key)}" style="aspect-ratio:${(60 / fr.span).toFixed(3)};--yd:${((5 / fr.span) * 100).toFixed(2)}%"><div class="tr-los" style="top:${((-fr.top / fr.span) * 100).toFixed(2)}%"></div>${b.slots.map((s, k) => slotCard(s, k, b, sel === k, fr)).join("")}</div>
