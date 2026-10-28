@@ -139,7 +139,7 @@ pub(crate) fn fill_for_test(t: &str, f: &Fill) -> Option<String> {
 }
 
 /// The nouns the banks count with a number placeholder, plural and singular.
-const COUNT_NOUNS: [(&str, &str); 15] = [
+const COUNT_NOUNS: [(&str, &str); 16] = [
     ("days", "day"),
     ("weeks", "week"),
     ("years", "year"),
@@ -147,6 +147,7 @@ const COUNT_NOUNS: [(&str, &str); 15] = [
     ("points", "point"),
     ("yards", "yard"),
     ("wins", "win"),
+    ("losses", "loss"),
     ("titles", "title"),
     ("times", "time"),
     ("chances", "chance"),

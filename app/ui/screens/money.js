@@ -144,7 +144,7 @@ function mnCard(c, own) {
   if (c.hidden) return `<div class="empty">The ${c.year} report cards stayed inside the union: an arbitrator ruled in 2025 they can't be published. Players and agents still talk.</div>`;
   const tone = (s) => (s >= 10 ? "var(--good)" : s >= 7 ? "var(--fg2)" : s >= 4 ? "var(--gold)" : "var(--live)");
   const rows = c.grades.map((g) => `<div class="mn-grade"><span>${esc(g.part)}</span><b style="color:${tone(g.score)}">${esc(g.grade)}</b></div>`).join("");
-  return `<section class="panel"><h2>NFLPA team report card <small>${c.year} · ${mnOrd(c.rank)} of ${c.of}${c.public ? "" : " · the union's own, shared with you"}</small></h2><div class="mn-grades">${rows}</div><p class="sub">Players grade their club every year. Free agents and their agents read it; a bad grade on the owner or the food is the kind of thing an owner hears about.${c.newer_hidden ? ` The ${c.newer_hidden} ${c.newer_hidden === 1 ? "card" : "cards"} stayed inside the union: this is the last one published.` : ""}</p></section>`;
+  return `<section class="panel"><h2>NFLPA team report card <small>${c.year} · ${mnOrd(c.rank)} of ${c.of}${c.public ? "" : " · the union's own, shared with you"}</small></h2><div class="mn-grades">${rows}</div><p class="sub">Players grade their club every year. Free agents and their agents read it; a bad grade on the owner or the food is the kind of thing an owner hears about.${c.newer_hidden ? ` The ${c.newer_hidden} cards stayed inside the union: this is the last one published.` : ""}</p></section>`;
 }
 
 function mnProjects(list) {

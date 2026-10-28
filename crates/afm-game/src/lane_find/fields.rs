@@ -1009,10 +1009,11 @@ pub fn stat_line(ctx: &Ctx, i: usize) -> Option<String> {
     let n = |s: HsStat| g(s).round() as i64;
     let text = match pos {
         P::QB => format!(
-            "{}/{} · {} yds · {} TD · {} INT",
+            "{}/{} · {} {} · {} TD · {} INT",
             n(HsStat::Cmp),
             n(HsStat::Att),
             n(HsStat::PassYds),
+            if n(HsStat::PassYds) == 1 { "yd" } else { "yds" },
             n(HsStat::PassTd),
             n(HsStat::Int)
         ),
@@ -1027,10 +1028,11 @@ pub fn stat_line(ctx: &Ctx, i: usize) -> Option<String> {
             )
         }
         P::WR | P::TE => format!(
-            "{} {} · {} yds · {} TD",
+            "{} {} · {} {} · {} TD",
             n(HsStat::Rec),
             afm_engine::world::folk::noun(n(HsStat::Rec), "catch"),
             n(HsStat::RecYds),
+            if n(HsStat::RecYds) == 1 { "yd" } else { "yds" },
             n(HsStat::RecTd)
         ),
         P::OT | P::IOL => format!("{} {} started up front", l.games, afm_engine::world::folk::noun(l.games, "game")),

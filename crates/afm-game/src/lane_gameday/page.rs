@@ -998,7 +998,7 @@ fn passes(s: &GameStats, names: &Names) -> Vec<Value> {
                 "complete": r.complete,
                 "td": r.touchdown && !r.defense_td,
                 "int": r.interception,
-                "text": format!("{} to {}: {}", name(r.passer), name(r.target), if r.interception { "intercepted".to_string() } else if r.complete { format!("{:.0} {}", r.yards, if r.yards.round() == 1.0 { "yard" } else { "yards" }) } else { "incomplete".to_string() }),
+                "text": format!("{} to {}: {}", name(r.passer), name(r.target), if r.interception { "intercepted".to_string() } else if r.complete { format!("{:.0} {}", r.yards, if r.yards.round_ties_even() == 1.0 { "yard" } else { "yards" }) } else { "incomplete".to_string() }),
             }))
         })
         .collect()
@@ -1245,7 +1245,7 @@ pub fn halftime(r: &GameResult, mine: usize, names: &Names, sides: &[String; 2])
                 pos(i.id),
                 i.kind.name(),
                 i.weeks,
-                if i.weeks.round() == 1.0 { "" } else { "s" },
+                if i.weeks.round_ties_even() == 1.0 { "" } else { "s" },
                 if i.plays_on { ", playing through it" } else { ", out for the game" }
             )
         })
@@ -1278,7 +1278,7 @@ pub fn after_game(w: &World, r: &GameResult, mine: usize, names: &Names, sides: 
                 name(i.id),
                 i.kind.name(),
                 i.weeks,
-                if i.weeks.round() == 1.0 { "" } else { "s" }
+                if i.weeks.round_ties_even() == 1.0 { "" } else { "s" }
             )
         })
         .collect();

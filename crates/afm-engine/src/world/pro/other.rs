@@ -589,15 +589,20 @@ impl OtherSeason {
         }
         match pos {
             P::QB => format!(
-                "{}/{} passing, {:.0} yards, {} TD, {} INT",
-                self.cmp, self.att, self.pass_yds, self.pass_td, self.int
+                "{}/{} passing, {:.0} {}, {} TD, {} INT",
+                self.cmp,
+                self.att,
+                self.pass_yds,
+                crate::world::folk::noun(self.pass_yds.round_ties_even() as i64, "yard"),
+                self.pass_td,
+                self.int
             ),
             P::RB => format!(
                 "{} {}, {:.0} {}, {} TD",
                 self.rush,
                 crate::world::folk::noun(self.rush, "carry"),
                 self.rush_yds,
-                crate::world::folk::noun(self.rush_yds.round() as i64, "yard"),
+                crate::world::folk::noun(self.rush_yds.round_ties_even() as i64, "yard"),
                 self.rush_td
             ),
             P::WR | P::TE => format!(
@@ -605,7 +610,7 @@ impl OtherSeason {
                 self.rec,
                 crate::world::folk::noun(self.rec, "catch"),
                 self.rec_yds,
-                crate::world::folk::noun(self.rec_yds.round() as i64, "yard"),
+                crate::world::folk::noun(self.rec_yds.round_ties_even() as i64, "yard"),
                 self.rec_td
             ),
             P::OT | P::IOL => format!("{} {} on the line", self.starts, crate::world::folk::noun(self.starts, "start")),

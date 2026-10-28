@@ -1865,7 +1865,7 @@ impl<'a> Game<'a> {
                 format!(
                     "Returned {:.0} {} by #{}.",
                     kr.return_yards,
-                    crate::world::folk::noun(kr.return_yards.round() as i64, "yard"),
+                    crate::world::folk::noun(kr.return_yards.round_ties_even() as i64, "yard"),
                     kr.returner.unwrap_or(0)
                 )
             };
@@ -4408,7 +4408,7 @@ impl<'a> Game<'a> {
                         p.0.name(),
                         label(p.2),
                         p.3,
-                        crate::world::folk::noun(p.3.round() as i64, "yard")
+                        crate::world::folk::noun(p.3.round_ties_even() as i64, "yard")
                     ));
                 }
             }

@@ -420,10 +420,11 @@ pub fn stat_line(pos: Position, g: impl Fn(Stat) -> f64) -> String {
     let n = |s: Stat| g(s).round() as i64;
     match pos {
         P::QB => format!(
-            "{}/{} passing, {} yards, {} TD, {} INT",
+            "{}/{} passing, {} {}, {} TD, {} INT",
             n(Stat::Cmp),
             n(Stat::Att),
             n(Stat::PassYds),
+            afm_engine::world::folk::noun(n(Stat::PassYds), "yard"),
             n(Stat::PassTd),
             n(Stat::Int)
         ),
@@ -1449,7 +1450,7 @@ fn games_mail(pen: &mut Pen, from: Date, to: Date) {
                 l.rush,
                 afm_engine::world::folk::noun(l.rush, "carry"),
                 l.rush_yds,
-                afm_engine::world::folk::noun(l.rush_yds.round() as i64, "yard"),
+                afm_engine::world::folk::noun(l.rush_yds.round_ties_even() as i64, "yard"),
                 l.rush_td
             ));
             ids.push(id);
@@ -1461,7 +1462,7 @@ fn games_mail(pen: &mut Pen, from: Date, to: Date) {
                 l.rec,
                 afm_engine::world::folk::noun(l.rec, "catch"),
                 l.rec_yds,
-                afm_engine::world::folk::noun(l.rec_yds.round() as i64, "yard"),
+                afm_engine::world::folk::noun(l.rec_yds.round_ties_even() as i64, "yard"),
                 l.rec_td
             ));
             ids.push(id);

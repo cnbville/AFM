@@ -546,8 +546,6 @@ impl Storylines {
     }
 }
 
-/// A person's index by player id: a binary search only (people are kept
-/// in id order), so a player who has left the world costs nothing.
 /// An older file's story lines said "has 1 interceptions this season":
 /// they read "1 interception" once loaded.
 pub(crate) fn after_load(w: &mut World) {
@@ -563,6 +561,8 @@ pub(crate) fn after_load(w: &mut World) {
     }
 }
 
+/// A person's index by player id: a binary search only (people are kept
+/// in id order), so a player who has left the world costs nothing.
 pub(crate) fn pi(w: &World, id: u32) -> Option<usize> {
     super::stories::person_index(w, id)
 }

@@ -85,7 +85,7 @@ const look = async () => {
     for (let n = tw.nextNode(); n; n = tw.nextNode()) {
       const t = n.nodeValue;
       if (t.includes("[[")) raw.push(t.trim().slice(0, 140));
-      if (/(?<![\d.,])1 [a-z]+s\b/.test(t)) ones.push(t.trim().slice(0, 140));
+      if (/(?<![\d.,])1 (?!(?:is|has|was|this|its|his|plus|vs)\b)[a-z]+s\b/.test(t)) ones.push(t.trim().slice(0, 140));
     }
     for (const el of document.querySelectorAll("[title],[aria-label]")) {
       for (const a of ["title", "aria-label"]) {

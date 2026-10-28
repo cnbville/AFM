@@ -883,7 +883,7 @@ fn named_play(w: &mut World, ctx: &GameCtx, s: &GameStats, who: &std::collection
             _ => "caught it from",
         },
         yds,
-        crate::world::folk::noun(yds.round() as i64, "yard"),
+        crate::world::folk::noun(yds.round_ties_even() as i64, "yard"),
         clock_words(p.clock),
         super::team_in_text(w, opp),
         sh.max(sa),
@@ -928,7 +928,7 @@ fn clock_words(sec: f64) -> String {
     if sec <= 0.5 {
         "no time".into()
     } else if sec < 60.0 {
-        format!("{sec:.0} {}", crate::world::folk::noun(sec.round() as i64, "second"))
+        format!("{sec:.0} {}", crate::world::folk::noun(sec.round_ties_even() as i64, "second"))
     } else {
         format!("{}:{:02}", (sec / 60.0) as u32, (sec % 60.0) as u32)
     }
