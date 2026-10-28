@@ -1,0 +1,1101 @@
+season,poll,rank,team,points,first_place_votes
+2004,preseason,1,USC,0.0,48.0
+2004,preseason,2,Oklahoma,0.0,11.0
+2004,preseason,3,Georgia,0.0,5.0
+2004,preseason,4,LSU,0.0,1.0
+2004,preseason,5,Florida State,0.0,0.0
+2004,preseason,6,Miami,0.0,0.0
+2004,preseason,7,Texas,0.0,0.0
+2004,preseason,8,Michigan,0.0,0.0
+2004,preseason,9,Ohio State,0.0,0.0
+2004,preseason,10,West Virginia,0.0,0.0
+2004,preseason,11,Florida,0.0,0.0
+2004,preseason,12,Kansas State,0.0,0.0
+2004,preseason,13,California,0.0,0.0
+2004,preseason,14,Tennessee,0.0,0.0
+2004,preseason,15,Clemson,0.0,0.0
+2004,preseason,16,Virginia,0.0,0.0
+2004,preseason,17,Auburn,0.0,0.0
+2004,preseason,18,Missouri,0.0,0.0
+2004,preseason,19,Iowa,0.0,0.0
+2004,preseason,20,Utah,0.0,0.0
+2004,preseason,21,Wisconsin,0.0,0.0
+2004,preseason,22,Maryland,0.0,0.0
+2004,preseason,23,Oregon,0.0,0.0
+2004,preseason,24,Purdue,0.0,0.0
+2004,preseason,25,Minnesota,0.0,0.0
+2004,final,1,USC,0.0,62.0
+2004,final,2,Auburn,0.0,3.0
+2004,final,3,Oklahoma,0.0,0.0
+2004,final,4,Utah,0.0,0.0
+2004,final,5,Texas,0.0,0.0
+2004,final,6,Louisville,0.0,0.0
+2004,final,7,Georgia,0.0,0.0
+2004,final,8,Iowa,0.0,0.0
+2004,final,9,California,0.0,0.0
+2004,final,10,Virginia Tech,0.0,0.0
+2004,final,11,Miami,0.0,0.0
+2004,final,12,Boise State,0.0,0.0
+2004,final,13,Tennessee,0.0,0.0
+2004,final,14,Michigan,0.0,0.0
+2004,final,15,Florida State,0.0,0.0
+2004,final,16,LSU,0.0,0.0
+2004,final,17,Wisconsin,0.0,0.0
+2004,final,18,Texas Tech,0.0,0.0
+2004,final,19,Arizona State,0.0,0.0
+2004,final,20,Ohio State,0.0,0.0
+2004,final,21,Boston College,0.0,0.0
+2004,final,22,Fresno State,0.0,0.0
+2004,final,23,Virginia,0.0,0.0
+2004,final,24,Navy,0.0,0.0
+2004,final,25,Pittsburgh,0.0,0.0
+2005,preseason,1,USC,0.0,60.0
+2005,preseason,2,Texas,0.0,4.0
+2005,preseason,3,Tennessee,0.0,13.0
+2005,preseason,4,Michigan,0.0,0.0
+2005,preseason,5,LSU,0.0,0.0
+2005,preseason,6,Ohio State,0.0,0.0
+2005,preseason,7,Oklahoma,0.0,0.0
+2005,preseason,8,Virginia Tech,0.0,0.0
+2005,preseason,9,Miami,0.0,0.0
+2005,preseason,10,Florida,0.0,0.0
+2005,preseason,11,Iowa,0.0,0.0
+2005,preseason,12,Louisville,0.0,1.0
+2005,preseason,13,Georgia,0.0,0.0
+2005,preseason,14,Florida State,0.0,0.0
+2005,preseason,15,Purdue,0.0,0.0
+2005,preseason,16,Auburn,0.0,0.0
+2005,preseason,17,Texas A&M,0.0,0.0
+2005,preseason,18,Boise State,0.0,0.0
+2005,preseason,19,California,0.0,0.0
+2005,preseason,20,Arizona State,0.0,0.0
+2005,preseason,21,Texas Tech,0.0,0.0
+2005,preseason,22,Boston College,0.0,0.0
+2005,preseason,23,Pittsburgh,0.0,0.0
+2005,preseason,24,Fresno State,0.0,0.0
+2005,preseason,25,Virginia,0.0,0.0
+2005,final,1,Texas,0.0,65.0
+2005,final,2,USC,0.0,0.0
+2005,final,3,Penn State,0.0,0.0
+2005,final,4,Ohio State,0.0,0.0
+2005,final,5,West Virginia,0.0,0.0
+2005,final,6,LSU,0.0,0.0
+2005,final,7,Virginia Tech,0.0,0.0
+2005,final,8,Alabama,0.0,0.0
+2005,final,9,Notre Dame,0.0,0.0
+2005,final,10,Georgia,0.0,0.0
+2005,final,11,TCU,0.0,0.0
+2005,final,12,Florida,0.0,0.0
+2005,final,12,Oregon,0.0,0.0
+2005,final,14,Auburn,0.0,0.0
+2005,final,15,Wisconsin,0.0,0.0
+2005,final,16,UCLA,0.0,0.0
+2005,final,17,Miami,0.0,0.0
+2005,final,18,Boston College,0.0,0.0
+2005,final,19,Louisville,0.0,0.0
+2005,final,20,Texas Tech,0.0,0.0
+2005,final,21,Clemson,0.0,0.0
+2005,final,22,Oklahoma,0.0,0.0
+2005,final,23,Florida State,0.0,0.0
+2005,final,24,Nebraska,0.0,0.0
+2005,final,25,California,0.0,0.0
+2006,preseason,1,Ohio State,0.0,35.0
+2006,preseason,2,Notre Dame,0.0,10.0
+2006,preseason,3,Texas,0.0,8.0
+2006,preseason,4,Auburn,0.0,3.0
+2006,preseason,5,West Virginia,0.0,6.0
+2006,preseason,6,USC,0.0,3.0
+2006,preseason,7,Florida,0.0,0.0
+2006,preseason,8,LSU,0.0,0.0
+2006,preseason,9,California,0.0,0.0
+2006,preseason,10,Oklahoma,0.0,0.0
+2006,preseason,11,Florida State,0.0,0.0
+2006,preseason,12,Miami,0.0,0.0
+2006,preseason,13,Louisville,0.0,0.0
+2006,preseason,14,Michigan,0.0,0.0
+2006,preseason,15,Georgia,0.0,0.0
+2006,preseason,16,Iowa,0.0,0.0
+2006,preseason,17,Virginia Tech,0.0,0.0
+2006,preseason,18,Clemson,0.0,0.0
+2006,preseason,19,Penn State,0.0,0.0
+2006,preseason,20,Nebraska,0.0,0.0
+2006,preseason,21,Oregon,0.0,0.0
+2006,preseason,22,TCU,0.0,0.0
+2006,preseason,23,Tennessee,0.0,0.0
+2006,preseason,24,Arizona State,0.0,0.0
+2006,preseason,25,Texas Tech,0.0,0.0
+2006,final,1,Florida,0.0,64.0
+2006,final,2,Ohio State,0.0,0.0
+2006,final,3,LSU,0.0,0.0
+2006,final,4,USC,0.0,0.0
+2006,final,5,Boise State,0.0,1.0
+2006,final,6,Louisville,0.0,0.0
+2006,final,7,Wisconsin,0.0,0.0
+2006,final,8,Michigan,0.0,0.0
+2006,final,9,Auburn,0.0,0.0
+2006,final,10,West Virginia,0.0,0.0
+2006,final,11,Oklahoma,0.0,0.0
+2006,final,12,Rutgers,0.0,0.0
+2006,final,13,Texas,0.0,0.0
+2006,final,14,California,0.0,0.0
+2006,final,15,Arkansas,0.0,0.0
+2006,final,16,BYU,0.0,0.0
+2006,final,17,Notre Dame,0.0,0.0
+2006,final,18,Wake Forest,0.0,0.0
+2006,final,19,Virginia Tech,0.0,0.0
+2006,final,20,Boston College,0.0,0.0
+2006,final,21,Oregon State,0.0,0.0
+2006,final,22,TCU,0.0,0.0
+2006,final,23,Georgia,0.0,0.0
+2006,final,24,Penn State,0.0,0.0
+2006,final,25,Tennessee,0.0,0.0
+2007,preseason,1,USC,0.0,62.0
+2007,preseason,2,LSU,0.0,2.0
+2007,preseason,3,West Virginia,0.0,1.0
+2007,preseason,4,Texas,0.0,0.0
+2007,preseason,5,Michigan,0.0,0.0
+2007,preseason,6,Florida,0.0,0.0
+2007,preseason,7,Wisconsin,0.0,0.0
+2007,preseason,8,Oklahoma,0.0,0.0
+2007,preseason,9,Virginia Tech,0.0,0.0
+2007,preseason,10,Louisville,0.0,0.0
+2007,preseason,11,Ohio State,0.0,0.0
+2007,preseason,12,California,0.0,0.0
+2007,preseason,13,Georgia,0.0,0.0
+2007,preseason,14,UCLA,0.0,0.0
+2007,preseason,15,Tennessee,0.0,0.0
+2007,preseason,16,Rutgers,0.0,0.0
+2007,preseason,17,Penn State,0.0,0.0
+2007,preseason,18,Auburn,0.0,0.0
+2007,preseason,19,Florida State,0.0,0.0
+2007,preseason,20,Nebraska,0.0,0.0
+2007,preseason,21,Arkansas,0.0,0.0
+2007,preseason,22,TCU,0.0,0.0
+2007,preseason,23,Hawai'i,0.0,0.0
+2007,preseason,24,Boise State,0.0,0.0
+2007,preseason,25,Texas A&M,0.0,0.0
+2007,final,1,LSU,0.0,60.0
+2007,final,2,Georgia,0.0,3.0
+2007,final,3,USC,0.0,1.0
+2007,final,4,Missouri,0.0,0.0
+2007,final,5,Ohio State,0.0,0.0
+2007,final,6,West Virginia,0.0,0.0
+2007,final,7,Kansas,0.0,1.0
+2007,final,8,Oklahoma,0.0,0.0
+2007,final,9,Virginia Tech,0.0,0.0
+2007,final,10,Boston College,0.0,0.0
+2007,final,10,Texas,0.0,0.0
+2007,final,12,Tennessee,0.0,0.0
+2007,final,13,Florida,0.0,0.0
+2007,final,14,BYU,0.0,0.0
+2007,final,15,Auburn,0.0,0.0
+2007,final,16,Arizona State,0.0,0.0
+2007,final,17,Cincinnati,0.0,0.0
+2007,final,18,Michigan,0.0,0.0
+2007,final,19,Hawai'i,0.0,0.0
+2007,final,20,Illinois,0.0,0.0
+2007,final,21,Clemson,0.0,0.0
+2007,final,22,Texas Tech,0.0,0.0
+2007,final,23,Oregon,0.0,0.0
+2007,final,24,Wisconsin,0.0,0.0
+2007,final,25,Oregon State,0.0,0.0
+2008,preseason,1,Georgia,0.0,22.0
+2008,preseason,2,Ohio State,0.0,21.0
+2008,preseason,3,USC,0.0,12.0
+2008,preseason,4,Oklahoma,0.0,4.0
+2008,preseason,5,Florida,0.0,6.0
+2008,preseason,6,Missouri,0.0,0.0
+2008,preseason,7,LSU,0.0,0.0
+2008,preseason,8,West Virginia,0.0,0.0
+2008,preseason,9,Clemson,0.0,0.0
+2008,preseason,10,Auburn,0.0,0.0
+2008,preseason,11,Texas,0.0,0.0
+2008,preseason,12,Texas Tech,0.0,0.0
+2008,preseason,13,Wisconsin,0.0,0.0
+2008,preseason,14,Kansas,0.0,0.0
+2008,preseason,15,Arizona State,0.0,0.0
+2008,preseason,16,BYU,0.0,0.0
+2008,preseason,17,Virginia Tech,0.0,0.0
+2008,preseason,18,Tennessee,0.0,0.0
+2008,preseason,19,South Florida,0.0,0.0
+2008,preseason,20,Illinois,0.0,0.0
+2008,preseason,21,Oregon,0.0,0.0
+2008,preseason,22,Penn State,0.0,0.0
+2008,preseason,23,Wake Forest,0.0,0.0
+2008,preseason,24,Alabama,0.0,0.0
+2008,preseason,25,Pittsburgh,0.0,0.0
+2008,final,1,Florida,0.0,48.0
+2008,final,2,Utah,0.0,16.0
+2008,final,3,USC,0.0,1.0
+2008,final,4,Texas,0.0,0.0
+2008,final,5,Oklahoma,0.0,0.0
+2008,final,6,Alabama,0.0,0.0
+2008,final,7,TCU,0.0,0.0
+2008,final,8,Penn State,0.0,0.0
+2008,final,9,Ohio State,0.0,0.0
+2008,final,10,Oregon,0.0,0.0
+2008,final,11,Boise State,0.0,0.0
+2008,final,12,Texas Tech,0.0,0.0
+2008,final,13,Georgia,0.0,0.0
+2008,final,14,Ole Miss,0.0,0.0
+2008,final,15,Virginia Tech,0.0,0.0
+2008,final,16,Oklahoma State,0.0,0.0
+2008,final,17,Cincinnati,0.0,0.0
+2008,final,18,Oregon State,0.0,0.0
+2008,final,19,Missouri,0.0,0.0
+2008,final,20,Iowa,0.0,0.0
+2008,final,21,Florida State,0.0,0.0
+2008,final,22,Georgia Tech,0.0,0.0
+2008,final,23,West Virginia,0.0,0.0
+2008,final,24,Michigan State,0.0,0.0
+2008,final,25,BYU,0.0,0.0
+2009,preseason,1,Florida,0.0,58.0
+2009,preseason,2,Texas,0.0,2.0
+2009,preseason,3,Oklahoma,0.0,0.0
+2009,preseason,4,USC,0.0,0.0
+2009,preseason,5,Alabama,0.0,0.0
+2009,preseason,6,Ohio State,0.0,0.0
+2009,preseason,7,Virginia Tech,0.0,0.0
+2009,preseason,8,Ole Miss,0.0,0.0
+2009,preseason,9,Oklahoma State,0.0,0.0
+2009,preseason,9,Penn State,0.0,0.0
+2009,preseason,11,LSU,0.0,0.0
+2009,preseason,12,California,0.0,0.0
+2009,preseason,13,Georgia,0.0,0.0
+2009,preseason,14,Boise State,0.0,0.0
+2009,preseason,15,Georgia Tech,0.0,0.0
+2009,preseason,16,Oregon,0.0,0.0
+2009,preseason,17,TCU,0.0,0.0
+2009,preseason,18,Florida State,0.0,0.0
+2009,preseason,19,Utah,0.0,0.0
+2009,preseason,20,BYU,0.0,0.0
+2009,preseason,21,North Carolina,0.0,0.0
+2009,preseason,22,Iowa,0.0,0.0
+2009,preseason,23,Notre Dame,0.0,0.0
+2009,preseason,24,Nebraska,0.0,0.0
+2009,preseason,25,Kansas,0.0,0.0
+2009,final,1,Alabama,0.0,60.0
+2009,final,2,Texas,0.0,0.0
+2009,final,3,Florida,0.0,0.0
+2009,final,4,Boise State,0.0,0.0
+2009,final,5,Ohio State,0.0,0.0
+2009,final,6,TCU,0.0,0.0
+2009,final,7,Iowa,0.0,0.0
+2009,final,8,Cincinnati,0.0,0.0
+2009,final,9,Penn State,0.0,0.0
+2009,final,10,Virginia Tech,0.0,0.0
+2009,final,11,Oregon,0.0,0.0
+2009,final,12,BYU,0.0,0.0
+2009,final,13,Georgia Tech,0.0,0.0
+2009,final,14,Nebraska,0.0,0.0
+2009,final,15,Pittsburgh,0.0,0.0
+2009,final,16,Wisconsin,0.0,0.0
+2009,final,17,LSU,0.0,0.0
+2009,final,18,Utah,0.0,0.0
+2009,final,19,Miami,0.0,0.0
+2009,final,20,Ole Miss,0.0,0.0
+2009,final,21,Texas Tech,0.0,0.0
+2009,final,22,USC,0.0,0.0
+2009,final,23,Central Michigan,0.0,0.0
+2009,final,24,Clemson,0.0,0.0
+2009,final,25,West Virginia,0.0,0.0
+2010,preseason,1,Alabama,0.0,54.0
+2010,preseason,2,Ohio State,0.0,3.0
+2010,preseason,3,Boise State,0.0,1.0
+2010,preseason,4,Florida,0.0,0.0
+2010,preseason,5,Texas,0.0,1.0
+2010,preseason,6,TCU,0.0,0.0
+2010,preseason,7,Oklahoma,0.0,1.0
+2010,preseason,8,Nebraska,0.0,0.0
+2010,preseason,9,Iowa,0.0,0.0
+2010,preseason,10,Virginia Tech,0.0,0.0
+2010,preseason,11,Oregon,0.0,0.0
+2010,preseason,12,Wisconsin,0.0,0.0
+2010,preseason,13,Miami,0.0,0.0
+2010,preseason,14,USC,0.0,0.0
+2010,preseason,15,Pittsburgh,0.0,0.0
+2010,preseason,16,Georgia Tech,0.0,0.0
+2010,preseason,17,Arkansas,0.0,0.0
+2010,preseason,18,North Carolina,0.0,0.0
+2010,preseason,19,Penn State,0.0,0.0
+2010,preseason,20,Florida State,0.0,0.0
+2010,preseason,21,LSU,0.0,0.0
+2010,preseason,22,Auburn,0.0,0.0
+2010,preseason,23,Georgia,0.0,0.0
+2010,preseason,24,Oregon State,0.0,0.0
+2010,preseason,25,West Virginia,0.0,0.0
+2010,final,1,Auburn,0.0,56.0
+2010,final,2,TCU,0.0,3.0
+2010,final,3,Oregon,0.0,0.0
+2010,final,4,Stanford,0.0,0.0
+2010,final,5,Ohio State,0.0,0.0
+2010,final,6,Oklahoma,0.0,0.0
+2010,final,7,Wisconsin,0.0,0.0
+2010,final,8,LSU,0.0,0.0
+2010,final,9,Boise State,0.0,0.0
+2010,final,10,Alabama,0.0,0.0
+2010,final,11,Nevada,0.0,0.0
+2010,final,12,Arkansas,0.0,0.0
+2010,final,13,Oklahoma State,0.0,0.0
+2010,final,14,Michigan State,0.0,0.0
+2010,final,15,Mississippi State,0.0,0.0
+2010,final,16,Virginia Tech,0.0,0.0
+2010,final,17,Florida State,0.0,0.0
+2010,final,18,Missouri,0.0,0.0
+2010,final,19,Texas A&M,0.0,0.0
+2010,final,20,Nebraska,0.0,0.0
+2010,final,21,UCF,0.0,0.0
+2010,final,22,South Carolina,0.0,0.0
+2010,final,23,Maryland,0.0,0.0
+2010,final,24,Tulsa,0.0,0.0
+2010,final,25,NC State,0.0,0.0
+2011,preseason,1,Oklahoma,0.0,36.0
+2011,preseason,2,Alabama,0.0,17.0
+2011,preseason,3,Oregon,0.0,4.0
+2011,preseason,4,LSU,0.0,1.0
+2011,preseason,5,Boise State,0.0,2.0
+2011,preseason,6,Florida State,0.0,0.0
+2011,preseason,7,Stanford,0.0,0.0
+2011,preseason,8,Texas A&M,0.0,0.0
+2011,preseason,9,Oklahoma State,0.0,0.0
+2011,preseason,10,Nebraska,0.0,0.0
+2011,preseason,11,Wisconsin,0.0,0.0
+2011,preseason,12,South Carolina,0.0,0.0
+2011,preseason,13,Virginia Tech,0.0,0.0
+2011,preseason,14,TCU,0.0,0.0
+2011,preseason,15,Arkansas,0.0,0.0
+2011,preseason,16,Notre Dame,0.0,0.0
+2011,preseason,17,Michigan State,0.0,0.0
+2011,preseason,18,Ohio State,0.0,0.0
+2011,preseason,19,Georgia,0.0,0.0
+2011,preseason,20,Mississippi State,0.0,0.0
+2011,preseason,21,Missouri,0.0,0.0
+2011,preseason,22,Florida,0.0,0.0
+2011,preseason,23,Auburn,0.0,0.0
+2011,preseason,24,West Virginia,0.0,0.0
+2011,preseason,25,USC,0.0,0.0
+2011,final,1,Alabama,0.0,55.0
+2011,final,2,LSU,0.0,1.0
+2011,final,3,Oklahoma State,0.0,4.0
+2011,final,4,Oregon,0.0,0.0
+2011,final,5,Arkansas,0.0,0.0
+2011,final,6,USC,0.0,0.0
+2011,final,7,Stanford,0.0,0.0
+2011,final,8,Boise State,0.0,0.0
+2011,final,9,South Carolina,0.0,0.0
+2011,final,10,Wisconsin,0.0,0.0
+2011,final,11,Michigan State,0.0,0.0
+2011,final,12,Michigan,0.0,0.0
+2011,final,13,Baylor,0.0,0.0
+2011,final,14,TCU,0.0,0.0
+2011,final,15,Kansas State,0.0,0.0
+2011,final,16,Oklahoma,0.0,0.0
+2011,final,17,West Virginia,0.0,0.0
+2011,final,18,Houston,0.0,0.0
+2011,final,19,Georgia,0.0,0.0
+2011,final,20,Southern Miss,0.0,0.0
+2011,final,21,Virginia Tech,0.0,0.0
+2011,final,22,Clemson,0.0,0.0
+2011,final,23,Florida State,0.0,0.0
+2011,final,24,Nebraska,0.0,0.0
+2011,final,25,Cincinnati,0.0,0.0
+2012,preseason,1,USC,0.0,25.0
+2012,preseason,2,Alabama,0.0,17.0
+2012,preseason,3,LSU,0.0,16.0
+2012,preseason,4,Oklahoma,0.0,1.0
+2012,preseason,5,Oregon,0.0,0.0
+2012,preseason,6,Georgia,0.0,0.0
+2012,preseason,7,Florida State,0.0,0.0
+2012,preseason,8,Michigan,0.0,1.0
+2012,preseason,9,South Carolina,0.0,0.0
+2012,preseason,10,Arkansas,0.0,0.0
+2012,preseason,11,West Virginia,0.0,0.0
+2012,preseason,12,Wisconsin,0.0,0.0
+2012,preseason,13,Michigan State,0.0,0.0
+2012,preseason,14,Clemson,0.0,0.0
+2012,preseason,15,Texas,0.0,0.0
+2012,preseason,16,Virginia Tech,0.0,0.0
+2012,preseason,17,Nebraska,0.0,0.0
+2012,preseason,18,Ohio State,0.0,0.0
+2012,preseason,19,Oklahoma State,0.0,0.0
+2012,preseason,20,TCU,0.0,0.0
+2012,preseason,21,Stanford,0.0,0.0
+2012,preseason,22,Kansas State,0.0,0.0
+2012,preseason,23,Florida,0.0,0.0
+2012,preseason,24,Boise State,0.0,0.0
+2012,preseason,25,Louisville,0.0,0.0
+2012,final,1,Alabama,0.0,59.0
+2012,final,2,Oregon,0.0,0.0
+2012,final,3,Ohio State,0.0,0.0
+2012,final,4,Notre Dame,0.0,0.0
+2012,final,5,Georgia,0.0,0.0
+2012,final,5,Texas A&M,0.0,0.0
+2012,final,7,Stanford,0.0,0.0
+2012,final,8,South Carolina,0.0,0.0
+2012,final,9,Florida,0.0,0.0
+2012,final,10,Florida State,0.0,0.0
+2012,final,11,Clemson,0.0,0.0
+2012,final,12,Kansas State,0.0,0.0
+2012,final,13,Louisville,0.0,0.0
+2012,final,14,LSU,0.0,0.0
+2012,final,15,Oklahoma,0.0,0.0
+2012,final,16,Utah State,0.0,0.0
+2012,final,17,Northwestern,0.0,0.0
+2012,final,18,Boise State,0.0,0.0
+2012,final,19,Texas,0.0,0.0
+2012,final,20,Oregon State,0.0,0.0
+2012,final,21,San José State,0.0,0.0
+2012,final,22,Northern Illinois,0.0,0.0
+2012,final,23,Vanderbilt,0.0,0.0
+2012,final,24,Michigan,0.0,0.0
+2012,final,25,Nebraska,0.0,0.0
+2013,preseason,1,Alabama,0.0,58.0
+2013,preseason,2,Ohio State,0.0,1.0
+2013,preseason,3,Oregon,0.0,0.0
+2013,preseason,4,Stanford,0.0,0.0
+2013,preseason,5,Georgia,0.0,1.0
+2013,preseason,6,South Carolina,0.0,0.0
+2013,preseason,7,Texas A&M,0.0,0.0
+2013,preseason,8,Clemson,0.0,0.0
+2013,preseason,9,Louisville,0.0,0.0
+2013,preseason,10,Florida,0.0,0.0
+2013,preseason,11,Florida State,0.0,0.0
+2013,preseason,12,LSU,0.0,0.0
+2013,preseason,13,Oklahoma State,0.0,0.0
+2013,preseason,14,Notre Dame,0.0,0.0
+2013,preseason,15,Texas,0.0,0.0
+2013,preseason,16,Oklahoma,0.0,0.0
+2013,preseason,17,Michigan,0.0,0.0
+2013,preseason,18,Nebraska,0.0,0.0
+2013,preseason,19,Boise State,0.0,0.0
+2013,preseason,20,TCU,0.0,0.0
+2013,preseason,21,UCLA,0.0,0.0
+2013,preseason,22,Northwestern,0.0,0.0
+2013,preseason,23,Wisconsin,0.0,0.0
+2013,preseason,24,USC,0.0,0.0
+2013,preseason,25,Oregon State,0.0,0.0
+2013,final,1,Florida State,0.0,60.0
+2013,final,2,Auburn,0.0,0.0
+2013,final,3,Michigan State,0.0,0.0
+2013,final,4,South Carolina,0.0,0.0
+2013,final,5,Missouri,0.0,0.0
+2013,final,6,Oklahoma,0.0,0.0
+2013,final,7,Alabama,0.0,0.0
+2013,final,8,Clemson,0.0,0.0
+2013,final,9,Oregon,0.0,0.0
+2013,final,10,UCF,0.0,0.0
+2013,final,11,Stanford,0.0,0.0
+2013,final,12,Ohio State,0.0,0.0
+2013,final,13,Baylor,0.0,0.0
+2013,final,14,LSU,0.0,0.0
+2013,final,15,Louisville,0.0,0.0
+2013,final,16,UCLA,0.0,0.0
+2013,final,17,Oklahoma State,0.0,0.0
+2013,final,18,Texas A&M,0.0,0.0
+2013,final,19,USC,0.0,0.0
+2013,final,20,Notre Dame,0.0,0.0
+2013,final,21,Arizona State,0.0,0.0
+2013,final,22,Wisconsin,0.0,0.0
+2013,final,23,Duke,0.0,0.0
+2013,final,24,Vanderbilt,0.0,0.0
+2013,final,25,Washington,0.0,0.0
+2014,preseason,1,Florida State,1496.0,57.0
+2014,preseason,2,Alabama,1361.0,1.0
+2014,preseason,3,Oregon,1334.0,1.0
+2014,preseason,4,Oklahoma,1324.0,1.0
+2014,preseason,5,Ohio State,1207.0,0.0
+2014,preseason,6,Auburn,1198.0,0.0
+2014,preseason,7,UCLA,1106.0,0.0
+2014,preseason,8,Michigan State,1080.0,0.0
+2014,preseason,9,South Carolina,1015.0,0.0
+2014,preseason,10,Baylor,966.0,0.0
+2014,preseason,11,Stanford,885.0,0.0
+2014,preseason,12,Georgia,843.0,0.0
+2014,preseason,13,LSU,776.0,0.0
+2014,preseason,14,Wisconsin,637.0,0.0
+2014,preseason,15,USC,626.0,0.0
+2014,preseason,16,Clemson,536.0,0.0
+2014,preseason,17,Notre Dame,445.0,0.0
+2014,preseason,18,Ole Miss,424.0,0.0
+2014,preseason,19,Arizona State,357.0,0.0
+2014,preseason,20,Kansas State,242.0,0.0
+2014,preseason,21,Texas A&M,238.0,0.0
+2014,preseason,22,Nebraska,226.0,0.0
+2014,preseason,23,North Carolina,194.0,0.0
+2014,preseason,24,Missouri,134.0,0.0
+2014,preseason,25,Washington,130.0,0.0
+2014,final,1,Ohio State,1475.0,59.0
+2014,final,2,Oregon,1402.0,0.0
+2014,final,3,TCU,1349.0,0.0
+2014,final,4,Alabama,1297.0,0.0
+2014,final,5,Florida State,1212.0,0.0
+2014,final,5,Michigan State,1212.0,0.0
+2014,final,7,Baylor,1098.0,0.0
+2014,final,8,Georgia Tech,1071.0,0.0
+2014,final,9,Georgia,925.0,0.0
+2014,final,10,UCLA,908.0,0.0
+2014,final,11,Mississippi State,767.0,0.0
+2014,final,12,Arizona State,756.0,0.0
+2014,final,13,Wisconsin,724.0,0.0
+2014,final,14,Missouri,710.0,0.0
+2014,final,15,Clemson,683.0,0.0
+2014,final,16,Boise State,653.0,0.0
+2014,final,17,Ole Miss,543.0,0.0
+2014,final,18,Kansas State,509.0,0.0
+2014,final,19,Arizona,499.0,0.0
+2014,final,20,USC,315.0,0.0
+2014,final,21,Utah,302.0,0.0
+2014,final,22,Auburn,216.0,0.0
+2014,final,23,Marshall,161.0,0.0
+2014,final,24,Louisville,116.0,0.0
+2014,final,25,Memphis,94.0,0.0
+2015,preseason,1,Ohio State,1525.0,61.0
+2015,preseason,2,TCU,1428.0,0.0
+2015,preseason,3,Alabama,1322.0,0.0
+2015,preseason,4,Baylor,1263.0,0.0
+2015,preseason,5,Michigan State,1256.0,0.0
+2015,preseason,6,Auburn,1192.0,0.0
+2015,preseason,7,Oregon,1156.0,0.0
+2015,preseason,8,USC,1085.0,0.0
+2015,preseason,9,Georgia,991.0,0.0
+2015,preseason,10,Florida State,959.0,0.0
+2015,preseason,11,Notre Dame,873.0,0.0
+2015,preseason,12,Clemson,862.0,0.0
+2015,preseason,13,UCLA,698.0,0.0
+2015,preseason,14,LSU,675.0,0.0
+2015,preseason,15,Arizona State,605.0,0.0
+2015,preseason,16,Georgia Tech,588.0,0.0
+2015,preseason,17,Ole Miss,563.0,0.0
+2015,preseason,18,Arkansas,410.0,0.0
+2015,preseason,19,Oklahoma,394.0,0.0
+2015,preseason,20,Wisconsin,393.0,0.0
+2015,preseason,21,Stanford,347.0,0.0
+2015,preseason,22,Arizona,311.0,0.0
+2015,preseason,23,Boise State,240.0,0.0
+2015,preseason,24,Missouri,219.0,0.0
+2015,preseason,25,Tennessee,114.0,0.0
+2015,final,1,Alabama,1525.0,61.0
+2015,final,2,Clemson,1464.0,0.0
+2015,final,3,Stanford,1360.0,0.0
+2015,final,4,Ohio State,1342.0,0.0
+2015,final,5,Oklahoma,1270.0,0.0
+2015,final,6,Michigan State,1227.0,0.0
+2015,final,7,TCU,1098.0,0.0
+2015,final,8,Houston,1050.0,0.0
+2015,final,9,Iowa,981.0,0.0
+2015,final,10,Ole Miss,975.0,0.0
+2015,final,11,Notre Dame,953.0,0.0
+2015,final,12,Michigan,911.0,0.0
+2015,final,13,Baylor,820.0,0.0
+2015,final,14,Florida State,630.0,0.0
+2015,final,15,North Carolina,563.0,0.0
+2015,final,16,LSU,546.0,0.0
+2015,final,17,Utah,499.0,0.0
+2015,final,18,Navy,465.0,0.0
+2015,final,19,Oregon,391.0,0.0
+2015,final,20,Oklahoma State,372.0,0.0
+2015,final,21,Wisconsin,332.0,0.0
+2015,final,22,Tennessee,260.0,0.0
+2015,final,23,Northwestern,203.0,0.0
+2015,final,24,Western Kentucky,128.0,0.0
+2015,final,25,Florida,126.0,0.0
+2016,preseason,1,Alabama,1469.0,33.0
+2016,preseason,2,Clemson,1443.0,16.0
+2016,preseason,3,Oklahoma,1352.0,4.0
+2016,preseason,4,Florida State,1325.0,5.0
+2016,preseason,5,LSU,1269.0,1.0
+2016,preseason,6,Ohio State,1224.0,1.0
+2016,preseason,7,Michigan,1147.0,1.0
+2016,preseason,8,Stanford,1029.0,0.0
+2016,preseason,9,Tennessee,1021.0,0.0
+2016,preseason,10,Notre Dame,1006.0,0.0
+2016,preseason,11,Ole Miss,718.0,0.0
+2016,preseason,12,Michigan State,710.0,0.0
+2016,preseason,13,TCU,707.0,0.0
+2016,preseason,14,Washington,651.0,0.0
+2016,preseason,15,Houston,644.0,0.0
+2016,preseason,16,UCLA,496.0,0.0
+2016,preseason,17,Iowa,484.0,0.0
+2016,preseason,18,Georgia,448.0,0.0
+2016,preseason,19,Louisville,447.0,0.0
+2016,preseason,20,USC,344.0,0.0
+2016,preseason,21,Oklahoma State,316.0,0.0
+2016,preseason,22,North Carolina,283.0,0.0
+2016,preseason,23,Baylor,280.0,0.0
+2016,preseason,24,Oregon,218.0,0.0
+2016,preseason,25,Florida,180.0,0.0
+2016,final,1,Clemson,1500.0,60.0
+2016,final,2,Alabama,1440.0,0.0
+2016,final,3,USC,1292.0,0.0
+2016,final,4,Washington,1277.0,0.0
+2016,final,5,Oklahoma,1252.0,0.0
+2016,final,6,Ohio State,1240.0,0.0
+2016,final,7,Penn State,1130.0,0.0
+2016,final,8,Florida State,1105.0,0.0
+2016,final,9,Wisconsin,1032.0,0.0
+2016,final,10,Michigan,1001.0,0.0
+2016,final,11,Oklahoma State,920.0,0.0
+2016,final,12,Stanford,730.0,0.0
+2016,final,13,LSU,651.0,0.0
+2016,final,14,Florida,640.0,0.0
+2016,final,15,Western Michigan,619.0,0.0
+2016,final,16,Virginia Tech,610.0,0.0
+2016,final,17,Colorado,585.0,0.0
+2016,final,18,West Virginia,368.0,0.0
+2016,final,19,South Florida,358.0,0.0
+2016,final,20,Miami,338.0,0.0
+2016,final,21,Louisville,277.0,0.0
+2016,final,22,Tennessee,253.0,0.0
+2016,final,23,Utah,222.0,0.0
+2016,final,24,Auburn,206.0,0.0
+2016,final,25,San Diego State,113.0,0.0
+2017,preseason,1,Alabama,1513.0,52.0
+2017,preseason,2,Ohio State,1414.0,3.0
+2017,preseason,3,Florida State,1396.0,4.0
+2017,preseason,4,USC,1325.0,2.0
+2017,preseason,5,Clemson,1201.0,0.0
+2017,preseason,6,Penn State,1196.0,0.0
+2017,preseason,7,Oklahoma,1170.0,0.0
+2017,preseason,8,Washington,1150.0,0.0
+2017,preseason,9,Wisconsin,926.0,0.0
+2017,preseason,10,Oklahoma State,889.0,0.0
+2017,preseason,11,Michigan,881.0,0.0
+2017,preseason,12,Auburn,880.0,0.0
+2017,preseason,13,LSU,784.0,0.0
+2017,preseason,14,Stanford,695.0,0.0
+2017,preseason,15,Georgia,690.0,0.0
+2017,preseason,16,Louisville,629.0,0.0
+2017,preseason,17,Florida,624.0,0.0
+2017,preseason,18,Miami,492.0,0.0
+2017,preseason,19,South Florida,327.0,0.0
+2017,preseason,20,Kansas State,317.0,0.0
+2017,preseason,21,Virginia Tech,240.0,0.0
+2017,preseason,22,West Virginia,207.0,0.0
+2017,preseason,23,Texas,173.0,0.0
+2017,preseason,24,Washington State,133.0,0.0
+2017,preseason,25,Tennessee,114.0,0.0
+2017,final,1,Alabama,1521.0,57.0
+2017,final,2,Georgia,1454.0,0.0
+2017,final,3,Oklahoma,1374.0,0.0
+2017,final,4,Clemson,1292.0,0.0
+2017,final,5,Ohio State,1286.0,0.0
+2017,final,6,UCF,1248.0,4.0
+2017,final,7,Wisconsin,1194.0,0.0
+2017,final,8,Penn State,1120.0,0.0
+2017,final,9,TCU,974.0,0.0
+2017,final,10,Auburn,917.0,0.0
+2017,final,11,Notre Dame,857.0,0.0
+2017,final,12,USC,839.0,0.0
+2017,final,13,Miami,769.0,0.0
+2017,final,14,Oklahoma State,758.0,0.0
+2017,final,15,Michigan State,705.0,0.0
+2017,final,16,Washington,668.0,0.0
+2017,final,17,Northwestern,528.0,0.0
+2017,final,18,LSU,368.0,0.0
+2017,final,19,Mississippi State,359.0,0.0
+2017,final,20,Stanford,336.0,0.0
+2017,final,21,South Florida,267.0,0.0
+2017,final,22,Boise State,251.0,0.0
+2017,final,23,NC State,232.0,0.0
+2017,final,24,Virginia Tech,126.0,0.0
+2017,final,25,Memphis,119.0,0.0
+2018,preseason,1,Alabama,1505.0,42.0
+2018,preseason,2,Clemson,1476.0,18.0
+2018,preseason,3,Georgia,1350.0,0.0
+2018,preseason,4,Wisconsin,1271.0,1.0
+2018,preseason,5,Ohio State,1256.0,0.0
+2018,preseason,6,Washington,1215.0,0.0
+2018,preseason,7,Oklahoma,1173.0,0.0
+2018,preseason,8,Miami,1027.0,0.0
+2018,preseason,9,Auburn,1013.0,0.0
+2018,preseason,10,Penn State,1012.0,0.0
+2018,preseason,11,Michigan State,877.0,0.0
+2018,preseason,12,Notre Dame,804.0,0.0
+2018,preseason,13,Stanford,778.0,0.0
+2018,preseason,14,Michigan,773.0,0.0
+2018,preseason,15,USC,543.0,0.0
+2018,preseason,16,TCU,533.0,0.0
+2018,preseason,17,West Virginia,511.0,0.0
+2018,preseason,18,Mississippi State,450.0,0.0
+2018,preseason,19,Florida State,384.0,0.0
+2018,preseason,20,Virginia Tech,351.0,0.0
+2018,preseason,21,UCF,312.0,0.0
+2018,preseason,22,Boise State,292.0,0.0
+2018,preseason,23,Texas,216.0,0.0
+2018,preseason,24,Oregon,148.0,0.0
+2018,preseason,25,LSU,106.0,0.0
+2018,final,1,Clemson,1525.0,61.0
+2018,final,2,Alabama,1462.0,0.0
+2018,final,3,Ohio State,1364.0,0.0
+2018,final,4,Oklahoma,1356.0,0.0
+2018,final,5,Notre Dame,1286.0,0.0
+2018,final,6,LSU,1119.0,0.0
+2018,final,7,Florida,1103.0,0.0
+2018,final,7,Georgia,1103.0,0.0
+2018,final,9,Texas,1076.0,0.0
+2018,final,10,Washington State,959.0,0.0
+2018,final,11,UCF,898.0,0.0
+2018,final,12,Kentucky,820.0,0.0
+2018,final,13,Washington,806.0,0.0
+2018,final,14,Michigan,745.0,0.0
+2018,final,15,Syracuse,683.0,0.0
+2018,final,16,Texas A&M,552.0,0.0
+2018,final,17,Penn State,492.0,0.0
+2018,final,18,Fresno State,466.0,0.0
+2018,final,19,Army,418.0,0.0
+2018,final,20,West Virginia,296.0,0.0
+2018,final,21,Northwestern,284.0,0.0
+2018,final,22,Utah State,188.0,0.0
+2018,final,23,Boise State,184.0,0.0
+2018,final,24,Cincinnati,171.0,0.0
+2018,final,25,Iowa,120.0,0.0
+2019,preseason,1,Clemson,1540.0,52.0
+2019,preseason,2,Alabama,1496.0,10.0
+2019,preseason,3,Georgia,1403.0,0.0
+2019,preseason,4,Oklahoma,1331.0,0.0
+2019,preseason,5,Ohio State,1261.0,0.0
+2019,preseason,6,LSU,1199.0,0.0
+2019,preseason,7,Michigan,1164.0,0.0
+2019,preseason,8,Florida,1054.0,0.0
+2019,preseason,9,Notre Dame,1044.0,0.0
+2019,preseason,10,Texas,1005.0,0.0
+2019,preseason,11,Oregon,860.0,0.0
+2019,preseason,12,Texas A&M,852.0,0.0
+2019,preseason,13,Washington,786.0,0.0
+2019,preseason,14,Utah,772.0,0.0
+2019,preseason,15,Penn State,651.0,0.0
+2019,preseason,16,Auburn,578.0,0.0
+2019,preseason,17,UCF,410.0,0.0
+2019,preseason,18,Michigan State,377.0,0.0
+2019,preseason,19,Wisconsin,370.0,0.0
+2019,preseason,20,Iowa,330.0,0.0
+2019,preseason,21,Iowa State,302.0,0.0
+2019,preseason,22,Syracuse,209.0,0.0
+2019,preseason,23,Washington State,200.0,0.0
+2019,preseason,24,Nebraska,154.0,0.0
+2019,preseason,25,Stanford,141.0,0.0
+2019,final,1,LSU,1550.0,62.0
+2019,final,2,Clemson,1487.0,0.0
+2019,final,3,Ohio State,1426.0,0.0
+2019,final,4,Georgia,1336.0,0.0
+2019,final,5,Oregon,1249.0,0.0
+2019,final,6,Florida,1211.0,0.0
+2019,final,7,Oklahoma,1179.0,0.0
+2019,final,8,Alabama,1159.0,0.0
+2019,final,9,Penn State,1038.0,0.0
+2019,final,10,Minnesota,952.0,0.0
+2019,final,11,Wisconsin,883.0,0.0
+2019,final,12,Notre Dame,879.0,0.0
+2019,final,13,Baylor,827.0,0.0
+2019,final,14,Auburn,726.0,0.0
+2019,final,15,Iowa,699.0,0.0
+2019,final,16,Utah,543.0,0.0
+2019,final,17,Memphis,528.0,0.0
+2019,final,18,Michigan,468.0,0.0
+2019,final,19,App State,466.0,0.0
+2019,final,20,Navy,415.0,0.0
+2019,final,21,Cincinnati,343.0,0.0
+2019,final,22,Air Force,209.0,0.0
+2019,final,23,Boise State,188.0,0.0
+2019,final,24,UCF,78.0,0.0
+2019,final,25,Texas,69.0,0.0
+2020,preseason,1,Clemson,1520.0,38.0
+2020,preseason,2,Ohio State,1504.0,21.0
+2020,preseason,3,Alabama,1422.0,2.0
+2020,preseason,4,Georgia,1270.0,0.0
+2020,preseason,5,Oklahoma,1269.0,0.0
+2020,preseason,6,LSU,1186.0,1.0
+2020,preseason,7,Penn State,1147.0,0.0
+2020,preseason,8,Florida,1125.0,0.0
+2020,preseason,9,Oregon,1119.0,0.0
+2020,preseason,10,Notre Dame,995.0,0.0
+2020,preseason,11,Auburn,852.0,0.0
+2020,preseason,12,Wisconsin,840.0,0.0
+2020,preseason,13,Texas A&M,764.0,0.0
+2020,preseason,14,Texas,703.0,0.0
+2020,preseason,15,Oklahoma State,672.0,0.0
+2020,preseason,16,Michigan,611.0,0.0
+2020,preseason,17,USC,534.0,0.0
+2020,preseason,18,North Carolina,496.0,0.0
+2020,preseason,19,Minnesota,451.0,0.0
+2020,preseason,20,Cincinnati,234.0,0.0
+2020,preseason,21,UCF,229.0,0.0
+2020,preseason,22,Utah,211.0,0.0
+2020,preseason,23,Iowa State,199.0,0.0
+2020,preseason,24,Iowa,134.0,0.0
+2020,preseason,25,Tennessee,133.0,0.0
+2020,final,1,Alabama,1525.0,61.0
+2020,final,2,Ohio State,1463.0,0.0
+2020,final,3,Clemson,1378.0,0.0
+2020,final,4,Texas A&M,1324.0,0.0
+2020,final,5,Notre Dame,1279.0,0.0
+2020,final,6,Oklahoma,1243.0,0.0
+2020,final,7,Georgia,1144.0,0.0
+2020,final,8,Cincinnati,1074.0,0.0
+2020,final,9,Iowa State,1035.0,0.0
+2020,final,10,Northwestern,893.0,0.0
+2020,final,11,BYU,862.0,0.0
+2020,final,12,Indiana,773.0,0.0
+2020,final,13,Florida,764.0,0.0
+2020,final,14,Coastal Carolina,725.0,0.0
+2020,final,15,Louisiana,664.0,0.0
+2020,final,16,Iowa,581.0,0.0
+2020,final,17,Liberty,576.0,0.0
+2020,final,18,North Carolina,532.0,0.0
+2020,final,19,Texas,485.0,0.0
+2020,final,20,Oklahoma State,417.0,0.0
+2020,final,21,USC,306.0,0.0
+2020,final,22,Miami,284.0,0.0
+2020,final,23,Ball State,183.0,0.0
+2020,final,24,San José State,80.0,0.0
+2020,final,25,Buffalo,51.0,0.0
+2021,preseason,1,Alabama,1548.0,47.0
+2021,preseason,2,Oklahoma,1462.0,6.0
+2021,preseason,3,Clemson,1447.0,6.0
+2021,preseason,4,Ohio State,1393.0,1.0
+2021,preseason,5,Georgia,1364.0,3.0
+2021,preseason,6,Texas A&M,1223.0,0.0
+2021,preseason,7,Iowa State,1160.0,0.0
+2021,preseason,8,Cincinnati,1014.0,0.0
+2021,preseason,9,Notre Dame,1009.0,0.0
+2021,preseason,10,North Carolina,999.0,0.0
+2021,preseason,11,Oregon,968.0,0.0
+2021,preseason,12,Wisconsin,743.0,0.0
+2021,preseason,13,Florida,728.0,0.0
+2021,preseason,14,Miami,663.0,0.0
+2021,preseason,15,USC,660.0,0.0
+2021,preseason,16,LSU,631.0,0.0
+2021,preseason,17,Indiana,549.0,0.0
+2021,preseason,18,Iowa,513.0,0.0
+2021,preseason,19,Penn State,456.0,0.0
+2021,preseason,20,Washington,449.0,0.0
+2021,preseason,21,Texas,350.0,0.0
+2021,preseason,22,Coastal Carolina,232.0,0.0
+2021,preseason,23,Louisiana,208.0,0.0
+2021,preseason,24,Utah,176.0,0.0
+2021,preseason,25,Arizona State,125.0,0.0
+2021,final,1,Georgia,1525.0,61.0
+2021,final,2,Alabama,1464.0,0.0
+2021,final,3,Michigan,1361.0,0.0
+2021,final,4,Cincinnati,1349.0,0.0
+2021,final,5,Baylor,1259.0,0.0
+2021,final,6,Ohio State,1247.0,0.0
+2021,final,7,Oklahoma State,1177.0,0.0
+2021,final,8,Notre Dame,1039.0,0.0
+2021,final,9,Michigan State,1026.0,0.0
+2021,final,10,Oklahoma,966.0,0.0
+2021,final,11,Ole Miss,926.0,0.0
+2021,final,12,Utah,851.0,0.0
+2021,final,13,Pittsburgh,741.0,0.0
+2021,final,14,Clemson,538.0,0.0
+2021,final,15,Wake Forest,533.0,0.0
+2021,final,16,Louisiana,517.0,0.0
+2021,final,17,Houston,513.0,0.0
+2021,final,18,Kentucky,446.0,0.0
+2021,final,19,BYU,435.0,0.0
+2021,final,20,NC State,382.0,0.0
+2021,final,21,Arkansas,371.0,0.0
+2021,final,22,Oregon,364.0,0.0
+2021,final,23,Iowa,171.0,0.0
+2021,final,24,Utah State,163.0,0.0
+2021,final,25,San Diego State,137.0,0.0
+2022,preseason,1,Alabama,1566.0,54.0
+2022,preseason,2,Ohio State,1506.0,6.0
+2022,preseason,3,Georgia,1455.0,3.0
+2022,preseason,4,Clemson,1292.0,0.0
+2022,preseason,5,Notre Dame,1242.0,0.0
+2022,preseason,6,Texas A&M,1212.0,0.0
+2022,preseason,7,Utah,1209.0,0.0
+2022,preseason,8,Michigan,1203.0,0.0
+2022,preseason,9,Oklahoma,956.0,0.0
+2022,preseason,10,Baylor,884.0,0.0
+2022,preseason,11,Oregon,831.0,0.0
+2022,preseason,12,Oklahoma State,814.0,0.0
+2022,preseason,13,NC State,752.0,0.0
+2022,preseason,14,USC,711.0,0.0
+2022,preseason,15,Michigan State,631.0,0.0
+2022,preseason,16,Miami,476.0,0.0
+2022,preseason,17,Pittsburgh,383.0,0.0
+2022,preseason,18,Wisconsin,365.0,0.0
+2022,preseason,19,Arkansas,348.0,0.0
+2022,preseason,20,Kentucky,332.0,0.0
+2022,preseason,21,Ole Miss,324.0,0.0
+2022,preseason,22,Wake Forest,303.0,0.0
+2022,preseason,23,Cincinnati,265.0,0.0
+2022,preseason,24,Houston,263.0,0.0
+2022,preseason,25,BYU,234.0,0.0
+2022,final,1,Georgia,1575.0,63.0
+2022,final,2,TCU,1484.0,0.0
+2022,final,3,Michigan,1438.0,0.0
+2022,final,4,Ohio State,1394.0,0.0
+2022,final,5,Alabama,1303.0,0.0
+2022,final,6,Tennessee,1294.0,0.0
+2022,final,7,Penn State,1200.0,0.0
+2022,final,8,Washington,1097.0,0.0
+2022,final,9,Tulane,1025.0,0.0
+2022,final,10,Utah,876.0,0.0
+2022,final,11,Florida State,814.0,0.0
+2022,final,12,USC,795.0,0.0
+2022,final,13,Clemson,791.0,0.0
+2022,final,14,Kansas State,784.0,0.0
+2022,final,15,Oregon,758.0,0.0
+2022,final,16,LSU,757.0,0.0
+2022,final,17,Oregon State,742.0,0.0
+2022,final,18,Notre Dame,535.0,0.0
+2022,final,19,Troy,322.0,0.0
+2022,final,20,Mississippi State,320.0,0.0
+2022,final,21,UCLA,243.0,0.0
+2022,final,22,Pittsburgh,233.0,0.0
+2022,final,23,South Carolina,180.0,0.0
+2022,final,24,Fresno State,164.0,0.0
+2022,final,25,Texas,95.0,0.0
+2023,preseason,1,Georgia,1572.0,60.0
+2023,preseason,2,Michigan,1490.0,2.0
+2023,preseason,3,Ohio State,1400.0,1.0
+2023,preseason,4,Alabama,1398.0,0.0
+2023,preseason,5,LSU,1276.0,0.0
+2023,preseason,6,USC,1245.0,0.0
+2023,preseason,7,Penn State,1177.0,0.0
+2023,preseason,8,Florida State,1147.0,0.0
+2023,preseason,9,Clemson,1032.0,0.0
+2023,preseason,10,Washington,977.0,0.0
+2023,preseason,11,Texas,882.0,0.0
+2023,preseason,12,Tennessee,868.0,0.0
+2023,preseason,13,Notre Dame,863.0,0.0
+2023,preseason,14,Utah,811.0,0.0
+2023,preseason,15,Oregon,732.0,0.0
+2023,preseason,16,Kansas State,501.0,0.0
+2023,preseason,17,TCU,416.0,0.0
+2023,preseason,18,Oregon State,406.0,0.0
+2023,preseason,19,Wisconsin,386.0,0.0
+2023,preseason,20,Oklahoma,296.0,0.0
+2023,preseason,21,North Carolina,292.0,0.0
+2023,preseason,22,Ole Miss,281.0,0.0
+2023,preseason,23,Texas A&M,227.0,0.0
+2023,preseason,24,Tulane,224.0,0.0
+2023,preseason,25,Iowa,131.0,0.0
+2023,final,1,Michigan,1525.0,61.0
+2023,final,2,Washington,1459.0,0.0
+2023,final,3,Texas,1356.0,0.0
+2023,final,4,Georgia,1328.0,0.0
+2023,final,5,Alabama,1321.0,0.0
+2023,final,6,Florida State,1175.0,0.0
+2023,final,6,Oregon,1175.0,0.0
+2023,final,8,Missouri,1092.0,0.0
+2023,final,9,Ole Miss,1030.0,0.0
+2023,final,10,Ohio State,1006.0,0.0
+2023,final,11,Arizona,861.0,0.0
+2023,final,12,LSU,853.0,0.0
+2023,final,13,Penn State,796.0,0.0
+2023,final,14,Notre Dame,745.0,0.0
+2023,final,15,Oklahoma,691.0,0.0
+2023,final,16,Oklahoma State,528.0,0.0
+2023,final,17,Tennessee,442.0,0.0
+2023,final,18,Kansas State,402.0,0.0
+2023,final,19,Louisville,398.0,0.0
+2023,final,20,Clemson,327.0,0.0
+2023,final,21,NC State,244.0,0.0
+2023,final,22,SMU,183.0,0.0
+2023,final,23,Kansas,153.0,0.0
+2023,final,24,Iowa,150.0,0.0
+2023,final,25,Liberty,139.0,0.0
+2024,preseason,1,Georgia,1532.0,46.0
+2024,preseason,2,Ohio State,1490.0,15.0
+2024,preseason,3,Oregon,1403.0,1.0
+2024,preseason,4,Texas,1386.0,0.0
+2024,preseason,5,Alabama,1260.0,0.0
+2024,preseason,6,Ole Miss,1189.0,0.0
+2024,preseason,7,Notre Dame,1122.0,0.0
+2024,preseason,8,Penn State,1060.0,0.0
+2024,preseason,9,Michigan,995.0,0.0
+2024,preseason,10,Florida State,971.0,0.0
+2024,preseason,11,Missouri,927.0,0.0
+2024,preseason,12,Utah,887.0,0.0
+2024,preseason,13,LSU,804.0,0.0
+2024,preseason,14,Clemson,689.0,0.0
+2024,preseason,15,Tennessee,629.0,0.0
+2024,preseason,16,Oklahoma,566.0,0.0
+2024,preseason,17,Oklahoma State,538.0,0.0
+2024,preseason,18,Kansas State,526.0,0.0
+2024,preseason,19,Miami,492.0,0.0
+2024,preseason,20,Texas A&M,292.0,0.0
+2024,preseason,21,Arizona,237.0,0.0
+2024,preseason,22,Kansas,231.0,0.0
+2024,preseason,23,USC,172.0,0.0
+2024,preseason,24,NC State,171.0,0.0
+2024,preseason,25,Iowa,140.0,0.0
+2024,final,1,Ohio State,1400.0,56.0
+2024,final,2,Notre Dame,1342.0,0.0
+2024,final,3,Oregon,1255.0,0.0
+2024,final,4,Texas,1211.0,0.0
+2024,final,5,Penn State,1203.0,0.0
+2024,final,6,Georgia,1141.0,0.0
+2024,final,7,Arizona State,1041.0,0.0
+2024,final,8,Boise State,958.0,0.0
+2024,final,9,Tennessee,945.0,0.0
+2024,final,10,Indiana,906.0,0.0
+2024,final,11,Ole Miss,780.0,0.0
+2024,final,12,SMU,721.0,0.0
+2024,final,13,BYU,718.0,0.0
+2024,final,14,Clemson,712.0,0.0
+2024,final,15,Iowa State,594.0,0.0
+2024,final,16,Illinois,533.0,0.0
+2024,final,17,Alabama,415.0,0.0
+2024,final,18,Miami,411.0,0.0
+2024,final,19,South Carolina,405.0,0.0
+2024,final,20,Syracuse,320.0,0.0
+2024,final,21,Army,307.0,0.0
+2024,final,22,Missouri,266.0,0.0
+2024,final,23,UNLV,178.0,0.0
+2024,final,24,Memphis,154.0,0.0
+2024,final,25,Colorado,79.0,0.0
+2025,preseason,1,Ohio State,1636.0,55.0
+2025,preseason,2,Penn State,1558.0,7.0
+2025,preseason,3,LSU,1514.0,3.0
+2025,preseason,4,Georgia,1410.0,0.0
+2025,preseason,5,Miami,1360.0,0.0
+2025,preseason,6,Oregon,1302.0,1.0
+2025,preseason,7,Texas,1293.0,0.0
+2025,preseason,8,Clemson,1135.0,0.0
+2025,preseason,9,Notre Dame,1068.0,0.0
+2025,preseason,10,South Carolina,882.0,0.0
+2025,preseason,11,Illinois,855.0,0.0
+2025,preseason,12,Arizona State,850.0,0.0
+2025,preseason,13,Florida,737.0,0.0
+2025,preseason,14,Florida State,705.0,0.0
+2025,preseason,15,Michigan,686.0,0.0
+2025,preseason,16,Iowa State,566.0,0.0
+2025,preseason,17,SMU,561.0,0.0
+2025,preseason,18,Oklahoma,519.0,0.0
+2025,preseason,19,Texas A&M,424.0,0.0
+2025,preseason,20,Ole Miss,393.0,0.0
+2025,preseason,21,Alabama,360.0,0.0
+2025,preseason,22,Tennessee,339.0,0.0
+2025,preseason,23,Indiana,257.0,0.0
+2025,preseason,24,Texas Tech,247.0,0.0
+2025,preseason,25,Utah,227.0,0.0
+2025,final,1,Indiana,1650.0,66.0
+2025,final,2,Miami,1584.0,0.0
+2025,final,3,Ole Miss,1492.0,0.0
+2025,final,4,Oregon,1429.0,0.0
+2025,final,5,Ohio State,1378.0,0.0
+2025,final,6,Georgia,1364.0,0.0
+2025,final,7,Texas Tech,1232.0,0.0
+2025,final,8,Texas A&M,1157.0,0.0
+2025,final,9,Alabama,1065.0,0.0
+2025,final,10,Notre Dame,1049.0,0.0
+2025,final,11,BYU,961.0,0.0
+2025,final,12,Texas,952.0,0.0
+2025,final,13,Oklahoma,941.0,0.0
+2025,final,14,Utah,812.0,0.0
+2025,final,15,Vanderbilt,623.0,0.0
+2025,final,16,Virginia,603.0,0.0
+2025,final,17,Iowa,430.0,0.0
+2025,final,18,Tulane,404.0,0.0
+2025,final,19,James Madison,399.0,0.0
+2025,final,20,USC,378.0,0.0
+2025,final,21,Michigan,276.0,0.0
+2025,final,22,Houston,270.0,0.0
+2025,final,23,Navy,227.0,0.0
+2025,final,24,North Texas,191.0,0.0
+2025,final,25,TCU,125.0,0.0

@@ -1,0 +1,2712 @@
+{
+ "about": "The catalogue behind index.json: what each real file covers, where its figures come from, the figures written in code, memory claims that now have data, the holes and the sources the cloud can't reach. Edit this file, then run scripts/build_index.py.",
+ "files": {
+  "nfl_teams.csv": {
+   "source": "Wikipedia stadium and TV-market lists (Nielsen DMA 2024-25), team pages",
+   "years": "2026",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "altitude_ft has no per-figure source",
+   "areas": [
+    "N1"
+   ]
+  },
+  "nfl_rules.json": {
+   "source": "NFL.com, OverTheCap, the 2020 CBA, NFL Football Operations (URLs in the file)",
+   "years": "2026-2027",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "see the file's own 'gaps' key",
+   "areas": [
+    "N4",
+    "N7",
+    "N8",
+    "N9",
+    "N10",
+    "N11",
+    "N13",
+    "N14",
+    "N21",
+    "N24",
+    "N34",
+    "N35",
+    "T2"
+   ]
+  },
+  "rookie_scale_2026.csv": {
+   "source": "OverTheCap contracts via nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (contracts)",
+   "years": "2026",
+   "level": "NFL",
+   "status": "sourced",
+   "areas": [
+    "N7",
+    "N24",
+    "T2"
+   ]
+  },
+  "rates.json": {
+   "source": "On3, 247Sports, ESPN recruit ratings (classes 2013-2026), NCAA portal counts, Hudl, Opendorse, SI/CBS (see README)",
+   "years": "2013-2026 (varies by key)",
+   "level": "college",
+   "status": "sourced",
+   "holes": "JUCO-to-FBS and prep-school signees per year; NIL dollars for G5, FCS and D2; D2 portal entrants; the revenue-sharing cap not verified on a page",
+   "areas": [
+    "C14",
+    "C20",
+    "C31",
+    "C39",
+    "C40",
+    "C41",
+    "G9",
+    "N20",
+    "P1",
+    "P11",
+    "P23",
+    "P25",
+    "T2",
+    "T7",
+    "T8"
+   ]
+  },
+  "hs_states.csv": {
+   "source": "MaxPreps 2026 state rankings, SI 2026 playoff guide, state association handbooks (URL per row)",
+   "years": "2026",
+   "level": "high school",
+   "status": "sourced",
+   "holes": "DC classes and playoffs blank; how teams qualify missing for most states; weaker rows AL, IL, HI, ME, MT, NE, OR, PA, VT, KS; NIL rows AR, CO, MO, TX",
+   "areas": [
+    "C23",
+    "C25",
+    "C27",
+    "G7"
+   ]
+  },
+  "talent_by_state.csv": {
+   "source": "computed: sportsdataverse cfb_recruits + cfbfastR-data rosters + nflverse draft_picks (method in README)",
+   "years": "2022-2026",
+   "level": "college, NFL",
+   "status": "computed",
+   "holes": "name matching (86-94% matched, scaled up)",
+   "areas": [
+    "C18",
+    "C28",
+    "N20",
+    "P1",
+    "T6"
+   ]
+  },
+  "colleges.csv": {
+   "source": "Wikipedia program and stadium lists, CFBD schedules for records, AAU and Carnegie lists (URL per figure)",
+   "years": "2026 membership; records 2021-2025",
+   "level": "college",
+   "status": "sourced",
+   "holes": "nil_estimate_usd blank for all; stadium capacity blank for 7 D2 schools; Chicago State has no record",
+   "areas": [
+    "C1",
+    "C2",
+    "C4",
+    "C5",
+    "C13",
+    "C14",
+    "C17",
+    "G5",
+    "N31"
+   ]
+  },
+  "colleges_lower.csv": {
+   "source": "Wikipedia lists of NAIA, D3 and JUCO programs (URL per row)",
+   "years": "2026 membership",
+   "level": "college",
+   "status": "sourced",
+   "holes": "no records or scores (no open NAIA or JUCO results)",
+   "areas": [
+    "C1",
+    "C13"
+   ]
+  },
+  "college_history.csv": {
+   "source": "Wikipedia program histories (URL per row)",
+   "years": "first season to 2025",
+   "level": "college",
+   "status": "sourced",
+   "areas": [
+    "C1",
+    "C6",
+    "T13"
+   ]
+  },
+  "college_history_dropped.csv": {
+   "source": "Wikipedia lists of discontinued programs (URL per row)",
+   "years": "to 2025",
+   "level": "college",
+   "status": "sourced",
+   "areas": [
+    "C1",
+    "T13"
+   ]
+  },
+  "tendency_spreads.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases): play-by-play, Next Gen Stats, PFR advanced defense",
+   "years": "2016-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "no public stat for reaching the ball out or keeping contain; 'outside' runs are where the run ended",
+   "script": "scripts/tendency_spreads.py",
+   "areas": [
+    "N6",
+    "P16",
+    "T2"
+   ]
+  },
+  "combine_by_position.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (combine)",
+   "years": "2000-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "areas": [
+    "N21",
+    "P5",
+    "P6",
+    "P7",
+    "P27",
+    "T2"
+   ]
+  },
+  "draft_positions_2000_2025.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (draft_picks)",
+   "years": "2000-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "no LS column",
+   "areas": [
+    "C22",
+    "N20",
+    "P1",
+    "P9",
+    "P30",
+    "T3",
+    "T8"
+   ]
+  },
+  "nfl_game_targets.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_game_targets.py",
+   "areas": [
+    "G3",
+    "G9",
+    "G10",
+    "G11",
+    "G16",
+    "G25",
+    "G36",
+    "G38",
+    "N2",
+    "N6",
+    "P30",
+    "T3"
+   ]
+  },
+  "college_game_targets.json": {
+   "source": "cfbfastR play-by-play via sportsdataverse-data releases (https://github.com/sportsdataverse/sportsdataverse-data/releases)",
+   "years": "2022-2024",
+   "level": "FBS, FCS",
+   "status": "sourced",
+   "holes": "no D2, D3, NAIA, JUCO or high school play by play",
+   "script": "scripts/college_game_targets.py",
+   "areas": [
+    "G1",
+    "G2",
+    "G9",
+    "G10",
+    "G11",
+    "G16",
+    "G38",
+    "P29",
+    "P30",
+    "T3"
+   ]
+  },
+  "college_altitude.csv": {
+   "source": "Claude's reading of published town elevations (USGS and town pages), rounded",
+   "years": "current",
+   "level": "college",
+   "status": "estimate",
+   "areas": [
+    "C1",
+    "C29",
+    "G30"
+   ]
+  },
+  "college_pass_rate.csv": {
+   "source": "cfbfastR play-by-play",
+   "years": "2023-2024",
+   "level": "FBS",
+   "status": "sourced",
+   "script": "scripts/college_situations.py",
+   "areas": [
+    "G8",
+    "S17",
+    "S19",
+    "T3"
+   ]
+  },
+  "college_fourth_go.csv": {
+   "source": "cfbfastR play-by-play",
+   "years": "2023-2024",
+   "level": "FBS",
+   "status": "sourced",
+   "script": "scripts/college_situations.py",
+   "areas": [
+    "G8",
+    "G9",
+    "S17",
+    "T3"
+   ]
+  },
+  "position_value.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp, participation)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "snap-share bands come from published summaries, not this folder",
+   "script": "scripts/position_value.py",
+   "areas": [
+    "G8",
+    "G17",
+    "G25",
+    "G37",
+    "G38",
+    "N6",
+    "P7",
+    "P29",
+    "T2"
+   ]
+  },
+  "nfl_schedule_2026.csv": {
+   "source": "nflverse nfldata games.csv",
+   "years": "2026",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_schedule_2026.py",
+   "areas": [
+    "N3"
+   ]
+  },
+  "rivalries.csv": {
+   "source": "Wikipedia, Winsipedia game lists, CFBD schedules (URL per row)",
+   "years": "first meeting to 2025",
+   "level": "college",
+   "status": "sourced",
+   "holes": "Clemson-South Carolina 1896-1917 and six trophies' first years are 'memory' in the notes",
+   "areas": [
+    "C7",
+    "C9",
+    "G6",
+    "N42"
+   ]
+  },
+  "engine_targets.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp, participation, FTN charting, snap counts, contracts) and nfldata games.csv",
+   "years": "2021-2025 (home edge 1999-2025, scheme mix 2025, FTN 2022-2025)",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/engine_targets.py",
+   "areas": [
+    "G3",
+    "G4",
+    "G8",
+    "G10",
+    "G14",
+    "G15",
+    "G17",
+    "G25",
+    "G28",
+    "G32",
+    "G37",
+    "G38",
+    "N2",
+    "N4",
+    "N6",
+    "N7",
+    "P7",
+    "P29",
+    "S14",
+    "S17",
+    "S18",
+    "S19",
+    "T3"
+   ]
+  },
+  "coach_effect_offense.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2006-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "read by no code",
+   "script": "scripts/coach_effect.py",
+   "areas": [
+    "G14",
+    "G24",
+    "S2",
+    "S16",
+    "T3"
+   ]
+  },
+  "coach_effect_defense.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2006-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "read by no code",
+   "script": "scripts/coach_effect.py",
+   "areas": [
+    "G14",
+    "G24",
+    "S2",
+    "S16",
+    "T3"
+   ]
+  },
+  "college_scores.json": {
+   "source": "CFBD schedules via sportsdataverse-data releases (https://github.com/sportsdataverse/sportsdataverse-data/releases) (cfb_schedules)",
+   "years": "2014-2025 (no 2020)",
+   "level": "FBS, FCS, D2, D3",
+   "status": "sourced",
+   "holes": "no NAIA or JUCO",
+   "script": "scripts/college_scores.py",
+   "areas": [
+    "C4",
+    "C7",
+    "G1",
+    "T3"
+   ]
+  },
+  "trial3_baselines.json": {
+   "source": "CFBD scores, ESPN recruit ratings, nflverse draft/combine/players, CFBD rosters",
+   "years": "2001-2025 (varies by key)",
+   "level": "college, NFL",
+   "status": "sourced",
+   "script": "scripts/trial3_baselines.py",
+   "areas": [
+    "C2",
+    "C4",
+    "C5",
+    "C12",
+    "C21",
+    "C22",
+    "C30",
+    "C31",
+    "G5",
+    "G15",
+    "P3",
+    "P5",
+    "P11",
+    "P25",
+    "T3",
+    "T6",
+    "T7",
+    "T8",
+    "T10"
+   ]
+  },
+  "development_injuries.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp, snap counts, injuries, players, draft picks)",
+   "years": "2006-2025 (snaps and injuries 2012-2025)",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "read by no code; no college or high school injuries",
+   "script": "scripts/development_injuries.py",
+   "areas": [
+    "G33",
+    "P10",
+    "P12",
+    "P13",
+    "P14",
+    "P15",
+    "P30",
+    "T3",
+    "T8"
+   ]
+  },
+  "garbage_time.json": {
+   "source": "cfbfastR play-by-play (FBS 2022-2024) and nflverse play-by-play (NFL 2018-2025)",
+   "years": "2018-2025",
+   "level": "FBS, NFL",
+   "status": "sourced",
+   "script": "scripts/garbage_time.py",
+   "areas": [
+    "G9",
+    "G13",
+    "G28",
+    "G38",
+    "S17",
+    "T3"
+   ]
+  },
+  "nfl_situations.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_situations.py",
+   "areas": [
+    "G3",
+    "G8",
+    "G9",
+    "G13",
+    "G36",
+    "G38",
+    "S17",
+    "T3"
+   ]
+  },
+  "nfl_expected_points.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp, nflfastR's EP)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_game_targets.py",
+   "areas": [
+    "G36",
+    "T3"
+   ]
+  },
+  "nfl_win_prob.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_situations.py",
+   "areas": [
+    "G36",
+    "T3"
+   ]
+  },
+  "nfl_pass_rate.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_situations.py",
+   "areas": [
+    "G8",
+    "S17",
+    "T3"
+   ]
+  },
+  "nfl_fourth_go.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_situations.py",
+   "areas": [
+    "G9",
+    "S17",
+    "T3"
+   ]
+  },
+  "town_climate.csv": {
+   "source": "NOAA 1991-2020 monthly normals (noaa-normals-pds S3) and kelvins/US-Cities-Database",
+   "years": "1991-2020",
+   "level": "all",
+   "status": "sourced",
+   "script": "scripts/town_climate.py",
+   "areas": [
+    "G30",
+    "N37"
+   ]
+  },
+  "hs_towns.csv": {
+   "source": "uszipcode database (MacHu-GWU release) and Census town lists",
+   "years": "current",
+   "level": "high school",
+   "status": "sourced",
+   "script": "scripts/hs_towns.py",
+   "areas": [
+    "C23",
+    "C29"
+   ]
+  },
+  "hs_playoff_formats.csv": {
+   "source": "state association handbooks (docs/research/hs-playoff-formats.md)",
+   "years": "2025-2026",
+   "level": "high school",
+   "status": "sourced",
+   "areas": [
+    "C24",
+    "G7"
+   ]
+  },
+  "celebration_rules.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "G11",
+    "N42",
+    "T9"
+   ]
+  },
+  "one_day_contracts.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N16",
+    "T9"
+   ]
+  },
+  "college_docs.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N43",
+    "T9"
+   ]
+  },
+  "hard_knocks.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N43",
+    "T9"
+   ]
+  },
+  "magazines.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N43",
+    "T9"
+   ]
+  },
+  "video_games.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N43",
+    "T9"
+   ]
+  },
+  "ring_sales.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N42",
+    "T9"
+   ]
+  },
+  "parades.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N42"
+   ]
+  },
+  "storming_fines.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N42"
+   ]
+  },
+  "retired_numbers_policy.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N42"
+   ]
+  },
+  "intl_marketing_rights.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N3"
+   ]
+  },
+  "mascots.csv": {
+   "source": "a source per row (news, team and league pages)",
+   "years": "varies",
+   "level": "college, NFL",
+   "status": "sourced",
+   "holes": "rows whose cells say 'memory' are unverified",
+   "areas": [
+    "N42"
+   ]
+  },
+  "stories_facts.md": {
+   "source": "researched facts with sources inline",
+   "years": "varies",
+   "level": "all",
+   "status": "sourced",
+   "areas": [
+    "N41"
+   ]
+  },
+  "nfl_history.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp 1999-2025, schedules, trades), nfldata standings and win totals, FiveThirtyEight nfl_games.csv (1996-1998 scores)",
+   "years": "1996-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "1996-1998 scores only (no play by play before 1999); standings from 2002; win totals 2003-2020; no attendance",
+   "script": "scripts/nfl_history.py",
+   "areas": [
+    "T3",
+    "G3",
+    "G4",
+    "G9",
+    "G10",
+    "G11",
+    "G15",
+    "G30",
+    "G32",
+    "N2",
+    "N3",
+    "N12",
+    "N34",
+    "N37",
+    "S7",
+    "S8",
+    "S19",
+    "S20",
+    "S22",
+    "T6",
+    "P30"
+   ],
+   "keys": {
+    "scoring_by_season": [
+     "G3",
+     "T3"
+    ],
+    "plays_by_season": [
+     "G3",
+     "G9",
+     "G10",
+     "S19",
+     "T3",
+     "P30"
+    ],
+    "penalty_kinds_per_team_game": [
+     "G11"
+    ],
+    "weather_splits": [
+     "G30",
+     "N37"
+    ],
+    "champions": [
+     "G4",
+     "N2"
+    ],
+    "parity": [
+     "G4",
+     "G15",
+     "T6"
+    ],
+    "betting_lines": [
+     "G32"
+    ],
+    "preseason_win_totals": [
+     "T6"
+    ],
+    "head_coaches": [
+     "S7",
+     "S8",
+     "S20",
+     "S22"
+    ],
+    "trades": [
+     "N12"
+    ],
+    "schedule_facts": [
+     "N3",
+     "N34"
+    ]
+   },
+   "added": "2026-10-28"
+  },
+  "nfl_careers.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (draft_picks, players, combine, contracts, rosters, stats_player)",
+   "years": "1980-2026 (varies by key)",
+   "level": "NFL",
+   "status": "sourced",
+   "holes": "no arm or hand sizes, no handedness, no pro-day times; contracts thin before 2011; careers from rosters start in 1999",
+   "script": "scripts/nfl_careers.py",
+   "areas": [
+    "N38",
+    "N20",
+    "N5",
+    "P14",
+    "G26",
+    "N19",
+    "P9",
+    "P30",
+    "N4",
+    "N16",
+    "P2",
+    "P6",
+    "P5",
+    "N21",
+    "N7",
+    "N10",
+    "G16",
+    "P29",
+    "T9",
+    "C22",
+    "N13"
+   ],
+   "keys": {
+    "draft_age": [
+     "N38",
+     "N20"
+    ],
+    "career_by_round": [
+     "N5",
+     "P14",
+     "G26",
+     "N19"
+    ],
+    "draft_by_position_year": [
+     "N20",
+     "P9"
+    ],
+    "long_snappers_drafted": [
+     "P30"
+    ],
+    "kickers_punters_drafted": [
+     "P30"
+    ],
+    "roster_careers": [
+     "P14"
+    ],
+    "undrafted_share_of_rosters": [
+     "N4"
+    ],
+    "last_season_age": [
+     "N16",
+     "P14"
+    ],
+    "roster_age_by_season": [
+     "N4",
+     "P2"
+    ],
+    "position_changes": [
+     "P9"
+    ],
+    "combine": [
+     "P6",
+     "P5",
+     "N21"
+    ],
+    "contracts": [
+     "N7",
+     "N10"
+    ],
+    "season_lines": [
+     "G16",
+     "P29",
+     "P30"
+    ],
+    "fantasy_ppr": [
+     "T9"
+    ],
+    "draft_by_college": [
+     "C22",
+     "N20"
+    ],
+    "compensatory_picks": [
+     "N13"
+    ],
+    "birth_months": [
+     "N38",
+     "P2"
+    ]
+   },
+   "added": "2026-10-28"
+  },
+  "nfl_draft_by_college.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (draft_picks)",
+   "years": "1980-2026",
+   "level": "NFL, college",
+   "status": "sourced",
+   "script": "scripts/nfl_careers.py",
+   "areas": [
+    "C22",
+    "N20"
+   ],
+   "added": "2026-10-28"
+  },
+  "college_history.json": {
+   "source": "CFBD schedules via sportsdataverse-data releases (https://github.com/sportsdataverse/sportsdataverse-data/releases) (cfb_schedules 2001-2025), ESPN line scores 2004-2025, AP poll 2004-2025, 247Sports talent composite 2015-2025",
+   "years": "2001-2025",
+   "level": "FBS, FCS, D2, D3",
+   "status": "sourced",
+   "holes": "no college scores before 2001 (1996-2000 still a hole); FCS from 2003; D2 and D3 full seasons from 2021-2022; no NAIA or JUCO; FCS overtime too thin in ESPN line scores",
+   "script": "scripts/college_history.py",
+   "areas": [
+    "G1",
+    "C4",
+    "T3",
+    "C7",
+    "C12",
+    "G5",
+    "C5",
+    "C13",
+    "C6",
+    "C10",
+    "C2",
+    "T6",
+    "G15",
+    "C20",
+    "G6",
+    "C9",
+    "T13",
+    "C8"
+   ],
+   "keys": {
+    "scores_by_season": [
+     "G1",
+     "C4",
+     "C7",
+     "T3"
+    ],
+    "fbs_margin_table": [
+     "G1"
+    ],
+    "postseason": [
+     "C12",
+     "G5"
+    ],
+    "champions": [
+     "C5",
+     "C13",
+     "G5"
+    ],
+    "fbs_conference_champions": [
+     "C6"
+    ],
+    "ap_poll": [
+     "C10",
+     "C2"
+    ],
+    "preseason_rank_vs_season": [
+     "T6"
+    ],
+    "unranked_beats_top10": [
+     "C10",
+     "G32"
+    ],
+    "fbs_attendance": [
+     "C7",
+     "C2"
+    ],
+    "fbs_pythagorean": [
+     "G15"
+    ],
+    "talent_by_conference": [
+     "C20"
+    ],
+    "rivalry_games": [
+     "G6",
+     "C9"
+    ],
+    "division_moves_up": [
+     "T13"
+    ],
+    "fbs_game_days": [
+     "C8",
+     "N3"
+    ]
+   },
+   "added": "2026-10-28"
+  },
+  "college_ap_polls.csv": {
+   "source": "AP poll via sportsdataverse-data releases (https://github.com/sportsdataverse/sportsdataverse-data/releases) (cfb_poll_analytics)",
+   "years": "2004-2025",
+   "level": "FBS",
+   "status": "sourced",
+   "script": "scripts/college_history.py",
+   "areas": [
+    "C10",
+    "C2"
+   ],
+   "added": "2026-10-28"
+  },
+  "college_attendance.csv": {
+   "source": "CFBD schedules (attendance)",
+   "years": "2001-2025",
+   "level": "FBS",
+   "status": "sourced",
+   "holes": "a few home games carry no attendance",
+   "script": "scripts/college_history.py",
+   "areas": [
+    "C7",
+    "C2"
+   ],
+   "added": "2026-10-28"
+  },
+  "college_rivalry_games.csv": {
+   "source": "CFBD schedules",
+   "years": "2001-2025",
+   "level": "FBS, FCS",
+   "status": "sourced",
+   "script": "scripts/college_history.py",
+   "areas": [
+    "G6",
+    "C9"
+   ],
+   "added": "2026-10-28"
+  },
+  "college_plays.json": {
+   "source": "cfbfastR play-by-play via sportsdataverse-data releases (https://github.com/sportsdataverse/sportsdataverse-data/releases) (cfbfastR_cfb_pbp)",
+   "years": "2014-2025",
+   "level": "FBS",
+   "status": "sourced",
+   "holes": "no college play by play before 2014 or below FCS; no participation (snaps, personnel, coverage); two-point tries and extra points read from play text; totals left out",
+   "script": "scripts/college_plays.py",
+   "areas": [
+    "G2",
+    "G8",
+    "G9",
+    "G10",
+    "G11",
+    "G14",
+    "G32",
+    "S17",
+    "S19",
+    "T3",
+    "P30"
+   ],
+   "keys": {
+    "by_season": [
+     "G2",
+     "G9",
+     "G10",
+     "S19",
+     "T3",
+     "P30"
+    ],
+    "penalty_kinds_per_team_game": [
+     "G11"
+    ],
+    "team_season_ranges": [
+     "G14"
+    ],
+    "betting_lines": [
+     "G32"
+    ]
+   },
+   "added": "2026-10-28"
+  },
+  "college_players.json": {
+   "source": "ESPN college box scores via sportsdataverse-data releases (https://github.com/sportsdataverse/sportsdataverse-data/releases) (espn_cfb_player_box), positions from cfbfastR-data rosters",
+   "years": "2004-2025",
+   "level": "FBS",
+   "status": "sourced",
+   "holes": "full tackles and sacks only 2024-2025; no FCS, D2, D3; data-era bests are not the all-time NCAA record book",
+   "script": "scripts/college_players.py",
+   "areas": [
+    "G16",
+    "G18",
+    "P29",
+    "G20",
+    "P30"
+   ],
+   "keys": {
+    "by_season": [
+     "G16",
+     "P29",
+     "P30"
+    ],
+    "per_team_game_by_position": [
+     "G18"
+    ],
+    "leaders": [
+     "G16",
+     "P29"
+    ],
+    "data_era_bests": [
+     "G20",
+     "P29"
+    ]
+   },
+   "added": "2026-10-28"
+  },
+  "college_people.json": {
+   "source": "sportsdataverse-data releases (https://github.com/sportsdataverse/sportsdataverse-data/releases) (cfb_recruits, cfb_team_info, cfb_team_portal, cfb_returning_production, espn_cfb_coach_tendencies) and cfbfastR-data rosters",
+   "years": "2002-2026 (varies by key)",
+   "level": "college",
+   "status": "sourced",
+   "holes": "no offers, visits or commit dates (247Sports, On3); recruits matched to hometowns by name (73%); CFBD's year-in-school coding is messy before 2019; head coaches only for about 115-125 FBS teams a year",
+   "script": "scripts/college_people.py",
+   "areas": [
+    "C29",
+    "C31",
+    "C37",
+    "T7",
+    "C40",
+    "P24",
+    "S7",
+    "S8",
+    "S20",
+    "P5",
+    "P19"
+   ],
+   "keys": {
+    "recruiting": [
+     "C29",
+     "C31",
+     "C37",
+     "T7"
+    ],
+    "fbs_bodies_by_year_in_school": [
+     "P5"
+    ],
+    "portal": [
+     "C40",
+     "T7",
+     "P19"
+    ],
+    "returning_production": [
+     "P24"
+    ],
+    "fbs_head_coaches": [
+     "S7",
+     "S8",
+     "S20"
+    ]
+   },
+   "added": "2026-10-28"
+  },
+  "college_recruiting_classes.csv": {
+   "source": "ESPN-rated signees via sportsdataverse-data releases (https://github.com/sportsdataverse/sportsdataverse-data/releases) (cfb_recruits)",
+   "years": "2002-2026",
+   "level": "college",
+   "status": "sourced",
+   "holes": "class strength by counts and average ESPN grade, not a recruiting service's class ranking",
+   "script": "scripts/college_people.py",
+   "areas": [
+    "C37",
+    "C31",
+    "T7"
+   ],
+   "added": "2026-10-28"
+  },
+  "memory_checks.json": {
+   "source": "nflverse-data rosters and trades, nfldata games.csv, sportsdataverse-data cfb_schedules (ESPN)",
+   "years": "NFL 1999-2025, college 2001-2025",
+   "level": "NFL, FBS",
+   "status": "sourced",
+   "holes": "Nothing before 1999 (NFL) or 2001 (college); rosters list a player's last number of the season, so a mid-season change shows once.",
+   "script": "scripts/memory_checks.py",
+   "areas": [
+    "N3",
+    "N12",
+    "N34",
+    "C3"
+   ],
+   "keys": {
+    "jersey_numbers": [
+     "N34"
+    ],
+    "trade_deadline": [
+     "N12"
+    ],
+    "college_holiday_games": [
+     "N3",
+     "C3"
+    ]
+   },
+   "added": "2026-10-28"
+  }
+ },
+ "in_code": [
+  {
+   "what": "Births per day by month",
+   "where": "CDC natality 2015-2023, as MONTH_RATE in crates/afm-engine/src/calendar/born.rs",
+   "status": "cited in code",
+   "areas": [
+    "N38"
+   ]
+  },
+  {
+   "what": "Held back and a year young by birth month",
+   "where": "NCES 'academic redshirting'; Deming and Dynarski 2008 (HELD_BACK, AHEAD in calendar/born.rs)",
+   "status": "cited in code",
+   "areas": [
+    "N38"
+   ]
+  },
+  {
+   "what": "FBS 48.9% Black (NCAA 2023); 2007-08 mix",
+   "where": "comment in crates/afm-engine/src/world/ethnicity.rs (level_lean)",
+   "status": "cited in code",
+   "areas": [
+    "P3"
+   ]
+  },
+  {
+   "what": "Asian split by group",
+   "where": "Census 2023, ASIAN_SPLIT in world/ethnicity.rs",
+   "status": "cited in code",
+   "areas": [
+    "P3"
+   ]
+  },
+  {
+   "what": "Typical BMI and body fat by position",
+   "where": "Bosch 2014 DEXA studies, position_fat in crates/afm-engine/src/world/looks.rs",
+   "status": "cited in code",
+   "areas": [
+    "P4"
+   ]
+  },
+  {
+   "what": "BMI to body-fat offset by group",
+   "where": "Deurenberg 1998, Genes.bmi_offset in world/looks.rs",
+   "status": "cited in code",
+   "areas": [
+    "P4"
+   ]
+  },
+  {
+   "what": "Asian groups' shares",
+   "where": "Census 2023, world/ethnicity.rs ASIAN_SPLIT",
+   "status": "cited in code",
+   "areas": [
+    "P4"
+   ]
+  },
+  {
+   "what": "Face proofs and the head renderer",
+   "where": "tools/faces/, docs/design/faces.md",
+   "status": "cited in code",
+   "areas": [
+    "P4"
+   ]
+  },
+  {
+   "what": "Drafted bodies test (within 2 in and 20 lb)",
+   "where": "crates/afm-tools/tests/national_class.rs gives_drafted_players_their_positions_real_bodies; bin/positions.rs",
+   "status": "cited in code",
+   "areas": [
+    "P5"
+   ]
+  },
+  {
+   "what": "Bench against strength and arm by position",
+   "where": "crates/afm-tools/src/bin/positions.rs (combine_bench_mean)",
+   "status": "cited in code",
+   "areas": [
+    "P6"
+   ]
+  },
+  {
+   "what": "EA-style level rating targets (99s, 95+, 90+, FBS median, star medians)",
+   "where": "crates/afm-tools/tests/national_class.rs makes_a_99_level_rating_as_rare_as_ea_college_football_does",
+   "status": "cited in code",
+   "areas": [
+    "P8"
+   ]
+  },
+  {
+   "what": "NFL overall targets",
+   "where": "crates/afm-tools/tests/national_class.rs keeps_elite_pros_rare",
+   "status": "cited in code",
+   "areas": [
+    "P8"
+   ]
+  },
+  {
+   "what": "High school roster shares",
+   "where": "positions.rs PositionProfile.share (no source file named)",
+   "status": "cited in code",
+   "areas": [
+    "P9"
+   ]
+  },
+  {
+   "what": "Shares test",
+   "where": "crates/afm-tools/tests/national_class.rs places_athletes_in_real_position_shares",
+   "status": "cited in code",
+   "areas": [
+    "P9"
+   ]
+  },
+  {
+   "what": "Potential tests",
+   "where": "crates/afm-tools/tests/national_class.rs treats_potential_as_dynamic_not_fixed_at_birth",
+   "status": "cited in code",
+   "areas": [
+    "P11"
+   ]
+  },
+  {
+   "what": "QB EPA by age; PFF aging curves for WR, RB, TE",
+   "where": "docs/research/development-and-injuries.md section 1",
+   "status": "cited in code",
+   "areas": [
+    "P12"
+   ]
+  },
+  {
+   "what": "Peak ages",
+   "where": "crates/afm-tools/tests/national_class.rs peaks_at_realistic_ages_by_position",
+   "status": "cited in code",
+   "areas": [
+    "P12"
+   ]
+  },
+  {
+   "what": "Career length tests",
+   "where": "crates/afm-tools/tests/national_class.rs produces_realistic_pro_careers, ends_running_back_careers_sooner_than_quarterback_careers",
+   "status": "cited in code",
+   "areas": [
+    "P14"
+   ]
+  },
+  {
+   "what": "College and high school rates per 1,000 exposures; ACL and Achilles return",
+   "where": "docs/research/development-and-injuries.md sections 4-6 (Kerr et al. 2018; Manoharan 2021; AOFAS 2021)",
+   "status": "cited in code",
+   "areas": [
+    "P15"
+   ]
+  },
+  {
+   "what": "Trait correlations about 0.2-0.4",
+   "where": "Big Five meta-analyses, cited in the Traits doc comment in crates/afm-engine/src/player.rs (sizes marked unconfirmed); no data file",
+   "status": "unconfirmed",
+   "areas": [
+    "P17"
+   ]
+  },
+  {
+   "what": "Mix of arrest kinds by era",
+   "where": "USA Today NFL arrest database, cited in kind_mix in crates/afm-engine/src/world/people.rs (shares marked unconfirmed); no data file",
+   "status": "unconfirmed",
+   "areas": [
+    "P22"
+   ]
+  },
+  {
+   "what": "Suspension policy by year",
+   "where": "games_for comments in world/people.rs (personal conduct policy 2007, 2014 domestic policy, 2020 CBA)",
+   "status": "cited in code",
+   "areas": [
+    "P22"
+   ]
+  },
+  {
+   "what": "NIL valuation from followers, deal sizes, draft-night follower gains, fake followers",
+   "where": "docs/research/media-and-social.md section 4.3 (On3, Opendorse, INFLCR, RotoWire)",
+   "status": "cited in code",
+   "areas": [
+    "P23"
+   ]
+  },
+  {
+   "what": "Star draft test",
+   "where": "crates/afm-tools/tests/national_class.rs drafts_recruits_at_realistic_rates_by_star_rating",
+   "status": "cited in code",
+   "areas": [
+    "P25"
+   ]
+  },
+  {
+   "what": "FBS single-season records (written from memory, not checked)",
+   "where": "tools/dashboard/build_data.py real_values fbs_records",
+   "status": "cited in code",
+   "areas": [
+    "P29"
+   ]
+  },
+  {
+   "what": "Specialist draft test",
+   "where": "crates/afm-tools/tests/national_class.rs drafts_kickers_and_punters_off_their_own_board_late",
+   "status": "cited in code",
+   "areas": [
+    "P30"
+   ]
+  },
+  {
+   "what": "No real grade data; EA's College Football grades are the model, not data",
+   "where": "none in data/real-world (world/program.rs comments name EA style)",
+   "status": "none",
+   "areas": [
+    "C3"
+   ]
+  },
+  {
+   "what": "FBS game shape: 27.8 points, 36.7% one-score, 21.1% by 28+, home wins 58.4%, team margin SD 11.2",
+   "where": "tools/dashboard/build_data.py real_values vitals FBS (CFBD 2011-2025)",
+   "status": "cited in code",
+   "areas": [
+    "C4"
+   ]
+  },
+  {
+   "what": "Dynasty bands used by the dashboard: most in 15 years 4-6, distinct 7-9, unbeaten 0.6 a year, top team margin 22-39",
+   "where": "tools/dashboard/build_data.py real_values balance",
+   "status": "cited in code",
+   "areas": [
+    "C5"
+   ]
+  },
+  {
+   "what": "Most titles in 15 years real 6, champions in the last 15 years real 8, unbeaten champions about half",
+   "where": "crates/afm-tools/src/bin/world_trial.rs (dynasty check) and crates/afm-tools/src/bin/dynasty_check.rs (SEC 15 titles 1996-2025)",
+   "status": "cited in code",
+   "areas": [
+    "C5"
+   ]
+  },
+  {
+   "what": "Title-game years and conference game counts",
+   "where": "crates/afm-engine/src/calendar/rules.rs conference_rules (real history in code)",
+   "status": "cited in code",
+   "areas": [
+    "C6"
+   ]
+  },
+  {
+   "what": "Weather normals per state",
+   "where": "crates/afm-engine/src/calendar/weather.rs (one town per state, from NOAA normals, rounded)",
+   "status": "cited in code",
+   "areas": [
+    "C7"
+   ]
+  },
+  {
+   "what": "Neutral sites and their first years",
+   "where": "crates/afm-engine/src/world/deals.rs SITES",
+   "status": "cited in code",
+   "areas": [
+    "C7"
+   ]
+  },
+  {
+   "what": "None: the module says share by distance, kind frequencies and payouts are proposed, not confirmed",
+   "where": "crates/afm-engine/src/world/deals.rs header",
+   "status": "cited in code",
+   "areas": [
+    "C8"
+   ]
+  },
+  {
+   "what": "Voters favor own state and conference; preseason rank persists",
+   "where": "docs/research/media-and-social.md section 4.1 (Coleman et al. 2009; Hensley 2020)",
+   "status": "cited in code",
+   "areas": [
+    "C10"
+   ]
+  },
+  {
+   "what": "Panel sizes AP 62, Harris 114, Coaches 65, committee 13",
+   "where": "crates/afm-engine/src/world/voters.rs constants",
+   "status": "cited in code",
+   "areas": [
+    "C10"
+   ]
+  },
+  {
+   "what": "Postseason format by era",
+   "where": "crates/afm-engine/src/calendar/anchors.rs cfb_postseason",
+   "status": "cited in code",
+   "areas": [
+    "C10"
+   ]
+  },
+  {
+   "what": "Panel sizes and the first committee's make-up",
+   "where": "crates/afm-engine/src/world/voters.rs comments",
+   "status": "cited in code",
+   "areas": [
+    "C11"
+   ]
+  },
+  {
+   "what": "Voter bias studies",
+   "where": "docs/research/media-and-social.md section 4.1",
+   "status": "cited in code",
+   "areas": [
+    "C11"
+   ]
+  },
+  {
+   "what": "Bowls with real first seasons and tie-ins",
+   "where": "crates/afm-engine/src/calendar/data.rs BOWLS",
+   "status": "cited in code",
+   "areas": [
+    "C12"
+   ]
+  },
+  {
+   "what": "Era formats",
+   "where": "crates/afm-engine/src/calendar/anchors.rs cfb_postseason",
+   "status": "cited in code",
+   "areas": [
+    "C12"
+   ]
+  },
+  {
+   "what": "D3 and NAIA field sizes are marked 'from memory, to verify'",
+   "where": "crates/afm-engine/src/world/college.rs pick_division_playoff",
+   "status": "cited in code",
+   "areas": [
+    "C13"
+   ]
+  },
+  {
+   "what": "Booster prices: Logan Young about $150K for a lineman (2000), SMU about $61K for 13 players (1985-86); proposed tiers",
+   "where": "crates/afm-engine/src/world/ncaa.rs booster_price, booster_pot comments",
+   "status": "cited in code",
+   "areas": [
+    "C15"
+   ]
+  },
+  {
+   "what": "House settlement rules: 105 roster, revenue share",
+   "where": "docs/research/rules-and-money-2026.md",
+   "status": "cited in code",
+   "areas": [
+    "C15"
+   ]
+  },
+  {
+   "what": "35 FCS programs that opted out of 105",
+   "where": "crates/afm-engine/src/world/ncaa.rs FCS_OPTED_OUT",
+   "status": "cited in code",
+   "areas": [
+    "C15"
+   ]
+  },
+  {
+   "what": "Rule facts by era (four in five, COVID 2020, five in five from 2026)",
+   "where": "crates/afm-engine/src/world/eligibility.rs; docs/research/rules-and-money-2026.md",
+   "status": "cited in code",
+   "areas": [
+    "C16"
+   ]
+  },
+  {
+   "what": "The NCAA tiers and sliding scale",
+   "where": "crates/afm-engine/src/world/recruiting.rs ncaa_tier, eligibility_gpa (rule facts)",
+   "status": "cited in code",
+   "areas": [
+    "C17"
+   ]
+  },
+  {
+   "what": "Strict schools' bars are proposed, not confirmed",
+   "where": "crates/afm-engine/src/world/program.rs STRICT_ADMISSIONS",
+   "status": "cited in code",
+   "areas": [
+    "C17"
+   ]
+  },
+  {
+   "what": "In-state share median 37%, p10 15%, p90 65%",
+   "where": "crates/afm-tools/src/bin/world_trial.rs (fix list topic 2 check)",
+   "status": "cited in code",
+   "areas": [
+    "C18"
+   ]
+  },
+  {
+   "what": "Black FBS head coaches 16 of 134 in 2024",
+   "where": "tools/dashboard/build_data.py real_values (CBS Sports 2024-05-16)",
+   "status": "cited in code",
+   "areas": [
+    "C19"
+   ]
+  },
+  {
+   "what": "FBS single-season records (from memory, not checked)",
+   "where": "tools/dashboard/build_data.py real_values fbs_records",
+   "status": "cited in code",
+   "areas": [
+    "C22"
+   ]
+  },
+  {
+   "what": "National powerhouses",
+   "where": "crates/afm-engine/src/world/high_school.rs NATIONAL_POWERHOUSES",
+   "status": "cited in code",
+   "areas": [
+    "C23"
+   ]
+  },
+  {
+   "what": "De La Salle's 151 straight",
+   "where": "crates/afm-tools/src/bin/calendar_check.rs and world_trial.rs comments (memory)",
+   "status": "from memory",
+   "areas": [
+    "C24"
+   ]
+  },
+  {
+   "what": "High school scoring about 26 a team game (memory, needs a source)",
+   "where": "docs/trials/world-trial10.md finding 2",
+   "status": "cited in code",
+   "areas": [
+    "C24"
+   ]
+  },
+  {
+   "what": "SAT and ACT dates, grade check rules",
+   "where": "crates/afm-engine/src/calendar/data.rs (SAT_DATES, ACT_DATES, GradeCheck, hs_calendar)",
+   "status": "cited in code",
+   "areas": [
+    "C25"
+   ]
+  },
+  {
+   "what": "All-star games' first seasons",
+   "where": "crates/afm-engine/src/world/hs_year.rs all_star_first_season",
+   "status": "cited in code",
+   "areas": [
+    "C25"
+   ]
+  },
+  {
+   "what": "None in data/real-world",
+   "where": "none",
+   "status": "none",
+   "areas": [
+    "S23"
+   ]
+  },
+  {
+   "what": "Held back about 9-10% (NCES; Deming and Dynarski 2008), births by month (CDC 2015-2023)",
+   "where": "crates/afm-engine/src/calendar/born.rs comments",
+   "status": "cited in code",
+   "areas": [
+    "C27"
+   ]
+  },
+  {
+   "what": "Quotas from the 247 Composite",
+   "where": "crates/afm-engine/src/world/recruiting.rs SERVICE_TIERS",
+   "status": "cited in code",
+   "areas": [
+    "C31"
+   ]
+  },
+  {
+   "what": "Crystal Ball accuracy 80-92% for top analysts",
+   "where": "docs/research/media-and-social.md section 4.1",
+   "status": "cited in code",
+   "areas": [
+    "C32"
+   ]
+  },
+  {
+   "what": "Verbal offers to sophomores from June 15 (2026 rules)",
+   "where": "docs/research/rules-and-money-2026.md",
+   "status": "cited in code",
+   "areas": [
+    "C33"
+   ]
+  },
+  {
+   "what": "Target depth from real FBS rosters",
+   "where": "crates/afm-engine/src/world/recruiting.rs real_roster (ESPN rosters 2022-24)",
+   "status": "cited in code",
+   "areas": [
+    "C34"
+   ]
+  },
+  {
+   "what": "Official visit windows for juniors, 70 hosted a year (not confirmed)",
+   "where": "docs/research/rules-and-money-2026.md",
+   "status": "cited in code",
+   "areas": [
+    "C35"
+   ]
+  },
+  {
+   "what": "Decommit rates",
+   "where": "docs/research/media-and-social.md section 4.1 (SI 2012, On3 2023, 247 2025)",
+   "status": "cited in code",
+   "areas": [
+    "C36"
+   ]
+  },
+  {
+   "what": "Five-star spread: top program 14%, 15-17 programs (247Sports 2024-25)",
+   "where": "crates/afm-tools/src/bin/world_trial.rs",
+   "status": "cited in code",
+   "areas": [
+    "C37"
+   ]
+  },
+  {
+   "what": "Early signing share 80-90% (memory, to check)",
+   "where": "tools/dashboard/build_data.py real_values calendar fbs_signed_early_pct",
+   "status": "cited in code",
+   "areas": [
+    "C37"
+   ]
+  },
+  {
+   "what": "Signing dates",
+   "where": "docs/research/rules-and-money-2026.md; crates/afm-engine/src/calendar/anchors.rs early_signing",
+   "status": "cited in code",
+   "areas": [
+    "C37"
+   ]
+  },
+  {
+   "what": "Recruits' hashtag posts predict their choice (Iowa study); fan messages don't sway them (ESPN 2014)",
+   "where": "docs/research/media-and-social.md section 5",
+   "status": "cited in code",
+   "areas": [
+    "C38"
+   ]
+  },
+  {
+   "what": "FBS entrants by year targets",
+   "where": "crates/afm-tools/src/bin/world_trial.rs (part B 10 comment)",
+   "status": "cited in code",
+   "areas": [
+    "C40"
+   ]
+  },
+  {
+   "what": "How stories spread by kind",
+   "where": "docs/research/media-and-social.md section 6",
+   "status": "cited in code",
+   "areas": [
+    "C42"
+   ]
+  },
+  {
+   "what": "Black FBS head coaches 2023 and 2024, Power 4 2025",
+   "where": "docs/research/trial3-baselines.md (CBS Sports 2024-05-16; EduLedger 2025); tools/dashboard/build_data.py sources.black_hc",
+   "status": "cited in code",
+   "areas": [
+    "S1"
+   ]
+  },
+  {
+   "what": "7 Black FBS head coaches in 2009 (check run)",
+   "where": "docs/world-model.md, 'Hiring bias after 2016'",
+   "status": "cited in code",
+   "areas": [
+    "S1"
+   ]
+  },
+  {
+   "what": "Dynasty bands: most titles in any 15 years real 6, champions in the last 15 years real 8, unbeaten champions about half",
+   "where": "crates/afm-tools/src/bin/world_trial.rs (dynasty check)",
+   "status": "cited in code",
+   "areas": [
+    "S7"
+   ]
+  },
+  {
+   "what": "Title coaches' tenure and most titles by one coach (check run: 15.6 seasons, max 4)",
+   "where": "docs/world-model.md, 'Check run' (Claude's reading, not checked)",
+   "status": "unconfirmed",
+   "areas": [
+    "S7"
+   ]
+  },
+  {
+   "what": "FBS head coach changes about 20-30 a year; hired away 5-7 and by the NFL 0.5; NFL head coach hires about 7 a year 2015-25; FBS head coaches retiring before 60 about 0.5",
+   "where": "docs/world-model.md, 'Check run' (Claude's reading, not checked)",
+   "status": "unconfirmed",
+   "areas": [
+    "S8"
+   ]
+  },
+  {
+   "what": "Black FBS head coaches by year (bias calibration)",
+   "where": "docs/research/trial3-baselines.md",
+   "status": "cited in code",
+   "areas": [
+    "S9"
+   ]
+  },
+  {
+   "what": "NFL diversity comp picks: a team losing a minority head coach or GM gets a 3rd-round pick in each of two drafts",
+   "where": "docs/research/rules-and-money-2026.md",
+   "status": "cited in code",
+   "areas": [
+    "S9"
+   ]
+  },
+  {
+   "what": "Black FBS head coaches 2023, 2024; Power 4 2025",
+   "where": "docs/research/trial3-baselines.md; tools/dashboard/build_data.py",
+   "status": "cited in code",
+   "areas": [
+    "S10"
+   ]
+  },
+  {
+   "what": "Engine target: a best-against-worst caller worth about 3-7 points a game",
+   "where": "docs/research/engine-and-tactics.md; docs/research/findings-summary.md",
+   "status": "cited in code",
+   "areas": [
+    "S16"
+   ]
+  },
+  {
+   "what": "College tempo (PFF 2026-07-20)",
+   "where": "docs/research/engine-and-tactics.md",
+   "status": "cited in code",
+   "areas": [
+    "S17"
+   ]
+  },
+  {
+   "what": "Classic pairings in plain words",
+   "where": "docs/research/engine-and-tactics.md, section 5",
+   "status": "cited in code",
+   "areas": [
+    "S18"
+   ]
+  },
+  {
+   "what": "NFL head coach hires about 7 a year 2015-25 (Claude's reading)",
+   "where": "docs/world-model.md 'Check run'",
+   "status": "cited in code",
+   "areas": [
+    "S22"
+   ]
+  },
+  {
+   "what": "Career wins ladder at high school (McKissick 621)",
+   "where": "docs/world-model.md G1 Ambitions",
+   "status": "cited in code",
+   "areas": [
+    "S23"
+   ]
+  },
+  {
+   "what": "Staff size rules by level and era",
+   "where": "docs/design/people.md (topic on staff sizes)",
+   "status": "cited in code",
+   "areas": [
+    "S24"
+   ]
+  },
+  {
+   "what": "Retirement and early-exit counts (Claude's reading)",
+   "where": "docs/world-model.md 'Check run' and 'Champions get courted, worn down and walk away'",
+   "status": "cited in code",
+   "areas": [
+    "S26"
+   ]
+  },
+  {
+   "what": "NCAA camp rule 2021 (proposal 2021-5), CBA Article 24 padded practices, NFHS 2014 guidance, California 2015, Texas 2017",
+   "where": "docs/design/training.md",
+   "status": "cited in code",
+   "areas": [
+    "S30"
+   ]
+  },
+  {
+   "what": "FBS game shape 2011-25: points 27.8, one-score 36.7, blowout 21.1, margin40 6.7, margin60 0.4, home win 58.4, team margin sd 11.2, luck sd 13.0, home edge 2.5",
+   "where": "tools/dashboard/build_data.py real_values() (docs/trials/world-trial4-proposals.md, table 1)",
+   "status": "cited in code",
+   "areas": [
+    "G1"
+   ]
+  },
+  {
+   "what": "Drive rows used by match_check: drives 11.0, drive start 70.5, points per drive 2.0, FG attempts 1.85 (PFR drive stats 2021-24)",
+   "where": "crates/afm-tools/src/bin/match_check.rs constants",
+   "status": "cited in code",
+   "areas": [
+    "G2"
+   ]
+  },
+  {
+   "what": "Engine calibration table and known gaps (points and plays high, sacks low)",
+   "where": "docs/match-engine.md, Calibration and Known gaps",
+   "status": "cited in code",
+   "areas": [
+    "G2"
+   ]
+  },
+  {
+   "what": "High school real figures from memory (points, sacks, receiving, interceptions, streak record)",
+   "where": "docs/trials/world-trial10.md (marked as needing a source)",
+   "status": "cited in code",
+   "areas": [
+    "G7"
+   ]
+  },
+  {
+   "what": "Depth shares, run buckets, first-tackle positions, YAC 5.2",
+   "where": "crates/afm-tools/src/bin/match_check.rs constants",
+   "status": "cited in code",
+   "areas": [
+    "G8"
+   ]
+  },
+  {
+   "what": "Return rows (kickoff average 25.9, 40+ 5%, punt 9.5, 20+ 8%, return TDs 0.012)",
+   "where": "crates/afm-tools/src/bin/match_check.rs",
+   "status": "cited in code",
+   "areas": [
+    "G10"
+   ]
+  },
+  {
+   "what": "Fouls by kind per team game (Claude's reading of nflpenalties.com 2023; diagnosis only)",
+   "where": "crates/afm-tools/src/bin/match_check.rs",
+   "status": "cited in code",
+   "areas": [
+    "G11"
+   ]
+  },
+  {
+   "what": "Challenges, booth reviews, deferrals",
+   "where": "docs/match-engine.md (NFL 2024 figures) and crates/afm-tools/src/bin/match_check.rs",
+   "status": "cited in code",
+   "areas": [
+    "G12"
+   ]
+  },
+  {
+   "what": "Out-of-bounds shares, clock per run play, neutral pass rate",
+   "where": "crates/afm-tools/src/bin/match_check.rs constants",
+   "status": "cited in code",
+   "areas": [
+    "G13"
+   ]
+  },
+  {
+   "what": "FBS game shape and luck",
+   "where": "tools/dashboard/build_data.py real_values()",
+   "status": "cited in code",
+   "areas": [
+    "G15"
+   ]
+  },
+  {
+   "what": "FBS single-season records, written from memory",
+   "where": "tools/dashboard/build_data.py real_values() fbs_records",
+   "status": "cited in code",
+   "areas": [
+    "G16"
+   ]
+  },
+  {
+   "what": "FBS single-season records from memory",
+   "where": "tools/dashboard/build_data.py fbs_records",
+   "status": "cited in code",
+   "areas": [
+    "G20"
+   ]
+  },
+  {
+   "what": "High school streak and season figures from memory",
+   "where": "docs/trials/world-trial10.md",
+   "status": "cited in code",
+   "areas": [
+    "G20"
+   ]
+  },
+  {
+   "what": "Real NFL records before 1984, from memory, to verify",
+   "where": "crates/afm-engine/src/world/pro/honors.rs REAL_1983",
+   "status": "cited in code",
+   "areas": [
+    "G26"
+   ]
+  },
+  {
+   "what": "Figures from memory",
+   "where": "docs/trials/world-trial10.md",
+   "status": "cited in code",
+   "areas": [
+    "G27"
+   ]
+  },
+  {
+   "what": "Huge share target (design, not real data)",
+   "where": "tools/dashboard/build_data.py calendar huge_share_1_to_3",
+   "status": "cited in code",
+   "areas": [
+    "G31"
+   ]
+  },
+  {
+   "what": "Franchises, names, cities, divisions and roofs by year",
+   "where": "crates/afm-engine/src/world/franchise.rs ERAS (real history)",
+   "status": "cited in code",
+   "areas": [
+    "N1"
+   ]
+  },
+  {
+   "what": "Candidate cities for moves with metro size",
+   "where": "crates/afm-engine/src/world/finance/data.rs OPEN_CITIES; finance/nfl.rs metro()",
+   "status": "cited in code",
+   "areas": [
+    "N1"
+   ]
+  },
+  {
+   "what": "Real playoff formats by era (12 to 1989, 12 then 14 from 2020)",
+   "where": "crates/afm-engine/src/calendar/rules.rs RuleBook::era (nfl_playoff_teams)",
+   "status": "cited in code",
+   "areas": [
+    "N2"
+   ]
+  },
+  {
+   "what": "NFL TV contracts by era",
+   "where": "crates/afm-engine/src/world/broadcast.rs module notes (real; pre-1996 networks proposed, not confirmed)",
+   "status": "unconfirmed",
+   "areas": [
+    "N3"
+   ]
+  },
+  {
+   "what": "Week dates, Thanksgiving, Christmas, kickoff",
+   "where": "crates/afm-engine/src/calendar/anchors.rs (NFL.com 2026 important dates)",
+   "status": "cited in code",
+   "areas": [
+    "N3"
+   ]
+  },
+  {
+   "what": "Average roster age about 26",
+   "where": "crates/afm-tools/src/bin/world_trial.rs nfl_league (from memory, to verify)",
+   "status": "from memory",
+   "areas": [
+    "N4"
+   ]
+  },
+  {
+   "what": "Retirement ages by position used by the model",
+   "where": "crates/afm-engine/src/career.rs retire_age; docs/reference/how-it-works/nfl.md 'Retirement'",
+   "status": "cited in code",
+   "areas": [
+    "N5"
+   ]
+  },
+  {
+   "what": "Career length by round",
+   "where": "tools/dashboard/build_data.py nfl_view career_by_round (sim side only; no real file in data/real-world)",
+   "status": "cited in code",
+   "areas": [
+    "N5"
+   ]
+  },
+  {
+   "what": "Top-5 pay by position as a share of the cap",
+   "where": "crates/afm-engine/src/world/pro/money.rs top5_share; tools/dashboard/build_data.py NFL_TOP5 (QB 23.4 ... LS 0.7)",
+   "status": "cited in code",
+   "areas": [
+    "N7"
+   ]
+  },
+  {
+   "what": "Rules and money research",
+   "where": "docs/research/rules-and-money-2026.md",
+   "status": "cited in code",
+   "areas": [
+    "N7"
+   ]
+  },
+  {
+   "what": "Market counts (about 550 UFAs, 6-9 tags, 1-2 sheets, half of options, 25-40 claims, 40-60 trades, 32-39 comp picks, 10-15 futures a team)",
+   "where": "crates/afm-tools/src/bin/world_trial.rs nfl_league doc comment (from memory, to verify)",
+   "status": "from memory",
+   "areas": [
+    "N9"
+   ]
+  },
+  {
+   "what": "Pay ladder shape",
+   "where": "crates/afm-engine/src/world/pro/market.rs ladder_share (GENERAL, QB tables)",
+   "status": "cited in code",
+   "areas": [
+    "N10"
+   ]
+  },
+  {
+   "what": "Pick value charts (Jimmy Johnson classic; flatter surplus)",
+   "where": "crates/afm-engine/src/world/pro/trades.rs CLASSIC, SURPLUS",
+   "status": "cited in code",
+   "areas": [
+    "N12"
+   ]
+  },
+  {
+   "what": "Comp slots per round from 1994",
+   "where": "crates/afm-engine/src/world/franchise.rs comp_picks",
+   "status": "cited in code",
+   "areas": [
+    "N13"
+   ]
+  },
+  {
+   "what": "Limits by year",
+   "where": "crates/afm-engine/src/world/pro/squad.rs elevation_limits, veteran_places; world/pro/games.rs ir_minimum, ir_returns",
+   "status": "cited in code",
+   "areas": [
+    "N14"
+   ]
+  },
+  {
+   "what": "Mood, trust, grudge formulas",
+   "where": "docs/reference/how-it-works/people.md",
+   "status": "cited in code",
+   "areas": [
+    "N15"
+   ]
+  },
+  {
+   "what": "Model's typical retirement ages",
+   "where": "crates/afm-engine/src/career.rs retire_age",
+   "status": "cited in code",
+   "areas": [
+    "N16"
+   ]
+  },
+  {
+   "what": "Model sizes and era drift",
+   "where": "docs/reference/how-it-works/nfl.md 'Front offices' (Claude's picks)",
+   "status": "unconfirmed",
+   "areas": [
+    "N17"
+   ]
+  },
+  {
+   "what": "The real NFL records before 1984",
+   "where": "crates/afm-engine/src/world/pro/honors.rs REAL_1983 (from memory, to verify)",
+   "status": "from memory",
+   "areas": [
+    "N19"
+   ]
+  },
+  {
+   "what": "FCS share about 6%",
+   "where": "CLAUDE.md calibration note; world_trial.rs section 7",
+   "status": "cited in code",
+   "areas": [
+    "N20"
+   ]
+  },
+  {
+   "what": "Real points a team game per league",
+   "where": "crates/afm-engine/src/game/books.rs Book::real_points (Claude's reading); crates/afm-tools/src/bin/leagues_check.rs",
+   "status": "unconfirmed",
+   "areas": [
+    "N26"
+   ]
+  },
+  {
+   "what": "League years and seasons",
+   "where": "crates/afm-engine/src/world/pro/leagues.rs LEAGUES, USFL_2022",
+   "status": "cited in code",
+   "areas": [
+    "N26"
+   ]
+  },
+  {
+   "what": "Rule books per league (rouge, field size)",
+   "where": "crates/afm-engine/src/game/books.rs",
+   "status": "cited in code",
+   "areas": [
+    "N26"
+   ]
+  },
+  {
+   "what": "Kind mix by era and suspension policy by year",
+   "where": "crates/afm-engine/src/world/people.rs kind_mix, games_for (USA Today arrest database; shares proposed, not confirmed)",
+   "status": "unconfirmed",
+   "areas": [
+    "N27"
+   ]
+  },
+  {
+   "what": "Fine schedule",
+   "where": "crates/afm-engine/src/world/folk/rules.rs (the league's 2025 schedule)",
+   "status": "cited in code",
+   "areas": [
+    "N27"
+   ]
+  },
+  {
+   "what": "Tie and mentor rules",
+   "where": "docs/reference/how-it-works/people.md 'Relationships'",
+   "status": "cited in code",
+   "areas": [
+    "N29"
+   ]
+  },
+  {
+   "what": "League revenue, national share, ticket price, value multiple, brand, visitor share, stadiums by era, 2026 projects",
+   "where": "crates/afm-engine/src/world/finance/data.rs (Forbes, Sportico, Team Marketing Report, stadium records)",
+   "status": "cited in code",
+   "areas": [
+    "N30"
+   ]
+  },
+  {
+   "what": "2024 targets: revenue $23B, $720M a club, attendance 69K, value $5.9B",
+   "where": "crates/afm-tools/src/bin/finance_check.rs",
+   "status": "cited in code",
+   "areas": [
+    "N30"
+   ]
+  },
+  {
+   "what": "Report card parts and grades",
+   "where": "crates/afm-engine/src/world/finance/data.rs CARD_PARTS, GRADES, CARDS_FROM 2023",
+   "status": "cited in code",
+   "areas": [
+    "N30"
+   ]
+  },
+  {
+   "what": "Real department ranges and attendance",
+   "where": "crates/afm-tools/src/bin/finance_check.rs",
+   "status": "cited in code",
+   "areas": [
+    "N31"
+   ]
+  },
+  {
+   "what": "College revenue sharing after House",
+   "where": "docs/research/rules-and-money-2026.md",
+   "status": "cited in code",
+   "areas": [
+    "N31"
+   ]
+  },
+  {
+   "what": "High school budget range",
+   "where": "crates/afm-tools/src/bin/finance_check.rs",
+   "status": "cited in code",
+   "areas": [
+    "N32"
+   ]
+  },
+  {
+   "what": "Fundraisers and purchases",
+   "where": "crates/afm-engine/src/world/finance/data.rs FUNDRAISERS, PURCHASES",
+   "status": "cited in code",
+   "areas": [
+    "N32"
+   ]
+  },
+  {
+   "what": "Line accuracy targets",
+   "where": "crates/afm-tools/src/bin/finance_check.rs",
+   "status": "cited in code",
+   "areas": [
+    "N33"
+   ]
+  },
+  {
+   "what": "Real 2026 dates, anchors by year",
+   "where": "crates/afm-engine/src/calendar/anchors.rs (NFL.com 2026 important dates; CFP 2026-27)",
+   "status": "cited in code",
+   "areas": [
+    "N34"
+   ]
+  },
+  {
+   "what": "Era rules",
+   "where": "crates/afm-engine/src/calendar/rules.rs RuleBook::era",
+   "status": "cited in code",
+   "areas": [
+    "N35"
+   ]
+  },
+  {
+   "what": "Change odds",
+   "where": "crates/afm-engine/src/calendar/rules.rs CHANGE_ODDS (proposed, not confirmed)",
+   "status": "unconfirmed",
+   "areas": [
+    "N35"
+   ]
+  },
+  {
+   "what": "State main towns",
+   "where": "crates/afm-engine/src/calendar/weather.rs CLIMATES",
+   "status": "cited in code",
+   "areas": [
+    "N37"
+   ]
+  },
+  {
+   "what": "Births per month and held-back shares",
+   "where": "crates/afm-engine/src/calendar/born.rs (CDC natality 2015-2023; NCES; Deming and Dynarski 2008)",
+   "status": "cited in code",
+   "areas": [
+    "N38"
+   ]
+  },
+  {
+   "what": "Season lengths by year",
+   "where": "crates/afm-engine/src/calendar/rules.rs RuleBook::era",
+   "status": "cited in code",
+   "areas": [
+    "N39"
+   ]
+  },
+  {
+   "what": "Media, social and fans research",
+   "where": "docs/research/media-and-social.md",
+   "status": "cited in code",
+   "areas": [
+    "N43"
+   ]
+  },
+  {
+   "what": "A real example for each of the 117 kinds (e.g. 'Alabama, 2018: Tua Tagovailoa and Jalen Hurts')",
+   "where": "crates/afm-engine/src/world/storylines/catalogue.rs",
+   "status": "cited in code",
+   "areas": [
+    "N44"
+   ]
+  },
+  {
+   "what": "State high school halls of fame rules with sources",
+   "where": "crates/afm-engine/src/world/legacy/hall.rs Rule (source, researched)",
+   "status": "cited in code",
+   "areas": [
+    "N46"
+   ]
+  },
+  {
+   "what": "Spread of luck (wins against expectation) and team margin spread",
+   "where": "tools/dashboard/build_data.py real_values() (luck_sd, team_margin_sd) into real.json",
+   "status": "cited in code",
+   "areas": [
+    "T6"
+   ]
+  }
+ ],
+ "memory_replacements": [
+  {
+   "file": "crates/afm-engine/src/world/nfl_year.rs",
+   "match": "International games a season",
+   "key": "nfl_history.json schedule_facts.games_abroad",
+   "check": "data covers 2005-2025; 2025 = 7",
+   "status": "agrees"
+  },
+  {
+   "file": "crates/afm-engine/src/world/nfl_year.rs",
+   "match": "Christmas Day games by season",
+   "key": "nfl_history.json schedule_facts.christmas_day",
+   "check": "differs from the code: 1999 has 1 game (code 0) and 2004 has 2 (code 0); 2000, 2005-2025 agree",
+   "status": "differs"
+  },
+  {
+   "file": "crates/afm-engine/src/world/schedule.rs",
+   "match": "FBS Thursday nights",
+   "key": "college_history.json fbs_game_days",
+   "check": "data covers 2001-2025: about 30-49 Thursday and 14-67 Friday FBS home games a season; before 2001 stays memory",
+   "status": "partial"
+  },
+  {
+   "file": "crates/afm-tools/src/bin/world_trial.rs",
+   "match": "550 unrestricted free agents",
+   "key": "nfl_history.json trades; nfl_careers.json compensatory_picks",
+   "check": "trades: 40-102 a year 2002-2025 (86-96 since 2021); comp picks: 29-38 a year; free agents, tags, offer sheets, options and claims stay unsourced (OverTheCap, Spotrac)",
+   "status": "agrees"
+  },
+  {
+   "file": "tools/dashboard/build_data.py",
+   "match": "FBS single-season records",
+   "key": "college_players.json data_era_bests",
+   "check": "passing yards 5,967 and passing TDs 62 equal the best season since 2004 (Zappe 2021); 14 interceptions ties Holliman 2014; rushing 2,628, receiving 2,060 and sacks 24 predate 2004 and stay memory",
+   "status": "agrees"
+  },
+  {
+   "file": "tools/dashboard/build_data.py",
+   "match": "Regular-season NFL games outside the US",
+   "key": "nfl_history.json schedule_facts.games_abroad",
+   "check": "data covers 2005-2025",
+   "status": "agrees"
+  },
+  {
+   "file": "crates/afm-engine/src/world/nfl_year.rs",
+   "match": "flex",
+   "key": null,
+   "check": "no open schedule-release data; stays memory",
+   "status": "partial"
+  },
+  {
+   "file": "crates/afm-engine/src/world/schedule.rs",
+   "match": "Rivalry-week games played on Thanksgiving or the day after",
+   "key": "memory_checks.json college_holiday_games",
+   "status": "differs",
+   "check": "71 of 134 pair-years agree (2001-2025). Texas v Texas A&M (thanksgiving 1984-2011): off in 2001 black friday, 2002 black friday, 2003 black friday, 2004 black friday, 2005 black friday, 2006 black friday, 2007 black friday; also on a holiday in 2025 | Ole Miss v Mississippi State (thanksgiving 2013-2023): off in 2014 saturday, 2015 saturday, 2016 saturday, 2020 saturday; also on a holiday in 2001, 2002, 2003, 2007, 2008, 2024, 2025 | Nebraska v Iowa (black friday 2011-2025): agrees | Missouri v Arkansas (black friday 2014-2025): off in 2020 not in November, 2024 saturday, 2025 saturday | LSU v Arkansas (black friday 1992-2013): off in 2009 saturday, 2010 saturday | Washington v Washington State (black friday 2012-2016): off in 2014 saturday; also on a holiday in 2018, 2019, 2021 | Oregon v Oregon State (black friday 2008-2022): off in 2008 saturday, 2009 not in November, 2010 not in November, 2011 saturday, 2012 saturday, 2014 saturday, 2016 saturday, 2017 saturday, 2019 saturday, 2021 saturday, 2022 saturday; also on a holiday in 2006, 2023 | Toledo v Bowling Green (black friday 2005-2025): off in 2005 tuesday, 2006 tuesday, 2010 wednesday, 2011 not in November, 2012 not in November, 2013 not in November, 2014 wednesday, 2015 tuesday, 2016 not in November, 2017 wednesday, 2018 not in November, 2019 not in November, 2020 wednesday, 2021 wednesday, 2022 tuesday, 2023 tuesday, 2024 not in November, 2025 not in November; also on a holiday in 2001 | UCF v South Florida (black friday 2013-2025): off in 2015 thanksgiving, 2016 saturday, 2022 saturday, 2023 not in November, 2024 not in November, 2025 not in November | Virginia v Virginia Tech (black friday 2012-2018): off in 2012 saturday, 2013 saturday, 2015 saturday, 2016 saturday; also on a holiday in 2019 | Pittsburgh v West Virginia (black friday 2000-2011): off in 2001 saturday, 2002 saturday, 2003 saturday, 2004 thanksgiving, 2005 thanksgiving, 2006 thursday, 2007 not in November"
+  },
+  {
+   "file": "crates/afm-engine/src/calendar/anchors.rs",
+   "match": "The week whose Tuesday holds the trade deadline",
+   "key": "memory_checks.json trade_deadline",
+   "status": "agrees",
+   "check": "the last in-season trade falls after week 6 in 2004-2011, week 8 in 2012-2013 and 2016-2023, week 9 in 2024-2025, as the code has; off only where no trade fell on deadline day: 2002 (5 weeks, last trade 2002-10-12), 2003 (4 weeks, last trade 2003-09-30), 2014 (6 weeks, last trade 2014-10-18), 2015 (4 weeks, last trade 2015-10-06)"
+  },
+  {
+   "file": "crates/afm-engine/src/world/stories/numbers.rs",
+   "match": "NFL (rule 5, from memory, to verify)",
+   "key": "memory_checks.json jersey_numbers",
+   "status": "differs",
+   "check": "2004 (WRs in 10-19: 23 in 2003, 42 in 2004), 2015 (LBs in 40-49: 7 to 28, 86 in 2016) and 2021 (skill players in 1-9: 20 to 114) agree; number 0 came in 2023 (23 players), not 2024"
+  }
+ ],
+ "trial_claims": [
+  {
+   "claim": "high school teams score about 26 points a game",
+   "where": "docs/trials/world-trial10.md",
+   "status": "from memory",
+   "would_fill": "MaxPreps state scoring averages or the NFHS record book (not reachable from the cloud)"
+  },
+  {
+   "claim": "the national high school sacks record is about 40",
+   "where": "docs/trials/world-trial10.md",
+   "status": "from memory",
+   "would_fill": "the NFHS record book (not reachable)"
+  },
+  {
+   "claim": "De La Salle's 151-game winning streak",
+   "where": "docs/trials/world-trial10.md",
+   "status": "from memory",
+   "would_fill": "the NFHS record book or MaxPreps (not reachable)"
+  },
+  {
+   "claim": "62% of 5-stars get drafted",
+   "where": "trial reports",
+   "status": "sourced",
+   "key": "rates.json draft_rate_by_star (On3 63%, 247Sports 62.3%, ESPN classes 2013-2021 62.2%)"
+  }
+ ],
+ "holes": [
+  {
+   "what": "High school: points and yards a game by state and class, state and national record books, win streaks, all-state counts, coach tenure and records, transfers, participation",
+   "areas": [
+    "T3",
+    "C24",
+    "C25",
+    "C27",
+    "C28",
+    "G7",
+    "G20",
+    "G27",
+    "P28",
+    "S23"
+   ],
+   "would_fill": "MaxPreps, NFHS (record book, participation survey), state associations"
+  },
+  {
+   "what": "The NCAA's probability of competing beyond high school (the HS to college to NFL funnel)",
+   "areas": [
+    "P1",
+    "T8"
+   ],
+   "would_fill": "NCAA.org research"
+  },
+  {
+   "what": "College scores 1996-2000 and NFL play by play 1996-1998",
+   "areas": [
+    "T3",
+    "G1",
+    "G3"
+   ],
+   "would_fill": "Sports Reference (CFB and PFR), CFBD API"
+  },
+  {
+   "what": "NAIA and JUCO scores, box scores and champions; D2 and D3 box scores",
+   "areas": [
+    "G1",
+    "G2",
+    "C5",
+    "C13",
+    "G16"
+   ],
+   "would_fill": "NAIA and NJCAA sites, D2/D3 stats (NCAA stats site), Wikipedia lists"
+  },
+  {
+   "what": "NCAA record books (FBS, FCS, D2, D3), records falling, school record books",
+   "areas": [
+    "G20",
+    "G21",
+    "P29"
+   ],
+   "would_fill": "NCAA.org record books, Sports Reference"
+  },
+  {
+   "what": "Award winners and votes (Heisman, position awards, AP NFL awards, coach of the year), Hall of Fame classes",
+   "areas": [
+    "G22",
+    "G23",
+    "G26",
+    "N19",
+    "S28",
+    "N46"
+   ],
+   "would_fill": "Sports Reference, Wikipedia, the halls' own sites"
+  },
+  {
+   "what": "Race shares by position and level; coach ethnicity by year (FBS coordinators, NFL)",
+   "areas": [
+    "P3",
+    "S10"
+   ],
+   "would_fill": "NCAA demographics database, TIDES report cards"
+  },
+  {
+   "what": "Coach ages, first-job ages and prior roles, coaching tree sizes, salaries and buyouts, health leaves",
+   "areas": [
+    "S1",
+    "S9",
+    "S11",
+    "S21",
+    "S26"
+   ],
+   "would_fill": "Sports Reference coach pages, USA Today coach salary database"
+  },
+  {
+   "what": "Recruiting offers per recruit, official visits, commits by month, 247 class rankings, offer and visit timing",
+   "areas": [
+    "C33",
+    "C35",
+    "C36",
+    "C37"
+   ],
+   "would_fill": "247Sports, On3, Rivals"
+  },
+  {
+   "what": "NIL dollars below the Power 4, follower counts by level, endorsement earnings, jersey sales",
+   "areas": [
+    "C14",
+    "P23",
+    "N43",
+    "T9"
+   ],
+   "would_fill": "On3 NIL valuations, Opendorse reports, Forbes, NFLPA licensing lists"
+  },
+  {
+   "what": "NFL dead money, cap use, free-agent counts, tags, offer sheets, option decisions, waiver claims",
+   "areas": [
+    "N8",
+    "N9",
+    "N10",
+    "N11",
+    "N14"
+   ],
+   "would_fill": "OverTheCap, Spotrac"
+  },
+  {
+   "what": "Arrests by kind and year; college suspensions and dismissals",
+   "areas": [
+    "P22",
+    "N27"
+   ],
+   "would_fill": "USA Today NFL arrest database"
+  },
+  {
+   "what": "Births, marriage and divorce by age; family structure and income of players",
+   "areas": [
+    "P18",
+    "P21",
+    "N28"
+   ],
+   "would_fill": "CDC, Census"
+  },
+  {
+   "what": "Arm, hand and wingspan by position; handedness; pro-day against combine times; high school sizes by grade",
+   "areas": [
+    "P5",
+    "P6"
+   ],
+   "would_fill": "NFL combine official results, MockDraftable, MaxPreps"
+  },
+  {
+   "what": "College and high school injury rates; college snap counts and participation; college advanced stats",
+   "areas": [
+    "P15",
+    "G33",
+    "G28",
+    "G17",
+    "S17"
+   ],
+   "would_fill": "NCAA Injury Surveillance Program, PFF"
+  },
+  {
+   "what": "Conference realignment fees, guarantee games and scheduling horizons; NCAA infractions; department revenue",
+   "areas": [
+    "C8",
+    "C15",
+    "N31"
+   ],
+   "would_fill": "FBSchedules, NCAA LSDBi, Knight-Newhouse"
+  },
+  {
+   "what": "NFL attendance and blackouts by club; club values",
+   "areas": [
+    "N30",
+    "N31"
+   ],
+   "would_fill": "Pro Football Reference, Forbes, Sportico"
+  },
+  {
+   "what": "Early entrants by year, scouting staff sizes, mock draft accuracy, supplemental draft picks",
+   "areas": [
+    "N21",
+    "N22",
+    "N23",
+    "N25"
+   ],
+   "would_fill": "NFL.com announcements, team directories, The Huddle Report, Pro Football Reference"
+  },
+  {
+   "what": "Agency client shares",
+   "areas": [
+    "N18",
+    "S34"
+   ],
+   "would_fill": "NFLPA agent lists, Forbes"
+  },
+  {
+   "what": "Other leagues' champions and scoring (UFL, CFL)",
+   "areas": [
+    "N26"
+   ],
+   "would_fill": "league sites, Wikipedia"
+  },
+  {
+   "what": "Scheme counts by year (college fronts and offenses), NFL base front by team, concept-level route data, college coverage, motion and RPO",
+   "areas": [
+    "S14",
+    "S17",
+    "S18"
+   ],
+   "would_fill": "PFF, team charting (no open source)"
+  },
+  {
+   "what": "Video-game ratings by position and year",
+   "areas": [
+    "T9"
+   ],
+   "would_fill": "EA Madden and College Football rating dumps (no stable open host found)"
+  },
+  {
+   "what": "Relative age among recruits (birth months of high school prospects)",
+   "areas": [
+    "N38"
+   ],
+   "would_fill": "recruiting services' birth dates"
+  },
+  {
+   "what": "FCS player season lines and leaders",
+   "areas": [
+    "G16"
+   ],
+   "would_fill": "the NCAA stats release ncaa_mfb_player_stats (2013-2025) is reachable but its team ids do not join and rows before 2025 are uncategorized; not built"
+  }
+ ],
+ "unreachable_sources": [
+  {
+   "host": "sports-reference.com (Pro Football Reference, College Football Reference)",
+   "would_give": "NFL play by play 1996-1998 and attendance; award winners and votes; coach records, ages and trees; college scores 1996-2000; supplemental draft; record books"
+  },
+  {
+   "host": "api.collegefootballdata.com (CFBD API)",
+   "would_give": "college data before 2001, recruiting by service (247 composite), offers and commits by date, team talent before 2015; the open releases above cover the rest"
+  },
+  {
+   "host": "maxpreps.com",
+   "would_give": "high school scores, scoring averages by state and class, rankings history, stat leaders"
+  },
+  {
+   "host": "nfhs.org",
+   "would_give": "the high school record book (streaks, career and season records), participation counts by state"
+  },
+  {
+   "host": "ncaa.org",
+   "would_give": "probability of competing beyond high school, NCAA record books, demographics database (race by position), injury surveillance, APR, infractions"
+  },
+  {
+   "host": "247sports.com, on3.com, rivals.com",
+   "would_give": "class rankings, offers, visits, commits by month, NIL valuations, transfer rankings"
+  },
+  {
+   "host": "overthecap.com, spotrac.com",
+   "would_give": "dead money, cap use by year, free-agent counts, tags, option decisions, waiver claims"
+  },
+  {
+   "host": "usatoday.com",
+   "would_give": "the NFL arrest database, coach salaries and buyouts, department revenue"
+  },
+  {
+   "host": "cdc.gov, census.gov",
+   "would_give": "births by month (relative age), marriage and divorce by age, family structure"
+  },
+  {
+   "host": "wikipedia.org, wikidata.org",
+   "would_give": "champions lists (NAIA, JUCO, other leagues), award winners, Hall of Fame classes, coach of the year, conference realignment"
+  },
+  {
+   "host": "nfl.com",
+   "would_give": "early entrants by year, compensatory pick announcements, official schedules before 1999"
+  },
+  {
+   "host": "espn.com (site and API)",
+   "would_give": "college injuries, recruiting ranks, Heisman voting"
+  },
+  {
+   "host": "tidesport.org (TIDES)",
+   "would_give": "race and gender report cards (players and coaches by year)"
+  },
+  {
+   "host": "forbes.com, sportico.com",
+   "would_give": "club values, agency rankings, endorsement earnings"
+  },
+  {
+   "host": "kaggle.com, zenodo.org, web.archive.org",
+   "would_give": "community datasets and archived pages (for example old Madden ratings)"
+  }
+ ]
+}
