@@ -414,6 +414,31 @@ async function refreshKnown() {
   const now = $("#pg-known");
   if (now) now.innerHTML = html;
 }
+// Your coaches (update 3, SA1): the setup page's record of each coach you
+// made, kept by the game outside any save when his career starts. A new
+// career can take him again as he is (straight to the job) or with
+// something changed (the steps open filled in with him).
+const COACH_KEEP = ["first", "last", "born", "eth", "hometown", "state", "high_school", "alma_mater", "college_years", "degree", "status", "spouse", "roots", "children", "height", "build", "hair", "facial_hair", "photo", "bg", "pos", "ratings", "ratingsFor", "style", "calls", "stops", "rdLevel"];
+function coachRecord(st) {
+  const r = {};
+  for (const k of COACH_KEEP) if (st[k] !== undefined && st[k] !== null) r[k] = st[k];
+  return JSON.parse(JSON.stringify(r));
+}
+async function coachUse(st, file, asHe) {
+  const c = ((PG.coaches && PG.coaches.coaches) || []).find((x) => x.file === file);
+  if (!c) return;
+  Object.assign(st, JSON.parse(JSON.stringify(c.coach)), { from: file });
+  // His stops are looked up again in this world by their names.
+  for (const s of st.stops || []) { s.id = null; await findStop(s); }
+  PG.known = null;
+  if (asHe) { st.reached = 6; toStep(st, 6); } else { st.reached = Math.max(st.reached, 5); toStep(st, 2); }
+}
+async function coachesPanel(st) {
+  const x = (PG.coaches ??= await api("coach_profiles").catch(() => ({ coaches: [] })));
+  if (!x.coaches.length) return "";
+  const rows = x.coaches.map((c) => `<div class="pg-known pg-coach ${st.from === c.file ? "on" : ""}"><div><b>${esc(c.name)}</b><span class="pg-acts"><button class="pg-btn s p" data-pg="coach-use" data-file="${esc(c.file)}">Use him as he is</button><button class="pg-btn s" data-pg="coach-edit" data-file="${esc(c.file)}">Change something</button><button class="pg-btn s" data-pg="coach-forget" data-file="${esc(c.file)}" aria-label="Forget ${esc(c.name)}">Forget</button></span></div><small>${esc(c.road)} · kept ${esc(savedText(c.saved))}</small></div>`).join("");
+  return `<div class="pg-panel"><div class="pg-ph"><span>Your coaches</span><small>kept by the game outside any save · or make a new one below</small></div><div class="pg-knownlist">${rows}</div></div>`;
+}
 async function stepYou(st) {
   const o = PG.opts;
   const town = await hometownOf(st);
@@ -426,7 +451,8 @@ async function stepYou(st) {
     const a = Math.max(0, o.year - c.born);
     return `<div><input data-kid="${i}" data-kf="name" value="${esc(c.name)}" placeholder="Name"><input data-kid="${i}" data-kf="age" type="number" min="0" max="40" value="${a}"><span class="pg-dim">${esc(schoolYear(a))}</span><button class="x" data-pg="kid-del" data-i="${i}" aria-label="Remove">×</button></div>`;
   }).join("");
-  const body = `<div class="pg-body"><div class="pg-col">
+  const kept = await coachesPanel(st);
+  const body = `<div class="pg-body"><div class="pg-col">${kept}
       <div class="pg-panel"><div class="pg-ph"><span>Who you are</span></div><div class="pg-grid">
         ${f("first", "First name", inp("first", "First name"), !st.first.trim() && st.tried ? "bad" : "")}
         ${f("last", "Last name", inp("last", "Last name"), !st.last.trim() && st.tried ? "bad" : "")}
@@ -539,32 +565,160 @@ async function stopsPanel(st) {
     ${rows ? `<div class="pg-stops"><div class="pg-stop h"><span>Level</span><span>Team</span><span>Job</span><span>From</span><span>To</span><span></span></div>${rows}</div>` : `<div class="pg-empty">No stops: the world knows you from your road, your high school and your college. Add the staffs you were on${bg.ex_pro ? " and the NFL clubs you played for" : ""}, and the coaches who were there with you know you.</div>`}
     <div class="pg-acts-row" style="padding-top:12px"><button class="pg-btn s" data-pg="stop-add" ${st.stops.length >= MAX_STOPS ? "disabled" : ""}>Add a stop</button>${st.stops.some((s) => s.name.trim() && s.id == null) ? '<span class="pg-note" style="align-self:center;color:var(--pg-amber)">A team not in the world is left out: pick one from the list.</span>' : ""}</div>${lists_html}</div>`;
 }
+// Step 3: your road (update 3, lane 2, coaching C3-C7, board 40). Each road
+// locks its strengths at elite values outside the pool (C3); every other
+// rating starts at the road's typical level, and those starts are the pool
+// (C4). A playing road picks the position you played and an assistant's road
+// the group you came up coaching (C5). How you compare is read from the
+// world's own coaches at the level of your first job (C7).
+const RD_GROUPS = [["qb", "QB", "Quarterbacks"], ["rb", "RB", "Running backs"], ["wr", "WR/TE", "Receivers"], ["ol", "OL", "Offensive line"], ["dl", "DL", "Defensive line"], ["lb", "LB", "Linebackers"], ["db", "DB", "Defensive backs"], ["st", "ST", "Special teams"]];
+const RD_OTHER = ["scheme", "play_calling", "game_management", "adaptation", "motivation", "discipline", "recruiting", "network", "relationships", "evaluation", "negotiating"];
+const RD_SCALE = 300;
+const RD_NOPOS = {
+  never_played: "No position: you never played past high school. Your strengths are the system and the calls.",
+  hs_coach: "Every teaching group starts at 14: a high school head coach teaches the whole roster.",
+  scout: "No position or group: your strengths are judging players and the deals around them.",
+  analytics: "No position or group: your strengths are judging players and game-day decisions.",
+};
+const RD_TIES = { hs_coach: "About 30 programs in your state", college_assistant: "About 25 programs in your recruiting area", never_played: "None yet", nfl_assistant: "None yet", scout: "None yet", analytics: "None yet" };
+const RD_NAMEFX = {
+  nfl_star: ["Your name draws transfers to your school", "Your name adds about 3 recruiting points for two seasons, fading by the fourth unless you win", "A small pull on free agents, who follow money and winning"],
+  nfl_pro_bowl: ["Your name draws a few transfers", "Your name adds about 1.5 recruiting points for two seasons", "A small pull on free agents, who follow money and winning"],
+};
+const RD_NAMEFX_NONE = ["Your name doesn't move them yet", "Your name doesn't move recruits yet", "Your name doesn't move them yet"];
+const RD_LEVELS = [["hs", "High school"], ["college", "College"], ["nfl", "NFL"]];
+const rdLevel = (st) => st.rdLevel || (["hs", "college", "nfl"].includes(st.level) ? st.level : "college");
+const rdPick = (st, bg) => (bg.picks ? (st.pos && st.pos[bg.key]) || bg.group : null);
+// A road's starting ratings with the position or group picked, as the
+// game's own setup reads them (setup.rs, `starting`).
+function rdValues(bg, pick) {
+  const keys = PG.opts.ratings.map((r) => r.key);
+  const v = keys.map(() => bg.base);
+  const lock = new Set();
+  const g = bg.picks ? keys.indexOf(pick || bg.group) : -1;
+  for (const [k, x] of bg.locks) {
+    const at = k === "groups" ? [0, 1, 2, 3, 4, 5, 6, 7] : k === "pos" || k === "grp" ? (g >= 0 ? [g] : []) : [keys.indexOf(k)];
+    for (const i of at) if (i >= 0) { v[i] = x; lock.add(i); }
+  }
+  const locked = [...lock].reduce((a, i) => a + v[i], 0);
+  const free = keys.length - lock.size;
+  return { v, lock, locked, free, pool: free * bg.base, tot: locked + free * bg.base, g, keys };
+}
+function rdLocksText(bg, x) {
+  const name = (k) => (PG.opts.ratings.find((r) => r.key === k) || { name: k }).name;
+  return bg.locks.map((l, i) => [l, i]).sort((a, b) => b[0][1] - a[0][1] || a[1] - b[1]).map(([[k, v]]) => {
+    if (k === "groups") return `All 8 groups <b>${v}</b>`;
+    if (k === "pos" || k === "grp") return `${k === "pos" ? "His position" : "His group"} ${esc(x.g >= 0 ? RD_GROUPS[x.g][1] : "")} <b>${v}</b>`;
+    return `${esc(name(k))} <b>${v}</b>`;
+  }).join(" · ");
+}
+function rdBlocks(x, gap) {
+  const order = [...x.v.keys()];
+  return [...order.filter((i) => x.lock.has(i)), ...order.filter((i) => !x.lock.has(i))].map((i) => `<i class="${x.lock.has(i) ? "lk" : ""}" style="width:calc(${((x.v[i] / RD_SCALE) * 100).toFixed(2)}% - ${gap}px)"></i>`).join("");
+}
+function rdCompare(st, bg, x) {
+  const m = PG.opts.marks;
+  const lv = rdLevel(st);
+  const at = (k) => x.v[x.keys.indexOf(k)];
+  const bestG = x.g >= 0 ? x.g : [0, 1, 2, 3, 4, 5, 6, 7].reduce((b, i) => (x.v[i] > x.v[b] ? i : b), 0);
+  const best = x.v[bestG];
+  const f = (n) => (Math.round(n * 10) / 10).toString();
+  let title, rows;
+  if (lv === "hs") {
+    title = "Against high school head coaches";
+    rows = [["Your best teaching group", best, `Median head coach's best group ${f(m.hs.best)}`, [m.hs.best]], ["Everything else", bg.base, `Top tenth of head coaches, about ${f(m.hs.other_top)} overall`, [m.hs.other_top]]];
+  } else if (lv === "nfl") {
+    title = "Against NFL staffs";
+    rows = [["Scheme", at("scheme"), `Coordinators ${f(m.nfl.scheme[0])}, head coaches ${f(m.nfl.scheme[1])}`, m.nfl.scheme], ["Play calling", at("play_calling"), `Coordinators ${f(m.nfl.calling[0])}, head coaches ${f(m.nfl.calling[1])}`, m.nfl.calling], ["Evaluation", at("evaluation"), `Head coaches ${f(m.nfl.eval[0])}; the best scouting director ${f(m.nfl.eval[1])}`, m.nfl.eval]];
+  } else {
+    title = "Against top-68 FBS staffs";
+    const [med, top] = m.college.groups[bestG];
+    const gn = RD_GROUPS[bestG];
+    rows = [[x.g >= 0 ? `Teaching your position, ${gn[1]}` : `Your best teaching group, ${gn[1]}`, best, `${gn[2]} coaches: median ${f(med)}, best tenth ${f(top)}`, [med, top]], ["Scheme", at("scheme"), `Top-68 FBS coordinators, about ${f(m.college.coord_scheme)}`, [m.college.coord_scheme]], ["Everything else", bg.base, `Coordinators about ${f(m.college.coord_other[0])}; FCS ${f(m.college.coord_other[1])}, small colleges ${f(m.college.coord_other[2])}`, [m.college.coord_other[0]]]];
+  }
+  const pct = (v) => (((Math.max(1, Math.min(20, v)) - 1) / 19) * 100).toFixed(1);
+  const axis = [1, 5, 10, 15, 20].map((v) => `<span style="left:${pct(v)}%">${v}</span>`).join("");
+  const body = rows.map(([t, y, cap, ticks]) => `<div class="pg-rd-cr"><div class="pg-rd-crh"><b>${esc(t)}</b><em class="${y >= ticks[0] ? "up" : ""}">${y}</em></div>
+    <div class="pg-rd-sx"><i class="tr"></i>${ticks.map((v) => `<i class="tk" style="left:${pct(v)}%"><small>${f(v)}</small></i>`).join("")}<i class="you ${y >= ticks[0] ? "up" : ""}" style="left:${pct(y)}%"></i></div><small>${esc(cap)}</small></div>`).join("");
+  return `<div class="pg-rd-panel"><div class="pg-rd-h"><span>${esc(title)}</span><small><i class="you"></i>you <i class="them"></i>them</small></div><div class="pg-rd-ax">${axis}</div>${body}</div>`;
+}
 async function stepBackground(st) {
   const o = PG.opts;
   const stops = await stopsPanel(st);
   const bg = o.backgrounds.find((b) => b.key === st.bg) || o.backgrounds[0];
   const r = ROADS[bg.key] || {};
-  const rows = o.backgrounds.map((b) => `<tr data-pg="pick-bg" data-k="${b.key}" class="${b.key === bg.key ? "sel" : ""}">
-    <td style="font-weight:600">${esc(b.name)}</td><td>${bar(b.reputation / 20)}${esc(repWord(b.reputation))}</td><td class="n">${b.pool}</td>
-    <td class="pg-dim">${esc(b.strongest)}</td><td>${b.ex_pro ? '<span class="pg-tag pro">NFL</span>' : ""}</td></tr>`).join("");
+  const lv = rdLevel(st);
+  const all = o.backgrounds.map((b) => rdValues(b, rdPick(st, b)));
+  const k = o.backgrounds.indexOf(bg);
+  const x = all[k];
+  const tots = all.map((a) => a.tot);
+  const mn = Math.min(...tots), mx = Math.max(...tots);
+  const rank = 1 + tots.filter((t) => t > x.tot).length;
+  const ord = (n) => n + (n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th");
+  const guide = ((x.tot / RD_SCALE) * 100).toFixed(2);
+  const rows = o.backgrounds.map((b, j) => {
+    const a = all[j];
+    const marks = [...a.lock].map((i) => "m-" + a.keys[i]).join(" ");
+    return `<button class="pg-rd-rw r-${j} ${j === k ? "on" : ""}" data-pg="pick-bg" data-k="${b.key}"><i class="pg-rd-mk ${marks}"></i>
+      <span class="pg-rd-rh"><b>${esc(b.name)}</b><em>${a.tot}</em></span>
+      <span class="pg-rd-rb"><span class="pg-rd-tk">${rdBlocks(a, 1)}<i class="gd" style="left:${guide}%"></i></span><small><b>${a.locked}</b> + ${a.free} × ${b.base}</small></span>
+      <span class="pg-rd-rs">${rdLocksText(b, a)}</span></button>`;
+  }).join("");
+  const sorted = bg.locks.map((l, i) => [l, i]).sort((a, b) => b[0][1] - a[0][1] || a[1] - b[1]).map(([l]) => l);
+  const sum = sorted.map(([kk, v]) => (kk === "groups" ? `8 × ${v}` : String(v))).join(" + ");
+  const pickT = bg.picks === "pos" ? "The position you played" : "The group you came up coaching";
+  const pos = bg.picks
+    ? `<div class="pg-rd-pos"><span>${pickT}</span><div>${RD_GROUPS.map(([gk, s], i) => `<button class="${i === x.g ? "on" : ""}" data-pg="rd-pos" data-k="${gk}">${s}</button>`).join("")}</div></div>`
+    : `<p class="pg-rd-nopos">${esc(RD_NOPOS[bg.key] || "")}</p>`;
+  const cell = (i, n) => {
+    const lk = x.lock.has(i), v = x.v[i];
+    return `<div class="pg-rd-cl c-${x.keys[i]} ${lk ? "lk" : ""}" tabindex="0"><span class="n">${esc(n)}</span><b>${v}${lk ? '<svg viewBox="0 0 10 12" aria-label="locked"><rect x="1" y="5" width="8" height="6.5" rx="1.2"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke-width="1.6"/></svg>' : ""}</b><i><s style="width:${((v / 20) * 100).toFixed(1)}%"></s></i></div>`;
+  };
+  const teach = RD_GROUPS.map(([, s, n], i) => cell(i, i === 2 ? "WR and TE" : s)).join("");
+  const other = RD_OTHER.map((key) => { const i = x.keys.indexOf(key); return cell(i, o.ratings[i].name.replace("In-game adaptation", "Adaptation")); }).join("");
+  const nLock = (ids) => ids.filter((i) => x.lock.has(i)).length;
+  const legend = `<div class="pg-rd-cl pg-rd-leg"><span><i class="lk"></i>Locked at the road's value</span><span><i></i>From the pool, starts at ${bg.base}</span></div>`;
+  const pct = (v) => (((v - 1) / 19) * 100).toFixed(1);
+  const rep = [["name_rep", "Name", "Fans, recruits and boosters"], ["standing", "Standing", "Owners, GMs, big-program ADs, other coaches"]].map(([key, n, cap]) => `<div class="pg-rd-rep"><div class="pg-rd-crh"><span><b>${n}</b><small>${cap}</small></span><em>${bg[key]}</em></div>
+    <div class="pg-rd-sx">${[5, 10, 15].map((v) => `<i class="mn" style="left:${pct(v)}%"></i>`).join("")}<i class="tr"></i>${o.backgrounds.map((b, j) => (j === k ? "" : `<i class="rt t-${j}" style="left:${pct(b[key])}%"></i>`)).join("")}<i class="you up" style="left:${pct(bg[key])}%"></i></div></div>`).join("");
   const played = bg.ex_pro
     ? `${st.alma_mater || "College"}${st.college_years ? ", " + st.college_years : ""}, then the NFL`
     : bg.key === "never_played" ? `High school only${st.high_school ? ", at " + st.high_school : ""}` : `${st.alma_mater || "College"}${st.college_years ? ", " + st.college_years : ""}`;
-  const body = `<div class="pg-body"><div class="pg-col"><div class="pg-panel"><div class="pg-ph"><span>Eleven roads</span><small>click a row</small></div>
-      <div class="pg-tbl"><table><thead><tr><th>Road</th><th>Reputation</th><th class="n">Rating points</th><th>Strongest at</th><th>Played in the NFL</th></tr></thead><tbody>${rows}</tbody></table></div></div>${stops}</div>
-    <aside class="pg-aside">
-      <div class="pg-panel"><div class="pg-ph"><span>${esc(bg.name)}</span></div><div class="pg-kv">
-        <span>The road</span><span>${esc(r.road)}</span><span>Like</span><span>${esc(r.like)}</span>
-        <span>Reputation</span><span>${esc(repWord(bg.reputation))}</span><span>Rating points</span><span>${bg.pool}, spread in the next step</span>
-        <span>Knows you</span><span>${esc(r.knows)}</span><span>At a big job</span><span>${esc(r.greet)}</span></div></div>
+  const lvI = ["hs", "college", "nfl"].indexOf(lv);
+  const namefx = (RD_NAMEFX[bg.key] || RD_NAMEFX_NONE)[lvI];
+  const ties = RD_TIES[bg.key] || "Your own high school";
+  const also = [[["Transfers", "Recruits", "Free agents"][lvI], namefx], ["High school ties", ties], ["Knows you", r.knows]].map(([a, b]) => `<div class="pg-rd-al"><small>${esc(a)}</small><span>${esc(b)}</span></div>`).join("");
+  const hover = o.ratings.map((rr) => `.pg-rd:has(.c-${rr.key}:hover) .m-${rr.key},.pg-rd:has(.c-${rr.key}:focus) .m-${rr.key}`).join(",") + "{opacity:1}" +
+    o.backgrounds.map((_, j) => `.pg-rd:has(.r-${j}:hover) .t-${j}`).join(",") + "{background:#f4f5f7;top:0;height:14px}";
+  const body = `<style>${hover}</style><div class="pg-rd">
+    <div class="pg-rd-top"><span>First job at</span><div class="pg-seg">${RD_LEVELS.map(([kk, n]) => `<button class="${kk === lv ? "on" : ""}" data-pg="rd-level" data-k="${kk}">${n}</button>`).join("")}</div></div>
+    <section class="pg-rd-panel pg-rd-list"><div class="pg-rd-h big"><span>Eleven roads</span><small><i class="lk"></i>locked <i></i>pool <i class="gd"></i>your total</small></div>${rows}
+      <p class="pg-rd-foot">Bars share one scale, 0 to 300. Totals were 174 to 239 when the road was one pool; now ${mn} to ${mx}. Point at a rating to mark the roads that lock it.</p></section>
+    <section class="pg-rd-mid">
+      <div class="pg-rd-panel pg-rd-hero"><div class="pg-rd-hh"><div><small>Your road</small><h2>${esc(bg.name)}</h2><p>${esc(r.road || "")}</p></div><span>Like ${esc(r.like || "")}</span></div>
+        <div class="pg-rd-eq"><div><small>Locked strengths</small><b class="gold">${x.locked}</b><span>${x.lock.size} ${x.lock.size === 1 ? "rating" : "ratings"}: ${sum}</span></div><i>+</i>
+          <div><small>Pool to spread</small><b>${x.pool}</b><span>${x.free} ratings × ${bg.base} each</span></div><i>=</i>
+          <div><small>Total</small><b>${x.tot}</b><span>${rank === 1 ? "Highest of the 11 roads" : `${ord(rank)} highest of the 11 roads`}</span></div></div>
+        <div class="pg-rd-hb">${rdBlocks(x, 2)}</div>
+        <div class="pg-rd-hf"><span>One block per rating, gold if locked</span><span class="pg-rd-range"><span>All 11 roads</span><span class="bar"><i style="left:${((mn / RD_SCALE) * 100).toFixed(2)}%;width:${(((mx - mn) / RD_SCALE) * 100).toFixed(2)}%"></i><b style="left:${guide}%"></b></span><span>${mn}–${mx}</span></span></div>
+        <p class="pg-rd-note">Locked strengths can't be spent below the road's value; pool points can still raise them to 20. You spread the pool in the next step.</p></div>
+      ${pos}
+      <div class="pg-rd-grids"><div><div class="pg-rd-gh"><span>Teaching groups · 8</span><small>${nLock([0, 1, 2, 3, 4, 5, 6, 7])} locked</small></div><div class="pg-rd-gb two">${teach}</div></div>
+        <div><div class="pg-rd-gh"><span>The other 11 ratings</span><small>${nLock(RD_OTHER.map((kk) => x.keys.indexOf(kk)))} locked</small></div><div class="pg-rd-gb three">${other}${legend}</div></div></div>
+    </section>
+    <aside class="pg-rd-side">
+      <div class="pg-rd-panel"><div class="pg-rd-h"><span>Reputation</span><small>1 to 20 · <i class="them"></i>the other ten roads</small></div>${rep}<p class="pg-rd-foot">Starting values proposed, not confirmed.</p></div>
+      <div class="pg-rd-panel"><div class="pg-rd-h"><span>Also from the road</span></div>${also}</div>
+      ${rdCompare(st, bg, x)}
+    </aside></div>
+    <div class="pg-body pg-rd-below"><div class="pg-col">${stops}</div><aside class="pg-aside">
       <div class="pg-panel"><div class="pg-ph"><span>Where the world places you</span><small>from your profile</small></div><div class="pg-kv">
-        <span>Played</span><span>${esc(played)}</span><span>Coached</span><span>${esc(r.coached)}</span></div></div>
-      <div class="pg-panel" id="pg-known" data-n="10">${await knownHtml(st, 10)}</div>
-    </aside></div>`;
+        <span>Played</span><span>${esc(played)}</span><span>Coached</span><span>${esc(r.coached || "")}</span><span>At a big job</span><span>${esc(r.greet || "")}</span></div></div>
+      <div class="pg-panel" id="pg-known" data-n="10">${await knownHtml(st, 10)}</div></aside></div>`;
   return setupPage(st, {
     title: "Your road into coaching",
-    lede: "The road sets your reputation, the points you spread over your ratings in the next step, and who in the world already knows you. Real head coaches came up every one of these ways.",
-    body, sum: esc(`${bg.name} · ${repWord(bg.reputation)} · ${bg.pool} rating points`), next: "Next: Ratings",
+    lede: "The road locks the strengths you came up with, sets the pool you spread over the rest, and decides who in the world already knows you. Real head coaches came up every one of these ways.",
+    body, sum: esc(`${bg.name} · ${x.locked} locked + ${x.pool} pool = ${x.tot}`), next: "Next: Ratings",
   });
 }
 
@@ -586,9 +740,15 @@ const RATING_TEXT = {
   negotiating: ["Reading agents' bluffs and floors in contract talks (the NFL for now)", "Doing deals"],
 };
 const vcls = (v) => "pg-v " + (v <= 5 ? "c1" : v <= 10 ? "c2" : v <= 15 ? "c3" : "c4");
+// The road's starting ratings with your position or group (C5), and each
+// one's floor: a locked strength can't go below the road's value (C3).
 function bgRatings(st) {
   const bg = PG.opts.backgrounds.find((b) => b.key === st.bg) || PG.opts.backgrounds[0];
-  if (!st.ratings || st.ratingsFor !== bg.key) { st.ratings = bg.ratings.slice(); st.ratingsFor = bg.key; }
+  const pick = rdPick(st, bg);
+  const x = rdValues(bg, pick);
+  const key = `${bg.key}|${pick || ""}`;
+  if (!st.ratings || st.ratingsFor !== key) { st.ratings = x.v.slice(); st.ratingsFor = key; }
+  st.floor = x.v.map((v, i) => (x.lock.has(i) ? v : 1));
   return bg;
 }
 async function stepRatings(st) {
@@ -601,8 +761,8 @@ async function stepRatings(st) {
     if (r.group !== group) { group = r.group; body += `<tr class="g"><td colspan="5">${esc(group)}</td></tr>`; }
     const v = st.ratings[i];
     const [drives, grows] = RATING_TEXT[r.key] || ["", ""];
-    body += `<tr><td style="font-weight:600">${esc(r.name)}</td><td><span class="${vcls(v)}" id="pg-v${i}">${v}</span></td>
-      <td><span class="pg-pm"><button data-pg="rate" data-i="${i}" data-d="-1" aria-label="Lower ${esc(r.name)}" ${v <= 1 ? "disabled" : ""}>−</button><button data-pg="rate" data-i="${i}" data-d="1" aria-label="Raise ${esc(r.name)}" ${v >= 20 || left <= 0 ? "disabled" : ""}>+</button></span></td>
+    body += `<tr><td style="font-weight:600">${esc(r.name)}${st.floor[i] > 1 ? ` <span class="pg-tag" title="Locked at ${st.floor[i]}: it can't go lower">locked</span>` : ""}</td><td><span class="${vcls(v)}" id="pg-v${i}">${v}</span></td>
+      <td><span class="pg-pm"><button data-pg="rate" data-i="${i}" data-d="-1" aria-label="Lower ${esc(r.name)}" ${v <= st.floor[i] ? `disabled title="Locked: your road's value is the floor"` : ""}>−</button><button data-pg="rate" data-i="${i}" data-d="1" aria-label="Raise ${esc(r.name)}" ${v >= 20 || left <= 0 ? "disabled" : ""}>+</button></span></td>
       <td class="d">${esc(drives)}</td><td class="d">${esc(grows)}</td></tr>`;
   });
   const top = o.ratings.map((r, i) => [r.name, st.ratings[i]]).sort((a, b) => b[1] - a[1]).slice(0, 3).map((x) => `${x[0]} ${x[1]}`).join(" · ");
@@ -618,13 +778,13 @@ async function stepRatings(st) {
   const key = `${bg.key}|${st.ratings.slice(0, 8).join(",")}`;
   const like = (PG.similar[key] ??= await api("similar", { background: bg.key, ratings: st.ratings }).catch(() => ({ coaches: [] })));
   const pageBody = `<div class="pg-body"><div class="pg-col"><div class="pg-panel">
-      <div class="pg-ph"><span>${esc(bg.name)} <small>· the road's lean to start</small></span><button class="pg-btn s" data-pg="rate-reset">Reset to the road's lean</button></div>
+      <div class="pg-ph"><span>${esc(bg.name)} <small>· locked strengths, and the pool where the road starts it</small></span><button class="pg-btn s" data-pg="rate-reset">Reset to the road's starts</button></div>
       <div class="pg-tbl pg-ratings"><table><thead><tr><th>Rating</th><th>Value</th><th></th><th>What it drives</th><th>Grows by</th></tr></thead><tbody>${body}</tbody></table></div></div></div>
     <aside class="pg-aside">
-      <div class="pg-panel"><div class="pg-ph"><span>Points</span><small>of ${bg.pool}</small></div><div class="pg-pad">
+      <div class="pg-panel"><div class="pg-ph"><span>Points</span><small>${bg.locked} locked + ${bg.pool - bg.locked} pool = ${bg.pool}</small></div><div class="pg-pad">
         <div style="display:flex;align-items:baseline;gap:10px"><span class="pg-big" style="color:${left === 0 ? "var(--pg-fg)" : left < 0 ? "#ff9c90" : "var(--pg-amber)"}">${left}</span><span style="font-size:13px;color:var(--pg-fg2)">points left</span></div>
         <div class="pg-meter"><i style="width:${Math.min(100, Math.round((spent / bg.pool) * 100))}%"></i></div>
-        <p class="pg-note">Every rating is 1-20 on the same scale as every coach in the world. Once you're in the job they grow by doing it, and each point costs more the higher it gets; at the start every point costs the same.</p></div></div>
+        <p class="pg-note">A locked strength can't go below your road's value; points from the pool can still raise it to 20. Every rating is 1-20 on the same scale as every coach in the world. Once you're in the job they grow by doing it, and each point costs more the higher it gets; at the start every point costs the same.</p></div></div>
       <div class="pg-panel"><div class="pg-ph"><span>How the world reads you</span></div><div class="pg-pad" style="gap:6px">
         <span style="font-size:16px;font-weight:700">${esc(repWord(bg.reputation))}</span><span style="color:var(--pg-fg2);font-size:13px;line-height:1.5">${esc(read)}</span>
         <span class="pg-note">Nobody sees these numbers but you: the world reads your reputation and what you do.</span></div></div>
@@ -633,7 +793,7 @@ async function stepRatings(st) {
     </aside></div>`;
   return setupPage(st, {
     title: "Your ratings",
-    lede: "Spread your road's points over the ratings every coach in the world has. You see your own numbers; everyone else sees only your reputation.",
+    lede: "Spread your road's pool over the ratings every coach in the world has; your locked strengths stay at least where the road put them. You see your own numbers; everyone else sees only your reputation.",
     body: pageBody, sum: esc(`Strongest: ${top}`), next: "Next: Style",
     nextOk: left >= 0,
   });
@@ -977,7 +1137,8 @@ function startArgs(st) {
   for (const s of STYLE_SETS) style[s.key] = STYLE_VALUES[st.style[s.key]];
   return {
     name: fullName(st), age: ageOn(st.born, o.today) || 42, home_state: st.state, ethnicity: st.eth, background: st.bg,
-    ratings: st.ratings, style, job: st.job, calls: callsOf(st),
+    position: rdPick(st, o.backgrounds.find((b) => b.key === st.bg) || o.backgrounds[0]),
+    ratings: st.ratings, style, job: st.job, calls: callsOf(st), coach: coachRecord(st),
     profile: {
       born: st.born, hometown: st.hometown, high_school: st.high_school, alma_mater: st.alma_mater, college_years: st.college_years, degree: st.degree,
       status: st.status, spouse: st.status === "Married" ? st.spouse : "", roots: st.roots, children: st.children.filter((c) => c.name.trim()),
@@ -1113,13 +1274,21 @@ document.addEventListener("click", async (ev) => {
       else await ask("Your portrait prompt", { value: text, long: true, ok: "Done", note: "Copy it from here." });
       break;
     }
+    case "coach-use": case "coach-edit": if (st) await coachUse(st, d.file, d.pg === "coach-use"); break;
+    case "coach-forget": {
+      if (!(await sure("Forget this coach?", "His file goes from the game folder. Careers that started with him keep him.", "Forget him"))) break;
+      try { PG.coaches = await api("coach_profile_forget", { file: d.file }); render(); } catch (e) { toast(e.message); }
+      break;
+    }
     case "pick-bg": st.bg = d.k; render(); break;
+    case "rd-pos": (st.pos ??= {})[st.bg] = d.k; render(); break;
+    case "rd-level": st.rdLevel = d.k; if (!st.job) st.level = d.k; render(); break;
     case "rate": {
       const bg = bgRatings(st);
       const i = Number(d.i), step = Number(d.d);
       const left = bg.pool - st.ratings.reduce((x, y) => x + y, 0);
       const v = st.ratings[i] + step;
-      if (v < 1 || v > 20 || (step > 0 && left <= 0)) break;
+      if (v < st.floor[i] || v > 20 || (step > 0 && left <= 0)) break;
       st.ratings[i] = v;
       render();
       break;
@@ -1169,7 +1338,7 @@ document.addEventListener("click", async (ev) => {
         S.savedOn = null;
         S.lastSaveName = null;
         S.keep = {};
-        PG.opts = null; PG.jobs = {}; PG.loaded = null; PG.known = null;
+        PG.opts = null; PG.jobs = {}; PG.loaded = null; PG.known = null; PG.coaches = null;
         enterCareer();
       } catch (e) { hideBusy(); toast(e.message); }
       break;
