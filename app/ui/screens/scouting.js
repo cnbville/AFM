@@ -896,7 +896,8 @@ document.addEventListener("click", async (ev) => {
     }
     case "sc-tryout": if (await scDo("tryout", { id }, "He's in for a tryout on Tuesday.")) scRedraw(); break;
     case "sc-proclubgo": keep("sc-pro", { club: null }).club = id; scTabTo("sc-protab", "A club's roster"); render(); break;
-    case "sc-promote": keep("sc-hs", { pid: null }).pid = id; scRedraw(); break;
+    // The call box opens under his row with the cursor in "Who you call".
+    case "sc-promote": keep("sc-hs", { pid: null }).pid = id; scRedraw().then(() => { const s = $("#sc-prog"); if (s) s.focus(); }); break;
     case "sc-promotego": {
       const prog = $("#sc-prog"), str = $("#sc-strength");
       const args = { id, strength: Number(str ? str.value : 0) };
