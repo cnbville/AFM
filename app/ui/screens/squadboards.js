@@ -321,7 +321,7 @@ function sbSpotPanel(x, s, k) {
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(s.pos)}</span>${keys}</div>
     <div class="sb-sec"><span class="sb-lbl">Depth at ${esc(s.slot)}</span>${depth}</div>
     ${coach}
-    <div class="st-actions">${linkTo("player", { id: p.id, tab: "Development" }, "Player page", "st-btn small")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
+    <div class="st-actions">${linkTo("player", { id: p.id, tab: "Development" }, "Player page ›")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
 }
 
 // ---------- V2: the needs map in the stadium ----------
@@ -481,5 +481,5 @@ function sbRosterPanel(r, x) {
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(r.pos)}</span>${keys}</div>
     <div class="sb-cells"><div><span class="sb-lbl">Snaps</span><b>${r.snaps_pct != null ? r.snaps_pct + "%" : "–"}</b></div><div><span class="sb-lbl">${esc(m.label || "Money")}</span><b>${sbMoney(r) || "–"}</b></div><div><span class="sb-lbl">Health</span><b class="${r.health !== "full" ? "sb-warn" : ""}">${r.health === "out" ? "Out" : r.health === "limited" ? "Limited" : "Full"}</b></div><div><span class="sb-lbl">Morale</span><b class="${r.unhappy ? "sb-warn" : ""}">${esc(r.mood)}</b></div></div>
     ${line}
-    <div class="st-actions">${linkTo("player", { id: r.id }, "Player page", "st-btn small")}${linkTo("player", { id: r.id, tab: "People" }, "Talk", "st-btn small glass")}</div>`;
+    <div class="st-actions">${linkTo("player", { id: r.id }, "Player page ›")}${linkTo("player", { id: r.id, tab: "People" }, "Talk", "st-btn small glass")}</div>`;
 }

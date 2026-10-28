@@ -172,7 +172,7 @@ screens.scout = async (a) => {
       <div class="st-actions">
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
         <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "Following" : "Follow"}</button>
-        <button class="st-btn glass" data-go="player" data-id="${f.id}">Player page</button>
+        ${linkTo("player", { id: f.id }, "Player page ›")}
       </div>
     </div>
     <div class="sc-hero-card st-glass">
@@ -940,7 +940,7 @@ PLAYER_TABS.push({
   draw: async (p) => {
     let f = null;
     try { f = await api("scout_file", { id: p.id }); } catch (e) { return scEmpty("No scouting file on him."); }
-    const head = `<div class="sc-ptab-h"><span class="sub">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")} on your staff${f.board && f.board.rank ? ` · No. ${f.board.rank} on your board` : ""}</span>${linkTo("scout", { id: p.id }, "Open the full scouting file", "st-btn small primary")}</div>`;
+    const head = `<div class="sc-ptab-h"><span class="sub">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")} on your staff${f.board && f.board.rank ? ` · No. ${f.board.rank} on your board` : ""}</span>${linkTo("scout", { id: p.id }, "Open the full scouting file ›")}</div>`;
     return head + scFileSummary(f);
   },
 });
