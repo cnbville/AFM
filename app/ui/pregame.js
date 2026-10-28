@@ -11,6 +11,8 @@ const PG = { loaded: null, lib: null, hello: null, online: null, offline: "", on
 
 // ---------- small helpers ----------
 function pgMark(team, big) {
+  const lg = typeof logoFor === "function" ? logoFor(team) : null;
+  if (lg) return `<span class="pg-mk lgo-pg ${big ? "big" : ""}">${logoImg(lg)}</span>`;
   const hex = (x) => typeof x === "string" && /^#[0-9a-f]{3,8}$/i.test(x);
   const c = team && team.colors && hex(team.colors[0]) && hex(team.colors[1]) ? team.colors : ["#2a2f37", "#eceef1"];
   return `<span class="pg-mk ${big ? "big" : ""}" style="background:${esc(c[0])};color:${esc(c[1])}">${esc(initials(team && team.name) || "?")}</span>`;
@@ -1080,6 +1082,8 @@ async function openWorldFor(st) {
   showBusy("Opening the world… a full world takes about a minute.");
   try {
     S.status = await api("open_world", { path: st.world });
+    // The team picker shows an installed pack's logos (screens/logos.js).
+    if (typeof logosLoad === "function") await logosLoad();
     hideBusy();
     S.savedOn = null;
     st.loaded = st.world;
