@@ -57,6 +57,7 @@ pub mod pro;
 pub mod program;
 pub mod records;
 pub(crate) mod recruiting;
+pub mod road_marks;
 pub mod schedule;
 pub mod scouting;
 pub(crate) mod season;

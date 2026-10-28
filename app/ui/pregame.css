@@ -277,3 +277,135 @@ body:has(.pg) .toasts { bottom: 96px; }
   .pg-modes { grid-template-columns: 1fr; }
   .pg-stops > .pg-stop { grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr) 64px 64px 28px; gap: 6px; }
 }
+
+/* Step 3, your road (update 3, lane 2, board 40): Press Box panels on the
+   pregame ground. Locked strengths in gold, the pool in grey, one 0-300
+   scale for every bar of points. */
+.pg-rd { --rd-panel: #101217; --rd-line: rgba(255, 255, 255, .06); --rd-row: rgba(255, 255, 255, .045); --rd-gold: #f1be48; --rd-dim: #8a8f9a; --rd-faint: #6b707a; --rd-pool: #5b606a;
+  display: grid; grid-template-columns: minmax(300px, 330px) minmax(0, 1fr) minmax(300px, 340px); gap: 16px; padding: 4px 32px 20px; align-items: start; }
+:where(.pg-rd) button { font: inherit; color: inherit; border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
+.pg-rd-top { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 12px; font-size: 12.5px; color: var(--rd-dim); }
+.pg-rd-top .pg-seg button { min-height: 34px; padding: 0 14px; }
+.pg-rd-panel { background: var(--rd-panel); border-radius: 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); padding: 14px 16px; min-width: 0; }
+.pg-rd-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--pg-fg2); }
+.pg-rd-h.big { font-size: 17px; letter-spacing: -.01em; text-transform: none; color: var(--pg-fg); font-weight: 800; flex-wrap: wrap; }
+.pg-rd-h.big small { white-space: nowrap; }
+.pg-rd-h small { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--rd-dim); }
+.pg-rd-h small i, .pg-rd-leg i { display: inline-block; width: 9px; height: 5px; background: var(--rd-pool); margin-left: 6px; }
+.pg-rd-h small i.lk, .pg-rd-leg i.lk { background: var(--rd-gold); }
+.pg-rd-h small i.gd { width: 1px; height: 11px; background: rgba(241, 190, 72, .7); }
+.pg-rd-h small i.you { width: 8px; height: 8px; border-radius: 50%; background: var(--rd-gold); }
+.pg-rd-h small i.them { width: 2px; height: 10px; background: #5b606a; }
+.pg-rd-foot { margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: var(--rd-dim); }
+
+/* The eleven roads. */
+.pg-rd-rw { position: relative; display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 9px 12px; border-radius: 10px; box-shadow: inset 0 -1px 0 var(--rd-row); box-sizing: border-box; }
+.pg-rd-rw:hover { background: rgba(255, 255, 255, .035); }
+.pg-rd-rw.on { background: rgba(241, 190, 72, .05); box-shadow: inset 0 0 0 1px rgba(241, 190, 72, .5); }
+.pg-rd-mk { position: absolute; left: 3px; top: 12px; bottom: 12px; width: 2px; border-radius: 1px; background: var(--rd-gold); opacity: 0; }
+.pg-rd-rh { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.pg-rd-rh b { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-rd-rw.on .pg-rd-rh b { color: var(--rd-gold); }
+.pg-rd-rh em { font-style: normal; font-size: 15px; font-weight: 800; font-stretch: 80%; color: var(--pg-fg2); font-variant-numeric: tabular-nums; }
+.pg-rd-rw.on .pg-rd-rh em { color: var(--pg-fg); }
+.pg-rd-rb { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pg-rd-tk { position: relative; display: flex; flex: 1 1 auto; max-width: 222px; height: 6px; background: rgba(255, 255, 255, .04); }
+.pg-rd-tk i, .pg-rd-hb i { display: block; height: 100%; margin-right: 1px; flex-shrink: 0; background: var(--rd-pool); }
+.pg-rd-tk i.lk, .pg-rd-hb i.lk { background: var(--rd-gold); }
+.pg-rd-tk i.gd { position: absolute; top: -3px; width: 1px; height: 12px; margin: 0; background: rgba(241, 190, 72, .7); }
+.pg-rd-rb small { font-size: 10.5px; color: var(--rd-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pg-rd-rw.on .pg-rd-rb small b { color: var(--rd-gold); }
+.pg-rd-rs { font-size: 11px; color: var(--rd-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-rd-rs b { color: var(--pg-fg2); }
+
+/* Your road. */
+.pg-rd-mid { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.pg-rd-hh { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.pg-rd-hh small, .pg-rd-eq small, .pg-rd-gh span, .pg-rd-al small { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--rd-dim); }
+.pg-rd-hh small { color: #d9c38a; }
+.pg-rd-hh h2 { margin: 2px 0 4px; font-size: 22px; font-weight: 800; font-stretch: 105%; letter-spacing: -.01em; line-height: 1.15; }
+.pg-rd-hh p { margin: 0; font-size: 13px; color: var(--pg-fg2); }
+.pg-rd-hh > span { font-size: 12px; color: var(--rd-dim); white-space: nowrap; }
+.pg-rd-eq { display: flex; gap: 6px; margin: 14px 0 12px; padding-top: 12px; box-shadow: inset 0 1px 0 var(--rd-line); }
+.pg-rd-eq > div { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pg-rd-eq b { font-size: 40px; font-weight: 800; font-stretch: 75%; line-height: 1; font-variant-numeric: tabular-nums; }
+.pg-rd-eq b.gold { color: var(--rd-gold); }
+.pg-rd-eq span { font-size: 11.5px; color: var(--rd-dim); }
+.pg-rd-eq > i { width: 28px; flex-shrink: 0; text-align: center; font-style: normal; font-size: 22px; color: var(--rd-faint); padding-top: 26px; }
+.pg-rd-hb { display: flex; height: 10px; }
+.pg-rd-hb i { margin-right: 2px; border-radius: 1px; }
+.pg-rd-hf { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 8px; font-size: 11.5px; color: var(--rd-dim); flex-wrap: wrap; }
+.pg-rd-range { display: inline-flex; align-items: center; gap: 8px; }
+.pg-rd-range .bar { position: relative; width: 140px; height: 10px; box-shadow: inset 0 -5px 0 -3px rgba(255, 255, 255, .06); }
+.pg-rd-range .bar i { position: absolute; top: 3px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .28); }
+.pg-rd-range .bar b { position: absolute; top: 0; width: 2px; height: 10px; margin-left: -1px; background: var(--rd-gold); }
+.pg-rd-note { margin: 12px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--rd-dim); }
+.pg-rd-pos { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--pg-fg2); }
+.pg-rd-pos > div { display: flex; gap: 4px; flex-wrap: wrap; }
+.pg-rd-pos button { height: 28px; padding: 0 11px; border-radius: 8px; font-weight: 700; font-size: 12px; background: rgba(255, 255, 255, .05); color: #b1b6c0; }
+.pg-rd-pos button:hover { color: var(--pg-fg); }
+.pg-rd-pos button.on { background: rgba(241, 190, 72, .12); color: var(--rd-gold); box-shadow: inset 0 0 0 1px rgba(241, 190, 72, .6); }
+.pg-rd-nopos { margin: 0; font-size: 12.5px; color: var(--pg-fg2); }
+.pg-rd-grids { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; }
+.pg-rd-gh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding-bottom: 6px; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .16); }
+.pg-rd-gh span { color: #d9c38a; }
+.pg-rd-gh small { font-size: 11px; color: var(--rd-dim); }
+.pg-rd-gb { display: grid; gap: 1px; background: rgba(255, 255, 255, .07); padding-bottom: 1px; }
+.pg-rd-gb.two { grid-template-columns: 1fr 1fr; }
+.pg-rd-gb.three { grid-template-columns: 1fr 1fr 1fr; }
+.pg-rd-cl { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 11px; background: var(--rd-panel); min-width: 0; outline: 0; }
+.pg-rd-cl:hover, .pg-rd-cl:focus { background: #16181e; }
+.pg-rd-cl .n { font-size: 11px; color: #b1b6c0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-rd-cl.lk .n { color: #d9c38a; font-weight: 700; }
+.pg-rd-cl b { display: inline-flex; align-items: center; gap: 5px; font-size: 22px; font-weight: 700; font-stretch: 75%; line-height: 1; color: var(--rd-dim); }
+.pg-rd-cl.lk b { color: var(--rd-gold); }
+.pg-rd-cl svg { width: 9px; height: 11px; fill: var(--rd-gold); stroke: var(--rd-gold); }
+.pg-rd-cl > i { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .06); }
+.pg-rd-cl > i s { display: block; height: 3px; border-radius: 2px; background: #3f434c; }
+.pg-rd-cl.lk > i s { background: var(--rd-gold); }
+.pg-rd-leg { gap: 10px; font-size: 10.5px; color: var(--rd-dim); }
+.pg-rd-leg span { display: flex; align-items: center; gap: 6px; line-height: 1.35; }
+.pg-rd-leg i { margin-left: 0; flex-shrink: 0; }
+
+/* The side: reputation, what else the road brings, how you compare. */
+.pg-rd-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.pg-rd-rep, .pg-rd-cr { display: flex; flex-direction: column; gap: 5px; padding: 8px 0; box-shadow: inset 0 -1px 0 var(--rd-row); }
+.pg-rd-crh { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.pg-rd-crh span { display: flex; flex-direction: column; gap: 2px; }
+.pg-rd-crh b { font-size: 13px; font-weight: 700; }
+.pg-rd-crh small { font-size: 11px; color: var(--rd-dim); }
+.pg-rd-crh em { font-style: normal; font-size: 20px; font-weight: 800; font-stretch: 75%; color: var(--pg-fg2); font-variant-numeric: tabular-nums; }
+.pg-rd-crh em.up, .pg-rd-rep em { color: var(--rd-gold); }
+.pg-rd-cr > small { font-size: 11px; color: var(--rd-dim); }
+.pg-rd-sx { position: relative; height: 14px; margin-top: 10px; }
+.pg-rd-sx .tr { position: absolute; left: 0; right: 0; top: 6px; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, .08); }
+.pg-rd-sx .mn { position: absolute; top: 4px; width: 1px; height: 6px; background: rgba(255, 255, 255, .12); }
+.pg-rd-sx .rt { position: absolute; top: 2px; width: 2px; height: 10px; margin-left: -1px; background: #5b606a; }
+.pg-rd-sx .tk { position: absolute; top: 1px; width: 2px; height: 12px; margin-left: -1px; background: #b1b6c0; }
+.pg-rd-sx .tk small { position: absolute; bottom: 13px; left: -20px; width: 42px; text-align: center; font-size: 10px; color: var(--rd-dim); font-style: normal; }
+.pg-rd-sx .you { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: #d4d7dd; box-shadow: 0 0 0 2px var(--rd-panel); }
+.pg-rd-sx .you.up { background: var(--rd-gold); }
+.pg-rd-ax { position: relative; height: 13px; font-size: 10px; color: var(--rd-dim); }
+.pg-rd-ax span { position: absolute; transform: translateX(-50%); }
+.pg-rd-ax span:first-child { transform: none; }
+.pg-rd-ax span:last-child { transform: translateX(-100%); }
+.pg-rd-al { display: flex; flex-direction: column; gap: 3px; padding: 8px 0; box-shadow: inset 0 -1px 0 var(--rd-row); }
+.pg-rd-al:last-child { box-shadow: none; }
+.pg-rd-al span { font-size: 12.5px; line-height: 1.4; color: var(--pg-fg); }
+.pg-rd-below { padding-top: 4px; }
+
+@media (max-width: 1360px) {
+  .pg-rd { grid-template-columns: minmax(280px, 300px) minmax(0, 1fr); }
+  .pg-rd-side { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+}
+@media (max-width: 1000px) {
+  .pg-rd { grid-template-columns: minmax(0, 1fr); }
+  .pg-rd-side { grid-template-columns: minmax(0, 1fr); }
+  .pg-rd-grids { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Your coaches (update 3, SA1). */
+.pg-coach > div { flex-wrap: wrap; }
+.pg-coach .pg-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.pg-coach .pg-btn.s { min-height: 32px; padding: 0 12px; font-size: 12.5px; }
+.pg-coach.on b { color: var(--pg-amber); }

@@ -329,6 +329,7 @@ const SCREENS: &[&str] = &[
     "inbox",
     "news",
     "calendar",
+    "calendar_board",
     "team",
     "roster",
     "schedule",
@@ -364,6 +365,17 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
         }
         if let Some(v) = run.call(g, s, json!({})) {
             refs(&v, &mut players, &mut coaches, &mut teams);
+            // The calendar's months either side and the first date ahead.
+            if *s == "calendar_board" {
+                for k in ["prev", "next"] {
+                    if let Some(m) = v[k].as_str() {
+                        run.call(g, s, json!({ "month": m }));
+                    }
+                }
+                if let Some(d) = v["ahead"][0]["iso"].as_str() {
+                    run.call(g, s, json!({ "day": d }));
+                }
+            }
             if *s == "roster" {
                 for r in v["rows"].as_array().into_iter().flatten() {
                     if let Some(i) = r["id"].as_u64() {
