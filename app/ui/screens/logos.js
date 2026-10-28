@@ -358,7 +358,7 @@ async function logosReload() {
 // "Change logo" on a team's page: one picture for that team, kept with
 // this save beside your photos; it wins over any pack's.
 function logoChange(t) {
-  return t && t.ref ? `<button class="st-btn glass" data-lgact="own" data-kind="${esc(t.ref.kind)}" data-id="${t.ref.id}" data-name="${esc(t.name)}">Change logo</button>` : "";
+  return t && t.ref ? `<a class="st-btn glass" data-lgact="own" data-kind="${esc(t.ref.kind)}" data-id="${t.ref.id}" data-name="${esc(t.name)}">Change logo</a>` : "";
 }
 async function lgOwn(kind, id, name) {
   const cur = (LG.teams[`${kind}:${id}`] || [])[0];
