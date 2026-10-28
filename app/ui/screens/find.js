@@ -36,7 +36,7 @@ function frName(r) {
 }
 function frTeam(t, sub) {
   if (!t) return frMute("—");
-  return `<span class="fr-team">${teamLink(t)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>`;
+  return `<span class="fr-team">${logoIn(t)}${teamLink(t)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>`;
 }
 // A row's words with its school named as a link (minor bug 16).
 function frStands(r) {
