@@ -70,7 +70,8 @@ fn main() {
     for a in &w.alumni {
         add_player(a.stars, a.home_state, a.class_of, &a.college_staff, a.position.is_specialist());
     }
-    for p in &w.people {
+    // A drafted or signed pro is already among the alumni: count him once.
+    for p in w.people.iter().filter(|p| p.stage != afm_engine::world::Stage::Pro) {
         add_player(p.stars, p.home_state, p.class_of, &p.college_staff, p.player.position.is_specialist());
     }
     // Draft picks by the last FBS school, by draft year.
@@ -464,12 +465,14 @@ fn main() {
     // within each program, the class haul (blue-chip points) and the season's
     // strength and margin against the head coach's hidden ratings.
     let mut hx: Vec<(usize, f64, f64, f64, f64, f64)> = vec![]; // program, rec, hv, haul, strength, margin
-    for (y, rows) in &table {
+    // Class y is signed by the coach of season y (the carousel comes
+    // before signing day); the last season's class has no rows yet.
+    for (y, rows) in table.iter().filter(|(y, _)| **y < w.year) {
         for r in rows {
             let Some(c) = r.coach else { continue };
             let x = ab(c);
-            let haul = 3 * signed5.get(&(*y + 1, r.p)).copied().unwrap_or(0)
-                + signed4.get(&(*y + 1, r.p)).copied().unwrap_or(0);
+            let haul =
+                3 * signed5.get(&(*y, r.p)).copied().unwrap_or(0) + signed4.get(&(*y, r.p)).copied().unwrap_or(0);
             hx.push((r.p, x.recruiting, x.head_coach_value(), haul as f64, r.strength, r.margin));
         }
     }
@@ -532,12 +535,15 @@ fn main() {
         "strength per head-value point {:+.2} (r {:.2}); margin a game {:+.2} (r {:.2}); at the big programs {:+.2} (r {:.2})",
         c1, rc, d, rd, e, re
     );
-    // Titles by the coach's standing now.
+    // Titles by the coach's standing now, only for coaches still working
+    // and under 59 (ratings drift with age: learning to 58, decline after).
     let mut tiers = [0u32; 4];
     for (y, rows) in &table {
         let _ = y;
         if let Some(r) = rows.iter().find(|r| r.title)
             && let Some(c) = r.coach
+            && w.coaches[c].job.is_some()
+            && w.coaches[c].age < 59
         {
             let q = pct(ab(c).head_coach_value(), &|c| ab(c).head_coach_value());
             tiers[if q >= 90.0 {
@@ -552,7 +558,7 @@ fn main() {
         }
     }
     println!(
-        "titles by the coach's head value now: top 10% {}, 75-90% {}, 50-75% {}, bottom half {}",
+        "titles by the coach's head value now (working coaches under 59): top 10% {}, 75-90% {}, 50-75% {}, bottom half {}",
         tiers[0], tiers[1], tiers[2], tiers[3]
     );
     // The carousel: do the best coaches hold the best jobs?
@@ -683,6 +689,13 @@ fn main() {
         100.0 * floor(&margins),
         stints.len()
     );
+    let (hp, hc, hf) = (r2(&hauls, false), r2(&hauls, true), floor(&hauls));
+    let (mp, mc, mf) = (r2(&margins, false), r2(&margins, true), floor(&margins));
+    println!(
+        "the head coach's share of the spread within a program (with coach - floor) / (1 - program): class haul {:.0}% (real 29%), margin {:.0}% (real 23%)",
+        100.0 * (hc - hf) / (1.0 - hp),
+        100.0 * (mc - mf) / (1.0 - mp)
+    );
     // 9. The biggest names now: prestige and its parts, the collective, and
     // the head coach's standing.
     let mut names: Vec<usize> = (0..w.programs.len()).filter(|&p| w.programs[p].division == Division::FBS).collect();
@@ -711,6 +724,47 @@ fn main() {
             hv
         );
     }
+    // 10. Who builds the staff: the assistants' quality against the head
+    // coach's and against the program's prestige (FBS now).
+    let corr = |v: &[(f64, f64)]| {
+        let n = v.len() as f64;
+        let (mx, my) = (v.iter().map(|x| x.0).sum::<f64>() / n, v.iter().map(|x| x.1).sum::<f64>() / n);
+        let c: f64 = v.iter().map(|x| (x.0 - mx) * (x.1 - my)).sum();
+        let vx: f64 = v.iter().map(|x| (x.0 - mx).powi(2)).sum();
+        let vy: f64 = v.iter().map(|x| (x.1 - my).powi(2)).sum();
+        c / (vx * vy).sqrt()
+    };
+    let mut by_hc = vec![];
+    let mut by_pr = vec![];
+    let mut hc_pr = vec![];
+    for g in w.programs.iter().filter(|g| g.division == Division::FBS) {
+        let Some(h) = g.head_coach else { continue };
+        let staff: Vec<f64> = [g.oc, g.dc]
+            .into_iter()
+            .flatten()
+            .map(|c| 0.5 * ab(c).scheme + 0.5 * ab(c).teaching.iter().sum::<f64>() / ab(c).teaching.len() as f64)
+            .chain(
+                g.position_coaches
+                    .iter()
+                    .flatten()
+                    .map(|&c| ab(c).teaching.iter().sum::<f64>() / ab(c).teaching.len() as f64),
+            )
+            .collect();
+        if staff.is_empty() {
+            continue;
+        }
+        let q = staff.iter().sum::<f64>() / staff.len() as f64;
+        by_hc.push((ab(h).head_coach_value(), q));
+        by_pr.push((g.prestige, q));
+        hc_pr.push((ab(h).head_coach_value(), g.prestige));
+    }
+    println!(
+        "\nassistants' quality (coordinators' scheme and teaching, position coaches' teaching) against the head coach's head value r {:.2}, against prestige r {:.2}; head value against prestige r {:.2} ({} FBS staffs)",
+        corr(&by_hc),
+        corr(&by_pr),
+        corr(&hc_pr),
+        by_hc.len()
+    );
     // Draft: the most picks from one school in a draft, by era.
     let mut most_picks: BTreeMap<i32, (usize, u32)> = BTreeMap::new();
     for (&(y, p), &n) in &picks {
