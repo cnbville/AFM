@@ -516,6 +516,17 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
                 None => format!("Non-football injury list, {back}"),
             }
         });
+    // Another team's player hurt in a game or practice (update 3, A1, F13).
+    let hurt = hurt.or_else(|| {
+        w.training.other_hurt(p.player.id, w.today).map(|(until, kind)| {
+            let days = w.today.days_to(until);
+            let back = if days <= 7 { format!("{days} d") } else { format!("{} wk", (days + 6) / 7) };
+            match kind {
+                Some(k) => format!("Injured ({}), {back}", k.name().to_lowercase()),
+                None => format!("Out, {back}"),
+            }
+        })
+    });
     if let Some(c) = &p.pro {
         use afm_engine::world::pro::Status;
         let s = match c.status {
@@ -2388,7 +2399,15 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
             let fouls: Vec<String> = r
                 .penalties
                 .iter()
-                .map(|(f, _, id, y, _)| format!("{} on {}, {} yards", f.name(), name(*id), y.round()))
+                .map(|(f, _, id, y, _)| {
+                    format!(
+                        "{} on {}, {} {}",
+                        f.name(),
+                        name(*id),
+                        y.round(),
+                        afm_engine::world::folk::noun(y.round() as i64, "yard")
+                    )
+                })
                 .collect();
             format!("Penalty before the snap: {}", fouls.join("; "))
         }
@@ -2431,10 +2450,11 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
     if r.kind != PlayType::NoPlay {
         for (f, _, id, y, accepted) in &r.penalties {
             t.push_str(&format!(
-                ". Flag: {} on {}, {} yards{}",
+                ". Flag: {} on {}, {} {}{}",
                 f.name(),
                 name(*id),
                 y.round(),
+                afm_engine::world::folk::noun(y.round() as i64, "yard"),
                 if *accepted { "" } else { ", declined" }
             ));
         }

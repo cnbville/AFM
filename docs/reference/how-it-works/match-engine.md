@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27; drives, the clock held and the world log added by world reader lane R1 on 2026-10-28.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -17,19 +17,19 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 - What sets the fumble chance? 0.018 × (hit force / 1700)^1.5, scaled by the hitter's 0.5 Strength + 0.5 Tackling against the carrier's Ball Security, a wet ball and the Strip tendency (`game/sim.rs`, `hit_effects`).
 - What does fatigue cost? Each rating loses its fatigue share × tiredness (speed 10%, strength 12%, skills 6%), top speed 8%, burst and cut 10% when fully spent (`game/sim.rs`, `Agent::new`).
 - Is there momentum? Yes: -3 to +2 rating points on all his ratings, after turnovers, drops, sacks and touchdowns, softened by Composure (`game/flow.rs`, `edge_hit`, `decay_edges`).
-- What does playing hurt cost? A flat 3 points off every rating (`game/flow.rs`, `run_scrimmage_call`). `InjuryKind::hampers` lists per-injury costs but nothing calls it (`game/sim.rs`, `hampers`).
+- What does playing hurt cost? What his injury limits, as a share of the rating: ankle speed 8%, agility 12%, acceleration 8%; hamstring speed and acceleration 10%; knee agility 10%, speed 6%; shoulder tackling and arm strength 10%, run blocking and hand use 8%; ribs strength 6%, ball security 8%; hand catching 10%, ball security, hand use and the three accuracies 8%; back strength 8%, agility 6%; anything else speed 3%. On scrimmage snaps and kicks (`game/sim.rs`, `hampers`, `hampered`; `game/scrimmage.rs`; `game/kicking.rs`).
 - How are Discipline, Composure, Concentration, Motor, Toughness read? On a 1-20 scale against the level: 10 + (rating - norm) / 2.6; norms NFL 67, FBS 48, FCS 42, small college 37, high school 29, plus Toughness +3, Motor +1.5, Composure +1, Concentration +4.5, Competitiveness +5.5, Physicality -0.5 (`game/rules.rs`, `trait_norm`; `game/roster.rs`, `trait20`).
 - Are field goals tracked? No: a roll of the kick angle against the posts and the leg against the distance (`game/kicking.rs`, `field_goal`). Kick and punt returns are tracked plays (`run_return`).
 - How do tendencies act? Each check reads lean = (tendency - 10.5) / 9.5, from -1 to +1; a followed instruction sets the tendency, stress slides it up to a third back toward his old habit (`game/sim.rs`, `tend`, `lean`).
 - How much is a Dynamic Link worth? 5 rating points at full strength, only in its own situations; stacked links count the strongest in full, the next at half, a third at a quarter (`links.rs`, `edge`, `FULL`).
 - When does a tired starter come out? Below his position's energy line (EDGE/DT 0.84, WR/TE 0.74, LB/CB/S 0.68, RB 0.60, others 0.5), if a fresh backup is within 60 × (line - energy) rating points (`game/flow.rs`, `threshold`, `pick`).
-- Does a player's week of practice matter? Through his prep word, for every team: his busts and run misfits × 1.33 (Unprepared) to × 0.93 (Sharp), his read up to 0.033 s later, a quarterback up to about 10% longer on each read. It changes no rating (`game/roster.rs`, `GamePlayer.prep`; `training/prep.rs`, `game_factor`; `game/scrimmage.rs`, `run_snap`, `quarterback`). See [training.md](training.md).
+- Does a player's week of practice matter? Through his prep word, for every team: his busts and run misfits × 1.33 (Unprepared) to × 0.93 (Sharp), his read up to 0.1 s later, a quarterback up to a third longer on each read. It changes no rating (`game/roster.rs`, `GamePlayer.prep`; `training/prep.rs`, `game_factor`; `game/scrimmage.rs`, `run_snap`, `quarterback`). See [training.md](training.md).
 - Is the win chance on screen what the coaches read? No: the screens' chance is its own model (`game/win_chance.rs`, `chance`); play calls still read `live::win_prob`, unchanged. See "The game boards' records and the win chance" below.
 
 ## How a snap runs
 
 - `run_snap` builds the agents (offense first), aligns the defense, reads the play, rolls busts and misfits, gives every man a job, then ticks blocks, the quarterback, the defense, routes, the carrier, tackles and movement until the ball is dead (`game/scrimmage.rs`, `run_snap`).
-- His ratings for the snap: rating × (1 - fatigue share × tiredness) + edge, clamped 1-99. The edge is momentum, -3 if he plays hurt, minus the fill-in cost of a spot he doesn't know (`game/sim.rs`, `Agent::new`; `game/flow.rs`, `run_scrimmage_call`, `unfamiliar`).
+- His ratings for the snap: rating × (1 - fatigue share × tiredness) + edge, clamped 1-99. The edge is momentum minus the fill-in cost of a spot he doesn't know (`game/sim.rs`, `Agent::new`; `game/flow.rs`, `run_scrimmage_call`, `unfamiliar`).
 - Top speed, burst and cut come from his raw ratings and weight; the edge doesn't move them, fatigue does (`game/sim.rs`, `Agent::new`).
 - Road noise: every offensive player loses 11 × crowd × focus points of Football IQ, focus = clamp(1.6 - 0.06 × Concentration20, 0.4, 1.6) (`run_snap`, `NOISE_LOAD`).
 - Crowd, wherever this page uses it: the home crowd × the road offense's `prep.noise`, 0 at home or on a neutral site. `prep.noise` is 1 for AI teams; your week's crowd-noise days set yours, 0.9-1.15 (`game/flow.rs`, `home_crowd`; `training/seat.rs`, `week_habits`).
@@ -46,7 +46,7 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
   - Fake (play action or a draw): (0.15 + 0.012 × (100 - PR) × U) × sell × bite × max(1 + 0.9 × lean(Downhill), 0.1); sell = clamp(1 + 0.01 × (QB Ball Handling - 60), 0.6, 1.4); bite = clamp(1.5 - 0.05 × Discipline20, 0.5, 1.5).
   - Film: ±0.16 × keyed, sooner when what the look tells matches the play; keyed = belief lean × (0.5 + 0.5 × film study / 20) × clamp(PR / 80, 0.3, 1.2) (`run_snap`; `game/calling.rs`, `belief`).
   - Job: 0.12 × (0.9 - his knowledge of the front or coverage family). Jet or orbit motion: +0.10 × bite for linebackers.
-  - Prep: 0.1 × (his prep factor - 1): +0.033 s Unprepared, +0.02 Underprepared, +0.008 Patchy, -0.0025 Prepared, -0.007 Sharp (`run_snap`; `training/prep.rs`, `game_factor`).
+  - Prep: 0.3 × (his prep factor - 1): +0.1 s Unprepared, +0.06 Underprepared, +0.024 Patchy, -0.0075 Prepared, -0.021 Sharp (`run_snap`; `training/prep.rs`, `game_factor`).
   - Downhill applies to linebackers and safeties only.
 
 ### Busts and misfits
@@ -129,7 +129,7 @@ What it reads: Play Recognition, Decisions, Pocket Presence, Composure, Football
 - The drop: top of the drop at quick 1.25 s, medium 1.6, deep 2.1, boot 2.2, screen 1.4, bubble 0.75, +0.35 with play action, + clamp(-0.0015 × (Footwork - 60), -0.06, 0.08) (`game/scrimmage.rs`, `run_snap`).
   - A bad shotgun snap costs 0.3-0.6 s, chance clamp(0.004 - 0.0001 × (center's Shotgun Snap - 60), 0.001, 0.012); a fumbled snap is not modelled (`run_snap`).
 - First read: the concept's order, except the best receiver is fed first with chance min(0.1 + 0.02 × his rating edge, 0.55), or the plan's target corner's man 50% of the time (`run_snap`, `FEED_BASE`, `FEED_MAX`).
-- Time on each read = clamp(0.62 - 0.0045 × (iq - 50), 0.3, 0.95) × shown × (1 + 0.6 × lean(Hold)) × prep; iq = 0.5 PR + 0.5 Decisions; shown = (1 - 0.2 × (pre-snap read - 0.45)) × 1.15 if a disguise fooled him; prep = 1 + 0.3 × (his prep factor - 1), 1.099 Unprepared to 0.979 Sharp (`quarterback`).
+- Time on each read = clamp(0.62 - 0.0045 × (iq - 50), 0.3, 0.95) × shown × (1 + 0.6 × lean(Hold)) × prep; iq = 0.5 PR + 0.5 Decisions; shown = (1 - 0.2 × (pre-snap read - 0.45)) × 1.15 if a disguise fooled him; prep = his prep factor, 1.33 Unprepared to 0.93 Sharp (`quarterback`).
 - His clock = clamp(3.6 - 0.01 × (Decisions - 60) - 0.004 × (Pocket Presence - 60), 3.1, 4.1) + 0.3 on a deep drop + 1.0 × lean(Hold) (`quarterback`).
 - Hot read: pressure over 0.6 before 2 s sends him back to read 1 (always above 45 Football IQ, else 40%) (`quarterback`).
 - Urgent: the first free rusher he knows of is under 0.85 - 0.004 × (Composure - 60) s away (`quarterback`).
@@ -332,7 +332,6 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 - Weeks out = lo + (hi - lo) × U² × (1.3 - 0.03 × hidden recovery): bruise 0-1, ankle 0-3, high ankle 2-7, hamstring 1-5, knee 1-6, ACL 36-56, shoulder 0-8, concussion 0.5-3, ribs 0-4, hand 0-5, fracture 4-12, back 0-4 (`injury_weeks`).
 - He plays on with clamp(0.15 + 0.035 × Toughness20 - 0.12 × weeks, 0, 0.95), never with a concussion, ACL or fracture; a concussion is caught 92% in the NFL, 80% in college, 60% in high school (`injury_check`; `game/flow.rs`, `apply_injuries`).
 - Playing on costs 3 points off every rating (`run_scrimmage_call`).
-- Code against the design doc: `docs/design/match-engine.md` says a hurt player loses the attributes the injury hits (an ankle cuts speed and cutting); the code takes the flat 3 points and never calls `InjuryKind::hampers`.
 - Code against the docs: `docs/world-model.md` (training lane 4's picks) says a poorly prepared player reads about a tenth of a second late per word below prepared and a quarterback's reads run up to 30% slower; the code adds 0.1 × (factor - 1) s (0.033 s Unprepared) and × (1 + 0.3 × (factor - 1)) (about 10%) (`run_snap`, `quarterback`).
 
 ## The game boards' records and the win chance

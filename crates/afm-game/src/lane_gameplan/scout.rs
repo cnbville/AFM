@@ -179,7 +179,7 @@ pub(super) fn view(w: &World, args: &Value) -> Reply {
             let v = if n > 0 { h as f64 / n as f64 } else { 0.0 };
             let diff = 100.0 * (v - base[i]);
             let note = if n < 6 {
-                format!("{n} snaps: too few to read")
+                format!("{n} {}: too few to read", afm_engine::world::folk::noun(n, "snap"))
             } else if diff.abs() >= 10.0 {
                 format!("{}{:.0} against the level: easy to read", if diff > 0.0 { "+" } else { "−" }, diff.abs())
             } else {
@@ -217,8 +217,9 @@ pub(super) fn view(w: &World, args: &Value) -> Reply {
     });
     let read = if all < 30 {
         format!(
-            "{} snaps so far {}: too few for a defense to read you, or for you to read yourself.",
+            "{} {} so far {}: too few for a defense to read you, or for you to read yourself.",
             all,
+            afm_engine::world::folk::noun(all, "snap"),
             season_words(w, &s)
         )
     } else {

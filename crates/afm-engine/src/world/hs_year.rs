@@ -166,6 +166,8 @@ pub(crate) fn hs_counts(l: &crate::game::stats::StatLine) -> [i32; HS_STAT_COUNT
 /// One engine game, kept small: the score, each side's team totals and
 /// each player's counts (person index, counts, whether he played).
 struct HsPlayed {
+    /// The game's injuries, by its team (update 3, A1).
+    injuries: Vec<(usize, crate::game::sim::Injury)>,
     score: [u32; 2],
     team: [crate::game::stats::TeamStats; 2],
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
@@ -1231,6 +1233,15 @@ pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
     hs_team(w, h, week).map(|t| t.0)
 }
 
+/// Whether a high school's home field is artificial turf this season
+/// (update 3, F24): richer and bigger schools turf theirs first (proposed,
+/// not confirmed).
+pub(crate) fn hs_turf(w: &World, h: usize) -> bool {
+    let school = &w.high_schools[h];
+    let means = 0.5 * school.resources + 0.5 * (school.enrollment as f64 / 2500.0).min(1.0);
+    super::season::field_turf(w.options.seed as u64, (1 << 40) | h as u64, &super::season::TURF_HS, w.year, means)
+}
+
 /// A Friday night's conditions at a home school: the day's weather, a
 /// crowd as loud as the school is big, and the wind along the field.
 fn hs_conditions(
@@ -1243,6 +1254,7 @@ fn hs_conditions(
     let school = &w.high_schools[h];
     // The crowd: a big school's Friday night is louder (proposed, not confirmed).
     let crowd = clamp(0.2 + 0.3 * (school.enrollment as f64 / 2500.0).sqrt() + 0.1 * school.prestige, 0.1, 0.7);
+    let turf = hs_turf(w, h);
     crate::game::Conditions {
         temperature: wx.temperature,
         wind: wx.wind,
@@ -1250,6 +1262,7 @@ fn hs_conditions(
         rain: wx.rain,
         snow: wx.snow,
         crowd,
+        turf,
         ..Default::default()
     }
 }
@@ -1462,7 +1475,9 @@ fn engine_games(
                 serde_json::to_vec(&row).unwrap_or_default()
             });
             let situ = (logging || trial_log).then(|| super::game_log::game_situations(&r.stats));
+            let injuries = std::mem::take(&mut r.injuries);
             Ok(HsPlayed {
+                injuries,
                 score: [ha.max(0) as u32, hb.max(0) as u32],
                 team: r.stats.team.clone(),
                 lines,
@@ -1528,6 +1543,10 @@ fn engine_games(
                 }
             }
         }
+        // Injuries outlast the game (update 3, A1); high schools have no
+        // medical staff.
+        let side = [h, a].iter().position(|&x| seat == Some(x));
+        crate::training::seat::game_injuries(w, day, &g.injuries, [0.0; 2], side);
         if let Some((full, film, replay)) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
             w.seat_line(Level::HighSchool, [h, a], None, g.neutral);

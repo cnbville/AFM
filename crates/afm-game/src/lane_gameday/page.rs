@@ -855,7 +855,7 @@ fn passes(s: &GameStats, names: &Names) -> Vec<Value> {
                 "complete": r.complete,
                 "td": r.touchdown && !r.defense_td,
                 "int": r.interception,
-                "text": format!("{} to {}: {}", name(r.passer), name(r.target), if r.interception { "intercepted".to_string() } else if r.complete { format!("{:.0} yards", r.yards) } else { "incomplete".to_string() }),
+                "text": format!("{} to {}: {}", name(r.passer), name(r.target), if r.interception { "intercepted".to_string() } else if r.complete { format!("{:.0} {}", r.yards, if r.yards.round_ties_even() == 1.0 { "yard" } else { "yards" }) } else { "incomplete".to_string() }),
             }))
         })
         .collect()
@@ -1049,7 +1049,7 @@ pub fn halftime(r: &GameResult, mine: usize, names: &Names, sides: &[String; 2])
     {
         adjust.push(json!({
                 "who": "Your defensive coordinator",
-                "text": format!("Bracket {} ({}): {n} targets, {y:.0} of their {their_yds:.0} receiving yards.", name(id), pos(id)),
+                "text": format!("Bracket {} ({}): {n} target{}, {y:.0} of their {their_yds:.0} receiving yards.", name(id), pos(id), if n == 1 { "" } else { "s" }),
                 "change": { "bracket": id },
             }));
     }
@@ -1097,11 +1097,12 @@ pub fn halftime(r: &GameResult, mine: usize, names: &Names, sides: &[String; 2])
         .filter(|(side, _)| *side == mine)
         .map(|(_, i)| {
             format!(
-                "{} ({}): {}, about {:.0} weeks{}",
+                "{} ({}): {}, about {:.0} week{}{}",
                 name(i.id),
                 pos(i.id),
                 i.kind.name(),
                 i.weeks,
+                if i.weeks.round_ties_even() == 1.0 { "" } else { "s" },
                 if i.plays_on { ", playing through it" } else { ", out for the game" }
             )
         })
@@ -1128,7 +1129,15 @@ pub fn after_game(w: &World, r: &GameResult, mine: usize, names: &Names, sides: 
         .injuries
         .iter()
         .filter(|(side, _)| *side == mine)
-        .map(|(_, i)| format!("{}: {}, about {:.0} weeks", name(i.id), i.kind.name(), i.weeks))
+        .map(|(_, i)| {
+            format!(
+                "{}: {}, about {:.0} week{}",
+                name(i.id),
+                i.kind.name(),
+                i.weeks,
+                if i.weeks.round_ties_even() == 1.0 { "" } else { "s" }
+            )
+        })
         .collect();
     let won = s.score[mine] > s.score[1 - mine];
     let tied = s.score[0] == s.score[1];

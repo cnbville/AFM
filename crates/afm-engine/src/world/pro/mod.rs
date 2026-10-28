@@ -1318,6 +1318,9 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     let Some(c) = w.people[i].pro.as_mut() else { return };
     let Some(t) = c.team else { return };
     let mut dead = (0.0, 0.0);
+    // Read before the contract is cleared (update 3, F5): a veteran cut
+    // with years left can hold it against the team.
+    let expired = c.contract.as_ref().is_none_or(|k| k.last_year() < year);
     if let Some(k) = c.contract.as_ref() {
         dead = k.dead_if_cut(year, d, june1);
         if waive {
@@ -1339,7 +1342,6 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     // A veteran cut before his deal ran out can hold it against the team
     // (section 6 topic 2): it hurts more the longer he was there.
     let years_there = c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64;
-    let expired = c.contract.as_ref().is_none_or(|k| k.last_year() < year);
     c.status = Status::FreeAgent;
     c.team = None;
     c.weeks_unsigned = 0;
@@ -1613,12 +1615,12 @@ fn camp(w: &mut World, d: Date) {
         });
         let spring = p.pro.as_ref().map_or(0.0, |c| c.spring_snaps);
         let snaps = if spring > 0.0 { Some(snaps.unwrap_or(0.0) + spring) } else { snaps };
-        // A holdout misses camp (proposed, not confirmed: a small dip).
-        if p.pro.as_ref().is_some_and(|c| c.hold == market::Hold::Out) {
-            adjustment -= 0.3;
-        }
+        // A holdout misses camp and plays below his rating while he catches
+        // up (proposed, not confirmed: a 0.3 dip; update 3, F1 fixed the sign).
+        let missed_camp = if p.pro.as_ref().is_some_and(|c| c.hold == market::Hold::Out) { 0.3 } else { 0.0 };
         let ctx = crate::development::SeasonContext {
             adjustment,
+            missed_camp,
             situation,
             payday,
             snaps,
@@ -1704,6 +1706,7 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
                 neutral: false,
                 loud: -0.25,
                 seed: 0,
+                playoff: false,
             };
             let mut head = serde_json::Map::new();
             head.insert("week".into(), (week + 1).into());

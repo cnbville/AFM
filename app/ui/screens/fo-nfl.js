@@ -44,7 +44,7 @@ function foOwner(key, owner) {
   return `<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
 }
 function foPick(p) {
-  return `<span class="fo-pick ${p.comp ? "comp" : ""}" title="${esc(p.text)} · ${p.points} points on your chart">${mark(p.from, 18)}<b>${p.year} R${p.round}</b>${p.own ? "" : `<small>${esc(p.from.name.split(" ").pop())}</small>`}${p.comp ? "<small>comp</small>" : ""}</span>`;
+  return `<span class="fo-pick ${p.comp ? "comp" : ""}" title="${esc(p.text)} · ${p.points} point${p.points === 1 ? "" : "s"} on your chart">${mark(p.from, 18)}<b>${p.year} R${p.round}</b>${p.own ? "" : `<small>${esc(p.from.name.split(" ").pop())}</small>`}${p.comp ? "<small>comp</small>" : ""}</span>`;
 }
 const foKindWords = { ReSign: "Re-signing", Extension: "Extension", FreeAgent: "Free agent", OfferSheet: "Offer sheet" };
 const foStateWords = { Open: "Talking", Standing: "Offer on the table", Agreed: "Agreed", Signed: "Signed", Broken: "Talks broken off", Gone: "Gone" };
@@ -144,7 +144,7 @@ screens.fo_expiring = async () => {
     return b.join(" ");
   };
   const what = (r) => {
-    if (r.sheet) return `<b>Offer sheet</b> from ${teamLink(r.sheet.team)}: ${r.sheet.years} yrs at ${foM(r.sheet.apy)} · until ${esc(r.sheet.until)}`;
+    if (r.sheet) return `<b>Offer sheet</b> from ${teamLink(r.sheet.team)}: ${r.sheet.years} ${r.sheet.years === 1 ? "yr" : "yrs"} at ${foM(r.sheet.apy)} · until ${esc(r.sheet.until)}`;
     if (r.tagged) return `<b>${esc(r.tagged)}</b>`;
     if (r.option) return `Fifth-year option: ${foM(r.option_price)}${r.option_choice == null ? " · <span class=\"gold\">undecided</span>" : r.option_choice ? " · picking it up" : " · declining"}`;
     if (r.extend) return `Through ${r.through}`;
@@ -221,10 +221,10 @@ screens.fo_talk = async (a) => {
       <div style="display:grid;gap:18px">
         <div class="panel"><h2>What you know <small title="Your own rating: it reads agents' claims and sets how far you can push">${linkTo("you", {}, `Your negotiating ${t.negotiating}/20`)}</small></h2>
           <div class="kv"><dt>His market</dt><dd>${foM(t.market[0])} to ${foM(t.market[1])} a year <small class="sub">· your cap manager's read</small></dd>
-          ${ask ? `<dt>His agent asks</dt><dd><b>${ask.years} yrs, ${foM(ask.apy)} a year</b>, ${foPct(ask.gtd)} guaranteed${ask.start ? ", a starting job" : ""}</dd>` : ""}
+          ${ask ? `<dt>His agent asks</dt><dd><b>${ask.years} ${ask.years === 1 ? "yr" : "yrs"}, ${foM(ask.apy)} a year</b>, ${foPct(ask.gtd)} guaranteed${ask.start ? ", a starting job" : ""}</dd>` : ""}
           ${t.talk ? `<dt>The talks</dt><dd>${foTalkChip(t.talk)} <span class="fo-patience" title="How much patience his side has left"><i style="width:${Math.round(t.talk.patience * 100)}%"></i></span></dd>` : ""}
           <dt>What he wants</dt><dd>${t.wants ? esc(t.wants) : '<span class="muted">A visit, or a few rounds of talks, would tell you.</span>'}</dd></div></div>
-        <div class="panel"><h2>His agent</h2>${ag ? `<div class="kv"><dt>Agent</dt><dd><b>${esc(ag.name)}</b>, ${esc(ag.agency)}</dd><dt>Agency</dt><dd>${esc(ag.size)}, ${ag.clients} clients</dd><dt>With your club</dt><dd>${esc(ag.history)}</dd></div>` : '<div class="sub">He represents himself.</div>'}</div>
+        <div class="panel"><h2>His agent</h2>${ag ? `<div class="kv"><dt>Agent</dt><dd><b>${esc(ag.name)}</b>, ${esc(ag.agency)}</dd><dt>Agency</dt><dd>${esc(ag.size)}, ${ag.clients} client${ag.clients === 1 ? "" : "s"}</dd><dt>With your club</dt><dd>${esc(ag.history)}</dd></div>` : '<div class="sub">He represents himself.</div>'}</div>
         <div class="panel"><h2>The talks</h2><div class="fo-lines">${lines}</div></div>
       </div>
     </div>
@@ -289,15 +289,15 @@ screens.fo_trades = async () => {
   const calls = x.calls.filter((c) => !c.answered).map((c) => `<div class="fo-call">${mark(c.team, 40)}<div><b>${teamLink(c.team)} call about ${c.player ? playerLink(c.player.id, c.player.name) : "a player"}</b><small>They offer ${c.picks.map(foPick).join(" ")} · answer by ${esc(c.until)}</small></div><div class="st-actions">${foBtn("call", "Accept", { k: c.k, yes: 1 }, "primary")} ${foBtn("call", "Turn down", { k: c.k, yes: 0 })}</div></div>`).join("");
   const ans = tr.answer;
   const condOpts = tr.givePicks.length && tr.get.length ? `<div class="fo-cond"><label class="fo-check"><input type="checkbox" data-fo-cond="on" ${tr.cond ? "checked" : ""}> Make one of your picks conditional</label>${tr.cond ? `<select data-fo-cond="pick">${x.picks.filter((p) => tr.givePicks.includes(foPickKey(p)) && p.round > 1).map((p) => `<option value="${foPickKey(p)}" ${tr.cond.pick === foPickKey(p) ? "selected" : ""}>${esc(p.text)}</option>`).join("")}</select> moves up a round <select data-fo-cond="kind"><option value="games" ${tr.cond.kind === "games" ? "selected" : ""}>if he plays in</option><option value="starts" ${tr.cond.kind === "starts" ? "selected" : ""}>if he starts</option><option value="pro_bowl" ${tr.cond.kind === "pro_bowl" ? "selected" : ""}>if he makes the Pro Bowl</option></select>${tr.cond.kind !== "pro_bowl" ? `<input type="number" min="1" max="17" data-fo-cond="n" value="${tr.cond.n || 8}"> games` : ""} · <select data-fo-cond="player">${getP.map((r) => `<option value="${r.id}" ${tr.cond.player === r.id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}</div>` : "";
-  const shop = tr.shop ? `<div class="panel"><h2>Shopping ${esc(tr.shop.name)} <small>the best package of picks each club would give</small></h2>${tr.shop.offers.length ? tr.shop.offers.map((o) => `<div class="fo-call">${mark(o.team, 32)}<div><b>${teamLink(o.team)}</b><small>${o.picks.map(foPick).join(" ")} · ${o.points} points on your chart</small></div>${foBtn("shoptake", "Build this trade", { team: o.team.ref.id, id: tr.shop.id, picks: JSON.stringify(o.picks.map((p) => foPickKey(p))) })}</div>`).join("") : '<div class="empty">No club would give picks for him today.</div>'}</div>` : "";
+  const shop = tr.shop ? `<div class="panel"><h2>Shopping ${esc(tr.shop.name)} <small>the best package of picks each club would give</small></h2>${tr.shop.offers.length ? tr.shop.offers.map((o) => `<div class="fo-call">${mark(o.team, 32)}<div><b>${teamLink(o.team)}</b><small>${o.picks.map(foPick).join(" ")} · ${o.points} point${o.points === 1 ? "" : "s"} on your chart</small></div>${foBtn("shoptake", "Build this trade", { team: o.team.ref.id, id: tr.shop.id, picks: JSON.stringify(o.picks.map((p) => foPickKey(p))) })}</div>`).join("") : '<div class="empty">No club would give picks for him today.</div>'}</div>` : "";
   return `<div class="film"><div class="pad fo">
     ${foHead(x.team, "Trades", `${x.open ? `Trades are open until the deadline, ${esc(x.deadline)}.` : `Trades open with the league year (${esc(x.league_year)}) and close at the deadline (${esc(x.deadline)}).`} The other GM answers by his own read of the players, his chart and whether his club is chasing a title. Your chart: ${x.classic ? "the classic one" : "a surplus-value chart"}.`, foOwner("trades", x.owner))}
     ${calls ? `<div class="panel"><h2>Calls waiting</h2>${calls}</div>` : ""}
     <div class="panel fo-builder"><h2>Build a trade <small>with <select data-fo-team>${x.teams.map((t) => `<option value="${t.ref.id}" ${t.ref.id === tr.team ? "selected" : ""}>${esc(t.name)} · ${esc(t.mode)}</option>`).join("")}</select></small></h2>
       ${other ? `<div class="sub">${mark(other.team, 20)} ${teamLink(other.team)} · GM ${esc(other.team.gm)} · ${esc(other.team.mode)} · cap room ${foM(other.room)}</div>` : ""}
       <div class="fo-sides">
-        <div><div class="st-label">You give · ${Math.round(givePts)} points</div>${plist(x.roster, tr.give, "give")}<div class="fo-picks">${pickBox(x.picks, tr.givePicks, "give")}</div></div>
-        <div><div class="st-label">You get · ${Math.round(getPts)} points</div>${other ? plist(other.rows, tr.get, "get") + `<div class="fo-picks">${pickBox(other.picks, tr.getPicks, "get")}</div>` : ""}</div>
+        <div><div class="st-label">You give · ${Math.round(givePts)} point${Math.round(givePts) === 1 ? "" : "s"}</div>${plist(x.roster, tr.give, "give")}<div class="fo-picks">${pickBox(x.picks, tr.givePicks, "give")}</div></div>
+        <div><div class="st-label">You get · ${Math.round(getPts)} point${Math.round(getPts) === 1 ? "" : "s"}</div>${other ? plist(other.rows, tr.get, "get") + `<div class="fo-picks">${pickBox(other.picks, tr.getPicks, "get")}</div>` : ""}</div>
       </div>
       ${condOpts}
       <div class="st-actions">${foBtn("teval", "Ask their GM", {}, "glass")} ${foBtn("tpropose", "Make the trade", {}, "primary")} ${foBtn("tclear", "Clear", {})}</div>
@@ -337,7 +337,7 @@ screens.fo_moves = async () => {
       { k: "staff", t: "Staff says", l: true, div: true, f: (r) => `<span class="st-pill ${r.staff === "keep" ? "good" : r.staff === "squad" ? "gold" : ""}">${{ keep: "53", squad: "Squad", release: "Cut" }[r.staff]}</span>` },
       { k: "plan", t: "Your call", l: true, v: (r) => r.plan || "", f: seg },
     ];
-    body = `<p class="sub">Cutdown day is ${esc(x.date)}${x.in >= 0 ? ` (in ${x.in} days)` : ""}. Your call stands; every player you leave to the staff goes where their ranking puts him. <b>${n("keep")} of ${x.limit}</b> on the 53 · <b>${n("squad")} of ${x.squad_limit}</b> on the squad · ${n("release")} cut.</p>
+    body = `<p class="sub">Cutdown day is ${esc(x.date)}${x.in >= 0 ? ` (in ${x.in} day${x.in === 1 ? "" : "s"})` : ""}. Your call stands; every player you leave to the staff goes where their ranking puts him. <b>${n("keep")} of ${x.limit}</b> on the 53 · <b>${n("squad")} of ${x.squad_limit}</b> on the squad · ${n("release")} cut.</p>
       <div class="filters">${foOwner("cutdown", x.owner)}</div>
       ${table("fo_cut", cols, x.rows, { groupBy: (r) => r.pos, empty: "Nobody under contract for the season yet." })}`;
   } else if (tab.t === "Practice squad") {

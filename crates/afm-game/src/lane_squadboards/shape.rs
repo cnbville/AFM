@@ -238,7 +238,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let measured = matches!(p.stage, Stage::College | Stage::Declared | Stage::Pro | Stage::Done);
     let forty = super::body::best_forty(w, i);
     let recruited = if p.stars > 0 {
-        format!("{} stars, class of {}", p.stars, p.class_of)
+        format!("{} {}, class of {}", p.stars, afm_engine::world::folk::noun(p.stars, "star"), p.class_of)
     } else if p.walk_on {
         format!("Walk-on, class of {}", p.class_of)
     } else {

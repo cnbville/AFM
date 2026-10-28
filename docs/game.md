@@ -495,7 +495,7 @@ Faces items F3-F12, S4 and X4 from `docs/design/faces.md` and `docs/final-build/
   - **Files.** `app/ui/screens/heads/`: `heads.js` (built by `tools/faces/heads/build.py` from `tools/faces/heads/heads.src.js`; do not edit it by hand), `head.bin` and `head.json` (the base head and its targets, 8.2 MB), `shape.bin` and `shape.json` (the face sampler, 0.8 MB), `groom.bin` and `groom.json` (the hair library, 10 MB), `jersey.json`. All of it loads only the first time a head is drawn. How to rebuild them: `tools/faces/heads/README.md`.
   - **Speed and memory.** On the test machine (no GPU, software WebGL) a head takes 1.3-9 s; the shape and hair take 50-250 ms of that and the rest is the software renderer, so the M1's GPU should be well under a second (not measured: no Mac here). The page's script memory was 68 MB after drawing 13 heads; the game process is untouched. A computer without WebGL keeps the silhouettes for the session.
   - **Safari.** The Mac app's web view can't write WebP pictures, so there a head is kept as a JPEG on the face slots' dark grey under the same name; the game reads a stored picture's type from its contents.
-  - **Not drawn yet:** scars, a broken nose, a tooth gap, glasses, earrings and tattoos (all in his looks and his AI prompt); the jersey's number and the team's logo stay out on purpose.
+  - **Not drawn yet:** scars, a broken nose, a tooth gap, glasses, earrings and tattoos (all in his looks and his AI prompt); the jersey's number stays out on purpose; the team's logo shows only from a pack you installed (lane 15 of update 3).
 
 ## Update 2 (2026-10-24)
 
@@ -883,6 +883,54 @@ The world's former players (`world/former.rs`), what playing does for a coach, h
 - C17: the AI hiring one five-star's coach in twenty-five on December 1, to coach his own group, letting the holder go; the relationship worth 0.05; your high school offer on November 15 at an even chance.
 - C18: every state on California's rule for now, ruled two times in five (a year out and half a point of standing), the call's window (March-June Thursdays, an eighth of the weeks, once a year), a broken promise costing 0.3 warmth.
 - C19: the ten days before the market, a fifth of weekdays, once a year; the ask shaded by 0.25 × (1 - honesty); a leak one time in ten, ruled on June 1; the first word worth 2% on his offer score.
+
+### Lane 3: code fixes (A1, F1, F5-F13, F16-F18, F24-F34)
+
+- **Injuries** (A1, F7, F8, F13, F24). College and high school game injuries now keep a player out after the game, on every team (`training/seat.rs`, `game_injuries`; AI players in `training.others_hurt`). A man playing hurt loses what his injury limits (`game/sim.rs`, `hampered`), not a flat 3 points. Fatigue raises injury odds. AI college and high school teams get practice injuries. Turf follows real fields: each NFL club's turf seasons, and college and high school fields by level, year and money.
+- **People** (F1, F5, F6, F18). A holdout's missed camp lowers his year; a veteran cut before his deal ran out, or a man traded away after years at a club, can hold a grudge; AI teams keep their own team rules (`world/folk/rules.rs`, `ai_week`).
+- **Training** (F9-F12, F16). Heat-rule states really cut a hot day's practice; a player absent from a voluntary week takes no team load and no practice injury; study hall and the practice screen flag on each level's real eligibility line; coaching a habit keeps the old one he slips back to.
+- **Games** (F17, F25-F34). Kick orders' return risk is read; every NFL and college game plays its year's rule book, playoffs included (NFL playoff overtime can no longer end in a tie); college overtime reaches the era's shootout; your designed plays are called by your own coordinators and go on the other side's film as the concept they look like; design legality reads the level; below the NFL fourth downs, EPA and win chance read a real college expected-points table (`data/real-world/college_expected_points.csv`); the defensive call's fixes and prep's read sizes (below).
+- **What moved** (`match_check nfl 400` and `fbs 400`, main against this lane, same seeds). Blitz share NFL 20.7% to 23.2%, FBS 20.3% to 23.0% (the quick-throw term no longer counts prep snaps, so it stops cutting every blitz). Injuries of a week or more a team game NFL 1.04 to 1.10, FBS 0.74 to 0.82 (fatigue). FBS fourth-down tries 2.08 to 1.99 and EPA a play -0.025 to -0.032 (the college table). Points NFL 27.5 to 27.8, FBS 22.1 to 22.3, and the yards, sacks and interceptions moved within the run's noise. The world items (game injuries, turf, rule books, AI rules and practice injuries) show in the next world trial, not here.
+- **Found, not fixed** (for Cain): NFL and other-league game injuries are carried by the snap side, not the team, so about half never carry (oddity 28). High school ejection sit-outs apply only to your team (`league_week`). The blitz quick-throw term only ever lowers the blitz, against offenses that throw quick less than 30% of their plays; real defenses blitz quick throwers less, so its sign looks backwards (left as is).
+
+#### Claude's picks (proposed, not confirmed)
+
+- A holdout's missed camp: +0.3 on his development dip, no first-year mark.
+- A trade grudge: hurt 0.75 × min(seasons there / 4, 1) with 2+ seasons, none if he asked out.
+- Fatigue: injury chance × (1 + 0.8 × tiredness).
+- Game injuries below the NFL: out ceil(weeks × (1 − 0.12 × medical) × 7) days from the day after the game, medical = (program medical rating − 10) / 10 in college, 0 in high school; one who played on is not out.
+- AI practice injuries: your team's chance from the AI week's block, practices, contact and mobility; an AI player counts as out for the week when back more than 3 days after Monday.
+- Heat: a heat index of 104 F or more (July to September) cuts the day's field work to 60 minutes; meetings and the weight room stay.
+- An absent player's week loads the own-time 150 units.
+- Eligibility lines: high school 2.0; college 2.3 before his first season (initial eligibility), then 1.8, 1.9 and 2.0 (progress toward degree).
+- AI team rules: severity = the rule's weight + his breaks this season and last (up to 3) − 1, ±1 for a strict (14+) or soft (6 or less) coach, −1 for a star under a coach below 12; mapped talk, fine or running, bench the start, bench a game, suspend 1, suspend 2, dismiss (in the NFL only for conduct or drugs, else suspend 3).
+- Turf shares of fields in 1996, 2006, 2016 and 2026: FBS 0.30, 0.45, 0.55, 0.60; smaller colleges 0.12, 0.40, 0.65, 0.75; high schools 0.02, 0.12, 0.30, 0.45; +0.005 a year after 2026 up to 0.85; × (0.6 + 0.8 × means). A future NFL stadium is turf if domed.
+- High school reads the college expected-points table; the fourth-down conversion chance stays the NFL curve at every level.
+- Designs in your coordinators' own calls: only those on this week's sheets, in their personnel, weighed like the look-alike concept without the favorite lean; film files a design under the library concept with the most shared routes (same man 2, anyone 1), play action 2, drop 1, depth 1, protection 0.5.
+- An NFL lineman may run a designed route only uncovered (he reports); never in college or high school.
+- Quick share = (quick throws today + 1.2) / (plays today + 4); deep hurt divides today's deep EPA by today's plays.
+- Prep: a defender reads 0.3 × (factor − 1) s late (+0.1 s Unprepared, −0.02 s Sharp); a quarterback's time on each read × the factor (a third longer Unprepared), matching the agreed "up to a third more" mental errors.
+
+### Lane 15: logo packs you install yourself
+
+The game ships no logos (later extras, topic 2). Settings, Logos (`screens/logos.js` and `.css`, the commands in `lane_logos.rs`) installs a pack the way Football Manager's logo packs work: you pick a folder, the game matches its pictures to teams, you check the matches, and only the pictures in use are copied into the game folder (`logos/packs/p<N>/`), shared by every save. Cain agreed to the mock-up and its four questions on 2026-10-28 (https://claude.ai/artifact/RtBJWBvcKb81zETpogoZfz).
+
+- **Matching.** A mapping file in the pack first (`logos.csv`: file, team, from, to; any `.csv` with those columns), then a teams list in the pack (a JSON list with a name and a logo path, like Gridiron Lab's `teams.json`), then each picture's own name (`Kansas_City_Chiefs_logo.svg`, `iowa-st.svg`): the whole name, a full name with extra words (another version: a wordmark, an old one), a short form (`coastal-caro`, `eastern-ky`), an NFL nickname alone. Names fold case, accents, "&", "St" (Saint first, State after), state short forms and a state at the end (`albany-ny`). On the three packs in `afm/logos` (911 real teams): 656 matched, 18 unsure, 162 with no team (mostly basketball-only schools), 320 spare.
+- **The review**: matched, unsure (each team it could be, one click), no match, spare (a team's other pictures: one per team and era, a mapping line first, then the plain logo, an SVG over a PNG, the bigger file), skipped. Find a team, Change, Skip; "Use these logos" keeps the pictures (SVG as it is with its size added, others shrunk to 512 pixels); Cancel keeps nothing. "Check matches" on an installed pack changes or drops a team's logo later.
+- **Eras.** Teams are keyed by their real names, so a logo covers the years its team had that name (the Titans' never shows on a 1997 Oilers line); dated mapping lines split eras further. A later pack wins over an earlier one for a team both have.
+- **Where they show**: every team mark (`mark()` in `app.js`), the team page's hero (its watermark, also the school office and history pages), the sidebar, letterheads (a club's crest, a conference's or the league's seal), the score bug and midfield in the 2D and 3D view, schedule rows and bowl tags, conference headers on standings, the player page's team and his career rows, the colleges calling at high school, the job picker. Without a logo every spot keeps today's drawn mark.
+- **Dark logos** (question 2, A): measured once when installed (the drawn pixels' mean brightness under 0.3); only those sit on a soft light disc on the dark screens, bare on the light theme and on letterheads.
+- **A world with fictional names** (question 3): a pack's logos stay off until switched on in Settings, Logos.
+- **Your own logo** (question 1): "Change logo" on any team's page takes one picture for that team, kept with the save beside your photos (`<save>.faces/logos/`, moved and copied with the save), and wins over any pack's; "Remove your logo" brings the pack's back. Generated high schools get their crest this way. Your own logos show in a fictional world too.
+- **The drawn heads' jerseys** (question 4): a college's logo just under the V-neck, the NFL shield on the collar's point, painted on the cloth's own coordinates (`tools/faces/heads/heads.src.js`, `setLogo`). The logo's id is part of the drawn picture's key, so a head is drawn again when its logo changes; high school and other-league jerseys stay plain.
+- Show logos On or Off in Settings, Logos switches every logo off at once.
+
+#### Claude's picks (proposed, not confirmed)
+
+- The names packs use for schools the world calls by another (`ALIASES` in `lane_logos.rs`: UMass, FIU, ULM, Ole Miss, App State, UIW, LIU, SFA and the rest) and the state short forms (`STATES`).
+- The dark threshold (0.3), the 512-pixel cap for pictures that aren't drawings, 2 MB a picture, and a later pack winning over an earlier one.
+- The jersey logo's size and place (a college's 0.42 units wide at most, its top just under the V's trim; the shield 0.26 tall, its top just over the collar's point), the light disc's colour (`#ece9e2`) and the hero watermark's strength (24%, 14% for dark logos).
+- Drawn heads kept under an old logo's key stay on disk until the save is deleted.
 
 ## Not built yet (section 8's design, for the next builds)
 

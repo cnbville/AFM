@@ -1,0 +1,94 @@
+/* Logo packs (update 3, lane 15): an installed pack's logos in the team
+   marks, heroes, letterheads and score bug, and the Logos screen. */
+
+/* A team mark with a logo: the drawn mark until the picture arrives, then
+   the logo alone in the same box. */
+.st-mark.lgo { background: var(--lgc, #444); box-sizing: border-box; }
+.st-mark.lgo.lgo-on { background: transparent; box-shadow: none; border-radius: 0; color: transparent; }
+.st-mark.lgo img, .lgo-pg img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Dark logos (measured on install) sit on a soft light disc so they read on
+   the dark ground; on the light theme they stand bare. */
+.st-mark.lgo.lgo-on.lgo-d { background: #ece9e2; border-radius: 50%; padding: calc(var(--s) * .12); }
+:root[data-theme="light"] .st-mark.lgo.lgo-on.lgo-d { background: transparent; border-radius: 0; padding: 0; }
+img.lgo-img { object-fit: contain; }
+img.lgo-img:not(.lgo-on) { visibility: hidden; }
+/* A small logo before a name in a row or a heading. */
+img.lgo-in { width: 18px; height: 18px; vertical-align: -4px; margin-right: 7px; }
+h2 > img.lgo-in { width: 22px; height: 22px; vertical-align: -5px; }
+img.lgo-in.lgo-d { background: #ece9e2; border-radius: 50%; padding: 2px; }
+:root[data-theme="light"] img.lgo-in.lgo-d { background: none; padding: 0; }
+
+/* The team page: the logo as the hero's watermark. */
+.hero .lgo-hero { position: absolute; right: 3vw; top: 6%; z-index: -1; width: clamp(150px, 19vw, 280px); height: clamp(150px, 19vw, 280px); opacity: .24; pointer-events: none; }
+.hero .lgo-hero.lgo-d { filter: invert(1) grayscale(1); opacity: .14; }
+.hero.small .lgo-hero { width: clamp(110px, 13vw, 190px); height: clamp(110px, 13vw, 190px); top: 10%; }
+
+/* Letterheads are paper: every logo stands bare. */
+.lh-crest.lgo-lh { background: none; clip-path: none; box-shadow: none; }
+.lh-crest.lgo-lh img { width: 52px; height: 58px; }
+.lh-seal.lgo-seal { background: none; border-color: transparent; box-shadow: none; }
+.lh-seal.lgo-seal img { width: 100%; height: 100%; }
+
+/* The score bug in the 2D and 3D view. */
+.vw-bug .lgo-bug { width: 20px; height: 20px; flex: none; }
+.vw-bug .lgo-bug.lgo-d { background: #ece9e2; border-radius: 50%; padding: 2px; }
+.pg-mk.lgo-pg { background: transparent; box-shadow: none; }
+.pg-mk.lgo-pg img.lgo-d { background: #ece9e2; border-radius: 50%; padding: 12%; }
+
+/* "Change logo": the picture beside its button. */
+.lgo-own { display: flex; gap: 16px; align-items: center; margin: 12px 0 8px; }
+.lgo-own-pic { width: 72px; height: 72px; flex: none; display: grid; place-items: center; border: 1px solid var(--hair); border-radius: 14px; background: var(--ground); }
+.lgo-own-pic img { width: 56px; height: 56px; object-fit: contain; }
+.lgo-own-pic img.lgo-d { background: #ece9e2; border-radius: 50%; padding: 6px; }
+.lgo-own-none { font-weight: 800; color: var(--fg3); }
+.lgo-own-copy { display: grid; gap: 6px; justify-items: start; min-width: 0; }
+.lgo-own-file { color: var(--fg3); word-break: break-all; }
+.lgo-own-drop { margin-top: 10px; }
+
+/* ---------- the Logos screen ---------- */
+.lgo-bar { display: flex; gap: 14px 22px; flex-wrap: wrap; align-items: center; margin: 4px 0 18px; }
+.lgo-bar .lgo-set { min-width: 300px; flex: 0 1 380px; margin: 0; }
+.lgo-packs { display: grid; gap: 12px; margin-bottom: 18px; }
+.lgo-pack { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 18px; align-items: center; background: var(--raised); border: 1px solid var(--hair); border-radius: var(--radius-md); padding: 14px 18px; }
+.lgo-stack { display: grid; grid-template-columns: repeat(2, 34px); gap: 6px; }
+.lgo-stack img { width: 34px; height: 34px; }
+.lgo-pack-copy b { font-size: 16px; }
+.lgo-pack-copy small { display: block; color: var(--fg3); margin-top: 2px; }
+.lgo-cells { display: flex; gap: 32px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hair); }
+.lgo-cells b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.lgo-pack-acts { display: flex; flex-direction: column; gap: 6px; }
+.lgo-help .sub { max-width: 68ch; }
+.lgo-pre { margin: 10px 0 0; font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace; background: var(--ground); border: 1px solid var(--hair); border-radius: 10px; padding: 10px 12px; overflow-x: auto; color: var(--fg2); }
+
+.lgo-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--raised); border: 1px solid var(--hair); border-radius: var(--radius-md); margin-bottom: 14px; }
+.lgo-sum > div { padding: 12px 16px; border-left: 1px solid var(--hair); min-width: 0; }
+.lgo-sum > div:first-child { border-left: 0; }
+.lgo-sum b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.lgo-sum small { color: var(--fg3); font-size: 12px; }
+.lgo-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--hair); margin-bottom: 12px; flex-wrap: wrap; }
+.lgo-tabs button { font: inherit; background: none; border: 0; color: var(--fg3); padding: 8px 0; cursor: pointer; }
+.lgo-tabs button[aria-selected="true"] { color: var(--fg); box-shadow: inset 0 -2px 0 var(--fg); }
+.lgo-tabs small { margin-left: 6px; color: var(--fg3); font-variant-numeric: tabular-nums; }
+.lgo .lgo-tbl td, .lgo .lgo-tbl th { text-align: left; white-space: normal; vertical-align: middle; }
+.lgo .lgo-tbl td.lgo-th { width: 52px; }
+.lgo-th img { width: 36px; height: 36px; object-fit: contain; display: block; }
+.lgo-th img.lgo-d { background: #ece9e2; border-radius: 50%; padding: 4px; }
+.lgo .lgo-tbl td.lgo-file { color: var(--fg2); font-size: 12.5px; word-break: break-all; max-width: 340px; }
+.lgo .lgo-tbl td.lgo-how { color: var(--fg3); font-size: 12.5px; }
+.lgo .lgo-tbl td.lgo-acts { white-space: nowrap; text-align: right; }
+.lgo-acts .st-btn + .st-btn { margin-left: 6px; }
+.lgo-dropped td { opacity: .55; }
+.lgo-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.lgo-chip { font: inherit; font-size: 12.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--edge); background: transparent; color: var(--fg); cursor: pointer; }
+.lgo-chip:hover, .lgo-chip:focus-visible { border-color: var(--gold); }
+.lgo-chip small { color: var(--fg3); margin-left: 4px; }
+.lgo-foot { display: flex; gap: 12px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+.lgo-found { display: grid; gap: 2px; max-height: 300px; overflow: auto; margin-top: 8px; }
+.lgo-found-row { display: flex; justify-content: space-between; gap: 12px; text-align: left; font: inherit; padding: 7px 10px; border-radius: 8px; border: 0; background: transparent; color: var(--fg); cursor: pointer; }
+.lgo-found-row:hover, .lgo-found-row:focus-visible { background: var(--fill-1); }
+.lgo-found-row small { color: var(--fg3); }
+@media (max-width: 900px) {
+  .lgo-pack { grid-template-columns: minmax(0, 1fr); }
+  .lgo-pack-acts { flex-direction: row; }
+  .lgo-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

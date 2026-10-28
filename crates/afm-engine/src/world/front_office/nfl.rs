@@ -1419,9 +1419,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
         w.front_office.nfl.sheets_told.push((id, year));
         let name = w.people[i].name.clone();
         let text = format!(
-            "The {} signed {name} to an offer sheet: {} years at {} a year. You have until {} to match.",
+            "The {} signed {name} to an offer sheet: {} {} at {} a year. You have until {} to match.",
             w.nfl[o.team].name,
             o.years,
+            crate::world::folk::noun(o.years, "year"),
             super::dollars(o.apy),
             until.pretty()
         );

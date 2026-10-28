@@ -40,8 +40,8 @@ pub enum Condition {
 impl Condition {
     pub fn words(self) -> String {
         match self {
-            Condition::Games(n) => format!("if he plays in {n} games"),
-            Condition::Starts(n) => format!("if he starts {n} games"),
+            Condition::Games(n) => format!("if he plays in {n} {}", crate::world::folk::noun(n, "game")),
+            Condition::Starts(n) => format!("if he starts {n} {}", crate::world::folk::noun(n, "game")),
             Condition::ProBowl => "if he makes the Pro Bowl".into(),
         }
     }
@@ -481,7 +481,9 @@ pub(crate) fn execute(w: &mut World, me: usize, p: &Proposal) {
                 y.proration = 0.0;
             }
         }
+        let hurt = trades::trade_hurt(w, i, from);
         pro::transfer(w, i, to, "traded");
+        crate::world::people::grudge(&mut w.people[i], from, hurt);
         let c = w.people[i].pro.as_mut().unwrap();
         c.wants_out = false;
         c.hold = pro::market::Hold::None;

@@ -589,16 +589,42 @@ impl OtherSeason {
         }
         match pos {
             P::QB => format!(
-                "{}/{} passing, {:.0} yards, {} TD, {} INT",
-                self.cmp, self.att, self.pass_yds, self.pass_td, self.int
+                "{}/{} passing, {:.0} {}, {} TD, {} INT",
+                self.cmp,
+                self.att,
+                self.pass_yds,
+                crate::world::folk::noun(self.pass_yds.round_ties_even() as i64, "yard"),
+                self.pass_td,
+                self.int
             ),
-            P::RB => format!("{} carries, {:.0} yards, {} TD", self.rush, self.rush_yds, self.rush_td),
-            P::WR | P::TE => format!("{} catches, {:.0} yards, {} TD", self.rec, self.rec_yds, self.rec_td),
-            P::OT | P::IOL => format!("{} starts on the line", self.starts),
-            P::EDGE | P::DT | P::LB => format!("{} tackles, {:.1} sacks", self.tackles, self.sacks),
-            P::CB | P::S => format!("{} tackles, {} INT", self.tackles, self.ints),
+            P::RB => format!(
+                "{} {}, {:.0} {}, {} TD",
+                self.rush,
+                crate::world::folk::noun(self.rush, "carry"),
+                self.rush_yds,
+                crate::world::folk::noun(self.rush_yds.round_ties_even() as i64, "yard"),
+                self.rush_td
+            ),
+            P::WR | P::TE => format!(
+                "{} {}, {:.0} {}, {} TD",
+                self.rec,
+                crate::world::folk::noun(self.rec, "catch"),
+                self.rec_yds,
+                crate::world::folk::noun(self.rec_yds.round_ties_even() as i64, "yard"),
+                self.rec_td
+            ),
+            P::OT | P::IOL => format!("{} {} on the line", self.starts, crate::world::folk::noun(self.starts, "start")),
+            P::EDGE | P::DT | P::LB => format!(
+                "{} {}, {:.1} sacks",
+                self.tackles,
+                crate::world::folk::noun(self.tackles, "tackle"),
+                self.sacks
+            ),
+            P::CB | P::S => {
+                format!("{} {}, {} INT", self.tackles, crate::world::folk::noun(self.tackles, "tackle"), self.ints)
+            }
             P::K => format!("{}/{} field goals", self.fg, self.fg_att),
-            P::P | P::LS => format!("{} games on special teams", self.games),
+            P::P | P::LS => format!("{} {} on special teams", self.games, crate::world::folk::noun(self.games, "game")),
         }
     }
 }
