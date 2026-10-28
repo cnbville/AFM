@@ -326,7 +326,10 @@ pub fn table(w: &World, args: &Value) -> Value {
     let mut order: Vec<usize> = (0..rows.len()).filter(|&i| qual[i]).collect();
     // Sorted by percentile, so "best first" is the same for every metric.
     order.sort_by(|&a, &b| {
-        let (x, y) = (pcts[a][sort].unwrap_or(-1.0), pcts[b][sort].unwrap_or(-1.0));
+        // A card with no numbers (the box score line's blockers and
+        // punters) keeps the pool's order.
+        let at = |i: usize| pcts[i].get(sort).copied().flatten().unwrap_or(-1.0);
+        let (x, y) = (at(a), at(b));
         let o = y.total_cmp(&x).then(rows[a].id.cmp(&rows[b].id));
         if dir > 0 { o.reverse() } else { o }
     });
