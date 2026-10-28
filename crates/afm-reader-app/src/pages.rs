@@ -1,0 +1,915 @@
+//! The pages, as blocks the screens draw and the copied text reads: the
+//! Overview, the topic pages (each area's checks, until its page lane gives
+//! it its own sections), Tools, Your career, any table, and every entity's
+//! page with the player page as the template.
+//!
+//! A page is `{title, crumb, verdict, badges, blocks}`. Block kinds: `hero`,
+//! `tiles`, `list`, `table`, `rows` (a table paged from the book), `kv`,
+//! `chart`, `note`, `links`. Every number carries its hover card in `h`.
+
+use serde_json::{Map, Value, json};
+
+use crate::book::{Book, Filters, YEAR_COLS, cell_text, label, q};
+
+/// The topic pages in the sidebar's order (spec section 7), with the
+/// inventory codes each one shows.
+pub const TOPICS: [(&str, &str, &str); 10] = [
+    ("people", "People", "P1-P24, P27-P32, T8"),
+    ("recruiting", "Recruiting", "C18, C28-C41, P25, P26, T7"),
+    ("programs", "Programs", "C1-C17, C19-C22, C42, T13"),
+    ("high-school", "High school", "C23-C27, G7, G27, N32"),
+    ("coaches", "Coaches", "S1-S31, S33"),
+    ("games", "Games and stats", "G1-G6, G8-G26, G28-G38"),
+    ("nfl", "NFL", "N1-N29, S34"),
+    ("money", "Money", "N30, N31, N33, C14, C41"),
+    ("world", "World and time", "N34-N44, N48, T9"),
+    ("career", "Your career", "N45-N47, S32"),
+];
+
+/// The Tools page's tabs (T1-T6, T10-T12 and the two engine tools).
+pub const TOOLS: [(&str, &str, &str); 12] = [
+    ("issues", "Known issues", "T1"),
+    ("knobs", "Knobs", "T2"),
+    ("real", "Real index", "T3"),
+    ("coverage", "Coverage map", "T4"),
+    ("ids", "Ids and joins", "T5"),
+    ("fitted", "Fitted world numbers", "T6"),
+    ("whys", "The whys", "T10"),
+    ("consistency", "Consistency checks", "T11"),
+    ("compare", "Comparing worlds", "T12"),
+    ("tables", "Every table", ""),
+    ("replay", "Replay a logged game", "G37"),
+    ("play", "Play two teams now", ""),
+];
+
+/// The page an inventory code belongs on (spec section 7).
+pub fn page_of_area(code: &str) -> &'static str {
+    let code = code.trim().to_ascii_uppercase();
+    let (l, n) = code.split_at(code.find(|c: char| c.is_ascii_digit()).unwrap_or(code.len()));
+    let n: u32 = n.parse().unwrap_or(0);
+    match l {
+        "P" if n == 25 || n == 26 => "recruiting",
+        "P" => "people",
+        "C" if n == 18 || (28..=41).contains(&n) => "recruiting",
+        "C" if (23..=27).contains(&n) => "high-school",
+        "C" if n == 14 => "money",
+        "C" => "programs",
+        "S" if n == 32 => "career",
+        "S" if n == 34 => "nfl",
+        "S" => "coaches",
+        "G" if n == 7 || n == 27 => "high-school",
+        "G" => "games",
+        "N" if n == 30 || n == 31 || n == 33 => "money",
+        "N" if n == 32 => "high-school",
+        "N" if (34..=44).contains(&n) || n == 48 => "world",
+        "N" if (45..=47).contains(&n) => "career",
+        "N" => "nfl",
+        "T" if n == 7 => "recruiting",
+        "T" if n == 8 => "people",
+        "T" if n == 9 => "world",
+        "T" if n == 13 => "programs",
+        _ => "tools",
+    }
+}
+
+/// The marks' thresholds (the Debug Lab's; proposed, not confirmed).
+pub const NEAR: f64 = 0.05;
+pub const OFF: f64 = 0.15;
+pub const MARK_RULE: &str =
+    "Near: within 5% of real · Off: within 15% · Far off: beyond (the Debug Lab's thresholds, proposed, not confirmed)";
+
+/// One check's result as the book keeps it.
+#[derive(Clone, Default)]
+pub struct Check {
+    pub id: String,
+    pub page: String,
+    pub area: String,
+    pub label: String,
+    pub world: Value,
+    pub real: Value,
+    pub unit: String,
+    pub source: String,
+    pub years: String,
+    pub mark: String,
+    pub why: String,
+    pub file: String,
+    pub function: String,
+    pub vital: bool,
+    pub link: Value,
+}
+
+fn get(m: &Map<String, Value>, keys: &[&str]) -> String {
+    keys.iter().find_map(|k| m.get(*k).and_then(cell_text)).unwrap_or_default()
+}
+
+fn getv(m: &Map<String, Value>, keys: &[&str]) -> Value {
+    keys.iter().find_map(|k| m.get(*k).filter(|v| !v.is_null()).cloned()).unwrap_or(Value::Null)
+}
+
+/// "near", "off", "far" or "" from the book's word, or worked out from the
+/// two numbers when the book gives none.
+pub fn mark_of(word: &str, world: &Value, real: &Value) -> String {
+    let w = word.trim().to_ascii_lowercase();
+    let m = match w.as_str() {
+        "near" | "ok" | "green" | "good" => "near",
+        "off" | "amber" | "yellow" | "warn" => "off",
+        "far" | "far off" | "far_off" | "red" | "bad" => "far",
+        "debug" => "debug",
+        "" => "",
+        _ => "check",
+    };
+    if !m.is_empty() {
+        return m.into();
+    }
+    match (num(world), num(real)) {
+        (Some(a), Some(b)) if b != 0.0 => {
+            let rel = ((a - b) / b).abs();
+            if rel <= NEAR {
+                "near"
+            } else if rel <= OFF {
+                "off"
+            } else {
+                "far"
+            }
+        }
+        _ => "",
+    }
+    .into()
+}
+
+pub fn num(v: &Value) -> Option<f64> {
+    v.as_f64().or_else(|| v.as_str().and_then(|s| s.trim().trim_end_matches('%').replace(',', "").parse().ok()))
+}
+
+/// A number rounded to what matters, with thousands marks.
+pub fn fmt(v: &Value) -> String {
+    match v {
+        Value::Null => "–".into(),
+        Value::Number(n) if n.is_i64() => group(n.as_i64().unwrap_or(0)),
+        Value::Number(n) => {
+            let x = n.as_f64().unwrap_or(0.0);
+            let a = x.abs();
+            if x.fract() == 0.0 && a < 1e15 {
+                group(x as i64)
+            } else if a >= 1000.0 {
+                group(x.round() as i64)
+            } else if a >= 100.0 {
+                format!("{x:.0}")
+            } else if a >= 10.0 {
+                format!("{x:.1}")
+            } else if a >= 1.0 {
+                format!("{x:.2}")
+            } else {
+                format!("{x:.3}")
+            }
+        }
+        Value::String(s) => s.clone(),
+        x => x.to_string(),
+    }
+}
+
+fn group(n: i64) -> String {
+    let s = n.unsigned_abs().to_string();
+    let mut out = String::new();
+    for (i, c) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    if n < 0 { format!("−{out}") } else { out }
+}
+
+fn with_unit(v: &Value, unit: &str) -> String {
+    let s = fmt(v);
+    match unit {
+        "" => s,
+        "%" => format!("{s}%"),
+        u => format!("{s} {u}"),
+    }
+}
+
+impl Check {
+    fn from_row(m: &Map<String, Value>) -> Check {
+        let world = getv(m, &["world", "world_value", "value"]);
+        let real = getv(m, &["real", "real_value", "target"]);
+        let area = get(m, &["area", "code", "area_code"]);
+        let mut page = get(m, &["page"]).to_ascii_lowercase().replace([' ', '_'], "-");
+        if page.is_empty() && !area.is_empty() {
+            page = page_of_area(&area).into();
+        }
+        Check {
+            id: get(m, &["id", "key", "check"]),
+            mark: mark_of(&get(m, &["mark", "verdict"]), &world, &real),
+            label: get(m, &["label", "name", "title", "what"]),
+            unit: get(m, &["unit", "units"]),
+            source: get(m, &["source", "real_source"]),
+            years: get(m, &["years", "real_years"]),
+            why: get(m, &["why", "words", "explain"]),
+            file: get(m, &["file"]),
+            function: get(m, &["function", "fn"]),
+            vital: m.get("vital").is_some_and(|v| v.as_bool().unwrap_or(false) || v.as_i64().unwrap_or(0) != 0),
+            link: getv(m, &["link", "route"]),
+            world,
+            real,
+            area,
+            page,
+        }
+    }
+
+    /// The tile for this check, with its hover card.
+    pub fn tile(&self) -> Value {
+        let sub = match (num(&self.world), num(&self.real)) {
+            (Some(a), Some(b)) if b != 0.0 => {
+                let d = (a - b) / b * 100.0;
+                let way = if d < 0.0 { "short" } else { "high" };
+                format!("Real {} · {:.1}% {way}", with_unit(&self.real, &self.unit), d.abs())
+            }
+            _ if !self.real.is_null() => format!("Real {}", with_unit(&self.real, &self.unit)),
+            _ => "No real figure in the index".into(),
+        };
+        json!({
+            "label": self.label,
+            "value": with_unit(&self.world, &self.unit),
+            "sub": sub,
+            "why": self.why,
+            "mark": self.mark,
+            "area": self.area,
+            "link": self.link,
+            "h": self.hover(),
+        })
+    }
+
+    pub fn hover(&self) -> Value {
+        json!({
+            "what": self.label,
+            "why": self.why,
+            "file": self.file,
+            "function": self.function,
+            "source": self.source,
+            "years": self.years,
+            "area": self.area,
+            "rule": MARK_RULE,
+            "key": self.id,
+        })
+    }
+
+    fn severity(&self) -> u8 {
+        match self.mark.as_str() {
+            "far" => 3,
+            "off" => 2,
+            "near" => 1,
+            _ => 0,
+        }
+    }
+}
+
+/// Every check under the filters. With the year slider on, a book that keeps
+/// checks by year gives that year's.
+pub fn checks(b: &Book, f: &Filters) -> Vec<Check> {
+    let Some(t) = b.find("checks") else { return Vec::new() };
+    let mut g = f.clone();
+    g.year = None;
+    let (mut wh, mut vals) = b.where_for(t, &g);
+    if let (Some(y), Some(c)) = (f.year, t.pick(&YEAR_COLS)) {
+        vals.push(rusqlite::types::Value::Integer(y));
+        let cond = format!("({c} IS NULL OR {c} = ?{})", vals.len(), c = q(c));
+        wh = if wh.is_empty() { format!(" WHERE {cond}") } else { format!("{wh} AND {cond}") };
+    }
+    let rows = b.select_maps(&format!("SELECT * FROM {}{wh}", q(&t.name)), &vals).unwrap_or_default();
+    rows.iter().map(Check::from_row).collect()
+}
+
+pub fn new_page(title: &str, crumb: &str) -> Value {
+    json!({ "title": title, "crumb": crumb, "verdict": "", "badges": [], "blocks": [] })
+}
+
+pub fn push(p: &mut Value, block: Value) {
+    if let Some(a) = p["blocks"].as_array_mut() {
+        a.push(block);
+    }
+}
+
+/// Counts by mark, for the sidebar and the hero.
+pub fn marks(cs: &[Check]) -> Value {
+    let n = |m: &str| cs.iter().filter(|c| c.mark == m).count();
+    json!({ "checks": cs.len(), "near": n("near"), "off": n("off"), "far": n("far") })
+}
+
+/// The verdict in plain words for a set of checks.
+pub fn verdict(cs: &[Check], what: &str) -> String {
+    if cs.is_empty() {
+        return format!("No checks for {what} in this book yet.");
+    }
+    let m = marks(cs);
+    let mut far: Vec<&Check> = cs.iter().filter(|c| c.mark == "far").collect();
+    far.truncate(3);
+    let mut s =
+        format!("{} checks for {what}: {} near real, {} off, {} far off.", cs.len(), m["near"], m["off"], m["far"]);
+    if !far.is_empty() {
+        let list: Vec<String> = far
+            .iter()
+            .map(|c| {
+                let real =
+                    if c.real.is_null() { String::new() } else { format!(" (real {})", with_unit(&c.real, &c.unit)) };
+                format!("{} {}{real}", c.label, with_unit(&c.world, &c.unit))
+            })
+            .collect();
+        s.push_str(&format!(" Furthest: {}.", list.join("; ")));
+    }
+    s
+}
+
+/// The odd things, at every level, for a page or an entity.
+pub fn odd(
+    b: &Book,
+    page: Option<&str>,
+    entity: Option<(&str, &Value)>,
+    f: &Filters,
+    limit: usize,
+) -> (Vec<Value>, i64) {
+    let Some(t) = b.find("odd") else { return (Vec::new(), 0) };
+    let mut g = f.clone();
+    g.year = None;
+    let (mut wh, mut vals) = b.where_for(t, &g);
+    let mut add = |cond: String, v: Value, vals: &mut Vec<rusqlite::types::Value>| {
+        vals.push(crate::book::json_sql(&v));
+        let c = cond.replace("?", &format!("?{}", vals.len()));
+        wh = if wh.is_empty() { format!(" WHERE {c}") } else { format!("{wh} AND {c}") };
+    };
+    if let (Some(p), Some(c)) = (page, t.pick(&["page"])) {
+        add(format!("LOWER(REPLACE({}, ' ', '-')) = ?", q(c)), json!(p), &mut vals);
+    }
+    if let Some((table, id)) = entity {
+        if let Some(c) = t.pick(&["entity_id", "id_of", "ref_id"]) {
+            add(format!("CAST({} AS TEXT) = CAST(? AS TEXT)", q(c)), id.clone(), &mut vals);
+            if let Some(k) = t.pick(&["entity", "entity_table", "kind_table", "tbl"]) {
+                add(format!("{} = ?", q(k)), json!(table), &mut vals);
+            }
+        } else {
+            return (Vec::new(), 0);
+        }
+    }
+    let total: i64 = b
+        .db
+        .query_row(&format!("SELECT COUNT(*) FROM {}{wh}", q(&t.name)), rusqlite::params_from_iter(vals.iter()), |r| {
+            r.get(0)
+        })
+        .unwrap_or(0);
+    let order = if t.has("rank") { " ORDER BY rank" } else { "" };
+    let rows =
+        b.select_maps(&format!("SELECT * FROM {}{wh}{order} LIMIT {limit}", q(&t.name)), &vals).unwrap_or_default();
+    let items = rows
+        .iter()
+        .map(|m| {
+            let et = get(m, &["entity", "entity_table", "kind_table", "tbl"]);
+            let eid = getv(m, &["entity_id", "id_of", "ref_id"]);
+            let link =
+                if !et.is_empty() && !eid.is_null() { json!(format!("e/{et}/{}", fmt_id(&eid))) } else { Value::Null };
+            json!({
+                "text": get(m, &["text", "what", "summary", "label"]),
+                "why": get(m, &["why", "facts", "detail"]),
+                "mark": mark_of(&get(m, &["mark"]), &Value::Null, &Value::Null),
+                "level": get(m, &["level_of", "scope", "kind"]),
+                "link": link,
+            })
+        })
+        .collect();
+    (items, total)
+}
+
+/// Columns that hold a year, shown without thousands marks.
+pub fn is_year(c: &str) -> bool {
+    let c = c.to_ascii_lowercase();
+    c == "year"
+        || c == "season"
+        || c == "born"
+        || c.ends_with("_year")
+        || c.starts_with("year_")
+        || c.ends_with("_season")
+}
+
+/// A number as `fmt` gives it, but a year as the year.
+pub fn fmt_col(col: &str, v: &Value) -> String {
+    match num(v) {
+        Some(x) if is_year(col) => format!("{}", x.round() as i64),
+        _ => fmt(v),
+    }
+}
+
+pub fn fmt_id(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        x => x.to_string(),
+    }
+}
+
+/// The book's facts: world, seed, commit, what it was built from.
+pub fn meta(b: &Book) -> Map<String, Value> {
+    let mut m = Map::new();
+    if let Some(t) = b.find("meta") {
+        if let (Some(k), Some(v)) = (t.pick(&["key", "k", "name"]), t.pick(&["value", "v"])) {
+            let rows =
+                b.select_maps(&format!("SELECT {}, {} FROM {}", q(k), q(v), q(&t.name)), &[]).unwrap_or_default();
+            for r in rows {
+                if let Some(key) = r.get(k).and_then(cell_text) {
+                    m.insert(key, r.get(v).cloned().unwrap_or(Value::Null));
+                }
+            }
+        } else if let Ok(mut rows) = b.select_maps(&format!("SELECT * FROM {} LIMIT 1", q(&t.name)), &[])
+            && let Some(r) = rows.pop()
+        {
+            m = r;
+        }
+    }
+    m
+}
+
+/// The world's name for headers.
+pub fn world_name(b: &Book) -> String {
+    let m = meta(b);
+    let g = |k: &str| m.get(k).and_then(cell_text).unwrap_or_default();
+    let name = g("name");
+    if !name.is_empty() {
+        return name;
+    }
+    let seed = g("seed");
+    if !seed.is_empty() {
+        let commit = g("commit");
+        let c = commit.get(..7).unwrap_or(&commit);
+        return if c.is_empty() { format!("Seed {seed}") } else { format!("Seed {seed}, {c}") };
+    }
+    b.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "World".into())
+}
+
+/// The coverage badges: what the book was built from and what is missing.
+pub fn coverage_badges(b: &Book) -> Vec<Value> {
+    let m = meta(b);
+    let yes = |k: &str| {
+        m.get(k)
+            .is_some_and(|v| v.as_bool().unwrap_or(false) || v.as_i64().unwrap_or(0) != 0 || v.as_str() == Some("yes"))
+    };
+    let mut v = vec![json!({ "text": "World file", "ok": true })];
+    let log = match m.get("has_log").or_else(|| m.get("world_log")) {
+        Some(_) => yes("has_log") || yes("world_log"),
+        None => b.find("plays").is_some(),
+    };
+    v.push(json!({ "text": if log { "World log" } else { "No world log: game-level and history parts missing" }, "ok": log }));
+    v.push(json!({ "text": if b.find("real").is_some() || b.find("checks").is_some() { "Real index" } else { "No real index" }, "ok": b.find("real").is_some() || b.find("checks").is_some() }));
+    if let Some(miss) = m.get("missing").and_then(cell_text).filter(|s| !s.is_empty()) {
+        v.push(json!({ "text": format!("Missing: {miss}"), "ok": false }));
+    }
+    v
+}
+
+fn tiles_block(title: &str, cs: &[&Check]) -> Value {
+    json!({ "kind": "tiles", "title": title, "note": MARK_RULE, "tiles": cs.iter().map(|c| c.tile()).collect::<Vec<_>>() })
+}
+
+fn check_table(title: &str, cs: &[&Check]) -> Value {
+    json!({
+        "kind": "table",
+        "title": title,
+        "cols": [
+            {"name": "label", "label": "Measure"}, {"name": "area", "label": "Area"},
+            {"name": "world", "label": "World", "num": true}, {"name": "real", "label": "Real", "num": true},
+            {"name": "mark", "label": "Mark", "mark": true}, {"name": "why", "label": "Why"}
+        ],
+        "rows": cs.iter().map(|c| json!([c.label, c.area, with_unit(&c.world, &c.unit), if c.real.is_null() { "–".to_string() } else { with_unit(&c.real, &c.unit) }, c.mark, c.why])).collect::<Vec<_>>(),
+        "hs": cs.iter().map(|c| c.hover()).collect::<Vec<_>>(),
+        "links": cs.iter().map(|c| c.link.clone()).collect::<Vec<_>>(),
+    })
+}
+
+/// Page 1: the world's header and coverage, every check's verdict grouped by
+/// page, the far-off list, the odd things, and what changed against the
+/// world before it (`before`, the library's previous book of the same seed).
+pub fn overview(b: &mut Book, f: &Filters, before: Option<(&str, Vec<Check>)>) -> Value {
+    let name = world_name(b);
+    let mut p = new_page("Overview", &format!("{name} · Overview"));
+    let cs = checks(b, f);
+    let m = meta(b);
+    let gm = |k: &str| m.get(k).and_then(cell_text).unwrap_or_default();
+    p["verdict"] = json!(verdict(&cs, "this world"));
+    p["badges"] = json!(coverage_badges(b));
+    let mut facts: Vec<String> = Vec::new();
+    for (k, l) in [
+        ("history_years", "years of history"),
+        ("years", "years"),
+        ("first", "from"),
+        ("last", "to"),
+        ("commit", "commit"),
+        ("built", "built"),
+        ("written", "world written"),
+    ] {
+        let v = gm(k);
+        if !v.is_empty() {
+            facts.push(match k {
+                "commit" => format!("commit {}", v.get(..7).unwrap_or(&v)),
+                "history_years" | "years" => format!("{v} {l}"),
+                _ => format!("{l} {v}"),
+            });
+        }
+    }
+    let size = std::fs::metadata(&b.path).map(|x| x.len()).unwrap_or(0);
+    facts.push(format!("book {:.2} GB", size as f64 / 1e9));
+    facts.push(format!("{} tables", b.tables.len()));
+    let mk = marks(&cs);
+    push(
+        &mut p,
+        json!({
+            "kind": "hero", "label": "World", "title": name,
+            "text": gm("summary"), "tags": facts,
+            "figures": [
+                {"label": "Checks", "value": mk["checks"]},
+                {"label": "Near", "value": mk["near"], "mark": "near"},
+                {"label": "Off", "value": mk["off"], "mark": "off"},
+                {"label": "Far off", "value": mk["far"], "mark": "far"}
+            ]
+        }),
+    );
+    let mut vit: Vec<&Check> = cs.iter().filter(|c| c.vital).collect();
+    if vit.is_empty() {
+        vit = cs.iter().collect();
+        vit.sort_by_key(|c| std::cmp::Reverse(c.severity()));
+        vit.truncate(12);
+    }
+    if !vit.is_empty() {
+        push(&mut p, tiles_block("Vital signs against real", &vit));
+    }
+    // Every page's verdict.
+    let mut rows = Vec::new();
+    let mut links = Vec::new();
+    for (slug, title, codes) in TOPICS.iter().chain([("tools", "Tools", "T1-T12")].iter()) {
+        let here: Vec<Check> = cs.iter().filter(|c| c.page == *slug).cloned().collect();
+        let m = marks(&here);
+        rows.push(json!([title, codes, m["checks"], m["near"], m["off"], m["far"]]));
+        links.push(json!(format!("page/{slug}")));
+    }
+    push(
+        &mut p,
+        json!({
+            "kind": "table", "title": "Every page's checks",
+            "cols": [{"name": "page", "label": "Page"}, {"name": "areas", "label": "Areas"}, {"name": "checks", "label": "Checks", "num": true},
+                     {"name": "near", "label": "Near", "num": true, "tone": "near"}, {"name": "off", "label": "Off", "num": true, "tone": "off"}, {"name": "far", "label": "Far off", "num": true, "tone": "far"}],
+            "rows": rows, "links": links
+        }),
+    );
+    let mut far: Vec<&Check> = cs.iter().filter(|c| c.mark == "far").collect();
+    far.sort_by(|a, b| a.page.cmp(&b.page));
+    if !far.is_empty() {
+        push(&mut p, check_table(&format!("Far off ({})", far.len()), &far));
+    }
+    let (items, total) = odd(b, None, None, f, 8);
+    push(
+        &mut p,
+        json!({ "kind": "list", "title": "Odd things", "items": items, "more": {"n": total, "link": "tools/odd"},
+                "empty": "This book keeps no odd-things list yet." }),
+    );
+    if let Some((prev, old)) = before {
+        push(&mut p, crate::compare::moved_block(&format!("What changed against {prev}"), &old, &cs));
+    } else {
+        push(
+            &mut p,
+            json!({ "kind": "note", "text": "No earlier book of this seed in the library, so there is nothing to set this world against. Compare picks any two." }),
+        );
+    }
+    p
+}
+
+/// A topic page: its checks as tiles and a full table, its odd things and
+/// its tables. A page lane (R6-R8) adds the area sections on top.
+pub fn topic(b: &mut Book, slug: &str, f: &Filters) -> Value {
+    let (title, codes) = TOPICS.iter().find(|t| t.0 == slug).map(|t| (t.1, t.2)).unwrap_or(("Tools", "T1-T12"));
+    let name = world_name(b);
+    let mut p = new_page(title, &format!("{name} · {title}"));
+    let cs: Vec<Check> = checks(b, f).into_iter().filter(|c| c.page == slug).collect();
+    p["verdict"] = json!(verdict(&cs, &title.to_lowercase()));
+    p["badges"] = json!([{ "text": format!("Areas {codes}"), "ok": true }]);
+    let mut sorted: Vec<&Check> = cs.iter().collect();
+    sorted.sort_by_key(|c| std::cmp::Reverse(c.severity()));
+    if !sorted.is_empty() {
+        push(&mut p, tiles_block("Against real", &sorted.iter().take(12).copied().collect::<Vec<_>>()));
+        push(&mut p, check_table(&format!("Every check ({})", sorted.len()), &sorted));
+    }
+    let (items, total) = odd(b, Some(slug), None, f, 10);
+    if total > 0 {
+        push(
+            &mut p,
+            json!({ "kind": "list", "title": "Odd things", "items": items, "more": {"n": total, "link": format!("tools/odd/{slug}")} }),
+        );
+    }
+    let tabs = page_tables(b, slug);
+    if !tabs.is_empty() {
+        push(&mut p, links_block(b, "Tables behind this page", &tabs));
+    }
+    p
+}
+
+/// The tables the book files under a page (its coverage map's `page`), else
+/// none: the page lanes name theirs.
+fn page_tables(b: &Book, slug: &str) -> Vec<String> {
+    let Some(t) = b.find("coverage") else { return Vec::new() };
+    let (Some(pc), Some(tc)) = (t.pick(&["page"]), t.pick(&["tbl", "table_name", "table"])) else { return Vec::new() };
+    let sql =
+        format!("SELECT DISTINCT {} AS t FROM {} WHERE LOWER(REPLACE({}, ' ', '-')) = ?1", q(tc), q(&t.name), q(pc));
+    b.select_maps(&sql, &[rusqlite::types::Value::Text(slug.into())])
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|m| m.get("t").and_then(cell_text))
+        .filter(|n| b.table(n).is_some())
+        .collect()
+}
+
+fn links_block(b: &mut Book, title: &str, tables: &[String]) -> Value {
+    let items: Vec<Value> = tables
+        .iter()
+        .map(|t| {
+            let n = b.count(t);
+            json!({ "text": label(t), "sub": format!("{} rows", fmt(&json!(n))), "link": format!("table/{t}") })
+        })
+        .collect();
+    json!({ "kind": "links", "title": title, "items": items })
+}
+
+/// A table of the book, paged.
+pub fn table(b: &mut Book, name: &str, f: &Filters, args: &Value) -> Result<Value, String> {
+    if b.table(name).is_none() {
+        return Err(format!("This book has no table {name}."));
+    }
+    if !f.debug && b.is_debug_table(name) {
+        return Err("That table holds hidden truths; turn them on in the sidebar.".into());
+    }
+    let mut p = new_page(&label(name), &format!("{} · {}", world_name(b), label(name)));
+    let extra = args["col"].as_str().map(|c| (c.to_string(), args["val"].clone()));
+    let n = b.count(name);
+    p["verdict"] = json!(format!("{} rows in {}.", fmt(&json!(n)), label(name)));
+    let filt = b.filterable(b.table(name).expect("checked above"));
+    p["badges"] = json!([{ "text": if filt.is_empty() { "No filter applies to this table".into() } else { format!("Filters: {}", filt.join(", ")) }, "ok": !filt.is_empty() }]);
+    let first = b.rows(
+        name,
+        f,
+        extra.as_ref().map(|(c, v)| (c.as_str(), v)),
+        args["sort"].as_str(),
+        args["desc"].as_bool().unwrap_or(false),
+        0,
+        50,
+    )?;
+    push(
+        &mut p,
+        json!({ "kind": "rows", "title": label(name), "table": name, "col": extra.as_ref().map(|e| e.0.clone()), "val": extra.map(|e| e.1), "first": first }),
+    );
+    Ok(p)
+}
+
+/// Columns that hold a season's rating, for the career arc.
+const RATING_COLS: [&str; 5] = ["rating", "overall", "ovr", "rating_end", "end_rating"];
+const PLAYED_COLS: [&str; 3] = ["played_at", "game_rating", "played"];
+const WHY_COLS: [&str; 5] = ["why", "what", "what_happened", "note", "story"];
+
+/// Any entity's page: its row, its odd things, its career arc when a table
+/// of its seasons has a rating, its seasons with their whys, and every
+/// other row that points at it. The player page is this template.
+pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Value, String> {
+    let t = b.table(table).ok_or_else(|| format!("This book has no table {table}."))?;
+    if !t.has("id") {
+        return Err(format!("{table} has no ids."));
+    }
+    let row = b
+        .select_maps(&format!("SELECT * FROM {} WHERE id = ?1", q(table)), &[crate::book::json_sql(id)])?
+        .pop()
+        .ok_or_else(|| format!("No row {} in {table}.", fmt_id(id)))?;
+    let name = b.name_of(table, id).unwrap_or_else(|| format!("{} {}", label(table), fmt_id(id)));
+    let mut p = new_page(&name, &format!("{} · {} · {name}", world_name(b), label(table)));
+    // The header: the row's short facts, every id as its name.
+    let mut tags: Vec<String> = Vec::new();
+    let mut pairs: Vec<Value> = Vec::new();
+    for c in &b.table(table).expect("checked").cols.clone() {
+        if c == "id" || (!f.debug && b.is_debug(table, c)) {
+            continue;
+        }
+        let v = row.get(c).cloned().unwrap_or(Value::Null);
+        if v.is_null() {
+            continue;
+        }
+        let link = b.link_target(c).map(|t| t.to_string());
+        let shown = match &link {
+            Some(t) => b.name_of(t, &v).unwrap_or_else(|| fmt(&v)),
+            None if is_year(c) => crate::book::cell_text(&v).unwrap_or_default(),
+            None => fmt(&v),
+        };
+        if ["position", "pos", "level", "state", "stars", "conference", "division"].contains(&c.as_str()) {
+            tags.push(if c == "stars" { format!("{shown} stars") } else { shown.clone() });
+        }
+        pairs.push(json!({
+            "k": b.col_info(table, c)["label"], "v": shown, "debug": b.is_debug(table, c),
+            "link": link.map(|t| format!("e/{t}/{}", fmt_id(&v))), "h": b.hover(table, c)
+        }));
+    }
+    let people = b.find("people").is_some_and(|t| t.name == table);
+    let actions = if people {
+        json!([{ "text": "Players like him", "link": format!("compare/player?id={}", fmt_id(id)) }])
+    } else {
+        json!([])
+    };
+    push(
+        &mut p,
+        json!({ "kind": "hero", "label": label(table), "title": name, "tags": tags, "figures": [], "actions": actions }),
+    );
+    let (items, total) = odd(b, None, Some((table, id)), f, 20);
+    if total > 0 {
+        push(
+            &mut p,
+            json!({ "kind": "list", "title": "What doesn't look real", "note": "Found by the reader, each with its facts", "items": items, "more": {"n": total} }),
+        );
+    }
+    // The seasons, with the arc when they carry a rating.
+    let related = b.pointing_at(table);
+    let mut g = f.clone();
+    g.year = None;
+    for (rt, rc) in &related {
+        let t = b.table(rt).expect("listed");
+        let (Some(yc), Some(rcol)) = (t.pick(&YEAR_COLS), t.pick(&RATING_COLS)) else { continue };
+        let pc = t.pick(&["potential", "true_potential", "ceiling"]).filter(|_| f.debug);
+        let played = t.pick(&PLAYED_COLS);
+        let mut cols = vec![yc, rcol];
+        cols.extend(pc);
+        cols.extend(played);
+        let sql = format!(
+            "SELECT {} FROM {} WHERE {} = ?1 ORDER BY {}",
+            cols.iter().map(|c| q(c)).collect::<Vec<_>>().join(", "),
+            q(rt),
+            q(rc),
+            q(yc)
+        );
+        let rows = b.select_maps(&sql, &[crate::book::json_sql(id)]).unwrap_or_default();
+        if rows.len() < 2 {
+            continue;
+        }
+        let series = |c: &str| -> Vec<Value> { rows.iter().map(|r| json!([r.get(yc), r.get(c)])).collect() };
+        let mut s = vec![json!({ "name": "Rating at season's end", "points": series(rcol) })];
+        if let Some(pl) = played {
+            s.push(json!({ "name": "Played at", "points": series(pl), "style": "thin" }));
+        }
+        if let Some(pc) = pc {
+            s.push(json!({ "name": "Potential (debug)", "points": series(pc), "style": "dash", "debug": true }));
+        }
+        push(
+            &mut p,
+            json!({ "kind": "chart", "type": "line", "title": "Career arc", "x": "Year", "series": s, "mark_year": f.year }),
+        );
+        break;
+    }
+    if !pairs.is_empty() {
+        push(&mut p, json!({ "kind": "kv", "title": format!("{} record", label(table)), "pairs": pairs }));
+    }
+    // Every table that points at this one: its rows for this entity.
+    let mut seasons_first = related.clone();
+    seasons_first.sort_by_key(|(rt, _)| {
+        let t = b.table(rt).expect("listed");
+        (t.pick(&WHY_COLS).is_none(), t.pick(&RATING_COLS).is_none(), rt.clone())
+    });
+    for (rt, rc) in seasons_first {
+        if !f.debug && b.is_debug_table(&rt) {
+            continue;
+        }
+        let first = b.rows(&rt, &g, Some((&rc, id)), None, false, 0, 60)?;
+        if first["total"].as_i64().unwrap_or(0) == 0 {
+            continue;
+        }
+        let title = match b.table(&rt).and_then(|t| t.pick(&WHY_COLS)) {
+            Some(_) => format!("{}: every row with its why", label(&rt)),
+            None => label(&rt),
+        };
+        push(
+            &mut p,
+            json!({ "kind": "rows", "title": title, "table": rt, "col": rc, "val": id, "first": first, "hide": [rc] }),
+        );
+    }
+    p["verdict"] = json!(match total {
+        0 => format!("Nothing about {name} breaks a check in this book."),
+        n => format!("{n} odd thing{} about {name}.", if n == 1 { "" } else { "s" }),
+    });
+    Ok(p)
+}
+
+/// The Tools page, one tab at a time.
+pub fn tools(b: &mut Book, tab: &str, f: &Filters, args: &Value) -> Result<Value, String> {
+    let (_, title, code) = TOOLS.iter().find(|t| t.0 == tab).copied().unwrap_or(("issues", "Known issues", "T1"));
+    let mut p = new_page(title, &format!("{} · Tools · {title}", world_name(b)));
+    p["tabs"] = json!(TOOLS.iter().map(|t| json!({ "slug": t.0, "title": t.1, "code": t.2 })).collect::<Vec<_>>());
+    p["tab"] = json!(tab);
+    match tab {
+        "ids" | "tables" => {
+            let mut rows = Vec::new();
+            let mut links = Vec::new();
+            let names: Vec<String> = b.tables.iter().map(|t| t.name.clone()).collect();
+            for n in names {
+                if !f.debug && b.is_debug_table(&n) {
+                    continue;
+                }
+                let c = b.count(&n);
+                let t = b.table(&n).expect("listed");
+                let joins: Vec<String> =
+                    t.cols.iter().filter_map(|c| b.link_target(c).map(|x| format!("{c} → {x}"))).collect();
+                let filt = b.filterable(t);
+                rows.push(json!([
+                    n,
+                    c,
+                    t.cols.len(),
+                    if t.has("id") { "id" } else { "" },
+                    joins.join(", "),
+                    filt.join(", ")
+                ]));
+                links.push(json!(format!("table/{n}")));
+            }
+            p["verdict"] = json!(format!(
+                "{} tables. Every `<x>_id` column links to the table it names; every name opens its page.",
+                rows.len()
+            ));
+            push(
+                &mut p,
+                json!({ "kind": "table", "title": "Tables, their ids and joins",
+                    "cols": [{"name": "t", "label": "Table"}, {"name": "n", "label": "Rows", "num": true}, {"name": "c", "label": "Columns", "num": true},
+                             {"name": "id", "label": "Id"}, {"name": "j", "label": "Joins"}, {"name": "f", "label": "Filters"}],
+                    "rows": rows, "links": links }),
+            );
+        }
+        "compare" => {
+            p["verdict"] = json!("Two worlds, two years, two groups, or a player against real players like him.");
+            push(
+                &mut p,
+                json!({ "kind": "links", "title": "Compare", "items": [
+                    {"text": "Two worlds", "sub": "Before and after a fix, or two seeds", "link": "compare/worlds"},
+                    {"text": "Two years", "sub": "The same world then and now", "link": "compare/years"},
+                    {"text": "Two groups", "sub": "The SEC against the Big Ten, QBs against RBs", "link": "compare/groups"},
+                    {"text": "A player against real players like him", "sub": "Same position, a similar draft slot", "link": "compare/player"}
+                ]}),
+            );
+        }
+        "replay" => return crate::play::replay_page(b, p, f, args),
+        "play" => return crate::play::play_page(b, p, args),
+        "odd" => {
+            let page = args["page"].as_str();
+            let (items, total) = odd(b, page, None, f, 500);
+            p["title"] = json!("Odd things");
+            p["verdict"] =
+                json!(format!("{total} odd things{}.", page.map(|s| format!(" on {s}")).unwrap_or_default()));
+            push(
+                &mut p,
+                json!({ "kind": "list", "title": "Odd things", "items": items, "more": {"n": total}, "empty": "This book keeps no odd-things list yet." }),
+            );
+        }
+        _ => {
+            let kind = if tab == "consistency" && b.find("consistency").is_none() { "checks" } else { tab };
+            match b.find(kind).map(|t| t.name.clone()) {
+                Some(name) => {
+                    let n = b.count(&name);
+                    p["verdict"] = json!(format!("{} rows ({code}).", fmt(&json!(n))));
+                    let first = b.rows(&name, f, None, None, false, 0, 50)?;
+                    push(&mut p, json!({ "kind": "rows", "title": title, "table": name, "first": first }));
+                }
+                None => {
+                    p["verdict"] = json!(format!(
+                        "This book has no {} table yet ({code}). The book lane adds it; this tab shows it once a book carries it.",
+                        title.to_lowercase()
+                    ));
+                }
+            }
+        }
+    }
+    Ok(p)
+}
+
+/// Your career (saves only): your seat, your record, your games, your
+/// legacy and the guidelines (N45-N47, S32).
+pub fn career(b: &mut Book, f: &Filters) -> Value {
+    let name = world_name(b);
+    let mut p = new_page("Your career", &format!("{name} · Your career"));
+    let prefixes =
+        ["seat", "career", "you", "legacy", "desk", "your_", "guidelines", "guide", "staff_book", "kept_reads"];
+    let mine: Vec<String> =
+        b.tables.iter().filter(|t| prefixes.iter().any(|x| t.name.starts_with(x))).map(|t| t.name.clone()).collect();
+    if mine.is_empty() {
+        p["verdict"] = json!(
+            "This book holds no seat: it was built from a library world. Your career shows in a book built from one of your saves."
+        );
+        return p;
+    }
+    let cs: Vec<Check> = checks(b, f).into_iter().filter(|c| c.page == "career").collect();
+    p["verdict"] = json!(verdict(&cs, "your career"));
+    if !cs.is_empty() {
+        let refs: Vec<&Check> = cs.iter().collect();
+        push(&mut p, check_table("Checks", &refs));
+    }
+    for t in mine {
+        let n = b.count(&t);
+        if n == 0 {
+            continue;
+        }
+        if let Ok(first) = b.rows(&t, f, None, None, false, 0, 50) {
+            push(&mut p, json!({ "kind": "rows", "title": label(&t), "table": t, "first": first }));
+        }
+    }
+    p
+}

@@ -1,0 +1,101 @@
+name: World Reader app
+# Builds the AFM World Reader for macOS (Apple silicon and Intel in one app)
+# and keeps its .dmg as the run's download (world reader lane R5). On main it
+# also goes on a release of its own and on the public downloads page, beside
+# the game but never in its place.
+on:
+  push:
+    branches: [main]
+    paths: ["reader/**", "crates/afm-reader-app/**", "crates/afm-engine/**", ".github/workflows/reader-app.yml"]
+  pull_request:
+    paths: ["reader/**", "crates/afm-reader-app/**", ".github/workflows/reader-app.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  mac:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: reader/src-tauri
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Each build has its own version, 0.1.<run>, so an installed reader knows
+      # a newer one exists. It signs its update with the game's key (the
+      # TAURI_SIGNING_PRIVATE_KEY secret and TAURI_UPDATER_PUBKEY variable)
+      # when they are set.
+      - name: Build the app
+        working-directory: reader/src-tauri
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+        run: |
+          conf=$(jq -cn --arg v "0.1.${{ github.run_number }}" '{version: $v}')
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$PUBKEY" ]; then
+            conf=$(echo "$conf" | jq -c --arg k "$PUBKEY" '. + {bundle: {createUpdaterArtifacts: true}, plugins: {updater: {pubkey: $k}}}')
+          fi
+          npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles app --config "$conf"
+      # hdiutil on the hosted runners sometimes fails with "Resource busy", so
+      # the .dmg is made here with retries instead of by Tauri's bundler.
+      - name: Make the dmg
+        working-directory: reader/src-tauri/target/universal-apple-darwin/release/bundle
+        run: |
+          mkdir -p dmg stage
+          cp -R "macos/AFM World Reader.app" stage/
+          ln -s /Applications stage/Applications
+          for i in 1 2 3 4 5; do
+            hdiutil create -volname "AFM World Reader" -srcfolder stage -ov -format UDZO dmg/AFM_World_Reader_universal.dmg && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AFM-World-Reader-mac
+          path: reader/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+      # On main, the dmg goes on a release of its own. It is never marked
+      # latest, so github.com/cnbville/AFM/releases/latest stays the game.
+      - name: Publish the release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="reader-${{ github.run_number }}"
+          gh release create "$tag" reader/src-tauri/target/universal-apple-darwin/release/bundle/dmg/AFM_World_Reader_universal.dmg \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" --latest=false \
+            --title "AFM World Reader for Mac (build ${{ github.run_number }})" \
+            --notes "The world reader for macOS, one app for Apple silicon and Intel. A debug tool, never part of the game. Unsigned: the first time, right-click it and choose Open."
+      # On main, the newest reader also goes to the public downloads page
+      # (cnbville/afm-worlds, release "reader-latest"): a download link that
+      # needs no GitHub sign-in, and latest.json, where the installed reader
+      # looks for its updates. Needs the WORLDS_TOKEN secret.
+      - name: Publish the update
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "No WORLDS_TOKEN secret yet: no public download or update."; exit 0; fi
+          repo=cnbville/afm-worlds
+          b=reader/src-tauri/target/universal-apple-darwin/release/bundle
+          v="0.1.${{ github.run_number }}"
+          url="https://github.com/$repo/releases/download/reader-latest"
+          files="$b/dmg/AFM_World_Reader_universal.dmg"
+          if [ -f "$b/macos/AFM World Reader.app.tar.gz.sig" ]; then
+            cp "$b/macos/AFM World Reader.app.tar.gz" AFM_World_Reader.app.tar.gz
+            jq -n --arg v "$v" --arg s "$(cat "$b/macos/AFM World Reader.app.tar.gz.sig")" --arg u "$url/AFM_World_Reader.app.tar.gz" \
+              --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg n "AFM World Reader $v, built from ${{ github.sha }}." \
+              '{version: $v, notes: $n, pub_date: $d, platforms: {"darwin-aarch64": {signature: $s, url: $u}, "darwin-x86_64": {signature: $s, url: $u}}}' > latest.json
+            files="$files AFM_World_Reader.app.tar.gz latest.json"
+          fi
+          gh release delete reader-latest --repo "$repo" --cleanup-tag --yes || true
+          gh release create reader-latest $files --repo "$repo" --latest=false \
+            --title "AFM World Reader for Mac $v" \
+            --notes "The newest AFM World Reader for Mac (one app for Apple silicon and Intel): it opens a world's book and shows everything in it against real. First install: open the dmg, drag it to Applications, then right-click it and choose Open. After that it updates itself."
