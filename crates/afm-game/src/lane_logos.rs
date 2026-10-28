@@ -394,7 +394,7 @@ static CANDS: LazyLock<Vec<Cand>> = LazyLock::new(|| {
     // NFL clubs by every name they have had.
     for eras in ERAS.iter() {
         for e in eras.iter() {
-            let name: &str = &e.name;
+            let name: &str = e.name;
             let (from, to) =
                 eras.iter().filter(|x| *x.name == *name).fold((OPEN, 0), |(a, b), x| (a.min(x.from), b.max(x.to)));
             let years = if to >= OPEN {
