@@ -1011,7 +1011,14 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
     mem.study(film);
     let te = team.players.iter().filter(|p| p.position == crate::positions::Position::TE).count();
     let fb = team.players.iter().filter(|p| p.position == crate::positions::Position::RB).count() >= 2;
-    let ctx = OffCtx { has_fb: fb, te_count: te.min(3), qb_run: inp.qb_run, level: inp.level, plan: team.plan().0 };
+    let ctx = OffCtx {
+        has_fb: fb,
+        te_count: te.min(3),
+        qb_run: inp.qb_run,
+        level: inp.level,
+        plan: team.plan().0,
+        designs: [None; 8],
+    };
     let staff = team.staff;
     let two_from = inp.two_from;
     let favs = &inp.favs;

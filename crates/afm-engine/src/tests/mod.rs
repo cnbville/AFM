@@ -26,6 +26,7 @@ mod storylines;
 mod tactics;
 mod tendencies;
 mod training;
+mod update3;
 mod views;
 mod win_chance;
 mod world;

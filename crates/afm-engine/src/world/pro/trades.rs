@@ -498,6 +498,17 @@ pub(crate) fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Optio
     }
 }
 
+/// How much being traded away stings (update 3, F6; section 6 topic 2):
+/// a veteran of two or more years there who didn't ask out, less than a
+/// cut since he keeps his deal (proposed, not confirmed: three quarters of
+/// a cut's hurt). Read before the move.
+pub(crate) fn trade_hurt(w: &World, i: usize, from: usize) -> f64 {
+    w.people[i].pro.as_ref().map_or(0.0, |c| {
+        let years = c.seasons.iter().filter(|s| s.team == Some(from)).count() as f64;
+        if c.wants_out || years < 2.0 { 0.0 } else { 0.75 * (years / 4.0).min(1.0) }
+    })
+}
+
 fn execute(
     w: &mut World,
     d: Date,
@@ -534,7 +545,9 @@ fn execute(
     w.market.fleece[buyer][seller] += (got - consensus_given).max(0.0);
     // Named with the team he played for (trial 7 finding 17).
     let who = super::describe(w, i);
+    let hurt = trade_hurt(w, i, seller);
     super::transfer(w, i, buyer, "traded");
+    crate::world::people::grudge(&mut w.people[i], seller, hurt);
     let to = w.nfl[buyer].name;
     let from = w.nfl[seller].name;
     let what: Vec<String> = picks.iter().map(|&(y, r, _)| format!("a {y} round {r} pick")).collect();

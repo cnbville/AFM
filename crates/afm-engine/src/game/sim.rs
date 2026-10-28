@@ -554,6 +554,24 @@ impl InjuryKind {
     }
 }
 
+/// A man playing hurt (update 3, F7): what his injury limits plays below
+/// itself (`InjuryKind::hampers`: a hamstring costs speed and burst, a hand
+/// catching and ball security), and his speed, burst and cut follow from
+/// the hampered ratings. A healthy man is passed through untouched.
+pub fn hampered(gp: &GamePlayer, hurt: Option<InjuryKind>) -> std::borrow::Cow<'_, GamePlayer> {
+    match hurt {
+        None => std::borrow::Cow::Borrowed(gp),
+        Some(k) => {
+            let mut h = gp.clone();
+            for &(a, f) in k.hampers() {
+                let v = h.attrs.get(a);
+                h.attrs.set(a, v * (1.0 - f));
+            }
+            std::borrow::Cow::Owned(h)
+        }
+    }
+}
+
 /// What the sim records on a play, for stats, grades and the why.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Notes {
@@ -2269,7 +2287,11 @@ impl<'a> Sim<'a> {
         let prone = 0.55 + gp.injury_proneness / 18.0;
         let tough = gp.trait20(Attr::Toughness, self.level);
         let turf = if self.cond.turf { 1.12 } else { 1.0 };
-        let p = self.injury_scale * 0.022 * share * (force / 1700.0).powf(1.6) * prone * turf;
+        // Tired muscles and slower reactions get hurt more (update 3, F8;
+        // proposed, not confirmed: up to 60% more for a man at the 0.25
+        // energy floor, about 15% after a long drive).
+        let tired = 1.0 + 0.8 * self.agents[i].tired;
+        let p = self.injury_scale * 0.022 * share * (force / 1700.0).powf(1.6) * prone * turf * tired;
         if !self.rng.chance(p) {
             return;
         }

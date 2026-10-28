@@ -186,7 +186,7 @@ pub fn read(
     year: i32,
 ) -> (Choice, [f64; 3]) {
     let make = league_make(yardline + 17.0, level, year);
-    let (_, go, punt, fg) = crate::game::calling::fourth_ev(yardline, togo, make);
+    let (_, go, punt, fg) = crate::game::calling::fourth_ev(yardline, togo, make, false);
     let late = quarter >= 4 && game_left < 300.0;
     let best = if late && lead < -3 {
         Choice::Go

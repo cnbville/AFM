@@ -244,6 +244,12 @@ impl Tendencies {
         self.was[t.index()] = x as f32;
     }
 
+    /// A habit coached to a new number (update 3, F16): the old one stays
+    /// in `was`, the habit he slips back toward under stress.
+    pub fn coach(&mut self, t: Tend, x: f64) {
+        self.v[t.index()] = clamp(x, 1.0, 20.0) as f32;
+    }
+
     /// Where a 14-year-old starts (topic 3.1): mostly who he is, drawn at
     /// random, with modest leans from his body and mind, none more than 3.
     /// From his own id stream, so no other draw moves. Centred so the

@@ -1,6 +1,6 @@
 # Tendencies: how it works today
 
-Checked against main at d41bed5 with update 3 lane 1 (the age-14 centres) on 2026-10-28.
+Checked against main at 8b7dd75 with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -127,7 +127,7 @@ For each tendency with an ideal: `gap = ideal - centre - v`; `beyond = max(|gap|
   - LB/S/CB: StayHome if freedom <= 12 and JumpRoutes misfit > eye.
 - Obedience in a tracked play: `Sim::obeys` decides once per player per play from a key (agent id and line of scrimmage), not a draw. Reads discipline as a 1-20 trait against the level (`GamePlayer::trait20`), coachability, `GamePlayer.trust` (built at 0.5 in `GamePlayer::from_player`) and the head coach's strictness (`Mood.strict`).
 - On kicks: `GamePlayer::follows` draws from the rng with the same `obey_chance` (`game/roster.rs`; `game/kicking.rs`).
-- Your seat's plan can coach one habit toward a target: each practice week it moves `habit_rate(teaching, coachability, age) / 30 * obey` toward it, with obey from discipline/5, coachability, trust 0.5, strictness 10 (`training/seat.rs`, `week`, `habit_rate`). It writes through `Tendencies::set`, which also resets `was`, so this coaching leaves no old-habit trace.
+- Your seat's plan can coach one habit toward a target: each practice week it moves `habit_rate(teaching, coachability, age) / 30 * obey` toward it, with obey from discipline/5, coachability, trust 0.5, strictness 10 (`training/seat.rs`, `week`, `habit_rate`). It writes through `Tendencies::coach`, which moves the number and keeps `was`, so under stress he can slip back toward the old habit (`tendencies.rs`, `coach`).
 
 ## How the engine reads them
 
@@ -164,10 +164,10 @@ Where each is read (all through `lean` unless noted):
 | Patience | back waits for the crease or commits early | `game/sim.rs`, `run_carrier` |
 | Bounce | leans off the called hole while behind the line | `game/sim.rs`, `run_carrier` |
 | Reach | reaches the ball out when 0.05-1.6 yd short: chance clamp(0.25 + 0.55 lean, 0, 0.97) | `game/sim.rs`, `reach` |
-| ReturnRisk (`tend_now`) | kickoff kneel-or-return judgment (+0.9 yd of expected return per point over 10.5); fielding punts inside the 10 | `game/kicking.rs` |
+| ReturnRisk (`tend_now`; a returner who follows a kneel order, or one with a fair-catch order, reads the order's set number) | kickoff kneel-or-return judgment (+0.9 yd of expected return per point over 10.5); fielding punts inside the 10 | `game/kicking.rs` |
 
 - `freelance_ok` (coverage jumps, broken-play freelancing) reads football IQ, play recognition, trust and strictness, not a tendency (`game/scrimmage.rs`, `freelance_ok`).
-- ReturnRisk's set number 3 from a kick order is not used: kicks read `tend_now`, which ignores orders, and apply the kneel and fair-catch orders directly (`game/kicking.rs`).
+- ReturnRisk's set number 3 from a kick order is read: on kickoffs when he follows the kneel order that play, on punts whenever he has the fair-catch order; the orders themselves still force the kneel and the fair catch (`game/kicking.rs`).
 
 ## The scouted read
 

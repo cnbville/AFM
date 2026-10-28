@@ -329,6 +329,11 @@ pub struct Folk {
     pub out: Vec<(u32, Date, String)>,
     /// Benched for the start of the next game.
     pub benched: Vec<(u32, Date)>,
+    /// Other teams' players sitting out by their own coach's rules (update
+    /// 3, F18): id, through.
+    pub ai_out: std::collections::BTreeMap<u32, Date>,
+    /// Other teams' rule breaks their staffs saw: id, (count, last season).
+    pub ai_priors: std::collections::BTreeMap<u32, (u8, i32)>,
     /// Players you brought back early from an injury (P3), and when.
     pub rushed: Vec<(u32, Date)>,
     /// Bulletin-board material you handed a rival: who and when.
