@@ -23,7 +23,7 @@ foNavAdd("hs", [
 foNavAdd("all", [["market", "Job market", "market"]]);
 
 // Where each of the seat's screens leads (screens topic 17).
-GOTO.school = () => [["Varsity and JV", "squads"], ["School and feeders", "area"], ["Staff", "staff"], ["Schedule", "schedule"], ["Inbox", "inbox"]];
+GOTO.school = () => [["Varsity and JV", "squads"], ["School and feeders", "area"], ["Finances", "money"], ["Staff", "staff"], ["Schedule", "schedule"]];
 GOTO.squads = () => [["Depth chart", "depth"], ["Squad", "roster"], ["Schedule", "schedule"], ["School office", "school"]];
 GOTO.area = () => [["School office", "school"], ["Recruiting", "recruiting"], ["Standings", "standings"], ["Team page", "team"]];
 GOTO.market = () => [["Pick your next job", "jobpick"], ["Your profile", "you"], ["Inbox", "inbox"], ["News", "news"]];
