@@ -1147,7 +1147,7 @@ fn promise_of(w: &World, id: u32) -> Option<f64> {
 }
 
 /// Whether a person can be recruited by you now.
-fn recruitable(w: &World, i: usize) -> Result<(), String> {
+pub fn recruitable(w: &World, i: usize) -> Result<(), String> {
     let p = &w.people[i];
     let sign_year = rec::next_class(w);
     let hs = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool);

@@ -57,7 +57,7 @@ Object.assign(CRUMBS, {
   };
 }
 function fcPlayerMoves(f) {
-  if (["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing)) return "";
+  if (!f.recruitable || ["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing)) return "";
   const file = linkTo("recruit_file", { id: f.id }, "His recruit file", "st-btn glass");
   if (!f.board_yours) return file;
   const offer = f.offered
