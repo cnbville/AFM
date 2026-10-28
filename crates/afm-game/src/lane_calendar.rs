@@ -349,8 +349,24 @@ struct Line {
 
 /// A short title for a cell: the line's first clause, without links.
 fn short_of(text: &str) -> String {
-    let plain = plain(text);
-    let cut = [". ", " (", " · ", "; ", " — "].iter().filter_map(|s| plain.find(s)).min().unwrap_or(plain.len());
+    // Asides in brackets go, so "Adam Taylor (QB, Ames) commits" keeps its verb.
+    let mut plain = String::new();
+    let mut depth = 0usize;
+    for c in self::plain(text).chars() {
+        match c {
+            '(' => depth += 1,
+            ')' if depth > 0 => depth -= 1,
+            _ if depth == 0 => plain.push(c),
+            _ => {}
+        }
+    }
+    let plain = plain.split_whitespace().collect::<Vec<_>>().join(" ").replace(" ,", ",").replace(" .", ".");
+    // A full stop ends the line, but not the one in "Jr." or "St." or an initial.
+    let stop = plain.match_indices(". ").map(|(i, _)| i).find(|&i| {
+        let word = plain[..i].rsplit(' ').next().unwrap_or("");
+        !(matches!(word, "Jr" | "Sr" | "St" | "Mt" | "Ft" | "Dr" | "Mr" | "vs") || word.len() == 1)
+    });
+    let cut = [" · ", "; ", " — "].iter().filter_map(|s| plain.find(s)).chain(stop).min().unwrap_or(plain.len());
     plain[..cut].trim_end_matches('.').to_string()
 }
 
@@ -421,6 +437,23 @@ fn kind_of(e: &Event, yours: bool, slot: bool, lv: Lv) -> K {
         Kind::DraftChoice | Kind::DraftPick if yours || lv == Lv::Nfl => K::Rec,
         Kind::Window | Kind::Date if r.contains("ncaa") || t.contains("recruiting") || t.contains(" period") => K::Rec,
         _ => K::World,
+    }
+}
+
+/// Whether a big moment belongs on your calendar: your own level's, the
+/// world's, and the levels next to yours (recruiting for high school and
+/// college, the draft for college). Another level's needs to be huge.
+fn near(e: &Event, lv: Lv) -> bool {
+    let draft = matches!(e.kind, Kind::DraftChoice | Kind::DraftPick) || e.text.to_lowercase().contains("draft");
+    match (lv, e.level) {
+        (_, CalLevel::World) => true,
+        (Lv::College, CalLevel::College | CalLevel::Recruiting) => true,
+        (Lv::College, CalLevel::Nfl) => draft,
+        (Lv::High, CalLevel::HighSchool | CalLevel::Recruiting) => true,
+        (Lv::Nfl, CalLevel::Nfl) => true,
+        (Lv::Nfl, CalLevel::College) => draft,
+        (Lv::Other, CalLevel::Other) => true,
+        _ => false,
     }
 }
 
@@ -512,7 +545,7 @@ fn lines_on(
         .filter(|e| {
             yours(e)
                 || my_slot(e)
-                || e.loud >= Loudness::Big
+                || e.loud >= Loudness::Big && (near(e, lv) || e.loud >= Loudness::Huge)
                 || matches!(e.kind, Kind::Date | Kind::Deadline | Kind::Window)
                     && e.loud >= Loudness::Medium
                     && w.seat.is_some_and(|s| s.cares(e))
@@ -896,7 +929,9 @@ fn week_row(
     ys: &mut Years,
 ) -> Value {
     let end = monday.add(7);
-    let game = games.iter().find(|g| g.date >= monday && g.date < end);
+    // The week's last game names it: a Monday night game belongs to the
+    // NFL week before.
+    let game = games.iter().rev().find(|g| g.date >= monday && g.date < end);
     let s = season_of(monday, ys);
     let y = ys.get(s).clone();
     let plan = st.filter(|st| monday.add(6) >= st.frame.start && monday <= st.frame.end).map(|st| {
@@ -1297,7 +1332,12 @@ fn ahead(w: &World, t: TeamRef, lv: Lv, games: &[MyGame], ys: &mut Years) -> Vec
             json!({
                 "iso": iso(d), "d": d.day(), "m": MONTHS[d.month() as usize - 1].to_uppercase(), "t": t, "s": s,
                 "in": rel(today.days_to(d)),
-                "bar": bar.map(|(a, b, l, warn)| json!({ "pct": (a / b.max(1.0) * 100.0).clamp(0.0, 100.0).round(), "label": l, "warn": warn })),
+                // A class is short when under half its places are filled
+                // with a month to go.
+                "bar": bar.map(|(a, b, l, warn)| {
+                    let short = warn || t.contains("igning") && a < b * 0.5 && today.days_to(d) <= 30;
+                    json!({ "pct": (a / b.max(1.0) * 100.0).clamp(0.0, 100.0).round(), "label": l, "warn": short })
+                }),
             })
         })
         .collect()
@@ -1308,19 +1348,15 @@ fn ahead(w: &World, t: TeamRef, lv: Lv, games: &[MyGame], ys: &mut Years) -> Vec
 fn class_count(w: &World, p: usize) -> Bar {
     use afm_engine::world::front_office::college::{self as desk, Standing};
     let o = desk::outlook(w, p);
-    let ids: std::collections::HashSet<u32> = w.front_office.college.board.iter().map(|x| x.id).collect();
-    let n = if ids.is_empty() {
-        0.0
-    } else {
-        w.people
-            .iter()
-            .filter(|pp| {
-                ids.contains(&pp.player.id)
-                    && pp.class_of == o.sign_year
-                    && matches!(desk::standing(pp, p), Standing::CommittedHere | Standing::SignedHere)
-            })
-            .count() as f64
-    };
+    // Every commitment and signature in the class, on your board or not.
+    let n = w
+        .people
+        .iter()
+        .filter(|pp| {
+            pp.class_of == o.sign_year
+                && matches!(desk::standing(pp, p), Standing::CommittedHere | Standing::SignedHere)
+        })
+        .count() as f64;
     let slots = o.slots.max(1) as f64;
     (n, slots, format!("{n:.0} of {slots:.0}"), false)
 }

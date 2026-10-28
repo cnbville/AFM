@@ -18,7 +18,7 @@ screens.calendar = async (a) => {
   const tabBtn = (n, attrs) => `<button class="cb-tab" ${attrs} aria-selected="${n === view}">${n}</button>`;
   const head = `<div class="cb-head">
     <div class="cb-title">${kicker}<div><div class="st-label">${esc(x.head ? x.head.label : "")}</div><h1>${esc(x.title)}</h1></div>
-      <nav class="cb-tabs" role="tablist">${tabBtn("Month", 'data-act="cbview" data-v="Month"')}${tabBtn("Week", 'data-go="training"')}${tabBtn("The year", 'data-go="year"')}${tabBtn("List", 'data-act="cbview" data-v="List"')}</nav></div>
+      <nav class="cb-tabs" role="tablist">${tabBtn("Month", 'data-act="cbview" data-v="Month"')}${x.level === "other" ? "" : tabBtn("Week", 'data-go="training"')}${tabBtn("The year", 'data-go="year"')}${tabBtn("List", 'data-act="cbview" data-v="List"')}</nav></div>
     <div class="cb-nav"><button class="cb-btn" data-act="cbmonth" data-v="${x.prev}" aria-label="Previous month">‹</button><button class="cb-btn" data-act="cbmonth" data-v="">Today</button><button class="cb-btn" data-act="cbmonth" data-v="${x.next}" aria-label="Next month">›</button><b>${esc(x.today_text)}</b></div>
   </div>`;
   const body = view === "List" ? cbList(x) : cbMonth(x);
@@ -49,8 +49,9 @@ function cbMonth(x) {
   const dows = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => `<span>${d}</span>`).join("");
   let cells = "";
   x.weeks.forEach((w, i) => {
-    const wk = w.now ? 'data-go="training"' : 'data-go="training" data-tab="The year"';
-    cells += `<button class="cb-wk ${w.now ? "now" : ""}" ${wk} title="${w.now ? "This week's practice plan" : "Your training year"}"><b>${esc(w.big)}</b>${w.a ? `<span class="a">${esc(w.a)}</span>` : ""}${w.b ? `<span class="b">${esc(w.b)}</span>` : ""}</button>`;
+    // Another league's club runs its own staff's plan: no training screen.
+    const wk = x.level === "other" ? "disabled" : w.now ? 'data-go="training" title="This week\'s practice plan"' : 'data-go="training" data-tab="The year" title="Your training year"';
+    cells += `<button class="cb-wk ${w.now ? "now" : ""}" ${wk}><b>${esc(w.big)}</b>${w.a ? `<span class="a">${esc(w.a)}</span>` : ""}${w.b ? `<span class="b">${esc(w.b)}</span>` : ""}</button>`;
     cells += x.days.slice(i * 7, i * 7 + 7).map((d) => cbCell(d, C.day ? C.day === d.iso : x.day.iso === d.iso)).join("");
   });
   const kinds = [["g", "Game"], ["y", "Needs you"], ["r", x.legend.r], ["w", "The world"]].map(([k, n]) => `<span>${CB_GLYPH(k)}${esc(n)}</span>`).join("");
