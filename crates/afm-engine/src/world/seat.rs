@@ -604,6 +604,19 @@ pub struct You {
     /// read from your road and your people ratings.
     #[serde(default)]
     pub aura: f64,
+    /// The position you played or the group you came up coaching (coaching
+    /// C5): the group your road's strength went to. None on a road with
+    /// neither, and in a file from before it: the group you teach best.
+    #[serde(default)]
+    pub came_up: Option<super::coach::Group>,
+    /// Your name (C10), 1-20: the road's agreed value. `reputation` is
+    /// your standing. 0 in a file from before the split.
+    #[serde(default)]
+    pub renown: f64,
+    /// How good a player you were (C11, `former::Played::grade`) on a
+    /// playing road; None if you never played in college.
+    #[serde(default)]
+    pub played: Option<u8>,
 }
 
 impl You {
@@ -741,6 +754,7 @@ impl World {
             role: (role != Role::HeadCoach && employer.is_some()).then_some(role),
             market: Default::default(),
             known,
+            past: None,
             family: Default::default(),
             staff_book: Default::default(),
             kept_reads: Vec::new(),
@@ -805,6 +819,10 @@ pub struct Career {
     /// The people from the world's history who know you.
     #[serde(default)]
     pub known: Vec<super::front_office::market::Known>,
+    /// Where you were in the world's history (your high school, college,
+    /// stops): your old teammates and players come from it (C13).
+    #[serde(default)]
+    pub past: Option<super::front_office::market::Placement>,
     /// Your family's life where you live.
     #[serde(default)]
     pub family: super::front_office::market::FamilyLife,

@@ -485,7 +485,7 @@ fn renew_coaches(w: &World, v: &mut Voters, rng: &mut Rng) {
     v.coaches = keep;
 }
 
-fn power_conf(conf: &str, year: i32) -> bool {
+pub(crate) fn power_conf(conf: &str, year: i32) -> bool {
     match conf {
         "SEC" | "Big Ten" | "Big 12" | "ACC" => true,
         "Pac-12" | "Pac-10" => year <= 2023,
@@ -498,8 +498,7 @@ fn power_conf(conf: &str, year: i32) -> bool {
 /// A Group of Five (before 2014, non-BCS) program: not in a power
 /// conference and not Notre Dame.
 pub(crate) fn group_of_five(w: &World, prog: usize) -> bool {
-    let p = &w.programs[prog];
-    p.real_name != "Notre Dame" && !power_conf(&p.conference, w.year)
+    !w.programs[prog].power_conference(w.year)
 }
 
 /// A new committee member of a background.

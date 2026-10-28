@@ -1,0 +1,1668 @@
+season,a,b,a_points,b_points,winner,postseason,neutral_site
+2001,Ohio State,Michigan,26,20,a,False,False
+2002,Ohio State,Michigan,14,9,a,False,False
+2003,Ohio State,Michigan,21,35,b,False,False
+2004,Ohio State,Michigan,37,21,a,False,False
+2005,Ohio State,Michigan,25,21,a,False,False
+2006,Ohio State,Michigan,42,39,a,False,False
+2007,Ohio State,Michigan,14,3,a,False,False
+2008,Ohio State,Michigan,42,7,a,False,False
+2009,Ohio State,Michigan,21,10,a,False,False
+2010,Ohio State,Michigan,37,7,a,False,False
+2011,Ohio State,Michigan,34,40,b,False,False
+2012,Ohio State,Michigan,26,21,a,False,False
+2013,Ohio State,Michigan,42,41,a,False,False
+2014,Ohio State,Michigan,42,28,a,False,False
+2015,Ohio State,Michigan,42,13,a,False,False
+2016,Ohio State,Michigan,30,27,a,False,False
+2017,Ohio State,Michigan,31,20,a,False,False
+2018,Ohio State,Michigan,62,39,a,False,False
+2019,Ohio State,Michigan,56,27,a,False,False
+2021,Ohio State,Michigan,27,42,b,False,False
+2022,Ohio State,Michigan,23,45,b,False,False
+2023,Ohio State,Michigan,24,30,b,False,False
+2024,Ohio State,Michigan,10,13,b,False,False
+2025,Ohio State,Michigan,27,9,a,False,False
+2001,Alabama,Auburn,31,7,a,False,False
+2002,Alabama,Auburn,7,17,b,False,False
+2003,Alabama,Auburn,23,28,b,False,False
+2004,Alabama,Auburn,13,21,b,False,False
+2005,Alabama,Auburn,18,28,b,False,False
+2006,Alabama,Auburn,15,22,b,False,False
+2007,Alabama,Auburn,10,17,b,False,False
+2008,Alabama,Auburn,36,0,a,False,False
+2009,Alabama,Auburn,26,21,a,False,False
+2010,Alabama,Auburn,27,28,b,False,False
+2011,Alabama,Auburn,42,14,a,False,False
+2012,Alabama,Auburn,49,0,a,False,False
+2013,Alabama,Auburn,28,34,b,False,False
+2014,Alabama,Auburn,55,44,a,False,False
+2015,Alabama,Auburn,29,13,a,False,False
+2016,Alabama,Auburn,30,12,a,False,False
+2017,Alabama,Auburn,14,26,b,False,False
+2018,Alabama,Auburn,52,21,a,False,False
+2019,Alabama,Auburn,45,48,b,False,False
+2020,Alabama,Auburn,42,13,a,False,False
+2021,Alabama,Auburn,24,22,a,False,False
+2022,Alabama,Auburn,49,27,a,False,False
+2023,Alabama,Auburn,27,24,a,False,False
+2024,Alabama,Auburn,28,14,a,False,False
+2025,Alabama,Auburn,27,20,a,False,False
+2001,Army,Navy,26,17,a,False,False
+2002,Army,Navy,12,58,b,False,False
+2003,Army,Navy,6,34,b,False,False
+2004,Army,Navy,13,42,b,False,False
+2005,Army,Navy,23,42,b,False,False
+2006,Army,Navy,14,26,b,False,False
+2007,Army,Navy,3,38,b,False,False
+2008,Army,Navy,0,34,b,False,True
+2009,Army,Navy,3,17,b,False,True
+2010,Army,Navy,17,31,b,False,True
+2011,Army,Navy,21,27,b,False,True
+2012,Army,Navy,13,17,b,False,True
+2013,Army,Navy,7,34,b,False,True
+2014,Army,Navy,10,17,b,False,True
+2015,Army,Navy,17,21,b,False,True
+2016,Army,Navy,21,17,a,False,True
+2017,Army,Navy,14,13,a,False,True
+2018,Army,Navy,17,10,a,False,True
+2019,Army,Navy,7,31,b,False,True
+2020,Army,Navy,15,0,a,False,True
+2021,Army,Navy,13,17,b,False,False
+2022,Army,Navy,20,17,a,False,True
+2023,Army,Navy,17,11,a,False,True
+2024,Army,Navy,13,31,b,False,True
+2025,Army,Navy,16,17,b,False,True
+2001,Georgia,Georgia Tech,31,17,a,False,False
+2002,Georgia,Georgia Tech,51,7,a,False,False
+2003,Georgia,Georgia Tech,34,17,a,False,False
+2004,Georgia,Georgia Tech,19,13,a,False,False
+2005,Georgia,Georgia Tech,14,7,a,False,False
+2006,Georgia,Georgia Tech,15,12,a,False,False
+2007,Georgia,Georgia Tech,31,17,a,False,False
+2008,Georgia,Georgia Tech,42,45,b,False,False
+2009,Georgia,Georgia Tech,30,24,a,False,False
+2010,Georgia,Georgia Tech,42,34,a,False,False
+2011,Georgia,Georgia Tech,31,17,a,False,False
+2012,Georgia,Georgia Tech,42,10,a,False,False
+2013,Georgia,Georgia Tech,41,34,a,False,False
+2014,Georgia,Georgia Tech,24,30,b,False,False
+2015,Georgia,Georgia Tech,13,7,a,False,False
+2016,Georgia,Georgia Tech,27,28,b,False,False
+2017,Georgia,Georgia Tech,38,7,a,False,False
+2018,Georgia,Georgia Tech,45,21,a,False,False
+2019,Georgia,Georgia Tech,52,7,a,False,False
+2021,Georgia,Georgia Tech,45,0,a,False,False
+2022,Georgia,Georgia Tech,37,14,a,False,False
+2023,Georgia,Georgia Tech,31,23,a,False,False
+2024,Georgia,Georgia Tech,44,42,a,False,False
+2025,Georgia,Georgia Tech,16,9,a,False,True
+2001,Clemson,South Carolina,15,20,b,False,False
+2002,Clemson,South Carolina,27,20,a,False,False
+2003,Clemson,South Carolina,63,17,a,False,False
+2004,Clemson,South Carolina,29,7,a,False,False
+2005,Clemson,South Carolina,13,9,a,False,False
+2006,Clemson,South Carolina,28,31,b,False,False
+2007,Clemson,South Carolina,23,21,a,False,False
+2008,Clemson,South Carolina,31,14,a,False,False
+2009,Clemson,South Carolina,17,34,b,False,False
+2010,Clemson,South Carolina,7,29,b,False,False
+2011,Clemson,South Carolina,13,34,b,False,False
+2012,Clemson,South Carolina,17,27,b,False,False
+2013,Clemson,South Carolina,17,31,b,False,False
+2014,Clemson,South Carolina,35,17,a,False,False
+2015,Clemson,South Carolina,37,32,a,False,False
+2016,Clemson,South Carolina,56,7,a,False,False
+2017,Clemson,South Carolina,34,10,a,False,False
+2018,Clemson,South Carolina,56,35,a,False,False
+2019,Clemson,South Carolina,38,3,a,False,False
+2021,Clemson,South Carolina,30,0,a,False,False
+2022,Clemson,South Carolina,30,31,b,False,False
+2023,Clemson,South Carolina,16,7,a,False,False
+2024,Clemson,South Carolina,14,17,b,False,False
+2025,Clemson,South Carolina,28,14,a,False,False
+2001,Florida,Florida State,37,13,a,False,False
+2002,Florida,Florida State,14,31,b,False,False
+2003,Florida,Florida State,34,38,b,False,False
+2004,Florida,Florida State,20,13,a,False,False
+2005,Florida,Florida State,34,7,a,False,False
+2006,Florida,Florida State,21,14,a,False,False
+2007,Florida,Florida State,45,12,a,False,False
+2008,Florida,Florida State,45,15,a,False,False
+2009,Florida,Florida State,37,10,a,False,False
+2010,Florida,Florida State,7,31,b,False,False
+2011,Florida,Florida State,7,21,b,False,False
+2012,Florida,Florida State,37,26,a,False,False
+2013,Florida,Florida State,7,37,b,False,False
+2014,Florida,Florida State,19,24,b,False,False
+2015,Florida,Florida State,2,27,b,False,False
+2016,Florida,Florida State,13,31,b,False,False
+2017,Florida,Florida State,22,38,b,False,False
+2018,Florida,Florida State,41,14,a,False,False
+2019,Florida,Florida State,40,17,a,False,False
+2021,Florida,Florida State,24,21,a,False,False
+2022,Florida,Florida State,38,45,b,False,False
+2023,Florida,Florida State,15,24,b,False,False
+2024,Florida,Florida State,31,11,a,False,False
+2025,Florida,Florida State,40,21,a,False,False
+2001,Oregon,Oregon State,17,14,a,False,False
+2002,Oregon,Oregon State,24,45,b,False,False
+2003,Oregon,Oregon State,34,20,a,False,False
+2004,Oregon,Oregon State,21,50,b,False,False
+2005,Oregon,Oregon State,56,14,a,False,False
+2006,Oregon,Oregon State,28,30,b,False,False
+2007,Oregon,Oregon State,31,38,b,False,False
+2008,Oregon,Oregon State,65,38,a,False,False
+2009,Oregon,Oregon State,37,33,a,False,False
+2010,Oregon,Oregon State,37,20,a,False,False
+2011,Oregon,Oregon State,49,21,a,False,False
+2012,Oregon,Oregon State,48,24,a,False,False
+2013,Oregon,Oregon State,36,35,a,False,False
+2014,Oregon,Oregon State,47,19,a,False,False
+2015,Oregon,Oregon State,52,42,a,False,False
+2016,Oregon,Oregon State,24,34,b,False,False
+2017,Oregon,Oregon State,69,10,a,False,False
+2018,Oregon,Oregon State,55,15,a,False,False
+2019,Oregon,Oregon State,24,10,a,False,False
+2020,Oregon,Oregon State,38,41,b,False,False
+2021,Oregon,Oregon State,38,29,a,False,False
+2022,Oregon,Oregon State,34,38,b,False,False
+2023,Oregon,Oregon State,31,7,a,False,False
+2024,Oregon,Oregon State,49,14,a,False,False
+2025,Oregon,Oregon State,41,7,a,False,False
+2001,Washington,Washington State,26,14,a,False,False
+2002,Washington,Washington State,29,26,a,False,False
+2003,Washington,Washington State,27,19,a,False,False
+2004,Washington,Washington State,25,28,b,False,False
+2005,Washington,Washington State,22,26,b,False,False
+2006,Washington,Washington State,35,32,a,False,False
+2007,Washington,Washington State,35,42,b,False,False
+2008,Washington,Washington State,13,16,b,False,False
+2009,Washington,Washington State,30,0,a,False,False
+2010,Washington,Washington State,35,28,a,False,False
+2011,Washington,Washington State,38,21,a,False,False
+2012,Washington,Washington State,28,31,b,False,False
+2013,Washington,Washington State,27,17,a,False,False
+2014,Washington,Washington State,31,13,a,False,False
+2015,Washington,Washington State,45,10,a,False,False
+2016,Washington,Washington State,45,17,a,False,False
+2017,Washington,Washington State,41,14,a,False,False
+2018,Washington,Washington State,28,15,a,False,False
+2019,Washington,Washington State,31,13,a,False,False
+2021,Washington,Washington State,13,40,b,False,False
+2022,Washington,Washington State,51,33,a,False,False
+2023,Washington,Washington State,24,21,a,False,False
+2024,Washington,Washington State,19,24,b,False,True
+2025,Washington,Washington State,59,24,a,False,False
+2001,USC,UCLA,27,0,a,False,False
+2002,USC,UCLA,52,21,a,False,False
+2003,USC,UCLA,47,22,a,False,False
+2004,USC,UCLA,29,24,a,False,False
+2005,USC,UCLA,66,19,a,False,False
+2006,USC,UCLA,9,13,b,False,False
+2007,USC,UCLA,24,7,a,False,False
+2008,USC,UCLA,28,7,a,False,False
+2009,USC,UCLA,28,7,a,False,False
+2010,USC,UCLA,28,14,a,False,False
+2011,USC,UCLA,50,0,a,False,False
+2012,USC,UCLA,28,38,b,False,False
+2013,USC,UCLA,14,35,b,False,False
+2014,USC,UCLA,20,38,b,False,False
+2015,USC,UCLA,40,21,a,False,False
+2016,USC,UCLA,36,14,a,False,False
+2017,USC,UCLA,28,23,a,False,False
+2018,USC,UCLA,27,34,b,False,False
+2019,USC,UCLA,52,35,a,False,False
+2020,USC,UCLA,43,38,a,False,False
+2021,USC,UCLA,33,62,b,False,False
+2022,USC,UCLA,48,45,a,False,False
+2023,USC,UCLA,20,38,b,False,False
+2024,USC,UCLA,19,13,a,False,False
+2025,USC,UCLA,29,10,a,False,False
+2001,Stanford,California,35,28,a,False,False
+2002,Stanford,California,7,30,b,False,False
+2003,Stanford,California,16,28,b,False,False
+2004,Stanford,California,6,41,b,False,False
+2005,Stanford,California,3,27,b,False,False
+2006,Stanford,California,17,26,b,False,False
+2007,Stanford,California,20,13,a,False,False
+2008,Stanford,California,16,37,b,False,False
+2009,Stanford,California,28,34,b,False,False
+2010,Stanford,California,48,14,a,False,False
+2011,Stanford,California,31,28,a,False,False
+2012,Stanford,California,21,3,a,False,False
+2013,Stanford,California,63,13,a,False,False
+2014,Stanford,California,38,17,a,False,False
+2015,Stanford,California,35,22,a,False,False
+2016,Stanford,California,45,31,a,False,False
+2017,Stanford,California,17,14,a,False,False
+2018,Stanford,California,23,13,a,False,False
+2019,Stanford,California,20,24,b,False,False
+2020,Stanford,California,24,23,a,False,False
+2021,Stanford,California,11,41,b,False,False
+2022,Stanford,California,20,27,b,False,False
+2023,Stanford,California,15,27,b,False,False
+2024,Stanford,California,21,24,b,False,False
+2025,Stanford,California,31,10,a,False,False
+2001,Texas,Texas A&M,21,7,a,False,False
+2002,Texas,Texas A&M,50,20,a,False,False
+2003,Texas,Texas A&M,46,15,a,False,False
+2004,Texas,Texas A&M,26,13,a,False,False
+2005,Texas,Texas A&M,40,29,a,False,False
+2006,Texas,Texas A&M,7,12,b,False,False
+2007,Texas,Texas A&M,30,38,b,False,False
+2008,Texas,Texas A&M,49,9,a,False,False
+2009,Texas,Texas A&M,49,39,a,False,False
+2010,Texas,Texas A&M,17,24,b,False,False
+2011,Texas,Texas A&M,27,25,a,False,False
+2024,Texas,Texas A&M,17,7,a,False,False
+2025,Texas,Texas A&M,27,17,a,False,False
+2001,Ole Miss,Mississippi State,28,36,b,False,False
+2002,Ole Miss,Mississippi State,24,12,a,False,False
+2003,Ole Miss,Mississippi State,31,0,a,False,False
+2004,Ole Miss,Mississippi State,20,3,a,False,False
+2005,Ole Miss,Mississippi State,14,35,b,False,False
+2006,Ole Miss,Mississippi State,20,17,a,False,False
+2007,Ole Miss,Mississippi State,14,17,b,False,False
+2008,Ole Miss,Mississippi State,45,0,a,False,False
+2009,Ole Miss,Mississippi State,27,41,b,False,False
+2010,Ole Miss,Mississippi State,23,31,b,False,False
+2011,Ole Miss,Mississippi State,3,31,b,False,False
+2012,Ole Miss,Mississippi State,41,24,a,False,False
+2013,Ole Miss,Mississippi State,10,17,b,False,False
+2014,Ole Miss,Mississippi State,31,17,a,False,False
+2015,Ole Miss,Mississippi State,38,27,a,False,False
+2016,Ole Miss,Mississippi State,20,55,b,False,False
+2017,Ole Miss,Mississippi State,31,28,a,False,False
+2018,Ole Miss,Mississippi State,3,35,b,False,False
+2019,Ole Miss,Mississippi State,20,21,b,False,False
+2020,Ole Miss,Mississippi State,31,24,a,False,False
+2021,Ole Miss,Mississippi State,31,21,a,False,False
+2022,Ole Miss,Mississippi State,22,24,b,False,False
+2023,Ole Miss,Mississippi State,17,7,a,False,False
+2024,Ole Miss,Mississippi State,26,14,a,False,False
+2025,Ole Miss,Mississippi State,38,19,a,False,False
+2010,LSU,Texas A&M,41,24,a,True,True
+2012,LSU,Texas A&M,24,19,a,False,False
+2013,LSU,Texas A&M,34,10,a,False,False
+2014,LSU,Texas A&M,23,17,a,False,False
+2015,LSU,Texas A&M,19,7,a,False,False
+2016,LSU,Texas A&M,54,39,a,False,False
+2017,LSU,Texas A&M,45,21,a,False,False
+2018,LSU,Texas A&M,72,74,b,False,False
+2019,LSU,Texas A&M,50,7,a,False,False
+2020,LSU,Texas A&M,7,20,b,False,False
+2021,LSU,Texas A&M,27,24,a,False,False
+2022,LSU,Texas A&M,23,38,b,False,False
+2023,LSU,Texas A&M,42,30,a,False,False
+2024,LSU,Texas A&M,23,38,b,False,False
+2025,LSU,Texas A&M,25,49,b,False,False
+2001,Tennessee,Vanderbilt,38,0,a,False,False
+2002,Tennessee,Vanderbilt,24,0,a,False,False
+2003,Tennessee,Vanderbilt,48,0,a,False,False
+2004,Tennessee,Vanderbilt,38,33,a,False,False
+2005,Tennessee,Vanderbilt,24,28,b,False,False
+2006,Tennessee,Vanderbilt,39,10,a,False,False
+2007,Tennessee,Vanderbilt,25,24,a,False,False
+2008,Tennessee,Vanderbilt,20,10,a,False,False
+2009,Tennessee,Vanderbilt,31,16,a,False,False
+2010,Tennessee,Vanderbilt,24,10,a,False,False
+2011,Tennessee,Vanderbilt,27,21,a,False,False
+2012,Tennessee,Vanderbilt,18,41,b,False,False
+2013,Tennessee,Vanderbilt,10,14,b,False,False
+2014,Tennessee,Vanderbilt,24,17,a,False,False
+2015,Tennessee,Vanderbilt,53,28,a,False,False
+2016,Tennessee,Vanderbilt,34,45,b,False,False
+2017,Tennessee,Vanderbilt,24,42,b,False,False
+2018,Tennessee,Vanderbilt,13,38,b,False,False
+2019,Tennessee,Vanderbilt,28,10,a,False,False
+2020,Tennessee,Vanderbilt,42,17,a,False,False
+2021,Tennessee,Vanderbilt,45,21,a,False,False
+2022,Tennessee,Vanderbilt,56,0,a,False,False
+2023,Tennessee,Vanderbilt,48,24,a,False,False
+2024,Tennessee,Vanderbilt,36,23,a,False,False
+2025,Tennessee,Vanderbilt,24,45,b,False,False
+2001,Minnesota,Wisconsin,42,31,a,False,False
+2002,Minnesota,Wisconsin,31,49,b,False,False
+2003,Minnesota,Wisconsin,37,34,a,False,False
+2004,Minnesota,Wisconsin,14,38,b,False,False
+2005,Minnesota,Wisconsin,34,38,b,False,False
+2006,Minnesota,Wisconsin,12,48,b,False,False
+2007,Minnesota,Wisconsin,34,41,b,False,False
+2008,Minnesota,Wisconsin,32,35,b,False,False
+2009,Minnesota,Wisconsin,28,31,b,False,False
+2010,Minnesota,Wisconsin,23,41,b,False,False
+2011,Minnesota,Wisconsin,13,42,b,False,False
+2012,Minnesota,Wisconsin,13,38,b,False,False
+2013,Minnesota,Wisconsin,7,20,b,False,False
+2014,Minnesota,Wisconsin,24,34,b,False,False
+2015,Minnesota,Wisconsin,21,31,b,False,False
+2016,Minnesota,Wisconsin,17,31,b,False,False
+2017,Minnesota,Wisconsin,0,31,b,False,False
+2018,Minnesota,Wisconsin,37,15,a,False,False
+2019,Minnesota,Wisconsin,17,38,b,False,False
+2020,Minnesota,Wisconsin,17,20,b,False,False
+2021,Minnesota,Wisconsin,23,13,a,False,False
+2022,Minnesota,Wisconsin,23,16,a,False,False
+2023,Minnesota,Wisconsin,14,28,b,False,False
+2024,Minnesota,Wisconsin,24,7,a,False,False
+2025,Minnesota,Wisconsin,17,7,a,False,False
+2001,Indiana,Purdue,13,7,a,False,False
+2002,Indiana,Purdue,10,34,b,False,False
+2003,Indiana,Purdue,16,24,b,False,False
+2004,Indiana,Purdue,24,63,b,False,False
+2005,Indiana,Purdue,14,41,b,False,False
+2006,Indiana,Purdue,19,28,b,False,False
+2007,Indiana,Purdue,27,24,a,False,False
+2008,Indiana,Purdue,10,62,b,False,False
+2009,Indiana,Purdue,21,38,b,False,False
+2010,Indiana,Purdue,34,31,a,False,False
+2011,Indiana,Purdue,25,33,b,False,False
+2012,Indiana,Purdue,35,56,b,False,False
+2013,Indiana,Purdue,56,36,a,False,False
+2014,Indiana,Purdue,23,16,a,False,False
+2015,Indiana,Purdue,54,36,a,False,False
+2016,Indiana,Purdue,26,24,a,False,False
+2017,Indiana,Purdue,24,31,b,False,False
+2018,Indiana,Purdue,21,28,b,False,False
+2019,Indiana,Purdue,44,41,a,False,False
+2021,Indiana,Purdue,7,44,b,False,False
+2022,Indiana,Purdue,16,30,b,False,False
+2023,Indiana,Purdue,31,35,b,False,False
+2024,Indiana,Purdue,66,0,a,False,False
+2025,Indiana,Purdue,56,3,a,False,False
+2001,Illinois,Northwestern,34,28,a,False,False
+2002,Illinois,Northwestern,31,24,a,False,False
+2003,Illinois,Northwestern,20,37,b,False,False
+2004,Illinois,Northwestern,21,28,b,False,False
+2005,Illinois,Northwestern,21,38,b,False,False
+2006,Illinois,Northwestern,16,27,b,False,False
+2007,Illinois,Northwestern,41,22,a,False,False
+2008,Illinois,Northwestern,10,27,b,False,False
+2009,Illinois,Northwestern,16,21,b,False,False
+2010,Illinois,Northwestern,48,27,a,False,False
+2011,Illinois,Northwestern,38,35,a,False,False
+2012,Illinois,Northwestern,14,50,b,False,False
+2013,Illinois,Northwestern,34,37,b,False,False
+2014,Illinois,Northwestern,47,33,a,False,False
+2015,Illinois,Northwestern,14,24,b,False,True
+2016,Illinois,Northwestern,21,42,b,False,False
+2017,Illinois,Northwestern,7,42,b,False,False
+2018,Illinois,Northwestern,16,24,b,False,False
+2019,Illinois,Northwestern,10,29,b,False,False
+2020,Illinois,Northwestern,10,28,b,False,False
+2021,Illinois,Northwestern,47,14,a,False,False
+2022,Illinois,Northwestern,41,3,a,False,False
+2023,Illinois,Northwestern,43,45,b,False,False
+2024,Illinois,Northwestern,38,28,a,False,True
+2025,Illinois,Northwestern,20,13,a,False,False
+2011,Iowa,Nebraska,7,20,b,False,False
+2012,Iowa,Nebraska,7,13,b,False,False
+2013,Iowa,Nebraska,38,17,a,False,False
+2014,Iowa,Nebraska,34,37,b,False,False
+2015,Iowa,Nebraska,28,20,a,False,False
+2016,Iowa,Nebraska,40,10,a,False,False
+2017,Iowa,Nebraska,56,14,a,False,False
+2018,Iowa,Nebraska,31,28,a,False,False
+2019,Iowa,Nebraska,27,24,a,False,False
+2020,Iowa,Nebraska,26,20,a,False,False
+2021,Iowa,Nebraska,28,21,a,False,False
+2022,Iowa,Nebraska,17,24,b,False,False
+2023,Iowa,Nebraska,13,10,a,False,False
+2024,Iowa,Nebraska,13,10,a,False,False
+2025,Iowa,Nebraska,40,16,a,False,False
+2001,Penn State,Michigan State,42,37,a,False,False
+2002,Penn State,Michigan State,61,7,a,False,False
+2003,Penn State,Michigan State,10,41,b,False,False
+2004,Penn State,Michigan State,37,13,a,False,False
+2005,Penn State,Michigan State,31,22,a,False,False
+2006,Penn State,Michigan State,17,13,a,False,False
+2007,Penn State,Michigan State,31,35,b,False,False
+2008,Penn State,Michigan State,49,18,a,False,False
+2009,Penn State,Michigan State,42,14,a,False,False
+2010,Penn State,Michigan State,22,28,b,False,False
+2014,Penn State,Michigan State,10,34,b,False,False
+2015,Penn State,Michigan State,16,55,b,False,False
+2016,Penn State,Michigan State,45,12,a,False,False
+2017,Penn State,Michigan State,24,27,b,False,False
+2018,Penn State,Michigan State,17,21,b,False,False
+2019,Penn State,Michigan State,28,7,a,False,False
+2020,Penn State,Michigan State,39,24,a,False,False
+2021,Penn State,Michigan State,27,30,b,False,False
+2022,Penn State,Michigan State,35,16,a,False,False
+2023,Penn State,Michigan State,42,0,a,False,True
+2025,Penn State,Michigan State,28,10,a,False,False
+2007,Maryland,Rutgers,34,24,a,False,False
+2009,Maryland,Rutgers,13,34,b,False,False
+2014,Maryland,Rutgers,38,41,b,False,False
+2015,Maryland,Rutgers,46,41,a,False,False
+2016,Maryland,Rutgers,31,13,a,False,False
+2017,Maryland,Rutgers,24,31,b,False,False
+2018,Maryland,Rutgers,34,7,a,False,False
+2019,Maryland,Rutgers,48,7,a,False,False
+2020,Maryland,Rutgers,24,27,b,False,False
+2021,Maryland,Rutgers,40,16,a,False,False
+2022,Maryland,Rutgers,37,0,a,False,False
+2023,Maryland,Rutgers,42,24,a,False,False
+2024,Maryland,Rutgers,17,31,b,False,False
+2025,Maryland,Rutgers,20,35,b,False,False
+2001,Kansas,Kansas State,6,40,b,False,False
+2002,Kansas,Kansas State,0,64,b,False,False
+2003,Kansas,Kansas State,6,42,b,False,False
+2004,Kansas,Kansas State,31,28,a,False,False
+2005,Kansas,Kansas State,3,12,b,False,False
+2006,Kansas,Kansas State,39,20,a,False,False
+2007,Kansas,Kansas State,30,24,a,False,False
+2008,Kansas,Kansas State,52,21,a,False,False
+2009,Kansas,Kansas State,10,17,b,False,False
+2010,Kansas,Kansas State,7,59,b,False,False
+2011,Kansas,Kansas State,21,59,b,False,False
+2012,Kansas,Kansas State,16,56,b,False,False
+2013,Kansas,Kansas State,10,31,b,False,False
+2014,Kansas,Kansas State,13,51,b,False,False
+2015,Kansas,Kansas State,14,45,b,False,False
+2016,Kansas,Kansas State,19,34,b,False,False
+2017,Kansas,Kansas State,20,30,b,False,False
+2018,Kansas,Kansas State,17,21,b,False,False
+2019,Kansas,Kansas State,10,38,b,False,False
+2020,Kansas,Kansas State,14,55,b,False,False
+2021,Kansas,Kansas State,10,35,b,False,False
+2022,Kansas,Kansas State,27,47,b,False,False
+2023,Kansas,Kansas State,27,31,b,False,False
+2024,Kansas,Kansas State,27,29,b,False,False
+2025,Kansas,Kansas State,17,42,b,False,False
+2001,Oklahoma,Oklahoma State,13,16,b,False,False
+2002,Oklahoma,Oklahoma State,28,38,b,False,False
+2003,Oklahoma,Oklahoma State,52,9,a,False,False
+2004,Oklahoma,Oklahoma State,38,35,a,False,False
+2005,Oklahoma,Oklahoma State,42,14,a,False,False
+2006,Oklahoma,Oklahoma State,27,21,a,False,False
+2007,Oklahoma,Oklahoma State,49,17,a,False,False
+2008,Oklahoma,Oklahoma State,61,41,a,False,False
+2009,Oklahoma,Oklahoma State,27,0,a,False,False
+2010,Oklahoma,Oklahoma State,47,41,a,False,False
+2011,Oklahoma,Oklahoma State,10,44,b,False,False
+2012,Oklahoma,Oklahoma State,51,48,a,False,False
+2013,Oklahoma,Oklahoma State,33,24,a,False,False
+2014,Oklahoma,Oklahoma State,35,38,b,False,False
+2015,Oklahoma,Oklahoma State,58,23,a,False,False
+2016,Oklahoma,Oklahoma State,38,20,a,False,False
+2017,Oklahoma,Oklahoma State,62,52,a,False,False
+2018,Oklahoma,Oklahoma State,48,47,a,False,False
+2019,Oklahoma,Oklahoma State,34,16,a,False,False
+2020,Oklahoma,Oklahoma State,41,13,a,False,False
+2021,Oklahoma,Oklahoma State,33,37,b,False,False
+2022,Oklahoma,Oklahoma State,28,13,a,False,False
+2023,Oklahoma,Oklahoma State,24,27,b,False,False
+2001,Utah,BYU,21,24,b,False,False
+2002,Utah,BYU,13,6,a,False,False
+2003,Utah,BYU,3,0,a,False,False
+2004,Utah,BYU,52,21,a,False,False
+2005,Utah,BYU,41,34,a,False,False
+2006,Utah,BYU,31,33,b,False,False
+2007,Utah,BYU,10,17,b,False,False
+2008,Utah,BYU,48,24,a,False,False
+2009,Utah,BYU,23,26,b,False,False
+2010,Utah,BYU,17,16,a,False,False
+2011,Utah,BYU,54,10,a,False,False
+2012,Utah,BYU,24,21,a,False,False
+2013,Utah,BYU,20,13,a,False,False
+2015,Utah,BYU,35,28,a,True,True
+2016,Utah,BYU,20,19,a,False,False
+2017,Utah,BYU,19,13,a,False,False
+2018,Utah,BYU,35,27,a,False,False
+2019,Utah,BYU,30,12,a,False,False
+2021,Utah,BYU,17,26,b,False,False
+2024,Utah,BYU,21,22,b,False,False
+2025,Utah,BYU,21,24,b,False,False
+2001,Arizona,Arizona State,34,21,a,False,False
+2002,Arizona,Arizona State,20,34,b,False,False
+2003,Arizona,Arizona State,7,28,b,False,False
+2004,Arizona,Arizona State,34,27,a,False,False
+2005,Arizona,Arizona State,20,23,b,False,False
+2006,Arizona,Arizona State,14,28,b,False,False
+2007,Arizona,Arizona State,17,20,b,False,False
+2008,Arizona,Arizona State,31,10,a,False,False
+2009,Arizona,Arizona State,20,17,a,False,False
+2010,Arizona,Arizona State,29,30,b,False,False
+2011,Arizona,Arizona State,31,27,a,False,False
+2012,Arizona,Arizona State,34,41,b,False,False
+2013,Arizona,Arizona State,21,58,b,False,False
+2014,Arizona,Arizona State,42,35,a,False,False
+2015,Arizona,Arizona State,37,52,b,False,False
+2016,Arizona,Arizona State,56,35,a,False,False
+2017,Arizona,Arizona State,30,42,b,False,False
+2018,Arizona,Arizona State,40,41,b,False,False
+2019,Arizona,Arizona State,14,24,b,False,False
+2020,Arizona,Arizona State,7,70,b,False,False
+2021,Arizona,Arizona State,15,38,b,False,False
+2022,Arizona,Arizona State,38,35,a,False,False
+2023,Arizona,Arizona State,59,23,a,False,False
+2024,Arizona,Arizona State,7,49,b,False,False
+2025,Arizona,Arizona State,23,7,a,False,False
+2001,Duke,North Carolina,17,52,b,False,False
+2002,Duke,North Carolina,21,23,b,False,False
+2003,Duke,North Carolina,30,22,a,False,False
+2004,Duke,North Carolina,17,40,b,False,False
+2005,Duke,North Carolina,21,24,b,False,False
+2006,Duke,North Carolina,44,45,b,False,False
+2007,Duke,North Carolina,14,20,b,False,False
+2008,Duke,North Carolina,20,28,b,False,False
+2009,Duke,North Carolina,6,19,b,False,False
+2010,Duke,North Carolina,19,24,b,False,False
+2011,Duke,North Carolina,21,37,b,False,False
+2012,Duke,North Carolina,33,30,a,False,False
+2013,Duke,North Carolina,27,25,a,False,False
+2014,Duke,North Carolina,20,45,b,False,False
+2015,Duke,North Carolina,31,66,b,False,False
+2016,Duke,North Carolina,28,27,a,False,False
+2017,Duke,North Carolina,27,17,a,False,False
+2018,Duke,North Carolina,42,35,a,False,False
+2019,Duke,North Carolina,17,20,b,False,False
+2020,Duke,North Carolina,24,56,b,False,False
+2021,Duke,North Carolina,7,38,b,False,False
+2022,Duke,North Carolina,35,38,b,False,False
+2023,Duke,North Carolina,45,47,b,False,False
+2024,Duke,North Carolina,21,20,a,False,False
+2025,Duke,North Carolina,32,25,a,False,False
+2001,Virginia,Virginia Tech,17,31,b,False,False
+2002,Virginia,Virginia Tech,9,21,b,False,False
+2003,Virginia,Virginia Tech,35,21,a,False,False
+2004,Virginia,Virginia Tech,10,24,b,False,False
+2005,Virginia,Virginia Tech,14,52,b,False,False
+2006,Virginia,Virginia Tech,0,17,b,False,False
+2007,Virginia,Virginia Tech,21,33,b,False,False
+2008,Virginia,Virginia Tech,14,17,b,False,False
+2009,Virginia,Virginia Tech,13,42,b,False,False
+2010,Virginia,Virginia Tech,7,37,b,False,False
+2011,Virginia,Virginia Tech,0,38,b,False,False
+2012,Virginia,Virginia Tech,14,17,b,False,False
+2013,Virginia,Virginia Tech,6,16,b,False,False
+2014,Virginia,Virginia Tech,20,24,b,False,False
+2015,Virginia,Virginia Tech,20,23,b,False,False
+2016,Virginia,Virginia Tech,10,52,b,False,False
+2017,Virginia,Virginia Tech,0,10,b,False,False
+2018,Virginia,Virginia Tech,31,34,b,False,False
+2019,Virginia,Virginia Tech,39,30,a,False,False
+2020,Virginia,Virginia Tech,15,33,b,False,False
+2021,Virginia,Virginia Tech,24,29,b,False,False
+2023,Virginia,Virginia Tech,17,55,b,False,False
+2024,Virginia,Virginia Tech,17,37,b,False,False
+2025,Virginia,Virginia Tech,27,7,a,False,False
+2001,Louisville,Kentucky,36,10,a,False,False
+2002,Louisville,Kentucky,17,22,b,False,False
+2003,Louisville,Kentucky,40,24,a,False,False
+2004,Louisville,Kentucky,28,0,a,False,False
+2005,Louisville,Kentucky,31,24,a,False,False
+2006,Louisville,Kentucky,59,28,a,False,False
+2007,Louisville,Kentucky,34,40,b,False,False
+2008,Louisville,Kentucky,2,27,b,False,False
+2009,Louisville,Kentucky,27,31,b,False,False
+2010,Louisville,Kentucky,16,23,b,False,False
+2011,Louisville,Kentucky,24,17,a,False,False
+2012,Louisville,Kentucky,32,14,a,False,False
+2013,Louisville,Kentucky,27,13,a,False,False
+2014,Louisville,Kentucky,44,40,a,False,False
+2015,Louisville,Kentucky,38,24,a,False,False
+2016,Louisville,Kentucky,38,41,b,False,False
+2017,Louisville,Kentucky,44,17,a,False,False
+2018,Louisville,Kentucky,10,56,b,False,False
+2019,Louisville,Kentucky,13,45,b,False,False
+2021,Louisville,Kentucky,21,52,b,False,False
+2022,Louisville,Kentucky,13,26,b,False,False
+2023,Louisville,Kentucky,31,38,b,False,False
+2024,Louisville,Kentucky,41,14,a,False,False
+2025,Louisville,Kentucky,41,0,a,False,False
+2001,Pittsburgh,West Virginia,23,17,a,False,False
+2002,Pittsburgh,West Virginia,17,24,b,False,False
+2003,Pittsburgh,West Virginia,31,52,b,False,False
+2004,Pittsburgh,West Virginia,16,13,a,False,False
+2005,Pittsburgh,West Virginia,13,45,b,False,False
+2006,Pittsburgh,West Virginia,27,45,b,False,False
+2007,Pittsburgh,West Virginia,13,9,a,False,False
+2008,Pittsburgh,West Virginia,19,15,a,False,False
+2009,Pittsburgh,West Virginia,16,19,b,False,False
+2010,Pittsburgh,West Virginia,10,35,b,False,False
+2011,Pittsburgh,West Virginia,20,21,b,False,False
+2022,Pittsburgh,West Virginia,38,31,a,False,False
+2023,Pittsburgh,West Virginia,6,17,b,False,False
+2024,Pittsburgh,West Virginia,38,34,a,False,False
+2025,Pittsburgh,West Virginia,24,31,b,False,False
+2001,Miami (FL),Florida State,49,27,a,False,False
+2002,Miami (FL),Florida State,28,27,a,False,False
+2003,Miami (FL),Florida State,22,14,a,False,False
+2003,Miami (FL),Florida State,16,14,a,True,True
+2004,Miami (FL),Florida State,16,10,a,False,False
+2005,Miami (FL),Florida State,7,10,b,False,False
+2006,Miami (FL),Florida State,10,13,b,False,False
+2007,Miami (FL),Florida State,37,29,a,False,False
+2008,Miami (FL),Florida State,39,41,b,False,False
+2009,Miami (FL),Florida State,38,34,a,False,False
+2010,Miami (FL),Florida State,17,45,b,False,False
+2011,Miami (FL),Florida State,19,23,b,False,False
+2012,Miami (FL),Florida State,20,33,b,False,False
+2013,Miami (FL),Florida State,14,41,b,False,False
+2014,Miami (FL),Florida State,26,30,b,False,False
+2015,Miami (FL),Florida State,24,29,b,False,False
+2016,Miami (FL),Florida State,19,20,b,False,False
+2017,Miami (FL),Florida State,24,20,a,False,False
+2018,Miami (FL),Florida State,28,27,a,False,False
+2019,Miami (FL),Florida State,27,10,a,False,False
+2020,Miami (FL),Florida State,52,10,a,False,False
+2021,Miami (FL),Florida State,28,31,b,False,False
+2022,Miami (FL),Florida State,3,45,b,False,False
+2023,Miami (FL),Florida State,20,27,b,False,False
+2024,Miami (FL),Florida State,36,14,a,False,False
+2025,Miami (FL),Florida State,28,22,a,False,False
+2001,Texas,Oklahoma,3,14,b,False,False
+2002,Texas,Oklahoma,24,35,b,False,False
+2003,Texas,Oklahoma,13,65,b,False,False
+2004,Texas,Oklahoma,0,12,b,False,False
+2005,Texas,Oklahoma,45,12,a,False,False
+2006,Texas,Oklahoma,28,10,a,False,False
+2007,Texas,Oklahoma,21,28,b,False,False
+2008,Texas,Oklahoma,45,35,a,False,True
+2009,Texas,Oklahoma,16,13,a,False,True
+2010,Texas,Oklahoma,20,28,b,False,True
+2011,Texas,Oklahoma,17,55,b,False,True
+2012,Texas,Oklahoma,21,63,b,False,True
+2013,Texas,Oklahoma,36,20,a,False,True
+2014,Texas,Oklahoma,26,31,b,False,True
+2015,Texas,Oklahoma,24,17,a,False,True
+2016,Texas,Oklahoma,40,45,b,False,True
+2017,Texas,Oklahoma,24,29,b,False,True
+2018,Texas,Oklahoma,48,45,a,False,True
+2018,Texas,Oklahoma,27,39,b,False,True
+2019,Texas,Oklahoma,27,34,b,False,True
+2020,Texas,Oklahoma,45,53,b,False,True
+2021,Texas,Oklahoma,48,55,b,False,True
+2022,Texas,Oklahoma,49,0,a,False,True
+2023,Texas,Oklahoma,30,34,b,False,True
+2024,Texas,Oklahoma,34,3,a,False,True
+2025,Texas,Oklahoma,23,6,a,False,True
+2001,Florida,Georgia,24,10,a,False,False
+2002,Florida,Georgia,20,13,a,False,False
+2003,Florida,Georgia,16,13,a,False,False
+2004,Florida,Georgia,24,31,b,False,True
+2005,Florida,Georgia,14,10,a,False,False
+2006,Florida,Georgia,21,14,a,False,False
+2007,Florida,Georgia,30,42,b,False,False
+2008,Florida,Georgia,49,10,a,False,True
+2009,Florida,Georgia,41,17,a,False,True
+2010,Florida,Georgia,34,31,a,False,True
+2011,Florida,Georgia,20,24,b,False,True
+2012,Florida,Georgia,9,17,b,False,True
+2013,Florida,Georgia,20,23,b,False,True
+2014,Florida,Georgia,38,20,a,False,True
+2015,Florida,Georgia,27,3,a,False,True
+2016,Florida,Georgia,24,10,a,False,True
+2017,Florida,Georgia,7,42,b,False,True
+2018,Florida,Georgia,17,36,b,False,True
+2019,Florida,Georgia,17,24,b,False,True
+2020,Florida,Georgia,44,28,a,False,True
+2021,Florida,Georgia,7,34,b,False,True
+2022,Florida,Georgia,20,42,b,False,True
+2023,Florida,Georgia,20,43,b,False,True
+2024,Florida,Georgia,20,34,b,False,True
+2025,Florida,Georgia,20,24,b,False,True
+2001,Alabama,Tennessee,24,35,b,False,False
+2002,Alabama,Tennessee,34,14,a,False,False
+2003,Alabama,Tennessee,43,51,b,False,False
+2004,Alabama,Tennessee,13,17,b,False,False
+2005,Alabama,Tennessee,6,3,a,False,False
+2006,Alabama,Tennessee,13,16,b,False,False
+2007,Alabama,Tennessee,41,17,a,False,False
+2008,Alabama,Tennessee,29,9,a,False,False
+2009,Alabama,Tennessee,12,10,a,False,False
+2010,Alabama,Tennessee,41,10,a,False,False
+2011,Alabama,Tennessee,37,6,a,False,False
+2012,Alabama,Tennessee,44,13,a,False,False
+2013,Alabama,Tennessee,45,10,a,False,False
+2014,Alabama,Tennessee,34,20,a,False,False
+2015,Alabama,Tennessee,19,14,a,False,False
+2016,Alabama,Tennessee,49,10,a,False,False
+2017,Alabama,Tennessee,45,7,a,False,False
+2018,Alabama,Tennessee,58,21,a,False,False
+2019,Alabama,Tennessee,35,13,a,False,False
+2020,Alabama,Tennessee,48,17,a,False,False
+2021,Alabama,Tennessee,52,24,a,False,False
+2022,Alabama,Tennessee,49,52,b,False,False
+2023,Alabama,Tennessee,34,20,a,False,False
+2024,Alabama,Tennessee,17,24,b,False,False
+2025,Alabama,Tennessee,37,20,a,False,False
+2001,Alabama,LSU,21,35,b,False,False
+2002,Alabama,LSU,31,0,a,False,False
+2003,Alabama,LSU,3,27,b,False,False
+2004,Alabama,LSU,10,26,b,False,False
+2005,Alabama,LSU,13,16,b,False,False
+2006,Alabama,LSU,14,28,b,False,False
+2007,Alabama,LSU,34,41,b,False,False
+2008,Alabama,LSU,27,21,a,False,False
+2009,Alabama,LSU,24,15,a,False,False
+2010,Alabama,LSU,21,24,b,False,False
+2011,Alabama,LSU,6,9,b,False,False
+2011,Alabama,LSU,21,0,a,True,True
+2012,Alabama,LSU,21,17,a,False,False
+2013,Alabama,LSU,38,17,a,False,False
+2014,Alabama,LSU,20,13,a,False,False
+2015,Alabama,LSU,30,16,a,False,False
+2016,Alabama,LSU,10,0,a,False,False
+2017,Alabama,LSU,24,10,a,False,False
+2018,Alabama,LSU,29,0,a,False,False
+2019,Alabama,LSU,41,46,b,False,False
+2020,Alabama,LSU,55,17,a,False,False
+2021,Alabama,LSU,20,14,a,False,False
+2022,Alabama,LSU,31,32,b,False,False
+2023,Alabama,LSU,42,28,a,False,False
+2024,Alabama,LSU,42,13,a,False,False
+2025,Alabama,LSU,20,9,a,False,False
+2001,Auburn,Georgia,24,17,a,False,False
+2002,Auburn,Georgia,21,24,b,False,False
+2003,Auburn,Georgia,7,26,b,False,False
+2004,Auburn,Georgia,24,6,a,False,False
+2005,Auburn,Georgia,31,30,a,False,False
+2006,Auburn,Georgia,15,37,b,False,False
+2007,Auburn,Georgia,20,45,b,False,False
+2008,Auburn,Georgia,13,17,b,False,False
+2009,Auburn,Georgia,24,31,b,False,False
+2010,Auburn,Georgia,49,31,a,False,False
+2011,Auburn,Georgia,7,45,b,False,False
+2012,Auburn,Georgia,0,38,b,False,False
+2013,Auburn,Georgia,43,38,a,False,False
+2014,Auburn,Georgia,7,34,b,False,False
+2015,Auburn,Georgia,13,20,b,False,False
+2016,Auburn,Georgia,7,13,b,False,False
+2017,Auburn,Georgia,40,17,a,False,False
+2017,Auburn,Georgia,7,28,b,False,True
+2018,Auburn,Georgia,10,27,b,False,False
+2019,Auburn,Georgia,14,21,b,False,False
+2020,Auburn,Georgia,6,27,b,False,False
+2021,Auburn,Georgia,10,34,b,False,False
+2022,Auburn,Georgia,10,42,b,False,False
+2023,Auburn,Georgia,20,27,b,False,False
+2024,Auburn,Georgia,13,31,b,False,False
+2025,Auburn,Georgia,10,20,b,False,False
+2001,Michigan,Michigan State,24,26,b,False,False
+2002,Michigan,Michigan State,49,3,a,False,False
+2003,Michigan,Michigan State,27,20,a,False,False
+2004,Michigan,Michigan State,45,37,a,False,False
+2005,Michigan,Michigan State,34,31,a,False,False
+2006,Michigan,Michigan State,31,13,a,False,False
+2007,Michigan,Michigan State,28,24,a,False,False
+2008,Michigan,Michigan State,21,35,b,False,False
+2009,Michigan,Michigan State,20,26,b,False,False
+2010,Michigan,Michigan State,17,34,b,False,False
+2011,Michigan,Michigan State,14,28,b,False,False
+2012,Michigan,Michigan State,12,10,a,False,False
+2013,Michigan,Michigan State,6,29,b,False,False
+2014,Michigan,Michigan State,11,35,b,False,False
+2015,Michigan,Michigan State,23,27,b,False,False
+2016,Michigan,Michigan State,32,23,a,False,False
+2017,Michigan,Michigan State,10,14,b,False,False
+2018,Michigan,Michigan State,21,7,a,False,False
+2019,Michigan,Michigan State,44,10,a,False,False
+2020,Michigan,Michigan State,24,27,b,False,False
+2021,Michigan,Michigan State,33,37,b,False,False
+2022,Michigan,Michigan State,29,7,a,False,False
+2023,Michigan,Michigan State,49,0,a,False,False
+2024,Michigan,Michigan State,24,17,a,False,False
+2025,Michigan,Michigan State,31,20,a,False,False
+2001,Michigan,Minnesota,31,10,a,False,False
+2002,Michigan,Minnesota,41,24,a,False,False
+2003,Michigan,Minnesota,38,35,a,False,False
+2004,Michigan,Minnesota,27,24,a,False,False
+2005,Michigan,Minnesota,20,23,b,False,False
+2006,Michigan,Minnesota,28,14,a,False,False
+2007,Michigan,Minnesota,34,10,a,False,False
+2008,Michigan,Minnesota,29,6,a,False,False
+2011,Michigan,Minnesota,58,0,a,False,False
+2012,Michigan,Minnesota,35,13,a,False,False
+2013,Michigan,Minnesota,42,13,a,False,False
+2014,Michigan,Minnesota,14,30,b,False,False
+2015,Michigan,Minnesota,29,26,a,False,False
+2017,Michigan,Minnesota,33,10,a,False,False
+2020,Michigan,Minnesota,49,24,a,False,False
+2023,Michigan,Minnesota,52,10,a,False,False
+2024,Michigan,Minnesota,27,24,a,False,False
+2001,Iowa,Iowa State,14,17,b,False,False
+2002,Iowa,Iowa State,31,36,b,False,False
+2003,Iowa,Iowa State,40,21,a,False,False
+2004,Iowa,Iowa State,17,10,a,False,False
+2005,Iowa,Iowa State,3,23,b,False,False
+2006,Iowa,Iowa State,27,17,a,False,False
+2007,Iowa,Iowa State,13,15,b,False,False
+2008,Iowa,Iowa State,17,5,a,False,False
+2009,Iowa,Iowa State,35,3,a,False,False
+2010,Iowa,Iowa State,35,7,a,False,False
+2011,Iowa,Iowa State,41,44,b,False,False
+2012,Iowa,Iowa State,6,9,b,False,False
+2013,Iowa,Iowa State,27,21,a,False,False
+2014,Iowa,Iowa State,17,20,b,False,False
+2015,Iowa,Iowa State,31,17,a,False,False
+2016,Iowa,Iowa State,42,3,a,False,False
+2017,Iowa,Iowa State,44,41,a,False,False
+2018,Iowa,Iowa State,13,3,a,False,False
+2019,Iowa,Iowa State,18,17,a,False,False
+2021,Iowa,Iowa State,27,17,a,False,False
+2022,Iowa,Iowa State,7,10,b,False,False
+2023,Iowa,Iowa State,20,13,a,False,False
+2024,Iowa,Iowa State,19,20,b,False,False
+2025,Iowa,Iowa State,13,16,b,False,False
+2001,Iowa,Minnesota,42,24,a,False,False
+2002,Iowa,Minnesota,45,21,a,False,False
+2003,Iowa,Minnesota,40,22,a,False,False
+2004,Iowa,Minnesota,29,27,a,False,False
+2005,Iowa,Minnesota,52,28,a,False,False
+2006,Iowa,Minnesota,24,34,b,False,False
+2007,Iowa,Minnesota,21,16,a,False,False
+2008,Iowa,Minnesota,55,0,a,False,False
+2009,Iowa,Minnesota,12,0,a,False,False
+2010,Iowa,Minnesota,24,27,b,False,False
+2011,Iowa,Minnesota,21,22,b,False,False
+2012,Iowa,Minnesota,31,13,a,False,False
+2013,Iowa,Minnesota,23,7,a,False,False
+2014,Iowa,Minnesota,14,51,b,False,False
+2015,Iowa,Minnesota,40,35,a,False,False
+2016,Iowa,Minnesota,14,7,a,False,False
+2017,Iowa,Minnesota,17,10,a,False,False
+2018,Iowa,Minnesota,48,31,a,False,False
+2019,Iowa,Minnesota,23,19,a,False,False
+2020,Iowa,Minnesota,35,7,a,False,False
+2021,Iowa,Minnesota,27,22,a,False,False
+2022,Iowa,Minnesota,13,10,a,False,False
+2023,Iowa,Minnesota,10,12,b,False,False
+2024,Iowa,Minnesota,31,14,a,False,False
+2025,Iowa,Minnesota,41,3,a,False,False
+2001,Wisconsin,Iowa,34,28,a,False,False
+2002,Wisconsin,Iowa,3,20,b,False,False
+2003,Wisconsin,Iowa,21,27,b,False,False
+2004,Wisconsin,Iowa,7,30,b,False,False
+2005,Wisconsin,Iowa,10,20,b,False,False
+2006,Wisconsin,Iowa,24,21,a,False,False
+2007,Wisconsin,Iowa,17,13,a,False,False
+2008,Wisconsin,Iowa,16,38,b,False,False
+2009,Wisconsin,Iowa,10,20,b,False,False
+2010,Wisconsin,Iowa,31,30,a,False,False
+2013,Wisconsin,Iowa,28,9,a,False,False
+2014,Wisconsin,Iowa,26,24,a,False,False
+2015,Wisconsin,Iowa,6,10,b,False,False
+2016,Wisconsin,Iowa,17,9,a,False,False
+2017,Wisconsin,Iowa,38,14,a,False,False
+2018,Wisconsin,Iowa,28,17,a,False,False
+2019,Wisconsin,Iowa,24,22,a,False,False
+2020,Wisconsin,Iowa,7,28,b,False,False
+2021,Wisconsin,Iowa,27,7,a,False,False
+2022,Wisconsin,Iowa,10,24,b,False,False
+2023,Wisconsin,Iowa,6,15,b,False,False
+2024,Wisconsin,Iowa,10,42,b,False,False
+2025,Wisconsin,Iowa,0,37,b,False,False
+2011,Nebraska,Wisconsin,17,48,b,False,False
+2012,Nebraska,Wisconsin,30,27,a,False,False
+2012,Nebraska,Wisconsin,31,70,b,False,True
+2014,Nebraska,Wisconsin,24,59,b,False,False
+2015,Nebraska,Wisconsin,21,23,b,False,False
+2016,Nebraska,Wisconsin,17,23,b,False,False
+2017,Nebraska,Wisconsin,17,38,b,False,False
+2018,Nebraska,Wisconsin,24,41,b,False,False
+2019,Nebraska,Wisconsin,21,37,b,False,False
+2021,Nebraska,Wisconsin,28,35,b,False,False
+2022,Nebraska,Wisconsin,14,15,b,False,False
+2023,Nebraska,Wisconsin,17,24,b,False,False
+2024,Nebraska,Wisconsin,44,25,a,False,False
+2001,Purdue,Illinois,13,38,b,False,False
+2002,Purdue,Illinois,31,38,b,False,False
+2003,Purdue,Illinois,43,10,a,False,False
+2004,Purdue,Illinois,38,30,a,False,False
+2005,Purdue,Illinois,37,3,a,False,False
+2006,Purdue,Illinois,42,31,a,False,False
+2009,Purdue,Illinois,24,14,a,False,False
+2010,Purdue,Illinois,10,44,b,False,False
+2011,Purdue,Illinois,21,14,a,False,False
+2012,Purdue,Illinois,20,17,a,False,False
+2013,Purdue,Illinois,16,20,b,False,False
+2014,Purdue,Illinois,38,27,a,False,False
+2015,Purdue,Illinois,14,48,b,False,False
+2016,Purdue,Illinois,34,31,a,False,False
+2017,Purdue,Illinois,29,10,a,False,False
+2018,Purdue,Illinois,46,7,a,False,False
+2019,Purdue,Illinois,6,24,b,False,False
+2020,Purdue,Illinois,31,24,a,False,False
+2021,Purdue,Illinois,13,9,a,False,False
+2022,Purdue,Illinois,31,24,a,False,False
+2023,Purdue,Illinois,44,19,a,False,False
+2024,Purdue,Illinois,49,50,b,False,False
+2025,Purdue,Illinois,27,43,b,False,False
+2001,USC,Notre Dame,16,27,b,False,False
+2002,USC,Notre Dame,44,13,a,False,False
+2003,USC,Notre Dame,45,14,a,False,False
+2004,USC,Notre Dame,41,10,a,False,False
+2005,USC,Notre Dame,34,31,a,False,False
+2006,USC,Notre Dame,44,24,a,False,False
+2007,USC,Notre Dame,38,0,a,False,False
+2008,USC,Notre Dame,38,3,a,False,False
+2009,USC,Notre Dame,34,27,a,False,False
+2010,USC,Notre Dame,16,20,b,False,False
+2011,USC,Notre Dame,31,17,a,False,False
+2012,USC,Notre Dame,13,22,b,False,False
+2013,USC,Notre Dame,10,14,b,False,False
+2014,USC,Notre Dame,49,14,a,False,False
+2015,USC,Notre Dame,31,41,b,False,False
+2016,USC,Notre Dame,45,27,a,False,False
+2017,USC,Notre Dame,14,49,b,False,False
+2018,USC,Notre Dame,17,24,b,False,False
+2019,USC,Notre Dame,27,30,b,False,False
+2021,USC,Notre Dame,16,31,b,False,False
+2022,USC,Notre Dame,38,27,a,False,False
+2023,USC,Notre Dame,20,48,b,False,False
+2024,USC,Notre Dame,35,49,b,False,False
+2025,USC,Notre Dame,24,34,b,False,False
+2001,Notre Dame,Navy,34,16,a,False,False
+2002,Notre Dame,Navy,30,23,a,False,False
+2003,Notre Dame,Navy,27,24,a,False,False
+2004,Notre Dame,Navy,27,9,a,False,False
+2005,Notre Dame,Navy,42,21,a,False,False
+2006,Notre Dame,Navy,38,14,a,False,False
+2007,Notre Dame,Navy,44,46,b,False,False
+2008,Notre Dame,Navy,27,21,a,False,False
+2009,Notre Dame,Navy,21,23,b,False,False
+2010,Notre Dame,Navy,17,35,b,False,True
+2011,Notre Dame,Navy,56,14,a,False,False
+2012,Notre Dame,Navy,50,10,a,False,True
+2013,Notre Dame,Navy,38,34,a,False,False
+2014,Notre Dame,Navy,49,39,a,False,True
+2015,Notre Dame,Navy,41,24,a,False,False
+2016,Notre Dame,Navy,27,28,b,False,True
+2017,Notre Dame,Navy,24,17,a,False,False
+2018,Notre Dame,Navy,44,22,a,False,True
+2019,Notre Dame,Navy,52,20,a,False,False
+2021,Notre Dame,Navy,34,6,a,False,False
+2022,Notre Dame,Navy,35,32,a,False,True
+2023,Notre Dame,Navy,42,3,a,False,True
+2024,Notre Dame,Navy,51,14,a,False,True
+2025,Notre Dame,Navy,49,10,a,False,False
+2001,Navy,Air Force,18,24,b,False,False
+2002,Navy,Air Force,7,48,b,False,False
+2003,Navy,Air Force,28,25,a,False,False
+2004,Navy,Air Force,24,21,a,False,False
+2005,Navy,Air Force,27,24,a,False,False
+2006,Navy,Air Force,24,17,a,False,False
+2007,Navy,Air Force,31,20,a,False,False
+2008,Navy,Air Force,33,27,a,False,False
+2009,Navy,Air Force,16,13,a,False,False
+2010,Navy,Air Force,6,14,b,False,False
+2011,Navy,Air Force,34,35,b,False,False
+2012,Navy,Air Force,28,21,a,False,False
+2013,Navy,Air Force,28,10,a,False,False
+2014,Navy,Air Force,21,30,b,False,False
+2015,Navy,Air Force,33,11,a,False,False
+2016,Navy,Air Force,14,28,b,False,False
+2017,Navy,Air Force,48,45,a,False,False
+2018,Navy,Air Force,7,35,b,False,False
+2019,Navy,Air Force,34,25,a,False,False
+2020,Navy,Air Force,7,40,b,False,False
+2021,Navy,Air Force,3,23,b,False,False
+2022,Navy,Air Force,10,13,b,False,False
+2023,Navy,Air Force,6,17,b,False,False
+2024,Navy,Air Force,34,7,a,False,False
+2025,Navy,Air Force,34,31,a,False,False
+2001,Army,Air Force,24,34,b,False,False
+2002,Army,Air Force,30,49,b,False,False
+2003,Army,Air Force,3,31,b,False,False
+2004,Army,Air Force,22,31,b,False,False
+2005,Army,Air Force,27,24,a,False,False
+2006,Army,Air Force,7,43,b,False,False
+2007,Army,Air Force,10,30,b,False,False
+2008,Army,Air Force,7,16,b,False,False
+2009,Army,Air Force,7,35,b,False,False
+2010,Army,Air Force,22,42,b,False,False
+2011,Army,Air Force,14,24,b,False,False
+2012,Army,Air Force,41,21,a,False,False
+2013,Army,Air Force,28,42,b,False,False
+2014,Army,Air Force,6,23,b,False,False
+2015,Army,Air Force,3,20,b,False,False
+2016,Army,Air Force,12,31,b,False,False
+2017,Army,Air Force,21,0,a,False,False
+2018,Army,Air Force,17,14,a,False,False
+2019,Army,Air Force,13,17,b,False,False
+2020,Army,Air Force,10,7,a,False,False
+2021,Army,Air Force,21,14,a,False,True
+2022,Army,Air Force,7,13,b,False,True
+2023,Army,Air Force,23,3,a,False,True
+2024,Army,Air Force,20,3,a,False,False
+2025,Army,Air Force,20,17,a,False,False
+2001,Colorado,Colorado State,41,14,a,False,False
+2002,Colorado,Colorado State,14,19,b,False,False
+2003,Colorado,Colorado State,42,35,a,False,False
+2004,Colorado,Colorado State,27,24,a,False,False
+2005,Colorado,Colorado State,31,28,a,False,False
+2006,Colorado,Colorado State,10,14,b,False,False
+2007,Colorado,Colorado State,31,28,a,False,False
+2008,Colorado,Colorado State,38,17,a,False,True
+2009,Colorado,Colorado State,17,23,b,False,False
+2010,Colorado,Colorado State,24,3,a,False,True
+2011,Colorado,Colorado State,28,14,a,False,True
+2012,Colorado,Colorado State,17,22,b,False,True
+2013,Colorado,Colorado State,41,27,a,False,True
+2014,Colorado,Colorado State,17,31,b,False,True
+2015,Colorado,Colorado State,27,24,a,False,True
+2016,Colorado,Colorado State,44,7,a,False,True
+2017,Colorado,Colorado State,17,3,a,False,True
+2018,Colorado,Colorado State,45,13,a,False,True
+2019,Colorado,Colorado State,52,31,a,False,True
+2023,Colorado,Colorado State,43,35,a,False,False
+2024,Colorado,Colorado State,28,9,a,False,False
+2001,Wyoming,Colorado State,14,42,b,False,False
+2002,Wyoming,Colorado State,36,44,b,False,False
+2003,Wyoming,Colorado State,35,28,a,False,False
+2004,Wyoming,Colorado State,7,30,b,False,False
+2005,Wyoming,Colorado State,31,39,b,False,False
+2006,Wyoming,Colorado State,24,0,a,False,False
+2007,Wyoming,Colorado State,28,36,b,False,False
+2008,Wyoming,Colorado State,20,31,b,False,False
+2009,Wyoming,Colorado State,17,16,a,False,False
+2010,Wyoming,Colorado State,44,0,a,False,False
+2011,Wyoming,Colorado State,22,19,a,False,False
+2012,Wyoming,Colorado State,45,31,a,False,False
+2013,Wyoming,Colorado State,22,52,b,False,False
+2014,Wyoming,Colorado State,31,45,b,False,False
+2015,Wyoming,Colorado State,7,26,b,False,False
+2016,Wyoming,Colorado State,38,17,a,False,False
+2017,Wyoming,Colorado State,16,13,a,False,False
+2018,Wyoming,Colorado State,34,21,a,False,False
+2019,Wyoming,Colorado State,17,7,a,False,False
+2020,Wyoming,Colorado State,24,34,b,False,False
+2021,Wyoming,Colorado State,31,17,a,False,False
+2022,Wyoming,Colorado State,14,13,a,False,False
+2023,Wyoming,Colorado State,24,15,a,False,False
+2024,Wyoming,Colorado State,10,24,b,False,False
+2025,Wyoming,Colorado State,28,0,a,False,False
+2001,Boise State,Fresno State,35,30,a,False,False
+2002,Boise State,Fresno State,67,21,a,False,False
+2003,Boise State,Fresno State,31,17,a,False,False
+2004,Boise State,Fresno State,33,16,a,False,False
+2005,Boise State,Fresno State,7,27,b,False,False
+2006,Boise State,Fresno State,45,21,a,False,False
+2007,Boise State,Fresno State,34,21,a,False,False
+2008,Boise State,Fresno State,61,10,a,False,False
+2009,Boise State,Fresno State,51,34,a,False,False
+2010,Boise State,Fresno State,51,0,a,False,False
+2011,Boise State,Fresno State,57,7,a,False,False
+2012,Boise State,Fresno State,20,10,a,False,False
+2013,Boise State,Fresno State,40,41,b,False,False
+2014,Boise State,Fresno State,37,27,a,False,False
+2014,Boise State,Fresno State,28,14,a,False,False
+2017,Boise State,Fresno State,17,28,b,False,False
+2017,Boise State,Fresno State,17,14,a,False,False
+2018,Boise State,Fresno State,24,17,a,False,False
+2018,Boise State,Fresno State,16,19,b,False,False
+2021,Boise State,Fresno State,40,14,a,False,False
+2022,Boise State,Fresno State,40,20,a,False,False
+2022,Boise State,Fresno State,16,28,b,False,False
+2023,Boise State,Fresno State,30,37,b,False,False
+2025,Boise State,Fresno State,7,30,b,False,False
+2001,Nevada,UNLV,12,27,b,False,False
+2002,Nevada,UNLV,17,21,b,False,False
+2003,Nevada,UNLV,12,16,b,False,False
+2004,Nevada,UNLV,13,48,b,False,False
+2005,Nevada,UNLV,22,14,a,False,False
+2006,Nevada,UNLV,31,3,a,False,False
+2007,Nevada,UNLV,27,20,a,False,False
+2008,Nevada,UNLV,49,27,a,False,False
+2009,Nevada,UNLV,63,28,a,False,False
+2010,Nevada,UNLV,44,26,a,False,False
+2011,Nevada,UNLV,37,0,a,False,False
+2012,Nevada,UNLV,42,37,a,False,False
+2013,Nevada,UNLV,22,27,b,False,False
+2014,Nevada,UNLV,49,27,a,False,False
+2015,Nevada,UNLV,17,23,b,False,False
+2016,Nevada,UNLV,45,10,a,False,False
+2017,Nevada,UNLV,23,16,a,False,False
+2018,Nevada,UNLV,29,34,b,False,False
+2019,Nevada,UNLV,30,33,b,False,False
+2020,Nevada,UNLV,37,19,a,False,False
+2021,Nevada,UNLV,51,20,a,False,False
+2022,Nevada,UNLV,22,27,b,False,False
+2023,Nevada,UNLV,27,45,b,False,False
+2024,Nevada,UNLV,14,38,b,False,False
+2025,Nevada,UNLV,17,42,b,False,False
+2001,New Mexico,New Mexico State,53,0,a,False,False
+2002,New Mexico,New Mexico State,13,24,b,False,False
+2003,New Mexico,New Mexico State,24,17,a,False,False
+2004,New Mexico,New Mexico State,38,3,a,False,False
+2005,New Mexico,New Mexico State,38,21,a,False,False
+2006,New Mexico,New Mexico State,34,28,a,False,False
+2007,New Mexico,New Mexico State,44,34,a,False,False
+2008,New Mexico,New Mexico State,35,24,a,False,False
+2009,New Mexico,New Mexico State,17,20,b,False,False
+2010,New Mexico,New Mexico State,14,16,b,False,False
+2011,New Mexico,New Mexico State,28,42,b,False,False
+2012,New Mexico,New Mexico State,27,14,a,False,False
+2013,New Mexico,New Mexico State,66,17,a,False,False
+2014,New Mexico,New Mexico State,38,35,a,False,False
+2015,New Mexico,New Mexico State,38,29,a,False,False
+2016,New Mexico,New Mexico State,31,32,b,False,False
+2017,New Mexico,New Mexico State,28,30,b,False,False
+2018,New Mexico,New Mexico State,42,25,a,False,False
+2019,New Mexico,New Mexico State,55,52,a,False,False
+2021,New Mexico,New Mexico State,34,25,a,False,False
+2022,New Mexico,New Mexico State,9,21,b,False,False
+2023,New Mexico,New Mexico State,17,27,b,False,False
+2024,New Mexico,New Mexico State,50,40,a,False,False
+2025,New Mexico,New Mexico State,38,20,a,False,False
+2001,Toledo,Bowling Green,21,56,b,False,False
+2002,Toledo,Bowling Green,42,24,a,False,False
+2003,Toledo,Bowling Green,23,31,b,False,False
+2004,Toledo,Bowling Green,49,41,a,False,False
+2005,Toledo,Bowling Green,44,41,a,False,False
+2006,Toledo,Bowling Green,31,21,a,False,False
+2007,Toledo,Bowling Green,10,37,b,False,False
+2008,Toledo,Bowling Green,10,38,b,False,False
+2009,Toledo,Bowling Green,24,38,b,False,False
+2010,Toledo,Bowling Green,33,14,a,False,False
+2011,Toledo,Bowling Green,28,21,a,False,False
+2012,Toledo,Bowling Green,27,15,a,False,False
+2013,Toledo,Bowling Green,28,25,a,False,False
+2014,Toledo,Bowling Green,27,20,a,False,False
+2015,Toledo,Bowling Green,44,28,a,False,False
+2016,Toledo,Bowling Green,42,35,a,False,False
+2017,Toledo,Bowling Green,66,37,a,False,False
+2018,Toledo,Bowling Green,52,36,a,False,False
+2019,Toledo,Bowling Green,7,20,b,False,False
+2020,Toledo,Bowling Green,38,3,a,False,False
+2021,Toledo,Bowling Green,49,17,a,False,False
+2022,Toledo,Bowling Green,35,42,b,False,False
+2023,Toledo,Bowling Green,32,31,a,False,False
+2024,Toledo,Bowling Green,26,41,b,False,False
+2025,Toledo,Bowling Green,23,28,b,False,False
+2001,Ohio,Miami (OH),24,36,b,False,False
+2002,Ohio,Miami (OH),20,38,b,False,False
+2003,Ohio,Miami (OH),31,49,b,False,False
+2004,Ohio,Miami (OH),20,40,b,False,False
+2005,Ohio,Miami (OH),7,38,b,False,False
+2006,Ohio,Miami (OH),34,24,a,False,False
+2007,Ohio,Miami (OH),38,29,a,False,False
+2008,Ohio,Miami (OH),41,26,a,False,False
+2009,Ohio,Miami (OH),28,7,a,False,False
+2010,Ohio,Miami (OH),34,13,a,False,False
+2011,Ohio,Miami (OH),21,14,a,False,False
+2012,Ohio,Miami (OH),20,23,b,False,False
+2013,Ohio,Miami (OH),41,16,a,False,False
+2014,Ohio,Miami (OH),24,21,a,False,False
+2015,Ohio,Miami (OH),34,3,a,False,False
+2016,Ohio,Miami (OH),17,7,a,False,False
+2017,Ohio,Miami (OH),45,28,a,False,False
+2018,Ohio,Miami (OH),28,30,b,False,False
+2019,Ohio,Miami (OH),21,24,b,False,False
+2021,Ohio,Miami (OH),35,33,a,False,False
+2022,Ohio,Miami (OH),37,21,a,False,False
+2023,Ohio,Miami (OH),16,30,b,False,False
+2024,Ohio,Miami (OH),20,30,b,False,False
+2024,Ohio,Miami (OH),38,3,a,False,True
+2025,Ohio,Miami (OH),24,20,a,False,False
+2001,Central Michigan,Western Michigan,17,20,b,False,False
+2002,Central Michigan,Western Michigan,10,35,b,False,False
+2003,Central Michigan,Western Michigan,21,44,b,False,False
+2004,Central Michigan,Western Michigan,24,21,a,False,False
+2005,Central Michigan,Western Michigan,24,31,b,False,False
+2006,Central Michigan,Western Michigan,31,7,a,False,False
+2007,Central Michigan,Western Michigan,34,31,a,False,False
+2008,Central Michigan,Western Michigan,38,28,a,False,False
+2009,Central Michigan,Western Michigan,34,23,a,False,False
+2010,Central Michigan,Western Michigan,26,22,a,False,False
+2011,Central Michigan,Western Michigan,14,44,b,False,False
+2012,Central Michigan,Western Michigan,31,42,b,False,False
+2013,Central Michigan,Western Michigan,27,22,a,False,False
+2014,Central Michigan,Western Michigan,20,32,b,False,False
+2015,Central Michigan,Western Michigan,39,41,b,False,False
+2016,Central Michigan,Western Michigan,10,49,b,False,False
+2017,Central Michigan,Western Michigan,35,28,a,False,False
+2018,Central Michigan,Western Michigan,10,35,b,False,False
+2019,Central Michigan,Western Michigan,15,31,b,False,False
+2020,Central Michigan,Western Michigan,44,52,b,False,False
+2021,Central Michigan,Western Michigan,42,30,a,False,False
+2022,Central Michigan,Western Michigan,10,12,b,False,False
+2023,Central Michigan,Western Michigan,28,38,b,False,False
+2024,Central Michigan,Western Michigan,16,14,a,False,False
+2025,Central Michigan,Western Michigan,21,24,b,False,False
+2001,Houston,Rice,14,21,b,False,False
+2002,Houston,Rice,24,10,a,False,False
+2003,Houston,Rice,48,14,a,False,False
+2004,Houston,Rice,7,10,b,False,False
+2005,Houston,Rice,35,18,a,False,False
+2006,Houston,Rice,31,30,a,False,False
+2007,Houston,Rice,56,48,a,False,False
+2008,Houston,Rice,42,56,b,False,False
+2009,Houston,Rice,73,14,a,False,False
+2010,Houston,Rice,31,34,b,False,False
+2011,Houston,Rice,73,34,a,False,False
+2012,Houston,Rice,35,14,a,False,True
+2013,Houston,Rice,31,26,a,False,True
+2017,Houston,Rice,38,3,a,False,False
+2018,Houston,Rice,45,27,a,False,False
+2021,Houston,Rice,44,7,a,False,False
+2022,Houston,Rice,34,27,a,False,False
+2023,Houston,Rice,41,43,b,False,False
+2024,Houston,Rice,33,7,a,False,False
+2025,Houston,Rice,35,9,a,False,False
+2001,SMU,TCU,10,38,b,False,False
+2002,SMU,TCU,6,17,b,False,False
+2003,SMU,TCU,13,20,b,False,False
+2004,SMU,TCU,0,44,b,False,False
+2005,SMU,TCU,21,10,a,False,False
+2007,SMU,TCU,7,21,b,False,False
+2008,SMU,TCU,7,48,b,False,False
+2009,SMU,TCU,14,39,b,False,False
+2010,SMU,TCU,24,41,b,False,False
+2011,SMU,TCU,40,33,a,False,False
+2012,SMU,TCU,16,24,b,False,False
+2013,SMU,TCU,17,48,b,False,False
+2014,SMU,TCU,0,56,b,False,False
+2015,SMU,TCU,37,56,b,False,False
+2016,SMU,TCU,3,33,b,False,False
+2017,SMU,TCU,36,56,b,False,False
+2018,SMU,TCU,12,42,b,False,False
+2019,SMU,TCU,41,38,a,False,False
+2021,SMU,TCU,42,34,a,False,False
+2022,SMU,TCU,34,42,b,False,False
+2023,SMU,TCU,17,34,b,False,False
+2024,SMU,TCU,66,42,a,False,False
+2025,SMU,TCU,24,35,b,False,False
+2006,Baylor,TCU,7,17,b,False,False
+2007,Baylor,TCU,0,27,b,False,False
+2010,Baylor,TCU,10,45,b,False,False
+2011,Baylor,TCU,50,48,a,False,False
+2012,Baylor,TCU,21,49,b,False,False
+2013,Baylor,TCU,41,38,a,False,False
+2014,Baylor,TCU,61,58,a,False,False
+2015,Baylor,TCU,21,28,b,False,False
+2016,Baylor,TCU,22,62,b,False,False
+2017,Baylor,TCU,22,45,b,False,False
+2018,Baylor,TCU,9,16,b,False,False
+2019,Baylor,TCU,29,23,a,False,False
+2020,Baylor,TCU,23,33,b,False,False
+2021,Baylor,TCU,28,30,b,False,False
+2022,Baylor,TCU,28,29,b,False,False
+2023,Baylor,TCU,17,42,b,False,False
+2024,Baylor,TCU,37,34,a,False,False
+2025,Baylor,TCU,36,42,b,False,False
+2004,Texas Tech,TCU,70,35,a,False,False
+2006,Texas Tech,TCU,3,12,b,False,False
+2012,Texas Tech,TCU,56,53,a,False,False
+2013,Texas Tech,TCU,20,10,a,False,False
+2014,Texas Tech,TCU,27,82,b,False,False
+2015,Texas Tech,TCU,52,55,b,False,False
+2016,Texas Tech,TCU,27,24,a,False,False
+2017,Texas Tech,TCU,3,27,b,False,False
+2018,Texas Tech,TCU,17,14,a,False,False
+2019,Texas Tech,TCU,31,33,b,False,False
+2020,Texas Tech,TCU,18,34,b,False,False
+2021,Texas Tech,TCU,31,52,b,False,False
+2022,Texas Tech,TCU,24,34,b,False,False
+2023,Texas Tech,TCU,35,28,a,False,False
+2024,Texas Tech,TCU,34,35,b,False,False
+2001,Utah State,BYU,34,54,b,False,False
+2002,Utah State,BYU,34,35,b,False,False
+2006,Utah State,BYU,0,38,b,False,False
+2008,Utah State,BYU,14,34,b,False,False
+2009,Utah State,BYU,17,35,b,False,False
+2010,Utah State,BYU,31,16,a,False,False
+2011,Utah State,BYU,24,27,b,False,False
+2012,Utah State,BYU,3,6,b,False,False
+2013,Utah State,BYU,14,31,b,False,False
+2014,Utah State,BYU,35,20,a,False,False
+2015,Utah State,BYU,28,51,b,False,False
+2016,Utah State,BYU,10,28,b,False,False
+2017,Utah State,BYU,40,24,a,False,False
+2018,Utah State,BYU,45,20,a,False,False
+2019,Utah State,BYU,14,42,b,False,False
+2021,Utah State,BYU,20,34,b,False,False
+2022,Utah State,BYU,26,38,b,False,False
+2010,Southern Miss,Louisiana Tech,13,12,a,False,False
+2011,Southern Miss,Louisiana Tech,19,17,a,False,False
+2013,Southern Miss,Louisiana Tech,13,36,b,False,False
+2014,Southern Miss,Louisiana Tech,20,31,b,False,False
+2015,Southern Miss,Louisiana Tech,58,24,a,False,False
+2016,Southern Miss,Louisiana Tech,39,24,a,False,False
+2017,Southern Miss,Louisiana Tech,34,27,a,False,False
+2018,Southern Miss,Louisiana Tech,21,20,a,False,False
+2019,Southern Miss,Louisiana Tech,30,45,b,False,False
+2020,Southern Miss,Louisiana Tech,30,31,b,False,False
+2021,Southern Miss,Louisiana Tech,35,19,a,False,False
+2025,Southern Miss,Louisiana Tech,20,30,b,False,False
+2001,Marshall,Ohio,42,18,a,False,False
+2002,Marshall,Ohio,24,21,a,False,False
+2003,Marshall,Ohio,28,0,a,False,False
+2004,Marshall,Ohio,16,13,a,False,False
+2009,Marshall,Ohio,21,17,a,True,True
+2010,Marshall,Ohio,24,23,a,False,False
+2011,Marshall,Ohio,7,44,b,False,False
+2012,Marshall,Ohio,24,27,b,False,False
+2013,Marshall,Ohio,31,34,b,False,False
+2014,Marshall,Ohio,44,14,a,False,False
+2015,Marshall,Ohio,10,21,b,False,False
+2019,Marshall,Ohio,33,31,a,False,False
+2005,UCF,South Florida,14,31,b,False,False
+2006,UCF,South Florida,17,24,b,False,False
+2007,UCF,South Florida,12,64,b,False,False
+2008,UCF,South Florida,24,31,b,False,False
+2013,UCF,South Florida,23,20,a,False,False
+2014,UCF,South Florida,16,0,a,False,False
+2015,UCF,South Florida,3,44,b,False,False
+2016,UCF,South Florida,31,48,b,False,False
+2017,UCF,South Florida,49,42,a,False,False
+2018,UCF,South Florida,38,10,a,False,False
+2019,UCF,South Florida,34,7,a,False,False
+2020,UCF,South Florida,58,46,a,False,False
+2021,UCF,South Florida,17,13,a,False,False
+2022,UCF,South Florida,46,39,a,False,False
+2003,Appalachian State,Georgia Southern,28,21,a,False,False
+2004,Appalachian State,Georgia Southern,7,54,b,False,False
+2005,Appalachian State,Georgia Southern,24,7,a,False,False
+2006,Appalachian State,Georgia Southern,27,20,a,False,False
+2007,Appalachian State,Georgia Southern,35,38,b,False,False
+2008,Appalachian State,Georgia Southern,37,36,a,False,False
+2009,Appalachian State,Georgia Southern,52,16,a,False,False
+2010,Appalachian State,Georgia Southern,14,21,b,False,False
+2011,Appalachian State,Georgia Southern,24,17,a,False,False
+2012,Appalachian State,Georgia Southern,31,28,a,False,False
+2013,Appalachian State,Georgia Southern,38,14,a,False,False
+2014,Appalachian State,Georgia Southern,14,34,b,False,False
+2015,Appalachian State,Georgia Southern,31,13,a,False,False
+2016,Appalachian State,Georgia Southern,34,10,a,False,False
+2017,Appalachian State,Georgia Southern,27,6,a,False,False
+2018,Appalachian State,Georgia Southern,14,34,b,False,False
+2019,Appalachian State,Georgia Southern,21,24,b,False,False
+2020,Appalachian State,Georgia Southern,34,26,a,False,False
+2021,Appalachian State,Georgia Southern,27,3,a,False,False
+2022,Appalachian State,Georgia Southern,48,51,b,False,False
+2023,Appalachian State,Georgia Southern,55,27,a,False,False
+2024,Appalachian State,Georgia Southern,20,29,b,False,False
+2025,Appalachian State,Georgia Southern,23,25,b,False,False
+2025,Appalachian State,Georgia Southern,10,29,b,True,True
+2001,Cincinnati,Louisville,13,28,b,False,False
+2002,Cincinnati,Louisville,24,14,a,False,False
+2003,Cincinnati,Louisville,40,43,b,False,False
+2004,Cincinnati,Louisville,7,70,b,False,False
+2005,Cincinnati,Louisville,22,46,b,False,False
+2006,Cincinnati,Louisville,17,23,b,False,False
+2007,Cincinnati,Louisville,24,28,b,False,False
+2008,Cincinnati,Louisville,28,20,a,False,False
+2009,Cincinnati,Louisville,41,10,a,False,False
+2010,Cincinnati,Louisville,35,27,a,False,False
+2011,Cincinnati,Louisville,25,16,a,False,False
+2012,Cincinnati,Louisville,31,34,b,False,False
+2013,Cincinnati,Louisville,24,31,b,False,False
+2022,Cincinnati,Louisville,7,24,b,True,True
+2001,Memphis,UAB,14,17,b,False,False
+2002,Memphis,UAB,17,31,b,False,False
+2003,Memphis,UAB,10,24,b,False,False
+2004,Memphis,UAB,28,35,b,False,False
+2005,Memphis,UAB,20,37,b,False,False
+2006,Memphis,UAB,29,35,b,False,False
+2007,Memphis,UAB,25,9,a,False,False
+2008,Memphis,UAB,33,30,a,False,False
+2009,Memphis,UAB,21,31,b,False,False
+2010,Memphis,UAB,15,31,b,False,False
+2011,Memphis,UAB,35,41,b,False,False
+2012,Memphis,UAB,46,9,a,False,False
+2023,Memphis,UAB,45,21,a,False,False
+2024,Memphis,UAB,53,18,a,False,False
+2025,Memphis,UAB,24,31,b,False,False
+2001,Kentucky,Tennessee,35,38,b,False,False
+2002,Kentucky,Tennessee,0,24,b,False,False
+2003,Kentucky,Tennessee,7,20,b,False,False
+2004,Kentucky,Tennessee,31,37,b,False,False
+2005,Kentucky,Tennessee,8,27,b,False,False
+2006,Kentucky,Tennessee,12,17,b,False,False
+2007,Kentucky,Tennessee,50,52,b,False,False
+2008,Kentucky,Tennessee,10,28,b,False,False
+2009,Kentucky,Tennessee,24,30,b,False,False
+2010,Kentucky,Tennessee,14,24,b,False,False
+2011,Kentucky,Tennessee,10,7,a,False,False
+2012,Kentucky,Tennessee,17,37,b,False,False
+2013,Kentucky,Tennessee,14,27,b,False,False
+2014,Kentucky,Tennessee,16,50,b,False,False
+2015,Kentucky,Tennessee,21,52,b,False,False
+2016,Kentucky,Tennessee,36,49,b,False,False
+2017,Kentucky,Tennessee,29,26,a,False,False
+2018,Kentucky,Tennessee,7,24,b,False,False
+2019,Kentucky,Tennessee,13,17,b,False,False
+2020,Kentucky,Tennessee,34,7,a,False,False
+2021,Kentucky,Tennessee,42,45,b,False,False
+2022,Kentucky,Tennessee,6,44,b,False,False
+2023,Kentucky,Tennessee,27,33,b,False,False
+2024,Kentucky,Tennessee,18,28,b,False,False
+2025,Kentucky,Tennessee,34,56,b,False,False
+2003,Missouri,Arkansas,14,27,b,True,True
+2007,Missouri,Arkansas,38,7,a,True,True
+2014,Missouri,Arkansas,21,14,a,False,False
+2015,Missouri,Arkansas,3,28,b,False,False
+2016,Missouri,Arkansas,28,24,a,False,False
+2017,Missouri,Arkansas,48,45,a,False,False
+2018,Missouri,Arkansas,38,0,a,False,False
+2019,Missouri,Arkansas,24,14,a,False,False
+2020,Missouri,Arkansas,50,48,a,False,False
+2021,Missouri,Arkansas,17,34,b,False,False
+2022,Missouri,Arkansas,29,27,a,False,False
+2023,Missouri,Arkansas,48,14,a,False,False
+2024,Missouri,Arkansas,28,21,a,False,False
+2025,Missouri,Arkansas,31,17,a,False,False
+2001,LSU,Arkansas,41,38,a,False,False
+2002,LSU,Arkansas,20,21,b,False,False
+2003,LSU,Arkansas,55,24,a,False,False
+2004,LSU,Arkansas,43,14,a,False,False
+2005,LSU,Arkansas,19,17,a,False,False
+2006,LSU,Arkansas,31,26,a,False,False
+2007,LSU,Arkansas,48,50,b,False,False
+2008,LSU,Arkansas,30,31,b,False,False
+2009,LSU,Arkansas,33,30,a,False,False
+2010,LSU,Arkansas,23,31,b,False,False
+2011,LSU,Arkansas,41,17,a,False,False
+2012,LSU,Arkansas,20,13,a,False,False
+2013,LSU,Arkansas,31,27,a,False,False
+2014,LSU,Arkansas,0,17,b,False,False
+2015,LSU,Arkansas,14,31,b,False,False
+2016,LSU,Arkansas,38,10,a,False,False
+2017,LSU,Arkansas,33,10,a,False,False
+2018,LSU,Arkansas,24,17,a,False,False
+2019,LSU,Arkansas,56,20,a,False,False
+2020,LSU,Arkansas,27,24,a,False,False
+2021,LSU,Arkansas,13,16,b,False,False
+2022,LSU,Arkansas,13,10,a,False,False
+2023,LSU,Arkansas,34,31,a,False,False
+2024,LSU,Arkansas,34,10,a,False,False
+2025,LSU,Arkansas,23,22,a,False,False
+2013,Hawaii,Wyoming,56,59,b,False,False
+2014,Hawaii,Wyoming,38,28,a,False,False
+2017,Hawaii,Wyoming,21,28,b,False,False
+2018,Hawaii,Wyoming,17,13,a,False,False
+2020,Hawaii,Wyoming,7,31,b,False,False
+2021,Hawaii,Wyoming,38,14,a,False,False
+2022,Hawaii,Wyoming,20,27,b,False,False
+2023,Hawaii,Wyoming,9,42,b,False,False
+2025,Hawaii,Wyoming,27,7,a,False,False
+2014,Georgia State,Georgia Southern,31,69,b,False,False
+2015,Georgia State,Georgia Southern,34,7,a,False,False
+2016,Georgia State,Georgia Southern,30,24,a,False,False
+2017,Georgia State,Georgia Southern,21,17,a,False,False
+2018,Georgia State,Georgia Southern,14,35,b,False,False
+2019,Georgia State,Georgia Southern,10,38,b,False,False
+2020,Georgia State,Georgia Southern,30,24,a,False,False
+2021,Georgia State,Georgia Southern,21,14,a,False,False
+2022,Georgia State,Georgia Southern,41,33,a,False,False
+2023,Georgia State,Georgia Southern,27,44,b,False,False
+2024,Georgia State,Georgia Southern,21,38,b,False,False
+2025,Georgia State,Georgia Southern,24,41,b,False,False
+2004,Montana,Montana State,38,22,a,False,False
+2005,Montana,Montana State,6,16,b,False,False
+2006,Montana,Montana State,13,7,a,False,False
+2007,Montana,Montana State,41,20,a,False,False
+2008,Montana,Montana State,35,3,a,False,False
+2009,Montana,Montana State,33,19,a,False,False
+2010,Montana,Montana State,16,21,b,False,False
+2011,Montana,Montana State,36,10,a,False,False
+2013,Montana,Montana State,28,14,a,False,False
+2014,Montana,Montana State,34,7,a,False,False
+2015,Montana,Montana State,54,35,a,False,False
+2016,Montana,Montana State,17,24,b,False,False
+2017,Montana,Montana State,23,31,b,False,False
+2018,Montana,Montana State,25,29,b,False,False
+2019,Montana,Montana State,14,48,b,False,False
+2021,Montana,Montana State,29,10,a,False,False
+2022,Montana,Montana State,21,55,b,False,False
+2023,Montana,Montana State,37,7,a,False,False
+2024,Montana,Montana State,11,34,b,False,False
+2025,Montana,Montana State,28,31,b,False,False
+2025,Montana,Montana State,23,48,b,True,False
+2003,Harvard,Yale,37,19,a,False,False
+2004,Harvard,Yale,35,3,a,False,True
+2005,Harvard,Yale,30,24,a,False,False
+2006,Harvard,Yale,13,34,b,False,False
+2007,Harvard,Yale,37,6,a,False,False
+2008,Harvard,Yale,10,0,a,False,False
+2009,Harvard,Yale,14,10,a,False,False
+2010,Harvard,Yale,28,21,a,False,False
+2011,Harvard,Yale,45,7,a,False,False
+2012,Harvard,Yale,34,24,a,False,False
+2013,Harvard,Yale,34,7,a,False,False
+2014,Harvard,Yale,31,24,a,False,False
+2015,Harvard,Yale,38,19,a,False,False
+2016,Harvard,Yale,14,21,b,False,False
+2017,Harvard,Yale,3,24,b,False,False
+2018,Harvard,Yale,45,27,a,False,True
+2019,Harvard,Yale,43,50,b,False,False
+2021,Harvard,Yale,34,31,a,False,False
+2022,Harvard,Yale,14,19,b,False,False
+2023,Harvard,Yale,18,23,b,False,False
+2024,Harvard,Yale,29,34,b,False,False
+2025,Harvard,Yale,28,45,b,False,False
+2003,Lafayette,Lehigh,10,30,b,False,False
+2004,Lafayette,Lehigh,24,10,a,False,False
+2005,Lafayette,Lehigh,23,19,a,False,False
+2006,Lafayette,Lehigh,49,27,a,False,False
+2007,Lafayette,Lehigh,21,17,a,False,False
+2008,Lafayette,Lehigh,15,31,b,False,False
+2009,Lafayette,Lehigh,21,27,b,False,False
+2010,Lafayette,Lehigh,13,20,b,False,False
+2011,Lafayette,Lehigh,13,37,b,False,False
+2012,Lafayette,Lehigh,21,38,b,False,False
+2013,Lafayette,Lehigh,50,28,a,False,False
+2014,Lafayette,Lehigh,27,7,a,False,True
+2015,Lafayette,Lehigh,35,49,b,False,False
+2016,Lafayette,Lehigh,21,45,b,False,False
+2017,Lafayette,Lehigh,31,38,b,False,False
+2018,Lafayette,Lehigh,3,34,b,False,False
+2019,Lafayette,Lehigh,17,16,a,False,False
+2020,Lafayette,Lehigh,20,13,a,False,False
+2021,Lafayette,Lehigh,10,17,b,False,False
+2022,Lafayette,Lehigh,14,11,a,False,False
+2023,Lafayette,Lehigh,49,21,a,False,False
+2024,Lafayette,Lehigh,14,38,b,False,False
+2025,Lafayette,Lehigh,32,42,b,False,False
+2007,Grambling State,Southern,13,22,b,False,True
+2008,Grambling State,Southern,29,14,a,False,False
+2009,Grambling State,Southern,31,13,a,False,True
+2010,Grambling State,Southern,38,17,a,False,False
+2011,Grambling State,Southern,36,12,a,False,False
+2012,Grambling State,Southern,33,38,b,False,True
+2013,Grambling State,Southern,17,40,b,False,True
+2014,Grambling State,Southern,45,52,b,False,True
+2015,Grambling State,Southern,34,23,a,False,True
+2016,Grambling State,Southern,52,30,a,False,True
+2017,Grambling State,Southern,30,21,a,False,True
+2018,Grambling State,Southern,28,38,b,False,True
+2019,Grambling State,Southern,28,30,b,False,True
+2020,Grambling State,Southern,7,49,b,False,True
+2021,Grambling State,Southern,29,26,a,False,True
+2022,Grambling State,Southern,17,34,b,False,True
+2023,Grambling State,Southern,22,27,b,False,True
+2024,Grambling State,Southern,14,24,b,False,True
+2025,Grambling State,Southern,27,28,b,False,True
+2003,Florida A&M,Bethune-Cookman,35,39,b,False,True
+2004,Florida A&M,Bethune-Cookman,52,58,b,False,False
+2004,Florida A&M,Bethune-Cookman,52,58,b,False,True
+2005,Florida A&M,Bethune-Cookman,26,23,a,False,False
+2006,Florida A&M,Bethune-Cookman,35,21,a,False,True
+2007,Florida A&M,Bethune-Cookman,7,34,b,False,False
+2008,Florida A&M,Bethune-Cookman,58,35,a,False,False
+2009,Florida A&M,Bethune-Cookman,42,6,a,False,True
+2010,Florida A&M,Bethune-Cookman,38,27,a,False,False
+2011,Florida A&M,Bethune-Cookman,16,26,b,False,True
+2012,Florida A&M,Bethune-Cookman,16,21,b,False,True
+2013,Florida A&M,Bethune-Cookman,10,29,b,False,True
+2014,Florida A&M,Bethune-Cookman,17,18,b,False,True
+2015,Florida A&M,Bethune-Cookman,14,35,b,False,True
+2016,Florida A&M,Bethune-Cookman,19,39,b,False,False
+2017,Florida A&M,Bethune-Cookman,24,29,b,False,False
+2018,Florida A&M,Bethune-Cookman,19,33,b,False,True
+2019,Florida A&M,Bethune-Cookman,27,31,b,False,True
+2021,Florida A&M,Bethune-Cookman,46,21,a,False,False
+2022,Florida A&M,Bethune-Cookman,41,20,a,False,True
+2023,Florida A&M,Bethune-Cookman,24,7,a,False,True
+2024,Florida A&M,Bethune-Cookman,41,38,a,False,True
+2025,Florida A&M,Bethune-Cookman,34,38,b,False,True
+2007,Jackson State,Alcorn State,31,19,a,False,False
+2008,Jackson State,Alcorn State,26,21,a,False,False
+2009,Jackson State,Alcorn State,7,14,b,False,False
+2010,Jackson State,Alcorn State,27,14,a,False,False
+2011,Jackson State,Alcorn State,51,7,a,False,False
+2012,Jackson State,Alcorn State,37,11,a,False,False
+2013,Jackson State,Alcorn State,33,48,b,False,False
+2014,Jackson State,Alcorn State,34,31,a,False,False
+2015,Jackson State,Alcorn State,10,14,b,False,False
+2016,Jackson State,Alcorn State,16,35,b,False,False
+2017,Jackson State,Alcorn State,7,3,a,False,False
+2018,Jackson State,Alcorn State,3,24,b,False,False
+2019,Jackson State,Alcorn State,6,41,b,False,False
+2020,Jackson State,Alcorn State,2,0,a,False,False
+2021,Jackson State,Alcorn State,24,10,a,False,False
+2022,Jackson State,Alcorn State,24,13,a,False,False
+2023,Jackson State,Alcorn State,24,28,b,False,False
+2024,Jackson State,Alcorn State,48,10,a,False,False
+2025,Jackson State,Alcorn State,27,21,a,False,False
+2003,William & Mary,Richmond,59,21,a,False,True
+2004,William & Mary,Richmond,38,14,a,False,False
+2005,William & Mary,Richmond,7,41,b,False,True
+2006,William & Mary,Richmond,14,31,b,False,False
+2007,William & Mary,Richmond,20,31,b,False,True
+2008,William & Mary,Richmond,20,23,b,False,False
+2009,William & Mary,Richmond,10,13,b,False,True
+2010,William & Mary,Richmond,41,3,a,False,False
+2011,William & Mary,Richmond,25,23,a,False,False
+2012,William & Mary,Richmond,14,21,b,False,False
+2013,William & Mary,Richmond,20,31,b,False,False
+2014,William & Mary,Richmond,20,34,b,False,False
+2015,William & Mary,Richmond,9,20,b,False,False
+2015,William & Mary,Richmond,13,48,b,False,False
+2016,William & Mary,Richmond,34,13,a,False,False
+2017,William & Mary,Richmond,20,27,b,False,False
+2018,William & Mary,Richmond,6,10,b,False,False
+2019,William & Mary,Richmond,21,15,a,False,False
+2020,William & Mary,Richmond,14,21,b,False,False
+2021,William & Mary,Richmond,17,20,b,False,False
+2022,William & Mary,Richmond,37,26,a,False,False
+2023,William & Mary,Richmond,26,27,b,False,False
+2024,William & Mary,Richmond,0,27,b,False,False
+2025,William & Mary,Richmond,21,28,b,False,False
+2009,North Dakota,South Dakota,27,12,a,False,False
+2010,North Dakota,South Dakota,17,27,b,False,False
+2011,North Dakota,South Dakota,38,37,a,False,False
+2016,North Dakota,South Dakota,47,44,a,False,False
+2017,North Dakota,South Dakota,7,45,b,False,False
+2020,North Dakota,South Dakota,21,10,a,False,False
+2021,North Dakota,South Dakota,13,20,b,False,False
+2022,North Dakota,South Dakota,28,19,a,False,False
+2023,North Dakota,South Dakota,10,14,b,False,False
+2024,North Dakota,South Dakota,36,42,b,False,False
+2025,North Dakota,South Dakota,21,26,b,False,False
+2003,Eastern Washington,Idaho,8,5,a,False,False
+2012,Eastern Washington,Idaho,20,3,a,False,False
+2018,Eastern Washington,Idaho,38,14,a,False,False
+2019,Eastern Washington,Idaho,27,35,b,False,False
+2020,Eastern Washington,Idaho,21,28,b,False,False
+2020,Eastern Washington,Idaho,38,31,a,False,False
+2021,Eastern Washington,Idaho,71,21,a,False,False
+2022,Eastern Washington,Idaho,16,48,b,False,False
+2023,Eastern Washington,Idaho,36,44,b,False,False
+2024,Eastern Washington,Idaho,28,38,b,False,False
+2025,Eastern Washington,Idaho,21,14,a,False,False

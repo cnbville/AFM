@@ -26,6 +26,10 @@ pub struct Promo {
     /// Settled for credibility (two seasons on).
     #[serde(default)]
     pub settled: Option<bool>,
+    /// A word through a contact on that staff (network, minor bug 21):
+    /// how warm he is with you, 0 for a plain call.
+    #[serde(default)]
+    pub warmth: f32,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -74,7 +78,7 @@ pub fn promote(w: &mut World, id: u32, program: Option<usize>, strength: u8) -> 
     let to =
         program.map_or_else(|| "every staff that recruits your area".to_string(), |c| w.program_name(c).to_string());
     let text = format!("You called {to} about {}: \"{}.\"", p.name, STRENGTHS[strength as usize]);
-    w.scouting.hs.promoted.push(Promo { id, program, date: d, strength, settled: None });
+    w.scouting.hs.promoted.push(Promo { id, program, date: d, strength, settled: None, warmth: 0.0 });
     w.calendar.post(Event::new(d, Level::HighSchool, CalKind::News, Loudness::Small, text.clone()));
     Ok(text)
 }
@@ -91,7 +95,8 @@ pub fn promos(w: &World) -> HashMap<u32, f64> {
         }
         let cred = x.program.map_or_else(|| area_credit(w), |c| credibility(w, c));
         let reach = if x.program.is_some() { 0.5 } else { 1.0 };
-        let bump = (0.03 + 0.03 * x.strength as f64) * reach * (0.4 + cred);
+        // A friend on the staff carries your word further (minor bug 21).
+        let bump = (0.03 + 0.03 * x.strength as f64) * reach * (0.4 + cred) * (1.0 + x.warmth as f64);
         let e = out.entry(x.id).or_default();
         *e = (*e + bump).min(0.12);
     }

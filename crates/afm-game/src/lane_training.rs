@@ -120,6 +120,12 @@ fn team_of(w: &World) -> Result<(TeamRef, SeatTeam), String> {
     Ok((t, st))
 }
 
+/// When a day's football starts on the training week's clock (the
+/// calendar's day panel, update 3 lane 2).
+pub(crate) fn day_start(tier: Tier, block: Block, d: Date) -> u32 {
+    week::day_clock(tier, block, d, &Day::default(), None)["day"].as_u64().unwrap_or(540) as u32
+}
+
 /// Your job runs the practice schedule only as the head coach (an
 /// assistant plans his own players and proposes the rest).
 fn mine_head(w: &World) -> Result<(), String> {

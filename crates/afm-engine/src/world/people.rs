@@ -141,7 +141,8 @@ impl Support {
 }
 
 fn hire(rng: &mut Rng, year: i32, budget: f64, era: f64) -> Staffer {
-    let eth = if rng.chance(0.3) { super::ethnicity::Ethnicity::Black } else { super::ethnicity::Ethnicity::White };
+    // Minor bug 19: support staff of every background, as the scouts.
+    let eth = super::pro::scouts::staff_ethnicity(rng, year);
     let name = super::names::person_name(eth, year - rng.int(28, 58), rng);
     let rating = clamp(rng.normal(5.5 + 7.0 * budget + 2.0 * era, 2.8), 1.0, 20.0).round() as u8;
     Staffer { name, rating, since: year }

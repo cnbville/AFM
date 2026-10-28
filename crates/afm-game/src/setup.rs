@@ -156,19 +156,85 @@ pub fn file_safe(name: &str) -> String {
         .to_string()
 }
 
-/// A background (people topic 15): its starting reputation (1-20), the
-/// average rating its pool buys, its lean, and whether you played pro
-/// football. Proposed, not confirmed: every number here.
+/// Your coaches (update 3, SA1): once you have made a coach and started a
+/// career, the game keeps him in the game folder's `coaches` folder, apart
+/// from any save, so a new career can start with him again as he is or with
+/// something changed. The file is the setup page's own record of him.
+fn coaches_dir(home: &Path) -> PathBuf {
+    home.join("coaches")
+}
+
+/// Kept when a career starts with the setup page's record (`coach`).
+pub fn save_coach_profile(home: &Path, args: &Value) {
+    let Some(coach) = args.get("coach").filter(|c| c.is_object()) else { return };
+    let name = args.get("name").and_then(Value::as_str).unwrap_or("").trim();
+    if name.is_empty() {
+        return;
+    }
+    let dir = coaches_dir(home);
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let road = BACKGROUNDS.iter().find(|b| Some(b.key) == args.get("background").and_then(Value::as_str));
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let rec = json!({
+        "name": name,
+        "road": road.map_or("", |b| b.name),
+        "saved": stamp,
+        "coach": coach,
+    });
+    let _ =
+        std::fs::write(dir.join(format!("{}.json", file_safe(name))), serde_json::to_string(&rec).unwrap_or_default());
+}
+
+/// The coaches you have made, newest first.
+pub fn coach_profiles(home: &Path) -> Value {
+    let mut list: Vec<Value> = std::fs::read_dir(coaches_dir(home))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
+        .filter_map(|e| {
+            let mut v: Value = serde_json::from_str(&std::fs::read_to_string(e.path()).ok()?).ok()?;
+            v["file"] = json!(e.path().file_name()?.to_string_lossy());
+            Some(v)
+        })
+        .collect();
+    list.sort_by_key(|v| std::cmp::Reverse(v["saved"].as_u64().unwrap_or(0)));
+    json!({ "coaches": list })
+}
+
+/// Forget one of your coaches (its file only; careers keep him).
+pub fn forget_coach_profile(home: &Path, args: &Value) -> Result<Value, String> {
+    let file = args.get("file").and_then(Value::as_str).ok_or("Missing file.")?;
+    if file.contains(['/', '\\']) || !file.ends_with(".json") {
+        return Err("No such coach.".into());
+    }
+    std::fs::remove_file(coaches_dir(home).join(file)).map_err(|e| e.to_string())?;
+    Ok(coach_profiles(home))
+}
+
+/// A road into coaching (people topic 15; coaching C3-C7, C10): its
+/// starting reputation (1-20), its name and standing (C10's agreed values,
+/// shown on the roads screen; how they work comes with the coaching people
+/// lane), whether you played pro football, the strengths it locks in (C3,
+/// C6) and the level everything else starts at (C4).
 struct Background {
     key: &'static str,
     name: &'static str,
     reputation: f64,
-    average: f64,
+    name_rep: f64,
+    standing: f64,
     ex_pro: bool,
-    /// Extra points from the average on (teaching, scheme, game management,
-    /// motivation, discipline, recruiting, network, relationships, play
-    /// calling, in-game adaptation, evaluation, negotiating).
-    lean: [f64; 12],
+    /// The locked strengths, highest first: a rating's key, or "pos" (the
+    /// position you played), "grp" (the group you came up coaching) or
+    /// "groups" (every teaching group), with its value.
+    locks: &'static [(&'static str, f64)],
+    /// Where every other rating starts (C4: the world's medians for the job
+    /// the road last held).
+    base: f64,
+    /// The group "pos" or "grp" goes to until you pick (board 40's).
+    group: &'static str,
 }
 
 const BACKGROUNDS: [Background; 11] = [
@@ -176,142 +242,207 @@ const BACKGROUNDS: [Background; 11] = [
         key: "nfl_star",
         name: "Former NFL star",
         reputation: 13.0,
-        average: 9.5,
+        name_rep: 17.0,
+        standing: 7.0,
         ex_pro: true,
-        lean: [-1.0, -1.0, -1.0, 3.0, 0.0, 2.0, 5.0, 3.0, -1.0, 0.0, 0.5, 1.0],
+        locks: &[("pos", 19.0), ("network", 18.0), ("motivation", 16.0)],
+        base: 12.0,
+        group: "db",
     },
     Background {
         key: "nfl_pro_bowl",
         name: "Former NFL Pro Bowler",
         reputation: 11.0,
-        average: 9.5,
+        name_rep: 14.0,
+        standing: 9.0,
         ex_pro: true,
-        lean: [-0.5, -0.5, -0.5, 2.0, 0.5, 1.5, 4.0, 2.0, -0.5, 0.0, 0.5, 1.0],
+        locks: &[("pos", 18.0), ("network", 17.0), ("motivation", 15.0)],
+        base: 13.0,
+        group: "lb",
     },
     Background {
         key: "nfl_starter",
         name: "Former NFL starter",
         reputation: 9.0,
-        average: 9.5,
+        name_rep: 11.0,
+        standing: 10.0,
         ex_pro: true,
-        lean: [0.0, 0.0, 0.0, 1.5, 0.5, 1.0, 3.0, 1.5, 0.0, 0.5, 0.5, 0.5],
+        locks: &[("pos", 17.0), ("motivation", 15.0), ("relationships", 15.0)],
+        base: 14.0,
+        group: "wr",
     },
     Background {
         key: "nfl_journeyman",
         name: "Former NFL journeyman",
         reputation: 7.0,
-        average: 9.5,
+        name_rep: 8.0,
+        standing: 9.0,
         ex_pro: true,
-        lean: [0.5, 0.0, 0.0, 1.0, 1.0, 0.5, 2.0, 1.0, 0.0, 0.5, 0.5, 0.5],
+        locks: &[("pos", 16.0), ("network", 16.0), ("scheme", 15.0)],
+        base: 13.0,
+        group: "qb",
     },
     Background {
         key: "college_player",
         name: "Former college player",
         reputation: 5.0,
-        average: 9.0,
+        name_rep: 5.0,
+        standing: 6.0,
         ex_pro: false,
-        lean: [0.5, 0.0, 0.0, 1.0, 1.0, 1.0, 0.5, 1.0, 0.0, 0.0, 0.0, 0.0],
+        locks: &[("pos", 15.0), ("recruiting", 15.0)],
+        base: 12.0,
+        group: "db",
     },
     Background {
         key: "never_played",
         name: "Never played past high school",
         reputation: 3.0,
-        average: 9.0,
+        name_rep: 2.0,
+        standing: 5.0,
         ex_pro: false,
-        lean: [0.0, 2.0, 1.5, 0.0, 0.0, -1.0, -2.0, 0.0, 2.0, 1.0, 0.0, -1.0],
+        locks: &[("scheme", 18.0), ("play_calling", 17.0)],
+        base: 12.0,
+        group: "",
     },
     Background {
         key: "hs_coach",
         name: "High school coach",
         reputation: 4.0,
-        average: 9.5,
+        name_rep: 4.0,
+        standing: 6.0,
         ex_pro: false,
-        lean: [1.5, 0.5, 0.5, 1.5, 1.0, 0.0, -1.5, 1.0, 1.0, 0.5, 0.0, -1.5],
+        locks: &[("motivation", 16.0), ("discipline", 16.0), ("groups", 14.0)],
+        base: 13.0,
+        group: "",
     },
     Background {
         key: "college_assistant",
         name: "College position coach or coordinator",
         reputation: 8.0,
-        average: 11.0,
+        name_rep: 6.0,
+        standing: 10.0,
         ex_pro: false,
-        lean: [1.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0],
+        locks: &[("recruiting", 18.0), ("grp", 17.0), ("relationships", 15.0)],
+        base: 14.0,
+        group: "wr",
     },
     Background {
         key: "nfl_assistant",
         name: "NFL assistant or coordinator",
         reputation: 10.0,
-        average: 11.5,
+        name_rep: 6.0,
+        standing: 13.0,
         ex_pro: false,
-        lean: [1.0, 1.5, 1.0, 0.0, 0.5, -2.0, 1.0, 0.0, 1.5, 1.5, 0.5, 0.0],
+        locks: &[("scheme", 18.0), ("play_calling", 17.0), ("grp", 17.0)],
+        base: 14.0,
+        group: "db",
     },
     Background {
         key: "scout",
         name: "Scout or personnel man",
         reputation: 6.0,
-        average: 10.0,
+        name_rep: 3.0,
+        standing: 8.0,
         ex_pro: false,
-        lean: [-1.0, 0.0, 0.0, -0.5, 0.0, 2.5, 2.5, 0.5, -1.5, -0.5, 4.0, 1.5],
+        locks: &[("evaluation", 19.0), ("network", 17.0), ("negotiating", 15.0)],
+        base: 11.0,
+        group: "",
     },
     Background {
         key: "analytics",
         name: "Analytics",
         reputation: 5.0,
-        average: 10.0,
+        name_rep: 3.0,
+        standing: 6.0,
         ex_pro: false,
-        lean: [-1.0, 2.0, 3.0, -1.0, 0.0, -1.0, 0.0, -0.5, 0.5, 1.5, 1.5, 1.0],
+        locks: &[("evaluation", 19.0), ("game_management", 19.0), ("negotiating", 16.0)],
+        base: 11.0,
+        group: "",
     },
 ];
 
-/// The 19 ratings a background's pool spreads over, in the order the setup
-/// shows them: the eight teaching groups, then game day, people and
-/// building the roster. Each is (key, name, group, its place in `lean`).
-const RATINGS: [(&str, &str, &str, usize); 19] = [
-    ("qb", "Quarterbacks", "Teaching", 0),
-    ("rb", "Running backs", "Teaching", 0),
-    ("wr", "Receivers", "Teaching", 0),
-    ("ol", "Offensive line", "Teaching", 0),
-    ("dl", "Defensive line", "Teaching", 0),
-    ("lb", "Linebackers", "Teaching", 0),
-    ("db", "Defensive backs", "Teaching", 0),
-    ("st", "Special teams", "Teaching", 0),
-    ("scheme", "Scheme", "Game day", 1),
-    ("game_management", "Game management", "Game day", 2),
-    ("play_calling", "Play calling", "Game day", 8),
-    ("adaptation", "In-game adaptation", "Game day", 9),
-    ("motivation", "Motivation", "People", 3),
-    ("discipline", "Discipline", "People", 4),
-    ("relationships", "Relationships", "People", 7),
-    ("recruiting", "Recruiting", "Building the roster", 5),
-    ("evaluation", "Evaluation", "Building the roster", 10),
-    ("network", "Network", "Building the roster", 6),
-    ("negotiating", "Negotiating", "Building the roster", 11),
+/// The 19 ratings, in the order the setup shows them: the eight teaching
+/// groups, then game day, people and building the roster. Each is (key,
+/// name, group).
+const RATINGS: [(&str, &str, &str); 19] = [
+    ("qb", "Quarterbacks", "Teaching"),
+    ("rb", "Running backs", "Teaching"),
+    ("wr", "Receivers and tight ends", "Teaching"),
+    ("ol", "Offensive line", "Teaching"),
+    ("dl", "Defensive line", "Teaching"),
+    ("lb", "Linebackers", "Teaching"),
+    ("db", "Defensive backs", "Teaching"),
+    ("st", "Special teams", "Teaching"),
+    ("scheme", "Scheme", "Game day"),
+    ("game_management", "Game management", "Game day"),
+    ("play_calling", "Play calling", "Game day"),
+    ("adaptation", "In-game adaptation", "Game day"),
+    ("motivation", "Motivation", "People"),
+    ("discipline", "Discipline", "People"),
+    ("relationships", "Relationships", "People"),
+    ("recruiting", "Recruiting", "Building the roster"),
+    ("evaluation", "Evaluation", "Building the roster"),
+    ("network", "Network", "Building the roster"),
+    ("negotiating", "Negotiating", "Building the roster"),
 ];
 const RATING_COUNT: usize = RATINGS.len();
 
-/// Whole points, as the setup shows and spends them.
-fn starting_ratings(b: &Background) -> Vec<f64> {
-    RATINGS.iter().map(|r| (b.average + b.lean[r.3]).round().clamp(1.0, 20.0)).collect()
+/// A road's position or group pick (C5): the playing roads' position, the
+/// assistant roads' group.
+fn picks_group(b: &Background) -> Option<&'static str> {
+    b.locks.iter().find_map(|l| match l.0 {
+        "pos" => Some("pos"),
+        "grp" => Some("grp"),
+        _ => None,
+    })
 }
 
-/// What a background leans toward most, in words ("Network, motivation").
+/// The group a road's "pos" or "grp" strength goes to: yours if you picked
+/// one, else the road's own.
+fn group_of(b: &Background, picked: Option<&str>) -> Option<usize> {
+    picks_group(b)?;
+    let key = picked.filter(|k| RATINGS[..GROUP_COUNT].iter().any(|r| r.0 == *k)).unwrap_or(b.group);
+    RATINGS[..GROUP_COUNT].iter().position(|r| r.0 == key)
+}
+
+/// A road's starting ratings and each one's floor (C3: a locked strength
+/// can't be spent below the road's value; every other rating can go to 1).
+fn starting(b: &Background, picked: Option<&str>) -> (Vec<f64>, Vec<f64>) {
+    let mut r = vec![b.base; RATING_COUNT];
+    let mut floor = vec![1.0; RATING_COUNT];
+    let g = group_of(b, picked);
+    for &(key, v) in b.locks {
+        let at: Vec<usize> = match key {
+            "groups" => (0..GROUP_COUNT).collect(),
+            "pos" | "grp" => g.into_iter().collect(),
+            k => RATINGS.iter().position(|r| r.0 == k).into_iter().collect(),
+        };
+        for i in at {
+            r[i] = v;
+            floor[i] = v;
+        }
+    }
+    (r, floor)
+}
+
+fn starting_ratings(b: &Background) -> Vec<f64> {
+    starting(b, None).0
+}
+
+/// What a road is strongest at, in words ("Evaluation, network").
 fn strongest(b: &Background) -> String {
-    const NAMES: [&str; 12] = [
-        "teaching",
-        "scheme",
-        "game management",
-        "motivation",
-        "discipline",
-        "recruiting",
-        "network",
-        "relationships",
-        "play calling",
-        "in-game adaptation",
-        "evaluation",
-        "negotiating",
-    ];
-    let mut k: Vec<usize> = (0..12).collect();
-    k.sort_by(|&x, &y| b.lean[y].total_cmp(&b.lean[x]).then(x.cmp(&y)));
-    let s = format!("{}, {}", NAMES[k[0]], NAMES[k[1]]);
+    let words: Vec<String> = b
+        .locks
+        .iter()
+        .take(2)
+        .map(|(k, _)| match *k {
+            "pos" => "his position".to_string(),
+            "grp" => "his group".to_string(),
+            "groups" => "every group".to_string(),
+            k => RATINGS.iter().find(|r| r.0 == k).map_or(k.to_string(), |r| r.1.to_lowercase()),
+        })
+        .collect();
+    let s = words.join(", ");
     s[..1].to_uppercase() + &s[1..]
 }
 
@@ -319,17 +450,35 @@ pub fn options(w: &World) -> Value {
     let mut programs: Vec<&str> = w.programs.iter().map(|p| w.program_name(p.id)).collect();
     programs.sort_unstable();
     programs.dedup();
+    let m = afm_engine::world::road_marks::road_marks(w);
+    let pair = |(a, b): (f64, f64)| json!([a, b]);
     json!({
         "today": date_text(w.today),
         "year": w.today.year(),
         "backgrounds": BACKGROUNDS.iter().map(|b| {
-            let r = starting_ratings(b);
+            let (r, floor) = starting(b, None);
+            let locked: f64 = r.iter().zip(&floor).filter(|(_, f)| **f > 1.0).map(|(v, _)| v).sum();
+            let free = floor.iter().filter(|f| **f <= 1.0).count();
             json!({
                 "key": b.key, "name": b.name, "reputation": b.reputation, "ex_pro": b.ex_pro,
-                "pool": r.iter().sum::<f64>(), "ratings": r, "strongest": strongest(b),
+                "name_rep": b.name_rep, "standing": b.standing,
+                "locks": b.locks.iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>(),
+                "base": b.base, "group": b.group, "picks": picks_group(b),
+                "locked": locked, "free": free, "pool": r.iter().sum::<f64>(),
+                "ratings": r, "floor": floor, "strongest": strongest(b),
             })
         }).collect::<Vec<_>>(),
         "ratings": RATINGS.iter().map(|r| json!({ "key": r.0, "name": r.1, "group": r.2 })).collect::<Vec<_>>(),
+        // How you compare (C7, board 40): the world's own coaches at each level.
+        "marks": {
+            "hs": { "best": m.hs_best, "other_top": m.hs_other_top },
+            "college": {
+                "groups": m.fbs_group.iter().map(|&g| pair(g)).collect::<Vec<_>>(),
+                "coord_scheme": m.fbs_coord_scheme,
+                "coord_other": m.coord_other,
+            },
+            "nfl": { "scheme": pair(m.nfl_scheme), "calling": pair(m.nfl_calling), "eval": pair(m.nfl_eval) },
+        },
         "states": w.states.iter().map(|s| json!({ "code": s.code, "name": crate::views::state_name(&s.code) })).collect::<Vec<_>>(),
         "programs": programs,
         "style": [
@@ -705,6 +854,8 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
     };
     let seed = career_seed(args);
     w.start_career(&you, job, seed);
+    let (own, stops) = crate::lane_frontoffice::setup::own_school_and_stops(w, args);
+    road_ties(w, args, own, &stops);
     Ok(())
 }
 
@@ -728,23 +879,31 @@ pub(crate) fn played_college(background: &str) -> bool {
 pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
     let bg_key = args.get("background").and_then(Value::as_str).unwrap_or("college_assistant");
     let b = BACKGROUNDS.iter().find(|b| b.key == bg_key).ok_or("No such background.")?;
-    let base = starting_ratings(b);
-    // The pool as the setup page shows it, in whole points.
-    let pool: f64 = base.iter().sum::<f64>();
+    // The position you played or the group you came up coaching (C5).
+    let picked = args.get("position").and_then(Value::as_str);
+    let group = group_of(b, picked);
+    let (base, floor) = starting(b, picked);
+    // The road's total as the setup page shows it, in whole points: the
+    // locked strengths and the pool together (C3, C4).
+    let total: f64 = base.iter().sum::<f64>();
     let mut r: Vec<f64> = args
         .get("ratings")
         .and_then(Value::as_array)
         .map(|a| a.iter().filter_map(Value::as_f64).collect())
         .filter(|v: &Vec<f64>| v.len() == RATING_COUNT)
         .unwrap_or(base);
-    for x in r.iter_mut() {
-        *x = x.round().clamp(1.0, 20.0);
+    for (x, f) in r.iter_mut().zip(&floor) {
+        *x = x.round().clamp(*f, 20.0);
     }
-    // The pool is the limit: more than it buys is scaled back.
-    let spent: f64 = r.iter().sum();
-    if spent > pool + 1e-9 {
-        let k = pool / spent;
-        r.iter_mut().for_each(|x| *x = (*x * k).clamp(1.0, 20.0));
+    // The total is the limit: points past it come off the highest ratings
+    // above their floor, never off a locked strength's value.
+    let mut spent: f64 = r.iter().sum();
+    while spent > total + 1e-9 {
+        let Some(k) = (0..RATING_COUNT).filter(|&k| r[k] > floor[k]).max_by(|&a, &b| r[a].total_cmp(&r[b])) else {
+            break;
+        };
+        r[k] -= 1.0;
+        spent -= 1.0;
     }
     let at = |key: &str| r[RATINGS.iter().position(|x| x.0 == key).unwrap_or(0)];
     let mut teaching = [0.0; GROUP_COUNT];
@@ -758,7 +917,10 @@ pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
     // Who calls the plays: the page's choice, else the side you came up
     // teaching (a quarterbacks man calls the offense, a secondary man the
     // defense, a special teams man hands both to his coordinators).
-    let top = (0..GROUP_COUNT).max_by(|&x, &y| teaching[x].total_cmp(&teaching[y]).then(y.cmp(&x))).unwrap_or(0);
+    // Your position or group decides it on the roads that pick one (C5).
+    let top = group.unwrap_or_else(|| {
+        (0..GROUP_COUNT).max_by(|&x, &y| teaching[x].total_cmp(&teaching[y]).then(y.cmp(&x))).unwrap_or(0)
+    });
     let side = if top < 4 {
         "offense"
     } else if top < GROUP_COUNT - 1 {
@@ -795,8 +957,10 @@ pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
         ethnicity,
         home_state,
         ex_pro: b.ex_pro,
-        reputation: b.reputation,
-        teaching,
+        // Your standing and your name (C10's agreed values).
+        reputation: b.standing,
+        renown: b.name_rep,
+        played: played_grade(b.key),
         scheme: at("scheme"),
         game_management: at("game_management"),
         motivation: at("motivation"),
@@ -823,8 +987,96 @@ pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
         profile,
         // Read from your road and your people ratings when the career starts.
         aura: 0.0,
+        came_up: group.map(|g| afm_engine::world::coach::Group::ALL[g]),
+        teaching,
     };
     Ok(you)
+}
+
+/// How good a player a road was (C11): the pros' grades, a college
+/// starter, and the coaching roads as college backups (they played in
+/// college, `played_college`); none for the man who never played.
+fn played_grade(key: &str) -> Option<u8> {
+    use afm_engine::world::former as f;
+    match key {
+        "nfl_star" => Some(f::STAR),
+        "nfl_pro_bowl" => Some(f::PRO_BOWLER),
+        "nfl_starter" => Some(f::NFL_STARTER),
+        "nfl_journeyman" => Some(f::JOURNEYMAN),
+        "college_player" => Some(f::STARTER),
+        "never_played" => None,
+        _ => Some(f::BACKUP),
+    }
+}
+
+/// How strong each tie your road brings starts (C9; proposed, not
+/// confirmed): as strong as the world's own coaches' ties after a similar
+/// career, measured on the trial 10 world in 2026 (`docs/game.md`, update 3
+/// lane 2). A coach with ten or more college years holds his ties at a
+/// median 0.045-0.073 (FBS, FCS, Division II, NAIA); an FBS coordinator's
+/// best tie is a median 0.16.
+const TIE_AREA: f64 = 0.06;
+const TIE_OWN: f64 = 0.16;
+const HS_COACH_TIES: usize = 30;
+const ASSISTANT_TIES: usize = 25;
+
+/// The high schools your road gives you ties to (coaching C9): a high
+/// school coach about 30 programs in his state (his own area's first, then
+/// the state's strongest), a college assistant about 25 in his recruiting
+/// area (the states of his college stops, else his home state; the
+/// strongest programs, where the prospects are), and every playing road
+/// his own high school. They sit on your coach like any coach's ties, fade
+/// the same way and grow with the players you coach.
+pub(crate) fn road_ties(w: &mut World, args: &Value, own: Option<usize>, stops: &[afm_engine::world::coach::Employer]) {
+    use afm_engine::world::coach::Employer;
+    let Some(c) = w.career.as_ref().map(|c| c.coach) else { return };
+    let bg = args.get("background").and_then(Value::as_str).unwrap_or("");
+    let Some(b) = BACKGROUNDS.iter().find(|b| b.key == bg) else { return };
+    let home = w.career.as_ref().map_or(0, |c| c.you.home_state);
+    let pick = |w: &World, states: &[usize], first_area: Option<usize>, n: usize| -> Vec<usize> {
+        let mut v: Vec<usize> = states.iter().flat_map(|&s| w.states[s].schools.iter().copied()).collect();
+        v.sort_by(|&a, &z| {
+            let (ha, hz) = (&w.high_schools[a], &w.high_schools[z]);
+            let near = |h: &afm_engine::world::high_school::HighSchool| first_area.is_some_and(|x| h.area == x);
+            near(hz).cmp(&near(ha)).then(hz.prestige.total_cmp(&ha.prestige)).then(a.cmp(&z))
+        });
+        v.truncate(n);
+        v
+    };
+    let mut ties: Vec<(usize, f64)> = Vec::new();
+    match b.key {
+        "hs_coach" => {
+            let state = own.map_or(home, |h| w.high_schools[h].state);
+            let area = own.map(|h| w.high_schools[h].area);
+            ties.extend(pick(w, &[state], area, HS_COACH_TIES).into_iter().map(|h| (h, TIE_AREA)));
+        }
+        "college_assistant" => {
+            let mut states: Vec<usize> = stops
+                .iter()
+                .filter_map(|e| match e {
+                    Employer::College(p) => w.programs.get(*p).map(|q| q.state),
+                    _ => None,
+                })
+                .collect();
+            states.sort_unstable();
+            states.dedup();
+            if states.is_empty() {
+                states.push(home);
+            }
+            ties.extend(pick(w, &states, None, ASSISTANT_TIES).into_iter().map(|h| (h, TIE_AREA)));
+        }
+        _ => {}
+    }
+    if picks_group(b) == Some("pos")
+        && let Some(h) = own
+    {
+        ties.push((h, TIE_OWN));
+    }
+    let coach = &mut w.coaches[c];
+    for (h, t) in ties {
+        let e = coach.ties.entry(h).or_insert(0.0);
+        *e = e.max(t);
+    }
 }
 
 /// "Report a bug" (section 8, topic 10): the save as it is now, your note

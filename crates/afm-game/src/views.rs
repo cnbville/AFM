@@ -1739,6 +1739,23 @@ pub(crate) fn reputation_words(r: f64) -> &'static str {
     }
 }
 
+/// A coach's name (C10): what fans, boosters, recruits and small schools
+/// know of him, apart from his standing in the trade.
+pub(crate) fn name_words(r: f64) -> &'static str {
+    match r {
+        x if x >= 16.0 => "A household name",
+        x if x >= 12.0 => "Well known",
+        x if x >= 8.0 => "Known in football circles",
+        x if x >= 4.0 => "Little known outside the game",
+        _ => "Unknown to the public",
+    }
+}
+
+/// What a coach did as a player (C1), in words.
+pub(crate) fn played_words(w: &World, c: usize) -> Option<String> {
+    w.coaches[c].played.map(|p| format!("Played: {}", p.words(w)))
+}
+
 /// What a coach came up as: his first group, or for you, your road in.
 pub(crate) fn came_up(w: &World, c: usize) -> String {
     match &w.career {
@@ -1765,6 +1782,8 @@ pub(crate) fn coach_row(w: &World, c: usize, role: &str) -> Value {
         "role": role,
         "age": co.age_on(w.today),
         "reputation": reputation_words(co.reputation),
+        "renown": name_words(co.name_value()),
+        "played": played_words(w, c),
         "came_up": came_up(w, c),
         "record": job_record(w, c),
         "since": co.job.map(|j| j.since),
@@ -1872,6 +1891,7 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
     let mentor = co.mentor.and_then(|m| w.coaches.get(m)).map(|m| json!({ "id": m.id, "name": m.name }));
     Ok(json!({
         "id": c, "name": co.name, "age": co.age_on(w.today), "reputation": reputation_words(co.reputation),
+        "renown": name_words(co.name_value()), "played": played_words(w, c),
         "came_up": came_up(w, c), "ex_pro": co.ex_pro, "job": job, "history": history,
         "mentor": mentor, "titles": co.career_titles,
         "you": w.career.as_ref().is_some_and(|k| k.coach == c),

@@ -1,14 +1,14 @@
 # Recruiting: how it works today
 
-Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
 ## Quick answers
 
 - How many stars go out a class? Fixed quotas of a 250,000 class (times world scale), from the 247 Composite: 33 five-stars, 350 four-stars, 2,800 three-stars, 3,200 two-stars; everyone else 0 ("unranked") (recruiting, `SERVICE_TIERS`, `run_signing_stage`, `rate_underclass`, `service_stars`). The standalone class sim keeps 2,000 and 4,000 (`career.rs`, `PIPELINE.star_shares`).
-- What do the services rank on? 0.25 × film + 0.75 × their upside projection, minus 12 × (1 - seen)², plus a small physical-gift term, plus 3 film-SD × his offer sheet; seen is the larger of his visibility and his offer sheet (recruiting, `star_score`, `OFFER_READ`).
-- What is the offer sheet? 0-1: his best scholarship offer or commitment (early offers too), weighted by level (`level_value`: FBS 1, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2) × (0.5 + 0.5 × the program's prestige at its level) (recruiting, `offer_sheet`). An SEC offer moves a kid about a tier; an FCS-only list keeps him below the FBS signees.
+- What do the services rank on? 0.25 × film + 0.75 × their upside projection, minus 12 × (1 - seen)², plus a small physical-gift term, plus 6 film-SD × his offer sheet; seen is the larger of his visibility and his offer sheet (recruiting, `star_score`, `OFFER_READ`).
+- What is the offer sheet? 0-1: the school holding his scholarship commitment, or before he commits his best scholarship offer (early offers too), weighted by the level he reads in it (`recruit_level`: FBS 1, Group of 5 0.85, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2) × (0.5 + 0.5 × the program's prestige at its level) (recruiting, `offer_sheet`). An SEC offer moves a kid about a tier; an FCS-only list keeps him below the FBS signees; a Group of 5 commitment reads as that school, whatever else offered.
 - Do stars read true ability? Partly. Film is his season's play (`last_performance`, else overall). The projection is a 12-accuracy scouting read of potential plus a lasting service bias (`film_raw`, `service_bias`; `scouting.rs`, `scout_player`).
 - Do the services see a physical freak? Late and weakly: 0.15 film-SD per full Dynamic Link, times visibility. Staffs see it at 0.5 SD (`SERVICE_GIFT`, `STAFF_GIFT`).
 - Does exposure matter? Yes. Visibility (0-1) cuts his star score and decides which staffs see him at all (`run_signing_stage`, `visibility`, `see`).
@@ -79,8 +79,9 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 - Who gets looked at: the top 25% of the class by max(film, projection - 6), plus anyone committed or rated 2+ stars (`run_signing_stage`, `interest`).
 - Who a staff sees (`see`): (footprint[state] + 1.2 × local) × visibility × 1.6 + bonus, where local = max(HS pipeline, 0.6 × area pipeline, 0.7 × staff ties to his school); bonus 1.0 for 4-5 stars, else 0.15 × stars. Below 1.0 it's a roll. A staff always sees its own commits and every 2+ star in its own state.
+- Your own coach starts with the high school ties his road brings (update 3, lane 2): a high school coach about 30 schools in his state, a college assistant about 25 in his recruiting area, a playing road his own high school (`crates/afm-game/src/setup.rs`, `road_ties`; see [staff-and-coaches.md](staff-and-coaches.md), "Your coach at the start"). They count in `see` and the signing stage like any staffer's ties.
 - Skipped: D2/NAIA/D3 don't board 4-5 stars, FCS doesn't board 5-stars; NCAA non-qualifiers; below the school's own admissions bar unless a special admit (qualifier, GPA trending up, work ethic and coachability reads, stable home or mentor, no trouble, and the school has special admits left).
-- Evaluation (`eval`): 0.6 × (film + noise) + 0.4 × (projection + noise) + 0.3 × film-SD × system fit + 0.5 × film-SD × gift seen × eye factor − 4 × grade risk × (1 − academic support) × (1 − 0.6 × hot seat) + 5 film-SD for its own commits.
+- Evaluation (`eval`): 0.6 × (film + noise) + 0.4 × (projection + noise) + 0.3 × film-SD × system fit + 0.5 × film-SD × gift seen × eye factor + 0.5 × film-SD × each of the services' stars above two (not specialists; `STAR_EVAL`) − 4 × grade risk × (1 − academic support) × (1 − 0.6 × hot seat) + 5 film-SD for its own commits.
   - Noise SD = 3.5 − 0.15 × (0.6 × position coach eye + 0.4 × HC eye − 10), clamped 1-6. Eye = `Coach::evaluation` (`world/coach.rs`).
   - Grade risk = (2.6 − GPA)/0.6 clamped 0-1; academic support = 0.3 + 0.7 × facilities (`academic_support`).
 - Boards are per position, up to 40 × (planned signees + walk-ons + 1) deep. A JUCO takes at most 15 out-of-state recruits (`JUCO_OUT_OF_STATE_OFFERS`).
@@ -97,14 +98,14 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 Utility of a school (`utility_fit`), each grade on 0-1 (`world/program.rs`, `GradeCat`):
 
-- Level: 1.6 × level value × (0.5 + wants.prestige + wants.development). Level value: FBS 1.0, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2 (`level_value`).
-- Brand: (0.25 + wants.prestige) × prestige_rel (capped at 1) × (0.4 + 0.6 × level value).
+- Level: 1.6 × the level he reads × (0.5 + wants.prestige + wants.development). Level value: FBS 1.0, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2 (`level_value`). He reads an FBS school outside the power conferences that year (the Pac-12 counts until 2023, the Big East until 2013, Notre Dame always) as 0.85 of FBS (`recruit_level`, `GROUP_OF_FIVE_LEVEL`, `Program::power_conference`); the portal's choice reads it the same way.
+- Brand: (0.25 + wants.prestige) × prestige_rel (capped at 1) × (0.4 + 0.6 × the level he reads).
 - Prestige grades: wants.prestige × mean(title chances, stadium, tradition, brand exposure). Facilities: 0.1 × grade.
 - Money: wants.money × need × (1 − 0.35 × ambition drive) × 1.5 × (NIL / $1M)^0.6. Need = 0.25 + 0.75 × (1 − family money) (+0.2 after a family crisis).
 - Ambitious families instead weigh the path to the pros: 0.35 × drive × wants.money on development and playing time.
 - Closeness: (wants.close_to_home, +0.15 after a death or lost job) × closeness(miles).
 - Playing time grade × (0.6 + 0.4 × his standing on that board); academics grade × (0.5 + 0.5 × GPA factor); development = mean(pro pipeline, coach prestige).
-- Small pulls: Pioneer League −0.8 × (1 − 0.6 × money), Ivy −0.4; HS pipeline +0.12 × strength; the program's week of stories (`story_push`); his own stay-home lean (0 for 20% of kids, else 0.04-0.40) in his home state; his childhood team +0.18; an older brother there +0.15 (or −0.05); a system that shows him off up to +0.06; 5-stars get +0.25 × brand³ × level value (`FIVE_STAR_PULL`).
+- Small pulls: Pioneer League −0.8 × (1 − 0.6 × money), Ivy −0.4; HS pipeline +0.12 × strength; the program's week of stories (`story_push`); his own stay-home lean (0 for 20% of kids, else 0.04-0.40) in his home state; his childhood team +0.18; an older brother there +0.15 (or −0.05); a system that shows him off up to +0.06; 5-stars get +0.25 × brand³ × the level he reads (`FIVE_STAR_PULL`).
 - Room at his position (`RosterView::fit`): he judges himself at overall + 6, against players with ≤ 2 seasons left who'll be 2 points better. Room = 1 − 0.5 × ahead/starters, or negative when buried. Weight (0.06 + 0.2 × wants.playing_time) × early weight (1 + 0.08 per star over 2). Plus the supporting cast his position leans on (a QB's receivers and line), weight 0.04 + 0.15 × wants.development.
 - Ties on top: the relationship the staff built, his own feel for the school (SD 0.07, `FEEL_SD`), and the pull of a commitment (`fixed_at`, `pull`).
 - Walk-on places carry no money, cost tuition (0.8 × (1 − 0.6 × money), ×1.77 out of state; free at PFL/Ivy) and, against a real scholarship, 1.4 × level value of what he turns down (specialists exempt) (`walk_on_cost`, `scholarship_given_up`).
@@ -115,7 +116,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 ## Relationships and visits
 
 - Each staff recruits 3 per planned spot + 3 at each position (`RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`). The head coach's own targets are the top of each spot.
-- Relationship = known × (0.025 × HC time + 0.006 × (HC skill − 10) × HC time + 0.003 × (PC recruiting − 10) × PC time) + 0.03 × staff tie to his school + 0.02 if committed there + early-offer bonus + 0.004 × contacts + chemistry (SD 0.03). Known = 0.35 + 0.65 × visibility. Home-state effort 1.4, out of state 0.85. Visited (official, any contact, or within 250 miles) gives full time (`run_signing_stage`, `relationships`).
+- Relationship = known × (0.025 × HC time + 0.006 × (HC skill − 10) × HC time + 0.003 × (PC recruiting − 10) × PC time) + 0.03 × staff tie to his school + 0.02 if committed there + early-offer bonus + 0.05 if his high school head coach of the last year is on the staff (C17) + 0.004 × contacts + chemistry (SD 0.03). Known = 0.35 + 0.65 × visibility. Home-state effort 1.4, out of state 0.85. Visited (official, any contact, or within 250 miles) gives full time (`run_signing_stage`, `relationships`).
 - Official visits: five max. He takes them to the five schools he likes best, or the ones he really visited on their dates. A Summer(0) committer took none; Summer(1-3) took none before 2018 (junior officials), Summer(1) two after (`officials`).
 - Dated visits (`recruiting_day`): official visits on Fridays outside dead periods, for the next class from Sep 1 (juniors Apr 1 - Jun 30 from 2018); fall officials go to a program at home that Saturday; 12% a weekend. Game-day unofficials within 250 miles 25%; drop-ins in evaluation weeks 20% (40% for his commit); junior days on Saturdays Feb-Mar to early offerers within 500 miles, 30%.
 - Periods (`calendar/mod.rs`, `recruiting_period`): Feb-Mar quiet, mid-April contact, late May dead, late June-July dead, Sep-Nov evaluation, late Nov - mid Dec contact, dead around each signing day, January contact.
@@ -158,6 +159,15 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - Landing (`portal_day`): a program wants him if he'd make its two-deep (three-deep with roster room) or beats its backups at an open starting spot, adds ≤ 10, under its limit; his play is read with a level discount (FCS 1, D2/JUCO 5, NAIA 6, D3 7) (`competition_discount`). Bar: the level's weakest-quarter starter − 2 (−3 more for a step down). He picks by own-wants utility + room; first choice falls through at ~1% per day waited. No school: returns home (40% if he played near the median, else 15%) or quits.
 - Sitting out: before 2021, a transfer into FBS sits a year unless from JUCO, a graduate from 2006, or his school dropped football (`portal_day`, `sits`).
 
+## Head starts and placements before the portal (update 3, lane 5)
+
+`world/folk/backchannel.rs`, read by `portal_open` and `portal_day`:
+
+- A star sold before the winter window (C15) enters it as a mover up; the buyer gets 0.10 appeal points at his decision (a ghost transfer 1.0) and wants him whatever its depth chart and the level's floor say. The AI sells one in seven of its stars moving up to the program a level up with the best head coach network / 20 + closeness to the kid's school + 0.3 × a draw, which pays the era's price from its money (`ai_head_starts`).
+- The era's price (`price`): from 2025 at an opted-in school, a buyout of two years of his deal ($60,000-$1.5 million; every FBS school, at FCS the CAA, Missouri Valley and SWAC, never the Ivy League, the rest an even chance each year); from the 2021 season a premium on his NIL deal (a year of it + $25,000, $40,000-$600,000) from the buyer's collective; from 2018 a favour; before, a release to the buyer's school.
+- A player you placed with a friend a level down (C16) enters the next winter or spring window as a playing-time mover; the friend's program gets (0.08 + 0.08 × warmth) × his pull (head coach 1, coordinator 0.7, assistant 0.5).
+- His own high school coach on a staff (C17) adds 0.05 to that program's relationship with him (`run_signing_stage`, `hs_coach_at`).
+
 ## NIL money
 
 - Era: none before July 2021; market scale 0.39 (2021), 0.67, 0.84, 1.0 from 2024 (`world/ncaa.rs`, `nil_market`). Budget = market × boosters + revenue share (P4 0.75 × $20.5M × 1.04^yrs from 2025; G5 0.75 × $3.33M) (`nil_budget`, `revenue_share`).
@@ -192,9 +202,9 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 
 ## Where the knobs are
 
-- `world/recruiting.rs`: `SERVICE_TIERS` (33, 350, 2,800, 3,200), `OFFER_READ` 3.0, `offer_sheet`, `star_score`.
+- `world/recruiting.rs`: `SERVICE_TIERS` (33, 350, 2,800, 3,200), `OFFER_READ` 6.0, `offer_sheet`, `star_score`.
 - `career.rs`, `PIPELINE`: `star_shares` (the class sim only), `portal_entry` (backup 0.18, rotation 0.07, coaching change 1.8), `transfer_chance` 0.15, `college_trouble`.
-- `world/recruiting.rs`: `STAFF_GIFT`, `SERVICE_GIFT`, `SERVICE_MATURITY`, `SERVICE_MISREAD`, `CAMP_TIERS`, `SNAP_TIERS`, `SERVICE_SPECIALIST_MAX`, `FEEL_SD`, `RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`, `OFFICIAL_VISITS`, `CHILDHOOD_LEAN`, `FIVE_STAR_PULL`, `SHOWCASE`, `FIT_EVAL`, `WALK_ON_GIVE_UP`, `HOUSE_CLASS_MAX`, `JUCO_OUT_OF_STATE_OFFERS`, `REDSHIRT_PORTAL`, `EARLY_OFFER_PASSES`, `real_roster`, `level_roster`, `level_value`, `position_nil`, `nil_scale`, `competition_discount`, `era_factor`.
+- `world/recruiting.rs`: `STAFF_GIFT`, `SERVICE_GIFT`, `SERVICE_MATURITY`, `SERVICE_MISREAD`, `CAMP_TIERS`, `SNAP_TIERS`, `SERVICE_SPECIALIST_MAX`, `FEEL_SD`, `RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`, `OFFICIAL_VISITS`, `CHILDHOOD_LEAN`, `FIVE_STAR_PULL`, `GROUP_OF_FIVE_LEVEL`, `SHOWCASE`, `FIT_EVAL`, `STAR_EVAL`, `WALK_ON_GIVE_UP`, `HOUSE_CLASS_MAX`, `JUCO_OUT_OF_STATE_OFFERS`, `REDSHIRT_PORTAL`, `EARLY_OFFER_PASSES`, `real_roster`, `level_roster`, `level_value`, `position_nil`, `nil_scale`, `competition_discount`, `era_factor`.
 - `world/ncaa.rs`: `scholarship_rules`, `staff_cap`, `nil_market`, `revenue_share`, `position_nil_max`, `COLLECTIVE_CEILING`, `ROGUE_ARRIVAL`, `ROGUE_QUITS`, `DETECTION_SCALE`, `FCS_OPTED_OUT`.
 - `world/program.rs`: `nil_target`, `prestige_of`, `division_scale`, `move_grade`, `STRICT_ADMISSIONS`.
 - `world/scouting/services.rs`: `update_days`, `reach`, `BANDS`, `COMPOSITE_FROM`, `INSIDERS_FROM`, the insiders' thresholds in `insiders_week`, `lean`. `world/front_office/race.rs`: `SCHOOLS`, `MOST`, `BELOW`, `SPREAD`.

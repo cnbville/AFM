@@ -26,6 +26,7 @@ pub mod ethnicity;
 pub mod fame;
 pub mod finance;
 pub mod folk;
+pub mod former;
 pub mod franchise;
 pub mod front_office;
 pub mod game_log;
@@ -58,6 +59,7 @@ pub mod pro;
 pub mod program;
 pub mod records;
 pub(crate) mod recruiting;
+pub mod road_marks;
 pub mod schedule;
 pub mod scouting;
 pub(crate) mod season;
@@ -809,6 +811,10 @@ pub struct World {
     /// draft, the pre-draft season, pro scouting, look-backs, followers.
     #[serde(default)]
     pub scouting: scouting::Scouting,
+    /// Former players whose lives stay in football (coaching update C11,
+    /// C13): coaches come from them, and your old teammates are among them.
+    #[serde(default)]
+    pub formers: former::Formers,
     /// The poll and award voters (section 6 topic 9), each with his
     /// latest ballot; older files build them on load.
     #[serde(default)]
@@ -1229,6 +1235,7 @@ impl World {
             charts: Default::default(),
             finance: finance::Finance::default(),
             scouting: Default::default(),
+            formers: Default::default(),
             front_office: Default::default(),
             stories: stories::Stories::default(),
             others: Default::default(),
@@ -1590,6 +1597,9 @@ impl World {
 
     /// Drops everyone who left football (a retired pro's career is already in his alumni record).
     fn compact(&mut self) {
+        // The ones whose lives stay in football are kept (C11, C13).
+        former::year_end(self);
+        former::intake(self);
         // Blue-chips who left football stay on record: busts are part of history.
         if self.recording {
             let year = self.year + 1;

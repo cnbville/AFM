@@ -3,7 +3,13 @@ name: Build a world
 # worlds page (github.com/cnbville/afm-worlds), where the game's library
 # downloads it in one click (Cain 2026-10-21). A 30-year world takes about
 # three hours. Needs the WORLDS_TOKEN secret: a token that may write to
-# cnbville/afm-worlds.
+# cnbville/afm-worlds. Every world gets a star mix check (`star_mix`: squad
+# and signing stars by group, newcomers and leavers, the dynasty check) in
+# the run's summary. With publish set to no it is a check world only, and
+# with check set to a worlds page release it checks that world instead of
+# building one; quick builds a stand-in world (`star_mix build`, about an
+# hour for 8 years) for the check alone (lane 10 follow-up; Cain
+# 2026-10-27: world runs go on GitHub).
 on:
   workflow_dispatch:
     inputs:
@@ -13,6 +19,15 @@ on:
       years:
         description: "Years of history"
         default: "30"
+      publish:
+        description: "Publish it on the worlds page (no for a check world)"
+        default: "yes"
+      check:
+        description: "A worlds page release to check instead of building one (its tag)"
+        default: ""
+      quick:
+        description: "A quick stand-in world for the star mix check only (yes or no)"
+        default: "no"
 jobs:
   world:
     runs-on: ubuntu-latest
@@ -22,15 +37,42 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build the world
+        if: inputs.check == '' && inputs.quick != 'yes'
         env:
           AFM_COMMIT: ${{ github.sha }}
         run: |
           mkdir -p out
           cargo run --release --bin afm_world -- "${{ inputs.seed }}" "${{ inputs.years }}" out
           ls -la out
+      - name: Download the world to check
+        if: inputs.check != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p out && cd out
+          gh release download "${{ inputs.check }}" --repo cnbville/afm-worlds
+          f=$(ls | sed -n 's/\(.*\.afmworld\)\.[0-9]*$/\1/p' | head -1)
+          if [ -n "$f" ]; then cat "$f".* > "$f" && rm "$f".*; fi
+          ls -la
+      # A check that fails never stops a world from being published.
+      - name: Star mix check
+        continue-on-error: true
+        run: |
+          if [ "${{ inputs.quick }}" = yes ]; then
+            cargo run --release --bin star_mix -- build "${{ inputs.seed }}" "${{ inputs.years }}" | tee star_mix.txt
+          else
+            cargo run --release --bin star_mix -- out/*.afmworld | tee star_mix.txt
+          fi
+          { echo '```'; cat star_mix.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: star-mix
+          path: star_mix.txt
       # A release file may be at most 2 GB, so a bigger world goes up in parts
       # (name.afmworld.001, .002, ...), which the game joins.
       - name: Publish it on the worlds page
+        if: inputs.publish != 'no' && inputs.check == '' && inputs.quick != 'yes'
         env:
           GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
         run: |

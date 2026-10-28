@@ -1,0 +1,3821 @@
+{
+ "source": "nflverse play-by-play 1999-2025, nflverse schedules (games.csv) 1999-2025, nfldata standings 2002+ and win totals, nflverse trades 2002+, FiveThirtyEight nfl_games.csv for 1996-1998 scores",
+ "note": "Regular seasons unless a key says playoffs. Per team game means each team's game counts once (two per game).",
+ "scoring_by_season": {
+  "years": "1996-2025 (1996-1998 scores only, from FiveThirtyEight)",
+  "by_season": {
+   "1996": {
+    "games": 240,
+    "points_per_team_game": 20.43,
+    "points_sd": 9.63,
+    "total_per_game": 40.85,
+    "margin_abs_mean": 11.51,
+    "one_score_share": 0.4792,
+    "blowout_21plus_share": 0.1708,
+    "home_win_pct": 0.6208,
+    "ties": 0,
+    "overtime_share": null,
+    "shutout_team_games": 6
+   },
+   "1997": {
+    "games": 240,
+    "points_per_team_game": 20.74,
+    "points_sd": 9.98,
+    "total_per_game": 41.49,
+    "margin_abs_mean": 11.27,
+    "one_score_share": 0.5,
+    "blowout_21plus_share": 0.1833,
+    "home_win_pct": 0.6083,
+    "ties": 2,
+    "overtime_share": null,
+    "shutout_team_games": 7
+   },
+   "1998": {
+    "games": 240,
+    "points_per_team_game": 21.28,
+    "points_sd": 10.08,
+    "total_per_game": 42.56,
+    "margin_abs_mean": 11.5,
+    "one_score_share": 0.5,
+    "blowout_21plus_share": 0.1958,
+    "home_win_pct": 0.6292,
+    "ties": 0,
+    "overtime_share": null,
+    "shutout_team_games": 7
+   },
+   "1999": {
+    "games": 248,
+    "points_per_team_game": 20.81,
+    "points_sd": 10.2,
+    "total_per_game": 41.63,
+    "margin_abs_mean": 11.35,
+    "one_score_share": 0.5,
+    "blowout_21plus_share": 0.1694,
+    "home_win_pct": 0.5968,
+    "ties": 0,
+    "overtime_share": 0.0444,
+    "shutout_team_games": 7
+   },
+   "2000": {
+    "games": 248,
+    "points_per_team_game": 20.67,
+    "points_sd": 10.78,
+    "total_per_game": 41.35,
+    "margin_abs_mean": 11.8,
+    "one_score_share": 0.4798,
+    "blowout_21plus_share": 0.1694,
+    "home_win_pct": 0.5565,
+    "ties": 0,
+    "overtime_share": 0.0524,
+    "shutout_team_games": 13
+   },
+   "2001": {
+    "games": 248,
+    "points_per_team_game": 20.21,
+    "points_sd": 9.98,
+    "total_per_game": 40.42,
+    "margin_abs_mean": 11.07,
+    "one_score_share": 0.5161,
+    "blowout_21plus_share": 0.1653,
+    "home_win_pct": 0.5484,
+    "ties": 0,
+    "overtime_share": 0.0685,
+    "shutout_team_games": 10
+   },
+   "2002": {
+    "games": 256,
+    "points_per_team_game": 21.67,
+    "points_sd": 10.18,
+    "total_per_game": 43.35,
+    "margin_abs_mean": 11.11,
+    "one_score_share": 0.5352,
+    "blowout_21plus_share": 0.1602,
+    "home_win_pct": 0.5801,
+    "ties": 1,
+    "overtime_share": 0.0977,
+    "shutout_team_games": 7
+   },
+   "2003": {
+    "games": 256,
+    "points_per_team_game": 20.83,
+    "points_sd": 10.33,
+    "total_per_game": 41.66,
+    "margin_abs_mean": 11.89,
+    "one_score_share": 0.5156,
+    "blowout_21plus_share": 0.1875,
+    "home_win_pct": 0.6157,
+    "ties": 0,
+    "overtime_share": 0.0898,
+    "shutout_team_games": 12
+   },
+   "2004": {
+    "games": 256,
+    "points_per_team_game": 21.48,
+    "points_sd": 10.35,
+    "total_per_game": 42.97,
+    "margin_abs_mean": 11.37,
+    "one_score_share": 0.4727,
+    "blowout_21plus_share": 0.1836,
+    "home_win_pct": 0.5664,
+    "ties": 0,
+    "overtime_share": 0.0469,
+    "shutout_team_games": 4
+   },
+   "2005": {
+    "games": 256,
+    "points_per_team_game": 20.62,
+    "points_sd": 10.03,
+    "total_per_game": 41.23,
+    "margin_abs_mean": 11.69,
+    "one_score_share": 0.4805,
+    "blowout_21plus_share": 0.1602,
+    "home_win_pct": 0.5882,
+    "ties": 0,
+    "overtime_share": 0.0547,
+    "shutout_team_games": 6
+   },
+   "2006": {
+    "games": 256,
+    "points_per_team_game": 20.66,
+    "points_sd": 10.12,
+    "total_per_game": 41.32,
+    "margin_abs_mean": 11.43,
+    "one_score_share": 0.4922,
+    "blowout_21plus_share": 0.1523,
+    "home_win_pct": 0.5312,
+    "ties": 0,
+    "overtime_share": 0.043,
+    "shutout_team_games": 15
+   },
+   "2007": {
+    "games": 256,
+    "points_per_team_game": 21.69,
+    "points_sd": 10.72,
+    "total_per_game": 43.38,
+    "margin_abs_mean": 12.47,
+    "one_score_share": 0.4688,
+    "blowout_21plus_share": 0.2227,
+    "home_win_pct": 0.5765,
+    "ties": 0,
+    "overtime_share": 0.0586,
+    "shutout_team_games": 5
+   },
+   "2008": {
+    "games": 256,
+    "points_per_team_game": 22.03,
+    "points_sd": 10.51,
+    "total_per_game": 44.06,
+    "margin_abs_mean": 12.22,
+    "one_score_share": 0.4609,
+    "blowout_21plus_share": 0.2109,
+    "home_win_pct": 0.5728,
+    "ties": 1,
+    "overtime_share": 0.0586,
+    "shutout_team_games": 6
+   },
+   "2009": {
+    "games": 256,
+    "points_per_team_game": 21.47,
+    "points_sd": 10.72,
+    "total_per_game": 42.93,
+    "margin_abs_mean": 12.97,
+    "one_score_share": 0.4688,
+    "blowout_21plus_share": 0.2344,
+    "home_win_pct": 0.5725,
+    "ties": 0,
+    "overtime_share": 0.0508,
+    "shutout_team_games": 11
+   },
+   "2010": {
+    "games": 256,
+    "points_per_team_game": 22.04,
+    "points_sd": 10.3,
+    "total_per_game": 44.07,
+    "margin_abs_mean": 11.75,
+    "one_score_share": 0.5117,
+    "blowout_21plus_share": 0.1953,
+    "home_win_pct": 0.5591,
+    "ties": 0,
+    "overtime_share": 0.0742,
+    "shutout_team_games": 5
+   },
+   "2011": {
+    "games": 256,
+    "points_per_team_game": 22.18,
+    "points_sd": 10.21,
+    "total_per_game": 44.36,
+    "margin_abs_mean": 12.05,
+    "one_score_share": 0.5156,
+    "blowout_21plus_share": 0.2031,
+    "home_win_pct": 0.5686,
+    "ties": 0,
+    "overtime_share": 0.0508,
+    "shutout_team_games": 5
+   },
+   "2012": {
+    "games": 256,
+    "points_per_team_game": 22.76,
+    "points_sd": 10.54,
+    "total_per_game": 45.51,
+    "margin_abs_mean": 12.15,
+    "one_score_share": 0.5117,
+    "blowout_21plus_share": 0.1992,
+    "home_win_pct": 0.5745,
+    "ties": 1,
+    "overtime_share": 0.0859,
+    "shutout_team_games": 6
+   },
+   "2013": {
+    "games": 256,
+    "points_per_team_game": 23.41,
+    "points_sd": 10.22,
+    "total_per_game": 46.82,
+    "margin_abs_mean": 11.29,
+    "one_score_share": 0.5117,
+    "blowout_21plus_share": 0.1836,
+    "home_win_pct": 0.6028,
+    "ties": 1,
+    "overtime_share": 0.0625,
+    "shutout_team_games": 3
+   },
+   "2014": {
+    "games": 256,
+    "points_per_team_game": 22.59,
+    "points_sd": 10.49,
+    "total_per_game": 45.18,
+    "margin_abs_mean": 12.67,
+    "one_score_share": 0.4297,
+    "blowout_21plus_share": 0.2109,
+    "home_win_pct": 0.5734,
+    "ties": 1,
+    "overtime_share": 0.043,
+    "shutout_team_games": 7
+   },
+   "2015": {
+    "games": 256,
+    "points_per_team_game": 22.81,
+    "points_sd": 9.82,
+    "total_per_game": 45.62,
+    "margin_abs_mean": 11.06,
+    "one_score_share": 0.5469,
+    "blowout_21plus_share": 0.168,
+    "home_win_pct": 0.5375,
+    "ties": 0,
+    "overtime_share": 0.082,
+    "shutout_team_games": 2
+   },
+   "2016": {
+    "games": 256,
+    "points_per_team_game": 22.78,
+    "points_sd": 9.35,
+    "total_per_game": 45.55,
+    "margin_abs_mean": 10.23,
+    "one_score_share": 0.5703,
+    "blowout_21plus_share": 0.125,
+    "home_win_pct": 0.5774,
+    "ties": 2,
+    "overtime_share": 0.0508,
+    "shutout_team_games": 3
+   },
+   "2017": {
+    "games": 256,
+    "points_per_team_game": 21.72,
+    "points_sd": 10.23,
+    "total_per_game": 43.44,
+    "margin_abs_mean": 11.81,
+    "one_score_share": 0.4727,
+    "blowout_21plus_share": 0.1797,
+    "home_win_pct": 0.5697,
+    "ties": 0,
+    "overtime_share": 0.0547,
+    "shutout_team_games": 11
+   },
+   "2018": {
+    "games": 256,
+    "points_per_team_game": 23.34,
+    "points_sd": 10.33,
+    "total_per_game": 46.69,
+    "margin_abs_mean": 11.09,
+    "one_score_share": 0.5312,
+    "blowout_21plus_share": 0.1562,
+    "home_win_pct": 0.6047,
+    "ties": 2,
+    "overtime_share": 0.0586,
+    "shutout_team_games": 8
+   },
+   "2019": {
+    "games": 256,
+    "points_per_team_game": 22.81,
+    "points_sd": 10.16,
+    "total_per_game": 45.62,
+    "margin_abs_mean": 11.64,
+    "one_score_share": 0.5234,
+    "blowout_21plus_share": 0.1641,
+    "home_win_pct": 0.5199,
+    "ties": 1,
+    "overtime_share": 0.0352,
+    "shutout_team_games": 4
+   },
+   "2020": {
+    "games": 256,
+    "points_per_team_game": 24.79,
+    "points_sd": 9.86,
+    "total_per_game": 49.58,
+    "margin_abs_mean": 11.07,
+    "one_score_share": 0.5312,
+    "blowout_21plus_share": 0.1562,
+    "home_win_pct": 0.504,
+    "ties": 1,
+    "overtime_share": 0.0391,
+    "shutout_team_games": 3
+   },
+   "2021": {
+    "games": 272,
+    "points_per_team_game": 22.98,
+    "points_sd": 10.35,
+    "total_per_game": 45.96,
+    "margin_abs_mean": 12.18,
+    "one_score_share": 0.4669,
+    "blowout_21plus_share": 0.1949,
+    "home_win_pct": 0.5112,
+    "ties": 1,
+    "overtime_share": 0.0735,
+    "shutout_team_games": 8
+   },
+   "2022": {
+    "games": 271,
+    "points_per_team_game": 21.88,
+    "points_sd": 9.31,
+    "total_per_game": 43.76,
+    "margin_abs_mean": 9.7,
+    "one_score_share": 0.5756,
+    "blowout_21plus_share": 0.1181,
+    "home_win_pct": 0.566,
+    "ties": 2,
+    "overtime_share": 0.0738,
+    "shutout_team_games": 4
+   },
+   "2023": {
+    "games": 272,
+    "points_per_team_game": 21.77,
+    "points_sd": 10.02,
+    "total_per_game": 43.54,
+    "margin_abs_mean": 11.26,
+    "one_score_share": 0.5404,
+    "blowout_21plus_share": 0.1654,
+    "home_win_pct": 0.5581,
+    "ties": 0,
+    "overtime_share": 0.0478,
+    "shutout_team_games": 8
+   },
+   "2024": {
+    "games": 272,
+    "points_per_team_game": 22.91,
+    "points_sd": 9.8,
+    "total_per_game": 45.82,
+    "margin_abs_mean": 11.2,
+    "one_score_share": 0.5588,
+    "blowout_21plus_share": 0.1838,
+    "home_win_pct": 0.5243,
+    "ties": 0,
+    "overtime_share": 0.0588,
+    "shutout_team_games": 2
+   },
+   "2025": {
+    "games": 272,
+    "points_per_team_game": 23.01,
+    "points_sd": 9.94,
+    "total_per_game": 46.03,
+    "margin_abs_mean": 11.15,
+    "one_score_share": 0.5331,
+    "blowout_21plus_share": 0.1801,
+    "home_win_pct": 0.5377,
+    "ties": 1,
+    "overtime_share": 0.0515,
+    "shutout_team_games": 7
+   }
+  }
+ },
+ "plays_by_season": {
+  "years": "1999-2025",
+  "by_season": {
+   "1999": {
+    "plays_per_team_game": 62.29,
+    "dropback_rate": 0.593,
+    "neutral_dropback_rate": 0.484,
+    "shotgun_share": 0.1191,
+    "no_huddle_share": 0.0,
+    "completion_pct": 0.572,
+    "yards_per_attempt": 6.769,
+    "sack_rate": 0.0693,
+    "int_rate": 0.0324,
+    "designed_run_ypc": 3.776,
+    "yards_per_play": 5.061,
+    "epa_per_play": -0.0561,
+    "turnovers_per_team_game": 1.862,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.577,
+      "made_pct": 0.9509
+     },
+     "30_39": {
+      "att_per_team_game": 0.581,
+      "made_pct": 0.7979
+     },
+     "40_49": {
+      "att_per_team_game": 0.613,
+      "made_pct": 0.6766
+     },
+     "50_plus": {
+      "att_per_team_game": 0.17,
+      "made_pct": 0.4881
+     }
+    },
+    "fg_att_per_team_game": 1.941,
+    "fg_pct": 0.7779,
+    "xp_att_per_team_game": 2.144,
+    "xp_pct": 0.9887,
+    "two_point_tries_per_team_game": 0.17,
+    "two_point_conv": 0.369,
+    "fourth_down_go_rate": 0.1188,
+    "fourth_short_opp_go_rate": 0.4054,
+    "fourth_down_conv": 0.4399,
+    "punts_per_team_game": 5.176,
+    "punt_gross": 41.87,
+    "punt_fair_catch_rate": 0.2014,
+    "punt_return_avg": 11.42,
+    "kickoff_touchback_rate": 0.1013,
+    "kickoff_return_avg": 20.24,
+    "kickoff_fair_catch_rate": 0.0021,
+    "penalties_per_team_game": 6.547,
+    "drives_per_team_game": 12.8,
+    "drive_results": {
+     "Punt": 0.417,
+     "Touchdown": 0.1703,
+     "Turnover": 0.1298,
+     "Field goal": 0.1221,
+     "End of half": 0.0668,
+     "Turnover on downs": 0.0377,
+     "Missed field goal": 0.0347,
+     "Opp touchdown": 0.0178,
+     "Safety": 0.0038
+    }
+   },
+   "2000": {
+    "plays_per_team_game": 62.22,
+    "dropback_rate": 0.5871,
+    "neutral_dropback_rate": 0.4891,
+    "shotgun_share": 0.1275,
+    "no_huddle_share": 0.0,
+    "completion_pct": 0.5808,
+    "yards_per_attempt": 6.73,
+    "sack_rate": 0.0676,
+    "int_rate": 0.0318,
+    "designed_run_ypc": 3.811,
+    "yards_per_play": 5.061,
+    "epa_per_play": -0.0376,
+    "turnovers_per_team_game": 1.848,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.545,
+      "made_pct": 0.9403
+     },
+     "30_39": {
+      "att_per_team_game": 0.571,
+      "made_pct": 0.8185
+     },
+     "40_49": {
+      "att_per_team_game": 0.602,
+      "made_pct": 0.6993
+     },
+     "50_plus": {
+      "att_per_team_game": 0.134,
+      "made_pct": 0.5606
+     }
+    },
+    "fg_att_per_team_game": 1.852,
+    "fg_pct": 0.7969,
+    "xp_att_per_team_game": 2.14,
+    "xp_pct": 0.9905,
+    "two_point_tries_per_team_game": 0.173,
+    "two_point_conv": 0.4118,
+    "fourth_down_go_rate": 0.1204,
+    "fourth_short_opp_go_rate": 0.3469,
+    "fourth_down_conv": 0.4799,
+    "punts_per_team_game": 4.945,
+    "punt_gross": 41.85,
+    "punt_fair_catch_rate": 0.2269,
+    "punt_return_avg": 12.13,
+    "kickoff_touchback_rate": 0.0934,
+    "kickoff_return_avg": 21.03,
+    "kickoff_fair_catch_rate": 0.0004,
+    "penalties_per_team_game": 6.333,
+    "drives_per_team_game": 12.41,
+    "drive_results": {
+     "Punt": 0.4128,
+     "Touchdown": 0.1794,
+     "Turnover": 0.1355,
+     "Field goal": 0.1235,
+     "End of half": 0.0662,
+     "Turnover on downs": 0.0347,
+     "Missed field goal": 0.031,
+     "Opp touchdown": 0.0145,
+     "Safety": 0.0026
+    }
+   },
+   "2001": {
+    "plays_per_team_game": 62.68,
+    "dropback_rate": 0.5821,
+    "neutral_dropback_rate": 0.4869,
+    "shotgun_share": 0.1384,
+    "no_huddle_share": 0.0,
+    "completion_pct": 0.5879,
+    "yards_per_attempt": 6.758,
+    "sack_rate": 0.0668,
+    "int_rate": 0.0336,
+    "designed_run_ypc": 3.859,
+    "yards_per_play": 5.07,
+    "epa_per_play": -0.0494,
+    "turnovers_per_team_game": 1.871,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.558,
+      "made_pct": 0.9458
+     },
+     "30_39": {
+      "att_per_team_game": 0.546,
+      "made_pct": 0.8487
+     },
+     "40_49": {
+      "att_per_team_game": 0.681,
+      "made_pct": 0.5976
+     },
+     "50_plus": {
+      "att_per_team_game": 0.147,
+      "made_pct": 0.5205
+     }
+    },
+    "fg_att_per_team_game": 1.933,
+    "fg_pct": 0.7633,
+    "xp_att_per_team_game": 2.071,
+    "xp_pct": 0.9815,
+    "two_point_tries_per_team_game": 0.181,
+    "two_point_conv": 0.4444,
+    "fourth_down_go_rate": 0.1225,
+    "fourth_short_opp_go_rate": 0.3996,
+    "fourth_down_conv": 0.4435,
+    "punts_per_team_game": 4.976,
+    "punt_gross": 42.13,
+    "punt_fair_catch_rate": 0.1811,
+    "punt_return_avg": 11.82,
+    "kickoff_touchback_rate": 0.0927,
+    "kickoff_return_avg": 20.62,
+    "kickoff_fair_catch_rate": 0.0022,
+    "penalties_per_team_game": 5.796,
+    "drives_per_team_game": 12.25,
+    "drive_results": {
+     "Punt": 0.4158,
+     "Touchdown": 0.1688,
+     "Turnover": 0.1301,
+     "Field goal": 0.1237,
+     "End of half": 0.0641,
+     "Missed field goal": 0.0379,
+     "Turnover on downs": 0.0375,
+     "Opp touchdown": 0.0204,
+     "Safety": 0.0017
+    }
+   },
+   "2002": {
+    "plays_per_team_game": 63.32,
+    "dropback_rate": 0.5928,
+    "neutral_dropback_rate": 0.5058,
+    "shotgun_share": 0.1376,
+    "no_huddle_share": 0.0007,
+    "completion_pct": 0.5949,
+    "yards_per_attempt": 6.704,
+    "sack_rate": 0.0616,
+    "int_rate": 0.0305,
+    "designed_run_ypc": 4.095,
+    "yards_per_play": 5.194,
+    "epa_per_play": -0.0278,
+    "turnovers_per_team_game": 1.811,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.527,
+      "made_pct": 0.9407
+     },
+     "30_39": {
+      "att_per_team_game": 0.568,
+      "made_pct": 0.8351
+     },
+     "40_49": {
+      "att_per_team_game": 0.596,
+      "made_pct": 0.6426
+     },
+     "50_plus": {
+      "att_per_team_game": 0.166,
+      "made_pct": 0.5176
+     }
+    },
+    "fg_att_per_team_game": 1.857,
+    "fg_pct": 0.775,
+    "xp_att_per_team_game": 2.285,
+    "xp_pct": 0.9812,
+    "two_point_tries_per_team_game": 0.182,
+    "two_point_conv": 0.5054,
+    "fourth_down_go_rate": 0.1292,
+    "fourth_short_opp_go_rate": 0.3927,
+    "fourth_down_conv": 0.5172,
+    "punts_per_team_game": 4.736,
+    "punt_gross": 41.31,
+    "punt_fair_catch_rate": 0.1959,
+    "punt_return_avg": 12.45,
+    "kickoff_touchback_rate": 0.0786,
+    "kickoff_return_avg": 20.88,
+    "kickoff_fair_catch_rate": 0.0012,
+    "penalties_per_team_game": 6.496,
+    "drives_per_team_game": 12.14,
+    "drive_results": {
+     "Punt": 0.398,
+     "Touchdown": 0.1901,
+     "Turnover": 0.1315,
+     "Field goal": 0.1212,
+     "End of half": 0.0678,
+     "Turnover on downs": 0.0356,
+     "Missed field goal": 0.0349,
+     "Opp touchdown": 0.0189,
+     "Safety": 0.002
+    }
+   },
+   "2003": {
+    "plays_per_team_game": 62.1,
+    "dropback_rate": 0.564,
+    "neutral_dropback_rate": 0.4583,
+    "shotgun_share": 0.1422,
+    "no_huddle_share": 0.0089,
+    "completion_pct": 0.5891,
+    "yards_per_attempt": 6.656,
+    "sack_rate": 0.0625,
+    "int_rate": 0.0327,
+    "designed_run_ypc": 4.124,
+    "yards_per_play": 5.137,
+    "epa_per_play": -0.0395,
+    "turnovers_per_team_game": 1.779,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.561,
+      "made_pct": 0.9617
+     },
+     "30_39": {
+      "att_per_team_game": 0.539,
+      "made_pct": 0.8261
+     },
+     "40_49": {
+      "att_per_team_game": 0.582,
+      "made_pct": 0.6946
+     },
+     "50_plus": {
+      "att_per_team_game": 0.182,
+      "made_pct": 0.4839
+     }
+    },
+    "fg_att_per_team_game": 1.863,
+    "fg_pct": 0.7925,
+    "xp_att_per_team_game": 2.207,
+    "xp_pct": 0.9823,
+    "two_point_tries_per_team_game": 0.125,
+    "two_point_conv": 0.4531,
+    "fourth_down_go_rate": 0.1281,
+    "fourth_short_opp_go_rate": 0.3914,
+    "fourth_down_conv": 0.466,
+    "punts_per_team_game": 4.939,
+    "punt_gross": 41.31,
+    "punt_fair_catch_rate": 0.204,
+    "punt_return_avg": 11.8,
+    "kickoff_touchback_rate": 0.0784,
+    "kickoff_return_avg": 20.56,
+    "kickoff_fair_catch_rate": 0.002,
+    "penalties_per_team_game": 6.59,
+    "drives_per_team_game": 12.27,
+    "drive_results": {
+     "Punt": 0.4106,
+     "Touchdown": 0.1794,
+     "Turnover": 0.1261,
+     "Field goal": 0.123,
+     "End of half": 0.0703,
+     "Turnover on downs": 0.0394,
+     "Missed field goal": 0.0321,
+     "Opp touchdown": 0.0156,
+     "Safety": 0.0034
+    }
+   },
+   "2004": {
+    "plays_per_team_game": 61.76,
+    "dropback_rate": 0.5671,
+    "neutral_dropback_rate": 0.4652,
+    "shotgun_share": 0.1296,
+    "no_huddle_share": 0.0106,
+    "completion_pct": 0.5983,
+    "yards_per_attempt": 7.065,
+    "sack_rate": 0.0682,
+    "int_rate": 0.0321,
+    "designed_run_ypc": 4.132,
+    "yards_per_play": 5.311,
+    "epa_per_play": -0.0183,
+    "turnovers_per_team_game": 1.764,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.516,
+      "made_pct": 0.9659
+     },
+     "30_39": {
+      "att_per_team_game": 0.504,
+      "made_pct": 0.814
+     },
+     "40_49": {
+      "att_per_team_game": 0.502,
+      "made_pct": 0.7198
+     },
+     "50_plus": {
+      "att_per_team_game": 0.178,
+      "made_pct": 0.5824
+     }
+    },
+    "fg_att_per_team_game": 1.699,
+    "fg_pct": 0.808,
+    "xp_att_per_team_game": 2.326,
+    "xp_pct": 0.9899,
+    "two_point_tries_per_team_game": 0.145,
+    "two_point_conv": 0.5,
+    "fourth_down_go_rate": 0.1202,
+    "fourth_short_opp_go_rate": 0.3778,
+    "fourth_down_conv": 0.4879,
+    "punts_per_team_game": 4.908,
+    "punt_gross": 41.94,
+    "punt_fair_catch_rate": 0.2021,
+    "punt_return_avg": 10.78,
+    "kickoff_touchback_rate": 0.084,
+    "kickoff_return_avg": 20.67,
+    "kickoff_fair_catch_rate": 0.0012,
+    "penalties_per_team_game": 6.959,
+    "drives_per_team_game": 12.15,
+    "drive_results": {
+     "Punt": 0.4126,
+     "Touchdown": 0.1918,
+     "Turnover": 0.1277,
+     "Field goal": 0.1157,
+     "End of half": 0.0726,
+     "Turnover on downs": 0.0332,
+     "Missed field goal": 0.0271,
+     "Opp touchdown": 0.0168,
+     "Safety": 0.0025
+    }
+   },
+   "2005": {
+    "plays_per_team_game": 61.81,
+    "dropback_rate": 0.5662,
+    "neutral_dropback_rate": 0.4624,
+    "shotgun_share": 0.155,
+    "no_huddle_share": 0.0161,
+    "completion_pct": 0.5956,
+    "yards_per_attempt": 6.797,
+    "sack_rate": 0.067,
+    "int_rate": 0.031,
+    "designed_run_ypc": 4.033,
+    "yards_per_play": 5.124,
+    "epa_per_play": -0.0284,
+    "turnovers_per_team_game": 1.746,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.557,
+      "made_pct": 0.9544
+     },
+     "30_39": {
+      "att_per_team_game": 0.584,
+      "made_pct": 0.8528
+     },
+     "40_49": {
+      "att_per_team_game": 0.568,
+      "made_pct": 0.7148
+     },
+     "50_plus": {
+      "att_per_team_game": 0.18,
+      "made_pct": 0.5217
+     }
+    },
+    "fg_att_per_team_game": 1.889,
+    "fg_pct": 0.8097,
+    "xp_att_per_team_game": 2.18,
+    "xp_pct": 0.9848,
+    "two_point_tries_per_team_game": 0.1,
+    "two_point_conv": 0.5294,
+    "fourth_down_go_rate": 0.1199,
+    "fourth_short_opp_go_rate": 0.4043,
+    "fourth_down_conv": 0.4828,
+    "punts_per_team_game": 4.887,
+    "punt_gross": 42.52,
+    "punt_fair_catch_rate": 0.2042,
+    "punt_return_avg": 10.37,
+    "kickoff_touchback_rate": 0.0889,
+    "kickoff_return_avg": 21.23,
+    "kickoff_fair_catch_rate": 0.0016,
+    "penalties_per_team_game": 7.256,
+    "drives_per_team_game": 12.1,
+    "drive_results": {
+     "Punt": 0.4125,
+     "Touchdown": 0.1793,
+     "Field goal": 0.129,
+     "Turnover": 0.1264,
+     "End of half": 0.0718,
+     "Turnover on downs": 0.0355,
+     "Missed field goal": 0.0297,
+     "Opp touchdown": 0.014,
+     "Safety": 0.0018
+    }
+   },
+   "2006": {
+    "plays_per_team_game": 61.65,
+    "dropback_rate": 0.5712,
+    "neutral_dropback_rate": 0.4749,
+    "shotgun_share": 0.1936,
+    "no_huddle_share": 0.0358,
+    "completion_pct": 0.6001,
+    "yards_per_attempt": 6.875,
+    "sack_rate": 0.0644,
+    "int_rate": 0.0318,
+    "designed_run_ypc": 4.177,
+    "yards_per_play": 5.238,
+    "epa_per_play": -0.04,
+    "turnovers_per_team_game": 1.746,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.555,
+      "made_pct": 0.9577
+     },
+     "30_39": {
+      "att_per_team_game": 0.545,
+      "made_pct": 0.8566
+     },
+     "40_49": {
+      "att_per_team_game": 0.574,
+      "made_pct": 0.7347
+     },
+     "50_plus": {
+      "att_per_team_game": 0.166,
+      "made_pct": 0.4706
+     }
+    },
+    "fg_att_per_team_game": 1.84,
+    "fg_pct": 0.8142,
+    "xp_att_per_team_game": 2.223,
+    "xp_pct": 0.9877,
+    "two_point_tries_per_team_game": 0.074,
+    "two_point_conv": 0.5526,
+    "fourth_down_go_rate": 0.1214,
+    "fourth_short_opp_go_rate": 0.3533,
+    "fourth_down_conv": 0.5247,
+    "punts_per_team_game": 4.838,
+    "punt_gross": 43.41,
+    "punt_fair_catch_rate": 0.1914,
+    "punt_return_avg": 11.11,
+    "kickoff_touchback_rate": 0.1299,
+    "kickoff_return_avg": 21.68,
+    "kickoff_fair_catch_rate": 0.0029,
+    "penalties_per_team_game": 5.938,
+    "drives_per_team_game": 12.01,
+    "drive_results": {
+     "Punt": 0.4105,
+     "Touchdown": 0.1803,
+     "Turnover": 0.128,
+     "Field goal": 0.1275,
+     "End of half": 0.073,
+     "Turnover on downs": 0.0339,
+     "Missed field goal": 0.0289,
+     "Opp touchdown": 0.016,
+     "Safety": 0.002
+    }
+   },
+   "2007": {
+    "plays_per_team_game": 61.97,
+    "dropback_rate": 0.5856,
+    "neutral_dropback_rate": 0.4906,
+    "shotgun_share": 0.2689,
+    "no_huddle_share": 0.0366,
+    "completion_pct": 0.6142,
+    "yards_per_attempt": 6.882,
+    "sack_rate": 0.0588,
+    "int_rate": 0.0316,
+    "designed_run_ypc": 4.089,
+    "yards_per_play": 5.261,
+    "epa_per_play": -0.0309,
+    "turnovers_per_team_game": 1.787,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.588,
+      "made_pct": 0.9535
+     },
+     "30_39": {
+      "att_per_team_game": 0.545,
+      "made_pct": 0.9068
+     },
+     "40_49": {
+      "att_per_team_game": 0.553,
+      "made_pct": 0.742
+     },
+     "50_plus": {
+      "att_per_team_game": 0.189,
+      "made_pct": 0.4639
+     }
+    },
+    "fg_att_per_team_game": 1.875,
+    "fg_pct": 0.8281,
+    "xp_att_per_team_game": 2.309,
+    "xp_pct": 0.9856,
+    "two_point_tries_per_team_game": 0.111,
+    "two_point_conv": 0.5263,
+    "fourth_down_go_rate": 0.1408,
+    "fourth_short_opp_go_rate": 0.4437,
+    "fourth_down_conv": 0.4972,
+    "punts_per_team_game": 4.572,
+    "punt_gross": 43.43,
+    "punt_fair_catch_rate": 0.1798,
+    "punt_return_avg": 11.68,
+    "kickoff_touchback_rate": 0.1229,
+    "kickoff_return_avg": 21.26,
+    "kickoff_fair_catch_rate": 0.0047,
+    "penalties_per_team_game": 5.715,
+    "drives_per_team_game": 12.01,
+    "drive_results": {
+     "Punt": 0.3875,
+     "Touchdown": 0.1895,
+     "Field goal": 0.1324,
+     "Turnover": 0.1301,
+     "End of half": 0.0713,
+     "Turnover on downs": 0.0416,
+     "Missed field goal": 0.0271,
+     "Opp touchdown": 0.0175,
+     "Safety": 0.003
+    }
+   },
+   "2008": {
+    "plays_per_team_game": 61.09,
+    "dropback_rate": 0.5778,
+    "neutral_dropback_rate": 0.4931,
+    "shotgun_share": 0.3208,
+    "no_huddle_share": 0.0399,
+    "completion_pct": 0.6116,
+    "yards_per_attempt": 6.96,
+    "sack_rate": 0.0574,
+    "int_rate": 0.0282,
+    "designed_run_ypc": 4.235,
+    "yards_per_play": 5.37,
+    "epa_per_play": -0.01,
+    "turnovers_per_team_game": 1.551,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.533,
+      "made_pct": 0.9817
+     },
+     "30_39": {
+      "att_per_team_game": 0.629,
+      "made_pct": 0.8913
+     },
+     "40_49": {
+      "att_per_team_game": 0.588,
+      "made_pct": 0.7442
+     },
+     "50_plus": {
+      "att_per_team_game": 0.201,
+      "made_pct": 0.6408
+     }
+    },
+    "fg_att_per_team_game": 1.953,
+    "fg_pct": 0.845,
+    "xp_att_per_team_game": 2.305,
+    "xp_pct": 0.9915,
+    "two_point_tries_per_team_game": 0.125,
+    "two_point_conv": 0.4375,
+    "fourth_down_go_rate": 0.1316,
+    "fourth_short_opp_go_rate": 0.4417,
+    "fourth_down_conv": 0.5318,
+    "punts_per_team_game": 4.48,
+    "punt_gross": 43.91,
+    "punt_fair_catch_rate": 0.1914,
+    "punt_return_avg": 11.68,
+    "kickoff_touchback_rate": 0.1435,
+    "kickoff_return_avg": 21.78,
+    "kickoff_fair_catch_rate": 0.0027,
+    "penalties_per_team_game": 5.604,
+    "drives_per_team_game": 11.76,
+    "drive_results": {
+     "Punt": 0.389,
+     "Touchdown": 0.1947,
+     "Field goal": 0.1439,
+     "Turnover": 0.1146,
+     "End of half": 0.076,
+     "Turnover on downs": 0.0349,
+     "Missed field goal": 0.0256,
+     "Opp touchdown": 0.0177,
+     "Safety": 0.0036
+    }
+   },
+   "2009": {
+    "plays_per_team_game": 62.16,
+    "dropback_rate": 0.5841,
+    "neutral_dropback_rate": 0.4845,
+    "shotgun_share": 0.3665,
+    "no_huddle_share": 0.0514,
+    "completion_pct": 0.6107,
+    "yards_per_attempt": 7.002,
+    "sack_rate": 0.0591,
+    "int_rate": 0.0309,
+    "designed_run_ypc": 4.279,
+    "yards_per_play": 5.405,
+    "epa_per_play": -0.0198,
+    "turnovers_per_team_game": 1.703,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.555,
+      "made_pct": 0.9683
+     },
+     "30_39": {
+      "att_per_team_game": 0.561,
+      "made_pct": 0.8362
+     },
+     "40_49": {
+      "att_per_team_game": 0.498,
+      "made_pct": 0.7294
+     },
+     "50_plus": {
+      "att_per_team_game": 0.203,
+      "made_pct": 0.5288
+     }
+    },
+    "fg_att_per_team_game": 1.816,
+    "fg_pct": 0.8129,
+    "xp_att_per_team_game": 2.318,
+    "xp_pct": 0.9815,
+    "two_point_tries_per_team_game": 0.113,
+    "two_point_conv": 0.4138,
+    "fourth_down_go_rate": 0.1442,
+    "fourth_short_opp_go_rate": 0.4755,
+    "fourth_down_conv": 0.5063,
+    "punts_per_team_game": 4.775,
+    "punt_gross": 44.02,
+    "punt_fair_catch_rate": 0.2127,
+    "punt_return_avg": 11.11,
+    "kickoff_touchback_rate": 0.1617,
+    "kickoff_return_avg": 21.79,
+    "kickoff_fair_catch_rate": 0.0048,
+    "penalties_per_team_game": 5.908,
+    "drives_per_team_game": 12.01,
+    "drive_results": {
+     "Punt": 0.4041,
+     "Touchdown": 0.1925,
+     "Field goal": 0.1253,
+     "Turnover": 0.1237,
+     "End of half": 0.0687,
+     "Turnover on downs": 0.0403,
+     "Missed field goal": 0.0285,
+     "Opp touchdown": 0.0144,
+     "Safety": 0.0023
+    }
+   },
+   "2010": {
+    "plays_per_team_game": 62.39,
+    "dropback_rate": 0.5949,
+    "neutral_dropback_rate": 0.4977,
+    "shotgun_share": 0.3766,
+    "no_huddle_share": 0.0378,
+    "completion_pct": 0.6087,
+    "yards_per_attempt": 7.017,
+    "sack_rate": 0.0594,
+    "int_rate": 0.0296,
+    "designed_run_ypc": 4.186,
+    "yards_per_play": 5.397,
+    "epa_per_play": -0.0179,
+    "turnovers_per_team_game": 1.676,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.564,
+      "made_pct": 0.955
+     },
+     "30_39": {
+      "att_per_team_game": 0.553,
+      "made_pct": 0.8869
+     },
+     "40_49": {
+      "att_per_team_game": 0.555,
+      "made_pct": 0.7324
+     },
+     "50_plus": {
+      "att_per_team_game": 0.211,
+      "made_pct": 0.5463
+     }
+    },
+    "fg_att_per_team_game": 1.883,
+    "fg_pct": 0.8237,
+    "xp_att_per_team_game": 2.377,
+    "xp_pct": 0.9885,
+    "two_point_tries_per_team_game": 0.098,
+    "two_point_conv": 0.52,
+    "fourth_down_go_rate": 0.1253,
+    "fourth_short_opp_go_rate": 0.4255,
+    "fourth_down_conv": 0.4969,
+    "punts_per_team_game": 4.793,
+    "punt_gross": 43.6,
+    "punt_fair_catch_rate": 0.2164,
+    "punt_return_avg": 12.07,
+    "kickoff_touchback_rate": 0.1637,
+    "kickoff_return_avg": 21.32,
+    "kickoff_fair_catch_rate": 0.0027,
+    "penalties_per_team_game": 6.049,
+    "drives_per_team_game": 12.15,
+    "drive_results": {
+     "Punt": 0.4021,
+     "Touchdown": 0.1935,
+     "Field goal": 0.1305,
+     "Turnover": 0.12,
+     "End of half": 0.0725,
+     "Turnover on downs": 0.0365,
+     "Missed field goal": 0.0275,
+     "Opp touchdown": 0.0153,
+     "Safety": 0.0021
+    }
+   },
+   "2011": {
+    "plays_per_team_game": 62.89,
+    "dropback_rate": 0.5989,
+    "neutral_dropback_rate": 0.4934,
+    "shotgun_share": 0.4033,
+    "no_huddle_share": 0.0564,
+    "completion_pct": 0.6028,
+    "yards_per_attempt": 7.222,
+    "sack_rate": 0.0617,
+    "int_rate": 0.0291,
+    "designed_run_ypc": 4.274,
+    "yards_per_play": 5.531,
+    "epa_per_play": -0.0095,
+    "turnovers_per_team_game": 1.58,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.609,
+      "made_pct": 0.9647
+     },
+     "30_39": {
+      "att_per_team_game": 0.506,
+      "made_pct": 0.8687
+     },
+     "40_49": {
+      "att_per_team_game": 0.586,
+      "made_pct": 0.74
+     },
+     "50_plus": {
+      "att_per_team_game": 0.273,
+      "made_pct": 0.6429
+     }
+    },
+    "fg_att_per_team_game": 1.975,
+    "fg_pct": 0.8289,
+    "xp_att_per_team_game": 2.357,
+    "xp_pct": 0.9942,
+    "two_point_tries_per_team_game": 0.098,
+    "two_point_conv": 0.46,
+    "fourth_down_go_rate": 0.1113,
+    "fourth_short_opp_go_rate": 0.383,
+    "fourth_down_conv": 0.4393,
+    "punts_per_team_game": 4.844,
+    "punt_gross": 45.2,
+    "punt_fair_catch_rate": 0.2351,
+    "punt_return_avg": 12.54,
+    "kickoff_touchback_rate": 0.4332,
+    "kickoff_return_avg": 22.34,
+    "kickoff_fair_catch_rate": 0.0004,
+    "penalties_per_team_game": 6.422,
+    "drives_per_team_game": 12.19,
+    "drive_results": {
+     "Punt": 0.4034,
+     "Touchdown": 0.1897,
+     "Field goal": 0.1373,
+     "Turnover": 0.1144,
+     "End of half": 0.0695,
+     "Turnover on downs": 0.0374,
+     "Missed field goal": 0.0283,
+     "Opp touchdown": 0.0165,
+     "Safety": 0.0034
+    }
+   },
+   "2012": {
+    "plays_per_team_game": 63.46,
+    "dropback_rate": 0.6033,
+    "neutral_dropback_rate": 0.5076,
+    "shotgun_share": 0.472,
+    "no_huddle_share": 0.0667,
+    "completion_pct": 0.6102,
+    "yards_per_attempt": 7.097,
+    "sack_rate": 0.0596,
+    "int_rate": 0.0264,
+    "designed_run_ypc": 4.248,
+    "yards_per_play": 5.486,
+    "epa_per_play": 0.0005,
+    "turnovers_per_team_game": 1.555,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.467,
+      "made_pct": 0.9665
+     },
+     "30_39": {
+      "att_per_team_game": 0.592,
+      "made_pct": 0.8911
+     },
+     "40_49": {
+      "att_per_team_game": 0.631,
+      "made_pct": 0.8019
+     },
+     "50_plus": {
+      "att_per_team_game": 0.295,
+      "made_pct": 0.6093
+     }
+    },
+    "fg_att_per_team_game": 1.984,
+    "fg_pct": 0.8386,
+    "xp_att_per_team_game": 2.416,
+    "xp_pct": 0.9935,
+    "two_point_tries_per_team_game": 0.109,
+    "two_point_conv": 0.5179,
+    "fourth_down_go_rate": 0.1165,
+    "fourth_short_opp_go_rate": 0.3643,
+    "fourth_down_conv": 0.5078,
+    "punts_per_team_game": 4.781,
+    "punt_gross": 45.89,
+    "punt_fair_catch_rate": 0.2373,
+    "punt_return_avg": 12.23,
+    "kickoff_touchback_rate": 0.4409,
+    "kickoff_return_avg": 22.38,
+    "kickoff_fair_catch_rate": 0.0008,
+    "penalties_per_team_game": 6.268,
+    "drives_per_team_game": 12.12,
+    "drive_results": {
+     "Punt": 0.4031,
+     "Touchdown": 0.1946,
+     "Field goal": 0.1408,
+     "Turnover": 0.1089,
+     "End of half": 0.0709,
+     "Turnover on downs": 0.0332,
+     "Missed field goal": 0.0268,
+     "Opp touchdown": 0.0197,
+     "Safety": 0.0021
+    }
+   },
+   "2013": {
+    "plays_per_team_game": 64.29,
+    "dropback_rate": 0.6131,
+    "neutral_dropback_rate": 0.5118,
+    "shotgun_share": 0.5867,
+    "no_huddle_share": 0.1211,
+    "completion_pct": 0.6123,
+    "yards_per_attempt": 7.128,
+    "sack_rate": 0.0642,
+    "int_rate": 0.0277,
+    "designed_run_ypc": 4.108,
+    "yards_per_play": 5.436,
+    "epa_per_play": -0.0047,
+    "turnovers_per_team_game": 1.588,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.496,
+      "made_pct": 0.9764
+     },
+     "30_39": {
+      "att_per_team_game": 0.576,
+      "made_pct": 0.8983
+     },
+     "40_49": {
+      "att_per_team_game": 0.598,
+      "made_pct": 0.8301
+     },
+     "50_plus": {
+      "att_per_team_game": 0.277,
+      "made_pct": 0.6761
+     }
+    },
+    "fg_att_per_team_game": 1.949,
+    "fg_pct": 0.8647,
+    "xp_att_per_team_game": 2.475,
+    "xp_pct": 0.9961,
+    "two_point_tries_per_team_game": 0.135,
+    "two_point_conv": 0.4783,
+    "fourth_down_go_rate": 0.1192,
+    "fourth_short_opp_go_rate": 0.3864,
+    "fourth_down_conv": 0.4829,
+    "punts_per_team_game": 4.9,
+    "punt_gross": 45.28,
+    "punt_fair_catch_rate": 0.2539,
+    "punt_return_avg": 12.21,
+    "kickoff_touchback_rate": 0.4866,
+    "kickoff_return_avg": 21.86,
+    "kickoff_fair_catch_rate": 0.0019,
+    "penalties_per_team_game": 6.104,
+    "drives_per_team_game": 12.4,
+    "drive_results": {
+     "Punt": 0.404,
+     "Touchdown": 0.1979,
+     "Field goal": 0.1392,
+     "Turnover": 0.1095,
+     "End of half": 0.0713,
+     "Turnover on downs": 0.0355,
+     "Missed field goal": 0.0215,
+     "Opp touchdown": 0.0179,
+     "Safety": 0.0032
+    }
+   },
+   "2014": {
+    "plays_per_team_game": 63.24,
+    "dropback_rate": 0.6104,
+    "neutral_dropback_rate": 0.5096,
+    "shotgun_share": 0.606,
+    "no_huddle_share": 0.1247,
+    "completion_pct": 0.6276,
+    "yards_per_attempt": 7.225,
+    "sack_rate": 0.0613,
+    "int_rate": 0.0252,
+    "designed_run_ypc": 4.148,
+    "yards_per_play": 5.519,
+    "epa_per_play": -0.0147,
+    "turnovers_per_team_game": 1.479,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.502,
+      "made_pct": 0.9767
+     },
+     "30_39": {
+      "att_per_team_game": 0.59,
+      "made_pct": 0.9007
+     },
+     "40_49": {
+      "att_per_team_game": 0.535,
+      "made_pct": 0.7737
+     },
+     "50_plus": {
+      "att_per_team_game": 0.301,
+      "made_pct": 0.6104
+     }
+    },
+    "fg_att_per_team_game": 1.928,
+    "fg_pct": 0.8399,
+    "xp_att_per_team_game": 2.404,
+    "xp_pct": 0.9927,
+    "two_point_tries_per_team_game": 0.113,
+    "two_point_conv": 0.4828,
+    "fourth_down_go_rate": 0.1197,
+    "fourth_short_opp_go_rate": 0.3763,
+    "fourth_down_conv": 0.461,
+    "punts_per_team_game": 4.615,
+    "punt_gross": 45.24,
+    "punt_fair_catch_rate": 0.273,
+    "punt_return_avg": 11.49,
+    "kickoff_touchback_rate": 0.5011,
+    "kickoff_return_avg": 22.36,
+    "kickoff_fair_catch_rate": 0.0019,
+    "penalties_per_team_game": 6.605,
+    "drives_per_team_game": 11.88,
+    "drive_results": {
+     "Punt": 0.3963,
+     "Touchdown": 0.201,
+     "Field goal": 0.1392,
+     "Turnover": 0.1081,
+     "End of half": 0.0719,
+     "Turnover on downs": 0.0376,
+     "Missed field goal": 0.0262,
+     "Opp touchdown": 0.0161,
+     "Safety": 0.0035
+    }
+   },
+   "2015": {
+    "plays_per_team_game": 63.66,
+    "dropback_rate": 0.6207,
+    "neutral_dropback_rate": 0.5206,
+    "shotgun_share": 0.6236,
+    "no_huddle_share": 0.1315,
+    "completion_pct": 0.6293,
+    "yards_per_attempt": 7.247,
+    "sack_rate": 0.0587,
+    "int_rate": 0.0238,
+    "designed_run_ypc": 4.11,
+    "yards_per_play": 5.556,
+    "epa_per_play": -0.0098,
+    "turnovers_per_team_game": 1.453,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.48,
+      "made_pct": 0.9756
+     },
+     "30_39": {
+      "att_per_team_game": 0.531,
+      "made_pct": 0.9412
+     },
+     "40_49": {
+      "att_per_team_game": 0.604,
+      "made_pct": 0.7573
+     },
+     "50_plus": {
+      "att_per_team_game": 0.312,
+      "made_pct": 0.65
+     }
+    },
+    "fg_att_per_team_game": 1.928,
+    "fg_pct": 0.845,
+    "xp_att_per_team_game": 2.377,
+    "xp_pct": 0.9417,
+    "two_point_tries_per_team_game": 0.184,
+    "two_point_conv": 0.4787,
+    "fourth_down_go_rate": 0.1242,
+    "fourth_short_opp_go_rate": 0.3924,
+    "fourth_down_conv": 0.4968,
+    "punts_per_team_game": 4.744,
+    "punt_gross": 45.42,
+    "punt_fair_catch_rate": 0.2433,
+    "punt_return_avg": 11.14,
+    "kickoff_touchback_rate": 0.5592,
+    "kickoff_return_avg": 21.95,
+    "kickoff_fair_catch_rate": 0.0011,
+    "penalties_per_team_game": 6.908,
+    "drives_per_team_game": 12.01,
+    "drive_results": {
+     "Punt": 0.4021,
+     "Touchdown": 0.2021,
+     "Field goal": 0.1385,
+     "Turnover": 0.1028,
+     "End of half": 0.0736,
+     "Turnover on downs": 0.0364,
+     "Missed field goal": 0.0252,
+     "Opp touchdown": 0.0166,
+     "Safety": 0.0027
+    }
+   },
+   "2016": {
+    "plays_per_team_game": 63.26,
+    "dropback_rate": 0.6197,
+    "neutral_dropback_rate": 0.5185,
+    "shotgun_share": 0.6404,
+    "no_huddle_share": 0.114,
+    "completion_pct": 0.6297,
+    "yards_per_attempt": 7.154,
+    "sack_rate": 0.0557,
+    "int_rate": 0.0227,
+    "designed_run_ypc": 4.179,
+    "yards_per_play": 5.555,
+    "epa_per_play": 0.0042,
+    "turnovers_per_team_game": 1.363,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.506,
+      "made_pct": 0.9691
+     },
+     "30_39": {
+      "att_per_team_game": 0.594,
+      "made_pct": 0.9178
+     },
+     "40_49": {
+      "att_per_team_game": 0.578,
+      "made_pct": 0.7939
+     },
+     "50_plus": {
+      "att_per_team_game": 0.293,
+      "made_pct": 0.5667
+     }
+    },
+    "fg_att_per_team_game": 1.971,
+    "fg_pct": 0.8424,
+    "xp_att_per_team_game": 2.334,
+    "xp_pct": 0.9364,
+    "two_point_tries_per_team_game": 0.205,
+    "two_point_conv": 0.4857,
+    "fourth_down_go_rate": 0.1276,
+    "fourth_short_opp_go_rate": 0.4618,
+    "fourth_down_conv": 0.5157,
+    "punts_per_team_game": 4.547,
+    "punt_gross": 45.47,
+    "punt_fair_catch_rate": 0.2779,
+    "punt_return_avg": 11.22,
+    "kickoff_touchback_rate": 0.5746,
+    "kickoff_return_avg": 20.19,
+    "kickoff_fair_catch_rate": 0.0004,
+    "penalties_per_team_game": 6.709,
+    "drives_per_team_game": 11.71,
+    "drive_results": {
+     "Punt": 0.3939,
+     "Touchdown": 0.2097,
+     "Field goal": 0.1441,
+     "Turnover": 0.1022,
+     "End of half": 0.0729,
+     "Turnover on downs": 0.0353,
+     "Missed field goal": 0.0268,
+     "Opp touchdown": 0.0117,
+     "Safety": 0.0034
+    }
+   },
+   "2017": {
+    "plays_per_team_game": 62.63,
+    "dropback_rate": 0.6054,
+    "neutral_dropback_rate": 0.5013,
+    "shotgun_share": 0.5921,
+    "no_huddle_share": 0.0868,
+    "completion_pct": 0.6206,
+    "yards_per_attempt": 7.015,
+    "sack_rate": 0.0616,
+    "int_rate": 0.0246,
+    "designed_run_ypc": 4.053,
+    "yards_per_play": 5.349,
+    "epa_per_play": -0.0351,
+    "turnovers_per_team_game": 1.373,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.492,
+      "made_pct": 0.9802
+     },
+     "30_39": {
+      "att_per_team_game": 0.588,
+      "made_pct": 0.8571
+     },
+     "40_49": {
+      "att_per_team_game": 0.625,
+      "made_pct": 0.7937
+     },
+     "50_plus": {
+      "att_per_team_game": 0.301,
+      "made_pct": 0.6948
+     }
+    },
+    "fg_att_per_team_game": 2.006,
+    "fg_pct": 0.8432,
+    "xp_att_per_team_game": 2.215,
+    "xp_pct": 0.94,
+    "two_point_tries_per_team_game": 0.168,
+    "two_point_conv": 0.4302,
+    "fourth_down_go_rate": 0.1243,
+    "fourth_short_opp_go_rate": 0.4155,
+    "fourth_down_conv": 0.4657,
+    "punts_per_team_game": 4.752,
+    "punt_gross": 45.57,
+    "punt_fair_catch_rate": 0.2573,
+    "punt_return_avg": 11.15,
+    "kickoff_touchback_rate": 0.5645,
+    "kickoff_return_avg": 20.13,
+    "kickoff_fair_catch_rate": 0.0012,
+    "penalties_per_team_game": 6.672,
+    "drives_per_team_game": 11.83,
+    "drive_results": {
+     "Punt": 0.4083,
+     "Touchdown": 0.1908,
+     "Field goal": 0.1457,
+     "Turnover": 0.0999,
+     "End of half": 0.0713,
+     "Turnover on downs": 0.039,
+     "Missed field goal": 0.0271,
+     "Opp touchdown": 0.0153,
+     "Safety": 0.0025
+    }
+   },
+   "2018": {
+    "plays_per_team_game": 62.27,
+    "dropback_rate": 0.62,
+    "neutral_dropback_rate": 0.5253,
+    "shotgun_share": 0.6369,
+    "no_huddle_share": 0.0768,
+    "completion_pct": 0.6478,
+    "yards_per_attempt": 7.367,
+    "sack_rate": 0.0648,
+    "int_rate": 0.0237,
+    "designed_run_ypc": 4.379,
+    "yards_per_play": 5.673,
+    "epa_per_play": 0.0097,
+    "turnovers_per_team_game": 1.359,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.412,
+      "made_pct": 0.9858
+     },
+     "30_39": {
+      "att_per_team_game": 0.566,
+      "made_pct": 0.9414
+     },
+     "40_49": {
+      "att_per_team_game": 0.572,
+      "made_pct": 0.7645
+     },
+     "50_plus": {
+      "att_per_team_game": 0.297,
+      "made_pct": 0.6382
+     }
+    },
+    "fg_att_per_team_game": 1.848,
+    "fg_pct": 0.8478,
+    "xp_att_per_team_game": 2.412,
+    "xp_pct": 0.9425,
+    "two_point_tries_per_team_game": 0.254,
+    "two_point_conv": 0.5077,
+    "fourth_down_go_rate": 0.1482,
+    "fourth_short_opp_go_rate": 0.5318,
+    "fourth_down_conv": 0.5607,
+    "punts_per_team_game": 4.293,
+    "punt_gross": 45.28,
+    "punt_fair_catch_rate": 0.2734,
+    "punt_return_avg": 11.43,
+    "kickoff_touchback_rate": 0.6066,
+    "kickoff_return_avg": 21.41,
+    "kickoff_fair_catch_rate": 0.0008,
+    "penalties_per_team_game": 6.721,
+    "drives_per_team_game": 11.48,
+    "drive_results": {
+     "Punt": 0.3808,
+     "Touchdown": 0.224,
+     "Field goal": 0.1388,
+     "Turnover": 0.1039,
+     "End of half": 0.0748,
+     "Turnover on downs": 0.0377,
+     "Missed field goal": 0.0249,
+     "Opp touchdown": 0.0133,
+     "Safety": 0.0017
+    }
+   },
+   "2019": {
+    "plays_per_team_game": 62.81,
+    "dropback_rate": 0.6195,
+    "neutral_dropback_rate": 0.5242,
+    "shotgun_share": 0.6446,
+    "no_huddle_share": 0.0792,
+    "completion_pct": 0.6344,
+    "yards_per_attempt": 7.221,
+    "sack_rate": 0.064,
+    "int_rate": 0.023,
+    "designed_run_ypc": 4.306,
+    "yards_per_play": 5.555,
+    "epa_per_play": -0.0065,
+    "turnovers_per_team_game": 1.387,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.484,
+      "made_pct": 0.9839
+     },
+     "30_39": {
+      "att_per_team_game": 0.518,
+      "made_pct": 0.9132
+     },
+     "40_49": {
+      "att_per_team_game": 0.635,
+      "made_pct": 0.7138
+     },
+     "50_plus": {
+      "att_per_team_game": 0.283,
+      "made_pct": 0.5793
+     }
+    },
+    "fg_att_per_team_game": 1.92,
+    "fg_pct": 0.8159,
+    "xp_att_per_team_game": 2.363,
+    "xp_pct": 0.9388,
+    "two_point_tries_per_team_game": 0.221,
+    "two_point_conv": 0.4779,
+    "fourth_down_go_rate": 0.1622,
+    "fourth_short_opp_go_rate": 0.5639,
+    "fourth_down_conv": 0.484,
+    "punts_per_team_game": 4.195,
+    "punt_gross": 45.44,
+    "punt_fair_catch_rate": 0.2817,
+    "punt_return_avg": 10.09,
+    "kickoff_touchback_rate": 0.6073,
+    "kickoff_return_avg": 20.66,
+    "kickoff_fair_catch_rate": 0.0011,
+    "penalties_per_team_game": 6.734,
+    "drives_per_team_game": 11.49,
+    "drive_results": {
+     "Punt": 0.3711,
+     "Touchdown": 0.217,
+     "Field goal": 0.1388,
+     "Turnover": 0.1057,
+     "End of half": 0.0727,
+     "Turnover on downs": 0.0472,
+     "Missed field goal": 0.0311,
+     "Opp touchdown": 0.0135,
+     "Safety": 0.0029
+    }
+   },
+   "2020": {
+    "plays_per_team_game": 63.62,
+    "dropback_rate": 0.6147,
+    "neutral_dropback_rate": 0.529,
+    "shotgun_share": 0.6585,
+    "no_huddle_share": 0.0941,
+    "completion_pct": 0.6522,
+    "yards_per_attempt": 7.244,
+    "sack_rate": 0.0567,
+    "int_rate": 0.0219,
+    "designed_run_ypc": 4.403,
+    "yards_per_play": 5.661,
+    "epa_per_play": 0.0315,
+    "turnovers_per_team_game": 1.299,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.424,
+      "made_pct": 0.9631
+     },
+     "30_39": {
+      "att_per_team_game": 0.529,
+      "made_pct": 0.9299
+     },
+     "40_49": {
+      "att_per_team_game": 0.594,
+      "made_pct": 0.8059
+     },
+     "50_plus": {
+      "att_per_team_game": 0.328,
+      "made_pct": 0.631
+     }
+    },
+    "fg_att_per_team_game": 1.875,
+    "fg_pct": 0.8458,
+    "xp_att_per_team_game": 2.613,
+    "xp_pct": 0.9297,
+    "two_point_tries_per_team_game": 0.256,
+    "two_point_conv": 0.4809,
+    "fourth_down_go_rate": 0.1915,
+    "fourth_short_opp_go_rate": 0.6039,
+    "fourth_down_conv": 0.5573,
+    "punts_per_team_game": 3.688,
+    "punt_gross": 45.93,
+    "punt_fair_catch_rate": 0.2977,
+    "punt_return_avg": 11.07,
+    "kickoff_touchback_rate": 0.6119,
+    "kickoff_return_avg": 20.87,
+    "kickoff_fair_catch_rate": 0.0,
+    "penalties_per_team_game": 5.611,
+    "drives_per_team_game": 11.11,
+    "drive_results": {
+     "Punt": 0.336,
+     "Touchdown": 0.2515,
+     "Field goal": 0.1445,
+     "Turnover": 0.1048,
+     "End of half": 0.0742,
+     "Turnover on downs": 0.0479,
+     "Missed field goal": 0.0262,
+     "Opp touchdown": 0.0107,
+     "Safety": 0.0043
+    }
+   },
+   "2021": {
+    "plays_per_team_game": 62.76,
+    "dropback_rate": 0.6124,
+    "neutral_dropback_rate": 0.5195,
+    "shotgun_share": 0.6594,
+    "no_huddle_share": 0.1068,
+    "completion_pct": 0.6463,
+    "yards_per_attempt": 7.087,
+    "sack_rate": 0.0595,
+    "int_rate": 0.0235,
+    "designed_run_ypc": 4.255,
+    "yards_per_play": 5.491,
+    "epa_per_play": 0.0053,
+    "turnovers_per_team_game": 1.298,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.439,
+      "made_pct": 0.9916
+     },
+     "30_39": {
+      "att_per_team_game": 0.555,
+      "made_pct": 0.9305
+     },
+     "40_49": {
+      "att_per_team_game": 0.559,
+      "made_pct": 0.7763
+     },
+     "50_plus": {
+      "att_per_team_game": 0.335,
+      "made_pct": 0.6593
+     }
+    },
+    "fg_att_per_team_game": 1.888,
+    "fg_pct": 0.851,
+    "xp_att_per_team_game": 2.311,
+    "xp_pct": 0.934,
+    "two_point_tries_per_team_game": 0.283,
+    "two_point_conv": 0.487,
+    "fourth_down_go_rate": 0.2087,
+    "fourth_short_opp_go_rate": 0.6292,
+    "fourth_down_conv": 0.5334,
+    "punts_per_team_game": 3.798,
+    "punt_gross": 45.85,
+    "punt_fair_catch_rate": 0.2609,
+    "punt_return_avg": 10.85,
+    "kickoff_touchback_rate": 0.575,
+    "kickoff_return_avg": 20.68,
+    "kickoff_fair_catch_rate": 0.0004,
+    "penalties_per_team_game": 5.906,
+    "drives_per_team_game": 11.07,
+    "drive_results": {
+     "Punt": 0.3482,
+     "Touchdown": 0.2287,
+     "Field goal": 0.1472,
+     "Turnover": 0.1046,
+     "End of half": 0.076,
+     "Turnover on downs": 0.0574,
+     "Missed field goal": 0.0256,
+     "Opp touchdown": 0.0109,
+     "Safety": 0.0013
+    }
+   },
+   "2022": {
+    "plays_per_team_game": 62.31,
+    "dropback_rate": 0.6011,
+    "neutral_dropback_rate": 0.5119,
+    "shotgun_share": 0.6763,
+    "no_huddle_share": 0.1039,
+    "completion_pct": 0.6413,
+    "yards_per_attempt": 7.024,
+    "sack_rate": 0.0639,
+    "int_rate": 0.0231,
+    "designed_run_ypc": 4.428,
+    "yards_per_play": 5.475,
+    "epa_per_play": -0.0082,
+    "turnovers_per_team_game": 1.308,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.448,
+      "made_pct": 0.9753
+     },
+     "30_39": {
+      "att_per_team_game": 0.531,
+      "made_pct": 0.9201
+     },
+     "40_49": {
+      "att_per_team_game": 0.566,
+      "made_pct": 0.8046
+     },
+     "50_plus": {
+      "att_per_team_game": 0.413,
+      "made_pct": 0.6875
+     }
+    },
+    "fg_att_per_team_game": 1.959,
+    "fg_pct": 0.8503,
+    "xp_att_per_team_game": 2.19,
+    "xp_pct": 0.9461,
+    "two_point_tries_per_team_game": 0.22,
+    "two_point_conv": 0.4706,
+    "fourth_down_go_rate": 0.1882,
+    "fourth_short_opp_go_rate": 0.6069,
+    "fourth_down_conv": 0.5143,
+    "punts_per_team_game": 4.037,
+    "punt_gross": 47.0,
+    "punt_fair_catch_rate": 0.2774,
+    "punt_return_avg": 10.76,
+    "kickoff_touchback_rate": 0.5967,
+    "kickoff_return_avg": 21.19,
+    "kickoff_fair_catch_rate": 0.0,
+    "penalties_per_team_game": 5.592,
+    "drives_per_team_game": 11.13,
+    "drive_results": {
+     "Punt": 0.3679,
+     "Touchdown": 0.2094,
+     "Field goal": 0.1516,
+     "Turnover": 0.1029,
+     "End of half": 0.073,
+     "Turnover on downs": 0.0551,
+     "Missed field goal": 0.0264,
+     "Opp touchdown": 0.0114,
+     "Safety": 0.0022
+    }
+   },
+   "2023": {
+    "plays_per_team_game": 62.42,
+    "dropback_rate": 0.6117,
+    "neutral_dropback_rate": 0.5239,
+    "shotgun_share": 0.7196,
+    "no_huddle_share": 0.0914,
+    "completion_pct": 0.6444,
+    "yards_per_attempt": 7.02,
+    "sack_rate": 0.0679,
+    "int_rate": 0.0235,
+    "designed_run_ypc": 4.126,
+    "yards_per_play": 5.33,
+    "epa_per_play": -0.0319,
+    "turnovers_per_team_game": 1.347,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.449,
+      "made_pct": 0.9836
+     },
+     "30_39": {
+      "att_per_team_game": 0.572,
+      "made_pct": 0.9453
+     },
+     "40_49": {
+      "att_per_team_game": 0.506,
+      "made_pct": 0.7964
+     },
+     "50_plus": {
+      "att_per_team_game": 0.423,
+      "made_pct": 0.687
+     }
+    },
+    "fg_att_per_team_game": 1.949,
+    "fg_pct": 0.8594,
+    "xp_att_per_team_game": 2.149,
+    "xp_pct": 0.9589,
+    "two_point_tries_per_team_game": 0.233,
+    "two_point_conv": 0.5512,
+    "fourth_down_go_rate": 0.1959,
+    "fourth_short_opp_go_rate": 0.6273,
+    "fourth_down_conv": 0.5221,
+    "punts_per_team_game": 4.149,
+    "punt_gross": 47.39,
+    "punt_fair_catch_rate": 0.2853,
+    "punt_return_avg": 11.55,
+    "kickoff_touchback_rate": 0.7302,
+    "kickoff_return_avg": 21.26,
+    "kickoff_fair_catch_rate": 0.0341,
+    "penalties_per_team_game": 5.706,
+    "drives_per_team_game": 11.29,
+    "drive_results": {
+     "Punt": 0.3716,
+     "Touchdown": 0.203,
+     "Field goal": 0.1504,
+     "Turnover": 0.105,
+     "End of half": 0.0733,
+     "Turnover on downs": 0.0576,
+     "Missed field goal": 0.0244,
+     "Opp touchdown": 0.0119,
+     "Safety": 0.0028
+    }
+   },
+   "2024": {
+    "plays_per_team_game": 61.53,
+    "dropback_rate": 0.604,
+    "neutral_dropback_rate": 0.5141,
+    "shotgun_share": 0.7027,
+    "no_huddle_share": 0.1213,
+    "completion_pct": 0.6519,
+    "yards_per_attempt": 7.125,
+    "sack_rate": 0.065,
+    "int_rate": 0.0217,
+    "designed_run_ypc": 4.32,
+    "yards_per_play": 5.499,
+    "epa_per_play": 0.0087,
+    "turnovers_per_team_game": 1.208,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.438,
+      "made_pct": 0.9706
+     },
+     "30_39": {
+      "att_per_team_game": 0.546,
+      "made_pct": 0.9428
+     },
+     "40_49": {
+      "att_per_team_game": 0.553,
+      "made_pct": 0.7674
+     },
+     "50_plus": {
+      "att_per_team_game": 0.513,
+      "made_pct": 0.6989
+     }
+    },
+    "fg_att_per_team_game": 2.05,
+    "fg_pct": 0.8404,
+    "xp_att_per_team_game": 2.281,
+    "xp_pct": 0.9581,
+    "two_point_tries_per_team_game": 0.248,
+    "two_point_conv": 0.4074,
+    "fourth_down_go_rate": 0.1997,
+    "fourth_short_opp_go_rate": 0.6584,
+    "fourth_down_conv": 0.5668,
+    "punts_per_team_game": 3.739,
+    "punt_gross": 47.56,
+    "punt_fair_catch_rate": 0.2763,
+    "punt_return_avg": 11.88,
+    "kickoff_touchback_rate": 0.6432,
+    "kickoff_return_avg": 25.42,
+    "kickoff_fair_catch_rate": 0.0011,
+    "penalties_per_team_game": 6.432,
+    "drives_per_team_game": 10.93,
+    "drive_results": {
+     "Punt": 0.3466,
+     "Touchdown": 0.2266,
+     "Field goal": 0.1595,
+     "Turnover": 0.0986,
+     "End of half": 0.074,
+     "Turnover on downs": 0.0529,
+     "Missed field goal": 0.0298,
+     "Opp touchdown": 0.0095,
+     "Safety": 0.0026
+    }
+   },
+   "2025": {
+    "plays_per_team_game": 60.55,
+    "dropback_rate": 0.602,
+    "neutral_dropback_rate": 0.518,
+    "shotgun_share": 0.659,
+    "no_huddle_share": 0.0982,
+    "completion_pct": 0.6427,
+    "yards_per_attempt": 7.017,
+    "sack_rate": 0.0649,
+    "int_rate": 0.0218,
+    "designed_run_ypc": 4.268,
+    "yards_per_play": 5.411,
+    "epa_per_play": 0.0073,
+    "turnovers_per_team_game": 1.154,
+    "fg_by_distance": {
+     "under_30": {
+      "att_per_team_game": 0.386,
+      "made_pct": 0.981
+     },
+     "30_39": {
+      "att_per_team_game": 0.55,
+      "made_pct": 0.9298
+     },
+     "40_49": {
+      "att_per_team_game": 0.575,
+      "made_pct": 0.8435
+     },
+     "50_plus": {
+      "att_per_team_game": 0.489,
+      "made_pct": 0.688
+     }
+    },
+    "fg_att_per_team_game": 2.0,
+    "fg_pct": 0.8557,
+    "xp_att_per_team_game": 2.32,
+    "xp_pct": 0.9588,
+    "two_point_tries_per_team_game": 0.235,
+    "two_point_conv": 0.4609,
+    "fourth_down_go_rate": 0.2325,
+    "fourth_short_opp_go_rate": 0.7382,
+    "fourth_down_conv": 0.5544,
+    "punts_per_team_game": 3.537,
+    "punt_gross": 47.35,
+    "punt_fair_catch_rate": 0.2713,
+    "punt_return_avg": 12.71,
+    "kickoff_touchback_rate": 0.2068,
+    "kickoff_return_avg": 24.41,
+    "kickoff_fair_catch_rate": 0.0007,
+    "penalties_per_team_game": 6.362,
+    "drives_per_team_game": 10.72,
+    "drive_results": {
+     "Punt": 0.3336,
+     "Touchdown": 0.2314,
+     "Field goal": 0.1621,
+     "Turnover": 0.0958,
+     "End of half": 0.0738,
+     "Turnover on downs": 0.063,
+     "Missed field goal": 0.0268,
+     "Opp touchdown": 0.0115,
+     "Safety": 0.0021
+    }
+   }
+  }
+ },
+ "penalty_kinds_per_team_game": {
+  "years": "1999-2025",
+  "note": "accepted penalties, the 20 most common kinds",
+  "by_season": {
+   "1999": {
+    "False Start": 1.4514,
+    "Offensive Holding": 1.2692,
+    "Defensive Pass Interference": 0.5425,
+    "Defensive Offside": 0.5243,
+    "Delay of Game": 0.3036,
+    "Unnecessary Roughness": 0.2814,
+    "Defensive Holding": 0.249,
+    "Encroachment": 0.2186,
+    "Face Mask": 0.17,
+    "Illegal Block Above the Waist": 0.166,
+    "Offensive Pass Interference": 0.1599,
+    "Roughing the Passer": 0.1336,
+    "Illegal Use of Hands": 0.1296,
+    "Illegal Contact": 0.1174,
+    "Unsportsmanlike Conduct": 0.1012,
+    "Intentional Grounding": 0.0931,
+    "Ineligible Downfield Kick": 0.0486,
+    "Illegal Shift": 0.0466,
+    "Illegal Formation": 0.0445,
+    "Tripping": 0.0405
+   },
+   "2000": {
+    "Offensive Holding": 1.2541,
+    "False Start": 1.25,
+    "Defensive Pass Interference": 0.5041,
+    "Defensive Offside": 0.4492,
+    "Defensive Holding": 0.315,
+    "Delay of Game": 0.2724,
+    "Unnecessary Roughness": 0.2398,
+    "Encroachment": 0.1992,
+    "Illegal Use of Hands": 0.1728,
+    "Illegal Block Above the Waist": 0.1565,
+    "Roughing the Passer": 0.1504,
+    "Face Mask": 0.1382,
+    "Offensive Pass Interference": 0.1321,
+    "Illegal Contact": 0.1118,
+    "Personal Foul": 0.1118,
+    "Intentional Grounding": 0.0935,
+    "Illegal Formation": 0.0671,
+    "Tripping": 0.063,
+    "Unsportsmanlike Conduct": 0.063,
+    "Illegal Substitution": 0.0467
+   },
+   "2001": {
+    "False Start": 1.1976,
+    "Offensive Holding": 1.0484,
+    "Defensive Offside": 0.498,
+    "Defensive Pass Interference": 0.4415,
+    "Personal Foul": 0.2359,
+    "Delay of Game": 0.2218,
+    "Defensive Holding": 0.2117,
+    "Encroachment": 0.1996,
+    "Unnecessary Roughness": 0.1714,
+    "Roughing the Passer": 0.1552,
+    "Face Mask": 0.1512,
+    "Illegal Block Above the Waist": 0.1391,
+    "Offensive Pass Interference": 0.123,
+    "Illegal Use of Hands": 0.0988,
+    "Intentional Grounding": 0.0786,
+    "Illegal Formation": 0.0685,
+    "Illegal Contact": 0.0665,
+    "Unsportsmanlike Conduct": 0.0605,
+    "Defensive 12 On-field": 0.0544,
+    "Neutral Zone Infraction": 0.0484
+   },
+   "2002": {
+    "False Start": 1.4043,
+    "Offensive Holding": 1.2676,
+    "Defensive Pass Interference": 0.4648,
+    "Defensive Offside": 0.4434,
+    "Unnecessary Roughness": 0.252,
+    "Defensive Holding": 0.2441,
+    "Delay of Game": 0.2266,
+    "Personal Foul": 0.2051,
+    "Roughing the Passer": 0.1953,
+    "Face Mask": 0.1953,
+    "Illegal Block Above the Waist": 0.1504,
+    "Encroachment": 0.1465,
+    "Illegal Use of Hands": 0.1367,
+    "Illegal Contact": 0.1152,
+    "Offensive Pass Interference": 0.0918,
+    "Unsportsmanlike Conduct": 0.0742,
+    "Neutral Zone Infraction": 0.0605,
+    "Defensive 12 On-field": 0.0605,
+    "Intentional Grounding": 0.0605,
+    "Illegal Formation": 0.0566
+   },
+   "2003": {
+    "False Start": 1.5469,
+    "Offensive Holding": 1.2754,
+    "Defensive Pass Interference": 0.4316,
+    "Defensive Offside": 0.4238,
+    "Defensive Holding": 0.3262,
+    "Unnecessary Roughness": 0.252,
+    "Delay of Game": 0.2168,
+    "Roughing the Passer": 0.207,
+    "Face Mask": 0.1914,
+    "Illegal Block Above the Waist": 0.1738,
+    "Encroachment": 0.166,
+    "Illegal Use of Hands": 0.1387,
+    "Personal Foul": 0.1348,
+    "Offensive Pass Interference": 0.1328,
+    "Illegal Contact": 0.0957,
+    "Unsportsmanlike Conduct": 0.0918,
+    "Face Mask (5 Yards)": 0.0859,
+    "Neutral Zone Infraction": 0.084,
+    "Intentional Grounding": 0.0684,
+    "Tripping": 0.0527
+   },
+   "2004": {
+    "False Start": 1.5898,
+    "Offensive Holding": 1.1719,
+    "Defensive Offside": 0.4395,
+    "Defensive Pass Interference": 0.3457,
+    "Illegal Block Above the Waist": 0.2949,
+    "Defensive Holding": 0.291,
+    "Roughing the Passer": 0.2441,
+    "Illegal Contact": 0.2402,
+    "Delay of Game": 0.2383,
+    "Face Mask": 0.2324,
+    "Unnecessary Roughness": 0.1992,
+    "Personal Foul": 0.1602,
+    "Encroachment": 0.1562,
+    "Offensive Pass Interference": 0.1191,
+    "Illegal Use of Hands": 0.1172,
+    "Illegal Formation": 0.1035,
+    "Unsportsmanlike Conduct": 0.0938,
+    "Intentional Grounding": 0.0918,
+    "Neutral Zone Infraction": 0.0781,
+    "Tripping": 0.0762
+   },
+   "2005": {
+    "False Start": 1.6582,
+    "Offensive Holding": 1.3691,
+    "Defensive Offside": 0.4961,
+    "Defensive Pass Interference": 0.3887,
+    "Defensive Holding": 0.3848,
+    "Illegal Block Above the Waist": 0.3379,
+    "Delay of Game": 0.2559,
+    "Roughing the Passer": 0.2266,
+    "Illegal Contact": 0.2188,
+    "Unnecessary Roughness": 0.209,
+    "Face Mask": 0.1602,
+    "Personal Foul": 0.1543,
+    "Encroachment": 0.1445,
+    "Offensive Pass Interference": 0.1367,
+    "Illegal Use of Hands": 0.1191,
+    "Illegal Formation": 0.1074,
+    "Offside on Free Kick": 0.0801,
+    "Intentional Grounding": 0.0781,
+    "Face Mask (5 Yards)": 0.0625,
+    "Unsportsmanlike Conduct": 0.0605
+   },
+   "2006": {
+    "False Start": 1.4102,
+    "Offensive Holding": 0.9238,
+    "Defensive Offside": 0.3594,
+    "Defensive Pass Interference": 0.3184,
+    "Illegal Block Above the Waist": 0.2754,
+    "Unnecessary Roughness": 0.2617,
+    "Defensive Holding": 0.25,
+    "Face Mask": 0.1953,
+    "Roughing the Passer": 0.1855,
+    "Delay of Game": 0.1797,
+    "Illegal Contact": 0.1602,
+    "Encroachment": 0.1562,
+    "Personal Foul": 0.1445,
+    "Offensive Pass Interference": 0.1191,
+    "Unsportsmanlike Conduct": 0.1094,
+    "Illegal Use of Hands": 0.0918,
+    "Illegal Formation": 0.0898,
+    "Neutral Zone Infraction": 0.0703,
+    "Intentional Grounding": 0.0566,
+    "Face Mask (5 Yards)": 0.0488
+   },
+   "2007": {
+    "False Start": 1.4316,
+    "Offensive Holding": 0.959,
+    "Defensive Offside": 0.4062,
+    "Delay of Game": 0.3105,
+    "Defensive Pass Interference": 0.2871,
+    "Unnecessary Roughness": 0.2402,
+    "Illegal Block Above the Waist": 0.1973,
+    "Defensive Holding": 0.166,
+    "Face Mask": 0.1562,
+    "Illegal Contact": 0.1543,
+    "Encroachment": 0.1504,
+    "Roughing the Passer": 0.1133,
+    "Personal Foul": 0.1055,
+    "Unsportsmanlike Conduct": 0.0996,
+    "Offensive Pass Interference": 0.0996,
+    "Illegal Formation": 0.0918,
+    "Neutral Zone Infraction": 0.0859,
+    "Intentional Grounding": 0.082,
+    "Defensive 12 On-field": 0.0625,
+    "Face Mask (5 Yards)": 0.0566
+   },
+   "2008": {
+    "False Start": 1.2598,
+    "Offensive Holding": 0.918,
+    "Defensive Offside": 0.4629,
+    "Defensive Pass Interference": 0.3066,
+    "Unnecessary Roughness": 0.2988,
+    "Delay of Game": 0.2637,
+    "Defensive Holding": 0.248,
+    "Illegal Block Above the Waist": 0.2324,
+    "Face Mask": 0.1582,
+    "Encroachment": 0.1406,
+    "Illegal Contact": 0.1406,
+    "Offensive Pass Interference": 0.125,
+    "Roughing the Passer": 0.1113,
+    "Illegal Formation": 0.1113,
+    "Neutral Zone Infraction": 0.0898,
+    "Unsportsmanlike Conduct": 0.0879,
+    "Personal Foul": 0.084,
+    "Intentional Grounding": 0.0645,
+    "Illegal Use of Hands": 0.0547,
+    "Ineligible Downfield Pass": 0.0449
+   },
+   "2009": {
+    "False Start": 1.2715,
+    "Offensive Holding": 1.0469,
+    "Defensive Offside": 0.4023,
+    "Defensive Pass Interference": 0.3457,
+    "Unnecessary Roughness": 0.2637,
+    "Delay of Game": 0.2461,
+    "Illegal Block Above the Waist": 0.2324,
+    "Defensive Holding": 0.2051,
+    "Face Mask": 0.1953,
+    "Illegal Contact": 0.1699,
+    "Offensive Pass Interference": 0.1465,
+    "Roughing the Passer": 0.127,
+    "Encroachment": 0.1113,
+    "Personal Foul": 0.1113,
+    "Illegal Formation": 0.1094,
+    "Neutral Zone Infraction": 0.1055,
+    "Unsportsmanlike Conduct": 0.0918,
+    "Illegal Use of Hands": 0.0742,
+    "Intentional Grounding": 0.0684,
+    "Defensive 12 On-field": 0.0547
+   },
+   "2010": {
+    "False Start": 1.2598,
+    "Offensive Holding": 1.168,
+    "Defensive Offside": 0.4121,
+    "Defensive Pass Interference": 0.3789,
+    "Unnecessary Roughness": 0.3105,
+    "Delay of Game": 0.2676,
+    "Illegal Block Above the Waist": 0.2168,
+    "Defensive Holding": 0.207,
+    "Roughing the Passer": 0.1621,
+    "Encroachment": 0.1543,
+    "Face Mask": 0.1523,
+    "Neutral Zone Infraction": 0.1387,
+    "Offensive Pass Interference": 0.1367,
+    "Illegal Contact": 0.1328,
+    "Illegal Formation": 0.1211,
+    "Personal Foul": 0.0879,
+    "Intentional Grounding": 0.0859,
+    "Unsportsmanlike Conduct": 0.0859,
+    "Illegal Use of Hands": 0.0762,
+    "Defensive 12 On-field": 0.0449
+   },
+   "2011": {
+    "False Start": 1.2676,
+    "Offensive Holding": 1.1758,
+    "Defensive Pass Interference": 0.4004,
+    "Unnecessary Roughness": 0.3672,
+    "Defensive Offside": 0.3086,
+    "Delay of Game": 0.2461,
+    "Defensive Holding": 0.2422,
+    "Neutral Zone Infraction": 0.2285,
+    "Illegal Block Above the Waist": 0.2207,
+    "Face Mask": 0.1992,
+    "Roughing the Passer": 0.1934,
+    "Illegal Use of Hands": 0.1426,
+    "Encroachment": 0.1367,
+    "Illegal Contact": 0.1328,
+    "Offensive Pass Interference": 0.1328,
+    "Unsportsmanlike Conduct": 0.1074,
+    "Personal Foul": 0.1074,
+    "Illegal Formation": 0.0938,
+    "Intentional Grounding": 0.0801,
+    "Horse Collar Tackle": 0.0566
+   },
+   "2012": {
+    "Offensive Holding": 1.2305,
+    "False Start": 1.1816,
+    "Defensive Pass Interference": 0.4746,
+    "Unnecessary Roughness": 0.4258,
+    "Defensive Offside": 0.3535,
+    "Defensive Holding": 0.2812,
+    "Delay of Game": 0.25,
+    "Neutral Zone Infraction": 0.2227,
+    "Illegal Block Above the Waist": 0.2188,
+    "Roughing the Passer": 0.1816,
+    "Illegal Use of Hands": 0.1562,
+    "Face Mask": 0.1504,
+    "Offensive Pass Interference": 0.1484,
+    "Illegal Contact": 0.1211,
+    "Encroachment": 0.1152,
+    "Illegal Formation": 0.0781,
+    "Defensive 12 On-field": 0.0742,
+    "Unsportsmanlike Conduct": 0.0703,
+    "Intentional Grounding": 0.0566,
+    "Horse Collar Tackle": 0.0469
+   },
+   "2013": {
+    "Offensive Holding": 1.1035,
+    "False Start": 1.0117,
+    "Unnecessary Roughness": 0.5312,
+    "Defensive Pass Interference": 0.4688,
+    "Defensive Holding": 0.334,
+    "Defensive Offside": 0.2988,
+    "Delay of Game": 0.2773,
+    "Neutral Zone Infraction": 0.2383,
+    "Illegal Block Above the Waist": 0.1875,
+    "Face Mask": 0.1855,
+    "Roughing the Passer": 0.1738,
+    "Illegal Use of Hands": 0.1445,
+    "Offensive Pass Interference": 0.1191,
+    "Encroachment": 0.1172,
+    "Illegal Formation": 0.1152,
+    "Unsportsmanlike Conduct": 0.0918,
+    "Intentional Grounding": 0.0742,
+    "Illegal Contact": 0.0723,
+    "Horse Collar Tackle": 0.0586,
+    "Defensive 12 On-field": 0.0566
+   },
+   "2014": {
+    "Offensive Holding": 1.2266,
+    "False Start": 1.1465,
+    "Defensive Holding": 0.4219,
+    "Unnecessary Roughness": 0.4102,
+    "Defensive Pass Interference": 0.4023,
+    "Illegal Use of Hands": 0.3203,
+    "Delay of Game": 0.2734,
+    "Defensive Offside": 0.2539,
+    "Neutral Zone Infraction": 0.2324,
+    "Illegal Block Above the Waist": 0.2207,
+    "Offensive Pass Interference": 0.1992,
+    "Illegal Contact": 0.1992,
+    "Roughing the Passer": 0.1934,
+    "Face Mask": 0.1758,
+    "Unsportsmanlike Conduct": 0.1211,
+    "Encroachment": 0.1152,
+    "Illegal Formation": 0.082,
+    "Defensive 12 On-field": 0.0605,
+    "Intentional Grounding": 0.0586,
+    "Offside on Free Kick": 0.0527
+   },
+   "2015": {
+    "Offensive Holding": 1.3965,
+    "False Start": 1.1074,
+    "Defensive Pass Interference": 0.4512,
+    "Unnecessary Roughness": 0.4473,
+    "Defensive Holding": 0.4238,
+    "Neutral Zone Infraction": 0.3203,
+    "Defensive Offside": 0.3203,
+    "Delay of Game": 0.2832,
+    "Illegal Block Above the Waist": 0.2422,
+    "Illegal Use of Hands": 0.2285,
+    "Offensive Pass Interference": 0.2012,
+    "Roughing the Passer": 0.1973,
+    "Face Mask": 0.1836,
+    "Unsportsmanlike Conduct": 0.1328,
+    "Illegal Formation": 0.1152,
+    "Illegal Contact": 0.1113,
+    "Defensive 12 On-field": 0.1016,
+    "Encroachment": 0.0801,
+    "Intentional Grounding": 0.0664,
+    "Illegal Shift": 0.0645
+   },
+   "2016": {
+    "Offensive Holding": 1.3691,
+    "False Start": 1.1484,
+    "Defensive Pass Interference": 0.5449,
+    "Defensive Holding": 0.4023,
+    "Unnecessary Roughness": 0.3809,
+    "Defensive Offside": 0.3262,
+    "Delay of Game": 0.2715,
+    "Illegal Block Above the Waist": 0.2383,
+    "Neutral Zone Infraction": 0.2285,
+    "Face Mask": 0.1934,
+    "Illegal Use of Hands": 0.1738,
+    "Offensive Pass Interference": 0.1719,
+    "Roughing the Passer": 0.166,
+    "Illegal Formation": 0.127,
+    "Unsportsmanlike Conduct": 0.125,
+    "Defensive 12 On-field": 0.0918,
+    "Encroachment": 0.0918,
+    "Illegal Contact": 0.0918,
+    "Illegal Shift": 0.0645,
+    "Taunting": 0.0605
+   },
+   "2017": {
+    "Offensive Holding": 1.2949,
+    "False Start": 1.0039,
+    "Defensive Pass Interference": 0.5215,
+    "Defensive Holding": 0.4629,
+    "Unnecessary Roughness": 0.3887,
+    "Defensive Offside": 0.3496,
+    "Illegal Block Above the Waist": 0.3262,
+    "Neutral Zone Infraction": 0.2461,
+    "Delay of Game": 0.2441,
+    "Offensive Pass Interference": 0.2246,
+    "Illegal Use of Hands": 0.2109,
+    "Roughing the Passer": 0.207,
+    "Face Mask": 0.1738,
+    "Unsportsmanlike Conduct": 0.1328,
+    "Encroachment": 0.1016,
+    "Illegal Formation": 0.0879,
+    "Defensive 12 On-field": 0.082,
+    "Intentional Grounding": 0.0645,
+    "Offside on Free Kick": 0.0645,
+    "Illegal Contact": 0.0586
+   },
+   "2018": {
+    "Offensive Holding": 1.3906,
+    "False Start": 1.1074,
+    "Defensive Holding": 0.4668,
+    "Defensive Pass Interference": 0.4629,
+    "Unnecessary Roughness": 0.4023,
+    "Illegal Block Above the Waist": 0.3613,
+    "Defensive Offside": 0.2812,
+    "Neutral Zone Infraction": 0.2793,
+    "Roughing the Passer": 0.2227,
+    "Delay of Game": 0.2227,
+    "Face Mask": 0.1738,
+    "Offensive Pass Interference": 0.166,
+    "Illegal Formation": 0.1406,
+    "Illegal Use of Hands": 0.1387,
+    "Unsportsmanlike Conduct": 0.0938,
+    "Illegal Shift": 0.0859,
+    "Illegal Contact": 0.084,
+    "Defensive Too Many Men on Field": 0.082,
+    "Encroachment": 0.0781,
+    "Intentional Grounding": 0.0527
+   },
+   "2019": {
+    "Offensive Holding": 1.4043,
+    "False Start": 1.0684,
+    "Defensive Pass Interference": 0.5254,
+    "Defensive Holding": 0.4766,
+    "Neutral Zone Infraction": 0.3164,
+    "Illegal Block Above the Waist": 0.3047,
+    "Unnecessary Roughness": 0.3047,
+    "Defensive Offside": 0.2793,
+    "Roughing the Passer": 0.2617,
+    "Delay of Game": 0.2363,
+    "Offensive Pass Interference": 0.1914,
+    "Illegal Use of Hands": 0.1875,
+    "Face Mask": 0.1406,
+    "Illegal Formation": 0.123,
+    "Illegal Shift": 0.0781,
+    "Ineligible Downfield Pass": 0.0742,
+    "Illegal Contact": 0.0703,
+    "Encroachment": 0.0664,
+    "Intentional Grounding": 0.0645,
+    "Unsportsmanlike Conduct": 0.0605
+   },
+   "2020": {
+    "False Start": 0.9707,
+    "Offensive Holding": 0.8965,
+    "Defensive Pass Interference": 0.6016,
+    "Defensive Holding": 0.3281,
+    "Unnecessary Roughness": 0.3125,
+    "Neutral Zone Infraction": 0.3008,
+    "Defensive Offside": 0.2832,
+    "Roughing the Passer": 0.2383,
+    "Delay of Game": 0.2324,
+    "Illegal Block Above the Waist": 0.1758,
+    "Face Mask": 0.1328,
+    "Offensive Pass Interference": 0.1211,
+    "Illegal Contact": 0.1133,
+    "Illegal Use of Hands": 0.0938,
+    "Illegal Formation": 0.0918,
+    "Intentional Grounding": 0.084,
+    "Lowering the Head to Initiate Contact": 0.0664,
+    "Encroachment": 0.0664,
+    "Defensive Too Many Men on Field": 0.0605,
+    "Unsportsmanlike Conduct": 0.0469
+   },
+   "2021": {
+    "Offensive Holding": 1.2059,
+    "False Start": 1.0496,
+    "Defensive Pass Interference": 0.5515,
+    "Delay of Game": 0.296,
+    "Unnecessary Roughness": 0.2941,
+    "Defensive Holding": 0.2868,
+    "Defensive Offside": 0.2831,
+    "Roughing the Passer": 0.2739,
+    "Neutral Zone Infraction": 0.2077,
+    "Offensive Pass Interference": 0.1434,
+    "Illegal Use of Hands": 0.1379,
+    "Face Mask": 0.1268,
+    "Illegal Block Above the Waist": 0.1232,
+    "Illegal Formation": 0.1195,
+    "Taunting": 0.079,
+    "Ineligible Downfield Pass": 0.079,
+    "Encroachment": 0.068,
+    "Defensive Too Many Men on Field": 0.0643,
+    "Unsportsmanlike Conduct": 0.057,
+    "Intentional Grounding": 0.0551
+   },
+   "2022": {
+    "Offensive Holding": 1.0959,
+    "False Start": 1.0627,
+    "Defensive Pass Interference": 0.4133,
+    "Defensive Holding": 0.3875,
+    "Delay of Game": 0.2915,
+    "Unnecessary Roughness": 0.2878,
+    "Defensive Offside": 0.2491,
+    "Roughing the Passer": 0.1679,
+    "Ineligible Downfield Pass": 0.155,
+    "Neutral Zone Infraction": 0.1513,
+    "Face Mask": 0.1421,
+    "Illegal Block Above the Waist": 0.1236,
+    "Illegal Contact": 0.1199,
+    "Offensive Pass Interference": 0.1125,
+    "Illegal Use of Hands": 0.1015,
+    "Illegal Formation": 0.0904,
+    "Intentional Grounding": 0.0756,
+    "Defensive Too Many Men on Field": 0.0756,
+    "Unsportsmanlike Conduct": 0.0572,
+    "Encroachment": 0.0517
+   },
+   "2023": {
+    "False Start": 1.136,
+    "Offensive Holding": 1.0294,
+    "Defensive Pass Interference": 0.4963,
+    "Defensive Holding": 0.3235,
+    "Unnecessary Roughness": 0.3015,
+    "Delay of Game": 0.2886,
+    "Defensive Offside": 0.2684,
+    "Roughing the Passer": 0.171,
+    "Neutral Zone Infraction": 0.171,
+    "Illegal Contact": 0.1636,
+    "Face Mask": 0.1599,
+    "Offensive Pass Interference": 0.1287,
+    "Illegal Formation": 0.1048,
+    "Illegal Use of Hands": 0.1048,
+    "Intentional Grounding": 0.1029,
+    "Ineligible Downfield Pass": 0.0846,
+    "Encroachment": 0.0717,
+    "Illegal Shift": 0.0662,
+    "Illegal Block Above the Waist": 0.0643,
+    "Defensive Too Many Men on Field": 0.0588
+   },
+   "2024": {
+    "Offensive Holding": 1.2537,
+    "False Start": 1.2482,
+    "Defensive Pass Interference": 0.5625,
+    "Defensive Holding": 0.3217,
+    "Unnecessary Roughness": 0.3162,
+    "Delay of Game": 0.3088,
+    "Defensive Offside": 0.2886,
+    "Illegal Formation": 0.2353,
+    "Roughing the Passer": 0.1801,
+    "Neutral Zone Infraction": 0.1673,
+    "Face Mask": 0.1452,
+    "Offensive Pass Interference": 0.1305,
+    "Ineligible Downfield Pass": 0.1287,
+    "Illegal Use of Hands": 0.125,
+    "Illegal Shift": 0.1121,
+    "Illegal Contact": 0.1048,
+    "Illegal Block Above the Waist": 0.0974,
+    "Defensive Too Many Men on Field": 0.0938,
+    "Unsportsmanlike Conduct": 0.068,
+    "Intentional Grounding": 0.0625
+   },
+   "2025": {
+    "Offensive Holding": 1.2353,
+    "False Start": 1.2096,
+    "Defensive Pass Interference": 0.5129,
+    "Defensive Holding": 0.3272,
+    "Delay of Game": 0.3217,
+    "Unnecessary Roughness": 0.318,
+    "Defensive Offside": 0.2592,
+    "Illegal Formation": 0.204,
+    "Illegal Contact": 0.1746,
+    "Face Mask": 0.1746,
+    "Roughing the Passer": 0.1691,
+    "Neutral Zone Infraction": 0.1379,
+    "Offensive Pass Interference": 0.1324,
+    "Illegal Use of Hands": 0.1048,
+    "Intentional Grounding": 0.1029,
+    "Illegal Block Above the Waist": 0.0974,
+    "Illegal Shift": 0.0882,
+    "Ineligible Downfield Pass": 0.0846,
+    "Kickoff Short of Landing Zone": 0.079,
+    "Kickoff Out of Bounds": 0.0717
+   }
+  }
+ },
+ "weather_splits": {
+  "years": "1999-2025, outdoor and open-roof games with a reading (about 77% of them)",
+  "by_temp_f": {
+   "under_32": {
+    "attempts": 17464,
+    "completion_pct": 0.5892,
+    "yards_per_attempt": 6.701,
+    "int_rate": 0.0303,
+    "fg_att": 955,
+    "fg_pct": 0.8031,
+    "fg_pct_40_plus": 0.6392
+   },
+   "32_49": {
+    "attempts": 78465,
+    "completion_pct": 0.6014,
+    "yards_per_attempt": 6.763,
+    "int_rate": 0.0286,
+    "fg_att": 4373,
+    "fg_pct": 0.8111,
+    "fg_pct_40_plus": 0.6747
+   },
+   "50_69": {
+    "attempts": 140661,
+    "completion_pct": 0.6126,
+    "yards_per_attempt": 6.967,
+    "int_rate": 0.0274,
+    "fg_att": 8028,
+    "fg_pct": 0.8214,
+    "fg_pct_40_plus": 0.6964
+   },
+   "70_plus": {
+    "attempts": 96324,
+    "completion_pct": 0.6174,
+    "yards_per_attempt": 6.999,
+    "int_rate": 0.0279,
+    "fg_att": 5486,
+    "fg_pct": 0.8252,
+    "fg_pct_40_plus": 0.6931
+   }
+  },
+  "by_wind_mph": {
+   "0_4": {
+    "attempts": 68575,
+    "completion_pct": 0.6202,
+    "yards_per_attempt": 7.1,
+    "int_rate": 0.0277,
+    "fg_att": 3839,
+    "fg_pct": 0.8411,
+    "fg_pct_40_plus": 0.7137
+   },
+   "5_9": {
+    "attempts": 145933,
+    "completion_pct": 0.6127,
+    "yards_per_attempt": 6.957,
+    "int_rate": 0.0279,
+    "fg_att": 8329,
+    "fg_pct": 0.8182,
+    "fg_pct_40_plus": 0.6901
+   },
+   "10_14": {
+    "attempts": 76304,
+    "completion_pct": 0.6084,
+    "yards_per_attempt": 6.876,
+    "int_rate": 0.0278,
+    "fg_att": 4299,
+    "fg_pct": 0.8118,
+    "fg_pct_40_plus": 0.679
+   },
+   "15_plus": {
+    "attempts": 41977,
+    "completion_pct": 0.5878,
+    "yards_per_attempt": 6.534,
+    "int_rate": 0.0291,
+    "fg_att": 2370,
+    "fg_pct": 0.8004,
+    "fg_pct_40_plus": 0.6516
+   }
+  },
+  "total_points_by_temp_f": {
+   "under_32": 42.56,
+   "32_49": 42.91,
+   "50_69": 43.68,
+   "70_plus": 43.01
+  },
+  "total_points_by_wind_mph": {
+   "0_4": 44.67,
+   "5_9": 43.81,
+   "10_14": 42.5,
+   "15_plus": 40.44
+  },
+  "dome_total_points": 46.79
+ },
+ "champions": {
+  "years": "1996-2025 (team codes as in nflverse; 1996-1998 FiveThirtyEight codes)",
+  "by_season": {
+   "1996": {
+    "super_bowl_winner": "GB",
+    "playoff_games": 11
+   },
+   "1997": {
+    "super_bowl_winner": "DEN",
+    "playoff_games": 11
+   },
+   "1998": {
+    "super_bowl_winner": "DEN",
+    "playoff_games": 11
+   },
+   "1999": {
+    "super_bowl_winner": "STL",
+    "super_bowl_loser": "TEN",
+    "super_bowl_score": "23-16",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "JAX",
+     "STL",
+     "TB",
+     "TEN"
+    ]
+   },
+   "2000": {
+    "super_bowl_winner": "BAL",
+    "super_bowl_loser": "NYG",
+    "super_bowl_score": "34-7",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "BAL",
+     "MIN",
+     "NYG",
+     "OAK"
+    ]
+   },
+   "2001": {
+    "super_bowl_winner": "NE",
+    "super_bowl_loser": "STL",
+    "super_bowl_score": "20-17",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "NE",
+     "PHI",
+     "PIT",
+     "STL"
+    ]
+   },
+   "2002": {
+    "super_bowl_winner": "TB",
+    "super_bowl_loser": "OAK",
+    "super_bowl_score": "48-21",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "OAK",
+     "PHI",
+     "TB",
+     "TEN"
+    ]
+   },
+   "2003": {
+    "super_bowl_winner": "NE",
+    "super_bowl_loser": "CAR",
+    "super_bowl_score": "32-29",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "CAR",
+     "IND",
+     "NE",
+     "PHI"
+    ]
+   },
+   "2004": {
+    "super_bowl_winner": "NE",
+    "super_bowl_loser": "PHI",
+    "super_bowl_score": "24-21",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "ATL",
+     "NE",
+     "PHI",
+     "PIT"
+    ]
+   },
+   "2005": {
+    "super_bowl_winner": "PIT",
+    "super_bowl_loser": "SEA",
+    "super_bowl_score": "21-10",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "CAR",
+     "DEN",
+     "PIT",
+     "SEA"
+    ]
+   },
+   "2006": {
+    "super_bowl_winner": "IND",
+    "super_bowl_loser": "CHI",
+    "super_bowl_score": "29-17",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "CHI",
+     "IND",
+     "NE",
+     "NO"
+    ]
+   },
+   "2007": {
+    "super_bowl_winner": "NYG",
+    "super_bowl_loser": "NE",
+    "super_bowl_score": "17-14",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "GB",
+     "NE",
+     "NYG",
+     "SD"
+    ]
+   },
+   "2008": {
+    "super_bowl_winner": "PIT",
+    "super_bowl_loser": "ARI",
+    "super_bowl_score": "27-23",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "ARI",
+     "BAL",
+     "PHI",
+     "PIT"
+    ]
+   },
+   "2009": {
+    "super_bowl_winner": "NO",
+    "super_bowl_loser": "IND",
+    "super_bowl_score": "31-17",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "IND",
+     "MIN",
+     "NO",
+     "NYJ"
+    ]
+   },
+   "2010": {
+    "super_bowl_winner": "GB",
+    "super_bowl_loser": "PIT",
+    "super_bowl_score": "31-25",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "CHI",
+     "GB",
+     "NYJ",
+     "PIT"
+    ]
+   },
+   "2011": {
+    "super_bowl_winner": "NYG",
+    "super_bowl_loser": "NE",
+    "super_bowl_score": "21-17",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "BAL",
+     "NE",
+     "NYG",
+     "SF"
+    ]
+   },
+   "2012": {
+    "super_bowl_winner": "BAL",
+    "super_bowl_loser": "SF",
+    "super_bowl_score": "34-31",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "ATL",
+     "BAL",
+     "NE",
+     "SF"
+    ]
+   },
+   "2013": {
+    "super_bowl_winner": "SEA",
+    "super_bowl_loser": "DEN",
+    "super_bowl_score": "43-8",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "DEN",
+     "NE",
+     "SEA",
+     "SF"
+    ]
+   },
+   "2014": {
+    "super_bowl_winner": "NE",
+    "super_bowl_loser": "SEA",
+    "super_bowl_score": "28-24",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "GB",
+     "IND",
+     "NE",
+     "SEA"
+    ]
+   },
+   "2015": {
+    "super_bowl_winner": "DEN",
+    "super_bowl_loser": "CAR",
+    "super_bowl_score": "24-10",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "ARI",
+     "CAR",
+     "DEN",
+     "NE"
+    ]
+   },
+   "2016": {
+    "super_bowl_winner": "NE",
+    "super_bowl_loser": "ATL",
+    "super_bowl_score": "34-28",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "ATL",
+     "GB",
+     "NE",
+     "PIT"
+    ]
+   },
+   "2017": {
+    "super_bowl_winner": "PHI",
+    "super_bowl_loser": "NE",
+    "super_bowl_score": "41-33",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "JAX",
+     "MIN",
+     "NE",
+     "PHI"
+    ]
+   },
+   "2018": {
+    "super_bowl_winner": "NE",
+    "super_bowl_loser": "LA",
+    "super_bowl_score": "13-3",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "KC",
+     "LA",
+     "NE",
+     "NO"
+    ]
+   },
+   "2019": {
+    "super_bowl_winner": "KC",
+    "super_bowl_loser": "SF",
+    "super_bowl_score": "31-20",
+    "playoff_teams": 12,
+    "conference_finalists": [
+     "GB",
+     "KC",
+     "SF",
+     "TEN"
+    ]
+   },
+   "2020": {
+    "super_bowl_winner": "TB",
+    "super_bowl_loser": "KC",
+    "super_bowl_score": "31-9",
+    "playoff_teams": 14,
+    "conference_finalists": [
+     "BUF",
+     "GB",
+     "KC",
+     "TB"
+    ]
+   },
+   "2021": {
+    "super_bowl_winner": "LA",
+    "super_bowl_loser": "CIN",
+    "super_bowl_score": "23-20",
+    "playoff_teams": 14,
+    "conference_finalists": [
+     "CIN",
+     "KC",
+     "LA",
+     "SF"
+    ]
+   },
+   "2022": {
+    "super_bowl_winner": "KC",
+    "super_bowl_loser": "PHI",
+    "super_bowl_score": "38-35",
+    "playoff_teams": 14,
+    "conference_finalists": [
+     "CIN",
+     "KC",
+     "PHI",
+     "SF"
+    ]
+   },
+   "2023": {
+    "super_bowl_winner": "KC",
+    "super_bowl_loser": "SF",
+    "super_bowl_score": "25-22",
+    "playoff_teams": 14,
+    "conference_finalists": [
+     "BAL",
+     "DET",
+     "KC",
+     "SF"
+    ]
+   },
+   "2024": {
+    "super_bowl_winner": "PHI",
+    "super_bowl_loser": "KC",
+    "super_bowl_score": "40-22",
+    "playoff_teams": 14,
+    "conference_finalists": [
+     "BUF",
+     "KC",
+     "PHI",
+     "WAS"
+    ]
+   },
+   "2025": {
+    "super_bowl_winner": "SEA",
+    "super_bowl_loser": "NE",
+    "super_bowl_score": "29-13",
+    "playoff_teams": 14,
+    "conference_finalists": [
+     "DEN",
+     "LA",
+     "NE",
+     "SEA"
+    ]
+   }
+  }
+ },
+ "parity": {
+  "win_pct_year_to_year_corr": {
+   "1999-2009": 0.288,
+   "2010-2019": 0.356,
+   "2020-2024": 0.369,
+   "1999-2024": 0.329
+  },
+  "super_bowl_15yr_windows": {
+   "1996-2010": {
+    "distinct_champions": 10,
+    "most_titles": 3
+   },
+   "1997-2011": {
+    "distinct_champions": 10,
+    "most_titles": 3
+   },
+   "1998-2012": {
+    "distinct_champions": 10,
+    "most_titles": 3
+   },
+   "1999-2013": {
+    "distinct_champions": 10,
+    "most_titles": 3
+   },
+   "2000-2014": {
+    "distinct_champions": 9,
+    "most_titles": 4
+   },
+   "2001-2015": {
+    "distinct_champions": 10,
+    "most_titles": 4
+   },
+   "2002-2016": {
+    "distinct_champions": 10,
+    "most_titles": 4
+   },
+   "2003-2017": {
+    "distinct_champions": 10,
+    "most_titles": 4
+   },
+   "2004-2018": {
+    "distinct_champions": 10,
+    "most_titles": 4
+   },
+   "2005-2019": {
+    "distinct_champions": 11,
+    "most_titles": 3
+   },
+   "2006-2020": {
+    "distinct_champions": 12,
+    "most_titles": 3
+   },
+   "2007-2021": {
+    "distinct_champions": 12,
+    "most_titles": 3
+   },
+   "2008-2022": {
+    "distinct_champions": 12,
+    "most_titles": 3
+   },
+   "2009-2023": {
+    "distinct_champions": 11,
+    "most_titles": 3
+   },
+   "2010-2024": {
+    "distinct_champions": 10,
+    "most_titles": 3
+   },
+   "2011-2025": {
+    "distinct_champions": 9,
+    "most_titles": 3
+   }
+  },
+  "repeat_champions": 3,
+  "team_win_pct_sd_by_season": {
+   "1999": 0.1868,
+   "2000": 0.197,
+   "2001": 0.2035,
+   "2002": 0.1652,
+   "2003": 0.1918,
+   "2004": 0.1925,
+   "2005": 0.2118,
+   "2006": 0.181,
+   "2007": 0.2076,
+   "2008": 0.2071,
+   "2009": 0.2014,
+   "2010": 0.1872,
+   "2011": 0.2045,
+   "2012": 0.1936,
+   "2013": 0.1939,
+   "2014": 0.1984,
+   "2015": 0.1905,
+   "2016": 0.2002,
+   "2017": 0.2002,
+   "2018": 0.1807,
+   "2019": 0.1981,
+   "2020": 0.2164,
+   "2021": 0.1695,
+   "2022": 0.1838,
+   "2023": 0.1616,
+   "2024": 0.2181,
+   "2025": 0.2036
+  },
+  "best_record_by_season": {
+   "1999": "14-2",
+   "2000": "13-3",
+   "2001": "14-2",
+   "2002": "12-4",
+   "2003": "14-2",
+   "2004": "15-1",
+   "2005": "14-2",
+   "2006": "14-2",
+   "2007": "16-0",
+   "2008": "13-3",
+   "2009": "14-2",
+   "2010": "14-2",
+   "2011": "15-1",
+   "2012": "13-3",
+   "2013": "13-3",
+   "2014": "12-4",
+   "2015": "15-1",
+   "2016": "14-2",
+   "2017": "13-3",
+   "2018": "13-3",
+   "2019": "14-2",
+   "2020": "14-2",
+   "2021": "13-4",
+   "2022": "14-3",
+   "2023": "13-4",
+   "2024": "15-2",
+   "2025": "14-3"
+  },
+  "pythagorean_exponent": 2.68,
+  "pythagorean_rmse_win_pct": 0.0798,
+  "division_winners_from_losing_record_share": 0.2609,
+  "playoff_teams_new_each_year_share": 0.4792,
+  "years": "1999-2025 for team records; 1996-2025 for champions; standings from 2002"
+ },
+ "betting_lines": {
+  "years": "1999-2025, closing lines (positive spread_line = home favored)",
+  "favorite_win_rate_by_spread": {
+   "0_2.5": {
+    "games": 1394,
+    "fav_win": 0.5323
+   },
+   "3_3.5": {
+    "games": 1768,
+    "fav_win": 0.6007
+   },
+   "4_6.5": {
+    "games": 1676,
+    "fav_win": 0.679
+   },
+   "7_9.5": {
+    "games": 1229,
+    "fav_win": 0.7592
+   },
+   "10_13.5": {
+    "games": 661,
+    "fav_win": 0.829
+   },
+   "14_plus": {
+    "games": 209,
+    "fav_win": 0.9139
+   }
+  },
+  "spread_mae": 10.264,
+  "home_cover_rate": 0.4764,
+  "push_rate": 0.0271,
+  "total_mae": 10.615,
+  "over_rate": 0.4879,
+  "dog_7plus_win_rate": 0.2034,
+  "spread_mae_by_season": {
+   "1999": 10.327,
+   "2000": 10.419,
+   "2001": 10.153,
+   "2002": 10.146,
+   "2003": 10.605,
+   "2004": 10.32,
+   "2005": 9.871,
+   "2006": 10.918,
+   "2007": 10.805,
+   "2008": 11.172,
+   "2009": 11.141,
+   "2010": 10.83,
+   "2011": 10.467,
+   "2012": 10.869,
+   "2013": 9.822,
+   "2014": 11.391,
+   "2015": 10.127,
+   "2016": 9.02,
+   "2017": 10.094,
+   "2018": 9.979,
+   "2019": 10.211,
+   "2020": 9.83,
+   "2021": 10.781,
+   "2022": 8.742,
+   "2023": 9.901,
+   "2024": 9.61,
+   "2025": 9.722
+  }
+ },
+ "preseason_win_totals": {
+  "years": "2003-2020",
+  "teams": 576,
+  "corr_line_vs_wins": 0.471,
+  "mae_wins": 2.273,
+  "sd_wins_minus_line": 2.757,
+  "over_rate": 0.4705
+ },
+ "head_coaches": {
+  "years": "1999-2025 (who coached each regular-season game; a change is any new head coach, fired, resigned or retired)",
+  "offseason_changes_by_season": {
+   "2000": 7,
+   "2001": 6,
+   "2002": 6,
+   "2003": 5,
+   "2004": 7,
+   "2005": 3,
+   "2006": 10,
+   "2007": 7,
+   "2008": 4,
+   "2009": 9,
+   "2010": 3,
+   "2011": 6,
+   "2012": 7,
+   "2013": 9,
+   "2014": 7,
+   "2015": 7,
+   "2016": 7,
+   "2017": 4,
+   "2018": 7,
+   "2019": 8,
+   "2020": 5,
+   "2021": 7,
+   "2022": 10,
+   "2023": 5,
+   "2024": 7,
+   "2025": 7
+  },
+  "in_season_changes_by_season": {
+   "1999": 0,
+   "2000": 4,
+   "2001": 1,
+   "2002": 0,
+   "2003": 1,
+   "2004": 2,
+   "2005": 2,
+   "2006": 0,
+   "2007": 1,
+   "2008": 3,
+   "2009": 1,
+   "2010": 4,
+   "2011": 3,
+   "2012": 1,
+   "2013": 1,
+   "2014": 1,
+   "2015": 1,
+   "2016": 2,
+   "2017": 1,
+   "2018": 2,
+   "2019": 1,
+   "2020": 3,
+   "2021": 2,
+   "2022": 3,
+   "2023": 3,
+   "2024": 0,
+   "2025": 0
+  },
+  "completed_tenure_years": {
+   "p10": 1.0,
+   "p25": 1.0,
+   "p50": 3.0,
+   "p75": 4.0,
+   "p90": 6.0
+  },
+  "tenures_started_2000_2019": 164,
+  "share_lasting_at_least": {
+   "2": 0.7683,
+   "3": 0.6037,
+   "4": 0.4268,
+   "5": 0.2866,
+   "8": 0.1159,
+   "10": 0.0549
+  }
+ },
+ "trades": {
+  "years": "2002-2025 (nflverse trades, from Pro Football Reference and news)",
+  "by_season": {
+   "2002": {
+    "trades": 44,
+    "players_moved": 104,
+    "picks_moved": 79,
+    "in_season_sep_to_nov": 4
+   },
+   "2003": {
+    "trades": 56,
+    "players_moved": 121,
+    "picks_moved": 102,
+    "in_season_sep_to_nov": 1
+   },
+   "2004": {
+    "trades": 62,
+    "players_moved": 152,
+    "picks_moved": 114,
+    "in_season_sep_to_nov": 12
+   },
+   "2005": {
+    "trades": 50,
+    "players_moved": 112,
+    "picks_moved": 77,
+    "in_season_sep_to_nov": 10
+   },
+   "2006": {
+    "trades": 68,
+    "players_moved": 156,
+    "picks_moved": 109,
+    "in_season_sep_to_nov": 12
+   },
+   "2007": {
+    "trades": 57,
+    "players_moved": 130,
+    "picks_moved": 105,
+    "in_season_sep_to_nov": 9
+   },
+   "2008": {
+    "trades": 61,
+    "players_moved": 157,
+    "picks_moved": 127,
+    "in_season_sep_to_nov": 6
+   },
+   "2009": {
+    "trades": 67,
+    "players_moved": 168,
+    "picks_moved": 125,
+    "in_season_sep_to_nov": 15
+   },
+   "2010": {
+    "trades": 92,
+    "players_moved": 246,
+    "picks_moved": 174,
+    "in_season_sep_to_nov": 21
+   },
+   "2011": {
+    "trades": 41,
+    "players_moved": 122,
+    "picks_moved": 98,
+    "in_season_sep_to_nov": 6
+   },
+   "2012": {
+    "trades": 57,
+    "players_moved": 162,
+    "picks_moved": 126,
+    "in_season_sep_to_nov": 4
+   },
+   "2013": {
+    "trades": 53,
+    "players_moved": 151,
+    "picks_moved": 112,
+    "in_season_sep_to_nov": 7
+   },
+   "2014": {
+    "trades": 40,
+    "players_moved": 112,
+    "picks_moved": 94,
+    "in_season_sep_to_nov": 1
+   },
+   "2015": {
+    "trades": 52,
+    "players_moved": 158,
+    "picks_moved": 123,
+    "in_season_sep_to_nov": 13
+   },
+   "2016": {
+    "trades": 50,
+    "players_moved": 152,
+    "picks_moved": 125,
+    "in_season_sep_to_nov": 11
+   },
+   "2017": {
+    "trades": 81,
+    "players_moved": 227,
+    "picks_moved": 174,
+    "in_season_sep_to_nov": 21
+   },
+   "2018": {
+    "trades": 93,
+    "players_moved": 276,
+    "picks_moved": 214,
+    "in_season_sep_to_nov": 18
+   },
+   "2019": {
+    "trades": 102,
+    "players_moved": 294,
+    "picks_moved": 223,
+    "in_season_sep_to_nov": 22
+   },
+   "2020": {
+    "trades": 71,
+    "players_moved": 196,
+    "picks_moved": 158,
+    "in_season_sep_to_nov": 18
+   },
+   "2021": {
+    "trades": 91,
+    "players_moved": 191,
+    "picks_moved": 211,
+    "in_season_sep_to_nov": 15
+   },
+   "2022": {
+    "trades": 93,
+    "players_moved": 148,
+    "picks_moved": 233,
+    "in_season_sep_to_nov": 19
+   },
+   "2023": {
+    "trades": 90,
+    "players_moved": 53,
+    "picks_moved": 216,
+    "in_season_sep_to_nov": 15
+   },
+   "2024": {
+    "trades": 86,
+    "players_moved": 135,
+    "picks_moved": 201,
+    "in_season_sep_to_nov": 18
+   },
+   "2025": {
+    "trades": 96,
+    "players_moved": 194,
+    "picks_moved": 241,
+    "in_season_sep_to_nov": 21
+   }
+  }
+ },
+ "schedule_facts": {
+  "years": "1999-2025",
+  "by_season": {
+   "1999": {
+    "games_abroad": 0,
+    "christmas_day": 1,
+    "thanksgiving": 2,
+    "thursday": 5,
+    "saturday": 3,
+    "monday": 17,
+    "sunday_night": 0,
+    "neutral_site": 0
+   },
+   "2000": {
+    "games_abroad": 0,
+    "christmas_day": 1,
+    "thanksgiving": 2,
+    "thursday": 4,
+    "saturday": 5,
+    "monday": 17,
+    "sunday_night": 15,
+    "neutral_site": 0
+   },
+   "2001": {
+    "games_abroad": 0,
+    "christmas_day": 0,
+    "thanksgiving": 2,
+    "thursday": 5,
+    "saturday": 6,
+    "monday": 15,
+    "sunday_night": 15,
+    "neutral_site": 0
+   },
+   "2002": {
+    "games_abroad": 0,
+    "christmas_day": 0,
+    "thanksgiving": 2,
+    "thursday": 3,
+    "saturday": 5,
+    "monday": 17,
+    "sunday_night": 16,
+    "neutral_site": 0
+   },
+   "2003": {
+    "games_abroad": 0,
+    "christmas_day": 0,
+    "thanksgiving": 2,
+    "thursday": 3,
+    "saturday": 6,
+    "monday": 16,
+    "sunday_night": 16,
+    "neutral_site": 1
+   },
+   "2004": {
+    "games_abroad": 0,
+    "christmas_day": 2,
+    "thanksgiving": 2,
+    "thursday": 3,
+    "saturday": 6,
+    "monday": 16,
+    "sunday_night": 17,
+    "neutral_site": 0
+   },
+   "2005": {
+    "games_abroad": 1,
+    "christmas_day": 2,
+    "thanksgiving": 2,
+    "thursday": 3,
+    "saturday": 18,
+    "monday": 17,
+    "sunday_night": 16,
+    "neutral_site": 1
+   },
+   "2006": {
+    "games_abroad": 0,
+    "christmas_day": 2,
+    "thanksgiving": 3,
+    "thursday": 8,
+    "saturday": 3,
+    "monday": 18,
+    "sunday_night": 15,
+    "neutral_site": 0
+   },
+   "2007": {
+    "games_abroad": 1,
+    "christmas_day": 0,
+    "thanksgiving": 3,
+    "thursday": 8,
+    "saturday": 3,
+    "monday": 17,
+    "sunday_night": 16,
+    "neutral_site": 1
+   },
+   "2008": {
+    "games_abroad": 2,
+    "christmas_day": 0,
+    "thanksgiving": 3,
+    "thursday": 10,
+    "saturday": 1,
+    "monday": 17,
+    "sunday_night": 16,
+    "neutral_site": 2
+   },
+   "2009": {
+    "games_abroad": 2,
+    "christmas_day": 1,
+    "thanksgiving": 3,
+    "thursday": 9,
+    "saturday": 1,
+    "monday": 17,
+    "sunday_night": 16,
+    "neutral_site": 1
+   },
+   "2010": {
+    "games_abroad": 2,
+    "christmas_day": 1,
+    "thanksgiving": 3,
+    "thursday": 10,
+    "saturday": 1,
+    "monday": 18,
+    "sunday_night": 16,
+    "neutral_site": 2
+   },
+   "2011": {
+    "games_abroad": 2,
+    "christmas_day": 1,
+    "thanksgiving": 3,
+    "thursday": 10,
+    "saturday": 14,
+    "monday": 17,
+    "sunday_night": 17,
+    "neutral_site": 1
+   },
+   "2012": {
+    "games_abroad": 2,
+    "christmas_day": 0,
+    "thanksgiving": 3,
+    "thursday": 16,
+    "saturday": 1,
+    "monday": 16,
+    "sunday_night": 17,
+    "neutral_site": 1
+   },
+   "2013": {
+    "games_abroad": 3,
+    "christmas_day": 0,
+    "thanksgiving": 3,
+    "thursday": 17,
+    "saturday": 0,
+    "monday": 17,
+    "sunday_night": 18,
+    "neutral_site": 3
+   },
+   "2014": {
+    "games_abroad": 3,
+    "christmas_day": 0,
+    "thanksgiving": 3,
+    "thursday": 18,
+    "saturday": 2,
+    "monday": 18,
+    "sunday_night": 17,
+    "neutral_site": 4
+   },
+   "2015": {
+    "games_abroad": 3,
+    "christmas_day": 0,
+    "thanksgiving": 3,
+    "thursday": 18,
+    "saturday": 2,
+    "monday": 17,
+    "sunday_night": 17,
+    "neutral_site": 3
+   },
+   "2016": {
+    "games_abroad": 4,
+    "christmas_day": 2,
+    "thanksgiving": 3,
+    "thursday": 18,
+    "saturday": 13,
+    "monday": 17,
+    "sunday_night": 17,
+    "neutral_site": 4
+   },
+   "2017": {
+    "games_abroad": 5,
+    "christmas_day": 2,
+    "thanksgiving": 3,
+    "thursday": 17,
+    "saturday": 4,
+    "monday": 18,
+    "sunday_night": 18,
+    "neutral_site": 5
+   },
+   "2018": {
+    "games_abroad": 3,
+    "christmas_day": 0,
+    "thanksgiving": 3,
+    "thursday": 17,
+    "saturday": 4,
+    "monday": 17,
+    "sunday_night": 19,
+    "neutral_site": 3
+   },
+   "2019": {
+    "games_abroad": 5,
+    "christmas_day": 0,
+    "thanksgiving": 3,
+    "thursday": 17,
+    "saturday": 3,
+    "monday": 17,
+    "sunday_night": 17,
+    "neutral_site": 5
+   },
+   "2020": {
+    "games_abroad": 0,
+    "christmas_day": 1,
+    "thanksgiving": 2,
+    "thursday": 14,
+    "saturday": 5,
+    "monday": 20,
+    "sunday_night": 17,
+    "neutral_site": 3
+   },
+   "2021": {
+    "games_abroad": 2,
+    "christmas_day": 2,
+    "thanksgiving": 3,
+    "thursday": 18,
+    "saturday": 5,
+    "monday": 18,
+    "sunday_night": 18,
+    "neutral_site": 3
+   },
+   "2022": {
+    "games_abroad": 5,
+    "christmas_day": 3,
+    "thanksgiving": 3,
+    "thursday": 19,
+    "saturday": 16,
+    "monday": 17,
+    "sunday_night": 18,
+    "neutral_site": 6
+   },
+   "2023": {
+    "games_abroad": 5,
+    "christmas_day": 3,
+    "thanksgiving": 3,
+    "thursday": 19,
+    "saturday": 8,
+    "monday": 21,
+    "sunday_night": 18,
+    "neutral_site": 5
+   },
+   "2024": {
+    "games_abroad": 5,
+    "christmas_day": 2,
+    "thanksgiving": 3,
+    "thursday": 19,
+    "saturday": 7,
+    "monday": 21,
+    "sunday_night": 18,
+    "neutral_site": 5
+   },
+   "2025": {
+    "games_abroad": 7,
+    "christmas_day": 3,
+    "thanksgiving": 3,
+    "thursday": 21,
+    "saturday": 6,
+    "monday": 21,
+    "sunday_night": 18,
+    "neutral_site": 7
+   }
+  }
+ }
+}
