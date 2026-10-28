@@ -114,7 +114,7 @@ pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&
     let unread = crate::world_in::PEOPLE_UNREAD.swap(0, std::sync::atomic::Ordering::Relaxed);
     if unread > 0 {
         missing.push(format!(
-            "true potential for {unread} people: the world file is from another build, so the reader's engine could not read them whole (overall only where the player part reads)"
+            "true overall and potential for {unread} people: the world file is from another build, so the reader's engine could not read their player part"
         ));
     }
     let world_commit = head("commit").as_str().unwrap_or("").to_string();

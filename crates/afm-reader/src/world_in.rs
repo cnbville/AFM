@@ -221,28 +221,34 @@ fn records(w: &mut Writer, table: &str, batch: Vec<(usize, V)>) -> std::io::Resu
 
 /// What the engine works out for a world player: true overall and true
 /// potential (debug), the position's name and the attributes by name.
-/// People the engine could not read back whole (a world from another
-/// build): they get an overall from their player alone and no potential.
+/// People whose player part the engine could not read back (a world from
+/// another build): they get no overall or potential.
 pub static PEOPLE_UNREAD: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+/// A record read back as the engine's own type, the way the world file
+/// is read (unit enum variants are names).
+fn typed<T: serde::de::DeserializeOwned>(v: &V) -> Result<T, String> {
+    let mut raw = Vec::new();
+    rmpv::encode::write_value(&mut raw, v).map_err(|e| e.to_string())?;
+    rmp_serde::from_slice(&raw).map_err(|e| e.to_string())
+}
+
+/// Only the player part is read: the whole person would keep its text for
+/// good (`save::leaked`).
 fn person_extra(v: &V) -> Vec<(String, S)> {
-    match rmpv::ext::from_value::<afm_engine::world::Person>(v.clone()) {
-        Ok(p) => player_cols(&p.player, Some(afm_engine::debug::person_potential(&p))),
-        Err(_) => {
+    match json::get(v, "player").map(typed::<afm_engine::player::Player>) {
+        Some(Ok(p)) => player_cols(&p, Some(afm_engine::debug::potential(&p))),
+        _ => {
             PEOPLE_UNREAD.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            json::get(v, "player")
-                .and_then(|x| rmpv::ext::from_value::<afm_engine::player::Player>(x.clone()).ok())
-                .map(|pl| player_cols(&pl, None))
-                .unwrap_or_default()
+            Vec::new()
         }
     }
 }
 
+/// An alumnus keeps his potential as it stood when he left
+/// (`debug::alumnus_potential` reads the same field).
 fn alumnus_extra(v: &V) -> Vec<(String, S)> {
-    let Ok(a) = rmpv::ext::from_value::<afm_engine::world::Alumnus>(v.clone()) else {
-        return Vec::new();
-    };
-    vec![("x_potential".into(), S::Real(round(afm_engine::debug::alumnus_potential(&a))))]
+    json::get(v, "potential").and_then(json::as_f64).map(|p| vec![("x_potential".into(), S::Real(round(p)))]).unwrap_or_default()
 }
 
 fn player_cols(p: &afm_engine::player::Player, potential: Option<f64>) -> Vec<(String, S)> {

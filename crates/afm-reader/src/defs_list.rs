@@ -1071,7 +1071,7 @@ pub const OUTLIERS: &[Outlier] = &[
         id: "program_points",
         page: "games",
         title: "Points a game in a program season",
-        sql: "SELECT 'program season', COALESCE(p.real_name, p.fictional_name), s.year, 1.0 * s.totals__points_for / s.totals__games,
+        sql: "SELECT 'program season', p.id, s.year, 1.0 * s.totals__points_for / s.totals__games,
               COALESCE(p.real_name, p.fictional_name) || ' ' || s.year || ' (' || p.division || '): ' || ROUND(1.0 * s.totals__points_for / s.totals__games, 1) || ' points a game'
               FROM programs__seasons s JOIN programs p ON p._row = s._parent WHERE s.totals__games >= 8",
         above: 0.999,
@@ -1082,7 +1082,7 @@ pub const OUTLIERS: &[Outlier] = &[
         id: "pro_pass_yards",
         page: "nfl",
         title: "Passing yards in an NFL season",
-        sql: "SELECT 'pro season', a.name, s.year, s.stats__pass_yds, a.name || ' ' || s.year || ': ' || s.stats__pass_yds || ' passing yards in ' || s.games || ' games'
+        sql: "SELECT 'pro season', COALESCE(a.player__id, a.name), s.year, s.stats__pass_yds, a.name || ' ' || s.year || ': ' || s.stats__pass_yds || ' passing yards in ' || s.games || ' games'
               FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent WHERE s.stats__att > 100",
         above: 0.99,
         low: false,
@@ -1092,7 +1092,7 @@ pub const OUTLIERS: &[Outlier] = &[
         id: "pro_sacks",
         page: "nfl",
         title: "Sacks in an NFL season",
-        sql: "SELECT 'pro season', a.name, s.year, s.stats__sacks, a.name || ' ' || s.year || ': ' || s.stats__sacks || ' sacks in ' || s.games || ' games'
+        sql: "SELECT 'pro season', COALESCE(a.player__id, a.name), s.year, s.stats__sacks, a.name || ' ' || s.year || ': ' || s.stats__sacks || ' sacks in ' || s.games || ' games'
               FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent WHERE s.stats__sacks > 0",
         above: 0.995,
         low: false,
@@ -1102,7 +1102,7 @@ pub const OUTLIERS: &[Outlier] = &[
         id: "pro_rush_yards",
         page: "nfl",
         title: "Rushing yards in an NFL season",
-        sql: "SELECT 'pro season', a.name, s.year, s.stats__rush_yds, a.name || ' ' || s.year || ': ' || s.stats__rush_yds || ' rushing yards'
+        sql: "SELECT 'pro season', COALESCE(a.player__id, a.name), s.year, s.stats__rush_yds, a.name || ' ' || s.year || ': ' || s.stats__rush_yds || ' rushing yards'
               FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent WHERE s.stats__rush > 50",
         above: 0.995,
         low: false,
@@ -1112,7 +1112,7 @@ pub const OUTLIERS: &[Outlier] = &[
         id: "coach_wins",
         page: "coaches",
         title: "Career wins of a coach",
-        sql: "SELECT 'coach', name, NULL, wins, name || ': ' || wins || '-' || losses FROM coaches WHERE wins + losses > 0",
+        sql: "SELECT 'coach', id, NULL, wins, name || ': ' || wins || '-' || losses FROM coaches WHERE wins + losses > 0",
         above: 0.999,
         low: false,
         needs: W,
@@ -1121,7 +1121,8 @@ pub const OUTLIERS: &[Outlier] = &[
         id: "games_missed",
         page: "people",
         title: "Games missed in a season",
-        sql: "SELECT 'player season', p.name, h.age, h.games_missed, p.name || ' at ' || h.age || ' (' || h.level || '): missed ' || h.games_missed || ' games'
+        sql: "SELECT 'player season', p.player__id, p.class_of + h.age - 18, h.games_missed,
+              p.name || ' at ' || h.age || ' (' || h.level || '): missed ' || h.games_missed || ' games'
               FROM people__player__history h JOIN people p ON p._row = h._parent WHERE h.games_missed > 0",
         above: 0.999,
         low: false,

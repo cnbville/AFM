@@ -426,7 +426,10 @@ fn topic(b: &Book, id: &str, f: &Filters) -> View {
         b,
         "Coverage",
         "table",
-        &format!("SELECT code, title, status, checks, tables FROM coverage WHERE code IN ({areas})"),
+        &format!(
+            "SELECT code, title, status, checks, metrics, tables FROM coverage WHERE code IN ({areas})
+             ORDER BY substr(code, 1, 1), CAST(substr(code, 2) AS INTEGER)"
+        ),
         200,
     ));
     v.next.push(format!(
@@ -587,7 +590,10 @@ fn coverage(b: &Book, f: &Filters) -> View {
         b,
         "Areas",
         "table",
-        &format!("SELECT code, page, title, status, checks, metrics, rules, tables, note FROM coverage WHERE {w}"),
+        &format!(
+            "SELECT code, page, title, status, checks, metrics, rules, tables, note FROM coverage WHERE {w}
+             ORDER BY substr(code, 1, 1), CAST(substr(code, 2) AS INTEGER)"
+        ),
         f.limit(300),
     ));
     v.sections.push(query(

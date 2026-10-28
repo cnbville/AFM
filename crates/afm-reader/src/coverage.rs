@@ -68,9 +68,61 @@ pub fn what(table: &str) -> String {
     }
 }
 
-/// The book tables each `World.a.b` in an area's "where" names.
+/// The engine's types the inventory names, and the tables that hold them.
+const TYPES: &[(&str, &[&str])] = &[
+    ("Person", &["people"]),
+    ("Player", &["people", "alumni"]),
+    ("Background", &["people"]),
+    ("Family", &["people"]),
+    ("ProCareer", &["people", "alumni"]),
+    ("ProSeason", &["people__pro__seasons", "alumni__pro__seasons"]),
+    ("Contract", &["people"]),
+    ("Alumnus", &["alumni"]),
+    ("Club", &["clubs"]),
+    ("NflTeamSeason", &["clubs"]),
+    ("Program", &["programs"]),
+    ("ProgramSeason", &["programs__seasons"]),
+    ("SeasonRecord", &["programs__season_records"]),
+    ("SeasonTotals", &["programs__seasons"]),
+    ("Coach", &["coaches"]),
+    ("CalendarLog", &["calendar"]),
+    ("CollegeSeason", &["college"]),
+    ("Game", &["college__games"]),
+    ("Fixture", &["college__games"]),
+    ("TeamResult", &["college__results"]),
+    ("HighSchool", &["high_schools"]),
+    ("HsSeason", &["hs_season"]),
+    ("NflSeason", &["nfl_season"]),
+    ("NflFixture", &["nfl_season"]),
+    ("StatBook", &["stats"]),
+    ("StatLine", &["stats__seasons"]),
+    ("PlayerSeason", &["stats__seasons"]),
+    ("Scout", &["clubs__scouts"]),
+    ("PlayRecord", &["log_plays"]),
+    ("GameStats", &["log_games"]),
+    ("TeamStats", &["log_games__box"]),
+];
+
+/// The book tables each `World.a.b` or engine type in an area's "where"
+/// names.
 fn tables_in(text: &str, tables: &BTreeSet<String>) -> Vec<String> {
     let mut out = Vec::new();
+    for (ty, ts) in TYPES {
+        let named = text.match_indices(ty).any(|(i, _)| {
+            let before = text[..i].chars().next_back();
+            let after = text[i + ty.len()..].chars().next();
+            !before.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') && matches!(after, Some('.') | Some(':'))
+        });
+        if named {
+            for t in *ts {
+                // A type's table, or the store it lives in.
+                let t = if tables.contains(*t) { t.to_string() } else { t.split("__").next().unwrap_or(t).to_string() };
+                if tables.contains(&t) && !out.contains(&t) {
+                    out.push(t);
+                }
+            }
+        }
+    }
     for (i, _) in text.match_indices("World.") {
         let rest = &text[i + 6..];
         let end = rest.find(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '.')).unwrap_or(rest.len());
