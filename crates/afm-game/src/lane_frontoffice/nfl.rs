@@ -134,6 +134,31 @@ fn prow(w: &World, i: usize) -> Value {
     v
 }
 
+/// What a restructure or a release of your player would do today: the
+/// numbers the cap sheet's Moves dialog shows, for the player page and the
+/// menu (minor bug 62). None when he isn't under contract with you.
+pub(crate) fn cap_moves(w: &World, i: usize) -> Option<Value> {
+    let t = my_club(w).ok()?;
+    let c = w.people[i].pro.as_ref()?;
+    let k = c.contract.as_ref().filter(|k| k.team == t && c.team == Some(t))?;
+    if c.status == Status::PracticeSquad {
+        return None;
+    }
+    let year = w.year;
+    let today = w.today;
+    let (dn, _) = k.dead_if_cut(year, today, false);
+    let (dj, dj2) = k.dead_if_cut(year, today, true);
+    let after = pro::after_june1(w, today);
+    let used = w.front_office.nfl.june1.iter().filter(|x| x.1 == year).count();
+    Some(json!({
+        "re": money::capped(year) && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0),
+        "voids": nfl::void_years_allowed(year),
+        "dead": dn.round(), "saves": k.cut_savings(year, today, false).round(),
+        "dj": dj.round(), "dj2": dj2.round(), "sj": k.cut_savings(year, today, true).round(),
+        "june1": if after { 0 } else { 2usize.saturating_sub(used) },
+    }))
+}
+
 // --- The front office home ---------------------------------------------------------------------
 
 fn office(w: &World) -> Reply {

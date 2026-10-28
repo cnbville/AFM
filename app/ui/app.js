@@ -34,13 +34,19 @@ function plain(m) {
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = (v) => (v == null ? "" : (v < 0 ? "-" : "") + (Math.abs(v) >= 1e6 ? "$" + (Math.abs(v) / 1e6).toFixed(1) + "M" : "$" + Math.round(Math.abs(v) / 1e3) + "k"));
-function toast(text) {
+function toast(text, open) {
   const t = document.createElement("div");
   t.className = "st-toast";
   // A name ending "Jr." closes its own sentence.
   t.textContent = String(text).replace(/\b(Jr|Sr)\.\./g, "$1.");
+  // A stop for a decision opens its desk on a click (minor bug 69).
+  if (open && open.go) {
+    t.classList.add("click");
+    t.title = "Open it";
+    t.onclick = () => { t.remove(); go(open.go, open.args || {}); };
+  }
   $("#toasts").appendChild(t);
-  setTimeout(() => t.remove(), 4200);
+  setTimeout(() => t.remove(), open && open.go ? 8000 : 4200);
 }
 function setColors(c) {
   if (!c) return;
@@ -351,7 +357,7 @@ function pinnedHtml(st) {
   const list = (st.pinned || []).slice(0, 4);
   if (!list.length) return "";
   return `<div class="pinned">${list.map((p) => {
-    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"${p.id != null ? ` data-id="${p.id}"` : ""}` : "";
+    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"${p.id != null ? ` data-id="${p.id}"` : ""}${p.args ? ` data-args='${esc(JSON.stringify(p.args))}'` : ""}` : "";
     return `<button class="pin" ${open}><span class="pdot"></span><span class="ptxt"><b>${esc(p.text)}</b><small>${esc(p.rule || "Needs your answer")}</small></span><span class="when">${esc(p.by ? "Answer by " + p.by : p.date || "")}</span></button>`;
   }).join("")}</div>`;
 }
@@ -679,7 +685,7 @@ async function cont() {
     } else {
       // A morning stop is today, before it plays; any other stop is the
       // day just played, and you are on the morning after it.
-      toast(r.morning ? `${r.today}, morning${why ? ": " + why : ""}` : `${r.days} day${r.days === 1 ? "" : "s"} played, to ${r.today}. On ${r.stopped_on}${why ? ": " + why : ""}`);
+      toast(r.morning ? `${r.today}, morning${why ? ": " + why : ""}` : `${r.days} day${r.days === 1 ? "" : "s"} played, to ${r.today}. On ${r.stopped_on}${why ? ": " + why : ""}`, r.why.find((w) => w.go));
       // A live day (signing day, the draft, cutdown day) opens its room.
       // A room with its own screen (the war room) opens that screen.
       if (r.studio && !moved && (screens[r.studio.screen] || screens.studio)) go(screens[r.studio.screen] ? r.studio.screen : "studio", r.studio);

@@ -438,11 +438,17 @@ screens.find_prospects = async () => {
 };
 
 // ---------- the high school coach: Colleges calling (FR15) ----------
-screens.colleges_calling = async () => {
+screens.colleges_calling = async (a = {}) => {
   const x = await api("colleges_calling");
   if (S.status && S.status.mine) setColors(S.status.mine.colors);
   const k = keep("fr-hs", { level: "all", stage: "all", kid: "" });
   const hs = keep("sc-hs", { pid: null });
+  // "Call a college" from his page or a menu opens the box on him, once.
+  if (a.call != null) {
+    hs.pid = Number(a.call);
+    delete a.call;
+    setTimeout(() => { const r = document.querySelector(".fr-callrow"); if (r) r.scrollIntoView({ block: "center" }); const s = $("#sc-prog"); if (s) s.focus(); }, 0);
+  }
   const by = (p) => {
     const s = p.by.map((b) => (b.stars ? `${b.stars}★` : "not ranked"));
     // A signed kid's class is closed: no "yet" for him.

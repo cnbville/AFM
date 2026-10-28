@@ -43,28 +43,8 @@ Object.assign(CRUMBS, {
   };
 }
 
-// A recruit's player page carries your offer too (minor bug 58): Find
-// recruits opens the player page, and the offer lived only on his file and
-// the board. The moves lead the page's own buttons.
-{
-  const plain = screens.player;
-  screens.player = async (a) => {
-    const me = S.status && S.status.mine;
-    if (!me || me.ref.kind !== "college") return plain(a);
-    const [html, f] = await Promise.all([plain(a), api("recruit_file", { id: a.id }).catch(() => null)]);
-    const moves = f ? fcPlayerMoves(f) : "";
-    return moves ? html.replace('<div class="st-actions">', `<div class="st-actions">${moves}`) : html;
-  };
-}
-function fcPlayerMoves(f) {
-  if (["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing)) return "";
-  const file = linkTo("recruit_file", { id: f.id }, "His recruit file", "st-btn glass");
-  if (!f.board_yours) return file;
-  const offer = f.offered
-    ? `<button class="st-btn glass" data-fc="pull" data-id="${f.id}">Pull the offer</button>`
-    : `<button class="st-btn primary" data-fc="offer" data-id="${f.id}">Offer a scholarship</button>`;
-  return offer + file;
-}
+// A recruit's player page carries your offer too (minor bug 58): it is
+// among his moves (core.js, minor bugs 62-63).
 
 // ---------- small pieces ----------
 const fcStars = (n) => (n ? `<span class="fc-stars" title="${n}-star recruit (the services)">${"★".repeat(n)}<i>${"★".repeat(Math.max(0, 5 - n))}</i></span>` : '<span class="muted">-</span>');

@@ -835,6 +835,33 @@ fn staff(w: &World) -> Value {
     })
 }
 
+/// The moves that fit a coach for your seat (minor bug 62): a raise or
+/// letting him go for one of your assistants; an interview or the job for
+/// a candidate at one of your openings.
+pub(crate) fn coach_moves(w: &World, c: usize) -> Vec<Value> {
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    if w.career.as_ref().is_some_and(|x| x.coach == c) {
+        return Vec::new();
+    }
+    if let Some((_, r)) = facts::assistants(w, team).into_iter().find(|x| x.0 == c) {
+        return vec![
+            json!({ "k": "raise", "t": "Give him a raise", "coach": c, "role": role_key(r) }),
+            json!({ "k": "fire", "t": "Let him go", "coach": c }),
+        ];
+    }
+    let mut out = Vec::new();
+    for r in staffing::openings(w) {
+        let Some(x) = staffing::candidates(w, r).into_iter().find(|x| x.coach == c) else { continue };
+        if x.blocked {
+            continue;
+        }
+        let role = cap(r.name());
+        out.push(json!({ "k": "interview", "t": format!("Interview him for {role}"), "coach": c, "role": role_key(r) }));
+        out.push(json!({ "k": "hire", "t": format!("Offer him {role}"), "coach": c, "role": role_key(r), "salary": x.asks, "asks": money(x.asks) }));
+    }
+    out
+}
+
 fn candidates(w: &World, r: Role) -> Value {
     let rows: Vec<Value> = staffing::candidates(w, r)
         .into_iter()

@@ -281,9 +281,19 @@ function foTrade() {
   return keep("fotrade", { team: null, give: [], givePicks: [], get: [], getPicks: [], cond: null, answer: null, shop: null });
 }
 const foPickKey = (p) => `${p.year}:${p.round}:${p.orig}:${p.comp ? 1 : 0}`;
-screens.fo_trades = async () => {
+screens.fo_trades = async (a = {}) => {
   const x = await api("fo_trades");
   const tr = foTrade();
+  // Opened on a club or a player (minor bug 71): "Trade for him", a club's
+  // menu, the cap board's "Trade now". Read once, so later picks stand.
+  if (a.team != null || a.get || a.give) {
+    const t = a.team != null ? Number(a.team) : tr.team;
+    if (t !== tr.team) Object.assign(tr, { get: [], getPicks: [], cond: null, answer: null });
+    tr.team = t;
+    for (const id of a.get || []) if (!tr.get.includes(Number(id))) tr.get.push(Number(id));
+    for (const id of a.give || []) if (!tr.give.includes(Number(id))) tr.give.push(Number(id));
+    delete a.team; delete a.get; delete a.give;
+  }
   if (tr.team == null && x.teams.length) tr.team = x.teams[0].ref.id;
   const other = tr.team != null ? await api("fo_trade_team", { team: tr.team }) : null;
   const pts = (list, sel, key) => list.filter((p) => sel.includes(key(p))).reduce((s, p) => s + (p.points || 0), 0);
@@ -378,6 +388,25 @@ screens.fo_moves = async () => {
 };
 
 // ---------- actions ----------
+// Restructure or release one of your players, from the cap sheet, his page
+// or a menu (minor bug 62): `cap` is the game's numbers for him today.
+async function foCapMove(kind, id, name, cap) {
+  const c = cap || {};
+  if (kind === "restructure") {
+    const v = await foChoose(`Restructure ${name}`, "His base salary above the minimum becomes a signing bonus spread over the years left: room now, more on later caps.", [
+      { v: "0", t: "Over the years left", s: "No void years." },
+      ...(c.voids ? [{ v: "2", t: "Add two void years", s: "Spreads it further; the leftover lands on the cap when the deal voids." }] : []),
+    ]);
+    if (v != null) await foDo("fo_restructure", { id, voids: Number(v) });
+    return;
+  }
+  const split = c.june1 > 0 && (c.dj2 > 0 || c.dj !== c.dead);
+  const v = await foChoose(`Release ${name}`, "Every later year's bonus spread lands on the cap, with any guaranteed pay he's owed.", [
+    { v: "now", t: `Release now · ${foM(c.dead)} dead, ${c.saves >= 0 ? "saves" : "costs"} ${foM(Math.abs(c.saves || 0))}` },
+    ...(split ? [{ v: "june1", t: `Post-June 1 designation · ${foM(c.dj)} dead now, ${foM(c.dj2)} next year`, s: `Saves ${foM(c.sj)} this year once June 1 passes. ${c.june1} of 2 left this year.` }] : []),
+  ]);
+  if (v) await foDo("fo_release", { id, june1: v === "june1" });
+}
 function foRedraw() { render($(".view") && $(".view").scrollTop); }
 async function foDo(cmd, args, ok) {
   try {

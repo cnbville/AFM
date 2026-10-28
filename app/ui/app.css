@@ -291,6 +291,7 @@ a { color: inherit; }
 /* Toasts sit in the corner, never over the sidebar, and clicks go through. */
 .toasts { position: fixed; right: 22px; bottom: 22px; display: grid; justify-items: end; gap: 8px; z-index: 90; max-width: min(460px, calc(100vw - 300px)); pointer-events: none; }
 .toasts .st-toast { max-height: 7.5em; overflow: hidden; line-height: 1.45; }
+.toasts .st-toast.click { cursor: pointer; pointer-events: auto; box-shadow: 0 16px 40px rgba(0,0,0,.4), inset 0 0 0 1px var(--accent); }
 .overlay { position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; background: var(--scrim); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .overlay .box { background: var(--raised); border-radius: 24px; padding: 24px 28px; display: grid; gap: 12px; min-width: 320px; box-shadow: var(--shadow-sheet); }
 .overlay .busy-time { color: var(--fg3); font-size: 12px; max-width: 46ch; }

@@ -985,10 +985,19 @@ function squadCols(view, x) {
     Fitness: [name, pos, cls, { k: "practice", t: "Practice", l: true, f: trStatus }, { k: "load", t: "Load", l: true, f: trLoad, v: (r) => ["light", "moderate", "heavy", "very heavy"].indexOf(r.load) }, { k: "load_trend", t: "Trend", l: true }, { k: "missed", t: "Games missed", tip: "Last season" }, { k: "status", t: "Status", l: true }, { k: "wt", t: "Wt" }, { k: "sport", t: "Other sport", l: true, hide: x.tier !== "high school" }],
     Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day: opens his spot on the depth chart", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? linkTo("depth", { tab: SQ_BOARD[r.group] || "Offense", pid: r.id }, r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
     Contract: pro
-      ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr]
-      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "offers", t: "College offers", hide: x.tier !== "high school", f: (r) => (r.offers ? linkTo("player", { id: r.id, tab: "Recruiting" }, String(r.offers)) : '<span class="muted">0</span>') }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
+      ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr, { k: "deal", t: "New deal", l: true, tip: "Talk terms before he reaches the market", v: (r) => (r.deal ? 1 : 0), f: (r) => (r.deal ? moveBtn({ k: "deal", t: r.deal }, { id: r.id, name: r.name }, "st-btn small glass") : '<span class="muted">-</span>') }]
+      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "rs", t: "This season", l: true, hide: x.tier === "high school", tip: "Redshirt him or play him. From 2018 a redshirt may play four games and keep his year.", v: (r) => (r.rs ? r.rs.games : -1), f: sqRedshirt }, { k: "offers", t: "College offers", hide: x.tier !== "high school", f: (r) => (r.offers ? linkTo("player", { id: r.id, tab: "Recruiting" }, String(r.offers)) : '<span class="muted">0</span>') }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
   };
   return views[view];
+}
+// The Eligibility view's redshirt call (bug 77): his games so far, and the button.
+function sqRedshirt(r) {
+  const s = r.rs;
+  if (!s) return '<span class="muted">-</span>';
+  const games = s.four ? `${s.games} of 4 games` : trPlural(s.games, "game");
+  const now = s.on ? "Redshirting" : "Playing";
+  const btn = s.can ? " " + moveBtn({ k: "redshirt", t: s.on ? "Play him" : "Redshirt him", on: !s.on, games: s.games, four: s.four }, { id: r.id, name: r.name }, "st-btn small glass") : "";
+  return `${now} <small class="muted" ${s.why ? `title="${esc(s.why)}"` : ""}>${games}</small>${btn}`;
 }
 screens.roster = async (a) => {
   if (!trMine(a)) return rosterBase(a);

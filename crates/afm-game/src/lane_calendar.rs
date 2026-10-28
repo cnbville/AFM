@@ -397,8 +397,31 @@ fn go(screen: &str, label: &str) -> Option<Value> {
 
 /// Where a line lives on your screens (CAL6).
 fn home_of(e: &Event, lv: Lv) -> Option<Value> {
+    // A decision opens its desk on him (minor bug 69).
+    if e.needs_decision
+        && let Some((screen, args)) = crate::views::decision_go(e)
+    {
+        let mut v = json!({ "screen": screen, "label": "Decide it" });
+        if let Some(o) = args.as_object() {
+            for (k, x) in o {
+                v[k] = x.clone();
+            }
+        }
+        return Some(v);
+    }
     let t = e.text.to_lowercase();
     let r = e.rule.to_lowercase();
+    if lv == Lv::Nfl {
+        if t.contains("trade deadline") {
+            return go("fo_trades", "Trades");
+        }
+        if t.contains("cutdown") || t.contains("cut-down") || t.contains("roster cut") {
+            return go("fo_moves", "Roster moves");
+        }
+        if t.contains("tag") || t.contains("fifth-year option") || t.contains("offer sheet") {
+            return go("fo_expiring", "Deals and tags");
+        }
+    }
     match e.kind {
         Kind::Offer | Kind::Visit | Kind::Commitment | Kind::Signing if lv == Lv::Nfl => go("contracts", "Contracts"),
         Kind::Offer | Kind::Visit | Kind::Commitment | Kind::Signing => go("recruiting", "Recruiting"),

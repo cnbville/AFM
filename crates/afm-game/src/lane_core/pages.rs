@@ -679,6 +679,8 @@ pub fn profile(w: &World, id: u32) -> Result<Value, String> {
     v["listed"] = json!(desk::is_listed(w, id));
     // Your own college player: what a cut would do (minor bug 60).
     v["college_cut"] = json!(afm_engine::world::front_office::college::cut_words(w, id).ok());
+    // Every move that fits him for your seat (minor bugs 62-63).
+    v["moves"] = json!(super::moves::player(w, id));
     v["career_story"] = json!(stories);
     v["initials"] = json!(p.name.split_whitespace().filter_map(|s| s.chars().next()).take(2).collect::<String>());
     v["colors"] = match team {
@@ -727,6 +729,8 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
                 "listed": desk::is_listed(w, id), "noted": desk::has_note(w, id),
                 "jersey": team.and_then(|t| people::jersey(w, t, k)),
                 "initials": p.name.split_whitespace().filter_map(|s| s.chars().next()).take(2).collect::<String>(),
+                "own": own,
+                "moves": super::moves::player(w, id),
             }))
         }
         "coach" => {

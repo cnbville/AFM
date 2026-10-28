@@ -703,6 +703,8 @@ screens.draftrecord = async (a) => {
 };
 
 // ---------- pro scouting (scouting topic 13) ----------
+// Sign him from the street or a tryout (bug 72): the same talks as the market.
+const scSign = (r) => (r.can_sign ? ` ${moveBtn({ k: "deal", t: "Make an offer" }, { id: r.id, name: r.name }, "st-btn small primary")}` : "");
 screens.proscout = async () => {
   const k = keep("sc-pro", { club: null, t: "Street" });
   const x = await api("pro_scouting", k.club != null ? { club: k.club } : {});
@@ -720,12 +722,12 @@ screens.proscout = async () => {
   ];
   let body;
   if (tab.t === "Street") {
-    body = `<p class="sub">Unsigned pros: the ones your staff has read first, best read first, then the rest by what the league paid them. A tryout brings him in on Tuesday.</p>${table("sc-street", [...readCols, { k: "x", t: "", f: (r) => (r.tried ? '<span class="st-pill">Tried out</span>' : `<button class="st-btn small glass" data-act="sc-tryout" data-id="${r.id}">Bring him in</button>`) }], x.street, { empty: "Nobody worth a call is on the street right now." })}`;
+    body = `<p class="sub">Unsigned pros: the ones your staff has read first, best read first, then the rest by what the league paid them. A tryout brings him in on Tuesday.</p>${table("sc-street", [...readCols, { k: "x", t: "", f: (r) => `${r.tried ? '<span class="st-pill">Tried out</span>' : `<button class="st-btn small glass" data-act="sc-tryout" data-id="${r.id}">Bring him in</button>`}${scSign(r)}` }], x.street, { empty: "Nobody worth a call is on the street right now." })}`;
   } else if (tab.t === "Club") {
     body = `<div class="filters"><div class="field" style="min-width:280px"><label>Club</label><select data-act="sc-proclub"><option value="">Pick a club</option>${x.clubs.map((c) => `<option value="${c.ref.id}" ${x.club && x.club.ref.id === c.ref.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div>${x.club ? `<span class="teamcell">${mark(x.club, 28)} ${teamLink(x.club)}</span>` : ""}</div>
       ${x.club ? table("sc-club", [...readCols, { k: "apy", t: "A year", div: true, v: (r) => (r.contract ? r.contract.apy : 0), f: (r) => (r.contract ? money(r.contract.apy) : "") }, { k: "through", t: "Through", v: (r) => (r.contract ? r.contract.through : 0), f: (r) => (r.contract ? r.contract.through : "") }], x.roster) : `<div class="panel warm">${scEmpty("Pick a club to see its roster through your pro staff's eyes.")}</div>`}`;
   } else if (tab.t === "Tryouts") {
-    body = table("sc-try", [{ k: "date", t: "Date", l: true }, { k: "name", t: "Name", l: true, f: (r) => scName(r.id, r.name) }, { k: "pos", t: "Pos", l: true }, { k: "school", t: "Where", l: true, f: scWhere }], x.tryouts, { empty: "No tryouts yet." });
+    body = table("sc-try", [{ k: "date", t: "Date", l: true }, { k: "name", t: "Name", l: true, f: (r) => scName(r.id, r.name) }, { k: "pos", t: "Pos", l: true }, { k: "school", t: "Where", l: true, f: scWhere }, { k: "x", t: "", f: scSign }], x.tryouts, { empty: "No tryouts yet." });
   } else if (tab.t === "Supp") {
     body = `<p class="sub">The supplemental draft on ${esc(x.supp_date || "")}: bid a round, and if yours is the highest you give up that round next year.</p>${table("sc-supp", [...readCols, { k: "bid", t: "Your bid", div: true, f: (r) => `<select class="sc-sel" data-act="sc-supp" data-id="${r.id}"><option value="0">No bid</option>${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${r.bid === n ? "selected" : ""}>Round ${n}</option>`).join("")}</select>` }], x.supp, { empty: "Nobody eligible this year." })}
       ${x.supp_past.length ? `<div class="panel warm"><h2>Past supplemental picks</h2>${tbl(["Year", "Player", "Club", "Round"], x.supp_past.map((s) => [String(s.year), playerLink(s.id, s.name), s.team ? s.team.name : "Nobody", s.round || "-"]))}</div>` : ""}`;

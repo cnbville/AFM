@@ -13,6 +13,7 @@
 pub mod desk;
 pub mod links;
 pub mod mail;
+pub mod moves;
 pub mod pages;
 pub mod people;
 pub mod tables;
@@ -86,6 +87,23 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             )
         })(),
         "watch_set" => desk::watch_set(w, args),
+        // The moves that fit a player, a coach or a team (minor bugs 62-64).
+        "moves" => (|| {
+            let kind = args.get("kind").and_then(Value::as_str).unwrap_or("player");
+            Ok(json!(match kind {
+                "coach" => moves::coach(w, id_arg(args)? as usize),
+                "nfl" | "college" | "hs" | "team" => moves::team(w, crate::views::TeamRef::from_args(w, args)?),
+                _ => moves::player(w, id_arg(args)? as u32),
+            }))
+        })(),
+        // Injured reserve on your club (minor bug 73) and redshirts on your
+        // college team (minor bug 77): your call.
+        "ir_place" => id_arg(args).and_then(|id| afm_engine::world::front_office::reserve::place(w, id as u32)).map(|t| json!({ "text": t })),
+        "ir_back" => id_arg(args).and_then(|id| afm_engine::world::front_office::reserve::activate(w, id as u32)).map(|t| json!({ "text": t })),
+        "redshirt_set" => (|| {
+            let on = args.get("on").and_then(Value::as_bool).unwrap_or(true);
+            afm_engine::world::front_office::redshirt::set(w, id_arg(args)? as u32, on).map(|t| json!({ "text": t }))
+        })(),
         "reveals" => Ok(desk::take_reveals(w)),
         // The big tables.
         "leaders" => Ok(tables::leaders(w, args)),

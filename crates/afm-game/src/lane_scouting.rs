@@ -649,7 +649,12 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
 }
 
 /// The looks you can ask your staff for on this player, by your seat.
-fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
+/// A free agent your club can make an offer to today.
+fn can_sign(w: &World, i: usize) -> bool {
+    afm_engine::world::front_office::nfl::negotiable(w, i) == Some(afm_engine::world::front_office::nfl::TalkKind::FreeAgent)
+}
+
+pub(crate) fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
     let Some(s) = w.seat else { return Vec::new() };
     match s.level {
         CalLevel::Nfl if matches!(p.stage, Stage::College | Stage::Declared) => {
@@ -1656,6 +1661,8 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
             let mut r = row(w, i);
             r["read"] = brief_read(w, staff, w.people[i].player.id);
             r["tried"] = json!(ps.tryouts.iter().any(|x| x.0 == w.people[i].player.id));
+            // He can sign with you today (minor bug 72).
+            r["can_sign"] = json!(can_sign(w, i));
             r
         })
         .collect();
@@ -1668,6 +1675,7 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
             let i = sc::place(w, id)?;
             let mut r = row(w, i);
             r["date"] = json!(date_text(d));
+            r["can_sign"] = json!(can_sign(w, i));
             Some(r)
         })
         .collect();
