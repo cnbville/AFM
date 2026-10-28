@@ -718,6 +718,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
         return;
     }
     let y = w.dates.clone();
+    // Injuries heal a day before the day's games (B1).
+    super::pro::heal_day(w, d, &y);
     dated_events(w, d, &y);
     if d == y.combine_invites {
         recruiting::combine_invites(w);
@@ -1694,12 +1696,13 @@ fn capitalize(text: &str) -> String {
 const PRIME_CAP: u32 = 5;
 
 /// Christmas Day games by season (part D 30, N35): the real number each
-/// year (2016-2025 from the schedules; earlier years from memory, to
-/// verify), three a year after 2025 (proposed, not confirmed).
+/// year (1999-2025 from the real schedules, `nfl_history.json`
+/// `schedule_facts`; earlier years from memory), three a year after 2025
+/// (proposed, not confirmed).
 fn christmas_games(season: i32) -> usize {
     match season {
-        1989 | 1995 | 2000 | 2009 | 2010 | 2011 | 2020 => 1,
-        2005 | 2006 | 2016 | 2017 | 2021 | 2024 => 2,
+        1989 | 1995 | 1999 | 2000 | 2009 | 2010 | 2011 | 2020 => 1,
+        2004 | 2005 | 2006 | 2016 | 2017 | 2021 | 2024 => 2,
         2022 | 2023 | 2025 => 3,
         s if s > 2025 => 3,
         _ => 0,

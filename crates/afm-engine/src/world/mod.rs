@@ -692,6 +692,10 @@ pub struct World {
     /// tapes, so a new career has film of its first opponents (tape.rs).
     #[serde(skip)]
     pub(crate) world_tapes: bool,
+    /// Pros out injured, for the morning's heal (B1), and the day it last
+    /// ran; rebuilt from everyone each Tuesday and after a load.
+    #[serde(skip)]
+    pub(crate) hurt_pros: (Vec<usize>, Option<crate::calendar::Date>),
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -1142,6 +1146,7 @@ impl World {
             rng,
             recording: false,
             world_tapes: false,
+            hurt_pros: (Vec::new(), None),
             game_log: game_log::GameLog::default(),
             stats: records::StatBook::default(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],

@@ -474,6 +474,37 @@ impl<'a> Side<'a> {
         out
     }
 
+    /// The punt team's gunners (speed update S10): the two backups who play
+    /// fastest and get off a jam best, receivers, corners or safeties (the
+    /// burner among them), corners from the cover list when short.
+    fn gunners(&self, used: &mut Vec<usize>) -> Vec<usize> {
+        let score = |i: usize| {
+            let p = &self.team.players[i];
+            0.5 * super::roster::deep_speed(p) + 0.3 * p.a(Attr::Release) + 0.2 * p.a(Attr::Strength)
+        };
+        let mut pool: Vec<usize> = [Position::WR, Position::CB, Position::S]
+            .iter()
+            .flat_map(|&pos| self.depth.list(pos).iter().copied())
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i) && !self.starts(i))
+            .collect();
+        pool.sort_by(|&a, &b| score(b).total_cmp(&score(a)));
+        pool.dedup();
+        let mut out: Vec<usize> = pool.into_iter().take(2).collect();
+        used.extend(out.iter().copied());
+        if out.len() < 2 {
+            out.extend(self.cover_pick(Position::CB, 2 - out.len(), used));
+        }
+        out
+    }
+
+    /// How much the offense leans on its burner, while he can go (S10).
+    fn burner_lean(&self) -> f64 {
+        match self.depth.burner {
+            Some(b) if !self.out[b] && !self.benched[b] => self.depth.burner_lean,
+            _ => 0.0,
+        }
+    }
+
     fn cover_pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
         let list: Vec<usize> = self
             .depth
@@ -815,7 +846,25 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             let mut rushers = rated(them, Position::EDGE, 2, Spot::EDGE);
             rushers.extend(rated(them, Position::DT, 2, Spot::DT));
             let our_ol: Vec<f64> = rated(me, Position::OT, 2, Spot::LT).iter().map(|x| x.1).collect();
-            calling::make_plan(&me.team.staff, &their_cbs, &their_wrs, &our_cbs, qb_run, &rushers, &our_ol, &mut prep)
+            // Their receivers' and our corners' deep speed (S10a-S10d): their
+            // top three and their burner against our top two.
+            let deep = |side: &Side, i: usize| super::roster::deep_speed(&side.team.players[i]);
+            let mut their_deep: Vec<(usize, f64)> = their_wrs.iter().map(|&(i, _)| (i, deep(them, i))).collect();
+            if let Some(b) = them.depth.burner.filter(|b| !their_deep.iter().any(|x| x.0 == *b)) {
+                their_deep.push((b, deep(them, b)));
+            }
+            let our_deep: Vec<f64> = me.depth.list(Position::CB).iter().take(2).map(|&i| deep(me, i)).collect();
+            calling::make_plan(
+                &me.team.staff,
+                &their_cbs,
+                &their_wrs,
+                &our_cbs,
+                qb_run,
+                &rushers,
+                &our_ol,
+                (&their_deep, &our_deep),
+                &mut prep,
+            )
         })
         .collect();
     sides[0].mem.plan = plans[0];
@@ -2637,7 +2686,7 @@ impl<'a> Game<'a> {
         let sn = side.snapper();
         let mut kick_on = vec![p];
         let mut used = vec![p, sn];
-        kick_on.extend(side.cover_pick(Position::CB, 2, &mut used));
+        kick_on.extend(side.gunners(&mut used));
         kick_on.extend(side.cover_pick(Position::LB, 3, &mut used));
         kick_on.extend(side.cover_pick(Position::TE, 2, &mut used));
         kick_on.extend(side.cover_pick(Position::IOL, 2, &mut used));
@@ -2806,6 +2855,34 @@ impl<'a> Game<'a> {
 
     /// Players on the field for a call.
     #[allow(clippy::type_complexity)]
+    /// The burner's snaps (speed update S10): on a jet sweep he is the man
+    /// in motion, and on a deep shot he comes in at Z (else X), more often
+    /// the more the team leans on his speed. A keyed draw, so the game's
+    /// own stream is untouched.
+    fn speed_package(&self, call: &OffCall, off: &mut [(ORole, usize)]) {
+        let side = &self.sides[self.poss];
+        let Some(b) = side.depth.burner else { return };
+        if side.out[b] || side.benched[b] || side.held(b) || off.iter().any(|x| x.1 == b) {
+            return;
+        }
+        let lean = side.depth.burner_lean;
+        let (role, p) = match call.kind {
+            PlayKind::Run(RunConcept::JetSweep) => (call.formation.motion_man(), 0.5 + 0.4 * lean),
+            PlayKind::Pass(i) if pass_concept(i).depth == PassDepth::Deep => {
+                let r = [ORole::Z, ORole::X].into_iter().find(|r| off.iter().any(|x| x.0 == *r));
+                (r, 0.25 + 0.5 * lean)
+            }
+            _ => return,
+        };
+        let Some(role) = role else { return };
+        if crate::world::season::key_uniform(self.s.seed ^ 0x5BEE_D000, self.n as u64) >= p {
+            return;
+        }
+        if let Some(x) = off.iter_mut().find(|x| x.0 == role) {
+            x.1 = b;
+        }
+    }
+
     fn lineup(&self, call: &OffCall, dcall: &DefCall) -> (Vec<(ORole, usize)>, Vec<(DSlot, usize)>) {
         let o = &self.sides[self.poss];
         let d = &self.sides[1 - self.poss];
@@ -3123,6 +3200,7 @@ impl<'a> Game<'a> {
             level: self.s.rules.level,
             plan: self.sides[o].team.plan().0,
             designs: calling::sheet_designs(&self.sides[o].team.prep),
+            burner: self.sides[o].burner_lean(),
         };
         let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
         // Your four-minute plan (update 2, G4): run it out, or keep
@@ -3294,7 +3372,11 @@ impl<'a> Game<'a> {
         }
         let (off, def) = match &fake {
             Some((off, def, _)) => (off.clone(), def.clone()),
-            None => self.lineup(&call, &dcall),
+            None => {
+                let (mut off, def) = self.lineup(&call, &dcall);
+                self.speed_package(&call, &mut off);
+                (off, def)
+            }
         };
         for side in self.sides.iter_mut() {
             side.scrimmage = false;
@@ -3483,6 +3565,8 @@ impl<'a> Game<'a> {
             fooled,
             target_cb: self.sides[o].mem.plan.target_cb,
             bracket: self.sides[d].mem.plan.bracket,
+            burner: self.sides[d].mem.plan.burner,
+            fear: self.sides[d].mem.plan.fear,
             help_on: self.sides[o].mem.plan.help_on,
             chem: self.sides[o].team.line_chem,
             novelty: self.sides[o].team.novelty[fam as usize],
@@ -4650,6 +4734,7 @@ impl<'a> Game<'a> {
             level: self.s.rules.level,
             plan: self.sides[o].team.plan().0,
             designs: calling::sheet_designs(&self.sides[o].team.prep),
+            burner: self.sides[o].burner_lean(),
         };
         (ctx, qb_threat)
     }
@@ -5539,6 +5624,8 @@ pub fn fg_make(p: &GamePlayer, dist: f64) -> f64 {
 /// How much a quarterback threatens to run, 0-1 (topic 5.4): a spy and the
 /// option game key on it (proposed, not confirmed).
 /// A quarterback's running threat (0 to 1) from his speed and elusiveness.
+/// Read for his weight, as the forty is (A3).
 pub fn qb_run(p: &GamePlayer) -> f64 {
-    clamp((0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - 68.0) / 20.0, 0.0, 1.0)
+    let moves = 0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - super::sim::size_cost(p.weight, 222.0);
+    clamp((moves - 68.0) / 20.0, 0.0, 1.0)
 }

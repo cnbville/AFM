@@ -2053,8 +2053,48 @@ fn coaching_market(w: &World, years: u32) {
 /// market, trades, honors), with rough real ranges to read it against
 /// (from memory, to verify: about 550 unrestricted free agents a year, 6-9
 /// franchise tags, at most one or two offer sheets, about half of fifth-year
-/// options taken, 25-40 cutdown claims, 40-60 player trades, 32-39 comp
-/// picks, 10-15 futures deals a team).
+/// options taken, 25-40 cutdown claims, 10-15 futures deals a team). Trades
+/// and comp picks are read year by year against the real counts (minor bug
+/// 48): 40-102 trades a year in 2002-2025, 86-96 since 2021
+/// (`nfl_history.json` `trades`), and 29-38 comp picks
+/// (`nfl_careers.json` `compensatory_picks`).
+/// The world's trades and comp picks each year against the real count that
+/// year (minor bug 48); a year past the real data reads against 2021-2025.
+fn real_trades_and_comp(w: &World, first: i32) {
+    let history: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../data/real-world/nfl_history.json")).unwrap();
+    let careers: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../data/real-world/nfl_careers.json")).unwrap();
+    let trades = &history["trades"]["by_season"];
+    let comp = &careers["compensatory_picks"]["per_year"];
+    let real = |v: &serde_json::Value, y: i32, key: Option<&str>| {
+        let at = |y: i32| {
+            let e = &v[y.to_string()];
+            match key {
+                Some(k) => e[k].as_f64(),
+                None => e.as_f64(),
+            }
+        };
+        at(y).map(|n| format!("{n:.0}")).unwrap_or_else(|| {
+            let recent: Vec<f64> = (2021..=2025).filter_map(at).collect();
+            let lo = recent.iter().copied().fold(f64::MAX, f64::min);
+            let hi = recent.iter().copied().fold(0.0, f64::max);
+            format!("{lo:.0}-{hi:.0} (2021-25)")
+        })
+    };
+    println!("\n| year | trades | real trades | comp picks | real comp picks |\n|---|---|---|---|---|");
+    for m in w.market.years.iter().filter(|m| m.year >= first) {
+        println!(
+            "| {} | {} | {} | {} | {} |",
+            m.year,
+            m.trades,
+            real(trades, m.year, Some("trades")),
+            m.comp_picks,
+            real(comp, m.year, None)
+        );
+    }
+}
+
 fn nfl_league(w: &World, years: u32) {
     use afm_engine::world::pro::{Status, money, payroll};
     println!("\n## The NFL as a living league (section 5)");
@@ -2114,6 +2154,7 @@ fn nfl_league(w: &World, years: u32) {
             m.carryover[2]
         );
     }
+    real_trades_and_comp(w, first);
     sections_6_and_7(w, first);
     // Who holds the rosters now.
     let (mut drafted, mut undrafted, mut generated, mut ipp, mut held) = (0, 0, 0, 0, 0);
