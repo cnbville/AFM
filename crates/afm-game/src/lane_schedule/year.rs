@@ -61,7 +61,7 @@ fn hours(min: u32) -> String {
 
 /// A bar's short label, for a bar too narrow for its name.
 fn short(name: &str) -> &str {
-    if name.ends_with(" games") {
+    if name.ends_with(" games") || name.ends_with(" game") {
         return "Season";
     }
     match name {
@@ -203,7 +203,11 @@ fn football(frame: &Frame, y: &YearDates, page: Option<&SeasonPage>, state: &str
         let mut name = b.label(frame.tier).to_string();
         let mut kv = block_facts(frame.tier, b, frame.season, state, heat, days);
         if b == Block::Season {
-            name = format!("{} · {regular} games", if frame.tier == Tier::High { "Season" } else { "Regular season" });
+            name = format!(
+                "{} · {regular} {}",
+                if frame.tier == Tier::High { "Season" } else { "Regular season" },
+                afm_engine::world::folk::noun(regular, "game")
+            );
             if let Some(r) = rec.as_ref() {
                 kv.insert(0, ("Record".into(), r.clone()));
             }
@@ -794,6 +798,7 @@ mod tests {
         assert_eq!(code("New York Giants", true), "NYG");
         assert_eq!(code("Los Angeles Rams", true), "LAR");
         assert_eq!(short("Regular season · 12 games"), "Season");
+        assert_eq!(short("Season · 1 game"), "Season");
         assert_eq!(short("Bowl practice and December"), "Bowls");
         assert_eq!(short("Combine"), "Combine");
     }

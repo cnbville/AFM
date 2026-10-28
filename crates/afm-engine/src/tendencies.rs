@@ -244,6 +244,12 @@ impl Tendencies {
         self.was[t.index()] = x as f32;
     }
 
+    /// A habit coached to a new number (update 3, F16): the old one stays
+    /// in `was`, the habit he slips back toward under stress.
+    pub fn coach(&mut self, t: Tend, x: f64) {
+        self.v[t.index()] = clamp(x, 1.0, 20.0) as f32;
+    }
+
     /// Where a 14-year-old starts (topic 3.1): mostly who he is, drawn at
     /// random, with modest leans from his body and mind, none more than 3.
     /// From his own id stream, so no other draw moves. Centred so the
@@ -721,7 +727,9 @@ pub enum Instruction {
 impl Instruction {
     pub fn label(self) -> String {
         match self {
-            Instruction::KneelDeeperThan(d) => format!("Kneel if deeper than {d:.0} yards"),
+            Instruction::KneelDeeperThan(d) => {
+                format!("Kneel if deeper than {d:.0} {}", crate::world::folk::noun(d.round_ties_even() as i64, "yard"))
+            }
             Instruction::FairCatchInsideTen => "Fair catch inside the 10, let it bounce".into(),
             Instruction::Slide => "Slide, don't take hits".into(),
             Instruction::TakeShots => "Take shots".into(),

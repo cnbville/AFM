@@ -63,11 +63,15 @@ fn on_field(f: &Formation) -> Vec<ORole> {
     v
 }
 
-/// The real rules of formation and eligibility, the same at every level
-/// for these parts (NFL, NCAA and NFHS all need seven on the line, at most
-/// four backs, and only the end men of the line and the backs eligible).
+/// The real rules of formation and eligibility at the level (update 3,
+/// F29). NFL, NCAA and NFHS all need seven on the line and allow at most
+/// four backs, and only the end men of the line and the backs are
+/// eligible. A lineman (numbered 50-79) differs: in the NFL he may report
+/// as eligible and run a route from the end of the line or the backfield;
+/// in college and high school his number keeps him ineligible wherever he
+/// lines up.
 pub fn legal(d: &Design, level: Level) -> Vec<Issue> {
-    let _ = level;
+    let reports = level == Level::NFL;
     let mut out = Vec::new();
     let roles = on_field(&d.formation);
     let los = 30.0;
@@ -98,7 +102,7 @@ pub fn legal(d: &Design, level: Level) -> Vec<Issue> {
         };
         let lineman = r.is_line();
         let covered = x >= los - 1.0 && y > lo + 0.01 && y < hi - 0.01;
-        if lineman || covered {
+        if (lineman && !reports) || covered {
             out.push(Issue::Ineligible(r));
         }
     }

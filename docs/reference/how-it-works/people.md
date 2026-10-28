@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at e66acb3 with update 3 lane 5 on 2026-10-28.
+Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -16,9 +16,9 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - Does Aura change contracts? No. It changes brand money, NIL brand deals and followers only (`world/fame.rs`, module notes, `brand_money`).
 - How much off-field money can a star make? 80M x appeal^4 x era factor a year at the NFL. College brand deals (from July 2021): 4M x appeal^4 (`world/fame.rs`, `brand_money`).
 - How often do pros get in trouble? A weekly base of 3%/52 before 2014, 2.2%/52 from 2014, scaled 0.25-2.5x by professionalism, stability and temper (`world/people.rs`, `pro_trouble_week`).
-- Do AI teams have team rules? Not in the sim. `folk::rules::ai_book` exists but nothing calls it. Rule-breaking scenes run only for your team (`world/folk/rules.rs`, `your_week`).
+- Do AI teams have team rules? Yes: every AI NFL club, college and high school keeps its head coach's book (`ai_book`) and its players break it by the same weekly risk as yours; the coach sees and punishes some (see AI teams' rules) (`world/folk/rules.rs`, `ai_week`). The scenes and choices are only for your team (`your_week`).
 - Do friends matter? Yes. A friend leaving dips mood (your team). A friend's portal entry raises a college player's lean. Each friend on an NFL club adds 4% to the ties part of its free-agent score (weight 0.4 of ten parts), two at most (`world/folk/ties.rs`; `world/people.rs`, `ties_q`).
-- Can a cut create a grudge? Yes, but as written only when the cut player goes on waivers (see Grudges) (`world/pro/mod.rs`, `release_with`).
+- Can a cut create a grudge? Yes, a veteran cut before his deal ran out, waived or not; so can a trade (see Grudges) (`world/pro/mod.rs`, `release_with`; `world/pro/trades.rs`, `trade_hurt`).
 - How many talk hours do I get? 10 a week in season, 16 out of it. A one-on-one costs 1 (`world/folk/talks.rs`, `week_budget`, `start_talk`).
 - Do AI coaches talk to players? College only. Every second Monday out of season (weekly in season), each AI head coach talks to his 2 unhappiest players (mood < -0.3). Success odds are 0.25 + 0.035 x relationships (`world/folk/talks.rs`, `ai_talks`).
 
@@ -111,8 +111,8 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - **When one forms**:
   - A release with 2+ seasons there, hurt = min(years/4, 1) (`world/pro/mod.rs`, `release_with`).
   - A broken promise from you, hurt 0.6 (`world/folk/talks.rs`, `check_promises`).
-  - Trades do not create one (`world/pro/mod.rs`, `transfer`).
-- **Quirk in the code**: `release_with` checks whether the deal had run out after it has already cleared the contract of a player who doesn't go on waivers. So such a release always reads as expired. A grudge forms only for waived players: under 4 accrued seasons, or after the trade deadline.
+  - A trade, by the club that dealt him: hurt = 0.75 x min(years/4, 1) with 2+ seasons there, none if he asked out (`world/pro/trades.rs`, `trade_hurt`, `execute`; `world/front_office/deals.rs`).
+- A release reads whether the deal had run out before the contract is cleared, so a veteran cut before the deadline counts like a waived one (`release_with`).
 - **In free agency** `ties_q` = (1 - 0.015 x grudge) x knew x (1 + 0.04 x friends). knew is 1.08 if a coach on the club coached him in college, or your own bond with him (`legacy::guys::follow_q`). It weighs 0.4 in the offer score (`world/pro/market.rs`, `score`).
 
 ## Chemistry
@@ -201,6 +201,12 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - **Responses**: talk, fine (NFL, on the CBA schedule: $3,089 in 2025, +3% a year; `nfl_fine`), running, bench the start, bench a game, suspend (NFL up to 4 weeks), dismiss, council. Severity 0-6 is tracked for consistency (`Response`).
 - **Your trouble factor**: 1.15 - 0.02 x load - 0.3 x star-severity share, clamped 0.75-1.25 (`trouble_factor`). Only the game's screen data reads it (`crates/afm-game/src/lane_people.rs`). No engine risk roll multiplies by it.
 - **Rookie rituals**: a scene at camp (`day`, `ritual_open`).
+
+## AI teams' rules
+
+- Every Monday in the rules season, for each AI NFL club, college and high school (`world/folk/rules.rs`, `ai_week`): the book is the head coach's `ai_book` (the standard book without a coach); each player breaks one with the same `risk` as yours, the kind drawn by strictness; the coach sees it with 0.45 + 0.025 x his discipline, clamped 0.4-0.95.
+- Severity = the rule's weight + his breaks this season and last (up to 3) - 1, +1 for a coach of discipline 14+, -1 at 6 or less, -1 for a star under a coach below 12, clamped 0-6. It maps to talk, a fine (NFL) or running, bench the start, bench a game, suspend 1, suspend 2, dismiss (an NFL drug or non-conduct case 3 games instead).
+- What it does: mood - 0.05 x severity / 3; NFL fines off his earnings and games through `suspended`; college and high school games sat through `folk.ai_out` (`sitting`, read by the game builders); a dismissal; a note on his page for severity 3-5 (`ai_week`, `dismiss`).
 
 ## Media and fans
 

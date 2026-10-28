@@ -410,7 +410,7 @@ async function bigFill(key) {
   if (total > end) html += `<tr class="spacer" style="height:${(total - end) * rowH}px"><td colspan="${cols.length}"></td></tr>`;
   box.querySelector("tbody").innerHTML = total ? html : `<tr><td class="l" colspan="${cols.length}"><div class="empty">${esc(B.empty || "Nothing matches.")}</div></td></tr>`;
   const foot = document.querySelector(`[data-bigfoot="${key}"]`);
-  if (foot) foot.textContent = total ? `${total.toLocaleString()} rows · the game sorts them all` : "";
+  if (foot) foot.textContent = total ? `${total.toLocaleString()} row${total === 1 ? "" : "s"} · the game sorts them all` : "";
 }
 function bigWire() {
   for (const box of document.querySelectorAll("[data-big]")) {
@@ -862,7 +862,7 @@ async function holiday() {
     try {
       const r = await api("holiday", { days });
       S.status = r.status;
-      toast(`Back from holiday: ${r.days} days, now ${r.today}.${r.why && r.why.length ? " " + r.why.map((w) => w.text).slice(0, 2).join(" · ") : ""}`);
+      toast(`Back from holiday: ${r.days} day${r.days === 1 ? "" : "s"}, now ${r.today}.${r.why && r.why.length ? " " + r.why.map((w) => w.text).slice(0, 2).join(" · ") : ""}`);
       go("home", {}, { root: true });
       showReveals(r.status && r.status.reveals);
     } catch (e) { toast(e.message); }
@@ -1246,7 +1246,7 @@ const PT = {
       <div class="panel"><h2>Five that matter at ${esc(p.pos)} <small>the mental side</small></h2>${p.key_mental.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read, null, { p: p.id, k: a.key })}</div>`).join("") || '<div class="empty">Not seen.</div>'}</div></div>
       ${p.measurables.length ? `<div class="panel"><h2>Measurables <small>where each was taken</small></h2>${measurablesHtml(p)}</div>` : ""}
       ${linksHtml(p)}
-      <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} games</p>` : ""}</div>` : ""}${fit}</div>
+      <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} game${last.games === 1 ? "" : "s"}</p>` : ""}</div>` : ""}${fit}</div>
       ${p.stories.length ? `<div class="panel"><h2>What happened</h2><div class="items">${p.stories.slice(0, 8).map((s) => `<div class="item story"><span>${rich(s)}</span></div>`).join("")}</div></div>` : ""}`;
   },
   Attributes: (p) => {
@@ -1291,7 +1291,7 @@ const PT = {
   },
   Contract: (p) => {
     const c = p.pro.contract;
-    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} years total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
+    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
       <div class="kv"><dt>Drafted</dt><dd>${esc(p.pro.draft || "Undrafted")}</dd><dt>Accrued seasons</dt><dd>${p.pro.accrued}</dd><dt>Career earnings</dt><dd>${money(p.pro.earnings)}</dd></div></div>`;
   },
   Notes: (p) => `<div class="panel"><h2>Your notes on ${esc(p.name)} <small>only you see them; they stay with him for his whole career</small></h2>

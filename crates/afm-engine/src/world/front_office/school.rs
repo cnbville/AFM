@@ -1008,8 +1008,9 @@ fn top_lines(stats: &crate::game::stats::GameStats, side: usize) -> Vec<(u32, St
         out.push((
             id,
             format!(
-                "{} carries, {:.0} yds{}",
+                "{} {}, {:.0} yds{}",
                 l.rush,
+                crate::world::folk::noun(l.rush, "carry"),
                 l.rush_yds,
                 if l.rush_td > 0 { format!(", {} TD", l.rush_td) } else { String::new() }
             ),
@@ -1019,15 +1020,16 @@ fn top_lines(stats: &crate::game::stats::GameStats, side: usize) -> Vec<(u32, St
         out.push((
             id,
             format!(
-                "{} catches, {:.0} yds{}",
+                "{} {}, {:.0} yds{}",
                 l.rec,
+                crate::world::folk::noun(l.rec, "catch"),
                 l.rec_yds,
                 if l.rec_td > 0 { format!(", {} TD", l.rec_td) } else { String::new() }
             ),
         ));
     }
     if let Some((id, l)) = best(&|l| (l.tackles + l.assists) as f64 + 2.0 * l.sacks + 3.0 * l.ints as f64) {
-        let mut t = format!("{} tackles", l.tackles + l.assists);
+        let mut t = format!("{} {}", l.tackles + l.assists, crate::world::folk::noun(l.tackles + l.assists, "tackle"));
         if l.sacks > 0.0 {
             t += &format!(", {} sack{}", l.sacks, if l.sacks == 1.0 { "" } else { "s" });
         }
@@ -1095,6 +1097,7 @@ fn sub_games(w: &mut World, h: usize, week: usize, friday: Date, d: Date) {
             rain: wx.rain,
             snow: wx.snow,
             crowd: 0.08,
+            turf: crate::world::hs_year::hs_turf(w, if home { h } else { opp }),
             ..Default::default()
         };
         let r = crate::game::play_game(&setup);
@@ -1449,13 +1452,21 @@ pub fn goal_now(w: &World, h: usize, g: &Goal) -> (u32, bool) {
 /// A goal in words.
 pub fn goal_text(g: &Goal) -> String {
     match g.kind {
-        GoalKind::Wins => format!("Win at least {} games", g.target),
+        GoalKind::Wins => format!("Win at least {} {}", g.target, crate::world::folk::noun(g.target, "game")),
         GoalKind::Playoffs if g.target == 0 => "Make the playoffs".into(),
         GoalKind::Playoffs if g.target >= 4 => "Win the state title".into(),
-        GoalKind::Playoffs => format!("Win {} playoff games", g.target),
-        GoalKind::Grades => format!("No more than {} players ruled ineligible for grades", g.target),
+        GoalKind::Playoffs => format!("Win {} {}", g.target, crate::world::folk::noun(g.target, "playoff game")),
+        GoalKind::Grades => format!(
+            "No more than {} {} ruled ineligible for grades",
+            g.target,
+            crate::world::folk::noun(g.target, "player")
+        ),
         GoalKind::Numbers => format!("Keep at least {} players out for football", g.target),
-        GoalKind::Behavior => format!("No more than {} players suspended or in trouble", g.target),
+        GoalKind::Behavior => format!(
+            "No more than {} {} suspended or in trouble",
+            g.target,
+            crate::world::folk::noun(g.target, "player")
+        ),
     }
 }
 
