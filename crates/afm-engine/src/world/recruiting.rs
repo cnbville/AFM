@@ -6906,11 +6906,12 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 18] {
     if let Some(&(v, _)) = prog.hs_pipeline.get(&p.hs) {
         split[0] = 0.12 * v;
     }
+    let local = super::knockout::local_scale(p.stars);
     if prog.state == p.home_state {
-        split[1] = p.stay_home;
+        split[1] = local * p.stay_home;
     }
     if p.childhood_team == Some(prog.id) {
-        split[2] = CHILDHOOD_LEAN;
+        split[2] = local * CHILDHOOD_LEAN;
     }
     if p.family.older_brother_at == Some(prog.id) {
         split[3] = if p.family.follows_brother { 0.15 } else { -0.05 };
@@ -6928,7 +6929,7 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 18] {
         (wants.development + path_w) * development,
         money_w * money * 1.5,
         (wants.playing_time + path_w) * playing,
-        close_w * close,
+        local * close_w * close,
         home,
         wants.academics * academics,
         rest,
