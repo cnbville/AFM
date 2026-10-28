@@ -643,7 +643,12 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
         (0.35, crate::world::finance::nfl::card_pull(w, o.team)),
     ];
     let wsum: f64 = parts.iter().map(|x| x.0).sum();
-    let s = parts.iter().map(|x| x.0 * x.1).sum::<f64>() / wsum.max(1e-6);
+    let mut s = parts.iter().map(|x| x.0 * x.1).sum::<f64>() / wsum.max(1e-6);
+    // An agent's first word (C19): the club he called first starts a step
+    // ahead (proposed, not confirmed: 2%); the money and fit still decide.
+    if !w.folk.backchannel.first.is_empty() && super::super::folk::backchannel::first_word(w, i, o.team) {
+        s *= 1.02;
+    }
     if (money_q < 0.82 && g.money > 0.3) || (gtd_q < 0.75 && g.security > 0.5) { s.min(0.84) } else { s }
 }
 

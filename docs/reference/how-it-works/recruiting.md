@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at e66acb3 (update 3 lane 2) with the update 2 lane 10 follow-up (the Group of 5 step, the staffs' star read, the commitment read) on 2026-10-28.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -116,7 +116,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 ## Relationships and visits
 
 - Each staff recruits 3 per planned spot + 3 at each position (`RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`). The head coach's own targets are the top of each spot.
-- Relationship = known × (0.025 × HC time + 0.006 × (HC skill − 10) × HC time + 0.003 × (PC recruiting − 10) × PC time) + 0.03 × staff tie to his school + 0.02 if committed there + early-offer bonus + 0.004 × contacts + chemistry (SD 0.03). Known = 0.35 + 0.65 × visibility. Home-state effort 1.4, out of state 0.85. Visited (official, any contact, or within 250 miles) gives full time (`run_signing_stage`, `relationships`).
+- Relationship = known × (0.025 × HC time + 0.006 × (HC skill − 10) × HC time + 0.003 × (PC recruiting − 10) × PC time) + 0.03 × staff tie to his school + 0.02 if committed there + early-offer bonus + 0.05 if his high school head coach of the last year is on the staff (C17) + 0.004 × contacts + chemistry (SD 0.03). Known = 0.35 + 0.65 × visibility. Home-state effort 1.4, out of state 0.85. Visited (official, any contact, or within 250 miles) gives full time (`run_signing_stage`, `relationships`).
 - Official visits: five max. He takes them to the five schools he likes best, or the ones he really visited on their dates. A Summer(0) committer took none; Summer(1-3) took none before 2018 (junior officials), Summer(1) two after (`officials`).
 - Dated visits (`recruiting_day`): official visits on Fridays outside dead periods, for the next class from Sep 1 (juniors Apr 1 - Jun 30 from 2018); fall officials go to a program at home that Saturday; 12% a weekend. Game-day unofficials within 250 miles 25%; drop-ins in evaluation weeks 20% (40% for his commit); junior days on Saturdays Feb-Mar to early offerers within 500 miles, 30%.
 - Periods (`calendar/mod.rs`, `recruiting_period`): Feb-Mar quiet, mid-April contact, late May dead, late June-July dead, Sep-Nov evaluation, late Nov - mid Dec contact, dead around each signing day, January contact.
@@ -158,6 +158,15 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - Windows (`world/clock.rs`, `portal_windows`): none before 2022 (players leave after their last game); 2022-24 a December window and an April one; from 2025 Jan 2-16 only. A head coach change opens a 30-day (2022-24) or 15-day (2025+) window five days after the carousel. Graduate transfers after May commencement. Players on teams still in the playoff are held until they're out.
 - Landing (`portal_day`): a program wants him if he'd make its two-deep (three-deep with roster room) or beats its backups at an open starting spot, adds ≤ 10, under its limit; his play is read with a level discount (FCS 1, D2/JUCO 5, NAIA 6, D3 7) (`competition_discount`). Bar: the level's weakest-quarter starter − 2 (−3 more for a step down). He picks by own-wants utility + room; first choice falls through at ~1% per day waited. No school: returns home (40% if he played near the median, else 15%) or quits.
 - Sitting out: before 2021, a transfer into FBS sits a year unless from JUCO, a graduate from 2006, or his school dropped football (`portal_day`, `sits`).
+
+## Head starts and placements before the portal (update 3, lane 5)
+
+`world/folk/backchannel.rs`, read by `portal_open` and `portal_day`:
+
+- A star sold before the winter window (C15) enters it as a mover up; the buyer gets 0.10 appeal points at his decision (a ghost transfer 1.0) and wants him whatever its depth chart and the level's floor say. The AI sells one in seven of its stars moving up to the program a level up with the best head coach network / 20 + closeness to the kid's school + 0.3 × a draw, which pays the era's price from its money (`ai_head_starts`).
+- The era's price (`price`): from 2025 at an opted-in school, a buyout of two years of his deal ($60,000-$1.5 million; every FBS school, at FCS the CAA, Missouri Valley and SWAC, never the Ivy League, the rest an even chance each year); from the 2021 season a premium on his NIL deal (a year of it + $25,000, $40,000-$600,000) from the buyer's collective; from 2018 a favour; before, a release to the buyer's school.
+- A player you placed with a friend a level down (C16) enters the next winter or spring window as a playing-time mover; the friend's program gets (0.08 + 0.08 × warmth) × his pull (head coach 1, coordinator 0.7, assistant 0.5).
+- His own high school coach on a staff (C17) adds 0.05 to that program's relationship with him (`run_signing_stage`, `hs_coach_at`).
 
 ## NIL money
 

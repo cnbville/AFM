@@ -1,6 +1,6 @@
 # The living NFL: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at e66acb3 with update 3 lane 5 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
@@ -104,6 +104,10 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Offer sheets**: the old team gets 5 days to match. It matches if its walk-away price is at least 95% of the sheet and it has room. If not, it receives the tender's pick (`world/pro/market.rs`, `offer_sheets`).
 - **Pre-1993**: before 1989 a club keeps any veteran with market grade 62+. In Plan B (1989-92) only its 37 protected players are kept (`world/pro/market.rs`, `open_league_year`).
 
+### An agent's first word (update 3, lane 5)
+
+- In the ten days before the market opens (the tampering window from 2013, else the new league year), an agent at 0.3 warmth or more with you may call (a fifth of weekdays, once a year) about his best client headed for free agency (`world/folk/backchannel.rs`, `c19_day`). Hearing him out before the window is tampering: you learn his ask (his ideal, shaded up by 0.25 × (1 - the agent's honesty)), and it leaks one time in ten; on June 1 the league takes your next fifth-round pick and fines the club $250,000 and the GM $50,000 (`league_rulings`; the Falcons, 2024). Either answer puts your club first: his offer score × 1.02 for your club (`world/pro/market.rs`, `score`).
+
 ## Trades and picks
 
 - **Pick charts**: Classic (Jimmy Johnson: 3,000 at pick 1, 590 at 32) or a flatter Surplus chart (1,400 at 32). Future picks are discounted per year by urgency: contend 0.3, middle 0.18, rebuild 0.08 (`world/pro/trades.rs`, `CLASSIC`, `SURPLUS`, `pick_value`). The classic chart is drawn with odds 0.85 - 0.5 x era (`world/pro/office.rs`, `new_gm`).
@@ -192,6 +196,10 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`).
 - **Stand-in games** (when the engine is off): win odds are a logit of 0.52 x strength gap in sd + 0.24 x staff gap + 0.2 home. Ties 0.3% (`world/nfl_year.rs`, `PER_SD`, `win_prob`).
 - **Club finance**: revenue and cost lines, gates, stadiums and NFLPA report cards (`world/finance/nfl.rs`). The cards feed free agents' scores (`card_pull`). `spend_level` sets support-staff budgets (`world/people.rs`, `staff_support`).
+
+### Placing a player at cutdown (update 3, lane 5)
+
+- From ten days before cutdown day to cutdown day you can send a player you'd release to a friend's club (a coach there at 0.2 warmth or more): he and your latest pick in next year's draft for theirs a round higher (round 5 on), else the same round, through the trade code (`world/folk/backchannel.rs`, `place_player`, `swap`; `world/front_office/deals.rs`, `execute`). The friend owes you one.
 
 ## Where the knobs are
 

@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 567fdd4 on 2026-10-26.
+Checked against main at e66acb3 with update 3 lane 5 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -243,6 +243,18 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - **Followers**: the target = reach(year) x (top x appeal^2.2 + base). Pros 6M/25K, college 2.5M/3K, high school 400K/400. Reach is 0 to 2005, rises to 1 by 2016, then +2% a year up to 1.4. Each year followers move 60% of the way up, or fall 7% a year (never below the target) (`follower_target`, `reach`, `year_book`).
 - **What the game shows** of Aura is a read by a judging skill: "A natural in front of a camera" ... "Shy of the cameras" (`aura_read`).
 - **What fame does not read**: looks or faces (nothing reads a face), contract money.
+
+## Contacts and what people you know do (update 3, lane 5)
+
+`world/folk/network.rs` (`build`) and `world/folk/backchannel.rs`:
+
+- Contacts start with everyone who knows you (C12): your new staff 0.35, the man you replaced 0.15, and every coach in `Career.known` at how well he knows you (your college position coach 0.85, head coach 0.75, other coaches 0.7; high school coaches 0.7; a stop's head coach 0.8, staff-mates 0.65; an NFL club's coaches 0.6); the higher warmth stands.
+- Old teammates and players you coached (C13, `old_mates`), from the world's former players, in their lives now: a college teammate from your position room 0.5, your side of the ball 0.35, the other side 0.25 (half for one shared season); an NFL teammate 0.45 or 0.25; a player you coached in your group 0.45, as head coach or his side's coordinator 0.3, else 0.15; at your high school 0.4 as head coach, else 0.2. Sixty at most, 0.15 and up. A former player who became a coach comes in as that coach.
+- Your agent from your playing days 0.6 (the one most of your NFL teammates had, else one by your name), the agents your NFL club trusts (0.15 + 0.4 × trust, from 0.25), and the athletic directors you worked for still in their jobs 0.4 (`agents_and_ads`); ten of your college's best-known alumni call to welcome you at 0.15 (`alumni`).
+- Your name (C10) is what people who don't know you read: a recruit's first trust, interest in you, clinics and all-star games raise it (`world/folk/facts.rs`, `your_name`, `read_by`).
+- A smaller school's star before the portal (C15, `c15_week`): Thursdays in the three weeks before the winter window, a third of the weeks, once a season, the athletic director or head coach of a lower-division program at 0.3 warmth or more calls (the friend you've sent the most players first) about its best starter with a season left. Pay (from your NIL money) or take the favour: a head start and a clean exit. Call the kid yourself: his lean × 1.25, and one time in eight it leaks; from 2025 his school sues and you settle for his buyout ($100,000 at least), warmth -0.3; before, -0.2. Skip the portal (from 2018): he comes as a ghost transfer; found out one time in three, for transfers from February 25, 2026 the head coach sits through October 11 of the next season (the interim coaches) and the program pays 20% of football's spending, before that an NCAA case and -1 standing (`ghost_risk`).
+- Placing a player (C16, `place_player`): at a college, a player who doesn't start, to a coach at 0.2 warmth or more at a smaller program; he refuses when his lean is under 0.03 and your roster isn't over the limit. The friend's `sent` count and his favour balance go up.
+- A steered transfer at a high school (C18, `c18_week`): March-June Thursdays, an eighth of the weeks, once a year, a camp man or trainer in your state at 0.3 or more offers a 15-16 year old from another school, his best by his read. Taking him logs promises to start him and give him the ball; every state uses California's undue influence rule (CIF Bylaw 510) for now: ruled so two times in five, he sits a year and you lose half a point of standing. A broken promise costs you 0.3 warmth with the man who sent him (`steered_check`).
 
 ## Where the knobs are
 
