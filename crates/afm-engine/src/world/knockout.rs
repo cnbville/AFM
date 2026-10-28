@@ -1,6 +1,6 @@
 //! Test switches for the dynasty knockout worlds (thread "Stop college
 //! dynasties for good", 2026-10-28). `AFM_KO` names one suspect to turn
-//! up or off: `coach4`, `frozen` or `flatdev`. Unset, nothing changes.
+//! up or off: `coach4`, `frozen`, `flatdev` or `brand85`. Unset, nothing changes.
 //! Trial tooling only, never merged.
 
 use std::sync::OnceLock;
@@ -24,6 +24,12 @@ pub(crate) fn coach_bond() -> f64 {
 /// Wins stop feeding a program's recent prestige, tradition, boosters and pipelines.
 pub(crate) fn frozen_form() -> bool {
     which() == "frozen"
+}
+
+/// The highest brand a recruit reads: every program from 0.85 of the old
+/// leader's size up reads the same name, and its 5-star pull with it.
+pub(crate) fn brand_cap() -> f64 {
+    if which() == "brand85" { 0.85 } else { 1.0 }
 }
 
 /// Every FBS player grows under the same coaching number.

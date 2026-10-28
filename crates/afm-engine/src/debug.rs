@@ -97,3 +97,9 @@ pub(crate) fn capture_teams(year: i32, teams: &[Option<crate::game::GameTeam>], 
 pub fn captured() -> Vec<Captured> {
     std::mem::take(&mut CAPTURED.lock().unwrap())
 }
+
+/// A school's appeal to a recruit, term by term (dynasty thread trial
+/// tooling): see `world::recruiting::debug_terms`.
+pub fn recruit_terms(w: &crate::world::World, person: usize, program: usize) -> [f64; 14] {
+    crate::world::recruiting::debug_terms(w, person, program)
+}
