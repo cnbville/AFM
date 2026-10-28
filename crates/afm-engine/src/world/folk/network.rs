@@ -559,12 +559,40 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
         Why::Word => {
             let Some(pid) = player else { return Err("Which player?".into()) };
             let Some(i) = super::person(w, pid) else { return Err("No such player.".into()) };
-            let at_next =
-                super::facts::team_of_coach(w, c).is_some_and(|t| matches!(t, Team::College(_) | Team::Nfl(_)));
+            let his = super::facts::team_of_coach(w, c);
+            let at_next = his.is_some_and(|t| matches!(t, Team::College(_) | Team::Nfl(_)));
             if yes && at_next {
-                let p = &mut w.people[i];
-                p.visibility = (p.visibility + 0.12).min(1.0);
-                text.push_str(&format!(" He'll have his staff look at {}'s film.", p.name));
+                let name = w.people[i].name.clone();
+                match (Team::seat(w), his) {
+                    // Minor bug 21: a high school coach's word is a call
+                    // to that staff, which every signing stage reads.
+                    (Some(Team::High(_)), Some(Team::College(prog))) => {
+                        w.scouting.hs.promoted.push(crate::world::scouting::hs::Promo {
+                            id: pid,
+                            program: Some(prog),
+                            date: today,
+                            strength: 1,
+                            settled: None,
+                            warmth: warm,
+                        });
+                    }
+                    // A word to an NFL staff is a film look in its file.
+                    (_, Some(Team::Nfl(t))) => {
+                        crate::world::scouting::dept::club_look(
+                            w,
+                            t,
+                            pid,
+                            crate::world::pro::scouts::HC,
+                            crate::world::pro::scouts::LookKind::Film,
+                            today,
+                        );
+                    }
+                    _ => {
+                        let p = &mut w.people[i];
+                        p.visibility = (p.visibility + 0.12).min(1.0);
+                    }
+                }
+                text.push_str(&format!(" He'll have his staff look at {name}'s film."));
             } else if !at_next {
                 text.push_str(" He's not in a position to help with that.");
             } else {
@@ -1012,6 +1040,12 @@ fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
         }
         trim_ledger(w);
         s.outcome.push(format!("You said yes to {}. He owes you one.", w.coaches[c].name));
+        // C14: the kid is a real kid, and his tape comes in.
+        if s.b == 2
+            && let Some(t) = super::tips::from_ask(w, c)
+        {
+            s.outcome.push(t);
+        }
     } else {
         if let Some(k) = k {
             w.folk.network.contacts[k].warmth = (w.folk.network.contacts[k].warmth - 0.04).max(0.0);
@@ -1073,4 +1107,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
         interest_week(w, d);
         asks_week(w, d);
     }
+    if d.weekday() == Weekday::Wed {
+        super::tips::week(w, d);
+    }
+    super::tips::settle(w, d);
 }

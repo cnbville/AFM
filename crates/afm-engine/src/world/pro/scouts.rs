@@ -155,6 +155,12 @@ impl Scout {
 /// era (proposed, not confirmed: the leagues publish no scout census; the
 /// shares follow the front-office counts in the TIDES report cards).
 pub(crate) fn staff_ethnicity(rng: &mut Rng, year: i32) -> super::super::ethnicity::Ethnicity {
+    staff_ethnicity_at(rng.next(), year)
+}
+
+/// The same shares read off one uniform draw (keyed draws, bug 19's
+/// staffs drawn for the screens).
+pub(crate) fn staff_ethnicity_at(x: f64, year: i32) -> super::super::ethnicity::Ethnicity {
     use super::super::ethnicity::Ethnicity as E;
     let era = clamp((year - 1990) as f64 / 35.0, 0.0, 1.0);
     let shares = [
@@ -165,7 +171,7 @@ pub(crate) fn staff_ethnicity(rng: &mut Rng, year: i32) -> super::super::ethnici
         (E::SouthAsian, 0.002 + 0.008 * era),
         (E::Polynesian, 0.004 + 0.006 * era),
     ];
-    let mut x = rng.next();
+    let mut x = x;
     for (e, sh) in shares {
         if x < sh {
             return e;

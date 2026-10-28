@@ -1852,7 +1852,7 @@ pub(crate) fn credit_head(w: &mut World, c: usize, p: usize, wins: u32, losses: 
 
 /// The interim head coach: the staff's best-regarded coordinator, else its
 /// best-regarded position coach.
-fn interim(w: &World, p: usize) -> Option<usize> {
+pub(crate) fn interim(w: &World, p: usize) -> Option<usize> {
     let prog = &w.programs[p];
     let best = |list: &mut dyn Iterator<Item = usize>| {
         list.max_by(|&a, &b| w.coaches[a].reputation.total_cmp(&w.coaches[b].reputation))

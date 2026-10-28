@@ -1503,6 +1503,16 @@ pub fn usual_deals(w: &World, j: usize) -> Vec<(u32, f64)> {
 
 // --- The portal -----------------------------------------------------------------------------
 
+/// A head start bought from a smaller school (C15): your offer waits for
+/// him in the portal, when the portal is yours to work.
+pub(crate) fn head_start(w: &mut World, id: u32) -> Result<(), String> {
+    need(w, Duty::Portal)?;
+    let today = w.today;
+    let t = portal_target(w, id)?;
+    t.offered = Some(today);
+    Ok(())
+}
+
 fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget, String> {
     let j = super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such player.")?;
@@ -1961,6 +1971,8 @@ mod tests {
             home_state: 0,
             ex_pro: false,
             reputation: 10.0,
+            renown: 10.0,
+            played: None,
             teaching: [10.0; crate::world::coach::GROUP_COUNT],
             scheme: 10.0,
             game_management: 10.0,

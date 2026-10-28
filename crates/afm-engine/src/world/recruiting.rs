@@ -4480,6 +4480,23 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         |j: usize, k: usize| FEEL_SD * key_normal(seed ^ 77 ^ j as u64, w.people[pool[k].person].player.id as u64);
     let chemistry =
         |j: usize, k: usize| 0.03 * key_normal(seed ^ 91 ^ j as u64, w.people[pool[k].person].player.id as u64);
+    // His own high school coach on a staff (C17: Gus Malzahn left
+    // Springdale for Arkansas and Mitch Mustain followed, 2006; proposed,
+    // not confirmed: 0.05 relationship points).
+    let hs_coach_at: std::collections::HashMap<usize, Vec<usize>> = {
+        let mut m: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+        for c in w.coaches.iter() {
+            if let Some(super::coach::Job { employer: super::coach::Employer::College(j), .. }) = c.job
+                && let Some(s) = c.history.last()
+                && let super::coach::Employer::HighSchool(h) = s.employer
+                && s.role == super::coach::Role::HeadCoach
+                && s.to >= w.year - 1
+            {
+                m.entry(h).or_default().push(j);
+            }
+        }
+        m
+    };
     // Per recruit: (program, relationship).
     let relationships: Vec<Vec<(usize, f64)>> = {
         // (program, head coach's own target, board rank share) per recruit.
@@ -4595,6 +4612,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             + 0.03 * tie
                             + babysat
                             + early_offer
+                            + if hs_coach_at.get(&p.hs).is_some_and(|v| v.contains(&j)) { 0.05 } else { 0.0 }
                             + 0.004 * contact
                             + chemistry(j, k) * if visited { 1.0 } else { 0.5 };
                         (j, rel)
@@ -5800,6 +5818,22 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         // the time and the portal ran at about a tenth of its real size
         // (part B 10).
         let u = key_uniform(seed, p.player.id as u64);
+        // A star his school sold a head start on (C15) enters this winter;
+        // a player placed with a friend a level down (C16), the next window.
+        if matches!(which, PortalWindow::Winter | PortalWindow::Spring) && div != Division::JUCO {
+            let id = p.player.id;
+            if which == PortalWindow::Winter
+                && super::folk::backchannel::sold(w, id, label)
+                && !super::college::no_season_left(p, div, label)
+            {
+                entrants.push((i, Why::MoveUp));
+                continue;
+            }
+            if super::folk::backchannel::placed(w, id) {
+                entrants.push((i, Why::PlayingTime));
+                continue;
+            }
+        }
         if which == PortalWindow::Graduate {
             // A graduate with a season left (part B 36): free to play at
             // once from 2006, so many backups and rotation players move for
@@ -5936,6 +5970,11 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     }
     for i in steered_stays {
         w.people[i].steered = false;
+    }
+    // The AI's schools sell head starts on their stars moving up (C15).
+    if which == PortalWindow::Winter {
+        let movers: Vec<usize> = entrants.iter().filter(|e| e.1 == Why::MoveUp).map(|e| e.0).collect();
+        super::folk::backchannel::ai_head_starts(w, &movers, label);
     }
     if which == PortalWindow::Graduate {
         w.log.graduate_transfers += entrants.len() as u32;
@@ -6119,6 +6158,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     let mut landings: Vec<(usize, usize)> = Vec::new();
     // Your program wants only the entrants you offered (lane 10).
     let pwant = fo::college::portal_wants(w);
+    // Head starts and placements (C15, C16): the buyer or the friend wants him.
+    let bonds = super::folk::backchannel::bonds(w);
     for i in due {
         let Some(entry) = w.people[i].cal.portal else { continue };
         let why = Why::from_reason(entry.why);
@@ -6178,6 +6219,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
             .into_par_iter()
             .filter_map(|j| {
                 let d = wr.programs[j].division;
+                let bond = bonds.get(&(wr.people[i].player.id, j)).copied().unwrap_or(0.0);
                 // Your offer (lane 10): your program has room for him if its
                 // roster does, by the same level rules, and he weighs it by
                 // the same wants, with your NIL money and the ties you built.
@@ -6215,7 +6257,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                             0.0,
                             early_weight(p.stars),
                         )
-                        + o.bond;
+                        + o.bond
+                        + bond;
                     return Some((j, u));
                 }
                 // His play read at that program's level (part D 15): D2 play
@@ -6229,7 +6272,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 let room = counted[j] + mk.adds[j] + 5 <= limit;
                 let deep = if room { 3 } else { 2 };
                 let wanted = ahead < deep * slots || (mk.open[j][k] > 0 && perf > mk.backups_best[j][k]);
-                if !wanted || j == c || mk.adds[j] >= 10 || counted[j] + mk.adds[j] >= limit {
+                if (!wanted && bond == 0.0) || j == c || mk.adds[j] >= 10 || counted[j] + mk.adds[j] >= limit {
                     return None;
                 }
                 // A dismissed player starts over a level down or at JUCO.
@@ -6243,14 +6286,15 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 // the middle (part B 10: real FBS entrants land at FBS about
                 // half the time, mostly as depth at a program a notch down;
                 // the median bar sent four in five down a level).
-                if !allowed || perf + 2.0 < floor(d) - if d as usize > from as usize { 3.0 } else { 0.0 } {
+                if !allowed || (bond == 0.0 && perf + 2.0 < floor(d) - if d as usize > from as usize { 3.0 } else { 0.0 }) {
                     return None;
                 }
                 let p = &wr.people[i];
                 let nil = portal_nil(&wr.programs[j], mk.pool(j), p, role_at(ahead, slots), perf - median(d))
                     * super::legacy::college::split_q(wr, j, 1);
                 let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], nil, 0.6)
-                    + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
+                    + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars))
+                    + bond;
                 Some((j, u))
             })
             .collect();
