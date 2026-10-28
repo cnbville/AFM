@@ -296,7 +296,8 @@ function fcActions(f) {
 // Visits the rules allow from today, each kind with its next days or why not.
 function fcVisitPlanner(f) {
   if (!f.options) return "";
-  if (!f.visits_yours) return `<div class="fc-block"><div class="fc-h"><span class="st-label">Visits</span></div><p class="sub">Your staff sets the visits: the board's top names come in on home weekends.</p></div>`;
+  // With your staff on visits, a visit you set still stands (SC6).
+  const staffLine = f.visits_yours ? "" : `<p class="sub">Your staff sets the visits: the board's top names come in on home weekends. A visit you set yourself stands.</p>`;
   const rows = f.options
     .map((o) => {
       if (o.set) return `<div class="fc-vopt"><b>${esc(o.name)}</b><span class="fc-vset"><span class="fc-vdone">${fcDot("good")}Set for ${esc(o.set.date)}</span><button class="st-btn small glass" data-fc="vcancel" data-id="${f.id}" data-kind="${o.key}">Call off</button></span></div>`;
@@ -304,7 +305,7 @@ function fcVisitPlanner(f) {
       return `<div class="fc-vopt"><b>${esc(o.name)}</b><span class="fc-vset"><select data-fcsel="v-${f.id}-${o.key}">${o.days.map((d) => `<option value="${d.d}">${esc(d.date)}${d.word ? " · " + esc(d.word.replace(/ period$/, "").replace(/^home game against /, "vs ")) : ""}</option>`).join("")}</select><button class="st-btn small glass" data-fc="visit" data-id="${f.id}" data-kind="${o.key}">Invite</button></span></div>`;
     })
     .join("");
-  return `<div class="fc-block"><div class="fc-h"><span class="st-label">Plan a visit</span><small class="sub">on the NCAA's calendar</small></div><div class="fc-vopts">${rows}</div></div>`;
+  return `<div class="fc-block"><div class="fc-h"><span class="st-label">Plan a visit</span><small class="sub">on the NCAA's calendar</small></div>${staffLine}<div class="fc-vopts">${rows}</div></div>`;
 }
 
 // The full board: everyone, your order or by position, every column a coach reads.
