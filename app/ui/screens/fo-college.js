@@ -149,10 +149,13 @@ screens.recruit_board = async (a) => {
       [sg ? String(sg.in) : "-", sg ? "Days to signing" : "No signing date"],
     ])}
     <div class="fc-open"><span class="st-label">Open spots</span>${openPos.length ? openPos.map((p) => `<button class="st-pill" data-fc="planpos" data-v="${p.pos}" title="See the ${p.pos}s on your board">${p.pos} ${p.open}</button>`).join("") : '<span class="sub">Every spot your staff planned is filled.</span>'}</div>`;
-  const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["map", "Map"], ["plan", "Class plan and staff"]];
+  const ch = await api("recruit_chain").catch(() => null);
+  const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["word", "Your staff's word", ch ? ch.waiting.length : null], ["passed", "Passed on", ch ? ch.passed.length : null], ["map", "Map"], ["plan", "Class plan and staff"]];
   let body = "";
   if (k.tab === "targets") body = await fcTargets(x, k);
   else if (k.tab === "board") body = fcBoardTable(x, k, yours);
+  else if (k.tab === "word") body = l7Word(ch);
+  else if (k.tab === "passed") body = l7Passed(ch);
   else if (k.tab === "map") body = await fcMap();
   else body = fcPlan(x);
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · ${esc(x.conference)} · Recruiting`, title: `Class of ${year}`, line: heroLine, sub, big: String(year).slice(2), panel })}
@@ -162,6 +165,48 @@ screens.recruit_board = async (a) => {
     ${body}
   </div></div>`;
 };
+
+// ---------- the offer chain (lane 7, SK26-SK31) ----------
+// Each Monday your position coaches bring the recruits they want offered,
+// after their coordinator's film; nothing goes out until you sign. With
+// the board handed to your staff, its offers and pulls wait here too.
+function l7Word(ch) {
+  if (!ch) return '<div class="empty">Your staff has nothing for you yet.</div>';
+  const who = (r) => `${coachLink(r.coach.id, r.coach.name)}${r.film ? ` <small class="sub">· film: ${coachLink(r.film.id, r.film.name)}</small>` : ""}`;
+  const wait = ch.waiting.length
+    ? table("l7w", [
+        { k: "name", t: "Recruit", l: true, f: (r) => `${playerLink(r.id, r.name)} <small class="sub">${esc(r.pos)} · ${esc(r.cls)}</small>${r.gem ? ' <span class="st-pill gold" title="Your staff reads him far above his stars">Under the radar</span>' : ""}${r.pull ? ' <span class="st-pill bad">Pull</span>' : ""}` },
+        { k: "stars", t: "★", tip: "The services' stars", f: (r) => fcStars(r.stars) },
+        { k: "school", t: "School", l: true, v: (r) => (r.hs ? r.hs.name : ""), f: (r) => (r.hs ? teamLink(r.hs) : "") },
+        { k: "coach", t: "His coach", l: true, div: true, v: (r) => r.coach.name, f: who },
+        { k: "read", t: "His read", tip: "Your staff's read the day he brought him, against the position's line", v: (r) => mid(r.read), f: (r) => `${range(r.read, null, { p: r.id, k: "ovr" })} <small class="sub">line ${r.line}</small>` },
+        { k: "yours", t: "Yours", tip: "Your own read: your looks only, or a first impression", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
+        { k: "conviction", t: "How hard", l: true, tip: "How hard he argues for it", v: (r) => r.conviction, f: (r) => `<span title="${r.conviction} of 20">${esc(r.argue)}</span>` },
+        { k: "why", t: "His word", l: true, wrap: true, f: (r) => `<small>${esc(r.why)}</small>` },
+        { k: "act", t: "", l: true, f: (r) => `<span class="fc-rowacts"><button class="st-btn small primary" data-fc="l7sign" data-id="${r.id}">${r.pull ? "Pull it" : "Offer"}</button><button class="st-btn small glass" data-fc="l7decline" data-id="${r.id}">Decline</button></span>` },
+      ], ch.waiting, { sort: null })
+    : `<div class="empty">Nothing waits for your word. Your position coaches bring their recruits on Mondays.</div>`;
+  const done = ch.answered.length
+    ? `<div class="panel"><h2>Answered <small>the last season of your word</small></h2><div class="items">${ch.answered.slice(0, 14).map((r) => `<div class="item"><span class="when">${esc(r.answered || r.date)}</span><span>${playerLink(r.id, r.name)} <small class="sub">${esc(r.pos)}</small> · ${coachLink(r.coach.id, r.coach.name)} ${r.pull ? "wanted the offer back" : "wanted him"} · <b>${esc({ Signed: "you signed it", Declined: "you overruled him", Lapsed: "he went elsewhere first" }[r.answer] || r.answer)}</b></span></div>`).join("")}</div></div>`
+    : "";
+  return `<div class="panel"><h2>Waiting for your word <small>${ch.board_yours ? "your position coaches' recommendations, each after the coordinator's film" : "your staff runs the board: its offers and pulls wait for your signature"}</small></h2>
+    ${ch.waiting.length > 1 ? `<div class="fc-acts"><button class="st-btn small primary" data-fc="l7all">Sign the whole list</button><span class="muted small">Declining overrules the coach: it's kept on his record, and the look-back three years on says who was right.</span></div>` : ""}
+    ${wait}</div>${done}`;
+}
+function l7Passed(ch) {
+  if (!ch || !ch.passed.length) return '<div class="empty">Your staff hasn\'t passed on anyone the services rate.</div>';
+  return `<div class="panel"><h2>Passed on <small>the recruits your staff passed on, with who, when and why${ch.flags ? ` · ${ch.flags} flagged where the public and your staff disagree most` : ""}</small></h2>
+    ${table("l7p", [
+      { k: "name", t: "Recruit", l: true, f: (r) => `${playerLink(r.id, r.name)} <small class="sub">${esc(r.pos)} · ${esc(r.cls)}</small>${r.flag ? ' <span class="st-pill warn" title="The services rate him far above your staff">Public and staff disagree</span>' : ""}${r.back ? ' <span class="st-pill">Back on your board</span>' : ""}` },
+      { k: "stars", t: "★", tip: "The services' stars", f: (r) => fcStars(r.stars) },
+      { k: "where", t: "Now", l: true, f: (r) => esc(r.where) },
+      { k: "coach", t: "Who passed", l: true, div: true, v: (r) => r.coach.name, f: (r) => `${coachLink(r.coach.id, r.coach.name)} <small class="sub">${esc(r.date)}</small>` },
+      { k: "now", t: "Staff read", tip: "Your staff's read today", v: (r) => mid(r.now), f: (r) => range(r.now, null, { p: r.id, k: "ovr" }) },
+      { k: "yours", t: "Yours", tip: "Your own read", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
+      { k: "why", t: "Why", l: true, wrap: true, f: (r) => `<small>${esc(r.why)}</small>` },
+      { k: "act", t: "", l: true, f: (r) => `<span class="fc-rowacts">${r.back ? "" : `<button class="st-btn small glass" data-fc="l7back" data-id="${r.id}">Back on the board</button>`}<button class="st-btn small glass" data-fc="l7see" data-id="${r.id}">See him</button></span>` },
+    ], ch.passed, { sort: null })}</div>`;
+}
 
 // ---------- the map (screens topic 7) ----------
 // The real map of the country (board 7, update 2 lane 7): screens/boards.js
@@ -609,6 +654,11 @@ document.addEventListener(
       case "mapst": S.keep.fcm.st = d.v; render($(".view").scrollTop); break;
       case "planpos": { const k = keep("fcb", {}); k.tab = "board"; k.pos = d.v; k.cls = "next"; render(); break; }
       case "add": fcDo("recruit_add", { id }); break;
+      case "l7sign": fcDo("chain_sign", { id }); break;
+      case "l7decline": fcDo("chain_decline", { id }); break;
+      case "l7all": fcDo("chain_sign_all", {}); break;
+      case "l7back": fcDo("chain_back", { id }); break;
+      case "l7see": go("recruit_file", { id }); break;
       case "remove": fcDo("recruit_remove", { id }); break;
       case "offer": fcDo("recruit_offer", { id }); break;
       case "pull": if (await sure("Pull the offer?", "A committed recruit's commitment goes with it, and his high school coach remembers.", "Pull it")) fcDo("recruit_pull", { id }); break;

@@ -1398,6 +1398,7 @@ pub fn coach_page(w: &World, c: usize) -> Result<Value, String> {
     // Your read of him (update 2, Q2) comes with having him on your staff.
     v["your_staff"] = json!(afm_engine::world::staff_read::of_coach(w, c).is_some());
     v["mentor_line"] = json!(co.mentor.and_then(|m| w.coaches.get(m)).map(|m| links::coach(m.id, &m.name)));
+    v["record"] = rec_record(w, c);
     v["notes"] = json!(w.career.as_ref().map(|k| {
         k.desk
             .notes
@@ -1408,6 +1409,41 @@ pub fn coach_page(w: &World, c: usize) -> Result<Value, String> {
             .collect::<Vec<_>>()
     }));
     Ok(v)
+}
+
+/// His recommendation record (SK30): who he wanted, who he passed on, how
+/// they turned out, and how often you overruled him. Null without calls.
+fn rec_record(w: &World, c: usize) -> Value {
+    use afm_engine::world::front_office::chain;
+    let calls = chain::record(w, c);
+    if calls.is_empty() {
+        return Value::Null;
+    }
+    let settled: Vec<_> = calls.iter().filter(|x| x.settled.is_some()).collect();
+    let right = settled.iter().filter(|x| x.settled == Some(true)).count();
+    let rows: Vec<Value> = calls
+        .iter()
+        .take(40)
+        .map(|x| {
+            let (name, pos) = views::person_index(w, x.id)
+                .map(|k| (w.people[k].name.clone(), w.people[k].player.position.name()))
+                .unwrap_or_default();
+            json!({
+                "id": x.id, "name": name, "pos": pos, "date": d_text(x.date),
+                "call": if x.wanted { "Wanted him" } else { "Passed" },
+                "you": if x.overruled { "Overruled" } else { "Agreed" },
+                "turned": x.turned, "right": x.settled,
+            })
+        })
+        .collect();
+    json!({
+        "wanted": calls.iter().filter(|x| x.wanted).count(),
+        "passed": calls.iter().filter(|x| !x.wanted).count(),
+        "overruled": calls.iter().filter(|x| x.overruled).count(),
+        "settled": settled.len(), "right": right,
+        "heart": chain::heart(w, c) < 1.0,
+        "rows": rows,
+    })
 }
 
 // ---- Your career page: the tree, your contract, the job market ----

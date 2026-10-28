@@ -11,7 +11,7 @@ use afm_engine::player::PlayingTime;
 use afm_engine::positions::Position;
 use afm_engine::world::background::Decider;
 use afm_engine::world::front_office::college::{self as desk, Source, Standing, VisitKind, VisitState};
-use afm_engine::world::front_office::{Duty, Owner, dollars};
+use afm_engine::world::front_office::{Duty, Owner, chain, dollars};
 use afm_engine::world::program::NilTrend;
 use afm_engine::world::{Person, Stage, Visit, World, geo, ncaa};
 use serde_json::{Value, json};
@@ -28,6 +28,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "visits_desk" => with(game, visits),
         "portal_desk" => with_args(game, args, portal),
         "nil_desk" => with(game, nil),
+        "recruit_chain" => with(game, chain_view),
+        "chain_sign" | "chain_decline" | "chain_sign_all" | "chain_back" => chain_act(game, cmd, args),
         "recruit_add" | "recruit_remove" | "recruit_move" | "recruit_priority" | "recruit_offer" | "recruit_pull"
         | "recruit_promise" | "visit_set" | "visit_cancel" | "portal_offer" | "portal_pull" | "portal_forget"
         | "portal_contact" | "keep_talk" | "nil_set" | "nil_usual" | "nil_clear" | "college_duty" | "college_fill" => {
@@ -36,6 +38,20 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         _ => return None,
     };
     Some(reply)
+}
+
+/// Your word on the chain's list (SK26, SK31).
+fn chain_act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
+    let w = game.world.as_mut().ok_or("No world is loaded.")?;
+    program(w)?;
+    desk::ready(w);
+    let text = match cmd {
+        "chain_sign" => chain::sign(w, id_arg(args)?)?,
+        "chain_decline" => chain::decline(w, id_arg(args)?)?,
+        "chain_back" => chain::back_on_board(w, id_arg(args)?)?,
+        _ => chain::sign_all(w)?,
+    };
+    Ok(json!({ "text": text }))
 }
 
 fn with(game: &mut Game, f: fn(&World, usize) -> Reply) -> Reply {
@@ -157,7 +173,7 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
 
 fn staff_line(who: &str, d: Duty) -> String {
     match d {
-        Duty::Board => format!("{who} ranks the board and offers the players the program can sign."),
+        Duty::Board => format!("{who} ranks the board; his offers and pulls wait for your signature each week."),
         Duty::Visits => format!("{who} brings the board's top names in for visits."),
         Duty::Portal => "Your staff chases the transfers who fill the two-deep's holes.".into(),
         _ => "Your collective pays the roster by what each player means to the team.".into(),
@@ -168,6 +184,57 @@ fn staff_line(who: &str, d: Duty) -> String {
 
 /// The services' stars (a kicker, punter or snapper gets 3 at most from
 /// them; his specialist camps' own stars are shown beside).
+/// The offer chain (SK26-SK31): your staff's recommendations waiting for
+/// your word, the ones you answered, and the recruits they passed on.
+fn chain_view(w: &World, _j: usize) -> Reply {
+    let c = &w.front_office.chain;
+    let who = |id: u32| -> Option<(usize, &Person)> {
+        let k = views::person_index(w, id)?;
+        Some((k, &w.people[k]))
+    };
+    let coach = |c: usize| json!({ "id": c, "name": w.coaches.get(c).map(|x| x.name.as_str()).unwrap_or("") });
+    let argue = |n: u8| match n {
+        15.. => "Bangs the table for him",
+        9..=14 => "Wants him",
+        _ => "Would take him",
+    };
+    let rec = |r: &chain::Rec| -> Option<Value> {
+        let (k, p) = who(r.id)?;
+        Some(json!({
+            "id": r.id, "name": p.name, "pos": p.player.position.name(), "cls": views::class_text(w, p),
+            "stars": stars_of(p), "hs": hs_brief(w, p.hs), "coach": coach(r.coach),
+            "film": r.film.map(coach), "date": short_date(r.date), "read": [r.read.0, r.read.1], "line": r.line,
+            "now": reads::overall(w, k).json(), "yours": reads::mine(w, k).json(),
+            "conviction": r.conviction, "argue": argue(r.conviction), "why": r.why, "gem": r.gem, "pull": r.pull,
+            "answer": format!("{:?}", r.answer), "answered": r.answered.map(short_date),
+        }))
+    };
+    let waiting: Vec<Value> = chain::waiting(w).into_iter().filter_map(rec).collect();
+    let answered: Vec<Value> =
+        c.recs.iter().rev().filter(|r| r.answer != chain::Answer::Waiting).take(30).filter_map(rec).collect();
+    let passed: Vec<Value> = c
+        .passed
+        .iter()
+        .rev()
+        .filter_map(|x| {
+            let (k, p) = who(x.id)?;
+            Some(json!({
+                "id": x.id, "name": p.name, "pos": p.player.position.name(), "cls": views::class_text(w, p),
+                "stars": x.stars, "hs": hs_brief(w, p.hs), "coach": coach(x.coach), "date": short_date(x.date),
+                "why": x.why, "then": [x.read.0, x.read.1], "now": reads::overall(w, k).json(),
+                "yours": reads::mine(w, k).json(), "flag": x.flag, "back": x.back,
+                "where": views::where_now(w, p),
+            }))
+        })
+        .collect();
+    let gems = waiting.iter().filter(|r| r["gem"] == true).count();
+    Ok(json!({
+        "board_yours": chain::board_is_yours(w),
+        "waiting": waiting, "answered": answered, "passed": passed, "gems": gems,
+        "flags": c.passed.iter().filter(|x| x.flag).count(),
+    }))
+}
+
 fn stars_of(p: &Person) -> u8 {
     p.stars
 }

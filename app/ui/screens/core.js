@@ -1370,7 +1370,7 @@ screens.coach = async (a) => {
   const c = await api("coach_page", { id: a.id });
   title(c.name, c.job ? c.job.role : "Coach");
   // Your read of him (update 2, board 18) comes with having him on your staff.
-  const names = ["Profile", ...(c.your_staff ? ["Ratings"] : []), "Jobs", "Coaching tree", "Players he developed", "Notes"];
+  const names = ["Profile", ...(c.your_staff ? ["Ratings"] : []), ...(c.record ? ["Recruiting record"] : []), "Jobs", "Coaching tree", "Players he developed", "Notes"];
   const tab = tabOf("ctab", names, a);
   let body = "";
   if (tab === "Ratings") {
@@ -1378,6 +1378,12 @@ screens.coach = async (a) => {
   } else if (tab === "Profile") {
     body = `<div class="grid2"><div class="panel"><h2>Who he is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
       <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${c.contract.buyout > 0 ? money(c.contract.buyout) : "None"}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
+  } else if (tab === "Recruiting record") {
+    // His calls on recruits for you (lane 7, SK30): whom he wanted, whom he
+    // passed on, and how they turned out three years on.
+    const r = c.record;
+    body = `<div class="panel"><h2>His word on recruits <small>${r.wanted} wanted · ${r.passed} passed · you overruled him ${r.overruled} time${r.overruled === 1 ? "" : "s"}${r.settled ? ` · right on ${r.right} of ${r.settled} settled` : ""}</small></h2>${r.heart ? '<p class="sub">Overruled again and again lately: he works his area with less heart and listens to other offers.</p>' : ""}
+      ${table("crec", [{ k: "date", t: "When", l: true }, { k: "name", t: "Recruit", l: true, f: (x) => `${playerLink(x.id, x.name)} <small class="sub">${esc(x.pos)}</small>` }, { k: "call", t: "His call", l: true }, { k: "you", t: "You", l: true, f: (x) => (x.you === "Overruled" ? '<span class="st-pill warn">Overruled</span>' : "Agreed") }, { k: "turned", t: "Three years on", l: true, wrap: true, f: (x) => (x.turned ? `${esc(x.turned)}${x.right === true ? ' <span class="st-pill good">He was right</span>' : x.right === false ? ' <span class="st-pill bad">He was wrong</span>' : ""}` : '<span class="muted">Too soon</span>') }], r.rows, { tools: false })}</div>`;
   } else if (tab === "Jobs") {
     body = table("cjobs", [{ k: "where", t: "Where", l: true }, { k: "role", t: "Role", l: true }, { k: "from", t: "From" }, { k: "to", t: "To" }, { k: "record", t: "Record", l: true }, { k: "ended", t: "How it ended", l: true }], c.history, { tools: false });
   } else if (tab === "Coaching tree") {

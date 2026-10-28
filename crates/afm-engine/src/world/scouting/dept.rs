@@ -436,7 +436,15 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
             let k = (d.0 / 7) as usize % 6;
             for &i in board.iter().skip(k * slice).take(slice) {
                 let id = w.people[i].player.id;
-                if let Some(c) = recruiter_for(w, prog, i) {
+                // A coach overruled again and again makes fewer calls (SK29).
+                if let Some(c) = recruiter_for(w, prog, i)
+                    && readers::chance(
+                        Staff::Program(prog),
+                        0x4EA7 ^ d.0 as u64,
+                        id,
+                        crate::world::front_office::chain::heart(w, c),
+                    )
+                {
                     let kind = if w.people[i].stage == Stage::College { Kind::OldStaff } else { Kind::Call };
                     add(w, id, COACH + c as u32, kind, d);
                 }

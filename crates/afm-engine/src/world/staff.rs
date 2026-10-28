@@ -737,6 +737,11 @@ fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
             parts.push((-0.02, String::new()));
         }
     }
+    // Your assistant overruled again and again listens (SK29).
+    let over = super::front_office::chain::overruled_recent(w, c);
+    if over > 2 {
+        parts.push((0.015 * (over - 2).min(4) as f64, "a head coach who keeps overruling him".to_string()));
+    }
     // A seat getting hot: a way out before he is pushed.
     if job.role == Role::HeadCoach {
         let n = coach.recent.len();
