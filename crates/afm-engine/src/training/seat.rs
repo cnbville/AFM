@@ -1931,6 +1931,7 @@ pub fn limber_of(week: &Week, neutral: &Week) -> f64 {
 /// The neutral week lands on the NCAA's practice rates (proposed, not
 /// confirmed: camp about 9.7 time-loss injuries per 1000 practices, the
 /// season about 3, spring about 6; high school about a third of college).
+#[allow(clippy::too_many_arguments)]
 fn practice_injuries(
     w: &mut World,
     st: &SeatTeam,

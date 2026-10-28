@@ -1,6 +1,6 @@
 # The living NFL: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
@@ -23,7 +23,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - Who gets fired as GM? A GM is replaced at Black Monday when the owner's trust is under 0.3 and he has 2+ years in the job. There is also a 3% yearly chance he "moved on" (`world/pro/mod.rs`, `black_monday`).
 - Do agents bluff? Yes, when there is only one offer under 0.85. The odds are (1 - honesty) x 0.6. The GM calls the bluff by his skill and his history with the agent (`world/pro/market.rs`, `bluff`).
 - Does an NFL team carry over cap room? Yes, from 2011: the room left when the regular season ended (`world/pro/mod.rs`, `set_carryover`, `space`).
-- Do players hold grudges against teams? Yes, from some cuts and broken promises. A grudge lowers the ties part of the team's offer score (one of ten weighted parts, weight 0.4) to as low as 0.7, a few percent off the whole score (`world/people.rs`, `grudge`, `ties_q`; `world/pro/market.rs`, `score`). See the People page.
+- Do players hold grudges against teams? Yes, from some cuts, trades and broken promises. A grudge lowers the ties part of the team's offer score (one of ten weighted parts, weight 0.4) to as low as 0.7, a few percent off the whole score (`world/people.rs`, `grudge`, `ties_q`; `world/pro/market.rs`, `score`). See the People page.
 
 ## Rosters and depth
 
@@ -93,7 +93,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Extensions**: offered in the last year, or with a year left for an early-extension GM (> 0.55) or a rookie after 3 seasons (2011 on). Market grade 76+ only. The ask is cut 4% per year left on the deal. It adds at least 2 years (age 32 or under). It signs at 0.87, or 0.82 near a deadline (`world/pro/market.rs`, `extension_talks`, `extend`).
 - **Street signings** (players under consensus 66 before camp, everyone after): price = market share x decline x (1 - 4% a week unsigned). The club where he would gain the most playing time wins. Grade 58+ only (`world/pro/mod.rs`, `ask`, `street_signings`).
 - **Reserve/future deals**: at Black Monday for non-playoff teams and at the Super Bowl for playoff teams. A club keeps squad players graded 58+ who are 28 or younger, and adds up to 4 street players (27 or under, grade 60+) (`world/pro/market.rs`, `futures`).
-- **Holdouts**: only a star (market grade 85+) paid under half his market, with 3+ seasons. Push = greed x min(under/3, 1) x leverage (1, or 0.6 at 30+) - 0.3 x loyalty x trust + 0.1 x temper - 0.15 x mood. At push ≥ 0.3 he holds in. He holds out if push > 0.4, or > 0.55 on a rookie deal from 2020. Each week he gives in with odds 0.08 + 0.05 x weeks, +0.15 in season. A holdout at a rebuilding club, or with trust under 0.5, requests a trade (`world/pro/market.rs`, `holdouts`).
+- **Holdouts**: only a star (market grade 85+) paid under half his market, with 3+ seasons. Push = greed x min(under/3, 1) x leverage (1, or 0.6 at 30+) - 0.3 x loyalty x trust + 0.1 x temper - 0.15 x mood. At push ≥ 0.3 he holds in. He holds out if push > 0.4, or > 0.55 on a rookie deal from 2020. Each week he gives in with odds 0.08 + 0.05 x weeks, +0.15 in season. A holdout at a rebuilding club, or with trust under 0.5, requests a trade (`world/pro/market.rs`, `holdouts`). A holdout misses camp: +0.3 on that year's development dip (see [development.md](development.md)) (`world/pro/mod.rs`, `camp`).
 - **Voluntary weeks** (offseason phases 1-2 and OTAs): each pro comes with chance clamp(0.9 + 0.015 x (work ethic - 10) - 0.04 x max(age - 29, 0), 0.45, 0.99), drawn each week; one who skips works at his own effort and reads Unprepared for prep that week. In OTA weeks the three best absent starters at 82+ overall make small news (`training/week.rs`, `attends`, `monday`, `absent_news`; see [training.md](training.md)).
 - **Promises**: a starting job promised in a deal is checked in week 1. If broken: his trust -0.3 and the agent's relationship with the club -0.1 (`world/pro/market.rs`, `check_promises`).
 

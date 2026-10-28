@@ -828,6 +828,34 @@ Board V9 (`BigBoardPB3.dc.html`) on the game's own data (`screens/draftroom.js` 
 - The services' counts: 2,800 three-stars and 3,200 two-stars a class of 250,000 (33 five-stars and 350 four-stars kept).
 - The offer sheet: the best offer or commitment by level (FBS 1, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2) × (0.5 + 0.5 × prestige at its level); it lifts the services' look at him to at least its value, and weighs 3 film standard deviations at its top.
 
+## Update 3 (2026-10-28)
+
+### Lane 3: code fixes (A1, F1, F5-F13, F16-F18, F24-F34)
+
+- **Injuries** (A1, F7, F8, F13, F24). College and high school game injuries now keep a player out after the game, on every team (`training/seat.rs`, `game_injuries`; AI players in `training.others_hurt`). A man playing hurt loses what his injury limits (`game/sim.rs`, `hampered`), not a flat 3 points. Fatigue raises injury odds. AI college and high school teams get practice injuries. Turf follows real fields: each NFL club's turf seasons, and college and high school fields by level, year and money.
+- **People** (F1, F5, F6, F18). A holdout's missed camp lowers his year; a veteran cut before his deal ran out, or a man traded away after years at a club, can hold a grudge; AI teams keep their own team rules (`world/folk/rules.rs`, `ai_week`).
+- **Training** (F9-F12, F16). Heat-rule states really cut a hot day's practice; a player absent from a voluntary week takes no team load and no practice injury; study hall and the practice screen flag on each level's real eligibility line; coaching a habit keeps the old one he slips back to.
+- **Games** (F17, F25-F34). Kick orders' return risk is read; every NFL and college game plays its year's rule book, playoffs included (NFL playoff overtime can no longer end in a tie); college overtime reaches the era's shootout; your designed plays are called by your own coordinators and go on the other side's film as the concept they look like; design legality reads the level; below the NFL fourth downs, EPA and win chance read a real college expected-points table (`data/real-world/college_expected_points.csv`); the defensive call's fixes and prep's read sizes (below).
+- **Found, not fixed** (for Cain): NFL and other-league game injuries are carried by the snap side, not the team, so about half never carry (oddity 28). High school ejection sit-outs apply only to your team (`league_week`). The blitz quick-throw term only ever lowers the blitz, against offenses that throw quick less than 30% of their plays; real defenses blitz quick throwers less, so its sign looks backwards (left as is).
+
+#### Claude's picks (proposed, not confirmed)
+
+- A holdout's missed camp: +0.3 on his development dip, no first-year mark.
+- A trade grudge: hurt 0.75 × min(seasons there / 4, 1) with 2+ seasons, none if he asked out.
+- Fatigue: injury chance × (1 + 0.8 × tiredness).
+- Game injuries below the NFL: out ceil(weeks × (1 − 0.12 × medical) × 7) days from the day after the game, medical = (program medical rating − 10) / 10 in college, 0 in high school; one who played on is not out.
+- AI practice injuries: your team's chance from the AI week's block, practices, contact and mobility; an AI player counts as out for the week when back more than 3 days after Monday.
+- Heat: a heat index of 104 F or more (July to September) cuts the day's field work to 60 minutes; meetings and the weight room stay.
+- An absent player's week loads the own-time 150 units.
+- Eligibility lines: high school 2.0; college 2.3 before his first season (initial eligibility), then 1.8, 1.9 and 2.0 (progress toward degree).
+- AI team rules: severity = the rule's weight + his breaks this season and last (up to 3) − 1, ±1 for a strict (14+) or soft (6 or less) coach, −1 for a star under a coach below 12; mapped talk, fine or running, bench the start, bench a game, suspend 1, suspend 2, dismiss (in the NFL only for conduct or drugs, else suspend 3).
+- Turf shares of fields in 1996, 2006, 2016 and 2026: FBS 0.30, 0.45, 0.55, 0.60; smaller colleges 0.12, 0.40, 0.65, 0.75; high schools 0.02, 0.12, 0.30, 0.45; +0.005 a year after 2026 up to 0.85; × (0.6 + 0.8 × means). A future NFL stadium is turf if domed.
+- High school reads the college expected-points table; the fourth-down conversion chance stays the NFL curve at every level.
+- Designs in your coordinators' own calls: only those on this week's sheets, in their personnel, weighed like the look-alike concept without the favorite lean; film files a design under the library concept with the most shared routes (same man 2, anyone 1), play action 2, drop 1, depth 1, protection 0.5.
+- An NFL lineman may run a designed route only uncovered (he reports); never in college or high school.
+- Quick share = (quick throws today + 1.2) / (plays today + 4); deep hurt divides today's deep EPA by today's plays.
+- Prep: a defender reads 0.3 × (factor − 1) s late (+0.1 s Unprepared, −0.02 s Sharp); a quarterback's time on each read × the factor (a third longer Unprepared), matching the agreed "up to a third more" mental errors.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).
