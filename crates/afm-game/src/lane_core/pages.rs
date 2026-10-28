@@ -163,7 +163,7 @@ pub fn dashboard(w: &World) -> Value {
             slides.push(json!({
                 "kind": "recruit",
                 "kicker": format!("Class of {}", w.year + 1),
-                "title": format!("{} commitments", class.len()),
+                "title": format!("{} {}", class.len(), afm_engine::world::folk::noun(class.len(), "commitment")),
                 "sub": format!("Average {stars:.2} stars"),
                 "colors": colors,
                 "go": { "screen": "recruiting", "args": {}, "label": "Recruiting board" },

@@ -574,7 +574,7 @@ fn evidence(w: &World, m: &Member) -> Vec<Value> {
     }
     if v.is_empty() {
         let s = seasons_with(w, m);
-        v.push(json!({ "k": "With you", "t": if s <= 1 { "Too early: your read rests on his name and a few weeks of work".to_string() } else { format!("{} seasons of work, no numbers of their own yet", s - 1) } }));
+        v.push(json!({ "k": "With you", "t": if s <= 1 { "Too early: your read rests on his name and a few weeks of work".to_string() } else { format!("{} {} of work, no numbers of their own yet", s - 1, afm_engine::world::folk::noun(s - 1, "season")) } }));
     }
     v
 }

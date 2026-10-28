@@ -1100,6 +1100,7 @@ impl World {
         // Your designed plays become concepts again (section 6b).
         self.training.register_designs();
         super::folk::after_load(self);
+        super::storylines::after_load(self);
         // A world file from before the poll and award voters gets them now.
         super::voters::ensure(self);
         // Long snappers made before the final build at a lineman's weight

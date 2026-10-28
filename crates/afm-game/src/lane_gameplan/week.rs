@@ -227,7 +227,7 @@ pub(super) fn view(w: &World) -> Reply {
         if n == 0 {
             format!("No {what} on the tapes your staff keeps.")
         } else {
-            format!("{look} on {looks} of {n} {what} on tape.")
+            format!("{look} on {looks} of {n} {} on tape.", if n == 1 { what.trim_end_matches('s') } else { what })
         }
     };
     let teams = json!({

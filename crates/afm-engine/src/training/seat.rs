@@ -2057,7 +2057,13 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     let hurt: u32 = logs.iter().map(|l| l.injuries).sum();
     lines.push((
         "Head coach".to_string(),
-        format!("{} weeks, {practices} practices, {} practice injuries.", logs.len(), hurt),
+        format!(
+            "{} {}, {practices} {}, {hurt} {}.",
+            logs.len(),
+            crate::world::folk::noun(logs.len(), "week"),
+            crate::world::folk::noun(practices, "practice"),
+            crate::world::folk::noun(hurt, "practice injury")
+        ),
     ));
     let mut moved = w.training.moved.clone();
     moved.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -2080,7 +2086,8 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     lines.push((
         "Trainers".to_string(),
         format!(
-            "{flags} players with a load spike; {} on the injury report.",
+            "{flags} {} with a load spike; {} on the injury report.",
+            crate::world::folk::noun(flags, "player"),
             w.training.hurt.iter().filter(|h| h.until > d).count()
         ),
     ));

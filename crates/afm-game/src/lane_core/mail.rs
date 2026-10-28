@@ -425,28 +425,68 @@ pub fn stat_line(pos: Position, g: impl Fn(Stat) -> f64) -> String {
     let n = |s: Stat| g(s).round() as i64;
     match pos {
         P::QB => format!(
-            "{}/{} passing, {} yards, {} TD, {} INT",
+            "{}/{} passing, {} {}, {} TD, {} INT",
             n(Stat::Cmp),
             n(Stat::Att),
             n(Stat::PassYds),
+            afm_engine::world::folk::noun(n(Stat::PassYds), "yard"),
             n(Stat::PassTd),
             n(Stat::Int)
         ),
-        P::RB => format!("{} carries, {} yards, {} TD", n(Stat::Rush), n(Stat::RushYds), n(Stat::RushTd)),
-        P::WR | P::TE => format!("{} catches, {} yards, {} TD", n(Stat::Rec), n(Stat::RecYds), n(Stat::RecTd)),
+        P::RB => format!(
+            "{} {}, {} {}, {} TD",
+            n(Stat::Rush),
+            afm_engine::world::folk::noun(n(Stat::Rush), "carry"),
+            n(Stat::RushYds),
+            afm_engine::world::folk::noun(n(Stat::RushYds), "yard"),
+            n(Stat::RushTd)
+        ),
+        P::WR | P::TE => format!(
+            "{} {}, {} {}, {} TD",
+            n(Stat::Rec),
+            afm_engine::world::folk::noun(n(Stat::Rec), "catch"),
+            n(Stat::RecYds),
+            afm_engine::world::folk::noun(n(Stat::RecYds), "yard"),
+            n(Stat::RecTd)
+        ),
         P::OT | P::IOL => {
-            format!("{} pass-block snaps, {} sacks allowed", n(Stat::PbSnaps), n(Stat::SacksAllowed))
+            format!(
+                "{} pass-block {}, {} {} allowed",
+                n(Stat::PbSnaps),
+                afm_engine::world::folk::noun(n(Stat::PbSnaps), "snap"),
+                n(Stat::SacksAllowed),
+                afm_engine::world::folk::noun(n(Stat::SacksAllowed), "sack")
+            )
         }
         P::EDGE | P::DT | P::LB => {
-            format!("{} tackles, {:.1} for loss, {:.1} sacks", n(Stat::Tackles), g(Stat::Tfl), g(Stat::Sacks))
+            format!(
+                "{} {}, {:.1} for loss, {:.1} sacks",
+                n(Stat::Tackles),
+                afm_engine::world::folk::noun(n(Stat::Tackles), "tackle"),
+                g(Stat::Tfl),
+                g(Stat::Sacks)
+            )
         }
-        P::CB | P::S => format!("{} tackles, {} INT, {} PBU", n(Stat::Tackles), n(Stat::Ints), n(Stat::Pbus)),
+        P::CB | P::S => format!(
+            "{} {}, {} INT, {} PBU",
+            n(Stat::Tackles),
+            afm_engine::world::folk::noun(n(Stat::Tackles), "tackle"),
+            n(Stat::Ints),
+            n(Stat::Pbus)
+        ),
         P::K => format!("{}/{} field goals, long {}", n(Stat::FgMade), n(Stat::FgAtt), n(Stat::FgLong)),
         P::P => {
             let punts = g(Stat::Punts).max(1.0);
-            format!("{} punts, {:.1} net", n(Stat::Punts), g(Stat::PuntNet) / punts)
+            format!(
+                "{} {}, {:.1} net",
+                n(Stat::Punts),
+                afm_engine::world::folk::noun(n(Stat::Punts), "punt"),
+                g(Stat::PuntNet) / punts
+            )
         }
-        P::LS => format!("{} special teams snaps", n(Stat::SnapsSt)),
+        P::LS => {
+            format!("{} special teams {}", n(Stat::SnapsSt), afm_engine::world::folk::noun(n(Stat::SnapsSt), "snap"))
+        }
     }
 }
 
@@ -1139,7 +1179,13 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                         d,
                         8 * 60,
                         Job::Personnel,
-                        format!("Recruiting desk: {} offers, {} official visits", of.len(), vi.len()),
+                        format!(
+                            "Recruiting desk: {} {}, {} official {}",
+                            of.len(),
+                            afm_engine::world::folk::noun(of.len(), "offer"),
+                            vi.len(),
+                            afm_engine::world::folk::noun(vi.len(), "visit")
+                        ),
                     );
                     m.body = vec![format!("{}, the week on the recruiting board:", pen.dear)];
                     m.table =
@@ -1463,23 +1509,34 @@ fn games_mail(pen: &mut Pen, from: Date, to: Date) {
         }
         if let Some((id, l)) = best(&|l| l.rush_yds) {
             leaders.push(format!(
-                "Rushing: {} {} carries, {:.0} yards, {} TD",
+                "Rushing: {} {} {}, {:.0} {}, {} TD",
                 name(id),
                 l.rush,
+                afm_engine::world::folk::noun(l.rush, "carry"),
                 l.rush_yds,
+                afm_engine::world::folk::noun(l.rush_yds.round_ties_even() as i64, "yard"),
                 l.rush_td
             ));
             ids.push(id);
         }
         if let Some((id, l)) = best(&|l| l.rec_yds) {
-            leaders.push(format!("Receiving: {} {} catches, {:.0} yards, {} TD", name(id), l.rec, l.rec_yds, l.rec_td));
+            leaders.push(format!(
+                "Receiving: {} {} {}, {:.0} {}, {} TD",
+                name(id),
+                l.rec,
+                afm_engine::world::folk::noun(l.rec, "catch"),
+                l.rec_yds,
+                afm_engine::world::folk::noun(l.rec_yds.round_ties_even() as i64, "yard"),
+                l.rec_td
+            ));
             ids.push(id);
         }
         if let Some((id, l)) = best(&|l| (l.tackles + l.assists) as f64 + 2.0 * l.sacks + l.tfl + 3.0 * l.ints as f64) {
             leaders.push(format!(
-                "Defense: {} {} tackles{}{}",
+                "Defense: {} {} {}{}{}",
                 name(id),
                 l.tackles + l.assists,
+                afm_engine::world::folk::noun(l.tackles + l.assists, "tackle"),
                 if l.sacks > 0.0 { format!(", {:.1} sacks", l.sacks) } else { String::new() },
                 if l.ints > 0 { format!(", {} INT", l.ints) } else { String::new() }
             ));

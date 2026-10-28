@@ -231,3 +231,24 @@ fn an_old_world_file_loads_with_empty_stories() {
     let back: st::Stories = rmp_serde::from_slice(&rmp_serde::to_vec_named(&w.stories).unwrap()).unwrap();
     assert_eq!(back.story.entries.len(), w.stories.story.entries.len());
 }
+
+#[test]
+fn a_count_of_one_takes_the_singular() {
+    use crate::world::folk::noun;
+    assert_eq!(noun(1, "interception"), "interception");
+    assert_eq!(noun(0, "interception"), "interceptions");
+    assert_eq!(noun(3_usize, "catch"), "catches");
+    assert_eq!(noun(2_u32, "carry"), "carries");
+    assert_eq!(noun(2, "day"), "days");
+    assert_eq!(noun(1_i64, "practice injury"), "practice injury");
+    assert_eq!(noun(5, "practice injury"), "practice injuries");
+}
+
+#[test]
+fn a_bank_line_counting_one_takes_the_singular() {
+    let t = "renamed a drink {days} days after, {years} years on, {pts} points, {n} is";
+    let one = lines::Fill::new().set("days", "1").set("years", "1").set("pts", "1").set("n", "1");
+    assert_eq!(lines::fill_for_test(t, &one).unwrap(), "renamed a drink 1 day after, 1 year on, 1 point, 1 is");
+    let many = lines::Fill::new().set("days", "11").set("years", "3").set("pts", "21").set("n", "2");
+    assert_eq!(lines::fill_for_test(t, &many).unwrap(), "renamed a drink 11 days after, 3 years on, 21 points, 2 is");
+}

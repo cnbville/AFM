@@ -271,7 +271,13 @@ fn step(w: &mut World, d: Date) {
                     {
                         pc.suspended = pc.suspended.saturating_sub(games as u32 - cut);
                     }
-                    (None, Some(format!("On appeal, {name}'s suspension was cut from {games} games to {cut}.")))
+                    (
+                        None,
+                        Some(format!(
+                            "On appeal, {name}'s suspension was cut from {games} {} to {cut}.",
+                            super::noun(games, "game")
+                        )),
+                    )
                 }
             }
             Step::Grievance { games } => {
