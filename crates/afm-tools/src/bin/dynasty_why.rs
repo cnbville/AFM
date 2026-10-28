@@ -803,6 +803,10 @@ fn main() {
     let mut gaps = |at: &[usize], against: &[usize], stars: Option<u8>| {
         let (mut sum, mut n, mut ahead, mut offered) = ([0.0f64; 13], 0u32, 0u32, 0u32);
         let (mut split, mut in_state, mut fan) = ([0.0f64; 4], 0u32, 0u32);
+        // Money: offers at his school and the best other, how often each sits
+        // at the position's market top, and how often the other would offer
+        // more than his school without that top.
+        let (mut cash, mut topped, mut outbid) = ([0.0f64; 3], [0u32; 2], 0u32);
         for (i, p) in w.people.iter().enumerate() {
             if p.stars < 4 || stars.is_some_and(|s| p.stars != s) || p.player.position.is_specialist() {
                 continue;
@@ -817,7 +821,7 @@ fn main() {
             let kept: Vec<usize> = against.iter().copied().filter(|x| p.cal.offers.contains(x)).collect();
             let pool = if kept.is_empty() { against.to_vec() } else { kept.clone() };
             let terms = |x: usize| afm_engine::debug::recruit_terms(&w, i, x);
-            let total = |t: &[f64; 18]| t[..13].iter().sum::<f64>();
+            let total = |t: &[f64; 21]| t[..13].iter().sum::<f64>();
             let mine = terms(j);
             let Some(alt) = pool.iter().map(|&x| terms(x)).max_by(|a, b| total(a).total_cmp(&total(b))) else {
                 continue;
@@ -831,6 +835,12 @@ fn main() {
             for g in 0..4 {
                 split[g] += mine[14 + g] - alt[14 + g];
             }
+            cash[0] += mine[18];
+            cash[1] += alt[18];
+            cash[2] += alt[19];
+            topped[0] += (mine[18] >= mine[20] - 1.0) as u32;
+            topped[1] += (alt[18] >= alt[20] - 1.0) as u32;
+            outbid += (alt[19] > mine[18] + 1.0) as u32;
             in_state += (p.home_state == w.programs[j].state) as u32;
             fan += (p.childhood_team == Some(j)) as u32;
             n += 1;
@@ -840,7 +850,7 @@ fn main() {
         let nf = n.max(1) as f64;
         let parts = (0..13).map(|g| format!("{} {:+.3}", TERMS[g], sum[g] / nf)).collect::<Vec<_>>().join(", ");
         format!(
-            "n {n} (offers kept for {offered}), ahead on appeal {:.0}%; mean gap: {parts}; total {:+.3}; home ties split: pipeline {:+.3}, stay home {:+.3}, childhood team {:+.3}, brother {:+.3}; from his school's state {:.0}%, grew up a fan of it {:.0}%",
+            "n {n} (offers kept for {offered}), ahead on appeal {:.0}%; mean gap: {parts}; total {:+.3}; home ties split: pipeline {:+.3}, stay home {:+.3}, childhood team {:+.3}, brother {:+.3}; from his school's state {:.0}%, grew up a fan of it {:.0}%; usual NIL offer: his school ${:.0}K (at the position's market top {:.0}%), the best other ${:.0}K (at the top {:.0}%; without the top ${:.0}K, more than his school's for {:.0}%)",
             100.0 * ahead as f64 / nf,
             sum.iter().sum::<f64>() / nf,
             split[0] / nf,
@@ -848,7 +858,13 @@ fn main() {
             split[2] / nf,
             split[3] / nf,
             100.0 * in_state as f64 / nf,
-            100.0 * fan as f64 / nf
+            100.0 * fan as f64 / nf,
+            cash[0] / nf / 1e3,
+            100.0 * topped[0] as f64 / nf,
+            cash[1] / nf / 1e3,
+            100.0 * topped[1] as f64 / nf,
+            cash[2] / nf / 1e3,
+            100.0 * outbid as f64 / nf
         )
     };
     let names = |v: &[usize]| v.iter().map(|&p| name(p)).collect::<Vec<_>>().join(", ");
@@ -863,6 +879,40 @@ fn main() {
     println!("  5-stars only: {}", gaps(&top3, &next, Some(5)));
     println!("at 4-12, against the best of the top 3: {}", gaps(&next, &top3, None));
     println!("  (the terms add up to the appeal within {worst_check:.1e})");
+    // Where the market top binds: each FBS program's usual offer to every
+    // blue chip of the two classes, by blue-chip rank group.
+    let bc_people: Vec<usize> = (0..w.people.len())
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.stars >= 4 && !p.player.position.is_specialist() && p.class_of >= w.year - 1 && p.class_of <= w.year
+        })
+        .collect();
+    let mut groups = String::new();
+    for (label, lo, hi) in [("top 3", 0, 3), ("4-12", 3, 12), ("13-40", 12, 40), ("41 on", 40, usize::MAX)] {
+        let progs: Vec<usize> = bc_rank.iter().skip(lo).take(hi - lo).map(|x| x.0).collect();
+        let mut part = Vec::new();
+        for star in [5u8, 4] {
+            let (mut n, mut at, mut capped, mut free) = (0u32, 0u32, 0.0f64, 0.0f64);
+            for &j in &progs {
+                for &i in bc_people.iter().filter(|&&i| w.people[i].stars == star) {
+                    let t = afm_engine::debug::recruit_terms(&w, i, j);
+                    n += 1;
+                    at += (t[18] >= t[20] - 1.0 && t[18] > 0.0) as u32;
+                    capped += t[18];
+                    free += t[19];
+                }
+            }
+            let nf = n.max(1) as f64;
+            part.push(format!(
+                "{star}-stars at the top {:.0}%, ${:.0}K (${:.0}K without it)",
+                100.0 * at as f64 / nf,
+                capped / nf / 1e3,
+                free / nf / 1e3
+            ));
+        }
+        groups.push_str(&format!("; {label} ({} programs): {}", progs.len(), part.join(", ")));
+    }
+    println!("usual NIL offers to these classes' blue chips and the position's market top{groups}");
     let (mut bc_n, mut bc_home, mut five_n, mut five_home) = (0u32, 0u32, 0u32, 0u32);
     for p in &w.people {
         if p.stars < 4 || p.player.position.is_specialist() || p.class_of < w.year - 1 || p.class_of > w.year {
