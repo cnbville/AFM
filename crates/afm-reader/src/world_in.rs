@@ -31,7 +31,7 @@ pub struct WorldInfo {
 /// records one by one; deeper values are read whole.
 const STREAM_DEPTH: usize = 2;
 /// Records converted together (the engine's types in parallel).
-const BATCH: usize = 2048;
+const BATCH: usize = 256;
 
 pub fn read(path: &Path, w: &mut Writer, log: &mut dyn FnMut(&str)) -> std::io::Result<WorldInfo> {
     let mut f = BufReader::with_capacity(1 << 20, std::fs::File::open(path)?);

@@ -9,7 +9,7 @@ The book is world reader lane R4: one SQLite file per world (`name.afmbook`) hol
 ## Quick answers
 
 - How is a book built? `afm_read build <world> [log] [book]` (`bin/afm_read.rs`), which calls `make::build`: the world file, then the log folder, then the engine's tables and the real index, then the catalog, indexes, known issues, knobs, distributions, checks, consistency checks and odd things, coverage, search and hover cards, and `book_meta` last (`make.rs`, `build`). It writes `name.part` and renames it when done.
-- Does it load the world into memory? No. The world file is read store by store with a streaming MessagePack reader; lists go into the book 2,048 records at a time (`world_in.rs`, `read`, `BATCH`).
+- Does it load the world into memory? No. The world file is read store by store with a streaming MessagePack reader; lists go into the book 256 records at a time (`world_in.rs`, `read`, `BATCH`). The trial 10 world (1.98 GB, 851,571 people) makes a 3.9 GB book in about 4 minutes on 4 cores with a 0.7 GB memory peak; each step prints its time and peak (`make.rs`, `build`).
 - Can it read a world from an older build? Yes for the tables: they are built from field names, not from the engine's types. True overall and potential need the engine to read each person whole; when it can't, the book says so in `book_meta.missing` and keeps the overall from the player part where that reads (`world_in.rs`, `person_extra`, `PEOPLE_UNREAD`).
 - How do records become tables? Scalars become columns. Nested structs become columns joined by `__`. Lists of records become child tables named `parent__field`, with `_parent` (the parent's `_row`) and `_i` (place in the list). Maps keyed by ids become child rows with `_key`. Lists of plain values stay as JSON text (`sink.rs`, `put`, `children`, `dynamic`).
 - How are the biggest log kinds kept? Packed: a few key columns, and the whole record as zstd-compressed MessagePack in `_more`, with a dictionary trained on the first records (`sink.rs`, `put_packed`, `train`). SQL reads it with `more('table', _more)` as JSON text (`book.rs`, `Book::with`).
@@ -39,6 +39,7 @@ The book is world reader lane R4: one SQLite file per world (`name.afmbook`) hol
 
 ## Where the knobs are
 
+- `BATCH` (`crates/afm-reader/src/world_in.rs`): records read and written together.
 - `MAX_COLS`, `MAX_DEPTH`, `SAMPLES`, `SAMPLE_BYTES`, `COMMIT_EVERY` (`crates/afm-reader/src/sink.rs`): columns before the rest goes to `_extra`, child-table depth, dictionary samples and bytes, rows between commits.
 - `KEEP` (`crates/afm-reader/src/odd.rs`): consistency failures kept per rule.
 - `FORMAT` (`crates/afm-reader/src/make.rs`): the book's format number.
