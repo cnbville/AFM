@@ -297,7 +297,6 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
     let nums: HashMap<usize, u8> = crate::lane_core::people::jerseys(w, t).into_iter().collect();
     let idx = |id: Option<u32>| id.and_then(|id| views::person_index(w, id));
     let last = my_games(w).last().copied();
-    let reader = views::reader_key(w);
     let mut slots: Vec<Value> = Vec::new();
     for (k, s) in spots.iter().enumerate() {
         let men: [Option<usize>; 3] = [idx(s.ids[0]), idx(s.ids[1]), idx(s.ids[2])];
@@ -316,7 +315,7 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
                 }
                 _ => Value::Null,
             };
-            let attrs = reads::attributes(&p.player, true, views::eye_for(w, t, pos), reader);
+            let attrs = reads::attributes(w, i);
             let keys: Vec<Value> = key_attrs(pos)
                 .into_iter()
                 .map(|a| {

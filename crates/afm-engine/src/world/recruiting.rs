@@ -575,7 +575,8 @@ pub(crate) fn draft_reads(w: &mut World) {
         // A small-school player whose numbers flag him (this season or
         // last) gets a second look: more scouts on his film, a truer read.
         // The numbers can lie (a weak schedule), so the film decides
-        // (proposed, not confirmed: accuracy 13 to 8).
+        // (F4: the second look reads at accuracy 18 against everyone
+        // else's 13; it was 8, a wider error; 18 proposed, not confirmed).
         let id = p.player.id;
         let flagged = division != Division::FBS
             && (feet.get(&id).is_some_and(|&f| f != 0) || !w.stats.footprint_since(id, year - 1).is_empty());
@@ -605,7 +606,7 @@ pub(crate) fn draft_reads(w: &mut World) {
             let age = p.row_age();
             p.note(format!("At {age} pro scouts took a second look at his film: {}.", why.join("; ")));
         }
-        let accuracy = if flagged { 8.0 } else { 13.0 };
+        let accuracy = if flagged { 18.0 } else { 13.0 };
         let seen = projected.as_ref().unwrap_or(&p.player);
         let rep = scout_player(seen, ScoutOptions { accuracy, level }, &mut p.rng);
         let youth = clamp((23.0 - p.player.age as f64) / 3.0, 0.0, 1.0);

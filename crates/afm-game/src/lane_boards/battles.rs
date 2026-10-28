@@ -282,11 +282,9 @@ fn on_your_team(w: &World, i: usize) -> bool {
 fn ratings(w: &World, id: u32, ours: bool, keys: &[Attr], tape_games: usize) -> (Vec<Value>, String) {
     let Some(i) = views::person_index(w, id) else { return (Vec::new(), String::new()) };
     let p = &w.people[i].player;
-    let reader = views::reader_key(w);
     let gone = ours && !on_your_team(w, i);
     if ours && !gone {
-        let eye = views::team_of(w, &w.people[i]).map_or(10.0, |t| views::eye_for(w, t, p.position));
-        let all = reads::attributes(p, true, eye, reader);
+        let all = reads::attributes(w, i);
         let v = keys
             .iter()
             .map(|&a| {
@@ -311,6 +309,7 @@ fn ratings(w: &World, id: u32, ours: bool, keys: &[Attr], tape_games: usize) -> 
             format!("from your file, {} {}{left}", looks.len(), if looks.len() == 1 { "look" } else { "looks" }),
         );
     }
+    let reader = views::reader_key(w);
     let half = (10.0 - 1.2 * tape_games.saturating_sub(1) as f64).max(4.0);
     let v = keys
         .iter()
@@ -561,17 +560,11 @@ impl Ctx<'_> {
         })
     }
 
-    fn overall(&self, id: u32, ours: bool) -> Value {
+    fn overall(&self, id: u32, _ours: bool) -> Value {
         let Some(i) = self.who.person(id) else { return Value::Null };
-        let p = &self.w.people[i].player;
-        // Practice reads only a man still on your team.
-        let own = ours && on_your_team(self.w, i);
-        let eye = if own {
-            views::team_of(self.w, &self.w.people[i]).map_or(10.0, |t| views::eye_for(self.w, t, p.position))
-        } else {
-            10.0
-        };
-        reads::overall(p, own, eye, views::reader_key(self.w)).json()
+        // His file's read: practice for your own men, tape and looks for
+        // anyone else (minor bug 54).
+        reads::overall(self.w, i).json()
     }
 
     /// Hurt in this game.

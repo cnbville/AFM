@@ -216,7 +216,7 @@ function fcFile(f, ctx, compact) {
         .map((s) => `<div class="fc-school ${s.yours ? "yours" : ""}"><span class="fc-n">${s.n}</span>${mark(s.team, 28)}<span><b>${teamLink(s.team)}</b><small>${esc(s.status)}</small></span>${s.pill ? `<span class="st-pill ${s.pill === "Leads" ? "good" : "gold"}">${esc(s.pill)}</span>` : ""}</div>`)
         .join("")
     : '<div class="empty">No offers yet. The first one is remembered.</div>';
-  const read = `<div class="fc-read"><div>${range(f.read, null, { p: f.id, k: "ovr" })}</div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
+  const read = `<div class="fc-read"><div><span class="l7-pair">${range(f.read, null, { p: f.id, k: "ovr" })}${yourRange(f.yours)}</span></div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
     ${f.pot && f.pot.hints && f.pot.hints.length ? `<div class="fc-hints">${f.pot.hints.map((h) => `<span class="st-fact">${esc(fcCap(h))}</span>`).join("")}</div>` : ""}
     <small class="sub">Read by ${esc(f.reader)}${f.reader_role ? `, your ${esc(f.reader_role)}` : ""}.${f.on_board ? "" : " Add him to your board and the read narrows as your staff works him."}</small>`;
   const nextLine = f.next ? `<b>${esc(f.next.date)}</b> · ${esc(f.next.what)}` : "Nothing set";
@@ -313,7 +313,8 @@ function fcBoardTable(x, k, yours) {
     { k: "stars", t: "★", tip: "The services' stars", f: (r) => fcStars(r.stars) },
     { k: "nat", t: "Public", l: true, tip: "The services' rank at his position and in his state", v: (r) => -(r.nat || 9999), f: fcPublic },
     { k: "school", t: "School · Hometown", l: true, div: true, v: (r) => (r.hs ? r.hs.name : ""), f: (r) => `${fcSchool(r)} <small class="sub">· ${esc(r.town)}</small>` },
-    { k: "read", t: "Read", div: true, tip: "Your position coach's read of his play now", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
+    { k: "read", t: "Read", div: true, tip: "Your staff's read of his play now", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
+    { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself, or your first impression", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
     { k: "pot", t: "Ceiling", l: true, tip: "Your staff's words on how far he can go", v: (r) => (r.pot ? r.pot.tier : ""), f: (r) => fcPot(r.pot) },
     { k: "interest", t: "His interest", l: true, div: true, f: (r) => `<span title="${esc(r.reason)}">${fcDot(fcTone(r.tone))}${esc(r.interest)}</span>` },
     { k: "leader", t: "Leader", l: true, v: (r) => (r.leader ? r.leader.name : ""), f: (r) => (r.leader ? teamLink(r.leader) : '<span class="muted">-</span>') },

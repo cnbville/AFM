@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use afm_engine::calendar::Date;
-use afm_engine::player::{Level, PlayingTime};
+use afm_engine::player::PlayingTime;
 use afm_engine::positions::Position;
 use afm_engine::world::background::Decider;
 use afm_engine::world::front_office::college::{self as desk, Source, Standing, VisitKind, VisitState};
@@ -277,16 +277,13 @@ impl Ranks {
     }
 }
 
-/// How your staff reads a recruit it is working: a range narrower than a
-/// stranger's, sized by the position coach's eye, with potential in words.
-fn staff_read(w: &World, j: usize, p: &Person, worked: bool) -> (Value, Value) {
-    let reader = views::reader_key(w);
-    let eye = views::eye_for(w, TeamRef::College(j), p.player.position);
-    let half = if worked { 3.0 + (20.0 - eye.clamp(1.0, 20.0)) * 0.2 } else { 7.0 };
-    let r = reads::range(p.player.overall(), half, reader, p.player.id, 99).json();
-    let level = if p.stage == Stage::College { views::level_of(w, p) } else { Level::HS };
-    let pot = if worked { reads::potential_words(&p.player, eye, level, reader, w.year) } else { Value::Null };
-    (r, pot)
+/// Your staff's read of a recruit and its potential words, from his
+/// scouting file (minor bug 54: the same read every screen shows), and
+/// your own read beside it (SK23).
+fn staff_read(w: &World, p: &Person) -> (Value, Value, Value) {
+    let Some(k) = views::person_index(w, p.player.id) else { return (Value::Null, Value::Null, Value::Null) };
+    let s = reads::seen(w, k);
+    (s.overall().json(), reads::potential_words(w, k), s.mine().json())
 }
 
 /// The coach who reads him: his position coach on your staff.
@@ -598,8 +595,7 @@ fn recruit_row(
 ) -> Value {
     let p = &w.people[i];
     let offered = t.is_some_and(|t| t.offered.is_some() && t.pulled.is_none());
-    let worked = t.is_some();
-    let (read, pot) = staff_read(w, j, p, worked);
+    let (read, pot, yours) = staff_read(w, p);
     let it = interest(w, j, i, offered);
     let s = desk::standing(p, j);
     let hs = p.hs;
@@ -623,6 +619,7 @@ fn recruit_row(
         "ht": afm_engine::body::height_text(afm_engine::body::body_now(&p.player).height),
         "wt": afm_engine::body::body_now(&p.player).weight.round(),
         "read": read,
+        "yours": yours,
         "pot": pot,
         "standing": standing_key(s),
         "interest": it.words,
@@ -642,7 +639,7 @@ fn recruit_row(
         "committable": committable,
         "place": place.map(|k| k + 1),
         "next": next.map(|n| json!({ "date": short_date(n.0), "what": n.1 })),
-        "on_board": worked,
+        "on_board": t.is_some(),
         "reader": reader_name(w, j, p.player.position),
     })
 }
@@ -1152,7 +1149,7 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
     let ranks = Ranks::new(w, &[p.class_of]);
     let t = w.front_office.college.board.iter().find(|t| t.id == id);
     let mut v = recruit_row(w, j, i, &ranks, t, w.front_office.college.board.iter().position(|t| t.id == id), None);
-    let (_, pot) = staff_read(w, j, p, true);
+    let (_, pot, _) = staff_read(w, p);
     v["pot"] = pot;
     v["schools"] = json!(schools(w, j, i));
     v["visits"] = json!(visits_of(w, j, p));
@@ -1334,7 +1331,6 @@ fn seasons_ahead(w: &World, p: &Person) -> u32 {
 fn portal(w: &World, j: usize, args: &Value) -> Reply {
     let pos = args.get("pos").and_then(Value::as_str).filter(|s| *s != "ALL");
     let div = args.get("division").and_then(Value::as_str).filter(|s| *s != "ALL");
-    let reader = views::reader_key(w);
     let today = w.today;
     let d = &w.front_office.college;
     let one_time = w.changes.rules(w.year + 1).one_time_transfer;
@@ -1362,7 +1358,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             && mine_div == afm_engine::world::data::Division::FBS
             && w.programs[c].division != afm_engine::world::data::Division::JUCO
             && !p.cal.graduated;
-        let read = reads::overall(&p.player, false, 10.0, reader);
+        let read = views::person_index(w, p.player.id).map_or(reads::Read::NotSeen, |k| reads::overall(w, k));
         let key = p.last_performance.unwrap_or(p.player.overall()) * 0.0
             + stars_of(p) as f64 * 10.0
             + if p.last_role == Some(PlayingTime::Starter) { 30.0 } else { 0.0 };
@@ -1410,10 +1406,9 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
         let push = ev.iter().skip(1).filter(|e| e.2 > 1.0).max_by(|a, b| a.2.total_cmp(&b.2)).map(|e| e.1);
         let hold = ev.iter().skip(1).filter(|e| e.2 < 1.0).min_by(|a, b| a.2.total_cmp(&b.2)).map(|e| e.1);
         let why = push.or_else(|| ev.first().map(|e| e.1)).unwrap_or("");
-        let eye = views::eye_for(w, TeamRef::College(j), p.player.position);
         roster.push(json!({
             "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "cls": views::class_text(w, p),
-            "role": p.last_role.map(views::role_words), "read": reads::overall(&p.player, true, eye, reader).json(),
+            "role": p.last_role.map(views::role_words), "read": reads::overall(w, i).json(), "yours": reads::mine(w, i).json(),
             "risk": risk, "tone": tone, "why": why, "hold": hold, "talk": talk.map(|t| json!({ "date": short_date(t.date), "answer": t.answer })),
             "in_portal": p.cal.portal.is_some(), "nil": p.nil_income, "stars": stars_of(p),
             "rank": if p.cal.portal.is_some() { 0 } else if lean > 0.25 || p.cal.whispered { 1 } else if lean > 0.1 { 2 } else if lean > 0.03 { 3 } else { 4 },
@@ -1432,7 +1427,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             json!({
                 "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "from": brief(w, c),
                 "division": w.programs[c].division.name(), "cls": views::class_text(w, p), "stars": stars_of(p),
-                "role": p.last_role.map(views::role_words), "read": reads::overall(&p.player, false, 10.0, reader).json(),
+                "role": p.last_role.map(views::role_words), "read": views::person_index(w, p.player.id).map_or(reads::Read::NotSeen, |k| reads::overall(w, k)).json(),
                 "contacted": t.and_then(|t| t.contacted).map(short_date), "leaked": t.is_some_and(|t| t.leaked),
             }),
         ));
@@ -1536,7 +1531,7 @@ fn nil(w: &World, j: usize) -> Reply {
         let eye = views::eye_for(w, TeamRef::College(j), p.player.position);
         rows.push(json!({
             "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "cls": views::class_text(w, p),
-            "role": p.last_role.map(views::role_words), "read": reads::overall(&p.player, true, eye, reader).json(),
+            "role": p.last_role.map(views::role_words), "read": reads::overall(w, i).json(), "yours": reads::mine(w, i).json(),
             "usual": usual.get(&p.player.id).copied().unwrap_or(0.0), "deal": deals.get(&p.player.id).copied(),
             "now": p.nil_income, "stars": stars_of(p), "left": eligibility_left(w, p),
             "max": ncaa::position_nil_max(p.player.position) * 2.5,

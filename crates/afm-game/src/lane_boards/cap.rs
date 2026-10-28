@@ -48,10 +48,8 @@ pub fn board(w: &World, args: &Value) -> Reply {
 }
 
 /// Your staff's overall read of one of your players.
-fn read_of(w: &World, i: usize, t: TeamRef) -> Value {
-    let p = &w.people[i];
-    let eye = views::eye_for(w, t, p.player.position);
-    reads::overall(&p.player, true, eye, views::reader_key(w)).json()
+fn read_of(w: &World, i: usize, _t: TeamRef) -> Value {
+    reads::overall(w, i).json()
 }
 
 fn nfl(w: &World, t: usize, args: &Value) -> Reply {
