@@ -802,6 +802,7 @@ fn main() {
     let mut worst_check = 0.0f64;
     let mut gaps = |at: &[usize], against: &[usize], stars: Option<u8>| {
         let (mut sum, mut n, mut ahead, mut offered) = ([0.0f64; 13], 0u32, 0u32, 0u32);
+        let (mut split, mut in_state, mut fan) = ([0.0f64; 4], 0u32, 0u32);
         for (i, p) in w.people.iter().enumerate() {
             if p.stars < 4 || stars.is_some_and(|s| p.stars != s) || p.player.position.is_specialist() {
                 continue;
@@ -816,7 +817,7 @@ fn main() {
             let kept: Vec<usize> = against.iter().copied().filter(|x| p.cal.offers.contains(x)).collect();
             let pool = if kept.is_empty() { against.to_vec() } else { kept.clone() };
             let terms = |x: usize| afm_engine::debug::recruit_terms(&w, i, x);
-            let total = |t: &[f64; 14]| t[..13].iter().sum::<f64>();
+            let total = |t: &[f64; 18]| t[..13].iter().sum::<f64>();
             let mine = terms(j);
             let Some(alt) = pool.iter().map(|&x| terms(x)).max_by(|a, b| total(a).total_cmp(&total(b))) else {
                 continue;
@@ -827,6 +828,11 @@ fn main() {
             for g in 0..13 {
                 sum[g] += mine[g] - alt[g];
             }
+            for g in 0..4 {
+                split[g] += mine[14 + g] - alt[14 + g];
+            }
+            in_state += (p.home_state == w.programs[j].state) as u32;
+            fan += (p.childhood_team == Some(j)) as u32;
             n += 1;
             ahead += (total(&mine) > total(&alt)) as u32;
             offered += !kept.is_empty() as u32;
@@ -834,9 +840,15 @@ fn main() {
         let nf = n.max(1) as f64;
         let parts = (0..13).map(|g| format!("{} {:+.3}", TERMS[g], sum[g] / nf)).collect::<Vec<_>>().join(", ");
         format!(
-            "n {n} (offers kept for {offered}), ahead on appeal {:.0}%; mean gap: {parts}; total {:+.3}",
+            "n {n} (offers kept for {offered}), ahead on appeal {:.0}%; mean gap: {parts}; total {:+.3}; home ties split: pipeline {:+.3}, stay home {:+.3}, childhood team {:+.3}, brother {:+.3}; from his school's state {:.0}%, grew up a fan of it {:.0}%",
             100.0 * ahead as f64 / nf,
-            sum.iter().sum::<f64>() / nf
+            sum.iter().sum::<f64>() / nf,
+            split[0] / nf,
+            split[1] / nf,
+            split[2] / nf,
+            split[3] / nf,
+            100.0 * in_state as f64 / nf,
+            100.0 * fan as f64 / nf
         )
     };
     let names = |v: &[usize]| v.iter().map(|&p| name(p)).collect::<Vec<_>>().join(", ");
