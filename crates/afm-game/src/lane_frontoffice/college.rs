@@ -687,6 +687,8 @@ fn recruit_row(
         "wt": afm_engine::body::body_now(&p.player).weight.round(),
         "read": read,
         "yours": yours,
+        // Best for us beside best player (SK64): the projected path's score.
+        "for_us": views::person_index(w, p.player.id).and_then(|k| crate::lane_paths::path(w, k)).map(|v| v["for_us"].clone()),
         "pot": pot,
         "standing": standing_key(s),
         "interest": it.words,

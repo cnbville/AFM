@@ -360,6 +360,7 @@ function fcBoardTable(x, k, yours) {
     { k: "school", t: "School · Hometown", l: true, div: true, v: (r) => (r.hs ? r.hs.name : ""), f: (r) => `${fcSchool(r)} <small class="sub">· ${esc(r.town)}</small>` },
     { k: "read", t: "Read", div: true, tip: "Your staff's read of his play now", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
     { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself, or your first impression", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
+    { k: "for_us", t: "For us", tip: "Best for us: his read with when he'd play here and how he fits what you run (his path on his page)", v: (r) => (r.for_us == null ? -99 : r.for_us), f: (r) => (r.for_us == null ? '<span class="muted">-</span>' : `<b>${Math.round(r.for_us)}</b>`) },
     { k: "pot", t: "Ceiling", l: true, tip: "Your staff's words on how far he can go", v: (r) => (r.pot ? r.pot.tier : ""), f: (r) => fcPot(r.pot) },
     { k: "interest", t: "His interest", l: true, div: true, f: (r) => `<span title="${esc(r.reason)}">${fcDot(fcTone(r.tone))}${esc(r.interest)}</span>` },
     { k: "leader", t: "Leader", l: true, v: (r) => (r.leader ? r.leader.name : ""), f: (r) => (r.leader ? teamLink(r.leader) : '<span class="muted">-</span>') },
@@ -375,7 +376,7 @@ function fcBoardTable(x, k, yours) {
   ];
   const note = `${rows.length} of ${x.rows.length} shown. Rest on a row for his staff's reason; a row opens his file.`;
   return `<div class="filters">${fcSeg("fcb", "cls", classes, k.cls)}${fcSeg("fcb", "pos", posOpts, k.pos)}${fcSeg("fcb", "order", [["mine", "Your order"], ["pos", "By position"]], k.order)}<span class="sub fc-note">${esc(note)}</span></div>
-    ${table("fcboard", cols, rows, { groupBy: k.order === "pos" ? (r) => r.pos : null, empty: "Nobody on the board in this view.", groups: [{ t: "Recruit", span: 7 }, { t: "Your staff", who: "position coaches", span: 2, div: true }, { t: "His recruitment", span: 3, div: true }, { t: "Yours", span: yours ? 3 : 2, div: true }] })}`;
+    ${table("fcboard", cols, rows, { groupBy: k.order === "pos" ? (r) => r.pos : null, empty: "Nobody on the board in this view.", groups: [{ t: "Recruit", span: 7 }, { t: "Your staff", who: "position coaches", span: 4, div: true }, { t: "His recruitment", span: 3, div: true }, { t: "Yours", span: yours ? 3 : 2, div: true }] })}`;
 }
 
 // The class plan: the spots your staff would fill, the NCAA's limits, who

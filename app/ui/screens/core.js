@@ -1349,6 +1349,24 @@ screens.player = async (a) => {
       <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button>${l7Stake(p)}</div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
+// His path at your place (lane 7, SK64): when he'd play, who's ahead of
+// him the year he arrives, his fit and who teaches him.
+PLAYER_TABS.push({
+  name: "At our place",
+  after: "Overview",
+  show: (p) => p.stake && p.stake.can,
+  draw: async (p) => {
+    let x = null;
+    try { x = await api("l7_path", { id: p.id }); } catch (e) { x = null; }
+    if (!x) return '<div class="empty">Your staff hasn\'t seen enough of him to project his path here.</div>';
+    const ahead = x.ahead.length ? table("l7ahead", [{ k: "name", t: "Ahead of him the year he arrives", l: true, f: (r) => `${playerLink(r.id, r.name)} <small class="sub">${esc(r.class)}</small>` }, { k: "read", t: "Staff read", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) }, { k: "leaves", t: "Through" }], x.ahead, { tools: false }) : `<div class="empty">Nobody ahead of him at ${esc(p.pos)} the year he arrives.</div>`;
+    return `<div class="grid2"><div class="panel"><h2>His path here <small>arrives ${x.arrives} · ${x.starters} starter${x.starters === 1 ? "" : "s"} at ${esc(p.pos)}</small></h2>
+      <p class="bigline">${esc(x.when)}${x.start ? ` <small class="sub">(${x.start})</small>` : ""}</p>${x.transfer_risk ? '<p class="sub">A kid this rated who sits two years often transfers.</p>' : ""}
+      <div class="kv"><dt>Fit</dt><dd>${esc(x.fit_words)} <small class="sub">${esc(words(x.scheme))}</small></dd><dt>Who teaches him</dt><dd>${x.teacher ? coachLink(x.teacher.id, x.teacher.name) : "Nobody yet"}${x.takes ? ` · he ${esc(x.takes)}` : ""}</dd><dt>Best for us</dt><dd><b>${Math.round(x.for_us)}</b> <small class="sub">his read, less the years he waits, plus his fit</small></dd></div></div>
+      <div class="panel">${ahead}</div></div>`;
+  },
+});
+
 // Your name on him (lane 7, SK40): the button, or the call you made. At a
 // high school, the pitch to his family instead (SK42).
 function l7Stake(p) {

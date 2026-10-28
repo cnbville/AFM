@@ -26,6 +26,7 @@ pub mod letters;
 pub mod lines;
 pub mod live;
 pub mod lookback;
+pub mod outside;
 pub mod own;
 pub mod pitch;
 pub mod predraft;
@@ -361,6 +362,9 @@ pub struct Scouting {
     /// Kids you went after for your high school (SK42).
     #[serde(default)]
     pub pitches: pitch::Pitches,
+    /// Athletes from outside football you signed (SK65), by key.
+    #[serde(default)]
+    pub outside: Vec<u64>,
 }
 
 /// The daily scouting work (called from the clock each day, after the

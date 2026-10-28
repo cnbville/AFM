@@ -47,13 +47,14 @@ screens.evaluate = async (a) => {
   const x = await api("eval_home");
   if (!x.seat) return `<div class="pad"><p class="sub">Start a career first.</p></div>`;
   const list = x.seat === "nfl"
-    ? ["Scouts", "Days out", "Meetings", "Minimums", "Service"]
+    ? ["Scouts", "Days out", "Meetings", "Minimums", "Service", "Outside football", "Coverage"]
     : x.seat === "college"
-      ? ["Personnel", "Days out", "NFL on campus", "Pro day", "Advisory", "Meetings", "Minimums"]
-      : ["Athletes", "Days out"];
+      ? ["Personnel", "Days out", "NFL on campus", "Pro day", "Advisory", "Meetings", "Minimums", "Outside football", "Coverage"]
+      : ["Athletes", "Days out", "Your class and systems", "Coverage"];
   const tab = tabOf("evtab", list, a);
   title("Evaluation", String(x.year));
-  const body = {
+  const body = await {
+    "Outside football": l7Outside, Coverage: l7Coverage, "Your class and systems": l7ClassFit,
     Scouts: evScouts, "Days out": evTrips, Meetings: evMeetings, Minimums: evMinimums, Service: evService,
     Personnel: evPersonnel, "NFL on campus": evCampus, "Pro day": evProDay, Advisory: evAdvisory, Athletes: evAthletes,
   }[tab](x);
@@ -203,6 +204,36 @@ function evAthletes(x) {
   return `${evCard("Athletes in your building who don't play football", `<p class="ev-dim">Your staff's read of the athlete he is, on the 1-20 tools scale. A talk asks him to come out; seniors rarely do.</p>${rows ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Sport</th><th class="num">Class</th><th>Spot</th><th>Tools</th><th>Spotted by</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : evEmpty("Nobody new caught your staff's eye this year.")}`, "wide")}${talks ? evCard("Your talks", talks, "wide") : ""}`;
 }
 
+// ---------- lane 7: outside football, coverage, your class (SK64-SK66) ----------
+async function l7Outside(x) {
+  const r = await api("l7_outside");
+  const rows = r.rows.map((a) => `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.sport)}</td><td class="ev-dim">${esc(a.from)}</td><td class="num">${a.age}</td><td>${esc(a.pos)}</td><td>${evBand(a.read[0], a.read[1], "", 30, 80)}</td><td class="ev-dim">${esc(a.spotted_by)}</td><td>${evLk("l7out", { key: a.key }, x.seat === "nfl" ? "Sign to the practice squad" : "Offer a scholarship", "pri")}</td></tr>`).join("");
+  const when = x.seat === "nfl" ? "From May to the end of August your pro staff hears of a few athletes from other sports and other countries." : "From November to August your staff hears of punters from Australia, soccer kickers and basketball players who never played football.";
+  return evCard("Athletes from outside football", `<p class="ev-dim">${esc(when)} Nobody has seen them play the game, so your staff's read of the football player is wide. Most never make it; a few do.</p>${rows ? `<table class="tbl ev-tbl l7-out"><thead><tr><th>Name</th><th>Sport</th><th>From</th><th class="num">Age</th><th>Spot</th><th>Your staff's read</th><th>Spotted by</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : evEmpty("Nobody this time of year: the window is closed.")}`, "wide");
+}
+const l7Miss = (m) => `<tr><td>${playerLink(m.id, m.name)}</td><td>${esc(m.pos)}</td><td class="num">${m.stars ? "★".repeat(m.stars) : "—"}</td><td class="ev-dim">${esc(m.home || "")}</td><td>${esc(m.where || "")}</td><td class="ev-dim">${m.draft ? `${m.draft.year} round ${m.draft.round}, pick ${m.draft.pick}` : ""}</td></tr>`;
+async function l7Coverage(x) {
+  const r = await api("l7_coverage");
+  if (!r) return evEmpty("No staff yet.");
+  if (r.seat === "hs") {
+    const rows = r.feeders.map((f) => `<tr><td><b>${esc(f.name)}</b></td><td>${f.youth ? "Youth league" : "Middle school"}</td><td>${esc(f.coach || "")}</td><td class="num">${f.boys}</td><td class="num">${f.share}%</td><td class="ev-dim">${esc(f.last || "")}</td><td>${f.been ? '<span class="ev-gold">Your help is there</span>' : '<span class="ev-amber">Never been</span>'}</td></tr>`).join("");
+    return evCard("Your feeders", `<p class="ev-dim">The middle schools and youth leagues your boys come from, and whether you have helped any of them: a clinic, an assistant, your playbook or equipment.</p>${rows ? `<table class="tbl ev-tbl"><thead><tr><th>Feeder</th><th>Kind</th><th>Coach</th><th class="num">Boys</th><th class="num">Share</th><th>Last</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : evEmpty("No feeders on file.")}`, "wide");
+  }
+  const head = r.seat === "nfl" ? ["School", "Division", "Your looks this year", "Picks, last five drafts", "Other clubs' looks"] : ["State", "", "Your looks this year", "FBS players, last five classes", "Your rivals' offers"];
+  const rows = r.rows.map((c) => {
+    const thin = c.came > 0 && c.eyes === 0;
+    return `<tr class="${thin ? "l7-thin" : ""}"><td>${r.seat === "nfl" ? teamLink(c.school) : `<b>${esc(c.state)}</b>`}</td><td class="ev-dim">${esc(c.division || "")}</td><td class="num">${c.eyes}</td><td class="num">${c.came}</td><td class="num">${c.rivals}</td></tr>`;
+  }).join("");
+  const missed = r.missed.length ? `<table class="tbl ev-tbl"><thead><tr><th>Player</th><th>Spot</th><th class="num">Stars</th><th>Home</th><th>Now</th><th>Draft</th></tr></thead><tbody>${r.missed.map(l7Miss).join("")}</tbody></table>` : evEmpty("Nobody: your staff saw them all.");
+  return `<div class="ev-grid">${evCard(r.seat === "nfl" ? "Where your scouts go" : "Where your staff goes", `<p class="ev-dim">Rows in amber had players and none of your looks.</p><table class="tbl ev-tbl"><thead><tr>${head.map((h, k) => `<th class="${k > 1 ? "num" : ""}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`)}${evCard("Who you missed", `<p class="ev-dim">${esc(r.missed_title)}.</p>${missed}`)}</div>`;
+}
+async function l7ClassFit(x) {
+  const r = await api("l7_class_fit");
+  if (!r || !r.groups) return evEmpty("Coach a high school first.");
+  const cards = r.groups.map((g) => evCard(g.kind === "Offense" ? "Offenses for your boys" : g.kind === "Front" ? "Fronts for your boys" : "Coverages for your boys", `<table class="tbl ev-tbl"><tbody>${g.rows.map((s, k) => `<tr class="${k === 0 ? "l7-best" : ""}"><td><b>${esc(s.name)}</b></td><td class="${s.fit >= 0.4 ? "ev-gold" : s.fit <= -0.4 ? "ev-amber" : ""}">${esc(s.words)}</td><td class="ev-dim num">${s.read} boys</td></tr>`).join("")}</tbody></table>`)).join("");
+  return `<p class="ev-dim pad-s">How well the boys on your roster fit each system, as your staff reads them. A high school coach builds around the kids he has.</p><div class="ev-grid">${cards}</div>`;
+}
+
 // ---------- the scouting file's "Your look" tab ----------
 async function evFileTab(id) {
   let f;
@@ -272,4 +303,7 @@ Object.assign(CORE_MORE, {
   evadv: (el) => evDo(el, "eval_advisory", { id: Number(el.dataset.id), on: el.dataset.on === "1" }),
   evtalk: (el) => evDo(el, "eval_talk", { id: Number(el.dataset.id), say: Number(el.dataset.say) }),
   evath: (el) => evDo(el, "eval_athlete", { key: Number(el.dataset.key) }),
+  l7out: async (el) => {
+    try { const r = await api("l7_outside_sign", { key: Number(el.dataset.key) }); toast(r.text); refresh(el); } catch (e) { toast(e.message || String(e)); }
+  },
 });
