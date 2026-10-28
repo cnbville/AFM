@@ -2275,7 +2275,7 @@ mod tests {
         let close = w.today.add(14);
         rec::portal_open(&mut w, crate::world::clock::PortalWindow::Winter, close);
         let entry = w.people[walk].cal.portal.expect("a cut walk-on enters the next window");
-        assert_eq!(&*entry.why, "cut");
+        assert_eq!(entry.why, "cut");
         // At another school the cut no longer holds.
         let other = (0..w.programs.len()).find(|&q| q != j).unwrap();
         w.people[schol].college = Some(other);
