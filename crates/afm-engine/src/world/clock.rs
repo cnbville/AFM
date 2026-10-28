@@ -151,6 +151,20 @@ fn hs_transfer_day(y: &YearDates) -> Date {
     Date::ymd(y.season, 6, 15)
 }
 
+/// Bodies grow by the date (update 3, A16): each person's years past his
+/// whole-year age today, from his birthday.
+fn grow_bodies(w: &mut World, d: Date) {
+    let unknown = crate::calendar::born::unknown();
+    for p in &mut w.people {
+        p.player.grow = if p.born == unknown {
+            0.0
+        } else {
+            let years = f64::from(d.0 - p.born.0) / 365.2425;
+            (years - f64::from(p.player.age)).clamp(0.0, 2.0) as f32
+        };
+    }
+}
+
 /// Day `d` of football year `y`.
 pub(crate) fn advance_day(w: &mut World) {
     // A war room left open (a day passed without finishing the draft): the
@@ -160,6 +174,7 @@ pub(crate) fn advance_day(w: &mut World) {
     }
     let d = w.today;
     let y = w.dates.clone();
+    grow_bodies(w, d);
     // A live game left from a day gone by (called off, or never booked).
     if w.live.as_ref().is_some_and(|l| l.date < d) {
         w.live = None;

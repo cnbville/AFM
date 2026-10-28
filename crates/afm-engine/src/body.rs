@@ -121,13 +121,14 @@ pub fn adult_body(id: u32, pos: Position, potential: f64, strength_z: f64, speed
 /// be around 90%"): his share of his grown weight at 14, 15 and on, until
 /// full. Backs, receivers, defensive backs and kickers arrive near full;
 /// quarterbacks, tight ends, linebackers, edge rushers and snappers a step
-/// behind; tackles, guards, centers and defensive tackles make their
-/// biggest gains in the first two college years (real: line recruits
-/// average about 88% of the combine's linemen, FBS starting lines 309 lb).
-/// The years before 17 are proposed, not confirmed.
+/// behind; tackles, guards, centers and defensive tackles arrive at 96%
+/// and add the rest in college (sizes item 3, Cain 2026-10-28: real
+/// freshman linemen are listed at 303 lb against 311 for seniors, so a
+/// tackle who'll be 310 arrives at about 298). The years before 17, and
+/// the linemen's 17 and college years, are proposed, not confirmed.
 const FILL_SKILL: [f64; 9] = [0.80, 0.84, 0.87, 0.90, 0.94, 0.97, 0.99, 1.0, 1.0];
 const FILL_MID: [f64; 9] = [0.79, 0.83, 0.86, 0.89, 0.93, 0.965, 0.99, 1.0, 1.0];
-const FILL_LINE: [f64; 9] = [0.76, 0.80, 0.84, 0.87, 0.90, 0.94, 0.97, 0.99, 1.0];
+const FILL_LINE: [f64; 9] = [0.76, 0.80, 0.84, 0.87, 0.96, 0.975, 0.988, 0.996, 1.0];
 
 /// A position's fill-out curve and the age he is full.
 fn fill_curve(pos: Position) -> (&'static [f64; 9], f64) {
@@ -171,13 +172,28 @@ pub fn fill_share(p: &Player, age: f64) -> f64 {
     clamp(base + fill_offset(p) * fade, 0.6, 1.0)
 }
 
+/// How much of his grown height a boy still has to grow at 13 to 20, as a
+/// share of it: the CDC charts' median boy, 5.3 in short at 14, 0.55 at 17,
+/// 0.3 at 18 and grown at 20, out of a grown man's 69.6 in (update 3, A15).
+const HEIGHT_LEFT: [f64; 8] = [0.1178, 0.0761, 0.0441, 0.0221, 0.0079, 0.0043, 0.0017, 0.0];
+
+/// His share of height still to grow at an age, between the chart's years.
+fn height_left(age: f64) -> f64 {
+    let x = clamp(age - 13.0, 0.0, 7.0);
+    let k = (x.floor() as usize).min(6);
+    HEIGHT_LEFT[k] + (HEIGHT_LEFT[k + 1] - HEIGHT_LEFT[k]) * (x - k as f64)
+}
+
 /// His body now: boys grow through high school, late bloomers later, and
 /// fill out by position group into their early twenties (A12, A13).
 pub fn body_now(p: &Player) -> Body {
     let a = p.body;
-    let age = p.age as f64;
-    let grown = clamp((age - 13.0 - 0.6 * p.bloom) / 6.0, 0.0, 1.0);
-    let height = a.height - (1.0 - grown) * 4.0;
+    // By the date (A16): his whole-year age and the part of a year since.
+    let age = p.age as f64 + f64::from(p.grow);
+    // Height on the median boy's curve, his bloom moving its timing (A15).
+    let left = height_left(age - 0.6 * p.bloom);
+    let grown = 1.0 - left / HEIGHT_LEFT[0];
+    let height = a.height * (1.0 - left);
     let weight = a.weight * fill_share(p, age);
     let k = height / a.height;
     Body {
@@ -250,7 +266,36 @@ pub struct Drills {
     pub flexibility: f64,
     pub weight: f64,
     pub arm: f64,
+    /// His position: how wide the 3-cone and shuttle spread there.
+    pub pos: Position,
 }
+
+/// How the 3-cone and shuttle spread at each position (update 3, S14): as
+/// wide as the real combine there (nflverse 2000-2025), with the world's
+/// averages kept; before it they spread about half as wide. Half of the
+/// missing spread comes from the ratings, stretched around the average
+/// drafted player at the position, and half from how well he runs the
+/// drill beyond them, his own for life (both proposed, not confirmed): all
+/// of it from the ratings would make an average high schooler a second
+/// slower. (bend middle, 3-cone stretch, 3-cone knack sd, quickness middle,
+/// shuttle stretch, shuttle knack sd), measured with `positions` on 8 seeds;
+/// kickers, punters and snappers are left as they were.
+const AGILE_SPREAD: [(f64, f64, f64, f64, f64, f64); POSITION_COUNT] = [
+    (72.80, 3.23, 0.18, 72.03, 3.27, 0.13), // QB
+    (81.83, 3.86, 0.18, 82.97, 3.76, 0.12), // RB
+    (80.94, 3.29, 0.16, 81.91, 3.26, 0.11), // WR
+    (80.34, 3.19, 0.16, 80.61, 3.09, 0.11), // TE
+    (74.72, 3.85, 0.25, 73.95, 3.38, 0.15), // OT
+    (71.91, 3.97, 0.25, 71.17, 3.83, 0.16), // IOL
+    (80.97, 4.09, 0.21, 81.66, 3.88, 0.14), // EDGE
+    (73.97, 3.88, 0.22, 73.65, 3.75, 0.15), // DT
+    (81.07, 3.42, 0.17, 81.71, 3.51, 0.12), // LB
+    (83.23, 3.31, 0.15, 83.85, 3.44, 0.11), // CB
+    (81.24, 3.54, 0.16, 81.94, 3.54, 0.11), // S
+    (0.0, 1.00, 0.0, 0.0, 1.00, 0.0),       // K
+    (0.0, 1.00, 0.0, 0.0, 1.00, 0.0),       // P
+    (0.0, 1.00, 0.0, 0.0, 1.00, 0.0),       // LS
+];
 
 impl Drills {
     pub fn of(p: &Player) -> Drills {
@@ -265,16 +310,27 @@ impl Drills {
             flexibility: at(Attr::Flexibility),
             weight: b.weight,
             arm: b.arm,
+            pos: p.position,
         }
+    }
+
+    /// The 3-cone is the scouts' bend test for edge rushers: it reads hip
+    /// flexibility as well as feet.
+    pub fn bend(&self) -> f64 {
+        0.55 * self.agility + 0.25 * self.accel + 0.2 * self.flexibility
+    }
+
+    /// The short shuttle is change of direction.
+    pub fn quick(&self) -> f64 {
+        0.7 * self.agility + 0.3 * self.accel
     }
 
     fn means(&self) -> [f64; 6] {
         let w = self.weight - 220.0;
         let burst = self.jumping.max(0.95 * self.accel);
-        // The 3-cone is the scouts' bend test for edge rushers: it reads hip
-        // flexibility as well as feet; the short shuttle is change of direction.
-        let quick = 0.7 * self.agility + 0.3 * self.accel;
-        let bend = 0.55 * self.agility + 0.25 * self.accel + 0.2 * self.flexibility;
+        let (bm, ck, _, qm, sk, _) = AGILE_SPREAD[self.pos.index()];
+        let bend = bm + ck * (self.bend() - bm);
+        let quick = qm + sk * (self.quick() - qm);
         [
             5.56 - 0.0124 * (0.75 * self.speed + 0.25 * self.accel) + forty_weight(self.weight),
             20.9 + 0.182 * burst - 0.035 * w,
@@ -309,6 +365,14 @@ fn tested(forty: f64, vertical: f64, broad: f64, bench: f64, cone: f64, shuttle:
     }
 }
 
+/// How well he runs the 3-cone and shuttle beyond his ratings, in seconds
+/// (S14): his own for life, on his own stream, at his position's spread.
+pub fn drill_knack(p: &Player) -> (f64, f64) {
+    let (_, _, cone, _, _, shuttle) = AGILE_SPREAD[p.position.index()];
+    let mut rng = Rng::new(p.id ^ 0xC0_4E5);
+    (rng.normal(0.0, cone), rng.normal(0.0, shuttle))
+}
+
 /// Combine results from his attributes and body, with test-day noise.
 pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
     let [forty, vertical, broad, bench, cone, shuttle] = Drills::of(p).means();
@@ -320,8 +384,9 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
     let vertical = vertical + rng.normal(0.0, 1.5);
     let broad = broad + rng.normal(0.0, 3.0);
     let bench = bench + rng.normal(0.0, 2.0);
-    let cone = cone + rng.normal(0.0, 0.08);
-    let shuttle = shuttle + rng.normal(0.0, 0.06);
+    let (cone_knack, shuttle_knack) = drill_knack(p);
+    let cone = cone + cone_knack + rng.normal(0.0, 0.08);
+    let shuttle = shuttle + shuttle_knack + rng.normal(0.0, 0.06);
     tested(forty, vertical, broad, bench, cone, shuttle)
 }
 

@@ -994,6 +994,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         situation: OptF64::NONE,
     });
     player.age += 1;
+    // The day's body stays where it was: a year of age moves out of `grow`.
+    player.grow = (player.grow - 1.0).max(0.0);
     SeasonReport { overall_before, overall_after, potential_before, potential_after, events, games_missed }
 }
 

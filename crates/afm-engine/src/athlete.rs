@@ -100,13 +100,16 @@ pub(crate) fn talent_size(talent: f64) -> (f64, f64) {
 
 /// The frame a boy grows into, as if he were a draft prospect: about three in
 /// ten have a lineman's build (the share of linemen on real rosters), the
-/// rest are lean, with height and weight tied together.
+/// rest are lean, with height and weight tied together. The heights are
+/// tuned so grown heights by position match the real ones (update 3, A18:
+/// FBS against 2025 rosters, drafted players against the combine; were 75.9
+/// and 73.1).
 fn draw_frame(rng: &mut Rng) -> (f64, f64) {
     let h = rng.normal(0.0, 1.0);
     if rng.chance(0.29) {
-        (75.9 + 1.5 * h, 311.0 + 4.0 * h + rng.normal(0.0, 15.0))
+        (76.4 + 1.5 * h, 311.0 + 4.0 * h + rng.normal(0.0, 15.0))
     } else {
-        (73.1 + 2.1 * h, 220.0 + 26.0 * (0.55 * h + 0.83 * rng.normal(0.0, 1.0)))
+        (73.5 + 2.1 * h, 220.0 + 26.0 * (0.55 * h + 0.83 * rng.normal(0.0, 1.0)))
     }
 }
 
@@ -487,13 +490,15 @@ fn perceived(p: &Player, eye: Eye) -> Attributes {
 /// How badly a frame misfits a position, as a share of his rating there:
 /// nobody puts a 5'9" boy at tackle. Weight can move about 25 pounds with a
 /// weight program, height can't. Measured on the frame he'd have as a draft
-/// prospect, against the real combine.
+/// prospect, against the real combine. Coaches start to mind height half a
+/// spread from the position's average (update 3, A18; was a whole spread,
+/// which left backs and safeties tall and interior linemen short).
 fn misfit(height: f64, weight: f64, pos: Position) -> f64 {
     let (hm, hs, wm, ws) = combine_size(pos);
     let h = (height - hm) / hs;
     let w = ((weight - wm).abs() - 25.0).max(0.0) / ws;
-    let over = |z: f64| (z.abs() - 1.0).max(0.0);
-    clamp(0.04 * over(h).powi(2) + 0.04 * over(w).powi(2), 0.0, 0.5)
+    let over = |z: f64, band: f64| (z.abs() - band).max(0.0);
+    clamp(0.04 * over(h, 0.5).powi(2) + 0.04 * over(w, 1.0).powi(2), 0.0, 0.5)
 }
 
 fn player_misfit(p: &Player, pos: Position) -> f64 {
@@ -544,7 +549,12 @@ pub fn set_position(p: &mut Player, pos: Position) {
         // it (real FBS and NFL snappers: about 6'2", 235-250 lb).
         clamp(frame, LS_MIN_WEIGHT, LS_MAX_WEIGHT)
     } else if pos.is_specialist() {
-        frame
+        // Kickers and punters weigh what real ones do (update 3, A19: NFL
+        // kickers 194 lb, punters 213, where the frame alone made them 224
+        // and 225): the combine's spread at his spot, keeping how big his
+        // frame runs among lean builds.
+        let (_, _, wm, ws) = combine_size(pos);
+        clamp(wm + ws * (frame - 220.0) / 26.0, wm - 2.5 * ws, wm + 2.5 * ws)
     } else {
         placed_weight(frame, target)
     };

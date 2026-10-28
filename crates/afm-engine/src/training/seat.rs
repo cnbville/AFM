@@ -516,7 +516,7 @@ pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
         clean: five(bench * 0.88 * (1.0 + n(4, 0.04))),
         forty: (forty * 100.0).round() as u16,
         split: ((0.375 * forty - 0.15 + n(6, 0.015)) * 100.0).round() as u16,
-        shuttle: ((c.shuttle + n(7, 0.04)).clamp(3.8, 6.0) * 100.0).round() as u16,
+        shuttle: ((c.shuttle + crate::body::drill_knack(p).1 + n(7, 0.04)).clamp(3.8, 6.0) * 100.0).round() as u16,
         vertical: ((c.vertical + n(8, 0.8)).clamp(14.0, 46.0) * 2.0).round() as u8,
         weight: wt.round().clamp(0.0, 500.0) as u16,
     }

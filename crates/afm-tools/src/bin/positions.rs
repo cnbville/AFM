@@ -20,9 +20,14 @@ const COMBINE_CSV: &str = include_str!("../../../../data/real-world/combine_by_p
 
 /// The real combine's forty per position: (mean, sd).
 fn real_forty(pos: Position) -> Option<(f64, f64)> {
+    real_drill(pos, 6)
+}
+
+/// A real combine drill per position from its column: (mean, sd).
+fn real_drill(pos: Position, col: usize) -> Option<(f64, f64)> {
     COMBINE_CSV.lines().skip(1).find_map(|line| {
         let f: Vec<&str> = line.split(',').collect();
-        (f[0] == pos.name()).then(|| (f[6].parse().unwrap_or(0.0), f[7].parse().unwrap_or(0.0)))
+        (f[0] == pos.name()).then(|| (f[col].parse().unwrap_or(0.0), f[col + 1].parse().unwrap_or(0.0)))
     })
 }
 
@@ -124,6 +129,8 @@ fn hs_speed(n: usize) {
     let mut share = [0.0; 4];
     let mut fast = [0usize; 4];
     let mut weight = [[0.0f64; 2]; 4];
+    // Seniors' 3-cone and shuttle, skill players and linemen.
+    let mut agile = [[0.0f64; 3]; 2];
     let ctx = SeasonContext::new(Level::HS, 10.0, PlayingTime::Starter);
     for _ in 0..n {
         let mut p = generate_prospect(&mut rng, ProspectOptions::default());
@@ -137,6 +144,15 @@ fn hs_speed(n: usize) {
             weight[y][0] += body_now(&p).weight / p.body.weight;
             weight[y][1] += 1.0;
         }
+        let line = matches!(p.position, Position::OT | Position::IOL | Position::DT);
+        let skill = matches!(p.position, Position::RB | Position::WR | Position::CB | Position::S);
+        if line || skill {
+            let e = Drills::of(&p).expected();
+            let g = &mut agile[line as usize];
+            g[0] += e.cone;
+            g[1] += e.shuttle;
+            g[2] += 1.0;
+        }
     }
     let k = 250_000.0 / n as f64;
     for (y, name) in ["freshman", "sophomore", "junior", "senior"].iter().enumerate() {
@@ -146,6 +162,9 @@ fn hs_speed(n: usize) {
             fast[y] as f64 * k,
             weight[y][0] / weight[y][1].max(1.0)
         );
+    }
+    for (g, name) in agile.iter().zip(["backs, receivers and secondary", "linemen"]) {
+        println!("HS seniors, {name}: 3-cone {:.2}, shuttle {:.2}", g[0] / g[2].max(1.0), g[1] / g[2].max(1.0));
     }
 }
 
@@ -166,12 +185,26 @@ fn main() {
     let mut spec = [(0.0f64, 0.0f64, 0.0f64); 2];
     let mut spec_forty: [Vec<f64>; 2] = Default::default();
     let mut forty: Vec<Vec<f64>> = vec![Vec::new(); POSITION_COUNT];
+    // 3-cone and shuttle: without and with the day's noise.
+    let mut agile: Vec<Vec<[f64; 4]>> = vec![Vec::new(); POSITION_COUNT];
+    // Tall, heavy edges (6'5 and 250 lb or more) and how many run a 7.00 3-cone.
+    let mut bendy = (0usize, 0usize);
+    // S14: the ratings behind the two drills, and weight: (bend, quick, weight).
+    let mut agile_in: Vec<Vec<[f64; 3]>> = vec![Vec::new(); POSITION_COUNT];
     let mut unused: Vec<[Vec<f64>; 4]> = vec![Default::default(); POSITION_COUNT];
+    // A18: grown heights of FBS players by position.
+    let mut fbs_h = [(0.0f64, 0.0f64); POSITION_COUNT];
     let (mut moved, mut drafted_n, mut drafted_moved) = (0usize, 0usize, 0usize);
     for r in recs {
         let first = r.player.position_history[0].1;
         hs[first.index()] += 1;
         moved += (r.player.position_history.len() > 1) as usize;
+        if r.college == Some(CollegeLevel::FBS) {
+            let p = r.at_draft.as_deref().unwrap_or(&r.player);
+            let e = &mut fbs_h[p.position.index()];
+            e.0 += p.body.height;
+            e.1 += 1.0;
+        }
         if r.college.is_some() && r.player.position.is_specialist() {
             let b = body_now(&r.player);
             let e = &mut spec[(r.player.position == Position::P) as usize];
@@ -195,6 +228,14 @@ fn main() {
             let c = combine(p, &mut rng);
             lift[k].2 += c.bench;
             forty[k].push(c.forty);
+            let d = Drills::of(p);
+            let e = d.expected();
+            agile[k].push([e.cone, e.shuttle, c.cone, c.shuttle]);
+            agile_in[k].push([d.bend(), d.quick(), d.weight]);
+            if p.position == Position::EDGE && b.height >= 77.0 && b.weight >= 250.0 {
+                bendy.0 += 1;
+                bendy.1 += (c.cone <= 7.0) as usize;
+            }
             unused[k][0].push(p.attributes.get(Attr::Elusiveness));
             unused[k][1].push(afm_engine::debug::ceilings(p).get(Attr::Elusiveness));
             unused[k][2].push(p.attributes.get(Attr::ManCoverage));
@@ -283,6 +324,78 @@ fn main() {
         "changed position at least once: {:.1}% of the class; drafted at a different position than as a freshman: {:.1}%",
         100.0 * moved as f64 / recs.len() as f64,
         100.0 * drafted_moved as f64 / drafted_n.max(1) as f64
+    );
+    // A18: real 2025 FBS seniors (cfbfastR rosters, 4th year and up) as
+    // listed, less the 0.75 in a school listing adds (afm/sizes-check).
+    let fbs_real = |pos: Position| match pos {
+        Position::QB => 74.1,
+        Position::RB => 70.8,
+        Position::WR => 72.3,
+        Position::TE => 76.2,
+        Position::OT | Position::IOL => 76.5,
+        Position::EDGE => 75.5,
+        Position::DT => 74.7,
+        Position::LB => 73.6,
+        Position::CB => 71.9,
+        Position::S => 72.1,
+        _ => 0.75,
+    } - 0.75;
+    for pos in Position::ALL.into_iter().filter(|&p| !p.is_specialist()) {
+        let (h, n) = fbs_h[pos.index()];
+        println!(
+            "fbs height {:<4} {:.2} (real seniors {:.2}), {n:.0} players",
+            pos.name(),
+            h / n.max(1.0),
+            fbs_real(pos)
+        );
+    }
+    // S14: the 3-cone and shuttle against the real combine (the spread
+    // before the day's noise in brackets).
+    println!("pos   drafted 3-cone mean/sd [no noise] (real)   shuttle mean/sd [no noise] (real)");
+    for pos in Position::ALL.into_iter().filter(|&p| !p.is_specialist()) {
+        let k = pos.index();
+        let col = |i: usize| agile[k].iter().map(|x| x[i]).collect::<Vec<f64>>();
+        let ((cm, csd), (_, craw)) = (mean_sd(&col(2)), mean_sd(&col(0)));
+        let ((sm, ssd), (_, sraw)) = (mean_sd(&col(3)), mean_sd(&col(1)));
+        let (rc, rcsd) = real_drill(pos, 14).unwrap_or((0.0, 0.0));
+        let (rs, rssd) = real_drill(pos, 16).unwrap_or((0.0, 0.0));
+        let best = |i: usize| col(i).into_iter().fold(f64::MAX, f64::min);
+        println!(
+            "drill {:<4} {cm:.2}/{csd:.2} [{craw:.2}] ({rc:.2}/{rcsd:.2})   {sm:.2}/{ssd:.2} [{sraw:.2}] ({rs:.2}/{rssd:.2})   best {:.2} {:.2}",
+            pos.name(),
+            best(2),
+            best(3)
+        );
+    }
+    // S14: what sets each position's stretch. Each drill is a ratings term
+    // plus a weight term; the stretch k solves k²·Vr + 2k·C + Vw = real sd²
+    // less the day's noise.
+    for pos in Position::ALL.into_iter().filter(|&p| !p.is_specialist()) {
+        let v = &agile_in[pos.index()];
+        let n = v.len().max(1) as f64;
+        let m = |i: usize| v.iter().map(|x| x[i]).sum::<f64>() / n;
+        let (bm, qm, wm) = (m(0), m(1), m(2));
+        let stretch = |i: usize, a: f64, b: f64, mid: f64, noise: f64, col: usize| {
+            let vr = v.iter().map(|x| (a * (x[i] - mid)).powi(2)).sum::<f64>() / n;
+            let c = v.iter().map(|x| a * (x[i] - mid) * b * (x[2] - wm)).sum::<f64>() / n;
+            let vw = v.iter().map(|x| (b * (x[2] - wm)).powi(2)).sum::<f64>() / n;
+            let t = real_drill(pos, col).map_or(0.0, |r| r.1 * r.1 - noise * noise);
+            let full = (-c + (c * c - vr * (vw - t)).max(0.0).sqrt()) / vr.max(1e-9);
+            // Half the missing spread from the ratings, the rest his knack.
+            let k = 1.0 + 0.5 * (full - 1.0);
+            (full, k, (t - k * k * vr - 2.0 * k * c - vw).max(0.0).sqrt())
+        };
+        let (cf, ck, cn) = stretch(0, -0.007, 0.0062, bm, 0.08, 14);
+        let (sf, sk, sn) = stretch(1, -0.0045, 0.0039, qm, 0.06, 16);
+        println!(
+            "s14 {:<4} bend {bm:.2} cone x {cf:.2} half {ck:.2} knack {cn:.3}  quick {qm:.2} shuttle x {sf:.2} half {sk:.2} knack {sn:.3}",
+            pos.name()
+        );
+    }
+    println!(
+        "edges 6'5 and 250 lb or more: {}, {:.1}% run a 3-cone of 7.00 or faster (real 2.5%)",
+        bendy.0,
+        100.0 * bendy.1 as f64 / bendy.0.max(1) as f64
     );
     lean_check(recs);
     slumps(recs);

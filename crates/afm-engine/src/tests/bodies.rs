@@ -2,7 +2,7 @@
 
 use super::{mean, prospects};
 use crate::attributes::Attr;
-use crate::body::{body_now, fill_share, forty_weight, play_speed};
+use crate::body::{Drills, body_now, combine_size, fill_share, forty_weight, play_speed};
 use crate::development::{SeasonContext, develop_season, unrelated};
 use crate::player::{Level, Player, PlayingTime, ProspectOptions, generate_prospect};
 use crate::positions::Position;
@@ -24,15 +24,15 @@ fn fills_out_by_position_group_with_outliers() {
     let receivers = shares(&at(Position::WR, 4000, "fill-wr"), 18.0);
     let tackles = shares(&at(Position::OT, 4000, "fill-ot"), 18.0);
     let med = |v: &[f64]| v[v.len() / 2];
-    // A12: receivers about 94% as freshmen, tackles about 90%.
+    // A12: receivers about 94% as freshmen, tackles about 96% (sizes item 3).
     assert!((med(&receivers) - 0.94).abs() < 0.01, "receivers {}", med(&receivers));
-    assert!((med(&tackles) - 0.90).abs() < 0.01, "tackles {}", med(&tackles));
+    assert!((med(&tackles) - 0.96).abs() < 0.01, "tackles {}", med(&tackles));
     // A13: most within 3 points (5 for linemen), a few far out both ways.
     let within = |v: &[f64], m: f64, d: f64| v.iter().filter(|&&x| (x - m).abs() <= d).count() as f64 / v.len() as f64;
     assert!(within(&receivers, 0.94, 0.03) > 0.8);
-    assert!(within(&tackles, 0.90, 0.05) > 0.8);
+    assert!(within(&tackles, 0.96, 0.05) > 0.8);
     assert!(receivers.iter().filter(|&&x| x >= 0.98).count() > 20, "a Metcalf arrives near full");
-    assert!(tackles.iter().filter(|&&x| x <= 0.79).count() > 10, "a late-growing tackle arrives light");
+    assert!(tackles.iter().filter(|&&x| x <= 0.88).count() > 10, "a late-growing tackle arrives light");
     // Full by 21, linemen by 22.
     assert!(shares(&at(Position::WR, 500, "fill-wr21"), 21.0).iter().all(|&x| x == 1.0));
     assert!(shares(&at(Position::OT, 500, "fill-ot22"), 22.0).iter().all(|&x| x == 1.0));
@@ -151,4 +151,74 @@ fn a_senior_has_about_95_percent_of_his_top_speed() {
     // His body now carries his group's share.
     let p = &at(Position::WR, 1, "senior-body")[0];
     assert!(body_now(p).weight < p.body.weight);
+}
+
+#[test]
+fn height_grows_on_the_real_curve_by_the_date() {
+    // A15 and A16: a 6'2" man with an average bloom, by age and by the date.
+    let mut p = generate_prospect(&mut Rng::new("height-curve"), ProspectOptions::default());
+    p.body.height = 74.0;
+    p.bloom = 0.0;
+    let short = |p: &mut Player, age: u32, grow: f32| {
+        p.age = age;
+        p.grow = grow;
+        74.0 - body_now(p).height
+    };
+    assert!((short(&mut p, 14, 0.0) - 5.6).abs() < 0.1);
+    assert!((short(&mut p, 17, 0.0) - 0.58).abs() < 0.05, "about half an inch left at 17");
+    assert!((short(&mut p, 18, 0.0) - 0.32).abs() < 0.05);
+    let mid = short(&mut p, 17, 0.5);
+    assert!(mid < short(&mut p, 17, 0.0) && mid > short(&mut p, 18, 0.0), "grows during the year");
+    assert_eq!(short(&mut p, 20, 0.0), 0.0);
+    // A late bloomer still grows in college.
+    p.bloom = 2.0;
+    assert!(short(&mut p, 19, 0.0) > 0.2);
+}
+
+#[test]
+fn kickers_and_punters_weigh_what_real_ones_do() {
+    // A19: from the combine's 197 and 214 lb, lighter for the small frames
+    // most boys who kick have, never the lean frame's 220-plus.
+    let mut rng = Rng::new("kicker-weights");
+    let all: Vec<Player> = (0..30_000).map(|_| generate_prospect(&mut rng, ProspectOptions::default())).collect();
+    let weights = |pos: Position| {
+        let w: Vec<f64> = all
+            .iter()
+            .filter(|p| p.position == pos)
+            .map(|p| {
+                let mut p = p.clone();
+                crate::athlete::set_position(&mut p, pos);
+                p.body.weight
+            })
+            .collect();
+        assert!(w.len() > 100, "{pos:?} {}", w.len());
+        mean(&w)
+    };
+    let (k, p) = (weights(Position::K), weights(Position::P));
+    assert!(k > 170.0 && k < combine_size(Position::K).2, "kickers {k}");
+    assert!(p > 185.0 && p < combine_size(Position::P).2 && p > k + 5.0, "punters {p}");
+}
+
+#[test]
+fn an_edge_who_bends_runs_a_fast_3_cone() {
+    // S14: the drills spread as wide as the real combine, the average kept;
+    // his knack for the drill (on test days only) takes a bender to 6.73.
+    let edge = |agile: f64| {
+        Drills {
+            speed: 85.0,
+            accel: agile,
+            agility: agile,
+            strength: 80.0,
+            jumping: 80.0,
+            flexibility: agile,
+            weight: 260.0,
+            arm: 34.0,
+            pos: Position::EDGE,
+        }
+        .expected()
+        .cone
+    };
+    assert!(edge(92.0) < 7.0, "a bender: {}", edge(92.0));
+    assert!(edge(81.0) > 7.2 && edge(81.0) < 7.4, "the average edge: {}", edge(81.0));
+    assert!(edge(70.0) > 7.5, "a stiff edge: {}", edge(70.0));
 }
