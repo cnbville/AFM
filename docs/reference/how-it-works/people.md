@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28.
+Checked against main at 8198872 with update 3 lane 6 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -274,6 +274,11 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - `world/folk/rules.rs`: `risk` terms, weekly bases, `see`, `nfl_fine`, `trouble_factor`, hit-fine odds 0.0055.
 - `world/folk/press.rs`: answer effects. `world/folk/cast.rs`: reporter draws.
 - `world/fame.rs`: `position_draw`, `market_households`, `aura_mult`, `brand_money` (80M, 4M, ^4), `follower_target`, `reach`.
+
+## Why-lines on mood (update 3, lane 6)
+
+- Every Monday your chief of staff lists the players whose mood fell this week: those whose mood reasons of the last 7 days add to -0.08 or less, best-starred first, each with his mood word and his biggest reasons (`crates/afm-game/src/lane_help.rs`, `mood_dips`; `lane_core/mail.rs`, `morale`; `folk/talks.rs`, `reasons`, `mood_words`).
+- A portal entry's why-line: his own words, his role last season, his mood and a graduate's last chance (`lane_help.rs`, `portal_why`). A losing streak's: the scores and the job's expectation (`streak_why`).
 
 ## Related pages
 

@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at e66acb3 with update 3 lane 5 on 2026-10-28.
+Checked against main at 8198872 with update 3 lane 6 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -198,6 +198,13 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - `world/season.rs`: the coaching blend per stage, `coach_caller`. `development.rs`: `coaching_mult`, `coachability_lean`.
 - `world/former.rs`: `college_share`, `life_base`, `year_end` rates, `draw` weights, `Played::floor`, `Played::fame`, `made_up` shares. `world/staff.rs`: `name_weight`.
 - `world/folk/staffing.rs`: `deal_terms`, `candidates`, `offer`, `interview_read`. `world/folk/boss.rs`: `review_push`, `booster_push`, `draft_goals`.
+
+## Depth chart help (update 3, lane 6)
+
+- Who put a man first (H4): Y when the spot is yours and your own order is set (`seat_depth`); C when the head coach holds it (you don't control the spot) or a staff keeper does (the side's coordinator, else the group's position coach, else the head coach); A when no keeper exists or the keeper is you (`crates/afm-game/src/lane_help.rs`, `why_here`, `chart_keeper`).
+- His reasons: a better-read man out or limited, his read against the next healthy man, a key-attribute edge of 3+, a crossover, his practice grade words (`player.train.grade`), started last season; at most 3. Others: the next two men, the best other man at the position and the best crossover read at the spot, at most 4 (`why_here`, `read_at`).
+- Changes this week: your moves from `World::seat_depth_log` (date, position, first id; the last 40, written by `set_seat_depth`) in the last 7 days, and men up because the starter is out; six lines (`lane_squadboards/depth.rs`, `changes`).
+- The lineup note (H5): the evening before a game (20:30), one letter per side listing each spot you control and set where a healthy bench man's low end is above your starter's high end and his middle is 8+ higher. From the side's coordinator, else the position coach, never you. "Give these spots back" clears those orders (`lane_core/mail.rs`, `lineup_mail`, `act::DEPTH_BACK`; `lane_help.rs`, `weak_spots`, `note_writer`).
 
 ## Related pages
 

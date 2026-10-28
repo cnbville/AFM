@@ -33,6 +33,7 @@ use afm_engine::world::{Stage, World};
 
 use super::links::{self, Linker};
 use super::people::{self, Job};
+use crate::lane_help;
 use crate::views::{self, TeamRef};
 
 /// The keyword filter (10e), in the dropdown's order; a mail's `keys` holds
@@ -85,6 +86,9 @@ pub mod act {
     pub const CALL_ALL: u8 = 6;
     /// A thank-you to the coach (target, a coach index): logged as a contact.
     pub const THANK_COACH: u8 = 7;
+    /// Gives your order at the positions in the target's bits back to the
+    /// staff (H5).
+    pub const DEPTH_BACK: u8 = 8;
 }
 
 /// What a mail is about, for `Mail::about` (the page opened beside it).
@@ -161,6 +165,7 @@ pub fn letter(
         loud: 1,
         ids: Vec::new(),
         org_team: None,
+        why: Vec::new(),
     }
 }
 
@@ -490,14 +495,9 @@ fn your_names(w: &World) -> (String, String, String) {
     (format!("Coach {last}"), format!("{}, head coach", c.you.name), c.you.name.clone())
 }
 
-fn welcome(w: &World, me: TeamRef, mails: &mut Vec<Mail>, reveals: &mut Vec<Reveal>) {
-    let Some(c) = &w.career else { return };
-    let (dear, to, you) = your_names(w);
-    let pen = Pen { w, me, dear: dear.clone(), to, out: Vec::new() };
-    let d = c.started;
-    let team = views::team_name(w, me);
-    let mut m = pen.boss_letter("welcome", d, 8 * 60, format!("Welcome to {team}"));
-    let expect = match me {
+/// What your boss hired you to do, in his words.
+fn expectation(w: &World, me: TeamRef) -> String {
+    match me {
         TeamRef::College(p) => crate::setup::college_expectation(w.programs[p].prestige_rel).to_string(),
         TeamRef::HighSchool(h) => {
             let s = &w.high_schools[h];
@@ -509,7 +509,17 @@ fn welcome(w: &World, me: TeamRef, mails: &mut Vec<Mail>, reveals: &mut Vec<Reve
             let title = afm_engine::world::pro::other::format(k, w.year).map_or("title game", |f| f.title);
             format!("Win here, and get us to the {title}. A short season leaves no time to settle in.")
         }
-    };
+    }
+}
+
+fn welcome(w: &World, me: TeamRef, mails: &mut Vec<Mail>, reveals: &mut Vec<Reveal>) {
+    let Some(c) = &w.career else { return };
+    let (dear, to, you) = your_names(w);
+    let pen = Pen { w, me, dear: dear.clone(), to, out: Vec::new() };
+    let d = c.started;
+    let team = views::team_name(w, me);
+    let mut m = pen.boss_letter("welcome", d, 8 * 60, format!("Welcome to {team}"));
+    let expect = expectation(w, me);
     let (rec, note) = views::season_record(w, me);
     m.body = vec![
         format!("{dear},"),
@@ -823,6 +833,7 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
 
     people_mail(&mut pen, from, to, reveals);
     games_mail(&mut pen, from, to);
+    lineup_mail(&mut pen, from, to);
     news_mail(&mut pen, from, to, reveals);
     weekly_mail(&mut pen, from, to, c.coach);
     mails.append(&mut pen.out);
@@ -862,6 +873,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
             let mut portal: HashMap<Date, Vec<usize>> = HashMap::new();
             let mut offers: Vec<(Date, usize)> = Vec::new();
             let mut visits: Vec<(Date, usize)> = Vec::new();
+            let mut lost: Vec<(Date, usize, usize)> = Vec::new();
             for (k, p) in w.people.iter().enumerate() {
                 let cal = &p.cal;
                 if let Some((j, d, walk)) = cal.commit
@@ -869,6 +881,14 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     && inside(d)
                 {
                     commits.push((d, k, walk));
+                }
+                if let Some((j, d, _)) = cal.commit
+                    && j != pi
+                    && inside(d)
+                    && p.stage == Stage::HighSchool
+                    && (cal.offers.contains(&pi) || cal.early_offers.iter().any(|o| o.0 == pi))
+                {
+                    lost.push((d, k, j));
                 }
                 if let Some(s) = cal.signed
                     && s.program == pi
@@ -926,6 +946,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 m.keys = RECRUITING | PLAYERS;
                 m.about = Some((ABOUT_PLAYER, p.player.id));
                 m.ids = vec![p.player.id];
+                m.why = lane_help::pick_why(w, k, pi, None);
                 m.answers = vec![
                     answer(
                         "Call him and his family tonight",
@@ -964,6 +985,35 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                         colors: views::team_colors(w, pen.me),
                     });
                 }
+                pen.out.push(m);
+            }
+            // H6: a recruit we offered picks another school, and why.
+            for (d, k, j) in lost {
+                let p = &w.people[k];
+                let what = pos_line(w, k);
+                let mut m = pen.memo(
+                    &format!("lost|{}", p.player.id),
+                    d,
+                    21 * 60 + 20,
+                    Job::Personnel,
+                    format!("{} picks {}", p.name, w.program_name(j)),
+                );
+                m.body = vec![
+                    format!(
+                        "{}, {} ({what}, class of {}) committed to {} today. We had offered him.",
+                        pen.dear,
+                        links::player(p.player.id, &p.name),
+                        p.class_of,
+                        links::team(w, TeamRef::College(j))
+                    ),
+                    "A verbal is not a signature: the staff can keep recruiting him, or move the scholarship to the next name on the board."
+                        .into(),
+                ];
+                m.why = lane_help::pick_why(w, k, j, Some(pi));
+                m.keys = RECRUITING | PLAYERS;
+                m.about = Some((ABOUT_PLAYER, p.player.id));
+                m.ids = vec![p.player.id];
+                m.loud = if p.stars >= 4 { 2 } else { 1 };
                 pen.out.push(m);
             }
             let mut days: Vec<_> = signed.into_iter().collect();
@@ -1038,6 +1088,19 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     ]);
                 }
                 m.body.push("Other staffs can contact them from today. Their scholarships are ours to fill.".into());
+                m.why = if let [k] = ks[..] {
+                    let said = w.people[k].cal.portal.map(|e| e.why.to_string()).unwrap_or_default();
+                    lane_help::portal_why(w, k, &said)
+                } else {
+                    ks.iter()
+                        .take(3)
+                        .map(|&k| {
+                            let p = &w.people[k];
+                            let why = lane_help::portal_why(w, k, "");
+                            format!("{}: {}", links::player(p.player.id, &p.name), why.join("; ").to_lowercase())
+                        })
+                        .collect()
+                };
                 m.ids = ks.iter().map(|&k| w.people[k].player.id).collect();
                 m.keys = PORTAL | PLAYERS;
                 m.answers = vec![
@@ -1212,6 +1275,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     m.keys = RECRUITING | PLAYERS;
                     m.about = Some((ABOUT_PLAYER, id));
                     m.ids = vec![id];
+                    m.why = lane_help::pick_why(w, k, j, None);
                     m.answers = vec![
                         answer(
                             "Call him tonight",
@@ -1482,6 +1546,19 @@ fn games_mail(pen: &mut Pen, from: Date, to: Date) {
                     0,
                 ),
             ];
+            let losses: Vec<String> = games[k + 1 - streak..=k]
+                .iter()
+                .map(|g| {
+                    let sd = match pen.me {
+                        TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) | TeamRef::Other(i) => {
+                            usize::from(g.teams[0] != i)
+                        }
+                    };
+                    format!("{} {}-{}", g.names[1 - sd], g.stats.score[1 - sd], g.stats.score[sd])
+                })
+                .collect();
+            let (rec, _) = views::season_record(w, pen.me);
+            b.why = lane_help::streak_why(&losses, &rec, &expectation(w, pen.me));
             b.answer_by = Some(g.date.add(7));
             b.loud = 2;
             pen.out.push(b);
@@ -1563,6 +1640,7 @@ fn weekly_mail(pen: &mut Pen, from: Date, to: Date, coach: usize) {
             Weekday::Mon => {
                 your_people(pen, d, coach);
                 standouts(pen, d);
+                morale(pen, d);
             }
             Weekday::Wed => injuries(pen, d),
             _ => {}
@@ -1570,6 +1648,112 @@ fn weekly_mail(pen: &mut Pen, from: Date, to: Date, coach: usize) {
         d = d.add(1);
     }
     let _ = w;
+}
+
+/// H6: the players whose mood fell last week, with why (the chief of staff,
+/// Mondays). Only what your staff hears: the dated reasons behind it.
+fn morale(pen: &mut Pen, d: Date) {
+    let w = pen.w;
+    let dips = lane_help::mood_dips(w, pen.me, d);
+    if dips.is_empty() {
+        return;
+    }
+    let mut m = pen.memo(
+        &format!("morale|{}", d.0),
+        d,
+        7 * 60 + 45,
+        Job::ChiefOfStaff,
+        if dips.len() == 1 {
+            format!("Morale: {} is down", w.people[dips[0].0].name)
+        } else {
+            format!("Morale: {} players are down", dips.len())
+        },
+    );
+    m.body = vec![format!("{}, the moods that fell this past week, as the staff hears it:", pen.dear)];
+    m.table = vec![vec!["Player".into(), "Pos".into(), "Mood".into(), "Why".into()]];
+    for (k, why) in dips.iter().take(12) {
+        let p = &w.people[*k];
+        m.table.push(vec![
+            links::player(p.player.id, &p.name),
+            p.player.position.name().into(),
+            afm_engine::world::folk::talks::mood_words(p.mood).into(),
+            why.join("; "),
+        ]);
+    }
+    m.why = dips.first().map(|(_, why)| why.clone()).unwrap_or_default();
+    m.ids = dips.iter().map(|x| w.people[x.0].player.id).collect();
+    m.keys = PEOPLE | PLAYERS;
+    m.answers = vec![
+        answer(
+            "Talk to each of them this week",
+            "You sit down with each. Their mood rises and each talk is logged.",
+            act::CALL_ALL,
+            0,
+        ),
+        answer("Leave it to the position coaches", "Nothing more is done.", act::ACK, 0),
+    ];
+    m.loud = 1;
+    pen.out.push(m);
+}
+
+/// H5: the night before each of your games, your coordinator writes when a
+/// lineup choice of yours reads clearly weak. It never blocks you.
+fn lineup_mail(pen: &mut Pen, from: Date, to: Date) {
+    let w = pen.w;
+    let Some(st) = w.training_team() else { return };
+    let mut d = from;
+    while d <= to {
+        if st.games.contains(&d.add(1)) {
+            let spots = lane_help::weak_spots(w, pen.me);
+            // One note a side: offense, then defense and special teams.
+            let mut sides: Vec<(bool, Vec<(Position, String)>)> = Vec::new();
+            for (pos, line) in spots {
+                let off = afm_engine::world::coach::Group::of(pos).offense();
+                match sides.iter_mut().find(|x| x.0 == off) {
+                    Some(x) => x.1.push((pos, line)),
+                    None => sides.push((off, vec![(pos, line)])),
+                }
+            }
+            for (off, lines) in sides {
+                let Some((name, title)) = lane_help::note_writer(w, lines[0].0) else { continue };
+                let team = views::team_name(w, pen.me);
+                let mut m = letter(
+                    &format!("lineup|{}|{off}", d.0),
+                    d,
+                    20 * 60 + 30,
+                    Head::Memo,
+                    team,
+                    "Football office".into(),
+                    name,
+                    title,
+                    pen.to.clone(),
+                    format!("Before kickoff: a word on the {}", if off { "offense" } else { "defense" }),
+                );
+                m.org_team = Some(team_code(pen.me));
+                m.body = vec![format!("{}, before tomorrow, one thing from the film room:", pen.dear)];
+                m.body.extend(lines.iter().map(|x| x.1.clone()));
+                m.body.push(format!(
+                    "It's your call. The {} has the order as you set it.",
+                    links::screen("depth", "depth chart")
+                ));
+                m.why = lines.iter().map(|x| links::strip(&x.1)).take(3).collect();
+                let mask: u32 = lines.iter().fold(0, |a, x| a | (1 << x.0.index()));
+                m.answers = vec![
+                    answer("Keep my lineup", "Your order stands.", act::ACK, 0),
+                    answer(
+                        "Give these spots back to the staff",
+                        "The staff's order returns at these positions before kickoff.",
+                        act::DEPTH_BACK,
+                        mask,
+                    ),
+                ];
+                m.keys = PLAYERS;
+                m.loud = 1;
+                pen.out.push(m);
+            }
+        }
+        d = d.add(1);
+    }
 }
 
 /// The people you are linked to: players who played for you and have moved
@@ -1815,6 +1999,14 @@ pub fn pick(w: &mut World, id: u64, k: usize) -> Result<(), String> {
         act::LIST_ALL => list = ids.clone(),
         act::LIST_ONE => list = vec![a.target],
         act::THANK_COACH => contacts.push((1, a.target, "Thank-you")),
+        act::DEPTH_BACK => {
+            for pos in Position::ALL {
+                if a.target & (1 << pos.index()) != 0 && w.controls(pos) {
+                    w.set_seat_depth(pos, Vec::new());
+                }
+            }
+            w.refresh_seat_team();
+        }
         _ => {}
     }
     for p in list {

@@ -298,9 +298,14 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
     let idx = |id: Option<u32>| id.and_then(|id| views::person_index(w, id));
     let last = my_games(w).last().copied();
     let reader = views::reader_key(w);
+    let roster = views::roster_people(w, t);
+    let base = matches!(form, "offense" | "defense" | "specialists");
     let mut slots: Vec<Value> = Vec::new();
     for (k, s) in spots.iter().enumerate() {
         let men: [Option<usize>; 3] = [idx(s.ids[0]), idx(s.ids[1]), idx(s.ids[2])];
+        // H4: who put him there, why, and who else could play it.
+        let set = if base { w.seat_depth.iter().any(|(p, _)| *p == s.pos) } else { yours };
+        let why = crate::lane_help::why_here(w, t, &roster, s.pos, &spot_words(&s.slot, s.pos), s.controls, set, &men);
         let picks: Vec<Value> =
             men.iter().map(|m| m.map_or(Value::Null, |i| man(w, t, i, nums.get(&i).copied()))).collect();
         // The starter in full.
@@ -342,6 +347,7 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         slots.push(json!({
             "k": k, "slot": s.slot, "pos": s.pos.name(), "pos_full": spot_words(&s.slot, s.pos),
             "x": s.x, "y": s.y, "controls": s.controls, "picks": picks, "detail": detail,
+            "by": why["by"].clone(), "why": why,
             "group": starters_words(w, t, s.pos),
         }));
     }
@@ -360,9 +366,49 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         "yours": yours,
         "next": views::next_game(w, t),
         "last_game": last_game,
+        "changes": changes(w, t, &spots, &roster),
         "slots": slots,
         "units": units(w, t, tab),
     }))
+}
+
+/// "Changes this week" (board 37): the orders you set or gave back in the
+/// last seven days at this formation's positions, then the spots where the
+/// chart moved a man up because a better-read one is out.
+fn changes(w: &World, t: TeamRef, spots: &[Spot], roster: &[usize]) -> Vec<Value> {
+    let week = w.today.add(-7);
+    let mut out: Vec<Value> = Vec::new();
+    let mut seen: Vec<Position> = Vec::new();
+    for &(d, pos, first) in w.seat_depth_log.iter().rev() {
+        if d < week || !spots.iter().any(|s| s.pos == pos) || seen.contains(&pos) {
+            continue;
+        }
+        seen.push(pos);
+        let text = match views::person_index(w, first) {
+            Some(i) => format!("{} first at {}", w.people[i].name, crate::lane_ratings::pos_words(pos).0),
+            None => format!("{} given back to the staff", super::cap(crate::lane_ratings::pos_words(pos).0)),
+        };
+        out.push(json!({ "date": views::date_text(d), "who": "Y", "text": text }));
+    }
+    for s in spots {
+        let Some(a) = s.ids[0].and_then(|id| views::person_index(w, id)) else { continue };
+        let ma = mid(crate::lane_help::read_at(w, t, a, s.pos)).unwrap_or(0.0);
+        let hurt = roster.iter().copied().find(|&k| {
+            k != a
+                && w.people[k].player.position == s.pos
+                && health(w, k).0 == "out"
+                && mid(crate::lane_help::read_at(w, t, k, s.pos)).unwrap_or(0.0) > ma + 1.0
+        });
+        if let Some(k) = hurt {
+            let by = if w.seat_depth.iter().any(|(p, _)| *p == s.pos) { "A" } else { "C" };
+            out.push(json!({
+                "date": views::date_text(w.today), "who": by,
+                "text": format!("{} up at {}: {} is out", w.people[a].name, s.slot, w.people[k].name),
+            }));
+        }
+    }
+    out.truncate(6);
+    out
 }
 
 /// Moves the man at depth `n` (2 or 3) on a spot up one: on a base board

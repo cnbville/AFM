@@ -191,6 +191,7 @@ pub fn open(w: &mut World, id: u64) -> Result<Value, String> {
         "to": m.to,
         "subject": m.subject,
         "body": m.body,
+        "why": m.why,
         "table": m.table,
         "attach": m.attach,
         "sign": m.sign,
