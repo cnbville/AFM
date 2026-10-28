@@ -361,10 +361,12 @@ fn short_of(text: &str) -> String {
         }
     }
     let plain = plain.split_whitespace().collect::<Vec<_>>().join(" ").replace(" ,", ",").replace(" .", ".");
-    // A full stop ends the line, but not the one in "Jr." or "St." or an initial.
+    // A full stop ends the line, but not the one in "Jr." or "St." or an
+    // initial, and not after a one-word opener such as "Bumped.".
     let stop = plain.match_indices(". ").map(|(i, _)| i).find(|&i| {
         let word = plain[..i].rsplit(' ').next().unwrap_or("");
-        !(matches!(word, "Jr" | "Sr" | "St" | "Mt" | "Ft" | "Dr" | "Mr" | "vs") || word.len() == 1)
+        plain[..i].contains(' ')
+            && !(matches!(word, "Jr" | "Sr" | "St" | "Mt" | "Ft" | "Dr" | "Mr" | "vs") || word.len() == 1)
     });
     let cut = [" · ", "; ", " — "].iter().filter_map(|s| plain.find(s)).chain(stop).min().unwrap_or(plain.len());
     plain[..cut].trim_end_matches('.').to_string()
