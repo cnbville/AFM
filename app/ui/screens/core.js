@@ -1291,7 +1291,9 @@ const PT = {
   },
   Contract: (p) => {
     const c = p.pro.contract;
-    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
+    // Your own player's numbers open his row on the cap sheet, every year of the deal.
+    const cap = (h) => (p.mine && seatKind() === "nfl" && screens.fo_cap ? linkTo("fo_cap", { id: p.id }, h) : h);
+    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${cap(money(c.apy))}</b><small>a year</small></div><div><b>${cap(money(c.total))}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${cap(money(c.guaranteed))}</b><small>guaranteed</small></div><div><b>${cap(money(c.cap_hit))}</b><small>cap hit this year</small></div><div><b>${cap(c.through)}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
       <div class="kv"><dt>Drafted</dt><dd>${esc(p.pro.draft || "Undrafted")}</dd><dt>Accrued seasons</dt><dd>${p.pro.accrued}</dd><dt>Career earnings</dt><dd>${money(p.pro.earnings)}</dd></div></div>`;
   },
   Notes: (p) => `<div class="panel"><h2>Your notes on ${esc(p.name)} <small>only you see them; they stay with him for his whole career</small></h2>

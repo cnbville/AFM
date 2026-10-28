@@ -969,6 +969,8 @@ screens.designer = async (a) => {
 // ======================================================================
 const rosterBase = screens.roster;
 const SQUAD_VIEWS = ["General", "Ratings", "Development", "Fitness", "Depth", "Contract"];
+// A player's unit to his board on the depth chart.
+const SQ_BOARD = { OFF: "Offense", DEF: "Defense", ST: "Special teams" };
 function squadCols(view, x) {
   const name = { k: "name", t: "Name", l: true, f: (r) => `${playerLink(r.id, r.name, view === "Development" ? "Development" : "")}${r.notes ? ` <span class="st-pill" title="Your notes">✎ ${r.notes}</span>` : ""}` };
   const pos = { k: "pos", t: "Pos", l: true };
@@ -981,10 +983,10 @@ function squadCols(view, x) {
     Ratings: [name, pos, cls, ovr, key(0), key(1), key(2), key(3)],
     Development: [name, pos, cls, { k: "age", t: "Age" }, ovr, { k: "growth", t: "Growth", l: true, f: (r) => trGrowth(r.growth) }, { k: "grade_words", t: "Practice", l: true, v: (r) => r.grade }, { k: "focus", t: "Main focus", l: true, f: (r) => (r.focus ? `${esc(r.focus)}${r.focus_by === "staff" ? ' <small class="muted">staff</small>' : ""}` : '<span class="muted">Balanced</span>') }, { k: "teacher", t: "Taught by", l: true, v: (r) => r.teacher.name || "", f: (r) => (r.teacher.name ? `${r.teacher.you ? "You" : coachLink(r.teacher.id, r.teacher.name)} <small class="muted">${esc(r.teacher.words)}</small>` : '<span class="muted">-</span>') }, { k: "habit", t: "Habit", l: true, hide: true }, { k: "moving", t: "Learning", l: true, hide: true }, { k: "body_target", t: "Body target", hide: true }],
     Fitness: [name, pos, cls, { k: "practice", t: "Practice", l: true, f: trStatus }, { k: "load", t: "Load", l: true, f: trLoad, v: (r) => ["light", "moderate", "heavy", "very heavy"].indexOf(r.load) }, { k: "load_trend", t: "Trend", l: true }, { k: "missed", t: "Games missed", tip: "Last season" }, { k: "status", t: "Status", l: true }, { k: "wt", t: "Wt" }, { k: "sport", t: "Other sport", l: true, hide: x.tier !== "high school" }],
-    Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? (r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
+    Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day: opens his spot on the depth chart", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? linkTo("depth", { tab: SQ_BOARD[r.group] || "Offense", pid: r.id }, r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
     Contract: pro
       ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr]
-      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "offers", t: "College offers", hide: x.tier !== "high school" }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
+      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "offers", t: "College offers", hide: x.tier !== "high school", f: (r) => (r.offers ? linkTo("player", { id: r.id, tab: "Recruiting" }, String(r.offers)) : '<span class="muted">0</span>') }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
   };
   return views[view];
 }
@@ -1048,6 +1050,8 @@ screens.depth = async (a) => {
     return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}</div>${inner.replace('<div class="film">', "<div>")}</div>`;
   }
   const b = x.boards.find((q) => q.label === tab) || x.boards[0];
+  // His spot picked, when the Squad's depth spot opened this board (pid).
+  if (a.pid != null) { const at = b.slots.findIndex((s) => s.player && s.player.id === a.pid); if (at >= 0) TR.pick = { board: b.key, k: at }; }
   const sel = TR.pick && TR.pick.board === b.key ? TR.pick.k : null;
   const fr = bdFrame(b.slots);
   const want = sel != null ? b.slots[sel] : null;

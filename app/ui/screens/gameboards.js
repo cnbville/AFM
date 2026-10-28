@@ -619,7 +619,10 @@ function bdCapNfl(x, st) {
   let card = bdEmpty(`Nobody is under contract for ${x.year} yet.`);
   if (sel) {
     const topBar = sel.topAtPos > 0 ? Math.min(100, (100 * sel.hit) / sel.topAtPos) : 0;
-    const moves = sel.moves.map((m) => `<div class="bd-mv"><span>${esc(m.k)}${m.noTrade ? ' <small class="bad">no-trade clause</small>' : ""}</span><span class="bd-cond${m.saves < 0 ? " bad" : ""}">${bdMoney(m.saves)}</span><span class="bd-cond${m.now > 0 ? " bad" : ""}">${bdMoney(m.now)}</span><span class="bd-cond">${bdMoney(m.later)}</span></div>`).join("");
+    // Each move opens where you make it: a cut his row on the cap sheet, a
+    // trade the trade desk with him on your side.
+    const moveAt = (m) => (/^Trade/.test(m.k) ? linkTo("fo_trades", { give: [sel.id] }, esc(m.k)) : linkTo("fo_cap", { id: sel.id }, esc(m.k)));
+    const moves = sel.moves.map((m) => `<div class="bd-mv"><span>${moveAt(m)}${m.noTrade ? ' <small class="bad">no-trade clause</small>' : ""}</span><span class="bd-cond${m.saves < 0 ? " bad" : ""}">${bdMoney(m.saves)}</span><span class="bd-cond${m.now > 0 ? " bad" : ""}">${bdMoney(m.now)}</span><span class="bd-cond">${bdMoney(m.later)}</span></div>`).join("");
     card = `<div class="bd-card">
       <div class="bd-line2"><span class="st-label">${esc(sel.pos)} · age ${sel.age}${sel.squad ? " · practice squad" : ""}</span><span class="bd-dim">signed through ${sel.through}</span></div>
       <span class="bd-mtitle">${playerLink(sel.id, sel.name)}</span>
