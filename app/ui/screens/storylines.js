@@ -38,7 +38,7 @@ function slSpark(path, w = 132, h = 38) {
   const Y = (v) => h - 3 - (v / 100) * (h - 6);
   const line = path.map((v, k) => `${X(k).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
   const last = path[n - 1];
-  return `<svg class="sl-spark ${slHeat(last)}" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Heat over the last ${n} weeks"><line x1="0" x2="${w}" y1="${h - 1}" y2="${h - 1}"></line><polygon points="${X(0).toFixed(1)},${h - 2} ${line} ${X(n - 1).toFixed(1)},${h - 2}"></polygon><polyline points="${line}"></polyline><circle cx="${X(n - 1).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="2.6"></circle></svg>`;
+  return `<svg class="sl-spark ${slHeat(last)}" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Heat over the last ${n} week${n === 1 ? "" : "s"}"><line x1="0" x2="${w}" y1="${h - 1}" y2="${h - 1}"></line><polygon points="${X(0).toFixed(1)},${h - 2} ${line} ${X(n - 1).toFixed(1)},${h - 2}"></polygon><polyline points="${line}"></polyline><circle cx="${X(n - 1).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="2.6"></circle></svg>`;
 }
 const slPhaseBar = (k) => `<span class="sl-ph6" aria-label="Phase: ${esc(SL_PHASES[k] || "")}">${SL_PHASES.map((_, i) => `<i class="${i < k ? "past" : i === k ? "now" : ""}"></i>`).join("")}</span>`;
 function slSplit(sp, small) {
@@ -209,7 +209,7 @@ async function slPrevious() {
   const rows = x.rows.map((p) => `<div class="sl-pv"><span><b>${rich(p.q)}</b><small>${rich(p.text)}</small></span><span class="sl-pvh"><span class="sl-num ${slHeat(p.h)}">${p.h}</span><i class="${slHeat(p.h)}"><em style="width:${p.h}%"></em></i></span><span>${rich(p.n)}</span></div>`).join("");
   const saved = S.savedOn || x.saved;
   const { o, close } = slOverlay(`<div class="sl-line2"><span class="st-label">Previously · saved ${esc(saved)}</span><span class="sub">${esc(x.rec)}</span></div>
-      <b class="sl-prev-title">${esc(x.title)}</b>
+      <b class="sl-prev-title">${rich(x.title)}</b>
       <p class="sl-prev-lead">${rich(x.body)}</p>
       ${rows ? `<div class="sl-pvs"><div class="sl-pv head st-label"><span>Open story · where it stood</span><span>Heat</span><span>What's next</span></div>${rows}</div>` : ""}
       <div class="sl-line2 foot"><span class="sub">${esc(x.foot)}</span><span class="sl-btns"><button class="st-btn glass" data-sl="week">This week</button><button class="st-btn primary" data-sl="close">Pick up where you left off</button></span></div>`, "prev");

@@ -113,7 +113,10 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
                     n += 1;
                 }
             }
-            format!("{n} deals set at the collective's usual split. Adjust any of them.")
+            format!(
+                "{n} {} set at the collective's usual split. Adjust any of them.",
+                afm_engine::world::folk::noun(n, "deal")
+            )
         }
         "nil_clear" => {
             w.front_office.college.deals.clear();
