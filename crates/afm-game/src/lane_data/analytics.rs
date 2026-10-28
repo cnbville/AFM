@@ -8,10 +8,12 @@
 //! like his compare men against their own seasons' fields, whatever the
 //! era.
 
+use std::collections::{BTreeSet, HashSet};
+
 use afm_engine::positions::Position;
 use afm_engine::world::analytics::{self as an, Cm, Fmt};
 use afm_engine::world::data::Division;
-use afm_engine::world::marks::{self, Tier};
+use afm_engine::world::marks::{self, NowLine, Tier};
 use afm_engine::world::records::{STAT_COUNT, Stat};
 use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
@@ -73,24 +75,27 @@ fn row_from(
     card: &[Cm],
     vol: Stat,
 ) -> Row {
-    Row { id, team, pos, games, year, vol: all(vol), vals: card.iter().map(|cm| cm.value(all, games as f64)).collect() }
+    let vals = card.iter().map(|cm| cm.value(all, games as f64)).collect();
+    Row { id, team, pos, games, year, vol: all(vol), vals }
 }
 
-/// The seasons a level keeps, newest first, and the one in progress.
-fn years(w: &World, p: Place) -> Vec<i32> {
+/// The seasons a level keeps, newest first, and the one in progress
+/// (`now`, from `marks::season_now`).
+fn years(w: &World, p: Place, now: &[NowLine]) -> Vec<i32> {
     let mut v: Vec<i32> = match p.tier {
         Tier::College => w.stats.year_index.iter().map(|x| x.0).collect(),
         Tier::Nfl => {
-            let mut y: Vec<i32> = w.marks.pro_rows.iter().map(|r| r.year as i32).collect();
-            if y.is_empty() {
-                y = w
-                    .people
+            // The kept rows, and before they began (an older world file)
+            // the players' own seasons: `pool` reads either.
+            let mut y: BTreeSet<i32> = w.marks.pro_rows.iter().map(|r| r.year as i32).collect();
+            let first = y.first().copied().unwrap_or(i32::MAX);
+            y.extend(
+                w.people
                     .iter()
                     .filter_map(|x| x.pro.as_ref())
-                    .flat_map(|c| c.seasons.iter().map(|s| s.year))
-                    .collect();
-            }
-            y
+                    .flat_map(|c| c.seasons.iter().filter(|s| s.year < first && s.games > 0).map(|s| s.year)),
+            );
+            y.into_iter().collect()
         }
         Tier::Hs => {
             let mut y: Vec<i32> = w.people.iter().flat_map(|x| x.hs_lines.iter().map(|l| l.year as i32)).collect();
@@ -99,7 +104,7 @@ fn years(w: &World, p: Place) -> Vec<i32> {
             y
         }
     };
-    if !marks::season_now(w, p.tier, p.state).is_empty() {
+    if !now.is_empty() {
         v.push(w.year);
     }
     v.sort_unstable();
@@ -108,11 +113,11 @@ fn years(w: &World, p: Place) -> Vec<i32> {
     v
 }
 
-/// A season's pool at a place for a group.
-fn pool(w: &World, p: Place, year: i32, group: usize) -> Vec<Row> {
+/// A season's pool at a place for a group (`now`: the season in progress,
+/// read only for this year).
+fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Row> {
     let (card, vol, _, ch) = card_of(w, p, group);
     let in_group = |pos: Position| an::group_of(pos) == Some(group);
-    let now = marks::season_now(w, p.tier, p.state);
     let mut out = Vec::new();
     if year == w.year && !now.is_empty() {
         for l in now.iter().filter(|l| in_group(l.pos)) {
@@ -136,6 +141,9 @@ fn pool(w: &World, p: Place, year: i32, group: usize) -> Vec<Row> {
                 w.marks.pro_rows.iter().filter(|r| r.year as i32 == year && in_group(r.pos)).collect();
             if !kept.is_empty() && ch {
                 for r in kept {
+                    let vals = (0..card.len())
+                        .map(|k| r.vals.get(k).copied().filter(|v| v.is_finite()).map(|v| v as f64))
+                        .collect();
                     out.push(Row {
                         id: r.id,
                         team: r.team as usize,
@@ -143,9 +151,7 @@ fn pool(w: &World, p: Place, year: i32, group: usize) -> Vec<Row> {
                         games: r.games as u32,
                         year,
                         vol: r.vol as f64,
-                        vals: (0..card.len())
-                            .map(|k| r.vals.get(k).copied().filter(|v| v.is_finite()).map(|v| v as f64))
-                            .collect(),
+                        vals,
                     });
                 }
             } else {
@@ -202,7 +208,7 @@ fn past_pools(w: &World, p: Place, group: usize, ys: &[i32]) -> Vec<(i32, Vec<Ro
     if p.tier == Tier::Hs {
         return hs_pools(w, p, group, None).into_iter().filter(|(y, _)| *y != w.year).collect();
     }
-    ys.iter().filter(|&&y| y != w.year).map(|&y| (y, pool(w, p, y, group))).collect()
+    ys.iter().filter(|&&y| y != w.year).map(|&y| (y, pool(w, p, y, group, &[]))).collect()
 }
 
 /// Each metric's percentile (0-100, 100 the best) among the qualifiers.
@@ -282,7 +288,7 @@ fn base(
 
 /// The minimum a season needs to qualify: the page's, or two thirds of a
 /// starter's volume at the level, cut down while a season is young.
-fn min_for(w: &World, p: Place, group: usize, year: i32, ch: bool, args: &Value) -> f64 {
+fn min_for(w: &World, p: Place, group: usize, year: i32, ch: bool, args: &Value, now: &[NowLine]) -> f64 {
     if let Some(m) = args.get("min").and_then(Value::as_f64) {
         return m.max(0.0);
     }
@@ -292,8 +298,8 @@ fn min_for(w: &World, p: Place, group: usize, year: i32, ch: bool, args: &Value)
     }
     // A season in progress: its share played so far, by the most games
     // anyone in the pool has.
-    let played = marks::season_now(w, p.tier, p.state).iter().map(|l| l.games).max().unwrap_or(0) as f64;
-    let total = marks::season_games(p.tier, year) as f64;
+    let played = now.iter().map(|l| l.games).max().unwrap_or(0) as f64;
+    let total = marks::season_games(w, p.tier, year) as f64;
     if played > 0.0 { (full * (played / total).min(1.0)).round() } else { full }
 }
 
@@ -301,7 +307,9 @@ pub fn table(w: &World, args: &Value) -> Value {
     let p = place_of(w, args);
     let group = group_arg(args);
     let (card, _, word, ch) = card_of(w, p, group);
-    let ys = years(w, p);
+    // The season in progress, built once for the whole table.
+    let now = marks::season_now(w, p.tier, p.state);
+    let ys = years(w, p, &now);
     let year = args
         .get("year")
         .and_then(Value::as_i64)
@@ -309,8 +317,8 @@ pub fn table(w: &World, args: &Value) -> Value {
         .filter(|y| ys.contains(y))
         .or(ys.first().copied())
         .unwrap_or(w.year);
-    let min = min_for(w, p, group, year, ch, args);
-    let rows = pool(w, p, year, group);
+    let min = min_for(w, p, group, year, ch, args, &now);
+    let rows = pool(w, p, year, group, &now);
     let qual: Vec<bool> = rows.iter().map(|r| r.vol >= min).collect();
     let pcts = percentiles(&rows, &qual, card);
     let sort = args.get("sort").and_then(Value::as_u64).map(|k| k as usize).filter(|&k| k < card.len()).unwrap_or(0);
@@ -371,14 +379,47 @@ fn now_text(w: &World, id: u32) -> String {
     }
 }
 
+/// His listed position in one season at a place, read where `pool` reads
+/// that season, else (no line there, or an older NFL file's seasons, which
+/// keep none) his position now.
+fn season_pos(w: &World, k: usize, p: Place, year: i32, now: &[NowLine]) -> Position {
+    let x = &w.people[k];
+    let id = x.player.id;
+    let listed = if year == w.year && !now.is_empty() {
+        now.iter().find(|l| l.id == id && now_in(w, p, l)).map(|l| l.pos)
+    } else {
+        match p.tier {
+            Tier::College => w
+                .stats
+                .career(id)
+                .iter()
+                .find(|r| r.year as i32 == year && Some(r.division) == p.division)
+                .map(|r| r.pos),
+            Tier::Nfl => w.marks.pro_rows.iter().find(|r| r.id == id && r.year as i32 == year).map(|r| r.pos),
+            Tier::Hs => x
+                .hs_lines
+                .iter()
+                .find(|l| l.year as i32 == year && w.high_schools.get(l.school as usize).map(|h| h.state) == p.state)
+                .map(|l| l.pos),
+        }
+    };
+    listed.unwrap_or(x.player.position)
+}
+
+/// Whether a line of the season in progress is at the card's place (a
+/// college line in its division; the NFL's and a state's are already).
+fn now_in(w: &World, p: Place, l: &NowLine) -> bool {
+    p.tier != Tier::College || w.programs.get(l.team).map(|q| q.division) == p.division
+}
+
 /// A player's card (item 7) and the past seasons closest to his (item 8).
+/// The table's `year` and `division` pick the season it was opened from.
 pub fn card(w: &World, args: &Value) -> Value {
     let Some(id) = args.get("id").and_then(Value::as_u64).map(|x| x as u32) else {
         return json!({ "error": "No player." });
     };
     let Some(k) = views::person_index(w, id) else { return json!({ "error": "No such player." }) };
     let x = &w.people[k];
-    let Some(group) = an::group_of(x.player.position) else { return json!({ "error": "No card for long snappers." }) };
     // His level: the one asked for, else where he plays now.
     let tier = match args.get("level").and_then(Value::as_str) {
         Some(_) => tier_arg(w, args),
@@ -388,18 +429,26 @@ pub fn card(w: &World, args: &Value) -> Value {
             _ => Tier::College,
         },
     };
+    // The division asked for (the table's), else his program's now, else
+    // his last season's.
     let p = Place {
         tier,
         division: (tier == Tier::College)
             .then(|| {
-                x.college.map(|c| w.programs[c].division).or_else(|| w.stats.career(id).last().map(|r| r.division))
+                args.get("division")
+                    .and_then(Value::as_str)
+                    .and_then(Division::parse)
+                    .or_else(|| x.college.map(|c| w.programs[c].division))
+                    .or_else(|| w.stats.career(id).last().map(|r| r.division))
             })
             .flatten(),
-        state: (tier == Tier::Hs).then(|| w.high_schools[x.hs].state),
+        // The state asked for (the table's), else his school's.
+        state: (tier == Tier::Hs)
+            .then(|| if args.get("state").is_some() { state_arg(w, args) } else { w.high_schools[x.hs].state }),
     };
-    let (card, _, word, ch) = card_of(w, p, group);
-    // His seasons at the level, newest first.
+    // The season in progress, built once for the whole card.
     let now = marks::season_now(w, tier, p.state);
+    // His seasons at the level, newest first.
     let mut mine: Vec<i32> = match tier {
         Tier::College => {
             w.stats.career(id).iter().filter(|r| Some(r.division) == p.division).map(|r| r.year as i32).collect()
@@ -407,9 +456,14 @@ pub fn card(w: &World, args: &Value) -> Value {
         Tier::Nfl => {
             x.pro.as_ref().map_or(Vec::new(), |c| c.seasons.iter().filter(|s| s.games > 0).map(|s| s.year).collect())
         }
-        Tier::Hs => x.hs_lines.iter().map(|l| l.year as i32).collect(),
+        Tier::Hs => x
+            .hs_lines
+            .iter()
+            .filter(|l| w.high_schools.get(l.school as usize).map(|h| h.state) == p.state)
+            .map(|l| l.year as i32)
+            .collect(),
     };
-    if now.iter().any(|l| l.id == id) {
+    if now.iter().any(|l| l.id == id && now_in(w, p, l)) {
         mine.push(w.year);
     }
     mine.sort_unstable();
@@ -422,14 +476,24 @@ pub fn card(w: &World, args: &Value) -> Value {
         .filter(|y| mine.contains(y))
         .or(mine.first().copied());
     let Some(year) = year else {
+        let Some(group) = an::group_of(x.player.position) else {
+            return json!({ "error": "No card for long snappers." });
+        };
+        let (_, _, word, ch) = card_of(w, p, group);
         let mut m = base(w, p, group, w.year, &mine, 0.0, word, ch);
         m.insert("id".into(), json!(id));
         m.insert("name".into(), json!(x.name));
         m.insert("empty".into(), json!("No season at this level yet."));
         return Value::Object(m);
     };
-    let min = min_for(w, p, group, year, ch, &Value::Null);
-    let rows = pool(w, p, year, group);
+    // The season's group: a pool keeps a season by the position he was
+    // listed at that season, which can differ from his position now.
+    let Some(group) = an::group_of(season_pos(w, k, p, year, &now)) else {
+        return json!({ "error": "No card for long snappers." });
+    };
+    let (card, _, word, ch) = card_of(w, p, group);
+    let min = min_for(w, p, group, year, ch, &Value::Null, &now);
+    let rows = pool(w, p, year, group, &now);
     let qual: Vec<bool> = rows.iter().map(|r| r.vol >= min).collect();
     let pcts = percentiles(&rows, &qual, card);
     let Some(me) = rows.iter().position(|r| r.id == id) else {
@@ -454,7 +518,7 @@ pub fn card(w: &World, args: &Value) -> Value {
     // half the card).
     let my_pct = &pcts[me];
     let mut like: Vec<(f64, u32, i32, usize, u32)> = Vec::new();
-    let ys = years(w, p);
+    let ys = years(w, p, &now);
     for (y, rs) in past_pools(w, p, group, &ys) {
         if y == year {
             continue;
@@ -475,7 +539,9 @@ pub fn card(w: &World, args: &Value) -> Value {
         }
     }
     like.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
-    like.dedup_by_key(|l| l.1);
+    // One season a player: his closest.
+    let mut seen = HashSet::new();
+    like.retain(|l| seen.insert(l.1));
     let like: Vec<Value> = like
         .iter()
         .take(5)

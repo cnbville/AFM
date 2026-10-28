@@ -20,14 +20,16 @@ fn coach(w: &World, c: Option<usize>) -> Value {
     c.and_then(|c| w.coaches.get(c).map(|x| json!({ "id": c, "name": x.name }))).unwrap_or(Value::Null)
 }
 
-/// Conference champions by year in a division (item 24). A season from
-/// before lane L20 names the program's conference now.
+/// Conference champions by year in a division (item 24). A title is filed
+/// by that season's division and conference (programs move); a season
+/// from an older file reads the program's now.
 fn conferences(w: &World, args: &Value) -> Value {
     let d = division_arg(w, args);
     let mut rows: Vec<Value> = Vec::new();
-    for p in w.programs.iter().filter(|p| p.division == d) {
-        for s in p.seasons.iter().filter(|s| s.conference_title) {
-            let conf = s.conference_won.clone().unwrap_or_else(|| p.conference.clone());
+    for p in &w.programs {
+        for s in p.seasons.iter().filter(|s| s.conference_title && s.division.unwrap_or(p.division) == d) {
+            let conf =
+                s.conference_won.clone().or_else(|| s.conference.clone()).unwrap_or_else(|| p.conference.clone());
             rows.push(json!({
                 "year": s.year,
                 "conference": conf,

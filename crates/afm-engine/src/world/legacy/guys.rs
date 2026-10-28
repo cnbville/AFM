@@ -480,7 +480,10 @@ pub(crate) fn season(w: &mut World) {
         let ovr = p.player.overall() as f32;
         let trust = if p.trust_in == you as u32 { p.trust } else { 0.5 };
         let starter = p.last_role == Some(crate::world::PlayingTime::Starter)
-            || p.pro.as_ref().and_then(|c| c.seasons.iter().find(|s| s.year == year)).is_some_and(|s| s.starts >= 8);
+            || p.pro
+                .as_ref()
+                .and_then(|c| c.seasons.iter().find(|s| s.year == year))
+                .is_some_and(|s| s.starts_all() >= 8);
         let honors = w.stats.honors.get(&id);
         match find(w, id) {
             Some(k) => {

@@ -30,7 +30,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::analytics;
-use super::data::Division;
 use super::hs_year::{HS_STAT_COUNT, HsLine, HsStat};
 use super::records::{Book, CONFERENCE_TOP, DIVISION_TOP, GameRef, RECORD_STATS, RecordEntry, STAT_COUNT, Scope, Stat};
 use super::{Stage, World};
@@ -82,8 +81,10 @@ pub const GAME: u8 = 2;
 pub struct Mark {
     pub value: f32,
     pub id: u32,
-    /// A game: the opponent's index and the two scores (`game_parts`). A
-    /// career: its first season.
+    /// A game: the opponent's index (16 bits: there are over 14,000 high
+    /// schools) and the two scores (8 bits each; `game_parts`). A career:
+    /// its first season (low 16 bits) and its games (high 16 bits; zero in
+    /// an older file, which kept them in `games` only).
     pub aux: u32,
     /// A game's date (`Date.0`).
     pub date: i32,
@@ -92,6 +93,7 @@ pub struct Mark {
     /// Bits 0-3 the stat, 4-5 the kind (career, season, game), 6 a home
     /// game, 7 a career still being played.
     pub list: u8,
+    /// Games played, up to 255 (a career's full count is `game_count`).
     pub games: u8,
 }
 
@@ -127,18 +129,29 @@ impl Mark {
     }
     /// A game's opponent and score (his team's points, then theirs).
     pub fn game_parts(&self) -> (usize, [u16; 2]) {
-        ((self.aux & 0x3FFF) as usize, [((self.aux >> 14) & 0x1FF) as u16, ((self.aux >> 23) & 0x1FF) as u16])
+        ((self.aux & 0xFFFF) as usize, [((self.aux >> 16) & 0xFF) as u16, ((self.aux >> 24) & 0xFF) as u16])
     }
     pub fn first_year(&self) -> i32 {
-        if self.kind() == CAREER { self.aux as i32 } else { self.year as i32 }
+        if self.kind() == CAREER { (self.aux & 0xFFFF) as i32 } else { self.year as i32 }
     }
+    /// Games played: a career's full count (a long NFL career at one club
+    /// passes 255), a season's, or one for a game.
+    pub fn game_count(&self) -> u32 {
+        let full = self.aux >> 16;
+        if self.kind() == CAREER && full > 0 { full } else { self.games as u32 }
+    }
+}
+
+/// A career mark's `aux`: its first season and its games.
+pub(crate) fn career_aux(first: i32, games: u32) -> u32 {
+    (first.clamp(0, 0xFFFF) as u32) | (games.min(0xFFFF) << 16)
 }
 
 fn pack_game(opp: usize, score: [u16; 2]) -> u32 {
-    (opp as u32 & 0x3FFF) | ((score[0].min(511) as u32) << 14) | ((score[1].min(511) as u32) << 23)
+    (opp.min(0xFFFF) as u32) | ((score[0].min(255) as u32) << 16) | ((score[1].min(255) as u32) << 24)
 }
 
-fn list_key(kind: u8, stat: usize) -> u8 {
+pub(crate) fn list_key(kind: u8, stat: usize) -> u8 {
     (kind << 4) | stat as u8
 }
 
@@ -156,7 +169,7 @@ fn range(book: &[Mark], key: u8) -> (usize, usize) {
 
 /// Puts a mark on a team's list if it makes the best `top`; a career mark
 /// replaces his earlier one. Returns the holder it moved off first place.
-fn place_mark(book: &mut Vec<Mark>, m: Mark, top: usize) -> Option<Mark> {
+pub(crate) fn place_mark(book: &mut Vec<Mark>, m: Mark, top: usize) -> Option<Mark> {
     let key = m.key();
     let (lo, hi) = range(book, key);
     let first = (lo < hi).then(|| book[lo]);
@@ -171,10 +184,14 @@ fn place_mark(book: &mut Vec<Mark>, m: Mark, top: usize) -> Option<Mark> {
     if pos - lo >= top {
         return None;
     }
-    book.insert(pos, m);
-    if hi + 1 - lo > top {
-        book.remove(lo + top);
+    // A full list drops its last mark first, so the book never grows past
+    // what it holds (a loaded book's Vec has no spare room: memory).
+    if hi - lo >= top {
+        book.remove(hi - 1);
+    } else {
+        book.reserve_exact(1);
     }
+    book.insert(pos, m);
     first.filter(|f| pos == lo && f.id != m.id && f.value < m.value)
 }
 
@@ -311,6 +328,19 @@ pub struct Marks {
     pub names: Names,
     /// Records already told as fallen this season: (list, player).
     pub(crate) told: HashSet<(u64, u32)>,
+    /// Each list's best mark told this season, and who has it: a record
+    /// already broken this season falls again only to someone past him.
+    #[serde(default)]
+    pub(crate) best_told: HashMap<u64, (f64, u32)>,
+    /// Each NFL player's regular season so far with each club, from the
+    /// games (a man traded in the season has a line with each club):
+    /// games and totals.
+    #[serde(default)]
+    pub(crate) club_season: BTreeMap<(u32, u8), (u16, Vals)>,
+    /// Each NFL player's first season with each club (a stint split off
+    /// by a trade leaves no season row with that club).
+    #[serde(default)]
+    pub(crate) club_first: BTreeMap<(u32, u8), i16>,
     /// Each level's first season in the books (a fallen record counts
     /// once the books have five seasons behind them).
     pub first: [i32; 3],
@@ -662,6 +692,29 @@ fn tell(
     old: &RecordEntry,
 ) {
     let code = list_code(scope.as_ref(), team, book);
+    // Broken already this season: he has to pass the new mark, and its
+    // holder is the one he takes it from.
+    let mut old = old.clone();
+    if let Some(&(best, by)) = w.marks.best_told.get(&code) {
+        if by == l.id || value <= best {
+            if by == l.id && value > best {
+                w.marks.best_told.insert(code, (value, by));
+            }
+            return;
+        }
+        // The holder's own total may have passed the told mark since.
+        if best > old.value {
+            old = RecordEntry {
+                value: best,
+                id: by,
+                name: name_of(w, by).unwrap_or_else(|| "a former player".into()),
+                year,
+                from: year,
+                ..Default::default()
+            };
+        }
+    }
+    w.marks.best_told.insert(code, (value, l.id));
     if !w.marks.told.insert((code, l.id)) {
         return;
     }
@@ -686,10 +739,44 @@ fn tell(
 /// list's holder (season and career records fall on the day, item 21).
 struct Running {
     line: GameLine,
-    /// The season so far, his career at the level and at the team.
+    /// The season so far (at the level and with this team), his career at
+    /// the level and at the team.
     season: Vals,
+    team_season: Vals,
     career: Vals,
     team_career: Vals,
+}
+
+/// A career holder's season so far where it adds to his record: the
+/// level's career in `scope`, or his career with `team`.
+fn holder_run(w: &World, tier: Tier, id: u32, scope: Option<&Scope>, team: Option<usize>) -> Vals {
+    let zero = [0f32; N];
+    match tier {
+        Tier::College => {
+            let Some(b) = w.college.as_ref().and_then(|cs| cs.book.get(&id)) else { return zero };
+            let counts = match (team, scope) {
+                (Some(t), _) => b.program == t,
+                (None, Some(Scope::Division(d))) => w.programs.get(b.program).is_some_and(|p| p.division == *d),
+                _ => false,
+            };
+            if counts { vals(&b.line) } else { zero }
+        }
+        Tier::Nfl => match team {
+            Some(t) => w.marks.club_season.get(&(id, t as u8)).map_or(zero, |x| x.1),
+            None => person(w, id)
+                .and_then(|k| w.people[k].pro.as_ref()?.seasons.iter().rev().find(|s| s.year == w.year))
+                .map_or(zero, |s| vals(&s.stats)),
+        },
+        Tier::Hs => {
+            let Some((school, acc)) = person(w, id).and_then(|k| super::hs_year::running(w, k)) else { return zero };
+            let counts = match (team, scope) {
+                (Some(t), _) => school == t,
+                (None, Some(Scope::State(st))) => w.high_schools.get(school).is_some_and(|h| h.state == *st),
+                _ => false,
+            };
+            if counts { hs_vals(&acc) } else { zero }
+        }
+    }
 }
 
 fn check_running(w: &mut World, year: i32, date: Date, side: &GameSide, runs: &[Running]) {
@@ -697,7 +784,8 @@ fn check_running(w: &mut World, year: i32, date: Date, side: &GameSide, runs: &[
         return;
     }
     // The holders' marks: each level list's first, then the team's.
-    let level: Vec<(Scope, [Option<RecordEntry>; N], [Option<RecordEntry>; N])> =
+    type Holders = [Option<RecordEntry>; N];
+    let level: Vec<(Scope, Holders, Holders)> =
         side.scopes
             .iter()
             .map(|(sc, _)| {
@@ -724,20 +812,34 @@ fn check_running(w: &mut World, year: i32, date: Date, side: &GameSide, runs: &[
                         && h.id != r.line.id
                         && have as f64 > h.value
                     {
-                        tell(w, year, date, Some(sc.clone()), None, b, &r.line, side.team, have as f64, h);
+                        // A holder still playing has added to his career.
+                        let mut old = h.clone();
+                        if matches!(b, Book::Career(_)) {
+                            old.value += holder_run(w, side.tier, h.id, Some(sc), None)[j] as f64;
+                        }
+                        if have as f64 > old.value {
+                            tell(w, year, date, Some(sc.clone()), None, b, &r.line, side.team, have as f64, &old);
+                        }
                     }
                 }
             }
             if side.tier == Tier::Hs {
                 continue;
             }
-            for (have, kind, b) in [(r.season[j], SEASON, Book::Season(j)), (r.team_career[j], CAREER, Book::Career(j))]
+            for (have, kind, b) in
+                [(r.team_season[j], SEASON, Book::Season(j)), (r.team_career[j], CAREER, Book::Career(j))]
             {
                 if let Some(h) = team_first(kind, j)
                     && h.id != r.line.id
                     && have > h.value
                 {
-                    let old = entry_of(w, &h);
+                    let mut old = entry_of(w, &h);
+                    if kind == CAREER {
+                        old.value += holder_run(w, side.tier, h.id, None, Some(side.team))[j] as f64;
+                    }
+                    if have as f64 <= old.value {
+                        continue;
+                    }
                     tell(
                         w,
                         year,
@@ -776,8 +878,9 @@ fn score_of(s: &GameStats, side: usize) -> [u16; 2] {
 }
 
 /// A college game on the engine: its marks, and the season and career
-/// records it broke. Bowls and playoff games count.
-pub(crate) fn college_game(w: &mut World, year: i32, teams: [usize; 2], s: &GameStats) {
+/// records it broke. Bowls and playoff games count. At a neutral site
+/// neither side was at home (both read "vs").
+pub(crate) fn college_game(w: &mut World, year: i32, teams: [usize; 2], s: &GameStats, neutral: bool) {
     if !w.recording {
         return;
     }
@@ -791,7 +894,7 @@ pub(crate) fn college_game(w: &mut World, year: i32, teams: [usize; 2], s: &Game
             tier: Tier::College,
             team: prog,
             opp: teams[1 - side],
-            home: side == 0,
+            home: side == 0 || neutral,
             score: score_of(s, side),
             scopes: college_scopes(w, prog),
         };
@@ -830,6 +933,7 @@ pub(crate) fn college_game(w: &mut World, year: i32, teams: [usize; 2], s: &Game
                 runs.push(Running {
                     line: GameLine { id, name: line.name.clone(), pos: line.pos, v },
                     season,
+                    team_season: season,
                     career,
                     team_career,
                 });
@@ -842,7 +946,7 @@ pub(crate) fn college_game(w: &mut World, year: i32, teams: [usize; 2], s: &Game
 }
 
 /// An NFL regular-season game: its marks and the records it broke.
-pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], s: &GameStats) {
+pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], s: &GameStats, neutral: bool) {
     if !w.recording || w.nfl_season.as_ref().is_some_and(|x| x.booked) {
         return;
     }
@@ -857,7 +961,7 @@ pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], s: &GameStats) {
             tier: Tier::Nfl,
             team: club,
             opp: teams[1 - side],
-            home: side == 0,
+            home: side == 0 || neutral,
             score: score_of(s, side),
             scopes: vec![(Scope::Nfl, DIVISION_TOP)],
         };
@@ -866,11 +970,22 @@ pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], s: &GameStats) {
         let mut lines = Vec::new();
         let mut runs = Vec::new();
         for id in ids {
-            let v = vals(&s.players[side][&id]);
+            let l = &s.players[side][&id];
+            let v = vals(l);
+            let Some(k) = person(w, id) else { continue };
+            // His season with this club, from its games (a man traded in
+            // the season has a line with each club).
+            let team_season = {
+                let e = w.marks.club_season.entry((id, club as u8)).or_insert((0, [0.0; N]));
+                if l.snaps_off + l.snaps_def + l.snaps_st > 0 {
+                    e.0 = e.0.saturating_add(1);
+                }
+                add(&mut e.1, &v);
+                e.1
+            };
             if v.iter().all(|&x| x <= 0.0) {
                 continue;
             }
-            let Some(k) = person(w, id) else { continue };
             let p = &w.people[k];
             let line = GameLine { id, name: p.name.clone(), pos: Some(p.player.position), v };
             if let Some(season) = p.pro.as_ref().and_then(|c| c.seasons.iter().rev().find(|x| x.year == year)) {
@@ -879,13 +994,14 @@ pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], s: &GameStats) {
                 if let Some(c) = w.nfl_book.careers.get(&id) {
                     add(&mut career, &vals(c));
                 }
-                let mut team_career = season;
+                let mut team_career = team_season;
                 if let Some((_, c)) = w.marks.club_careers.get(&(id, club as u8)) {
                     add(&mut team_career, c);
                 }
                 runs.push(Running {
                     line: GameLine { id, name: line.name.clone(), pos: line.pos, v },
                     season,
+                    team_season,
                     career,
                     team_career,
                 });
@@ -898,12 +1014,14 @@ pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], s: &GameStats) {
 }
 
 /// A high school game on the engine: its marks and the records it broke.
-/// `lines`: each side's (person index, counts, played). Playoff games count.
+/// `lines`: each side's (person index, counts, played). Playoff games count;
+/// a final at a neutral site has neither side at home.
 pub(crate) fn hs_game(
     w: &mut World,
     teams: [usize; 2],
     score: [u32; 2],
     lines: &[Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
+    neutral: bool,
 ) {
     if !w.recording {
         return;
@@ -920,7 +1038,7 @@ pub(crate) fn hs_game(
             tier: Tier::Hs,
             team: school,
             opp: teams[1 - side],
-            home: side == 0,
+            home: side == 0 || neutral,
             score: [score[side].min(u16::MAX as u32) as u16, score[1 - side].min(u16::MAX as u32) as u16],
             scopes: vec![(Scope::State(state), DIVISION_TOP)],
         };
@@ -934,7 +1052,7 @@ pub(crate) fn hs_game(
             let p = &w.people[i];
             let id = p.player.id;
             let line = GameLine { id, name: p.name.clone(), pos: Some(p.player.position), v };
-            if let Some(acc) = super::hs_year::running(w, i) {
+            if let Some((_, acc)) = super::hs_year::running(w, i) {
                 let season = hs_vals(&acc);
                 let mut career = season;
                 let mut team_career = season;
@@ -950,6 +1068,7 @@ pub(crate) fn hs_game(
                 runs.push(Running {
                     line: GameLine { id, name: line.name.clone(), pos: line.pos, v },
                     season,
+                    team_season: season,
                     career,
                     team_career,
                 });
@@ -1006,9 +1125,9 @@ fn leaders_of(w: &mut World, scope: &Scope, year: i32, rows: &[SeasonRow]) {
 }
 
 /// Season rate records for a level book.
-fn season_rates(w: &mut World, scope: &Scope, tier: Tier, year: i32, rows: &[SeasonRow]) {
-    for k in 0..RATES.len() {
-        for r in rows {
+fn season_rates<'a>(w: &mut World, scope: &Scope, tier: Tier, year: i32, rows: impl Iterator<Item = &'a SeasonRow>) {
+    for r in rows {
+        for k in 0..RATES.len() {
             if !season_qualifies(k, &r.parts, tier, r.team_games) {
                 continue;
             }
@@ -1070,11 +1189,14 @@ pub(crate) fn college_close(w: &mut World, year: i32, start: usize) {
     if !w.recording {
         return;
     }
-    if w.marks.first[Tier::College.ix()] == 0 {
+    let n = w.stats.seasons.len();
+    if w.marks.first[Tier::College.ix()] == 0 && start < n {
         w.marks.first[Tier::College.ix()] = year;
     }
-    let n = w.stats.seasons.len();
-    let mut by_div: BTreeMap<Division, Vec<SeasonRow>> = BTreeMap::new();
+    // The season's rows, and which of them each division and conference
+    // book takes (a conference's rate records too).
+    let mut rows: Vec<SeasonRow> = Vec::new();
+    let mut by_scope: BTreeMap<Scope, Vec<usize>> = BTreeMap::new();
     let top = Tier::College.team_top();
     for k in start..n {
         let r = w.stats.seasons[k].clone();
@@ -1129,7 +1251,7 @@ pub(crate) fn college_close(w: &mut World, year: i32, start: usize) {
                 let m = Mark {
                     value: at_prog[j],
                     id: r.id,
-                    aux: first_at as u32,
+                    aux: career_aux(first_at, games_at),
                     date: 0,
                     year: year as i16,
                     list: list_key(CAREER, j) | if still_here { 128 } else { 0 },
@@ -1138,8 +1260,9 @@ pub(crate) fn college_close(w: &mut World, year: i32, start: usize) {
                 place_mark(book, m, top);
             }
         }
-        let team_games =
-            w.programs[prog].seasons.iter().rev().find(|s| s.year == year).map_or(12, |s| s.wins + s.losses);
+        // The team's games with its bowl and playoff games, as his counts
+        // have them (the program's season still holds the regular season's).
+        let team_games = w.college.as_ref().and_then(|cs| cs.results.get(prog)).map_or(12, |t| t.games());
         let row =
             SeasonRow { id: r.id, name, pos: r.pos, team: prog, games: r.games as u32, v, expect, parts, team_games };
         career_rates(
@@ -1152,14 +1275,53 @@ pub(crate) fn college_close(w: &mut World, year: i32, start: usize) {
             still_level,
             div_games,
         );
-        by_div.entry(r.division).or_default().push(row);
+        by_scope.entry(Scope::Division(r.division)).or_default().push(rows.len());
+        let conf = &w.programs[prog].conference;
+        if !conf.is_empty() {
+            by_scope.entry(Scope::Conference(r.division, conf.clone())).or_default().push(rows.len());
+        }
+        rows.push(row);
     }
-    for (d, rows) in by_div {
+    for (sc, ks) in &by_scope {
         // College's leaders come from the stat book, which keeps every season.
-        season_rates(w, &Scope::Division(d), Tier::College, year, &rows);
+        season_rates(w, sc, Tier::College, year, ks.iter().map(|&k| &rows[k]));
+        if matches!(sc, Scope::Division(_)) {
+            refresh_live_lists(w, sc);
+        }
     }
     refresh_live(w, Tier::College);
     end_season(w, Tier::College, year);
+}
+
+/// Whether he plays in a level book's scope now: in the NFL, at a program
+/// in the division, or at a school in the state.
+fn active_in(w: &World, id: u32, scope: &Scope) -> bool {
+    person(w, id).is_some_and(|k| {
+        let p = &w.people[k];
+        match scope {
+            Scope::Nfl => p.stage == Stage::Pro,
+            Scope::Division(d) | Scope::Conference(d, _) => {
+                p.stage == Stage::College && p.college.and_then(|c| w.programs.get(c)).is_some_and(|x| x.division == *d)
+            }
+            Scope::State(s) => p.stage == Stage::HighSchool && w.high_schools.get(p.hs).is_some_and(|h| h.state == *s),
+        }
+    })
+}
+
+/// Clears the "still being played" mark on a level book's careers that
+/// are over: he retired, finished school or left the level.
+fn refresh_live_lists(w: &mut World, scope: &Scope) {
+    for b in (0..N).map(Book::Career).chain((0..RATES.len()).map(Book::RateCareer)) {
+        let key = (scope.clone(), b);
+        let Some(list) = w.stats.books.get(&key) else { continue };
+        let over: Vec<usize> =
+            list.iter().enumerate().filter(|(_, e)| e.live && !active_in(w, e.id, scope)).map(|(i, _)| i).collect();
+        if let Some(list) = w.stats.books.get_mut(&key) {
+            for i in over {
+                list[i].live = false;
+            }
+        }
+    }
 }
 
 /// Clears the "still playing" mark on careers that are over.
@@ -1193,14 +1355,27 @@ fn end_season(w: &mut World, tier: Tier, year: i32) {
     w.marks.fell.retain(|f| f.tier() != tier || f.year >= year);
     // The "already told" set is for one season at a time, but the levels'
     // seasons overlap: keep what this season's other levels told.
-    let keep: HashSet<(u64, u32)> = w
-        .marks
-        .fell
-        .iter()
-        .filter(|f| f.tier() != tier && f.year >= year)
-        .map(|f| (list_code(f.scope.as_ref(), f.team, f.book), f.id))
-        .collect();
-    w.marks.told.retain(|x| keep.contains(x));
+    retell(w, |f| f.tier() != tier && f.year >= year);
+}
+
+/// The "already told" set and each list's best told mark, from the fallen
+/// records that still count this season.
+fn retell(w: &mut World, keep: impl Fn(&Fell) -> bool) {
+    // A breaker who kept adding holds more than his fallen record says.
+    let old = std::mem::take(&mut w.marks.best_told);
+    let mut told = HashSet::new();
+    let mut best: HashMap<u64, (f64, u32)> = HashMap::new();
+    for f in w.marks.fell.iter().filter(|f| keep(f)) {
+        let code = list_code(f.scope.as_ref(), f.team, f.book);
+        told.insert((code, f.id));
+        let start = old.get(&code).copied().filter(|o| o.0 > f.value).unwrap_or((f.value, f.id));
+        let b = best.entry(code).or_insert(start);
+        if f.value > b.0 {
+            *b = (f.value, f.id);
+        }
+    }
+    w.marks.told = told;
+    w.marks.best_told = best;
 }
 
 /// Per-game averages of the record stats among a season's regulars, by
@@ -1228,10 +1403,8 @@ pub(crate) fn nfl_close(w: &mut World) {
         return;
     }
     let year = w.year;
-    if w.marks.first[Tier::Nfl.ix()] == 0 {
-        w.marks.first[Tier::Nfl.ix()] = year;
-    }
-    let team_games = if year >= 2021 { 17 } else { 16 };
+    // The season's length from the rule book (an 18-game season once voted).
+    let team_games = w.changes.rules(year).nfl_games;
     struct Line {
         k: usize,
         club: usize,
@@ -1254,6 +1427,12 @@ pub(crate) fn nfl_close(w: &mut World) {
             })
         })
         .collect();
+    // A season on the stand-in has no lines: the books begin with the
+    // first season on the engine.
+    if w.marks.first[Tier::Nfl.ix()] == 0 && !lines.is_empty() {
+        w.marks.first[Tier::Nfl.ix()] = year;
+    }
+    let store_from = w.marks.first[Tier::Nfl.ix()];
     let norm_rows: Vec<(Position, u32, u32, Vals)> =
         lines.iter().map(|l| (w.people[l.k].player.position, l.games, l.snaps, vals_of(&l.all))).collect();
     for (pos, m) in norms_of(&norm_rows, 8) {
@@ -1283,21 +1462,29 @@ pub(crate) fn nfl_close(w: &mut World) {
         let cparts = parts_of(&|s| super::records::from_line(&career)[s as usize] as f64);
         let prior: Vec<&ProRow> =
             earlier.get(&id).map_or(Vec::new(), |v| v.iter().map(|&k| &w.marks.pro_rows[k]).collect());
-        let mut games = l.games;
+        // His career games from the book's career line, like its totals:
+        // regular-season games, those before the store began too.
+        let games = if career.games > 0 { career.games } else { l.games };
         let mut from = year;
         let mut cexpect = expect;
+        let mut known = w.marks.norms.contains_key(&(year, NFL_LEVEL, pos));
         for r in &prior {
-            games += r.games as u32;
             from = from.min(r.year as i32);
+            known &= w.marks.norms.contains_key(&(r.year as i32, NFL_LEVEL, r.pos));
             for (j, x) in cexpect.iter_mut().enumerate() {
                 *x += (w.marks.norm(r.year as i32, NFL_LEVEL, r.pos, j) * r.games as f64) as f32;
             }
         }
-        // Seasons before the store began: his first season on record.
-        if let Some(c) = p.pro.as_ref()
-            && let Some(f) = c.seasons.first()
-        {
-            from = from.min(f.year);
+        // Seasons before the store began: his first season on record, and
+        // no norms for them, so the era column is unknown.
+        if let Some(c) = p.pro.as_ref() {
+            if let Some(f) = c.seasons.first() {
+                from = from.min(f.year);
+            }
+            known &= !c.seasons.iter().any(|s| s.year < store_from && s.games > 0);
+        }
+        if !known {
+            cexpect = [0.0; N];
         }
         for j in 0..N {
             if v[j] > 0.0 {
@@ -1334,40 +1521,72 @@ pub(crate) fn nfl_close(w: &mut World) {
                 place_entry(list, e, DIVISION_TOP, true);
             }
         }
-        // His club's book: the season, and his career there.
-        let cc = {
-            let e = w.marks.club_careers.entry((id, l.club as u8)).or_insert((0, [0.0; N]));
-            e.0 = e.0.saturating_add(l.games as u16);
-            add(&mut e.1, &v);
-            *e
-        };
-        let club_from = prior.iter().filter(|r| r.team as usize == l.club).map(|r| r.year as i32).min().unwrap_or(year);
-        let here = live && p.pro.as_ref().is_some_and(|c| c.team == Some(l.club));
-        let book = w.marks.book_mut(Tier::Nfl, l.club);
-        for j in 0..N {
-            if v[j] > 0.0 {
-                let m = Mark {
-                    value: v[j],
-                    id,
-                    aux: 0,
-                    date: 0,
-                    year: year as i16,
-                    list: list_key(SEASON, j),
-                    games: l.games.min(255) as u8,
-                };
-                place_mark(book, m, top);
+        // Each club's season from its games (a man traded in the season
+        // has a line with each); games the store didn't see (a file loaded
+        // in the season) go to his last club.
+        let mut clubs: Vec<(usize, u16, Vals)> =
+            w.marks.club_season.range((id, 0)..=(id, u8::MAX)).map(|(&(_, c), &(g, cv))| (c as usize, g, cv)).collect();
+        let seen: u32 = clubs.iter().map(|c| c.1 as u32).sum();
+        if seen < l.games {
+            let mut rest = v;
+            for c in &clubs {
+                for (x, y) in rest.iter_mut().zip(&c.2) {
+                    *x = (*x - y).max(0.0);
+                }
             }
-            if cc.1[j] > 0.0 {
-                let m = Mark {
-                    value: cc.1[j],
-                    id,
-                    aux: club_from as u32,
-                    date: 0,
-                    year: year as i16,
-                    list: list_key(CAREER, j) | if here { 128 } else { 0 },
-                    games: cc.0.min(255) as u8,
-                };
-                place_mark(book, m, top);
+            let missing = (l.games - seen).min(u16::MAX as u32) as u16;
+            match clubs.iter_mut().find(|c| c.0 == l.club) {
+                Some(c) => {
+                    c.1 = c.1.saturating_add(missing);
+                    add(&mut c.2, &rest);
+                }
+                None => clubs.push((l.club, missing, rest)),
+            }
+        }
+        // Each club's book: his season there, and his career there.
+        let club_from: Vec<i32> = clubs
+            .iter()
+            .map(|c| {
+                let rows = prior.iter().filter(|r| r.team as usize == c.0).map(|r| r.year as i32).min();
+                let kept = w.marks.club_first.get(&(id, c.0 as u8)).map(|&y| y as i32);
+                rows.into_iter().chain(kept).min().unwrap_or(year)
+            })
+            .collect();
+        for ((club, club_games, sv), club_from) in clubs.into_iter().zip(club_from) {
+            w.marks.club_first.insert((id, club as u8), club_from as i16);
+            let cc = {
+                let e = w.marks.club_careers.entry((id, club as u8)).or_insert((0, [0.0; N]));
+                e.0 = e.0.saturating_add(club_games);
+                add(&mut e.1, &sv);
+                *e
+            };
+            let here = live && p.pro.as_ref().is_some_and(|c| c.team == Some(club));
+            let book = w.marks.book_mut(Tier::Nfl, club);
+            for j in 0..N {
+                if sv[j] > 0.0 {
+                    let m = Mark {
+                        value: sv[j],
+                        id,
+                        aux: 0,
+                        date: 0,
+                        year: year as i16,
+                        list: list_key(SEASON, j),
+                        games: club_games.min(255) as u8,
+                    };
+                    place_mark(book, m, top);
+                }
+                if cc.1[j] > 0.0 {
+                    let m = Mark {
+                        value: cc.1[j],
+                        id,
+                        aux: career_aux(club_from, cc.0 as u32),
+                        date: 0,
+                        year: year as i16,
+                        list: list_key(CAREER, j) | if here { 128 } else { 0 },
+                        games: cc.0.min(255) as u8,
+                    };
+                    place_mark(book, m, top);
+                }
             }
         }
         let row = SeasonRow { id, name, pos, team: l.club, games: l.games, v, expect, parts, team_games };
@@ -1375,7 +1594,7 @@ pub(crate) fn nfl_close(w: &mut World) {
         rows.push(row);
     }
     leaders_of(w, &Scope::Nfl, year, &rows);
-    season_rates(w, &Scope::Nfl, Tier::Nfl, year, &rows);
+    season_rates(w, &Scope::Nfl, Tier::Nfl, year, rows.iter());
     // The analytics rows (item 8).
     for l in &lines {
         let p = &w.people[l.k];
@@ -1397,6 +1616,9 @@ pub(crate) fn nfl_close(w: &mut World) {
             vals,
         });
     }
+    // The season's club lines are in the books.
+    w.marks.club_season.clear();
+    refresh_live_lists(w, &Scope::Nfl);
     refresh_live(w, Tier::Nfl);
     end_season(w, Tier::Nfl, year);
 }
@@ -1423,7 +1645,14 @@ pub(crate) fn hs_norms(w: &mut World, state: usize, lines: &[(usize, HsLine)]) {
 
 /// The era column's expected values for a high school line.
 pub(crate) fn hs_expect(w: &World, state: usize, l: &HsLine) -> Vals {
-    std::array::from_fn(|j| (w.marks.norm(l.year as i32, state_level(state), l.pos, j) * l.games as f64) as f32)
+    hs_expect_known(w, state, l).unwrap_or([0.0; N])
+}
+
+/// The same, or none when the state has no norm for his position that
+/// season (one lookup for all the stats).
+pub(crate) fn hs_expect_known(w: &World, state: usize, l: &HsLine) -> Option<Vals> {
+    let m = w.marks.norms.get(&(l.year as i32, state_level(state), l.pos))?;
+    Some(m.map(|x| (x as f64 * l.games as f64) as f32))
 }
 
 /// A state's season is in: each school's book, the state's leaders and its
@@ -1433,7 +1662,9 @@ pub(crate) fn hs_close(w: &mut World, state: usize, lines: &[(usize, HsLine)]) {
         return;
     }
     let year = w.year;
-    if w.marks.first[Tier::Hs.ix()] == 0 {
+    // A season on the stand-in files no lines: the books begin with the
+    // first season on the engine.
+    if w.marks.first[Tier::Hs.ix()] == 0 && !lines.is_empty() {
         w.marks.first[Tier::Hs.ix()] = year;
     }
     let top = Tier::Hs.team_top();
@@ -1486,7 +1717,7 @@ pub(crate) fn hs_close(w: &mut World, state: usize, lines: &[(usize, HsLine)]) {
                 let m = Mark {
                     value: at[j],
                     id,
-                    aux: first_at as u32,
+                    aux: career_aux(first_at, games_at),
                     date: 0,
                     year: year as i16,
                     list: list_key(CAREER, j) | if here { 128 } else { 0 },
@@ -1510,7 +1741,8 @@ pub(crate) fn hs_close(w: &mut World, state: usize, lines: &[(usize, HsLine)]) {
         rows.push(row);
     }
     leaders_of(w, &scope, year, &rows);
-    season_rates(w, &scope, Tier::Hs, year, &rows);
+    season_rates(w, &scope, Tier::Hs, year, rows.iter());
+    refresh_live_lists(w, &scope);
     refresh_live_schools(w, state);
 }
 
@@ -1535,16 +1767,8 @@ fn refresh_live_schools(w: &mut World, state: usize) {
 pub(crate) fn hs_new_season(w: &mut World) {
     let year = w.year;
     w.marks.fell.retain(|f| f.tier() != Tier::Hs || f.year >= year - 1);
-    w.marks.told.retain(|_| false);
     // What this season's college and NFL already told stays told.
-    let keep: Vec<(u64, u32)> = w
-        .marks
-        .fell
-        .iter()
-        .filter(|f| f.year >= year && f.tier() != Tier::Hs)
-        .map(|f| (list_code(f.scope.as_ref(), f.team, f.book), f.id))
-        .collect();
-    w.marks.told.extend(keep);
+    retell(w, |f| f.year >= year && f.tier() != Tier::Hs);
 }
 
 /// Before the people who left are dropped (`World::compact`): the names
@@ -1567,6 +1791,7 @@ pub(crate) fn keep_names(w: &mut World, stays: &[Option<usize>]) {
     let gone: HashSet<u32> =
         w.people.iter().zip(stays).filter(|(_, s)| s.is_none()).map(|(p, _)| p.player.id).collect();
     w.marks.club_careers.retain(|k, _| !gone.contains(&k.0));
+    w.marks.club_first.retain(|k, _| !gone.contains(&k.0));
     // A name stays wanted only while no living person has it.
     let living: HashSet<u32> =
         w.people.iter().zip(stays).filter(|(_, s)| s.is_some()).map(|(p, _)| p.player.id).collect();
@@ -1661,8 +1886,8 @@ pub fn season_now(w: &World, tier: Tier, state: Option<usize>) -> Vec<NowLine> {
             }
         }
         Tier::Hs => {
-            for (i, school, pos, games, s) in super::hs_year::running_all(w) {
-                if games == 0 || state.is_some_and(|st| w.high_schools[school].state != st) {
+            for (i, school, pos, games, s) in super::hs_year::running_in(w, state) {
+                if games == 0 {
                     continue;
                 }
                 let Some(p) = w.people.get(i) else { continue };
@@ -1691,11 +1916,11 @@ pub struct Chase {
     pub holder_year: i32,
 }
 
-/// The games in a regular season: what a season's pace is read against.
-pub fn season_games(tier: Tier, year: i32) -> u32 {
+/// The games in a regular season: what a season's pace is read against
+/// (the NFL's from the world's rule book: 18 once voted).
+pub fn season_games(w: &World, tier: Tier, year: i32) -> u32 {
     match tier {
-        Tier::Nfl if year >= 2021 => 17,
-        Tier::Nfl => 16,
+        Tier::Nfl => w.changes.rules(year).nfl_games,
         Tier::College => 12,
         Tier::Hs => 10,
     }
@@ -1719,7 +1944,7 @@ pub fn chasing(w: &World, scope: &Scope) -> Vec<Chase> {
             _ => true,
         })
         .collect();
-    let total = season_games(tier, w.year) as f64;
+    let total = season_games(w, tier, w.year) as f64;
     let mut out = Vec::new();
     for (j, &stat) in RECORD_STATS.iter().enumerate() {
         let k = stat as usize;
@@ -1751,7 +1976,9 @@ pub fn chasing(w: &World, scope: &Scope) -> Vec<Chase> {
         }
         let Some(list) = w.stats.books.get(&(scope.clone(), Book::Career(j))) else { continue };
         let Some(rec) = list.first() else { continue };
-        for e in list.iter().skip(1).filter(|e| e.live) {
+        // Careers still being played at the level now (a man who retired or
+        // finished school keeps his flag until the level's next close).
+        for e in list.iter().skip(1).filter(|e| e.live && active_in(w, e.id, scope)) {
             let run = now.binary_search_by_key(&e.id, |l| l.id).ok().map_or(0.0, |i| now[i].all[k] as f64);
             let have = e.value + run;
             if have >= 0.75 * rec.value && rec.id != e.id {

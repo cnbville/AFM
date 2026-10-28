@@ -311,6 +311,8 @@ fn since(w: &World, tier: Tier) -> Option<i32> {
     }
 }
 
+/// A division's conferences: today's, and every one with books (a
+/// conference that has since folded or left the division).
 fn conferences(w: &World, scope: &Scope) -> Vec<String> {
     let d = match scope {
         Scope::Division(d) | Scope::Conference(d, _) => *d,
@@ -322,6 +324,10 @@ fn conferences(w: &World, scope: &Scope) -> Vec<String> {
         .filter(|p| p.division == d && !p.conference.is_empty())
         .map(|p| p.conference.clone())
         .collect();
+    v.extend(w.stats.books.keys().filter_map(|(s, _)| match s {
+        Scope::Conference(x, c) if *x == d && !c.is_empty() => Some(c.clone()),
+        _ => None,
+    }));
     v.sort();
     v.dedup();
     v
@@ -341,15 +347,22 @@ fn leaders(w: &World, tier: Tier, scope: &Scope, j: usize) -> Value {
                 .iter()
                 .rev()
                 .filter_map(|&(year, _)| {
+                    // The programs in the conference that season (programs
+                    // move), as the conference's own books file them.
+                    let in_conf: Vec<bool> = match scope {
+                        Scope::Conference(_, c) => {
+                            (0..w.programs.len()).map(|k| super::season_place(w, k, year).1 == c.as_str()).collect()
+                        }
+                        _ => Vec::new(),
+                    };
                     let mut best: Vec<&afm_engine::world::records::SeasonRecord> = w
                         .stats
                         .year(year)
                         .iter()
                         .filter(|r| match scope {
                             Scope::Division(d) => r.division == *d,
-                            Scope::Conference(d, c) => {
-                                r.division == *d
-                                    && w.programs.get(r.program as usize).is_some_and(|p| p.conference == *c)
+                            Scope::Conference(d, _) => {
+                                r.division == *d && in_conf.get(r.program as usize).copied().unwrap_or(false)
                             }
                             _ => false,
                         })
@@ -508,7 +521,7 @@ fn mark_json(w: &World, tier: Tier, rank: usize, m: &Mark) -> Value {
         "name": marks::name_of(w, m.id).unwrap_or_else(|| "a former player".into()),
         "linked": views::person_index(w, m.id).is_some(),
         "year": if kind == CAREER { year_span(m.first_year(), m.year as i32) } else { m.year.to_string() },
-        "games": (kind != GAME && m.games > 0).then_some(m.games),
+        "games": (kind != GAME && m.game_count() > 0).then_some(m.game_count()),
         "live": m.live(),
         "game": game,
     })

@@ -185,6 +185,12 @@ pub struct ProgramSeason {
     /// change); none in an older file.
     #[serde(default)]
     pub conference_won: Option<String>,
+    /// The conference and division it played that season (programs move);
+    /// none in an older file, where today's are the best guess.
+    #[serde(default)]
+    pub conference: Option<String>,
+    #[serde(default)]
+    pub division: Option<Division>,
 }
 
 /// A team's season totals from its engine games.

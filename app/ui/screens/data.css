@@ -11,6 +11,9 @@
 .dt-body { min-width: 0; display: grid; gap: 12px; align-content: start; }
 .dt-side { display: grid; gap: 12px; position: sticky; top: 8px; }
 @media (max-width: 1100px) { .dt-main { grid-template-columns: minmax(0, 1fr); } .dt-side { position: static; } }
+/* The page beside (shift-click) is narrow at any window width: one column. */
+.beside-body .dt-main, .beside-body .dt-books { grid-template-columns: minmax(0, 1fr); }
+.beside-body .dt-side { position: static; }
 
 .dt-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .dt-book { gap: 6px; padding: 14px 16px; }
@@ -51,7 +54,9 @@
 
 .dt-min { display: inline-flex; gap: 6px; align-items: center; color: var(--sl-text3); font-size: 12.5px; }
 .dt-min input { width: 70px; background: var(--sl-chip); border: 1px solid var(--sl-line); color: inherit; border-radius: 8px; padding: 4px 6px; }
-.dt-at td.dt-pc { background: linear-gradient(90deg, var(--sl-gold-fill) var(--p), transparent var(--p)); }
+/* The shade sits over the zebra and hover colours (app.css sets those with
+   the shorthand at (0,2,3)), so it stays on every row. */
+.tbl.dt-at tbody tr td.dt-pc { background-image: linear-gradient(90deg, var(--sl-gold-fill) var(--p), transparent var(--p)); }
 .dt-at tr.on td { box-shadow: inset 0 1px 0 var(--sl-gold-ring), inset 0 -1px 0 var(--sl-gold-ring); }
 .dt-sort { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
 .dt-sort.on { color: var(--sl-gold); }

@@ -12,10 +12,11 @@
 //!   15-22, `books.rs`);
 //! - `team_book` (`kind`, `id`): a team's own career, season and game marks
 //!   (item 17);
-//! - `analytics` (`level`, `year`, `division`, `group`, `min`, `sort`) and
-//!   `analytics_card` (`id`, `level`, `year`): the percentile table and a
-//!   player's card with the past seasons closest to his (items 7 and 8,
-//!   `analytics.rs`);
+//! - `analytics` (`level`, `year`, `division`, `state`, `group`, `min`,
+//!   `sort`, `dir`) and `analytics_card` (`id`, `level`, `year`, `division`,
+//!   `state`): the percentile
+//!   table and a player's card with the past seasons closest to his (items
+//!   7 and 8, `analytics.rs`);
 //! - `champions_more` (`tab` "conferences", "states" or "award"): conference
 //!   champions by year, state champions by state and class, and every
 //!   winner of one award (items 23-25, `champs.rs`).
@@ -104,6 +105,17 @@ pub(crate) fn state_arg(w: &World, args: &Value) -> usize {
     })
 }
 
+/// A program's division and conference in one season: the season's own,
+/// else (an older file, or no season kept) today's. An empty conference is
+/// an independent.
+pub(crate) fn season_place(w: &World, prog: usize, year: i32) -> (Division, &str) {
+    let p = &w.programs[prog];
+    match p.seasons.iter().rev().find(|s| s.year == year).and_then(|s| Some((s.division?, s))) {
+        Some((d, s)) => (d, s.conference.as_deref().unwrap_or("")),
+        None => (p.division, p.conference.as_str()),
+    }
+}
+
 /// A team at a level, for links.
 pub(crate) fn team_ref(w: &World, tier: Tier, team: usize) -> Option<TeamRef> {
     match tier {
@@ -175,7 +187,7 @@ fn format_thousands(n: i64) -> String {
     let s = n.unsigned_abs().to_string();
     let mut out = String::new();
     for (i, c) in s.chars().enumerate() {
-        if i > 0 && (s.len() - i) % 3 == 0 {
+        if i > 0 && (s.len() - i).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);

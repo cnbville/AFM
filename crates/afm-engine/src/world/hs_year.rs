@@ -136,17 +136,24 @@ struct HsAcc {
     s: [i32; HS_STAT_COUNT],
 }
 
-/// Every line of the season so far: (person, school, position, games,
-/// counts), for the Data pages' season in progress.
-pub(crate) fn running_all(w: &World) -> Vec<(usize, usize, Position, u8, [i32; HS_STAT_COUNT])> {
+/// The season's lines so far in one state, or every state: (person,
+/// school, position, games, counts), for the Data pages' season in
+/// progress. Only the asked state's lines are copied (memory).
+pub(crate) fn running_in(
+    w: &World,
+    state: Option<usize>,
+) -> impl Iterator<Item = (usize, usize, Position, u8, [i32; HS_STAT_COUNT])> + '_ {
     w.hs_season
-        .as_ref()
-        .map_or(Vec::new(), |hs| hs.book.iter().map(|(&i, e)| (i, e.school as usize, e.pos, e.games, e.s)).collect())
+        .iter()
+        .flat_map(|hs| hs.book.iter())
+        .filter(move |(_, e)| state.is_none_or(|st| w.high_schools[e.school as usize].state == st))
+        .map(|(&i, e)| (i, e.school as usize, e.pos, e.games, e.s))
 }
 
-/// His season's counts so far (the record store's running totals).
-pub(crate) fn running(w: &World, i: usize) -> Option<[i32; HS_STAT_COUNT]> {
-    w.hs_season.as_ref()?.book.get(&i).map(|e| e.s)
+/// His season so far: his school and counts (the record store's running
+/// totals).
+pub(crate) fn running(w: &World, i: usize) -> Option<(usize, [i32; HS_STAT_COUNT])> {
+    w.hs_season.as_ref()?.book.get(&i).map(|e| (e.school as usize, e.s))
 }
 
 pub(crate) fn hs_counts(l: &crate::game::stats::StatLine) -> [i32; HS_STAT_COUNT] {
@@ -1450,7 +1457,7 @@ fn engine_games(
             }
         }
         // The record store's game marks (update 3, lane L20).
-        super::marks::hs_game(w, [h, a], g.score, &g.lines);
+        super::marks::hs_game(w, [h, a], g.score, &g.lines, g.neutral);
         if let Some((full, film, replay)) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
             w.seat_line(Level::HighSchool, [h, a], None, g.neutral);
@@ -1775,10 +1782,12 @@ fn file_lines(w: &mut World, s: usize) {
         let games: u32 = career.iter().map(|l| l.games as u32).sum();
         let totals: Vec<f64> = HS_BOOKS.iter().map(|&(k, _)| career.iter().map(|l| l.get(k)).sum()).collect();
         let expect = super::marks::hs_expect(w, s, line);
-        let cexpect: Vec<f64> = HS_BOOKS
-            .iter()
-            .map(|&(_, j)| career.iter().map(|l| super::marks::hs_expect(w, s, l)[j] as f64).sum())
-            .collect();
+        // Each career line's expectation once; unknown (era 0) when a
+        // season has no state norm (one before the store, say).
+        let ex: Option<Vec<super::marks::Vals>> =
+            career.iter().map(|l| super::marks::hs_expect_known(w, s, l)).collect();
+        let cexpect: Vec<f64> =
+            HS_BOOKS.iter().map(|&(_, j)| ex.as_ref().map_or(0.0, |ex| ex.iter().map(|x| x[j] as f64).sum())).collect();
         let still = p.stage == Stage::HighSchool;
         let pos = Some(line.pos);
         for (n, &(k, j)) in HS_BOOKS.iter().enumerate() {

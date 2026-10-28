@@ -47,6 +47,8 @@ screens.stathist = async (a) => {
   const tab = tabOf("dttab", DT_TABS.map((t) => t[0]), a);
   const key = DT_TABS.find((t) => t[0] === tab)[1];
   const level = dtLevel(K);
+  // A return touchdown pick from another level has no high school book.
+  if (level === "hs" && Number(K.stat) === 12) K.stat = null;
   const x = await api("stat_history", {
     level, tab: key, division: K.division || undefined, conference: K.conference || undefined, state: K.state || undefined,
     stat: K.stat != null ? Number(K.stat) : undefined, team: key === "team" && K.team && K.team.kind === level ? K.team : undefined,
@@ -58,7 +60,7 @@ screens.stathist = async (a) => {
     <span class="tspace"></span>${x.since ? `<span class="muted small">Books since ${x.since}</span>` : ""}</div>`;
   let main = "";
   if (key === "leaders") main = dtLeaders(x);
-  else if (key === "team") main = x.team_book ? dtTeamBook(x.team_book, x.stats, K) : `<div class="empty">Pick a team from its team page, or take a seat at this level, to see a team's own book.</div>`;
+  else if (key === "team") main = x.team_book ? dtTeamBook(x.team_book, x.stats, K, x.level) :`<div class="empty">Pick a team from its team page, or take a seat at this level, to see a team's own book.</div>`;
   else main = `<div class="dt-books">${x.lists.map((l) => dtList(l, K)).join("") || '<div class="empty">Nothing in these books yet.</div>'}</div>`;
   const side = `<aside class="dt-side">${dtChasing(x.chasing)}${dtFell(x.fell)}${x.own ? dtOwn(x.own) : ""}</aside>`;
   const goto = gotoLine([["Leaderboards", "leaders"], ["Player analytics", "analytics"], ["History", "history"]]);
@@ -90,9 +92,10 @@ function dtLeaders(x) {
   return `${chips}<div class="tbl"><table><thead><tr><th>Season</th><th class="l">${esc(L.name)}: the leader</th><th class="l">Runner-up</th></tr></thead><tbody>${rows || '<tr><td colspan="3" class="muted">No seasons in the books yet.</td></tr>'}</tbody></table></div>`;
 }
 
-function dtTeamBook(b, stats, K) {
+function dtTeamBook(b, stats, K, level) {
   const groups = [["career", "Career"], ["season", "Season"], ["game", "Single game"]];
-  const chips = `<div class="seg wrap"><button data-act="dtstat" data-v="" aria-pressed="${K.stat == null}">Every stat</button>${stats.map((n, i) => `<button data-act="dtstat" data-v="${i}" aria-pressed="${String(K.stat) === String(i)}">${esc(n)}</button>`).join("")}</div>`;
+  // High school books keep no return touchdowns (stat 12), as on Each year's leader.
+  const chips = `<div class="seg wrap"><button data-act="dtstat" data-v="" aria-pressed="${K.stat == null}">Every stat</button>${stats.map((n, i) => (level === "hs" && i === 12 ? "" : `<button data-act="dtstat" data-v="${i}" aria-pressed="${String(K.stat) === String(i)}">${esc(n)}</button>`)).join("")}</div>`;
   const body = groups.map(([k, n]) => {
     const lists = b.lists.filter((l) => l.kind === k && l.rows.length);
     if (!lists.length) return "";
@@ -138,15 +141,16 @@ screens.analytics = async (a) => {
   const head = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th><th title="Games">G</th><th title="${esc(x.volume)}">Vol</th>${x.columns.map((c, i) => `<th><button class="dt-sort ${x.sort === i ? "on" : ""}" data-act="dasort" data-v="${i}" title="${esc(c.long)} · ${c.better === "high" ? "higher is better" : "lower is better"}">${esc(c.label)}</button></th>`).join("")}<th></th></tr>`;
   const body = x.rows.map((r) => `<tr class="${K.card === r.id ? "on" : ""}"><td>${r.rank}</td><td class="l">${dtWho(r)}</td><td class="l">${esc(r.pos)}</td><td class="l">${r.team ? teamChip(r.team, 16) : ""}</td><td>${r.games}</td><td>${r.vol}</td>${r.cells.map((v, i) => `<td class="dt-pc" style="--p:${r.pct[i] ?? 0}%" title="${r.pct[i] != null ? r.pct[i] + "th percentile" : ""}">${v == null ? "" : esc(v)}</td>`).join("")}<td><button class="tbtn" data-act="dacard" data-id="${r.id}">Card</button></td></tr>`).join("");
   const table = `<div class="tbl dt-at"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${7 + x.columns.length}" class="muted">Nobody qualifies yet. Lower the minimum to see more.</td></tr>`}</tbody></table></div>`;
-  const card = K.card != null ? await dtCard(K.card, x.level) : "";
+  // The card reads the table's own season and division.
+  const card = K.card != null ? await dtCard(K.card, x.level, x.year, x.division, x.state) : "";
   const sub = `${x.total} qualify of ${x.pool} who played. Each number's shade is his percentile among the qualifiers; sorting goes by percentile, best first.`;
   return `<div class="pad sl dt">${pageHead({ kicker: `Data · ${esc(x.division || (x.state ? STATE_NAMES[x.state] || x.state : x.level === "nfl" ? "NFL" : ""))} · ${x.year}`, title: "Player analytics", sub, goto: gotoLine([["Stat history", "stathist"], ["Leaderboards", "leaders"]]) })}${bar}<div class="dt-main ${card ? "" : "full"}"><div class="dt-body">${table}</div>${card ? `<aside class="dt-side">${card}</aside>` : ""}</div>${dtSource(x.source)}</div>`;
 };
 GOTO.analytics = () => [["Stat history", "stathist"], ["Leaderboards", "leaders"]];
 
-async function dtCard(id, level) {
+async function dtCard(id, level, year, division, state) {
   let c;
-  try { c = await api("analytics_card", { id, level }); } catch (e) { return ""; }
+  try { c = await api("analytics_card", { id, level, year: year != null ? Number(year) : undefined, division: division || undefined, state: level === "hs" ? state || undefined : undefined }); } catch (e) { return ""; }
   if (c.error) return `<section class="panel dt-panel"><p class="muted">${esc(c.error)}</p></section>`;
   if (c.empty) return `<section class="panel dt-panel"><h2>${playerLink(c.id, c.name)}</h2><p class="muted">${esc(c.empty)}</p></section>`;
   const bars = c.metrics.map((m) => `<li><span class="dt-ml" title="${esc(m.long)}">${esc(m.label)}</span><i class="dt-bar"><i style="width:${m.pct ?? 0}%"></i></i><b>${m.value == null ? "–" : esc(m.value)}</b><small>${m.pct == null ? "" : m.pct}</small></li>`).join("");
@@ -169,11 +173,15 @@ async function dtCard(id, level) {
 }
 const dtCoreHistory = screens.history;
 screens.history = async (a) => {
+  // An old Record book link (search, an older chip) becomes Stat history:
+  // the route is rewritten in place, so the sidebar, the tabs and the level
+  // and division controls are Stat history's own on every redraw.
   if (a.tab === "records" || a.tab === "nfl_records" || a.tab === "Record book") {
-    const lv = a.tab === "nfl_records" ? "nfl" : "college";
-    if (a.division) keep("stathist", {}).division = a.division;
-    keep("stathist", {}).level = lv;
-    return screens.stathist({});
+    const args = { level: a.tab === "nfl_records" ? "nfl" : "college" };
+    if (a.division) { args.division = a.division; keep("stathist", {}).conference = null; }
+    const r = S.beside && S.beside.args === a ? S.beside : S.route.args === a ? S.route : null;
+    if (r) { r.screen = "stathist"; r.args = args; }
+    return screens.stathist(args);
   }
   if (a.tab) { const m = HIST.find((h) => h[1] === a.tab); if (m) a.tab = m[0]; }
   const names = HIST.map((h) => h[0]);
@@ -209,8 +217,9 @@ screens.history = async (a) => {
 Object.assign(CORE_MORE, {
   dtlevel: (el) => { const K = keep("stathist", {}); K.level = el.dataset.v; K.conference = null; K.stat = null; refresh(el); },
   dtstat: (el) => { const K = keep("stathist", {}); K.stat = el.dataset.v === "" ? null : Number(el.dataset.v); refresh(el); },
-  dalevel: (el) => { const K = keep("analytics", {}); K.level = el.dataset.v; K.year = null; K.min = null; K.sort = null; K.card = null; refresh(el); },
-  dagroup: (el) => { const K = keep("analytics", {}); K.group = el.dataset.v; K.min = null; K.sort = null; K.card = null; refresh(el); },
+  // A new level or group starts on the default sort, best first.
+  dalevel: (el) => { const K = keep("analytics", {}); K.level = el.dataset.v; K.year = null; K.min = null; K.sort = null; K.dir = -1; K.card = null; refresh(el); },
+  dagroup: (el) => { const K = keep("analytics", {}); K.group = el.dataset.v; K.min = null; K.sort = null; K.dir = -1; K.card = null; refresh(el); },
   dasort: (el) => { const K = keep("analytics", {}); const v = Number(el.dataset.v); if (K.sort === v) K.dir = (K.dir || -1) * -1; else { K.sort = v; K.dir = -1; } refresh(el); },
   dacard: (el) => { const K = keep("analytics", {}); K.card = el.dataset.id === "" || K.card === Number(el.dataset.id) ? null : Number(el.dataset.id); refresh(el); },
   damode: (el) => { keep("history", {}).amode = el.dataset.v; refresh(el); },

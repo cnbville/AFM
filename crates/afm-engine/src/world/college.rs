@@ -875,7 +875,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             super::records::program_streak(w, year, if home_won { home } else { away }, true);
             super::records::program_streak(w, year, if home_won { away } else { home }, false);
             if let Some(r) = r.as_ref() {
-                super::marks::college_game(w, year, [home, away], &r.stats);
+                super::marks::college_game(w, year, [home, away], &r.stats, j.neutral);
             }
         }
         let _ = division;
@@ -2789,6 +2789,8 @@ pub(crate) fn record_regular_season(w: &mut World) {
             strength: t.strength,
             totals: t.totals,
             conference_won: t.conference_title.then(|| prog.conference.clone()),
+            conference: (!prog.conference.is_empty()).then(|| prog.conference.clone()),
+            division: Some(prog.division),
         });
         let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
         let staff = staff_of(prog, head);
@@ -2930,6 +2932,11 @@ pub(crate) fn finish(w: &mut World) {
                 s.wins = t.wins;
                 s.losses = t.losses;
                 s.conference_title = t.conference_title;
+                // A title game's winner is known only now (the conference
+                // it played in that season).
+                if t.conference_title && s.conference_won.is_none() {
+                    s.conference_won = Some(s.conference.clone().unwrap_or_else(|| prog.conference.clone()));
+                }
                 s.national_title = t.national_title;
                 s.strength = t.strength;
                 s.totals = t.totals;

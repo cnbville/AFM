@@ -58,6 +58,9 @@ pub struct ProSeason {
     /// Weeks on a practice squad and on injured reserve.
     pub ps_weeks: u32,
     pub ir_weeks: u32,
+    /// Regular-season weeks on full pay status: the roster or reserve.
+    #[serde(default)]
+    pub pay_weeks: u32,
     /// Cash paid this league year.
     pub pay: f64,
     pub pro_bowl: bool,
@@ -69,6 +72,38 @@ pub struct ProSeason {
     pub elevations: u32,
     /// His statistics (filled by the engine games).
     pub stats: crate::game::stats::StatLine,
+    /// His playoff games, kept apart as the league keeps them (minor bug
+    /// 53): everything above is the regular season only. Boxed, as most
+    /// seasons have none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playoffs: Option<Box<PlayoffLine>>,
+}
+
+/// A season's playoff games: games dressed and started, snaps and the
+/// stat line.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct PlayoffLine {
+    pub games: u32,
+    pub starts: u32,
+    pub snaps: [u32; 3],
+    pub stats: crate::game::stats::StatLine,
+}
+
+impl ProSeason {
+    /// Offensive and defensive snaps, playoffs included (game experience).
+    pub fn snaps_all(&self) -> u32 {
+        self.snaps[0] + self.snaps[1] + self.playoffs.as_ref().map_or(0, |p| p.snaps[0] + p.snaps[1])
+    }
+
+    /// Starts, playoffs included (who started for the team).
+    pub fn starts_all(&self) -> u32 {
+        self.starts + self.playoffs.as_ref().map_or(0, |p| p.starts)
+    }
+
+    /// Games dressed, playoffs included.
+    pub fn games_all(&self) -> u32 {
+        self.games + self.playoffs.as_ref().map_or(0, |p| p.games)
+    }
 }
 
 /// A pro's career.
@@ -412,7 +447,8 @@ pub(crate) fn order_depth(w: &mut World, t: usize) {
         if !pos.is_specialist() {
             v -= (age - 30.0).max(0.0) * 0.6;
         }
-        if pro.seasons.last().is_some_and(|s| s.team == Some(t) && s.starts >= 8) && age < 32.0 {
+        // Last season's starter here, his playoff starts counted.
+        if pro.seasons.last().is_some_and(|s| s.team == Some(t) && s.starts_all() >= 8) && age < 32.0 {
             v += if pos == Position::QB { 3.0 } else { 1.5 };
         }
         if pro.out_weeks > 0 || pro.hold == market::Hold::Out {
@@ -1603,11 +1639,14 @@ fn camp(w: &mut World, d: Date) {
         // Last season's real snaps, weighted by how strong the teams he
         // took them against were (topic 1.1; proposed, not confirmed: a
         // standard deviation of opponent strength is worth 10%). A season
-        // on the stand-in has none: his role decides.
+        // on the stand-in has none: his role decides. Playoff snaps count
+        // as reps; the strength is read from the regular season's.
         let snaps = p.pro.as_ref().and_then(|c| c.seasons.iter().find(|s| s.year == year - 1)).and_then(|s| {
-            let n = (s.snaps[0] + s.snaps[1]) as f64;
-            (s.stats.graded > 0 || n > 0.0).then(|| {
-                let hard = if n > 0.0 { s.opp / n } else { 0.0 };
+            let reg = (s.snaps[0] + s.snaps[1]) as f64;
+            let n = s.snaps_all() as f64;
+            let graded = s.stats.graded > 0 || s.playoffs.as_ref().is_some_and(|p| p.stats.graded > 0);
+            (graded || n > 0.0).then(|| {
+                let hard = if reg > 0.0 { s.opp / reg } else { 0.0 };
                 n / games::NFL_SEASON_SNAPS as f64 * clamp(1.0 + 0.1 * hard, 0.8, 1.2)
             })
         });
@@ -1732,7 +1771,7 @@ pub(crate) fn cut_scores(w: &World, t: usize) -> Vec<(usize, f64)> {
         } else {
             0.0
         };
-        let starter = c.seasons.iter().any(|s| s.year == year - 1 && s.team == Some(t) && s.starts >= 8);
+        let starter = c.seasons.iter().any(|s| s.year == year - 1 && s.team == Some(t) && s.starts_all() >= 8);
         let youth = if pos.is_specialist() { 0.0 } else { 0.3 * (27.0 - p.player.age as f64) };
         let ovr = p.player.overall();
         let cost = if seasons >= 4 && ovr < crate::career::NFL_LEVELS.starter {
@@ -1961,6 +2000,7 @@ pub(crate) fn black_monday(w: &mut World) {
 /// returns left (from 2012), else he waits out the season there.
 fn heal_week(w: &mut World) {
     let year = w.year;
+    let regular = !w.nfl_season.as_ref().is_some_and(|s| s.booked);
     let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).collect();
     for i in pros {
         let Some(c) = w.people[i].pro.as_mut() else { continue };
@@ -1974,6 +2014,9 @@ fn heal_week(w: &mut World) {
                 Status::Reserve => s.ir_weeks += 1,
                 Status::PracticeSquad => s.ps_weeks += 1,
                 _ => {}
+            }
+            if regular && team.is_some() && matches!(status, Status::Roster | Status::Reserve) {
+                s.pay_weeks += 1;
             }
         }
         let pup = c.pup;
@@ -2157,8 +2200,14 @@ fn season_end(w: &mut World, d: Date) {
         let c = w.people[i].pro.as_mut().unwrap();
         let s = c.season_mut(year);
         s.pay += pay;
-        // Six games on full pay status accrue a season (games fill in from the engine).
-        let accrues = held && (s.games >= 6 || s.games == 0 && !squad && s.ps_weeks == 0);
+        // Six regular-season games on full pay status accrue a season,
+        // dressed or not (games fill in from the engine; a file from before
+        // the weeks were counted falls back on games). A man who dressed
+        // only in the playoffs signed too late for one.
+        let accrues = s.pay_weeks >= 6
+            || held
+                && (s.games >= 6
+                    || s.games == 0 && s.pay_weeks == 0 && s.playoffs.is_none() && !squad && s.ps_weeks == 0);
         c.earnings += pay;
         if accrues {
             c.accrued += 1;

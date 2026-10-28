@@ -257,7 +257,15 @@ impl Cm {
             XpMade => Some(g(S::XpMade)),
             NetPunt => r(g(S::PuntNet), g(S::Punts)),
             Punts => Some(g(S::Punts)),
-            Grade => r(g(S::GradeSum), g(S::Graded)),
+            // The game's 0-100 grade, as the game pages show it.
+            Grade => (g(S::Graded) >= 1.0).then(|| {
+                crate::game::stats::StatLine {
+                    grade_sum: g(S::GradeSum),
+                    graded: g(S::Graded).round() as u32,
+                    ..Default::default()
+                }
+                .grade()
+            }),
         }
     }
 }
