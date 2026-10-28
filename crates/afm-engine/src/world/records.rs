@@ -473,6 +473,9 @@ pub enum Scope {
     /// A state's high schools: team records, and players' records from
     /// the seasons played on the match engine.
     State(usize),
+    /// The NFL's own book (lane L20): the world's seasons, careers and
+    /// games since its first season on the engine.
+    Nfl,
 }
 
 /// Which list.
@@ -485,6 +488,12 @@ pub enum Book {
     Streak(usize),
     /// A program's consecutive wins.
     WinStreak,
+    /// Single game (lane L20, item 16), by `RECORD_STATS` index.
+    Game(usize),
+    /// Rate records with the official minimums (item 18), by
+    /// `marks::RATES` index.
+    RateSeason(usize),
+    RateCareer(usize),
 }
 
 pub const STREAKS: [&str; 3] =
@@ -497,11 +506,14 @@ impl Book {
             Book::Career(k) => format!("career {}", RECORD_STATS[k].name()),
             Book::Streak(k) => STREAKS[k].to_string(),
             Book::WinStreak => "straight wins".to_string(),
+            Book::Game(k) => format!("single-game {}", RECORD_STATS[k].name()),
+            Book::RateSeason(k) => format!("single-season {}", super::marks::RATES[k]),
+            Book::RateCareer(k) => format!("career {}", super::marks::RATES[k]),
         }
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct RecordEntry {
     pub value: f64,
     /// The player, or 0 for a program's streak.
@@ -514,6 +526,30 @@ pub struct RecordEntry {
     pub from: i32,
     /// Still running (a streak, or a career still being played).
     pub live: bool,
+    /// Games played: a season's or a career's (one for a game). Lane L20;
+    /// zero in an older file.
+    #[serde(default)]
+    pub games: u16,
+    #[serde(default)]
+    pub pos: Option<Position>,
+    /// The era column (item 19): 100 is that season's per-game average at
+    /// his position and level; zero when not known.
+    #[serde(default)]
+    pub era: f32,
+    /// A single game's date, opponent and score (item 16).
+    #[serde(default)]
+    pub game: Option<GameRef>,
+}
+
+/// The game a single-game record was set in.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GameRef {
+    pub date: crate::calendar::Date,
+    /// The opponent: a program, NFL club or high school, by the scope's level.
+    pub opp: usize,
+    pub home: bool,
+    /// His team's points, then the opponent's.
+    pub score: [u16; 2],
 }
 
 /// What a player was honored with, kept for his record and the Hall of
@@ -806,6 +842,7 @@ pub(crate) fn close_season(w: &mut World) {
     }
     record_books(w, year, start);
     streak_books(w, year);
+    super::marks::college_close(w, year, start);
     if w.recording {
         hall_of_fame(w, year);
     }
@@ -835,6 +872,12 @@ fn norms(w: &mut World, year: i32, recs: &[SeasonRecord]) {
     }
 }
 
+/// A season's per-game average among the regulars at his position and
+/// division, for one stat (the era column's 100).
+pub(crate) fn norm_of(w: &World, r: &SeasonRecord, s: Stat) -> f64 {
+    w.stats.norms.get(&(r.year as i32, r.division, r.pos)).map_or(0.0, |m| m[s as usize] as f64)
+}
+
 /// A player's name from the people still in the world, or the honors book.
 fn name_of(w: &World, by_id: &HashMap<u32, usize>, id: u32) -> String {
     if let Some(&i) = by_id.get(&id) {
@@ -843,8 +886,10 @@ fn name_of(w: &World, by_id: &HashMap<u32, usize>, id: u32) -> String {
     w.stats.honors.get(&id).map_or_else(|| "a former player".to_string(), |h| h.name.clone())
 }
 
-const DIVISION_TOP: usize = 10;
-const CONFERENCE_TOP: usize = 5;
+/// How deep the books go: a division's, the NFL's and a state's best 25
+/// (lane L20: the stat history shows 25; it was ten), a conference's ten.
+pub(crate) const DIVISION_TOP: usize = 25;
+pub(crate) const CONFERENCE_TOP: usize = 10;
 
 /// Puts an entry on a list if it makes the top `n`. Returns whether it
 /// is now first, ahead of an earlier holder.
@@ -886,11 +931,23 @@ fn record_books(w: &mut World, year: i32, start: usize) {
         let conf = w.programs[prog].conference.clone();
         let name = name_of(w, &by_id, r.id);
         let still = by_id.get(&r.id).is_some_and(|&i| w.people[i].stage == Stage::College);
-        let (first, totals) = {
+        let (first, totals, games, expect) = {
             let career: Vec<&SeasonRecord> =
                 w.stats.career(r.id).into_iter().filter(|c| c.division == r.division).collect();
             let first = career.first().map_or(year, |s| s.year as i32);
-            (first, RECORD_STATS.iter().map(|&s| career.iter().map(|c| c.get(s)).sum::<f64>()).collect::<Vec<f64>>())
+            let games: u32 = career.iter().map(|c| c.games as u32).sum();
+            // What an average regular at his position would have done in
+            // the same games, season by season (the era column, item 19).
+            let expect: Vec<f64> = RECORD_STATS
+                .iter()
+                .map(|&s| career.iter().map(|c| norm_of(w, c, s) * c.games as f64).sum::<f64>())
+                .collect();
+            (
+                first,
+                RECORD_STATS.iter().map(|&s| career.iter().map(|c| c.get(s)).sum::<f64>()).collect::<Vec<f64>>(),
+                games,
+                expect,
+            )
         };
         for (j, &s) in RECORD_STATS.iter().enumerate() {
             let v = r.get(s);
@@ -903,6 +960,10 @@ fn record_books(w: &mut World, year: i32, start: usize) {
                     year,
                     from: year,
                     live: false,
+                    games: r.games as u16,
+                    pos: Some(r.pos),
+                    era: super::marks::era(v, norm_of(w, &r, s) * r.games as f64),
+                    game: None,
                 };
                 let list = w.stats.books.entry((Scope::Division(r.division), Book::Season(j))).or_default();
                 if place(list, e.clone(), DIVISION_TOP) {
@@ -922,6 +983,10 @@ fn record_books(w: &mut World, year: i32, start: usize) {
                     year,
                     from: first,
                     live: still,
+                    games: games.min(u16::MAX as u32) as u16,
+                    pos: Some(r.pos),
+                    era: super::marks::era(totals[j], expect[j]),
+                    game: None,
                 };
                 // A career entry follows him: the old one goes when it grows.
                 let list = w.stats.books.entry((Scope::Division(r.division), Book::Career(j))).or_default();
@@ -1009,7 +1074,16 @@ fn streak_books(w: &mut World, year: i32) {
     }
     for (d, k, id, prog, len, from, y) in ended {
         let name = name_of(w, &by_id, id);
-        let e = RecordEntry { value: len as f64, id, name, program: prog, year: y, from, live: false };
+        let e = RecordEntry {
+            value: len as f64,
+            id,
+            name,
+            program: prog,
+            year: y,
+            from,
+            live: false,
+            ..Default::default()
+        };
         place_running(w.stats.books.entry((Scope::Division(d), Book::Streak(k))).or_default(), e.clone(), DIVISION_TOP);
         // An ended streak takes the place of its running entry.
         let list = w.stats.books.get_mut(&(Scope::Division(d), Book::Streak(k))).unwrap();
@@ -1017,7 +1091,8 @@ fn streak_books(w: &mut World, year: i32) {
     }
     for (d, k, id, prog, len, from) in running {
         let name = name_of(w, &by_id, id);
-        let e = RecordEntry { value: len as f64, id, name, program: prog, year, from, live: true };
+        let e =
+            RecordEntry { value: len as f64, id, name, program: prog, year, from, live: true, ..Default::default() };
         place_running(w.stats.books.entry((Scope::Division(d), Book::Streak(k))).or_default(), e, DIVISION_TOP);
     }
     // High schools' running streaks.
@@ -1044,6 +1119,7 @@ fn streak_books(w: &mut World, year: i32) {
                 year,
                 from,
                 live: true,
+                ..Default::default()
             };
             place_running(w.stats.books.entry((Scope::Division(d), Book::WinStreak)).or_default(), e, DIVISION_TOP);
         }
@@ -1071,6 +1147,7 @@ pub(crate) fn program_streak(w: &mut World, year: i32, prog: usize, won: bool) {
             year,
             from,
             live: false,
+            ..Default::default()
         };
         let list = w.stats.books.entry((Scope::Division(d), Book::WinStreak)).or_default();
         list.retain(|x| !(x.live && x.program == prog && x.from == from));
@@ -1109,6 +1186,7 @@ fn hs_entry(h: &super::high_school::HighSchool, len: u32, year: i32, from: i32, 
         year,
         from,
         live,
+        ..Default::default()
     }
 }
 

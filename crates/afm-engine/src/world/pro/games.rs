@@ -527,6 +527,8 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
             s.stats.add(l);
         }
     }
+    // The record store's game marks (update 3, lane L20).
+    crate::world::marks::nfl_game(w, teams, &r.stats);
     for (_, inj) in &r.injuries {
         if inj.plays_on || inj.side > 1 {
             continue;

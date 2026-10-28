@@ -181,6 +181,10 @@ pub struct ProgramSeason {
     pub strength: f64,
     /// Team totals from the match engine; zero games when the stand-in played.
     pub totals: SeasonTotals,
+    /// The conference it won that season (lane L20, item 24: conferences
+    /// change); none in an older file.
+    #[serde(default)]
+    pub conference_won: Option<String>,
 }
 
 /// A team's season totals from its engine games.

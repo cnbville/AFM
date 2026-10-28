@@ -966,6 +966,7 @@ fn book_name(b: Book) -> String {
         Book::Career(i) => format!("Career {}", RECORD_STATS.get(i).map_or("record", |s| s.name())),
         Book::Streak(i) => STREAKS.get(i).map_or("Streak".to_string(), |s| s.to_string()),
         Book::WinStreak => "Consecutive wins".to_string(),
+        Book::Game(_) | Book::RateSeason(_) | Book::RateCareer(_) => crate::lane_data::title_case(&b.name()),
     }
 }
 
