@@ -47,8 +47,28 @@ fn play_to(g: &mut Game, n: usize) -> u64 {
             return games.iter().map(|x| x["index"].as_u64().unwrap()).max().unwrap();
         }
         ok(g, "continue", json!({ "max_days": 30 }));
+        draft(g);
     }
     panic!("never kept {n} games");
+}
+
+/// The draft in your war room, when your club picks in this small world's
+/// draft: the staff pick at your turns, then the undrafted rush. Continue
+/// waits while the room is open.
+fn draft(g: &mut Game) {
+    for _ in 0..400 {
+        let room = ok(g, "draft_live", json!({}));
+        if !room["live"].as_bool().unwrap_or(false) {
+            return;
+        }
+        if room["rush"].as_bool().unwrap_or(false) {
+            ok(g, "draft_rush", json!({}));
+            return;
+        }
+        let cmd = if room["on_clock"].as_bool().unwrap_or(false) { "draft_auto" } else { "draft_go" };
+        ok(g, cmd, json!({ "until": "yours" }));
+    }
+    panic!("the draft didn't finish in 400 steps");
 }
 
 /// The line chart and the throws sit on your games and your schedule's
