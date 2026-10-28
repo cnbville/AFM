@@ -317,7 +317,19 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<V
     let p = &w.people[i];
     let c = w.career.as_ref()?;
     let id = p.player.id;
-    let last = c.kept_of(id).last()?;
+    let Some(last) = c.kept_of(id).last() else {
+        // Nothing kept yet (a new career, or someone just followed): the
+        // first read is kept as this football year ends; last season's
+        // events still say what moved him.
+        p.player.history.last()?;
+        let why = reasons(w, i, a, 0);
+        return Some(json!({
+            "word": "No read kept yet",
+            "line": "Your staff keeps its reads as each football year ends, so the change shows from then.",
+            "why": why,
+            "season": w.year - 1,
+        }));
+    };
     let then_pos = Position::ALL.get(last.pos as usize).copied().unwrap_or(p.player.position);
     let was_key = last.keys.iter().find(|k| k[0] as usize == a.index() && k[1] > 0).map(|k| (k[1] as f64, k[2] as f64));
     let fams = families(then_pos);
