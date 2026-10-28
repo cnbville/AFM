@@ -413,14 +413,16 @@
     function setLogo(L) {
       JU.uLogoOn.value = L ? 1 : 0;
       if (!L) return;
+      const im = L.img, iw = im.naturalWidth || im.width || 1, ih = im.naturalHeight || im.height || 1, k = 240 / Math.max(iw, ih);
       if (logoOf !== L.img) {
-        const x = logoCv.getContext("2d"), im = L.img, iw = im.naturalWidth || im.width || 1, ih = im.naturalHeight || im.height || 1, k = 240 / Math.max(iw, ih);
+        const x = logoCv.getContext("2d");
         x.clearRect(0, 0, 256, 256); x.drawImage(im, (256 - iw * k) / 2, (256 - ih * k) / 2, iw * k, ih * k);
         logoTex.needsUpdate = true; logoOf = L.img;
       }
       JU.uLogo.value = logoTex;
-      // the shield sits on the collar's point; a college's logo just under the V
-      if (L.at === "collar") { JU.uLogoC.value.set(0, 5.43); JU.uLogoS.value = .26; } else { JU.uLogoC.value.set(0, 5.31); JU.uLogoS.value = .34; }
+      // placed by its top edge: the shield's over the collar's point, a college's logo just under the V's trim
+      const size = L.at === "collar" ? .26 : .42, hgt = size * ih * k / 256, top = L.at === "collar" ? 5.58 : 5.52;
+      JU.uLogoC.value.set(0, top - size / 2 + (size - hgt) / 2); JU.uLogoS.value = size;
     }
 
     // ---- one head
