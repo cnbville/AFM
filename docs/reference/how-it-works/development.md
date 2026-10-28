@@ -1,6 +1,6 @@
 # Development: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at 1bb5507 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 

@@ -21,18 +21,26 @@ fn count(dir: &std::path::Path, kind: &str) -> u64 {
 fn the_world_log_only_watches_and_reads_back() {
     let opts = WorldOptions { scale: 0.002, history_years: 2, ..Default::default() };
     let dir = std::env::temp_dir().join(format!("afm-world-log-{}", std::process::id()));
-    let (mut a, mut b) = (World::empty(opts.clone()), World::empty(opts.clone()));
-    for w in [&mut a, &mut b] {
-        for age in [17, 16, 15] {
-            w.add_class_aged(age);
-        }
+    // One world through its spin-up, then two copies of it read back the
+    // way the game opens a world: one plays with the log, one without.
+    let mut w = World::empty(opts.clone());
+    for age in [17, 16, 15] {
+        w.add_class_aged(age);
     }
     for _ in 0..SPIN_UP_YEARS {
-        a.advance_year();
-        b.advance_year();
+        w.advance_year();
     }
-    a.start_recording();
-    b.start_recording();
+    w.start_recording();
+    let file = dir.with_extension("afmworld");
+    crate::save::write_world(&w, &file, "test", "", None).unwrap();
+    drop(w);
+    let open = || {
+        let mut w = crate::save::read_world(&file).unwrap();
+        w.after_load();
+        w
+    };
+    let (mut a, mut b) = (open(), open());
+    let _ = std::fs::remove_file(&file);
     b.attach_log(WorldLog::create(&dir, &opts, "test", "").unwrap());
     let end = a.year + opts.history_years as i32;
     let mut days = 0;

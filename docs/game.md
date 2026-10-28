@@ -923,6 +923,10 @@ The game ships no logos (later extras, topic 2). Settings, Logos (`screens/logos
 - Time of possession on game pages is taken from the snap clock (the engine's own total counts only live-ball seconds); a kickoff's seconds go to the receiving team, so the two add to the game's length.
 - A bug pack saves the world as it is when you report, not from the morning of that day.
 
+## The world log (world reader lane R2, 2026-10-28)
+
+Every career writes the world log beside its save (`name.afmlog` next to `name.afmsave`): a row each year for everyone in football, every development step's why, exits, dated whys, snapshots and the rest, for the world reader. While you play it goes into `logs/live.afmlog` in the game folder; opening a library world or a save links that world's log in and writes on after it, and saving links it beside the save, so saves share the same files. A season adds about 0.9 GB on disk; the book day takes about 17 s more, the rest of the year about 1.5% (on the full 2026 world). `AFM_WORLD_LOG=off` turns it off. How it works: `docs/reference/how-it-works/world-log.md`; the code: `crates/afm-game/src/world_log.rs`.
+
 ## Doubts
 
 - Memory in season is 3.8 GB, under the agreed 4 GB, with a brief high of 4.0 GB in the summer (see "Memory (final build lane 1)"). Measured on Linux; a Mac's allocator keeps and returns memory differently, so the Mac figure may differ a little.

@@ -1,6 +1,6 @@
 # The world log: how it works today
 
-Checked against main at COMMIT on 2026-10-28.
+Checked against main at 1bb5507 on 2026-10-28, with world reader lane R2.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -8,7 +8,7 @@ The world log is world reader lane R2: what the world works out and then throws 
 
 ## Quick answers
 
-- Does the log change the world? No. Its hooks only read: no random draws, no changes, no reordering. `tests/world_log.rs` plays two worlds side by side, one with the log, and compares every person's fingerprint and the other stores every day (`world/wlog/mod.rs`, module doc).
+- Does the log change the world? No. Its hooks only read: no random draws, no changes, no reordering. `tests/world_log.rs` plays two copies of one small world side by side for two years (read back the way the game opens a world), one with the log, and compares every person's fingerprint and the other stores every day; on the full 2026 world, February to September in the game ends on the same fingerprint with the log on and off (`world/wlog/mod.rs`, module doc).
 - Where is it? A folder beside the world file or save: `name.afmlog` next to `name.afmworld` or `name.afmsave` (`crates/afm-game/src/world_log.rs`, `beside`).
 - What is in the folder? `meta.json` and one folder per kind holding segments `YYYY-NNNN.mpz` (football year, then session order). A segment is a run of zstd frames of named MessagePack records (`world/wlog/mod.rs`, `WorldLog::put`, `append_frame`).
 - Does it grow the game's memory? No. Records are packed and compressed a frame (1 MB) at a time by the thread that writes them (at the book, every core) and a writer thread appends them; at most four frames wait (`world/wlog/mod.rs`, `FRAME`, `send`, `start`).
@@ -35,7 +35,7 @@ The world log is world reader lane R2: what the world works out and then throws 
 | programs | the book | The whole program and its season's result (`rows.rs`, `ProgramRow`) |
 | schools | the book | The whole high school, seasons cut to the last, and its result (`rows.rs`, `SchoolRow`) |
 | clubs | year end | Club, league team and NFL season row (`rows.rs`, `ClubRow`) |
-| exits | the book | The whole person and why he left (`rows.rs`, `Exit`) |
+| exits | the book | The person as in `players`, every note he has and why he left (`rows.rs`, `Exit`) |
 | events | year end | Every calendar event of the year and every resolved answer (`rows.rs`, `EventRow`, `Resolved`) |
 | news | year end | Every news item added this year (`rows.rs`, `NewsRow`) |
 | snapshots | key dates | Whole stores (`snap.rs`) |
@@ -75,16 +75,29 @@ Taken first thing in the morning, before any system acts that day (`world/wlog/s
 - Importing a world brings the log beside it along and drops one from an older build (`crates/afm-game/src/files.rs`, `import_world`).
 - While you play, the log is written into `logs/live.afmlog` in the game folder. Opening a world or a save links its log there and writes on after it, a new session in `meta.json`; one without a log starts a new log that day (`crates/afm-game/src/world_log.rs`, `on_open`).
 - Saving links the live log beside the save; renaming and deleting a save do the same to its log (`world_log.rs`, `on_save`, `on_rename`, `on_delete`).
+- The "Build a world" workflow writes the world and its log on the runner's big disk and publishes the log beside the world as `name.afmlog.tar.001`, `.002`, ... (`.github/workflows/build-world.yml`). The game does not download it.
 
 ## Sizes and speed
 
-SIZES
+Measured 2026-10-28 on the 2026 world file (851,571 people) and on a 1-in-20 world (`afm_log`, `memory_season`).
+
+- A year's book at full size: written in 17 s on 4 cores, 0.36 GB of memory while it runs. Player rows 439 MB (515 bytes each), the first `people` rows 63 MB (74 bytes each, once), coaches 21 MB, programs 6 MB, schools 5 MB, the year-end snapshots 59 MB (`afm_log book`).
+- The growth rows at full size: 1.06 million steps from February to September, 179 MB (170 bytes each).
+- A whole football year at full size comes to about 0.9 GB: players 440 MB, growth 180, exits about 140, snapshots about 70, coaches 21, the new people about 20, the rest about 30. A 30-year world's log is about 27 GB, and a season you play adds about 0.9 GB beside your saves (each save links the same files, so saves add nothing).
+- Speed in the game: February 10 to the first game on September 5 took 339 s with the log and 334 s without (1.5%), and the world's fingerprint matched (`memory_season`). The book day adds its 17 s.
+- A 1-in-20 world (scale 0.05, 3 history years and 2 more): 155 to 178 MB a year, peak memory 1.02 GB against 0.88 GB without (`afm_log build`; measured before the snapshots and exits were trimmed and before compression moved to every core).
 
 ## What it does not keep yet
 
 - Each search candidate's score parts (only the score), and the signing utility's position room and relationship terms in `Choice`.
 - Notes per year (cleared from player rows; the person's notes are in the exit row and the world file), mood history beyond each year's row.
 - Game-level records: each game's plays and box score are lane R1's game log.
+
+## Picks made in the build (proposed, not confirmed)
+
+- The snapshot dates above, and the college team sheets once a year.
+- Ratings, ceilings and tendencies in tenths and every other number to seven digits.
+- The game writes the log by default, beside every save.
 
 ## Debug accessors
 
