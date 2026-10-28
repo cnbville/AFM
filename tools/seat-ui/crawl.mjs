@@ -74,6 +74,31 @@ const shot = async (name) => {
   const f = `${out}/${seat}-${name.replace(/[^a-z0-9_-]+/gi, "_")}.png`;
   await page.screenshot({ path: f, fullPage: false });
 };
+// Engine text reaches the screen through rich(): raw link markup such as
+// "[[t:college:99|South Carolina]]" on screen is a bug. Counts of one with
+// a plural noun ("1 interceptions") are listed in <seat>-counts.txt to read.
+const counts = new Set();
+const look = async () => {
+  const x = await page.evaluate(() => {
+    const raw = [], ones = [];
+    const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      const t = n.nodeValue;
+      if (t.includes("[[")) raw.push(t.trim().slice(0, 140));
+      if (/(?<![\d.,])1 (?!(?:is|has|was|this|its|his|plus|vs)\b)[a-z]+s\b/.test(t)) ones.push(t.trim().slice(0, 140));
+    }
+    for (const el of document.querySelectorAll("[title],[aria-label]")) {
+      for (const a of ["title", "aria-label"]) {
+        const v = el.getAttribute(a);
+        if (v && v.includes("[[")) raw.push(`${a}: ${v.slice(0, 140)}`);
+      }
+    }
+    return { raw, ones };
+  }).catch(() => ({ raw: [], ones: [] }));
+  for (const h of x.raw) problems.push(`[${where}] raw link markup: ${h}`);
+  for (const h of x.ones) counts.add(`[${where}] ${h}`);
+};
+await look();
 const linksPer = Number(process.env.AFM_LINKS || 6);
 const seen = new Set();
 for (let round = 0; round < rounds; round++) {
@@ -87,6 +112,7 @@ for (let round = 0; round < rounds; round++) {
     await clear();
     await el.click({ timeout: 5000 }).catch((e) => problems.push(`[${where}] click: ${e.message.split("\n")[0]}`));
     await settle(300);
+    await look();
     if (!seen.has(screen)) { await shot(`${screen}`); seen.add(screen); }
     // Follow a few links on the screen, then come back.
     const n = await page.$$eval(".view [data-go], main [data-go]", (els) => els.length).catch(() => 0);
@@ -99,6 +125,7 @@ for (let round = 0; round < rounds; round++) {
       await clear();
       await pick.click({ timeout: 3000 }).catch(() => {});
       await settle(200);
+      await look();
       if (!seen.has(go)) { await shot(go); seen.add(go); }
       // The game's own Back (the browser's would leave the app).
       await clear();
@@ -124,6 +151,7 @@ for (let round = 0; round < rounds; round++) {
 await browser.close();
 const uniq = [...new Set(problems)];
 fs.writeFileSync(`${out}/${seat}-problems.txt`, uniq.join("\n"));
+fs.writeFileSync(`${out}/${seat}-counts.txt`, [...counts].join("\n"));
 console.log(`${seat}: ${seen.size} screens seen, ${uniq.length} problems`);
 for (const p of uniq.slice(0, 60)) console.log("  " + p);
 process.exit(uniq.length ? 1 : 0);
