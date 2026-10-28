@@ -24,7 +24,7 @@ const foM = (v) => (v == null ? "-" : Math.abs(v) < 500 ? "$0" : money(v));
 const foPct = (v) => Math.round((v || 0) * 100) + "%";
 // Where each desk screen leads (lane 9's "Go to" line under the head).
 GOTO.fo_office = () => [["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Free agency", "fo_market"], ["Trades", "fo_trades"], ["Roster moves", "fo_moves"], ["Staff", "staff"], ["Money mail", "inbox", { key: "Money" }]];
-GOTO.fo_cap = () => [["Front office", "fo_office"], ["Deals and tags", "fo_expiring"], ["Trades", "fo_trades"], ["Contracts", "contracts"], ["Squad", "roster"]];
+GOTO.fo_cap = () => [["Squad", "roster"], ["Free agency", "fo_market"], ["Trades", "fo_trades"], ["Draft board", "draftboard"]];
 GOTO.fo_expiring = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Free agency", "fo_market"], ["Squad", "roster"]];
 GOTO.fo_talk = (a) => [["Player page", "player", { id: a.id }], ["Deals and tags", "fo_expiring"], ["Free agency", "fo_market"], ["Cap sheet", "fo_cap"]];
 GOTO.fo_market = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Squad", "roster"], ["Depth chart", "depth"]];
@@ -90,9 +90,16 @@ screens.fo_office = async () => {
 };
 
 // ---------- Cap sheet ----------
-screens.fo_cap = async () => {
+screens.fo_cap = async (a) => {
   const x = await api("fo_cap");
   const yrs = x.years;
+  // A link from his contract, the Squad or the cap board marks his row (the
+  // arrow keys go on from it) and brings it into view.
+  const him = a && a.id != null ? x.rows.find((r) => r.id === a.id) : null;
+  if (him) {
+    him.cls = "kbd";
+    setTimeout(() => { const tr = document.querySelector('.tbl[data-table="fo_cap"] tr.kbd'); if (tr) tr.scrollIntoView({ block: "nearest" }); }, 30);
+  }
   const book = x.books.map((b) => {
     const used = Math.min(1, (b.committed + b.dead) / (b.cap + (b.carryover || 0)));
     const dead = b.dead / (b.cap + (b.carryover || 0));
@@ -102,7 +109,7 @@ screens.fo_cap = async () => {
   }).join("");
   const hit = (h) => (h == null ? '<span class="muted">-</span>' : h.void ? `<span class="fo-void" title="A void year: only the bonus spread lands here">${foM(h.hit)}</span>` : `<span title="Base ${foM(h.base)} · bonus ${foM(h.bonus)} · roster and workout ${foM(h.roster)}${h.gtd ? " · guaranteed " + foM(h.gtd) : ""}" class="${h.gtd >= h.base && h.base > 0 ? "fo-gtd" : ""}">${foM(h.hit)}</span>`);
   const cols = [
-    { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.no_trade ? ' <span class="st-pill" title="No-trade clause">NTC</span>' : ""}` },
+    { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name, "Contract")}${r.no_trade ? ' <span class="st-pill" title="No-trade clause">NTC</span>' : ""}` },
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
     { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },

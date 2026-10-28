@@ -53,7 +53,15 @@ GOTO.training = () => [["Squad", "roster", { view: "Development" }], ["Depth cha
 GOTO.plans = () => [["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"], ["Schedule", "schedule"]];
 GOTO.designer = () => [["Plans", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"], ["Depth chart", "depth"]];
 GOTO.depth = () => [["Squad", "roster"], ["Training", "training"], ["Plans", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]];
-GOTO.roster = (a) => (trMine(a) ? [["Depth chart", "depth"], ["Training", "training"], ["Plans", "plans"], ["Staff", "staff"], ["Leaderboards", "leaders"]] : [["Schedule", "schedule", teamArgs(a)], ["Staff", "staff", teamArgs(a)], ["Team page", "team", teamArgs(a)], ["Leaderboards", "leaders"]]);
+// Your Squad's one line in every view (screens topic 17): the Fitness view
+// is its Health, and the money desk is the cap sheet at the NFL, the
+// recruiting board in college. Another league's club has no training.
+GOTO.roster = (a) => {
+  if (!trMine(a)) return [["Schedule", "schedule", teamArgs(a)], ["Staff", "staff", teamArgs(a)], ["Team page", "team", teamArgs(a)], ["Leaderboards", "leaders"]];
+  const seat = seatKind();
+  const onHealth = S.route.screen === "roster" && (S.keep.sqview || {}).v === "Fitness";
+  return [["Depth chart", "depth"], seat !== "other" ? ["Training", "training"] : null, onHealth ? null : ["Health", "roster", { view: "Fitness" }], seat === "nfl" ? ["Cap sheet", "fo_cap"] : seat === "college" ? ["Recruiting board", "recruit_board"] : null, ["Compare", "compare"]];
+};
 // These screens draw their own Go-to lines.
 for (const s of ["training", "depth", "roster"]) {
   const i = GOTO_AFTER.indexOf(s);
@@ -611,7 +619,7 @@ function twNumbers(x) {
   const coach = x.staff.str ? x.staff.str.name : "the strength staff";
   if (!n.rows.length) return `<div class="panel tw-panel"><div class="empty">No testing yet this year.${n.next ? ` The next testing day is ${esc(n.next)}.` : ""}</div></div>`;
   const cols = [
-    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "Development") },
     { k: "pos", t: "Pos", l: true },
     { k: "bench", t: n.pro ? "225 bench" : "Bench", v: (r) => parseFloat(r.bench) || 0, f: (r) => esc(r.bench) },
     { k: "squat", t: "Squat", hide: n.pro, v: (r) => parseFloat(r.squat) || 0, f: (r) => esc(r.squat) },
@@ -628,7 +636,7 @@ function twNumbers(x) {
 // Who's where (TR7, TR8, TR9, TR14).
 function twWhere(x) {
   const w = x.where;
-  const pl = (p) => `${playerLink(p.id, p.name)} <span class="muted">${esc(p.pos)}</span>`;
+  const pl = (p) => `${playerLink(p.id, p.name, "Development")} <span class="muted">${esc(p.pos)}</span>`;
   const box = (t, sub, rows, empty) => `<div class="panel tw-panel">${twPh(t, sub)}${rows.length ? `<table class="tw-small">${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "muted" : ""}">${c}</td>`).join("")}</tr>`).join("")}</table>` : `<div class="tw-mini">${esc(empty)}</div>`}</div>`;
   // Many at other sports (a high school's spring): one row a sport, as a
   // coach would say it ("24 on the baseball team").
@@ -639,7 +647,7 @@ function twWhere(x) {
   const away = (many
     ? Object.entries(sports).map(([k, xs]) => [`<b>${xs.length} ${esc({ basketball: "on the basketball team", baseball: "on the baseball team", track: "at track", wrestling: "wrestling" }[k] || `at ${k}`)}</b><div class="tw-l2">${names(xs)}</div>`, esc(xs[0].what.split(":").slice(1).join(":").trim() || xs[0].what)])
     : w.away.map((a) => [pl(a.p), esc(a.what)])
-  ).concat(x.players.filter((r) => r.prep && (r.prep.status === "away" || r.prep.status === "absent") && !w.away.some((a) => a.p.id === r.id)).map((r) => [`${playerLink(r.id, r.name)} <span class="muted">${esc(r.pos)}</span>`, esc(r.prep.status_text)]));
+  ).concat(x.players.filter((r) => r.prep && (r.prep.status === "away" || r.prep.status === "absent") && !w.away.some((a) => a.p.id === r.id)).map((r) => [`${playerLink(r.id, r.name, "Development")} <span class="muted">${esc(r.pos)}</span>`, esc(r.prep.status_text)]));
   return `<div class="grid2 tw-g2">${box("Rehab group, with the trainers' step", `${w.rehab.length}`, w.rehab.map((r) => [pl(r.p), `${esc(r.what)}${r.since ? ` · since ${esc(r.since)}` : ""}`, esc(r.step), esc(r.back)]), "Nobody in rehab this week.")}
     ${box("New arrivals", "the last four weeks", w.arrivals.map((a) => [pl(a.p), esc(a.how), esc(a.at)]), "Nobody new in the last four weeks.")}
     ${box("At another sport, or away", w.away.length ? `${w.away.length} at other sports` : "", away, w.tier === "nfl" ? "Nobody away: NFL players play no other sport." : "Nobody away this week.")}
@@ -961,6 +969,8 @@ screens.designer = async (a) => {
 // ======================================================================
 const rosterBase = screens.roster;
 const SQUAD_VIEWS = ["General", "Ratings", "Development", "Fitness", "Depth", "Contract"];
+// A player's unit to his board on the depth chart.
+const SQ_BOARD = { OFF: "Offense", DEF: "Defense", ST: "Special teams" };
 function squadCols(view, x) {
   const name = { k: "name", t: "Name", l: true, f: (r) => `${playerLink(r.id, r.name, view === "Development" ? "Development" : "")}${r.notes ? ` <span class="st-pill" title="Your notes">✎ ${r.notes}</span>` : ""}` };
   const pos = { k: "pos", t: "Pos", l: true };
@@ -973,10 +983,10 @@ function squadCols(view, x) {
     Ratings: [name, pos, cls, ovr, key(0), key(1), key(2), key(3)],
     Development: [name, pos, cls, { k: "age", t: "Age" }, ovr, { k: "growth", t: "Growth", l: true, f: (r) => trGrowth(r.growth) }, { k: "grade_words", t: "Practice", l: true, v: (r) => r.grade }, { k: "focus", t: "Main focus", l: true, f: (r) => (r.focus ? `${esc(r.focus)}${r.focus_by === "staff" ? ' <small class="muted">staff</small>' : ""}` : '<span class="muted">Balanced</span>') }, { k: "teacher", t: "Taught by", l: true, v: (r) => r.teacher.name || "", f: (r) => (r.teacher.name ? `${r.teacher.you ? "You" : coachLink(r.teacher.id, r.teacher.name)} <small class="muted">${esc(r.teacher.words)}</small>` : '<span class="muted">-</span>') }, { k: "habit", t: "Habit", l: true, hide: true }, { k: "moving", t: "Learning", l: true, hide: true }, { k: "body_target", t: "Body target", hide: true }],
     Fitness: [name, pos, cls, { k: "practice", t: "Practice", l: true, f: trStatus }, { k: "load", t: "Load", l: true, f: trLoad, v: (r) => ["light", "moderate", "heavy", "very heavy"].indexOf(r.load) }, { k: "load_trend", t: "Trend", l: true }, { k: "missed", t: "Games missed", tip: "Last season" }, { k: "status", t: "Status", l: true }, { k: "wt", t: "Wt" }, { k: "sport", t: "Other sport", l: true, hide: x.tier !== "high school" }],
-    Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? (r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
+    Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day: opens his spot on the depth chart", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? linkTo("depth", { tab: SQ_BOARD[r.group] || "Offense", pid: r.id }, r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
     Contract: pro
       ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr]
-      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "offers", t: "College offers", hide: x.tier !== "high school" }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
+      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "offers", t: "College offers", hide: x.tier !== "high school", f: (r) => (r.offers ? linkTo("player", { id: r.id, tab: "Recruiting" }, String(r.offers)) : '<span class="muted">0</span>') }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
   };
   return views[view];
 }
@@ -996,7 +1006,7 @@ screens.roster = async (a) => {
   const vseg = `<div class="seg tr-views">${SQUAD_VIEWS.map((v, i) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="${v === view}">${viewNames[i]}</button>`).join("")}</div>`;
   const out = x.rows.filter((r) => r.practice === "out").length;
   const hurt = x.rows.filter((r) => r.spike).length;
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · ${x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: trGoto([["Depth chart", "depth"], ["Training", "training"], ["Plans", "plans"], ["Staff", "staff"], ["Leaderboards", "leaders"]]) })}
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · ${x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
     <div class="filters">${vseg}${seg}</div>
     ${table("squad:" + view, squadCols(view, x), rows, { groupBy: (r) => r.pos })}</div></div>`;
 };
@@ -1040,16 +1050,18 @@ screens.depth = async (a) => {
     return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}</div>${inner.replace('<div class="film">', "<div>")}</div>`;
   }
   const b = x.boards.find((q) => q.label === tab) || x.boards[0];
+  // His spot picked, when the Squad's depth spot opened this board (pid).
+  if (a.pid != null) { const at = b.slots.findIndex((s) => s.player && s.player.id === a.pid); if (at >= 0) TR.pick = { board: b.key, k: at }; }
   const sel = TR.pick && TR.pick.board === b.key ? TR.pick.k : null;
   const fr = bdFrame(b.slots);
   const want = sel != null ? b.slots[sel] : null;
   const onBoard = new Set(b.slots.filter((s) => s.player).map((s) => s.player.id));
   // The pool: everyone, the slot's position first when a slot is picked.
   const pool = x.players.slice().sort((p, q) => (want ? (q.pos === want.pos) - (p.pos === want.pos) : 0) || mid(q.ovr) - mid(p.ovr));
-  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name)}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
+  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name, "Development")}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
   const props = b.slots.some((s) => s.proposal && (!s.player || s.proposal.id !== s.player.id));
   const locked = b.slots.some((s) => !s.controls);
-  const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name)} over ${playerLink(s.player.id, s.player.name)} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");
+  const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name, "Development")} over ${playerLink(s.player.id, s.player.name, "Development")} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");
   return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}
     <div class="tr-boardwrap"><div class="panel warm tr-boardp"><h2>${esc(b.label)} <small>${b.yours ? "your order" : b.kind === "package" ? "your position coaches' picks: set it to make it yours" : "your staff's order"}${locked ? " · some spots are the head coach's" : ""}</small></h2>
       <div class="tr-board ${b.kind}" data-board="${esc(b.key)}" style="aspect-ratio:${(60 / fr.span).toFixed(3)};--yd:${((5 / fr.span) * 100).toFixed(2)}%"><div class="tr-los" style="top:${((-fr.top / fr.span) * 100).toFixed(2)}%"></div>${b.slots.map((s, k) => slotCard(s, k, b, sel === k, fr)).join("")}</div>

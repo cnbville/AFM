@@ -217,6 +217,9 @@ a { color: inherit; }
 .hero .meta { display: flex; flex-wrap: wrap; gap: 8px 16px; color: rgba(255,255,255,.78); font-size: 14.5px; }
 .hero .meta b { color: #fff; }
 .hero .st-actions .st-btn { padding: 9px 16px; font-size: 13.5px; border-radius: 12px; }
+/* A quiet link beside the hero's buttons sits on their middle line. */
+.hero .st-actions { align-items: center; }
+.hero .st-actions > .link { color: rgba(255,255,255,.86); font-size: 13.5px; }
 .hero.small { min-height: 190px; }
 .hero.small h1 { font-size: clamp(32px, 4vw, 52px); }
 .hero.small .copy { padding: 40px 26px 20px; }

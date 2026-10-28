@@ -391,7 +391,7 @@ screens.people_staff = async (a) => {
     ];
     body = `<section class="panel"><h2>${esc(c.roleName)} <small>your network first, then coaches out of work, then assistants a rung down</small></h2>${seg}${table("ps-cand", cols, c.rows, { empty: "Nobody fits this job right now." })}</section>`;
   }
-  const act = `${linkTo("people", {}, "Meetings", "st-btn small glass")}<button class="st-btn small primary" data-act="tab" data-key="pstab" data-t="Hiring">Find a coach</button>`;
+  const act = `${linkTo("people", {}, "Meetings ›")}<button class="st-btn small primary" data-act="tab" data-key="pstab" data-t="Hiring">Find a coach</button>`;
   return `<div class="pad sl rr">${pageHead({ kicker: `${rich(x.team.link)}${S.status && S.status.today ? ` · ${esc(S.status.today)}` : ""}`, title: "Your staff", actions: act, goto: gotoFor("people_staff", a, x) })}${tabs("pstab", PS_TABS, tab)}<div class="tabbody">${body}</div></div>`;
 };
 GOTO.people_staff = () => [["People", "people"], ["Network", "people", { tab: "Network" }], ["Your profile", "you"]];

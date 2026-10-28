@@ -110,11 +110,11 @@ Object.assign(CRUMBS, {
 // Where each screen leads (topic 17).
 GOTO.scout = (a, f) => [["Player page", "player", { id: a.id }], f && f.team ? [f.team.name, "team", f.team.ref] : null, scSeat() === "nfl" ? ["Draft board", "draftboard"] : scSeat() === "college" ? ["Recruit board", "recruitboard"] : ["Colleges calling", "hsside"], ["My players", "myplayers"]];
 GOTO.scouting = () => (scSeat() === "nfl" ? [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Pro scouting", "proscout"], ["Staff", "staff"], ["My players", "myplayers"]] : [["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Staff", "staff"], ["My players", "myplayers"]]);
-GOTO.draftboard = () => [["Pre-draft", "predraft"], ["Department", "scouting"], ["Contracts", "contracts"], ["Squad", "roster"]];
+GOTO.draftboard = () => [["Pre-draft", "predraft"], ["Department", "scouting"], ["Cap sheet", "fo_cap"], ["Squad", "roster"]];
 GOTO.predraft = () => [["Draft board", "draftboard"], ["Department", "scouting"], ["Calendar", "calendar"]];
-GOTO.warroom = () => [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Squad", "roster"], ["Contracts", "contracts"]];
-GOTO.draftrecord = () => [["Squad", "roster"], ["Contracts", "contracts"], ["Draft board", "draftboard"], ["Pro scouting", "proscout"]];
-GOTO.proscout = () => [["Squad", "roster"], ["Contracts", "contracts"], ["Draft board", "draftboard"], ["Department", "scouting"]];
+GOTO.warroom = () => [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Squad", "roster"], ["Cap sheet", "fo_cap"]];
+GOTO.draftrecord = () => [["Squad", "roster"], ["Cap sheet", "fo_cap"], ["Draft board", "draftboard"], ["Pro scouting", "proscout"]];
+GOTO.proscout = () => [["Squad", "roster"], ["Cap sheet", "fo_cap"], ["Draft board", "draftboard"], ["Department", "scouting"]];
 GOTO.recruitboard = () => [["Recruiting", "recruiting"], ["Department", "scouting"], ["Squad", "roster"], ["My players", "myplayers"]];
 GOTO.hsside = () => [["Squad", "roster"], ["Recruiting", "recruiting"], ["Schedule", "schedule"], ["Calendar", "calendar"]];
 const scGo = (screen, args, data) => gotoFor(screen, args, data);
@@ -172,7 +172,7 @@ screens.scout = async (a) => {
       <div class="st-actions">
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
         <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "Following" : "Follow"}</button>
-        <button class="st-btn glass" data-go="player" data-id="${f.id}">Player page</button>
+        ${linkTo("player", { id: f.id }, "Player page ›")}
       </div>
     </div>
     <div class="sc-hero-card st-glass">
@@ -492,7 +492,7 @@ screens.draftboard = async () => {
     main = scPublic(await api("public_boards"), true);
   }
   const side = tab.t === "Public" ? "" : await scBoardSide(selRow, x);
-  const goto = scGoto([x.live ? ["warroom", "War room"] : null, ["predraft", "Pre-draft"], ["scouting", "Department"], ["contracts", "Contracts"], ["roster", "Squad"]]);
+  const goto = scGoto([x.live ? ["warroom", "War room"] : null, ["predraft", "Pre-draft"], ["scouting", "Department"], ["fo_cap", "Cap sheet"], ["roster", "Squad"]]);
   return `<div class="film">${hero}<div class="pad"><div class="sc-tabrow">${tab.html}${goto}</div>${side ? `<div class="sc-boardgrid"><div class="sc-boardmain">${main}</div>${side}</div>` : main}</div></div>`;
 };
 
@@ -896,7 +896,8 @@ document.addEventListener("click", async (ev) => {
     }
     case "sc-tryout": if (await scDo("tryout", { id }, "He's in for a tryout on Tuesday.")) scRedraw(); break;
     case "sc-proclubgo": keep("sc-pro", { club: null }).club = id; scTabTo("sc-protab", "A club's roster"); render(); break;
-    case "sc-promote": keep("sc-hs", { pid: null }).pid = id; scRedraw(); break;
+    // The call box opens under his row with the cursor in "Who you call".
+    case "sc-promote": keep("sc-hs", { pid: null }).pid = id; scRedraw().then(() => { const s = $("#sc-prog"); if (s) s.focus(); }); break;
     case "sc-promotego": {
       const prog = $("#sc-prog"), str = $("#sc-strength");
       const args = { id, strength: Number(str ? str.value : 0) };
@@ -939,7 +940,7 @@ PLAYER_TABS.push({
   draw: async (p) => {
     let f = null;
     try { f = await api("scout_file", { id: p.id }); } catch (e) { return scEmpty("No scouting file on him."); }
-    const head = `<div class="sc-ptab-h"><span class="sub">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")} on your staff${f.board && f.board.rank ? ` · No. ${f.board.rank} on your board` : ""}</span>${linkTo("scout", { id: p.id }, "Open the full scouting file", "st-btn small primary")}</div>`;
+    const head = `<div class="sc-ptab-h"><span class="sub">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")} on your staff${f.board && f.board.rank ? ` · No. ${f.board.rank} on your board` : ""}</span>${linkTo("scout", { id: p.id }, "Open the full scouting file ›")}</div>`;
     return head + scFileSummary(f);
   },
 });

@@ -1296,7 +1296,9 @@ const PT = {
   },
   Contract: (p) => {
     const c = p.pro.contract;
-    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
+    // Your own player's numbers open his row on the cap sheet, every year of the deal.
+    const cap = (h) => (p.mine && seatKind() === "nfl" && screens.fo_cap ? linkTo("fo_cap", { id: p.id }, h) : h);
+    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${cap(money(c.apy))}</b><small>a year</small></div><div><b>${cap(money(c.total))}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${cap(money(c.guaranteed))}</b><small>guaranteed</small></div><div><b>${cap(money(c.cap_hit))}</b><small>cap hit this year</small></div><div><b>${cap(c.through)}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
       <div class="kv"><dt>Drafted</dt><dd>${esc(p.pro.draft || "Undrafted")}</dd><dt>Accrued seasons</dt><dd>${p.pro.accrued}</dd><dt>Career earnings</dt><dd>${money(p.pro.earnings)}</dd></div></div>`;
   },
   Notes: (p) => `<div class="panel"><h2>Your notes on ${esc(p.name)} <small>only you see them; they stay with him for his whole career</small></h2>
@@ -1394,7 +1396,8 @@ screens.coach = async (a) => {
   }
   return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? names : [...names.slice(0, -1), { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
 };
-GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
+// Hiring is your staff screen's tab (people.js): only a career with a job has one.
+GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, S.status && S.status.mine && screens.people_staff ? ["Hiring", "people_staff", { tab: "Hiring" }] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
 
 const STYLE = [["risk", "Risk", "Conservative", "Aggressive"], ["freedom", "Structure or freedom", "Do your job", "Freelance"], ["physical", "Physical", "Protective", "Physical"], ["ball_hunting", "Ball hunting", "Sound", "Ball hunting"], ["mould", "Mould or adapt", "Adapt to him", "Mould him"]];
 screens.you = async (a) => {
@@ -1445,11 +1448,15 @@ screens.team = async (a) => {
   const news = t.news.length ? `<div class="items">${t.news.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><small class="muted">${esc(n.kind)}</small> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing in the last two months.</div>';
   return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(t.level)}</div><h1>${esc(t.name)}</h1>
     <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}${t.coach ? `<span>Head coach ${coachLink(t.coach.id, t.coach.name)}</span>` : ""}</div>
-    <div class="st-actions">${linkTo("roster", ta, "Roster", "st-btn glass")}${linkTo("schedule", ta, "Schedule", "st-btn glass")}${linkTo("staff", ta, "Staff", "st-btn glass")}${logoChange(t)}</div></div></div>
+    <div class="st-actions">${logoChange(t)}</div></div></div>
     <div class="pad">${gotoFor("team", a, t)}<div class="grid2"><div class="col"><div class="panel"><h2>Lately</h2>${news}</div>${leaders}</div>
     <div class="col"><div class="panel"><h2>Seasons</h2>${seasons}</div>${t.rivals.length ? `<div class="panel"><h2>${pro ? "Division" : t.ref.kind === "hs" ? "Its group" : "Rivals"}</h2><div class="chips">${t.rivals.map((r) => teamChip(r, 20)).join("")}</div></div>` : ""}</div></div></div>`;
 };
-GOTO.team = (a, t) => [["Standings", "standings"], t.ref && t.ref.kind === "college" ? ["Leaderboards", "leaders"] : null, ["History", "history"]];
+// The team's own screens are Go to chips, not hero buttons (topic 17 rule 7).
+GOTO.team = (a, t) => {
+  const ta = t.ref ? { kind: t.ref.kind, id: t.ref.id } : {};
+  return [["Schedule", "schedule", ta], ["Standings", "standings"], ["Squad", "roster", ta], ["Staff", "staff", ta], ["History", "history"]];
+};
 
 // ---------- news feeds (topic 9 on screen) ----------
 const FEEDS = [["beat", "Beat writers"], ["national", "National"], ["recruits", "Recruiting"], ["level", "Your level"], ["fans", "Fans"]];
