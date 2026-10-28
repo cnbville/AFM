@@ -1,6 +1,6 @@
 # Injuries: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -13,13 +13,13 @@ There are four injury sources, and they do not talk to each other much:
 
 ## Quick answers
 
-- Does an engine game injury carry past the game? Only in the NFL (and the other pro leagues): it sets `out_weeks` (`world/pro/games.rs`, `record`, `record_preseason`; `world/pro/other.rs`). In college and high school it lasts to the final whistle; nothing reads `GameResult.injuries` there (no reader in `world/college.rs`, `world/season.rs`, `world/hs_year.rs`).
+- Does an engine game injury carry past the game? Yes, at every level unless he played on. In the NFL (and the other pro leagues) it sets `out_weeks` (`world/pro/games.rs`, `record`, `record_preseason`; `world/pro/other.rs`). In college and high school (JV games aside) he is out ceil(weeks × (1 − 0.12 × medical) × 7) days, at least 1, from the day after the game; medical = (the program's medical rating − 10) / 10 in college (a top staff 12% shorter, a poor one up to 11% longer), 0 in high school. Your players get a `Hurt` row ("game") and a trainers' note; everyone else goes in `training.others_hurt`, which `hurt_out` reads, so AI teams sit them too (`training/seat.rs`, `game_injuries`; `world/college.rs`, `play_day`; `world/hs_year.rs`).
 - Then where do college and high school "games missed" come from? The yearly roll: minor 0-2 games, moderate 2-6, major half the season or more, written on the season row (`development.rs`, `develop_season`, `games_missed`). It does not take him out of engine games.
 - Does toughness make injuries rarer? No. Toughness only decides whether he plays on hurt (`game/sim.rs`, `injury_check`, `plays_on`).
-- Does fatigue raise injury odds? No. `injury_check`'s comment says "fatigue" but the formula reads force, share, proneness and turf only (`game/sim.rs`, `injury_check`). Fatigue scales ratings, not injuries (`game/sim.rs`, `Agent::new`).
+- Does fatigue raise injury odds? Yes: the chance × (1 + 0.8 × tired), tired 0-1 from his energy (`game/sim.rs`, `injury_check`). Fatigue also scales ratings (`game/sim.rs`, `Agent::new`).
 - Does body weight matter? Yes, through the hit's force: half the sum of each man's mass times speed (`game/sim.rs`, `hit_effects`). Players of 260 lb or more (any position) also risk heat illness more in your high school practices, ×1.8 (`training/seat.rs`, `heat_week`).
 - Does position matter? In the yearly roll: QB 0.7, RB 1.4, WR 1.0, TE 1.1, OT 0.9, IOL 0.9, EDGE 1.0, DT 1.0, LB 1.1, CB 1.0, S 1.0, K/P/LS 0.25 (`positions.rs`, `PositionProfile.injury_risk`). In the engine only through how often and how hard he is hit. In practice specialists are 0.25 (`world/pro/games.rs`, `practice_injuries`; `training/seat.rs`, `practice_injuries`).
-- Does turf matter? ×1.12 on artificial turf, set only for NFL games in closed stadiums (`game/sim.rs`, `injury_check`; `world/pro/games.rs`, conditions `turf: closed`). College and high school games never set turf. Rain and cold don't touch injury odds (they raise fumbles) (`game/sim.rs`, `hit_effects`).
+- Does turf matter? ×1.12 on artificial turf, wherever the game is played (`game/sim.rs`, `injury_check`). NFL fields follow each club's real turf seasons, a future new stadium turf if domed, neutral sites turf if closed (`world/finance/data.rs`, `TURF`; `world/finance/nfl.rs`, `turf`; `world/pro/games.rs`). College and high school fields are drawn per program or school and year from real shares that rise over time (FBS, smaller colleges, high schools), richer programs more often (`world/season.rs`, `field_turf`; `world/college.rs`, `conditions`; `world/hs_year.rs`, `hs_turf`). Rain and cold don't touch injury odds (they raise fumbles) (`game/sim.rs`, `hit_effects`).
 - What is injury proneness? A hidden 1-20 trait, normal(10, 3.5) at creation; +1 after each major injury, capped 20 (`player.rs`, `trait_1_20`, `generate_prospect`; `development.rs`, `develop_season`).
 - Does the medical staff shorten injuries? NFL regular-season and playoff game injuries and practice injuries: up to 12% shorter (`world/pro/games.rs`, `record`, `practice_injuries`); preseason game injuries don't read it (`record_preseason`). The yearly roll: up to 15% fewer games for minor and moderate ones (`development.rs`, `develop_season`, `ctx.medical`). Your college or high school practice injuries: not read (`training/seat.rs`, `practice_injuries`, `med = 1.0`).
 - Is there re-injury? Only for a player you rush back through a second-opinion scene: 8% a week for eight weeks, 2-6 weeks out (`world/folk/life.rs`, `opinion_answer`, `rushed_week`). Nothing else raises odds after an injury except +1 proneness after a major one.
@@ -37,7 +37,7 @@ There are four injury sources, and they do not talk to each other much:
 - Ranges in weeks: bruise 0-1, ankle 0-3, high ankle 2-7, hamstring 1-5, knee 1-6, ACL 36-56, shoulder 0-8, concussion 0.5-3, ribs 0-4, hand 0-5, fracture 4-12, back 0-4 (`injury_weeks`).
 - Playing on: never after a concussion, ACL or fracture; otherwise chance clamp(0.15 + 0.035 × toughness − 0.12 × weeks, 0, 0.95), toughness as a 1-20 read against the level (`injury_check`; `game/roster.rs`, `trait20`).
 - Concussion protocol: caught 92% in the NFL, 80% in college, 60% in high school; one not caught plays on (`game/flow.rs`, `apply_injuries`).
-- Playing hurt: −3 on every rating each snap he plays (`game/flow.rs`, the snap set-up, `hurt_edge_o`, `hurt_edge_d`; ratings take the edge in `game/sim.rs`, `Agent::new`). `InjuryKind::hampers` lists per-attribute costs but nothing calls it.
+- Playing hurt: the ratings his injury limits drop by its share each snap he plays, scrimmage and kicks alike (a hamstring speed and burst, a hand catching) (`game/sim.rs`, `hampered`, `InjuryKind::hampers`; `game/scrimmage.rs`, `run_snap`; `game/kicking.rs`). The rest are untouched.
 - Out: removed for the rest of the game (`game/flow.rs`, `apply_injuries`, `out`).
 - Practice snaps on the engine clear the engine's injuries every snap (`game/flow.rs`, `practice_snaps`).
 
@@ -57,7 +57,7 @@ There are four injury sources, and they do not talk to each other much:
 
 ## Your college or high school team's practices
 
-- Run weekly on staff weeks, from the planned week (`training/seat.rs`, `week`, `practice_injuries`). Every player not already hurt rolls, even one absent from your high school's voluntary summer week; heat illness too (`practice_injuries`, `heat_week`). AI college and high school teams have no practice injuries.
+- Run weekly on staff weeks, from the planned week (`training/seat.rs`, `week`, `practice_injuries`). Every player not already hurt and not absent from a voluntary week rolls; heat illness too (`practice_injuries`, `heat_week`, `absent_ids`). AI college and high school teams roll the same chance in the weekly world pass, from their own week's block, practices, contact and mobility work; the injury goes in `training.others_hurt` and he sits the games until back (`training/week.rs`, `monday`; `practice_kind`).
 - Rate per practice: camp 0.0037, spring 0.0023, season and postseason 0.00115, other 0.0008; high school × 0.4 (`training/seat.rs`, `practice_rate`).
 - Chance over the week: 1 − (1 − rate × contact × prone × exposure × sqrt(soft))^practices (`injury_chance`), then × (0.77 + 0.23 × limber) for the week's mobility work (`practice_injuries`, `limber`). Contact = ((full-contact minutes + 10) / (neutral + 10))^0.7. Prone = 0.42 + proneness / 18. Exposure 0.25 for specialists. Soft = 1 + 1.5 × (spike − 1.3) above 1.3 (`soft_tissue`).
 - Mix as the NFL practice mix, with hamstring weight × soft × limber and concussion and shoulder × contact (`practice_injuries`).

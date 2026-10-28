@@ -7,6 +7,11 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 const EP_CSV: &str = include_str!("../../../../data/real-world/nfl_expected_points.csv");
+// College expected points (update 3, F30): cfbfastR's `ep_before`, FBS-vs-FBS
+// 2023-24, in the NFL table's buckets (`college_expected_points.py`). Every
+// level below the NFL reads it; high school has no real table (proposed,
+// not confirmed).
+const COLLEGE_EP_CSV: &str = include_str!("../../../../data/real-world/college_expected_points.csv");
 const PASS_CSV: &str = include_str!("../../../../data/real-world/nfl_pass_rate.csv");
 const GO_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go.csv");
 // College calling (trial 4 topic 5): FBS-vs-FBS cfbfastR play-by-play,
@@ -72,10 +77,13 @@ struct Ep {
     by_field: HashMap<(i32, i32), (f64, f64)>,
 }
 
-static EP: LazyLock<Ep> = LazyLock::new(|| {
+static EP: LazyLock<Ep> = LazyLock::new(|| ep_table(EP_CSV));
+static COLLEGE_EP: LazyLock<Ep> = LazyLock::new(|| ep_table(COLLEGE_EP_CSV));
+
+fn ep_table(csv: &str) -> Ep {
     let mut cells = HashMap::new();
     let mut by_field: HashMap<(i32, i32), (f64, f64)> = HashMap::new();
-    for r in rows(EP_CSV) {
+    for r in rows(csv) {
         let (d, t, y): (i32, i32, i32) = (r[0].parse().unwrap(), r[1].parse().unwrap(), r[2].parse().unwrap());
         let (ep, n): (f64, f64) = (r[3].parse().unwrap(), r[4].parse().unwrap());
         cells.insert((d, t, y), ep);
@@ -84,20 +92,27 @@ static EP: LazyLock<Ep> = LazyLock::new(|| {
         e.1 += n;
     }
     Ep { cells, by_field }
-});
+}
 
 /// Expected points for the offense before a snap: down, yards to go, and
-/// yards from the opponent's goal line.
+/// yards from the opponent's goal line, from the NFL table.
 pub fn expected_points(down: u8, togo: f64, yardline_100: f64) -> f64 {
+    expected_points_in(false, down, togo, yardline_100)
+}
+
+/// Expected points from the level's own table: the NFL's, or the college
+/// one below the NFL.
+pub fn expected_points_in(college: bool, down: u8, togo: f64, yardline_100: f64) -> f64 {
+    let ep: &Ep = if college { &COLLEGE_EP } else { &EP };
     let d = down.clamp(1, 4) as i32;
     let y = ((yardline_100.clamp(1.0, 99.0) as i32) / 5) * 5;
     let t = ep_togo_bucket(togo);
-    if let Some(&e) = EP.cells.get(&(d, t, y)) {
+    if let Some(&e) = ep.cells.get(&(d, t, y)) {
         return e;
     }
     // Rare cells: average over distances at that spot, else the nearest spot.
     for dy in [0, 5, -5, 10, -10, 15, -15] {
-        if let Some(&(s, n)) = EP.by_field.get(&(d, y + dy)) {
+        if let Some(&(s, n)) = ep.by_field.get(&(d, y + dy)) {
             return s / n - 0.08 * (togo - 10.0).max(-9.0) * if d >= 3 { 1.5 } else { 1.0 };
         }
     }

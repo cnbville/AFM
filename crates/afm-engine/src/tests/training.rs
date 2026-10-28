@@ -49,7 +49,7 @@ fn college_year(p: &mut Player, f: &Frame, y: &YearDates, plan: &dyn Fn(Date, &W
     let mut key = 1u64;
     while m < f.end {
         let g = games_in(&games, m);
-        let (_, wk) = work_out(Tier::College, f, m, &st, &g, false, "", false);
+        let (_, wk) = work_out(Tier::College, f, m, &st, &g, false, "", false, 0);
         let block = block_of_week(f, m);
         let slot = Slot::of(block, !g.is_empty(), false);
         let bk = books(f, m, "", false);
@@ -134,7 +134,7 @@ fn each_period_grows_only_what_it_works() {
     let pro = Frame::pro(&y, false);
     let m = monday(pro.phase1.add(3));
     assert_eq!(block_of_week(&pro, m), Block::Phase1);
-    let (_, wk) = work_out(Tier::Pro, &pro, m, &Style::default(), &[], false, "", false);
+    let (_, wk) = work_out(Tier::Pro, &pro, m, &Style::default(), &[], false, "", false, 0);
     let w = week_work(&wk, Role::Starter, false, 1.0);
     assert!(fam(&w, Family::Strength) > 0.0 && fam(&w, Family::Conditioning) > 0.0);
     for f in [Family::Technique, Family::Contact, Family::Kicking] {
@@ -338,7 +338,7 @@ fn practice_injuries_land_on_the_real_split() {
     let roster = 105.0;
     while m < f.end {
         let g = games_in(&y.cfb_weeks, m);
-        let (_, wk) = work_out(Tier::College, &f, m, &Style::default(), &g, false, "", false);
+        let (_, wk) = work_out(Tier::College, &f, m, &Style::default(), &g, false, "", false, 0);
         let block = block_of_week(&f, m);
         let practices = wk.days.iter().filter(|d| d.periods.iter().any(|p| p.kind.on_field())).count() as f64;
         let bk = books(&f, m, "", false);
@@ -394,7 +394,7 @@ fn check_year(tier: Tier, f: &Frame, games: &[Date], state: &str, heat: bool, st
     let mut counts: Option<(Block, Counts)> = None;
     while m < f.end {
         let g = games_in(games, m);
-        let (_, wk) = work_out(tier, f, m, st, &g, false, state, heat);
+        let (_, wk) = work_out(tier, f, m, st, &g, false, state, heat, 0);
         let bk = books(f, m, state, heat);
         for b in check_week(&bk, &wk) {
             out.push(format!("{tier:?} {} {m}: {}", f.season, b.text));
@@ -566,7 +566,7 @@ fn an_average_week_leaves_the_two_deep_prepared() {
     // An average staff's own week (the AI's default) reads as the neutral
     // week does.
     let (f, _, g, _) = game_week(2024, 5);
-    let (_, ai) = work_out(Tier::College, &f, m, &Style::default(), &g, false, "", false);
+    let (_, ai) = work_out(Tier::College, &f, m, &Style::default(), &g, false, "", false, 0);
     let r = prep_week(&ai, &nk, false, false).r[Role::Starter as usize];
     println!("the average staff's week against the neutral week: {r:?}");
     assert!(r[..6].iter().all(|x| (0.85..=1.15).contains(x)), "{r:?}");

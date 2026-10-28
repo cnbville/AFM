@@ -70,6 +70,9 @@ pub(crate) fn year_book(w: &mut World) {
 /// A grudge born from being cut or traded (topic 2): strong when it hurt
 /// (years there), with ego and temper; loyalty and stability soften it.
 pub(crate) fn grudge(p: &mut Person, team: usize, hurt: f64) {
+    if hurt <= 0.0 {
+        return;
+    }
     let t = &p.player.personality.traits;
     let s = hurt * (6.0 + 3.0 * t.z(Trait::Ego) + 3.0 * t.z(Trait::Temper) - 2.0 * t.z(Trait::Loyalty))
         - 0.15 * (p.bg.stability - 10.0);
