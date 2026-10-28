@@ -1362,7 +1362,7 @@ fn log_hs_standin(w: &mut World, mut head: serde_json::Map<String, serde_json::V
     let row = super::log_games::standin_row(head, home_won, None);
     if let Some(l) = w.wlog.as_mut() {
         let id = l.next_id(year, "hs");
-        l.line(year, "games-hs", &super::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
+        l.line(year, "games-hs", super::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
     }
 }
 
@@ -1508,7 +1508,7 @@ fn engine_games(
             if let (Some(row), Some(l)) = (g.log, w.wlog.as_mut()) {
                 l.add_situations(year, "hs", w.states[s].code.as_str(), [h, a], situ);
                 let id = l.next_id(year, "hs");
-                l.line(year, "games-hs", &super::wlog::with_id(id, &row));
+                l.line(year, "games-hs", super::wlog::with_id(id, &row));
             }
         }
         let (wn, l) = if home_wins { (h, a) } else { (a, h) };

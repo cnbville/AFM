@@ -964,9 +964,9 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         }
         if let Some(l) = w.wlog.as_mut() {
             let id = l.next_id(year, "college");
-            l.line(year, "games-college", &super::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
+            l.line(year, "games-college", super::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
             if let Some(p) = plays {
-                l.line(year, "plays-college", &super::log_games::plays_line(id, &p));
+                l.line(year, "plays-college", super::log_games::plays_line(id, &p));
             }
         }
     }

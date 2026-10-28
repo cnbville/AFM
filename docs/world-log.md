@@ -12,7 +12,8 @@ The world reader's log (spec `afm/world-reader/spec.md`, section 3). The world f
 ## The folder
 
 - `meta.json`: `format` (1), `what`, `commit`, `engine`, the world's `options`, `first_season`, `streams` (what each holds), and after the log closes `files` (each file's bytes on disk and before compression) and `bytes` (the total).
-- One folder per season, `<season>/`, with one file per stream: `<stream>.jsonl.zst`. Each file is JSON lines compressed with zstd (level 3). A file can hold several zstd frames (a log opened again appends); `zstd -dc` and every zstd library read through them.
+- One folder per season, `<season>/`, with one file per stream: `<stream>.jsonl.zst`. Each file is JSON lines compressed with zstd (level 8, about a fifth smaller than level 3). A file can hold several zstd frames (a log opened again appends); `zstd -dc` and every zstd library read through them.
+- The world hands each line to the log's own thread, which compresses and writes them in the order sent (`world/wlog.rs`, `write`); the world waits only when it is 256 lines ahead.
 - A season's files close when the next football year starts (`world/clock.rs`, `rollover`, calling `WorldLog::close_before`); the situation totals are written then.
 - The season is the football season a game belongs to: a January bowl and February's Super Bowl go under the year the season started.
 
@@ -37,8 +38,8 @@ Written by `world/log_games.rs` from each game's result, at the places the world
 | `games-other` | other-league game (CFL, UFL and the rest; `league`, `names`) |
 | `plays-other` | other-league game's snaps |
 | `games-hs` | high school game, engine or stand-in |
-| `situations` | (level, group, key) for the season: college groups are divisions (`cross-division` for buy games), NFL `NFL`, other leagues by league, high school by state |
-| `team-situations` | (level, team, key) for the season |
+| `situations` | (level, group, key) for the season: college groups are divisions (`cross-division` for buy games), NFL `NFL`, other leagues by league, high school by state, with high school's play names (`call|`, `defense|`) under `all` for the whole country |
+| `team-situations` | (level, team, key) for the season, college and the pro leagues |
 
 ### A game row
 
@@ -64,8 +65,16 @@ Every field of the engine's `PlayRecord` (`game/stats.rs`), compacted: the numbe
 
 - The trial keys: `kind`, `dd|down|to go|kind`, `field|zone|kind`, `fourth|zone|to go|decision`, `state|quarter|margin|kind`, `two minute`, `call`, `defense`, `personnel`, `box`, `blitz`, `coverage`, `after turnover`, `play action`, `pressured`, `time to throw`, `depth`, `drop`, `throw away`, `kick|kind|distance`, `return`, `penalty|kind|accepted`, `injury`, `missed tackles`.
 - Added by R1: `real pass rate|down|to go|score|time|kind` and `real fourth|to go|yard line by tens|score|decision` in the buckets of `data/real-world/nfl_situations.json` (to go 1, 3, 6, 10, 15; score -15, -8, -1, 0, 7, 14, 15; time normal, late (the fourth quarter's last 7 minutes), two_minute (a half's last 2)); `real air yards|-5|0|10|20`; `q4|lead or trail bucket|kind` by the score after three quarters in `garbage_time.json`'s buckets; `run gap|side|gap` (`left|end` ... `middle|middle`, from where the carrier crossed the line: inside a yard the middle, 2.5 the guard, 4 the tackle, else the end; proposed, not confirmed); `route|route` and `route coverage|route|man or zone`; `backfield|gun, pistol or under center|kind`; `motion|kind of motion|kind`; `rpo|kind`; `tempo|huddle or no huddle|kind`; `garbage|offense step|defense step|kind`; `out of bounds|kind`; `kick result|kind|blocked, muffed, bad snap, fair catch, touchback, inside 20`; `penalty site|kind|home or away`; `officiating|call|right or wrong|reviewer|stood or overturned`.
-- Team keys (`o|` with the ball, `d|` defending): `kind`, `third|to go|kind`, `fourth|decision`, `red zone|kind`, `pressured`, `blitz`. On disk for every team at every level but high school; in the trial log for FBS only.
+- Team keys (`o|` with the ball, `d|` defending): `kind`, `third|to go|kind`, `fourth|decision`, `red zone|kind`, `pressured`, `blitz`. On disk for every college and pro team (high school's 14,000 schools would hold 1.2 million rows in memory all season); in the trial log for FBS only.
+- The season's totals stay in memory until the season closes, then are written and dropped.
 
 ## What it costs
 
-Measured in lane R1 (see the PR and `docs/world-model.md`'s note): the log's size per season and level, and the build's time and memory with it on against off.
+Measured in lane R1 on 2026-10-28 with `memory_check` (`AFM_ENGINE_FROM=2025 AFM_HS_YEARS=1 memory_check 2026 1 1 1.0`, with and without `AFM_LOG`): a full-size world, seed 2026, its 2025 season recorded with every level on the engine (72,773 high school games), then 2026 played day by day as a save does, on 4 cores.
+
+- **Results**: the same fingerprint with the log on and off (`c8b6d08b0ec97c86`). `tests/world_log.rs` checks the same on a small world in every CI run.
+- **Size on disk a season** (zstd level 8; before compression in brackets): high school games 320 MB (2.27 GB), college snaps 106 MB (875 MB), college games 23 MB (169 MB), NFL snaps 7.2 MB, NFL games 1.4 MB, the other leagues 3.6 MB, situations 3.2 MB, team situations 1.1 MB. About 466 MB a season with high school on the engine, 146 MB without (high school stand-in rows add a few MB).
+- **A 30-year world** (the world build: 30 recorded seasons, the last 12 with high school on the engine): about 30 x 146 MB + 12 x 320 MB = 8.2 GB beside the 2 GB world file. A save adds about 470 MB a season once lane R2 turns it on.
+- **Time**: 2025 took 1,050 s against 808 s with the log off, 2026 1,036 s against 796 s (+30%), measured before the game rows stopped copying their parts (a high school row now costs 2.2 ms against the game's 31 ms; with its situations and compression about 12% of the game). The world build's 12 seasons with high school on the engine are most of its time, so a 30-year build takes about a fifth longer.
+- **Memory**: resident 5.32 GB against 5.20 GB after 2025 (+0.12 GB: the open files' buffers and the season's situation totals), the live heap the same (2.92 GB against 2.91 GB). The world's peak (7.2-7.3 GB) comes in a spin-up season before the log opens.
+- The first try (zstd level 3 on the world's own thread, team situations for every high school, high school play names by state) took +42% and +0.48 GB and wrote 606 MB a season.

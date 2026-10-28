@@ -1520,8 +1520,8 @@ fn log_game(
     let Some(l) = w.wlog.as_mut() else { return };
     l.add_situations(year, "other", league, teams, situ);
     let id = l.next_id(year, "other");
-    l.line(year, "games-other", &crate::world::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
-    l.line(year, "plays-other", &crate::world::log_games::plays_line(id, &plays));
+    l.line(year, "games-other", crate::world::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
+    l.line(year, "plays-other", crate::world::log_games::plays_line(id, &plays));
 }
 
 /// A week of games (or a playoff round): each on the engine under the

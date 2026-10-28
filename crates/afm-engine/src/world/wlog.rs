@@ -19,27 +19,57 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
+use std::thread::JoinHandle;
 
 use super::game_log::{GameSitu, Situ, bump};
 
 /// The log's format; a reader refuses a newer one.
 pub const FORMAT: u32 = 1;
 
+/// zstd's level: level 8 writes about a fifth less than level 3 for
+/// about 6 MB a stream, on the writer's own thread.
+const LEVEL: i32 = 8;
+
+/// High school situation keys summed for the whole country, not by state:
+/// the play names (thousands of calls and fronts in every state).
+const HS_NATIONAL: &[&str] = &["call|", "defense|"];
+
 type Enc = zstd::stream::write::Encoder<'static, BufWriter<File>>;
 
 pub struct WorldLog {
     dir: PathBuf,
-    files: BTreeMap<(i32, &'static str), Enc>,
+    /// The writer's thread compresses and writes the lines in the order
+    /// they are sent; the world never waits on the disk unless it is
+    /// `QUEUE` lines ahead.
+    tx: Option<SyncSender<Job>>,
+    writer: Option<JoinHandle<Files>>,
     /// Games written per (season, level): each game's id.
     ids: HashMap<(i32, &'static str), u32>,
-    /// League situation totals by (season, level, group, key) and each
-    /// team's by (season, level, team, key), written when the season closes.
-    situ: HashMap<(i32, &'static str, String, String), Situ>,
-    team_situ: HashMap<(i32, &'static str, usize, String), Situ>,
+    /// League situation totals by (season, level, group) then key, and
+    /// each team's by (season, level, team) then key, written when the
+    /// season closes.
+    situ: HashMap<(i32, &'static str, String), HashMap<String, Situ>>,
+    team_situ: HashMap<(i32, &'static str, usize), HashMap<String, Situ>>,
+}
+
+/// Lines the world may run ahead of the writer.
+const QUEUE: usize = 256;
+
+enum Job {
+    Line(i32, &'static str, Vec<u8>),
+    /// Finish the files of every season before this one.
+    CloseBefore(i32),
+}
+
+/// The writer's side: the open files and what went into them.
+struct Files {
+    dir: PathBuf,
+    files: BTreeMap<(i32, &'static str), Enc>,
     /// Bytes handed to each (season, stream) before compression.
     raw: BTreeMap<(i32, &'static str), u64>,
     /// The first error; the log stops writing after it.
-    pub error: Option<String>,
+    error: Option<String>,
 }
 
 /// What each stream holds, for `meta.json`.
@@ -57,12 +87,83 @@ pub const STREAMS: &[(&str, &str)] = &[
     ("games-other", "every game of the other pro leagues, as games-college"),
     ("plays-other", "every other-league game's plays, as plays-college"),
     ("games-hs", "every high school game: engine games as games-college; stand-in games with the winner only"),
-    ("situations", "each level's plays summed by situation key (college by division, high school by state)"),
-    ("team-situations", "each team's plays summed by its own short list of keys, o| with the ball and d| defending"),
+    (
+        "situations",
+        "each level's plays summed by situation key (college by division, the pro leagues by league, high school by state with the play names for the whole country)",
+    ),
+    (
+        "team-situations",
+        "each college and pro team's plays summed by its own short list of keys, o| with the ball and d| defending",
+    ),
 ];
 
+impl Files {
+    fn enc(&mut self, season: i32, stream: &'static str) -> Option<&mut Enc> {
+        if self.error.is_some() {
+            return None;
+        }
+        if !self.files.contains_key(&(season, stream)) {
+            let open = || -> std::io::Result<Enc> {
+                let dir = self.dir.join(season.to_string());
+                std::fs::create_dir_all(&dir)?;
+                // Appending: a stream opened again (a save going on from a
+                // world's log) adds a frame, which readers read through.
+                let f = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(dir.join(format!("{stream}.jsonl.zst")))?;
+                zstd::stream::write::Encoder::new(BufWriter::with_capacity(1 << 20, f), LEVEL)
+            };
+            match open() {
+                Ok(e) => {
+                    self.files.insert((season, stream), e);
+                }
+                Err(e) => {
+                    self.error = Some(format!("{season}/{stream}: {e}"));
+                    return None;
+                }
+            }
+        }
+        self.files.get_mut(&(season, stream))
+    }
+
+    fn line(&mut self, season: i32, stream: &'static str, json: &[u8]) {
+        let Some(e) = self.enc(season, stream) else { return };
+        let r = e.write_all(json).and_then(|_| e.write_all(b"\n"));
+        match r {
+            Ok(()) => *self.raw.entry((season, stream)).or_insert(0) += json.len() as u64 + 1,
+            Err(err) => self.error = Some(format!("{season}/{stream}: {err}")),
+        }
+    }
+
+    /// Finishes every file of the seasons before `season`.
+    fn close_before(&mut self, season: i32) {
+        let keys: Vec<(i32, &'static str)> = self.files.keys().filter(|k| k.0 < season).copied().collect();
+        for k in keys {
+            if let Some(e) = self.files.remove(&k)
+                && let Err(err) = e.finish().and_then(|mut w| w.flush())
+            {
+                self.error.get_or_insert(format!("{}/{}: {err}", k.0, k.1));
+            }
+        }
+    }
+}
+
+/// The writer's thread: lines in the order sent, then every file closed.
+fn write(mut f: Files, rx: Receiver<Job>) -> Files {
+    for job in rx {
+        match job {
+            Job::Line(season, stream, json) => f.line(season, stream, &json),
+            Job::CloseBefore(season) => f.close_before(season),
+        }
+    }
+    f.close_before(i32::MAX);
+    f
+}
+
 impl WorldLog {
-    /// Opens a log folder (made if missing) and writes its `meta.json`.
+    /// Opens a log folder (made if missing), writes its `meta.json` and
+    /// starts the writer's thread.
     pub fn create(dir: &Path, meta: serde_json::Value) -> std::io::Result<WorldLog> {
         std::fs::create_dir_all(dir)?;
         let mut m = match meta {
@@ -74,14 +175,16 @@ impl WorldLog {
             STREAMS.iter().map(|(k, v)| (k.to_string(), serde_json::Value::from(*v))).collect();
         m.entry("streams").or_insert(serde_json::Value::Object(streams));
         std::fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&m)?)?;
+        let files = Files { dir: dir.to_path_buf(), files: BTreeMap::new(), raw: BTreeMap::new(), error: None };
+        let (tx, rx) = sync_channel(QUEUE);
+        let writer = std::thread::Builder::new().name("world log".into()).spawn(move || write(files, rx))?;
         Ok(WorldLog {
             dir: dir.to_path_buf(),
-            files: BTreeMap::new(),
+            tx: Some(tx),
+            writer: Some(writer),
             ids: HashMap::new(),
             situ: HashMap::new(),
             team_situ: HashMap::new(),
-            raw: BTreeMap::new(),
-            error: None,
         })
     }
 
@@ -97,115 +200,118 @@ impl WorldLog {
         *n - 1
     }
 
-    fn enc(&mut self, season: i32, stream: &'static str) -> Option<&mut Enc> {
-        if self.error.is_some() {
-            return None;
+    fn send(&mut self, job: Job) {
+        // A writer that stopped (it panicked) has its error kept for
+        // `finish`; the world goes on without the log.
+        if let Some(tx) = &self.tx
+            && tx.send(job).is_err()
+        {
+            self.tx = None;
         }
-        if !self.files.contains_key(&(season, stream)) {
-            let open = || -> std::io::Result<Enc> {
-                let dir = self.dir.join(season.to_string());
-                std::fs::create_dir_all(&dir)?;
-                // Appending: a stream opened again (a save going on from a
-                // world's log) adds a frame, which readers read through.
-                let f = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(dir.join(format!("{stream}.jsonl.zst")))?;
-                zstd::stream::write::Encoder::new(BufWriter::with_capacity(1 << 20, f), 3)
-            };
-            match open() {
-                Ok(e) => {
-                    self.files.insert((season, stream), e);
-                }
-                Err(e) => {
-                    self.error = Some(format!("{season}/{stream}: {e}"));
-                    return None;
-                }
-            }
-        }
-        self.files.get_mut(&(season, stream))
     }
 
     /// Writes one JSON line (without its newline).
-    pub fn line(&mut self, season: i32, stream: &'static str, json: &[u8]) {
-        let Some(e) = self.enc(season, stream) else { return };
-        let r = e.write_all(json).and_then(|_| e.write_all(b"\n"));
-        match r {
-            Ok(()) => *self.raw.entry((season, stream)).or_insert(0) += json.len() as u64 + 1,
-            Err(err) => self.error = Some(format!("{season}/{stream}: {err}")),
-        }
+    pub fn line(&mut self, season: i32, stream: &'static str, json: Vec<u8>) {
+        self.send(Job::Line(season, stream, json));
     }
 
     /// Writes one row as a JSON line.
     pub fn row<T: serde::Serialize>(&mut self, season: i32, stream: &'static str, row: &T) {
-        match serde_json::to_vec(row) {
-            Ok(v) => self.line(season, stream, &v),
-            Err(err) => self.error = Some(format!("{season}/{stream}: {err}")),
+        if let Ok(v) = serde_json::to_vec(row) {
+            self.line(season, stream, v);
         }
     }
 
     /// Adds one game's situation totals: the league keys under its level
     /// and group (a division, a state, a league), and each side's keys
-    /// under its team.
+    /// under its team. High school keeps no team keys, and its play names
+    /// go under the group "all" (`HS_NATIONAL`).
     pub fn add_situations(&mut self, season: i32, level: &'static str, group: &str, teams: [usize; 2], part: GameSitu) {
+        let hs = level == "hs";
+        let mut national = HashMap::new();
+        let m = self.situ.entry((season, level, group.to_string())).or_default();
         for (k, v) in part.league {
-            bump(self.situ.entry((season, level, group.to_string(), k)).or_default(), &v);
+            if hs && HS_NATIONAL.iter().any(|p| k.starts_with(p)) {
+                national.insert(k, v);
+            } else {
+                bump(m.entry(k).or_default(), &v);
+            }
         }
-        for (side, m) in part.team.into_iter().enumerate() {
-            for (k, v) in m {
-                bump(self.team_situ.entry((season, level, teams[side], k)).or_default(), &v);
+        if !national.is_empty() {
+            let m = self.situ.entry((season, level, "all".to_string())).or_default();
+            for (k, v) in national {
+                bump(m.entry(k).or_default(), &v);
+            }
+        }
+        if hs {
+            return;
+        }
+        for (side, keys) in part.team.into_iter().enumerate() {
+            let m = self.team_situ.entry((season, level, teams[side])).or_default();
+            for (k, v) in keys {
+                bump(m.entry(k).or_default(), &v);
             }
         }
     }
 
-    /// Writes a season's situation totals and closes its files.
-    pub fn close_season(&mut self, season: i32) {
-        let mut rows: Vec<_> = self.situ.keys().filter(|k| k.0 == season).cloned().collect();
-        rows.sort();
-        for k in rows {
-            let v = self.situ.remove(&k).unwrap_or_default();
-            let row = serde_json::json!({ "level": k.1, "group": k.2, "key": k.3, "v": round_situ(&v) });
-            self.row(season, "situations", &row);
+    /// Writes a season's situation totals.
+    fn write_situations(&mut self, season: i32) {
+        let mut groups: Vec<_> = self.situ.keys().filter(|k| k.0 == season).cloned().collect();
+        groups.sort();
+        for g in groups {
+            let mut keys: Vec<_> = self.situ.remove(&g).unwrap_or_default().into_iter().collect();
+            keys.sort_by(|a, b| a.0.cmp(&b.0));
+            for (k, v) in keys {
+                let row = serde_json::json!({ "level": g.1, "group": g.2, "key": k, "v": round_situ(&v) });
+                self.row(season, "situations", &row);
+            }
         }
-        let mut rows: Vec<_> = self.team_situ.keys().filter(|k| k.0 == season).cloned().collect();
-        rows.sort();
-        for k in rows {
-            let v = self.team_situ.remove(&k).unwrap_or_default();
-            let row = serde_json::json!({ "level": k.1, "team": k.2, "key": k.3, "v": round_situ(&v) });
-            self.row(season, "team-situations", &row);
-        }
-        let keys: Vec<(i32, &'static str)> = self.files.keys().filter(|k| k.0 == season).copied().collect();
-        for k in keys {
-            if let Some(e) = self.files.remove(&k)
-                && let Err(err) = e.finish().and_then(|mut w| w.flush())
-            {
-                self.error.get_or_insert(format!("{}/{}: {err}", k.0, k.1));
+        let mut teams: Vec<_> = self.team_situ.keys().filter(|k| k.0 == season).copied().collect();
+        teams.sort();
+        for t in teams {
+            let mut keys: Vec<_> = self.team_situ.remove(&t).unwrap_or_default().into_iter().collect();
+            keys.sort_by(|a, b| a.0.cmp(&b.0));
+            for (k, v) in keys {
+                let row = serde_json::json!({ "level": t.1, "team": t.2, "key": k, "v": round_situ(&v) });
+                self.row(season, "team-situations", &row);
             }
         }
     }
 
-    /// Closes every season before `season` (a new football year started).
+    /// Closes every season before `season` (a new football year started):
+    /// writes their situation totals and finishes their files.
     pub fn close_before(&mut self, season: i32) {
-        let mut open: Vec<i32> = self.files.keys().map(|k| k.0).collect();
-        open.extend(self.situ.keys().map(|k| k.0));
-        open.extend(self.team_situ.keys().map(|k| k.0));
+        let mut open: Vec<i32> = self.situ.keys().map(|k| k.0).chain(self.team_situ.keys().map(|k| k.0)).collect();
         open.sort();
         open.dedup();
         for s in open.into_iter().filter(|&s| s < season) {
-            self.close_season(s);
+            self.write_situations(s);
         }
+        // A season's totals are gone from memory once written.
+        self.situ.shrink_to_fit();
+        self.team_situ.shrink_to_fit();
+        self.send(Job::CloseBefore(season));
+    }
+
+    /// Waits for the writer and returns its files' record.
+    fn join(&mut self) -> Option<Files> {
+        self.tx = None;
+        self.writer.take().and_then(|h| h.join().ok())
     }
 
     /// Closes everything and adds each file's size to `meta.json`. Returns
     /// the bytes on disk, or the first error.
     pub fn finish(mut self) -> Result<u64, String> {
         self.close_before(i32::MAX);
-        if let Some(e) = self.error.take() {
+        let Some(mut files) = self.join() else {
+            return Err("the log's writer stopped".into());
+        };
+        if let Some(e) = files.error.take() {
             return Err(e);
         }
         let mut sizes = serde_json::Map::new();
         let mut total = 0;
-        for (&(season, stream), &raw) in &self.raw {
+        for (&(season, stream), &raw) in &files.raw {
             let disk = std::fs::metadata(self.dir.join(season.to_string()).join(format!("{stream}.jsonl.zst")))
                 .map_or(0, |m| m.len());
             total += disk;
@@ -229,9 +335,7 @@ impl WorldLog {
 impl Drop for WorldLog {
     /// A log dropped unfinished (a stopped build) still closes its frames.
     fn drop(&mut self) {
-        for (_, e) in std::mem::take(&mut self.files) {
-            let _ = e.finish().and_then(|mut w| w.flush());
-        }
+        self.join();
     }
 }
 

@@ -225,25 +225,25 @@ pub fn game_row(mut head: Head, r: &GameResult, teams: Option<[&GameTeam; 2]>) -
     head.insert("ot".into(), json!(s.overtime));
     head.insert("snaps".into(), json!(s.plays.len()));
     head.insert("toss".into(), r.toss.map_or(Value::Null, |(t, c)| json!({ "winner": t, "choice": format!("{c:?}") })));
-    head.insert("box".into(), json!([team_box(s, 0), team_box(s, 1)]));
-    head.insert("players".into(), json!(player_lines(s, teams)));
+    head.insert("box".into(), Value::Array(vec![team_box(s, 0), team_box(s, 1)]));
+    head.insert("players".into(), Value::Array(player_lines(s, teams).into_iter().map(Value::Array).collect()));
     head.insert("drives".into(), serde_json::to_value(drives(s)).unwrap_or(Value::Null));
-    head.insert("scoring".into(), json!(scoring(s)));
-    head.insert("injuries".into(), json!(injuries(s, r)));
-    head.insert("penalties".into(), json!(penalties(s)));
+    head.insert("scoring".into(), Value::Array(scoring(s)));
+    head.insert("injuries".into(), Value::Array(injuries(s, r)));
+    head.insert("penalties".into(), Value::Array(penalties(s)));
     head.insert("officiating".into(), officiating(s, r));
     head.insert("timeouts_left".into(), json!(s.timeouts_left));
     head.insert(
         "between".into(),
-        json!(r.log.iter().map(|(n, t, what)| json!({ "after": n, "team": t, "what": what })).collect::<Vec<_>>()),
+        Value::Array(r.log.iter().map(|(n, t, what)| json!({ "after": n, "team": t, "what": what })).collect()),
     );
     head.insert(
         "decisions".into(),
-        json!(r.decisions.iter().map(|(n, t, what)| json!({ "n": n, "team": t, "what": what })).collect::<Vec<_>>()),
+        Value::Array(r.decisions.iter().map(|(n, t, what)| json!({ "n": n, "team": t, "what": what })).collect()),
     );
     head.insert(
         "trust".into(),
-        json!(r.trust.iter().map(|(t, id, d)| json!({ "team": t, "player": id, "change": d })).collect::<Vec<_>>()),
+        Value::Array(r.trust.iter().map(|(t, id, d)| json!({ "team": t, "player": id, "change": d })).collect()),
     );
     let mut v = Value::Object(head);
     compact(&mut v);

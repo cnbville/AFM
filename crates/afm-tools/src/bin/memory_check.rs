@@ -3,7 +3,8 @@
 //! heap after the history and after each future season, then weighs each
 //! of the world's stores by dropping it, biggest first.
 //! Usage: memory_check [seed] [history_years] [future_years] [scale]
-//! (`AFM_LOG=folder` writes the world log there.)
+//! (`AFM_LOG=folder` writes the world log there; `AFM_HS_YEARS=n` sets the
+//! history's high school years on the engine.)
 
 use std::time::Instant;
 
@@ -36,6 +37,9 @@ fn main() {
         std::mem::size_of::<afm_engine::player::SeasonRecord>()
     );
     let t = Instant::now();
+    // AFM_HS_YEARS=n: the history's last n years of high school games on
+    // the engine (the world build: 12).
+    let hs_engine_years = std::env::var("AFM_HS_YEARS").ok().and_then(|v| v.parse().ok());
     // AFM_LOG=folder: write the world log there, as the world build does.
     let log_dir = std::env::var("AFM_LOG").ok().map(std::path::PathBuf::from);
     let opts = WorldOptions {
@@ -45,6 +49,7 @@ fn main() {
         scale,
         engine_from,
         log_dir,
+        hs_engine_years: hs_engine_years.or(WorldOptions::default().hs_engine_years),
         ..Default::default()
     };
     let mut w = World::new_watched(opts, year_line);

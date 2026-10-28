@@ -430,8 +430,8 @@ pub(crate) fn log_game(
     let Some(l) = w.wlog.as_mut() else { return };
     l.add_situations(season, "nfl", "NFL", [f.home, f.away], situ);
     let id = l.next_id(season, "nfl");
-    l.line(season, "games-nfl", &crate::world::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
-    l.line(season, "plays-nfl", &crate::world::log_games::plays_line(id, &plays));
+    l.line(season, "games-nfl", crate::world::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
+    l.line(season, "plays-nfl", crate::world::log_games::plays_line(id, &plays));
 }
 
 /// Your NFL game today as the day will play it (section 9).
