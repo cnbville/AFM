@@ -1,6 +1,6 @@
 # Body and combine: how it works today
 
-Checked against main at LANE1_SHA on 2026-10-28 (update 3, lane 1: bodies and the speed core).
+Checked against main at 81c9f0c with update 3 lane 1 (bodies and the speed core) on 2026-10-28.
 
 ## Quick answers
 

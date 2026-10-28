@@ -1,6 +1,6 @@
 # Tendencies: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 81c9f0c with update 3 lane 1 (the age-14 centres) on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -48,7 +48,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 `tendencies.rs`, `Tendencies::at_14` and `drawn`, on the player's own stream (`Rng::new(id ^ 0x7E4D_3C21)`), called from `player.rs`, `generate_prospect`.
 
-- Each tendency: `N(10.5, 4.4) + clamp(lean, -3, 3)`, then minus `CENTER_14[k]` and rounded, clamped 1-20.
+- Each tendency: `N(10.5, 4.4) + clamp(lean, -3, 3)`, then minus `CENTER_14[k]` and rounded, clamped 1-20. `CENTER_14` is measured on 40,000 14-year-olds with `tendency_check nfl 2 1 centers14` (patience, returner risk, upfield and downhill re-measured in update 3, lane 1, when speed stopped riding on talent).
 - Leans read his ceilings against 70, in steps of 12 (`c(a) = (ceiling - 70) / 12`), plus competitiveness `(comp - 10) / 3.5`, weight `(lb - 215) / 40`, height `(in - 75) / 2.5`:
   - Bounce `1.6*fast + 0.5*elusiveness`; Scramble `1.8*fast`; fast = mean of speed and acceleration.
   - Contact `1.2*big + 0.8*strength + 0.8*toughness`; BigHit `1.0*physicality + 0.5*big`.

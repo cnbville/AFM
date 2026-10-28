@@ -13,7 +13,8 @@
 //!    (compare with `match_check` on the commit before).
 //!
 //! Usage: tendency_check [nfl|fbs|hs] [games per arm] [seed] [part]
-//! part: spread, ends, fit, orders, levels or all (default).
+//! part: spread, ends, fit, orders, levels or all (default); `centers` and
+//! `centers14` print how far the drawn numbers sit from the middle.
 
 extern crate afm_tools;
 use std::collections::HashMap;
@@ -509,6 +510,22 @@ fn main() {
     let only = args.get(5).cloned();
     let spreads: Value =
         serde_json::from_str(include_str!("../../../../data/real-world/tendency_spreads.json")).unwrap();
+    if part == "centers14" {
+        // The mean of each tendency among a class of 14-year-olds, every
+        // player counted (add it to `CENTER_14` when creation changes).
+        let mut rng = afm_engine::Rng::new(seed);
+        let opts = || afm_engine::player::ProspectOptions { age: Some(14), ..Default::default() };
+        let ps: Vec<_> = (0..40_000).map(|_| afm_engine::player::generate_prospect(&mut rng, opts())).collect();
+        let means: Vec<String> = Tend::ALL
+            .into_iter()
+            .map(|t| {
+                let m = ps.iter().map(|p| p.tend.get(t)).sum::<f64>() / ps.len() as f64;
+                format!("{:.2}", m - afm_engine::tendencies::MID)
+            })
+            .collect();
+        println!("centers age 14: [{}]", means.join(", "));
+        return;
+    }
     let base = synthetic_league(level, 32, seed);
     let all = Instant::now();
     let keep = |_: &mut GamePlayer| {};

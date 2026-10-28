@@ -319,10 +319,12 @@ impl Tendencies {
 }
 
 // How far the drawn numbers sit from the middle, in `Tend::ALL` order:
-// among a class of 14-year-olds, and among each level's synthetic owners
-// (measured with `tendency_check LEVEL 2 1 centers` before centring).
+// among a class of 14-year-olds (`tendency_check nfl 2 1 centers14`; patience,
+// returner risk, upfield and downhill moved with speed on its own, update 3
+// lane 1), and among each level's synthetic owners (measured with
+// `tendency_check LEVEL 2 1 centers` before centring).
 const CENTER_14: [f64; TEND_COUNT] =
-    [-2.92, -2.21, 1.26, -1.37, -2.54, -0.70, -1.22, -0.72, -1.09, -0.25, -1.28, 0.07, -2.29, -0.35, -0.23];
+    [-2.92, -2.21, 1.26, -0.68, -2.54, -0.70, -1.22, -1.46, -1.85, -0.25, -1.28, 0.07, -2.29, -1.02, -0.23];
 const CENTER_NFL: [f64; TEND_COUNT] =
     [0.88, -0.23, 0.33, -0.20, -0.67, 1.34, 0.09, 0.55, 0.30, 0.50, 0.16, 0.33, 0.58, 0.25, 0.27];
 const CENTER_FBS: [f64; TEND_COUNT] =

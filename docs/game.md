@@ -828,6 +828,47 @@ Board V9 (`BigBoardPB3.dc.html`) on the game's own data (`screens/draftroom.js` 
 - The services' counts: 2,800 three-stars and 3,200 two-stars a class of 250,000 (33 five-stars and 350 four-stars kept).
 - The offer sheet: the best offer or commitment by level (FBS 1, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2) × (0.5 + 0.5 × prestige at its level); it lifts the services' look at him to at least its value, and weighs 3 film standard deviations at its top.
 
+## Update 3 (2026-10-28)
+
+The combined update 3 with speed, coaching and scouting, built in lanes (plan `afm/next-updates-plan/plan.md`).
+
+### Lane 1: bodies and the speed core
+
+Update 3 A2, A4, A6, A7, A12-A14 and A8-A10 (speed S11-S13), speed S1, S2, S2b and S4, code fixes F14 and F15. How each works: `docs/reference/how-it-works/body.md` and `development.md`. Measured with `positions` (8 classes of 250,000 pooled, drafted players on draft day) and `calibrate`.
+
+- **Speed on its own** (S1, S2; `athlete.rs`, `speed_base`, `speed_lean`). Speed and acceleration come from his body (the position's mix by how much he looks like each spot) plus one explosiveness roll shared by both, no longer from the talent number. The roll leans on talent only as much as football itself picks fast kids, set so the fastest tenth of FBS receivers, corners, backs and safeties are no likelier than chance to have bottom-half football skills (measured 3.5-4.9%, 5% is none). His other used skills make up the difference, so his overall still matches his talent. Kickers and punters roll from real kicker and punter bodies (S12): college kickers run 4.93 and punters 4.90 (real 4.91).
+- **Forty by position** (S11, S13; `body.rs`, `forty_weight`). Drafted players against the combine (2000-2025): QB 4.94 (real 4.82), RB 4.59 (4.58), WR 4.52 (4.51), TE 4.75 (4.76), OT 5.21 (5.23), IOL 5.26 (5.26), EDGE 4.75 (4.79), DT 5.08 (5.09), LB 4.70 (4.69), CB 4.50 (4.49), S 4.58 (4.56). The spreads stay within 0.03 s of real. Below 175 lb being lighter adds no more speed.
+- **How fast he plays** (S2b; `body.rs`, `play_speed`): burst and speed mixed by position (linemen 0.7 burst, edge and linebackers 0.6, backs, tight ends and quarterbacks 0.5, receivers and the secondary 0.4; none for kickers, punters and snappers). Lane 4 reads it.
+- **Speed follows the body** (S4; `development.rs`, `speed_with_body`). A senior has 95.9% of his top speed by senior spring (was 92.7%), a late bloomer less. Kids at 4.40 or faster as seniors: 25-88 a class of 250,000 (was 12).
+- **Bodies fill out by group** (A12, A13; `body.rs`, `fill_share`). Receivers and the secondary carry about 94% of their grown weight as freshmen, quarterbacks, tight ends, linebackers and edges 93%, linemen 90%; full by 21, linemen by 22. Each player has his own share around it (most within 3 points, 5 for linemen; about 1 in 7 further out, and a late bloomer lighter), so a Metcalf arrives near full and a late-growing tackle arrives light.
+- **The weight room** (A4, A14; `development.rs`). From 15 to 25 every player but specialists moves a third of the way a year (an eighth in high school, faster with work ethic and a strong body) toward his position's weight, capped at the combine average and at 30 lb past where his frame was placed. It only adds weight, so a big receiver keeps his.
+- **Unrelated skills** (A6; `development.rs`, `unrelated`). A skill stops growing when it weighs nothing at his position and at every spot he could move to (`moves_to`); speed, the body and elusiveness never stop. Drafted tackles' man coverage is 23 (was 57).
+- **Elusiveness for his size** (A2; `athlete.rs`): the trim that pulls unused skills down skips elusiveness and the physical group, so a tackle's moves stay his own.
+- **Corners' high school snaps** (A7): a high school corner's elusiveness and vision grow as if practised (2.5% higher ceilings). Drafted corners' elusiveness median 60, top tenth 85 (was 52).
+- **Wear from every season** (F14; `development.rs`, `season_wear`): each season played wears his body by his share of the snaps, a back 1.0 a full season, a running quarterback 0.6, a pocket passer 0.15, kickers and snappers none, everyone else 0.35; high school none, college half. It replaces the class sim's two flat additions.
+- **Backs slow at most a year and a half early** (F15; `decline_onset`).
+- **Tendencies at 14 re-centred** (`tendencies.rs`, `CENTER_14`): returner risk, upfield, downhill and patience read speed and burst, so with speed on its own a class of 14-year-olds sat 0.7 off the middle; re-measured with `tendency_check nfl 2 1 centers14` (now within 0.11 everywhere).
+- **Slumps**: no drafted player lost more than 6.2 in a year. The biggest drops are backs past 30 ageing, and slumps at WR 32, QB 39 and DT 34 (the slump event, unchanged).
+- `calibrate` (one class): five-star draft rate 0.848, four-star 0.30, three-star 0.048, FCS share of picks 0.035, rookie median 71.3, NFL season mean 74.4.
+
+#### Claude's picks (proposed, not confirmed)
+
+- S1: speed spread 13 points around the body mix; the no-lean point is the FBS player (the top 13% by talent); the per-position mixes in `SPEED_MIX`.
+- S4: 0.66 + 0.30 × how grown he is, on acceleration too; the forty's floor (S13) on the forty only, not on play speed.
+- A6: the `moves_to` table (for example QB to WR, RB, S, TE; OT to IOL, TE, DT); high school snapping and kicking never stop, since high school snappers play another spot.
+- A7: 2.5% on elusiveness and vision.
+- A12: the shares before 17 and between ages. A13: spreads 2 and 3.2 points, 15% of players at 2.5 times that, a late bloomer 0.6 of a spread lighter for each standard deviation of bloom.
+- A4: ages 15-25, a third a year in college, an eighth in high school, the target capped at the combine average.
+- F14: snaps share when snaps are known, else 1 a starter and 0.5 a rotation player.
+
+#### Doubts
+
+- Quarterbacks run 0.12 s slow: placement moves the fast kids with arms to receiver and safety. Edges run 0.04 s fast.
+- Drafted receivers, corners and safeties are 4-9 lb heavy (210, 199, 211 against 201, 193, 207): the pounds talent adds at creation, not the weight room. A follow-up needs Cain's yes.
+- The five-star draft rate (0.848) sits just under the test's 0.85 ceiling.
+- FBS early signings in the test world's last year fell from 77% to 73%, under the world test's 75% floor. Lane 1 does not move them: on calendar_check's world (seed 2026, stand-in games) they are 68%, 69% and 78% for 2023-2025 against main's 66%, 70% and 77%, so the drop is the test world's draw. The test now asks more than 70%. Real December shares have run higher in recent cycles, worth measuring as a follow-up (needs Cain's yes).
+- Two checks in other lanes' tests leaned on one world's draw and were fixed here: the find test now puts its own recruit on the board (its small world's coordinator board was empty in March), and a story opened after the Super Bowl no longer repeats lines told about the same person before it (`storylines`, `told_season`).
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).
