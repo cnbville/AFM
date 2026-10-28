@@ -6,7 +6,7 @@ use crate::attributes::{
     ATTRIBUTE_COUNT, ATTRIBUTE_PROFILES, Attr, AttributeGroup, Attributes, MAX_RATING, MIN_RATING,
 };
 use crate::player::{DevelopmentEvent as Ev, Events, Level, OptF64, Player, PlayingTime, SeasonRecord};
-use crate::positions::{overall_for, weight};
+use crate::positions::{Position, overall_for, weight};
 use crate::rng::{Rng, clamp, round_half_up};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -150,11 +150,88 @@ impl GrowthCtx {
 /// Whether an attribute is past its decline onset this year, by the
 /// ageing step's rule.
 pub(crate) fn declines(position: crate::positions::Position, longevity: f64, key: Attr, age: f64) -> bool {
+    age + 1.0 - decline_onset(position, longevity, key) > 0.0
+}
+
+/// The age an attribute starts to decline. A position moves the body's
+/// decline at most 1.5 years either way, so a running back's speed goes
+/// 1.5 years early, not 2.5 (update 3, F15; `docs/development-model.md`).
+fn decline_onset(position: crate::positions::Position, longevity: f64, key: Attr) -> f64 {
     let profile = key.profile();
-    let physical = profile.group == AttributeGroup::Physical;
     let pos_offset = position.profile().aging_offset;
-    let onset = profile.decline_age + longevity + if physical { pos_offset.min(1.5) } else { pos_offset };
-    age + 1.0 - onset > 0.0
+    let physical = profile.group == AttributeGroup::Physical;
+    profile.decline_age + longevity + if physical { pos_offset.clamp(-1.5, 1.5) } else { pos_offset }
+}
+
+/// Positions a player really moves to from each spot (update 3, A6): what
+/// they ask overlaps with his, so those skills keep growing, the way a
+/// quarterback who becomes a receiver still has the hands he built
+/// (proposed, not confirmed).
+fn moves_to(pos: Position) -> &'static [Position] {
+    use Position::*;
+    match pos {
+        QB => &[WR, RB, S, TE],
+        RB => &[WR, CB, S, LB],
+        WR => &[CB, S, TE, RB],
+        TE => &[WR, OT, EDGE, LB],
+        OT => &[IOL, TE, DT],
+        IOL => &[OT, DT],
+        EDGE => &[LB, DT, TE],
+        DT => &[EDGE, IOL, OT],
+        LB => &[EDGE, S, RB, TE],
+        CB => &[S, WR],
+        S => &[CB, LB, WR],
+        K => &[P],
+        P => &[K],
+        LS => &[IOL, TE, LB],
+    }
+}
+
+/// A skill clearly unrelated to his position (update 3, A6; Cain
+/// 2026-10-24: "only very unrelated skills"): neither his position nor any
+/// he really moves to uses it, like a tackle's man coverage. It stops
+/// growing. The body is not a skill, and elusiveness is rated for his size
+/// (A2), so both keep growing for everyone. High school kickers and
+/// snappers play another position, so kicking and snapping are never
+/// unrelated there.
+pub(crate) fn unrelated(pos: Position, key: Attr, hs: bool) -> bool {
+    if key.profile().group == AttributeGroup::Physical || key == Attr::Elusiveness {
+        return false;
+    }
+    if hs && key.category() == crate::attributes::Category::KickingAndSnapping {
+        return false;
+    }
+    weight(pos, key) <= 0.0 && moves_to(pos).iter().all(|&q| weight(q, key) <= 0.0)
+}
+
+/// The share of his top speed and burst his body has reached by the end
+/// of this year (speed update S4): speed comes with growing up, not with a
+/// birthday, so a senior who has his height has about 95% of it by senior
+/// spring and a late bloomer less (Biology of Sport, 2026; proposed, not
+/// confirmed: 66% at the start of growth, 96% when grown, straight between;
+/// the year's growth adds the rest).
+fn speed_with_body(age: f64, bloom: f64) -> f64 {
+    let grown = clamp((age + 0.75 - 13.0 - 0.6 * bloom) / 6.0, 0.0, 1.0);
+    0.66 + 0.30 * grown
+}
+
+/// Wear one season adds (update 3, F14, as the class sim always did): backs
+/// take the most hits, quarterbacks who run take more than pocket passers,
+/// kickers none. `played` is his share of a starter's season.
+pub(crate) fn season_wear(p: &Player, played: f64) -> f64 {
+    let per_season = match p.position {
+        Position::RB => 1.0,
+        Position::QB => {
+            let legs = (p.attributes.get(Attr::Speed)
+                + p.attributes.get(Attr::Acceleration)
+                + p.attributes.get(Attr::Agility))
+                / 3.0;
+            if legs >= 78.0 { 0.6 } else { 0.15 }
+        }
+        Position::K | Position::P | Position::LS => 0.0,
+        _ => 0.35,
+    };
+    per_season * played
 }
 
 /// One installment of a year's growth (section 6b topic 12): `share` of
@@ -639,6 +716,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 continue;
             }
             let learned = rng.range(0.0, 1.2) * profile.experience * snaps_share * snaps_factor;
+            if unrelated(position, key, false) {
+                continue;
+            }
             player.ceilings.add(key, learned);
             player.attributes.add(key, learned * 0.8);
         }
@@ -686,6 +766,28 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         focus: ctx.focus,
         focus_take,
     };
+    // Speed and burst come with the body (S4): what his growing body has
+    // reached by the end of the year, he has.
+    if age < 21.0 && !stalled {
+        let share = speed_with_body(age, player.bloom);
+        for key in [Attr::Speed, Attr::Acceleration] {
+            let lift = share * player.ceilings.get(key) - player.attributes.get(key);
+            if lift > 0.0 {
+                player.attributes.add(key, lift.min(MAX_YEARLY_GAIN));
+            }
+        }
+    }
+    // A high school corner also plays offense or returns kicks (A7): his
+    // snaps with the ball are practice, so his moves and vision grow like a
+    // ball carrier's and keep finding room, most for the gifted returner
+    // (proposed, not confirmed: 2.5% more room a year).
+    let carries = hs && position == Position::CB;
+    if carries {
+        for key in [Attr::Elusiveness, Attr::BallCarrierVision] {
+            let c = player.ceilings.get(key);
+            player.ceilings.set(key, (c * 1.025).min(MAX_RATING));
+        }
+    }
     for key in Attr::ALL {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         let age_factor = growth_age_factor(development_age, profile.growth_window);
@@ -694,8 +796,16 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         if gap <= 0.0 || age_factor <= 0.01 {
             continue;
         }
-        let rate = g.rate(key, age_factor);
+        let rate = if carries && matches!(key, Attr::Elusiveness | Attr::BallCarrierVision) {
+            (g.rate(key, age_factor) / hs_group_growth(profile.group)).min(0.5)
+        } else {
+            g.rate(key, age_factor)
+        };
         let noise = rng.normal(0.0, 0.5);
+        // A skill his position has nothing to do with gets no practice (A6).
+        if unrelated(position, key, hs) {
+            continue;
+        }
         // Growth that lands through the year's training (choice 1): the
         // draw is still taken, so every later draw is the one it was.
         if ctx.defer
@@ -723,14 +833,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
 
     // --- Ageing ----------------------------------------------------------------
     let decline_resistance = 1.15 - personality.work_ethic * 0.015; // 10 -> 1.0, 20 -> 0.85
-    let pos_offset = position.profile().aging_offset;
     // Years of heavy hits wear a body down faster; a rare body (high longevity) shrugs off more of it.
     let wear_mult = 1.0 + 0.06 * (player.wear - 3.0).max(0.0) * clamp(1.0 - 0.15 * player.longevity, 0.5, 1.5);
     for key in Attr::ALL {
         let profile = key.profile();
         let physical = profile.group == AttributeGroup::Physical;
-        let onset = profile.decline_age + player.longevity + if physical { pos_offset.min(1.5) } else { pos_offset };
-        let years_past = age + 1.0 - onset;
+        let years_past = age + 1.0 - decline_onset(position, player.longevity, key);
         if years_past <= 0.0 {
             continue;
         }
@@ -768,6 +876,43 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             }
         }
     }
+
+    // --- The weight room (update 3, A4, A14) -------------------------------------
+    // Every player's strength program pulls him toward his position's weight,
+    // not only a player who changes position: up to about 30 lb past where
+    // his frame put him, never past the position's weight, and only up, so a
+    // naturally big receiver keeps his size. A strength staff, his work ethic
+    // and college or pro programs move him faster (proposed, not confirmed: a
+    // third of the way a year in college and the pros, an eighth in high
+    // school, from 15 to 25).
+    if (15.0..=25.0).contains(&age) && !position.is_specialist() {
+        let target = crate::athlete::position_weight(player, position).min(crate::body::combine_size(position).2);
+        let room = target.min(crate::athlete::placed_weight(player.body.frame_weight, target) + 30.0);
+        let pace = if hs { 0.12 } else { 0.33 }
+            * clamp(0.7 + 0.03 * personality.work_ethic, 0.7, 1.3)
+            * (1.0 + 0.15 * clamp(ctx.physical, -1.0, 1.0));
+        let gap = room - player.body.weight;
+        if gap > 0.0 {
+            player.body.weight += gap * clamp(pace, 0.0, 1.0);
+        }
+    }
+
+    // --- Wear (update 3, F14) ------------------------------------------------------
+    // Every season played wears a body down, in college at half the pros'
+    // rate, not only a major injury.
+    let wear_level = match ctx.level {
+        Level::NFL => 1.0,
+        Level::HS => 0.0,
+        _ => 0.5,
+    };
+    let played_share = match (ctx.snaps, pt) {
+        _ if no_games => 0.0,
+        (Some(x), _) => clamp(x, 0.0, 1.0),
+        (_, PlayingTime::Starter) => 1.0,
+        (_, PlayingTime::Rotation) => 0.5,
+        _ => 0.0,
+    };
+    player.wear += season_wear(player, played_share) * wear_level;
 
     // --- Tidy up ---------------------------------------------------------------
     for i in 0..ATTRIBUTE_COUNT {

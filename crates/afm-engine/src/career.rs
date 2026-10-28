@@ -301,6 +301,9 @@ pub struct CareerRecord {
     pub running_qb: bool,
     /// Plain-language reasons for the notable things that happened to him, for trial cards.
     pub notes: Vec<String>,
+    /// The player as he was drafted (combine checks; not saved).
+    #[serde(skip)]
+    pub at_draft: Option<Box<Player>>,
 }
 
 impl CareerRecord {
@@ -330,6 +333,7 @@ impl CareerRecord {
             peak_age: player.age,
             running_qb: false,
             notes: Vec::new(),
+            at_draft: None,
             player,
         }
     }
@@ -678,7 +682,6 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
                     ..SeasonContext::new(level.level(), col.coaching[i], role)
                 };
                 develop_season(&mut r.player, &ctx, &mut prngs[i]);
-                add_wear(r, role, 0.5);
                 track_peak(r);
                 // A year without games doesn't use one of his four seasons.
                 if role != PlayingTime::Redshirt && trouble.is_none() {
@@ -903,6 +906,11 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
 
     // --- Draft and undrafted free agency ---------------------------------------
     let pros = run_draft(&mut records, &entrants, &mut teams, draft_slots, &mut rng);
+    for &i in &entrants {
+        if records[i].draft_pick.is_some() {
+            records[i].at_draft = Some(Box::new(records[i].player.clone()));
+        }
+    }
 
     // --- Pro careers ------------------------------------------------------------
     simulate_league_years(&mut records, &mut prngs, pros, &mut teams, &mut rng);
@@ -1786,7 +1794,6 @@ fn simulate_league_years(
             }
             let perf = row.performance;
             track_peak(r);
-            add_wear(r, role, 1.0);
             if matches!(role, PlayingTime::Starter | PlayingTime::Rotation | PlayingTime::Backup) {
                 r.nfl_seasons += 1;
             }
@@ -1981,28 +1988,6 @@ fn situation_at(team: &Team, p: &Player, role: PlayingTime, league_strength: f64
         _ => 0.4,
     };
     clamp(reliance * (0.5 * cast + 0.5 * org), -1.0, 1.0)
-}
-
-/// Yearly wear: backs take the most hits, quarterbacks who run take more than pocket passers.
-fn add_wear(r: &mut CareerRecord, role: PlayingTime, scale: f64) {
-    let share = match role {
-        PlayingTime::Starter => 1.0,
-        PlayingTime::Rotation => 0.5,
-        _ => return,
-    };
-    let per_season = match r.player.position {
-        Position::RB => 1.0,
-        Position::QB => {
-            if r.running_qb {
-                0.6
-            } else {
-                0.15
-            }
-        }
-        Position::K | Position::P | Position::LS => 0.0,
-        _ => 0.35,
-    };
-    r.player.wear += per_season * share * scale;
 }
 
 fn is_running_qb(p: &Player) -> bool {

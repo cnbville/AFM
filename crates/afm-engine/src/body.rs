@@ -116,16 +116,69 @@ pub fn adult_body(id: u32, pos: Position, potential: f64, strength_z: f64, speed
     Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
 }
 
+/// How a position group fills out (update 3, A12; Cain 2026-10-25: "give
+/// lineman room to grow ... a running back or wide receiver should already
+/// be around 90%"): his share of his grown weight at 14, 15 and on, until
+/// full. Backs, receivers, defensive backs and kickers arrive near full;
+/// quarterbacks, tight ends, linebackers, edge rushers and snappers a step
+/// behind; tackles, guards, centers and defensive tackles make their
+/// biggest gains in the first two college years (real: line recruits
+/// average about 88% of the combine's linemen, FBS starting lines 309 lb).
+/// The years before 17 are proposed, not confirmed.
+const FILL_SKILL: [f64; 9] = [0.80, 0.84, 0.87, 0.90, 0.94, 0.97, 0.99, 1.0, 1.0];
+const FILL_MID: [f64; 9] = [0.79, 0.83, 0.86, 0.89, 0.93, 0.965, 0.99, 1.0, 1.0];
+const FILL_LINE: [f64; 9] = [0.76, 0.80, 0.84, 0.87, 0.90, 0.94, 0.97, 0.99, 1.0];
+
+/// A position's fill-out curve and the age he is full.
+fn fill_curve(pos: Position) -> (&'static [f64; 9], f64) {
+    match pos {
+        Position::OT | Position::IOL | Position::DT => (&FILL_LINE, 22.0),
+        Position::QB | Position::TE | Position::LB | Position::EDGE | Position::LS => (&FILL_MID, 21.0),
+        _ => (&FILL_SKILL, 21.0),
+    }
+}
+
+/// His own share against his group's when he arrives in college, in
+/// shares of his grown weight (A13): most sit within 3 points (5 for
+/// linemen), a few further out, so a Metcalf-type receiver arrives at 98%
+/// and a late-growing tackle at 78% and bulks about 60 lb in college. Late
+/// bloomers lean light. Fixed for life, on his own stream (proposed, not
+/// confirmed: sd 2 points, 3.2 for linemen, one in seven 2.5 times wider,
+/// six tenths of it from his bloom).
+fn fill_offset(p: &Player) -> f64 {
+    let mut r = Rng::new(p.id ^ 0xF111_0FF5);
+    let wide = r.chance(0.15);
+    let own = r.normal(0.0, 1.0) * if wide { 2.5 } else { 1.0 };
+    let line = matches!(p.position, Position::OT | Position::IOL | Position::DT);
+    let sd = if line { 0.032 } else { 0.02 };
+    sd * (-0.6 * clamp(p.bloom / 1.1, -2.5, 2.5) + 0.8 * own)
+}
+
+/// His share of his grown weight at an age: his group's curve plus his own
+/// offset, which fades as he fills out.
+pub fn fill_share(p: &Player, age: f64) -> f64 {
+    let (curve, full) = fill_curve(p.position);
+    let k = (age - 14.0).floor();
+    let base = if k < 0.0 {
+        curve[0] - 0.04 * (14.0 - age)
+    } else {
+        let i = (k as usize).min(curve.len() - 1);
+        let j = (i + 1).min(curve.len() - 1);
+        let f = clamp(age - 14.0 - k, 0.0, 1.0);
+        curve[i] + (curve[j] - curve[i]) * f
+    };
+    let fade = clamp((full - age) / (full - 18.0), 0.0, 1.0);
+    clamp(base + fill_offset(p) * fade, 0.6, 1.0)
+}
+
 /// His body now: boys grow through high school, late bloomers later, and
-/// fill out into their twenties as strength comes.
+/// fill out by position group into their early twenties (A12, A13).
 pub fn body_now(p: &Player) -> Body {
     let a = p.body;
     let age = p.age as f64;
     let grown = clamp((age - 13.0 - 0.6 * p.bloom) / 6.0, 0.0, 1.0);
-    let filled = clamp((age - 13.0 - 0.5 * p.bloom) / 9.0, 0.0, 1.0);
-    let strength = p.attributes.get(Attr::Strength) / p.ceilings.get(Attr::Strength).max(1.0);
     let height = a.height - (1.0 - grown) * 4.0;
-    let weight = a.weight * (0.7 + 0.25 * filled + 0.05 * clamp(strength, 0.0, 1.0));
+    let weight = a.weight * fill_share(p, age);
     let k = height / a.height;
     Body {
         height,
@@ -137,6 +190,32 @@ pub fn body_now(p: &Player) -> Body {
         left_handed: a.left_handed,
         left_footed: a.left_footed,
     }
+}
+
+/// What his weight adds to his forty, in seconds: 0.0033 s a pound from
+/// 220 lb, fit on combine players, who are rarely lighter than about 175 lb.
+/// Below that, being lighter stops making him faster (speed update S13: the
+/// fit made a 155 lb receiver run 4.15 against a real record of 4.21).
+pub fn forty_weight(weight: f64) -> f64 {
+    0.0033 * (weight.max(175.0) - 220.0)
+}
+
+/// How fast he plays (speed update S2b): one number mixed from his burst
+/// (acceleration, the first 10 yards) and his top speed, by how much each
+/// matters at his position. Interior linemen almost never run past 10
+/// yards; edge rushers still chase from the back side; receivers, corners
+/// and safeties live on long speed, though the 10-yard split ties to their
+/// playing time too. Not used for kickers, punters and snappers. Read by
+/// stars, offers and starters.
+pub fn play_speed(pos: Position, speed: f64, accel: f64) -> Option<f64> {
+    let burst = match pos {
+        Position::DT | Position::OT | Position::IOL => 0.7,
+        Position::EDGE | Position::LB => 0.6,
+        Position::RB | Position::TE | Position::QB => 0.5,
+        Position::WR | Position::CB | Position::S => 0.4,
+        Position::K | Position::P | Position::LS => return None,
+    };
+    Some(burst * accel + (1.0 - burst) * speed)
 }
 
 /// One day of testing. None for a drill the position doesn't run
@@ -197,7 +276,7 @@ impl Drills {
         let quick = 0.7 * self.agility + 0.3 * self.accel;
         let bend = 0.55 * self.agility + 0.25 * self.accel + 0.2 * self.flexibility;
         [
-            5.56 - 0.0124 * (0.75 * self.speed + 0.25 * self.accel) + 0.0033 * w,
+            5.56 - 0.0124 * (0.75 * self.speed + 0.25 * self.accel) + forty_weight(self.weight),
             20.9 + 0.182 * burst - 0.035 * w,
             87.6 + 0.448 * burst - 0.089 * w,
             // Long arms mean a longer press: fewer reps for the same strength.
