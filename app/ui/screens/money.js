@@ -103,7 +103,7 @@ screens.money = async (a) => {
 GOTO.money = (a, x) => [
   ["League money", "money_league", { level: x.seat === "college" ? "college" : "nfl" }],
   ["Team page", "team", a.kind ? { kind: a.kind, id: a.id } : {}],
-  x.seat === "nfl" && x.own ? ["Contracts", "contracts"] : null,
+  x.seat === "nfl" && x.own ? ["Cap sheet", "fo_cap"] : null,
   ["Schedule", "schedule", a.kind ? { kind: a.kind, id: a.id } : {}],
   ["Money mail", "inbox", { key: "Money" }],
 ];

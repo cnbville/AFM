@@ -162,10 +162,17 @@ const keep = (k, d) => (S.keep[k] ??= d);
 // The opening, load and new-career pages sit outside a career: back and forward move
 // between the career's screens only, so they never lead out of it.
 const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load";
+// The NFL desk's cap sheet holds every contract by year, so at the NFL a
+// link to the old Contracts table (a calendar line, search, an older
+// screen) opens the cap sheet instead.
+function screenFor(screen) {
+  return screen === "contracts" && seatKind() === "nfl" && screens.fo_cap ? "fo_cap" : screen;
+}
 // go(screen, args, push) keeps its old third argument (false: don't add to
 // history); an object can say {root: true} for a sidebar click, which
 // starts a new path in the breadcrumb.
 function go(screen, args = {}, opt = true) {
+  screen = screenFor(screen);
   const o = typeof opt === "object" ? opt : { push: opt };
   const push = o.push !== false;
   if (push && !(outside(S.route) && !outside({ screen }))) {
@@ -454,6 +461,8 @@ screens.recruiting = async () => {
   return `<div class="film"><div class="pad"><div class="h1">Recruiting</div><p class="sub">${sub}</p>${table("recruiting", cols, x.rows, { sort: "rank", empty: "Nobody yet." })}</div></div>`;
 };
 
+// The read-only contracts table. At the NFL every link to it opens the cap
+// sheet (screenFor), where you run the books yourself.
 screens.contracts = async () => {
   const x = await api("contracts");
   setColors(x.team.colors);
@@ -470,7 +479,7 @@ screens.contracts = async () => {
   ];
   const counted = x.top51 ? `the top 51 ${money(x.committed)} (all ${x.rows.length}: ${money(x.all)})` : money(x.committed);
   return `<div class="film"><div class="pad"><div class="h1">Contracts</div>
-    <p class="sub">Your cap manager runs the books for now. Cap ${money(x.cap)}${x.carryover ? ` + ${money(x.carryover)} carried over` : ""} · contracts ${counted} · dead money ${money(x.dead)} · <b>room ${money(x.room)}</b>${x.top51 ? ". Until the first game only a team's 51 biggest cap hits count." : ""}</p>
+    <p class="sub">Cap ${money(x.cap)}${x.carryover ? ` + ${money(x.carryover)} carried over` : ""} · contracts ${counted} · dead money ${money(x.dead)} · <b>room ${money(x.room)}</b>${x.top51 ? ". Until the first game only a team's 51 biggest cap hits count." : ""}</p>
     ${table("contracts", cols, x.rows, { sort: "cap_hit" })}</div></div>`;
 };
 
@@ -731,8 +740,8 @@ document.addEventListener("click", async (ev) => {
     const args = linkArgs(d);
     if (d.go === "player") S.notesOpen = false;
     // Shift-click: the page beside this one (L6); ⌘-click: its own window.
-    if (ev.shiftKey && typeof openBeside === "function") { openBeside(d.go, args); return; }
-    if ((ev.metaKey || ev.ctrlKey) && typeof openWindow === "function") { openWindow(d.go, args); return; }
+    if (ev.shiftKey && typeof openBeside === "function") { openBeside(screenFor(d.go), args); return; }
+    if ((ev.metaKey || ev.ctrlKey) && typeof openWindow === "function") { openWindow(screenFor(d.go), args); return; }
     if (el.closest(".beside") && typeof closeBeside === "function") closeBeside();
     if (typeof peekHide === "function") peekHide();
     go(d.go, args);
@@ -1015,7 +1024,7 @@ function routeFromHash() {
       S.status = await api("status");
       const r = routeFromHash();
       const inCareer = S.status.mine || S.status.you;
-      if (inCareer && r && r.screen) { S.route = { screen: r.screen, args: r.args, root: true }; render(); return; }
+      if (inCareer && r && r.screen) { S.route = { screen: screenFor(r.screen), args: r.args, root: true }; render(); return; }
       go(inCareer ? "home" : "start", {}, { push: false, root: true });
     } else go("start", {}, false);
   } catch (e) {

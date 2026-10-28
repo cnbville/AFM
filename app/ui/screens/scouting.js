@@ -110,11 +110,11 @@ Object.assign(CRUMBS, {
 // Where each screen leads (topic 17).
 GOTO.scout = (a, f) => [["Player page", "player", { id: a.id }], f && f.team ? [f.team.name, "team", f.team.ref] : null, scSeat() === "nfl" ? ["Draft board", "draftboard"] : scSeat() === "college" ? ["Recruit board", "recruitboard"] : ["Colleges calling", "hsside"], ["My players", "myplayers"]];
 GOTO.scouting = () => (scSeat() === "nfl" ? [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Pro scouting", "proscout"], ["Staff", "staff"], ["My players", "myplayers"]] : [["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Staff", "staff"], ["My players", "myplayers"]]);
-GOTO.draftboard = () => [["Pre-draft", "predraft"], ["Department", "scouting"], ["Contracts", "contracts"], ["Squad", "roster"]];
+GOTO.draftboard = () => [["Pre-draft", "predraft"], ["Department", "scouting"], ["Cap sheet", "fo_cap"], ["Squad", "roster"]];
 GOTO.predraft = () => [["Draft board", "draftboard"], ["Department", "scouting"], ["Calendar", "calendar"]];
-GOTO.warroom = () => [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Squad", "roster"], ["Contracts", "contracts"]];
-GOTO.draftrecord = () => [["Squad", "roster"], ["Contracts", "contracts"], ["Draft board", "draftboard"], ["Pro scouting", "proscout"]];
-GOTO.proscout = () => [["Squad", "roster"], ["Contracts", "contracts"], ["Draft board", "draftboard"], ["Department", "scouting"]];
+GOTO.warroom = () => [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Squad", "roster"], ["Cap sheet", "fo_cap"]];
+GOTO.draftrecord = () => [["Squad", "roster"], ["Cap sheet", "fo_cap"], ["Draft board", "draftboard"], ["Pro scouting", "proscout"]];
+GOTO.proscout = () => [["Squad", "roster"], ["Cap sheet", "fo_cap"], ["Draft board", "draftboard"], ["Department", "scouting"]];
 GOTO.recruitboard = () => [["Recruiting", "recruiting"], ["Department", "scouting"], ["Squad", "roster"], ["My players", "myplayers"]];
 GOTO.hsside = () => [["Squad", "roster"], ["Recruiting", "recruiting"], ["Schedule", "schedule"], ["Calendar", "calendar"]];
 const scGo = (screen, args, data) => gotoFor(screen, args, data);
@@ -492,7 +492,7 @@ screens.draftboard = async () => {
     main = scPublic(await api("public_boards"), true);
   }
   const side = tab.t === "Public" ? "" : await scBoardSide(selRow, x);
-  const goto = scGoto([x.live ? ["warroom", "War room"] : null, ["predraft", "Pre-draft"], ["scouting", "Department"], ["contracts", "Contracts"], ["roster", "Squad"]]);
+  const goto = scGoto([x.live ? ["warroom", "War room"] : null, ["predraft", "Pre-draft"], ["scouting", "Department"], ["fo_cap", "Cap sheet"], ["roster", "Squad"]]);
   return `<div class="film">${hero}<div class="pad"><div class="sc-tabrow">${tab.html}${goto}</div>${side ? `<div class="sc-boardgrid"><div class="sc-boardmain">${main}</div>${side}</div>` : main}</div></div>`;
 };
 

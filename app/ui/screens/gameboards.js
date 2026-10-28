@@ -631,7 +631,7 @@ function bdCapNfl(x, st) {
       ${bdCells([{ k: "Salary", v: bdMoney(sel.salary) }, { k: "Bonus", v: bdMoney(sel.bonus), sub: `${sel.bonusShare}% of the hit` }, { k: "Guaranteed", v: bdMoney(sel.gtd), sub: "still to pay" }])}
       <div class="bd-kv"><span>Your staff's read</span>${range(sel.read, "your staff", { p: sel.id, k: "ovr" })}</div>
       <div class="bd-mvs"><div class="bd-mv bd-thd"><span>If you move him in ${x.year}</span><span>Saves</span><span>Dead now</span><span>Dead later</span></div>${moves}</div>
-      <div class="bd-links"><a class="link" data-go="player" data-id="${sel.id}" data-tab="Contract">His contract ›</a><a class="link" data-go="contracts">Contracts ›</a></div></div>`;
+      <div class="bd-links"><a class="link" data-go="player" data-id="${sel.id}" data-tab="Contract">His contract ›</a>${linkTo("fo_cap", { id: sel.id }, "Cap sheet ›")}</div></div>`;
   }
   const e = x.ending;
   const ending = `<div class="bd-card"><div class="bd-line2"><span class="st-label">Contracts ending after ${e.year}</span><span class="bd-dim">${e.count} ${e.count === 1 ? "player" : "players"}</span></div>
