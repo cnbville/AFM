@@ -204,7 +204,7 @@
 
   function pickSelect(name, cur, options, staffWords) {
     const opt = (v, t) => `<option value="${v}" ${String(cur) === String(v) ? "selected" : ""}>${esc(t)}</option>`;
-    return `<select class="gd-select" data-act="gd-plan" data-k="${name}">${opt("staff", staffWords)}${opt("none", "Nobody: play it straight")}${options.map((o) => opt(o.id, `${o.name} (${o.pos})${o.seen ? ` · on tape ${o.seen} snaps` : ""}`)).join("")}</select>`;
+    return `<select class="gd-select" data-act="gd-plan" data-k="${name}">${opt("staff", staffWords)}${opt("none", "Nobody: play it straight")}${options.map((o) => opt(o.id, `${o.name} (${o.pos})${o.seen ? ` · on tape ${o.seen} snap${o.seen === 1 ? "" : "s"}` : ""}`)).join("")}</select>`;
   }
   function triSeg(name, cur, words) {
     const v = cur == null ? "staff" : cur ? "yes" : "no";
@@ -515,7 +515,7 @@
 
   function halftimePanel(st) {
     const h = st.halftime;
-    const unit = (u, who) => `<div class="lv-half-u"><div class="st-label">${who}</div><div class="lv-half-n"><b>${u.yards}</b><small>yards on ${u.plays} plays</small></div>
+    const unit = (u, who) => `<div class="lv-half-u"><div class="st-label">${who}</div><div class="lv-half-n"><b>${u.yards}</b><small>${u.yards === 1 ? "yard" : "yards"} on ${u.plays} play${u.plays === 1 ? "" : "s"}</small></div>
       <div class="sub">Runs ${u.run.n} at ${u.run.ypc.toFixed(1)} a carry (${sign(u.run.epa)} EPA) · dropbacks ${u.pass.n} (${sign(u.pass.epa)} EPA, ${u.pass.sacks} sacked) · success ${u.success.toFixed(0)}%</div></div>`;
     const adj = (h.adjust || [])
       .map((a, i) => `<label class="lv-adj"><input type="checkbox" class="lv-adj-on" data-i="${i}" checked><span><b>${esc(a.who)}</b>${esc(a.text)}</span></label>`)
@@ -957,7 +957,7 @@
           const c = colorsOf(homeSide ? g.home : g.away)[0];
           return `<div class="gp-drive" data-act="gp-drive" data-i="${i}"><span class="gp-dq">${esc(d.q)} ${esc(d.clock)}</span><span class="gp-dteam">${esc(initials(d.name))}</span>
             <span class="gp-dtrack"><i style="left:${lo}%;width:${Math.max(0.8, hi - lo)}%;background:${c}"></i><b style="left:${homeSide ? hi : lo}%">${homeSide ? "▶" : "◀"}</b></span>
-            <span class="gp-dres ${d.points > 0 ? "score" : d.points < 0 ? "bad" : ""}">${esc(d.result)}</span><span class="gp-dn">${d.plays} pl · ${d.yards} yds · ${esc(d.time)}</span></div>`;
+            <span class="gp-dres ${d.points > 0 ? "score" : d.points < 0 ? "bad" : ""}">${esc(d.result)}</span><span class="gp-dn">${d.plays} pl · ${d.yards} ${d.yards === 1 ? "yd" : "yds"} · ${esc(d.time)}</span></div>`;
         })
         .join("");
       return `<div class="panel warm"><h2>Every drive <small>${esc(g.home.name)} drives left to right · click a drive for its plays</small></h2><div class="gp-drives">${bars}</div></div>`;

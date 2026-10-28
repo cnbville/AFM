@@ -893,7 +893,9 @@ fn contacts(w: &World) -> Value {
                 }
                 _ => return None,
             };
-            let record = (c.record.0 > 0).then(|| format!("{} of {} tips held up", c.record.1, c.record.0));
+            let record = (c.record.0 > 0).then(|| {
+                format!("{} of {} {} held up", c.record.1, c.record.0, afm_engine::world::folk::noun(c.record.0, "tip"))
+            });
             Some(json!({
                 "coach": coach,
                 "link": link,

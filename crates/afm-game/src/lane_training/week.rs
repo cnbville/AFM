@@ -1123,7 +1123,7 @@ pub(super) fn numbers(w: &World, st: &SeatTeam, monday: Date, today: Date) -> Va
             let now = afm_engine::body::body_now(&p.player).weight.round();
             let target = w.training.plan_of(r.id).body.map(|(t, _)| t as f64);
             let hurt = w.training.hurt_on(r.id, day.date).is_some();
-            let bench = if pro { format!("{} reps", r.reps) } else { format!("{} lb", r.bench) };
+            let bench = if pro { format!("{} {}", r.reps, if r.reps == 1 { "rep" } else { "reps" }) } else { format!("{} lb", r.bench) };
             Some((
                 p.player.position.index(),
                 json!({

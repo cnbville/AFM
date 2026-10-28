@@ -817,8 +817,9 @@ fn trip_answer(w: &mut World, s: &mut Scene, code: u32) {
     }
     let names: Vec<String> = met.iter().take(4).map(|&c| coach_link(w, c)).collect();
     s.outcome.push(format!(
-        "You met {} coaches{}{}.",
+        "You met {} {}{}{}.",
         met.len(),
+        super::noun(met.len(), "coach"),
         if names.is_empty() { String::new() } else { format!(", among them {}", names.join(", ")) },
         if code == 91 { ", and gave a talk the room is still talking about" } else { "" }
     ));

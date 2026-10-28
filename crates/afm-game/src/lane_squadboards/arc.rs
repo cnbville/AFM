@@ -371,7 +371,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
             let starts: u32 = p.pro.as_ref().and_then(|c| c.seasons.last()).map_or(0, |s| s.starts);
             let sc = match p.last_role {
                 Some(PlayingTime::Starter) => "Starting now".to_string(),
-                _ if starts > 0 => format!("{starts} starts last season"),
+                _ if starts > 0 => format!("{starts} {} last season", afm_engine::world::folk::noun(starts, "start")),
                 _ => "Not a starter yet".to_string(),
             };
             (json!({ "value": dc, "note": "His draft" }), json!({ "value": sc, "note": "His role" }), None)

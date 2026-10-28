@@ -465,7 +465,11 @@ pub fn hints(t: &Tape, side: u8, n: &Names) -> Vec<Hint> {
                 "{} ({}) lost {lost} of {reps} pass-protection reps, {k} of them to {mv}{}.",
                 name(n, id),
                 pos(n, id),
-                if pr > 0 { format!("; {pr} pressures allowed") } else { String::new() }
+                if pr > 0 {
+                    format!("; {} allowed", count(pr as usize, "pressure", "pressures"))
+                } else {
+                    String::new()
+                }
             ),
             tip: tip.into(),
             hit: lost,
@@ -557,7 +561,12 @@ pub fn hints(t: &Tape, side: u8, n: &Names) -> Vec<Hint> {
             key: format!("cov:{id}"),
             kind: "Battle",
             unit: "their defense",
-            text: format!("{} ({}) gave up {c} catches on {m} throws at him for {y} yards.", name(n, id), pos(n, id)),
+            text: format!(
+                "{} ({}) gave up {} on {m} throws at him for {y} yards.",
+                name(n, id),
+                pos(n, id),
+                count(c as usize, "catch", "catches")
+            ),
             tip: if cb {
                 "Pick on him: put your best receiver on his side.".into()
             } else {
@@ -843,11 +852,11 @@ pub fn report(tapes: &[&Tape], team: usize, film_study: f64, seed: u32, n: &Name
         let p = big.iter().filter(|s| s.kind == 1).count();
         let mut lines = vec![line(
             format!(
-                "{} of 20+ yards in {} ({} passes, {} runs)",
+                "{} of 20+ yards in {} ({}, {})",
                 count(big.len(), "play", "plays"),
                 count(used.len(), "game", "games"),
-                p,
-                big.len() - p
+                count(p, "pass", "passes"),
+                count(big.len() - p, "run", "runs")
             ),
             off.len() as u32,
             tagged,
