@@ -694,7 +694,12 @@ fn free_agents(w: &World, args: &Value) -> Reply {
             let pending = w.market.pending.iter().find(|x| x.person == i);
             v["agreed"] = pending.map_or(Value::Null, |x| json!({ "team": views::team_brief(w, TeamRef::Nfl(x.offer.team)), "mine": x.offer.team == t, "until": views::date_text(x.until), "verbal": x.verbal }));
             v["talk"] = talk_brief(w, p.player.id);
-            v["visited"] = json!(w.front_office.nfl.visits.iter().any(|x| x.0 == p.player.id));
+            let visited = w.front_office.nfl.visits.iter().any(|x| x.0 == p.player.id);
+            v["visited"] = json!(visited);
+            // The row brings him in, as his talk does (from the league year).
+            v["can_visit"] = json!(
+                nfl::negotiable(w, i) == Some(nfl::TalkKind::FreeAgent) && w.today >= w.dates.league_year.date && !visited
+            );
             v["rfa"] = json!(p.pro.as_ref().and_then(|c| c.rfa).map(|r| format!("{r:?}")));
             v
         })

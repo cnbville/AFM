@@ -672,20 +672,8 @@ fn feeders_grow(w: &mut World, h: usize) {
     let list = crate::world::front_office::school::feeders(w, h);
     for f in list.iter().filter(|f| !f.youth) {
         if !w.legacy.hs.feeders.iter().any(|x| x.name == f.name) {
-            let open = crate::world::season::key_uniform(
-                w.options.seed as u64 ^ 0xFEED,
-                f.name.bytes().map(|b| b as u64).sum::<u64>() ^ h as u64,
-            ) as f32;
-            w.legacy.hs.feeders.push(FeederPlan {
-                name: f.name.clone(),
-                coach: f.coach.clone(),
-                playbook: false,
-                clinic: false,
-                assistant: false,
-                equipment: false,
-                adopt: 0.0,
-                open,
-            });
+            let plan = new_plan(w, h, f);
+            w.legacy.hs.feeders.push(plan);
         }
     }
     let year = w.year;
@@ -717,9 +705,39 @@ fn feeders_grow(w: &mut World, h: usize) {
     let _ = year;
 }
 
+/// A feeder middle school's plan before you've given it anything: its
+/// coach's openness is keyed to the feeder, the same whenever it is made.
+fn new_plan(w: &World, h: usize, f: &crate::world::front_office::school::Feeder) -> FeederPlan {
+    let open = crate::world::season::key_uniform(
+        w.options.seed as u64 ^ 0xFEED,
+        f.name.bytes().map(|b| b as u64).sum::<u64>() ^ h as u64,
+    ) as f32;
+    FeederPlan {
+        name: f.name.clone(),
+        coach: f.coach.clone(),
+        playbook: false,
+        clinic: false,
+        assistant: false,
+        equipment: false,
+        adopt: 0.0,
+        open,
+    }
+}
+
 /// What you give a feeder (the screen's buttons): "playbook", "clinic",
-/// "assistant", "equipment". Equipment costs the booster club $2,500.
+/// "assistant", "equipment". Equipment costs the booster club $2,500. A
+/// feeder you help before its first June gets its plan that day; the
+/// take-up still comes each June.
 pub fn give_feeder(w: &mut World, name: &str, what: &str) -> Result<String, String> {
+    if !w.legacy.hs.feeders.iter().any(|x| x.name == name)
+        && let Some(h) = school(w)
+    {
+        let list = crate::world::front_office::school::feeders(w, h);
+        if let Some(f) = list.iter().find(|f| !f.youth && f.name == name) {
+            let plan = new_plan(w, h, f);
+            w.legacy.hs.feeders.push(plan);
+        }
+    }
     let Some(x) = w.legacy.hs.feeders.iter_mut().find(|x| x.name == name) else {
         return Err("No such feeder.".into());
     };

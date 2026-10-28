@@ -4,12 +4,16 @@
 //! the boosters' books, your teaching job and your hours), your squads
 //! (varsity, JV and freshman ball, with the JV and freshman games), and
 //! the school and its feeder area (the town, the feeders and the
-//! freshmen coming up, the school's football history).
+//! freshmen coming up, what you've given each feeder, the athletes in your
+//! building, the school's football history). `school_player` is one of
+//! your players' School tab: his team, his grade and his eligibility.
 
+use afm_engine::calendar::data::{GradeCheck, hs_calendar};
 use afm_engine::world::World;
 use afm_engine::world::front_office::school::{self, PROJECTS, SchoolPerson, Squad, WANTS};
 use afm_engine::world::front_office::{Duty, Owner, dollars, index_of};
 use afm_engine::world::hs_year::HsStat;
+use afm_engine::world::scouting::own;
 use afm_engine::world::{Person, Stage};
 use serde_json::{Value, json};
 
@@ -21,6 +25,10 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "school_office" => game.w().and_then(office),
         "school_squads" => game.w().and_then(squads),
         "school_area" => game.w().and_then(area),
+        "school_player" => game.w().and_then(|w| {
+            let id = args.get("id").and_then(Value::as_u64).ok_or("Missing id.")? as u32;
+            player(w, id)
+        }),
         "set_squad" => game.wm().and_then(|w| {
             let id = args.get("id").and_then(Value::as_u64).ok_or("Missing id.")? as u32;
             let to = args.get("squad").and_then(Value::as_str).and_then(Squad::from_key).ok_or("No such team.")?;
@@ -199,8 +207,14 @@ fn office(w: &World) -> Result<Value, String> {
     let (teach, coach, what) = school::hours(w, w.today);
     let reviews: Vec<Value> =
         d.reviews.iter().rev().map(|r| json!({ "year": r.year, "met": r.met, "of": r.of, "words": r.words })).collect();
+    // The principal is your boss: a meeting you ask for waits a month
+    // after the last one (`folk::boss::request_meeting`).
+    let can_meet = !w.folk.scenes.iter().any(|s| {
+        s.kind == afm_engine::world::folk::scene::Kind::BossMeeting && s.c == 3 && s.date.days_to(w.today) < 30
+    });
     Ok(json!({
         "school": team_brief(w, TeamRef::HighSchool(h)),
+        "can_meet": can_meet,
         "mascot": d.mascot,
         "year": if set.is_empty() { d.goals_year } else { season },
         "people": [
@@ -279,6 +293,24 @@ fn line_words(s: &[i32]) -> String {
     parts.join(" · ")
 }
 
+/// The teams a player on `sq` can move to: varsity always, JV if the school
+/// fields one and he isn't a senior, the freshman team only for a freshman
+/// (`school::set_squad` holds the same rules).
+fn can_move(sq: Squad, grade: u32, jv: bool, fr: bool) -> Vec<&'static str> {
+    Squad::ALL
+        .into_iter()
+        .filter(|&to| {
+            to != sq
+                && match to {
+                    Squad::Varsity => true,
+                    Squad::Jv => jv && grade < 12,
+                    Squad::Freshman => fr && grade == 9,
+                }
+        })
+        .map(Squad::key)
+        .collect()
+}
+
 fn squads(w: &World) -> Result<Value, String> {
     let h = mine(w)?;
     let t = TeamRef::HighSchool(h);
@@ -304,20 +336,7 @@ fn squads(w: &World) -> Result<Value, String> {
                 v["grade"] = json!(grade);
                 v["moved"] = json!(by_staff(i).is_some_and(|s| s != sq));
                 v["staff"] = json!(by_staff(i).map(|s| s.name()));
-                v["can"] = json!(
-                    Squad::ALL
-                        .iter()
-                        .filter(|&&to| {
-                            to != sq
-                                && match to {
-                                    Squad::Varsity => true,
-                                    Squad::Jv => jv && grade < 12,
-                                    Squad::Freshman => fr && grade == 9,
-                                }
-                        })
-                        .map(|s| s.key())
-                        .collect::<Vec<_>>()
-                );
+                v["can"] = json!(can_move(sq, grade, jv, fr));
                 v["line"] = json!(
                     line_of(p.player.id)
                         .filter(|l| l.squad == sq)
@@ -403,12 +422,111 @@ fn squads(w: &World) -> Result<Value, String> {
     }))
 }
 
+/// A high school grade in words.
+fn grade_words(g: u32) -> &'static str {
+    match g {
+        9 => "Freshman",
+        10 => "Sophomore",
+        11 => "Junior",
+        _ => "Senior",
+    }
+}
+
+/// How his state checks grades for eligibility (A29), in words.
+fn check_words(c: GradeCheck) -> &'static str {
+    match c {
+        GradeCheck::SixWeek => "No pass, no play: a failing grade on a six-week report card sits him about three weeks",
+        GradeCheck::Weekly => "Grades are checked every week: a failing week sits him the next",
+        GradeCheck::NineWeek => "Grades are checked each grading period, about every nine weeks",
+        GradeCheck::Semester => "Last semester's grades decide this one",
+    }
+}
+
+/// One of your players' School tab (screens topic 5, tab 8): the team he
+/// plays on and the staff's list he was on, his grade, what keeps him
+/// eligible (his grades under the state's check, a transfer's sit-out, a
+/// suspension), his JV or freshman line, and the teams he can move to.
+fn player(w: &World, id: u32) -> Result<Value, String> {
+    let h = mine(w)?;
+    let i = index_of(w, id)
+        .filter(|i| w.high_schools[h].roster.contains(i) && w.people[*i].stage == Stage::HighSchool)
+        .ok_or("He isn't on your roster.")?;
+    let p = &w.people[i];
+    let sq = school::squads(w).into_iter().find(|x| x.0 == i).map_or(Squad::Varsity, |x| x.1);
+    let staff = school::staff_squads(w, h).into_iter().find(|x| x.0 == i).map(|x| x.1);
+    let (jv, fr) = school::fields(w, h);
+    let grade = school::grade(w, p.class_of);
+    let st = &w.states[w.high_schools[h].state];
+    let out = p.cal.hs_grade_out;
+    // His transcript's GPA, as a college recruiter reads it too.
+    let gpa = afm_engine::world::front_office::college::family_read(w, i).gpa;
+    let mut eligibility = vec![json!({
+        "what": "Grades",
+        "words": if p.cal.academic_sit {
+            "Academically ineligible".to_string()
+        } else if out > 0 {
+            format!("Ruled out of {out} {} for grades this season", afm_engine::world::folk::noun(out, "game"))
+        } else {
+            "Eligible".to_string()
+        },
+        "ok": !p.cal.academic_sit && out == 0,
+        "note": format!("GPA {gpa:.2}. {}.", check_words(hs_calendar(&st.code).grades)),
+    })];
+    if p.sit_out > 0.0 || p.cal.sitting_transfer {
+        eligibility.push(json!({
+            "what": "Transfer",
+            "words": if p.sit_out > 0.0 { format!("Sits {:.0}% of the varsity season", p.sit_out * 100.0) } else { "Sitting out as a transfer".to_string() },
+            "ok": false,
+            "note": "The state's rule for a transfer without a family move.",
+        }));
+    }
+    if p.cal.trouble {
+        eligibility.push(json!({ "what": "Conduct", "words": "Suspended", "ok": false, "note": "" }));
+    }
+    let line = w
+        .front_office
+        .school
+        .lines
+        .iter()
+        .find(|l| l.id == id && l.squad == sq && sq != Squad::Varsity)
+        .map(|l| json!({ "games": l.games, "text": line_words(&l.s) }));
+    Ok(json!({
+        "id": id,
+        "name": p.name,
+        "school": team_brief(w, TeamRef::HighSchool(h)),
+        "squad": sq.key(),
+        "squad_name": sq.name(),
+        "staff": staff.map(|s| s.name()),
+        "moved": staff.is_some_and(|s| s != sq),
+        "can": can_move(sq, grade, jv, fr),
+        "owner": if w.front_office.owner(Duty::Squads) == Owner::You { "you" } else { "staff" },
+        "grade": grade,
+        "grade_words": grade_words(grade),
+        "class_of": p.class_of,
+        "seasons_left": (p.class_of - w.year).max(0),
+        "eligibility": eligibility,
+        "line": line,
+        "rules": "Seniors can't play JV, and only freshmen play on the freshman team.",
+    }))
+}
+
 // ---------------------------------------------------------------------------
 // The school and its feeder area
 // ---------------------------------------------------------------------------
 
 fn level_words(x: f64, words: [&'static str; 5]) -> &'static str {
     words[((x.clamp(0.0, 0.999)) * 5.0) as usize]
+}
+
+/// How much of your system a feeder runs, in words (half or more counts
+/// toward the L14 chase).
+fn adopt_words(a: f32) -> &'static str {
+    match a {
+        a if a >= 0.5 => "Runs your system",
+        a if a >= 0.25 => "Runs some of your system",
+        a if a > 0.0 => "Has started on your system",
+        _ => "Runs his own system",
+    }
 }
 
 fn area(w: &World) -> Result<Value, String> {
@@ -427,11 +545,33 @@ fn area(w: &World) -> Result<Value, String> {
                 .map(|&i| json!({ "id": w.people[i].player.id, "name": w.people[i].name, "pos": w.people[i].player.position.name(), "grade": school::grade(w, w.people[i].class_of) }))
                 .collect();
             let eighth = (f.boys as f64 * if f.youth { 0.5 } else { 0.48 }).round();
+            // What you've given a feeder middle school (your system's chase,
+            // L14); a youth league takes none of it.
+            let plan = w.legacy.hs.feeders.iter().find(|x| x.name == f.name);
+            let help = (!f.youth).then(|| {
+                json!({
+                    "playbook": plan.is_some_and(|x| x.playbook), "clinic": plan.is_some_and(|x| x.clinic),
+                    "assistant": plan.is_some_and(|x| x.assistant), "equipment": plan.is_some_and(|x| x.equipment),
+                    "runs": plan.map_or("Runs his own system", |x| adopt_words(x.adopt)),
+                })
+            });
             json!({
                 "name": f.name, "youth": f.youth, "coach": f.coach, "tok": f.tok, "boys": f.boys,
                 "share": (f.share * 100.0).round(), "last": f.last,
                 "next": if f.youth { format!("About {eighth} seventh and eighth graders play youth tackle") } else { format!("About {eighth} eighth graders: next fall's freshmen") },
                 "players": from,
+                "help": help,
+            })
+        })
+        .collect();
+    // The athletes in your building who don't play football (SK22), as the
+    // evaluation desk lists them, to talk to from here too.
+    let athletes: Vec<Value> = own::athletes(w)
+        .into_iter()
+        .map(|a| {
+            json!({
+                "key": a.key, "name": a.name, "sport": own::SPORTS[a.sport].0, "pos": a.pos.name(),
+                "class_of": a.class_of, "tools": [a.tools.0, a.tools.1], "spotted_by": a.spotted_by,
             })
         })
         .collect();
@@ -516,6 +656,8 @@ fn area(w: &World) -> Result<Value, String> {
         "district": format!("{bracket} school{} in the {} {} playoff bracket", if bracket == 1 { "" } else { "s" }, st.code, crate::views::hs_class(w, h)),
         "transfer": st.transfer.sit_out,
         "feeders": feeders,
+        "boosters": w.front_office.school.boosters.balance,
+        "athletes": athletes,
         "came_in": came_in,
         "seasons": seasons,
         "record": format!("{wins}-{losses}"),
@@ -536,6 +678,17 @@ mod tests {
         s[HsStat::RushYds as usize] = 88;
         s[HsStat::RushTd as usize] = 1;
         assert_eq!(line_words(&s), "12 car, 88 yds, 1 TD");
+    }
+
+    #[test]
+    fn moves_follow_the_squad_rules() {
+        // A freshman on varsity can go down to JV or the freshman team.
+        assert_eq!(can_move(Squad::Varsity, 9, true, true), vec!["jv", "freshman"]);
+        // A senior plays varsity only; a JV junior can only move up.
+        assert!(can_move(Squad::Varsity, 12, true, true).is_empty());
+        assert_eq!(can_move(Squad::Jv, 11, true, true), vec!["varsity"]);
+        // A school without a JV or freshman team offers neither.
+        assert!(can_move(Squad::Varsity, 10, false, false).is_empty());
     }
 
     #[test]

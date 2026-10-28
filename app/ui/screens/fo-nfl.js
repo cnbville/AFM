@@ -259,7 +259,7 @@ screens.fo_market = async () => {
     { k: "market", t: "His market", v: (r) => r.market[0], f: (r) => `${foM(r.market[0])}-${foM(r.market[1])}` },
     { k: "status", t: "Market", l: true, v: (r) => (r.agreed ? 1 : 0), f: status },
     { k: "talk", t: "Your talks", l: true, div: true, v: (r) => (r.talk ? 1 : 0), f: (r) => foTalkChip(r.talk) },
-    { k: "act", t: "", f: (r) => (r.kind ? foBtn("talk", r.talk ? "Talks" : "Make an offer", { id: r.id }, r.talk ? "glass" : "primary") : "") },
+    { k: "act", t: "", f: (r) => `${r.can_visit ? foBtn("visit", "Bring him in", { id: r.id }) + " " : ""}${r.kind ? foBtn("talk", r.talk ? "Talks" : "Make an offer", { id: r.id }, r.talk ? "glass" : "primary") : ""}` },
   ];
   const posSeg = `<div class="seg"><button data-act="fo" data-fo="mpos" data-v="" aria-pressed="${!f.pos}">All</button>${x.positions.map((p) => `<button data-act="fo" data-fo="mpos" data-v="${p}" aria-pressed="${f.pos === p}">${p}</button>`).join("")}</div>`;
   return `<div class="film"><div class="pad fo">

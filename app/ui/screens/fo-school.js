@@ -2,8 +2,9 @@
 // (lane 10). The school office (the people you answer to, the year's
 // goals, the booster club's books, your teaching job and your hours),
 // your squads (varsity, JV and freshman ball, with their games), the
-// school and its feeder area, and the job market every career has.
-// Buttons here carry `data-fs`; app.js's helpers do the rest.
+// school and its feeder area (what you give each feeder, the athletes in
+// your building), a player's School tab, and the job market every career
+// has. Buttons here carry `data-fs`; app.js's helpers do the rest.
 "use strict";
 
 Object.assign(I, {
@@ -43,6 +44,7 @@ screens.school = async () => {
       <div class="fs-who"><span class="fs-init">${esc(initials(p.name))}</span><div><b>${fsWho(p.name, p.tok)}</b><small>${esc(p.title)} · ${p.years ? `${p.years} year${p.years === 1 ? "" : "s"} here` : "new this year"}</small></div></div>
       <p class="sub">${esc(p.about)}${p.child ? ` ${p.she ? "Her" : "His"} son ${playerLink(p.child.id, p.child.name)} is on your roster.` : ""}</p>
       <div class="fs-tags"><span class="st-pill ${fsTrust(p.trust)}">${esc(p.trust)}</span><span class="fs-tag">Weighs: ${esc(p.wants)}</span><span class="fs-tag">${esc(p.patience)}</span></div>
+      ${p.key === "principal" ? `<div><button class="st-btn small glass" data-act="ppbossmeet" ${x.can_meet ? "" : `disabled title="You saw ${p.she ? "her" : "him"} less than a month ago"`}>Ask for a meeting</button></div>` : ""}
     </div>`).join("");
   const goals = x.goals.length
     ? x.goals.map((g) => {
@@ -125,6 +127,29 @@ screens.squads = async () => {
   </div></div>`;
 };
 
+// ---------- the player page's School tab (screens topic 5, tab 8) ----------
+// One of your players: the team he plays on, his grade, what keeps him
+// eligible, and the same Move to as Varsity and JV.
+PLAYER_TABS.push({
+  name: "School",
+  after: "Tendencies",
+  show: (p) => !!p.mine && !!(p.team && p.team.ref && p.team.ref.kind === "hs"),
+  draw: async (p) => {
+    let x;
+    try { x = await api("school_player", { id: p.id }); } catch (e) { return `<div class="empty">${esc(e.message || String(e))}</div>`; }
+    const teamName = (c) => (c === "jv" ? "JV" : c[0].toUpperCase() + c.slice(1));
+    const move = x.owner === "you"
+      ? x.can.length ? `<select class="fs-move" data-fs-move="${x.id}" aria-label="Move him to"><option value="">Move to…</option>${x.can.map((c) => `<option value="${c}">${teamName(c)}</option>`).join("")}</select>` : '<span class="sub">No other team he can play on.</span>'
+      : `<span class="sub">Your staff sets the squads.</span> ${linkTo("squads", {}, "Varsity and JV")}`;
+    const elig = x.eligibility.map((e) => `<div class="item"><span class="when">${esc(e.what)}</span><span><span class="dot ${e.ok ? "good" : "bad"}"></span>${esc(e.words)}${e.note ? `<br><small class="sub">${esc(e.note)}</small>` : ""}</span></div>`).join("");
+    return `<div class="grid2"><div class="panel"><h2>His team <small>${esc(x.school.name)}</small></h2>
+        <div class="st-tiles"><div><b>${esc(x.squad_name)}</b><small>${x.moved ? `you moved him · the staff had him on ${esc(x.staff)}` : "his team"}</small></div><div><b>${esc(x.grade_words)}</b><small>${x.grade}th grade · class of ${x.class_of}</small></div><div><b>${x.seasons_left}</b><small>high school season${x.seasons_left === 1 ? "" : "s"} left</small></div></div>
+        ${x.line ? `<p class="sub">This season on ${esc(x.squad_name)}: ${x.line.games} g · ${esc(x.line.text)}</p>` : ""}
+        <div class="fs-states"><span class="st-label">Move to</span>${move}</div><small class="sub">${esc(x.rules)}</small></div>
+      <div class="panel"><h2>Eligibility <small>what keeps him on the field</small></h2><div class="items">${elig}</div></div></div>`;
+  },
+});
+
 // ---------- the school and its feeder area ----------
 // The town drawn around your school (screens topic 7): the feeder middle
 // schools and the youth teams where they sit, each one's road in as wide
@@ -181,6 +206,13 @@ function fsTownMap(x) {
       <g class="fs-map-roads">${roads}</g>${marks}${school}</g></svg>
     <div class="fs-map-key"><span><i class="ms"></i>Feeder middle school</span><span><i class="y"></i>Youth tackle team</span><span><i class="road"></i>The wider the road, the more of your freshmen it sends</span></div></div>`;
 }
+// What you can give a feeder middle school (your system's chase, L14).
+const FS_GIVE = [["playbook", "Your playbook"], ["clinic", "A clinic night"], ["assistant", "An assistant on its staff"], ["equipment", "Equipment ($2,500)"]];
+function fsGive(f) {
+  const given = FS_GIVE.filter(([k]) => f.help[k]).map(([, t]) => t.replace(/ \(.*\)$/, "").toLowerCase());
+  const left = FS_GIVE.filter(([k]) => !f.help[k]);
+  return `<div class="fs-give"><span class="sub">${esc(f.help.runs)}${given.length ? ` · you gave ${esc(given.join(", "))}` : ""}</span>${left.length ? `<select class="fs-move" data-fs-give="${esc(f.name)}" aria-label="Give ${esc(f.name)}"><option value="">Give…</option>${left.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select>` : ""}</div>`;
+}
 screens.area = async () => {
   const x = await api("school_area");
   setColors(x.school.colors);
@@ -188,7 +220,12 @@ screens.area = async () => {
       <div class="fs-who"><span class="fs-init">${f.youth ? "Y" : "MS"}</span><div><b>${esc(f.name)}</b><small>${f.youth ? `Youth tackle · league president ${fsWho(f.coach, f.tok)}` : `Feeder school · coach ${fsWho(f.coach, f.tok)}`} · ${f.boys} boys · ${f.share}% of your freshmen</small></div></div>
       <div class="sub">${esc(f.last)}. ${esc(f.next)}.</div>
       ${f.players.length ? `<div class="fs-names"><span class="st-label">On your roster</span> ${f.players.map((p) => `${playerLink(p.id, p.name)} <span class="sub">${esc(p.pos)} ${fsGrade(p.grade)}</span>`).join(", ")}</div>` : ""}
+      ${f.help ? fsGive(f) : ""}
     </div>`).join("");
+  // The athletes in your building who play another sport (SK22).
+  const athletes = x.athletes.length
+    ? `<div class="items">${x.athletes.map((a) => `<div class="item fs-ath"><span class="when">${esc(a.sport)}</span><span><b>${esc(a.name)}</b> <span class="sub">class of ${a.class_of} · could play ${esc(a.pos)} · tools ${a.tools[0]}-${a.tools[1]} of 20 · spotted by ${esc(a.spotted_by)}</span></span><button class="st-btn small glass" data-fs="athlete" data-key="${a.key}">Talk to him</button></div>`).join("")}</div>`
+    : '<div class="empty">Nobody new caught your staff\'s eye this year.</div>';
   const seasons = x.seasons.map((s) => `<tr><td class="l">${s.year}</td><td><b>${esc(s.record)}</b></td><td class="l">${s.coach_id != null ? `<a class="link" data-go="coach" data-id="${s.coach_id}">${esc(s.coach)}</a>` : ""}</td><td>${esc(s.points || "")}</td><td class="l">${s.title ? '<span class="st-pill gold">State champions</span>' : ""}</td></tr>`).join("");
   const coaches = x.coaches.map((c) => `<tr><td class="l"><a class="link" data-go="coach" data-id="${c.id}">${esc(c.name)}</a></td><td>${esc(c.years)}</td><td>${esc(c.record)}</td></tr>`).join("");
   const levels = ["NFL", "Free agent", "Draft pool", "FBS", "FCS", "D2", "NAIA", "D3", "JUCO", "College"];
@@ -215,7 +252,9 @@ screens.area = async () => {
         <div class="panel"><h2>Head coaches</h2>${coaches ? `<div class="tbl"><table><thead><tr><th class="l">Coach</th><th>Years</th><th>Record</th></tr></thead><tbody>${coaches}</tbody></table></div>` : '<div class="empty">No record.</div>'}</div>
       </div>
       <div style="display:grid;gap:18px;align-content:start">${x.feeders.length ? fsTownMap(x) : ""}
-      <div class="panel"><h2>Where your players come from <small>${x.came_in} on the roster moved in or transferred</small></h2><div class="fs-feeders">${feeders}</div></div></div>
+      <div class="panel"><h2>Where your players come from <small>${x.came_in} on the roster moved in or transferred</small></h2><div class="fs-feeders">${feeders}</div>
+        <p class="sub">What you give a feeder school takes hold each June, and its freshmen arrive knowing some of your system. Equipment comes out of the booster club's ${money(x.boosters)}.</p></div>
+      <div class="panel"><h2>Athletes in your building <small>${x.athletes.length} spotted · they play another sport; a talk asks him to come out, and seniors rarely do</small></h2>${athletes}</div></div>
     </div>
     <div class="panel"><h2>Playing on <small>${x.alumni.length ? `${x.alumni.length} of the school's players in college and the pros${pros ? `, ${pros} on an NFL roster` : ""}` : "the school's players in college and the pros"}</small></h2>
       ${table("school-alumni", alumniCols, x.alumni, { groupBy: (r) => (["NFL", "Free agent", "Draft pool"].includes(r.level) ? r.level : "College · " + r.level), empty: "Nobody from the school is playing in college or the pros yet." })}</div>
@@ -285,6 +324,7 @@ document.addEventListener("click", async (ev) => {
       case "owner": await api("squads_owner", { owner: d.v }); toast(d.v === "staff" ? "Your staff sets the squads now." : "The squads are yours."); render(top()); break;
       case "reset": await api("reset_squads"); toast("Every squad is back on the staff's lists."); render(top()); break;
       case "sugg": { const r = await api("squad_suggestion", { id: Number(d.id), take: d.take === "1" }); toast(r.text); render(top()); break; }
+      case "athlete": { const r = await api("eval_athlete", { key: Number(d.key) }); toast(r.said); render(top()); break; }
       case "wish": {
         const x = await api("school_office");
         const order = x.boosters.projects.map((p) => p.k);
@@ -329,6 +369,10 @@ document.addEventListener("change", async (ev) => {
     if (el.dataset.fsMove) {
       const r = await api("set_squad", { id: Number(el.dataset.fsMove), squad: el.value });
       toast(r.text);
+      render($(".view").scrollTop);
+    } else if (el.dataset.fsGive && el.value) {
+      const r = await api("legacy_feeder", { name: el.dataset.fsGive, what: el.value });
+      toast(r.said);
       render($(".view").scrollTop);
     } else if (el.dataset.fsInt) {
       await api("market_interest", { [el.dataset.fsInt]: el.checked });

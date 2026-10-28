@@ -26,6 +26,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "recruit_area" => set_area(game, args),
         "recruit_file" => with_args(game, args, file),
         "visits_desk" => with(game, visits),
+        "visit_options" => with_args(game, args, visit_choice),
         "portal_desk" => with_args(game, args, portal),
         "nil_desk" => with(game, nil),
         "recruit_add" | "recruit_remove" | "recruit_move" | "recruit_priority" | "recruit_offer" | "recruit_pull"
@@ -1157,39 +1158,7 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
     v["schools"] = json!(schools(w, j, i));
     v["visits"] = json!(visits_of(w, j, p));
     v["reader_role"] = json!(reader_role(w, j, p.player.position));
-    // What the rules allow now, by kind, with the next days or why not.
-    let options: Vec<Value> = VisitKind::ALL
-        .into_iter()
-        .map(|k| {
-            let days = desk::visit_dates(w, id, k);
-            let why = if days.is_empty() {
-                // The reason on the first day it would otherwise have been possible.
-                let mut why = String::new();
-                for n in 1..=180 {
-                    if let Some(r) = desk::visit_rule(w, i, k, w.today.add(n)) {
-                        if why.is_empty() || r.contains("used") || r.contains("One ") || r.contains("signed") {
-                            why = r;
-                        }
-                        if why.contains("used") || why.contains("One ") || why.contains("signed") {
-                            break;
-                        }
-                    }
-                }
-                why
-            } else {
-                String::new()
-            };
-            let set = w.front_office.college.visits.iter().find(|x| x.id == id && x.kind == k && x.state == VisitState::Set && x.date >= w.today);
-            json!({
-                "key": k.key(),
-                "name": k.name(),
-                "set": set.map(|x| json!({ "d": x.date.0, "date": date(x.date), "note": x.note })),
-                "days": days.iter().map(|(d, w2)| json!({ "d": d.0, "date": short_date(*d), "word": w2 })).collect::<Vec<_>>(),
-                "why": why,
-            })
-        })
-        .collect();
-    v["options"] = json!(options);
+    v["options"] = json!(visit_options(w, i, id));
     let offers: Vec<Value> = {
         let mut early = p.cal.early_offers.clone();
         early.sort_by_key(|o| o.1);
@@ -1226,10 +1195,80 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
 
 // --- Visits -----------------------------------------------------------------------------
 
+/// What the rules allow now, by kind, with the next days or why not (the
+/// recruit's file and the Visits desk's invite).
+fn visit_options(w: &World, i: usize, id: u32) -> Vec<Value> {
+    VisitKind::ALL
+        .into_iter()
+        .map(|k| {
+            let days = desk::visit_dates(w, id, k);
+            let why = if days.is_empty() {
+                // The reason on the first day it would otherwise have been possible.
+                let mut why = String::new();
+                for n in 1..=180 {
+                    if let Some(r) = desk::visit_rule(w, i, k, w.today.add(n)) {
+                        if why.is_empty() || r.contains("used") || r.contains("One ") || r.contains("signed") {
+                            why = r;
+                        }
+                        if why.contains("used") || why.contains("One ") || why.contains("signed") {
+                            break;
+                        }
+                    }
+                }
+                why
+            } else {
+                String::new()
+            };
+            let set = w.front_office.college.visits.iter().find(|x| x.id == id && x.kind == k && x.state == VisitState::Set && x.date >= w.today);
+            json!({
+                "key": k.key(),
+                "name": k.name(),
+                "set": set.map(|x| json!({ "d": x.date.0, "date": date(x.date), "note": x.note })),
+                "days": days.iter().map(|(d, w2)| json!({ "d": d.0, "date": short_date(*d), "word": w2 })).collect::<Vec<_>>(),
+                "why": why,
+            })
+        })
+        .collect()
+}
+
+/// `visit_options` (`id`): one target's visits for the Visits desk's
+/// invite, each kind with his open days or why not, and the official
+/// visits he has used.
+fn visit_choice(w: &World, _j: usize, args: &Value) -> Reply {
+    let id = id_arg(args)?;
+    let i = views::person_index(w, id).ok_or("No such player.")?;
+    let p = &w.people[i];
+    Ok(json!({
+        "id": id,
+        "name": p.name,
+        "officials_used": p.cal.visits.iter().filter(|e| e.2 == Visit::Official).count(),
+        "options": visit_options(w, i, id),
+    }))
+}
+
 fn visits(w: &World, j: usize) -> Reply {
     let d = &w.front_office.college;
     let ids: Vec<u32> = d.visits.iter().map(|v| v.id).collect();
     let at = index_map(w, &ids);
+    // Your board's recruits still in school, in its order: whom the desk
+    // can invite.
+    let board_ids: Vec<u32> = d.board.iter().map(|t| t.id).collect();
+    let on_board = index_map(w, &board_ids);
+    let targets: Vec<Value> = d
+        .board
+        .iter()
+        .enumerate()
+        .filter_map(|(k, t)| {
+            let i = *on_board.get(&t.id)?;
+            let p = &w.people[i];
+            matches!(p.stage, Stage::HighSchool | Stage::PrepSchool).then(|| {
+                json!({
+                    "id": t.id, "rank": k + 1, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p),
+                    "offered": t.offered.is_some() && t.pulled.is_none(),
+                })
+            })
+        })
+        .collect();
     let mut list: Vec<&desk::Plan> = d.visits.iter().collect();
     list.sort_by_key(|v| v.date);
     let row = |v: &desk::Plan| -> Option<Value> {
@@ -1307,6 +1346,7 @@ fn visits(w: &World, j: usize) -> Reply {
         "officials": officials,
         "duties": duties(w, j),
         "junior_officials": w.changes.rules(y.season).junior_officials,
+        "targets": targets,
     }))
 }
 

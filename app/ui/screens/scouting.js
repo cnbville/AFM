@@ -559,7 +559,13 @@ screens.predraft = async () => {
   const x = await api("predraft");
   setColors(x.board.team.colors);
   const top = x.board.rows.filter((r) => !r.taken).slice(0, 80);
-  const listPanel = (l) => `<div class="panel warm"><h2>${esc(l.name)} <small>${l.rows.length} of ${l.cap}</small></h2>${l.rows.length ? `<div class="items">${l.rows.map((r) => `<div class="item sc-li"><span class="when">${esc(r.pos)}</span><span>${scName(r.id, r.name)} <small class="sub">· ${esc(r.school)}</small>${r.declined ? ' <span class="st-pill gold">Declined your visit</span>' : ""}</span><button class="sc-mini" data-act="sc-list" data-id="${r.id}" data-list="${l.k}" data-on="0" title="Take him off">✕</button></div>`).join("")}</div>` : scEmpty("Nobody yet. Add players from the draft board.")}</div>`;
+  // Each list adds a player from your board here (the board's side panel does too).
+  const addRow = (l) => {
+    if (l.rows.length >= l.cap) return `<p class="sub">The list is full: take someone off to add another.</p>`;
+    const pool = x.board.rows.filter((r) => !r.taken && !(r.lists || []).includes(l.k)).slice(0, 150);
+    return pool.length ? `<div class="sc-row2"><select class="sc-sel" data-sc-add="${l.k}" aria-label="Add to ${esc(l.name.toLowerCase())}">${pool.map((r) => `<option value="${r.id}">${r.rank}. ${esc(r.name)} · ${esc(r.pos)} · ${esc(r.school)}</option>`).join("")}</select><button class="st-btn small glass" data-act="sc-listadd" data-list="${l.k}">Add</button></div>` : "";
+  };
+  const listPanel = (l) => `<div class="panel warm"><h2>${esc(l.name)} <small>${l.rows.length} of ${l.cap}</small></h2>${l.rows.length ? `<div class="items">${l.rows.map((r) => `<div class="item sc-li"><span class="when">${esc(r.pos)}</span><span>${scName(r.id, r.name)} <small class="sub">· ${esc(r.school)}</small>${r.declined ? ' <span class="st-pill gold">Declined your visit</span>' : ""}</span><button class="sc-mini" data-act="sc-list" data-id="${r.id}" data-list="${l.k}" data-on="0" title="Take him off">✕</button></div>`).join("")}</div>` : scEmpty("Nobody yet. Pick a player from your board below.")}${addRow(l)}</div>`;
   return `<div class="film"><div class="pad">${scHead("The pre-draft season", "Visits, interviews, workouts and rechecks; who's staying in school; and the smoke every club blows before the draft.", scGoto([x.board.live ? ["warroom", "War room"] : null, ["draftboard", "Draft board"], ["scouting", "Department"], ["calendar", "Calendar"]]))}
     <div class="sc-cal">${x.calendar.map(([t, d]) => `<div class="st-glass"><span class="st-label">${esc(t)}</span><b>${esc(d)}</b></div>`).join("")}</div>
     <div class="grid2"><div class="sc-lists4">${x.lists.map(listPanel).join("")}</div>
@@ -825,6 +831,12 @@ document.addEventListener("click", async (ev) => {
       break;
     }
     case "sc-list": if (await scDo("board_list", { id, list: Number(d.list), on: d.on === "1" }, d.on === "1" ? `Added to ${SC_LISTS[Number(d.list)].toLowerCase()}.` : "Taken off the list.")) scRedraw(); break;
+    case "sc-listadd": {
+      const sel = document.querySelector(`[data-sc-add="${d.list}"]`);
+      if (!sel || !sel.value) break;
+      if (await scDo("board_list", { id: Number(sel.value), list: Number(d.list), on: true }, `Added to ${SC_LISTS[Number(d.list)].toLowerCase()}.`)) scRedraw();
+      break;
+    }
     case "sc-dnd": {
       let why = "";
       if (d.on === "1") {

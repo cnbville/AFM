@@ -377,10 +377,35 @@ screens.recruit_file = async (a) => {
 // Finding recruits is its own screen now: screens/find.js (update 2, lane 7).
 
 // ---------- visits ----------
+// The desk's own invite (SC7): a recruit from your board, the kind of
+// visit, one of his open dates on the NCAA calendar (the same moves as his
+// file's Plan a visit).
+async function fcInvite(x) {
+  if (!x.targets.length) return `<div class="panel"><h2>Invite a recruit</h2><div class="empty">Nobody on your board to invite: ${fcLink("recruit_board", "add recruits to your board")}.</div></div>`;
+  const k = keep("fcvinv", { id: null, kind: null });
+  if (!x.targets.some((t) => t.id === k.id)) k.id = x.targets[0].id;
+  let o;
+  try { o = await api("visit_options", { id: k.id }); } catch (e) { o = { options: [], officials_used: 0 }; }
+  const open = o.options.filter((v) => !v.set && v.days.length);
+  if (!open.some((v) => v.key === k.kind)) k.kind = open.length ? open[0].key : null;
+  const kind = open.find((v) => v.key === k.kind);
+  const who = `<select class="fc-select" data-fcinv="id" aria-label="Who">${x.targets.map((t) => `<option value="${t.id}" ${t.id === k.id ? "selected" : ""}>${t.rank}. ${esc(t.name)} · ${esc(t.pos)}${t.stars ? " · " + "★".repeat(t.stars) : ""}${t.offered ? " · offered" : ""}</option>`).join("")}</select>`;
+  const kinds = `<select class="fc-select" data-fcinv="kind" aria-label="Kind of visit">${o.options.map((v) => {
+    const ok = !v.set && v.days.length;
+    const left = v.key === "official" ? ` (${Math.max(0, 5 - o.officials_used)} of 5 left)` : "";
+    return `<option value="${v.key}" ${v.key === k.kind ? "selected" : ""} ${ok ? "" : "disabled"}>${esc(v.name + left)}${v.set ? ` · set for ${esc(v.set.date)}` : ok ? "" : ` · ${esc(v.why || "not now")}`}</option>`;
+  }).join("")}</select>`;
+  const when = kind
+    ? `<select class="fc-select" data-fcsel="v-${k.id}-${kind.key}" aria-label="When">${kind.days.map((d) => `<option value="${d.d}">${esc(d.date)}${d.word ? " · " + esc(d.word.replace(/ period$/, "").replace(/^home game against /, "vs ")) : ""}</option>`).join("")}</select>`
+    : '<select class="fc-select" disabled aria-label="When"><option>No open date</option></select>';
+  return `<div class="panel"><h2>Invite a recruit <small>only his open dates inside the NCAA calendar, each with your home game or the period</small></h2>
+    <div class="fc-inv"><label><span class="st-label">Who</span>${who}</label><label><span class="st-label">Kind</span>${kinds}</label><label><span class="st-label">When</span>${when}</label>${kind ? `<button class="st-btn small primary" data-fc="visit" data-id="${k.id}" data-kind="${kind.key}">Invite</button>` : ""}</div></div>`;
+}
 screens.visits_desk = async () => {
   const x = await api("visits_desk");
   setColors(x.team.colors);
   const yours = x.duties.list.find((d) => d.key === "visits").yours;
+  const invite = yours ? await fcInvite(x) : "";
   const ahead = x.ahead.length
     ? table("fcvahead", [
         { k: "d", t: "Date", l: true, f: (r) => `<b>${esc(r.date)}</b> <small class="sub">${fcIn(r.in)}</small>` },
@@ -418,6 +443,7 @@ screens.visits_desk = async () => {
   const panel = `<h2>This cycle <small>Class of ${x.class}</small></h2>${fcTiles([[String(x.ahead.length), "Visits set"], [String(set), "Officials set"], [String(x.officials), "Officials taken"], [String(x.taken), "Visits taken"]])}`;
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Recruiting`, title: "Visits", line: `${esc(fcCap(x.calendar.period))} · ${esc(x.calendar.rule)}`, panel })}
   <div class="pad fc-pad">
+    ${invite}
     <div class="fc-bar"><div class="st-label">${x.ahead.length ? `Coming up · ${fcPlural(x.ahead.length, "visit")}` : "Coming up"}</div>${fcGoto([["recruit_board", "Recruiting board"], ["calendar", "Calendar"], ["schedule", "Schedule"], ["recruit_find", "Find recruits"]])}</div>
     ${yours ? "" : fcDuty(x.duties, "visits")}
     ${ahead}
@@ -650,6 +676,13 @@ document.addEventListener("change", (ev) => {
   if (t.dataset.fcf2) {
     S.keep.fcp[t.dataset.fcf2] = t.value;
     render();
+    return;
+  }
+  if (t.dataset.fcinv) {
+    const k = keep("fcvinv", { id: null, kind: null });
+    if (t.dataset.fcinv === "id") Object.assign(k, { id: Number(t.value), kind: null });
+    else k.kind = t.value;
+    render($(".view") && $(".view").scrollTop);
     return;
   }
   if (t.dataset.fcarea) {

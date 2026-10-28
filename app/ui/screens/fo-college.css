@@ -122,6 +122,10 @@
 .fc-vset select, .fc-select { min-width: 0; flex: 1; border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 10px; padding: 6px 8px; font: inherit; font-size: 12.5px; }
 .fc-select { flex: none; padding: 6px 10px; }
 .fc-vset select option, .fc-select option { background: var(--raised); }
+.fc-inv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 10px; align-items: end; }
+.fc-inv label { display: grid; gap: 4px; min-width: 0; }
+.fc-inv .fc-select { width: 100%; }
+@media (max-width: 720px) { .fc-inv { grid-template-columns: minmax(0, 1fr); } }
 .fc-family .kv { font-size: 13px; }
 .fc-vitem { grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; }
 @media (max-width: 1280px) {

@@ -129,3 +129,21 @@ fn every_state_has_a_coaches_hall_line() {
         assert!(g.len() >= 4 && g.iter().all(|x| whole(&x.0) && whole(&x.1)), "{level}: {g:?}");
     }
 }
+
+#[test]
+fn a_feeder_takes_your_help_before_its_first_june() {
+    let mut w = seat("hs");
+    let h = w.seat_school().expect("your school");
+    let feeders = crate::world::front_office::school::feeders(&w, h);
+    let f = feeders.iter().find(|f| !f.youth).expect("a feeder middle school");
+    // The School and feeders screen offers every feeder from your first
+    // day, not only the ones June has listed.
+    w.legacy.hs.feeders.clear();
+    legacy::hs::give_feeder(&mut w, &f.name, "playbook").unwrap();
+    let plan = w.legacy.hs.feeders.iter().find(|x| x.name == f.name).expect("its plan");
+    assert!(plan.playbook && !plan.clinic && plan.adopt == 0.0, "the help lands now, the take-up in June");
+    assert!(legacy::hs::give_feeder(&mut w, "Nowhere Middle School", "clinic").is_err());
+    if let Some(y) = feeders.iter().find(|f| f.youth) {
+        assert!(legacy::hs::give_feeder(&mut w, &y.name, "clinic").is_err(), "a youth league takes none of it");
+    }
+}
