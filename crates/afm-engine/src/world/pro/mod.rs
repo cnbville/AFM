@@ -1979,6 +1979,16 @@ fn heal_week(w: &mut World) {
             }
         }
         let pup = c.pup;
+        // Your club's healed player waits for your word (minor bug 73).
+        if back
+            && status == Status::Reserve
+            && !pup
+            && team.is_some_and(|t| w.clubs[t].ir_used < games::ir_returns(year))
+            && crate::world::front_office::reserve::you_decide(w, i)
+        {
+            crate::world::front_office::reserve::healed(w, i);
+            continue;
+        }
         if back
             && status == Status::Reserve
             && let Some(t) = team

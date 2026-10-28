@@ -17,6 +17,8 @@ pub mod deals;
 pub mod market;
 pub mod nfl;
 pub mod race;
+pub mod redshirt;
+pub mod reserve;
 pub mod roster;
 pub mod school;
 
@@ -60,10 +62,12 @@ pub enum Duty {
     Nil,
     /// High school: who plays varsity, JV and freshman ball.
     Squads,
+    /// NFL: injured reserve, on and off (minor bug 73).
+    InjuredReserve,
 }
 
 impl Duty {
-    pub const ALL: [Duty; 13] = [
+    pub const ALL: [Duty; 14] = [
         Duty::Contracts,
         Duty::Tags,
         Duty::FreeAgency,
@@ -77,6 +81,7 @@ impl Duty {
         Duty::Portal,
         Duty::Nil,
         Duty::Squads,
+        Duty::InjuredReserve,
     ];
 
     pub fn name(self) -> &'static str {
@@ -94,6 +99,7 @@ impl Duty {
             Duty::Portal => "Transfer portal",
             Duty::Nil => "NIL",
             Duty::Squads => "Squads",
+            Duty::InjuredReserve => "Injured reserve",
         }
     }
 
@@ -112,6 +118,7 @@ impl Duty {
             Duty::Portal => "portal",
             Duty::Nil => "nil",
             Duty::Squads => "squads",
+            Duty::InjuredReserve => "injured_reserve",
         }
     }
 
@@ -161,6 +168,9 @@ impl Duty {
             Duty::Nil => "Your collective pays the roster by what each player means to the team.",
             Duty::Squads => {
                 "Your staff puts the best varsity players up and the young ones on JV and the freshman team."
+            }
+            Duty::InjuredReserve => {
+                "Your medical staff puts a player out past the list's minimum on injured reserve and brings him back healed while returns last."
             }
         }
     }
