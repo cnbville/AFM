@@ -68,7 +68,7 @@ fn unsaved(home: &Path) -> PathBuf {
     home.join("faces").join("unsaved")
 }
 
-fn dir(g: &Game) -> PathBuf {
+pub(crate) fn dir(g: &Game) -> PathBuf {
     match &g.save_path {
         Some(p) => folder_for(p),
         None => unsaved(&g.home),
@@ -151,7 +151,7 @@ fn write_json(p: &Path, v: &Value) -> Result<(), String> {
 
 const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-fn b64_encode(data: &[u8]) -> String {
+pub(crate) fn b64_encode(data: &[u8]) -> String {
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for c in data.chunks(3) {
         let n = (c[0] as u32) << 16 | (*c.get(1).unwrap_or(&0) as u32) << 8 | *c.get(2).unwrap_or(&0) as u32;
@@ -166,7 +166,7 @@ fn b64_encode(data: &[u8]) -> String {
     out
 }
 
-fn b64_decode(s: &str) -> Option<Vec<u8>> {
+pub(crate) fn b64_decode(s: &str) -> Option<Vec<u8>> {
     let mut map = [255u8; 256];
     for (i, &c) in B64.iter().enumerate() {
         map[c as usize] = i as u8;
@@ -561,6 +561,17 @@ fn capital(s: &str) -> String {
 
 // --- Faces for the screens ------------------------------------------------------------------------
 
+/// A drawn picture's key: the team photo's, and the jersey's logo when it
+/// wears one (lane 15), so a new logo draws the head again.
+fn drawn_key(key: &str, logo: Option<&Value>) -> String {
+    match logo.and_then(|l| l["id"].as_str()) {
+        Some(id) => {
+            format!("{key}-{}", id.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect::<String>())
+        }
+        None => key.to_string(),
+    }
+}
+
 fn drawn_path(g: &Game, id: u32, key: &str) -> PathBuf {
     dir(g).join("drawn").join(format!("{id}-{key}-v{RENDER_VERSION}.webp"))
 }
@@ -586,6 +597,9 @@ fn face(g: &mut Game, args: &Value) -> Reply {
     let key = f.photo.as_ref().map(|ph| ph.key.clone()).unwrap_or_default();
     let team = f.photo.as_ref().and_then(|ph| team_ref(ph.team)).or_else(|| current_team(w, p));
     let colors = team.map(|t| team_colors(w, t)).unwrap_or(["#3a3f4b".into(), "#9aa3b2".into()]);
+    let logos = crate::lane_logos::map(g).unwrap_or(Value::Null);
+    let logo = team.and_then(|t| crate::lane_logos::jersey(&logos, t));
+    let drawn_key = drawn_key(&key, logo.as_ref());
     let m = index(g);
     let mine = m.get(&id.to_string()).map(|e| {
         let file = e.get("file").and_then(Value::as_str).unwrap_or("");
@@ -598,7 +612,11 @@ fn face(g: &mut Game, args: &Value) -> Reply {
             "new_team_photo": !key.is_empty() && set_key != key,
         })
     });
-    let drawn = if drawn_on(g) { to_data_url(&drawn_path(g, id, &key)) } else { None };
+    let drawn = if drawn_on(g) { to_data_url(&drawn_path(g, id, &drawn_key)) } else { None };
+    let mut spec = spec(w, &f, &colors);
+    if let Some(l) = logo {
+        spec["logo"] = l;
+    }
     let a = &f.appearance;
     let gn = &f.genes;
     let photos: Vec<Value> = f
@@ -626,8 +644,9 @@ fn face(g: &mut Game, args: &Value) -> Reply {
         "photos": photos,
         "mine": mine,
         "drawn": drawn,
+        "drawn_key": drawn_key,
         "drawn_on": drawn_on(g),
-        "spec": spec(w, &f, &colors),
+        "spec": spec,
         "looks": {
             "hair": capital(&a.hair_words(gn)),
             "beard": capital(&a.beard_words(gn)),
@@ -659,6 +678,7 @@ fn faces(g: &mut Game, args: &Value) -> Reply {
         .collect();
     let m = index(g);
     let drawn = drawn_on(g);
+    let logos = if drawn { crate::lane_logos::map(g).unwrap_or(Value::Null) } else { Value::Null };
     let photos_dir = dir(g).join("photos");
     let out: Vec<Value> = ids
         .iter()
@@ -674,11 +694,17 @@ fn faces(g: &mut Game, args: &Value) -> Reply {
             let mut v = json!({ "id": id, "initials": initials_of(&p.name), "colors": colors, "photo": mine });
             if drawn && v["photo"].is_null() {
                 let f = w.face_of(p, None);
-                let key = f.photo.as_ref().map(|ph| ph.key.clone()).unwrap_or_default();
+                let logo = team.and_then(|t| crate::lane_logos::jersey(&logos, t));
+                let key = drawn_key(&f.photo.as_ref().map(|ph| ph.key.clone()).unwrap_or_default(), logo.as_ref());
                 v["key"] = json!(key);
                 match to_data_url(&drawn_path(g, id, &key)) {
                     Some(d) => v["drawn"] = json!(d),
-                    None => v["spec"] = spec(w, &f, &colors),
+                    None => {
+                        v["spec"] = spec(w, &f, &colors);
+                        if let Some(l) = logo {
+                            v["spec"]["logo"] = l;
+                        }
+                    }
                 }
             }
             v
