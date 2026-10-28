@@ -1366,12 +1366,13 @@ function treeHtml(list, empty) {
 screens.coach = async (a) => {
   const c = await api("coach_page", { id: a.id });
   title(c.name, c.job ? c.job.role : "Coach");
-  // Your read of him (update 2, board 18) comes with having him on your staff.
-  const names = ["Profile", ...(c.your_staff ? ["Ratings"] : []), "Jobs", "Coaching tree", "Players he developed", "Notes"];
+  // Your read of him: your staff's season by season (update 2, board 18);
+  // anyone else's from what you've put in (lane 18, C24).
+  const names = ["Profile", ...(c.you ? [] : ["Ratings"]), "Jobs", "Coaching tree", "Players he developed", "Notes"];
   const tab = tabOf("ctab", names, a);
   let body = "";
   if (tab === "Ratings") {
-    body = await rrCoachTab(a.id);
+    body = c.your_staff ? await rrCoachTab(a.id) : typeof hrReadTab === "function" ? await hrReadTab(a.id) : "";
   } else if (tab === "Profile") {
     body = `<div class="grid2"><div class="panel"><h2>Who he is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
       <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${c.contract.buyout > 0 ? money(c.contract.buyout) : "None"}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
@@ -1384,7 +1385,7 @@ screens.coach = async (a) => {
   } else {
     body = `<div class="panel"><h2>Your notes on ${esc(c.name)}</h2>${(c.notes || []).length ? `<div class="items">${c.notes.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span>${esc(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">No notes yet.</div>'}<button class="st-btn small primary" data-act="cnote" data-id="${c.id ?? a.id}" data-name="${esc(c.name)}">Add a note</button></div>`;
   }
-  return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? names : [...names.slice(0, -1), { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
+  return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `${!c.you && !c.your_staff && S.status && S.status.seat ? `<button class="st-btn small primary" data-act="hrhire" data-id="${a.id}" title="Interview him or make an offer for a job you have open">Hire</button>` : ""}<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? names : [...names.slice(0, -1), { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
 };
 GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
 

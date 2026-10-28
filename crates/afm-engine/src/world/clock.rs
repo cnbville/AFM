@@ -489,6 +489,7 @@ pub(crate) fn advance_day(w: &mut World) {
     }
     if d == hs_carousel_day(&y) {
         timed("carousel hs", || staff::carousel(w, staff::Scope::HighSchool));
+        staff::hs_staff_year(w);
         staff::age_coaches(w);
     }
     if d == y.signing_day && d <= y.super_bowl {
@@ -559,6 +560,7 @@ fn year_start(w: &mut World) {
     super::voters::year_start(w);
     w.hs_season = Some(hs_year::new_season(w));
     let nfl = nfl_year::new_season(w);
+    super::units::book_nfl(w);
     w.nfl_prev = w.nfl_season.replace(nfl);
     super::franchise::year_start(w);
     let y = w.dates.clone();

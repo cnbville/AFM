@@ -75,7 +75,7 @@ pub enum Whom {
 }
 
 impl Whom {
-    fn of(x: &Contact) -> Whom {
+    pub(crate) fn of(x: &Contact) -> Whom {
         match x.other {
             Some(o) => Whom::Other(o),
             None => Whom::Coach(x.coach),
@@ -90,6 +90,9 @@ pub struct Favour {
     pub words: String,
     /// You asked it of him (true), or he of you.
     pub asked: bool,
+    /// Someone besides a coach (an athletic director, C43).
+    #[serde(default)]
+    pub other: Option<Other>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -172,6 +175,23 @@ fn add(w: &mut World, who: Whom, warmth: f32, how: String, start: bool) {
             }
         }
     }
+}
+
+/// You owe someone a favour (C43): on the ledger, and he can call it in.
+pub fn owe(w: &mut World, who: Whom, words: String) {
+    let today = w.today;
+    if !w.folk.network.contacts.iter().any(|x| Whom::of(x) == who) {
+        add(w, who, 0.05, "a call about a coach".into(), false);
+    }
+    if let Some(x) = w.folk.network.contacts.iter_mut().find(|x| Whom::of(x) == who) {
+        x.balance = (x.balance - 1).max(-5);
+    }
+    let (coach, other) = match who {
+        Whom::Coach(c) => (c, None),
+        Whom::Other(o) => (NOBODY, Some(o)),
+    };
+    w.folk.network.ledger.push(Favour { date: today, coach, words, asked: true, other });
+    trim_ledger(w);
 }
 
 /// Moves a tie (a hire, a firing, a favour).
@@ -623,7 +643,7 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
             Why::Grapevine => "what he was hearing",
             _ => "a look at your player",
         };
-        w.folk.network.ledger.push(Favour { date: today, coach: c, words: words.into(), asked: true });
+        w.folk.network.ledger.push(Favour { date: today, coach: c, words: words.into(), asked: true, other: None });
         w.folk.network.contacts[k].balance -= 1;
     }
     let x = &mut w.folk.network.contacts[k];
@@ -1051,7 +1071,7 @@ fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
             1 => "a clinic talk",
             _ => "a look at his player",
         };
-        w.folk.network.ledger.push(Favour { date: w.today, coach: c, words: words.into(), asked: false });
+        w.folk.network.ledger.push(Favour { date: w.today, coach: c, words: words.into(), asked: false, other: None });
         if s.b == 1 {
             w.folk.network.clinics += 1;
         }

@@ -19,8 +19,10 @@
 pub mod backchannel;
 pub mod boss;
 pub mod cast;
+pub mod coach_look;
 pub mod courts;
 pub mod facts;
+pub mod hiring;
 pub mod letters;
 pub mod life;
 pub mod network;
@@ -300,6 +302,10 @@ pub struct Folk {
     pub ties: ties::Ties,
     pub hs_staffs: staffing::HsStaffs,
     pub staff: staffing::Staffs,
+    /// Your reads of coaches who aren't on your staff (C24, C41, C43).
+    pub looks: coach_look::Looks,
+    /// Hiring talks: offers, counters, warnings, promises (C31-C34, C45-C56).
+    pub hiring: hiring::Hiring,
     pub life: life::Lives,
     pub courts: courts::Courts,
     pub discipline: rules::LeagueBook,
@@ -363,6 +369,7 @@ pub fn after_load(w: &mut World) {
 pub(crate) fn day(w: &mut World, d: Date) {
     ensure_base(w);
     staffing::day(w, d);
+    hiring::day(w, d);
     ties::day(w, d);
     life::day(w, d);
     courts::day(w, d);

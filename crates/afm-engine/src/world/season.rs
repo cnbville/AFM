@@ -392,8 +392,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 let teach = s.coach.map_or(7.0, |c| coaches[c].teaching(group));
                 style = s.coach.map(|c| coaches[c].style());
                 // Bigger, richer staffs add position coaches beside the head
-                // coach; your own school's are people you can see.
-                let staff = staff_of(p.hs, group).unwrap_or(4.0 + 12.0 * s.resources);
+                // coach; your own school's are people you can see. An AI
+                // school's coordinator on the group's side is a real coach
+                // (C37): half the staff's part.
+                let base = 4.0 + 12.0 * s.resources;
+                let coord = if group == Group::Specialists {
+                    None
+                } else if group.offense() {
+                    s.oc
+                } else {
+                    s.dc
+                };
+                let staff = staff_of(p.hs, group)
+                    .unwrap_or_else(|| coord.map_or(base, |c| 0.5 * coaches[c].teaching(group) + 0.5 * base));
                 (Level::HS, 0.6 * teach + 0.4 * staff, (s.resources - 0.5) * 0.1, 0.012)
             }
             Stage::College => {
@@ -402,9 +413,22 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 p.college_staff.push((year as i32, prog.id, prog.head_coach, prog.position_coaches[group as usize]));
                 let hc = prog.head_coach.map_or(9.0, |c| coaches[c].teaching(group));
                 let coord = if group.offense() { prog.oc } else { prog.dc };
-                let co = coord.map_or(hc, |c| coaches[c].teaching(group));
-                // His position coach teaches him most days (note 5).
-                let pc = prog.position_coaches[group as usize].map_or(co, |c| coaches[c].teaching(group));
+                // The coordinator's share reads how he runs the unit (C60):
+                // his side's teaching and his scheme, the same for every
+                // group; with none, the head coach runs it.
+                let off = group.offense();
+                let unit = coord.or(prog.head_coach).map_or(9.0, |c| super::staff::side_quality(&coaches[c], off));
+                // His position coach teaches him most days (note 5); the
+                // coordinator coaches the group he came up in himself and
+                // shares that room's part, half each (C60).
+                let own = coord.filter(|&c| coaches[c].came_up == group && group != Group::Specialists);
+                let pc_t = prog.position_coaches[group as usize].map(|c| coaches[c].teaching(group));
+                let pc = match (pc_t, own) {
+                    (Some(t), Some(c)) => 0.5 * t + 0.5 * coaches[c].teaching(group),
+                    (Some(t), None) => t,
+                    (None, Some(c)) => coaches[c].teaching(group),
+                    (None, None) => coord.map_or(hc, |c| coaches[c].teaching(group)),
+                };
                 let hs = prog.head_coach.map(|c| coaches[c].style());
                 let cs = coord.map(|c| coaches[c].style());
                 style = match (hs, cs) {
@@ -414,7 +438,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 scheme = Some((prog.installed.offense(), prog.installed.front()));
                 (
                     division_level(prog.division),
-                    0.2 * hc + 0.35 * co + 0.3 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
+                    // C57: position coach 0.4, coordinator 0.25, head coach
+                    // 0.2, facilities 0.15.
+                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
                     (prog.facilities - 0.5) * 0.15,
                     crate::career::PIPELINE.college_trouble.chance,
                 )
