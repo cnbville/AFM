@@ -22,6 +22,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [injuries.md](injuries.md) | Injury odds in games and practice, what reads them, types and lengths, recovery, carry-over |
 | [nfl.md](nfl.md) | The living NFL: contracts, the cap, free agency, tags, trades, waivers, retirement, honors |
 | [people.md](people.md) | Personality, morale, relationships, chemistry, talks, life off the field, media, fame and Aura |
+| [world-log.md](world-log.md) | The world log beside each world and save: what it keeps, every why, snapshots, sizes, how to read it |
 
 Code that does something its comment or design says it shouldn't: [oddities.md](oddities.md).
 

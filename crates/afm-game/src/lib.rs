@@ -37,6 +37,7 @@ pub mod memory;
 pub mod reads;
 pub mod setup;
 pub mod views;
+pub mod world_log;
 
 use std::path::PathBuf;
 
@@ -108,6 +109,9 @@ impl Game {
                     ..d
                 }));
                 self.save_path = None;
+                if let Some(w) = self.world.as_mut() {
+                    world_log::on_open(&self.home, w, None);
+                }
                 lane_faces::on_open(self);
                 Ok(json!({ "built": true }))
             }
@@ -136,8 +140,14 @@ impl Game {
             }
             "open_world" | "load" => {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
-                self.world = Some(setup::read(path)?);
+                let w = setup::read(path)?;
+                // The last world goes first, with its log's writer.
+                self.world = None;
+                self.world = Some(w);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
+                if let Some(w) = self.world.as_mut() {
+                    world_log::on_open(&self.home, w, Some(std::path::Path::new(path)));
+                }
                 // "Previously" shows each time a save opens, even one saved
                 // the day it was last shown.
                 self.wm()?.storylines.previously_seen = None;
@@ -153,6 +163,7 @@ impl Game {
                     None => self.save_path.clone().ok_or("Name the save first.")?,
                 };
                 setup::write(self.w()?, &path)?;
+                world_log::on_save(self.wm()?, &path);
                 lane_faces::on_save(&self.home, self.save_path.as_deref(), &path);
                 self.save_path = Some(path.clone());
                 Ok(json!({ "saved": path.display().to_string() }))
