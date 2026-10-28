@@ -18,8 +18,10 @@ use crate::calendar::{Date, Level, Loudness, Weekday};
 use crate::world::World;
 use crate::world::coach::{Employer, Role};
 
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Contact {
+    /// The coach, or `NOBODY` when the contact is someone else (`other`).
     pub coach: usize,
     /// 0 (a name) to 1 (a friend who picks up at midnight).
     pub warmth: f32,
@@ -32,6 +34,54 @@ pub struct Contact {
     pub recent: Vec<Date>,
     /// Favours: + he owes you, - you owe him.
     pub balance: i8,
+    /// Someone besides a coach (C13, C15, C19): a former player in his life
+    /// after football, an agent, an athletic director.
+    #[serde(default)]
+    pub other: Option<Other>,
+    /// Players you placed with him (C16): the friend you send players to
+    /// calls you first with his own star (C15).
+    #[serde(default)]
+    pub sent: u8,
+    /// His word's track record (SK35): tips settled, and how many held up.
+    #[serde(default)]
+    pub record: (u8, u8),
+}
+
+/// The coach field of a contact who isn't a coach.
+pub const NOBODY: usize = usize::MAX;
+
+/// A contact who isn't a coach.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Other {
+    /// A former player (his player id, `World::formers`).
+    Former(u32),
+    /// An agent (`market.agents`).
+    Agent(usize),
+    /// A program's athletic director, by the year he took the job.
+    Ad(usize, i32),
+}
+
+impl Contact {
+    /// The coach, when the contact is one.
+    pub fn coach_id(&self) -> Option<usize> {
+        (self.other.is_none() && self.coach != NOBODY).then_some(self.coach)
+    }
+}
+
+/// Who a contact is: the coach a former player became counts as the coach.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Whom {
+    Coach(usize),
+    Other(Other),
+}
+
+impl Whom {
+    fn of(x: &Contact) -> Whom {
+        match x.other {
+            Some(o) => Whom::Other(o),
+            None => Whom::Coach(x.coach),
+        }
+    }
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -61,25 +111,51 @@ pub struct Network {
 
 /// How warm your tie to a coach is (0 when you don't know him).
 pub fn warmth(w: &World, c: usize) -> f32 {
-    w.folk.network.contacts.iter().find(|x| x.coach == c).map_or(0.0, |x| x.warmth)
+    w.folk.network.contacts.iter().find(|x| x.coach_id() == Some(c)).map_or(0.0, |x| x.warmth)
+}
+
+/// How warm your tie to someone besides a coach is.
+pub fn warmth_other(w: &World, o: Other) -> f32 {
+    w.folk.network.contacts.iter().find(|x| x.other == Some(o)).map_or(0.0, |x| x.warmth)
 }
 
 fn add_contact(w: &mut World, c: usize, warmth: f32, how: String) {
-    if w.career.as_ref().is_some_and(|x| x.coach == c) {
+    add(w, Whom::Coach(c), warmth, how, false);
+}
+
+/// Adds someone, or warms him: `start` sets a starting warmth (the higher
+/// one stands, C12), else half the new warmth is added.
+fn add(w: &mut World, who: Whom, warmth: f32, how: String, start: bool) {
+    if let Whom::Coach(c) = who
+        && w.career.as_ref().is_some_and(|x| x.coach == c)
+    {
         return;
     }
     let today = w.today;
-    match w.folk.network.contacts.iter_mut().find(|x| x.coach == c) {
+    match w.folk.network.contacts.iter_mut().find(|x| Whom::of(x) == who) {
+        Some(x) if start => {
+            if warmth > x.warmth {
+                x.warmth = warmth.min(1.0);
+                x.how = how;
+            }
+        }
         Some(x) => x.warmth = (x.warmth + 0.5 * warmth).min(1.0),
         None => {
+            let (coach, other) = match who {
+                Whom::Coach(c) => (c, None),
+                Whom::Other(o) => (NOBODY, Some(o)),
+            };
             w.folk.network.contacts.push(Contact {
-                coach: c,
+                coach,
                 warmth: warmth.clamp(0.05, 1.0),
                 met: today,
                 how,
                 last: None,
                 recent: Vec::new(),
                 balance: 0,
+                other,
+                sent: 0,
+                record: (0, 0),
             });
             if w.folk.network.contacts.len() > 220 {
                 // The coldest name drops off.
@@ -101,30 +177,50 @@ fn add_contact(w: &mut World, c: usize, warmth: f32, how: String) {
 
 /// Moves a tie (a hire, a firing, a favour).
 pub fn touch(w: &mut World, c: usize, d: f32) {
-    match w.folk.network.contacts.iter_mut().find(|x| x.coach == c) {
+    match w.folk.network.contacts.iter_mut().find(|x| x.coach_id() == Some(c)) {
         Some(x) => x.warmth = (x.warmth + d).clamp(0.0, 1.0),
         None if d > 0.0 => add_contact(w, c, d, "through work".into()),
         None => {}
     }
 }
 
+/// Moves a tie to someone besides a coach.
+pub fn touch_other(w: &mut World, o: Other, d: f32, how: &str) {
+    match w.folk.network.contacts.iter_mut().find(|x| x.other == Some(o)) {
+        Some(x) => x.warmth = (x.warmth + d).clamp(0.0, 1.0),
+        None if d > 0.0 => add(w, Whom::Other(o), d, how.into(), false),
+        None => {}
+    }
+}
+
 /// Your starting network (N1): your staff, the men you replaced and who hired
-/// you, and coaches you came up with (your road and your home state).
+/// you, everyone from your past who knows you (C12), your old teammates
+/// and players (C13), your agent and athletic directors, the coaches you
+/// came up with (your road and your home state).
 pub fn build(w: &mut World) {
     let Some(team) = Team::seat(w) else { return };
     let Some(you) = w.career.as_ref().map(|c| c.coach) else { return };
     let home = w.career.as_ref().map(|c| c.you.home_state);
-    let year = w.year;
     let name = team.name(w);
     for (c, role) in super::facts::assistants(w, team) {
-        add_contact(w, c, 0.35, format!("on your staff at {name} ({})", role.name()));
+        add(w, Whom::Coach(c), 0.35, format!("on your staff at {name} ({})", role.name()), true);
     }
     if let Some((o, ..)) = super::facts::predecessor(w, team, you) {
-        add_contact(w, o, 0.15, format!("the coach you replaced at {name}"));
+        add(w, Whom::Coach(o), 0.15, format!("the coach you replaced at {name}"), true);
     }
     if w.folk.network.built {
         return;
     }
+    // Everyone who knows you (C12), at how well he knows you; the higher
+    // warmth stands where he's on your staff too.
+    let n = w.coaches.len();
+    let known = w.career.as_ref().map(|c| c.known.clone()).unwrap_or_default();
+    for k in known.into_iter().filter(|k| k.coach < n) {
+        add(w, Whom::Coach(k.coach), k.strength, k.how, true);
+    }
+    old_mates(w);
+    agents_and_ads(w, team);
+    alumni(w, team);
     // Coaches you came up with: near your age, from your home state.
     let my_age = w.coaches[you].age as i64;
     let mut pool: Vec<usize> = w
@@ -162,7 +258,164 @@ pub fn build(w: &mut World) {
         }
     }
     w.folk.network.built = true;
-    let _ = year;
+}
+
+/// Your old teammates and the players you coached (C13), with the lives
+/// they lead now, as warm as you were close (proposed, not confirmed: a
+/// college teammate from your position room 0.5, your side of the ball
+/// 0.35, the other side 0.25; an NFL teammate 0.45 or 0.25; a player you
+/// coached in your group 0.45, as head coach or his side's coordinator
+/// 0.3, else 0.15; half for one shared season). Sixty at most.
+fn old_mates(w: &mut World) {
+    use crate::world::coach::Group;
+    let Some(c) = w.career.as_ref() else { return };
+    let you = c.coach;
+    let Some(past) = c.past.clone() else { return };
+    let mine = w.coaches[you].played.map(|p| p.group()).or(c.you.came_up);
+    let stints = w.coaches[you].history.clone();
+    let near = |g: Group, close: f32, side: f32, far: f32| -> f32 {
+        if Some(g) == mine {
+            close
+        } else if mine.is_some_and(|h| h.offense() == g.offense()) {
+            side
+        } else {
+            far
+        }
+    };
+    let span = |a: i32, b: i32, x: i16, y: i16| (b.min(y as i32) - a.max(x as i32) + 1).max(0);
+    let mut found: Vec<(f32, Whom, String)> = Vec::new();
+    for f in &w.formers.list {
+        let g = f.played.group();
+        let mut best: Option<(f32, String)> = None;
+        let mut take = |k: f32, how: String| {
+            if best.as_ref().is_none_or(|b| k > b.0) {
+                best = Some((k, how));
+            }
+        };
+        if past.played
+            && let Some((col, a, b)) = past.college
+            && let Some(&(_, x, y)) = f.colleges.iter().find(|c| c.0 as usize == col)
+        {
+            let n = span(a, b, x, y);
+            if n > 0 {
+                let half = if n == 1 { 0.5 } else { 1.0 };
+                take(near(g, 0.5, 0.35, 0.25) * half, format!("your teammate at {}", w.program_name(col)));
+            }
+        }
+        for &(e, a, b, playing) in &past.stops {
+            if let (true, Employer::Nfl(t)) = (playing, e)
+                && f.at_club(t, a, b)
+            {
+                take(near(g, 0.45, 0.25, 0.25), format!("your teammate on the {}", w.nfl[t].name));
+            }
+        }
+        for s in &stints {
+            let k = match s.role {
+                Role::HeadCoach => 0.3,
+                Role::PositionCoach(h) if h == g => 0.45,
+                r if r.offense() == Some(g.offense()) => 0.3,
+                _ => 0.15,
+            };
+            match s.employer {
+                Employer::College(p) => {
+                    if let Some(&(_, x, y)) = f.colleges.iter().find(|c| c.0 as usize == p)
+                        && span(s.from, s.to, x, y) > 0
+                    {
+                        take(k, format!("played for you at {}", w.program_name(p)));
+                    }
+                }
+                Employer::Nfl(t) if f.at_club(t, s.from, s.to) => {
+                    take(k * 0.9, format!("played for you on the {}", w.nfl[t].name));
+                }
+                Employer::HighSchool(h) if f.hs as usize == h && f.born != crate::calendar::born::UNKNOWN => {
+                    let y = f.born.year();
+                    if span(s.from, s.to, (y + 14) as i16, (y + 17) as i16) > 0 {
+                        take(if s.role == Role::HeadCoach { 0.4 } else { 0.2 }, format!("played for you at {}", w.school_name(h)));
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some((k, how)) = best.filter(|b| b.0 >= 0.15) {
+            let who = f.coach.map_or(Whom::Other(Other::Former(f.id)), |c| Whom::Coach(c as usize));
+            found.push((k, who, how));
+        }
+    }
+    found.sort_by(|a, b| b.0.total_cmp(&a.0));
+    found.truncate(60);
+    for (k, who, how) in found {
+        add(w, who, k, how, true);
+    }
+}
+
+/// Your agent from your playing days (C13, C19; proposed, not confirmed:
+/// warmth 0.6, the agent most of your NFL teammates had, else one by your
+/// name), the agents your NFL club trusts (0.15 + 0.4 × its trust, from a
+/// trust of 0.25), and the athletic directors you worked for who still
+/// hold their jobs (0.4).
+fn agents_and_ads(w: &mut World, team: Team) {
+    let Some(c) = w.career.as_ref() else { return };
+    let you = c.coach;
+    let stops = c.past.as_ref().map(|p| p.stops.clone()).unwrap_or_default();
+    let n = w.market.agents.len();
+    if n > 0 && w.coaches[you].played.is_some_and(|p| p.nfl()) {
+        let mut counts: Vec<u32> = vec![0; n];
+        for f in &w.formers.list {
+            let mate = stops.iter().any(|&(e, a, b, playing)| playing && matches!(e, Employer::Nfl(t) if f.at_club(t, a, b)));
+            if let (true, Some(a)) = (mate, f.agent)
+                && (a as usize) < n
+            {
+                counts[a as usize] += 1;
+            }
+        }
+        let a = match (0..n).max_by_key(|&k| counts[k]) {
+            Some(k) if counts[k] > 0 => k,
+            _ => (super::roll(w, 0xA6E7, you as u64) * n as f64) as usize % n,
+        };
+        add(w, Whom::Other(Other::Agent(a)), 0.6, "your agent when you played".into(), true);
+    }
+    if let Team::Nfl(t) = team {
+        let trusted: Vec<(usize, f64)> = w
+            .market
+            .agents
+            .iter()
+            .enumerate()
+            .filter_map(|(k, a)| a.rel.get(t).copied().filter(|&r| r >= 0.25).map(|r| (k, r)))
+            .collect();
+        let club = w.nfl[t].name;
+        for (k, r) in trusted {
+            add(w, Whom::Other(Other::Agent(k)), 0.15 + 0.4 * r as f32, format!("has done deals with the {club}"), true);
+        }
+    }
+    let stints = w.coaches[you].history.clone();
+    for s in stints {
+        if let Employer::College(p) = s.employer
+            && Team::College(p) != team
+            && let Some(ad) = w.programs[p].ad.as_ref().filter(|ad| ad.since <= s.to)
+        {
+            let since = ad.since;
+            add(w, Whom::Other(Other::Ad(p, since)), 0.4, format!("your athletic director at {}", w.program_name(p)), true);
+        }
+    }
+}
+
+/// The program's own former players call to welcome a new coach (SK35's
+/// alumni; proposed, not confirmed: up to ten, the best-known first, at
+/// 0.15).
+fn alumni(w: &mut World, team: Team) {
+    let Team::College(p) = team else { return };
+    let mut v: Vec<(u8, i16, Whom)> = w
+        .formers
+        .list
+        .iter()
+        .filter(|f| f.colleges.iter().any(|c| c.0 as usize == p))
+        .map(|f| (f.played.grade, f.since, f.coach.map_or(Whom::Other(Other::Former(f.id)), |c| Whom::Coach(c as usize))))
+        .collect();
+    v.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.cmp(&a.1)));
+    let name = w.program_name(p).to_string();
+    for (_, _, who) in v.into_iter().take(10) {
+        add(w, who, 0.15, format!("played at {name}; called to welcome you"), true);
+    }
 }
 
 /// How you reach out (N2).
@@ -236,10 +489,10 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
         return Err("Your week is full.".into());
     }
     let today = w.today;
-    if !w.folk.network.contacts.iter().any(|x| x.coach == c) {
+    if !w.folk.network.contacts.iter().any(|x| x.coach_id() == Some(c)) {
         add_contact(w, c, 0.05, "you reached out cold".into());
     }
-    let k = w.folk.network.contacts.iter().position(|x| x.coach == c).unwrap_or(0);
+    let k = w.folk.network.contacts.iter().position(|x| x.coach_id() == Some(c)).unwrap_or(0);
     let (warm, recent, balance) = {
         let x = &mut w.folk.network.contacts[k];
         x.recent.retain(|d| d.days_to(today) < 30);
@@ -478,7 +731,8 @@ fn trip_answer(w: &mut World, s: &mut Scene, code: u32) {
     talks::charge(w, t.hours() + if code == 91 { 3.0 } else { 0.0 });
     w.folk.network.trips.push((w.year, t as u8));
     // Who you meet: coaches at the event's levels, more for a bigger name.
-    let rep = super::facts::your_rep(w);
+    // A bigger name meets more people (C10).
+    let rep = super::facts::your_name(w);
     let n = (3.0 + rep / 4.0 + if code == 91 { 4.0 } else { 0.0 }) as usize;
     let you = w.career.as_ref().map(|c| c.coach);
     let mut pool: Vec<usize> = w
@@ -513,6 +767,7 @@ fn trip_answer(w: &mut World, s: &mut Scene, code: u32) {
         w.folk.network.clinics += 1;
         if let Some(c) = you {
             w.coaches[c].reputation = (w.coaches[c].reputation + 0.08).min(20.0);
+            w.coaches[c].renown = (w.coaches[c].name_value() + 0.08).min(20.0);
         }
     }
     let names: Vec<String> = met.iter().take(4).map(|&c| coach_link(w, c)).collect();
@@ -567,7 +822,6 @@ fn interest_week(w: &mut World, d: Date) {
     if !carousel || w.folk.scenes.iter().any(|s| s.kind == Kind::JobCall && s.a == 0 && s.date.days_to(d) < 14) {
         return;
     }
-    let rep = super::facts::your_rep(w);
     // Open head jobs this cycle: programs whose head coach left this year.
     let open: Vec<Team> = match team.level() {
         Level::Nfl => {
@@ -584,13 +838,14 @@ fn interest_week(w: &mut World, d: Date) {
     };
     let Some(&target) = open.iter().find(|t| {
         let size = super::facts::job_size(w, **t);
-        let fits = rep / 20.0 >= 0.15 + 0.6 * size;
+        // Each job reads your name and standing its own way (C10).
+        let fits = super::facts::read_by(w, **t) / 20.0 >= 0.15 + 0.6 * size;
         let warm = w
             .folk
             .network
             .contacts
             .iter()
-            .any(|x| x.warmth >= 0.45 && super::facts::team_of_coach(w, x.coach) == Some(**t));
+            .any(|x| x.warmth >= 0.45 && x.coach_id().and_then(|c| super::facts::team_of_coach(w, c)) == Some(**t));
         fits || warm
     }) else {
         return;
@@ -640,6 +895,7 @@ fn call_answer(w: &mut World, s: &mut Scene, code: u32) {
             talks::charge(w, 6.0);
             if let Some(c) = w.career.as_ref().map(|x| x.coach) {
                 w.coaches[c].reputation = (w.coaches[c].reputation + 0.15).min(20.0);
+                w.coaches[c].renown = (w.coaches[c].name_value() + 0.2).min(20.0);
             }
             // A week with other staffs: new contacts.
             let you = w.career.as_ref().map(|c| c.coach);
@@ -706,7 +962,7 @@ fn asks_week(w: &mut World, d: Date) {
         .contacts
         .iter()
         .filter(|x| x.warmth >= 0.25)
-        .map(|x| x.coach)
+        .filter_map(|x| x.coach_id())
         .find(|&c| super::roll(w, 0xA5E ^ d.0 as u64, c as u64) < 0.04);
     let Some(c) = pick else { return };
     let what = (super::roll(w, 0xA5F ^ d.0 as u64, c as u64) * 3.0) as u64;
@@ -738,7 +994,7 @@ fn ask_open(w: &mut World, s: &mut Scene) {
 
 fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
     let c = s.a as usize;
-    let k = w.folk.network.contacts.iter().position(|x| x.coach == c);
+    let k = w.folk.network.contacts.iter().position(|x| x.coach_id() == Some(c));
     if code == 85 {
         talks::charge(w, if s.b == 1 { 5.0 } else { 1.0 });
         if let Some(k) = k {

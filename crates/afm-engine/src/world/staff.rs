@@ -10,6 +10,7 @@ use super::data::{AcademicTier, Division};
 use super::ethnicity::{CoachPool, Ethnicity, coach_ethnicity, hiring_bias};
 use super::news::{self, Channel, NewsItem, NewsKind};
 use super::program::{self, GRADE_COUNT, GradeCat, NilTrend};
+use super::former::Want;
 use super::{Stage, World, names};
 use crate::player::PlayingTime;
 use crate::rng::{Rng, clamp};
@@ -30,18 +31,64 @@ pub(crate) fn coach_born_key(seed: u32, id: usize) -> u64 {
 }
 
 fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize {
-    let id = w.coaches.len();
-    let ethnicity = coach_ethnicity(pool, w.year, &mut w.rng);
-    let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
-    let mut c = generate_coach(id, name, ethnicity, tier, age, &mut w.rng);
-    c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, w.year);
+    new_coach_for(w, tier, age, pool, Want::default())
+}
+
+/// A new coach (C11): most played in college (C2), and those come from the
+/// world's own former players who went into coaching, the ones his job's
+/// head coach coached first; the rest, and everyone before the world's
+/// records hold a man of his age, are made up with a playing past drawn
+/// from the real shares.
+fn new_coach_for(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool, want: Want) -> usize {
+    let played = want.nfl == Some(true) || w.rng.chance(super::former::college_share(tier));
+    let found = if played { super::former::draw(w, tier, age, want) } else { None };
+    let id = match found {
+        Some(k) => super::former::to_coach(w, k, tier),
+        None => {
+            let id = w.coaches.len();
+            let ethnicity = coach_ethnicity(pool, w.year, &mut w.rng);
+            let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
+            let pro = want.nfl.filter(|&x| x);
+            let mut c = super::coach::generate_coach_as(id, name, ethnicity, tier, age, pro, &mut w.rng);
+            c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, w.year);
+            match super::former::made_up(w, &c, tier, played) {
+                Some(p) => super::former::apply(&mut c, p, w.year),
+                None => {
+                    c.fame = 2.0;
+                    c.renown = (0.5 * c.reputation).max(2.0);
+                }
+            }
+            w.coaches.push(c);
+            id
+        }
+    };
     // Sportsmanship from a keyed draw, so the world's own stream is untouched
     // (spread like the other personality traits; proposed, not confirmed).
+    let c = &mut w.coaches[id];
     c.sportsmanship =
         clamp(10.0 + 3.5 * super::season::key_normal(w.options.seed as u64 ^ 0x5B0C, id as u64), 1.0, 20.0);
     c.systems = super::systems::draw(id, c.came_up, c.ability.scheme, w.options.seed as u64);
-    w.coaches.push(c);
     id
+}
+
+/// How much a search reads a candidate's name rather than his standing
+/// (C10): a small school's athletic director hires a name, a big
+/// program's hires a coaching résumé, an NFL owner and other coaches read
+/// standing (proposed, not confirmed: 0.75 less the job's size for a
+/// college head job, 0.1 to 0.6; half for a high school head job; 0.2 in
+/// the other leagues; none for assistants and the NFL).
+pub(crate) fn name_weight(w: &World, e: Employer, role: Role) -> f64 {
+    if role != Role::HeadCoach {
+        return 0.0;
+    }
+    match e {
+        Employer::College(p) => {
+            clamp(0.75 - super::folk::facts::job_size(w, super::folk::Team::College(p)), 0.1, 0.6)
+        }
+        Employer::HighSchool(_) => 0.5,
+        Employer::Other(_) => 0.2,
+        Employer::Nfl(_) => 0.0,
+    }
 }
 
 /// A new high school coach of the world's (update 2, lane 2: your
@@ -1171,10 +1218,11 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     let nfl = matches!(o.employer, Employer::Nfl(_) | Employer::Other(_));
     // An NFL team doesn't recruit and is its own exposure: it pays for teaching.
     let needs = if nfl {
-        HiringNeeds { network: 0.0, teaching: 0.6, recruiting: 0.0 }
+        HiringNeeds { network: 0.0, teaching: 0.6, recruiting: 0.0, name: 0.0 }
     } else {
         hiring_needs(needs_prestige, is_hs)
     };
+    let needs = HiringNeeds { name: name_weight(w, o.employer, o.role), ..needs };
     let hiring_hc = match o.employer {
         Employer::College(p) if o.role != Role::HeadCoach => w.programs[p].head_coach,
         Employer::Nfl(t) if o.role != Role::HeadCoach => w.nfl[t].head_coach,
@@ -1375,7 +1423,19 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             } else {
                 CoachPool::Entering
             };
-            let c = new_coach(w, tier, age, pool);
+            // A former player in coaching of the world's own (C11), the
+            // hiring head coach's own first; the committee's biased draw
+            // keeps its made-up pool, as calibrated (`hiring_bias`).
+            let c = if pool == CoachPool::CollegeHead1990 {
+                new_coach(w, tier, age, pool)
+            } else {
+                let group = match o.role {
+                    Role::PositionCoach(g) => Some(g),
+                    _ => None,
+                };
+                let want = Want { state: employer_state(w, o.employer), hc: hiring_hc, group, nfl: None };
+                new_coach_for(w, tier, age, pool, want)
+            };
             let drop = if matches!(o.role, Role::PositionCoach(_)) { 3.0 } else { 2.0 };
             w.coaches[c].reputation = clamp(w.coaches[c].reputation - drop, 1.0, 20.0);
             c
@@ -2119,9 +2179,11 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                 if w.rng.chance(0.12) {
                     let tier = tier_of(div);
                     let age = w.rng.int(27, 38) as u32;
-                    let c = new_coach(w, tier, age, CoachPool::Entering);
+                    // A former pro of the world's own (C11): one this head
+                    // coach coached first, else one from the state.
+                    let want = Want { state: Some(state), hc: w.programs[p].head_coach, group: Some(g), nfl: Some(true) };
+                    let c = new_coach_for(w, tier, age, CoachPool::Entering, want);
                     let coach = &mut w.coaches[c];
-                    coach.ex_pro = true;
                     coach.ability.network = clamp(coach.ability.network + w.rng.range(3.0, 6.0), 1.0, 20.0);
                     coach.reputation = clamp(coach.reputation - 1.0, 1.0, 20.0);
                     pool.push(c);
@@ -2141,9 +2203,9 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
             // An ex-pro looking for his first job: knowledge and network, less teaching (1.5).
             if w.rng.chance(0.25) {
                 let age = w.rng.int(30, 45) as u32;
-                let c = new_coach(w, CoachTier::HighSchool, age, CoachPool::Entering);
+                let want = Want { state: Some(state), nfl: Some(true), ..Want::default() };
+                let c = new_coach_for(w, CoachTier::HighSchool, age, CoachPool::Entering, want);
                 let coach = &mut w.coaches[c];
-                coach.ex_pro = true;
                 coach.ability.network = clamp(coach.ability.network + w.rng.range(4.0, 8.0), 1.0, 20.0);
                 coach.personality.ambition = clamp(coach.personality.ambition + 3.0, 1.0, 20.0);
                 coach.reputation = clamp(coach.reputation + 2.0, 1.0, 20.0);
@@ -2547,7 +2609,31 @@ pub fn take_seat_as(w: &mut World, you: &super::seat::You, employer: Option<Empl
     c.ability.network = you.network;
     c.ability.relationships = you.relationships;
     c.reputation = you.reputation;
+    c.renown = if you.renown > 0.0 { you.renown } else { (0.5 * you.reputation).max(2.0) };
     c.ex_pro = you.ex_pro;
+    // What you played (C11): your position, how good you were, your
+    // last season from your age; the college is set from your alma mater.
+    if let Some(grade) = you.played {
+        let g = you.came_up.unwrap_or(Group::LB);
+        let pos = crate::positions::Position::ALL
+            .iter()
+            .copied()
+            .find(|&p| Group::of(p) == g)
+            .unwrap_or(crate::positions::Position::LB);
+        let years = match grade {
+            super::former::STAR => 11,
+            super::former::PRO_BOWLER => 9,
+            super::former::NFL_STARTER => 7,
+            super::former::JOURNEYMAN => 4,
+            _ => 0,
+        };
+        let last = (w.year - you.age as i32 + 22 + years).min(w.year - 1);
+        let p = super::former::Played { pos, grade, div: Division::FBS as u8, college: None, last, former: None };
+        c.fame = p.fame() * 0.99f64.powi((w.year - last).max(0));
+        c.played = Some(p);
+    } else {
+        c.fame = 2.0;
+    }
     c.home_state = Some(you.home_state);
     c.style_set = Some(you.style);
     c.yours = Some(you.yours);
