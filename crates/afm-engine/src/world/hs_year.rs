@@ -2301,7 +2301,7 @@ fn state_all_stars(w: &mut World, d: Date) {
 }
 
 /// The year's high school dates in a state, for tests and the screens.
-pub(crate) fn state_season_dates(code: &str, year: i32) -> (Date, Date, Date) {
+pub fn state_season_dates(code: &str, year: i32) -> (Date, Date, Date) {
     let c = hs_calendar(code);
     (
         shifted(c.start.0, c.start.1, year, labor_day),

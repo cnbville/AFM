@@ -468,6 +468,13 @@ impl Program {
     pub fn power_four(&self) -> bool {
         matches!(self.conference.as_str(), "SEC" | "Big Ten" | "Big 12" | "ACC") || self.real_name == "Notre Dame"
     }
+
+    /// In a power conference that season, by its era (the Pac-12 until
+    /// 2023, the Big East until 2013), or Notre Dame: the top of FBS as
+    /// recruits and voters read it.
+    pub fn power_conference(&self, year: i32) -> bool {
+        self.real_name == "Notre Dame" || super::voters::power_conf(&self.conference, year)
+    }
 }
 
 fn division_scale(d: Division) -> f64 {

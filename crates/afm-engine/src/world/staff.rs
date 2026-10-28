@@ -2558,6 +2558,10 @@ pub fn take_seat_as(w: &mut World, you: &super::seat::You, employer: Option<Empl
     if let Some(g) = (0..Group::ALL.len()).max_by(|&a, &b| you.teaching[a].total_cmp(&you.teaching[b])) {
         c.came_up = Group::ALL[g];
     }
+    // The position you played or the group you came up coaching (C5).
+    if let Some(g) = you.came_up {
+        c.came_up = g;
+    }
     if let Role::PositionCoach(g) = role {
         c.came_up = g;
     }

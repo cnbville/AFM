@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
+Checked against main at 81c9f0c with update 3 lane 2 on 2026-10-27.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -152,6 +152,15 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Your own job hunt: searches score you with the same formula plus a bonus for someone on the staff who knows you (1 + 1.5 × strength), home state +0.5, alma mater +0.6, and Aura for head jobs (`world/front_office/market.rs`, `bonus`, `candidate`).
 - Taking over a job: two weeks of dated meetings; you keep or let go each holdover assistant; a college hire opens your players' coaching-change window (`world/folk/takeover.rs`, `begin`, `coach_change_window`, `holdover_answer`).
 - Your read of your own staff: a range per rating, about 6 wide at first, ~3 after three seasons, its centre settling toward the truth (`world/staff_read.rs`).
+
+## Your coach at the start (update 3, lane 2)
+
+- The eleven roads (`crates/afm-game/src/setup.rs`, `BACKGROUNDS`): each locks its strengths at fixed values (C6; "pos" is the position you played, "grp" the group you came up coaching, "groups" all eight teaching groups), and every other rating starts at the road's base (11-14). Total = locked + base × the other ratings: 245, 258, 271, 255, 234, 239, 261, 274, 276, 227, 230 (star, Pro Bowler, starter, journeyman, college player, never played, high school coach, college assistant, NFL assistant, scout, analytics) (`starting`).
+- A locked strength's road value is its floor; you can raise any rating to 20 with pool points; points past the total come off the highest ratings above their floors (`you_from`).
+- Your position or group (`position` argument; `group_of`) takes the "pos" or "grp" strength, sets the side you call plays on, and is the group you came up in (`You::came_up`, `world/seat.rs`; `take_seat_as`, `world/staff.rs`).
+- The roads screen's comparison figures: medians and 90th percentiles over the world's coaches in jobs, never one coach's numbers (`world/road_marks.rs`, `road_marks`): high school head coaches' best teaching group (median) and their other ratings (90th, rating by rating, averaged); top-68 FBS (by prestige) position coaches' own group, per group; top-68 coordinators' scheme; coordinators' mean of their ten other ratings at the top 68, FCS and the small colleges; NFL coordinators' and head coaches' scheme and play calling (0.6 scheme + 0.4 game management), head coaches' evaluation and the best director of college scouting's judge.
+- High school ties from your road (`setup.rs`, `road_ties`, called when a career starts): high school coach 30 schools in his own school's state (his area first, then prestige); college assistant 25 top-prestige schools in his college stops' states (else his home state); every playing road his own high school. Each area tie starts at 0.06 (`TIE_AREA`), the own school at 0.16 (`TIE_OWN`); an existing stronger tie is kept. They fade and grow like any coach's (`age_coaches`, `credit_impact`).
+- Your coach is kept outside any save when a career starts: `coaches/<name>.json` in the game folder, the setup page's own record (`save_coach_profile`, `coach_profiles`, `forget_coach_profile`).
 
 ## Scouts and personnel staff as careers (update 2, lane 8)
 
