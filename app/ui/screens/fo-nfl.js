@@ -7,7 +7,7 @@
 
 foNavHide("contracts", "nfl");
 foNavAdd("nfl", [
-  ["fo_office", "Overview", "office"],
+  ["fo_office", "Front office", "office"],
   ["fo_cap", "Cap sheet", "cap"],
   ["fo_expiring", "Deals and tags", "tag"],
   ["fo_market", "Free agency", "fa"],

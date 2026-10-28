@@ -170,7 +170,7 @@ screens.scout = async (a) => {
       <div class="meta"><span>${size}</span><span>Age <b>${f.age}</b></span>${boardLine ? `<span>${boardLine}</span>` : ""}</div>
       <div class="st-actions">
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
-        <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "Following" : "Follow"}</button>
+        <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "On my players" : "Add to my players"}</button>
         <button class="st-btn glass" data-go="player" data-id="${f.id}">Player page</button>
       </div>
     </div>
@@ -395,8 +395,8 @@ function scMyPlayers(rows) {
     { k: "public_then", t: "Public then", l: true },
     { k: "now", t: "Read now", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read, r.id) },
     { k: "role", t: "Outlook now", l: true, v: (r) => (r.read && r.read.role) || "", f: (r) => scRole(r.read) },
-    { k: "x", t: "", f: (r) => `<button class="st-btn small glass" data-act="sc-unfollow" data-id="${r.id}">Stop following</button>` },
-  ], rows, { empty: "Nobody yet. Follow a player from his scouting file and he's kept here for the rest of your career." });
+    { k: "x", t: "", f: (r) => `<button class="st-btn small glass" data-act="sc-unfollow" data-id="${r.id}">Take off my players</button>` },
+  ], rows, { empty: 'Nobody yet. Press "Add to my players" on a scouting file and he\'s kept here for the rest of your career.' });
 }
 
 function scLookback(lb, nfl) {
@@ -827,10 +827,10 @@ document.addEventListener("click", async (ev) => {
     }
     case "sc-follow": {
       if (d.on === "1") {
-        const why = await ask("Follow him", { value: "Keep an eye on him", ok: "Follow", note: "He goes into My players with your staff's read today, so you can look back on it." });
+        const why = await ask("Add him to my players", { value: "Keep an eye on him", ok: "Add him", note: "He goes into My players with your staff's read today, so you can look back on it." });
         if (!why) break;
-        if (await scDo("follow", { id, why }, "Following: he's in My players.")) scRedraw();
-      } else if (await scDo("unfollow", { id }, "Taken out of My players.")) scRedraw();
+        if (await scDo("follow", { id, why }, "Added to my players.")) scRedraw();
+      } else if (await scDo("unfollow", { id }, "Taken off my players.")) scRedraw();
       break;
     }
     case "sc-unfollow": if (await scDo("unfollow", { id })) scRedraw(); break;
