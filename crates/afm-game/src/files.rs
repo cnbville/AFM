@@ -82,6 +82,17 @@ pub fn import_world(path: &Path, worlds: &Path) -> Result<PathBuf, String> {
         let _ = std::fs::remove_file(&part);
         return Err(e);
     }
+    // The world's log (world reader) comes along when it sits beside the
+    // world; one from an older build of the same world goes.
+    let (log, to_log) = (crate::world_log::beside(&path.with_file_name(whole)), crate::world_log::beside(&to));
+    if to_log.exists() {
+        let _ = std::fs::remove_dir_all(&to_log);
+    }
+    if log.join("meta.json").exists()
+        && let Err(e) = afm_engine::world::wlog::mirror(&log, &to_log)
+    {
+        eprintln!("world log: not imported ({e})");
+    }
     Ok(to)
 }
 

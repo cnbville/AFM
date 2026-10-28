@@ -73,6 +73,7 @@ pub mod systems;
 pub mod tape;
 pub mod trends;
 pub mod voters;
+pub mod wlog;
 
 use rayon::prelude::*;
 
@@ -696,6 +697,10 @@ pub struct World {
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
     pub game_log: game_log::GameLog,
+    /// The world log (world reader lane R2): on disk, never saved in the
+    /// world file. None unless a build or the game attaches one.
+    #[serde(skip)]
+    pub(crate) wlog: Option<Box<wlog::WorldLog>>,
     /// The career stats record, record books and Hall of Fame (section 3,
     /// topic 8): always kept.
     pub stats: records::StatBook,
@@ -1019,8 +1024,21 @@ impl World {
 
     /// `new_watched`, where `each` says whether to go on: false stops the
     /// build after that season and gives nothing (the game's Stop button).
-    pub fn new_stoppable(options: WorldOptions, mut each: impl FnMut(&World, f64) -> bool) -> Option<World> {
+    pub fn new_stoppable(options: WorldOptions, each: impl FnMut(&World, f64) -> bool) -> Option<World> {
+        World::new_logged(options, None, each)
+    }
+
+    /// `new_stoppable`, writing the world log into `log` as the history is
+    /// played (world reader lane R2). The log stays attached to the world.
+    pub fn new_logged(
+        options: WorldOptions,
+        log: Option<wlog::WorldLog>,
+        mut each: impl FnMut(&World, f64) -> bool,
+    ) -> Option<World> {
         let mut w = World::empty(options);
+        if let Some(log) = log {
+            w.attach_log(log);
+        }
         // Older high school classes already in school when the clock starts.
         for age in [17, 16, 15] {
             w.add_class_aged(age);
@@ -1032,11 +1050,7 @@ impl World {
                 return None;
             }
         }
-        w.recording = true;
-        for p in w.programs.iter_mut() {
-            p.prestige_start = p.prestige;
-        }
-        program::seed_pipelines(&mut w);
+        w.start_recording();
         for k in 0..w.options.history_years {
             let t = std::time::Instant::now();
             w.world_tapes = k + 1 == w.options.history_years;
@@ -1047,6 +1061,15 @@ impl World {
             }
         }
         Some(w)
+    }
+
+    /// The spin-up is over: recorded history starts.
+    pub(crate) fn start_recording(&mut self) {
+        self.recording = true;
+        for p in self.programs.iter_mut() {
+            p.prestige_start = p.prestige;
+        }
+        program::seed_pipelines(self);
     }
 
     /// The world with programs, schools and staffs but no players or history yet.
@@ -1143,6 +1166,7 @@ impl World {
             recording: false,
             world_tapes: false,
             game_log: game_log::GameLog::default(),
+            wlog: None,
             stats: records::StatBook::default(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),

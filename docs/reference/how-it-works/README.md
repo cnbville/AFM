@@ -23,6 +23,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [nfl.md](nfl.md) | The living NFL: contracts, the cap, free agency, tags, trades, waivers, retirement, honors |
 | [people.md](people.md) | Personality, morale, relationships, chemistry, talks, life off the field, media, fame and Aura |
 | [logos.md](logos.md) | Logo packs you install: matching pictures to teams, eras, your own logo per save, where logos show, the jerseys |
+| [world-log.md](world-log.md) | The world log beside each world and save: what it keeps, every why, snapshots, sizes, how to read it |
 
 Code that does something its comment or design says it shouldn't: [oddities.md](oddities.md).
 
