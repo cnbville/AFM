@@ -127,6 +127,12 @@ fn a_college_staff_searches_a_class() {
         c["open"].as_u64().unwrap(),
         c["slots"].as_u64().unwrap().saturating_sub(c["commits"].as_u64().unwrap())
     );
+    // A recruit of your own on the board, with your offer: a world this
+    // small may leave the coordinator's board empty in March.
+    let rows = page["rows"].as_array().unwrap();
+    let pick = rows.iter().find(|r| r["offers"].as_u64().unwrap_or(0) > 0).unwrap_or(&rows[0])["id"].clone();
+    ok(&mut g, "recruit_add", json!({ "id": pick }));
+    let _ = g.call("recruit_offer", &json!({ "id": pick }));
     // The race (board 8): the log keeps each followed recruit's weeks, at
     // most 400 of them; his interest stays on 0-100 and his reasons'
     // weights are your staff's ranges on 1-5.

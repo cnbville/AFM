@@ -41,9 +41,11 @@ fn start(g: &mut Game, path: &str, level: &str, bg: &str) {
 
 /// Continues until `n` of your games are kept; the last one's index. An
 /// NFL club with a pick drafts live (the war room holds Continue): the
-/// staff makes your picks.
+/// staff makes your picks. An NFL seat hired in February also stops for its
+/// first meetings and every big signing of the spring, every two or three
+/// days in this small world, so the count leaves room for the world's draw.
 fn play_to(g: &mut Game, n: usize) -> u64 {
-    for _ in 0..60 {
+    for _ in 0..150 {
         let games = ok(g, "games", json!({}))["games"].as_array().unwrap().clone();
         if games.len() >= n {
             return games.iter().map(|x| x["index"].as_u64().unwrap()).max().unwrap();
