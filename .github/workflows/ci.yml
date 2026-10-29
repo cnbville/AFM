@@ -58,3 +58,17 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev
       - run: cargo check --manifest-path app/src-tauri/Cargo.toml
+  # The same for the World Reader's desktop app (reader/src-tauri), which
+  # reader-app.yml builds on the Mac only on main.
+  reader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: reader/src-tauri
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev
+      - run: cargo check --manifest-path reader/src-tauri/Cargo.toml

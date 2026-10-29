@@ -1,38 +1,52 @@
 name: World Reader app
 # Builds the AFM World Reader for macOS (Apple silicon and Intel in one app)
-# and keeps its .dmg as the run's download (world reader lane R5). On main it
+# and keeps its .dmg as the run's download (world reader lane R5). It builds
+# on every push to main that changes the reader, and by hand on any branch
+# (Actions, World Reader app, Run workflow); pull requests don't build it, as
+# for the game (mac-app.yml): GitHub's five Mac machines are shared. ci.yml
+# checks that the reader still compiles on every pull request. On main it
 # also goes on a release of its own and on the public downloads page, beside
 # the game but never in its place.
 on:
   push:
     branches: [main]
     paths: ["reader/**", "crates/afm-reader-app/**", "crates/afm-reader/**", "crates/afm-engine/**", ".github/workflows/reader-app.yml"]
-  pull_request:
-    paths: ["reader/**", "crates/afm-reader-app/**", "crates/afm-reader/**", ".github/workflows/reader-app.yml"]
   workflow_dispatch:
 permissions:
   contents: write
+# One build at a time: a newer push waits, and replaces any push still
+# waiting, so the newest main is always the next one built.
+concurrency:
+  group: reader-app-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  mac:
+  # Each chip on its own machine at the same time, as for the game: the
+  # engine and the book's builder are one big compile per chip. The Intel one
+  # cross-compiles on Apple silicon.
+  build:
+    strategy:
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    name: build (${{ matrix.target }})
     runs-on: macos-14
-    # Two architectures, each with the engine and the book's builder: the
-    # build ran past an hour once R4's crate came in.
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: reader/src-tauri
+          key: ${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       # Each build has its own version, 0.1.<run>, so an installed reader knows
       # a newer one exists. It signs its update with the game's key (the
       # TAURI_SIGNING_PRIVATE_KEY secret and TAURI_UPDATER_PUBKEY variable)
-      # when they are set.
+      # when they are set. Both jobs pass the same settings.
       - name: Build the app
         working-directory: reader/src-tauri
         env:
@@ -44,7 +58,55 @@ jobs:
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$PUBKEY" ]; then
             conf=$(echo "$conf" | jq -c --arg k "$PUBKEY" '. + {bundle: {createUpdaterArtifacts: true}, plugins: {updater: {pubkey: $k}}}')
           fi
-          npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles app --config "$conf"
+          npx --yes @tauri-apps/cli@^2 build --target ${{ matrix.target }} --no-bundle --config "$conf"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: afm-world-reader-${{ matrix.target }}
+          path: reader/src-tauri/target/${{ matrix.target }}/release/afm-world-reader
+          if-no-files-found: error
+          retention-days: 3
+  # The two builds joined into one app (lipo), bundled, signed for updates and
+  # published.
+  bundle:
+    needs: build
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: afm-world-reader-*
+          path: built
+      - name: Join the two builds
+        working-directory: reader/src-tauri
+        run: |
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            mkdir -p target/$t/release
+            cp ../../built/afm-world-reader-$t/afm-world-reader target/$t/release/afm-world-reader
+            chmod +x target/$t/release/afm-world-reader
+          done
+          mkdir -p target/universal-apple-darwin/release
+          lipo -create -output target/universal-apple-darwin/release/afm-world-reader \
+            target/aarch64-apple-darwin/release/afm-world-reader target/x86_64-apple-darwin/release/afm-world-reader
+          lipo -info target/universal-apple-darwin/release/afm-world-reader
+      - name: Bundle the app
+        working-directory: reader/src-tauri
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+        run: |
+          conf=$(jq -cn --arg v "0.1.${{ github.run_number }}" '{version: $v}')
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$PUBKEY" ]; then
+            conf=$(echo "$conf" | jq -c --arg k "$PUBKEY" '. + {bundle: {createUpdaterArtifacts: true}, plugins: {updater: {pubkey: $k}}}')
+          fi
+          npx --yes @tauri-apps/cli@^2 bundle --target universal-apple-darwin --bundles app --config "$conf"
       # hdiutil on the hosted runners sometimes fails with "Resource busy", so
       # the .dmg is made here with retries instead of by Tauri's bundler.
       - name: Make the dmg
