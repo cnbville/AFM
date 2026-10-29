@@ -781,7 +781,7 @@ document.addEventListener("click", async (ev) => {
       if (S.busy) break;
       const name = await ask("Save your career", { value: S.lastSaveName || `${S.status && S.status.mine ? S.status.mine.name : (S.status && S.status.you) || "career"} ${S.status ? S.status.season : ""}`, ok: "Save", note: "A save with the same name is replaced." });
       if (!name) break;
-      showBusy("Saving your career… a full world takes about a minute.");
+      showBusy("Saving your career… a full world takes about 20 seconds.");
       try {
         const r = await api("save", { name });
         S.savedOn = S.status && S.status.today;

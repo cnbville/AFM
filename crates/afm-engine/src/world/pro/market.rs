@@ -16,6 +16,7 @@ use crate::rng::{Rng, clamp};
 use crate::world::front_office::{self as fo, Duty};
 use crate::world::news::count;
 use crate::world::season::{key_normal, key_uniform};
+use crate::world::wlog::Why;
 use crate::world::{Stage, World};
 
 // --- People around the deal ---------------------------------------------------------------
@@ -810,6 +811,9 @@ pub(crate) fn sign_offer(w: &mut World, i: usize, o: &Offer, d: Date, kind: mone
         );
         post(w, d, Some(t), Some(i), loud, Kind::Signing, text);
     }
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "signed", why));
+    }
 }
 
 // --- Free agency -------------------------------------------------------------------------------------------
@@ -898,6 +902,12 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
         if let Some(k) = held {
             // Inside his window: a clearly better offer sways him.
             let cur = w.market.pending[k];
+            if w.logging() {
+                let outcome = if best.team != cur.offer.team && s > cur.score + 0.03 { "swayed" } else { "held" };
+                let id = w.people[i].player.id;
+                let why = Why::Market { id, ideal, offers: offers.clone(), best: best.team, score: s, outcome };
+                w.log_why(why);
+            }
             if best.team != cur.offer.team && s > cur.score + 0.03 {
                 committed[cur.offer.team] -= cur.offer.apy;
                 committed[best.team] += best.apy;
@@ -924,6 +934,17 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
         } else {
             (best, s)
         };
+        if w.logging() {
+            let outcome = match () {
+                _ if s >= 1.0 && tampering => "agrees, to sign at the league year",
+                _ if s >= 1.0 => "signs",
+                _ if s >= 0.85 => "takes a week to weigh it",
+                _ => "waits; his ask comes down",
+            };
+            let id = w.people[i].player.id;
+            let why = Why::Market { id, ideal, offers: offers.clone(), best: best.team, score: s, outcome };
+            w.log_why(why);
+        }
         if s >= 1.0 {
             w.market.year_mut(year).perfect += 1;
             if tampering {
@@ -1700,6 +1721,9 @@ pub(crate) fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
             Kind::Signing,
             format!("{who} signs an extension: {}, ${:.1}M.", count(o.years, "year"), apy * o.years as f64 / 1e6),
         );
+    }
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "extended", ""));
     }
 }
 
