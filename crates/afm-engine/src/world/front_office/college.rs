@@ -2063,8 +2063,9 @@ mod tests {
     }
 
     /// A duty handed to your staff runs as the AI's: the hooks give the
-    /// signing stage, the visit days and the portal nothing of yours, and
-    /// your own moves are refused with the staff's words.
+    /// visit days and the portal nothing of yours, the board's offers wait
+    /// on your signature (SK26), and your own moves are refused with the
+    /// staff's words.
     #[test]
     fn a_staff_duty_runs_like_the_ai() {
         let (mut w, _) = world(true);
@@ -2074,7 +2075,9 @@ mod tests {
         for d in [Duty::Board, Duty::Visits, Duty::Portal, Duty::Nil] {
             w.front_office.set_owner(d, Owner::Staff);
         }
-        assert!(stage_board(&w).is_none());
+        // SK26: a board handed to your staff still waits on your
+        // signature, so the signing stage keeps reading it.
+        assert!(stage_board(&w).is_some());
         assert!(visits_program(&w).is_none());
         assert!(portal_wants(&w).is_none());
         assert!(stay_talks(&w).is_none());
