@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, and the portal talks and takeover window of the thread "Fix mass transfers after coaching change" (main 8198872 plus that PR, 2026-10-28).
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, and the portal talks and takeover window of the thread "Fix mass transfers after coaching change" (PR #145, 2026-10-29).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -29,6 +29,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Is there a composite? From 2012, a 0.70-1.00 rating read off each class's national order: 5 stars from .9834, 4 from .89, 3 from .797, 2 from .70 (`world/scouting/services.rs`, `composite`, `BANDS`, `COMPOSITE_FROM`).
 - Who predicts where a recruit goes? Each service's insider, from 2011, every Tuesday (`world/scouting/services.rs`, `insiders_week`).
 - Do walk-ons exist? Yes: planned preferred walk-ons, local walk-on offers in February, open tryouts, and fall-camp scholarships for walk-ons who play (`class_plan`, `run_signing_stage`, `camp_walk_ons`).
+- Can a college coach cut a player? Yes, your own, from his player page: he is off the roster and out of your games that day and enters the next transfer window (see Cuts) (`world/front_office/college.rs`, `cut`).
 
 ## High schools and being seen
 
@@ -139,6 +140,14 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - Planned walk-ons fill a real squad for the level (FBS 119.7, FCS 108, D2 115, D3 107, NAIA 100, JUCO 80) under a scholarship limit; under the House limit they fill what the class leaves (`level_roster`, `class_plan`).
 - Fall camp: walk-ons who started or rotated go on scholarship where the limit has room, at most one snapper on aid (not D3, Ivy, PFL). Open tryouts: 8% of FBS/FCS programs a year, 16% below, take the best unsigned new graduate in their state (`camp_walk_ons`, `tryout_sticks`).
 - House era: 2024-25 walk-ons and the 2025 class's promised walk-ons don't count against the limit (`takes_a_place`).
+
+## Cuts (minor bug 60)
+
+- Who: a college head coach cuts any player on his roster not already in the portal, at any time, from the player page's "Cut him" (`crates/afm-game/src/lane_frontoffice/college.rs`, `college_cut`; `world/front_office/college.rs`, `cut`, `cut_words`). AI staffs don't cut.
+- His aid (`world/ncaa.rs`, `aid_kept`): a walk-on has none. A scholarship player at a power conference FBS school from the 2015 season keeps it while he stays in school (the autonomy rule); anywhere else, and before, it is a one-year award that isn't renewed. Division III gives no athletic aid.
+- The limit (`takes_a_place`): a cut player never counts. He leaves at the next window, so his place goes to next year's class under either limit. (A guaranteed scholarship player who stayed in school without football would still count; the world has nobody who does: he transfers or leaves football.)
+- That day: off the roster (`World::rebuild_rosters` skips him while `Person::cut_here` holds), out of the season's games ("cut from the team"), his NIL deal and your deal for him gone, a note on his page, news when he is a 4-star or a starter. His page reads "Cut by <school>, waiting for the transfer window".
+- The next window (`portal_open`): any winter, spring or graduate window takes him unless his eligibility is done. He enters that day, is never held for a playoff run, can land at his level or below (never up), and never returns; with no offer he leaves football. Once he lands elsewhere the cut no longer holds there.
 
 ## Academics and eligibility
 

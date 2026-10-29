@@ -1040,6 +1040,14 @@ pub(crate) fn combine(w: &mut World) {
         return;
     }
     super::pro::scouts::combine(w, &invited);
+    if w.logging() {
+        for &i in &invited {
+            let p = &w.people[i];
+            let skipped = w.scouting.predraft.has(p.player.id, super::scouting::predraft::SKIP_COMBINE);
+            let expected = crate::body::Drills::of(&p.player).expected();
+            w.log_why(super::wlog::Why::Combine { id: p.player.id, program: p.college, skipped, expected });
+        }
+    }
     let test = |p: &Person| {
         let a = &p.player.attributes;
         (a.get(Attr::Speed) + a.get(Attr::Acceleration) + a.get(Attr::Agility) + a.get(Attr::Strength)) / 4.0
@@ -1280,6 +1288,21 @@ pub(crate) fn draft_begin(w: &mut World) -> DraftRun {
     let draft_year = w.year;
     let seed = w.options.seed as u64;
     // The draft class moves to where the pro scouts project it.
+    if w.logging() {
+        for p in w.people.iter().filter(|p| p.stage == Stage::Declared) {
+            if let Some(to) = p.cal.pro_position {
+                let from = p.player.position;
+                w.log_why(super::wlog::Why::PositionMove {
+                    id: p.player.id,
+                    from,
+                    to,
+                    from_fit: crate::positions::overall_for(from, &p.player.attributes),
+                    to_fit: crate::positions::overall_for(to, &p.player.attributes),
+                    by: "the pro scouts' projection",
+                });
+            }
+        }
+    }
     for p in w.people.iter_mut().filter(|p| p.stage == Stage::Declared) {
         if let Some(to) = p.cal.pro_position.take() {
             let from = p.player.position;
@@ -2033,6 +2056,11 @@ pub(crate) fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool
     // A 2020 senior back for his COVID year didn't count against the 2021
     // scholarship limits (the NCAA's one-year exemption, A3).
     if super::eligibility::covid_senior(p, season) {
+        return false;
+    }
+    // A player you cut (minor bug 60) is off the roster and leaves at the
+    // next window: his place goes to next year's class.
+    if p.cut_here().is_some() {
         return false;
     }
     if whole_roster {
@@ -3250,6 +3278,9 @@ pub(crate) fn announce_commitments(w: &mut World, d: Date) {
                 .person(id, &name)
                 .school_link(j, &prog_name);
             w.calendar.post(e);
+        }
+        if w.logging() {
+            w.log_why(super::wlog::why::choice(w, i, j, "commit", walk_on));
         }
     }
 }
@@ -5414,6 +5445,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 {
                     w.coaches[c].units[group as usize].moved_up += up;
                 }
+                if w.logging() {
+                    w.log_why(super::wlog::why::choice(w, i, j, "signed", walk_on));
+                }
                 let (stars_n, name) = (w.people[i].stars, w.people[i].name.clone());
                 if stars_n >= 4 && !r.juco_mover {
                     let text = format!("{stars_n}-star {} {name} signs with {prog_name}.", w.people[i].player.position);
@@ -5545,6 +5579,8 @@ enum Why {
     Graduate,
     /// His school dropped football: free to play at once anywhere (NCAA waiver).
     ProgramDropped,
+    /// His coach cut him (minor bug 60): he moves at the next window.
+    Cut,
 }
 
 impl Why {
@@ -5559,6 +5595,7 @@ impl Why {
             Why::SpringDepth => "spring depth chart",
             Why::Graduate => "graduate transfer",
             Why::ProgramDropped => "program dropped",
+            Why::Cut => "cut",
         }
     }
     fn phrase(self) -> &'static str {
@@ -5572,6 +5609,7 @@ impl Why {
             Why::SpringDepth => "after losing the spring depth chart battle",
             Why::Graduate => "as a graduate transfer",
             Why::ProgramDropped => "after his school dropped football",
+            Why::Cut => "after he was cut",
         }
     }
     fn from_reason(r: &str) -> Why {
@@ -5584,6 +5622,7 @@ impl Why {
             "spring depth chart" => Why::SpringDepth,
             "graduate transfer" => Why::Graduate,
             "program dropped" => Why::ProgramDropped,
+            "cut" => Why::Cut,
             _ => Why::PlayingTime,
         }
     }
@@ -5770,6 +5809,18 @@ pub(crate) fn intents_day(w: &mut World) {
 /// A player's portal entry is set (T3): his NIL deal ends, and a starter's
 /// or blue-chip's entry is news on his day.
 fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Date, why: Why) -> Option<Event> {
+    if w.logging() {
+        let p = &w.people[i];
+        w.log_why(super::wlog::Why::PortalEntry {
+            id: p.player.id,
+            program: Some(c),
+            why: why.reason(),
+            lean: p.cal.lean,
+            events: p.cal.lean_events.clone(),
+            role: p.last_role,
+            held: false,
+        });
+    }
     let p = &mut w.people[i];
     p.cal.portal = Some(super::PortalEntry { entered, decide_by, why: why.reason(), held: false });
     // His NIL deal ends when he enters (T3).
@@ -6005,6 +6056,14 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             continue;
         }
         let div = w.programs[c].division;
+        // Cut from the team (minor bug 60): he enters the first window
+        // after the cut, unless his eligibility is done.
+        if p.cut_here().is_some() {
+            if !super::college::no_season_left(p, div, label) {
+                entrants.push((i, Why::Cut));
+            }
+            continue;
+        }
         // His draw for this window. It must be uniform: it was a squeezed
         // normal (most draws near 0.5), so an 18% lean came true about 3% of
         // the time and the portal ran at about a tenth of its real size
@@ -6239,7 +6298,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         let perf = p.last_performance.unwrap_or(p.player.overall());
         let q = clamp((perf - median(div, p.player.position)) / 10.0 + 0.4 + 0.1 * p.stars as f64, 0.0, 1.0);
         let id = p.player.id as u64;
-        let entered_on = if why == Why::Dismissed {
+        let entered_on = if matches!(why, Why::Dismissed | Why::Cut) {
             today
         } else if no_windows {
             // Within about three weeks of his last game, sooner for the best.
@@ -6253,7 +6312,10 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             serious.insert(i);
         }
         let bar = bars.get(&i).copied().filter(|_| mine == Some(c));
-        if alive[c] && why != Why::Dismissed && !matches!(which, PortalWindow::Spring | PortalWindow::Graduate) {
+        if alive[c]
+            && !matches!(why, Why::Dismissed | Why::Cut)
+            && !matches!(which, PortalWindow::Spring | PortalWindow::Graduate)
+        {
             let extra = (5.0 * key_uniform(seed ^ 0xE8, id)).floor() as i32;
             held.push(Held { person: i, program: c, window_day: entered_on, extra, decide_in, why, bar });
             // On hold: no day yet, and no decision due until he is released.
@@ -6458,6 +6520,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                     }
                     let allowed = match why {
                         Why::Dismissed => d as usize > from as usize || (d == from && !serious),
+                        Why::Cut => d as usize >= from as usize,
                         Why::MoveUp => (d as usize) < from as usize,
                         Why::ProgramDropped => true,
                         _ => d as usize >= from as usize || d == Division::FBS,
@@ -6502,9 +6565,11 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 if (!wanted && bond == 0.0) || j == c || mk.adds[j] >= 10 || counted[j] + mk.adds[j] >= limit {
                     return None;
                 }
-                // A dismissed player starts over a level down or at JUCO.
+                // A dismissed player starts over a level down or at JUCO; a
+                // cut one at his level or below.
                 let allowed = match why {
                     Why::Dismissed => d as usize > from as usize || (d == from && !serious && perf >= median(d)),
+                    Why::Cut => d as usize >= from as usize,
                     Why::MoveUp => (d as usize) < from as usize,
                     Why::ProgramDropped => true,
                     _ => d as usize >= from as usize || d == Division::FBS,
@@ -6538,7 +6603,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let what = why.phrase();
         let Some((j, _)) = pick else {
             // Portal regret (T3): his old school may take him back.
-            let back = why != Why::Dismissed
+            let back = !matches!(why, Why::Dismissed | Why::Cut)
                 && counted[c] < super::ncaa::roster_limits(&w.programs[c], season).0
                 && key_uniform(seed ^ 0xBAC, w.people[i].player.id as u64)
                     < if perf >= median(from) - 2.0 { 0.4 } else { 0.15 };
