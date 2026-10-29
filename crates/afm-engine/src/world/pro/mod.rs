@@ -645,11 +645,14 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
     super::people::sync_new(&mut player, &bg, &family);
     let ethnicity = super::ethnicity::player_ethnicity(state, z, Some(pos), &mut rng);
     let year = w.year;
-    // His college: an FBS program by its prestige, a few from below.
+    // His college: an FBS program by its prestige, a few from below; one
+    // that had a team in his last college season (not a college still
+    // waiting to start football, SK68).
+    let last_season = year - age as i32 + 21;
     let colleges: Vec<(usize, f64)> = w
         .programs
         .iter()
-        .filter(|p| p.division <= super::data::Division::FCS)
+        .filter(|p| p.division <= super::data::Division::FCS && p.plays(last_season))
         .map(|p| (p.id, if p.division == super::data::Division::FBS { p.prestige.max(0.05) } else { 0.05 }))
         .collect();
     let college = rng.weighted(&colleges);

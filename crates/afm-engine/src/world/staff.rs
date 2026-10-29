@@ -2954,7 +2954,12 @@ pub(crate) fn junior_slots(w: &World, e: Employer) -> Vec<(super::coach::Post, u
             let gas = if fbs || prog.division == Division::FCS { 4 } else { 2 };
             vec![(Post::GradAssistant, gas), (Post::Analyst, analysts)]
         }
-        Employer::Nfl(t) if super::franchise::active(t, w.year) => vec![(Post::QualityControl, 2)],
+        // A club in its year before its first season (SK68) hires them too.
+        Employer::Nfl(t)
+            if super::franchise::active_in(w, t, w.year) || super::franchise::active_in(w, t, w.year + 1) =>
+        {
+            vec![(Post::QualityControl, 2)]
+        }
         _ => Vec::new(),
     }
 }

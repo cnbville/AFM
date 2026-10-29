@@ -251,7 +251,8 @@ pub(crate) fn new_season(w: &World) -> NflSeason {
     // pros, on its own day in March and early April.
     let mut pro_days = Vec::new();
     let span = y.pro_days.0.days_to(y.pro_days.1).max(1);
-    for p in w.programs.iter().filter(|p| p.division <= super::data::Division::FCS) {
+    // Only a program that played last season has pros to show.
+    for p in w.programs.iter().filter(|p| p.division <= super::data::Division::FCS && p.plays(year - 1)) {
         let k = (key_uniform(seed ^ 0x5044, p.id as u64) * (span + 1) as f64) as i32;
         let mut d = y.pro_days.0.add(k.min(span));
         if d.weekday() == Weekday::Sun {
@@ -2887,6 +2888,14 @@ mod tests {
         let y = w.dates.clone();
         let s = w.nfl_season.as_mut().unwrap();
         s.wins = (0..s.wins.len()).map(|t| (t * 7 % 11) as u32).collect();
+        // Every early Sunday night game has a team out of the race, so the
+        // limit binds whatever teams the world's schedule put there.
+        for k in 4..=9 {
+            if let Some(g) = s.slots[k].iter().position(|x| x.window == Window::SundayNight) {
+                let t = s.weeks[k][g].0;
+                s.wins[t] = s.wins[t].min(1);
+            }
+        }
         // Ten games in: the teams at three wins or fewer are out of the race,
         // so their night games can be flexed out (part D 35).
         s.losses = s.wins.iter().map(|&x| 10 - x).collect();
