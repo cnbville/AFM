@@ -1,0 +1,770 @@
+# The line bank: reporters' questions, more versions (dialogue D2; format in
+# src/world/folk/voice.rs). Same keys as press.txt. The asker may have no
+# tags, so most versions are untagged; tags are his or her voice (blunt,
+# smooth, warm, cold, hot, ego, impatient, patient, old, she) and the level.
+# Facts: team, town, you, coach, year, old, old_last, rival, rivalry, series,
+# last_record, player, score (the winner's number first), opp, result (win
+# or loss), record. After the last game, result=win and result=loss pick
+# questions that only make sense after one. Battle is the quarterback
+# competition and never names {player}.
+
+@key press.q.lastgame
+What was the difference against {opp}?
+What did you learn about your team against {opp}?
+How would you sum up the {opp} game in a sentence?
+What did the film show you that you didn't see from the sideline?
+Was there a moment against {opp} where you felt the game swing?
+What did {opp} do that gave you problems?
+How did your adjustments at halftime play out?
+Where were you happiest with your team against {opp}?
+What's the first thing you'll correct this week?
+How did the young guys handle that environment?
+How did the line of scrimmage go, both sides?
+Were you satisfied with the tackling?
+How much did penalties factor into it?
+The turnover battle. How big was it in your eyes?
+How did the special teams hold up?
+What did third down look like from your seat?
+What did the red zone look like for you?
+Talk about the run game. What worked and what didn't?
+How did your quarterback play, in your view?
+How did the secondary hold up?
+What was the mood on the sideline in the fourth quarter?
+Did the plan you had going in survive the first quarter?
+What did you want to do that you couldn't do against {opp}?
+How quickly do you turn the page to next week?
+What did your staff see from the booth that helped?
+Did the conditions affect what you could call?
+Was clock management where you wanted it at the end of each half?
+Is there one player you want to single out from the {opp} game?
+Two quick ones. How's everybody's health, and how do you feel about the tape?
+What do you take into this week from the {opp} game?
+How did the crowd factor in?
+What did you see from your pass rush?
+How did the offense handle the pressure {opp} brought?
+Were there any surprises in what {opp} showed you?
+How would you rate your own game management?
+How do you think the game plan held up against what {opp} did?
+What were you most proud of from your group against {opp}?
+What's the one play you'd most like to have back?
+Did you get what you wanted out of the run-pass balance?
+How did your team respond to adversity in that game?
+How did the tempo feel to you?
+How much did field position shape that game?
+What's your read on how the coverage held up?
+How much did the noise affect the offense?
+What did {opp} do schematically that you'll have to account for going forward?
+How did you feel about the way your team started?
+How did you feel about the way your team finished?
+What does the {result} tell you about where you are as a team?
+A {score} final. Is that a fair reflection of the game?
+How did your guys handle the travel and the setup?
+Did you get the matchups you wanted against {opp}?
+How do you evaluate your staff's calls in that one?
+Is there anything from the {opp} game that changes your depth chart?
+What was the message in the locker room afterward?
+How did the team handle the {result} emotionally?
+Did the {opp} game go the way you scripted it in your head?
+Big picture, what does the {opp} game mean for the rest of the year?
+Did your team play to its standard against {opp}?
+How did you feel about your discipline, the penalties and the pre-snap stuff?
+How happy are you with the way you ran the ball late?
+How did you feel about the play calling in the two-minute drill?
+What did you think of the officiating? I know you can't say much.
+That was a statement win. What did it say to you? ~ result=win
+How do you keep the team from reading the headlines after a win like that? ~ result=win
+You won, but it wasn't always pretty. What do you need to clean up? ~ result=win
+Was there a moment you knew you had {opp}? ~ result=win
+How do you guard against a letdown after a win like {opp}? ~ result=win
+Is this the best your team has played this year? ~ result=win
+What's the message to a team that just beat {opp}? ~ result=win
+Does a win like that change how this team sees itself? ~ result=win
+Who was the player of the game for you? ~ result=win
+How much fun was that one? ~ result=win warm
+You don't win many games like that. What made the difference? ~ result=win
+Did you get a game ball? Who'd you give one to? ~ result=win warm
+How important was it to close that one out? ~ result=win
+What does this win do for the locker room? ~ result=win
+Your team made the plays when it had to. Is that a sign of growth? ~ result=win
+A win's a win, but are you happy with how you got there? ~ result=win
+That's the kind of win people around here remember. Does it feel like that to you? ~ result=win
+How do you feel about the way your defense closed it out? ~ result=win
+Was this a statement game for your program? ~ result=win college
+Is this team a contender after that win? ~ result=win nfl
+Does a win like that put you in the playoff conversation? ~ result=win
+Your quarterback looked comfortable. Is that the best he's played? ~ result=win
+Does that win make up for the rough patch earlier in the year? ~ result=win
+You've been trending up. Is this the turning point? ~ result=win
+Where do you go from here? ~ result=win
+After a loss like that, what's the first thing you said to the team? ~ result=loss
+Where did it get away from you? ~ result=loss
+What went wrong? ~ result=loss
+Is this loss on execution or on the plan? ~ result=loss
+How do you keep that loss from turning into two? ~ result=loss
+Was it effort, or was it something else? ~ result=loss blunt
+Do you have a quarterback problem? ~ result=loss blunt
+How do you rebound from that one? ~ result=loss
+What do you tell the fans after a loss like that? ~ result=loss
+Did your team quit at any point? ~ result=loss blunt
+Was this the worst your team has played this year? ~ result=loss
+Are you going to make any changes after that? ~ result=loss
+Do you need to look at the play calling after that loss? ~ result=loss
+How much of the blame do you take for that one? ~ result=loss
+That was a tough one to watch. Was it tough to coach? ~ result=loss
+How long will it take to get over a loss like that? ~ result=loss
+What's the mood in the locker room right now? ~ result=loss
+Are you worried about where this season is going? ~ result=loss
+What was missing out there? ~ result=loss
+How do you fix the turnovers? ~ result=loss
+Is this a talent issue or a coaching issue? ~ result=loss blunt
+Was your team ready to play? ~ result=loss blunt
+Does that loss change your goals for the season? ~ result=loss
+Do you change anything in practice this week? ~ result=loss
+What's your message to a team that just lost like that? ~ result=loss
+It looked like {opp} was the more physical team. Do you agree? ~ result=loss
+You had chances late. What happened? ~ result=loss
+Was this a winnable game? ~ result=loss
+Do the players believe in what you're doing after a loss like that? ~ result=loss
+What do you say to a fan who's had enough? ~ result=loss impatient
+How many more of these can this team take? ~ result=loss impatient
+I'm going to ask it plainly. What happened out there? ~ result=loss blunt
+Coach, the fans booed at halftime. Did you hear it? ~ result=loss blunt
+How do you sleep after a game like that? ~ result=loss
+That one's going to sting. How do you move past it? ~ result=loss warm
+Your team fought. Is there something to build on there? ~ result=loss warm
+You were in it till the end. What's the takeaway? ~ result=loss warm
+I don't want to pile on. What's the good you saw? ~ result=loss warm
+I'll start easy. How's the team doing physically? ~ warm
+Let's start with the good. What did you like? ~ warm
+What made you proudest out there? ~ warm
+How's the team feeling this morning? ~ warm
+I'll ask what everyone's thinking. Was that good enough? ~ blunt
+Be honest with us. How bad was it? ~ blunt result=loss
+Let me skip the niceties. What happened in the second half? ~ blunt
+Do you think you were outcoached? ~ blunt result=loss
+Your offense has looked lost at times. Was that the case again? ~ blunt result=loss
+Is your team as good as people thought in August? ~ blunt
+Do you take any responsibility for the result? ~ blunt
+Coach, some would say you got lucky. Did you? ~ blunt result=win
+Can you talk us through the decisions late in the game? ~ smooth
+Help us understand what you saw on the key plays. ~ smooth
+Take us inside the game plan. What were you trying to do? ~ smooth
+Paint us a picture of the locker room afterward. ~ smooth
+In your eyes, what was the story of the game? ~ smooth
+Where does this game rank in your career? ~ ego
+Did you feel like you won the chess match? ~ ego
+How much of that was your call specifically? ~ ego
+Is it fair to say your plan was the difference? ~ ego result=win
+Short and simple, Coach. What happened? ~ impatient
+Can you give us one sentence on the game? ~ impatient
+What's the bottom line? ~ impatient
+Let's take it from the top. Talk us through the first quarter. ~ patient
+Take your time on this one. What did you see? ~ patient
+I'm curious about the little things. What details stood out? ~ patient
+I've watched a lot of these games over the years. That one felt different. Did it to you? ~ old
+I've covered this team for a long time. Where does that one rank? ~ old
+It reminded me of some of the old games in this series. Did you feel that? ~ old
+How did the Friday night crowd feel to you? ~ hs
+What did you tell the kids after the game? ~ hs
+How did the seniors handle it? ~ hs
+How did the young kids handle the varsity lights? ~ hs
+Is this team better than people in town think? ~ hs
+How much does a game like that help with the kids' recruiting? ~ hs
+What does that game mean in the district race? ~ hs
+How does that result affect your playoff seeding? ~ hs
+How does that result shape the conference race? ~ college
+What did that game do for your bowl hopes? ~ college
+How did your freshmen hold up? ~ college
+Does that change your recruiting pitch at all? ~ college
+How did the student section feel to you? ~ college
+Where does that leave you in the conference standings? ~ college
+How did your team handle the road environment? ~ college
+How did the guys you brought in from the portal play? ~ college nil
+How does that result change the division picture? ~ nfl
+How did the rookies hold up? ~ nfl
+How do the injuries look coming out of that one? ~ nfl
+What did your quarterback see from the coverage? ~ nfl
+How did the offensive line handle their front? ~ nfl
+How much does a short week change how you get over this one? ~ nfl
+Is the playoff picture on your mind yet? ~ nfl
+How much did you rely on your analytics on fourth down? ~ nfl
+Were the challenge decisions where you wanted them? ~ nfl
+How did your team handle the prime-time stage? ~ nfl
+
+@key press.q.player
+How has {player} looked in practice this week?
+What makes {player} tick?
+What's {player}'s role going to be this week?
+What have you seen from {player} on the practice field lately?
+Is {player} where you thought he'd be at this point?
+What's the next step for {player}?
+How has {player} grown since you got him?
+Is {player} a captain-type guy in your eyes?
+How has {player} handled the attention he's been getting?
+What does {player} do that makes him so tough to game plan for?
+How do you get {player} more involved?
+Has {player} surprised you at all this year?
+What's {player} like in the meeting room?
+How much of {player}'s game is natural and how much is work?
+What's the one thing {player} needs to get better at?
+How do the guys in the locker room see {player}?
+Is {player} healthy?
+What kind of worker is {player}?
+Who does {player} remind you of?
+What's {player}'s ceiling, in your mind?
+How do you keep {player} hungry?
+What's {player}'s best trait as a teammate?
+How has {player}'s week of preparation been?
+Is {player} a guy you'd build around?
+How do you manage {player}'s workload?
+Can you talk about {player}'s leadership?
+What does {player} bring that doesn't show up in the numbers?
+How has {player} handled his ups and downs this year?
+Is {player} getting enough touches, in your opinion?
+How has {player}'s confidence been?
+Have you had to push {player}, or does he push himself?
+What's {player}'s football IQ like?
+Does {player} watch a lot of film?
+What did {player} do this week that impressed you?
+What's {player} like off the field?
+How do you keep {player} focused with everything going on around him?
+Is {player} the most talented player you've coached?
+What would you say to people who think {player} is overrated? ~ blunt
+Is {player} worth all the hype? ~ blunt
+Is {player} playing up to his billing? ~ blunt
+Some people say {player} disappears in big games. Do you buy that? ~ blunt
+Is {player} the kind of guy you can win a title with? ~ blunt
+Do you worry about {player}'s attitude at all? ~ blunt
+How do you see {player}'s future here? ~ smooth
+What's a side of {player} people don't see? ~ smooth
+Tell us something about {player} we don't know. ~ smooth warm
+What's your favorite {player} story so far? ~ warm
+How proud are you of the way {player} has come along? ~ warm
+{player} seems like a great kid. Is that the case? ~ warm !nfl
+{player} seems to be having fun out there. Is he? ~ warm
+Quick one on {player}. Is he good to go? ~ impatient
+Just give us one word on {player}. ~ impatient
+I've seen a lot of players come through here. Where does {player} fit? ~ old
+{player} reminds some of us of the great ones from back in the day. Is that fair? ~ old
+How do you handle the attention on {player} as the head coach? ~ ego
+Does {player} make your job easier? ~ ego
+How are the colleges approaching {player}? ~ hs
+Is {player} going to stay in state, do you think? ~ hs
+How many offers does {player} have now? ~ hs
+What's {player} like in the classroom? ~ hs
+How does {player} handle the recruiting attention at school? ~ hs
+Is {player} going to be a Division I player? ~ hs
+How do you manage {player}'s camp schedule this summer? ~ hs
+Is {player} going to play on both sides of the ball? ~ hs
+What's {player}'s NFL ceiling? ~ college
+Is {player} thinking about the draft? ~ college
+Do you expect {player} back next year? ~ college
+How is {player} handling the NIL side of things? ~ college nil
+Is {player} a Heisman candidate? ~ college
+Have NFL scouts been asking about {player}? ~ college
+Is {player} going to be a first-rounder? ~ college
+How has {player} grown academically? ~ college
+Are you worried about losing {player} to the portal? ~ college nil
+How do you keep {player} from looking ahead to the draft? ~ college
+Is {player}'s contract situation weighing on him? ~ nfl
+Is {player} a Pro Bowl player in your eyes? ~ nfl
+How has {player} handled being a veteran in this locker room? ~ nfl
+Is {player} going to get an extension? ~ nfl
+How do you see {player}'s role changing as the season goes on? ~ nfl
+Is {player} the best at his position in this league? ~ nfl
+How has {player} adjusted to the speed of the league? ~ nfl
+What's {player} like with the young players? ~ nfl
+
+@key press.q.injury
+Do you have an update on {player}'s status?
+What did the doctors say about {player}?
+How serious is {player}'s injury?
+When do you expect to have {player} back?
+How is {player} handling being out?
+What does losing {player} do to your plans?
+Is {player}'s injury the kind that lingers?
+Will {player} need any kind of procedure?
+How did {player} look in the training room this week?
+Is there a chance {player} plays this week?
+What's the plan at {player}'s spot while he's out?
+Are you confident in the next man up behind {player}?
+Is {player} expected to make a full recovery?
+Has {player} done any running yet?
+How did {player} get hurt, from what you know?
+Is {player} getting a second opinion?
+Is {player}'s season in jeopardy?
+How's {player}'s spirits?
+Are you being cautious with {player}?
+Is {player} going to be limited when he comes back?
+Is the injury to {player} related to what he dealt with before?
+What's the timeline you're working with on {player}?
+How much does {player}'s absence change your game plan?
+Do you expect {player} to practice at all this week?
+Is {player} going to travel with the team?
+Who has the final say on {player} coming back, you or the doctors?
+How are the other injured guys progressing?
+Is anyone else banged up that we should know about?
+Is the team as healthy as it's been all year?
+How are you managing the bumps and bruises this week?
+Can you give us anything on {player}, even a word?
+Is {player} wearing a boot?
+Are you going to have {player} back by the stretch run?
+Coach, how close is {player}?
+Is {player} going to be a game-time decision?
+Is it a soft tissue thing with {player}, or something structural?
+Are you worried about {player} pushing to come back too early?
+Are you going to give {player}'s backup the full workload?
+Is {player} in good spirits?
+What did {player} tell you about how he feels?
+Is there anything you're hiding about {player}? ~ blunt
+Is {player} hurt worse than you're letting on? ~ blunt
+Are you going to be straight with us on {player} this time? ~ blunt
+How worried should fans be about {player}? ~ blunt
+Is this one going to cost {player} the season? ~ blunt
+Our sources say it's worse than day to day. Is that accurate? ~ blunt
+We're hearing {player} could be out a while. Can you confirm? ~ smooth
+Can you shed any light on {player}'s timeline? ~ smooth
+Help us understand where {player} is in his recovery. ~ smooth
+I hope {player} is doing alright. How is he? ~ warm
+How's {player} doing as a person? That's a tough break. ~ warm
+Everyone's pulling for {player}. How's he holding up? ~ warm
+Is {player} in or out? ~ impatient
+Yes or no on {player} this week? ~ impatient
+Give us a percentage on {player}. ~ impatient
+Has {player} been cleared by the doctors? ~ hs
+Is {player} going to miss the district opener? ~ hs
+Is {player} going to be ready for the playoffs? ~ hs
+How are {player}'s parents handling the injury? ~ hs
+Is {player}'s injury going to affect his recruitment? ~ hs
+Is {player} going to have to sit for the rest of the year? ~ hs
+Is the athletic trainer taking the lead on {player}? ~ hs
+Will {player} be available for the conference opener? ~ college
+Is there any concern {player} could take a medical redshirt? ~ college
+How does {player}'s injury affect his draft stock? ~ college
+Is {player} going to be ready for bowl season? ~ college
+Will {player} be listed on the availability report? ~ college modern
+Will {player} practice Wednesday? ~ nfl
+Is {player} a candidate for the reserve list? ~ nfl
+Is {player} going to be designated to return? ~ nfl
+How does {player}'s injury change your roster plans? ~ nfl
+Are you looking at bringing someone in for {player}? ~ nfl
+Will {player} be limited or full on Wednesday's report? ~ nfl
+Is {player}'s contract situation a factor in how fast he comes back? ~ nfl
+
+@key press.q.battle
+Has anyone separated in the quarterback race?
+What's the latest on the quarterback competition?
+How close is the quarterback battle right now?
+Who's taken the most first-team reps at quarterback this week?
+Have you set a date to name your quarterback?
+How do the two quarterbacks handle the competition with each other?
+Are the quarterbacks splitting reps evenly?
+What are you looking for from the quarterbacks in the scrimmage?
+How much does the scrimmage weigh in the quarterback decision?
+Is the quarterback decision going to come down to decision-making or arm talent?
+How do you keep the other guy engaged once you name a starter?
+Is it possible both quarterbacks play in the opener?
+Would a two-quarterback system work in your offense?
+Do the receivers have a preference at quarterback?
+How does the locker room view the quarterback race?
+What's the biggest thing holding each quarterback back?
+Is experience going to be a tiebreaker at quarterback?
+How much does protecting the football factor into the quarterback decision?
+Who's handled the pressure better at quarterback?
+How has the quarterback competition raised the level of practice?
+Will the quarterback decision be yours alone, or the coordinator's too?
+How much of the playbook can each quarterback run right now?
+Are you comfortable going into the opener without a clear starter?
+Is the competition at quarterback healthy, or is it starting to wear on people?
+How do you tell a quarterback he didn't win the job?
+Is the quarterback race affecting how you install the offense?
+Has either quarterback shown you something in the last week that moved the needle?
+How do you weigh practice against game film at quarterback?
+Has the quarterback battle been decided behind closed doors? ~ blunt
+Isn't the lack of a decision a decision in itself? ~ blunt
+Is this quarterback race really close, or are you being polite? ~ blunt
+Neither quarterback has grabbed the job. Does that worry you? ~ blunt
+Do you have a quarterback you trust yet? ~ blunt
+Can you give us a hint at quarterback? ~ smooth
+Walk us through how you'll make the quarterback call. ~ smooth
+What does each quarterback do better than the other? ~ smooth
+Help us understand what separates the quarterbacks. ~ smooth
+How are the two quarterbacks getting along? ~ warm
+What have you liked from both quarterbacks? ~ warm
+Is it fun to have two good quarterbacks competing? ~ warm
+When are we getting the answer at quarterback? ~ impatient
+Is the quarterback named by Friday or not? ~ impatient
+Can you just tell us who's starting at quarterback? ~ impatient
+I've seen a lot of quarterback competitions in this town. Does this one remind you of any? ~ old
+How does the quarterback race compare to the ones you've been part of? ~ old
+Is the quarterback decision going to come down to who wins the district opener? ~ hs
+Have the quarterbacks' parents been calling you? ~ hs
+Will the quarterback who loses the job play somewhere else on the field? ~ hs
+Are you worried about the other quarterback transferring schools? ~ hs
+Does the quarterback battle affect your recruiting at the position? ~ college
+Could the quarterback who doesn't win the job leave in the portal? ~ college nil
+Is the quarterback race affecting the way the veteran approaches the season? ~ nfl
+Is it a true open competition at quarterback, or does the contract decide it? ~ nfl blunt
+How do the preseason games factor into the quarterback decision? ~ nfl
+
+@key press.q.hotseat
+At {record}, how do you keep the team together?
+You're {record}. What's the plan to turn it around?
+Do you feel the pressure at {record}?
+How much longer can this go on at {record}?
+Are you still confident in what you're doing at {record}?
+Has your approach changed since the start of the season?
+How do you handle the criticism?
+What's your message to the fans who are frustrated?
+Do the players still believe in you?
+Have you lost any sleep over the job talk?
+How do you block out the noise about your job?
+What do you tell your family when they read about your job?
+Are you changing anything about how you prepare?
+Are you going to change the play-caller?
+Would you consider shaking up the staff?
+What do you need to see to feel like it's turning?
+How does a team respond at {record}?
+Is it fair to judge your tenure on this season?
+What would you say to people who think it's time for a change?
+Do you still have the support of the people above you?
+Is the job harder than you thought it would be?
+Have you met with your boss about the direction of the program?
+Are you pressing at all?
+How much does {record} weigh on you personally?
+Do you think you'll be back next year?
+What's the plan if this keeps going?
+Are you coaching to save your job?
+Do the players read what's being said about you?
+Is the effort still there at {record}?
+Are you worried the locker room is splitting?
+Do you think the fans have been fair to you?
+Is there a game on the schedule you've circled as the turning point?
+How do you stay positive at {record}?
+Is it a talent problem or a coaching problem at {record}? ~ blunt
+Do you deserve another year? ~ blunt
+Should you be the coach next season? ~ blunt
+What would you do if you were your boss right now? ~ blunt
+Are you the problem? ~ blunt
+How many more losses before it's out of your hands? ~ blunt
+The fans have been calling for your job. Is it time? ~ blunt impatient
+Some people say the game has passed you by. Your response? ~ blunt old
+Is this the end of the road for you here? ~ blunt
+Can you lay out your vision for turning this around? ~ smooth
+What do you want people to understand about where this program is? ~ smooth
+Help us see what you see in this team. ~ smooth
+What gives you hope at {record}? ~ smooth
+How are you holding up, honestly? ~ warm
+How's your family handling all this? ~ warm
+Is it hard to stay upbeat with the players at {record}? ~ warm
+What keeps you going on the hard weeks? ~ warm
+Yes or no, Coach. Will you be here next year? ~ impatient
+How much longer do you need? ~ impatient
+Fans want results now. Can you deliver them? ~ impatient
+I've seen a lot of coaches go through stretches like this. How do you get out of it? ~ old
+This town's been through this before. Why is this time different? ~ old
+How do you see your place in the history of this program? ~ old
+Do you ever think you took the wrong job? ~ ego
+Is your reputation taking a hit? ~ ego
+Has the principal talked to you about the season? ~ hs
+The boosters are frustrated. Have you heard from them? ~ hs
+Are parents pulling kids out of the program? ~ hs
+Is the school board involved in the conversation about your job? ~ hs
+Have you heard from the athletic director this week? ~ college
+Is a buyout being discussed? ~ college
+How do you recruit when people are writing about your job? ~ college
+Are the commits staying with you through this? ~ college
+Will the transfer portal hurt you if things don't turn around? ~ college nil
+The boosters are restless. Have you met with them? ~ college
+Has the general manager expressed confidence in you? ~ nfl
+Has the owner spoken to you this week? ~ nfl
+Are you worried about losing the locker room at {record}? ~ nfl
+Is it fair to judge you on this roster? ~ nfl
+Are you coaching for your job the rest of the way? ~ nfl blunt
+
+@key press.q.rival
+What makes {rivalry} different from the other games on the schedule?
+How do you approach {rival} week with the players?
+What's your history with {rival}?
+How does {rival} look on film this year?
+What worries you about {rival}?
+How much does {rival} week mean to the fans here?
+Is there extra intensity in practice this week?
+How do you keep the emotion of {rival} week in check?
+Is {rival} the game this season is judged by?
+What was it like the first time you were part of {rivalry}?
+Do you hear from the old players this week?
+How do you handle the noise around {rival} week?
+Do you change anything in your preparation for {rival}?
+What does a win over {rival} do for the program?
+How do your players feel about {rival}?
+Is there respect between the two sides?
+How much do you study {rival}'s history?
+Is this the biggest game of the year for you?
+What's the key matchup against {rival}?
+Do the guys who aren't from around here understand what {rivalry} is about?
+The series stands at {series}. Do you feel that history?
+How much does this game mean for recruiting? ~ !nfl
+How much does the trophy matter? ~ !nfl
+Do you have a team tradition for {rival} week?
+Is there anything you won't say about {rival} this week?
+What's {rival}'s biggest strength?
+How do you see the game playing out?
+How do you prepare the young guys for the atmosphere?
+Is this the best {rival} team you've seen?
+Some coaches downplay rivalry games. Do you?
+Is it personal against {rival}?
+Do you ever lose sleep over {rival}?
+Have you lost sleep over the last meeting with {rival}? ~ blunt
+Are you going to be the coach who finally turns this series around? ~ blunt
+Is it embarrassing to keep losing to {rival}? ~ blunt
+Do you dislike {rival}? ~ blunt
+How do you see the matchup with {rival} playing out? ~ smooth
+What's the chess match with {rival}'s staff going to look like? ~ smooth
+What does it feel like to be part of {rivalry}? ~ warm
+What's your favorite memory of {rivalry} so far? ~ warm
+Does {rival} week ever get old? ~ warm
+Short version, Coach. Are you beating {rival}? ~ impatient
+What's the plan to win this one? ~ impatient
+I've covered a lot of these games. This one feels bigger. Does it to you? ~ old
+Do you know about the great games in this series from years back? ~ old
+Do you want to be remembered for beating {rival}? ~ ego
+Is this week about proving you're the better coach? ~ ego
+The whole town shuts down for this one. Do you feel that? ~ hs
+How do you keep the kids from getting into it with {rival} kids at school? ~ hs
+Is homecoming bigger or {rival} bigger? ~ hs
+What does the band and the student section bring to this game? ~ hs
+Does beating {rival} matter in the race for in-state recruits? ~ college
+How do you keep the players focused with the whole campus fired up? ~ college
+Is beating {rival} more important than a bowl game? ~ college
+Does the division standing raise the stakes this year? ~ nfl
+Do the players still feel the history in this league? ~ nfl
+Is a division game against {rival} worth more than any other? ~ nfl
+
+@key press.q.trouble
+What can you tell us about {player}?
+Where do things stand with {player}?
+Has {player} been disciplined by the team?
+Will {player} be with the team this week?
+What did {player} tell you about what happened?
+How did you find out about {player}?
+Is {player} still practicing?
+Have you talked to {player}'s family?
+Is there a team rule {player} broke?
+What happens next with {player}?
+How long will {player} be out?
+How is the team handling the situation with {player}?
+Is {player}'s status going to change as more comes out?
+Is the program cooperating with the authorities on {player}?
+What's your standard for players who get in trouble?
+Is {player} going to get a second chance?
+Do you stand behind {player}?
+Has {player} apologized to the team?
+Was there any warning sign with {player}?
+How does a situation like {player}'s affect the locker room?
+What message does this send to the rest of the roster?
+Is there a culture problem here?
+What are you doing to keep this from happening again?
+Is the discipline for {player} coming from you or above you?
+How do you balance supporting {player} and holding him accountable?
+Have you spoken with the team about {player}?
+When will you have more on {player}?
+Is {player}'s spot on the roster in question?
+Does what happened with {player} change how you vet players?
+Is {player} getting counseling or support?
+Are you protecting {player}? ~ blunt
+Why should anyone believe this won't happen again? ~ blunt
+Would you treat a backup the same way you're treating {player}? ~ blunt
+How many chances does {player} get? ~ blunt
+Is this a leadership failure on your part? ~ blunt
+Did you know about this before it went public? ~ blunt
+Can you help us understand the timeline with {player}? ~ smooth
+What's the process from here with {player}? ~ smooth
+Can you walk us through how you're handling {player}? ~ smooth
+How is {player} doing personally? ~ warm
+Is {player} getting the help he needs? ~ warm
+Has this been hard on the team? ~ warm
+Is {player} suspended, yes or no? ~ impatient
+Does {player} play Saturday or not? ~ impatient college
+Does {player} play Sunday or not? ~ impatient nfl
+Does {player} play Friday or not? ~ impatient hs
+I've covered a lot of programs through things like this. How is this one handling it? ~ old
+Is the school's discipline policy involved with {player}? ~ hs
+Have {player}'s parents been in contact with you? ~ hs
+Is {player} still enrolled? ~ hs
+Will this affect {player}'s recruitment? ~ hs
+Is the athletic department handling {player}'s case? ~ college
+Is the university's student conduct office involved? ~ college
+Will {player}'s scholarship be affected? ~ college
+Is there a chance {player} enters the portal over this? ~ college nil
+Has the league office been in touch about {player}? ~ nfl
+Is {player} going on the exempt list? ~ nfl
+Is the team going to wait for the league's investigation? ~ nfl
+Is {player}'s contract affected? ~ nfl
+Has the union reached out about {player}? ~ nfl
+
+@key press.q.vision
+What made you take this job?
+What's your plan for the first hundred days?
+What's the identity of a {team} team going to be?
+What did you see from the outside that you think you can fix?
+What did you learn from your last job that you'll bring here?
+How quickly can you turn this around?
+What kind of players are you looking for?
+What's your offensive philosophy?
+What's your defensive philosophy?
+How important is special teams to you?
+What kind of culture do you want in the locker room?
+What's the first message you'll give the players?
+How will you measure success in year one?
+Is this a place you see yourself for a long time?
+What's your approach to discipline?
+How involved will you be in the play calling?
+What are you looking for in your coordinators?
+Have you had a chance to meet the players yet?
+What surprised you most in your first few days here?
+What's the hardest part of taking over a program?
+Who were your biggest influences as a coach?
+How will you balance winning now and building for later?
+What do you need from the people above you to succeed?
+What's your relationship with the community going to look like?
+What should the fans be excited about?
+How much do you know about this place's history?
+What does {town} mean to you?
+What's your message to the players who are unsure about the change?
+What's one thing you won't compromise on?
+How will you use the offseason?
+Is there a timeline you've set for yourself?
+What will practices look like under you?
+What do you want to be known for here?
+Do you think you're the right fit for {team}?
+How did you feel when you got the call?
+Who's the first person you called after you got the job?
+There have been a lot of coaches through here. Why will you last? ~ blunt
+What makes you think you can win here? ~ blunt
+Isn't this job a step up for you? ~ blunt
+Were you the first choice? ~ blunt
+What do you say to people who wanted someone else? ~ blunt
+Paint us the picture of a {team} team three years from now. ~ smooth
+What's the story you want people to tell about your tenure? ~ smooth
+Tell us about your family. How are they settling in? ~ warm
+What's the first thing you want to do in {town}? ~ warm
+How does it feel to be here? ~ warm
+What's your timeline to win, in one sentence? ~ impatient
+When does this team win? ~ impatient
+I've seen a lot of introductions in this room. What do you bring that's different? ~ old
+How do you plan to honor the program's past? ~ old
+Where does this job rank in your career? ~ ego
+Is this a stepping stone for you? ~ ego blunt
+How will you get the kids in {town} to come out for football? ~ hs
+How do you plan to work with the middle school programs? ~ hs
+What's your plan for the weight room? ~ hs
+How do you get the community behind the program? ~ hs
+Will you be teaching at the school? ~ hs
+How will you recruit the hallways? ~ hs
+What's your plan for academics and eligibility? ~ hs
+How will you approach recruiting this state? ~ college
+How important is the transfer portal going to be for you? ~ college nil
+What's your plan for NIL and the collective? ~ college nil
+How do you plan to handle revenue sharing? ~ college nil
+How will you handle the roster turnover after a coaching change? ~ college
+How important is it to keep the in-state talent home? ~ college
+What do you look for in a quarterback? ~ college
+What does the conference need to see from {team}? ~ college
+How will you work with the general manager? ~ nfl
+What's the plan at quarterback? ~ nfl
+Do you have control of the roster? ~ nfl
+How do you see your relationship with ownership? ~ nfl
+How much will you lean on analytics? ~ nfl
+What will you bring to the draft room? ~ nfl
+Is this roster built to win now? ~ nfl
+What's your message to this fan base? ~ nfl
+
+@key press.q.oldcoach
+How do you handle the shadow of {old}?
+What did {old} build here that you want to keep?
+Have you reached out to {old}?
+What's your relationship with {old_last} like?
+Did {old_last} give you any advice?
+Is it hard to follow someone like {old}?
+Are you going to keep any of {old_last}'s traditions?
+How will you win over the players who loved {old_last}?
+How do you replace a coach like {old}?
+How much of {old_last}'s system will you keep?
+Do you feel you have to win over the fans who liked {old_last}?
+What do you respect most about what {old} did here?
+Is there a part of {old_last}'s program you want to change right away?
+How do you talk about {old_last} with the players?
+Are you going to keep anyone from {old_last}'s staff?
+Have you watched film of {old_last}'s teams?
+Did {old_last} leave you a good roster?
+Will you be compared to {old} all season?
+What do you think {old_last} would say about you taking over?
+Are you different from {old_last}? How?
+Does following {old} make the job easier or harder?
+Was {old_last} pushed out, from what you know? ~ blunt
+What did {old_last} do wrong? ~ blunt
+Are you better than {old_last}? ~ blunt
+The players say they miss {old_last}. How do you handle that? ~ blunt
+Some people say {old_last} was treated unfairly. Do you agree? ~ blunt
+How do you honor {old}'s legacy while building your own? ~ smooth
+What will your program borrow from {old_last}'s? ~ smooth
+Have you had a chance to get to know {old_last}? ~ warm
+How has {old} welcomed you? ~ warm
+Is it true you've talked to {old_last}? ~ impatient
+I covered {old_last}'s whole run here. Do you know what you're walking into? ~ old
+Do you think you can top what {old_last} did? ~ ego
+{old_last} still teaches at the school. Have you talked? ~ hs
+A lot of people in {town} played for {old_last}. How do you win them over? ~ hs
+Will {old_last}'s assistants stay on at the school? ~ hs
+{old_last}'s recruits are your roster now. How do you see them? ~ college
+Are any of {old_last}'s commits leaving with him? ~ college
+How do you keep {old_last}'s players from going to the portal? ~ college nil
+How do you handle a roster built for {old_last}'s scheme? ~ nfl
+Does {old_last}'s quarterback fit your system? ~ nfl
+
+@key press.q.recruiting
+What's your recruiting philosophy?
+Where are you going to recruit hardest?
+How do you sell {team} to a recruit?
+How important are the high school coaches in this state to you?
+What's the biggest selling point of this program?
+How do you plan to keep local players at home?
+What do you look for in a recruit beyond talent?
+How quickly can you build a class you're proud of?
+How do you approach the commits from the old staff?
+Is there a position you need to recruit right away?
+How much does your staff's recruiting ability matter in hiring?
+What will your recruiting staff look like?
+How do you plan to use official visits?
+How will you approach the junior college ranks?
+What's your pitch to a kid with offers from bigger programs?
+What part of the country do you have the best ties in?
+How do you plan to compete with the schools around you for players?
+Are you going to recruit the transfer portal heavily? ~ nil
+How do you evaluate a high school player?
+What do you want parents to know about you?
+Will you take chances on players with off-field questions?
+How much will facilities play into your recruiting?
+How much does winning right away matter for recruiting?
+Do you put much stock in the recruiting rankings?
+Will you offer early, or wait to evaluate?
+How do you think about academics in recruiting?
+What's your message to the high school coaches in {town}?
+How do you recruit against negative recruiting?
+Can you win recruiting battles here? ~ blunt
+The last staff struggled to keep players home. Why will you be different? ~ blunt
+Is it possible to recruit at a high level here? ~ blunt
+How can you sell stability after all the turnover? ~ blunt
+What does the ideal {team} recruit look like? ~ smooth
+Walk us through your recruiting approach. ~ smooth
+What will you tell the families who visit? ~ warm
+What's your favorite part of recruiting? ~ warm
+How fast can you land a top class? ~ impatient
+I've watched a lot of coaches try to recruit this state. What's your plan? ~ old
+Is recruiting your strength as a coach? ~ ego
+How do you plan to use NIL in recruiting? ~ nil
+Does revenue sharing change your recruiting pitch? ~ nil
+How do you handle a recruit's representatives? ~ nil
+How involved will the collective be in recruiting? ~ nil
+Will the portal or high school recruiting be the priority? ~ nil

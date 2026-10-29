@@ -16,6 +16,7 @@ mod lane9;
 mod leagues;
 mod legacy;
 mod level_rating;
+mod lines;
 mod links;
 mod live_game;
 mod polls;
