@@ -170,7 +170,7 @@ screens.scout = async (a) => {
       <h1>${esc(f.name)}</h1>
       <div class="meta"><span>${size}</span><span>Age <b>${f.age}</b></span>${boardLine ? `<span>${boardLine}</span>` : ""}</div>
       <div class="st-actions">
-        ${f.film_now ? `<button class="st-btn l7-film" data-act="sc-ask" data-id="${f.id}" data-kind="Watch his film now" title="You watch ${esc(f.film_now.what)} yourself, today: ${f.film_now.hours} of your ${f.film_now.left.toFixed(1)} film hours left this week (${f.film_now.week} a week). Read by your own eye.">Watch his film now <small>${f.film_now.hours} h · ${f.film_now.left.toFixed(1)} left</small></button>` : ""}
+        ${f.film_now ? `<button class="st-btn l7-film" data-go="film" data-id="${f.id}" title="You watch his tape yourself, today, in the film room: a cut-up snap by snap (about 24 minutes) or quick (20). ${f.film_now.left.toFixed(1)} of your ${f.film_now.week} film hours left this week. Read by your own eye.">Watch his film now <small>${f.film_now.left.toFixed(1)} h left</small></button>` : ""}
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
         <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "Following" : "Follow"}</button>
         <button class="st-btn glass" data-go="player" data-id="${f.id}">Player page</button>

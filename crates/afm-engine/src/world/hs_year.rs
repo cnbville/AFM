@@ -1212,6 +1212,12 @@ pub(crate) fn squad_team(
 
 /// Your school's game team for its next game (the week after the last one
 /// played; the first week before the season), for the depth chart screen.
+/// A school's team for its film (update 3, lane 9): the team as it would
+/// dress for a game this week, for a tape played on the engine.
+pub(crate) fn film_team(w: &World, h: usize) -> Option<(GameTeam, Vec<(u32, usize)>)> {
+    hs_team(w, h, 0)
+}
+
 pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
     let week = w.hs_season.as_ref().map_or(0, |hs| {
         let st = &hs.states[w.high_schools[h].state];

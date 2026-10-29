@@ -20,6 +20,7 @@
 pub mod board;
 pub mod dept;
 pub mod file;
+pub mod film;
 pub mod footage;
 pub mod hs;
 pub mod letters;
@@ -365,6 +366,9 @@ pub struct Scouting {
     /// Athletes from outside football you signed (SK65), by key.
     #[serde(default)]
     pub outside: Vec<u64>,
+    /// The film room and the days you were there (update 3, lane 9).
+    #[serde(default)]
+    pub film: film::FilmRoom,
 }
 
 /// The daily scouting work (called from the clock each day, after the
@@ -389,6 +393,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
         stake::day(w, d);
         letters::day(w, d);
         pitch::day(w, d);
+        film::day(w, d);
     }
 }
 

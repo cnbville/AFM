@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
+Checked against main at 7933e49 with update 3 lanes 7 and 9 on 2026-10-29.
 
 ## Quick answers
 
@@ -33,12 +33,20 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
 - The public read, for rivals' players nobody of yours has seen: the truth + the public's own lasting misread, sd 4 × the film's visibility, shown ±5 (`reads.rs`, `public`).
 - Potential stays words only: the tier of the staff's ceiling read, how sure, and hints (`reads.rs`, `potential_words`).
 
-## Watching his film yourself (minor bug 82)
+## The film room (update 3, lane 9)
 
-- "Watch his film now" on the scouting file and the recruit file runs today: a film look under your name, read by your own eye (`world/scouting/own.rs`, `watch_film`). At an NFL club where you are the head coach it also goes in the club's file under the head coach's code (`dept::club_look`).
-- It costs your own film hours, a week from Monday: NFL 20 from February to the draft, 3 in season (kickoff to the Super Bowl), 8 otherwise; college 5 from fall camp to the bowls, 12 otherwise; high school 3 September-November, 6 otherwise (`own.rs`, `film_budget`, `film_left`).
-- A recruit's reel and a full game 1 hour (only if he has high school snaps or a reel), a college player's three games 2.5 (only with college snaps), a pro's cut-ups 2 (`own.rs`, `film_cost`). One watch a player a day.
-- "Film study" from the staff stays: three days, then the head coach's (or personnel's) look (`world/scouting/dept.rs`, `asks_day`).
+- "Watch his film now" on the scouting file and the recruit file opens the film room on him, today, on your own hours. The old engine command still works as "Watch it quick": a 20-minute cut-up through the film room (`world/scouting/own.rs`, `watch_film`; `film/session.rs`, `open_player` with `Mode::Quick`). One own film look a player a day. "Film study" from the staff stays: three days (two under a locked-in head coach, four under a cruising one), then the head coach's (or personnel's) look (`world/scouting/dept.rs`, `asks_day`; `film/time.rs`, `staff_days`).
+- His tape: the match engine plays three games when you open it, his team as it dresses today against real opponents of his level (his state and size at a high school, his conference, the league), with him starting at his spot; seed = his id and the season (`film/tape.rs`, `player_tape`). Your own players: your kept games played again from their seeds (`our_tape`). Cut-ups: 6 of his snaps (12 quick) by situation (`Cut`, `cut`).
+- One weekly ledger for all film (`own::film_week`, Monday to Sunday): `film/time.rs`, `budget` = recruit film + game prep in a game week + (work hours − 65), at least 40% of the first two. Recruit film at 65 hours: NFL 3 in season, 20 February to the draft, 10 after it, 4 in the summer break and from camp; college 3 fall camp to the bowls, 6 in January and signing week, 15 February-April, 25 in May at FBS from 2008 (18 otherwise), 15 June, 20 July; high school 3 August-November, 18 June-July, 6 otherwise. Game prep 12 (high school 6). Section 9's tape study spends 3 hours of it (`crates/afm-game/src/lane_gameday.rs`, `study`).
+- A snap costs 4 minutes, a run-back 2, a quick watch 20 (`session.rs`, `SNAP_MIN`, `RUNBACK_MIN`, `QUICK_MIN`).
+- What your eye catches on a snap (`session.rs`, `resolve`): chance = clamp(0.30 + 0.035 × (eye − 10) − 0.40 × subtlety + 0.12 if on the question, 0.04, 0.95) × (1 − 0.5 × tiredness). Subtlety: technique and mental 0.7, middle 0.45, results 0.2 (`words.rs`, `subtle`). Eye = your evaluation + your position edge (1.5 × (1 − e^(−hours/200)) − 0.5 × wear). A half-catch 35% × (1 − 0.6 × tiredness); a run-back lands 0.60 + 0.03 × (eye − 10).
+- Catches (`session.rs`, `caught`): each clear catch is the truth + noise of sd 3.5 × sharp(eye) × (1 + 0.3 × tiredness); a result impression a snap at sd 8; the analyst's points sd 6 × max(1.5 − 0.065 × rating, 0.15), each caught with chance 0.35 + 0.04 × (rating − 10). Your own read folds them in per attribute by inverse variance, each widened by 3 points a year of age; tighter than 0.5 on tape 30 days fresh shows the exact number (`film/mod.rs`, `catches_with`, `sharpen_with`; `yours.rs`, `own_read_with`, `range`).
+- The calls: about one snap in three, the ones on the question first (`open_player`). The coach's respect: +0.006 a right call, −0.0036 a wrong one, ±0.03 at most a session (`finish`).
+- Tiredness (`time.rs`, `tiredness`): (today's hours − (3 + 0.1 × (ethic − 10))) / (2 + 0.1 × (ethic − 10)) + 0.3 × wear, 0-1. Wear (`week`): +(hours − cap) / 150 a week over cap = 60 + 2 × (ethic − 10), −(cap − hours) / 100 − 0.03 under; at 0.6+ exhaustion (4 days, no film) with chance (wear − 0.6) × 0.5 a week; six junkie weeks at 0.95 is burnout (−1 ethic). Ethic (12 unless set) moves 0.02 × (hours − 65) / 15 a week.
+- The queue (`film/queue.rs`, `week`): Mondays, up to four; college position coaches send followed recruits without your look in 45 days, stars first; NFL scouts the board's prospects February to the draft; the coordinators one of your men in season. Skip −0.01 trust, watched +0.005.
+- Found on another kid's tape (`film/finds.rs`, `pop`): a low-rated man on the snaps (two stars or fewer, or off your board) whose overall is within 3 of the man you watched pops with chance 0.10 × snaps/6 × (1 + 0.05 × (eye − 10)), at most 0.3.
+- Being there (`film/there.rs`): on your own trip day, a game or all-star week is "from the stands" (his snaps of game one, no replays, no film hours: the trip's look is the file's); a practice, workout, pro day or middle school game is a visit of 240 minutes. Watching catches at sd 3 × sharp(eye), chance 0.55 + 0.03 × (eye − 10) − 0.3 × subtlety; the people's words read his true work ethic, injury proneness, grades and manners with a keyed lean. Camp days are June's 2nd and 3rd Saturdays at a college.
+- The look-back (`film/mod.rs`, `settle`): a yes or no verdict is settled three years on, the question's attributes now against the bar (NFL 70, FBS 62, FCS 57, below 52, high school 46).
 
 ## Letters, stakes and your own calls (update 3, lane 7)
 
