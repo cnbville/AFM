@@ -165,9 +165,19 @@ impl World {
 
     /// Your depth chart order at a position (player ids, best first).
     pub fn set_seat_depth(&mut self, pos: Position, ids: Vec<u32>) {
+        let had = self.seat_depth.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.first().copied());
+        let first = ids.first().copied();
         self.seat_depth.retain(|(p, _)| *p != pos);
         if !ids.is_empty() {
             self.seat_depth.push((pos, ids));
+        }
+        // The change log the depth chart's "Changes this week" reads.
+        if had != Some(first) && !(had.is_none() && first.is_none()) {
+            self.seat_depth_log.push((self.today, pos, first.unwrap_or(0)));
+            let n = self.seat_depth_log.len();
+            if n > 40 {
+                self.seat_depth_log.drain(..n - 40);
+            }
         }
     }
 
@@ -993,6 +1003,7 @@ impl World {
             staff_book: Default::default(),
             kept_reads: Vec::new(),
             kept_through: 0,
+            help: Default::default(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -1072,6 +1083,10 @@ pub struct Career {
     /// before the kept reads starts keeping at the next season's end).
     #[serde(default)]
     pub kept_through: i16,
+    /// Your in-game help: the Help setting, the guided week, the calendar
+    /// moments explained and the Handbook pages read (update 3, lane 8).
+    #[serde(default)]
+    pub help: super::help::Help,
 }
 
 /// One player's kept reads, oldest season first.

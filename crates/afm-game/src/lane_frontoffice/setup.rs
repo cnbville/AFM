@@ -21,6 +21,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let home = game.home.clone();
             game.wm().and_then(|w| {
                 start(w, args)?;
+                crate::lane_handbook::on_start(w, args);
                 // Your coach is kept outside any save (update 3, SA1).
                 crate::setup::save_coach_profile(&home, args);
                 Ok(crate::views::status(w))

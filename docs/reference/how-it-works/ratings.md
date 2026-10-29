@@ -1,6 +1,6 @@
 # Ratings: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29.
 
 ## Quick answers
 
@@ -126,6 +126,14 @@ Draft boards use `PositionAligner::for_draft`: K, P and LS are read off their ow
 - Band by the range's middle: Elite (≥ elite), A good starter (≥ halfway starter-elite), Starter level, Between a backup and a starter (≥ backup), Backup level (≥ backup - max(starter - backup, 3)), Below a typical backup. Plus "Ahead of about X-Y% of ..." rounded to 5%, and a straddle note (`lane_ratings.rs`, `band`, `round5`).
 - For a physical rating the card adds what it stands for at the combine at his weight (see the body page) (`lane_ratings.rs`, `combine_line`).
 - A high school pool with grade 0 keeps every graduating class (`world/norms.rs`, `collect`). The squad boards use it for a high school's players and unit cards, so a sophomore starter is read against the state classification's starters of every grade (`crates/afm-game/src/lane_squadboards.rs`, `team_pool`, `marks`).
+
+## Help hovers (update 3, lane 6)
+
+- An attribute's name (H1): its plain words, what it does on the field, how it grows (its group's growth window, coachability, whether experience grows it, its decline age, whether injuries cut it) and the top four positions by `positions::weight` (from 0.03) (`crates/afm-game/src/lane_help.rs`, `attr_help`, `words`, `grows`, `matters`; commands `help_attr`, `help_attrs`).
+- An attribute's value (H2): the range card adds the change since the last kept read (see Kept reads): the key rating's kept range if it was one of the four, else its family's kept middle; the middle's move gives Up clearly (3+), Up a little (1.5+), About the same, Down a little, Down clearly; up to 3 reasons from his last season row's events, your or the staff's focus (your players only), weight change for a physical rating, age against the decline age or growth window, his role and his teacher (`lane_help.rs`, `last_year`, `reasons`; `lane_ratings.rs`, `card`).
+- A level rating (H3): the badge from `lane_core::pages::level_read` (your staff's read placed on the scale of his newest season's group, lane 7), the group, the 5-season pool with the scale's marks from `level_rating::marks` (the bottom 1% left out), and how many of last season's rated players in the same group are above the badge's number (`lane_help.rs`, `level_help`). A row counts as last season's when its age + 1 is his age now, as in `attach_level_ratings`. A player your staff hasn't read, or a pro, has no card.
+- Another position's read (H4's "who else could play it"): lane 7's best four positions from the same file, else the file's attribute middles weighed for the spot (an unseen rating at the mean of the seen ones), a point wider (`lane_help.rs`, `read_at`).
+- Football terms (H7) and the card itself are screen code only (`app/ui/screens/help.js`).
 
 ## Kept reads (the career arc)
 

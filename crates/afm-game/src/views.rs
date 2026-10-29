@@ -1199,9 +1199,22 @@ pub fn news(w: &World, args: &Value) -> Value {
         w,
         wire.iter().flat_map(|(_, e)| e.refs.iter()).chain(desk.iter().flat_map(|(n, _)| n.refs.iter())),
     );
+    let me = mine(w);
     for (d, e) in wire {
         let parts = link.parts(w, &e.text, &e.refs, e.program, e.nfl_team);
-        items.push(json!({ "date": date_text(*d), "text": e.text, "parts": parts, "level": format!("{:?}", e.level), "loud": e.loud.name() }));
+        // H6: a line about one of your people says why, as your staff sees it.
+        let why = me.filter(|_| ours(e)).and_then(|t| {
+            // One person's story only: a roundup of five commitments has no single why.
+            let mut people = e.refs.iter().filter_map(|r| match r.to {
+                afm_engine::calendar::Link::Person(id) => Some(id),
+                _ => None,
+            });
+            match (people.next(), people.next()) {
+                (Some(id), None) => crate::lane_help::news_why(w, t, *d, id),
+                _ => None,
+            }
+        });
+        items.push(json!({ "date": date_text(*d), "text": e.text, "parts": parts, "level": format!("{:?}", e.level), "loud": e.loud.name(), "why": why }));
     }
     for (n, college) in desk {
         let level = if college { "College" } else { "Nfl" };

@@ -36,7 +36,13 @@ fn on_film(w: &World) -> Vec<u32> {
         .take(40)
         .collect();
     if v.len() < 20 {
-        v.extend(w.people.iter().filter(|p| p.stage == Stage::Pro).map(|p| p.player.id).take(40));
+        v.extend(
+            w.people
+                .iter()
+                .filter(|p| p.stage == Stage::Pro && sc::own::film_cost(w, p.player.id).is_ok())
+                .map(|p| p.player.id)
+                .take(40),
+        );
     }
     v
 }

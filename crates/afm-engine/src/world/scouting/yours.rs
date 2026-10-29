@@ -41,6 +41,11 @@ impl OwnRead {
 
 /// A (centre, sd) as a 1-99 range, the file's way (`AttrRead::range`).
 pub fn range(r: (f64, f64)) -> (u8, u8) {
+    // Exact (lane 9, SK57): tape with a top analyst can pin him down.
+    if r.1 < 0.5 {
+        let v = r.0.round().clamp(1.0, 99.0) as u8;
+        return (v, v);
+    }
     let half = r.1.max(1.0);
     let lo = (r.0 - half).floor().clamp(1.0, 99.0) as u8;
     let hi = (r.0 + half).ceil().clamp(1.0, 99.0) as u8;
@@ -69,6 +74,18 @@ pub fn impression(w: &World, id: u32, staff: &FileRead) -> Option<(f64, f64)> {
 /// with your first impression where your staff has one. None while
 /// nothing of him has reached you.
 pub fn own_read(w: &World, staff: Staff, id: u32, staff_read: Option<&FileRead>) -> Option<OwnRead> {
+    own_read_with(w, staff, id, staff_read, &[])
+}
+
+/// Your own read with film catches not yet saved (a session in progress,
+/// so the film room shows your read narrowing as you watch).
+pub fn own_read_with(
+    w: &World,
+    staff: Staff,
+    id: u32,
+    staff_read: Option<&FileRead>,
+    extra: &[super::film::Catch],
+) -> Option<OwnRead> {
     let i = super::place(w, id)?;
     readers::you(w)?;
     let (rds, looks, _) = readers::evidence(w, staff, id);
@@ -102,7 +119,7 @@ pub fn own_read(w: &World, staff: Staff, id: u32, staff_read: Option<&FileRead>)
         Some((f.now, attrs, n))
     });
     let first = staff_read.and_then(|f| impression(w, id, f));
-    match (mine, first) {
+    let mut out = match (mine, first) {
         (Some((now, attrs, n)), Some(imp)) => {
             let (a, b) = (1.0 / (imp.1 * imp.1), 1.0 / (now.1 * now.1).max(0.25));
             Some(OwnRead { now: ((imp.0 * a + now.0 * b) / (a + b), (1.0 / (a + b)).sqrt()), attrs, looks: n })
@@ -112,5 +129,10 @@ pub fn own_read(w: &World, staff: Staff, id: u32, staff_read: Option<&FileRead>)
             Some(OwnRead { now: imp, attrs: vec![None; crate::attributes::ATTRIBUTE_COUNT], looks: 0 })
         }
         (None, None) => None,
+    };
+    // Lane 9 (SK43): what your own eye caught on his film.
+    if let Some(r) = out.as_mut() {
+        super::film::sharpen_with(w, id, w.people[i].player.position, &mut r.now, &mut r.attrs, extra);
     }
+    out
 }

@@ -275,6 +275,11 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
         Rated::Attr(a) => combine_line(w, i, a, lo, hi),
         _ => None,
     };
+    // H2 (update 3, lane 6): how the read moved since last season, and why.
+    let change = match rated {
+        Rated::Attr(a) => crate::lane_help::last_year(w, i, a, (lo, hi)),
+        _ => None,
+    };
     Ok(json!({
         "title": title,
         "range": [lo, hi],
@@ -292,6 +297,8 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
         "band": word,
         "line": line,
         "combine": combine,
+        "change": change,
+        "dev": views::team_of(w, p).is_some_and(|t| views::is_mine(w, t)),
         "count": format!("{} starters on {} teams", m.starters.len(), m.teams),
     }))
 }
