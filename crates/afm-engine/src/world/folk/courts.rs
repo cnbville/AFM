@@ -94,6 +94,9 @@ fn close(w: &mut World, k: usize, words: String) {
     w.folk.courts.closed.push(c);
     let n = w.folk.courts.closed.len();
     if n > 120 {
+        if w.logging() {
+            w.log_dropped("court cases", w.folk.courts.closed[..n - 120].iter());
+        }
         w.folk.courts.closed.drain(..n - 120);
     }
 }

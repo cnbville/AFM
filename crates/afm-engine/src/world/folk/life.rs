@@ -292,9 +292,15 @@ fn players_week(w: &mut World, d: Date) {
         }
     }
     let today = w.today;
+    if w.logging() {
+        w.log_dropped("life events", w.folk.life.events.iter().filter(|e| e.date.days_to(today) >= 150));
+    }
     w.folk.life.events.retain(|e| e.date.days_to(today) < 150);
     if w.folk.life.events.len() > 1500 {
         let n = w.folk.life.events.len() - 1500;
+        if w.logging() {
+            w.log_dropped("life events", w.folk.life.events[..n].iter());
+        }
         w.folk.life.events.drain(..n);
     }
 }
@@ -366,6 +372,9 @@ fn coaches_week(w: &mut World, d: Date) {
         }
     }
     let today = w.today;
+    if w.logging() {
+        w.log_dropped("health", w.folk.life.health.iter().filter(|e| e.date.days_to(today) >= 400));
+    }
     w.folk.life.health.retain(|e| e.date.days_to(today) < 400);
 }
 

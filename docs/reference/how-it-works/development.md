@@ -1,6 +1,6 @@
 # Development: how it works today
 
-Checked against main at 8b7dd75 with update 3 lanes 1 (bodies and the speed core) and 3 on 2026-10-28.
+Checked against main at 2a6e50c with update 3 lanes 1 (bodies and the speed core), 3 and 4, and world reader lane R2 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -9,6 +9,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - When does a player develop? Once a year, one checkpoint covering the season and the offseason after it, then he is a year older (`development.rs`, `develop_season`). High school players at their state's season start (`world/hs_year.rs`, calls `season::develop`), college players at fall camp (`world/college.rs`, calls `season::develop`), pros at camp (`world/pro/mod.rs`, `camp`).
 - Does growth land all at once? No, by default. The checkpoint decides the year, then the growth of the attributes his position uses lands week by week through training (`SeasonContext.defer` = `!WorldOptions.yearly_growth`, default false; `training/mod.rs`, `land`, `close_year`).
 - What is potential? The position overall of his ceilings: `overall_for(position, ceilings)` (`player.rs`, `Player::potential`). Every one of the 67 attributes has its own hidden ceiling (`player.rs`, `Player.ceilings`).
+- Can I see why a step went the way it did? Yes, in the world log: the step keeps every term it drew (injury, form, the year's event and its size, the drive and its parts, veteran learning, growth rates, decline, fades) in `GrowthWhy`, taken by `take_why` right after `develop_season` on the same thread; it changes nothing (`development.rs`; `world/wlog/why.rs`, `growth`; [world-log.md](world-log.md)).
 - How far can potential move in a year? The yearly drift is capped at 5 overall points, one band (`development.rs`, `MAX_POTENTIAL_SHIFT`). Injuries, a stalled body, a breakout lift, veteran learning and outgrowing a ceiling are outside the cap (`develop_season`).
 - Until what age does potential move? Full plasticity to 17, 0.75 at 18-20, 0.5 at 21-23, 0.2 at 24-26, 0 from 27 (`development.rs`, `potential_plasticity`). After that ceilings only fall with ageing.
 - Does a skill his position doesn't use still grow? Only if it is related (A6). A skill is clearly unrelated when neither his position nor any spot he really moves to uses it (`development.rs`, `unrelated`, `moves_to`: QB to WR, RB, S, TE; RB to WR, CB, S, LB; WR to CB, S, TE, RB; TE to WR, OT, EDGE, LB; OT to IOL, TE, DT; IOL to OT, DT; EDGE to LB, DT, TE; DT to EDGE, IOL, OT; LB to EDGE, S, RB, TE; CB to S, WR; S to CB, LB, WR; K and P to each other; LS to IOL, TE, LB). An unrelated skill gets no growth and no veteran learning, so a tackle's man coverage stays where it was at 14. The body and elusiveness (rated for his size, A2) always grow; in high school kicking and snapping always grow, since high school kickers and snappers play another spot. Related skills grow toward their ceilings; the ones his position uses land through training, the rest at the checkpoint (`training/mod.rs`, `defers`).

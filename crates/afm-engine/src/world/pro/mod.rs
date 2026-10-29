@@ -857,6 +857,9 @@ pub(crate) fn join_drafted(w: &mut World, i: usize, t: usize, year: i32, pick: u
     if round == 1 && w.people[i].player.position == Position::QB && owner.meddling > 0.6 && owner.pet.is_none() {
         w.clubs[t].office.owner.pet = Some(i);
     }
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "drafted", &format!("round {round}, pick {pick}")));
+    }
 }
 
 /// An undrafted player's team in the rush: the team where he has the
@@ -896,6 +899,9 @@ pub(crate) fn join_undrafted(w: &mut World, i: usize, t: usize, year: i32, terms
     let p = &w.people[i].player;
     let m = Member { rating: p.overall(), age: p.age, id: Some(i as u32), role: None, depth: None };
     w.nfl[t].depth[p.position.index()].push(m);
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "signed undrafted", ""));
+    }
 }
 
 /// After the draft and the rush: depth charts from the people.
@@ -923,6 +929,9 @@ pub(crate) fn transfer(w: &mut World, i: usize, to: usize, why: &str) {
     c.new_team = true;
     let age = p.row_age();
     p.note(format!("Moved to the {name} at {age} ({why})."));
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "moved", why));
+    }
 }
 
 /// A franchise moves (the Browns to Baltimore in 1996): its players,
@@ -1325,6 +1334,14 @@ pub fn after_june1(w: &World, d: Date) -> bool {
 /// qualifies to the waiver wire, where a claiming team takes over his
 /// contract (his old team then owes only the bonus already paid).
 pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: bool, waivers: bool, cause: DeadWhy) {
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(
+            w,
+            i,
+            if waivers { "released (waivers)" } else { "released" },
+            why,
+        ));
+    }
     let year = w.year;
     let june1 = june1 || after_june1(w, d);
     let waive = waivers && market::waivable(w, i, d);
@@ -1516,6 +1533,9 @@ pub(crate) fn sign(w: &mut World, i: usize, t: usize, d: Date, apy: f64, years: 
         apy / 1e6
     ));
     w.clubs[t].roster.push(i);
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "signed", &format!("{kind:?}")));
+    }
 }
 
 /// Camp (the yearly checkpoint, as college fall camp): every pro develops
@@ -1649,7 +1669,10 @@ fn camp(w: &mut World, d: Date) {
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         crate::training::close_year(&mut p.player, ctx.focus);
-        crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        if let Some(log) = w.wlog.as_deref().filter(|_| w.recording) {
+            crate::world::wlog::why::growth(log, (w.year, w.today), p.player.id, &ctx, [None; 3], &report);
+        }
         if let Some(row) = p.player.history.last_mut() {
             row.team = team;
             row.depth = Some(role.name().to_string());
@@ -2151,6 +2174,9 @@ pub(crate) fn retire(w: &mut World, i: usize, d: Date, why: &str) {
         a.pro = p.pro.clone();
         a.player = Some(Box::new(p.player.clone()));
         a.notes = p.notes.clone();
+    }
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "retired", why));
     }
 }
 
