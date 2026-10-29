@@ -150,10 +150,10 @@ pub fn rival(w: &World, team: Team) -> Option<(Team, &'static str, u32, u32)> {
         Team::Nfl(t) => {
             // The division's oldest rivalry stands in: the team in its
             // division it has played longest (the first listed).
-            let mine = crate::world::franchise::era(t, w.year)?;
+            let mine = crate::world::franchise::era_in(w, t, w.year)?;
             let other = (0..w.nfl.len())
                 .filter(|&o| o != t)
-                .find(|&o| crate::world::franchise::era(o, w.year).is_some_and(|e| e.div == mine.div))?;
+                .find(|&o| crate::world::franchise::era_in(w, o, w.year).is_some_and(|e| e.div == mine.div))?;
             Some((Team::Nfl(other), "the division rivalry", 0, 0))
         }
         Team::High(h) => {

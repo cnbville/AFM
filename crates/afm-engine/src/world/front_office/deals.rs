@@ -135,7 +135,7 @@ pub fn picks_of(w: &World, t: usize) -> Vec<Pick> {
         for round in 1..=rounds {
             for orig in 0..teams {
                 if w.market.picks.owner_of(y, round, orig) == t
-                    && crate::world::franchise::active(orig, y.min(w.year + 1))
+                    && crate::world::franchise::active_in(w, orig, y.min(w.year + 1))
                 {
                     v.push(Pick { year: y, round, orig, comp: false });
                 }
@@ -220,7 +220,7 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
         });
     }
     let o = p.other;
-    if o == me || !crate::world::franchise::active(o, w.year) {
+    if o == me || !crate::world::franchise::active_in(w, o, w.year) {
         return Err("Pick another club.".into());
     }
     if p.give.players.is_empty() && p.give.picks.is_empty() || p.get.players.is_empty() && p.get.picks.is_empty() {
@@ -553,7 +553,7 @@ pub fn shop(w: &mut World, id: u32) -> Result<Vec<(usize, Vec<Pick>, f64)>, Stri
     }
     let year = w.year;
     let mut out = Vec::new();
-    for o in crate::world::franchise::active_teams(year) {
+    for o in crate::world::franchise::active_teams_in(w, year) {
         if o == me {
             continue;
         }

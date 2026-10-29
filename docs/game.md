@@ -1106,6 +1106,19 @@ Your read beside your staff's, the offer chain at a college, your name on a play
 - C20: November-January Tuesdays, 8% a week while you're in the kid's top three, schools under 1,000 students or below the top two classes; the kid follows 25% + 60% × closeness (half his years under the coach, half his own); after a season he leans 0.5 toward the portal half the time if the coach has gone, else 15% + 30% × (1 − closeness).
 - C8: (name from playing − 11) / 2 points, 0-3; full two seasons, half the third, none by the fourth unless his last season beat expectation; high school transfers' pull × (1 + points / 6).
 
+### Lane 10 (next update): ground zero and new teams (SK68)
+
+New NFL clubs, colleges that start football and new high schools join the world after 2026 at real-life rates (Cain, 2026-10-28), and you can start at one. How each works, with every number: [new-teams.md](reference/how-it-works/new-teams.md).
+
+- **The NFL expands** (`world/new_teams/nfl.rs`). The owners can vote two clubs in at their annual meeting, at the real rate since 1970; the clubs play two seasons later. In their first February the other clubs list their open players and the new clubs take turns in an expansion draft; in their first draft they pick first and last. Every franchise lookup now reads the world's own clubs past the real 32 (`world/franchise.rs`, `*_in`).
+- **Colleges start football** (`world/new_teams/college.rs`): about six a year, mostly in the NAIA and Division III, from 152 real colleges without football and 130 generated small colleges. A build year (a squad that practices and plays no games, walk-on tryouts and junior college finds, a first class signed) comes before the first games (`Program::build_year`, `fields_games`).
+- **New high schools** (`world/new_teams/school.rs`): districts in states whose young population grows open a school, split a big school's zone, and on the first day the zone's sophomores move, juniors choose and seniors stay.
+- **Ground zero** (`crates/afm-game/src/lane_groundzero.rs`, `app/ui/screens/groundzero.js`): the setup's fourth way in lists open markets, colleges that could start and districts that could build. The Ground zero page shows the steps to the first game and the level's tools: the other clubs' open players (your staff's guess, then the real lists) and your queue for the expansion draft; the build year's squad; the zone's players with each one's chance to come and your home visits. A new team's head job opens to the market like any other, so it can come as a later job. `seat_season` runs it as `gznfl`, `gzcollege` and `gzhs`.
+
+#### Claude's picks (proposed, not confirmed)
+
+- The rates and numbers in `afm/overnight-choices.md` (lane 10): vote odds 3/56, owners' yes 0.85, the 13 markets and their nicknames, fee 1.4 × the average club value, 42 players and 55% of the cap in the expansion draft, college level shares, the 75% build-year squad and 12 junior college finds, the school-age growth formula, the 40% zone, juniors at 50% ± 15, 12 home visits.
+
 ### Lane 9: the film room and being there (SK32-SK34, SK36-SK39, SK43-SK63)
 
 One film room for all film, on the agreed mock-up without its tape-quality chips, and the days you are there in person. How each works, with every number: [scouting.md](reference/how-it-works/scouting.md), "The film room".

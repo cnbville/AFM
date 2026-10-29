@@ -212,7 +212,7 @@ pub(crate) fn state_of(w: &World, e: Employer) -> Option<usize> {
         Employer::College(p) => Some(w.programs[p].state),
         Employer::Nfl(t) => {
             w.nfl.get(t)?;
-            let code = crate::world::franchise::era(t, w.year)?.state;
+            let code = crate::world::franchise::era_in(w, t, w.year)?.state;
             w.states.iter().position(|s| *s.code == *code)
         }
         Employer::Other(_) => None,

@@ -690,6 +690,21 @@ pub(crate) fn state_schedule(
     (weeks, districts.into_iter().map(|d| d.into_iter().map(|i| ids[i]).collect()).collect())
 }
 
+/// A school that opens after the year's season was drawn (SK68, a ground
+/// zero start): the season is drawn again with it while no state has
+/// started; later it sits out until next season.
+pub(crate) fn add_school(w: &mut World, h: usize) {
+    let Some(hs) = w.hs_season.as_ref() else { return };
+    if hs.states.iter().all(|s| !s.developed && !s.done) && hs.played.is_empty() {
+        w.hs_season = Some(new_season(w));
+        return;
+    }
+    let hs = w.hs_season.as_mut().unwrap();
+    hs.results.resize(h + 1, TeamResult::default());
+    hs.marks.resize(h + 1, None);
+    hs.district.resize(h + 1, super::hs_playoffs::NONE);
+}
+
 /// The high school day.
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(hs) = w.hs_season.as_ref() else { return };
@@ -697,6 +712,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
         super::clock::timed("hs class", || {
             w.add_class();
             w.rebuild_rosters();
+            // New schools take their zones' players (SK68).
+            if super::new_teams::school::class_day(w) {
+                w.rebuild_rosters();
+            }
         });
     }
     let n_states = w.states.len();

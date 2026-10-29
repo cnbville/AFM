@@ -348,7 +348,7 @@ fn hire(rng: &mut Rng, year: i32, role: Role, budget: f64) -> Scout {
 /// before its first draft, as the Panthers and the Jaguars did in 1994
 /// (real), and a club that has gone dark keeps none.
 pub(crate) fn staff(w: &mut World, turnover: bool, draft_year: i32) {
-    use super::super::franchise::{BROWNS, RAVENS, active};
+    use super::super::franchise::{BROWNS, RAVENS, active_in};
     let year = w.year;
     let mut rng = Rng::new(w.options.seed ^ 0x5C07_0000 ^ (year as u32).wrapping_mul(104_729));
     // 1996 (real): the Browns' front office went to Baltimore with the
@@ -362,7 +362,7 @@ pub(crate) fn staff(w: &mut World, turnover: bool, draft_year: i32) {
         newcomers(w, &mut rng, year);
     }
     // Richer clubs move first in the market (SK7).
-    let mut order: Vec<usize> = (0..w.clubs.len()).filter(|&t| active(t, draft_year)).collect();
+    let mut order: Vec<usize> = (0..w.clubs.len()).filter(|&t| active_in(w, t, draft_year)).collect();
     let budgets: Vec<f64> = (0..w.clubs.len()).map(|t| crate::world::finance::nfl::spend_level(w, t)).collect();
     order.sort_by(|&a, &b| budgets[b].total_cmp(&budgets[a]).then(a.cmp(&b)));
     for &t in &order {
@@ -1205,7 +1205,7 @@ fn coming_draft(w: &World) -> i32 {
 /// when the Panthers and the Jaguars had a draft but no scouts).
 fn clubs(w: &World) -> Vec<usize> {
     let draft_year = coming_draft(w);
-    (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, draft_year)).collect()
+    (0..w.clubs.len()).filter(|&t| super::super::franchise::active_in(w, t, draft_year)).collect()
 }
 
 // --- The scouting year (topic 3) ------------------------------------------------------------
@@ -1864,7 +1864,7 @@ pub(crate) fn trade_on_clock(
     if seller >= w.clubs.len() || skip == Some(seller) {
         return None;
     }
-    let teams = super::super::franchise::active_teams(w.year).len().max(1);
+    let teams = super::super::franchise::active_teams_in(w, w.year).len().max(1);
     let top_of = |t: usize, n: usize| -> Vec<f64> {
         let mut v: Vec<f64> = left.iter().filter_map(|&i| value(t, i)).collect();
         v.sort_by(|a, b| b.total_cmp(a));
@@ -2079,7 +2079,8 @@ pub(crate) fn rush(
                 let path = depth_slots(pos).roster as f64 - ahead;
                 let cash = (o.bonus + o.guarantee) / money_unit;
                 let knew = (super::super::people::ties_q(w, i, t) > 1.0) as u8 as f64;
-                let state = super::super::franchise::era(t, year).and_then(|e| super::super::geo::state_index(e.state));
+                let state =
+                    super::super::franchise::era_in(w, t, year).and_then(|e| super::super::geo::state_index(e.state));
                 let home = state.is_some_and(|s| s == p.home_state) as u8 as f64;
                 let luck = (1.6 - agent) * key_normal(seed ^ (t as u64) << 40, p.player.id as u64);
                 let u = path + 0.6 * cash + 0.8 * knew + 0.3 * home + luck;

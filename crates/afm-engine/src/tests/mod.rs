@@ -21,6 +21,7 @@ mod level_rating;
 mod lines;
 mod links;
 mod live_game;
+mod new_teams;
 mod polls;
 mod ratings;
 mod save;

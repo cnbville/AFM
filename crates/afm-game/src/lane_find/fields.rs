@@ -244,8 +244,9 @@ impl<'a> Ctx<'a> {
                 (pr.state, geo::campus(pr.state, &pr.city))
             }
             Seat::Nfl(t) => {
-                let st =
-                    afm_engine::world::franchise::era(t, w.year).and_then(|e| geo::state_index(e.state)).unwrap_or(0);
+                let st = afm_engine::world::franchise::era_in(w, t, w.year)
+                    .and_then(|e| geo::state_index(e.state))
+                    .unwrap_or(0);
                 (st, geo::place(st, ""))
             }
         };

@@ -368,7 +368,7 @@ pub(crate) fn staff_everyone(w: &mut World) {
     }
     // NFL staffs: a head coach and two coordinators per team that plays (11.12).
     let year = w.year;
-    for t in (0..w.nfl.len()).filter(|&t| super::franchise::active(t, year)) {
+    for t in super::franchise::active_teams_in(w, year) {
         for role in nfl_roles() {
             let (lo, pool) = match role {
                 Role::HeadCoach => (38, CoachPool::CollegeHead1990),
@@ -1064,7 +1064,7 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
         }
         // Hires are for next season: a franchise joining then hires now (the
         // Panthers' Capers in January 1995), one going dark doesn't.
-        if !super::franchise::active(t, w.year + 1) {
+        if !super::franchise::active_in(w, t, w.year + 1) {
             continue;
         }
         for role in nfl_roles() {
@@ -2858,7 +2858,7 @@ pub(crate) fn empty_seats(w: &World) -> Vec<(Employer, Role)> {
         }
     }
     for t in 0..w.nfl.len() {
-        if !super::franchise::active(t, w.year) && !super::franchise::active(t, w.year + 1) {
+        if !super::franchise::active_in(w, t, w.year) && !super::franchise::active_in(w, t, w.year + 1) {
             continue;
         }
         for role in nfl_roles() {
@@ -2954,7 +2954,12 @@ pub(crate) fn junior_slots(w: &World, e: Employer) -> Vec<(super::coach::Post, u
             let gas = if fbs || prog.division == Division::FCS { 4 } else { 2 };
             vec![(Post::GradAssistant, gas), (Post::Analyst, analysts)]
         }
-        Employer::Nfl(t) if super::franchise::active(t, w.year) => vec![(Post::QualityControl, 2)],
+        // A club in its year before its first season (SK68) hires them too.
+        Employer::Nfl(t)
+            if super::franchise::active_in(w, t, w.year) || super::franchise::active_in(w, t, w.year + 1) =>
+        {
+            vec![(Post::QualityControl, 2)]
+        }
         _ => Vec::new(),
     }
 }

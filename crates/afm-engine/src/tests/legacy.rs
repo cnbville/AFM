@@ -26,7 +26,7 @@ pub(super) fn seat(level: &str) -> World {
     let job = match level {
         "nfl" => Job::Nfl(
             (0..w.clubs.len())
-                .filter(|&t| crate::world::franchise::active(t, w.year))
+                .filter(|&t| crate::world::franchise::active_in(&w, t, w.year))
                 .max_by_key(|&t| w.clubs[t].roster.len())
                 .unwrap(),
         ),

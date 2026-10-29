@@ -1328,9 +1328,15 @@ pub(crate) fn draft_begin(w: &mut World) -> DraftRun {
     let base: Vec<usize> = super::nfl_year::draft_order(w)
         .unwrap_or_else(|| crate::career::draft_order(&w.nfl, &mut w.rng))
         .into_iter()
-        .filter(|&t| super::franchise::active(t, draft_year))
+        .filter(|&t| super::franchise::active_in(w, t, draft_year))
         .collect();
-    let mut board = super::franchise::draft_board(draft_year, &base, w.options.scale, seed);
+    let mut board = super::franchise::draft_board(
+        draft_year,
+        &base,
+        w.options.scale,
+        seed,
+        &super::franchise::first_draft_in(w, draft_year),
+    );
     // Traded picks to their owners and free agency's compensatory picks.
     super::pro::trades::board_owners(w, draft_year, &mut board, &base);
     let declared_ids: Vec<usize> = declared.iter().map(|d| d.0).collect();
@@ -1469,7 +1475,7 @@ pub(crate) fn draft_step(w: &mut World, run: &mut DraftRun, seat: Option<usize>,
                 && round == 1
                 && key_uniform(seed ^ 0x0A3E ^ draft_year as u64, pick as u64) < o.draft_override * 0.15 =>
         {
-            let state = super::franchise::era(t, draft_year).and_then(|e| super::geo::state_index(e.state));
+            let state = super::franchise::era_in(w, t, draft_year).and_then(|e| super::geo::state_index(e.state));
             match run.pool.iter().take(40).position(|&(j, _)| {
                 let p = &w.people[j];
                 p.stars >= 5 || state.is_some_and(|s| p.home_state == s && p.stars >= 4)
@@ -1613,7 +1619,7 @@ pub(crate) fn draft_end(
         let limit = w.rules.nfl_offseason as usize;
         let mut room: Vec<usize> = (0..w.nfl.len())
             .map(|t| {
-                if t < w.clubs.len() && super::franchise::active(t, draft_year) {
+                if t < w.clubs.len() && super::franchise::active_in(w, t, draft_year) {
                     limit.saturating_sub(w.clubs[t].roster.len() + picked.iter().filter(|x| x.2 == t).count())
                 } else {
                     0
@@ -1869,7 +1875,7 @@ const REAL_ROSTER_TOTAL: f64 = 119.7;
 /// FBS before the House limit, 108 in FCS, 115 in Division II, 107 in
 /// Division III, 100 in the NAIA and 80 at a junior college (NCAA
 /// participation counts over teams, from memory, to verify).
-fn level_roster(d: Division) -> f64 {
+pub(crate) fn level_roster(d: Division) -> f64 {
     match d {
         Division::FBS => REAL_ROSTER_TOTAL,
         Division::FCS => 108.0,

@@ -96,7 +96,7 @@ pub const FREE_AGENT_TIER: u8 = 9;
 
 /// The picks in the coming draft (at least seven rounds).
 fn picks_in(w: &World) -> usize {
-    let teams = franchise::active_teams(w.year).len().max(1);
+    let teams = franchise::active_teams_in(w, w.year).len().max(1);
     board::coming_slots(w).len().max(teams * 7)
 }
 
@@ -120,7 +120,7 @@ fn draft_side(w: &World, year: i32) -> Draft {
     }
     let grades = board::seat_grades(w);
     let order = board::ordered(w, &grades);
-    let teams = franchise::active_teams(w.year).len().max(1);
+    let teams = franchise::active_teams_in(w, w.year).len().max(1);
     let picks = picks_in(w);
     let b = &w.scouting.board;
     // A grade you set holds; otherwise the board's place gives the round,

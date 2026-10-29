@@ -187,7 +187,7 @@ fn collect(w: &World, pool: Pool, pos: Position, rated: Rated) -> (Vec<f32>, Vec
     match pool {
         Pool::Nfl => {
             for t in 0..w.clubs.len() {
-                if super::franchise::active(t, w.year) {
+                if super::franchise::active_in(w, t, w.year) {
                     two_deep(w, &w.clubs[t].roster, Stage::Pro, pos, rated, &|_| true, &mut out);
                     teams += 1;
                 }

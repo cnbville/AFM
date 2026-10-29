@@ -235,7 +235,7 @@ pub fn div_champs(w: &World, year: i32) -> Vec<usize> {
     let rows: Vec<&crate::world::nfl_year::NflTeamSeason> = w.nfl_seasons.iter().filter(|s| s.year == year).collect();
     let mut best: Vec<(u8, f64, u32, usize)> = Vec::new();
     for s in &rows {
-        let Some(e) = crate::world::franchise::era(s.team, year) else { continue };
+        let Some(e) = crate::world::franchise::era_in(w, s.team, year) else { continue };
         let pct = (s.wins as f64 + 0.5 * s.ties as f64) / (s.wins + s.losses + s.ties).max(1) as f64;
         match best.iter_mut().find(|b| b.0 == e.div) {
             Some(b) if pct > b.1 || (pct == b.1 && s.round > b.2) => *b = (e.div, pct, s.round, s.team),

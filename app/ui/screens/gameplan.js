@@ -70,6 +70,14 @@ const DP_PLAN_TABS = ["Identity", "Self-scout", "Call sheet", "Playbook", "Insta
 screens.plans = async (a) => {
   try {
     return await dpPlans(a || {});
+  } catch (e) {
+    // A new team with no players yet (ground zero): the Plans pages wait
+    // for a roster instead of failing.
+    if (!(S.status && S.status.ground)) throw e;
+    title("Plans");
+    const team = S.status.mine || null;
+    const goto = gotoLine([["Ground zero", "groundzero"], ["Staff", "people_staff"]]);
+    return `<div class="film"><div class="pad dp">${dpHead(team, team ? esc(team.name) : "", "Plans", "", "")}${goto}<div class="gz-empty">${esc(e.message || String(e))} Ground zero says when your players come.</div></div></div>`;
   } finally {
     DP.reuse = false;
   }

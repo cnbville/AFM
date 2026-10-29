@@ -1162,7 +1162,7 @@ pub fn draft_board(w: &World) -> Reply {
     let grades = board::seat_grades(w);
     let order = board::ordered(w, &grades);
     let public = board::public_ranks(w);
-    let teams = afm_engine::world::franchise::active_teams(w.year).len().max(1);
+    let teams = afm_engine::world::franchise::active_teams_in(w, w.year).len().max(1);
     let b = &w.scouting.board;
     let taken: HashSet<u32> = w
         .scouting
@@ -1357,7 +1357,7 @@ pub fn war_room(w: &World) -> Reply {
     let order = board::ordered(w, &grades);
     let left: HashSet<u32> = run.pool.iter().map(|x| w.people[x.0].player.id).collect();
     let public: HashMap<u32, usize> = run.public_rank.iter().map(|(&i, &r)| (w.people[i].player.id, r)).collect();
-    let teams = afm_engine::world::franchise::active_teams(run.year).len().max(1);
+    let teams = afm_engine::world::franchise::active_teams_in(w, run.year).len().max(1);
     let b = &w.scouting.board;
     // Your board, still there, best first.
     let board_rows: Vec<Value> = order
@@ -1736,7 +1736,7 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
         .take(20)
         .map(|s| json!({ "year": s.year, "id": s.player, "name": s.name, "team": s.team.map(|t| team_brief(w, TeamRef::Nfl(t))), "round": s.round }))
         .collect();
-    let clubs: Vec<Value> = afm_engine::world::franchise::active_teams(w.year)
+    let clubs: Vec<Value> = afm_engine::world::franchise::active_teams_in(w, w.year)
         .into_iter()
         .filter(|&c| c != t)
         .map(|c| team_brief(w, TeamRef::Nfl(c)))
