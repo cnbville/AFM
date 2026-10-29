@@ -971,8 +971,22 @@ fn main() {
     let crowd = |c: i32, p: usize, pos: Position| {
         (1..=3).map(|k| room.get(&(c - k, p, pos)).copied().unwrap_or(0)).sum::<u32>()
     };
+    // Scale-free: his position's share of his school's last three classes of
+    // blue chips, against its share of all blue chips (1 = no lean either way,
+    // above 1 = stacking at a position, below 1 = steering clear).
+    let mut school3: HashMap<(i32, usize), u32> = HashMap::new();
+    let mut pos_n: HashMap<Position, u32> = HashMap::new();
+    for &(c, p, pos, _) in &signings {
+        *school3.entry((c, p)).or_default() += 1;
+        if c > first + 3 {
+            *pos_n.entry(pos).or_default() += 1;
+        }
+    }
+    let all_n = pos_n.values().sum::<u32>().max(1) as f64;
+    let prior = |c: i32, p: usize| (1..=3).map(|k| school3.get(&(c - k, p)).copied().unwrap_or(0)).sum::<u32>();
     let read = |pick: &dyn Fn(usize, Position, u8) -> bool| {
         let (mut n, mut sum, mut two, mut three) = (0u32, 0u32, 0u32, 0u32);
+        let (mut lean, mut lean_n) = (0.0f64, 0u32);
         for &(c, p, pos, st) in &signings {
             if c <= first + 3 || c > last_class || !pick(p, pos, st) {
                 continue;
@@ -982,13 +996,20 @@ fn main() {
             sum += k;
             two += (k >= 2) as u32;
             three += (k >= 3) as u32;
+            let before = prior(c, p);
+            if before > 0 {
+                let share = pos_n.get(&pos).copied().unwrap_or(0) as f64 / all_n;
+                lean += (k as f64 / before as f64) / share.max(1e-9);
+                lean_n += 1;
+            }
         }
         let nf = n.max(1) as f64;
         format!(
-            "n {n}, crowd {:.2}, into 2+ {:.0}%, into 3+ {:.0}%",
+            "n {n}, crowd {:.2}, into 2+ {:.0}%, into 3+ {:.0}%, stacking {:.2}",
             sum as f64 / nf,
             100.0 * two as f64 / nf,
-            100.0 * three as f64 / nf
+            100.0 * three as f64 / nf,
+            lean / lean_n.max(1) as f64
         )
     };
     println!(
