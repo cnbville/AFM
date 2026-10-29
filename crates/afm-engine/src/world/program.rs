@@ -641,7 +641,7 @@ pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51]) {
         Division::FCS => 0.3,
         _ => 0.0,
     };
-    let rel = p.prestige_rel;
+    let rel = super::knockout::rel_read(p.prestige_rel);
     let reach_miles = 150.0 + 1100.0 * level_reach * rel * rel + 250.0 * p.fans;
     for s in 0..51 {
         let d = geo::miles(p.state, s);

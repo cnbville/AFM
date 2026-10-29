@@ -4488,7 +4488,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         }
         // Talent beats need (fix list 1.3).
         if let Some(bar) = open_bar {
-            let margin = film_sd * (1.0 - 0.75 * programs[j].prestige_rel);
+            let margin = film_sd * (1.0 - 0.75 * super::knockout::rel_read(programs[j].prestige_rel));
             for pos in Position::ALL.into_iter().filter(|p| !p.is_specialist()) {
                 let i = pos.index();
                 let Some(e) = head(i) else { continue };
