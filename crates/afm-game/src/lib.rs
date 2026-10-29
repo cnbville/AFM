@@ -249,7 +249,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 25] = [
+                const LANES: [Lane; 26] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
