@@ -2913,7 +2913,8 @@ impl RosterView {
             .iter()
             .map(|&(q, wt)| wt * clamp((self.unit[j][q.index()] - self.norm[d][q.index()]) / 4.0, -1.0, 1.0))
             .sum();
-        (0.06 + 0.2 * wants.playing_time) * early * room + (0.04 + 0.15 * wants.development) * cast
+        (0.06 + 0.2 * wants.playing_time) * early * room * super::knockout::room_scale(pos)
+            + (0.04 + 0.15 * wants.development) * cast
     }
 }
 

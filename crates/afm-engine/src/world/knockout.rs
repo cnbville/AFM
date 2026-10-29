@@ -1,7 +1,7 @@
 //! Test switches for the dynasty knockout worlds (thread "Stop college
 //! dynasties for good", 2026-10-28). `AFM_KO` names one suspect to turn
-//! up or off: `coach4`, `frozen`, `flatdev`, `brand85`, `local50`, `rel85` or
-//! `bend75`;
+//! up or off: `coach4`, `frozen`, `flatdev`, `brand85`, `local50`, `rel85`,
+//! `bend75` or `qbroom`;
 //! `+` joins several (`brand85+local50`). Unset, nothing changes.
 //! Trial tooling only, never merged.
 
@@ -63,4 +63,11 @@ pub(crate) fn local_scale(stars: u8) -> f64 {
 /// also caps the brand.
 pub(crate) fn rel_read(rel: f64) -> f64 {
     if has("rel85") { rel.min(0.85) } else { rel }
+}
+
+/// How much a quarterback weighs the room at his position (who'd be ahead
+/// of him): 3 times as much under `qbroom`. Real blue-chip QBs steer clear
+/// of rooms with young blue-chip QBs; the world's pile in.
+pub(crate) fn room_scale(pos: crate::positions::Position) -> f64 {
+    if pos == crate::positions::Position::QB && has("qbroom") { 3.0 } else { 1.0 }
 }
