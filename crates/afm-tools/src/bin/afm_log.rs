@@ -90,7 +90,12 @@ fn build(a: &[String]) {
         println!("records: {counts:?}");
         sizes(&dir);
     }
-    println!("all done in {:.0}s, resident {}", t.elapsed().as_secs_f64(), afm_tools::memory_text());
+    println!(
+        "all done in {:.0}s, resident {}, fingerprint {:016x}",
+        t.elapsed().as_secs_f64(),
+        afm_tools::memory_text(),
+        afm_tools::fingerprint(&w)
+    );
 }
 
 fn book(world: &Path, folder: &Path) {
