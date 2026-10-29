@@ -44,8 +44,17 @@ struct Throw {
 
 /// The board for a passer.
 pub fn board(w: &World, id: u32) -> Reply {
-    let i = views::person_index(w, id).ok_or("No such player.")?;
-    let p = &w.people[i];
+    // A passer who has left football keeps his name in your games.
+    let i = views::person_index(w, id);
+    let (name, pos) = match i {
+        Some(i) => (w.people[i].name.clone(), w.people[i].player.position.name().to_string()),
+        None => w
+            .seat_games()
+            .iter()
+            .find_map(|g| afm_engine::world::seat_names::gone(g, id))
+            .map(|x| (x.name.clone(), x.pos.name().to_string()))
+            .ok_or("No such player.")?,
+    };
     let mine = views::mine(w);
     let mut throws: Vec<Throw> = Vec::new();
     // Throwaways, by season.
@@ -149,7 +158,7 @@ pub fn board(w: &World, id: u32) -> Reply {
         })
         .collect();
     // His level's numbers this season (or last, early on).
-    let (level, team) = level_of(w, i);
+    let (level, team) = i.map_or((None, None), |i| level_of(w, i));
     let base = level.map(|(lv, t)| {
         let (key, name) = super::level_key(w, lv, t);
         let now = super::season_now(w, lv);
@@ -189,8 +198,8 @@ pub fn board(w: &World, id: u32) -> Reply {
         .collect();
     Ok(json!({
         "id": id,
-        "name": p.name,
-        "pos": p.player.position.name(),
+        "name": name,
+        "pos": pos,
         "team": team.map(|t| views::team_brief(w, t)),
         "mine": own,
         "season": season,
