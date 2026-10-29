@@ -300,6 +300,88 @@ pub struct SeasonReport {
     pub games_missed: u32,
 }
 
+/// What one yearly step drew and why (world reader lane R2): every term
+/// behind the year's growth and potential move, filled in as the step runs.
+/// Writing it draws nothing and changes nothing; the world log reads it
+/// back with `take_why` right after the step, on the same thread.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize)]
+pub struct GrowthWhy {
+    pub age: f64,
+    /// Age less bloom: what the growth windows read.
+    pub development_age: f64,
+    /// Ratings regained in the year back from a major injury.
+    pub rehab_regain: f64,
+    pub injury_chance: f64,
+    pub injury: Option<Ev>,
+    /// A major injury: 0 heals fully, 1 a small lasting loss, 2 his burst gone.
+    pub heal: Option<u8>,
+    /// Rating points the injury took now, and ceiling points it took for good.
+    pub injury_points: f64,
+    pub injury_ceiling: f64,
+    pub growth_multiplier: f64,
+    pub snaps_factor: f64,
+    /// Form before the year's event, and after it.
+    pub form_base: f64,
+    pub form: f64,
+    /// Points off (or on) his on-field level this year.
+    pub performance: f64,
+    pub breakout_chance: f64,
+    pub slump_chance: f64,
+    pub lost_season_chance: f64,
+    pub stagnation_chance: f64,
+    pub payday_mult: f64,
+    pub hot_last_year: bool,
+    pub breakout_lift: f64,
+    /// Rating points a slump takes after growth (summed over attributes).
+    pub slump_points: f64,
+    pub weight_gain: f64,
+    pub poor_coaching_chance: f64,
+    pub poor_coaching_points: f64,
+    pub plasticity: f64,
+    /// The potential drive and its parts: work ethic, coachability,
+    /// coaching, situation, playing time (times snaps), setback, luck.
+    pub drive: f64,
+    pub drive_work: f64,
+    pub drive_coachability: f64,
+    pub drive_coaching: f64,
+    pub drive_situation: f64,
+    pub drive_playing: f64,
+    pub drive_setback: f64,
+    pub drive_luck: f64,
+    pub spurt: bool,
+    /// The overall of the ceilings' move before the cap, and the cap's scale.
+    pub potential_shift: f64,
+    pub shift_scale: f64,
+    /// Ceiling points earned by veteran learning (summed).
+    pub veteran_learned: f64,
+    pub coaching_boost: f64,
+    pub snaps_mult: f64,
+    pub work_mult: f64,
+    pub morale_mult: f64,
+    pub physical_mult: f64,
+    pub focus_take: f64,
+    /// Growth landed at the checkpoint (summed), and how many attributes'
+    /// growth was left to land week by week through training.
+    pub landed: f64,
+    pub deferred: u32,
+    /// Ageing's loss (summed over attributes) and old skills faded.
+    pub decline_points: f64,
+    pub faded: u32,
+    /// Each group's change at the checkpoint (summed): physical, technical, mental.
+    pub change: [f64; 3],
+    pub overall_before: f64,
+    pub potential_before: f64,
+}
+
+thread_local! {
+    static LAST_WHY: std::cell::Cell<Option<GrowthWhy>> = const { std::cell::Cell::new(None) };
+}
+
+/// The why of the last `develop_season` on this thread, once.
+pub fn take_why() -> Option<GrowthWhy> {
+    LAST_WHY.with(|c| c.take())
+}
+
 /// Develop a player through one year and age him by one. Mutates the player.
 pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -> SeasonReport {
     let personality = player.personality;
@@ -315,6 +397,14 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let dip = clamp(ctx.adjustment + ctx.missed_camp, 0.0, 1.0);
     let situation = ctx.situation;
     let mut games_missed = 0;
+    let attrs_before = player.attributes;
+    let mut why = GrowthWhy {
+        age,
+        development_age: age - player.bloom,
+        overall_before,
+        potential_before,
+        ..GrowthWhy::default()
+    };
     // The hidden traits drift a little each year, on their own stream.
     player.game.age_one_year(player.age, &mut Rng::new(player.id.wrapping_mul(0x2545_F491) ^ player.age));
     // The year back from a major injury (fix list 4.3): a player who healed
@@ -328,7 +418,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         for key in Attr::ALL {
             if key.profile().injury_sensitive {
                 let room = (player.ceilings.get(key) - player.attributes.get(key)).max(0.0);
-                player.attributes.add(key, room.min(rng.range(1.5, 5.0) * age_hit));
+                let back = room.min(rng.range(1.5, 5.0) * age_hit);
+                player.attributes.add(key, back);
+                why.rehab_regain += back;
             }
         }
     }
@@ -348,6 +440,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         * (0.55 + player.injury_proneness * 0.045)
         // A suspended or dismissed player is at most at practice, like a redshirt.
         * if ctx.trouble.is_some() || no_games { 0.5 } else if pt == PlayingTime::Starter { 1.15 } else { 0.9 };
+    why.injury_chance = injury_chance;
     if rng.chance(injury_chance) {
         let roll = rng.next();
         let severity = if roll < 0.62 {
@@ -358,6 +451,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             Ev::MajorInjury
         };
         events.add(severity);
+        why.injury = Some(severity);
         let games = season_games(ctx.level) as f64;
         games_missed = match severity {
             Ev::MinorInjury => rng.int(0, 2),
@@ -405,13 +499,24 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                     ((3.0, 7.0), (3.0, 7.0))
                 };
                 rehab = heal < 0.85;
+                why.heal = Some(if heal < 0.55 {
+                    0
+                } else if heal < 0.85 {
+                    1
+                } else {
+                    2
+                });
                 for key in Attr::ALL {
                     if !key.profile().injury_sensitive {
                         continue;
                     }
-                    player.attributes.add(key, -(rng.range(now.0, now.1) * age_hit));
+                    let lost = rng.range(now.0, now.1) * age_hit;
+                    player.attributes.add(key, -(lost));
+                    why.injury_points += lost;
                     if lasting.1 > 0.0 {
-                        player.ceilings.add(key, -(rng.range(lasting.0, lasting.1) * age_hit));
+                        let kept = rng.range(lasting.0, lasting.1) * age_hit;
+                        player.ceilings.add(key, -(kept));
+                        why.injury_ceiling += kept;
                     }
                 }
                 player.injury_proneness = (player.injury_proneness + 1.0).min(20.0);
@@ -447,6 +552,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let youth = if age <= 25.0 { 2.0 } else { 1.0 };
     // Growth swings wider than it used to (fix list 4.2; was 0.38). Proposed, not confirmed.
     let mut form = rng.log_normal(0.5) * (1.0 - 0.15 * dip) * (1.0 + 0.12 * situation * youth);
+    why.form_base = form;
     let mut setback = 0.0;
     let mut performance = rng.normal(0.0, 2.0) - 7.0 * dip + 2.5 * situation * youth;
     let mut breakout_lift = 0.0;
@@ -490,6 +596,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // at an average work ethic, 4 times at 4, about even at 16 and up.
     let payday_mult = if ctx.payday { clamp(2.5 + 0.25 * (10.0 - personality.work_ethic), 1.0, 4.5) } else { 1.0 };
     let lost_season_chance = if (17.0..=27.0).contains(&age) || ctx.payday { base_lost * payday_mult } else { 0.0 };
+    why.breakout_chance = breakout_chance;
+    why.slump_chance = slump_chance;
+    why.lost_season_chance = lost_season_chance;
+    why.stagnation_chance = stagnation_chance;
+    why.payday_mult = payday_mult;
+    why.hot_last_year = hot_last_year;
     if let Some(trouble) = ctx.trouble {
         // A year away from games and from the staff's trust: like a lost season, and it shows on the field.
         events.add(match trouble {
@@ -539,7 +651,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let size = if player.position.is_specialist() { 0.5 } else { 1.0 };
         for key in Attr::ALL {
             if key.profile().group != AttributeGroup::Physical {
-                late_loss.add(key, size * rng.range(2.0, 6.0));
+                let lost = size * rng.range(2.0, 6.0);
+                late_loss.add(key, lost);
+                why.slump_points += lost;
             }
         }
     } else if rng.chance(stagnation_chance) {
@@ -561,7 +675,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         );
         if rng.chance(0.025 * lax) {
             events.add(Ev::WeightGain);
-            player.body.weight += rng.range(8.0, 25.0);
+            let pounds = rng.range(8.0, 25.0);
+            player.body.weight += pounds;
+            why.weight_gain = pounds;
             for key in [Attr::Speed, Attr::Acceleration, Attr::Agility] {
                 player.attributes.add(key, -(rng.range(1.0, 3.0)));
                 player.ceilings.add(key, -(rng.range(0.5, 2.0)));
@@ -575,14 +691,23 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // grow slower. Coachability protects him. Proposed, not confirmed: 4% a
     // year per coaching point under 8, plus up to 9% for a bad situation.
     let poor = clamp(0.04 * (8.0 - ctx.coaching), 0.0, 0.2) + clamp(0.15 * (-situation - 0.4), 0.0, 0.09);
-    if poor > 0.0 && rng.chance(poor * clamp(1.5 - 0.05 * personality.coachability, 0.5, 1.5)) {
+    let poor_chance = poor * clamp(1.5 - 0.05 * personality.coachability, 0.5, 1.5);
+    why.poor_coaching_chance = if poor > 0.0 { poor_chance } else { 0.0 };
+    if poor > 0.0 && rng.chance(poor_chance) {
         events.add(Ev::PoorCoaching);
         for key in Attr::ALL {
             if key.profile().group == AttributeGroup::Technical && weight(position, key) > 0.0 {
-                late_loss.add(key, rng.range(1.0, 3.0));
+                let lost = rng.range(1.0, 3.0);
+                late_loss.add(key, lost);
+                why.poor_coaching_points += lost;
             }
         }
     }
+    why.form = form;
+    why.drive_setback = -setback;
+    why.breakout_lift = breakout_lift;
+    why.growth_multiplier = growth_multiplier;
+    why.snaps_factor = snaps_factor;
 
     // --- Dynamic potential -----------------------------------------------------
     // Ceilings move most in the mid-teens, settle through the early 20s and only
@@ -594,16 +719,26 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // with an NFL staff: unlike a buried college backup, his ceiling doesn't sag.
         let young_pro =
             ctx.level == Level::NFL && age <= 24.0 && matches!(pt, PlayingTime::Backup | PlayingTime::PracticeSquad);
-        let drive = ((personality.work_ethic - 10.0) / 10.0) * 0.75
-            + ((personality.coachability - 10.0) / 10.0) * 0.25 * ((ctx.coaching - 10.0) / 10.0 + 0.5)
-            + ((ctx.coaching - 10.0) / 10.0) * 0.35
-            + 0.25 * situation
-            + (if young_pro { 0.0 } else { ctx.snaps.map_or(playing_time_potential(pt), snaps_potential) })
-                * snaps_factor
-            - setback
-            + rng.normal(0.0, 0.9);
+        // The same sum as one line, with its parts named for the log.
+        let work = ((personality.work_ethic - 10.0) / 10.0) * 0.75;
+        let coachability = ((personality.coachability - 10.0) / 10.0) * 0.25 * ((ctx.coaching - 10.0) / 10.0 + 0.5);
+        let coaching = ((ctx.coaching - 10.0) / 10.0) * 0.35;
+        let surroundings = 0.25 * situation;
+        let playing = (if young_pro { 0.0 } else { ctx.snaps.map_or(playing_time_potential(pt), snaps_potential) })
+            * snaps_factor;
+        let luck = rng.normal(0.0, 0.9);
+        let drive = work + coachability + coaching + surroundings + playing - setback + luck;
+        why.plasticity = plasticity;
+        why.drive = drive;
+        why.drive_work = work;
+        why.drive_coachability = coachability;
+        why.drive_coaching = coaching;
+        why.drive_situation = surroundings;
+        why.drive_playing = playing;
+        why.drive_luck = luck;
         let shared = drive * 1.7 * plasticity;
         let spurt = age <= 17.0 && rng.chance(0.09);
+        why.spurt = spurt;
         if spurt {
             events.add(Ev::GrowthSpurt);
         }
@@ -623,6 +758,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // A potential shift can move at most one band per checkpoint: no overnight stars.
         let shift = overall_for(position, &delta);
         let scale = if shift.abs() > MAX_POTENTIAL_SHIFT { MAX_POTENTIAL_SHIFT / shift.abs() } else { 1.0 };
+        why.potential_shift = shift;
+        why.shift_scale = scale;
         for i in 0..ATTRIBUTE_COUNT {
             player.ceilings.set_at(i, player.ceilings.at(i) + delta.at(i) * scale);
         }
@@ -643,6 +780,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 continue;
             }
             let learned = rng.range(0.0, 1.2) * profile.experience * snaps_share * snaps_factor;
+            why.veteran_learned += learned;
             player.ceilings.add(key, learned);
             player.attributes.add(key, learned * 0.8);
         }
@@ -676,6 +814,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // The plan's focus (section 6b topic 5; proposed, not confirmed: the
     // share each other skill gives up so the year's total stays about even).
     let focus_take = clamp(0.6 + 0.02 * personality.coachability, 0.6, 1.0);
+    why.coaching_boost = coaching_boost;
+    why.snaps_mult = snaps_mult;
+    why.work_mult = work_mult;
+    why.morale_mult = morale_mult;
+    why.physical_mult = physical_mult;
+    why.focus_take = focus_take;
     let g = GrowthCtx {
         coaching_boost,
         snaps_mult,
@@ -706,12 +850,15 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             && crate::training::defers(player.position, key)
             && !declines(player.position, player.longevity, key, age)
         {
+            why.deferred += 1;
             continue;
         }
         // Proportional growth plus a fixed step, so a well-developed player can
         // actually reach his ceiling instead of creeping towards it forever.
         // Even a monster year adds at most about a dozen points to one attribute.
-        player.attributes.add(key, gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise);
+        let add = gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise;
+        player.attributes.add(key, add);
+        why.landed += add;
     }
     if ctx.defer {
         let old = player.train;
@@ -746,6 +893,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             * if physical { wear_mult } else { 1.0 };
         player.attributes.add(key, -(loss));
         player.ceilings.add(key, -(loss));
+        why.decline_points += loss;
     }
 
     // --- Old skills fade (fix list 3.8) ------------------------------------------
@@ -769,6 +917,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             if old >= 0.04 {
                 player.attributes.add(key, -(OLD_SKILL_FADE));
                 player.ceilings.add(key, -(OLD_SKILL_FADE));
+                why.faded += 1;
             }
         }
     }
@@ -853,6 +1002,16 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         situation: OptF64::NONE,
     });
     player.age += 1;
+    why.performance = performance;
+    for key in Attr::ALL {
+        let g = match key.profile().group {
+            AttributeGroup::Physical => 0,
+            AttributeGroup::Technical => 1,
+            AttributeGroup::Mental => 2,
+        };
+        why.change[g] += player.attributes.get(key) - attrs_before.get(key);
+    }
+    LAST_WHY.with(|c| c.set(Some(why)));
     SeasonReport { overall_before, overall_after, potential_before, potential_after, events, games_missed }
 }
 

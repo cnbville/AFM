@@ -28,6 +28,7 @@ use crate::rng::{Rng, Seed, clamp, round_half_up};
 use crate::scouting::{ScoutOptions, scout_player};
 
 /// The tuning knobs of the class pipeline.
+#[derive(Debug)]
 pub struct Pipeline {
     /// Real US freshman class size the shares below are expressed against.
     pub reference_class_size: f64,
@@ -81,11 +82,13 @@ pub struct Pipeline {
     pub running_qb_retire_offset: f64,
 }
 
+#[derive(Debug)]
 pub struct PortalEntryRates {
     pub backup: f64,
     pub rotation: f64,
     pub coaching_change: f64,
 }
+#[derive(Debug)]
 pub struct CollegeTrouble {
     pub chance: f64,
     pub dismissal_share: f64,
@@ -93,10 +96,12 @@ pub struct CollegeTrouble {
     pub serious_quit_share: f64,
     pub lesser_quit_share: f64,
 }
+#[derive(Debug)]
 pub struct RedFlags {
     pub suspended: f64,
     pub dismissed: f64,
 }
+#[derive(Debug)]
 pub struct StarFilmRank {
     pub max_for5: f64,
     pub max_for4: f64,
