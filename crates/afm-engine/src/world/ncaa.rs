@@ -138,6 +138,16 @@ pub fn whole_roster_limit(prog: &Program, season: i32) -> bool {
     season >= HOUSE_START && (prog.division == Division::FBS || (prog.division == Division::FCS && !opted_out))
 }
 
+/// Whether a scholarship player his coach cuts keeps his aid while he
+/// stays in school (minor bug 60). Athletic aid was a one-year award,
+/// renewed or not each year (multi-year awards allowed from 2012); from
+/// 2015-16 the power conferences' autonomy rule bars reducing or cancelling
+/// it for athletic reasons. Everywhere else it still ends with the school
+/// year, and Division III gives no athletic aid at all.
+pub fn aid_kept(prog: &Program, season: i32) -> bool {
+    season >= 2015 && prog.division == Division::FBS && prog.power_conference(season)
+}
+
 // --- NIL money (11.5, 11.7, 11.8) ---------------------------------------------------------
 
 /// The biggest NIL collectives raise about $20M a year: Ohio State's players

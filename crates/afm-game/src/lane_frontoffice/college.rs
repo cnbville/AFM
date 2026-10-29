@@ -30,9 +30,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "nil_desk" => with(game, nil),
         "recruit_add" | "recruit_remove" | "recruit_move" | "recruit_priority" | "recruit_offer" | "recruit_pull"
         | "recruit_promise" | "visit_set" | "visit_cancel" | "portal_offer" | "portal_pull" | "portal_forget"
-        | "portal_contact" | "keep_talk" | "nil_set" | "nil_usual" | "nil_clear" | "college_duty" | "college_fill" => {
-            act(game, cmd, args)
-        }
+        | "portal_contact" | "keep_talk" | "nil_set" | "nil_usual" | "nil_clear" | "college_duty" | "college_fill"
+        | "college_cut" => act(game, cmd, args),
         _ => return None,
     };
     Some(reply)
@@ -102,6 +101,7 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
         "portal_forget" => desk::portal_forget(w, id_arg(args)?)?,
         "portal_contact" => desk::portal_contact(w, id_arg(args)?)?,
         "keep_talk" => desk::keep_talk(w, id_arg(args)?)?,
+        "college_cut" => desk::cut(w, id_arg(args)?)?,
         "nil_set" => desk::set_deal(w, id_arg(args)?, money_arg(args, "amount").ok_or("Missing amount.")?)?,
         "nil_usual" => {
             let deals = desk::usual_deals(w, j);

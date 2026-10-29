@@ -14,4 +14,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      # The engine lib and its unit-test binary each take about 8 GB to compile.
+      # Building the libraries first keeps the two from compiling at once.
+      - run: cargo build --workspace --profile test
       - run: cargo test --workspace
