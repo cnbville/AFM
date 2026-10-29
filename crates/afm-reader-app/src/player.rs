@@ -586,8 +586,8 @@ fn seasons(b: &Book, table: &str, row: &Map<String, Value>, f: &Filters) -> Opti
         json!({"name": "played", "label": "Played at", "num": true}),
         json!({"name": "lr", "label": "Level rating", "num": true}),
         json!({"name": "coaching", "label": "Coaching", "num": true}),
-        json!({"name": "line", "label": "Stat line"}),
-        json!({"name": "what", "label": "What happened"}),
+        json!({"name": "line", "label": "Stat line", "minw": 230}),
+        json!({"name": "what", "label": "What happened", "minw": 200}),
     ];
     if f.debug {
         cols.push(json!({"name": "potential", "label": "Potential", "num": true, "debug": true}));

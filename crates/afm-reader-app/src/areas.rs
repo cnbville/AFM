@@ -519,6 +519,18 @@ pub fn keyed(b: &mut Book, page: &str, key: &str, val: &str, f: &Filters) -> Res
             {
                 says.push(t);
             }
+            // Every row now has the same key: the column says nothing more.
+            if x.kind != "map" {
+                if x.open.contains(&format!("{{{key}}}")) {
+                    x.open.clear();
+                }
+                x.cols.remove(i);
+                for r in &mut x.rows {
+                    if i < r.len() {
+                        r.remove(i);
+                    }
+                }
+            }
         }
         blocks.push(panel_block(&x, f));
     }

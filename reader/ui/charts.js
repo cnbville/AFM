@@ -64,7 +64,7 @@ function barsHtml(b, rows) {
   const li = colIx(b, "label"), wi = colIx(b, "world"), ri = colIx(b, "real"), ni = colIx(b, "n");
   const extra = (b.cols || []).map((c, i) => i).filter((i) => ![li, wi, ri, ni, colIx(b, "grp"), colIx(b, "year")].includes(i) && !/^_/.test(b.cols[i]));
   const max = Math.max(1e-9, ...rows.flatMap((r) => [numOf(r[wi]), ri >= 0 ? numOf(r[ri]) : 0].filter((x) => !Number.isNaN(x))));
-  const bar = (v, cls) => `<div class="bar ${cls}"><span style="width:${Math.max(0, Math.min(100, (numOf(v) / max) * 100)).toFixed(1)}%"></span></div>`;
+  const bar = (v, cls) => Number.isNaN(numOf(v)) ? "" : `<div class="bar ${cls}"><span style="width:${Math.max(0, Math.min(100, (numOf(v) / max) * 100)).toFixed(1)}%"></span></div>`;
   const head = `<th>${esc(b.label || "")}</th><th class="n">World</th><th></th>${ri >= 0 ? `<th class="n">Real</th><th></th><th>Mark</th>` : ""}${ni >= 0 ? `<th class="n">n</th>` : ""}${extra.map((i) => `<th>${esc(label(b.cols[i]))}</th>`).join("")}`;
   const body = rows.map((r) => {
     const link = openOf(b, r);

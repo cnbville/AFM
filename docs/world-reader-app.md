@@ -17,7 +17,8 @@ The reader's Mac app and its browser twin: the shell, the library, search, filte
 
 ## People and Recruiting (lane R6)
 - `areas.rs`: a topic page with panels (People, Recruiting) lists its inventory areas, each with its verdict, its checks as tiles and its panels; `area/<code>` opens one area whole. Panels draw in `reader/ui/charts.js`: bars against real, a histogram against a curve, lines with the real band shaded, a matrix, a funnel, a state map and tables whose rows open pages. The filters bar and the year slider cut a panel's rows where it has the column; a line over ages or rating bands keeps its axis whole.
-- `class/<year>` and `state/<XX>`: the panels filed under that page, cut to one class or state, with its own verdict line; a class or state in any panel links there.
+- `class/<year>` and `state/<XX>`: the panels filed under that page, cut to one class or state, with its own verdict line; the key column is dropped once every row shares it (a map keeps it). A class or state in any panel links there.
+- A table column can ask for a minimum width (`minw`, in px), as the player page's stat line and "what happened" do; a bar with no real figure draws no real bar.
 - `player.rs`: the player page's own blocks on R5's template. "In plain words" (born, his age on the world's date and whether he is old or young for his class; his body; stars, camp stars, walk-on, junior college, GPA). "Season by season": every season with its year, age, level, team, position, role, depth, rating at the start and end, the season's form, level rating, coaching, his stat line for that year (high school lines, the college stat book, pro seasons) and what happened (events, a step up, a move, the first-year dip, spring, missed games); with hidden truths on, his potential and the world log's why for that step. "His story": his career notes as a timeline, each line under the year its age gives.
 
 ## What the app reads from a book

@@ -31,6 +31,7 @@ World reader lane R6 (brief `briefs/r6.md`) fills the People and Recruiting page
 - **Dynamic Links**: the book works out each person's 12 links with the engine's own `links_of` (`people.x_links`, 0 to 1 in `engine_links` order), since the world stores none.
 - **Small or early worlds**: a child table such a world never filled (no five-stars yet, no grudges) makes its panels and checks "no data", not an error. A newer world's columns that an older one lacks (birth dates, followers) are added empty.
 - `afm_read refresh <book>` works out the checks and panels again with this reader's definitions, without reading the world again.
+- **Time and memory**: on the trial 10 world the panels take about 3.5 minutes of the book's 11 and stay under the world read's 0.7 GB memory peak; `afm_read refresh` takes under 5 minutes at 0.36 GB. Each panel's time is in `panels.seconds`.
 
 ## A book without a log
 
