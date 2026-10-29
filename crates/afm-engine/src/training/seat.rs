@@ -766,6 +766,21 @@ pub fn seat_team(w: &World, frames: &Frames) -> Option<SeatTeam> {
     Some(SeatTeam { tier, level, frame, weeks, state, heat, roster, style, games })
 }
 
+/// Your team's frame for the football year of `y`, the same `seat_team`
+/// reads, without the roster (Continue's training block stops).
+pub fn seat_frame(w: &World, y: &crate::calendar::YearDates) -> Option<Frame> {
+    let seat = w.seat?;
+    match seat.level {
+        Cal::Nfl => seat.nfl_team.map(|_| Frame::pro(y, false)),
+        Cal::HighSchool => {
+            let s = w.high_schools.get(seat.program?)?.state;
+            (s < w.states.len()).then(|| super::week::state_frame(w, y, s).0)
+        }
+        Cal::College => Some(super::week::division_frame(y, w.programs.get(seat.program?)?.division)),
+        _ => None,
+    }
+}
+
 /// The books of a slot for checking a template (a mid-block week).
 pub fn slot_books(st: &SeatTeam, slot: Slot) -> [Book; 7] {
     let b = match slot {
