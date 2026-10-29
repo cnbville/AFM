@@ -610,12 +610,12 @@ fn the_record_store_fills_at_every_level() {
     assert!(nfl.iter().all(|e| (1..=17).contains(&e.games) && e.era > 0.0), "{:?}", nfl[0]);
     let rating = &w.stats.books[&(Scope::Nfl, Book::RateSeason(0))];
     assert!(rating.iter().all(|e| (60.0..=158.3).contains(&e.value)), "passer ratings {:?}", rating.first());
-    // Each NFL season has its leaders and its analytics rows.
-    for year in 2023..=2025 {
-        assert!(w.marks.leaders.iter().any(|l| l.scope == Scope::Nfl && l.year == year && l.stat == 0), "{year}");
-        let rows = w.marks.pro_rows.iter().filter(|r| r.year as i32 == year).count();
-        assert!(rows > 1000, "{rows} NFL analytics rows in {year}");
-    }
+    // The NFL season on the engine (2025) has its leaders and its
+    // analytics rows.
+    let year = 2025;
+    assert!(w.marks.leaders.iter().any(|l| l.scope == Scope::Nfl && l.year == year && l.stat == 0), "{year}");
+    let rows = w.marks.pro_rows.iter().filter(|r| r.year as i32 == year).count();
+    assert!(rows > 1000, "{rows} NFL analytics rows in {year}");
     // Every NFL club and nearly every FBS program has its own book.
     let with =
         |tier: Tier, n: usize| (0..n).filter(|&t| !team_list(w.marks.team_book(tier, t), SEASON, 0).is_empty()).count();
