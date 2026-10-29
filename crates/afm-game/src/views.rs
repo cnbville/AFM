@@ -686,17 +686,28 @@ pub fn status(w: &World) -> Value {
     })
 }
 
-/// The next dated moments on your calendar (for the Continue bar).
+/// The next dated moments on your calendar (for the Continue bar): the big
+/// ones that matter to you and the days at your level Continue stops on.
 pub(crate) fn next_dates(w: &World, n: usize) -> Vec<Value> {
     let seat = w.seat;
-    w.calendar
+    let mut v: Vec<(Date, String)> = w
+        .calendar
         .events
         .range(w.today..)
         .flat_map(|(d, evs)| evs.iter().map(move |e| (d, e)))
         .filter(|(_, e)| e.loud >= Loudness::Big && seat.is_none_or(|s| s.cares(e)))
         .take(n)
-        .map(|(d, e)| json!({ "date": date_text(*d), "in": w.today.days_to(*d), "text": e.text }))
-        .collect()
+        .map(|(d, e)| (*d, e.text.clone()))
+        .collect();
+    let to = if v.len() >= n { v[v.len() - 1].0 } else { w.today.add(120) };
+    for (d, name) in w.your_days(w.today, to) {
+        if !v.iter().any(|x| x.0 == d) {
+            v.push((d, name));
+        }
+    }
+    v.sort_by_key(|x| x.0);
+    v.truncate(n);
+    v.into_iter().map(|(d, text)| json!({ "date": date_text(d), "in": w.today.days_to(d), "text": text })).collect()
 }
 
 pub(crate) fn pinned(w: &World) -> Vec<Value> {

@@ -10,3 +10,7 @@ __pycache__/
 # The desktop app
 app/src-tauri/target/
 app/src-tauri/gen/
+
+# The World Reader app
+reader/src-tauri/target/
+reader/src-tauri/gen/

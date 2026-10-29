@@ -1588,7 +1588,7 @@ pub fn predraft_view(w: &World) -> Reply {
         ["Senior Bowl", date_text(jan.senior_bowl)],
         ["Combine", date_text(dates.combine_start)],
         ["Pro days", "March to mid-April"],
-        ["Top-30 visits deadline", date_text(dates.draft[0].date.add(-10))],
+        ["Top-30 visits deadline", date_text(dates.top30_deadline)],
         ["The draft", date_text(dates.draft[0].date)],
     ]);
     Ok(

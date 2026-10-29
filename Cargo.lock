@@ -49,6 +49,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "afm-reader-app"
+version = "0.2.0"
+dependencies = [
+ "afm-engine",
+ "afm-reader",
+ "rusqlite",
+ "serde_json",
+ "tiny_http",
+ "ureq",
+ "zstd",
+]
+
+[[package]]
 name = "afm-tools"
 version = "0.2.0"
 dependencies = [
