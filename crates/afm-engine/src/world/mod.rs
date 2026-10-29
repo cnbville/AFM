@@ -1730,7 +1730,15 @@ fn new_kid(
     let family = generate_family(&bg, Some(structure), &mut rng);
     apply_background(&mut player, &mut bg, &family, &mut rng);
     people::sync_new(&mut player, &bg, &family);
-    let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+    // Drawn with the odds of the position his body fits now, before any
+    // coach moves him, or a snapper's if he has the knack (A25).
+    let knack = ethnicity::snapper_knack(
+        player.ceilings.get(crate::attributes::Attr::LongSnapping),
+        player.original_potential,
+        z,
+    );
+    let fits = if knack { crate::positions::Position::LS } else { player.position };
+    let ethnicity = ethnicity::player_ethnicity(s, z, Some(fits), &mut rng);
     // Grades drift through high school: effort pushes them up.
     let gpa_trend =
         rng.normal(0.0, 0.07) + 0.012 * (player.personality.work_ethic - 10.0) + 0.04 * (bg.home_stability - 0.5);
