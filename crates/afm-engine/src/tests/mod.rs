@@ -1,6 +1,7 @@
 //! Engine tests, ported from the TypeScript model. Calibration of a whole
 //! national class lives in afm-tools (it needs the debug summary).
 
+mod bodies;
 mod coaching_people;
 mod compact;
 mod development;
@@ -14,6 +15,7 @@ mod kick_units;
 mod leagues;
 mod legacy;
 mod level_rating;
+mod lines;
 mod links;
 mod live_game;
 mod polls;
