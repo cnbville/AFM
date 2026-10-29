@@ -18,6 +18,33 @@ screens.groundzero = async () => {
 };
 GOTO.groundzero = () => [["Staff", "staff"], ["Calendar", "calendar"], ["News", "news"]];
 
+// The Handbook's page (lane 8's hbAdd), from docs/reference/how-it-works/new-teams.md.
+if (typeof hbAdd === "function") {
+  hbAdd({
+    id: "newteams", group: "Building the team", title: "New teams",
+    lede: "After 2026 the NFL adds clubs, colleges start football and growing suburbs open high schools, at about the real rates. You can start at one, or take its job later, a year before its first game.",
+    how: [
+      ["The NFL expands rarely", "The owners vote at their annual meeting, about three times in 56 years, and add two clubs that play two seasons later. In their first February the other clubs list their open players and the new clubs take turns in an expansion draft."],
+      ["Colleges start about six a year", "Mostly in the NAIA and Division III. A build year comes first: the team signs a class, practices and holds walk-on tryouts, and plays no games until the next season."],
+      ["Schools open where families move", "Districts in states whose young population grows split a big school. On the first day the zone's freshmen and sophomores move, juniors choose, and seniors stay where they started."],
+      ["Your staff reads it first", "The open players carry your staff's grades and its guess at the lists; a junior's chance to come shows before the first day, and a home visit helps."],
+    ],
+    lv: {
+      hs: "A new school plays its first varsity season with freshmen and sophomores, with no district until the next realignment. You can visit up to 12 zoned juniors' families.",
+      college: "A Division I school starts at FCS, as an independent. Walk-on tryouts on summer enrollment day take the best unsigned seniors and up to 12 junior college players.",
+      nfl: "The new clubs pick first and last in every round of their first draft. A club stops drafting when no listed player beats the best free agent at his spot, at 42 players or at 55% of the cap.",
+    },
+    where: [["Ground zero", "groundzero"], ["Staff", "staff"], ["News", "news"]],
+    rel: ["draft", "recruiting", "people"],
+  });
+  hbScreen("groundzero", "newteams", [
+    ["The steps", "The year to the first game, with the days that matter.", ""],
+    ["The open players", "The other clubs' lists, your staff's grade and your queue for the expansion draft.", "Club"],
+    ["The squad", "Who is on the build year's squad, signed and on the way, and committed for next year.", "The squad"],
+    ["Your zone", "The players in the new school's zone and each one's chance to come.", "Your zone"],
+  ]);
+}
+
 function gzNfl(x) {
   const q = x.queue || [];
   const byId = Object.fromEntries((x.open || []).map((p) => [p.id, p]));

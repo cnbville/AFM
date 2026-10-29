@@ -255,7 +255,7 @@ pub(crate) fn tryouts(w: &mut World) {
 fn sign(w: &mut World, i: usize, p: usize, date: crate::calendar::Date, walk_on: bool) {
     let name = w.programs[p].real_name.clone();
     let x = &mut w.people[i];
-    x.cal.signed = Some(crate::world::Signed { program: p, walk_on, date, early_enrollee: false });
+    x.cal.signed = Some(crate::world::Signed { program: p, walk_on, date, early_enrollee: false, flipped: false });
     x.note(if walk_on {
         format!("Walked on at {name} in its build year, after its tryouts.")
     } else {
