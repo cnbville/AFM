@@ -1756,6 +1756,10 @@ fn morale(pen: &mut Pen, d: Date) {
 /// lineup choice of yours reads clearly weak. It never blocks you.
 fn lineup_mail(pen: &mut Pen, from: Date, to: Date) {
     let w = pen.w;
+    // Help set to Off turns the lineup warnings off too (H15).
+    if !crate::lane_handbook::warnings_on(w) {
+        return;
+    }
     let Some(st) = w.training_team() else { return };
     let mut d = from;
     while d <= to {
