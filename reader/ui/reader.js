@@ -156,7 +156,7 @@ function tableHtml(b) {
     return `<tr class="${link ? "click" : ""}" ${link ? `data-go="${esc(link)}"` : ""} ${h ? `data-h="${hv(h)}"` : ""}>` + r.map((v, j) => {
       const c = cols[j] || {};
       const t = c.tone && v ? ` t-${c.tone}` : "";
-      return `<td class="${c.num ? "n" : ""}${t}">${cellHtml(v, c)}</td>`;
+      return `<td class="${c.num ? "n" : ""}${t}"${c.minw ? ` style="min-width:${Number(c.minw)}px"` : ""}>${cellHtml(v, c)}</td>`;
     }).join("") + "</tr>";
   }).join("");
   return `<div class="tbl"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -275,7 +275,8 @@ function blockHtml(b, id) {
     case "note":
       return `<p class="sub" style="margin:0">${esc(b.text)}</p>`;
     default:
-      return "";
+      // The page lanes' views (charts.js).
+      return window.extraBlock ? window.extraBlock(b, id) : "";
   }
 }
 
