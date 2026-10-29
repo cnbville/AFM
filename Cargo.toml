@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/afm-engine", "crates/afm-tools", "crates/afm-game", "crates/afm-reader-app"]
+members = ["crates/afm-engine", "crates/afm-tools", "crates/afm-game", "crates/afm-reader", "crates/afm-reader-app"]
 
 [workspace.package]
 version = "0.2.0"
