@@ -1,0 +1,1 @@
+Archivo (variable, widths 62-125, weights 100-900) by Omnibus-Type, from Google Fonts, under the SIL Open Font License 1.1 (https://openfontlicense.org). Shipped inside the app so the game works offline (screens topic 2).

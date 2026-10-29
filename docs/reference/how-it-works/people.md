@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 21ae52c with update 3 lanes 5, 3, 13 and 13d on 2026-10-29; the ethnicity section with update 3 lane 17 on 2026-10-29.
+Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d and 17 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -157,7 +157,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 
 ## The words people say (the line bank)
 
-- **The bank** is plain text in `crates/afm-engine/data/lines/` (about 18,100 versions in 20 files after update 3, lanes 13 and 13d; press questions about 5,740, story quotes about 6,440), read once by `world/folk/voice.rs` (`BANKS`, `Bank::parse`). `@key` names a part; each line under it is one version, with `[a|b]` choices and `{fact}` holes (a version whose fact is missing is skipped).
+- **The bank** is plain text in `crates/afm-engine/data/lines/` (about 26,500 versions in 20 files after update 3, lanes 13, 13c and 13d; one-on-one replies, closes and deflects in `talk_reply.txt` about 10,000, press questions about 5,740, story quotes about 6,440), read once by `world/folk/voice.rs` (`BANKS`, `Bank::parse`). `@key` names a part; each line under it is one version, with `[a|b]` choices and `{fact}` holes (a version whose fact is missing is skipped).
 - **Who can say a version**: tags after ` ~ ` must all fit the speaker, `!tag` rules him out, and `fact=value` or `!fact=value` checks a fact (press `result=win`). Players carry level, traits, region, era, position (`qb`, `skill`, `lineman`, `offense`...) and career stage (`freshman`... `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) (`Speaker::player`, `Speaker::position`). `@with other.key` lends another part's versions (story tone keys borrow their base key).
 - **Picking**: among fitting versions, ones the same speaker hasn't said to you in 365 days come first, weighted 1 + 0.8 per tag or check they need; if none is fresh, the one he said longest ago (`Pen::part`, `REST_DAYS`).
 - **The rest changes words only.** What a person says and does is decided before the bank is asked (`talks.rs` `landing`, `outcome`), and the pen's own random stream never feeds back into the world (`tests/lines.rs`, `the_rest_changes_the_words_only`).
