@@ -179,6 +179,11 @@ struct HsPlayed {
     tally: super::charts::Tally,
     /// A final at a neutral site.
     neutral: bool,
+    /// The world reader's game log: the game's row, packed where the game
+    /// was played, when a log is open, and its situation totals (for it or
+    /// the trial game log).
+    log: Option<Vec<u8>>,
+    situ: Option<super::game_log::GameSitu>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -941,6 +946,9 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     let (mut homecomings, mut senior_nights) = (0, 0);
     let mut outcomes: Vec<(usize, usize)> = Vec::new();
     let mut engine: Vec<(usize, usize, u64)> = Vec::new();
+    // Games decided off the engine, for the world reader's game log: home,
+    // away, whether the home side won, a forfeit.
+    let mut standins: Vec<(usize, usize, bool, bool)> = Vec::new();
     for g in hs.groups.iter().filter(|g| g.state == s) {
         let Some(week) = g.schedule.get(k) else { continue };
         for &(h, a) in week {
@@ -983,6 +991,7 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
                 );
                 key_uniform(seed ^ 0x55, key) < p
             };
+            standins.push((h, a, home_wins, fh || fa));
             let (wn, l) = if home_wins { (h, a) } else { (a, h) };
             hs.results[wn].wins += 1;
             hs.results[l].losses += 1;
@@ -994,6 +1003,12 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     w.log.hs_no_contests += no_contests;
     w.log.hs_homecomings += homecomings;
     w.log.hs_senior_nights += senior_nights;
+    if w.logging() {
+        for (h, a, home_wins, forfeit) in standins {
+            let head = hs_head(w, s, k, d, [h, a], false);
+            log_hs_standin(w, head, home_wins, forfeit);
+        }
+    }
     let played = engine_games(w, s, k, &engine, (d, &wx), false, seed ^ 0x55);
     let hs = w.hs_season.as_mut().unwrap();
     let mut all: Vec<(usize, usize)> = outcomes.clone();
@@ -1155,21 +1170,30 @@ pub(crate) fn squad_team(
         })
         .collect();
     let coach = school.coach;
-    // Your guidelines pick your varsity's systems (update 2, G2) at camp:
-    // at a high school the head coach calls both sides himself.
+    // Your guidelines pick your varsity's systems (update 2, G2) at camp.
+    // An AI school's head coach calls the side he came up on and his
+    // coordinator the other (C37); with no coordinator he calls both.
+    let off_head = coach.is_none_or(|c| w.coaches[c].came_up.offense());
+    let (oc, dc) = if seat {
+        (coach, coach)
+    } else if off_head {
+        (coach, school.dc.or(coach))
+    } else {
+        (school.oc.or(coach), coach)
+    };
     let level = crate::calendar::Level::HighSchool;
-    let guide = super::guide::team_guidelines(w, coach, coach, coach, level, seat);
+    let guide = super::guide::team_guidelines(w, coach, oc, dc, level, seat);
     let inst = stored.unwrap_or_else(|| school_install(w, h, seat));
     let ab = coach.map(|c| *w.coaches[c].ability());
     let aware = players.iter().map(|p| p.a(crate::attributes::Attr::FootballIq)).sum::<f64>() / players.len() as f64;
-    let offense = season::coach_caller(w, coach, inst.off);
+    let offense = season::coach_caller(w, oc, inst.off);
     let install = clamp(crate::game::roster::absorb(aware) + 0.01 * (offense.aggressiveness - 10.0), 0.35, 1.0);
     let mut team = GameTeam::new(
         school.name.clone(),
         players,
         crate::game::Staff {
             offense,
-            defense: season::coach_caller(w, coach, 7 + inst.shell),
+            defense: season::coach_caller(w, dc, 7 + inst.shell),
             game_management: ab.map_or(9.0, |a| a.game_management),
             strictness: ab.map_or(10.0, |a| a.discipline),
             off_scheme: inst.offense(),
@@ -1317,6 +1341,52 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     })
 }
 
+/// The world reader's game log: a high school game's facts (the state,
+/// the week, regular or playoff, the teams).
+fn hs_head(
+    w: &World,
+    s: usize,
+    week: usize,
+    day: Date,
+    teams: [usize; 2],
+    final_game: bool,
+) -> serde_json::Map<String, serde_json::Value> {
+    let regular = w.hs_season.as_ref().map_or(usize::MAX, |hs| hs.states[s].weeks.len());
+    let mut head = serde_json::Map::new();
+    head.insert("level".into(), "hs".into());
+    head.insert("season".into(), w.year.into());
+    head.insert("state".into(), w.states[s].code.as_str().into());
+    head.insert("date".into(), day.to_string().into());
+    head.insert("week".into(), (week + 1).into());
+    let kind = if final_game {
+        "state final"
+    } else if week >= regular {
+        "playoff"
+    } else {
+        "regular"
+    };
+    head.insert("kind".into(), kind.into());
+    if week >= regular {
+        head.insert("round".into(), (week - regular + 1).into());
+    }
+    head.insert("teams".into(), serde_json::json!(teams));
+    head.insert("neutral".into(), final_game.into());
+    head.insert("kickoff".into(), "19:00 local".into());
+    head
+}
+
+/// Logs a high school game decided off the engine (the stand-in, or a
+/// forfeit): the winner only.
+fn log_hs_standin(w: &mut World, mut head: serde_json::Map<String, serde_json::Value>, home_won: bool, forfeit: bool) {
+    if forfeit {
+        head.insert("forfeit".into(), true.into());
+    }
+    let row = super::wlog::games::standin_row(head, home_won, None);
+    if let Some(l) = w.wlog.as_deref() {
+        l.game("games-hs", "", &row, None);
+    }
+}
+
 /// Plays a state's engine games for one week (regular week `week`, or a
 /// playoff round) and files the results and lines. Each game is played in
 /// its home town's weather (U-e: the town's own climate normals, with the
@@ -1342,6 +1412,8 @@ fn engine_games(
         crate::game::Rules::for_level(crate::player::Level::HS)
     };
     let seat = w.seat_school();
+    let logging = w.logging();
+    let trial_log = w.options.keep_game_log && w.recording;
     let world: &World = w;
     // Your game, played live on the game day screens (section 9).
     let live = world.live_result(Level::HighSchool);
@@ -1403,6 +1475,15 @@ fn engine_games(
             let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
             let mut tally = super::charts::Tally::default();
             tally.add_game(&r.stats);
+            let log = logging.then(|| {
+                let mut head = hs_head(world, s, week, day, [h, a], final_game);
+                head.insert("weather".into(), serde_json::json!(wx));
+                head.insert("conditions".into(), serde_json::json!(cond));
+                let row = super::wlog::games::game_row(head, super::wlog::games::game_body(&r, Some([&home, &away])));
+                super::wlog::pack(&row)
+            });
+            let log = log.flatten();
+            let situ = (logging || trial_log).then(|| super::game_log::game_situations(&r.stats, false));
             let injuries = std::mem::take(&mut r.injuries);
             Ok(HsPlayed {
                 injuries,
@@ -1412,6 +1493,8 @@ fn engine_games(
                 full,
                 tally,
                 neutral: final_game,
+                log,
+                situ,
             })
         })
         .collect();
@@ -1420,6 +1503,10 @@ fn engine_games(
         let g = match g {
             Ok(g) => g,
             Err(home_wins) => {
+                if w.logging() {
+                    let head = hs_head(w, s, week, day, [h, a], final_game);
+                    log_hs_standin(w, head, home_wins, true);
+                }
                 let (wn, l) = if home_wins { (h, a) } else { (a, h) };
                 let hs = w.hs_season.as_mut().unwrap();
                 hs.results[wn].wins += 1;
@@ -1434,6 +1521,19 @@ fn engine_games(
             }
         };
         let home_wins = if g.score[0] == g.score[1] { key & 1 == 0 } else { g.score[0] > g.score[1] };
+        if let Some(situ) = g.situ {
+            let year = w.year;
+            if w.options.keep_game_log && w.recording {
+                for (k, v) in &situ.league {
+                    let e = w.game_log.level_situations.entry((year, "HS".to_string(), k.clone())).or_default();
+                    super::game_log::bump(e, v);
+                }
+            }
+            if let (Some(row), Some(l)) = (g.log, w.wlog.as_mut()) {
+                l.add_situations(year, "hs", w.states[s].code.as_str(), [h, a], situ);
+                l.put_packed("games-hs", row);
+            }
+        }
         let (wn, l) = if home_wins { (h, a) } else { (a, h) };
         let hs = w.hs_season.as_mut().unwrap();
         hs.results[wn].wins += 1;
@@ -1612,6 +1712,7 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     } else {
         vec![None; pairs.len()]
     };
+    let off_engine: Vec<bool> = played.iter().map(|x| x.is_none()).collect();
     let hs = w.hs_season.as_mut().unwrap();
     let mut outcomes: Vec<(usize, usize)> = Vec::new();
     let mut by_bracket: HashMap<usize, Vec<(u32, u32)>> = HashMap::new();
@@ -1640,6 +1741,16 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         kept.push((r as u8, a as u32, b as u32, wn as u32));
     }
     w.log.hs_games += pairs.len() as u32;
+    // The world reader's game log: the games the stand-in decided (the
+    // engine's games are logged as they are played).
+    if w.logging() {
+        for (&(_, a, b, wn), off) in kept.iter().zip(off_engine) {
+            if off {
+                let head = hs_head(w, s, week, d, [a as usize, b as usize], r == last);
+                log_hs_standin(w, head, wn == a, false);
+            }
+        }
+    }
     let hs = w.hs_season.as_mut().unwrap();
     hs.playoff_games.extend(kept);
     for bi in 0..hs.brackets.len() {
@@ -1706,6 +1817,15 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             points: [t.totals.points_for.max(0) as u32, t.totals.points_against.max(0) as u32],
             playoff_wins: runs.get(&h).map_or(0, |r| r.0),
             semifinal: runs.get(&h).is_some_and(|r| r.1),
+            unit: crate::world::high_school::HsUnit {
+                games: t.totals.games.min(255) as u8,
+                sacks: t.totals.sacks.min(65_535) as u16,
+                sacks_allowed: t.totals.sacks_allowed.min(65_535) as u16,
+                takeaways: t.totals.takeaways.min(65_535) as u16,
+                turnovers: t.totals.turnovers.min(65_535) as u16,
+                yards: t.totals.yards.max(0.0) as u32,
+                yards_allowed: t.totals.yards_allowed.max(0.0) as u32,
+            },
         });
         if t.state_title {
             school.state_titles += 1;
@@ -1723,6 +1843,11 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             coach.season_reputation(t.vs_expectation(), locker, true);
             let title = if t.state_title { TitleKind::State } else { TitleKind::None };
             coach.title_reputation(title, true, stage);
+        }
+        // His coordinators' names move with the season too, at an
+        // assistant's pace (C37).
+        for c in [w.high_schools[h].oc, w.high_schools[h].dc].into_iter().flatten() {
+            w.coaches[c].season_reputation(t.vs_expectation(), 0.0, false);
         }
     }
 }

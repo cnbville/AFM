@@ -741,8 +741,41 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     let recording_log = w.options.keep_game_log && w.recording;
     let year = cs.year;
     let watch = w.tape_watch(CalLevel::College);
+    // The world reader's game log: each game's body, its snaps (packed) and
+    // its situation totals, worked out on all cores (they are the log's
+    // bulk).
+    let logging = w.logging();
+    let mut to_log = if logging {
+        outcomes
+            .par_iter()
+            .zip(jobs.par_iter())
+            .map(|(r, j)| {
+                r.as_ref().map(|r| {
+                    let g = &cs.games[j.k];
+                    let mut name = serde_json::Map::new();
+                    name.insert("level".into(), "college".into());
+                    name.insert("season".into(), cs.year.into());
+                    name.insert("date".into(), g.date.to_string().into());
+                    name.insert("teams".into(), serde_json::json!([g.home, g.away]));
+                    let snaps = super::wlog::games::snaps_record(&name, super::wlog::games::plays(&r.stats));
+                    let teams = j.teams.as_ref().map(|(a, b)| [a, b]);
+                    (
+                        super::wlog::games::game_body(r, teams),
+                        super::wlog::pack(&snaps),
+                        super::game_log::game_situations(&r.stats, true),
+                    )
+                })
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+    .into_iter();
+    let first_date = cs.games.iter().map(|g| g.date).min().unwrap_or(date);
+    let mut logged: Vec<(usize, serde_json::Value, Option<Vec<u8>>)> = Vec::new();
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
+        let log_part = to_log.next().flatten();
         let mut played = j.played;
         let (home, away, division, kind, conference) = {
             let g = &w.college.as_ref().unwrap().games[k];
@@ -888,6 +921,51 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             }
         }
         cs.games[k].played = Some(played);
+        if logging {
+            let g = &cs.games[k];
+            let (kind, round) = super::wlog::games::college_kind(g.kind);
+            let (hd, ad) = (w.programs[home].division, w.programs[away].division);
+            let mut head = serde_json::Map::new();
+            head.insert("level".into(), "college".into());
+            head.insert("season".into(), year.into());
+            head.insert("date".into(), g.date.to_string().into());
+            head.insert("week".into(), ((g.date.0 - first_date.0).max(0) / 7 + 1).into());
+            head.insert("kind".into(), kind.into());
+            head.insert("round".into(), serde_json::json!(round));
+            head.insert("name".into(), serde_json::json!(g.name));
+            head.insert("teams".into(), serde_json::json!([home, away]));
+            head.insert("divisions".into(), serde_json::json!([hd.name(), ad.name()]));
+            head.insert("cross".into(), (hd != ad).into());
+            head.insert("conference_game".into(), g.conference.into());
+            head.insert(
+                "rivalry".into(),
+                serde_json::json!(g.rivalry.map(|r| crate::calendar::data::RIVALRIES[r].name)),
+            );
+            head.insert("site".into(), serde_json::json!(g.site));
+            head.insert("neutral".into(), j.neutral.into());
+            head.insert("kickoff".into(), format!("{:02}:{:02} ET", g.kickoff.0, g.kickoff.1).into());
+            head.insert("line".into(), serde_json::json!(g.line));
+            head.insert("weather".into(), serde_json::json!(played));
+            head.insert("conditions".into(), serde_json::json!(j.venue.cond));
+            head.insert("tags".into(), serde_json::json!(g.tags.iter().map(|t| t.name()).collect::<Vec<_>>()));
+            head.insert("loud".into(), g.loud.name().into());
+            head.insert("why".into(), serde_json::json!(g.why));
+            head.insert("huge_for".into(), serde_json::json!(g.huge_for));
+            head.insert("senior_day".into(), g.senior_day.into());
+            head.insert("homecoming".into(), g.homecoming.into());
+            let (row, plays) = match (&r, log_part) {
+                (Some(_), Some((body, plays, situ))) => {
+                    let group = if hd == ad { hd.name() } else { "cross-division" };
+                    if let Some(l) = w.wlog.as_mut() {
+                        l.add_situations(year, "college", group, [home, away], situ);
+                    }
+                    (super::wlog::games::game_row(head, body), plays)
+                }
+                _ => (super::wlog::games::standin_row(head, home_won, Some(played.score)), None),
+            };
+            logged.push((k, row, plays));
+        }
+        let cs = w.college.as_mut().unwrap();
         crown_title_game(cs, k);
         if played.delay > 0 {
             w.log.lightning_delays += 1;
@@ -921,6 +999,24 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     }
     // The gate, the guarantees and the lines settled (later extras topic 1, C8).
     super::finance::college::played(w, &idx);
+    // The game log's rows, with the crowd and the gate now known.
+    for (k, mut row, plays) in logged {
+        let g = &w.college.as_ref().unwrap().games[k];
+        if let Some(m) = row.as_object_mut() {
+            if g.attendance > 0 {
+                m.insert("attendance".into(), g.attendance.into());
+            }
+            if let Some((what, dollars)) = g.paid {
+                m.insert("paid".into(), serde_json::json!({ "kind": what, "dollars": dollars }));
+            }
+        }
+        if let Some(l) = w.wlog.as_deref() {
+            l.put("games-college", &row);
+            if let Some(plays) = plays {
+                l.put_packed("plays-college", plays);
+            }
+        }
+    }
     advance_brackets(w);
 }
 

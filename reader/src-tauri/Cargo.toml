@@ -1,0 +1,28 @@
+[package]
+name = "afm-world-reader"
+description = "The AFM World Reader on the desktop (lane R5): the screens in reader/ui on Tauri, the reader's commands on their own thread. A debug tool, never part of the game."
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Kept out of the engine's workspace: CI builds it on macOS only.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+afm-reader-app = { path = "../../crates/afm-reader-app" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# The engine runs optimised even in a dev build.
+[profile.dev.package."*"]
+opt-level = 3

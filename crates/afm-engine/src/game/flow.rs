@@ -976,6 +976,8 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             }
         }
     }
+    // Red zone trips and the clock each side held the ball (counts only).
+    g.stats.count_drives();
     g.res.stats = g.stats;
     let mut ctl = g.ctl.take().unwrap_or_default();
     if !g.paused {
@@ -2154,6 +2156,7 @@ impl<'a> Game<'a> {
         r.kick_distance = dist;
         r.kick_good = fg.made;
         r.blocked = fg.blocked;
+        r.bad_snap = fg.bad_snap;
         r.kick_pressure = pressure;
         r.why = fg.why.clone();
         r.on_field = [
@@ -2720,6 +2723,7 @@ impl<'a> Game<'a> {
         r.returner = kr.returner;
         r.return_yards = if kr.returned { kr.return_yards } else { 0.0 };
         r.blocked = kr.blocked;
+        r.bad_snap = kr.bad_snap;
         r.duration = kr.duration;
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
