@@ -23,6 +23,8 @@ pub mod lane_find;
 pub mod lane_frontoffice;
 pub mod lane_gameday;
 pub mod lane_gameplan;
+pub mod lane_handbook;
+pub mod lane_help;
 pub mod lane_hiring;
 pub mod lane_legacy;
 pub mod lane_logos;
@@ -80,6 +82,15 @@ impl Game {
     /// Runs one command. Unknown commands and bad arguments come back as
     /// errors in plain words.
     pub fn call(&mut self, cmd: &str, args: &Value) -> Reply {
+        let r = self.run(cmd, args);
+        // The guided week's tasks tick when their change is made (H12).
+        if r.is_ok() {
+            lane_handbook::after_call(self, cmd);
+        }
+        r
+    }
+
+    fn run(&mut self, cmd: &str, args: &Value) -> Reply {
         let num = |k: &str| args.get(k).and_then(Value::as_u64);
         let id = || num("id").map(|v| v as u32).ok_or_else(|| "Missing id.".to_string());
         match cmd {
@@ -182,6 +193,7 @@ impl Game {
             "start_career" => {
                 let w = self.wm()?;
                 setup::start(w, args)?;
+                lane_handbook::on_start(w, args);
                 lane_core::after_days(w);
                 Ok(views::status(w))
             }
@@ -249,7 +261,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 26] = [
+                const LANES: [Lane; 28] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -274,8 +286,10 @@ impl Game {
                     lane_coaching::call,
                     lane_hiring::call,
                     lane_logos::call,
+                    lane_help::call,
                     lane_paths::call,
                     lane_film::call,
+                    lane_handbook::call,
                 ];
                 for lane in LANES {
                     if let Some(r) = lane(self, cmd, args) {

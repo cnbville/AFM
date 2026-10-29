@@ -79,6 +79,10 @@ pub struct Mail {
     /// The team whose colours print the letterhead (the game crate's code).
     #[serde(default)]
     pub org_team: Option<u32>,
+    /// Why it happened, as your staff sees it (update 3, H6): the two or
+    /// three biggest reasons, linked text.
+    #[serde(default)]
+    pub why: Vec<String>,
 }
 
 /// One picked answer: its words, what it will do, and the act behind it.

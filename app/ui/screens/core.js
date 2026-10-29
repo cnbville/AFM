@@ -560,7 +560,7 @@ function peekKey(a) {
 function peekHtml(x) {
   if (x.kind === "player") {
     return `<div class="pk-head">${face({ name: x.name, initials: x.initials, team: x.team }, 52)}<div><b>${esc(x.name)}</b><small>${esc(x.pos)}${x.jersey != null ? ` · #${x.jersey}` : ""} · ${x.team ? esc(x.team.name) : esc(x.where)}</small><small>${esc(x["class"])} · age ${x.age} · ${esc(x.ht)}, ${x.wt} lb ${stars(x.stars)}</small></div></div>
-      <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.yours ? `<div class="kvline"><span>Your own read</span>${yourRange(x.yours)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b title="${esc(lvlTip(x))}">${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
+      <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.yours ? `<div class="kvline"><span>Your own read</span>${yourRange(x.yours)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b data-h3="${x.id}" tabindex="0">${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
       ${(() => { const mv = peekMoves(x); return mv.length ? `<div class="pk-moves">${mv.map((m) => moveBtn(m, { id: x.id, name: x.name }, "st-btn small glass")).join("")}</div>` : ""; })()}
       <div class="pk-foot">${x.listed ? '<span class="st-pill">On my list</span>' : ""}${x.noted ? '<span class="st-pill">Has my note</span>' : ""}<span class="muted small">Click to open · shift-click beside · right-click for more</span></div>`;
   }
@@ -1000,7 +1000,7 @@ function letterHtml(m) {
     ? `<div class="clips">${m.body.map((l, i) => (i === 0 ? `<p class="clip-intro">${rich(l)}</p>` : `<article class="clip"><p>${rich(l)}</p></article>`)).join("")}</div>`
     : m.body.map((l) => `<p>${rich(l)}</p>`).join("");
   const sign = m.head === "paper" ? `<p class="lt-sign small muted">${esc(m.sign || "")}</p>` : `<div class="lt-sign">${m.sign ? `<p>${esc(m.sign)}</p>` : ""}${m.head === "email" ? "" : `<p class="sig">${esc(m.from)}</p><small>${esc(m.role)}</small>`}</div>`;
-  return `<div class="lt-paper head-${m.head}">${letterHead(m)}${formal ? `<div class="lt-to"><small>To</small> ${esc(m.to)}</div><div class="lt-subject">${esc(m.subject)}</div>` : m.head === "paper" ? `<div class="lt-subject paper">${esc(m.subject)}</div>` : ""}<div class="lt-body">${body}${tableHtml}</div>${sign}${m.attach && m.attach.length ? `<div class="lt-attach">${m.attach.map((a) => `<span class="att">${icon("note")}${esc(a)}</span>`).join("")}</div>` : ""}</div>`;
+  return `<div class="lt-paper head-${m.head}">${letterHead(m)}${formal ? `<div class="lt-to"><small>To</small> ${esc(m.to)}</div><div class="lt-subject">${esc(m.subject)}</div>` : m.head === "paper" ? `<div class="lt-subject paper">${esc(m.subject)}</div>` : ""}<div class="lt-body">${body}${tableHtml}${typeof hpWhy === "function" ? hpWhy(m.why) : ""}</div>${sign}${m.attach && m.attach.length ? `<div class="lt-attach">${m.attach.map((a) => `<span class="att">${icon("note")}${esc(a)}</span>`).join("")}</div>` : ""}</div>`;
 }
 function letterSide(m) {
   const about = m.about;
@@ -1496,7 +1496,7 @@ function linksHtml(p) {
 function readCard(p) {
   const pot = p.potential;
   const who = p.mine ? "Your position coach" : "Your scouts";
-  return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl" title="${esc(lvlTip(p))}"><b>${esc(lvlParts(p.level_rating).n)}</b><small>${esc(lvlParts(p.level_rating).words)}</small></div>` : ""}</div>
+  return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl" data-h3="${p.id}" tabindex="0"><b>${esc(lvlParts(p.level_rating).n)}</b><small>${esc(lvlParts(p.level_rating).words)}</small></div>` : ""}</div>
     ${pot ? `<p class="sub">Staff ${esc(words(pot.sure))}.${pot.hints && pot.hints.length ? " " + pot.hints.map(esc).join(". ") + "." : ""}</p>` : `<p class="sub">${p.ovr ? "Your staff rates what he is now; nobody has projected what he could become." : "Nobody on your staff has seen him. Only his measurables and public profile are known."}</p>`}
     <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Your own read</dt><dd>${yourRange(p.yours, p.yours_looks)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
 }
@@ -1592,7 +1592,7 @@ screens.player = async (a) => {
   const extra = PLAYER_TABS.find((t) => t.name === tab);
   const body = extra ? await extra.draw(p) : await PT[tab](p);
   const posHist = (p.positions || []).map(([age, pos]) => `${pos} from age ${age}`).join(" · ");
-  const lr = p.level_rating ? `<span class="lvlpill" title="${esc(lvlTip(p))}">${esc(p.level_rating)}</span>` : "";
+  const lr = p.level_rating ? `<span class="lvlpill" data-h3="${p.id}" tabindex="0">${esc(p.level_rating)}</span>` : "";
   const listBtn = p.listed
     ? `<button class="st-btn glass" data-act="listremove" data-id="${p.id}">${icon("star")} On my players</button>`
     : `<button class="st-btn glass" data-act="listadd" data-id="${p.id}">${icon("star")} Add to my players</button>`;
@@ -1660,7 +1660,7 @@ screens.compare = async (a) => {
   ps.forEach((p, i) => p.groups.forEach((g) => g.attrs.forEach((t) => { const k = g.name + "|" + t.label; if (!attrs.has(k)) attrs.set(k, { g: g.name, label: t.label, key: t.key, reads: [] }); attrs.get(k).reads[i] = t.read; })));
   const head = `<tr><th class="l"></th>${ps.map((p) => `<th class="l cmp-h">${face(p, 44)}<div>${playerLink(p.id, p.name)}<small>${esc(p.pos)} · ${esc(p.class)}${p.team ? " · " + esc(p.team.name) : ""}</small></div><button class="st-icon-btn" data-act="cmpdrop" data-id="${p.id}" aria-label="Take out">×</button></th>`).join("")}</tr>`;
   const row = (label, cells) => `<tr><td class="l">${label}</td>${cells.map((c) => `<td class="l">${c}</td>`).join("")}</tr>`;
-  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Your own read", ps.map((p) => yourRange(p.yours))) + row("Level", ps.map((p) => esc(p.level_rating || ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
+  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Your own read", ps.map((p) => yourRange(p.yours))) + row("Level", ps.map((p) => (p.level_rating ? `<span data-h3="${p.id}" tabindex="0">${esc(p.level_rating)}</span>` : ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
   let g = null;
   for (const v of attrs.values()) {
     if (v.g !== g) { body += `<tr class="grouprow"><td class="l" colspan="${ps.length + 1}">${esc(v.g)}</td></tr>`; g = v.g; }
@@ -1783,7 +1783,7 @@ screens.news = async (a) => {
   }
   title("News");
   const seg = FEEDS.map(([k, t]) => `<button data-act="newskind" data-v="${k}" aria-pressed="${N.kind === k}">${t}</button>`).join("");
-  const rows = x.rows.map((r) => `<article class="story ${r.mine ? "mine" : ""} loud-${esc(r.loud || "small")}"><div class="story-art">${posterScene(r.scene || "news", (S.status && S.status.mine && S.status.mine.colors) || ["#3b4252", "#1c1f27"])}</div><div class="story-copy"><div class="story-meta"><span class="st-label">${esc(r.kind)}</span><span class="cert cert-${esc((r.certainty || "").toLowerCase())}" title="How sure the source is">${esc(r.certainty || "")}</span><span class="muted">${esc(r.source || "")} · ${esc(r.date)}</span></div><p>${rich(r.text)}</p>${r.chain ? `<a class="link small" data-act="newschain" data-k="${esc(r.chain.key)}">${r.chain.count} more in this story</a>` : ""}</div></article>`).join("");
+  const rows = x.rows.map((r) => `<article class="story ${r.mine ? "mine" : ""} loud-${esc(r.loud || "small")}"><div class="story-art">${posterScene(r.scene || "news", (S.status && S.status.mine && S.status.mine.colors) || ["#3b4252", "#1c1f27"])}</div><div class="story-copy"><div class="story-meta"><span class="st-label">${esc(r.kind)}</span><span class="cert cert-${esc((r.certainty || "").toLowerCase())}" title="How sure the source is">${esc(r.certainty || "")}</span><span class="muted">${esc(r.source || "")} · ${esc(r.date)}</span></div><p>${rich(r.text)}</p>${typeof hpWhy === "function" ? hpWhy(r.why, "small") : ""}${r.chain ? `<a class="link small" data-act="newschain" data-k="${esc(r.chain.key)}">${r.chain.count} more in this story</a>` : ""}</div></article>`).join("");
   const chain = N.chain ? `<div class="chainbar">Following one story <a class="link" data-act="newschain" data-k="">Show everything</a></div>` : "";
   return `<div class="pad">${pageHead({ kicker: "Rumours are marked as rumours", title: "News", actions: `<div class="seg">${seg}</div>` })}${chain}<div class="stories">${rows || `<div class="empty">${N.kind === "beat" ? "Your beat writers haven't filed anything yet." : "Nothing in this feed yet."}</div>`}</div></div>`;
 };

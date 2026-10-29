@@ -31,6 +31,7 @@ pub fn after_days(w: &mut World) {
     mail::after_days(w);
     crate::lane_stories::after_days(w);
     crate::lane_squadboards::after_days(w);
+    crate::lane_handbook::after_days(w);
     if let Some(b) = before {
         let mut d = b.add(1);
         let mut monday = false;
