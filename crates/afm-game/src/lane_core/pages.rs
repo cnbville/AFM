@@ -677,6 +677,8 @@ pub fn profile(w: &World, id: u32) -> Result<Value, String> {
     v["recruiting"] = recruiting(w, k);
     v["stage"] = json!(format!("{:?}", p.stage));
     v["listed"] = json!(desk::is_listed(w, id));
+    // Your own college player: what a cut would do (minor bug 60).
+    v["college_cut"] = json!(afm_engine::world::front_office::college::cut_words(w, id).ok());
     v["career_story"] = json!(stories);
     v["initials"] = json!(p.name.split_whitespace().filter_map(|s| s.chars().next()).take(2).collect::<String>());
     v["colors"] = match team {

@@ -1,6 +1,6 @@
 # Tendencies: how it works today
 
-Checked against main at 8b7dd75 with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28.
+Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 

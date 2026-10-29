@@ -408,6 +408,19 @@ pub struct PersonCal {
     /// A big NIL deal came this year (fix list 4.5): read by the season's
     /// development step, then cleared.
     pub payday: bool,
+    /// Cut from a college team (minor bug 60): it holds while he is still
+    /// at that program (`Person::cut_here`), until the next window moves him.
+    #[serde(default)]
+    pub cut: Option<CollegeCut>,
+}
+
+/// A college cut (minor bug 60): the program, the day, and whether his
+/// scholarship stays with him while he stays in school (`ncaa::aid_kept`).
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CollegeCut {
+    pub program: u16,
+    pub date: crate::calendar::Date,
+    pub aid_kept: bool,
 }
 
 /// A recruiting action on a day the NCAA periods allow (T5.3, T5.4).
@@ -443,6 +456,11 @@ impl PersonCal {
 }
 
 impl Person {
+    /// His cut, while he is still at the program that cut him: off its
+    /// roster, out of its games and waiting for the next transfer window.
+    pub fn cut_here(&self) -> Option<CollegeCut> {
+        self.cal.cut.filter(|c| self.stage == Stage::College && self.college == Some(c.program as usize))
+    }
     pub fn note(&mut self, s: impl Into<String>) {
         // Exact room, for the note and the list (memory: notes are kept
         // for every person, and a formatted line carries spare room).
@@ -1546,7 +1564,9 @@ impl World {
             match p.stage {
                 Stage::HighSchool => self.high_schools[p.hs].roster.push(i),
                 Stage::College => {
-                    if let Some(c) = p.college {
+                    if let Some(c) = p.college
+                        && p.cut_here().is_none()
+                    {
                         self.programs[c].roster.push(i);
                     }
                 }
