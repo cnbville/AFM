@@ -229,7 +229,8 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
                     Kind::Social => readers::PERSONNEL,
                     _ => hc.map_or(readers::PERSONNEL, |c| COACH + c as u32),
                 };
-                (Some(who), waited >= 3 && wd != Weekday::Sun)
+                let days = if kind == Kind::Film { super::film::time::staff_days(w, 3) } else { 3 };
+                (Some(who), waited >= days && wd != Weekday::Sun)
             }
             Kind::School | Kind::CrossCheck => {
                 let scout = club.and_then(|t| {
@@ -242,7 +243,7 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
                 });
                 (scout.map(|k| k as u32), waited >= 7 && wd == Weekday::Wed)
             }
-            Kind::ProFilm => (Some(readers::PRO_SCOUT), waited >= 3),
+            Kind::ProFilm => (Some(readers::PRO_SCOUT), waited >= super::film::time::staff_days(w, 3)),
             // A tape sent in (SK72): the coach of his spot at a college, the
             // area scout at a club, within the week; film uses no
             // evaluation days.
@@ -256,7 +257,7 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
                         .map(|k| k as u32),
                     Staff::School(_) => None,
                 };
-                (who, waited >= 2 && wd != Weekday::Sun)
+                (who, waited >= super::film::time::staff_days(w, 2) && wd != Weekday::Sun)
             }
             _ => continue,
         };

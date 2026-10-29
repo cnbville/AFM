@@ -75,7 +75,7 @@ pub(crate) fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
         Staff::School(_) => 0,
     };
     let medical = readers::medical_rating(w, staff) as u64;
-    let seat = who ^ medical << 48 ^ (w.options.seed as u64).rotate_left(24);
+    let seat = who ^ medical << 48 ^ (w.options.seed as u64).rotate_left(24) ^ (w.scouting.film.version as u64) << 52;
     (w.today.0, readers::staff_key(staff) ^ (w.people.len() as u64) << 32, looks, seat)
 }
 
