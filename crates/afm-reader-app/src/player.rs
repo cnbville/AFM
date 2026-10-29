@@ -252,6 +252,9 @@ fn years(row: &Map<String, Value>, rows: &[Map<String, Value>]) -> impl Fn(i64) 
     }
 }
 
+/// A stat by its name in one season's line.
+type Stat<'a> = Box<dyn Fn(&str) -> f64 + 'a>;
+
 /// His kept stat lines by year: high school lines (`hs_lines`), the
 /// college stat book (`stats.seasons`) and his pro seasons.
 struct Lines {
@@ -337,7 +340,7 @@ impl Lines {
 
     /// The season's line in a few numbers that fit the position.
     fn line(&self, level: &str, pos: &str, year: i64) -> String {
-        let (games, get): (i64, Box<dyn Fn(&str) -> f64 + '_>) = match level {
+        let (games, get): (i64, Stat<'_>) = match level {
             "HS" => {
                 let Some((g, a)) = self.hs.get(&year) else { return String::new() };
                 let ix = |k: &str| match k {

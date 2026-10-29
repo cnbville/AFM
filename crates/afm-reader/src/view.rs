@@ -518,11 +518,10 @@ fn panel_sections(b: &Book, id: &str, key: Option<(&str, &str)>, f: &Filters) ->
     let cols: Vec<String> = serde_json::from_str(&cell(&r[3])).unwrap_or_default();
     let mut data: Vec<Vec<serde_json::Value>> = serde_json::from_str(&cell(&r[4])).unwrap_or_default();
     if let Some((col, val)) = key {
-        match cols.iter().position(|c| c == col) {
-            Some(i) => data.retain(|row| {
+        if let Some(i) = cols.iter().position(|c| c == col) {
+            data.retain(|row| {
                 row.get(i).is_some_and(|x| x.as_str().map_or_else(|| x.to_string(), str::to_string) == val)
-            }),
-            None => {}
+            });
         }
         if data.is_empty() {
             return Vec::new();
