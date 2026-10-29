@@ -1044,6 +1044,14 @@ pub(crate) fn combine(w: &mut World) {
         return;
     }
     super::pro::scouts::combine(w, &invited);
+    if w.logging() {
+        for &i in &invited {
+            let p = &w.people[i];
+            let skipped = w.scouting.predraft.has(p.player.id, super::scouting::predraft::SKIP_COMBINE);
+            let expected = crate::body::Drills::of(&p.player).expected();
+            w.log_why(super::wlog::Why::Combine { id: p.player.id, program: p.college, skipped, expected });
+        }
+    }
     let test = |p: &Person| {
         let a = &p.player.attributes;
         (a.get(Attr::Speed) + a.get(Attr::Acceleration) + a.get(Attr::Agility) + a.get(Attr::Strength)) / 4.0
@@ -1284,6 +1292,21 @@ pub(crate) fn draft_begin(w: &mut World) -> DraftRun {
     let draft_year = w.year;
     let seed = w.options.seed as u64;
     // The draft class moves to where the pro scouts project it.
+    if w.logging() {
+        for p in w.people.iter().filter(|p| p.stage == Stage::Declared) {
+            if let Some(to) = p.cal.pro_position {
+                let from = p.player.position;
+                w.log_why(super::wlog::Why::PositionMove {
+                    id: p.player.id,
+                    from,
+                    to,
+                    from_fit: crate::positions::overall_for(from, &p.player.attributes),
+                    to_fit: crate::positions::overall_for(to, &p.player.attributes),
+                    by: "the pro scouts' projection",
+                });
+            }
+        }
+    }
     for p in w.people.iter_mut().filter(|p| p.stage == Stage::Declared) {
         if let Some(to) = p.cal.pro_position.take() {
             let from = p.player.position;
@@ -3260,6 +3283,9 @@ pub(crate) fn announce_commitments(w: &mut World, d: Date) {
                 .person(id, &name)
                 .school_link(j, &prog_name);
             w.calendar.post(e);
+        }
+        if w.logging() {
+            w.log_why(super::wlog::why::choice(w, i, j, "commit", walk_on));
         }
     }
 }
@@ -5426,6 +5452,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 {
                     w.coaches[c].units[group as usize].moved_up += up;
                 }
+                if w.logging() {
+                    w.log_why(super::wlog::why::choice(w, i, j, "signed", walk_on));
+                }
                 let (stars_n, name) = (w.people[i].stars, w.people[i].name.clone());
                 if stars_n >= 4 && !r.juco_mover {
                     let text = format!("{stars_n}-star {} {name} signs with {prog_name}.", w.people[i].player.position);
@@ -5664,6 +5693,18 @@ const HELD: Date = Date(i32::MAX / 2);
 /// A player's portal entry is set (T3): his NIL deal ends, and a starter's
 /// or blue-chip's entry is news on his day.
 fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Date, why: Why) -> Option<Event> {
+    if w.logging() {
+        let p = &w.people[i];
+        w.log_why(super::wlog::Why::PortalEntry {
+            id: p.player.id,
+            program: Some(c),
+            why: why.reason(),
+            lean: p.cal.lean,
+            events: p.cal.lean_events.clone(),
+            role: p.last_role,
+            held: false,
+        });
+    }
     let p = &mut w.people[i];
     p.cal.portal = Some(super::PortalEntry { entered, decide_by, why: why.reason(), held: false });
     // His NIL deal ends when he enters (T3).

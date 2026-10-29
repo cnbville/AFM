@@ -404,6 +404,9 @@ pub(crate) fn note(w: &mut World, topic: &str, source: String, text: String, ang
     w.folk.log.push(Entry { date, topic: topic.to_string(), source, text, angle, check: None });
     if w.folk.log.len() > 600 {
         let cut = w.folk.log.len() - 600;
+        if w.logging() {
+            w.log_dropped("people log", w.folk.log[..cut].iter());
+        }
         w.folk.log.drain(..cut);
     }
 }

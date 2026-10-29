@@ -586,22 +586,54 @@ fn high_school_games_run_on_the_engine() {
     assert_eq!(earlier, 0, "seasons before engine_from stay on the stand-in");
 }
 
+/// A world file as every game before update 3 wrote it (format 1): the
+/// header, then the whole world as one zstd stream of named MessagePack.
+fn write_format1(w: &World, path: &std::path::Path) {
+    use std::io::Write;
+    let meta = serde_json::json!({
+        "seed": w.options.seed, "history_years": w.options.history_years, "start_year": w.options.start_year,
+        "commit": "test", "written": "test", "world_date": w.today.to_string(),
+    });
+    let mut out = std::io::BufWriter::new(std::fs::File::create(path).unwrap());
+    out.write_all(b"AFMWORLD").unwrap();
+    out.write_all(&1u32.to_le_bytes()).unwrap();
+    let json = serde_json::to_vec(&meta).unwrap();
+    out.write_all(&(json.len() as u32).to_le_bytes()).unwrap();
+    out.write_all(&json).unwrap();
+    let mut z = zstd::Encoder::new(out, 3).unwrap();
+    rmp_serde::encode::write_named(&mut z, w).unwrap();
+    z.finish().unwrap().flush().unwrap();
+}
+
 /// Save and load (section 8): a world written to a file and read back plays
 /// its next season exactly as the original does, so nothing that drives
-/// results is left out of the file.
+/// results is left out of the file. Both formats: a save in parts (format
+/// 2, update 3) and a file from before (format 1).
 #[test]
 fn a_saved_world_plays_on_identically() {
-    use afm_engine::save::{read_meta, read_world, write_world};
+    use afm_engine::save::{FORMAT_VERSION, read_meta, read_world, write_world};
     let opts = WorldOptions { seed: 13, scale: 0.05, history_years: 1, engine_from: Some(2026), ..Default::default() };
     let mut a = World::new(opts);
     let path = std::env::temp_dir().join(format!("afm-save-test-{}.afmworld", std::process::id()));
     write_world(&a, &path, "test", "test", None).expect("write the world");
+    let head = std::fs::read(&path).unwrap()[8..12].to_vec();
+    assert_eq!(head, FORMAT_VERSION.to_le_bytes(), "a save is written in the newest format");
     let meta = read_meta(&path).expect("read the header");
     assert_eq!((meta.seed, meta.history_years, meta.start_year), (13, 1, 2026));
     let mut b = read_world(&path).expect("read the world");
+    assert_eq!(
+        (b.people.len(), b.alumni.len(), b.news.len(), b.stats.seasons.len()),
+        (a.people.len(), a.alumni.len(), a.news.len(), a.stats.seasons.len()),
+        "every list's parts come back whole"
+    );
+    write_format1(&a, &path);
+    let meta1 = read_meta(&path).expect("read a format 1 header");
+    assert_eq!(meta1.seed, 13);
+    let mut c = read_world(&path).expect("read a format 1 world");
     let _ = std::fs::remove_file(&path);
     a.advance_year();
     b.advance_year();
+    c.advance_year();
     let print = |w: &World| {
         let people: Vec<String> = w
             .people
@@ -631,10 +663,12 @@ fn a_saved_world_plays_on_identically() {
             w.alumni.len()
         )
     };
-    let (pa, pb) = (print(&a), print(&b));
+    let (pa, pb, pc) = (print(&a), print(&b), print(&c));
     // The first line that differs, to see which part of the world drifted.
     let first = pa.lines().zip(pb.lines()).enumerate().find(|(_, (x, y))| x != y);
     assert!(pa == pb, "the loaded world played its next season differently: {first:?}");
+    let first = pa.lines().zip(pc.lines()).enumerate().find(|(_, (x, y))| x != y);
+    assert!(pa == pc, "the format 1 world played its next season differently: {first:?}");
 }
 
 /// The storylines (update 2, lane 1) over the history's seasons: many kinds

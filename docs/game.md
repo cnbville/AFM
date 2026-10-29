@@ -14,7 +14,7 @@ Built 2026-10-20/21 overnight (thread "Build the program", PR #75), from `docs/d
 
 ## The parts
 
-- `crates/afm-engine/src/save.rs`: the world file (format 1, agreed with the world-building thread): `AFMWORLD`, the version, a JSON header (seed, history years, start year, commit, written, world date), then the whole world as named MessagePack through zstd. New fields load as their default, so an older world file opens in a newer game; `World::after_load` fills in what a newer game adds.
+- `crates/afm-engine/src/save.rs`: the world file (agreed with the world-building thread): `AFMWORLD`, the version, a JSON header (seed, history years, start year, commit, written, world date), then the world as named MessagePack through zstd level 3. Format 2 (update 3, lane 19) writes it in parts, each its own zstd stream, packed and read on every core; format 1 (one stream, every file before update 3) still loads. New fields load as their default, so an older world file opens in a newer game; `World::after_load` fills in what a newer game adds.
 - `crates/afm-engine/src/world/seat.rs`: your seat in the world. `start_career` (fresh randomness mixed from the career seed, you take the head coach's job and he goes to the market), your games kept whole (`SeatGame`, the last 40), your depth order (`seat_depth`, played by the engine before the staff's order), your training focus (`seat_focus`), your notes, your high school staff (`HsAssistant`), and plain reads for the screens (fixtures, records).
 - `crates/afm-game`: the game. One `Game::call(cmd, args)` the screens use: `library`, `import_world`, `open_world`, `load`, `save`, `build_world`, `setup`, `jobs`, `start_career`, `status`, `continue`, `day`, `holiday`, `home`, `inbox`, `news`, `calendar`, `team`, `roster`, `depth`, `set_depth`, `training`, `set_focus`, `recruiting`, `contracts`, `schedule`, `standings`, `staff`, `coach`, `player`, `games`, `game`, `search`, `you`, `note_add`, `note_delete`, `bug`, and for the pages before the game `towns`, `similar`, `card`, `rename_save`, `delete_save`, `reveal`. `reads.rs` turns true ratings into your staff's reads, `views.rs` builds every screen's data, `setup.rs` the setup and the library, `files.rs` the files, `cards.rs` the world and save cards.
 - `app/ui`: the screens, one page in plain HTML and JS. The pages before the game (opening, Load game, new career) are `pregame.js` and `pregame.css`, in their own look; everything from taking the job on is Showtime (`showtime.css`, Archivo fonts). A frosted left sidebar, the top bar with back and forward, search (⌘K), the date, what's next and Continue (space bar).
@@ -884,6 +884,32 @@ The world's former players (`world/former.rs`), what playing does for a coach, h
 - C18: every state on California's rule for now, ruled two times in five (a year out and half a point of standing), the call's window (March-June Thursdays, an eighth of the weeks, once a year), a broken promise costing 0.3 warmth.
 - C19: the ten days before the market, a fifth of weekdays, once a year; the ask shaded by 0.25 × (1 - honesty); a leak one time in ten, ruled on June 1; the first word worth 2% on his offer score.
 
+### Lane 19: faster saves (SV1-SV5)
+
+Saving and loading (`crates/afm-engine/src/save.rs`; how it works: [saves.md](reference/how-it-works/saves.md)). Measured on the 30-year world for first saves, an Iowa career played to its first game (5 September 2026, 1,105,221 people), on a 4-core Linux machine, with the game's own commands:
+
+| | Before | Now |
+|---|---|---|
+| Save | 96-106 s | 17-18 s |
+| Load of a save (with `after_load`) | 87 s | 14.4 s |
+| Opening the library world (still format 1) | 69-72 s | 48-50 s |
+| Save file | 1.693 GB | 1.693 GB |
+| Memory at the end of a load | | 3.77 GB (peak) |
+| Extra memory while saving | | 0.2-0.3 GB |
+
+- **SV1 and SV3.** A 1 MB buffer between MessagePack and zstd, both ways, so zstd gets big blocks instead of one call per small value.
+- **SV2.** Compression runs on every core through the parts: each part is its own zstd stream, packed on its own core. zstd's own workers per part were tried and took 24 s against 20 s here, because each part's end drains zstd's workers and the encoding stays on one core; so the `zstdmt` feature stays off.
+- **SV4.** zstd level 3.
+- **SV5.** Format 2: the header as before, a table of parts, then the parts (the rest of the world, alumni, news, the stat book's player seasons in 16 pieces, people in 128 pieces). One thread writes the packed parts as they come; the reader opens every part on its own handle and reads the pieces of people and of the seasons straight into one list each, with no second copy. Format 1 files (every save and world before update 3) still load. A save opens only in this game or newer.
+- **Checks.** A loaded save plays on exactly as the world it came from: 3 days at the first game compared line by line (1,179,091 lines, 0 differ), and `a_saved_world_plays_on_identically` plays a season on a small world from a format 2 save and from a format 1 file. A damaged piece is an error, never a half-filled list (`tests/save.rs`).
+- The busy notes: saving "about 20 seconds", opening a world "under a minute" (the library world is format 1 until the L12 rebuild writes it in format 2).
+
+#### Claude's picks (proposed, not confirmed)
+
+- The parts and their names, 128 pieces of people and 16 of seasons, a queue of two packed parts to the writer.
+- Each reading thread keeps the static text it has met, before the shared pool.
+- The busy notes' wording.
+
 ### Lane 3: code fixes (A1, F1, F5-F13, F16-F18, F24-F34)
 
 - **Injuries** (A1, F7, F8, F13, F24). College and high school game injuries now keep a player out after the game, on every team (`training/seat.rs`, `game_injuries`; AI players in `training.others_hurt`). A man playing hurt loses what his injury limits (`game/sim.rs`, `hampered`), not a flat 3 points. Fatigue raises injury odds. AI college and high school teams get practice injuries. Turf follows real fields: each NFL club's turf seasons, and college and high school fields by level, year and money.
@@ -940,7 +966,7 @@ Your read beside your staff's, the offer chain at a college, your name on a play
 - **The offer chain** (SK25, SK26, SK28-SK31; `world/front_office/chain.rs`). Each Monday the position coaches bring you the recruits they want offered, after the coordinator's film look; you sign, decline or sign all on the recruiting desk's "Your staff's word" tab. Your own offers carry your film look. Overruling is kept with how hard he argued, costs his trust, settles in three years, and a coach overruled again and again works with less heart and listens to other jobs. His record is a tab on his coach page; "Passed on" lists the kids the services rate that your staff let go.
 - **Your name on a player** (SK40; `scouting/stake.rs`): staked privately or out loud on a recruit or a draft prospect, settled in three years. **Letters** (SK41; `scouting/letters.rs`): a scout writes the day his trip's write-up lands. **A high school coach recruiting to his school** (SK42; `scouting/pitch.rs`): banned almost everywhere; a yes moves in June, and if it comes out you forfeit his games and sit a year.
 - **At our place, outside football, coverage** (SK64-SK66; `crates/afm-game/src/lane_paths.rs`, `scouting/outside.rs`). The player page's "At our place" tab projects his path with you; the board's "For us" column ranks by it. Evaluation adds "Outside football" (NFL May-August, college November-August), "Coverage" (where your staff has eyes and who it missed; feeders at a high school) and, at a high school, "Your class and systems".
-- **Watch his film now** (bug 82, Cain 2026-10-28). On the scouting file and the recruit file: the look lands today under your name, read by your own eye, from your weekly film hours (`scouting/own.rs`, `watch_film`). The staff's "Film study" stays for when you hand it off.
+- **Watch his film now** (bug 82, Cain 2026-10-28). On the scouting file and the recruit file: the look lands today under your name, read by your own eye, from your weekly film hours (`scouting/own.rs`, `watch_film`). The staff's "Film study" stays for when you hand it off. When you can't watch today the button is shut and says why (`film_blocked`).
 - **Favour calls** (SK69-SK74; `world/folk/tips.rs`, `network.rs`). A tip or a "kid who can play for you" call comes only when the caller's own eye puts the kid at your level, and says why the public missed him from the kid's real record. Saying yes puts him on My players on the caller's word and sends his film to your staff within the week. Your own staff don't make kid or clinic calls; no kid calls at a high school.
 - **The cold call** (C20; `world/folk/backchannel.rs`): a small school's coach of a five-star offers his star for a job on your staff; the kid decides by how close he is to his coach and can leave after a season.
 - **A famous name** (C8; `world/coach.rs`, `name_pull`): a star's name is worth about 3 recruiting points to his recruits and draws high school transfers, for two seasons, fading by the fourth unless he wins.
@@ -991,6 +1017,10 @@ New NFL clubs, colleges that start football and new high schools join the world 
 - The training focus's cost: each other skill of the same kind gives up 3.5% at full coachability; how much of a plan sticks rises with coachability (60% to 100%).
 - Time of possession on game pages is taken from the snap clock (the engine's own total counts only live-ball seconds); a kickoff's seconds go to the receiving team, so the two add to the game's length.
 - A bug pack saves the world as it is when you report, not from the morning of that day.
+
+## The world log (world reader lane R2, 2026-10-28)
+
+Every career writes the world log beside its save (`name.afmlog` next to `name.afmsave`): a row each year for everyone in football, every development step's why, exits, dated whys, snapshots and the rest, for the world reader. While you play it goes into `logs/live.afmlog` in the game folder; opening a library world or a save links that world's log in and writes on after it, and saving links it beside the save, so saves share the same files. A season adds about 0.9 GB on disk; the book day takes about 17 s more, the rest of the year about 1.5% (on the full 2026 world). `AFM_WORLD_LOG=off` turns it off. How it works: `docs/reference/how-it-works/world-log.md`; the code: `crates/afm-game/src/world_log.rs`.
 
 ## Doubts
 

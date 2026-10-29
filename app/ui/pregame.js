@@ -1132,7 +1132,7 @@ async function openWorldFor(st) {
   if (st.world === "test") return true;
   if (st.loaded === st.world && S.status && !S.status.you) return true;
   if ($("#busy") || !(await leaveCareer())) return false;
-  showBusy("Opening the world… a full world takes about a minute.");
+  showBusy("Opening the world… a full world takes under a minute.");
   try {
     S.status = await api("open_world", { path: st.world });
     // The team picker shows an installed pack's logos (screens/logos.js).

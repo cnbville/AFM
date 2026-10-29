@@ -249,7 +249,7 @@ fn class_fit(w: &World) -> Value {
         .collect();
     let mut out: Vec<Value> = Vec::new();
     for (kind, n) in [("Offense", OFFENSES.len()), ("Front", FRONTS.len()), ("Coverage", SHELLS.len())] {
-        let mut rows: Vec<(String, f64, usize)> = Vec::new();
+        let mut rows: Vec<(String, f64, usize, usize, usize)> = Vec::new();
         for s in 0..n {
             let inst = match kind {
                 "Offense" => Installed { off: s, ..Installed::default() },
@@ -275,11 +275,27 @@ fn class_fit(w: &World) -> Value {
                 "Front" => format!("{:?}", FRONTS[s]),
                 _ => format!("{:?}", SHELLS[s]),
             };
+            // A coach counts heads: the boys a system suits and the boys it
+            // would leave out, more than the average of them all.
             let avg = if fits.is_empty() { 0.0 } else { fits.iter().sum::<f64>() / fits.len() as f64 };
-            rows.push((name, avg, fits.len()));
+            let good = fits.iter().filter(|&&f| f >= 0.4).count();
+            let poor = fits.iter().filter(|&&f| f <= -0.4).count();
+            rows.push((name, avg, fits.len(), good, poor));
         }
-        rows.sort_by(|a, b| b.1.total_cmp(&a.1));
-        out.push(json!({ "kind": kind, "rows": rows.iter().map(|r| json!({ "name": r.0, "fit": (r.1 * 100.0).round() / 100.0, "words": fit_words(Some(r.1)), "read": r.2 })).collect::<Vec<_>>() }));
+        rows.sort_by(|a, b| (b.3 as i64 - b.4 as i64).cmp(&(a.3 as i64 - a.4 as i64)).then(b.1.total_cmp(&a.1)));
+        let words = |n: usize, good: usize, poor: usize| {
+            let edge = (good as f64 - poor as f64) / n.max(1) as f64;
+            if n == 0 {
+                "Not seen enough to say"
+            } else if edge >= 0.2 {
+                "Built for our boys"
+            } else if edge <= -0.2 {
+                "Our boys don't suit it"
+            } else {
+                "Fits well enough"
+            }
+        };
+        out.push(json!({ "kind": kind, "rows": rows.iter().map(|r| json!({ "name": r.0, "fit": (r.1 * 100.0).round() / 100.0, "words": words(r.2, r.3, r.4), "read": r.2, "good": r.3, "poor": r.4 })).collect::<Vec<_>>() }));
     }
     json!({ "groups": out })
 }
@@ -355,7 +371,9 @@ fn college_coverage(w: &World, j: usize, seen: &HashSet<u32>, ever: &dyn Fn(u32)
             && p.college.is_some_and(|c| w.programs[c].division == afm_engine::world::data::Division::FBS)
         {
             came[st] += 1;
+            // Your own signees were seen: their looks are your practices.
             if p.last_role == Some(afm_engine::player::PlayingTime::Starter)
+                && p.college != Some(j)
                 && !ever(p.player.id)
                 && p.class_of >= season - 3
             {
@@ -385,6 +403,11 @@ fn nfl_coverage(w: &World, t: usize, seen: &HashSet<u32>, ever: &dyn Fn(u32) -> 
         w.clubs.iter().enumerate().filter(|(c, _)| *c != t).flat_map(|(_, c)| c.files.keys().copied()).collect();
     for (i, p) in w.people.iter().enumerate() {
         let Some(c) = p.college.or_else(|| p.path.last().copied()) else { continue };
+        // Your club drafted or signed him: its people saw him, so he isn't
+        // a miss.
+        let yours = p.pro.as_ref().is_some_and(|x| {
+            x.team == Some(t) || x.draft.is_some_and(|d| d.3 == t) || x.seasons.iter().any(|s| s.team == Some(t))
+        });
         let e = by.entry(c).or_default();
         if seen.contains(&p.player.id) {
             e.0 += 1;
@@ -396,7 +419,7 @@ fn nfl_coverage(w: &World, t: usize, seen: &HashSet<u32>, ever: &dyn Fn(u32) -> 
             && y >= year - 5
         {
             e.1 += 1;
-            if y >= year - 1 && round <= 3 && !ever(p.player.id) {
+            if y >= year - 1 && round <= 3 && !yours && !ever(p.player.id) {
                 missed.push((round as i64, i));
             }
         }
@@ -405,6 +428,7 @@ fn nfl_coverage(w: &World, t: usize, seen: &HashSet<u32>, ever: &dyn Fn(u32) -> 
             .as_ref()
             .is_some_and(|x| x.draft.is_none() && x.seasons.iter().any(|s| s.year == year - 1 && s.games >= 8))
             && p.pro.as_ref().is_some_and(|x| x.seasons.len() <= 2)
+            && !yours
             && !ever(p.player.id)
         {
             missed.push((9, i));

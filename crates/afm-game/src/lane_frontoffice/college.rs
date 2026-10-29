@@ -1287,6 +1287,10 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
     v["nil_max"] = json!(ncaa::position_nil_max(p.player.position));
     v["budget"] = budget_json(w, j);
     v["high_school"] = json!(w.school_name(p.hs));
+    // Your own film session (bug 82): its hours, or why not today.
+    v["film_now"] = afm_engine::world::scouting::own::film_cost(w, p.player.id).ok().map_or(Value::Null, |(_, h, _)| {
+        json!({ "hours": h, "left": afm_engine::world::scouting::own::film_left(w), "blocked": afm_engine::world::scouting::own::film_blocked(w, p.player.id) })
+    });
     Ok(v)
 }
 

@@ -170,7 +170,7 @@ screens.scout = async (a) => {
       <h1>${esc(f.name)}</h1>
       <div class="meta"><span>${size}</span><span>Age <b>${f.age}</b></span>${boardLine ? `<span>${boardLine}</span>` : ""}</div>
       <div class="st-actions">
-        ${f.film_now ? `<button class="st-btn l7-film" data-act="sc-ask" data-id="${f.id}" data-kind="Watch his film now" title="You watch ${esc(f.film_now.what)} yourself, today: ${f.film_now.hours} of your ${f.film_now.left.toFixed(1)} film hours left this week (${f.film_now.week} a week). Read by your own eye.">Watch his film now <small>${f.film_now.hours} h · ${f.film_now.left.toFixed(1)} left</small></button>` : ""}
+        ${f.film_now ? scFilmNow(f) : ""}
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
         <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "Following" : "Follow"}</button>
         <button class="st-btn glass" data-go="player" data-id="${f.id}">Player page</button>
@@ -944,3 +944,15 @@ PLAYER_TABS.push({
     return head + scFileSummary(f);
   },
 });
+
+// Your own film session (bug 82): today, on your week's film hours; when
+// you can't, the button says why instead of failing on a click.
+function scFilmNow(f) {
+  const n = f.film_now;
+  const left = `${n.left.toFixed(1)} h left`;
+  if (n.blocked) {
+    const short = n.hours > n.left + 0.01 ? `needs ${n.hours} h · ${left}` : "watched today";
+    return `<button class="st-btn l7-film" disabled title="${esc(n.blocked)}">Watch his film now <small>${short}</small></button>`;
+  }
+  return `<button class="st-btn l7-film" data-act="sc-ask" data-id="${f.id}" data-kind="Watch his film now" title="You watch ${esc(n.what)} yourself, today: ${n.hours} of your ${n.left.toFixed(1)} film hours left this week (${n.week} a week). Read by your own eye.">Watch his film now <small>${n.hours} h · ${left}</small></button>`;
+}

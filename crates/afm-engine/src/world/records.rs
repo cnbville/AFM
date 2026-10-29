@@ -558,7 +558,8 @@ pub struct UnitBuzz {
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct StatBook {
-    /// Every player season, oldest first.
+    /// Every player season, oldest first. Its own part in a save (`save.rs`).
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub seasons: Vec<SeasonRecord>,
     /// Player id to his seasons (indexes into `seasons`), oldest first.
     pub by_player: HashMap<u32, Vec<u32>>,
