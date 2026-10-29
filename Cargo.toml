@@ -20,7 +20,7 @@ opt-level = 3
 [profile.test]
 opt-level = 3
 # Full debug info ran CI out of memory compiling the engine tests (13.7 GB);
-# line tables keep file and line in panics.
+# line tables still give backtraces their file and line.
 debug = "line-tables-only"
 
 [profile.release]

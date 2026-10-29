@@ -1,0 +1,1685 @@
+# The line bank: his answer to your move in a one-on-one, by how it landed,
+# and the optional closing sentence after it (dialogue D2; format in
+# src/world/folk/voice.rs). Same keys as players.txt:
+# talk.reply.<move>.<good|bad|flat> and talk.close.<good|bad|flat>. Promise
+# covers the depth chart, the ball, the collective, the agent, next year and
+# you staying, so its lines never name which. Hand is the leadership council
+# or time at home, so its lines fit both. Facts: name, full, coach, you, pos,
+# team, friend.
+
+@key talk.reply.ask.good
+Honestly? Thank you for asking. I've been holding that in.
+I've never said that out loud before.
+That felt good to get off my chest.
+I didn't think you'd actually want to hear it.
+I'm glad you asked. Most people don't.
+Okay. Yeah. That's really it. That's what's been going on.
+I think I needed somebody to ask.
+You're the first coach who's asked me that.
+I feel lighter already, Coach.
+I don't know why I didn't come to you sooner.
+Thanks for caring enough to ask, Coach.
+I appreciate you giving me the space to say it.
+I didn't plan on telling you all that. But I'm glad I did.
+I trust you with that, Coach.
+I think you get it now. That means a lot.
+That's the stuff I don't tell anybody.
+I feel like you actually heard me.
+It's good to know I can come in here and be honest.
+I didn't expect this conversation to go like this. In a good way.
+That's everything. I feel better.
+Thank you for not judging me for it.
+I feel like a weight's off.
+Yeah. That's the real answer. Thanks for asking twice.
+I guess I needed somebody to pull it out of me.
+That's more than I've told my own family.
+I can breathe a little now.
+That's all of it. Thank you for listening, Coach.
+Now you know. I'm glad you know.
+Nobody's ever really asked me that before, {coach}.
+I appreciate you, Coach. For real.
+You asking means more than you know. ~ young
+I'm not used to talking like this. But it helped. ~ quiet
+I don't talk much. But I'm glad I talked. ~ quiet
+It's not easy for me to open up. Thank you. ~ quiet
+Thank you for asking, Coach. I didn't want to be a bother. ~ humble
+I'm grateful you'd take the time. ~ humble
+Thank you for treating me like a person, not just a player. ~ humble
+I don't usually admit stuff like that. Respect for asking. ~ ego
+Okay. You got the real me there. ~ ego
+I'm not going to lie, that felt good. ~ ego young
+I came in here ready to fight. That was better. ~ hot
+I'm calmer now. I didn't know I needed that. ~ hot
+I wanted to be mad. You didn't let me. ~ hot
+I appreciate it. I keep a lot to myself. ~ pro
+I'm glad we're on the same page about it now. ~ pro
+That helps me focus, honestly. ~ pro
+Now you know where my head's at. That's important. ~ pro
+I've been carrying the guys. Felt good to have somebody carry me for a minute. ~ leader
+That's good. I want the guys to know they can do this too. ~ leader
+Thanks, Coach. I'll tell the young guys your door's really open. ~ leader
+I feel like I can compete again with that off my chest. ~ competitor
+That's what I needed. Now I can get back to work. ~ competitor
+I feel like I can breathe now, Coach. ~ shaky
+I was scared to say it. I'm glad I did. ~ shaky
+I've been holding that for so long. ~ shaky
+It's good to know somebody's in my corner. ~ shaky
+You've always been good to me, Coach. Thank you. ~ loyal
+That's why I trust you. ~ loyal
+I'm good with it. Thanks for asking the right question. ~ steady
+That's helpful. I appreciate you. ~ calm
+That was good. Thank you. ~ calm
+Lowkey I needed that, Coach. ~ young modern
+That's real. I appreciate you for real. ~ young modern
+Bet. That was good, Coach. ~ young modern
+Ha. Okay. I didn't think I'd say all that. ~ loose
+Look at us, having a real talk. ~ loose
+My agent's going to ask what we talked about. I'm going to tell him it was good. ~ nfl
+I've been in a lot of these meetings. That one was different. ~ nfl vet
+I've had coaches in this league who never asked me anything. Thank you. ~ nfl vet
+My mom always says to talk to you. She was right. ~ young !nfl
+I'm going to tell my mom we talked. She's been worried. ~ young !nfl
+I didn't even tell my roommate that stuff. ~ college young
+Nobody at school knows any of that. ~ hs young
+Thank you, Coach. I mean it. ~ south
+Yes sir. That helped a lot. ~ south
+I appreciate that more than I can say. ~ south
+That was good, Coach. I appreciate it. ~ midwest
+That's the truth. Glad it's out. ~ midwest
+Alright. That's the real story. Glad I said it. ~ northeast
+I respect you for asking. ~ northeast
+That was a good talk, Coach. ~ west
+That helped me get centered. ~ west
+
+@key talk.reply.ask.bad
+I don't really want to say more.
+I already told you what I'm going to tell you.
+Why are you pushing?
+I don't want to talk about it, Coach.
+That's between me and my family.
+I said what I said.
+I'm not doing this right now.
+It doesn't matter.
+I don't know what you want me to say.
+Can we drop it?
+You wouldn't understand.
+Forget it. It's not important.
+I'm not trying to get into all that.
+I don't want to talk about it with a coach.
+I'm good. Leave it.
+I don't see why you need to know.
+That's my business, Coach.
+I'm not comfortable with this.
+I don't feel like going there.
+Nah. Not today.
+Let's not.
+It's not something I want to share.
+I'd rather keep it to myself.
+That's personal.
+I came in here to talk ball, not this.
+I'm not ready to talk about that.
+You're digging, Coach.
+Why do you care now?
+It doesn't change anything if I tell you.
+I'm done talking about it.
+That's all I've got. ~ quiet
+I don't have anything else. ~ quiet
+Mm. No. ~ quiet
+I'd just rather not. ~ quiet
+I'm sorry, Coach. I can't. ~ humble
+I don't want to burden you with it. ~ humble
+I'm not trying to be difficult. I just can't talk about it. ~ humble
+You don't need to know everything about me. ~ ego
+I don't need to explain myself. ~ ego
+I've got it handled. Stop asking. ~ ego
+Why do you keep asking me that? ~ hot
+I said I'm good. Drop it. ~ hot
+You don't get to ask me that. ~ hot
+I'm getting annoyed, Coach. ~ hot
+I don't want to go there. ~ hot
+I keep work and life separate, Coach. Let's keep it that way. ~ pro
+It's not relevant to my job. ~ pro
+I'll handle my personal business. ~ pro
+I'd rather focus on football. ~ pro
+I can't be the one talking about the room. ~ leader
+That's for me to handle with the guys. ~ leader
+I don't want to get into it. It'll pass. ~ steady
+I'm not upset. I just don't want to talk about it. ~ calm
+It's not the time. ~ calm
+I can't. I'll fall apart if I start. ~ shaky
+Please don't make me talk about it. ~ shaky
+I don't know how to say it, so I'm not going to. ~ shaky
+I trust you. I just can't right now. ~ loyal
+Nah, it's whatever. ~ loose
+It's nothing, man. I mean Coach. ~ loose young
+Ha. Nice try, Coach. ~ loose
+It's not that deep. ~ young modern
+Lowkey I don't want to talk about it. ~ young modern
+Let's not do this. ~ young
+My agent told me not to get into it. ~ nfl
+I've been in this league long enough to keep things close. ~ nfl vet
+I'm a grown man. I'll handle it. ~ nfl vet
+I don't need my business getting around the building. ~ nfl
+I'd rather talk to my position coach about it. ~ !hs
+I'd rather talk to my mom about it. ~ young !nfl
+Can I just go to class? ~ college young
+I've got to get home. Can we stop? ~ hs young
+I ain't trying to get into it, Coach. ~ south
+No sir. Not today. ~ south
+I'd rather not, Coach. ~ midwest
+Let's just leave it. ~ midwest
+I'm not going there. ~ northeast
+It's not happening, Coach. ~ northeast
+I'm not in the space for this. ~ west
+
+@key talk.reply.ask.flat
+That's really all there is.
+Not much else to tell.
+That's about it, Coach.
+I guess that's it.
+There's not more to it.
+That's everything, I think.
+That's the gist.
+I mean, yeah.
+I don't know what else to add.
+That's it.
+It is what it is.
+That's pretty much the whole thing.
+That's what's on my mind.
+I've said it.
+I think that covers it.
+That's my answer, Coach.
+I don't think there's more.
+That's it, honestly.
+Yeah. ~ quiet
+Mm-hm. ~ quiet
+Not really. ~ quiet
+That's all, Coach. Thank you. ~ humble
+That's everything. I appreciate it. ~ humble
+That's it. I'm not going to make it bigger than it is. ~ pro
+That's where things are. ~ pro
+That's my take. Nothing more to it. ~ steady
+That's the situation. ~ steady
+I don't have more for you. ~ calm
+I think I've said enough. ~ calm
+That's it. I'm not overthinking it. ~ ego
+That's what I've got. ~ ego
+That's it, Coach. ~ hot
+That's what's up. ~ young modern
+That's on that. ~ young modern
+Ha. That's it. ~ loose
+That's the story. ~ loose
+I'll let you know if there's more. ~ leader
+That's where me and the guys are at. ~ leader
+That's my piece. ~ competitor
+I'll get back to work. That's it. ~ competitor
+That's all. I think. ~ shaky
+I'm not sure there's more. ~ shaky
+That's it, Coach. You know me. ~ loyal
+That's about all there is, Coach. ~ nfl vet
+That's it. Business as usual. ~ nfl
+That's it. I've got class. ~ college
+That's it, Coach. I've got to catch my ride. ~ hs young
+That's about it, I reckon. ~ south
+Yes sir. That's it. ~ south
+That's it. Nothing more. ~ northeast
+That's where I am. ~ west
+
+@key talk.reply.straight.good
+I appreciate you being straight with me.
+That's all I wanted. The truth.
+Okay. Now I know where I stand.
+I can work with that.
+Thank you for not sugarcoating it.
+That's fair. I don't love it, but it's fair.
+I respect that a lot, Coach.
+Nobody's ever been that honest with me.
+I'd rather hear it from you than anybody else.
+Alright. That makes sense.
+Good. Now I know what I'm working with.
+That's the kind of thing I need to hear.
+I can handle the truth. It's the guessing I can't handle.
+That's real. Thank you.
+I needed that, honestly.
+Okay. I know what I need to do now.
+That makes it easier, weirdly.
+Okay. I'm not happy about it, but I get it.
+That's the first time somebody's told me the why.
+I appreciate the honesty more than you know.
+I'll take honest over nice every time.
+That clears a lot up.
+I respect you for saying it to my face.
+That's straight. I can respect straight.
+I know you didn't have to tell me all that.
+Okay. That's a plan I can follow.
+At least now I'm not guessing.
+That's helpful, Coach. Really.
+Alright. Let me go prove you wrong. Or right. Whichever helps.
+I hear you. That makes sense to me.
+I trust you more now, honestly.
+That's the respect I wanted. Just the truth.
+Now I can stop wondering.
+Okay. Message received, and I appreciate it.
+That's how I want to be talked to.
+Thank you, Coach. That helps. ~ quiet
+Okay. Thank you. ~ quiet
+I understand. Thank you, Coach. ~ quiet humble
+I'm grateful you'd be honest with me. ~ humble
+I know I've got work to do. Thank you for telling me. ~ humble
+That's fair. I'll get better. ~ humble
+I don't agree with all of it. But I respect it. ~ ego
+Alright. I'll show you. ~ ego
+Fine. That's fair. I'll make it hard on you. ~ ego competitor
+Good. Now I know what to beat. ~ competitor
+That's all I needed. Now I'm going to go take it. ~ competitor
+Alright. I'm going to go earn it. ~ competitor
+I was ready to get mad. I can't be mad at the truth. ~ hot
+Okay. I needed to hear it like that. ~ hot
+I respect that. I'll keep my cool. ~ hot
+That's how a pro should be talked to. Thank you. ~ pro
+Clear. I'll adjust. ~ pro
+I've got what I need. Thank you, Coach. ~ pro
+That's a fair read. I'll work on it. ~ pro
+I can take that back to the guys. ~ leader
+That helps me lead them, knowing where things stand. ~ leader
+That's the kind of honesty the room needs too. ~ leader
+That's good. I can move forward now. ~ steady
+Understood. I'm good with that. ~ steady
+Okay. That's clear. ~ calm
+I appreciate the clarity. ~ calm
+I've always trusted you. That's why. ~ loyal
+That's why I'm loyal to you, Coach. You tell me the truth. ~ loyal
+Okay. That's scary, but it's better than not knowing. ~ shaky
+I needed somebody to just be honest. Thank you. ~ shaky
+Bet. At least I know. ~ young modern
+That's real, Coach. Respect. ~ young modern
+Okay, say less. I get it. ~ young modern
+Ha. Okay. That's fair, I guess. ~ loose
+Alright, alright. I hear you. ~ loose
+I've been in this league long enough to appreciate a straight answer. ~ nfl vet
+That's rare in this business. Thank you. ~ nfl
+I'll pass that along to my agent. He'll respect it too. ~ nfl
+That's more than my last coach ever told me. ~ vet
+Thank you. I'll tell my dad what you said. ~ hs young
+Okay. That makes sense for my recruiting too. ~ hs
+I can work with that this offseason. ~ !nfl
+Yes sir. That's fair. ~ south
+I appreciate that, Coach. I truly do. ~ south
+That's fair. I can live with that. ~ midwest
+That's honest. I like that. ~ midwest
+Okay. Straight up, I respect it. ~ northeast
+Good. No games. I like that. ~ northeast
+I appreciate the honesty, Coach. ~ west
+
+@key talk.reply.straight.bad
+Okay. Wow.
+That's it, then?
+I wasn't ready for that.
+So that's how you really feel.
+I hear you. I don't agree with you.
+That's not what I was told before.
+You could have told me that a long time ago.
+I don't think that's fair.
+I don't know what to say to that.
+That hurts, Coach. I'm not going to lie.
+Okay. I'll remember you said that.
+I think you're wrong.
+That's a lot to just drop on me.
+So I'm just a guy to you.
+That's cold, Coach.
+I didn't come in here to hear that.
+I guess I know where I stand now. And it's nowhere.
+Nobody told me any of that until now.
+That's not how I see it at all.
+Okay. I'll figure out what I'm going to do.
+That's hard to hear.
+I don't even know how to respond to that.
+I wish you'd said that to me sooner.
+You're the first person to say that. That's kind of the problem.
+So all that work didn't matter.
+Okay. Thanks for being honest, I guess.
+It's like you've already decided.
+That feels like you've given up on me.
+So nothing I do matters.
+That's a gut punch, Coach.
+Okay. ~ quiet
+I see. ~ quiet
+Yeah. Alright. ~ quiet
+I don't have anything to say to that. ~ quiet
+I'm sorry I'm not what you want. ~ humble
+I thought I was doing better than that. ~ humble
+I'll try harder, I guess. But that hurt. ~ humble
+You're wrong about me. You'll see. ~ ego
+I'm better than that, and you know it. ~ ego
+That's your opinion. ~ ego
+I don't need you to tell me what I am. ~ ego
+Nobody else in this league thinks that about me. ~ ego nfl
+You're really going to say that to my face? ~ hot
+I'm trying real hard not to say something I'll regret. ~ hot
+That's messed up, Coach. ~ hot
+I'm out. ~ hot young
+That's not professional, Coach. ~ pro
+I don't agree with the evaluation. I'll keep doing my job. ~ pro
+I'll take it under advisement. ~ pro
+That's going to be hard to explain to the room. ~ leader
+The guys aren't going to like hearing that either. ~ leader
+That changes how I lead. I'll be honest. ~ leader
+I'll be fine. But I don't agree. ~ steady
+I'll process it. I'm not happy. ~ steady
+That's disappointing. ~ calm
+I'll think about what you said. I don't like it. ~ calm
+I've given everything to this place. That's what I get? ~ loyal
+After all this, that's how you see me? ~ loyal
+I don't know if I can come back from hearing that. ~ shaky
+I feel like the floor just dropped out. ~ shaky
+I'm trying not to cry, Coach. ~ shaky young
+Bruh. Okay. ~ young modern
+That's crazy, Coach. ~ young modern
+Wow. Okay. Noted. ~ young
+Ha. Okay. Cool. Real cool. ~ loose
+Well. That's a buzzkill. ~ loose
+That's the business, I guess. ~ nfl vet
+I'm calling my agent after this. ~ nfl
+I've heard a lot of things in this league. That's up there. ~ nfl vet
+That's not what I was told when I was recruited. ~ college
+I came here because of what y'all told me. ~ college
+That's not what I heard on my visit. ~ college
+My parents are going to want to hear that from you. ~ hs young
+I don't know how to tell my dad that. ~ hs young
+That ain't right, Coach. ~ south
+I don't think that's fair to me, sir. ~ south
+I don't see it that way at all. ~ midwest
+That's not right. ~ midwest
+That's garbage, Coach. With respect. ~ northeast
+I'm not going to pretend that's okay. ~ northeast
+That doesn't sit right with me. ~ west
+
+@key talk.reply.straight.flat
+Alright.
+If that's how it is.
+I figured.
+Fair enough.
+That's what I expected.
+Got it.
+Alright, Coach.
+Okay. It is what it is.
+That's about what I thought.
+I'll take it in.
+Okay. We'll see.
+Noted.
+Makes sense, I guess.
+I understand.
+That's fine.
+Okay. Thank you.
+Mm. ~ quiet
+Okay. Thank you for telling me. ~ humble
+I understand, Coach. ~ humble
+Clear. ~ pro
+That's what I needed to know. ~ pro
+Alright. I'll take it from here. ~ steady
+Okay. I'll sit with it. ~ calm
+Alright. We'll see what happens. ~ ego
+If you say so. ~ ego
+We'll see. ~ competitor
+Okay. I'll keep working. ~ competitor
+Okay. I'll let the guys know where things stand. ~ leader
+I'll be alright. ~ shaky
+Okay. I trust you. ~ loyal
+Bet. ~ young modern
+Aight. ~ young modern loose
+Cool. ~ loose
+Okay. Business. ~ nfl
+I've heard worse in this league. ~ nfl vet
+Okay. I'll tell my parents. ~ hs young
+Yes sir. I understand. ~ south
+Alright then. ~ midwest
+Okay. Got it. ~ northeast
+Okay. I hear it. ~ west
+
+@key talk.reply.praise.good
+Thank you, Coach. That means a lot.
+I needed to hear that.
+I've been working hard. It's good to know it shows.
+That's big coming from you.
+Thank you. I'm not going to stop.
+I appreciate that, Coach. I really do.
+That makes all the early mornings worth it.
+I didn't know you'd noticed.
+That's going to stick with me.
+Thanks. I've been trying to do things the right way.
+That's the best thing I've heard all week.
+It feels good to hear that from the head coach.
+That fires me up, Coach.
+Thank you. I'm going to keep stacking good days.
+I'm going to remember you said that.
+Okay. That means more than you know.
+That's motivation right there.
+Thank you. I'll keep proving you right.
+I'm glad it's paying off.
+That keeps me going.
+I've been waiting a long time for somebody to say that.
+Thank you for seeing it.
+That's the kind of thing that makes me want to run through a wall.
+That's huge, Coach. Thank you.
+That puts a smile on my face.
+I'm going to call home and tell them you said that.
+I've been grinding. Thank you for noticing.
+That means the work is working.
+I'll take that and keep going.
+Thank you. I owe a lot of that to the guys around me.
+Appreciate it, {coach}.
+That's love, {coach}.
+Thank you. ~ quiet
+That means a lot. Thank you, Coach. ~ quiet
+I appreciate it. ~ quiet
+Thanks, Coach. Really. ~ quiet
+I don't know what to say. Thank you. ~ quiet humble
+I'm just trying to do my part. Thank you. ~ humble
+I've still got a lot to work on. But thank you. ~ humble
+I didn't think I was doing anything special. Thank you. ~ humble
+It's the guys around me, Coach. But thank you. ~ humble
+I'm grateful. I really am. ~ humble
+I know. But it's good to hear. ~ ego
+I've been telling everybody. Glad you see it too. ~ ego
+I know what I bring. Good to know you do too. ~ ego
+That's what I do, Coach. ~ ego
+I'm just getting started. ~ ego young
+You haven't seen anything yet. ~ ego competitor
+Good. Now let's win. ~ competitor
+That's nice. I want more. ~ competitor
+Appreciate it. I'm still hungry. ~ competitor
+I'll take it. I want to be better than that. ~ competitor
+That fires me up. ~ hot
+That's what I needed. Let's go. ~ hot young
+I appreciate that. I'll keep it up. ~ pro
+That's good to hear. I'll keep doing my job. ~ pro
+Thank you. I've still got stuff to clean up. ~ pro
+I'll keep building on it. ~ pro
+That's good feedback. Thank you, Coach. ~ pro
+I'll pass that on to the guys. They've earned it too. ~ leader
+That means a lot. The guys helped me get there. ~ leader
+Thank you. I want the young guys to hear that too. ~ leader
+Thank you. I'll stay the course. ~ steady
+Appreciate it. Same as always, Coach. ~ steady
+That's kind of you. ~ calm
+Thank you. That's good to hear. ~ calm
+That means everything coming from you, Coach. ~ loyal
+I'd run through a wall for you, Coach. You know that. ~ loyal
+I'm going to keep earning it for you. ~ loyal
+I really needed that. Thank you. ~ shaky
+I've been doubting myself. That helps a lot. ~ shaky
+You don't know how much I needed to hear that. ~ shaky
+That's love, Coach. ~ young modern
+Facts. Appreciate you, Coach. ~ young modern
+Let's gooo. Thank you, Coach. ~ young modern
+I'm going to keep cooking. ~ young modern
+Ha. Tell my mom that. ~ loose young
+Okay, okay. I'll take it. ~ loose
+Don't make me blush, Coach. ~ loose
+I've been in this league a while. Still feels good to hear. ~ nfl vet
+Thank you, Coach. Means a lot in this league. ~ nfl
+I'll tell my agent you said that. Kidding. Sort of. ~ nfl
+That means a lot. It's a grind up here. ~ nfl
+My mom's going to love hearing that. ~ young !nfl
+I'm going to tell my dad you said that. ~ hs young
+I can't wait to tell my family. ~ young
+Thank you, Coach. I'm going to call home. ~ college young
+Yes sir. Thank you. ~ south
+Thank you, Coach. I appreciate it, I sure do. ~ south
+Thank you, sir. ~ south humble
+Thanks, Coach. Means a lot. ~ midwest
+Appreciate that, Coach. ~ midwest
+That means a lot, Coach. No joke. ~ northeast
+Appreciate it. I'll keep it going. ~ northeast
+Thank you. That's a good feeling. ~ west
+
+@key talk.reply.praise.bad
+I appreciate it, but that doesn't change anything.
+That's nice. It's not what I need.
+Okay, but that's not why I'm here.
+Thanks, I guess.
+You say that, but nothing changes.
+Everybody says that.
+I don't need compliments, Coach.
+I'd rather have reps than praise.
+That's what you say before bad news.
+Kind words don't fix anything.
+If I'm doing so good, why isn't anything different?
+I hear that a lot. I don't see it.
+That feels a little empty, Coach.
+Praise is easy. Action's hard.
+Okay. I'll believe it when I see it.
+I don't want a pat on the back. I want a chance.
+Coach, I'm not a kid. I don't need that.
+It's hard to feel good about that right now.
+That's not really what I'm worried about.
+Is that supposed to make me feel better?
+That's not going to cut it.
+I wish I believed that.
+Words, Coach. Just words.
+Okay. Cool. ~ quiet
+Thanks. ~ quiet
+Mm. Okay. ~ quiet
+I'm not looking for praise, Coach. I'm looking for answers. ~ humble
+I'd rather earn something real. ~ humble
+I know I'm working hard. I don't need to be told. ~ ego
+Don't butter me up. ~ ego
+I know what I am. That's not the problem. ~ ego
+Everybody knows I'm good. That's not what this is about. ~ ego
+Don't just tell me I'm good. Show me. ~ hot
+That's not going to work on me. ~ hot
+Stop. That's not it. ~ hot
+That doesn't help me do my job better. ~ pro
+I'm not here for feedback. I'm here for answers. ~ pro
+It's appreciated, but it doesn't change the situation. ~ pro
+That's nice for me. The guys need more than that. ~ leader
+It's not about me. The room's the issue. ~ leader
+I'll take it. It's not enough, though. ~ competitor
+Praise doesn't win games. ~ competitor
+I hear you. I'm still frustrated. ~ steady
+That's kind. It doesn't fix it. ~ calm
+I want to believe you. I'm having a hard time. ~ shaky
+Then why does it feel like this? ~ shaky
+I've heard that from you before. I'm still waiting. ~ loyal
+That's cap, Coach. ~ young modern
+Okay. Whatever. ~ young
+That's what coaches say right before they cut you. ~ nfl
+I don't need a speech. I need a contract. ~ nfl greedy
+I've heard that in a lot of buildings. ~ nfl vet
+Tell that to the scouts. ~ college
+Tell that to the college coaches. ~ hs
+I appreciate it, Coach, but that ain't it. ~ south
+That's nice. Doesn't change much. ~ midwest
+Come on, Coach. ~ northeast
+That's not really landing for me. ~ west
+
+@key talk.reply.praise.flat
+Okay. Thank you.
+I'll keep working.
+Thanks. I'm trying.
+That's good to hear.
+Thanks. I'll keep at it.
+Okay. Cool.
+Appreciate that.
+Thank you, Coach. I'll keep going.
+I'll keep doing what I'm doing.
+Good. Thanks.
+Alright. Thank you.
+Okay. I'll take it.
+Thanks. Back to work.
+Thank you. ~ quiet
+Okay. ~ quiet
+Thanks. ~ quiet
+Thank you, Coach. I'll try to keep it up. ~ humble
+I appreciate that. ~ humble
+Okay. I've still got stuff to fix. ~ pro
+I know. ~ ego
+Yeah. ~ ego
+Okay. I want more, though. ~ competitor
+Alright. ~ steady
+Thank you. That's kind. ~ calm
+Thanks. I'll tell the guys. ~ leader
+Thanks, Coach. You know I've got you. ~ loyal
+Okay. Thank you. I think. ~ shaky
+Appreciate you. ~ young modern
+Bet. ~ young modern
+Ha. Thanks. ~ loose
+Thanks. One week at a time in this league. ~ nfl
+Thanks. I'll tell my parents. ~ young !nfl
+Thanks. ~ west
+
+@key talk.reply.challenge.good
+Okay. Watch me.
+That's what I needed to hear.
+Challenge accepted, Coach.
+Alright. I'll be ready tomorrow.
+I like that. I play better with something to prove.
+You're going to see a different guy at practice.
+Bet. I'm on it.
+I'm not going to let you down.
+That lights a fire under me.
+Okay. Let's see what I've got.
+I'll show you every rep.
+That's fair. I'll go take it.
+I wanted somebody to push me. Thank you.
+I'm going to make the decision easy for you.
+I'll earn it. You'll see.
+That's the kind of push I needed.
+Okay. Tomorrow starts it.
+I've been waiting for somebody to put it on me.
+I'll be first in the building.
+You're going to have to play me.
+I'm going to make it impossible to keep me off the field.
+I'm in. All the way in.
+That's a target. I like targets.
+Okay. I know what I have to do.
+I'll handle it. You'll see it on film.
+Give me a week. Just watch.
+That gets me going, Coach.
+Alright. No more excuses from me.
+That's how you get the best out of me.
+That's a deal. I'll do it.
+Okay. I'll do it. ~ quiet
+Yes sir. I'll show you. ~ quiet
+I'll let my play talk. ~ quiet
+I'll work harder than I ever have. ~ humble
+I won't waste the chance. ~ humble
+Thank you for believing I can. ~ humble
+Okay. I'll show everybody. ~ ego
+I was born for this. Watch. ~ ego
+You just made a big mistake, Coach. Now I'm motivated. ~ ego loose
+I'm going to make you look smart. ~ ego
+Say less. ~ competitor young
+That's all I needed. Let's go. ~ competitor
+I love a challenge. You know that. ~ competitor
+I'm coming for it. All of it. ~ competitor
+I'll go win the job. Simple. ~ competitor
+I'm fired up now. Let's go. ~ hot
+Okay. I'm going to take this out on the other team. ~ hot
+I'll channel it. Watch me. ~ hot
+Understood. I'll put the work in. ~ pro
+Clear goal. I'll get there. ~ pro
+I'll have a plan for it by tonight. ~ pro
+I'll be in the film room an extra hour every day. ~ pro
+I'll get the guys going with me. ~ leader
+I'll take the young guys with me on it. ~ leader
+That's on me, and I'll own it. ~ leader
+I'll get there. Steady. ~ steady
+Okay. I know what to do. ~ steady
+Alright. I'm on it. ~ calm
+I won't let you down. I never have. ~ loyal
+I'll do it for you, Coach. And for me. ~ loyal
+Okay. I can do this. I can do this. ~ shaky
+I needed somebody to tell me I'm capable. Okay. ~ shaky
+Say less, Coach. ~ young modern
+I'm about to go crazy at practice. ~ young modern
+It's up. Watch me. ~ young modern
+Ha. Okay, game on. ~ loose
+You're on, Coach. ~ loose
+I've done it before in this league. I'll do it again. ~ nfl vet
+Okay. I'm going to earn the next contract right here. ~ nfl
+I'll make the cut decision easy. ~ nfl young
+I'll be the one on the fifty-three. ~ nfl young
+I'll make the scouts notice. ~ college
+I'll make this my year. ~ college
+I'll make the college coaches notice. ~ hs
+I'll be ready by Friday. ~ hs
+Yes sir. I'll get after it. ~ south
+I'm fixing to show you something, Coach. ~ south
+I'll get it done. ~ midwest
+Alright. I'm all in. ~ midwest
+Bet. I'll go get it. ~ northeast
+Watch me. ~ northeast
+Okay. I'm going to bring it. ~ west
+
+@key talk.reply.challenge.bad
+I've been doing that. You just haven't seen it.
+So it's always on me.
+That's easy to say from where you're sitting.
+I don't know what more you want.
+I'm already giving everything I have.
+That's not fair, Coach.
+I've been doing that since camp.
+You're not listening to me.
+So more of the same. Okay.
+I don't think you get it.
+I keep getting challenged and nothing changes.
+I've been proving it. Nobody's watching.
+What else do I have to do?
+That's what they always say.
+I'm tired of being told to work harder.
+It feels like a setup.
+You're asking me to beat a decision that's already made.
+I'm doing everything I can.
+That's not motivating. That's frustrating.
+I don't feel challenged. I feel dismissed.
+Okay. Sure. ~ quiet
+If you say so. ~ quiet
+I'll try. ~ quiet
+I'm already giving all I've got, Coach. ~ humble
+I don't know how much more I have. ~ humble
+I've been doing more than anybody. ~ ego
+I don't need to prove anything to anybody. ~ ego
+I've already proven it. You're just not seeing it. ~ ego
+Don't challenge me. Play me. ~ hot
+That's an insult, Coach. ~ hot
+I'm not your project. ~ hot
+I'm out here killing myself and you tell me that? ~ hot
+I'm doing my job. That's all I can do. ~ pro
+I've done everything I've been asked. ~ pro
+That's not a clear standard. ~ pro
+That's hard to hear when I've been leading every day. ~ leader
+I've been carrying the room and you want more? ~ leader
+Fine. But I'm already competing. ~ competitor
+I compete every rep. You know that. ~ competitor
+So it's on me again. ~ shaky
+I don't know if I can do more. ~ shaky
+I feel like I'm failing you. ~ shaky
+I've been here for you. That's what I get? ~ loyal
+That's crazy, Coach. ~ young modern
+Bruh. ~ young modern loose
+That's what I've been doing. ~ young
+I've been in this league a long time. I don't need to be challenged like a rookie. ~ nfl vet
+My agent's going to love hearing that. ~ nfl
+I'll be honest, that sounds like something you'd say to a freshman. ~ college !freshman
+I've been doing that since summer workouts. ~ hs
+I've been working, sir. Hard. ~ south
+That's not right, Coach. ~ midwest
+Come on. ~ northeast
+I'm already giving it. ~ west
+
+@key talk.reply.challenge.flat
+Okay. I'll work on it.
+I hear you.
+I always compete.
+Alright. I'll keep going.
+I'll do my best.
+Okay. Got it.
+We'll see how it goes.
+I'll try.
+Alright.
+Okay. Understood.
+I'll take care of it.
+Okay. ~ quiet
+I'll do my best, Coach. ~ humble
+I'll keep at it. ~ pro
+Clear. ~ pro
+Okay. Sure. ~ ego
+I'm always competing. ~ competitor
+I'll get after it. ~ competitor
+Okay. ~ steady
+I'll tell the guys too. ~ leader
+I'll try, Coach. ~ shaky
+For you, Coach. ~ loyal
+Bet. ~ young modern
+Alright. Business as usual. ~ nfl vet
+Yes sir. I'll get to it. ~ south
+Okay. ~ northeast
+I'll keep pushing. ~ west
+
+@key talk.reply.criticize.good
+You're right. I was wrong.
+That's fair. I needed to hear it.
+I know. It won't happen again.
+I don't have an excuse.
+That's on me.
+I've been slipping. I know.
+I needed somebody to tell me.
+You're right. I'm better than that.
+I'm embarrassed, honestly.
+I'll fix it. Starting today.
+No excuses. You're right.
+I deserved that.
+I'll own it.
+I've got to be better.
+I hear you. I'm going to make it right.
+That's real. I'll take it.
+I wasn't living up to the standard. I know.
+Thank you for not letting it slide.
+I'd rather hear it from you than lose my spot over it.
+I needed that wake-up call.
+You're right. I'll show you I'm better than that.
+That's fair criticism. I accept it.
+I appreciate you being hard on me.
+I haven't been myself. You're right to call it out.
+That stung. It needed to.
+I'm sorry, Coach. ~ quiet
+You're right. ~ quiet
+Okay. I'll fix it. ~ quiet
+I'm sorry. It won't happen again. ~ humble
+Thank you for being honest with me about it. ~ humble
+I know I let you down. I'm sorry. ~ humble
+Alright. That's fair. I'll fix it. ~ ego
+I don't like hearing it, but you're right. ~ ego
+Okay. I'll clean it up. ~ ego
+You're right. I lost my head. ~ hot
+I know. I've got to control it. ~ hot
+That's fair. I'll keep it together. ~ hot
+That's on me. I'll handle it. ~ pro
+I'm accountable. You'll see a change. ~ pro
+I'll make it right with the guys too. ~ leader
+That's fair. I've got to set the example. ~ leader
+I'll address it with the room myself. ~ leader
+You're right. I'll fix it. ~ steady
+Okay. Understood. I'll change it. ~ calm
+I hear you, Coach. You've always been straight with me. ~ loyal
+I won't let you down again. ~ loyal
+I know. I've been messing up. I'll do better. ~ shaky
+You're right. I needed somebody to say it. ~ shaky
+That's fair. I'll do better. ~ young
+My bad, Coach. For real. ~ young modern
+That's on me. No cap. ~ young modern
+Yeah. I was tripping. ~ young loose
+I've been in this league long enough to know better. You're right. ~ nfl vet
+That's fair. The young guys see that. I'll fix it. ~ nfl vet
+I'll make it right. I'm not a rookie anymore. ~ nfl !rookie
+I'll get it together. ~ college young
+My mom's going to be on me too. You're right. ~ hs young
+Yes sir. You're right. ~ south
+I hear you, Coach. I'm sorry. ~ south
+That's fair. ~ midwest
+That's on me. I'll fix it. ~ midwest
+You're right. I was out of line. ~ northeast
+That's fair. I'll handle it. ~ west
+
+@key talk.reply.criticize.bad
+That's not fair, Coach.
+I've given everything to this team.
+So that's what you think of me.
+You don't know what I'm going through.
+Wow. Okay.
+You're blaming me for everything.
+That's not the whole story.
+I can't believe you'd say that.
+You've never talked to anybody else like that.
+I'm not the only one who did that.
+So I'm the problem now.
+That's how you talk to your players?
+You're wrong about this.
+I didn't deserve that.
+I'm going to remember this.
+That's out of line, Coach.
+You're making me the scapegoat.
+I came in here to talk. Not to get yelled at.
+I'm done listening.
+Everybody else gets a pass but me.
+That's cool. I'll keep that in mind.
+I don't think you understand the situation at all.
+That's a lot coming from you.
+Don't talk to me like I'm a kid.
+That's disrespectful.
+I've never heard you say that to anybody else.
+I'm not going to take this.
+Okay. I'm out.
+You're just looking for someone to blame.
+... ~ quiet
+I don't have anything to say. ~ quiet
+Okay. ~ quiet
+I'm going to go now. ~ quiet
+I'm trying, Coach. I really am. ~ humble
+I didn't think you saw me like that. ~ humble
+I don't know what else to do. ~ humble
+Selfish? I'm the reason we win. ~ ego
+You'd be nothing without me out there. ~ ego
+I don't have to listen to this. ~ ego
+Find somebody else to blame. ~ ego
+I'm the best player you've got. Remember that. ~ ego
+Don't come at me like that. ~ hot
+You're going to talk to me like that? ~ hot
+I'm not doing this. ~ hot
+You want me to lose it? Keep going. ~ hot
+Say it again. Go ahead. ~ hot young
+That's not a professional way to handle it. ~ pro
+I'd like to see the film before I accept that. ~ pro
+I'll talk to my position coach. Not you. ~ pro !hs
+I'll lead the guys. You can deal with me later. ~ leader
+That hurts, coming from you. The guys look to me. ~ leader
+You just made the room's job harder. ~ leader
+I'm not the one who's losing games. ~ competitor
+I compete harder than anybody here. ~ competitor
+I didn't expect that from you. ~ steady
+That wasn't fair. ~ calm
+I'll take a minute before I say something. ~ calm
+I've been loyal to you. That's how you repay it? ~ loyal
+After everything, that's how you see me. ~ loyal
+I already feel terrible. Why would you say that? ~ shaky
+I'm trying so hard and it's never enough. ~ shaky
+I don't know why I even try. ~ shaky
+That's crazy. You crazy, Coach. ~ young modern
+Bruh. I'm out. ~ young modern loose
+That's mad disrespectful. ~ young modern
+Okay. Whatever. ~ young
+Ha. Okay. Got it. ~ loose
+I'll be sure to tell my agent how you feel. ~ nfl
+I'm a vet in this league. Don't talk to me like that. ~ nfl vet
+I've been doing this longer than some of your coaches. ~ nfl vet
+I'll talk to the front office. ~ nfl ego
+My parents are going to hear about this. ~ hs young
+You can't talk to me like that, Coach. ~ hs young
+I don't appreciate that, sir. ~ south
+That ain't right. ~ south
+That's not fair to me. ~ midwest
+Come on, Coach. That's not right. ~ northeast
+You're out of line. ~ northeast
+That's not cool, Coach. ~ west
+
+@key talk.reply.criticize.flat
+I hear you.
+Alright.
+Noted.
+I got it.
+I'll work on it.
+Okay. I'll fix it.
+I understand.
+If that's how you see it.
+Okay. I'll think about it.
+I'll be better.
+Got it.
+I understand, Coach. ~ humble
+I'll do better. ~ humble
+Understood. I'll correct it. ~ pro
+Whatever you say. ~ ego
+I'll handle it. ~ steady
+Okay. I'll sit with it. ~ calm
+I'll fix it. ~ competitor
+I'll talk to the guys. ~ leader
+Okay. I'll try. ~ shaky
+Aight. ~ young modern
+Okay. My bad. ~ young
+Ha. Okay. ~ loose
+Okay. Fair. ~ northeast
+I hear it. ~ west
+
+@key talk.reply.promise.good
+That's what I needed.
+That means a lot. I'll make it count.
+I'm going to remember that.
+That changes everything for me.
+I believe you.
+Thank you. I needed to know that.
+That's huge, Coach.
+Okay. That puts my mind at ease.
+I'll earn it every day.
+That's all I wanted.
+Then we're good. More than good.
+Okay. I can focus now.
+I'm going to work twice as hard now.
+That takes a lot off my shoulders.
+That's real. I'll make sure you don't regret it.
+I've been waiting to hear that.
+That's a promise I'll hold close.
+Okay. Let's do it.
+Thank you for giving me something to hold on to.
+I'm going to tell my people you said that.
+I'm in, Coach.
+Okay. Thank you. ~ quiet
+I believe you, Coach. ~ quiet
+That means a lot. Thank you. ~ quiet humble
+I'm grateful, Coach. I won't waste it. ~ humble
+Thank you. I'll work for it. ~ humble
+I don't take that lightly. ~ humble
+Good. That's what I deserve. ~ ego
+That's more like it. ~ ego
+Finally. Thank you. ~ ego
+Now we're talking. ~ ego young
+Then I'll go get it done. ~ competitor
+That's what I needed to go to war for you. ~ competitor
+Good. Let's go win. ~ competitor
+Okay. I'm calmer now. ~ hot
+That's what I wanted to hear. Thank you. ~ hot
+I'll hold up my end. ~ pro
+That's a deal. I'll do my part. ~ pro
+I appreciate the commitment. ~ pro
+I'll tell the guys we're good. ~ leader
+That's going to help the whole room. ~ leader
+That's good for me and the guys. ~ leader
+Okay. That's good. ~ steady
+That's settled, then. ~ steady
+That's good to hear. Thank you. ~ calm
+I trust you. I always have. ~ loyal
+You've never lied to me. I know you won't now. ~ loyal
+That means I can breathe. ~ shaky
+Okay. Okay. Thank you. ~ shaky
+You don't know what that means to me. ~ shaky
+For real? Okay. Bet. ~ young modern
+That's love, Coach. ~ young modern
+Let's go. Thank you. ~ young
+Ha. I'm holding you to it. I've got a good memory. ~ loose
+Okay. My agent's going to want that in writing, but I trust you. ~ nfl
+I've heard a lot of promises in this league. I believe this one. ~ nfl vet
+That means a lot at this point in my career. ~ nfl vet
+My family's going to be so happy. ~ young !nfl
+I can't wait to tell my mom. ~ young !nfl
+My dad's going to want to hear that from you too. ~ hs young
+Yes sir. I'll hold you to it. ~ south
+Thank you, Coach. I mean that. ~ south
+Okay. That's good. Thank you. ~ midwest
+Alright. That works. ~ northeast
+I'll take your word for it. ~ northeast
+Okay. I feel better about that. ~ west
+
+@key talk.reply.promise.bad
+Coaches promise a lot.
+That's what the last guy said.
+Words are easy, Coach.
+Sure. We'll see.
+Promises don't mean much to me anymore.
+Everybody makes promises.
+I don't really believe that.
+You'd say anything to get me out of here happy.
+I've been let down before.
+I'll wait and see.
+That's not a promise you can keep.
+I don't trust that.
+You don't control that.
+It sounds good. That's the problem.
+I'm not buying it.
+I need to see it.
+That's a lot easier to say than do.
+We'll see if you mean it.
+Okay. ~ quiet
+I've heard it before. ~ quiet
+I don't want to get my hopes up. ~ humble
+I'll wait to see it. ~ humble
+Put it in writing. ~ ego
+I'm not stupid, Coach. ~ ego
+I've got options if that doesn't happen. ~ ego
+Don't promise me something you can't do. ~ hot
+That's what you said last time. ~ hot
+Don't play with me, Coach. ~ hot
+I'd rather have it done than promised. ~ pro
+Promises don't show up on my contract. ~ pro nfl
+The guys have heard promises like that before. ~ leader
+I'll believe it when it happens. ~ competitor
+I'll be patient. But I'm skeptical. ~ steady
+I'd like to believe you. ~ calm
+I trust you. I don't trust the situation. ~ loyal
+I've been burned before. I can't go through that again. ~ shaky
+That's cap. ~ young modern
+Okay. Sure. ~ young loose
+Ha. Okay. ~ loose
+Get it in writing, then. ~ nfl
+I've been in this league too long to trust a promise. ~ nfl vet
+Every team promises. Then they cut you. ~ nfl vet
+That's what everybody said in recruiting. ~ college
+That's what the last coach said. ~ hs
+I've heard that one, sir. ~ south
+We'll see. ~ midwest
+Yeah, okay. ~ northeast
+I'll see it when I see it. ~ west
+
+@key talk.reply.promise.flat
+I'll hold you to that.
+Alright.
+Okay. I'll take it.
+We'll see how it goes.
+I hear you.
+Alright, Coach. I trust you, I guess.
+Okay. Time will tell.
+I'll wait and see.
+That's good. I think.
+Okay. That helps a little.
+Alright. Noted.
+Okay. ~ quiet
+Thank you. ~ quiet
+I appreciate it. ~ humble
+Okay. I'll trust it. ~ humble
+Noted. ~ pro
+Understood. ~ pro
+Good. ~ ego
+Okay. ~ steady
+We'll see. ~ calm
+I'll tell the guys. ~ leader
+Okay. I'll compete till then. ~ competitor
+Okay. I hope you mean it. ~ shaky
+I trust you, Coach. ~ loyal
+Bet. ~ young modern
+Okay. ~ young
+Cool. ~ loose
+Okay. My agent will follow up. ~ nfl
+Yes sir. ~ south
+Okay. ~ northeast
+Okay. Thanks. ~ west
+
+@key talk.reply.warn.good
+Understood. I'll straighten up.
+I hear you loud and clear.
+You won't have to do that.
+I know. That's fair.
+Message received.
+I won't put you in that position.
+That's fair. I'd do the same.
+I get it. I'll be better.
+Okay. I'm locked in from here.
+I respect that you warned me first.
+You won't see it again.
+I hear you. I'm done with all that.
+Got it. Clean slate.
+That's fair. I needed to hear the line.
+I appreciate you giving me the chance.
+Okay. I know where the line is now.
+I won't make you regret giving me a shot.
+Understood. I'll make sure of it.
+That's a wake-up call. I needed it.
+Yes sir. ~ quiet
+Understood. ~ quiet
+It won't happen. ~ quiet
+I'm grateful for the warning. I'll fix it. ~ humble
+I'm sorry it got to this. It won't happen again. ~ humble
+Fair. I'll handle it. ~ ego
+Okay. I'll be smart. ~ ego
+I'll keep my head. You have my word. ~ hot
+I know I've got to control it. I will. ~ hot
+I won't give you a reason. ~ hot
+Understood. I'll conduct myself right. ~ pro
+That's fair. I'm a professional. I'll act like one. ~ pro
+You won't have to say it twice. ~ pro
+I'll make sure the guys hear it too. ~ leader
+That's fair. I've got to lead better than that. ~ leader
+I'll keep it clean. ~ steady
+I hear you. ~ steady
+Okay. That's reasonable. ~ calm
+You've always been fair with me. I'll be fair back. ~ loyal
+I won't let you down. ~ loyal
+I'm scared of losing this. I'll be better. ~ shaky
+Okay. I don't want to mess this up. ~ shaky
+That's fair. I'll compete the right way. ~ competitor
+Bet. I'm good from here. ~ young modern
+Say less. Won't happen. ~ young modern
+I hear you. I'll get right. ~ young
+Okay, okay. I hear you. For real this time. ~ loose
+I'll keep it out of the news. ~ nfl
+I hear you. I've got a family to think about too. ~ nfl vet
+I'll stay out of trouble. ~ college young
+My mom would kill me first. ~ hs young
+I don't want to lose my spot. I'll be good. ~ hs
+Yes sir. You won't have to. ~ south
+I hear you, Coach. ~ midwest
+Understood. ~ northeast
+I hear you. I'll do better. ~ west
+
+@key talk.reply.warn.bad
+So that's a threat.
+Do what you've got to do.
+Funny how some guys never get warned.
+I know where the door is.
+Okay. If that's how it's going to be.
+You're threatening me?
+That's crazy.
+I've done nothing to deserve that.
+I'm not scared of that.
+Cool. Got it.
+You don't have to threaten me.
+I didn't come in here for that.
+Okay. Noted. And remembered.
+That's not how you motivate people.
+I'm not your problem, Coach.
+That's a lot.
+You're making a mistake.
+Bench me, then.
+So it's your way or nothing.
+Okay. ~ quiet
+Yeah. ~ quiet
+I don't know why you'd say that to me. ~ humble
+I thought we were better than that. ~ humble
+Other teams would love to have me. ~ ego !hs
+You need me more than I need this. ~ ego
+Go ahead. See what happens. ~ ego
+You threatening me now? ~ hot
+Don't push me, Coach. ~ hot
+Try it. ~ hot young
+I'd like that in writing. ~ pro
+I've done nothing wrong. ~ pro
+The guys are going to see that as a threat. ~ leader
+That's not leadership, Coach. ~ leader
+That's not going to make me compete harder. ~ competitor
+That's disappointing. ~ steady
+I don't respond well to threats. ~ calm
+After all I've done here? ~ loyal
+I can't take any more of this. ~ shaky
+That's wild, Coach. ~ young modern
+Bruh. ~ young modern loose
+Okay, Coach. Okay. ~ young
+Ha. Alright. ~ loose
+Cut me, then. Somebody'll sign me. ~ nfl ego
+My agent's going to have a field day with this. ~ nfl
+I've seen guys get warned like this. I know what comes next. ~ nfl vet
+I'll just go to the portal, then. ~ college nil ego
+My dad's going to hear about this. ~ hs young
+I don't need threats, sir. ~ south
+That's not right. ~ midwest
+Whatever, Coach. ~ northeast
+That's not cool. ~ west
+
+@key talk.reply.warn.flat
+Yes sir.
+Understood.
+Got it.
+Noted.
+I know.
+Okay. It won't happen.
+I understand.
+Fine.
+Alright, Coach.
+Okay. Understood.
+I get it.
+I'll keep it in mind.
+I'll tell the guys. ~ leader
+I hear you, Coach. ~ loyal
+Aight. ~ young modern
+Ha. Okay. ~ loose
+
+@key talk.reply.hand.good
+I didn't expect that.
+I'm going to remember this.
+I'll make it count.
+That shows a lot of trust. I appreciate it.
+Thank you for believing in me.
+I'll take care of it. I promise.
+That's big, Coach.
+I needed that. Thank you.
+That's huge for me.
+I'll do right by it.
+Okay. I'm honored, honestly.
+That means a lot to me and my family.
+I'm going to make you glad you did it.
+That's a real gesture. Thank you.
+Thank you. I'm going to be better for it.
+I didn't think you'd do that for me.
+Thank you, Coach. ~ quiet
+I appreciate it. ~ quiet
+Thank you. That means a lot. ~ quiet humble
+I don't deserve that. But thank you. ~ humble
+I'm grateful. Truly. ~ humble
+I won't waste it. ~ humble
+Good. I've earned it. ~ ego
+That's what I've been waiting for. ~ ego
+That's respect. I appreciate it. ~ ego
+I'll make the most of it. ~ competitor
+That's going to help me compete. Thank you. ~ competitor
+I needed that. I'll calm down. ~ hot
+Thank you. I'll handle it right. ~ pro
+I'll use it well. ~ pro
+That's appreciated. I won't abuse it. ~ pro
+I'll represent the guys right. ~ leader
+That means the room trusts me too. Thank you. ~ leader
+I'll do right by everybody. ~ leader
+That's good. Thank you. ~ steady
+Thank you. That helps. ~ calm
+You've always looked out for me. ~ loyal
+I'll pay you back, Coach. ~ loyal
+That's what I needed. Thank you so much. ~ shaky
+I needed some breathing room. Thank you. ~ shaky
+That's love, Coach. ~ young modern
+Real one. Thank you. ~ young modern
+Thank you, Coach. For real. ~ young
+Ha. You're the best, Coach. ~ loose
+That means a lot in this business. ~ nfl
+I've been in this league a long time. That's rare. Thank you. ~ nfl vet
+My family's going to appreciate that. ~ nfl vet
+My mom's going to cry when I tell her. ~ young !nfl
+Thank you, Coach. That's going to help a lot. ~ college
+Yes sir. Thank you. ~ south
+Thank you kindly, Coach. ~ south
+Thanks, Coach. I appreciate that. ~ midwest
+Respect, Coach. ~ northeast
+Thank you. That means a lot. ~ west
+
+@key talk.reply.hand.bad
+That's not what I needed.
+Feels like you're trying to get me out of your office.
+I'd rather just play.
+Is that supposed to fix it?
+That's not going to solve anything.
+That's a band-aid, Coach.
+I don't want handouts.
+That's not really it.
+That doesn't change anything.
+I didn't come in here for that.
+That feels like a bribe.
+I'd rather you just listen.
+Okay. But that's not the problem.
+Thanks, but no.
+You're missing what I'm saying.
+That's not what I'm asking for.
+That makes it worse, honestly.
+I don't want to be treated different.
+I don't need that. ~ quiet
+Okay. ~ quiet
+I'd rather earn things. ~ humble
+I don't want people thinking I get favors. ~ humble
+You're not going to buy me off. ~ ego
+That's cute. ~ ego
+That's not what I need. Give me what I need. ~ ego
+That's not going to calm me down. ~ hot
+Don't try to handle me. ~ hot
+I don't need perks. I need answers. ~ pro
+That's not a solution. ~ pro
+The guys are going to think I'm getting special treatment. ~ leader
+That's going to cause problems in the room. ~ leader
+I don't want time off. I want to compete. ~ competitor
+I'd rather be on the field. ~ competitor
+That's not really it, Coach. ~ steady
+I appreciate it. But no. ~ calm
+I don't need that from you. ~ loyal
+That's going to make me feel worse. ~ shaky
+Nah, that's not it. ~ young modern
+Okay. Cool. Whatever. ~ young
+Ha. That's not it. ~ loose
+That's not going to help me get paid. ~ nfl greedy
+I don't need that. I need my contract right. ~ nfl
+I'd rather be in class than get special treatment. ~ college
+I don't want the guys to think I'm soft. ~ hs young
+I don't need that, sir. ~ south
+No thanks. ~ midwest
+Nah. ~ northeast
+That's not what I need. ~ west
+
+@key talk.reply.hand.flat
+Alright.
+If you think that's best.
+Okay.
+Thank you, I guess.
+Okay. We'll see if it helps.
+That's fine.
+Alright. Thanks.
+I'll take it.
+Okay. Appreciate it.
+Okay. I'll see.
+Thank you. ~ quiet
+Thank you, Coach. ~ humble
+Understood. Thanks. ~ pro
+Thanks. ~ calm
+I'll tell the guys. ~ leader
+Thanks, Coach. ~ loyal
+Bet. ~ young modern
+Cool. ~ loose
+Yes sir. Thank you. ~ south
+Thanks. ~ midwest
+Thanks. ~ west
+
+@key talk.reply.listen.good
+I needed that more than I knew.
+Nobody's ever let me just say it all.
+Sorry for unloading on you.
+That's all I needed. Somebody to listen.
+I feel better, honestly.
+Thank you for not interrupting.
+I didn't know I had all that in me.
+That helped. Just saying it.
+I think I just needed to get it out.
+You're a good listener, Coach.
+I feel lighter.
+I can think straight now.
+I didn't need advice. I just needed that.
+Okay. That was good. Thank you.
+I've been carrying that around for weeks.
+It means a lot that you just let me talk.
+I feel heard. That's rare.
+I didn't expect you to just sit and listen. Thank you.
+I think I figured some of it out just by saying it.
+I don't usually talk that much. ~ quiet
+Thank you for being patient with me. ~ quiet
+That was hard. But it helped. ~ quiet
+I'm sorry for taking your time, Coach. Thank you. ~ humble
+I appreciate you giving me that time. ~ humble
+Okay. I don't usually admit all that. ~ ego
+That helped me cool off. ~ hot
+I came in hot. I'm leaving calm. ~ hot
+I needed to vent. Thank you for letting me. ~ hot
+That helps me reset. Thank you. ~ pro
+I can focus now. Thank you. ~ pro
+I've been listening to everybody else. It was nice to be listened to. ~ leader
+That's what the guys need from me. You showed me how. ~ leader
+That's all. I'm good now. ~ steady
+That helped. Thanks for the space. ~ calm
+You've always been there for me. ~ loyal
+I really needed that. Thank you. ~ shaky
+I feel like I can breathe again. ~ shaky
+I was scared to say all that. Thanks for just listening. ~ shaky
+That was real, Coach. Appreciate you. ~ young modern
+Lowkey that helped a lot. ~ young modern
+I feel better. That's weird. ~ young
+Ha. Sorry, I talk a lot when I get going. ~ loose
+Okay, I'm done. That felt good. ~ loose
+I've been in this league long enough to know coaches don't usually just listen. Thank you. ~ nfl vet
+That doesn't happen much in this business. ~ nfl
+I'm going to call my mom and tell her I talked to you. ~ young !nfl
+Thank you, Coach. That helped more than you know. ~ south
+Yes sir. I feel better. ~ south
+That helped, Coach. ~ midwest
+Thanks for hearing me out. ~ northeast
+I needed that. Thank you. ~ west
+
+@key talk.reply.listen.bad
+Are you going to say anything?
+I thought you'd at least respond.
+So you're just going to nod?
+I don't need a nod. I need an answer.
+Is anything going to change?
+I feel like I'm talking to a wall.
+You're not even going to react?
+That's it? Nothing?
+I came in here for help, not a therapist.
+Okay. I'll handle it myself, then.
+I guess that's my answer.
+I'm pouring my heart out and you're just sitting there.
+I needed you to do something.
+This is why I don't talk to coaches.
+I don't know why I bothered.
+That's not what I came for.
+Okay. So nothing happens.
+I wanted a plan. Not silence.
+You don't have anything for me?
+Okay. ~ quiet
+I shouldn't have said anything. ~ quiet
+Forget it. ~ quiet
+I'm sorry for wasting your time. ~ humble
+I thought you'd tell me what to do. ~ humble
+You're the head coach. Act like it. ~ ego
+I don't need you to listen. I need you to fix it. ~ ego
+Cool. So you're not going to do anything. ~ ego
+Don't just sit there. ~ hot
+That's even worse than yelling. ~ hot
+I'm getting more mad. ~ hot
+I need action items, Coach. ~ pro
+I'd like a response. ~ pro
+I need you to back me with the guys. Listening doesn't do that. ~ leader
+I want a solution. ~ competitor
+I expected more. ~ steady
+I'd like to know what you think. ~ calm
+I thought you'd have my back. ~ loyal
+So I'm on my own with this. ~ shaky
+Nobody ever does anything. ~ shaky
+That's crazy. You just gonna sit there? ~ young modern
+Bruh. Say something. ~ young modern loose
+Okay. Whatever. ~ young
+Ha. Great talk, Coach. ~ loose
+I've had GMs listen better than that. ~ nfl vet
+I'll talk to my agent. He'll do something. ~ nfl
+Okay. I'll ask my position coach. ~ !nfl
+Yes sir. I guess that's it. ~ south
+Okay. That's that, then. ~ midwest
+Come on, Coach. Give me something. ~ northeast
+That didn't help. ~ west
+
+@key talk.reply.listen.flat
+So, yeah.
+That's kind of it.
+I don't know.
+That's where I'm at.
+That's all.
+Okay. I guess that's everything.
+Yeah. So.
+That's pretty much it.
+I don't know what else to say.
+That's the situation.
+That's it, I think.
+So that's what's going on.
+Yeah. Anyway.
+Mm. ~ quiet
+I'm done. ~ quiet
+Thanks for the time. ~ humble
+That's the whole thing. ~ pro
+That's my side. ~ ego
+That's where things are. ~ steady
+That's it. ~ calm
+That's where the guys are at too. ~ leader
+That's it, Coach. ~ loyal
+That's on that. ~ young modern
+Yeah. ~ young
+Anyways. ~ loose
+That's where I'm at. Business. ~ nfl
+That's it, I reckon. ~ south
+That's about it. ~ midwest
+That's the story. ~ northeast
+That's where I am. ~ west
+
+@key talk.close.good
+See you at practice, Coach.
+Let's get back to work.
+I'm good now. Really.
+Good talk.
+I'll be ready tomorrow.
+Thanks, Coach. I mean it.
+I needed this.
+Let's go win.
+I'll see you out there.
+I'm glad we talked.
+That helped a lot.
+I'm going to go get some extra work in.
+I feel good about this.
+We're good, Coach.
+Okay. I'm locked in.
+I'm going to tell the guys we talked.
+Thanks for having me in.
+Back to it.
+Okay. Let's do this.
+I'll make you proud.
+I'm out. Thanks, Coach.
+I'll see you in meetings.
+I appreciate you.
+Door's always open, right?
+We're on the same page now.
+I'll keep you posted.
+I'm ready to go.
+Thank you, Coach. ~ quiet
+See you. ~ quiet
+Thanks. ~ quiet
+Okay. Thank you. ~ quiet
+Thank you so much, Coach. ~ humble
+I appreciate it. I really do. ~ humble
+Thanks for your time, Coach. ~ humble
+Good. Let's go. ~ ego
+Now let's go win some games. ~ ego
+I'll go be great. ~ ego young
+Let's go to work. ~ competitor
+I'll be first in tomorrow. ~ competitor
+I'm going to the JUGS machine. ~ competitor skill
+I'm going to go watch film. ~ competitor pro
+I'm good. I'm calm now. ~ hot
+Alright. I'm going to go hit something. On the field. ~ hot young
+I'll get back to the plan. ~ pro
+Productive talk. Thank you. ~ pro
+I'll see you at the meeting. ~ pro !hs
+I'll go talk to the guys. ~ leader
+I'll let the room know we're good. ~ leader
+I'll take care of the young guys. ~ leader
+That's it. Good. ~ steady
+Good. I'll see you tomorrow. ~ steady
+Thanks. That was good. ~ calm
+I've always got you, Coach. ~ loyal
+Thank you for always being there. ~ loyal
+I feel so much better. ~ shaky
+Okay. I can do this. ~ shaky
+We good, Coach. ~ young modern
+That's love. See you at practice. ~ young modern
+Bet. See you, Coach. ~ young modern
+Ha. Okay. I'm out. ~ loose
+Thanks for not making it weird. ~ loose
+Okay, I'm going before you change your mind. ~ loose young
+I'll see you on the practice field. ~ nfl
+I've got treatment. Thanks, Coach. ~ nfl
+Appreciate the time, Coach. ~ nfl vet
+I've got class. Thanks, Coach. ~ college young
+I'm going to go call home. ~ college young
+I've got to catch my ride. Thanks, Coach. ~ hs young
+My mom's outside. Thanks, Coach. ~ hs young
+I'll see you after school. ~ hs young
+Yes sir. Thank you. ~ south
+Thank you kindly, Coach. ~ south
+Thanks, Coach. ~ midwest
+Alright. Let's go. ~ northeast
+Thanks. Good vibes. ~ west
+
+@key talk.close.bad
+I've got to get to treatment.
+Okay. I'm leaving.
+I'll be at practice.
+I need some air.
+I'm done here.
+Is that all?
+I've heard enough.
+I'm going to go.
+I'll see you, I guess.
+I need to think.
+I've got somewhere to be.
+We done?
+Fine.
+Got it. I'm out.
+I need to be by myself for a minute.
+We'll talk later. Maybe.
+Okay. Bye.
+I'll show up. That's what you want.
+... ~ quiet
+Okay. ~ quiet
+I'm going. ~ quiet
+I'm sorry. I need to go. ~ humble
+Thank you, I guess. ~ humble
+I've got better things to do. ~ ego
+Don't call me in again for this. ~ ego
+We're done. ~ ego
+I'm out. ~ hot
+Don't follow me. ~ hot
+I need to leave before I say something. ~ hot
+I'll see you at work. ~ pro
+I'll do my job. That's it. ~ pro
+I've got to go check on the guys. ~ leader
+I need to get out of here. ~ competitor
+I'll take my frustration to the field. ~ competitor
+Let me cool off. ~ calm
+I'll be alright. Eventually. ~ shaky
+I need to go call somebody. ~ shaky
+I thought you were different. ~ loyal
+I'm out, Coach. ~ young modern
+Aight. Bye. ~ young modern loose
+Whatever. ~ young
+Ha. Cool. Bye. ~ loose
+I'm calling my agent. ~ nfl
+I've got a meeting. ~ nfl
+I've got class. ~ !nfl
+My mom's waiting. ~ hs young
+Yes sir. I'll go. ~ south
+I'm going to head out. ~ midwest
+I'm done. ~ northeast
+
+@key talk.close.flat
+I'll see you.
+I'm going to head out.
+Anything else?
+See you out there.
+I'll get out of your hair.
+Okay. See you.
+Alright. I'll see you at practice.
+Thanks, Coach.
+I've got to run.
+I'll catch you later.
+Alright. Back to it.
+Okay. Talk soon.
+I'll be in the building.
+Is that everything?
+Okay. See you around.
+I'll see you tomorrow.
+Alright then.
+I'll head back.
+See you. ~ quiet
+Okay. ~ quiet
+I'll get back to work. ~ pro
+I'll see you in meetings. ~ pro !hs
+Cool. ~ ego
+I'll be around. ~ steady
+I'll go see the guys. ~ leader
+I'm going to get extra work in. ~ competitor
+Okay. ~ calm
+See you, Coach. ~ loyal
+Okay. I'll see you. ~ shaky
+Aight. See you. ~ young modern
+I'm out. ~ young loose
+Okay, Coach. ~ young
+I've got treatment. ~ nfl
+I've got class. ~ college
+My ride's here. ~ hs young
+Yes sir. ~ south
+See ya, Coach. ~ midwest
+Later, Coach. ~ northeast
+Catch you later. ~ west

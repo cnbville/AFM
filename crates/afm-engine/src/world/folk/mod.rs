@@ -288,8 +288,10 @@ pub struct Folk {
     /// Your people log: everything the meetings, talks and reports told you.
     pub log: Vec<Entry>,
     pub promises: Vec<talks::Promise>,
-    /// The line patterns each speaker has used with you (topic 5, part 5).
-    pub said: Vec<(u64, Vec<u32>)>,
+    /// The line versions each speaker has said to you and the day he said
+    /// each one; a version rests a full season (topic 5, part 5; D3). Saves
+    /// from before D3 kept `said` without days: it is dropped on load.
+    pub said_on: Vec<(u64, Vec<(u32, crate::calendar::Date)>)>,
     pub rules: rules::Rulebook,
     pub cases: Vec<rules::Violation>,
     pub goals: Vec<boss::Goal>,
