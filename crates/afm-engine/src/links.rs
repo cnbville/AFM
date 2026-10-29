@@ -379,7 +379,8 @@ fn norm_z(pos: Position, a: Attr, v: f64) -> f64 {
 /// His forty from speed, burst and weight, without the test-day noise
 /// (the combine's fit, `body::combine`).
 pub fn forty(attrs: &Attributes, weight: f64) -> f64 {
-    5.56 - 0.0124 * (0.75 * attrs.get(Attr::Speed) + 0.25 * attrs.get(Attr::Acceleration)) + 0.0033 * (weight - 220.0)
+    5.56 - 0.0124 * (0.75 * attrs.get(Attr::Speed) + 0.25 * attrs.get(Attr::Acceleration))
+        + crate::body::forty_weight(weight)
 }
 
 fn burst(attrs: &Attributes) -> f64 {
