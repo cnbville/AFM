@@ -1,0 +1,888 @@
+# The line bank: what the people in a story say about it, more versions
+# (dialogue D2; format in src/world/folk/voice.rs). Same keys as
+# storylines.txt: story.quote.<family>.<part>.<up|down>, then
+# story.quote.<family>.<part>, then story.quote.any.<part>. The speaker is a
+# player (tag player) or a coach (tag coach); a version with neither must fit
+# both. Up is good news for his team, down is bad. Facts: {team} {rival}
+# {rival_last} {lead} {lead_last} {other} {coach} {n} {record} {since}. In a
+# lead's quote the rival is {rival_last}; in a rival's quote the lead is
+# {lead_last}. Said without quote marks; the reader adds "Smith said."
+
+# ---------------------------------------------------------------- anyone
+
+@key story.quote.any.lead
+I'm not going to say much about it. We'll handle our business.
+That's outside noise. We keep it outside.
+I understand why people are talking. I'd be talking too.
+I'm going to let my work speak.
+We've got a lot of football left. That's where my head is.
+I haven't paid much attention to it, honestly.
+I don't control any of that. I control how I prepare.
+You're going to have to ask somebody else about that.
+I'll talk about it when there's something to talk about.
+It's been a lot. I'm not going to pretend it hasn't.
+We'll see where it goes. I'm not getting ahead of anything.
+The only opinions that matter to me are in that locker room.
+I'm not going to add fuel to anything.
+It's a long season. Things change every week.
+I'm locked in on what's in front of us.
+I don't have anything new for you on that.
+That's a question for another day.
+I'm just trying to do my part.
+I try not to get too high or too low with any of it.
+It's flattering, I guess. It's also not something I think about.
+I don't need to say anything. People will see.
+I'll keep my thoughts on that in house.
+I'm grateful for the support. I really am.
+There's a lot of people talking who've never been in that building.
+I've got nothing but respect for everybody involved.
+Next question.
+I'd rather not speculate.
+What matters is what happens between the lines.
+I've heard it. I'm moving on from it.
+It doesn't change how I go about my day.
+I can only speak for myself.
+My job is to show up and be ready. I'm ready.
+I hope people are patient. Good things take time.
+I know how this works. I've seen it before.
+I'm not losing sleep over it. ~ calm
+We'll sort it out. We always do. ~ steady
+Write whatever you want. I'm going to work. ~ hot
+I'm tired of answering that. ~ hot
+I don't have a comment. ~ quiet
+I'd like to keep it short today. ~ quiet
+People can doubt me. I'm fine with it. ~ ego
+I've been here before. I know how it ends. ~ ego
+I'm thankful for my teammates. That's all. ~ humble player
+I just want to help the team. That's it. ~ humble
+I'm going to do things the right way. ~ pro
+I'll handle it like a professional. ~ pro
+I'm not going anywhere. ~ loyal
+This place means a lot to me. That's not changing. ~ loyal
+I'm competing. That's all I know how to do. ~ competitor
+We want to win. Everything else is noise. ~ competitor
+It's been a tough stretch. I won't lie. ~ shaky
+It is what it is, man. ~ player loose
+You know I can't talk about that. Come on. ~ player loose
+Ha. You'd have to ask my agent. ~ player nfl loose
+My mom texts me everything people say. I try not to read it. ~ player young
+I'm a kid. I'm just trying to play ball. ~ player hs
+I've got class in an hour. That's what I'm worried about. ~ player college
+I'm just trying to get my degree and play some ball. ~ player college humble
+It's a business. You learn that fast up here. ~ player nfl
+I've seen a lot of stories come and go in this league. ~ player nfl vet
+I've been in a lot of locker rooms. This one's tight. ~ player vet
+My focus is on my players. Period. ~ coach
+I'm going to let the players have the spotlight. ~ coach
+We coach them hard and we love them hard. That's our program. ~ coach warm
+I don't respond to that kind of stuff. ~ coach cold
+I'm not going to dignify that. ~ coach hot
+I've been coaching too long to get worked up over this. ~ coach old
+We'll keep building. That's all we can do. ~ coach
+I'm proud of how our guys have handled it. ~ coach
+We've got young men in that locker room. I'm going to protect them. ~ coach !nfl
+It's a results business. I understand that. ~ coach nfl
+It's not about me. It never has been. ~ coach
+We're going to keep our heads down and work. ~ coach strict
+I'll answer that one when the season's over. ~ coach
+Y'all can write what you want. I know what we've got. ~ south
+I don't pay attention to the chatter. ~ midwest
+I'm not going to get into it. ~ northeast
+I just try to keep a good perspective on all of it. ~ west
+It's a lot of noise right now. ~ modern
+I stay off social media for a reason. ~ modern
+People online can say what they want. ~ modern
+
+@key story.quote.any.rival
+I don't have anything to say about him.
+I'm focused on what I'm doing.
+He's a good player. I'm a good player too.
+I just want my chance. That's all.
+I'm not going to talk about anybody else.
+I'll let the coaches decide that.
+My job is to be ready when my name's called.
+I respect him. I still want to win.
+We're cool. It's competition.
+I'm not worried about what he does.
+I've put the work in. That's all I can say.
+We'll see what happens.
+I'm going to keep showing up.
+There's nothing personal in it.
+I want to earn it, not be handed it.
+I've been waiting for this.
+I'm ready. Whenever.
+It's not about him. It's about me getting better.
+I hope we both play well. Then may the best man win.
+I'm going to make it a hard decision.
+I just keep working. Somebody will notice.
+It's good for both of us.
+I'm not going to say anything I'll regret.
+Iron sharpens iron. That's how I see it.
+I'll do whatever they ask.
+I've been patient. I'll stay patient.
+I want to be on the field. Who doesn't?
+I'm not going to be bitter about any of it.
+He's earned what he's got. I want to earn mine.
+I'm just going to go play.
+I've got nothing to prove to anybody but me. ~ ego
+I'm the better player. I'm not going to pretend otherwise. ~ ego
+I don't sit well. Never have. ~ ego
+I'm coming. That's all I'll say. ~ competitor
+I want it more. That's going to show up. ~ competitor
+I just want to help the team however I can. ~ humble
+I'm grateful for any chance I get. ~ humble
+I'd rather not. ~ quiet
+I'm good. I'm just working. ~ calm
+I'm a pro. I'll be ready when they need me. ~ pro
+I've been around. I know how this goes. ~ vet
+I'm young. My time's coming. ~ young
+Ha. We'll see, won't we? ~ loose
+I'm hungry. That's the best way to say it. ~ young modern
+Lowkey I've been waiting for this moment. ~ young modern
+I've got a lot of respect for {lead_last}. I still want what he has. ~ player
+{lead_last} has been great to me. Doesn't mean I don't want to beat him out. ~ player
+
+# ---------------------------------------------------------------- position battles
+
+@key story.quote.battle.lead
+I come in every day like the job's open. Because it is.
+I know someone's coming for my spot. That's football.
+{rival_last} is pushing me. I'm better for it.
+I don't think about it as a battle. I think about it as getting better.
+It's good for the room. Nobody gets comfortable.
+I've got to keep earning it. That's the deal.
+The coaches will make the call. I just play.
+We're competing, but we're teammates first.
+I'm not going to change anything. I'm going to keep stacking days.
+Nobody's handed anything here. That's why I like it.
+I want to be the guy. I'm working like I'm not.
+It keeps me honest, having {rival_last} behind me.
+I'm not paying attention to the chart. I'm paying attention to the tape.
+We help each other in meetings. Then we go compete. That's how it should be.
+I've been in competitions before. This one's real.
+I'm not worried. I'm motivated.
+I'll be ready either way. That's all I can promise.
+I welcome it. Bring it on.
+The job's mine until it isn't. I plan on keeping it. ~ ego player
+I'm the starter. That's how I see it. ~ ego player
+I'm not giving it up. ~ competitor player
+Every rep's a test. I like tests. ~ competitor player
+I don't look at it like I'm defending anything. I'm attacking every day. ~ competitor player
+I'm grateful to be in the position I'm in. I'm not taking it for granted. ~ humble player
+{rival_last} is a great player. We're lucky to have both of us. ~ humble player
+It's a healthy competition. We're good. ~ calm player
+I'm a pro. I handle my job. ~ pro player
+I know what it takes. I've been here a while. ~ vet player
+I'm still learning. Competition helps that. ~ young player
+Ha. I'm not scared of a little competition. ~ loose player
+It's competition. It brings out the best in everybody. ~ coach
+They both know what we need to see. ~ coach
+We're not in a rush to name anybody. ~ coach
+They're both good players. That's a good problem. ~ coach
+We'll know when we know. ~ coach
+We're going to let them compete. ~ coach
+Practice will decide it. Not the depth chart. ~ coach strict
+Both of them are handling it the right way. I'm proud of that. ~ coach warm
+I'm not going to tell you before I tell them. ~ coach
+I don't do co-starters. Somebody will win it. ~ coach strict
+We'll see who handles the pressure better. ~ coach
+It's not a beauty contest. Production decides it. ~ coach hot
+I've been through a lot of these. The answer always shows up eventually. ~ coach old
+@key story.quote.battle.lead.up
+I'm playing the best football of my life right now. ~ player
+I feel like I'm in a good rhythm. I'm going to keep it. ~ player
+The work is showing up. That's what I wanted. ~ player
+I've been locked in. It's paying off. ~ player
+He's earned the spot. He's made it hard on everybody else. ~ coach
+He took the job and ran with it. ~ coach
+@key story.quote.battle.lead.down
+I haven't played like myself. I know that. ~ player
+I've got to be better. Simple as that. ~ player
+I know I've opened the door. I'm going to close it. ~ player
+I've had a couple bad days. Everybody does. I'm not panicking. ~ player calm
+I'm not going to hang my head. I'm going to go fix it. ~ player competitor
+We're going to look at everything at that spot. ~ coach
+Nobody's job is safe when you play like that. ~ coach strict
+He knows he's got to play better. He will. ~ coach warm
+@key story.quote.battle.rival
+I've been waiting for this chance my whole career.
+I'm not here to be a backup.
+I just want a fair shot.
+{lead_last} is good. I think I'm better.
+I'm going to make the coaches' decision hard.
+Every day I'm out there, I'm trying to take it.
+I'm not going to say much. I'm going to play.
+I learn a lot from {lead_last}. I still want his job.
+I'm ready to start. I feel it.
+I've been working on everything they told me.
+It's my time. I believe that.
+I've gotten more reps lately. I'm going to make them count.
+I don't care about being the backup. I care about being the guy.
+It's been a grind. I'm not stopping.
+I've watched and learned. Now I want to play.
+I'm going to show them what I showed in practice.
+I respect the guy in front of me. That doesn't mean I'm going to stay behind him.
+I've got nothing to lose. That's freeing.
+I'm here to take the job. Not share it. ~ ego
+I'll take it from him if I have to. ~ competitor
+I'm thankful for the shot. I'm going to give everything. ~ humble
+Whatever happens, I'm getting better. ~ calm
+I'm a rookie. I'm not supposed to be here. That's why I'm going to win it. ~ young nfl
+I'm young, but I'm ready. ~ young
+I've waited my turn. ~ senior
+I've been in this league long enough to know chances don't come twice. ~ nfl vet
+I came here to play. ~ transfer
+Lowkey I've been ready for this. ~ young modern
+@key story.quote.battle.rival.up
+I've been playing well. I'm going to keep it rolling. ~ player
+I think the tape speaks for itself. ~ player
+I'm not going to stop now. ~ player
+I'm earning it every day. It feels good. ~ player
+@key story.quote.battle.rival.down
+I didn't get it done. I'll get another shot. ~ player
+I'm not going to sulk. I'll be ready. ~ player
+It's not over. I'm still competing. ~ player
+I'm disappointed. I'll keep working. ~ player
+I'm not giving up on it. ~ player competitor
+
+# ---------------------------------------------------------------- job security
+
+@key story.quote.seat.lead
+I know what the job is. I knew it when I took it.
+My focus is on our players. The rest will take care of itself.
+I don't spend time thinking about my job. I spend it thinking about the next game.
+I have a lot of faith in what we're building.
+I'm not going to talk about my contract. ~ coach
+Everybody in this business knows the deal. You win or you don't stay. ~ coach
+I'm still the coach. I'm going to coach. ~ coach
+I can't control what people say. I can control what we do. ~ coach
+The people I work for know where we are. ~ coach
+I sleep fine. I've got a job to do in the morning. ~ coach
+We're closer than people think. ~ coach
+I'm not hiding from it. We've got to be better. ~ coach
+I believe in this staff. I believe in these players. ~ coach
+My family's fine. We've been through this before. ~ coach old
+The criticism comes with the job. I accept it. ~ coach calm
+I don't need anyone to tell me we're not good enough. I know. ~ coach hot
+I'm not quitting on these kids. ~ coach !nfl
+I'm not quitting on this team. ~ coach
+Talk is cheap. We'll see in the next few weeks. ~ coach
+I'm going to coach every game like it's my last one here. ~ coach
+I'd rather go down swinging. ~ coach hot
+Nobody wants it more than I do. ~ coach
+If they want somebody else, that's their call. I'm going to coach. ~ coach cold
+I've been fired before. You survive. ~ coach old
+We're going to keep fighting. ~ coach
+He's our guy. We believe in him. ~ player
+We play for him. That's not changing. ~ player loyal
+I don't know about all that. He's my coach. ~ player
+The players believe in Coach. That's what matters. ~ player leader
+It's on us. Not him. We're the ones playing. ~ player leader
+It's not on the coaches. We've got to make plays. ~ player
+@key story.quote.seat.lead.up
+We've turned a corner. I really believe that. ~ coach
+I appreciate the support from the people above me. ~ coach
+We're starting to see it. That's all I'll say. ~ coach
+The players never stopped believing. I never did either. ~ coach
+It feels good. Now we keep going. ~ coach
+I'm grateful for the trust. We're going to reward it. ~ coach
+Coach never wavered. Neither did we. ~ player
+@key story.quote.seat.lead.down
+We're not where we need to be. That's on me. ~ coach
+I don't have an answer you'd like right now. ~ coach
+I'm responsible for this. All of it. ~ coach
+We've let a lot of people down. ~ coach
+I'm going to look at everything. Myself first. ~ coach
+It's a hard time. We're not running from it. ~ coach
+I understand the frustration out there. I feel it too. ~ coach
+We're going to get it right, or somebody else will. ~ coach blunt
+I've had a lot of sleepless nights. ~ coach
+It's on us players. We haven't done our part for him. ~ player
+We're letting him down. That's the truth. ~ player leader
+
+# ---------------------------------------------------------------- coaches wanted
+
+@key story.quote.wanted.lead
+I'm happy where I am. ~ coach
+I'm focused on finishing this season. ~ coach
+I'm not going to talk about other jobs. ~ coach
+It's nice to be thought of. My job is here. ~ coach
+My family and I love this community. ~ coach
+I haven't talked to anybody. I'm coaching a football team. ~ coach
+I'm not going to comment on rumors. ~ coach
+That's a conversation for after the season. ~ coach
+I signed here to finish something. ~ coach loyal
+I'm committed to these kids. ~ coach !nfl
+I'm committed to this team. ~ coach
+Being mentioned is a credit to our players. ~ coach
+I don't spend any time on that. ~ coach cold
+There's no truth to it. ~ coach
+I'm where I'm supposed to be. ~ coach
+I'll always listen. That doesn't mean I'm leaving. ~ coach climber
+Every coach wants to keep climbing. I'm no different. ~ coach climber
+It's a great job. So is this one. ~ coach climber
+I'm not going to lie to you and say I've never thought about it. ~ coach climber blunt
+My agent handles all of that. ~ coach
+I hope he stays. He's been great for us. ~ player
+I'd play for him anywhere, but I want him here. ~ player loyal
+I'm not worried about it. Coach is here. ~ player
+It shows how good he is. I hope we keep him. ~ player
+I've heard the rumors. I'm trying not to think about it. ~ player young
+@key story.quote.wanted.lead.up
+I'm staying. This is home. ~ coach
+I'm excited to keep building here. ~ coach
+I never seriously considered leaving. ~ coach
+I'm grateful the school wanted to keep me. ~ coach
+It's good news for everybody here. ~ player
+@key story.quote.wanted.lead.down
+It's the hardest decision I've ever made. ~ coach
+This place will always mean something to me. ~ coach
+I'm going to miss these players most of all. ~ coach
+It's a dream opportunity. I had to take it. ~ coach climber
+It hurts. He was a big reason I came here. ~ player
+I understand it. It's still tough. ~ player
+I wish him the best. I really do. ~ player calm
+
+# ---------------------------------------------------------------- recruiting sagas
+
+@key story.quote.recruiting.lead
+I'm not in a rush. I want to get it right. ~ player
+I'm talking to my family about all of it. ~ player
+I've learned a lot from every visit. ~ player
+I want a place that feels like home. ~ player
+I want to play for coaches who believe in me. ~ player
+Development matters most to me. Where can I get better? ~ player
+I want to go somewhere I can compete for a title. ~ player competitor
+Playing time is a big part of it. I'm not going to lie. ~ player
+The relationship with the position coach matters a lot. ~ player
+I'm still open. Nobody's out of it. ~ player
+I'm trying to block out the noise and listen to my gut. ~ player
+I want to stay close to home if it's the right fit. ~ player
+My mom's going to have a big say. ~ player young
+My grandma wants me to stay home. We'll see. ~ player young
+I'll know it when I feel it. ~ player calm
+The academics matter to me too. ~ player pro
+I want to be developed into a pro. ~ player ego
+I've got a short list now. I'm not saying who. ~ player
+It's been crazy. My phone doesn't stop. ~ player young modern
+Every coach tells you something different. You have to figure out who's real. ~ player
+I want somewhere I can be myself. ~ player
+I want to win right away. That matters to me. ~ player competitor
+I want to be part of building something. ~ player
+NIL is part of it. It's not the only part. ~ player nil
+I want to make sure my family is taken care of. ~ player nil
+I'm humbled by all of it, honestly. ~ player humble
+I just want to make the right decision for my future. ~ player
+My high school coach has been helping me a lot. ~ player hs
+I'm going to take all my officials before I decide. ~ player hs
+I'm committed, but I'm still listening. ~ player hs
+When I commit, that's it. I'm done looking. ~ player loyal
+I want to be a legend somewhere. ~ player ego
+It's a business. Even at this age. ~ player nil
+He's a special player. We'd love to have him. ~ coach
+We're going to keep recruiting him hard. ~ coach
+Recruiting is about relationships. We've built a good one. ~ coach
+I can't talk about recruits. I'll just say we love the state. ~ coach
+He'd be a great fit for what we do. ~ coach
+@key story.quote.recruiting.lead.up
+I'm home. I'm committed. ~ player
+It just felt right. ~ player
+I knew the second I walked on campus. ~ player
+I'm excited to get to work. ~ player
+My family's happy, I'm happy. That's all that matters. ~ player
+I'm done with the process. It feels good. ~ player
+I can't wait to get there. ~ player young
+We're thrilled. That's all I can say. ~ coach
+@key story.quote.recruiting.lead.down
+I had to do what's best for me. ~ player
+It was a tough call. I respect everybody who recruited me. ~ player
+It's nothing against anybody. It's about fit. ~ player
+I'm reopening things. I need to be sure. ~ player
+Things changed. I had to look again. ~ player
+I'm sorry to the fans who wanted me there. ~ player humble
+He made his choice. We wish him well. ~ coach
+We move forward. That's recruiting. ~ coach
+@key story.quote.recruiting.rival
+We're still in it. ~ coach
+We're going to keep fighting for him. ~ coach
+It's not over until it's over. ~ coach
+We've got a lot to offer him. ~ coach
+He knows how we feel about him. ~ coach
+I'm not giving up on him. ~ coach hot
+
+# ---------------------------------------------------------------- leaving
+
+@key story.quote.leaving.lead
+I've thought about it a lot. ~ player
+It's a big decision. I'm taking it seriously. ~ player
+I haven't decided anything yet. ~ player
+I'm weighing everything with my family. ~ player
+I'm grateful for everything here. ~ player
+This place gave me a lot. ~ player
+I want to be somewhere I can reach my goals. ~ player
+It's not about the coaches. It's about me. ~ player
+I'm going to make the best decision for my future. ~ player
+I want to play. That's the bottom line. ~ player
+I just want a fresh start. ~ player
+It's about my family. That's all it's ever been about. ~ player
+I'm not going to rush it. ~ player calm
+I've earned the right to see what's out there. ~ player ego
+I need to bet on myself. ~ player ego
+It's a business. I've learned that. ~ player nfl
+My agent's handling it. I'm just training. ~ player nfl
+I want to stay. We'll see if they want me. ~ player nfl loyal
+The market is the market. ~ player nfl greedy
+It's about what I'm worth. That's it. ~ player nfl greedy
+I want to be valued. ~ player nfl
+I've got nothing bad to say about this place. ~ player calm
+I'll miss the guys. That's the hard part. ~ player
+I'm entering the portal. I'll always love this team. ~ player college nil
+I'm putting my name in the portal for a fresh start. ~ player college nil
+I'm declaring. It's time. ~ player college
+I've done what I came here to do. ~ player college
+I'll always be part of this family. ~ player loyal
+I didn't want it to end this way. ~ player
+We'd love to have him back. That's up to him. ~ coach
+He's earned the right to make that choice. ~ coach
+We'll support him either way. ~ coach warm
+We can't keep everybody. That's the business. ~ coach nfl
+It's the world we live in now. ~ coach nil
+I wish him nothing but the best. ~ coach calm
+@key story.quote.leaving.lead.up
+I'm staying. I want to finish what we started. ~ player
+I'm back. Unfinished business. ~ player
+This is home. I couldn't leave. ~ player loyal
+We got it done. I'm happy to be here long term. ~ player nfl
+I'm coming back for one more year. ~ player college
+We're thrilled to have him back. ~ coach
+It's a big win for our program. ~ coach
+@key story.quote.leaving.lead.down
+It's time for something new. ~ player
+I'll always be grateful. It's just time. ~ player
+I didn't make this decision lightly. ~ player
+I'm going to miss everybody. ~ player
+I have to take care of my family. I hope people understand. ~ player
+It's tough to lose a player like that. ~ coach
+We'll be fine. Somebody else steps up. ~ coach
+That's college football now. ~ coach college
+It hurts. You don't replace a guy like that overnight. ~ coach
+
+# ---------------------------------------------------------------- comebacks
+
+@key story.quote.comeback.lead
+Rehab was the hardest thing I've ever done. ~ player
+I never doubted I'd be back. ~ player
+I've got a new appreciation for the game. ~ player
+There were days I didn't want to get out of bed. I did anyway. ~ player
+My teammates kept me going. ~ player
+The trainers deserve all the credit. ~ player
+It's been a long road. It's not over yet. ~ player
+I'm not 100 percent. I'm close. ~ player
+I just want to help the team again. ~ player
+It's been a mental battle more than anything. ~ player
+I watched every game from the sideline. It made me hungry. ~ player
+I learned patience. I didn't have much before. ~ player
+I feel stronger than before. ~ player
+I'm going to trust my body. ~ player
+Being away from it showed me how much I love it. ~ player
+I've worked too hard to not come back better. ~ player competitor
+Everybody said I was done. I heard all of it. ~ player ego
+I'm blessed to be back. ~ player humble
+I've been through injuries before. This one taught me the most. ~ player vet
+I'm young. I've got a lot of football left. ~ player young
+I'm just happy to put the pads on again. ~ player
+It's great to have him back. ~ coach
+His work in rehab was incredible. ~ coach
+We're going to bring him along carefully. ~ coach
+He looks like himself. That's the best news. ~ coach
+He never stopped being a leader, even hurt. ~ coach
+@key story.quote.comeback.lead.up
+I'm back. That's all I can say. ~ player
+It felt like the first game all over again. ~ player
+I'm all the way back. ~ player
+That was for everybody who stuck by me. ~ player
+I'll remember that one forever. ~ player
+He's back to his old self. ~ coach
+You can't teach what he showed us. ~ coach
+@key story.quote.comeback.lead.down
+It's a setback. I'll come back from this too. ~ player
+I'm going to keep fighting. ~ player
+It's not the news I wanted. I'll be okay. ~ player calm
+I'm frustrated. I'm not giving up. ~ player
+We're going to be patient with him. ~ coach
+Our hearts go out to him. He'll be back. ~ coach warm
+
+# ---------------------------------------------------------------- streaks and chases
+
+@key story.quote.streak.lead
+I try not to look at the numbers. ~ player
+It's in the back of my mind. I won't lie. ~ player
+It's a team stat. I just happen to be the one getting credit. ~ player humble
+It would mean a lot to my family. ~ player
+I'll look at it when I'm done. ~ player
+I'm just trying to help us win. ~ player
+My linemen deserve a lot of it. ~ player offense
+The guys around me make it possible. ~ player
+I know the number. Everybody keeps telling me. ~ player
+I want it. I'm not going to pretend I don't. ~ player ego
+Records are made to be broken. ~ player ego
+It would be a dream. ~ player young
+It's crazy to even be in the conversation. ~ player young
+I'm not chasing anything. If it comes, it comes. ~ player calm
+We take it one week at a time. ~ coach
+Streaks don't mean much to me. The next game does. ~ coach
+We don't talk about it in the building. ~ coach
+The players have earned all of it. ~ coach
+It's about consistency. We've been consistent. ~ coach
+I don't think about it. I really don't. ~ coach cold
+The streak isn't the goal. Winning is. ~ coach
+@key story.quote.streak.lead.up
+It's a special feeling. ~ player
+I'll never forget it. ~ player
+I'm proud of that. It took everybody. ~ player
+That's for my teammates. ~ player humble
+It's the result of a lot of hard work. ~ coach
+I'm happy for the kids. They earned it. ~ coach !nfl
+I'm happy for our guys. They earned it. ~ coach
+We're going to keep it going. ~ coach
+@key story.quote.streak.lead.down
+We need to find a way. Any way. ~ coach
+Nobody's going to feel sorry for us. ~ coach
+We've got to win one. One. ~ coach
+It's been a tough stretch. We're sticking together. ~ coach
+We're close. We have to finish games. ~ coach
+It's not for lack of effort. ~ coach
+We have to win a game. That's all I'm thinking about. ~ player
+We're going to break through. I believe that. ~ player
+It's frustrating. Nobody's quitting. ~ player
+We've got to stop beating ourselves. ~ player leader
+
+# ---------------------------------------------------------------- rivalries
+
+@key story.quote.rivalry.lead
+This is the week everybody circles.
+You feel it all week. In class, around town, everywhere. ~ !nfl
+We know what this game means to the people here.
+It's more than a game around here.
+I respect them. I want to beat them.
+Both teams are going to give everything.
+We don't need to say much this week.
+I don't like them. I'll say that. ~ hot player
+They know what we think of them. ~ hot
+It's a great game for the fans. It's a hard game for the players.
+The older guys tell the young guys what it means. ~ player leader
+I grew up watching this game. ~ player
+I've been dreaming about this one since I got here. ~ player young
+Last year still stings. ~ player
+It's personal for a lot of guys. ~ player
+We know about the history. We want to add to it. ~ player
+It's the biggest game of the year. Period. ~ player
+It's a different kind of week. Everybody's a little more locked in. ~ player
+It's just football. I know that's not true for the fans. ~ player calm
+We'll let our play do the talking. ~ player
+It's one game. It just matters more than the others. ~ coach
+We don't need to hype it up. The guys know. ~ coach
+I have a lot of respect for their coach. ~ coach
+These are the games you remember. ~ coach
+We treat every week the same. Almost. ~ coach loose
+I've coached in a lot of these. They never get old. ~ coach old
+It means a lot to the community. We feel that responsibility. ~ coach
+Our guys know what's at stake. ~ coach
+We want to give the fans something to remember. ~ coach warm
+I'm not giving them anything for their bulletin board. ~ coach cold
+@key story.quote.rivalry.lead.up
+That one's for everybody who's been waiting. ~ player
+We've got bragging rights. Feels good. ~ player
+I'll remember this one forever. ~ player
+That's for the fans. ~ player
+The trophy's staying home. ~ player !nfl
+That was for every senior in that locker room. ~ coach !nfl
+I'm happy for the people of this town. ~ coach
+It means a lot. I won't pretend it doesn't. ~ coach
+@key story.quote.rivalry.lead.down
+That one hurts. It's going to hurt for a while. ~ player
+We let a lot of people down. ~ player
+We'll be back next year. I promise. ~ player
+I'm sick about it. ~ player
+That's the worst feeling. ~ player
+We didn't get it done. That's on me. ~ coach
+I'm sorry to our fans. They deserved better. ~ coach
+We'll learn from it. It still hurts. ~ coach
+@key story.quote.rivalry.rival
+We're ready for them. ~ coach
+We know what they're going to bring. ~ coach
+It's a big game for us too. ~ coach
+We're going to go in there and compete. ~ coach
+I've got a lot of respect for {lead_last}. ~ coach
+We want to beat them. That's no secret. ~ player
+They're good. We're better. ~ player ego
+We've been waiting for this. ~ player
+We know what they've been saying. ~ player hot
+
+# ---------------------------------------------------------------- rise and fall
+
+@key story.quote.rise.lead
+I'm just trying to get better every week. ~ player
+It's been a fun ride. I'm not done. ~ player
+The coaches put me in good spots. ~ player humble
+I've been working on this for years. People are just now seeing it. ~ player
+I don't pay attention to the hype. ~ player
+I'm the same guy. Same routine. ~ player steady
+I've had my ups and downs. That's football. ~ player
+I'm not worried about what people think of me. ~ player
+I've got a lot to prove still. ~ player
+I'm hungry. I'm staying hungry. ~ player competitor
+Confidence is everything. Mine's high. ~ player ego
+I always believed in myself. ~ player ego
+It's happened fast. I'm trying to keep my feet on the ground. ~ player young
+He's earned everything he's getting. ~ coach
+He works as hard as anybody I've coached. ~ coach
+We've seen this coming in practice for a while. ~ coach
+He's still got a lot of room to grow. ~ coach
+@key story.quote.rise.lead.up
+I'm feeling it right now. ~ player
+Everything's clicking. ~ player
+I've never played with this much confidence. ~ player
+It's a blessing. I'm going to keep working. ~ player humble
+I told everybody this was coming. ~ player ego
+It's only the beginning. ~ player young
+I'm not satisfied. I want more. ~ player competitor
+He's playing at a really high level. ~ coach
+He's become one of the best players we have. ~ coach
+@key story.quote.rise.lead.down
+I'm in a rut. I'll get out of it. ~ player
+I've got to get back to what I do. ~ player
+I'm not playing up to my standard. ~ player
+It's a slump. Everybody has them. ~ player calm
+I'm putting in extra work. It'll turn. ~ player
+I hear what people are saying. I'm going to answer on the field. ~ player
+It's frustrating. I know I'm better than this. ~ player ego
+I'm pressing. I know I am. ~ player shaky
+He'll come out of it. He's too good not to. ~ coach
+We still believe in him. ~ coach warm
+He knows he's got to play better. ~ coach
+
+# ---------------------------------------------------------------- draft arcs
+
+@key story.quote.draft.lead
+I just want a team that believes in me. ~ player
+I'm going to show up and work, wherever I land. ~ player
+I've been training for this my whole life. ~ player
+My family's been with me every step. ~ player
+I've talked to a lot of teams. It's been a great process. ~ player
+I'm not worried about the round. I'm worried about the fit. ~ player
+I'll be the best value in this draft. ~ player ego
+I know there are questions about me. I'll answer them. ~ player
+I want to be somewhere I can compete right away. ~ player competitor
+I'm going to be at home with my family. That's all I want. ~ player
+It's surreal. I've been dreaming about this forever. ~ player young
+The interviews went well. I'm confident. ~ player
+I can play anywhere they put me. ~ player
+Teams know what they're getting. ~ player
+I'm ready for the next level. ~ player
+I'm not worried about the mock drafts. ~ player
+I'm trusting my agent and the process. ~ player
+I'll be ready for camp no matter where I go. ~ player pro
+He's going to be a great pro. ~ coach
+Whoever gets him is getting a great kid and a great player. ~ coach warm
+He's going to be in the league for a long time. ~ coach
+@key story.quote.draft.lead.up
+It's a dream come true. ~ player
+I can't describe how this feels. ~ player
+My mom's crying. I'm crying. It's great. ~ player young
+I'm ready to get to work. ~ player
+I'm going to prove them right. ~ player
+I'm so proud of him. He earned this. ~ coach
+@key story.quote.draft.lead.down
+I'm going to make a lot of teams regret this. ~ player
+I'll take it personal. That's motivation. ~ player ego
+It's not where I wanted to go, but I'm going to make the most of it. ~ player
+I'll take any shot I can get. ~ player humble
+I just need a chance. I'll get one. ~ player
+Somebody's going to get a steal. ~ coach
+
+# ---------------------------------------------------------------- off the field
+
+@key story.quote.offfield.lead
+I can't comment right now. ~ player
+I'm cooperating with everything. ~ player
+I'm sorry to my teammates and my family. ~ player
+I'm going to learn from this. ~ player
+I'm not going to make excuses. ~ player pro
+I'm going to let the process play out. ~ player
+I take full responsibility. ~ player
+I've got people helping me through it. ~ player
+I'm focused on getting better as a person. ~ player
+There's more to the story. I'll tell it when I can. ~ player ego
+I'm not the guy people are making me out to be. ~ player ego
+I'm embarrassed. I let people down. ~ player humble
+I'm not perfect. I never said I was. ~ player
+We're aware of the situation and gathering information. ~ coach
+We hold our players to a high standard. ~ coach strict
+He'll be dealt with internally. ~ coach
+We're going to support him while holding him accountable. ~ coach warm
+It's disappointing. That's all I'll say right now. ~ coach cold
+I'm not going to get into details. ~ coach
+We'll let the facts come out. ~ coach
+@key story.quote.offfield.lead.up
+I'm grateful it's behind me. ~ player
+I'm going to make the most of my second chance. ~ player
+I've learned a lot. I'm a better person for it. ~ player
+I'm thankful for everybody who stuck with me. ~ player
+He's handled it the right way. ~ coach
+He's earned his way back. ~ coach
+@key story.quote.offfield.lead.down
+I made a bad decision. ~ player
+I'm sorry. I really am. ~ player
+I'm going to make it right. ~ player
+I've got a lot to prove now. ~ player
+I'll accept whatever comes. ~ player
+He's suspended indefinitely. ~ coach strict
+He's no longer part of the program. ~ coach strict
+We're disappointed in him. ~ coach
+
+# ---------------------------------------------------------------- endings
+
+@key story.quote.ending.lead
+I've given everything I had to this game. ~ player
+It's time. My body's telling me. ~ player vet
+I'm at peace with it. ~ player calm
+I'm going to miss the locker room most. ~ player
+I'm proud of what I did. ~ player
+I want to thank everybody who helped me get here. ~ player humble
+I've got no regrets. ~ player
+I'm going to spend time with my family now. ~ player vet
+I'll always be part of this team. ~ player loyal
+I'm going out on my terms. ~ player ego
+I couldn't have done it without my teammates. ~ player
+The game gave me everything. ~ player
+It doesn't feel real yet. ~ player
+I'll be around. You can't get rid of me. ~ player loose
+It's been the honor of my life. ~ coach
+I'm going to miss the players. ~ coach
+I've had a great run. It's time for someone else. ~ coach old
+I'm going to enjoy some time with my grandkids. ~ coach old
+I gave this program everything I had. ~ coach
+I'm proud of the men we sent out of here. ~ coach !nfl
+He's meant so much to this program. ~ coach
+It's been a privilege to coach him. ~ coach
+
+# ---------------------------------------------------------------- your own arcs
+
+@key story.quote.you.lead
+We're going to keep working. ~ coach
+I believe in what we're doing. ~ coach
+It's a process. We're in it. ~ coach
+I don't get caught up in the noise. ~ coach
+I'm proud of these players. ~ coach
+We've got a lot of work to do. ~ coach
+I'm grateful to be here. ~ coach
+The players deserve the credit. ~ coach
+We're not satisfied. ~ coach
+It's about the next game. Always. ~ coach
+I'm not going to talk about myself. ~ coach
+We're building it the right way. ~ coach
+I love coaching these guys. ~ coach
+It's been a good start. We want more. ~ coach
+I've got a great staff. They make it easy. ~ coach
+@key story.quote.you.lead.up
+It's a good day for our program. ~ coach
+I'm happy for the players. ~ coach
+It's nice. Now we get back to work. ~ coach
+We've earned some of this. Not all of it. ~ coach
+@key story.quote.you.lead.down
+That's on me. ~ coach
+We've got to be better, and it starts with me. ~ coach
+I'm not happy with where we are. ~ coach
+We'll fix it. ~ coach
+I'll own it. ~ coach
+
+# ---------------------------------------------------------------- program stories
+
+@key story.quote.program.lead
+We're going to do things the right way here. ~ coach
+It's a big moment for this program. ~ coach
+We're building something people want to be part of. ~ coach
+I'm proud of where we're headed. ~ coach
+We've got a lot of support from the administration. ~ coach !nfl
+We're going to compete with anybody. ~ coach
+It's good for the program. That's how I see it. ~ coach
+We've got work to do, but we're on the way. ~ coach
+It's a proud day for everybody involved. ~ coach
+This place has a lot of history. We want to add to it. ~ coach
+I came here because I believed in it. ~ player
+It feels like something's changing here. ~ player
+This place means a lot to a lot of people. ~ player
+@key story.quote.program.lead.up
+This is a great day. ~ coach
+The investment shows what people think of this program. ~ coach
+It's exciting for all of us. ~ coach
+It's a sign we're headed in the right direction. ~ coach
+It's going to help us in recruiting. ~ coach !nfl
+It's awesome. It's great for everybody here. ~ player
+@key story.quote.program.lead.down
+It's not the news we wanted. ~ coach
+We'll deal with it and move forward. ~ coach
+We're going to handle it the right way. ~ coach
+It's a setback. We'll overcome it. ~ coach
+It hurts the program. We'll come back from it. ~ coach
+It's tough to hear. We'll keep our heads down. ~ player
+
+# ---------------------------------------------------------------- tones also say the lines that fit either
+
+@key story.quote.battle.lead.up
+@with story.quote.battle.lead
+@key story.quote.battle.lead.down
+@with story.quote.battle.lead
+@key story.quote.battle.rival.up
+@with story.quote.battle.rival
+@key story.quote.battle.rival.down
+@with story.quote.battle.rival
+@key story.quote.seat.lead.up
+@with story.quote.seat.lead
+@key story.quote.seat.lead.down
+@with story.quote.seat.lead
+@key story.quote.wanted.lead.up
+@with story.quote.wanted.lead
+@key story.quote.wanted.lead.down
+@with story.quote.wanted.lead
+@key story.quote.recruiting.lead.up
+@with story.quote.recruiting.lead
+@key story.quote.recruiting.lead.down
+@with story.quote.recruiting.lead
+@key story.quote.leaving.lead.up
+@with story.quote.leaving.lead
+@key story.quote.leaving.lead.down
+@with story.quote.leaving.lead
+@key story.quote.comeback.lead.up
+@with story.quote.comeback.lead
+@key story.quote.comeback.lead.down
+@with story.quote.comeback.lead
+@key story.quote.streak.lead.up
+@with story.quote.streak.lead
+@key story.quote.streak.lead.down
+@with story.quote.streak.lead
+@key story.quote.rivalry.lead.up
+@with story.quote.rivalry.lead
+@key story.quote.rivalry.lead.down
+@with story.quote.rivalry.lead
+@key story.quote.rise.lead.up
+@with story.quote.rise.lead
+@key story.quote.rise.lead.down
+@with story.quote.rise.lead
+@key story.quote.draft.lead.up
+@with story.quote.draft.lead
+@key story.quote.draft.lead.down
+@with story.quote.draft.lead
+@key story.quote.offfield.lead.up
+@with story.quote.offfield.lead
+@key story.quote.offfield.lead.down
+@with story.quote.offfield.lead
+@key story.quote.you.lead.up
+@with story.quote.you.lead
+@key story.quote.you.lead.down
+@with story.quote.you.lead
+@key story.quote.program.lead.up
+@with story.quote.program.lead
+@key story.quote.program.lead.down
+@with story.quote.program.lead
