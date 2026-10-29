@@ -281,7 +281,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
 pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bool, loud: f64) -> Venue {
     let year = w.year;
     let seed = w.options.seed as u64;
-    let era = franchise::era(home, year.min(franchise::PRESENT));
+    let era = franchise::era_in(w, home, year.min(franchise::PRESENT));
     // The club's town: its own after a move (later extras topic 1).
     let (town, st) = crate::world::finance::nfl::city(w, home, year);
     let code = if st.is_empty() { "NY" } else { st.as_str() };
@@ -321,7 +321,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
     };
     // Travel (proposed, not confirmed: the college rule's weights): miles,
     // time zones and a body clock kickoff.
-    let home_of = |t: usize| franchise::era(t, year.min(franchise::PRESENT)).map_or("NY", |e| e.state);
+    let home_of = |t: usize| franchise::era_in(w, t, year.min(franchise::PRESENT)).map_or("NY", |e| e.state);
     let wear_of = |t: usize| {
         if t == home && !neutral {
             return 0.0;
@@ -338,7 +338,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         if closed || neutral {
             return 0.0;
         }
-        let e = franchise::era(t, year.min(franchise::PRESENT));
+        let e = franchise::era_in(w, t, year.min(franchise::PRESENT));
         let usual = match e {
             Some(e) if e.roof == franchise::Roof::Dome => 72.0,
             Some(e) => crate::calendar::weather::usual_high_in(e.state, e.city, at.date),
@@ -599,7 +599,7 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
         (K::Fracture, 2.0),
     ];
     let seed = w.options.seed as u64 ^ 0x9AC7 ^ (d.0 as u64) << 20;
-    for t in franchise::active_teams(year) {
+    for t in franchise::active_teams_in(w, year) {
         let med = crate::world::people::Support::z(w.clubs[t].support.medical.rating);
         let name = w.nfl[t].name;
         let roster = w.clubs[t].roster.clone();

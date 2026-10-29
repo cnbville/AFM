@@ -646,7 +646,7 @@ fn agent_claim(
     let rivals: Vec<(usize, f64)> = if kind == TalkKind::FreeAgent {
         let year = w.year;
         (0..w.clubs.len())
-            .filter(|&o| o != t && crate::world::franchise::active(o, year))
+            .filter(|&o| o != t && crate::world::franchise::active_in(w, o, year))
             .filter_map(|o| market::make_offer(w, o, i, ideal, 20, 0.0, year).map(|x| (o, x.apy)))
             .collect()
     } else {

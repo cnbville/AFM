@@ -155,7 +155,7 @@ impl Team {
         match self {
             Team::College(p) => Some(w.programs[p].state),
             Team::High(h) => Some(w.high_schools[h].state),
-            Team::Nfl(t) => super::franchise::era(t, w.year).and_then(|e| super::geo::state_index(e.state)),
+            Team::Nfl(t) => super::franchise::era_in(w, t, w.year).and_then(|e| super::geo::state_index(e.state)),
             Team::Other(_) => None,
         }
     }
@@ -165,7 +165,7 @@ impl Team {
         match self {
             Team::College(p) => w.programs[p].city.clone(),
             Team::High(h) => w.high_schools[h].town.clone(),
-            Team::Nfl(t) => super::franchise::era(t, w.year).map_or_else(String::new, |e| e.city.to_string()),
+            Team::Nfl(t) => super::franchise::era_in(w, t, w.year).map_or_else(String::new, |e| e.city.to_string()),
             Team::Other(f) => super::pro::other::city(f, w.year).to_string(),
         }
     }

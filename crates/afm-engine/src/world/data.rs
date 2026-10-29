@@ -11,6 +11,7 @@ const COLLEGES_CSV: &str = include_str!("../../../../data/real-world/colleges.cs
 const COLLEGES_LOWER_CSV: &str = include_str!("../../../../data/real-world/colleges_lower.csv");
 const COLLEGE_HISTORY_CSV: &str = include_str!("../../../../data/real-world/college_history.csv");
 const COLLEGE_DROPPED_CSV: &str = include_str!("../../../../data/real-world/college_history_dropped.csv");
+const COLLEGE_CANDIDATES_CSV: &str = include_str!("../../../../data/real-world/college_candidates.csv");
 const HS_STATES_CSV: &str = include_str!("../../../../data/real-world/hs_states.csv");
 const RIVALRIES_CSV: &str = include_str!("../../../../data/real-world/rivalries.csv");
 const TALENT_CSV: &str = include_str!("../../../../data/real-world/talent_by_state.csv");
@@ -291,6 +292,33 @@ pub static DROPPED_COLLEGES: LazyLock<Vec<CollegeRow>> = LazyLock::new(|| {
         });
     }
     out
+});
+
+/// Real colleges without a football team that could start one (SK68):
+/// Division I schools start at FCS, the rest at their own level
+/// (`college_candidates.csv`; Claude's list, proposed, not confirmed).
+pub static CANDIDATE_COLLEGES: LazyLock<Vec<CollegeRow>> = LazyLock::new(|| {
+    let t = Table::parse(COLLEGE_CANDIDATES_CSV);
+    let (name, div, city, state, enr) =
+        (t.col("name"), t.col("division"), t.col("city"), t.col("state"), t.col("enrollment"));
+    t.rows
+        .iter()
+        .filter_map(|r| {
+            let division = Division::parse(&r[div])?;
+            Some(CollegeRow {
+                name: r[name].clone(),
+                division,
+                conference: "Independent".to_string(),
+                city: r[city].clone(),
+                state: r[state].clone(),
+                enrollment: r[enr].parse().unwrap_or(3000),
+                national_titles: 0,
+                last_5yr_win_pct: None,
+                stadium_capacity: None,
+                academic_tier: AcademicTier::Other,
+            })
+        })
+        .collect()
 });
 
 fn college_rows(csv: &str) -> Vec<CollegeRow> {

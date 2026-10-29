@@ -1,6 +1,6 @@
 # The living NFL: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28.
+Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28; the expansion line with next update lane 10 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
@@ -193,7 +193,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 
 ## Franchises and books
 
-- **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`).
+- **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`). From 2027 it can also vote two expansion clubs in, at the real rate; they get indices from 32 on, an expansion draft and the first and last picks of their first draft ([new-teams.md](new-teams.md); `world/new_teams/nfl.rs`, `vote`; every lookup past index 31 reads `World::expansion` through `franchise::*_in`).
 - **Stand-in games** (when the engine is off): win odds are a logit of 0.52 x strength gap in sd + 0.24 x staff gap + 0.2 home. Ties 0.3% (`world/nfl_year.rs`, `PER_SD`, `win_prob`).
 - **Club finance**: revenue and cost lines, gates, stadiums and NFLPA report cards (`world/finance/nfl.rs`). The cards feed free agents' scores (`card_pull`). `spend_level` sets support-staff budgets (`world/people.rs`, `staff_support`).
 

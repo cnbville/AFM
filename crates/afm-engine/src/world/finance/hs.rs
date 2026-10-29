@@ -189,6 +189,17 @@ pub(crate) fn open(w: &mut World) {
     open_seat(w);
 }
 
+/// A school that opens after the books (SK68): its own book from today.
+pub(crate) fn add_school(w: &mut World, h: usize) {
+    if !w.finance.ready || w.finance.hs.len() != h {
+        return;
+    }
+    let fy = if w.today < w.dates.money_year { w.year - 1 } else { w.year };
+    let school =
+        School { now: Book::new(fy), budget: budget(w, h), last: Book::default(), fee: fee(w, h), crowd: crowd(w, h) };
+    w.finance.hs.push(school);
+}
+
 /// Your money at a new high school job: the district's equipment budget.
 pub(crate) fn open_seat(w: &mut World) {
     let Some(h) = w.seat_school() else {

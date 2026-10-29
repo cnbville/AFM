@@ -185,6 +185,36 @@ impl Window {
 /// No conference or division: a franchise that doesn't play this season.
 const NONE: usize = 99;
 
+impl NflSeason {
+    /// Room for clubs added during the year (SK68): each new club starts
+    /// out of this season.
+    pub(crate) fn grow(&mut self, n: usize) {
+        let m = self.wins.len();
+        if n <= m {
+            return;
+        }
+        self.conf.resize(n, NONE);
+        self.div.resize(n, NONE);
+        self.active.resize(n, false);
+        self.wins.resize(n, 0);
+        self.losses.resize(n, 0);
+        self.ties.resize(n, 0);
+        self.div_wins.resize(n, 0);
+        for v in [&mut self.z, &mut self.staff, &mut self.expect] {
+            if v.len() == m {
+                v.resize(n, 0.0);
+            }
+        }
+        self.seed.resize(n, None);
+        self.out_round.resize(n, 0);
+        if self.prev_place.len() == m {
+            self.prev_place.resize(n, 0);
+        }
+        self.byes.resize(n, None);
+        self.huge.resize(n, 0);
+    }
+}
+
 /// Conference and division of each team that season, from the real
 /// alignment of the year (see `franchise`).
 fn alignment(w: &World) -> (Vec<usize>, Vec<usize>) {
@@ -192,7 +222,7 @@ fn alignment(w: &World) -> (Vec<usize>, Vec<usize>) {
     let mut conf = vec![NONE; n];
     let mut div = vec![NONE; n];
     for t in 0..n {
-        if let Some((c, d)) = franchise::alignment(t, w.year) {
+        if let Some((c, d)) = franchise::alignment_in(w, t, w.year) {
             conf[t] = c;
             div[t] = d;
         }
@@ -719,6 +749,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     let y = w.dates.clone();
     dated_events(w, d, &y);
+    super::new_teams::nfl::day(w, d);
     if d == y.combine_invites {
         recruiting::combine_invites(w);
     }
@@ -1186,6 +1217,9 @@ fn league_meeting(w: &mut World, d: Date) {
     if season >= 2027 && rng.chance(crate::calendar::rules::CHANGE_ODDS.relocation_request) {
         relocate(w, d, &mut rng);
     }
+    // Expansion at the real rate (SK68), from its own stream.
+    let mut xr = crate::rng::Rng::new(w.options.seed ^ 0x0E_A9A1 ^ (season as u32).wrapping_mul(7919));
+    super::new_teams::nfl::vote(w, d, &mut xr);
 }
 
 /// A team asks to move (topic 11, change 5): the smallest market with the
@@ -1194,7 +1228,7 @@ fn league_meeting(w: &mut World, d: Date) {
 fn relocate(w: &mut World, d: Date, rng: &mut crate::rng::Rng) {
     const CITIES: [&str; 6] = ["San Antonio", "St. Louis", "San Diego", "Portland", "Salt Lake City", "Oakland"];
     let t = (0..w.nfl.len())
-        .filter(|&t| franchise::active(t, w.year))
+        .filter(|&t| franchise::active_in(w, t, w.year))
         .max_by(|&a, &b| {
             let ka = team_row(a).map_or(16, |r| r.market_rank) as f64 - w.nfl[a].owner;
             let kb = team_row(b).map_or(16, |r| r.market_rank) as f64 - w.nfl[b].owner;
@@ -1245,7 +1279,10 @@ fn build_schedule(w: &mut World, d: Date) {
             // 1987's schedule was drawn for 16 games before the strike
             // cancelled week 3 (never made up).
             let drawn = games.max(16);
-            let list = if franchise::eight_divisions(season) {
+            // A league past 32 clubs (SK68) has five-team divisions: the
+            // quota formula of the uneven years places its games.
+            let even = (0..8).all(|d| s.div.iter().filter(|&&x| x == d).count() == 4);
+            let list = if franchise::eight_divisions(season) && even {
                 opponent_formula(s, season, drawn)
             } else {
                 old_formula(s, season, drawn, seed)
@@ -1453,7 +1490,7 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
         .collect();
     let west: Vec<bool> = (0..n)
         .map(|t| {
-            let state = franchise::era(t, season.min(franchise::PRESENT)).map(|e| e.state);
+            let state = franchise::era_in(w, t, season.min(franchise::PRESENT)).map(|e| e.state);
             let state = state.or_else(|| team_row(t).map(|r| r.state.as_str()));
             state.is_some_and(|st| matches!(st, "CA" | "WA" | "AZ" | "NV" | "CO"))
         })
@@ -1826,7 +1863,7 @@ fn flex_window(w: &mut World, d: Date, y: &YearDates, window: Window) {
 /// roster.
 fn win_totals(w: &mut World, d: Date) {
     let games = w.rules.nfl_games as f64;
-    let teams: Vec<usize> = (0..w.nfl.len()).filter(|&t| franchise::active(t, w.year)).collect();
+    let teams: Vec<usize> = (0..w.nfl.len()).filter(|&t| franchise::active_in(w, t, w.year)).collect();
     let s: Vec<(usize, f64)> = teams.iter().map(|&t| (t, w.nfl[t].strength())).collect();
     let m = s.len().max(1) as f64;
     let mean = s.iter().map(|x| x.1).sum::<f64>() / m;
@@ -1875,7 +1912,7 @@ fn win_prob(s: &NflSeason, home: usize, away: usize, field: f64) -> f64 {
 /// in turn, at preseason prices; season-ticket holders pay for them in
 /// their packages.
 fn preseason_gates(w: &mut World, k: usize, d: Date) {
-    let teams: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active(t, w.year)).collect();
+    let teams: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, w.year)).collect();
     let n = teams.len();
     if n < 2 {
         return;

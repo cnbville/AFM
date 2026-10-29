@@ -190,7 +190,7 @@ fn choose(w: &mut World, d: Date) {
 /// overconfidence and impatience stand in for his taste for games).
 fn leaks(w: &mut World, d: Date) {
     let year = w.year;
-    let teams: Vec<usize> = crate::world::franchise::active_teams(year);
+    let teams: Vec<usize> = crate::world::franchise::active_teams_in(w, year);
     let pool = super::public::prospects(w);
     if pool.is_empty() {
         return;

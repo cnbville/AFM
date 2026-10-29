@@ -136,7 +136,7 @@ fn sign_players(w: &mut World, d: Date, k: u8, l: &League) {
 fn allocate(w: &mut World, d: Date, l: &League) {
     let year = d.year();
     for t in 0..w.clubs.len() {
-        if !crate::world::franchise::active(t, year) {
+        if !crate::world::franchise::active_in(w, t, year) {
             continue;
         }
         let mut young: Vec<(usize, f64)> = w.clubs[t]
@@ -177,7 +177,7 @@ fn pathway(w: &mut World, d: Date) {
         2023 => 13,
         _ => 16,
     };
-    let teams: Vec<usize> = crate::world::franchise::active_teams(year);
+    let teams: Vec<usize> = crate::world::franchise::active_teams_in(w, year);
     let mut rng = Rng::new(w.options.seed ^ 0x1990 ^ year as u32);
     let start = (year as usize * 4) % teams.len().max(1);
     const FROM: [(&str, &str); 6] = [

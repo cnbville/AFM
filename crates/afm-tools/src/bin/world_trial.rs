@@ -2142,7 +2142,7 @@ fn nfl_league(w: &World, years: u32) {
     let year = w.year;
     let cap = money::price_cap(year);
     let mut use_: Vec<(f64, &str)> = (0..w.clubs.len())
-        .filter(|&t| afm_engine::world::franchise::active(t, year))
+        .filter(|&t| afm_engine::world::franchise::active_in(w, t, year))
         .map(|t| (payroll(w, t, year) / cap, w.nfl[t].name))
         .collect();
     use_.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -2318,7 +2318,7 @@ fn sections_6_and_7(w: &World, first: i32) {
         );
     }
     let mut cap_lines = Vec::new();
-    for t in afm_engine::world::franchise::active_teams(year).into_iter().take(4) {
+    for t in afm_engine::world::franchise::active_teams_in(w, year).into_iter().take(4) {
         let c = &w.clubs[t];
         let names: Vec<String> = c
             .captains
@@ -2361,7 +2361,7 @@ fn sections_6_and_7(w: &World, first: i32) {
     );
     let mut sizes = Vec::new();
     let mut judge = Vec::new();
-    for t in afm_engine::world::franchise::active_teams(year) {
+    for t in afm_engine::world::franchise::active_teams_in(w, year) {
         let s = &w.clubs[t].scouts;
         let area = s.iter().filter(|x| x.role == Role::Area).count();
         let nat = s.iter().filter(|x| x.role == Role::National).count();

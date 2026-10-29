@@ -6,7 +6,8 @@
 //!
 //! Usage: seat_season [world file | "build"] [days] [seats, e.g. hs,college,nfl,other]
 //! ("other" is a club in another league: the CFL, arena football or a
-//! spring league.)
+//! spring league; "gznfl", "gzcollege" and "gzhs" start at a new team, as
+//! the setup's Ground zero does.)
 //! With "build" a small world is made first (seed 7, 2 years, scale 0.05).
 //! `AFM_SEAT_OUT=report.json` writes the full report; `AFM_SEAT_SAVE_END=dir`
 //! keeps each seat's save from the end of its run. `AFM_SEAT_LEAN=1` only
@@ -758,6 +759,35 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     }
 }
 
+/// A new team's page at a stop (lane 10): queue the first open players
+/// and visit the first zoned junior, as a person would.
+fn ground_zero(run: &mut Run, g: &mut Game) {
+    let Some(st) = run.call(g, "status", json!({})) else { return };
+    if !st["ground"].as_bool().unwrap_or(false) {
+        return;
+    }
+    let Some(p) = run.call(g, "gz_page", json!({})) else { return };
+    if p["kind"] == "nfl"
+        && !p["drafted"].as_bool().unwrap_or(true)
+        && p["queue"].as_array().is_none_or(|q| q.is_empty())
+    {
+        let ids: Vec<u64> =
+            p["open"].as_array().into_iter().flatten().filter_map(|x| x["id"].as_u64()).take(3).collect();
+        run.call(g, "gz_queue", json!({ "ids": ids }));
+    }
+    if p["kind"] == "hs"
+        && let Some(id) = p["zone"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|x| x["grade"] == "Junior" && !x["pitched"].as_bool().unwrap_or(false))
+            .and_then(|x| x["id"].as_u64())
+        && p["pitched"].as_u64().unwrap_or(0) < 3
+    {
+        run.call(g, "gz_pitch", json!({ "id": id }));
+    }
+}
+
 /// One stop's look at finding players (update 2, lane 7): the default
 /// search, then seven of its fields as filters (alone with "not seen" both
 /// ways, and joined by "or" to the default's) and as sorts both ways, the
@@ -921,8 +951,14 @@ fn main() {
             total_errors += 1;
             continue;
         }
-        let level = if seat == "hs" { "hs" } else { seat.as_str() };
-        let jobs = run.call(&mut g, "jobs", json!({ "level": level })).unwrap_or(json!({}));
+        // A ground zero seat (lane 10, SK68): gznfl, gzcollege or gzhs
+        // builds a new team; the screens are its level's.
+        let ground = seat.starts_with("gz");
+        let base = seat.strip_prefix("gz").unwrap_or(seat).to_string();
+        let seat = &base;
+        let level = seat.as_str();
+        let jobs =
+            run.call(&mut g, if ground { "gz_jobs" } else { "jobs" }, json!({ "level": level })).unwrap_or(json!({}));
         // A team by name (AFM_SEAT_TEAM=Allen), else the third on the list.
         let named = std::env::var("AFM_SEAT_TEAM").ok().and_then(|n| {
             jobs["jobs"].as_array().and_then(|a| a.iter().find(|j| j["name"].as_str() == Some(n.as_str())).cloned())
@@ -940,7 +976,12 @@ fn main() {
             _ => "college_assistant",
         };
         let start = json!({ "name": "Seat Tester", "age": 44, "background": bg, "job": job["ref"], "seed": 3 });
-        if run.call(&mut g, "start_career", start.clone()).is_none() {
+        if ground {
+            let mut s = start.clone();
+            s["start"] = json!("ground");
+            run.call(&mut g, "start_career_seat", s);
+            ground_zero(&mut run, &mut g);
+        } else if run.call(&mut g, "start_career", start.clone()).is_none() {
             // The background key may differ: fall back to the default one.
             let mut s = start;
             s["background"] = json!("college_assistant");
@@ -1000,8 +1041,13 @@ fn main() {
                 continue;
             }
             visit_all(&mut run, &mut g, &extra, seat);
-            // Save and reload once in season, after the first game.
-            let played = g.world.as_ref().map(|w| !w.seat_games().is_empty()).unwrap_or(false);
+            if ground {
+                ground_zero(&mut run, &mut g);
+            }
+            // Save and reload once in season, after the first game (a new
+            // team without games yet: after its first 120 days).
+            let played = g.world.as_ref().map(|w| !w.seat_games().is_empty()).unwrap_or(false)
+                || ground && g.world.as_ref().is_some_and(|w| begin.days_to(w.today) > 120);
             if played && !saved_once {
                 saved_once = true;
                 let before = run.call(&mut g, "status", json!({}));

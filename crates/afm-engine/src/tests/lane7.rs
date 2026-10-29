@@ -9,7 +9,7 @@ use crate::world::{Stage, World, WorldOptions};
 fn nfl_world() -> (World, usize) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     let t = (0..w.clubs.len())
-        .filter(|&t| crate::world::franchise::active(t, w.year))
+        .filter(|&t| crate::world::franchise::active_in(&w, t, w.year))
         .max_by_key(|&t| w.clubs[t].roster.len())
         .unwrap();
     let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];

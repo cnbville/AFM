@@ -684,6 +684,8 @@ pub fn status(w: &World) -> Value {
         "draft_live": w.scouting.live.is_some(),
         // Your stories waiting on you (This week's badge).
         "stories_need": crate::lane_storylines::need_count(w),
+        // A team in its year before the first game (lane 10, SK68).
+        "ground": crate::lane_groundzero::status(w),
     })
 }
 

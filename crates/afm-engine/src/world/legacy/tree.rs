@@ -132,7 +132,7 @@ fn same_league(w: &World, a: Employer, b: Employer) -> bool {
             w.programs[p].conference == w.programs[q].conference && w.programs[p].division == w.programs[q].division
         }
         (Employer::Nfl(s), Employer::Nfl(t)) => {
-            let div = |n: usize| crate::world::franchise::era(n, w.year).map(|e| e.div);
+            let div = |n: usize| crate::world::franchise::era_in(w, n, w.year).map(|e| e.div);
             div(s).is_some() && div(s) == div(t)
         }
         (Employer::HighSchool(s), Employer::HighSchool(t)) => w.hs_season.as_ref().is_some_and(|x| {

@@ -186,7 +186,7 @@ pub(crate) fn staff_support(w: &mut World) {
         engage(&mut s.engagement, w.options.seed ^ 0xE16A_0000 ^ k as u32, year, budget, era);
     }
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let budget = super::finance::nfl::spend_level(w, t);
@@ -482,7 +482,7 @@ pub(crate) fn pro_mood(w: &mut World) {
     let year = w.year;
     let mut read_ids = Vec::new();
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let roster: Vec<usize> = w.clubs[t]

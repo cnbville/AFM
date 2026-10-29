@@ -719,7 +719,7 @@ pub(crate) fn fill_league(w: &mut World) {
     let mut rng = Rng::new(w.options.seed ^ 0x5E7E_4A45);
     let mut made: Vec<(Person, Option<usize>, f64)> = Vec::new();
     for t in 0..n {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let talent = crate::league::talent_of(&w.nfl[t], &mut rng);
@@ -848,7 +848,7 @@ pub(crate) fn undrafted_team(w: &World, i: usize) -> usize {
     let p = &w.people[i];
     let pos = p.player.position;
     let limit = w.rules.nfl_offseason as usize;
-    let all: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active(t, w.year)).collect();
+    let all: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, w.year)).collect();
     let open: Vec<usize> =
         all.iter().copied().filter(|&t| w.clubs.get(t).is_none_or(|c| c.roster.len() < limit)).collect();
     let teams = if open.is_empty() { all } else { open };
@@ -931,7 +931,7 @@ pub(crate) fn move_club(w: &mut World, from: usize, to: usize, why: &str) {
 fn fill_holes(w: &mut World, d: Date, full: bool) {
     let year = w.year;
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         for pos in Position::ALL {
@@ -1007,7 +1007,7 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
     let dress = w.rules.nfl_actives as usize;
     let mut changed = false;
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let mut signed = false;
@@ -1178,7 +1178,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         // Cap use on opening day: each active team's payroll over its cap.
         let year = w.year;
         let cap = money::price_cap(year);
-        let teams = super::franchise::active_teams(year);
+        let teams = super::franchise::active_teams_in(w, year);
         let spread = |mut v: Vec<f64>| {
             v.sort_by(|a, b| a.total_cmp(b));
             if v.is_empty() { [0.0; 3] } else { [v[0], v[v.len() / 2], v[v.len() - 1]] }
@@ -1431,7 +1431,7 @@ fn street_signings(w: &mut World, d: Date, in_season: bool) -> bool {
         let (price, years) = ask(w, i, year, d);
         let mut best: Option<(usize, f64)> = None;
         for t in 0..w.clubs.len() {
-            if !super::franchise::active(t, year)
+            if !super::franchise::active_in(w, t, year)
                 || w.clubs[t].roster.len() >= limit + if in_season { 20 } else { 0 }
                 || super::front_office::yours(w, t, super::front_office::Duty::FreeAgency)
             {
@@ -1513,8 +1513,10 @@ fn camp(w: &mut World, d: Date) {
     super::people::pro_mood(w);
     let year = w.year;
     let league_strength = {
-        let teams: Vec<f64> =
-            (0..w.nfl.len()).filter(|&t| super::franchise::active(t, year)).map(|t| w.nfl[t].strength()).collect();
+        let teams: Vec<f64> = (0..w.nfl.len())
+            .filter(|&t| super::franchise::active_in(w, t, year))
+            .map(|t| w.nfl[t].strength())
+            .collect();
         teams.iter().sum::<f64>() / teams.len().max(1) as f64
     };
     let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).collect();
@@ -1670,7 +1672,7 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
         return;
     }
     let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ (week as u64) << 8 ^ 0x9E;
-    let mut teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::franchise::active(t, year)).collect();
+    let mut teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
     teams.sort_by(|&a, &b| key_uniform(seed, a as u64).total_cmp(&key_uniform(seed, b as u64)));
     let pairs: Vec<(usize, usize)> = teams.chunks(2).filter(|c| c.len() == 2).map(|c| (c[0], c[1])).collect();
     let sides: Vec<Option<(games::Side, games::Side)>> = pairs
@@ -1834,7 +1836,7 @@ pub(crate) fn cut_split(w: &World, keep: &[(usize, f64)]) -> (Vec<usize>, Vec<us
 pub(crate) fn cutdown(w: &mut World, d: Date) {
     let year = w.year;
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let keep = cut_scores(w, t);
@@ -1943,7 +1945,7 @@ pub(crate) fn black_monday(w: &mut World) {
     let today = w.today;
     market::futures(w, today, &out);
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let o = &w.clubs[t].office;

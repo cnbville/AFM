@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28; build-year tryouts with next update lane 10 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -139,6 +139,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - Planned walk-ons fill a real squad for the level (FBS 119.7, FCS 108, D2 115, D3 107, NAIA 100, JUCO 80) under a scholarship limit; under the House limit they fill what the class leaves (`level_roster`, `class_plan`).
 - Fall camp: walk-ons who started or rotated go on scholarship where the limit has room, at most one snapper on aid (not D3, Ivy, PFL). Open tryouts: 8% of FBS/FCS programs a year, 16% below, take the best unsigned new graduate in their state (`camp_walk_ons`, `tryout_sticks`).
 - House era: 2024-25 walk-ons and the 2025 class's promised walk-ons don't count against the limit (`takes_a_place`).
+- A college in its build year (SK68) holds walk-on tryouts on summer enrollment day: the best unsigned seniors and up to 12 junior college players until its squad is 75% of its level's full squad (`world/new_teams/college.rs`, `tryouts`; [new-teams.md](new-teams.md)).
 
 ## Academics and eligibility
 
