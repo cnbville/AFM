@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 200e5eb on 2026-10-27.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
 
 ## Quick answers
 
@@ -180,6 +180,14 @@ Checked against main at 200e5eb on 2026-10-27.
 - What it took to go in rounds 1-2 and 3-4 is kept as overall bars for staffs to read their underclassmen against (`recruiting.rs`, `draft_end`, `w.draft_bars`).
 - A public top-32 player who slides 40+ picks gets a note (`scouts.rs`, `note_slide`).
 - Mocks are scored, your class kept for the look-back, files cleared and scouting departments turned over (`world/scouting/mod.rs`, `after_draft`; `scouts.rs`, `after_rush`).
+
+## Lane 7's draft fixes (update 3, F2-F4, F19-F23, bug 28)
+
+- The December read's second look reads at accuracy 18 against everyone else's 13 (F4; `world/scouting/predraft.rs`).
+- A quarterback who throws only for some clubs throws for the first twelve in the order and a few his agent picks; the rest see his pro day numbers (F20; `predraft.rs`, `throws_for`). Private workouts wait for it (F22; `world/scouting/dept.rs`, `asks_day`).
+- Your department's instructions reach your board: "Players who fit what we run" adds 3 points a unit of fit, "Lean on the analytics" gives the numbers a voice of 1.1 and a point each for youth, production and testing (F21; `world/pro/scouts.rs`, `seat_fit`, `numbers_lean`; `world/scouting/readers.rs`).
+- AI boards read medicals: the combine's invitees and a club's top-30 visitors by its own doctors, the rest from the records; a minor concern about 1.5 grade points, a major one 3-6, a failed physical off the board (F23; `scouts.rs`, `medical_cost`).
+- The public analysts' production lean reads his production, not a flat bonus (bug 28; `world/scouting/public.rs`, `desk_grade`).
 
 ## Where the knobs are
 

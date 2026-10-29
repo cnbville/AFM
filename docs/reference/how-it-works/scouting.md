@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at 21ae52c with the Continue stops fix on 2026-10-29.
+Checked against main at 3cb32e3 with the Continue stops fix and update 3 lane 7 on 2026-10-29.
 
 ## Quick answers
 
@@ -24,22 +24,32 @@ Checked against main at 21ae52c with the Continue stops fix on 2026-10-29.
 - Does a high school coach's call to colleges get a kid stars? No. It raises his visibility by up to 0.12, scaled by your credibility; staffs still judge his film (`world/scouting/hs.rs`, `promos`).
 - Does your staff keep its read of a prospect from year to year? Yes, once a season for the top 300 of your scouting board, the players you keep notes on and your roster: the simple read (`reads.rs`) the player page shows, not the scouting file's (`crates/afm-game/src/lane_squadboards.rs`, `followed`, `read_now`; the ratings page, "Kept reads").
 
-## Two read systems on screen
+## One read on every screen, and yours beside it (update 3, lane 7)
 
-There are two ways the game turns truth into a range. Know which screen uses which.
+- Every rating on a screen is your staff's read from the scouting file (`world/scouting/file.rs`, `read`): the roster, the player page, the hover card, compare, training, the boards and the recruit lists all call `crates/afm-game/src/reads.rs` (`seen`, `attributes`, `overall`), which reads the file once a day per player. The old simple read (truth ± a blur) is gone (minor bug 54). A player nobody of yours has looked at is "Not seen" (`reads.rs`).
+- Your own players are in your coaches' practice and game looks every week, so the file reads them (`world/scouting/readers.rs`, `own_roster`).
+- A seat in another league has no scouting staff yet: its own players keep the coaches' read, each attribute within 2 + (20 − eye) × 0.12 (`reads.rs`, `simple`, `other_seat`).
+- Your own read (SK23, SK24, SK27): your looks only (reader code `COACH` + you). Before any look of yours it is a first impression: centre = your staff's centre + a lasting misjudgment of sd 3.5 points (keyed by you and the player), wide. Each look of yours narrows it and pulls it to what you saw, by your eye and the look's kind (`world/scouting/yours.rs`, `own_read`, `impression`, `IMPRESSION_SD`). Shown in outline beside the staff's range (`app/ui/app.js`, `yourRange`).
+- The public read, for rivals' players nobody of yours has seen: the truth + the public's own lasting misread, sd 4 × the film's visibility, shown ±5 (`reads.rs`, `public`).
+- Potential stays words only: the tier of the staff's ceiling read, how sure, and hints (`reads.rs`, `potential_words`).
 
-- The scouting file (`world/scouting/file.rs`, `read`): built from the looks your staff took. Used by the scouting file screen, recruit and portal lists, the department, the draft board (`crates/afm-game/src/lane_scouting.rs`, `scout_file`, `brief_read`, `recruit_scouting`).
-- The simple read (`crates/afm-game/src/reads.rs`): used by roster rows, the player page, training and the college front-office lane (`views.rs`, `row`; `lane_core/pages.rs`; `lane_training.rs`; `lane_frontoffice/college.rs`, `staff_read`). It reads no looks.
+## Watching his film yourself (minor bug 82)
 
-### The simple read (`crates/afm-game/src/reads.rs`)
+- "Watch his film now" on the scouting file and the recruit file runs today: a film look under your name, read by your own eye (`world/scouting/own.rs`, `watch_film`). At an NFL club where you are the head coach it also goes in the club's file under the head coach's code (`dept::club_look`).
+- It costs your own film hours, a week from Monday: NFL 20 from February to the draft, 3 in season (kickoff to the Super Bowl), 8 otherwise; college 5 from fall camp to the bowls, 12 otherwise; high school 3 September-November, 6 otherwise (`own.rs`, `film_budget`, `film_left`). When you can't (you watched him today, or the hours are short) the button says why before you click (`film_blocked`).
+- A recruit's reel and a full game 1 hour (only if he has high school snaps or a reel), a college player's three games 2.5 (only with college snaps), a pro's cut-ups 2 (`own.rs`, `film_cost`). One watch a player a day.
+- "Film study" from the staff stays: three days, then the head coach's (or personnel's) look (`world/scouting/dept.rs`, `asks_day`).
 
-- Eye: your position coach's `evaluation()` at college, else the side's coordinator, else the head coach; at the NFL the coordinator, else the head coach; at high school the head coach (`crates/afm-game/src/views.rs`, `eye_for`).
-- Own player, each attribute: half-width = 2 + (20 - eye) × 0.12 (eye 20 → ±2, eye 1 → ±4.3) (`reads.rs`, `attributes`).
-- Another team's player: physical attributes ±(half + 4); every other attribute "Not seen" (`reads.rs`, `attributes`). Overall ±6 (`reads.rs`, `overall`). Here the eye is fixed at 10 (`views.rs`, `row`).
-- Centre = truth + lean × half × 0.6, the lean a fixed -1..1 hash of reader, player and attribute, so it holds day to day (`reads.rs`, `range`, `lean`).
-- A recruit your college staff is working: overall ±(3 + (20 - eye) × 0.2), else ±7; potential words only when worked (`lane_frontoffice/college.rs`, `staff_read`).
-- Dynamic Links: noise 0.06 + (20 - eye) × 0.006 when measured or own, 0.25 from film; a boy under 21 not measured is read on his projection with noise 0.3 (less 0.008 × eye if own) (`reads.rs`, `links`).
-- Potential words: `potential_outlook` with the eye as accuracy, drawn from a stream keyed by reader, player and season (`reads.rs`, `potential_words`).
+## Letters, stakes and your own calls (update 3, lane 7)
+
+- Letters (SK41): when a scout's trip (a school call, practice, game, camp, visit, workout, call; not film) is written up, the day of its lag (4-21 days), he writes you: what he saw (his best and worst attribute against the room), who he talked to, how sure he is and his gut call. One letter a scout a day, three players at most, four letters a day (`world/scouting/letters.rs`, `day`, `write`).
+- Your name on a player (SK40): five open at once, privately or in public (a news item). Settled September 1 three years on: a college recruit by the look-back (`front_office/chain.rs`, `turned`), an NFL prospect hit on a Pro Bowl or 24 starts in three seasons, bust under 8. Reputation +0.3 / +0.6 public for a hit, −0.2 / −0.6 for a bust; your staff's trust +0.02 / +0.03 or −0.01 / −0.04 (`world/scouting/stake.rs`).
+
+## Athletes from outside football and coverage (update 3, lane 7)
+
+- Outside football (SK65): an NFL club's pro staff hears of six a year from May to August (college basketball, rugby league and union, sprinters, Australian punters, European kickers; each road from its real year), a college's staff of four from November to August (ProKick punters from 2007, soccer kickers, basketball players). His football rating centre 44-52 with a long tail up, your read wide (± 6 to 10 by your eye). Signing puts him on the practice squad (the International Player Pathway from 2017 for OT, EDGE, RB, LB) or your roster as a freshman (`world/scouting/outside.rs`, `list`, `sign`; `world/pro/leagues.rs`, `outside_signing`, `outside_freshman`).
+- Coverage (SK66): at a college, by state, your looks this year, FBS players of the last five classes and your conference rivals' offers, and the FBS starters of the last three classes nobody of yours ever looked at; at a club, by school, your looks, picks of the last five drafts and other clubs' looks, and last year's top-three-round picks and undrafted rookies who played that you never saw; at a high school, your feeders and whether you've helped them (`crates/afm-game/src/lane_paths.rs`, `coverage`).
+- At our place (SK64): his path with you from your staff's reads: when he'd start, who's ahead, his fit to your systems, the coach who'd teach him and how he takes coaching. A prospect grows from his read now toward his ceiling read over four years; "For us" = that − 1.5 × years waiting + 3 × fit (`lane_paths.rs`, `path`). Your class and systems (high school): for each offense, front and coverage, how many of the boys your staff has read it suits (fit 0.4 or more) and how many it would leave out (-0.4 or less), best edge first; "Built for our boys" when the edge is a fifth of those read, "Our boys don't suit it" the other way (`class_fit`). Coverage's "Who you missed" leaves out your own program's players and anyone your club drafted or signed: their looks are your practices (`coverage`).
 
 ## The scouting file: looks
 
@@ -187,6 +197,12 @@ All in `world/recruiting.rs`, `run_signing_stage` (the board per position):
 - A favour call, "I've got a kid I think can play for you" (`network.rs`, `asks_week`), brings that coach's best kid's tape, never below "can play" (`from_ask`).
 - Settling (`settle`, September 1, from 300 days on): for a college, "worth a look" holds if he played college football, "can play" if he played 150 snaps at your level or higher, "a sure thing" 400 or the NFL, judged once he's two seasons in or gone; for an NFL club, once he's out of college, "worth a look" and "can play" hold if he made the league, "a sure thing" if he went in rounds 1-3; six years on, a missed tip. Each settled tip goes on his track record (`Contact.record`), shown on Contacts as "3 of 5 tips held up".
 - The AI's staffs find kids through their coaches' networks (the network term of a recruit's visibility) instead.
+
+### What lane 7 added to tips (SK69-SK72)
+
+- The floor: nobody calls about a kid his own read puts below half a level's share under your bar (FBS and the NFL the top 2.25%, FCS 4.5%, Division II 6.75%, JUCO and NAIA 9%, Division III 12%) (`world/folk/tips.rs`, `floor`, `claim`).
+- When the public missed him (three stars or fewer at an FBS seat, two below; at a club no public grade or one past round 3), the tip says why, from his own record: a small school (prestige under 0.35), a coach with no college ties (network under 8), a family that can't pay for camps (money under 0.3), a growth spurt last season, 4+ games missed hurt in two seasons, a new position, one season as a starter, a small division, a late breakout; the strongest first, a second when close. A kid the public missed with none of these isn't sent (`tips.rs`, `public_missed`, `why_missed`, `worth`).
+- The tape goes to your staff: within the week (2 days, not a Sunday) the position coach of his group at a college, the area scout at a club, watches it; film uses no evaluation days (`tips.rs`, `send`; `world/scouting/dept.rs`, `asks_day`).
 
 ## Pro scouting
 

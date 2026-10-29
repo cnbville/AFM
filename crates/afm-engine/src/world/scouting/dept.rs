@@ -171,6 +171,131 @@ pub(crate) fn day(w: &mut World, d: Date) {
         Staff::Program(p) => college_day(w, p, d),
         Staff::School(_) => {}
     }
+    asks_day(w, staff, d);
+}
+
+/// F22: the looks you asked for from a file become looks when the rules
+/// and the calendar allow: a background check by your security within the
+/// week, a medical recheck by your doctors (the combine's recheck in April,
+/// else a visit to your building), a private workout after the combine and
+/// before the draft (your head coach runs it; a quarterback who throws
+/// only for some clubs throws for you only if he throws for you), film
+/// study, a call, a transcript or a social media check within the week,
+/// and a scout's school call or a cross-check in the fall. Evaluating in
+/// person waits for an evaluation day (`college_day`). A look the season
+/// no longer allows (his draft has passed) is dropped.
+fn asks_day(w: &mut World, staff: Staff, d: Date) {
+    if w.scouting.dept.asks.is_empty() {
+        return;
+    }
+    let (_, m, _) = d.parts();
+    let wd = d.weekday();
+    let draft_day = w.dates.draft[0].date;
+    let spring = matches!(m, 3 | 4) && d < draft_day && d >= Date::ymd(d.year(), 3, 10);
+    let asks = w.scouting.dept.asks.clone();
+    let mut done: Vec<(u32, Kind)> = Vec::new();
+    for (id, kind, asked) in asks {
+        let Some(i) = super::place(w, id) else {
+            done.push((id, kind));
+            continue;
+        };
+        let waited = d.0 - asked.0;
+        let stage = w.people[i].stage;
+        let club = if let Staff::Club(t) = staff { Some(t) } else { None };
+        let hc = match staff {
+            Staff::Club(t) => w.nfl.get(t).and_then(|x| x.head_coach),
+            Staff::Program(p) => w.programs[p].head_coach,
+            Staff::School(h) => w.high_schools.get(h).and_then(|x| x.coach),
+        };
+        let (who, ready): (Option<u32>, bool) = match kind {
+            Kind::Background => (Some(readers::SECURITY), waited >= 5),
+            Kind::Medical => {
+                // The combine's recheck is in April; otherwise he comes in.
+                let recheck = club.is_some() && m == 4 && d.parts().2 >= 8;
+                (Some(readers::MEDICAL), recheck || (waited >= 7 && club.is_none()) || (spring && waited >= 10))
+            }
+            Kind::Workout => {
+                let throws = club.is_none_or(|t| super::predraft::throws_for(w, i, t));
+                let ok = stage == Stage::Declared && spring && matches!(wd, Weekday::Tue | Weekday::Thu) && waited >= 3;
+                if stage != Stage::Declared && d > draft_day && asked < draft_day {
+                    done.push((id, kind));
+                    continue;
+                }
+                (hc.map(|c| COACH + c as u32), ok && throws)
+            }
+            Kind::Film | Kind::Call | Kind::Transcript | Kind::Social => {
+                let who = match kind {
+                    Kind::Transcript => readers::ACADEMIC,
+                    Kind::Social => readers::PERSONNEL,
+                    _ => hc.map_or(readers::PERSONNEL, |c| COACH + c as u32),
+                };
+                (Some(who), waited >= 3 && wd != Weekday::Sun)
+            }
+            Kind::School | Kind::CrossCheck => {
+                let scout = club.and_then(|t| {
+                    let role = if kind == Kind::CrossCheck {
+                        crate::world::pro::scouts::Role::National
+                    } else {
+                        crate::world::pro::scouts::Role::Area
+                    };
+                    w.clubs.get(t)?.scouts.iter().position(|s| s.role == role)
+                });
+                (scout.map(|k| k as u32), waited >= 7 && wd == Weekday::Wed)
+            }
+            Kind::ProFilm => (Some(readers::PRO_SCOUT), waited >= 3),
+            // A tape sent in (SK72): the coach of his spot at a college, the
+            // area scout at a club, within the week; film uses no
+            // evaluation days.
+            Kind::HsFilm | Kind::CollegeFilm => {
+                let who = match staff {
+                    Staff::Program(p) => evaluator_for(w, p, i).map(|c| COACH + c as u32),
+                    Staff::Club(t) => w
+                        .clubs
+                        .get(t)
+                        .and_then(|c| c.scouts.iter().position(|s| s.role == crate::world::pro::scouts::Role::Area))
+                        .map(|k| k as u32),
+                    Staff::School(_) => None,
+                };
+                (who, waited >= 2 && wd != Weekday::Sun)
+            }
+            _ => continue,
+        };
+        let Some(who) = who else {
+            done.push((id, kind));
+            continue;
+        };
+        if !ready {
+            // An ask older than the season that allows it is let go.
+            if waited > 200 {
+                done.push((id, kind));
+            }
+            continue;
+        }
+        // Out of the fall, seeing him again is his film.
+        let kind_now = if kind == Kind::School && !matches!(m, 9..=12) { Kind::Film } else { kind };
+        use crate::world::pro::scouts::{HC, LookKind as L};
+        // At a club the head coach is read by his club code, so the
+        // workout and the board's drill look are one man's.
+        let who = if club.is_some() && kind_now == Kind::Workout { HC as u32 } else { who };
+        match (club, kind_now) {
+            // The board reads the club's own file: these go there too (a
+            // recheck reaches the board through `medical_cost`).
+            (Some(t), Kind::Workout) => club_look(w, t, id, HC, L::Coach, d),
+            (Some(t), Kind::School) => club_look(w, t, id, who as u8, L::School, d),
+            (Some(t), Kind::Film) if who < 250 => club_look(w, t, id, who as u8, L::Film, d),
+            (Some(t), Kind::CrossCheck) => club_look(w, t, id, who as u8, L::CrossCheck, d),
+            (Some(t), Kind::CollegeFilm | Kind::HsFilm) if who < 250 => club_look(w, t, id, who as u8, L::Film, d),
+            _ => {}
+        }
+        if who >= 250
+            || club.is_none()
+            || !matches!(kind_now, Kind::School | Kind::Film | Kind::CrossCheck | Kind::CollegeFilm | Kind::HsFilm)
+        {
+            add(w, id, who, kind_now, d);
+        }
+        done.push((id, kind));
+    }
+    w.scouting.dept.asks.retain(|a| !done.iter().any(|x| x.0 == a.0 && x.1 == a.1));
 }
 
 /// NFL: your assignments on top of the built year. A scout on a player sees
@@ -214,6 +339,35 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
                 }
             }
             Target::CrossCheck | Target::Region(_) => {}
+        }
+    }
+    // F21 "Small schools too": your area scouts add six film looks a week
+    // on the best prospects below the FBS nobody of yours has seen.
+    if w.scouting.dept.instructions.contains(&Instruction::SmallSchools) {
+        let draft_year = if w.today <= w.dates.draft[0].date { w.year } else { w.year + 1 };
+        let mut small: Vec<(f64, u32)> = w
+            .people
+            .iter()
+            .filter(|p| {
+                (p.stage == Stage::Declared || (p.stage == Stage::College && draft_year - p.class_of >= 3))
+                    && p.college.is_some_and(|c| w.programs[c].division != crate::world::data::Division::FBS)
+                    && !w.clubs.get(t).is_some_and(|c| c.files.contains_key(&p.player.id))
+            })
+            .map(|p| (p.cal.draft_read.map_or(p.last_performance.unwrap_or(0.0), |r| r.score), p.player.id))
+            .collect();
+        small.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        let areas: Vec<usize> = w.clubs.get(t).map_or(Vec::new(), |c| {
+            c.scouts
+                .iter()
+                .enumerate()
+                .filter(|s| s.1.role == crate::world::pro::scouts::Role::Area)
+                .map(|s| s.0)
+                .collect()
+        });
+        for (k, &(_, id)) in small.iter().take(6).enumerate() {
+            if let Some(&who) = areas.get(k % areas.len().max(1)) {
+                club_look(w, t, id, who as u8, crate::world::pro::scouts::LookKind::Film, d);
+            }
         }
     }
     // Your focus: the director studies five more of the group's names a week.
@@ -301,7 +455,15 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
             let k = (d.0 / 7) as usize % 6;
             for &i in board.iter().skip(k * slice).take(slice) {
                 let id = w.people[i].player.id;
-                if let Some(c) = recruiter_for(w, prog, i) {
+                // A coach overruled again and again makes fewer calls (SK29).
+                if let Some(c) = recruiter_for(w, prog, i)
+                    && readers::chance(
+                        Staff::Program(prog),
+                        0x4EA7 ^ d.0 as u64,
+                        id,
+                        crate::world::front_office::chain::heart(w, c),
+                    )
+                {
                     let kind = if w.people[i].stage == Stage::College { Kind::OldStaff } else { Kind::Call };
                     add(w, id, COACH + c as u32, kind, d);
                 }

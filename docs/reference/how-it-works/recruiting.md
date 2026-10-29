@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, and the why-lines on commitments (lane 6) at 6200524 the same day.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, and the why-lines on commitments (lane 6) the same day.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -176,6 +176,26 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - The era's price (`price`): from 2025 at an opted-in school, a buyout of two years of his deal ($60,000-$1.5 million; every FBS school, at FCS the CAA, Missouri Valley and SWAC, never the Ivy League, the rest an even chance each year); from the 2021 season a premium on his NIL deal (a year of it + $25,000, $40,000-$600,000) from the buyer's collective; from 2018 a favour; before, a release to the buyer's school.
 - A player you placed with a friend a level down (C16) enters the next winter or spring window as a playing-time mover; the friend's program gets (0.08 + 0.08 × warmth) × his pull (head coach 1, coordinator 0.7, assistant 0.5).
 - His own high school coach on a staff (C17) adds 0.05 to that program's relationship with him (`run_signing_stage`, `hs_coach_at`).
+
+## Your offer chain (update 3, lane 7)
+
+`world/front_office/chain.rs`:
+
+- Mondays each position coach brings recruits he wants offered: his group's on your board with a staff read, best first, down to the line (the read centre of the cap-th kid; cap = live offers per open spot × need, FBS 4, FCS 3, below 2.5), at most two a week, only kids within reach (2 + ⌈3 × prestige⌉ stars, 3-5). His side's coordinator's film look goes in first (`dept::add`, HsFilm or CollegeFilm), and the recommendation reaches you once it's written up (`recommend`, `day`).
+- His conviction = clamp(8 + 2.5 × (read − line) / sd, 1, 20). You sign, decline, or sign all; with the board handed to your staff, their offers and pulls wait on the same list (`sign`, `decline`, `sign_all`; `front_office/college.rs`, `stage_board`).
+- Every offer you make or sign carries a film look of yours (`your_film`, `on_offer`). You can offer or pull anyone (`front_office/college.rs`, `offer`, `pull`).
+- Overruling a recommendation costs his trust 0.01 + 0.03 × conviction / 20; a tell at the third and fifth. September 1 three years on it settles: −0.05 more if he was right, +0.03 if you were (`overrule`, `settle`, `turned`: a hit starts at your level or higher, or is drafted). With more than two overrules in a year his area calls run at heart 1 − 0.1 × (n − 2), at least 0.6 (`heart`; `world/scouting/dept.rs`), and he weighs other jobs 0.015 × (n − 2), at most 4 steps, more (`world/staff.rs`, `weigh_offer`).
+- Passed on: a kid two or more points under the line with four stars or more (or more stars than the kids taken) is kept with who passed, when and why; flagged when four stars and in the top half of the class (`recommend`, `Passed`). Back on the board puts him back (`back_on_board`).
+
+## A high school coach recruiting to his school (update 3, lane 7)
+
+- At a high school seat you can pitch a kid in your state with a season left, four a season (`world/scouting/pitch.rs`, `pitch`). His family says yes at 0.2 + 0.8 × (your prestige − his school's), +0.15 for a backup, +0.05 rotation, −0.1 a starter; −0.05 across counties at a private school, −0.3 at a public one; 0.02-0.7 (`chance`).
+- June 15 the yeses move: an athletic transfer, sitting a year in Texas, else the state's rule (at least half a year) (`moves`). Found out 18% + 8% for each other kid that year (+15% in Texas from 2024 with three or more), between September 1 and November 15: every win so far forfeited if he played, he's ineligible to January 15, you're suspended a year (your school's games are coached without you; `world/hs_year.rs`) and lose a point of standing (`caught`, `sits`).
+
+## A famous coach's name (coaching C8)
+
+- A head coach's name from his playing days pulls recruits: (fame − 11) / 2 recruiting points, 0 to 3 (a star 17 → 3, a Pro Bowler 14 → 1.5), added to his recruiting and relationships read (`world/coach.rs`, `name_pull`; `recruiting.rs`, the `hc_skill` line). Full his first two seasons in the job, half the third, none from the fourth unless his last season beat expectation.
+- At a high school his name draws transfers: the pull to his school × (1 + points / 6) (`recruiting.rs`, `high_school_transfers`).
 
 ## NIL money
 

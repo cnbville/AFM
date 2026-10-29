@@ -267,6 +267,10 @@ impl Book {
                 record(self, t, r, f)
             }
             "person" | "alumnus" | "coach" | "program" | "school" | "club" => found(self, head, &arg, f),
+            "area" => area(self, &arg.to_ascii_uppercase(), f),
+            "panel" => panel_page(self, &arg, None, f),
+            "class" => panel_page(self, "class", Some(("class", &arg)), f),
+            "state" => panel_page(self, "state", Some(("state", &arg.to_ascii_uppercase())), f),
             "search" => search(self, &arg, f),
             "sql" => {
                 let mut v = View { page: "sql".into(), title: "SQL".into(), ..Default::default() };
@@ -280,7 +284,7 @@ impl Book {
                     "Pages: overview, ".to_string()
                         + &PAGES.iter().skip(1).map(|p| p.id).collect::<Vec<_>>().join(", "),
                 );
-                v.verdict.push("Also: checks, check <id>, odd, issues, knobs, coverage, tables, table <name>, dist <metric>, record <table> <row>, person|alumnus|coach|program|school|club <id>, search <text>, sql <query>".into());
+                v.verdict.push("Also: area <code>, panel <id>, class <year>, state <XX>, checks, check <id>, odd, issues, knobs, coverage, tables, table <name>, dist <metric>, record <table> <row>, person|alumnus|coach|program|school|club <id>, search <text>, sql <query>".into());
                 v
             }
         }
@@ -421,6 +425,13 @@ fn topic(b: &Book, id: &str, f: &Filters) -> View {
         ),
         lim,
     ));
+    v.sections.push(query(
+        b,
+        "Panels (afm_read <book> area <code> prints an area's whole)",
+        "table",
+        &format!("SELECT area, id, title, kind, n AS rows, says FROM panels WHERE {on} ORDER BY rowid"),
+        200,
+    ));
     let areas = pages::expand(p.areas).iter().map(|a| lit(a)).collect::<Vec<_>>().join(",");
     v.sections.push(query(
         b,
@@ -436,6 +447,121 @@ fn topic(b: &Book, id: &str, f: &Filters) -> View {
         "check <id> for one check with its years, source and SQL; dist <metric> for a whole spread; odd page={id}"
     ));
     v
+}
+
+/// One inventory area: its coverage, its checks and every panel (lane R6).
+fn area(b: &Book, code: &str, f: &Filters) -> View {
+    let mut v = View { page: format!("area {code}"), title: format!("Area {code}"), ..Default::default() };
+    if let Some(t) =
+        b.text_of(&format!("SELECT title || ' [' || status || ']' FROM coverage WHERE code = {}", lit(code)))
+    {
+        v.title = format!("{code} {t}");
+    }
+    let on = format!("(' ' || REPLACE(areas, ',', ' ') || ' ') LIKE '% {code} %'");
+    v.verdict.push(format!("Checks on this area: {}.", marks_line(b, &on)));
+    v.sections.push(query(
+        b,
+        "Checks against real",
+        "checks",
+        &format!("SELECT id, title, world, real, mark, says FROM checks WHERE {on} ORDER BY gap DESC"),
+        f.limit(40),
+    ));
+    let ids: Vec<String> = b
+        .rows(&format!("SELECT id FROM panels WHERE area = {} ORDER BY rowid", lit(code)))
+        .map(|(_, r)| r.iter().map(|x| cell(&x[0])).collect())
+        .unwrap_or_default();
+    for id in ids {
+        v.sections.extend(panel_sections(b, &id, None, f));
+    }
+    if let Some(t) = b.text_of(&format!("SELECT needs_new FROM coverage WHERE code = {}", lit(code)))
+        && let Ok(list) = serde_json::from_str::<Vec<String>>(&t)
+        && !list.is_empty()
+    {
+        v.sections.push(note("Not stored yet", list));
+    }
+    v.next.push("panel <id> for one panel whole; area <code> for another area".into());
+    v
+}
+
+/// One panel, or every panel of an entity page (`class`, `state`) with
+/// only the rows for its key.
+fn panel_page(b: &Book, what: &str, key: Option<(&str, &str)>, f: &Filters) -> View {
+    let mut v = View { page: format!("{what} {}", key.map_or("", |k| k.1)), ..Default::default() };
+    match key {
+        Some((col, val)) => {
+            v.title = if what == "class" { format!("The class of {val}") } else { format!("State {val}") };
+            let ids: Vec<String> = b
+                .rows(&format!("SELECT id FROM panels WHERE page = {} ORDER BY rowid", lit(what)))
+                .map(|(_, r)| r.iter().map(|x| cell(&x[0])).collect())
+                .unwrap_or_default();
+            for id in ids {
+                v.sections.extend(panel_sections(b, &id, Some((col, val)), f));
+            }
+        }
+        None => {
+            v.title = format!("Panel {what}");
+            v.sections.extend(panel_sections(b, what, None, f));
+        }
+    }
+    v
+}
+
+/// A panel as a section: its words line, then its rows (only `col = val`
+/// when given and the panel has that column).
+fn panel_sections(b: &Book, id: &str, key: Option<(&str, &str)>, f: &Filters) -> Vec<Section> {
+    let Ok((_, rows)) =
+        b.rows(&format!("SELECT title, kind, note, cols, rows, says, status, more FROM panels WHERE id = {}", lit(id)))
+    else {
+        return Vec::new();
+    };
+    let Some(r) = rows.first() else { return vec![note(id, vec!["no such panel".into()])] };
+    let cols: Vec<String> = serde_json::from_str(&cell(&r[3])).unwrap_or_default();
+    let mut data: Vec<Vec<serde_json::Value>> = serde_json::from_str(&cell(&r[4])).unwrap_or_default();
+    if let Some((col, val)) = key {
+        if let Some(i) = cols.iter().position(|c| c == col) {
+            data.retain(|row| {
+                row.get(i).is_some_and(|x| x.as_str().map_or_else(|| x.to_string(), str::to_string) == val)
+            });
+        }
+        if data.is_empty() {
+            return Vec::new();
+        }
+    }
+    let mut s = Section {
+        title: format!("{} ({id}, {})", cell(&r[0]), cell(&r[1])),
+        kind: "table".into(),
+        columns: cols,
+        ..Default::default()
+    };
+    let says = cell(&r[5]);
+    if !says.is_empty() {
+        s.notes.push(says);
+    }
+    let status = cell(&r[6]);
+    if status != "ok" {
+        s.notes.push(status);
+    }
+    let lim = f.limit(60);
+    if data.len() > lim {
+        s.more = data.len() - lim;
+        data.truncate(lim);
+    }
+    s.rows = data
+        .into_iter()
+        .map(|row| {
+            row.into_iter()
+                .map(|x| match x {
+                    serde_json::Value::Null => S::Null,
+                    serde_json::Value::Number(n) => {
+                        n.as_i64().map_or_else(|| S::Real(n.as_f64().unwrap_or(0.0)), S::Integer)
+                    }
+                    serde_json::Value::String(t) => S::Text(t),
+                    other => S::Text(other.to_string()),
+                })
+                .collect()
+        })
+        .collect();
+    vec![s]
 }
 
 fn checks(b: &Book, f: &Filters) -> View {

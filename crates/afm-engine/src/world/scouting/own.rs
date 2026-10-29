@@ -36,6 +36,9 @@ pub struct Own {
     /// SK12-SK13: your own days out.
     #[serde(default)]
     pub trips: Vec<Trip>,
+    /// Bug 82: your own film hours this week (its Monday, hours spent).
+    #[serde(default)]
+    pub film_week: Option<(Date, f32)>,
     /// SK14: the looks of yours already credited to your eye.
     #[serde(default)]
     pub eye_credited: Vec<u32>,
@@ -760,6 +763,114 @@ pub fn go(w: &mut World, id: u32, kind: TripKind, send: Option<u32>) -> Result<S
     }
     let who = if send.is_some() { "Sent" } else { "You go" };
     Ok(format!("{who}: {} for {name}, {}.", kind.words().to_lowercase(), d.pretty()))
+}
+
+// --- Bug 82: watching a player's film yourself -------------------------------------------
+
+/// Your own film hours a week, by seat and season: an NFL head coach from
+/// February to the draft lives in the film room, in season his week is the
+/// next opponent; a college head coach finds a few hours for recruits in
+/// season and more out of it; a high school coach has his own boys' tape
+/// (proposed, not confirmed).
+pub fn film_budget(w: &World) -> f32 {
+    let d = w.today;
+    let m = d.parts().1;
+    match readers::seat_staff(w) {
+        Some(Staff::Club(_)) if d >= w.dates.nfl_kickoff && d <= w.dates.super_bowl => 3.0,
+        Some(Staff::Club(_)) if (2..=4).contains(&m) && d < w.dates.draft[0].date => 20.0,
+        Some(Staff::Club(_)) => 8.0,
+        Some(Staff::Program(_)) if d >= w.dates.fall_camp && d <= w.dates.bowl_season.1 => 5.0,
+        Some(Staff::Program(_)) => 12.0,
+        Some(Staff::School(_)) if (9..=11).contains(&m) => 3.0,
+        Some(Staff::School(_)) => 6.0,
+        None => 0.0,
+    }
+}
+
+fn monday(d: Date) -> Date {
+    let mut d = d;
+    while d.weekday() != Weekday::Mon {
+        d = d.add(-1);
+    }
+    d
+}
+
+/// Your film hours left this week.
+pub fn film_left(w: &World) -> f32 {
+    let used = w.scouting.own.film_week.filter(|x| x.0 == monday(w.today)).map_or(0.0, |x| x.1);
+    (film_budget(w) - used).max(0.0)
+}
+
+/// What watching him takes, and the look it is: a recruit's reel and a
+/// full game, about an hour; a college player's three games, every snap
+/// of his, two and a half; a pro's cut-ups, two.
+pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String> {
+    let i = super::place(w, id).ok_or("No such player.")?;
+    let p = &w.people[i];
+    let f = super::footage::footage(w, i);
+    match p.stage {
+        Stage::HighSchool | Stage::PrepSchool if f.snaps > 0.0 || f.reels => {
+            Ok((Kind::HsFilm, 1.0, "his highlight reel and a full game"))
+        }
+        Stage::HighSchool | Stage::PrepSchool => {
+            Err("There's no film of him yet: he hasn't played a high school game.".into())
+        }
+        Stage::College | Stage::Declared if f.snaps > 0.0 => {
+            Ok((Kind::CollegeFilm, 2.5, "three of his games, every snap"))
+        }
+        Stage::College | Stage::Declared => Err("He hasn't played a college snap: there's nothing to watch.".into()),
+        Stage::Pro => Ok((Kind::ProFilm, 2.0, "his cut-ups from last season")),
+        _ => Err("There's no film of him.".into()),
+    }
+}
+
+/// Why you can't watch his film yourself now, if you can't: you watched
+/// him today, or the week's film hours are spent.
+pub fn film_blocked(w: &World, id: u32) -> Option<String> {
+    let you = me(w)?;
+    let (kind, hours, _) = film_cost(w, id).ok()?;
+    let d = w.today;
+    if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
+        return Some("You watched him today already: the next look is another day's tape.".into());
+    }
+    let left = film_left(w);
+    (hours > left + 0.01).then(|| {
+        format!(
+            "Your film hours are spent this week ({:.0} of {:.0}): give it to your staff, or watch him on Monday.",
+            film_budget(w) - left,
+            film_budget(w)
+        )
+    })
+}
+
+/// You watch his film yourself, today, on your own hours: the look goes in
+/// his file under your name, read by your own eye.
+pub fn watch_film(w: &mut World, id: u32) -> Result<String, String> {
+    let you = me(w).ok_or("Start a career first.")?;
+    let staff = readers::seat_staff(w).ok_or("Start a career first.")?;
+    let (kind, hours, what) = film_cost(w, id)?;
+    if let Some(why) = film_blocked(w, id) {
+        return Err(why);
+    }
+    let d = w.today;
+    let wk = monday(d);
+    let used = w.scouting.own.film_week.filter(|x| x.0 == wk).map_or(0.0, |x| x.1);
+    w.scouting.own.film_week = Some((wk, used + hours));
+    super::dept::add(w, id, you, kind, d);
+    // An NFL club's board reads its own file, the head coach under the
+    // club's code.
+    if let Staff::Club(c) = staff
+        && w.nfl.get(c).and_then(|x| x.head_coach) == readers::you(w)
+    {
+        super::dept::club_look(w, c, id, scouts::HC, scouts::LookKind::Film, d);
+    }
+    w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Film);
+    let i = super::place(w, id).ok_or("No such player.")?;
+    let name = w.people[i].name.clone();
+    Ok(format!(
+        "You watched {what} of {name} ({hours:.1} hours). Your read is in his file; {:.1} film hours left this week.",
+        film_left(w)
+    ))
 }
 
 /// The day's trips: the look goes in the file under the name of who went,

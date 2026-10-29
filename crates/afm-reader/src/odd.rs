@@ -52,7 +52,7 @@ pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool, issues: &Issues) -> rusq
         }
     }
     // One record: consistency checks.
-    for rule in crate::defs::RULES {
+    for rule in crate::defs::rules() {
         if !have(rule.needs) {
             b.conn.execute(
                 "INSERT INTO consistency VALUES(?1,?2,?3,'no data',0,0,?4,?5,?6)",
@@ -107,7 +107,7 @@ pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool, issues: &Issues) -> rusq
         }
     }
     // One record: rare values, with their percentile against the world.
-    for o in crate::defs::OUTLIERS {
+    for o in crate::defs::outliers() {
         if !have(o.needs) {
             continue;
         }

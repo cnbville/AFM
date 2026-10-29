@@ -22,17 +22,22 @@ pub mod dept;
 pub mod file;
 pub mod footage;
 pub mod hs;
+pub mod letters;
 pub mod lines;
 pub mod live;
 pub mod lookback;
+pub mod outside;
 pub mod own;
+pub mod pitch;
 pub mod predraft;
 pub mod pro;
 pub mod public;
 pub mod readers;
 pub mod services;
 pub mod social;
+pub mod stake;
 pub mod supp;
+pub mod yours;
 
 use std::collections::HashMap;
 
@@ -351,6 +356,15 @@ pub struct Scouting {
     /// picks and the announced top schools (update 2, lane 7).
     #[serde(default)]
     pub rankings: services::Rankings,
+    /// The players you staked your name on (SK40).
+    #[serde(default)]
+    pub stakes: stake::Stakes,
+    /// Kids you went after for your high school (SK42).
+    #[serde(default)]
+    pub pitches: pitch::Pitches,
+    /// Athletes from outside football you signed (SK65), by key.
+    #[serde(default)]
+    pub outside: Vec<u64>,
 }
 
 /// The daily scouting work (called from the clock each day, after the
@@ -372,6 +386,9 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
         hs::day(w, d);
         lookback::day(w, d);
         own::day(w, d);
+        stake::day(w, d);
+        letters::day(w, d);
+        pitch::day(w, d);
     }
 }
 

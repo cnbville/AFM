@@ -4,7 +4,7 @@
  *
  *   H1  a rating's name explains itself (help_attr): any element whose
  *       whole text is a rating's label ("Arm strength") gets data-h1.
- *   H3  a level rating ("76 among FBS players") explains itself
+ *   H3  a level badge ("FBS level 73") explains itself
  *       (help_level): the screens mark it with data-h3="<player id>".
  *   H7  football terms in any text explain themselves (the glossary below):
  *       the first time a term shows in a page it gets a dotted line.
@@ -194,7 +194,7 @@ function hpLevelHtml(x) {
     <p>${esc(x.what)}</p>
     <p>${esc(x.pool)}</p>
     <p class="rr-comb"><span class="st-label">The scale</span>${esc(x.scale)}</p>
-    ${x.above ? `<p class="hp-above">${esc(x.above)}${x.start ? ` ${esc(x.start)}` : ""}</p>` : x.start ? `<p>${esc(x.start)}</p>` : ""}
+    ${x.above ? `<p class="hp-above">${esc(x.above)}</p>` : ""}
     <p class="rr-pool">${esc(x.public)}</p>`;
 }
 function hpTermHtml(term) {

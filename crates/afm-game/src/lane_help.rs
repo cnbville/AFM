@@ -7,8 +7,9 @@
 //! - H2 `last_year`: how your staff's read of a rating moved since the last
 //!   season it kept (`Career::kept_reads`) and the biggest reasons it can
 //!   see. `lane_ratings::card` adds it to the range's hover card.
-//! - H3 `help_level`: what a level rating ("76 among FBS players") ranks
-//!   against, its five-season scale and how many rated above him.
+//! - H3 `help_level`: what a level badge ("FBS level 73", lane 7's read of
+//!   your staff) is placed against, its five-season scale and how many
+//!   rated above that last season.
 //! - H4 `why_here`: who put a man on a depth chart spot, why, and who else
 //!   could play it (board 37, WhyHerePB; `lane_squadboards::depth`).
 //! - H5 `weak_spots`: the lineup choices of yours your staff thinks are
@@ -347,7 +348,7 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<V
     } else if let Some((name, m)) = was_fam {
         // Only the family's middle was kept: the move is the family's.
         let fam_now = fams.iter().find(|f| f.0 == name).and_then(|f| {
-            let reads = reads::attributes(&p.player, own(w, i), eye(w, i), views::reader_key(w));
+            let reads = reads::attributes(w, i);
             crate::lane_squadboards::family_read(&reads, f).map(|(lo, hi)| (lo + hi) / 2.0)
         });
         let d = fam_now.map_or(0.0, |x| x - m as f64);
@@ -384,11 +385,6 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<V
 
 fn own(w: &World, i: usize) -> bool {
     views::team_of(w, &w.people[i]).is_some_and(|t| views::is_mine(w, t))
-}
-
-fn eye(w: &World, i: usize) -> f64 {
-    let p = &w.people[i];
-    views::team_of(w, p).filter(|_| own(w, i)).map_or(10.0, |t| views::eye_for(w, t, p.player.position))
 }
 
 /// The biggest reasons a rating moved that your staff can see: his last
@@ -473,10 +469,13 @@ fn level_help(w: &World, id: u32) -> Reply {
     let i = views::person_index(w, id).ok_or("That player is no longer in football.")?;
     let p = &w.people[i];
     let h = p.player.history.last().ok_or("He has no rated season yet.")?;
-    let r = h.level_rating_end.or(h.level_rating).ok_or("He has no level rating.")?;
     let group = level_group(h.level, h.age).ok_or("Pros carry no level rating.")?;
+    // Lane 7's badge (minor bugs 49-56): your staff's read placed on the
+    // scale of his newest season's group.
+    let (r, words) = crate::lane_core::pages::level_read(w, i).ok_or("Your staff hasn't read him yet.")?;
     let rating = |s: &afm_engine::player::SeasonRecord| s.level_rating_end.or(s.level_rating);
-    // This season's rated rows, as the world rates them (`attach_level_ratings`).
+    // Last season's rated rows in his group, as the world rates them
+    // (`attach_level_ratings`): the scale the badge is placed on.
     let (mut above, mut total) = (0u32, 0u32);
     for q in &w.people {
         let Some(s) = q.player.history.last() else { continue };
@@ -491,41 +490,41 @@ fn level_help(w: &World, id: u32) -> Reply {
         }
     }
     let fresh = h.age + 1 == p.player.age;
-    let (title, pool, scale) = match group {
-        LevelGroup::College => (
-            format!("{r} among FBS players"),
-            "Every college player's last season on one scale. FBS seasons set it; an FCS season counts one overall point lower and a smaller college's five.".to_string(),
-            "Pooled over the last five seasons: a median player rates about 72, the No. 700 about 85, the No. 100 about 90 and the No. 8 about 95.",
-        ),
-        LevelGroup::HS(_) => {
-            let peers = match p.class_of - w.year.min(p.class_of) {
-                0 => "seniors",
-                1 => "juniors",
-                2 => "sophomores",
-                _ => "freshmen",
-            };
-            (
-                format!("{r} among {peers}"),
-                format!("Every high school player his age in the country, {peers} by last season's class."),
-                "Pooled over the last five seasons: a median player rates about 50, the No. 2,000 about 80, the No. 100 about 90 and the No. 8 about 95.",
-            )
-        }
+    let pool = match group {
+        LevelGroup::College => "Every college player on one scale. FBS seasons set it; an FCS player's read counts one point lower and a smaller college's five.".to_string(),
+        LevelGroup::HS(_) => format!("Every high school {} in the country.", plural_class(words)),
     };
-    let start = h.level_rating.filter(|&s| Some(s) != h.level_rating_end);
+    let marks = afm_engine::world::level_pool(h.level)
+        .map(|pl| {
+            afm_engine::level_rating::marks(pl)
+                .into_iter()
+                .filter(|(t, _)| !t.starts_with("Bottom"))
+                .map(|(t, x)| format!("{t} {x:.0}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default();
     Ok(json!({
-        "title": title,
+        "title": format!("{words} level {r}"),
         "rating": r,
-        "what": "His overall from last season, set against his own position so a 76 means the same at every spot, then ranked.",
+        "what": "Your staff's read of his overall now, set against his own position so a 73 means the same at every spot, then placed on his group's scale.",
         "pool": pool,
-        "scale": scale,
-        "above": if fresh {
-            Some(format!("{} rated above him last season, of {}.", count_words(above), thousands(total)))
+        "scale": format!("Pooled over the last five seasons' final ratings: {marks}."),
+        "above": if fresh && total > 0 {
+            Some(format!("{} rated above {r} last season, of {}.", count_words(above), thousands(total)))
         } else {
             None
         },
-        "start": start.map(|s| format!("He began that season at {s}.")),
-        "public": "It is the public rating of his season, the same for every staff. Your staff's read of him is the range.",
+        "public": "It comes from your staff's read, so another staff may place him higher or lower. The range is the same read in full.",
     }))
+}
+
+/// "Senior" -> "seniors", for the high school pool's words.
+fn plural_class(words: &str) -> String {
+    match words {
+        "Freshman" => "freshmen".into(),
+        w => format!("{}s", w.to_lowercase()),
+    }
 }
 
 fn count_words(n: u32) -> String {
@@ -560,16 +559,31 @@ fn join_and(v: &[String]) -> String {
 
 /// Your staff's read of one of your men at a position: his own position's
 /// overall read there, else the "where else he could play" read.
-pub(crate) fn read_at(w: &World, t: TeamRef, i: usize, pos: Position) -> Read {
-    let p = &w.people[i];
-    let e = views::eye_for(w, t, p.player.position);
-    let reader = views::reader_key(w);
-    if p.player.position == pos {
-        return reads::overall(&p.player, true, e, reader);
+pub(crate) fn read_at(w: &World, i: usize, pos: Position) -> Read {
+    let s = reads::seen(w, i);
+    if w.people[i].player.position == pos {
+        return s.overall();
     }
-    let v = afm_engine::positions::overall_for(pos, &p.player.attributes);
-    let half = 2.0 + (20.0 - e.clamp(1.0, 20.0)) * 0.12;
-    reads::range(v, half + 1.0, reader, p.player.id, 300 + pos.index())
+    if let Some((_, (lo, hi))) = s.positions.iter().find(|x| x.0 == pos) {
+        return Read::Range(*lo, *hi);
+    }
+    // Elsewhere: the same file's attribute middles weighed for the spot,
+    // a point wider than his own position's, as lane 7's best four are.
+    let Some((_, sd)) = s.now else { return Read::NotSeen };
+    let seen: Vec<f64> = s.attrs.iter().flatten().map(|&(lo, hi)| (lo as f64 + hi as f64) / 2.0).collect();
+    if seen.is_empty() {
+        return Read::NotSeen;
+    }
+    let fill = seen.iter().sum::<f64>() / seen.len() as f64;
+    let mut centres = afm_engine::attributes::Attributes::filled(fill);
+    for (k, r) in s.attrs.iter().enumerate() {
+        if let Some((lo, hi)) = r {
+            centres.set_at(k, (*lo as f64 + *hi as f64) / 2.0);
+        }
+    }
+    let (lo, hi) =
+        afm_engine::world::scouting::yours::range((afm_engine::positions::overall_for(pos, &centres), sd + 1.0));
+    Read::Range(lo, hi)
 }
 
 fn rr(r: Read) -> String {
@@ -610,10 +624,8 @@ fn chart_keeper(w: &World, pos: Position) -> Option<(String, String)> {
 /// "Why is he here?" for one depth chart spot (board 37): who put the
 /// first man there, the biggest reasons your staff sees, who else could
 /// play the spot and their practice this block. `men` are the spot's three.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn why_here(
     w: &World,
-    t: TeamRef,
     roster: &[usize],
     pos: Position,
     spot: &str,
@@ -624,7 +636,7 @@ pub(crate) fn why_here(
     let Some(a) = men[0] else { return Value::Null };
     let pa = &w.people[a];
     let (one, _) = crate::lane_ratings::pos_words(pos);
-    let ra = read_at(w, t, a, pos);
+    let ra = read_at(w, a, pos);
     // Who put him there.
     let (by, by_name, when) = if !controls {
         let hc = w.your_boss().map(|c| w.coaches[c].name.clone()).unwrap_or_else(|| "The head coach".into());
@@ -665,7 +677,7 @@ pub(crate) fn why_here(
         .iter()
         .copied()
         .filter(|&k| k != a && (w.people[k].player.position == pos || men.contains(&Some(k))))
-        .map(|k| (mid(read_at(w, t, k, pos)).unwrap_or(0.0), k))
+        .map(|k| (mid(read_at(w, k, pos)).unwrap_or(0.0), k))
         .collect();
     pool.sort_by(|x, y| y.0.total_cmp(&x.0));
     let healthy = |k: usize| health(w, k).0 != "out";
@@ -686,7 +698,7 @@ pub(crate) fn why_here(
     // 2. The read at the spot.
     match next {
         Some(b) => {
-            let rb = read_at(w, t, b, pos);
+            let rb = read_at(w, b, pos);
             let gap = ma - mid(rb).unwrap_or(0.0);
             let title = if gap >= 4.0 {
                 format!("Your staff's best read at {one}")
@@ -702,10 +714,8 @@ pub(crate) fn why_here(
                 format!("{} {} here; {}, the next healthy man, {}.", last_name(w, a), rr(ra), w.people[b].name, rr(rb)),
             ));
             // 3. Where he beats the next man most.
-            let reader = views::reader_key(w);
-            let ea = reads::attributes(&pa.player, true, views::eye_for(w, t, pa.player.position), reader);
-            let pb = &w.people[b];
-            let eb = reads::attributes(&pb.player, true, views::eye_for(w, t, pb.player.position), reader);
+            let ea = reads::attributes(w, a);
+            let eb = reads::attributes(w, b);
             let get = |v: &[(Attr, Read)], x: Attr| v.iter().find(|y| y.0 == x).map_or(Read::NotSeen, |y| y.1);
             let best = key_attrs(pos)
                 .into_iter()
@@ -765,7 +775,7 @@ pub(crate) fn why_here(
                 && w.people[k].player.position != pos
                 && !w.people[k].player.position.is_specialist()
         })
-        .map(|k| (mid(read_at(w, t, k, pos)).unwrap_or(0.0), k))
+        .map(|k| (mid(read_at(w, k, pos)).unwrap_or(0.0), k))
         .max_by(|x, y| x.0.total_cmp(&y.0));
     if let Some((_, k)) = cross {
         alts.push(k);
@@ -775,7 +785,7 @@ pub(crate) fn why_here(
         .iter()
         .map(|&k| {
             let q = &w.people[k];
-            let r = read_at(w, t, k, pos);
+            let r = read_at(w, k, pos);
             let (h, hw) = health(w, k);
             let d = mid(r).unwrap_or(0.0) - ma;
             let note = if h == "out" {
@@ -854,10 +864,10 @@ pub(crate) fn weak_spots(w: &World, t: TeamRef) -> Vec<(Position, String)> {
             .iter()
             .copied()
             .filter(|&k| w.people[k].player.position == pos && !starters.contains(&k) && health(w, k).0 != "out")
-            .map(|k| (read_at(w, t, k, pos), k))
+            .map(|k| (read_at(w, k, pos), k))
             .collect();
         for &s in &starters {
-            let rs = read_at(w, t, s, pos);
+            let rs = read_at(w, s, pos);
             let (Read::Range(_, shi), Some(sm)) = (rs, mid(rs)) else { continue };
             let best = bench
                 .iter()
