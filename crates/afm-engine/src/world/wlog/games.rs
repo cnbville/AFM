@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, HashMap};
 use serde_json::{Map, Value, json};
 
 use super::WorldLog;
-use super::lean::{lean, num};
+use super::lean::{full, lean, num};
 use crate::game::drives::drives;
 use crate::game::{GameResult, GameStats, GameTeam, PlayRecord, PlayType};
 use crate::world::game_log::{GameSitu, Situ, bump};
@@ -24,9 +24,10 @@ use crate::world::game_log::{GameSitu, Situ, bump};
 pub type Head = Map<String, Value>;
 
 /// One team's box: the engine's team totals and what the player lines
-/// and plays add (touchdowns by kind, sack yards, kicks and returns).
+/// and plays add (touchdowns by kind, sack yards, kicks and returns),
+/// every field kept, zeros too.
 fn team_box(s: &GameStats, side: usize) -> Value {
-    let mut b = match lean(&s.team[side]) {
+    let mut b = match full(&s.team[side]) {
         Value::Object(m) => m,
         _ => Map::new(),
     };
@@ -78,9 +79,7 @@ fn team_box(s: &GameStats, side: usize) -> Value {
         }
     }
     for (k, v) in add {
-        if v != 0.0 {
-            b.insert(k.into(), num(v));
-        }
+        b.insert(k.into(), num(v));
     }
     Value::Object(b)
 }

@@ -13,7 +13,13 @@ use super::games::{empty, round};
 
 /// `x` as the log writes it.
 pub(crate) fn lean<T: Serialize + ?Sized>(x: &T) -> Value {
-    x.serialize(Lean).unwrap_or(Value::Null)
+    x.serialize(Lean { keep: false }).unwrap_or(Value::Null)
+}
+
+/// `x` rounded the same way with every field kept, zeros too: a team's
+/// box, so a sum or an average over boxes never meets a missing zero.
+pub(crate) fn full<T: Serialize + ?Sized>(x: &T) -> Value {
+    x.serialize(Lean { keep: true }).unwrap_or(Value::Null)
 }
 
 /// A decimal as the log writes it: rounded, and whole when it is whole.
@@ -26,27 +32,25 @@ pub(crate) fn num(x: f64) -> Value {
     }
 }
 
-struct Lean;
+#[derive(Clone, Copy)]
+struct Lean {
+    /// Keep empty fields too (`full`).
+    keep: bool,
+}
 
 /// A struct's or map's kept fields; a variant's name when it has one.
 pub(crate) struct Fields {
     map: Map<String, Value>,
     key: Option<String>,
     variant: Option<&'static str>,
-}
-
-impl Fields {
-    fn put(&mut self, k: String, v: Value) {
-        if !empty(&v) {
-            self.map.insert(k, v);
-        }
-    }
+    lean: Lean,
 }
 
 /// A sequence's parts, every place kept; a variant's name when it has one.
 pub(crate) struct Parts {
     items: Vec<Value>,
     variant: Option<&'static str>,
+    lean: Lean,
 }
 
 fn named(variant: Option<&'static str>, v: Value) -> Value {
@@ -117,7 +121,7 @@ impl ser::Serializer for Lean {
         Ok(Value::Null)
     }
     fn serialize_some<T: Serialize + ?Sized>(self, v: &T) -> Result<Value, Error> {
-        v.serialize(Lean)
+        v.serialize(self)
     }
     fn serialize_unit(self) -> Result<Value, Error> {
         Ok(Value::Null)
@@ -129,7 +133,7 @@ impl ser::Serializer for Lean {
         Ok(Value::String(variant.to_string()))
     }
     fn serialize_newtype_struct<T: Serialize + ?Sized>(self, _: &'static str, v: &T) -> Result<Value, Error> {
-        v.serialize(Lean)
+        v.serialize(self)
     }
     fn serialize_newtype_variant<T: Serialize + ?Sized>(
         self,
@@ -138,10 +142,10 @@ impl ser::Serializer for Lean {
         variant: &'static str,
         v: &T,
     ) -> Result<Value, Error> {
-        Ok(named(Some(variant), v.serialize(Lean)?))
+        Ok(named(Some(variant), v.serialize(self)?))
     }
     fn serialize_seq(self, len: Option<usize>) -> Result<Parts, Error> {
-        Ok(Parts { items: Vec::with_capacity(len.unwrap_or(0)), variant: None })
+        Ok(Parts { items: Vec::with_capacity(len.unwrap_or(0)), variant: None, lean: self })
     }
     fn serialize_tuple(self, len: usize) -> Result<Parts, Error> {
         self.serialize_seq(Some(len))
@@ -156,10 +160,10 @@ impl ser::Serializer for Lean {
         variant: &'static str,
         len: usize,
     ) -> Result<Parts, Error> {
-        Ok(Parts { items: Vec::with_capacity(len), variant: Some(variant) })
+        Ok(Parts { items: Vec::with_capacity(len), variant: Some(variant), lean: self })
     }
     fn serialize_map(self, _: Option<usize>) -> Result<Fields, Error> {
-        Ok(Fields { map: Map::new(), key: None, variant: None })
+        Ok(Fields { map: Map::new(), key: None, variant: None, lean: self })
     }
     fn serialize_struct(self, _: &'static str, _: usize) -> Result<Fields, Error> {
         self.serialize_map(None)
@@ -171,7 +175,7 @@ impl ser::Serializer for Lean {
         variant: &'static str,
         _: usize,
     ) -> Result<Fields, Error> {
-        Ok(Fields { map: Map::new(), key: None, variant: Some(variant) })
+        Ok(Fields { map: Map::new(), key: None, variant: Some(variant), lean: self })
     }
 }
 
@@ -179,7 +183,7 @@ impl ser::SerializeSeq for Parts {
     type Ok = Value;
     type Error = Error;
     fn serialize_element<T: Serialize + ?Sized>(&mut self, v: &T) -> Result<(), Error> {
-        self.items.push(v.serialize(Lean)?);
+        self.items.push(v.serialize(self.lean)?);
         Ok(())
     }
     fn end(self) -> Result<Value, Error> {
@@ -234,13 +238,15 @@ impl ser::SerializeMap for Fields {
     type Ok = Value;
     type Error = Error;
     fn serialize_key<T: Serialize + ?Sized>(&mut self, k: &T) -> Result<(), Error> {
-        self.key = Some(key(k.serialize(Lean)?)?);
+        self.key = Some(key(k.serialize(self.lean)?)?);
         Ok(())
     }
     fn serialize_value<T: Serialize + ?Sized>(&mut self, v: &T) -> Result<(), Error> {
         let k = self.key.take().ok_or_else(|| ser::Error::custom("a map value without its key"))?;
-        let v = v.serialize(Lean)?;
-        self.put(k, v);
+        let v = v.serialize(self.lean)?;
+        if self.lean.keep || !empty(&v) {
+            self.map.insert(k, v);
+        }
         Ok(())
     }
     fn end(self) -> Result<Value, Error> {
@@ -252,8 +258,8 @@ impl ser::SerializeStruct for Fields {
     type Ok = Value;
     type Error = Error;
     fn serialize_field<T: Serialize + ?Sized>(&mut self, k: &'static str, v: &T) -> Result<(), Error> {
-        let v = v.serialize(Lean)?;
-        if !empty(&v) {
+        let v = v.serialize(self.lean)?;
+        if self.lean.keep || !empty(&v) {
             self.map.insert(k.to_string(), v);
         }
         Ok(())
