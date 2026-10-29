@@ -1068,6 +1068,7 @@ Cain agreed to the speed items on 2026-10-26 and to B1-B4 on 2026-10-28.
 - The S10 proof is small (2.7% and 0.8%).
 - The 6-point misread should be checked against the real five-star draft rate on the world reader's data (R2).
 - 66% of the world's seniors have a laser forty; there is no real share to check it against, and real college camps often hand-time, so camps may laser too many.
+- B1 carries every injury now (a defender's never carried before): in a 3-year world's February most clubs hold 0-7 on reserve and four hold 10-25 (the Lions 25, 20 of them healed with no IR returns left). Not checked against real end-of-season reserve lists.
 - `lib.rs` `LANES` did not grow: this lane added no commands of its own.
 
 ## Not built yet (section 8's design, for the next builds)

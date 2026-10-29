@@ -562,7 +562,6 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
         if ir && c.status == Status::Roster {
             c.status = Status::Reserve;
             c.pup = false;
-            let t = teams[inj.side];
             let name = w.nfl[t].name;
             let p = &mut w.people[i];
             let age = p.row_age();

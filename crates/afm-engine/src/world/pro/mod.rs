@@ -2013,7 +2013,9 @@ fn heal_week(w: &mut World) {
 }
 
 /// Each night, after the day's games (B1): every injured pro is a day
-/// closer, in season and out, NFL and the other leagues alike. A player
+/// closer, in season and out, NFL and the other leagues alike, and a man
+/// who retired hurt heals too (the Tuesday rebuild and a loaded world's
+/// first night count him, so a save plays on as the original). A player
 /// healed today on injured reserve comes back while his team has returns
 /// left (from 2012), else he waits out the season there; healed on the
 /// reserve/PUP list he is back on the roster without using one. A save from
@@ -2022,12 +2024,8 @@ pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
     let year = w.year;
     let in_season = d >= y.cutdown.date && d <= y.super_bowl;
     if d.weekday() == crate::calendar::Weekday::Tue || w.hurt_pros.1 != Some(d.add(-1)) {
-        let all = w
-            .people
-            .iter()
-            .filter(|p| p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.out_weeks > 0))
-            .map(|p| p.player.id)
-            .collect();
+        let all =
+            w.people.iter().filter(|p| p.pro.as_ref().is_some_and(|c| c.out_weeks > 0)).map(|p| p.player.id).collect();
         w.hurt_pros.0 = all;
     }
     w.hurt_pros.1 = Some(d);

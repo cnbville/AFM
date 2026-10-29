@@ -716,7 +716,7 @@ pub struct World {
     /// tapes, so a new career has film of its first opponents (tape.rs).
     #[serde(skip)]
     pub(crate) world_tapes: bool,
-    /// Pros out injured by player id, for the morning's heal (B1), and the
+    /// Pros out injured by player id, for the nightly heal (B1), and the
     /// day it last ran; rebuilt from everyone each Tuesday and after a load.
     /// Ids, not places in `people`, since the people list is purged.
     #[serde(skip)]
