@@ -325,7 +325,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         let draft_day =
             if dy == w.year { w.dates.draft[0].date } else { crate::calendar::YearDates::new(dy).draft[0].date };
         let last_week = d.add(7) > draft_day;
-        let teams = crate::world::franchise::active_teams(dy).len().max(1);
+        let teams = crate::world::franchise::active_teams_in(w, dy).len().max(1);
         for (k, desk) in &desks {
             let n = if last_week { 2 * teams } else { teams };
             let mk = mock(w, desk, &pool, week, n);

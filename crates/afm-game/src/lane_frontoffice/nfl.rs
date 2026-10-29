@@ -743,7 +743,7 @@ fn trade_desk(w: &World) -> Reply {
         .collect();
     let block: Vec<Value> =
         w.front_office.trades.block.iter().filter_map(|&id| fo::index_of(w, id)).map(|i| prow(w, i)).collect();
-    let teams: Vec<Value> = afm_engine::world::franchise::active_teams(w.year)
+    let teams: Vec<Value> = afm_engine::world::franchise::active_teams_in(w, w.year)
         .into_iter()
         .filter(|&o| o != t)
         .map(|o| {

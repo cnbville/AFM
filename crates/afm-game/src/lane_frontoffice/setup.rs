@@ -208,6 +208,11 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
             Some("other") => Level::Other,
             _ => Level::College,
         }),
+        // A team that doesn't exist yet (next update, lane 10, SK68).
+        "ground" => Start::Head(
+            crate::lane_groundzero::make_team(w, args.get("job").unwrap_or(&Value::Null))?
+                .ok_or("Pick a team to build.")?,
+        ),
         _ => Start::Head(job()?),
     };
     let (placement, resume) = placement(w, args);

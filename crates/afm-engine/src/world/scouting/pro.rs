@@ -96,7 +96,8 @@ fn staff(w: &mut World, t: usize) {
         });
     }
     // Each pro scout covers his share of the league's other clubs.
-    let others: Vec<usize> = crate::world::franchise::active_teams(year).into_iter().filter(|&c| c != t).collect();
+    let others: Vec<usize> =
+        crate::world::franchise::active_teams_in(w, year).into_iter().filter(|&c| c != t).collect();
     let scouts = n.max(1);
     let mut clubs: Vec<(u8, Vec<usize>)> = (1..=scouts).map(|k| (k as u8, Vec::new())).collect();
     for (j, c) in others.into_iter().enumerate() {
@@ -173,7 +174,7 @@ pub(crate) fn minicamp_tryouts(w: &mut World, unsigned: &[usize], boards: &[Boar
         return out;
     }
     let year = w.year;
-    let teams = crate::world::franchise::active_teams(year);
+    let teams = crate::world::franchise::active_teams_in(w, year);
     for &t in &teams {
         if t >= boards.len() {
             continue;

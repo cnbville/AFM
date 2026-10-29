@@ -1227,7 +1227,7 @@ pub(crate) fn ranking(w: &World, division: Division) -> Vec<(usize, f64)> {
     let members: Vec<usize> = w
         .programs
         .iter()
-        .filter(|p| p.division == division && !p.roster.is_empty() && p.plays(w.year))
+        .filter(|p| p.division == division && !p.roster.is_empty() && p.fields_games(w.year))
         .map(|p| p.id)
         .collect();
     let set: HashSet<usize> = members.iter().copied().collect();
@@ -1406,7 +1406,7 @@ fn stakes_of(w: &World, idx: &[usize]) -> (Vec<StakeUpdate>, Vec<StakeNote>) {
     // conference, and the regular-season games it has left.
     let mut conf_best: HashMap<&str, u32> = HashMap::new();
     for (t, prog) in w.programs.iter().enumerate() {
-        if prog.division == Division::FBS && !prog.roster.is_empty() && prog.plays(w.year) {
+        if prog.division == Division::FBS && !prog.roster.is_empty() && prog.fields_games(w.year) {
             let e = conf_best.entry(prog.conference.as_str()).or_insert(u32::MAX);
             *e = (*e).min(cs.results[t].conf_losses);
         }
@@ -1711,7 +1711,7 @@ pub(crate) fn regular_season_end(w: &mut World, division: Division) {
     let rank: HashMap<usize, usize> =
         ranking(w, division).into_iter().enumerate().map(|(k, (t, _))| (t, k + 1)).collect();
     let mut confs: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    for p in w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty() && p.plays(w.year)) {
+    for p in w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty() && p.fields_games(w.year)) {
         if !p.conference.contains("Independent") {
             confs.entry(p.conference.clone()).or_default().push(p.id);
         }
@@ -2388,7 +2388,9 @@ pub(crate) fn bowl_practices(w: &mut World, date: Date) {
         })
         .collect();
     let practice: HashMap<usize, u32> = teams.into_iter().collect();
-    let gains: f64 = w
+    // Summed in people order: a parallel float sum depends on how the
+    // work was split, and a saved world must play on identically.
+    let gains: Vec<f64> = w
         .people
         .par_iter_mut()
         .filter(|p| p.stage == Stage::College && p.college.is_some_and(|c| practice.contains_key(&c)))
@@ -2396,8 +2398,8 @@ pub(crate) fn bowl_practices(w: &mut World, date: Date) {
             let c = p.college.unwrap();
             crate::development::extra_practices(&mut p.player, practice[&c], coaching[&c], &mut p.rng)
         })
-        .sum();
-    w.log.bowl_practice_gain += gains;
+        .collect();
+    w.log.bowl_practice_gain += gains.iter().sum::<f64>();
 }
 
 // --- Awards and honors (A25) ---------------------------------------------------------------

@@ -334,7 +334,7 @@ fn offers(w: &World, l: &LiveDraft) -> Vec<TradeOffer> {
         v.truncate(n);
         v
     };
-    let teams = crate::world::franchise::active_teams(run.year).len().max(1);
+    let teams = crate::world::franchise::active_teams_in(w, run.year).len().max(1);
     let seed = w.options.seed as u64 ^ (run.year as u64) << 20 ^ 0x5EA7;
     let mut out = Vec::new();
     let mut seen = vec![l.team];
@@ -420,7 +420,7 @@ pub fn quote(w: &World, l: &LiveDraft, their_slot: usize) -> Option<TradeOffer> 
     let chart = |s: usize| crate::world::pro::trades::chart(g.classic_chart, s as f64 + 1.0);
     // A club asks a little over the chart to move down (about 5%).
     let gap = 1.05 * (chart(their_slot) - chart(mine));
-    let teams = crate::world::franchise::active_teams(run.year).len().max(1);
+    let teams = crate::world::franchise::active_teams_in(w, run.year).len().max(1);
     let later = (mine + 1..run.board.len()).filter(|&q| run.board[q].0 == l.team).find(|&q| chart(q) >= gap);
     let (slot_extra, future) = if gap <= 0.03 * chart(their_slot) {
         (None, None)

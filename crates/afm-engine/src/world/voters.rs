@@ -326,7 +326,7 @@ pub fn media_name(seed: u32, id: u32, born: u16, ethnicity: Ethnicity) -> String
 
 fn fbs_count_by_state(w: &World) -> [f64; 51] {
     let mut n = [0.0; 51];
-    for p in w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(w.year)) {
+    for p in w.programs.iter().filter(|p| p.division == Division::FBS && p.fields_games(w.year)) {
         n[p.state.min(50)] += 1.0;
     }
     n
@@ -436,7 +436,7 @@ fn renew_coaches(w: &World, v: &mut Voters, rng: &mut Rng) {
     let heads: Vec<(usize, u32, &str)> = w
         .programs
         .iter()
-        .filter(|p| p.division == Division::FBS && p.plays(year) && !p.roster.is_empty())
+        .filter(|p| p.division == Division::FBS && p.fields_games(year) && !p.roster.is_empty())
         .filter_map(|p| p.head_coach.map(|c| (p.id, c as u32, p.conference.as_str())))
         .collect();
     if heads.is_empty() {
@@ -522,7 +522,7 @@ fn new_member(w: &World, v: &Voters, role: MemberRole, rng: &mut Rng) -> Member 
             let fbs: Vec<&super::program::Program> = w
                 .programs
                 .iter()
-                .filter(|p| p.division == Division::FBS && p.plays(year) && !taken_school(p.id))
+                .filter(|p| p.division == Division::FBS && p.fields_games(year) && !taken_school(p.id))
                 .collect();
             let missing_power: Vec<&&super::program::Program> = fbs
                 .iter()

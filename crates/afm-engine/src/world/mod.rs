@@ -41,6 +41,7 @@ pub mod live_seat;
 pub mod looks;
 pub mod names;
 pub mod ncaa;
+pub mod new_teams;
 pub mod news;
 pub(crate) mod nfl_year;
 pub mod norms;
@@ -891,6 +892,12 @@ pub struct World {
     pub(crate) nfl_prev: Option<nfl_year::NflSeason>,
     #[serde(default)]
     pub(crate) kept_schedules: Vec<season_page::KeptSeason>,
+    /// The NFL clubs the world added after 2026 and its owners' votes (SK68).
+    #[serde(default)]
+    pub expansion: franchise::Expansion,
+    /// College programs and high schools that started after 2026 (SK68).
+    #[serde(default)]
+    pub new_teams: new_teams::NewTeams,
     /// Each NFL team's regular-season points by year (C27): (season, team,
     /// games, points for, points against); the last twenty seasons.
     #[serde(default)]
@@ -1133,6 +1140,19 @@ impl World {
             p.set_history(dropped);
             programs.push(p);
         }
+        // Colleges without a team that may start one after 2026 (SK68) wait
+        // in the list like a dropped program, on their own stream: real
+        // ones, then small colleges in growing towns.
+        let mut cand_rng = Rng::new(seed ^ 0x0CA4_D1D0);
+        let generated = new_teams::college::generated(seed);
+        for row in data::CANDIDATE_COLLEGES.iter().chain(generated.iter()) {
+            if programs.iter().any(|p| p.real_name == row.name) {
+                continue;
+            }
+            let mut p = program::program_from_row(programs.len(), row, seed, &mut cand_rng);
+            p.set_history(true);
+            programs.push(p);
+        }
         let mut high_schools = Vec::new();
         let mut states = Vec::new();
         let total_programs: f64 = data::STATES.iter().map(|s| s.programs as f64).sum();
@@ -1259,6 +1279,8 @@ impl World {
             prev_polls: Vec::new(),
             nfl_prev: None,
             kept_schedules: Vec::new(),
+            expansion: Default::default(),
+            new_teams: Default::default(),
             nfl_units: Vec::new(),
         };
         staff::staff_everyone(&mut w);

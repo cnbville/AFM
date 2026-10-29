@@ -145,7 +145,7 @@ pub(crate) fn evidence(w: &World) -> Ev {
     let members: Vec<usize> = w
         .programs
         .iter()
-        .filter(|p| p.division == Division::FBS && !p.roster.is_empty() && p.plays(year))
+        .filter(|p| p.division == Division::FBS && !p.roster.is_empty() && p.fields_games(year))
         .map(|p| p.id)
         .collect();
     let n = members.len();

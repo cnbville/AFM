@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, and the why-lines on commitments (lane 6) the same day.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, the why-lines on commitments (lane 6) the same day, and build-year tryouts with next update lane 10 the same day.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -140,6 +140,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - Planned walk-ons fill a real squad for the level (FBS 119.7, FCS 108, D2 115, D3 107, NAIA 100, JUCO 80) under a scholarship limit; under the House limit they fill what the class leaves (`level_roster`, `class_plan`).
 - Fall camp: walk-ons who started or rotated go on scholarship where the limit has room, at most one snapper on aid (not D3, Ivy, PFL). Open tryouts: 8% of FBS/FCS programs a year, 16% below, take the best unsigned new graduate in their state (`camp_walk_ons`, `tryout_sticks`).
 - House era: 2024-25 walk-ons and the 2025 class's promised walk-ons don't count against the limit (`takes_a_place`).
+- A college in its build year (SK68) holds walk-on tryouts on summer enrollment day: the best unsigned seniors and up to 12 junior college players until its squad is 75% of its level's full squad (`world/new_teams/college.rs`, `tryouts`; [new-teams.md](new-teams.md)).
 
 ## Cuts (minor bug 60)
 

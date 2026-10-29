@@ -128,7 +128,7 @@ pub fn conference_games(w: &World, p: usize, season: i32) -> u32 {
     let n = w
         .programs
         .iter()
-        .filter(|q| q.division == prog.division && q.conference == prog.conference && q.plays(season))
+        .filter(|q| q.division == prog.division && q.conference == prog.conference && q.fields_games(season))
         .count() as u32;
     if n < 2 {
         return 0;
@@ -154,7 +154,7 @@ fn outside_rivalries(w: &World, p: usize, season: i32) -> u32 {
             let other = if r.a == me.real_name { r.b } else { r.a };
             let Some(q) = w.programs.iter().find(|q| q.real_name == other) else { return false };
             q.division == me.division
-                && q.plays(season)
+                && q.fields_games(season)
                 && (q.conference != me.conference || independent(&me.conference))
                 && super::data::rivalry_past(r.a, r.b).is_none_or(|h| h.played(season))
         })
@@ -277,7 +277,7 @@ pub(crate) fn top_up(w: &mut World) {
     for y in now + 1..=now + HORIZON {
         let h = y - now;
         let mut order: Vec<usize> =
-            w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(y)).map(|p| p.id).collect();
+            w.programs.iter().filter(|p| p.division == Division::FBS && p.fields_games(y)).map(|p| p.id).collect();
         // Power programs set their schedules first; the rest fill around them.
         let key = |p: usize| key_uniform(w.options.seed as u64 ^ 0xDEA1 ^ (y as u64) << 24, p as u64);
         order.sort_by(|&a, &b| {
@@ -387,7 +387,7 @@ fn partner(w: &World, p: usize, y: i32, kind: DealKind, want: u8, seed: u64) -> 
     let mut cands: Vec<(f64, usize)> = w
         .programs
         .iter()
-        .filter(|q| q.id != p && q.plays(y))
+        .filter(|q| q.id != p && q.fields_games(y))
         .filter(|q| q.conference != me.conference || independent(&me.conference))
         .filter(|q| match kind {
             DealKind::OneOff if want == 2 => q.division == Division::FCS && fbs_trips(w, q.id, y) == 0,
