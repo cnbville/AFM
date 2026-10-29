@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d and 6 on 2026-10-29.
+Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 17 and 6 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -271,6 +271,17 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - Placing a player (C16, `place_player`): at a college, a player who doesn't start, to a coach at 0.2 warmth or more at a smaller program; he refuses when his lean is under 0.03 and your roster isn't over the limit. The friend's `sent` count and his favour balance go up.
 - A steered transfer at a high school (C18, `c18_week`): March-June Thursdays, an eighth of the weeks, once a year, a camp man or trainer in your state at 0.3 or more offers a 15-16 year old from another school, his best by his read. Taking him logs promises to start him and give him the ball; every state uses California's undue influence rule (CIF Bylaw 510) for now: ruled so two times in five, he sits a year and you lose half a point of standing. A broken promise costs you 0.3 warmth with the man who sent him (`steered_check`).
 
+## Ethnicity by position and level (update 3, lane 17)
+
+`world/ethnicity.rs`, `player_ethnicity`, called from `world/mod.rs` (`new_kid`) and `world/pro/mod.rs` (`veteran`). It never changes a rating; it picks his name and face.
+
+- **When**: once, when he is made, after his body, ratings and natural position (`athlete::create`). A later move keeps it, so a boy built like a back who ends up a linebacker carries back odds (A25).
+- **The weights**: his home state's child mix (`STATE_SHARES`) x how often each group plays (`participation`: white 1, Black 1.5, Hispanic 0.65, Polynesian 2.5, Asian 0.3) x a talent lean x his position's odds.
+- **The talent lean** (A23): `exp(level_lean x ramp)`, the ramp running from talent draw 0.5 (none) to 1.4 (full; an average boy is 0). Black +1.91, Hispanic -1.88, Polynesian +0.95, Asian -0.6. It levels off past college because real rosters change a lot from high school to FBS and little after: FBS 48.9% Black and 2.7% Hispanic, the NFL 53.5% Black (A23 targets).
+- **The position odds** (A20-A22): `ODDS_LOW`, `ODDS_MID` and `ODDS_HIGH` (white, Black, Hispanic, Asian or Pacific Islander, by QB, RB, WR, TE, OL, DL, LB, DB, K, P, LS) at talent draws 1, 2 and 3 (`ODDS_AT`), blended smoothly between them (median draw: FCS 1.4, FBS 1.9, NFL 2.9). Started from the FBS table in `afm/race-check/report.md`, then fitted by least squares on the test world's final rosters (every position's white, Black and Hispanic share at FBS, FCS and the NFL at once, FBS 48.9% Black and 2.7% Hispanic held, the NFL near 53.5%), because stacking grows with the level (receivers 52% Black at FCS, 64% at FBS, 77% in the NFL). The high table's Black column sits below the middle one at the skill spots, which holds the NFL near 53.5% while FBS is at 48.9%. Polynesian players read the Asian and Pacific Islander column; the three Asian American groups get no odds. An athlete from another sport (`scouting/own.rs`) has no position and no odds.
+- **Long snappers**: no boy is built as one, so a boy with the knack draws with the snapper row (`snapper_knack`): long snapping ceiling / talent x exp(0.1 x talent draw) at least 1.25 (`SNAPPER_KNACK`), and a talent draw under 2.6 (higher, he is recruited as a regular; `SNAPPER_TOP`). About 4% of boys, 92% of those the camps later make snappers.
+- **Measured** (the 3-year test world, seed 7, on final rosters; `tests/world.rs`, `each_position_has_its_real_race_mix`, which checks FBS within 5 points of real at every position and FCS and the NFL within 8, or 3 standard errors where a group is too small for that): see `afm/race-check/report.md`, "After lane 17". High school comes out about 30% Black and 9.5% Hispanic (no national source; it was 24% and 15% before lane 17). FCS lands a few points less white than real at most positions (more Hispanic and Polynesian players than its 2.5% and 1.4%).
+
 ## Where the knobs are
 
 - `player.rs`: `Traits::draw` correlations, `draw_aura` (0.2, 0.15).
@@ -284,6 +295,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - `world/folk/voice.rs`: `REST_DAYS` 365, pick weight 1 + 0.8 per need.
 - `world/folk/press.rs`: answer effects. `world/folk/cast.rs`: reporter draws.
 - `world/fame.rs`: `position_draw`, `market_households`, `aura_mult`, `brand_money` (80M, 4M, ^4), `follower_target`, `reach`.
+- `world/ethnicity.rs`: `participation`, `level_lean`, `LEAN_RAMP`, `ODDS_AT`, `ODDS_LOW`, `ODDS_MID`, `ODDS_HIGH`, `SNAPPER_KNACK`, `SNAPPER_TOP`.
 
 ## Why-lines on mood (update 3, lane 6)
 

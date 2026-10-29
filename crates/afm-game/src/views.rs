@@ -1847,6 +1847,7 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
                     rows.push(coach_row(w, c, g.coach_title()));
                 }
             }
+            juniors(w, Employer::College(i), &mut rows);
         }
         TeamRef::Nfl(i) => {
             let tm = &w.nfl[i];
@@ -1857,10 +1858,16 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
                     rows.push(coach_row(w, c, role));
                 }
             }
+            juniors(w, Employer::Nfl(i), &mut rows);
         }
         TeamRef::HighSchool(i) => {
-            if let Some(c) = w.high_schools[i].coach {
-                rows.push(coach_row(w, c, "Head coach"));
+            let s = &w.high_schools[i];
+            // An AI school's coordinators are coaches of the world (C37).
+            for (c, role) in [(s.coach, "Head coach"), (s.oc, "Offensive coordinator"), (s.dc, "Defensive coordinator")]
+            {
+                if let Some(c) = c {
+                    rows.push(coach_row(w, c, role));
+                }
             }
             // Your own assistants: teachers who coach for a stipend.
             if is_mine(w, t)
@@ -1897,6 +1904,18 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
     json!({ "team": team_brief(w, t), "rows": rows })
 }
 
+/// A team's graduate assistants, analysts and quality-control coaches
+/// (lane 18, C36): real coaches you can read and hire.
+fn juniors(w: &World, e: Employer, rows: &mut Vec<Value>) {
+    for c in afm_engine::world::staff::juniors_of(w, e) {
+        if let Some(j) = w.coaches[c].junior_now() {
+            let post = j.post.name();
+            let title = format!("{}{} ({})", post[..1].to_uppercase(), &post[1..], j.group.name());
+            rows.push(coach_row(w, c, &title));
+        }
+    }
+}
+
 pub fn coach(w: &World, c: usize) -> Result<Value, String> {
     let co = w.coaches.get(c).ok_or("No such coach.")?;
     let job = co.job.map(|j| {
@@ -1904,6 +1923,14 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
         let name = employer_name(w, j.employer);
         let record = (j.role == Role::HeadCoach).then(|| job_record(w, c));
         json!({ "team": team["ref"], "name": name, "role": j.role.name(), "since": j.since, "record": record })
+    });
+    // A graduate assistant, analyst or quality-control coach (C36).
+    let job = job.or_else(|| {
+        co.junior_now().map(|j| {
+            let team = employer_brief(w, j.employer);
+            let role = format!("{} ({})", j.post.name(), j.group.name());
+            json!({ "team": team["ref"], "name": employer_name(w, j.employer), "role": role, "since": j.since, "record": null })
+        })
     });
     // Records are kept from the first season of recorded history: a job
     // that began before it counts its games from then.

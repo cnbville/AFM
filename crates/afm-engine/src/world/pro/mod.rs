@@ -643,7 +643,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
     let family = super::background::generate_family(&bg, Some(structure), &mut rng);
     super::background::apply_background(&mut player, &mut bg, &family, &mut rng);
     super::people::sync_new(&mut player, &bg, &family);
-    let ethnicity = super::ethnicity::player_ethnicity(state, z, &mut rng);
+    let ethnicity = super::ethnicity::player_ethnicity(state, z, Some(pos), &mut rng);
     let year = w.year;
     // His college: an FBS program by its prestige, a few from below.
     let colleges: Vec<(usize, f64)> = w

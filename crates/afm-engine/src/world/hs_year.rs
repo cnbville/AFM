@@ -1170,21 +1170,30 @@ pub(crate) fn squad_team(
         })
         .collect();
     let coach = school.coach;
-    // Your guidelines pick your varsity's systems (update 2, G2) at camp:
-    // at a high school the head coach calls both sides himself.
+    // Your guidelines pick your varsity's systems (update 2, G2) at camp.
+    // An AI school's head coach calls the side he came up on and his
+    // coordinator the other (C37); with no coordinator he calls both.
+    let off_head = coach.is_none_or(|c| w.coaches[c].came_up.offense());
+    let (oc, dc) = if seat {
+        (coach, coach)
+    } else if off_head {
+        (coach, school.dc.or(coach))
+    } else {
+        (school.oc.or(coach), coach)
+    };
     let level = crate::calendar::Level::HighSchool;
-    let guide = super::guide::team_guidelines(w, coach, coach, coach, level, seat);
+    let guide = super::guide::team_guidelines(w, coach, oc, dc, level, seat);
     let inst = stored.unwrap_or_else(|| school_install(w, h, seat));
     let ab = coach.map(|c| *w.coaches[c].ability());
     let aware = players.iter().map(|p| p.a(crate::attributes::Attr::FootballIq)).sum::<f64>() / players.len() as f64;
-    let offense = season::coach_caller(w, coach, inst.off);
+    let offense = season::coach_caller(w, oc, inst.off);
     let install = clamp(crate::game::roster::absorb(aware) + 0.01 * (offense.aggressiveness - 10.0), 0.35, 1.0);
     let mut team = GameTeam::new(
         school.name.clone(),
         players,
         crate::game::Staff {
             offense,
-            defense: season::coach_caller(w, coach, 7 + inst.shell),
+            defense: season::coach_caller(w, dc, 7 + inst.shell),
             game_management: ab.map_or(9.0, |a| a.game_management),
             strictness: ab.map_or(10.0, |a| a.discipline),
             off_scheme: inst.offense(),
@@ -1808,6 +1817,15 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             points: [t.totals.points_for.max(0) as u32, t.totals.points_against.max(0) as u32],
             playoff_wins: runs.get(&h).map_or(0, |r| r.0),
             semifinal: runs.get(&h).is_some_and(|r| r.1),
+            unit: crate::world::high_school::HsUnit {
+                games: t.totals.games.min(255) as u8,
+                sacks: t.totals.sacks.min(65_535) as u16,
+                sacks_allowed: t.totals.sacks_allowed.min(65_535) as u16,
+                takeaways: t.totals.takeaways.min(65_535) as u16,
+                turnovers: t.totals.turnovers.min(65_535) as u16,
+                yards: t.totals.yards.max(0.0) as u32,
+                yards_allowed: t.totals.yards_allowed.max(0.0) as u32,
+            },
         });
         if t.state_title {
             school.state_titles += 1;
@@ -1825,6 +1843,11 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             coach.season_reputation(t.vs_expectation(), locker, true);
             let title = if t.state_title { TitleKind::State } else { TitleKind::None };
             coach.title_reputation(title, true, stage);
+        }
+        // His coordinators' names move with the season too, at an
+        // assistant's pace (C37).
+        for c in [w.high_schools[h].oc, w.high_schools[h].dc].into_iter().flatten() {
+            w.coaches[c].season_reputation(t.vs_expectation(), 0.0, false);
         }
     }
 }

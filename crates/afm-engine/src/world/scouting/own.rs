@@ -2001,7 +2001,7 @@ fn spotted(w: &World, h: usize, eye: f64, by: &str) -> Vec<Athlete> {
         }
         let sport = (u(3) * SPORTS.len() as f64) as usize % SPORTS.len();
         let mut rng = Rng::new(key as u32 ^ (key >> 32) as u32);
-        let eth = crate::world::ethnicity::player_ethnicity(school.state, 0.0, &mut rng);
+        let eth = crate::world::ethnicity::player_ethnicity(school.state, 0.0, None, &mut rng);
         let grade = (u(4) * 3.0) as i32; // 0 sophomore .. 2 senior
         let class_of = season + 3 - grade;
         let name = crate::world::names::person_name(eth, season - 15 - grade, &mut rng);
