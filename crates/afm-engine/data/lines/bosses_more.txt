@@ -1,0 +1,432 @@
+# The line bank: bosses, more versions (dialogue D2; format in
+# src/world/folk/voice.rs). Same keys as bosses.txt. The boss: `ad college`,
+# `owner nfl`, `principal hs`, with his or her voice (blunt, smooth, warm,
+# cold, hot, ego, impatient, patient, meddler, tight, old, she). Facts: BASE
+# (team, town, you, coach, year, old, old_last, rival, rivalry, series,
+# last_record), record at midseason, met (how many goals) at the review.
+
+# The preseason goals meeting. No record here.
+@key boss.goals.open
+Come on in, Coach. Let's set the table for the year.
+I want to walk through expectations before things get busy.
+We should have done this sooner. Sit down, let's talk about the season.
+I like to start every year with a conversation like this one.
+I've got a list. It's not long, but it matters.
+Before we get into the season, I want to make sure we agree on what success looks like.
+I'm going to tell you what I'm measured on. Then you'll know what you're measured on.
+I want to hear your goals first. Then I'll tell you mine.
+Let's get our expectations in writing. It saves us both a lot of trouble.
+There's a lot riding on this season. I want to talk about it plainly.
+I'm not here to coach your team. I'm here to make sure we want the same things.
+We're going to talk about wins, but not only wins.
+Grab a seat. Coffee? Let's go through it.
+I've been looking forward to this one. Let's talk about the fall.
+I've had a lot of people ask me what I expect from you this year. Let me tell you first.
+This is the part of the job I like. Before anybody's lost a game.
+I want this to be a two-way street. Tell me what you need, and I'll tell you what I need.
+We had a good offseason. Let's make sure it turns into a good season.
+I know you've got a staff meeting after this, so I'll be quick.
+Let's set some targets we can both live with.
+I want you to leave this office knowing exactly where I stand.
+You'll get a copy of this when we're done. Keep it in your desk.
+We went {last_record} last year. I want to talk about where we go from here.
+I'll start with the big picture, then the details.
+This conversation is the most important one we'll have before September.
+I'm going to be honest with you about the pressure on me. It rolls downhill. ~ blunt
+I don't like surprises. So let's agree now on what this year looks like. ~ blunt
+I won't sugarcoat anything this year. I'd ask the same of you. ~ blunt
+I'll be direct. I need results this year. ~ blunt impatient
+I'm not going to wait three years for something to happen. Let's be clear about that. ~ impatient
+I'll get right to it. We need to win. ~ impatient
+Let's not overthink this. Here's what I want. ~ impatient
+There's no rush. I want us to talk about the long game too. ~ patient
+I'm a believer in building things the right way. Let's talk about what that means this year. ~ patient
+Results matter, but they're not the only thing I'll look at. ~ patient
+I want to hear how you're feeling about the roster first. ~ warm
+How was your summer? Family good? Good. Let's talk football. ~ warm
+I'm in your corner. I want you to know that before we start. ~ warm
+You've got my support. Now let me tell you what that support depends on. ~ smooth
+I want to set you up to succeed, so let's make sure our goals line up. ~ smooth
+Let's talk partnership. I think we can do something special here. ~ smooth
+Here's the list. Read it. Then we'll talk. ~ cold
+I've got fifteen minutes. Let's use them. ~ cold
+I'm going to have opinions on things. You'll hear them. ~ meddler
+I watch practice more than people think. I've got some thoughts already. ~ meddler
+I'll want updates through the year. More than you're probably used to. ~ meddler
+I want to talk about budget too. Everything costs more than it should. ~ tight
+Before we talk about winning, let's talk about spending. ~ tight
+I've been doing this a long time. I know how these seasons go. Let's plan for the bumps. ~ old
+I've had a lot of coaches sit in that chair. The ones who lasted listened in this meeting. ~ old
+I didn't hire you to be average. Let's talk about how we get past average. ~ ego
+My name's on this hire. I want it to look good. ~ ego
+The university has priorities. Football's a big one, but not the only one. ~ ad college
+The president asked me to have this conversation with you. He's watching too. ~ ad college
+Our donors expect a lot. I'll tell you what they expect, so you're not surprised. ~ ad college
+I want to talk about academics first. Then wins. ~ ad college patient
+The conference race matters. So does the bowl game. So does the APR. ~ ad college
+We're asking a lot of our fans this year with ticket prices. Let's give them a reason. ~ ad college
+The board is going to be asking about football at every meeting. I need answers for them. ~ ad college
+The collective is asking about the plan. I want to give them one. ~ ad college nil
+The revenue sharing budget is set. Let's talk about how we use it. ~ ad college nil
+I want a team that competes in every game. That's the starting point. ~ ad college
+This league is about winning now. I didn't come here to be patient. ~ owner
+I own this team because I want to win a championship. Let's talk about how we get there. ~ owner
+I've spent a lot of money on this roster. I want to see it on the field. ~ owner
+I want to make the playoffs. That's not a goal, it's the floor. ~ owner impatient
+The fans have been patient long enough. Let's not test it. ~ owner
+I've talked to the general manager. Now I want to talk to you. ~ owner
+My family's had this team a long time. I want to win in my lifetime. ~ owner old
+I'm not a football guy. I'm a results guy. ~ owner
+I want to talk about the quarterback. Then everything else. ~ owner meddler
+I'll be in the building more this year. Don't take it the wrong way. ~ owner meddler
+I want a team this city can be proud of. On the field and off. ~ owner warm
+Coach, thank you for coming in. I know how busy this time of year is. ~ principal
+Our students and families care a lot about this program. Let's talk about what that means. ~ principal
+I care about the young men in your program more than the scoreboard. ~ principal
+The superintendent likes a plan in writing. So do I. ~ principal
+I want to talk about grades, behavior and then football. ~ principal patient
+The community wants a winner. The school wants good kids. We can have both. ~ principal
+The boosters have been in my office already this summer. Let me tell you what they said. ~ principal
+I want to make sure the program reflects well on the school. ~ principal
+I heard a lot of good things about your summer workouts. Let's build on that. ~ principal warm
+I'm going to keep this simple. Be good to the kids, win some games. ~ principal
+The school board will want an update in October. Let's give them a good one. ~ principal
+We've got a lot of parents with a lot of opinions. Let's be on the same page first. ~ principal
+I love football season around here. It brings the whole town out. ~ principal warm
+Y'all had a big summer. Let's talk about turning it into a big fall. ~ south
+I'll be honest with you, Coach, folks around here expect a lot. ~ south
+Let's sit down and talk it through. ~ midwest
+Let's not waste time. Here's where I'm at. ~ northeast
+I want us to have a clear picture of the year. ~ west
+I'm going to tell you exactly what I told the search committee I wanted. ~ she blunt
+I want you to know I'll back you publicly. Privately, I'll push. ~ she
+
+@key boss.goals.point
+I want us to win the games we're supposed to win.
+I need us to beat {rival}. That's not negotiable around here.
+I want a team that's playing its best football at the end of the year.
+I need the players going to class and staying out of trouble.
+I want us to be competitive every week. No blowouts.
+I need a winning record. That's the baseline.
+I want us to win the close ones. We lost too many last year.
+I want a team people want to watch.
+I want the locker room to be a place players want to be.
+I need you to stay on budget. That's going to matter more than people think.
+I want our players to represent this place well.
+I need fewer penalties. It's become a reputation.
+I want to see improvement from week one to the last week.
+I want a home record we're proud of.
+I want to be in the hunt in November.
+I need you to be visible in the community.
+I want us to develop players. Not just recruit them.
+I want this team to be tough. Physically tough.
+I need you to keep the fan base engaged.
+I want the young players getting snaps by the end of the year.
+I want us to finish better than we started.
+I need to see a plan at quarterback, and I need to see it work.
+I want a team that doesn't beat itself.
+I need us over five hundred. That keeps a lot of people quiet.
+Beat {rival}. Everything else is secondary. ~ impatient
+I want a better record than last year's {last_record}. Simple as that.
+I need you to make a run in the postseason. ~ impatient
+I'm going to judge the year on the record. That's the truth. ~ blunt
+I want our players to graduate. That's my first goal. ~ patient
+I want this to look like a program on the way up, even if the record lags. ~ patient
+I need the players' grades up. Every one of them. ~ academic
+I want a conference title. I think we're ready. ~ ad college
+I need us in a bowl game. That's non-negotiable for the budget. ~ ad college
+I need the APR clean. No postseason bans on my watch. ~ ad college
+I want us ranked by the end of the year. ~ ad college
+I want us playing in December. ~ ad college
+I want the in-state kids staying home. That's a long-term goal I care about. ~ ad college
+I need us to keep the collective donors happy, and that means winning. ~ ad college nil
+I want the portal to be a strength for us, not a hole. ~ ad college nil
+I want to make the playoffs. That's the goal. ~ owner
+I want a winning season. I'll accept nothing less. ~ owner impatient
+I want to win the division. ~ owner
+I need the quarterback playing well. Everything flows from that. ~ owner
+I want us to win a playoff game. ~ owner
+I want the young players developing. We've got a lot invested in them. ~ owner
+I want the stadium full every Sunday. ~ owner
+I want us to be a team free agents want to come to. ~ owner
+I want to compete for a championship. That's why I own this team. ~ owner ego
+I want the kids to stay eligible. Every single one. ~ principal
+I want us in the playoffs. The town expects it. ~ principal
+I want no fights, no suspensions, no embarrassments. ~ principal
+I want our seniors getting looks from colleges. ~ principal
+I want us to beat {rival}. The whole town does. ~ principal
+I want the freshmen coming out for football. That's the future. ~ principal
+I want the program to be a good part of the school day, not a distraction from it. ~ principal
+I want to see attendance in class go up for your players. ~ principal patient
+I need to keep the boosters happy without letting them run the program. ~ principal
+I want us to be in the district race. ~ principal
+I want this team to be something {town} is proud of. ~ warm
+I want to win, and I want to do it clean. ~ blunt
+I want you to keep me informed. No surprises. ~ meddler
+I want regular reports. Weekly would be good. ~ meddler
+Stay within the budget. That's my first ask. ~ tight
+I want you to spend smart. We don't have money to waste. ~ tight
+I've seen good years and bad ones. I want a good one. ~ old
+I want this year to be a statement. ~ ego
+
+# The midseason check-in. Facts: BASE, record.
+@key boss.mid.open
+We're at {record}. How do you feel about it?
+Let's take stock. {record} at the halfway point.
+I wanted to check in. {record}. Where's your head at?
+{record}. I've been getting a lot of questions. What should I tell people?
+We're halfway there. How are you feeling about the team?
+I want your honest read at {record}.
+What's the plan for the second half at {record}?
+{record}. What do you like and what worries you?
+Tell me how the locker room is doing.
+Are we healthy? What does the injury picture look like?
+How are the young players coming along?
+What do you need from me for the second half?
+{record} isn't where I hoped. Talk to me.
+{record}. Better than I expected. What's working?
+I wanted to sit down before the stretch run. How are things?
+Let's talk about the next few weeks. They're big.
+How are the coordinators doing? Be honest.
+I've got a few thoughts. First, yours.
+You've had a tough stretch. How are you holding up?
+You've had a good stretch. How do we keep it going?
+I'd like to hear the plan for the rest of the year.
+I'm not here to panic. I'm here to listen.
+What's the one thing that would change the second half?
+Are we getting better? That's my only question.
+How's the quarterback playing in your eyes?
+{record}. People are talking. What do you want me to say to them? ~ impatient
+{record} isn't good enough. What's changing? ~ impatient blunt
+I'm not going to pretend {record} is okay. What's the fix? ~ blunt
+Let's not dress it up. {record}. What's going on? ~ blunt
+I want the real answer at {record}, not the press conference one. ~ blunt
+At {record}, I need to know if we're headed the right way. ~ blunt
+I'm still behind you. I just want to understand {record}. ~ patient
+I didn't expect the first half to be easy. Talk me through {record}. ~ patient
+How are you holding up? I know {record} weighs on you. ~ warm
+I've been proud of how the team competes. Tell me what you see. ~ warm
+I want to help however I can. What do you need at {record}? ~ smooth
+Let's think about how we finish strong from {record}. ~ smooth
+Short version. Where are we at {record}? ~ cold
+I've watched every snap. I've got questions about some of the calls. ~ meddler
+I talked to a couple of the players. I want to share what I heard. ~ meddler
+I've got some concerns about the depth chart. Can we go through it? ~ meddler
+I want to talk about the budget for the second half too. ~ tight
+We spent a lot on travel already. Let's talk about that too. ~ tight
+I've seen a lot of seasons turn at this point. Which way is ours going? ~ old
+{record}. People around town are talking to me about it. ~ old
+I've got the president asking about {record}. What do I tell him? ~ ad college
+How are the players doing in class? Midterms are coming. ~ ad college
+The donors are asking about the second half. I'd like an answer. ~ ad college
+Where are we on recruiting at {record}? ~ ad college
+Are we still in the conference race? ~ ad college
+Are any of the players looking at the portal? I'm hearing things. ~ ad college nil
+How's the collective money going? Anybody unhappy? ~ ad college nil
+{record}. The partners are asking. What's the plan? ~ owner
+I've got season-ticket renewals coming. {record} isn't helping. ~ owner impatient
+I want to talk about the trade deadline at {record}. ~ owner
+Are we buyers or sellers at {record}? ~ owner
+How's the quarterback looking? I want the truth. ~ owner meddler
+I talked to the GM. Now I want to hear from you. ~ owner
+I'm getting calls from the league office about the TV slot. {record}. ~ owner
+I want to win now. Tell me how we do it from {record}. ~ owner impatient
+How are the boys doing? In school, I mean. ~ principal
+Any discipline issues I should know about? ~ principal
+{record}. The parents are excited. Or worried. Depends on who you ask. ~ principal
+The boosters have been calling me about {record}. ~ principal
+I've had a couple of teachers mention your players. Mostly good. ~ principal warm
+What do the playoffs look like at {record}? ~ principal
+How are the seniors handling their last season? ~ principal warm
+Y'all have played hard. {record}. What's next? ~ south
+{record}. What's the plan, Coach? ~ midwest
+So. {record}. Talk to me. ~ northeast
+{record}. How's everybody feeling? ~ west
+
+# The end-of-season review, after he's read the goals. Facts: BASE, met.
+@key boss.review.good
+That was a good year. I want you to hear that from me.
+You met {met} of the goals. That's a successful season by any measure.
+I'm proud of what you did this year.
+You delivered. That's all I can ask.
+Everything we talked about in the summer, you did.
+This is what I hoped for when we hired you.
+Good season, Coach. Let's build on it.
+The players responded to you. That's obvious.
+The fans are happy. I'm happy. Let's keep it that way.
+That's a year we'll be talking about for a while.
+I've had a lot of good phone calls this year.
+You set the bar high. Now we have to clear it again.
+We're moving in the right direction. I'm convinced.
+I want to talk about the future now, because I want you here for it.
+You've earned some trust this year. Use it wisely.
+It was a pleasure to watch this team.
+You did it the right way, too. That matters to me.
+I don't say this often. Great job.
+That's the standard now. Can you keep it?
+I'm going to fight for you in the budget meetings this year.
+You hit {met} of our goals. Let's set some bigger ones.
+I knew we had the right guy. This year proved it.
+I've already had people ask me how long I'm keeping you. Hopefully a long time.
+Great year. Now let's not take a step back. ~ impatient
+Good. Now I want more. ~ impatient
+That's a good year. I need another one. ~ impatient
+I'll be honest, I didn't expect this much this fast. ~ blunt
+You proved me wrong on a few things. Good. ~ blunt
+I had doubts in August. I don't now. ~ blunt
+Patience paid off. I'm glad we gave it time. ~ patient
+I said we'd build it the right way. We are. ~ patient
+I'm so happy for you and your family. ~ warm
+You've done right by these players. I'm grateful. ~ warm
+Let's talk about how we keep you around. ~ smooth
+I'd like to discuss an extension. ~ smooth
+Good season. I'll put it in writing. ~ cold
+Fine work. We'll talk next steps in January. ~ cold
+I've got some thoughts for next year, but this year was good. ~ meddler
+I'd like to be more involved in planning next year. You've earned that conversation. ~ meddler
+And you stayed on budget. I'm thrilled. ~ tight
+You did it without breaking the bank. That's rare. ~ tight
+I've seen a lot of seasons. That's one of the good ones. ~ old
+You made me look smart for hiring you. Thank you. ~ ego
+The president called me himself. He's thrilled. ~ ad college
+The donors are energized. That doesn't happen without a year like this. ~ ad college
+Academics were strong too. That's a complete season. ~ ad college
+Recruiting is going to take off after this year. ~ ad college
+The collective's never been this excited. ~ ad college nil
+The city's buzzing. I haven't seen it like this in years. ~ owner
+That's a playoff team. That's what I wanted. ~ owner
+Season-ticket renewals are up. Thank you. ~ owner
+The players love playing for you. I hear it everywhere. ~ owner
+I want to win it all now. You've got me believing. ~ owner ego
+The whole town's proud of these boys. ~ principal
+The kids did well in school and on the field. That's my favorite kind of year. ~ principal
+The teachers have noticed the difference in your players. ~ principal warm
+The superintendent called to say how proud he is. ~ principal
+The boosters are thrilled. My phone's been quiet in the good way. ~ principal
+Y'all did good this year. Real good. ~ south
+Good year, Coach. Real good year. ~ midwest
+Nice work. Seriously. ~ northeast
+That was a great season. ~ west
+
+@key boss.review.mixed
+It wasn't a bad year. It wasn't the year we talked about either.
+You met {met} of our goals. Some good, some not.
+There's a lot to like. There's a lot to fix.
+I'm not unhappy. I'm not satisfied.
+We took steps. Not enough of them.
+I can see what you're building. I need to see it faster.
+Some weeks you had me excited. Some weeks you had me worried.
+It's a mixed bag. Let's talk about the pieces.
+You hit {met} of the goals. I want all of them next year.
+I want to understand what didn't go right.
+The progress is real. The record didn't reflect it.
+We're better than last year in some places and worse in others.
+I'm going to need to see clear improvement next year.
+You've got my support. It's not unconditional.
+We need to talk about the staff.
+Let's be honest about what worked and what didn't.
+I'm still a believer. I need you to make me a bigger one.
+I don't want to overreact. I don't want to underreact either.
+It's a year to learn from.
+I liked the fight. I didn't like the finish.
+We'll go through it piece by piece.
+Some of the goals were missed for reasons you couldn't control. Some weren't.
+Next year needs to be different. Let's talk about how.
+I'm not going to pretend this is what I wanted. ~ blunt
+It's middle of the road. I don't hire middle of the road. ~ blunt
+Honestly, I expected more. ~ blunt
+I'll give you another year. I need to see more in it. ~ blunt
+Not good enough. Not a disaster. We need to be better. ~ impatient
+I don't have a lot of patience left for years like this. ~ impatient
+These things take time. I understand that. ~ patient
+I see the foundation. Let's keep building. ~ patient
+I know it was a hard year in some ways. I appreciate the effort. ~ warm
+How are you holding up? It was a grind. ~ warm
+Let's talk about what you need to get over the hump. ~ smooth
+I think we're closer than the record shows. Let's prove it. ~ smooth
+We'll discuss changes in January. ~ cold
+I'll send you my notes. ~ cold
+I've got some ideas for next year. I want you to hear them. ~ meddler
+I'd like to sit in on a few staff meetings this spring. ~ meddler
+We spent a lot for a year like that. ~ tight
+I need more out of every dollar next year. ~ tight
+I've seen coaches turn years like this into something. I've seen others not. ~ old
+I staked my name on you. I need you to back that up. ~ ego
+The president wants to see progress. I told him we'll get it. ~ ad college
+The donors are split. Some are patient. Some aren't. ~ ad college
+The academics were good. The football has to catch up. ~ ad college
+We need a better recruiting class to fix the holes. ~ ad college
+We need to use the portal better. ~ ad college nil
+I expected the playoffs. We didn't get there. ~ owner
+I'm not going to make changes today. I'm going to think about it. ~ owner
+The fans are restless. I'm restless too. ~ owner impatient
+I'm going to need a plan for the quarterback. ~ owner
+The kids did well in school. The football needs work. ~ principal
+I've heard from the boosters. They're not happy. I'm defending you. ~ principal
+The parents are split on the season. ~ principal
+We'll keep working on it. The school's behind you. ~ principal warm
+It was an up and down year, wasn't it? ~ south
+It was okay. We need better. ~ midwest
+It was alright. I want more. ~ northeast
+It was a mixed season. ~ west
+
+@key boss.review.bad
+That wasn't good enough.
+We need to have a hard conversation.
+I'm disappointed. There's no other way to say it.
+You met {met} of the goals. That's not acceptable.
+This isn't what we agreed to in the summer.
+I'm going to be honest with you. Your seat is hot.
+I've had a lot of hard phone calls this year.
+I need to see a real change. Soon.
+I'm not going to make a decision today. But I'm thinking about it.
+We've got to fix this. I want your plan.
+I've backed you publicly. Privately, I'm worried.
+The results speak for themselves.
+I can't defend another year like this.
+I'm going to need staff changes.
+Tell me why I should be confident next year.
+I want to believe in you. Help me.
+It was a tough season to watch.
+We went backward. I can't accept that.
+Something has to change. Tell me what.
+I'm under a lot of pressure. So are you.
+I need to know you have answers.
+This is a results business. These results aren't good.
+I hired you to fix this. It's not fixed.
+I'm going to be direct. Another year like this and we're done. ~ blunt
+This was a failure. Let's call it what it is. ~ blunt
+I don't see the progress. I'm sorry. ~ blunt
+I need wins. Now. ~ impatient
+I'm out of patience. ~ impatient
+I've given you time. I'm running out of it. ~ impatient
+I believe in building things. I need to see some building. ~ patient
+I'll give you the offseason to show me the plan. ~ patient
+I know you're hurting. I am too. ~ warm
+I like you. I need to see results. ~ warm
+Let's figure out together how we turn this around. ~ smooth
+I want to give you every chance to fix it. Tell me what you need. ~ smooth
+I'll be in touch about next steps. ~ cold
+We're going to evaluate everything. Including you. ~ cold
+I want to be involved in the staff decisions this offseason. ~ meddler
+I'll be watching practices more closely next year. ~ meddler
+We paid a lot for this. We didn't get it. ~ tight
+I can't justify the budget to anyone after this year. ~ tight
+I've seen this before. It doesn't end well unless something changes. ~ old
+This reflects on me too. I don't like how it looks. ~ ego
+The president's asking hard questions. So are the trustees. ~ ad college
+The donors are pulling back. I can't have that. ~ ad college
+We have to recruit better. And keep who we have. ~ ad college
+The collective is threatening to cut back. ~ ad college nil
+The fans are leaving. The seats show it. ~ owner
+I've got partners asking me why we're paying you. ~ owner
+I want a new direction. Show me you're it. ~ owner impatient
+I can't sell this to the fan base. ~ owner
+The parents are upset. The boosters are upset. I'm upset. ~ principal
+There were too many problems this year, on and off the field. ~ principal
+The school board's going to ask about the program. I need answers. ~ principal
+I want to keep you. You have to give me a reason. ~ principal warm
+That was a rough one, Coach. ~ south
+That was a bad year. ~ midwest
+That was ugly. ~ northeast
+That was a hard season. ~ west
