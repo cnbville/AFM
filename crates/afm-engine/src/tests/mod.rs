@@ -19,6 +19,7 @@ mod live_game;
 mod no_fire;
 mod polls;
 mod ratings;
+mod save;
 mod schedule;
 mod scouting;
 mod stories;
@@ -30,6 +31,7 @@ mod update3;
 mod views;
 mod win_chance;
 mod world;
+mod world_log;
 
 use crate::development::{SeasonContext, develop_season};
 use crate::player::{Level, Player, PlayingTime, ProspectOptions, generate_prospect};

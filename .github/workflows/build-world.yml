@@ -41,9 +41,11 @@ jobs:
         env:
           AFM_COMMIT: ${{ github.sha }}
         run: |
-          mkdir -p out
+          # The world log beside the world runs to tens of GB, so both go on
+          # the runner's big temporary disk when it has one.
+          if sudo mkdir -p /mnt/afm-out && sudo chown "$(id -u)" /mnt/afm-out; then ln -sfn /mnt/afm-out out; else mkdir -p out; fi
           cargo run --release --bin afm_world -- "${{ inputs.seed }}" "${{ inputs.years }}" out
-          ls -la out
+          ls -la out/ && du -sh out/*
       - name: Download the world to check
         if: inputs.check != ''
         env:
@@ -90,3 +92,11 @@ jobs:
           gh release create "${f%.afmworld}-$sha" ./*.afmworld* --repo cnbville/afm-worlds \
             --title "Seed ${{ inputs.seed }}, ${{ inputs.years }} years of history (game $sha)" \
             --notes "Built $(date -u +%Y-%m-%d) by the AFM game at commit ${{ github.sha }}."
+          # The world log (world reader lane R2) goes up beside it as a tar
+          # file in parts (name.afmlog.tar.001, ...), packed as the folder is
+          # removed so the disk holds it once. The game does not download it.
+          for l in *.afmlog; do
+            [ -d "$l" ] || continue
+            tar --remove-files -cf - "$l" | split -b 1900M -d -a 3 --numeric-suffixes=1 - "$l.tar."
+            gh release upload "${f%.afmworld}-$sha" ./"$l".tar.* --repo cnbville/afm-worlds
+          done
