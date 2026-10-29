@@ -198,6 +198,39 @@ pub fn cell_text(v: &Value) -> Option<String> {
     }
 }
 
+/// A packed field shown as a column: its path in the record, its column
+/// name, what it means.
+type Packed = (&'static str, &'static str, &'static str);
+
+/// Fields of a packed record (`_more`) shown as columns in a table where
+/// the row keeps little else: a development step's before and after, and
+/// its drive split into its parts (the why).
+const PACKED_COLS: &[(&str, &[Packed])] = &[(
+    "log_growth",
+    &[
+        ("ctx.level", "level", "The level he played that year."),
+        ("ctx.playing_time", "playing_time", "His role that year: starter, rotation, backup, scout team."),
+        ("report.overall_before", "overall_was", "His overall before this step."),
+        ("report.overall_after", "overall_now", "His overall after this step."),
+        ("report.potential_before", "potential_was", "His true potential before this step."),
+        ("report.potential_after", "potential_now", "His true potential after this step."),
+        ("drew.drive", "drive", "The year's potential drive: the sum of the seven parts to its right."),
+        ("drew.drive_luck", "luck", "The drive's luck part."),
+        ("drew.drive_coaching", "coaching", "The drive's coaching part."),
+        ("drew.drive_work", "work", "The drive's work-ethic part."),
+        ("drew.drive_playing", "playing", "The drive's playing-time part."),
+        ("drew.drive_situation", "situation", "The drive's situation part (home, money, school, morale)."),
+        ("drew.drive_coachability", "coachability", "The drive's coachability part."),
+        ("drew.drive_setback", "setback", "The drive's setback part (injury, trouble)."),
+        ("drew.injury", "injury", "An injury rolled in this step, if any."),
+    ],
+)];
+
+/// The packed fields shown as columns of one table.
+fn packed_cols(table: &str) -> impl Iterator<Item = &'static Packed> {
+    PACKED_COLS.iter().filter(move |(n, _)| *n == table).flat_map(|(_, ps)| ps.iter())
+}
+
 /// Whether a column holds a hidden truth: true potential, ceilings, hidden
 /// ratings and traits. The book can mark more in its `defs` table.
 pub fn debug_name(col: &str) -> bool {
@@ -311,6 +344,9 @@ impl Book {
     pub fn open(path: &Path) -> Result<Book, String> {
         let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX | OpenFlags::SQLITE_OPEN_URI;
         let db = Connection::open_with_flags(path, flags).map_err(|e| format!("Could not open the book: {e}"))?;
+        // R4's own functions on this connection: `more(table, _more)` reads a
+        // packed record back as JSON, and the math the checks' SQL uses.
+        let db = afm_reader::Book::with(db).map_err(|e| format!("Could not open the book: {e}"))?.conn;
         // Big pages read faster with a bigger cache (64 MB) and memory-mapped
         // reads (up to 1 GB); the book is never written here.
         let _ = db.execute_batch("PRAGMA cache_size = -65536; PRAGMA mmap_size = 1073741824; PRAGMA query_only = 1;");
@@ -538,6 +574,18 @@ impl Book {
         v
     }
 
+    /// A packed row's whole record (`_more`) as JSON, through R4's `more`.
+    pub fn more_of(&self, table: &str, row: &Value) -> Option<Value> {
+        let t = self.table(table)?;
+        if !t.has("_more") || !t.has("_row") {
+            return None;
+        }
+        let sql = format!("SELECT more(?1, \"_more\") FROM {} WHERE \"_row\" = ?2", q(table));
+        let text: Option<String> =
+            self.db.query_row(&sql, [Sql::Text(table.into()), json_sql(row)], |r| r.get(0)).ok().flatten();
+        serde_json::from_str(&text?).ok()
+    }
+
     /// Rows as objects (column → value).
     pub fn select_maps(&self, sql: &str, vals: &[Sql]) -> Result<Vec<Map<String, Value>>, String> {
         let mut st = self.db.prepare(sql).map_err(|e| e.to_string())?;
@@ -569,8 +617,15 @@ impl Book {
     ) -> Result<Value, String> {
         let t = self.table(table).ok_or_else(|| format!("This book has no table {table}."))?;
         // `_more` is a packed record (msgpack): unreadable as a cell.
-        let cols: Vec<String> =
+        let mut cols: Vec<String> =
             t.cols.iter().filter(|c| *c != "_more" && (f.debug || !self.is_debug(table, c))).cloned().collect();
+        // Packed fields shown as columns where the row keeps little else.
+        let packed: Vec<(String, &str)> = packed_cols(table)
+            .filter(|_| t.has("_more"))
+            .map(|(path, c, _)| (c.to_string(), *path))
+            .filter(|(c, _)| f.debug || !self.is_debug(table, c))
+            .collect();
+        cols.extend(packed.iter().map(|(c, _)| c.clone()));
         let (mut wh, mut vals) = self.where_for(t, f);
         if let Some((c, v)) = extra {
             if !t.has(c) {
@@ -587,7 +642,16 @@ impl Book {
                 _ => String::new(),
             },
         };
-        let list = cols.iter().map(|c| q(c)).collect::<Vec<_>>().join(", ");
+        let list = cols
+            .iter()
+            .map(|c| match packed.iter().find(|(pc, _)| pc == c) {
+                Some((_, path)) => {
+                    format!("json_extract(more('{}', \"_more\"), '$.{path}') AS {}", table.replace('\'', "''"), q(c))
+                }
+                None => q(c),
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
         let sql = format!(
             "SELECT {list} FROM {}{wh}{order} LIMIT {} OFFSET {}",
             q(table),
@@ -635,6 +699,8 @@ impl Book {
             "total": total,
             "offset": offset,
             "filterable": filterable,
+            // A world log row packs more than its columns (`_more`).
+            "record": t.has("_more") && cols.iter().any(|c| c == "_row"),
         }))
     }
 
@@ -680,9 +746,15 @@ impl Book {
                     "key": format!("{table}.{c}"),
                 })
             }
-            None => {
-                json!({ "what": "", "key": format!("{table}.{c}"), "debug": self.is_debug(table, c), "missing": true })
-            }
+            None => match packed_cols(table).find(|(_, pc, _)| *pc == c) {
+                Some((path, _, what)) => json!({
+                    "what": what, "key": format!("{table}._more → {path}"), "debug": self.is_debug(table, c),
+                    "file": "crates/afm-engine/src/development.rs", "function": "development::GrowthWhy, logged by why::growth"
+                }),
+                None => {
+                    json!({ "what": "", "key": format!("{table}.{c}"), "debug": self.is_debug(table, c), "missing": true })
+                }
+            },
         }
     }
 
@@ -856,9 +928,10 @@ pub fn label(c: &str) -> String {
         _ => {}
     }
     // `player__body__height` → "Body height": the player and person parts
-    // say nothing on a person's page.
+    // say nothing on a person's page, nor a growth step's `ctx` (its
+    // situation) and `drew` (its rolls).
     let mut parts: Vec<&str> = c.split("__").filter(|p| !p.is_empty()).collect();
-    while parts.len() > 1 && ["player", "person"].contains(&parts[0]) {
+    while parts.len() > 1 && ["player", "person", "ctx", "drew"].contains(&parts[0]) {
         parts.remove(0);
     }
     let s = parts.join(" ").replace('_', " ");

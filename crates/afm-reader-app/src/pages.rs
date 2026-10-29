@@ -760,7 +760,10 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
         .select_maps(&format!("SELECT * FROM {} WHERE {} = ?1", q(table), q(idc)), &[crate::book::json_sql(id)])?
         .pop()
         .ok_or_else(|| format!("No row {} in {table}.", fmt_id(id)))?;
-    let name = b.name_of(table, id).unwrap_or_else(|| format!("{} {}", label(table), fmt_id(id)));
+    let name = b
+        .name_of(table, id)
+        .or_else(|| log_name(b, table, &row))
+        .unwrap_or_else(|| format!("{} {}", label(table), fmt_id(id)));
     let mut p = new_page(&name, &format!("{} · {} · {name}", world_name(b), label(table)));
     // The header: the row's short facts, every id as its name; lists of
     // ratings as their own table.
@@ -954,6 +957,12 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
     if !pairs.is_empty() {
         push(&mut p, json!({ "kind": "kv", "title": format!("{} record", label(table)), "pairs": pairs }));
     }
+    // A world log row's packed record (`_more`): every field it kept.
+    if b.table(table).is_some_and(|t| t.has("_more"))
+        && let Some(more) = b.more_of(table, row.get("_row").unwrap_or(&Value::Null))
+    {
+        more_blocks(b, table, &more, f, &mut p);
+    }
     // Every table that points at this one: its rows for this entity, the
     // ones with a why and a rating first.
     let mut seasons_first = related.clone();
@@ -1004,6 +1013,114 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
         n => format!("{n} odd thing{} about {name}.", if n == 1 { "" } else { "s" }),
     });
     Ok(p)
+}
+
+/// A world log row by whom it is about and its season: "William
+/// Simmons, 2024".
+fn log_name(b: &Book, table: &str, row: &Map<String, Value>) -> Option<String> {
+    if !table.starts_with("log_") {
+        return None;
+    }
+    let who = row.get("id").filter(|v| !v.is_null())?;
+    let t = b.link_target(table, "id")?;
+    let name = b.name_of(t, who)?;
+    Some(match row.get("season").and_then(num) {
+        Some(y) => format!("{name}, {}", y as i64),
+        None => name,
+    })
+}
+
+/// The blocks for a packed record: its plain fields as one list (nested
+/// names joined the book's way, every id as its name), lists of ratings as
+/// grids, lists of records as lines.
+fn more_blocks(b: &Book, table: &str, more: &Value, f: &Filters, p: &mut Value) {
+    let mut flat: Vec<(String, Value)> = Vec::new();
+    flatten("", more, &mut flat);
+    let cols = &b.table(table).expect("checked").cols;
+    let mut pairs: Vec<Value> = Vec::new();
+    for (k, v) in flat {
+        if v.is_null()
+            || v.as_array().is_some_and(Vec::is_empty)
+            || cols.contains(&k)
+            || (!f.debug && b.is_debug(table, &k))
+            || k.starts_with("rng")
+        {
+            continue;
+        }
+        let debug = b.is_debug(table, &k);
+        match &v {
+            Value::Array(xs) if xs.iter().all(|x| x.is_object()) => {
+                let items: Vec<Value> = xs
+                    .iter()
+                    .take(60)
+                    .map(|x| {
+                        let mut parts: Vec<(String, Value)> = Vec::new();
+                        flatten("", x, &mut parts);
+                        let text = parts
+                            .iter()
+                            .filter(|(_, v)| !v.is_null())
+                            .map(|(pk, pv)| format!("{} {}", label(pk), more_text(b, table, pk, pv).0))
+                            .collect::<Vec<_>>()
+                            .join(" · ");
+                        json!({ "text": text })
+                    })
+                    .collect();
+                let more_n = xs.len().saturating_sub(60);
+                push(
+                    p,
+                    json!({ "kind": "list", "title": format!("{} ({})", label(&k), xs.len()), "items": items,
+                            "dense": true, "debug": debug, "more": if more_n > 0 { json!({"n": more_n}) } else { Value::Null } }),
+                );
+            }
+            Value::Array(xs) if named_list(&k, xs.len()).is_some() && xs.iter().all(Value::is_number) => {
+                let names = named_list(&k, xs.len()).expect("checked");
+                let grid: Vec<Value> =
+                    names.iter().zip(xs).map(|(n, x)| json!({ "k": n, "v": fmt(&json!(num(x))) })).collect();
+                push(p, json!({ "kind": "kv", "title": label(&k), "pairs": grid, "debug": debug }));
+            }
+            _ => {
+                let (shown, link) = more_text(b, table, &k, &v);
+                pairs
+                    .push(json!({ "k": label(&k), "v": shown, "debug": debug, "link": link, "h": b.hover(table, &k) }));
+            }
+        }
+    }
+    if !pairs.is_empty() {
+        push(
+            p,
+            json!({ "kind": "kv", "title": "Everything the world log kept", "note": "The row's packed record, unpacked", "pairs": pairs }),
+        );
+    }
+}
+
+/// One packed field as text, an id as its name with its page.
+fn more_text(b: &Book, table: &str, k: &str, v: &Value) -> (String, Value) {
+    if let Value::Array(xs) = v {
+        let parts: Vec<String> = xs.iter().take(40).map(|x| fmt_col(k, x)).collect();
+        let tail = if xs.len() > 40 { format!(" … ({} values)", xs.len()) } else { String::new() };
+        return (format!("{}{tail}", parts.join(", ")), Value::Null);
+    }
+    if let Some(t) = b.link_target(table, k)
+        && b.table(t).map(id_of) == Some(b.link_key(k, t))
+        && let Some(n) = b.name_of(t, v)
+    {
+        return (n, json!(format!("e/{t}/{}", fmt_id(v))));
+    }
+    (fmt_col(k, v), Value::Null)
+}
+
+/// A nested record as `a__b` → value pairs; lists stay whole.
+fn flatten(prefix: &str, v: &Value, out: &mut Vec<(String, Value)>) {
+    match v {
+        Value::Object(m) => {
+            for (k, x) in m {
+                let key = if prefix.is_empty() { k.clone() } else { format!("{prefix}__{k}") };
+                flatten(&key, x, out);
+            }
+        }
+        _ if prefix.is_empty() => out.push(("value".into(), v.clone())),
+        _ => out.push((prefix.to_string(), v.clone())),
+    }
 }
 
 /// A long list kept as text, cut to its first values and its count.

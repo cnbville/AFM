@@ -312,6 +312,72 @@ pub fn download(job: &Shared, home: &Path, tag: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Starts building a book on this Mac from a world file or save (and its
+/// world log beside it, when there is one) with R4's builder, into
+/// `books/<name>.afmbook`.
+pub fn build(job: &Shared, home: &Path, world: &Path) -> Result<(), String> {
+    if job.lock().map(|j| j.running).unwrap_or(false) {
+        return Err("Another download or build is running.".into());
+    }
+    if !world.is_file() {
+        return Err(format!("No world file at {}.", world.display()));
+    }
+    let stem = world.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "world".into());
+    let books = home.join("books");
+    std::fs::create_dir_all(&books).map_err(|e| e.to_string())?;
+    let out = books.join(format!("{stem}.{BOOK_EXT}"));
+    let log = afm_reader::make::log_beside(world);
+    set(job, |j| {
+        *j = Job {
+            kind: "build".into(),
+            name: stem.clone(),
+            running: true,
+            text: format!(
+                "Reading {}{}…",
+                world.display(),
+                if log.is_some() { " and its world log" } else { " (no world log beside it)" }
+            ),
+            ..Job::default()
+        }
+    });
+    let (job, world) = (job.clone(), world.to_path_buf());
+    std::thread::spawn(move || {
+        let t = Instant::now();
+        // Each step the builder names moves the bar a little; it has no
+        // total to measure against.
+        let mut say = |s: &str| {
+            let secs = t.elapsed().as_secs_f64();
+            set(&job, |j| {
+                j.text = s.to_string();
+                j.seconds = secs;
+                j.done = (j.done + (0.97 - j.done) * 0.08).min(0.97);
+            });
+        };
+        let r = afm_reader::make::build(&world, log.as_deref(), &out, &mut say);
+        let secs = t.elapsed().as_secs_f64();
+        set(&job, |j| {
+            j.running = false;
+            j.seconds = secs;
+            match r {
+                Ok(s) => {
+                    j.done = 1.0;
+                    j.text = format!(
+                        "Built in {secs:.0} s: {} tables, {} records, {:.2} GB, peak {:.1} GB of memory{}.",
+                        s.tables,
+                        crate::pages::fmt(&serde_json::json!(s.rows)),
+                        s.bytes as f64 / 1e9,
+                        s.peak_mb / 1000.0,
+                        if s.has_log { "" } else { ", without a world log" }
+                    );
+                    j.made = Some(out);
+                }
+                Err(e) => j.error = Some(format!("The book could not be built: {e}")),
+            }
+        });
+    });
+    Ok(())
+}
+
 /// Copies a book chosen from disk into `books/` (a whole file or the `.001`
 /// part of a split one), so it is listed from then on.
 pub fn import(home: &Path, from: &Path) -> Result<PathBuf, String> {
