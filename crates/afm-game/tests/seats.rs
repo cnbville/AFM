@@ -121,6 +121,18 @@ fn every_seat_starts_and_the_school_desk_runs() {
     assert!(office["teaching"]["total"].as_f64().unwrap() > 30_000.0, "{}", office["teaching"]);
     let area = ok(&mut g, "school_area", json!({}));
     assert!(!area["feeders"].as_array().unwrap().is_empty());
+    // Each desk does its own job (SC7): the principal takes a meeting from
+    // the office, a feeder school takes your help from your first day, and
+    // the athletes in your building are listed beside the feeders.
+    assert!(office["can_meet"].is_boolean(), "{}", office["can_meet"]);
+    assert!(area["athletes"].is_array());
+    let feeder = find(&area, "feeders", |f| f["help"].is_object()).expect("a feeder middle school").clone();
+    assert_eq!(feeder["help"]["playbook"], false);
+    let r = ok(&mut g, "legacy_feeder", json!({ "name": feeder["name"], "what": "playbook" }));
+    assert!(r["said"].is_string(), "{}", r["said"]);
+    let area = ok(&mut g, "school_area", json!({}));
+    let helped = find(&area, "feeders", |f| f["name"] == feeder["name"]).unwrap();
+    assert_eq!(helped["help"]["playbook"], true, "{helped}");
     let sq = ok(&mut g, "school_squads", json!({}));
     let teams = sq["teams"].as_array().unwrap();
     println!("{} students: {} teams", enrollment, teams.len());
@@ -129,6 +141,14 @@ fn every_seat_starts_and_the_school_desk_runs() {
     }
     let varsity = &teams[0];
     assert_eq!(varsity["key"], "varsity");
+    // A player's School tab (minor bug 78): his team and grade as Varsity
+    // and JV has them, the same moves, and his eligibility.
+    let p0 = &varsity["players"][0];
+    let tab = ok(&mut g, "school_player", json!({ "id": p0["id"] }));
+    assert_eq!(tab["squad"], "varsity", "{tab}");
+    assert_eq!(tab["grade"], p0["grade"]);
+    assert_eq!(tab["can"], p0["can"]);
+    assert!(tab["eligibility"].as_array().is_some_and(|e| e.iter().any(|x| x["what"] == "Grades")), "{tab}");
     // A senior can't play JV.
     if let Some(sr) = varsity["players"].as_array().unwrap().iter().find(|p| p["grade"] == 12) {
         assert!(g.call("set_squad", &json!({ "id": sr["id"], "squad": "jv" })).is_err());

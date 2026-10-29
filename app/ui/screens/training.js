@@ -17,6 +17,8 @@ const trRedraw = () => render(trScroll());
 // the draft week): nothing changed on the server.
 const trLocal = () => { TR.reuse = true; return render(trScroll()); };
 const trCap = (s) => String(s || "").replace(/^./, (c) => c.toUpperCase());
+// A level's name in a page's kicker: "High school", "College", "NFL".
+const trTier = (t) => ({ hs: "High school", college: "College", nfl: "NFL" })[t] || trCap(t);
 const trMine = (a) => !a || !a.kind || (S.status && S.status.mine && S.status.mine.ref.kind === a.kind && S.status.mine.ref.id === Number(a.id));
 const trLast = (n) => { const w = String(n || "").split(" ").filter((x) => !/^(Jr\.?|Sr\.?|II|III|IV|V)$/.test(x)); return w[w.length - 1] || n; };
 const trPlural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
@@ -767,7 +769,7 @@ screens.training = async (a) => {
   title("Training", tab);
   const body = tab === "This week" ? weekTab(x) : tab === "Players" ? playersTab(x) : tab === "Templates" ? templatesTab(x) : tab === "The year" ? (await yrBoard(a)) + yearTab(x) : reportsTab(x);
   const head = pageHead({
-    kicker: `${esc(trCap(x.tier))} · ${esc(x.block_label)} · week of ${esc(x.monday)}`,
+    kicker: `${esc(trTier(x.tier))} · ${esc(x.block_label)} · week of ${esc(x.monday)}`,
     title: "Training",
     sub: x.own ? "The players are on their own: the rules keep your staff away." : `${esc(x.slot_label)}. ${x.yours ? "You set this week." : "Your staff's week."}`,
     goto: trGoto([["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Playbook", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]]),
@@ -891,7 +893,7 @@ screens.plans = async (a) => {
   title("Plans", tab);
   TR.plans = x;
   const body = tab === "Game plan" ? planTabHtml(x) : tab === "Call sheet" ? sheetTabHtml(x) : tab === "Playbook" ? bookTabHtml(x) : installTabHtml(x);
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · ${esc(x.coordinator ? "play caller " + x.coordinator : "your staff")}`, title: "Plans", sub: "The season's lean, the call sheet, the playbook and what goes in each week.", goto: trGoto([["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"]]) })}${tabs("trplan", list, tab)}<div class="tabbody">${body}</div></div></div>`;
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${esc(x.coordinator ? "play caller " + x.coordinator : "your staff")}`, title: "Plans", sub: "The season's lean, the call sheet, the playbook and what goes in each week.", goto: trGoto([["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"]]) })}${tabs("trplan", list, tab)}<div class="tabbody">${body}</div></div></div>`;
 };
 
 // ======================================================================
@@ -946,7 +948,7 @@ screens.designer = async (a) => {
   const saved = des.k != null ? x.designs.find((q) => q.k === des.k) : null;
   const review = saved && saved.review.length ? `<div class="panel warm"><h2>${esc(x.coordinator || "Your coordinator")}'s review</h2><div class="items">${saved.review.map((r) => `<div class="item story"><span>${esc(r)}</span></div>`).join("")}</div>${saved.read && saved.read.snaps ? `<p class="sub">Called ${trPlural(saved.read.snaps, "time")}: ${saved.read.yards} yards a play, ${trPlural(saved.read.completions, "completion")}.</p>` : ""}</div>` : "";
   const list = x.designs.map((q) => `<button class="tr-dl ${des.k === q.k ? "on" : ""}" data-act="tr-dopen" data-k="${q.k}">${fieldSvg(q.geometry, { small: true })}<span><b>${esc(q.design.name)}</b><small>${esc(q.design.personnel)} · ${esc(q.design.set)} · ${esc(q.words)}</small></span></button>`).join("");
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · plays and tactics`, title: "Play designer", sub: "Draw a pass play from a formation and routes. It goes into your playbook, your players learn it in team periods, and your play caller can call it once it's on the card.", goto: trGoto([["Playbook", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"]]) })}
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · plays and tactics`, title: "Play designer", sub: "Draw a pass play from a formation and routes. It goes into your playbook, your players learn it in team periods, and your play caller can call it once it's on the card.", goto: trGoto([["Playbook", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"]]) })}
     <div class="tr-des"><aside class="tr-dlist"><button class="st-btn small primary" data-act="tr-dnew">New play</button>${list || '<div class="empty">No plays yet.</div>'}</aside>
     <div class="tr-dboard"><div class="panel warm tr-dfield">${fieldSvg(g.geometry, { click: true, sel: des.role })}<p class="sub">Click a player to pick his row. Numbers are the quarterback's reads in order.</p></div>${issues}
     <div class="panel warm"><h2>Routes and reads <small>a player with no route runs his job in the protection</small></h2><div class="tbl"><table><thead><tr><th class="l">Player</th><th class="l">Route</th><th class="l">Depth</th><th>Read</th></tr></thead><tbody>${roleRows}</tbody></table></div></div>${review}</div>
@@ -965,12 +967,35 @@ screens.designer = async (a) => {
 };
 
 // ======================================================================
-// The squad: six views (screens topic 6)
+// The squad: six views (screens topic 6), and Draft at a college
 // ======================================================================
 const rosterBase = screens.roster;
-const SQUAD_VIEWS = ["General", "Ratings", "Development", "Fitness", "Depth", "Contract"];
 // A player's unit to his board on the depth chart.
 const SQ_BOARD = { OFF: "Offense", DEF: "Defense", ST: "Special teams" };
+// Draft is the college seat's own view (minor bug 74): the full version
+// of Draft outlook, with the Evaluation desk's moves on each row.
+const SQUAD_VIEWS = ["General", "Ratings", "Development", "Fitness", "Depth", "Contract", "Draft"];
+const SQUAD_SAY = [[0, "Stay a year"], [1, "Your call"], [2, "You're ready"]];
+// The Draft view's rows: the draft outlook's word on each player (his
+// status, the NFL scouts, the advisory committee, his invites) and, for a
+// draft-eligible underclassman, the Evaluation desk's advisory list and
+// stay-or-go talk.
+async function squadDraft(x) {
+  const [o, e] = await Promise.all([api("dr_outlook"), api("eval_home")]);
+  const out = new Map(o.rows.map((r) => [r.id, r]));
+  const adv = (e.college && e.college.advisory) || { juniors: [], committee: false, sent: 0 };
+  const jr = new Map(adv.juniors.map((j) => [j.id, j]));
+  x.draft = { committee: adv.committee, limit: adv.limit, sent: adv.sent, deadline: o.deadline };
+  x.rows = x.rows.map((r) => {
+    const d = out.get(r.id) || {}, j = jr.get(r.id);
+    return { ...r, d_status: d.status || "", d_group: d.group ?? 9, outlook: d.outlook || "", scouts: d.scouts || null, public: d.public || null, advisory: d.advisory || (j && j.grade) || null, invites: d.invites || [], junior: !!j, sent: !!(j && j.sent), talk: j ? j.talk : null };
+  });
+}
+function squadCalls(r, x) {
+  if (!r.junior) return "";
+  const send = x.draft.committee ? `<button class="st-btn small glass" data-act="tr-sqadv" data-id="${r.id}" data-on="${r.sent ? 0 : 1}" aria-pressed="${r.sent}" title="${r.sent ? "On your advisory list: click to take him off" : "Ask the NFL's advisory committee for his round"}">${r.sent ? "Sent to the committee" : "Send to the committee"}</button>` : "";
+  return `<span class="tr-calls">${send}<span class="seg tr-say" title="Your stay-or-go talk">${SQUAD_SAY.map(([v, t]) => `<button data-act="tr-sqtalk" data-id="${r.id}" data-say="${v}" aria-pressed="${r.talk === v}">${t}</button>`).join("")}</span></span>`;
+}
 function squadCols(view, x) {
   const name = { k: "name", t: "Name", l: true, f: (r) => `${playerLink(r.id, r.name, view === "Development" ? "Development" : "")}${r.notes ? ` <span class="st-pill" title="Your notes">✎ ${r.notes}</span>` : ""}` };
   const pos = { k: "pos", t: "Pos", l: true };
@@ -982,11 +1007,22 @@ function squadCols(view, x) {
     General: [name, pos, cls, { k: "age", t: "Age" }, { k: "ht", t: "Ht", v: (r) => inches(r.ht) }, { k: "wt", t: "Wt" }, { k: "home", t: "Hometown", l: true, wrap: true }, { k: "stars", t: "★", tip: "Recruiting stars", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }, ovr, { k: "mood", t: "Mood", l: true }, { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') }, { k: "born", t: "Born", l: true, hide: true }],
     Ratings: [name, pos, cls, ovr, key(0), key(1), key(2), key(3)],
     Development: [name, pos, cls, { k: "age", t: "Age" }, ovr, { k: "growth", t: "Growth", l: true, f: (r) => trGrowth(r.growth) }, { k: "grade_words", t: "Practice", l: true, v: (r) => r.grade }, { k: "focus", t: "Main focus", l: true, f: (r) => (r.focus ? `${esc(r.focus)}${r.focus_by === "staff" ? ' <small class="muted">staff</small>' : ""}` : '<span class="muted">Balanced</span>') }, { k: "teacher", t: "Taught by", l: true, v: (r) => r.teacher.name || "", f: (r) => (r.teacher.name ? `${r.teacher.you ? "You" : coachLink(r.teacher.id, r.teacher.name)} <small class="muted">${esc(r.teacher.words)}</small>` : '<span class="muted">-</span>') }, { k: "habit", t: "Habit", l: true, hide: true }, { k: "moving", t: "Learning", l: true, hide: true }, { k: "body_target", t: "Body target", hide: true }],
-    Fitness: [name, pos, cls, { k: "practice", t: "Practice", l: true, f: trStatus }, { k: "load", t: "Load", l: true, f: trLoad, v: (r) => ["light", "moderate", "heavy", "very heavy"].indexOf(r.load) }, { k: "load_trend", t: "Trend", l: true }, { k: "missed", t: "Games missed", tip: "Last season" }, { k: "status", t: "Status", l: true }, { k: "wt", t: "Wt" }, { k: "sport", t: "Other sport", l: true, hide: x.tier !== "high school" }],
+    Fitness: [name, pos, cls, { k: "practice", t: "Practice", l: true, f: trStatus }, { k: "load", t: "Load", l: true, f: trLoad, v: (r) => ["light", "moderate", "heavy", "very heavy"].indexOf(r.load) }, { k: "load_trend", t: "Trend", l: true }, { k: "missed", t: "Games missed", tip: "Last season" }, { k: "status", t: "Status", l: true }, { k: "wt", t: "Wt" }, { k: "sport", t: "Other sport", l: true, hide: x.tier !== "hs" }],
     Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day: opens his spot on the depth chart", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? linkTo("depth", { tab: SQ_BOARD[r.group] || "Offense", pid: r.id }, r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
     Contract: pro
       ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr, { k: "deal", t: "New deal", l: true, tip: "Talk terms before he reaches the market", v: (r) => (r.deal ? 1 : 0), f: (r) => (r.deal ? moveBtn({ k: "deal", t: r.deal }, { id: r.id, name: r.name }, "st-btn small glass") : '<span class="muted">-</span>') }]
-      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "rs", t: "This season", l: true, hide: x.tier === "high school", tip: "Redshirt him or play him. From 2018 a redshirt may play four games and keep his year.", v: (r) => (r.rs ? r.rs.games : -1), f: sqRedshirt }, { k: "offers", t: "College offers", hide: x.tier !== "high school", f: (r) => (r.offers ? linkTo("player", { id: r.id, tab: "Recruiting" }, String(r.offers)) : '<span class="muted">0</span>') }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
+      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "hs" ? "Years left" : "Seasons left", tip: x.tier === "hs" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "hs", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "rs", t: "This season", l: true, hide: x.tier === "hs", tip: "Redshirt him or play him. From 2018 a redshirt may play four games and keep his year.", v: (r) => (r.rs ? r.rs.games : -1), f: sqRedshirt }, { k: "offers", t: "College offers", hide: x.tier !== "hs", f: (r) => (r.offers ? linkTo("player", { id: r.id, tab: "Recruiting" }, String(r.offers)) : '<span class="muted">0</span>') }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
+    Draft: x.draft
+      ? [name, pos, cls,
+          { k: "d_status", t: "Draft status", l: true, v: (r) => r.d_group, f: (r) => (r.d_status ? esc(r.d_status) : '<span class="muted">Not eligible yet</span>') },
+          { k: "outlook", t: "Outlook", l: true, tip: "Where he'd go, in the committee's or the scouts' words", f: (r) => (r.outlook ? `<b class="${/Round 1/.test(r.outlook) ? "gold" : ""}">${esc(r.outlook)}</b>` : '<span class="muted">-</span>') },
+          { k: "scouts", t: "NFL scouts", l: true, tip: "What the NFL scouts who came through say", f: (r) => (r.scouts ? esc(r.scouts) : '<span class="muted">-</span>') },
+          { k: "advisory", t: "Advisory", l: true, tip: "The NFL's advisory committee grade, sent to your school", f: (r) => (r.advisory ? `<b>${esc(r.advisory)}</b>` : '<span class="muted">-</span>') },
+          { k: "invites", t: "Invites", l: true, wrap: true, tip: "All-star games and the combine", v: (r) => r.invites.join(", "), f: (r) => (r.invites.length ? r.invites.map((i) => `<span class="tag ${/^Turned/.test(i) ? "soft" : "gold"}">${esc(i)}</span>`).join(" ") : '<span class="muted">-</span>') },
+          { k: "public", t: "Public", tip: "His rank on the public consensus board", hide: true, v: (r) => r.public || 999, f: (r) => (r.public ? `No. ${r.public}` : '<span class="muted">-</span>') },
+          ovr,
+          { k: "calls", t: "Your calls", l: true, tip: "The advisory committee and your stay-or-go talk, for a draft-eligible underclassman", v: (r) => (r.junior ? 1 : 0), f: (r) => squadCalls(r, x) }]
+      : [],
   };
   return x.squads ? [...views[view], trTeamCol(x.squads)] : views[view];
 }
@@ -1010,22 +1046,28 @@ function sqRedshirt(r) {
 screens.roster = async (a) => {
   if (!trMine(a)) return rosterBase(a);
   const x = await api("squad");
-  if (x.tier === "high school") x.squads = await api("school_squads").catch(() => null);
+  if (x.tier === "hs") x.squads = await api("school_squads").catch(() => null);
   setColors(x.team.colors);
-  const viewNames = SQUAD_VIEWS.map((v) => (v === "Contract" && x.tier !== "nfl" ? "Eligibility" : v));
+  const views = SQUAD_VIEWS.filter((v) => v !== "Draft" || x.tier === "college");
+  const viewNames = views.map((v) => (v === "Contract" && x.tier !== "nfl" ? "Eligibility" : v));
   const k = keep("sqview", { v: "General" });
-  if (a.view && SQUAD_VIEWS.includes(a.view)) k.v = a.view;
-  const view = SQUAD_VIEWS.includes(k.v) ? k.v : "General";
-  title("Squad", viewNames[SQUAD_VIEWS.indexOf(view)]);
+  if (a.view && views.includes(a.view)) k.v = a.view;
+  const view = views.includes(k.v) ? k.v : "General";
+  title("Squad", viewNames[views.indexOf(view)]);
+  if (view === "Draft") await squadDraft(x);
   const f = keep("sqf", { unit: "ALL" });
   const rows = x.rows.filter((r) => f.unit === "ALL" || r.group === f.unit);
   const count = (u) => x.rows.filter((r) => r.group === u).length;
   const seg = `<div class="seg">${[["ALL", "All", x.rows.length], ["OFF", "Offense", count("OFF")], ["DEF", "Defense", count("DEF")], ["ST", "Special teams", count("ST")]].map(([v, t, n]) => `<button data-act="tr-squnit" data-v="${v}" aria-pressed="${f.unit === v}">${t}<small>${n}</small></button>`).join("")}</div>`;
-  const vseg = `<div class="seg tr-views">${SQUAD_VIEWS.map((v, i) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="${v === view}">${viewNames[i]}</button>`).join("")}</div>`;
+  const vseg = `<div class="seg tr-views">${views.map((v, i) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="${v === view}">${viewNames[i]}</button>`).join("")}</div>`;
   const out = x.rows.filter((r) => r.practice === "out").length;
   const hurt = x.rows.filter((r) => r.spike).length;
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · ${x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
-    <div class="filters">${vseg}${seg}</div>
+  const dr = x.draft;
+  const draftNote = dr
+    ? `<p class="sub">${dr.committee ? `The NFL's advisory committee answers your underclassmen's names with a round${dr.limit ? `: ${dr.limit} names a school since 2014 (${dr.sent} sent), more only for a likely first-rounder` : ""}. Requests close December 10.` : "The advisory committee doesn't exist yet (it began in 1994): your juniors go on their own and their agents' word."} Your talk sways a junior by how far he trusts you. Declare by ${esc(dr.deadline)}.</p>`
+    : "";
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
+    <div class="filters">${vseg}${seg}</div>${draftNote}
     ${table("squad:" + view, squadCols(view, x), rows, { groupBy: (r) => r.pos })}</div></div>`;
 };
 
@@ -1061,7 +1103,7 @@ screens.depth = async (a) => {
   const names = [...x.boards.map((b) => b.label), "By position"];
   const tab = tabOf("trboard", names, a);
   title("Depth chart", tab);
-  const head = pageHead({ kicker: `${esc(trCap(x.tier))} · game day`, title: "Depth chart", sub: "Drag a player onto a spot, or click a spot and then a player. Your position coaches' picks show under each spot; where you set an order, the engine plays yours.", goto: trGoto([["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
+  const head = pageHead({ kicker: `${esc(trTier(x.tier))} · game day`, title: "Depth chart", sub: "Drag a player onto a spot, or click a spot and then a player. Your position coaches' picks show under each spot; where you set an order, the engine plays yours.", goto: trGoto([["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
   const tabsHtml = tabs("trboard", names.map((n) => { const b = x.boards.find((q) => q.label === n); return b && b.yours ? { name: n, badge: "●" } : n; }), tab);
   if (tab === "By position") {
     const inner = await depthBase(a);
@@ -1275,6 +1317,8 @@ document.addEventListener("click", async (ev) => {
     }
     case "tr-squnit": keep("sqf", {}).unit = d.v; trRedraw(); break;
     case "tr-sqview": keep("sqview", {}).v = d.v; S.route.args = { ...S.route.args, view: d.v }; trRedraw(); break;
+    case "tr-sqadv": if (await trDo("eval_advisory", { id: Number(d.id), on: d.on === "1" }, (r) => r.said)) trRedraw(); break;
+    case "tr-sqtalk": if (await trDo("eval_talk", { id: Number(d.id), say: Number(d.say) }, (r) => r.said)) trRedraw(); break;
     case "tr-pp": {
       if (ev.target.closest("[data-go]")) break;
       if (!TR.pick) { toast("Pick a spot on the board first, or drag him onto one."); break; }

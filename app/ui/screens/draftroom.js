@@ -223,6 +223,12 @@ function drPicks(dr) {
 
 // ---------- the draft outlook (college and high school seats) ----------
 screens.draftoutlook = async () => {
+  // A college head coach's outlook is the Squad's Draft view, which adds
+  // the advisory list and the stay-or-go talk to every row (SC1, bug 74).
+  if (seatKind() === "college" && foIsHead() && screens.roster) {
+    S.route = { screen: "roster", args: { view: "Draft" } };
+    return screens.roster({ view: "Draft" });
+  }
   const x = await api("dr_outlook");
   setColors(x.team.colors);
   title("Draft outlook", `${x.draft_year} NFL Draft`);
