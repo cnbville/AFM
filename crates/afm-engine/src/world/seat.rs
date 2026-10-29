@@ -1316,7 +1316,19 @@ impl World {
     pub fn after_load(&mut self) {
         let room = self.people.len() + self.people.len() / 3;
         self.people.shrink_to(room);
-        self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
+        // Each level's teams index its own list: a high school seat's
+        // schools number far past the colleges, so one bound for all
+        // dropped every high school game you kept at each load.
+        let (colleges, nfl, schools) = (self.programs.len(), self.nfl.len(), self.high_schools.len());
+        self.seat_games.retain(|g| {
+            let n = match g.level {
+                crate::calendar::Level::Nfl => nfl,
+                crate::calendar::Level::HighSchool => schools,
+                crate::calendar::Level::Other => usize::MAX,
+                _ => colleges,
+            };
+            g.teams.iter().all(|&t| t < n)
+        });
         super::scouting::after_load(self);
         self.fill_final_build_fields();
         // Faces (F3, F4): looks numbers and the Asian groups for an older file.

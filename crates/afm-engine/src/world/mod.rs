@@ -72,6 +72,7 @@ pub mod storylines;
 pub mod systems;
 pub mod tape;
 pub mod trends;
+pub mod units;
 pub mod voters;
 pub mod wlog;
 
@@ -882,6 +883,10 @@ pub struct World {
     pub(crate) nfl_prev: Option<nfl_year::NflSeason>,
     #[serde(default)]
     pub(crate) kept_schedules: Vec<season_page::KeptSeason>,
+    /// Each NFL team's regular-season points by year (C27): (season, team,
+    /// games, points for, points against); the last twenty seasons.
+    #[serde(default)]
+    pub nfl_units: Vec<(i32, u8, u8, u16, u16)>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1245,6 +1250,7 @@ impl World {
             prev_polls: Vec::new(),
             nfl_prev: None,
             kept_schedules: Vec::new(),
+            nfl_units: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
