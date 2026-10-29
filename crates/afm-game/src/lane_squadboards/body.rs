@@ -369,6 +369,15 @@ fn known(w: &World, i: usize) -> Known {
                 set(&mut vals, &mut source, k, t.secs as f64, &s, true);
             }
         }
+        // Your own high school's hand-timed forty is your staff's own
+        // watch (S6c): shown to you, not counted as verified.
+        if own && matches!(team, Some(TeamRef::HighSchool(_))) {
+            let hand = w.times.of(id).iter().rev().find(|t| t.event == Event::Forty && t.at == At::School);
+            if let Some(t) = hand {
+                let s = format!("Your staff's hand time, {}", views::date_text(t.date));
+                set(&mut vals, &mut source, 5, t.secs as f64, &s, false);
+            }
+        }
     }
     // A camp, showcase or pro day your scouts saw.
     let mut looks: Vec<(Kind, afm_engine::calendar::Date)> =

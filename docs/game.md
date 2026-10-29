@@ -1005,8 +1005,8 @@ Cain agreed to the speed items on 2026-10-26 and to B1-B4 on 2026-10-28.
 - **The services' leans** (minor bug 27; `world/scouting/services.rs`, `lean`): big programs by power-conference offers, viral by a fast recorded time, size by listed weight; the unused `service_read` is gone.
 - **Every comparison links its player** (minor bug 30; `app/ui/screens/squadboards-player.js`, `ratings.js`; `lane_squadboards/body.rs`, `arc.rs`): the dots and lines on the body, ratings and arc charts name the player on hover and open his page on click, at the numbers your staff know, at all three seats.
 - **Schedules and numbers** (minor bugs 45-48): Christmas games in 1999 and 2004, college holiday games on their real days, NFL 0 jerseys from 2023, and the trial's trades and comp picks read year by year against the real counts. See [nfl.md](reference/how-it-works/nfl.md), "Schedules, numbers and news".
-- **What moved** (`match_check nfl 400` and `fbs 400`, main against this lane, same seeds): MOVED_NFL. MOVED_FBS.
-- **In a world** (`star_mix`, WORLD_ARGS): WORLD_LINE.
+- **What moved** (`match_check nfl 400` and `fbs 400`, main against this lane with lane 1's bodies under it, same seeds). NFL points 27.8 to 27.2 a team game, pass yards 290 to 286, rush yards 104 to 101, man share 33.5% to 32.4%, blitz share 23.2% both, sacks 2.28 to 2.24, interceptions 0.92 to 0.97, injuries of a week or more 1.10 to 1.15. FBS points 22.3 to 22.2, pass yards 242 to 238, rush yards 124 to 126, man share 33.9% to 32.8%, blitz share 23.0% to 23.8%, sacks 2.58 to 2.54, interceptions 0.82 to 0.77, injuries 0.82 to 0.86. The more two-high shells against fast teams show as less man.
+- **In a world** (`star_mix build 2026 4 0.25`, a quarter-scale world on the stand-in history, the class of 2026 on January 1): 14% of the 19,198 seniors have track times, 66% a laser forty from a camp or showcase, 92% a school forty, 70% some electronic time. Of the fastest 1 in 100 at each position whose film is below the position's median (23 kids), 21 were timed; all 23 hold an offer or signed; their stars: 15 three-stars, 6 four-stars, 2 unrated (the two never timed). Comp picks 32-34 a year (real 29-38); trades 10-37 a year in 2011-2025 against the real 40-102 (86-96 since 2021): too few, on the minor bugs list as 87 to fix before the world rebuild.
 
 #### Claude's picks (proposed, not confirmed)
 
@@ -1024,6 +1024,7 @@ Cain agreed to the speed items on 2026-10-26 and to B1-B4 on 2026-10-28.
 - Your staff's reads of other skills still read 0.96 of a kid's ceilings, not what he has shown; only speed and burst moved to recorded times here.
 - The S10 proof is small (2.7% and 0.8%).
 - The 6-point misread should be checked against the real five-star draft rate on the world reader's data (R2).
+- 66% of the world's seniors have a laser forty; there is no real share to check it against, and real college camps often hand-time, so camps may laser too many.
 - `lib.rs` `LANES` did not grow: this lane added no commands of its own.
 
 ## Not built yet (section 8's design, for the next builds)
