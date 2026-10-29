@@ -202,6 +202,10 @@ const sbDepthBase = screens.depth;
 screens.depth = async (a) => {
   a = a || {};
   if (a.kind && typeof trMine === "function" && !trMine(a)) return sbDepthBase(a);
+  // A depth spot on the Squad opens his unit's base board with his spot
+  // picked (pid), once: a redraw keeps whatever spot you pick after it.
+  const pid = a.pid;
+  delete a.pid;
   const k = keep("trboard", { t: "Offense" });
   // A flat board asked for by name (another page's link, an old keep)
   // opens on its stadium tab with its formation.
@@ -222,6 +226,7 @@ screens.depth = async (a) => {
     k.t = cur;
     return html.replace(/<div class="tabsline" role="tablist">[\s\S]*?<\/div>/, sbDcTabs(cur, null));
   }
+  if (pid != null) delete keep("sbform", {})[cur];
   const form = keep("sbform", {})[cur] || SB_TAB_KEY[cur];
   let x;
   try {
@@ -235,9 +240,15 @@ screens.depth = async (a) => {
     // The flat drag-and-drop board of this formation, under the stadium's tabs.
     const label = SB_FORM_LABEL[x.form] || "Offense";
     k.t = label;
-    const html = await sbDepthBase({ ...a, tab: label });
+    const html = await sbDepthBase({ ...a, tab: label, pid });
     k.t = cur;
     return html.replace(/<div class="tabsline" role="tablist">[\s\S]*?<\/div>/, sbDcTabs(cur, x));
+  }
+  if (pid != null) {
+    // The spot he starts at, else the first where he is in the depth.
+    const starts = x.slots.findIndex((s) => s.picks[0] && s.picks[0].id === pid);
+    const at = starts >= 0 ? starts : x.slots.findIndex((s) => s.picks.some((m) => m && m.id === pid));
+    if (at >= 0) keep("sbdc:" + x.form, { k: 0 }).k = at;
   }
   return sbDepthPage(x, cur);
 };
@@ -300,7 +311,7 @@ function sbSpotPanel(x, s, k) {
     const up = i > 0 && s.controls && x.slots[k] ? `<button class="sb-up" data-act="sbup" data-k="${k}" data-n="${i + 1}" title="Move ${esc(m.name)} up" aria-label="Move ${esc(m.name)} up">↑</button>` : "";
     const hurt = m.health !== "full" ? ` <span class="sb-tag ${m.health === "out" ? "bad" : "warn"}" title="${esc(m.health_why || "")}">${m.health === "out" ? "Out" : "Limited"}</span>` : "";
     const ready = i === 0 ? "Starter" : m.ready;
-    return `<div class="sb-dr ${i === 0 ? "first" : ""}"><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name)}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
+    return `<div class="sb-dr ${i === 0 ? "first" : ""}"><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
   }).join("");
   const coach = d && d.coach ? `<div class="sb-coach"><span class="sb-ci">${esc(String(d.coach.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span><div><div class="sb-cn">${d.coach.you ? "You" : coachLink(d.coach.id, d.coach.name || "")}, ${esc(d.coach.title)}</div><p>${esc(d.note)}</p></div></div>` : "";
   return `<span class="sb-bignum" aria-hidden="true">${p.num != null ? p.num : ""}</span>
@@ -311,7 +322,7 @@ function sbSpotPanel(x, s, k) {
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(s.pos)}</span>${keys}</div>
     <div class="sb-sec"><span class="sb-lbl">Depth at ${esc(s.slot)}</span>${depth}</div>
     ${coach}
-    <div class="st-actions">${linkTo("player", { id: p.id }, "Player page", "st-btn small")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
+    <div class="st-actions">${linkTo("player", { id: p.id, tab: "Development" }, "Player page ›")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
 }
 
 // ---------- H4 (lane 6): who put him there, and why (board 37) ----------
@@ -440,7 +451,7 @@ screens.roster = async (a) => {
     kicker: `${esc(x.level_name)} · ${sbPlural(x.rows.length, "player")}`,
     title: `<span class="sb-crest">${mark(x.team, 40)}</span>${esc(x.team.name)}`,
     sub: `Your staff reads them every day. Snaps and grades from ${esc(x.season_words)}'s games.`,
-    goto: gotoLine([["Depth chart", "depth"], ["Needs map", "needs"], ["Training", "training"], ["Staff", "staff"]]),
+    goto: gotoFor("roster", a),
   });
   return `<div class="film sb"><div class="pad sb-pad">${pageH}<div class="filters">${vseg}</div>
     <div class="sb-roster">${railHtml}<div class="sb-rt" role="table">${head}${body}</div><aside class="sb-side">${pick ? sbRosterPanel(pick, x) : ""}</aside></div></div></div>`;
@@ -463,6 +474,14 @@ function sbSpark(last6) {
   const tip = last6.map((g) => (g == null ? "didn't play" : g)).join(", ");
   return `<svg class="sb-spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Last six grades: ${tip}"><title>${tip}</title><line x1="0" x2="${W}" y1="${ys(60).toFixed(1)}" y2="${ys(60).toFixed(1)}" class="sb-avg"/><path d="${path}" class="sb-sl"/>${dots}</svg>`;
 }
+// His money cell opens its story: a high schooler's offers his Recruiting
+// tab, an NFL cap hit his row on the cap sheet.
+function sbMoney(r) {
+  const m = r.money || {};
+  if (!m.value) return "";
+  const v = esc(m.value);
+  return m.label === "Offers" ? linkTo("player", { id: r.id, tab: "Recruiting" }, v) : m.label === "Cap" ? linkTo("fo_cap", { id: r.id }, v) : v;
+}
 function sbRosterRow(r, on) {
   const hurt = r.health !== "full" ? ` <span class="sb-tag ${r.health === "out" ? "bad" : "warn"}" title="${esc(r.health_why || r.status || "")}">${r.health === "out" ? "Out" : "Limited"}</span>` : "";
   const m = r.money || {};
@@ -474,7 +493,7 @@ function sbRosterRow(r, on) {
     <span>${sbSpark(r.last6 || [])}</span>
     <span class="sb-sn">${r.snaps_pct != null ? `<span class="sb-sb"><i style="width:${r.snaps_pct}%"></i></span><b>${r.snaps_pct}%</b>` : '<span class="sb-dim">–</span>'}</span>
     <span class="${r.unhappy ? "sb-warn" : ""}">${esc(r.mood)}</span>
-    <span title="${esc(m.note || "")}">${m.value ? esc(m.value) : '<span class="sb-dim">–</span>'}</span></div>`;
+    <span title="${esc(m.note || "")}">${sbMoney(r) || '<span class="sb-dim">–</span>'}</span></div>`;
 }
 function sbRosterPanel(r, x) {
   const [first, ...rest] = String(r.name).split(" ");
@@ -485,7 +504,7 @@ function sbRosterPanel(r, x) {
     <div class="sb-ph"><span class="sb-lbl gold">${esc(r.pos)} · ${esc(r.class_full || r.class)}${r.num != null ? " · #" + r.num : ""}</span><span class="sb-first">${esc(first)}</span><span class="sb-last">${esc(rest.join(" "))}</span><span class="sb-meta">${esc(r.ht)}, ${r.wt} lb · ${esc(r.home)}</span></div>
     <div class="sb-card"><span class="sb-lbl">Staff read</span><div class="sb-hero2"><b>${r.ovr ? sbMid(r.ovr) : "–"}</b>${range(r.ovr, "his position coach", { p: r.id, k: "ovr" })}</div>${sbBand(r.ovr, null, sbFloor(x.rows.map((q) => (q.ovr ? q.ovr[0] : null))))}</div>
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(r.pos)}</span>${keys}</div>
-    <div class="sb-cells"><div><span class="sb-lbl">Snaps</span><b>${r.snaps_pct != null ? r.snaps_pct + "%" : "–"}</b></div><div><span class="sb-lbl">${esc(m.label || "Money")}</span><b>${esc(m.value || "–")}</b></div><div><span class="sb-lbl">Health</span><b class="${r.health !== "full" ? "sb-warn" : ""}">${r.health === "out" ? "Out" : r.health === "limited" ? "Limited" : "Full"}</b></div><div><span class="sb-lbl">Morale</span><b class="${r.unhappy ? "sb-warn" : ""}">${esc(r.mood)}</b></div></div>
+    <div class="sb-cells"><div><span class="sb-lbl">Snaps</span><b>${r.snaps_pct != null ? r.snaps_pct + "%" : "–"}</b></div><div><span class="sb-lbl">${esc(m.label || "Money")}</span><b>${sbMoney(r) || "–"}</b></div><div><span class="sb-lbl">Health</span><b class="${r.health !== "full" ? "sb-warn" : ""}">${r.health === "out" ? "Out" : r.health === "limited" ? "Limited" : "Full"}</b></div><div><span class="sb-lbl">Morale</span><b class="${r.unhappy ? "sb-warn" : ""}">${esc(r.mood)}</b></div></div>
     ${line}
-    <div class="st-actions">${linkTo("player", { id: r.id }, "Player page", "st-btn small")}${linkTo("player", { id: r.id, tab: "People" }, "Talk", "st-btn small glass")}</div>`;
+    <div class="st-actions">${linkTo("player", { id: r.id }, "Player page ›")}${linkTo("player", { id: r.id, tab: "People" }, "Talk", "st-btn small glass")}</div>`;
 }

@@ -2578,7 +2578,7 @@ const RECRUITED_PER_SPOT: usize = 3;
 const RECRUITED_EXTRA: usize = 3;
 
 /// Official visits a recruit can take (the NCAA's limit of five).
-const OFFICIAL_VISITS: usize = 5;
+pub(crate) const OFFICIAL_VISITS: usize = 5;
 
 /// A redshirt's portal rate before his stars (11.17), on the same scale as
 /// the backup's 0.18 and the rotation player's 0.07 in `PIPELINE`. These
@@ -3367,6 +3367,7 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     let seed = w.options.seed as u64 ^ (d.0 as u64) << 20 ^ 0x5649;
     // Your program's visits are the ones you set (lane 10): nobody comes on his own.
     let vj = fo::college::visits_program(w);
+    let planned = fo::college::planned_officials(w);
     let mut posts = Vec::new();
     let (mut off, mut unoff, mut drops) = (0u32, 0u32, 0u32);
     let n = w.people.len();
@@ -3403,9 +3404,13 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
         let id = p.player.id as u64;
         let mut new: Vec<(usize, Visit)> = Vec::new();
         if official_day && official_visit_allowed(season, d, p.class_of, junior_officials) {
-            let taken = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count();
+            // The official you set and he accepted holds one of his five.
+            let taken = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count()
+                + usize::from(planned.as_ref().is_some_and(|(_, ids)| ids.contains(&p.player.id)));
+            let yours_set = |j: usize| planned.as_ref().is_some_and(|(pj, ids)| *pj == j && ids.contains(&p.player.id));
             let next = p.cal.offers.iter().find(|&&j| {
                 Some(j) != vj
+                    && !yours_set(j)
                     && !p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official)
                     && (!fall_officials || home_tomorrow.contains(&j))
             });
@@ -5911,6 +5916,9 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         let talks = fo::college::stay_talks(w);
         for p in w.people.iter_mut() {
             let met = talks.as_ref().and_then(|t| (p.college == Some(t.0)).then(|| t.1.get(&p.player.id).copied()));
+            // With your staff on the portal, the players you didn't meet get
+            // its word, as at any program (SC6).
+            let met = if talks.as_ref().is_some_and(|t| t.2) && met == Some(None) { None } else { met };
             if p.stage == Stage::College
                 && p.cal.lean > 0.0
                 && (p.last_role == Some(PlayingTime::Rotation) || met.flatten().is_some())
@@ -6388,7 +6396,10 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 // Your offer (lane 10): your program has room for him if its
                 // roster does, by the same level rules, and he weighs it by
                 // the same wants, with your NIL money and the ties you built.
-                if let Some(m) = pwant.as_ref().filter(|m| m.program == j) {
+                if let Some(m) = pwant
+                    .as_ref()
+                    .filter(|m| m.program == j && (!m.staff || m.offers.contains_key(&wr.people[i].player.id)))
+                {
                     let o = m.offers.get(&wr.people[i].player.id)?;
                     let limit = super::ncaa::roster_limits(&wr.programs[j], season).0;
                     if j == c || counted[j] + mk.adds[j] >= limit {
@@ -6634,8 +6645,10 @@ pub(crate) fn nil_payouts(w: &mut World) {
                 let mut v = Vec::with_capacity(roster.len());
                 for &i in &roster {
                     let p = &mut w.people[i];
-                    let money = d.1.get(&p.player.id).copied().unwrap_or(0.0);
                     let fair = worth(p);
+                    // With your staff on NIL, a player you set no deal for
+                    // gets the usual split (SC6).
+                    let money = d.1.get(&p.player.id).copied().unwrap_or(if d.2 { fair } else { 0.0 });
                     if fair >= 25_000.0 && money < 0.5 * fair && p.college_seasons < 4 {
                         p.cal.lean = clamp(p.cal.lean * 1.35 + 0.01, 0.0, 0.95);
                         p.cal.lean_events.push((today, "his NIL deal fell short of his worth", 1.35));

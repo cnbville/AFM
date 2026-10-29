@@ -880,7 +880,7 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
         let former = w.people[i].pro.as_ref().unwrap().teams.last().copied();
         let mut offers: Vec<(Offer, f64)> = Vec::new();
         for &t in &teams {
-            if w.clubs[t].roster.len() >= limit || fo::yours(w, t, Duty::FreeAgency) {
+            if w.clubs[t].roster.len() >= limit || fo::yours(w, t, Duty::FreeAgency) || fo::nfl::talking(w, t, i) {
                 continue;
             }
             if let Some(o) = make_offer(w, t, i, &ideal, days, committed[t], year) {
@@ -923,7 +923,13 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
         // The agent's move: with no real competition, a less honest agent
         // claims other interest (topic 3 question 1).
         // Your own offer gets your answer from the agent instead (lane 10).
-        let (best, s) = if s < 0.85 && offers.len() == 1 && !fo::yours(w, best.team, Duty::FreeAgency) {
+        // Your own offer gets the agent's answer in your talk, never a bluff
+        // (lane 10), whoever runs the rest of free agency (SC6).
+        let (best, s) = if s < 0.85
+            && offers.len() == 1
+            && !fo::yours(w, best.team, Duty::FreeAgency)
+            && !fo::nfl::talking(w, best.team, i)
+        {
             bluff(w, i, best, &ideal, former, d)
         } else {
             (best, s)
@@ -1063,8 +1069,9 @@ fn expiring(w: &World) -> Vec<(usize, usize)> {
 pub(crate) fn resign_talks(w: &mut World, d: Date, deadline: bool) {
     let year = w.year;
     for (t, i) in expiring(w) {
-        // Your own players are yours to re-sign (lane 10).
-        if fo::yours(w, t, Duty::Contracts) {
+        // Your own players are yours to re-sign (lane 10), and one you're
+        // talking to while your staff runs contracts (SC6).
+        if fo::yours(w, t, Duty::Contracts) || fo::nfl::talking(w, t, i) {
             continue;
         }
         let c = w.people[i].pro.as_ref().unwrap();
@@ -1121,9 +1128,28 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
     let mut list = expiring(w);
     list.sort_by_cached_key(|&(_, i)| std::cmp::Reverse((consensus(w, i) * 100.0) as i64));
     let mut used: std::collections::HashMap<usize, [bool; 2]> = std::collections::HashMap::new();
+    // A tag you gave yourself while your staff runs the tags uses your
+    // club's tag (SC6).
+    if let Some(me) = fo::club(w) {
+        let mut u = [false; 2];
+        for &i in &w.clubs[me].roster {
+            if let Some(k) =
+                w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).filter(|k| k.signed == year && k.team == me)
+            {
+                u[0] |= k.kind == money::Kind::Franchise;
+                u[1] |= k.kind == money::Kind::Transition;
+            }
+        }
+        used.insert(me, u);
+    }
     for (t, i) in list {
-        // Your tags and tenders are yours (lane 10).
-        if fo::yours(w, t, Duty::Tags) {
+        // Your tags and tenders are yours (lane 10), and a talk of yours or
+        // a tag you withdrew stands with the staff on the rest (SC6).
+        let id = w.people[i].player.id;
+        if fo::yours(w, t, Duty::Tags)
+            || fo::nfl::talking(w, t, i)
+            || (fo::seat_head_club(w, t) && w.front_office.nfl.withdrawn.iter().any(|x| x.0 == id && x.1 == year))
+        {
             continue;
         }
         let p = &w.people[i];
@@ -1576,8 +1602,8 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
         })
         .collect();
     for (t, i) in list {
-        // Your own extensions are yours (lane 10).
-        if fo::yours(w, t, Duty::Contracts) {
+        // Your own extensions are yours (lane 10), and a talk of yours (SC6).
+        if fo::yours(w, t, Duty::Contracts) || fo::nfl::talking(w, t, i) {
             continue;
         }
         let (view, walk) = worth(w, t, i);
@@ -2200,13 +2226,16 @@ pub(crate) fn claims(w: &mut World, d: Date) {
             if Some(t) == from {
                 continue;
             }
-            // Your claims are yours (lane 10).
-            if fo::yours(w, t, Duty::Waivers) {
+            // Your claims are yours (lane 10), and stand while your staff
+            // works the rest of the wire (SC6).
+            if fo::seat_head_club(w, t) {
                 if let Some(drop) = fo::roster::seat_claim(w, t, i, limit) {
                     claimed = Some((t, drop));
                     break;
                 }
-                continue;
+                if fo::yours(w, t, Duty::Waivers) {
+                    continue;
+                }
             }
             let g = grade(w, t, i);
             let active: Vec<usize> = w.clubs[t]

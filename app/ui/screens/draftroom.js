@@ -223,6 +223,12 @@ function drPicks(dr) {
 
 // ---------- the draft outlook (college and high school seats) ----------
 screens.draftoutlook = async () => {
+  // A college head coach's outlook is the Squad's Draft view, which adds
+  // the advisory list and the stay-or-go talk to every row (SC1, bug 74).
+  if (seatKind() === "college" && foIsHead() && screens.roster) {
+    S.route = { screen: "roster", args: { view: "Draft" } };
+    return screens.roster({ view: "Draft" });
+  }
   const x = await api("dr_outlook");
   setColors(x.team.colors);
   title("Draft outlook", `${x.draft_year} NFL Draft`);
@@ -248,7 +254,7 @@ screens.draftoutlook = async () => {
   const sub = hs
     ? `Your former players in college and the pros. Declare by ${esc(x.deadline)}; the draft opens ${esc(x.draft_day)}.`
     : `Your players three years out of high school or more. Declare by ${esc(x.deadline)}; the draft opens ${esc(x.draft_day)}.${x.bars ? ` Last year it took about ${x.bars[0]} to go in rounds 1-2 and ${x.bars[1]} in rounds 3-4.` : ""}`;
-  return `<div class="pad dr"><div class="dr-head"><div class="dr-id">${mark(x.team, 44)}<div><span class="dr-lbl">${esc(x.team.name)} · ${x.draft_year} NFL Draft</span><h1>Draft outlook</h1></div></div></div>
+  return `<div class="pad dr"><div class="dr-head"><div class="dr-id">${mark(x.team, 44)}<div><span class="dr-lbl">${esc(x.team.name)} · ${x.draft_year} NFL Draft</span><h1>Draft outlook</h1></div></div></div>${gotoFor("draftoutlook")}
     <p class="dr-sub">${sub}</p>${cells}
     ${secs || `<div class="dr-card"><p class="dr-dim">${hs ? "None of your former players is in the draft picture yet." : "None of your players is three years out of high school yet."}</p></div>`}</div>`;
 };

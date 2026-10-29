@@ -97,6 +97,10 @@ pub struct ProCareer {
     /// On the reserve/PUP list: still hurt at the new league year, he comes
     /// back when healed without using one of the team's returns.
     pub pup: bool,
+    /// Put on injured reserve before the final cutdown: out for the season,
+    /// as the league's rule has it (your club's moves, minor bug 73).
+    #[serde(default)]
+    pub ir_out: bool,
     /// Every team he has been with, in order.
     pub teams: Vec<usize>,
     /// His entry in `World::alumni` (drafted and undrafted players).
@@ -166,6 +170,7 @@ impl ProCareer {
             weeks_unsigned: 0,
             out_weeks: 0,
             pup: false,
+            ir_out: false,
             teams: team.into_iter().collect(),
             alumnus: None,
             paid: false,
@@ -1023,6 +1028,11 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
             continue;
         }
         let mut signed = false;
+        // Your club: your injured reserve and your free agency are yours
+        // (minor bug 73); the fill only steps in when you can't dress a team.
+        let mine = super::front_office::seat_head_club(w, t);
+        let my_ir = mine && super::front_office::yours(w, t, super::front_office::Duty::InjuredReserve);
+        let my_fa = mine && super::front_office::yours(w, t, super::front_office::Duty::FreeAgency);
         for _ in 0..limit {
             let on: Vec<usize> = w.clubs[t]
                 .roster
@@ -1033,7 +1043,7 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
             let out = |i: usize| w.people[i].pro.as_ref().map_or(0, |c| c.out_weeks);
             let healthy = on.iter().filter(|&&i| out(i) == 0).count();
             if on.len() >= limit {
-                if healthy >= dress {
+                if healthy >= dress || my_ir {
                     break;
                 }
                 let Some(&i) = on.iter().filter(|&&i| out(i) > 0).max_by_key(|&&i| (out(i), std::cmp::Reverse(i)))
@@ -1045,6 +1055,9 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
                 c.pup = false;
                 changed = true;
                 continue;
+            }
+            if my_fa && healthy >= dress {
+                break;
             }
             let thin = |p: Position| {
                 let have = on.iter().filter(|&&i| out(i) == 0 && w.people[i].player.position == p).count();
@@ -1285,6 +1298,7 @@ fn league_year(w: &mut World, d: Date) {
         }
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         if c.status == Status::Reserve {
+            c.ir_out = false;
             if c.out_weeks == 0 {
                 c.status = Status::Roster;
                 c.pup = false;
@@ -1363,6 +1377,8 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     // (section 6 topic 2): it hurts more the longer he was there.
     let years_there = c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64;
     c.status = Status::FreeAgent;
+    // A season-ending placement stays with the club that made it.
+    c.ir_out = false;
     c.team = None;
     c.weeks_unsigned = 0;
     c.former = Some(t);
@@ -1454,6 +1470,7 @@ fn street_signings(w: &mut World, d: Date, in_season: bool) -> bool {
             if !super::franchise::active_in(w, t, year)
                 || w.clubs[t].roster.len() >= limit + if in_season { 20 } else { 0 }
                 || super::front_office::yours(w, t, super::front_office::Duty::FreeAgency)
+                || super::front_office::nfl::talking(w, t, i)
             {
                 continue;
             }
@@ -1890,12 +1907,18 @@ pub(crate) fn cutdown(w: &mut World, d: Date) {
             tell_cutdown(w, d, &chosen, &squad, &cut);
         }
         for i in chosen {
-            // Kept while hurt in camp: injured reserve once the cutdown is done.
+            // Kept while hurt in camp: injured reserve once the cutdown is
+            // done; at your club your medical staff recommends it and you
+            // decide (minor bug 73).
             let name = w.nfl[t].name;
+            let you = super::front_office::reserve::you_decide(w, i);
             let p = &mut w.people[i];
             let c = p.pro.as_mut().unwrap();
             c.status = Status::Roster;
-            if c.out_weeks >= 6 {
+            if c.out_weeks >= 6 && you {
+                let weeks = c.out_weeks;
+                super::front_office::reserve::recommend(w, i, weeks);
+            } else if c.out_weeks >= 6 {
                 let weeks = c.out_weeks;
                 c.status = Status::Reserve;
                 c.pup = false;
@@ -2023,7 +2046,23 @@ fn heal_week(w: &mut World) {
             }
         }
         let pup = c.pup;
-        if back
+        let healed = c.out_weeks == 0;
+        // Placed before the cutdown: out for the season.
+        if status == Status::Reserve && c.ir_out {
+            continue;
+        }
+        // Your club's healed player waits for your word (minor bug 73), off
+        // the PUP list too; nothing moves him without you.
+        if status == Status::Reserve && crate::world::front_office::reserve::you_decide(w, i) {
+            if back && team.is_some_and(|t| pup || w.clubs[t].ir_used < games::ir_returns(year)) {
+                crate::world::front_office::reserve::healed(w, i);
+            }
+            continue;
+        }
+        // A club brings him back the week he heals; yours with the duty at
+        // your staff also brings back one already waiting.
+        let due = back || (healed && team.is_some_and(|t| crate::world::front_office::seat_head_club(w, t)));
+        if due
             && status == Status::Reserve
             && let Some(t) = team
             && (pup || w.clubs[t].ir_used < games::ir_returns(year))

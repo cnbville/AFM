@@ -20,7 +20,10 @@
  */
 
 I.eye = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
-navAdd({ go: "evaluate", label: "Evaluation", icon: "eye", sec: "scout", after: "scouting", seats: ["nfl", "college", "hs"] });
+// A high school coach evaluates no staff: his desk is the athletes in his
+// building and his own days out, and is named for them (SC3).
+const evName = (seat) => (seat === "hs" ? "Athletes and days out" : "Evaluation");
+navAdd({ go: "evaluate", get label() { return evName(seatKind()); }, icon: "eye", sec: "scout", after: "scouting", seats: ["nfl", "college", "hs"] });
 CRUMBS.evaluate = "Evaluation";
 GOTO.evaluate = () => (scSeat() === "nfl"
   ? [["Department", "scouting"], ["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Staff", "staff"]]
@@ -52,7 +55,7 @@ screens.evaluate = async (a) => {
       ? ["Personnel", "Days out", "NFL on campus", "Pro day", "Advisory", "Meetings", "Minimums", "Outside football", "Coverage"]
       : ["Athletes", "Days out", "Your class and systems", "Coverage"];
   const tab = tabOf("evtab", list, a);
-  title("Evaluation", String(x.year));
+  title(evName(x.seat), String(x.year));
   const body = await {
     "Outside football": l7Outside, Coverage: l7Coverage, "Your class and systems": l7ClassFit,
     Scouts: evScouts, "Days out": evTrips, Meetings: evMeetings, Minimums: evMinimums, Service: evService,
@@ -60,7 +63,7 @@ screens.evaluate = async (a) => {
   }[tab](x);
   const sub = x.seat === "nfl" ? "Your scouts, your own days out, the room and the rules you hold to." : x.seat === "college" ? "Your personnel staff, your days out, the NFL on your campus and your juniors' calls." : "Your days out and the athletes in your building who don't play yet.";
   return `<div class="pad sl ev ev-${x.seat}">
-    <header class="ev-head"><div><div class="st-label">Scouting · ${esc(x.today)}</div><h1 class="ev-h1">Evaluation</h1><p class="ev-sub">${esc(sub)}</p></div>${evTops(x)}</header>
+    <header class="ev-head"><div><div class="st-label">Scouting · ${esc(x.today)}</div><h1 class="ev-h1">${evName(x.seat)}</h1><p class="ev-sub">${esc(sub)}</p></div>${evTops(x)}</header>
     <div class="ev-tabs">${tabs("evtab", list, tab)}</div>
     ${body}
     <div class="ev-foot">${gotoFor("evaluate", a, x)}</div>

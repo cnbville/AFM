@@ -134,6 +134,40 @@ fn prow(w: &World, i: usize) -> Value {
     v
 }
 
+/// What a restructure or a release of your player would do today: the
+/// numbers the cap sheet's Moves dialog shows, for the player page and the
+/// menu (minor bug 62). None when he isn't under contract with you.
+pub(crate) fn cap_moves(w: &World, i: usize) -> Option<Value> {
+    if !w.seat_head() {
+        return None;
+    }
+    let t = my_club(w).ok()?;
+    let c = w.people[i].pro.as_ref()?;
+    let k = c.contract.as_ref().filter(|k| k.team == t && c.team == Some(t))?;
+    if c.status == Status::PracticeSquad {
+        return None;
+    }
+    let year = w.year;
+    let today = w.today;
+    let (dn, _) = k.dead_if_cut(year, today, false);
+    let (dj, dj2) = k.dead_if_cut(year, today, true);
+    let after = pro::after_june1(w, today);
+    let used = w.front_office.nfl.june1.iter().filter(|x| x.1 == year).count();
+    // A deal in its last year has no years to spread a bonus over without
+    // void years (2016 on).
+    let last = k.last_year() <= year;
+    Some(json!({
+        "re": money::capped(year)
+            && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0)
+            && (!last || nfl::void_years_allowed(year)),
+        "last": last,
+        "voids": nfl::void_years_allowed(year),
+        "dead": dn.round(), "saves": k.cut_savings(year, today, false).round(),
+        "dj": dj.round(), "dj2": dj2.round(), "sj": k.cut_savings(year, today, true).round(),
+        "june1": if after { 0 } else { 2usize.saturating_sub(used) },
+    }))
+}
+
 // --- The front office home ---------------------------------------------------------------------
 
 fn office(w: &World) -> Reply {
@@ -273,10 +307,14 @@ fn cap_sheet(w: &World) -> Reply {
             Status::Reserve => "Reserve",
             _ => "",
         });
+        // A deal in its last year restructures only with void years (2016 on).
+        let last = k.last_year() <= year;
+        v["last_year"] = json!(last);
         v["can_restructure"] = json!(
             money::capped(year)
                 && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0)
                 && c.status != Status::PracticeSquad
+                && (!last || nfl::void_years_allowed(year))
         );
         v["ending"] = json!(k.last_year() < year);
         rows.push(v);
@@ -319,6 +357,7 @@ fn cap_sheet(w: &World) -> Reply {
     Ok(json!({
         "team": views::team_brief(w, TeamRef::Nfl(t)),
         "year": year, "years": years, "rows": rows,
+        "owner": if w.front_office.owner(Duty::Cap) == Owner::You { "you" } else { "staff" },
         "books": years.iter().map(|&y| book(y)).collect::<Vec<_>>(),
         "top51": top51, "capped": money::capped(year),
         "dead": dead, "picks": picks,
@@ -468,6 +507,8 @@ fn expiring(w: &World) -> Reply {
     Ok(json!({
         "team": views::team_brief(w, TeamRef::Nfl(t)),
         "year": year, "rows": rows,
+        "owner": if w.front_office.owner(Duty::Contracts) == Owner::You { "you" } else { "staff" },
+        "owner_tags": if w.front_office.owner(Duty::Tags) == Owner::You { "you" } else { "staff" },
         "window": nfl::tag_window(w),
         "window_open": views::date_text(w.dates.tag_window_open),
         "deadline": views::date_text(w.dates.tag_deadline.date),
@@ -552,7 +593,9 @@ fn talk(w: &World, id: u32) -> Reply {
         || talk.is_some_and(|x| x.lines.len() >= 6);
     v["wants"] = json!(known.then(|| nfl::wants_words(w, i)));
     v["visited"] = json!(visited);
-    v["can_visit"] = json!(kind == Some(nfl::TalkKind::FreeAgent) && w.today >= w.dates.league_year.date && !visited);
+    v["can_visit"] = json!(
+        kind == Some(nfl::TalkKind::FreeAgent) && w.today >= w.dates.league_year.date && !nfl::visited_recently(w, id)
+    );
     v["minimum"] = json!(minimum.round());
     v["voids_ok"] = json!(nfl::void_years_allowed(year));
     v["room"] = json!(pro::cap_room(w, t, year).round());
@@ -694,7 +737,14 @@ fn free_agents(w: &World, args: &Value) -> Reply {
             let pending = w.market.pending.iter().find(|x| x.person == i);
             v["agreed"] = pending.map_or(Value::Null, |x| json!({ "team": views::team_brief(w, TeamRef::Nfl(x.offer.team)), "mine": x.offer.team == t, "until": views::date_text(x.until), "verbal": x.verbal }));
             v["talk"] = talk_brief(w, p.player.id);
-            v["visited"] = json!(w.front_office.nfl.visits.iter().any(|x| x.0 == p.player.id));
+            let visited = w.front_office.nfl.visits.iter().any(|x| x.0 == p.player.id);
+            v["visited"] = json!(visited);
+            // The row brings him in, as his talk does (from the league year).
+            v["can_visit"] = json!(
+                nfl::negotiable(w, i) == Some(nfl::TalkKind::FreeAgent)
+                    && w.today >= w.dates.league_year.date
+                    && !nfl::visited_recently(w, p.player.id)
+            );
             v["rfa"] = json!(p.pro.as_ref().and_then(|c| c.rfa).map(|r| format!("{r:?}")));
             v
         })
