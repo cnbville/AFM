@@ -824,24 +824,35 @@ pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String
     }
 }
 
+/// Why you can't watch his film yourself now, if you can't: you watched
+/// him today, or the week's film hours are spent.
+pub fn film_blocked(w: &World, id: u32) -> Option<String> {
+    let you = me(w)?;
+    let (kind, hours, _) = film_cost(w, id).ok()?;
+    let d = w.today;
+    if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
+        return Some("You watched him today already: the next look is another day's tape.".into());
+    }
+    let left = film_left(w);
+    (hours > left + 0.01).then(|| {
+        format!(
+            "Your film hours are spent this week ({:.0} of {:.0}): give it to your staff, or watch him on Monday.",
+            film_budget(w) - left,
+            film_budget(w)
+        )
+    })
+}
+
 /// You watch his film yourself, today, on your own hours: the look goes in
 /// his file under your name, read by your own eye.
 pub fn watch_film(w: &mut World, id: u32) -> Result<String, String> {
     let you = me(w).ok_or("Start a career first.")?;
     let staff = readers::seat_staff(w).ok_or("Start a career first.")?;
     let (kind, hours, what) = film_cost(w, id)?;
+    if let Some(why) = film_blocked(w, id) {
+        return Err(why);
+    }
     let d = w.today;
-    if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
-        return Err("You watched him today already: the next look is another day's tape.".into());
-    }
-    let left = film_left(w);
-    if hours > left + 0.01 {
-        return Err(format!(
-            "Your film hours are spent this week ({:.0} of {:.0}): give it to your staff, or watch him on Monday.",
-            film_budget(w) - left,
-            film_budget(w)
-        ));
-    }
     let wk = monday(d);
     let used = w.scouting.own.film_week.filter(|x| x.0 == wk).map_or(0.0, |x| x.1);
     w.scouting.own.film_week = Some((wk, used + hours));

@@ -219,19 +219,24 @@ async function l7Coverage(x) {
     const rows = r.feeders.map((f) => `<tr><td><b>${esc(f.name)}</b></td><td>${f.youth ? "Youth league" : "Middle school"}</td><td>${esc(f.coach || "")}</td><td class="num">${f.boys}</td><td class="num">${f.share}%</td><td class="ev-dim">${esc(f.last || "")}</td><td>${f.been ? '<span class="ev-gold">Your help is there</span>' : '<span class="ev-amber">Never been</span>'}</td></tr>`).join("");
     return evCard("Your feeders", `<p class="ev-dim">The middle schools and youth leagues your boys come from, and whether you have helped any of them: a clinic, an assistant, your playbook or equipment.</p>${rows ? `<table class="tbl ev-tbl"><thead><tr><th>Feeder</th><th>Kind</th><th>Coach</th><th class="num">Boys</th><th class="num">Share</th><th>Last</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : evEmpty("No feeders on file.")}`, "wide");
   }
-  const head = r.seat === "nfl" ? ["School", "Division", "Your looks this year", "Picks, last five drafts", "Other clubs' looks"] : ["State", "", "Your looks this year", "FBS players, last five classes", "Your rivals' offers"];
+  const nfl = r.seat === "nfl";
+  // Short heads keep the table inside its card; the note says what they count.
+  const head = nfl ? ["School", "Division", "Your looks", "Picks", "Other clubs"] : ["State", "Your looks", "FBS players", "Rivals' offers"];
   const rows = r.rows.map((c) => {
     const thin = c.came > 0 && c.eyes === 0;
-    return `<tr class="${thin ? "l7-thin" : ""}"><td>${r.seat === "nfl" ? teamLink(c.school) : `<b>${esc(c.state)}</b>`}</td><td class="ev-dim">${esc(c.division || "")}</td><td class="num">${c.eyes}</td><td class="num">${c.came}</td><td class="num">${c.rivals}</td></tr>`;
+    return `<tr class="${thin ? "l7-thin" : ""}"><td>${nfl ? teamLink(c.school) : `<b>${esc(c.state)}</b>`}</td>${nfl ? `<td class="ev-dim">${esc(c.division || "")}</td>` : ""}<td class="num">${c.eyes}</td><td class="num">${c.came}</td><td class="num">${c.rivals}</td></tr>`;
   }).join("");
+  const note = nfl
+    ? "Your looks this year, draft picks from the last five drafts, and the other clubs' looks at his school's players. Rows in amber had picks and none of your looks."
+    : "Your looks this year, FBS players from the last five classes, and the offers your conference rivals have out. Rows in amber had players and none of your looks.";
   const missed = r.missed.length ? `<table class="tbl ev-tbl"><thead><tr><th>Player</th><th>Spot</th><th class="num">Stars</th><th>Home</th><th>Now</th><th>Draft</th></tr></thead><tbody>${r.missed.map(l7Miss).join("")}</tbody></table>` : evEmpty("Nobody: your staff saw them all.");
-  return `<div class="ev-grid">${evCard(r.seat === "nfl" ? "Where your scouts go" : "Where your staff goes", `<p class="ev-dim">Rows in amber had players and none of your looks.</p><table class="tbl ev-tbl"><thead><tr>${head.map((h, k) => `<th class="${k > 1 ? "num" : ""}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`)}${evCard("Who you missed", `<p class="ev-dim">${esc(r.missed_title)}.</p>${missed}`)}</div>`;
+  return `<div class="ev-grid">${evCard(r.seat === "nfl" ? "Where your scouts go" : "Where your staff goes", `<p class="ev-dim">${note}</p><table class="tbl ev-tbl"><thead><tr>${head.map((h, k) => `<th class="${k >= (nfl ? 2 : 1) ? "num" : ""}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`)}${evCard("Who you missed", `<p class="ev-dim">${esc(r.missed_title)}.</p>${missed}`)}</div>`;
 }
 async function l7ClassFit(x) {
   const r = await api("l7_class_fit");
   if (!r || !r.groups) return evEmpty("Coach a high school first.");
-  const cards = r.groups.map((g) => evCard(g.kind === "Offense" ? "Offenses for your boys" : g.kind === "Front" ? "Fronts for your boys" : "Coverages for your boys", `<table class="tbl ev-tbl"><tbody>${g.rows.map((s, k) => `<tr class="${k === 0 ? "l7-best" : ""}"><td><b>${esc(s.name)}</b></td><td class="${s.fit >= 0.4 ? "ev-gold" : s.fit <= -0.4 ? "ev-amber" : ""}">${esc(s.words)}</td><td class="ev-dim num">${s.read} boys</td></tr>`).join("")}</tbody></table>`)).join("");
-  return `<p class="ev-dim pad-s">How well the boys on your roster fit each system, as your staff reads them. A high school coach builds around the kids he has.</p><div class="ev-grid">${cards}</div>`;
+  const cards = r.groups.map((g) => evCard(g.kind === "Offense" ? "Offenses for your boys" : g.kind === "Front" ? "Fronts for your boys" : "Coverages for your boys", `<table class="tbl ev-tbl"><tbody>${g.rows.map((s, k) => `<tr class="${k === 0 ? "l7-best" : ""}"><td><b>${esc(s.name)}</b></td><td class="${s.good - s.poor >= 0.2 * s.read && s.read ? "ev-gold" : s.poor - s.good >= 0.2 * s.read && s.read ? "ev-amber" : ""}">${esc(s.words)}</td><td class="num">${s.good} suit it</td><td class="num ${s.poor ? "ev-amber" : "ev-dim"}">${s.poor} don't</td><td class="ev-dim num">of ${s.read} read</td></tr>`).join("")}</tbody></table>`)).join("");
+  return `<p class="ev-dim pad-s">How many boys on your roster each system suits, and how many it would leave out, as your staff reads them. A high school coach builds around the kids he has.</p><div class="ev-grid">${cards}</div>`;
 }
 
 // ---------- the scouting file's "Your look" tab ----------
