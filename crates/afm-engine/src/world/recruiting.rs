@@ -2612,7 +2612,7 @@ fn utility_fit(
     // at the biggest in the sport (A6): a program that passes the leader of
     // 30 years ago is one of the blue bloods, not a bigger one, so a run of
     // titles can't lift it clear of the rest of the elite.
-    let brand = prog.prestige_rel.min(super::knockout::brand_cap());
+    let brand = super::knockout::brand_read(prog.prestige_rel);
     let lv = recruit_level(prog, year);
     let mut u = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
@@ -6673,7 +6673,7 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 21] {
     let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * 0.6);
     let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
-    let brand = prog.prestige_rel.min(super::knockout::brand_cap());
+    let brand = super::knockout::brand_read(prog.prestige_rel);
     let lv = recruit_level(prog, year);
     let mut rest = match prog.conference.as_str() {
         "PFL" => -0.8 * (1.0 - 0.6 * p.bg.money),
