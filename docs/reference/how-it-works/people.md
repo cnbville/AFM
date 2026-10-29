@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
+Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 17 and 7 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -155,6 +155,15 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - **Position-coach lines**: "keep him level" damps mood, "push him" lifts competitors, "tell me if he's slipping" flags a mood < -0.3 with odds 0.4 + 0.5 x q. All are scaled by the coach's relationships rating (`carry_lines`).
 - **Also** team talks, parent calls and exit meetings (`start_team_talk`, `parent_calls`, `exit_meetings`). Star power: a 14+ ego starter with mood < -0.15 asks for a word (30% a week) (`world/folk/life.rs`, `star_week`).
 
+## The words people say (the line bank)
+
+- **The bank** is plain text in `crates/afm-engine/data/lines/` (about 26,500 versions in 20 files after update 3, lanes 13, 13c and 13d; one-on-one replies, closes and deflects in `talk_reply.txt` about 10,000, press questions about 5,740, story quotes about 6,440), read once by `world/folk/voice.rs` (`BANKS`, `Bank::parse`). `@key` names a part; each line under it is one version, with `[a|b]` choices and `{fact}` holes (a version whose fact is missing is skipped).
+- **Who can say a version**: tags after ` ~ ` must all fit the speaker, `!tag` rules him out, and `fact=value` or `!fact=value` checks a fact (press `result=win`). Players carry level, traits, region, era, position (`qb`, `skill`, `lineman`, `offense`...) and career stage (`freshman`... `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) (`Speaker::player`, `Speaker::position`). `@with other.key` lends another part's versions (story tone keys borrow their base key).
+- **Picking**: among fitting versions, ones the same speaker hasn't said to you in 365 days come first, weighted 1 + 0.8 per tag or check they need; if none is fresh, the one he said longest ago (`Pen::part`, `REST_DAYS`).
+- **The rest changes words only.** What a person says and does is decided before the bank is asked (`talks.rs` `landing`, `outcome`), and the pen's own random stream never feeds back into the world (`tests/lines.rs`, `the_rest_changes_the_words_only`).
+- **Memory**: each speaker's said versions with the day (`Folk::said_on`), saved with the career; a speaker silent for a season is dropped. A version's id is a hash of its part and words, so growing the bank keeps old memories (`version_id`). Saves from before the rest drop the old memory and load fine.
+- **Proof** (`a_season_of_talks_counts_its_repeats`): a season of one-on-ones at all three levels, 1,869 talks and 9,338 parts: the same man repeated a version inside the season 0 times (2.63% before), and 47% of parts were heard from anyone else inside the season (68% before).
+
 ## Life off the field
 
 - **Weekly for every rostered pro and your own players** (`world/folk/life.rs`, `players_week`, `chance`), at most one event a week. Yearly rates:
@@ -272,6 +281,17 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - Saying yes ("Send it over") costs an hour of your week (a clinic five), puts a favour on his ledger (+1 balance, +0.08 warmth) naming the kid with a link, sends his tape to your staff within the week, and puts the kid on My players with "<caller>'s word" as the reason (SK71, SK72; `network.rs`, `follow_on_word`). No costs 0.04 warmth; never calling back 0.05.
 - The cold call (C20): Tuesdays November-January, at a college seat, the coach of a five-star at a small school (under 1,000 students, or below the state's top two classes) whose top three includes you calls with no tie needed (8% a week, once a kid): hire him and the kid comes. From 2017 the NCAA allows only an on-field job; the job is his own group's position coach, and its holder is let go. The kid follows 25% + 60% × closeness (half a hidden draw, half his years under the coach of four); a follower commits to you two days later. December 1 after his first college season he leans 0.5 more toward the portal half the time if the coach has left your staff, else 15% + 30% × (1 − closeness) (`backchannel.rs`, `c20_week`, `c20_answer`, `c20_stay`, `closeness`).
 
+## Ethnicity by position and level (update 3, lane 17)
+
+`world/ethnicity.rs`, `player_ethnicity`, called from `world/mod.rs` (`new_kid`) and `world/pro/mod.rs` (`veteran`). It never changes a rating; it picks his name and face.
+
+- **When**: once, when he is made, after his body, ratings and natural position (`athlete::create`). A later move keeps it, so a boy built like a back who ends up a linebacker carries back odds (A25).
+- **The weights**: his home state's child mix (`STATE_SHARES`) x how often each group plays (`participation`: white 1, Black 1.5, Hispanic 0.65, Polynesian 2.5, Asian 0.3) x a talent lean x his position's odds.
+- **The talent lean** (A23): `exp(level_lean x ramp)`, the ramp running from talent draw 0.5 (none) to 1.4 (full; an average boy is 0). Black +1.91, Hispanic -1.88, Polynesian +0.95, Asian -0.6. It levels off past college because real rosters change a lot from high school to FBS and little after: FBS 48.9% Black and 2.7% Hispanic, the NFL 53.5% Black (A23 targets).
+- **The position odds** (A20-A22): `ODDS_LOW`, `ODDS_MID` and `ODDS_HIGH` (white, Black, Hispanic, Asian or Pacific Islander, by QB, RB, WR, TE, OL, DL, LB, DB, K, P, LS) at talent draws 1, 2 and 3 (`ODDS_AT`), blended smoothly between them (median draw: FCS 1.4, FBS 1.9, NFL 2.9). Started from the FBS table in `afm/race-check/report.md`, then fitted by least squares on the test world's final rosters (every position's white, Black and Hispanic share at FBS, FCS and the NFL at once, FBS 48.9% Black and 2.7% Hispanic held, the NFL near 53.5%), because stacking grows with the level (receivers 52% Black at FCS, 64% at FBS, 77% in the NFL). The high table's Black column sits below the middle one at the skill spots, which holds the NFL near 53.5% while FBS is at 48.9%. Polynesian players read the Asian and Pacific Islander column; the three Asian American groups get no odds. An athlete from another sport (`scouting/own.rs`) has no position and no odds.
+- **Long snappers**: no boy is built as one, so a boy with the knack draws with the snapper row (`snapper_knack`): long snapping ceiling / talent x exp(0.1 x talent draw) at least 1.25 (`SNAPPER_KNACK`), and a talent draw under 2.6 (higher, he is recruited as a regular; `SNAPPER_TOP`). About 4% of boys, 92% of those the camps later make snappers.
+- **Measured** (the 3-year test world, seed 7, on final rosters; `tests/world.rs`, `each_position_has_its_real_race_mix`, which checks FBS within 5 points of real at every position and FCS and the NFL within 8, or 3 standard errors where a group is too small for that): see `afm/race-check/report.md`, "After lane 17". High school comes out about 30% Black and 9.5% Hispanic (no national source; it was 24% and 15% before lane 17). FCS lands a few points less white than real at most positions (more Hispanic and Polynesian players than its 2.5% and 1.4%).
+
 ## Where the knobs are
 
 - `player.rs`: `Traits::draw` correlations, `draw_aura` (0.2, 0.15).
@@ -282,8 +302,10 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - `world/folk/ties.rs`: closeness (0.04, 0.025, 0.35), the friend cap of 6, strengths 38/55/50/90, +12, fade 0.67, drop at 15.
 - `world/folk/life.rs`: `chance` rates, `Event::mood`, coach health risk.
 - `world/folk/rules.rs`: `risk` terms, weekly bases, `see`, `nfl_fine`, `trouble_factor`, hit-fine odds 0.0055.
+- `world/folk/voice.rs`: `REST_DAYS` 365, pick weight 1 + 0.8 per need.
 - `world/folk/press.rs`: answer effects. `world/folk/cast.rs`: reporter draws.
 - `world/fame.rs`: `position_draw`, `market_households`, `aura_mult`, `brand_money` (80M, 4M, ^4), `follower_target`, `reach`.
+- `world/ethnicity.rs`: `participation`, `level_lean`, `LEAN_RAMP`, `ODDS_AT`, `ODDS_LOW`, `ODDS_MID`, `ODDS_HIGH`, `SNAPPER_KNACK`, `SNAPPER_TOP`.
 
 ## Related pages
 

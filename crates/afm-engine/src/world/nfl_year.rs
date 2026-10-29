@@ -2012,9 +2012,9 @@ fn play_day(w: &mut World, d: Date) {
     let seed_of = |k: usize| w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 10 ^ 0x4E47;
     let seeds: Vec<u64> = todays.iter().map(|&(k, _)| seed_of(k)).collect();
     // On the match engine (section 5): each game is played out.
-    let outcomes = {
+    let fixtures: Vec<Fixture> = {
         let s = w.nfl_season.as_ref().unwrap();
-        let fixtures: Vec<Fixture> = todays
+        todays
             .iter()
             .zip(&seeds)
             .map(|(&(k, g), &seed)| {
@@ -2031,9 +2031,9 @@ fn play_day(w: &mut World, d: Date) {
                     playoff: false,
                 }
             })
-            .collect();
-        engine_games(w, &fixtures)
+            .collect()
     };
+    let outcomes = engine_games(w, &fixtures);
     // Each engine game: its teams, their strengths, its line and site.
     let mut played: Vec<Played> = Vec::new();
     let mut shown: Vec<(usize, usize, Slot)> = Vec::new();
@@ -2093,6 +2093,21 @@ fn play_day(w: &mut World, d: Date) {
             w.nfl_season.as_mut().unwrap().slots[k][g].attendance = gate.attendance;
         }
         settle_line(w, h, a, line, score);
+    }
+    // The world reader's game log, the crowd now known.
+    if w.logging() {
+        for ((&(k, g), f), o) in todays.iter().zip(&fixtures).zip(&outcomes) {
+            let Some((r, sides)) = o else { continue };
+            let x = &w.nfl_season.as_ref().unwrap().slots[k][g];
+            let mut head = serde_json::Map::new();
+            head.insert("week".into(), (k + 1).into());
+            head.insert("kind".into(), "regular".into());
+            head.insert("tv".into(), x.window.name().into());
+            head.insert("site".into(), serde_json::json!(x.site));
+            head.insert("line".into(), serde_json::json!(x.line));
+            head.insert("attendance".into(), x.attendance.into());
+            pro_games::log_game(w, head, f, r, sides);
+        }
     }
     // The national windows and the games abroad make the news.
     for (wn, l, x) in shown {
@@ -2316,14 +2331,18 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     let p = win_prob(&s, a, b, 0.0);
     let line = super::finance::lines::nfl(w, p, a, b);
     let at = Moment::at(d, 18, 30);
-    let game = engine_games(
-        w,
-        &[Fixture { home: a, away: b, at, neutral: true, loud: 0.0, seed: seed ^ 0x5B, playoff: true }],
-    );
+    let fixture = Fixture { home: a, away: b, at, neutral: true, loud: 0.0, seed: seed ^ 0x5B, playoff: true };
+    let game = engine_games(w, std::slice::from_ref(&fixture));
     let mut score = None;
     let a_wins = match game.first().and_then(|g| g.as_ref()) {
         Some((r, sides)) => {
             pro_games::record(w, [a, b], r, sides, [s.z[b], s.z[a]]);
+            let mut head = serde_json::Map::new();
+            head.insert("week".into(), (s.weeks.len() + 4).into());
+            head.insert("kind".into(), "super bowl".into());
+            head.insert("round".into(), 4.into());
+            head.insert("line".into(), serde_json::json!(line));
+            pro_games::log_game(w, head, &fixture, r, sides);
             w.seat_line(Level::Nfl, [a, b], Some(line), true);
             let [x, y] = r.stats.score;
             score = Some([x.max(0) as u32, y.max(0) as u32]);
@@ -2439,10 +2458,20 @@ fn play_round_games(w: &mut World, d: Date) {
     let outcomes = engine_games(w, &fixtures);
     let mut engine: Vec<(usize, usize, bool)> = Vec::new();
     let mut scores: Vec<(usize, usize, [u32; 2])> = Vec::new();
-    for ((g, o), line) in today.iter().zip(&outcomes).zip(&lines) {
-        super::finance::nfl::gate(w, g.2, g.3, d, false, true);
+    for (((g, o), line), f) in today.iter().zip(&outcomes).zip(&lines).zip(&fixtures) {
+        let gate = super::finance::nfl::gate(w, g.2, g.3, d, false, true);
         if let Some((r, sides)) = o {
             pro_games::record(w, [g.2, g.3], r, sides, [s.z[g.3], s.z[g.2]]);
+            let mut head = serde_json::Map::new();
+            head.insert("week".into(), (s.weeks.len() + g.0 as usize).into());
+            head.insert(
+                "kind".into(),
+                ["wild card", "divisional", "conference title"][(g.0 as usize).clamp(1, 3) - 1].into(),
+            );
+            head.insert("round".into(), g.0.into());
+            head.insert("line".into(), serde_json::json!(line));
+            head.insert("attendance".into(), gate.attendance.into());
+            pro_games::log_game(w, head, f, r, sides);
             w.seat_line(Level::Nfl, [g.2, g.3], Some(*line), false);
             let [x, y] = r.stats.score;
             settle_line(w, g.2, g.3, Some(*line), Some([x.max(0) as u32, y.max(0) as u32]));

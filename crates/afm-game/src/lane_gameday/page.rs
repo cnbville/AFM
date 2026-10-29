@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use afm_engine::game::GameResult;
+use afm_engine::game::drives::{Drive, drives};
 use afm_engine::game::live::Reviewer;
 use afm_engine::game::stats::{GameStats, PlayRecord, PlayType};
 use afm_engine::world::World;
@@ -43,11 +44,6 @@ pub fn with_names(text: &str, names: &Names) -> String {
     }
     out.push_str(rest);
     out
-}
-
-/// Seconds left in the game at a play.
-fn left(r: &PlayRecord, qlen: f64) -> f64 {
-    if r.quarter > 4 { r.clock.min(300.0) } else { (4 - r.quarter.min(4)) as f64 * qlen + r.clock }
 }
 
 /// The home team's win chance through the game (the game boards' model,
@@ -174,145 +170,6 @@ fn advanced(s: &GameStats, names: &[String; 2]) -> Value {
         })
         .collect();
     json!(sides)
-}
-
-/// A drive: who had it, where it started (yards from its own goal line),
-/// the plays, yards, time and how it ended.
-struct Drive {
-    team: usize,
-    q: u8,
-    clock: f64,
-    start: f64,
-    end: f64,
-    plays: u32,
-    secs: f64,
-    result: &'static str,
-    points: i32,
-    first: u32,
-    last: u32,
-}
-
-fn drives(s: &GameStats) -> Vec<Drive> {
-    let mut out: Vec<Drive> = Vec::new();
-    let mut cur: Option<Drive> = None;
-    let qlen = s.plays.iter().map(|r| r.clock).fold(0.0, f64::max).max(720.0);
-    let at = |r: &PlayRecord| left(r, qlen);
-    let close = |d: &mut Option<Drive>, out: &mut Vec<Drive>| {
-        if let Some(x) = d.take() {
-            out.push(x);
-        }
-    };
-    for r in s.plays.iter().filter(|r| r.offense < 2) {
-        let snap = matches!(
-            r.kind,
-            PlayType::Run
-                | PlayType::Pass
-                | PlayType::Sack
-                | PlayType::Scramble
-                | PlayType::Punt
-                | PlayType::FieldGoal
-                | PlayType::Kneel
-                | PlayType::Spike
-                | PlayType::NoPlay
-        );
-        if !snap {
-            continue;
-        }
-        if cur.as_ref().is_some_and(|d| d.team != r.offense || (r.quarter == 3 && d.q <= 2)) {
-            let d = cur.as_mut().unwrap();
-            // A side that knelt and still gave the ball back (the clock
-            // didn't run out) turned it over on downs.
-            if d.result.is_empty() || (d.result == "End of game" && d.team != r.offense) {
-                d.result = if d.q <= 2 && r.quarter >= 3 { "End of half" } else { "Downs" };
-            }
-            close(&mut cur, &mut out);
-        }
-        let d = cur.get_or_insert(Drive {
-            team: r.offense,
-            q: r.quarter,
-            clock: r.clock,
-            start: 100.0 - r.yardline_100,
-            end: 100.0 - r.yardline_100,
-            plays: 0,
-            secs: 0.0,
-            result: "",
-            points: 0,
-            first: r.n,
-            last: r.n,
-        });
-        if d.result == "End of game" {
-            // A kneel with time still on the clock: the same drive goes on.
-            d.result = "";
-        } else if !d.result.is_empty() {
-            // The drive already ended (a score or a kick) but the same team
-            // has the ball again: a new drive.
-            let team = d.team;
-            close(&mut cur, &mut out);
-            cur = Some(Drive {
-                team,
-                q: r.quarter,
-                clock: r.clock,
-                start: 100.0 - r.yardline_100,
-                end: 100.0 - r.yardline_100,
-                plays: 0,
-                secs: 0.0,
-                result: "",
-                points: 0,
-                first: r.n,
-                last: r.n,
-            });
-        }
-        let d = cur.as_mut().unwrap();
-        if r.kind != PlayType::NoPlay {
-            d.plays += 1;
-        }
-        d.last = r.n;
-        d.end = 100.0 - r.yardline_100 + if scrimmage(r) && !r.turnover { r.yards } else { 0.0 };
-        let start_left = left(&PlayRecord { quarter: d.q, clock: d.clock, ..r.clone() }, qlen);
-        // The last play's seconds, up to the clock it had (a snap at 0:02
-        // that runs eight seconds ends the quarter at 0:00).
-        d.secs = (start_left - at(r) + r.duration.max(0.0).min(r.clock.max(0.0))).max(0.0);
-        if r.kind == PlayType::Punt && r.touchdown && !r.turnover {
-            // Returned: the punting side's drive gave up the points.
-            d.result = "Returned for a TD";
-            d.points = -6;
-        } else if r.touchdown && !r.defense_td {
-            d.result = "Touchdown";
-            d.points = 6;
-        } else if r.defense_td {
-            d.result = if r.interception { "Pick six" } else { "Returned for a TD" };
-            d.points = -6;
-        } else if r.kind == PlayType::FieldGoal {
-            d.result = if r.kick_good {
-                "Field goal"
-            } else if r.blocked {
-                "Blocked FG"
-            } else {
-                "Missed FG"
-            };
-            d.points = if r.kick_good { 3 } else { 0 };
-        } else if r.kind == PlayType::Punt {
-            d.result = "Punt";
-        } else if r.safety {
-            d.result = "Safety";
-            d.points = -2;
-        } else if r.interception {
-            d.result = "Interception";
-        } else if r.fumble_lost {
-            d.result = "Fumble";
-        } else if r.turnover {
-            d.result = "Downs";
-        } else if r.kind == PlayType::Kneel && r.quarter >= 4 {
-            d.result = "End of game";
-        }
-    }
-    if let Some(mut d) = cur.take() {
-        if d.result.is_empty() {
-            d.result = "End of game";
-        }
-        out.push(d);
-    }
-    out
 }
 
 /// Every drive of a game as the drive chart shows it (the game flow

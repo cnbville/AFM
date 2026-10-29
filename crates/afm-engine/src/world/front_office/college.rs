@@ -27,9 +27,11 @@
 //!   reach out quietly to a player elsewhere (tampering: never punished,
 //!   but it can leak).
 //! - **NIL.** From July 2021 the collective's money (and from 2025 the
-//!   House settlement's revenue share) is yours to promise: a recruit or an
-//!   entrant weighs your number instead of the collective's usual one, and
-//!   on July 1 your roster is paid your deals instead of the usual split.
+//!   House settlement's revenue share) is yours to promise: a recruit you
+//!   name a number for weighs it instead of the collective's usual one,
+//!   whoever runs NIL (minor bug 59). With NIL taken back, an entrant does
+//!   too, and on July 1 your roster is paid your deals instead of the usual
+//!   split.
 //!
 //! A duty handed to your staff runs exactly as the AI's. The desk keeps
 //! person ids (people move when the world compacts each year).
@@ -250,12 +252,9 @@ pub(crate) fn stage_board(w: &World) -> Option<StageBoard> {
     let desk = &w.front_office.college;
     let live: Vec<&Target> = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).collect();
     let at = indices(w, &live.iter().map(|t| t.id).collect::<Vec<_>>());
-    let nil = nil_yours(w);
     let offers = live
         .iter()
-        .filter_map(|t| {
-            Some(StageOffer { person: *at.get(&t.id)?, priority: t.priority, nil: if nil { t.nil } else { None } })
-        })
+        .filter_map(|t| Some(StageOffer { person: *at.get(&t.id)?, priority: t.priority, nil: t.nil }))
         .collect();
     Some(StageBoard { program: j, offers, fill: w.front_office.fill_board })
 }
@@ -1148,14 +1147,11 @@ fn offered_here(w: &World, id: u32) -> bool {
 }
 
 fn promise_of(w: &World, id: u32) -> Option<f64> {
-    if !nil_yours(w) {
-        return None;
-    }
     w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.nil)
 }
 
 /// Whether a person can be recruited by you now.
-fn recruitable(w: &World, i: usize) -> Result<(), String> {
+pub fn recruitable(w: &World, i: usize) -> Result<(), String> {
     let p = &w.people[i];
     let sign_year = rec::next_class(w);
     let hs = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool);
@@ -1377,26 +1373,18 @@ fn pull_at(w: &mut World, j: usize, id: u32) -> Result<String, String> {
     Ok(text)
 }
 
-/// Your NIL promise to a recruit (None: the collective's usual offer).
+/// Your NIL promise to a recruit (None: the collective's usual offer). The
+/// collective pays the number you name for him even while it runs the rest
+/// of the money (minor bug 59).
 pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, String> {
     let j = super::program(w).ok_or("You have no college job.")?;
     if !ncaa::nil_era(w.today.year()) && !(w.today >= Date::ymd(ncaa::NIL_START, 7, 1)) {
         return Err("NIL deals are allowed from July 1, 2021.".into());
     }
-    if w.front_office.owner(Duty::Nil) != Owner::You {
-        return Err("Your collective sets the money now: take NIL back first.".into());
-    }
-    let i = super::index_of(w, id).ok_or("No such player.")?;
-    let pos = w.people[i].player.position;
-    let cap = ncaa::position_nil_max(pos);
-    if let Some(x) = nil
-        && (x < 0.0 || x > cap)
-    {
-        return Err(format!(
-            "The most a {} gets is about {} a year (the real top of his market).",
-            pos.name(),
-            dollars(cap)
-        ));
+    super::index_of(w, id).ok_or("No such player.")?;
+    // Only your budget limits the number (minor bug 61).
+    if nil.is_some_and(|x| x < 0.0) {
+        return Err("A promise can't be below nothing.".into());
     }
     let b = budget(w, j);
     let current = w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.nil).unwrap_or(0.0);
@@ -1404,6 +1392,10 @@ pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, S
         && x - current > b.left + 1.0
     {
         return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));
+    }
+    // A number for a recruit off your board puts him on it, as an offer does.
+    if nil.is_some() && !w.front_office.college.board.iter().any(|t| t.id == id) {
+        add(w, id)?;
     }
     let t = w.front_office.college.board.iter_mut().find(|t| t.id == id).ok_or("He isn't on your board.")?;
     t.nil = nil;
@@ -1474,10 +1466,9 @@ pub fn set_deal(w: &mut World, id: u32, amount: f64) -> Result<String, String> {
     if w.people[i].college != Some(j) || w.people[i].stage != Stage::College {
         return Err("He isn't on your roster.".into());
     }
-    let pos = w.people[i].player.position;
-    let cap = ncaa::position_nil_max(pos) * 2.5;
-    if amount < 0.0 || amount > cap {
-        return Err(format!("A deal for a {} tops out near {} a year.", pos.name(), dollars(cap)));
+    // Only your budget limits a deal (minor bug 61).
+    if amount < 0.0 {
+        return Err("A deal can't be below nothing.".into());
     }
     let year = deals_year(w);
     let desk = &mut w.front_office.college;
@@ -1581,10 +1572,9 @@ pub fn portal_offer(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, 
         return Err("Your collective sets the money now: take NIL back first.".into());
     }
     if let Some(x) = nil {
-        let pos = w.people[i].player.position;
-        let cap = ncaa::position_nil_max(pos) * 2.5;
-        if x > cap {
-            return Err(format!("A {} in the portal tops out near {} a year.", pos.name(), dollars(cap)));
+        // Only your budget limits the number (minor bug 61).
+        if x < 0.0 {
+            return Err("An offer can't be below nothing.".into());
         }
         let b = budget(w, j);
         let old =

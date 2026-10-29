@@ -19,8 +19,10 @@
 pub mod backchannel;
 pub mod boss;
 pub mod cast;
+pub mod coach_look;
 pub mod courts;
 pub mod facts;
+pub mod hiring;
 pub mod letters;
 pub mod life;
 pub mod network;
@@ -286,8 +288,10 @@ pub struct Folk {
     /// Your people log: everything the meetings, talks and reports told you.
     pub log: Vec<Entry>,
     pub promises: Vec<talks::Promise>,
-    /// The line patterns each speaker has used with you (topic 5, part 5).
-    pub said: Vec<(u64, Vec<u32>)>,
+    /// The line versions each speaker has said to you and the day he said
+    /// each one; a version rests a full season (topic 5, part 5; D3). Saves
+    /// from before D3 kept `said` without days: it is dropped on load.
+    pub said_on: Vec<(u64, Vec<(u32, crate::calendar::Date)>)>,
     pub rules: rules::Rulebook,
     pub cases: Vec<rules::Violation>,
     pub goals: Vec<boss::Goal>,
@@ -300,6 +304,10 @@ pub struct Folk {
     pub ties: ties::Ties,
     pub hs_staffs: staffing::HsStaffs,
     pub staff: staffing::Staffs,
+    /// Your reads of coaches who aren't on your staff (C24, C41, C43).
+    pub looks: coach_look::Looks,
+    /// Hiring talks: offers, counters, warnings, promises (C31-C34, C45-C56).
+    pub hiring: hiring::Hiring,
     pub life: life::Lives,
     pub courts: courts::Courts,
     pub discipline: rules::LeagueBook,
@@ -368,6 +376,7 @@ pub fn after_load(w: &mut World) {
 pub(crate) fn day(w: &mut World, d: Date) {
     ensure_base(w);
     staffing::day(w, d);
+    hiring::day(w, d);
     ties::day(w, d);
     life::day(w, d);
     courts::day(w, d);

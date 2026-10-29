@@ -906,12 +906,19 @@ pub(crate) fn notice(w: &mut World, s: Spot) -> Option<u32> {
 fn told(w: &World, id: u32, text: &str) -> bool {
     let Some(s) = w.storylines.get(id) else { return false };
     let lead = s.lead();
+    let now = told_season(w.today);
     w.storylines.open.iter().chain(&w.storylines.ended).any(|o| {
-        o.season == s.season
-            && o.id != id
+        o.id != id
             && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
-            && o.beats.iter().any(|b| b.text == text)
+            && o.beats.iter().any(|b| b.text == text && (o.season == s.season || told_season(b.date) == now))
     })
+}
+
+/// The season a told line counts in: January and February belong to the
+/// season before (the bowls, the playoffs and signing day), whichever
+/// football year the story was opened in.
+pub(crate) fn told_season(d: Date) -> i32 {
+    if d.month() <= 2 { d.year() - 1 } else { d.year() }
 }
 
 /// Adds a world fact to an open story (a game, a filing, a report).

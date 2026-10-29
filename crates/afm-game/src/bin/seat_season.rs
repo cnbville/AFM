@@ -748,6 +748,19 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     for &c in coaches.iter().take(6) {
         run.call(g, "coach", json!({ "id": c }));
     }
+    // Finding and hiring coaches (lane 18): any coach's read, the search
+    // with and without filters, a page further on, and coaches to watch.
+    for &c in coaches.iter().take(3) {
+        run.call(g, "hiring_coach", json!({ "coach": c }));
+    }
+    if seat == "college" || seat == "nfl" {
+        run.call(g, "hiring_search", json!({ "role": "dc" }));
+        run.call(g, "hiring_search", json!({ "role": "dl", "level": "hs", "sort": "potential", "page": 1 }));
+        run.call(g, "hiring_search", json!({ "role": "oc", "job": "junior", "known": true }));
+    }
+    for level in ["college", "hs", "nfl"] {
+        run.call(g, "hiring_watch", json!({ "level": level }));
+    }
     // The other leagues (X7): every league's page, and their clubs named
     // on the screens (a club's page is `league_team`).
     for k in 0..afm_engine::world::pro::other::LEAGUE_COUNT {
