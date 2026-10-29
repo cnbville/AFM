@@ -1,0 +1,289 @@
+# The line bank: more takeover lines (dialogue D2; format in src/world/folk/voice.rs).
+# Same parts and facts as takeover.txt.
+
+@key takeover.meeting.you_open
+I'm {coach}. I'm not here to change everything. I'm here to change what needs changing.
+There are {count} of you in here. I'm going to know every one of you by the end of the month. Not just your names.
+Let me start with this. I'm glad to be here. I asked for this job, and I want to be in this room.
+I don't care what you've heard about me. Judge me on what you see.
+You're going to get my best every day. That's my promise. I'm going to ask for yours.
+I'm going to be honest with you every day, even when it's hard to hear.
+Here's how this works. You work, I coach, we win. Everything else is noise.
+I know there's a lot of uncertainty right now. I'm going to clear it up as fast as I can.
+I'm not going to stand here and tell you what we're going to win. I'm going to tell you how we're going to work.
+I've watched the {last_record} season. I'm not going to talk about it today. Today's about what's next.
+Look at the guy next to you. He's the reason you're going to work this offseason.
+You're going to hear a lot of things about me. Some of it's even true.
+My job is to make you better. Your job is to let me.
+I'm not your friend. I'm going to be your coach. That's better, I promise you.
+I have one rule. Do right. Everything else comes from that.
+I'll be in this building before you get here and after you leave. I'll expect you to notice.
+I'll make you a deal. You give me effort, and I'll give you a chance.
+If you're not all in, that's okay. Just tell me now so neither of us wastes the time.
+I know how it feels to have a new coach walk in. I've been in your seat.
+I'm going to coach you hard because I believe in what you can be.
+This program has a history. I respect it. Now we write the next part.
+I'm going to ask a lot of you. I'll never ask for something I wouldn't do myself.
+I don't care who started last year. I care who's going to start for us.
+Your first test is tomorrow. Be on time. That's the whole test.
+We're going to be the toughest team on our schedule. That starts in the weight room.
+I'm not going to make promises today. I'm going to keep them later.
+Let me tell you what I believe. Discipline, effort, and the guy next to you.
+I'm here. I'm staying. And we're going to get this right.
+You'll see me at practice, in the hallways and in the cafeteria. If I see you doing the right thing, I'll tell you. ~ !nfl
+I'll be at your games in the spring and I'll know your parents by name. ~ hs
+I've coached in this conference before. I know what it takes to win here. ~ !hs
+The guys in this room are going to decide how good this team is. Not me, not the staff.
+I didn't come here to babysit. I came here to win football games. ~ !hs
+Some of you are seniors. I'm sorry I'm your third coach in four years. I'll make it count. ~ hs
+I know some of you have already been talking to other schools. That's your right. I'd like you to give us a week first. ~ college modern
+This is a business. I know that and so do you. But it's also a team, and I'm going to coach it like one. ~ nfl
+Some of you have Pro Bowls on your resume. Some of you just got here. On this field, it's the same standard. ~ nfl
+I'm going to call your agents if I have to. I'd rather call you first. ~ nfl
+Fellas, you get paid to play. I get paid to win. Let's both earn it. ~ nfl
+Y'all are going to hear me say this a lot. Do your job and trust the man next to you. ~ south
+In this part of the country, football's a way of life. I'm going to coach like it. ~ south
+I grew up in a town just like this one. I know what this team means to the people here. ~ midwest !nfl
+I'm not much for speeches. Let's go to work. ~ midwest
+I'm not going to sugarcoat it. We've got a lot of work to do. ~ northeast
+This town deserves a team that plays hard every snap. That's where we start. ~ !nfl
+Friday nights here are going to be different. I'll tell you why over the next few months. ~ hs
+I've sat where you're sitting, waiting to see what a new coach was about. Here's what I'm about.
+If your grades aren't where they need to be, I'll find out before you tell me. ~ !nfl
+I'm going to learn this town and this team. And I'm going to learn it fast.
+
+@key takeover.meeting.react_compete
+That's what I wanted to hear. Let's go.
+Good. I want to earn it.
+Fine by me. I've never been handed anything anyway. ~ humble
+Competition makes everybody better. I'm all for it. ~ leader
+That's going to light a fire under some guys. Good. ~ leader
+Every spot? Okay. I'll keep mine. ~ ego
+Cool. I'm not scared of anybody in that room. ~ competitor
+That's fair. Means nobody's safe, including the guys who think they are.
+I think a few guys are nervous now. That's probably the point.
+I'm ready, Coach. Show me the depth chart in a month. ~ competitor
+That's the right message. Some guys got comfortable.
+Okay. I'll make sure the young guys don't panic. ~ leader vet
+Alright. Let's see who wants it. ~ steady
+That's how it should be. I'd rather earn my spot than have it given to me. ~ pro
+I like it. But I've already earned mine. ~ ego
+The young guys are going to love that. The older guys, maybe less. ~ vet
+Wide open? I've been waiting for that. ~ young
+Okay, Coach. I hear you. ~ quiet
+
+@key takeover.meeting.react_honour
+That was a classy thing to say about the old staff, Coach.
+I appreciate that. A lot of us loved Coach {old_last}. ~ !nfl
+It helps, hearing you respect what came before.
+That was the right way to start. I think the guys appreciated it. ~ leader
+I'll be honest, I didn't expect that. It was good to hear. ~ loyal
+Respect goes both ways. You showed some today. ~ pro
+Good speech. Now let's see if the practices match it. ~ competitor
+Some of the guys are still hurting. That helped a little. ~ loyal
+That's cool and all, but I'm ready to move on. ~ ego
+I liked that you didn't trash anybody. Some coaches do. ~ vet
+That was nice. I'm more interested in what we do on the field. ~ competitor
+I think you won some guys over with that. ~ leader
+Okay. That sounded real. ~ quiet
+Honoring the past is fine. I just want to win now. ~ !loyal
+It means a lot to the seniors. They're the ones who lived it. ~ !nfl
+Thanks for that, Coach. It made it easier to sit there.
+
+@key takeover.meeting.react_winnow
+That's what I've been waiting to hear.
+Let's go get it, then. No more waiting around.
+I like a coach who aims high. Just make sure we're ready. ~ pro
+That's a lot of pressure for day one. I'm in, though. ~ young
+You didn't come here to rebuild. Good. Neither did I. ~ competitor
+I hope you mean it. A lot of coaches say that. ~ vet
+Now the guys know what's expected. That helps. ~ leader
+Winning now is the only thing I care about. You're speaking my language. ~ competitor
+I've got one more shot at this. I'm glad you see it the same way. ~ senior
+I've got a few more years in me. I don't want to waste any of them. ~ nfl vet
+That's bold, Coach. I like bold. ~ ego
+Okay. No excuses, then. ~ steady
+It's a big goal. I've seen bigger come true. ~ calm
+That's either going to fire guys up or freak them out. ~ shaky
+I'm ready right now. Hand me the ball. ~ ego competitor
+Alright. Heard you. ~ quiet
+
+@key takeover.meeting.react_purge
+That's going to be hard for some guys to hear.
+I get it. But I'm not sure everybody does. ~ leader
+That was a lot, Coach. I need a minute with it. ~ shaky
+I'm with you. I'll make sure the guys are too. ~ leader !loyal
+Some of us were proud of what we had. That hurt a little. ~ loyal
+You're right. It wasn't good enough. ~ competitor
+Starting over is fine with me. I've got nothing to protect. ~ young
+Okay. Out with the old. I just hope that doesn't mean me. ~ vet
+That's going to cost you a few guys, Coach. I'm just being honest. ~ !quiet
+I respect the honesty. I'll respect it more if it works. ~ pro
+I think you lost a couple of guys in that room. I'm not one of them. ~ steady
+Clean slate. I can live with that. ~ calm
+That was a gut punch. Maybe we needed one. ~ humble
+It's harsh. It's not wrong. ~ competitor
+I came here for the old staff. I'm going to have to think about that. ~ loyal transfer
+
+@key takeover.meeting.react_plain
+Short and simple. I like that.
+That's all? Cool. Let's work.
+No promises, no hype. That's how I like it. ~ pro
+That was refreshing, honestly. ~ vet
+I didn't need a speech. I needed to know who you are. That was a start.
+Okay. I'll see you in the weight room. ~ competitor
+Fine by me. I don't like long meetings. ~ loose
+Good. Let's get to football. ~ competitor
+That's the right way to do it. Show us, don't tell us. ~ leader
+I'm not sure what to make of that yet. We'll see. ~ !leader
+It was quick. I like quick. ~ young
+I'll be there. ~ quiet
+Simple. Works for me. ~ calm
+
+@key takeover.holdover.pitch
+I know you're bringing your own people. I'm asking for a chance to show you I can be one of them.
+I've been here {years} years. I know where things are buried in this building, and I know who to call.
+I'll be honest. I didn't agree with everything the last staff did. I'd like to show you what I'd do.
+I've coached this group for a while. They trust me. That doesn't happen overnight.
+I'm not asking for a promise. I'm asking for a spring.
+I'll do whatever role you need. I just want to stay with these kids. ~ loyal
+I've been through coaching changes before. I'm good at helping the new guy get settled. ~ old
+I'm young and hungry. I'd like to learn from you. ~ young
+Keep me as {role} and I'll give you everything I've got. That's all I can say.
+You're going to want somebody who knows this roster. That's me.
+I've got film notes on every player in my room. Let me hand them to you and you decide.
+I'm the guy the players come to. You'll want that on your staff.
+I won't badmouth the last staff, and I won't badmouth you when you leave. That's who I am. ~ loyal
+Let me show you what I can do with this group. If it's not enough, I'll shake your hand and go.
+I'm not here to compete with your guys. I'm here to help them.
+I've coached this room for {years} years. Nobody knows this group better. ~ old
+I'd like to stay. My family loves it here, and I love these kids. ~ warm !nfl
+Coach, the players are going to be nervous. I can help keep them steady.
+I'd like to keep the job. I think the room needs somebody it knows right now.
+I'm a coach first, and I'm good at it. I'll prove it.
+If you want me gone, I understand. But give me a chance to change your mind.
+The last head coach and I didn't always see eye to eye. I think you and I might. ~ climber
+I want to be on a staff that wins. I think yours will. ~ climber
+I'm not going anywhere unless you tell me to. ~ loyal
+I've got a lot of respect for what you've done. I'd be honored to work for you.
+
+@key takeover.holdover.detail
+My guys know the playbook inside out. That gives you a head start. ~ !hs
+My guys know the system inside out. You'll lose weeks if you start from scratch.
+I've got the best relationship on this staff with the [linemen|defensive backs|receivers]. They'll tell me things they won't tell anybody else.
+I know every kid's family. I know who's struggling at home and who needs a ride to practice. ~ hs
+I know which teachers will work with our kids and which ones won't. That saves you a lot of trouble. ~ hs
+I run the summer camp. Two hundred kids a year. Half of our roster came through it. ~ !nfl
+I've got the trust of the high school coaches in this county. That's not something you build in a year. ~ college
+I've got two commitments who are only coming because of me. I'd like to keep them coming. ~ college
+I've been recruiting the kids in this area for years. They know me. ~ college
+I've got a feel for which guys are thinking about the portal. I can help you keep them. ~ college modern
+I've coached half this roster since they were in middle school. ~ hs
+I know the rules in this league. I know which kids can play where and when. ~ hs
+I know the front office. I know which way to push and when to back off. ~ nfl
+I've worked with the veterans in this room for years. They listen to me. ~ nfl
+I know the players' contracts, their families and their agents. That's useful. ~ nfl
+I've been the guy who takes care of the young players when they get here. You'll want that. ~ nfl
+I've got a scouting notebook on every player in this conference. ~ !nfl
+I've got relationships with the trainers and the academic people. That matters more than people think. ~ !nfl
+I know the weight room schedule, the lunch money, the bus routes. All the stuff nobody wants to learn. ~ hs
+I've kept every kid in my room eligible for three years running. ~ !nfl
+I know who's ready and who's not. I'll tell you straight, even if it's my own guy.
+I've watched every rep this group has taken for {years} years. I can tell you things the tape can't.
+
+@key takeover.leader.close_to_old
+I'm not going to lie, Coach. Losing him was hard on me.
+Coach {old_last} believed in me when nobody else did. That's going to take some time. ~ !nfl
+I'm loyal. To him, and now to you, if you earn it. ~ loyal
+I still talk to him every week. That's not going to change.
+Some of the guys took it harder than me. I'm going to try to help them.
+He was like a second father to me. ~ !nfl
+He told us to play hard for whoever came next. I'm trying to do that.
+I don't hold it against you, Coach. It just still stings.
+You've got big shoes to fill. I'm not saying you can't.
+I came here for him, but I'm staying for my teammates. ~ !nfl
+I know it wasn't your call. I just need some time.
+He gave me a chance. I want to make him proud, even if it's with you.
+I'll play hard. I just won't pretend I'm not sad.
+I've been with him since my first day here. It's strange without him. ~ !nfl
+He made me a captain. I'd like to keep earning it. ~ leader
+I'm going to give you everything I've got. That's what he'd want.
+You'll find out I'm loyal. He's the one who taught me that. ~ loyal
+
+@key takeover.leader.ego
+I want the ball, Coach. That's all I need to say.
+I've got a lot of people watching me this year. I need to be featured.
+I'm not going to lie, I'm going to want to know your plans for me.
+I'm the reason we won the games we won last year.
+Respectfully, I've got more to lose than most guys in that room.
+I've got goals. I need you to know them.
+Just put me in a position to make plays and I'll make them.
+I'm not asking for much. Just the ball in the fourth quarter.
+I've been the best player here for a while. I'm hoping that's still how you see it.
+I've worked too hard to be a role player.
+What's the plan for me? I want to hear it from you.
+I'm going to the league. I need tape that shows it. ~ !nfl
+I need numbers this year. Real numbers. ~ !nfl
+My contract's up soon. I'd like to know how you see me. ~ nfl
+I'm the face of this team. I'd like that to stay true. ~ nfl
+I want to be the guy you build around.
+I'll lead if you let me lead. That means you trust me. ~ leader
+I've been watching your offenses. I could put up big numbers in what you do. ~ offense
+I've been watching your defenses. I could wreck some games in what you do. ~ defense
+
+@key takeover.leader.steady
+I've got your back, Coach. Let's get to work.
+I'll keep the room together. You focus on the football.
+The guys are good. They just want to know the plan.
+I'll do whatever role you need. I just want to win.
+Tell me what you want the young guys doing and I'll make sure they do it. ~ leader
+I'm not much of a talker. But I'll show up every day. ~ quiet
+I'll be the first one in the weight room. That's what I've always done.
+I've seen a lot. I'll help you get the guys bought in. ~ vet
+I'm ready to follow your lead.
+We've got some good guys in that room. They'll come around.
+I don't need much from you. Just tell me the truth.
+Change is hard. The guys will be fine once we get on the field.
+I'll keep an eye on the guys who are struggling with it. ~ leader
+Whatever you need, Coach. I'm here.
+The vets will follow you if they see you mean it. ~ vet
+
+@key takeover.leader.waiting
+Show us something, Coach. Then we'll talk.
+I've heard a lot of coaches talk. I'll wait and see.
+I'm going to give you a fair shot. That's all I can promise right now.
+The guys are skeptical. I'm skeptical. That's just honest.
+Respect is earned. You'll get it if you earn it.
+I don't know you yet. That's not a knock, it's a fact.
+I'll know what you're about by the first game.
+I've seen coaches come and go. You're the third one for me. ~ senior
+Nothing personal, Coach. Trust takes time.
+I want to see how you handle the first loss. That'll tell me a lot.
+I'll follow if you lead. Let's see where you take us.
+Guys are going to test you. I'm not going to lie to you about that.
+I'm not against you. I'm just not with you yet.
+We'll see how the first week goes. ~ quiet
+I'm going to watch what you do more than what you say. ~ pro
+I've been around long enough to wait and see. ~ vet
+
+@key takeover.oldcoach.greet
+Come on in. Watch the stack of papers. I'm grading. ~ !hot
+I figured you'd come by. Sit down if you want. ~ !warm
+Well. The new coach. Shut the door, would you? ~ !warm
+Hey. I was wondering when you'd show up. Come on in. ~ warm
+I've got about twenty minutes before my next class. What do you want to know? ~ !warm
+You're braver than I was. Coming down here on your first week. ~ warm
+Sit down, Coach. I'm not mad at you. It wasn't your doing. ~ calm
+I don't have a lot to say, but I'll answer what I can. ~ cold
+Come in. I'll tell you anything you need about those kids. They deserve that. ~ warm
+Hey. Pull up a desk. The chairs are terrible in here. ~ !cold
+You picked a heck of a group to inherit. Come in. ~ !hot
+I've been expecting you. Sit down. ~ calm
+I'm not going to pretend this isn't awkward. Come on in. ~ !hot
+I've got a few minutes. Not many. ~ hot
+I've coached in this building a long time. It's yours now. Sit down. ~ old
+Welcome to {town}. You'll like it here. Most days. ~ warm
+I'll say this once. Take care of those boys. ~ old
+Come in. I'll help where I can. I owe those kids that much.
+I wasn't sure you'd come down here. The last new coach didn't. ~ !cold
+I hear you're a good coach. Come in and prove you're a good listener. ~ !warm

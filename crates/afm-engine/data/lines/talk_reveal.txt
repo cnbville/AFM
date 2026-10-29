@@ -1,0 +1,591 @@
+# The line bank: what he tells you when he opens up, and when he doesn't
+# (dialogue D2; format in src/world/folk/voice.rs). Same keys as players.txt:
+# talk.reveal.<his real concern>, first person, and talk.deflect. Facts: name,
+# full, coach, you, pos, team, friend, worry (his concern in words).
+# talk.reveal.team covers losing, distrust of a new staff and a sour room.
+
+@key talk.reveal.role
+I work as hard as anybody in that building and I'm still on the bench. That's it. That's what's eating me.
+I keep waiting for my shot, and every week it's somebody else's turn.
+I'm not asking to be handed anything. I just want a real chance to win the job.
+I feel invisible out there, Coach. Like the coaches already made up their minds.
+I see my name on that chart every Monday and it kills me a little.
+I came here to play. Not to watch.
+It feels like I'm getting graded on a different scale than the guys in front of me.
+I'm doing my job in practice and nobody notices. Then the other guy messes up and keeps his spot.
+Honestly, I'm starting to wonder if it's me. Like, if I'm just not good enough.
+I tell my family I'm close. I don't even know if that's true anymore.
+I need to know there's a path. Even a long one.
+It's not even about starting. It's about knowing I'm trusted.
+Every time I get a rep, I feel like it's a test I can't fail. That's exhausting.
+I think I've earned more than I'm getting. I really do.
+I've been biting my tongue for weeks.
+I feel like I got passed over and nobody told me why.
+I get two reps a practice. How am I supposed to show anything in two reps?
+The other guy makes a mistake and it's a learning moment. I make one and I'm back on the bench.
+I'm tired of being the guy who's almost there.
+I don't want to complain to my position coach. He's got his guys.
+I keep doing the little things and the little things aren't getting me anywhere.
+I'd rather lose the job fair than never get a real shot at it.
+I watch the guy in front of me and I know I'm better in some spots. Not all of them. But some.
+My whole life I've been the starter. This is the first time I'm not, and I don't know how to handle it.
+I want to know what I'm missing. Nobody's told me.
+I'm getting older and I'm still waiting. That scares me a little.
+I feel like I'm one bad rep away from getting buried.
+I'm not trying to be a problem, Coach. I just want to play.
+I'm a redshirt and I get it. It's just hard watching every Saturday. ~ college redshirt freshman
+I'm an upperclassman still on the scout team. You do the math. ~ college senior
+I turned down schools that would've started me to come here. Some days I regret it. ~ college
+I'm not leaving. But I think about it every time the chart comes out. ~ college nil
+The coaches who recruited me told me I'd compete right away. That hasn't happened. ~ college
+I'm running out of years. I don't want to spend them holding a clipboard. ~ college senior
+I'm a senior, Coach. This is it for me. I want to be out there Friday nights. ~ hs senior
+College coaches can't see me if I'm not on the field. ~ hs
+My dad thinks I should transfer to a school where I'd start. I don't want to, but he's in my ear. ~ hs
+Everybody at school asks me why I don't play. I don't know what to tell them. ~ hs young
+I'm stuck behind an older guy and I get it. I just want some varsity snaps this year. ~ hs sophomore
+I've been playing JV and I'm better than that now. I know I am. ~ hs !senior
+I'm a starter in this league. I know it in my bones. ~ nfl
+I'm a rotation guy right now. I didn't fight my whole life to be a rotation guy. ~ nfl
+Every week I'm wondering if I'm going to be active. You can't play like that. ~ nfl
+I got drafted to play, Coach. I'm watching guys off the street take my snaps. ~ nfl young !undrafted
+I keep looking over my shoulder at the practice squad guys. That's no way to live. ~ nfl !psquad
+I've started a lot of games in this league. Now I'm splitting reps and nobody sat me down. ~ nfl vet
+I know I'm not what I was. I'm still better than they think. ~ nfl vet
+This might be my last contract. I want to spend it on the field. ~ nfl vet
+I'm just quiet about it. Doesn't mean it doesn't bother me. ~ quiet
+I don't say much, Coach. But I've been hurting about my spot. ~ quiet
+I didn't want to make a fuss. I've just been sitting with it. ~ quiet humble
+I know I'm not the best player out there. I just want a fair look. ~ humble
+I know I've got stuff to work on. I just want to know I'm being considered. ~ humble
+I'd take any role. I just want to feel like I matter to what we're doing. ~ humble
+I'm better than the guy in front of me. Everybody in the room knows it. ~ ego
+I'm not built to sit, Coach. I've never sat. ~ ego
+I should be the guy. I'm not going to pretend I don't think that. ~ ego
+It's embarrassing, honestly. People back home don't believe I'm not starting. ~ ego
+I lose sleep over it. I'm a competitor. I want to be out there. ~ competitor
+Watching the game from the sideline is the worst feeling in the world for me. ~ competitor
+I want to be the one making the play when it matters. That's all I've ever wanted. ~ competitor
+I've been angry about it for weeks and taking it out on people who don't deserve it. ~ hot
+I'm trying not to blow up about it. But it's been building. ~ hot
+I'm at peace with competing. I'm not at peace with not knowing. ~ calm
+I'm okay with waiting. I'm just not okay with not knowing how long. ~ calm steady
+I've been patient. I just want to know my patience is going somewhere. ~ steady
+I'm supposed to lead these guys and I can't even get on the field. ~ leader
+The young guys look up to me and I'm standing next to them on the sideline. ~ leader
+I've been here for everything. I'd like to be here on the field too. ~ loyal
+I've stayed loyal to this place. I want to know it's going to be loyal back. ~ loyal
+I've started to think nobody believes in me here. ~ shaky
+I keep telling myself it'll happen and I'm running out of ways to believe it. ~ shaky
+I've been playing scared because I think one mistake sends me back down. ~ shaky
+Lowkey it's been eating me alive. ~ young modern
+I don't want to be the guy posting cryptic stuff. But I've been tempted. ~ young modern
+I just want to be out there, Coach. That's all it is. ~ young
+I reckon I just want to know I've got a shot. ~ south
+Mama keeps asking when I'm going to play. I don't have an answer for her. ~ south young
+I'm a team guy. But I'm also a guy who wants to play. Both things are true. ~ midwest
+I'll be straight. I think I'm getting jerked around on the chart. ~ northeast
+I'm trying to keep good energy about it. It's been hard. ~ west
+
+@key talk.reveal.usage
+I'm out there, but I'm not really being used. I feel like a decoy most nights.
+I know what I'm good at, and we never call it.
+I watch the film and the plays that fit me are just sitting there.
+I'm doing a job, but it's not my job. It's somebody else's job they gave to me.
+When I get chances, I produce. I just don't get enough of them.
+I feel like I'm only on the field to keep somebody else fresh.
+I'm in for the plays where nothing happens. Then they sub me out for the ones that matter.
+I've got more to give than what they're asking for.
+It's not about stats. It's about being trusted when it counts.
+I keep getting used in ways that hide what I can do.
+I don't think the coaches know what I can actually do. Nobody's tried.
+I'm frustrated because I know I can help us win and I'm not getting the chance.
+I want to be part of the plan, not an afterthought in it.
+I've been asking myself what I'm even doing out there some weeks.
+I want to be on the field on third down. That's where games get won.
+I'm getting the snaps nobody wants. I want the ones everybody wants.
+I'm tired of running clear-outs so somebody else gets the ball. ~ skill
+I see the safety cheat away from me every play. They know I'm not getting it. ~ skill
+I get two touches a game and they're both in garbage time. ~ skill
+I'm a receiver who doesn't get targets. That's a hard thing to be. ~ wr
+I'm a back who blocks more than he carries. I didn't sign up for that. ~ rb
+I'm a tight end, and I'm basically an extra tackle right now. ~ te
+I want to rush the passer, Coach. Every time I drop into coverage, I die a little. ~ rusher
+I can rush. I've always been able to rush. We keep using me as a two-gap guy. ~ dl
+They've got me in zone all game when I'm a press corner. ~ db
+I get taken off the field on passing downs. That tells me everything. ~ defense
+I'm a pass rusher stuck playing the run. ~ rusher
+I'm a cover guy and we keep sending me on blitzes that don't get home. ~ cover
+I'm a pulling guard in a scheme that doesn't pull. ~ ol
+I want to throw it more, Coach. I can make the throws. ~ qb
+I feel like the play calls don't trust my arm. ~ qb
+They've got me checking it down every play. I can push the ball. ~ qb
+I'm a kicker. I just want my chances. We keep going for it when I can make that kick. ~ kicker
+Scouts are going to watch my tape and see a guy who never got the ball. ~ !nfl skill
+The NFL guys look at production. I don't have any because of how I'm used. ~ college
+I came here because the staff told me how I'd be used. It's not that. ~ college
+They recruited me as one thing and they're playing me as another. ~ college
+I know where I'd fit in this offense. I just need somebody to call it. ~ college offense
+College coaches watch my film and I'm not doing anything on it. ~ hs
+I'm good at seven-on-seven because I get the ball. Friday nights I don't. ~ hs skill
+I play both ways and I'm gassed by the fourth quarter. That's when I need to make plays. ~ hs
+My numbers are down because of how they use me, and that's what I get paid on. ~ nfl
+I've got a contract coming. If they don't use me, the next team won't pay me. ~ nfl
+I've been in this league long enough to know when a team's moving on from a guy. ~ nfl vet
+I'm a vet. I know what works for me. Nobody's asking. ~ nfl vet
+I'm not getting used right. That's my whole thing. ~ ego
+I'm the best playmaker on this team and we play like we don't know that. ~ ego skill
+Put the ball in my hands. That's it. That's the fix. ~ ego skill
+I want the big moments. Give me the big moments. ~ competitor
+I hate watching other guys get the chance to win the game. ~ competitor
+I get hot because I know I could help. Then I sit there and stew. ~ hot
+It makes me so mad I can't even watch the tape some weeks. ~ hot
+I don't need to be the star. I just want to help more. ~ humble
+I'll do whatever they ask. I just know I could do a little more. ~ humble
+I don't always know what they want from me on certain calls. That's part of it. ~ quiet
+I've never said anything. But I don't think I'm being used right. ~ quiet
+I'm a pro. I'll do my job. I just think my job could be bigger. ~ pro
+I've studied the tendencies. There are things we could do with me that we aren't. ~ pro
+I lead better with the ball in my hands. That's just how I'm wired. ~ leader skill
+I think if I'm more involved, the whole room feels it. ~ leader
+I keep wondering if they've stopped believing in me. ~ shaky
+When I don't get used, I start thinking I did something wrong. ~ shaky
+I'm cool with my role. I just want the role to grow. ~ steady
+Real talk, I'm bored out there sometimes. ~ young loose
+No cap, I don't touch the ball enough. ~ young modern skill
+I want to be the guy, Coach. I'm just being real. ~ young
+I'm trying to play my part. My part just feels too small. ~ south
+I'll be honest. I think we're wasting me. ~ midwest
+I'm not getting the looks I should. Straight up. ~ northeast
+I just want to be used the way I know I can be. ~ west
+
+@key talk.reveal.money
+My family's struggling, Coach. I'm here playing and they can't keep the lights on.
+I'm tired of being broke while everybody thinks I've got it made.
+I've got people at home counting on me, and I've got nothing to give them.
+It's money. I hate that it's money, but it is.
+I don't feel like I'm being paid what I'm worth. That's the truth.
+I keep doing the math and it never works.
+I don't want to be greedy. I just want to be fair.
+Every time I see what somebody else is getting, it eats at me.
+I'm scared of getting hurt and having nothing to show for it.
+I send what I can home and it's never enough.
+I've got debts I haven't told anybody about.
+My mom keeps asking me for money and I don't know how to tell her no.
+I'm the one everybody in my family looks at. I've got to provide.
+I feel like I'm the only one here who's worried about money.
+I'm watching guys get paid and I'm out here outplaying them.
+My people are telling me I'm leaving money on the table.
+I've got a plan for my family and the money's the whole plan.
+I want security, Coach. That's all I'm after.
+I lie awake thinking about what happens if this ends tomorrow.
+I've been taking advice from people I probably shouldn't.
+My NIL deal's paying me less than guys who don't play. ~ college nil
+The collective keeps promising more and it never comes. ~ college nil
+There's a school offering way more. I haven't taken it. I'm thinking about it. ~ college nil
+I'm on the low end of rev share and I'm a starter. ~ college nil
+My family thinks I'm getting rich here. I'm not. ~ college nil
+My NIL agent takes a big cut and I'm left with almost nothing. ~ college nil
+I signed a deal I didn't understand and now I'm stuck with it. ~ college nil young
+I want to stay, but another school can change my family's life. ~ college nil
+My stipend doesn't cover rent and food. Something's got to give. ~ college
+I don't have money for a flight home at Christmas. ~ college young
+I've been skipping meals to save money. ~ college young
+A guy offered me money to come work for him. I said no. But I needed it. ~ college
+I'm working weekends to help at home, and it's wrecking me. ~ hs
+I can't afford the camps everybody else goes to. ~ hs young
+I don't have the cleats or the gear the other guys have. ~ hs young
+I can't do summer seven-on-seven because I've got to work. ~ hs
+I'm outplaying my contract and everybody in this building knows it. ~ nfl
+I've got one shot at a big deal and the clock's ticking on it. ~ nfl
+My agent wants me to hold in. I don't want to. But I'm listening. ~ nfl
+I'm playing on a deal that doesn't match what I do on Sundays. ~ nfl
+I'm one injury away from never getting paid. That's the fear. ~ nfl
+The rookie deal's a lot of money until you see what everybody else gets. ~ nfl young !undrafted
+I've got a family. I've got to get this next deal right. ~ nfl vet
+I've seen guys get cut a year before they'd have gotten paid. I don't want to be that. ~ nfl vet
+I know what I'm worth and I'm not getting it. ~ ego
+I'm the best player at my spot on this team. My paycheck doesn't say that. ~ ego !hs
+Money's how they show you what they think of you. And they're telling me something. ~ ego !hs
+Money matters to me. I'm not going to apologize for it. ~ greedy
+I want to get paid. I've worked my whole life for it. ~ greedy
+I'm trying to build something for my family. I need the money to do it. ~ greedy
+I'm not asking for more than I've earned. ~ humble
+I feel bad even bringing it up. But it's real. ~ humble
+I don't like asking for anything. That's why this has been so hard. ~ humble quiet
+I haven't told anybody how bad it's gotten. ~ quiet
+I want to handle it right. I don't want it to become a distraction. ~ pro
+I want the money stuff settled so I can just play. ~ pro
+I want to stay here. I just need the money to make sense for my family. ~ loyal
+I don't want to leave over money. I'd hate that. ~ loyal
+I'm scared, Coach. Money stuff scares me. ~ shaky
+Every bill feels like the end of the world right now. ~ shaky
+I'm mad about it. I've been trying not to show it. ~ hot
+I've got a plan. I just need the numbers to line up. ~ steady
+Lowkey I've been stressing about money for months. ~ young modern
+I can't even afford to go out with the guys. ~ young
+Mama's been working too hard, Coach. I want to take care of her. ~ south
+I just want to help my folks out. ~ midwest
+I'm not going to sugarcoat it. I need money. ~ northeast
+It's been a lot. Money stuff, mostly. ~ west
+
+@key talk.reveal.behavior
+I've been acting out. I know it. It's easier than dealing with what's actually wrong.
+I keep making bad decisions and I don't even know why.
+I think I've been trying to get somebody's attention. I don't know whose.
+People already think I'm a problem, so I've stopped trying to prove them wrong.
+I've been hanging with the wrong people. I know they're the wrong people.
+I've been angry for a while, and it keeps coming out sideways.
+When I'm out, I don't have to think. That's why I'm out so much.
+I'm not trying to disrespect anybody. I just feel like nobody hears me unless I'm loud.
+I've been testing the rules. I don't know why. I think I wanted to see if anybody cared.
+Stuff at home has me on edge, and I'm taking it out here.
+I've been drinking more than I should. I'm telling you because I want to stop. ~ !hs
+I've been staying out late because I can't sleep anyway.
+I've been on my phone all night every night. It's messing me up. ~ modern
+I've got guys from back home who lean on me, and they get me into stuff.
+I've been in some bad situations lately. Nothing I can't get out of. Yet.
+I snap at people. Coaches, teammates, everybody. I hate it.
+I don't feel like myself. I keep doing things the real me wouldn't do.
+I'm embarrassed by how I've been acting.
+I know I've been late a lot. I've just been struggling to get out of bed.
+Honestly, I was bored and I made bad choices. That's the truth.
+I've been trying to fit in with certain guys. It's made me act different.
+I feel like the rules here are different for different guys. So I stopped following them.
+I have a temper. I've always had one. Lately it's been winning. ~ hot
+When somebody comes at me, I don't think. I just go. ~ hot
+I get so mad I can't see straight, and then it's too late. ~ hot
+I know I'm better than how I've been acting. ~ ego
+Everybody makes a big deal out of everything I do. That gets to me. ~ ego
+I feel like I've got a target on my back with the coaches. ~ ego
+I just don't take things seriously sometimes. I know that's a problem. ~ loose
+I was just having fun. Then it wasn't fun anymore. ~ loose young
+I've been going too hard on the weekends. ~ loose !hs
+I keep everything in, and then it comes out at the worst times. ~ quiet
+I don't talk about stuff. So I do stuff instead. ~ quiet
+I feel terrible. I've let people down. ~ humble
+I don't want to be that guy. I'm scared I'm becoming that guy. ~ shaky
+Everything feels out of control, so I do whatever feels good in the moment. ~ shaky
+I don't know why I keep messing up. I really don't. ~ shaky
+I'm supposed to set the example and I've been doing the opposite. ~ leader
+I know the young guys see what I do. That's been on me. ~ leader
+I've been competing with everybody, even when I shouldn't be. ~ competitor
+I hate losing so much I've been taking it out on people. ~ competitor
+I've been skipping class because I'm so far behind I don't see the point. ~ college
+I partied too much this semester. I know. ~ college young
+I've been hanging out at a place I shouldn't be. Some of the older guys go. ~ college
+I've been fighting with my roommate and it spilled into everything. ~ college young
+I'm failing a class and I think I've just given up on it. ~ college
+I've been in trouble at school too. It's not just here. ~ hs young
+I've been getting into it with my teachers. ~ hs young
+Some of the guys I grew up with are into bad stuff. I'm around it. ~ hs
+I've been skipping school some days. ~ hs young
+I've been out too late, and I've been reckless. I've got a family. I know better. ~ nfl
+The money changed how I act. I see it now. ~ nfl young
+I've got guys around me who just say yes to everything. That's not good for me. ~ nfl
+I've been in this league long enough to know better, and I've still been dumb. ~ nfl vet
+It's not an excuse, but I've had a lot going on. ~ pro
+I'm going to own it. But I want you to know where it's coming from. ~ pro
+Lowkey I've just been on one lately. ~ young modern
+I've been moving different, Coach. Not in a good way. ~ young modern
+I ain't been myself. That's the honest truth. ~ south
+I've been acting like a fool. I know it. ~ midwest
+I've been out of line. I know exactly when it started. ~ northeast
+I've been trying to find my way and I've been taking wrong turns. ~ west
+
+@key talk.reveal.life
+It's my family, Coach. Things back home are bad right now.
+I'm not sleeping. I lie there thinking about home all night.
+I feel like I'm carrying my whole family on my back.
+I've got stuff going on that I can't fix, and it's eating me alive.
+I've been really down. Like, not just tired. Down.
+It's hard to care about football when home's falling apart.
+I'm trying to be strong for everybody and nobody's being strong for me.
+I call home every night and every night it's something new.
+I feel alone a lot. Even in the locker room.
+I've been dealing with stuff in my head that I don't really know how to explain.
+There's a lot of pressure on me from home. Everybody's counting on me making it.
+I've been anxious. Really anxious. I don't know where it came from.
+I haven't been eating right because I can't keep my head straight.
+I'm the first one in my family to get this far. That's a lot of weight.
+I don't want to be a burden. That's why I didn't say anything.
+I feel like I'm living two lives. Football here and a mess back home.
+I've been going to counseling. It's helping a little. ~ !hs
+I'm a long way from home and I'm homesick. Like, really homesick. ~ college young
+I don't have anybody here outside the team. It's lonely. ~ college young
+I'm behind in school and I'm scared of losing my eligibility. ~ college
+My family can't afford to come see me play, and that hurts more than I thought. ~ college
+I've been thinking about going home for good. Not to play somewhere else. Just home. ~ college young
+I feel like I'm failing at being a student and a player at the same time. ~ college
+My grades are slipping and I'm scared I won't qualify. ~ hs
+Everybody wants something from me since the recruiting started. ~ hs
+I've got family members who only call when they need money. ~ nfl
+Football's been my whole life and I'm starting to wonder who I am without it. ~ nfl vet
+My body hurts all the time and I'm scared about what it'll be like in ten years. ~ nfl vet
+It's hard for me to talk about. But it's home. ~ quiet
+I don't usually open up. You're the first person I've told. ~ quiet
+I'm sorry for being off. It's personal stuff. ~ humble
+I didn't want to make it anybody else's problem. ~ humble
+I keep it out of the building. It's getting harder. ~ pro
+I've been trying to compartmentalize. It's not working anymore. ~ pro
+I'm supposed to be the one everybody leans on. I need somebody to lean on. ~ leader
+I'm usually the steady one. I'm not steady right now. ~ steady
+I don't know how I'm doing, honestly. Some days I'm fine. Most days I'm not. ~ shaky
+I feel like everything's falling apart at once. ~ shaky
+I act like nothing gets to me. It gets to me. ~ ego
+I've been short with everybody because I'm hurting. ~ hot
+Lowkey I've been going through it. ~ young modern
+People online have been saying stuff about my family. It got to me. ~ young modern
+My folks are going through a lot. ~ midwest
+It's a family thing, Coach. It's heavy. ~ northeast
+Life's just been hard lately. ~ west
+
+@key talk.reveal.team
+It's the losing. I'm not used to it and I don't know how to deal with it.
+I don't trust the coaches yet. Not all of them. That's the honest answer.
+The room's divided. You can feel it walking in.
+Guys are starting to play for themselves. I can see it on film.
+Some guys stopped caring weeks ago. They're just collecting checks. ~ nfl
+Some guys stopped caring weeks ago. They're just waiting for the season to end. ~ !nfl
+It feels like nobody's on the same page. Not the coaches, not the players.
+I don't feel like I fit in with the guys here.
+There's a lot of talking behind people's backs. It's toxic.
+The new staff came in and changed everything. I'm still figuring out if I trust it.
+The last coaches promised us a lot. I'm waiting to see if you're different.
+Guys don't hold each other accountable. Nobody wants to be the bad guy.
+We lose and guys are laughing in the locker room an hour later. That kills me.
+I don't know who I can trust in there.
+There are guys who'd throw anybody under the bus to save themselves.
+It feels like the coaches have their favorites, and everybody knows who they are.
+I'm tired of losing. I'm tired of acting like it's okay.
+I keep hearing guys say they're leaving. It messes with the whole room.
+The vets and the young guys don't mix at all.
+I feel like the offense and the defense are two different teams.
+I don't think the leaders we have are actually leading.
+There's no joy in the building right now.
+It's hard to give everything when it feels like the guy next to me isn't.
+There's drama in the room that's bleeding onto the field.
+I feel like I'm the only one who wants it this bad. ~ competitor
+I can't stand losing. I want to be around guys who hate it like I do. ~ competitor
+The standard's dropped and nobody's saying anything. ~ competitor
+I've been trying to hold everybody together and I'm worn out. ~ leader
+The young guys won't listen and the older guys have checked out. ~ leader
+I'm a captain and I don't know if anybody's following. ~ leader
+I'm not sure the staff believes in us. So it's hard to believe in them. ~ ego
+I'm doing my part. A lot of guys aren't. ~ ego
+I feel like the coaches don't trust us to make decisions. ~ ego
+Some of the guys get on my nerves and I'm trying not to snap. ~ hot
+There's a guy in that room who's going to make me lose it. ~ hot
+I just stay quiet in there. But I see everything. ~ quiet
+I don't really have friends on the team. I'm just there. ~ quiet
+I don't want to overstep. But it's not a healthy room right now. ~ humble
+I'll do my job regardless. But the culture's not where it needs to be. ~ pro
+I've seen good rooms and bad rooms. This one's sliding. ~ pro
+I love this team. That's why it hurts to watch it like this. ~ loyal
+I've been here through a lot. This is the worst the room's felt. ~ loyal
+I keep worrying we're going to fall apart. ~ shaky
+It's lonely when you're losing. ~ shaky
+I'm okay. But the room's not okay. ~ steady
+Some guys were brought in from the portal and they don't care about this place. ~ college nil
+The NIL money's split the room. Guys know who's getting paid and who isn't. ~ college nil
+The seniors are just counting down. ~ college
+The guys who came in together don't hang with anybody else. ~ college
+The upperclassmen haze the freshmen and the coaches act like they don't see it. ~ !nfl
+The seniors don't want to lead. They just want to graduate. ~ hs
+Half the team's on their phones in the locker room. Nobody talks. ~ hs modern
+There's guys from different neighborhoods and they don't mix. ~ hs
+Guys are worried about getting cut, so nobody helps anybody. ~ nfl
+The vets look out for themselves. That's the league, I guess. ~ nfl young
+I've been in winning rooms. This isn't one yet. ~ nfl vet
+Contract stuff has guys sideways with each other. ~ nfl
+Lowkey the room's been weird for a minute. ~ young modern
+The group chat's turned into a mess. ~ young modern
+I just want us to be a family again. ~ south
+It's not a good locker room right now. I'll be honest. ~ midwest
+I don't like what's happening in that room. Straight up. ~ northeast
+The energy's off in there. ~ west
+
+@key talk.reveal.future
+I don't know if I see myself here next year. I'm being honest with you.
+I've been thinking about my options. More than I've let on.
+I want to know if I'm part of the plan. Nobody's told me.
+I love it here. I just don't know if it loves me back.
+I keep picturing myself somewhere else, and I hate that I do.
+I've got one shot at this. I can't spend it waiting.
+I've been talking to my family about leaving.
+I'm trying to figure out what's best for me long term, and I don't know.
+Every time I think I've decided, I change my mind.
+I want to be somewhere that sees me the way I see myself.
+I'm scared of making the wrong call and regretting it forever.
+I've been offered things elsewhere. I haven't said yes to anything.
+I don't want to burn any bridges. That's why I'm telling you.
+I want to stay. I just need a reason to.
+I keep thinking about what my life looks like in five years.
+I've been asking myself if I still love this. Some days I'm not sure.
+I want to win, and I'm not sure we're going to win here soon.
+I'm thinking about the portal. I haven't told anybody but my mom. ~ college nil
+I've had people reach out about the portal. I've been listening. ~ college nil
+I've got schools that would start me tomorrow. That's hard to ignore. ~ college nil
+If I go in the portal, it's not about you. It's about playing. ~ college nil
+I've been thinking about going closer to home. My family needs me. ~ college
+I'm not sure if I should come back or declare. I go back and forth every night. ~ college
+The draft people gave me a grade and it wasn't what I wanted. Now I don't know. ~ college senior
+I want to go pro. My family wants me to graduate. I'm in the middle. ~ college
+I'm close to my degree. Part of me wants to finish and move on with life. ~ college senior
+I don't know if I'm an NFL guy. I need somebody to be honest with me. ~ college
+I'm thinking about using my last year somewhere else. ~ college senior
+I'm scared nobody's going to offer me. ~ hs
+I don't know if I'm good enough to play in college. Nobody's told me. ~ hs
+My dad wants me to go to a prep school and I don't want to. ~ hs
+I want to commit early so this is over. Everybody's in my ear. ~ hs
+Some schools are calling, but not the ones I want. ~ hs
+My family wants me to stay close and I want to get out. ~ hs
+I'm thinking about transferring schools. My mom's been looking at districts. ~ hs young
+I don't even know if I want to play in college. I just know I'm supposed to. ~ hs
+I'm in a contract year and I don't know if they want me back. ~ nfl
+I want to know before free agency if I've got a future here. ~ nfl
+My agent thinks I'll get more somewhere else. I'm listening. ~ nfl
+I keep hearing trade rumors with my name in them. It messes with you. ~ nfl
+I'm thinking about how many years I've got left in me. ~ nfl vet
+My body's telling me something. I'm not sure I want to hear it. ~ nfl vet
+I've been thinking about retiring. I haven't told anybody. ~ nfl vet
+I want one more real shot at a ring. I'm not sure it's here. ~ nfl vet competitor
+I want to be the guy somewhere. I'm not sure I can be that here. ~ ego
+I think I'm ready for something bigger. ~ ego
+I've got options. I'd be lying if I said I didn't. ~ ego
+I don't want to leave. But I need to grow, and I'm not growing. ~ humble
+I'm grateful for everything here. That's what makes it hard. ~ humble
+I'm worried about what happens to me if this doesn't work out. ~ shaky
+I don't have a backup plan. That scares me. ~ shaky
+I want to be here. I've always wanted to be here. I just need to know you want me. ~ loyal
+I'd never want to leave the guys. That's what's holding me back. ~ loyal
+I'm thinking about it like a business. Because it is one. ~ pro
+I want to make a smart decision, not an emotional one. ~ pro
+I'm not chasing anything. I just want the right fit. ~ calm
+I want to go where they're going to win. Simple as that. ~ competitor
+I hate to say it, but I'm tired of losing. I'm looking at places that win. ~ competitor
+I feel like I owe it to the guys to stay. And I owe it to myself to think about leaving. ~ leader
+Lowkey I've been looking at my options. ~ young modern
+Everybody in my DMs is telling me to leave. ~ young modern
+I've been praying on it every night. I just don't have an answer yet. ~ south
+I've been thinking about my folks a lot. Being closer to them. ~ midwest
+I'll be straight. I'm not sure I'm staying. ~ northeast
+I'm trying to see the bigger picture. ~ west
+
+@key talk.deflect
+I'm good, Coach.
+Nothing's going on. I'm alright.
+It's fine. I'm fine.
+I'm just tired, that's all.
+Nah. I'm straight, Coach.
+I'll be alright.
+Just a lot of school stuff. I'm good. ~ !nfl
+Just been a long week.
+It's nothing. Honestly.
+I'm handling it.
+Don't worry about me, Coach.
+I'm okay. Really.
+It's not a big deal.
+I'd rather keep it to myself, if that's okay.
+It's personal. I've got it.
+I'm fine. I promise.
+It's all good.
+Nothing I can't handle.
+I don't really want to get into it.
+Can we just talk football?
+It's nothing, Coach. I'm locked in.
+I'm just in my head a little. It'll pass.
+I'm good. Just sore.
+Body's beat up. That's all it is.
+Honestly, nothing. I'm just quiet.
+I'm good, I'm good.
+I'll figure it out.
+It's handled.
+I just need some sleep.
+I'm alright, Coach. Appreciate it though.
+It's really nothing.
+I've got it under control.
+I'd rather not.
+It's not worth talking about.
+Let's leave it, Coach.
+I'm just focused. That's all.
+Everything's cool.
+I've just been tired lately.
+It'll be fine.
+I'm just going through a little something. Nothing major.
+Nothing. ~ quiet
+I'm good. ~ quiet
+It's fine. ~ quiet
+I don't know. I'm okay. ~ quiet
+I'd rather not say. ~ quiet
+I'm good. Thanks for asking though. ~ humble
+I don't want to bother you with it. I'm okay. ~ humble
+It's nothing you need to worry about. ~ humble
+I appreciate you, Coach. I'm good. ~ humble
+I'm fine. I don't need a therapy session. ~ ego
+I'm good. Worry about the other guys. ~ ego
+I'm the last guy you need to worry about. ~ ego
+I'm straight. Trust me. ~ ego
+I'm good. Why does everybody keep asking? ~ hot
+Who said something's wrong? ~ hot
+I said I'm fine. ~ hot
+Nothing, Coach. Can I go? ~ hot young
+I keep my business my business. ~ hot
+I'm good. I just need to get back to work. ~ pro
+Nothing that'll affect my work. ~ pro
+I've got it handled. It won't show up on the field. ~ pro
+I'm focused on the job. That's all that matters. ~ pro
+I'm good. I've got to be good for my guys. ~ leader
+I'm fine. Let's talk about the team instead. ~ leader
+I'm alright. I'm more worried about some of the young guys. ~ leader
+I'm good. I'm always good. ~ steady
+Nothing new, Coach. Same old me. ~ steady
+I'm steady. Don't worry. ~ steady
+I'm calm. It's nothing. ~ calm
+Honestly, I'm at peace. ~ calm
+It's okay. I'm working through it on my own. ~ calm
+Ha. Me? I'm great, Coach. ~ loose
+You know me. Nothing bothers me. ~ loose
+I'm chilling, Coach. For real. ~ loose young
+Nah, I'm vibing. ~ loose young modern
+I'm good. I'm just hungry. Haven't eaten. ~ loose young
+I'm locked in. Nothing else matters right now. ~ competitor
+The only thing on my mind is winning. ~ competitor
+I'm just mad about the last game. That's it. ~ competitor
+I'm just thinking about the next game. ~ competitor
+I'm good. I've got your back, you've got mine. ~ loyal
+I'm fine, Coach. I'm not going anywhere. ~ loyal
+I'm okay. I think. ~ shaky
+I don't know. I'm okay, I guess. ~ shaky
+I'll be fine. I just need a minute. ~ shaky
+I'm good. I'm good. Can we talk about something else? ~ shaky
+Nah. I'm good, fr. ~ young modern
+I'm good, no cap. ~ young modern
+It's nothing, Coach. Promise. ~ young
+I'm good. Just school stuff. ~ young !nfl
+I'm good. Just growing pains. ~ young
+I'm good. My mom worries enough for both of us. ~ young !nfl
+I'm good, Coach. Just been busy with family stuff. ~ nfl
+I've been in this league long enough to handle my own stuff. ~ nfl vet
+I'm a grown man, Coach. I've got it. ~ nfl vet
+It's nothing. Just league stuff. ~ nfl
+I'm good. Just a lot of noise. ~ nfl
+Just class stuff. I'll get caught up. ~ college
+Midterms, Coach. That's all. ~ college young
+I'm just homesick a little. Normal stuff. ~ college young
+Just school, Coach. And my ride situation. ~ hs young
+I'm good. My parents have been on me about grades, that's all. ~ hs young
+I'm just stressed about tests. ~ hs young
+I'm good, Coach. I've just got a lot of homework. ~ hs young
+Yes sir, I'm alright. ~ south
+I'm fine, Coach. Ain't nothing to it. ~ south
+I'm doing alright, I reckon. ~ south
+I'm good. Don't you worry about me. ~ south
+I'm fine, Coach. Just a little tired. ~ midwest
+Nothing to report, Coach. ~ midwest
+It's nothing. Really. ~ midwest
+I'm good. Nothing to talk about. ~ northeast
+It's nothing, Coach. Seriously. ~ northeast
+Forget about it. I'm good. ~ northeast
+It's all good. Just trying to stay balanced. ~ west
+I'm good. Just processing some stuff. ~ west
