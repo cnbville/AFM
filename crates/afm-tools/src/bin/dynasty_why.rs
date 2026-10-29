@@ -5,6 +5,7 @@
 //! behind the titles with their hidden ratings.
 //! Usage: dynasty_why <world file> [first year]
 
+use afm_engine::positions::Position;
 use afm_engine::world::World;
 use afm_engine::world::coach::{Employer, Role};
 use afm_engine::world::data::{Division, HISTORY_LAST};
@@ -34,45 +35,59 @@ fn main() {
     let mut state5: HashMap<(i32, usize), (u32, u32)> = HashMap::new(); // (class, home state) -> (signed FBS, kept by the state's top taker)
     let mut by_state: HashMap<(usize, usize), u32> = HashMap::new(); // (state, program) 4-5 stars signed over the years
     let mut state_total: HashMap<usize, u32> = HashMap::new();
-    let mut add_player =
-        |stars: u8, home: usize, class_of: i32, staff: &[(i32, usize, Option<usize>, Option<usize>)], spec: bool| {
-            if spec || stars < 4 {
-                return;
+    // Every FBS blue-chip signing: (class, program, position, stars).
+    let mut signings: Vec<(i32, usize, Position, u8)> = Vec::new();
+    let mut add_player = |stars: u8,
+                          home: usize,
+                          class_of: i32,
+                          staff: &[(i32, usize, Option<usize>, Option<usize>)],
+                          spec: bool,
+                          pos: Position| {
+        if spec || stars < 4 {
+            return;
+        }
+        let mut seen_first = false;
+        for &(y, p, _, _) in staff {
+            if !fbs_in(&w.programs[p], y) {
+                continue;
             }
-            let mut seen_first = false;
-            for &(y, p, _, _) in staff {
-                if !fbs_in(&w.programs[p], y) {
-                    continue;
-                }
-                if stars == 5 {
-                    *five.entry((y, p)).or_default() += 1;
-                } else {
-                    *four.entry((y, p)).or_default() += 1;
-                }
-                if !seen_first {
-                    seen_first = true;
-                    // His first FBS program in his first college year counts as his signing (JUCO movers included).
-                    if y <= class_of + 1 {
-                        if stars == 5 {
-                            *signed5.entry((class_of, p)).or_default() += 1;
-                        } else {
-                            *signed4.entry((class_of, p)).or_default() += 1;
-                        }
-                        if class_of >= first {
-                            *by_state.entry((home, p)).or_default() += 1;
-                            *state_total.entry(home).or_default() += 1;
-                            state5.entry((class_of, home)).or_default().0 += 1;
-                        }
+            if stars == 5 {
+                *five.entry((y, p)).or_default() += 1;
+            } else {
+                *four.entry((y, p)).or_default() += 1;
+            }
+            if !seen_first {
+                seen_first = true;
+                // His first FBS program in his first college year counts as his signing (JUCO movers included).
+                if y <= class_of + 1 {
+                    signings.push((class_of, p, pos, stars));
+                    if stars == 5 {
+                        *signed5.entry((class_of, p)).or_default() += 1;
+                    } else {
+                        *signed4.entry((class_of, p)).or_default() += 1;
+                    }
+                    if class_of >= first {
+                        *by_state.entry((home, p)).or_default() += 1;
+                        *state_total.entry(home).or_default() += 1;
+                        state5.entry((class_of, home)).or_default().0 += 1;
                     }
                 }
             }
-        };
+        }
+    };
     for a in &w.alumni {
-        add_player(a.stars, a.home_state, a.class_of, &a.college_staff, a.position.is_specialist());
+        add_player(a.stars, a.home_state, a.class_of, &a.college_staff, a.position.is_specialist(), a.position);
     }
     // A drafted or signed pro is already among the alumni: count him once.
     for p in w.people.iter().filter(|p| p.stage != afm_engine::world::Stage::Pro) {
-        add_player(p.stars, p.home_state, p.class_of, &p.college_staff, p.player.position.is_specialist());
+        add_player(
+            p.stars,
+            p.home_state,
+            p.class_of,
+            &p.college_staff,
+            p.player.position.is_specialist(),
+            p.player.position,
+        );
     }
     // Draft picks by the last FBS school, by draft year.
     let mut picks: HashMap<(i32, usize), u32> = HashMap::new();
@@ -934,6 +949,75 @@ fn main() {
         "FBS blue chips signing in their home state: {:.0}% of {bc_n}, 5-stars {:.0}% of {five_n} (real 2010-2025: 41%, 5-stars 45%)",
         100.0 * bc_home as f64 / bc_n.max(1) as f64,
         100.0 * five_home as f64 / five_n.max(1) as f64
+    );
+    // 12. Position rooms (trial tooling, 2026-10-29): does a blue chip shy
+    // away from a room already full of blue chips at his position? For each
+    // FBS 4-5 star signing, the blue chips his school signed at his position
+    // in the three classes before his ("crowd"). Same read as real
+    // (`real_rooms.py`): at the 10 programs with the most blue chips, and
+    // everywhere; quarterbacks on their own.
+    let last_class = signings.iter().map(|x| x.0).max().unwrap_or(w.year);
+    let mut room: HashMap<(i32, usize, Position), u32> = HashMap::new();
+    let mut total_bc: HashMap<usize, u32> = HashMap::new();
+    for &(c, p, pos, _) in &signings {
+        *room.entry((c, p, pos)).or_default() += 1;
+        if c > first + 3 {
+            *total_bc.entry(p).or_default() += 1;
+        }
+    }
+    let mut top10: Vec<(usize, u32)> = total_bc.iter().map(|(&p, &n)| (p, n)).collect();
+    top10.sort_by_key(|x| std::cmp::Reverse(x.1));
+    let top10: Vec<usize> = top10.iter().take(10).map(|x| x.0).collect();
+    let crowd = |c: i32, p: usize, pos: Position| {
+        (1..=3).map(|k| room.get(&(c - k, p, pos)).copied().unwrap_or(0)).sum::<u32>()
+    };
+    let read = |pick: &dyn Fn(usize, Position, u8) -> bool| {
+        let (mut n, mut sum, mut two, mut three) = (0u32, 0u32, 0u32, 0u32);
+        for &(c, p, pos, st) in &signings {
+            if c <= first + 3 || c > last_class || !pick(p, pos, st) {
+                continue;
+            }
+            let k = crowd(c, p, pos);
+            n += 1;
+            sum += k;
+            two += (k >= 2) as u32;
+            three += (k >= 3) as u32;
+        }
+        let nf = n.max(1) as f64;
+        format!(
+            "n {n}, crowd {:.2}, into 2+ {:.0}%, into 3+ {:.0}%",
+            sum as f64 / nf,
+            100.0 * two as f64 / nf,
+            100.0 * three as f64 / nf
+        )
+    };
+    println!(
+        "\nposition rooms (classes {}-{}; crowd = blue chips his school signed at his position in the 3 classes before his): top 10 programs ({}): {}; their 5-stars: {}; their QBs: {}; all FBS: {}; all FBS QBs: {}",
+        first + 4,
+        last_class,
+        top10.iter().map(|&p| name(p)).collect::<Vec<_>>().join(", "),
+        read(&|p, _, _| top10.contains(&p)),
+        read(&|p, _, st| top10.contains(&p) && st == 5),
+        read(&|p, pos, _| top10.contains(&p) && pos == Position::QB),
+        read(&|_, _, _| true),
+        read(&|_, pos, _| pos == Position::QB)
+    );
+    // Quarterbacks spread: blue-chip QBs by school over the last 20 classes.
+    let mut qb: HashMap<usize, u32> = HashMap::new();
+    let mut qb_n = 0u32;
+    for &(c, p, pos, _) in &signings {
+        if pos == Position::QB && c > last_class - 20 && c <= last_class {
+            *qb.entry(p).or_default() += 1;
+            qb_n += 1;
+        }
+    }
+    let mut qbv: Vec<u32> = qb.values().copied().collect();
+    qbv.sort_unstable_by(|a, b| b.cmp(a));
+    println!(
+        "blue-chip QBs, last 20 classes: {qb_n} at {} schools; most at one school {}; top 5 schools' share {:.0}%",
+        qbv.len(),
+        qbv.first().copied().unwrap_or(0),
+        100.0 * qbv.iter().take(5).sum::<u32>() as f64 / qb_n.max(1) as f64
     );
     // Draft: the most picks from one school in a draft, by era.
     let mut most_picks: BTreeMap<i32, (usize, u32)> = BTreeMap::new();
