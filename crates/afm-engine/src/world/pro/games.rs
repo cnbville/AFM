@@ -431,9 +431,10 @@ pub(crate) fn log_game(
     head.insert("neutral".into(), f.neutral.into());
     head.insert("indoor".into(), v.indoor.into());
     head.insert("conditions".into(), serde_json::json!(v.cond));
-    let row = crate::world::wlog::games::game_row(head, r, Some([&sides[0].team, &sides[1].team]));
+    let body = crate::world::wlog::games::game_body(r, Some([&sides[0].team, &sides[1].team]));
+    let row = crate::world::wlog::games::game_row(head, body);
     let plays = crate::world::wlog::games::plays(&r.stats);
-    let situ = crate::world::game_log::game_situations(&r.stats);
+    let situ = crate::world::game_log::game_situations(&r.stats, true);
     let Some(l) = w.wlog.as_mut() else { return };
     l.add_situations(season, "nfl", "NFL", [f.home, f.away], situ);
     l.game("games-nfl", "plays-nfl", &row, Some(plays));

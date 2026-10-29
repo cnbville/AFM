@@ -741,14 +741,30 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     let recording_log = w.options.keep_game_log && w.recording;
     let year = cs.year;
     let watch = w.tape_watch(CalLevel::College);
-    // The world reader's game log: each game's snaps and situation totals,
-    // worked out on all cores (they are the log's bulk).
+    // The world reader's game log: each game's body, its snaps (packed) and
+    // its situation totals, worked out on all cores (they are the log's
+    // bulk).
     let logging = w.logging();
     let mut to_log = if logging {
         outcomes
             .par_iter()
-            .map(|r| {
-                r.as_ref().map(|r| (super::wlog::games::plays(&r.stats), super::game_log::game_situations(&r.stats)))
+            .zip(jobs.par_iter())
+            .map(|(r, j)| {
+                r.as_ref().map(|r| {
+                    let g = &cs.games[j.k];
+                    let mut name = serde_json::Map::new();
+                    name.insert("level".into(), "college".into());
+                    name.insert("season".into(), cs.year.into());
+                    name.insert("date".into(), g.date.to_string().into());
+                    name.insert("teams".into(), serde_json::json!([g.home, g.away]));
+                    let snaps = super::wlog::games::snaps_record(&name, super::wlog::games::plays(&r.stats));
+                    let teams = j.teams.as_ref().map(|(a, b)| [a, b]);
+                    (
+                        super::wlog::games::game_body(r, teams),
+                        super::wlog::pack(&snaps),
+                        super::game_log::game_situations(&r.stats, true),
+                    )
+                })
             })
             .collect()
     } else {
@@ -756,7 +772,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     }
     .into_iter();
     let first_date = cs.games.iter().map(|g| g.date).min().unwrap_or(date);
-    let mut logged: Vec<(usize, serde_json::Value, Option<serde_json::Value>)> = Vec::new();
+    let mut logged: Vec<(usize, serde_json::Value, Option<Vec<u8>>)> = Vec::new();
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
         let log_part = to_log.next().flatten();
@@ -938,13 +954,12 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             head.insert("senior_day".into(), g.senior_day.into());
             head.insert("homecoming".into(), g.homecoming.into());
             let (row, plays) = match (&r, log_part) {
-                (Some(r), Some((plays, situ))) => {
+                (Some(_), Some((body, plays, situ))) => {
                     let group = if hd == ad { hd.name() } else { "cross-division" };
                     if let Some(l) = w.wlog.as_mut() {
                         l.add_situations(year, "college", group, [home, away], situ);
                     }
-                    let teams = j.teams.as_ref().map(|(a, b)| [a, b]);
-                    (super::wlog::games::game_row(head, r, teams), Some(plays))
+                    (super::wlog::games::game_row(head, body), plays)
                 }
                 _ => (super::wlog::games::standin_row(head, home_won, Some(played.score)), None),
             };
@@ -996,7 +1011,10 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             }
         }
         if let Some(l) = w.wlog.as_deref() {
-            l.game("games-college", "plays-college", &row, plays);
+            l.put("games-college", &row);
+            if let Some(plays) = plays {
+                l.put_packed("plays-college", plays);
+            }
         }
     }
     advance_brackets(w);

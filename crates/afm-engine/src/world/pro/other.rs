@@ -1540,9 +1540,9 @@ fn log_game(
     head.insert("teams".into(), serde_json::json!(teams));
     head.insert("names".into(), serde_json::json!(teams.map(|t| name(t, year))));
     head.insert("neutral".into(), neutral.into());
-    let row = crate::world::wlog::games::game_row(head, r, Some(sides));
+    let row = crate::world::wlog::games::game_row(head, crate::world::wlog::games::game_body(r, Some(sides)));
     let plays = crate::world::wlog::games::plays(&r.stats);
-    let situ = crate::world::game_log::game_situations(&r.stats);
+    let situ = crate::world::game_log::game_situations(&r.stats, true);
     let Some(l) = w.wlog.as_mut() else { return };
     l.add_situations(year, "other", league, teams, situ);
     l.game("games-other", "plays-other", &row, Some(plays));

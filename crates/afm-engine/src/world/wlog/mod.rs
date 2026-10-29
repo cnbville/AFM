@@ -35,6 +35,7 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) mod fp;
 pub(crate) mod games;
+pub(crate) mod lean;
 mod narrow;
 pub mod read;
 pub(crate) mod rows;
@@ -52,6 +53,13 @@ const FRAME: usize = 1 << 20;
 /// zstd level: 3 packs a world's rows 5% bigger than 6 in less than half
 /// the time (measured on a year's player rows).
 const LEVEL: i32 = 3;
+
+/// One record as the log writes it (named MessagePack, `f64`s as `f32`s),
+/// for `WorldLog::put_packed`.
+pub(crate) fn pack<T: Serialize + ?Sized>(rec: &T) -> Option<Vec<u8>> {
+    let mut one = Vec::with_capacity(256);
+    rmp_serde::encode::write_named(&mut one, &narrow::Narrow(rec)).ok().map(|_| one)
+}
 
 /// What each kind of record holds (written into `meta.json`).
 pub const KINDS: &[(&str, &str)] = &[
@@ -276,10 +284,14 @@ impl WorldLog {
     /// follows the threads, so readers key records by their ids.
     pub(crate) fn put<T: Serialize + ?Sized>(&self, kind: &'static str, rec: &T) {
         // Packed before the lock, so the cores don't wait on each other.
-        let mut one = Vec::with_capacity(256);
-        if rmp_serde::encode::write_named(&mut one, &narrow::Narrow(rec)).is_err() {
-            return;
+        if let Some(one) = pack(rec) {
+            self.put_packed(kind, one);
         }
+    }
+
+    /// Adds one record packed by `pack`: a caller that packs on many cores
+    /// adds them here in its own order (the game log).
+    pub(crate) fn put_packed(&self, kind: &'static str, one: Vec<u8>) {
         // A record of a frame or more (a whole season's store) goes as its
         // own frame, after what was waiting, without being copied.
         let (full, own) = {

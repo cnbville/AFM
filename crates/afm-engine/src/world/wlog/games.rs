@@ -14,6 +14,7 @@ use std::collections::{BTreeMap, HashMap};
 use serde_json::{Map, Value, json};
 
 use super::WorldLog;
+use super::lean::{lean, num};
 use crate::game::drives::drives;
 use crate::game::{GameResult, GameStats, GameTeam, PlayRecord, PlayType};
 use crate::world::game_log::{GameSitu, Situ, bump};
@@ -25,14 +26,13 @@ pub type Head = Map<String, Value>;
 /// One team's box: the engine's team totals and what the player lines
 /// and plays add (touchdowns by kind, sack yards, kicks and returns).
 fn team_box(s: &GameStats, side: usize) -> Value {
-    let mut b = serde_json::to_value(&s.team[side]).unwrap_or_else(|_| json!({}));
-    let lines = s.players[side].values();
-    let mut add = Map::new();
-    let mut sum = |k: &str, v: f64| {
-        let e = add.entry(k.to_string()).or_insert(json!(0.0));
-        *e = json!(e.as_f64().unwrap_or(0.0) + v);
+    let mut b = match lean(&s.team[side]) {
+        Value::Object(m) => m,
+        _ => Map::new(),
     };
-    for l in lines {
+    let mut add: BTreeMap<&'static str, f64> = BTreeMap::new();
+    let mut sum = |k: &'static str, v: f64| *add.entry(k).or_default() += v;
+    for l in s.players[side].values() {
         sum("pass_td", l.pass_td as f64);
         sum("rush_td", l.rush_td as f64);
         sum("rec_td", l.rec_td as f64);
@@ -62,31 +62,27 @@ fn team_box(s: &GameStats, side: usize) -> Value {
             sum(["fg_made_u30", "fg_made_30s", "fg_made_40s", "fg_made_50"][k], l.fg_made[k] as f64);
         }
     }
-    let (mut two, mut two_good, mut def_td, mut blocked_by, mut emergency) = (0, 0, 0, 0, 0);
     for r in s.plays.iter().filter(|r| !r.nullified && r.offense < 2) {
         if r.kind == PlayType::TwoPoint && r.offense == side {
-            two += 1;
-            two_good += (r.touchdown && !r.turnover) as u32;
+            sum("two_point", 1.0);
+            sum("two_point_good", (r.touchdown && !r.turnover) as u32 as f64);
         }
         if r.defense_td && r.offense != side {
-            def_td += 1;
+            sum("def_td", 1.0);
         }
         if r.blocked && r.offense != side {
-            blocked_by += 1;
+            sum("kicks_blocked", 1.0);
         }
         if r.emergency && r.offense == side {
-            emergency += 1;
+            sum("emergency_snaps", 1.0);
         }
     }
-    if let Some(m) = b.as_object_mut() {
-        m.extend(add);
-        m.insert("two_point".into(), json!(two));
-        m.insert("two_point_good".into(), json!(two_good));
-        m.insert("def_td".into(), json!(def_td));
-        m.insert("kicks_blocked".into(), json!(blocked_by));
-        m.insert("emergency_snaps".into(), json!(emergency));
+    for (k, v) in add {
+        if v != 0.0 {
+            b.insert(k.into(), num(v));
+        }
     }
-    b
+    Value::Object(b)
 }
 
 /// Every scoring play: what it was, the try after it and the score after.
@@ -209,7 +205,7 @@ fn player_lines(s: &GameStats, teams: Option<[&GameTeam; 2]>) -> Vec<Vec<Value>>
             s.players[side]
                 .iter()
                 .map(|(&id, l)| {
-                    let mut v = serde_json::to_value(l).unwrap_or_else(|_| json!({}));
+                    let mut v = lean(l);
                     if let Some(m) = v.as_object_mut() {
                         m.insert("id".into(), json!(id));
                         if let Some(p) = pos.get(&id) {
@@ -223,36 +219,55 @@ fn player_lines(s: &GameStats, teams: Option<[&GameTeam; 2]>) -> Vec<Vec<Value>>
         .collect()
 }
 
-/// A game's whole row: the head, then everything the result holds.
-pub fn game_row(mut head: Head, r: &GameResult, teams: Option<[&GameTeam; 2]>) -> Value {
+/// Everything a played game's row holds beyond its head, made on the core
+/// that played it: the score by quarter, the toss, both boxes, every
+/// player's line, the drives, the scoring, injuries, penalties, the
+/// officials' calls, timeouts and the moments between plays.
+pub fn game_body(r: &GameResult, teams: Option<[&GameTeam; 2]>) -> Head {
     let s = &r.stats;
-    head.insert("score".into(), json!(s.score));
-    head.insert("quarters".into(), json!(s.quarters));
-    head.insert("ot".into(), json!(s.overtime));
-    head.insert("snaps".into(), json!(s.plays.len()));
-    head.insert("toss".into(), r.toss.map_or(Value::Null, |(t, c)| json!({ "winner": t, "choice": format!("{c:?}") })));
-    head.insert("box".into(), Value::Array(vec![team_box(s, 0), team_box(s, 1)]));
-    head.insert("players".into(), Value::Array(player_lines(s, teams).into_iter().map(Value::Array).collect()));
-    head.insert("drives".into(), serde_json::to_value(drives(s)).unwrap_or(Value::Null));
-    head.insert("scoring".into(), Value::Array(scoring(s)));
-    head.insert("injuries".into(), Value::Array(injuries(s, r)));
-    head.insert("penalties".into(), Value::Array(penalties(s)));
-    head.insert("officiating".into(), officiating(s, r));
-    head.insert("timeouts_left".into(), json!(s.timeouts_left));
-    head.insert(
+    let mut b = Map::new();
+    b.insert("score".into(), json!(s.score));
+    b.insert("quarters".into(), json!(s.quarters));
+    b.insert("ot".into(), json!(s.overtime));
+    b.insert("snaps".into(), json!(s.plays.len()));
+    b.insert("toss".into(), r.toss.map_or(Value::Null, |(t, c)| json!({ "winner": t, "choice": format!("{c:?}") })));
+    b.insert("scoring".into(), Value::Array(scoring(s)));
+    b.insert("injuries".into(), Value::Array(injuries(s, r)));
+    b.insert("penalties".into(), Value::Array(penalties(s)));
+    b.insert("officiating".into(), officiating(s, r));
+    b.insert("timeouts_left".into(), json!(s.timeouts_left));
+    b.insert(
         "between".into(),
         Value::Array(r.log.iter().map(|(n, t, what)| json!({ "after": n, "team": t, "what": what })).collect()),
     );
-    head.insert(
+    b.insert(
         "decisions".into(),
         Value::Array(r.decisions.iter().map(|(n, t, what)| json!({ "n": n, "team": t, "what": what })).collect()),
     );
-    head.insert(
+    b.insert(
         "trust".into(),
         Value::Array(r.trust.iter().map(|(t, id, d)| json!({ "team": t, "player": id, "change": d })).collect()),
     );
+    let mut v = Value::Object(b);
+    compact(&mut v);
+    let Value::Object(mut b) = v else { unreachable!("an object stays an object") };
+    // The bulk, lean as it is made.
+    b.insert("box".into(), Value::Array(vec![team_box(s, 0), team_box(s, 1)]));
+    b.insert("players".into(), Value::Array(player_lines(s, teams).into_iter().map(Value::Array).collect()));
+    let d = lean(&drives(s));
+    if !empty(&d) {
+        b.insert("drives".into(), d);
+    }
+    b
+}
+
+/// A game's whole row: its head, then its body (`game_body`).
+pub fn game_row(head: Head, body: Head) -> Value {
     let mut v = Value::Object(head);
     compact(&mut v);
+    if let Value::Object(m) = &mut v {
+        m.extend(body);
+    }
     v
 }
 
@@ -298,16 +313,33 @@ pub fn plays(s: &GameStats) -> Value {
             .iter()
             .enumerate()
             .map(|(i, r)| {
-                let mut v = serde_json::to_value(r).unwrap_or_else(|_| json!({}));
+                let mut v = lean(*r);
                 if let Some(m) = v.as_object_mut() {
-                    m.insert("ep_after".into(), json!(round(r.ep_before + r.epa)));
-                    m.insert("wp_after".into(), json!(round(wp_after(s, &plays, i))));
+                    for (k, x) in [("ep_after", r.ep_before + r.epa), ("wp_after", wp_after(s, &plays, i))] {
+                        let x = num(x);
+                        if !empty(&x) {
+                            m.insert(k.into(), x);
+                        }
+                    }
                 }
-                compact(&mut v);
                 v
             })
             .collect(),
     )
+}
+
+/// A game's snaps as their record (`plays-<level>`): the keys that name
+/// the game, taken from its head or row (level, league, season, date and
+/// teams), and every snap (`plays`).
+pub fn snaps_record(name: &Head, snaps: Value) -> Value {
+    let mut rec = Map::new();
+    for k in ["level", "league", "season", "date", "teams"] {
+        if let Some(v) = name.get(k) {
+            rec.insert(k.into(), v.clone());
+        }
+    }
+    rec.insert("plays".into(), snaps);
+    Value::Object(rec)
 }
 
 /// The college game kind's words.
@@ -344,15 +376,8 @@ impl WorldLog {
     /// teams.
     pub(crate) fn game(&self, games: &'static str, plays: &'static str, row: &Value, snaps: Option<Value>) {
         self.put(games, row);
-        if let Some(snaps) = snaps {
-            let mut rec = Map::new();
-            for k in ["level", "league", "season", "date", "teams"] {
-                if let Some(v) = row.get(k) {
-                    rec.insert(k.into(), v.clone());
-                }
-            }
-            rec.insert("plays".into(), snaps);
-            self.put(plays, &Value::Object(rec));
+        if let (Some(snaps), Some(name)) = (snaps, row.as_object()) {
+            self.put(plays, &snaps_record(name, snaps));
         }
     }
 
@@ -458,7 +483,7 @@ pub fn compact(v: &mut serde_json::Value) {
     }
 }
 
-fn empty(v: &serde_json::Value) -> bool {
+pub(crate) fn empty(v: &serde_json::Value) -> bool {
     use serde_json::Value;
     match v {
         Value::Null => true,

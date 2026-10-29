@@ -487,8 +487,9 @@ pub struct GameSitu {
     pub team: [HashMap<String, Situ>; 2],
 }
 
-/// Sums one game's plays by situation, at any level.
-pub fn game_situations(g: &GameStats) -> GameSitu {
+/// Sums one game's plays by situation, at any level; each side's own keys
+/// only when `teams` (no one keeps them for high schools).
+pub fn game_situations(g: &GameStats, teams: bool) -> GameSitu {
     let mut league: HashMap<String, Situ> = HashMap::new();
     let mut team: [HashMap<String, Situ>; 2] = Default::default();
     let mut ctx = PlayCtx::default();
@@ -499,6 +500,9 @@ pub fn game_situations(g: &GameStats) -> GameSitu {
         let v = play_values(p);
         for k in play_keys(p, ctx) {
             bump(league.entry(k).or_default(), &v);
+        }
+        if !teams {
+            continue;
         }
         // A team's own profile: a short list of keys, both sides of the ball.
         let kind = kind_name(p.kind);
@@ -529,7 +533,7 @@ pub fn game_situations(g: &GameStats) -> GameSitu {
 
 /// Sums one game's plays by situation (league keys, and FBS team keys).
 pub fn situations(division: Division, teams: [usize; 2], g: &GameStats) -> SituPart {
-    let GameSitu { league, team } = game_situations(g);
+    let GameSitu { league, team } = game_situations(g, division == Division::FBS);
     let mut by_team: HashMap<(usize, String), Situ> = HashMap::new();
     if division == Division::FBS {
         for (side, m) in team.into_iter().enumerate() {
@@ -602,7 +606,7 @@ impl GameLog {
 
     /// A level's situation totals (the NFL's, high school's).
     pub fn add_level(&mut self, year: i32, level: &str, g: &GameStats) {
-        for (k, v) in game_situations(g).league {
+        for (k, v) in game_situations(g, false).league {
             bump(self.level_situations.entry((year, level.to_string(), k)).or_default(), &v);
         }
     }

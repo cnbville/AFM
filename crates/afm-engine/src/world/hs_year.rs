@@ -179,9 +179,10 @@ struct HsPlayed {
     tally: super::charts::Tally,
     /// A final at a neutral site.
     neutral: bool,
-    /// The world reader's game log: the game's row, when a log is open,
-    /// and its situation totals (for it or the trial game log).
-    log: Option<serde_json::Value>,
+    /// The world reader's game log: the game's row, packed where the game
+    /// was played, when a log is open, and its situation totals (for it or
+    /// the trial game log).
+    log: Option<Vec<u8>>,
     situ: Option<super::game_log::GameSitu>,
 }
 
@@ -1469,9 +1470,11 @@ fn engine_games(
                 let mut head = hs_head(world, s, week, day, [h, a], final_game);
                 head.insert("weather".into(), serde_json::json!(wx));
                 head.insert("conditions".into(), serde_json::json!(cond));
-                super::wlog::games::game_row(head, &r, Some([&home, &away]))
+                let row = super::wlog::games::game_row(head, super::wlog::games::game_body(&r, Some([&home, &away])));
+                super::wlog::pack(&row)
             });
-            let situ = (logging || trial_log).then(|| super::game_log::game_situations(&r.stats));
+            let log = log.flatten();
+            let situ = (logging || trial_log).then(|| super::game_log::game_situations(&r.stats, false));
             let injuries = std::mem::take(&mut r.injuries);
             Ok(HsPlayed {
                 injuries,
@@ -1519,7 +1522,7 @@ fn engine_games(
             }
             if let (Some(row), Some(l)) = (g.log, w.wlog.as_mut()) {
                 l.add_situations(year, "hs", w.states[s].code.as_str(), [h, a], situ);
-                l.game("games-hs", "", &row, None);
+                l.put_packed("games-hs", row);
             }
         }
         let (wn, l) = if home_wins { (h, a) } else { (a, h) };
