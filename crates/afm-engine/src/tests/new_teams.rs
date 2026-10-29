@@ -24,6 +24,13 @@ fn expansion_clubs_draft_their_squads_and_play_a_full_schedule() {
     let new = nfl::award(&mut w, &markets[..2], year);
     assert_eq!(new.len(), 2);
     assert_eq!(franchise::active_teams_in(&w, year).len(), before + 2);
+    for &t in &new {
+        let s = &w.clubs[t].support;
+        assert!(
+            !s.analytics.name.is_empty() && !s.medical.name.is_empty(),
+            "a new club hires its heads the day it joins"
+        );
+    }
     assert_ne!(
         franchise::alignment_in(&w, new[0], year).map(|a| a.0),
         franchise::alignment_in(&w, new[1], year).map(|a| a.0),
@@ -81,6 +88,7 @@ fn a_college_starts_with_a_build_year_and_plays_the_next() {
     assert!(prog.fields_games(year + 2));
     assert_eq!(prog.division, Division::FCS);
     assert!(w.new_teams.build_year(p, year + 1));
+    assert!(!prog.support.strength.name.is_empty(), "a new program hires its support heads");
     // Its first schedule has games; the build year has none.
     let build = crate::world::schedule::build(&w, year + 1, &YearDates::new(year + 1));
     assert!(!build.iter().any(|g| g.home == p || g.away == p), "no games in the build year");

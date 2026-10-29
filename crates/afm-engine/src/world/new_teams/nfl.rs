@@ -242,6 +242,7 @@ fn add_club(w: &mut World, k: usize, div: u8, first: i32) -> usize {
     w.clubs.push(club);
     let fee = FEE_MULTIPLE * average_value(w);
     crate::world::finance::nfl::add_club(w, t, city, state, roof != Roof::Open, first);
+    crate::world::people::first_hires(w, Some(t), 0);
     let n = w.nfl.len();
     if !w.market.fleece.is_empty() {
         for row in w.market.fleece.iter_mut() {

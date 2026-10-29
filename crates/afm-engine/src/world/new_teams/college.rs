@@ -165,6 +165,7 @@ pub fn start(w: &mut World, p: usize, level: Division, build: i32, first: i32) {
     prog.story.push((year, if restart { "Brought football back".into() } else { "Started football".into() }));
     let name = prog.real_name.clone();
     w.new_teams.programs.push(super::NewProgram { program: p, announced: year, build, first, restart });
+    crate::world::people::first_hires(w, None, p);
     let level_name = crate::world::program::division_era_name(level, first);
     let text = if restart {
         format!(
