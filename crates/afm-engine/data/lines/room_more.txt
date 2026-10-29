@@ -1,0 +1,218 @@
+# The line bank: more room lines (dialogue D2; format in src/world/folk/voice.rs).
+# Same parts as room.txt. A reaction never names the rule or the penalty.
+
+@key rules.react.harsh
+Coach, come on. That's way out of line.
+You didn't even ask me what happened.
+I made one mistake and you're treating me like I'm a problem.
+Nobody else in this room gets that. Nobody.
+That's going to hurt the team more than it hurts me.
+I hear you. I don't agree with you, but I hear you. ~ calm
+Fine. Whatever you say. ~ quiet
+You want me to say I deserve it? I don't. ~ hot
+I've been here [three|four] years and this is how it goes? ~ senior !transfer
+I've given this place everything. This is what I get back? ~ loyal
+Wow. Okay. I'll remember this. ~ hot
+That's a lot, Coach. That's a whole lot. ~ young
+I get that you're making a point. Make it with somebody else. ~ ego
+The guys are going to think this is about something else. ~ leader
+I'll do it. Just know I think it's wrong. ~ steady
+I'd like to talk about this when we've both cooled off. ~ calm
+You'd never do that to [the quarterback|your starters|your favorites]. ~ hot
+Are you serious right now?
+That's a lot to hang on one mistake.
+I'm not going to argue. It wouldn't matter anyway. ~ quiet
+Is there anything I can do to cut that down?
+Can I at least say my side?
+I'm going to do it. I'm just telling you it's too much.
+This is going to follow me. You know that, right? ~ !nfl
+I came here because I thought you'd have my back. ~ transfer
+The vets have done way worse than that. ~ young
+In high school a coach would've just had me run. ~ college freshman
+You know this is going to be on the internet by tonight. ~ modern ego
+My agent's going to have questions. I'm just saying. ~ nfl greedy
+I'm a grown man, Coach. That's a lot. ~ nfl vet
+That's my money you're taking. ~ nfl greedy
+I thought we were past this kind of thing here. ~ vet
+I won't make a scene. But you're wrong. ~ pro
+If that's the standard, fine. Hold everybody to it. ~ leader
+I've seen guys do worse and play on Saturday. ~ college
+I've seen guys do worse and play on Friday. ~ hs
+I've seen guys do worse and play on Sunday. ~ nfl
+I don't know what you want from me anymore. ~ shaky
+That's not who I am, Coach. One bad day doesn't make me that guy. ~ humble
+Okay. Message received. Loud and clear. ~ ego
+Man. Alright.
+You're the boss. Doesn't mean you're right.
+
+@key rules.react.fair
+That's on me. I'll make it right.
+Understood, Coach. I'll be better.
+I knew it when I did it. No excuses.
+Okay. That's fair. I'd do the same thing.
+I respect it. I'll handle it.
+You're right. I'll talk to the guys. ~ leader
+I'll take it and move on.
+Understood. Won't happen again, Coach. ~ steady
+Yeah. That one's on me. ~ quiet
+I'm not going to fight it. I was wrong. ~ humble
+I'll do it, Coach. No complaints. ~ pro
+I'll own it. That's how I was raised.
+Fair. I needed that, honestly. ~ young
+I get it. You have to treat everybody the same. ~ vet
+Fair. I'll get it done. ~ calm
+I'll set the example next time. ~ leader
+That's fine. I'd rather hear it from you than read about it. ~ modern
+No problem. I'll be the first one in tomorrow. ~ competitor
+I hear you. That won't be a thing anymore.
+Okay. I'll take my medicine.
+That's the rule. I knew it. ~ steady
+Cool. Lesson learned. ~ loose
+I'll take it. I'm not going to be that guy again. ~ shaky
+Okay, Coach. I'm sorry I put you in that spot. ~ loyal
+Fair. Thanks for telling me to my face. ~ !young
+Understood. Can I still practice? ~ competitor
+I knew better. I'll show you I learned something. ~ freshman
+I knew better. I've been around long enough to know better. ~ senior
+I knew better. I've been around long enough to know better. ~ vet nfl
+Alright. My bad, Coach.
+Yes sir. Understood. It won't happen again.
+That's fair. I don't want special treatment. ~ !ego
+
+@key rules.react.soft
+I won't forget this, Coach. In the good way.
+Okay. I'll make it up to you.
+Really? Thanks. I didn't think you'd go easy.
+I owe the guys an apology too. ~ leader
+Thank you. Seriously.
+That's more than fair. I'll be better.
+I hear you. I won't put you in that spot again. ~ calm
+Appreciate it, Coach. You won't hear about me again. ~ young
+I figured I was in real trouble. ~ shaky
+Got it. Thank you for not making a big thing of it. ~ quiet
+Yes sir. Thank you.
+That's it? Alright, I'll take it. ~ loose
+I won't take it for granted. ~ humble
+I'll make sure the young guys don't think it's nothing. ~ leader vet
+Okay. That's good of you, Coach. ~ loyal
+Wait, seriously? Okay. Thanks. ~ young
+I thought you were going to sit me. ~ competitor
+I appreciate the second chance. I won't waste it. ~ transfer
+Alright. We're square then. ~ ego
+Cool. I knew you were a good dude. ~ loose modern
+I'll be honest, I expected worse. Thank you.
+Thank you. I'll show you something on the field. ~ competitor
+That's generous, Coach. I won't need it again. ~ pro
+Thank you. My parents would've killed me. ~ hs young
+Okay. I owe you, and I don't forget what I owe. ~ steady
+Thanks, Coach. I'm still embarrassed about it, honestly. ~ humble
+Appreciate it. I'll keep my head down. ~ quiet
+I'm glad you know who I am. ~ vet
+
+@key parents.playing_time
+I've got a simple question. Is it going to be the best players, or the oldest ones?
+How much is practice going to count? Because some kids practice better than they play.
+Are you going to rotate kids, or is it going to be the same eleven every snap?
+My son's never missed a practice. Never. Does that matter to you?
+Is everybody starting from zero, or do last year's starters keep their spots?
+Will the kids know where they stand? The last staff never told anybody anything.
+How do you handle a kid who's better but doesn't work as hard?
+Some of these boys play three sports. Are you going to punish them for missing summer workouts?
+Is there going to be a junior varsity schedule, so the younger kids actually get to play?
+I want to know if my son's position is going to change. He's been a receiver his whole life.
+I'm not here to complain. I'm here to understand how it's going to work.
+Is the depth chart going to be posted? Or do the kids find out on Friday?
+My son wants to play college ball. What do you need to see from him to put him out there?
+Are you going to have your own sons on this team? I have to ask. It's happened before.
+The kids who played last year earned it. I hope you don't just throw that away.
+Some of the boys moved in from other schools last spring. Are they going to jump ahead of kids who've been here?
+Do the kids who come to summer camp get a leg up? I'd like to know before I pay for it.
+Are the coaches going to talk to the kids, or just yell at them?
+My son wants to know if he still has a chance. I told him I'd ask you myself.
+I'll tell you what we're afraid of. That you've already decided.
+Will you meet with the parents if there's a problem, or does it have to go through the AD?
+We've had coaches play favorites here. A lot of us are tired of it.
+How many seniors are going to start? The kids want to know.
+Is it going to be fair? That's all anybody in this room wants.
+I'd like to know how you're going to handle the quarterback. That's what everybody's here for.
+Last year the starters played the whole game, even in blowouts. Will the backups ever get in?
+What's your plan for the kids who don't start? Do they just sit?
+My son's been told he's too small for his position. Are you going to give him a look anyway?
+Do the grades factor in? Because some of these kids are struggling.
+You can tell me now, Coach. Is my son going to play?
+Are you going to have tryouts, or is it the same roster as last year?
+I don't care if my kid starts. I care if he gets a chance.
+We all want to win. Some of us also want our kids to play. Can both happen?
+Is there a place on this team for a kid who's a hard worker but not a star?
+How do you handle a parent who disagrees with you? Asking for a friend.
+I heard you like to play young kids. Is that true? ~ !calm
+Coach, I'll be honest. I'm here to see if I should send my son somewhere else. ~ loud
+I'll be watching every game, Coach. Every snap. ~ loud
+I've already read everything about you online. I've got some questions. ~ online
+People on the parents' group chat have a lot of questions. I'll start with this one. ~ online modern
+I don't usually speak up at these. But I'd like to know how you're going to decide. ~ calm
+My son's been told a lot of things by a lot of coaches. I'd like the truth for once. ~ calm
+
+@key parents.call.open
+Coach, sorry to bother you at home. It's about {name}.
+Do you have a minute to talk about {name}? I won't keep you long.
+{coach}, I wanted to call before this got out of hand. It's about {name}.
+Coach, I'm calling about {name}'s snaps. I've been trying to stay out of it.
+I don't usually do this, but {name} has been different lately and I'd like to know why.
+{name} told me not to call you. I'm calling anyway.
+Hi, Coach. I won't waste your time. I'm worried about {name}.
+Coach, I'd like to set up a time to talk about {name}. Or now, if you have it.
+I wanted to talk about where {name} stands. Nobody's told us anything.
+{coach}, I've been sitting on this for weeks. It's about {name}.
+I'm calling as a parent, not a fan. It's about {name}.
+{name} doesn't know I'm calling. I'd like to keep it that way.
+Coach, I'm trying to understand what {name} needs to do. Can you help me?
+I need to talk to you about {name}. And I'd like a straight answer.
+Coach, I'll be honest. I'm upset, and it's about {name}.
+I've been watching practice from the parking lot. I'd like to talk about {name}.
+Something's not right with {name}, and I think you know what it is.
+Coach. I've never called a coach in my life. It's about {name}.
+Do you have five minutes for {name}'s family?
+I'm going to try to stay calm, {coach}. It's about {name}. ~ loud
+You and I need to talk about {name}. Today. ~ loud
+I'm not going to yell. But I'm close. This is about {name}. ~ loud
+People are messaging me about {name}. I'd like to know what's going on. ~ online
+There's a video going around of {name} on the sideline. I'd like to talk about it. ~ online modern
+I've read some things online about {name}'s role. I want to hear it from you. ~ online
+Coach, you might not know me, but I've been at every one of {name}'s games since he was in pads. ~ loud
+Coach. I'm calling about {name}. We drove a long way to watch him stand on the sideline. ~ loud
+{coach}, I'm going to be blunt about {name}. That's how our family is. ~ loud
+
+@key parents.call.point
+He's not a complainer. That's why I'm calling.
+He trusts you. I'd like him to keep trusting you.
+He wanted to come here more than anywhere else. I'd like that to mean something.
+I know you can't play everybody. I'd just like to know where he fits.
+He's doing everything you've asked. I watch him do it.
+If he needs to work on something, tell him. He'll do it.
+I'd like a plan. Something he can work toward.
+We gave up other offers for this. I'd like to know that was the right call.
+I'm not asking you to start him. I'm asking you to tell him the truth.
+He's been training since he was a kid. He doesn't know how to sit.
+His grandparents drove four hours last weekend. He didn't play a snap.
+If it's his attitude, tell me. I'll fix his attitude.
+If it's his effort, tell me. But I don't think it is.
+I believe in what you're doing. I just want him to be part of it.
+He's losing confidence. I can hear it in his voice.
+I'm going to support whatever you decide. I just want to understand it.
+He's not sleeping, Coach. He's not eating. Something's eating at him.
+I know how this works. I just need to hear it from you.
+He came home crying, Coach. He hasn't done that since he was a little boy.
+I know he's not perfect. But he deserves a real chance.
+You promised us a fair shot. I'm holding you to it.
+You told us he'd compete for the job. I'd like to know when the competition starts.
+His old coaches say they've never seen him this down.
+He's talking about leaving. I don't want him to, but he is.
+I'll be at the game this week. I'd like to see him on the field.
+His teachers say he's distracted. That's not like him.
+I'll say it straight. If he doesn't play, we're going to look at other schools. ~ loud
+You can expect another call from me. I'm not going away. ~ loud
+His teammates' parents are talking. Some of them agree with me. ~ loud
+I've seen the comments online about him. It's not fair to him. ~ online
+I'm not going to post anything. But a lot of people are. ~ online modern
+I've already talked to the AD. I'd rather work this out with you. ~ loud
