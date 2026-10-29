@@ -1,7 +1,8 @@
 //! `afm_read`: builds a world's book and prints any page of it.
 //!
 //! - `afm_read build <world file> [log folder] [book]`: the log defaults to
-//!   `name.afmlog` beside the world file, the book to `name.afmbook`.
+//!   `name.afmlog` beside the world file (`-` for none), the book to
+//!   `name.afmbook`.
 //! - `afm_read <book> [page] [filters]`: a page as short text, the same
 //!   text the app's "Copy for Claude" gives. `afm_read <book> help` lists
 //!   the pages; filters are `key=value` (`year=2031 level=FBS pos=QB
@@ -27,7 +28,12 @@ fn main() {
             eprintln!("afm_read build <world file> [log folder] [book]");
             std::process::exit(2);
         };
-        let log = args.get(2).filter(|a| a.as_str() != "-").map(PathBuf::from).or_else(|| make::log_beside(&world));
+        // `-` builds from the world file alone, even with a log beside it.
+        let log = match args.get(2).map(String::as_str) {
+            Some("-") => None,
+            Some(l) => Some(PathBuf::from(l)),
+            None => make::log_beside(&world),
+        };
         let out = args.get(3).map(PathBuf::from).unwrap_or_else(|| world.with_extension("afmbook"));
         match make::build(&world, log.as_deref(), &out, &mut |s| eprintln!("{s}")) {
             Ok(s) => {
@@ -59,9 +65,15 @@ fn main() {
             std::process::exit(1);
         }
     };
-    // The page is every word before the first key=value.
+    // The page is every word before the first key=value; a query is all
+    // of it (`sql ... WHERE a = 'b'`).
     let rest = &args[1..];
-    let split = rest.iter().position(|a| a.contains('=') || a == "debug").unwrap_or(rest.len());
+    let whole = rest.first().is_some_and(|a| a == "sql");
+    let split = if whole {
+        rest.len()
+    } else {
+        rest.iter().position(|a| a.contains('=') || a == "debug").unwrap_or(rest.len())
+    };
     let (page, filters) = rest.split_at(split);
     let page = if page.is_empty() { "overview".to_string() } else { page.join(" ") };
     let page = if page == "help" { "?".to_string() } else { page };

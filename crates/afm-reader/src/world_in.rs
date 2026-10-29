@@ -1,5 +1,7 @@
 //! The world file into the book, read straight from its MessagePack
-//! (`save.rs`: a header, then the `World` with named fields through zstd).
+//! (`save.rs`: a header, then the `World` with named fields through zstd;
+//! in format 2 the world without its big lists, then each list in pieces
+//! of its own, read here in order as if the list were whole).
 //! Nothing is loaded whole: each store's records stream into their tables
 //! one at a time, so a world of any size reads in about the game's import
 //! time with a few hundred MB of memory, and a world from any build reads
@@ -8,8 +10,8 @@
 //! Players and alumni also get what the engine works out and never stores
 //! (true overall, true potential, age), through the engine's own types.
 
-use std::io::{BufReader, Read};
-use std::path::Path;
+use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
 
 use rayon::prelude::*;
 use rmpv::Value as V;
@@ -22,6 +24,8 @@ use crate::sink::{self, Writer};
 #[derive(Clone, Debug, Default)]
 pub struct WorldInfo {
     pub header: serde_json::Value,
+    /// The file's format (`save.rs`, `FORMAT_VERSION`).
+    pub format: u32,
     pub year: i32,
     pub today: String,
     pub stores: Vec<(String, u64)>,
@@ -32,6 +36,29 @@ pub struct WorldInfo {
 const STREAM_DEPTH: usize = 2;
 /// Records converted together (the engine's types in parallel).
 const BATCH: usize = 256;
+/// The newest world file format the reader knows.
+const FORMAT: u32 = 2;
+
+/// A format 2 file's lists kept as parts of their own: the table each
+/// streams into and where its pieces are, in order (`save.rs`, `Kind`).
+#[derive(Default)]
+struct Pieces {
+    path: PathBuf,
+    lists: Vec<(&'static str, Vec<(u64, u64)>)>,
+}
+
+impl Pieces {
+    fn of(&self, table: &str) -> Option<&[(u64, u64)]> {
+        self.lists.iter().find(|(t, _)| *t == table).map(|(_, p)| p.as_slice())
+    }
+}
+
+/// One part's zstd stream, on its own handle to the file.
+fn open_part(path: &Path, offset: u64, len: u64) -> std::io::Result<impl Read> {
+    let mut f = std::fs::File::open(path)?;
+    f.seek(SeekFrom::Start(offset))?;
+    Ok(BufReader::with_capacity(1 << 22, zstd::Decoder::new(f.take(len))?.single_frame()))
+}
 
 pub fn read(path: &Path, w: &mut Writer, log: &mut dyn FnMut(&str)) -> std::io::Result<WorldInfo> {
     let mut f = BufReader::with_capacity(1 << 20, std::fs::File::open(path)?);
@@ -42,24 +69,62 @@ pub fn read(path: &Path, w: &mut Writer, log: &mut dyn FnMut(&str)) -> std::io::
     }
     let mut b4 = [0u8; 4];
     f.read_exact(&mut b4)?;
+    let format = u32::from_le_bytes(b4);
+    if !(1..=FORMAT).contains(&format) {
+        return Err(std::io::Error::other(format!(
+            "world file format {format}, this reader reads up to {FORMAT}: update the reader"
+        )));
+    }
     f.read_exact(&mut b4)?;
     let mut head = vec![0u8; u32::from_le_bytes(b4) as usize];
     f.read_exact(&mut head)?;
     let header: serde_json::Value = serde_json::from_slice(&head).map_err(std::io::Error::other)?;
-    let mut r = BufReader::with_capacity(1 << 22, zstd::Decoder::new(f)?);
-    let mut info = WorldInfo { header, ..Default::default() };
+    let mut pieces = Pieces { path: path.to_path_buf(), ..Default::default() };
+    let mut r: Box<dyn Read> = if format == 1 {
+        Box::new(BufReader::with_capacity(1 << 22, zstd::Decoder::new(f)?))
+    } else {
+        // The table of parts: an 8-byte name, the item count, the offset
+        // and the length (`save.rs`, `ENTRY`).
+        f.read_exact(&mut b4)?;
+        let mut table = vec![0u8; u32::from_le_bytes(b4) as usize * 32];
+        f.read_exact(&mut table)?;
+        let mut rest = None;
+        for e in table.as_chunks::<32>().0 {
+            let at = |i: usize| u64::from_le_bytes(e[8 + 8 * i..16 + 8 * i].try_into().unwrap_or_default());
+            let spot = (at(1), at(2));
+            let list = match std::str::from_utf8(&e[..8]).unwrap_or("").trim_end_matches('\0') {
+                "rest" => {
+                    rest = Some(spot);
+                    continue;
+                }
+                "alumni" => "alumni",
+                "news" => "news",
+                "seasons" => "stats__seasons",
+                "people" => "people",
+                other => return Err(std::io::Error::other(format!("a part this reader doesn't know: {other}"))),
+            };
+            match pieces.lists.iter_mut().find(|(t, _)| *t == list) {
+                Some((_, p)) => p.push(spot),
+                None => pieces.lists.push((list, vec![spot])),
+            }
+        }
+        let (offset, len) = rest.ok_or_else(|| std::io::Error::other("the world file has no rest part"))?;
+        Box::new(open_part(path, offset, len)?)
+    };
+    let r = &mut r;
+    let mut info = WorldInfo { header, format, ..Default::default() };
     w.source = "world file".into();
-    let n = match container(&mut r)? {
+    let n = match container(r)? {
         Head::Map(n) => n,
         _ => return Err(std::io::Error::other("the world is not a map")),
     };
     let mut top: Vec<(V, V)> = Vec::new();
     for _ in 0..n {
-        let k = rmpv::decode::read_value(&mut r).map_err(std::io::Error::other)?;
+        let k = rmpv::decode::read_value(r).map_err(std::io::Error::other)?;
         let name = json::key(&k);
         let t = std::time::Instant::now();
         let before: u64 = w.tables.values().map(|t| t.rows).sum();
-        if let Some(v) = stream(&mut r, w, &name, 1)? {
+        if let Some(v) = stream(r, w, &name, 1, &pieces)? {
             match (name.as_str(), &v) {
                 ("year", _) => info.year = json::as_i64(&v).unwrap_or(0) as i32,
                 ("today", _) => info.today = date_text(&v),
@@ -126,20 +191,28 @@ fn container<R: Read>(r: &mut R) -> std::io::Result<Head> {
 /// Reads one value at `table`: a list's records become rows as they come;
 /// a struct's lists become their own tables (`table__field`). Returns the
 /// value when it is small enough to keep in its parent's row.
-fn stream<R: Read>(r: &mut R, w: &mut Writer, table: &str, depth: usize) -> std::io::Result<Option<V>> {
+fn stream<R: Read>(
+    r: &mut R,
+    w: &mut Writer,
+    table: &str,
+    depth: usize,
+    pieces: &Pieces,
+) -> std::io::Result<Option<V>> {
     match container(r)? {
         Head::Array(n) => {
             let mut batch: Vec<(usize, V)> = Vec::with_capacity(BATCH.min(n as usize));
             let mut scalars: Vec<V> = Vec::new();
-            for i in 0..n as usize {
-                let v = rmpv::decode::read_value(r).map_err(std::io::Error::other)?;
-                if matches!(v, V::Map(_) | V::Array(_)) {
-                    batch.push((i, v));
-                    if batch.len() >= BATCH {
-                        records(w, table, std::mem::take(&mut batch))?;
-                    }
-                } else {
-                    scalars.push(v);
+            items(r, n as usize, 0, w, table, &mut batch, &mut scalars)?;
+            // A format 2 list is empty here: its records are in pieces.
+            if let (0, Some(spots)) = (n, pieces.of(table)) {
+                let mut at = 0;
+                for &(offset, len) in spots {
+                    let mut p = open_part(&pieces.path, offset, len)?;
+                    let Head::Array(m) = container(&mut p)? else {
+                        return Err(std::io::Error::other(format!("a piece of {table} is not a list")));
+                    };
+                    items(&mut p, m as usize, at, w, table, &mut batch, &mut scalars)?;
+                    at += m as usize;
                 }
             }
             if !batch.is_empty() {
@@ -155,7 +228,7 @@ fn stream<R: Read>(r: &mut R, w: &mut Writer, table: &str, depth: usize) -> std:
                 let is_field = matches!(&k, V::String(s) if s.as_str().is_some_and(|t| t.parse::<f64>().is_err() && !t.starts_with('[')));
                 if is_field {
                     let child = format!("{table}__{}", json::key(&k));
-                    if let Some(v) = stream(r, w, &child, depth + 1)? {
+                    if let Some(v) = stream(r, w, &child, depth + 1, pieces)? {
                         keep.push((k, v));
                     }
                 } else {
@@ -190,6 +263,31 @@ fn stream<R: Read>(r: &mut R, w: &mut Writer, table: &str, depth: usize) -> std:
             Ok(Some(v))
         }
     }
+}
+
+/// `n` records of a list into `table`, numbered from `at`, in batches;
+/// plain values go to `scalars`.
+fn items<R: Read>(
+    r: &mut R,
+    n: usize,
+    at: usize,
+    w: &mut Writer,
+    table: &str,
+    batch: &mut Vec<(usize, V)>,
+    scalars: &mut Vec<V>,
+) -> std::io::Result<()> {
+    for i in at..at + n {
+        let v = rmpv::decode::read_value(r).map_err(std::io::Error::other)?;
+        if matches!(v, V::Map(_) | V::Array(_)) {
+            batch.push((i, v));
+            if batch.len() >= BATCH {
+                records(w, table, std::mem::take(batch))?;
+            }
+        } else {
+            scalars.push(v);
+        }
+    }
+    Ok(())
 }
 
 fn key_value(k: &V) -> S {

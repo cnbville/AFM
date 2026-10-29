@@ -154,6 +154,7 @@ pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&
         ("log_meta", log_info.as_ref().map(|l| l.meta.to_string()).unwrap_or_default()),
         ("missing", serde_json::to_string(&missing).unwrap_or_default()),
         ("header", info.header.to_string()),
+        ("world_format", info.format.to_string()),
     ];
     let rows: u64 = cat.iter().map(|c| c.3).sum();
     meta.push(("records", rows.to_string()));
