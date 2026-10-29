@@ -800,7 +800,12 @@ pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String
         }
         Stage::College | Stage::Declared if f.snaps > 0.0 => Ok((Kind::CollegeFilm, QUICK, "a cut-up of his snaps")),
         Stage::College | Stage::Declared => Err("He hasn't played a college snap: there's nothing to watch.".into()),
-        Stage::Pro => Ok((Kind::ProFilm, QUICK, "a cut-up of his snaps")),
+        Stage::Pro
+            if p.pro.as_ref().and_then(|c| c.team.or(c.teams.last().copied())).is_some_and(|t| t < w.nfl.len()) =>
+        {
+            Ok((Kind::ProFilm, QUICK, "a cut-up of his snaps"))
+        }
+        Stage::Pro => Err("He hasn't been with an NFL club: there's no pro tape of him.".into()),
         _ => Err("There's no film of him.".into()),
     }
 }

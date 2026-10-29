@@ -5431,7 +5431,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     };
                     p.note(format!("The choice was {who}'s more than his own."));
                 }
-                p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee });
+                let flipped = p.cal.commit.is_some_and(|c| c.0 != j);
+                p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped });
                 p.cal.commit = None;
                 // His high school coach gets the credit for sending him up.
                 let (hs, group) = (p.hs, super::coach::Group::of(p.player.position));

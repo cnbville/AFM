@@ -22,6 +22,9 @@ use crate::world::scouting::file;
 use crate::world::scouting::readers::{self, COACH, Staff};
 use crate::world::season::{key_normal, key_uniform};
 
+/// Why a second cut-up can't open: the one on the screen comes first.
+pub const OPEN: &str = "Finish the cut-up you have open in the film room first.";
+
 /// A team cut-up's hints: the key, the words and the snaps that show it.
 pub type Hints = Vec<(String, String, Vec<u8>)>;
 
@@ -118,6 +121,14 @@ pub struct Session {
     pub tape_key: Option<(Date, usize, usize)>,
     /// Seconds of your day already watched when the session opened.
     pub salt: u64,
+}
+
+impl Session {
+    /// The position the hours count toward (SK63): a player's, none for a
+    /// team's tape, as section 9's study.
+    pub fn charge(&self) -> Option<Position> {
+        matches!(self.target, Target::Player(_)).then_some(self.pos)
+    }
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -330,9 +341,18 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
     let staff = readers::seat_staff(w).ok_or("Start a career first.")?;
     readers::you(w).ok_or("Start a career first.")?;
     let i = super::super::place(w, id).ok_or("No such player.")?;
+    if w.scouting.film.open.is_some() {
+        return Err(OPEN.into());
+    }
     super::time::can_watch(w, mode)?;
     let ours = is_ours(w, id);
-    let tape = if ours { tape::our_tape(w, id)? } else { tape::player_tape(w, id)? };
+    let tape = if mode == Mode::Live {
+        tape::live_tape(w, id)?
+    } else if ours {
+        tape::our_tape(w, id)?
+    } else {
+        tape::player_tape(w, id)?
+    };
     let cut = if ours && cut == Cut::Ours { Cut::Ours } else { cut };
     let n = if mode == Mode::Quick { 12 } else { 6 };
     // From the stands (SK32): his snaps of tonight's game, in order.
@@ -433,6 +453,9 @@ pub fn open_team(
     mode: Mode,
 ) -> Result<String, String> {
     readers::you(w).ok_or("Start a career first.")?;
+    if w.scouting.film.open.is_some() {
+        return Err(OPEN.into());
+    }
     super::time::can_watch(w, mode)?;
     if snaps.is_empty() {
         return Err("That tape has no snaps worth a cut-up.".into());
@@ -578,7 +601,7 @@ pub fn play(w: &mut World) -> Result<(), String> {
         return Err("Play the next snap first.".into());
     }
     if s.mode == Mode::Full {
-        if let Err(e) = super::time::spend(w, SNAP_MIN / 60.0, s.pos) {
+        if let Err(e) = super::time::spend(w, SNAP_MIN / 60.0, s.charge()) {
             put(w, s);
             return Err(e);
         }
@@ -788,7 +811,7 @@ pub fn runback(w: &mut World) -> Result<(), String> {
         put(w, s);
         return Err("Nothing to run back on this snap.".into());
     };
-    if let Err(e) = super::time::spend(w, RUNBACK_MIN / 60.0, s.pos) {
+    if let Err(e) = super::time::spend(w, RUNBACK_MIN / 60.0, s.charge()) {
         put(w, s);
         return Err(e);
     }
@@ -905,7 +928,10 @@ pub fn close(w: &mut World) -> Result<String, String> {
 /// catches the first time through, no calls, replays or coach talk.
 fn quick(w: &mut World) -> Result<String, String> {
     let mut s = take(w)?;
-    super::time::spend(w, QUICK_MIN / 60.0, s.pos)?;
+    if let Err(e) = super::time::spend(w, QUICK_MIN / 60.0, s.charge()) {
+        w.scouting.film.open = Some(s);
+        return Err(e);
+    }
     s.minutes = QUICK_MIN;
     for k in 0..s.snaps.len() {
         s.at = k;
@@ -1091,7 +1117,7 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
         tape_key: s.tape_key,
     };
     let fr = &mut w.scouting.film;
-    fr.catches.extend(catches);
+    super::add_catches(&mut fr.catches, catches);
     if fr.catches.len() > 6000 {
         let n = fr.catches.len();
         fr.catches.drain(..n - 6000);
@@ -1104,10 +1130,16 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
             fr.reports[k].snaps.clear();
         }
     }
-    if fr.reports.len() > 400 {
-        let n = fr.reports.len();
-        fr.reports.drain(..n - 400);
-    }
+    // The oldest go past 400, but a verdict waits for its look-back.
+    let mut over = fr.reports.len().saturating_sub(400);
+    fr.reports.retain(|r| {
+        let waits = r.settled.is_none() && matches!(r.verdict, Some(0 | 1)) && r.date.days_to(d) < 1200;
+        if over > 0 && !waits {
+            over -= 1;
+            return false;
+        }
+        true
+    });
     fr.version = fr.version.wrapping_add(1);
     let n = caught_lines.len();
     match s.mode {
@@ -1131,6 +1163,14 @@ pub fn film_kind(p: &crate::world::Person) -> super::super::Kind {
     }
 }
 
+/// Which snap this is, the same whenever it is watched: its game's label,
+/// the season and the play's number. Never 0 (0 is a look in person).
+fn snap_key(w: &World, s: &Session, snap: &Snap) -> u64 {
+    let label = s.games.get(snap.game as usize).map_or("", |g| g.label.as_str());
+    let h = label.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x0100_0000_01b3));
+    (h ^ (w.dates.season as u64) << 48 ^ (snap.n as u64) << 20) | 1
+}
+
 /// What your eye (and your analyst beside you) caught on the snaps
 /// watched: the catches and their lines. Pure, so the film room can
 /// show your read narrowing as you watch (SK52).
@@ -1148,13 +1188,13 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
         if s.seen[k].is_empty() {
             continue;
         }
+        // The same snap watched again shows the same thing: what your eye
+        // read on it is keyed on the snap, not the day.
+        let sk = snap_key(w, s, snap);
         for (j, &(a, b)) in snap.cues.iter().enumerate() {
             let v = s.seen[k].get(j).copied().unwrap_or(0);
             if v == CLEAR || v == REPLAYED {
-                let noise = key_normal(
-                    w.options.seed as u64 ^ 0xCA7C ^ (d.0 as u64) << 24,
-                    id as u64 ^ (k as u64) << 40 ^ (j as u64) << 50,
-                );
+                let noise = key_normal(w.options.seed as u64 ^ 0xCA7C ^ sk, id as u64 ^ (j as u64) << 50);
                 let truth = p.player.attributes.get(a);
                 catches.push(Catch {
                     id,
@@ -1163,6 +1203,7 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
                     sd: sd_c,
                     date: d,
                     by: 0,
+                    key: sk,
                 });
                 caught_lines.push(words::cue(a, b as usize).to_string());
             }
@@ -1172,7 +1213,7 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
         if snap.role != Role::Away
             && let Some(&(a, _)) = snap.cues.first()
         {
-            let noise = key_normal(w.options.seed as u64 ^ 0x2E5u64 ^ (d.0 as u64) << 24, id as u64 ^ (k as u64) << 40);
+            let noise = key_normal(w.options.seed as u64 ^ 0x2E5u64 ^ sk, id as u64);
             let truth = p.player.attributes.get(a);
             catches.push(Catch {
                 id,
@@ -1181,6 +1222,7 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
                 sd: 8.0,
                 date: d,
                 by: 0,
+                key: sk ^ 0x2E5,
             });
         }
         // The analyst's points count toward your own read too
@@ -1197,15 +1239,9 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
                 {
                     continue;
                 }
-                let u = key_uniform(
-                    w.options.seed as u64 ^ 0xA7A1 ^ (d.0 as u64) << 24,
-                    id as u64 ^ (k as u64) << 40 ^ (j as u64) << 50,
-                );
+                let u = key_uniform(w.options.seed as u64 ^ 0xA7A1 ^ sk, id as u64 ^ (j as u64) << 50);
                 if u < pa {
-                    let noise = key_normal(
-                        w.options.seed as u64 ^ 0xA7A2 ^ (d.0 as u64) << 24,
-                        id as u64 ^ (k as u64) << 40 ^ (j as u64) << 50,
-                    );
+                    let noise = key_normal(w.options.seed as u64 ^ 0xA7A2 ^ sk, id as u64 ^ (j as u64) << 50);
                     catches.push(Catch {
                         id,
                         attr: a.index() as u8,
@@ -1213,6 +1249,7 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
                         sd: sd_a,
                         date: d,
                         by: 1,
+                        key: sk,
                     });
                 }
             }

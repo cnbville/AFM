@@ -17,7 +17,7 @@
 
 use super::session::{self, Mode};
 use super::tape::Cut;
-use super::{Catch, words};
+use super::{Catch, Target, words};
 use crate::attributes::Attr;
 use crate::calendar::{Date, Weekday};
 use crate::rng::clamp;
@@ -212,6 +212,11 @@ pub fn stands(w: &mut World, id: u32) -> Result<String, String> {
         Some(TripKind::Game | TripKind::AllStar) => {}
         _ => return Err("You're not at his game today: book the trip first.".into()),
     }
+    // One game a night: you were in the stands for it already.
+    let d = w.today;
+    if w.scouting.film.reports.iter().any(|r| r.mode == Mode::Live && r.target == Target::Player(id) && r.date == d) {
+        return Err("You watched his game from the stands tonight: it's in your notes.".into());
+    }
     session::open_player(w, id, Cut::BestOpponent, Mode::Live, None)
 }
 
@@ -224,6 +229,9 @@ pub fn visit_open(w: &mut World, id: u32) -> Result<String, String> {
     }
     if w.scouting.film.there.visits.iter().any(|v| v.id == id && v.date == w.today) {
         return Err("You've been to see him today.".into());
+    }
+    if w.scouting.film.there.visit.is_some() {
+        return Err("Finish the visit you're on first.".into());
     }
     let i = super::super::place(w, id).ok_or("No such player.")?;
     let name = w.people[i].name.clone();
@@ -244,6 +252,11 @@ pub fn visit_open(w: &mut World, id: u32) -> Result<String, String> {
 /// A choice at the visit: what it shows, and the time it takes.
 pub fn visit_choose(w: &mut World, key: &str) -> Result<String, String> {
     let mut v = w.scouting.film.there.visit.take().ok_or("You're not on a visit.")?;
+    if v.date != w.today {
+        w.scouting.film.there.visit = Some(v);
+        let _ = visit_close(w);
+        return Err("That visit was another day: it's in your notes.".into());
+    }
     let Some(c) = choices(v.kind).iter().find(|c| c.key == key).copied() else {
         w.scouting.film.there.visit = Some(v);
         return Err("That isn't on offer here.".into());
@@ -309,6 +322,7 @@ fn watch(w: &mut World, id: u32, attrs: &[Attr], salt: u64) -> Vec<String> {
             sd,
             date: d,
             by: 0,
+            key: 0,
         });
         lines.push(words::cue(a, words::band(truth, mark)).to_string());
     }
@@ -449,6 +463,9 @@ pub fn camp_open(w: &mut World) -> Result<String, String> {
     if w.scouting.film.there.camp.as_ref().is_some_and(|c| c.date == w.today) {
         return Ok("Your camp is under way.".into());
     }
+    if w.scouting.film.there.camps.iter().any(|c| c.date == w.today) {
+        return Err("Today's camp is over.".into());
+    }
     let d = w.today;
     let mut campers: Vec<u32> = w
         .scouting
@@ -477,12 +494,12 @@ pub fn camp_open(w: &mut World) -> Result<String, String> {
 /// who stands out, and the one-on-ones.
 pub fn camp_coach(w: &mut World, group: u8) -> Result<String, String> {
     use crate::world::coach::Group;
+    let g = Group::ALL.get(group as usize).copied().ok_or("No such group.")?;
     let mut c = w.scouting.film.there.camp.take().ok_or("Camp isn't open.")?;
     if c.group.is_some() {
         w.scouting.film.there.camp = Some(c);
         return Err("You've coached your group today.".into());
     }
-    let g = Group::ALL.get(group as usize).copied().ok_or("No such group.")?;
     c.group = Some(group);
     let mine: Vec<(u32, usize)> = c
         .campers
@@ -622,7 +639,7 @@ pub fn signings(w: &World) -> Vec<(u32, String, usize, bool, bool, String)> {
         if !(ours || of_school || offered || board.contains(&p.player.id)) {
             continue;
         }
-        let flip = p.cal.commit.is_some_and(|c| c.0 != s.program);
+        let flip = s.flipped;
         let hats = key_uniform(0x4A75 ^ d.0 as u64, p.player.id as u64) < 0.6;
         let line = if hats {
             format!("At his school's ceremony {} reaches past the other hats on the table.", p.name)
@@ -651,12 +668,13 @@ pub fn combine_group(w: &World) -> Option<(u8, &'static [crate::positions::Posit
     if d < w.dates.combine_start || d > end {
         return None;
     }
-    let back = d.days_to(end);
-    match back {
-        3 => Some((1, &[EDGE, DT, LB])),
-        2 => Some((2, &[CB, S, TE])),
-        1 => Some((3, &[QB, WR, RB])),
-        0 => Some((4, &[OT, IOL, K, P, LS])),
+    // The on-field workouts run Thursday to Sunday, a group a day; the
+    // days before are interviews and medicals.
+    match d.weekday() {
+        Weekday::Thu => Some((1, &[EDGE, DT, LB])),
+        Weekday::Fri => Some((2, &[CB, S, TE])),
+        Weekday::Sat => Some((3, &[QB, WR, RB])),
+        Weekday::Sun => Some((4, &[OT, IOL, K, P, LS])),
         _ => Some((0, &[])),
     }
 }

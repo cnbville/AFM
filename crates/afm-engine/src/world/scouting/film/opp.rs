@@ -51,7 +51,7 @@ fn cover(s: &Kept) -> &'static str {
 
 fn options(truth: &'static str, all: &[&'static str], salt: u64) -> (Vec<String>, u8) {
     let mut others: Vec<&str> = all.iter().copied().filter(|x| *x != truth).collect();
-    others.sort_by_key(|x| key_uniform(salt, x.len() as u64 ^ (x.as_bytes()[0] as u64 * 131)).to_bits());
+    others.sort_by_key(|x| key_uniform(salt, all.iter().position(|y| y == x).unwrap_or(0) as u64).to_bits());
     let mut v = vec![truth, others[0], others[1]];
     let at = (key_uniform(salt ^ 0x0FF5, 7) * 3.0) as usize % 3;
     v.swap(0, at);
@@ -239,7 +239,9 @@ pub fn team_cut(
     for (n, &k) in picks.iter().enumerate() {
         let s = &t.snaps[k];
         let on_off = s.off == side;
-        let sit = format!("Q{} {} · {} & {} at the {}", s.q, clock(s.clock), ordinal(s.down), s.togo, s.yl);
+        // yl is yards to the goal: past midfield it's their side.
+        let spot = if s.yl > 50 { format!("own {}", 100 - s.yl) } else { format!("the {}", s.yl) };
+        let sit = format!("Q{} {} · {} & {} at {spot}", s.q, clock(s.clock), ordinal(s.down), s.togo);
         let job =
             if on_off { format!("Their offense: {}", s.look) } else { format!("Their defense against {}", s.look) };
         let result = if s.kind == 0 {
@@ -268,6 +270,7 @@ pub fn team_cut(
         };
         snaps.push(Snap {
             game: 0,
+            n: k as u32,
             sit: sit.clone(),
             job: job.clone(),
             result: result.clone(),

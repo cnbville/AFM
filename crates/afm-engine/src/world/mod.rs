@@ -311,6 +311,9 @@ pub struct Signed {
     pub walk_on: bool,
     pub date: crate::calendar::Date,
     pub early_enrollee: bool,
+    /// He signed somewhere other than where he was committed.
+    #[serde(default)]
+    pub flipped: bool,
 }
 
 /// A portal entrant's dates (T3): the day he entered and the day his

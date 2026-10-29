@@ -142,9 +142,45 @@ fn a_tight_read_from_tape_is_exact_for_what_the_tape_shows() {
             sd: 1.2,
             date: w.today,
             by: 1,
+            key: 0,
         });
     }
     let c = fm::catches_of(&w, id)[a.index()].unwrap();
     assert_eq!(c.1, 0.0);
     assert!((c.0 - truth).abs() < 1e-9, "exact: the real number today");
+}
+
+#[test]
+fn one_cut_up_at_a_time_and_the_same_snap_counts_once() {
+    let mut w = nfl_world();
+    let ids = pros(&w);
+    let mut open = ids
+        .iter()
+        .copied()
+        .filter(|&id| session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_ok());
+    let first = open.next().expect("a player with tape");
+    drop(open);
+    let other = ids.iter().copied().find(|&id| id != first).unwrap();
+    let e = session::open_player(&mut w, other, tape::Cut::BestOpponent, session::Mode::Quick, None).unwrap_err();
+    assert_eq!(e, session::OPEN);
+    assert!(matches!(w.scouting.film.open.as_ref().unwrap().target, fm::Target::Player(p) if p == first));
+    session::close(&mut w).unwrap();
+    // The same cut-up quick, three days running: a snap's read is kept
+    // once, however often it is watched.
+    for _ in 0..3 {
+        session::open_player(&mut w, first, tape::Cut::BestOpponent, session::Mode::Quick, None).unwrap();
+        w.advance_day();
+    }
+    let c = &w.scouting.film.catches;
+    assert!(!c.is_empty());
+    for (k, a) in c.iter().enumerate() {
+        assert!(
+            !c[k + 1..].iter().any(|b| a.key != 0
+                && a.key == b.key
+                && a.id == b.id
+                && a.attr == b.attr
+                && a.by == b.by),
+            "a snap read twice"
+        );
+    }
 }

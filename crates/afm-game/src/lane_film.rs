@@ -23,8 +23,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let id = || args.get("id").and_then(Value::as_u64).map(|x| x as u32).ok_or_else(|| "Missing id.".to_string());
     let num = |k: &str| args.get(k).and_then(Value::as_u64).ok_or_else(|| format!("Missing {k}."));
     let r = match cmd {
-        "film" => game.w().map(home),
-        "film_brief" => game.w().and_then(|w| brief(w, id()?)),
+        "film_home" => game.w().map(home),
+        "film_brief" => game.w().and_then(|w| brief(w, id()?, args.get("ask").and_then(Value::as_str))),
         "film_session" => game.w().map(session_view),
         "film_open" => game.wm().and_then(|w| {
             let cut = args
@@ -41,7 +41,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             Ok(with_said(session_view(w), said))
         }),
         "film_opp" => game.wm().and_then(|w| open_opp(w, args)),
-        "film_play" => game.wm().and_then(|w| step(w, session::play)),
+        "film_snap" => game.wm().and_then(|w| step(w, session::play)),
         "film_call" => game.wm().and_then(|w| {
             let k = num("pick")? as u8;
             step(w, |w| session::call(w, k))
@@ -59,10 +59,16 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             after_team(w);
             Ok(with_said(last_report(w), said))
         }),
-        "film_close" => game.wm().and_then(|w| {
+        "film_leave" => game.wm().and_then(|w| {
+            let saved = w.scouting.film.open.as_ref().is_some_and(|s| s.seen.iter().any(|v| !v.is_empty()));
             let said = session::close(w)?;
+            if !saved {
+                return Ok(with_said(json!({ "saved": false }), said));
+            }
             after_team(w);
-            Ok(with_said(last_report(w), said))
+            let mut v = with_said(last_report(w), said);
+            v["saved"] = json!(true);
+            Ok(v)
         }),
         "film_report" => game.w().and_then(|w| {
             let k = num("k").map(|k| k as usize).unwrap_or(w.scouting.film.reports.len().saturating_sub(1));
@@ -186,7 +192,6 @@ fn home(w: &World) -> Value {
         .queue
         .iter()
         .enumerate()
-        .rev()
         .take(14)
         .map(|(k, q)| {
             let i = sc::place(w, q.id);
@@ -376,7 +381,7 @@ fn opp_tapes(w: &World) -> Vec<Value> {
 
 /// The brief for a player (SK45, SK47): the questions on offer, the
 /// cut-ups, who would sit in, what it costs.
-fn brief(w: &World, id: u32) -> Reply {
+fn brief(w: &World, id: u32, ask: Option<&str>) -> Reply {
     let i = sc::place(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
     let ours = session::is_ours(w, id);
@@ -401,7 +406,12 @@ fn brief(w: &World, id: u32) -> Reply {
         "left": (time::left(w) * 10.0).round() / 10.0,
         "budget": time::budget(w),
         "watchers": there::watchers(w, id),
-        "reads": reads_json(w, id, &qs.first().map(|q| q.attrs.clone()).unwrap_or_default(), &[]),
+        "reads": reads_json(
+            w,
+            id,
+            &qs.iter().find(|q| Some(q.key.as_str()) == ask).or(qs.first()).map(|q| q.attrs.clone()).unwrap_or_default(),
+            &[]
+        ),
     }))
 }
 
@@ -698,6 +708,9 @@ fn open_opp(w: &mut World, a: &Value) -> Reply {
 
 /// A team's session ended: the tape counts as studied for the game plan
 /// and what you caught goes into the plan as its hints (SK54).
+/// Section 9's study of a tape: three hours (`lane_gameday::film_budget`).
+const STUDY_MIN: f64 = 180.0;
+
 fn after_team(w: &mut World) {
     if w.scouting.film.open.is_some() {
         return;
@@ -707,9 +720,14 @@ fn after_team(w: &mut World) {
         return;
     }
     let hints = r.hints.clone();
+    let minutes = r.minutes;
     let Some(key) = r.tape_key else { return };
     let Some(next) = gd::next_game(w) else { return };
-    if !w.gameday.studied.iter().any(|s| s.0 == next.date && s.1 == key.0 && [s.2, s.3] == [key.1, key.2]) {
+    // What you caught goes in the plan; the whole tape counts as studied
+    // (every habit on the hub) only after a full study's hours.
+    if minutes as f64 >= STUDY_MIN
+        && !w.gameday.studied.iter().any(|s| s.0 == next.date && s.1 == key.0 && [s.2, s.3] == [key.1, key.2])
+    {
         w.gameday.studied.push((next.date, key.0, key.1, key.2));
     }
     for h in hints {

@@ -878,7 +878,7 @@ fn find_stops(run: &mut Run, g: &mut Game, seat: &str) -> Vec<Value> {
 
 /// One stop in the film room (lane 9).
 fn lane9(run: &mut Run, g: &mut Game, ids: &[u64]) {
-    let Some(h) = run.call(g, "film", json!({})) else { return };
+    let Some(h) = run.call(g, "film_home", json!({})) else { return };
     if let Some(&id) = ids.get(1).or(ids.first()) {
         run.call(g, "film_brief", json!({ "id": id }));
         if g.call("film_open", &json!({ "id": id, "mode": "full" })).is_ok() {
@@ -888,7 +888,7 @@ fn lane9(run: &mut Run, g: &mut Game, ids: &[u64]) {
                     break;
                 }
                 let r = match s["step"].as_u64() {
-                    Some(0) => g.call("film_play", &json!({})),
+                    Some(0) => g.call("film_snap", &json!({})),
                     Some(1) => g.call("film_call", &json!({ "pick": 0 })),
                     Some(2) => {
                         let _ = g.call("film_runback", &json!({}));
@@ -898,7 +898,7 @@ fn lane9(run: &mut Run, g: &mut Game, ids: &[u64]) {
                     _ => g.call("film_verdict", &json!({ "answer": 2 })),
                 };
                 if r.is_err() {
-                    let _ = g.call("film_close", &json!({}));
+                    let _ = g.call("film_leave", &json!({}));
                     break;
                 }
             }
@@ -922,7 +922,7 @@ fn lane9(run: &mut Run, g: &mut Game, ids: &[u64]) {
                 let _ = g.call("there_leave", &json!({}));
             }
         } else if g.call("there_stands", &json!({ "id": t["id"] })).is_ok() {
-            let _ = g.call("film_close", &json!({}));
+            let _ = g.call("film_leave", &json!({}));
         }
     }
     if h["camp_day"] == json!(true) && g.call("camp_open", &json!({})).is_ok() {
@@ -936,7 +936,7 @@ fn lane9(run: &mut Run, g: &mut Game, ids: &[u64]) {
     if !h["combine"].is_null() {
         run.call(g, "combine_week", json!({}));
     }
-    run.call(g, "film", json!({}));
+    run.call(g, "film_home", json!({}));
 }
 
 fn main() {

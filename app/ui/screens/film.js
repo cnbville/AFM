@@ -44,8 +44,13 @@ screens.film = async (a = {}) => {
   if (a.report != null) return frReport(await api("film_report", a.report === "last" ? {} : { k: Number(a.report) }));
   const s = await api("film_session");
   if (s.open && (a.id == null || (s.target.player === Number(a.id)))) return frSession(s);
-  if (a.id != null) return frBrief(await api("film_brief", { id: Number(a.id) }));
-  return frHome(await api("film"));
+  if (a.id != null) {
+    // A cut-up from your staff's queue opens on the cut they sent.
+    const k = keep("frq:" + Number(a.id), {});
+    if (a.cut && k.qcut !== a.cut) { k.cut = a.cut; k.qcut = a.cut; }
+    return frBrief(await api("film_brief", { id: Number(a.id), ask: k.q }));
+  }
+  return frHome(await api("film_home"));
 };
 
 function frHead(x, sub, extra = "") {
@@ -80,24 +85,24 @@ function frHome(x) {
     const act = t.how === "stands" ? frBtn("frstands", { id: t.id }, "Watch from the stands", "primary") : frBtn("frvisit", { id: t.id }, "Go in", "primary");
     today.push(`<div class="fr-item"><div><b>${esc(t.what)}: ${frWho(t.id, t.name)}</b>${t.watchers.length ? `<small>Also there: ${esc(t.watchers.slice(0, 5).join(", "))}${t.watchers.length > 5 ? ` and ${t.watchers.length - 5} more` : ""}</small>` : "<small>Nobody else from a staff or club.</small>"}</div>${act}</div>`);
   }
-  if (x.visit_open) today.push(`<div class="fr-item"><div><b>Your visit is under way</b></div><button class="st-btn small primary" data-go="film" data-visit="1">Back to it</button></div>`);
-  if (x.camp_day) today.push(`<div class="fr-item"><div><b>Your one-day camp is today</b><small>Coach a group yourself; offer on the spot.</small></div><button class="st-btn small primary" data-go="film" data-camp="1">Run your camp</button></div>`);
-  if (x.signing_day) today.push(`<div class="fr-item"><div><b>Signing day</b><small>${x.seat === "hs" ? "Your players sign in your gym." : "The papers come in all day."}</small></div><button class="st-btn small primary" data-go="film" data-sign="1">${x.seat === "hs" ? "The ceremony" : "The signing room"}</button></div>`);
-  if (x.combine != null) today.push(`<div class="fr-item"><div><b>Combine week</b><small>${x.combine ? "Today's workout group is on the field." : "Interviews and medicals; the workouts start Thursday."}</small></div><button class="st-btn small primary" data-go="film" data-combine="1">Combine week</button></div>`);
+  if (x.visit_open) today.push(`<div class="fr-item"><div><b>Your visit is under way</b></div><button class="st-btn small primary" data-go="film" data-args='{"visit":1}'>Back to it</button></div>`);
+  if (x.camp_day) today.push(`<div class="fr-item"><div><b>Your one-day camp is today</b><small>Coach a group yourself; offer on the spot.</small></div><button class="st-btn small primary" data-go="film" data-args='{"camp":1}'>Run your camp</button></div>`);
+  if (x.signing_day) today.push(`<div class="fr-item"><div><b>Signing day</b><small>${x.seat === "hs" ? "Your players sign in your gym." : "The papers come in all day."}</small></div><button class="st-btn small primary" data-go="film" data-args='{"sign":1}'>${x.seat === "hs" ? "The ceremony" : "The signing room"}</button></div>`);
+  if (x.combine != null) today.push(`<div class="fr-item"><div><b>Combine week</b><small>${x.combine ? "Today's workout group is on the field." : "Interviews and medicals; the workouts start Thursday."}</small></div><button class="st-btn small primary" data-go="film" data-args='{"combine":1}'>Combine week</button></div>`);
   if (x.team_camp && x.team_camp.length) today.push(`<div class="fr-item"><div><b>Take your team to a college's team camp</b><small>Your boys get seen by that staff.</small></div><div class="fr-seg"><select data-fr="tcamp">${x.team_camp.map((c) => `<option value="${c.program}">${esc(c.name)}</option>`).join("")}</select>${frBtn("frtcamp", {}, "Go", "primary")}</div></div>`);
   if (x.open) today.unshift(`<div class="fr-item"><div><b>Your cut-up of ${esc(x.open.name)}</b><small>Snap ${x.open.at + 1} of ${x.open.n}</small></div><button class="st-btn small primary" data-go="film">Back to the tape</button></div>`);
   const todayCard = today.length ? frCard("Today", `<div class="fr-items">${today.join("")}</div>`) : "";
   const q = x.queue.length ? x.queue.map((qi, n) => {
     const st = qi.state;
     const acts = st === 0
-      ? `<div class="fr-seg"><button class="st-btn small primary" data-go="film" data-id="${qi.id}">Open</button>${frBtn("frskip", { k: qi.k }, "Skip it")}${frBtn("frqmove", { k: qi.k, up: 1 }, "Up")}${frBtn("frqmove", { k: qi.k, up: 0 }, "Down")}</div>`
+      ? `<div class="fr-seg"><button class="st-btn small primary" data-go="film" data-id="${qi.id}" data-args='{"cut":"${esc(qi.cut || "")}"}'>Open</button>${frBtn("frskip", { k: qi.k }, "Skip it")}${frBtn("frqmove", { k: qi.k, up: 1 }, "Up")}${frBtn("frqmove", { k: qi.k, up: 0 }, "Down")}</div>`
       : `<small class="${st === 2 ? "fr-amber" : "fr-dim"}">${st === 1 ? "Watched." : st === 2 ? `Skipped. ${esc(qi.from.split(" ").pop())} sees that you skipped it.` : "Ran past its date."}</small>`;
     return `<div class="fr-q-row ${st ? "done" : ""}"><div class="fr-q-top"><b>${frWho(qi.id, qi.name)}</b><span class="fr-chips"><span class="st-pill">${esc(qi.cut_words)}</span><span class="st-pill">By ${esc(qi.by)}</span></span></div>
       <small class="fr-dim">${esc(qi.meta)}</small><div class="fr-say">${esc(qi.from)}, ${esc(qi.job)}: “${esc(qi.why)}”</div>${acts}</div>`;
   }).join("") : `<p class="fr-dim">${x.seat === "hs" ? "A high school coach cuts his own tape: open any of your players from the squad or his file." : "Nothing sent this week. Your staff send cut-ups on Mondays."}</p>`;
   const queue = frCard(`Your film queue <span class="fr-r">Sent by your staff</span>`, q);
   const opp = x.opp.length ? frCard("Your next opponent's tape", `<div class="fr-items">${x.opp.map((t) => `<div class="fr-item"><div><b>${esc(t.label)}</b><small>${esc(t.date_text)} · ${esc(t.score)}${t.studied ? " · studied" : ""}</small></div><div class="fr-seg">${frBtn("fropp", { date: t.date, home: t.home, away: t.away, mode: "full" }, "Watch with your coordinator", t.studied ? "glass" : "primary")}${frBtn("fropp", { date: t.date, home: t.home, away: t.away, mode: "quick" }, "Watch it quick")}</div></div>`).join("")}</div><p class="fr-dim">What you catch goes into the game plan as its hints, with their counts. Each tape is a small sample.</p>`) : "";
-  const reps = x.reports.length ? `<table class="tbl fr-tbl"><thead><tr><th>Player</th><th>Date</th><th>The question</th><th>Verdict</th><th class="num">Calls</th><th class="num">Caught</th><th></th></tr></thead><tbody>${x.reports.map((r) => `<tr><td>${frWho(r.id, r.name)}</td><td class="fr-dim">${esc(r.date)}</td><td>${esc(r.ask || (r.mode === "quick" ? "Watched quick" : "—"))}</td><td>${r.verdict ? esc(r.verdict) : '<span class="fr-dim">—</span>'}${r.settled != null ? ` <span class="${r.settled ? "fr-gold" : "fr-amber"}">${r.settled ? "held up" : "missed"}</span>` : ""}</td><td class="num">${r.calls[1] ? `${r.calls[0]} of ${r.calls[1]}` : "—"}</td><td class="num">${r.caught}</td><td><a class="link" data-go="film" data-report="${r.k}">${r.stills ? "The look-back" : "Report"}</a></td></tr>`).join("")}</tbody></table>` : `<p class="fr-dim">Each session becomes your report in his file.</p>`;
+  const reps = x.reports.length ? `<table class="tbl fr-tbl"><thead><tr><th>Player</th><th>Date</th><th>The question</th><th>Verdict</th><th class="num">Calls</th><th class="num">Caught</th><th></th></tr></thead><tbody>${x.reports.map((r) => `<tr><td>${frWho(r.id, r.name)}</td><td class="fr-dim">${esc(r.date)}</td><td>${esc(r.ask || (r.mode === "quick" ? "Watched quick" : "—"))}</td><td>${r.verdict ? esc(r.verdict) : '<span class="fr-dim">—</span>'}${r.settled != null ? ` <span class="${r.settled ? "fr-gold" : "fr-amber"}">${r.settled ? "held up" : "missed"}</span>` : ""}</td><td class="num">${r.calls[1] ? `${r.calls[0]} of ${r.calls[1]}` : "—"}</td><td class="num">${r.caught}</td><td><a class="link" data-go="film" data-args='{"report":${r.k}}'>${r.stills ? "The look-back" : "Report"}</a></td></tr>`).join("")}</tbody></table>` : `<p class="fr-dim">Each session becomes your report in his file.</p>`;
   const year = frCard("Your film year", `<div class="fr-year"><b>${Math.round(x.year_hours)}</b><small>hours of film this year</small></div>
     <div class="st-label fr-mt">Your eye by position · hours watched</div>
     ${x.by_pos.length ? x.by_pos.slice(0, 8).map((p) => `<div class="fr-pos"><div><span>${esc(p.pos)}</span><span class="fr-dim">${p.hours} h · ${esc(p.word)}</span></div>${frBar(p.pct)}</div>`).join("") : '<p class="fr-dim">Your eye grows fastest at the positions you watch most.</p>'}
@@ -118,7 +123,9 @@ function frBrief(b) {
   if (!b.film) {
     return `<div class="pad sl fr"><header class="fr-head"><div><div class="st-label">Film room</div><h1 class="fr-h1">${esc(b.name)}</h1><p class="fr-sub">${esc(b.meta)}</p></div></header>${frCard("No tape", `<p class="fr-dim">${esc(b.why_not || "There's no film of him.")}</p>`)}</div>`;
   }
-  const pickQ = keep("frq:" + b.id, { q: b.questions[0] && b.questions[0].key, cut: b.cuts[0].key });
+  const pickQ = keep("frq:" + b.id, {});
+  if (!pickQ.q && b.questions[0]) pickQ.q = b.questions[0].key;
+  if (!pickQ.cut || !b.cuts.some((c) => c.key === pickQ.cut)) pickQ.cut = b.cuts[0].key;
   const q = b.questions.find((x) => x.key === pickQ.q) || b.questions[0];
   const qs = b.questions.map((x) => `<button class="st-btn small ${x.key === (q && q.key) ? "on" : "glass"}" data-act="frpickq" data-id="${b.id}" data-q="${esc(x.key)}">${esc(x.text)}</button>`).join("");
   const cuts = b.cuts.map((c) => `<button class="st-btn small ${c.key === pickQ.cut ? "on" : "glass"}" data-act="frpickcut" data-id="${b.id}" data-cut="${c.key}">${esc(c.label)}</button>`).join("");
@@ -314,14 +321,14 @@ Object.assign(CORE_MORE, {
     frDo(el, "film_open", { id, mode: el.dataset.mode, cut: k.cut, ask: k.q }, () => go("film", el.dataset.mode === "quick" ? { report: "last" } : { id }));
   },
   fropp: (el) => frDo(el, "film_opp", { date: Number(el.dataset.date), home: Number(el.dataset.home), away: Number(el.dataset.away), mode: el.dataset.mode }, (r) => go("film", r.open ? {} : { report: "last" })),
-  frplay: (el) => frDo(el, "film_play", {}),
+  frplay: (el) => frDo(el, "film_snap", {}),
   frcall: (el) => frDo(el, "film_call", { pick: Number(el.dataset.pick) }),
   frrunback: (el) => frDo(el, "film_runback", {}),
   frmoveon: (el) => frDo(el, "film_moveon", {}),
   frmark: (el) => frDo(el, "film_mark", { tag: Number(el.dataset.tag) }),
   frnext: (el) => frDo(el, "film_next", {}),
   frverdict: (el) => frDo(el, "film_verdict", { answer: Number(el.dataset.answer) }, () => go("film", { report: "last" }, false)),
-  frclose: (el) => frDo(el, "film_close", {}, () => go("film", { report: "last" }, false)),
+  frclose: (el) => frDo(el, "film_leave", {}, (r) => go("film", r && r.saved ? { report: "last" } : {}, false)),
   frangle: (el) => { frAngle = el.dataset.a; refresh(el); },
   frstands: (el) => frDo(el, "there_stands", { id: Number(el.dataset.id) }, () => go("film", {})),
   frvisit: (el) => frDo(el, "there_visit", { id: Number(el.dataset.id) }, () => go("film", { visit: 1 })),

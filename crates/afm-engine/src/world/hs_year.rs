@@ -1215,15 +1215,19 @@ pub(crate) fn squad_team(
 /// A school's team for its film (update 3, lane 9): the team as it would
 /// dress for a game this week, for a tape played on the engine.
 pub(crate) fn film_team(w: &World, h: usize) -> Option<(GameTeam, Vec<(u32, usize)>)> {
-    hs_team(w, h, 0)
+    hs_team(w, h, this_week(w, h))
+}
+
+/// The school's games played so far this season.
+fn this_week(w: &World, h: usize) -> usize {
+    w.hs_season.as_ref().map_or(0, |hs| {
+        let st = &hs.states[w.high_schools[h].state];
+        st.weeks.iter().chain(&st.rounds).filter(|&&d| d < w.today).count()
+    })
 }
 
 pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
-    let week = w.hs_season.as_ref().map_or(0, |hs| {
-        let st = &hs.states[w.high_schools[h].state];
-        st.weeks.iter().chain(&st.rounds).filter(|&&d| d < w.today).count()
-    });
-    hs_team(w, h, week).map(|t| t.0)
+    hs_team(w, h, this_week(w, h)).map(|t| t.0)
 }
 
 /// Whether a high school's home field is artificial turf this season

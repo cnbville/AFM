@@ -85,7 +85,11 @@ pub fn monday(d: Date) -> Date {
 /// The week's film at normal hours: (recruit and prospect film, game
 /// prep). Game prep only in a week with a game of yours.
 pub fn base(w: &World) -> (f32, f32) {
-    let d = w.today;
+    base_on(w, w.today)
+}
+
+/// The week's film at normal hours on a given day of it.
+fn base_on(w: &World, d: Date) -> (f32, f32) {
     let (_, m, day) = d.parts();
     let wk = monday(d);
     let game_week = w.seat_games().iter().any(|g| g.date >= wk && g.date < wk.add(7))
@@ -130,6 +134,11 @@ pub fn base(w: &World) -> (f32, f32) {
             };
             (recruit, if game_week { 6.0 } else { 0.0 })
         }
+        // Another pro league's club (later extras topic 5): game prep, and
+        // a little film of the men you could sign.
+        None if w.seat.as_ref().is_some_and(|s| s.level == crate::calendar::Level::Other) => {
+            (3.0, if game_week { 12.0 } else { 0.0 })
+        }
         None => (0.0, 0.0),
     }
 }
@@ -137,13 +146,26 @@ pub fn base(w: &World) -> (f32, f32) {
 /// The week's film hours: normal hours plus every hour past a steady
 /// week (SK61); a cruising week gives up film first, down to 40%.
 pub fn budget(w: &World) -> f32 {
-    let (r, p) = base(w);
+    if rested(w) { 0.0 } else { budget_on(w, w.today, w.scouting.film.work) }
+}
+
+fn budget_on(w: &World, d: Date, work: Work) -> f32 {
+    let (r, p) = base_on(w, d);
     if r + p <= 0.0 {
         return 0.0;
     }
-    let extra = w.scouting.film.work.hours() - Work::Steady.hours();
-    let b = (r + p + extra).max(0.4 * (r + p));
-    if rested(w) { 0.0 } else { b }
+    let extra = work.hours() - Work::Steady.hours();
+    (r + p + extra).max(0.4 * (r + p))
+}
+
+/// The hardest you worked this week: what the week's wear and drift are
+/// charged on, whatever the setting is on Sunday night.
+fn week_work(w: &World) -> Work {
+    let now = w.scouting.film.work;
+    match w.scouting.film.week_work {
+        Some((wk, x)) if wk == monday(w.today) && x.hours() > now.hours() => x,
+        _ => now,
+    }
 }
 
 /// Film hours spent this week.
@@ -208,14 +230,14 @@ pub fn can_watch(w: &World, mode: Mode) -> Result<(), String> {
 }
 
 /// Spends film hours: the week's ledger, the day, the position, the year.
-pub fn spend(w: &mut World, hours: f32, pos: Position) -> Result<(), String> {
+pub fn spend(w: &mut World, hours: f32, pos: Option<Position>) -> Result<(), String> {
     if rested(w) {
         return Err("You're home resting: no film until you're back.".into());
     }
     if left(w) + 0.01 < hours {
         return Err(format!("Your film hours are spent this week ({:.0} of {:.0}).", used(w), budget(w)));
     }
-    charge(w, hours, Some(pos));
+    charge(w, hours, pos);
     Ok(())
 }
 
@@ -246,6 +268,8 @@ pub fn charge(w: &mut World, hours: f32, pos: Option<Position>) {
 pub fn set_work(w: &mut World, k: &str) -> Result<String, String> {
     readers::you(w).ok_or("Start a career first.")?;
     let wk = Work::from_key(k).ok_or("No such work level.")?;
+    let top = week_work(w);
+    w.scouting.film.week_work = Some((monday(w.today), if wk.hours() > top.hours() { wk } else { top }));
     w.scouting.film.work = wk;
     Ok(format!("{}: about {:.0} hours a week. {:.0} film hours this week.", wk.words(), wk.hours(), budget(w)))
 }
@@ -254,6 +278,11 @@ pub fn set_work(w: &mut World, k: &str) -> Result<String, String> {
 /// with how you really work after that.
 pub fn set_ethic(w: &mut World, v: f32) -> Result<String, String> {
     readers::you(w).ok_or("Start a career first.")?;
+    let y = w.today.year();
+    if w.scouting.film.ethic_year == Some(y) {
+        return Err("You set your work ethic this year: it moves with how you really work until next year.".into());
+    }
+    w.scouting.film.ethic_year = Some(y);
     w.scouting.film.ethic = Some(v.clamp(1.0, 20.0));
     Ok(format!("Your work ethic: {:.0} of 20.", v.clamp(1.0, 20.0)))
 }
@@ -292,12 +321,17 @@ pub(crate) fn week(w: &mut World, d: Date) {
     let Some(_) = readers::you(w) else { return };
     let last = d.add(-7);
     let film = w.scouting.own.film_week.filter(|x| x.0 == last).map_or(0.0, |x| x.1);
-    let work = w.scouting.film.work;
+    let work = match w.scouting.film.week_work {
+        Some((wk, x)) if wk == last && x.hours() > w.scouting.film.work.hours() => x,
+        _ => w.scouting.film.work,
+    };
     let e = ethic(w);
-    let cap = 60.0 + 2.0 * (e as f32 - 10.0);
+    // An ordinary ethic (12) carries a steady 65-hour week without wear.
+    let cap = Work::Steady.hours() + 2.0 * (e as f32 - 12.0);
     let hours = work.hours();
-    let b = budget(w);
+    let b = budget_on(w, last.add(6), work);
     let fr = &mut w.scouting.film;
+    fr.week_work = Some((d, fr.work));
     fr.weeks.push(Week { monday: last, work, film, budget: b });
     if fr.weeks.len() > 156 {
         fr.weeks.remove(0);

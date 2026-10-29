@@ -45,6 +45,27 @@ pub struct Catch {
     pub date: Date,
     /// 0 your eye, 1 your analyst's point.
     pub by: u8,
+    /// Which snap it was read on (0 for a look in person): the same snap
+    /// watched again adds nothing new.
+    #[serde(default)]
+    pub key: u64,
+}
+
+/// Same snap, same man, same thing, same eyes.
+fn same(a: &Catch, b: &Catch) -> bool {
+    a.key != 0 && a.key == b.key && a.id == b.id && a.attr == b.attr && a.by == b.by
+}
+
+/// Adds a session's catches: a snap seen before keeps the tighter read of
+/// it (a better eye sees more in the same snap), never both.
+pub(crate) fn add_catches(all: &mut Vec<Catch>, new: Vec<Catch>) {
+    for c in new {
+        match all.iter().position(|o| same(o, &c)) {
+            Some(k) if c.sd < all[k].sd => all[k] = c,
+            Some(_) => {}
+            None => all.push(c),
+        }
+    }
 }
 
 /// A tag carried forward (SK44): "ask him about this" to the interview
@@ -112,6 +133,12 @@ pub struct FilmRoom {
     /// Bumped on every change that moves a read (the reads cache keys on it).
     #[serde(default)]
     pub version: u32,
+    /// The hardest work level set this week, from its Monday (SK61).
+    #[serde(default)]
+    pub week_work: Option<(Date, time::Work)>,
+    /// The year you last set your work ethic (SK62): once a year.
+    #[serde(default)]
+    pub ethic_year: Option<i32>,
 }
 
 /// How far a catch drifts from him as he changes: rating points a year
@@ -130,7 +157,9 @@ pub fn catches_of(w: &World, id: u32) -> Vec<Option<(f64, f64)>> {
 pub fn catches_with(w: &World, id: u32, extra: &[Catch]) -> Vec<Option<(f64, f64)>> {
     let mut acc = vec![(0.0f64, 0.0f64, i32::MAX); ATTRIBUTE_COUNT];
     let today = w.today;
-    for c in w.scouting.film.catches.iter().chain(extra).filter(|c| c.id == id) {
+    let stored = &w.scouting.film.catches;
+    let fresh = extra.iter().filter(|c| !stored.iter().any(|o| same(o, c)));
+    for c in stored.iter().chain(fresh).filter(|c| c.id == id) {
         let k = c.attr as usize;
         if k >= ATTRIBUTE_COUNT {
             continue;
@@ -221,6 +250,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d.weekday() == Weekday::Mon {
         time::week(w, d);
         queue::week(w, d);
+    }
+    // A visit ends with the day.
+    if w.scouting.film.there.visit.as_ref().is_some_and(|v| v.date < d) {
+        let _ = there::visit_close(w);
     }
     settle(w, d);
 }

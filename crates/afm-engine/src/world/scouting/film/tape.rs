@@ -105,6 +105,9 @@ pub struct Stat {
 pub struct Snap {
     /// Which game of the tape.
     pub game: u8,
+    /// The play's number in its game: with the game, which snap this is.
+    #[serde(default)]
+    pub n: u32,
     /// "Q1 · 3rd & 6".
     pub sit: String,
     pub job: String,
@@ -220,7 +223,8 @@ fn his_team(w: &World, i: usize) -> Option<(GameTeam, crate::player::Level, Kin)
             (crate::world::season::game_team(w, &w.programs[c])?, college_level(w, c), Kin::Program(c))
         }
         Stage::Pro => {
-            let t = p.pro.as_ref().and_then(|c| c.team)?;
+            // A free agent's tape is his last club's.
+            let t = p.pro.as_ref().and_then(|c| c.team.or(c.teams.last().copied()))?;
             if t >= w.nfl.len() {
                 return None;
             }
@@ -305,6 +309,16 @@ fn strength(t: &GameTeam) -> f32 {
 /// A player's tape: three games on the engine with frames on, his snaps
 /// in them. Err when there is no film of him.
 pub fn player_tape(w: &World, id: u32) -> Result<Tape, String> {
+    tape_of(w, id, None)
+}
+
+/// Tonight's game from the stands (SK32): one game on the engine, played
+/// for the day you're there, against an opponent of his level.
+pub fn live_tape(w: &World, id: u32) -> Result<Tape, String> {
+    tape_of(w, id, Some(w.today))
+}
+
+fn tape_of(w: &World, id: u32, live: Option<crate::calendar::Date>) -> Result<Tape, String> {
     let i = super::super::place(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
     let f = super::super::footage::footage(w, i);
@@ -320,8 +334,14 @@ pub fn player_tape(w: &World, id: u32) -> Result<Tape, String> {
     }
     let (team, level, kin) = his_team(w, i).ok_or("His team's film isn't to be had just now.")?;
     let season = w.dates.season;
-    let salt = 0xF11A_0000 ^ (id as u64) << 20 ^ season as u64;
-    let opps = opponents(w, kin, salt);
+    let salt = match live {
+        Some(d) => 0x11FE_0000 ^ (id as u64) << 20 ^ (d.0 as u64) << 40,
+        None => 0xF11A_0000 ^ (id as u64) << 20 ^ season as u64,
+    };
+    let mut opps = opponents(w, kin, salt);
+    if live.is_some() {
+        opps.truncate(1);
+    }
     if opps.is_empty() {
         return Err("His team's film isn't to be had just now.".into());
     }
@@ -338,7 +358,10 @@ pub fn player_tape(w: &World, id: u32) -> Result<Tape, String> {
         s.year = season;
         let res = play_game(&s);
         let side = if home { 0 } else { 1 };
-        let label = format!("{} {} {}", week_word(k), if home { "vs" } else { "at" }, name);
+        let label = match live {
+            Some(d) => format!("{} {} {}", d.pretty(), if home { "vs" } else { "at" }, name),
+            None => format!("{} {} {}", week_word(k), if home { "vs" } else { "at" }, name),
+        };
         tape.games.push(Game { label, strength: strength(opp) });
         collect(&mut tape, k as u8, p, side, [h, a], &res, p.stage);
     }
@@ -356,7 +379,7 @@ pub fn our_tape(w: &World, id: u32) -> Result<Tape, String> {
     let mut tape = Tape::default();
     let games: Vec<&crate::world::seat::SeatGame> =
         w.seat_games().iter().rev().filter(|g| !g.replay.is_empty()).take(3).collect();
-    for (k, g) in games.iter().enumerate() {
+    for g in &games {
         let Some(rs) = crate::game::ReplaySetup::unpack(&g.replay) else { continue };
         let side = if rs.home.players.iter().any(|x| x.id == id) {
             0
@@ -369,8 +392,9 @@ pub fn our_tape(w: &World, id: u32) -> Result<Tape, String> {
         let opp = 1 - side;
         let label = format!("{} {} {}", g.date.pretty(), if side == 0 { "vs" } else { "at" }, g.names[opp]);
         let st = strength(if opp == 0 { &rs.home } else { &rs.away });
+        let gi = tape.games.len() as u8;
         tape.games.push(Game { label, strength: st });
-        collect(&mut tape, k as u8, p, side, [&rs.home, &rs.away], &res, p.stage);
+        collect(&mut tape, gi, p, side, [&rs.home, &rs.away], &res, p.stage);
     }
     if tape.snaps.is_empty() {
         // Before your first kept game: the practice tape is his own tape.
@@ -559,6 +583,7 @@ fn read_snap(
     let cues = cues_of(&p.player, role, r, mark);
     Snap {
         game,
+        n: r.n,
         sit: situation(r),
         job: job_words(r, role, pos),
         result: result_words(r, role, me),
@@ -1422,6 +1447,9 @@ pub fn cut(tape: &Tape, c: Cut, n: usize) -> Vec<usize> {
     out.extend(idle);
     // A snap that jumps out, from anywhere on the tape.
     if let Some(k) = (0..snaps.len()).find(|&k| snaps[k].surprise.is_some() && !out.contains(&k)) {
+        if out.len() >= n.max(1) {
+            out.pop();
+        }
         out.push(k);
     }
     out.sort_unstable();
