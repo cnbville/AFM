@@ -126,7 +126,13 @@ Every engine game's plays summed by key for the season (`world/game_log.rs`, `pl
 
 ### What the games cost
 
-Being measured again on this format (the first, JSON-lines version wrote 466 MB a season with high school on the engine).
+Measured 2026-10-29 on the full-size world, seed 2026, its 2025 season recorded and 2026 played on, every level on the engine (`AFM_ENGINE_FROM=2025 AFM_HS_YEARS=1 afm_log build 2026 1 1.0 <folder> 1`, and the same with `AFM_WORLD_LOG=off`), 4 cores.
+
+- Results: the same fingerprint with the log on and off (`aec1ce7a26168d3b`).
+- Size a season: high school games 375 MB (72,700 games, 5.2 KB each), college games 27 MB (4,770, 5.7 KB) and their snaps 133 MB (28 KB a game), NFL games 1.7 MB and snaps 9.2 MB (333 games), the other leagues 0.7 and 3.8 MB (129 games), situations 4.0 MB and team situations 1.1 MB: 556 MB a season with high school on the engine, about 190 MB without. With R2's kinds a season's whole log came to 1.48 to 1.56 GB.
+- A 30-year world (the last 12 seasons with high school on the engine): about 12 x 556 MB + 18 x 190 MB = 10 GB of games beside R2's rows.
+- Time, the whole log (R2's rows too): 2025 took 1,159 s against 948 s with the log off, 2026 1,113 s against 926 s (+20 to 22%). The first build of the game log took +53%; building rows lean and packing them on the cores cut it.
+- Memory: resident 5.32 GB against 5.26 GB after 2026, the live heap 2.98 GB against 2.96 GB. The world's peak (7.3 GB) comes in a spin-up season, before logging starts.
 
 ## What it does not keep yet
 
