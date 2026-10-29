@@ -422,21 +422,25 @@ pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>
     let year = w.year;
     // Never a line this story already told, nor one his other stories told
     // this season (the same story come back included): a person hears a
-    // line once. A season here is the story's own, which turns after the
-    // Super Bowl, so the season beside it counts too: a story opened in
-    // late February sits next to one from the fall.
+    // line once. A story opened after the Super Bowl belongs to the next
+    // football year, so the lines of the weeks before count by their dates.
     let lead = s.lead();
+    let now = super::told_season(w.today);
     let others: Vec<String> = w
         .storylines
         .open
         .iter()
         .chain(&w.storylines.ended)
         .filter(|o| {
-            o.season.abs_diff(s.season) <= 1
-                && o.id != s.id
-                && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
+            o.id != s.id && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
         })
-        .flat_map(|o| o.beats.iter().filter(|b| !b.text.is_empty()).map(|b| b.text.clone()))
+        .flat_map(|o| {
+            let same = o.season == s.season;
+            o.beats
+                .iter()
+                .filter(move |b| !b.text.is_empty() && (same || super::told_season(b.date) == now))
+                .map(|b| b.text.clone())
+        })
         .collect();
     let said: Vec<&str> = s
         .beats

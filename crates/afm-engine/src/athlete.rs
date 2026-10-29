@@ -100,20 +100,24 @@ pub(crate) fn talent_size(talent: f64) -> (f64, f64) {
 
 /// The frame a boy grows into, as if he were a draft prospect: about three in
 /// ten have a lineman's build (the share of linemen on real rosters), the
-/// rest are lean, with height and weight tied together.
+/// rest are lean, with height and weight tied together. The heights are
+/// tuned so grown heights by position match the real ones (update 3, A18:
+/// FBS against 2025 rosters, drafted players against the combine; were 75.9
+/// and 73.1).
 fn draw_frame(rng: &mut Rng) -> (f64, f64) {
     let h = rng.normal(0.0, 1.0);
     if rng.chance(0.29) {
-        (75.9 + 1.5 * h, 311.0 + 4.0 * h + rng.normal(0.0, 15.0))
+        (76.4 + 1.5 * h, 311.0 + 4.0 * h + rng.normal(0.0, 15.0))
     } else {
-        (73.1 + 2.1 * h, 220.0 + 26.0 * (0.55 * h + 0.83 * rng.normal(0.0, 1.0)))
+        (73.5 + 2.1 * h, 220.0 + 26.0 * (0.55 * h + 0.83 * rng.normal(0.0, 1.0)))
     }
 }
 
 /// The athlete's shape: what each attribute would be if he became an elite
-/// player, before talent scales it. Returns the shape, the frame and his
-/// will to compete (a standard normal, which his personality shares).
-fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64), f64) {
+/// player, before talent scales it. Returns the shape, the frame, his will
+/// to compete (a standard normal, which his personality shares) and his
+/// explosiveness (a standard normal: his own speed and burst roll).
+fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64), f64, f64) {
     use Attr::*;
     let (fh, fw) = draw_frame(rng);
     let mut shape = Attributes::filled(45.0);
@@ -224,7 +228,84 @@ fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64), f64) {
     shape.set(Motor, leaning(mix(&[(0.8, engine), (0.5, compete)])));
     shape.set(Competitiveness, leaning(compete));
     shape.set(Physicality, leaning(mix(&[(0.6, hit), (0.5, tough), (0.4, compete)])));
-    (shape, (fh, fw), compete)
+    (shape, (fh, fw), compete, explosive)
+}
+
+/// How much one standard deviation of talent is worth in rating points
+/// (`player::talent_from_z`, below its tail).
+const TALENT_SD: f64 = 6.5;
+
+/// How widely speed for his size varies among boys with the same build, in
+/// rating points (speed update S1, S11; proposed, not confirmed: set so
+/// quarterbacks and linemen, whose spots barely read speed, keep the real
+/// combine's spread of about 0.18 s).
+const SPEED_SD: f64 = 13.0;
+
+/// How much of a class's talent spread is left among the FBS players he is
+/// judged against for "no lean" (speed update S1: the fastest tenth at a
+/// position, half of them below the position's skills): the variance of
+/// talent above about the top 2.5% of a class, against the whole class.
+const FBS_TALENT_SHARE: f64 = 0.13;
+
+/// What boys built like a position's players run for their size on
+/// average, before anyone picks them, as the 0.75 speed + 0.25
+/// acceleration mix of the forty (speed update S11, S12). Set so each
+/// position's drafted players run the real combine's average forty
+/// (2000-2025, `data/real-world/combine_by_position.csv`), measured over
+/// eight classes with the `positions` tool: a spot that reads speed picks
+/// its fastest on the way to the draft, so its boys start slower than its
+/// pros run. Kickers and punters run like real kickers and punters
+/// (4.91). Quarterbacks stay about 0.1 s slower than the combine: the
+/// fastest boys with an arm suit receiver or safety better. Order:
+/// `Position::ALL`.
+const SPEED_MIX: [f64; 14] = [54.1, 28.6, 39.6, 35.4, 35.8, 32.2, 23.5, 34.4, 36.6, 34.8, 36.6, 46.3, 50.8, 45.0];
+
+/// How much his speed roll leans toward his talent at a spot whose overall
+/// counts speed and burst at `share`: enough that among FBS players, the
+/// ones a staff judges speed and skills against, speed says nothing about
+/// his skills (Cain 2026-10-25: "No lean"). A spot that barely reads speed
+/// barely leans (quarterbacks 0.25, tackles 0.32); a receiver's leans most
+/// (0.89), since speed is a fifth of what makes him a receiver.
+fn speed_lean(share: f64) -> f64 {
+    if share <= 0.0 {
+        return 0.0;
+    }
+    let (a, v) = (share * SPEED_SD, FBS_TALENT_SHARE);
+    let b = TALENT_SD * v;
+    clamp((-b + (b * b + 4.0 * a * a * (1.0 - v)).sqrt()) / (2.0 * a * (1.0 - v)), 0.0, 0.95)
+}
+
+fn speed_mix(pos: Position) -> f64 {
+    SPEED_MIX[pos.index()]
+}
+
+/// A body's speed for his size and his burst against it, as the mean of
+/// the positions whose bodies look like his (weighted as in `draw_shape`).
+/// Kickers and punters run like real kickers and punters (S12). The lead
+/// is how much more burst than top speed his kind of body has, from the
+/// positions' elite shapes: big men get off the ball better than they run.
+fn speed_base(frame: (f64, f64), natural: Position) -> (f64, f64) {
+    if matches!(natural, Position::K | Position::P) {
+        return (speed_mix(natural), 0.0);
+    }
+    let (mut mix, mut lead, mut total) = (0.0, 0.0, 0.0);
+    for p in FIELD {
+        let l = body_likeness(frame.0, frame.1, p) * p.profile().share + 1e-9;
+        mix += l * speed_mix(p);
+        lead += l * (elite_shape_value(p, Attr::Acceleration) - elite_shape_value(p, Attr::Speed));
+        total += l;
+    }
+    (mix / total, lead / total)
+}
+
+/// The z-score behind a talent (`player::talent_from_z` inverted).
+fn talent_z(talent: f64) -> f64 {
+    let knee = 45.0 + TALENT_SD * 1.6;
+    if talent <= knee {
+        (talent - 45.0) / TALENT_SD
+    } else {
+        1.6 + (-TALENT_SD + (TALENT_SD * TALENT_SD + 11.0 * (talent - knee)).sqrt()) / 5.5
+    }
 }
 
 /// How a staff weighs a fit at each position against the others. A coach
@@ -238,7 +319,7 @@ static FIT_SCALE: LazyLock<[f64; POSITION_COUNT]> = LazyLock::new(|| {
     let mut rng = Rng::new("athlete-fit-calibration");
     let sample: Vec<[f64; POSITION_COUNT]> = (0..40_000)
         .map(|_| {
-            let (shape, (h, w), _) = draw_shape(&mut rng);
+            let (shape, (h, w), _, _) = draw_shape(&mut rng);
             Position::ALL.map(|p| overall_for(p, &shape) * (1.0 - misfit(h, w, p)))
         })
         .collect();
@@ -278,7 +359,7 @@ fn best_fit(shape: &Attributes, frame: (f64, f64)) -> (Position, f64) {
 /// standard normal) for a new athlete of the given talent. Talent is how
 /// good he can become at the spot that suits him best.
 pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position, f64) {
-    let (shape, (fh, fw), compete) = draw_shape(rng);
+    let (shape, (fh, fw), compete, explosive) = draw_shape(rng);
     let (natural, fit) = best_fit(&shape, (fh, fw));
     // Talent is his overall at his best spot. The skills that spot needs rise
     // together: a great player is good at everything his position asks, so
@@ -288,10 +369,39 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     let top_key =
         Attr::ALL.iter().filter(|&&a| weight(natural, a) > 0.0).map(|&a| shape.get(a)).fold(fit + 1.0, f64::max);
     let spread = (0.5 * scale).min((94.0 - talent).max(0.5) / (top_key - fit));
+    // Speed and burst are his own roll, not his football talent's (speed
+    // update S1, S2): his explosiveness on top of what bodies like his run.
+    // A spot that reads speed counts it in his talent, so there his roll
+    // leans toward his talent and his skills carry the rest, with no lean
+    // left between speed and skills among the players who make it.
+    let speed_share = weight(natural, Attr::Speed) + weight(natural, Attr::Acceleration);
+    let lean = speed_lean(speed_share);
+    let roll = lean * talent_z(talent) + (1.0 - lean * lean).sqrt() * explosive;
+    let (mix, lead) = speed_base((fh, fw), natural);
+    let speed = mix - 0.25 * lead + SPEED_SD * roll;
+    let accel = mix + 0.75 * lead + SPEED_SD * roll;
+    let mut base = Attributes::default();
+    for a in Attr::ALL {
+        let v = match a {
+            Attr::Speed => speed,
+            Attr::Acceleration => accel,
+            _ if weight(natural, a) > 0.0 => talent + (shape.get(a) - fit) * spread,
+            _ => shape.get(a) * scale,
+        };
+        base.set(a, v);
+    }
+    // His skills make up what his speed doesn't, so his overall there is his talent.
+    if speed_share < 1.0 {
+        let short = (talent - overall_for(natural, &base)) / (1.0 - speed_share);
+        for a in Attr::ALL {
+            if weight(natural, a) > 0.0 && !matches!(a, Attr::Speed | Attr::Acceleration) {
+                base.add(a, short);
+            }
+        }
+    }
     let mut ceilings = Attributes::default();
     for a in Attr::ALL {
-        let base = if weight(natural, a) > 0.0 { talent + (shape.get(a) - fit) * spread } else { shape.get(a) * scale };
-        ceilings.set(a, clamp(base + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING));
+        ceilings.set(a, clamp(base.get(a) + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING));
     }
     // His best spot is his best spot: where another position would rate him
     // higher, the skills only that position uses are trimmed until it doesn't.
@@ -302,9 +412,16 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
             if q == natural || excess <= 0.0 {
                 continue;
             }
+            // Only skills: the body is his own, and elusiveness is rated for
+            // his size (update 3, A2), so a Sewell keeps his moves.
             let own: Vec<(Attr, f64)> = Attr::ALL
                 .iter()
-                .filter(|&&a| weight(natural, a) == 0.0 && weight(q, a) > 0.0)
+                .filter(|&&a| {
+                    weight(natural, a) == 0.0
+                        && weight(q, a) > 0.0
+                        && a != Attr::Elusiveness
+                        && ATTRIBUTE_PROFILES[a.index()].group != crate::attributes::AttributeGroup::Physical
+                })
                 .map(|&a| (a, weight(q, a)))
                 .collect();
             let total: f64 = own.iter().map(|(_, w)| w).sum();
@@ -373,13 +490,15 @@ fn perceived(p: &Player, eye: Eye) -> Attributes {
 /// How badly a frame misfits a position, as a share of his rating there:
 /// nobody puts a 5'9" boy at tackle. Weight can move about 25 pounds with a
 /// weight program, height can't. Measured on the frame he'd have as a draft
-/// prospect, against the real combine.
+/// prospect, against the real combine. Coaches start to mind height half a
+/// spread from the position's average (update 3, A18; was a whole spread,
+/// which left backs and safeties tall and interior linemen short).
 fn misfit(height: f64, weight: f64, pos: Position) -> f64 {
     let (hm, hs, wm, ws) = combine_size(pos);
     let h = (height - hm) / hs;
     let w = ((weight - wm).abs() - 25.0).max(0.0) / ws;
-    let over = |z: f64| (z.abs() - 1.0).max(0.0);
-    clamp(0.04 * over(h).powi(2) + 0.04 * over(w).powi(2), 0.0, 0.5)
+    let over = |z: f64, band: f64| (z.abs() - band).max(0.0);
+    clamp(0.04 * over(h, 0.5).powi(2) + 0.04 * over(w, 1.0).powi(2), 0.0, 0.5)
 }
 
 fn player_misfit(p: &Player, pos: Position) -> f64 {
@@ -423,19 +542,35 @@ pub fn set_position(p: &mut Player, pos: Position) {
         .unwrap_or(crate::spots::spots_of(pos)[0]);
     p.spot = s;
     p.spots_played |= s.bit();
-    let (_, _, wm, _) = combine_size(pos);
-    let (_, dw) = talent_size(p.original_potential);
-    let target = wm + dw;
+    let target = position_weight(p, pos);
     let frame = p.body.frame_weight;
     p.body.weight = if pos == Position::LS {
         // A long snapper plays at a snapper's weight, cutting or adding to
         // it (real FBS and NFL snappers: about 6'2", 235-250 lb).
         clamp(frame, LS_MIN_WEIGHT, LS_MAX_WEIGHT)
     } else if pos.is_specialist() {
-        frame
+        // Kickers and punters weigh what real ones do (update 3, A19: NFL
+        // kickers 194 lb, punters 213, where the frame alone made them 224
+        // and 225): the combine's spread at his spot, keeping how big his
+        // frame runs among lean builds.
+        let (_, _, wm, ws) = combine_size(pos);
+        clamp(wm + ws * (frame - 220.0) / 26.0, wm - 2.5 * ws, wm + 2.5 * ws)
     } else {
-        frame + clamp(0.6 * (target - frame), -25.0, 30.0)
+        placed_weight(frame, target)
     };
+}
+
+/// A position's playing weight for him: the combine's average there, less
+/// what lower talent takes off a body.
+pub(crate) fn position_weight(p: &Player, pos: Position) -> f64 {
+    let (_, _, wm, _) = combine_size(pos);
+    wm + talent_size(p.original_potential).1
+}
+
+/// Where a position's weight program puts a frame when he moves there:
+/// 60% of the way to the position's weight, at most 25 lb off or 30 lb on.
+pub(crate) fn placed_weight(frame: f64, target: f64) -> f64 {
+    frame + clamp(0.6 * (target - frame), -25.0, 30.0)
 }
 
 /// The weights a long snapper plays at (real FBS and NFL rosters: 220-265
