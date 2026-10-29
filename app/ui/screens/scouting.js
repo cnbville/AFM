@@ -950,9 +950,10 @@ PLAYER_TABS.push({
 function scFilmNow(f) {
   const n = f.film_now;
   const left = `${n.left.toFixed(1)} h left`;
-  if (n.blocked) {
-    const short = n.hours > n.left + 0.01 ? `needs ${n.hours} h · ${left}` : "watched today";
-    return `<button class="st-btn l7-film" disabled title="${esc(n.blocked)}">Watch his film now <small>${short}</small></button>`;
-  }
-  return `<button class="st-btn l7-film" data-act="sc-ask" data-id="${f.id}" data-kind="Watch his film now" title="You watch ${esc(n.what)} yourself, today: ${n.hours} of your ${n.left.toFixed(1)} film hours left this week (${n.week} a week). Read by your own eye.">Watch his film now <small>${n.hours} h · ${left}</small></button>`;
+  // The film room opens either way: a full cut-up snap by snap, or quick
+  // (twenty minutes), today, on your own hours. When the quick look can't
+  // run, the button says why before you click.
+  const why = n.blocked ? (/today/.test(n.blocked) ? "watched today" : /resting/.test(n.blocked) ? "resting" : /open/.test(n.blocked) ? "cut-up open" : "hours spent") : `20 min · ${left}`;
+  const title = n.blocked ? n.blocked : `You watch his tape yourself, today, in the film room: a cut-up snap by snap or quick (20 minutes). ${n.left.toFixed(1)} of your ${n.week.toFixed(0)} film hours left this week. Read by your own eye.`;
+  return `<button class="st-btn l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now <small>${why}</small></button>`;
 }

@@ -287,8 +287,13 @@ pub(crate) fn summer_roads(w: &mut super::World) {
         let age = p.row_age();
         match a.program.map(|c| c as usize).filter(|&c| w.programs[c].plays(year)) {
             Some(c) => {
-                p.cal.signed =
-                    Some(super::Signed { program: c, walk_on: p.walk_on, date: today, early_enrollee: false });
+                p.cal.signed = Some(super::Signed {
+                    program: c,
+                    walk_on: p.walk_on,
+                    date: today,
+                    early_enrollee: false,
+                    flipped: false,
+                });
                 let name = &w.programs[c].real_name;
                 p.note(format!("Home from {} at {age}, he joined {name}, which had held his place.", a.kind.name()));
             }

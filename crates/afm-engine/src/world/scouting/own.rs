@@ -767,32 +767,15 @@ pub fn go(w: &mut World, id: u32, kind: TripKind, send: Option<u32>) -> Result<S
 
 // --- Bug 82: watching a player's film yourself -------------------------------------------
 
-/// Your own film hours a week, by seat and season: an NFL head coach from
-/// February to the draft lives in the film room, in season his week is the
-/// next opponent; a college head coach finds a few hours for recruits in
-/// season and more out of it; a high school coach has his own boys' tape
-/// (proposed, not confirmed).
+/// Your own film hours a week (lane 9: SK60, SK61): the real calendar at
+/// the hours you choose to work, game prep included in season. One
+/// ledger for all your film (`film::time`).
 pub fn film_budget(w: &World) -> f32 {
-    let d = w.today;
-    let m = d.parts().1;
-    match readers::seat_staff(w) {
-        Some(Staff::Club(_)) if d >= w.dates.nfl_kickoff && d <= w.dates.super_bowl => 3.0,
-        Some(Staff::Club(_)) if (2..=4).contains(&m) && d < w.dates.draft[0].date => 20.0,
-        Some(Staff::Club(_)) => 8.0,
-        Some(Staff::Program(_)) if d >= w.dates.fall_camp && d <= w.dates.bowl_season.1 => 5.0,
-        Some(Staff::Program(_)) => 12.0,
-        Some(Staff::School(_)) if (9..=11).contains(&m) => 3.0,
-        Some(Staff::School(_)) => 6.0,
-        None => 0.0,
-    }
+    super::film::time::budget(w)
 }
 
 fn monday(d: Date) -> Date {
-    let mut d = d;
-    while d.weekday() != Weekday::Mon {
-        d = d.add(-1);
-    }
-    d
+    super::film::time::monday(d)
 }
 
 /// Your film hours left this week.
@@ -810,67 +793,61 @@ pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String
     let f = super::footage::footage(w, i);
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool if f.snaps > 0.0 || f.reels => {
-            Ok((Kind::HsFilm, 1.0, "his highlight reel and a full game"))
+            Ok((Kind::HsFilm, QUICK, "a cut-up of his snaps"))
         }
         Stage::HighSchool | Stage::PrepSchool => {
             Err("There's no film of him yet: he hasn't played a high school game.".into())
         }
-        Stage::College | Stage::Declared if f.snaps > 0.0 => {
-            Ok((Kind::CollegeFilm, 2.5, "three of his games, every snap"))
-        }
+        Stage::College | Stage::Declared if f.snaps > 0.0 => Ok((Kind::CollegeFilm, QUICK, "a cut-up of his snaps")),
         Stage::College | Stage::Declared => Err("He hasn't played a college snap: there's nothing to watch.".into()),
-        Stage::Pro => Ok((Kind::ProFilm, 2.0, "his cut-ups from last season")),
+        Stage::Pro
+            if p.pro.as_ref().and_then(|c| c.team.or(c.teams.last().copied())).is_some_and(|t| t < w.nfl.len()) =>
+        {
+            Ok((Kind::ProFilm, QUICK, "a cut-up of his snaps"))
+        }
+        Stage::Pro => Err("He hasn't been with an NFL club: there's no pro tape of him.".into()),
         _ => Err("There's no film of him.".into()),
     }
 }
 
+/// A quick cut-up's hours (lane 9, SK53): twenty minutes.
+pub const QUICK: f32 = super::film::session::QUICK_MIN / 60.0;
+
 /// Why you can't watch his film yourself now, if you can't: you watched
-/// him today, or the week's film hours are spent.
+/// him today, a cut-up is open in the film room, you're home resting, or
+/// the week's film hours are spent.
 pub fn film_blocked(w: &World, id: u32) -> Option<String> {
     let you = me(w)?;
-    let (kind, hours, _) = film_cost(w, id).ok()?;
+    let (kind, _, _) = film_cost(w, id).ok()?;
     let d = w.today;
     if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
         return Some("You watched him today already: the next look is another day's tape.".into());
     }
-    let left = film_left(w);
-    (hours > left + 0.01).then(|| {
-        format!(
-            "Your film hours are spent this week ({:.0} of {:.0}): give it to your staff, or watch him on Monday.",
-            film_budget(w) - left,
-            film_budget(w)
-        )
-    })
+    if w.scouting.film.open.is_some() {
+        return Some("Finish the cut-up you have open in the film room first.".into());
+    }
+    super::film::time::can_watch(w, super::film::session::Mode::Quick).err()
 }
 
-/// You watch his film yourself, today, on your own hours: the look goes in
-/// his file under your name, read by your own eye.
+/// You watch his film yourself, today, on your own hours (bug 82): "Watch
+/// it quick" in the film room (lane 9, SK53), a cut-up of his snaps for
+/// twenty minutes. The look goes in his file under your name, read by your
+/// own eye, and what your eye caught moves your own read. The full
+/// session, snap by snap, opens from his file in the film room.
 pub fn watch_film(w: &mut World, id: u32) -> Result<String, String> {
-    let you = me(w).ok_or("Start a career first.")?;
-    let staff = readers::seat_staff(w).ok_or("Start a career first.")?;
-    let (kind, hours, what) = film_cost(w, id)?;
+    readers::seat_staff(w).ok_or("Start a career first.")?;
+    film_cost(w, id)?;
     if let Some(why) = film_blocked(w, id) {
         return Err(why);
     }
-    let d = w.today;
-    let wk = monday(d);
-    let used = w.scouting.own.film_week.filter(|x| x.0 == wk).map_or(0.0, |x| x.1);
-    w.scouting.own.film_week = Some((wk, used + hours));
-    super::dept::add(w, id, you, kind, d);
-    // An NFL club's board reads its own file, the head coach under the
-    // club's code.
-    if let Staff::Club(c) = staff
-        && w.nfl.get(c).and_then(|x| x.head_coach) == readers::you(w)
-    {
-        super::dept::club_look(w, c, id, scouts::HC, scouts::LookKind::Film, d);
-    }
-    w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Film);
-    let i = super::place(w, id).ok_or("No such player.")?;
-    let name = w.people[i].name.clone();
-    Ok(format!(
-        "You watched {what} of {name} ({hours:.1} hours). Your read is in his file; {:.1} film hours left this week.",
-        film_left(w)
-    ))
+    let text = super::film::session::open_player(
+        w,
+        id,
+        super::film::tape::Cut::BestOpponent,
+        super::film::session::Mode::Quick,
+        None,
+    )?;
+    Ok(format!("{text} {:.1} film hours left this week.", film_left(w)))
 }
 
 /// The day's trips: the look goes in the file under the name of who went,
