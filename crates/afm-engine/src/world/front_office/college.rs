@@ -1697,6 +1697,87 @@ pub fn keep_talk(w: &mut World, id: u32) -> Result<String, String> {
     Ok(answer)
 }
 
+// --- Cuts (minor bug 60) ---------------------------------------------------------------------
+
+/// What cutting one of your players does, in your staff's words, or why
+/// you can't. A walk-on is simply off the team. A scholarship player's aid
+/// follows the era's rule (`ncaa::aid_kept`): from 2015-16 a power
+/// conference school can't take it away for football reasons, so he keeps
+/// it while he stays in school; elsewhere, and before, it isn't renewed.
+pub fn cut_words(w: &World, id: u32) -> Result<String, String> {
+    let j = super::program(w).ok_or("You have no college job.")?;
+    let i = super::index_of(w, id).ok_or("No such player.")?;
+    let p = &w.people[i];
+    if p.stage != Stage::College || p.college != Some(j) {
+        return Err("He isn't on your roster.".into());
+    }
+    if p.cut_here().is_some() {
+        return Err("You've cut him already.".into());
+    }
+    if p.cal.portal.is_some() {
+        return Err("He's in the portal already.".into());
+    }
+    let prog = &w.programs[j];
+    let season = w.dates.season;
+    let limit = ncaa::roster_limits(prog, season).0;
+    let whole = ncaa::whole_roster_limit(prog, season);
+    let counts = rec::takes_a_place(p, whole, season);
+    let aid = if p.walk_on {
+        "He's a walk-on, with no scholarship to settle."
+    } else if prog.division == Division::D3 {
+        "Division III gives no athletic aid, so there's no scholarship to settle."
+    } else if ncaa::aid_kept(prog, season) {
+        "His scholarship is guaranteed (the power conferences' 2015 rule): he keeps it while he stays in school."
+    } else {
+        "You won't renew his scholarship: it ends with this school year."
+    };
+    let place = if !counts {
+        String::new()
+    } else if whole {
+        format!(" He no longer counts against your {limit}.")
+    } else {
+        format!(" His place under your {limit} goes to next year's class.")
+    };
+    Ok(format!(
+        "He's off the team today and enters the next transfer window, or leaves football if nobody takes him. {aid}{place}"
+    ))
+}
+
+/// Cuts one of your players (minor bug 60): off the roster and out of your
+/// games today, his NIL deal ended, and into the next transfer window,
+/// where he can move to a program at his level or below (or leaves
+/// football). Real coaches cut at any time; it can't be undone.
+pub fn cut(w: &mut World, id: u32) -> Result<String, String> {
+    let words = cut_words(w, id)?;
+    let j = super::program(w).ok_or("You have no college job.")?;
+    let i = super::index_of(w, id).ok_or("No such player.")?;
+    let today = w.today;
+    let aid_kept = !w.people[i].walk_on && ncaa::aid_kept(&w.programs[j], w.dates.season);
+    let school = w.program_name(j).to_string();
+    let (name, pos, loud) = {
+        let p = &mut w.people[i];
+        p.cal.cut = Some(crate::world::CollegeCut { program: j as u16, date: today, aid_kept });
+        p.cal.lean_events.push((today, "cut from the team", 1.0));
+        p.nil_income = 0.0;
+        let age = p.row_age();
+        p.note(format!("Cut from {school} at {age}."));
+        (p.name.clone(), p.player.position, p.stars >= 4 || p.last_role == Some(crate::player::PlayingTime::Starter))
+    };
+    w.programs[j].roster.retain(|&x| x != i);
+    w.front_office.college.deals.retain(|d| d.0 != id);
+    if let Some(cs) = w.college.as_mut() {
+        cs.out.insert(id, "cut from the team");
+    }
+    if loud {
+        let text = format!("{name} ({pos}) is no longer with {school}.");
+        w.calendar
+            .post(Event::new(today, Level::College, Kind::News, Loudness::Small, text).program(j).person(id, &name));
+    }
+    let text = format!("Cut {name}. {words}");
+    note(w, text.clone(), Some(id));
+    Ok(text)
+}
+
 // --- Words --------------------------------------------------------------------------------
 
 /// The best recruiter on your staff: the man who runs your board when you
@@ -2165,5 +2246,64 @@ mod tests {
         let signed = |p: &Person| p.cal.signed.filter(|s| !s.walk_on).map(|s| s.program);
         assert_eq!(signed(&w.people[low]), Some(j), "{}", w.people[low].name);
         assert_ne!(signed(&w.people[other]), Some(j), "never offered, never signed with you");
+    }
+
+    #[test]
+    fn a_cut_player_leaves_the_roster_and_his_aid_follows_the_era() {
+        // Minor bug 59: a college head coach can cut his own players. A
+        // walk-on is simply off the team; a scholarship player's aid
+        // follows the era's rule; both enter the next transfer window.
+        let (mut w, j) = world(true);
+        let season = w.dates.season;
+        let kids: Vec<usize> =
+            (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::HighSchool).take(2).collect();
+        for (k, &i) in kids.iter().enumerate() {
+            let p = &mut w.people[i];
+            p.stage = Stage::College;
+            p.college = Some(j);
+            p.path = vec![j];
+            p.walk_on = k == 0;
+        }
+        w.rebuild_rosters();
+        let (walk, schol) = (kids[0], kids[1]);
+        assert!(w.programs[j].roster.contains(&walk));
+        let id = w.people[walk].player.id;
+        assert!(cut_words(&w, id).unwrap().contains("walk-on"));
+        cut(&mut w, id).unwrap();
+        assert!(w.people[walk].cut_here().is_some());
+        assert!(!w.programs[j].roster.contains(&walk));
+        w.rebuild_rosters();
+        assert!(!w.programs[j].roster.contains(&walk), "a rebuild keeps him off");
+        assert!(cut(&mut w, id).is_err(), "a cut happens once");
+        // A scholarship player: guaranteed at a power program from 2015-16.
+        let sid = w.people[schol].player.id;
+        let kept = ncaa::aid_kept(&w.programs[j], season);
+        let words = cut_words(&w, sid).unwrap();
+        assert_eq!(words.contains("guaranteed"), kept, "{words}");
+        cut(&mut w, sid).unwrap();
+        assert_eq!(w.people[schol].cal.cut.unwrap().aid_kept, kept);
+        // Off the roster, and leaving at the next window: his place goes to
+        // next year's class under either limit.
+        assert!(!rec::takes_a_place(&w.people[schol], true, season));
+        assert!(!rec::takes_a_place(&w.people[schol], false, season));
+        // The next window takes him.
+        let close = w.today.add(14);
+        rec::portal_open(&mut w, crate::world::clock::PortalWindow::Winter, close);
+        let entry = w.people[walk].cal.portal.expect("a cut walk-on enters the next window");
+        assert_eq!(entry.why, "cut");
+        // At another school the cut no longer holds.
+        let other = (0..w.programs.len()).find(|&q| q != j).unwrap();
+        w.people[schol].college = Some(other);
+        assert!(w.people[schol].cut_here().is_none());
+    }
+
+    #[test]
+    fn scholarships_are_guaranteed_at_power_programs_from_2015() {
+        let (w, _) = world(false);
+        let fbs = |power: bool| {
+            w.programs.iter().find(|p| p.division == Division::FBS && p.power_conference(2015) == power).unwrap()
+        };
+        assert!(!ncaa::aid_kept(fbs(true), 2014) && ncaa::aid_kept(fbs(true), 2015));
+        assert!(!ncaa::aid_kept(fbs(false), 2015));
     }
 }
