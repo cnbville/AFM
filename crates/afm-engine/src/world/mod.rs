@@ -1689,7 +1689,7 @@ fn new_kid(
         player.original_potential,
         z,
     );
-    let fits = if knack >= ethnicity::SNAPPER_KNACK { crate::positions::Position::LS } else { player.position };
+    let fits = if knack { crate::positions::Position::LS } else { player.position };
     let ethnicity = ethnicity::player_ethnicity(s, z, Some(fits), &mut rng);
     // Grades drift through high school: effort pushes them up.
     let gpa_trend =

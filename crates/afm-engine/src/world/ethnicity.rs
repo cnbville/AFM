@@ -217,9 +217,9 @@ fn level_lean(e: Ethnicity) -> f64 {
 }
 
 const PART_BLACK: f64 = 1.5;
-const LEAN_BLACK: f64 = 2.17;
+const LEAN_BLACK: f64 = 1.96;
 const PART_HISPANIC: f64 = 0.65;
-const LEAN_HISPANIC: f64 = -1.89;
+const LEAN_HISPANIC: f64 = -2.20;
 /// The talent draws over which the lean grows from none to full (an
 /// average boy's draw is 0; FBS players' median is about 1.9).
 const LEAN_RAMP: (f64, f64) = (0.5, 1.4);
@@ -230,15 +230,20 @@ const ODDS_RAMP: (f64, f64) = (1.0, 3.0);
 /// A boy with a long snapper's knack draws with the snapper's odds (A25):
 /// nobody's body is built as a snapper; the camps find the best snappers
 /// among the other positions as seniors (`recruiting.rs`, from his long
-/// snapping and his talent), and real snappers are 94% white. His knack is
-/// his long snapping ceiling over his talent, a little more for more
-/// talent; at this mark it takes in 95% of the boys the camps later make
-/// snappers, and about 4% of all boys.
-pub const SNAPPER_KNACK: f64 = 1.35;
+/// snapping, among boys no one recruits at another spot), and real
+/// snappers are 94% white. His knack is his long snapping ceiling over his
+/// talent, a little more for more talent; a boy talented enough to be
+/// recruited as a regular (`SNAPPER_TOP`) is left out. At this mark it takes
+/// in 92% of the boys the camps later make snappers, and about 4% of all
+/// boys.
+pub const SNAPPER_KNACK: f64 = 1.25;
+/// The talent draw from which a boy is recruited as a regular, not as a
+/// snapper (95% of the world's snappers are below it).
+const SNAPPER_TOP: f64 = 2.6;
 
-/// The snapper's knack read at creation (see `SNAPPER_KNACK`).
-pub fn snapper_knack(long_snapping_ceiling: f64, talent: f64, talent_z: f64) -> f64 {
-    long_snapping_ceiling / talent.max(1.0) * (0.2 * talent_z).exp()
+/// Whether a boy has a snapper's knack when he is made (see `SNAPPER_KNACK`).
+pub fn snapper_knack(long_snapping_ceiling: f64, talent: f64, talent_z: f64) -> bool {
+    talent_z < SNAPPER_TOP && long_snapping_ceiling / talent.max(1.0) * (0.1 * talent_z).exp() >= SNAPPER_KNACK
 }
 
 /// How much likelier a group is at a position than its share of the boys
@@ -250,34 +255,36 @@ pub fn snapper_knack(long_snapping_ceiling: f64, talent: f64, talent_z: f64) -> 
 /// `ODDS_LOW` reads at an FCS player's talent, `ODDS_HIGH` at an NFL
 /// player's. Real stacking grows with the level at receiver, linebacker and
 /// the line (receivers 52% Black at FCS, 64% at FBS, 77% in the NFL, against
-/// 45%, 49% and 54% overall), so one table can't fit every level. Boys who
-/// stay in high school read the low table (A21). The snapper row is the
-/// measured one, firmed up so final snappers land at 93% white.
+/// 45%, 49% and 54% overall), so one table can't fit every level. The high
+/// table's Black column also sits low against the lean, which keeps the
+/// NFL near 53.5% Black while FBS is at 48.9%. Boys who stay in high school
+/// read the low table (A21). The snapper row is the measured one, firmed
+/// up so final snappers land at 91% white.
 const ODDS_LOW: [[f64; 4]; 11] = [
-    [1.59, 0.32, 1.12, 0.74],
-    [0.44, 1.85, 0.33, 0.58],
-    [0.92, 0.90, 0.70, 0.53],
-    [1.31, 0.24, 0.28, 0.63],
-    [1.28, 0.40, 1.53, 1.53],
-    [0.51, 0.86, 0.50, 1.84],
-    [1.05, 0.70, 0.45, 1.11],
-    [0.30, 2.36, 0.28, 0.58],
-    [5.23, 0.011, 12.26, 1.42],
-    [1.90, 0.011, 0.012, 0.11],
-    [3.03, 0.022, 0.88, 0.58],
+    [1.42, 0.32, 1.16, 0.74],
+    [0.51, 1.60, 0.35, 0.58],
+    [1.04, 0.92, 0.84, 0.53],
+    [1.27, 0.25, 0.28, 0.63],
+    [1.25, 0.40, 1.68, 1.53],
+    [0.73, 1.12, 0.74, 1.84],
+    [1.11, 0.77, 0.53, 1.11],
+    [0.40, 2.17, 0.32, 0.58],
+    [3.44, 0.011, 9.14, 1.42],
+    [1.57, 0.011, 0.013, 0.11],
+    [2.81, 0.010, 0.88, 0.58],
 ];
 const ODDS_HIGH: [[f64; 4]; 11] = [
-    [2.36, 0.20, 0.22, 0.74],
-    [0.29, 1.05, 0.92, 0.58],
-    [0.25, 0.82, 0.26, 0.53],
-    [1.78, 0.11, 0.011, 0.63],
-    [1.75, 0.22, 1.14, 1.53],
-    [0.098, 0.52, 0.038, 1.84],
-    [0.57, 0.51, 0.038, 1.11],
-    [0.026, 1.67, 0.12, 0.58],
-    [6.72, 0.009, 16.22, 1.42],
-    [4.09, 0.009, 7.11, 0.11],
-    [3.03, 0.022, 0.88, 0.58],
+    [2.11, 0.16, 0.33, 0.74],
+    [0.45, 0.57, 0.79, 0.58],
+    [0.38, 0.50, 0.31, 0.53],
+    [1.65, 0.10, 0.072, 0.63],
+    [1.65, 0.19, 1.20, 1.53],
+    [0.29, 0.32, 0.11, 1.84],
+    [0.73, 0.34, 0.17, 1.11],
+    [0.25, 0.63, 0.17, 0.58],
+    [5.42, 0.009, 14.51, 1.42],
+    [3.63, 0.009, 8.70, 0.11],
+    [2.81, 0.010, 0.88, 0.58],
 ];
 
 /// Where a talent draw sits on a ramp, 0 to 1.

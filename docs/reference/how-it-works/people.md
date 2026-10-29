@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28.
+Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28; the ethnicity section with update 3 lane 17 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -262,6 +262,17 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - Placing a player (C16, `place_player`): at a college, a player who doesn't start, to a coach at 0.2 warmth or more at a smaller program; he refuses when his lean is under 0.03 and your roster isn't over the limit. The friend's `sent` count and his favour balance go up.
 - A steered transfer at a high school (C18, `c18_week`): March-June Thursdays, an eighth of the weeks, once a year, a camp man or trainer in your state at 0.3 or more offers a 15-16 year old from another school, his best by his read. Taking him logs promises to start him and give him the ball; every state uses California's undue influence rule (CIF Bylaw 510) for now: ruled so two times in five, he sits a year and you lose half a point of standing. A broken promise costs you 0.3 warmth with the man who sent him (`steered_check`).
 
+## Ethnicity by position and level (update 3, lane 17)
+
+`world/ethnicity.rs`, `player_ethnicity`, called from `world/mod.rs` (`new_kid`) and `world/pro/mod.rs` (`veteran`). It never changes a rating; it picks his name and face.
+
+- **When**: once, when he is made, after his body, ratings and natural position (`athlete::create`). A later move keeps it, so a boy built like a back who ends up a linebacker carries back odds (A25).
+- **The weights**: his home state's child mix (`STATE_SHARES`) x how often each group plays (`participation`: white 1, Black 1.5, Hispanic 0.65, Polynesian 2.5, Asian 0.3) x a talent lean x his position's odds.
+- **The talent lean** (A23): `exp(level_lean x ramp)`, the ramp running from talent draw 0.5 (none) to 1.4 (full; an average boy is 0). Black +2.17, Hispanic -1.89, Polynesian +0.95, Asian -0.6. It levels off past college because real rosters change a lot from high school to FBS and little after: FBS 48.9% Black and 2.7% Hispanic, the NFL 53.5% Black (A23 targets).
+- **The position odds** (A20-A22): `ODDS_LOW` and `ODDS_HIGH` (white, Black, Hispanic, Asian or Pacific Islander, by QB, RB, WR, TE, OL, DL, LB, DB, K, P, LS), blended by talent from draw 1.0 (low) to 3.0 (high). Started from the FBS table in `afm/race-check/report.md` and tuned on the world's final rosters, because stacking grows with the level (receivers 52% Black at FCS, 64% at FBS, 77% in the NFL). Polynesian players read the Asian and Pacific Islander column; the three Asian American groups get no odds. An athlete from another sport (`scouting/own.rs`) has no position and no odds.
+- **Long snappers**: no boy is built as one, so a boy with the knack draws with the snapper row: `snapper_knack` = long snapping ceiling / talent x exp(0.2 x talent draw), at least 1.35 (`SNAPPER_KNACK`; about 4% of boys, 95% of those the camps later make snappers).
+- **Measured** (the 3-year test world, seed 7, on final rosters; `tests/world.rs`, `each_position_has_its_real_race_mix`, which checks FBS within 5 points of real at every position and FCS and the NFL within 8): see `afm/race-check/report.md`, "After lane 17". High school comes out about 31% Black and 10% Hispanic (no national source; it was 24% and 15% before lane 17).
+
 ## Where the knobs are
 
 - `player.rs`: `Traits::draw` correlations, `draw_aura` (0.2, 0.15).
@@ -274,6 +285,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - `world/folk/rules.rs`: `risk` terms, weekly bases, `see`, `nfl_fine`, `trouble_factor`, hit-fine odds 0.0055.
 - `world/folk/press.rs`: answer effects. `world/folk/cast.rs`: reporter draws.
 - `world/fame.rs`: `position_draw`, `market_households`, `aura_mult`, `brand_money` (80M, 4M, ^4), `follower_target`, `reach`.
+- `world/ethnicity.rs`: `participation`, `level_lean`, `LEAN_RAMP`, `ODDS_RAMP`, `ODDS_LOW`, `ODDS_HIGH`, `SNAPPER_KNACK`.
 
 ## Related pages
 

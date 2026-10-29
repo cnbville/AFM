@@ -696,7 +696,8 @@ fn the_storylines_tell_the_seasons() {
 /// (`afm/race-check/report.md`), FBS and the NFL scaled to the published
 /// level mix (NCAA 2023 and TIDES: FBS 48.9% Black and 2.7% Hispanic, the
 /// NFL 53.5% Black). Rows: QB, RB, WR, TE, OL, DL, LB, DB, K, P, LS, as
-/// (white, Black).
+/// (white, Black). A group too small for that (NFL kickers, punters and
+/// snappers) gets 2.5 standard errors of its sampling spread.
 #[test]
 fn each_position_has_its_real_race_mix() {
     use afm_engine::positions::Position;
@@ -782,7 +783,7 @@ fn each_position_has_its_real_race_mix() {
     }
     let mut off = Vec::new();
     for (level, (name, real, margin)) in
-        [("FBS", FBS, 5.0), ("FCS", FCS, 8.0), ("NFL", NFL, 8.0)].into_iter().enumerate()
+        [("FBS", FBS, 5.0_f64), ("FCS", FCS, 8.0), ("NFL", NFL, 8.0)].into_iter().enumerate()
     {
         for g in 0..11 {
             let (all, white, black) = n[level][g];
@@ -792,7 +793,10 @@ fn each_position_has_its_real_race_mix() {
                 "{name} {:3} {all:5}: white {ws:4.1} (real {:.0}), Black {bs:4.1} (real {:.0})",
                 NAMES[g], real[g].0, real[g].1
             );
-            if (ws - real[g].0).abs() > margin || (bs - real[g].1).abs() > margin {
+            // A small group can't sit closer to real than its own sampling
+            // spread (the NFL has about 55 kickers): 2.5 standard errors.
+            let room = |real: f64| margin.max(2.5 * (real * (100.0 - real) / f64::from(all.max(1))).sqrt());
+            if (ws - real[g].0).abs() > room(real[g].0) || (bs - real[g].1).abs() > room(real[g].1) {
                 off.push(format!("{name} {} white {ws:.1} Black {bs:.1} of {all}", NAMES[g]));
             }
         }
