@@ -859,7 +859,7 @@ fn phases(
                         .count();
                     let regular = if regular == 0 && f.tier == Tier::Pro { nfl_regular_weeks(s) - 1 } else { regular };
                     if regular > 0 {
-                        name = format!("Season · {regular} games");
+                        name = format!("Season · {regular} {}", afm_engine::world::folk::noun(regular, "game"));
                     }
                 }
                 (name, l)
@@ -867,7 +867,11 @@ fn phases(
             None => {
                 // A club in another league: its season from its games.
                 let on = games.first().is_some_and(|a| d >= a.date) && games.last().is_some_and(|z| d <= z.date);
-                if on { (format!("Season · {} games", games.len()), 3) } else { ("Offseason".into(), 1) }
+                if on {
+                    (format!("Season · {} {}", games.len(), afm_engine::world::folk::noun(games.len(), "game")), 3)
+                } else {
+                    ("Offseason".into(), 1)
+                }
             }
         };
         match segs.last_mut() {
@@ -1317,7 +1321,7 @@ fn ahead(w: &World, t: TeamRef, lv: Lv, games: &[MyGame], ys: &mut Years) -> Vec
                 dates.push((
                     y.signing_day,
                     "National signing day".into(),
-                    format!("{seniors} seniors on your roster"),
+                    format!("{seniors} {} on your roster", afm_engine::world::folk::noun(seniors, "senior")),
                     None,
                 ));
             }

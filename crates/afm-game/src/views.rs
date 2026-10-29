@@ -2426,7 +2426,15 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
             let fouls: Vec<String> = r
                 .penalties
                 .iter()
-                .map(|(f, _, id, y, _)| format!("{} on {}, {} yards", f.name(), name(*id), y.round()))
+                .map(|(f, _, id, y, _)| {
+                    format!(
+                        "{} on {}, {} {}",
+                        f.name(),
+                        name(*id),
+                        y.round(),
+                        afm_engine::world::folk::noun(y.round() as i64, "yard")
+                    )
+                })
                 .collect();
             format!("Penalty before the snap: {}", fouls.join("; "))
         }
@@ -2469,10 +2477,11 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
     if r.kind != PlayType::NoPlay {
         for (f, _, id, y, accepted) in &r.penalties {
             t.push_str(&format!(
-                ". Flag: {} on {}, {} yards{}",
+                ". Flag: {} on {}, {} {}{}",
                 f.name(),
                 name(*id),
                 y.round(),
+                afm_engine::world::folk::noun(y.round() as i64, "yard"),
                 if *accepted { "" } else { ", declined" }
             ));
         }

@@ -1895,7 +1895,12 @@ impl<'a> Game<'a> {
             } else if onside {
                 "Onside kick recovered by the receiving team.".into()
             } else {
-                format!("Returned {:.0} yards by #{}.", kr.return_yards, kr.returner.unwrap_or(0))
+                format!(
+                    "Returned {:.0} {} by #{}.",
+                    kr.return_yards,
+                    crate::world::folk::noun(kr.return_yards.round_ties_even() as i64, "yard"),
+                    kr.returner.unwrap_or(0)
+                )
             };
         }
         self.down = 1;
@@ -4432,7 +4437,13 @@ impl<'a> Game<'a> {
         if pen {
             for p in &r.penalties {
                 if p.4 {
-                    w.push_str(&format!(" Penalty: {} on {}, {:.0} yards.", p.0.name(), label(p.2), p.3));
+                    w.push_str(&format!(
+                        " Penalty: {} on {}, {:.0} {}.",
+                        p.0.name(),
+                        label(p.2),
+                        p.3,
+                        crate::world::folk::noun(p.3.round_ties_even() as i64, "yard")
+                    ));
                 }
             }
         }

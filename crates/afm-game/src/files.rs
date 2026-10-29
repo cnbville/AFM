@@ -1,9 +1,10 @@
 //! World and save files (section 8, topic 3). The format is the engine's
 //! (`afm_engine::save`, agreed with the world-building thread): an
 //! `AFMWORLD` header, a format version, a JSON block about the world, then
-//! the whole world as named MessagePack through zstd. Named fields let an
-//! older file load into a newer game: what a newer game added fills in at
-//! load (`World::after_load`).
+//! the world as named MessagePack through zstd, in parts packed and read on
+//! every core (format 2, update 3) or as one stream (format 1, still read).
+//! Named fields let an older file load into a newer game: what a newer game
+//! added fills in at load (`World::after_load`).
 
 use std::path::{Path, PathBuf};
 
@@ -81,6 +82,17 @@ pub fn import_world(path: &Path, worlds: &Path) -> Result<PathBuf, String> {
     if let Err(e) = made {
         let _ = std::fs::remove_file(&part);
         return Err(e);
+    }
+    // The world's log (world reader) comes along when it sits beside the
+    // world; one from an older build of the same world goes.
+    let (log, to_log) = (crate::world_log::beside(&path.with_file_name(whole)), crate::world_log::beside(&to));
+    if to_log.exists() {
+        let _ = std::fs::remove_dir_all(&to_log);
+    }
+    if log.join("meta.json").exists()
+        && let Err(e) = afm_engine::world::wlog::mirror(&log, &to_log)
+    {
+        eprintln!("world log: not imported ({e})");
     }
     Ok(to)
 }

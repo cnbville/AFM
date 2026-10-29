@@ -163,6 +163,14 @@ fn nfl_line(w: &World, i: usize) -> Option<&crate::game::stats::StatLine> {
 
 const NUM_NAMES: [&str; 5] = ["passing yards", "rushing yards", "receiving yards", "sacks", "interceptions"];
 
+/// A season count in words: "1 interception", "1,204 passing yards".
+fn num_text(v: f64, k: usize) -> String {
+    let n = v.round() as u32;
+    let name = NUM_NAMES[k];
+    let name = if n == 1 { name.strip_suffix('s').unwrap_or(name) } else { name };
+    format!("{} {name}", crate::world::folk::facts::thousands(n))
+}
+
 /// The NFL stats the record book keeps (`pro::honors`).
 pub(crate) const NFL_STATS: [&str; 10] = [
     "passing yards",
@@ -1141,13 +1149,7 @@ fn college_rises(w: &mut World) {
         if kind != K::TwoWay {
             let v = season_nums(w, i).map_or(0.0, |n| n[k]);
             s = s.fact(
-                format!(
-                    "{} has {} {} this season, No. {} in the country.",
-                    pname(w, i),
-                    crate::world::folk::facts::thousands(v.round() as u32),
-                    NUM_NAMES[k],
-                    r + 1
-                ),
+                format!("{} has {} this season, No. {} in the country.", pname(w, i), num_text(v, k), r + 1),
                 3.0,
             );
         }
@@ -1373,16 +1375,7 @@ fn nfl_rises(w: &mut World) {
         let v = season_nums(w, i).map_or(0.0, |n| n[k]);
         let s = player_spot(w, kind, i)
             .nums([0, r as i32 + 1, k as i32, 0])
-            .fact(
-                format!(
-                    "{} has {} {} this season, No. {} in the league.",
-                    pname(w, i),
-                    crate::world::folk::facts::thousands(v.round() as u32),
-                    NUM_NAMES[k],
-                    r + 1
-                ),
-                3.0,
-            )
+            .fact(format!("{} has {} this season, No. {} in the league.", pname(w, i), num_text(v, k), r + 1), 3.0)
             .public();
         tell(w, s);
     }

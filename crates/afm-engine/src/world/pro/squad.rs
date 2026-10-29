@@ -459,9 +459,10 @@ pub(crate) fn settle_injury(w: &mut World, t: usize, i: usize) {
     let p = &mut w.people[i];
     let age = p.row_age();
     p.note(format!(
-        "Released by the {name} at {age} with an injury settlement (${:.0}K for about {} weeks).",
+        "Released by the {name} at {age} with an injury settlement (${:.0}K for about {} {}).",
         owed / 1e3,
-        weeks as u32
+        weeks as u32,
+        crate::world::folk::noun(weeks as u32, "week")
     ));
     w.market.year_mut(year).settlements += 1;
 }
