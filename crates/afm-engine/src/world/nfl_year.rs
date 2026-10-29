@@ -486,6 +486,17 @@ fn old_formula(s: &NflSeason, season: i32, games: u32, seed: u64) -> Vec<(usize,
             need[t] -= before[t] - q[t];
         }
     }
+    // A league past 32 clubs (SK68) can leave two clubs short with no
+    // opponent left they haven't met: they meet a second time, outside
+    // their division where they can.
+    while teams.len() > 32 {
+        let short: Vec<usize> = (0..n).filter(|&t| need[t] > 0).collect();
+        let [a, ref rest @ ..] = short[..] else { break };
+        let Some(&b) = rest.iter().find(|&&b| s.div[b] != s.div[a]).or(rest.first()) else { break };
+        edges.push((a, b));
+        need[a] -= 1;
+        need[b] -= 1;
+    }
     // Home and away: the side with fewer home games so far hosts, then
     // lopsided teams swap games until no swap helps.
     let mut bal = vec![0i32; n];
@@ -1260,7 +1271,7 @@ fn relocate(w: &mut World, d: Date, rng: &mut crate::rng::Rng) {
 }
 
 /// Schedule release in May: the season's games by the formula.
-fn build_schedule(w: &mut World, d: Date) {
+pub(crate) fn build_schedule(w: &mut World, d: Date) {
     let season = w.year;
     let games = w.rules.nfl_games;
     let n_weeks = w.dates.nfl_weeks.len();
@@ -1346,7 +1357,8 @@ type WeekSlots = (Vec<Vec<(usize, usize)>>, Vec<Vec<Slot>>);
 /// and kickoff, abroad where it really is. Any other year, or a league that
 /// no longer matches it (a relocation), uses the formula.
 fn real_schedule(w: &World, season: i32, n_weeks: usize) -> Option<WeekSlots> {
-    if season != 2026 {
+    // The real 2026 schedule, unless the league has grown (SK68).
+    if season != 2026 || w.expansion.clubs.iter().any(|c| c.first <= season) {
         return None;
     }
     let idx = |name: &str| w.nfl.iter().position(|t| t.name == name);

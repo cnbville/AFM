@@ -41,21 +41,28 @@ fn expansion_clubs_draft_their_squads_and_play_a_full_schedule() {
     nfl::day(&mut w, d);
     for &t in &new {
         let n = w.clubs[t].roster.len();
-        assert!((20..=42).contains(&n), "club {t} drafted {n}");
+        assert!((15..=42).contains(&n), "club {t} drafted {n} (Houston took 19 in 2002, Carolina 35 in 1995)");
         assert!(w.expansion.club(t).is_some_and(|c| c.drafted));
     }
-    // Their first draft: the new clubs pick first and last in alternate rounds.
+    // Their first draft: two picks a round each, at the top and the bottom
+    // (1995), swapping order each round.
     let base: Vec<usize> = franchise::active_teams_in(&w, year).into_iter().filter(|t| !new.contains(t)).collect();
     let r1 = franchise::round_order(year, 1, &base, &new);
     assert_eq!(&r1[..2], &new[..], "the new clubs pick first in round 1");
+    assert_eq!(&r1[r1.len() - 2..], &[new[1], new[0]], "and last");
+    assert_eq!(r1.len(), base.len() + 4);
     let r2 = franchise::round_order(year, 2, &base, &new);
     assert_eq!(&r2[..2], &[new[1], new[0]], "and swap in round 2");
-    assert_eq!(r1.len(), base.len() + 2);
-    // A season with 34 clubs: every club plays 17 games.
-    let s = crate::world::nfl_year::new_season(&w);
+    // A season with 34 clubs: every club plays a full schedule.
+    w.rules = w.changes.rules(year);
+    let games = w.rules.nfl_games as usize;
+    w.nfl_season = Some(crate::world::nfl_year::new_season(&w));
+    let d = w.dates.schedule_release;
+    crate::world::nfl_year::build_schedule(&mut w, d);
+    let s = w.nfl_season.as_ref().unwrap();
     for &t in &franchise::active_teams_in(&w, year) {
-        let games = s.weeks.iter().flatten().filter(|g| g.0 == t || g.1 == t).count();
-        assert_eq!(games, 17, "club {t} has {games} games");
+        let n = s.weeks.iter().flatten().filter(|g| g.0 == t || g.1 == t).count();
+        assert_eq!(n, games, "club {t} has {n} games");
     }
 }
 
@@ -123,11 +130,11 @@ fn new_teams_come_at_real_rates() {
     // About six colleges a year (NFF), from a pool that lasts decades.
     let pool = ground_zero::college_candidates(&w).len();
     assert!(pool >= 200, "candidate colleges: {pool}");
-    // High schools: half the school-age growth of the growing states.
+    // High schools: the school-age growth of the growing states.
     let mean: f64 = (0..w.states.len())
         .map(|s| {
             let publics = w.states[s].schools.iter().filter(|&&h| !w.high_schools[h].private).count();
-            0.5 * publics as f64 * school::young_growth(s)
+            publics as f64 * school::young_growth(s)
         })
         .sum();
     eprintln!("new high schools a year: {mean:.1}");

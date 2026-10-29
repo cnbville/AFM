@@ -24,9 +24,11 @@ const GROWTH: [f64; 51] = [
 /// its total.
 const YOUNG_GAP: f64 = 8.8;
 
-/// The share of a state's school-age growth that new buildings take (the
-/// rest fills the schools it has; proposed, not confirmed).
-const NEW_BUILDING_SHARE: f64 = 0.5;
+/// The share of a state's school-age growth that new buildings take
+/// (proposed, not confirmed: all of it. The growth lands in suburbs whose
+/// schools are full, while the room that shrinking towns free up is too
+/// far away to use).
+const NEW_BUILDING_SHARE: f64 = 1.0;
 
 /// The share of the old zone the new school takes (proposed, not
 /// confirmed: a new suburban school opens at about two fifths of its
