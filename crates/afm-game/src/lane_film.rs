@@ -188,32 +188,31 @@ fn home(w: &World) -> Value {
     let ethic = time::ethic(w);
     let fresh = 3.0 + 0.1 * (ethic - 10.0);
     let wear = fr.wear;
-    let queue: Vec<Value> = fr
-        .queue
-        .iter()
-        .enumerate()
+    // What waits, in the queue's order (Up and Down move it), then the
+    // newest of what's done; a man gone from the game drops off.
+    let waiting = fr.queue.iter().enumerate().filter(|(_, q)| q.state == fm::queue::WAITING);
+    let done = fr.queue.iter().enumerate().rev().filter(|(_, q)| q.state != fm::queue::WAITING);
+    let queue: Vec<Value> = waiting
+        .chain(done)
+        .filter_map(|(k, q)| sc::place(w, q.id).map(|i| (k, q, &w.people[i])))
         .take(14)
-        .map(|(k, q)| {
-            let i = sc::place(w, q.id);
-            let p = i.map(|i| &w.people[i]);
+        .map(|(k, q, p)| {
             json!({
                 "k": k,
                 "id": q.id,
-                "name": p.map_or(String::new(), |p| p.name.clone()),
-                "pos": p.map_or("", |p| p.player.position.name()),
-                "meta": p.map(|p| school_line(w, p)).unwrap_or_default(),
+                "name": p.name,
+                "pos": p.player.position.name(),
+                "meta": school_line(w, p),
                 "from": q.from,
                 "job": q.job,
                 "why": q.why,
                 "by": dt(q.by),
                 "cut": q.cut.key(),
-                "cut_words": p.map_or("", |p| q.cut.words(p.player.position)),
+                "cut_words": q.cut.words(p.player.position),
                 "state": q.state,
             })
         })
         .collect();
-    let mut queue = queue;
-    queue.sort_by_key(|q| q["state"].as_u64().unwrap_or(0));
     let reports: Vec<Value> = fr
         .reports
         .iter()
