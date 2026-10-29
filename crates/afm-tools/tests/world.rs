@@ -689,3 +689,113 @@ fn the_storylines_tell_the_seasons() {
     eprintln!("{lines} told lines, {} told twice to the same person in a season", twice.len());
     assert!(twice.is_empty(), "lines told twice to the same person in a season: {:?}", &twice[..twice.len().min(8)]);
 }
+
+/// A24: every position's race mix on the final rosters is the real one
+/// (A20-A23): FBS within 5 points of the real white and Black shares, FCS
+/// and the NFL within 8. Real: 2025 rosters with race estimated from names
+/// (`afm/race-check/report.md`), FBS and the NFL scaled to the published
+/// level mix (NCAA 2023 and TIDES: FBS 48.9% Black and 2.7% Hispanic, the
+/// NFL 53.5% Black). Rows: QB, RB, WR, TE, OL, DL, LB, DB, K, P, LS, as
+/// (white, Black).
+#[test]
+fn each_position_has_its_real_race_mix() {
+    use afm_engine::positions::Position;
+    use afm_engine::world::Stage;
+    use afm_engine::world::ethnicity::Ethnicity;
+    const NAMES: [&str; 11] = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "DB", "K", "P", "LS"];
+    const FBS: [(f64, f64); 11] = [
+        (73.0, 21.0),
+        (23.0, 74.0),
+        (33.0, 64.0),
+        (80.0, 18.0),
+        (63.0, 29.0),
+        (32.0, 62.0),
+        (48.0, 48.0),
+        (20.0, 78.0),
+        (84.0, 2.0),
+        (94.0, 3.0),
+        (93.0, 3.0),
+    ];
+    const FCS: [(f64, f64); 11] = [
+        (73.0, 24.0),
+        (31.0, 67.0),
+        (46.0, 52.0),
+        (77.0, 21.0),
+        (68.0, 26.0),
+        (42.0, 52.0),
+        (55.0, 42.0),
+        (25.0, 72.0),
+        (84.0, 2.0),
+        (98.0, 0.0),
+        (92.0, 6.0),
+    ];
+    const NFL: [(f64, f64); 11] = [
+        (73.0, 27.0),
+        (21.0, 78.0),
+        (21.0, 77.0),
+        (74.0, 23.0),
+        (66.0, 30.0),
+        (22.0, 70.0),
+        (36.0, 60.0),
+        (14.0, 85.0),
+        (91.0, 0.0),
+        (96.0, 0.0),
+        (95.0, 0.0),
+    ];
+    let group = |p: Position| match p {
+        Position::QB => 0,
+        Position::RB => 1,
+        Position::WR => 2,
+        Position::TE => 3,
+        Position::OT | Position::IOL => 4,
+        Position::EDGE | Position::DT => 5,
+        Position::LB => 6,
+        Position::CB | Position::S => 7,
+        Position::K => 8,
+        Position::P => 9,
+        Position::LS => 10,
+    };
+    let w = &*WORLD;
+    // [level][group] = (players, white, Black)
+    let mut n = [[(0u32, 0u32, 0u32); 11]; 3];
+    let mut add = |level: usize, i: usize| {
+        let q = &w.people[i];
+        let c = &mut n[level][group(q.player.position)];
+        c.0 += 1;
+        c.1 += u32::from(q.ethnicity == Ethnicity::White);
+        c.2 += u32::from(q.ethnicity == Ethnicity::Black);
+    };
+    for p in &w.programs {
+        let level = match p.division {
+            Division::FBS => 0,
+            Division::FCS => 1,
+            _ => continue,
+        };
+        for &i in &p.roster {
+            add(level, i);
+        }
+    }
+    for (i, q) in w.people.iter().enumerate() {
+        if q.stage == Stage::Pro && q.pro.as_ref().is_some_and(|c| c.team.is_some()) {
+            add(2, i);
+        }
+    }
+    let mut off = Vec::new();
+    for (level, (name, real, margin)) in
+        [("FBS", FBS, 5.0), ("FCS", FCS, 8.0), ("NFL", NFL, 8.0)].into_iter().enumerate()
+    {
+        for g in 0..11 {
+            let (all, white, black) = n[level][g];
+            let share = |k: u32| 100.0 * f64::from(k) / f64::from(all.max(1));
+            let (ws, bs) = (share(white), share(black));
+            eprintln!(
+                "{name} {:3} {all:5}: white {ws:4.1} (real {:.0}), Black {bs:4.1} (real {:.0})",
+                NAMES[g], real[g].0, real[g].1
+            );
+            if (ws - real[g].0).abs() > margin || (bs - real[g].1).abs() > margin {
+                off.push(format!("{name} {} white {ws:.1} Black {bs:.1} of {all}", NAMES[g]));
+            }
+        }
+    }
+    assert!(off.is_empty(), "positions off their real mix: {off:?}");
+}
