@@ -161,7 +161,8 @@ fn games(dir: &std::path::Path, years: u32) {
     for level in ["college", "nfl", "other", "hs"] {
         assert!(situ.iter().any(|r| r["level"] == level), "no {level} situation totals");
     }
-    let keys: Vec<&str> = situ.iter().flat_map(|r| r["keys"].as_object().unwrap().keys().map(String::as_str)).collect();
+    let keys: Vec<&str> = situ.iter().map(|r| r["key"].as_str().unwrap()).collect();
+    assert!(situ.iter().all(|r| r["v"].as_array().is_some_and(|v| v.len() == 8)));
     for key in ["run gap|", "real pass rate|", "garbage|", "backfield|", "kick result|", "call|"] {
         assert!(keys.iter().any(|k| k.starts_with(key)), "no {key} keys");
     }

@@ -131,7 +131,7 @@ pub const KINDS: &[(&str, &str)] = &[
     ),
     (
         "situations",
-        "Each level's plays summed by situation key (lane R1): college by division, the pro leagues by league, high school by state with its play names under all. A season's totals are the sum of its records (one at the year's close, more when a save cuts it).",
+        "Each level's plays summed by situation key (lane R1), one record per key with its eight totals (v: plays, yards, EPA, successes, first downs, touchdowns, turnovers, the extra): college by division, the pro leagues by league, high school by state with its play names under all. A season's totals are the sum of its records (written at the year's close, and at each save for what came before it).",
     ),
     (
         "team-situations",

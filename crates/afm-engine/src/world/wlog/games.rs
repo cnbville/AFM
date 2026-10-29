@@ -421,22 +421,28 @@ impl WorldLog {
         }
     }
 
-    /// Writes the situation totals held (one record per group and per
-    /// team, keys in order) and drops them.
+    /// Writes the situation totals held and drops them: one record per
+    /// key, `v` its eight totals, under its season, level and group
+    /// (`situations`) or team (`team-situations`), in order.
     pub(crate) fn write_totals(&mut self) {
         let t = std::mem::take(&mut self.totals);
-        let keys = |m: HashMap<String, Situ>| -> BTreeMap<String, Vec<f64>> {
-            m.into_iter().map(|(k, v)| (k, v.iter().map(|x| (x * 100.0).round() / 100.0).collect())).collect()
-        };
+        let v = |x: Situ| -> Vec<f64> { x.iter().map(|x| (x * 100.0).round() / 100.0).collect() };
+        let sorted = |m: HashMap<String, Situ>| -> BTreeMap<String, Situ> { m.into_iter().collect() };
         let mut league: Vec<_> = t.league.into_iter().collect();
         league.sort_by(|a, b| a.0.cmp(&b.0));
         for ((season, level, group), m) in league {
-            self.put("situations", &json!({ "season": season, "level": level, "group": group, "keys": keys(m) }));
+            for (key, x) in sorted(m) {
+                let rec = json!({ "season": season, "level": level, "group": group, "key": key, "v": v(x) });
+                self.put("situations", &rec);
+            }
         }
         let mut team: Vec<_> = t.team.into_iter().collect();
         team.sort_by(|a, b| a.0.cmp(&b.0));
         for ((season, level, team), m) in team {
-            self.put("team-situations", &json!({ "season": season, "level": level, "team": team, "keys": keys(m) }));
+            for (key, x) in sorted(m) {
+                let rec = json!({ "season": season, "level": level, "team": team, "key": key, "v": v(x) });
+                self.put("team-situations", &rec);
+            }
         }
     }
 }
