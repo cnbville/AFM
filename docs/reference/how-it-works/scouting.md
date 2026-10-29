@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at e66acb3 with update 3 lane 5 on 2026-10-28.
+Checked against main at 21ae52c with the Continue stops fix on 2026-10-29.
 
 ## Quick answers
 
@@ -231,7 +231,7 @@ Your own side (`world/scouting/own.rs`; the commands in `crates/afm-game/src/lan
 - College personnel (SK7): `personnel_market` (12 keyed candidates with their past programs and look-backs), `hire_personnel`, `let_go_personnel`; your staff overrides `readers::personnel` once changed (`keyed_personnel` is the program's own); a year on each July 1 (`grow_personnel`).
 - Your days out (SK12-SK13): `trip_kinds` and `trip_day` (the seat's rules above), `go`, `take_trips` (the look under your code, or the man you sent). Seen (`leak`): an NFL head man's trip plants a `predraft::Leak`; a college coach's adds 0.05 visibility a trip, 0.1 at most for a year (`seen_lift`, read in `recruiting.rs`'s pool).
 - Your eye (SK14): `credit_eye` each September 2, 0.04 for a settled look of yours that held, 0.06 for a miss, three points at most, added to your evaluation.
-- Interviews (SK15): `rooms` (combine 15 minutes, 18 from 2020, for a declared player on your interview list; top-30 visit 60 in March and April; official visit 45), `interview` (answers from `lines::interview_answer` by `answer_band`; the whiteboard quiz out of 6 on football IQ and recognition), `interview_traits` (each topic's traits, misread 2.4 × √(6 / minutes) × sharp(your relationships), shaded by 0.6 × `polish`), applied in `readers::read` for your seat.
+- Interviews (SK15): `rooms` (combine 15 minutes, 18 from 2020, for a declared player on your interview list; top-30 visit 60 from the first pro day to the visits' deadline, eight days before round 1 (`top30_deadline`); official visit 45), `interview` (answers from `lines::interview_answer` by `answer_band`; the whiteboard quiz out of 6 on football IQ and recognition), `interview_traits` (each topic's traits, misread 2.4 × √(6 / minutes) × sharp(your relationships), shaded by 0.6 × `polish`), applied in `readers::read` for your seat.
 - Meetings (SK16): `meeting_today`, `hold_meeting` (top 60, 4+ points apart, 12 items: an NFL room down its board, a college staff the twelve its high men read highest; the presenter's conviction shows only as words, "pounds the table" at 15 and up, "hedges" at 6 and under), `settle` (three board places a point; college through `front_office::college::reorder`), `meeting_record`.
 - Minimums (SK17): `set_minimum`, `under` (measured at the combine, a pro day, your camp or a workout, else the listed height and weight); AI GMs' by key (`ai_minimums`, a third hold one, 12% two) in `scouts::board_from` (do not draft); college head coaches' height and weight lines in `run_signing_stage`; yours at your club or program the same way when set to drop.
 - Services (SK18): `service_of` (36% National, 30% BLESTO by club and decade; yours once set), `service_grade` (7 + (read - division - 78) / 4 on 1.0-9.0), the member clubs' fall lists in `scouts::fall` (the service's top `slots × 5`), a lent scout at 60% of his calls, non-members at 112%.

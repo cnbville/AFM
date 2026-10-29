@@ -7,7 +7,9 @@
 //! state's child population, how often each group plays high school football,
 //! and the real shares in FBS (NCAA 2023: 48.9% Black). Because those shares
 //! differ by level, the draw leans on how far the player will go; his ratings
-//! never depend on it.
+//! never depend on it. It also reads the position his body fits when he is
+//! made (A20, A25): real rosters stack groups by position (FBS running
+//! backs 77% Black, kickers 88% white), and his ratings are built first.
 //!
 //! Asian Americans are three groups (faces item F4, so a face matches its
 //! name): East Asian (Chinese, Korean, Japanese), Southeast Asian
@@ -18,6 +20,7 @@
 //! seed's White, Black, Hispanic and Polynesian players stay who they were.
 
 use super::geo;
+use crate::positions::Position;
 use crate::rng::Rng;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -183,28 +186,157 @@ const STATE_SHARES: [(&str, f64, f64, f64, f64); 51] = [
 ];
 
 /// How often boys in each group play high school football, relative to white
-/// boys (proposed, not confirmed: no national source splits participation by race).
+/// boys (proposed, not confirmed: no national source splits participation by
+/// race). Re-fit with `level_lean` (A23) so each level's mix on final rosters
+/// lands on the real one: FBS 48.9% Black (NCAA 2023) and 2.7% Hispanic
+/// (TIDES 2018-19), the NFL 53.5% Black (TIDES 2023).
 fn participation(e: Ethnicity) -> f64 {
     match e {
         Ethnicity::White => 1.0,
-        Ethnicity::Black => 1.5,
-        Ethnicity::Hispanic => 0.65,
+        Ethnicity::Black => PART_BLACK,
+        Ethnicity::Hispanic => PART_HISPANIC,
         Ethnicity::Polynesian => 2.5,
         Ethnicity::EastAsian | Ethnicity::SoutheastAsian | Ethnicity::SouthAsian => 0.3,
     }
 }
 
-/// How the group's share changes with how far a player goes. Calibrated so
-/// FBS rosters land near the real mix (NCAA 2023: 48.9% Black; 2007-08:
-/// 46.6% white, 0.9% Pacific Islander, which has grown since).
+/// How the group's share changes with how far a player goes (A23, see
+/// `participation`; 2007-08 FBS: 0.9% Pacific Islander, which has grown
+/// since). It grows with his talent draw over `LEAN_RAMP` and is full where
+/// FBS players start: real rosters change a lot from high school to FBS and
+/// little from FBS to the NFL (48.9% to 53.5% Black), which a lean that kept
+/// growing with talent could not give.
 fn level_lean(e: Ethnicity) -> f64 {
     match e {
         Ethnicity::White => 0.0,
-        Ethnicity::Black => 0.95,
-        Ethnicity::Hispanic => -0.6,
+        Ethnicity::Black => LEAN_BLACK,
+        Ethnicity::Hispanic => LEAN_HISPANIC,
         Ethnicity::Polynesian => 0.95,
         Ethnicity::EastAsian | Ethnicity::SoutheastAsian | Ethnicity::SouthAsian => -0.6,
     }
+}
+
+const PART_BLACK: f64 = 1.5;
+const LEAN_BLACK: f64 = 1.91;
+const PART_HISPANIC: f64 = 0.65;
+const LEAN_HISPANIC: f64 = -1.88;
+/// The talent draws over which the lean grows from none to full (an
+/// average boy's draw is 0; FBS players' median is about 1.9).
+const LEAN_RAMP: (f64, f64) = (0.5, 1.4);
+/// The talent draws where the position odds are `ODDS_LOW`, `ODDS_MID` and
+/// `ODDS_HIGH`, moving smoothly between them (players' median draw is about
+/// 1.4 at FCS, 1.9 at FBS and 2.9 in the NFL).
+const ODDS_AT: [f64; 3] = [1.0, 2.0, 3.0];
+
+/// A boy with a long snapper's knack draws with the snapper's odds (A25):
+/// nobody's body is built as a snapper; the camps find the best snappers
+/// among the other positions as seniors (`recruiting.rs`, from his long
+/// snapping, among boys no one recruits at another spot), and real
+/// snappers are 94% white. His knack is his long snapping ceiling over his
+/// talent, a little more for more talent; a boy talented enough to be
+/// recruited as a regular (`SNAPPER_TOP`) is left out. At this mark it takes
+/// in 92% of the boys the camps later make snappers, and about 4% of all
+/// boys.
+pub const SNAPPER_KNACK: f64 = 1.25;
+/// The talent draw from which a boy is recruited as a regular, not as a
+/// snapper (95% of the world's snappers are below it).
+const SNAPPER_TOP: f64 = 2.6;
+
+/// Whether a boy has a snapper's knack when he is made (see `SNAPPER_KNACK`).
+pub fn snapper_knack(long_snapping_ceiling: f64, talent: f64, talent_z: f64) -> bool {
+    talent_z < SNAPPER_TOP && long_snapping_ceiling / talent.max(1.0) * (0.1 * talent_z).exp() >= SNAPPER_KNACK
+}
+
+/// How much likelier a group is at a position than its share of the boys
+/// drawn there (A20). Columns: white, Black, Hispanic, Asian or Pacific
+/// Islander. Rows: QB, RB, WR, TE, OL, DL, LB, DB, K, P, LS. Measured on
+/// 2025 rosters with race estimated from names (`afm/race-check/report.md`:
+/// the FBS table), then fitted on the world's final rosters (A25, A24) so
+/// every position at FBS, FCS and the NFL lands on its real mix at once,
+/// with the overall FBS and NFL mixes held (`ODDS_AT`). Real stacking grows
+/// with the level at receiver, linebacker and the line (receivers 52% Black
+/// at FCS, 64% at FBS, 77% in the NFL, against 45%, 49% and 54% overall),
+/// so one table can't fit every level. The high table's Black column sits
+/// lower than the middle one at the skill spots, which keeps the NFL near
+/// 53.5% Black while FBS is at 48.9%. Boys who stay in high school read the
+/// low table (A21). The Asian or Pacific Islander column is the measured
+/// one at every level.
+const ODDS_LOW: [[f64; 4]; 11] = [
+    [1.40, 0.268, 0.740, 0.740],
+    [0.626, 1.65, 0.377, 0.580],
+    [0.919, 0.698, 0.488, 0.530],
+    [1.64, 0.219, 0.136, 0.630],
+    [1.26, 0.369, 1.76, 1.53],
+    [0.479, 0.685, 0.324, 1.84],
+    [0.923, 0.566, 0.343, 1.11],
+    [0.238, 1.55, 0.308, 0.580],
+    [6.66, 0.0086, 9.04, 1.42],
+    [2.02, 0.0091, 0.333, 0.110],
+    [6.06, 0.0079, 0.682, 0.580],
+];
+const ODDS_MID: [[f64; 4]; 11] = [
+    [1.96, 0.202, 0.684, 0.740],
+    [0.517, 1.74, 0.408, 0.580],
+    [0.644, 0.878, 0.491, 0.530],
+    [1.85, 0.177, 0.135, 0.630],
+    [1.46, 0.325, 1.61, 1.53],
+    [0.367, 0.631, 0.330, 1.84],
+    [0.887, 0.552, 0.330, 1.11],
+    [0.289, 1.22, 0.288, 0.580],
+    [6.32, 0.0086, 9.92, 1.42],
+    [2.03, 0.0090, 0.395, 0.110],
+    [6.04, 0.0078, 0.698, 0.580],
+];
+const ODDS_HIGH: [[f64; 4]; 11] = [
+    [2.05, 0.202, 0.638, 0.740],
+    [0.763, 1.03, 0.438, 0.580],
+    [0.553, 0.885, 0.499, 0.530],
+    [1.85, 0.158, 0.133, 0.630],
+    [1.98, 0.226, 1.60, 1.53],
+    [0.358, 0.416, 0.342, 1.84],
+    [0.872, 0.511, 0.324, 1.11],
+    [0.369, 0.879, 0.279, 0.580],
+    [7.52, 0.0084, 8.96, 1.42],
+    [2.08, 0.0088, 0.465, 0.110],
+    [5.74, 0.0080, 0.716, 0.580],
+];
+
+/// Where a talent draw sits on a ramp, 0 to 1.
+fn ramp(z: f64, (from, to): (f64, f64)) -> f64 {
+    ((z - from) / (to - from)).clamp(0.0, 1.0)
+}
+
+/// A group's odds at a position for a boy of this talent. Polynesian
+/// players read the Asian and Pacific Islander column (more linemen); the
+/// three Asian American groups are too few on rosters to measure and get
+/// none (A22).
+fn position_odds(pos: Position, e: Ethnicity, talent_z: f64) -> f64 {
+    let row = match pos {
+        Position::QB => 0,
+        Position::RB => 1,
+        Position::WR => 2,
+        Position::TE => 3,
+        Position::OT | Position::IOL => 4,
+        Position::EDGE | Position::DT => 5,
+        Position::LB => 6,
+        Position::CB | Position::S => 7,
+        Position::K => 8,
+        Position::P => 9,
+        Position::LS => 10,
+    };
+    let col = match e {
+        Ethnicity::White => 0,
+        Ethnicity::Black => 1,
+        Ethnicity::Hispanic => 2,
+        Ethnicity::Polynesian => 3,
+        Ethnicity::EastAsian | Ethnicity::SoutheastAsian | Ethnicity::SouthAsian => return 1.0,
+    };
+    let (from, to, r) = if talent_z <= ODDS_AT[1] {
+        (&ODDS_LOW, &ODDS_MID, ramp(talent_z, (ODDS_AT[0], ODDS_AT[1])))
+    } else {
+        (&ODDS_MID, &ODDS_HIGH, ramp(talent_z, (ODDS_AT[1], ODDS_AT[2])))
+    };
+    from[row][col].powf(1.0 - r) * to[row][col].powf(r)
 }
 
 fn shares(state: usize) -> [f64; ETHNICITY_COUNT] {
@@ -216,14 +348,21 @@ fn shares(state: usize) -> [f64; ETHNICITY_COUNT] {
 }
 
 /// A high school player's ethnicity. `talent_z` is his talent draw; the lean
-/// only reflects who reaches each level, and nothing about him is changed by it.
-pub fn player_ethnicity(state: usize, talent_z: f64, rng: &mut Rng) -> Ethnicity {
+/// only reflects who reaches each level, and nothing about him is changed by
+/// it. `position` is the one his body fits as he is made (`athlete::create`,
+/// A25), or None for an athlete from another sport. A later move keeps his
+/// ethnicity: a kid built like a back who ends up a linebacker carries back
+/// odds, which is how most real anomalies happen.
+pub fn player_ethnicity(state: usize, talent_z: f64, position: Option<Position>, rng: &mut Rng) -> Ethnicity {
     let s = shares(state);
-    let up = (talent_z - 1.0).max(0.0);
+    let up = ramp(talent_z, LEAN_RAMP);
     let entries: Vec<(Ethnicity, f64)> = Ethnicity::ALL
         .iter()
         .enumerate()
-        .map(|(k, &e)| (e, s[k] * participation(e) * (level_lean(e) * up).exp()))
+        .map(|(k, &e)| {
+            let odds = position.map_or(1.0, |p| position_odds(p, e, talent_z));
+            (e, s[k] * participation(e) * (level_lean(e) * up).exp() * odds)
+        })
         .collect();
     rng.weighted(&entries)
 }
@@ -301,6 +440,31 @@ pub fn hiring_bias(e: Ethnicity, year: i32, prestige: f64) -> f64 {
 mod tests {
     use super::*;
 
+    /// A20: the draw reads his position's odds. In Georgia an average boy
+    /// built as a back is far likelier Black than the state's players as a
+    /// whole, a quarterback or tight end far less, a kicker almost never;
+    /// with no position the draw is the plain one.
+    #[test]
+    fn the_draw_follows_each_positions_odds() {
+        let ga = geo::STATE_CENTERS.iter().position(|c| c.0 == "GA").expect("Georgia");
+        let black = |pos: Option<Position>| {
+            let mut rng = Rng::new(11);
+            let n = 20_000;
+            (0..n).filter(|_| player_ethnicity(ga, 0.0, pos, &mut rng) == Ethnicity::Black).count() as f64 / n as f64
+        };
+        let any = black(None);
+        let (rb, cb, qb, te, k) = (
+            black(Some(Position::RB)),
+            black(Some(Position::CB)),
+            black(Some(Position::QB)),
+            black(Some(Position::TE)),
+            black(Some(Position::K)),
+        );
+        assert!(rb > any + 0.15 && cb > any + 0.15, "backs {rb:.2}, corners {cb:.2}, all {any:.2}");
+        assert!(qb < any - 0.15 && te < any - 0.15, "quarterbacks {qb:.2}, tight ends {te:.2}, all {any:.2}");
+        assert!(k < 0.05, "kickers {k:.2}");
+    }
+
     /// The split keeps every seed's White, Black, Hispanic and Polynesian
     /// players: the old five-group draw, with Asian as one, picks the same.
     #[test]
@@ -311,8 +475,8 @@ mod tests {
                 let z = (seed % 7) as f64 * 0.5;
                 let mut a = Rng::new(seed ^ ((state as u32) << 20));
                 let mut b = a.clone();
-                let new = player_ethnicity(state, z, &mut a);
-                let up = (z - 1.0).max(0.0);
+                let new = player_ethnicity(state, z, None, &mut a);
+                let up = ramp(z, LEAN_RAMP);
                 let w = |k: usize, e: Ethnicity| s[k] * participation(e) * (level_lean(e) * up).exp();
                 let old: Vec<(usize, f64)> = vec![
                     (0, w(0, Ethnicity::White)),
