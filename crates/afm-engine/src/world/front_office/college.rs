@@ -244,8 +244,11 @@ fn need(w: &World, d: Duty) -> Result<usize, String> {
     .into())
 }
 
+/// Your board for a signing stage. Whoever holds the board, only the
+/// offers you made or signed go out (SK26); the fill switch is your
+/// standing word to your coordinator for the open spots.
 pub(crate) fn stage_board(w: &World) -> Option<StageBoard> {
-    let j = mine(w, Duty::Board)?;
+    let j = super::program(w)?;
     let desk = &w.front_office.college;
     let live: Vec<&Target> = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).collect();
     let at = indices(w, &live.iter().map(|t| t.id).collect::<Vec<_>>());
@@ -467,6 +470,7 @@ pub(crate) fn after_payouts(w: &mut World, short: &[(u32, f64, f64)]) {
 
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(j) = ready(w) else { return };
+    super::chain::day(w, j, d);
     run_visits(w, j, d);
     scan_board(w, j, d);
     roll_class(w, j);
@@ -1273,6 +1277,19 @@ pub fn set_priority(w: &mut World, id: u32, on: bool) -> Result<String, String> 
 /// A scholarship offer. A recruit off your board goes on it.
 pub fn offer(w: &mut World, id: u32) -> Result<String, String> {
     let j = need(w, Duty::Board)?;
+    let text = offer_at(w, j, id, Source::You, None)?;
+    // Your film look, and any coach of yours it overrules (SK25, SK28).
+    super::chain::on_offer(w, id);
+    Ok(text)
+}
+
+/// An offer the chain brought you, signed (SK26): it goes out whoever
+/// holds the board, marked as your staff's with the coach's word.
+pub(crate) fn offer_by_chain(w: &mut World, j: usize, id: u32, why: String) -> Result<String, String> {
+    offer_at(w, j, id, Source::Coordinator, Some(why))
+}
+
+fn offer_at(w: &mut World, j: usize, id: u32, by: Source, why: Option<String>) -> Result<String, String> {
     let i = super::index_of(w, id).ok_or("No such player.")?;
     recruitable(w, i)?;
     let p = &w.people[i];
@@ -1295,8 +1312,8 @@ pub fn offer(w: &mut World, id: u32) -> Result<String, String> {
     }
     t.offered = Some(today);
     t.pulled = None;
-    t.by = Source::You;
-    t.why = None;
+    t.by = by;
+    t.why = why;
     // He hears it now: the offer is on his list, and an early one is remembered.
     let sign_year = rec::next_class(w);
     let p = &mut w.people[i];
@@ -1340,6 +1357,17 @@ pub fn offer(w: &mut World, id: u32) -> Result<String, String> {
 /// Pulls an offer. A commitment goes with it.
 pub fn pull(w: &mut World, id: u32) -> Result<String, String> {
     let j = need(w, Duty::Board)?;
+    let text = pull_at(w, j, id)?;
+    super::chain::on_pull(w, id);
+    Ok(text)
+}
+
+/// A pull your staff asked for, signed (SK26).
+pub(crate) fn pull_by_chain(w: &mut World, j: usize, id: u32) -> Result<String, String> {
+    pull_at(w, j, id)
+}
+
+fn pull_at(w: &mut World, j: usize, id: u32) -> Result<String, String> {
     let i = super::index_of(w, id).ok_or("No such player.")?;
     if w.people[i].cal.signed.is_some_and(|s| s.program == j) {
         return Err("He signed his letter with you: only a release frees him.".into());
@@ -2164,9 +2192,10 @@ mod tests {
     }
 
     /// A duty handed to your staff runs as the AI's: the hooks give the
-    /// signing stage, the visit days and the portal nothing of yours. The
-    /// board's offers wait on its own chain; a visit, portal offer or NIL
-    /// deal you make yourself still stands (SC6).
+    /// visit days and the portal nothing of yours, the board's offers wait
+    /// on your signature (SK26) and an offer of your own is refused with
+    /// the staff's words; a visit, portal offer or NIL deal you make
+    /// yourself still stands (SC6).
     #[test]
     fn a_staff_duty_runs_like_the_ai() {
         let (mut w, _) = world(true);
@@ -2176,7 +2205,9 @@ mod tests {
         for d in [Duty::Board, Duty::Visits, Duty::Portal, Duty::Nil] {
             w.front_office.set_owner(d, Owner::Staff);
         }
-        assert!(stage_board(&w).is_none());
+        // SK26: a board handed to your staff still waits on your
+        // signature, so the signing stage keeps reading it.
+        assert!(stage_board(&w).is_some());
         assert!(visits_program(&w).is_none());
         assert!(portal_wants(&w).is_none());
         assert!(stay_talks(&w).is_none());

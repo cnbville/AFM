@@ -56,6 +56,10 @@ pub fn player(w: &World, id: u32) -> Vec<Value> {
             out.push(v);
         }
         out.push(mv("scout", "Scouting file"));
+        // Your own eye on his tape, in the film room (lane 9, bug 82).
+        if afm_engine::world::scouting::own::film_cost(w, id).is_ok() {
+            out.push(mv("film", "Watch his film"));
+        }
     }
     out.push(if crate::lane_core::desk::is_listed(w, id) {
         mv("list_remove", "Take off my players")

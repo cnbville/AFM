@@ -86,4 +86,22 @@ pub struct Outlier {
     pub needs: &'static str,
 }
 
-pub use crate::defs_list::{CHECKS, METRICS, OUTLIERS, RULES};
+/// Every check: the book's own (`defs_list`) and each page lane's.
+pub fn checks() -> impl Iterator<Item = &'static Check> {
+    crate::defs_list::CHECKS.iter().chain(crate::defs_people::CHECKS)
+}
+
+/// Every distribution.
+pub fn metrics() -> impl Iterator<Item = &'static Metric> {
+    crate::defs_list::METRICS.iter().chain(crate::defs_people::METRICS)
+}
+
+/// Every consistency check.
+pub fn rules() -> impl Iterator<Item = &'static Rule> {
+    crate::defs_list::RULES.iter().chain(crate::defs_people::RULES)
+}
+
+/// Every outlier list.
+pub fn outliers() -> impl Iterator<Item = &'static Outlier> {
+    crate::defs_list::OUTLIERS.iter().chain(crate::defs_people::OUTLIERS)
+}

@@ -128,3 +128,88 @@ fn copy_compare_and_player() {
     assert!(cw["verdict"].as_str().unwrap().contains("1 closer"), "{}", cw["verdict"]);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A small book in R4's names, written by hand: one held-back boy with his
+/// seasons, stat lines, college staff and notes, and two keyed panels.
+fn r6_book(dir: &std::path::Path) -> std::path::PathBuf {
+    let path = dir.join("r6.afmbook");
+    let c = rusqlite::Connection::open(&path).unwrap();
+    c.execute_batch(
+        r#"CREATE TABLE world(year, today);
+           INSERT INTO world VALUES (2026, 20493);
+           CREATE TABLE programs(_row INTEGER PRIMARY KEY, id, real_name, fictional_name, division, state);
+           INSERT INTO programs VALUES (0, 0, 'Iowa State', NULL, 'FBS', 14);
+           CREATE TABLE high_schools(_row INTEGER PRIMARY KEY, name, state);
+           INSERT INTO high_schools VALUES (0, 'Ames', 14);
+           CREATE TABLE nfl(_row INTEGER PRIMARY KEY, id, name);
+           INSERT INTO nfl VALUES (0, 0, 'Arizona Cardinals');
+           CREATE TABLE people(_row INTEGER PRIMARY KEY, player__id, name, class_of, stage, hs, stars, player__position, notes);
+           INSERT INTO people VALUES (0, 77, 'Cole Becker', 2024, 'College', 0, 3, 'RB',
+             '["Named first-team all-state at 18.","At 19 he started at Iowa State.","Rushed for 1,000 yards."]');
+           CREATE TABLE people__player__history(_row INTEGER PRIMARY KEY, _parent, _i, age, level, position, playing_time, overall_start, overall,
+             potential, performance, level_rating, coaching, events, games_missed, adjustment, spring_gain, team, depth);
+           INSERT INTO people__player__history VALUES
+             (0, 0, 0, 17, 'HS', 'RB', 'Starter', 60, 63, 80, 62, NULL, 10, 0, 0, NULL, NULL, NULL, 1),
+             (1, 0, 1, 18, 'HS', 'RB', 'Starter', 63, 66, 80, 65, NULL, 10, 4, 0, NULL, NULL, NULL, 1),
+             (2, 0, 2, 19, 'FBS', 'RB', 'Starter', 66, 70, 80, 69, NULL, 12, 0, 2, NULL, NULL, NULL, 1);
+           CREATE TABLE people__college_staff(_row INTEGER PRIMARY KEY, _parent, _i, _0, _1, _2, _3);
+           INSERT INTO people__college_staff VALUES (0, 0, 0, 2024, 0, NULL, NULL);
+           CREATE TABLE people__hs_lines(_row INTEGER PRIMARY KEY, _parent, _i, year, school, pos, games, s);
+           INSERT INTO people__hs_lines VALUES (0, 0, 0, 2023, 0, 'RB', 11, '[0,0,0,0,0,0,0,210,1650,19,12,140,1,0,0,0,0,0,0,0,0]');
+           CREATE TABLE stats__seasons(_row INTEGER PRIMARY KEY, id, year, division, pos, program, games, s);
+           INSERT INTO stats__seasons VALUES (0, 77, 2024, 'FBS', 'RB', 0, 12,
+             '[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,180,1012,9,0,0,0,0,0,0,0,21,160,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]');
+           CREATE TABLE panels(id TEXT PRIMARY KEY, page TEXT, area TEXT, title TEXT, kind TEXT, note TEXT,
+             needs TEXT, open TEXT, cols TEXT, rows TEXT, n INTEGER, more INTEGER, says TEXT, status TEXT, sql TEXT, seconds REAL);
+           INSERT INTO panels VALUES ('class.says', 'class', 'T8', 'The class in a line', 'table', '', 'world file', '',
+             '["class","says"]', '[[2023,"The class of 2023: small."],[2024,"The class of 2024: one held-back back."]]', 2, 0, NULL, 'ok', '', 0);
+           INSERT INTO panels VALUES ('state.stars', 'state', 'C28', 'Seniors by stars', 'bars', '', 'world file', '',
+             '["state","label","world"]', '[["IA","3 stars",4],["TX","3 stars",90]]', 2, 0, NULL, 'ok', '', 0);"#,
+    )
+    .unwrap();
+    path
+}
+
+#[test]
+fn player_page_and_keyed_pages() {
+    let dir = std::env::temp_dir().join(format!("afm-reader-test-r6-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = r6_book(&dir);
+    let b = crate::book::Book::open(&path).unwrap();
+    let row = b.select_maps("SELECT * FROM people WHERE _row = 0", &[]).unwrap().remove(0);
+    let blocks = crate::player::blocks(&b, "people", &row, &crate::book::Filters::default());
+    let seasons = blocks.iter().find(|x| x["title"] == "Season by season").expect("a season table");
+    let rows = seasons["rows"].as_array().unwrap();
+    // Held back a year: his senior season (18) was the fall before his class
+    // year, so his first college season (19) is 2024, not class - 18 + age.
+    assert_eq!(rows[1][0], 2023, "{rows:?}");
+    assert_eq!(rows[2][0], 2024, "{rows:?}");
+    assert_eq!(rows[2][3], "Iowa State");
+    assert_eq!(rows[1][3], "Ames");
+    let line = |r: &Value| {
+        r.as_array().unwrap().iter().filter_map(Value::as_str).find(|t| t.contains(" g: ")).unwrap_or("").to_string()
+    };
+    assert_eq!(line(&rows[2]), "12 g: 180 rushes, 1012 yds, 9 TD; 21 catches, 160 yds");
+    assert_eq!(line(&rows[1]), "11 g: 210 rushes, 1650 yds, 19 TD; 12 catches, 140 yds");
+    let what = rows[2]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .any(|t| t.contains("stepped up to FBS") && t.contains("missed 2 games"));
+    assert!(what, "{:?}", rows[2]);
+    let story = blocks.iter().find(|x| x["kind"] == "timeline").expect("his story");
+    let when: Vec<&str> = story["items"].as_array().unwrap().iter().map(|i| i["when"].as_str().unwrap()).collect();
+    assert_eq!(when, ["2023", "2024", "2024"]);
+    drop(b);
+
+    let mut r = Reader::new(dir.join("home"), dir.join("game"));
+    r.call("open", &json!({ "path": path.to_string_lossy() })).unwrap();
+    let class = page(&mut r, "class/2024", Value::Null);
+    assert!(class["verdict"].as_str().unwrap().contains("one held-back back"), "{}", class["verdict"]);
+    let state = page(&mut r, "state/IA", Value::Null);
+    let shown = serde_json::to_string(&state["blocks"]).unwrap();
+    assert!(shown.contains("IA") && !shown.contains("\"TX\""), "{shown}");
+    let _ = std::fs::remove_dir_all(dir);
+}

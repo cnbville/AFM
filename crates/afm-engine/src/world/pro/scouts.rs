@@ -870,6 +870,9 @@ pub(crate) struct Read {
     pub grade: f64,
     pub var: f64,
     pub risk: f64,
+    /// A top-30 visit (or a recheck) put him in front of the club's doctors.
+    #[serde(default)]
+    pub visited: bool,
 }
 
 /// A prospect's real risk of trouble from his personality, in standard
@@ -1137,7 +1140,8 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
     } else {
         true_risk(p) * 0.3 + 1.2 * key_normal((t as u64) << 48 ^ 0xC4A4, id)
     };
-    Read { grade, var, risk }
+    let visited = looks.iter().any(|l| l.kind == LookKind::Visit);
+    Read { grade, var, risk, visited }
 }
 
 /// Each category's share (by the position's weights) of skills his role
@@ -1552,8 +1556,10 @@ pub(crate) fn pro_day(w: &mut World, program: usize, date: Date) {
             if !tested {
                 file(w, t, i, EVENT, LookKind::ProDay, date);
             }
-            // A club sends a coach to a prospect it grades as draftable.
-            if r[t].get(&i).is_some_and(|x| x.grade >= 66.0) {
+            // A club sends a coach to a prospect it grades as draftable; a
+            // quarterback who throws only for some clubs throws for those
+            // (F20).
+            if r[t].get(&i).is_some_and(|x| x.grade >= 66.0) && crate::world::scouting::predraft::throws_for(w, i, t) {
                 let pos = w.people[i].player.position;
                 let who = if pos.is_specialist() {
                     HC
@@ -1627,6 +1633,10 @@ pub struct Board {
     /// risk; above zero is worse), for the war room's character line.
     #[serde(default)]
     pub risk: HashMap<usize, f32>,
+    /// Your director's picks to take off the board that wait for your word
+    /// (F21, "Ask me before taking anyone off the board"), with why.
+    #[serde(default)]
+    pub asked: HashMap<usize, String>,
 }
 
 /// Each club's board from its own files (topic 9): its read of each
@@ -1684,6 +1694,10 @@ fn board_from(
             gm.name.bytes().fold(gm.since as u64, |h, b| h.wrapping_mul(131).wrapping_add(b as u64)),
         )
     };
+    // F21: your instructions to your department, at your club only.
+    use crate::world::scouting::dept::Instruction as In;
+    let said = |x: In| seat && w.scouting.dept.instructions.contains(&x);
+    let (ask_first, fit_first, numbers_first) = (said(In::AskBeforeDnd), said(In::SchemeFit), said(In::Analytics));
     for &(i, public) in pool {
         let p = &w.people[i];
         let id = p.player.id as u64;
@@ -1697,11 +1711,31 @@ fn board_from(
                 // His character as the club reads it (section 6
                 // traits): a real worry costs up to a few points.
                 g -= 1.0 * (x.risk - 0.5).max(0.0);
+                let mut off: Option<&str> = None;
                 if x.risk >= 2.5 || (flags(p) >= crate::career::PIPELINE.red_flag_discount.dismissed && x.risk >= 1.0) {
-                    b.dnd.insert(i);
+                    off = Some("his character");
                 }
                 if !mins.is_empty() && crate::world::scouting::own::under(w, i, &mins).is_some() {
                     b.dnd.insert(i);
+                }
+                // F23: his injury history as the club's doctors read it.
+                let (cost, fail) = medical_cost(w, t, i, x.visited);
+                g -= cost;
+                if fail {
+                    off = Some("our doctors fail him");
+                }
+                if let Some(why) = off {
+                    if ask_first {
+                        b.asked.insert(i, why.to_string());
+                    } else {
+                        b.dnd.insert(i);
+                    }
+                }
+                if fit_first {
+                    g += 3.0 * seat_fit(w, t, i).unwrap_or(0.0);
+                }
+                if numbers_first {
+                    g += numbers_lean(w, i);
                 }
                 b.grade.insert(i, g);
                 b.risk.insert(i, x.risk as f32);
@@ -1712,6 +1746,72 @@ fn board_from(
         }
     }
     b
+}
+
+/// F21 "Players who fit what we run": his fit to your club's systems as
+/// your scouts' file reads him (`systems::read_fit`), None until the file
+/// has seen what the systems ask about. A good fit (0.3) is worth about a
+/// point on your board (proposed, not confirmed: 3 points a unit).
+fn seat_fit(w: &World, t: usize, i: usize) -> Option<f64> {
+    use crate::world::scouting::readers;
+    let p = &w.people[i];
+    let (_, _, f) = readers::read(w, readers::Staff::Club(t), p.player.id)?;
+    let inst = &w.clubs.get(t)?.installed;
+    crate::world::systems::read_fit(
+        w,
+        p.cal.pro_position.unwrap_or(p.player.position),
+        crate::world::scouting::file::listed(&p.player).1,
+        |a| f.attrs[a.index()].seen.then_some(f.attrs[a.index()].centre),
+        inst,
+    )
+}
+
+/// F21 "Lean on the analytics": the numbers' own lean on your board, from
+/// what analytics departments weigh (age, production, testing): a young
+/// prospect, a productive one and a fast tester move up, each about a
+/// point (proposed, not confirmed).
+fn numbers_lean(w: &World, i: usize) -> f64 {
+    let p = &w.people[i];
+    let f = crate::world::scouting::footage::footage(w, i);
+    let production = f.grade.map_or(0.0, |g| clamp((g - 60.0) / 10.0, -1.5, 1.5));
+    let youth = clamp((22.0 - p.player.age as f64) / 1.5, -1.0, 1.0);
+    let speed = clamp((p.player.attributes.get(crate::attributes::Attr::Speed) - 75.0) / 8.0, -1.5, 1.5);
+    0.8 * production + 0.6 * youth + 0.5 * speed
+}
+
+/// F23: what a club's doctors make of a prospect's body and his injury
+/// record, in grade points, and whether he fails their physical. Every
+/// club's doctors examine the combine's invitees (the combine's medicals)
+/// and its own top-30 visitors; anyone else is read from the records, more
+/// loosely. The club's medical staff sizes the misread, as on your file
+/// (`file::medical_read`). Proposed, not confirmed: a minor concern costs
+/// about a point and a half, a major one three to six (a round or two),
+/// a failed physical takes him off the board.
+fn medical_cost(w: &World, t: usize, i: usize, visited: bool) -> (f64, bool) {
+    let p = &w.people[i];
+    // Your doctors' recheck counts at your club.
+    let recheck = crate::world::scouting::readers::seat_staff(w)
+        == Some(crate::world::scouting::readers::Staff::Club(t))
+        && w.scouting
+            .dept
+            .looks
+            .get(&p.player.id)
+            .is_some_and(|v| v.iter().any(|l| l.kind == crate::world::scouting::Kind::Medical));
+    let examined = p.cal.combine_invite || visited || recheck;
+    let rating = w.clubs.get(t).map_or(10, |c| c.support.medical.rating);
+    let rating = if rating == 0 { 10.0 } else { rating as f64 };
+    let sd = if examined { 0.35 } else { 0.8 } * crate::world::scouting::file::sharp(rating);
+    let concern = crate::world::scouting::file::medical_truth(p)
+        + sd * key_normal(0x3ED2 ^ (t as u64) << 32 ^ w.year as u64, p.player.id as u64);
+    if concern >= 2.4 {
+        (6.0, true)
+    } else if concern >= 1.4 {
+        (3.0 + 3.0 * (concern - 1.4), false)
+    } else if concern >= 0.6 {
+        (1.0 + 0.6 * (concern - 0.6), false)
+    } else {
+        (0.0, false)
+    }
 }
 
 /// Draft-day news on the player's side: a slide far below where the public

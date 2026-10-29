@@ -892,6 +892,14 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
     if let Some((_, c)) = arc {
         push(&mut p, c);
     }
+    // A player: who he is in plain words, every season with its why, his
+    // story by year (lane R6, `player.rs`).
+    let player_page = table == "people" || table == "alumni";
+    if player_page {
+        for blk in crate::player::blocks(b, table, &row, f) {
+            push(&mut p, blk);
+        }
+    }
     // Ratings with their ceilings beside them (debug), and tendencies with
     // the year before, each as one compact grid.
     let find = |w: &str| lists.iter().find(|(c, _, _)| c.rsplit("__").next() == Some(w));
@@ -948,6 +956,9 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
         );
     }
     for (c, xs) in &notes {
+        if player_page && c == "notes" {
+            continue;
+        }
         let items: Vec<Value> = xs.iter().map(|x| json!({ "text": x })).collect();
         push(
             &mut p,

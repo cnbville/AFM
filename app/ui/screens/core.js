@@ -560,7 +560,7 @@ function peekKey(a) {
 function peekHtml(x) {
   if (x.kind === "player") {
     return `<div class="pk-head">${face({ name: x.name, initials: x.initials, team: x.team }, 52)}<div><b>${esc(x.name)}</b><small>${esc(x.pos)}${x.jersey != null ? ` · #${x.jersey}` : ""} · ${x.team ? esc(x.team.name) : esc(x.where)}</small><small>${esc(x["class"])} · age ${x.age} · ${esc(x.ht)}, ${x.wt} lb ${stars(x.stars)}</small></div></div>
-      <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b>${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
+      <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.yours ? `<div class="kvline"><span>Your own read</span>${yourRange(x.yours)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b title="${esc(lvlTip(x))}">${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
       ${(() => { const mv = peekMoves(x); return mv.length ? `<div class="pk-moves">${mv.map((m) => moveBtn(m, { id: x.id, name: x.name }, "st-btn small glass")).join("")}</div>` : ""; })()}
       <div class="pk-foot">${x.listed ? '<span class="st-pill">On my list</span>' : ""}${x.noted ? '<span class="st-pill">Has my note</span>' : ""}<span class="muted small">Click to open · shift-click beside · right-click for more</span></div>`;
   }
@@ -757,6 +757,7 @@ async function runMove(m, who, at) {
     case "call": return go("colleges_calling", { call: id });
     case "ask": return moveMenu(at, "Ask your staff for", m.kinds.map((k) => [k, k]), (k) => moveDo("scout_ask", { id, kind: k }));
     case "scout": return go("scout", { id });
+    case "film": return go("film", { id });
     case "list_add": return moveDo("list_add", { id }, `${name} is on your list.`);
     case "list_remove": return moveDo("list_remove", { id }, `${name} is off your list.`);
     case "note": return noteBox({ kind: "player", id, name }, S.title || "Page");
@@ -1194,6 +1195,18 @@ async function coreAct(act, el, ev) {
     }
     case "besideclose": closeBeside(); return true;
     case "besidefull": { const b = S.beside; closeBeside(); go(b.screen, b.args); return true; }
+    case "l7pitch": {
+      if (!(await sure(`Talk to ${d.name}'s family about your school?`, "Most state associations bar recruiting. In Texas an athletic transfer sits out a year. If it comes out, your school forfeits the games he played and you are suspended for a year.", "Make the pitch"))) return true;
+      try { const r = await api("hs_pitch", { id: Number(d.id) }); toast(r.text); refresh(el); } catch (e) { toast(e.message); }
+      return true;
+    }
+    case "l7stake": {
+      const id = Number(d.id);
+      let pub = await sure(`Say it in public: ${d.name} is your guy?`, "The press hears it. If he hits, the credit is bigger; if he busts, it costs you more. Three years will tell.", "Say it in public");
+      if (!pub && !(await sure(`Keep your call on ${d.name} between you and your staff?`, "Your staff knows. A hit still earns their respect; a bust costs a little.", "Keep it private"))) return true;
+      try { const r = await api("stake_name", { id, public: pub }); toast(r.text); refresh(el); } catch (e) { toast(e.message); }
+      return true;
+    }
     case "listadd":
     case "listremove": {
       const id = Number(d.id);
@@ -1483,9 +1496,9 @@ function linksHtml(p) {
 function readCard(p) {
   const pot = p.potential;
   const who = p.mine ? "Your position coach" : "Your scouts";
-  return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl"><b>${esc(p.level_rating.split(" ")[0])}</b><small>${esc(p.level_rating.split(" ").slice(1).join(" "))}</small></div>` : ""}</div>
+  return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl" title="${esc(lvlTip(p))}"><b>${esc(lvlParts(p.level_rating).n)}</b><small>${esc(lvlParts(p.level_rating).words)}</small></div>` : ""}</div>
     ${pot ? `<p class="sub">Staff ${esc(words(pot.sure))}.${pot.hints && pot.hints.length ? " " + pot.hints.map(esc).join(". ") + "." : ""}</p>` : `<p class="sub">${p.ovr ? "Your staff rates what he is now; nobody has projected what he could become." : "Nobody on your staff has seen him. Only his measurables and public profile are known."}</p>`}
-    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
+    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Your own read</dt><dd>${yourRange(p.yours, p.yours_looks)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
 }
 const fans = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "k" : n.toLocaleString());
 const PT = {
@@ -1505,7 +1518,7 @@ const PT = {
     const g = keep("pattr", { g: "" }).g;
     const groups = p.groups.filter((x) => !g || x.name === g);
     const sel = `<select data-act="attrgroup" class="ssel"><option value="">Every group</option>${p.groups.map((x) => `<option ${x.name === g ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`;
-    return `<div class="tbar">${sel}<span class="muted small">Ranges are your staff's reads: a narrow bar is a sure read. Nobody sees a true number.</span></div><div class="attrgrid">${groups.map((x) => `<div class="panel"><h2>${esc(x.name)} <small>${esc(p.mine ? "your coaches" : x.name === "Physical" ? "public measurables" : "your scouts")}</small></h2><div class="attrs">${x.attrs.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read, null, { p: p.id, k: a.key })}</div>`).join("")}</div></div>`).join("")}</div>`;
+    return `<div class="tbar">${sel}<span class="muted small">Ranges are your staff's reads: a narrow bar is a sure read. The outlined bar under one is your own read. Nobody sees a true number.</span></div><div class="attrgrid">${groups.map((x) => `<div class="panel"><h2>${esc(x.name)} <small>${esc(p.mine ? "your coaches" : x.name === "Physical" ? "public measurables" : "your scouts")}</small></h2><div class="attrs">${x.attrs.map((a) => `<div class="attr"><span>${esc(a.label)}</span><span class="l7-pair">${range(a.read, null, { p: p.id, k: a.key })}${a.yours ? yourRange(a.yours, p.yours_looks) : ""}</span></div>`).join("")}</div></div>`).join("")}</div>`;
   },
   Reports: (p) => `<div class="grid2"><div class="panel">${readCard(p)}</div><div class="panel"><h2>Reports on file</h2>${(p.reports || []).length ? `<div class="items">${p.reports.map((r) => `<div class="item"><span class="when">${esc(r.date)}</span><span><b>${esc(r.by || "")}</b> ${rich(r.text)}</span></div>`).join("")}</div>` : `<div class="empty">${p.mine ? "Your position coach grades him every week; his read is the bar on each attribute." : "No written reports yet. Put him on your list and your scouts will keep looking."}</div>`}</div></div>`,
   Stats: (p) => {
@@ -1579,7 +1592,7 @@ screens.player = async (a) => {
   const extra = PLAYER_TABS.find((t) => t.name === tab);
   const body = extra ? await extra.draw(p) : await PT[tab](p);
   const posHist = (p.positions || []).map(([age, pos]) => `${pos} from age ${age}`).join(" · ");
-  const lr = p.level_rating ? `<span class="lvlpill" title="His staff-read rating against everyone at his level">${esc(p.level_rating)}</span>` : "";
+  const lr = p.level_rating ? `<span class="lvlpill" title="${esc(lvlTip(p))}">${esc(p.level_rating)}</span>` : "";
   const listBtn = p.listed
     ? `<button class="st-btn glass" data-act="listremove" data-id="${p.id}">${icon("star")} On my players</button>`
     : `<button class="st-btn glass" data-act="listadd" data-id="${p.id}">${icon("star")} Add to my players</button>`;
@@ -1588,7 +1601,7 @@ screens.player = async (a) => {
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
       <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
-      <div class="st-actions">${heroMoves(p, listBtn)}</div></div></div></div>
+      <div class="st-actions">${heroMoves(p, listBtn)}${l7Stake(p)}</div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
 // The hero's moves (minor bug 63): the main ones as buttons, the rest
@@ -1601,6 +1614,38 @@ function heroMoves(p, listBtn) {
   if (p.links && p.links.length) rest.push({ k: "links", t: "Dynamic Links" });
   const more = rest.length ? `<button class="st-btn glass" data-act="pmore" data-id="${p.id}" data-name="${esc(p.name)}" data-moves="${esc(JSON.stringify(rest))}">More ▾</button>` : "";
   return `${main.map((m, k) => moveBtn(m, who, k === 0 ? "st-btn primary" : "st-btn glass")).join("")}${listBtn}${more}`;
+}
+// His path at your place (lane 7, SK64): when he'd play, who's ahead of
+// him the year he arrives, his fit and who teaches him.
+PLAYER_TABS.push({
+  name: "At our place",
+  after: "Overview",
+  show: (p) => p.stake && p.stake.can,
+  draw: async (p) => {
+    let x = null;
+    try { x = await api("l7_path", { id: p.id }); } catch (e) { x = null; }
+    if (!x) return '<div class="empty">Your staff hasn\'t seen enough of him to project his path here.</div>';
+    const ahead = x.ahead.length ? table("l7ahead", [{ k: "name", t: "Ahead of him the year he arrives", l: true, f: (r) => `${playerLink(r.id, r.name)} <small class="sub">${esc(r.class)}</small>` }, { k: "read", t: "Staff read", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) }, { k: "leaves", t: "Through" }], x.ahead, { tools: false }) : `<div class="empty">Nobody ahead of him at ${esc(p.pos)} the year he arrives.</div>`;
+    return `<div class="grid2"><div class="panel"><h2>His path here <small>arrives ${x.arrives} · ${x.starters} starter${x.starters === 1 ? "" : "s"} at ${esc(p.pos)}</small></h2>
+      <p class="bigline">${esc(x.when)}${x.start ? ` <small class="sub">(${x.start})</small>` : ""}</p>${x.transfer_risk ? '<p class="sub">A kid this rated who sits two years often transfers.</p>' : ""}
+      <div class="kv"><dt>Fit</dt><dd>${esc(x.fit_words)} <small class="sub">${esc(words(x.scheme))}</small></dd><dt>Who teaches him</dt><dd>${x.teacher ? coachLink(x.teacher.id, x.teacher.name) : "Nobody yet"}${x.takes ? ` · he ${esc(x.takes)}` : ""}</dd><dt>Best for us</dt><dd><b>${Math.round(x.for_us)}</b> <small class="sub">his read, less the years he waits, plus his fit</small></dd></div></div>
+      <div class="panel">${ahead}</div></div>`;
+  },
+});
+
+// Your name on him (lane 7, SK40): the button, or the call you made. At a
+// high school, the pitch to his family instead (SK42).
+function l7Stake(p) {
+  const hp = p.pitch;
+  if (hp && hp.on) return `<span class="st-pill ${hp.on.moved ? "good" : "gold"}" title="You talked to his family on ${esc(hp.on.date)}">${hp.on.moved ? "Came to your school" : hp.on.done ? "Stayed put" : "Family deciding by June"}</span>`;
+  if (hp && hp.can) return `<button class="st-btn glass" data-act="l7pitch" data-id="${p.id}" data-name="${esc(p.name)}" title="Talk his family into a transfer to your school: most states bar it">Recruit him to your school</button>`;
+  const s = p.stake;
+  if (!s) return "";
+  if (s.on) {
+    const how = s.on.done ? (s.on.hit ? `came true: ${s.on.turned}` : `didn't come through: ${s.on.turned}`) : "three years will tell";
+    return `<span class="st-pill ${s.on.done ? (s.on.hit ? "good" : "bad") : "gold"}" title="You staked your name on him ${s.on.public ? "in public" : "privately"} on ${esc(s.on.date)}; ${esc(how)}">Your guy${s.on.public ? ", on record" : ""}</span>`;
+  }
+  return s.can ? `<button class="st-btn glass" data-act="l7stake" data-id="${p.id}" data-name="${esc(p.name)}" title="Mark him as your guy: credit if he hits, a cost if he busts">Stake your name</button>` : "";
 }
 GOTO.player = (a, p) => [p.team ? ["Squad", "roster", p.team.ref ? { kind: p.team.ref.kind, id: p.team.ref.id } : {}] : null, p.team ? ["Schedule", "schedule", p.team.ref ? { kind: p.team.ref.kind, id: p.team.ref.id } : {}] : null, ["Leaderboards", "leaders"], ["My players", "myplayers"]];
 
@@ -1615,7 +1660,7 @@ screens.compare = async (a) => {
   ps.forEach((p, i) => p.groups.forEach((g) => g.attrs.forEach((t) => { const k = g.name + "|" + t.label; if (!attrs.has(k)) attrs.set(k, { g: g.name, label: t.label, key: t.key, reads: [] }); attrs.get(k).reads[i] = t.read; })));
   const head = `<tr><th class="l"></th>${ps.map((p) => `<th class="l cmp-h">${face(p, 44)}<div>${playerLink(p.id, p.name)}<small>${esc(p.pos)} · ${esc(p.class)}${p.team ? " · " + esc(p.team.name) : ""}</small></div><button class="st-icon-btn" data-act="cmpdrop" data-id="${p.id}" aria-label="Take out">×</button></th>`).join("")}</tr>`;
   const row = (label, cells) => `<tr><td class="l">${label}</td>${cells.map((c) => `<td class="l">${c}</td>`).join("")}</tr>`;
-  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Level", ps.map((p) => esc(p.level_rating || ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
+  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Your own read", ps.map((p) => yourRange(p.yours))) + row("Level", ps.map((p) => esc(p.level_rating || ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
   let g = null;
   for (const v of attrs.values()) {
     if (v.g !== g) { body += `<tr class="grouprow"><td class="l" colspan="${ps.length + 1}">${esc(v.g)}</td></tr>`; g = v.g; }
@@ -1636,7 +1681,7 @@ screens.coach = async (a) => {
   title(c.name, c.job ? c.job.role : "Coach");
   // Your read of him: your staff's season by season (update 2, board 18);
   // anyone else's from what you've put in (lane 18, C24).
-  const names = ["Profile", ...(c.you ? [] : ["Ratings"]), "Jobs", "Coaching tree", "Players he developed", "Notes"];
+  const names = ["Profile", ...(c.you ? [] : ["Ratings"]), ...(c.record ? ["Recruiting record"] : []), "Jobs", "Coaching tree", "Players he developed", "Notes"];
   const tab = tabOf("ctab", names, a);
   let body = "";
   if (tab === "Ratings") {
@@ -1644,6 +1689,12 @@ screens.coach = async (a) => {
   } else if (tab === "Profile") {
     body = `<div class="grid2"><div class="panel"><h2>Who he is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
       <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${c.contract.buyout > 0 ? money(c.contract.buyout) : "None"}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
+  } else if (tab === "Recruiting record") {
+    // His calls on recruits for you (lane 7, SK30): whom he wanted, whom he
+    // passed on, and how they turned out three years on.
+    const r = c.record;
+    body = `<div class="panel"><h2>His word on recruits <small>${r.wanted} wanted · ${r.passed} passed · you overruled him ${r.overruled} time${r.overruled === 1 ? "" : "s"}${r.settled ? ` · right on ${r.right} of ${r.settled} settled` : ""}</small></h2>${r.heart ? '<p class="sub">Overruled again and again lately: he works his area with less heart and listens to other offers.</p>' : ""}
+      ${table("crec", [{ k: "date", t: "When", l: true }, { k: "name", t: "Recruit", l: true, f: (x) => `${playerLink(x.id, x.name)} <small class="sub">${esc(x.pos)}</small>` }, { k: "call", t: "His call", l: true }, { k: "you", t: "You", l: true, f: (x) => (x.you === "Overruled" ? '<span class="st-pill warn">Overruled</span>' : "Agreed") }, { k: "turned", t: "Three years on", l: true, wrap: true, f: (x) => (x.turned ? `${esc(x.turned)}${x.right === true ? ' <span class="st-pill good">He was right</span>' : x.right === false ? ' <span class="st-pill bad">He was wrong</span>' : ""}` : '<span class="muted">Too soon</span>') }], r.rows, { tools: false })}</div>`;
   } else if (tab === "Jobs") {
     body = table("cjobs", [{ k: "where", t: "Where", l: true }, { k: "role", t: "Role", l: true }, { k: "from", t: "From" }, { k: "to", t: "To" }, { k: "record", t: "Record", l: true }, { k: "ended", t: "How it ended", l: true }], c.history, { tools: false });
   } else if (tab === "Coaching tree") {

@@ -1169,7 +1169,8 @@ pub(crate) fn squad_team(
             GamePlayer::from_player(p, know, 0.7 * years)
         })
         .collect();
-    let coach = school.coach;
+    // A suspended coach (SK42) is off the sideline: his staff coaches.
+    let coach = if super::scouting::pitch::sits(w, h) { None } else { school.coach };
     // Your guidelines pick your varsity's systems (update 2, G2) at camp.
     // An AI school's head coach calls the side he came up on and his
     // coordinator the other (C37); with no coordinator he calls both.
@@ -1235,12 +1236,22 @@ pub(crate) fn squad_team(
 
 /// Your school's game team for its next game (the week after the last one
 /// played; the first week before the season), for the depth chart screen.
-pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
-    let week = w.hs_season.as_ref().map_or(0, |hs| {
+/// A school's team for its film (update 3, lane 9): the team as it would
+/// dress for a game this week, for a tape played on the engine.
+pub(crate) fn film_team(w: &World, h: usize) -> Option<(GameTeam, Vec<(u32, usize)>)> {
+    hs_team(w, h, this_week(w, h))
+}
+
+/// The school's games played so far this season.
+fn this_week(w: &World, h: usize) -> usize {
+    w.hs_season.as_ref().map_or(0, |hs| {
         let st = &hs.states[w.high_schools[h].state];
         st.weeks.iter().chain(&st.rounds).filter(|&&d| d < w.today).count()
-    });
-    hs_team(w, h, week).map(|t| t.0)
+    })
+}
+
+pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
+    hs_team(w, h, this_week(w, h)).map(|t| t.0)
 }
 
 /// Whether a high school's home field is artificial turf this season

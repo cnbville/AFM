@@ -169,6 +169,7 @@ screens.scout = async (a) => {
       <h1>${esc(f.name)}</h1>
       <div class="meta"><span>${size}</span><span>Age <b>${f.age}</b></span>${boardLine ? `<span>${boardLine}</span>` : ""}</div>
       <div class="st-actions">
+        ${f.film_now ? scFilmNow(f) : ""}
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
         <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "On my players" : "Add to my players"}</button>
         ${linkTo("player", { id: f.id }, "Player page ›")}
@@ -195,7 +196,7 @@ screens.scout = async (a) => {
 function scFileSummary(f) {
   const s = f.summary;
   if (!s) {
-    return `<div class="panel warm sc-unseen"><h2>Your staff hasn't seen him</h2><p class="sub">No film, no live look, no call. Only his listed size and what the public says are known. ${f.can_ask.length ? "Ask for a look above and he goes on your staff's list." : "Your seat can't ask for a look at him."}</p>${f.stories.length ? `<div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}</div>`;
+    return `<div class="panel warm sc-unseen"><h2>Your staff hasn't seen him</h2><p class="sub">No film, no live look, no call. Only his listed size and what the public says are known. ${f.film_now ? "Watch his film yourself now, or ask your staff for a look above." : f.can_ask.length ? "Ask for a look above and he goes on your staff's list." : "Your seat can't ask for a look at him."}</p>${f.stories.length ? `<div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}</div>`;
   }
   const hints = s.hints.length
     ? s.hints.map((h) => `<div class="sc-hint"><span class="st-pill">Hint</span><p>${esc(h.text)}</p>${h.by ? `<small>Found by ${esc(h.by)}</small>` : ""}</div>`).join("")
@@ -979,3 +980,16 @@ PLAYER_TABS.push({
     return head + scFileSummary(f);
   },
 });
+
+// Your own film session (bug 82): today, on your week's film hours; when
+// you can't, the button says why instead of failing on a click.
+function scFilmNow(f) {
+  const n = f.film_now;
+  const left = `${n.left.toFixed(1)} h left`;
+  // The film room opens either way: a full cut-up snap by snap, or quick
+  // (twenty minutes), today, on your own hours. When the quick look can't
+  // run, the button says why before you click.
+  const why = n.blocked ? (/today/.test(n.blocked) ? "watched today" : /resting/.test(n.blocked) ? "resting" : /open/.test(n.blocked) ? "cut-up open" : "hours spent") : `20 min · ${left}`;
+  const title = n.blocked ? n.blocked : `You watch his tape yourself, today, in the film room: a cut-up snap by snap or quick (20 minutes). ${n.left.toFixed(1)} of your ${n.week.toFixed(0)} film hours left this week. Read by your own eye.`;
+  return `<button class="st-btn l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now <small>${why}</small></button>`;
+}

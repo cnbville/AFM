@@ -1062,7 +1062,7 @@ fn dev(w: &World, id: u32) -> Reply {
     let roles = ts::roles(w, &st);
     let role = *roles.get(&i).unwrap_or(&Role::Young);
     let focus = w.focus_of(id).or(w.staff_focus(id));
-    let attrs = reads::attributes(&p.player, true, eye, reader);
+    let attrs = reads::attributes(w, i);
     let read_of = |a: Attr| attrs.iter().find(|x| x.0 == a).map(|x| x.1.json());
     // The skills that matter most at his position, with your staff's read.
     let mut key: Vec<(f64, Attr)> =
@@ -1796,7 +1796,7 @@ pub(crate) fn squad(w: &World) -> Reply {
             let tr = &p.player.train;
             let (lvl, trend) = load_words(tr.load[0], tr.load[1]);
             let (status, why) = practice_status(w, id, i);
-            let attrs = reads::attributes(&p.player, true, eye, reader);
+            let attrs = reads::attributes(w, i);
             let mut key: Vec<(f64, Attr)> = Attr::ALL.iter().map(|&a| (afm_engine::positions::weight(pos, a), a)).filter(|x| x.0 > 0.02).collect();
             key.sort_by(|a, b| b.0.total_cmp(&a.0));
             v["keys"] = json!(key.iter().take(4).map(|&(_, a)| json!({ "label": a.label(), "read": attrs.iter().find(|x| x.0 == a).map(|x| x.1.json()) })).collect::<Vec<_>>());
@@ -2032,10 +2032,9 @@ fn package_spots(b: Board) -> Vec<(f64, f64)> {
 /// A slot's read for the board: his staff-read overall at the slot's
 /// position (another position's player pays the cross-training cost the
 /// engine charges).
-fn slot_read(w: &World, t: TeamRef, i: usize, pos: Position, reader: u64) -> f64 {
+fn slot_read(w: &World, _t: TeamRef, i: usize, pos: Position, _reader: u64) -> f64 {
     let p = &w.people[i];
-    let eye = eye_for(w, t, p.player.position);
-    let r = reads::overall(&p.player, true, eye, reader);
+    let r = reads::overall(w, i);
     let mid = match r {
         reads::Read::Range(lo, hi) => (lo as f64 + hi as f64) / 2.0,
         reads::Read::NotSeen => 40.0,
@@ -2057,11 +2056,10 @@ pub(crate) fn boards_with(w: &World, args: &Value, staff_order: Vec<(Position, V
     let by_id: HashMap<u32, usize> = roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
     let who = |i: usize| {
         let p = &w.people[i];
-        let eye = eye_for(w, t, p.player.position);
         let (status, _) = practice_status(w, p.player.id, i);
         json!({
             "id": p.player.id, "name": p.name, "pos": p.player.position.name(),
-            "class": class_text(w, p), "ovr": reads::overall(&p.player, true, eye, reader).json(),
+            "class": class_text(w, p), "ovr": reads::overall(w, i).json(),
             "practice": status, "role": roles.get(&i).map(|r| r.label()),
             "ht": crate::views::ft_in(afm_engine::body::body_now(&p.player).height), "wt": afm_engine::body::body_now(&p.player).weight.round(),
         })

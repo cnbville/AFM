@@ -45,7 +45,7 @@ pub(crate) mod nfl_year;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
 pub use recruiting::DraftRun;
-pub use season::{key_normal, key_uniform};
+pub use season::{key_normal, key_uniform, level_from_read, level_pool};
 
 /// Last season's draft order once the season has ended (for the coming draft).
 pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
@@ -312,6 +312,9 @@ pub struct Signed {
     pub walk_on: bool,
     pub date: crate::calendar::Date,
     pub early_enrollee: bool,
+    /// He signed somewhere other than where he was committed.
+    #[serde(default)]
+    pub flipped: bool,
 }
 
 /// A portal entrant's dates (T3): the day he entered and the day his

@@ -518,9 +518,36 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             let _ = g.call("eval_advisory", &json!({ "id": j["id"], "on": true }));
             run.call(g, "eval_talk", json!({ "id": j["id"], "say": 1 }));
         }
+        // Lane 7 (update 3): coverage, outside football, your class, the
+        // path at our place, the offer chain, and one film watch of your own
+        // a stop (the rules and your hours can refuse it).
+        run.call(g, "l7_coverage", json!({}));
+        if seat == "hs" {
+            run.call(g, "l7_class_fit", json!({}));
+        } else if let Some(o) = run.call(g, "l7_outside", json!({}))
+            && let Some(a) = o["rows"].as_array().and_then(|r| r.first())
+            && players.len() % 7 == 0
+        {
+            let _ = g.call("l7_outside_sign", &json!({ "key": a["key"] }));
+        }
+        if seat == "college"
+            && let Some(c) = run.call(g, "recruit_chain", json!({}))
+            && c["waiting"].as_array().is_some_and(|x| !x.is_empty())
+        {
+            let _ = g.call("chain_sign_all", &json!({}));
+        }
+        if let Some(&id) = ids.first() {
+            let _ = g.call("l7_path", &json!({ "id": id }));
+            let _ = g.call("scout_ask", &json!({ "id": id, "kind": "Watch his film now" }));
+        }
         if let Some(a) = v["hs"]["athletes"].as_array().and_then(|a| a.first()) {
             run.call(g, "eval_athlete", json!({ "key": a["key"] }));
         }
+        // Lane 9 (update 3): the film room's home, a player's brief, one
+        // cut-up watched snap by snap to your verdict (your hours can
+        // refuse it), its report, your next opponent's tape, and the days
+        // you are there when they come round.
+        lane9(run, g, &ids);
     }
     // Your staff and the ranges (update 2, lane 3): the quality page, each
     // member's detail and ratings page with his key reads' cards, and the
@@ -860,6 +887,69 @@ fn find_stops(run: &mut Run, g: &mut Game, seat: &str) -> Vec<Value> {
     }
     out.push(page);
     out
+}
+
+/// One stop in the film room (lane 9).
+fn lane9(run: &mut Run, g: &mut Game, ids: &[u64]) {
+    let Some(h) = run.call(g, "film_home", json!({})) else { return };
+    if let Some(&id) = ids.get(1).or(ids.first()) {
+        run.call(g, "film_brief", json!({ "id": id }));
+        if g.call("film_open", &json!({ "id": id, "mode": "full" })).is_ok() {
+            for _ in 0..40 {
+                let Some(s) = run.call(g, "film_session", json!({})) else { break };
+                if s["open"] != json!(true) {
+                    break;
+                }
+                let r = match s["step"].as_u64() {
+                    Some(0) => g.call("film_snap", &json!({})),
+                    Some(1) => g.call("film_call", &json!({ "pick": 0 })),
+                    Some(2) => {
+                        let _ = g.call("film_runback", &json!({}));
+                        let _ = g.call("film_mark", &json!({ "tag": 2 }));
+                        g.call("film_next", &json!({}))
+                    }
+                    _ => g.call("film_verdict", &json!({ "answer": 2 })),
+                };
+                if r.is_err() {
+                    let _ = g.call("film_leave", &json!({}));
+                    break;
+                }
+            }
+            run.call(g, "film_report", json!({}));
+        }
+    }
+    if let Some(t) = h["opp"].as_array().and_then(|t| t.first())
+        && g.call("film_opp", &json!({ "date": t["date"], "home": t["home"], "away": t["away"], "mode": "quick" }))
+            .is_ok()
+    {
+        run.call(g, "gameday", json!({}));
+    }
+    if let Some(q) = h["queue"].as_array().and_then(|q| q.iter().find(|q| q["state"] == json!(0))) {
+        let _ = g.call("film_queue_skip", &json!({ "k": q["k"] }));
+    }
+    if let Some(t) = h["trips"].as_array().and_then(|t| t.first()) {
+        if t["how"] == json!("visit") {
+            if g.call("there_visit", &json!({ "id": t["id"] })).is_ok() {
+                let _ = g.call("there_choose", &json!({ "key": "warmups" }));
+                let _ = g.call("there_choose", &json!({ "key": "trainer" }));
+                let _ = g.call("there_leave", &json!({}));
+            }
+        } else if g.call("there_stands", &json!({ "id": t["id"] })).is_ok() {
+            let _ = g.call("film_leave", &json!({}));
+        }
+    }
+    if h["camp_day"] == json!(true) && g.call("camp_open", &json!({})).is_ok() {
+        let _ = g.call("camp_coach", &json!({ "group": 2 }));
+        run.call(g, "camp", json!({}));
+        let _ = g.call("camp_close", &json!({}));
+    }
+    if h["signing_day"] == json!(true) {
+        run.call(g, "signing_room", json!({}));
+    }
+    if !h["combine"].is_null() {
+        run.call(g, "combine_week", json!({}));
+    }
+    run.call(g, "film_home", json!({}));
 }
 
 fn main() {

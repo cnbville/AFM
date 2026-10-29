@@ -72,6 +72,9 @@ pub fn run(b: &Book, c: &Check, index: &serde_json::Value, have: &dyn Fn(&str) -
         }
     }
     r.detail = match error {
+        // A child table a small or early world never filled is not in its
+        // book: no data, not broken SQL.
+        Some(e) if e.contains("no such table") => Some(format!("No data: {e} (this world never filled it).")),
         Some(e) => Some(format!("Its SQL failed: {e}.")),
         None => c.detail.and_then(|d| b.text_of(d)),
     };
@@ -135,7 +138,7 @@ pub fn write_all(
 ) -> rusqlite::Result<usize> {
     create(b)?;
     let mut n = 0;
-    for c in crate::defs::CHECKS {
+    for c in crate::defs::checks() {
         let r = run(b, c, index, have);
         let tol = Tol { near: c.tol.0, off: c.tol.1, floor: c.tol.2 };
         let gap = match (r.world, r.real) {

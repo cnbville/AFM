@@ -62,14 +62,21 @@ fn main() {
     real_files(&root);
 }
 
-/// Every real-data JSON file, built in, so a book carries the real figures
-/// even when it is built on a Mac with no copy of the repository.
+/// Every real-data JSON file, and every CSV under `CSV_MAX` bytes, built
+/// in, so a book carries the real figures even when it is built on a Mac
+/// with no copy of the repository.
 fn real_files(root: &Path) {
+    // The biggest CSVs (town climates, every high school town) stay out.
+    const CSV_MAX: u64 = 250_000;
     let dir = root.join("data/real-world");
     println!("cargo:rerun-if-changed={}", dir.display());
     let mut files: Vec<PathBuf> =
         std::fs::read_dir(&dir).map(|d| d.filter_map(|e| e.ok()).map(|e| e.path()).collect()).unwrap_or_default();
-    files.retain(|p| p.extension().and_then(|e| e.to_str()) == Some("json"));
+    files.retain(|p| match p.extension().and_then(|e| e.to_str()) {
+        Some("json") => true,
+        Some("csv") => std::fs::metadata(p).is_ok_and(|m| m.len() <= CSV_MAX),
+        _ => false,
+    });
     files.sort();
     let mut out = String::from("pub const FILES: &[(&str, &str)] = &[\n");
     for f in files {
