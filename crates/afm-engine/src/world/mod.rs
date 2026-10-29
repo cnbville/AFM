@@ -72,6 +72,7 @@ pub mod storylines;
 pub mod systems;
 pub mod tape;
 pub mod trends;
+pub mod units;
 pub mod voters;
 pub mod wlog;
 
@@ -885,6 +886,10 @@ pub struct World {
     pub(crate) nfl_prev: Option<nfl_year::NflSeason>,
     #[serde(default)]
     pub(crate) kept_schedules: Vec<season_page::KeptSeason>,
+    /// Each NFL team's regular-season points by year (C27): (season, team,
+    /// games, points for, points against); the last twenty seasons.
+    #[serde(default)]
+    pub nfl_units: Vec<(i32, u8, u8, u16, u16)>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1248,6 +1253,7 @@ impl World {
             prev_polls: Vec::new(),
             nfl_prev: None,
             kept_schedules: Vec::new(),
+            nfl_units: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -1733,7 +1739,15 @@ fn new_kid(
     let family = generate_family(&bg, Some(structure), &mut rng);
     apply_background(&mut player, &mut bg, &family, &mut rng);
     people::sync_new(&mut player, &bg, &family);
-    let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+    // Drawn with the odds of the position his body fits now, before any
+    // coach moves him, or a snapper's if he has the knack (A25).
+    let knack = ethnicity::snapper_knack(
+        player.ceilings.get(crate::attributes::Attr::LongSnapping),
+        player.original_potential,
+        z,
+    );
+    let fits = if knack { crate::positions::Position::LS } else { player.position };
+    let ethnicity = ethnicity::player_ethnicity(s, z, Some(fits), &mut rng);
     // Grades drift through high school: effort pushes them up.
     let gpa_trend =
         rng.normal(0.0, 0.07) + 0.012 * (player.personality.work_ethic - 10.0) + 0.04 * (bg.home_stability - 0.5);

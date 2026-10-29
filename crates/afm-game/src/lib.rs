@@ -23,6 +23,7 @@ pub mod lane_find;
 pub mod lane_frontoffice;
 pub mod lane_gameday;
 pub mod lane_gameplan;
+pub mod lane_hiring;
 pub mod lane_legacy;
 pub mod lane_logos;
 pub mod lane_money;
@@ -271,6 +272,7 @@ impl Game {
                     lane_evaluate::call,
                     lane_calendar::call,
                     lane_coaching::call,
+                    lane_hiring::call,
                     lane_logos::call,
                     lane_paths::call,
                     lane_film::call,

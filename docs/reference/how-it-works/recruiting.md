@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, update 3 lane 7 at 7933e49 the same day, and where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, and update 3 lane 7 at 3cb32e3 the same day.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 

@@ -1072,8 +1072,9 @@ pub struct Interview {
 }
 
 /// The rooms open to you with this player now, and their minutes (SK15):
-/// a combine interview (15 minutes, 18 from 2020), a top-30 visit's hour,
-/// an official visit's sit-down.
+/// a combine interview (15 minutes, 18 from 2020), a top-30 visit's hour
+/// (from the pro days to the visits' deadline), an official visit's
+/// sit-down.
 pub fn rooms(w: &World, id: u32) -> Vec<(&'static str, u8)> {
     let mut v = Vec::new();
     let Some(i) = super::place(w, id) else { return v };
@@ -1085,8 +1086,10 @@ pub fn rooms(w: &World, id: u32) -> Vec<(&'static str, u8)> {
             if at_combine && listed && p.stage == Stage::Declared {
                 v.push(("Combine interview", if w.year >= 2020 { 18 } else { 15 }));
             }
+            // Top-30 visits run from the pro days to their deadline.
             let visit = super::predraft::seat_list(w, t, super::predraft::LIST_VISIT).contains(&id);
-            if visit && p.stage == Stage::Declared && matches!(w.today.parts().1, 3 | 4) {
+            let open = w.today >= w.dates.pro_days.0 && w.today <= w.dates.top30_deadline;
+            if visit && p.stage == Stage::Declared && open {
                 v.push(("Top-30 visit", 60));
             }
         }
@@ -2086,7 +2089,7 @@ fn spotted(w: &World, h: usize, eye: f64, by: &str) -> Vec<Athlete> {
         }
         let sport = (u(3) * SPORTS.len() as f64) as usize % SPORTS.len();
         let mut rng = Rng::new(key as u32 ^ (key >> 32) as u32);
-        let eth = crate::world::ethnicity::player_ethnicity(school.state, 0.0, &mut rng);
+        let eth = crate::world::ethnicity::player_ethnicity(school.state, 0.0, None, &mut rng);
         let grade = (u(4) * 3.0) as i32; // 0 sophomore .. 2 senior
         let class_of = season + 3 - grade;
         let name = crate::world::names::person_name(eth, season - 15 - grade, &mut rng);
