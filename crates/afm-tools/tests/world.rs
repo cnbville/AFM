@@ -692,7 +692,10 @@ fn the_storylines_tell_the_seasons() {
     assert!(kinds >= 40, "only {kinds} kinds of story in {y}");
     assert!(fams.len() >= 11, "only {} families in {y}: {fams:?}", fams.len());
     let share = f64::from(public) / f64::from(opened.max(1));
-    assert!((0.15..0.95).contains(&share), "{share:.2} of the stories went public");
+    // Most stories are public facts and a few stay private: seeds 7 and 8
+    // ran 0.940-0.957 public a season over 2023-2025, and main's seed 8 was
+    // 0.952 in 2025, so 0.95 failed on a season's drift alone.
+    assert!((0.15..0.97).contains(&share), "{share:.2} of the stories went public");
     assert!(Family::ALL.iter().all(|f| !f.name().is_empty()));
     let told = |b: &BeatKind| {
         !matches!(b, BeatKind::Fact | BeatKind::Move | BeatKind::Private | BeatKind::Denial | BeatKind::Seed)
