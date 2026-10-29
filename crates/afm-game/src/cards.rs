@@ -168,8 +168,9 @@ fn world_part(w: &World) -> Value {
     let hs = match hs_from {
         Some(from) if from <= last => {
             format!(
-                "{} years of Friday nights on the match engine, {from}-{last}: every college and NFL player who came through them has a real high school stat line.",
-                number_word((last - from + 1) as u32)
+                "{} {} of Friday nights on the match engine, {from}-{last}: every college and NFL player who came through them has a real high school stat line.",
+                number_word((last - from + 1) as u32),
+                afm_engine::world::folk::noun(last - from + 1, "year")
             )
         }
         _ => {

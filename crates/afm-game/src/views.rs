@@ -878,7 +878,10 @@ pub(crate) fn followed(w: &World) -> Vec<Value> {
 pub(crate) fn where_now(w: &World, p: &Person) -> String {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => w.school_name(p.hs).to_string(),
-        Stage::College => p.college.map_or("College".into(), |c| w.program_name(c).to_string()),
+        Stage::College => match (p.college, p.cut_here()) {
+            (Some(c), Some(_)) => format!("Cut by {}, waiting for the transfer window", w.program_name(c)),
+            (c, _) => c.map_or("College".into(), |c| w.program_name(c).to_string()),
+        },
         Stage::Declared => "Draft pool".into(),
         Stage::Pro => match p.pro.as_ref().map(|c| (c.team, c.status)) {
             Some((Some(t), _)) => w.nfl_team_name(t),
@@ -2150,7 +2153,7 @@ pub(crate) fn born_text(d: Date) -> Option<String> {
 pub(crate) fn team_of(w: &World, p: &Person) -> Option<TeamRef> {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => Some(TeamRef::HighSchool(p.hs)),
-        Stage::College => p.college.map(TeamRef::College),
+        Stage::College => p.college.filter(|_| p.cut_here().is_none()).map(TeamRef::College),
         Stage::Pro => p.pro.as_ref().and_then(|c| c.team).map(TeamRef::Nfl),
         _ => None,
     }
@@ -2399,7 +2402,15 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
             let fouls: Vec<String> = r
                 .penalties
                 .iter()
-                .map(|(f, _, id, y, _)| format!("{} on {}, {} yards", f.name(), name(*id), y.round()))
+                .map(|(f, _, id, y, _)| {
+                    format!(
+                        "{} on {}, {} {}",
+                        f.name(),
+                        name(*id),
+                        y.round(),
+                        afm_engine::world::folk::noun(y.round() as i64, "yard")
+                    )
+                })
                 .collect();
             format!("Penalty before the snap: {}", fouls.join("; "))
         }
@@ -2442,10 +2453,11 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
     if r.kind != PlayType::NoPlay {
         for (f, _, id, y, accepted) in &r.penalties {
             t.push_str(&format!(
-                ". Flag: {} on {}, {} yards{}",
+                ". Flag: {} on {}, {} {}{}",
                 f.name(),
                 name(*id),
                 y.round(),
+                afm_engine::world::folk::noun(y.round() as i64, "yard"),
                 if *accepted { "" } else { ", declined" }
             ));
         }

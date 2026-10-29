@@ -410,7 +410,7 @@ async function bigFill(key) {
   if (total > end) html += `<tr class="spacer" style="height:${(total - end) * rowH}px"><td colspan="${cols.length}"></td></tr>`;
   box.querySelector("tbody").innerHTML = total ? html : `<tr><td class="l" colspan="${cols.length}"><div class="empty">${esc(B.empty || "Nothing matches.")}</div></td></tr>`;
   const foot = document.querySelector(`[data-bigfoot="${key}"]`);
-  if (foot) foot.textContent = total ? `${total.toLocaleString()} rows · the game sorts them all` : "";
+  if (foot) foot.textContent = total ? `${total.toLocaleString()} row${total === 1 ? "" : "s"} · the game sorts them all` : "";
 }
 function bigWire() {
   for (const box of document.querySelectorAll("[data-big]")) {
@@ -862,7 +862,7 @@ async function holiday() {
     try {
       const r = await api("holiday", { days });
       S.status = r.status;
-      toast(`Back from holiday: ${r.days} days, now ${r.today}.${r.why && r.why.length ? " " + r.why.map((w) => w.text).slice(0, 2).join(" · ") : ""}`);
+      toast(`Back from holiday: ${r.days} day${r.days === 1 ? "" : "s"}, now ${r.today}.${r.why && r.why.length ? " " + r.why.map((w) => w.text).slice(0, 2).join(" · ") : ""}`);
       go("home", {}, { root: true });
       showReveals(r.status && r.status.reveals);
     } catch (e) { toast(e.message); }
@@ -960,6 +960,11 @@ async function coreAct(act, el, ev) {
       return true;
     }
     case "pnote": noteBox({ kind: "player", id: Number(d.id), name: d.name }, `Player page · ${d.name}`); return true;
+    case "pcut": {
+      if (!(await sure(`Cut ${d.name}?`, d.words, "Cut him"))) return true;
+      try { const r = await api("college_cut", { id: Number(d.id) }); toast(r.text); peekForget(); refresh(el); } catch (e) { toast(e.message); }
+      return true;
+    }
     case "pnotedel": {
       if (!(await sure("Delete this note?", "It can't be brought back."))) return true;
       await api("note_edit", { src: "player", id: Number(d.id), k: Number(d.k), delete: true });
@@ -1246,7 +1251,7 @@ const PT = {
       <div class="panel"><h2>Five that matter at ${esc(p.pos)} <small>the mental side</small></h2>${p.key_mental.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read, null, { p: p.id, k: a.key })}</div>`).join("") || '<div class="empty">Not seen.</div>'}</div></div>
       ${p.measurables.length ? `<div class="panel"><h2>Measurables <small>where each was taken</small></h2>${measurablesHtml(p)}</div>` : ""}
       ${linksHtml(p)}
-      <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} games</p>` : ""}</div>` : ""}${fit}</div>
+      <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} game${last.games === 1 ? "" : "s"}</p>` : ""}</div>` : ""}${fit}</div>
       ${p.stories.length ? `<div class="panel"><h2>What happened</h2><div class="items">${p.stories.slice(0, 8).map((s) => `<div class="item story"><span>${rich(s)}</span></div>`).join("")}</div></div>` : ""}`;
   },
   Attributes: (p) => {
@@ -1291,7 +1296,7 @@ const PT = {
   },
   Contract: (p) => {
     const c = p.pro.contract;
-    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} years total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
+    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
       <div class="kv"><dt>Drafted</dt><dd>${esc(p.pro.draft || "Undrafted")}</dd><dt>Accrued seasons</dt><dd>${p.pro.accrued}</dd><dt>Career earnings</dt><dd>${money(p.pro.earnings)}</dd></div></div>`;
   },
   Notes: (p) => `<div class="panel"><h2>Your notes on ${esc(p.name)} <small>only you see them; they stay with him for his whole career</small></h2>
@@ -1334,7 +1339,7 @@ screens.player = async (a) => {
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
       <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
-      <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button></div></div></div></div>
+      <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button>${p.college_cut ? `<button class="st-btn glass" data-act="pcut" data-id="${p.id}" data-name="${esc(p.name)}" data-words="${esc(p.college_cut)}" title="Cut him from the team">Cut him</button>` : ""}</div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
 GOTO.player = (a, p) => [p.team ? ["Squad", "roster", p.team.ref ? { kind: p.team.ref.kind, id: p.team.ref.id } : {}] : null, p.team ? ["Schedule", "schedule", p.team.ref ? { kind: p.team.ref.kind, id: p.team.ref.id } : {}] : null, ["Leaderboards", "leaders"], ["My players", "myplayers"]];

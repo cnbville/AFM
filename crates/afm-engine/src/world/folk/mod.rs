@@ -404,6 +404,9 @@ pub(crate) fn note(w: &mut World, topic: &str, source: String, text: String, ang
     w.folk.log.push(Entry { date, topic: topic.to_string(), source, text, angle, check: None });
     if w.folk.log.len() > 600 {
         let cut = w.folk.log.len() - 600;
+        if w.logging() {
+            w.log_dropped("people log", w.folk.log[..cut].iter());
+        }
         w.folk.log.drain(..cut);
     }
 }
@@ -441,6 +444,23 @@ pub fn count_words(n: usize) -> String {
     const W: [&str; 13] =
         ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
     if n < W.len() { W[n].to_string() } else { n.to_string() }
+}
+
+/// A noun for a count: `noun(1, "game")` is "game", `noun(3, "game")`
+/// "games", `noun(2, "catch")` "catches", `noun(4, "story")` "stories".
+pub fn noun(n: impl TryInto<i64>, one: &str) -> String {
+    if n.try_into().is_ok_and(|n: i64| n == 1) {
+        return one.to_string();
+    }
+    let b = one.as_bytes();
+    let vowel = |c: u8| b"aeiou".contains(&c);
+    if one.ends_with('y') && b.len() > 1 && !vowel(b[b.len() - 2]) {
+        format!("{}ies", &one[..one.len() - 1])
+    } else if ["s", "x", "z", "ch", "sh"].iter().any(|e| one.ends_with(e)) {
+        format!("{one}es")
+    } else {
+        format!("{one}s")
+    }
 }
 
 /// A record in words: "9-4".

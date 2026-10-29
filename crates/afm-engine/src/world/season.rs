@@ -277,6 +277,21 @@ pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
         room[to.index()] += 1;
         made.push((i, to));
     }
+    if w.logging() {
+        for &(i, to) in &made {
+            let p = &w.people[i];
+            let from = p.player.position;
+            let by = if p.stage == Stage::College { "his college staff" } else { "his high school coach" };
+            w.log_why(super::wlog::Why::PositionMove {
+                id: p.player.id,
+                from,
+                to,
+                from_fit: crate::positions::overall_for(from, &p.player.attributes),
+                to_fit: crate::positions::overall_for(to, &p.player.attributes),
+                by,
+            });
+        }
+    }
     let persons = super::pick_mut(&mut w.people, made.iter().map(|m| m.0));
     persons.into_par_iter().zip(made.par_iter()).for_each(|(p, &(_, to))| {
         let from = p.player.position;
@@ -379,6 +394,16 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             && let Some(c) = p.college
         {
             w.recruiting_log.transfer_seasons.push((w.year, from, role, w.programs[c].division));
+            if let Some(log) = w.wlog.as_deref().filter(|_| w.recording) {
+                let why = super::wlog::Why::TransferSeason {
+                    id: p.player.id,
+                    program: c,
+                    division: w.programs[c].division,
+                    before: from,
+                    now: role,
+                };
+                super::wlog::why::put(log, (w.year, w.today), why);
+            }
         }
     }
     // What the players' tools support on average at each level and
@@ -400,6 +425,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     let focus = w.focus_by_person();
     let defer = !w.options.yearly_growth;
     let staff_of = |h: usize, g: Group| seat_staff.and_then(|(s, t)| if s == h { t[g as usize] } else { None });
+    // The world log (R2): each step's why, written as it runs.
+    let log = w.wlog.as_deref().filter(|_| w.recording);
+    let when = (w.year, w.today);
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
@@ -541,7 +569,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // Last year's growth that the calendar never reached lands first
         // (section 6b topic 12), so this row starts where he really is.
         crate::training::close_year(&mut p.player, ctx.focus);
-        develop_season(&mut p.player, &ctx, &mut p.rng);
+        let report = develop_season(&mut p.player, &ctx, &mut p.rng);
+        if let Some(log) = log {
+            let staff = match p.stage {
+                Stage::College => {
+                    let g = &programs[p.college.unwrap_or(0)];
+                    let coord = if group.offense() { g.oc } else { g.dc };
+                    [g.head_coach, coord, g.position_coaches[group as usize]]
+                }
+                Stage::HighSchool => [schools[p.hs].coach, None, None],
+                _ => [None; 3],
+            };
+            super::wlog::why::growth(log, when, p.player.id, &ctx, staff, &report);
+        }
         if let Some(gain) = p.cal.spring_gain_ahead.take() {
             crate::development::open_row_with_spring_step(&mut p.player, gain);
         }

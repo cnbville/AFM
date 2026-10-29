@@ -1,6 +1,6 @@
 # Body and combine: how it works today
 
-Checked against main at 8b7dd75 with update 3 lane 1 (bodies and the speed core) on 2026-10-28.
+Checked against main at 2a6e50c with update 3 lane 1 (bodies and the speed core) on 2026-10-28.
 
 ## Quick answers
 

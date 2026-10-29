@@ -1451,6 +1451,17 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         Employer::Other(u) => format!("from the {}", super::pro::other::name(u, year)),
     });
     let from = if why.is_empty() { from } else { format!("{from}: {why}") };
+    if w.logging() {
+        w.log_why(super::wlog::Why::Search {
+            employer: o.employer,
+            role: o.role,
+            prestige: o.prestige,
+            read_sd,
+            called: scored.iter().take(20).copied().collect(),
+            hired: Some(c),
+            why: from.clone(),
+        });
+    }
     if w.recording
         && let Employer::Nfl(t) = o.employer
         && o.role == Role::HeadCoach
@@ -1683,6 +1694,33 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     if !fire && expired && read >= 0.03 && !contending {
         fire = true;
         why = "not retained when his contract ran out";
+    }
+    if w.logging() {
+        let outcome = match () {
+            _ if fire => why,
+            _ if w.coaches[c].prove_it == Some(year) => "extended with a prove-it year",
+            _ => "kept",
+        };
+        w.log_why(super::wlog::Why::Review {
+            coach: c,
+            program: p,
+            tenure,
+            last,
+            before,
+            win_pct_two: wp2,
+            win_pct_last: wp_last,
+            title,
+            roster_direction: roster_dir,
+            class_direction: class_dir,
+            buyout,
+            money,
+            expired,
+            contending,
+            read,
+            bar,
+            fire_chance: p_fire,
+            outcome,
+        });
     }
     if fire {
         leave(w, c, why);
