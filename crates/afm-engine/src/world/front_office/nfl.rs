@@ -168,6 +168,9 @@ pub struct NflDesk {
     /// Tags and tenders placed before the new league year, with the deal
     /// they replaced, so one can be withdrawn until the league files it.
     pub placed: Vec<Placed>,
+    /// Tags and tenders you withdrew (player id, league year): your staff
+    /// doesn't put one back on him while it runs the tags (SC6).
+    pub withdrawn: Vec<(u32, i32)>,
 }
 
 /// A tag or tender placed before the league year and what it replaced.
@@ -831,13 +834,23 @@ pub(crate) fn option_choice(w: &World, t: usize, i: usize) -> Option<bool> {
 }
 
 /// Whether you are in talks with player `i` of club `t` (your club): your
-/// staff leaves him to you while it runs the rest of the duty (SC6).
+/// staff leaves him to you while it runs the rest of the duty (SC6). Only a
+/// live talk counts: an offer standing or agreed, or an open talk of the
+/// kind he's open to today with a word from either side in the last three
+/// weeks. A talk you leave goes back to your staff.
 pub(crate) fn talking(w: &World, t: usize, i: usize) -> bool {
-    super::seat_head_club(w, t)
-        && w.front_office
-            .nfl
-            .talk(w.people[i].player.id)
-            .is_some_and(|x| matches!(x.state, TalkState::Open | TalkState::Standing | TalkState::Agreed))
+    if !super::seat_head_club(w, t) {
+        return false;
+    }
+    let today = w.today;
+    w.front_office.nfl.talk(w.people[i].player.id).is_some_and(|x| {
+        let last = x.lines.last().map_or(x.opened, |l| l.date);
+        match x.state {
+            TalkState::Standing | TalkState::Agreed => true,
+            TalkState::Open => negotiable(w, i) == Some(x.kind) && last.days_to(today) <= 21,
+            _ => false,
+        }
+    })
 }
 
 /// Sets a fifth-year option choice (it takes effect on the deadline).
@@ -1152,6 +1165,8 @@ fn withdraw(w: &mut World, i: usize, id: u32) -> Result<String, String> {
     let k = w.front_office.nfl.placed.iter().position(|x| x.player == id && x.year == year);
     let Some(k) = k else { return Err("That tag or tender can be taken back once the new league year opens.".into()) };
     let x = w.front_office.nfl.placed.remove(k);
+    w.front_office.nfl.withdrawn.retain(|x| x.1 >= year - 1);
+    w.front_office.nfl.withdrawn.push((id, year));
     let kind = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).map(|k| k.kind);
     let tendered = w.people[i].pro.as_ref().is_some_and(|c| c.rfa.is_some());
     let team = x.old.team;

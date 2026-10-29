@@ -30,9 +30,14 @@ pub fn read(w: &World, id: u32) -> Result<Read, String> {
     let games = cs.and_then(|c| c.snaps.get(&id)).map_or(0, |s| s.1);
     let redshirt = sitting(p);
     let can = (|| {
-        let cs = cs.filter(|c| c.year == w.year && c.started && !c.finished);
+        // Open from fall camp until the season's eligibility is settled on
+        // January 2 (bowls and title games after it count for nothing).
+        let cs = cs.filter(|c| {
+            c.year == w.year && c.started && !c.finished && w.today < crate::calendar::Date::ymd(c.year + 1, 1, 2)
+        });
         if cs.is_none() {
-            return Err("Redshirts are set at fall camp, for the season.".to_string());
+            return Err("Redshirts are set at fall camp, for the season, until its eligibility is settled in January."
+                .to_string());
         }
         if eligibility::five_in_five(w.year, w.programs[j].division) {
             return Err("Five years to play five: no redshirts any more.".into());

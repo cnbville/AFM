@@ -152,6 +152,9 @@ pub fn tryout(w: &mut World, id: u32) -> Result<(), String> {
     let t = w.seat.and_then(|s| s.nfl_team).ok_or("Only an NFL club holds tryouts.")?;
     let i = super::place(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
+    if p.stage != crate::world::Stage::Pro {
+        return Err("He isn't eligible for an NFL tryout.".into());
+    }
     if p.pro.as_ref().is_some_and(|c| c.team.is_some()) {
         return Err("He's under contract with a club.".into());
     }

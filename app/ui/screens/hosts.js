@@ -55,7 +55,11 @@ const hostLabel = (p) => (typeof p.t === "function" ? p.t() : p.t);
 
 async function hostDraw(key, a) {
   const parts = hostParts(key, a);
-  if (parts.length < 2) return HOST_PAGE[key](a);
+  // One part left: draw it, never a part the seat filtered out.
+  if (parts.length < 2) {
+    const only = parts.find((p) => p.go === key) || parts[0];
+    return (only && HOST_PAGE[only.go] ? HOST_PAGE[only.go] : HOST_PAGE[key])(a);
+  }
   const own = parts.find((p) => p.go === key) || parts[0];
   const k = keep("host:" + key, { on: parts[0].go, route: null });
   const bare = Object.keys(a).every((x) => x === "on" || a[x] == null);

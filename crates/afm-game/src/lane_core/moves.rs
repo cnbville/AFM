@@ -7,7 +7,7 @@
 //! line, the numbers a dialog shows).
 
 use afm_engine::world::front_office::college::{self as fc, Standing};
-use afm_engine::world::front_office::{nfl, redshirt, reserve, school};
+use afm_engine::world::front_office::{Duty, Owner, nfl, redshirt, reserve, school};
 use afm_engine::world::pro::Status;
 use afm_engine::world::scouting::{predraft, public};
 use afm_engine::world::{Stage, World};
@@ -30,7 +30,10 @@ pub fn player(w: &World, id: u32) -> Vec<Value> {
     let p = &w.people[k];
     let seat = views::mine(w);
     let team = views::team_of(w, p);
-    let own = team.is_some_and(|t| views::is_mine(w, t));
+    // A club in another league keeps its roster on the league's own list.
+    let other_own =
+        matches!(seat, Some(TeamRef::Other(f)) if w.others.team(f).is_some_and(|t| t.roster.contains(&(k as u32))));
+    let own = team.is_some_and(|t| views::is_mine(w, t)) || other_own;
     let mut out: Vec<Value> = Vec::new();
     if own && p.stage != Stage::Done {
         out.push(main(mv("talk", "Talk to him")));
@@ -45,7 +48,7 @@ pub fn player(w: &World, id: u32) -> Vec<Value> {
         out.push(mv("dev", "Development"));
     }
     // Your staff's looks: the file, and a new look where the rules allow.
-    if p.stage != Stage::Done && seat.is_some() {
+    if p.stage != Stage::Done && afm_engine::world::scouting::readers::seat_staff(w).is_some() {
         let kinds = crate::lane_scouting::ask_kinds(w, p);
         if !kinds.is_empty() {
             let mut v = mv("ask", "Ask for a new look");
@@ -79,8 +82,10 @@ fn nfl_moves(w: &World, k: usize, own: bool, out: &mut Vec<Value>) {
         out.push(main(mv("deal", t)));
     }
     let c = p.pro.as_ref();
+    // The front office's moves are the head coach's (he is the GM).
+    let head = w.seat_head();
     if own {
-        if let Some(cap) = crate::lane_frontoffice::nfl::cap_moves(w, k) {
+        if let Some(cap) = crate::lane_frontoffice::nfl::cap_moves(w, k).filter(|_| head) {
             if cap["re"].as_bool() == Some(true) {
                 let mut v = mv("restructure", "Restructure");
                 v["cap"] = cap.clone();
@@ -90,24 +95,38 @@ fn nfl_moves(w: &World, k: usize, own: bool, out: &mut Vec<Value>) {
             v["cap"] = cap;
             out.push(v);
         }
-        let on = w.front_office.trades.block.contains(&id);
-        let mut v = mv("block", if on { "Take off the trading block" } else { "Put on the trading block" });
-        v["on"] = json!(!on);
-        out.push(v);
+        if head {
+            let on = w.front_office.trades.block.contains(&id);
+            let mut v = mv("block", if on { "Take off the trading block" } else { "Put on the trading block" });
+            v["on"] = json!(!on);
+            out.push(v);
+        }
         // Injured reserve: your call, with your medical staff's word (bug 73).
         if let Ok(words) = reserve::place_words(w, id) {
             let mut v = mv("ir", "Place on injured reserve");
             v["words"] = json!(words);
             out.push(main(v));
-        } else if let Ok(words) = reserve::activate_words(w, id) {
-            let mut v = mv("ir_back", "Bring him back from injured reserve");
-            v["words"] = json!(words);
-            out.push(main(v));
+        } else {
+            match reserve::activate_words(w, id) {
+                Ok(words) => {
+                    let mut v = mv("ir_back", "Bring him back from injured reserve");
+                    v["words"] = json!(words);
+                    out.push(main(v));
+                }
+                // Healed but blocked (a full roster, no returns left): the
+                // move shows with why, so it isn't a silent dead end.
+                Err(why) if c.is_some_and(|c| c.status == Status::Reserve && c.out_weeks == 0) => {
+                    let mut v = mv("ir_back", "Bring him back from injured reserve");
+                    v["why"] = json!(why);
+                    out.push(v);
+                }
+                Err(_) => {}
+            }
         }
         return;
     }
     // Another club's player: a trade, and a look.
-    if let Some(t) = c.and_then(|c| c.team).filter(|_| p.stage == Stage::Pro)
+    if let Some(t) = c.and_then(|c| c.team).filter(|_| p.stage == Stage::Pro && head)
         && c.is_some_and(|c| matches!(c.status, Status::Roster | Status::Reserve))
     {
         let mut v = mv("trade", "Trade for him");
@@ -145,6 +164,10 @@ fn nfl_moves(w: &World, k: usize, own: bool, out: &mut Vec<Value>) {
 }
 
 fn college_moves(w: &World, k: usize, j: usize, own: bool, out: &mut Vec<Value>) {
+    // The program's moves are the head coach's.
+    if !w.seat_head() {
+        return;
+    }
     let p = &w.people[k];
     let id = p.player.id;
     if own {
@@ -187,7 +210,11 @@ fn college_moves(w: &World, k: usize, j: usize, own: bool, out: &mut Vec<Value>)
     }
     let board = w.front_office.college.board.iter().find(|t| t.id == id);
     let offered = board.is_some_and(|t| t.offered.is_some() && t.pulled.is_none());
-    out.push(main(if offered { mv("pull", "Pull the offer") } else { mv("offer", "Offer a scholarship") }));
+    // Offers and pulls wait on the board's owner: your coordinator's while
+    // he runs it.
+    if w.front_office.owner(Duty::Board) == Owner::You {
+        out.push(main(if offered { mv("pull", "Pull the offer") } else { mv("offer", "Offer a scholarship") }));
+    }
     if board.is_none() {
         out.push(main(mv("board", "Add to the board")));
     } else if !offered {
@@ -201,7 +228,7 @@ fn college_moves(w: &World, k: usize, j: usize, own: bool, out: &mut Vec<Value>)
 }
 
 fn school_moves(w: &World, k: usize, h: usize, own: bool, out: &mut Vec<Value>) {
-    if !own {
+    if !own || !w.seat_head() {
         return;
     }
     let p = &w.people[k];
@@ -236,7 +263,7 @@ pub fn coach(w: &World, c: usize) -> Vec<Value> {
 /// The moves for a team: a trade with another NFL club.
 pub fn team(w: &World, t: TeamRef) -> Vec<Value> {
     match (views::mine(w), t) {
-        (Some(TeamRef::Nfl(me)), TeamRef::Nfl(o)) if me != o => {
+        (Some(TeamRef::Nfl(me)), TeamRef::Nfl(o)) if me != o && w.seat_head() => {
             let mut v = mv("trade_with", "Trade with them");
             v["team"] = json!(o);
             vec![v]

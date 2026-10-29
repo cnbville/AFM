@@ -913,7 +913,13 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
         // The agent's move: with no real competition, a less honest agent
         // claims other interest (topic 3 question 1).
         // Your own offer gets your answer from the agent instead (lane 10).
-        let (best, s) = if s < 0.85 && offers.len() == 1 && !fo::yours(w, best.team, Duty::FreeAgency) {
+        // Your own offer gets the agent's answer in your talk, never a bluff
+        // (lane 10), whoever runs the rest of free agency (SC6).
+        let (best, s) = if s < 0.85
+            && offers.len() == 1
+            && !fo::yours(w, best.team, Duty::FreeAgency)
+            && !fo::nfl::talking(w, best.team, i)
+        {
             bluff(w, i, best, &ideal, former, d)
         } else {
             (best, s)
@@ -1116,8 +1122,13 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
         used.insert(me, u);
     }
     for (t, i) in list {
-        // Your tags and tenders are yours (lane 10), and a talk of yours (SC6).
-        if fo::yours(w, t, Duty::Tags) || fo::nfl::talking(w, t, i) {
+        // Your tags and tenders are yours (lane 10), and a talk of yours or
+        // a tag you withdrew stands with the staff on the rest (SC6).
+        let id = w.people[i].player.id;
+        if fo::yours(w, t, Duty::Tags)
+            || fo::nfl::talking(w, t, i)
+            || (fo::seat_head_club(w, t) && w.front_office.nfl.withdrawn.iter().any(|x| x.0 == id && x.1 == year))
+        {
             continue;
         }
         let p = &w.people[i];

@@ -24,7 +24,12 @@ pub(crate) fn recommend(w: &mut World, i: usize, weeks: u32) {
     let returns = games::ir_returns(year);
     let name = w.people[i].name.clone();
     let pos = w.people[i].player.position.name();
-    let back = if returns == 0 {
+    let vested = w.people[i].pro.as_ref().is_some_and(|c| c.accrued >= 4);
+    let back = if before_cut(w) && !vested {
+        "before the cutdown he reaches it only through waivers, so keep him through the cut and decide then".to_string()
+    } else if before_cut(w) {
+        "before the cutdown it ends his season".to_string()
+    } else if returns == 0 {
         "it ends his season (no player comes back from it before 2012)".to_string()
     } else {
         format!("he'd sit at least {min} games and coming back uses one of your {returns} returns")
@@ -58,6 +63,17 @@ pub fn place_words(w: &World, id: u32) -> Result<String, String> {
     let year = w.year;
     let min = games::ir_minimum(year);
     let weeks = c.out_weeks;
+    // Before the final cutdown a player with fewer than four seasons goes
+    // on the list only through waivers (waived/injured), and the list ends
+    // anyone's season, as the league's rule has it.
+    if before_cut(w) {
+        if c.accrued < 4 {
+            return Err("Before the cutdown a player with fewer than four seasons reaches injured reserve only through waivers: keep him through the cut and decide then, or release him.".into());
+        }
+        return Ok(format!(
+            "He's out about {weeks} weeks. Before the cutdown injured reserve ends his season: he can't come back this year."
+        ));
+    }
     Ok(if games::ir_returns(year) == 0 {
         format!("He's out about {weeks} weeks. Injured reserve frees his spot on the 53 and ends his season.")
     } else if weeks < min {
@@ -76,9 +92,11 @@ pub fn place(w: &mut World, id: u32) -> Result<String, String> {
     place_words(w, id)?;
     let (i, _) = yours(w, id)?;
     let min = games::ir_minimum(w.year);
+    let season = before_cut(w);
     let c = w.people[i].pro.as_mut().unwrap();
     c.status = Status::Reserve;
     c.pup = false;
+    c.ir_out = season;
     // The list's minimum stay: he can't come back sooner, healed or not.
     c.out_weeks = c.out_weeks.max(min);
     let weeks = c.out_weeks;
@@ -98,6 +116,9 @@ pub fn activate_words(w: &World, id: u32) -> Result<String, String> {
     if c.status != Status::Reserve {
         return Err("He isn't on injured reserve.".into());
     }
+    if c.ir_out {
+        return Err("Placed before the cutdown: injured reserve ends his season.".into());
+    }
     if c.out_weeks > 0 {
         return Err(format!(
             "He can't come back for {} more week{}.",
@@ -113,8 +134,9 @@ pub fn activate_words(w: &World, id: u32) -> Result<String, String> {
             n => format!("You've used all {n} returns from injured reserve this season."),
         });
     }
-    if pro::count(w, t, Status::Roster) >= w.rules.nfl_roster as usize {
-        return Err(format!("Your roster is full ({}): release or move a player first.", w.rules.nfl_roster));
+    let lim = super::roster::roster_limit(w);
+    if pro::count(w, t, Status::Roster) >= lim {
+        return Err(format!("Your roster is full ({lim}): release or move a player first."));
     }
     Ok(if c.pup {
         "He's healed: back on the roster off the physically unable to perform list.".to_string()
@@ -143,13 +165,22 @@ pub fn activate(w: &mut World, id: u32) -> Result<String, String> {
 /// Your healed player waits on reserve for your word: a line in your inbox.
 pub(crate) fn healed(w: &mut World, i: usize) {
     let t = w.people[i].pro.as_ref().and_then(|c| c.team).unwrap_or(0);
+    let pup = w.people[i].pro.as_ref().is_some_and(|c| c.pup);
     let left = games::ir_returns(w.year).saturating_sub(w.clubs[t].ir_used);
     let name = w.people[i].name.clone();
     let pos = w.people[i].player.position.name();
-    let text = format!(
-        "Your medical staff clears {pos} {name} to come back from injured reserve ({left} return{} left this season).",
-        if left == 1 { "" } else { "s" }
-    );
+    let full = pro::count(w, t, Status::Roster) >= super::roster::roster_limit(w);
+    let room = if full { " Your roster is full: release or move a player to make room." } else { "" };
+    let text = if pup {
+        format!(
+            "Your medical staff clears {pos} {name} to come off the physically unable to perform list (no return used).{room}"
+        )
+    } else {
+        format!(
+            "Your medical staff clears {pos} {name} to come back from injured reserve ({left} return{} left this season).{room}",
+            if left == 1 { "" } else { "s" }
+        )
+    };
     let d = w.today;
     tell_about(w, d, text, true, &[i]);
 }
@@ -161,4 +192,9 @@ fn yours(w: &World, id: u32) -> Result<(usize, usize), String> {
         return Err("He isn't yours.".into());
     }
     Ok((i, t))
+}
+
+/// Between the league year and the final cutdown.
+fn before_cut(w: &World) -> bool {
+    w.today >= w.dates.league_year.date && w.today < w.dates.cutdown.date
 }

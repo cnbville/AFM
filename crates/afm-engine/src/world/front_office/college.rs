@@ -260,6 +260,24 @@ pub(crate) fn visits_program(w: &World) -> Option<usize> {
     mine(w, Duty::Visits)
 }
 
+/// With your staff on visits: your program and the recruits you set an
+/// official visit for yourself, which its own bookings leave alone (SC6).
+pub(crate) fn planned_officials(w: &World) -> Option<(usize, std::collections::HashSet<u32>)> {
+    let j = super::program(w)?;
+    if mine(w, Duty::Visits).is_some() {
+        return None;
+    }
+    let ids: std::collections::HashSet<u32> = w
+        .front_office
+        .college
+        .visits
+        .iter()
+        .filter(|v| v.state == VisitState::Set && v.kind == VisitKind::Official)
+        .map(|v| v.id)
+        .collect();
+    (!ids.is_empty()).then_some((j, ids))
+}
+
 /// Your offer to a portal entrant: the money and the ties behind it.
 pub(crate) struct PortalOffer {
     pub nil: Option<f64>,
@@ -1095,6 +1113,14 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
             Some("He is no longer a recruit.".to_string())
         } else if !recruiting_period(&w.dates, d).unofficial_visits() {
             Some("A dead period closed it.".to_string())
+        } else if kind == VisitKind::Official && p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official) {
+            // One official visit to a school, and five in all (the rules
+            // re-checked on the day: your staff may have booked one; SC6).
+            Some("He already took his official visit to you.".to_string())
+        } else if kind == VisitKind::Official
+            && p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count() >= rec::OFFICIAL_VISITS
+        {
+            Some("He used all his official visits.".to_string())
         } else {
             None
         };
@@ -1430,10 +1456,17 @@ pub fn budget(w: &World, j: usize) -> Budget {
         .filter(|p| p.stage == crate::world::Stage::College && p.college == Some(j))
         .map(|p| p.player.id)
         .collect();
-    let roster = if desk.deals_year == deals_year(w) {
-        desk.deals.iter().filter(|d| on.contains(&d.0)).map(|d| d.1).sum::<f64>()
+    let set: HashMap<u32, f64> = if desk.deals_year == deals_year(w) {
+        desk.deals.iter().copied().filter(|d| on.contains(&d.0)).collect()
     } else {
-        0.0
+        HashMap::new()
+    };
+    // With NIL at your staff, a player you set no deal for still gets the
+    // collective's usual split (SC6), so the budget counts it.
+    let roster = if mine(w, Duty::Nil).is_none() && super::program(w) == Some(j) {
+        usual_deals(w, j).into_iter().map(|(id, usual)| set.get(&id).copied().unwrap_or(usual)).sum::<f64>()
+    } else {
+        set.values().sum::<f64>()
     };
     let recruits = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).filter_map(|t| t.nil).sum();
     let portal = desk.portal.iter().filter(|t| t.offered.is_some() && !t.settled).filter_map(|t| t.nil).sum();
@@ -1469,7 +1502,13 @@ pub fn set_deal(w: &mut World, id: u32, amount: f64) -> Result<String, String> {
         desk.deals.clear();
         desk.deals_year = year;
     }
-    let old = desk.deals.iter().find(|d| d.0 == id).map_or(0.0, |d| d.1);
+    // With NIL at your staff, his usual share is what your deal replaces.
+    let usual = if mine(w, Duty::Nil).is_none() {
+        usual_deals(w, j).into_iter().find(|d| d.0 == id).map_or(0.0, |d| d.1)
+    } else {
+        0.0
+    };
+    let old = w.front_office.college.deals.iter().find(|d| d.0 == id).map_or(usual, |d| d.1);
     let b = budget(w, j);
     if amount - old > b.left + 1.0 {
         return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));

@@ -411,14 +411,16 @@ fn home_of(e: &Event, lv: Lv) -> Option<Value> {
     }
     let t = e.text.to_lowercase();
     let r = e.rule.to_lowercase();
-    if lv == Lv::Nfl {
+    // The league's own dates (never a line naming a player).
+    if lv == Lv::Nfl && matches!(e.kind, Kind::Date | Kind::Deadline | Kind::Window) {
+        let tag = t.split(|c: char| !c.is_alphanumeric()).any(|x| x == "tag" || x == "tags");
         if t.contains("trade deadline") {
             return go("fo_trades", "Trades");
         }
         if t.contains("cutdown") || t.contains("cut-down") || t.contains("roster cut") {
             return go("fo_moves", "Roster moves");
         }
-        if t.contains("tag") || t.contains("fifth-year option") || t.contains("offer sheet") {
+        if tag || t.contains("fifth-year option") || t.contains("offer sheet") {
             return go("fo_expiring", "Deals and tags");
         }
     }

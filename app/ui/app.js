@@ -171,8 +171,14 @@ const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen 
 // The NFL desk's cap sheet holds every contract by year, so at the NFL a
 // link to the old Contracts table (a calendar line, search, an older
 // screen) opens the cap sheet instead.
+// At the NFL the head coach's Contracts is his Cap sheet; an assistant
+// keeps the read-only Contracts table, whichever link he followed.
 function screenFor(screen) {
-  return screen === "contracts" && seatKind() === "nfl" && screens.fo_cap ? "fo_cap" : screen;
+  if (seatKind() !== "nfl" || !screens.fo_cap) return screen;
+  const head = typeof foIsHead !== "function" || foIsHead();
+  if (screen === "contracts" && head) return "fo_cap";
+  if (screen === "fo_cap" && !head) return "contracts";
+  return screen;
 }
 // go(screen, args, push) keeps its old third argument (false: don't add to
 // history); an object can say {root: true} for a sidebar click, which

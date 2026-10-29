@@ -1197,7 +1197,7 @@ fn ready_to_move_up(w: &mut World, h: usize, d: Date) {
                 if v.len() >= need { "last man" } else { "players" },
                 pos.name()
             );
-            if !w.front_office.school.mine.contains(&l.id) {
+            if w.front_office.owner(Duty::Squads) == Owner::You || !w.front_office.school.mine.contains(&l.id) {
                 ups.push((staff_read(w, i), pos, l.id, to, why));
             }
         }
@@ -1250,7 +1250,10 @@ fn call_ups(w: &mut World, d: Date) {
     let mut jv: Vec<(f64, usize)> = sq
         .iter()
         .filter(|x| x.1 == Squad::Jv && grade(w, w.people[x.0].class_of) >= 10)
-        .filter(|x| !w.front_office.school.mine.contains(&w.people[x.0].player.id))
+        .filter(|x| {
+            w.front_office.owner(Duty::Squads) == Owner::You
+                || !w.front_office.school.mine.contains(&w.people[x.0].player.id)
+        })
         .map(|x| (staff_read(w, x.0), x.0))
         .collect();
     if jv.is_empty() {

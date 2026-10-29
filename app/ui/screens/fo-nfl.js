@@ -121,7 +121,7 @@ screens.fo_cap = async (a) => {
     { k: "gtd_left", t: "Gtd left", tip: "Pay still guaranteed from this league year on", f: (r) => (r.gtd_left ? foM(r.gtd_left) : '<span class="muted">-</span>') },
     { k: "dead", t: "Dead if cut", div: true, v: (r) => r.cut.dead, f: (r) => foM(r.cut.dead) },
     { k: "saves", t: "Saves", tip: "Cap room a release frees this year", v: (r) => r.cut.saves, f: (r) => `<span class="${r.cut.saves < 0 ? "neg" : "pos"}">${foM(r.cut.saves)}</span>` },
-    { k: "act", t: "", f: (r) => (r.where === "Practice squad" ? `<span class="muted">Squad</span>` : foBtn("capmove", "Moves", { id: r.id, name: r.name, voids: x.voids_ok ? 1 : 0, re: r.can_restructure ? 1 : 0, dead: r.cut.dead, saves: r.cut.saves, dj: r.cut.dead_june1, dj2: r.cut.dead_june1_next, sj: r.cut.saves_june1, june1: x.after_june1 ? 0 : 2 - x.june1_used })) },
+    { k: "act", t: "", f: (r) => (r.where === "Practice squad" ? `<span class="muted">Squad</span>` : foBtn("capmove", "Moves", { id: r.id, name: r.name, voids: x.voids_ok ? 1 : 0, re: r.can_restructure ? 1 : 0, last: r.last_year ? 1 : 0, dead: r.cut.dead, saves: r.cut.saves, dj: r.cut.dead_june1, dj2: r.cut.dead_june1_next, sj: r.cut.saves_june1, june1: x.after_june1 ? 0 : 2 - x.june1_used })) },
   ];
   const dead = x.dead.map((d) => `<tr><td class="l">${d.year}</td><td class="l">${playerLink(d.id, d.name)}</td><td class="l">${esc(d.why)}</td><td>${foM(d.amount)}</td></tr>`).join("") || `<tr><td class="l" colspan="4"><div class="empty">No dead money on the books.</div></td></tr>`;
   const picks = x.picks.map(foPick).join("") || '<span class="muted">No picks.</span>';
@@ -395,8 +395,9 @@ screens.fo_moves = async () => {
 async function foCapMove(kind, id, name, cap) {
   const c = cap || {};
   if (kind === "restructure") {
+    // A deal in its last year has only void years to spread a bonus over.
     const v = await foChoose(`Restructure ${name}`, "His base salary above the minimum becomes a signing bonus spread over the years left: room now, more on later caps.", [
-      { v: "0", t: "Over the years left", s: "No void years." },
+      ...(c.last ? [] : [{ v: "0", t: "Over the years left", s: "No void years." }]),
       ...(c.voids ? [{ v: "2", t: "Add two void years", s: "Spreads it further; the leftover lands on the cap when the deal voids." }] : []),
     ]);
     if (v != null) await foDo("fo_restructure", { id, voids: Number(v) });
@@ -415,6 +416,8 @@ async function foDo(cmd, args, ok) {
     const r = await api(cmd, args);
     if (r && r.text) toast(r.text);
     else if (ok) toast(ok);
+    // The hover card's moves are stale after a move.
+    if (typeof peekForget === "function") peekForget();
     S.status = null;
     foRedraw();
     return r;
@@ -463,7 +466,7 @@ document.addEventListener("click", async (ev) => {
     case "sheet": await foDo("fo_sheet", { id, match: d.m === "1" }, d.m === "1" ? "You'll match." : "You'll let him go."); break;
     case "capmove": {
       const opts = [];
-      if (Number(d.re)) opts.push({ v: "re0", t: "Restructure over the years left", s: "His base above the minimum becomes a signing bonus spread over his deal: room now, more on later caps." });
+      if (Number(d.re) && !Number(d.last)) opts.push({ v: "re0", t: "Restructure over the years left", s: "His base above the minimum becomes a signing bonus spread over his deal: room now, more on later caps." });
       if (Number(d.re) && Number(d.voids)) opts.push({ v: "re2", t: "Restructure with two void years", s: "Spreads it further; what's left lands on the cap the year the deal voids." });
       opts.push({ v: "now", t: `Release him now · ${foM(Number(d.dead))} dead, ${Number(d.saves) >= 0 ? "saves" : "costs"} ${foM(Math.abs(Number(d.saves)))}`, s: "Every later year's bonus spread lands on this year's cap, with any guaranteed pay he's owed." });
       if (Number(d.june1) > 0 && (Number(d.dj2) > 0 || Number(d.dj) !== Number(d.dead))) opts.push({ v: "june1", t: `Release with a post-June 1 designation · ${foM(Number(d.dj))} dead now, ${foM(Number(d.dj2))} next year`, s: `Saves ${foM(Number(d.sj))} once June 1 passes. ${d.june1} of 2 left this year.` });

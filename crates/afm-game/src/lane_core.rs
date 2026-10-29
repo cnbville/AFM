@@ -92,7 +92,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let kind = args.get("kind").and_then(Value::as_str).unwrap_or("player");
             Ok(json!(match kind {
                 "coach" => moves::coach(w, id_arg(args)? as usize),
-                "nfl" | "college" | "hs" | "team" => moves::team(w, crate::views::TeamRef::from_args(w, args)?),
+                "nfl" | "college" | "hs" | "other" | "team" =>
+                    moves::team(w, crate::views::TeamRef::from_args(w, args)?),
                 _ => moves::player(w, id_arg(args)? as u32),
             }))
         })(),

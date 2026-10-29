@@ -345,7 +345,12 @@ async function tableAct(act, el) {
         const k = cb.dataset.k;
         st.hidden = cb.checked ? st.hidden.filter((x) => x !== k) : [...st.hidden, k];
         const box = document.querySelector(`[data-table="${key}"]`);
-        if (box) box.outerHTML = table(key, T.cols, T.rows, { ...T.opts, tools: false });
+        if (box) {
+          // The move bar sits after the box: the new table brings its own.
+          const bar = box.nextElementSibling;
+          if (bar && bar.classList.contains("movebar")) bar.remove();
+          box.outerHTML = table(key, T.cols, T.rows, { ...T.opts, tools: false });
+        }
       });
       return true;
     }
@@ -722,7 +727,10 @@ async function runMove(m, who, at) {
     case "release": return foCapMove(m.k, id, name, m.cap);
     case "block": return moveDo("fo_block", { id, on: m.on }, m.on ? "On the block: buyers will call." : "Off the block.");
     case "ir": if (await sure(`Put ${name} on injured reserve?`, m.words, "Place him")) moveDo("ir_place", { id }); return;
-    case "ir_back": if (await sure(`Bring ${name} back?`, m.words, "Bring him back")) moveDo("ir_back", { id }); return;
+    case "ir_back":
+      if (m.why) { toast(m.why); return; }
+      if (await sure(`Bring ${name} back?`, m.words, "Bring him back")) moveDo("ir_back", { id });
+      return;
     case "trade": { Object.assign(foTrade(), { team: m.team, give: [], givePicks: [], get: [id], getPicks: [], cond: null, answer: null, shop: null }); return go("fo_trades", { team: m.team, get: [id] }); }
     case "trade_with": { Object.assign(foTrade(), { team: m.team, get: [], getPicks: [], cond: null, answer: null }); return go("fo_trades", { team: m.team }); }
     case "visit": return moveDo("fo_visit", { id });
@@ -827,8 +835,11 @@ document.addEventListener("click", async (ev) => {
     const r = b.getBoundingClientRect();
     return ctxMenu({ preventDefault() {}, clientX: r.left, clientY: r.bottom + 4 }, [...moveItems(moves, who, b), "-", { label: "Open beside", key: "⇧ click", run: () => openBeside("player", { id: who.id }) }]);
   }
+  // The hover card goes away: a menu the move opens anchors where it was.
+  const rect = b.getBoundingClientRect();
+  const at = { getBoundingClientRect: () => rect };
   if (b.closest(".peek")) peekHide();
-  runMove(m, who, b);
+  runMove(m, who, at);
 }, true);
 // A move as a button (the hero) or a quiet link (the hover card).
 function moveBtn(m, who, cls = "st-btn glass") {

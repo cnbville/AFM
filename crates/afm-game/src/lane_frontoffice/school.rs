@@ -303,6 +303,13 @@ fn squads(w: &World) -> Result<Value, String> {
                 let grade = school::grade(w, p.class_of);
                 v["grade"] = json!(grade);
                 v["moved"] = json!(by_staff(i).is_some_and(|s| s != sq));
+                // Whose move: yours, or your staff's while it had the squads
+                // (SC6; a save from before the list counts the moves yours).
+                let mine = &w.front_office.school.mine;
+                v["mine"] = json!(
+                    mine.contains(&p.player.id)
+                        || (mine.is_empty() && w.front_office.owner(Duty::Squads) == Owner::You)
+                );
                 v["staff"] = json!(by_staff(i).map(|s| s.name()));
                 v["can"] = json!(
                     Squad::ALL

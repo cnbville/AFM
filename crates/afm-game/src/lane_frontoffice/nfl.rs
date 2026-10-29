@@ -138,6 +138,9 @@ fn prow(w: &World, i: usize) -> Value {
 /// numbers the cap sheet's Moves dialog shows, for the player page and the
 /// menu (minor bug 62). None when he isn't under contract with you.
 pub(crate) fn cap_moves(w: &World, i: usize) -> Option<Value> {
+    if !w.seat_head() {
+        return None;
+    }
     let t = my_club(w).ok()?;
     let c = w.people[i].pro.as_ref()?;
     let k = c.contract.as_ref().filter(|k| k.team == t && c.team == Some(t))?;
@@ -150,8 +153,14 @@ pub(crate) fn cap_moves(w: &World, i: usize) -> Option<Value> {
     let (dj, dj2) = k.dead_if_cut(year, today, true);
     let after = pro::after_june1(w, today);
     let used = w.front_office.nfl.june1.iter().filter(|x| x.1 == year).count();
+    // A deal in its last year has no years to spread a bonus over without
+    // void years (2016 on).
+    let last = k.last_year() <= year;
     Some(json!({
-        "re": money::capped(year) && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0),
+        "re": money::capped(year)
+            && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0)
+            && (!last || nfl::void_years_allowed(year)),
+        "last": last,
         "voids": nfl::void_years_allowed(year),
         "dead": dn.round(), "saves": k.cut_savings(year, today, false).round(),
         "dj": dj.round(), "dj2": dj2.round(), "sj": k.cut_savings(year, today, true).round(),
@@ -298,10 +307,14 @@ fn cap_sheet(w: &World) -> Reply {
             Status::Reserve => "Reserve",
             _ => "",
         });
+        // A deal in its last year restructures only with void years (2016 on).
+        let last = k.last_year() <= year;
+        v["last_year"] = json!(last);
         v["can_restructure"] = json!(
             money::capped(year)
                 && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0)
                 && c.status != Status::PracticeSquad
+                && (!last || nfl::void_years_allowed(year))
         );
         v["ending"] = json!(k.last_year() < year);
         rows.push(v);
