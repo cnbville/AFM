@@ -16,19 +16,18 @@ The reader's Mac app and its browser twin: the shell, the library, search, filte
 - The reader's folder: `~/Library/Application Support/AFM Reader` on a Mac (`~/.afm-reader` elsewhere, `AFM_READER_HOME` overrides): `books/` and `settings.json` (the switch and the last book). It reads the game's folder (`AFM_HOME` as the game does) for its worlds and saves.
 
 ## What the app reads from a book
-The app finds each kind of table by name (`book.rs`, `names_for`), and each column by the first name it has:
-- `meta` (key, value): `name`, `seed`, `commit`, `history_years`, `first`, `last`, `built`, `has_log`, `missing`, `summary`, `world_path`, and the options a compare checks for fairness (`scale`, `engine_from`, `hs_engine_years`, `yearly_growth`, `names`).
-- `checks`: `id`, `page` or `area` (an inventory code such as G24; the page comes from the code, spec section 7), `label`, `world`, `real`, `unit`, `source`, `years`, `mark` (or worked out from the two numbers), `why`, `file`, `function`, `vital`, `link`; a `year` column makes the slider pick a year's checks; `level` and the other filter columns narrow them.
-- `odd`: `text`, `why`, `mark`, `page`, `scope`, `entity` and `entity_id` (opens that row's page), `rank`.
-- `issues`, `knobs`, `coverage` (`tbl`, `page`: which tables a page shows), `real`, `fitted`, `whys`, `consistency`: shown on the Tools tabs as tables.
-- `defs` (`tbl`, `col`, `label`, `what`, `unit`, `file`, `function`, `source`, `years`, `debug`): every column's hover card and whether it is a hidden truth.
-- `search` (`kind`, `id`, `name`, `detail`) when the book has one; otherwise every table with an `id` and a name is searched.
-- Links: an `<x>_id` column opens the row of the table it names (`person_id` to `people`, `home_team_id` to `teams`, ...); every id in a table shows as its name.
-- Filters apply to a table only when it has the column (`level`, `division`, `conference`, `position`, `stars`, `state`; `year` or `season` for the years). The year slider shows the world as it stood: a snapshot table's year (`as_of`), season rows up to that year, people active then (`first_year` to `last_year`).
-- Hidden truths: columns marked `debug` in `defs`, or named for them (`potential`, `ceiling`, `true_*`, `hidden*`, `*_debug`), and tables named `hidden` or `debug`. With the switch off they never leave the reader.
+R4's book (`docs/world-reader.md`) is the contract; the app also reads the older stand-in names (`meta`, `issues`, `<x>_id` links) so its own tests keep a small book.
+- `book_meta` (key, value): `seed`, `world_commit`, `first_season`, `last_season`, `log_streams` (the logs read), `missing` (a list of plain lines, one badge each, the full line on hover), `world_file`.
+- `checks`: `id`, `page`, `areas` (the first places it), `title`, `world`, `real`, `unit`, `mark` (near, off, far off, no data, no real), `tolerance`, `real_source`, `real_years`, `says` and `detail` (the why), and on the hover card `how`, `needs`, `sql` and `issues`.
+- `odd` (`level`, `kind`, `page`, `what`, `says`, `facts`, `entity_id`), `known_issues`, `knobs`, `coverage` (`page`, `tables`: a topic page lists its areas with their status and the tables behind it), `real_figures`, `log_whys`, `consistency`, `catalog`, `defs`, `search` (`tbl` and `id` open a page).
+- Rows: `id`, a person's `player__id`, or `_row` (child tables, log rows, clubs) picks one. A child table (`people__player__history`) shows on its parent's page through `_parent`; log rows through `id`. Columns link by the book's names: `head_coach`, `coach`, `oc`, `dc` to coaches; `college`, `program`, `job__employer__College`, a college game's `home` and `away` to programs; `hs` to high schools; `pro__team` and `job__employer__Nfl` to the NFL clubs; `home_state` and `state` to states; `id` in the log and person tables to people. A roster or captains list holds places in the people store (`_row`) and shows as names.
+- Values: `date` and `born` are days since 1 January 1970 and show as dates; years show without thousands marks; the 67 ratings, their ceilings and the 15 tendencies show as named grids; a list of notes as a list; `rng__` columns and packed `_more` records are left out (the packed ones open once R4's crate is on main).
+- Filters apply to a table only when it has the column (`level`, `division`, `conference`, `position`, `stars`, `state`; `year` or `season` for the years), never to the book's own lists. The year slider shows the world as it stood: a snapshot table's year (`as_of`), season rows up to that year, people active then (`first_year` to `last_year`).
+- Hidden truths: columns marked `debug` in `defs`, or named for them (`potential`, `ceiling`, `x_*`, the hidden traits consistency, temperament, recovery, injury proneness and longevity, `bloom`, `visibility`, `sportsmanship`, a coach's `ability__*`), and tables named `hidden` or `debug`. With the switch off they never leave the reader.
 
-## Measured (stand-in book, browser)
-- Every page opens in under 70 ms from the stand-in book. A real book's numbers come with R4's first world.
+## Measured (browser)
+- R4's test book (a 0.2% world, 2 years of history, its world log, 148 MB, 369 tables): overview and topic pages in 1-6 ms, a player page in 15 ms, a program page with its 37 linked tables in 50 ms.
+- The stand-in book: every page under 70 ms.
 
 ## Picks (proposed, not confirmed)
 - The marks' thresholds are the Debug Lab's: near within 5% of real, off within 15%, far off beyond (the canvas's own note).

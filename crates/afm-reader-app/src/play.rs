@@ -13,11 +13,15 @@ const SPOT_COLS: [&str; 5] = ["yardline_100", "yardline", "yard_line", "ball_on"
 
 /// Replay a logged game: pick a game, then step through its snaps.
 pub fn replay_page(b: &mut Book, mut p: Value, f: &Filters, args: &Value) -> Result<Value, String> {
-    let (Some(games), Some(plays)) = (b.find("games").map(|t| t.name.clone()), b.find("plays").map(|t| t.name.clone()))
-    else {
+    let games = b.find("games").map(|t| t.name.clone());
+    let (Some(games), Some(plays)) = (games.clone(), b.find("plays").map(|t| t.name.clone())) else {
         p["verdict"] = json!(
-            "This book has no logged games: it was built from a world file without its world log. A world built with the log (lane R1) gives every game snap by snap."
+            "This book has no snaps: its world was written without the game log (lane R1), which keeps every game snap by snap. The games and their results are below."
         );
+        if let Some(games) = games {
+            let first = b.rows(&games, f, None, None, false, 0, 50)?;
+            push(&mut p, json!({ "kind": "rows", "title": "Games", "table": games, "first": first }));
+        }
         return Ok(p);
     };
     let Some(game) = args.get("game").filter(|v| !v.is_null()) else {

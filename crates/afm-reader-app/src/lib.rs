@@ -181,7 +181,7 @@ impl Reader {
             }
             ["page", "career"] | ["career"] => pages::career(b, &f),
             ["page", "tools"] | ["tools"] => pages::tools(b, "issues", &f, args)?,
-            ["page", slug] => pages::topic(b, slug, &f),
+            ["page", slug] => pages::topic(b, slug, &f)?,
             ["tools", "odd", page] => pages::tools(b, "odd", &f, &json!({ "page": page }))?,
             ["tools", tab] => pages::tools(b, tab, &f, args)?,
             ["table", name] => pages::table(b, name, &f, args)?,

@@ -11,7 +11,52 @@ use serde_json::{Value, json};
 
 pub const WORLDS_REPO: &str = "cnbville/afm-worlds";
 /// Book files: `name.afmbook`, or parts `name.afmbook.001`, `.002`, ...
+/// The worlds page keeps them packed with zstd (`name.afmbook.zst`, in
+/// parts `.zst.001` over 2 GB); they unpack on the way in.
 pub const BOOK_EXT: &str = "afmbook";
+
+/// A book file's name without its packing and part suffixes, and whether it
+/// is packed: `w.afmbook.zst.002` gives (`w.afmbook`, true).
+pub fn book_base(file: &str) -> (String, bool) {
+    let mut s = file;
+    if let Some((a, b)) = s.rsplit_once('.')
+        && b.len() == 3
+        && b.bytes().all(|c| c.is_ascii_digit())
+    {
+        s = a;
+    }
+    match s.strip_suffix(".zst") {
+        Some(a) => (a.to_string(), true),
+        None => (s.to_string(), false),
+    }
+}
+
+/// Reads one stream after another, counting the bytes, so split parts
+/// download as one file with progress.
+struct Chain<F: FnMut(u64)> {
+    parts: std::vec::IntoIter<String>,
+    now: Option<Box<dyn Read + Send>>,
+    got: u64,
+    tick: F,
+}
+
+impl<F: FnMut(u64)> Read for Chain<F> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        loop {
+            if self.now.is_none() {
+                let Some(url) = self.parts.next() else { return Ok(0) };
+                self.now = Some(get(&url).map_err(std::io::Error::other)?.into_reader());
+            }
+            let n = self.now.as_mut().map_or(Ok(0), |r| r.read(buf))?;
+            if n > 0 {
+                self.got += n as u64;
+                (self.tick)(self.got);
+                return Ok(n);
+            }
+            self.now = None;
+        }
+    }
+}
 
 /// A long job (a download or a book build) and how far it is.
 #[derive(Default, Clone)]
@@ -159,9 +204,7 @@ fn book_assets(release: &Value) -> Vec<(String, u64, String)> {
         .flatten()
         .filter_map(|x| {
             let name = x["name"].as_str()?;
-            let ok = name.rsplit_once(&format!(".{BOOK_EXT}")).is_some_and(|(_, rest)| {
-                rest.is_empty() || (rest.len() == 4 && rest[1..].bytes().all(|b| b.is_ascii_digit()))
-            });
+            let ok = book_base(name).0.ends_with(&format!(".{BOOK_EXT}"));
             ok.then(|| {
                 (
                     name.to_string(),
@@ -186,9 +229,8 @@ pub fn online(home: &Path) -> Result<Value, String> {
         .flatten()
         .filter_map(|r| {
             let assets = book_assets(r);
-            let first = assets.first()?.0.clone();
-            let name = first.strip_suffix(".001").unwrap_or(&first);
-            let name = name.strip_suffix(&format!(".{BOOK_EXT}")).unwrap_or(name).to_string();
+            let (base, _) = book_base(&assets.first()?.0);
+            let name = base.strip_suffix(&format!(".{BOOK_EXT}")).unwrap_or(&base).to_string();
             let mb = assets.iter().map(|a| a.1).sum::<u64>() as f64 / 1e6;
             let have = home.join("books").join(format!("{name}.{BOOK_EXT}")).exists();
             Some(json!({ "tag": r["tag_name"], "title": r["name"], "notes": r["body"], "date": r["published_at"], "name": name, "mb": mb.round(), "have": have }))
@@ -207,7 +249,7 @@ pub fn download(job: &Shared, home: &Path, tag: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     let assets = book_assets(&release);
     let first = assets.first().ok_or("That world has no book yet.")?.0.clone();
-    let name = first.strip_suffix(".001").unwrap_or(&first).to_string();
+    let (name, packed) = book_base(&first);
     set(job, |j| {
         *j = Job {
             kind: "download".into(),
@@ -224,30 +266,30 @@ pub fn download(job: &Shared, home: &Path, tag: &str) -> Result<(), String> {
         let r = (|| -> Result<PathBuf, String> {
             std::fs::create_dir_all(&books).map_err(|e| e.to_string())?;
             let part = books.join(format!("{name}.part"));
-            let mut out = std::fs::File::create(&part).map_err(|e| e.to_string())?;
-            let (mut got, mut buf) = (0u64, vec![0u8; 1 << 20]);
-            for (_, _, url) in &assets {
-                let mut from = get(url)?.into_reader();
-                loop {
-                    let n = from.read(&mut buf).map_err(|e| format!("The download broke off: {e}"))?;
-                    if n == 0 {
-                        break;
-                    }
-                    out.write_all(&buf[..n]).map_err(|e| e.to_string())?;
-                    got += n as u64;
-                    let secs = t.elapsed().as_secs_f64();
-                    set(&job, |j| {
-                        j.done = got as f64 / total as f64;
-                        j.seconds = secs;
-                        j.text = format!(
-                            "{:.0} of {:.0} MB, {:.0} MB a second",
-                            got as f64 / 1e6,
-                            total as f64 / 1e6,
-                            got as f64 / 1e6 / secs.max(0.1)
-                        );
-                    });
-                }
+            let mut out = std::io::BufWriter::new(std::fs::File::create(&part).map_err(|e| e.to_string())?);
+            let tick = |got: u64| {
+                let secs = t.elapsed().as_secs_f64();
+                set(&job, |j| {
+                    j.done = got as f64 / total as f64;
+                    j.seconds = secs;
+                    j.text = format!(
+                        "{:.0} of {:.0} MB, {:.0} MB a second{}",
+                        got as f64 / 1e6,
+                        total as f64 / 1e6,
+                        got as f64 / 1e6 / secs.max(0.1),
+                        if packed { ", unpacking as it comes" } else { "" }
+                    );
+                });
+            };
+            let urls: Vec<String> = assets.iter().map(|a| a.2.clone()).collect();
+            let mut from = Chain { parts: urls.into_iter(), now: None, got: 0, tick };
+            let broke = |e: std::io::Error| format!("The download broke off: {e}");
+            if packed {
+                zstd::stream::copy_decode(&mut from, &mut out).map_err(broke)?;
+            } else {
+                std::io::copy(&mut from, &mut out).map_err(broke)?;
             }
+            out.flush().map_err(|e| e.to_string())?;
             drop(out);
             let to = books.join(&name);
             std::fs::rename(&part, &to).map_err(|e| e.to_string())?;
@@ -275,23 +317,30 @@ pub fn download(job: &Shared, home: &Path, tag: &str) -> Result<(), String> {
 pub fn import(home: &Path, from: &Path) -> Result<PathBuf, String> {
     let books = home.join("books");
     std::fs::create_dir_all(&books).map_err(|e| e.to_string())?;
-    let s = from.to_string_lossy().into_owned();
-    if let Some(base) = s.strip_suffix(".001") {
-        let base = PathBuf::from(base);
-        let to = books.join(base.file_name().ok_or("No file name.")?);
-        let mut out = std::fs::File::create(&to).map_err(|e| e.to_string())?;
-        for k in 1.. {
-            let p = PathBuf::from(format!("{}.{k:03}", base.to_string_lossy()));
-            if !p.exists() {
-                break;
-            }
-            let mut f = std::fs::File::open(&p).map_err(|e| e.to_string())?;
-            std::io::copy(&mut f, &mut out).map_err(|e| e.to_string())?;
-        }
-        return Ok(to);
-    }
-    if from.starts_with(&books) {
+    let file = from.file_name().map(|f| f.to_string_lossy().into_owned()).ok_or("No file name.")?;
+    let (base, packed) = book_base(&file);
+    let split = base.len() + if packed { 4 } else { 0 } < file.len();
+    if !packed && !split {
         return Ok(from.to_path_buf());
     }
-    Ok(from.to_path_buf())
+    // Every part beside the chosen one, in order, as one stream.
+    let stem = from.with_file_name(if packed { format!("{base}.zst") } else { base.clone() });
+    let parts: Vec<PathBuf> = if split {
+        (1..).map(|k| PathBuf::from(format!("{}.{k:03}", stem.to_string_lossy()))).take_while(|p| p.exists()).collect()
+    } else {
+        vec![from.to_path_buf()]
+    };
+    let mut joined: Box<dyn Read> = Box::new(std::io::empty());
+    for p in parts {
+        joined = Box::new(joined.chain(std::fs::File::open(&p).map_err(|e| e.to_string())?));
+    }
+    let to = books.join(&base);
+    let mut out = std::io::BufWriter::new(std::fs::File::create(&to).map_err(|e| e.to_string())?);
+    if packed {
+        zstd::stream::copy_decode(&mut joined, &mut out).map_err(|e| e.to_string())?;
+    } else {
+        std::io::copy(&mut joined, &mut out).map_err(|e| e.to_string())?;
+    }
+    out.flush().map_err(|e| e.to_string())?;
+    Ok(to)
 }

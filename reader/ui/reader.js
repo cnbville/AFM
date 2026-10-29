@@ -26,7 +26,7 @@ let F = store.get("filters", {});
 let H = [];              // hover cards of the page on screen
 
 const FILTERS = [["level", "Level"], ["division", "Division"], ["conference", "Conference"], ["position", "Position"], ["stars", "Stars"], ["state", "State"]];
-const MARK_WORD = { near: "Near", off: "Off", far: "Far off", debug: "Debug", check: "Check", closer: "Closer", further: "Further", same: "Same" };
+const MARK_WORD = { near: "Near", off: "Off", far: "Far off", debug: "Debug", check: "Check", none: "No data", closer: "Closer", further: "Further", same: "Same" };
 
 function fmt(v) {
   if (v == null || v === "") return "–";
@@ -83,8 +83,10 @@ async function drawSide() {
   try {
     const lib = await api("library");
     const cur = ST.open ? ST.path : "";
+    // A book opened from elsewhere on disk shows too, at the top.
+    if (cur && !lib.books.some((b) => b.path === cur)) lib.books.unshift({ path: cur, name: cur.split(/[\\/]/).pop().replace(/\.afmbook$/, ""), mb: ST.mb });
     $("#worlds").innerHTML = lib.books.length
-      ? lib.books.map((b) => `<a class="world ${b.path === cur ? "on" : ""}" data-open="${esc(b.path)}"><div class="t">${esc(b.name)}</div><div class="sub">${b.gb >= 0.1 ? b.gb + " GB" : b.mb + " MB"} book</div></a>`).join("")
+      ? lib.books.map((b) => `<a class="world ${b.path === cur ? "on" : ""}" data-open="${esc(b.path)}"><div class="t">${esc(b.name)}</div><div class="sub">${b.gb >= 0.1 ? b.gb + " GB book" : b.mb != null ? b.mb + " MB book" : "Book"}</div></a>`).join("")
       : `<span class="sub" style="padding: 0 12px">No books on this Mac yet.</span>`;
   } catch (e) { $("#worlds").innerHTML = `<span class="sub">${esc(e.message || e)}</span>`; }
 }
@@ -127,11 +129,17 @@ function setF(k, v) {
 }
 
 // ---------- Blocks ----------
-const YEARISH = /^(year|season|born)$|_year$|^year_|_season$/i;
+const YEARISH = /^(year|season)$|_year$|^year_|_season$/i;
+// The book keeps dates as days since 1 January 1970.
+const dayText = (d) => new Date(d * 86400000).toISOString().slice(0, 10);
 function cellHtml(v, col, names) {
   if (col.mark) return mark(v) || esc(v);
   if (col.moved) return mark(v) || esc(v);
-  const shown = names && names[String(v)] != null ? names[String(v)] : YEARISH.test(col.name || "") ? (v == null ? "–" : String(v)) : fmt(v);
+  const n = typeof v === "number" ? v : NaN;
+  const shown = names && names[String(v)] != null ? names[String(v)]
+    : col.fmt === "date" && Number.isInteger(n) && Math.abs(n) < 100000 ? dayText(n)
+    : (col.fmt === "year" || YEARISH.test(col.name || "")) && n >= 1800 && n < 2300 ? String(v)
+    : v == null && YEARISH.test(col.name || "") ? "–" : fmt(v);
   if (col.link && v != null && v !== "") return `<a href="#/e/${esc(col.link)}/${encodeURIComponent(v)}">${esc(shown)}</a>`;
   return esc(shown);
 }
@@ -244,7 +252,7 @@ function blockHtml(b, id) {
     case "list": {
       const items = b.items || [];
       const body = items.length ? items.map((i) => `<div class="it"><p>${i.link ? `<a href="#/${esc(i.link)}">${esc(i.text)}</a>` : esc(i.text)}${i.why ? `<span class="why">${esc(i.why)}</span>` : ""}</p>${mark(i.mark)}</div>`).join("") : `<p class="sub">${esc(b.empty || "Nothing here.")}</p>`;
-      return `<section class="panel">${title}<div class="items">${body}</div></section>`;
+      return `<section class="panel">${title}<div class="items${b.dense ? " dense" : ""}">${body}</div></section>`;
     }
     case "links":
       return `<section class="sec">${title}<div class="links">${(b.items || []).map((i) => `<a href="#/${esc(i.link)}"><b>${esc(i.text)}</b><span class="sub">${esc(i.sub || "")}</span></a>`).join("")}</div></section>`;
@@ -302,7 +310,7 @@ function drawPage(t0) {
   if (p.compare) html += compareBar(p);
   const firstHero = p.blocks && p.blocks[0] && p.blocks[0].kind === "hero";
   if (!firstHero) html += `<div class="sec"><h1 class="wide" style="margin:0;font-size:34px;font-weight:800;letter-spacing:-.02em">${esc(p.title)}</h1></div>`;
-  const badges = (p.badges || []).map((b) => `<span class="chip ${b.ok ? "" : "bad"}">${esc(b.text)}</span>`).join("");
+  const badges = (p.badges || []).map((b) => `<span class="chip ${b.ok ? "" : "bad"}" data-h="${b.h ? hv(b.h) : ""}">${esc(b.text)}</span>`).join("");
   const verdict = `<p class="verdict">${esc(p.verdict || "")}</p>${badges ? `<div class="chips">${badges}</div>` : ""}`;
   (p.blocks || []).forEach((b, i) => {
     html += blockHtml(b, i);
@@ -588,8 +596,12 @@ document.addEventListener("mouseover", (e) => {
   if (h.file || h.function) parts.push(`<div class="r">Worked out in <code>${esc(h.file || "")}</code>${h.function ? `, <code>${esc(h.function)}</code>` : ""}</div>`);
   if (h.source) parts.push(`<div class="r">Real: ${esc(h.source)}${h.years ? `, ${esc(h.years)}` : ""}</div>`);
   else if ("source" in h) parts.push(`<div class="r">No real figure in the index.</div>`);
+  if (h.how) parts.push(`<div class="r">How: ${esc(h.how)}</div>`);
+  if (h.needs && h.needs !== "world file") parts.push(`<div class="r">Needs the ${esc(h.needs)}.</div>`);
+  if (h.issues) parts.push(`<div class="r">Known issues: ${esc(h.issues)}</div>`);
   if (h.area) parts.push(`<div class="r">Inventory area ${esc(h.area)}</div>`);
   if (h.rule) parts.push(`<div class="r">${esc(h.rule)}</div>`);
+  if (h.sql) parts.push(`<div class="r"><code>${esc(h.sql.length > 240 ? h.sql.slice(0, 240) + "…" : h.sql)}</code></div>`);
   if (h.debug) parts.push(`<div class="r">Debug: hidden in the game.</div>`);
   if (h.missing) parts.push(`<div class="r">No definition in this book yet for <code>${esc(h.key)}</code>.</div>`);
   else if (h.key && !h.rule) parts.push(`<div class="r"><code>${esc(h.key)}</code></div>`);

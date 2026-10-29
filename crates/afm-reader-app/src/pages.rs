@@ -9,7 +9,7 @@
 
 use serde_json::{Map, Value, json};
 
-use crate::book::{Book, Filters, YEAR_COLS, cell_text, label, q};
+use crate::book::{Book, Filters, YEAR_COLS, cell_text, id_of, label, q};
 
 /// The topic pages in the sidebar's order (spec section 7), with the
 /// inventory codes each one shows.
@@ -96,6 +96,13 @@ pub struct Check {
     pub function: String,
     pub vital: bool,
     pub link: Value,
+    /// How the book worked it out, what it needs, its SQL, the known
+    /// issues that touch it and its tolerance (the book's own words).
+    pub how: String,
+    pub needs: String,
+    pub sql: String,
+    pub issues: String,
+    pub tolerance: String,
 }
 
 fn get(m: &Map<String, Value>, keys: &[&str]) -> String {
@@ -115,6 +122,8 @@ pub fn mark_of(word: &str, world: &Value, real: &Value) -> String {
         "off" | "amber" | "yellow" | "warn" => "off",
         "far" | "far off" | "far_off" | "red" | "bad" => "far",
         "debug" => "debug",
+        // The book has no number to mark: a log it lacks, or no real figure.
+        "no data" | "no real" | "none" => "none",
         "" => "",
         _ => "check",
     };
@@ -193,7 +202,10 @@ impl Check {
     fn from_row(m: &Map<String, Value>) -> Check {
         let world = getv(m, &["world", "world_value", "value"]);
         let real = getv(m, &["real", "real_value", "target"]);
-        let area = get(m, &["area", "code", "area_code"]);
+        // A check may touch several inventory areas ("G1, G3"): the first
+        // places it.
+        let areas = get(m, &["area", "code", "area_code", "areas"]);
+        let area = areas.split([',', ' ', ';']).find(|a| !a.is_empty()).unwrap_or("").to_string();
         let mut page = get(m, &["page"]).to_ascii_lowercase().replace([' ', '_'], "-");
         if page.is_empty() && !area.is_empty() {
             page = page_of_area(&area).into();
@@ -205,11 +217,20 @@ impl Check {
             unit: get(m, &["unit", "units"]),
             source: get(m, &["source", "real_source"]),
             years: get(m, &["years", "real_years"]),
-            why: get(m, &["why", "words", "explain"]),
+            why: [get(m, &["why", "words", "explain", "says"]), get(m, &["detail"])]
+                .into_iter()
+                .filter(|x| !x.is_empty())
+                .collect::<Vec<_>>()
+                .join(" "),
             file: get(m, &["file"]),
             function: get(m, &["function", "fn"]),
             vital: m.get("vital").is_some_and(|v| v.as_bool().unwrap_or(false) || v.as_i64().unwrap_or(0) != 0),
             link: getv(m, &["link", "route"]),
+            how: get(m, &["how"]),
+            needs: get(m, &["needs"]),
+            sql: get(m, &["sql"]),
+            issues: get(m, &["issues"]),
+            tolerance: get(m, &["tolerance"]),
             world,
             real,
             area,
@@ -249,7 +270,11 @@ impl Check {
             "source": self.source,
             "years": self.years,
             "area": self.area,
-            "rule": MARK_RULE,
+            "rule": if self.tolerance.is_empty() { MARK_RULE.to_string() } else { self.tolerance.clone() },
+            "how": self.how,
+            "needs": self.needs,
+            "sql": self.sql,
+            "issues": self.issues,
             "key": self.id,
         })
     }
@@ -381,20 +406,41 @@ pub fn odd(
 /// Columns that hold a year, shown without thousands marks.
 pub fn is_year(c: &str) -> bool {
     let c = c.to_ascii_lowercase();
-    c == "year"
-        || c == "season"
-        || c == "born"
-        || c.ends_with("_year")
-        || c.starts_with("year_")
-        || c.ends_with("_season")
+    let last = c.rsplit("__").next().unwrap_or(&c);
+    ["year", "season", "class_of", "since", "through", "new_from", "signed", "until", "changed", "drafted"]
+        .iter()
+        .any(|w| last == *w || last.ends_with(&format!("_{w}")) || last.starts_with(&format!("{w}_")))
 }
 
-/// A number as `fmt` gives it, but a year as the year.
+/// A number as `fmt` gives it, but a year as the year and a day as its date.
 pub fn fmt_col(col: &str, v: &Value) -> String {
     match num(v) {
-        Some(x) if is_year(col) => format!("{}", x.round() as i64),
+        Some(x) if is_date(col) && x.fract() == 0.0 && x.abs() < 100_000.0 => day_text(x as i64),
+        Some(x) if is_year(col) && (1800.0..2300.0).contains(&x) => format!("{}", x.round() as i64),
         _ => fmt(v),
     }
+}
+
+/// Columns the book keeps as days since 1 January 1970 (the engine's
+/// `Date`): `date`, `born`, `signed__date`.
+pub fn is_date(c: &str) -> bool {
+    let last = c.rsplit("__").next().unwrap_or(c);
+    matches!(last, "date" | "born" | "kickoff_date" | "until_date") || last.ends_with("_date")
+}
+
+/// A day number as `2025-08-30`.
+pub fn day_text(days: i64) -> String {
+    // Howard Hinnant's civil-from-days.
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("{y:04}-{m:02}-{d:02}")
 }
 
 pub fn fmt_id(v: &Value) -> String {
@@ -450,14 +496,25 @@ pub fn coverage_badges(b: &Book) -> Vec<Value> {
             .is_some_and(|v| v.as_bool().unwrap_or(false) || v.as_i64().unwrap_or(0) != 0 || v.as_str() == Some("yes"))
     };
     let mut v = vec![json!({ "text": "World file", "ok": true })];
+    // R4's book names the logs it read (`log_streams`) and what it lacks
+    // (`missing`, a list of plain lines).
+    let streams = m.get("log_streams").and_then(cell_text).unwrap_or_default();
     let log = match m.get("has_log").or_else(|| m.get("world_log")) {
         Some(_) => yes("has_log") || yes("world_log"),
-        None => b.find("plays").is_some(),
+        None => streams.len() > 2 || b.tables.iter().any(|t| t.name.starts_with("log_")) || b.find("plays").is_some(),
     };
-    v.push(json!({ "text": if log { "World log" } else { "No world log: game-level and history parts missing" }, "ok": log }));
+    v.push(
+        json!({ "text": if log { "World log" } else { "No world log: history and growth parts missing" }, "ok": log }),
+    );
     v.push(json!({ "text": if b.find("real").is_some() || b.find("checks").is_some() { "Real index" } else { "No real index" }, "ok": b.find("real").is_some() || b.find("checks").is_some() }));
-    if let Some(miss) = m.get("missing").and_then(cell_text).filter(|s| !s.is_empty()) {
-        v.push(json!({ "text": format!("Missing: {miss}"), "ok": false }));
+    if let Some(miss) = m.get("missing").and_then(cell_text).filter(|s| !s.is_empty() && s != "[]") {
+        let lines: Vec<String> = serde_json::from_str(&miss).unwrap_or_else(|_| vec![miss.clone()]);
+        for l in lines {
+            // "game log (lane R1): no game, ..." → the short part as the
+            // badge, the rest on hover.
+            let (head, rest) = l.split_once(": ").unwrap_or((&l, ""));
+            v.push(json!({ "text": format!("No {head}"), "ok": false, "h": { "what": l, "why": rest } }));
+        }
     }
     v
 }
@@ -579,7 +636,7 @@ pub fn overview(b: &mut Book, f: &Filters, before: Option<(&str, Vec<Check>)>) -
 
 /// A topic page: its checks as tiles and a full table, its odd things and
 /// its tables. A page lane (R6-R8) adds the area sections on top.
-pub fn topic(b: &mut Book, slug: &str, f: &Filters) -> Value {
+pub fn topic(b: &mut Book, slug: &str, f: &Filters) -> Result<Value, String> {
     let (title, codes) = TOPICS.iter().find(|t| t.0 == slug).map(|t| (t.1, t.2)).unwrap_or(("Tools", "T1-T12"));
     let name = world_name(b);
     let mut p = new_page(title, &format!("{name} · {title}"));
@@ -599,17 +656,43 @@ pub fn topic(b: &mut Book, slug: &str, f: &Filters) -> Value {
             json!({ "kind": "list", "title": "Odd things", "items": items, "more": {"n": total, "link": format!("tools/odd/{slug}")} }),
         );
     }
+    // The inventory's areas for this page and how far the book covers each.
+    if let Some(cov) = b.find("coverage").map(|t| t.name.clone())
+        && b.table(&cov).is_some_and(|t| t.has("page"))
+    {
+        let first = b.rows(&cov, &Filters::default(), Some(("page", &json!(slug))), None, false, 0, 60)?;
+        if first["total"].as_i64().unwrap_or(0) > 0 {
+            push(
+                &mut p,
+                json!({ "kind": "rows", "title": "What this page covers", "note": "Each inventory area: checked, data with no check yet, needs a log, or stored nowhere",
+                        "table": cov, "col": "page", "val": slug, "first": first, "hide": ["page"] }),
+            );
+        }
+    }
     let tabs = page_tables(b, slug);
     if !tabs.is_empty() {
         push(&mut p, links_block(b, "Tables behind this page", &tabs));
     }
-    p
+    Ok(p)
 }
 
 /// The tables the book files under a page (its coverage map's `page`), else
 /// none: the page lanes name theirs.
 fn page_tables(b: &Book, slug: &str) -> Vec<String> {
     let Some(t) = b.find("coverage") else { return Vec::new() };
+    // R4: each area lists its tables, space-separated.
+    if let (Some(pc), true) = (t.pick(&["page"]), t.has("tables")) {
+        let sql = format!("SELECT tables FROM {} WHERE LOWER(REPLACE({}, ' ', '-')) = ?1", q(&t.name), q(pc));
+        let mut out: Vec<String> = Vec::new();
+        for m in b.select_maps(&sql, &[rusqlite::types::Value::Text(slug.into())]).unwrap_or_default() {
+            for n in m.get("tables").and_then(cell_text).unwrap_or_default().split([' ', ',']) {
+                if !n.is_empty() && b.table(n).is_some() && !out.iter().any(|o| o == n) {
+                    out.push(n.to_string());
+                }
+            }
+        }
+        return out;
+    }
     let (Some(pc), Some(tc)) = (t.pick(&["page"]), t.pick(&["tbl", "table_name", "table"])) else { return Vec::new() };
     let sql =
         format!("SELECT DISTINCT {} AS t FROM {} WHERE LOWER(REPLACE({}, ' ', '-')) = ?1", q(tc), q(&t.name), q(pc));
@@ -663,7 +746,7 @@ pub fn table(b: &mut Book, name: &str, f: &Filters, args: &Value) -> Result<Valu
 }
 
 /// Columns that hold a season's rating, for the career arc.
-const RATING_COLS: [&str; 5] = ["rating", "overall", "ovr", "rating_end", "end_rating"];
+const RATING_COLS: [&str; 7] = ["rating", "overall", "ovr", "rating_end", "end_rating", "prestige", "strength"];
 const PLAYED_COLS: [&str; 3] = ["played_at", "game_rating", "played"];
 const WHY_COLS: [&str; 5] = ["why", "what", "what_happened", "note", "story"];
 
@@ -672,38 +755,67 @@ const WHY_COLS: [&str; 5] = ["why", "what", "what_happened", "note", "story"];
 /// other row that points at it. The player page is this template.
 pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Value, String> {
     let t = b.table(table).ok_or_else(|| format!("This book has no table {table}."))?;
-    if !t.has("id") {
-        return Err(format!("{table} has no ids."));
-    }
+    let idc = id_of(t);
     let row = b
-        .select_maps(&format!("SELECT * FROM {} WHERE id = ?1", q(table)), &[crate::book::json_sql(id)])?
+        .select_maps(&format!("SELECT * FROM {} WHERE {} = ?1", q(table), q(idc)), &[crate::book::json_sql(id)])?
         .pop()
         .ok_or_else(|| format!("No row {} in {table}.", fmt_id(id)))?;
     let name = b.name_of(table, id).unwrap_or_else(|| format!("{} {}", label(table), fmt_id(id)));
     let mut p = new_page(&name, &format!("{} · {} · {name}", world_name(b), label(table)));
-    // The header: the row's short facts, every id as its name.
+    // The header: the row's short facts, every id as its name; lists of
+    // ratings as their own table.
     let mut tags: Vec<String> = Vec::new();
     let mut pairs: Vec<Value> = Vec::new();
+    let mut lists: Vec<(String, Vec<f64>, bool)> = Vec::new();
+    let mut notes: Vec<(String, Vec<String>)> = Vec::new();
+    let mut idlists: Vec<(String, (&'static str, &'static str), Vec<f64>)> = Vec::new();
     for c in &b.table(table).expect("checked").cols.clone() {
-        if c == "id" || (!f.debug && b.is_debug(table, c)) {
+        // `rng__` is the person's random stream: no meaning to read.
+        if c == idc || c == "_row" || c == "_more" || c.starts_with("rng__") || (!f.debug && b.is_debug(table, c)) {
             continue;
         }
         let v = row.get(c).cloned().unwrap_or(Value::Null);
         if v.is_null() {
             continue;
         }
-        let link = b.link_target(c).map(|t| t.to_string());
+        if let Some(xs) = number_list(&v)
+            && named_list(c, xs.len()).is_some()
+        {
+            lists.push((c.clone(), xs, b.is_debug(table, c)));
+            continue;
+        }
+        if let Some(xs) =
+            v.as_str().filter(|t| t.starts_with("[\"")).and_then(|t| serde_json::from_str::<Vec<String>>(t).ok())
+            && (xs.len() > 3 || xs.iter().any(|x| x.len() > 40))
+        {
+            notes.push((c.clone(), xs));
+            continue;
+        }
+        if let Some(target) = id_list_target(c)
+            && let Some(ids) = number_list(&v)
+            && b.table(target.0).is_some_and(|t| t.has(target.1))
+        {
+            idlists.push((c.clone(), target, ids));
+            continue;
+        }
+        let link = b.link_target(table, c).map(|t| t.to_string());
+        let key = link.as_deref().map(|t| b.link_key(c, t));
         let shown = match &link {
-            Some(t) => b.name_of(t, &v).unwrap_or_else(|| fmt(&v)),
-            None if is_year(c) => crate::book::cell_text(&v).unwrap_or_default(),
-            None => fmt(&v),
+            Some(t) if key == b.table(t).map(id_of) => b.name_of(t, &v).unwrap_or_else(|| fmt(&v)),
+            _ => short_list(&v).unwrap_or_else(|| fmt_col(c, &v)),
         };
-        if ["position", "pos", "level", "state", "stars", "conference", "division"].contains(&c.as_str()) {
-            tags.push(if c == "stars" { format!("{shown} stars") } else { shown.clone() });
+        let word = c.rsplit("__").next().unwrap_or(c);
+        if ["position", "pos", "level", "stage", "state", "home_state", "stars", "conference", "division"]
+            .contains(&word)
+            && c.matches("__").count() <= 1
+            && (word != "stars" || num(&v).is_some_and(|x| x > 0.0))
+        {
+            tags.push(if word == "stars" { format!("{shown} stars") } else { shown.clone() });
         }
         pairs.push(json!({
             "k": b.col_info(table, c)["label"], "v": shown, "debug": b.is_debug(table, c),
-            "link": link.map(|t| format!("e/{t}/{}", fmt_id(&v))), "h": b.hover(table, c)
+            "link": link.filter(|_| key != Some("_row") || c != "_parent").map(|t| format!("e/{t}/{}", fmt_id(&v))),
+            "h": b.hover(table, c)
         }));
     }
     let people = b.find("people").is_some_and(|t| t.name == table);
@@ -723,16 +835,27 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
             json!({ "kind": "list", "title": "What doesn't look real", "note": "Found by the reader, each with its facts", "items": items, "more": {"n": total} }),
         );
     }
-    // The seasons, with the arc when they carry a rating.
+    // The career arc: of the tables about this one with a rating by year
+    // (or by age), the one with the most points.
     let related = b.pointing_at(table);
+    let own_row = row.get("_row").cloned().unwrap_or(Value::Null);
+    let key_of = |rc: &str| if rc == "_parent" { own_row.clone() } else { id.clone() };
     let mut g = f.clone();
     g.year = None;
+    let mut arc: Option<(usize, Value)> = None;
     for (rt, rc) in &related {
+        // Only rows that are this one's own (its child tables and its log
+        // rows), not every player who links to a program.
+        if rc != "_parent" && rc != "id" && !rc.ends_with("_id") {
+            continue;
+        }
         let t = b.table(rt).expect("listed");
-        let (Some(yc), Some(rcol)) = (t.pick(&YEAR_COLS), t.pick(&RATING_COLS)) else { continue };
+        let (Some(xc), Some(rcol)) = (t.pick(&YEAR_COLS).or(t.pick(&["age"])), t.pick(&RATING_COLS)) else {
+            continue;
+        };
         let pc = t.pick(&["potential", "true_potential", "ceiling"]).filter(|_| f.debug);
         let played = t.pick(&PLAYED_COLS);
-        let mut cols = vec![yc, rcol];
+        let mut cols = vec![xc, rcol];
         cols.extend(pc);
         cols.extend(played);
         let sql = format!(
@@ -740,50 +863,140 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
             cols.iter().map(|c| q(c)).collect::<Vec<_>>().join(", "),
             q(rt),
             q(rc),
-            q(yc)
+            q(xc)
         );
-        let rows = b.select_maps(&sql, &[crate::book::json_sql(id)]).unwrap_or_default();
-        if rows.len() < 2 {
+        let rows = b.select_maps(&sql, &[crate::book::json_sql(&key_of(rc))]).unwrap_or_default();
+        if rows.len() < 2 || arc.as_ref().is_some_and(|(n, _)| *n >= rows.len()) {
             continue;
         }
-        let series = |c: &str| -> Vec<Value> { rows.iter().map(|r| json!([r.get(yc), r.get(c)])).collect() };
-        let mut s = vec![json!({ "name": "Rating at season's end", "points": series(rcol) })];
+        let series = |c: &str| -> Vec<Value> { rows.iter().map(|r| json!([r.get(xc), r.get(c)])).collect() };
+        let mut s = vec![json!({ "name": label(rcol), "points": series(rcol) })];
         if let Some(pl) = played {
             s.push(json!({ "name": "Played at", "points": series(pl), "style": "thin" }));
         }
         if let Some(pc) = pc {
             s.push(json!({ "name": "Potential (debug)", "points": series(pc), "style": "dash", "debug": true }));
         }
+        let x = if xc == "age" { "Age" } else { "Year" };
+        let mark = if xc == "age" { Value::Null } else { json!(f.year) };
+        arc = Some((
+            rows.len(),
+            json!({ "kind": "chart", "type": "line", "title": if people { "Career arc" } else { "Over the years" },
+                    "note": format!("From {}", label(rt)),
+                    "x": x, "series": s, "mark_year": mark }),
+        ));
+    }
+    if let Some((_, c)) = arc {
+        push(&mut p, c);
+    }
+    // Ratings with their ceilings beside them (debug), and tendencies with
+    // the year before, each as one compact grid.
+    let find = |w: &str| lists.iter().find(|(c, _, _)| c.rsplit("__").next() == Some(w));
+    let pairs_of = |now: &(String, Vec<f64>, bool), was: Option<&(String, Vec<f64>, bool)>, joint: &str| {
+        let names = named_list(&now.0, now.1.len()).expect("checked");
+        names
+            .iter()
+            .enumerate()
+            .map(|(i, n)| {
+                let a = fmt(&json!(now.1[i]));
+                let v = match was.and_then(|w| w.1.get(i)) {
+                    Some(x) => format!("{a} {joint} {}", fmt(&json!(x))),
+                    None => a,
+                };
+                json!({ "k": n, "v": v })
+            })
+            .collect::<Vec<Value>>()
+    };
+    if let Some(r) = find("attributes") {
+        let ceil = find("ceilings").filter(|_| f.debug);
+        let (title, note) = match ceil {
+            Some(_) => ("Ratings → ceilings (debug)", "Each rating now, then its hidden ceiling"),
+            None => ("Ratings", "Each rating now, 1-99"),
+        };
+        push(&mut p, json!({ "kind": "kv", "title": title, "note": note, "pairs": pairs_of(r, ceil, "→") }));
+    }
+    if let Some(t) = find("v") {
         push(
             &mut p,
-            json!({ "kind": "chart", "type": "line", "title": "Career arc", "x": "Year", "series": s, "mark_year": f.year }),
+            json!({ "kind": "kv", "title": "Tendencies", "note": "How often he tries each, now (and a year before), 1-20",
+                    "pairs": pairs_of(t, find("was"), "· was") }),
         );
-        break;
+    }
+    for (c, (target, key), ids) in &idlists {
+        // Each reference as its name and its page (by the target's own id).
+        let tt = b.table(target).expect("checked");
+        let (own, name_sql) = (id_of(tt), b.name_sql(tt).unwrap_or_else(|| "''".into()));
+        let sql = format!("SELECT {} AS id, {name_sql} AS name FROM {} WHERE {} = ?1", q(own), q(target), q(key));
+        let items: Vec<Value> = ids
+            .iter()
+            .map(|x| {
+                let r = b.select_maps(&sql, &[rusqlite::types::Value::Integer(*x as i64)]).unwrap_or_default();
+                match r.first() {
+                    Some(m) => json!({ "text": cell_text(&m["name"]).unwrap_or_default(),
+                                       "link": format!("e/{target}/{}", fmt_id(&m["id"])) }),
+                    None => json!({ "text": format!("{} at {}", label(target), *x as i64) }),
+                }
+            })
+            .collect();
+        push(
+            &mut p,
+            json!({ "kind": "list", "title": format!("{} ({})", label(c), ids.len()), "items": items, "dense": true,
+                    "h": b.hover(table, c) }),
+        );
+    }
+    for (c, xs) in &notes {
+        let items: Vec<Value> = xs.iter().map(|x| json!({ "text": x })).collect();
+        push(
+            &mut p,
+            json!({ "kind": "list", "title": label(c), "items": items, "dense": true, "h": b.hover(table, c) }),
+        );
     }
     if !pairs.is_empty() {
         push(&mut p, json!({ "kind": "kv", "title": format!("{} record", label(table)), "pairs": pairs }));
     }
-    // Every table that points at this one: its rows for this entity.
+    // Every table that points at this one: its rows for this entity, the
+    // ones with a why and a rating first.
     let mut seasons_first = related.clone();
-    seasons_first.sort_by_key(|(rt, _)| {
+    seasons_first.sort_by_key(|(rt, rc)| {
         let t = b.table(rt).expect("listed");
-        (t.pick(&WHY_COLS).is_none(), t.pick(&RATING_COLS).is_none(), rt.clone())
+        (rc != "_parent" && rc != "id", t.pick(&WHY_COLS).is_none(), t.pick(&RATING_COLS).is_none(), rt.clone())
     });
+    let mut index: Vec<Value> = Vec::new();
     for (rt, rc) in seasons_first {
         if !f.debug && b.is_debug_table(&rt) {
             continue;
         }
-        let first = b.rows(&rt, &g, Some((&rc, id)), None, false, 0, 60)?;
-        if first["total"].as_i64().unwrap_or(0) == 0 {
+        let key = key_of(&rc);
+        let first = b.rows(&rt, &g, Some((&rc, &key)), None, false, 0, 12)?;
+        let n = first["total"].as_i64().unwrap_or(0);
+        if n == 0 {
             continue;
         }
+        // On Alabama's page `programs__seasons` is just "Seasons".
+        let short = label(rt.strip_prefix(&format!("{table}__")).unwrap_or(&rt));
+        index.push(json!({
+            "text": short,
+            "sub": format!("{} row{}{}", fmt(&json!(n)), if n == 1 { "" } else { "s" },
+                           if rc == "_parent" || rc == "id" { "" } else { " that name it" }),
+            "link": format!("table/{rt}?col={rc}&val={}", fmt_id(&key)),
+        }));
         let title = match b.table(&rt).and_then(|t| t.pick(&WHY_COLS)) {
-            Some(_) => format!("{}: every row with its why", label(&rt)),
-            None => label(&rt),
+            Some(_) => format!("{short}: every row with its why"),
+            None => short.clone(),
         };
         push(
             &mut p,
-            json!({ "kind": "rows", "title": title, "table": rt, "col": rc, "val": id, "first": first, "hide": [rc] }),
+            json!({ "kind": "rows", "title": title, "table": rt, "col": rc, "val": key, "first": first, "hide": [rc, "_row", "_parent"] }),
+        );
+    }
+    // Where everything about it is, before the long tables.
+    if index.len() > 3
+        && let Some(blocks) = p["blocks"].as_array_mut()
+    {
+        let at = blocks.len().min(if total > 0 { 2 } else { 1 });
+        blocks.insert(
+            at,
+            json!({ "kind": "links", "title": format!("Everything about {name} ({} tables)", index.len()), "items": index }),
         );
     }
     p["verdict"] = json!(match total {
@@ -791,6 +1004,56 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
         n => format!("{n} odd thing{} about {name}.", if n == 1 { "" } else { "s" }),
     });
     Ok(p)
+}
+
+/// A long list kept as text, cut to its first values and its count.
+fn short_list(v: &Value) -> Option<String> {
+    let s = v.as_str()?;
+    let xs: Vec<Value> = serde_json::from_str(s).ok().filter(|_| s.starts_with('['))?;
+    let parts: Vec<String> = xs.iter().map(|x| cell_text(x).unwrap_or_default()).collect();
+    if parts.iter().all(|p| p.len() < 12) && parts.len() <= 8 {
+        return Some(parts.join(", "));
+    }
+    let head: Vec<String> = xs.iter().take(6).map(|x| num(x).map_or_else(|| fmt(x), |n| fmt(&json!(n)))).collect();
+    Some(format!("{} … ({} values)", head.join(", "), xs.len()))
+}
+
+/// List columns that hold references, with the column they match: a
+/// roster or captains are places in the people store (`_row`, measured on
+/// R4's test book), a staff is coach ids.
+fn id_list_target(col: &str) -> Option<(&'static str, &'static str)> {
+    match col.rsplit("__").next().unwrap_or(col) {
+        "roster" | "captains" => Some(("people", "_row")),
+        "position_coaches" | "staff" => Some(("coaches", "id")),
+        _ => None,
+    }
+}
+
+/// A JSON list of numbers kept as text (`[17.5,16.2,...]`).
+fn number_list(v: &Value) -> Option<Vec<f64>> {
+    let s = v.as_str()?;
+    if !s.starts_with('[') {
+        return None;
+    }
+    let a: Vec<Value> = serde_json::from_str(s).ok()?;
+    a.iter().map(Value::as_f64).collect()
+}
+
+/// The names of a list column's entries: the 67 attributes (ratings and
+/// ceilings) and the 15 tendencies, in the engine's order.
+fn named_list(col: &str, n: usize) -> Option<Vec<String>> {
+    use afm_engine::attributes::{ATTRIBUTE_COUNT, Attr};
+    use afm_engine::tendencies::{TEND_COUNT, Tend};
+    let last = col.rsplit("__").next().unwrap_or(col);
+    match last {
+        "attributes" | "ceilings" | "attrs" if n == ATTRIBUTE_COUNT => {
+            Some(Attr::ALL.iter().map(|a| a.label().to_string()).collect())
+        }
+        "v" | "was" | "tendencies" if n == TEND_COUNT && col.contains("tend") => {
+            Some(Tend::ALL.iter().map(|t| t.label().to_string()).collect())
+        }
+        _ => None,
+    }
 }
 
 /// The Tools page, one tab at a time.
@@ -811,16 +1074,9 @@ pub fn tools(b: &mut Book, tab: &str, f: &Filters, args: &Value) -> Result<Value
                 let c = b.count(&n);
                 let t = b.table(&n).expect("listed");
                 let joins: Vec<String> =
-                    t.cols.iter().filter_map(|c| b.link_target(c).map(|x| format!("{c} → {x}"))).collect();
+                    t.cols.iter().filter_map(|c| b.link_target(&t.name, c).map(|x| format!("{c} → {x}"))).collect();
                 let filt = b.filterable(t);
-                rows.push(json!([
-                    n,
-                    c,
-                    t.cols.len(),
-                    if t.has("id") { "id" } else { "" },
-                    joins.join(", "),
-                    filt.join(", ")
-                ]));
+                rows.push(json!([n, c, t.cols.len(), id_of(t), joins.join(", "), filt.join(", ")]));
                 links.push(json!(format!("table/{n}")));
             }
             p["verdict"] = json!(format!(

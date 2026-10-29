@@ -59,7 +59,65 @@ pub const YEAR_COLS: [&str; 3] = ["year", "season", "draft_year"];
 const SNAP_COLS: [&str; 3] = ["as_of", "snapshot", "snapshot_year"];
 const SPAN_COLS: [(&str, &str); 3] =
     [("first_year", "last_year"), ("from_year", "to_year"), ("start_year", "end_year")];
-pub const NAME_COLS: [&str; 4] = ["name", "full_name", "title", "label"];
+pub const NAME_COLS: [&str; 5] = ["name", "full_name", "title", "label", "code"];
+
+/// The column that picks one row of a table: its `id`, a person's
+/// `player__id` (R4 spreads the player into `player__` columns), or the
+/// book's own `_row` (child tables, log rows, clubs, states).
+pub fn id_of(t: &Table) -> &'static str {
+    if t.name.starts_with("log_") || t.has("_parent") {
+        return "_row";
+    }
+    ["id", "player__id", "_row"].into_iter().find(|c| t.has(c)).unwrap_or("rowid")
+}
+
+/// What a column of the book's own naming points at, by its last word:
+/// `head_coach`, `job__employer__College`, `person__hs`, a college game's
+/// `home` and `away`, a log row's `id`.
+fn link_word(table: &str, col: &str) -> Option<&'static str> {
+    let word = col.rsplit("__").next().unwrap_or(col);
+    // A coach only where the whole column is one (`train__year__coach` is
+    // something else).
+    if matches!(col, "head_coach" | "coach" | "oc" | "dc" | "hc") {
+        return Some("coaches");
+    }
+    if matches!(col, "pro__team" | "pro__contract__team") {
+        return Some("nfl");
+    }
+    Some(match word {
+        "college" | "program" | "College" | "transfer_from" => "programs",
+        "home" | "away" if table.starts_with("college") && col == word => "programs",
+        "hs" | "high_school" | "HighSchool" => "high_schools",
+        "Nfl" => "nfl",
+        "home_state" | "state" => "states",
+        "id" => match table {
+            "log_coaches" => "coaches",
+            "log_programs" => "programs",
+            "log_schools" => "high_schools",
+            // The tables whose `id` is a person's (measured on R4's test
+            // book: 87-100% of them are people on record).
+            "log_players"
+            | "log_growth"
+            | "log_people"
+            | "log_exits"
+            | "log_whys"
+            | "college__heisman_vote"
+            | "college_prev__heisman_vote"
+            | "college__teams__players"
+            | "folk__courts__closed"
+            | "folk__courts__open"
+            | "folk__discipline__recent"
+            | "folk__life__events"
+            | "recruiting_log__portal"
+            | "scouting__rankings__picks"
+            | "scouting__rankings__tops"
+            | "stats__seasons"
+            | "stories__marks" => "people",
+            _ => return None,
+        },
+        _ => return None,
+    })
+}
 
 impl Filters {
     pub fn from_json(v: &Value, debug: bool) -> Filters {
@@ -144,6 +202,24 @@ pub fn cell_text(v: &Value) -> Option<String> {
 /// ratings and traits. The book can mark more in its `defs` table.
 pub fn debug_name(col: &str) -> bool {
     let c = col.to_ascii_lowercase();
+    // What the engine keeps behind `debug.rs`: the hidden traits, bloom,
+    // a coach's true ability parts, a recruit's visibility, sportsmanship.
+    let last = c.rsplit("__").next().unwrap_or(&c);
+    if matches!(
+        last,
+        "consistency"
+            | "temperament"
+            | "recovery"
+            | "injury_proneness"
+            | "longevity"
+            | "bloom"
+            | "visibility"
+            | "sportsmanship"
+    ) || c.starts_with("ability__")
+        || c.starts_with("x_")
+    {
+        return true;
+    }
     c.contains("potential")
         || c.contains("ceiling")
         || c.starts_with("true_")
@@ -166,22 +242,26 @@ pub struct Book {
 /// Table names the reader looks for, in order, for each kind of thing.
 pub fn names_for(kind: &str) -> &'static [&'static str] {
     match kind {
-        "meta" => &["meta", "book_meta", "world_meta"],
+        "meta" => &["book_meta", "meta", "world_meta"],
         "checks" => &["checks", "check_results", "results"],
         "odd" => &["odd", "odd_things", "odd_list"],
-        "issues" => &["issues", "known_issues"],
+        "issues" => &["known_issues", "issues"],
+        "catalog" => &["catalog"],
+        "dist" => &["dist"],
+        "metrics" => &["metrics"],
+        "check_years" => &["check_years"],
         "knobs" => &["knobs", "tuning_knobs"],
         "coverage" => &["coverage", "coverage_map"],
-        "real" => &["real", "real_index", "real_refs"],
+        "real" => &["real_figures", "real", "real_index", "real_refs"],
         "fitted" => &["fitted", "fitted_numbers", "world_numbers"],
-        "whys" => &["whys", "why", "events"],
+        "whys" => &["log_whys", "whys", "why", "events"],
         "consistency" => &["consistency", "consistency_checks"],
         "defs" => &["defs", "definitions", "columns"],
         "search" => &["search", "search_index", "names"],
         "series" => &["series", "year_series"],
         "people" => &["people", "persons", "players", "person"],
         "seasons" => &["person_seasons", "player_seasons", "seasons", "development", "dev_rows"],
-        "games" => &["games", "game"],
+        "games" => &["games", "game", "college__games"],
         "plays" => &["plays", "play_by_play", "snaps"],
         "programs" => &["programs", "program"],
         "coaches" => &["coaches", "coach"],
@@ -190,6 +270,26 @@ pub fn names_for(kind: &str) -> &'static [&'static str] {
         _ => &[],
     }
 }
+
+/// Kinds of the book's own worked-out lists, as opposed to the world's
+/// records.
+const TOOL_KINDS: [&str; 15] = [
+    "meta",
+    "checks",
+    "odd",
+    "issues",
+    "knobs",
+    "coverage",
+    "fitted",
+    "whys",
+    "consistency",
+    "defs",
+    "search",
+    "catalog",
+    "dist",
+    "metrics",
+    "check_years",
+];
 
 /// The tables an `<x>_id` column may point at, beyond `x`, `xs`, `xes`.
 fn link_names(base: &str) -> &'static [&'static str] {
@@ -292,8 +392,25 @@ impl Book {
         t.contains("hidden") || t.contains("debug")
     }
 
-    /// What an `<x>_id` column points at: a table with an `id` column.
-    pub fn link_target(&self, col: &str) -> Option<&str> {
+    /// What a column points at: `_parent` its parent table's row, an
+    /// `<x>_id` column the table named by `x`, or one of the book's own
+    /// names (`link_word`).
+    pub fn link_target(&self, table: &str, col: &str) -> Option<&str> {
+        let found = |c: &str| self.tables.iter().find(|t| t.name == c).map(|t| t.name.as_str());
+        if col == "_parent" {
+            // `people__player__history` → `people`: the nearest table up.
+            let mut up = table;
+            while let Some((a, _)) = up.rsplit_once("__") {
+                if let Some(t) = found(a) {
+                    return Some(t);
+                }
+                up = a;
+            }
+            return None;
+        }
+        if let Some(t) = link_word(table, col).and_then(found).filter(|t| *t != table || col != "id") {
+            return Some(t);
+        }
         let base = col.strip_suffix("_id")?;
         let mut cands: Vec<String> = vec![base.into(), format!("{base}s"), format!("{base}es")];
         if let Some(stem) = base.strip_suffix('y') {
@@ -305,11 +422,20 @@ impl Book {
             cands.push(format!("{last}s"));
             cands.extend(link_names(last).iter().map(|s| s.to_string()));
         }
-        cands.into_iter().find_map(|c| self.tables.iter().find(|t| t.name == c && t.has("id")).map(|t| t.name.as_str()))
+        cands.into_iter().find_map(|c| found(&c))
+    }
+
+    /// The column of `target` a link from `table.col` matches: `_row` for
+    /// a child's `_parent`, else the target's id.
+    pub fn link_key(&self, col: &str, target: &str) -> &'static str {
+        if col == "_parent" { "_row" } else { self.table(target).map_or("id", id_of) }
     }
 
     /// The column that names a row of this table, as SQL.
     pub fn name_sql(&self, t: &Table) -> Option<String> {
+        if t.has("real_name") && t.has("fictional_name") {
+            return Some("COALESCE(\"real_name\", \"fictional_name\")".into());
+        }
         if let Some(c) = t.pick(&NAME_COLS) {
             return Some(q(c));
         }
@@ -320,14 +446,22 @@ impl Book {
 
     /// Tables whose rows are things with a page: an `id` and a name.
     pub fn entity_tables(&self) -> Vec<&Table> {
-        self.tables.iter().filter(|t| t.has("id") && self.name_sql(t).is_some() && t.name != "defs").collect()
+        self.tables
+            .iter()
+            .filter(|t| {
+                (t.has("id") || t.has("player__id"))
+                    && self.name_sql(t).is_some()
+                    && !t.name.starts_with("log_")
+                    && !TOOL_KINDS.iter().any(|k| names_for(k).contains(&t.name.as_str()))
+            })
+            .collect()
     }
 
     /// The name of one row, for links.
     pub fn name_of(&self, table: &str, id: &Value) -> Option<String> {
         let t = self.table(table)?;
         let n = self.name_sql(t)?;
-        let sql = format!("SELECT {n} FROM {} WHERE id = ?1", q(table));
+        let sql = format!("SELECT {n} FROM {} WHERE {} = ?1", q(table), q(id_of(t)));
         self.db.query_row(&sql, [json_sql(id)], |r| r.get::<_, Option<String>>(0)).ok().flatten()
     }
 
@@ -335,7 +469,14 @@ impl Book {
     pub fn where_for(&self, t: &Table, f: &Filters) -> (String, Vec<Sql>) {
         let mut parts: Vec<String> = Vec::new();
         let mut vals: Vec<Sql> = Vec::new();
+        // The book's own lists (checks, odd things, coverage, ...) have
+        // columns such as `level` that mean something else: only the years
+        // narrow them.
+        let tool = TOOL_KINDS.iter().any(|k| names_for(k).contains(&t.name.as_str()));
         for (key, cols) in FILTER_COLS {
+            if tool {
+                continue;
+            }
             let want = f.values(key);
             if want.is_empty() {
                 continue;
@@ -427,7 +568,9 @@ impl Book {
         limit: i64,
     ) -> Result<Value, String> {
         let t = self.table(table).ok_or_else(|| format!("This book has no table {table}."))?;
-        let cols: Vec<String> = t.cols.iter().filter(|c| f.debug || !self.is_debug(table, c)).cloned().collect();
+        // `_more` is a packed record (msgpack): unreadable as a cell.
+        let cols: Vec<String> =
+            t.cols.iter().filter(|c| *c != "_more" && (f.debug || !self.is_debug(table, c))).cloned().collect();
         let (mut wh, mut vals) = self.where_for(t, f);
         if let Some((c, v)) = extra {
             if !t.has(c) {
@@ -466,15 +609,16 @@ impl Book {
         let filterable = self.filterable(t);
         // Every id shown as its name: one lookup per linked column.
         let mut names = Map::new();
-        for c in cols.iter().filter(|c| c.ends_with("_id")) {
-            let Some(target) = self.link_target(c) else { continue };
+        for c in &cols {
+            let Some(target) = self.link_target(table, c) else { continue };
             let Some(n) = self.table(target).and_then(|tt| self.name_sql(tt)) else { continue };
+            let key = self.link_key(c, target);
             let ids: Vec<Sql> = maps.iter().filter_map(|m| m.get(c)).filter(|v| !v.is_null()).map(json_sql).collect();
             if ids.is_empty() {
                 continue;
             }
             let marks = (1..=ids.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
-            let sql = format!("SELECT id, {n} AS name FROM {} WHERE id IN ({marks})", q(target));
+            let sql = format!("SELECT {} AS id, {n} AS name FROM {} WHERE {} IN ({marks})", q(key), q(target), q(key));
             let mut m = Map::new();
             for r in self.select_maps(&sql, &ids).unwrap_or_default() {
                 if let (Some(id), Some(name)) = (r.get("id").and_then(cell_text), r.get("name").and_then(cell_text)) {
@@ -502,10 +646,18 @@ impl Book {
             "label": def.and_then(|d| d.get("label")).and_then(cell_text).unwrap_or_else(|| label(c)),
             "debug": self.is_debug(table, c),
         });
-        if c == "id" && self.entity_tables().iter().any(|t| t.name == table) {
+        let own = self.table(table).map(id_of);
+        if own == Some(c) && self.entity_tables().iter().any(|t| t.name == table) {
             o["link"] = json!(table);
-        } else if let Some(t) = self.link_target(c) {
+        } else if let Some(t) = self.link_target(table, c)
+            && Some(self.link_key(c, t)) == self.table(t).map(id_of)
+        {
             o["link"] = json!(t);
+        }
+        if crate::pages::is_date(c) {
+            o["fmt"] = json!("date");
+        } else if crate::pages::is_year(c) {
+            o["fmt"] = json!("year");
         }
         o["h"] = self.hover(table, c);
         o
@@ -547,7 +699,7 @@ impl Book {
         let mut out: Vec<(i32, Value)> = Vec::new();
         if let Some(s) = self.find("search")
             && let (Some(n), Some(k), Some(i)) =
-                (s.pick(&["name", "text"]), s.pick(&["kind", "tbl", "table_name"]), s.pick(&["id", "entity_id"]))
+                (s.pick(&["name", "text"]), s.pick(&["tbl", "table_name", "kind"]), s.pick(&["id", "entity_id"]))
         {
             let detail = s.pick(&["detail", "info", "summary"]).map(q).unwrap_or_else(|| "''".into());
             let sql = format!(
@@ -583,7 +735,8 @@ impl Book {
                     .join(" || ' · ' || ")
             };
             let sql = format!(
-                "SELECT id, {n}, {dsql}, ({n} LIKE ?2) AS pre FROM {} WHERE {n} LIKE ?1 ORDER BY pre DESC, length({n}) LIMIT {limit}",
+                "SELECT {}, {n}, {dsql}, ({n} LIKE ?2) AS pre FROM {} WHERE {n} LIKE ?1 ORDER BY pre DESC, length({n}) LIMIT {limit}",
+                q(id_of(t)),
                 q(&t.name)
             );
             let Ok(mut st) = self.db.prepare(&sql) else { continue };
@@ -605,14 +758,18 @@ impl Book {
     pub fn pointing_at(&self, table: &str) -> Vec<(String, String)> {
         let mut v = Vec::new();
         for t in &self.tables {
-            if t.name == table {
+            if t.name == table || TOOL_KINDS.iter().any(|k| names_for(k).contains(&t.name.as_str())) {
                 continue;
             }
-            for c in &t.cols {
-                if c.ends_with("_id") && self.link_target(c) == Some(table) {
-                    v.push((t.name.clone(), c.clone()));
-                    break;
-                }
+            // A child table first (`_parent`), else the first column that
+            // links here.
+            let c = if t.has("_parent") && self.link_target(&t.name, "_parent") == Some(table) {
+                Some("_parent".to_string())
+            } else {
+                t.cols.iter().find(|c| *c != "_parent" && self.link_target(&t.name, c) == Some(table)).cloned()
+            };
+            if let Some(c) = c {
+                v.push((t.name.clone(), c));
             }
         }
         v
@@ -692,7 +849,19 @@ pub fn json_sql(v: &Value) -> Sql {
 
 /// A column name in words: `games_missed` → "Games missed".
 pub fn label(c: &str) -> String {
-    let s = c.replace('_', " ");
+    match c {
+        "_i" => return "#".into(),
+        "_row" => return "Row".into(),
+        "_parent" => return "Of".into(),
+        _ => {}
+    }
+    // `player__body__height` → "Body height": the player and person parts
+    // say nothing on a person's page.
+    let mut parts: Vec<&str> = c.split("__").filter(|p| !p.is_empty()).collect();
+    while parts.len() > 1 && ["player", "person"].contains(&parts[0]) {
+        parts.remove(0);
+    }
+    let s = parts.join(" ").replace('_', " ");
     let mut ch = s.chars();
     match ch.next() {
         Some(f) => f.to_uppercase().collect::<String>() + ch.as_str(),
