@@ -43,6 +43,29 @@ Object.assign(CRUMBS, {
   };
 }
 
+// A recruit's player page carries your offer too (minor bug 58): Find
+// recruits opens the player page, and the offer lived only on his file and
+// the board. The moves lead the page's own buttons.
+{
+  const plain = screens.player;
+  screens.player = async (a) => {
+    const me = S.status && S.status.mine;
+    if (!me || me.ref.kind !== "college") return plain(a);
+    const [html, f] = await Promise.all([plain(a), api("recruit_file", { id: a.id }).catch(() => null)]);
+    const moves = f ? fcPlayerMoves(f) : "";
+    return moves ? html.replace('<div class="st-actions">', `<div class="st-actions">${moves}`) : html;
+  };
+}
+function fcPlayerMoves(f) {
+  if (!f.recruitable || ["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing)) return "";
+  const file = linkTo("recruit_file", { id: f.id }, "His recruit file", "st-btn glass");
+  if (!f.board_yours) return file;
+  const offer = f.offered
+    ? `<button class="st-btn glass" data-fc="pull" data-id="${f.id}">Pull the offer</button>`
+    : `<button class="st-btn primary" data-fc="offer" data-id="${f.id}">Offer a scholarship</button>`;
+  return offer + file;
+}
+
 // ---------- small pieces ----------
 const fcStars = (n) => (n ? `<span class="fc-stars" title="${n}-star recruit (the services)">${"★".repeat(n)}<i>${"★".repeat(Math.max(0, 5 - n))}</i></span>` : '<span class="muted">-</span>');
 const fcDot = (tone) => `<span class="dot ${tone || ""}"></span>`;
@@ -272,13 +295,14 @@ function fcActions(f) {
   }
   let nil = "";
   if (f.nil_era && !closed) {
-    if (f.nil_yours && f.board_yours) {
+    // Your own number for him, whoever runs NIL (minor bug 59).
+    if (f.board_yours) {
       nil = `<div class="fc-nil"><span class="st-label">NIL promise</span>
-        <label class="fc-moneyin">$<input type="number" min="0" step="5" value="${f.nil != null ? Math.round(f.nil / 1000) : ""}" placeholder="${Math.round(f.usual / 1000)}" data-fcin="promise" data-id="${f.id}">thousand a year</label>
-        <small class="sub">The collective's usual offer: ${money(f.usual)}. His market tops out near ${money(f.nil_max)}. ${money(f.budget.left)} left this year.</small>
+        <div class="fc-nilrow"><label class="fc-moneyin">$<input type="number" min="0" step="5" value="${f.nil != null ? Math.round(f.nil / 1000) : ""}" placeholder="${Math.round(f.usual / 1000)}" data-fcin="promise" data-id="${f.id}">thousand a year</label><button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
+        <small class="sub">The collective's usual offer: ${money(f.usual)}. The going rate for his position tops out near ${money(f.nil_max)}, but only your budget limits you: ${money(f.budget.left)} left this year.</small>
         ${f.nil != null ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Back to the usual offer</button>` : ""}</div>`;
     } else {
-      nil = `<div class="fc-nil"><span class="st-label">NIL</span><small class="sub">Your collective offers about ${money(f.usual)} a year. ${f.nil_yours ? "" : "Take NIL back to set your own number."}</small></div>`;
+      nil = `<div class="fc-nil"><span class="st-label">NIL</span><small class="sub">Your collective offers about ${money(f.usual)} a year.</small></div>`;
     }
   }
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${nil}</div>`;
@@ -613,6 +637,11 @@ document.addEventListener(
       case "pull": if (await sure("Pull the offer?", "A committed recruit's commitment goes with it, and his high school coach remembers.", "Pull it")) fcDo("recruit_pull", { id }); break;
       case "prio": fcDo("recruit_priority", { id, on: d.on === "1" }); break;
       case "move": fcDo("recruit_move", { id, to: Number(d.to) }); break;
+      case "promise": {
+        const inp = el.closest(".fc-nilrow").querySelector('[data-fcin="promise"]');
+        fcDo("recruit_promise", inp.value === "" ? { id } : { id, nil: Math.max(0, Number(inp.value)) * 1000 });
+        break;
+      }
       case "promiseclear": fcDo("recruit_promise", { id }); break;
       case "visit": {
         const sel = document.querySelector(`[data-fcsel="v-${id}-${d.kind}"]`);
@@ -642,8 +671,12 @@ document.addEventListener(
   },
   true,
 );
+// Enter in a recruit's NIL box presses its Promise button.
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.fcin === "promise") ev.target.closest(".fc-nilrow").querySelector('[data-fc="promise"]').click();
+});
 // Rows of the full board open the recruit's file; the desk's selects and
-// money boxes save on change.
+// the other money boxes save on change.
 document.addEventListener("change", (ev) => {
   const t = ev.target;
   if (!t.dataset) return;
@@ -658,7 +691,6 @@ document.addEventListener("change", (ev) => {
   }
   const id = Number(t.dataset.id);
   const v = t.value === "" ? null : Math.max(0, Number(t.value)) * 1000;
-  if (t.dataset.fcin === "promise") fcDo("recruit_promise", v == null ? { id } : { id, nil: v });
   if (t.dataset.fcin === "deal" && v != null) fcDo("nil_set", { id, amount: v });
   if (t.dataset.fcin === "pnil") {
     // A portal offer's money: re-sent with the offer, or saved on it if out.
