@@ -6,16 +6,18 @@ name: World Reader app
 on:
   push:
     branches: [main]
-    paths: ["reader/**", "crates/afm-reader-app/**", "crates/afm-engine/**", ".github/workflows/reader-app.yml"]
+    paths: ["reader/**", "crates/afm-reader-app/**", "crates/afm-reader/**", "crates/afm-engine/**", ".github/workflows/reader-app.yml"]
   pull_request:
-    paths: ["reader/**", "crates/afm-reader-app/**", ".github/workflows/reader-app.yml"]
+    paths: ["reader/**", "crates/afm-reader-app/**", "crates/afm-reader/**", ".github/workflows/reader-app.yml"]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   mac:
     runs-on: macos-14
-    timeout-minutes: 60
+    # Two architectures, each with the engine and the book's builder: the
+    # build ran past an hour once R4's crate came in.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

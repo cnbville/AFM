@@ -257,7 +257,11 @@ impl Reader {
             }
             "job" => Ok(library::job_json(&self.job)),
             "open" => self.open(Path::new(args["path"].as_str().ok_or("Which file?")?)),
-            "build" => Err("Building a book on this Mac comes with the book's builder (lane R4); until then, download a world's book from the library.".into()),
+            "build" => {
+                let path = PathBuf::from(args["path"].as_str().ok_or("Which world file or save?")?);
+                library::build(&self.job, &self.home, &path)?;
+                Ok(library::job_json(&self.job))
+            }
             "close" => {
                 self.book = None;
                 self.cache = None;
@@ -272,9 +276,37 @@ impl Reader {
             "page" => self.page(args["route"].as_str().unwrap_or("overview"), args),
             "copy" => {
                 let route = args["route"].as_str().unwrap_or("overview").to_string();
+                // A page R4's book prints itself is copied as that text (the
+                // same `afm_read` gives), with the way to print it again. A
+                // row's page is the app's own (every id a name, packed
+                // records unpacked), with the line that prints its raw record.
+                let f = self.filters(args);
+                let mapped = self.book.as_ref().and_then(|b| {
+                    let page = text::book_page(b, &route)?;
+                    let words = text::filter_words(&f);
+                    let file = b.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    let again = format!(
+                        "afm_read {file} {page}{}",
+                        if words.is_empty() { String::new() } else { format!(" {words}") }
+                    );
+                    Some((page, again))
+                });
+                if let Some((page, again)) = &mapped
+                    && !route.starts_with("e/")
+                    && let Some(b) = self.book.as_ref()
+                    && let Ok(rb) = afm_reader::Book::open(&b.path)
+                {
+                    let mut t = rb.text(page, &text::book_filters(&f));
+                    t.push_str(&format!("\n(Printed again with: {again})\n"));
+                    return Ok(json!(t));
+                }
                 let p = self.page(&route, args)?;
                 let world = self.book.as_ref().map(pages::world_name).unwrap_or_default();
-                Ok(json!(text::render(&p, &world, p["filters"].as_str().unwrap_or(""))))
+                let mut t = text::render(&p, &world, p["filters"].as_str().unwrap_or(""));
+                if let Some((_, again)) = mapped {
+                    t.push_str(&format!("\n(The raw record: {again})\n"));
+                }
+                Ok(json!(t))
             }
             "search" => {
                 let b = self.book()?;
@@ -297,15 +329,23 @@ impl Reader {
             "values" => {
                 // A column's values, for compare's pickers.
                 let b = self.book()?;
-                let (t, c) = (args["table"].as_str().ok_or("Which table?")?, args["col"].as_str().ok_or("Which column?")?);
+                let (t, c) =
+                    (args["table"].as_str().ok_or("Which table?")?, args["col"].as_str().ok_or("Which column?")?);
                 if !b.table(t).is_some_and(|x| x.has(c)) {
                     return Err(format!("{t} has no column {c}."));
                 }
-                let sql = format!("SELECT CAST({c} AS TEXT) AS v, COUNT(*) AS n FROM {} WHERE {c} IS NOT NULL GROUP BY 1 ORDER BY n DESC LIMIT 300", book::q(t), c = book::q(c));
+                let sql = format!(
+                    "SELECT CAST({c} AS TEXT) AS v, COUNT(*) AS n FROM {} WHERE {c} IS NOT NULL GROUP BY 1 ORDER BY n DESC LIMIT 300",
+                    book::q(t),
+                    c = book::q(c)
+                );
                 Ok(json!(b.select_maps(&sql, &[])?))
             }
             "play" => {
-                let (h, a) = (args["home"].as_u64().ok_or("Pick the home team.")? as usize, args["away"].as_u64().ok_or("Pick the road team.")? as usize);
+                let (h, a) = (
+                    args["home"].as_u64().ok_or("Pick the home team.")? as usize,
+                    args["away"].as_u64().ok_or("Pick the road team.")? as usize,
+                );
                 let worlds = self.game.join("worlds");
                 let path = match args["world"].as_str() {
                     Some(p) => PathBuf::from(p),
@@ -313,7 +353,8 @@ impl Reader {
                 };
                 if self.world.as_ref().is_none_or(|(p, _)| *p != path) {
                     self.world = None;
-                    let w = afm_engine::save::read_world(&path).map_err(|e| format!("Could not read the world: {e}"))?;
+                    let w =
+                        afm_engine::save::read_world(&path).map_err(|e| format!("Could not read the world: {e}"))?;
                     self.world = Some((path, w));
                 }
                 let w = &self.world.as_ref().expect("loaded").1;

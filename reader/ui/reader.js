@@ -173,6 +173,10 @@ function rowsHtml(b, id) {
     return `<th class="sort ${c.debug ? "dbgc" : ""}" data-sort="${esc(c.name)}" data-h="${hv(Object.assign({ what: c.label }, c.h || {}))}">${esc(c.label)}${c.debug ? ' <span class="mk dbg">debug</span>' : ""}${arrow}</th>`;
   }).join("");
   const idx = f.cols.findIndex((c) => c.name === "id");
+  // A world log row keeps more than its columns: its whole record opens
+  // on its own page.
+  const rec = f.record ? f.cols.findIndex((c) => c.name === "_row") : -1;
+  const recHead = rec >= 0 ? `<th data-h="${hv({ what: "Record", note: "The row's whole record, every field the world log kept" })}">Record</th>` : "";
   const body = f.rows.map((r) => {
     let open = "";
     if (b.open && idx >= 0) open = b.open + r[idx];
@@ -182,12 +186,12 @@ function rowsHtml(b, id) {
       const nm = f.names && f.names[c.name];
       const n = typeof v === "number" && !(nm && nm[String(v)] != null);
       return `<td class="${n ? "n" : ""} ${c.debug ? "dbgc" : ""}">${cellHtml(v, c, nm)}</td>`;
-    }).join("") + "</tr>";
+    }).join("") + (rec >= 0 ? `<td><a href="#/e/${esc(b.table || f.table)}/${r[rec]}">Record</a></td>` : "") + "</tr>";
   }).join("");
   const from = f.total ? f.offset + 1 : 0;
   const to = Math.min(f.offset + f.rows.length, f.total);
   const filt = f.filterable && f.filterable.length ? `Filters here: ${f.filterable.join(", ")}` : "No filter applies to this table";
-  return `<div class="tbl"><table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td class="sub">No rows under these filters.</td></tr>`}</tbody></table></div>
+  return `<div class="tbl"><table><thead><tr>${head}${recHead}</tr></thead><tbody>${body || `<tr><td class="sub">No rows under these filters.</td></tr>`}</tbody></table></div>
     <div class="pager"><span class="sub">${fmt(from)}–${fmt(to)} of ${fmt(f.total)} · ${esc(filt)}</span>
     <span><button class="btn sm" type="button" data-page="${id}" data-off="${Math.max(0, f.offset - 50)}" ${f.offset ? "" : "disabled"}>Previous</button>
     <button class="btn sm" type="button" data-page="${id}" data-off="${f.offset + 50}" ${to < f.total ? "" : "disabled"}>Next</button>
@@ -327,7 +331,7 @@ function drawPage(t0) {
 async function library() {
   const el = $("#page");
   $("#crumb").textContent = "World library";
-  el.innerHTML = `<div class="sec"><h1 class="wide" style="margin:0;font-size:34px;font-weight:800">World library</h1><p class="verdict">Books on the worlds page download in one click. Books on this Mac open at once; a world file or a save opens once its book is built.</p></div><div id="lib-online" class="panel"><p class="loading">Looking at the worlds page…</p></div><div id="lib-local"></div>`;
+  el.innerHTML = `<div class="sec"><h1 class="wide" style="margin:0;font-size:34px;font-weight:800">World library</h1><p class="verdict">Books on the worlds page download in one click. Books on this Mac open at once. A world file or a save gets its book built here, read from the world once.</p><div id="job"></div></div><div id="lib-online" class="panel"><p class="loading">Looking at the worlds page…</p></div><div id="lib-local"></div>`;
   let lib;
   try { lib = await api("library"); } catch (e) { $("#lib-local").innerHTML = `<div class="err">${esc(e.message || e)}</div>`; return; }
   const row = (b, act) => `<div class="it"><p><b>${esc(b.name)}</b><span class="why">${[b.gb >= 0.1 ? b.gb + " GB" : b.mb != null ? b.mb + " MB" : "", b.seed ? "seed " + b.seed : "", b.years ? b.years + " years" : "", b.commit ? "commit " + String(b.commit).slice(0, 7) : "", b.career || "", b.date || ""].filter(Boolean).map(esc).join(" · ")}</span></p>${act}</div>`;
@@ -335,14 +339,14 @@ async function library() {
   const files = lib.worlds.concat(lib.saves).map((w) => row(w, w.book ? `<button class="btn sm" data-open="${esc(w.path)}" type="button">Open its book</button>` : `<button class="btn sm" data-build="${esc(w.path)}" type="button">Build a book</button>`)).join("") || `<p class="sub">No world files or saves in the game's folder.</p>`;
   $("#lib-local").innerHTML = `<div class="pair"><section class="panel"><div class="head"><h2>Books on this Mac</h2><button class="btn sm" id="open-file" type="button">Open a file…</button></div><div class="items">${books}</div></section>
     <section class="panel"><div class="head"><h2>The game's worlds and saves</h2></div><div class="items">${files}</div></section></div>`;
+  pollJob();
   try {
     const on = await api("online");
     const list = on.books.map((b) => row({ name: b.title || b.name, gb: (b.mb / 1000).toFixed(2), date: (b.date || "").slice(0, 10) }, b.have ? `<span class="mk near">On this Mac</span>` : `<button class="btn sm pri" data-dl="${esc(b.tag)}" type="button">Download</button>`)).join("");
-    $("#lib-online").innerHTML = `<div class="head"><h2>On the worlds page</h2><span class="sub">${esc(on.repo)}</span></div><div id="job"></div><div class="items">${list || `<p class="sub">No world there carries a book yet. The world build publishes one beside each new world.</p>`}</div>`;
+    $("#lib-online").innerHTML = `<div class="head"><h2>On the worlds page</h2><span class="sub">${esc(on.repo)}</span></div><div class="items">${list || `<p class="sub">No world there carries a book yet. The world build publishes one beside each new world.</p>`}</div>`;
   } catch (e) {
     $("#lib-online").innerHTML = `<div class="head"><h2>On the worlds page</h2></div><p class="sub">${esc(e.message || e)}</p>`;
   }
-  pollJob();
 }
 
 async function pollJob() {
@@ -355,10 +359,18 @@ async function pollJob() {
   else if (j.made && !j.error) { await openPath(j.made); }
 }
 
+// Builds a world file's or save's book on this Mac, then opens it.
+async function buildBook(p) {
+  try {
+    await api("build", { path: p });
+    if (route() !== "library") go("library"); else pollJob();
+  } catch (err) { toast(err.message || String(err)); }
+}
+
 async function openPath(p) {
   try {
     const r = await api("open", { path: p });
-    if (r.needs_book) { toast(r.text); return; }
+    if (r.needs_book) { await buildBook(r.path); return; }
     ST = r;
     go("overview");
     await refresh();
@@ -464,7 +476,7 @@ document.addEventListener("click", async (e) => {
     return render();
   }
   if (t.dataset.dl) { try { await api("download", { tag: t.dataset.dl }); pollJob(); } catch (err) { toast(err.message || String(err)); } return; }
-  if (t.dataset.build) { try { await api("build", { path: t.dataset.build }); } catch (err) { toast(err.message || String(err)); } return; }
+  if (t.dataset.build) return buildBook(t.dataset.build);
   if (t.dataset.step || t.dataset.snap) {
     const [id, n] = (t.dataset.step || t.dataset.snap).split(":");
     const b = PAGE.blocks[id];

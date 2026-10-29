@@ -1,5 +1,5 @@
 [package]
-name = "afm-reader"
+name = "afm-world-reader"
 description = "The AFM World Reader on the desktop (lane R5): the screens in reader/ui on Tauri, the reader's commands on their own thread. A debug tool, never part of the game."
 version = "0.1.0"
 edition = "2024"

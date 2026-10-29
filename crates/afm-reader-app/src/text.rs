@@ -3,7 +3,7 @@
 
 use serde_json::Value;
 
-use crate::book::cell_text;
+use crate::book::{Book, Filters, cell_text, id_of};
 use crate::pages::fmt;
 
 /// Rows of a table the text keeps; the rest are counted.
@@ -192,4 +192,89 @@ pub fn render(page: &Value, world: &str, filters: &str) -> String {
         block(&mut out, b);
     }
     out
+}
+
+/// The page of R4's book (`Book::text`) an app route shows, when there is
+/// one: the overview, a topic page, a Tools tab the book prints, a table,
+/// a person, alumnus, coach, program, school or club, or any other row.
+pub fn book_page(b: &Book, route: &str) -> Option<String> {
+    if !b.tables.iter().any(|t| t.name == "book_meta") {
+        return None;
+    }
+    let path = route.split('?').next().unwrap_or(route);
+    let parts: Vec<&str> = path.split('/').filter(|p| !p.is_empty()).collect();
+    Some(match parts.as_slice() {
+        [] | ["overview"] => "overview".into(),
+        ["page", slug] | [slug @ "career"] => slug.to_string(),
+        ["tools", tab @ ("issues" | "knobs" | "coverage" | "tables")] => tab.to_string(),
+        ["tools", "consistency"] => "checks".into(),
+        ["tools", "odd", ..] => "odd".into(),
+        ["table", name] => format!("table {name}"),
+        ["e", table, id] => {
+            let kind = match *table {
+                "people" => "person",
+                "alumni" => "alumnus",
+                "coaches" => "coach",
+                "programs" => "program",
+                "high_schools" => "school",
+                "clubs" | "nfl" => "club",
+                _ => "",
+            };
+            if kind.is_empty() {
+                // R4 prints any other row by its place (`_row`).
+                let t = b.table(table)?;
+                if id_of(t) != "_row" {
+                    return None;
+                }
+                format!("record {table} {id}")
+            } else {
+                format!("{kind} {id}")
+            }
+        }
+        _ => return None,
+    })
+}
+
+/// The app's filters as R4's (one value each; the first picked).
+pub fn book_filters(f: &Filters) -> afm_reader::Filters {
+    let one = |v: &[String]| v.first().cloned();
+    afm_reader::Filters {
+        level: one(&f.level),
+        division: one(&f.division),
+        conference: one(&f.conference),
+        position: one(&f.position),
+        stars: f.stars.first().and_then(|s| s.parse().ok()),
+        state: one(&f.state),
+        year: f.year,
+        year_from: f.from,
+        year_to: f.to,
+        debug: f.debug,
+        ..Default::default()
+    }
+}
+
+/// The same filters as `afm_read` words (`level=FBS year=2030 debug`).
+pub fn filter_words(f: &Filters) -> String {
+    let rf = book_filters(f);
+    let mut w: Vec<String> = Vec::new();
+    for (k, v) in [
+        ("level", rf.level),
+        ("division", rf.division),
+        ("conference", rf.conference),
+        ("pos", rf.position),
+        ("state", rf.state),
+    ] {
+        if let Some(v) = v {
+            w.push(format!("{k}={v}"));
+        }
+    }
+    for (k, v) in [("stars", rf.stars), ("year", rf.year), ("from", rf.year_from), ("to", rf.year_to)] {
+        if let Some(v) = v {
+            w.push(format!("{k}={v}"));
+        }
+    }
+    if rf.debug {
+        w.push("debug".into());
+    }
+    w.join(" ")
 }
