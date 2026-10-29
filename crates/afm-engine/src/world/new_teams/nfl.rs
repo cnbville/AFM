@@ -234,8 +234,10 @@ fn add_club(w: &mut World, k: usize, div: u8, first: i32) -> usize {
     // eight seasons).
     ownr.patience = (ownr.patience + 0.25).min(1.0);
     let power = crate::world::pro::office::draw_power(&mut rng, &ownr);
-    let mut club = crate::world::pro::Club::default();
-    club.office = crate::world::pro::office::Office { gm, owner: ownr, power, ..Default::default() };
+    let club = crate::world::pro::Club {
+        office: crate::world::pro::office::Office { gm, owner: ownr, power, ..Default::default() },
+        ..Default::default()
+    };
     w.clubs.resize_with(t, Default::default);
     w.clubs.push(club);
     let fee = FEE_MULTIPLE * average_value(w);
