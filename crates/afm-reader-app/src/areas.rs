@@ -121,7 +121,7 @@ const PANEL_FILTERS: [(&str, &str); 6] = [
 ];
 
 pub fn panels(b: &Book, area: Option<&str>, page: Option<&str>) -> Vec<PanelRow> {
-    let Some(t) = b.find("panels") else { return Vec::new() };
+    let Some(t) = b.table("panels") else { return Vec::new() };
     let (wh, v) = match (area, page) {
         (Some(a), _) => (" WHERE area = ?1", vec![rusqlite::types::Value::Text(a.into())]),
         (None, Some(p)) => (" WHERE page = ?1", vec![rusqlite::types::Value::Text(p.into())]),

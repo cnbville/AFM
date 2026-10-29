@@ -21,6 +21,17 @@ World reader lane R4 (spec `afm/world-reader/spec.md` in the project folder, sec
 - `search` (every person, alumnus, coach, program, high school and NFL club by name) and `defs` (what each number is, for hover cards).
 - `catalog` (every table, where it came from, its rows and columns) and `book_meta` (the world's seed, years, commits, dates, the logs read and what is missing).
 
+## People and recruiting (lane R6)
+
+World reader lane R6 (brief `briefs/r6.md`) fills the People and Recruiting pages: inventory areas P1-P32, T8, C18, C28-C41 and T7. Each area has the four layers: a verdict line, checks against real as tiles, panels (tables and distributions), and a way down to rows and pages.
+
+- **Panels** (`panels`): 193 pieces of SQL worked out when the book is built, each a kind the app draws: `bars` (world against real by label), `hist` (a spread against a real or design curve), `line` (by year, or by age or rating band, with the real band shaded), `matrix`, `funnel`, `map` (by state) and `table` (rows that open pages). A `grp` column becomes buttons, a `year` column follows the year slider, `says` gives the verdict line. A panel keeps at most 5,000 rows.
+- **Checks**: 45 more against real (birth months, held-back boys, draft age, heritage, lefties, combine invites, overall by level, peak ages, slumps and breakouts, career length, missed games, in-state rosters, signees and picks by state, stars, decommitments, the portal, NIL bands, five-star spread, births, trouble), and 4 consistency rules (ratings above their ceilings, roster caps, repeated note lines, All-Pros listed as backups).
+- **Class and state pages**: `class <year>` and `state <XX>` pages are the panels filed under them, cut to that one class or state, with their own verdict line.
+- **Dynamic Links**: the book works out each person's 12 links with the engine's own `links_of` (`people.x_links`, 0 to 1 in `engine_links` order), since the world stores none.
+- **Small or early worlds**: a child table such a world never filled (no five-stars yet, no grudges) makes its panels and checks "no data", not an error. A newer world's columns that an older one lacks (birth dates, followers) are added empty.
+- `afm_read refresh <book>` works out the checks and panels again with this reader's definitions, without reading the world again.
+
 ## A book without a log
 
 A book always builds from a world file alone. Checks that need a log show "no data" and say which log they need, and the overview and the odd list name what is missing.
@@ -45,3 +56,13 @@ The library gives the same pages to the app: `Book::open`, `book.text(page, &Fil
 - The book is compressed with zstd for the worlds page and split at 1.9 GB.
 - Outliers show the top 0.5% to 1% of a measure (per outlier), at most 50 rows each; consistency failures keep 200 rows each.
 - Where a check has no sourced real figure yet, it uses a figure from memory and says so ("The real figure is from memory").
+
+### Lane R6's picks, proposed, not confirmed
+
+- A season row's year comes from his birth date; in a world without birth dates, from his class: his last high school season was the fall before his class year, which places a held-back boy right. Without either, his class less 18 plus his age.
+- Draft rates by stars divide each class's draft picks by the year's signing class counts (`signing_classes`), for classes whose draft years have all passed.
+- Chemistry is not stored, so the reader rebuilds it: each FBS program's best quarterback with its three best receivers and tight ends by true overall, seasons together from the staff rows before the world's year plus half for this season, read through the engine's curve 1 - e^(-0.55 x seasons).
+- Morale's pull on growth is checked among college starters only (role drives both mood and growth), with today's mood.
+- Conduct cases by kind are read from the words of career-note lines (DUI, assault, domestic, drugs, weapons, theft, PEDs, gambling, dismissed).
+- Keyed tables keep the top rows per key: the class page's 60 best 4- and 5-stars, the state page's 40 strongest pipelines.
+- Where a check's real figure is the design's target and not a sourced number (college trouble 3%, high school 1.2%, morale's 15%, specialists' stars), the source says "design".

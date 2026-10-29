@@ -81,6 +81,11 @@ fn json_of(v: &S) -> serde_json::Value {
 pub fn run(b: &Book, p: &Panel) -> (Vec<String>, Vec<Vec<serde_json::Value>>, usize, Option<String>, String) {
     let mut st = match b.conn.prepare(p.sql) {
         Ok(st) => st,
+        // A child table that a small or early world never filled is not
+        // in its book: no data, not a broken panel.
+        Err(e) if e.to_string().contains("no such table") => {
+            return (Vec::new(), Vec::new(), 0, None, format!("no data: {e}"));
+        }
         Err(e) => return (Vec::new(), Vec::new(), 0, None, format!("SQL error: {e}")),
     };
     let cols: Vec<String> = st.column_names().iter().map(|c| c.to_string()).collect();
@@ -131,6 +136,11 @@ const LOOKUPS: &str = "
 pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool) -> rusqlite::Result<usize> {
     if b.has("real_hs_states") {
         b.conn.execute_batch(LOOKUPS)?;
+    }
+    // Most people panels read one stage (college and pro players are a tenth
+    // of the table): an index on it turns their full scans into lookups.
+    if b.columns("people").iter().any(|c| c == "stage") {
+        b.conn.execute_batch("CREATE INDEX IF NOT EXISTS ix_people_stage ON people(stage)")?;
     }
     create(b)?;
     let mut n = 0;

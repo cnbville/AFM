@@ -41,9 +41,18 @@ pub const COLUMNS: &[(&str, &str)] = &[
     ("people", "stay_home"),
     ("people", "childhood_team"),
     ("people", "incident"),
+    ("clubs__files", "_0__kind"),
+    ("clubs__files", "_1__kind"),
+    ("clubs__files", "_2__kind"),
+    ("clubs__files", "_3__kind"),
+    ("clubs__files", "_4__kind"),
+    ("clubs__files", "_5__kind"),
+    ("clubs__files", "_6__kind"),
+    ("clubs__files", "_7__kind"),
     ("people", "followers"),
     ("people", "brand"),
     ("people", "x_links"),
+    ("people", "player__personality__traits__aura"),
     ("alumni", "colleges"),
     ("alumni", "home_state"),
 ];
@@ -59,11 +68,7 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            10.0,
-            r#"NCES academic redshirting; Deming and Dynarski 2008 (born.rs HELD_BACK averages about 10%)"#,
-            r#"about 2010"#,
-        ),
+        real: Real::Fixed(10.0, r#"NCES academic redshirting; Deming and Dynarski 2008 (born.rs HELD_BACK averages about 10%)"#, r#"about 2010"#),
         tol: (0.15, 0.35, 0.5),
         needs: W,
         how: r#"Everyone with a birth date whose class is a year later than his birth date gives (born after 31 August, class of birth year plus 19)."#,
@@ -170,11 +175,7 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: Some(r#"SELECT year, combine_invites FROM log_history WHERE combine_invites > 0"#),
         detail: None,
-        real: Real::Fixed(
-            325.0,
-            r#"nflverse combine invites 2000-2026 (nfl_careers.json combine.invites_by_year, about 320-335)"#,
-            r#"2000-2026"#,
-        ),
+        real: Real::Fixed(325.0, r#"nflverse combine invites 2000-2026 (nfl_careers.json combine.invites_by_year, about 320-335)"#, r#"2000-2026"#),
         tol: (0.06, 0.15, 0.0),
         needs: W,
         how: r#"The calendar's combine invites, the last ten years."#,
@@ -183,21 +184,18 @@ pub const CHECKS: &[Check] = &[
         id: "P8.fbs_median",
         page: "people",
         areas: "P8 P11",
-        title: r#"Median true overall of FBS players"#,
+        title: r#"Median level rating of an FBS season"#,
         unit: "",
-        world: r#"WITH f AS (SELECT x.x_overall AS v FROM people x JOIN programs p ON p._row = x.college WHERE x.stage = 'College' AND p.division = 'FBS' AND x.x_overall IS NOT NULL)
+        world: r#"WITH f AS (SELECT level_rating AS v FROM people__player__history WHERE level = 'FBS' AND level_rating IS NOT NULL
+                   UNION ALL SELECT level_rating FROM alumni__player__history WHERE level = 'FBS' AND level_rating IS NOT NULL)
          SELECT v FROM f ORDER BY v LIMIT 1 OFFSET (SELECT COUNT(*) / 2 FROM f)"#,
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            71.5,
-            r#"EA College Football target band 65-78 (crates/afm-tools/tests/national_class.rs)"#,
-            r#"EA CFB 25"#,
-        ),
+        real: Real::Fixed(71.5, r#"EA College Football target band 65-78 for an FBS season's level rating (crates/afm-tools/tests/national_class.rs, fbs_season_median)"#, r#"EA CFB 25"#),
         tol: (0.09, 0.2, 0.0),
         needs: W,
-        how: r#"College players at FBS programs today; the real band is 65-78, its middle shown."#,
+        how: r#"Every FBS season on record (people and alumni), its level rating ("89 among seniors"); the real band is 65-78, its middle shown."#,
     },
     Check {
         id: "P8.nfl_mean",
@@ -209,11 +207,7 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            74.0,
-            r#"NFL overall band 68-80 (crates/afm-tools/tests/national_class.rs keeps_elite_pros_rare)"#,
-            r#"Madden"#,
-        ),
+        real: Real::Fixed(74.0, r#"NFL overall band 68-80 (crates/afm-tools/tests/national_class.rs keeps_elite_pros_rare)"#, r#"Madden"#),
         tol: (0.08, 0.18, 0.0),
         needs: W,
         how: r#"Pros on a club today."#,
@@ -243,7 +237,7 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: None,
         detail: None,
-        real: Real::Fixed(5.0, r#"the design floor: more than 5% move (inventory P9)"#, r#"design"#),
+        real: Real::None(r#"a floor, not a figure: the design wants more than 5% to move (inventory P9)"#),
         tol: (0.5, 1.5, 0.0),
         needs: W,
         how: r#"College players today with two or more positions on record; real moves are a floor, not a figure."#,
@@ -258,11 +252,7 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            30.0,
-            r#"design floor: more than 30% (crates/afm-tools/tests/national_class.rs treats_potential_as_dynamic_not_fixed_at_birth)"#,
-            r#"design"#,
-        ),
+        real: Real::None(r#"a floor, not a figure: the design wants more than 30% (crates/afm-tools/tests/national_class.rs treats_potential_as_dynamic_not_fixed_at_birth)"#),
         tol: (0.3, 0.6, 0.0),
         needs: W,
         how: r#"Former drafted players: true potential when they left against at 14."#,
@@ -295,11 +285,7 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            29.0,
-            r#"QB EPA age curves, PFF (docs/research/development-and-injuries.md section 1; national_class.rs: 28 or over)"#,
-            r#"2006-2025"#,
-        ),
+        real: Real::Fixed(29.0, r#"QB EPA age curves, PFF (docs/research/development-and-injuries.md section 1; national_class.rs: 28 or over)"#, r#"2006-2025"#),
         tol: (0.05, 0.12, 0.0),
         needs: W,
         how: r#"Each former pro QB's best season by overall at the end of the year."#,
@@ -357,9 +343,9 @@ pub const CHECKS: &[Check] = &[
         areas: "P14",
         title: r#"NFL starter seasons by QBs at 30 and over"#,
         unit: "%",
-        world: r#"SELECT AVG(age >= 30) FROM (SELECT s.*, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
+        world: r#"SELECT AVG(age >= 30) FROM (SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
                    FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent
-                  UNION ALL SELECT s.*, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
+                  UNION ALL SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
                    FROM people__pro__seasons s JOIN people x ON x._row = s._parent) WHERE starts >= 8 AND pos = 'QB'"#,
         scale: 100.0,
         years: None,
@@ -379,11 +365,7 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            1.2,
-            r#"nflverse 2012-2025 games missed per player-season, positions averaged (development_injuries.json)"#,
-            r#"2012-2025"#,
-        ),
+        real: Real::Fixed(1.2, r#"nflverse 2012-2025 games missed per player-season, positions averaged (development_injuries.json)"#, r#"2012-2025"#),
         tol: (0.2, 0.45, 0.0),
         needs: W,
         how: r#"Every NFL season row, people and alumni."#,
@@ -443,11 +425,7 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            0.0,
-            r#"design rule: specialists never above 3 service stars (camp stars carry them)"#,
-            r#"rule"#,
-        ),
+        real: Real::Fixed(0.0, r#"design rule: specialists never above 3 service stars (camp stars carry them)"#, r#"rule"#),
         tol: (0.5, 2.0, 1.0),
         needs: W,
         how: r#"Specialists today with 4-5 service stars."#,
@@ -460,9 +438,7 @@ pub const CHECKS: &[Check] = &[
         unit: "yds",
         world: r#"SELECT AVG(m) FROM (SELECT MAX(json_extract(s, '$[5]')) AS m FROM stats__seasons WHERE division = 'FBS' GROUP BY year)"#,
         scale: 1.0,
-        years: Some(
-            r#"SELECT year, MAX(json_extract(s, '$[5]')) FROM stats__seasons WHERE division = 'FBS' GROUP BY year"#,
-        ),
+        years: Some(r#"SELECT year, MAX(json_extract(s, '$[5]')) FROM stats__seasons WHERE division = 'FBS' GROUP BY year"#),
         detail: None,
         real: Real::Key(r#"college_game_targets.json:fbs_season_leaders#pass_yards.2"#, 1.0),
         tol: (0.1, 0.25, 0.0),
@@ -477,15 +453,9 @@ pub const CHECKS: &[Check] = &[
         unit: "yds",
         world: r#"SELECT AVG(m) FROM (SELECT MAX(json_extract(s, '$[17]')) AS m FROM stats__seasons WHERE division = 'FBS' GROUP BY year)"#,
         scale: 1.0,
-        years: Some(
-            r#"SELECT year, MAX(json_extract(s, '$[17]')) FROM stats__seasons WHERE division = 'FBS' GROUP BY year"#,
-        ),
+        years: Some(r#"SELECT year, MAX(json_extract(s, '$[17]')) FROM stats__seasons WHERE division = 'FBS' GROUP BY year"#),
         detail: None,
-        real: Real::Fixed(
-            1809.0,
-            r#"college_game_targets.json fbs_season_leaders, the mean of three seasons' leaders (1,479-2,358)"#,
-            r#"2022-2024"#,
-        ),
+        real: Real::Fixed(1809.0, r#"college_game_targets.json fbs_season_leaders, the mean of three seasons' leaders (1,479-2,358)"#, r#"2022-2024"#),
         tol: (0.12, 0.3, 0.0),
         needs: W,
         how: r#"Each season's top FBS rusher by yards, averaged."#,
@@ -496,18 +466,14 @@ pub const CHECKS: &[Check] = &[
         areas: "P29",
         title: r#"4,000-yard passers a season"#,
         unit: "players",
-        world: r#"SELECT AVG(n) FROM (SELECT year, SUM(stats__pass_yds >= 4000) AS n FROM (SELECT s.*, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
+        world: r#"SELECT AVG(n) FROM (SELECT year, SUM(stats__pass_yds >= 4000) AS n FROM (SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
                    FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent
-                  UNION ALL SELECT s.*, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
+                  UNION ALL SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
                    FROM people__pro__seasons s JOIN people x ON x._row = s._parent) WHERE year >= (SELECT year FROM world) - 10 GROUP BY year)"#,
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            9.4,
-            r#"nflverse 2015-2025 (nfl_careers.json season_lines, mean of passers_4000)"#,
-            r#"2015-2025"#,
-        ),
+        real: Real::Fixed(9.4, r#"nflverse 2015-2025 (nfl_careers.json season_lines, mean of passers_4000)"#, r#"2015-2025"#),
         tol: (0.2, 0.45, 0.0),
         needs: W,
         how: r#"Pro season rows of people and alumni, the last ten seasons."#,
@@ -541,11 +507,7 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            15.0,
-            r#"the design ceiling: morale moves growth by at most 15% (docs/design/people.md)"#,
-            r#"design"#,
-        ),
+        real: Real::None(r#"a ceiling, not a figure: morale moves growth by at most 15% (docs/design/people.md)"#),
         tol: (0.5, 1.0, 0.0),
         needs: W,
         how: r#"Last season's mean gain of the happiest fifth less the unhappiest, over the mean size of a gain, among college starters only (role drives both mood and growth); a ceiling, so lower is fine. Mood is today's, read after the season."#,
@@ -560,11 +522,7 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            3.0,
-            r#"the design target (docs/design/people.md, off-field trouble); real college rates are not in the repo"#,
-            r#"design"#,
-        ),
+        real: Real::Fixed(3.0, r#"the design target (docs/design/people.md, off-field trouble); real college rates are not in the repo"#, r#"design"#),
         tol: (0.25, 0.5, 0.0),
         needs: W,
         how: r#"College players suspended or dismissed this season."#,
@@ -585,6 +543,21 @@ pub const CHECKS: &[Check] = &[
         how: r#"High school players suspended or dismissed this season."#,
     },
     Check {
+        id: "P21.births",
+        page: "people",
+        areas: "P21",
+        title: r#"Births a year in NFL players' families"#,
+        unit: "births",
+        world: r#"SELECT _1 FROM folk__life__years WHERE _0 = (SELECT MAX(_0) - 1 FROM folk__life__years)"#,
+        scale: 1.0,
+        years: Some(r#"SELECT _0, _1 FROM folk__life__years"#),
+        detail: None,
+        real: Real::None(r#"the design rates (9% at 24+, 3% at 21-23) times the players; no real rate by age is in the repo"#),
+        tol: (0.2, 0.4, 0.0),
+        needs: W,
+        how: r#"Last full year's births in players' families (pros and your own players)."#,
+    },
+    Check {
         id: "C18.in_state_median",
         page: "recruiting",
         areas: "C18",
@@ -595,11 +568,7 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            37.0,
-            r#"FBS rosters (the fix list topic 2 check, crates/afm-tools/src/bin/world_trial.rs)"#,
-            r#"2024"#,
-        ),
+        real: Real::Fixed(37.0, r#"FBS rosters (the fix list topic 2 check, crates/afm-tools/src/bin/world_trial.rs)"#, r#"2024"#),
         tol: (0.15, 0.35, 0.0),
         needs: W,
         how: r#"Each FBS program's current players from its own state; the median program."#,
@@ -614,11 +583,7 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: None,
         detail: None,
-        real: Real::Fixed(
-            12.1,
-            r#"talent_by_state.csv: TX 352 of 2,913 FBS signees a year (2022-2026)"#,
-            r#"2022-2026"#,
-        ),
+        real: Real::Fixed(12.1, r#"talent_by_state.csv: TX 352 of 2,913 FBS signees a year (2022-2026)"#, r#"2022-2026"#),
         tol: (0.1, 0.25, 0.0),
         needs: W,
         how: r#"Every FBS signee on record by home state."#,
@@ -666,11 +631,7 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: Some(r#"SELECT _0, json_extract(_1, '$[5]') FROM signing_classes"#),
         detail: None,
-        real: Real::Fixed(
-            40.5,
-            r#"ESPN five-stars a class 2013-2026 (rates.json recruits_per_star_per_class)"#,
-            r#"2013-2026"#,
-        ),
+        real: Real::Fixed(40.5, r#"ESPN five-stars a class 2013-2026 (rates.json recruits_per_star_per_class)"#, r#"2013-2026"#),
         tol: (0.15, 0.35, 0.0),
         needs: W,
         how: r#"Each signing class's five-stars since 2013."#,
@@ -685,11 +646,7 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: Some(r#"SELECT _0, json_extract(_1, '$[4]') FROM signing_classes"#),
         detail: None,
-        real: Real::Fixed(
-            271.0,
-            r#"ESPN four-stars a class 2013-2026 (rates.json recruits_per_star_per_class)"#,
-            r#"2013-2026"#,
-        ),
+        real: Real::Fixed(271.0, r#"ESPN four-stars a class 2013-2026 (rates.json recruits_per_star_per_class)"#, r#"2013-2026"#),
         tol: (0.15, 0.35, 0.0),
         needs: W,
         how: r#"Each signing class's four-stars since 2013."#,
@@ -704,11 +661,7 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: Some(r#"SELECT year, 1.0 * decommits / NULLIF(commits, 0) FROM log_history"#),
         detail: None,
-        real: Real::Fixed(
-            15.0,
-            r#"top-100 recruits who decommitted at least once, 15-17% (docs/research/media-and-social.md 4.1: SI 2012, On3 2023)"#,
-            r#"2012-2023"#,
-        ),
+        real: Real::Fixed(15.0, r#"top-100 recruits who decommitted at least once, 15-17% (docs/research/media-and-social.md 4.1: SI 2012, On3 2023)"#, r#"2012-2023"#),
         tol: (0.25, 0.5, 0.0),
         needs: W,
         how: r#"The last ten years' decommitments over commitments (every recruit, so lower than the top-100 real figure)."#,
@@ -721,9 +674,7 @@ pub const CHECKS: &[Check] = &[
         unit: "players",
         world: r#"SELECT AVG(n) FROM (SELECT h.year, d.column2 AS division, s._0 + s._1 AS n, s._0 AS early FROM log_history__signed_by_division s JOIN log_history h ON h._row = s._parent JOIN (VALUES (0, 'FBS'), (1, 'FCS'), (2, 'D2'), (3, 'NAIA'), (4, 'D3'), (5, 'JUCO')) d ON d.column1 = s._i) WHERE division = 'FBS' AND year >= (SELECT MAX(year) - 4 FROM log_history)"#,
         scale: 1.0,
-        years: Some(
-            r#"SELECT year, n FROM (SELECT h.year, d.column2 AS division, s._0 + s._1 AS n, s._0 AS early FROM log_history__signed_by_division s JOIN log_history h ON h._row = s._parent JOIN (VALUES (0, 'FBS'), (1, 'FCS'), (2, 'D2'), (3, 'NAIA'), (4, 'D3'), (5, 'JUCO')) d ON d.column1 = s._i) WHERE division = 'FBS'"#,
-        ),
+        years: Some(r#"SELECT year, n FROM (SELECT h.year, d.column2 AS division, s._0 + s._1 AS n, s._0 AS early FROM log_history__signed_by_division s JOIN log_history h ON h._row = s._parent JOIN (VALUES (0, 'FBS'), (1, 'FCS'), (2, 'D2'), (3, 'NAIA'), (4, 'D3'), (5, 'JUCO')) d ON d.column1 = s._i) WHERE division = 'FBS'"#),
         detail: None,
         real: Real::Key(r#"rates.json:fbs_signees_per_year.value"#, 1.0),
         tol: (0.08, 0.2, 0.0),
@@ -753,15 +704,9 @@ pub const CHECKS: &[Check] = &[
         unit: "%",
         world: r#"SELECT AVG("to" IS NOT NULL) FROM recruiting_log__portal WHERE "from" = 'FBS' AND year >= (SELECT MAX(year) - 2 FROM recruiting_log__portal)"#,
         scale: 100.0,
-        years: Some(
-            r#"SELECT year, AVG("to" IS NOT NULL) FROM recruiting_log__portal WHERE "from" = 'FBS' GROUP BY year"#,
-        ),
+        years: Some(r#"SELECT year, AVG("to" IS NOT NULL) FROM recruiting_log__portal WHERE "from" = 'FBS' GROUP BY year"#),
         detail: None,
-        real: Real::Fixed(
-            62.8,
-            r#"NCAA 2022: 1,833 of 2,918 FBS entrants found a new school (rates.json portal_entrants)"#,
-            r#"2022"#,
-        ),
+        real: Real::Fixed(62.8, r#"NCAA 2022: 1,833 of 2,918 FBS entrants found a new school (rates.json portal_entrants)"#, r#"2022"#),
         tol: (0.12, 0.3, 0.0),
         needs: W,
         how: r#"The last three cycles' FBS entrants with a landing spot."#,
@@ -776,11 +721,7 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: Some(r#"SELECT year, COUNT(*) FROM recruiting_log__portal WHERE "from" = 'FBS' GROUP BY year"#),
         detail: None,
-        real: Real::Fixed(
-            2724.0,
-            r#"NCAA: FBS 2,531 in 2021 and 2,918 in 2022 (rates.json portal_entrants)"#,
-            r#"2021-2022"#,
-        ),
+        real: Real::Fixed(2724.0, r#"NCAA: FBS 2,531 in 2021 and 2,918 in 2022 (rates.json portal_entrants)"#, r#"2021-2022"#),
         tol: (0.15, 0.35, 0.0),
         needs: W,
         how: r#"World portal entries from FBS in the 2021-2023 cycles."#,
@@ -812,25 +753,24 @@ pub const CHECKS: &[Check] = &[
         scale: 100.0,
         years: None,
         detail: None,
-        real: Real::Memory(
-            40.0,
-            r#"about 40% of 247 Composite five-stars went to the top five programs 2011-2025 (memory, to source)"#,
-        ),
+        real: Real::Memory(40.0, r#"about 40% of 247 Composite five-stars went to the top five programs 2011-2025 (memory, to source)"#),
         tol: (0.2, 0.45, 0.0),
         needs: W,
         how: r#"The last 15 classes' FBS five-stars by program."#,
     },
 ];
 
-pub const METRICS: &[Metric] = &[Metric {
-    id: "P7.speed_by_position",
-    page: "people",
-    areas: "P7",
-    title: r#"Speed rating by position (college and pro)"#,
-    unit: "",
-    sql: r#"SELECT NULL, 'position', player__position, json_extract(player__attributes, '$[0]') FROM people WHERE stage IN ('College', 'Pro')"#,
-    needs: W,
-}];
+pub const METRICS: &[Metric] = &[
+    Metric {
+        id: "P7.speed_by_position",
+        page: "people",
+        areas: "P7",
+        title: r#"Speed rating by position (college and pro)"#,
+        unit: "",
+        sql: r#"SELECT NULL, 'position', player__position, json_extract(player__attributes, '$[0]') FROM people WHERE stage IN ('College', 'Pro')"#,
+        needs: W,
+    },
+];
 
 pub const RULES: &[Rule] = &[
     Rule {
@@ -838,9 +778,9 @@ pub const RULES: &[Rule] = &[
         areas: "P7 P11",
         title: r#"No rating above its ceiling"#,
         checked: r#"SELECT COUNT(*) FROM people WHERE stage IN ('College', 'Pro')"#,
-        failures: r#"SELECT 'person', name || ' (' || player__id || ')', NULL, a.name || ' ' || ROUND(j.value, 1) || ' over its ceiling ' || ROUND(json_extract(player__ceilings, '$[' || j.key || ']'), 1)
-          FROM people, json_each(player__attributes) j JOIN engine_attributes a ON a._row = j.key
-         WHERE stage IN ('College', 'Pro') AND j.value > json_extract(player__ceilings, '$[' || j.key || ']') + 0.05"#,
+        failures: r#"SELECT 'person', x.name || ' (' || x.player__id || ')', NULL, a.name || ' ' || ROUND(j.value, 1) || ' over its ceiling ' || ROUND(json_extract(x.player__ceilings, '$[' || j.key || ']'), 1)
+          FROM people x, json_each(x.player__attributes) j JOIN engine_attributes a ON a._row = j.key
+         WHERE x.stage IN ('College', 'Pro') AND j.value > json_extract(x.player__ceilings, '$[' || j.key || ']') + 0.05"#,
         needs: W,
         why: r#"A ceiling is the most a rating can reach; settled attributes only lose room."#,
     },
@@ -875,7 +815,8 @@ pub const RULES: &[Rule] = &[
     },
 ];
 
-pub const OUTLIERS: &[Outlier] = &[];
+pub const OUTLIERS: &[Outlier] = &[
+];
 
 pub const PANELS: &[Panel] = &[
     Panel {
@@ -891,9 +832,7 @@ pub const PANELS: &[Panel] = &[
            UNION ALL SELECT 3, stage, COUNT(*) FROM people WHERE stage NOT IN ('HighSchool', 'College') GROUP BY stage
            UNION ALL SELECT 4, 'Alumni kept after leaving', COUNT(*) FROM alumni)
          ORDER BY o, label"#,
-        says: Some(
-            r#"SELECT printf('%,d people on record: %,d in high school, %,d in college, %,d pros, and %,d alumni kept after leaving.', (SELECT COUNT(*) FROM people), (SELECT COUNT(*) FROM people WHERE stage = 'HighSchool'), (SELECT COUNT(*) FROM people WHERE stage = 'College'), (SELECT COUNT(*) FROM people WHERE stage = 'Pro'), (SELECT COUNT(*) FROM alumni))"#,
-        ),
+        says: Some(r#"SELECT printf('%,d people on record: %,d in high school, %,d in college, %,d pros, and %,d alumni kept after leaving.', (SELECT COUNT(*) FROM people), (SELECT COUNT(*) FROM people WHERE stage = 'HighSchool'), (SELECT COUNT(*) FROM people WHERE stage = 'College'), (SELECT COUNT(*) FROM people WHERE stage = 'Pro'), (SELECT COUNT(*) FROM alumni))"#),
         needs: W,
         open: "",
     },
@@ -954,12 +893,10 @@ pub const PANELS: &[Panel] = &[
         id: "P1.exits_by_stage",
         page: "people",
         area: "P1",
-        title: r#"Who left football each year, and from where (world log)"#,
-        kind: "line",
-        note: r#"The world log's exit rows: every person who left football that year by his stage when he left, before the world dropped him. Needs the world log."#,
-        sql: r#"SELECT season AS year, SUM(person__stage = 'HighSchool') AS high_school, SUM(person__stage = 'PrepSchool') AS prep_school,
-                SUM(person__stage = 'College') AS college, SUM(person__stage = 'Declared') AS draft_pool, SUM(person__stage = 'Pro') AS pro
-           FROM log_exits GROUP BY season ORDER BY season"#,
+        title: r#"Who left football and why (world log)"#,
+        kind: "bars",
+        note: r#"The world log's exit rows for the year on the slider: every person who left football, by the reason he left (retired, undrafted and unsigned, no new school from the portal, walked away), before the world dropped him. Needs the world log."#,
+        sql: r#"SELECT season AS year, why AS label, COUNT(*) AS world, ROUND(AVG(person__player__age), 1) AS mean_age FROM log_exits GROUP BY season, why ORDER BY season, world DESC"#,
         says: None,
         needs: WL,
         open: "",
@@ -971,11 +908,10 @@ pub const PANELS: &[Panel] = &[
         title: r#"Births by month against the CDC curve"#,
         kind: "bars",
         note: r#"Every person's birth month (shares) against the CDC 2015-2023 natality curve the engine draws from (`born.rs`, `MONTH_RATE`, per day times days). Older world files have no birth dates."#,
-        sql: r#"WITH b AS (SELECT CAST(strftime('%m', born * 86400, 'unixepoch') AS INTEGER) AS m FROM people WHERE born IS NOT NULL AND born > -100000),
+        sql: r#"WITH b AS MATERIALIZED (SELECT CAST(strftime('%m', born * 86400, 'unixepoch') AS INTEGER) AS m, COUNT(*) AS n FROM people WHERE born IS NOT NULL AND born > -100000 GROUP BY m),
               r AS (SELECT column1 AS m, column2 AS label, column3 * column4 AS w FROM (VALUES (1,'Jan',31,0.97,0.08,0.005),(2,'Feb',28.25,0.98,0.08,0.004),(3,'Mar',31,0.98,0.08,0.004),(4,'Apr',30,0.96,0.09,0.004),(5,'May',31,0.98,0.10,0.004),(6,'Jun',30,1.01,0.15,0.003),(7,'Jul',31,1.05,0.17,0.003),(8,'Aug',31,1.06,0.19,0.003),(9,'Sep',30,1.05,0.04,0.022),(10,'Oct',31,1.00,0.05,0.018),(11,'Nov',30,0.97,0.06,0.014),(12,'Dec',31,0.99,0.07,0.008)))
-         SELECT r.label, 100.0 * (SELECT COUNT(*) FROM b WHERE b.m = r.m) / NULLIF((SELECT COUNT(*) FROM b), 0) AS world,
-                100.0 * r.w / (SELECT SUM(w) FROM r) AS real, (SELECT COUNT(*) FROM b WHERE b.m = r.m) AS n
-           FROM r ORDER BY r.m"#,
+         SELECT r.label, 100.0 * COALESCE(b.n, 0) / NULLIF((SELECT SUM(n) FROM b), 0) AS world, 100.0 * r.w / (SELECT SUM(w) FROM r) AS real, COALESCE(b.n, 0) AS n
+           FROM r LEFT JOIN b ON b.m = r.m ORDER BY r.m"#,
         says: None,
         needs: W,
         open: "",
@@ -989,10 +925,10 @@ pub const PANELS: &[Panel] = &[
         note: r#"Share of people a year older than the class their birth date gives (held back or started late) by birth month, against the engine's target table (`born.rs`, `HELD_BACK`, from NCES and Deming and Dynarski 2008). Reclassified players count where they ended."#,
         sql: r#"WITH b AS (SELECT CAST(strftime('%m', born * 86400, 'unixepoch') AS INTEGER) AS m,
                        class_of - (CAST(strftime('%Y', born * 86400, 'unixepoch') AS INTEGER) + 18 + (CAST(strftime('%m', born * 86400, 'unixepoch') AS INTEGER) >= 9)) AS off
-                  FROM people WHERE born IS NOT NULL AND born > -100000)
-         SELECT r.column2 AS label, 100.0 * AVG(b.off = 1) AS world, 100.0 * r.column5 AS real, COUNT(*) AS n,
-                100.0 * AVG(b.off = -1) AS young, 100.0 * r.column6 AS young_target
-           FROM b JOIN (VALUES (1,'Jan',31,0.97,0.08,0.005),(2,'Feb',28.25,0.98,0.08,0.004),(3,'Mar',31,0.98,0.08,0.004),(4,'Apr',30,0.96,0.09,0.004),(5,'May',31,0.98,0.10,0.004),(6,'Jun',30,1.01,0.15,0.003),(7,'Jul',31,1.05,0.17,0.003),(8,'Aug',31,1.06,0.19,0.003),(9,'Sep',30,1.05,0.04,0.022),(10,'Oct',31,1.00,0.05,0.018),(11,'Nov',30,0.97,0.06,0.014),(12,'Dec',31,0.99,0.07,0.008)) r ON r.column1 = b.m GROUP BY b.m ORDER BY b.m"#,
+                  FROM people WHERE born IS NOT NULL AND born > -100000),
+              g AS MATERIALIZED (SELECT m, 100.0 * AVG(off = 1) AS world, COUNT(*) AS n, 100.0 * AVG(off = -1) AS young FROM b GROUP BY m)
+         SELECT r.column2 AS label, g.world, 100.0 * r.column5 AS real, g.n, g.young, 100.0 * r.column6 AS young_target
+           FROM g JOIN (VALUES (1,'Jan',31,0.97,0.08,0.005),(2,'Feb',28.25,0.98,0.08,0.004),(3,'Mar',31,0.98,0.08,0.004),(4,'Apr',30,0.96,0.09,0.004),(5,'May',31,0.98,0.10,0.004),(6,'Jun',30,1.01,0.15,0.003),(7,'Jul',31,1.05,0.17,0.003),(8,'Aug',31,1.06,0.19,0.003),(9,'Sep',30,1.05,0.04,0.022),(10,'Oct',31,1.00,0.05,0.018),(11,'Nov',30,0.97,0.06,0.014),(12,'Dec',31,0.99,0.07,0.008)) r ON r.column1 = g.m ORDER BY g.m"#,
         says: None,
         needs: W,
         open: "",
@@ -1234,12 +1170,14 @@ pub const PANELS: &[Panel] = &[
         id: "P6.combine_log",
         page: "people",
         area: "P6",
-        title: r#"Combine numbers from the world log by position"#,
+        title: r#"Combine invitees from the world log by position"#,
         kind: "table",
-        note: r#"Each combine row the world log keeps (`Combine` whys): mean forty, bench, vertical, broad, cone and shuttle by position, and the share who skipped the workouts. Needs the world log."#,
-        sql: r#"SELECT json_extract(j, '$.position') AS pos, COUNT(*) AS invitees, ROUND(AVG(json_extract(j, '$.drills.forty')), 2) AS forty, ROUND(AVG(json_extract(j, '$.drills.bench')), 1) AS bench,
-                ROUND(AVG(json_extract(j, '$.drills.vertical')), 1) AS vertical, ROUND(AVG(json_extract(j, '$.drills.broad')), 1) AS broad, ROUND(100.0 * AVG(json_extract(j, '$.skipped')), 1) AS skipped_pct
-           FROM (SELECT json_extract(why, '$.Combine') AS j FROM log_whys WHERE json_extract(why, '$.Combine') IS NOT NULL) GROUP BY pos ORDER BY pos"#,
+        note: r#"Each combine row the world log keeps (`Combine` whys): invitees by position, the drills the staffs expected of them (forty, bench, vertical, broad, cone, shuttle) and the share who skipped the workouts. Needs the world log."#,
+        sql: r#"WITH c AS (SELECT COALESCE((SELECT player__position FROM people WHERE player__id = w.why__Combine__id), (SELECT position FROM alumni WHERE player__id = w.why__Combine__id)) AS pos, w.*
+                     FROM log_whys w WHERE w.why__Combine__id IS NOT NULL)
+         SELECT pos, COUNT(*) AS invitees, ROUND(AVG(why__Combine__expected__forty), 2) AS forty, ROUND(AVG(why__Combine__expected__bench), 1) AS bench,
+                ROUND(AVG(why__Combine__expected__vertical), 1) AS vertical, ROUND(AVG(why__Combine__expected__broad), 1) AS broad, ROUND(AVG(why__Combine__expected__cone), 2) AS cone,
+                ROUND(AVG(why__Combine__expected__shuttle), 2) AS shuttle, ROUND(100.0 * AVG(why__Combine__skipped), 1) AS skipped_pct FROM c GROUP BY pos ORDER BY pos"#,
         says: None,
         needs: WL,
         open: "",
@@ -1250,10 +1188,12 @@ pub const PANELS: &[Panel] = &[
         area: "P7",
         title: r#"Every attribute by level"#,
         kind: "matrix",
-        note: r#"Mean of each of the 67 attributes at each level today (every tenth high schooler). Physical ratings should climb with level; skills a position doesn't use stay low across the board."#,
-        sql: r#"WITH t AS (SELECT CAST(j.key AS INTEGER) AS k, x.lvl AS lvl, AVG(j.value) AS v FROM (SELECT x.*, CASE x.stage WHEN 'College' THEN COALESCE(p.division, 'College') WHEN 'Pro' THEN 'NFL' WHEN 'HighSchool' THEN 'High school' ELSE x.stage END AS lvl
-          FROM people x LEFT JOIN programs p ON p._row = x.college WHERE x.stage != 'HighSchool' OR x._row % 10 = 0) x, json_each(x.player__attributes) j
-                    WHERE x.lvl IN ('High school', 'FBS', 'FCS', 'D2', 'NAIA', 'D3', 'JUCO', 'NFL') GROUP BY j.key, x.lvl)
+        note: r#"Mean of each of the 67 attributes at each level today (every pro, every third college player, every fiftieth high schooler: a mean moves under 0.1). Physical ratings should climb with level; skills a position doesn't use stay low across the board."#,
+        sql: r#"WITH x AS MATERIALIZED (SELECT CASE x.stage WHEN 'College' THEN COALESCE(p.division, 'College') WHEN 'Pro' THEN 'NFL' ELSE 'High school' END AS lvl, x.player__attributes AS at
+                    FROM people x LEFT JOIN programs p ON p._row = x.college
+                   WHERE x.stage = 'Pro' OR x.stage = 'College' AND x._row % 3 = 0 OR x.stage = 'HighSchool' AND x._row % 50 = 0),
+              t AS (SELECT CAST(j.key AS INTEGER) AS k, x.lvl AS lvl, AVG(j.value) AS v FROM x, json_each(x.at) j
+                    WHERE x.lvl IN ('High school', 'FBS', 'FCS', 'D2', 'NAIA', 'D3', 'JUCO', 'NFL') GROUP BY x.lvl, j.key)
          SELECT a.name AS row, t.lvl AS col, t.v AS value FROM t JOIN engine_attributes a ON a._row = t.k ORDER BY t.k, t.lvl"#,
         says: None,
         needs: W,
@@ -1601,8 +1541,8 @@ pub const PANELS: &[Panel] = &[
         kind: "matrix",
         note: r#"Share of season rows with each event by age band (people and alumni): breakouts 3.5% a year to 23, 2% to 27, 1% after; slumps 6%; lost seasons about 3%."#,
         sql: r#"WITH h AS (SELECT age, events FROM people__player__history WHERE _parent % 4 = 0 UNION ALL SELECT age, events FROM alumni__player__history),
-              b AS (SELECT CASE WHEN age <= 17 THEN '14-17' WHEN age <= 23 THEN '18-23' WHEN age <= 27 THEN '24-27' ELSE '28+' END AS band, events FROM h)
-         SELECT e.words AS row, b.band AS col, 100.0 * AVG((b.events >> e.bit) & 1) AS value FROM b, event_bits e GROUP BY e.bit, b.band ORDER BY e.bit, b.band"#,
+              b AS MATERIALIZED (SELECT CASE WHEN age <= 17 THEN '14-17' WHEN age <= 23 THEN '18-23' WHEN age <= 27 THEN '24-27' ELSE '28+' END AS band, events, COUNT(*) AS n FROM h GROUP BY band, events)
+         SELECT e.words AS row, b.band AS col, 100.0 * SUM(((b.events >> e.bit) & 1) * b.n) / SUM(b.n) AS value FROM b, event_bits e GROUP BY e.bit, b.band ORDER BY e.bit, b.band"#,
         says: None,
         needs: W,
         open: "",
@@ -1640,9 +1580,9 @@ pub const PANELS: &[Panel] = &[
         title: r#"NFL starters aged 30 and over by position"#,
         kind: "bars",
         note: r#"Share of NFL starter seasons (8+ starts) played at 30 or older, by position group, against nflverse 2006-2025 (`development_injuries.json` starter_age.share_30_plus). Age from the class year."#,
-        sql: r#"WITH s AS (SELECT CASE pos WHEN 'OT' THEN 'OL' WHEN 'IOL' THEN 'OL' WHEN 'DT' THEN 'DL' ELSE pos END AS g, age FROM (SELECT s.*, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
+        sql: r#"WITH s AS (SELECT CASE pos WHEN 'OT' THEN 'OL' WHEN 'IOL' THEN 'OL' WHEN 'DT' THEN 'DL' ELSE pos END AS g, age FROM (SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
                    FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent
-                  UNION ALL SELECT s.*, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
+                  UNION ALL SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
                    FROM people__pro__seasons s JOIN people x ON x._row = s._parent) WHERE starts >= 8)
          SELECT g AS label, 100.0 * AVG(age >= 30) AS world, 100.0 * json_extract(r.json, '$.starter_age.' || g || '.share_30_plus') AS real, COUNT(*) AS n
            FROM s, real_data r WHERE r.file = 'development_injuries.json' GROUP BY g ORDER BY g"#,
@@ -1689,9 +1629,9 @@ pub const PANELS: &[Panel] = &[
         title: r#"Starters still starting the next season, by age"#,
         kind: "line",
         note: r#"Share of NFL starter seasons (8+ starts) followed by another starter season, by age, every position together, against nflverse CB and WR (`starter_kept_next_year_by_age`)."#,
-        sql: r#"WITH s AS (SELECT t, _parent, year, age, starts >= 8 AS st FROM (SELECT s.*, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
+        sql: r#"WITH s AS (SELECT t, _parent, year, age, starts >= 8 AS st FROM (SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
                    FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent
-                  UNION ALL SELECT s.*, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
+                  UNION ALL SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
                    FROM people__pro__seasons s JOIN people x ON x._row = s._parent)),
               k AS (SELECT a.age, AVG(COALESCE(b.st, 0)) AS kept, COUNT(*) AS n FROM s a LEFT JOIN s b ON b.t = a.t AND b._parent = a._parent AND b.year = a.year + 1 WHERE a.st GROUP BY a.age)
          SELECT k.age AS year, 100.0 * k.kept AS world, 100.0 * json_extract(r.json, '$.starter_kept_next_year_by_age.CB."' || k.age || '"') AS real_cb,
@@ -2010,8 +1950,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"NFL clubs' scouting files: looks by kind"#,
         kind: "bars",
         note: r#"Every look the NFL clubs' files hold on prospects (`clubs.files`): school visits, games, the combine, pro days, interviews. The read and its range are worked out on demand; the world log's snapshots keep the draft-morning boards."#,
-        sql: r#"WITH f AS (SELECT _0__kind AS k FROM clubs__files UNION ALL SELECT _1__kind FROM clubs__files UNION ALL SELECT _2__kind FROM clubs__files UNION ALL SELECT _3__kind FROM clubs__files
-                   UNION ALL SELECT _4__kind FROM clubs__files UNION ALL SELECT _5__kind FROM clubs__files UNION ALL SELECT _6__kind FROM clubs__files)
+        sql: r#"WITH f AS (SELECT _0__kind AS k FROM clubs__files UNION ALL SELECT _1__kind FROM clubs__files UNION ALL SELECT _2__kind FROM clubs__files UNION ALL SELECT _3__kind FROM clubs__files UNION ALL SELECT _4__kind FROM clubs__files UNION ALL SELECT _5__kind FROM clubs__files UNION ALL SELECT _6__kind FROM clubs__files UNION ALL SELECT _7__kind FROM clubs__files)
          SELECT k AS label, COUNT(*) AS world FROM f WHERE k IS NOT NULL GROUP BY k ORDER BY world DESC"#,
         says: None,
         needs: W,
@@ -2572,6 +2511,150 @@ pub const PANELS: &[Panel] = &[
         open: "",
     },
     Panel {
+        id: "P20.ties",
+        page: "people",
+        area: "P20",
+        title: r#"Close ties per player by level"#,
+        kind: "bars",
+        note: r#"Mean friends, mentors and family ties per player today by level (`folk.ties`): 2-6 friends drawn each fall camp by how social he is."#,
+        sql: r#"WITH e AS (SELECT pid, SUM(kind = 'Friend') AS friends, SUM(kind = 'Mentor') AS mentors, SUM(kind = 'Family') AS family FROM (SELECT t.kind, t.strength, t.since, t.together, t.a AS pid, t.b AS other FROM folk__ties__list t
+           UNION ALL SELECT t.kind, t.strength, t.since, t.together, t.b, t.a FROM folk__ties__list t) GROUP BY pid)
+         SELECT CASE x.stage WHEN 'HighSchool' THEN 'HS' WHEN 'College' THEN (SELECT division FROM programs WHERE _row = x.college) WHEN 'Pro' THEN 'NFL' ELSE x.stage END AS label, AVG(COALESCE(e.friends, 0)) AS world, AVG(COALESCE(e.mentors, 0)) AS mentors, AVG(COALESCE(e.family, 0)) AS family, COUNT(*) AS n
+           FROM people x LEFT JOIN e ON e.pid = x.player__id WHERE x.stage IN ('College', 'Pro') GROUP BY label ORDER BY label"#,
+        says: None,
+        needs: W,
+        open: "",
+    },
+    Panel {
+        id: "P20.same_school",
+        page: "people",
+        area: "P20",
+        title: r#"Where friendships come from"#,
+        kind: "bars",
+        note: r#"Share of friendships between two players from the same high school, the same class, the same position: likelier, not required."#,
+        sql: r#"WITH f AS (SELECT a.hs = b.hs AS same_hs, a.class_of = b.class_of AS same_class, a.player__position = b.player__position AS same_pos
+                     FROM folk__ties__list t JOIN people a ON a.player__id = t.a JOIN people b ON b.player__id = t.b WHERE t.kind = 'Friend')
+         SELECT 'same high school' AS label, 100.0 * AVG(same_hs) AS world, COUNT(*) AS n FROM f
+         UNION ALL SELECT 'same class', 100.0 * AVG(same_class), COUNT(*) FROM f
+         UNION ALL SELECT 'same position', 100.0 * AVG(same_pos), COUNT(*) FROM f"#,
+        says: None,
+        needs: W,
+        open: "",
+    },
+    Panel {
+        id: "P20.strength",
+        page: "people",
+        area: "P20",
+        title: r#"Tie strength by kind"#,
+        kind: "hist",
+        note: r#"Each tie's strength (0-100, in tens) by kind: ties fade a third a year apart and drop under 15. Pick a kind."#,
+        sql: r#"SELECT kind AS grp, CAST(strength / 10 AS INTEGER) * 10 AS x, 100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY kind) AS world FROM folk__ties__list GROUP BY kind, x ORDER BY kind, x"#,
+        says: None,
+        needs: W,
+        open: "",
+    },
+    Panel {
+        id: "P20.mentors",
+        page: "people",
+        area: "P20",
+        title: r#"Mentors by position"#,
+        kind: "table",
+        note: r#"Mentor pairs by the mentor's position: a veteran with leadership 13+ takes the youngest in his group; the mentees' professionalism against their position's."#,
+        sql: r#"WITH m AS (SELECT a.player__position AS pos, a.player__personality__traits__leadership AS lead, b.player__personality__traits__professionalism AS prof, b.player__age AS age
+                     FROM folk__ties__list t JOIN people a ON a.player__id = t.a JOIN people b ON b.player__id = t.b WHERE t.kind = 'Mentor')
+         SELECT pos, COUNT(*) AS pairs, ROUND(AVG(lead), 1) AS mentor_leadership, ROUND(AVG(prof), 1) AS mentee_professionalism, ROUND(AVG(age), 1) AS mentee_age FROM m GROUP BY pos ORDER BY pairs DESC"#,
+        says: None,
+        needs: W,
+        open: "",
+    },
+    Panel {
+        id: "P21.years",
+        page: "people",
+        area: "P21",
+        title: r#"Births, deaths and coaches' health a year"#,
+        kind: "line",
+        note: r#"The year's births and deaths in players' families and coaches' health episodes (`folk.life.years`)."#,
+        sql: r#"SELECT _0 AS year, _1 AS births, _2 AS deaths, _3 AS coach_health FROM folk__life__years ORDER BY _0"#,
+        says: None,
+        needs: W,
+        open: "",
+    },
+    Panel {
+        id: "P21.events",
+        page: "people",
+        area: "P21",
+        title: r#"Life events in the last 150 days"#,
+        kind: "bars",
+        note: r#"Life events still on record (the world keeps 150 days) by kind, against the yearly targets: birth 9% at 24+ (3% at 21-23), wedding 5%, parent ill 3%, death 5%, divorce 1.5% at 26+, homesick 8% of amateurs 19 or under."#,
+        sql: r#"SELECT event AS label, COUNT(*) AS world FROM folk__life__events GROUP BY event ORDER BY world DESC"#,
+        says: None,
+        needs: W,
+        open: "",
+    },
+    Panel {
+        id: "P21.recent",
+        page: "people",
+        area: "P21",
+        title: r#"Recent life events"#,
+        kind: "table",
+        note: r#"The newest life events, with the player: what happened and when."#,
+        sql: r#"SELECT date(l.date * 86400, 'unixepoch') AS date, l.event, x.name, x.player__position AS pos, x.stage, x.player__age AS age, x.player__id AS id
+           FROM folk__life__events l LEFT JOIN people x ON x.player__id = l.id ORDER BY l.date DESC LIMIT 150"#,
+        says: None,
+        needs: W,
+        open: "e/people/{id}",
+    },
+    Panel {
+        id: "P21.health",
+        page: "people",
+        area: "P21",
+        title: r#"Coaches' health episodes"#,
+        kind: "table",
+        note: r#"Coaches' health episodes kept (400 days): what, when, back when, serious or not."#,
+        sql: r#"SELECT date(h.date * 86400, 'unixepoch') AS date, c.name AS coach, h.what, date(h.back * 86400, 'unixepoch') AS back, h.serious, h.coach AS id
+           FROM folk__life__health h LEFT JOIN coaches c ON c.id = h.coach ORDER BY h.date DESC"#,
+        says: None,
+        needs: W,
+        open: "e/coaches/{id}",
+    },
+    Panel {
+        id: "P22.courts",
+        page: "people",
+        area: "P22",
+        title: r#"Cases by kind (NFL and college)"#,
+        kind: "bars",
+        note: r#"Open and recently closed cases (`folk.courts`, the newest 120 closed kept) by what happened, NFL and college."#,
+        sql: r#"WITH c AS (SELECT level, what FROM folk__courts__closed UNION ALL SELECT level, what FROM folk__courts__open)
+         SELECT level AS grp, what AS label, COUNT(*) AS world FROM c GROUP BY level, what ORDER BY level, world DESC"#,
+        says: None,
+        needs: W,
+        open: "",
+    },
+    Panel {
+        id: "P22.closed",
+        page: "people",
+        area: "P22",
+        title: r#"Closed cases and their outcomes"#,
+        kind: "table",
+        note: r#"Every kept closed case with its outcome in plain words."#,
+        sql: r#"SELECT date(c.opened * 86400, 'unixepoch') AS opened, c.level, c.what, c.guilty, c.outcome, c.id AS id FROM folk__courts__closed c ORDER BY c.opened DESC"#,
+        says: None,
+        needs: W,
+        open: "e/people/{id}",
+    },
+    Panel {
+        id: "P22.league_book",
+        page: "people",
+        area: "P22",
+        title: r#"Fines, hit suspensions and ejections a year"#,
+        kind: "line",
+        note: r#"The league book's years (`folk.discipline.years`): NFL fines, NFL suspensions for hits, college targeting ejections (about 0.2 a week per FBS team), high school ejections."#,
+        sql: r#"SELECT _0 AS year, _1 AS nfl_fines, _2 AS nfl_hit_suspensions, _3 AS targeting_ejections, _4 AS hs_ejections FROM folk__discipline__years ORDER BY _0"#,
+        says: None,
+        needs: W,
+        open: "",
+    },
+    Panel {
         id: "C18.in_state",
         page: "recruiting",
         area: "C18",
@@ -2581,10 +2664,8 @@ pub const PANELS: &[Panel] = &[
         sql: r#"WITH r AS (SELECT p._row, 100.0 * AVG(x.home_state = p.state) AS share FROM people x JOIN programs p ON p._row = x.college JOIN states s ON s._row = x.home_state WHERE x.stage = 'College' AND p.division = 'FBS' GROUP BY p._row)
          SELECT CAST(share / 5 AS INTEGER) * 5 AS x, 100.0 * COUNT(*) / (SELECT COUNT(*) FROM r) AS world, 100.0 * 5 * exp(-0.5 * ((CAST(share / 5 AS INTEGER) * 5 + 2.5 - 38.0) / 19.0) * ((CAST(share / 5 AS INTEGER) * 5 + 2.5 - 38.0) / 19.0)) / (19.0 * 2.5066283) AS real
            FROM r GROUP BY 1 ORDER BY 1"#,
-        says: Some(
-            r#"WITH r AS (SELECT 100.0 * AVG(x.home_state = p.state) AS share FROM people x JOIN programs p ON p._row = x.college JOIN states s ON s._row = x.home_state WHERE x.stage = 'College' AND p.division = 'FBS' GROUP BY p._row)
-              SELECT printf('FBS programs keep a median %.0f%% of their roster from home (real about 37%%).', (SELECT share FROM r ORDER BY share LIMIT 1 OFFSET (SELECT COUNT(*) / 2 FROM r)))"#,
-        ),
+        says: Some(r#"WITH r AS (SELECT 100.0 * AVG(x.home_state = p.state) AS share FROM people x JOIN programs p ON p._row = x.college JOIN states s ON s._row = x.home_state WHERE x.stage = 'College' AND p.division = 'FBS' GROUP BY p._row)
+              SELECT printf('FBS programs keep a median %.0f%% of their roster from home (real about 37%%).', (SELECT share FROM r ORDER BY share LIMIT 1 OFFSET (SELECT COUNT(*) / 2 FROM r)))"#),
         needs: W,
         open: "",
     },
@@ -2611,9 +2692,7 @@ pub const PANELS: &[Panel] = &[
         kind: "table",
         note: r#"Program-to-high-school pipelines (`programs.hs_pipeline`): strength 0-1 and the year of the last impact player. Count of pipelines 0.10 and up in the verdict."#,
         sql: r#"SELECT COALESCE(p.real_name, p.fictional_name) AS program, h.name AS high_school, (SELECT code FROM states WHERE _row = h.state) AS state, ROUND(l._0, 3) AS strength, l._1 AS last_impact FROM programs__hs_pipeline l JOIN programs p ON p._row = l._parent JOIN high_schools h ON h._row = l._key ORDER BY l._0 DESC LIMIT 100"#,
-        says: Some(
-            r#"SELECT printf('%d program-to-school pipelines at 0.10 or stronger; %d programs have one.', (SELECT COUNT(*) FROM programs__hs_pipeline WHERE _0 >= 0.10), (SELECT COUNT(DISTINCT _parent) FROM programs__hs_pipeline WHERE _0 >= 0.10))"#,
-        ),
+        says: Some(r#"SELECT printf('%d program-to-school pipelines at 0.10 or stronger; %d programs have one.', (SELECT COUNT(*) FROM programs__hs_pipeline WHERE _0 >= 0.10), (SELECT COUNT(DISTINCT _parent) FROM programs__hs_pipeline WHERE _0 >= 0.10))"#),
         needs: W,
         open: "",
     },
@@ -2997,13 +3076,34 @@ pub const PANELS: &[Panel] = &[
         id: "C38.whys",
         page: "recruiting",
         area: "C38",
-        title: r#"A recruit's choice and its why (world log)"#,
+        title: r#"Each recruit's choice and its why (world log)"#,
         kind: "table",
-        note: r#"The world log's choice rows: each commitment or signing with the three schools that pulled most and the reasons. Needs the world log."#,
-        sql: r#"SELECT season, json_extract(why, '$.Choice.person') AS id, json_extract(why, '$.Choice.program') AS program, json_extract(why, '$.Choice') AS why FROM log_whys WHERE json_extract(why, '$.Choice') IS NOT NULL LIMIT 500"#,
+        note: r#"The world log's choice rows, newest first: the recruit, commit or sign, the school, his offers, its appeal, the three reasons that pulled most (appeal points) and the other schools at the top of his list. Needs the world log."#,
+        sql: r#"WITH c AS (SELECT _row, season, why__Choice__id AS id, why__Choice__stage AS stage, why__Choice__program AS prog, why__Choice__offers AS offers FROM log_whys WHERE why__Choice__id IS NOT NULL)
+         SELECT c.season, x.name, c.stage, COALESCE(p.real_name, p.fictional_name) AS program, NULLIF(c.offers, 0) AS offers, ROUND(t.appeal, 2) AS appeal,
+                (SELECT group_concat(n.column2 || ' ' || printf('%+.2f', r._0), ', ') FROM (SELECT * FROM log_whys__why__Choice__top__reasons r2 WHERE r2._parent = +t._row ORDER BY r2._0 DESC LIMIT 3) r JOIN (VALUES (0, 'close to home'), (1, 'playing time'), (2, 'NIL money'), (3, 'development'), (4, 'winning and the name'), (5, 'academics'), (6, 'his ties and feel')) n ON n.column1 = r._i) AS pulled_by,
+                (SELECT group_concat(COALESCE(p2.real_name, p2.fictional_name), ', ') FROM log_whys__why__Choice__top t2 JOIN programs p2 ON p2._row = t2.program WHERE t2._parent = +c._row AND t2.program != c.prog) AS also_on_top,
+                c.id AS id
+           FROM c LEFT JOIN log_whys__why__Choice__top t ON t._parent = c._row AND t.program = c.prog LEFT JOIN people x ON x.player__id = c.id LEFT JOIN programs p ON p._row = c.prog
+          ORDER BY c.season DESC, c._row DESC LIMIT 1000"#,
         says: None,
         needs: WL,
         open: "e/people/{id}",
+    },
+    Panel {
+        id: "C38.reasons",
+        page: "recruiting",
+        area: "C38",
+        title: r#"What pulled recruits to the school they chose (world log)"#,
+        kind: "bars",
+        note: r#"Mean appeal points each of the seven reasons gave the school a recruit chose, by stage (commit or sign): what actually decides choices in this world. Needs the world log."#,
+        sql: r#"WITH c AS (SELECT _row, why__Choice__stage AS stage, why__Choice__program AS prog FROM log_whys WHERE why__Choice__id IS NOT NULL)
+         SELECT c.stage AS grp, n.column2 AS label, AVG(r._0) AS world, AVG(r._1) AS school_score, COUNT(*) AS n
+           FROM c JOIN log_whys__why__Choice__top t ON t._parent = c._row AND t.program = c.prog JOIN log_whys__why__Choice__top__reasons r ON r._parent = t._row JOIN (VALUES (0, 'close to home'), (1, 'playing time'), (2, 'NIL money'), (3, 'development'), (4, 'winning and the name'), (5, 'academics'), (6, 'his ties and feel')) n ON n.column1 = r._i
+          GROUP BY c.stage, n.column1 ORDER BY c.stage, n.column1"#,
+        says: None,
+        needs: WL,
+        open: "",
     },
     Panel {
         id: "C39.walk_ons",

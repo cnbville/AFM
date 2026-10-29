@@ -72,6 +72,9 @@ pub fn run(b: &Book, c: &Check, index: &serde_json::Value, have: &dyn Fn(&str) -
         }
     }
     r.detail = match error {
+        // A child table a small or early world never filled is not in its
+        // book: no data, not broken SQL.
+        Some(e) if e.contains("no such table") => Some(format!("No data: {e} (this world never filled it).")),
         Some(e) => Some(format!("Its SQL failed: {e}.")),
         None => c.detail.and_then(|d| b.text_of(d)),
     };
