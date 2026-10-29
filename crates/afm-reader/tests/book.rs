@@ -30,7 +30,7 @@ fn a_book_from_a_logged_world() {
     let with = dir.join("with.afmbook");
     let s = make::build(&world, make::log_beside(&world).as_deref(), &with, &mut |_| {}).unwrap();
     assert!(s.has_log && s.checks > 30 && s.tables > 100, "{s:?}");
-    assert_eq!(s.missing.len(), 1, "only the game log is missing: {:?}", s.missing);
+    assert!(s.missing.is_empty(), "the game log and the world log are both in: {:?}", s.missing);
     let b = Book::open(&with).unwrap();
     for t in [
         "people",
@@ -39,6 +39,10 @@ fn a_book_from_a_logged_world() {
         "alumni",
         "log_players",
         "log_growth",
+        "log_games",
+        "log_games__box",
+        "log_plays",
+        "log_situations",
         "checks",
         "dist",
         "odd",
@@ -55,7 +59,8 @@ fn a_book_from_a_logged_world() {
         .rows(
             "SELECT 'check', id, detail FROM checks WHERE detail LIKE 'Its SQL failed%'
              UNION ALL SELECT 'distribution', id, note FROM metrics WHERE note LIKE 'SQL error%'
-             UNION ALL SELECT 'consistency', id, why FROM consistency WHERE status IN ('error', 'no data') AND needs != 'game log'",
+             UNION ALL SELECT 'consistency', id, why FROM consistency
+             WHERE status = 'error' OR (status = 'no data' AND needs != 'game log')",
         )
         .unwrap();
     assert!(bad.is_empty(), "SQL that no longer reads the world: {bad:?}");

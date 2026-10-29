@@ -171,6 +171,10 @@ pub struct PlayRecord {
     /// surprise onside kick waits for (G18).
     #[serde(default)]
     pub look: bool,
+    /// A field goal, extra point or punt with a bad snap (the world
+    /// reader's kicking counts).
+    #[serde(default)]
+    pub bad_snap: bool,
 }
 
 impl PlayRecord {
@@ -267,6 +271,7 @@ impl PlayRecord {
             hurry: false,
             dpers: 0,
             look: false,
+            bad_snap: false,
         }
     }
 
@@ -662,6 +667,10 @@ pub struct TeamStats {
     pub carries: u32,
     pub ints: u32,
     pub fumbles_lost: u32,
+    /// Game clock seconds with the ball, snap to snap (`drives.rs`):
+    /// `time_of_possession` counts only the seconds the ball was in play.
+    #[serde(default)]
+    pub clock_possession: f64,
 }
 
 /// The whole game: final score, team totals, every player's line, and the
