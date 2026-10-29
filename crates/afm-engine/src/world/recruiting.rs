@@ -2490,12 +2490,18 @@ fn position_nil(pos: Position) -> f64 {
     }
 }
 
-/// The most a school pays a recruit at a position: the top of the going rate
-/// (`ncaa::position_nil_max`), or only its own money when it's a rising
-/// program buying the kids it wants most (minor bug 61).
-fn going_top(pos: Position, buying: bool) -> f64 {
-    if buying { f64::INFINITY } else { super::ncaa::position_nil_max(pos) }
-}
+/// Buying past the going rate (minor bug 61): a reach program whose money
+/// ranks at least this many places above its standing in its division
+/// attacks the status quo. Texas Tech, Oregon in its rise and Miami in 2024
+/// spent like top-five programs from outside the top 20 (proposed, not
+/// confirmed).
+const BUY_RANKS: usize = 10;
+/// The most a buying school puts into one blue-chip recruit, as a share of
+/// its NIL money: Texas Tech's 2025 deal with the 5-star tackle Felix Ojo,
+/// reported at $5.1M over three years (about $1.7M a year), is 6% of a
+/// $28M year, a guess at a big spender's revenue share and collective
+/// (proposed, not confirmed).
+const BUY_SHARE: f64 = 0.06;
 
 /// A collective budget that pays major-program market rates.
 fn nil_scale(d: Division) -> f64 {
@@ -4428,6 +4434,22 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             rising && rich && key_uniform(seed ^ 404, prog.id as u64) < 0.6
         })
         .collect();
+    // Who buys blue-chips past the going rate: a reach program whose money
+    // ranks well above its standing (minor bug 61). The established powers
+    // pay the going rate; nothing caps a recruit's money but a school's own.
+    let buying: Vec<bool> = programs
+        .iter()
+        .enumerate()
+        .map(|(j, prog)| {
+            let peers = programs.iter().filter(|q| q.division == prog.division);
+            let (mut money, mut standing) = (0, 0);
+            for q in peers {
+                money += (q.collective.budget > prog.collective.budget) as usize;
+                standing += (q.prestige > prog.prestige) as usize;
+            }
+            reach[j] && money + BUY_RANKS <= standing
+        })
+        .collect();
     let offer_for = |j: usize, k: usize, rank: f64| -> f64 {
         let prog = &programs[j];
         // Your promise, where you made one (lane 10).
@@ -4448,15 +4470,18 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         let q = super::legacy::college::split_q(w, j, 2);
         let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
         let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 } * q;
-        // A school pays the going rate for his position (11.8). Nothing caps a
-        // recruit's money but the school's own: a rising program with money
-        // past its standing pays past the going rate for the kids at the top
-        // of its board (minor bug 61). Before NIL a rogue booster's cash is
-        // the only money (11.6).
-        (position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 })
-            .min(cap)
-            .min(going_top(p.player.position, reach[j] && rank < 0.3))
-            + super::ncaa::booster_cash(prog, pool[k].person)
+        // A school pays the going rate for his position (11.8). A buying
+        // program pays past it for the blue-chips at the top of its board, as
+        // far as its money goes (minor bug 61). Before NIL a rogue booster's
+        // cash is the only money (11.6).
+        let full = position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 };
+        let usual = full.min(cap).min(super::ncaa::position_nil_max(p.player.position));
+        let money = if buying[j] && rank < 0.3 && recruiting_stars(p) >= 4 {
+            usual.max(full.min(prog.collective.budget * BUY_SHARE))
+        } else {
+            usual
+        };
+        money + super::ncaa::booster_cash(prog, pool[k].person)
     };
     // The next offer a staff makes: (position, walk-on spot).
     let next_offer = |j: usize,
@@ -4838,7 +4863,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 });
                 // Bidding (note 13): a school that wants him near the top of its
                 // board raises its offer to beat the one he holds, within its money
-                // and, unless it's a rising program out to buy him, the going rate.
+                // and, unless it's buying a blue-chip, the going rate.
                 if let Some(hu) = held_u
                     && hu >= u
                     && rank < 0.3
@@ -4851,7 +4876,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         * 0.6
                         * if reach[j] { 0.35 } else { 0.25 }
                         * super::legacy::college::split_q(w, j, 2);
-                    let raised = (offer * 1.5).min(cap).min(going_top(seat.pos, reach[j]));
+                    let top = if buying[j] && recruiting_stars(p) >= 4 {
+                        prog.collective.budget * BUY_SHARE
+                    } else {
+                        super::ncaa::position_nil_max(seat.pos)
+                    };
+                    let raised = (offer * 1.5).min(cap).min(top.max(offer));
                     let ru = utility_fit(&pool_fits[k], p, &wants, prog, year, raised, 1.0 - rank) + fx.ties + fit;
                     if ru > hu {
                         offer = raised;
