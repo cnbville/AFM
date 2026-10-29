@@ -5673,6 +5673,16 @@ impl Intent {
     }
 }
 
+/// His lean as it stood on `d`: the product of its dated factors (the fall
+/// camp base comes first), or none before fall camp.
+fn lean_on(p: &Person, d: Date) -> f64 {
+    let mut seen = p.cal.lean_events.iter().filter(|e| e.0 <= d).peekable();
+    if seen.peek().is_none() {
+        return 0.0;
+    }
+    seen.map(|e| e.2).product()
+}
+
 /// Your program, when you are its head coach.
 fn talks_first(w: &World) -> Option<usize> {
     fo::program(w)
@@ -5957,6 +5967,13 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     let mut steered_stays: Vec<usize> = Vec::new();
     // A coach-change window is only for the players whose head coach left.
     let new_coach: Vec<bool> = w.programs.iter().map(|p| p.hc_changed == w.year).collect();
+    // The winter window this coaching-change window follows, when it came
+    // first in the same cycle (your February takeover).
+    let late = (which == PortalWindow::CoachChange && label == w.year - 1)
+        .then(|| super::clock::portal_windows(label, rule).into_iter().find(|x| x.2 == PortalWindow::Winter))
+        .flatten()
+        .map(|x| x.0)
+        .filter(|&open| open < today);
     // Spring (part D 20): who was passed at his spot by a newcomer, a winter
     // transfer or a January enrollee, with the spring depth chart.
     let mut newcomer_best = vec![[f64::NEG_INFINITY; POSITION_COUNT]; w.programs.len()];
@@ -6100,10 +6117,27 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             steered_stays.push(i);
         }
         // The lean built over the season (T3).
-        if u < p.cal.lean * era {
+        // A coaching-change window after this cycle's winter window (your
+        // February takeover) draws only from the players who stayed through
+        // it: the share the change adds, over those who stayed. A career's
+        // own seed makes this a fresh draw, so it can't simply reuse
+        // January's.
+        let (go, bar) = match late {
+            Some(open) => {
+                let stayed = (lean_on(p, open) * era).min(1.0);
+                let now = (p.cal.lean * era).min(1.0);
+                if stayed >= 1.0 {
+                    (false, 0.0)
+                } else {
+                    (u < (now - stayed) / (1.0 - stayed), (u * (1.0 - stayed) + stayed) / era)
+                }
+            }
+            None => (u < p.cal.lean * era, u / era),
+        };
+        if go {
             let changed = p.cal.lean_events.iter().any(|e| e.1 == "his head coach is gone");
             entrants.push((i, if changed { Why::CoachingChange } else { Why::PlayingTime }));
-            bars.insert(i, u / era);
+            bars.insert(i, bar);
             continue;
         }
         // A greedy starter at a poor program can be bought away.
