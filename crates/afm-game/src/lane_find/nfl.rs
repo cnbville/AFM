@@ -497,7 +497,11 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
         "tests": tests.as_ref().map(fields::tests_json),
         "combine": p.cal.combine_invite,
         "all_star": p.cal.all_star.as_ref().map(|a| a.to_string()),
-        "starts": if starts > 0 { format!("{seasons} years, {starts} as a starter") } else { format!("{seasons} years") },
+        "starts": if starts > 0 {
+            format!("{seasons} {}, {starts} as a starter", afm_engine::world::folk::noun(seasons, "year"))
+        } else {
+            format!("{seasons} {}", afm_engine::world::folk::noun(seasons, "year"))
+        },
         "line": fields::stat_line(ctx, i),
         "habit": habit,
         "injuries": injuries,

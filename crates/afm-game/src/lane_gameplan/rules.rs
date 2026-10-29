@@ -221,7 +221,7 @@ pub(super) fn view(w: &World) -> Reply {
         }
     }
     let season = vec![
-        json!({ "k": "4th downs converted", "v": format!("{conv} of {tries}"), "sub": format!("{tries} tries, {punts} punts, {fgs} field goals") }),
+        json!({ "k": "4th downs converted", "v": format!("{conv} of {tries}"), "sub": format!("{tries} {}, {punts} {}, {fgs} {}", afm_engine::world::folk::noun(tries, "try"), afm_engine::world::folk::noun(punts, "punt"), afm_engine::world::folk::noun(fgs, "field goal")) }),
         json!({ "k": "Two-point tries", "v": format!("{two_m} of {two_t}"), "sub": if r.two == TwoChart::Chart { "by the chart".to_string() } else if r.two == TwoChart::Kick { "you kick every time".to_string() } else { "your staff's call".to_string() } }),
         json!({ "k": "Halves ended with two timeouts", "v": format!("{with_two} of {halves}"), "sub": match r.timeouts { TimeoutRule::KeepTwo => "your rule: keep two", TimeoutRule::KeepOne => "your rule: keep one", TimeoutRule::Free => "your rule: use them freely", TimeoutRule::Staff => "your staff's call" } }),
         json!({ "k": "Four-minute leads kept", "v": format!("{kept} of {leads}"), "sub": "ahead by 1-8 with the ball, four minutes left" }),

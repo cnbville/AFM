@@ -508,8 +508,9 @@ fn ncaa_case(w: &mut World, j: usize) {
         );
         w.programs[j].story.push((year, line));
         let text = format!(
-            "The NCAA penalizes {name} for a booster's payments to {} recruits (about ${:.0}K): {scholarships} scholarships over three seasons{ban_text}{coach_text}.",
+            "The NCAA penalizes {name} for a booster's payments to {} {} (about ${:.0}K): {scholarships} scholarships over three seasons{ban_text}{coach_text}.",
             paid.len(),
+            crate::world::folk::noun(paid.len(), "recruit"),
             money / 1e3
         );
         w.news.push(

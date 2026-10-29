@@ -94,6 +94,9 @@ fn close(w: &mut World, k: usize, words: String) {
     w.folk.courts.closed.push(c);
     let n = w.folk.courts.closed.len();
     if n > 120 {
+        if w.logging() {
+            w.log_dropped("court cases", w.folk.courts.closed[..n - 120].iter());
+        }
         w.folk.courts.closed.drain(..n - 120);
     }
 }
@@ -271,7 +274,13 @@ fn step(w: &mut World, d: Date) {
                     {
                         pc.suspended = pc.suspended.saturating_sub(games as u32 - cut);
                     }
-                    (None, Some(format!("On appeal, {name}'s suspension was cut from {games} games to {cut}.")))
+                    (
+                        None,
+                        Some(format!(
+                            "On appeal, {name}'s suspension was cut from {games} {} to {cut}.",
+                            super::noun(games, "game")
+                        )),
+                    )
                 }
             }
             Step::Grievance { games } => {
