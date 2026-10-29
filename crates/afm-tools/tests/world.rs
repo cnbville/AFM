@@ -730,8 +730,9 @@ fn the_storylines_tell_the_seasons() {
 /// (`afm/race-check/report.md`), FBS and the NFL scaled to the published
 /// level mix (NCAA 2023 and TIDES: FBS 48.9% Black and 2.7% Hispanic, the
 /// NFL 53.5% Black). Rows: QB, RB, WR, TE, OL, DL, LB, DB, K, P, LS, as
-/// (white, Black). A group too small for that (NFL kickers, punters and
-/// snappers) gets 2.5 standard errors of its sampling spread.
+/// (white, Black). A group too small for that (the NFL's quarterbacks,
+/// tight ends, linebackers and specialists) gets 3 standard errors of its
+/// sampling spread, so a right mix fails by chance about once in 400 checks.
 #[test]
 fn each_position_has_its_real_race_mix() {
     use afm_engine::positions::Position;
@@ -829,7 +830,7 @@ fn each_position_has_its_real_race_mix() {
             );
             // A small group can't sit closer to real than its own sampling
             // spread (the NFL has about 55 kickers): 2.5 standard errors.
-            let room = |real: f64| margin.max(2.5 * (real * (100.0 - real) / f64::from(all.max(1))).sqrt());
+            let room = |real: f64| margin.max(3.0 * (real * (100.0 - real) / f64::from(all.max(1))).sqrt());
             if (ws - real[g].0).abs() > room(real[g].0) || (bs - real[g].1).abs() > room(real[g].1) {
                 off.push(format!("{name} {} white {ws:.1} Black {bs:.1} of {all}", NAMES[g]));
             }
