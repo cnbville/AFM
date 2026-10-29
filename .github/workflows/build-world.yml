@@ -33,7 +33,7 @@ on:
         description: "Keep the built world as a run artifact for 3 days (yes or no)"
         default: "no"
       knockout:
-        description: "A dynasty test switch (AFM_KO: coach4, frozen, flatdev, brand85, local50, rel85 or bend75; + joins several); empty for none, never published"
+        description: "A dynasty test switch (AFM_KO: coach4, frozen, flatdev, brand85, local50, rel85, bend75 or qbroom; + joins several); empty for none, never published"
         default: ""
       check_run:
         description: "A run whose kept world to check instead of building one (its run id)"
