@@ -38,6 +38,7 @@ name = "afm-game"
 version = "0.2.0"
 dependencies = [
  "afm-engine",
+ "rayon",
  "serde",
  "serde_json",
  "tiny_http",

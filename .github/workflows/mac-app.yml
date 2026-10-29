@@ -1,34 +1,55 @@
 name: Mac app
 # Builds AFM for macOS (Apple silicon and Intel in one app) and keeps the
-# .dmg as the run's download (section 8, topic 9).
+# .dmg as the run's download (section 8, topic 9). It builds on every push to
+# main that changes the game, and by hand on any branch (Actions, Mac app,
+# Run workflow). Pull requests don't build it any more (Cain 2026-10-29): a
+# Mac build per lane queued for hours behind GitHub's five Mac machines, then
+# ran past its hour. ci.yml checks that the app still compiles on every pull
+# request.
 on:
   push:
     branches: [main]
-  pull_request:
-    paths: ["app/**", "crates/afm-engine/**", "crates/afm-game/**", ".github/workflows/mac-app.yml"]
+    paths-ignore: ["docs/**", "**/*.md", "tools/**", "legacy-ts/**", "crates/afm-tools/**", "crates/afm-reader/**",
+      ".github/workflows/ci.yml", ".github/workflows/full-tests.yml", ".github/workflows/build-world.yml"]
   workflow_dispatch:
 permissions:
   contents: write
+# One build at a time: a newer push waits, and replaces any push still
+# waiting, so the newest main is always the next one built.
+concurrency:
+  group: mac-app-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  mac:
+  # Each chip on its own machine at the same time. The engine is one big
+  # compile per chip (codegen-units = 1), so the two builds one after the
+  # other took 45 to 90 minutes. Both build on Apple silicon: the Intel one
+  # cross-compiles there, because GitHub's Intel Macs took 88 minutes for it.
+  build:
+    strategy:
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    name: build (${{ matrix.target }})
     runs-on: macos-14
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri
+          key: ${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       # Each build has its own version, 0.2.<run>, so an installed app knows a
       # newer one exists. Once the "Set up updates" workflow has made the
       # signing key (secret TAURI_SIGNING_PRIVATE_KEY, public half in the
-      # variable TAURI_UPDATER_PUBKEY), it also makes the signed update the
-      # app downloads to update itself.
+      # variable TAURI_UPDATER_PUBKEY), the app carries its public half and the
+      # bundle job below makes the signed update the app downloads. Both jobs
+      # pass the same settings.
       - name: Build the app
         working-directory: app/src-tauri
         env:
@@ -40,7 +61,55 @@ jobs:
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$PUBKEY" ]; then
             conf=$(echo "$conf" | jq -c --arg k "$PUBKEY" '. + {bundle: {createUpdaterArtifacts: true}, plugins: {updater: {pubkey: $k}}}')
           fi
-          npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles app --config "$conf"
+          npx --yes @tauri-apps/cli@^2 build --target ${{ matrix.target }} --no-bundle --config "$conf"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: afm-app-${{ matrix.target }}
+          path: app/src-tauri/target/${{ matrix.target }}/release/afm-app
+          if-no-files-found: error
+          retention-days: 3
+  # The two builds joined into one app (lipo), bundled, signed for updates and
+  # published.
+  bundle:
+    needs: build
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: afm-app-*
+          path: built
+      - name: Join the two builds
+        working-directory: app/src-tauri
+        run: |
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            mkdir -p target/$t/release
+            cp ../../built/afm-app-$t/afm-app target/$t/release/afm-app
+            chmod +x target/$t/release/afm-app
+          done
+          mkdir -p target/universal-apple-darwin/release
+          lipo -create -output target/universal-apple-darwin/release/afm-app \
+            target/aarch64-apple-darwin/release/afm-app target/x86_64-apple-darwin/release/afm-app
+          lipo -info target/universal-apple-darwin/release/afm-app
+      - name: Bundle the app
+        working-directory: app/src-tauri
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+        run: |
+          conf=$(jq -cn --arg v "0.2.${{ github.run_number }}" '{version: $v}')
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$PUBKEY" ]; then
+            conf=$(echo "$conf" | jq -c --arg k "$PUBKEY" '. + {bundle: {createUpdaterArtifacts: true}, plugins: {updater: {pubkey: $k}}}')
+          fi
+          npx --yes @tauri-apps/cli@^2 bundle --target universal-apple-darwin --bundles app --config "$conf"
       # hdiutil on the hosted runners sometimes fails with "Resource busy", so
       # the .dmg is made here with retries instead of by Tauri's bundler.
       - name: Make the dmg

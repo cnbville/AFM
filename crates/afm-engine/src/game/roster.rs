@@ -172,7 +172,7 @@ impl GamePlayer {
     /// His real 40 time from speed, burst and weight (same fit as the combine).
     pub fn forty(&self) -> f64 {
         5.56 - 0.0124 * (0.75 * self.a(Attr::Speed) + 0.25 * self.a(Attr::Acceleration))
-            + 0.0033 * (self.weight - 220.0)
+            + crate::body::forty_weight(self.weight)
     }
 
     /// Top speed, yards per second. A 4.35 forty gives about 10.7 (21.9 mph),
