@@ -298,7 +298,7 @@ fn opponents(w: &World, kin: Kin, salt: u64) -> Vec<(String, GameTeam)> {
 fn strength(t: &GameTeam) -> f32 {
     let mut v: Vec<f64> = t.players.iter().map(|g| g.overall_at(g.position)).collect();
     v.sort_by(|a, b| b.total_cmp(a));
-    let n = v.len().min(22).max(1);
+    let n = v.len().clamp(1, 22);
     (v.iter().take(n).sum::<f64>() / n as f64) as f32
 }
 
@@ -630,9 +630,11 @@ fn role_of(r: &PlayRecord, me: u32, off: bool, pos: Position) -> Role {
             }
         }
         PlayType::Run => {
-            if r.tacklers.contains(&me) || r.missed_tackles.iter().any(|x| x.0 == me) || in_blocks_d {
-                Role::RunStop
-            } else if matches!(pos, Position::EDGE | Position::DT | Position::LB) {
+            if r.tacklers.contains(&me)
+                || r.missed_tackles.iter().any(|x| x.0 == me)
+                || in_blocks_d
+                || matches!(pos, Position::EDGE | Position::DT | Position::LB)
+            {
                 Role::RunStop
             } else {
                 Role::Away

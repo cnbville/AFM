@@ -368,9 +368,9 @@ fn show(w: &mut World, id: u32, key: &str) -> String {
                     "The strength coach: \"{first}'s the first one here. I have to run him out of the weight room.\""
                 )
             } else if work <= 7.0 {
-                format!("The strength coach: \"Talented kid. I'd like to see him here when it isn't required.\"")
+                "The strength coach: \"Talented kid. I'd like to see him here when it isn't required.\"".to_string()
             } else {
-                format!("The strength coach: \"He does the work. Nothing extra, nothing missed.\"")
+                "The strength coach: \"He does the work. Nothing extra, nothing missed.\"".to_string()
             }
         }
         "trainer" => {
@@ -380,9 +380,10 @@ fn show(w: &mut World, id: u32, key: &str) -> String {
                     "The trainer: \"We see a lot of {first} in here. Hamstrings mostly; he's always rehabbing something.\""
                 )
             } else if prone <= 0.3 {
-                format!("The trainer: \"Hardly ever see him. Tough kid; he's played through things others sit out.\"")
+                "The trainer: \"Hardly ever see him. Tough kid; he's played through things others sit out.\""
+                    .to_string()
             } else {
-                format!("The trainer: \"The usual bumps. Nothing that worries me.\"")
+                "The trainer: \"The usual bumps. Nothing that worries me.\"".to_string()
             }
         }
         "academic" => {
@@ -392,9 +393,9 @@ fn show(w: &mut World, id: u32, key: &str) -> String {
                     "The advisor: \"{first} is one of our best students. You won't have to worry about him in class.\""
                 )
             } else if gpa <= 2.3 {
-                format!("The advisor: \"We're working on it. He'll need a plan, and someone checking on him.\"")
+                "The advisor: \"We're working on it. He'll need a plan, and someone checking on him.\"".to_string()
             } else {
-                format!("The advisor: \"He gets it done. He knows what he has to do to stay eligible.\"")
+                "The advisor: \"He gets it done. He knows what he has to do to stay eligible.\"".to_string()
             }
         }
         "equipment" => {
@@ -404,11 +405,10 @@ fn show(w: &mut World, id: u32, key: &str) -> String {
                     "The equipment manager: \"{first}? Says please and thank you, picks up after himself. Good kid.\""
                 )
             } else if respect <= 3.0 {
-                format!(
-                    "The equipment manager: \"He's got a mouth on him with my student workers. Treats them like help.\""
-                )
+                "The equipment manager: \"He's got a mouth on him with my student workers. Treats them like help.\""
+                    .to_string()
             } else {
-                format!("The equipment manager: \"Never had a problem with him.\"")
+                "The equipment manager: \"Never had a problem with him.\"".to_string()
             }
         }
         _ => String::new(),

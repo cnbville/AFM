@@ -51,7 +51,7 @@ fn cover(s: &Kept) -> &'static str {
 
 fn options(truth: &'static str, all: &[&'static str], salt: u64) -> (Vec<String>, u8) {
     let mut others: Vec<&str> = all.iter().copied().filter(|x| *x != truth).collect();
-    others.sort_by_key(|x| key_uniform(salt, x.len() as u64 ^ x.as_bytes()[0] as u64 * 131).to_bits());
+    others.sort_by_key(|x| key_uniform(salt, x.len() as u64 ^ (x.as_bytes()[0] as u64 * 131)).to_bits());
     let mut v = vec![truth, others[0], others[1]];
     let at = (key_uniform(salt ^ 0x0FF5, 7) * 3.0) as usize % 3;
     v.swap(0, at);
@@ -208,7 +208,7 @@ pub fn team_cut(
     side: u8,
     hints: &[(String, String, Vec<usize>)],
     salt: u64,
-) -> (Vec<Game>, Vec<Snap>, Vec<(String, String, Vec<u8>)>) {
+) -> (Vec<Game>, Vec<Snap>, super::session::Hints) {
     let mut picks: Vec<usize> = Vec::new();
     for (_, _, ks) in hints {
         for &k in ks.iter().filter(|&&k| k < t.snaps.len() && scrimmage(&t.snaps[k])).take(2) {

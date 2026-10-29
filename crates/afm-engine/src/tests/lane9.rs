@@ -49,13 +49,12 @@ fn a_session_watched_snap_by_snap_becomes_your_report() {
     assert!(!ids.is_empty());
     let left0 = time::left(&w);
     assert!(left0 > 0.0, "an NFL head coach has film hours");
-    ids
-        .into_iter()
+    ids.into_iter()
         .find(|&id| session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_ok())
         .expect("a player with tape");
     let s = w.scouting.film.open.as_ref().unwrap();
     let n = s.snaps.len();
-    assert!(n >= 3 && n <= 6, "a cut-up of a few snaps: {n}");
+    assert!((3..=6).contains(&n), "a cut-up of a few snaps: {n}");
     assert!(s.ask.is_some(), "a question to settle");
     for st in &s.snaps[0].stills {
         assert!(!st.dots.is_empty(), "each still draws the men");
@@ -63,7 +62,7 @@ fn a_session_watched_snap_by_snap_becomes_your_report() {
     assert_eq!(s.snaps[0].stills.len(), 3, "three stills a snap");
     // About one snap in three stops for a call.
     let calls = s.snaps.iter().filter(|x| x.call.is_some()).count();
-    assert!(calls >= 1 && calls <= n.div_ceil(3), "{calls} calls in {n}");
+    assert!((1..=n.div_ceil(3)).contains(&calls), "{calls} calls in {n}");
     let mut guard = 0;
     while w.scouting.film.open.as_ref().unwrap().step != 3 {
         guard += 1;

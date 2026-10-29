@@ -22,6 +22,9 @@ use crate::world::scouting::file;
 use crate::world::scouting::readers::{self, COACH, Staff};
 use crate::world::season::{key_normal, key_uniform};
 
+/// A team cut-up's hints: the key, the words and the snaps that show it.
+pub type Hints = Vec<(String, String, Vec<u8>)>;
+
 /// How you watch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Mode {
@@ -109,7 +112,7 @@ pub struct Session {
     pub numbers: String,
     /// The game-plan hints a team's tape holds (key, words, snaps).
     #[serde(default)]
-    pub hints: Vec<(String, String, Vec<u8>)>,
+    pub hints: Hints,
     /// A team's tape: the kept tape it came from (date, home, away).
     #[serde(default)]
     pub tape_key: Option<(Date, usize, usize)>,
@@ -425,7 +428,7 @@ pub fn open_team(
     name: String,
     games: Vec<Game>,
     snaps: Vec<Snap>,
-    hints: Vec<(String, String, Vec<u8>)>,
+    hints: Hints,
     tape_key: (Date, usize, usize),
     mode: Mode,
 ) -> Result<String, String> {
@@ -733,7 +736,7 @@ impl Session {
             .iter()
             .map(|s| {
                 let x = s.stat;
-                (x.catches as i32 > 0 && matches!(s.role, Role::Cover)) as i32 * -1
+                -((x.catches as i32 > 0 && matches!(s.role, Role::Cover)) as i32)
                     + (x.pbu + x.ints) as i32
                     + x.wins as i32
                     - x.pressures as i32 * (matches!(s.role, Role::PassPro | Role::RunBlock) as i32)
@@ -902,9 +905,7 @@ pub fn close(w: &mut World) -> Result<String, String> {
 /// catches the first time through, no calls, replays or coach talk.
 fn quick(w: &mut World) -> Result<String, String> {
     let mut s = take(w)?;
-    if let Err(e) = super::time::spend(w, QUICK_MIN / 60.0, s.pos) {
-        return Err(e);
-    }
+    super::time::spend(w, QUICK_MIN / 60.0, s.pos)?;
     s.minutes = QUICK_MIN;
     for k in 0..s.snaps.len() {
         s.at = k;

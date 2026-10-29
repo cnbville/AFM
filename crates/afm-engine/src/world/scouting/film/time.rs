@@ -97,9 +97,7 @@ pub fn base(w: &World) -> (f32, f32) {
                 3.0
             } else if (2..=4).contains(&m) && d < dt.draft[0].date {
                 20.0
-            } else if d >= dt.summer_break.0 && d <= dt.summer_break.1 {
-                4.0
-            } else if d >= dt.rookies_report {
+            } else if (d >= dt.summer_break.0 && d <= dt.summer_break.1) || d >= dt.rookies_report {
                 4.0
             } else {
                 10.0
