@@ -1011,6 +1011,23 @@ The game ships no logos (later extras, topic 2). Settings, Logos (`screens/logos
 - The jersey logo's size and place (a college's 0.42 units wide at most, its top just under the V's trim; the shield 0.26 tall, its top just over the collar's point), the light disc's colour (`#ece9e2`) and the hero watermark's strength (24%, 14% for dark logos).
 - Drawn heads kept under an old logo's key stay on disk until the save is deleted.
 
+### Lane 13: the line bank (dialogue D2 and D3)
+
+What people say comes from the line bank (`crates/afm-engine/data/lines/`, picked by `world/folk/voice.rs`). Lane 13 grows it and makes a line rest a full season before the same person says it to you again. How the picking works is in `docs/reference/how-it-works/people.md`, "The words people say".
+
+- **D2, the bank's first growth**: from about 1,360 to about 7,700 versions, in ten new files beside the old ones: one-on-one openings, reveals and replies (`talk_open`, `talk_reveal`, `talk_reply`), press (`press_more`), story quotes for all 14 kinds (`story_quotes`), bosses (`bosses_more`), boosters, the room, staff interviews and the takeover (`*_more`). Every new line fits the parts the code already asks for; no new talk ships with it. The rest of the way to about 50,000 continues in a follow-on thread (plan: `afm/next-updates-plan/lane13/bank-plan.md` in the project folder).
+- **D3, the season's rest** (Cain: as long as it doesn't change what the player was going to say): a version the same person said to you rests 365 days; when every fitting version is resting he repeats the one he said longest ago. The rest only picks the words: outcomes are decided before the bank is asked, and a test checks a rested line is always one of the same part's versions and the pen never draws from the world's random stream.
+- **New in the format**: position and career tags on players, `fact=value` checks (a press question after a win or a loss), `@with` to lend a part's versions to another (story tones borrow their base part).
+- **Proof**: a season of one-on-ones at all three levels (1,869 talks): the same man repeating a version inside the season went from 2.63% to 0; parts heard again from anyone inside the season from 68% to 47%.
+
+#### Claude's picks (proposed, not confirmed)
+
+- The rest is 365 days, counted per speaker; once every fitting version rests, the oldest-said one comes back.
+- A version's weight is 1 + 0.8 for each tag or check it needs, so lines written for this man win over plain ones.
+- A version's memory is keyed by its part and words, so the same words with different tags rest as one line.
+- The position groups (`skill`, `lineman`, `rusher`, `cover`...) and career stages (`freshman` to `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) the new lines are tagged by.
+- A speaker who hasn't spoken to you for a season is dropped from the memory, to keep saves small.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).
