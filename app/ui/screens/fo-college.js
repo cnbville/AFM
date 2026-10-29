@@ -303,7 +303,12 @@ function fcFile(f, ctx, compact) {
 function fcActions(f) {
   const b = [];
   const closed = ["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing);
-  if (!["signed", "enrolled", "gone"].includes(f.standing)) b.push(`<button class="st-btn small glass l7-film" data-go="film" data-id="${f.id}" title="Watch his film yourself, today, in the film room, on your own film hours: read by your own eye">Watch his film now</button>`);
+  const fn = f.film_now;
+  if (!["signed", "enrolled", "gone"].includes(f.standing)) {
+    const why = fn && fn.blocked ? (/today/.test(fn.blocked) ? "watched today" : /resting/.test(fn.blocked) ? "resting" : /open/.test(fn.blocked) ? "cut-up open" : "hours spent") : fn ? `${fn.left.toFixed(1)} h left` : "";
+    const title = fn && fn.blocked ? fn.blocked : "Watch his film yourself, today, in the film room, on your own film hours: read by your own eye";
+    b.push(`<button class="st-btn small glass l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now${why ? ` <small>${why}</small>` : ""}</button>`);
+  }
   if (!f.board_yours) {
     b.push(`<p class="sub">Your coordinator runs the board: his offers and order stand until you take it back.</p>`);
   } else if (!closed) {

@@ -808,21 +808,32 @@ pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String
 /// A quick cut-up's hours (lane 9, SK53): twenty minutes.
 pub const QUICK: f32 = super::film::session::QUICK_MIN / 60.0;
 
+/// Why you can't watch his film yourself now, if you can't: you watched
+/// him today, a cut-up is open in the film room, you're home resting, or
+/// the week's film hours are spent.
+pub fn film_blocked(w: &World, id: u32) -> Option<String> {
+    let you = me(w)?;
+    let (kind, _, _) = film_cost(w, id).ok()?;
+    let d = w.today;
+    if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
+        return Some("You watched him today already: the next look is another day's tape.".into());
+    }
+    if w.scouting.film.open.is_some() {
+        return Some("Finish the cut-up you have open in the film room first.".into());
+    }
+    super::film::time::can_watch(w, super::film::session::Mode::Quick).err()
+}
+
 /// You watch his film yourself, today, on your own hours (bug 82): "Watch
 /// it quick" in the film room (lane 9, SK53), a cut-up of his snaps for
 /// twenty minutes. The look goes in his file under your name, read by your
 /// own eye, and what your eye caught moves your own read. The full
 /// session, snap by snap, opens from his file in the film room.
 pub fn watch_film(w: &mut World, id: u32) -> Result<String, String> {
-    let you = me(w).ok_or("Start a career first.")?;
     readers::seat_staff(w).ok_or("Start a career first.")?;
-    let (kind, _, _) = film_cost(w, id)?;
-    let d = w.today;
-    if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
-        return Err("You watched him today already: the next look is another day's tape.".into());
-    }
-    if w.scouting.film.open.is_some() {
-        return Err("Finish the cut-up you have open in the film room first.".into());
+    film_cost(w, id)?;
+    if let Some(why) = film_blocked(w, id) {
+        return Err(why);
     }
     let text = super::film::session::open_player(
         w,

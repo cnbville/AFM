@@ -607,7 +607,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
     let measured = looks.iter().any(|l| matches!(l.kind, Kind::Combine | Kind::ProDay | Kind::Camp | Kind::Showcase));
     let film_now = sc::own::film_cost(w, p.player.id)
         .ok()
-        .map(|(_, h, what)| json!({ "hours": h, "what": what, "left": sc::own::film_left(w), "week": sc::own::film_budget(w) }));
+        .map(|(_, h, what)| json!({ "hours": h, "what": what, "left": sc::own::film_left(w), "week": sc::own::film_budget(w), "blocked": sc::own::film_blocked(w, p.player.id) }));
     Ok(json!({
         "id": id,
         "name": p.name,

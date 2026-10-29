@@ -69,14 +69,17 @@ fn you_watch_film_today_on_your_own_hours() {
     assert!(msg.contains("hours"), "{msg}");
     let looks = &w.scouting.dept.looks[&ids[0]];
     assert!(looks.iter().any(|l| l.who == you && l.date == today && l.kind == kind));
-    // Not the same player twice in a day.
+    // Not the same player twice in a day, and the file says so first.
+    assert!(sc::own::film_blocked(&w, ids[0]).is_some_and(|m| m.contains("today")));
     assert!(sc::own::watch_film(&mut w, ids[0]).is_err());
     // The week's hours run out.
     let mut spent = hours;
     for &id in &ids[1..] {
         let h = sc::own::film_cost(&w, id).unwrap().1;
+        let blocked = sc::own::film_blocked(&w, id);
         if sc::own::watch_film(&mut w, id).is_err() {
             assert!(spent + h > budget, "refused with {spent} of {budget} spent");
+            assert!(blocked.is_some_and(|m| m.contains("spent")), "the file shows why before the click");
             break;
         }
         spent += h;
