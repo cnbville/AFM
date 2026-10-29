@@ -578,6 +578,17 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
                         run.call(g, "rr_card", json!({ "p": p["id"], "k": k, "lo": o[0], "hi": o[1] }));
                     }
                 }
+                // Help on every screen (update 3, lane 6): the level rating's
+                // card, where his page shows one.
+                if run.call(g, "player", json!({ "id": p["id"] })).is_some_and(|v| v["level_rating"].is_string()) {
+                    run.call(g, "help_level", json!({ "p": p["id"] }));
+                }
+            }
+        }
+        // Every attribute's own words (H1).
+        if let Some(all) = run.call(g, "help_attrs", json!({})) {
+            for a in all.as_array().into_iter().flatten() {
+                run.call(g, "help_attr", json!({ "k": a["key"] }));
             }
         }
     }

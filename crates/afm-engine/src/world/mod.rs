@@ -798,6 +798,10 @@ pub struct World {
     /// Your depth chart where you set one (section 8, topic 6).
     #[serde(default)]
     pub seat_depth: Vec<(crate::positions::Position, Vec<u32>)>,
+    /// When you set or gave back an order, newest last (update 3, H4): the
+    /// day, the position and the first man (0: given back to the staff).
+    #[serde(default)]
+    pub seat_depth_log: Vec<(crate::calendar::Date, crate::positions::Position, u32)>,
     /// Your players' plan focus (section 6b topic 5): player id and
     /// attribute index.
     #[serde(default)]
@@ -1232,6 +1236,7 @@ impl World {
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
             seat_games: Vec::new(),
             seat_depth: Vec::new(),
+            seat_depth_log: Vec::new(),
             seat_focus: Vec::new(),
             training: Default::default(),
             career: None,

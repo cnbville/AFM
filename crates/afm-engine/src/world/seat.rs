@@ -165,9 +165,19 @@ impl World {
 
     /// Your depth chart order at a position (player ids, best first).
     pub fn set_seat_depth(&mut self, pos: Position, ids: Vec<u32>) {
+        let had = self.seat_depth.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.first().copied());
+        let first = ids.first().copied();
         self.seat_depth.retain(|(p, _)| *p != pos);
         if !ids.is_empty() {
             self.seat_depth.push((pos, ids));
+        }
+        // The change log the depth chart's "Changes this week" reads.
+        if had != Some(first) && !(had.is_none() && first.is_none()) {
+            self.seat_depth_log.push((self.today, pos, first.unwrap_or(0)));
+            let n = self.seat_depth_log.len();
+            if n > 40 {
+                self.seat_depth_log.drain(..n - 40);
+            }
         }
     }
 

@@ -1291,8 +1291,20 @@ pub fn feed(w: &World, args: &Value) -> Value {
             "recruits" => "The recruiting wire".to_string(),
             _ => people::NATIONAL_PAPER.to_string(),
         };
+        // H6: a story about one of your people says why, as your staff sees it.
+        let why = me.filter(|_| yours(e)).and_then(|t| {
+            // One person's story only: a roundup of five commitments has no single why.
+            let mut people = e.refs.iter().filter_map(|r| match r.to {
+                afm_engine::calendar::Link::Person(id) => Some(id),
+                _ => None,
+            });
+            match (people.next(), people.next()) {
+                (Some(id), None) => crate::lane_help::news_why(w, t, *d, id),
+                _ => None,
+            }
+        });
         items.push((
-            json!({ "date": d_text(*d), "text": text, "kind": kicker(e), "certainty": certainty(e), "source": source, "loud": e.loud.name(), "mine": yours(e), "scene": scene(e) }),
+            json!({ "date": d_text(*d), "text": text, "kind": kicker(e), "certainty": certainty(e), "source": source, "loud": e.loud.name(), "mine": yours(e), "scene": scene(e), "why": why }),
             subjects,
         ));
         if items.len() >= limit {

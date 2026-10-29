@@ -775,6 +775,7 @@ pub(crate) fn mail(w: &World, tag: &str, head: Head, from: String, role: String,
         loud: 1,
         ids: Vec::new(),
         org_team: None,
+        why: Vec::new(),
     }
 }
 

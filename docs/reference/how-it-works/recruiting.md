@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, and update 3 lane 7 at 3cb32e3 the same day.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, and the why-lines on commitments (lane 6) the same day.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -240,6 +240,11 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - `world/program.rs`: `nil_target`, `prestige_of`, `division_scale`, `move_grade`, `STRICT_ADMISSIONS`.
 - `world/scouting/services.rs`: `update_days`, `reach`, `BANDS`, `COMPOSITE_FROM`, `INSIDERS_FROM`, the insiders' thresholds in `insiders_week`, `lean`. `world/front_office/race.rs`: `SCHOOLS`, `MOST`, `BELOW`, `SPREAD`.
 - `world/clock.rs`: `commit_wave`, `portal_windows`, early-offer dates. `calendar/anchors.rs`: signing days. `calendar/mod.rs`: `recruiting_period`.
+
+## Why a recruit picked (update 3, lane 6)
+
+- A commitment to you, to another school over your offer (a new memo, tag `lost|id`) or of your high schooler gets a why-line: who decided (himself, a parent, grandparents, a trainer) and what the family weighs most, then the two biggest edges of the chosen school, each the family's want (`family_read`) times the school's edge over yours (or over a middle 0.5): closeness 1/(1 + (miles/300)²), name (the mean of four program grades), playing time, academics, development and NIL grades; only edges over 0.004 (`crates/afm-game/src/lane_help.rs`, `pick_why`, `program_reads`; `lane_core/mail.rs`).
+- News items about your recruits and players carry the same lines (`lane_help.rs`, `news_why`; `views.rs`, `news`; `lane_core/pages.rs`, `feed`).
 
 ## Related pages
 
