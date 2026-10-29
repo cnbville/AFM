@@ -130,6 +130,8 @@ pub fn open(w: &mut World, parent: usize, opens: i32, rng: &mut Rng) -> usize {
         prestige,
         national: false,
         coach: None,
+        oc: None,
+        dc: None,
         roster: Vec::new(),
         seasons: Vec::new(),
         state_titles: 0,
