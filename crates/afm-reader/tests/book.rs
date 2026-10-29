@@ -60,7 +60,8 @@ fn a_book_from_a_logged_world() {
             "SELECT 'check', id, detail FROM checks WHERE detail LIKE 'Its SQL failed%'
              UNION ALL SELECT 'distribution', id, note FROM metrics WHERE note LIKE 'SQL error%'
              UNION ALL SELECT 'consistency', id, why FROM consistency
-             WHERE status = 'error' OR (status = 'no data' AND needs != 'game log')",
+             WHERE status = 'error' OR (status = 'no data' AND needs != 'game log')
+             UNION ALL SELECT 'panel', id, status FROM panels WHERE status LIKE 'SQL error%'",
         )
         .unwrap();
     assert!(bad.is_empty(), "SQL that no longer reads the world: {bad:?}");

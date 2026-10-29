@@ -25,11 +25,8 @@ pub struct Issues(pub Vec<Issue>);
 impl Issues {
     /// The live issues touching a check (by its id or one of its areas).
     pub fn touching(&self, check: &str) -> String {
-        let areas: Vec<String> = crate::defs::CHECKS
-            .iter()
-            .find(|c| c.id == check)
-            .map(|c| crate::pages::expand(c.areas))
-            .unwrap_or_default();
+        let areas: Vec<String> =
+            crate::defs::checks().find(|c| c.id == check).map(|c| crate::pages::expand(c.areas)).unwrap_or_default();
         self.0
             .iter()
             .filter(|i| i.live && i.touches.iter().any(|t| t == check || areas.contains(t)))

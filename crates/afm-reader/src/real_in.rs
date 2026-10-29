@@ -7,7 +7,8 @@ use rusqlite::types::Value as S;
 use crate::json;
 use crate::sink::Writer;
 
-// `FILES`: every `data/real-world/*.json` as the reader was built with it.
+// `FILES`: every `data/real-world/*.json`, and the smaller CSVs, as the
+// reader was built with it.
 include!(concat!(env!("OUT_DIR"), "/real_files.rs"));
 
 /// A real-data file's text by name.
@@ -69,6 +70,27 @@ pub fn read(w: &mut Writer, index: &serde_json::Value) -> rusqlite::Result<u64> 
     );
     w.put("real_about", Vec::new(), &about)?;
     for (name, text) in FILES {
+        // A CSV becomes its own table, `real_<name>`, one row per line with
+        // numbers as numbers, so SQL can set a world table beside it.
+        if let Some(stem) = name.strip_suffix(".csv") {
+            let mut lines = csv(text).into_iter();
+            let head = lines.next().unwrap_or_default();
+            for row in lines {
+                let cols = head
+                    .iter()
+                    .zip(row)
+                    .map(|(h, v)| {
+                        let x = match v.parse::<i64>() {
+                            Ok(i) => S::Integer(i),
+                            Err(_) => v.parse::<f64>().map_or(S::Text(v), S::Real),
+                        };
+                        (h.clone(), x)
+                    })
+                    .collect();
+                w.insert(&format!("real_{stem}"), None, cols)?;
+            }
+            continue;
+        }
         w.insert(
             "real_data",
             None,
@@ -77,6 +99,33 @@ pub fn read(w: &mut Writer, index: &serde_json::Value) -> rusqlite::Result<u64> 
     }
     w.flush()?;
     Ok(n)
+}
+
+/// A CSV's lines as fields, quotes and commas inside quotes kept.
+fn csv(text: &str) -> Vec<Vec<String>> {
+    let mut out = Vec::new();
+    let (mut row, mut cell, mut quoted) = (Vec::new(), String::new(), false);
+    let mut it = text.chars().peekable();
+    while let Some(c) = it.next() {
+        match (c, quoted) {
+            ('"', true) if it.peek() == Some(&'"') => {
+                cell.push('"');
+                it.next();
+            }
+            ('"', _) => quoted = !quoted,
+            (',', false) => row.push(std::mem::take(&mut cell)),
+            ('\n', false) => {
+                row.push(std::mem::take(&mut cell).trim_end_matches('\r').to_string());
+                out.push(std::mem::take(&mut row));
+            }
+            _ => cell.push(c),
+        }
+    }
+    if !cell.is_empty() || !row.is_empty() {
+        row.push(cell);
+        out.push(row);
+    }
+    out
 }
 
 /// A real figure's value by its key (`file:path`), and where the index
