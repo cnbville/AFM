@@ -46,7 +46,7 @@ pub(crate) mod nfl_year;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
 pub use recruiting::DraftRun;
-pub use season::{key_normal, key_uniform};
+pub use season::{key_normal, key_uniform, level_from_read, level_pool};
 
 /// Last season's draft order once the season has ended (for the coming draft).
 pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
@@ -73,6 +73,7 @@ pub mod storylines;
 pub mod systems;
 pub mod tape;
 pub mod trends;
+pub mod units;
 pub mod voters;
 pub mod wlog;
 
@@ -312,6 +313,9 @@ pub struct Signed {
     pub walk_on: bool,
     pub date: crate::calendar::Date,
     pub early_enrollee: bool,
+    /// He signed somewhere other than where he was committed.
+    #[serde(default)]
+    pub flipped: bool,
 }
 
 /// A portal entrant's dates (T3): the day he entered and the day his
@@ -795,6 +799,10 @@ pub struct World {
     /// Your depth chart where you set one (section 8, topic 6).
     #[serde(default)]
     pub seat_depth: Vec<(crate::positions::Position, Vec<u32>)>,
+    /// When you set or gave back an order, newest last (update 3, H4): the
+    /// day, the position and the first man (0: given back to the staff).
+    #[serde(default)]
+    pub seat_depth_log: Vec<(crate::calendar::Date, crate::positions::Position, u32)>,
     /// Your players' plan focus (section 6b topic 5): player id and
     /// attribute index.
     #[serde(default)]
@@ -883,6 +891,10 @@ pub struct World {
     pub(crate) nfl_prev: Option<nfl_year::NflSeason>,
     #[serde(default)]
     pub(crate) kept_schedules: Vec<season_page::KeptSeason>,
+    /// Each NFL team's regular-season points by year (C27): (season, team,
+    /// games, points for, points against); the last twenty seasons.
+    #[serde(default)]
+    pub nfl_units: Vec<(i32, u8, u8, u16, u16)>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1225,6 +1237,7 @@ impl World {
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
             seat_games: Vec::new(),
             seat_depth: Vec::new(),
+            seat_depth_log: Vec::new(),
             seat_focus: Vec::new(),
             training: Default::default(),
             career: None,
@@ -1246,6 +1259,7 @@ impl World {
             prev_polls: Vec::new(),
             nfl_prev: None,
             kept_schedules: Vec::new(),
+            nfl_units: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -1731,7 +1745,15 @@ fn new_kid(
     let family = generate_family(&bg, Some(structure), &mut rng);
     apply_background(&mut player, &mut bg, &family, &mut rng);
     people::sync_new(&mut player, &bg, &family);
-    let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+    // Drawn with the odds of the position his body fits now, before any
+    // coach moves him, or a snapper's if he has the knack (A25).
+    let knack = ethnicity::snapper_knack(
+        player.ceilings.get(crate::attributes::Attr::LongSnapping),
+        player.original_potential,
+        z,
+    );
+    let fits = if knack { crate::positions::Position::LS } else { player.position };
+    let ethnicity = ethnicity::player_ethnicity(s, z, Some(fits), &mut rng);
     // Grades drift through high school: effort pushes them up.
     let gpa_trend =
         rng.normal(0.0, 0.07) + 0.012 * (player.personality.work_ethic - 10.0) + 0.04 * (bg.home_stability - 0.5);

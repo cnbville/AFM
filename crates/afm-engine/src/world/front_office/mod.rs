@@ -12,6 +12,7 @@
 //! seat. New randomness is keyed by the career's seed (`key`), so it moves
 //! no other draw.
 
+pub mod chain;
 pub mod college;
 pub mod deals;
 pub mod market;
@@ -195,6 +196,8 @@ pub struct FrontOffice {
     pub log: Vec<Move>,
     /// Each recruit's race, week by week, as your office followed it.
     pub race: race::RaceLog,
+    /// The offer chain at your college (SK25-SK31).
+    pub chain: chain::Chain,
 }
 
 impl Default for FrontOffice {
@@ -210,6 +213,7 @@ impl Default for FrontOffice {
             school: Default::default(),
             log: Vec::new(),
             race: Default::default(),
+            chain: Default::default(),
         }
     }
 }

@@ -191,6 +191,7 @@ pub fn open(w: &mut World, id: u64) -> Result<Value, String> {
         "to": m.to,
         "subject": m.subject,
         "body": m.body,
+        "why": m.why,
         "table": m.table,
         "attach": m.attach,
         "sign": m.sign,
@@ -332,10 +333,7 @@ pub fn note_edit(w: &mut World, args: &Value) -> Result<Value, String> {
 pub fn list_add(w: &mut World, id: u32, how: u8) {
     let Some(k) = views::person_index(w, id) else { return };
     let p = &w.people[k];
-    let team = views::team_of(w, p);
-    let own = team.is_some_and(|t| views::is_mine(w, t));
-    let eye = team.filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
-    let read = match reads::overall(&p.player, own, eye, views::reader_key(w)) {
+    let read = match reads::overall(w, k) {
         reads::Read::Range(lo, hi) => (lo, hi),
         reads::Read::NotSeen => (0, 0),
     };
@@ -368,7 +366,6 @@ pub fn has_note(w: &World, id: u32) -> bool {
 /// note on (scouting topic 18), with where he is now against where he was.
 pub fn my_players(w: &World) -> Value {
     let Some(c) = &w.career else { return json!({ "rows": [] }) };
-    let reader = views::reader_key(w);
     let mut ids: Vec<(u32, Option<&Listed>)> = c.desk.listed.iter().map(|l| (l.id, Some(l))).collect();
     for (id, l) in &c.notes {
         if !l.is_empty() && !ids.iter().any(|x| x.0 == *id) && !c.desk.unlisted.contains(id) {
@@ -381,9 +378,7 @@ pub fn my_players(w: &World) -> Value {
             let k = views::person_index(w, id)?;
             let p = &w.people[k];
             let team = views::team_of(w, p);
-            let own = team.is_some_and(|t| views::is_mine(w, t));
-            let eye = team.filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
-            let now = reads::overall(&p.player, own, eye, reader);
+            let now = reads::overall(w, k);
             let level = match p.stage {
                 Stage::HighSchool | Stage::PrepSchool => "High school",
                 Stage::College => "College",

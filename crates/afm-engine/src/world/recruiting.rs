@@ -85,6 +85,9 @@ pub(crate) fn high_school_transfers(w: &mut World) {
             let dest = &w.high_schools[t];
             let gain = (dest.prestige - cur.prestige).max(0.0);
             let mut pull = 0.3 * gain;
+            // C8: a famous coach's name draws transfers (a star's name half
+            // again as many; proposed, not confirmed).
+            pull *= 1.0 + dest.coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season) / 6.0);
             if nil_state || (national && w.states[dest.state].hs_nil) {
                 pull *= 1.4;
             }
@@ -575,7 +578,8 @@ pub(crate) fn draft_reads(w: &mut World) {
         // A small-school player whose numbers flag him (this season or
         // last) gets a second look: more scouts on his film, a truer read.
         // The numbers can lie (a weak schedule), so the film decides
-        // (proposed, not confirmed: accuracy 13 to 8).
+        // (F4: the second look reads at accuracy 18 against everyone
+        // else's 13; it was 8, a wider error; 18 proposed, not confirmed).
         let id = p.player.id;
         let flagged = division != Division::FBS
             && (feet.get(&id).is_some_and(|&f| f != 0) || !w.stats.footprint_since(id, year - 1).is_empty());
@@ -605,7 +609,7 @@ pub(crate) fn draft_reads(w: &mut World) {
             let age = p.row_age();
             p.note(format!("At {age} pro scouts took a second look at his film: {}.", why.join("; ")));
         }
-        let accuracy = if flagged { 8.0 } else { 13.0 };
+        let accuracy = if flagged { 18.0 } else { 13.0 };
         let seen = projected.as_ref().unwrap_or(&p.player);
         let rep = scout_player(seen, ScoutOptions { accuracy, level }, &mut p.rng);
         let youth = clamp((23.0 - p.player.age as f64) / 3.0, 0.0, 1.0);
@@ -2517,6 +2521,19 @@ fn position_nil(pos: Position) -> f64 {
         Position::K | Position::P | Position::LS => 25_000.0,
     }
 }
+
+/// Buying past the going rate (minor bug 61): a reach program whose money
+/// ranks at least this many places above its standing in its division
+/// attacks the status quo. Texas Tech, Oregon in its rise and Miami in 2024
+/// spent like top-five programs from outside the top 20 (proposed, not
+/// confirmed).
+const BUY_RANKS: usize = 10;
+/// The most a buying school puts into one blue-chip recruit, as a share of
+/// its NIL money: Texas Tech's 2025 deal with the 5-star tackle Felix Ojo,
+/// reported at $5.1M over three years (about $1.7M a year), is 6% of a
+/// $28M year, a guess at a big spender's revenue share and collective
+/// (proposed, not confirmed).
+const BUY_SHARE: f64 = 0.06;
 
 /// A collective budget that pays major-program market rates.
 fn nil_scale(d: Division) -> f64 {
@@ -4452,6 +4469,22 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             rising && rich && key_uniform(seed ^ 404, prog.id as u64) < 0.6
         })
         .collect();
+    // Who buys blue-chips past the going rate: a reach program whose money
+    // ranks well above its standing (minor bug 61). The established powers
+    // pay the going rate; nothing caps a recruit's money but a school's own.
+    let buying: Vec<bool> = programs
+        .iter()
+        .enumerate()
+        .map(|(j, prog)| {
+            let peers = programs.iter().filter(|q| q.division == prog.division);
+            let (mut money, mut standing) = (0, 0);
+            for q in peers {
+                money += (q.collective.budget > prog.collective.budget) as usize;
+                standing += (q.prestige > prog.prestige) as usize;
+            }
+            reach[j] && money + BUY_RANKS <= standing
+        })
+        .collect();
     let offer_for = |j: usize, k: usize, rank: f64| -> f64 {
         let prog = &programs[j];
         // Your promise, where you made one (lane 10).
@@ -4472,12 +4505,18 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         let q = super::legacy::college::split_q(w, j, 2);
         let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
         let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 } * q;
-        // Within the real range for his position (11.8). Before NIL a rogue
-        // booster's cash is the only money (11.6).
-        (position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 })
-            .min(cap)
-            .min(super::ncaa::position_nil_max(p.player.position))
-            + super::ncaa::booster_cash(prog, pool[k].person)
+        // A school pays the going rate for his position (11.8). A buying
+        // program pays past it for the blue-chips at the top of its board, as
+        // far as its money goes (minor bug 61). Before NIL a rogue booster's
+        // cash is the only money (11.6).
+        let full = position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 };
+        let usual = full.min(cap).min(super::ncaa::position_nil_max(p.player.position));
+        let money = if buying[j] && rank < 0.3 && recruiting_stars(p) >= 4 {
+            usual.max(full.min(prog.collective.budget * BUY_SHARE))
+        } else {
+            usual
+        };
+        money + super::ncaa::booster_cash(prog, pool[k].person)
     };
     // The next offer a staff makes: (position, walk-on spot).
     let next_offer = |j: usize,
@@ -4660,8 +4699,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             official.contains(&j) || contact > 0.0 || geo::miles(p.home_state, prog.state) <= 250.0;
                         let group = super::coach::Group::of(p.player.position);
                         let hc = prog.head_coach.map(|c| *w.coaches[c].ability());
-                        let hc_skill =
-                            0.6 * hc.map_or(9.0, |a| a.recruiting) + 0.4 * hc.map_or(9.0, |a| a.relationships);
+                        // C8: a famous name pulls recruits too.
+                        let hc_skill = 0.6 * hc.map_or(9.0, |a| a.recruiting)
+                            + 0.4 * hc.map_or(9.0, |a| a.relationships)
+                            + prog.head_coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season));
                         let pc_skill =
                             prog.position_coaches[group as usize].map_or(9.0, |c| w.coaches[c].ability().recruiting);
                         // Most of a staff's recruiting time goes to its own state
@@ -4858,7 +4899,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     h.base + f - if h.walk_on && !walk_on { scholarship_given_up(seat.pos, prog) } else { 0.0 }
                 });
                 // Bidding (note 13): a school that wants him near the top of its
-                // board raises its offer to beat the one he holds, within its money.
+                // board raises its offer to beat the one he holds, within its money
+                // and, unless it's buying a blue-chip, the going rate.
                 if let Some(hu) = held_u
                     && hu >= u
                     && rank < 0.3
@@ -4871,7 +4913,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         * 0.6
                         * if reach[j] { 0.35 } else { 0.25 }
                         * super::legacy::college::split_q(w, j, 2);
-                    let raised = (offer * 1.5).min(cap).min(super::ncaa::position_nil_max(seat.pos));
+                    let top = if buying[j] && recruiting_stars(p) >= 4 {
+                        prog.collective.budget * BUY_SHARE
+                    } else {
+                        super::ncaa::position_nil_max(seat.pos)
+                    };
+                    let raised = (offer * 1.5).min(cap).min(top.max(offer));
                     let ru = utility_fit(&pool_fits[k], p, &wants, prog, year, raised, 1.0 - rank) + fx.ties + fit;
                     if ru > hu {
                         offer = raised;
@@ -5430,7 +5477,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     };
                     p.note(format!("The choice was {who}'s more than his own."));
                 }
-                p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee });
+                let flipped = p.cal.commit.is_some_and(|c| c.0 != j);
+                p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped });
                 p.cal.commit = None;
                 // His high school coach gets the credit for sending him up.
                 let (hs, group) = (p.hs, super::coach::Group::of(p.player.position));

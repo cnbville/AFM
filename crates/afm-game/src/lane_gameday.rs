@@ -68,7 +68,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 
 // ------------------------------------------------------------ helpers
 
-fn team_ref(level: CalLevel, t: usize) -> TeamRef {
+pub(crate) fn team_ref(level: CalLevel, t: usize) -> TeamRef {
     match level {
         CalLevel::Nfl => TeamRef::Nfl(t),
         CalLevel::HighSchool => TeamRef::HighSchool(t),
@@ -116,7 +116,7 @@ pub(crate) fn names(w: &World, teams: &[TeamRef]) -> film::Names {
 
 /// Players on the tapes who have left the two rosters since (drafted,
 /// graduated, transferred, cut) keep their names on the film.
-fn add_tape_names(w: &World, m: &mut film::Names, tapes: &[&afm_engine::world::tape::Tape]) {
+pub(crate) fn add_tape_names(w: &World, m: &mut film::Names, tapes: &[&afm_engine::world::tape::Tape]) {
     for t in tapes {
         let ids = t
             .protection
@@ -281,19 +281,11 @@ fn kick_text(m: u32) -> String {
     format!("{h12}:{mi:02} {ap}")
 }
 
-/// Film time for a week (topic 1, people topic 5's time budget): an NFL
-/// head coach about 12 hours of opponent film, a college one the same, a
-/// high school coach who also teaches about 6; a tape takes 3. A short
-/// week has less (proposed, not confirmed).
-fn film_budget(w: &World, game: Date) -> (f64, f64) {
-    let base = match w.seat_team().map(|x| x.0) {
-        Some(CalLevel::HighSchool) => 6.0,
-        _ => 12.0,
-    };
-    let last = w.seat_games().iter().map(|g| g.date).filter(|d| *d < game).max();
-    let days = last.map_or(7, |d| d.days_to(game));
-    let k = (days as f64 / 7.0).clamp(0.5, 1.4);
-    ((base * k * 2.0).round() / 2.0, 3.0)
+/// Film time for a week (lane 9, SK60): one ledger for all your film,
+/// lane 7's weekly hours on the real calendar at the hours you work (game
+/// prep included in a game week); a tape takes 3 of them.
+fn film_budget(w: &World, _game: Date) -> (f64, f64) {
+    (afm_engine::world::scouting::film::time::budget(w) as f64, 3.0)
 }
 
 // ------------------------------------------------------------ the game day screen
@@ -349,7 +341,7 @@ fn hub(w: &World) -> Value {
         w.gameday.studied.iter().any(|s| s.0 == n.date && s.1 == tp.date && [s.2, s.3] == tp.teams)
     };
     let (budget, per) = film_budget(w, n.date);
-    let used = tapes.iter().filter(|tp| studied(tp)).count() as f64 * per;
+    let used = afm_engine::world::scouting::film::time::used(w) as f64;
     let plan = &w.gameday.plan;
     let plan_now = plan.date == Some(n.date);
     let added = |tp: &afm_engine::world::tape::Tape, key: &str| {
@@ -794,10 +786,14 @@ fn study(w: &mut World, a: &Value) -> Reply {
         return Ok(hub(w));
     }
     let (budget, per) = film_budget(w, next.date);
-    let used = w.gameday.studied.iter().filter(|s| s.0 == next.date).count() as f64 * per;
+    let used = afm_engine::world::scouting::film::time::used(w) as f64;
+    if afm_engine::world::scouting::film::time::rested(w) {
+        return Err("You're home resting: no film until you're back.".into());
+    }
     if used + per > budget + 0.01 {
         return Err(format!("Your film time this week is spent: {used:.0} of {budget:.0} hours."));
     }
+    afm_engine::world::scouting::film::time::charge(w, per as f32, None);
     w.gameday.studied.push((next.date, d, h, aw));
     // Only this season's study is kept.
     let cut = w.today.add(-200);
@@ -805,7 +801,7 @@ fn study(w: &mut World, a: &Value) -> Reply {
     Ok(hub(w))
 }
 
-fn hint(w: &mut World, a: &Value) -> Reply {
+pub(crate) fn hint(w: &mut World, a: &Value) -> Reply {
     let (d, h, aw) = tape_key(a)?;
     let key = a.get("key").and_then(Value::as_str).ok_or("Missing key.")?.to_string();
     let add = a.get("add").and_then(Value::as_bool).unwrap_or(true);

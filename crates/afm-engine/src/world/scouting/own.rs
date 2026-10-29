@@ -36,6 +36,9 @@ pub struct Own {
     /// SK12-SK13: your own days out.
     #[serde(default)]
     pub trips: Vec<Trip>,
+    /// Bug 82: your own film hours this week (its Monday, hours spent).
+    #[serde(default)]
+    pub film_week: Option<(Date, f32)>,
     /// SK14: the looks of yours already credited to your eye.
     #[serde(default)]
     pub eye_credited: Vec<u32>,
@@ -762,6 +765,91 @@ pub fn go(w: &mut World, id: u32, kind: TripKind, send: Option<u32>) -> Result<S
     Ok(format!("{who}: {} for {name}, {}.", kind.words().to_lowercase(), d.pretty()))
 }
 
+// --- Bug 82: watching a player's film yourself -------------------------------------------
+
+/// Your own film hours a week (lane 9: SK60, SK61): the real calendar at
+/// the hours you choose to work, game prep included in season. One
+/// ledger for all your film (`film::time`).
+pub fn film_budget(w: &World) -> f32 {
+    super::film::time::budget(w)
+}
+
+fn monday(d: Date) -> Date {
+    super::film::time::monday(d)
+}
+
+/// Your film hours left this week.
+pub fn film_left(w: &World) -> f32 {
+    let used = w.scouting.own.film_week.filter(|x| x.0 == monday(w.today)).map_or(0.0, |x| x.1);
+    (film_budget(w) - used).max(0.0)
+}
+
+/// What watching him takes, and the look it is: a recruit's reel and a
+/// full game, about an hour; a college player's three games, every snap
+/// of his, two and a half; a pro's cut-ups, two.
+pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String> {
+    let i = super::place(w, id).ok_or("No such player.")?;
+    let p = &w.people[i];
+    let f = super::footage::footage(w, i);
+    match p.stage {
+        Stage::HighSchool | Stage::PrepSchool if f.snaps > 0.0 || f.reels => {
+            Ok((Kind::HsFilm, QUICK, "a cut-up of his snaps"))
+        }
+        Stage::HighSchool | Stage::PrepSchool => {
+            Err("There's no film of him yet: he hasn't played a high school game.".into())
+        }
+        Stage::College | Stage::Declared if f.snaps > 0.0 => Ok((Kind::CollegeFilm, QUICK, "a cut-up of his snaps")),
+        Stage::College | Stage::Declared => Err("He hasn't played a college snap: there's nothing to watch.".into()),
+        Stage::Pro
+            if p.pro.as_ref().and_then(|c| c.team.or(c.teams.last().copied())).is_some_and(|t| t < w.nfl.len()) =>
+        {
+            Ok((Kind::ProFilm, QUICK, "a cut-up of his snaps"))
+        }
+        Stage::Pro => Err("He hasn't been with an NFL club: there's no pro tape of him.".into()),
+        _ => Err("There's no film of him.".into()),
+    }
+}
+
+/// A quick cut-up's hours (lane 9, SK53): twenty minutes.
+pub const QUICK: f32 = super::film::session::QUICK_MIN / 60.0;
+
+/// Why you can't watch his film yourself now, if you can't: you watched
+/// him today, a cut-up is open in the film room, you're home resting, or
+/// the week's film hours are spent.
+pub fn film_blocked(w: &World, id: u32) -> Option<String> {
+    let you = me(w)?;
+    let (kind, _, _) = film_cost(w, id).ok()?;
+    let d = w.today;
+    if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
+        return Some("You watched him today already: the next look is another day's tape.".into());
+    }
+    if w.scouting.film.open.is_some() {
+        return Some("Finish the cut-up you have open in the film room first.".into());
+    }
+    super::film::time::can_watch(w, super::film::session::Mode::Quick).err()
+}
+
+/// You watch his film yourself, today, on your own hours (bug 82): "Watch
+/// it quick" in the film room (lane 9, SK53), a cut-up of his snaps for
+/// twenty minutes. The look goes in his file under your name, read by your
+/// own eye, and what your eye caught moves your own read. The full
+/// session, snap by snap, opens from his file in the film room.
+pub fn watch_film(w: &mut World, id: u32) -> Result<String, String> {
+    readers::seat_staff(w).ok_or("Start a career first.")?;
+    film_cost(w, id)?;
+    if let Some(why) = film_blocked(w, id) {
+        return Err(why);
+    }
+    let text = super::film::session::open_player(
+        w,
+        id,
+        super::film::tape::Cut::BestOpponent,
+        super::film::session::Mode::Quick,
+        None,
+    )?;
+    Ok(format!("{text} {:.1} film hours left this week.", film_left(w)))
+}
+
 /// The day's trips: the look goes in the file under the name of who went,
 /// by his own eye. A head coach or GM turning up is news (SK13): the press
 /// and agents report it, so the interest leaks; a man sent in your place
@@ -984,8 +1072,9 @@ pub struct Interview {
 }
 
 /// The rooms open to you with this player now, and their minutes (SK15):
-/// a combine interview (15 minutes, 18 from 2020), a top-30 visit's hour,
-/// an official visit's sit-down.
+/// a combine interview (15 minutes, 18 from 2020), a top-30 visit's hour
+/// (from the pro days to the visits' deadline), an official visit's
+/// sit-down.
 pub fn rooms(w: &World, id: u32) -> Vec<(&'static str, u8)> {
     let mut v = Vec::new();
     let Some(i) = super::place(w, id) else { return v };
@@ -997,8 +1086,10 @@ pub fn rooms(w: &World, id: u32) -> Vec<(&'static str, u8)> {
             if at_combine && listed && p.stage == Stage::Declared {
                 v.push(("Combine interview", if w.year >= 2020 { 18 } else { 15 }));
             }
+            // Top-30 visits run from the pro days to their deadline.
             let visit = super::predraft::seat_list(w, t, super::predraft::LIST_VISIT).contains(&id);
-            if visit && p.stage == Stage::Declared && matches!(w.today.parts().1, 3 | 4) {
+            let open = w.today >= w.dates.pro_days.0 && w.today <= w.dates.top30_deadline;
+            if visit && p.stage == Stage::Declared && open {
                 v.push(("Top-30 visit", 60));
             }
         }
@@ -1998,7 +2089,7 @@ fn spotted(w: &World, h: usize, eye: f64, by: &str) -> Vec<Athlete> {
         }
         let sport = (u(3) * SPORTS.len() as f64) as usize % SPORTS.len();
         let mut rng = Rng::new(key as u32 ^ (key >> 32) as u32);
-        let eth = crate::world::ethnicity::player_ethnicity(school.state, 0.0, &mut rng);
+        let eth = crate::world::ethnicity::player_ethnicity(school.state, 0.0, None, &mut rng);
         let grade = (u(4) * 3.0) as i32; // 0 sophomore .. 2 senior
         let class_of = season + 3 - grade;
         let name = crate::world::names::person_name(eth, season - 15 - grade, &mut rng);

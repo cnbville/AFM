@@ -39,7 +39,7 @@ fn puts_about_a_hundred_players_at_90_plus_and_saves_99_for_a_clear_no_1() {
 #[test]
 fn a_strong_year_shows_more_90s_against_five_seasons_than_against_itself() {
     let mut rng = Rng::new("level-rating-pooled");
-    let mut h = ScaleHistory { group: LevelGroup::College, start: Vec::new(), end: Vec::new() };
+    let mut h = ScaleHistory { group: LevelGroup::College, start: Vec::new(), end: Vec::new(), align: None };
     for _ in 0..SCALE_SEASONS + 2 {
         let typical: Vec<f64> = (0..11_000).map(|_| rng.normal(56.0, 9.0)).collect();
         let a = season_anchors(&typical, Pool::College, 1.0);

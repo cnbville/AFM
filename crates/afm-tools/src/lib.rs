@@ -82,6 +82,29 @@ pub fn memory_text() -> String {
     }
 }
 
+/// A hash of what the world's years produced: every person's season rows,
+/// ratings, stage and school, every alumnus, coach and news line.
+pub fn fingerprint(w: &afm_engine::world::World) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for p in &w.people {
+        p.name.hash(&mut h);
+        format!("{:?}", p.player.history).hash(&mut h);
+        format!("{:?}{:?}{:?}{}", p.stage, p.college, p.player.position, p.hs).hash(&mut h);
+        format!("{:?}", p.player.attributes).hash(&mut h);
+    }
+    for a in &w.alumni {
+        a.name.hash(&mut h);
+    }
+    for c in &w.coaches {
+        format!("{}{:?}", c.name, c.history.len()).hash(&mut h);
+    }
+    for n in &w.news {
+        n.text.hash(&mut h);
+    }
+    h.finish()
+}
+
 pub mod dashboard;
 pub mod raw;
 pub mod stats;

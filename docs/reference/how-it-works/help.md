@@ -1,5 +1,5 @@
 # The Handbook and help: how it works today
-Checked against main at 9706782 (with update 3 lane 1) on 2026-10-29.
+Checked against main at 037fd34 (with update 3 lanes 1, 6, 7 and 9) on 2026-10-29.
 
 The Handbook explains the game's systems in its own pages, with live examples from your save. The Help setting decides how much the game guides you: the guided first week, the first-time notes and the warnings.
 
@@ -9,7 +9,7 @@ The Handbook explains the game's systems in its own pages, with live examples fr
 - Do the live examples show true ratings? No. Every player number is your staff's read, a range (`lane_handbook.rs`, `by_read`, `read_of`, through `reads::overall` and `reads::attributes`). The body page's strips use the level's starters' true forties, but only as an anonymous spread with no names (`lane_handbook.rs`, `field`).
 - What does the "?" in a screen's header do? Opens that screen's page in the side panel (`app/ui/screens/handbook.js`, `hb8Q`; the screen-to-page map is `HB.screens` in `handbook-pages.js`).
 - What are the Help levels? Full, Hints only, Off; Full is the default (`crates/afm-engine/src/world/help.rs`, `Level`).
-- What does each level do? Full: the guided week, first-time notes and warnings. Hints only: notes and warnings, no guided week. Off: none of the three (`lane_handbook.rs`, `week_mail`, `first_notes`, `warnings_on`).
+- What does each level do? Full: the guided week, first-time notes and warnings. Hints only: notes and warnings, no guided week. Off: none of the three (`lane_handbook.rs`, `week_mail`, `first_notes`, `warnings_on`). The warnings are lane 6's lineup notes, which check `warnings_on` before writing (`lane_core/mail.rs`, `lineup_mail`).
 - Where is Help set? On setup's last step and in Settings, Help (`handbook.js`, the `setupPage` and `screens.settings` wrappers; command `l8_help_set`).
 - What does setup offer? Full on the first career on this computer, Hints only after that (`handbook.js`, the `startArgs` wrapper, `prefs.careers`).
 - When does a guided week start? On the first day at a new team, if Help is Full (`lane_handbook.rs`, `after_days`). Turning Full on in Settings within six days of starting a job starts one from that day (`set_level`).

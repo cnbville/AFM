@@ -1144,15 +1144,10 @@ fn probe(g: &mut Game, id: &str) -> Value {
 // ---------- the live examples (H10) ----------
 
 /// Your staff's read of a rating as (low, high), None when not seen.
-fn read_of(w: &World, k: usize, t: TeamRef, a: Attr) -> Option<(f64, f64)> {
-    let p = &w.people[k];
-    let own = views::is_mine(w, t);
-    let eye = if own { views::eye_for(w, t, p.player.position) } else { 10.0 };
-    reads::attributes(&p.player, own, eye, views::reader_key(w)).into_iter().find(|x| x.0 == a).and_then(|x| {
-        match x.1 {
-            Read::Range(lo, hi) => Some((lo as f64, hi as f64)),
-            Read::NotSeen => None,
-        }
+fn read_of(w: &World, k: usize, a: Attr) -> Option<(f64, f64)> {
+    reads::attributes(w, k).into_iter().find(|x| x.0 == a).and_then(|x| match x.1 {
+        Read::Range(lo, hi) => Some((lo as f64, hi as f64)),
+        Read::NotSeen => None,
     })
 }
 
@@ -1162,10 +1157,10 @@ fn mid(r: (f64, f64)) -> f64 {
 
 /// His forty on your staff's read of his speed and acceleration, at his
 /// listed weight or another one.
-fn forty_at(w: &World, k: usize, t: TeamRef, weight: Option<f64>) -> Option<f64> {
+fn forty_at(w: &World, k: usize, weight: Option<f64>) -> Option<f64> {
     let p = &w.people[k];
-    let sp = read_of(w, k, t, Attr::Speed)?;
-    let ac = read_of(w, k, t, Attr::Acceleration)?;
+    let sp = read_of(w, k, Attr::Speed)?;
+    let ac = read_of(w, k, Attr::Acceleration)?;
     let mut d = Drills::of(&p.player);
     d.speed = mid(sp);
     d.accel = mid(ac);
@@ -1188,17 +1183,11 @@ fn link(w: &World, k: usize) -> String {
 
 /// The roster's players with your staff's overall read, best first.
 fn by_read(w: &World, t: TeamRef) -> Vec<(usize, (u8, u8))> {
-    let own = views::is_mine(w, t);
-    let reader = views::reader_key(w);
     let mut v: Vec<(usize, (u8, u8))> = views::roster_people(w, t)
         .into_iter()
-        .filter_map(|k| {
-            let p = &w.people[k];
-            let eye = if own { views::eye_for(w, t, p.player.position) } else { 10.0 };
-            match reads::overall(&p.player, own, eye, reader) {
-                Read::Range(lo, hi) => Some((k, (lo, hi))),
-                Read::NotSeen => None,
-            }
+        .filter_map(|k| match reads::overall(w, k) {
+            Read::Range(lo, hi) => Some((k, (lo, hi))),
+            Read::NotSeen => None,
         })
         .collect();
     v.sort_by_key(|b| std::cmp::Reverse(b.1.0 as u16 + b.1.1 as u16));
@@ -1231,9 +1220,7 @@ fn live_ratings(w: &World, t: TeamRef) -> Option<Value> {
     let &(k, (lo, hi)) = by_read(w, t).first()?;
     let p = &w.people[k];
     let pos = p.player.position;
-    let own = views::is_mine(w, t);
-    let eye = views::eye_for(w, t, pos);
-    let rs = reads::attributes(&p.player, own, eye, views::reader_key(w));
+    let rs = reads::attributes(w, k);
     let mut at = p.player.attributes;
     for (a, r) in &rs {
         if let Read::Range(l, h) = r {
@@ -1288,16 +1275,16 @@ fn live_body(w: &World, t: TeamRef) -> Option<Value> {
     let mut fast: Vec<(usize, f64)> = roster
         .iter()
         .filter(|&&k| !w.people[k].player.position.is_specialist())
-        .filter_map(|&k| forty_at(w, k, t, None).map(|f| (k, f)))
+        .filter_map(|&k| forty_at(w, k, None).map(|f| (k, f)))
         .collect();
     fast.sort_by(|a, b| a.1.total_cmp(&b.1));
     let &(k, f) = fast.first()?;
     let p = &w.people[k];
     let b = body_now(&p.player);
     let wt = b.weight.round();
-    let heavier = forty_at(w, k, t, Some(wt + 15.0))?;
-    let sp = read_of(w, k, t, Attr::Speed)?;
-    let ac = read_of(w, k, t, Attr::Acceleration)?;
+    let heavier = forty_at(w, k, Some(wt + 15.0))?;
+    let sp = read_of(w, k, Attr::Speed)?;
+    let ac = read_of(w, k, Attr::Acceleration)?;
     let rng = |r: (f64, f64)| if r.0 == r.1 { format!("{:.0}", r.0) } else { format!("{:.0}-{:.0}", r.0, r.1) };
     let line = format!("speed {} · acceleration {} · {}, {wt:.0} lb", rng(sp), rng(ac), views::ft_in(b.height));
     let pos = p.player.position;
@@ -1422,14 +1409,9 @@ fn live_development(w: &World, t: TeamRef) -> Option<Value> {
         .or_else(|| by_read(w, t).first().copied())?;
     let (k, (lo, hi)) = young;
     let p = &w.people[k];
-    let eye = views::eye_for(w, t, p.player.position);
-    let o = reads::potential_words(&p.player, eye, views::level_of(w, p), views::reader_key(w), w.year);
+    let o = reads::potential_words(w, k);
     let tier = o["tier"].as_str().unwrap_or("hard to call");
-    let sure = match o["sure"].as_str().unwrap_or("") {
-        "High" => "sure",
-        "Medium" => "fairly sure",
-        _ => "unsure",
-    };
+    let sure = o["sure"].as_str().unwrap_or("unsure");
     let mut lines = vec![format!(
         "{}, {}: your staff reads him at {lo}-{hi} today and says he {}. They are {sure}.",
         link(w, k),

@@ -24,15 +24,13 @@ fn with_college(w: &mut World) {
     for age in 15..=18 {
         w.add_class_aged(age);
     }
-    let progs: Vec<usize> = [Division::FBS, Division::FCS]
-        .iter()
-        .flat_map(|&d| {
-            (0..w.programs.len())
-                .filter(|&p| w.programs[p].division == d && w.programs[p].plays(w.year))
-                .take(20)
-                .collect::<Vec<_>>()
-        })
-        .collect();
+    let tier = |d: Division| -> Vec<usize> {
+        (0..w.programs.len()).filter(|&p| w.programs[p].division == d && w.programs[p].plays(w.year)).take(20).collect()
+    };
+    // FBS and FCS in turn, so a position with fewer players than forty
+    // rosters (22 quarterbacks) still gives each level half of them.
+    let progs: Vec<usize> =
+        tier(Division::FBS).into_iter().zip(tier(Division::FCS)).flat_map(|(a, b)| [a, b]).collect();
     let mut next = std::collections::HashMap::new();
     for i in 0..w.people.len() {
         if w.people[i].stage != Stage::HighSchool {

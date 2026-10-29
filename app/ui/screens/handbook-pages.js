@@ -39,12 +39,12 @@ hbAdd({
   how: [
     ["One scale for every level", "A 60 is a 60 anywhere. A high school star and an NFL starter sit on the same line, so most high schoolers rate far below the pros."],
     ["Position ratings weigh what the spot needs", "His rating at a position mixes the ratings it uses: a quarterback's arm, accuracy and decisions, a corner's speed, coverage and ball skills. Height and weight don't count in it; they count in how well he fits the spot."],
-    ["You see your staff's read, never the number", "Every rating is a range from your staff. Your own players read narrow; other teams' players read wider, and skills nobody has watched show as not seen."],
-    ["The level rating ranks him", "\"81 among 3A juniors\" places him against players his age at his level. It is a label for comparing and changes nothing on the field."],
+    ["You see reads, never the number", "Every rating is a range from your staff, with yours beside it from your own looks. Your own players read narrow; other teams' players read wider. Hover a rating's name for what it does and how it grows, and its range for how it moved since last season."],
+    ["The level rating ranks him", "\"Senior level 89\" or \"FBS level 73\" places your staff's read on his group's scale, pooled over five seasons; hover it to see how many rated above. It is a label for comparing and changes nothing on the field."],
   ],
   lv: {
-    hs: "Ratings grow fastest from 14 to 18. Level ratings compare him with his class in his state and classification. You see your own players every day; other schools' only on film.",
-    college: "Level ratings compare him with his division: FBS, FCS or small college. Recruits arrive with wide ranges that narrow once your coaches work with them.",
+    hs: "Ratings grow fastest from 14 to 18. Level ratings compare him with every high schooler in his class, nationwide. You see your own players every day; other schools' only on film.",
+    college: "Level ratings put every college player on one scale set by FBS seasons; FCS and smaller colleges read a little lower for the competition. Recruits arrive with wide ranges that narrow once your coaches work with them.",
     nfl: "No level rating: a pro is his rating, on the same 1-99 scale. Bodies are mostly done; reads and technique still grow into the late twenties.",
   },
   where: [["Squad", "roster"], ["Player page, Ratings tab", "player"], ["Depth chart", "depth"], ["Compare players", "compare"]],
@@ -71,7 +71,7 @@ hbAdd({
   id: "scouting", group: "The players", title: "Scouting ranges",
   lede: "Your staff never knows a player's true ratings. Every rating you see is a range from the people who watched him: narrow when they know him well, wide when they don't.",
   how: [
-    ["Who watched, and how well", "Each coach and scout has his own eye. A sharp eye narrows the range and puts it nearer the truth; a weak one misses both ways."],
+    ["Who watched, and how well", "Each coach and scout has his own eye, and so do you. A sharp eye narrows the range and puts it nearer the truth; a weak one misses both ways. Your own read sits beside your staff's and comes only from what you caught, on film or in person."],
     ["More looks help, up to a point", "Each look cuts the random part of a read, but part of every misread is the reader's own lean, and more looks from him won't fix it. A second person's look helps more than a tenth look by the same one."],
     ["Tests measure the test", "Lasers and scales are exact for what they measure, so speed is nearly exact once he's timed. Football skills come only from film, practice and games."],
     ["Potential is words, never a number", "Your staff says how far he can go (\"could start in the Big 12\") and how sure they are. Small schools are harder to read: fewer people see them and the competition tells you less."],
@@ -81,7 +81,7 @@ hbAdd({
     college: "Your position coaches and recruiting staff read recruits from film, camps, visits and their high school coaches. Your own players read narrow once your coaches work with them.",
     nfl: "Your scouts and the combine read the draft class; pro scouts read other clubs' players from film. Every club gets the same combine numbers and reads them its own way.",
   },
-  where: [["Player page, Ratings tab", "player"], ["Scouting department", "scouting"], ["Recruiting board", "recruit_board"], ["Draft board", "draftboard"]],
+  where: [["Player page, Ratings tab", "player"], ["Film room", "film"], ["Scouting department", "scouting"], ["Recruiting board", "recruit_board"], ["Draft board", "draftboard"]],
   rel: ["ratings", "development", "recruiting"],
 });
 hbAdd({
@@ -213,7 +213,7 @@ hbAdd({
   how: [
     ["Your guidelines, their calls", "You set the system and how firmly you want it. Your coordinators call the plays and lean toward what you asked; down, distance, score and clock still rule."],
     ["A caller's quality", "A better play caller picks better plays for the moment. He gets no bonus on the field: the play still has to win its battles."],
-    ["Film study", "Your staff breaks down the opponent's snaps. More film and a sharper staff find more habits to go after."],
+    ["Film study", "Your staff breaks down the opponent's snaps, or you study the tape yourself in the film room: three hours a tape from your week's film hours. More film and a sharper eye find more habits to go after."],
     ["Installs take time", "A system your coordinators know well is called better. Switching costs until the staff and the players learn it."],
   ],
   lv: {
@@ -280,7 +280,7 @@ hbAdd({
 for (const [page, list] of Object.entries({
   ratings: ["roster", "player", "compare", "squads", "depth"],
   body: ["faces"],
-  scouting: ["scouting", "scout", "proscout", "myplayers", "finder", "find_insider"],
+  scouting: ["scouting", "scout", "proscout", "myplayers", "finder", "find_insider", "film"],
   recruiting: ["recruiting", "recruit_board", "recruitboard", "recruit_file", "recruit_find", "recruit_race", "visits_desk", "hsside", "colleges_calling", "find_prospects", "find_offers"],
   portal: ["portal_desk", "nil_desk"],
   draft: ["draftboard", "predraft", "warroom", "draftrecord", "draftoutlook"],

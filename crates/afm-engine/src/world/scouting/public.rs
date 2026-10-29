@@ -169,22 +169,27 @@ pub fn desk_grade(w: &World, desk: &Desk, i: usize, week: i32) -> Option<f64> {
     let lean = key_normal(desk.key ^ 0x1EA4, id);
     let noise = key_normal(desk.key ^ 0x0153 ^ (week as u64) << 30, id);
     let mut g = r.score + 3.5 * sd * (0.8 * lean + 0.35 * noise);
+    // Prestige is kept on 0-1 (F3: it was read against 60, so the lean
+    // never fired).
     let big = p
         .college
-        .is_some_and(|c| w.programs[c].division == crate::world::data::Division::FBS && w.programs[c].prestige >= 60.0);
+        .is_some_and(|c| w.programs[c].division == crate::world::data::Division::FBS && w.programs[c].prestige >= 0.6);
     let size = crate::body::combine_size(p.player.position);
     let z_size = clamp((p.player.body.weight - size.2) / size.3.max(1.0), -1.5, 1.5);
+    let f = super::footage::footage(w, i);
     g += match desk.lean {
         Lean::BigPrograms if big => 1.0,
         Lean::Size => 0.8 * z_size,
         Lean::Viral => 0.6 * clamp((p.player.attributes.get(crate::attributes::Attr::Speed) - 75.0) / 8.0, -1.5, 1.5),
-        Lean::Production => 0.6 * clamp(p.last_performance.unwrap_or(0.0), -1.5, 1.5),
+        // Minor bug 28: his production read, not a clamped rating: his
+        // production grade over his last two seasons against an average
+        // starter's 60, a point of lean for each 10 (none without a grade).
+        Lean::Production => 0.6 * f.grade.map_or(0.0, |g| clamp((g - 60.0) / 10.0, -1.5, 1.5)),
         _ => 0.0,
     };
     // The tape's shared leans (SK2, SK4): the desks watch the same games
     // and read the same numbers; by the spring's all-star games and the
     // combine the best have been seen against good players.
-    let f = super::footage::footage(w, i);
     let spring = matches!(w.today.parts().1, 2..=4);
     g += super::footage::scout_tilt(&f, desk.skill as f64, spring, false)
         - super::footage::scout_tilt(&f, 12.0, false, false);

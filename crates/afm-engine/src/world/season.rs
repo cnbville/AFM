@@ -444,8 +444,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 let teach = s.coach.map_or(7.0, |c| coaches[c].teaching(group));
                 style = s.coach.map(|c| coaches[c].style());
                 // Bigger, richer staffs add position coaches beside the head
-                // coach; your own school's are people you can see.
-                let staff = staff_of(p.hs, group).unwrap_or(4.0 + 12.0 * s.resources);
+                // coach; your own school's are people you can see. An AI
+                // school's coordinator on the group's side is a real coach
+                // (C37): half the staff's part.
+                let base = 4.0 + 12.0 * s.resources;
+                let coord = if group == Group::Specialists {
+                    None
+                } else if group.offense() {
+                    s.oc
+                } else {
+                    s.dc
+                };
+                let staff = staff_of(p.hs, group)
+                    .unwrap_or_else(|| coord.map_or(base, |c| 0.5 * coaches[c].teaching(group) + 0.5 * base));
                 (Level::HS, 0.6 * teach + 0.4 * staff, (s.resources - 0.5) * 0.1, 0.012)
             }
             Stage::College => {
@@ -454,9 +465,22 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 p.college_staff.push((year as i32, prog.id, prog.head_coach, prog.position_coaches[group as usize]));
                 let hc = prog.head_coach.map_or(9.0, |c| coaches[c].teaching(group));
                 let coord = if group.offense() { prog.oc } else { prog.dc };
-                let co = coord.map_or(hc, |c| coaches[c].teaching(group));
-                // His position coach teaches him most days (note 5).
-                let pc = prog.position_coaches[group as usize].map_or(co, |c| coaches[c].teaching(group));
+                // The coordinator's share reads how he runs the unit (C60):
+                // his side's teaching and his scheme, the same for every
+                // group; with none, the head coach runs it.
+                let off = group.offense();
+                let unit = coord.or(prog.head_coach).map_or(9.0, |c| super::staff::side_quality(&coaches[c], off));
+                // His position coach teaches him most days (note 5); the
+                // coordinator coaches the group he came up in himself and
+                // shares that room's part, half each (C60).
+                let own = coord.filter(|&c| coaches[c].came_up == group && group != Group::Specialists);
+                let pc_t = prog.position_coaches[group as usize].map(|c| coaches[c].teaching(group));
+                let pc = match (pc_t, own) {
+                    (Some(t), Some(c)) => 0.5 * t + 0.5 * coaches[c].teaching(group),
+                    (Some(t), None) => t,
+                    (None, Some(c)) => coaches[c].teaching(group),
+                    (None, None) => coord.map_or(hc, |c| coaches[c].teaching(group)),
+                };
                 let hs = prog.head_coach.map(|c| coaches[c].style());
                 let cs = coord.map(|c| coaches[c].style());
                 style = match (hs, cs) {
@@ -466,7 +490,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 scheme = Some((prog.installed.offense(), prog.installed.front()));
                 (
                     division_level(prog.division),
-                    0.2 * hc + 0.35 * co + 0.3 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
+                    // C57: position coach 0.4, coordinator 0.25, head coach
+                    // 0.2, facilities 0.15.
+                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
                     (prog.facilities - 0.5) * 0.15,
                     crate::career::PIPELINE.college_trouble.chance,
                 )
@@ -758,7 +784,7 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
             if s.age + 1 != p.player.age || !sets_level_scale(s.level) {
                 continue;
             }
-            if let Some(key) = level_group(s.level, s.age) {
+            if let Some(key) = level_group(s.level, class_age(p, s)) {
                 groups
                     .entry(key)
                     .or_default()
@@ -790,18 +816,20 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
         let i = match w.level_scales.iter().position(|h| h.group == key) {
             Some(i) => i,
             None => {
-                w.level_scales.push(ScaleHistory { group: key, start: Vec::new(), end: Vec::new() });
+                w.level_scales.push(ScaleHistory { group: key, start: Vec::new(), end: Vec::new(), align: None });
                 w.level_scales.len() - 1
             }
         };
         let h = &mut w.level_scales[i];
         h.push(a_start, a_end);
+        h.align = Some(align_end.clone());
         start.insert(key, (pooled_level_scale(&h.start), align_start));
         end.insert(key, (pooled_level_scale(&h.end), align_end));
     }
     w.people.par_iter_mut().for_each(|p| {
         let pos = p.player.position;
         let age_now = p.player.age;
+        let off = p.years_off_class();
         let Some(s) = p.player.history.last_mut() else { return };
         if s.age + 1 != age_now {
             return;
@@ -811,7 +839,9 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
             Level::SmallCollege => 5.0,
             _ => 0.0,
         };
-        let key = level_group(s.level, s.age);
+        // A high schooler is rated against his class, not his age (minor
+        // bug 52: a held-back senior is 18 like no on-time senior).
+        let key = level_group(s.level, if s.level == Level::HS { (s.age as i32 - off).max(0) as u32 } else { s.age });
         let level = s.level;
         let rate = |scales: &Scales, ovr: f64| {
             let g = key.and_then(|k| scales.get(&k));
@@ -821,6 +851,63 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
         s.level_rating = Some(rate(&start, s.overall_start));
         s.level_rating_end = Some(rate(&end, s.overall));
     });
+}
+
+/// A season's age as his class counts it: a high schooler held back a year
+/// is rated with his class (minor bug 52).
+fn class_age(p: &super::Person, s: &crate::player::SeasonRecord) -> u32 {
+    if s.level == Level::HS { (s.age as i32 - p.years_off_class()).max(0) as u32 } else { s.age }
+}
+
+/// His class in a season's words, for the badge: "Senior" for a high
+/// schooler in his last year, "FBS" for a college player (FCS and small
+/// colleges are put on the FBS scale).
+fn level_words(p: &super::Person, s: &crate::player::SeasonRecord) -> &'static str {
+    match s.level {
+        Level::HS => match class_age(p, s) {
+            ..=14 => "Freshman",
+            15 => "Sophomore",
+            16 => "Junior",
+            _ => "Senior",
+        },
+        _ => "FBS",
+    }
+}
+
+/// The level badge from a read of his overall (minor bugs 49-52): the read
+/// placed on the scale of the group his season `k` rated him in, the way
+/// the true ratings are placed (his position aligned, a small school's
+/// discount), and the words of that season ("Senior level 89", "FBS level
+/// 73"). None for a pro or a group with no scale yet.
+pub fn level_from_read(w: &World, i: usize, k: usize, centre: f64) -> Option<(u8, &'static str)> {
+    use crate::level_rating::{level_group, level_rating, pooled_level_scale};
+    let p = w.people.get(i)?;
+    let s = p.player.history.get(k)?;
+    if s.level == Level::NFL {
+        return None;
+    }
+    let key = level_group(s.level, class_age(p, s))?;
+    let h = w.level_scales.iter().find(|h| h.group == key)?;
+    let scale = pooled_level_scale(&h.end);
+    if scale.points.is_empty() {
+        return None;
+    }
+    let discount = match s.level {
+        Level::FCS => 1.0,
+        Level::SmallCollege => 5.0,
+        _ => 0.0,
+    };
+    let x = h.align.as_ref().map_or(centre - discount, |a| a.align(p.player.position, centre - discount));
+    Some((level_rating(x, s.level, Some(&scale)), level_words(p, s)))
+}
+
+/// The pool a season's badge is read against, for its marks.
+pub fn level_pool(level: Level) -> Option<crate::level_rating::Pool> {
+    match level {
+        Level::NFL => None,
+        Level::HS => Some(crate::level_rating::Pool::HS),
+        _ => Some(crate::level_rating::Pool::College),
+    }
 }
 
 /// About the snaps of a full college season as a starter on one side of the

@@ -643,7 +643,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
     let family = super::background::generate_family(&bg, Some(structure), &mut rng);
     super::background::apply_background(&mut player, &mut bg, &family, &mut rng);
     super::people::sync_new(&mut player, &bg, &family);
-    let ethnicity = super::ethnicity::player_ethnicity(state, z, &mut rng);
+    let ethnicity = super::ethnicity::player_ethnicity(state, z, Some(pos), &mut rng);
     let year = w.year;
     // His college: an FBS program by its prestige, a few from below.
     let colleges: Vec<(usize, f64)> = w
@@ -1718,8 +1718,24 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
             Some((r, [sa, sb]))
         })
         .collect();
-    for (r, sides) in results.into_iter().flatten() {
+    for (&(h, a), x) in pairs.iter().zip(results) {
+        let Some((r, sides)) = x else { continue };
         games::record_preseason(w, &r, &sides);
+        if w.logging() {
+            let f = games::Fixture {
+                home: h,
+                away: a,
+                at: crate::calendar::Moment::at(d, 19, 0),
+                neutral: false,
+                loud: -0.25,
+                seed: 0,
+                playoff: false,
+            };
+            let mut head = serde_json::Map::new();
+            head.insert("week".into(), (week + 1).into());
+            head.insert("kind".into(), "preseason".into());
+            games::log_game(w, head, &f, &r, &sides);
+        }
     }
     w.log.nfl_preseason_games += pairs.len() as u32;
 }
