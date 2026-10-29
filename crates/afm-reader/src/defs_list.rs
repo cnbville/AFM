@@ -1043,7 +1043,7 @@ pub const RULES: &[Rule] = &[
         areas: "T11 G2",
         title: "A game's score matches its box score",
         checked: "SELECT COUNT(*) FROM log_games__box",
-        failures: "SELECT 'game', g.stream || ' ' || g.season || ' #' || g.id, g.season,
+        failures: "SELECT 'game', g.stream || ' ' || g.date || ' ' || g.home || '-' || g.away, g.season,
                    'score ' || json_extract(g.score, '$[' || b._i || ']') || ', box ' || b.points
                    FROM log_games__box b JOIN log_games g ON g._row = b._parent
                    WHERE b.points IS NOT NULL AND json_extract(g.score, '$[' || b._i || ']') != b.points",
@@ -1132,8 +1132,8 @@ pub const OUTLIERS: &[Outlier] = &[
         id: "game_turnovers",
         page: "games",
         title: "Turnovers in one game",
-        sql: "SELECT 'game', g.stream || ' ' || g.season || ' #' || g.id, g.season, b.turnovers,
-              g.stream || ' ' || g.season || ' game ' || g.id || ': ' || b.turnovers || ' turnovers'
+        sql: "SELECT 'game', g.stream || ' ' || g.date || ' ' || g.home || '-' || g.away, g.season, b.turnovers,
+              g.stream || ' ' || g.date || ' ' || g.home || '-' || g.away || ': ' || b.turnovers || ' turnovers'
               FROM log_games__box b JOIN log_games g ON g._row = b._parent",
         above: 0.999,
         low: false,
@@ -1143,8 +1143,8 @@ pub const OUTLIERS: &[Outlier] = &[
         id: "game_margin",
         page: "games",
         title: "Final margin",
-        sql: "SELECT 'game', stream || ' ' || season || ' #' || id, season, ABS(home_pts - away_pts),
-              stream || ' ' || season || ' game ' || id || ': ' || home_pts || '-' || away_pts FROM log_games WHERE home_pts IS NOT NULL",
+        sql: "SELECT 'game', stream || ' ' || date || ' ' || home || '-' || away, season, ABS(home_pts - away_pts),
+              stream || ' ' || date || ' ' || home || '-' || away || ': ' || home_pts || '-' || away_pts FROM log_games WHERE home_pts IS NOT NULL",
         above: 0.999,
         low: false,
         needs: G,

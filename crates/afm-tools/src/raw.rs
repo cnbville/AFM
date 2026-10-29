@@ -58,7 +58,7 @@ fn team_stats(t: &afm_engine::game::stats::TeamStats) -> Value {
         "rush_yards": r1(t.rush_yards), "first_downs": t.first_downs, "third_att": t.third_att,
         "third_conv": t.third_conv, "fourth_att": t.fourth_att, "fourth_conv": t.fourth_conv,
         "penalties": t.penalties, "penalty_yds": r1(t.penalty_yds), "turnovers": t.turnovers,
-        "top": r1(t.time_of_possession), "sacks": t.sacks, "rz_trips": t.red_zone_trips, "rz_tds": t.red_zone_tds,
+        "top": r1(t.time_of_possession), "clock_top": r1(t.clock_possession), "sacks": t.sacks, "rz_trips": t.red_zone_trips, "rz_tds": t.red_zone_tds,
         "epa": r2(t.epa), "successes": t.successes, "explosive": t.explosive, "dropbacks": t.dropbacks,
         "pressures": t.pressures, "drives": t.drives, "start_sum": r1(t.start_sum), "punts": t.punts,
         "fg_att": t.fg_att, "fg_made": t.fg_made, "att": t.att, "cmp": t.cmp, "carries": t.carries,
@@ -206,7 +206,9 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "score": g.score, "ot": g.overtime, "kr": [[g.kr[0].0, r1(g.kr[0].1)], [g.kr[1].0, r1(g.kr[1].1)]],
             "pr": [[g.pr[0].0, r1(g.pr[0].1)], [g.pr[1].0, r1(g.pr[1].1)]],
             "stats": [team_stats(&g.stats[0]), team_stats(&g.stats[1])],
-            "tags": g.tags, "loud": g.loud, "emergency_snaps": g.emergency_snaps
+            "tags": g.tags, "loud": g.loud, "emergency_snaps": g.emergency_snaps,
+            "xp": g.xp, "two_point": g.two_point, "punt_yds": [[g.punt_yds[0].0, r1(g.punt_yds[0].1)], [g.punt_yds[1].0, r1(g.punt_yds[1].1)]],
+            "cross": g.cross, "kind": g.kind, "date": g.date, "week": g.week, "neutral": g.neutral, "quarters": g.quarters
         }));
     }
     counts.push(("games".into(), f.n));
@@ -219,6 +221,8 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "score": g.score, "ot": g.overtime, "kr": [[g.kr[0].0, r1(g.kr[0].1)], [g.kr[1].0, r1(g.kr[1].1)]],
             "pr": [[g.pr[0].0, r1(g.pr[0].1)], [g.pr[1].0, r1(g.pr[1].1)]],
             "stats": [team_stats(&g.stats[0]), team_stats(&g.stats[1])],
+            "xp": g.xp, "two_point": g.two_point, "punt_yds": [[g.punt_yds[0].0, r1(g.punt_yds[0].1)], [g.punt_yds[1].0, r1(g.punt_yds[1].1)]],
+            "quarters": g.quarters
         }));
     }
     counts.push(("nfl games".into(), f.n));
@@ -238,6 +242,8 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "rec_yds": s.rec_yds.round(), "rec_td": s.rec_td, "tackles": s.tackles, "tfl": r1(s.tfl as f64),
             "sacks": r1(s.sacks as f64), "ints": s.ints, "pbus": s.pbus, "pressures": s.pressures, "kr": s.kr,
             "kr_yds": s.kr_yds.round(), "fg_made": s.fg_made, "fg_att": s.fg_att,
+            "fg_att_band": s.fg_att_band, "fg_made_band": s.fg_made_band, "xp_att": s.xp_att, "xp_made": s.xp_made,
+            "penalties": s.penalties, "penalty_yds": s.penalty_yds.round(),
             "grade": if s.graded > 0 { r1(s.grade_sum as f64 / s.graded as f64) } else { 0.0 }
         }));
     }
@@ -249,6 +255,13 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     for k in keys {
         let v = log.situations[k];
         f.put(json!({"year": k.0, "div": k.1.name(), "key": k.2, "v": v.iter().map(|x| r2(*x)).collect::<Vec<_>>()}));
+    }
+    // The NFL's and high school's, the same keys (world reader R1).
+    let mut keys: Vec<&(i32, String, String)> = log.level_situations.keys().collect();
+    keys.sort();
+    for k in keys {
+        let v = log.level_situations[k];
+        f.put(json!({"year": k.0, "div": k.1, "key": k.2, "v": v.iter().map(|x| r2(*x)).collect::<Vec<_>>()}));
     }
     counts.push(("situation rows".into(), f.n));
     let mut f = Lines::new(dir, "team_situations.jsonl");
