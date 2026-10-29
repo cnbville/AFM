@@ -37,18 +37,25 @@ jobs:
     if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.changed.outputs.run == 'yes') }}
     strategy:
       fail-fast: false
+      # Each part builds its libraries with the same packages its tests pick,
+      # so the test step reuses them (afm-tools turns on the engine's debug
+      # feature only when it is picked).
       matrix:
         include:
           # The unit tests (the world log's and the find and logo screens'
           # included) and the doc tests: about 17 minutes of tests.
           - part: units
+            packages: --workspace
             run: cargo test --workspace --lib --bins && cargo test --workspace --doc
-          # The game's screen tests, each on its own small world: about 50 minutes.
+          # The game's screen tests, each on its own small world: about 50
+          # minutes, on the engine as the game builds it.
           - part: screens
+            packages: -p afm-game
             run: cargo test -p afm-game --test '*'
           # Every other integration test: the tools' 3-year world (about 45
           # minutes), the national class and the match engine checks.
           - part: worlds
+            packages: --workspace --exclude afm-game
             run: cargo test --workspace --exclude afm-game --test '*'
     name: test (${{ matrix.part }})
     runs-on: ubuntu-latest
@@ -63,5 +70,5 @@ jobs:
           save-if: false
       # The engine lib and its unit-test binary each take about 8 GB to compile.
       # Building the libraries first keeps the two from compiling at once.
-      - run: cargo build --workspace --lib --profile test
+      - run: cargo build ${{ matrix.packages }} --lib --profile test
       - run: ${{ matrix.run }}

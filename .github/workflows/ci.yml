@@ -41,7 +41,7 @@ jobs:
           cargo test --workspace --lib --test national_class --test match_engine --
           --skip tests::world_log::
           --skip lane_find::tests::
-          --skip lane_logos::tests::
+          --skip lane_logos::tests::your_own_logo_wins_and_stays_with_the_save
       - run: cargo test --workspace --doc
   # The desktop app (app/src-tauri, outside the workspace) is built on the Mac
   # only on main (mac-app.yml); this checks that it still compiles against the
