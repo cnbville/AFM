@@ -1,0 +1,67 @@
+name: Full tests
+# Every test, the ones that build worlds too: about two hours of tests, shared
+# by three machines so a run takes about an hour. Pull requests run the quick
+# check in ci.yml instead (Cain 2026-10-29: merge on a quick check, one
+# finishing test). This runs:
+# - each night on main, when main has changed since its last green run;
+# - by hand on any branch (Actions, Full tests, Run workflow), for a lane
+#   that wants every test before it merges;
+# - once on main before the world rebuild (lane 12), which waits for green.
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: full-tests-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  # A nightly run is skipped when its commit already passed.
+  changed:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow full-tests.yml --branch main \
+            --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+          if [ "$last" = "$GITHUB_SHA" ]; then echo "run=no" >> "$GITHUB_OUTPUT"; else echo "run=yes" >> "$GITHUB_OUTPUT"; fi
+  test:
+    needs: changed
+    if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.changed.outputs.run == 'yes') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The unit tests (the world log's and the find and logo screens'
+          # included) and the doc tests: about 17 minutes of tests.
+          - part: units
+            run: cargo test --workspace --lib --bins && cargo test --workspace --doc
+          # The game's screen tests, each on its own small world: about 50 minutes.
+          - part: screens
+            run: cargo test -p afm-game --test '*'
+          # Every other integration test: the tools' 3-year world (about 45
+          # minutes), the national class and the match engine checks.
+          - part: worlds
+            run: cargo test --workspace --exclude afm-game --test '*'
+    name: test (${{ matrix.part }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # Reads the cache ci.yml saves on main.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+          save-if: false
+      # The engine lib and its unit-test binary each take about 8 GB to compile.
+      # Building the libraries first keeps the two from compiling at once.
+      - run: cargo build --workspace --lib --profile test
+      - run: ${{ matrix.run }}
