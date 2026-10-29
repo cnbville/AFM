@@ -126,7 +126,7 @@ Every engine game's plays summed by key for the season (`world/game_log.rs`, `pl
 
 ### What the games cost
 
-COSTS
+Being measured again on this format (the first, JSON-lines version wrote 466 MB a season with high school on the engine).
 
 ## What it does not keep yet
 
