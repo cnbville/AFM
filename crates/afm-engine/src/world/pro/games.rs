@@ -431,14 +431,12 @@ pub(crate) fn log_game(
     head.insert("neutral".into(), f.neutral.into());
     head.insert("indoor".into(), v.indoor.into());
     head.insert("conditions".into(), serde_json::json!(v.cond));
-    let row = crate::world::log_games::game_row(head, r, Some([&sides[0].team, &sides[1].team]));
-    let plays = crate::world::log_games::plays_json(&r.stats);
+    let row = crate::world::wlog::games::game_row(head, r, Some([&sides[0].team, &sides[1].team]));
+    let plays = crate::world::wlog::games::plays(&r.stats);
     let situ = crate::world::game_log::game_situations(&r.stats);
     let Some(l) = w.wlog.as_mut() else { return };
     l.add_situations(season, "nfl", "NFL", [f.home, f.away], situ);
-    let id = l.next_id(season, "nfl");
-    l.line(season, "games-nfl", crate::world::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
-    l.line(season, "plays-nfl", crate::world::log_games::plays_line(id, &plays));
+    l.game("games-nfl", "plays-nfl", &row, Some(plays));
 }
 
 /// Your NFL game today as the day will play it (section 9).

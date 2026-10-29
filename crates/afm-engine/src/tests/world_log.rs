@@ -1,148 +1,174 @@
-//! The world reader's game log (lane R1): logging only watches. A world
-//! built with the log on stays the same as one with it off, and the log
-//! holds every game at every level.
+//! The world log (world reader lane R2) only watches: a world with the log
+//! on plays exactly as one with it off, every person on every day, and the
+//! log reads back whole, through a save and a reopen.
 
-use std::collections::BTreeMap;
-use std::hash::{Hash, Hasher};
-use std::io::BufRead;
+use crate::world::wlog::{WorldLog, fp, read};
+use crate::world::{SPIN_UP_YEARS, World, WorldOptions};
 
-use crate::world::{World, WorldOptions};
-
-/// What a day leaves in the world: every person, program and coach, the
-/// day and the year's counters.
-fn day_print(w: &World) -> u64 {
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    w.today.hash(&mut h);
-    for p in &w.people {
-        (p.player.id, p.player.overall().to_bits(), p.player.age, p.college, p.hs).hash(&mut h);
-        format!("{:?}{:?}", p.stage, p.player.position).hash(&mut h);
-    }
-    for p in &w.programs {
-        (p.prestige.to_bits(), p.head_coach, p.roster.len()).hash(&mut h);
-    }
-    for c in &w.coaches {
-        (c.wins, c.losses).hash(&mut h);
-    }
-    format!("{:?}", w.log).hash(&mut h);
-    w.rng.clone().next().to_bits().hash(&mut h);
-    h.finish()
+/// Every person's print, and the world's other stores and random stream.
+fn prints(w: &World) -> (Vec<u64>, [u64; 6]) {
+    (
+        w.people.iter().map(fp::of).collect(),
+        [fp::of(&w.rng), fp::of(&w.coaches), fp::of(&w.programs), fp::of(&w.clubs), fp::of(&w.alumni), fp::of(&w.news)],
+    )
 }
 
-/// Everything the world's years produced (`memory_check`'s fingerprint).
-fn full_print(w: &World) -> u64 {
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    for p in &w.people {
-        p.name.hash(&mut h);
-        format!("{:?}{:?}{:?}{:?}", p.player.history, p.stage, p.college, p.player.attributes).hash(&mut h);
-    }
-    for a in &w.alumni {
-        a.name.hash(&mut h);
-    }
-    for c in &w.coaches {
-        format!("{}{:?}", c.name, c.history.len()).hash(&mut h);
-    }
-    for n in &w.news {
-        n.text.hash(&mut h);
-    }
-    format!("{:?}", w.log_history).hash(&mut h);
-    h.finish()
-}
-
-fn rows(path: &std::path::Path) -> Vec<serde_json::Value> {
-    let f = std::fs::File::open(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-    let r = std::io::BufReader::new(zstd::stream::read::Decoder::new(f).unwrap());
-    r.lines().map(|l| serde_json::from_str(&l.unwrap()).unwrap()).collect()
+fn count(dir: &std::path::Path, kind: &str) -> u64 {
+    read::kind(dir, kind).unwrap().iter().map(|s| read::each_json(&s.path, |_| {}).unwrap()).sum()
 }
 
 #[test]
-fn the_game_log_only_watches_and_keeps_every_game() {
+fn the_world_log_only_watches_and_reads_back() {
+    let opts = WorldOptions { scale: 0.002, history_years: 2, ..Default::default() };
     let dir = std::env::temp_dir().join(format!("afm-world-log-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    let opts = WorldOptions {
-        seed: 21,
-        scale: 0.05,
-        history_years: 1,
-        engine_from: Some(2025),
-        hs_engine_years: Some(1),
-        ..Default::default()
+    // One world through its spin-up, then two copies of it read back the
+    // way the game opens a world: one plays with the log, one without.
+    let mut w = World::empty(opts.clone());
+    for age in [17, 16, 15] {
+        w.add_class_aged(age);
+    }
+    for _ in 0..SPIN_UP_YEARS {
+        w.advance_year();
+    }
+    w.start_recording();
+    let file = dir.with_extension("afmworld");
+    crate::save::write_world(&w, &file, "test", "", None).unwrap();
+    drop(w);
+    let open = || {
+        let mut w = crate::save::read_world(&file).unwrap();
+        w.after_load();
+        w
     };
-    // The history plays its year day by day (`clock::advance_year`), every
-    // game on the engine, the same path as a save's days.
-    let off = World::new(opts.clone());
-    let mut on = World::new(WorldOptions { log_dir: Some(dir.clone()), ..opts });
-    assert_eq!(full_print(&off), full_print(&on), "the history differs with the log on");
-    assert_eq!(day_print(&off), day_print(&on), "the last day differs with the log on");
-    let season = 2025;
-    let played = off
-        .college_prev
-        .iter()
-        .chain(off.college.iter())
-        .filter(|c| c.year == season)
-        .flat_map(|c| c.games.iter())
-        .filter(|g| g.played.is_some_and(|p| !p.cancelled))
-        .count();
-    let bytes = on.finish_log().expect("a log").expect("the log closes");
-    assert!(bytes > 0);
+    let (mut a, mut b) = (open(), open());
+    let _ = std::fs::remove_file(&file);
+    b.attach_log(WorldLog::create(&dir, &opts, "test", "").unwrap());
+    let end = a.year + opts.history_years as i32;
+    let mut days = 0;
+    while a.year < end {
+        a.advance_day();
+        b.advance_day();
+        days += 1;
+        let (pa, sa) = prints(&a);
+        let (pb, sb) = prints(&b);
+        if let Some(k) = (0..pa.len().max(pb.len())).find(|&k| pa.get(k) != pb.get(k)) {
+            panic!("{}: person {k} ({}) differs with the log on", a.today, a.people[k].name);
+        }
+        assert_eq!(sa, sb, "{}: a store differs with the log on", a.today);
+    }
+    assert!(days > 700);
+    // Every field a person has is in his yearly row or his `people` row.
+    let missing = crate::world::wlog::rows::missing_fields(&b.people[0]);
+    assert!(missing.is_empty(), "not in the log: {missing:?}");
+    // A save keeps the log as it stood; the live log goes on after it.
+    let mut log = b.detach_log().unwrap();
+    let saved = dir.with_extension("saved");
+    log.save_to(&saved).unwrap();
+    log.close().unwrap();
+    for kind in [
+        "people",
+        "players",
+        "growth",
+        "coaches",
+        "programs",
+        "schools",
+        "clubs",
+        "exits",
+        "events",
+        "news",
+        "snapshots",
+        "whys",
+        "world",
+        "games-college",
+        "plays-college",
+        "games-nfl",
+        "plays-nfl",
+        "games-other",
+        "plays-other",
+        "games-hs",
+        "situations",
+        "team-situations",
+    ] {
+        let n = count(&saved, kind);
+        assert!(n > 0, "no {kind} records");
+        assert_eq!(n, count(&dir, kind), "{kind} differs in the save");
+    }
+    games(&saved, opts.history_years);
+    // One player row per person at each book, and a growth row per step.
+    let rows = count(&saved, "players");
+    assert!(rows as usize >= b.people.len(), "{rows} rows for {} people", b.people.len());
+    // Typed reading: the world rows carry the fingerprints.
+    let mut years = Vec::new();
+    for s in read::kind(&saved, "world").unwrap() {
+        read::each_json(&s.path, |v| years.push(v["season"].as_i64().unwrap())).unwrap();
+    }
+    assert_eq!(years.len(), opts.history_years as usize);
+    // Reopened for a career: new segments follow the save's.
+    let more = WorldLog::resume(&saved, "test", &b.today.to_string(), None).unwrap();
+    b.attach_log(more);
+    for _ in 0..3 {
+        b.advance_day();
+    }
+    b.detach_log().unwrap().close().unwrap();
+    assert_eq!(read::meta(&saved).unwrap().sessions.len(), 2);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&saved);
+}
 
-    let meta: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join("meta.json")).unwrap()).unwrap();
-    assert_eq!(meta["format"], 1);
-    assert_eq!(meta["bytes"].as_u64(), Some(bytes));
-    let at = |s: &str| dir.join(season.to_string()).join(format!("{s}.jsonl.zst"));
-    // College: every game played that season, each with its snaps.
-    let games = rows(&at("games-college"));
-    let plays = rows(&at("plays-college"));
-    assert_eq!(games.len(), played, "college games logged against played");
-    let engine: Vec<&serde_json::Value> = games.iter().filter(|g| g.get("standin").is_none()).collect();
-    assert_eq!(engine.len(), plays.len(), "every engine game has its snaps");
-    for (k, g) in games.iter().enumerate() {
-        assert_eq!(g["id"].as_u64(), Some(k as u64), "ids run in order");
+fn all(dir: &std::path::Path, kind: &str) -> Vec<serde_json::Value> {
+    let mut out = Vec::new();
+    for s in read::kind(dir, kind).unwrap() {
+        read::each_json(&s.path, |v| out.push(v)).unwrap();
     }
-    let kinds: BTreeMap<String, usize> = games.iter().fold(BTreeMap::new(), |mut m, g| {
-        *m.entry(g["kind"].as_str().unwrap_or("?").to_string()).or_default() += 1;
-        m
-    });
-    assert!(kinds.contains_key("regular") && kinds.len() >= 3, "{kinds:?}");
-    let g = engine[0];
-    for k in ["date", "week", "teams", "score", "quarters", "box", "players", "drives", "scoring", "conditions"] {
-        assert!(g.get(k).is_some(), "a college game row lacks {k}: {g}");
+    out
+}
+
+/// The game log (lane R1): every game with its facts, box, lines and
+/// drives, every engine game's snaps, and the season's situation totals.
+fn games(dir: &std::path::Path, years: u32) {
+    let college = all(dir, "games-college");
+    let engine: Vec<&serde_json::Value> = college.iter().filter(|g| g.get("standin").is_none()).collect();
+    assert!(engine.len() > 100, "{} college engine games", engine.len());
+    for k in ["level", "season", "date", "week", "kind", "teams", "score", "quarters", "box", "players", "drives"] {
+        assert!(engine[0].get(k).is_some(), "a college game row lacks {k}: {}", engine[0]);
     }
-    let trips: u64 =
-        engine.iter().flat_map(|g| g["box"].as_array().unwrap()).filter_map(|b| b["red_zone_trips"].as_u64()).sum();
-    let tds: u64 =
-        engine.iter().flat_map(|g| g["box"].as_array().unwrap()).filter_map(|b| b["red_zone_tds"].as_u64()).sum();
-    let per = trips as f64 / (2.0 * engine.len() as f64);
-    assert!((2.0..6.5).contains(&per) && tds < trips, "{per:.2} red zone trips a team game, {tds} of {trips} TDs");
-    let held: f64 = engine
-        .iter()
-        .flat_map(|g| g["box"].as_array().unwrap())
-        .map(|b| b["clock_possession"].as_f64().unwrap_or(0.0))
-        .sum::<f64>()
-        / engine.len() as f64;
+    assert!(college.iter().any(|g| g["kind"] == "bowl"), "no bowl games");
+    let boxes = || engine.iter().flat_map(|g| g["box"].as_array().unwrap());
+    let trips: f64 = boxes().filter_map(|b| b["red_zone_trips"].as_f64()).sum();
+    let tds: f64 = boxes().filter_map(|b| b["red_zone_tds"].as_f64()).sum();
+    assert!(trips > engine.len() as f64 && tds < trips, "{trips} red zone trips, {tds} TDs in {} games", engine.len());
+    let held: f64 = boxes().filter_map(|b| b["clock_possession"].as_f64()).sum::<f64>() / engine.len() as f64;
     assert!((3300.0..3800.0).contains(&held), "{held:.0} clock seconds a game");
+    // Each engine game's snaps, named like its row.
+    let plays = all(dir, "plays-college");
+    assert_eq!(plays.len(), engine.len(), "every college engine game has its snaps");
     let p = &plays[0]["plays"][5];
     for k in ["n", "quarter", "clock", "kind", "wp_before", "wp_after", "ep_before", "ep_after", "on_field"] {
-        assert!(p.get(k).is_some(), "a play lacks {k}: {p}");
+        assert!(p.get(k).is_some(), "a snap lacks {k}: {p}");
     }
-    // The NFL: preseason, regular season and playoffs, with snaps.
-    let nfl = rows(&at("games-nfl"));
-    let nfl_kinds: BTreeMap<String, usize> = nfl.iter().fold(BTreeMap::new(), |mut m, g| {
-        *m.entry(g["kind"].as_str().unwrap_or("?").to_string()).or_default() += 1;
-        m
-    });
-    assert_eq!(nfl_kinds.get("super bowl"), Some(&1), "{nfl_kinds:?}");
-    assert!(nfl_kinds.contains_key("preseason") && nfl_kinds.get("regular") >= Some(&250), "{nfl_kinds:?}");
-    assert_eq!(rows(&at("plays-nfl")).len(), nfl.len());
-    // High school: every game, engine games with their boxes and lines.
-    let hs = rows(&at("games-hs"));
-    let hs_engine = hs.iter().filter(|g| g.get("standin").is_none()).count();
-    assert!(hs_engine > 1000 && hs.iter().all(|g| g["state"].is_string()), "{hs_engine} of {}", hs.len());
-    // Situation rows for every level.
-    let situ = rows(&at("situations"));
-    for level in ["college", "nfl", "hs"] {
-        assert!(situ.iter().any(|r| r["level"] == level), "no {level} situation rows");
+    assert!(engine.iter().any(|g| g["date"] == plays[0]["date"] && g["teams"] == plays[0]["teams"]));
+    // The NFL from preseason to the Super Bowl, each game with its snaps.
+    let nfl = all(dir, "games-nfl");
+    let kind = |k: &str| nfl.iter().filter(|g| g["kind"] == k).count();
+    assert_eq!(kind("super bowl"), years as usize);
+    assert!(kind("preseason") > 0 && kind("wild card") > 0 && kind("regular") >= 250 * years as usize);
+    assert_eq!(all(dir, "plays-nfl").len(), nfl.len());
+    // High school: engine games with their boxes and lines, by state.
+    let hs = all(dir, "games-hs");
+    assert!(hs.iter().any(|g| g.get("standin").is_none() && g.get("players").is_some()));
+    assert!(hs.iter().all(|g| g["state"].is_string()));
+    // Situation totals for every level, high school by state.
+    let situ = all(dir, "situations");
+    for level in ["college", "nfl", "other", "hs"] {
+        assert!(situ.iter().any(|r| r["level"] == level), "no {level} situation totals");
     }
-    for key in ["run gap|", "real pass rate|", "garbage|", "backfield|", "kick result|"] {
-        assert!(situ.iter().any(|r| r["key"].as_str().is_some_and(|k| k.starts_with(key))), "no {key} keys");
+    let keys: Vec<&str> = situ.iter().flat_map(|r| r["keys"].as_object().unwrap().keys().map(String::as_str)).collect();
+    for key in ["run gap|", "real pass rate|", "garbage|", "backfield|", "kick result|", "call|"] {
+        assert!(keys.iter().any(|k| k.starts_with(key)), "no {key} keys");
     }
-    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        situ.iter()
+            .filter(|r| r["level"] == "hs")
+            .all(|r| r["group"] == "all" || r["group"].as_str().unwrap().len() == 2)
+    );
+    assert!(all(dir, "team-situations").iter().all(|r| r["level"] != "hs"));
 }

@@ -37,7 +37,6 @@ pub mod hs_playoffs;
 pub mod hs_year;
 pub mod legacy;
 pub mod live_seat;
-pub mod log_games;
 pub mod looks;
 pub mod names;
 pub mod ncaa;
@@ -125,11 +124,6 @@ pub struct WorldOptions {
     /// choice 1), to measure one against the other.
     #[serde(default)]
     pub yearly_growth: bool,
-    /// The world log's folder (world reader, `wlog.rs`): every recorded
-    /// season's games, plays and situations are written there as they
-    /// happen. Not saved with the world.
-    #[serde(skip)]
-    pub log_dir: Option<std::path::PathBuf>,
 }
 
 impl Default for WorldOptions {
@@ -145,7 +139,6 @@ impl Default for WorldOptions {
             hs_engine_years: Some(12),
             keep_game_log: false,
             yearly_growth: false,
-            log_dir: None,
         }
     }
 }
@@ -670,8 +663,12 @@ pub struct World {
     pub high_schools: Vec<HighSchool>,
     pub programs: Vec<Program>,
     pub coaches: Vec<Coach>,
+    /// People, alumni and news are their own parts in a save (`save.rs`).
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub people: Vec<Person>,
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub alumni: Vec<Alumnus>,
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub news: Vec<NewsItem>,
     /// Star counts per signing class (index = stars), for calibration.
     pub signing_classes: Vec<(i32, [u32; 6])>,
@@ -704,8 +701,8 @@ pub struct World {
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
     pub game_log: game_log::GameLog,
-    /// The world log on disk (world reader), when one is open: see
-    /// `WorldOptions::log_dir` and `World::open_log`.
+    /// The world log (world reader lane R2): on disk, never saved in the
+    /// world file. None unless a build or the game attaches one.
     #[serde(skip)]
     pub(crate) wlog: Option<Box<wlog::WorldLog>>,
     /// The career stats record, record books and Hall of Fame (section 3,
@@ -1031,8 +1028,21 @@ impl World {
 
     /// `new_watched`, where `each` says whether to go on: false stops the
     /// build after that season and gives nothing (the game's Stop button).
-    pub fn new_stoppable(options: WorldOptions, mut each: impl FnMut(&World, f64) -> bool) -> Option<World> {
+    pub fn new_stoppable(options: WorldOptions, each: impl FnMut(&World, f64) -> bool) -> Option<World> {
+        World::new_logged(options, None, each)
+    }
+
+    /// `new_stoppable`, writing the world log into `log` as the history is
+    /// played (world reader lane R2). The log stays attached to the world.
+    pub fn new_logged(
+        options: WorldOptions,
+        log: Option<wlog::WorldLog>,
+        mut each: impl FnMut(&World, f64) -> bool,
+    ) -> Option<World> {
         let mut w = World::empty(options);
+        if let Some(log) = log {
+            w.attach_log(log);
+        }
         // Older high school classes already in school when the clock starts.
         for age in [17, 16, 15] {
             w.add_class_aged(age);
@@ -1044,16 +1054,7 @@ impl World {
                 return None;
             }
         }
-        w.recording = true;
-        if let Some(dir) = w.options.log_dir.clone()
-            && let Err(e) = w.open_log(&dir)
-        {
-            eprintln!("The world log could not start: {e}");
-        }
-        for p in w.programs.iter_mut() {
-            p.prestige_start = p.prestige;
-        }
-        program::seed_pipelines(&mut w);
+        w.start_recording();
         for k in 0..w.options.history_years {
             let t = std::time::Instant::now();
             w.world_tapes = k + 1 == w.options.history_years;
@@ -1066,35 +1067,13 @@ impl World {
         Some(w)
     }
 
-    /// Starts the world log (world reader) in `dir`: from now on every game
-    /// is written there as it is played (`wlog.rs`, `log_games.rs`).
-    pub fn open_log(&mut self, dir: &std::path::Path) -> Result<(), String> {
-        let meta = serde_json::json!({
-            "what": "AFM world log",
-            "commit": option_env!("AFM_COMMIT"),
-            "engine": env!("CARGO_PKG_VERSION"),
-            "options": self.options,
-            "first_season": self.year,
-        });
-        let log = wlog::WorldLog::create(dir, meta).map_err(|e| e.to_string())?;
-        self.wlog = Some(Box::new(log));
-        Ok(())
-    }
-
-    /// Writes out and closes the world log, if one is open: the bytes it
-    /// holds on disk, or its first error.
-    pub fn finish_log(&mut self) -> Option<Result<u64, String>> {
-        self.wlog.take().map(|l| l.finish())
-    }
-
-    /// The world log's folder, while one is open.
-    pub fn log_dir(&self) -> Option<&std::path::Path> {
-        self.wlog.as_ref().map(|l| l.dir())
-    }
-
-    /// Games are logged: a log is open and the history is being recorded.
-    pub(crate) fn logging(&self) -> bool {
-        self.recording && self.wlog.is_some()
+    /// The spin-up is over: recorded history starts.
+    pub(crate) fn start_recording(&mut self) {
+        self.recording = true;
+        for p in self.programs.iter_mut() {
+            p.prestige_start = p.prestige;
+        }
+        program::seed_pipelines(self);
     }
 
     /// The world with programs, schools and staffs but no players or history yet.

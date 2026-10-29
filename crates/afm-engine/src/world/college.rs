@@ -746,7 +746,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         outcomes
             .par_iter()
             .map(|r| {
-                r.as_ref().map(|r| (super::log_games::plays_json(&r.stats), super::game_log::game_situations(&r.stats)))
+                r.as_ref().map(|r| (super::wlog::games::plays(&r.stats), super::game_log::game_situations(&r.stats)))
             })
             .collect()
     } else {
@@ -754,7 +754,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     }
     .into_iter();
     let first_date = cs.games.iter().map(|g| g.date).min().unwrap_or(date);
-    let mut logged: Vec<(usize, serde_json::Value, Option<Vec<u8>>)> = Vec::new();
+    let mut logged: Vec<(usize, serde_json::Value, Option<serde_json::Value>)> = Vec::new();
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
         let log_part = to_log.next().flatten();
@@ -905,7 +905,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         cs.games[k].played = Some(played);
         if logging {
             let g = &cs.games[k];
-            let (kind, round) = super::log_games::college_kind(g.kind);
+            let (kind, round) = super::wlog::games::college_kind(g.kind);
             let (hd, ad) = (w.programs[home].division, w.programs[away].division);
             let mut head = serde_json::Map::new();
             head.insert("level".into(), "college".into());
@@ -942,9 +942,9 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                         l.add_situations(year, "college", group, [home, away], situ);
                     }
                     let teams = j.teams.as_ref().map(|(a, b)| [a, b]);
-                    (super::log_games::game_row(head, r, teams), Some(plays))
+                    (super::wlog::games::game_row(head, r, teams), Some(plays))
                 }
-                _ => (super::log_games::standin_row(head, home_won, Some(played.score)), None),
+                _ => (super::wlog::games::standin_row(head, home_won, Some(played.score)), None),
             };
             logged.push((k, row, plays));
         }
@@ -993,12 +993,8 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                 m.insert("paid".into(), serde_json::json!({ "kind": what, "dollars": dollars }));
             }
         }
-        if let Some(l) = w.wlog.as_mut() {
-            let id = l.next_id(year, "college");
-            l.line(year, "games-college", super::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
-            if let Some(p) = plays {
-                l.line(year, "plays-college", super::log_games::plays_line(id, &p));
-            }
+        if let Some(l) = w.wlog.as_deref() {
+            l.game("games-college", "plays-college", &row, plays);
         }
     }
     advance_brackets(w);

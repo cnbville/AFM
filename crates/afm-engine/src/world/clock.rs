@@ -153,6 +153,8 @@ fn hs_transfer_day(y: &YearDates) -> Date {
 
 /// Day `d` of football year `y`.
 pub(crate) fn advance_day(w: &mut World) {
+    // The world log's snapshots of the key dates, before anything acts.
+    super::wlog::day(w, w.today);
     // A war room left open (a day passed without finishing the draft): the
     // staff finish it on the board.
     if w.scouting.live.is_some() {
@@ -596,6 +598,8 @@ const SMALL_EVENT_YEARS: i32 = 5;
 
 /// The last day of a football year has passed: the next one starts.
 fn rollover(w: &mut World) {
+    // The world log takes the year before the calendar drops it.
+    super::wlog::year_end(w);
     if w.options.keep_game_log {
         // News that belongs to last season (its signing day fell after the
         // Super Bowl) joins that season's record.
@@ -627,10 +631,6 @@ fn rollover(w: &mut World) {
     w.prev_dates = Some(std::mem::replace(&mut w.dates, dates));
     print_profile(w.year);
     w.year = next;
-    // Every game of the seasons before is played: their log files close.
-    if let Some(l) = w.wlog.as_mut() {
-        l.close_before(next);
-    }
 }
 
 /// February signing day, then the year-end book for `season`: program
@@ -651,6 +651,8 @@ fn signing_day_and_book(w: &mut World, season: i32) {
     w.life_events();
     super::people::year_book(w);
     super::fame::year_book(w);
+    // The world log's yearly rows and exits, before leavers are dropped.
+    super::wlog::book(w, season);
     w.compact();
     w.rebuild_rosters();
     w.year = keep;

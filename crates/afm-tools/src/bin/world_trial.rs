@@ -225,8 +225,6 @@ fn main() {
         keep_game_log,
         scale,
         hs_engine_years,
-        // AFM_LOG=dir writes the world reader's game log there.
-        log_dir: std::env::var("AFM_LOG").ok().map(std::path::PathBuf::from),
         ..Default::default()
     };
     let mut w = World::new_watched(opts, |w, secs| {
@@ -286,11 +284,6 @@ fn main() {
             afm_tools::memory_text()
         );
         snap(&w);
-    }
-    match w.finish_log() {
-        Some(Ok(bytes)) => eprintln!("world log: {:.2} GB on disk", bytes as f64 / 1e9),
-        Some(Err(e)) => eprintln!("world log stopped: {e}"),
-        None => {}
     }
     println!(
         "# World trial: seed {seed}, {years} years of history and {future} into the future, history built in {built:.0}s, all in {:.0}s, memory {} with the game log {log_state}\n",

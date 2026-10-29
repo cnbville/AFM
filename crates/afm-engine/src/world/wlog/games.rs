@@ -1,16 +1,22 @@
-//! The world reader's game log (lane R1): every game at every level,
-//! written to the world log on disk (`wlog.rs`). A game's row is its
-//! facts (kind, date, week, site, kickoff, the line, weather, the crowd,
-//! the toss), the score by quarter, both team boxes, every player's line
-//! and snaps, the drives, the scoring plays, the injuries, the penalties
-//! and the officials' calls. College, NFL and other-league games also
-//! write every snap to the plays stream. Nothing here changes a game.
+//! The game log (world reader lane R1): every game at every level, as
+//! kinds of the world log. A game's row (`games-<level>`) is its facts
+//! (kind, date, week, site, kickoff, the line, weather, the crowd, the
+//! toss), the score by quarter, both team boxes, every player's line and
+//! snaps, the drives, the scoring plays, the injuries, the penalties and
+//! the officials' calls. College, NFL and other-league engine games also
+//! write every snap (`plays-<level>`), and every level sums its plays by
+//! situation for the season (`situations`, `team-situations`). A game is
+//! named by its level, date and teams (the league too in the other
+//! leagues). Nothing here changes a game.
+
+use std::collections::{BTreeMap, HashMap};
 
 use serde_json::{Map, Value, json};
 
-use super::wlog::{compact, round};
+use super::WorldLog;
 use crate::game::drives::drives;
 use crate::game::{GameResult, GameStats, GameTeam, PlayRecord, PlayType};
+use crate::world::game_log::{GameSitu, Situ, bump};
 
 /// A game's facts the caller knows (level, season, date, kind, teams,
 /// site, weather...), as a JSON object.
@@ -285,36 +291,28 @@ fn wp_after(s: &GameStats, plays: &[&PlayRecord], i: usize) -> f64 {
 /// play record (the call and its why, the defense, every block, rush win,
 /// tackle and miss, the result and its why), with the expected points and
 /// the offense's win chance before and after.
-pub fn plays_json(s: &GameStats) -> Vec<u8> {
+pub fn plays(s: &GameStats) -> Value {
     let plays: Vec<&PlayRecord> = s.plays.iter().filter(|r| r.offense < 2).collect();
-    let rows: Vec<Value> = plays
-        .iter()
-        .enumerate()
-        .map(|(i, r)| {
-            let mut v = serde_json::to_value(r).unwrap_or_else(|_| json!({}));
-            if let Some(m) = v.as_object_mut() {
-                m.insert("ep_after".into(), json!(round(r.ep_before + r.epa)));
-                m.insert("wp_after".into(), json!(round(wp_after(s, &plays, i))));
-            }
-            compact(&mut v);
-            v
-        })
-        .collect();
-    serde_json::to_vec(&rows).unwrap_or_else(|_| b"[]".to_vec())
-}
-
-/// The plays stream's line for a game: `{"id":7,"plays":[...]}`.
-pub fn plays_line(id: u32, plays: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(plays.len() + 24);
-    out.extend_from_slice(format!("{{\"id\":{id},\"plays\":").as_bytes());
-    out.extend_from_slice(plays);
-    out.push(b'}');
-    out
+    Value::Array(
+        plays
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                let mut v = serde_json::to_value(r).unwrap_or_else(|_| json!({}));
+                if let Some(m) = v.as_object_mut() {
+                    m.insert("ep_after".into(), json!(round(r.ep_before + r.epa)));
+                    m.insert("wp_after".into(), json!(round(wp_after(s, &plays, i))));
+                }
+                compact(&mut v);
+                v
+            })
+            .collect(),
+    )
 }
 
 /// The college game kind's words.
-pub fn college_kind(k: super::schedule::GameKind) -> (&'static str, Option<u8>) {
-    use super::schedule::GameKind;
+pub fn college_kind(k: crate::world::schedule::GameKind) -> (&'static str, Option<u8>) {
+    use crate::world::schedule::GameKind;
     match k {
         GameKind::Regular => ("regular", None),
         GameKind::ConferenceTitle => ("conference title", None),
@@ -322,5 +320,152 @@ pub fn college_kind(k: super::schedule::GameKind) -> (&'static str, Option<u8>) 
         GameKind::Celebration => ("bowl", None),
         GameKind::Playoff(r) => ("playoff", Some(r)),
         GameKind::Title => ("title", None),
+    }
+}
+
+/// High school situation keys summed for the whole country (group `all`),
+/// not by state: the play names, thousands of calls and fronts in every
+/// state.
+const HS_NATIONAL: &[&str] = &["call|", "defense|"];
+
+/// The situation totals not written yet, by (season, level, group) and
+/// by (season, level, team), each a map of keys. Written at the year's
+/// close, at a save and when the log closes, then dropped: a season's
+/// totals are the sum of its records.
+#[derive(Default)]
+pub(crate) struct Totals {
+    league: HashMap<(i32, &'static str, String), HashMap<String, Situ>>,
+    team: HashMap<(i32, &'static str, usize), HashMap<String, Situ>>,
+}
+
+impl WorldLog {
+    /// Writes a game's row (kind `games-<level>`) and, for an engine game,
+    /// its snaps (`plays-<level>`) under the row's level, season, date and
+    /// teams.
+    pub(crate) fn game(&self, games: &'static str, plays: &'static str, row: &Value, snaps: Option<Value>) {
+        self.put(games, row);
+        if let Some(snaps) = snaps {
+            let mut rec = Map::new();
+            for k in ["level", "league", "season", "date", "teams"] {
+                if let Some(v) = row.get(k) {
+                    rec.insert(k.into(), v.clone());
+                }
+            }
+            rec.insert("plays".into(), snaps);
+            self.put(plays, &Value::Object(rec));
+        }
+    }
+
+    /// Adds one game's situation totals: the league keys under its level
+    /// and group (a division, a state, a league), and each side's keys
+    /// under its team. High school keeps no team keys (14,000 schools), and
+    /// its play names go under the group `all` (`HS_NATIONAL`).
+    pub(crate) fn add_situations(
+        &mut self,
+        season: i32,
+        level: &'static str,
+        group: &str,
+        teams: [usize; 2],
+        part: GameSitu,
+    ) {
+        let t = &mut self.totals;
+        let hs = level == "hs";
+        let mut national = Vec::new();
+        let m = t.league.entry((season, level, group.to_string())).or_default();
+        for (k, v) in part.league {
+            if hs && HS_NATIONAL.iter().any(|p| k.starts_with(p)) {
+                national.push((k, v));
+            } else {
+                bump(m.entry(k).or_default(), &v);
+            }
+        }
+        if !national.is_empty() {
+            let m = t.league.entry((season, level, "all".to_string())).or_default();
+            for (k, v) in national {
+                bump(m.entry(k).or_default(), &v);
+            }
+        }
+        if hs {
+            return;
+        }
+        for (side, keys) in part.team.into_iter().enumerate() {
+            let m = t.team.entry((season, level, teams[side])).or_default();
+            for (k, v) in keys {
+                bump(m.entry(k).or_default(), &v);
+            }
+        }
+    }
+
+    /// Writes the situation totals held (one record per group and per
+    /// team, keys in order) and drops them.
+    pub(crate) fn write_totals(&mut self) {
+        let t = std::mem::take(&mut self.totals);
+        let keys = |m: HashMap<String, Situ>| -> BTreeMap<String, Vec<f64>> {
+            m.into_iter().map(|(k, v)| (k, v.iter().map(|x| (x * 100.0).round() / 100.0).collect())).collect()
+        };
+        let mut league: Vec<_> = t.league.into_iter().collect();
+        league.sort_by(|a, b| a.0.cmp(&b.0));
+        for ((season, level, group), m) in league {
+            self.put("situations", &json!({ "season": season, "level": level, "group": group, "keys": keys(m) }));
+        }
+        let mut team: Vec<_> = t.team.into_iter().collect();
+        team.sort_by(|a, b| a.0.cmp(&b.0));
+        for ((season, level, team), m) in team {
+            self.put("team-situations", &json!({ "season": season, "level": level, "team": team, "keys": keys(m) }));
+        }
+    }
+}
+
+/// Rounds a decimal the log's way: one place from 10 up, three below; a
+/// whole number stays whole.
+pub fn round(x: f64) -> f64 {
+    if x.fract() == 0.0 || !x.is_finite() {
+        x
+    } else if x.abs() >= 10.0 {
+        (x * 10.0).round() / 10.0
+    } else {
+        (x * 1000.0).round() / 1000.0
+    }
+}
+
+/// Makes a row compact: drops every field that is null, false, zero, ""
+/// or empty (an array keeps its places), rounds decimals and writes whole
+/// decimals as whole numbers.
+pub fn compact(v: &mut serde_json::Value) {
+    use serde_json::Value;
+    match v {
+        Value::Object(m) => {
+            m.retain(|_, x| {
+                compact(x);
+                !empty(x)
+            });
+        }
+        Value::Array(a) => a.iter_mut().for_each(compact),
+        Value::Number(n) => {
+            if let Some(f) = n.as_f64()
+                && !n.is_i64()
+                && !n.is_u64()
+            {
+                let r = round(f);
+                *v = if r.fract() == 0.0 && r.abs() < 9.0e15 {
+                    Value::from(r as i64)
+                } else {
+                    serde_json::Number::from_f64(r).map_or(Value::Null, Value::Number)
+                };
+            }
+        }
+        _ => {}
+    }
+}
+
+fn empty(v: &serde_json::Value) -> bool {
+    use serde_json::Value;
+    match v {
+        Value::Null => true,
+        Value::Bool(b) => !b,
+        Value::Number(n) => n.as_f64() == Some(0.0),
+        Value::String(s) => s.is_empty(),
+        Value::Array(a) => a.is_empty(),
+        Value::Object(m) => m.is_empty(),
     }
 }

@@ -181,7 +181,7 @@ struct HsPlayed {
     neutral: bool,
     /// The world reader's game log: the game's row, when a log is open,
     /// and its situation totals (for it or the trial game log).
-    log: Option<Vec<u8>>,
+    log: Option<serde_json::Value>,
     situ: Option<super::game_log::GameSitu>,
 }
 
@@ -1368,14 +1368,12 @@ fn hs_head(
 /// Logs a high school game decided off the engine (the stand-in, or a
 /// forfeit): the winner only.
 fn log_hs_standin(w: &mut World, mut head: serde_json::Map<String, serde_json::Value>, home_won: bool, forfeit: bool) {
-    let year = w.year;
     if forfeit {
         head.insert("forfeit".into(), true.into());
     }
-    let row = super::log_games::standin_row(head, home_won, None);
-    if let Some(l) = w.wlog.as_mut() {
-        let id = l.next_id(year, "hs");
-        l.line(year, "games-hs", super::wlog::with_id(id, &serde_json::to_vec(&row).unwrap_or_default()));
+    let row = super::wlog::games::standin_row(head, home_won, None);
+    if let Some(l) = w.wlog.as_deref() {
+        l.game("games-hs", "", &row, None);
     }
 }
 
@@ -1471,8 +1469,7 @@ fn engine_games(
                 let mut head = hs_head(world, s, week, day, [h, a], final_game);
                 head.insert("weather".into(), serde_json::json!(wx));
                 head.insert("conditions".into(), serde_json::json!(cond));
-                let row = super::log_games::game_row(head, &r, Some([&home, &away]));
-                serde_json::to_vec(&row).unwrap_or_default()
+                super::wlog::games::game_row(head, &r, Some([&home, &away]))
             });
             let situ = (logging || trial_log).then(|| super::game_log::game_situations(&r.stats));
             let injuries = std::mem::take(&mut r.injuries);
@@ -1522,8 +1519,7 @@ fn engine_games(
             }
             if let (Some(row), Some(l)) = (g.log, w.wlog.as_mut()) {
                 l.add_situations(year, "hs", w.states[s].code.as_str(), [h, a], situ);
-                let id = l.next_id(year, "hs");
-                l.line(year, "games-hs", super::wlog::with_id(id, &row));
+                l.game("games-hs", "", &row, None);
             }
         }
         let (wn, l) = if home_wins { (h, a) } else { (a, h) };

@@ -2,7 +2,7 @@
 //! totals, kept only when `WorldOptions::keep_game_log` is on. It only
 //! watches the games, so a world with it on plays out exactly the same.
 //! The situation keys here also feed the world reader's game log on disk
-//! (`log_games.rs`), which keeps every game at every level.
+//! (`wlog/games.rs`), which keeps every game at every level.
 
 use std::collections::HashMap;
 
