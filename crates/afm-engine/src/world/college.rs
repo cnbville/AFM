@@ -381,6 +381,8 @@ pub(crate) fn start(w: &mut World) {
             out.insert(p.player.id, "academically ineligible");
         } else if p.cal.trouble {
             out.insert(p.player.id, "suspended");
+        } else if p.cut_here().is_some() {
+            out.insert(p.player.id, "cut from the team");
         }
     }
     let c = w.college.as_mut().unwrap();
