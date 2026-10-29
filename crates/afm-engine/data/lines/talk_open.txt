@@ -1,0 +1,1472 @@
+# The line bank: one-on-one openings, more versions (dialogue D2; format in
+# src/world/folk/voice.rs). Same keys as players.txt. The opening is two
+# parts said as one line: his mood (talk.open.sour/good/flat), then the
+# subject (talk.open.<subject>). Mood parts stay short and never name a
+# subject; subject parts never assume a mood. Facts: name (his first name),
+# full, coach (Coach + your last name), you, pos, team, friend, subject.
+
+@key talk.open.sour
+Coach. You wanted me.
+Alright. I'm here.
+I came. What's up.
+[Okay|Alright], Coach.
+Yeah, I got the message.
+I was wondering when this was coming.
+I'm here, Coach. Let's talk.
+I almost didn't come up, honestly.
+Can I sit? It's been a day.
+It's been a long week, Coach.
+I'm not gonna lie, I've been better.
+Today's not really my day.
+Don't take it personal if I'm short today.
+I'm a little out of it. Go ahead.
+I've had a rough couple days.
+I'm in a mood, Coach. Just so you know.
+I'll listen. I just might not say much.
+I didn't sleep much. Go ahead.
+Let's just talk, I guess.
+I'm here because you asked.
+Here we go.
+Figured.
+Honestly I've been dreading this all day.
+Coach. Before you start, I'm not in a great headspace.
+My head's not right today, Coach. But I'm here.
+Is this gonna take long?
+I'm tired, Coach. Real tired.
+It's whatever. What's up?
+I've been sitting on some stuff. Go ahead first.
+Yeah. Go ahead.
+I hear you wanted to talk.
+Alright, Coach. I'm listening, I guess.
+Okay. Say what you gotta say.
+I know that look.
+I could tell from the text this wasn't small talk. ~ modern
+You sent for me, so here I am.
+I'll be real, I'm frustrated. Go ahead though.
+I'm good. Well. I'm here, anyway.
+Coach. Yeah. Hey.
+I'm not trying to have attitude. It's just been a week.
+Sorry if I seem off. It's not you. Mostly.
+I'm here. I'm not happy, but I'm here.
+Let me just say I've had better days and leave it at that.
+Okay. I'm sitting.
+I left treatment early for this. ~ !hs
+I skipped lunch for this, so. ~ young
+Alright. Let's get into it. ~ competitor
+Okay, Coach. Hit me. ~ young
+Before you say anything, I want to be heard too. ~ hot
+Just say it straight, Coach. I can take it. ~ hot
+I'm not here to fight. Unless that's what this is. ~ hot
+Somebody already got in my ear today. Go ahead and make it two. ~ hot
+I'm heated, Coach. I'll be honest. ~ hot
+Don't take my face personal. It's been that kind of day. ~ hot young
+I'm trying to stay calm right now. Just so you know. ~ hot
+I'm cool. I'm cool. Go ahead. ~ hot young
+I'm fine. I'm just quiet today. ~ calm
+I don't need to vent. Just tell me what you need. ~ calm
+I'm alright, Coach. It's just been a grind. ~ calm
+I've been better, but I'm level. Go ahead. ~ calm
+Whatever it is, we can handle it. Go ahead. ~ calm steady
+It's not a great day. I'm still here, though. ~ steady
+I'm not great right now, but I'm not gonna fall apart either. ~ steady
+Hey. ~ quiet
+I'm here. ~ quiet
+Mm-hm. ~ quiet
+Okay. ~ quiet
+I don't really feel like talking. But okay. ~ quiet
+I'll try. Talking's not really my thing right now. ~ quiet
+You might have to do most of the talking, Coach. ~ quiet
+Sorry. I'm just in my head. ~ quiet young
+I'm sorry, Coach. I know I've been off. ~ humble
+I'm not trying to be a problem. I'm just not myself. ~ humble
+I appreciate you making time, even if I'm not great company. ~ humble
+Whatever you need, Coach. I'm just a little down. ~ humble
+I know I don't look happy. I'm working on it. ~ humble
+I'm not gonna pretend I'm good. ~ pro
+I'm here to work, Coach, even on the bad days. Go ahead. ~ pro
+I'm frustrated, but I'm a professional. Let's talk. ~ pro
+Let's keep this short. I'll be honest, I'm not in the mood. ~ pro
+Okay, Coach. Business. Let's go. ~ pro
+I'm not loving how things have been going. Go ahead. ~ leader
+I'm carrying a lot of the room on my back right now. So, yeah. ~ leader
+I'll talk. But I'm going to say my piece too. ~ leader
+I've got to set the tone for those guys and I'm running on empty. ~ leader
+Whatever this is, let's get it done so I can get back to my guys. ~ leader
+Coach, I'm good, I'm good. Kind of. ~ loose
+It's chill. I'm just not feeling it today. ~ loose young
+My bad if I'm a little salty. ~ loose young
+I'm vibing. Just not good vibes today. ~ loose young
+Ha. You called me in. That's never good. ~ loose
+Alright, alright. I'm in the chair. ~ loose
+You know I'm going to say what I think, Coach. ~ ego
+I'm not exactly thrilled to be here. ~ ego
+Let's not waste each other's time. ~ ego
+I've got things to say too. Just so you know. ~ ego
+I could've texted you what I think. But okay. ~ ego modern
+I'm not the one who needs to be talked to, honestly. ~ ego
+Coach. Real talk, I'm annoyed. ~ ego young
+I came in ready to compete for this conversation, Coach. ~ competitor
+I'm not happy. I'm never happy when we're not winning. ~ competitor
+I hate feeling like this. Let's fix it. ~ competitor
+Whatever it is, let's fix it. I don't like sitting in it. ~ competitor
+I've been in a dark place this week, Coach. ~ shaky
+I don't know, Coach. Everything just feels heavy. ~ shaky
+I'm kind of all over the place. Sorry. ~ shaky
+Some days are just hard. Today's one of them. ~ shaky
+I'm hanging in. Barely. ~ shaky
+I'm still here, Coach. That's something. ~ loyal
+You know I'm with you. I'm just not happy right now. ~ loyal
+I'm always gonna show up for you. Even when I'm mad. ~ loyal
+I've been around long enough to know when a talk is coming. ~ vet
+Okay. I've done enough of these to know how they go. ~ vet
+I've been in a lot of offices like this one. ~ vet
+I've got kids at home and a sore body, Coach. Make it count. ~ vet nfl
+I've had better weeks in this league. Go ahead. ~ nfl
+I've got a meeting with my position group in twenty. Let's talk. ~ nfl
+I'm not in the mood for a speech, Coach. Just tell me straight. ~ nfl
+Alright, let's hear it. I've got film to watch. ~ nfl pro
+My agent says I should hear you out. So I'm hearing you out. ~ nfl
+I'll be straight, Coach. I'm frustrated with how things are going in this building. ~ nfl
+It's a business, right? So let's talk business. ~ nfl
+It's been a long camp, Coach. Go ahead. ~ nfl
+Okay. Door shut? Good. ~ nfl vet
+I've had enough meetings today for a whole week. ~ nfl vet
+I've got class in an hour. I'm not in a great place, but go ahead. ~ college
+I've been stressing about everything, school, ball, all of it. ~ college young
+I just came from a test I bombed, so. ~ college young
+Study hall, lift, film, and now this. It's been a day, Coach. ~ college young
+I haven't called home in a week. That's how my week's been. ~ college young
+I'm a long way from home and it's one of those weeks. ~ college young
+My roommate's been on my nerves. Sorry. Go ahead. ~ college young
+I'm not trying to be rude. I'm just drained, Coach. ~ college
+I'm tired of feeling like a number around here. Go ahead. ~ college
+I got a ride waiting, Coach. Can we make this quick? ~ hs young
+My mom made me come in here with a good attitude. I'm trying. ~ hs young
+I've had a bad day at school. Sorry. ~ hs young
+I had a test sixth period and it did not go well. ~ hs young
+I missed the bus because of this, so I need a ride after. ~ hs young
+I'm tired, Coach. School and practice and everything. ~ hs
+I got a lot going on at home right now. Go ahead though. ~ hs
+I don't really want to be here, no offense. ~ hs young loose
+Coach, I'm stressed. Just so you know. ~ hs
+I've been in a funk, Coach. Can't shake it. ~ young
+I'm not trying to be difficult. Promise. ~ young
+I'm good. Not really. But go ahead. ~ young
+It's whatever, Coach. ~ young
+Bruh. Okay. Sorry. Coach. ~ young loose modern
+Lowkey been a bad week, Coach. ~ young modern
+Not gonna cap, I'm in my feelings a little. ~ young modern
+I'm not trying to be on one. It's just been a lot. ~ young modern
+Yes sir. Sorry, I'm just tired. ~ south
+I'm alright, I reckon. Been better. ~ south
+Yes sir, I'm here. Ain't been the best week. ~ south
+Coach, I'll be honest with you, I'm worn slap out. ~ south
+Y'all got me running on fumes, Coach. ~ south young
+I'm fixin' to go to treatment after this, so. ~ south !hs
+Yes sir. Go ahead. I'm not real happy, but go ahead. ~ texas
+I'm here. Hot as fire out there and I'm hot in here too. ~ texas
+I'm not trying to be rude, Coach. It's just been a heck of a week. ~ midwest
+Alright, Coach. Not the best week, but I'll survive. ~ midwest
+I'm fine. Well, I'm not fine. But I'm here. ~ midwest
+Honestly? Not great, Coach. Let's talk. ~ northeast
+I'm not gonna sugarcoat it. Bad week. ~ northeast
+Yo, Coach. Not the best time, but alright. ~ northeast young
+Let's do it. I'm not in the best mood, so bear with me. ~ northeast
+I'm trying to keep a good headspace, Coach. It's been hard. ~ west
+I'm a little off today. Just letting you know. ~ west
+All good, Coach. Well, not all good. You know. ~ west young
+I didn't even know if I should come. But I came.
+I wasn't sure if I was in trouble.
+Not a good day to catch me, but here we are.
+I'm only gonna say this once, I'm frustrated.
+I've been holding a lot in, Coach.
+Alright. You've got my attention.
+I'm just trying to get through the week, Coach.
+Honestly I thought about texting you to reschedule. ~ modern
+I'll be honest, I almost turned around in the hallway.
+I'm here. Don't expect a smile.
+I'm a little raw right now. Fair warning.
+My body hurts and my head hurts. Go ahead.
+Go ahead, Coach. Don't sugarcoat it.
+Let's get to it.
+You've got me for a few minutes.
+Okay. I'm here. What's this?
+This better be quick, I've got a lot going on. ~ hot
+I don't really have anything nice to say today, Coach. ~ hot
+I'm not in a talking mood. Which you're probably about to change. ~ loose
+I'll hear you out. That's all I can promise right now. ~ ego
+I'm sitting here because I respect you. That's it. ~ ego
+Look, Coach. Let's just talk. ~ young
+Coach, I've been in my head for days. ~ young shaky
+I'm not crying, Coach. My eyes are just tired. ~ young shaky
+Everything's been off since the last game. ~ competitor
+I'm still mad about Saturday, honestly. ~ college competitor
+I'm still mad about Friday, honestly. ~ hs competitor
+I'm still mad about Sunday, honestly. ~ nfl competitor
+I can't stop replaying the last game. Sorry. Go ahead. ~ competitor
+I watched the film three times and I'm still mad. ~ competitor pro
+I'm not one to complain, so if I'm sitting here grumpy, it's bad. ~ steady
+You know me. I don't usually walk in like this. ~ steady
+I don't get down much. I'm down today. ~ steady
+Coach, I'm not gonna lie to you. I'm hurting a little. ~ humble
+I've got some stuff on my chest. ~ leader
+I've had a lot of guys in my ear this week. Now you. Okay. ~ leader
+I'll talk, but I'm not throwing anybody under the bus. ~ leader
+I'm here, Coach. You know I'll always come when you call. ~ loyal
+I'm not gonna pretend everything's good between us right now. ~ loyal
+I trust you, Coach. I'm just not happy. ~ loyal
+I'm feeling some type of way, Coach. ~ young modern
+My phone's been blowing up all week and none of it's good. ~ modern
+I just got off the phone with home. It's a lot. ~ young
+Hold on. Let me put my phone away. Okay. ~ modern
+Okay, Coach. I'm ready. Not happy, but ready.
+It's been one of those weeks where nothing goes right.
+I've got no energy, Coach. Go ahead anyway.
+I'll keep it respectful. That's the best I've got today.
+Before we start, I'm not mad at you. I'm mad at everything.
+I've had about all I can take this week, Coach.
+Okay, Coach. Let me have it.
+Real quick, I'm not here to argue. Go ahead.
+Alright. Let's just be honest with each other.
+I'm all ears. And a lot of frustration.
+I don't love being called in. You know that.
+You don't usually call me up here for good news.
+Okay. My heart's beating a little. What's going on?
+Look, I'm not in the best place, but I respect you calling me in.
+I'm good. I'm fine. Okay, I'm not fine.
+I've been bottling it up, Coach. That's the honest answer.
+
+@key talk.open.good
+Hey, Coach! What's up?
+Coach. Good to see you.
+What's going on, Coach?
+Hey. You got a minute? Oh, you called me. Right.
+Coach! I was hoping I'd catch you this week.
+Perfect timing. I'm in a good mood today.
+Coach, what's good?
+Hey Coach. How you doing?
+Good afternoon, Coach.
+Good morning, Coach. Early meeting, huh?
+Hey. Feels like a good day to talk.
+I'm in a good place right now, Coach. What's up?
+Coach. Pull up a chair. Wait, it's your office.
+I've been feeling great lately. What did you want to talk about?
+You caught me on a good day.
+Everything's rolling right now, Coach. What's up?
+I've been in a good rhythm. What do you need?
+Hey, Coach. Good week so far.
+How's it going, Coach? You look busy.
+Coach! How was your weekend?
+Man, I love this time of year. What's up, Coach?
+Ready when you are, Coach.
+Let's talk, Coach. I'm feeling good.
+I'm glad you called me in, honestly.
+Coach, I've been meaning to stop by anyway.
+Hey Coach. I brought you a coffee. Just kidding. What's up?
+Sorry I'm a few minutes late, Coach. Got held up in the training room. ~ !hs
+Coach, what's going on? You need something?
+Hey. This office is nicer than I remembered.
+Feels good to be in here when nothing's wrong. Nothing's wrong, right?
+Whatever you need, I'm good, Coach.
+I'm all good, Coach. Shoot.
+Can't complain, Coach. What's up?
+Coach. The legs feel fresh today. What's going on?
+I've been sleeping good, eating good, playing good. What's up?
+I'm smiling because practice was fun today. What's up, Coach?
+Coach, I'm locked in and feeling good. Go ahead. ~ competitor
+I've been hungry all week. In a good way. What's up? ~ competitor
+I'm ready to go, Coach. What do we got? ~ competitor
+Let's get it, Coach. What do you need from me? ~ competitor young
+Coach, you know I'm always ready. What's going on? ~ competitor
+Hey, Coach. All good on my end. ~ calm
+I'm doing well, thanks. What's on your mind? ~ calm
+Things have been good. What can I do for you? ~ calm
+Good to see you, Coach. Take your time. ~ calm
+I'm good, Coach. Steady as ever. ~ steady
+Same as always, Coach. Feeling good. ~ steady
+Coach. Just another good day at the office. ~ steady pro
+I'm doing alright, Coach. Better than alright. ~ steady
+Coach! What's happening? ~ hot young
+I'm fired up today, Coach. In a good way. ~ hot
+Coach, I'm feeling it. What you need? ~ hot young
+Yes sir. ~ quiet
+Hey, Coach. ~ quiet
+You wanted to see me? I'm good, yeah. ~ quiet
+Hi, Coach. ~ quiet young
+Hey. Good day today. ~ quiet
+Coach. Thank you for having me in. ~ humble
+Yes sir, Coach. Thanks for making time for me. ~ humble
+I'm grateful you'd want to talk, Coach. ~ humble
+I'm just happy to be here, Coach. What's up? ~ humble
+Coach. I hope I'm not in the way. You wanted me? ~ humble young
+I'm doing good, Coach. Blessed. ~ humble
+Coach, I'm doing great. Just trying to keep it rolling. ~ pro
+I've got my notes from film. Figured I'd bring them. ~ pro
+Morning, Coach. I already got my lift in. What's up? ~ pro
+I've got about thirty minutes before my next meeting. All yours. ~ pro nfl
+Coach, good timing. I just finished watching the install. ~ pro
+I'm in a good spot, Coach. Body and mind. ~ pro
+Coach, the guys are in a good place. What's up? ~ leader
+Room's feeling good right now. Me too. What's going on? ~ leader
+Coach. I've got a couple things for you too when you're done. ~ leader
+Coach, I'm good. The young guys are good. We're good. ~ leader
+You want the captain or just me today? Either way I'm good. ~ leader
+Ayy, Coach! What's good? ~ loose young
+Coach, my guy! What's going on? ~ loose young
+Big Coach! What's up? ~ loose young
+Look at you, Coach. Nice office. ~ loose
+You know I'm always good, Coach. ~ loose
+Coach, what's the word? ~ loose
+Hey, I wasn't late, right? Okay good. ~ loose
+Coach, this better be good news. I'm kidding. Mostly. ~ loose
+Coach. Your favorite player is here. ~ ego loose
+The man himself. What's up, Coach? ~ ego
+I figured you'd want to talk to me eventually. Kidding. What's up? ~ ego
+Coach, I've been balling. You see it. What's up? ~ ego young
+You called the right guy in, Coach. What's up? ~ ego
+I'm feeling like myself again, Coach. ~ shaky
+Today's a good one, Coach. I'm trying to string a few together. ~ shaky
+I'm actually feeling good today. That's new. ~ shaky
+I'm good, Coach. I feel like things are turning around. ~ shaky
+Coach, you know I'll always make time for you. ~ loyal
+Coach! Always good to be in here. ~ loyal
+I'm good, Coach. I'm here for whatever you need. ~ loyal
+Hey, Coach. Still the best place to be. ~ loyal
+Life's good, Coach. What's going on? ~ greedy nfl
+Coach, it's a good day. My agent just called with good news. Anyway, what's up? ~ nfl
+Hey, Coach. Body's holding up. That's a win in this league. ~ nfl vet
+Coach. Another good week of work. What's going on? ~ nfl
+I'm good, Coach. Kids are good, body's good. ~ nfl vet
+Coach, I'm good. The young guys are wearing me out, but I'm good. ~ nfl vet
+I've been in this league a long time, Coach. Days like this are the good ones. ~ nfl vet
+Coach. I'm feeling better than I have in years. ~ nfl vet
+Hey Coach. I've got about twenty minutes before treatment. Let's talk. ~ nfl
+Coach, I'm good. Just got off the phone with my financial guy and he's happy, so I'm happy. ~ nfl
+Hey, Coach. Feels good to be in this building. ~ nfl
+Hey, Coach! Finished a test this morning and I think I crushed it. ~ college young
+Coach, what's going on? I just got out of class. ~ college young
+Coach! My mom says hi, she watched the whole game. ~ college young
+I've got study hall at seven, but I'm all yours till then. ~ college young
+Coach, I just got my grades back. Not bad. Anyway, what's up? ~ college young
+Hey Coach. Campus is crazy this week. What's up? ~ college young
+Coach. Good to see you. I've been meaning to come by. ~ college
+Hey, Coach. Life's good. School's good. What's up? ~ college
+Coach! I made the dean's list. Okay, I didn't, but I passed everything. ~ college young loose
+Hey Coach! I got a ride home after this, my mom's out front. ~ hs young
+Coach! I aced my English test. ~ hs young
+Hey Coach. Lunch was pizza today, so it's a good day. ~ hs young
+Coach! Did you see the stands Friday? ~ hs young
+Hey Coach. My dad says hi. ~ hs young
+Coach, what's up? I just got out of fourth period. ~ hs young
+Hey Coach! I finally got my license. ~ hs young
+Coach, guess what, I got a letter from a college. Anyway, what's up? ~ hs young
+Hey Coach. School's good, practice is good. What's up? ~ hs
+Coach! The whole school's been talking about Friday. ~ hs young
+Coach, I'm vibing today. What's up? ~ young modern
+We chillin', Coach. What's up? ~ young modern
+No cap, I've been feeling good, Coach. What's up? ~ young modern
+Coach! You need me? Bet. ~ young modern
+Hey Coach. I just saw your post, that was funny. ~ young modern
+Yes sir, Coach. How y'all doing? ~ south
+Hey, Coach. Beautiful day out there, ain't it? ~ south
+Coach! Doing good, doing good. What's going on? ~ south
+Yes sir, I'm good. Mama sent some food for the guys, by the way. ~ south young
+Coach. Doing fine, thank you. What can I do for you? ~ south
+Howdy, Coach. ~ texas
+Coach! Good to see you. Hot one out there today. ~ texas
+Doing good, Coach. Real good. ~ midwest
+Hey Coach. Can't complain. What's going on? ~ midwest
+Coach! Good to see you. Cold one this morning, huh? ~ midwest
+Yo, Coach. What's going on? ~ northeast
+Coach. What's happening? ~ northeast
+Hey, Coach. Good to see you. What do you need? ~ northeast
+What's up, Coach? It's a beautiful day. ~ west
+Coach! All good vibes today. What's up? ~ west young
+Hey, Coach. Feeling good. ~ west
+I'm good, Coach. Couldn't be better.
+Hey, Coach! You need something from me?
+Coach. You've got me in a good mood, so this is your chance.
+Hey, Coach. Everything's clicking right now.
+Coach, I feel great. Whatever this is, let's go.
+Good to see you, Coach. I was just telling the guys how good practice was.
+You wanted to see me? I've been looking forward to it, actually.
+Coach! I didn't think I'd see you till the meeting.
+Coach. Happy to be here.
+Hey, Coach. Good energy in the building today.
+I feel like a million bucks today, Coach.
+Hey Coach. I've been having a good week.
+What's going on, Coach? I'm in a great mood.
+Hey Coach. You look like you've got something good to tell me.
+It's a good day, Coach. Let's keep it that way.
+Coach, I've got nothing but time.
+Hey Coach, door open or closed? Either's fine.
+Yes sir. Good to be here.
+Coach. Been looking forward to talking.
+Hey, Coach. I feel like we're rolling right now.
+Coach. Things are good. I'm smiling, look.
+Hey Coach. What's the occasion?
+Hey. Good timing, I just finished up.
+I'm all smiles today, Coach. What's up?
+Coach. Whatever it is, I'm in a good mood for it.
+Oh hey, Coach. Didn't know you were looking for me.
+I'm good, Coach. Really good, actually.
+Coach! Everything's good on my end. What's going on?
+Hey. Glad you called, Coach.
+Coach, how's the family?
+Coach. Sit down, I'll stand. I'm too fired up to sit. ~ young competitor
+Coach, I've been dying to talk to you. Good stuff, I promise. ~ young
+Coach. I'm good. I'm actually really good. ~ humble
+Hey Coach. Thank God for a good week. ~ south humble
+Coach, it's a great day to be a {team} player. ~ loyal
+I love it here, Coach. What's up? ~ loyal young
+Coach! Did you see the clip of practice going around? ~ modern young
+Coach. I'm feeling like the old me. ~ vet
+I've got a lot of energy today, Coach. Go ahead. ~ young
+Coach, I'm on cloud nine right now. ~ young
+I'm good, Coach. I'm trying to keep my head right and it's working. ~ pro
+Coach. My body feels like I'm twenty again. ~ nfl vet
+I'm great, Coach. Kids slept through the night. ~ nfl vet
+Hey Coach, I've got a little time before lift. ~ !nfl
+Coach! I'm in such a good mood I'll even listen to a long speech. ~ loose
+Hey, Coach. Fire away. I'm feeling good. ~ calm
+Coach. I'm good. Whatever you need. ~ calm steady
+
+@key talk.open.flat
+Coach. You wanted to talk?
+Hey, Coach. They said come see you.
+What's up, Coach?
+You needed me?
+Coach. I'm here.
+Hey. What's going on?
+I got the message. What's up?
+Alright, Coach. What do you need?
+Hey Coach. Is now good?
+Coach. Where do you want me?
+Should I sit?
+Okay. What's this about?
+Hey. Is everything okay?
+Coach. Go ahead.
+I came as soon as I heard.
+Somebody said you were looking for me.
+Hey Coach. Got a minute? I mean, you called me, so I guess you do.
+What can I do for you, Coach?
+Morning, Coach.
+Afternoon, Coach.
+Coach. I just got out of meetings.
+Hey. I came straight up.
+Okay, I'm here. What's up?
+Hey, Coach. I got your note.
+Coach, you asked for me?
+Yes sir. You wanted me?
+Hey Coach. What's the deal?
+Alright. What are we talking about?
+Hey. I wasn't sure what this was about.
+Coach. Everything good?
+I'm here, Coach. What do you need?
+What's going on, Coach?
+Coach. The secretary said to come right in.
+Hey. Your door was open.
+Hey Coach. Sorry, I was in the film room.
+Coach, I'm here. Do I need to grab anything?
+Hey. Is this a quick one or a long one?
+You wanted to see me, Coach? Okay.
+Hey. Do you want the door shut?
+Coach. Should I have brought my notebook?
+Hey Coach. I've got a little time.
+Coach. Ready when you are.
+Hey, Coach. Long day. What's up?
+Okay. I'm listening.
+So. What's up, Coach?
+Hey. What do you have for me?
+I'm here. What's going on?
+Hey Coach, I got here as fast as I could.
+Coach. Do you want me to come back later?
+Hey. Is this a good time?
+Coach. What's on your mind?
+Coach. ~ quiet
+Hey. ~ quiet
+You called? ~ quiet
+I'm here. ~ quiet
+Okay. ~ quiet
+What's up? ~ quiet young
+Yes sir, Coach? ~ humble
+Yes sir. What can I do? ~ humble
+Coach. Whatever you need. ~ humble
+Hey Coach. Thanks for having me in. ~ humble
+I hope I'm not in trouble. What's up? ~ humble young
+Coach. What are we working on? ~ pro
+Coach. I've got about twenty minutes. What do you need? ~ pro
+Hey, Coach. Let's get to it. ~ pro
+I brought my notes in case it's about the plan. ~ pro
+Coach. What's the agenda? ~ pro
+Coach, what's going on? I've got a few minutes before my group meets. ~ leader
+Hey Coach. Is this about one of the young guys? Or me? ~ leader
+Coach. You need something from me or from the room? ~ leader
+Hey. What's going on, Coach? I've got to get back to my guys soon. ~ leader
+Coach, what's up? You got that face on. ~ loose
+Hey, I wasn't late again, was I? Okay. What's up? ~ loose
+Coach. What's the word? ~ loose
+What's good, Coach? ~ loose young
+Ayy, Coach. What's up? ~ loose young
+Okay, I'm here. What's this about? ~ ego
+Coach. Let's talk. ~ ego
+What's up, Coach? I've got a lot on my plate. ~ ego
+Alright. What do you need from me? ~ ego
+Okay, Coach. What's going on? I've got to get back to work. ~ competitor
+Coach, what's up? I'm trying to get extra work in. ~ competitor
+Hey Coach. Make it quick, I want to get on the JUGS machine. ~ competitor young skill
+Coach. Let's do it. ~ competitor
+Coach. What's going on? ~ calm
+Hey, Coach. Take your time. ~ calm
+I'm here. No rush. ~ calm
+Coach. I'm all ears. ~ calm
+Okay, Coach. What's up? ~ steady
+Hey Coach. Same as always. What do you need? ~ steady
+Coach, you wanted to see me? Is it bad? ~ shaky
+Hey. Is everything alright? You don't usually call me in. ~ shaky
+Coach. I got a little nervous when they said you wanted me. ~ shaky
+What's up, Coach? Do I need to be worried? ~ shaky young
+Okay. What's going on, Coach? ~ hot
+Coach, what's up? Let's get into it. ~ hot
+Hey. What do you need? ~ hot
+Coach, you know I'm always here for you. What's up? ~ loyal
+Hey Coach. Whatever you need. ~ loyal
+Coach. I've got to be at treatment in twenty, but go ahead. ~ !hs
+Hey Coach. I've got film after this. ~ !hs
+Coach. Got about fifteen minutes before position meetings. ~ !hs
+Coach. Let me turn my phone off real quick. ~ modern
+Hey Coach. I saw the text. What's going on? ~ modern
+Coach, they texted me to come up. What's up? ~ modern young
+Hey, Coach. I came over as soon as practice ended. ~ young
+Hey, Coach. Do I need my mom here? Kidding. ~ young loose !nfl
+Coach. What's going on? I'm kind of in between things. ~ college
+Hey Coach. I've got class in forty-five. ~ college
+Hey, Coach. I came over from the academic center. ~ college
+Coach. I just left tutoring. What's up? ~ college young
+Hey Coach. Study hall's at seven, so I've got a minute. ~ college young
+Coach. Just got out of my last class. What's going on? ~ college young
+Coach, do I need to call my mom after this? ~ college young
+Hey, Coach. I'm between classes. What's up? ~ college young
+Hey Coach. My ride's coming at five. ~ hs young
+Coach, I've got to catch the activity bus. What's up? ~ hs young
+Hey Coach. I came from the lunchroom. ~ hs young
+Coach. I've got a test next period, so I can't stay long. ~ hs young
+Hey Coach. My mom's in the parking lot. ~ hs young
+Coach, they called me out of class. Is everything okay? ~ hs young
+Hey Coach. Is this about practice? ~ hs
+Coach. I'm supposed to be in study hall, but they let me come. ~ hs young
+Coach. I've got a team meeting with the position group soon. ~ nfl
+Hey, Coach. I've got an appearance tonight, but I'm good till then. ~ nfl
+Coach. I've got my kid's thing later, but go ahead. ~ nfl vet
+Hey, Coach. What do you need from me? ~ nfl vet
+Coach. Been doing this long enough to know when we need to talk. ~ nfl vet
+Coach. I was just in with the trainers. What's going on? ~ nfl
+Yes sir, Coach. What can I do for you? ~ south
+Hey Coach. How y'all doing? ~ south
+Coach. What's going on, sir? ~ south
+Yes sir. They told me to come see you. ~ south young
+Howdy, Coach. You wanted me? ~ texas
+Hey Coach. What's going on? ~ midwest
+Coach. What can I do for you? ~ midwest
+Hey, Coach. You need me for something? ~ midwest
+Yo, Coach. What's going on? ~ northeast
+Coach. What's up? Let's do it. ~ northeast
+Hey Coach. What's the story? ~ northeast
+Hey, Coach. What's going on? ~ west
+Coach. Good to see you. What's up? ~ west
+Hey. You wanted a word?
+Okay, Coach. I'm all yours.
+What's happening, Coach?
+Hey, Coach. They told me to swing by.
+I just saw the note on my locker. What's up?
+Hey Coach. Is this a meeting meeting, or just a talk?
+Coach. I've been around if you needed me.
+Hey Coach. Nothing wrong, I hope?
+Coach. Should I shut the door?
+Hey. Got here as quick as I could.
+Coach, you wanted to see me? Alright.
+Hey Coach. What's this one about?
+I'm here, Coach. What's going on?
+Hey Coach. Is this something serious?
+Coach, I'm here. Whenever you're ready.
+Hey. Let me sit down. Okay.
+Okay, what's going on?
+Coach. What's the plan?
+You wanted to talk, Coach? I've got some time.
+Coach. I'm guessing this is a sit-down kind of thing.
+Hey Coach. They said it's not urgent, but here I am.
+Hey. Is this gonna be quick?
+Coach. I'm here like you asked.
+
+@key talk.open.role
+Is this about where I'm at on the depth chart?
+I want to talk about my spot, Coach.
+I guess this is about reps.
+If it's about the depth chart, I've got questions.
+Is this about who's starting?
+I've been wanting to ask you where I stand.
+I'm guessing you want to talk about my role.
+I've been looking at the chart every week. I know where I am.
+I just want to know what I need to do to get on the field.
+If this is about playing time, I'm glad you brought it up.
+Is it about the rotation?
+I've been wanting to know what the plan is for me on game day.
+I know my name's not where I want it on that board.
+If we're talking about my spot, I'd like to hear it all.
+Is this about the competition at my spot?
+Is this about the battle? Because I want to know where it stands.
+If this is about the starting job, I need to hear it from you.
+I figured we'd talk about the two-deep eventually. ~ college
+I've been running with the twos all week. I want to know why.
+I keep getting reps with the scout team. That's what I want to talk about.
+I know who's taking the first-team reps. I want to know if that's changing.
+Is this about the snaps I've been getting in practice?
+Is this about special teams? Because I'll do it, I just want more. ~ !special
+I want to know if I'm a starter or a backup in your mind.
+If this is about me getting moved down, I want to hear the reason.
+Coach, if I'm the backup, I want to know what the guy in front of me does better.
+I've been thinking about my role a lot.
+Is it about the depth chart coming out this week?
+I want to hear where I'm at. Honestly.
+I don't want to waste a year. That's why I want to know where I'm at.
+I'm not trying to complain. I just want to know where I fit.
+I want to earn it. I just want to know what earning it looks like here.
+I've been told different things by different people about my spot.
+My position coach says one thing and the chart says another.
+I've been playing the best football of my life in practice and I'm still second.
+I want a real shot at the job, Coach. That's what this is about for me.
+If the job's open, I want to know it's open.
+If you've already decided, I'd rather know now.
+Am I in the plans for Saturday? ~ college
+Am I in the plans for Friday? ~ hs
+Am I in the plans for Sunday? ~ nfl
+Is this about me being on the inactive list? ~ nfl
+Is it about the game day roster? I want to know if I'm up. ~ nfl
+I've been a healthy scratch twice now. I want to understand it. ~ nfl
+Is this about the practice squad? Because I think I'm better than that. ~ nfl young
+Is it about the fifty-three? I've been sweating it. ~ nfl young
+Is it about cuts? Just tell me. ~ nfl young
+I'm a vet, Coach. I know when the snaps are getting split. ~ nfl vet
+I've started a lot of games in this league. I want to know if I'm still that guy here. ~ nfl vet
+If you're bringing the young guy along, just say it. I can take it. ~ nfl vet
+I'm a pro. I just want to know what you need me to be this year. ~ nfl pro
+Is this about redshirting? Because I'm ready, Coach. ~ college young
+I didn't come here to sit four years. Is this about my spot? ~ college young ego
+Is this about me playing as a true freshman? ~ college young
+If this is about the redshirt, I want to talk about it. ~ college young
+I've been here three years. I want to know if this is my year. ~ college
+Is this about the transfer that just came in? Because I want to know where I stand. ~ college nil
+Is it about the guy from the portal? ~ college nil
+I want to know if I'm starting varsity this year. ~ hs
+Is this about JV? Please tell me it's not JV. ~ hs young
+Am I moving up to varsity, Coach? ~ hs young
+I want to start, Coach. I'm a senior. ~ hs
+I know I'm a sophomore. I still think I can start. ~ hs young
+Is this about me playing both ways? ~ hs
+Is this about who's starting Friday night? ~ hs
+Coach, my dad keeps asking where I'm at. I'd like to know too. ~ hs young
+I've been doing everything you asked. I want to know where that leaves me. ~ humble
+I'll do whatever role you want. I just want to know what it is. ~ humble
+I'm not asking to start. I'm asking where I stand. ~ humble
+If I'm not ready yet, I'd like to hear what I'm missing. ~ humble
+Coach, I think I've earned a look with the ones. That's what I want to talk about. ~ ego
+I should be starting. I think we both know that. ~ ego
+Let's talk about why I'm not starting. ~ ego
+I'm better than the guy in front of me. I want to talk about that. ~ ego
+I'm not built to be a backup, Coach. ~ ego
+You know where I should be on that chart. ~ ego
+I need to be on the field. Plain and simple. ~ ego competitor
+I want the job. I want to know what it takes. ~ competitor
+I'm coming for that starting spot, Coach. I want to know if it's really open. ~ competitor
+I'm competing every rep. I want to know if it's counting. ~ competitor
+I want a fair fight for the job. That's all I'm asking. ~ competitor
+If somebody's going to beat me out, I want to know how. ~ competitor
+I saw the chart. I need to talk about it. ~ hot
+Somebody's getting my reps, and I want to know why. ~ hot
+I want to talk about where I'm at. Calmly. ~ calm
+I'm at peace with whatever you decide. I just want to understand it. ~ calm
+I'd like to understand my spot better, if you've got time. ~ calm
+I've been quiet about my spot. I figured it's time to ask. ~ quiet
+I don't usually ask about this. But I want to know where I'm at. ~ quiet
+Can I ask about the depth chart? ~ quiet young
+Where am I at, Coach? ~ quiet
+I know my role on this team. I just want to make sure we see it the same. ~ pro
+I want to know what you need from me this year so I can prepare for it. ~ pro
+Is it about me moving positions? I'm open to it if it gets me on the field. ~ pro
+I've studied the film. I know what I need to do. I want to know if it's enough. ~ pro
+I want to talk about my role in the room. ~ leader
+If I'm going to lead this group, I've got to be on the field. That's what this is about. ~ leader
+It's hard to lead from the sideline, Coach. ~ leader
+I'm a captain. I want to know where I stand like everyone else does. ~ leader
+Coach, I've been loyal to this place. I want to know if I'm still part of the plan on the field. ~ loyal
+I'll play wherever you want. I just want to be part of it. ~ loyal
+I want to make sure I still have a spot here. ~ loyal shaky
+Is it bad news about my spot? You can tell me. ~ shaky
+I've been worried about where I'm at. That's the truth. ~ shaky
+I keep thinking I'm going to lose my job. Is that what this is? ~ shaky
+If this is about the starting job, let's just talk about it straight. ~ steady
+I'm good either way. I just want to know where I'm at. ~ steady
+Is it about reps? I've been counting, not gonna lie. ~ loose
+Is this about me getting benched? Because I didn't get benched, I just didn't play. ~ loose young
+If it's about the depth chart, I already know what you're going to say. ~ loose
+Is it about me playing more? Because I'm down. ~ loose young
+Real talk, I want more run, Coach. ~ young modern
+Lowkey I've been wanting to talk about my spot. ~ young modern
+I just want to know where I'm at. No cap. ~ young modern
+I'm trying to see the field, Coach. That's what this is about. ~ young
+Yes sir. I figured it's about where I'm at. ~ south
+I reckon this is about my spot, Coach. ~ south
+I'll be honest, Coach, I want to know where I stand. ~ midwest
+I want to know what's going on with my spot. Straight up. ~ northeast
+If this is about the chart, let's not dance around it. ~ northeast
+I just want to know what my role looks like this year. ~ west
+Is it about my position? I've been thinking about it a lot.
+I want to know if I'm the guy, or if I'm one of the guys.
+I've been patient. I want to know how much longer.
+Is this about who's getting the first snap?
+I'm guessing it's about where I fit.
+If this is about my reps, I've got some thoughts.
+My spot's been on my mind all week.
+Is this about me splitting time?
+I want to know if I'm in a real competition or if it's already decided.
+Is this about the packages? I want to know if I'm in more of them.
+I've been in on third downs but not first. I want to talk about it.
+I'm on kickoff and punt, but I want more than that. ~ !special
+I'm getting the leftover reps. I want to talk about that.
+I want to know what the coaches see when they look at me.
+I keep showing up on the practice film. I want to show up on the game film.
+If it's about my spot, I'd like the honest version.
+Is this about who's going with the ones this week?
+I want to know if the job is still open.
+I've been waiting on a talk about my spot.
+I feel like my spot's been decided without me. That's what I want to talk about.
+Is this about the guys behind me? Because I know they're coming.
+I want to know if I'm still the starter.
+I've heard rumors about the depth chart. I'd rather hear it from you.
+Is this about the snap count? Because I noticed.
+
+@key talk.open.usage
+Is this about how I'm being used?
+I want to talk about what we're doing with me in the game plan.
+If this is about the plan, I've got some ideas.
+I've been thinking about how I fit in the scheme.
+Is it about my snaps? I've been looking at the numbers.
+I want to talk about my touches.
+I'm guessing this is about the game plan.
+Is this about the packages I'm in?
+I want to know why I'm only in on certain downs.
+I've been watching the film and I've got questions about how we use me.
+I feel like there's more I can do in this offense. ~ offense !hs
+I feel like there's more I can do in this defense. ~ defense !hs
+I've got some thoughts on the plays we're calling for me.
+Is this about me moving around in the formation?
+I think I'm being used wrong. I want to talk about it.
+I want to understand the why behind how we're using me.
+If this is about the scheme, I want to hear it from you.
+Is it about my targets? ~ skill !hs
+Is it about my carries? I've noticed. ~ rb
+Is this about me playing in the slot? Because I like it. ~ skill
+Is this about me lining up out of position?
+I've got ideas for how to use me. If you want them.
+I want to know what you see me doing in this system.
+I keep running decoy routes. I want to talk about that. ~ skill
+Is it about me rushing more and dropping less? Because I'm for it. ~ defense !db
+I feel like I'm in the wrong spot on a lot of these calls.
+Is this about third down? I want to be out there on third down.
+I want to be in on the money downs.
+I'm only seeing the field in certain personnel. Is that what this is?
+I want the ball more, Coach. I'll just say it. ~ ego skill
+I make plays when I touch it. Let's talk about that. ~ ego skill
+Give me the ball and I'll win the game. That's what I want to talk about. ~ ego young skill
+I'm a playmaker, Coach. I'm being used like a blocker. ~ ego skill
+The plan's not built around what I do best. ~ ego
+I'm getting wasted out there. That's how it feels. ~ ego hot
+Is this about me being frustrated with the calls? Because yeah. ~ hot
+Somebody needs to tell me why I'm not getting the ball. ~ hot skill
+I don't get why we keep running the same stuff without me. ~ hot
+I want to help us more on Saturday. I think I can. ~ humble college
+I want to help us more on Sunday. I think I can. ~ humble nfl
+I want to help us more on Friday. I think I can. ~ humble hs
+I'll do whatever the plan calls for. I just want to understand it. ~ humble
+I'm not complaining about my role. I just think I can do more. ~ humble
+Whatever the plan is, I'm in. I'd just like to know it. ~ humble
+I've been studying the opponent. I think there's stuff I can do this week. ~ pro
+I've been in the film room. I think we're leaving plays out there. ~ pro
+I want to talk about my alignment. I think there's something there. ~ pro
+I want to know what my job is on every call. That's all. ~ pro
+I've been breaking down tendencies. I want to show you something. ~ pro
+I want more on my plate. Give me more and see what happens. ~ competitor
+I want to be in on every big down. ~ competitor
+I want the tough assignments. Put me on their best guy. ~ competitor db
+I want to be the guy you lean on, Coach. ~ competitor
+I've been thinking about how we use me. Mind if I share? ~ calm
+I wanted to ask about the plan for me. No rush. ~ calm
+I've been going back and forth on how I fit. I'd like your view. ~ calm
+I don't always know what you want from me on certain calls. ~ quiet
+Can I ask about my snaps? ~ quiet
+I've been wondering about how I'm being used. ~ quiet
+I want to talk about how I can help the young guys in the scheme too. ~ leader
+If I'm out there more, the guys around me play better. ~ leader
+I want to talk about the plan for the whole group, and me in it. ~ leader
+Is this about my snap count? Because my agent noticed too. ~ nfl
+How I'm used this year is going to decide my next contract. ~ nfl
+I need tape that shows what I can do. That's what this is about. ~ nfl
+My numbers are going to follow me into free agency, Coach. ~ nfl
+I'm a vet, Coach. I know what I do well. I want to do more of it. ~ nfl vet
+I've seen a lot of schemes in this league. This one could use me better. ~ nfl vet
+I want to know if I'm part of the plan in the red zone. ~ nfl
+I'm getting the rotation reps. I want the real ones. ~ nfl
+Scouts watch the film, Coach. I need plays on it. ~ college
+The NFL guys come through here and they see me running clear-outs. ~ college skill
+I need the ball to get the looks I want. ~ college ego
+Is this about how the OC is using me? ~ college
+I came here because of how you said you'd use me. I want to talk about that. ~ college
+I want to play the position you recruited me to play. ~ college
+I came here to be in this offense. I want to actually be in it. ~ college young
+College coaches are watching my film, Coach. I need plays. ~ hs
+Recruiters keep asking why I don't get the ball more. ~ hs
+I want to play offense too. Is that what this is about? ~ hs defense
+Is this about me playing both ways? I can do it. ~ hs
+Can I return kicks? I want to talk about that. ~ hs young skill
+I want to be used like I am in seven-on-seven. ~ hs modern skill
+Is this about my touches? Lowkey I've been wanting more. ~ young modern
+I want to cook, Coach. I just need the chances. ~ young modern
+I feel like we're not using me right, no cap. ~ young modern
+I've got stuff in my bag you haven't seen yet. ~ young modern loose skill
+Is it about the plan? I got ideas. ~ young loose
+Yes sir. I reckon you want to talk about how I'm being used. ~ south
+I just want to help the team however I can, Coach. ~ south humble
+I've got some thoughts on the game plan, if you'll hear them. ~ midwest
+I'm not getting used the right way. That's my take. ~ northeast
+I want to talk about my role in the scheme. Straight up. ~ northeast
+I feel like I can do a lot more out there. ~ west
+I want to know what my role in the plan looks like. ~ loyal
+I'll play however you want me to, Coach. I trust you. ~ loyal
+Is this about how I'm getting used? I've been worried I'm not doing enough. ~ shaky
+I'm good with my role. I just want to make sure we're on the same page. ~ steady
+Is it about my reps in our packages?
+I want to talk about my snaps on special teams. ~ !special
+I think we're running too much away from me. What do you think?
+I want to be more than a situational guy.
+Is this about me being the decoy?
+Is this about the routes I've been running? ~ skill
+Is this about my blitz assignments? ~ cover
+Is this about my coverage responsibilities? ~ cover
+I've been asking my position coach about how I'm being used. He said talk to you.
+Is this about the new install?
+Is it about the plan for this week?
+I want to know how you see me fitting in the game plan.
+I'm getting a lot of reps in practice that don't show up on game day.
+I don't want stats for the sake of stats. I just want to help.
+I think I'm a mismatch nobody's using. ~ skill
+I want to talk about getting moved around more.
+If this is about my snaps, I'm all ears.
+
+@key talk.open.money
+I need to talk about money, Coach.
+This is about money. I'm just gonna say it.
+It's a money thing. I hate bringing it up.
+I don't like talking about this, but it's about money.
+I've got some money stuff I need to talk through.
+Money's been on my mind. A lot.
+I'll keep it simple. It's financial.
+It's not a football thing. It's a money thing.
+I'm guessing you want to talk about the money stuff.
+I've been going back and forth on whether to bring up money with you.
+I don't want this to change how you see me, but it's about money.
+My family's been asking about money. That's why I'm here.
+It's about what I'm making. Or not making.
+I need some help understanding the money side of all this.
+I've got bills, Coach. That's the honest version.
+It's money, Coach. I'm sorry to even bring it.
+I'm stretched thin, money-wise.
+Can we talk about money without it getting weird?
+I've been thinking about my worth. Money-wise.
+I feel like the money conversation is overdue.
+Is this about my deal? ~ nfl
+I want to talk about my contract, Coach. ~ nfl
+It's about the extension. You know it is. ~ nfl
+My agent and the front office haven't been talking. I want to know why. ~ nfl
+The deal's been sitting there for months. I want to talk about it. ~ nfl
+I want to know if they're going to pay me here. ~ nfl
+I'm playing on a deal that doesn't match what I do. ~ nfl
+I'm in the last year of my rookie deal, Coach. ~ nfl young
+Is this about the option year? ~ nfl young
+They picked up my option, but that's not security. Let's talk. ~ nfl young
+My rookie deal's almost up. I want to know what the plan is. ~ nfl young
+I've been playing for the minimum, Coach. I want to talk about it. ~ nfl
+I want to talk about guaranteed money. That's all that matters in this league. ~ nfl
+Is this about the tag? Because I don't want to play on the tag. ~ nfl
+If they put the tag on me, I need to know now. ~ nfl
+I've been thinking about holding in. I'd rather talk to you first. ~ nfl
+My agent's talking about a holdout. I don't want that, but I need to be paid. ~ nfl
+I'm not skipping anything. But I need to talk about my deal. ~ nfl pro
+I've got incentives in my deal that the way I'm used is killing. ~ nfl
+I want to know if I'm getting cut for cap reasons. Just tell me. ~ nfl vet
+They asked me to take a pay cut. I want to hear it from you. ~ nfl vet
+I'm a vet on a vet deal. I know what's coming. Let's talk about it. ~ nfl vet
+I've got one more big contract in me, Coach. I want it to be here. ~ nfl vet
+I've seen guys with worse tape get paid. That's what this is about. ~ nfl ego
+I'm the best at my spot on this team and the money says otherwise. ~ nfl ego
+The market just reset at my position. You know why I'm here. ~ nfl
+The guy at my spot across the league just got his bag. I want mine. ~ nfl young modern
+I want to talk about my workout bonus. I'm not skipping, but I want to talk. ~ nfl
+My agent told me to bring up the deal with you directly. ~ nfl
+Is this about my collective deal? ~ college nil
+I want to talk about my NIL, Coach. ~ college nil
+It's about rev share. I want to know where I'm at on it. ~ college nil
+I heard what some guys are getting from the collective. I want to talk about mine. ~ college nil
+My NIL money's been late. I need help. ~ college nil
+The collective wants me to do more appearances and I don't have time. ~ college nil
+My NIL agent wants me to ask about my number. ~ college nil
+Schools are calling my people with bigger numbers. I want to be honest with you. ~ college nil
+I want to stay, Coach. But I need my number to make sense. ~ college nil
+I'm getting less than guys who don't play. I want to talk about that. ~ college nil ego
+I don't understand my deal. Can you help me read it? ~ college nil young
+Is this about the rev share list? Where am I on it? ~ college nil
+My family thinks I should be making more with what I'm doing on the field. ~ college nil
+I got offered a deal that might not be allowed. I wanted to ask you first. ~ college nil
+Somebody offered me money that didn't seem right. I wanted to tell you. ~ college
+I'm trying to make my scholarship stretch and it's not stretching. ~ college
+My cost-of-attendance check doesn't cover what it's supposed to. ~ college
+My meal plan ran out and the month's not over. ~ college young
+I'm broke, Coach. Like actually broke. ~ college young
+My family's struggling back home and I'm here with no way to help. ~ college
+I've been thinking about getting a job but there's no time with ball. ~ college
+My mom's car broke down and she can't get to work. It's about that. ~ college young
+I want to send money home and I can't. ~ college young
+There's agents talking to my family. I wanted you to know. ~ college
+A guy came up to me after the game talking about money. I wanted to tell you. ~ college young
+My family's getting calls about money for me to transfer. ~ college nil
+We're behind on bills at home, Coach. ~ hs
+My mom says I might need to get a job. ~ hs young
+I can't afford camp this summer. ~ hs young
+My cleats are falling apart and I can't get new ones right now. ~ hs young
+I don't have money for the team dinner thing. ~ hs young
+I can't pay the fees for the trip, Coach. ~ hs young
+My family's having money problems. It's been hard. ~ hs
+I've been working nights at the restaurant. It's about that. ~ hs
+Somebody offered me an NIL thing. I don't know if it's okay. ~ hs nil
+My trainer's charging my family a lot and I don't know if it's worth it. ~ hs
+My grandma's been paying for everything and I feel bad. ~ hs young
+I don't have a ride to practice anymore because we can't afford gas. ~ hs young
+My dad lost his job. That's what this is about. ~ hs young
+Some guy from a seven-on-seven team offered to pay for my travel. Is that okay? ~ hs modern
+Coach, I want to know if I can make money off my name in high school. ~ hs nil
+I'm not trying to be greedy. I just want what's fair. ~ greedy
+I know my value. I want to make sure everybody else does. ~ greedy
+Money matters, Coach. I'm not going to pretend it doesn't. ~ greedy
+I'm worth more than I'm getting. That's what I came to say. ~ greedy ego
+I want to get paid, Coach. Simple as that. ~ greedy young
+I've got a lot of people depending on me. That's why money matters. ~ greedy
+I'm just trying to secure my family's future. ~ greedy humble
+I don't like talking about it, but I've got to. It's money. ~ humble
+I'm embarrassed to even bring this up, Coach. ~ humble
+I'm not asking for anything I haven't earned. I just want to talk about money. ~ humble
+I'm sorry to make this about money. ~ humble
+I want to handle this right. It's about money. ~ pro
+I'm going to handle this like a pro. But we need to talk money. ~ pro
+I don't want the money stuff to be a distraction. So let's talk about it. ~ pro
+I want to get the money stuff out of the way so I can focus. ~ pro
+I'm not going to let it affect my play. But we have to talk about money. ~ pro
+I need answers on the money. I'm tired of waiting. ~ hot
+I'm hearing a lot of numbers. None of them are mine. ~ hot
+I want to talk about money calmly. Before it becomes a thing. ~ calm
+I just want clarity on the money side. No drama. ~ calm
+Can I ask some money questions? ~ quiet
+It's about money. I don't really know how to start. ~ quiet
+I've got some money questions. ~ quiet young
+I want to be here, Coach. I just need the money to work. ~ loyal
+I'd take less to stay, but not this much less. ~ loyal !hs
+I don't want to leave over money. That's why I'm talking to you first. ~ loyal
+I'm loyal, Coach. But loyal doesn't pay the bills. ~ loyal !hs
+I'm worried about money. Like, really worried. ~ shaky
+I don't know what I'll do if this money thing doesn't work out. ~ shaky
+Money's been keeping me up at night. ~ shaky
+I'm good. I just want to make sure the money side is handled. ~ steady
+I've got a plan for my money. I just need to know what's coming. ~ steady
+Real talk, I need to secure the bag, Coach. ~ young modern
+Lowkey I'm broke, Coach. ~ young modern
+The bag is the bag. I'm just being real. ~ young modern greedy
+Yes sir, it's about money. I hate it. ~ south
+I ain't trying to be ugly about it, Coach, but it's money. ~ south
+I'll be straight with you. It's money. ~ midwest
+I'm not gonna beat around the bush. It's money. ~ northeast
+I'm not gonna lie to you. It's about money. ~ west
+I've been getting advice from a lot of people about money. Some of it's bad, probably.
+It's about money, but it's not just about money.
+I'm going to be honest about the money side, if that's okay.
+My people want me to ask about money. I'd rather ask you myself.
+I've been told I'm underpaid. I'd like to hear your side.
+I just want to know what's coming money-wise.
+It's about money and it's been building for a while.
+I know this isn't your favorite subject. It's not mine either.
+I don't want to be the guy who complains about money. But here I am.
+I've been doing the math, Coach. It doesn't add up.
+It's about a number. My number.
+Somebody needs to explain the money to me.
+
+@key talk.open.behavior
+I know what this is about.
+I figured you heard.
+I was expecting this.
+I know I messed up.
+Before you start, I know.
+If this is about what happened, I can explain.
+I already know what you're going to say.
+Somebody told you, huh.
+Whatever you heard, let me tell my side.
+I know I've been out of line.
+I know it looked bad.
+I'm not proud of it, Coach.
+I knew this was coming the second it happened.
+It's about the other night, right?
+I've been waiting for this all day.
+I know I let you down.
+I won't make excuses. I know why I'm here.
+I'm guessing my name came up.
+I'm guessing the staff talked to you.
+I already heard about it from my position coach.
+Is this about practice yesterday?
+Is this about me being late?
+If it's about the meeting I missed, I overslept. That's on me.
+Is this about what I said in the locker room?
+Is this about the thing on social media? ~ modern
+If it's about the video, it's not what it looks like. ~ modern
+Is this about the fight at practice?
+If it's about me and that guy at practice, it's done. We squashed it.
+Is this about the curfew thing?
+I wasn't where I was supposed to be. I know.
+Is this about missing treatment? ~ !hs
+Is this about missing class? ~ college
+The academic people called you, didn't they. ~ college
+Is this about the party? ~ college young
+Is this about the thing at the apartment? ~ college
+Did my teacher call you? ~ hs young
+Is this about detention? ~ hs young
+My mom already grounded me, if that helps. ~ hs young
+Is this about the thing at the game? ~ hs
+I know I can't act like that wearing our jersey. ~ hs
+Is the league getting involved? ~ nfl
+Did the league office call? ~ nfl
+My agent already called me about it. ~ nfl
+I've already talked to the team's security guy. ~ nfl
+Is this about the fine? I already know it's coming. ~ nfl
+Is this about me missing the walk-through? ~ nfl
+I've been in this league long enough to know better. That's on me. ~ nfl vet
+I know the young guys are watching me. I set a bad example. ~ nfl vet
+Okay. Yeah. I know. ~ quiet
+I'm sorry, Coach. ~ quiet
+Yes sir. I know. ~ quiet
+I don't really know what to say about it. ~ quiet
+I know. I should have told you myself. ~ quiet
+I'm so sorry, Coach. It won't happen again. ~ humble
+I feel terrible about it. ~ humble
+I've been sick about it since it happened. ~ humble
+I don't even recognize that guy, Coach. That wasn't me. ~ humble
+I'm ready for whatever's coming. I deserve it. ~ humble
+Let me guess. Somebody's been talking. ~ ego
+It wasn't a big deal. People are acting like it is. ~ ego
+Everybody does it, Coach. I'm just the one who got caught. ~ ego
+I'm the one getting called in, huh. Figures. ~ ego
+I don't think it was as bad as people are saying. ~ ego
+I'm not going to apologize for standing up for myself. ~ hot
+I know I've got a short fuse. I'm working on it. ~ hot
+I'm not going to make excuses. I made a mistake. ~ pro
+I'll take whatever's coming. I'm not going to fight it. ~ pro
+That's not who I am. I want to make it right. ~ pro
+I'm accountable for it. All of it. ~ pro
+I want to own it in front of the guys too. ~ leader
+I'm supposed to be the one setting the example. I know. ~ leader
+I let the room down. I'll talk to them. ~ leader
+I know the captains have to be better than that. I'm sorry. ~ leader
+I'll fix it with the team myself if you let me. ~ leader
+My bad, Coach. For real. ~ loose young
+I was just having fun. It got out of hand. ~ loose
+It's not that serious, Coach. Right? ~ loose
+Okay, before you say anything, I can explain most of it. ~ loose
+I already know I'm running after practice. ~ loose
+I've been in a bad place lately. I'm not making excuses. ~ shaky
+Everything's been piling up and I just snapped. ~ shaky
+I don't know why I did it, honestly. ~ shaky
+I'm already beating myself up about it, Coach. ~ shaky
+I know I've been slipping. I'm trying. ~ shaky
+I'm not going to lie to you. Ask me whatever you want. ~ steady
+I made a mistake. I'll handle the consequences. ~ steady
+I'll be honest about what happened. ~ calm
+I'd like to tell you what happened, start to finish. ~ calm
+I'm not going to get defensive. Go ahead. ~ calm
+I'd never want to embarrass this program. I'm sorry. ~ loyal
+I know I let you down after everything you've done for me. ~ loyal
+I don't want to be the guy who makes the program look bad. ~ loyal
+It was stupid. I know. ~ young
+Am I suspended? ~ young
+Am I in trouble, Coach? ~ young
+Is my scholarship okay? ~ college young
+Am I still starting? ~ young competitor
+I know it hurt the team. That's what bothers me most. ~ competitor
+Whatever you need me to do to make up for it, I'll do. ~ competitor
+I'll run till I puke if that's what it takes. ~ competitor young
+Yes sir. I know I messed up bad. ~ south
+I ain't gonna lie to you, Coach. I messed up. ~ south
+Mama already got on me about it. ~ south young
+I know. I'm not going to make excuses. ~ midwest
+Yeah. That was dumb. I know. ~ midwest
+I know I messed up. I'm not going to pretend otherwise. ~ northeast
+It wasn't my finest moment, Coach. ~ northeast
+I wasn't thinking. That's the honest truth. ~ west
+I'm not trying to hide anything.
+It's not as bad as it sounds. But it's bad.
+I know the guys are talking about it.
+I've been dreading coming in here.
+I'll take my punishment. I just want you to hear me out first.
+It was one bad decision. I'm not a bad guy.
+I didn't mean for it to blow up like this.
+I should have come to you first.
+Whatever it is, I'll fix it.
+I know people are disappointed in me.
+I've been thinking about it nonstop.
+I know there's a line and I crossed it.
+
+@key talk.open.life
+You wanted to check on me?
+Is this about how I'm doing? Like, as a person?
+I'm guessing somebody told you I've been off.
+Is this a check-in?
+You don't usually ask about life stuff. What's going on?
+If this is about home, I'll tell you what I can.
+Is everything okay? You've got that worried look.
+Somebody must have said something about me.
+Is this about me being quiet lately?
+It's a lot, Coach. Outside of football, I mean.
+If you're asking about life, it's complicated.
+I appreciate you asking about the off-the-field stuff.
+I didn't think you noticed.
+Is this about my family?
+Did somebody from the staff say I seemed down?
+Is this about the stuff going on back home?
+You want to know how I'm really doing?
+I've been dealing with some things. You probably heard.
+I don't usually bring home into the building.
+Is this about my sleep? The trainers said something, didn't they? ~ !hs
+Is this about my weight? I've been eating weird. ~ !hs
+Did the nutrition people say something? ~ !hs
+The strength coach said I looked tired. Is that it? ~ !hs
+Is this about my relationship stuff? ~ young
+I know I've been distracted.
+Did my mom call you? She said she might. ~ young !nfl
+Did my dad call you? ~ young !nfl
+Is this about my grandma? ~ young
+Did my family reach out to you? ~ !nfl
+Is this about classes? I'm keeping up. Mostly. ~ college
+My academic advisor said she talked to you. ~ college
+Is this about me going home last weekend? ~ college
+Is it about me wanting to go home for a bit? ~ college young
+I've been homesick, if that's what this is. ~ college young
+I haven't been sleeping in my dorm much. Is that what this is about? ~ college young
+Is it about the counseling? I've been going. ~ college
+Is this about my teachers? ~ hs
+Is this about home? My mom's been working a lot. ~ hs young
+Is it about my little brother? ~ hs young
+Is this about my grades? I'm trying, Coach. ~ hs young
+I've got a lot going on off the field. You probably know that. ~ nfl
+My family's been in town. It's been a lot. ~ nfl
+I've been doing a lot of community stuff. Is it about that? ~ nfl pro
+Oh. A life check-in. Okay. ~ quiet
+I don't really talk about outside stuff. ~ quiet
+I'm alright. I think. ~ quiet
+Life's been a lot. ~ quiet
+I appreciate you asking, Coach. ~ humble
+You didn't have to check on me, but thank you. ~ humble
+I didn't want to bother you with my personal stuff. ~ humble
+It means a lot that you'd ask about the off-the-field stuff. ~ humble
+I'm good, Coach. I don't need a check-in. ~ ego
+I don't need anybody worrying about me. ~ ego
+Is this a mental health thing? Because I'm good. ~ ego
+I've got it handled. Whatever you heard. ~ ego
+Who told you something? ~ hot
+I don't like people talking about my personal life. ~ hot
+I keep my life stuff separate. But okay. ~ pro
+I try to keep everything off the field off the field. ~ pro
+Is something affecting my work? Tell me if it is. ~ pro
+I'm handling things, Coach. I've got a plan. ~ steady
+I'm fine. Things are just busy. ~ steady
+I'm okay. Life's a little crazy, but I'm okay. ~ calm
+Things have been heavy. I'll be honest. ~ shaky
+I don't know how to answer that right now. ~ shaky
+Honestly? I'm not sure how I'm doing. ~ shaky
+I've been having a hard time, Coach. ~ shaky
+Some days are harder than others. ~ shaky
+I'm good, Coach. Thanks for looking out. ~ loyal
+You've always looked out for me. I appreciate this. ~ loyal
+I'm worried about one of my teammates, actually. Can we start there? ~ leader
+I'm good. But some of the guys aren't. ~ leader
+I'm good. Life's good. Mostly. ~ loose
+Ha. You're asking about my life? It's a movie, Coach. ~ loose young
+My life's chaos, Coach, but I'm living. ~ loose young
+I'm good, Coach. Just been busy with life. ~ young
+Life be lifing, Coach. ~ young modern loose
+It's been a lot, no cap. ~ young modern
+I'm just trying to stay off my phone, Coach. It's been a lot online. ~ young modern
+People back home keep hitting me up. It's a lot. ~ young modern
+Yes sir. Family stuff. ~ south
+I've been worried about my folks back home. ~ south
+My folks have been going through it. ~ midwest
+It's been a crazy few weeks at home, Coach. ~ midwest
+Family stuff. It's complicated. ~ northeast
+My family's been going through some things. I'll be straight with you. ~ northeast
+Life's been a little all over the place. ~ west
+I've been trying to find some balance. ~ west
+Is this about me seeming distant?
+Is this about me not being around the guys as much?
+I've been keeping to myself. I know.
+I've had a lot on my plate outside of ball.
+Is this because I missed the team dinner?
+I'm guessing somebody noticed I've been down.
+If you're checking on me, I appreciate it.
+Is this about my health? I'm okay.
+I've had some stuff going on. Personal stuff.
+I'm figuring things out. Life things.
+I didn't know it was that obvious.
+It's been an up and down few weeks.
+I've been trying to stay positive about everything.
+
+@key talk.open.team
+Is this about the room?
+You want to know what's going on in the locker room.
+I'm guessing this is about the team.
+If it's about the guys, I'll tell you what I can.
+Is it about how the team's been?
+I've been wanting to talk about the team too.
+Is this about chemistry?
+The locker room's been a topic, huh.
+I know there's been some stuff in the room.
+Is this about what's being said in the locker room?
+If you want the pulse of the room, I can give you that.
+I've got some thoughts on the team, if that's what this is.
+Is this about the offense and defense going at it? ~ !hs
+Is it about the stuff at practice between the groups?
+Is it about the seniors?
+Is this about the young guys?
+I don't know everything that goes on in there, but I know some.
+Is this about the guys who've been complaining?
+I've heard some things. I'm guessing you have too.
+Is it about the vibe? Because the vibe's been off.
+Is it about guys not showing up for extra work?
+I figured you'd want to talk about the team eventually.
+Is it about how we've been playing together?
+If this is about the team, I'm all in.
+Is this about the cliques?
+Is it about the guys who transferred in? ~ college nil
+Is this about the portal guys and the guys who were here? ~ college nil
+Is this about the new guys fitting in?
+Is this about the team meeting?
+Is it about the players-only meeting?
+Is it about what happened on the bus? ~ !nfl
+Is it about the trip?
+I'm not a snitch. But I'll talk about the team. ~ loose
+I'm not naming names, Coach. ~ loose
+Ha. The locker room. Okay, what do you want to know? ~ loose
+The room's fine. Mostly. ~ loose young
+Is this a captains thing? ~ leader
+I've been trying to hold the room together. ~ leader
+I've got some concerns about a few guys. ~ leader
+I've been meaning to come to you about the room. ~ leader
+If the room needs fixing, I want to help fix it. ~ leader
+The young guys have been looking to me. I want to talk about that. ~ leader
+I'll give it to you straight about the team. ~ leader steady
+Is it about how the team responds to losing? ~ competitor
+Is this about guys not competing? Because I've noticed. ~ competitor
+Is this about the guys who are fine with losing? ~ competitor
+I want everybody to want it like I want it. Is this about that? ~ competitor
+I want to talk about the standard in there. ~ competitor
+Is this about me and some of the guys? ~ hot
+If somebody said something about me, I want to know. ~ hot
+I'm not the problem in that room, Coach. ~ hot ego
+Is this about me being too loud in there? ~ hot
+I mostly keep to myself in the room. ~ quiet
+I don't really get involved in the locker room stuff. ~ quiet
+I'm not sure I'm the right guy to ask about the room. ~ quiet
+I hear things. I just don't say much. ~ quiet
+I'll do whatever helps the team. ~ humble
+I just want us to be close, Coach. ~ humble
+I don't want to overstep, but I've noticed some things. ~ humble
+I'll keep it professional. What do you need to know about the team? ~ pro
+Is this about accountability in the room? ~ pro
+I've noticed some guys cutting corners. Is that what this is? ~ pro
+I try to stay out of the drama. But I see it. ~ pro
+I've got a read on the room. Want it? ~ calm
+The room's alright. It could be better. ~ calm
+The room's in decent shape, I think. ~ steady
+I'm not worried about the room. But I'll tell you what I see. ~ steady
+Is this about the team? I've been worried about it. ~ shaky
+I feel like the room's falling apart a little. ~ shaky
+I love these guys, Coach. Is something wrong with the team? ~ loyal
+This team means everything to me. What's going on? ~ loyal
+The team's the reason I'm still here. ~ loyal
+Is this about guys being selfish? Because that's not me. ~ ego
+I carry this team on the field. What's the problem in the room? ~ ego
+Is it about the guys who don't think I should be the guy? ~ ego
+Is this about the leaders? Because I think I should be one. ~ ego young
+Is it about the vets? ~ young
+Is it about the vets not listening to the young guys? ~ young
+The older guys can be a lot. Is this about that? ~ young
+The young guys don't know how to work yet. Is that it? ~ vet
+I've been in a lot of locker rooms. This one's interesting. ~ nfl vet
+Is it about the vets and the rookies? ~ nfl
+Is this about guys worried about their jobs? ~ nfl
+Is it about the guys talking contract in the locker room? ~ nfl
+The room's a business, Coach. But it's still a room. ~ nfl vet
+Is it about the media stuff and the room? ~ nfl
+Is it about the guys who got cut? People are feeling that. ~ nfl
+Is this about the seniors not leading? ~ college
+Is it about the guys looking at the portal? ~ college nil
+Is it about the NIL stuff in the room? Guys know who's getting what. ~ college nil
+The room knows what everybody makes now. It changes things. ~ college nil
+Is it about the walk-ons? They've been grinding. ~ college
+Is this about the dorm stuff? ~ college young
+Is it about the seniors? Some of them aren't acting like it. ~ hs
+Is this about the sophomores? They've been goofing around. ~ hs
+Is it about the guys who quit? ~ hs
+Is it about the guys from the other school? ~ hs
+Is it about what happened at the dance? ~ hs young
+Is this about the guys not coming to summer workouts? ~ hs
+Is it about the drama on the group chat? ~ young modern
+The group chat's been crazy, Coach. ~ young modern
+Is it about the stuff on social media between guys? ~ modern
+The room's been lowkey divided, Coach. ~ young modern
+Yes sir. You want to know about the boys. ~ south
+I reckon you want to know about the locker room. ~ south
+Y'all want to know how the team's doing? ~ south young
+Is this about the team, Coach? I'll be honest with you. ~ midwest
+The locker room? Yeah, let's talk. ~ northeast
+You want the real story on the team? ~ northeast
+Is this about team chemistry? ~ west
+I've been thinking about the team a lot. ~ west
+Is it about the losing? Guys have been feeling it.
+Is it about how we bounce back from this?
+Is it about the guys who got in trouble?
+I don't think you'd like everything going on in there.
+I know you can't be in the room. I can.
+Is this about who's leading the team?
+I've noticed some things in the weight room.
+Is this about the guys sitting apart at meals?
+I've been trying to get guys to hang out more.
+Is this about trust in the room?
+Is it about how the guys see the coaches?
+Some guys are on edge. Is that what this is?
+
+@key talk.open.future
+Is this about next year?
+I figured we'd talk about the future at some point.
+You want to know what I'm thinking long term.
+Is this about my plans?
+I've been thinking about what's next. A lot.
+I guess this is the future talk.
+If this is about what I'm doing next year, I don't have all the answers.
+Is this about whether I'm coming back?
+I've been hearing things about my future. I'd like to hear yours.
+I want to know what you see for me down the road.
+I've been weighing some things.
+I knew we'd have this talk eventually.
+If this is about leaving, I haven't decided anything.
+I don't want you to hear about my plans from somebody else.
+I've been talking to my family about the future.
+Is this about the long term? Because I've been wondering too.
+I'm trying to figure out where I'll be in a year.
+I've got some decisions coming up. I know that.
+Is this about my plan after football?
+I've been thinking about life after this.
+Is this about the portal window? ~ college nil
+I haven't entered anything, Coach. I want to be clear. ~ college nil
+I've had schools reach out to my people. I'm being honest. ~ college nil
+Is it about the draft? ~ college
+Is this about me declaring? ~ college
+I've been thinking about the draft. I want your honest take. ~ college
+Is it about me coming back for my senior year? ~ college
+I've got an extra year if I want it. Is that what this is about? ~ college
+My family wants me to graduate. I want to go pro. Is that what this is? ~ college
+Is this about my degree? I'm close. ~ college
+I've been talking to agents. I'll be honest. ~ college nil
+Is this about grad school? I've been looking into it. ~ college
+I've been thinking about transferring closer to home. ~ college young
+I want to know if I've got a future here. ~ college
+I came here to get to the league. I want to know if that's still the plan. ~ college ego
+Is this about where I'm going to college? ~ hs
+Is this about recruiting? I've got some schools talking to me. ~ hs
+I'm thinking about committing. Is that what this is? ~ hs
+Some coaches came by school this week. Is this about that? ~ hs
+I want to play in college. I don't know if I'm good enough. ~ hs young
+My dad wants me to reclassify. Is that what this is about? ~ hs
+I'm thinking about moving schools. ~ hs young
+My trainer says I should go to a prep school. ~ hs
+I've been thinking about whether I even want to play in college. ~ hs
+I want to go to a big school, Coach. Is that crazy? ~ hs young
+I want to know if junior college is an option for me. ~ hs
+Is this about my contract year? ~ nfl
+I'm a free agent at the end of the year. I know what this is. ~ nfl
+I want to know if I'm part of the plan next year. ~ nfl
+I've been thinking about where I want to finish my career. ~ nfl vet
+Is this about retirement? Because I've thought about it. ~ nfl vet
+I've got a couple years left in me. I want to spend them right. ~ nfl vet
+I've been talking to my wife about what's next. ~ nfl vet
+Is it about the trade rumors? ~ nfl
+I keep seeing my name in trade stuff. ~ nfl
+I want to know if they're going to extend me or let me walk. ~ nfl
+I've been thinking about coaching after I'm done. ~ nfl vet
+Is this about the deadline? ~ nfl
+My agent says there's interest. I wanted to talk to you first. ~ nfl
+I want to win a ring before I'm done, Coach. That's my future. ~ nfl vet competitor
+I don't know what's next. ~ quiet
+I've been thinking about it. I don't really have answers. ~ quiet
+I haven't said much about my plans. I know. ~ quiet
+I'm grateful for everything here. Whatever comes next. ~ humble
+I just want to keep getting better. That's my plan. ~ humble
+I don't want to look too far ahead, honestly. ~ humble
+I'll be honest, I think I'm ready for the next level. ~ ego
+I know my value. I'm thinking about where it gets used best. ~ ego
+I've got options, Coach. I'm not going to pretend I don't. ~ ego
+People are telling me I'm better than this spot. ~ ego young
+I've got a plan for my future. I want to know if it lines up with yours. ~ pro
+I want to make a smart decision about what's next. ~ pro
+I'm trying to handle my future like a business. ~ pro
+I want to talk about my future here. ~ loyal
+I want to be here long term, Coach. ~ loyal
+I don't want to be anywhere else. I just want to know you feel the same. ~ loyal
+I want to finish what I started here. ~ loyal
+I'm worried about what happens next. ~ shaky
+I don't know what I'm doing next year and it scares me. ~ shaky
+Everybody's asking about my future. I don't have answers. ~ shaky
+I've got a plan. I'd like to hear yours. ~ steady
+I'm not stressing it. But I'd like to know where we're headed. ~ calm
+Let's talk about it. I'm open. ~ calm
+I want to go where I can win. That's my future. ~ competitor
+I want to be somewhere that wants to win as bad as I do. ~ competitor
+If this is about my future, I want to hear it straight. ~ hot
+Somebody's been talking about my future behind my back. ~ hot
+I want to know what the plan is for the room next year too. ~ leader
+I want to leave this place better than I found it. ~ leader
+I've been thinking about my legacy here. ~ leader
+Real talk, I'm thinking about my next move. ~ young modern
+Lowkey I've been thinking about the future a lot. ~ young modern
+I've been getting a lot of DMs about my future. ~ young modern
+Ha. The future. I barely know what I'm doing this weekend. ~ loose young
+I'm just living, Coach. But okay, the future. ~ loose
+Yes sir. I've been praying on my future. ~ south
+I'd like to stay close to my folks, if it works out. ~ south
+I've been thinking about staying close to home. ~ midwest
+I'm going to be honest about my future. ~ northeast
+I want to see what's out there, but I'm open. ~ west
+Is this about my plans for the summer?
+Is it about the offseason?
+I want to know if there's room for me to grow here.
+I've been asked about my plans a lot lately.
+Is this about where I'll be next season?
+I've been thinking about what's best for my family.
+I keep going back and forth about what's next.
+My family has opinions on my future. A lot of them.
+I just want to make the right call.
+I want to talk about the next step. Whatever it is.
+Is this about what people are saying online about my future? ~ modern
+I need to start planning for what comes after. I know that.
+
