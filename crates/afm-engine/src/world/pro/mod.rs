@@ -95,7 +95,7 @@ pub struct ProCareer {
     /// Weeks left out injured, read from `out_days` (shown on screens and
     /// read by every roster check).
     pub out_weeks: u32,
-    /// Days left out injured, counted down each morning (B1: day by day,
+    /// Days left out injured, counted down each night (B1: day by day,
     /// as in college and high school); 0 when he can play.
     #[serde(default)]
     pub out_days: u32,
@@ -203,7 +203,7 @@ impl ProCareer {
         self.team.is_some() && matches!(self.status, Status::Roster | Status::PracticeSquad | Status::Reserve)
     }
 
-    /// Out for at least `days` more days, counted from tomorrow morning.
+    /// Out for at least `days` more days, counted down from tonight.
     pub fn hurt_for(&mut self, days: u32) {
         self.out_days = self.out_days.max(days);
         self.out_weeks = self.out_days.div_ceil(7);
@@ -2012,7 +2012,7 @@ fn heal_week(w: &mut World) {
     }
 }
 
-/// Each morning, before the day's games (B1): every injured pro is a day
+/// Each night, after the day's games (B1): every injured pro is a day
 /// closer, in season and out, NFL and the other leagues alike. A player
 /// healed today on injured reserve comes back while his team has returns
 /// left (from 2012), else he waits out the season there; healed on the

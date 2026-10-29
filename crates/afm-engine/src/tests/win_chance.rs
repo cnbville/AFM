@@ -247,7 +247,11 @@ fn win_chance_is_calibrated_on_engine_games() {
         let home = if level == Level::NFL { 1.7 } else { 2.5 };
         let (mut brier, mut n) = (0.0f64, 0u32);
         let mut bins = [(0.0f64, 0.0f64, 0u32); 5];
-        for g in 0..60u64 {
+        // Enough games that a bin's noise sits well inside the tolerance:
+        // at 60 the NFL's 20-40% bin moved 0.2 on an engine change (said
+        // 0.31, won 0.11), at 600 it reads 0.31 against 0.23.
+        let games = if level == Level::NFL { 600u64 } else { 240 };
+        for g in 0..games {
             let k = g / 2;
             let (h, a) = ((k * 7) as usize % 12, (k * 5 + 1) as usize % 12);
             let a = if a == h { (a + 1) % 12 } else { a };

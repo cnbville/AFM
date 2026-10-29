@@ -718,8 +718,6 @@ pub(crate) fn day(w: &mut World, d: Date) {
         return;
     }
     let y = w.dates.clone();
-    // Injuries heal a day before the day's games (B1).
-    super::pro::heal_day(w, d, &y);
     dated_events(w, d, &y);
     if d == y.combine_invites {
         recruiting::combine_invites(w);
@@ -767,6 +765,9 @@ pub(crate) fn day(w: &mut World, d: Date) {
     // The pros' own day: the league year, free agency, camp, cutdowns,
     // the street and the season's end (section 5).
     super::clock::timed("nfl people", || super::pro::day(w, d));
+    // Injuries heal a day at a time, after the day's games, so the day
+    // plays the game its morning showed (B1).
+    super::pro::heal_day(w, d, &y);
 }
 
 fn post(w: &mut World, d: Date, kind: Kind, loud: Loudness, rule: &'static str, text: impl Into<String>) {
