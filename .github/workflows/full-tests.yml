@@ -53,7 +53,8 @@ jobs:
             packages: -p afm-game
             run: cargo test -p afm-game --test '*'
           # Every other integration test: the tools' 3-year world (about 45
-          # minutes), the national class and the match engine checks.
+          # minutes), the world reader's book, the national class and the match
+          # engine checks.
           - part: worlds
             packages: --workspace --exclude afm-game
             run: cargo test --workspace --exclude afm-game --test '*'
