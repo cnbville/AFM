@@ -244,19 +244,32 @@ fn page(w: &World) -> Result<Value, String> {
                 .filter(|x| x.team != t && x.first == c.first)
                 .map(|x| team_brief(w, TeamRef::Nfl(x.team)))
                 .collect();
+            // In date order: this April's draft comes before the lists when
+            // the club plays next season, after the expansion draft when it
+            // plays this one.
+            let draft = json!({
+                "when": date_text(w.dates.draft[0].date),
+                "what": if c.first == year { "The draft, with your extra picks" } else { "This year's draft: next year's is yours" },
+                "done": w.today > w.dates.draft[0].date,
+            });
+            let mut steps =
+                vec![json!({ "when": format!("{}", c.awarded), "what": "The owners award the club", "done": true })];
+            if c.first > year {
+                steps.push(draft.clone());
+            }
+            steps.push(json!({ "when": date_text(lists_day), "what": "The other clubs list their open players", "done": lists_in || c.drafted }));
+            steps.push(json!({ "when": date_text(draft_day), "what": "The expansion draft", "done": c.drafted }));
+            if c.first == year {
+                steps.push(draft);
+            }
+            steps.push(json!({ "when": format!("{}", c.first), "what": "The first season", "done": year > c.first }));
             json!({
                 "kind": "nfl", "team": brief, "first": c.first, "awarded": c.awarded,
                 "fee": c.fee, "metro": c.metro, "partner": partner,
                 "drafted": c.drafted, "lists_in": lists_in,
                 "lists_day": date_text(lists_day), "draft_day": date_text(draft_day),
                 "open": open, "queue": w.expansion.queue, "taken": taken,
-                "steps": [
-                    { "when": format!("{}", c.awarded), "what": "The owners award the club", "done": true },
-                    { "when": date_text(lists_day), "what": "The other clubs list their open players", "done": lists_in || c.drafted },
-                    { "when": date_text(draft_day), "what": "The expansion draft", "done": c.drafted },
-                    { "when": date_text(w.dates.draft[0].date), "what": if c.first == year { "The draft, with your extra picks" } else { "This year's draft: next year's is yours" }, "done": false },
-                    { "when": format!("{}", c.first), "what": "The first season", "done": year > c.first },
-                ],
+                "steps": steps,
             })
         }
         TeamRef::College(p) => {
