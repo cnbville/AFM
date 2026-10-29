@@ -114,8 +114,14 @@ fn nfl_moves(w: &World, k: usize, own: bool, out: &mut Vec<Value>) {
                     out.push(main(v));
                 }
                 // Healed but blocked (a full roster, no returns left): the
-                // move shows with why, so it isn't a silent dead end.
-                Err(why) if c.is_some_and(|c| c.status == Status::Reserve && c.out_weeks == 0) => {
+                // move shows with why, so it isn't a silent dead end. A
+                // season-ending list (before the cutdown, or before 2012)
+                // has no move at all.
+                Err(why)
+                    if head
+                        && afm_engine::world::pro::games::ir_returns(w.year) != 0
+                        && c.is_some_and(|c| c.status == Status::Reserve && c.out_weeks == 0 && !c.ir_out) =>
+                {
                     let mut v = mv("ir_back", "Bring him back from injured reserve");
                     v["why"] = json!(why);
                     out.push(v);
@@ -136,7 +142,7 @@ fn nfl_moves(w: &World, k: usize, own: bool, out: &mut Vec<Value>) {
     // A free agent you can bring in.
     if talk == Some(nfl::TalkKind::FreeAgent)
         && w.today >= w.dates.league_year.date
-        && !w.front_office.nfl.visits.iter().any(|v| v.0 == id)
+        && !afm_engine::world::front_office::nfl::visited_recently(w, id)
     {
         out.push(mv("visit", "Bring him in for a visit"));
     }

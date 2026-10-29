@@ -260,19 +260,17 @@ pub(crate) fn visits_program(w: &World) -> Option<usize> {
     mine(w, Duty::Visits)
 }
 
-/// With your staff on visits: your program and the recruits you set an
-/// official visit for yourself, which its own bookings leave alone (SC6).
+/// Your program and the recruits you set an official visit for, still to
+/// come: the world's bookings save his slot for it and, with your staff on
+/// visits, leave your school alone (SC6).
 pub(crate) fn planned_officials(w: &World) -> Option<(usize, std::collections::HashSet<u32>)> {
     let j = super::program(w)?;
-    if mine(w, Duty::Visits).is_some() {
-        return None;
-    }
     let ids: std::collections::HashSet<u32> = w
         .front_office
         .college
         .visits
         .iter()
-        .filter(|v| v.state == VisitState::Set && v.kind == VisitKind::Official)
+        .filter(|v| v.state == VisitState::Set && v.kind == VisitKind::Official && v.date >= w.today)
         .map(|v| v.id)
         .collect();
     (!ids.is_empty()).then_some((j, ids))
@@ -1503,11 +1501,8 @@ pub fn set_deal(w: &mut World, id: u32, amount: f64) -> Result<String, String> {
         desk.deals_year = year;
     }
     // With NIL at your staff, his usual share is what your deal replaces.
-    let usual = if mine(w, Duty::Nil).is_none() {
-        usual_deals(w, j).into_iter().find(|d| d.0 == id).map_or(0.0, |d| d.1)
-    } else {
-        0.0
-    };
+    let staff = mine(w, Duty::Nil).is_none();
+    let usual = if staff { usual_deals(w, j).into_iter().find(|d| d.0 == id).map_or(0.0, |d| d.1) } else { 0.0 };
     let old = w.front_office.college.deals.iter().find(|d| d.0 == id).map_or(usual, |d| d.1);
     let b = budget(w, j);
     if amount - old > b.left + 1.0 {
@@ -1515,7 +1510,9 @@ pub fn set_deal(w: &mut World, id: u32, amount: f64) -> Result<String, String> {
     }
     let desk = &mut w.front_office.college;
     desk.deals.retain(|d| d.0 != id);
-    if amount > 0.0 {
+    // With your staff on NIL a missing deal means the usual split, so a $0
+    // deal is kept to pay him nothing (SC6).
+    if amount > 0.0 || staff {
         desk.deals.push((id, amount));
     }
     Ok(format!("{}: {} a year from July 1, {year}.", w.people[i].name, dollars(amount)))

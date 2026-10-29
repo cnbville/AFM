@@ -25,9 +25,11 @@ pub(crate) fn recommend(w: &mut World, i: usize, weeks: u32) {
     let name = w.people[i].name.clone();
     let pos = w.people[i].player.position.name();
     let vested = w.people[i].pro.as_ref().is_some_and(|c| c.accrued >= 4);
-    let back = if before_cut(w) && !vested {
+    // Runs inside the day's events (a preseason game, the cutdown itself).
+    let pre = w.today >= w.dates.league_year.date && w.today < w.dates.cutdown.date;
+    let back = if pre && !vested {
         "before the cutdown he reaches it only through waivers, so keep him through the cut and decide then".to_string()
-    } else if before_cut(w) {
+    } else if pre {
         "before the cutdown it ends his season".to_string()
     } else if returns == 0 {
         "it ends his season (no player comes back from it before 2012)".to_string()
@@ -194,7 +196,9 @@ fn yours(w: &World, id: u32) -> Result<(usize, usize), String> {
     Ok((i, t))
 }
 
-/// Between the league year and the final cutdown.
+/// Between the league year and the final cutdown, for your moves: you act
+/// on the morning of `w.today`, before that day's league year opening or
+/// cutdown runs.
 fn before_cut(w: &World) -> bool {
-    w.today >= w.dates.league_year.date && w.today < w.dates.cutdown.date
+    w.today > w.dates.league_year.date && w.today <= w.dates.cutdown.date
 }

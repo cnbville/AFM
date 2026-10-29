@@ -473,6 +473,8 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
             if placed {
                 c.status = Status::Reserve;
                 c.pup = false;
+                // Placed before the cutdown: out for the season.
+                c.ir_out = true;
             }
             let p = &mut w.people[i];
             let age = p.row_age();
@@ -651,6 +653,8 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
             if ir {
                 c.status = Status::Reserve;
                 c.pup = false;
+                // Placed in camp, before the cutdown: out for the season.
+                c.ir_out = camp;
             }
             let p = &mut w.people[i];
             let age = p.row_age();
@@ -684,7 +688,7 @@ pub(crate) fn ir_minimum(year: i32) -> u32 {
 /// How many players a team may bring back from injured reserve in a
 /// season (real: none before 2012, one 2012-16, two 2017-19, unlimited in
 /// 2020-21, eight from 2022).
-pub(crate) fn ir_returns(year: i32) -> u32 {
+pub fn ir_returns(year: i32) -> u32 {
     match year {
         ..=2011 => 0,
         2012..=2016 => 1,

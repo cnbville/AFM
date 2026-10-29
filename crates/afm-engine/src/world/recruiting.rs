@@ -3388,7 +3388,9 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
         let id = p.player.id as u64;
         let mut new: Vec<(usize, Visit)> = Vec::new();
         if official_day && official_visit_allowed(season, d, p.class_of, junior_officials) {
-            let taken = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count();
+            // The official you set and he accepted holds one of his five.
+            let taken = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count()
+                + usize::from(planned.as_ref().is_some_and(|(_, ids)| ids.contains(&p.player.id)));
             let yours_set = |j: usize| planned.as_ref().is_some_and(|(pj, ids)| *pj == j && ids.contains(&p.player.id));
             let next = p.cal.offers.iter().find(|&&j| {
                 Some(j) != vj
@@ -6598,25 +6600,12 @@ pub(crate) fn nil_payouts(w: &mut World) {
                 // agent: his lean toward the portal grows (proposed, not
                 // confirmed: under half his share, a share of $25K or more).
                 let mut v = Vec::with_capacity(roster.len());
-                // With your staff on NIL, the players you set no deal for
-                // share what your deals leave of the roster's money (SC6).
-                let scale = if d.2 {
-                    let set: f64 = roster.iter().filter_map(|&i| d.1.get(&w.people[i].player.id)).sum();
-                    let unset: f64 = roster
-                        .iter()
-                        .filter(|&&i| !d.1.contains_key(&w.people[i].player.id))
-                        .map(|&i| worth(&w.people[i]))
-                        .sum();
-                    if unset > 0.0 { ((budget - set).max(0.0) / unset).min(1.0) } else { 1.0 }
-                } else {
-                    1.0
-                };
                 for &i in &roster {
                     let p = &mut w.people[i];
                     let fair = worth(p);
                     // With your staff on NIL, a player you set no deal for
                     // gets the usual split (SC6).
-                    let money = d.1.get(&p.player.id).copied().unwrap_or(if d.2 { fair * scale } else { 0.0 });
+                    let money = d.1.get(&p.player.id).copied().unwrap_or(if d.2 { fair } else { 0.0 });
                     if fair >= 25_000.0 && money < 0.5 * fair && p.college_seasons < 4 {
                         p.cal.lean = clamp(p.cal.lean * 1.35 + 0.01, 0.0, 0.95);
                         p.cal.lean_events.push((today, "his NIL deal fell short of his worth", 1.35));

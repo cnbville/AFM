@@ -845,6 +845,9 @@ fn board(w: &World, j: usize) -> Reply {
 fn set_area(game: &mut Game, args: &Value) -> Reply {
     let w = game.world.as_mut().ok_or("No world is loaded.")?;
     let j = program(w)?;
+    if !w.seat_head() {
+        return Err("The recruiting areas are the head coach's call.".into());
+    }
     let code = args.get("state").and_then(Value::as_str).unwrap_or("");
     let st = w.states.iter().position(|s| s.code == code).ok_or("No such state.")? as u8;
     let coach = args.get("coach").and_then(Value::as_u64).map(|c| c as usize);
@@ -1252,8 +1255,8 @@ fn visits(w: &World, j: usize) -> Reply {
     let d = &w.front_office.college;
     let ids: Vec<u32> = d.visits.iter().map(|v| v.id).collect();
     let at = index_map(w, &ids);
-    // Your board's recruits still in school, in its order: whom the desk
-    // can invite.
+    // Your board's recruits still in school or at a junior college, in its
+    // order: whom the desk can invite.
     let board_ids: Vec<u32> = d.board.iter().map(|t| t.id).collect();
     let on_board = index_map(w, &board_ids);
     let targets: Vec<Value> = d
@@ -1263,7 +1266,9 @@ fn visits(w: &World, j: usize) -> Reply {
         .filter_map(|(k, t)| {
             let i = *on_board.get(&t.id)?;
             let p = &w.people[i];
-            matches!(p.stage, Stage::HighSchool | Stage::PrepSchool).then(|| {
+            (matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
+                || (p.stage == Stage::College && p.juco && p.cal.signed.is_none()))
+            .then(|| {
                 json!({
                     "id": t.id, "rank": k + 1, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p),
                     "offered": t.offered.is_some() && t.pulled.is_none(),

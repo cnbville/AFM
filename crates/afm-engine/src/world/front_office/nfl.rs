@@ -330,7 +330,7 @@ fn ideal_of(w: &World, i: usize, kind: TalkKind) -> Ideal {
 fn offer_score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<usize>) -> f64 {
     let s = market::score(w, i, o, ideal, own);
     let id = w.people[i].player.id;
-    let visited = w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60);
+    let visited = visited_recently(w, id);
     if !visited {
         return s;
     }
@@ -1277,6 +1277,12 @@ pub fn release(w: &mut World, id: u32, june1: bool) -> Result<String, String> {
     Ok(text)
 }
 
+/// A visit within the last 60 days: a second visit waits that long, and
+/// the offer's lean counts only these.
+pub fn visited_recently(w: &World, id: u32) -> bool {
+    w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60)
+}
+
 /// Brings a free agent in for a visit (not in the negotiating window: the
 /// rules allow talks, not visits). Your staff gets a medical and both
 /// sides learn what matters: he tells you what he wants most.
@@ -1289,7 +1295,7 @@ pub fn visit(w: &mut World, id: u32) -> Result<String, String> {
     if w.today < w.dates.league_year.date {
         return Err("Visits wait for the new league year; the negotiating window allows talks only.".into());
     }
-    if w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60) {
+    if visited_recently(w, id) {
         return Err("He visited already.".into());
     }
     w.front_office.nfl.visits.push((id, w.today));

@@ -149,12 +149,12 @@ PLAYER_TABS.push({
     let x;
     try { x = await api("school_player", { id: p.id }); } catch (e) { return `<div class="empty">${esc(e.message || String(e))}</div>`; }
     const teamName = (c) => (c === "jv" ? "JV" : c[0].toUpperCase() + c.slice(1));
-    const move = x.owner === "you"
-      ? x.can.length ? `<select class="fs-move" data-fs-move="${x.id}" aria-label="Move him to"><option value="">Move to…</option>${x.can.map((c) => `<option value="${c}">${teamName(c)}</option>`).join("")}</select>` : '<span class="sub">No other team he can play on.</span>'
-      : `<span class="sub">Your staff sets the squads.</span> ${linkTo("squads", {}, "Varsity and JV")}`;
+    // A move you make stands while your staff sets the rest (SC6).
+    const move = (x.can.length ? `<select class="fs-move" data-fs-move="${x.id}" aria-label="Move him to"><option value="">Move to…</option>${x.can.map((c) => `<option value="${c}">${teamName(c)}</option>`).join("")}</select>` : '<span class="sub">No other team he can play on.</span>')
+      + (x.owner === "you" ? "" : ` <span class="sub">Your staff sets the rest.</span> ${linkTo("squads", {}, "Varsity and JV")}`);
     const elig = x.eligibility.map((e) => `<div class="item"><span class="when">${esc(e.what)}</span><span><span class="dot ${e.ok ? "good" : "bad"}"></span>${esc(e.words)}${e.note ? `<br><small class="sub">${esc(e.note)}</small>` : ""}</span></div>`).join("");
     return `<div class="grid2"><div class="panel"><h2>His team <small>${esc(x.school.name)}</small></h2>
-        <div class="st-tiles"><div><b>${esc(x.squad_name)}</b><small>${x.moved ? `you moved him · the staff had him on ${esc(x.staff)}` : "his team"}</small></div><div><b>${esc(x.grade_words)}</b><small>${x.grade}th grade · class of ${x.class_of}</small></div><div><b>${x.seasons_left}</b><small>high school season${x.seasons_left === 1 ? "" : "s"} left</small></div></div>
+        <div class="st-tiles"><div><b>${esc(x.squad_name)}</b><small>${x.moved ? (x.mine !== false ? `you moved him · the staff had him on ${esc(x.staff)}` : `your staff moved him · its list had him on ${esc(x.staff)}`) : "his team"}</small></div><div><b>${esc(x.grade_words)}</b><small>${x.grade}th grade · class of ${x.class_of}</small></div><div><b>${x.seasons_left}</b><small>high school season${x.seasons_left === 1 ? "" : "s"} left</small></div></div>
         ${x.line ? `<p class="sub">This season on ${esc(x.squad_name)}: ${x.line.games} g · ${esc(x.line.text)}</p>` : ""}
         <div class="fs-states"><span class="st-label">Move to</span>${move}</div><small class="sub">${esc(x.rules)}</small></div>
       <div class="panel"><h2>Eligibility <small>what keeps him on the field</small></h2><div class="items">${elig}</div></div></div>`;

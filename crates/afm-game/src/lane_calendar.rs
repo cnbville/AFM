@@ -411,9 +411,11 @@ fn home_of(e: &Event, lv: Lv) -> Option<Value> {
     }
     let t = e.text.to_lowercase();
     let r = e.rule.to_lowercase();
+    // Whole words, so a name like Montague or Capers is no "tag" or "cap".
+    let has_word = |ws: &[&str]| t.split(|c: char| !c.is_alphanumeric()).any(|x| ws.contains(&x));
+    let tag = has_word(&["tag", "tags", "tagged"]);
     // The league's own dates (never a line naming a player).
     if lv == Lv::Nfl && matches!(e.kind, Kind::Date | Kind::Deadline | Kind::Window) {
-        let tag = t.split(|c: char| !c.is_alphanumeric()).any(|x| x == "tag" || x == "tags");
         if t.contains("trade deadline") {
             return go("fo_trades", "Trades");
         }
@@ -436,7 +438,7 @@ fn home_of(e: &Event, lv: Lv) -> Option<Value> {
         _ if r.contains("press") || t.contains("press conference") || t.contains("presser") => go("people", "Media"),
         _ if r.starts_with("people") || r.contains("meeting") => go("people", "People"),
         _ if lv == Lv::Nfl
-            && (t.contains("tag") || t.contains("free agen") || t.contains("league year") || t.contains("cap")) =>
+            && (tag || t.contains("free agen") || t.contains("league year") || has_word(&["cap", "caps"])) =>
         {
             go("contracts", "Cap")
         }

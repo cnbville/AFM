@@ -990,6 +990,15 @@ async function squadDraft(x) {
     const d = out.get(r.id) || {}, j = jr.get(r.id);
     return { ...r, d_status: d.status || "", d_group: d.group ?? 9, outlook: d.outlook || "", scouts: d.scouts || null, public: d.public || null, advisory: d.advisory || (j && j.grade) || null, invites: d.invites || [], junior: !!j, sent: !!(j && j.sent), talk: j ? j.talk : null };
   });
+  // Declared, drafted and undrafted players have left the roster: the
+  // outlook still lists them, after the squad.
+  x.squadCount = x.rows.length;
+  const have = new Set(x.rows.map((r) => r.id));
+  const unit = (p) => (/^(K|P|LS)$/.test(p) ? "ST" : /^(QB|RB|WR|TE|OT|IOL)$/.test(p) ? "OFF" : "DEF");
+  for (const d of o.rows) {
+    if (have.has(d.id)) continue;
+    x.rows.push({ id: d.id, name: d.name, pos: d.pos, class: d.class || "", group: unit(d.pos), ovr: d.read, d_status: d.status || "", d_group: d.group ?? 9, outlook: d.outlook || "", scouts: d.scouts || null, public: d.public || null, advisory: d.advisory || null, invites: d.invites || [], junior: false, sent: false, talk: null });
+  }
 }
 function squadCalls(r, x) {
   if (!r.junior) return "";
@@ -1066,7 +1075,7 @@ screens.roster = async (a) => {
   const draftNote = dr
     ? `<p class="sub">${dr.committee ? `The NFL's advisory committee answers your underclassmen's names with a round${dr.limit ? `: ${dr.limit} names a school since 2014 (${dr.sent} sent), more only for a likely first-rounder` : ""}. Requests close December 10.` : "The advisory committee doesn't exist yet (it began in 1994): your juniors go on their own and their agents' word."} Your talk sways a junior by how far he trusts you. Declare by ${esc(dr.deadline)}.</p>`
     : "";
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${x.squadCount ?? x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
     <div class="filters">${vseg}${seg}</div>${draftNote}
     ${table("squad:" + view, squadCols(view, x), rows, { groupBy: (r) => r.pos })}</div></div>`;
 };

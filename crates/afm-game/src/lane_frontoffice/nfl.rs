@@ -593,7 +593,9 @@ fn talk(w: &World, id: u32) -> Reply {
         || talk.is_some_and(|x| x.lines.len() >= 6);
     v["wants"] = json!(known.then(|| nfl::wants_words(w, i)));
     v["visited"] = json!(visited);
-    v["can_visit"] = json!(kind == Some(nfl::TalkKind::FreeAgent) && w.today >= w.dates.league_year.date && !visited);
+    v["can_visit"] = json!(
+        kind == Some(nfl::TalkKind::FreeAgent) && w.today >= w.dates.league_year.date && !nfl::visited_recently(w, id)
+    );
     v["minimum"] = json!(minimum.round());
     v["voids_ok"] = json!(nfl::void_years_allowed(year));
     v["room"] = json!(pro::cap_room(w, t, year).round());
@@ -739,7 +741,9 @@ fn free_agents(w: &World, args: &Value) -> Reply {
             v["visited"] = json!(visited);
             // The row brings him in, as his talk does (from the league year).
             v["can_visit"] = json!(
-                nfl::negotiable(w, i) == Some(nfl::TalkKind::FreeAgent) && w.today >= w.dates.league_year.date && !visited
+                nfl::negotiable(w, i) == Some(nfl::TalkKind::FreeAgent)
+                    && w.today >= w.dates.league_year.date
+                    && !nfl::visited_recently(w, p.player.id)
             );
             v["rfa"] = json!(p.pro.as_ref().and_then(|c| c.rfa).map(|r| format!("{r:?}")));
             v

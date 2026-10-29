@@ -1792,11 +1792,14 @@ pub fn feeders(w: &World, h: usize) -> Vec<Feeder> {
         } else if k == 0 {
             format!("{} {}", s.town, if junior_high { "Junior High" } else { "Middle School" })
         } else {
-            format!(
-                "{} {}",
-                MIDDLE_NAMES[(r.int(0, 9) as usize + k) % 10],
-                if junior_high { "Junior High" } else { "Middle School" }
-            )
+            // Each feeder its own name (its plan is kept by name): the same
+            // draw, stepped past a name the school's earlier feeders took.
+            let kind = if junior_high { "Junior High" } else { "Middle School" };
+            let mut j = (r.int(0, 9) as usize + k) % 10;
+            while out.iter().any(|f: &Feeder| f.name == format!("{} {kind}", MIDDLE_NAMES[j])) {
+                j = (j + 1) % 10;
+            }
+            format!("{} {kind}", MIDDLE_NAMES[j])
         };
         let age = r.int(26, 60) as u32;
         let drawn = draw_name(w, &mut r, age);

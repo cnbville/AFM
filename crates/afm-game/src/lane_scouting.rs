@@ -663,10 +663,12 @@ pub(crate) fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
         }
         // A pro: film on anyone in the league, a tryout only for a man no
         // club holds; your own players your staff reads every day.
-        CalLevel::Nfl if p.stage == Stage::Pro => match p.pro.as_ref().and_then(|c| c.team) {
-            None => vec!["Pro film", "Tryout"],
-            Some(t) if s.nfl_team != Some(t) => vec!["Pro film"],
-            _ => Vec::new(),
+        CalLevel::Nfl if p.stage == Stage::Pro => match p.pro.as_ref() {
+            Some(c) if c.team.is_some() && c.team == s.nfl_team => Vec::new(),
+            Some(c) if c.team.is_none() && c.status == afm_engine::world::pro::Status::FreeAgent && !c.on_waivers => {
+                vec!["Pro film", "Tryout"]
+            }
+            _ => vec!["Pro film"],
         },
         CalLevel::College if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) => {
             vec!["Evaluate in person", "Film study", "Call his coach", "Transcript", "Social media"]

@@ -550,7 +550,11 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
     if p.cal.academic_sit {
         return "Academically ineligible".into();
     }
-    if p.sit_out > 0.0 || p.cal.sitting_transfer {
+    // A high school transfer's sit, once drawn, is his season's role.
+    if p.sit_out > 0.0
+        || p.cal.sitting_transfer
+        || (p.stage == Stage::HighSchool && p.last_role == Some(afm_engine::player::PlayingTime::Redshirt))
+    {
         return "Sitting out (transfer)".into();
     }
     hurt.unwrap_or_default()

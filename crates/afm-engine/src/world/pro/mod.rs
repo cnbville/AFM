@@ -1374,6 +1374,8 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     // (section 6 topic 2): it hurts more the longer he was there.
     let years_there = c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64;
     c.status = Status::FreeAgent;
+    // A season-ending placement stays with the club that made it.
+    c.ir_out = false;
     c.team = None;
     c.weeks_unsigned = 0;
     c.former = Some(t);

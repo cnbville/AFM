@@ -479,15 +479,27 @@ fn player(w: &World, id: u32) -> Result<Value, String> {
         "ok": !p.cal.academic_sit && out == 0,
         "note": format!("GPA {gpa:.2}. {}.", check_words(hs_calendar(&st.code).grades)),
     })];
-    if p.sit_out > 0.0 || p.cal.sitting_transfer {
+    // A transfer's sit is drawn at his state's season start (the whole
+    // season or none); the draw then lives in his role, which the games read.
+    let sat = p.last_role == Some(afm_engine::player::PlayingTime::Redshirt) && !p.cal.academic_sit;
+    if p.sit_out > 0.0 || p.cal.sitting_transfer || sat {
         eligibility.push(json!({
             "what": "Transfer",
-            "words": if p.sit_out > 0.0 { format!("Sits {:.0}% of the varsity season", p.sit_out * 100.0) } else { "Sitting out as a transfer".to_string() },
+            "words": if p.sit_out > 0.0 {
+                "May have to sit out the varsity season under the state's transfer rule"
+            } else {
+                "Sitting out the season"
+            },
             "ok": false,
             "note": "The state's rule for a transfer without a family move.",
         }));
     }
     if p.cal.trouble {
+        eligibility.push(json!({ "what": "Conduct", "words": "Suspended", "ok": false, "note": "" }));
+    } else if let Some(x) = w.folk.out.iter().find(|x| x.0 == id && x.1 >= w.today) {
+        eligibility
+            .push(json!({ "what": "Out", "words": x.2, "ok": false, "note": format!("Through {}", date_text(x.1)) }));
+    } else if afm_engine::world::folk::rules::sitting(w, id, w.today) {
         eligibility.push(json!({ "what": "Conduct", "words": "Suspended", "ok": false, "note": "" }));
     }
     let line = w
@@ -505,6 +517,9 @@ fn player(w: &World, id: u32) -> Result<Value, String> {
         "squad_name": sq.name(),
         "staff": staff.map(|s| s.name()),
         "moved": staff.is_some_and(|s| s != sq),
+        // Whose move, by the same rule as the Squads screen (SC6).
+        "mine": w.front_office.school.mine.contains(&id)
+            || (w.front_office.school.mine.is_empty() && w.front_office.owner(Duty::Squads) == Owner::You),
         "can": can_move(sq, grade, jv, fr),
         "owner": if w.front_office.owner(Duty::Squads) == Owner::You { "you" } else { "staff" },
         "grade": grade,

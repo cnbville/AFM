@@ -23,9 +23,6 @@ foNavAdd("college", [
   ["portal_desk", "Transfer portal", "portal"],
   ["nil_desk", "NIL", "nil"],
 ]);
-// An assistant keeps the board in his sidebar: it reads his staff's lists,
-// and greys the moves that aren't his.
-{ const n = NAV.find((o) => o.fo && o.go === "recruit_board"); if (n) n.show = () => !!(S.status && S.status.mine); }
 Object.assign(CRUMBS, {
   recruit_board: "Recruiting board",
   recruit_find: "Find recruits",
