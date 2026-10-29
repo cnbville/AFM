@@ -22,17 +22,14 @@ concurrency:
 jobs:
   # Each chip on its own machine at the same time. The engine is one big
   # compile per chip (codegen-units = 1), so the two builds one after the
-  # other took 45 to 90 minutes.
+  # other took 45 to 90 minutes. Both build on Apple silicon: the Intel one
+  # cross-compiles there, because GitHub's Intel Macs took 88 minutes for it.
   build:
     strategy:
       matrix:
-        include:
-          - target: aarch64-apple-darwin
-            runner: macos-14
-          - target: x86_64-apple-darwin
-            runner: macos-15-intel
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
     name: build (${{ matrix.target }})
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-14
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +39,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri
-          key: ${{ matrix.target }}-${{ matrix.runner }}
+          key: ${{ matrix.target }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-node@v4
         with:
