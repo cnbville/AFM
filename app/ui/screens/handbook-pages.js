@@ -52,16 +52,16 @@ hbAdd({
 });
 hbAdd({
   id: "body", group: "The players", title: "Body and speed",
-  lede: "A player's body sets what his ratings can do on the field. Speed is a rating; the forty is what the stopwatch says, and it comes from his speed, his acceleration and his weight.",
+  lede: "A player's body sets what his ratings can do on the field. Speed is his own gift, not a sign of football skill: a burner can be raw and a slow player polished. The forty is what the stopwatch says, from his speed, his acceleration and his weight.",
   how: [
-    ["Speed is top speed for his size", "Acceleration is how quickly he gets there. Two players with the same speed rating are both fast for their bodies; the stopwatch still favors the lighter one."],
+    ["Speed is top speed for his size", "Acceleration is how quickly he gets there. How fast he plays mixes the two by position: linemen lean on burst, receivers and the secondary on top speed. Of two players with the same speed rating, the stopwatch favors the lighter one."],
     ["The forty comes from both and his weight", "Speed counts three times as much as acceleration, and every pound over 220 adds a little time. Lighter than about 175 lb, less weight stops helping."],
     ["Measured or listed", "A forty is exact once someone times him electronically: a camp, spring testing, the combine. Until then your staff shows a range, and school listings run tall and heavy."],
-    ["Bodies change", "Most players add weight through high school and college. Speed usually peaks in the early to mid twenties and fades from the late twenties."],
+    ["Bodies grow by the date", "Height follows the real growth curve and weight fills out by position, so the oldest in a class are the biggest. Speed grows with the body: a senior has about 96% of his top speed. The weight room adds pounds toward his position's weight, never past it."],
   ],
   lv: {
-    hs: "Most forties are hand-timed and run 0.2 to 0.3 seconds fast, so your staff and college coaches discount them. Bodies are still growing: many players add 15 to 30 lb from freshman to senior year.",
-    college: "Spring testing and pro days give the times on file; pro day forties run fast, and NFL clubs discount them. Most players add 10 to 20 lb, so the same speed rating can mean a slower forty.",
+    hs: "Most forties are hand-timed and run 0.2 to 0.3 seconds fast, so your staff and college coaches discount them. Bodies are still growing, nearly full height by 17 and heavier through senior year: a receiver adds about 20 lb from 14 to 17, a lineman 30 or more.",
+    college: "Spring testing and pro days give the times on file; pro day forties run fast, and NFL clubs discount them. Receivers and backs arrive near their grown weight; linemen fill out until about 22, and a late-growing tackle can add 60 lb. More weight at the same speed rating means a slower forty.",
     nfl: "The combine forty is the number everyone quotes. After about 28, speed fades a little each year, and backs and corners feel it first.",
   },
   where: [["Player page, Body tab", "player"], ["The speed hover on any player", "roster"], ["Recruiting board, measurables", "recruit_board"], ["Draft board, combine numbers", "draftboard"]],

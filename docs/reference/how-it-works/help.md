@@ -1,5 +1,5 @@
 # The Handbook and help: how it works today
-Checked against main at 8198872 on 2026-10-28.
+Checked against main at 9706782 (with update 3 lane 1) on 2026-10-29.
 
 The Handbook explains the game's systems in its own pages, with live examples from your save. The Help setting decides how much the game guides you: the guided first week, the first-time notes and the warnings.
 
