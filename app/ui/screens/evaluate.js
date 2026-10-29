@@ -235,7 +235,7 @@ async function l7Coverage(x) {
 async function l7ClassFit(x) {
   const r = await api("l7_class_fit");
   if (!r || !r.groups) return evEmpty("Coach a high school first.");
-  const cards = r.groups.map((g) => evCard(g.kind === "Offense" ? "Offenses for your boys" : g.kind === "Front" ? "Fronts for your boys" : "Coverages for your boys", `<table class="tbl ev-tbl"><tbody>${g.rows.map((s, k) => `<tr class="${k === 0 ? "l7-best" : ""}"><td><b>${esc(s.name)}</b></td><td class="${s.good - s.poor >= 0.2 * s.read && s.read ? "ev-gold" : s.poor - s.good >= 0.2 * s.read && s.read ? "ev-amber" : ""}">${esc(s.words)}</td><td class="num">${s.good} suit it</td><td class="num ${s.poor ? "ev-amber" : "ev-dim"}">${s.poor} don't</td><td class="ev-dim num">of ${s.read} read</td></tr>`).join("")}</tbody></table>`)).join("");
+  const cards = r.groups.map((g) => evCard(g.kind === "Offense" ? "Offenses for your boys" : g.kind === "Front" ? "Fronts for your boys" : "Coverages for your boys", `<table class="tbl ev-tbl"><tbody>${g.rows.map((s, k) => `<tr class="${k === 0 ? "l7-best" : ""}"><td><b>${esc(s.name)}</b></td><td class="${s.good - s.poor >= 0.2 * s.read && s.read ? "ev-gold" : s.poor - s.good >= 0.2 * s.read && s.read ? "ev-amber" : ""}">${esc(s.words)}</td><td class="num">${s.good} ${s.good === 1 ? "suits" : "suit"} it</td><td class="num ${s.poor ? "ev-amber" : "ev-dim"}">${s.poor} ${s.poor === 1 ? "doesn't" : "don't"}</td><td class="ev-dim num">of ${s.read} read</td></tr>`).join("")}</tbody></table>`)).join("");
   return `<p class="ev-dim pad-s">How many boys on your roster each system suits, and how many it would leave out, as your staff reads them. A high school coach builds around the kids he has.</p><div class="ev-grid">${cards}</div>`;
 }
 
