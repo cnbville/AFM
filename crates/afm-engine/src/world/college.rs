@@ -2292,7 +2292,9 @@ pub(crate) fn bowl_practices(w: &mut World, date: Date) {
         })
         .collect();
     let practice: HashMap<usize, u32> = teams.into_iter().collect();
-    let gains: f64 = w
+    // Summed in people order: a parallel float sum depends on how the
+    // work was split, and a saved world must play on identically.
+    let gains: Vec<f64> = w
         .people
         .par_iter_mut()
         .filter(|p| p.stage == Stage::College && p.college.is_some_and(|c| practice.contains_key(&c)))
@@ -2300,8 +2302,8 @@ pub(crate) fn bowl_practices(w: &mut World, date: Date) {
             let c = p.college.unwrap();
             crate::development::extra_practices(&mut p.player, practice[&c], coaching[&c], &mut p.rng)
         })
-        .sum();
-    w.log.bowl_practice_gain += gains;
+        .collect();
+    w.log.bowl_practice_gain += gains.iter().sum::<f64>();
 }
 
 // --- Awards and honors (A25) ---------------------------------------------------------------
