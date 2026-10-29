@@ -1,6 +1,7 @@
 //! Test switches for the dynasty knockout worlds (thread "Stop college
 //! dynasties for good", 2026-10-28). `AFM_KO` names one suspect to turn
-//! up or off: `coach4`, `frozen`, `flatdev`, `brand85`, `local50` or `rel85`;
+//! up or off: `coach4`, `frozen`, `flatdev`, `brand85`, `local50`, `rel85` or
+//! `bend75`;
 //! `+` joins several (`brand85+local50`). Unset, nothing changes.
 //! Trial tooling only, never merged.
 
@@ -35,6 +36,14 @@ pub(crate) fn frozen_form() -> bool {
 /// leader's size up reads the same name, and its 5-star pull with it.
 pub(crate) fn brand_cap() -> f64 {
     if has("brand85") || has("rel85") { 0.85 } else { 1.0 }
+}
+
+/// The brand a recruit reads (item 8's test): under `bend75`, above 0.75 of
+/// the old leader's size the name grows at a quarter of the rate (0.85
+/// reads 0.775, 1.0 reads 0.81), and the 5-star pull with it.
+pub(crate) fn brand_read(rel: f64) -> f64 {
+    let r = rel.min(brand_cap());
+    if has("bend75") && r > 0.75 { 0.75 + 0.25 * (r - 0.75) } else { r }
 }
 
 /// Every FBS player grows under the same coaching number.
