@@ -429,7 +429,7 @@ fn job_facets(job: Job, who: u64, base: f64) -> Vec<Facet> {
 /// head coach helps run the game; quality control studies opponents.
 fn room_facets(slot: u8, who: u64) -> Vec<Facet> {
     let group = staffing::NFL_ROOMS.get(slot as usize).map_or(9, |r| r.1);
-    if slot == 10 {
+    if slot >= 10 {
         return job_facets(Job::Room(slot), who, drawn(who, 1, 11.0, 2.3));
     }
     let mut v = Vec::new();
@@ -682,10 +682,10 @@ pub fn members(w: &World) -> Vec<Member> {
                 let (job, dept, facets) = match team {
                     Team::Nfl(_) | Team::Other(_) => {
                         let slot = staffing::NFL_ROOMS.iter().position(|r| r.0 == d.title).unwrap_or(9) as u8;
-                        let dept = if slot == 10 { Dept::Ops } else { Dept::Coaches };
+                        let dept = if slot >= 10 { Dept::Ops } else { Dept::Coaches };
                         (Job::Room(slot), dept, room_facets(slot, who))
                     }
-                    _ if d.title == "Graduate assistant" => (
+                    _ if d.title.starts_with("Graduate assistant") => (
                         Job::GradAssistant,
                         Dept::Ops,
                         job_facets(Job::GradAssistant, who, support_base(w, team, Job::GradAssistant, who)),
@@ -1082,8 +1082,8 @@ pub fn job_marks(w: &World, m: &Member, f: usize) -> Option<JobMarks> {
                         staffing::drawn_staff(w, t)
                             .into_iter()
                             .find(|d| match job {
-                                Job::GradAssistant => d.title == "Graduate assistant",
-                                Job::Analyst => d.title.ends_with("nalyst"),
+                                Job::GradAssistant => d.title.starts_with("Graduate assistant"),
+                                Job::Analyst => d.title.contains("nalyst"),
                                 _ => false,
                             })
                             .map(|d| (job, d.who))

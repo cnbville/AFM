@@ -409,6 +409,7 @@ fn c15_answer(w: &mut World, s: &mut Scene, code: u32) {
                     coach,
                     words: format!("first call on {name}"),
                     asked: true,
+                    other: None,
                 });
             }
             let ghost = code == 153;
@@ -589,7 +590,13 @@ pub fn place_player(w: &mut World, id: u32, coach: usize) -> Result<String, Stri
     x.sent = x.sent.saturating_add(1);
     x.balance = (x.balance + 1).min(5);
     x.last = Some(w.today);
-    w.folk.network.ledger.push(Favour { date: w.today, coach, words: format!("you sent him {name}"), asked: false });
+    w.folk.network.ledger.push(Favour {
+        date: w.today,
+        coach,
+        words: format!("you sent him {name}"),
+        asked: false,
+        other: None,
+    });
     super::note(w, "network", coach_link(w, coach), text.clone(), None);
     Ok(text)
 }
