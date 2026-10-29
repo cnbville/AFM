@@ -88,7 +88,7 @@ pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&
     }
     say("indexes");
     indexes(&b).map_err(e)?;
-    for (t, c) in crate::defs_list::COLUMNS {
+    for (t, c) in crate::defs_list::COLUMNS.iter().chain(crate::defs_people::COLUMNS) {
         let cols = b.columns(t);
         if !cols.is_empty() && !cols.iter().any(|x| x == c) {
             b.conn.execute_batch(&format!("ALTER TABLE \"{t}\" ADD COLUMN \"{c}\"")).map_err(e)?;
@@ -128,6 +128,8 @@ pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&
     crate::dist::write_all(&b, &have).map_err(e)?;
     say("checks against real");
     let checks = crate::checks::write_all(&b, &index, &have, &|id| issues.touching(id)).map_err(e)?;
+    say("panels");
+    crate::panels::write_all(&b, &have).map_err(e)?;
     say("consistency checks and odd things");
     crate::odd::write_all(&b, &have, &issues).map_err(e)?;
     crate::coverage::write(&b, &streams, &log_info).map_err(e)?;
@@ -176,6 +178,47 @@ pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&
         has_log: log_info.is_some(),
         missing,
     })
+}
+
+/// Works out a built book's checks and panels again with this reader's
+/// definitions, without reading the world again (`afm_read refresh`): for
+/// a thread that adds or fixes a check or a panel. Returns how many.
+pub fn refresh(book: &Path, say: &mut dyn FnMut(&str)) -> rusqlite::Result<(usize, usize)> {
+    let b = Book::with(rusqlite::Connection::open(book)?)?;
+    let streams: Vec<String> = b.meta("log_streams").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+    let has_game_log = streams.iter().any(|s| s.starts_with("games-"));
+    let has_world_log = streams.iter().any(|s| s == "players" || s == "growth" || s == "whys");
+    let have = |needs: &str| match needs {
+        "game log" => has_game_log,
+        "world log" => has_world_log,
+        _ => true,
+    };
+    for (t, c) in crate::defs_list::COLUMNS.iter().chain(crate::defs_people::COLUMNS) {
+        let cols = b.columns(t);
+        if !cols.is_empty() && !cols.iter().any(|x| x == c) {
+            b.conn.execute_batch(&format!("ALTER TABLE \"{t}\" ADD COLUMN \"{c}\""))?;
+        }
+    }
+    // The live known issues, as the build marked them.
+    let mut live: Vec<(String, Vec<String>)> = Vec::new();
+    b.each("SELECT id, touches FROM known_issues WHERE live = 1", |r| {
+        let touches: String = r.get::<_, Option<String>>(1)?.unwrap_or_default();
+        live.push((r.get(0)?, touches.split_whitespace().map(str::to_string).collect()));
+        Ok(())
+    })
+    .ok();
+    let issues = crate::issues::Issues(
+        live.into_iter()
+            .map(|(id, touches)| crate::issues::Issue { id, live: true, touches, ..Default::default() })
+            .collect(),
+    );
+    b.conn.execute_batch("BEGIN; DROP TABLE IF EXISTS checks; DROP TABLE IF EXISTS check_years;")?;
+    say("checks against real");
+    let checks = crate::checks::write_all(&b, &crate::real_in::index(), &have, &|id| issues.touching(id))?;
+    say("panels");
+    let panels = crate::panels::write_all(&b, &have)?;
+    b.conn.execute_batch("COMMIT;")?;
+    Ok((checks, panels))
 }
 
 fn indexes(b: &Book) -> rusqlite::Result<()> {

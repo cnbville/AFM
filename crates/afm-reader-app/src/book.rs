@@ -311,6 +311,8 @@ impl Book {
     pub fn open(path: &Path) -> Result<Book, String> {
         let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX | OpenFlags::SQLITE_OPEN_URI;
         let db = Connection::open_with_flags(path, flags).map_err(|e| format!("Could not open the book: {e}"))?;
+        // `more()` reads the world log's packed rows (R4's `Book::with`).
+        let db = afm_reader::book::Book::with(db).map_err(|e| format!("Could not open the book: {e}"))?.conn;
         // Big pages read faster with a bigger cache (64 MB) and memory-mapped
         // reads (up to 1 GB); the book is never written here.
         let _ = db.execute_batch("PRAGMA cache_size = -65536; PRAGMA mmap_size = 1073741824; PRAGMA query_only = 1;");

@@ -6,12 +6,14 @@
 //! ceilings, hidden ratings), marked debug, unless the switch in its sidebar
 //! turns them off. The game never links this crate.
 
+pub mod areas;
 pub mod book;
 pub mod compare;
 pub mod demo;
 pub mod library;
 pub mod pages;
 pub mod play;
+pub mod player;
 pub mod text;
 
 #[cfg(test)]
@@ -181,7 +183,10 @@ impl Reader {
             }
             ["page", "career"] | ["career"] => pages::career(b, &f),
             ["page", "tools"] | ["tools"] => pages::tools(b, "issues", &f, args)?,
-            ["page", slug] => pages::topic(b, slug, &f)?,
+            ["page", slug] => areas::topic(b, slug, &f)?,
+            ["area", code] => areas::area(b, code, &f)?,
+            ["class", year] => areas::keyed(b, "class", "class", year, &f)?,
+            ["state", code] => areas::keyed(b, "state", "state", code, &f)?,
             ["tools", "odd", page] => pages::tools(b, "odd", &f, &json!({ "page": page }))?,
             ["tools", tab] => pages::tools(b, tab, &f, args)?,
             ["table", name] => pages::table(b, name, &f, args)?,

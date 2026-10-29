@@ -135,7 +135,7 @@ pub fn write_all(
 ) -> rusqlite::Result<usize> {
     create(b)?;
     let mut n = 0;
-    for c in crate::defs::CHECKS {
+    for c in crate::defs::checks() {
         let r = run(b, c, index, have);
         let tol = Tol { near: c.tol.0, off: c.tol.1, floor: c.tol.2 };
         let gap = match (r.world, r.real) {

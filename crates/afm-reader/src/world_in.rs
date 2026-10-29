@@ -259,6 +259,11 @@ fn player_cols(p: &afm_engine::player::Player, potential: Option<f64>) -> Vec<(S
     if let Some(pot) = potential {
         out.push(("x_potential".into(), S::Real(round(pot))));
     }
+    // His Dynamic Links today, 0 to 1 in `engine_links` order: derived from
+    // his body and ratings, stored nowhere (`links::links_of`).
+    let links: Vec<f64> =
+        afm_engine::links::links_of(p).0.iter().map(|x| (f64::from(*x) * 100.0).round() / 100.0).collect();
+    out.push(("x_links".into(), S::Text(serde_json::to_string(&links).unwrap_or_default())));
     out
 }
 
@@ -268,7 +273,7 @@ fn round(x: f64) -> f64 {
 
 /// The engine's answers that no file stores, for each season the world
 /// covers: the rule book (`RuleBook::era`) and the year's dates
-/// (`YearDates::new`).
+/// (`YearDates::new`); the attributes' and Dynamic Links' names.
 pub fn engine_tables(w: &mut Writer, first: i32, last: i32) -> std::io::Result<()> {
     w.source = "engine".into();
     for season in first..=last {
@@ -285,6 +290,16 @@ pub fn engine_tables(w: &mut Writer, first: i32, last: i32) -> std::io::Result<(
             ("label".into(), S::Text(a.label().to_string())),
         ];
         w.insert("engine_attributes", None, row).map_err(std::io::Error::other)?;
+    }
+    for (i, l) in afm_engine::links::Link::ALL.iter().enumerate() {
+        let parts: Vec<String> = l.parts().iter().map(|p| format!("{p:?}")).collect();
+        let row = vec![
+            ("_row".to_string(), S::Integer(i as i64)),
+            ("name".into(), S::Text(l.name().to_string())),
+            ("parts".into(), S::Text(parts.join(", "))),
+            ("edge".into(), S::Text(l.edge().to_string())),
+        ];
+        w.insert("engine_links", None, row).map_err(std::io::Error::other)?;
     }
     w.flush().map_err(std::io::Error::other)
 }

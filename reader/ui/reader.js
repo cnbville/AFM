@@ -271,7 +271,8 @@ function blockHtml(b, id) {
     case "note":
       return `<p class="sub" style="margin:0">${esc(b.text)}</p>`;
     default:
-      return "";
+      // The page lanes' views (charts.js).
+      return window.extraBlock ? window.extraBlock(b, id) : "";
   }
 }
 
