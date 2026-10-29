@@ -227,11 +227,14 @@ pub(crate) fn tryouts(w: &mut World) {
             }
             want -= found;
         }
-        // Walk-on tryouts: the seniors nobody signed, from home first.
+        // Walk-on tryouts: the seniors nobody signed, from home first (by
+        // June the last signing stage has sent them home as done).
         let mut seniors: Vec<(usize, f64)> = (0..w.people.len())
             .filter(|&i| {
                 let x = &w.people[i];
-                x.stage == Stage::HighSchool && x.class_of == year && free(x)
+                let unsigned = x.stage == Stage::HighSchool
+                    || (x.stage == Stage::Done && x.path.is_empty() && x.college.is_none() && x.pro.is_none());
+                unsigned && x.class_of == year && free(x)
             })
             .map(|i| (i, w.people[i].player.overall() + if w.people[i].home_state == state { 6.0 } else { 0.0 }))
             .collect();

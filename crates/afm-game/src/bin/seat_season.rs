@@ -622,7 +622,11 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     // the depth chart's packages, the week's plan, the teams like us and
     // the fit reads; as the head coach a guideline set, the drafted sheet
     // sent back once and approved, and a game rule changed for one game.
-    if seat != "other" {
+    // A new team with no players yet (ground zero) has no game plan to
+    // read: the Plans pages say so.
+    let dress = run.call(g, "status", json!({})).is_none_or(|v| v["ground"] != json!(true))
+        || run.call(g, "gz_page", json!({})).is_some_and(|v| v["dress"] == json!(true));
+    if seat != "other" && dress {
         let head = run.call(g, "dp_identity", json!({})).is_some_and(|v| v["head"] == json!(true));
         run.call(g, "dp_rules", json!({}));
         let (mut bye, mut studied) = (false, true);

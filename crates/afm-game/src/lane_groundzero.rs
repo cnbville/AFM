@@ -17,7 +17,13 @@ use crate::{Game, Reply};
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     Some(match cmd {
         "gz_jobs" => game.w().map(|w| jobs(w, args.get("level").and_then(Value::as_str).unwrap_or("college"))),
-        "gz_page" => game.w().and_then(page),
+        "gz_page" => game.w().and_then(|w| {
+            // Whether the team can dress for a game yet (the Plans pages
+            // wait for a roster).
+            let mut v = page(w)?;
+            v["dress"] = json!(afm_engine::world::plans::our_team(w).is_some());
+            Ok(v)
+        }),
         "gz_queue" => game.wm().and_then(|w| {
             let t = my_new_club(w).ok_or("Your club has no expansion draft ahead.")?;
             let ids: Vec<u32> = args
@@ -93,7 +99,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
                     "town": s.town, "state": code,
                     "enrollment": new,
                     "parent_enrollment": s.enrollment,
-                    "growth": (school::young_growth(s.state) * 1000.0 * 10.0).round() / 10.0,
+                    "growth": (school::young_growth(s.state) * 10000.0).round() / 100.0,
                     "line": format!("Splits {}'s zone · {}, {code}", w.school_name(h), s.town),
                     "sub": format!("{}, {code}", s.town),
                     "first": year,
@@ -280,7 +286,9 @@ fn page(w: &World) -> Result<Value, String> {
             } else {
                 let mut z = school::zone(w, h);
                 z.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+                // This spring's seniors graduate before the new school opens.
                 z.into_iter()
+                    .filter(|&(i, _)| w.people[i].class_of > year)
                     .map(|(i, chance)| {
                         let p = &w.people[i];
                         let mut v = person(w, i);
@@ -295,7 +303,8 @@ fn page(w: &World) -> Result<Value, String> {
                     })
                     .collect()
             };
-            let class_day = w.hs_class_day().map(date_text);
+            // The season on hand can still be last year's before the year turns.
+            let class_day = w.hs_class_day().filter(|d| d.year() >= n.opens).map(date_text);
             json!({
                 "kind": "hs", "team": brief, "opens": n.opens, "parents": parents,
                 "zoned": n.zoned, "moved": n.moved, "stayed": n.stayed,
@@ -304,7 +313,7 @@ fn page(w: &World) -> Result<Value, String> {
                 "steps": [
                     { "when": format!("{}", n.announced), "what": "The district votes to build", "done": true },
                     { "when": format!("Spring {}", n.opens), "what": "The lines are redrawn; you scout the zone", "done": true },
-                    { "when": class_day.clone().unwrap_or_default(), "what": "The first day: the zone's families choose", "done": n.zoned },
+                    { "when": class_day.clone().unwrap_or_else(|| format!("August {}", n.opens)), "what": "The first day: the zone's families choose", "done": n.zoned },
                     { "when": format!("Fall {}", n.opens), "what": "The first varsity schedule", "done": year > n.opens },
                 ],
             })

@@ -89,6 +89,32 @@ fn a_college_starts_with_a_build_year_and_plays_the_next() {
 }
 
 #[test]
+fn a_build_year_squad_comes_from_tryouts() {
+    let mut w = world();
+    w.add_class_aged(18);
+    w.add_class_aged(17);
+    w.rebuild_rosters();
+    // By June the last signing stage has sent the unsigned seniors home.
+    let year = w.year;
+    for x in w.people.iter_mut().filter(|x| x.stage == Stage::HighSchool && x.class_of == year) {
+        x.stage = Stage::Done;
+    }
+    let p = ground_zero::college_candidates(&w)
+        .into_iter()
+        .find(|&p| ground_zero::start_level(&w, p) == Division::FCS)
+        .expect("a Division I school without football");
+    ground_zero::college(&mut w, p);
+    let seniors = w.people.iter().filter(|x| x.class_of == year).count();
+    w.today = w.dates.summer_enrollment;
+    college::tryouts(&mut w);
+    crate::world::recruiting::enroll(&mut w, false);
+    let n = w.programs[p].roster.len();
+    let full = crate::world::recruiting::level_roster(Division::FCS);
+    assert!(n as f64 >= 0.7 * full, "the build year's squad: {n} of a full {full} ({seniors} seniors in the world)");
+    assert!(crate::world::season::game_team(&w, &w.programs[p]).is_some(), "the squad can dress for practice games");
+}
+
+#[test]
 fn a_new_school_takes_its_zones_underclassmen() {
     let mut w = world();
     let year = w.year;
