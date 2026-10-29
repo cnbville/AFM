@@ -1,0 +1,66 @@
+# The line bank: more staff lines (dialogue D2; format in src/world/folk/voice.rs).
+# Same part as staff.txt. Facts: role, team, came_up. No BASE facts here.
+
+@key staff.interview.open
+Thanks for the time. I know you've got a long list, so I'll try to be the easy part of your day.
+I've studied what {team} did last year, good and bad. I'd like to walk you through both.
+Before anything else, I want you to know I'm a teacher first. Scheme comes second.
+I've got a binder here. Don't worry, I won't make you read the whole thing.
+I came up with the {came_up}, and I still think that's the best place to learn this game.
+I've been preparing for a {role} job my whole career. I think I'm ready.
+I'm not going to tell you what you want to hear. I'm going to tell you how I'd do it.
+The best thing I can do for you is make your job easier. That's how I see the {role} job.
+I've coached the {came_up} at three stops. Every place, my guys got better. That's the only thing I sell.
+I'll be honest, I've been watching {team} for a few years. I've always thought it was a sleeping giant.
+I know what you're looking for. I'd like to show you why it's me.
+I don't need a title. I need a room of players and a whiteboard.
+I've worked for some great head coaches. I learned what to do from some and what not to do from others.
+Ask me about the {came_up}. That's where you'll see who I am.
+I'm a grinder. I'll be the first car in the lot and the last one out.
+I'm not flashy, and my guys aren't either. They're just right, every snap.
+I want to be clear: I'm here for {team}, not for the next job. ~ loyal
+I'll be honest with you, I'm going to want to be a coordinator someday. I think that makes me better for you now. ~ climber
+I'm not done climbing, and I won't pretend I am. But I'll leave this room better than I found it. ~ climber
+I've been offered coordinator jobs before. I turned them down to stay with my guys. ~ loyal old
+I'm young, I know. But I've watched more film this month than most guys watch in a year. ~ young
+I've been doing this for thirty years. There's not much you can show me I haven't seen. ~ old
+I played the game for a long time. Let me tell you what a player needs from a {role}. ~ expro
+I'm demanding. I don't apologize for it. My guys know where the line is. ~ strict
+I believe in structure. Practice plans to the minute. Meetings that start early. ~ strict
+I'm calm on the sideline. You'll never see me lose my head when it matters. ~ calm
+I get fired up. My guys feed off it. ~ hot
+I care about my players as people first. The football follows. ~ warm
+I'll be honest, I'm not a hugger. But my guys know I've got their backs. ~ cold
+My players stay in touch with me years later. That's the thing I'm proudest of. ~ warm
+I know the high school coaches in this region. I can get you in doors. ~ college
+I've got relationships with half the high school coaches in this state. That matters. ~ college
+I've worked camps for {team} before. I know what this place can be. ~ college
+I've recruited this area for years. I can help you right away. ~ college
+I've been on an NFL staff. I know how to get a player ready for the next level. ~ college expro
+I've coached in this league for a long time. I know the players, and I know the coaches. ~ nfl
+I've worked with some of the best {came_up} in the league. I can help yours. ~ nfl
+I can teach the young guys and still coach up the vets. That's what this job needs. ~ nfl
+I've done film work for a lot of teams. I can find the edge in any matchup. ~ nfl
+I teach math at the high school, and I've coached the {came_up} for ten years. I know these kids. ~ hs
+I've coached every level of this program, from the seventh graders up. I know the kids before they get to you. ~ hs
+I can coach the {came_up} and help with the JV. Whatever you need. ~ hs
+I'm already on the staff at the middle school. I'd love to move up. ~ hs young
+I'll do anything. Film, laundry, driving the bus. I just want to coach. ~ hs
+I know you're probably looking for somebody with more experience. Give me a chance and I'll surprise you. ~ young
+I've been a head coach before. I know what you need from your assistants. ~ old
+I'm going to be honest. I've been let go before. I learned more from that than from any win. ~ !young
+My last head coach will tell you I'm loyal, and I'll tell you the same. ~ loyal
+My wife and I have already looked at houses here. I'm serious about this.
+I know the modern game. I also know the fundamentals never change. ~ modern
+Analytics are part of how I coach. I'll show you what I mean. ~ modern
+I've watched every snap from your last two seasons. Here's what I see.
+I've been in your building before, years ago. It's changed. I'd like to be part of what's next.
+I don't care about credit. I care about results.
+I've been on staffs that won and staffs that lost. The difference was always the details.
+Let me tell you what my guys say about me, then let me tell you what I say about them.
+I'm not the loudest guy in the room. My players are the loudest when they talk about me. ~ calm
+Here's my plan for the {came_up} on day one, day thirty and day three hundred.
+Every guy I've ever coached could tell you exactly what I wanted. That's my whole philosophy.
+I'm a little nervous, honestly. This is a job I've wanted for a long time. ~ young warm
+I won't waste your time. I'm the best {role} you're going to talk to. ~ hot
+Let's talk ball. That's the part I'm good at. ~ cold

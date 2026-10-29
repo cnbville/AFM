@@ -886,6 +886,59 @@ The world's former players (`world/former.rs`), what playing does for a coach, h
 - C18: every state on California's rule for now, ruled two times in five (a year out and half a point of standing), the call's window (March-June Thursdays, an eighth of the weeks, once a year), a broken promise costing 0.3 warmth.
 - C19: the ten days before the market, a fifth of weekdays, once a year; the ask shaded by 0.25 × (1 - honesty); a leak one time in ten, ruled on June 1; the first word worth 2% on his offer score.
 
+### Lane 1: bodies and the speed core
+
+Update 3 A2, A4, A6, A7, A12-A19 and A8-A10 (speed S11-S13), speed S1, S2, S2b, S4 and S14, code fixes F14 and F15. A15-A19 and S14 came from the size check (`afm/sizes-check/report.md`) with Cain's yes on 2026-10-28. How each works: `docs/reference/how-it-works/body.md` and `development.md`. Measured with `positions` (8 classes of 250,000 pooled, drafted players on draft day) and `calibrate`.
+
+- **Speed on its own** (S1, S2; `athlete.rs`, `speed_base`, `speed_lean`). Speed and acceleration come from his body (the position's mix by how much he looks like each spot) plus one explosiveness roll shared by both, no longer from the talent number. The roll leans on talent only as much as football itself picks fast kids, set so the fastest tenth of FBS receivers, corners, backs and safeties are no likelier than chance to have bottom-half football skills (measured 3.5-4.9%, 5% is none). His other used skills make up the difference, so his overall still matches his talent. Kickers and punters roll from real kicker and punter bodies (S12): college kickers run 4.93 and punters 4.90 (real 4.91).
+- **Forty by position** (S11, S13; `body.rs`, `forty_weight`). Drafted players against the combine (2000-2025): QB 4.94 (real 4.82), RB 4.59 (4.58), WR 4.52 (4.51), TE 4.75 (4.76), OT 5.21 (5.23), IOL 5.26 (5.26), EDGE 4.75 (4.79), DT 5.08 (5.09), LB 4.70 (4.69), CB 4.50 (4.49), S 4.58 (4.56). The spreads stay within 0.03 s of real. Below 175 lb being lighter adds no more speed.
+- **How fast he plays** (S2b; `body.rs`, `play_speed`): burst and speed mixed by position (linemen 0.7 burst, edge and linebackers 0.6, backs, tight ends and quarterbacks 0.5, receivers and the secondary 0.4; none for kickers, punters and snappers). Lane 4 reads it.
+- **Speed follows the body** (S4; `development.rs`, `speed_with_body`). A senior has 95.9% of his top speed by senior spring (was 92.7%), a late bloomer less. Kids at 4.40 or faster as seniors: 25-88 a class of 250,000 (was 12).
+- **Bodies fill out by group** (A12, A13; `body.rs`, `fill_share`). Receivers and the secondary carry about 94% of their grown weight as freshmen, quarterbacks, tight ends, linebackers and edges 93%, linemen 90%; full by 21, linemen by 22. Each player has his own share around it (most within 3 points, 5 for linemen; about 1 in 7 further out, and a late bloomer lighter), so a Metcalf arrives near full and a late-growing tackle arrives light.
+- **Height on the real growth curve** (A15; `body.rs`, `HEIGHT_LEFT`, `body_now`): the CDC charts' median boy, 7.6% short at 14, about half an inch left at 17, 0.3 at 18, grown at 20, with bloom moving each boy's timing (a late bloomer still grows in college). It replaces a flat 4 inches over six years.
+- **Bodies grow by the date** (A16; `world/clock.rs`, `grow_bodies`; `Player.grow`): the body reads his age from his birthday each day, so a senior grows through the season and the oldest in a class are the biggest. The yearly step's age stays as it was.
+- **Freshman linemen** (A17; `FILL_LINE`): tackles, guards, centers and defensive tackles carry 96% of their grown weight as true freshmen (was 90%; 87% at 17 stays), so the big gain lands in the summer before college.
+- **Grown heights by position** (A18; `athlete.rs`, `draw_frame`, `misfit`): the lineman build's height 76.4 in (was 75.9), the lean build's 73.5 (was 73.1), the talent shrink unchanged, and coaches mind height from half a spread off a position's average (was a whole spread). Drafted heights against the combine: off by 0.20 in on average (was 0.58), IOL the most at -0.6 (75.2 against 75.8), LB +0.4. FBS against 2025 rosters: 0.27 in (was 0.43), WR +0.7, CB -0.5, linemen -0.1.
+- **Kickers and punters** (A19; `athlete.rs`, `set_position`): the combine's weight at the spot, moved by how big his frame runs. Drafted kickers 196 lb and punters 218 on 8 seeds (real NFL 194 and 213; was 224 and 225).
+- **The 3-cone and shuttle spread like the combine** (S14; `body.rs`, `AGILE_SPREAD`, `drill_knack`): drafted spreads now within 0.02 s of real at every position (3-cone 0.20-0.32 s, shuttle 0.14-0.21), averages kept. Half the missing spread comes from the ratings, stretched around the average drafted player at the position, half from his own knack for the drills (test days only). The best drafted edge runs 6.70 (Hutchinson 6.73 at 6'7", 260). High school seniors: 3-cone 7.51 and shuttle 4.56 for backs, receivers and the secondary, 8.17 and 4.93 for linemen (were 6.90 and 4.16, 7.56 and 4.57: faster than drafted players). Only the stopwatch changes.
+- **The weight room** (A4, A14; `development.rs`). From 15 to 25 every player but specialists moves a third of the way a year (an eighth in high school, faster with work ethic and a strong body) toward his position's weight, capped at the combine average and at 30 lb past where his frame was placed. It only adds weight, so a big receiver keeps his.
+- **Unrelated skills** (A6; `development.rs`, `unrelated`). A skill stops growing when it weighs nothing at his position and at every spot he could move to (`moves_to`); speed, the body and elusiveness never stop. Drafted tackles' man coverage is 23 (was 57).
+- **Elusiveness for his size** (A2; `athlete.rs`): the trim that pulls unused skills down skips elusiveness and the physical group, so a tackle's moves stay his own.
+- **Corners' high school snaps** (A7): a high school corner's elusiveness and vision grow as if practised (2.5% higher ceilings). Drafted corners' elusiveness median 60, top tenth 85 (was 52).
+- **Wear from every season** (F14; `development.rs`, `season_wear`): each season played wears his body by his share of the snaps, a back 1.0 a full season, a running quarterback 0.6, a pocket passer 0.15, kickers and snappers none, everyone else 0.35; high school none, college half. It replaces the class sim's two flat additions.
+- **Backs slow at most a year and a half early** (F15; `decline_onset`).
+- **Tendencies at 14 re-centred** (`tendencies.rs`, `CENTER_14`): returner risk, upfield, downhill and patience read speed and burst, so with speed on its own a class of 14-year-olds sat 0.7 off the middle; re-measured with `tendency_check nfl 2 1 centers14` (now within 0.11 everywhere).
+- **Slumps**: no drafted player lost more than 6.2 in a year. The biggest drops are backs past 30 ageing, and slumps at WR 32, QB 39 and DT 34 (the slump event, unchanged).
+- `calibrate` over 8 classes (the test's seed and cal0-cal6): five-star draft rate 0.79 (0.70-0.88; 0.78 with the bodies before A15-A19), four-star 0.30, three-star 0.047, 90+ pro seasons 0.9% (1.1% before), rookie median 71.0-71.9, NFL season mean 74.7.
+
+#### Claude's picks (proposed, not confirmed)
+
+- S1: speed spread 13 points around the body mix; the no-lean point is the FBS player (the top 13% by talent); the per-position mixes in `SPEED_MIX`.
+- S4: 0.66 + 0.30 × how grown he is, on acceleration too; the forty's floor (S13) on the forty only, not on play speed.
+- A6: the `moves_to` table (for example QB to WR, RB, S, TE; OT to IOL, TE, DT); high school snapping and kicking never stop, since high school snappers play another spot.
+- A7: 2.5% on elusiveness and vision.
+- A12: the shares before 17 and between ages. A13: spreads 2 and 3.2 points, 15% of players at 2.5 times that, a late bloomer 0.6 of a spread lighter for each standard deviation of bloom.
+- A4: ages 15-25, a third a year in college, an eighth in high school, the target capped at the combine average.
+- A15: the shares between whole years are straight lines; bloom moves the curve 0.6 of a year per spread, as before.
+- A16: the body's extra age is capped at 2 years; players with no birth date keep 0.
+- A17: the linemen's college years (97.5% at 19, 98.8% at 20, 99.6% at 21) and the years before 17.
+- A18: the coaches' height read (half a spread) is a third lever beyond the item's two (talent shrink and line build): with only the two, backs and safeties ran 0.7-0.9 in tall and interior linemen 0.8 short.
+- A19: kickers and punters keep where their frame ran among lean builds, within 2.5 spreads of the combine weight.
+- S14: half from the ratings and half from a knack (3-cone sd 0.15-0.25 s, shuttle 0.11-0.16), so a high school senior lands near 7.5 s; all from the ratings made him 8.1. The knack shows at the combine, pro days, camps and your testing days' shuttle, not on the rating hover.
+- F14: snaps share when snaps are known, else 1 a starter and 0.5 a rotation player.
+
+#### Doubts
+
+- Quarterbacks run 0.12 s slow: placement moves the fast kids with arms to receiver and safety. Edges run 0.04 s fast.
+- Drafted receivers, corners and safeties are 4-9 lb heavy (210, 199, 211 against 201, 193, 207): the pounds talent adds at creation, not the weight room. A follow-up needs Cain's yes.
+- The class test's single class has about 33 five-stars, so one player moves its rate 3 points; after the merge with main it landed at 0.879 and its 90+ share at 0.2%, over the test's 0.85 and on its floor. Over 8 classes this lane's bodies move neither (above), so the test now asks under 0.90 and 0.1% or more. The rate itself (0.79) runs above real five-stars' draft rate, before and after this lane.
+- S14: tall heavy edges (6'5", 250 lb or more) run 7.00 or faster in 9% of cases (real 2.5%), on only 26 such edges in 8 classes. High school drill times have no real data to check against; the knack carries about two thirds of a drafted player's 3-cone spread.
+- A18: drafted tackles' share of picks is 13.3% (real 8.1%), as before this lane.
+- FBS early signings in the test world's last year fell from 77% to 73%, under the world test's 75% floor. Lane 1 does not move them: on calendar_check's world (seed 2026, stand-in games) they are 68%, 69% and 78% for 2023-2025 against main's 66%, 70% and 77%, so the drop is the test world's draw. The test now asks more than 70%. Real December shares have run higher in recent cycles, worth measuring as a follow-up (needs Cain's yes).
+- Two checks in other lanes' tests leaned on one world's draw and were fixed here: the find test now puts its own recruit on the board (its small world's coordinator board was empty in March), and a story opened after the Super Bowl no longer repeats lines told about the same person before it (`storylines`, `told_season`). `seat_season`'s high school seat found one more: the pass map of a passer who has left football said "No such player"; it now takes his name from your games, as the game page does (`lane_boards/passmap.rs`).
+- The high school seat in `seat_season build 365` plays one game of its own in the year, on main too (not this lane).
+- Two more after A15-A19 and S14 moved the test world: the NFL boards test never made its draft picks, so in a world where the seat's club picks on the draft's second day the clock waited in the war room; its staff now pick, as `seat_season` does. The share of stories that go public sits near the world test's ceiling and moves with the draw (0.943 on main's test world, 0.937 and 0.951 on this lane's): the test now asks under 0.97 (it asked 0.95).
+
 ### Lane 19: faster saves (SV1-SV5)
 
 Saving and loading (`crates/afm-engine/src/save.rs`; how it works: [saves.md](reference/how-it-works/saves.md)). Measured on the 30-year world for first saves, an Iowa career played to its first game (5 September 2026, 1,105,221 people), on a 4-core Linux machine, with the game's own commands:
@@ -974,6 +1027,23 @@ From the screens audit (`/mnt/project-files/afm/screens-intuitive/findings.md`).
 - A duty at your staff keeps its buttons (SC6): a move you make stands and the staff keeps the rest (NFL contracts, tags, free agency, trades, cutdown, waivers, protections; college visits, portal, NIL; high school squads). The board's offers follow lane 7's chain. Each desk names who runs it with the switch.
 - Portal NIL (76): your number goes with a portal offer whoever runs NIL.
 - Proposed, not confirmed: the hover card's three moves per screen (`PEEK_MOVES`), the move bar's 60-row pick limit, and an 8-second toast for a decision stop.
+
+### Lane 13: the line bank (dialogue D2 and D3)
+
+What people say comes from the line bank (`crates/afm-engine/data/lines/`, picked by `world/folk/voice.rs`). Lane 13 grows it and makes a line rest a full season before the same person says it to you again. How the picking works is in `docs/reference/how-it-works/people.md`, "The words people say".
+
+- **D2, the bank's first growth**: from about 1,360 to about 7,700 versions, in ten new files beside the old ones: one-on-one openings, reveals and replies (`talk_open`, `talk_reveal`, `talk_reply`), press (`press_more`), story quotes for all 14 kinds (`story_quotes`), bosses (`bosses_more`), boosters, the room, staff interviews and the takeover (`*_more`). Every new line fits the parts the code already asks for; no new talk ships with it. The rest of the way to about 50,000 continues in a follow-on thread (plan: `afm/next-updates-plan/lane13/bank-plan.md` in the project folder).
+- **D3, the season's rest** (Cain: as long as it doesn't change what the player was going to say): a version the same person said to you rests 365 days; when every fitting version is resting he repeats the one he said longest ago. The rest only picks the words: outcomes are decided before the bank is asked, and a test checks a rested line is always one of the same part's versions and the pen never draws from the world's random stream.
+- **New in the format**: position and career tags on players, `fact=value` checks (a press question after a win or a loss), `@with` to lend a part's versions to another (story tones borrow their base part).
+- **Proof**: a season of one-on-ones at all three levels (1,869 talks): the same man repeating a version inside the season went from 2.63% to 0; parts heard again from anyone inside the season from 68% to 47%.
+
+#### Claude's picks (proposed, not confirmed)
+
+- The rest is 365 days, counted per speaker; once every fitting version rests, the oldest-said one comes back.
+- A version's weight is 1 + 0.8 for each tag or check it needs, so lines written for this man win over plain ones.
+- A version's memory is keyed by its part and words, so the same words with different tags rest as one line.
+- The position groups (`skill`, `lineman`, `rusher`, `cover`...) and career stages (`freshman` to `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) the new lines are tagged by.
+- A speaker who hasn't spoken to you for a season is dropped from the memory, to keep saves small.
 
 ## Not built yet (section 8's design, for the next builds)
 
