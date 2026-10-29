@@ -235,3 +235,47 @@ fn pathway(w: &mut World, d: Date) {
         format!("{n} players join practice squads through the International Player Pathway."),
     );
 }
+
+/// An athlete from outside football your club signs (SK65): a generated
+/// person at his football rating, on your practice squad (from 2017 a
+/// foreign one takes the Pathway's extra spot).
+pub(crate) fn outside_signing(w: &mut World, t: usize, pos: Position, rating: f64, age: u32, seed: u32) -> usize {
+    let year = w.year;
+    let mut p = super::veteran(w, pos, rating, age, seed);
+    p.college = None;
+    p.path.clear();
+    p.notes.clear();
+    let mut c = ProCareer::new(Some(t), Status::PracticeSquad, year);
+    c.ipp = year >= 2017 && matches!(pos, Position::OT | Position::EDGE | Position::RB | Position::LB);
+    c.ps_seasons = 1;
+    let deal = super::money::build(
+        t,
+        super::money::Kind::PracticeSquad,
+        year,
+        &super::money::Terms::flat(1, super::money::practice_squad_week(year) * (w.rules.nfl_games as f64 + 1.0)),
+    );
+    c.contract = Some(deal);
+    p.pro = Some(Box::new(c));
+    w.people.push(p);
+    let i = w.people.len() - 1;
+    w.clubs[t].roster.push(i);
+    i
+}
+
+/// An athlete from outside football your college signs (SK65): a
+/// generated person at his football rating, on your roster as a freshman.
+pub(crate) fn outside_freshman(w: &mut World, j: usize, pos: Position, rating: f64, age: u32, seed: u32) -> usize {
+    let mut p = super::veteran(w, pos, rating, age, seed);
+    p.path.clear();
+    p.notes.clear();
+    p.pro = None;
+    p.stage = crate::world::Stage::College;
+    p.college = Some(j);
+    p.college_seasons = 0;
+    p.redshirt_used = false;
+    p.class_of = w.dates.season;
+    w.people.push(p);
+    let i = w.people.len() - 1;
+    w.rebuild_rosters();
+    i
+}

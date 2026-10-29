@@ -357,23 +357,33 @@ fn level_name(l: Level) -> &'static str {
     }
 }
 
-/// "89 among seniors": his last season's level rating against his peers
-/// (public: it is what he showed on the field, ranked).
+/// "Senior level 89", "FBS level 73": his level badge (minor bug 55).
 fn level_rating(w: &World, k: usize) -> Option<String> {
-    let p = &w.people[k];
-    let h = p.player.history.last()?;
-    let r = h.level_rating_end.or(h.level_rating)?;
-    let peers = match h.level {
-        Level::HS => match p.class_of - w.year.min(p.class_of) {
-            0 => "seniors".to_string(),
-            1 => "juniors".to_string(),
-            2 => "sophomores".to_string(),
-            _ => "freshmen".to_string(),
-        },
-        Level::NFL => return None,
-        _ => "FBS players".to_string(),
-    };
-    Some(format!("{r} among {peers}"))
+    let (r, words) = level_read(w, k)?;
+    Some(format!("{words} level {r}"))
+}
+
+/// His level badge from your staff's read (minor bugs 49-52): your staff's
+/// overall now placed on the scale of his newest season's group (his class
+/// at high school, every FBS player in college), in that season's words.
+/// Nothing for a pro or a player nobody of yours has seen.
+pub(crate) fn level_read(w: &World, k: usize) -> Option<(u8, &'static str)> {
+    let p = w.people.get(k)?;
+    let last = p.player.history.len().checked_sub(1)?;
+    let centre = reads::seen(w, k).now?.0;
+    afm_engine::world::level_from_read(w, k, last, centre)
+}
+
+/// The badge's marks for its hover (minor bug 56): what each level means
+/// at his pool, from the scale's own anchors.
+pub(crate) fn level_marks(w: &World, k: usize) -> Value {
+    let Some(h) = w.people.get(k).and_then(|p| p.player.history.last()) else { return Value::Null };
+    match afm_engine::world::level_pool(h.level) {
+        Some(pool) => {
+            json!(afm_engine::level_rating::marks(pool).into_iter().map(|(t, r)| json!([t, r])).collect::<Vec<_>>())
+        }
+        None => Value::Null,
+    }
 }
 
 /// Measurables with where each was taken (S2).
@@ -611,23 +621,18 @@ fn recruiting(w: &World, k: usize) -> Value {
     })
 }
 
-/// Where else he could play (S2): your staff's read at each position he
-/// could fill, for your own players; others show his listed position only.
-fn position_fit(w: &World, k: usize, own: bool, eye: f64) -> Vec<Value> {
+/// Where else he could play (S2): your staff's read of him at the
+/// positions it reads him best at, from his file (minor bug 54); his listed
+/// position only while nobody of yours has seen him.
+fn position_fit(w: &World, k: usize) -> Vec<Value> {
     let p = &w.people[k];
-    if !own {
+    let s = reads::seen(w, k);
+    if s.positions.is_empty() {
         return vec![json!({ "pos": p.player.position.name(), "read": Value::Null, "now": true })];
     }
-    let reader = views::reader_key(w);
-    let mut all: Vec<(Position, f64)> =
-        Position::ALL.iter().map(|&pos| (pos, afm_engine::positions::overall_for(pos, &p.player.attributes))).collect();
-    all.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let half = 2.0 + (20.0 - eye.clamp(1.0, 20.0)) * 0.12;
-    all.iter()
-        .take(4)
-        .map(|&(pos, v)| {
-            json!({ "pos": pos.name(), "read": reads::range(v, half + 1.0, reader, p.player.id, 300 + pos.index()).json(), "now": pos == p.player.position })
-        })
+    s.positions
+        .iter()
+        .map(|&(pos, (lo, hi))| json!({ "pos": pos.name(), "read": [lo, hi], "now": pos == p.player.position }))
         .collect()
 }
 
@@ -636,8 +641,6 @@ pub fn profile(w: &World, id: u32) -> Result<Value, String> {
     let k = views::person_index(w, id).ok_or("That player is no longer in football.")?;
     let p = &w.people[k];
     let team = views::team_of(w, p);
-    let own = team.is_some_and(|t| views::is_mine(w, t));
-    let eye = team.filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
     let mental: Vec<Value> = key_mental(p.player.position)
         .iter()
         .filter_map(|key| {
@@ -665,9 +668,10 @@ pub fn profile(w: &World, id: u32) -> Result<Value, String> {
     // The name he goes by, wherever he shows (stories, A14).
     v["nick"] = json!(w.nickname_of(id));
     v["level_rating"] = json!(level_rating(w, k));
+    v["level_marks"] = level_marks(w, k);
     v["measurables"] = json!(measurables(w, k));
     v["key_mental"] = json!(mental);
-    v["fit"] = json!(position_fit(w, k, own, eye));
+    v["fit"] = json!(position_fit(w, k));
     v["seasons"] = json!(seasons(w, k));
     v["game_logs"] = json!(logs);
     v["splits"] = json!(splits);
@@ -708,8 +712,6 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
             let k = views::person_index(w, id).ok_or("No longer in football.")?;
             let p = &w.people[k];
             let team = views::team_of(w, p);
-            let own = team.is_some_and(|t| views::is_mine(w, t));
-            let eye = team.filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
             let last =
                 w.stats.career(id).last().map(|r| format!("{}: {}", r.year, mail::stat_line(r.pos, |s| r.get(s))));
             let last = last.or_else(|| {
@@ -722,8 +724,8 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
                 "kind": "player", "id": id, "name": p.name, "pos": p.player.position.name(), "age": p.player.age,
                 "class": views::class_text(w, p), "team": team.map(|t| views::team_brief(w, t)), "where": views::where_now(w, p),
                 "ht": views::ft_in(body_now(&p.player).height), "wt": body_now(&p.player).weight.round(), "stars": p.stars,
-                "read": if own { reads::overall(&p.player, own, eye, views::reader_key(w)).json() } else { Value::Null },
-                "level_rating": level_rating(w, k), "last": last, "status": views::status_text(w, p),
+                "read": reads::overall(w, k).json(), "yours": reads::mine(w, k).json(),
+                "level_rating": level_rating(w, k), "level_marks": level_marks(w, k), "last": last, "status": views::status_text(w, p),
                 "listed": desk::is_listed(w, id), "noted": desk::has_note(w, id),
                 "jersey": team.and_then(|t| people::jersey(w, t, k)),
                 "initials": p.name.split_whitespace().filter_map(|s| s.chars().next()).take(2).collect::<String>(),
@@ -991,8 +993,8 @@ pub fn compare(w: &World, args: &Value) -> Value {
             let last = w.stats.career(id).last().map(|r| format!("{}: {}", r.year, mail::stat_line(r.pos, |s| r.get(s))));
             Some(json!({
                 "id": id, "name": v["name"], "pos": v["pos"], "age": v["age"], "team": v["team"], "class": v["class"],
-                "ht": v["ht"], "wt": v["wt"], "stars": v["stars"], "ovr": v["ovr"], "groups": v["groups"], "mine": v["mine"],
-                "level_rating": level_rating(w, k), "last": last,
+                "ht": v["ht"], "wt": v["wt"], "stars": v["stars"], "ovr": v["ovr"], "groups": v["groups"], "mine": v["mine"], "yours": v["yours"],
+                "level_rating": level_rating(w, k), "level_marks": level_marks(w, k), "last": last,
             }))
         })
         .collect();
@@ -1398,6 +1400,7 @@ pub fn coach_page(w: &World, c: usize) -> Result<Value, String> {
     // Your read of him (update 2, Q2) comes with having him on your staff.
     v["your_staff"] = json!(afm_engine::world::staff_read::of_coach(w, c).is_some());
     v["mentor_line"] = json!(co.mentor.and_then(|m| w.coaches.get(m)).map(|m| links::coach(m.id, &m.name)));
+    v["record"] = rec_record(w, c);
     v["notes"] = json!(w.career.as_ref().map(|k| {
         k.desk
             .notes
@@ -1408,6 +1411,41 @@ pub fn coach_page(w: &World, c: usize) -> Result<Value, String> {
             .collect::<Vec<_>>()
     }));
     Ok(v)
+}
+
+/// His recommendation record (SK30): who he wanted, who he passed on, how
+/// they turned out, and how often you overruled him. Null without calls.
+fn rec_record(w: &World, c: usize) -> Value {
+    use afm_engine::world::front_office::chain;
+    let calls = chain::record(w, c);
+    if calls.is_empty() {
+        return Value::Null;
+    }
+    let settled: Vec<_> = calls.iter().filter(|x| x.settled.is_some()).collect();
+    let right = settled.iter().filter(|x| x.settled == Some(true)).count();
+    let rows: Vec<Value> = calls
+        .iter()
+        .take(40)
+        .map(|x| {
+            let (name, pos) = views::person_index(w, x.id)
+                .map(|k| (w.people[k].name.clone(), w.people[k].player.position.name()))
+                .unwrap_or_default();
+            json!({
+                "id": x.id, "name": name, "pos": pos, "date": d_text(x.date),
+                "call": if x.wanted { "Wanted him" } else { "Passed" },
+                "you": if x.overruled { "Overruled" } else { "Agreed" },
+                "turned": x.turned, "right": x.settled,
+            })
+        })
+        .collect();
+    json!({
+        "wanted": calls.iter().filter(|x| x.wanted).count(),
+        "passed": calls.iter().filter(|x| !x.wanted).count(),
+        "overruled": calls.iter().filter(|x| x.overruled).count(),
+        "settled": settled.len(), "right": right,
+        "heart": chain::heart(w, c) < 1.0,
+        "rows": rows,
+    })
 }
 
 // ---- Your career page: the tree, your contract, the job market ----

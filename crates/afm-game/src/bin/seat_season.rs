@@ -518,6 +518,28 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             let _ = g.call("eval_advisory", &json!({ "id": j["id"], "on": true }));
             run.call(g, "eval_talk", json!({ "id": j["id"], "say": 1 }));
         }
+        // Lane 7 (update 3): coverage, outside football, your class, the
+        // path at our place, the offer chain, and one film watch of your own
+        // a stop (the rules and your hours can refuse it).
+        run.call(g, "l7_coverage", json!({}));
+        if seat == "hs" {
+            run.call(g, "l7_class_fit", json!({}));
+        } else if let Some(o) = run.call(g, "l7_outside", json!({}))
+            && let Some(a) = o["rows"].as_array().and_then(|r| r.first())
+            && players.len() % 7 == 0
+        {
+            let _ = g.call("l7_outside_sign", &json!({ "key": a["key"] }));
+        }
+        if seat == "college"
+            && let Some(c) = run.call(g, "recruit_chain", json!({}))
+            && c["waiting"].as_array().is_some_and(|x| !x.is_empty())
+        {
+            let _ = g.call("chain_sign_all", &json!({}));
+        }
+        if let Some(&id) = ids.first() {
+            let _ = g.call("l7_path", &json!({ "id": id }));
+            let _ = g.call("scout_ask", &json!({ "id": id, "kind": "Watch his film now" }));
+        }
         if let Some(a) = v["hs"]["athletes"].as_array().and_then(|a| a.first()) {
             run.call(g, "eval_athlete", json!({ "key": a["key"] }));
         }

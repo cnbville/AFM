@@ -59,7 +59,7 @@ static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 /// files hold, and who reads them (a club's head coach and coordinators are
 /// read by role, so a hire the same day re-reads; the doctors' rating and
 /// the world's seed, so another file never borrows these reads).
-fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
+pub(crate) fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
     let mut looks: usize = w.scouting.dept.looks.values().map(|v| v.len()).sum();
     if let Staff::Club(t) = staff
         && let Some(c) = w.clubs.get(t)

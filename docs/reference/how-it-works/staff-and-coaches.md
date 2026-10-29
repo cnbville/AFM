@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at 8b7dd75 with update 3 lane 18 on 2026-10-28.
+Checked against main at 3cb32e3 with update 3 lanes 18 and 7 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -220,6 +220,12 @@ Units and coaches to watch (`world/units.rs`; C27, C42):
 
 - `Style` dials, 1-20 (`world/coach.rs`, `style`): risk = ambition; freedom = 21 − discipline + level norm + 1.5 × keyed normal; physical = 10.5 + 0.4 × (temper − 10) + 2.5 × normal; ball hunting = 10.5 + 3 × normal; mould = 10.5 − 0.25 × (relationships − 10) + 2.5 × normal. Freedom is read against the average discipline of head coaches at his level (`set_freedom_norms`). Your coach's style is the one you set (`style_set`).
 - What styles do to players' habits: see [tendencies.md](tendencies.md).
+
+## Overruled assistants and a famous name (update 3, lane 7)
+
+- An assistant whose recommendations you overrule loses trust, calls his area with less heart and weighs other jobs more (see [recruiting.md](recruiting.md), "Your offer chain"); his coach page's "Recruiting record" tab lists every call with how the kid turned out (`crates/afm-game/src/lane_core/pages.rs`, `rec_record`).
+- A head coach's playing name is worth up to 3 recruiting points for two seasons (`world/coach.rs`, `name_pull`; C8).
+- A small school's coach can be hired on his five-star's promise (C20; [people.md](people.md), "The network").
 
 ## Where the knobs are
 

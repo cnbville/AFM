@@ -85,6 +85,9 @@ pub(crate) fn high_school_transfers(w: &mut World) {
             let dest = &w.high_schools[t];
             let gain = (dest.prestige - cur.prestige).max(0.0);
             let mut pull = 0.3 * gain;
+            // C8: a famous coach's name draws transfers (a star's name half
+            // again as many; proposed, not confirmed).
+            pull *= 1.0 + dest.coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season) / 6.0);
             if nil_state || (national && w.states[dest.state].hs_nil) {
                 pull *= 1.4;
             }
@@ -575,7 +578,8 @@ pub(crate) fn draft_reads(w: &mut World) {
         // A small-school player whose numbers flag him (this season or
         // last) gets a second look: more scouts on his film, a truer read.
         // The numbers can lie (a weak schedule), so the film decides
-        // (proposed, not confirmed: accuracy 13 to 8).
+        // (F4: the second look reads at accuracy 18 against everyone
+        // else's 13; it was 8, a wider error; 18 proposed, not confirmed).
         let id = p.player.id;
         let flagged = division != Division::FBS
             && (feet.get(&id).is_some_and(|&f| f != 0) || !w.stats.footprint_since(id, year - 1).is_empty());
@@ -605,7 +609,7 @@ pub(crate) fn draft_reads(w: &mut World) {
             let age = p.row_age();
             p.note(format!("At {age} pro scouts took a second look at his film: {}.", why.join("; ")));
         }
-        let accuracy = if flagged { 8.0 } else { 13.0 };
+        let accuracy = if flagged { 18.0 } else { 13.0 };
         let seen = projected.as_ref().unwrap_or(&p.player);
         let rep = scout_player(seen, ScoutOptions { accuracy, level }, &mut p.rng);
         let youth = clamp((23.0 - p.player.age as f64) / 3.0, 0.0, 1.0);
@@ -4695,8 +4699,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             official.contains(&j) || contact > 0.0 || geo::miles(p.home_state, prog.state) <= 250.0;
                         let group = super::coach::Group::of(p.player.position);
                         let hc = prog.head_coach.map(|c| *w.coaches[c].ability());
-                        let hc_skill =
-                            0.6 * hc.map_or(9.0, |a| a.recruiting) + 0.4 * hc.map_or(9.0, |a| a.relationships);
+                        // C8: a famous name pulls recruits too.
+                        let hc_skill = 0.6 * hc.map_or(9.0, |a| a.recruiting)
+                            + 0.4 * hc.map_or(9.0, |a| a.relationships)
+                            + prog.head_coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season));
                         let pc_skill =
                             prog.position_coaches[group as usize].map_or(9.0, |c| w.coaches[c].ability().recruiting);
                         // Most of a staff's recruiting time goes to its own state
