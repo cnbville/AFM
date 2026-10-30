@@ -518,7 +518,9 @@ fn mark(w: &mut World, id: u32, th: &str, moment: &str) -> u8 {
 /// stage, the more people watching to name it).
 fn level_chance(level: Level, big: bool) -> f64 {
     let base = match level {
-        Level::Nfl => 0.28,
+        // A few new names stick league-wide a year, mostly stars after
+        // big moments (minor bug 151: 0.28 coined 29.6 a year).
+        Level::Nfl => 0.04,
         Level::College => 0.2,
         _ => 0.15,
     };

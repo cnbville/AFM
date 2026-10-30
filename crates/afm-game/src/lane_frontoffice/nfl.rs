@@ -392,6 +392,7 @@ fn dead_words(d: pro::DeadWhy) -> &'static str {
         PracticeSquad => "Moved to the squad",
         Retired => "Retired",
         Traded => "Traded (bonus kept)",
+        PaidBeforeTrade => "Traded (pay already paid)",
         Voided => "Void years",
         Incentives => "Incentives settled",
     }

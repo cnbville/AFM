@@ -450,6 +450,14 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
     let need = crate::career::need(&w.nfl[t], pos);
     if better < slots.starters {
         apy *= 1.0 + 0.05 * need.clamp(0.0, 3.0);
+    } else if pos == Position::QB && better == 1 {
+        // The backup quarterback plays when the starter is hurt: a fifth of
+        // starts go to someone other than the week 1 starter (nflverse
+        // games 2012-2024, 79.8% by him), so a club pays a good veteran
+        // backup for that fifth (minor bug 95: 80-rated quarterbacks went
+        // unsigned at 27-33 and retired; the share is real, its use here
+        // proposed, not confirmed).
+        apy = apy.min((apy * 0.2).max(money::minimum(year, accrued) * 2.0));
     } else if better >= slots.starters + slots.rotation {
         apy = apy.min(money::minimum(year, accrued) * 2.0);
     }
@@ -979,8 +987,14 @@ fn decay(w: &mut World, i: usize, d: Date, best: Option<f64>) {
     let c = w.people[i].pro.as_mut().unwrap();
     let Some(id) = c.ideal.as_mut() else { return };
     let weeks = id.opened.days_to(d).max(0) as f64 / 7.0;
+    // Six weeks in, with no calls, his price falls toward a backup's
+    // (minor bug 95: an 85-rated quarterback stayed priced as a starter
+    // all spring, no club with a starter ever bid, and he retired unsigned
+    // in September; 5% a market day after six weeks is proposed, not
+    // confirmed).
     id.apy = match best {
         Some(b) => (id.apy * 0.97).max(b * 1.02).min(id.apy),
+        None if weeks > 6.0 => id.apy * 0.95,
         None => id.apy * 0.99,
     }
     .max(min);

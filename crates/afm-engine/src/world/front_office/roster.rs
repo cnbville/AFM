@@ -44,7 +44,7 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
     let ps = w.rules.nfl_practice_squad as usize;
     let of = |i: usize| plan.iter().find(|x| x.0 == w.people[i].player.id).map(|x| x.1);
     // The staff's own cut, for the places you left open.
-    let (staff53, staff_ps, _) = pro::cut_split(w, keep);
+    let (staff53, staff_ps, _) = pro::cut_split(w, t, keep);
     let mut chosen: Vec<usize> = keep.iter().map(|x| x.0).filter(|&i| of(i) == Some(Cut::Keep)).take(limit).collect();
     for &i in staff53.iter().chain(keep.iter().map(|x| &x.0)) {
         if chosen.len() >= limit {
@@ -314,7 +314,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
 /// score) and the cut it would make: (ranking, the 53, the squad).
 pub fn staff_cut(w: &World, t: usize) -> (Vec<(usize, f64)>, Vec<usize>, Vec<usize>) {
     let keep = pro::cut_scores(w, t);
-    let (a, b, _) = pro::cut_split(w, &keep);
+    let (a, b, _) = pro::cut_split(w, t, &keep);
     (keep, a, b)
 }
 
