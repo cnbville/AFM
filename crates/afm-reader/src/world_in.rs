@@ -372,6 +372,8 @@ fn round(x: f64) -> f64 {
 /// The engine's answers that no file stores, for each season the world
 /// covers: the rule book (`RuleBook::era`) and the year's dates
 /// (`YearDates::new`); the attributes' and Dynamic Links' names.
+const CALL_VALUES: &str = include_str!("../../afm-engine/data/call_values.csv");
+
 pub fn engine_tables(w: &mut Writer, first: i32, last: i32) -> std::io::Result<()> {
     w.source = "engine".into();
     for season in first..=last {
@@ -398,6 +400,22 @@ pub fn engine_tables(w: &mut Writer, first: i32, last: i32) -> std::io::Result<(
             ("edge".into(), S::Text(l.edge().to_string())),
         ];
         w.insert("engine_links", None, row).map_err(std::io::Error::other)?;
+    }
+    // The coaches' what-beats-what table (`game/calling.rs`): mean yards of each
+    // concept or run against each look, one row per pair.
+    let mut lines = CALL_VALUES.lines();
+    let head: Vec<&str> = lines.next().unwrap_or("").split(',').collect();
+    for line in lines {
+        let cells: Vec<&str> = line.split(',').collect();
+        for (k, v) in cells.iter().enumerate().skip(1) {
+            let Ok(yards) = v.trim().parse::<f64>() else { continue };
+            let row = vec![
+                ("concept".to_string(), S::Text(cells[0].to_string())),
+                ("against".into(), S::Text(head.get(k).unwrap_or(&"").replace("Front:", "Front: ").replace('/', ", "))),
+                ("yards".into(), S::Real(yards)),
+            ];
+            w.insert("engine_call_values", None, row).map_err(std::io::Error::other)?;
+        }
     }
     w.flush().map_err(std::io::Error::other)
 }

@@ -8,8 +8,10 @@
 
 pub mod areas;
 pub mod book;
+pub mod coach;
 pub mod compare;
 pub mod demo;
+pub mod inst;
 pub mod library;
 pub mod pages;
 pub mod play;
@@ -167,7 +169,8 @@ impl Reader {
     }
 
     /// One page by its route: `overview`, `page/<topic>`, `tools/<tab>`,
-    /// `career`, `table/<name>`, `e/<table>/<id>`, `compare/<mode>`.
+    /// `career`, `table/<name>`, `e/<table>/<id>`, `compare/<mode>`, `season/<program>/<year>`,
+    /// `conference/<name>`.
     fn page(&mut self, route: &str, args: &Value) -> Result<Value, String> {
         let f = self.filters(args);
         let parts: Vec<&str> = route.trim_matches('/').split('/').collect();
@@ -187,6 +190,12 @@ impl Reader {
             ["area", code] => areas::area(b, code, &f)?,
             ["class", year] => areas::keyed(b, "class", "class", year, &f)?,
             ["state", code] => areas::keyed(b, "state", "state", code, &f)?,
+            // Lane R7: a program's season, and a conference's page.
+            ["season", prog, year] => inst::season_page(b, prog, year.parse().unwrap_or(0), &f)?,
+            ["conference", name] => {
+                let name = name.replace("%20", " ").replace("%2F", "/").replace("%26", "&");
+                areas::keyed(b, "conference", "conference", &name, &f)?
+            }
             ["tools", "odd", page] => pages::tools(b, "odd", &f, &json!({ "page": page }))?,
             ["tools", tab] => pages::tools(b, tab, &f, args)?,
             ["table", name] => pages::table(b, name, &f, args)?,

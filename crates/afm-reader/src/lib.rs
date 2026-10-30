@@ -16,6 +16,7 @@ pub mod coverage;
 pub mod defs;
 pub mod defs_list;
 pub mod defs_people;
+pub mod defs_programs;
 pub mod dist;
 pub mod issues;
 pub mod json;

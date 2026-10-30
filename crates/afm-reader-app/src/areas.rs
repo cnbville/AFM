@@ -475,6 +475,42 @@ pub fn text_block(out: &mut String, b: &Value) {
                 ));
             }
         }
+        // Lane R7's views: each lane's bands in order, and a tree as an
+        // indented list.
+        "bands" => {
+            for l in b["lanes"].as_array().into_iter().flatten() {
+                let items: Vec<String> = l["items"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|i| {
+                        let (a, z) = (s(&i["from"]), s(&i["to"]));
+                        let when = if a == z { a } else { format!("{a}-{z}") };
+                        let sub = s(&i["sub"]);
+                        format!("{when} {}{}", s(&i["text"]), if sub.is_empty() { sub } else { format!(" ({sub})") })
+                    })
+                    .collect();
+                out.push_str(&format!("{}: {}\n", s(&l["label"]), items.join("; ")));
+            }
+        }
+        "tree" => {
+            fn walk(out: &mut String, n: &Value, depth: usize, s: &dyn Fn(&Value) -> String) {
+                let sub = s(&n["sub"]);
+                out.push_str(&format!(
+                    "{}- {}{}\n",
+                    "  ".repeat(depth),
+                    s(&n["text"]),
+                    if sub.is_empty() { sub } else { format!(" ({sub})") }
+                ));
+                for k in n["kids"].as_array().into_iter().flatten() {
+                    walk(out, k, depth + 1, s);
+                }
+            }
+            for u in b["up"].as_array().into_iter().flatten().rev() {
+                out.push_str(&format!("mentor: {} ({})\n", s(&u["text"]), s(&u["sub"])));
+            }
+            walk(out, &b["root"], 0, &s);
+        }
         "meters" => {
             for g in b["groups"].as_array().into_iter().flatten() {
                 let items: Vec<String> = g["items"]
@@ -501,6 +537,7 @@ pub fn keyed(b: &mut Book, page: &str, key: &str, val: &str, f: &Filters) -> Res
     let (title, crumb) = match page {
         "class" => (format!("The class of {val}"), "Recruiting classes"),
         "state" => (format!("{} ({val})", state_name(val)), "States"),
+        "conference" => (val.to_string(), "Conferences"),
         _ => (val.to_string(), page),
     };
     let mut p = new_page(&title, &format!("{} · {crumb} · {title}", world_name(b)));

@@ -900,6 +900,16 @@ pub fn entity(b: &mut Book, table: &str, id: &Value, f: &Filters) -> Result<Valu
             push(&mut p, blk);
         }
     }
+    // A program, a high school, a coach (lane R7, `inst.rs`, `coach.rs`).
+    let own_blocks = match table {
+        "programs" => crate::inst::program_blocks(b, &row, f),
+        "high_schools" => crate::inst::school_blocks(b, &row, f),
+        "coaches" => crate::coach::blocks(b, &row, f),
+        _ => Vec::new(),
+    };
+    for blk in own_blocks {
+        push(&mut p, blk);
+    }
     // Ratings with their ceilings beside them (debug), and tendencies with
     // the year before, each as one compact grid.
     let find = |w: &str| lists.iter().find(|(c, _, _)| c.rsplit("__").next() == Some(w));

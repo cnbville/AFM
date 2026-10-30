@@ -179,5 +179,5 @@ pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool) -> rusqlite::Result<usiz
 
 /// Every panel the reader knows, page by page.
 pub fn all() -> impl Iterator<Item = &'static Panel> {
-    crate::defs_people::PANELS.iter()
+    crate::defs_people::PANELS.iter().chain(crate::defs_programs::PANELS)
 }
