@@ -1320,6 +1320,7 @@ Cain's standing rule (2026-10-28): code that disagrees with real data is a bug, 
 - **Schedule** (146): byes in the era's real weeks, never week 18; the Hall of Fame Game is played.
 - **Money and stories** (149, 151): 2020's empty stadiums, club sales and values at real rates; about 4 new NFL nicknames a year, starting quarterbacks in the jersey top ten, fines at real counts, title parades near a million.
 - **Hall of Fame** (152): seniors (two a year, one from 2015, three from 2023) and one retired coach a year with a strong case, beside the five modern-era players.
+- **Holdouts** (160): from the 2011 CBA a star on his rookie deal holds out only at the higher bar, as from 2020 before.
 - **94** needed no change: quarterbacks went first overall in 64.5% of the latest book's drafts against 73.1% real, about one draft's noise over 31 drafts.
 
 #### Claude's picks (proposed, not confirmed)
@@ -1334,6 +1335,7 @@ Cain's standing rule (2026-10-28): code that disagrees with real data is a bug, 
 - Bye windows from nflverse 1999-2025 by era (4-12 to 2001); at most six byes a week; 400 keyed tries before the old search. The Hall of Fame Game pair is a keyed draw at a neutral site, 8 pm.
 - 2020: three in five stadiums shut, the rest 5-25% full. Sales 1.5% a club a year, heirs 2.7%. Nicknames 0.04, the starting quarterback +6 in jersey sales, fines 0.019 a defender a week, parades 780,000.
 - Hall: the seniors' bar 16, the coach's case NFL wins / 10 + 5 a title with a bar of 20; contributors are not in the world. The Hall check counts players from 2010 against 6.3 (from memory) and coaches against 0.33.
+- Holdouts: the rookie-deal bar (push over 0.55, was from 2020) from 2011, when that CBA made a rookie-deal holdout's fines unwaivable (from memory).
 
 ## Not built yet (section 8's design, for the next builds)
 
