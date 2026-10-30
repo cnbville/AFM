@@ -76,3 +76,24 @@ fn a_talk_you_hand_to_staff_is_his_position_coachs_word() {
     crate::world::folk::scene::hand(&mut w, talk).unwrap();
     assert!(w.people[i].cal.lean_events.iter().any(|e| e.1 == "his position coach asked him to stay"));
 }
+
+#[test]
+fn he_opens_by_saying_why_he_came() {
+    // Minor bug 155: the talk he asked for opens with one of his own portal
+    // lines (his mood, his reason), not a mood part that assumes you called
+    // him in, and not the one fallback sentence every player shared.
+    let (mut w, _, room) = leaning_room(1);
+    let close = w.today.add(15);
+    recruiting::portal_open(&mut w, PortalWindow::Winter, close);
+    let i = room[0];
+    let id = w.people[i].player.id as u64;
+    let talk = w.folk.scenes.iter().find(|s| s.a == id && !s.done).map(|s| s.id).unwrap();
+    let s = crate::world::folk::scene::open(&mut w, talk).unwrap();
+    let name = w.people[i].name.clone();
+    let said = s.lines.iter().find(|l| l.name == name).map(|l| l.text.clone()).expect("he speaks first");
+    let b = crate::world::folk::voice::bank();
+    let ours = ["sour", "good", "flat"]
+        .iter()
+        .any(|m| b.versions(&format!("talk.open.portal.{m}")).iter().any(|v| v.0 == said));
+    assert!(ours, "his opening isn't a portal line: {said}");
+}

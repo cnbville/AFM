@@ -51,6 +51,8 @@ const FACTS: &str = concat!(
     "last_record them captain moment last mistake us first second club ",
     // the fans (fans.rs)
     "defense margin upset streak run mood qb star goat cost next mascot color place at from station late class move draft time ",
+    // why your player asked to see you before the portal (talks.rs)
+    "reason ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -59,6 +61,7 @@ fn asked() -> Vec<String> {
     let mut v: Vec<String> = Vec::new();
     for m in ["sour", "good", "flat"] {
         v.push(format!("talk.open.{m}"));
+        v.push(format!("talk.open.portal.{m}"));
     }
     for s in ["role", "usage", "money", "behavior", "life", "team", "future"] {
         v.push(format!("talk.open.{s}"));

@@ -6749,3 +6749,305 @@ Whether I need to pick between football and another sport soon? ~ hs freshman
 Playing receiver in college, or somewhere else? ~ hs wr
 Defensive line in college, at my size? ~ hs dl
 Whether linebackers my size get looked at? ~ hs lb
+
+# A player who asked to see you because he means to enter the portal (minor
+# bug 155): one part, said alone, in his mood (talk.open.portal.sour/good/flat).
+# He asked for the meeting, so no line assumes you called him in. The
+# reason=... check is why he means to leave (recruiting.rs, intent_reason):
+# snaps, coach, money, up (a bigger program), choice (someone else picked
+# his school), grad; lines without one fit any reason.
+@key talk.open.portal.sour
+Coach, I'm not going to dance around it. I'm thinking about entering the portal. ~ nil
+I'll make this quick. I'm leaning toward leaving, and I wanted you to hear it from me.
+I've been sitting on this for a while. I think I'm done here.
+I asked for this so you'd hear it straight. I'm probably putting my name in. ~ nil
+Not here to fight about it. I'm here to tell you I'm thinking about going.
+You're going to hear it anyway, so here it is. I'm looking at the portal. ~ nil
+Didn't sleep much last night. I'm thinking about leaving, Coach.
+I'm not proud of how I feel. But I think I need a fresh start somewhere else.
+I'd rather say it to your face than have compliance tell you. I'm thinking about the portal. ~ nil
+Before anything else, I'm thinking about transferring. That's why I asked to see you.
+I'm tired, Coach. I think I need to be somewhere else.
+I'm not going to pretend this is working for me. I'm looking at my options.
+Back and forth for weeks. Right now I'm leaning out.
+I came up here to tell you I'm probably leaving. I owed you that much.
+It's not easy to say. I think I'm putting my name in the portal. ~ nil
+I'm frustrated, and I'm not hiding it. I'm thinking about leaving.
+Coach, I want out. I'm being honest with you.
+There's no good way to say this. I'm thinking about leaving the program.
+My gut says go. I wanted to hear what you'd say before I listen to it.
+I'm not mad at you. I'm mad at how this has gone. I'm thinking about the portal. ~ nil
+I'll keep it short. I'm thinking about transferring.
+Done pretending everything's fine. I'm looking at leaving.
+I don't expect you to like this. I'm thinking about entering the portal. ~ nil
+Had to ask for this meeting before I lost my nerve. I want to transfer.
+Nobody pushed me into this. I got here on my own, and I'm thinking about leaving.
+I'm not asking for anything. I'm telling you where my head is, and it's out the door.
+My mind's mostly made up, Coach. The portal. ~ nil
+I've been unhappy for a while. I think it's time I left.
+It's been eating at me. I think I'm better off somewhere else.
+I asked to see you because I'm leaning toward leaving. Say what you want to say.
+I'm here so it doesn't come out sideways. I'm thinking about going in the portal. ~ nil
+No scene, no drama. I just think I need to go.
+I'd rather have this talk than ghost you. I'm thinking about transferring.
+I've got one foot out the door, Coach. Honestly.
+I'll be straight. I'm not sure I want to be here next season.
+I almost let compliance handle it. I figured I owed you a face.
+Don't take this personal. I'm looking at the portal. ~ nil
+I'm about to make a decision, and you should hear it before anybody.
+This place isn't working for me right now. I'm thinking about going.
+Gonna rip the bandage off. I want to put my name in. ~ nil
+Leaving's been on my mind more than football lately. That's the truth.
+Somebody had to say it out loud. I'm thinking about leaving.
+You asked us to come to you first. So I'm here. I'm thinking about transferring.
+I didn't come to negotiate. I came to tell you I'm thinking about going.
+It's not one thing. It's everything piling up. I'm thinking about the portal. ~ nil
+I've been a pro about it as long as I could. I think I need to leave. ~ pro
+I'm not built to sit and wait. I'm thinking about going somewhere I don't have to. ~ competitor
+I'm hot about it, I'll admit that. But I've thought about it cold too, and I still want to go. ~ hot
+I don't say much, so I'll just say it. I'm thinking about the portal. ~ quiet nil
+Coach. I'm leaving. Probably. Wanted you to hear it first. ~ quiet
+I've been loyal to this place. That's why this is so hard to say. I'm thinking about going. ~ loyal
+I know my worth, Coach. I don't think it's here. ~ ego
+I'm better than how this has gone, and I want a place that sees it. ~ ego
+I'm not trying to be difficult. I just think I need a new start. ~ humble
+I've been holding the guys together and I can't fake it anymore. I'm thinking about leaving. ~ leader
+I know how this looks. I'm still thinking about leaving. ~ shaky
+Thought about this a long time. I'm leaning toward transferring. ~ steady
+Not much for meetings. I'm thinking about the portal, that's all. ~ loose nil
+I'm calm about it, which should tell you how long I've been thinking. I want to transfer. ~ calm
+Lowkey I've been ready to leave for a minute. I wanted to tell you to your face. ~ young
+Honestly, my phone's been buzzing. I haven't answered anybody. I wanted to talk to you first. ~ modern
+People back home keep asking why I'm still here. I'm starting to ask too. ~ south
+There's schools back in Texas that would have me. I'm thinking about it hard. ~ texas
+Where I'm from you say it plain. I want to transfer. ~ midwest
+Not going to sugarcoat it. I'm thinking about leaving. ~ northeast
+I've been thinking about going back out west. Closer to home. ~ west
+I already did this once. I didn't think I'd be doing it again. ~ transfer
+I walked on here and paid my dues. I'm thinking about finding a place that sees that. ~ walkon
+I've got eligibility left and I'm not wasting it. I'm thinking about the portal. ~ senior nil
+I sat a whole year to be ready. I'm not sure being ready matters here. ~ redshirt
+One year in and I already know. I'm thinking about leaving. ~ freshman
+Quarterbacks don't get many chances. I'm thinking about taking mine somewhere else. ~ qb
+I'm a lineman. I don't complain. So when I'm in here saying I want to leave, it's real. ~ lineman
+Specialists don't ask for many meetings. I asked for this one because I'm thinking about leaving. ~ special
+I need to play, Coach. I can't spend another year waiting. I'm thinking about the portal. ~ reason=snaps nil
+I'm not getting the snaps I need here. I'm thinking about finding them somewhere else. ~ reason=snaps
+The chart is the chart. I just don't see my name moving, so I'm thinking about going. ~ reason=snaps
+Every week I prepare like a starter and every week I wait. I'm done waiting here. ~ reason=snaps
+I want film, Coach. I can't get it from the sideline. ~ reason=snaps
+Scouts can't grade a guy who doesn't play. That's why I'm thinking about leaving. ~ reason=snaps
+I came here to play, not to wait my turn forever. I'm looking at the portal. ~ reason=snaps nil
+I'm good enough to start somewhere. I want to go find out where. ~ reason=snaps
+I did everything that was asked and I'm still not out there enough. I'm thinking about going. ~ reason=snaps
+The staff that recruited me is gone. I'm thinking about following my gut out of here. ~ reason=coach
+Nothing personal, Coach, but I didn't sign up for you. I'm thinking about leaving. ~ reason=coach
+I don't know you yet, and I'm not sure I want to find out on my eligibility. ~ reason=coach
+The guys who recruited me were the reason I came. With them gone, I'm thinking about going too. ~ reason=coach
+Everything changed when the old staff left. I'm thinking about the portal. ~ reason=coach nil
+New system, new coaches, new everything. I'm not sure it's for me. ~ reason=coach
+I committed to a man and a plan. Both are gone. ~ reason=coach
+I'm not against you. I just don't know if I fit what you're building. ~ reason=coach
+Going to be blunt. Other schools are talking real numbers, and ours isn't close. ~ reason=money
+I know my value now. I'm not getting it here. ~ reason=money
+My NIL deal doesn't match what I bring. I'm thinking about the portal. ~ reason=money nil
+It's business, Coach. Somebody's going to pay me what I'm worth, and it isn't here. ~ reason=money
+I've got people depending on me. I can't turn down that kind of money. ~ reason=money
+My rev share number's a line on a sheet, and it's low. I'm thinking about leaving over it. ~ reason=money nil
+I don't want to make it about money. It's about money. ~ reason=money
+I've outgrown this level, Coach. I want to find out if I can play bigger ball. ~ reason=up
+I've proven what I can do here. I'm thinking about moving up. ~ reason=up
+Bigger programs have seen my film. I'd be lying if I said I wasn't thinking about it. ~ reason=up
+I want to play in front of a hundred thousand. I'm thinking about trying. ~ reason=up
+I didn't really pick this place, Coach. Other people did. I want the next one to be mine. ~ reason=choice
+I came here because somebody else wanted me to. I want to make my own call now. ~ reason=choice
+This was never my choice. I'm thinking about making one. ~ reason=choice
+I've got my degree and a year left. I want to spend it where I'll play. ~ reason=grad
+Degree's done. Football isn't. I'm thinking about a grad transfer. ~ reason=grad
+I'm graduating and I've got one more year. I'm thinking about using it somewhere else. ~ reason=grad
+
+@key talk.open.portal.good
+Coach, this is the hardest meeting I've ever asked for. I'm thinking about the portal. ~ nil
+I love it here. That's what makes this so hard. I'm thinking about leaving.
+I wanted to come to you first, because you've always been straight with me. I'm thinking about transferring.
+Don't get me wrong, I'm grateful for everything. I just think it might be time for me to go.
+I've had a good run here. I'm thinking about what's next, and it might be somewhere else.
+I asked for this because you deserve to hear it from me. I'm leaning toward the portal. ~ nil
+I'm in a good place, honestly. That's why I can think clearly about leaving.
+Didn't want this to be a text. I'm thinking about transferring, and I wanted to thank you either way. ~ modern
+No hard feelings, none. I'm just thinking about a new start.
+You've treated me right. I need to say that before I say the rest. I'm thinking about leaving.
+This isn't about anything you did wrong. I'm thinking about the portal. ~ nil
+I'm smiling, but this is hard. I'm thinking about going.
+Wanted to do this the right way. I'm thinking about putting my name in. ~ nil
+I've prayed on it a lot. I think I might be supposed to go.
+At peace with it, mostly. I'm thinking about transferring.
+I'm happy here. I'm just not sure happy is enough for where I want to go.
+I'm not running from anything. I'm running toward something. I think.
+I respect you too much to let you find out online. I'm thinking about the portal. ~ modern nil
+Coach, I want to thank you, and then I want to tell you I'm thinking about leaving.
+It's a good problem, honestly. I've got options, and I'm thinking about them.
+If I go, I'd like your blessing. That matters to me.
+I'm not leaving mad. If I leave, I'm leaving grateful.
+You built something here. I just think my path might be somewhere else.
+Whatever happens, I want to keep this relationship. I'm thinking about the portal. ~ nil
+I've been going back and forth. I wanted to talk it through with you before I decide.
+I feel good about my football right now. That's part of why I'm thinking about my options.
+You get to hear it before anybody. I'm thinking about transferring.
+This place made me who I am. I'm thinking about taking that somewhere new.
+Sit with me on this one, Coach. I'm thinking about leaving, and I want your honest read.
+I'm not burning any bridges. I'm just thinking about crossing one.
+Leaning toward going, but I'm open. I wanted to hear you out.
+It's nothing against anybody in this building. I'm just thinking about the portal. ~ nil
+I love these guys. Leaving them would be the worst part. I'm still thinking about it.
+I'd miss this place if I go. I'm thinking about it seriously.
+Good news and hard news, Coach. The good news is I'm grateful. The hard news is I might transfer.
+I've thought about how to say this all week. I'm thinking about the portal. ~ nil
+So, Coach. I'm thinking about leaving. I hope we're still good either way.
+Everybody here has been great to me. I still think I might need to go.
+I want to compete for something bigger, Coach. That's all this is. ~ competitor
+Always trusted my gut, and my gut says it might be time. ~ steady
+I'm calm about it. I've thought it through. I'm thinking about transferring. ~ calm
+I don't talk much, but I wanted to say this myself. I'm thinking about leaving. ~ quiet
+I'm loyal, Coach. You know that. That's why I'm here telling you first. ~ loyal
+I think I'm ready for a bigger stage. I wanted you to hear it first. ~ ego
+I don't want to seem ungrateful. I'm really not. I'm just thinking about leaving. ~ humble
+If I go, I'd still be a good teammate till the day I leave. ~ leader
+Handling it like a pro, I promise. I'm thinking about the portal. ~ pro nil
+No drama, Coach. I'm just thinking about a change of scenery. ~ loose
+I'm nervous even saying it. I'm thinking about leaving. ~ shaky
+I've got to look out for my future. The money side is part of that, I won't lie. ~ greedy
+I've got a temper, you know that, but I'm not mad today. I just think I might go. ~ hot
+Real talk, I've been thinking about the portal. I wanted to tell you before the group chat did. ~ young modern nil
+This is lowkey the hardest thing I've done here. I'm thinking about leaving. ~ young
+I've been here long enough to know this program. I'm thinking about finishing somewhere else. ~ senior
+I learned a lot sitting that redshirt year. I'm thinking about using it somewhere new. ~ redshirt
+I've done this before, and I know what it costs. I'm still thinking about it. ~ transfer
+I walked on and got a real shot here. That's why this is hard. ~ walkon
+I know I just got here. I still think I might need to go. ~ freshman
+Back home everybody says follow your heart. Mine might be pulling me somewhere else. ~ south
+Texas has been calling a little, Coach. Home's on my mind. ~ texas
+Folks where I'm from don't quit, so I want to be clear. This isn't quitting. ~ midwest
+I'll be direct. I'm thinking about transferring, and I'm grateful either way. ~ northeast
+I've been thinking about the West Coast. Closer to home. ~ west
+A quarterback has to find the right fit. I'm not sure this is mine anymore. ~ qb
+Receivers get a short window. I'm thinking about where to spend mine. ~ wr
+Running backs don't last long. I'm thinking about where to spend my carries. ~ rb
+Linemen don't do this lightly. I'm thinking about leaving. ~ ol
+Pass rushers get one shot to show the league. I'm thinking about where to take mine. ~ rusher
+DBs live and die by the tape. I'm thinking about where mine gets made. ~ db
+I love it here, Coach. I just need to play. I'm thinking about the portal. ~ reason=snaps nil
+I know I'm close. I'm just not sure close is enough here. ~ reason=snaps
+I'm grateful for the reps I've gotten. I think I need more than this place can give. ~ reason=snaps
+I want to start somewhere. I think I'm ready. ~ reason=snaps
+I'm not bitter about the chart. I just think my best chance to play is somewhere else. ~ reason=snaps
+Everybody's been honest about where I stand. I'm being honest back. I think I need to go play. ~ reason=snaps
+I like you, Coach. I just came here for the old staff, and I'm figuring out if I still belong. ~ reason=coach
+You've been good to me since you got here. I'm still thinking about leaving, and it's not about you. ~ reason=coach
+The coaches who recruited me are gone. I'm thinking about whether this is still my place. ~ reason=coach
+It's a lot of change at once. I'm thinking about whether to start over somewhere anyway. ~ reason=coach
+I'm happy here, honestly. But the offer out there would change my life. ~ reason=money
+I'm not chasing money for fun, Coach. It's money my people need. ~ reason=money
+I'd love to stay. I just need the numbers to make sense. ~ reason=money
+There's real NIL money out there for me. I wanted to talk to you before I chase it. ~ reason=money nil
+I've loved it here. I just want to see if I can do it at the highest level. ~ reason=up
+This place got me good enough to think about moving up. That's a compliment to all of you. ~ reason=up
+Bigger schools have called my people. I'm flattered, and I'm thinking about it. ~ reason=up
+I'm grateful for this place. I just want my next move to be my own decision. ~ reason=choice
+I'm grown now. I want to pick where I play. ~ reason=choice
+I'm proud of my degree, Coach. I'm thinking about spending my last year somewhere new. ~ reason=grad
+I'll always be a graduate of this school. I might just play my last year somewhere else. ~ reason=grad
+
+@key talk.open.portal.flat
+I asked for this because I'm thinking about the portal. I wanted you to hear it first. ~ nil
+Thanks for seeing me. I'm thinking about transferring.
+I'll get right to it. I'm considering leaving.
+Wanted to let you know I'm thinking about entering the portal. ~ nil
+I've got something I need to tell you. I'm looking at transferring.
+Not sure yet, but I'm thinking about leaving. I wanted to talk first.
+I've been weighing it. The portal's on the table for me. ~ nil
+This is about next year. I'm not sure it's here.
+There's a decision coming, and I wanted you in the loop. I'm thinking about the portal. ~ nil
+Don't have it all figured out. I'm thinking about leaving, that's where I am.
+Figured it was right to say it in person. I'm considering transferring.
+I'm looking at my options. One of them is leaving.
+Before I decide anything, I wanted to sit down with you. I'm thinking about the portal. ~ nil
+Going to be honest. I'm thinking about going in the portal. ~ nil
+My future's been on my mind a lot. Some of it might not be here.
+This is about me leaving, maybe. I wanted to talk before it's final.
+I'm at a crossroads, Coach. I'm thinking about transferring.
+The window's open and I'm thinking about it. I wanted to tell you. ~ nil
+Not decided. Leaning toward the portal, but not decided. ~ nil
+I wanted to ask you some things before I decide whether to leave.
+I've got a choice to make about staying. I wanted your side first.
+I'm thinking about leaving. I wanted to hear what you think before I do anything.
+Straight to it, Coach. I'm considering the portal. ~ nil
+I need to talk to you about transferring.
+Whether I'm staying, that's the question. Honestly, I'm leaning no.
+I didn't want this going through somebody else. I'm thinking about leaving.
+It's about the portal, Coach. I'm thinking about it. ~ nil
+Done a lot of thinking. I'm considering a transfer.
+Wanted to tell you where my head's at. It's on leaving.
+Staying or going, I've got to decide soon. I wanted to talk first.
+Compliance would put my name in, but I wanted to tell you before I told them.
+Nothing's done yet. I'm just thinking about the portal. ~ nil
+Considering my options. I thought you should know.
+Next year's a decision for me now. I'm thinking about leaving.
+Not here to complain. I'm here to tell you I'm thinking about transferring.
+I've got to figure out if this is still the right place for me. Right now I'm not sure.
+Figured I'd give you a chance to talk me out of it. I'm thinking about the portal. ~ nil
+The window closes soon. I'm thinking about putting my name in. ~ nil
+Honest answer, I've been looking around. I'm thinking about going.
+The next step might be somewhere else. That's what I came to say.
+So. The portal. I'm thinking about it, and I wanted you to know. ~ nil
+One thing, Coach. I'm thinking about transferring, and I didn't want it to be a surprise.
+Can I just tell you where I am? I'm thinking about leaving.
+Keeping my options open, Coach. That includes leaving. ~ calm
+I've weighed it all out, staying and going. Going's ahead right now. ~ steady
+I'll keep it simple. I'm thinking about leaving. ~ quiet
+It's hard for me to say. I'm thinking about transferring. ~ shaky
+I've done my homework on it. I'm considering the portal. ~ pro nil
+Thinking about the portal. Figured I'd let you know. ~ loose nil
+I want to win, and I'm figuring out where I win most. ~ competitor
+If I leave, I want to leave the right way. That's why I'm here. ~ leader
+I'm loyal, so this is hard to bring up. I'm thinking about leaving. ~ loyal
+I think I'm worth more somewhere else. I'm thinking about finding out. ~ ego
+Not trying to make a big deal of it. I'm just thinking about transferring. ~ humble
+The money out there is part of it, I'll be honest. I'm thinking about the portal. ~ greedy nil
+I'm trying to keep my cool about it. I'm thinking about leaving. ~ hot
+Real talk, I've been thinking about the portal. ~ young nil
+My DMs have been busy. I haven't said anything back. I wanted to talk to you first. ~ modern
+Texas has been on my mind. Home. I'm thinking about it. ~ texas
+Down south we'd call this a heart-to-heart. I'm thinking about leaving. ~ south
+Midwest guy, Coach. I'm thinking about getting back closer to home. ~ midwest
+I keep thinking about playing closer to home, back east. ~ northeast
+I've been thinking about heading back west. ~ west
+I've got eligibility left, and I'm thinking about where to use it. ~ senior
+I've been through the portal before. I'm thinking about doing it again. ~ transfer nil
+I walked on here. I'm thinking about where I'd be on scholarship. ~ walkon
+I'm only a year in, but I'm thinking about leaving. ~ freshman
+I spent my redshirt year here. I'm thinking about whether the rest goes here too. ~ redshirt
+Quarterbacks have to find the right room. I'm thinking about mine. ~ qb
+Linemen don't move around much, I know. I'm thinking about it anyway. ~ lineman
+Specialists get one job. I'm thinking about where I do it. ~ special
+I need more snaps than I'm getting. I'm thinking about the portal. ~ reason=snaps nil
+It's about playing time. I'm thinking about going where I'd get more. ~ reason=snaps
+I looked at the chart and did the math. I'm thinking about leaving. ~ reason=snaps
+A real shot to start. I'm thinking about where I'd get one. ~ reason=snaps
+I'm thinking about going somewhere I can play right away. ~ reason=snaps
+It's the depth chart, Coach. I don't see a path, so I'm looking. ~ reason=snaps
+With the change on staff, I'm thinking about my options. ~ reason=coach
+I came here for the coaches who left. I'm thinking about whether I stay. ~ reason=coach
+I don't know your system yet. I'm thinking about whether I fit it. ~ reason=coach
+A lot changed when the staff turned over. I'm thinking about the portal. ~ reason=coach nil
+It's about money, Coach. I'm thinking about where I'd get paid more. ~ reason=money
+I've heard what other schools pay at my spot. I'm thinking about it. ~ reason=money
+My NIL number's lower than what I can get. I'm considering the portal. ~ reason=money nil
+There's money on the table somewhere else. I'll be honest about that. ~ reason=money
+Moving up a level, that's what I'm thinking about. I want to see if I can play there. ~ reason=up
+I've done what I can here. I'm thinking about a bigger program. ~ reason=up
+I'm thinking about testing myself at a bigger school. ~ reason=up
+I want my next school to be my choice. I'm thinking about leaving. ~ reason=choice
+I didn't pick this place on my own. I'm thinking about picking for myself. ~ reason=choice
+I'm finishing my degree, and I'm thinking about a grad transfer. ~ reason=grad
+I've got a year left after I graduate. I'm thinking about where to spend it. ~ reason=grad
