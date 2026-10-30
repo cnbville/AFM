@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, the why-lines on commitments (lane 6) the same day, build-year tryouts with next update lane 10 the same day, and dynasty item 8 and minor bug 89 (the name tie, home fading) on 2026-10-30.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, the why-lines on commitments (lane 6) the same day, redshirts, portal NIL and staff duties (minor bugs 76-77, SC6) at 6200524 the same day, and build-year tryouts with next update lane 10 the same day, the hunt (next update lane 11) on 2026-10-30, and dynasty item 8 and minor bug 89 (the name tie, home fading) the same day.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -30,6 +30,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Who predicts where a recruit goes? Each service's insider, from 2011, every Tuesday (`world/scouting/services.rs`, `insiders_week`).
 - Do walk-ons exist? Yes: planned preferred walk-ons, local walk-on offers in February, open tryouts, and fall-camp scholarships for walk-ons who play (`class_plan`, `run_signing_stage`, `camp_walk_ons`).
 - Can a college coach cut a player? Yes, your own, from his player page: he is off the roster and out of your games that day and enters the next transfer window (see Cuts) (`world/front_office/college.rs`, `cut`).
+- What does a hunted recruit get? The hunter puts him first on its board, holds his scholarship (the others at his spot share one fewer; he still fits as a star would), gives him its head coach's time 1.8 and, an AI program, bids at least 6% of its collective's budget; a hunting program's other targets get 0.12 less of its head coach's time. A school's hunt pulls a transfer 1.8 times as hard. All of it in [hunt.md](hunt.md) (`world/recruiting.rs`, `run_signing_stage`, `high_school_transfers`).
 
 ## High schools and being seen
 
@@ -255,3 +256,9 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - [draft.md](draft.md): declaring and the draft bars the class plans read.
 - [people.md](people.md): personality, families, fame and brand money.
 - [ratings.md](ratings.md): overall and the scales behind film.
+
+## Your redshirts and the staff's duties (minor bugs 76-77, SC6)
+
+- **Redshirts**: your staff picks them at fall camp; you keep or change each one while the season runs (`world/front_office/redshirt.rs`, `read`, `set`). From 2018 a redshirt may play four games and keep his year (`w.rules.four_game_redshirt`, `world/college.rs`, `held_redshirts`, `settle_eligibility`); before 2018 any game costs it. No redshirts once Division I counts five in five (`world/eligibility.rs`, `five_in_five`), none for an academic or transfer sit, and none once his games burned the year.
+- **Portal NIL**: your number for an entrant goes with your offer whoever runs NIL, as a recruit's promise does (`world/front_office/college.rs`, `portal_offer`, `portal_wants`).
+- **A duty at your staff keeps your moves (SC6)**: visits you set run beside the staff's (`set_visit`, `run_visits`); your portal offers, quiet words and stay talks stand and the staff works the other entrants and players as any program's would (`portal_wants`, `stay_talks` carry a `staff` flag; `world/recruiting.rs`); a NIL deal you set is that player's number (a $0 deal is kept and pays nothing) and the rest get the collective's usual split (`roster_deals`, `nil_payouts`). An official visit you set and he accepted holds one of his five, so the world's bookings leave his slot for it (`planned_officials`, `recruiting_day`), whoever runs the visits. The board's offers are lane 7's chain (SK26, SK28).

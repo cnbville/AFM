@@ -550,7 +550,11 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
     if p.cal.academic_sit {
         return "Academically ineligible".into();
     }
-    if p.sit_out > 0.0 || p.cal.sitting_transfer {
+    // A high school transfer's sit, once drawn, is his season's role.
+    if p.sit_out > 0.0
+        || p.cal.sitting_transfer
+        || (p.stage == Stage::HighSchool && p.last_role == Some(afm_engine::player::PlayingTime::Redshirt))
+    {
         return "Sitting out (transfer)".into();
     }
     hurt.unwrap_or_default()
@@ -713,6 +717,44 @@ pub(crate) fn next_dates(w: &World, n: usize) -> Vec<Value> {
     v.into_iter().map(|(d, text)| json!({ "date": date_text(d), "in": w.today.days_to(d), "text": text })).collect()
 }
 
+/// Where a decision opens (minor bug 69): its desk, on the player it
+/// names when there is one.
+pub(crate) fn decision_go(e: &afm_engine::calendar::Event) -> Option<(&'static str, Value)> {
+    use afm_engine::calendar::Link;
+    let who = e.refs.iter().find_map(|r| match r.to {
+        Link::Person(id) => Some(id),
+        _ => None,
+    });
+    let t = e.text.as_str();
+    let rule: &str = e.rule;
+    Some(match rule {
+        "Your front office" => {
+            if t.contains("offer sheet") || t.contains("tag deadline") || t.contains("Fifth-year option") {
+                ("fo_expiring", json!({ "id": who }))
+            } else if t.contains(" call about ") {
+                ("fo_trades", json!({}))
+            } else if t.contains("cutdown") || t.contains("Cutdown") {
+                ("fo_moves", json!({}))
+            } else if let Some(id) = who {
+                ("player", json!({ "id": id }))
+            } else if t.contains("trade deadline") {
+                ("fo_trades", json!({}))
+            } else {
+                return None;
+            }
+        }
+        "Your school" => match who {
+            Some(id) if t.contains("college") || t.contains("offer") => {
+                ("player", json!({ "id": id, "tab": "Recruiting" }))
+            }
+            _ => ("squads", json!({})),
+        },
+        "The May review" => ("evaluate", json!({})),
+        "Board meeting" => ("evaluate", json!({ "tab": "Meetings" })),
+        _ => return None,
+    })
+}
+
 pub(crate) fn pinned(w: &World) -> Vec<Value> {
     let seat = w.seat;
     w.calendar
@@ -725,7 +767,14 @@ pub(crate) fn pinned(w: &World) -> Vec<Value> {
                 && e.rule != afm_engine::world::stories::ASK_RULE
                 && (seat.is_some_and(|s| s.cares(e)) || matches!(e.rule, "Your school" | "Your career"))
         })
-        .map(|(d, e)| json!({ "date": date_text(*d), "text": e.text, "rule": e.rule }))
+        .map(|(d, e)| {
+            let mut v = json!({ "date": date_text(*d), "text": e.text, "rule": e.rule });
+            if let Some((go, args)) = decision_go(e) {
+                v["go"] = json!(go);
+                v["args"] = args;
+            }
+            v
+        })
         .chain(
             // A meeting that waits for you (people): it opens the room.
             w.folk.scenes.iter().filter(|s| s.stops && !s.done && s.date <= w.today).map(|s| {
@@ -751,7 +800,14 @@ pub fn stopped(w: &World, from: Date, at: Date) -> Value {
         .filter(|e| {
             e.needs_decision || e.loud == Loudness::Huge || (e.loud == Loudness::Big && seat.is_none_or(|s| s.cares(e)))
         })
-        .map(|e| json!({ "text": e.text, "loud": e.loud.name(), "decision": e.needs_decision }))
+        .map(|e| {
+            let mut v = json!({ "text": e.text, "loud": e.loud.name(), "decision": e.needs_decision });
+            if let Some((go, args)) = decision_go(e).filter(|_| e.needs_decision) {
+                v["go"] = json!(go);
+                v["args"] = args;
+            }
+            v
+        })
         .collect();
     if let Some(m) = &morning {
         why.insert(0, json!({ "text": m, "loud": "Big", "decision": false }));
@@ -2072,7 +2128,8 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     // college seasons (the coaches' book has one row a season), his NFL club.
     let college = |l: Level| matches!(l, Level::FBS | Level::FCS | Level::SmallCollege);
     let college_rows = p.player.history.iter().filter(|h| college(h.level)).count();
-    let mut k = 0;
+    // The college row's place (not `k`: the reads below need his index).
+    let mut row = 0;
     let mut history: Vec<Value> = p
         .player
         .history
@@ -2083,9 +2140,9 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
                 // A pro season with no club: unsigned all year.
                 Level::NFL => Some(h.team.map_or("Unsigned".to_string(), |t| w.nfl_team_name(t))),
                 _ => {
-                    k += 1;
+                    row += 1;
                     (p.college_staff.len() == college_rows)
-                        .then(|| p.college_staff.get(k - 1).map(|s| w.program_name(s.1).to_string()))
+                        .then(|| p.college_staff.get(row - 1).map(|s| w.program_name(s.1).to_string()))
                         .flatten()
                 }
             };
@@ -2170,6 +2227,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "yours_looks": reads::seen(w, k).mine_looks,
         "stake": stake_json(w, k),
         "pitch": pitch_json(w, k),
+        "hunt": crate::lane_hunt::player_json(w, k),
         "potential": potential,
         "groups": groups,
         "tendencies": tendencies,

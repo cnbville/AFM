@@ -843,6 +843,36 @@ fn staff(w: &World) -> Value {
     })
 }
 
+/// The moves that fit a coach for your seat (minor bug 62): a raise or
+/// letting him go for one of your assistants; an interview or the job for
+/// a coach outside your staff at one of your openings (the offer is
+/// lane 18's dialog).
+pub(crate) fn coach_moves(w: &World, c: usize) -> Vec<Value> {
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    if w.career.as_ref().is_some_and(|x| x.coach == c) {
+        return Vec::new();
+    }
+    if let Some((_, r)) = facts::assistants(w, team).into_iter().find(|x| x.0 == c) {
+        return vec![
+            json!({ "k": "raise", "t": "Give him a raise", "coach": c, "role": role_key(r) }),
+            json!({ "k": "fire", "t": "Let him go", "coach": c }),
+        ];
+    }
+    let Some(co) = w.coaches.get(c) else { return Vec::new() };
+    if co.retired || co.age > 70 || co.show_cause.is_some_and(|y| y >= w.year) {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for r in staffing::openings(w) {
+        let role = cap(r.name());
+        out.push(
+            json!({ "k": "interview", "t": format!("Interview him for {role}"), "coach": c, "role": role_key(r) }),
+        );
+        out.push(json!({ "k": "hire", "t": format!("Offer him {role}"), "coach": c, "role": role_key(r) }));
+    }
+    out
+}
+
 /// Your coaching network: every contact with how you know him, how warm,
 /// the favours between you, and what people have said about you.
 fn contacts(w: &World) -> Value {

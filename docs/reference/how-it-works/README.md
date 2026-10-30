@@ -27,6 +27,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [logos.md](logos.md) | Logo packs you install: matching pictures to teams, eras, your own logo per save, where logos show, the jerseys |
 | [help.md](help.md) | The Handbook's pages and live examples, the "?" on each screen, the guided first week, first-time notes, the Help setting |
 | [world-log.md](world-log.md) | The world log beside each world and save: what it keeps, every why, snapshots, sizes, how to read it |
+| [hunt.md](hunt.md) | The hunt: your one target over seasons at each seat, heat, his say, the boss, look-backs, the AI's hunts and the generational prospect |
 | [book.md](book.md) | The world reader's book: one SQLite file per world, its tables, checks against real, odd things, known issues, knobs, coverage, `afm_read` |
 
 Code that does something its comment or design says it shouldn't: [oddities.md](oddities.md).

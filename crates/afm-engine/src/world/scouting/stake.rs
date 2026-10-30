@@ -114,7 +114,7 @@ pub fn stake(w: &mut World, id: u32, public: bool) -> Result<String, String> {
 
 /// How an NFL stake turned out three seasons into his career: Some(hit),
 /// None while it is too soon.
-fn nfl_turned(w: &World, i: usize, staked: Date) -> Option<(bool, String)> {
+pub(crate) fn nfl_turned(w: &World, i: usize, staked: Date) -> Option<(bool, String)> {
     let p = &w.people[i];
     let Some(pro) = p.pro.as_ref() else {
         // Undrafted and never signed: a bust once his class has gone by.

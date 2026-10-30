@@ -13,8 +13,11 @@ Object.assign(I, {
   portal: '<path d="M4 12h12M12 7l5 5-5 5M20 4v16"/>',
   nil: '<circle cx="12" cy="12" r="8.5"/><path d="M14.8 9.2c-.6-.9-1.6-1.3-2.8-1.3-1.6 0-2.8.8-2.8 2.1 0 3 5.8 1.5 5.8 4.3 0 1.3-1.3 2.2-3 2.2-1.3 0-2.4-.5-3-1.4M12 6.5v11"/>',
 });
+// The board holds the plain Recruiting table's job, and the watch, portal
+// and JUCO lists as tabs (SC1).
+foNavHide("recruiting", "college");
 foNavAdd("college", [
-  ["recruit_board", "Recruiting", "board"],
+  ["recruit_board", "Recruiting board", "board"],
   ["recruit_find", "Find recruits", "find"],
   ["visits_desk", "Visits", "visit"],
   ["portal_desk", "Transfer portal", "portal"],
@@ -43,28 +46,8 @@ Object.assign(CRUMBS, {
   };
 }
 
-// A recruit's player page carries your offer too (minor bug 58): Find
-// recruits opens the player page, and the offer lived only on his file and
-// the board. The moves lead the page's own buttons.
-{
-  const plain = screens.player;
-  screens.player = async (a) => {
-    const me = S.status && S.status.mine;
-    if (!me || me.ref.kind !== "college") return plain(a);
-    const [html, f] = await Promise.all([plain(a), api("recruit_file", { id: a.id }).catch(() => null)]);
-    const moves = f ? fcPlayerMoves(f) : "";
-    return moves ? html.replace('<div class="st-actions">', `<div class="st-actions">${moves}`) : html;
-  };
-}
-function fcPlayerMoves(f) {
-  if (!f.recruitable || ["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing)) return "";
-  const file = linkTo("recruit_file", { id: f.id }, "His recruit file", "st-btn glass");
-  if (!f.board_yours) return file;
-  const offer = f.offered
-    ? `<button class="st-btn glass" data-fc="pull" data-id="${f.id}">Pull the offer</button>`
-    : `<button class="st-btn primary" data-fc="offer" data-id="${f.id}">Offer a scholarship</button>`;
-  return offer + file;
-}
+// A recruit's player page carries your offer too (minor bug 58): it is
+// among his moves (core.js, minor bugs 62-63).
 
 // ---------- small pieces ----------
 const fcStars = (n) => (n ? `<span class="fc-stars" title="${n}-star recruit (the services)">${"★".repeat(n)}<i>${"★".repeat(Math.max(0, 5 - n))}</i></span>` : '<span class="muted">-</span>');
@@ -111,7 +94,7 @@ function fcDuty(duties, key) {
   const d = duties.list.find((x) => x.key === key);
   if (!d) return "";
   const what = { board: "the recruiting board", visits: "your visits", portal: "the transfer portal", nil: "NIL" }[key];
-  return `<div class="fc-duty ${d.yours ? "yours" : ""}"><span>${d.yours ? `<b>You run ${what}.</b>` : `<b>Your staff runs ${what}.</b> ${esc(d.staff)}`}</span>
+  return `<div class="fc-duty ${d.yours ? "yours" : ""}"><span>${d.yours ? `<b>You run ${what}.</b>` : `<b>Your staff runs ${what}.</b> ${esc(d.staff)} A move you make yourself stands.`}</span>
     <button class="st-btn small glass" data-fc="duty" data-duty="${d.key}" data-owner="${d.yours ? "staff" : "you"}">${d.yours ? "Hand it to your staff" : "Take it back"}</button></div>`;
 }
 function fcPot(p) {
@@ -173,14 +156,16 @@ screens.recruit_board = async (a) => {
     ])}
     <div class="fc-open"><span class="st-label">Open spots</span>${openPos.length ? openPos.map((p) => `<button class="st-pill" data-fc="planpos" data-v="${p.pos}" title="See the ${p.pos}s on your board">${p.pos} ${p.open}</button>`).join("") : '<span class="sub">Every spot your staff planned is filled.</span>'}</div>`;
   const ch = await api("recruit_chain").catch(() => null);
-  const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["word", "Your staff's word", ch ? ch.waiting.length : null], ["passed", "Passed on", ch ? ch.passed.length : null], ["map", "Map"], ["plan", "Class plan and staff"]];
+  const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["word", "Your staff's word", ch ? ch.waiting.length : null], ["passed", "Passed on", ch ? ch.passed.length : null], ["map", "Map"], ["plan", "Class plan and staff"], ["watch", "Watch list"], ["portal", "Portal"], ["juco", "JUCO"]];
   let body = "";
   if (k.tab === "targets") body = await fcTargets(x, k);
   else if (k.tab === "board") body = fcBoardTable(x, k, yours);
   else if (k.tab === "word") body = l7Word(ch);
   else if (k.tab === "passed") body = l7Passed(ch);
   else if (k.tab === "map") body = await fcMap();
-  else body = fcPlan(x);
+  else if (k.tab === "plan") body = fcPlan(x);
+  // Your staff's watch list, the portal and JUCO (screens/scouting.js).
+  else body = await scRecruitList(k.tab, x);
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · ${esc(x.conference)} · Recruiting`, title: `Class of ${year}`, line: heroLine, sub, big: String(year).slice(2), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar">${fcTabs("fcb", tabs, k.tab)}${fcGoto([["recruit_find", "Find recruits"], ["visits_desk", "Visits"], ["scouting", "Scouting"], ["calendar", "Calendar"], ["roster", "Squad"]])}</div>
@@ -294,7 +279,7 @@ function fcFile(f, ctx, compact) {
       ${f.place ? `<span class="st-outline" aria-hidden="true">${f.place}</span>` : ""}
       <div class="fc-id">
         <div class="st-label">${esc(f.rank)}</div>
-        <h2>${playerLink(f.id, f.name)}</h2>
+        <h2>${playerLink(f.id, f.name, "Recruiting")}</h2>
         <div><b>${fcSchool(f)}</b><div class="fc-town">${esc(f.town)} · ${f.juco ? "Junior college" : `Class of ${f.class_of}`} · ${esc(f.cls)}</div></div>
         <div class="fc-pills"><span class="st-pill">${esc(f.pos)}</span><span class="st-pill">${f.stars ? `${f.stars}★ public` : "Unranked"}</span>${f.priority ? '<span class="st-pill gold">Your own time</span>' : ""}${fcStanding(f)}</div>
         <dl class="fc-idkv"><dt>Decides</dt><dd>${esc(f.decides)}</dd><dt>Transcript</dt><dd>${esc(f.gpa)} core GPA · ${esc(f.qualifies)}</dd><dt>From campus</dt><dd>${Math.round(f.miles)} miles</dd>${f.camera ? `<dt>On camera</dt><dd>${esc(f.camera)}${f.followers ? ` · ${fcFollow(f.followers)} followers` : ""}</dd>` : ""}</dl>
@@ -362,7 +347,8 @@ function fcActions(f) {
 // Visits the rules allow from today, each kind with its next days or why not.
 function fcVisitPlanner(f) {
   if (!f.options) return "";
-  if (!f.visits_yours) return `<div class="fc-block"><div class="fc-h"><span class="st-label">Visits</span></div><p class="sub">Your staff sets the visits: the board's top names come in on home weekends.</p></div>`;
+  // With your staff on visits, a visit you set still stands (SC6).
+  const staffLine = f.visits_yours ? "" : `<p class="sub">Your staff sets the visits: the board's top names come in on home weekends. A visit you set yourself stands.</p>`;
   const rows = f.options
     .map((o) => {
       if (o.set) return `<div class="fc-vopt"><b>${esc(o.name)}</b><span class="fc-vset"><span class="fc-vdone">${fcDot("good")}Set for ${esc(o.set.date)}</span><button class="st-btn small glass" data-fc="vcancel" data-id="${f.id}" data-kind="${o.key}">Call off</button></span></div>`;
@@ -370,7 +356,7 @@ function fcVisitPlanner(f) {
       return `<div class="fc-vopt"><b>${esc(o.name)}</b><span class="fc-vset"><select data-fcsel="v-${f.id}-${o.key}">${o.days.map((d) => `<option value="${d.d}">${esc(d.date)}${d.word ? " · " + esc(d.word.replace(/ period$/, "").replace(/^home game against /, "vs ")) : ""}</option>`).join("")}</select><button class="st-btn small glass" data-fc="visit" data-id="${f.id}" data-kind="${o.key}">Invite</button></span></div>`;
     })
     .join("");
-  return `<div class="fc-block"><div class="fc-h"><span class="st-label">Plan a visit</span><small class="sub">on the NCAA's calendar</small></div><div class="fc-vopts">${rows}</div></div>`;
+  return `<div class="fc-block"><div class="fc-h"><span class="st-label">Plan a visit</span><small class="sub">on the NCAA's calendar</small></div>${staffLine}<div class="fc-vopts">${rows}</div></div>`;
 }
 
 // The full board: everyone, your order or by position, every column a coach reads.
@@ -382,7 +368,7 @@ function fcBoardTable(x, k, yours) {
   const posOpts = [["ALL", "All"], ...x.class.by_pos.map((p) => [p.pos, p.pos])].filter(([v]) => v === "ALL" || x.rows.some((r) => r.pos === v));
   const cols = [
     { k: "place", t: "#", tip: "Your order: commitments first, then this order decides who can commit when the class fills", f: (r) => fcLink("recruit_file", String(r.place), { id: r.id }) },
-    { k: "name", t: "Recruit", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.priority ? ' <span class="fc-yourtime" title="You give him your own time">●</span>' : ""}` },
+    { k: "name", t: "Recruit", l: true, f: (r) => `${playerLink(r.id, r.name, "Recruiting")}${r.priority ? ' <span class="fc-yourtime" title="You give him your own time">●</span>' : ""}` },
     { k: "pos", t: "Pos", l: true },
     { k: "cls", t: "Class", l: true, v: (r) => r.class_of },
     { k: "stars", t: "★", tip: "The services' stars", f: (r) => fcStars(r.stars) },
@@ -454,27 +440,53 @@ screens.recruit_file = async (a) => {
 // Finding recruits is its own screen now: screens/find.js (update 2, lane 7).
 
 // ---------- visits ----------
+// The desk's own invite (SC7): a recruit from your board, the kind of
+// visit, one of his open dates on the NCAA calendar (the same moves as his
+// file's Plan a visit).
+async function fcInvite(x) {
+  if (!x.targets.length) return `<div class="panel"><h2>Invite a recruit</h2><div class="empty">Nobody on your board to invite: ${fcLink("recruit_board", "add recruits to your board")}.</div></div>`;
+  const k = keep("fcvinv", { id: null, kind: null });
+  if (!x.targets.some((t) => t.id === k.id)) k.id = x.targets[0].id;
+  let o;
+  try { o = await api("visit_options", { id: k.id }); } catch (e) { o = { options: [], officials_used: 0 }; }
+  const open = o.options.filter((v) => !v.set && v.days.length);
+  if (!open.some((v) => v.key === k.kind)) k.kind = open.length ? open[0].key : null;
+  const kind = open.find((v) => v.key === k.kind);
+  const who = `<select class="fc-select" data-fcinv="id" aria-label="Who">${x.targets.map((t) => `<option value="${t.id}" ${t.id === k.id ? "selected" : ""}>${t.rank}. ${esc(t.name)} · ${esc(t.pos)}${t.stars ? " · " + "★".repeat(t.stars) : ""}${t.offered ? " · offered" : ""}</option>`).join("")}</select>`;
+  const kinds = `<select class="fc-select" data-fcinv="kind" aria-label="Kind of visit">${o.options.map((v) => {
+    const ok = !v.set && v.days.length;
+    const left = v.key === "official" ? ` (${Math.max(0, 5 - o.officials_used)} of 5 left)` : "";
+    return `<option value="${v.key}" ${v.key === k.kind ? "selected" : ""} ${ok ? "" : "disabled"}>${esc(v.name + left)}${v.set ? ` · set for ${esc(v.set.date)}` : ok ? "" : ` · ${esc(v.why || "not now")}`}</option>`;
+  }).join("")}</select>`;
+  const when = kind
+    ? `<select class="fc-select" data-fcsel="v-${k.id}-${kind.key}" aria-label="When">${kind.days.map((d) => `<option value="${d.d}">${esc(d.date)}${d.word ? " · " + esc(d.word.replace(/ period$/, "").replace(/^home game against /, "vs ")) : ""}</option>`).join("")}</select>`
+    : '<select class="fc-select" disabled aria-label="When"><option>No open date</option></select>';
+  return `<div class="panel"><h2>Invite a recruit <small>only his open dates inside the NCAA calendar, each with your home game or the period</small></h2>
+    <div class="fc-inv"><label><span class="st-label">Who</span>${who}</label><label><span class="st-label">Kind</span>${kinds}</label><label><span class="st-label">When</span>${when}</label>${kind ? `<button class="st-btn small primary" data-fc="visit" data-id="${k.id}" data-kind="${kind.key}">Invite</button>` : ""}</div></div>`;
+}
 screens.visits_desk = async () => {
   const x = await api("visits_desk");
   setColors(x.team.colors);
   const yours = x.duties.list.find((d) => d.key === "visits").yours;
+  // A visit you set stands while your staff runs the rest (SC6).
+  const invite = (yours ? "" : '<p class="sub">Your staff sets the visits: the board\'s top names come in on home weekends. A visit you set yourself stands.</p>') + (await fcInvite(x));
   const ahead = x.ahead.length
     ? table("fcvahead", [
         { k: "d", t: "Date", l: true, f: (r) => `<b>${esc(r.date)}</b> <small class="sub">${fcIn(r.in)}</small>` },
         { k: "kind", t: "Visit", l: true },
-        { k: "name", t: "Recruit", l: true, div: true, f: (r) => playerLink(r.id, r.name) },
+        { k: "name", t: "Recruit", l: true, div: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
         { k: "pos", t: "Pos", l: true },
         { k: "stars", t: "★", f: (r) => fcStars(r.stars) },
         { k: "town", t: "Hometown", l: true },
         { k: "interest", t: "His interest", l: true, div: true },
         { k: "note", t: "His answer", l: true, wrap: true },
-        { k: "act", t: "", l: true, f: (r) => (yours ? `<button class="st-btn small glass" data-fc="vcancel" data-id="${r.id}" data-kind="${r.key}">Call off</button>` : "") },
+        { k: "act", t: "", l: true, f: (r) => `<button class="st-btn small glass" data-fc="vcancel" data-id="${r.id}" data-kind="${r.key}">Call off</button>` },
       ], x.ahead, { empty: "Nothing set." })
-    : `<div class="panel"><div class="empty">No visits set. Open a recruit's file to invite him: ${fcLink("recruit_board", "your board")}.</div></div>`;
+    : `<div class="panel"><div class="empty">No visits set. Invite a recruit above, or from his file on ${fcLink("recruit_board", "your board")}.</div></div>`;
   const past = table("fcvpast", [
     { k: "d", t: "Date", l: true, f: (r) => esc(r.date) },
     { k: "kind", t: "Visit", l: true },
-    { k: "name", t: "Recruit", l: true, div: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "name", t: "Recruit", l: true, div: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
     { k: "pos", t: "Pos", l: true },
     { k: "stars", t: "★", f: (r) => fcStars(r.stars) },
     { k: "state", t: "", l: true, f: (r) => `${fcDot(r.state === "Done" ? "good" : r.state === "Declined" ? "bad" : "")}${esc(r.state)}` },
@@ -495,6 +507,7 @@ screens.visits_desk = async () => {
   const panel = `<h2>This cycle <small>Class of ${x.class}</small></h2>${fcTiles([[String(x.ahead.length), "Visits set"], [String(set), "Officials set"], [String(x.officials), "Officials taken"], [String(x.taken), "Visits taken"]])}`;
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Recruiting`, title: "Visits", line: `${esc(fcCap(x.calendar.period))} · ${esc(x.calendar.rule)}`, panel })}
   <div class="pad fc-pad">
+    ${invite}
     <div class="fc-bar"><div class="st-label">${x.ahead.length ? `Coming up · ${fcPlural(x.ahead.length, "visit")}` : "Coming up"}</div>${fcGoto([["recruit_board", "Recruiting board"], ["calendar", "Calendar"], ["schedule", "Schedule"], ["recruit_find", "Find recruits"]])}</div>
     ${yours ? "" : fcDuty(x.duties, "visits")}
     ${ahead}
@@ -516,12 +529,12 @@ screens.portal_desk = async () => {
   const leaving = x.roster.filter((r) => r.rank <= 1).length;
   const panel = `<h2>The portal <small>where it stands today</small></h2>${fcTiles([[String(x.in_portal), "In the portal"], [String(x.targets.filter((t) => !t.settled).length), "Your targets"], [String(leaving), "Yours at risk"], [String(x.talks), "Talks held"]])}`;
   const tabs = [["entrants", "Entrants", x.shown], ["targets", "Your targets", x.targets.length], ["roster", "Your roster", x.roster.length], ["whispers", "Quiet words", x.whispers.length]];
-  const nilIn = (r) => (x.nil_era && x.nil_yours ? `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.nil != null ? Math.round(r.nil / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="pnil" data-id="${r.id}">k</label>` : "");
+  const nilIn = (r) => (x.nil_era ? `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.nil != null ? Math.round(r.nil / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="pnil" data-id="${r.id}">k</label>` : "");
   let body = "";
   if (k.tab === "entrants") {
     const POS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"];
     const cols = [
-      { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.contacted ? ' <span class="st-pill" title="You reached out before he entered">Talked</span>' : ""}` },
+      { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name, "Recruiting")}${r.contacted ? ' <span class="st-pill" title="You reached out before he entered">Talked</span>' : ""}` },
       { k: "pos", t: "Pos", l: true },
       { k: "from", t: "From", l: true, v: (r) => r.from.name, f: (r) => `${teamLink(r.from)} <small class="sub">${esc(r.division)}</small>` },
       { k: "division", t: "Div", l: true, hide: true },
@@ -533,7 +546,7 @@ screens.portal_desk = async () => {
       { k: "why", t: "Why he left", l: true, wrap: true, div: true },
       { k: "days", t: "Decides", tip: "When he means to choose", f: (r) => `<span title="${esc(fcIn(r.days))}">${esc(String(r.decide || "").replace(/ \d{4}$/, ""))}</span>` },
       { k: "sits", t: "", l: true, v: (r) => (r.sits ? 1 : 0), f: (r) => (r.sits ? '<span class="st-pill gold" title="He would sit out a season with you">Sits a year</span>' : "") },
-      { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (x.yours ? (r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) : r.offered ? "Offered" : "") },
+      { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) },
     ];
     const posSel = `<select class="fc-select" data-fcf2="pos"><option value="ALL">Every position</option>${POS.map((p) => `<option ${k.pos === p ? "selected" : ""}>${p}</option>`).join("")}</select>`;
     const divs = [["ALL", "Every division"], ["FBS", "FBS"], ["FCS", "FCS"], ["D2", "D2"], ["NAIA", "NAIA"], ["D3", "D3"], ["JUCO", "JUCO"]];
@@ -541,7 +554,7 @@ screens.portal_desk = async () => {
       ${table("fcportal", cols, x.entrants, { sort: null, empty: open ? "Nobody in the portal matches." : "The portal is closed: entrants come when a window opens.", groups: [{ t: "Player", span: 7 }, { t: "Your staff", span: 2, div: true }, { t: "His move", span: 3, div: true }, { t: "Yours", span: 1, div: true }] })}`;
   } else if (k.tab === "targets") {
     body = table("fcptargets", [
-      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
       { k: "pos", t: "Pos", l: true },
       { k: "from", t: "From", l: true, v: (r) => r.from.name, f: (r) => teamLink(r.from) },
       { k: "status", t: "Where it stands", l: true, div: true },
@@ -554,7 +567,7 @@ screens.portal_desk = async () => {
     body = `<p class="sub">Your players by how likely they are to leave, in your staff's words. A talk sways a player the way your relationships with players do: a good one keeps him, a poor one can push him.</p>
     ${table("fcproster", [
       { k: "rank", t: "", v: (r) => -r.rank, f: (r) => fcDot(fcTone(r.tone)) },
-      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "People") },
       { k: "pos", t: "Pos", l: true },
       { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
       { k: "role", t: "Role", l: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
@@ -562,7 +575,7 @@ screens.portal_desk = async () => {
       { k: "risk", t: "Mood about staying", l: true, div: true, v: (r) => -r.rank },
       { k: "why", t: "What your staff hears", l: true, wrap: true, tip: "The strongest pull away this year, and the strongest reason he has to stay", f: (r) => `${esc(r.why ? r.why[0].toUpperCase() + r.why.slice(1) : "-")}${r.hold ? `<br><small class="sub">Keeping him: ${esc(r.hold)}</small>` : ""}` },
       { k: "nil", t: "NIL now", f: (r) => (r.nil ? money(r.nil) : '<span class="muted">-</span>') },
-      { k: "talk", t: "Your talk", l: true, div: true, v: (r) => (r.talk ? 1 : 0), f: (r) => (r.talk ? `<small>${esc(r.talk.date)}: ${esc(r.talk.answer)}</small>` : r.in_portal || !x.yours ? "" : `<button class="st-btn small glass" data-fc="talk" data-id="${r.id}">Talk to him</button>`) },
+      { k: "talk", t: "Your talk", l: true, div: true, v: (r) => (r.talk ? 1 : 0), f: (r) => (r.talk ? `<small>${esc(r.talk.date)}: ${esc(r.talk.answer)}</small>` : r.in_portal ? "" : `<button class="st-btn small glass" data-fc="talk" data-id="${r.id}">Talk to him</button>`) },
     ], x.roster, { sort: "rank", groupBy: null })}`;
   } else {
     body = `<p class="sub">Players elsewhere with whispers that they may leave. Calling one before he enters is tampering: the NCAA rarely proves it, but word gets around about one call in eight.</p>
@@ -575,7 +588,7 @@ screens.portal_desk = async () => {
       { k: "stars", t: "★", f: (r) => fcStars(r.stars) },
       { k: "role", t: "Role", l: true, div: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
       { k: "read", t: "Read", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
-      { k: "contacted", t: "Your word", l: true, div: true, v: (r) => (r.contacted ? 1 : 0), f: (r) => (r.contacted ? `${esc(r.contacted)}${r.leaked ? ' <span class="st-pill gold">Word got out</span>' : ""}` : x.yours ? `<button class="st-btn small glass" data-fc="pcontact" data-id="${r.id}" data-name="${esc(r.name)}">Reach out</button>` : "") },
+      { k: "contacted", t: "Your word", l: true, div: true, v: (r) => (r.contacted ? 1 : 0), f: (r) => (r.contacted ? `${esc(r.contacted)}${r.leaked ? ' <span class="st-pill gold">Word got out</span>' : ""}` : `<button class="st-btn small glass" data-fc="pcontact" data-id="${r.id}" data-name="${esc(r.name)}">Reach out</button>`) },
     ], x.whispers, { empty: "No whispers around the country right now." })}`;
   }
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Roster`, title: "Transfer portal", line, sub: esc(x.rule), panel })}
@@ -587,12 +600,20 @@ screens.portal_desk = async () => {
 };
 
 // ---------- NIL ----------
+// The scholarships and the roster limit (the budget map's numbers), for the
+// desk's header (SC1).
+function fcAidTiles(sch) {
+  if (!sch) return [];
+  const aid = sch.aid === "none" ? ["None", "Athletic aid (Division III)"] : [`${sch.onAid}${sch.limit ? "/" + sch.limit : ""}`, sch.aid === "equivalency" ? `On aid · ${sch.equiv} equivalencies` : "On scholarship"];
+  return [aid, sch.whole ? [`${sch.counted}/${sch.cap}`, "Roster places used"] : [String(sch.roster), `On the roster · ${sch.walkOns} walk-ons`]];
+}
 screens.nil_desk = async () => {
-  const x = await api("nil_desk");
+  const [x, cap] = await Promise.all([api("nil_desk"), api("board_cap").catch(() => null)]);
   setColors(x.team.colors);
   const b = x.budget;
+  const aid = fcAidTiles(cap && cap.scholarships);
   if (!x.era) {
-    return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: "<span>Before July 1, 2021 a college player can't be paid for his name, image or likeness.</span>" })}
+    return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: "<span>Before July 1, 2021 a college player can't be paid for his name, image or likeness.</span>", panel: aid.length ? `<h2>Scholarships <small>${esc(cap.level_name || "")}</small></h2>${fcTiles(aid)}` : "" })}
   <div class="pad fc-pad"><div class="fc-bar"><span></span>${fcGoto([["roster", "Squad"], ["portal_desk", "Transfer portal"], ["recruit_board", "Recruiting board"]])}</div>
     <div class="panel"><div class="empty">The NCAA's amateur rules hold: scholarships, cost of attendance and nothing more. NIL opens on July 1, 2021.</div></div></div></div>`;
   }
@@ -607,7 +628,7 @@ screens.nil_desk = async () => {
       <div class="item"><span>Promised to recruits</span><b>${m(b.recruits)}</b></div>
       <div class="item"><span>Offered in the portal</span><b>${m(b.portal)}</b></div>
       <div class="item tot"><span>Left</span><b class="${b.left < 0 ? "fc-over" : ""}">${m(b.left)}</b></div></div></div>`;
-  const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)}</small></h2>${fcTiles([[m(b.total), "Budget"], [m(b.left), "Left"], [String(x.rows.filter((r) => r.deal != null).length), "Deals set"], [x.trend, "Boosters"]])}`;
+  const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)}</small></h2>${fcTiles([[m(b.total), "Budget"], [m(b.left), "Left"], [String(x.rows.filter((r) => r.deal != null).length), "Deals set"], [x.trend, "Boosters"], ...aid])}`;
   const cols = [
     { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
     { k: "pos", t: "Pos", l: true },
@@ -620,13 +641,13 @@ screens.nil_desk = async () => {
     { k: "followers", t: "Followers", tip: "Social media followers, every platform", v: (r) => r.followers || 0, f: (r) => (r.followers ? fcFollow(r.followers) : '<span class="muted">-</span>') },
     { k: "camera", t: "On camera", l: true, hide: true, tip: "His position coach's word for how he comes across in front of a camera", f: (r) => `<span class="sub">${esc(r.camera || "")}</span>` },
     { k: "usual", t: "Collective's split", div: true, f: (r) => (r.usual ? money(r.usual) : '<span class="muted">-</span>') },
-    { k: "deal", t: "Your deal", div: true, v: (r) => (r.deal != null ? r.deal : -1), f: (r) => (x.yours ? `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.deal != null ? Math.round(r.deal / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="deal" data-id="${r.id}">k</label>` : r.usual ? money(r.usual) : "-") },
+    { k: "deal", t: "Your deal", div: true, v: (r) => (r.deal != null ? r.deal : -1), f: (r) => `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.deal != null ? Math.round(r.deal / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="deal" data-id="${r.id}">k</label>` },
   ];
   const promised = x.promised.length
-    ? x.promised.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name)} <small class="sub">· ${esc(p.pos)} · ${p.stars ? p.stars + "★" : "unrated"}${p.standing === "committed" ? " · committed" : p.standing === "signed" ? " · signed" : ""}</small></span></div>`).join("")
+    ? x.promised.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} · ${p.stars ? p.stars + "★" : "unrated"}${p.standing === "committed" ? " · committed" : p.standing === "signed" ? " · signed" : ""}</small></span></div>`).join("")
     : '<div class="empty">No promises to recruits. Set one in a recruit\'s file.</div>';
   const portal = x.portal.length
-    ? x.portal.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name)} <small class="sub">· ${esc(p.pos)} from ${teamLink(p.from)}</small></span></div>`).join("")
+    ? x.portal.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} from ${teamLink(p.from)}</small></span></div>`).join("")
     : '<div class="empty">No portal offers carry money.</div>';
   const hist = x.history.length
     ? `<div class="tbl warm"><table><thead><tr><th class="l">Season</th><th>NIL budget</th><th>From boosters</th></tr></thead><tbody>${x.history.map((h) => `<tr><td class="l">${h.season}</td><td>${m(h.budget)}</td><td>${m(h.boosters)}</td></tr>`).join("")}</tbody></table></div>`
@@ -636,7 +657,7 @@ screens.nil_desk = async () => {
     : "";
   const deal = x.yours
     ? `<p class="sub">Set each player's deal for the money year in thousands. A player left without one gets nothing from the collective; one paid well under his worth hears about it, and the portal is a phone call away. ${money(deals)} set so far.</p>`
-    : "";
+    : `<p class="sub">Your collective pays the usual split. A deal you set for a player is his number instead (SC6); one paid well under his worth hears about it. ${money(deals)} set so far.</p>`;
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: `<span>${x.house ? "Revenue sharing and the collective" : "The collective"}${x.big_booster ? " · a big booster behind it" : ""}</span>`, sub: esc(x.trend_line), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar"><div class="st-label">The roster's deals</div>${fcGoto([["roster", "Squad"], ["portal_desk", "Transfer portal"], ["recruit_board", "Recruiting board"], ["depth", "Depth chart"]])}</div>
@@ -742,6 +763,13 @@ document.addEventListener("change", (ev) => {
   if (t.dataset.fcf2) {
     S.keep.fcp[t.dataset.fcf2] = t.value;
     render();
+    return;
+  }
+  if (t.dataset.fcinv) {
+    const k = keep("fcvinv", { id: null, kind: null });
+    if (t.dataset.fcinv === "id") Object.assign(k, { id: Number(t.value), kind: null });
+    else k.kind = t.value;
+    render($(".view") && $(".view").scrollTop);
     return;
   }
   if (t.dataset.fcarea) {

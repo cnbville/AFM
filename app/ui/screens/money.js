@@ -100,10 +100,12 @@ screens.money = async (a) => {
   const kicker = teamA(x.team) + (x.own ? ` · ${esc(x.today)}` : "");
   return `<div class="pad mn">${pageHead({ kicker, title: x.own ? "Finances" : `${esc(x.team.name)} finances`, sub, actions, goto: gotoFor("money", a, x) })}${list.length > 1 ? tabs("mntab", list, tab) : ""}<div class="tabbody">${body}</div></div>`;
 };
+// High school football keeps no league books: for your own school the
+// School office (the booster club's books) takes that place.
 GOTO.money = (a, x) => [
-  ["League money", "money_league", { level: x.seat === "college" ? "college" : "nfl" }],
+  x.seat === "hs" ? (x.own && screens.school ? ["School office", "school"] : null) : ["League money", "money_league", { level: x.seat === "college" ? "college" : "nfl" }],
   ["Team page", "team", a.kind ? { kind: a.kind, id: a.id } : {}],
-  x.seat === "nfl" && x.own ? ["Contracts", "contracts"] : null,
+  x.seat === "nfl" && x.own ? ["Cap sheet", "fo_cap"] : null,
   ["Schedule", "schedule", a.kind ? { kind: a.kind, id: a.id } : {}],
   ["Money mail", "inbox", { key: "Money" }],
 ];

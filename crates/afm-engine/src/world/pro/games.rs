@@ -489,6 +489,8 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
         }
         let Some(&(i, _)) = sides[inj.side].who.get(&inj.id) else { continue };
         let weeks = inj.weeks.ceil().max(1.0) as u32;
+        // Your club decides its own list (minor bug 73).
+        let you = crate::world::front_office::reserve::you_decide(w, i);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.out_weeks = c.out_weeks.max(weeks);
         if weeks >= 6 {
@@ -499,17 +501,23 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
             // (trial 9: every camp injury went to reserve, so settlements
             // almost never happened).
             let vested = c.accrued >= 4;
-            if vested {
+            let placed = vested && !you;
+            if placed {
                 c.status = Status::Reserve;
                 c.pup = false;
+                // Placed before the cutdown: out for the season.
+                c.ir_out = true;
             }
             let p = &mut w.people[i];
             let age = p.row_age();
             p.note(format!(
                 "Hurt in the preseason at {age} ({}, about {weeks} weeks){}.",
                 inj.kind.name(),
-                if vested { ": injured reserve" } else { "" }
+                if placed { ": injured reserve" } else { "" }
             ));
+            if vested && you {
+                crate::world::front_office::reserve::recommend(w, i, weeks);
+            }
         }
     }
     let _ = year;
@@ -581,9 +589,14 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
         let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating));
         let weeks = (inj.weeks * (1.0 - 0.12 * med)).ceil().max(1.0) as u32;
         let ir = weeks >= ir_minimum(year);
+        // Your club decides its own list (minor bug 73): the medical staff
+        // recommends.
+        let you = crate::world::front_office::reserve::you_decide(w, i);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.out_weeks = c.out_weeks.max(weeks);
-        if ir && c.status == Status::Roster {
+        if ir && you && c.status == Status::Roster {
+            crate::world::front_office::reserve::recommend(w, i, weeks);
+        } else if ir && c.status == Status::Roster {
             c.status = Status::Reserve;
             c.pup = false;
             let t = teams[inj.side];
@@ -663,12 +676,17 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
             }
             let vested = c.accrued >= 4;
             let squad = c.status == Status::PracticeSquad;
+            let you = crate::world::front_office::reserve::you_decide(w, i);
             let c = w.people[i].pro.as_mut().unwrap();
             c.out_weeks = c.out_weeks.max(weeks);
-            let ir = if camp { weeks >= 6 && vested } else { weeks >= ir_minimum(year) && !squad };
+            let due = if camp { weeks >= 6 && vested } else { weeks >= ir_minimum(year) && !squad };
+            // Your club decides its own list (minor bug 73).
+            let ir = due && !you;
             if ir {
                 c.status = Status::Reserve;
                 c.pup = false;
+                // Placed in camp, before the cutdown: out for the season.
+                c.ir_out = camp;
             }
             let p = &mut w.people[i];
             let age = p.row_age();
@@ -683,6 +701,9 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
                     "Placed on injured reserve by the {name} at {age} ({} in practice, about {weeks} weeks).",
                     kind.name()
                 ));
+            }
+            if due && you {
+                crate::world::front_office::reserve::recommend(w, i, weeks);
             }
         }
     }
@@ -699,7 +720,7 @@ pub(crate) fn ir_minimum(year: i32) -> u32 {
 /// How many players a team may bring back from injured reserve in a
 /// season (real: none before 2012, one 2012-16, two 2017-19, unlimited in
 /// 2020-21, eight from 2022).
-pub(crate) fn ir_returns(year: i32) -> u32 {
+pub fn ir_returns(year: i32) -> u32 {
     match year {
         ..=2011 => 0,
         2012..=2016 => 1,

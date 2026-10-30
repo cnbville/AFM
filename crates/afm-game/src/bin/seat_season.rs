@@ -556,6 +556,12 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
         // you are there when they come round.
         lane9(run, g, &ids);
     }
+    // The hunt (next update, lane 11): the page, a target named from its
+    // suggestions when there is none, his player page, and the seat's
+    // own lever once.
+    if seat != "other" {
+        lane11(run, g);
+    }
     // Your staff and the ranges (update 2, lane 3): the quality page, each
     // member's detail and ratings page with his key reads' cards, and the
     // cards for a few of your players' ranges.
@@ -938,6 +944,26 @@ fn find_stops(run: &mut Run, g: &mut Game, seat: &str) -> Vec<Value> {
     }
     out.push(page);
     out
+}
+
+/// One stop on the hunt (lane 11).
+fn lane11(run: &mut Run, g: &mut Game) {
+    run.call(g, "l8_page", json!({ "page": "hunt", "panel": true }));
+    let Some(h) = run.call(g, "hunt_page", json!({})) else { return };
+    if h["yours"].is_null() {
+        if let Some(id) = h["suggest"][0]["id"].as_u64() {
+            run.call(g, "hunt_name", json!({ "id": id }));
+            run.call(g, "player", json!({ "id": id }));
+            let h = run.call(g, "hunt_page", json!({})).unwrap_or_default();
+            // The college seat banks money and holds a place; refusals
+            // (no NIL era, no money left) go straight to the game.
+            if h["seat"] == json!("college") {
+                let _ = g.call("hunt_bank", &json!({ "nil": 50_000.0, "hold": true }));
+            }
+        }
+    } else if let Some(id) = h["yours"]["player"]["id"].as_u64() {
+        run.call(g, "player", json!({ "id": id }));
+    }
 }
 
 /// One stop in the film room (lane 9).

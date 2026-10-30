@@ -11,8 +11,6 @@ use crate::rng::clamp;
 use crate::world::World;
 use crate::world::pro::{self, DeadWhy, Status, money, trades};
 
-use super::{Duty, Owner};
-
 /// A draft pick as a trade names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Pick {
@@ -411,7 +409,6 @@ pub fn propose(w: &mut World, p: &Proposal) -> Result<Answer, String> {
         return Ok(a);
     }
     let me = super::club(w).unwrap();
-    w.front_office.set_owner(Duty::Trades, Owner::You);
     execute(w, me, p);
     Ok(a)
 }

@@ -198,7 +198,23 @@ function sortRows(list, cols, s) {
   const one = cmp(s.k, s.dir), two = s.k2 ? cmp(s.k2, s.dir2 || -1) : () => 0;
   return list.slice().sort((a, b) => one(a, b) || two(a, b));
 }
+// A table of players, found by its name cell's link to a player or his
+// scouting file: the id of each row's player, or null for another table.
+const PLAYER_CELL = /data-go="(?:player|scout)"[^>]*?data-id="(\d+)"/;
+function playerIdOf(cols, rows) {
+  if (!rows.length) return null;
+  const c = cols.find((x) => x.f && PLAYER_CELL.test(String(x.f(rows[0]) || "")));
+  if (!c) return null;
+  return (r) => { const m = PLAYER_CELL.exec(String(c.f(r) || "")); return m ? Number(m[1]) : null; };
+}
 function table(key, cols, rows, opts = {}) {
+  // Every player table gets a ⋯ on each row (SC4) and ticks for the move
+  // bar (SC5), unless it says otherwise.
+  const pidOf = opts.moves === false ? null : playerIdOf(cols, rows);
+  if (pidOf) {
+    opts = { ...opts, select: opts.select || pidOf, movebar: true };
+    if (!cols.some((c) => c.k === "_more")) cols = [...cols, { k: "_more", t: "", tip: "Moves", v: () => 0, f: (r) => { const id = pidOf(r); return id == null ? "" : rowMore(id, plainText(r.name || "")); } }];
+  }
   TBL[key] = { cols, rows, opts };
   const s = keep("sort:" + key, { k: opts.sort || null, dir: -1 });
   const st = tableState(key, cols);
@@ -240,7 +256,53 @@ function table(key, cols, rows, opts = {}) {
   }
   if (!list.length) body = `<tr><td class="l" colspan="${span}"><div class="empty">${esc(rows.length ? "Nothing matches these filters." : opts.empty || "Nothing here yet.")}</div></td></tr>`;
   const tools = opts.tools === false ? "" : tableTools(key, cols, st, rows, opts);
-  return `${tools}<div class="tbl warm box" data-table="${esc(key)}"><table><thead>${groups}<tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  return `${tools}<div class="tbl warm box" data-table="${esc(key)}"><table><thead>${groups}<tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${pidOf ? moveBar(key, st.picked) : ""}`;
+}
+// The move bar under a table with ticked players (SC5): Compare and Add to
+// my players everywhere, the desk's own bulk moves (the cut to 53), and
+// the moves every ticked player shares.
+const MOVEBAR_DESK = {
+  fo_cut: [["53", "keep", "Keep on the 53"], ["Squad", "squad", "Cut and try for the practice squad"], ["Cut", "release", "Release"]],
+};
+const BULK = ["board", "unboard", "offer", "squad", "predraft", "block", "keep"];
+function moveBar(key, picked) {
+  if (!picked.length) return "";
+  const desk = (MOVEBAR_DESK[key] || []).map(([, cut, t]) => `<button class="st-btn small glass" data-act="mbplan" data-key="${esc(key)}" data-cut="${cut}">${esc(t)}</button>`).join("");
+  return `<div class="movebar" data-key="${esc(key)}"><b>${picked.length} ticked</b>${picked.length >= 2 ? `<button class="st-btn small primary" data-act="compare" data-key="${esc(key)}">Compare${picked.length > 5 ? " the first five" : ""}</button>` : ""}<button class="st-btn small glass" data-act="mblist" data-key="${esc(key)}">Add to my players</button>${desk}<button class="st-btn small glass" data-act="mbmore" data-key="${esc(key)}">More moves ▾</button><span class="tspace"></span><button class="st-btn small glass" data-act="mbclear" data-key="${esc(key)}">Clear</button></div>`;
+}
+async function moveBarAct(act, el) {
+  const key = el.dataset.key;
+  const T = TBL[key];
+  if (!T) return false;
+  const st = tableState(key, T.cols);
+  const ids = st.picked.slice();
+  const each = async (cmd, argsOf, done) => {
+    let ok = 0, last = "";
+    for (const id of ids) {
+      try { await api(cmd, argsOf(id)); ok++; } catch (e) { last = e.message || String(e); }
+    }
+    toast(`${done(ok)}${last && ok < ids.length ? ` ${ids.length - ok} not: ${last}` : ""}`);
+    peekForget();
+    S.status = null;
+    refresh(el);
+  };
+  switch (act) {
+    case "mbclear": st.picked = []; refresh(el); return true;
+    case "mblist": await each("list_add", (id) => ({ id }), (n) => `${n} on your list.`); return true;
+    case "mbplan": await each("fo_plan", (id) => ({ id, cut: el.dataset.cut }), (n) => `Your call on ${n}.`); return true;
+    case "mbmore": {
+      let lists = [];
+      try { lists = await Promise.all(ids.map((id) => api("moves", { id }))); } catch (e) { toast(e.message); return true; }
+      const sig = (m) => `${m.k}|${m.squad || ""}|${m.list ?? ""}|${m.on ?? ""}`;
+      const common = (lists[0] || []).filter((m) => BULK.includes(m.k) && lists.every((l) => l.some((x) => sig(x) === sig(m))));
+      const r = el.getBoundingClientRect();
+      const cmd = { board: "recruit_add", unboard: "recruit_remove", offer: "recruit_offer", squad: "set_squad", predraft: "board_list", block: "fo_block", keep: "keep_talk" };
+      const items = common.map((m) => ({ label: m.t, run: () => each(cmd[m.k], (id) => ({ id, squad: m.squad, list: m.list, on: m.on }), (n) => `${m.t}: ${n} done.`) }));
+      ctxMenu({ preventDefault() {}, clientX: r.left, clientY: r.top - 8 - 32 * Math.max(1, items.length) }, items.length ? items : [{ label: "No other move fits every ticked player", run: () => {} }]);
+      return true;
+    }
+  }
+  return false;
 }
 // The bar over a table: chips, filters, columns, saved views, compare, CSV.
 function tableTools(key, cols, st, rows, opts) {
@@ -249,7 +311,7 @@ function tableTools(key, cols, st, rows, opts) {
   const chips = [has("listed") || st.chips.listed ? chip("listed", '<i class="chipdot listed"></i>On my list') : "", has("noted") || st.chips.noted ? chip("noted", '<i class="chipdot noted"></i>Has my note') : "", opts.mineChip ? chip("mine", "Mine") : ""].join("");
   const filters = st.filters.map((f, i) => `<span class="tfilter">${esc((cols.find((c) => c.k === f.k) || {}).t || f.k)} ${esc(f.op === "has" ? "has" : f.op)} <b>${esc(f.v)}</b><button data-act="tfdel" data-key="${esc(key)}" data-i="${i}" aria-label="Remove filter">×</button></span>`).join("");
   const views = (prefs.views && prefs.views[key]) || [];
-  const compare = opts.select && st.picked.length >= 2 ? `<button class="st-btn small primary" data-act="compare" data-key="${esc(key)}">Compare ${st.picked.length}</button>` : opts.select && st.picked.length ? `<span class="muted small">${st.picked.length} picked · up to five</span>` : "";
+  const compare = opts.movebar ? "" : opts.select && st.picked.length >= 2 ? `<button class="st-btn small primary" data-act="compare" data-key="${esc(key)}">Compare ${st.picked.length}</button>` : opts.select && st.picked.length ? `<span class="muted small">${st.picked.length} picked · up to five</span>` : "";
   return `<div class="ttools">${chips}${filters}<button class="tbtn" data-act="tfilter" data-key="${esc(key)}">+ Filter</button><span class="tspace"></span>${compare}${views.length ? `<select class="tview" data-act="tview" data-key="${esc(key)}"><option value="">Saved views</option>${views.map((v, i) => `<option value="${i}">${esc(v.name)}</option>`).join("")}</select>` : ""}<button class="tbtn" data-act="tsave" data-key="${esc(key)}" title="Keep these columns, filters and sort as a view">Save view</button><button class="tbtn" data-act="tcols" data-key="${esc(key)}">Columns</button>${opts.csv !== false ? `<button class="tbtn" data-act="tcsv" data-key="${esc(key)}" title="Save the table as a CSV file">CSV</button>` : ""}</div>`;
 }
 
@@ -283,7 +345,12 @@ async function tableAct(act, el) {
         const k = cb.dataset.k;
         st.hidden = cb.checked ? st.hidden.filter((x) => x !== k) : [...st.hidden, k];
         const box = document.querySelector(`[data-table="${key}"]`);
-        if (box) box.outerHTML = table(key, T.cols, T.rows, { ...T.opts, tools: false });
+        if (box) {
+          // The move bar sits after the box: the new table brings its own.
+          const bar = box.nextElementSibling;
+          if (bar && bar.classList.contains("movebar")) bar.remove();
+          box.outerHTML = table(key, T.cols, T.rows, { ...T.opts, tools: false });
+        }
       });
       return true;
     }
@@ -325,7 +392,7 @@ async function tableAct(act, el) {
     }
     case "pick": {
       const id = Number(el.dataset.id);
-      st.picked = el.checked ? [...st.picked.filter((x) => x !== id), id].slice(-5) : st.picked.filter((x) => x !== id);
+      st.picked = el.checked ? [...st.picked.filter((x) => x !== id), id].slice(-60) : st.picked.filter((x) => x !== id);
       refresh(el);
       return true;
     }
@@ -494,6 +561,7 @@ function peekHtml(x) {
   if (x.kind === "player") {
     return `<div class="pk-head">${face({ name: x.name, initials: x.initials, team: x.team }, 52)}<div><b>${esc(x.name)}</b><small>${esc(x.pos)}${x.jersey != null ? ` · #${x.jersey}` : ""} · ${x.team ? esc(x.team.name) : esc(x.where)}</small><small>${esc(x["class"])} · age ${x.age} · ${esc(x.ht)}, ${x.wt} lb ${stars(x.stars)}</small></div></div>
       <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.yours ? `<div class="kvline"><span>Your own read</span>${yourRange(x.yours)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b data-h3="${x.id}" tabindex="0">${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
+      ${(() => { const mv = peekMoves(x); return mv.length ? `<div class="pk-moves">${mv.map((m) => moveBtn(m, { id: x.id, name: x.name }, "st-btn small glass")).join("")}</div>` : ""; })()}
       <div class="pk-foot">${x.listed ? '<span class="st-pill">On my list</span>' : ""}${x.noted ? '<span class="st-pill">Has my note</span>' : ""}<span class="muted small">Click to open · shift-click beside · right-click for more</span></div>`;
   }
   if (x.kind === "coach") {
@@ -515,6 +583,8 @@ function peekShow(a, x) {
   const el = document.createElement("div");
   el.className = "peek";
   el.innerHTML = peekHtml(x);
+  // A card with moves takes the mouse (bug 64); the rest let it pass.
+  if (el.querySelector(".pk-moves")) el.classList.add("has-moves");
   document.body.appendChild(el);
   const r = a.getBoundingClientRect();
   const w = el.offsetWidth, h = el.offsetHeight;
@@ -614,31 +684,204 @@ function ctxMenu(ev, items) {
   m.addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (!b) return; closeMenu(); items[Number(b.dataset.i)].run(); });
   setTimeout(() => document.addEventListener("click", closeMenu, { once: true }), 0);
 }
-document.addEventListener("contextmenu", (ev) => {
+// ---------- moves (minor bugs 62-64) ----------
+// One list of what you can do with a player, a coach or a team for your
+// seat, from the game ("moves"): the right-click menu, the player page's
+// hero, the hover card and the ⋯ at the end of player rows all draw from
+// it, so a move is wherever you look at him.
+const TALK_SUBJECTS = [["role", "His role"], ["usage", "His touches"], ["money", "His money"], ["behavior", "His behavior"], ["life", "Life away from football"], ["team", "The team"], ["future", "His future"]];
+const STAY_GO = [[0, "Stay a year"], [1, "Your call"], [2, "You're ready"]];
+function moveMenu(at, title, items, pick) {
+  const m = menuAt(at, `<div class="st-label">${esc(title)}</div>${items.map(([v, t]) => `<div class="mrow" data-v="${esc(v)}">${esc(t)}</div>`).join("")}`, (e) => {
+    const r = e.target.closest("[data-v]");
+    if (!r) return;
+    closeMenu();
+    pick(r.dataset.v);
+  });
+  return m;
+}
+async function moveDo(cmd, args, ok) {
+  try {
+    const r = await api(cmd, args);
+    toast(plainText((r && (r.text || r.said)) || ok || "Done."));
+    peekForget();
+    S.status = null;
+    refresh();
+    return r;
+  } catch (e) { toast(e.message || String(e)); return null; }
+}
+function comparePick(id, name) {
+  const t = keep("cmp", { ids: [] });
+  t.ids = [...t.ids.filter((x) => x !== id), id].slice(-5);
+  if (t.ids.length > 1) go("compare", { ids: t.ids });
+  else toast(`${name || "He"} is picked to compare. Pick another player the same way, or tick rows in any table.`);
+}
+// Runs one move on `who` ({id, name}); `at` is where a choice opens.
+async function runMove(m, who, at) {
+  const id = Number(who.id), name = who.name || "him";
+  switch (m.k) {
+    case "talk": return moveMenu(at, "Talk to him about", TALK_SUBJECTS, (s) => ppGoScene(api("people_talk", { id, subject: s })));
+    case "dev": return go("player", { id, tab: "Development" });
+    case "deal": return go("fo_talk", { id });
+    case "restructure":
+    case "release": return foCapMove(m.k, id, name, m.cap);
+    case "block": return moveDo("fo_block", { id, on: m.on }, m.on ? "On the block: buyers will call." : "Off the block.");
+    case "ir": if (await sure(`Put ${name} on injured reserve?`, m.words, "Place him")) moveDo("ir_place", { id }); return;
+    case "ir_back":
+      if (m.why) { toast(m.why); return; }
+      if (await sure(`Bring ${name} back?`, m.words, "Bring him back")) moveDo("ir_back", { id });
+      return;
+    case "trade": { Object.assign(foTrade(), { team: m.team, give: [], givePicks: [], get: [id], getPicks: [], cond: null, answer: null, shop: null }); return go("fo_trades", { team: m.team, get: [id] }); }
+    case "trade_with": { Object.assign(foTrade(), { team: m.team, get: [], getPicks: [], cond: null, answer: null }); return go("fo_trades", { team: m.team }); }
+    case "visit": return moveDo("fo_visit", { id });
+    case "predraft": return moveDo("board_list", { id, list: m.list, on: m.on }, m.on ? `Added to ${m.t.replace(/^Add to /, "")}.` : "Taken off the list.");
+    case "keep": return moveDo("keep_talk", { id });
+    case "stay_go": return moveMenu(at, "Stay or go: what you tell him", STAY_GO, (v) => moveDo("eval_talk", { id, say: Number(v) }, "Your word is in."));
+    case "redshirt": {
+      const note = m.on
+        ? `${m.games ? `He has played ${m.games} game${m.games === 1 ? "" : "s"}. ` : ""}${m.four ? "He can play four games in all and keep the year." : "Any game now costs him the year."}`
+        : m.four ? "Four games or fewer and he still keeps his redshirt year; a fifth costs it." : "His first game costs his redshirt year.";
+      if (await sure(m.on ? `Redshirt ${name}?` : `Play ${name}?`, note, m.on ? "Redshirt him" : "Play him")) moveDo("redshirt_set", { id, on: m.on });
+      return;
+    }
+    case "cut": if (await sure(`Cut ${name}?`, m.words, "Cut him")) moveDo("college_cut", { id }); return;
+    case "portal": return go("portal_desk", { id });
+    case "offer": return moveDo("recruit_offer", { id });
+    case "pull": if (await sure("Pull the offer?", "A committed recruit's commitment goes with it, and his high school coach remembers.", "Pull it")) moveDo("recruit_pull", { id }); return;
+    case "board": return moveDo("recruit_add", { id });
+    case "unboard": return moveDo("recruit_remove", { id });
+    case "visit_plan":
+    case "nil":
+    case "file": return go("recruit_file", { id });
+    case "squad": return moveDo("set_squad", { id, squad: m.squad });
+    case "call": return go("colleges_calling", { call: id });
+    case "ask": return moveMenu(at, "Ask your staff for", m.kinds.map((k) => [k, k]), (k) => moveDo("scout_ask", { id, kind: k }));
+    case "scout": return go("scout", { id });
+    case "film": return go("film", { id });
+    case "hunt": return l11Name(id, name, m.busy);
+    case "hunt_page": return go("hunt");
+    case "list_add": return moveDo("list_add", { id }, `${name} is on your list.`);
+    case "list_remove": return moveDo("list_remove", { id }, `${name} is off your list.`);
+    case "note": return noteBox({ kind: "player", id, name }, S.title || "Page");
+    case "compare": return comparePick(id, name);
+    case "depth_up":
+    case "depth_down": return depthStep(id, m.k === "depth_up" ? -1 : 1);
+    // A coach.
+    case "raise": return moveMenu(at, "A raise", [[0.05, "5%"], [0.1, "10%"], [0.15, "15%"], [0.25, "25%: keep him from leaving"]], (v) => moveDo("people_raise", { coach: m.coach, share: Number(v) }));
+    case "fire": if (await sure(`Let ${name} go?`, "You tell him yourself. What's left of his deal is owed, and the room and his recruits will hear about it.", "Call him in")) ppGoScene(api("people_fire", { coach: m.coach })); return;
+    case "interview": return ppGoScene(api("people_interview", { coach: m.coach, role: m.role }));
+    // The offer with its years, promises and clauses (hiring.js, lane 18).
+    case "hire": return hrOffer(m.coach, m.role);
+  }
+}
+// Moves him one place up or down his position's depth chart.
+async function depthStep(id, dir) {
+  try {
+    const d = await api("depth");
+    const g = d.positions.find((x) => x.players.some((p) => p.id === id && p.here));
+    if (!g) { toast("He isn't on your depth chart."); return; }
+    const ids = g.players.map((p) => p.id);
+    const k = ids.indexOf(id), to = k + dir;
+    if (to < 0 || to >= ids.length) { toast(dir < 0 ? "He's at the top already." : "He's at the bottom already."); return; }
+    [ids[k], ids[to]] = [ids[to], ids[k]];
+    const r = await api("set_depth", { pos: g.pos, ids });
+    toast(r.note || `${dir < 0 ? "Up" : "Down"} to No. ${to + 1} at ${g.pos}.`);
+    peekForget();
+    refresh();
+  } catch (e) { toast(e.message || String(e)); }
+}
+// The moves on a menu, in the order the game gives them.
+function moveItems(moves, who, at) {
+  // After the menu's own click has closed it, so a choice it opens stays.
+  return moves.map((m) => ({ label: m.t + (["talk", "ask", "stay_go", "raise", "ir", "ir_back", "cut", "redshirt", "hire", "fire"].includes(m.k) ? "…" : ""), run: () => setTimeout(() => runMove(m, who, at), 0) }));
+}
+// The hover card's three moves for the screen you're on (topic 17 rule 4).
+const PEEK_MOVES = {
+  depth: ["dev", "depth_up", "depth_down"],
+  roster: ["talk", "dev", "depth"],
+  training: ["dev", "talk", "depth"],
+  recruit_board: ["offer", "pull", "board", "file"], recruiting: ["offer", "pull", "board", "file"], visits_desk: ["file", "offer", "pull"], recruit_find: ["offer", "pull", "board", "file"],
+  portal_desk: ["portal", "keep", "talk"], nil_desk: ["file", "talk"],
+  fo_market: ["deal", "visit", "scout"], fo_expiring: ["deal", "talk"], fo_cap: ["restructure", "release", "deal"], fo_moves: ["release", "ir", "ir_back"], fo_trades: ["trade", "block", "scout"],
+  squads: ["squad", "talk"], colleges_calling: ["call", "recruiting", "talk"],
+};
+function peekMoves(x) {
+  const all = x.moves || [];
+  const want = PEEK_MOVES[S.route && S.route.screen] || [];
+  const extra = { depth: { k: "go_depth", t: "Depth chart" }, depth_up: { k: "depth_up", t: "Move up" }, depth_down: { k: "depth_down", t: "Move down" }, recruiting: { k: "go_recruiting", t: "Recruiting tab" } };
+  const pick = [];
+  for (const k of want) {
+    const m = all.find((y) => y.k === k) || (x.own && (k === "depth_up" || k === "depth_down" || k === "depth") ? extra[k] : null) || (k === "recruiting" ? extra.recruiting : null);
+    if (m && !pick.includes(m)) pick.push(m);
+  }
+  for (const m of all.filter((y) => y.main)) if (pick.length < 3 && !pick.includes(m)) pick.push(m);
+  for (const m of all) if (pick.length < 3 && !pick.includes(m) && !["note", "compare", "list_add", "list_remove"].includes(m.k)) pick.push(m);
+  return pick.slice(0, 3);
+}
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest && ev.target.closest("[data-move]");
+  if (!b) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  let m;
+  try { m = JSON.parse(b.dataset.move); } catch (e) { return; }
+  const who = { id: Number(b.dataset.id), name: b.dataset.name || "" };
+  if (m.k === "go_depth") { peekHide(); return go("depth", { pid: who.id }); }
+  if (m.k === "go_recruiting") { peekHide(); return go("player", { id: who.id, tab: "Recruiting" }); }
+  if (m.k === "more") {
+    let moves;
+    try { moves = (await api("moves", { id: who.id })) || []; } catch (e) { return; }
+    const r = b.getBoundingClientRect();
+    return ctxMenu({ preventDefault() {}, clientX: r.left, clientY: r.bottom + 4 }, [...moveItems(moves, who, b), "-", { label: "Open beside", key: "⇧ click", run: () => openBeside("player", { id: who.id }) }]);
+  }
+  // The hover card goes away: a menu the move opens anchors where it was.
+  const rect = b.getBoundingClientRect();
+  const at = { getBoundingClientRect: () => rect };
+  if (b.closest(".peek")) peekHide();
+  runMove(m, who, at);
+}, true);
+// A move as a button (the hero) or a quiet link (the hover card).
+function moveBtn(m, who, cls = "st-btn glass") {
+  return `<button class="${cls}" data-move="${esc(JSON.stringify(m))}" data-id="${who.id}" data-name="${esc(who.name || "")}">${esc(m.t)}</button>`;
+}
+// The ⋯ at the end of a player row (SC4): the same menu as right-click.
+function rowMore(id, name) {
+  return `<button class="rowmore" data-move='{"k":"more"}' data-id="${id}" data-name="${esc(name || "")}" title="Moves for ${esc(name || "him")}" aria-label="Moves">⋯</button>`;
+}
+document.addEventListener("contextmenu", async (ev) => {
   const a = ev.target.closest && ev.target.closest("a[data-go]");
   if (!a || !S.status || !S.status.mine) return;
+  ev.preventDefault();
   const d = a.dataset;
   const args = linkArgs(d);
   const name = a.textContent.trim();
+  const at = { x: ev.clientX, y: ev.clientY };
+  // A name that opens his scouting file is still a player (bug 62).
+  const player = d.go === "player" || (d.go === "scout" && args.id != null);
   const items = [
     { label: "Open", run: () => go(d.go, args) },
     { label: "Open beside", key: "⇧ click", run: () => openBeside(d.go, args) },
     { label: "Open in a new window", key: "⌘ click", run: () => openWindow(d.go, args) },
   ];
-  if (d.go === "player") {
-    items.push("-",
-      { label: "Add to my players", run: async () => { await api("list_add", { id: args.id }); toast(`${name} is on your list.`); peekForget(); } },
-      { label: "Take off my players", run: async () => { await api("list_remove", { id: args.id }); toast(`${name} is off your list.`); peekForget(); } },
-      { label: "Write a note…", run: () => noteBox({ kind: "player", id: args.id, name }, `${S.title || "Page"}`) },
-      { label: "Compare…", run: () => { const t = keep("cmp", { ids: [] }); t.ids = [...t.ids.filter((x) => x !== args.id), args.id].slice(-5); toast(t.ids.length > 1 ? `${t.ids.length} players to compare. Open Compare from any of them.` : `${name} picked to compare. Pick another.`); if (t.ids.length > 1) go("compare", { ids: t.ids }); } });
+  // Where a choice opens: at the click.
+  const anchor = { getBoundingClientRect: () => ({ left: at.x, right: at.x, top: at.y, bottom: at.y }) };
+  peekHide();
+  if (player) {
+    let moves = [];
+    try { moves = (await api("moves", { id: args.id })) || []; } catch (e) { moves = []; }
+    if (d.go === "scout") items.push({ label: "Player page", run: () => go("player", { id: args.id }) });
+    items.push("-", ...moveItems(moves, { id: args.id, name }, anchor));
   } else if (d.go === "coach") {
-    items.push("-", { label: "Write a note…", run: () => noteBox({ kind: "coach", id: args.id, name }, S.title || "Page") });
+    let moves = [];
+    try { moves = (await api("moves", { kind: "coach", id: args.id })) || []; } catch (e) { moves = []; }
+    items.push("-", ...moveItems(moves, { id: args.id, name }, anchor), { label: "Write a note…", run: () => noteBox({ kind: "coach", id: args.id, name }, S.title || "Page") });
   } else if (d.go === "team") {
-    items.push("-", { label: "Roster", run: () => go("roster", args) }, { label: "Schedule", run: () => go("schedule", args) }, { label: "Write a note…", run: () => noteBox({ kind: "team", id: teamCode(args), name }, S.title || "Page") });
+    let moves = [];
+    try { moves = (await api("moves", { kind: args.kind, id: args.id })) || []; } catch (e) { moves = []; }
+    items.push("-", ...moveItems(moves, { id: args.id, name }, anchor), { label: "Roster", run: () => go("roster", args) }, { label: "Schedule", run: () => go("schedule", args) }, { label: "Write a note…", run: () => noteBox({ kind: "team", id: teamCode(args), name }, S.title || "Page") });
   }
   items.push("-", { label: "Copy name", run: () => navigator.clipboard && navigator.clipboard.writeText(name) });
-  peekHide();
-  ctxMenu(ev, items);
+  ctxMenu({ preventDefault() {}, clientX: at.x, clientY: at.y }, items);
 });
 const teamCode = (a) => (a.kind === "nfl" ? a.id : a.kind === "college" ? 100000 + a.id : 1000000 + a.id);
 
@@ -875,6 +1118,7 @@ async function holiday() {
 async function coreAct(act, el, ev) {
   if (!act) return false;
   if (["tchip", "tfdel", "tcols", "tfilter", "tsave", "tcsv", "pick", "compare"].includes(act)) return tableAct(act, el);
+  if (["mbclear", "mblist", "mbplan", "mbmore"].includes(act)) return moveBarAct(act, el);
   if (CORE_MORE[act]) { CORE_MORE[act](el, ev); return true; }
   const d = el.dataset;
   switch (act) {
@@ -972,9 +1216,15 @@ async function coreAct(act, el, ev) {
       return true;
     }
     case "pnote": noteBox({ kind: "player", id: Number(d.id), name: d.name }, `Player page · ${d.name}`); return true;
-    case "pcut": {
-      if (!(await sure(`Cut ${d.name}?`, d.words, "Cut him"))) return true;
-      try { const r = await api("college_cut", { id: Number(d.id) }); toast(r.text); peekForget(); refresh(el); } catch (e) { toast(e.message); }
+    case "pmore": {
+      let rest = [];
+      try { rest = JSON.parse(d.moves); } catch (e) { rest = []; }
+      const who = { id: Number(d.id), name: d.name };
+      const r = el.getBoundingClientRect();
+      const items = rest.map((m) => (m.k === "links"
+        ? { label: m.t, run: () => { go("player", { id: who.id, tab: "Overview" }); setTimeout(() => document.getElementById("plinks")?.scrollIntoView({ block: "start", behavior: "smooth" }), 120); } }
+        : moveItems([m], who, el)[0]));
+      ctxMenu({ preventDefault() {}, clientX: r.left, clientY: r.bottom + 4 }, items);
       return true;
     }
     case "pnotedel": {
@@ -1243,7 +1493,7 @@ function measurablesHtml(p) {
 function linksHtml(p) {
   if (!p.links || !p.links.length) return "";
   const src = p.links.some((l) => !l.measured) ? "a read from film and his frame until he tests" : "measured";
-  return `<div class="panel"><h2>Dynamic Links <small>physical gifts your staff sees · ${esc(src)}</small></h2><div class="items">${p.links.map((l) => `<div class="item" title="${esc(l.edge)}"><span class="when"><span class="tag ${l.strength === "full" ? "gold" : "soft"}">${esc(l.strength)}</span></span><span><b>${esc(l.name)}</b> <small class="muted">${esc(l.numbers)}</small><br><small class="sub">${esc(l.edge)}</small></span></div>`).join("")}</div></div>`;
+  return `<div class="panel" id="plinks"><h2>Dynamic Links <small>physical gifts your staff sees · ${esc(src)}</small></h2><div class="items">${p.links.map((l) => `<div class="item" title="${esc(l.edge)}"><span class="when"><span class="tag ${l.strength === "full" ? "gold" : "soft"}">${esc(l.strength)}</span></span><span><b>${esc(l.name)}</b> <small class="muted">${esc(l.numbers)}</small><br><small class="sub">${esc(l.edge)}</small></span></div>`).join("")}</div></div>`;
 }
 function readCard(p) {
   const pot = p.potential;
@@ -1308,7 +1558,9 @@ const PT = {
   },
   Contract: (p) => {
     const c = p.pro.contract;
-    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
+    // Your own player's numbers open his row on the cap sheet, every year of the deal.
+    const cap = (h) => (p.mine && seatKind() === "nfl" && screens.fo_cap ? linkTo("fo_cap", { id: p.id }, h) : h);
+    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${cap(money(c.apy))}</b><small>a year</small></div><div><b>${cap(money(c.total))}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${cap(money(c.guaranteed))}</b><small>guaranteed</small></div><div><b>${cap(money(c.cap_hit))}</b><small>cap hit this year</small></div><div><b>${cap(c.through)}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
       <div class="kv"><dt>Drafted</dt><dd>${esc(p.pro.draft || "Undrafted")}</dd><dt>Accrued seasons</dt><dd>${p.pro.accrued}</dd><dt>Career earnings</dt><dd>${money(p.pro.earnings)}</dd></div></div>`;
   },
   Notes: (p) => `<div class="panel"><h2>Your notes on ${esc(p.name)} <small>only you see them; they stay with him for his whole career</small></h2>
@@ -1351,9 +1603,20 @@ screens.player = async (a) => {
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
       <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
-      <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button>${l7Stake(p)}${p.college_cut ? `<button class="st-btn glass" data-act="pcut" data-id="${p.id}" data-name="${esc(p.name)}" data-words="${esc(p.college_cut)}" title="Cut him from the team">Cut him</button>` : ""}</div></div></div></div>
+      <div class="st-actions">${heroMoves(p, listBtn)}${l7Stake(p)}${typeof l11Hunt === "function" ? l11Hunt(p) : ""}</div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
+// The hero's moves (minor bug 63): the main ones as buttons, the rest
+// under More with Dynamic Links, a note and Compare.
+function heroMoves(p, listBtn) {
+  const who = { id: p.id, name: p.name };
+  const moves = (p.moves || []).filter((m) => m.k !== "list_add" && m.k !== "list_remove");
+  const main = moves.filter((m) => m.main).slice(0, 4);
+  const rest = moves.filter((m) => !main.includes(m));
+  if (p.links && p.links.length) rest.push({ k: "links", t: "Dynamic Links" });
+  const more = rest.length ? `<button class="st-btn glass" data-act="pmore" data-id="${p.id}" data-name="${esc(p.name)}" data-moves="${esc(JSON.stringify(rest))}">More ▾</button>` : "";
+  return `${main.map((m, k) => moveBtn(m, who, k === 0 ? "st-btn primary" : "st-btn glass")).join("")}${listBtn}${more}`;
+}
 // His path at your place (lane 7, SK64): when he'd play, who's ahead of
 // him the year he arrives, his fit and who teaches him.
 PLAYER_TABS.push({
@@ -1445,7 +1708,8 @@ screens.coach = async (a) => {
   }
   return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `${!c.you && !c.your_staff && S.status && S.status.seat ? `<button class="st-btn small primary" data-act="hrhire" data-id="${a.id}" title="Interview him or make an offer for a job you have open">Hire</button>` : ""}<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? names : [...names.slice(0, -1), { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
 };
-GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
+// Hiring is your staff screen's tab (people.js): only a career with a job has one.
+GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, S.status && S.status.mine && screens.people_staff ? ["Hiring", "people_staff", { tab: "Hiring" }] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
 
 const STYLE = [["risk", "Risk", "Conservative", "Aggressive"], ["freedom", "Structure or freedom", "Do your job", "Freelance"], ["physical", "Physical", "Protective", "Physical"], ["ball_hunting", "Ball hunting", "Sound", "Ball hunting"], ["mould", "Mould or adapt", "Adapt to him", "Mould him"]];
 screens.you = async (a) => {
@@ -1496,11 +1760,15 @@ screens.team = async (a) => {
   const news = t.news.length ? `<div class="items">${t.news.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><small class="muted">${esc(n.kind)}</small> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing in the last two months.</div>';
   return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(t.level)}</div><h1>${esc(t.name)}</h1>
     <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}${t.coach ? `<span>Head coach ${coachLink(t.coach.id, t.coach.name)}</span>` : ""}</div>
-    <div class="st-actions">${linkTo("roster", ta, "Roster", "st-btn glass")}${linkTo("schedule", ta, "Schedule", "st-btn glass")}${linkTo("staff", ta, "Staff", "st-btn glass")}${logoChange(t)}</div></div></div>
+    <div class="st-actions">${logoChange(t)}</div></div></div>
     <div class="pad">${gotoFor("team", a, t)}<div class="grid2"><div class="col"><div class="panel"><h2>Lately</h2>${news}</div>${leaders}</div>
     <div class="col"><div class="panel"><h2>Seasons</h2>${seasons}</div>${t.rivals.length ? `<div class="panel"><h2>${pro ? "Division" : t.ref.kind === "hs" ? "Its group" : "Rivals"}</h2><div class="chips">${t.rivals.map((r) => teamChip(r, 20)).join("")}</div></div>` : ""}</div></div></div>`;
 };
-GOTO.team = (a, t) => [["Standings", "standings"], t.ref && t.ref.kind === "college" ? ["Leaderboards", "leaders"] : null, ["History", "history"]];
+// The team's own screens are Go to chips, not hero buttons (topic 17 rule 7).
+GOTO.team = (a, t) => {
+  const ta = t.ref ? { kind: t.ref.kind, id: t.ref.id } : {};
+  return [["Schedule", "schedule", ta], ["Standings", "standings"], ["Squad", "roster", ta], ["Staff", "staff", ta], ["History", "history"]];
+};
 
 // ---------- news feeds (topic 9 on screen) ----------
 const FEEDS = [["beat", "Beat writers"], ["national", "National"], ["recruits", "Recruiting"], ["level", "Your level"], ["fans", "Fans"]];
