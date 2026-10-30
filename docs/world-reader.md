@@ -33,6 +33,20 @@ World reader lane R6 (brief `briefs/r6.md`) fills the People and Recruiting page
 - `afm_read refresh <book>` works out the distributions, checks, panels and consistency checks again (since R8; before, it left the distributions and consistency checks as built) with this reader's definitions, without reading the world again.
 - **Time and memory**: on the trial 10 world the panels take about 3.5 minutes of the book's 11 and stay under the world read's 0.7 GB memory peak; `afm_read refresh` takes under 5 minutes at 0.36 GB. Each panel's time is in `panels.seconds`.
 
+## Programs, high school and coaches (lane R7)
+
+World reader lane R7 (brief `briefs/r7.md`) fills the Programs, High school and Coaches pages: inventory areas C1-C17, C19-C27, C42, T13 and S1-S34, with R6's four layers. The definitions are in `defs_programs.rs`.
+
+- **Panels**: 203 more. Programs (62): programs by level against the real count, every program and its story, prestige and its spread by year, the 12 grades, points and win rates by level, droughts, champions and how many different ones, conference titles and strength, crowds and game days, rivalries, polls, bowls and playoffs, roster limits and NCAA cases, long roads and admissions, rosters by position, the strongest 22s, draft picks by program and conference, school records, news, moves between levels, NIL collectives. High school (40): schools per state against the real count, the real top five of each state, powerhouses and the national ones, prestige and money, champions and brackets, streaks, all-state picks, spring ball, coaches' years and titles, how often a school changes head coach, transfers and the sit-out rule, points by state, season leaders and the state record books, spending by state (R8 has each school's books). Coaches (88): age, heritage and where each came up, the hidden parts by level and age (debug), personality against moves and health, reputation against true value, buzz, how long jobs last and how they end, the carousel against real, every search and review with its why, trees, unit records, poor coaching, systems and what teams run, play callers, each team's calls, the engine's what-beats-what table, ideas spreading, pay and contracts, NFL staffs, new staff, support staff, retirements and health, ties to high schools, the Hall of Fame, other leagues, the rule books, prep and rust, agents. Money (4) and NFL (2) pages get the collectives and NFL staffs.
+- **Checks**: 22 more against real (FBS programs, champions unbeaten and from outside the power conferences, conference titles in 15 years, points, postseason games, crowds, quarterbacks a roster, colleges with a pick, FCS moving up, high schools, state champions, the longest streak, high school season records, new FBS head coaches, tenure, second FBS jobs, NFL head coach changes and tenure) and 9 consistency rules (college and high school wins equal losses each season, grades within 55-99, every national title has its news, each school's title count matches its seasons, one champion per class, a coach's head jobs never overlap by more than a season, his college record equals his program seasons, and his age counts from his birth date).
+- **Conference pages**: `conference <name>` is the panels filed under it (its line, members, standings, champions, titles by member, members by season, strength), cut to that conference, with its own verdict line.
+- **Packed log columns**: the coaches, programs and schools log rows now keep the columns these pages read (a coach's role, employer, reputation, retirement and hidden parts; a program's expected and real wins; a school's prestige), so a career reads without unpacking.
+- **Indexes**: `people(hs)`, `people(college)`, `coaches(mentor)` and `news__refs` by program, coach and club. Child tables' `_parent` is untyped, so a lookup against a row number is written `x._parent = +p._row` to use the index.
+- **The engine's what-beats-what table**: `engine_call_values` (concept, look, yards) is `crates/afm-engine/data/call_values.csv`, read when the book is built.
+- **Not stored**: S15 (head coach guidelines) and S33 (road marks) are worked out by the engine and kept nowhere; the coverage page says so.
+- **Generator**: `defs_programs.rs` is written by `tools/reader-defs/r7/gen.py` from the Python beside it.
+- **Time and memory**: on the trial 10 world (no logs) the book takes 7 min 10 s (5 min 27 s before this lane), 4.11 GB, at a 0.72 GB memory peak; this lane's panels and checks take about 75 s of it. `afm_read refresh` takes 3 min 16 s.
+
 ## Games, the NFL, money, world and time (lane R8)
 
 World reader lane R8 (brief `briefs/r8.md`) fills the Games and stats, NFL, Money and World and time pages: inventory areas G1-G38, N1-N44, N48 and T9, each with the four layers (verdict, checks as tiles, panels, a way down to rows and pages). The definitions are `defs_games.rs`, `defs_nfl.rs` and `defs_world.rs`.
@@ -81,6 +95,18 @@ The library gives the same pages to the app: `Book::open`, `book.text(page, &Fil
 - Conduct cases by kind are read from the words of career-note lines (DUI, assault, domestic, drugs, weapons, theft, PEDs, gambling, dismissed).
 - Keyed tables keep the top rows per key: the class page's 60 best 4- and 5-stars, the state page's 40 strongest pipelines.
 - Where a check's real figure is the design's target and not a sourced number (college trouble 3%, high school 1.2%, morale's 15%, specialists' stars), the source says "design".
+
+### Lane R7's picks, proposed, not confirmed
+
+- How long a head coach lasts is counted from runs of the season's coach in the program and NFL season rows, not from his job records, whose years overlap a season at each end (and by two after a move before fall camp: minor bug 128).
+- A coach's college record is checked against his program seasons, leaving out men fired during a season and allowing the one bowl game a December hire may coach.
+- A retired coach's age stops in the world file, so ages by year count from his birth date, else from the year he was last aged.
+- A power program by era is the engine's own list (`world/voters.rs` power_conf) plus Notre Dame.
+- The real number of high school champions a year (350) is counted from `hs_playoff_formats.csv`: each state's classes, doubled where public and private schools crown their own, plus open divisions.
+- Where only a design target exists (the engine's caller swing, a coach's value weights), it shows as a design column, never as real.
+- High school season records (sacks about 40, interceptions 12) and the longest streak (151, De La Salle) are from memory, as trial 10 had them.
+- A national powerhouse's out-of-state players are counted by home state: a boarder keeps his home, a family that moves takes the new state. The moves the career notes name show where the rest came from.
+- The roster against the limit is a panel, not a rule: the ledger counts the roster on signing day, and real programs trim to the House settlement's 105 before the season.
 
 ### Lane R8's picks, proposed, not confirmed
 

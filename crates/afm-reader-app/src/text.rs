@@ -13,6 +13,8 @@ fn s(v: &Value) -> String {
     match v {
         Value::Null => String::new(),
         Value::String(x) => x.clone(),
+        // A linked cell (lane R7): its words.
+        Value::Object(m) if m.contains_key("t") => s(&m["t"]),
         x => fmt(x),
     }
 }

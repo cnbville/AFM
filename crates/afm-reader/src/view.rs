@@ -271,6 +271,7 @@ impl Book {
             "panel" => panel_page(self, &arg, None, f),
             "class" => panel_page(self, "class", Some(("class", &arg)), f),
             "state" => panel_page(self, "state", Some(("state", &arg.to_ascii_uppercase())), f),
+            "conference" => panel_page(self, "conference", Some(("conference", &arg)), f),
             "search" => search(self, &arg, f),
             "sql" => {
                 let mut v = View { page: "sql".into(), title: "SQL".into(), ..Default::default() };
@@ -284,7 +285,7 @@ impl Book {
                     "Pages: overview, ".to_string()
                         + &PAGES.iter().skip(1).map(|p| p.id).collect::<Vec<_>>().join(", "),
                 );
-                v.verdict.push("Also: area <code>, panel <id>, class <year>, state <XX>, checks, check <id>, odd, issues, knobs, coverage, tables, table <name>, dist <metric>, record <table> <row>, person|alumnus|coach|program|school|club <id>, search <text>, sql <query>".into());
+                v.verdict.push("Also: area <code>, panel <id>, class <year>, state <XX>, conference <name>, checks, check <id>, odd, issues, knobs, coverage, tables, table <name>, dist <metric>, record <table> <row>, person|alumnus|coach|program|school|club <id>, search <text>, sql <query>".into());
                 v
             }
         }
@@ -483,13 +484,17 @@ fn area(b: &Book, code: &str, f: &Filters) -> View {
     v
 }
 
-/// One panel, or every panel of an entity page (`class`, `state`) with
+/// One panel, or every panel of an entity page (`class`, `state`, `conference`) with
 /// only the rows for its key.
 fn panel_page(b: &Book, what: &str, key: Option<(&str, &str)>, f: &Filters) -> View {
     let mut v = View { page: format!("{what} {}", key.map_or("", |k| k.1)), ..Default::default() };
     match key {
         Some((col, val)) => {
-            v.title = if what == "class" { format!("The class of {val}") } else { format!("State {val}") };
+            v.title = match what {
+                "class" => format!("The class of {val}"),
+                "state" => format!("State {val}"),
+                _ => val.to_string(),
+            };
             let ids: Vec<String> = b
                 .rows(&format!("SELECT id FROM panels WHERE page = {} ORDER BY rowid", lit(what)))
                 .map(|(_, r)| r.iter().map(|x| cell(&x[0])).collect())
