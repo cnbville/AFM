@@ -516,6 +516,17 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
                 None => format!("Non-football injury list, {back}"),
             }
         });
+    // Another team's player hurt in a game or practice (update 3, A1, F13).
+    let hurt = hurt.or_else(|| {
+        w.training.other_hurt(p.player.id, w.today).map(|(until, kind)| {
+            let days = w.today.days_to(until);
+            let back = if days <= 7 { format!("{days} d") } else { format!("{} wk", (days + 6) / 7) };
+            match kind {
+                Some(k) => format!("Injured ({}), {back}", k.name().to_lowercase()),
+                None => format!("Out, {back}"),
+            }
+        })
+    });
     if let Some(c) = &p.pro {
         use afm_engine::world::pro::Status;
         let s = match c.status {
@@ -608,8 +619,8 @@ pub(crate) fn mood_words(p: &Person) -> &'static str {
 pub(crate) fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
     let p = &w.people[k];
     let pos = p.player.position;
-    let eye = if own { eye_for(w, t, pos) } else { 10.0 };
-    let ovr = reads::overall(&p.player, own, eye, reader);
+    let _ = (t, own, reader);
+    let seen = reads::seen(w, k);
     let notes = w.notes_on(p.player.id).len();
     let starter = p.last_role == Some(PlayingTime::Starter);
     json!({
@@ -623,7 +634,8 @@ pub(crate) fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Va
         "wt": body_now(&p.player).weight.round(),
         "stars": p.stars,
         "home": hometown(w, p),
-        "ovr": ovr.json(),
+        "ovr": seen.overall().json(),
+        "yours": seen.mine().json(),
         "status": status_text(w, p),
         "mood": mood_words(p),
         "starter": starter,
@@ -672,20 +684,33 @@ pub fn status(w: &World) -> Value {
         "draft_live": w.scouting.live.is_some(),
         // Your stories waiting on you (This week's badge).
         "stories_need": crate::lane_storylines::need_count(w),
+        // A team in its year before the first game (lane 10, SK68).
+        "ground": crate::lane_groundzero::status(w),
     })
 }
 
-/// The next dated moments on your calendar (for the Continue bar).
+/// The next dated moments on your calendar (for the Continue bar): the big
+/// ones that matter to you and the days at your level Continue stops on.
 pub(crate) fn next_dates(w: &World, n: usize) -> Vec<Value> {
     let seat = w.seat;
-    w.calendar
+    let mut v: Vec<(Date, String)> = w
+        .calendar
         .events
         .range(w.today..)
         .flat_map(|(d, evs)| evs.iter().map(move |e| (d, e)))
         .filter(|(_, e)| e.loud >= Loudness::Big && seat.is_none_or(|s| s.cares(e)))
         .take(n)
-        .map(|(d, e)| json!({ "date": date_text(*d), "in": w.today.days_to(*d), "text": e.text }))
-        .collect()
+        .map(|(d, e)| (*d, e.text.clone()))
+        .collect();
+    let to = if v.len() >= n { v[v.len() - 1].0 } else { w.today.add(120) };
+    for (d, name) in w.your_days(w.today, to) {
+        if !v.iter().any(|x| x.0 == d) {
+            v.push((d, name));
+        }
+    }
+    v.sort_by_key(|x| x.0);
+    v.truncate(n);
+    v.into_iter().map(|(d, text)| json!({ "date": date_text(d), "in": w.today.days_to(d), "text": text })).collect()
 }
 
 pub(crate) fn pinned(w: &World) -> Vec<Value> {
@@ -867,7 +892,10 @@ pub(crate) fn followed(w: &World) -> Vec<Value> {
 pub(crate) fn where_now(w: &World, p: &Person) -> String {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => w.school_name(p.hs).to_string(),
-        Stage::College => p.college.map_or("College".into(), |c| w.program_name(c).to_string()),
+        Stage::College => match (p.college, p.cut_here()) {
+            (Some(c), Some(_)) => format!("Cut by {}, waiting for the transfer window", w.program_name(c)),
+            (c, _) => c.map_or("College".into(), |c| w.program_name(c).to_string()),
+        },
         Stage::Declared => "Draft pool".into(),
         Stage::Pro => match p.pro.as_ref().map(|c| (c.team, c.status)) {
             Some((Some(t), _)) => w.nfl_team_name(t),
@@ -1171,9 +1199,22 @@ pub fn news(w: &World, args: &Value) -> Value {
         w,
         wire.iter().flat_map(|(_, e)| e.refs.iter()).chain(desk.iter().flat_map(|(n, _)| n.refs.iter())),
     );
+    let me = mine(w);
     for (d, e) in wire {
         let parts = link.parts(w, &e.text, &e.refs, e.program, e.nfl_team);
-        items.push(json!({ "date": date_text(*d), "text": e.text, "parts": parts, "level": format!("{:?}", e.level), "loud": e.loud.name() }));
+        // H6: a line about one of your people says why, as your staff sees it.
+        let why = me.filter(|_| ours(e)).and_then(|t| {
+            // One person's story only: a roundup of five commitments has no single why.
+            let mut people = e.refs.iter().filter_map(|r| match r.to {
+                afm_engine::calendar::Link::Person(id) => Some(id),
+                _ => None,
+            });
+            match (people.next(), people.next()) {
+                (Some(id), None) => crate::lane_help::news_why(w, t, *d, id),
+                _ => None,
+            }
+        });
+        items.push(json!({ "date": date_text(*d), "text": e.text, "parts": parts, "level": format!("{:?}", e.level), "loud": e.loud.name(), "why": why }));
     }
     for (n, college) in desk {
         let level = if college { "College" } else { "Nfl" };
@@ -1739,6 +1780,23 @@ pub(crate) fn reputation_words(r: f64) -> &'static str {
     }
 }
 
+/// A coach's name (C10): what fans, boosters, recruits and small schools
+/// know of him, apart from his standing in the trade.
+pub(crate) fn name_words(r: f64) -> &'static str {
+    match r {
+        x if x >= 16.0 => "A household name",
+        x if x >= 12.0 => "Well known",
+        x if x >= 8.0 => "Known in football circles",
+        x if x >= 4.0 => "Little known outside the game",
+        _ => "Unknown to the public",
+    }
+}
+
+/// What a coach did as a player (C1), in words.
+pub(crate) fn played_words(w: &World, c: usize) -> Option<String> {
+    w.coaches[c].played.map(|p| format!("Played: {}", p.words(w)))
+}
+
 /// What a coach came up as: his first group, or for you, your road in.
 pub(crate) fn came_up(w: &World, c: usize) -> String {
     match &w.career {
@@ -1765,6 +1823,8 @@ pub(crate) fn coach_row(w: &World, c: usize, role: &str) -> Value {
         "role": role,
         "age": co.age_on(w.today),
         "reputation": reputation_words(co.reputation),
+        "renown": name_words(co.name_value()),
+        "played": played_words(w, c),
         "came_up": came_up(w, c),
         "record": job_record(w, c),
         "since": co.job.map(|j| j.since),
@@ -1790,6 +1850,7 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
                     rows.push(coach_row(w, c, g.coach_title()));
                 }
             }
+            juniors(w, Employer::College(i), &mut rows);
         }
         TeamRef::Nfl(i) => {
             let tm = &w.nfl[i];
@@ -1800,10 +1861,16 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
                     rows.push(coach_row(w, c, role));
                 }
             }
+            juniors(w, Employer::Nfl(i), &mut rows);
         }
         TeamRef::HighSchool(i) => {
-            if let Some(c) = w.high_schools[i].coach {
-                rows.push(coach_row(w, c, "Head coach"));
+            let s = &w.high_schools[i];
+            // An AI school's coordinators are coaches of the world (C37).
+            for (c, role) in [(s.coach, "Head coach"), (s.oc, "Offensive coordinator"), (s.dc, "Defensive coordinator")]
+            {
+                if let Some(c) = c {
+                    rows.push(coach_row(w, c, role));
+                }
             }
             // Your own assistants: teachers who coach for a stipend.
             if is_mine(w, t)
@@ -1840,6 +1907,18 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
     json!({ "team": team_brief(w, t), "rows": rows })
 }
 
+/// A team's graduate assistants, analysts and quality-control coaches
+/// (lane 18, C36): real coaches you can read and hire.
+fn juniors(w: &World, e: Employer, rows: &mut Vec<Value>) {
+    for c in afm_engine::world::staff::juniors_of(w, e) {
+        if let Some(j) = w.coaches[c].junior_now() {
+            let post = j.post.name();
+            let title = format!("{}{} ({})", post[..1].to_uppercase(), &post[1..], j.group.name());
+            rows.push(coach_row(w, c, &title));
+        }
+    }
+}
+
 pub fn coach(w: &World, c: usize) -> Result<Value, String> {
     let co = w.coaches.get(c).ok_or("No such coach.")?;
     let job = co.job.map(|j| {
@@ -1847,6 +1926,14 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
         let name = employer_name(w, j.employer);
         let record = (j.role == Role::HeadCoach).then(|| job_record(w, c));
         json!({ "team": team["ref"], "name": name, "role": j.role.name(), "since": j.since, "record": record })
+    });
+    // A graduate assistant, analyst or quality-control coach (C36).
+    let job = job.or_else(|| {
+        co.junior_now().map(|j| {
+            let team = employer_brief(w, j.employer);
+            let role = format!("{} ({})", j.post.name(), j.group.name());
+            json!({ "team": team["ref"], "name": employer_name(w, j.employer), "role": role, "since": j.since, "record": null })
+        })
     });
     // Records are kept from the first season of recorded history: a job
     // that began before it counts its games from then.
@@ -1872,6 +1959,7 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
     let mentor = co.mentor.and_then(|m| w.coaches.get(m)).map(|m| json!({ "id": m.id, "name": m.name }));
     Ok(json!({
         "id": c, "name": co.name, "age": co.age_on(w.today), "reputation": reputation_words(co.reputation),
+        "renown": name_words(co.name_value()), "played": played_words(w, c),
         "came_up": came_up(w, c), "ex_pro": co.ex_pro, "job": job, "history": history,
         "mentor": mentor, "titles": co.career_titles,
         "you": w.career.as_ref().is_some_and(|k| k.coach == c),
@@ -1904,11 +1992,7 @@ pub fn depth(w: &World) -> Value {
         .map(|&pos| {
             let mut own: Vec<usize> = people.iter().copied().filter(|&k| w.people[k].player.position == pos).collect();
             // Without a game team (too few players to dress), the staff's read.
-            let eye = eye_for(w, t, pos);
-            let read = |k: usize| match reads::overall(&w.people[k].player, true, eye, reader) {
-                reads::Read::Range(lo, hi) => lo as f64 + hi as f64,
-                reads::Read::NotSeen => 0.0,
-            };
+            let read = |k: usize| reads::centre(w, k).unwrap_or(0.0);
             own.sort_by(|&a, &b| read(b).total_cmp(&read(a)));
             let mut list: Vec<usize> = game
                 .as_ref()
@@ -1963,7 +2047,8 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     // His body now: a boy still growing is smaller than the man he becomes.
     let body = body_now(&p.player);
     let eye = team.filter(|_| own).map_or(10.0, |t| eye_for(w, t, pos));
-    let attrs = reads::attributes(&p.player, own, eye, reader);
+    let attrs = reads::attributes(w, k);
+    let mine_attrs = reads::mine_attributes(w, k);
     let groups: Vec<Value> = [
         (Category::Physical, "Physical"),
         (Category::Passing, "Passing"),
@@ -1978,12 +2063,11 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     .map(|&(cat, name)| {
         json!({
             "name": name,
-            "attrs": attrs.iter().filter(|(a, _)| a.category() == cat).map(|(a, r)| json!({ "key": a.key(), "label": a.label(), "read": r.json() })).collect::<Vec<_>>(),
+            "attrs": attrs.iter().zip(&mine_attrs).filter(|((a, _), _)| a.category() == cat).map(|((a, r), (_, m))| json!({ "key": a.key(), "label": a.label(), "read": r.json(), "yours": m.json() })).collect::<Vec<_>>(),
         })
     })
     .collect();
-    let level = level_of(w, p);
-    let potential = if own { reads::potential_words(&p.player, eye, level, reader, w.year) } else { Value::Null };
+    let potential = reads::potential_words(w, k);
     // Each season's team: his high school, his college in the order of his
     // college seasons (the coaches' book has one row a season), his NFL club.
     let college = |l: Level| matches!(l, Level::FBS | Level::FCS | Level::SmallCollege);
@@ -2081,7 +2165,11 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "stars": p.stars,
         "status": status_text(w, p),
         "mood": mood_words(p),
-        "ovr": reads::overall(&p.player, own, eye, reader).json(),
+        "ovr": reads::overall(w, k).json(),
+        "yours": reads::mine(w, k).json(),
+        "yours_looks": reads::seen(w, k).mine_looks,
+        "stake": stake_json(w, k),
+        "pitch": pitch_json(w, k),
         "potential": potential,
         "groups": groups,
         "tendencies": tendencies,
@@ -2119,7 +2207,7 @@ pub(crate) fn born_text(d: Date) -> Option<String> {
 pub(crate) fn team_of(w: &World, p: &Person) -> Option<TeamRef> {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => Some(TeamRef::HighSchool(p.hs)),
-        Stage::College => p.college.map(TeamRef::College),
+        Stage::College => p.college.filter(|_| p.cut_here().is_none()).map(TeamRef::College),
         Stage::Pro => p.pro.as_ref().and_then(|c| c.team).map(TeamRef::Nfl),
         _ => None,
     }
@@ -2368,7 +2456,15 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
             let fouls: Vec<String> = r
                 .penalties
                 .iter()
-                .map(|(f, _, id, y, _)| format!("{} on {}, {} yards", f.name(), name(*id), y.round()))
+                .map(|(f, _, id, y, _)| {
+                    format!(
+                        "{} on {}, {} {}",
+                        f.name(),
+                        name(*id),
+                        y.round(),
+                        afm_engine::world::folk::noun(y.round() as i64, "yard")
+                    )
+                })
                 .collect();
             format!("Penalty before the snap: {}", fouls.join("; "))
         }
@@ -2411,10 +2507,11 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
     if r.kind != PlayType::NoPlay {
         for (f, _, id, y, accepted) in &r.penalties {
             t.push_str(&format!(
-                ". Flag: {} on {}, {} yards{}",
+                ". Flag: {} on {}, {} {}{}",
                 f.name(),
                 name(*id),
                 y.round(),
+                afm_engine::world::folk::noun(y.round() as i64, "yard"),
                 if *accepted { "" } else { ", declined" }
             ));
         }
@@ -2755,4 +2852,40 @@ pub fn contracts(w: &World) -> Value {
         "room": (pro::money::price_cap(w.year) + carry - counted - dead).round(),
         "top51": top51,
     })
+}
+
+/// Your stake on him (SK40): whether you can stake your name on him here,
+/// and the call you made if you did.
+fn stake_json(w: &World, k: usize) -> Value {
+    use afm_engine::calendar::Level as L;
+    let p = &w.people[k];
+    let can = match w.seat.map(|s| s.level) {
+        Some(L::Nfl) => matches!(p.stage, Stage::College | Stage::Declared) && p.pro.is_none(),
+        Some(L::College) => matches!(p.stage, Stage::HighSchool | Stage::PrepSchool),
+        _ => false,
+    };
+    let on = afm_engine::world::scouting::stake::on(w, p.player.id).map(|s| {
+        json!({ "date": date_text(s.date), "public": s.public, "done": s.done, "hit": s.settled, "turned": s.turned })
+    });
+    json!({ "can": can, "on": on })
+}
+
+/// Your pitch to his family (SK42): whether a high school coach can try to
+/// bring him to his school, and where it stands if he did.
+fn pitch_json(w: &World, k: usize) -> Value {
+    let p = &w.people[k];
+    let Some(h) = afm_engine::world::front_office::school::your_school(w) else { return Value::Null };
+    let can = p.stage == Stage::HighSchool
+        && p.hs != h
+        && p.class_of > w.dates.season
+        && w.high_schools.get(p.hs).map(|x| x.state) == w.high_schools.get(h).map(|x| x.state);
+    let on = w
+        .scouting
+        .pitches
+        .list
+        .iter()
+        .rev()
+        .find(|x| x.id == p.player.id)
+        .map(|x| json!({ "date": date_text(x.date), "moved": x.moved, "done": x.done }));
+    json!({ "can": can, "on": on })
 }

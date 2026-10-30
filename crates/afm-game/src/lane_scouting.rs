@@ -49,6 +49,17 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             follow(w, pid, &text("why"))?;
             scout_file(w, pid)
         })(),
+        "hs_pitch" => (|| {
+            let pid = id()?;
+            let w = game.wm()?;
+            Ok(json!({ "text": afm_engine::world::scouting::pitch::pitch(w, pid)? }))
+        })(),
+        "stake_name" => (|| {
+            let pid = id()?;
+            let w = game.wm()?;
+            let public = args.get("public").and_then(Value::as_bool).unwrap_or(false);
+            Ok(json!({ "text": afm_engine::world::scouting::stake::stake(w, pid, public)? }))
+        })(),
         "unfollow" => (|| {
             let pid = id()?;
             let w = game.wm()?;
@@ -594,6 +605,9 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
     // he becomes).
     let now = afm_engine::body::body_now(&p.player);
     let measured = looks.iter().any(|l| matches!(l.kind, Kind::Combine | Kind::ProDay | Kind::Camp | Kind::Showcase));
+    let film_now = sc::own::film_cost(w, p.player.id)
+        .ok()
+        .map(|(_, h, what)| json!({ "hours": h, "what": what, "left": sc::own::film_left(w), "week": sc::own::film_budget(w), "blocked": sc::own::film_blocked(w, p.player.id) }));
     Ok(json!({
         "id": id,
         "name": p.name,
@@ -644,14 +658,18 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         "brand": if p.brand > 0.0 { Some(p.brand.round()) } else { None },
         "followers_n": followers,
         "nil": if p.nil_income > 0.0 { Some(p.nil_income.round()) } else { None },
-        "can_ask": ask_kinds(w, p),
+        "can_ask": ask_kinds(w, p).into_iter().filter(|k| *k != "Watch his film now").collect::<Vec<_>>(),
     }))
+    .map(|mut v: Value| {
+        v["film_now"] = film_now.unwrap_or(Value::Null);
+        v
+    })
 }
 
 /// The looks you can ask your staff for on this player, by your seat.
 fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
     let Some(s) = w.seat else { return Vec::new() };
-    match s.level {
+    let mut v = match s.level {
         CalLevel::Nfl if matches!(p.stage, Stage::College | Stage::Declared) => {
             vec!["See him again", "Cross-check", "Private workout", "Background check", "Medical recheck"]
         }
@@ -661,7 +679,12 @@ fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
         }
         CalLevel::College => vec!["Film study", "Call his old staff", "Transcript"],
         _ => Vec::new(),
+    };
+    // Bug 82: you watch his film yourself, today, on your own hours.
+    if sc::own::film_cost(w, p.player.id).is_ok() {
+        v.insert(0, "Watch his film now");
     }
+    v
 }
 
 fn ask(w: &mut World, id: u32, what: &str) -> Result<String, String> {
@@ -669,6 +692,7 @@ fn ask(w: &mut World, id: u32, what: &str) -> Result<String, String> {
     let name = p.name.clone();
     let d = w.today;
     let kind = match what {
+        "Watch his film now" => return sc::own::watch_film(w, id),
         "See him again" => Kind::School,
         "Cross-check" => Kind::CrossCheck,
         "Private workout" => Kind::Workout,
@@ -1124,7 +1148,7 @@ pub fn draft_board(w: &World) -> Reply {
     let grades = board::seat_grades(w);
     let order = board::ordered(w, &grades);
     let public = board::public_ranks(w);
-    let teams = afm_engine::world::franchise::active_teams(w.year).len().max(1);
+    let teams = afm_engine::world::franchise::active_teams_in(w, w.year).len().max(1);
     let b = &w.scouting.board;
     let taken: HashSet<u32> = w
         .scouting
@@ -1319,7 +1343,7 @@ pub fn war_room(w: &World) -> Reply {
     let order = board::ordered(w, &grades);
     let left: HashSet<u32> = run.pool.iter().map(|x| w.people[x.0].player.id).collect();
     let public: HashMap<u32, usize> = run.public_rank.iter().map(|(&i, &r)| (w.people[i].player.id, r)).collect();
-    let teams = afm_engine::world::franchise::active_teams(run.year).len().max(1);
+    let teams = afm_engine::world::franchise::active_teams_in(w, run.year).len().max(1);
     let b = &w.scouting.board;
     // Your board, still there, best first.
     let board_rows: Vec<Value> = order
@@ -1588,7 +1612,7 @@ pub fn predraft_view(w: &World) -> Reply {
         ["Senior Bowl", date_text(jan.senior_bowl)],
         ["Combine", date_text(dates.combine_start)],
         ["Pro days", "March to mid-April"],
-        ["Top-30 visits deadline", date_text(dates.draft[0].date.add(-10))],
+        ["Top-30 visits deadline", date_text(dates.top30_deadline)],
         ["The draft", date_text(dates.draft[0].date)],
     ]);
     Ok(
@@ -1695,7 +1719,7 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
         .take(20)
         .map(|s| json!({ "year": s.year, "id": s.player, "name": s.name, "team": s.team.map(|t| team_brief(w, TeamRef::Nfl(t))), "round": s.round }))
         .collect();
-    let clubs: Vec<Value> = afm_engine::world::franchise::active_teams(w.year)
+    let clubs: Vec<Value> = afm_engine::world::franchise::active_teams_in(w, w.year)
         .into_iter()
         .filter(|&c| c != t)
         .map(|c| team_brief(w, TeamRef::Nfl(c)))

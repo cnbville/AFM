@@ -70,6 +70,9 @@ pub(crate) fn year_book(w: &mut World) {
 /// A grudge born from being cut or traded (topic 2): strong when it hurt
 /// (years there), with ego and temper; loyalty and stability soften it.
 pub(crate) fn grudge(p: &mut Person, team: usize, hurt: f64) {
+    if hurt <= 0.0 {
+        return;
+    }
     let t = &p.player.personality.traits;
     let s = hurt * (6.0 + 3.0 * t.z(Trait::Ego) + 3.0 * t.z(Trait::Temper) - 2.0 * t.z(Trait::Loyalty))
         - 0.15 * (p.bg.stability - 10.0);
@@ -141,7 +144,8 @@ impl Support {
 }
 
 fn hire(rng: &mut Rng, year: i32, budget: f64, era: f64) -> Staffer {
-    let eth = if rng.chance(0.3) { super::ethnicity::Ethnicity::Black } else { super::ethnicity::Ethnicity::White };
+    // Minor bug 19: support staff of every background, as the scouts.
+    let eth = super::pro::scouts::staff_ethnicity(rng, year);
     let name = super::names::person_name(eth, year - rng.int(28, 58), rng);
     let rating = clamp(rng.normal(5.5 + 7.0 * budget + 2.0 * era, 2.8), 1.0, 20.0).round() as u8;
     Staffer { name, rating, since: year }
@@ -182,7 +186,7 @@ pub(crate) fn staff_support(w: &mut World) {
         engage(&mut s.engagement, w.options.seed ^ 0xE16A_0000 ^ k as u32, year, budget, era);
     }
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let budget = super::finance::nfl::spend_level(w, t);
@@ -195,6 +199,38 @@ pub(crate) fn staff_support(w: &mut World) {
         }
         engage(&mut s.engagement, w.options.seed ^ 0xE16B_0000 ^ t as u32, year, budget, era);
     }
+}
+
+/// A new team's first heads (lane 10, SK68), hired the day it is founded
+/// rather than at the next camp: an expansion club's (`Some(t)`) or a
+/// college's starting football (`None`, with its program).
+pub(crate) fn first_hires(w: &mut World, club: Option<usize>, program: usize) {
+    let year = w.year;
+    let era = clamp((year - 1996) as f64 / 30.0, 0.0, 1.0);
+    let key = club.map_or(program as u32, |t| 0x8000 ^ t as u32);
+    let mut rng = Rng::new(w.options.seed ^ 0x5077_0E11 ^ key.wrapping_mul(7919) ^ year as u32);
+    let (budget, s) = match club {
+        Some(t) => (super::finance::nfl::spend_level(w, t), &mut w.clubs[t].support),
+        None => {
+            let prog = &w.programs[program];
+            let div = if prog.division == super::data::Division::FCS { 0.75 } else { 0.5 };
+            (clamp(0.25 + 0.75 * prog.facilities, 0.0, 1.0) * div, &mut w.programs[program].support)
+        }
+    };
+    let mut posts = vec![&mut s.strength, &mut s.medical, &mut s.analytics];
+    if club.is_none() {
+        posts.push(&mut s.academic);
+    }
+    for post in posts {
+        if post.rating == 0 {
+            *post = hire(&mut rng, year, budget, era);
+        }
+    }
+    let key = match club {
+        Some(t) => 0xE16B_0000 ^ t as u32,
+        None => 0xE16A_0000 ^ program as u32,
+    };
+    engage(&mut s.engagement, w.options.seed ^ key, year, budget, era);
 }
 
 /// The player engagement post (update 2, Q4): filled when empty, turning
@@ -478,7 +514,7 @@ pub(crate) fn pro_mood(w: &mut World) {
     let year = w.year;
     let mut read_ids = Vec::new();
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let roster: Vec<usize> = w.clubs[t]

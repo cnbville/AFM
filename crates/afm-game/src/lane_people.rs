@@ -120,7 +120,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_boss" => Ok(boss_page(w)),
         "people_boss_meeting" => boss::request_meeting(w).map(|sid| json!({ "scene": sid })),
         "people_staff" => Ok(staff(w)),
-        "people_candidates" => role_arg(args).map(|r| candidates(w, r)),
+        "people_candidates" => role_arg(args).map(|r| crate::lane_hiring::search(w, r, args)),
         "people_interview" => (|| {
             let c = num(args, "coach")? as usize;
             let r = role_arg(args)?;
@@ -129,9 +129,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_offer" => (|| {
             let c = num(args, "coach")? as usize;
             let r = role_arg(args)?;
-            let salary = args.get("salary").and_then(Value::as_f64).ok_or("Missing salary.")?;
-            let years = args.get("years").and_then(Value::as_i64).unwrap_or(2) as i32;
-            let text = staffing::offer(w, c, r, salary, years)?;
+            let text = folk::hiring::offer(w, c, r, crate::lane_hiring::terms(args)?)?;
             Ok(json!({ "text": text, "staff": staff(w) }))
         })(),
         "people_fire" => {
@@ -164,14 +162,14 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     })
 }
 
-fn num(args: &Value, k: &str) -> Result<u64, String> {
+pub(crate) fn num(args: &Value, k: &str) -> Result<u64, String> {
     args.get(k)
         .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
         .ok_or_else(|| format!("Missing {k}."))
 }
 
 /// A staff role from `{role}`: "oc", "dc" or a position group's name.
-fn role_arg(args: &Value) -> Result<Role, String> {
+pub(crate) fn role_arg(args: &Value) -> Result<Role, String> {
     let r = args.get("role").and_then(Value::as_str).ok_or("Missing role.")?;
     Ok(match r {
         "oc" => Role::OffensiveCoordinator,
@@ -182,7 +180,7 @@ fn role_arg(args: &Value) -> Result<Role, String> {
     })
 }
 
-fn group_key(g: Group) -> &'static str {
+pub(crate) fn group_key(g: Group) -> &'static str {
     match g {
         Group::QB => "qb",
         Group::RB => "rb",
@@ -195,7 +193,7 @@ fn group_key(g: Group) -> &'static str {
     }
 }
 
-fn role_key(r: Role) -> String {
+pub(crate) fn role_key(r: Role) -> String {
     match r {
         Role::OffensiveCoordinator => "oc".into(),
         Role::DefensiveCoordinator => "dc".into(),
@@ -222,7 +220,7 @@ pub(crate) fn plain(text: &str) -> String {
     out
 }
 
-fn cap(s: &str) -> String {
+pub(crate) fn cap(s: &str) -> String {
     let mut c = s.chars();
     c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
 }
@@ -240,7 +238,7 @@ fn level_key(l: Level) -> &'static str {
     }
 }
 
-fn money(d: f64) -> String {
+pub(crate) fn money(d: f64) -> String {
     if d >= 1.0e6 {
         format!("${:.2}M", d / 1.0e6)
     } else if d >= 1.0e3 {
@@ -820,7 +818,17 @@ fn staff(w: &World) -> Value {
         staffing::openings(w).into_iter().map(|r| json!({ "key": role_key(r), "name": cap(r.name()) })).collect();
     let support: Vec<Value> = staffing::drawn_staff(w, team)
         .into_iter()
-        .map(|d| json!({ "name": d.name, "title": d.title, "age": d.age, "since": d.since, "subject": d.subject, "pay": money(d.pay) }))
+        .map(|d| {
+            json!({
+                "name": d.name,
+                "link": d.coach.map(|c| folk::coach_link(w, c)),
+                "title": d.title,
+                "age": d.age,
+                "since": d.since,
+                "subject": d.subject,
+                "pay": money(d.pay),
+            })
+        })
         .collect();
     let owed: f64 = w.folk.staff.owed.iter().filter(|x| x.0 >= year).map(|x| x.1).sum();
     json!({
@@ -835,52 +843,56 @@ fn staff(w: &World) -> Value {
     })
 }
 
-fn candidates(w: &World, r: Role) -> Value {
-    let rows: Vec<Value> = staffing::candidates(w, r)
-        .into_iter()
-        .take(40)
-        .map(|c| {
-            json!({
-                "coach": c.coach,
-                "link": folk::coach_link(w, c.coach),
-                "age": c.age,
-                "now": c.now,
-                "rep": c.rep,
-                "cameUp": c.came_up,
-                "known": c.known,
-                "read": [c.read.0.round(), c.read.1.round()],
-                "asks": money(c.asks),
-                "asksValue": c.asks,
-                "blocked": c.blocked,
-                "interviewed": w.folk.staff.interviewed.iter().any(|x| x.0 == c.coach),
-            })
-        })
-        .collect();
-    json!({ "role": role_key(r), "roleName": cap(r.name()), "rows": rows })
-}
-
 /// Your coaching network: every contact with how you know him, how warm,
 /// the favours between you, and what people have said about you.
 fn contacts(w: &World) -> Value {
     let today = w.today;
     let mut list: Vec<&network::Contact> = w.folk.network.contacts.iter().collect();
     list.sort_by(|a, b| b.warmth.total_cmp(&a.warmth));
+    // Coaches and, from lane 5 (C13, C15, C19), former players in their
+    // lives after football, agents and athletic directors.
     let rows: Vec<Value> = list
         .iter()
-        .filter(|c| c.coach < w.coaches.len())
-        .map(|c| {
-            let co = &w.coaches[c.coach];
-            json!({
-                "coach": c.coach,
-                "link": folk::coach_link(w, c.coach),
-                "now": facts::team_of_coach(w, c.coach).map_or_else(|| if co.retired { "Retired".to_string() } else { "Out of work".to_string() }, |t| format!("{}, {}", cap(&facts::coach_role(w, c.coach)), t.link(w))),
+        .filter_map(|c| {
+            let (link, now, coach) = match (c.coach_id(), c.other) {
+                (Some(k), _) if k < w.coaches.len() => {
+                    let co = &w.coaches[k];
+                    let now = facts::team_of_coach(w, k).map_or_else(
+                        || if co.retired { "Retired".to_string() } else { "Out of work".to_string() },
+                        |t| format!("{}, {}", cap(&facts::coach_role(w, k)), t.link(w)),
+                    );
+                    (folk::coach_link(w, k), now, Some(k))
+                }
+                (_, Some(network::Other::Former(id))) => {
+                    let f = w.formers.get(id)?;
+                    (f.name.clone(), f.now(w), None)
+                }
+                (_, Some(network::Other::Agent(a))) => {
+                    let g = w.market.agents.get(a)?;
+                    (g.name.clone(), format!("Agent, {}", g.agency), None)
+                }
+                (_, Some(network::Other::Ad(p, since))) => {
+                    let ad = w.programs.get(p)?.ad.as_ref().filter(|a| a.since == since)?;
+                    (ad.name.clone(), format!("Athletic director, {}", Team::College(p).link(w)), None)
+                }
+                _ => return None,
+            };
+            let record = (c.record.0 > 0).then(|| {
+                format!("{} of {} {} held up", c.record.1, c.record.0, afm_engine::world::folk::noun(c.record.0, "tip"))
+            });
+            Some(json!({
+                "coach": coach,
+                "link": link,
+                "now": now,
                 "how": c.how,
                 "warmth": c.warmth,
                 "warmthWords": warmth_words(c.warmth),
                 "last": c.last.map(date_text),
                 "recent": c.recent.iter().filter(|d| d.days_to(today) < 30).count(),
                 "balance": c.balance,
-            })
+                "record": record,
+                "sent": c.sent,
+            }))
         })
         .collect();
     let ledger: Vec<Value> = w
@@ -904,6 +916,7 @@ fn contacts(w: &World) -> Value {
         .collect();
     json!({
         "rows": rows,
+        "tips": crate::lane_coaching::tips(w),
         "ledger": ledger,
         "interest": interest,
         "clinics": w.folk.network.clinics,

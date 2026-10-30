@@ -170,6 +170,7 @@ screens.scout = async (a) => {
       <h1>${esc(f.name)}</h1>
       <div class="meta"><span>${size}</span><span>Age <b>${f.age}</b></span>${boardLine ? `<span>${boardLine}</span>` : ""}</div>
       <div class="st-actions">
+        ${f.film_now ? scFilmNow(f) : ""}
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
         <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "Following" : "Follow"}</button>
         <button class="st-btn glass" data-go="player" data-id="${f.id}">Player page</button>
@@ -196,7 +197,7 @@ screens.scout = async (a) => {
 function scFileSummary(f) {
   const s = f.summary;
   if (!s) {
-    return `<div class="panel warm sc-unseen"><h2>Your staff hasn't seen him</h2><p class="sub">No film, no live look, no call. Only his listed size and what the public says are known. ${f.can_ask.length ? "Ask for a look above and he goes on your staff's list." : "Your seat can't ask for a look at him."}</p>${f.stories.length ? `<div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}</div>`;
+    return `<div class="panel warm sc-unseen"><h2>Your staff hasn't seen him</h2><p class="sub">No film, no live look, no call. Only his listed size and what the public says are known. ${f.film_now ? "Watch his film yourself now, or ask your staff for a look above." : f.can_ask.length ? "Ask for a look above and he goes on your staff's list." : "Your seat can't ask for a look at him."}</p>${f.stories.length ? `<div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}</div>`;
   }
   const hints = s.hints.length
     ? s.hints.map((h) => `<div class="sc-hint"><span class="st-pill">Hint</span><p>${esc(h.text)}</p>${h.by ? `<small>Found by ${esc(h.by)}</small>` : ""}</div>`).join("")
@@ -424,7 +425,7 @@ function scPublic(p, nfl) {
   const k = keep("sc-pub", { desk: null });
   const desk = p.desks.find((d) => d.k === k.desk) || p.desks[0];
   const prow = (r, i, moves) => `<div class="sc-prow"><b class="st-cond">${i + 1}</b><span>${scName(r.id, r.name)} <small class="sub">${esc(r.pos)} · ${esc(r.school)}</small></span>${moves && moves[i] != null && moves[i] !== 0 ? `<span class="sc-move ${moves[i] > 0 ? "up" : "down"}">${moves[i] > 0 ? "▲" : "▼"}${Math.abs(moves[i])}</span>` : "<span></span>"}</div>`;
-  const cards = p.desks.map((d) => `<button class="sc-desk ${desk && desk.k === d.k ? "on" : ""}" data-act="sc-desk" data-k="${d.k}"><span class="st-label">${esc(d.kind)}</span><b>${esc(d.name)}</b><small>${esc(d.outlet)} · since ${d.since}</small><span class="sc-dim">Leans: ${esc(d.lean)}</span><span class="sc-dim">${d.record.drafts ? `${d.record.exact} exact, ${d.record.within3} within three, over ${d.record.drafts} drafts` : "No track record yet"}</span></button>`).join("");
+  const cards = p.desks.map((d) => `<button class="sc-desk ${desk && desk.k === d.k ? "on" : ""}" data-act="sc-desk" data-k="${d.k}"><span class="st-label">${esc(d.kind)}</span><b>${esc(d.name)}</b><small>${esc(d.outlet)} · since ${d.since}</small><span class="sc-dim">Leans: ${esc(d.lean)}</span><span class="sc-dim">${d.record.drafts ? `${d.record.exact} exact, ${d.record.within3} within three, over ${scPlural(d.record.drafts, "draft")}` : "No track record yet"}</span></button>`).join("");
   return `<div class="sc-desks">${cards || scEmpty("No public desks are active this year.")}</div>
     <div class="grid3">
       <div class="panel warm"><h2>Consensus board <small>${esc(p.consensus_date || "")}</small></h2>${p.consensus.length ? `<div class="sc-plist">${p.consensus.slice(0, 32).map((r, i) => prow(r, i, p.moves)).join("")}</div>` : scEmpty("No consensus board yet.")}</div>
@@ -943,3 +944,16 @@ PLAYER_TABS.push({
     return head + scFileSummary(f);
   },
 });
+
+// Your own film session (bug 82): today, on your week's film hours; when
+// you can't, the button says why instead of failing on a click.
+function scFilmNow(f) {
+  const n = f.film_now;
+  const left = `${n.left.toFixed(1)} h left`;
+  // The film room opens either way: a full cut-up snap by snap, or quick
+  // (twenty minutes), today, on your own hours. When the quick look can't
+  // run, the button says why before you click.
+  const why = n.blocked ? (/today/.test(n.blocked) ? "watched today" : /resting/.test(n.blocked) ? "resting" : /open/.test(n.blocked) ? "cut-up open" : "hours spent") : `20 min · ${left}`;
+  const title = n.blocked ? n.blocked : `You watch his tape yourself, today, in the film room: a cut-up snap by snap or quick (20 minutes). ${n.left.toFixed(1)} of your ${n.week.toFixed(0)} film hours left this week. Read by your own eye.`;
+  return `<button class="st-btn l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now <small>${why}</small></button>`;
+}

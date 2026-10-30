@@ -281,7 +281,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
 pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bool, loud: f64) -> Venue {
     let year = w.year;
     let seed = w.options.seed as u64;
-    let era = franchise::era(home, year.min(franchise::PRESENT));
+    let era = franchise::era_in(w, home, year.min(franchise::PRESENT));
     // The club's town: its own after a move (later extras topic 1).
     let (town, st) = crate::world::finance::nfl::city(w, home, year);
     let code = if st.is_empty() { "NY" } else { st.as_str() };
@@ -314,12 +314,14 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         snow: wx.snow,
         altitude,
         crowd,
-        turf: closed,
+        // The home field's own surface (update 3, F24); a neutral site
+        // reads as turf under a roof.
+        turf: if neutral { closed } else { crate::world::finance::nfl::turf(w, home, year) },
         ..Conditions::default()
     };
     // Travel (proposed, not confirmed: the college rule's weights): miles,
     // time zones and a body clock kickoff.
-    let home_of = |t: usize| franchise::era(t, year.min(franchise::PRESENT)).map_or("NY", |e| e.state);
+    let home_of = |t: usize| franchise::era_in(w, t, year.min(franchise::PRESENT)).map_or("NY", |e| e.state);
     let wear_of = |t: usize| {
         if t == home && !neutral {
             return 0.0;
@@ -336,7 +338,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         if closed || neutral {
             return 0.0;
         }
-        let e = franchise::era(t, year.min(franchise::PRESENT));
+        let e = franchise::era_in(w, t, year.min(franchise::PRESENT));
         let usual = match e {
             Some(e) if e.roof == franchise::Roof::Dome => 72.0,
             Some(e) => crate::calendar::weather::usual_high_in(e.state, e.city, at.date),
@@ -353,6 +355,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         kickoff: at.minute as f32 / 60.0 - et_offset(code) as f32,
         indoor: neutral || closed,
         keep: w.seat_plays(crate::calendar::Level::Nfl, [home, away]),
+        playoff: false,
     }
 }
 
@@ -365,6 +368,9 @@ pub(crate) struct Fixture {
     pub neutral: bool,
     pub loud: f64,
     pub seed: u64,
+    /// A playoff game or the Super Bowl: overtime is played out (update 3,
+    /// F25).
+    pub playoff: bool,
 }
 
 /// Plays a day's games on the engine, all cores. A team that can't field
@@ -381,7 +387,8 @@ pub(crate) fn play(w: &World, games: &[Fixture]) -> Vec<Option<(GameResult, [Sid
         .map(|g| {
             let a = sides.get(&g.home)?.clone()?;
             let b = sides.get(&g.away)?.clone()?;
-            Some((a, b, venue(w, g.home, g.away, g.at, g.neutral, g.loud), g.seed))
+            let v = Venue { playoff: g.playoff, ..venue(w, g.home, g.away, g.at, g.neutral, g.loud) };
+            Some((a, b, v, g.seed))
         })
         .collect();
     // Your game, played live on the game day screens (section 9).
@@ -401,12 +408,48 @@ pub(crate) fn play(w: &World, games: &[Fixture]) -> Vec<Option<(GameResult, [Sid
         .collect()
 }
 
+/// The world reader's game log: an NFL game's row (with the caller's
+/// facts in `head`: kind, week, window, line, crowd), its snaps and its
+/// situation totals. Only watches.
+pub(crate) fn log_game(
+    w: &mut World,
+    mut head: serde_json::Map<String, serde_json::Value>,
+    f: &Fixture,
+    r: &GameResult,
+    sides: &[Side; 2],
+) {
+    if !w.logging() {
+        return;
+    }
+    let season = w.nfl_season.as_ref().map_or(w.year, |s| s.year);
+    let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
+    head.insert("level".into(), "nfl".into());
+    head.insert("season".into(), season.into());
+    head.insert("date".into(), f.at.date.to_string().into());
+    head.insert("kickoff".into(), format!("{} ET", f.at.clock()).into());
+    head.insert("teams".into(), serde_json::json!([f.home, f.away]));
+    head.insert("neutral".into(), f.neutral.into());
+    head.insert("indoor".into(), v.indoor.into());
+    head.insert("conditions".into(), serde_json::json!(v.cond));
+    let body = crate::world::wlog::games::game_body(r, Some([&sides[0].team, &sides[1].team]));
+    let row = crate::world::wlog::games::game_row(head, body);
+    let plays = crate::world::wlog::games::plays(&r.stats);
+    let situ = crate::world::game_log::game_situations(&r.stats, true);
+    let Some(l) = w.wlog.as_mut() else { return };
+    l.add_situations(season, "nfl", "NFL", [f.home, f.away], situ);
+    l.game("games-nfl", "plays-nfl", &row, Some(plays));
+}
+
 /// Your NFL game today as the day will play it (section 9).
 pub(crate) fn seat_setup(w: &World, f: &Fixture) -> Option<super::super::live_seat::SeatSetup> {
     let a = game_side(w, f.home)?;
     let b = game_side(w, f.away)?;
     let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
     let mut setup = crate::game::GameSetup::new(&a.team, &b.team, crate::player::Level::NFL, f.seed);
+    // The season's book, and a playoff game's overtime (update 3, F25).
+    setup.rules = crate::game::Rules::for_year(crate::player::Level::NFL, v.year, f.playoff);
+    setup.playoff = f.playoff;
+    setup.year = v.year;
     setup.cond = v.cond;
     setup.neutral = v.neutral;
     setup.wear = v.wear;
@@ -588,7 +631,7 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
         (K::Fracture, 2.0),
     ];
     let seed = w.options.seed as u64 ^ 0x9AC7 ^ (d.0 as u64) << 20;
-    for t in franchise::active_teams(year) {
+    for t in franchise::active_teams_in(w, year) {
         let med = crate::world::people::Support::z(w.clubs[t].support.medical.rating);
         let name = w.nfl[t].name;
         let roster = w.clubs[t].roster.clone();

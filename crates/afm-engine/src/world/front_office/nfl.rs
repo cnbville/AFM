@@ -646,7 +646,7 @@ fn agent_claim(
     let rivals: Vec<(usize, f64)> = if kind == TalkKind::FreeAgent {
         let year = w.year;
         (0..w.clubs.len())
-            .filter(|&o| o != t && crate::world::franchise::active(o, year))
+            .filter(|&o| o != t && crate::world::franchise::active_in(w, o, year))
             .filter_map(|o| market::make_offer(w, o, i, ideal, 20, 0.0, year).map(|x| (o, x.apy)))
             .collect()
     } else {
@@ -1419,9 +1419,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
         w.front_office.nfl.sheets_told.push((id, year));
         let name = w.people[i].name.clone();
         let text = format!(
-            "The {} signed {name} to an offer sheet: {} years at {} a year. You have until {} to match.",
+            "The {} signed {name} to an offer sheet: {} {} at {} a year. You have until {} to match.",
             w.nfl[o.team].name,
             o.years,
+            crate::world::folk::noun(o.years, "year"),
             super::dollars(o.apy),
             until.pretty()
         );

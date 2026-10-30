@@ -161,7 +161,7 @@ pub(crate) fn poach(w: &mut World, d: Date) -> bool {
     if !money::capped(year) && year < 1990 {
         return false;
     }
-    let teams = super::super::franchise::active_teams(year);
+    let teams = super::super::franchise::active_teams_in(w, year);
     let protect = protected_count(year);
     // Each team's protected list: its best squad players by its own grade.
     let mut open: Vec<(usize, usize)> = Vec::new();
@@ -353,7 +353,7 @@ pub(crate) fn refill_squads(w: &mut World, d: Date) -> bool {
     let weeks_left = ((w.dates.super_bowl.0 - d.0) as f64 / 7.0).clamp(1.0, w.rules.nfl_games as f64 + 1.0);
     let pay = money::practice_squad_week(year) * weeks_left;
     let mut changed = false;
-    for t in super::super::franchise::active_teams(year) {
+    for t in super::super::franchise::active_teams_in(w, year) {
         if crate::world::front_office::yours(w, t, crate::world::front_office::Duty::PracticeSquad) {
             continue;
         }
@@ -459,9 +459,10 @@ pub(crate) fn settle_injury(w: &mut World, t: usize, i: usize) {
     let p = &mut w.people[i];
     let age = p.row_age();
     p.note(format!(
-        "Released by the {name} at {age} with an injury settlement (${:.0}K for about {} weeks).",
+        "Released by the {name} at {age} with an injury settlement (${:.0}K for about {} {}).",
         owed / 1e3,
-        weeks as u32
+        weeks as u32,
+        crate::world::folk::noun(weeks as u32, "week")
     ));
     w.market.year_mut(year).settlements += 1;
 }

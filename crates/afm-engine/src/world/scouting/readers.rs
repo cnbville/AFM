@@ -101,7 +101,9 @@ pub fn personnel(w: &World, prog: usize) -> Vec<Personnel> {
 pub fn keyed_personnel(w: &World, prog: usize) -> Vec<Personnel> {
     use crate::world::data::Division;
     let p = &w.programs[prog];
-    let money = clamp(0.4 * p.facilities / 20.0 + 0.6 * p.prestige / 100.0, 0.0, 1.0);
+    // Facilities and prestige are both kept on 0-1 (F2: they were read as
+    // 0-20 and 0-100, so no staff ever grew past three posts).
+    let money = clamp(0.4 * p.facilities + 0.6 * p.prestige, 0.0, 1.0);
     let mut jobs: Vec<&'static str> = match p.division {
         Division::FBS => {
             let mut v = vec!["Director of player personnel", "Director of recruiting", "Recruiting analyst"];
@@ -390,7 +392,15 @@ fn club_reader(w: &World, t: usize, who: u32, group: usize) -> Option<Reader> {
         }),
         ANALYTICS => {
             let s = &club.support.analytics;
-            Some(numbers_reader(&s.name, "Director of analytics", s.rating, t as u64 ^ 0xA7A))
+            let mut r = numbers_reader(&s.name, "Director of analytics", s.rating, t as u64 ^ 0xA7A);
+            // F21: "Lean on the analytics" gives the numbers a full voice in
+            // your room (proposed, not confirmed: say 0.6 to 1.1).
+            if seat_staff(w) == Some(Staff::Club(t))
+                && w.scouting.dept.instructions.contains(&super::dept::Instruction::Analytics)
+            {
+                r.say = 1.1;
+            }
+            Some(r)
         }
         x if (PRO_SCOUT..PERSONNEL).contains(&x) => {
             let k = (x - PRO_SCOUT) as usize;

@@ -11,6 +11,8 @@ const PG = { loaded: null, lib: null, hello: null, online: null, offline: "", on
 
 // ---------- small helpers ----------
 function pgMark(team, big) {
+  const lg = typeof logoFor === "function" ? logoFor(team) : null;
+  if (lg) return `<span class="pg-mk lgo-pg ${big ? "big" : ""}">${logoImg(lg)}</span>`;
   const hex = (x) => typeof x === "string" && /^#[0-9a-f]{3,8}$/i.test(x);
   const c = team && team.colors && hex(team.colors[0]) && hex(team.colors[1]) ? team.colors : ["#2a2f37", "#eceef1"];
   return `<span class="pg-mk ${big ? "big" : ""}" style="background:${esc(c[0])};color:${esc(c[1])}">${esc(initials(team && team.name) || "?")}</span>`;
@@ -907,7 +909,7 @@ function jobFilters(st, all) {
       <h4>Class</h4>${btn("cls", null, "All", inState.length)}${classes.map((c) => btn("cls", c, c, inState.filter((j) => j.class === c).length)).join("")}`;
   }
   // An assistant's seat is on a college or NFL staff (lane 10).
-  const levels = st.mode === "assistant" ? LEVELS.filter(([k]) => k !== "hs") : LEVELS;
+  const levels = st.mode === "assistant" ? LEVELS.filter(([k]) => k !== "hs") : st.mode === "ground" ? LEVELS.filter(([k]) => k !== "other") : LEVELS;
   return `<nav class="pg-panel pg-filters" aria-label="Filters">
     <div class="pg-seg ${levels.length === 2 ? "two" : levels.length === 4 ? "four" : ""}">${levels.map(([k, t]) => `<button class="${lv === k ? "on" : ""}" data-pg="level" data-k="${k}">${t}</button>`).join("")}</div>
     <input class="pg-search" id="pg-q" value="${esc(st.q)}" placeholder="Find a team, town or state" aria-label="Find a team" autocomplete="off">
@@ -975,6 +977,7 @@ const MODES = [
   ["head", "Head coach", "Any head job in the world. The coach you replace goes to the market."],
   ["assistant", "Assistant", "A coordinator or position coach on a college or NFL staff, under a head coach who has the last word."],
   ["free", "No job yet", "Start out of work. Searches call you when your name fits, and teams judge you like any candidate."],
+  ["ground", "Ground zero", "A team that doesn't exist yet: an NFL expansion club, a college starting football or a new high school, with a year to build before the first game."],
 ];
 function modesBar(st) {
   return `<div class="pg-modes" role="group" aria-label="How you start">${MODES.map(([k, t, d]) => `<button class="pg-mode ${st.mode === k ? "on" : ""}" data-pg="mode" data-k="${k}"><b>${esc(t)}</b><small>${esc(d)}</small></button>`).join("")}</div>`;
@@ -1026,6 +1029,7 @@ async function stepJob(st) {
       next: "Start without a job",
     });
   }
+  if (st.mode === "ground") return stepGround(st);
   if (st.mode === "assistant" && st.level === "hs") st.level = "college";
   const lv = st.level;
   const assistant = st.mode === "assistant";
@@ -1072,14 +1076,67 @@ async function stepJob(st) {
   });
 }
 
+// Ground zero (next update, lane 10, SK68): the teams you could build,
+// a filter by level or state, and the file with the year ahead.
+async function stepGround(st) {
+  if (st.level === "other") st.level = "college";
+  const lv = st.level;
+  const data = (PG.jobs["g:" + lv] ??= await api("gz_jobs", { level: lv }));
+  const all = data.jobs;
+  const g = (st.gf ??= { div: null, state: null });
+  const q = st.q.trim().toLowerCase();
+  const hay = (j) => `${j.name} ${j.sub} ${j.parent || ""} ${STATE_NAMES[j.state] || ""}`.toLowerCase();
+  const list = all.filter((j) => (q ? hay(j).includes(q) : (lv !== "college" || !g.div || j.division === g.div) && (lv !== "hs" || !g.state || j.state === g.state)));
+  const shown = list.slice(0, 400);
+  const cur = st.job && st.job.kind === "gz_" + lv ? all.find((j) => j.ref.id === st.job.id) : null;
+  const btn = (key, v, t, n) => `<button class="${g[key] === v ? "on" : ""}" data-pg="gzf" data-key="${key}" data-v="${esc(v ?? "")}"><span>${esc(t)}</span>${n != null ? `<small>${n}</small>` : ""}</button>`;
+  let flt = "";
+  if (lv === "college") {
+    const divs = [...new Set(all.map((j) => j.division))];
+    flt = `<h4>Starts at</h4>${btn("div", null, "Every level", all.length)}${divs.map((d) => btn("div", d, DIV_NAMES[d] || d, all.filter((j) => j.division === d).length)).join("")}`;
+  } else if (lv === "hs") {
+    const states = [...new Set(all.map((j) => j.state))].sort((a, b) => (STATE_NAMES[a] < STATE_NAMES[b] ? -1 : 1));
+    flt = `<h4>State</h4>${btn("state", null, "Every growing state", all.length)}${states.map((x) => btn("state", x, STATE_NAMES[x] || x, all.filter((j) => j.state === x).length)).join("")}`;
+  } else {
+    flt = `<h4>The markets</h4><p class="gz-note">The biggest US markets without a club. The owners add two clubs together, so a second market joins with yours.</p>`;
+  }
+  const levels = LEVELS.filter(([k]) => k !== "other");
+  const filters = `<nav class="pg-panel pg-filters" aria-label="Filters">
+    <div class="pg-seg">${levels.map(([k, t]) => `<button class="${lv === k ? "on" : ""}" data-pg="level" data-k="${k}">${t}</button>`).join("")}</div>
+    <input class="pg-search" id="pg-q" value="${esc(st.q)}" placeholder="Find a town, school or state" aria-label="Find a team" autocomplete="off">
+    <div class="pg-flt" data-keep="flt">${flt}</div></nav>`;
+  const cols = lv === "nfl" ? [["Club", (j) => `<td style="font-weight:600">${esc(j.name)}</td>`], ["Market", (j) => `<td>${esc(j.city)}, ${esc(j.state)}</td>`], ["People", (j) => `<td class="n">${j.metro.toFixed(1)} m</td>`], ["First season", (j) => `<td class="n">${j.first}</td>`]]
+    : lv === "hs" ? [["School", (j) => `<td style="font-weight:600">${esc(j.name)}</td>`], ["Splits the zone of", (j) => `<td>${esc(j.parent)}</td>`], ["Its students", (j) => `<td class="n">${thousands(j.enrollment)}</td>`], ["Young growth", (j) => `<td class="n">${j.growth}% a year</td>`]]
+    : [["School", (j) => `<td style="font-weight:600">${esc(j.name)}</td>`], ["Starts at", (j) => `<td>${esc(DIV_NAMES[j.division] || j.division)}</td>`], ["Where", (j) => `<td>${esc(j.city)}, ${esc(j.state)}</td>`], ["Students", (j) => `<td class="n">${thousands(j.enrollment)}</td>`], ["", (j) => `<td class="pg-dim">${j.restart ? "Bringing it back" : "First team"}</td>`]];
+  const table = `<div class="pg-panel pg-jobtable"><div class="pg-ph"><span>${lv === "nfl" ? "Expansion markets" : lv === "hs" ? "Districts that could build" : "Colleges that could start football"} <small>· ${list.length}${list.length > shown.length ? ` · showing the first ${shown.length}` : ""}</small></span></div>
+    ${shown.length ? `<div class="pg-tbl dense" data-keep="jobs"><table><thead><tr>${cols.map(([t]) => `<th>${t}</th>`).join("")}</tr></thead>
+    <tbody>${shown.map((j) => `<tr data-pg="pick-job" data-kind="${j.ref.kind}" data-id="${j.ref.id}" class="${cur && cur.ref.id === j.ref.id ? "sel" : ""}">${cols.map(([, f]) => f(j)).join("")}</tr>`).join("")}</tbody></table></div>`
+      : `<div class="pg-empty">Nothing matches. Try a town, a state or its code.</div>`}</div>`;
+  const file = !cur ? `<aside class="pg-panel pg-jobfile"><div class="pg-empty">Pick a team to read its year ahead: what comes before the first game, and when.</div></aside>`
+    : `<aside class="pg-panel pg-jobfile"><div class="pg-filehead"><div><b>${esc(cur.name)}</b><small>${esc(cur.line)}</small></div></div>
+      <div class="pg-kv">${lv === "nfl" ? `<span>Market</span><span>${esc(cur.city)}, ${esc(cur.state)} · ${cur.metro.toFixed(1)} million people</span><span>Your boss</span><span>A new owner who paid the fee: he gives his club time. You are head coach and GM.</span><span>The roster</span><span>Nobody yet. The expansion draft, free agency and the draft build it.</span>`
+        : lv === "hs" ? `<span>Zone</span><span>About ${Math.round(cur.enrollment / cur.parent_enrollment * 100)}% of ${esc(cur.parent)}'s (${thousands(cur.parent_enrollment)} students)</span><span>Your boss</span><span>A new principal and the district's board.</span><span>The roster</span><span>The zone's freshmen and sophomores; the juniors who choose you; no seniors.</span>`
+        : `<span>Starts at</span><span>${esc(DIV_NAMES[cur.division] || cur.division)}, as an independent</span><span>Your boss</span><span>The athletic director who sold the school on football.</span><span>The roster</span><span>Nobody yet. Tryouts, junior college finds and the first class build it.</span>`}</div>
+      <div class="pg-grades-h">The year ahead</div><ol class="gz-steps">${cur.timeline.map((t) => `<li>${esc(t)}</li>`).join("")}</ol></aside>`;
+  return setupPage(st, {
+    title: "Your job",
+    lede: "Start at a team that doesn't exist yet. You hire the staff and find the players, and the first game is a year away.",
+    body: `${modesBar(st)}<div class="pg-jobs">${filters}${table}${file}</div>`,
+    sum: cur ? esc(`${cur.name} · ground zero · first game ${cur.first}`) : "Pick a team to build.",
+    next: "Build it", nextOk: !!cur,
+  });
+}
+
 // ---------- actions ----------
 async function openWorldFor(st) {
   if (st.world === "test") return true;
   if (st.loaded === st.world && S.status && !S.status.you) return true;
   if ($("#busy") || !(await leaveCareer())) return false;
-  showBusy("Opening the world… a full world takes about a minute.");
+  showBusy("Opening the world… a full world takes under a minute.");
   try {
     S.status = await api("open_world", { path: st.world });
+    // The team picker shows an installed pack's logos (screens/logos.js).
+    if (typeof logosLoad === "function") await logosLoad();
     hideBusy();
     S.savedOn = null;
     st.loaded = st.world;
@@ -1318,6 +1375,7 @@ document.addEventListener("click", async (ev) => {
     // Lane 10: the seat you start in, and your last stops.
     case "mode": st.mode = d.k; st.sort = { k: null, desc: true }; render(); break;
     case "role": st.role = d.k; render(); break;
+    case "gzf": { const g = (st.gf ??= { div: null, state: null }); g[d.key] = d.v || null; st.q = ""; render(); break; }
     case "free-level": st.freeLevel = d.k; render(); break;
     case "stop-add": if (st.stops.length < MAX_STOPS) { st.stops.push(newStop(st)); render(); } break;
     case "stop-del": st.stops.splice(Number(d.i), 1); render(); break;

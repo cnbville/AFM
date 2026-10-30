@@ -456,7 +456,7 @@ pub fn voice(v: &Voice, key: u64, id: u64) -> String {
     } else if looks >= 6 && width <= 6 {
         format!("I've seen him {looks} times and I'm sure of it.")
     } else if width >= 12 {
-        format!("On {looks} looks I can't pin him down yet.")
+        format!("On {looks} {} I can't pin him down yet.", crate::world::folk::noun(looks, "look"))
     } else {
         format!("That's on {looks} looks.")
     });

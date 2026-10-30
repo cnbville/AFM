@@ -190,21 +190,30 @@ function ppCastCard(c, extra = "") {
 }
 
 async function ppNetwork() {
-  const n = await api("people_contacts");
+  const [n, po] = await Promise.all([api("people_contacts"), api("l5_place_options").catch(() => null)]);
   const cols = [
-    { k: "link", t: "Coach", l: true, f: (x) => rich(x.link), v: (x) => plainText(x.link) },
+    { k: "link", t: "Who", l: true, f: (x) => rich(x.link), v: (x) => plainText(x.link) },
     { k: "now", t: "Now", l: true, f: (x) => rich(x.now), v: (x) => plainText(x.now) },
     { k: "how", t: "How you know him", l: true, wrap: true },
     { k: "warmth", t: "Tie", l: true, f: (x) => esc(x.warmthWords), v: (x) => x.warmth },
     { k: "last", t: "Last talked", l: true, f: (x) => esc(x.last || "—"), v: (x) => x.last || "" },
+    { k: "record", t: "His word", l: true, tip: "Tips he sent you that have settled, and how many held up.", f: (x) => (x.record ? esc(x.record) : '<span class="muted">—</span>'), v: (x) => x.record || "" },
     { k: "balance", t: "Favours", tip: "Plus: he owes you. Minus: you owe him.", f: (x) => (x.balance > 0 ? `<span class="delta up">+${x.balance}</span>` : x.balance < 0 ? `<span class="delta down">${x.balance}</span>` : "") },
-    { k: "reach", t: "", f: (x) => `<button class="st-btn small glass" data-act="ppreach" data-id="${x.coach}" ${x.recent >= 3 ? 'title="You\'ve called him a lot this month"' : ""}>Reach out</button>`, v: () => 0 },
+    { k: "reach", t: "", f: (x) => x.coach == null ? "" : `<span class="hr-acts"><button class="st-btn small glass" data-act="ppreach" data-id="${x.coach}" ${x.recent >= 3 ? 'title="You\'ve called him a lot this month"' : ""}>Reach out</button><button class="st-btn small glass" data-act="hrhire" data-id="${x.coach}" title="Interview him or make an offer for a job you have open">Hire</button></span>`, v: () => 0 },
   ];
   const ledger = n.ledger.length ? `<div class="items">${n.ledger.map((f) => `<div class="item"><span class="when">${esc(f.date)}</span><span>${f.asked ? "You asked" : "He asked"}: ${rich(f.words)} · ${rich(f.who)}</span></div>`).join("")}</div>` : '<div class="empty">No favours either way yet.</div>';
   const interest = n.interest.length ? `<div class="items">${n.interest.map((i) => `<div class="item"><span class="when">${i.year}</span><span>${rich(i.team)}: ${rich(i.words)}</span></div>`).join("")}</div>` : '<div class="empty">Nobody has asked about you. Win, and they will.</div>';
+  // Tips from people you know (lane 5, SK35 and C14).
+  const tips = n.tips.length
+    ? `<div class="items l5-tips">${n.tips.map((t) => `<div class="item"><span class="when">${esc(t.date)}</span><span><span class="l5-say"><b>${rich(t.from)}</b> sent tape on ${rich(t.player)}: “${esc(t.claim)}.”</span>${t.lines.length ? `<span class="l5-lines">${t.lines.map(esc).join(" ")}</span>` : ""}<span class="l5-st ${t.status === "Held up" ? "up" : t.status === "Missed" ? "down" : ""}">${esc(t.status)}</span></span></div>`).join("")}</div>`
+    : '<div class="empty">No tips yet. People you’re warm with send tape on kids they swear by.</div>';
+  // Placing a player you can't keep with a friend (C16).
+  const place = po && po.players.length && po.friends.length
+    ? `<div class="l5-place"><select class="ssel l5-pl" aria-label="Player">${po.players.map((p) => `<option value="${p.id}">${esc(plainText(p.link))}, ${esc(p.pos)}</option>`).join("")}</select><select class="ssel l5-fr" aria-label="Friend">${po.friends.map((f) => `<option value="${f.coach}">${esc(plainText(f.link))}, ${esc(f.at)}${f.sent ? ` · ${f.sent} sent` : ""}</option>`).join("")}</select><button class="st-btn small" data-act="l5place">Place him</button></div><p class="muted small">${esc(po.note)}</p>`
+    : `<div class="empty">${esc(po ? po.note : "")}${po && po.players.length && !po.friends.length ? " Nobody you're warm with is at the right level." : ""}</div>`;
   const road = `<div class="kv"><dt>Clinic talks</dt><dd>${n.clinics}</dd><dt>All-star games</dt><dd>${n.allstar.map((a) => `${a.year} ${esc(a.game)}`).join(", ") || "—"}</dd></div>`;
   return `<div class="grid2"><div class="col"><section class="panel"><h2>Your network <small>${n.rows.length} people · ${ppHours(n.hours)} left this week</small></h2>${table("pp-net", cols, n.rows, { sort: "warmth", empty: "Your network is empty." })}</section></div>
-    <div class="col"><section class="panel"><h2>The favour ledger</h2>${ledger}</section><section class="panel"><h2>Who has asked about you</h2>${interest}</section><section class="panel"><h2>On the road</h2>${road}</section></div></div>`;
+    <div class="col"><section class="panel"><h2>Tips from people you know</h2>${tips}</section><section class="panel"><h2>Place a player with a friend</h2>${place}</section><section class="panel"><h2>The favour ledger</h2>${ledger}</section><section class="panel"><h2>Who has asked about you</h2>${interest}</section><section class="panel"><h2>On the road</h2>${road}</section></div></div>`;
 }
 
 async function ppLeague() {
@@ -332,7 +341,7 @@ GOTO.people_cast = (a, c) => [["People", "people"], c && c.team ? ["Their team",
 // Quality and Jobs and hand-offs are drawn by screens/ratings.js; Contracts
 // is the office's deals, raises and letting a coach go; Hiring the openings
 // and the candidates.
-const PS_TABS = ["Quality", "Jobs and hand-offs", "Contracts", "Hiring"];
+const PS_TABS = ["Quality", "Jobs and hand-offs", "Contracts", "Hiring", "Coaches to watch"];
 screens.people_staff = async (a) => {
   const x = await api("people_staff");
   if (x.none) return `<div class="pad">${pageHead({ title: "Your staff" })}<div class="empty">You need a job first.</div></div>`;
@@ -363,24 +372,11 @@ screens.people_staff = async (a) => {
       { k: "act", t: "", f: (r) => `<button class="st-btn small glass" data-act="ppraise" data-id="${r.coach}">Raise</button> <button class="st-btn small glass" data-act="ppfire" data-id="${r.coach}" data-name="${esc(plainText(r.link))}">Let go</button>`, v: () => 0 },
     ];
     body = `<section class="panel"><h2>Your assistants <small>${x.rows.length}${x.owed ? ` · still owed to coaches you let go: ${esc(x.owed)}` : ""}</small></h2>${table("ps-staff", cols, x.rows, { empty: x.level === "hs" ? "Your high school staff is below." : "No assistants." })}</section>
-      <section class="panel"><h2>Support staff and the rest of the building</h2>${table("ps-support", [{ k: "title", t: "Job", l: true }, { k: "name", t: "Name", l: true }, { k: "age", t: "Age" }, { k: "since", t: "Since" }, { k: "subject", t: "Teaches", l: true, f: (r) => esc(r.subject || "") }, { k: "pay", t: "Pay" }], x.support, { tools: false, empty: "Nobody on file." })}</section>`;
+      <section class="panel"><h2>Support staff and the rest of the building</h2>${table("ps-support", [{ k: "title", t: "Job", l: true }, { k: "name", t: "Name", l: true, f: (r) => (r.link ? rich(r.link) : esc(r.name)) }, { k: "age", t: "Age" }, { k: "since", t: "Since" }, { k: "subject", t: "Teaches", l: true, f: (r) => esc(r.subject || "") }, { k: "pay", t: "Pay" }], x.support, { tools: false, empty: "Nobody on file." })}</section>`;
+  } else if (tab === "Hiring") {
+    body = await hrSearch(x);
   } else {
-    const roles = [...x.openings.map((o) => [o.key, o.name, true]), ["oc", "Offensive coordinator"], ["dc", "Defensive coordinator"], ["qb", "Quarterbacks coach"], ["rb", "Running backs coach"], ["wr", "Wide receivers coach"], ["ol", "Offensive line coach"], ["dl", "Defensive line coach"], ["lb", "Linebackers coach"], ["db", "Defensive backs coach"], ["st", "Special teams coordinator"]].filter((r, i, arr) => arr.findIndex((y) => y[0] === r[0]) === i);
-    const k = keep("pshire", { role: x.openings[0] ? x.openings[0].key : "oc" });
-    const seg = `<div class="seg wrap">${roles.map(([v, t, open]) => `<button data-act="pprole" data-v="${v}" aria-pressed="${k.role === v}">${esc(t)}${open ? " <small>open</small>" : ""}</button>`).join("")}</div>`;
-    const c = await api("people_candidates", { role: k.role });
-    const cols = [
-      { k: "link", t: "Coach", l: true, f: (r) => `${rich(r.link)}${r.interviewed ? ' <span class="tag gold">Interviewed</span>' : ""}${r.blocked ? ' <span class="tag due" title="His team can block a lateral move">Can be blocked</span>' : ""}`, v: (r) => plainText(r.link) },
-      { k: "age", t: "Age" },
-      { k: "now", t: "Now", l: true, f: (r) => rich(r.now), v: (r) => plainText(r.now) },
-      { k: "rep", t: "Reputation", l: true },
-      { k: "cameUp", t: "Came up", l: true },
-      { k: "known", t: "Known to you", l: true },
-      { k: "read", t: "Teaching (your read)", f: (r) => range([r.read[0] * 5, r.read[1] * 5].map(Math.round), "your read of his teaching"), v: (r) => r.read[0] + r.read[1] },
-      { k: "asks", t: "Asks", v: (r) => r.asksValue },
-      { k: "act", t: "", f: (r) => `<button class="st-btn small glass" data-act="ppinterview" data-id="${r.coach}" data-role="${c.role}">Interview</button> <button class="st-btn small primary" data-act="ppoffer" data-id="${r.coach}" data-role="${c.role}" data-asks="${r.asksValue}" data-name="${esc(plainText(r.link))}">Offer</button>`, v: () => 0 },
-    ];
-    body = `<section class="panel"><h2>${esc(c.roleName)} <small>your network first, then coaches out of work, then assistants a rung down</small></h2>${seg}${table("ps-cand", cols, c.rows, { empty: "Nobody fits this job right now." })}</section>`;
+    body = await hrWatch();
   }
   const act = `${linkTo("people", {}, "Meetings", "st-btn small glass")}<button class="st-btn small primary" data-act="tab" data-key="pstab" data-t="Hiring">Find a coach</button>`;
   return `<div class="pad sl rr">${pageHead({ kicker: `${rich(x.team.link)}${S.status && S.status.today ? ` · ${esc(S.status.today)}` : ""}`, title: "Your staff", actions: act, goto: gotoFor("people_staff", a, x) })}${tabs("pstab", PS_TABS, tab)}<div class="tabbody">${body}</div></div>`;
@@ -469,6 +465,12 @@ Object.assign(CORE_MORE, {
     } catch (e) { toast(e.message); }
   },
   pplogtopic: (el) => { keep("pplog", {}).topic = el.dataset.v; refresh(el); },
+  l5place: async (el) => {
+    const box = el.closest(".l5-place");
+    const id = Number(box.querySelector(".l5-pl").value);
+    const coach = Number(box.querySelector(".l5-fr").value);
+    try { const x = await api("l5_place", { id, coach }); toast(plainText(x.text)); refresh(el); } catch (e) { toast(e.message); }
+  },
   ppreach: (el, ev) => {
     if (ev) ev.stopPropagation();
     const how = [["text", "Text him", "a few minutes"], ["call", "Call him", "half an hour"], ["lunch", "Take him to lunch", "two and a half hours, nearby only"]];
@@ -495,14 +497,6 @@ Object.assign(CORE_MORE, {
     if (!(await sure(`Let ${el.dataset.name} go?`, "You tell him yourself. What's left of his deal is owed, and the room and his recruits will hear about it.", "Call him in"))) return;
     ppGoScene(api("people_fire", { coach: Number(el.dataset.id) }));
   },
-  pprole: (el) => { keep("pshire", {}).role = el.dataset.v; refresh(el); },
+  pprole: (el) => { keep("pshire", {}).role = el.dataset.v; keep("hrfilter", { page: 0 }).page = 0; refresh(el); },
   ppinterview: (el) => ppGoScene(api("people_interview", { coach: Number(el.dataset.id), role: el.dataset.role })),
-  ppoffer: async (el) => {
-    const asks = Number(el.dataset.asks) || 0;
-    const v = await ask(`Offer ${el.dataset.name} the job`, { value: String(Math.round(asks / 1000) * 1000), ok: "Make the offer", note: `Salary a year in dollars. He asks about ${money(asks)}; under it he may say no, well over it eats your staff pool. Two years.` });
-    if (v == null || v === "") return;
-    const salary = Number(String(v).replace(/[^0-9.]/g, ""));
-    if (!salary) { toast("That isn't a salary."); return; }
-    try { const x = await api("people_offer", { coach: Number(el.dataset.id), role: el.dataset.role, salary, years: 2 }); toast(plainText(x.text)); refresh(el); } catch (e) { toast(e.message); }
-  },
 });

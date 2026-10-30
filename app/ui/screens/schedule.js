@@ -141,7 +141,7 @@ function schTags(r, x) {
   }
   if (r.name) {
     if (r.rivalry != null || (x.level === "hs" && !r.playoff && r.name)) out.push(schLk("schseries", { kind: r.opp.ref.kind, id: r.opp.ref.id }, `<span class="sch-tag gold">${esc(r.name.charAt(0).toUpperCase() + r.name.slice(1))}</span>`) + (r.trophy ? ` <span class="sch-trophy">${esc(r.trophy)}</span>` : ""));
-    else out.push(`<span class="sch-tag gold">${esc(r.name)}</span>`);
+    else out.push(`${compIn(r.name)}<span class="sch-tag gold">${esc(r.name)}</span>`);
   }
   return out.join("");
 }
@@ -165,7 +165,7 @@ function schTable(x) {
         : `<span class="sch-dim">${r.kick ? esc(r.kick) : "Time TBA"}</span>`;
     const ours = r.ranks && r.ranks[0] ? ` <span class="sch-rk" title="Your rank at kickoff">you No. ${r.ranks[0]}</span>` : "";
     const scout = x.can_scout && !r.opp.mine ? schLk("schscout", { kind: r.opp.ref.kind, id: r.opp.ref.id }, "Scouting report") : "";
-    const opp = `<div class="sch-l1">${esc(r.at)} ${schRank(r.ranks && r.ranks[1])}${teamA(r.opp)}${schTags(r, x)}</div><div class="sch-l2">${[schOppRec(r) + ours, scout].filter(Boolean).join(" · ")}</div>`;
+    const opp = `<div class="sch-l1">${esc(r.at)} ${schRank(r.ranks && r.ranks[1])}${logoIn(r.opp)}${teamA(r.opp)}${schTags(r, x)}</div><div class="sch-l2">${[schOppRec(r) + ours, scout].filter(Boolean).join(" · ")}</div>`;
     const where = `<div class="sch-l1">${schLk("schvenue", { i: r.i }, esc(r.stadium))}</div><div class="sch-l2">${esc(r.place)}${r.weather ? ` · ${esc(r.weather)}` : ""}</div>`;
     const ln = r.line;
     const line = hs ? "" : `<td>${ln ? `<div class="sch-l1 num">${esc(ln.spread)} <span class="sch-dim">O/U ${ln.total}</span></div>${ln.against ? `<div class="sch-l2">${esc(ln.against)}</div>` : ""}` : '<span class="sch-dim">–</span>'}</td>`;

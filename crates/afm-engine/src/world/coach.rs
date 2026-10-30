@@ -153,7 +153,7 @@ pub struct CoachPersonality {
     pub temper: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Role {
     HeadCoach,
     OffensiveCoordinator,
@@ -185,7 +185,7 @@ impl Role {
 }
 
 /// Where a coach works.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Employer {
     HighSchool(usize),
     College(usize),
@@ -200,6 +200,37 @@ pub struct Job {
     pub employer: Employer,
     pub role: Role,
     pub since: i32,
+}
+
+/// A junior post (C36): the first rung below the coaching staff, held by
+/// real people with hidden ratings and a learning ceiling. A college
+/// graduate assistant or analyst, an NFL quality-control coach.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Post {
+    GradAssistant,
+    Analyst,
+    QualityControl,
+}
+
+impl Post {
+    pub fn name(self) -> &'static str {
+        match self {
+            Post::GradAssistant => "graduate assistant",
+            Post::Analyst => "analyst",
+            Post::QualityControl => "quality-control coach",
+        }
+    }
+}
+
+/// A junior post a coach holds or held (C36): the room he works with, and
+/// the season it ended (None while he holds it).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Junior {
+    pub employer: Employer,
+    pub post: Post,
+    pub group: Group,
+    pub since: i32,
+    pub until: Option<i32>,
 }
 
 /// One finished job, for the coach's record.
@@ -308,6 +339,24 @@ pub struct Coach {
     /// Your own coach's four extra ratings; None for every AI coach.
     #[serde(default)]
     pub(crate) yours: Option<Yours>,
+    /// What he played and how good he was (C11); None if he never played
+    /// past high school.
+    #[serde(default)]
+    pub played: Option<super::former::Played>,
+    /// His name (C10), 1-20: what fans, boosters, recruits and small
+    /// schools know of him. `reputation` is his standing: what owners,
+    /// general managers, big programs' athletic directors and other coaches
+    /// think of his coaching. 0 in a world written before the split.
+    #[serde(default)]
+    pub renown: f64,
+    /// The part of his name that comes from his playing days, fading.
+    #[serde(default)]
+    pub fame: f64,
+    /// His junior post (C36): a graduate assistant, analyst or
+    /// quality-control coach, held now (`until` None) or before his first
+    /// full-time job.
+    #[serde(default)]
+    pub junior: Option<Junior>,
 }
 
 /// A college head coach's contract (trial 4 topic 4): the last season it
@@ -355,6 +404,20 @@ pub fn generate_coach(
     age: u32,
     rng: &mut Rng,
 ) -> Coach {
+    generate_coach_as(id, name, ethnicity, tier, age, None, rng)
+}
+
+/// The same, with whether he played in the NFL already known (a former
+/// player of the world's own, C11).
+pub fn generate_coach_as(
+    id: usize,
+    name: String,
+    ethnicity: Ethnicity,
+    tier: CoachTier,
+    age: u32,
+    pro: Option<bool>,
+    rng: &mut Rng,
+) -> Coach {
     let (mean, sd) = level_ability(tier);
     let core = rng.normal(mean, sd);
     let part = |rng: &mut Rng, spread: f64| clamp(core + rng.normal(0.0, spread), 1.0, 20.0);
@@ -372,11 +435,12 @@ pub fn generate_coach(
         .filter(|g| g.offense() == offense && *g != Group::Specialists)
         .max_by(|a, b| teaching[*a as usize].total_cmp(&teaching[*b as usize]))
         .unwrap_or(Group::ALL[0]);
-    let ex_pro = rng.chance(match tier {
+    let drawn = rng.chance(match tier {
         CoachTier::HighSchool => 0.04,
         CoachTier::Nfl => 0.35,
         _ => 0.12,
     });
+    let ex_pro = pro.unwrap_or(drawn);
     let mut ability = Ability {
         teaching,
         scheme: part(rng, 2.0),
@@ -443,6 +507,10 @@ pub fn generate_coach(
         style_set: None,
         freedom_norm: 0.0,
         yours: None,
+        played: None,
+        renown: 0.0,
+        fame: 0.0,
+        junior: None,
     }
 }
 
@@ -460,6 +528,35 @@ impl Coach {
     /// Whether he is the user's own coach.
     pub fn is_yours(&self) -> bool {
         self.yours.is_some()
+    }
+
+    /// Hidden, 1-20 (C38): how fast he learns a group he didn't come up
+    /// in, and how willing he is to take a job outside it. Keyed by the
+    /// coach, so no draw moves (spread like his personality; proposed, not
+    /// confirmed).
+    pub fn adaptability(&self) -> f64 {
+        let k = self.name.bytes().fold(0xADA9_7AB1u64, |h, b| h.rotate_left(5) ^ b as u64);
+        clamp(10.0 + 3.5 * super::season::key_normal(k ^ 0xADA7, self.id as u64), 1.0, 20.0)
+    }
+
+    /// His play calling, 1-20: your own coach's rating, an AI coach's from
+    /// his scheme and game management (`world/season.rs`, `coach_caller`).
+    pub fn calling(&self) -> f64 {
+        match self.yours {
+            Some(y) => y.play_calling,
+            None => 0.6 * self.ability.scheme + 0.4 * self.ability.game_management,
+        }
+    }
+
+    /// The junior post he holds now (C36).
+    pub fn junior_now(&self) -> Option<Junior> {
+        self.junior.filter(|j| j.until.is_none())
+    }
+
+    /// His hidden learning ceiling, for your read of his potential (C35)
+    /// and debug tooling; never shown as a number.
+    pub fn ceiling(&self) -> f64 {
+        self.learning_ceiling
     }
 
     /// What he knows of each system, 0-1 (hidden: screens show it in
@@ -523,6 +620,64 @@ impl Coach {
         crate::calendar::born::age_or(self.born, d, self.age)
     }
 
+    /// How fast each ability part grows in his job (C59, C61), in the
+    /// order of `Ability::parts_mut`: teaching by group, then scheme, game
+    /// management, motivation, discipline, recruiting, network,
+    /// relationships. A position coach learns his own group at full pace
+    /// and the others at a third; a coordinator every group on his side,
+    /// the group he coaches himself half again faster (C60), the other side
+    /// a third; a head coach two thirds everywhere. Adaptability (C38)
+    /// speeds a group he didn't come up in: ×0.6 at 1 to ×1.4 at 20.
+    /// Scheme and game management grow at full pace for coordinators and
+    /// head coaches (an analyst's scheme too), half for the rest; recruiting
+    /// at full pace for anyone with a recruiting area (a college staff), a
+    /// third elsewhere. Out of work, a third (proposed, not confirmed: the
+    /// out-of-work, junior and recruiting paces).
+    pub(crate) fn pace(&self) -> [f64; GROUP_COUNT + 7] {
+        let mut p = [1.0; GROUP_COUNT + 7];
+        let third = 1.0 / 3.0;
+        let job = self
+            .job
+            .map(|j| (j.employer, Some(j.role), None))
+            .or_else(|| self.junior_now().map(|j| (j.employer, Some(Role::PositionCoach(j.group)), Some(j.post))));
+        let adapt = 0.6 + 0.8 * (self.adaptability() - 1.0) / 19.0;
+        let up = self.came_up;
+        for g in Group::ALL {
+            let base = match job.and_then(|x| x.1) {
+                None => third,
+                Some(Role::HeadCoach) => 2.0 / 3.0,
+                Some(Role::PositionCoach(own)) => {
+                    if g == own {
+                        1.0
+                    } else {
+                        third
+                    }
+                }
+                Some(r @ (Role::OffensiveCoordinator | Role::DefensiveCoordinator)) => {
+                    let off = r == Role::OffensiveCoordinator;
+                    if g == up && g.offense() == off {
+                        1.5
+                    } else if g.offense() == off && g != Group::Specialists {
+                        1.0
+                    } else {
+                        third
+                    }
+                }
+            };
+            p[g as usize] = base * if g == up { 1.0 } else { adapt };
+        }
+        let big = matches!(
+            job.and_then(|x| x.1),
+            Some(Role::HeadCoach | Role::OffensiveCoordinator | Role::DefensiveCoordinator)
+        );
+        let analyst = matches!(job.and_then(|x| x.2), Some(Post::Analyst | Post::QualityControl));
+        let n = GROUP_COUNT;
+        p[n] = if big || analyst { 1.0 } else { 0.5 };
+        p[n + 1] = if big { 1.0 } else { 0.5 };
+        p[n + 4] = if matches!(job.map(|x| x.0), Some(Employer::College(_))) { 1.0 } else { third };
+        p
+    }
+
     pub fn age_one_year(&mut self, mentor: Option<&Ability>, rng: &mut Rng) {
         self.age += 1;
         let age = self.age as f64;
@@ -537,9 +692,10 @@ impl Coach {
             0.0
         };
         let ceiling = self.learning_ceiling;
-        for v in self.ability.parts_mut() {
+        let pace = self.pace();
+        for (k, v) in self.ability.parts_mut().enumerate() {
             let room = (ceiling - *v).max(0.0);
-            *v = clamp(*v + learn * (room / 6.0).min(1.0) + rng.normal(0.0, 0.15), 1.0, 20.0);
+            *v = clamp(*v + pace[k] * learn * (room / 6.0).min(1.0) + rng.normal(0.0, 0.15), 1.0, 20.0);
         }
         // Your own four grow the same way, without a draw, so no other
         // coach's stream moves.
@@ -638,6 +794,43 @@ impl Coach {
         self.reputation += speed * 0.3 * (shown - self.reputation);
         self.reputation -= speed * 0.6 * locker_room;
         self.reputation = clamp(self.reputation, 1.0, 20.0);
+        // His name (C10) follows what he did as a player, fading, or what
+        // his coaching shows, whichever is bigger: a head coach's work is
+        // seen more than an assistant's (proposed, not confirmed: 0.75 and
+        // 0.5 of his standing, the roads' agreed name and standing pairs).
+        self.fame *= 0.99;
+        let seen = if head { 0.75 } else { 0.5 } * self.reputation;
+        let target = self.fame.max(seen);
+        let now = self.name_value();
+        self.renown = clamp(now + speed * 0.3 * (target - now), 1.0, 20.0);
+    }
+
+    /// His name (C10), 1-20.
+    pub fn name_value(&self) -> f64 {
+        if self.renown > 0.0 { self.renown } else { clamp(self.fame.max(0.5 * self.reputation), 1.0, 20.0) }
+    }
+
+    /// A famous name's pull on recruits (C8), in recruiting points: about 3
+    /// for a star, half that for a Pro Bowler, nothing for a name nobody
+    /// knows, read from his name (Deion Sanders flipped Travis Hunter, the No. 1 recruit, to
+    /// Jackson State in 2021). Full through his first two seasons in the
+    /// job, half in the third, gone by the fourth unless he wins (his last
+    /// season above what was expected of him).
+    pub fn name_pull(&self, season: i32) -> f64 {
+        // His name from his playing days (C10: a star 17, a Pro Bowler 14,
+        // a starter 11), fading a little each year.
+        let base = ((self.fame - 11.0) / 2.0).clamp(0.0, 3.0);
+        if base <= 0.0 {
+            return 0.0;
+        }
+        let years = self.job.map_or(0, |j| season - j.since);
+        let fade = match years {
+            ..=1 => 1.0,
+            2 => 0.5,
+            _ => 0.0,
+        };
+        let winning = self.recent.last().is_some_and(|&r| r > 0.0);
+        base * if winning { 1.0 } else { fade }
     }
 
     /// A title's boost, when it is won.
@@ -654,15 +847,32 @@ impl Coach {
                 TitleKind::National => 5.0,
             };
         self.reputation = clamp(self.reputation, 1.0, 20.0);
+        // A title makes a name as much as a standing (proposed, not
+        // confirmed: the same boost).
+        let name = self.name_value();
+        let room = ((20.0 - name) / 8.0).min(1.0);
+        let boost = match title {
+            TitleKind::None => 0.0,
+            TitleKind::Conference | TitleKind::State => 3.0,
+            TitleKind::National => 5.0,
+        };
+        self.renown = clamp(name + speed * room * (0.5 + 0.5 * stage.clamp(0.0, 1.0)) * boost, 1.0, 20.0);
     }
 
     /// What a hiring committee sees: reputation, bent by recency bias. The last
     /// season counts double and the one before it once; anything older is forgotten.
     pub fn hiring_buzz(&self) -> f64 {
+        self.hiring_buzz_for(0.0)
+    }
+
+    /// The same for a search that reads his name as well as his standing
+    /// (C10): `name` is the name's share, 0-1.
+    pub fn hiring_buzz_for(&self, name: f64) -> f64 {
         let n = self.recent.len();
         let last = if n >= 1 { self.recent[n - 1] } else { 0.0 };
         let before = if n >= 2 { self.recent[n - 2] } else { 0.0 };
-        self.reputation + 10.0 * last + 4.0 * before + self.stat_buzz
+        let base = (1.0 - name) * self.reputation + name * self.name_value();
+        base + 10.0 * last + 4.0 * before + self.stat_buzz
     }
 }
 
@@ -682,14 +892,17 @@ pub struct HiringNeeds {
     pub network: f64,
     pub teaching: f64,
     pub recruiting: f64,
+    /// How much the search reads his name rather than his standing (C10).
+    #[serde(default)]
+    pub name: f64,
 }
 
 pub fn hiring_needs(prestige: f64, is_high_school: bool) -> HiringNeeds {
     let p = clamp(prestige, 0.0, 1.0);
     if is_high_school {
-        HiringNeeds { network: 0.6 * (1.0 - p) + 0.05, teaching: 0.3 + 0.6 * p, recruiting: 0.0 }
+        HiringNeeds { network: 0.6 * (1.0 - p) + 0.05, teaching: 0.3 + 0.6 * p, recruiting: 0.0, name: 0.0 }
     } else {
-        HiringNeeds { network: 0.25 * (1.0 - p), teaching: 0.35 + 0.25 * p, recruiting: 0.4 - 0.1 * p }
+        HiringNeeds { network: 0.25 * (1.0 - p), teaching: 0.35 + 0.25 * p, recruiting: 0.4 - 0.1 * p, name: 0.0 }
     }
 }
 
@@ -699,7 +912,7 @@ pub fn candidate_score(c: &Coach, needs: HiringNeeds, rng: &mut Rng) -> f64 {
     let a = &c.ability;
     let teach: f64 = a.teaching.iter().sum::<f64>() / GROUP_COUNT as f64;
     let read = |v: f64, rng: &mut Rng| v + rng.normal(0.0, 2.5);
-    c.hiring_buzz()
+    c.hiring_buzz_for(needs.name)
         + needs.network * (read(a.network, rng) - 10.0) * 1.2
         + needs.teaching * (read(teach, rng) - 10.0) * 0.6
         + needs.recruiting * (read(a.recruiting, rng) - 10.0) * 0.6

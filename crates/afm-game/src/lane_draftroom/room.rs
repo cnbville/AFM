@@ -84,7 +84,7 @@ pub fn view(w: &World) -> Reply {
     let now = (run.next as usize).saturating_sub(1);
     // Your next pick (board index): the one on the clock if it's yours.
     let target = (now..run.board.len()).find(|&k| run.board[k].0 == me);
-    let teams = afm_engine::world::franchise::active_teams(run.year).len().max(1);
+    let teams = afm_engine::world::franchise::active_teams_in(w, run.year).len().max(1);
     // Your board's grades for everyone still there and everyone taken, so a
     // man keeps his number on the board when he's gone.
     let mine = run.boards.get(me);

@@ -151,8 +151,24 @@ fn hs_transfer_day(y: &YearDates) -> Date {
     Date::ymd(y.season, 6, 15)
 }
 
+/// Bodies grow by the date (update 3, A16): each person's years past his
+/// whole-year age today, from his birthday.
+fn grow_bodies(w: &mut World, d: Date) {
+    let unknown = crate::calendar::born::unknown();
+    for p in &mut w.people {
+        p.player.grow = if p.born == unknown {
+            0.0
+        } else {
+            let years = f64::from(d.0 - p.born.0) / 365.2425;
+            (years - f64::from(p.player.age)).clamp(0.0, 2.0) as f32
+        };
+    }
+}
+
 /// Day `d` of football year `y`.
 pub(crate) fn advance_day(w: &mut World) {
+    // The world log's snapshots of the key dates, before anything acts.
+    super::wlog::day(w, w.today);
     // A war room left open (a day passed without finishing the draft): the
     // staff finish it on the board.
     if w.scouting.live.is_some() {
@@ -160,6 +176,7 @@ pub(crate) fn advance_day(w: &mut World) {
     }
     let d = w.today;
     let y = w.dates.clone();
+    grow_bodies(w, d);
     // A live game left from a day gone by (called off, or never booked).
     if w.live.as_ref().is_some_and(|l| l.date < d) {
         w.live = None;
@@ -232,6 +249,8 @@ pub(crate) fn advance_day(w: &mut World) {
         }
     }
     if d == y.summer_enrollment {
+        // Walk-on tryouts and finds at the colleges in their build year (SK68).
+        super::new_teams::college::tryouts(w);
         super::eligibility::summer_roads(w);
         recruiting::enroll(w, false);
     }
@@ -489,6 +508,7 @@ pub(crate) fn advance_day(w: &mut World) {
     }
     if d == hs_carousel_day(&y) {
         timed("carousel hs", || staff::carousel(w, staff::Scope::HighSchool));
+        staff::hs_staff_year(w);
         staff::age_coaches(w);
     }
     if d == y.signing_day && d <= y.super_bowl {
@@ -544,6 +564,8 @@ fn year_start(w: &mut World) {
     super::finance::college::switch(w);
     // The real moves of the season (college history, through 2026).
     super::program::apply_history(w);
+    // Colleges start football and districts open schools (SK68).
+    super::new_teams::year_start(w);
     w.college_prev = w.college.take();
     w.college = Some(college::new_season(w));
     if let Some(prev) = w.college_prev.as_mut() {
@@ -559,6 +581,7 @@ fn year_start(w: &mut World) {
     super::voters::year_start(w);
     w.hs_season = Some(hs_year::new_season(w));
     let nfl = nfl_year::new_season(w);
+    super::units::book_nfl(w);
     w.nfl_prev = w.nfl_season.replace(nfl);
     super::franchise::year_start(w);
     let y = w.dates.clone();
@@ -596,6 +619,8 @@ const SMALL_EVENT_YEARS: i32 = 5;
 
 /// The last day of a football year has passed: the next one starts.
 fn rollover(w: &mut World) {
+    // The world log takes the year before the calendar drops it.
+    super::wlog::year_end(w);
     if w.options.keep_game_log {
         // News that belongs to last season (its signing day fell after the
         // Super Bowl) joins that season's record.
@@ -647,6 +672,8 @@ fn signing_day_and_book(w: &mut World, season: i32) {
     w.life_events();
     super::people::year_book(w);
     super::fame::year_book(w);
+    // The world log's yearly rows and exits, before leavers are dropped.
+    super::wlog::book(w, season);
     w.compact();
     w.rebuild_rosters();
     w.year = keep;
@@ -863,6 +890,72 @@ mod tests {
         while d < stop {
             assert!(w.calendar.on(d).iter().all(|e| e.loud < Loudness::Big && !e.needs_decision));
             d = d.add(1);
+        }
+    }
+
+    /// Continue stops the morning of each day an NFL seat acts on (Cain
+    /// 2026-10-29: it played twelve days past the combine): the tag window,
+    /// the combine, the tag deadline, the negotiating window, free agency,
+    /// the offseason program and the draft.
+    #[test]
+    fn continue_stops_on_your_days() {
+        let options = super::super::WorldOptions {
+            scale: 0.002,
+            history_years: 0,
+            names: super::super::names::NameMode::Fictional,
+            ..Default::default()
+        };
+        let mut w = World::empty(options);
+        w.seat = Some(super::super::Seat { level: Level::Nfl, nfl_team: Some(3), program: None, other: None });
+        let y = w.dates.clone();
+        let mut mornings = Vec::new();
+        while w.today <= y.draft[0].date {
+            // The war room would wait for you: the staff finish the draft.
+            if w.scouting.live.is_some() {
+                super::super::scouting::live::finish(&mut w);
+            }
+            let from = w.today;
+            let stop = continue_until_needed(&mut w, 400);
+            if stop == w.today && stop > from {
+                mornings.push(stop);
+            }
+        }
+        let program = crate::training::rules::Frame::pro(&y, false).phase1;
+        let mut want = vec![y.tag_window_open, y.combine_start, y.tag_deadline.date, y.league_year.date, program];
+        want.extend(y.tampering_open.map(|m| m.date));
+        want.push(y.draft[0].date);
+        for d in want {
+            assert!(mornings.contains(&d), "Continue played through {} without stopping that morning", d.pretty());
+        }
+    }
+
+    /// Each seat's days, read without playing them: the college and high
+    /// school calendars' training blocks and signing days.
+    #[test]
+    fn each_seat_has_its_days() {
+        let options = super::super::WorldOptions {
+            scale: 0.002,
+            history_years: 0,
+            names: super::super::names::NameMode::Fictional,
+            ..Default::default()
+        };
+        let mut w = World::empty(options);
+        let y = w.dates.clone();
+        let fbs = w.programs.iter().position(|p| p.division == super::super::data::Division::FBS).unwrap();
+        w.seat = Some(super::super::Seat { level: Level::College, nfl_team: None, program: Some(fbs), other: None });
+        // Signing day can fall after the Super Bowl.
+        let end = y.super_bowl.max(y.signing_day);
+        let days = w.your_days(y.start, end);
+        let names: Vec<&str> = days.iter().map(|x| x.1.as_str()).collect();
+        for name in ["Spring practice", "Summer program", "Fall camp", "The portal opens", "National signing day"] {
+            assert!(names.contains(&name), "college: no {name} in {names:?}");
+        }
+        assert!(days.iter().any(|x| x.0 == y.fall_camp && x.1 == "Fall camp"), "college: fall camp not on its day");
+        let h = w.high_schools.iter().position(|h| h.state < w.states.len()).unwrap();
+        w.seat = Some(super::super::Seat { level: Level::HighSchool, nfl_team: None, program: Some(h), other: None });
+        let names: Vec<String> = w.your_days(y.start, end).into_iter().map(|x| x.1).collect();
+        for name in ["Summer workouts", "Preseason practice"] {
+            assert!(names.iter().any(|n| n == name), "high school: no {name} in {names:?}");
         }
     }
 

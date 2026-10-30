@@ -589,16 +589,42 @@ impl OtherSeason {
         }
         match pos {
             P::QB => format!(
-                "{}/{} passing, {:.0} yards, {} TD, {} INT",
-                self.cmp, self.att, self.pass_yds, self.pass_td, self.int
+                "{}/{} passing, {:.0} {}, {} TD, {} INT",
+                self.cmp,
+                self.att,
+                self.pass_yds,
+                crate::world::folk::noun(self.pass_yds.round_ties_even() as i64, "yard"),
+                self.pass_td,
+                self.int
             ),
-            P::RB => format!("{} carries, {:.0} yards, {} TD", self.rush, self.rush_yds, self.rush_td),
-            P::WR | P::TE => format!("{} catches, {:.0} yards, {} TD", self.rec, self.rec_yds, self.rec_td),
-            P::OT | P::IOL => format!("{} starts on the line", self.starts),
-            P::EDGE | P::DT | P::LB => format!("{} tackles, {:.1} sacks", self.tackles, self.sacks),
-            P::CB | P::S => format!("{} tackles, {} INT", self.tackles, self.ints),
+            P::RB => format!(
+                "{} {}, {:.0} {}, {} TD",
+                self.rush,
+                crate::world::folk::noun(self.rush, "carry"),
+                self.rush_yds,
+                crate::world::folk::noun(self.rush_yds.round_ties_even() as i64, "yard"),
+                self.rush_td
+            ),
+            P::WR | P::TE => format!(
+                "{} {}, {:.0} {}, {} TD",
+                self.rec,
+                crate::world::folk::noun(self.rec, "catch"),
+                self.rec_yds,
+                crate::world::folk::noun(self.rec_yds.round_ties_even() as i64, "yard"),
+                self.rec_td
+            ),
+            P::OT | P::IOL => format!("{} {} on the line", self.starts, crate::world::folk::noun(self.starts, "start")),
+            P::EDGE | P::DT | P::LB => format!(
+                "{} {}, {:.1} sacks",
+                self.tackles,
+                crate::world::folk::noun(self.tackles, "tackle"),
+                self.sacks
+            ),
+            P::CB | P::S => {
+                format!("{} {}, {} INT", self.tackles, crate::world::folk::noun(self.tackles, "tackle"), self.ints)
+            }
             P::K => format!("{}/{} field goals", self.fg, self.fg_att),
-            P::P | P::LS => format!("{} games on special teams", self.games),
+            P::P | P::LS => format!("{} {} on special teams", self.games, crate::world::folk::noun(self.games, "game")),
         }
     }
 }
@@ -1493,6 +1519,35 @@ pub(crate) fn ratio_starters_from(
     changed.into_iter().map(|li| (lists[li].0, lists[li].1.iter().map(|x| x.1).collect())).collect()
 }
 
+/// The world reader's game log: an other-league game's row, its snaps and
+/// its situation totals (teams are franchise numbers). Only watches.
+fn log_game(
+    w: &mut World,
+    (k, year, wk, round, neutral, d): (u8, i32, usize, u8, bool, Date),
+    teams: [usize; 2],
+    r: &GameResult,
+    sides: [&GameTeam; 2],
+) {
+    let league = league_name(k, year);
+    let mut head = serde_json::Map::new();
+    head.insert("level".into(), "other".into());
+    head.insert("league".into(), league.into());
+    head.insert("season".into(), year.into());
+    head.insert("date".into(), d.to_string().into());
+    head.insert("week".into(), (wk + 1).into());
+    head.insert("kind".into(), if round > 0 { "playoff" } else { "regular" }.into());
+    head.insert("round".into(), round.into());
+    head.insert("teams".into(), serde_json::json!(teams));
+    head.insert("names".into(), serde_json::json!(teams.map(|t| name(t, year))));
+    head.insert("neutral".into(), neutral.into());
+    let row = crate::world::wlog::games::game_row(head, crate::world::wlog::games::game_body(r, Some(sides)));
+    let plays = crate::world::wlog::games::plays(&r.stats);
+    let situ = crate::world::game_log::game_situations(&r.stats, true);
+    let Some(l) = w.wlog.as_mut() else { return };
+    l.add_situations(year, "other", league, teams, situ);
+    l.game("games-other", "plays-other", &row, Some(plays));
+}
+
 /// A week of games (or a playoff round): each on the engine under the
 /// league's rule book, all cores; the lines go on each player's page.
 fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
@@ -1585,6 +1640,9 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             let (Some(Some(sh)), Some(Some(sa))) = (sides.get(&h), sides.get(&a)) else { continue };
             record(w, k, [h, a], &r, [&sh.who, &sa.who]);
             let teams = [h as usize, a as usize];
+            if w.logging() {
+                log_game(w, (k, year, wk, round, neutral, d), teams, &r, [&sh.team, &sa.team]);
+            }
             w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref());
             w.seat_line(crate::calendar::Level::Other, teams, None, neutral);
             crate::world::stories::other_game(w, teams, &r.stats, round > 0);

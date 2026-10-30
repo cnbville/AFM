@@ -98,6 +98,78 @@ pub fn captured() -> Vec<Captured> {
     std::mem::take(&mut CAPTURED.lock().unwrap())
 }
 
+/// A world player's hidden reads (the world reader, lane R2): how visible
+/// he is to recruiters, his grades' trend, and the role he left when he
+/// transferred.
+pub fn person_hidden(p: &crate::world::Person) -> (f64, f64, Option<crate::player::PlayingTime>) {
+    (p.visibility, p.gpa_trend, p.transfer_from)
+}
+
+/// A coach's hidden learning ceiling, home state and the age his decline
+/// starts from.
+pub fn coach_hidden(c: &crate::world::coach::Coach) -> (f64, Option<usize>, f64) {
+    (c.learning_ceiling, c.home_state, c.decline_from)
+}
+
+/// The world's inner stores that `world_store` reads.
+pub const WORLD_STORES: &[&str] = &[
+    "college",
+    "college_prev",
+    "hs_season",
+    "nfl_season",
+    "nfl_prev",
+    "prev_polls",
+    "searches",
+    "deals",
+    "realign",
+    "portal_pending",
+    "portal_market",
+    "announcements",
+    "moved_cycle",
+    "kept_schedules",
+    "college_spread",
+    "draft_bars",
+    "system_norms",
+    "novelty",
+    "prev_dates",
+    "coach_window",
+    "recording",
+];
+
+/// One of the world's inner stores (`WORLD_STORES`) as JSON, for the world
+/// reader: the season states, polls, searches and the rest the screens
+/// never show whole. Map keys that are not text become their JSON text.
+pub fn world_store(w: &crate::world::World, name: &str) -> Option<serde_json::Value> {
+    fn json<T: serde::Serialize + ?Sized>(v: &T) -> Option<serde_json::Value> {
+        let bytes = rmp_serde::to_vec_named(v).ok()?;
+        rmp_serde::from_slice::<crate::world::wlog::read::Any>(&bytes).ok().map(|a| a.0)
+    }
+    match name {
+        "college" => json(&w.college),
+        "college_prev" => json(&w.college_prev),
+        "hs_season" => json(&w.hs_season),
+        "nfl_season" => json(&w.nfl_season),
+        "nfl_prev" => json(&w.nfl_prev),
+        "prev_polls" => json(&w.prev_polls),
+        "searches" => json(&w.searches),
+        "deals" => json(&w.deals),
+        "realign" => json(&w.realign),
+        "portal_pending" => json(&w.portal_pending),
+        "portal_market" => json(&w.portal_market),
+        "announcements" => json(&w.announcements),
+        "moved_cycle" => json(&w.moved_cycle),
+        "kept_schedules" => json(&w.kept_schedules),
+        "college_spread" => json(&w.college_spread),
+        "draft_bars" => json(&w.draft_bars),
+        "system_norms" => json(&w.system_norms),
+        "novelty" => json(&w.novelty),
+        "prev_dates" => json(&w.prev_dates),
+        "coach_window" => json(&w.coach_window),
+        "recording" => json(&w.recording),
+        _ => None,
+    }
+}
+
 /// A school's appeal to a recruit, term by term (dynasty thread trial
 /// tooling): see `world::recruiting::debug_terms`.
 pub fn recruit_terms(w: &crate::world::World, person: usize, program: usize) -> [f64; 21] {

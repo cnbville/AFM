@@ -52,7 +52,7 @@ fn hold(w: &mut World, d: Date) {
     if cands.is_empty() {
         return;
     }
-    let teams = crate::world::franchise::active_teams(year + 1);
+    let teams = crate::world::franchise::active_teams_in(w, year + 1);
     let seat = w.seat.and_then(|s| s.nfl_team);
     for i in cands {
         let p = &w.people[i];

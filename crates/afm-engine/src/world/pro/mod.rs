@@ -643,13 +643,16 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
     let family = super::background::generate_family(&bg, Some(structure), &mut rng);
     super::background::apply_background(&mut player, &mut bg, &family, &mut rng);
     super::people::sync_new(&mut player, &bg, &family);
-    let ethnicity = super::ethnicity::player_ethnicity(state, z, &mut rng);
+    let ethnicity = super::ethnicity::player_ethnicity(state, z, Some(pos), &mut rng);
     let year = w.year;
-    // His college: an FBS program by its prestige, a few from below.
+    // His college: an FBS program by its prestige, a few from below; one
+    // that had a team in his last college season (not a college still
+    // waiting to start football, SK68).
+    let last_season = year - age as i32 + 21;
     let colleges: Vec<(usize, f64)> = w
         .programs
         .iter()
-        .filter(|p| p.division <= super::data::Division::FCS)
+        .filter(|p| p.division <= super::data::Division::FCS && p.plays(last_season))
         .map(|p| (p.id, if p.division == super::data::Division::FBS { p.prestige.max(0.05) } else { 0.05 }))
         .collect();
     let college = rng.weighted(&colleges);
@@ -719,7 +722,7 @@ pub(crate) fn fill_league(w: &mut World) {
     let mut rng = Rng::new(w.options.seed ^ 0x5E7E_4A45);
     let mut made: Vec<(Person, Option<usize>, f64)> = Vec::new();
     for t in 0..n {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let talent = crate::league::talent_of(&w.nfl[t], &mut rng);
@@ -839,6 +842,9 @@ pub(crate) fn join_drafted(w: &mut World, i: usize, t: usize, year: i32, pick: u
     if round == 1 && w.people[i].player.position == Position::QB && owner.meddling > 0.6 && owner.pet.is_none() {
         w.clubs[t].office.owner.pet = Some(i);
     }
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "drafted", &format!("round {round}, pick {pick}")));
+    }
 }
 
 /// An undrafted player's team in the rush: the team where he has the
@@ -848,7 +854,7 @@ pub(crate) fn undrafted_team(w: &World, i: usize) -> usize {
     let p = &w.people[i];
     let pos = p.player.position;
     let limit = w.rules.nfl_offseason as usize;
-    let all: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active(t, w.year)).collect();
+    let all: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, w.year)).collect();
     let open: Vec<usize> =
         all.iter().copied().filter(|&t| w.clubs.get(t).is_none_or(|c| c.roster.len() < limit)).collect();
     let teams = if open.is_empty() { all } else { open };
@@ -878,6 +884,9 @@ pub(crate) fn join_undrafted(w: &mut World, i: usize, t: usize, year: i32, terms
     let p = &w.people[i].player;
     let m = Member { rating: p.overall(), age: p.age, id: Some(i as u32), role: None, depth: None };
     w.nfl[t].depth[p.position.index()].push(m);
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "signed undrafted", ""));
+    }
 }
 
 /// After the draft and the rush: depth charts from the people.
@@ -905,6 +914,9 @@ pub(crate) fn transfer(w: &mut World, i: usize, to: usize, why: &str) {
     c.new_team = true;
     let age = p.row_age();
     p.note(format!("Moved to the {name} at {age} ({why})."));
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "moved", why));
+    }
 }
 
 /// A franchise moves (the Browns to Baltimore in 1996): its players,
@@ -931,7 +943,7 @@ pub(crate) fn move_club(w: &mut World, from: usize, to: usize, why: &str) {
 fn fill_holes(w: &mut World, d: Date, full: bool) {
     let year = w.year;
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         for pos in Position::ALL {
@@ -1007,7 +1019,7 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
     let dress = w.rules.nfl_actives as usize;
     let mut changed = false;
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let mut signed = false;
@@ -1178,7 +1190,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         // Cap use on opening day: each active team's payroll over its cap.
         let year = w.year;
         let cap = money::price_cap(year);
-        let teams = super::franchise::active_teams(year);
+        let teams = super::franchise::active_teams_in(w, year);
         let spread = |mut v: Vec<f64>| {
             v.sort_by(|a, b| a.total_cmp(b));
             if v.is_empty() { [0.0; 3] } else { [v[0], v[v.len() / 2], v[v.len() - 1]] }
@@ -1311,6 +1323,14 @@ pub fn after_june1(w: &World, d: Date) -> bool {
 /// qualifies to the waiver wire, where a claiming team takes over his
 /// contract (his old team then owes only the bonus already paid).
 pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: bool, waivers: bool, cause: DeadWhy) {
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(
+            w,
+            i,
+            if waivers { "released (waivers)" } else { "released" },
+            why,
+        ));
+    }
     let year = w.year;
     let june1 = june1 || after_june1(w, d);
     let waive = waivers && market::waivable(w, i, d);
@@ -1318,6 +1338,9 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     let Some(c) = w.people[i].pro.as_mut() else { return };
     let Some(t) = c.team else { return };
     let mut dead = (0.0, 0.0);
+    // Read before the contract is cleared (update 3, F5): a veteran cut
+    // with years left can hold it against the team.
+    let expired = c.contract.as_ref().is_none_or(|k| k.last_year() < year);
     if let Some(k) = c.contract.as_ref() {
         dead = k.dead_if_cut(year, d, june1);
         if waive {
@@ -1339,7 +1362,6 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     // A veteran cut before his deal ran out can hold it against the team
     // (section 6 topic 2): it hurts more the longer he was there.
     let years_there = c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64;
-    let expired = c.contract.as_ref().is_none_or(|k| k.last_year() < year);
     c.status = Status::FreeAgent;
     c.team = None;
     c.weeks_unsigned = 0;
@@ -1429,7 +1451,7 @@ fn street_signings(w: &mut World, d: Date, in_season: bool) -> bool {
         let (price, years) = ask(w, i, year, d);
         let mut best: Option<(usize, f64)> = None;
         for t in 0..w.clubs.len() {
-            if !super::franchise::active(t, year)
+            if !super::franchise::active_in(w, t, year)
                 || w.clubs[t].roster.len() >= limit + if in_season { 20 } else { 0 }
                 || super::front_office::yours(w, t, super::front_office::Duty::FreeAgency)
             {
@@ -1500,6 +1522,9 @@ pub(crate) fn sign(w: &mut World, i: usize, t: usize, d: Date, apy: f64, years: 
         apy / 1e6
     ));
     w.clubs[t].roster.push(i);
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "signed", &format!("{kind:?}")));
+    }
 }
 
 /// Camp (the yearly checkpoint, as college fall camp): every pro develops
@@ -1511,8 +1536,10 @@ fn camp(w: &mut World, d: Date) {
     super::people::pro_mood(w);
     let year = w.year;
     let league_strength = {
-        let teams: Vec<f64> =
-            (0..w.nfl.len()).filter(|&t| super::franchise::active(t, year)).map(|t| w.nfl[t].strength()).collect();
+        let teams: Vec<f64> = (0..w.nfl.len())
+            .filter(|&t| super::franchise::active_in(w, t, year))
+            .map(|t| w.nfl[t].strength())
+            .collect();
         teams.iter().sum::<f64>() / teams.len().max(1) as f64
     };
     let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).collect();
@@ -1613,12 +1640,12 @@ fn camp(w: &mut World, d: Date) {
         });
         let spring = p.pro.as_ref().map_or(0.0, |c| c.spring_snaps);
         let snaps = if spring > 0.0 { Some(snaps.unwrap_or(0.0) + spring) } else { snaps };
-        // A holdout misses camp (proposed, not confirmed: a small dip).
-        if p.pro.as_ref().is_some_and(|c| c.hold == market::Hold::Out) {
-            adjustment -= 0.3;
-        }
+        // A holdout misses camp and plays below his rating while he catches
+        // up (proposed, not confirmed: a 0.3 dip; update 3, F1 fixed the sign).
+        let missed_camp = if p.pro.as_ref().is_some_and(|c| c.hold == market::Hold::Out) { 0.3 } else { 0.0 };
         let ctx = crate::development::SeasonContext {
             adjustment,
+            missed_camp,
             situation,
             payday,
             snaps,
@@ -1633,7 +1660,10 @@ fn camp(w: &mut World, d: Date) {
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         crate::training::close_year(&mut p.player, ctx.focus);
-        crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        if let Some(log) = w.wlog.as_deref().filter(|_| w.recording) {
+            crate::world::wlog::why::growth(log, (w.year, w.today), p.player.id, &ctx, [None; 3], &report);
+        }
         if let Some(row) = p.player.history.last_mut() {
             row.team = team;
             row.depth = Some(role.name().to_string());
@@ -1668,7 +1698,7 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
         return;
     }
     let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ (week as u64) << 8 ^ 0x9E;
-    let mut teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::franchise::active(t, year)).collect();
+    let mut teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
     teams.sort_by(|&a, &b| key_uniform(seed, a as u64).total_cmp(&key_uniform(seed, b as u64)));
     let pairs: Vec<(usize, usize)> = teams.chunks(2).filter(|c| c.len() == 2).map(|c| (c[0], c[1])).collect();
     let sides: Vec<Option<(games::Side, games::Side)>> = pairs
@@ -1693,8 +1723,24 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
             Some((r, [sa, sb]))
         })
         .collect();
-    for (r, sides) in results.into_iter().flatten() {
+    for (&(h, a), x) in pairs.iter().zip(results) {
+        let Some((r, sides)) = x else { continue };
         games::record_preseason(w, &r, &sides);
+        if w.logging() {
+            let f = games::Fixture {
+                home: h,
+                away: a,
+                at: crate::calendar::Moment::at(d, 19, 0),
+                neutral: false,
+                loud: -0.25,
+                seed: 0,
+                playoff: false,
+            };
+            let mut head = serde_json::Map::new();
+            head.insert("week".into(), (week + 1).into());
+            head.insert("kind".into(), "preseason".into());
+            games::log_game(w, head, &f, &r, &sides);
+        }
     }
     w.log.nfl_preseason_games += pairs.len() as u32;
 }
@@ -1832,7 +1878,7 @@ pub(crate) fn cut_split(w: &World, keep: &[(usize, f64)]) -> (Vec<usize>, Vec<us
 pub(crate) fn cutdown(w: &mut World, d: Date) {
     let year = w.year;
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let keep = cut_scores(w, t);
@@ -1941,7 +1987,7 @@ pub(crate) fn black_monday(w: &mut World) {
     let today = w.today;
     market::futures(w, today, &out);
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let o = &w.clubs[t].office;
@@ -2108,6 +2154,9 @@ pub(crate) fn retire(w: &mut World, i: usize, d: Date, why: &str) {
         a.pro = p.pro.clone();
         a.player = Some(Box::new(p.player.clone()));
         a.notes = p.notes.clone();
+    }
+    if w.logging() {
+        w.log_why(crate::world::wlog::why::transaction(w, i, "retired", why));
     }
 }
 

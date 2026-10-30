@@ -248,7 +248,7 @@ function sbPlate(s, k, sel, pos) {
   const tag = p && p.health === "out" ? '<span class="sb-tag bad">OUT</span>' : p && p.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
   return `<button class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"}" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-k="${k}" aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}">
     <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span>${rd(p).replace('class="sb-prr"', 'class="sb-pr"')}</span>
-    <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}</button>`;
+    <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</button>`;
 }
 function sbUnits(units) {
   return `<div class="sb-units">${units.map((u, i) => `<div class="sb-unit ${i === units.length - 1 ? "all" : ""}"><div class="sb-unit-h"><span class="sb-lbl">${esc(u.name)}</span><small>${u.rank ? `${esc(u.rank_words)} ${esc(u.among)}` : esc(u.among || "")}</small></div><div class="sb-unit-v"><span class="sb-grade">${esc(u.grade)}</span><b>${u.value != null ? u.value : "–"}</b></div><span class="sb-ubar"><i style="width:${u.pct != null ? u.pct : 0}%"></i></span></div>`).join("")}</div>`;
@@ -286,7 +286,7 @@ function sbDepthPage(x, cur) {
   const actions = x.yours ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}">Give it back to the staff</button>` : "";
   const stage = `<div class="sb-stage" role="group" aria-label="${esc(x.form_label)} on the field">${sbField(x.level, LOS, YD, def ? null : LOS - 10 * YD)}${plates}</div>`;
   return `<div class="film sb"><div class="pad sb-pad">${head}${sbDcTabs(cur, x)}
-    <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${sbUnits(x.units)}</div>
+    <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${hpDcFoot(x)}${sbUnits(x.units)}</div>
     <aside class="sb-side">${s ? sbSpotPanel(x, s, sel) : '<div class="sb-empty">No spots on this formation.</div>'}</aside></div></div></div>`;
 }
 function sbSpotPanel(x, s, k) {
@@ -307,10 +307,35 @@ function sbSpotPanel(x, s, k) {
     <div class="sb-ph"><span class="sb-lbl gold">${esc(s.pos_full)} · Starter</span><span class="sb-first">${esc(p.first)}</span><span class="sb-last">${esc(p.last)}</span><span class="sb-meta">${p.num != null ? "#" + p.num + " · " : ""}${esc(p.class_full)} · ${esc(p.size)} · ${esc(p.home)}</span></div>
     <div class="sb-hero">${sbRing(p.read)}<div><div class="sb-lbl">Staff read</div>${range(p.read, "his position coach", { p: p.id, k: "ovr" })}${d && d.band ? `<div class="sb-bw">${esc(d.band.word)}</div><small class="sb-dim">${esc(d.band.line)}</small>` : ""}</div></div>
     <div class="sb-cells"><div><span class="sb-lbl">Snaps last game</span><b>${snaps}</b></div><div><span class="sb-lbl">Grade last game</span><b>${d && d.grade != null ? d.grade : "–"}</b></div></div>
+    ${hpWhyHere(x, s, k)}
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(s.pos)}</span>${keys}</div>
     <div class="sb-sec"><span class="sb-lbl">Depth at ${esc(s.slot)}</span>${depth}</div>
     ${coach}
     <div class="st-actions">${linkTo("player", { id: p.id }, "Player page", "st-btn small")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
+}
+
+// ---------- H4 (lane 6): who put him there, and why (board 37) ----------
+const HP_BY = { Y: "You", C: "Coordinator", A: "Auto chart" };
+function hpDcFoot(x) {
+  const legend = `<div class="hp-legend">${Object.entries(HP_BY).map(([k, t]) => `<span><span class="hp-by ${k.toLowerCase()}">${k}</span>${t}</span>`).join("")}</div>`;
+  const ch = (x.changes || []).map((c) => `<div class="hp-change"><span class="hp-by ${esc(String(c.who).toLowerCase())}">${esc(c.who)}</span><span>${rich(c.text)}</span><small>${esc(c.date)}</small></div>`).join("");
+  return `<div class="hp-dcfoot"><div class="hp-dcl"><span class="sb-lbl">Who set each spot</span>${legend}</div><div class="hp-dcl"><span class="sb-lbl">Changes this week</span>${ch ? `<div class="hp-changes">${ch}</div>` : '<span class="sb-dim">No changes this week.</span>'}</div></div>`;
+}
+function hpWhyHere(x, s, k) {
+  const w = s.why;
+  if (!w) return "";
+  const why = (w.why || []).map((r) => `<li><span><b>${esc(r.t)}</b>${rich(r.s)}</span></li>`).join("");
+  const alts = (w.alts || []).map((m) => `<div class="hp-alt"><div>${playerLink(m.id, m.name)}<small>${esc(m.pos)} · ${esc(m.class)}</small><small class="${m.hurt ? "hurt" : ""}">${esc(m.note)}</small></div>${range(m.read, null, { p: m.id, k: "ovr" })}</div>`).join("");
+  const reps = (w.practice || []).filter((r) => r.grade).map((r) => `<div class="hp-rep"><span>${playerLink(r.id, r.name)}<small>${esc(r.words)}</small></span><i><u style="width:${Math.max(0, Math.min(100, r.grade))}%"></u></i></div>`).join("");
+  const second = s.picks[1];
+  const calls = (s.controls && second ? `<button class="st-btn small glass" data-act="sbup" data-k="${k}" data-n="2">Move ${esc(second.last)} up</button>` : "")
+    + (w.by === "Y" ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}">Give it back to the staff</button>` : "");
+  return `<div class="sb-sec hp-wh"><span class="sb-lbl">Why is he here?</span>
+    <div class="hp-wh-by"><span class="hp-by ${esc(String(w.by).toLowerCase())}">${esc(w.by)}</span><span><b>${esc(w.by_name)}</b><small>${esc(w.when)}</small></span></div>
+    ${why ? `<ol>${why}</ol>` : ""}
+    ${alts ? `<span class="sb-lbl">${esc(w.else_title)}</span><div class="hp-alts">${alts}</div>` : ""}
+    ${reps ? `<span class="sb-lbl">Practice grades</span><div class="hp-reps">${reps}</div>` : ""}
+    ${calls ? `<div class="hp-calls">${calls}</div>` : ""}</div>`;
 }
 
 // ---------- V2: the needs map in the stadium ----------

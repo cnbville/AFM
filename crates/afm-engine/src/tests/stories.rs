@@ -15,7 +15,7 @@ use crate::world::{World, WorldOptions};
 fn nfl_world() -> (World, usize) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     let t = (0..w.clubs.len())
-        .filter(|&t| crate::world::franchise::active(t, w.year))
+        .filter(|&t| crate::world::franchise::active_in(&w, t, w.year))
         .max_by_key(|&t| w.clubs[t].roster.len())
         .unwrap();
     let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];
@@ -61,6 +61,7 @@ fn answered_letter(date: Date, yes: u8, no: u8, target: u32, pick: u8) -> Mail {
         loud: 2,
         ids: Vec::new(),
         org_team: None,
+        why: Vec::new(),
     }
 }
 
@@ -229,4 +230,25 @@ fn an_old_world_file_loads_with_empty_stories() {
     let (w, _) = nfl_world();
     let back: st::Stories = rmp_serde::from_slice(&rmp_serde::to_vec_named(&w.stories).unwrap()).unwrap();
     assert_eq!(back.story.entries.len(), w.stories.story.entries.len());
+}
+
+#[test]
+fn a_count_of_one_takes_the_singular() {
+    use crate::world::folk::noun;
+    assert_eq!(noun(1, "interception"), "interception");
+    assert_eq!(noun(0, "interception"), "interceptions");
+    assert_eq!(noun(3_usize, "catch"), "catches");
+    assert_eq!(noun(2_u32, "carry"), "carries");
+    assert_eq!(noun(2, "day"), "days");
+    assert_eq!(noun(1_i64, "practice injury"), "practice injury");
+    assert_eq!(noun(5, "practice injury"), "practice injuries");
+}
+
+#[test]
+fn a_bank_line_counting_one_takes_the_singular() {
+    let t = "renamed a drink {days} days after, {years} years on, {pts} points, {n} is";
+    let one = lines::Fill::new().set("days", "1").set("years", "1").set("pts", "1").set("n", "1");
+    assert_eq!(lines::fill_for_test(t, &one).unwrap(), "renamed a drink 1 day after, 1 year on, 1 point, 1 is");
+    let many = lines::Fill::new().set("days", "11").set("years", "3").set("pts", "21").set("n", "2");
+    assert_eq!(lines::fill_for_test(t, &many).unwrap(), "renamed a drink 11 days after, 3 years on, 21 points, 2 is");
 }

@@ -82,7 +82,7 @@ impl PickBook {
 /// supplemental draft choice): the pick it holds in that round, its own or
 /// one it acquired.
 pub(crate) fn forfeit_pick(w: &mut World, team: usize, year: i32, round: u32) {
-    let teams = super::super::franchise::active_teams(year);
+    let teams = super::super::franchise::active_teams_in(w, year);
     let orig = teams.iter().copied().find(|&o| w.market.picks.owner_of(year, round, o) == team).unwrap_or(team);
     w.market.picks.forfeited.push((year, round, orig));
 }
@@ -109,8 +109,9 @@ pub(crate) fn board_owners(w: &World, year: i32, board: &mut Vec<(usize, u32)>, 
     if !comp.is_empty() {
         let mut full: Vec<(usize, u32)> = Vec::new();
         let rounds = super::super::franchise::draft_rounds(year);
+        let new = super::super::franchise::first_draft_in(w, year);
         for round in 1..=rounds {
-            for t in super::super::franchise::round_order(year, round, base) {
+            for t in super::super::franchise::round_order(year, round, base, &new) {
                 full.push((t, round));
             }
             let mut extra: Vec<&&CompPick> = comp.iter().filter(|c| c.round == round).collect();
@@ -217,7 +218,7 @@ pub(crate) fn chart_at(table: &[(f64, f64)], pick: f64) -> f64 {
 /// order is set once the season ends), later years at mid-round, cut by
 /// his urgency (a contender wants now).
 pub(crate) fn pick_value(w: &World, t: usize, year: i32, round: u32, orig: usize) -> f64 {
-    let teams = super::super::franchise::active_teams(w.year).len().max(1) as f64;
+    let teams = super::super::franchise::active_teams_in(w, w.year).len().max(1) as f64;
     let o = &w.clubs[t].office;
     let slot = if year == w.year && w.today < w.dates.draft[0].date {
         super::super::nfl_year::draft_order(w)
@@ -298,7 +299,7 @@ pub(crate) enum Window {
 pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
     let year = w.year;
     let june1 = super::after_june1(w, d);
-    let teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, year)).collect();
+    let teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active_in(w, t, year)).collect();
     if w.market.fleece.len() < w.nfl.len() {
         w.market.fleece = vec![vec![0.0; w.nfl.len()]; w.nfl.len()];
     }
@@ -468,7 +469,7 @@ pub(crate) fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Optio
         for round in 1..=7u32 {
             for orig in 0..teams {
                 if w.market.picks.owner_of(y, round, orig) != buyer
-                    || !super::super::franchise::active(orig, y.min(year + 1))
+                    || !super::super::franchise::active_in(w, orig, y.min(year + 1))
                 {
                     continue;
                 }
@@ -496,6 +497,17 @@ pub(crate) fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Optio
         (None, Some(p)) => Some(p.0),
         _ => None,
     }
+}
+
+/// How much being traded away stings (update 3, F6; section 6 topic 2):
+/// a veteran of two or more years there who didn't ask out, less than a
+/// cut since he keeps his deal (proposed, not confirmed: three quarters of
+/// a cut's hurt). Read before the move.
+pub(crate) fn trade_hurt(w: &World, i: usize, from: usize) -> f64 {
+    w.people[i].pro.as_ref().map_or(0.0, |c| {
+        let years = c.seasons.iter().filter(|s| s.team == Some(from)).count() as f64;
+        if c.wants_out || years < 2.0 { 0.0 } else { 0.75 * (years / 4.0).min(1.0) }
+    })
 }
 
 fn execute(
@@ -534,7 +546,9 @@ fn execute(
     w.market.fleece[buyer][seller] += (got - consensus_given).max(0.0);
     // Named with the team he played for (trial 7 finding 17).
     let who = super::describe(w, i);
+    let hurt = trade_hurt(w, i, seller);
     super::transfer(w, i, buyer, "traded");
+    crate::world::people::grudge(&mut w.people[i], seller, hurt);
     let to = w.nfl[buyer].name;
     let from = w.nfl[seller].name;
     let what: Vec<String> = picks.iter().map(|&(y, r, _)| format!("a {y} round {r} pick")).collect();

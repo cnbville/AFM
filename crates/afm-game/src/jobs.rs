@@ -135,15 +135,34 @@ pub fn build_world_file_named(
     let names = if fictional { NameMode::Fictional } else { NameMode::Real };
     let opts =
         WorldOptions { seed, history_years: years, scale, names, fictional_league: fictional, ..Default::default() };
-    let w = World::new_stoppable(opts, |w, _| {
+    // The world log (world reader lane R2) goes beside the world file,
+    // written as the history plays.
+    let log_part = worlds.join(format!("{name}.{}.part", afm_engine::world::wlog::EXT));
+    let log = if crate::world_log::on() {
+        let log = afm_engine::world::wlog::WorldLog::create(&log_part, &opts, crate::world_log::commit(), "");
+        Some(log.map_err(|e| format!("Could not start the world log: {e}"))?)
+    } else {
+        None
+    };
+    let built = World::new_logged(opts, log, |w, _| {
         seasons += 1;
         each(seasons, w.year - 1)
-    })
-    .ok_or(STOPPED)?;
+    });
+    let Some(mut w) = built else {
+        let _ = std::fs::remove_dir_all(&log_part);
+        return Err(STOPPED.into());
+    };
     // Seasons done: 0 says the world is being written.
     each(0, 0);
+    if let Some(log) = w.detach_log() {
+        let to_log = crate::world_log::beside(&to);
+        log.close()
+            .and_then(|_| if to_log.exists() { std::fs::remove_dir_all(&to_log) } else { Ok(()) })
+            .and_then(|_| std::fs::rename(&log_part, &to_log))
+            .map_err(|e| format!("Could not write the world log: {e}"))?;
+    }
     let part = to.with_extension("afmworld.part");
-    let commit = option_env!("AFM_COMMIT").unwrap_or(env!("CARGO_PKG_VERSION"));
+    let commit = crate::world_log::commit();
     afm_engine::save::write_world(&w, &part, commit, &files::now_utc(), Some(crate::cards::card(&w)))
         .and_then(|_| std::fs::rename(&part, &to))
         .map_err(|e| format!("Could not write the world: {e}"))?;

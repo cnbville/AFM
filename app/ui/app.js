@@ -53,6 +53,9 @@ function initials(name) {
   return String(name || "").split(/\s+/).filter((w) => /^[A-Z]/.test(w)).slice(0, 3).map((w) => w[0]).join("");
 }
 function mark(team, size) {
+  // A logo from an installed pack takes the drawn mark's place (screens/logos.js).
+  const lg = typeof logoFor === "function" ? logoFor(team) : null;
+  if (lg) return logoMark(lg, team, size);
   const c = team && team.colors ? team.colors : ["#444", "#222"];
   return `<span class="st-mark" style="background:${c[0]};${size ? `--s:${size}px;` : ""}box-shadow:inset 0 0 0 2px ${c[1]}55">${esc(initials(team && team.name))}</span>`;
 }
@@ -87,6 +90,27 @@ function range(r, who, ctx) {
   const card = rrAttrs(ctx, lo, hi);
   const tip = `Your staff's read: ${lo} to ${hi}${who ? ` · ${who}` : ""}. A narrow bar is a sure read; a wide one says your staff isn't sure.`;
   return `<span class="rg${card ? " rr-on" : ""}"${card || ` title="${esc(tip)}"`}><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%;background:${rateColor(m)}"></i></span><b>${lo}-${hi}</b></span>`;
+}
+// Your own read beside your staff's (lane 7, SK23): your own looks only,
+// or a first impression from what reached your desk until you have seen
+// him yourself. `looks`: your own looks (0 a first impression; left out on
+// a table, where the tip stays general).
+function yourRange(r, looks) {
+  if (!r) return `<span class="rg ns l7-yours" title="You have no read of your own on him"><span class="t"></span><b>-</b></span>`;
+  const [lo, hi] = r;
+  const tip = looks == null ? `Your own read: ${lo} to ${hi}, from your own looks or your first impression.` : looks ? `Your own read: ${lo} to ${hi}, from ${looks} look${looks === 1 ? "" : "s"} of your own.` : `Your first impression: ${lo} to ${hi}. You haven't seen him yourself yet, so it can be well off.`;
+  return `<span class="rg l7-yours${looks === 0 ? " l7-first" : ""}" title="${esc(tip)}"><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%"></i></span><b>${lo}-${hi}</b></span>`;
+}
+// "Senior level 89" -> { n: 89, words: "Senior level" } for the badge, and
+// the badge's hover: what each level means at his pool (minor bugs 55, 56).
+function lvlParts(s) {
+  const m = String(s || "").match(/^(.*?)\s*level (\d+)$/);
+  return m ? { n: m[2], words: `${m[1]} level`.trim() } : { n: "", words: String(s || "") };
+}
+function lvlTip(p) {
+  const head = "Your staff's read of him placed against everyone in his group this season";
+  if (!p.level_marks || !p.level_marks.length) return head + ".";
+  return `${head}. ${p.level_marks.map(([t, r]) => `${t}: ${Math.round(r)}`).join(" · ")}`;
 }
 // The hover card's address on a range: whose rating, which one, the range.
 function rrAttrs(ctx, lo, hi) {
@@ -178,6 +202,9 @@ function enterCareer() {
   S.back = [];
   S.fwd = [];
   go("home", {}, { push: false, root: true });
+  // This world's logos from an installed pack; the screen is drawn again
+  // with them once they are known.
+  if (typeof logosLoad === "function") logosLoad().then((on) => { if (on) render(); });
   // "Previously" (storylines): where your stories stood when a saved
   // career opens, once a world day.
   if (S.savedOn && typeof slPrevious === "function") slPrevious();
@@ -390,6 +417,7 @@ screens.roster = async (a) => {
     { k: "home", t: "Hometown", l: true, wrap: true },
     { k: "stars", t: "★", tip: "Recruiting stars", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') },
     { k: "ovr", t: "Rating", div: true, tip: "Your staff's read of his play now, as a range", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
+    { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
     { k: "mood", t: "Mood", l: true },
     { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') },
   ];
@@ -754,7 +782,7 @@ document.addEventListener("click", async (ev) => {
       if (S.busy) break;
       const name = await ask("Save your career", { value: S.lastSaveName || `${S.status && S.status.mine ? S.status.mine.name : (S.status && S.status.you) || "career"} ${S.status ? S.status.season : ""}`, ok: "Save", note: "A save with the same name is replaced." });
       if (!name) break;
-      showBusy("Saving your career… a full world takes about a minute.");
+      showBusy("Saving your career… a full world takes about 20 seconds.");
       try {
         const r = await api("save", { name });
         S.savedOn = S.status && S.status.today;

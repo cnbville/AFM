@@ -40,8 +40,8 @@ pub enum Condition {
 impl Condition {
     pub fn words(self) -> String {
         match self {
-            Condition::Games(n) => format!("if he plays in {n} games"),
-            Condition::Starts(n) => format!("if he starts {n} games"),
+            Condition::Games(n) => format!("if he plays in {n} {}", crate::world::folk::noun(n, "game")),
+            Condition::Starts(n) => format!("if he starts {n} {}", crate::world::folk::noun(n, "game")),
             Condition::ProBowl => "if he makes the Pro Bowl".into(),
         }
     }
@@ -137,7 +137,7 @@ pub fn picks_of(w: &World, t: usize) -> Vec<Pick> {
         for round in 1..=rounds {
             for orig in 0..teams {
                 if w.market.picks.owner_of(y, round, orig) == t
-                    && crate::world::franchise::active(orig, y.min(w.year + 1))
+                    && crate::world::franchise::active_in(w, orig, y.min(w.year + 1))
                 {
                     v.push(Pick { year: y, round, orig, comp: false });
                 }
@@ -222,7 +222,7 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
         });
     }
     let o = p.other;
-    if o == me || !crate::world::franchise::active(o, w.year) {
+    if o == me || !crate::world::franchise::active_in(w, o, w.year) {
         return Err("Pick another club.".into());
     }
     if p.give.players.is_empty() && p.give.picks.is_empty() || p.get.players.is_empty() && p.get.picks.is_empty() {
@@ -419,7 +419,7 @@ pub fn propose(w: &mut World, p: &Proposal) -> Result<Answer, String> {
 /// Executes a trade between your club and another: players move with
 /// their contracts, the seller keeps each player's bonus on its cap, picks
 /// change hands, a conditional pick goes on the books.
-fn execute(w: &mut World, me: usize, p: &Proposal) {
+pub(crate) fn execute(w: &mut World, me: usize, p: &Proposal) {
     let d = w.today;
     let year = w.year;
     let june1 = pro::after_june1(w, d);
@@ -481,7 +481,9 @@ fn execute(w: &mut World, me: usize, p: &Proposal) {
                 y.proration = 0.0;
             }
         }
+        let hurt = trades::trade_hurt(w, i, from);
         pro::transfer(w, i, to, "traded");
+        crate::world::people::grudge(&mut w.people[i], from, hurt);
         let c = w.people[i].pro.as_mut().unwrap();
         c.wants_out = false;
         c.hold = pro::market::Hold::None;
@@ -554,7 +556,7 @@ pub fn shop(w: &mut World, id: u32) -> Result<Vec<(usize, Vec<Pick>, f64)>, Stri
     }
     let year = w.year;
     let mut out = Vec::new();
-    for o in crate::world::franchise::active_teams(year) {
+    for o in crate::world::franchise::active_teams_in(w, year) {
         if o == me {
             continue;
         }

@@ -57,7 +57,11 @@
     if (broken || !spec) return Promise.resolve(null);
     if (!drawing.has(id)) {
       drawing.set(id, heads()
-        .then((H) => H.queue(spec))
+        .then(async (H) => {
+          // a logo from an installed pack on the jersey (lane 15)
+          if (spec.logo && !spec.logo.img && typeof logoImageById === "function") spec.logo.img = await logoImageById(spec.logo.id);
+          return H.queue(spec);
+        })
         .then(async (r) => {
           await api("face_drawn_store", { id, key: key || "", data: r.url }).catch(() => {});
           return r.url;
@@ -116,7 +120,7 @@
       <details class="fc-looks"><summary>Looks</summary><div>${[f.looks.hair, f.looks.beard, ...f.looks.marks.map((m) => m[0].toUpperCase() + m.slice(1)), `${f.looks.build[0].toUpperCase()}${f.looks.build.slice(1)} build, ${f.looks.skin}, ${f.looks.eyes}`].map((t) => `<span>${esc(t)}</span>`).join("")}</div></details>`;
     box._face = f;
     if (!src && f.drawn_on && f.spec) {
-      drawHead(f.id, f.photo ? f.photo.key : "", f.spec).then((url) => {
+      drawHead(f.id, f.drawn_key != null ? f.drawn_key : f.photo ? f.photo.key : "", f.spec).then((url) => {
         if (url && box.isConnected) fill(box, { ...f, drawn: url, spec: null });
       });
     }
@@ -337,7 +341,7 @@
         if (!(await sure("Undo this import?", "Every photo it set is removed, and any photo it replaced comes back.", "Undo import"))) return;
         const x = await api("faces_import_undo", { batch: Number(el.dataset.batch) });
         cache.clear();
-        toast(`${x.undone} photos undone.`);
+        toast(`${x.undone} photo${x.undone === 1 ? "" : "s"} undone.`);
         render();
       } else if (act === "export") await exportPrompts();
       else if (act === "reveal") await api("reveal", { path: el.dataset.path });
@@ -372,7 +376,7 @@
   async function importApply() {
     const rows = IMP.rows.filter((r) => r.on && r.pick);
     if (!rows.length) { toast("Nothing picked to import."); return; }
-    showBusy(`Cropping and keeping ${rows.length} photos…`);
+    showBusy(`Cropping and keeping ${rows.length} photo${rows.length === 1 ? "" : "s"}…`);
     let batch = null, kept = 0, bad = [];
     try {
       for (let k = 0; k < rows.length; k += 8) {
@@ -389,7 +393,7 @@
     IMP.rows.forEach((r) => URL.revokeObjectURL(r.url));
     IMP.rows = null;
     cache.clear();
-    toast(`${kept} photos imported${bad.length ? `; ${bad.length} could not be read` : ""}. Undo from this page.`);
+    toast(`${kept} photo${kept === 1 ? "" : "s"} imported${bad.length ? `; ${bad.length} could not be read` : ""}. Undo from this page.`);
     render();
   }
   async function exportPrompts() {
@@ -412,13 +416,13 @@
             : `<span class="muted">${esc(r.why || "No match")}</span>`;
         return `<tr><td><input type="checkbox" data-imp-on="${i}" ${r.on ? "checked" : ""} ${r.pick ? "" : "disabled"}></td><td><img class="fc-thumb" src="${r.url}" alt=""></td><td class="l">${esc(r.file.name)}</td><td class="l">${who}</td><td class="l"><span class="st-pill ${r.how === "none" ? "" : r.how === "ambiguous" ? "gold" : "good"}">${HOW[r.how] || r.how}</span></td></tr>`;
       }).join("");
-      review = `<div class="panel"><h2>Review <small>${IMP.rows.length} pictures · ${n} to import</small></h2>
+      review = `<div class="panel"><h2>Review <small>${IMP.rows.length} picture${IMP.rows.length === 1 ? "" : "s"} · ${n} to import</small></h2>
         <p class="sub">Each picture is cropped to his face automatically (4:5). Untick any you don't want; pick the player where a name is shared.</p>
         <div class="tbl"><table><thead><tr><th></th><th></th><th class="l">File</th><th class="l">Player</th><th class="l">Matched</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <div style="display:flex;gap:10px"><button class="st-btn small primary" data-fact="import-go">Import ${n} photos</button><button class="st-btn small glass" data-fact="import-cancel">Cancel</button></div></div>`;
+        <div style="display:flex;gap:10px"><button class="st-btn small primary" data-fact="import-go">Import ${n} photo${n === 1 ? "" : "s"}</button><button class="st-btn small glass" data-fact="import-cancel">Cancel</button></div></div>`;
     }
     const past = b.batches.length
-      ? b.batches.map((x) => `<div class="item"><span class="when">${esc(x.date || "")}</span><span>Import ${x.batch}: ${x.count} photos</span><button class="st-btn small glass" data-fact="undo" data-batch="${x.batch}">Undo</button></div>`).join("")
+      ? b.batches.map((x) => `<div class="item"><span class="when">${esc(x.date || "")}</span><span>Import ${x.batch}: ${x.count} photo${x.count === 1 ? "" : "s"}</span><button class="st-btn small glass" data-fact="undo" data-batch="${x.batch}">Undo</button></div>`).join("")
       : '<div class="empty">No imports yet.</div>';
     return `<div class="film"><div class="pad"><div class="h1">Faces and photos</div>
       <p class="sub">Give players your own pictures: one at a time with "Change photo" on his page, or many at once from a folder. Files are matched by name: <b>41234.jpg</b> (his id), <b>Jalen Smith - Alabama.png</b> (name and team), <b>Jalen Smith 2027.jpg</b> (name and class or draft year), or just his name when only one active player has it. Photos are copied into this save's own folder and never leave your computer.</p>
@@ -444,7 +448,7 @@
       IMP.rows[Number(t.dataset.impOn)].on = t.checked;
       const n = IMP.rows.filter((r) => r.on && r.pick).length;
       const btn = document.querySelector("[data-fact=import-go]");
-      if (btn) btn.textContent = `Import ${n} photos`;
+      if (btn) btn.textContent = `Import ${n} photo${n === 1 ? "" : "s"}`;
     }
   });
 

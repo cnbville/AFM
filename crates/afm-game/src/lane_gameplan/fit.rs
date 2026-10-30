@@ -81,7 +81,8 @@ pub(super) fn staff(w: &World, a: &Value) -> Reply {
             );
         }
     }
-    let rows: Vec<Value> = staffing::candidates(w, role)
+    let rows: Vec<Value> = staffing::candidates(w, role, &staffing::Filter::default())
+        .list
         .into_iter()
         .take(40)
         .map(|c| {
@@ -166,7 +167,7 @@ pub(super) fn staff(w: &World, a: &Value) -> Reply {
             json!({
                 "coach": c.coach, "link": coach_link(w, c.coach), "now": c.now, "age": c.age, "rep": c.rep,
                 "calls": calls, "ticks": ticks, "fit": word, "known": c.known,
-                "read": [c.read.0.round(), c.read.1.round()],
+                "read": [c.read.0, c.read.1],
             })
         })
         .collect();

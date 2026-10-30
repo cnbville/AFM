@@ -1,6 +1,6 @@
 # Training: how it works today
 
-Checked against main at a423e02 on 2026-10-26.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Nearly every size in the training week and in prep is marked in code as Claude's (proposed, not confirmed); `docs/world-model.md`, "Training: the week's frame and prep", lists them.
 
@@ -123,7 +123,7 @@ Blocks: winter, spring, quiet, summer, camp, season, postseason, NFL phase 1, ph
 - Score, game week: (0.3 × reps × field share × kept + 0.7 × m) × (0.6 + 0.4 × took). Out of a game week: (0.4 × work × field share × kept + 0.6 × m) × (0.85 + 0.15 × took) (`read`).
 - Words: Sharp 0.92 and up, Prepared 0.8, Patchy 0.66, Underprepared 0.5, Unprepared below; None in a week the staff may run nothing, before he arrived, or with no team week (`word_of`, `Prep::none`; `training/week.rs`, `monday`).
 - Status and the share of the field work and classroom he is there for (`Status::there`): full and new 1 and 1; limited 0.55 and 1; rested 1 and 1 (his rest days are already out of his week); out 0 and 0.75; absent 0 and 0; away at another sport 1 and 1 (read against the share he agreed to, so the sport alone never makes him poorly prepared) (`read`).
-- Who gets which status. Everyone else's players (`training/week.rs`, `monday`): out (a pro out 2+ weeks), absent (missed a voluntary week, `attends`), away (a high schooler in his other sport's season), else full; never limited, rested or new. College and high school game injuries end at the final whistle, so they never make a player out ([injuries.md](injuries.md)). Your players (`training/seat.rs`, `prep_detail`): hurt (a practice injury, the non-football list or a pro out 2+ weeks) is limited when his practice or non-football injury ends within 3 days of Monday, else out; then absent, away (high school), new (arrived in the last 14 days), rested (rest days in his plan in a week with field work), else full.
+- Who gets which status. Everyone else's players (`training/week.rs`, `monday`): out (a pro out 2+ weeks), absent (missed a voluntary week, `attends`), away (a high schooler in his other sport's season), else full; never limited, rested or new. An AI college or high school player is out when his game or practice injury runs more than 3 days past Monday (`training.others_hurt`; [injuries.md](injuries.md)). Your players (`training/seat.rs`, `prep_detail`): hurt (a practice injury, the non-football list or a pro out 2+ weeks) is limited when his practice or non-football injury ends within 3 days of Monday, else out; then absent, away (high school), new (arrived in the last 14 days), rested (rest days in his plan in a week with field work), else full.
 - An NFL injury heals on Tuesday, after Monday's pass, so a pro with one week left is read as practising (`out_this_week`: out_weeks > 1).
 - Worked out from these formulas: an average player out hurt in a game week scores about 0.46 (Unprepared), and at best Patchy (about 0.68) with a heavy classroom week and top work habits, so a long injury rusts him (`read`).
 - Recorded every Monday for every player: your team in `training/seat.rs`, `week`; everyone else in `training/week.rs`, `monday`. The last five words sit in `Train.prep`, three bits each; bit 15 marks a word read while he was out hurt, so a page later in the week reads his week as the pass did (`training/prep.rs`, `record`, `mark_out`, `was_out`, `words`; `training/mod.rs`, `Train`).
@@ -133,8 +133,8 @@ Blocks: winter, spring, quiet, summer, camp, season, postseason, NFL phase 1, ph
 
 - Each game player carries the factor of his latest word: None 1.0, Unprepared 1.33, Underprepared 1.2, Patchy 1.08, Prepared 0.975, Sharp 0.93 (`training/prep.rs`, `game_factor`; `game/roster.rs`, `prep_of`, `GamePlayer::from_player`, `refresh`). The college teams kept for the season refresh it every Monday (`training/week.rs`, `refresh_college_teams`).
 - It multiplies his bust chance and, for linebackers and DBs on runs, his misfit chance before its clamp (`game/scrimmage.rs`, `run_snap`).
-- It moves his read time by 0.1 × (factor − 1) seconds: +0.033 Unprepared, −0.007 Sharp (`run_snap`).
-- A quarterback's time on each read × (1 + 0.3 × (factor − 1)): about 10% longer Unprepared (`game/scrimmage.rs`, `quarterback`).
+- It moves his read time by 0.3 × (factor − 1) seconds: +0.1 Unprepared, −0.021 Sharp (`run_snap`).
+- A quarterback's time on each read × the factor: a third longer Unprepared, 7% shorter Sharp (`game/scrimmage.rs`, `quarterback`).
 - What it does not touch in the game: his ratings. Only these four checks read `GamePlayer.prep` (`game/scrimmage.rs`). Rust is separate: it moves the ratings themselves (see below).
 - Practice battles read it too: your team's after this week's words are recorded, the AI's from last week's, since their battles run before the pass (`training/week.rs`, `monday`).
 - Details of each check are on [match-engine.md](match-engine.md).
@@ -178,7 +178,7 @@ All against your staff's neutral week, for your team only (`training/seat.rs`, `
 - Mat drills (TR6): past two mornings a week, each extra one is a −0.02 mood event for every player, shown as "the grind of the week: mat drills at dawn" (`team_effects`; `world/folk/talks.rs`, `Reason::Practice`, `Reason::words`).
 - Routes on air (TR20): air = clamp(0.97 × air + 0.001 × extra minutes / 30, −0.05, 0.1), added to the chemistry of your quarterback, receivers, tight ends and backs when your quarterback starts (`team_effects`; `world/chemistry.rs`, `apply`).
 - Outings and the leadership council (TR32, TR33): bonds += 0.01 × extra minutes / 60, clamped −0.15 to 0.25, reset at fall camp's friendship draw; friendships on your roster form × clamp(1 + bonds, 0.85, 1.25). Each player's mood also moves clamp(0.004 × extra minutes / 60, −0.01, 0.015) a week (`team_effects`; `world/folk/ties.rs`, `draw`, `day`).
-- Study hall (TR14): each study-hall period more than the neutral week's moves a flagged player's GPA +0.003, each one fewer −0.003; flagged is under 2.3, or in his first college season; not in the NFL (`team_effects`). The practice screen's who's-where list flags a high schooler only under 2.0 (`crates/afm-game/src/lane_training/week.rs`).
+- Study hall (TR14): each study-hall period more than the neutral week's moves a flagged player's GPA +0.003, each one fewer −0.003; flagged is under the level's real eligibility line (high school 2.0; college 2.3 before his first season, then 1.8, 1.9 and 2.0 from his third), or in his first college season; not in the NFL (`team_effects`, `eligibility_line`, `study_flag`). The practice screen's who's-where list flags the same players and shows the line (`crates/afm-game/src/lane_training/week.rs`).
 - Mobility (TR23): limber = clamp(1 − 0.1 × (mobility minutes − neutral) / (neutral + 15), 0.9, 1.1); your college or high school practice injury chance × (0.77 + 0.23 × limber) and the hamstring weight × limber; your NFL club's practice risk × (0.77 + 0.23 × limber) (`limber`, `practice_injuries`, `week`).
 - Nutrition (TR31): fuel = clamp(1 + 0.15 × (nutrition minutes − neutral) / (neutral + 30), 0.9, 1.15) on each body plan's weekly rate (`week`).
 - Your NFL club's practice risk is your own week's: clamp(sqrt((full-contact minutes + 10) / (neutral + 10)) × ((field minutes + 30) / (neutral + 30))^0.3, 0.5, 2) × (0.77 + 0.23 × limber); it replaces your club's entry in `club_risk` (`training/seat.rs`, `week`, `my_risk`; `training/week.rs`, `monday`).
@@ -189,7 +189,7 @@ All against your staff's neutral week, for your team only (`training/seat.rs`, `
 - `practice` adds the week's frame: the title and the block's rule, your staff's reasons for the week, each day's clock (early work, classes, the day's start, kickoff), weather and place, the required and chosen days off, four cards (hours, contact, game prep minutes against your staff's, prep and effort), each player's prep row, the week's minutes by the nine shown families, the lift groups, body targets by group, the last testing day's numbers, who's where (rehab steps, new arrivals, other sports, study hall) and across the league (`lane_training.rs`, `practice`; `crates/afm-game/src/lane_training/week.rs`).
 - A player's prep row: status, his work, installs, film, walkthroughs and own study against his role's usual, your staff's word, five weeks of words, his rust in points and what your staff says. On Monday before the pass it shows the live read; after it, the recorded word (`lane_training/week.rs`, `prep_json`, `says`).
 - Across the league: up to two of this week's opponent's starters with 1.5+ points of rust, read straight from their rust, and up to three OTA absences in the news of the last 14 days (`lane_training/week.rs`, `league`; `lane_training.rs`, `practice`).
-- The who's-where list flags high schoolers under a 2.0 GPA; the study-hall effect itself reads 2.3 at every level (`lane_training/week.rs`, `wheres`; `training/seat.rs`, `team_effects`).
+- The who's-where list flags whoever study hall flags, on the same line (`lane_training/week.rs`, `wheres`; `training/seat.rs`, `study_flag`).
 - Game day's hub has "Your players' prep": your two-deep without the hurt-out players, counted by word, and up to ten Unprepared, Underprepared or Patchy players, worst first (`lane_training.rs`, `prep_report`; `crates/afm-game/src/lane_gameday.rs`, `hub`).
 
 ## Individual plans
@@ -219,7 +219,7 @@ Set per player through `plans_set` / `set_plan` (`crates/afm-game/src/lane_train
 - Stored in tens: acute = units / 10, chronic = 0.75 × chronic + 0.25 × acute (about four weeks) (`training/mod.rs`, `add_load`).
 - Spike = acute / chronic; 1.6 if chronic is under 3 and acute over 6 (`Train::spike`). Trainers' note above 1.45 (`training/seat.rs`, `week`). Screen words in `crates/afm-game/src/lane_training.rs`, `load_words`.
 - A week with no team plan (own time, no team, a pro out 2+ weeks) loads 150 units in the world pass (`training/week.rs`, `monday`).
-- A player absent from a voluntary week still takes the team week's load, in the world pass and on your team (`training/week.rs`, `monday`; `training/seat.rs`, `week`).
+- A player absent from a voluntary week takes the own-time load of 150 units, not the team week's, in the world pass and on your team; he rolls no practice injury or heat illness (`training/week.rs`, `monday`; `training/seat.rs`, `week`, `absent_ids`).
 - What load does: practice injury odds through the spike (see [injuries.md](injuries.md)). It does not slow growth.
 
 ## Practice battles and grades
@@ -255,7 +255,7 @@ Set per player through `plans_set` / `set_plan` (`crates/afm-game/src/lane_train
 - Pros out 2+ weeks: ratio 0.6/0.4/0.4/0.1/0/0.2/0.5 at 70% attendance (`training/week.rs`, `monday`).
 - High schoolers' other sport: about 42% (specialists 20%) by a hash of his id, picked by body (track, basketball, wrestling, baseball). In its season and outside football's camp and season, it multiplies the week (e.g. basketball strength 0.65, speed 1.06, conditioning 1.12) and he reads as away for prep (`training/offseason.rs`, `other_sport`, `Sport::ratio`, `sport_ratio`).
 - Your team only: signs of offseason work through the facility, social posts, strength coach, trainers, teammates and agents, each with its own bias (`training/offseason.rs`, `sign`; `training/seat.rs`, `offseason_week`); report day weigh-in and conditioning test (fail chance clamp(base × e^(−4(effort−1)) × e^(−0.04(stamina−70)), 0.003, 0.6), base 3% NFL, 2.5% college, 2% high school; failing is 3-10 days on the non-football list) (`offseason.rs`, `fail_chance`; `seat.rs`, `report_day`).
-- High school heat (your school, July to September practice days with a 3 pm heat index of 104 F or more): with a state heat rule only a note is written (the week's work is not cut in code); without one each player risks heat illness, 0.0033 × 1.8 if 260 lb or more × max(1.2 − 0.004 × stamina, 0.6) × (1 + (index − 104) / 10), out 3 days (`training/seat.rs`, `heat_week`).
+- High school heat (your school, July to September practice days with a 3 pm heat index of 104 F or more): with a state heat rule the day's practice runs an hour: every field period shrinks to fit 60 minutes, the meetings and the weight room stay, and a note says so; the world's high schools in those states get the same cut (`training/week.rs`, `hot_days`, `heat_cut`; `training/seat.rs`, `planned`). Without one each player risks heat illness, 0.0033 × 1.8 if 260 lb or more × max(1.2 − 0.004 × stamina, 0.6) × (1 + (index − 104) / 10), out 3 days (`training/seat.rs`, `heat_week`).
 
 ## Breaking the rules
 
@@ -264,7 +264,7 @@ Set per player through `plans_set` / `set_plan` (`crates/afm-game/src/lane_train
 
 ## Code against the docs
 
-- `docs/world-model.md` (lane 4's picks) says a poorly prepared player reads about a tenth of a second late per word below prepared and a quarterback's reads run up to 30% slower. The code adds 0.1 × (factor − 1) seconds (0.033 s for Unprepared) and × (1 + 0.3 × (factor − 1)) on each read (about 10%) (`game/scrimmage.rs`, `run_snap`, `quarterback`).
+- None known.
 
 ## Where the knobs are
 

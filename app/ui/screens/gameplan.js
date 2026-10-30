@@ -70,6 +70,14 @@ const DP_PLAN_TABS = ["Identity", "Self-scout", "Call sheet", "Playbook", "Insta
 screens.plans = async (a) => {
   try {
     return await dpPlans(a || {});
+  } catch (e) {
+    // A new team with no players yet (ground zero): the Plans pages wait
+    // for a roster instead of failing.
+    if (!(S.status && S.status.ground)) throw e;
+    title("Plans");
+    const team = S.status.mine || null;
+    const goto = gotoLine([["Ground zero", "groundzero"], ["Staff", "people_staff"]]);
+    return `<div class="film"><div class="pad dp">${dpHead(team, team ? esc(team.name) : "", "Plans", "", "")}${goto}<div class="gz-empty">${esc(e.message || String(e))} Ground zero says when your players come.</div></div></div>`;
   } finally {
     DP.reuse = false;
   }
@@ -225,7 +233,7 @@ async function dpRulesTab(segHtml) {
   const kicker = x.kicker ? `, with ${playerLink(x.kicker.id, x.kicker.name)}'s leg` : "";
   const fourth = `<div class="dp-blk"><div class="dp-bt"><span><b>4th downs</b><small>your analytics staff's chart${kicker}</small></span>${dpSeg("dprule", [["staff", "Staff"], ["numbers", "The numbers"], ["aggressive", "Aggressive"], ["conservative", "Conservative"]], r.fourth, { k: "fourth" }, "", dis)}</div>
     <div class="dp-chart"><span class="h" style="text-align:left">To go · ball on</span>${head}${grid}</div>
-    <div class="dp-cellinfo">${info}<small>${x.tally.go} go · ${x.tally.fg} field goal · ${x.tally.punt} punt${own ? ` · ${dpPlural(own, "square")} yours${x.head ? ` · <a class="link" data-act="dpcellclear">clear them</a>` : ""}` : ""}</small></div></div>`;
+    <div class="dp-cellinfo">${info}<small>${x.tally.go} go · ${dpPlural(x.tally.fg, "field goal")} · ${dpPlural(x.tally.punt, "punt")}${own ? ` · ${dpPlural(own, "square")} yours${x.head ? ` · <a class="link" data-act="dpcellclear">clear them</a>` : ""}` : ""}</small></div></div>`;
   const chips = (list) => list.map((m) => `<i class="${m.go ? "on" : ""}" title="${m.go ? "Go for two" : "Kick"}">${m.m}</i>`).join("");
   const twoTxt = { staff: "Your staff decides by its own chart and its trust in the kicker.", chart: "In the 4th quarter, go for two when the margin after the touchdown is in gold; kick otherwise.", kick: "Always kick the extra point." }[r.two];
   const two = `<div class="dp-blk"><div class="dp-bt"><span><b>Two-point tries</b><small>in the 4th quarter, by the score after the touchdown</small></span>${dpSeg("dprule", [["staff", "Staff"], ["chart", "The chart"], ["kick", "Always kick"]], r.two, { k: "two" }, "", dis)}</div>
@@ -338,7 +346,7 @@ async function dpSheetTab() {
   if (play) {
     const marks = [play.fav && "the quarterback's favourite", play.breaker && "breaks a tendency", play.cut && "your coordinator would cut it", play.yours && "yours", play.wet && "for wet weather"].filter(Boolean).join(" · ");
     const hash = play.hash === 1 ? "left hash" : play.hash === 2 ? "right hash" : "either hash";
-    card = `<div class="dp-card"><span class="dp-lbl">${esc(dpBoxOf(x, play.i))} · ${hash}</span><b>${esc(dpCap(play.name))}</b>${marks ? `<small class="${play.cut ? "bad" : "gold"}">${esc(marks)}</small>` : ""}<small>${esc(play.look)}</small><span class="dp-lbl">Why ${play.yours ? "it's there" : !x.by ? "your coordinator has it" : plainText(x.by) === "you" ? "you have it" : `${plainText(x.by)} has it`}</span><span>${esc(play.why || "your call")}</span>${play.tests ? `<div class="dp-kv2"><span>Tests</span><span>${esc(play.tests)}</span></div>` : ""}
+    card = `<div class="dp-card"><span class="dp-lbl">${esc(dpBoxOf(x, play.i))} · ${hash}</span><b>${esc(dpCap(play.name))}</b>${marks ? `<small class="${play.cut ? "bad" : "gold"}">${esc(marks)}</small>` : ""}<small>${esc(play.look)}</small><span class="dp-lbl">Why ${play.yours ? "it's there" : !x.by ? "your coordinator has it" : plainText(x.by) === "you" ? "you have it" : `${esc(plainText(x.by))} has it`}</span><span>${esc(play.why || "your call")}</span>${play.tests ? `<div class="dp-kv2"><span>Tests</span><span>${esc(play.tests)}</span></div>` : ""}
       ${x.head ? `<div class="dp-btns">${play.cut ? `<button class="st-btn small glass" data-act="dpedit" data-i="${play.i}" data-a="keep">Keep it</button>` : ""}<button class="st-btn small glass" data-act="dpedit" data-i="${play.i}" data-a="up">Move up</button><button class="st-btn small glass" data-act="dpedit" data-i="${play.i}" data-a="cut">Cut it</button></div>` : ""}</div>`;
   } else {
     const favs = !def && x.favourites.length ? `<span class="dp-lbl">The quarterback's favourites</span>${x.favourites.slice(0, 4).map((f) => `<div class="dp-opt"><span>★ ${esc(dpCap(f.name))}</span><small>${dpPlural(f.n, "throw")} · ${f.epa >= 0 ? "+" : ""}${f.epa} EPA a throw</small></div>`).join("")}` : "";
@@ -382,7 +390,7 @@ async function dpInstallsTab() {
   const left = `<div class="panel"><div class="dp-ph"><span><span class="dp-pt">Who knows the plan</span><span class="dp-ps">${!x.has_game ? "no game ahead: the plan goes in the week of each game" : x.week ? `the ${opp} plan, from walkthroughs, reps and film` : `the ${opp} plan goes in the week of the game`}</span></span>${seg}</div>
     <div class="dp-irow th"><span>Player</span><span>${x.week ? "Grasp from 40% · now → by game day" : "Grasp from 40% · now"} · │ game ready ${x.ready}%</span><span class="r">New</span><span class="r">Film h</span><span class="r">Busts</span></div>
     ${rows || '<div class="empty">Nobody in this unit\'s two-deep yet.</div>'}
-    <div class="dp-opt"><span>${!x.rows.length ? "" : x.week ? `The unit is at ${x.total.now}% now and ${x.total.friday}% by game day: ${x.total.busts} busts a game expected, ${esc(x.total.words)} (${x.total.ready_busts}).` : `The unit knows ${x.total.now}% of the sheet now. The week of the game puts in the rest.`}</span><small>${esc(x.film_hours)} h of film a man · ${esc(x.load)}</small></div></div>`;
+    <div class="dp-opt"><span>${!x.rows.length ? "" : x.week ? `The unit is at ${x.total.now}% now and ${x.total.friday}% by game day: ${x.total.busts} ${x.total.busts === 1 ? "bust" : "busts"} a game expected, ${esc(x.total.words)} (${x.total.ready_busts}).` : `The unit knows ${x.total.now}% of the sheet now. The week of the game puts in the rest.`}</span><small>${esc(x.film_hours)} h of film a man · ${esc(x.load)}</small></div></div>`;
   const fams = x.families.length
     ? x.families.map((f) => `<div class="dp-item"><span><b>${esc(dpCap(f.name))}</b><small>${dpPlural(f.calls, "call")} on the sheet${f.new ? " · still being learned" : ""}</small></span><span><span class="dp-gv">${x.week ? `<span>${f.now} →</span> <b class="${f.friday < x.ready ? "bad" : ""}">${f.friday}</b>` : `<b>${f.now}</b>`}</span><span class="dp-gb ${x.week && f.friday < x.ready ? "low" : ""}" style="width:96px;flex:none"><i class="f" style="width:${dpG(f.friday)}%"></i><i class="n" style="width:${dpG(f.now)}%"></i><u style="left:${dpG(x.ready)}%"></u></span></span></div>`).join("")
     : `<div class="empty">${x.sheet ? "Nothing new for this unit on this week's sheet." : "No sheet drafted yet: the families go in once your coordinators draft it."}</div>`;
@@ -512,7 +520,7 @@ window.dpWeekTab = async (h, parts) => {
     if (a.man != null && !mans.includes(a.man)) mans.push(a.man);
     if (a.rush != null && !rushes.includes(a.rush)) rushes.push(a.rush);
     const sel = (f, opts, cur) => `<select data-dpch="dpans" data-k="${a.k}" data-f="${f}"${dis}>${opts.map(([v, t]) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
-    return `<div class="dp-prow"><span><b>${esc(a.name)}</b><small>${a.share}%</small></span><span><small>They ${esc(a.does)}${a.snaps ? ` · ${a.snaps} snaps` : ""}</small><b class="us">${esc(dpCap(pkg))} · ${man}% man · ${rush}% five or more</b><span class="ctl">${sel("pkg", [["staff", `Staff: ${a.staff.pkg}`], ["base", "Base"], ["nickel", "Nickel"], ["dime", "Dime"]], a.pkg)}${sel("man", [["staff", `Staff: ${a.staff.man}% man`], ...mans.sort((p, q) => p - q).map((v) => [v, `${v}% man`])], a.man != null ? a.man : "staff")}${sel("rush", [["staff", `Staff: ${a.staff.rush}% 5+`], ...rushes.sort((p, q) => p - q).map((v) => [v, `${v}% five or more`])], a.rush != null ? a.rush : "staff")}</span></span></div>`;
+    return `<div class="dp-prow"><span><b>${esc(a.name)}</b><small>${a.share}%</small></span><span><small>They ${esc(a.does)}${a.snaps ? ` · ${dpPlural(a.snaps, "snap")}` : ""}</small><b class="us">${esc(dpCap(pkg))} · ${man}% man · ${rush}% five or more</b><span class="ctl">${sel("pkg", [["staff", `Staff: ${a.staff.pkg}`], ["base", "Base"], ["nickel", "Nickel"], ["dime", "Dime"]], a.pkg)}${sel("man", [["staff", `Staff: ${a.staff.man}% man`], ...mans.sort((p, q) => p - q).map((v) => [v, `${v}% man`])], a.man != null ? a.man : "staff")}${sel("rush", [["staff", `Staff: ${a.staff.rush}% 5+`], ...rushes.sort((p, q) => p - q).map((v) => [v, `${v}% five or more`])], a.rush != null ? a.rush : "staff")}</span></span></div>`;
   }).join("");
   const limOpts = [0, 15, 20, 25, 30, 40, 50];
   const limits = x.limits.map((l) => `<div class="dp-lrow"><span><b>${playerLink(l.id, l.name)} <small>· ${esc(l.pos)} · ${esc(l.practice)}${l.note ? ` · ${esc(l.note)}` : ""}</small></b><span class="ctl"><select class="dp-wsel" data-dpch="dplimit" data-id="${l.id}"${dis}>${[...new Set([...limOpts, l.limit || 0])].sort((p, q) => p - q).map((v) => `<option value="${v}" ${v === (l.limit || 0) ? "selected" : ""}>${v ? `${v} snaps` : "No limit"}</option>`).join("")}</select></span></span><span><b class="${l.limit ? "gold" : ""}">${l.limit || "Full"}</b><small>${l.limit ? "snap limit" : "no limit"}</small></span></div>`).join("");
@@ -584,7 +592,7 @@ function dpFitStaffHtml(x) {
   const pad = (arr) => arr.concat(Array(Math.max(0, 3 - arr.length)).fill("<span></span>")).join("");
   const sym = { yes: "✓", part: "~", no: "✕" };
   const word = { yes: "fits", part: "in part", no: "against" };
-  const rows = x.rows.slice(0, 15).map((r) => `<div class="dp-hrow"><span>${rich(r.link)}<small>${esc(r.calls)} · ${plainText(r.now)} · ${esc(r.rep)}</small></span>${pad((r.ticks || []).slice(0, 3).map((t) => `<span class="fx" title="${esc(t.why)}"><b class="${t.t}">${sym[t.t]}</b><small>${word[t.t]}</small></span>`))}<b class="${esc(r.fit)}">${esc(r.fit === "No guidelines" ? "–" : r.fit)}</b></div>`).join("");
+  const rows = x.rows.slice(0, 15).map((r) => `<div class="dp-hrow"><span>${rich(r.link)}<small>${esc(r.calls)} · ${esc(plainText(r.now))} · ${esc(r.rep)}</small></span>${pad((r.ticks || []).slice(0, 3).map((t) => `<span class="fx" title="${esc(t.why)}"><b class="${t.t}">${sym[t.t]}</b><small>${word[t.t]}</small></span>`))}<b class="${esc(r.fit)}">${esc(r.fit === "No guidelines" ? "–" : r.fit)}</b></div>`).join("");
   const against = x.against.length ? `Your guidelines: ${x.against.map((a) => `${a.k} ${a.v} (${DP_FIRM_WORDS[a.firm] || a.firm})`).join(" · ")}.` : "No guidelines on this side yet: set them on Plans, Identity, and every candidate is ticked against them.";
   return `<div class="dp dp-fitp"><div class="panel"><div class="dp-ph"><span><span class="dp-pt small">Fit with how we play</span><span class="dp-ps">${esc(against)}</span></span><a class="link" data-go="plans" data-tab="Identity">Identity</a></div>
     ${cols.length ? `<div class="dp-hrow th"><span>Candidate · what he calls</span>${pad(cols.map((c) => `<span style="text-align:center">${esc(c)}</span>`))}<b>Fit</b></div>${rows}` : ""}</div></div>`;

@@ -99,6 +99,28 @@ stats!(
     ReturnTd,
     GradeSum,
     Graded,
+    // The world reader (R1): the game line's kicking, pass rush and
+    // time to throw numbers the book dropped before. New stats go last,
+    // so older world files read their rows unchanged.
+    XpAtt,
+    FgAttU30,
+    FgAtt30s,
+    FgAtt40s,
+    FgAtt50,
+    FgMadeU30,
+    FgMade30s,
+    FgMade40s,
+    Kickoffs,
+    KickoffTb,
+    PuntYds,
+    PuntIn20,
+    PuntTb,
+    QbHits,
+    Hurries,
+    SpeedWins,
+    PowerWins,
+    FinesseWins,
+    TttSum,
 );
 
 pub const STAT_COUNT: usize = Stat::ALL.len();
@@ -212,6 +234,23 @@ pub fn from_line(l: &StatLine) -> [f32; STAT_COUNT] {
     set(ReturnTd, (l.kr_td + l.pr_td) as f64);
     set(GradeSum, l.grade_sum);
     set(Graded, l.graded as f64);
+    set(XpAtt, l.xp_att as f64);
+    for (k, (a, m)) in [(FgAttU30, FgMadeU30), (FgAtt30s, FgMade30s), (FgAtt40s, FgMade40s)].into_iter().enumerate() {
+        set(a, l.fg_att[k] as f64);
+        set(m, l.fg_made[k] as f64);
+    }
+    set(FgAtt50, l.fg_att[3] as f64);
+    set(Kickoffs, l.kickoffs as f64);
+    set(KickoffTb, l.ko_tb as f64);
+    set(PuntYds, l.punt_yds);
+    set(PuntIn20, l.punt_in20 as f64);
+    set(PuntTb, l.punt_tb as f64);
+    set(QbHits, l.qb_hits as f64);
+    set(Hurries, l.hurries as f64);
+    set(SpeedWins, l.speed_wins as f64);
+    set(PowerWins, l.power_wins as f64);
+    set(FinesseWins, l.finesse_wins as f64);
+    set(TttSum, l.ttt);
     s
 }
 
@@ -294,8 +333,15 @@ impl serde::Serialize for StatSet {
 }
 
 impl<'de> serde::Deserialize<'de> for StatSet {
+    /// A world file written before a stat was added has shorter rows: the
+    /// missing stats read as zero.
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        <[f32; STAT_COUNT] as serde_big_array::BigArray<'de, f32>>::deserialize(d).map(StatSet::from)
+        let v: Vec<f32> = serde::Deserialize::deserialize(d)?;
+        let mut a = [0f32; STAT_COUNT];
+        for (x, y) in a.iter_mut().zip(v) {
+            *x = y;
+        }
+        Ok(StatSet::from(a))
     }
 }
 
@@ -558,7 +604,8 @@ pub struct UnitBuzz {
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct StatBook {
-    /// Every player season, oldest first.
+    /// Every player season, oldest first. Its own part in a save (`save.rs`).
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub seasons: Vec<SeasonRecord>,
     /// Player id to his seasons (indexes into `seasons`), oldest first.
     pub by_player: HashMap<u32, Vec<u32>>,

@@ -6,7 +6,7 @@ use crate::attributes::{
     ATTRIBUTE_COUNT, ATTRIBUTE_PROFILES, Attr, AttributeGroup, Attributes, MAX_RATING, MIN_RATING,
 };
 use crate::player::{DevelopmentEvent as Ev, Events, Level, OptF64, Player, PlayingTime, SeasonRecord};
-use crate::positions::{overall_for, weight};
+use crate::positions::{Position, overall_for, weight};
 use crate::rng::{Rng, clamp, round_half_up};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -26,6 +26,9 @@ pub struct SeasonContext {
     /// First-year dip after a step up, 0-1 (see `first_year_adjustment` in career).
     /// He plays below his rating while he adjusts, and grows a little slower.
     pub adjustment: f64,
+    /// A holdout who missed camp (update 3, F1): extra dip on top of
+    /// `adjustment`, 0-1. He plays below his rating while he catches up.
+    pub missed_camp: f64,
     /// How his surroundings help or hurt him, -1 to 1: the supporting cast, the
     /// scheme and how well run the organisation is. A bad situation drags his
     /// play and his confidence; a good one lifts both.
@@ -73,6 +76,7 @@ impl SeasonContext {
             playing_time,
             trouble: None,
             adjustment: 0.0,
+            missed_camp: 0.0,
             situation: 0.0,
             payday: false,
             snaps: None,
@@ -150,11 +154,88 @@ impl GrowthCtx {
 /// Whether an attribute is past its decline onset this year, by the
 /// ageing step's rule.
 pub(crate) fn declines(position: crate::positions::Position, longevity: f64, key: Attr, age: f64) -> bool {
+    age + 1.0 - decline_onset(position, longevity, key) > 0.0
+}
+
+/// The age an attribute starts to decline. A position moves the body's
+/// decline at most 1.5 years either way, so a running back's speed goes
+/// 1.5 years early, not 2.5 (update 3, F15; `docs/development-model.md`).
+fn decline_onset(position: crate::positions::Position, longevity: f64, key: Attr) -> f64 {
     let profile = key.profile();
-    let physical = profile.group == AttributeGroup::Physical;
     let pos_offset = position.profile().aging_offset;
-    let onset = profile.decline_age + longevity + if physical { pos_offset.min(1.5) } else { pos_offset };
-    age + 1.0 - onset > 0.0
+    let physical = profile.group == AttributeGroup::Physical;
+    profile.decline_age + longevity + if physical { pos_offset.clamp(-1.5, 1.5) } else { pos_offset }
+}
+
+/// Positions a player really moves to from each spot (update 3, A6): what
+/// they ask overlaps with his, so those skills keep growing, the way a
+/// quarterback who becomes a receiver still has the hands he built
+/// (proposed, not confirmed).
+fn moves_to(pos: Position) -> &'static [Position] {
+    use Position::*;
+    match pos {
+        QB => &[WR, RB, S, TE],
+        RB => &[WR, CB, S, LB],
+        WR => &[CB, S, TE, RB],
+        TE => &[WR, OT, EDGE, LB],
+        OT => &[IOL, TE, DT],
+        IOL => &[OT, DT],
+        EDGE => &[LB, DT, TE],
+        DT => &[EDGE, IOL, OT],
+        LB => &[EDGE, S, RB, TE],
+        CB => &[S, WR],
+        S => &[CB, LB, WR],
+        K => &[P],
+        P => &[K],
+        LS => &[IOL, TE, LB],
+    }
+}
+
+/// A skill clearly unrelated to his position (update 3, A6; Cain
+/// 2026-10-24: "only very unrelated skills"): neither his position nor any
+/// he really moves to uses it, like a tackle's man coverage. It stops
+/// growing. The body is not a skill, and elusiveness is rated for his size
+/// (A2), so both keep growing for everyone. High school kickers and
+/// snappers play another position, so kicking and snapping are never
+/// unrelated there.
+pub(crate) fn unrelated(pos: Position, key: Attr, hs: bool) -> bool {
+    if key.profile().group == AttributeGroup::Physical || key == Attr::Elusiveness {
+        return false;
+    }
+    if hs && key.category() == crate::attributes::Category::KickingAndSnapping {
+        return false;
+    }
+    weight(pos, key) <= 0.0 && moves_to(pos).iter().all(|&q| weight(q, key) <= 0.0)
+}
+
+/// The share of his top speed and burst his body has reached by the end
+/// of this year (speed update S4): speed comes with growing up, not with a
+/// birthday, so a senior who has his height has about 95% of it by senior
+/// spring and a late bloomer less (Biology of Sport, 2026; proposed, not
+/// confirmed: 66% at the start of growth, 96% when grown, straight between;
+/// the year's growth adds the rest).
+fn speed_with_body(age: f64, bloom: f64) -> f64 {
+    let grown = clamp((age + 0.75 - 13.0 - 0.6 * bloom) / 6.0, 0.0, 1.0);
+    0.66 + 0.30 * grown
+}
+
+/// Wear one season adds (update 3, F14, as the class sim always did): backs
+/// take the most hits, quarterbacks who run take more than pocket passers,
+/// kickers none. `played` is his share of a starter's season.
+pub(crate) fn season_wear(p: &Player, played: f64) -> f64 {
+    let per_season = match p.position {
+        Position::RB => 1.0,
+        Position::QB => {
+            let legs = (p.attributes.get(Attr::Speed)
+                + p.attributes.get(Attr::Acceleration)
+                + p.attributes.get(Attr::Agility))
+                / 3.0;
+            if legs >= 78.0 { 0.6 } else { 0.15 }
+        }
+        Position::K | Position::P | Position::LS => 0.0,
+        _ => 0.35,
+    };
+    per_season * played
 }
 
 /// One installment of a year's growth (section 6b topic 12): `share` of
@@ -296,6 +377,88 @@ pub struct SeasonReport {
     pub games_missed: u32,
 }
 
+/// What one yearly step drew and why (world reader lane R2): every term
+/// behind the year's growth and potential move, filled in as the step runs.
+/// Writing it draws nothing and changes nothing; the world log reads it
+/// back with `take_why` right after the step, on the same thread.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize)]
+pub struct GrowthWhy {
+    pub age: f64,
+    /// Age less bloom: what the growth windows read.
+    pub development_age: f64,
+    /// Ratings regained in the year back from a major injury.
+    pub rehab_regain: f64,
+    pub injury_chance: f64,
+    pub injury: Option<Ev>,
+    /// A major injury: 0 heals fully, 1 a small lasting loss, 2 his burst gone.
+    pub heal: Option<u8>,
+    /// Rating points the injury took now, and ceiling points it took for good.
+    pub injury_points: f64,
+    pub injury_ceiling: f64,
+    pub growth_multiplier: f64,
+    pub snaps_factor: f64,
+    /// Form before the year's event, and after it.
+    pub form_base: f64,
+    pub form: f64,
+    /// Points off (or on) his on-field level this year.
+    pub performance: f64,
+    pub breakout_chance: f64,
+    pub slump_chance: f64,
+    pub lost_season_chance: f64,
+    pub stagnation_chance: f64,
+    pub payday_mult: f64,
+    pub hot_last_year: bool,
+    pub breakout_lift: f64,
+    /// Rating points a slump takes after growth (summed over attributes).
+    pub slump_points: f64,
+    pub weight_gain: f64,
+    pub poor_coaching_chance: f64,
+    pub poor_coaching_points: f64,
+    pub plasticity: f64,
+    /// The potential drive and its parts: work ethic, coachability,
+    /// coaching, situation, playing time (times snaps), setback, luck.
+    pub drive: f64,
+    pub drive_work: f64,
+    pub drive_coachability: f64,
+    pub drive_coaching: f64,
+    pub drive_situation: f64,
+    pub drive_playing: f64,
+    pub drive_setback: f64,
+    pub drive_luck: f64,
+    pub spurt: bool,
+    /// The overall of the ceilings' move before the cap, and the cap's scale.
+    pub potential_shift: f64,
+    pub shift_scale: f64,
+    /// Ceiling points earned by veteran learning (summed).
+    pub veteran_learned: f64,
+    pub coaching_boost: f64,
+    pub snaps_mult: f64,
+    pub work_mult: f64,
+    pub morale_mult: f64,
+    pub physical_mult: f64,
+    pub focus_take: f64,
+    /// Growth landed at the checkpoint (summed), and how many attributes'
+    /// growth was left to land week by week through training.
+    pub landed: f64,
+    pub deferred: u32,
+    /// Ageing's loss (summed over attributes) and old skills faded.
+    pub decline_points: f64,
+    pub faded: u32,
+    /// Each group's change at the checkpoint (summed): physical, technical, mental.
+    pub change: [f64; 3],
+    pub overall_before: f64,
+    pub potential_before: f64,
+}
+
+thread_local! {
+    static LAST_WHY: std::cell::Cell<Option<GrowthWhy>> = const { std::cell::Cell::new(None) };
+}
+
+/// The why of the last `develop_season` on this thread, once.
+pub fn take_why() -> Option<GrowthWhy> {
+    LAST_WHY.with(|c| c.take())
+}
+
 /// Develop a player through one year and age him by one. Mutates the player.
 pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -> SeasonReport {
     let personality = player.personality;
@@ -308,9 +471,17 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let pt = ctx.playing_time;
     let no_games = matches!(pt, PlayingTime::Redshirt | PlayingTime::PracticeSquad | PlayingTime::Unsigned)
         || ctx.trouble.is_some();
-    let dip = ctx.adjustment;
+    let dip = clamp(ctx.adjustment + ctx.missed_camp, 0.0, 1.0);
     let situation = ctx.situation;
     let mut games_missed = 0;
+    let attrs_before = player.attributes;
+    let mut why = GrowthWhy {
+        age,
+        development_age: age - player.bloom,
+        overall_before,
+        potential_before,
+        ..GrowthWhy::default()
+    };
     // The hidden traits drift a little each year, on their own stream.
     player.game.age_one_year(player.age, &mut Rng::new(player.id.wrapping_mul(0x2545_F491) ^ player.age));
     // The year back from a major injury (fix list 4.3): a player who healed
@@ -324,7 +495,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         for key in Attr::ALL {
             if key.profile().injury_sensitive {
                 let room = (player.ceilings.get(key) - player.attributes.get(key)).max(0.0);
-                player.attributes.add(key, room.min(rng.range(1.5, 5.0) * age_hit));
+                let back = room.min(rng.range(1.5, 5.0) * age_hit);
+                player.attributes.add(key, back);
+                why.rehab_regain += back;
             }
         }
     }
@@ -332,7 +505,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // A first year at a new level is named on the row, so a page or a slump
     // list can give it as the reason he played below his rating. (A mark
     // only: it draws nothing.)
-    if dip > 0.0 {
+    if ctx.adjustment > 0.0 {
         events.add(Ev::FirstYear);
     }
 
@@ -344,6 +517,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         * (0.55 + player.injury_proneness * 0.045)
         // A suspended or dismissed player is at most at practice, like a redshirt.
         * if ctx.trouble.is_some() || no_games { 0.5 } else if pt == PlayingTime::Starter { 1.15 } else { 0.9 };
+    why.injury_chance = injury_chance;
     if rng.chance(injury_chance) {
         let roll = rng.next();
         let severity = if roll < 0.62 {
@@ -354,6 +528,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             Ev::MajorInjury
         };
         events.add(severity);
+        why.injury = Some(severity);
         let games = season_games(ctx.level) as f64;
         games_missed = match severity {
             Ev::MinorInjury => rng.int(0, 2),
@@ -401,13 +576,24 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                     ((3.0, 7.0), (3.0, 7.0))
                 };
                 rehab = heal < 0.85;
+                why.heal = Some(if heal < 0.55 {
+                    0
+                } else if heal < 0.85 {
+                    1
+                } else {
+                    2
+                });
                 for key in Attr::ALL {
                     if !key.profile().injury_sensitive {
                         continue;
                     }
-                    player.attributes.add(key, -(rng.range(now.0, now.1) * age_hit));
+                    let lost = rng.range(now.0, now.1) * age_hit;
+                    player.attributes.add(key, -(lost));
+                    why.injury_points += lost;
                     if lasting.1 > 0.0 {
-                        player.ceilings.add(key, -(rng.range(lasting.0, lasting.1) * age_hit));
+                        let kept = rng.range(lasting.0, lasting.1) * age_hit;
+                        player.ceilings.add(key, -(kept));
+                        why.injury_ceiling += kept;
                     }
                 }
                 player.injury_proneness = (player.injury_proneness + 1.0).min(20.0);
@@ -443,6 +629,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let youth = if age <= 25.0 { 2.0 } else { 1.0 };
     // Growth swings wider than it used to (fix list 4.2; was 0.38). Proposed, not confirmed.
     let mut form = rng.log_normal(0.5) * (1.0 - 0.15 * dip) * (1.0 + 0.12 * situation * youth);
+    why.form_base = form;
     let mut setback = 0.0;
     let mut performance = rng.normal(0.0, 2.0) - 7.0 * dip + 2.5 * situation * youth;
     let mut breakout_lift = 0.0;
@@ -486,6 +673,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // at an average work ethic, 4 times at 4, about even at 16 and up.
     let payday_mult = if ctx.payday { clamp(2.5 + 0.25 * (10.0 - personality.work_ethic), 1.0, 4.5) } else { 1.0 };
     let lost_season_chance = if (17.0..=27.0).contains(&age) || ctx.payday { base_lost * payday_mult } else { 0.0 };
+    why.breakout_chance = breakout_chance;
+    why.slump_chance = slump_chance;
+    why.lost_season_chance = lost_season_chance;
+    why.stagnation_chance = stagnation_chance;
+    why.payday_mult = payday_mult;
+    why.hot_last_year = hot_last_year;
     if let Some(trouble) = ctx.trouble {
         // A year away from games and from the staff's trust: like a lost season, and it shows on the field.
         events.add(match trouble {
@@ -535,7 +728,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let size = if player.position.is_specialist() { 0.5 } else { 1.0 };
         for key in Attr::ALL {
             if key.profile().group != AttributeGroup::Physical {
-                late_loss.add(key, size * rng.range(2.0, 6.0));
+                let lost = size * rng.range(2.0, 6.0);
+                late_loss.add(key, lost);
+                why.slump_points += lost;
             }
         }
     } else if rng.chance(stagnation_chance) {
@@ -557,7 +752,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         );
         if rng.chance(0.025 * lax) {
             events.add(Ev::WeightGain);
-            player.body.weight += rng.range(8.0, 25.0);
+            let pounds = rng.range(8.0, 25.0);
+            player.body.weight += pounds;
+            why.weight_gain = pounds;
             for key in [Attr::Speed, Attr::Acceleration, Attr::Agility] {
                 player.attributes.add(key, -(rng.range(1.0, 3.0)));
                 player.ceilings.add(key, -(rng.range(0.5, 2.0)));
@@ -571,14 +768,23 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // grow slower. Coachability protects him. Proposed, not confirmed: 4% a
     // year per coaching point under 8, plus up to 9% for a bad situation.
     let poor = clamp(0.04 * (8.0 - ctx.coaching), 0.0, 0.2) + clamp(0.15 * (-situation - 0.4), 0.0, 0.09);
-    if poor > 0.0 && rng.chance(poor * clamp(1.5 - 0.05 * personality.coachability, 0.5, 1.5)) {
+    let poor_chance = poor * clamp(1.5 - 0.05 * personality.coachability, 0.5, 1.5);
+    why.poor_coaching_chance = if poor > 0.0 { poor_chance } else { 0.0 };
+    if poor > 0.0 && rng.chance(poor_chance) {
         events.add(Ev::PoorCoaching);
         for key in Attr::ALL {
             if key.profile().group == AttributeGroup::Technical && weight(position, key) > 0.0 {
-                late_loss.add(key, rng.range(1.0, 3.0));
+                let lost = rng.range(1.0, 3.0);
+                late_loss.add(key, lost);
+                why.poor_coaching_points += lost;
             }
         }
     }
+    why.form = form;
+    why.drive_setback = -setback;
+    why.breakout_lift = breakout_lift;
+    why.growth_multiplier = growth_multiplier;
+    why.snaps_factor = snaps_factor;
 
     // --- Dynamic potential -----------------------------------------------------
     // Ceilings move most in the mid-teens, settle through the early 20s and only
@@ -590,16 +796,26 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // with an NFL staff: unlike a buried college backup, his ceiling doesn't sag.
         let young_pro =
             ctx.level == Level::NFL && age <= 24.0 && matches!(pt, PlayingTime::Backup | PlayingTime::PracticeSquad);
-        let drive = ((personality.work_ethic - 10.0) / 10.0) * 0.75
-            + ((personality.coachability - 10.0) / 10.0) * 0.25 * ((ctx.coaching - 10.0) / 10.0 + 0.5)
-            + ((ctx.coaching - 10.0) / 10.0) * 0.35
-            + 0.25 * situation
-            + (if young_pro { 0.0 } else { ctx.snaps.map_or(playing_time_potential(pt), snaps_potential) })
-                * snaps_factor
-            - setback
-            + rng.normal(0.0, 0.9);
+        // The same sum as one line, with its parts named for the log.
+        let work = ((personality.work_ethic - 10.0) / 10.0) * 0.75;
+        let coachability = ((personality.coachability - 10.0) / 10.0) * 0.25 * ((ctx.coaching - 10.0) / 10.0 + 0.5);
+        let coaching = ((ctx.coaching - 10.0) / 10.0) * 0.35;
+        let surroundings = 0.25 * situation;
+        let playing = (if young_pro { 0.0 } else { ctx.snaps.map_or(playing_time_potential(pt), snaps_potential) })
+            * snaps_factor;
+        let luck = rng.normal(0.0, 0.9);
+        let drive = work + coachability + coaching + surroundings + playing - setback + luck;
+        why.plasticity = plasticity;
+        why.drive = drive;
+        why.drive_work = work;
+        why.drive_coachability = coachability;
+        why.drive_coaching = coaching;
+        why.drive_situation = surroundings;
+        why.drive_playing = playing;
+        why.drive_luck = luck;
         let shared = drive * 1.7 * plasticity;
         let spurt = age <= 17.0 && rng.chance(0.09);
+        why.spurt = spurt;
         if spurt {
             events.add(Ev::GrowthSpurt);
         }
@@ -619,6 +835,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // A potential shift can move at most one band per checkpoint: no overnight stars.
         let shift = overall_for(position, &delta);
         let scale = if shift.abs() > MAX_POTENTIAL_SHIFT { MAX_POTENTIAL_SHIFT / shift.abs() } else { 1.0 };
+        why.potential_shift = shift;
+        why.shift_scale = scale;
         for i in 0..ATTRIBUTE_COUNT {
             player.ceilings.set_at(i, player.ceilings.at(i) + delta.at(i) * scale);
         }
@@ -639,6 +857,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 continue;
             }
             let learned = rng.range(0.0, 1.2) * profile.experience * snaps_share * snaps_factor;
+            if unrelated(position, key, false) {
+                continue;
+            }
+            why.veteran_learned += learned;
             player.ceilings.add(key, learned);
             player.attributes.add(key, learned * 0.8);
         }
@@ -672,6 +894,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // The plan's focus (section 6b topic 5; proposed, not confirmed: the
     // share each other skill gives up so the year's total stays about even).
     let focus_take = clamp(0.6 + 0.02 * personality.coachability, 0.6, 1.0);
+    why.coaching_boost = coaching_boost;
+    why.snaps_mult = snaps_mult;
+    why.work_mult = work_mult;
+    why.morale_mult = morale_mult;
+    why.physical_mult = physical_mult;
+    why.focus_take = focus_take;
     let g = GrowthCtx {
         coaching_boost,
         snaps_mult,
@@ -686,6 +914,28 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         focus: ctx.focus,
         focus_take,
     };
+    // Speed and burst come with the body (S4): what his growing body has
+    // reached by the end of the year, he has.
+    if age < 21.0 && !stalled {
+        let share = speed_with_body(age, player.bloom);
+        for key in [Attr::Speed, Attr::Acceleration] {
+            let lift = share * player.ceilings.get(key) - player.attributes.get(key);
+            if lift > 0.0 {
+                player.attributes.add(key, lift.min(MAX_YEARLY_GAIN));
+            }
+        }
+    }
+    // A high school corner also plays offense or returns kicks (A7): his
+    // snaps with the ball are practice, so his moves and vision grow like a
+    // ball carrier's and keep finding room, most for the gifted returner
+    // (proposed, not confirmed: 2.5% more room a year).
+    let carries = hs && position == Position::CB;
+    if carries {
+        for key in [Attr::Elusiveness, Attr::BallCarrierVision] {
+            let c = player.ceilings.get(key);
+            player.ceilings.set(key, (c * 1.025).min(MAX_RATING));
+        }
+    }
     for key in Attr::ALL {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         let age_factor = growth_age_factor(development_age, profile.growth_window);
@@ -694,20 +944,31 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         if gap <= 0.0 || age_factor <= 0.01 {
             continue;
         }
-        let rate = g.rate(key, age_factor);
+        let rate = if carries && matches!(key, Attr::Elusiveness | Attr::BallCarrierVision) {
+            (g.rate(key, age_factor) / hs_group_growth(profile.group)).min(0.5)
+        } else {
+            g.rate(key, age_factor)
+        };
         let noise = rng.normal(0.0, 0.5);
+        // A skill his position has nothing to do with gets no practice (A6).
+        if unrelated(position, key, hs) {
+            continue;
+        }
         // Growth that lands through the year's training (choice 1): the
         // draw is still taken, so every later draw is the one it was.
         if ctx.defer
             && crate::training::defers(player.position, key)
             && !declines(player.position, player.longevity, key, age)
         {
+            why.deferred += 1;
             continue;
         }
         // Proportional growth plus a fixed step, so a well-developed player can
         // actually reach his ceiling instead of creeping towards it forever.
         // Even a monster year adds at most about a dozen points to one attribute.
-        player.attributes.add(key, gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise);
+        let add = gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise;
+        player.attributes.add(key, add);
+        why.landed += add;
     }
     if ctx.defer {
         let old = player.train;
@@ -723,14 +984,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
 
     // --- Ageing ----------------------------------------------------------------
     let decline_resistance = 1.15 - personality.work_ethic * 0.015; // 10 -> 1.0, 20 -> 0.85
-    let pos_offset = position.profile().aging_offset;
     // Years of heavy hits wear a body down faster; a rare body (high longevity) shrugs off more of it.
     let wear_mult = 1.0 + 0.06 * (player.wear - 3.0).max(0.0) * clamp(1.0 - 0.15 * player.longevity, 0.5, 1.5);
     for key in Attr::ALL {
         let profile = key.profile();
         let physical = profile.group == AttributeGroup::Physical;
-        let onset = profile.decline_age + player.longevity + if physical { pos_offset.min(1.5) } else { pos_offset };
-        let years_past = age + 1.0 - onset;
+        let years_past = age + 1.0 - decline_onset(position, player.longevity, key);
         if years_past <= 0.0 {
             continue;
         }
@@ -742,6 +1001,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             * if physical { wear_mult } else { 1.0 };
         player.attributes.add(key, -(loss));
         player.ceilings.add(key, -(loss));
+        why.decline_points += loss;
     }
 
     // --- Old skills fade (fix list 3.8) ------------------------------------------
@@ -765,9 +1025,47 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             if old >= 0.04 {
                 player.attributes.add(key, -(OLD_SKILL_FADE));
                 player.ceilings.add(key, -(OLD_SKILL_FADE));
+                why.faded += 1;
             }
         }
     }
+
+    // --- The weight room (update 3, A4, A14) -------------------------------------
+    // Every player's strength program pulls him toward his position's weight,
+    // not only a player who changes position: up to about 30 lb past where
+    // his frame put him, never past the position's weight, and only up, so a
+    // naturally big receiver keeps his size. A strength staff, his work ethic
+    // and college or pro programs move him faster (proposed, not confirmed: a
+    // third of the way a year in college and the pros, an eighth in high
+    // school, from 15 to 25).
+    if (15.0..=25.0).contains(&age) && !position.is_specialist() {
+        let target = crate::athlete::position_weight(player, position).min(crate::body::combine_size(position).2);
+        let room = target.min(crate::athlete::placed_weight(player.body.frame_weight, target) + 30.0);
+        let pace = if hs { 0.12 } else { 0.33 }
+            * clamp(0.7 + 0.03 * personality.work_ethic, 0.7, 1.3)
+            * (1.0 + 0.15 * clamp(ctx.physical, -1.0, 1.0));
+        let gap = room - player.body.weight;
+        if gap > 0.0 {
+            player.body.weight += gap * clamp(pace, 0.0, 1.0);
+        }
+    }
+
+    // --- Wear (update 3, F14) ------------------------------------------------------
+    // Every season played wears a body down, in college at half the pros'
+    // rate, not only a major injury.
+    let wear_level = match ctx.level {
+        Level::NFL => 1.0,
+        Level::HS => 0.0,
+        _ => 0.5,
+    };
+    let played_share = match (ctx.snaps, pt) {
+        _ if no_games => 0.0,
+        (Some(x), _) => clamp(x, 0.0, 1.0),
+        (_, PlayingTime::Starter) => 1.0,
+        (_, PlayingTime::Rotation) => 0.5,
+        _ => 0.0,
+    };
+    player.wear += season_wear(player, played_share) * wear_level;
 
     // --- Tidy up ---------------------------------------------------------------
     for i in 0..ATTRIBUTE_COUNT {
@@ -849,6 +1147,18 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         situation: OptF64::NONE,
     });
     player.age += 1;
+    // The day's body stays where it was: a year of age moves out of `grow`.
+    player.grow = (player.grow - 1.0).max(0.0);
+    why.performance = performance;
+    for key in Attr::ALL {
+        let g = match key.profile().group {
+            AttributeGroup::Physical => 0,
+            AttributeGroup::Technical => 1,
+            AttributeGroup::Mental => 2,
+        };
+        why.change[g] += player.attributes.get(key) - attrs_before.get(key);
+    }
+    LAST_WHY.with(|c| c.set(Some(why)));
     SeasonReport { overall_before, overall_after, potential_before, potential_after, events, games_missed }
 }
 

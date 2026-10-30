@@ -1,6 +1,6 @@
 # The living NFL: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28; the expansion line with next update lane 10 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
@@ -23,7 +23,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - Who gets fired as GM? A GM is replaced at Black Monday when the owner's trust is under 0.3 and he has 2+ years in the job. There is also a 3% yearly chance he "moved on" (`world/pro/mod.rs`, `black_monday`).
 - Do agents bluff? Yes, when there is only one offer under 0.85. The odds are (1 - honesty) x 0.6. The GM calls the bluff by his skill and his history with the agent (`world/pro/market.rs`, `bluff`).
 - Does an NFL team carry over cap room? Yes, from 2011: the room left when the regular season ended (`world/pro/mod.rs`, `set_carryover`, `space`).
-- Do players hold grudges against teams? Yes, from some cuts and broken promises. A grudge lowers the ties part of the team's offer score (one of ten weighted parts, weight 0.4) to as low as 0.7, a few percent off the whole score (`world/people.rs`, `grudge`, `ties_q`; `world/pro/market.rs`, `score`). See the People page.
+- Do players hold grudges against teams? Yes, from some cuts, trades and broken promises. A grudge lowers the ties part of the team's offer score (one of ten weighted parts, weight 0.4) to as low as 0.7, a few percent off the whole score (`world/people.rs`, `grudge`, `ties_q`; `world/pro/market.rs`, `score`). See the People page.
 
 ## Rosters and depth
 
@@ -93,7 +93,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Extensions**: offered in the last year, or with a year left for an early-extension GM (> 0.55) or a rookie after 3 seasons (2011 on). Market grade 76+ only. The ask is cut 4% per year left on the deal. It adds at least 2 years (age 32 or under). It signs at 0.87, or 0.82 near a deadline (`world/pro/market.rs`, `extension_talks`, `extend`).
 - **Street signings** (players under consensus 66 before camp, everyone after): price = market share x decline x (1 - 4% a week unsigned). The club where he would gain the most playing time wins. Grade 58+ only (`world/pro/mod.rs`, `ask`, `street_signings`).
 - **Reserve/future deals**: at Black Monday for non-playoff teams and at the Super Bowl for playoff teams. A club keeps squad players graded 58+ who are 28 or younger, and adds up to 4 street players (27 or under, grade 60+) (`world/pro/market.rs`, `futures`).
-- **Holdouts**: only a star (market grade 85+) paid under half his market, with 3+ seasons. Push = greed x min(under/3, 1) x leverage (1, or 0.6 at 30+) - 0.3 x loyalty x trust + 0.1 x temper - 0.15 x mood. At push ≥ 0.3 he holds in. He holds out if push > 0.4, or > 0.55 on a rookie deal from 2020. Each week he gives in with odds 0.08 + 0.05 x weeks, +0.15 in season. A holdout at a rebuilding club, or with trust under 0.5, requests a trade (`world/pro/market.rs`, `holdouts`).
+- **Holdouts**: only a star (market grade 85+) paid under half his market, with 3+ seasons. Push = greed x min(under/3, 1) x leverage (1, or 0.6 at 30+) - 0.3 x loyalty x trust + 0.1 x temper - 0.15 x mood. At push ≥ 0.3 he holds in. He holds out if push > 0.4, or > 0.55 on a rookie deal from 2020. Each week he gives in with odds 0.08 + 0.05 x weeks, +0.15 in season. A holdout at a rebuilding club, or with trust under 0.5, requests a trade (`world/pro/market.rs`, `holdouts`). A holdout misses camp: +0.3 on that year's development dip (see [development.md](development.md)) (`world/pro/mod.rs`, `camp`).
 - **Voluntary weeks** (offseason phases 1-2 and OTAs): each pro comes with chance clamp(0.9 + 0.015 x (work ethic - 10) - 0.04 x max(age - 29, 0), 0.45, 0.99), drawn each week; one who skips works at his own effort and reads Unprepared for prep that week. In OTA weeks the three best absent starters at 82+ overall make small news (`training/week.rs`, `attends`, `monday`, `absent_news`; see [training.md](training.md)).
 - **Promises**: a starting job promised in a deal is checked in week 1. If broken: his trust -0.3 and the agent's relationship with the club -0.1 (`world/pro/market.rs`, `check_promises`).
 
@@ -103,6 +103,10 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **RFA tenders** (3 accrued, grade 66+): First round if grade 80+, Second if 74+, else the original round (Right of First Refusal for the undrafted). Cap shares: First 2.67%, Second 1.91%, Original 1.17%. The tender is at least 110% of his own cap hit (`world/pro/money.rs`, `tender_price`). Exclusive rights (under 3 accrued, grade 62+): a minimum tender.
 - **Offer sheets**: the old team gets 5 days to match. It matches if its walk-away price is at least 95% of the sheet and it has room. If not, it receives the tender's pick (`world/pro/market.rs`, `offer_sheets`).
 - **Pre-1993**: before 1989 a club keeps any veteran with market grade 62+. In Plan B (1989-92) only its 37 protected players are kept (`world/pro/market.rs`, `open_league_year`).
+
+### An agent's first word (update 3, lane 5)
+
+- In the ten days before the market opens (the tampering window from 2013, else the new league year), an agent at 0.3 warmth or more with you may call (a fifth of weekdays, once a year) about his best client headed for free agency (`world/folk/backchannel.rs`, `c19_day`). Hearing him out before the window is tampering: you learn his ask (his ideal, shaded up by 0.25 × (1 - the agent's honesty)), and it leaks one time in ten; on June 1 the league takes your next fifth-round pick and fines the club $250,000 and the GM $50,000 (`league_rulings`; the Falcons, 2024). Either answer puts your club first: his offer score × 1.02 for your club (`world/pro/market.rs`, `score`).
 
 ## Trades and picks
 
@@ -189,9 +193,13 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 
 ## Franchises and books
 
-- **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`).
+- **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`). From 2027 it can also vote two expansion clubs in, at the real rate; they get indices from 32 on, an expansion draft and the first and last picks of their first draft ([new-teams.md](new-teams.md); `world/new_teams/nfl.rs`, `vote`; every lookup past index 31 reads `World::expansion` through `franchise::*_in`).
 - **Stand-in games** (when the engine is off): win odds are a logit of 0.52 x strength gap in sd + 0.24 x staff gap + 0.2 home. Ties 0.3% (`world/nfl_year.rs`, `PER_SD`, `win_prob`).
 - **Club finance**: revenue and cost lines, gates, stadiums and NFLPA report cards (`world/finance/nfl.rs`). The cards feed free agents' scores (`card_pull`). `spend_level` sets support-staff budgets (`world/people.rs`, `staff_support`).
+
+### Placing a player at cutdown (update 3, lane 5)
+
+- From ten days before cutdown day to cutdown day you can send a player you'd release to a friend's club (a coach there at 0.2 warmth or more): he and your latest pick in next year's draft for theirs a round higher (round 5 on), else the same round, through the trade code (`world/folk/backchannel.rs`, `place_player`, `swap`; `world/front_office/deals.rs`, `execute`). The friend owes you one.
 
 ## Where the knobs are
 

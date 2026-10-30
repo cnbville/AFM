@@ -1,7 +1,7 @@
 //! Test switches for the dynasty knockout worlds (thread "Stop college
 //! dynasties for good", 2026-10-28). `AFM_KO` names one suspect to turn
 //! up or off: `coach4`, `frozen`, `flatdev`, `brand85`, `local50`, `rel85`,
-//! `bend75` or `qbroom`;
+//! `bend75`, `qbroom` or `fadeFFxO` (the home fade's floor in hundredths and offers, minor bug 89);
 //! `+` joins several (`brand85+local50`). Unset, nothing changes.
 //! Trial tooling only, never merged.
 
@@ -70,4 +70,12 @@ pub(crate) fn rel_read(rel: f64) -> f64 {
 /// of rooms with young blue-chip QBs; the world's pile in.
 pub(crate) fn room_scale(pos: crate::positions::Position) -> f64 {
     if pos == crate::positions::Position::QB && has("qbroom") { 3.0 } else { 1.0 }
+}
+
+/// The home fade's floor and offers (minor bug 89's calibration):
+/// `fade40x5` is a floor of 0.40 and 5 offers.
+pub(crate) fn home_fade() -> Option<(f64, f64)> {
+    let part = which().split('+').find_map(|x| x.strip_prefix("fade"))?;
+    let (f, o) = part.split_once('x')?;
+    Some((f.parse::<f64>().ok()? / 100.0, o.parse().ok()?))
 }

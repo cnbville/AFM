@@ -33,7 +33,7 @@ on:
         description: "Keep the built world as a run artifact for 3 days (yes or no)"
         default: "no"
       knockout:
-        description: "A dynasty test switch (AFM_KO: coach4, frozen, flatdev, brand85, local50, rel85, bend75 or qbroom; + joins several); empty for none, never published"
+        description: "A dynasty test switch (AFM_KO: coach4, frozen, flatdev, brand85, local50, rel85, bend75, qbroom or fadeFFxO; + joins several); empty for none, never published"
         default: ""
       check_run:
         description: "A run whose kept world to check instead of building one (its run id)"
@@ -53,19 +53,38 @@ jobs:
           AFM_KO: ${{ inputs.knockout }}
         run: |
           if [ -n "$AFM_KO" ] && [ "${{ inputs.publish }}" = yes ]; then echo "A knockout world is never published"; exit 1; fi
-          mkdir -p out
+          # The world log beside the world runs to tens of GB, so both go on
+          # the runner's big temporary disk when it has one.
+          if sudo mkdir -p /mnt/afm-out && sudo chown "$(id -u)" /mnt/afm-out; then ln -sfn /mnt/afm-out out; else mkdir -p out; fi
           cargo run --release --bin afm_world -- "${{ inputs.seed }}" "${{ inputs.years }}" out
-          ls -la out
+          ls -la out/ && du -sh out/*
       - name: Download the world to check
         if: inputs.check != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p out && cd out
-          gh release download "${{ inputs.check }}" --repo cnbville/afm-worlds
+          gh release download "${{ inputs.check }}" --repo cnbville/afm-worlds --pattern '*.afmworld*'
           f=$(ls | sed -n 's/\(.*\.afmworld\)\.[0-9]*$/\1/p' | head -1)
           if [ -n "$f" ]; then cat "$f".* > "$f" && rm "$f".*; fi
           ls -la
+      # The world reader's book (lane R4, docs/world-reader.md): every record
+      # as a table, the checks against real, the odd things and the coverage
+      # map, from the world file and the log beside it. Its overview goes in
+      # the run's summary. A book that fails never stops a world.
+      - name: Build the book
+        if: inputs.quick != 'yes'
+        continue-on-error: true
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+        run: |
+          f=$(ls out/*.afmworld | head -1)
+          cargo build --release -p afm-reader --bin afm_read
+          target/release/afm_read build "$f"
+          b="${f%.afmworld}.afmbook"
+          { echo '```'; target/release/afm_read "$b" overview limit=20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          zstd -T0 -9 --rm "$b" -o "$b.zst"
+          ls -la out/
       - name: Download a kept world to check
         if: inputs.check_run != ''
         env:
@@ -126,4 +145,37 @@ jobs:
           sha=$(echo "${{ github.sha }}" | cut -c1-7)
           gh release create "${f%.afmworld}-$sha" ./*.afmworld* --repo cnbville/afm-worlds \
             --title "Seed ${{ inputs.seed }}, ${{ inputs.years }} years of history (game $sha)" \
-            --notes "Built $(date -u +%Y-%m-%d) by the AFM game at commit ${{ github.sha }}."
+            --notes "Built $(date -u +%Y-%m-%d) by the AFM game at commit ${{ github.sha }}. The world reader's book is the .afmbook.zst file (unzstd it, joining parts first)."
+          # The book goes up beside it (name.afmbook.zst, in parts over 2 GB).
+          for b in *.afmbook.zst; do
+            [ -f "$b" ] || continue
+            if [ "$(stat -c %s "$b")" -gt 2000000000 ]; then
+              split -b 1900M -d -a 3 --numeric-suffixes=1 "$b" "$b."
+              rm "$b"
+            fi
+            gh release upload "${f%.afmworld}-$sha" ./"$b"* --repo cnbville/afm-worlds
+          done
+          # The world log (world reader lane R2) goes up beside it as a tar
+          # file in parts (name.afmlog.tar.001, ...), packed as the folder is
+          # removed so the disk holds it once. The game does not download it.
+          for l in *.afmlog; do
+            [ -d "$l" ] || continue
+            tar --remove-files -cf - "$l" | split -b 1900M -d -a 3 --numeric-suffixes=1 - "$l.tar."
+            gh release upload "${f%.afmworld}-$sha" ./"$l".tar.* --repo cnbville/afm-worlds
+          done
+      # A checked world gets its book added to its own release.
+      - name: Add the book to the checked world
+        if: inputs.publish != 'no' && inputs.check != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+        run: |
+          cd out
+          for b in *.afmbook.zst; do
+            [ -f "$b" ] || continue
+            if [ "$(stat -c %s "$b")" -gt 2000000000 ]; then
+              split -b 1900M -d -a 3 --numeric-suffixes=1 "$b" "$b."
+              rm "$b"
+            fi
+            gh release upload "${{ inputs.check }}" ./"$b"* --repo cnbville/afm-worlds --clobber
+          done

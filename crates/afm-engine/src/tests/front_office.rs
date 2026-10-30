@@ -13,7 +13,7 @@ fn nfl_world() -> (World, usize) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     assert_eq!(w.year, 2025);
     let t = (0..w.clubs.len())
-        .filter(|&t| crate::world::franchise::active(t, w.year))
+        .filter(|&t| crate::world::franchise::active_in(&w, t, w.year))
         .max_by_key(|&t| w.clubs[t].roster.len())
         .unwrap();
     let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];
@@ -137,7 +137,7 @@ fn a_trade_needs_the_other_gm_to_gain_on_his_own_chart() {
     let (mut w, t) = nfl_world();
     w.today = w.dates.league_year.date.add(2);
     assert!(deals::window_open(&w));
-    let o = (0..w.clubs.len()).find(|&o| o != t && crate::world::franchise::active(o, w.year)).unwrap();
+    let o = (0..w.clubs.len()).find(|&o| o != t && crate::world::franchise::active_in(&w, o, w.year)).unwrap();
     let mine = deals::picks_of(&w, t);
     let theirs = deals::picks_of(&w, o);
     let first = *mine.iter().find(|p| p.round == 1).unwrap();
@@ -221,7 +221,7 @@ fn the_negotiating_window_agrees_terms_but_signs_nothing() {
     let (mut w, t) = nfl_world();
     let Some(open) = w.dates.tampering_open else { panic!("no window in 2025") };
     w.today = open.date;
-    let o = (0..w.clubs.len()).find(|&o| o != t && crate::world::franchise::active(o, w.year)).unwrap();
+    let o = (0..w.clubs.len()).find(|&o| o != t && crate::world::franchise::active_in(&w, o, w.year)).unwrap();
     let i = *w.clubs[o]
         .roster
         .iter()

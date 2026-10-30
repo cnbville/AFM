@@ -36,7 +36,7 @@ function frName(r) {
 }
 function frTeam(t, sub) {
   if (!t) return frMute("—");
-  return `<span class="fr-team">${teamLink(t)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>`;
+  return `<span class="fr-team">${logoIn(t)}${teamLink(t)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>`;
 }
 // A row's words with its school named as a link (minor bug 16).
 function frStands(r) {
@@ -367,7 +367,7 @@ function frHead(x, seat, kicker, title, sub, dist, cells, note) {
   return `<div class="fr-head"><div><div class="fr-k">${kicker}</div><h1 class="fr-h1">${esc(title)}</h1><div class="fr-sub">${sub}</div>
       <div class="fr-count"><b class="fr-num">${esc(x.count_text)}</b><span>${x.count === 1 ? what.replace("match", "matches").replace("prospects", "prospect").replace("recruits", "recruit") : what} · of ${esc(x.known_text)} ${knows}</span></div>
       <div class="fr-rule">Every filter reads what your ${seat === "nfl" ? "scouts" : "staff"} and the public know, never a true rating. ${seat === "nfl" ? "A prospect" : "A kid"} your ${seat === "nfl" ? "scouts haven't" : "staff hasn't"} seen reads "Not seen": include those or leave them out.</div></div>
-    <div class="fr-panel"><div class="fr-ph"><span class="fr-k">${seat === "nfl" ? "By your board" : "By the composite"}</span><span class="fr-mute">of the ${esc(x.count_text)} matches</span></div>
+    <div class="fr-panel"><div class="fr-ph"><span class="fr-k">${seat === "nfl" ? "By your board" : "By the composite"}</span><span class="fr-mute">of the ${esc(x.count_text)} ${x.count === 1 ? "match" : "matches"}</span></div>
       <div class="fr-dist">${dist.map(([k, n]) => `<div><span class="fr-k">${esc(k)}</span><b class="fr-num">${frN(n)}</b><div class="fr-bar"><i style="width:${Math.max(3, (n / max) * 100)}%"></i></div></div>`).join("")}</div>
       <div class="fr-cells">${cells.map(([k, v]) => `<div><span class="fr-k">${esc(k)}</span><span class="fr-v">${v}</span></div>`).join("")}</div>
       <div class="fr-mini">${note}</div></div></div>`;
@@ -479,7 +479,7 @@ screens.colleges_calling = async () => {
   const cells = [
     ["Offers", `${frN(s.offers)} <small>to ${frPlural(s.offered, "player")}</small>`],
     ["Camp invites", frN(s.camps)],
-    ["Your credibility", `${esc(s.credit_word)} <small>· ${s.calls_settled ? `${s.calls_right} of ${s.calls_settled} calls right in 5 years` : "no call settled yet"}</small>`],
+    ["Your credibility", `${esc(s.credit_word)} <small>· ${s.calls_settled ? `${s.calls_right} of ${s.calls_settled} call${s.calls_settled === 1 ? "" : "s"} right in 5 years` : "no call settled yet"}</small>`],
     ["Services' next update", esc(x.next_update)],
   ];
   const head = `<div class="fr-head"><div><div class="fr-k">${teamLink(x.team)} · Recruiting</div><h1 class="fr-h1">Colleges calling</h1><div class="fr-sub">${esc(x.team.name)} · head coach · ${esc(S.status && S.status.today ? S.status.today : "")} · ${esc(x.period)}</div>

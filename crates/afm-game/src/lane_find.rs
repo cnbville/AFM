@@ -27,7 +27,7 @@ mod query;
 mod race;
 mod saved;
 mod school;
-mod staff;
+pub(crate) mod staff;
 
 use afm_engine::calendar::Date;
 use afm_engine::world::World;

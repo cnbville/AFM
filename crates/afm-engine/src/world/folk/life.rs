@@ -292,9 +292,15 @@ fn players_week(w: &mut World, d: Date) {
         }
     }
     let today = w.today;
+    if w.logging() {
+        w.log_dropped("life events", w.folk.life.events.iter().filter(|e| e.date.days_to(today) >= 150));
+    }
     w.folk.life.events.retain(|e| e.date.days_to(today) < 150);
     if w.folk.life.events.len() > 1500 {
         let n = w.folk.life.events.len() - 1500;
+        if w.logging() {
+            w.log_dropped("life events", w.folk.life.events[..n].iter());
+        }
         w.folk.life.events.drain(..n);
     }
 }
@@ -366,6 +372,9 @@ fn coaches_week(w: &mut World, d: Date) {
         }
     }
     let today = w.today;
+    if w.logging() {
+        w.log_dropped("health", w.folk.life.health.iter().filter(|e| e.date.days_to(today) >= 400));
+    }
     w.folk.life.health.retain(|e| e.date.days_to(today) < 400);
 }
 
@@ -447,7 +456,7 @@ fn opinion_open(w: &mut World, s: &mut Scene) {
     let trainer = super::cast::get(w, super::cast::CastRef::new(team, super::cast::Role::Trainer, 0));
     s.who.push(Who::Cast(trainer.r.token()));
     let estimate = if weeks > 0 {
-        format!("The team's estimate is {weeks} weeks.")
+        format!("The team's estimate is {weeks} {}.", super::noun(weeks, "week"))
     } else {
         "The team's doctors want him to have the surgery now.".into()
     };
@@ -821,7 +830,10 @@ fn rushed_week(w: &mut World, d: Date) {
         w.folk.rushed.retain(|x| x.0 != id);
         let name = w.people[i].name.clone();
         let age = w.people[i].row_age();
-        w.people[i].note(format!("At {age} he was hurt again after coming back early ({weeks} weeks)."));
+        w.people[i].note(format!(
+            "At {age} he was hurt again after coming back early ({weeks} {}).",
+            super::noun(weeks, "week")
+        ));
         talks::mood_event(w, id, Reason::Talk, -0.06);
         let link = player_link(w, i);
         super::post_mine(
@@ -836,7 +848,7 @@ fn rushed_week(w: &mut World, d: Date) {
             w,
             "injury",
             "Trainer".into(),
-            format!("{link} re-injured the same area. Out {weeks} weeks."),
+            format!("{link} re-injured the same area. Out {weeks} {}.", super::noun(weeks, "week")),
             None,
         );
     }

@@ -603,7 +603,7 @@ function twGroups(x, days) {
 }
 function twBody(x) {
   return `${twPh("Body targets by group", "from the dietitian and strength staff")}<table class="tw-small"><tr><th>Group</th><th>Now</th><th>Target</th><th></th></tr>${x.body.map((b) => `<tr><td>${esc(b.group)} <span class="muted">· ${b.count}</span></td><td>${esc(b.now)}</td><td class="muted">${esc(b.target)}</td><td class="${b.warn ? "amber" : "muted"}">${esc(b.status)}</td></tr>`).join("")}</table>
-    <div class="tw-mini">${x.body.reduce((a, b) => a + b.planned, 0)} players have a body target you set; the rest grow into their frames.</div>`;
+    <div class="tw-mini">${trPlural(x.body.reduce((a, b) => a + b.planned, 0), "player")} ${x.body.reduce((a, b) => a + b.planned, 0) === 1 ? "has" : "have"} a body target you set; the rest grow into their frames.</div>`;
 }
 // The strength coach's numbers (TR5, T3).
 function twNumbers(x) {
@@ -643,7 +643,7 @@ function twWhere(x) {
   return `<div class="grid2 tw-g2">${box("Rehab group, with the trainers' step", `${w.rehab.length}`, w.rehab.map((r) => [pl(r.p), `${esc(r.what)}${r.since ? ` · since ${esc(r.since)}` : ""}`, esc(r.step), esc(r.back)]), "Nobody in rehab this week.")}
     ${box("New arrivals", "the last four weeks", w.arrivals.map((a) => [pl(a.p), esc(a.how), esc(a.at)]), "Nobody new in the last four weeks.")}
     ${box("At another sport, or away", w.away.length ? `${w.away.length} at other sports` : "", away, w.tier === "nfl" ? "Nobody away: NFL players play no other sport." : "Nobody away this week.")}
-    ${box("Study hall", w.tier === "nfl" ? "" : `${w.flagged} flagged · under a ${w.line.toFixed(1)} GPA${w.tier === "college" ? ", or first semester" : ""}`, w.study.map((s) => [pl(s.p), `<span class="${s.risk ? "amber" : ""}">${esc(s.why)}</span>`]), w.tier === "nfl" ? "No study hall at this level." : "Nobody flagged.")}</div>`;
+    ${box("Study hall", w.tier === "nfl" ? "" : `${w.flagged} flagged · ${esc(w.line)}`, w.study.map((s) => [pl(s.p), `<span class="${s.risk ? "amber" : ""}">${esc(s.why)}</span>`]), w.tier === "nfl" ? "No study hall at this level." : "Nobody flagged.")}</div>`;
 }
 function twHow() {
   return `${twPh("How prep plays out", "")}
@@ -734,7 +734,7 @@ function yearTab(x) {
     <div class="panel warm"><h2>Each day's rule this week</h2><div class="items">${x.days.map((d) => `<div class="item"><span class="when">${esc(d.weekday.slice(0, 3))}</span><span>${esc(d.rule || "No rule")}${d.allowed.coaches ? ` <small class="muted">· up to ${esc(d.allowed.gear)}, ${esc(d.allowed.contact)}${d.allowed.day_min ? `, ${d.allowed.day_min} min` : ""}</small>` : ""}</span></div>`).join("")}</div></div></div>`;
 }
 function reportsTab(x) {
-  const log = x.log.map((l) => `<div class="panel warm"><h2>Week of ${esc(l.monday)} <small>${esc(l.block || "")} · ${l.practices} practices · ${l.minutes} min on the field · ${l.snaps} team snaps${l.injuries ? ` · ${l.injuries} hurt` : ""}</small></h2>
+  const log = x.log.map((l) => `<div class="panel warm"><h2>Week of ${esc(l.monday)} <small>${esc(l.block || "")} · ${trPlural(l.practices, "practice")} · ${l.minutes} min on the field · ${l.snaps} team snaps${l.injuries ? ` · ${l.injuries} hurt` : ""}</small></h2>
     <div class="grid2"><div><div class="st-label">Best practice grades</div><div class="items">${l.best.map((b) => `<div class="item"><span class="when">${b.grade}</span><span>${rich(b.link)}</span></div>`).join("") || '<div class="empty">No grades.</div>'}</div></div>
     <div><div class="st-label">Battles</div><div class="items">${l.battles.map((b) => `<div class="item story"><span>${rich(b.a)} <b>${b.aw}-${b.bw}</b> ${rich(b.b)}</span></div>`).join("") || '<div class="empty">No battles this week.</div>'}</div></div></div></div>`).join("");
   const reports = x.reports.map((r) => `<div class="panel warm"><h2>${esc(r.block)} report <small>${esc(r.date)}</small></h2><div class="items">${r.lines.map(([a, b]) => `<div class="item"><span class="when">${esc(a)}</span><span>${rich(b)}</span></div>`).join("")}</div></div>`).join("");
@@ -818,7 +818,7 @@ function planTabHtml(x) {
   const lean = Math.round(x.lean * 100);
   const stick = Math.round(x.stick * 100);
   return `<div class="grid2"><div class="panel warm"><h2>The season's lean <small>what your play caller reaches for</small></h2>
-      <div class="gd-form stack"><label>Run or pass<small>${lean === 0 ? "As the play caller likes" : lean > 0 ? `${lean} points more passing` : `${-lean} points more running`}</small></label>
+      <div class="gd-form stack"><label>Run or pass<small>${lean === 0 ? "As the play caller likes" : lean > 0 ? `${trPlural(lean, "point")} more passing` : `${trPlural(-lean, "point")} more running`}</small></label>
       <input type="range" class="tr-range" min="-20" max="20" step="1" value="${lean}" data-act="tr-lean" ${x.head ? "" : "disabled"}>
       <label>Stick to the call sheet<small>${stick}% of snaps from the card when a play fits the situation; the rest your play caller's own read</small></label>
       <input type="range" class="tr-range" min="0" max="100" step="5" value="${stick}" data-act="tr-stick"></div></div>
@@ -835,11 +835,11 @@ function planGlance(x) {
   const going = x.designs.filter((d) => d.installing).length;
   const p = x.pace;
   const tiles = `<div class="st-tiles tr-tiles">
-    <div><b>${x.on_sheet}</b><small>plays on the call sheet${x.on_sheet ? `, in ${sits} of ${x.sheet.length} situations` : ": your play caller calls from his own read"}</small></div>
+    <div><b>${x.on_sheet}</b><small>${x.on_sheet === 1 ? "play" : "plays"} on the call sheet${x.on_sheet ? `, in ${sits} of ${x.sheet.length} situations` : ": your play caller calls from his own read"}</small></div>
     <div><b>${going}<i> / ${x.designs.length}</i></b><small>of your own plays going in</small></div>
     <div><b>${sharp}<i> / ${x.families.length}</i></b><small>offensive families past the base playbook</small></div>
     <div><b>${p.team_minutes}</b><small>team minutes this week</small></div>
-    <div><b>${p.reps_each || 0}</b><small>${p.keys ? `reps this week for each of the ${p.keys} things on the card` : "reps a week for each new thing"}</small></div></div>`;
+    <div><b>${p.reps_each || 0}</b><small>${p.keys ? `reps this week for each of the ${p.keys} ${p.keys === 1 ? "thing" : "things"} on the card` : "reps a week for each new thing"}</small></div></div>`;
   const how = p.keys
     ? `At this week's pace a new play is known in about ${p.to_know} ${p.to_know === 1 ? "week" : "weeks"}. More team periods or fewer things on the card make it quicker; a play your players don't know yet stays off the field.`
     : "Put plays on the call sheet to give the team periods something to rep. Until then your players rep the base playbook.";
@@ -856,7 +856,7 @@ function sheetTabHtml(x) {
     <div><div class="panel warm"><h2>${esc(sit.name)} <small>${sit.plays.length ? "your play caller reaches for these first, top to bottom" : "empty: your play caller calls his own"}</small></h2>
       <div class="tbl"><table><thead><tr><th class="l">#</th><th class="l">Play</th><th class="l">Personnel · backfield · set</th><th>Install</th><th></th></tr></thead><tbody>${list || '<tr><td class="l" colspan="5"><div class="empty">No plays on the card for this situation.</div></td></tr>'}</tbody></table></div>
       <div class="tr-addrow">${trSel("tr-add", x.personnels.map((p) => [p, p + " personnel"]), add.personnel, 'data-f="personnel"')}${trSel("tr-add", x.backfields.map((b) => [b, trCap(b)]), add.backfield, 'data-f="backfield"')}${trSel("tr-add", x.sets.map((s) => [s, trCap(s)]), add.set, 'data-f="set"')}${trSel("tr-add", [["pass", "Pass"], ["run", "Run"], ...(x.designs.length ? [["design", "Your design"]] : [])], add.kind, 'data-f="kind"')}${trSel("tr-add", playOpts, add.play, 'data-f="play"')}<button class="st-btn small primary" data-act="tr-sadd" ${sit.plays.length >= 12 ? "disabled" : ""}>Add to the card</button></div>
-      <p class="sub">${x.on_sheet} plays on the card. Plays from the playbook are known; reps on the card sharpen them. A play you drew stays off the card in games until your players know it about a third of the way.</p></div></div></div>`;
+      <p class="sub">${trPlural(x.on_sheet, "play")} on the card. Plays from the playbook are known; reps on the card sharpen them. A play you drew stays off the card in games until your players know it about a third of the way.</p></div></div></div>`;
 }
 function bookTabHtml(x) {
   const fam = x.families.map((f) => `<div class="panel warm tr-fam"><h2>${esc(trCap(f.family))} <small>${f.reps} reps</small></h2>${trInstall(f.install, f.words)}
@@ -936,7 +936,7 @@ screens.designer = async (a) => {
   const sel = (k, opts, cur) => trSel("tr-dset", opts, cur, `data-f="${k}"`);
   const issues = g.issues.length ? `<div class="panel tr-breach"><h2>Not legal at your level</h2><div class="items">${g.issues.map((i) => `<div class="item story"><span>${esc(i)}</span></div>`).join("")}</div></div>` : `<p class="tr-ok">Legal at your level.</p>`;
   const saved = des.k != null ? x.designs.find((q) => q.k === des.k) : null;
-  const review = saved && saved.review.length ? `<div class="panel warm"><h2>${esc(x.coordinator || "Your coordinator")}'s review</h2><div class="items">${saved.review.map((r) => `<div class="item story"><span>${esc(r)}</span></div>`).join("")}</div>${saved.read && saved.read.snaps ? `<p class="sub">Called ${saved.read.snaps} times: ${saved.read.yards} yards a play, ${saved.read.completions} completions.</p>` : ""}</div>` : "";
+  const review = saved && saved.review.length ? `<div class="panel warm"><h2>${esc(x.coordinator || "Your coordinator")}'s review</h2><div class="items">${saved.review.map((r) => `<div class="item story"><span>${esc(r)}</span></div>`).join("")}</div>${saved.read && saved.read.snaps ? `<p class="sub">Called ${trPlural(saved.read.snaps, "time")}: ${saved.read.yards} yards a play, ${trPlural(saved.read.completions, "completion")}.</p>` : ""}</div>` : "";
   const list = x.designs.map((q) => `<button class="tr-dl ${des.k === q.k ? "on" : ""}" data-act="tr-dopen" data-k="${q.k}">${fieldSvg(q.geometry, { small: true })}<span><b>${esc(q.design.name)}</b><small>${esc(q.design.personnel)} · ${esc(q.design.set)} · ${esc(q.words)}</small></span></button>`).join("");
   return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · plays and tactics`, title: "Play designer", sub: "Draw a pass play from a formation and routes. It goes into your playbook, your players learn it in team periods, and your play caller can call it once it's on the card.", goto: trGoto([["Plans", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"]]) })}
     <div class="tr-des"><aside class="tr-dlist"><button class="st-btn small primary" data-act="tr-dnew">New play</button>${list || '<div class="empty">No plays yet.</div>'}</aside>

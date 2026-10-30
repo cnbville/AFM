@@ -410,7 +410,7 @@ async function bigFill(key) {
   if (total > end) html += `<tr class="spacer" style="height:${(total - end) * rowH}px"><td colspan="${cols.length}"></td></tr>`;
   box.querySelector("tbody").innerHTML = total ? html : `<tr><td class="l" colspan="${cols.length}"><div class="empty">${esc(B.empty || "Nothing matches.")}</div></td></tr>`;
   const foot = document.querySelector(`[data-bigfoot="${key}"]`);
-  if (foot) foot.textContent = total ? `${total.toLocaleString()} rows · the game sorts them all` : "";
+  if (foot) foot.textContent = total ? `${total.toLocaleString()} row${total === 1 ? "" : "s"} · the game sorts them all` : "";
 }
 function bigWire() {
   for (const box of document.querySelectorAll("[data-big]")) {
@@ -493,7 +493,7 @@ function peekKey(a) {
 function peekHtml(x) {
   if (x.kind === "player") {
     return `<div class="pk-head">${face({ name: x.name, initials: x.initials, team: x.team }, 52)}<div><b>${esc(x.name)}</b><small>${esc(x.pos)}${x.jersey != null ? ` · #${x.jersey}` : ""} · ${x.team ? esc(x.team.name) : esc(x.where)}</small><small>${esc(x["class"])} · age ${x.age} · ${esc(x.ht)}, ${x.wt} lb ${stars(x.stars)}</small></div></div>
-      <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b>${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
+      <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.yours ? `<div class="kvline"><span>Your own read</span>${yourRange(x.yours)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b data-h3="${x.id}" tabindex="0">${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
       <div class="pk-foot">${x.listed ? '<span class="st-pill">On my list</span>' : ""}${x.noted ? '<span class="st-pill">Has my note</span>' : ""}<span class="muted small">Click to open · shift-click beside · right-click for more</span></div>`;
   }
   if (x.kind === "coach") {
@@ -733,11 +733,14 @@ function letterHead(m) {
   const when = `${esc(m.pretty)}`;
   switch (m.head) {
     case "school":
-    case "club":
-      return `<div class="lh lh-school" style="--c1:${c[0]};--c2:${c[1]}"><span class="lh-crest">${esc(initials(m.org))}</span><div><b>${esc(m.org)}</b><small>${esc(m.org_line)}</small></div></div><div class="lh-date">${when}</div>`;
+    case "club": {
+      // The sender's own logo when a pack has it (screens/logos.js).
+      const lg = typeof logoFor === "function" ? logoFor({ name: m.org }) : null;
+      return `<div class="lh lh-school" style="--c1:${c[0]};--c2:${c[1]}">${lg ? `<span class="lh-crest lgo-lh">${logoImg(lg)}</span>` : `<span class="lh-crest">${esc(initials(m.org))}</span>`}<div><b>${esc(m.org)}</b><small>${esc(m.org_line)}</small></div></div><div class="lh-date">${when}</div>`;
+    }
     case "conference":
     case "league":
-      return `<div class="lh lh-office"><div class="lh-seal">${esc(initials(m.org))}</div><b>${esc(m.org)}</b><small>${esc(m.org_line)}</small></div><div class="lh-date">${when}</div>`;
+      return `<div class="lh lh-office">${(() => { const lg = typeof compLogo === "function" ? compLogo(m.org) : null; return lg ? `<div class="lh-seal lgo-seal">${logoImg(lg)}</div>` : `<div class="lh-seal">${esc(initials(m.org))}</div>`; })()}<b>${esc(m.org)}</b><small>${esc(m.org_line)}</small></div><div class="lh-date">${when}</div>`;
     case "paper":
       return `<div class="lh lh-paper"><div class="mast">${esc(m.org)}</div><small>${esc(m.org_line)}</small></div>`;
     case "email":
@@ -756,7 +759,7 @@ function letterHtml(m) {
     ? `<div class="clips">${m.body.map((l, i) => (i === 0 ? `<p class="clip-intro">${rich(l)}</p>` : `<article class="clip"><p>${rich(l)}</p></article>`)).join("")}</div>`
     : m.body.map((l) => `<p>${rich(l)}</p>`).join("");
   const sign = m.head === "paper" ? `<p class="lt-sign small muted">${esc(m.sign || "")}</p>` : `<div class="lt-sign">${m.sign ? `<p>${esc(m.sign)}</p>` : ""}${m.head === "email" ? "" : `<p class="sig">${esc(m.from)}</p><small>${esc(m.role)}</small>`}</div>`;
-  return `<div class="lt-paper head-${m.head}">${letterHead(m)}${formal ? `<div class="lt-to"><small>To</small> ${esc(m.to)}</div><div class="lt-subject">${esc(m.subject)}</div>` : m.head === "paper" ? `<div class="lt-subject paper">${esc(m.subject)}</div>` : ""}<div class="lt-body">${body}${tableHtml}</div>${sign}${m.attach && m.attach.length ? `<div class="lt-attach">${m.attach.map((a) => `<span class="att">${icon("note")}${esc(a)}</span>`).join("")}</div>` : ""}</div>`;
+  return `<div class="lt-paper head-${m.head}">${letterHead(m)}${formal ? `<div class="lt-to"><small>To</small> ${esc(m.to)}</div><div class="lt-subject">${esc(m.subject)}</div>` : m.head === "paper" ? `<div class="lt-subject paper">${esc(m.subject)}</div>` : ""}<div class="lt-body">${body}${tableHtml}${typeof hpWhy === "function" ? hpWhy(m.why) : ""}</div>${sign}${m.attach && m.attach.length ? `<div class="lt-attach">${m.attach.map((a) => `<span class="att">${icon("note")}${esc(a)}</span>`).join("")}</div>` : ""}</div>`;
 }
 function letterSide(m) {
   const about = m.about;
@@ -859,7 +862,7 @@ async function holiday() {
     try {
       const r = await api("holiday", { days });
       S.status = r.status;
-      toast(`Back from holiday: ${r.days} days, now ${r.today}.${r.why && r.why.length ? " " + r.why.map((w) => w.text).slice(0, 2).join(" · ") : ""}`);
+      toast(`Back from holiday: ${r.days} day${r.days === 1 ? "" : "s"}, now ${r.today}.${r.why && r.why.length ? " " + r.why.map((w) => w.text).slice(0, 2).join(" · ") : ""}`);
       go("home", {}, { root: true });
       showReveals(r.status && r.status.reveals);
     } catch (e) { toast(e.message); }
@@ -950,6 +953,18 @@ async function coreAct(act, el, ev) {
     }
     case "besideclose": closeBeside(); return true;
     case "besidefull": { const b = S.beside; closeBeside(); go(b.screen, b.args); return true; }
+    case "l7pitch": {
+      if (!(await sure(`Talk to ${d.name}'s family about your school?`, "Most state associations bar recruiting. In Texas an athletic transfer sits out a year. If it comes out, your school forfeits the games he played and you are suspended for a year.", "Make the pitch"))) return true;
+      try { const r = await api("hs_pitch", { id: Number(d.id) }); toast(r.text); refresh(el); } catch (e) { toast(e.message); }
+      return true;
+    }
+    case "l7stake": {
+      const id = Number(d.id);
+      let pub = await sure(`Say it in public: ${d.name} is your guy?`, "The press hears it. If he hits, the credit is bigger; if he busts, it costs you more. Three years will tell.", "Say it in public");
+      if (!pub && !(await sure(`Keep your call on ${d.name} between you and your staff?`, "Your staff knows. A hit still earns their respect; a bust costs a little.", "Keep it private"))) return true;
+      try { const r = await api("stake_name", { id, public: pub }); toast(r.text); refresh(el); } catch (e) { toast(e.message); }
+      return true;
+    }
     case "listadd":
     case "listremove": {
       const id = Number(d.id);
@@ -957,6 +972,11 @@ async function coreAct(act, el, ev) {
       return true;
     }
     case "pnote": noteBox({ kind: "player", id: Number(d.id), name: d.name }, `Player page · ${d.name}`); return true;
+    case "pcut": {
+      if (!(await sure(`Cut ${d.name}?`, d.words, "Cut him"))) return true;
+      try { const r = await api("college_cut", { id: Number(d.id) }); toast(r.text); peekForget(); refresh(el); } catch (e) { toast(e.message); }
+      return true;
+    }
     case "pnotedel": {
       if (!(await sure("Delete this note?", "It can't be brought back."))) return true;
       await api("note_edit", { src: "player", id: Number(d.id), k: Number(d.k), delete: true });
@@ -1228,9 +1248,9 @@ function linksHtml(p) {
 function readCard(p) {
   const pot = p.potential;
   const who = p.mine ? "Your position coach" : "Your scouts";
-  return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl"><b>${esc(p.level_rating.split(" ")[0])}</b><small>${esc(p.level_rating.split(" ").slice(1).join(" "))}</small></div>` : ""}</div>
+  return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl" data-h3="${p.id}" tabindex="0"><b>${esc(lvlParts(p.level_rating).n)}</b><small>${esc(lvlParts(p.level_rating).words)}</small></div>` : ""}</div>
     ${pot ? `<p class="sub">Staff ${esc(words(pot.sure))}.${pot.hints && pot.hints.length ? " " + pot.hints.map(esc).join(". ") + "." : ""}</p>` : `<p class="sub">${p.ovr ? "Your staff rates what he is now; nobody has projected what he could become." : "Nobody on your staff has seen him. Only his measurables and public profile are known."}</p>`}
-    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
+    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Your own read</dt><dd>${yourRange(p.yours, p.yours_looks)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
 }
 const fans = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "k" : n.toLocaleString());
 const PT = {
@@ -1243,14 +1263,14 @@ const PT = {
       <div class="panel"><h2>Five that matter at ${esc(p.pos)} <small>the mental side</small></h2>${p.key_mental.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read, null, { p: p.id, k: a.key })}</div>`).join("") || '<div class="empty">Not seen.</div>'}</div></div>
       ${p.measurables.length ? `<div class="panel"><h2>Measurables <small>where each was taken</small></h2>${measurablesHtml(p)}</div>` : ""}
       ${linksHtml(p)}
-      <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} games</p>` : ""}</div>` : ""}${fit}</div>
+      <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} game${last.games === 1 ? "" : "s"}</p>` : ""}</div>` : ""}${fit}</div>
       ${p.stories.length ? `<div class="panel"><h2>What happened</h2><div class="items">${p.stories.slice(0, 8).map((s) => `<div class="item story"><span>${rich(s)}</span></div>`).join("")}</div></div>` : ""}`;
   },
   Attributes: (p) => {
     const g = keep("pattr", { g: "" }).g;
     const groups = p.groups.filter((x) => !g || x.name === g);
     const sel = `<select data-act="attrgroup" class="ssel"><option value="">Every group</option>${p.groups.map((x) => `<option ${x.name === g ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`;
-    return `<div class="tbar">${sel}<span class="muted small">Ranges are your staff's reads: a narrow bar is a sure read. Nobody sees a true number.</span></div><div class="attrgrid">${groups.map((x) => `<div class="panel"><h2>${esc(x.name)} <small>${esc(p.mine ? "your coaches" : x.name === "Physical" ? "public measurables" : "your scouts")}</small></h2><div class="attrs">${x.attrs.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read, null, { p: p.id, k: a.key })}</div>`).join("")}</div></div>`).join("")}</div>`;
+    return `<div class="tbar">${sel}<span class="muted small">Ranges are your staff's reads: a narrow bar is a sure read. The outlined bar under one is your own read. Nobody sees a true number.</span></div><div class="attrgrid">${groups.map((x) => `<div class="panel"><h2>${esc(x.name)} <small>${esc(p.mine ? "your coaches" : x.name === "Physical" ? "public measurables" : "your scouts")}</small></h2><div class="attrs">${x.attrs.map((a) => `<div class="attr"><span>${esc(a.label)}</span><span class="l7-pair">${range(a.read, null, { p: p.id, k: a.key })}${a.yours ? yourRange(a.yours, p.yours_looks) : ""}</span></div>`).join("")}</div></div>`).join("")}</div>`;
   },
   Reports: (p) => `<div class="grid2"><div class="panel">${readCard(p)}</div><div class="panel"><h2>Reports on file</h2>${(p.reports || []).length ? `<div class="items">${p.reports.map((r) => `<div class="item"><span class="when">${esc(r.date)}</span><span><b>${esc(r.by || "")}</b> ${rich(r.text)}</span></div>`).join("")}</div>` : `<div class="empty">${p.mine ? "Your position coach grades him every week; his read is the bar on each attribute." : "No written reports yet. Put him on your list and your scouts will keep looking."}</div>`}</div></div>`,
   Stats: (p) => {
@@ -1269,7 +1289,7 @@ const PT = {
     return `${honors.length ? `<div class="panel"><h2>Honors</h2><div class="honors">${honors.map((h) => `<span class="tag gold">${esc(h)}</span>`).join("")}</div></div>` : ""}${pos}
       <div class="panel"><h2>Year by year</h2>${table("pcareer", [
         { k: "age", t: "Age" }, { k: "level", t: "Level", l: true }, { k: "pos", t: "Pos", l: true }, { k: "role", t: "Role", l: true },
-        { k: "team", t: "Team", l: true }, { k: "missed", t: "Missed" }, { k: "events", t: "What happened", l: true, wrap: true, f: (r) => esc((r.events || []).map(words).join(", ")) },
+        { k: "team", t: "Team", l: true, f: (r) => (r.team ? logoIn({ name: r.team }) + esc(r.team) : "") }, { k: "missed", t: "Missed" }, { k: "events", t: "What happened", l: true, wrap: true, f: (r) => esc((r.events || []).map(words).join(", ")) },
       ], p.history, { tools: false })}</div>
       ${p.career_story.length ? `<div class="panel"><h2>His story</h2><div class="items">${p.career_story.map((s) => `<div class="item story"><span>${rich(s)}</span></div>`).join("")}</div></div>` : ""}`;
   },
@@ -1288,7 +1308,7 @@ const PT = {
   },
   Contract: (p) => {
     const c = p.pro.contract;
-    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} years total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
+    return `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} year${c.years === 1 ? "" : "s"} total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
       <div class="kv"><dt>Drafted</dt><dd>${esc(p.pro.draft || "Undrafted")}</dd><dt>Accrued seasons</dt><dd>${p.pro.accrued}</dd><dt>Career earnings</dt><dd>${money(p.pro.earnings)}</dd></div></div>`;
   },
   Notes: (p) => `<div class="panel"><h2>Your notes on ${esc(p.name)} <small>only you see them; they stay with him for his whole career</small></h2>
@@ -1322,18 +1342,50 @@ screens.player = async (a) => {
   const extra = PLAYER_TABS.find((t) => t.name === tab);
   const body = extra ? await extra.draw(p) : await PT[tab](p);
   const posHist = (p.positions || []).map(([age, pos]) => `${pos} from age ${age}`).join(" · ");
-  const lr = p.level_rating ? `<span class="lvlpill" title="His staff-read rating against everyone at his level">${esc(p.level_rating)}</span>` : "";
+  const lr = p.level_rating ? `<span class="lvlpill" data-h3="${p.id}" tabindex="0">${esc(p.level_rating)}</span>` : "";
   const listBtn = p.listed
     ? `<button class="st-btn glass" data-act="listremove" data-id="${p.id}">${icon("star")} On my players</button>`
     : `<button class="st-btn glass" data-act="listadd" data-id="${p.id}">${icon("star")} Add to my players</button>`;
   return `<div class="hero phero" style="--c1:${c[0]};--c2:${c[1] || c[0]}"><div class="art"></div><div class="jersey" aria-hidden="true">${esc(p.jersey != null ? p.jersey : p.pos)}</div>
     <div class="phero-in">${face({ ...p, colors: c }, 132)}<div class="copy">
-      <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? teamA(p.team) : esc(p.where)}</div>
+      <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
       <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
-      <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button></div></div></div></div>
+      <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button>${l7Stake(p)}${p.college_cut ? `<button class="st-btn glass" data-act="pcut" data-id="${p.id}" data-name="${esc(p.name)}" data-words="${esc(p.college_cut)}" title="Cut him from the team">Cut him</button>` : ""}</div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
+// His path at your place (lane 7, SK64): when he'd play, who's ahead of
+// him the year he arrives, his fit and who teaches him.
+PLAYER_TABS.push({
+  name: "At our place",
+  after: "Overview",
+  show: (p) => p.stake && p.stake.can,
+  draw: async (p) => {
+    let x = null;
+    try { x = await api("l7_path", { id: p.id }); } catch (e) { x = null; }
+    if (!x) return '<div class="empty">Your staff hasn\'t seen enough of him to project his path here.</div>';
+    const ahead = x.ahead.length ? table("l7ahead", [{ k: "name", t: "Ahead of him the year he arrives", l: true, f: (r) => `${playerLink(r.id, r.name)} <small class="sub">${esc(r.class)}</small>` }, { k: "read", t: "Staff read", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) }, { k: "leaves", t: "Through" }], x.ahead, { tools: false }) : `<div class="empty">Nobody ahead of him at ${esc(p.pos)} the year he arrives.</div>`;
+    return `<div class="grid2"><div class="panel"><h2>His path here <small>arrives ${x.arrives} · ${x.starters} starter${x.starters === 1 ? "" : "s"} at ${esc(p.pos)}</small></h2>
+      <p class="bigline">${esc(x.when)}${x.start ? ` <small class="sub">(${x.start})</small>` : ""}</p>${x.transfer_risk ? '<p class="sub">A kid this rated who sits two years often transfers.</p>' : ""}
+      <div class="kv"><dt>Fit</dt><dd>${esc(x.fit_words)} <small class="sub">${esc(words(x.scheme))}</small></dd><dt>Who teaches him</dt><dd>${x.teacher ? coachLink(x.teacher.id, x.teacher.name) : "Nobody yet"}${x.takes ? ` · he ${esc(x.takes)}` : ""}</dd><dt>Best for us</dt><dd><b>${Math.round(x.for_us)}</b> <small class="sub">his read, less the years he waits, plus his fit</small></dd></div></div>
+      <div class="panel">${ahead}</div></div>`;
+  },
+});
+
+// Your name on him (lane 7, SK40): the button, or the call you made. At a
+// high school, the pitch to his family instead (SK42).
+function l7Stake(p) {
+  const hp = p.pitch;
+  if (hp && hp.on) return `<span class="st-pill ${hp.on.moved ? "good" : "gold"}" title="You talked to his family on ${esc(hp.on.date)}">${hp.on.moved ? "Came to your school" : hp.on.done ? "Stayed put" : "Family deciding by June"}</span>`;
+  if (hp && hp.can) return `<button class="st-btn glass" data-act="l7pitch" data-id="${p.id}" data-name="${esc(p.name)}" title="Talk his family into a transfer to your school: most states bar it">Recruit him to your school</button>`;
+  const s = p.stake;
+  if (!s) return "";
+  if (s.on) {
+    const how = s.on.done ? (s.on.hit ? `came true: ${s.on.turned}` : `didn't come through: ${s.on.turned}`) : "three years will tell";
+    return `<span class="st-pill ${s.on.done ? (s.on.hit ? "good" : "bad") : "gold"}" title="You staked your name on him ${s.on.public ? "in public" : "privately"} on ${esc(s.on.date)}; ${esc(how)}">Your guy${s.on.public ? ", on record" : ""}</span>`;
+  }
+  return s.can ? `<button class="st-btn glass" data-act="l7stake" data-id="${p.id}" data-name="${esc(p.name)}" title="Mark him as your guy: credit if he hits, a cost if he busts">Stake your name</button>` : "";
+}
 GOTO.player = (a, p) => [p.team ? ["Squad", "roster", p.team.ref ? { kind: p.team.ref.kind, id: p.team.ref.id } : {}] : null, p.team ? ["Schedule", "schedule", p.team.ref ? { kind: p.team.ref.kind, id: p.team.ref.id } : {}] : null, ["Leaderboards", "leaders"], ["My players", "myplayers"]];
 
 // ---------- compare (S8) ----------
@@ -1347,7 +1399,7 @@ screens.compare = async (a) => {
   ps.forEach((p, i) => p.groups.forEach((g) => g.attrs.forEach((t) => { const k = g.name + "|" + t.label; if (!attrs.has(k)) attrs.set(k, { g: g.name, label: t.label, key: t.key, reads: [] }); attrs.get(k).reads[i] = t.read; })));
   const head = `<tr><th class="l"></th>${ps.map((p) => `<th class="l cmp-h">${face(p, 44)}<div>${playerLink(p.id, p.name)}<small>${esc(p.pos)} · ${esc(p.class)}${p.team ? " · " + esc(p.team.name) : ""}</small></div><button class="st-icon-btn" data-act="cmpdrop" data-id="${p.id}" aria-label="Take out">×</button></th>`).join("")}</tr>`;
   const row = (label, cells) => `<tr><td class="l">${label}</td>${cells.map((c) => `<td class="l">${c}</td>`).join("")}</tr>`;
-  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Level", ps.map((p) => esc(p.level_rating || ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
+  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Your own read", ps.map((p) => yourRange(p.yours))) + row("Level", ps.map((p) => (p.level_rating ? `<span data-h3="${p.id}" tabindex="0">${esc(p.level_rating)}</span>` : ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
   let g = null;
   for (const v of attrs.values()) {
     if (v.g !== g) { body += `<tr class="grouprow"><td class="l" colspan="${ps.length + 1}">${esc(v.g)}</td></tr>`; g = v.g; }
@@ -1366,15 +1418,22 @@ function treeHtml(list, empty) {
 screens.coach = async (a) => {
   const c = await api("coach_page", { id: a.id });
   title(c.name, c.job ? c.job.role : "Coach");
-  // Your read of him (update 2, board 18) comes with having him on your staff.
-  const names = ["Profile", ...(c.your_staff ? ["Ratings"] : []), "Jobs", "Coaching tree", "Players he developed", "Notes"];
+  // Your read of him: your staff's season by season (update 2, board 18);
+  // anyone else's from what you've put in (lane 18, C24).
+  const names = ["Profile", ...(c.you ? [] : ["Ratings"]), ...(c.record ? ["Recruiting record"] : []), "Jobs", "Coaching tree", "Players he developed", "Notes"];
   const tab = tabOf("ctab", names, a);
   let body = "";
   if (tab === "Ratings") {
-    body = await rrCoachTab(a.id);
+    body = c.your_staff ? await rrCoachTab(a.id) : typeof hrReadTab === "function" ? await hrReadTab(a.id) : "";
   } else if (tab === "Profile") {
-    body = `<div class="grid2"><div class="panel"><h2>Who he is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Reputation</dt><dd>${esc(c.reputation)}</dd><dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>Played pro</dt><dd>${c.ex_pro ? "Yes" : "No"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
+    body = `<div class="grid2"><div class="panel"><h2>Who he is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
       <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${c.contract.buyout > 0 ? money(c.contract.buyout) : "None"}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
+  } else if (tab === "Recruiting record") {
+    // His calls on recruits for you (lane 7, SK30): whom he wanted, whom he
+    // passed on, and how they turned out three years on.
+    const r = c.record;
+    body = `<div class="panel"><h2>His word on recruits <small>${r.wanted} wanted · ${r.passed} passed · you overruled him ${r.overruled} time${r.overruled === 1 ? "" : "s"}${r.settled ? ` · right on ${r.right} of ${r.settled} settled` : ""}</small></h2>${r.heart ? '<p class="sub">Overruled again and again lately: he works his area with less heart and listens to other offers.</p>' : ""}
+      ${table("crec", [{ k: "date", t: "When", l: true }, { k: "name", t: "Recruit", l: true, f: (x) => `${playerLink(x.id, x.name)} <small class="sub">${esc(x.pos)}</small>` }, { k: "call", t: "His call", l: true }, { k: "you", t: "You", l: true, f: (x) => (x.you === "Overruled" ? '<span class="st-pill warn">Overruled</span>' : "Agreed") }, { k: "turned", t: "Three years on", l: true, wrap: true, f: (x) => (x.turned ? `${esc(x.turned)}${x.right === true ? ' <span class="st-pill good">He was right</span>' : x.right === false ? ' <span class="st-pill bad">He was wrong</span>' : ""}` : '<span class="muted">Too soon</span>') }], r.rows, { tools: false })}</div>`;
   } else if (tab === "Jobs") {
     body = table("cjobs", [{ k: "where", t: "Where", l: true }, { k: "role", t: "Role", l: true }, { k: "from", t: "From" }, { k: "to", t: "To" }, { k: "record", t: "Record", l: true }, { k: "ended", t: "How it ended", l: true }], c.history, { tools: false });
   } else if (tab === "Coaching tree") {
@@ -1384,7 +1443,7 @@ screens.coach = async (a) => {
   } else {
     body = `<div class="panel"><h2>Your notes on ${esc(c.name)}</h2>${(c.notes || []).length ? `<div class="items">${c.notes.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span>${esc(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">No notes yet.</div>'}<button class="st-btn small primary" data-act="cnote" data-id="${c.id ?? a.id}" data-name="${esc(c.name)}">Add a note</button></div>`;
   }
-  return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? names : [...names.slice(0, -1), { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
+  return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `${!c.you && !c.your_staff && S.status && S.status.seat ? `<button class="st-btn small primary" data-act="hrhire" data-id="${a.id}" title="Interview him or make an offer for a job you have open">Hire</button>` : ""}<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? names : [...names.slice(0, -1), { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
 };
 GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
 
@@ -1435,9 +1494,9 @@ screens.team = async (a) => {
     : `<div class="empty">${pro ? "The league's book of seasons starts with this world's next season." : "No seasons kept."}</div>`;
   const leaders = (t.leaders || []).length ? `<div class="panel"><h2>Last season's leaders</h2><div class="items">${t.leaders.map((l) => `<div class="item"><span class="when">${esc(l.label)}</span><span>${playerLink(l.id, l.name)} <small class="muted">${esc(l.pos)}</small><br><small>${esc(l.line)}</small></span></div>`).join("")}</div></div>` : "";
   const news = t.news.length ? `<div class="items">${t.news.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><small class="muted">${esc(n.kind)}</small> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing in the last two months.</div>';
-  return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div><div class="st-outline">${esc(initials(t.name))}</div><div class="copy"><div class="st-label">${esc(t.level)}</div><h1>${esc(t.name)}</h1>
+  return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(t.level)}</div><h1>${esc(t.name)}</h1>
     <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}${t.coach ? `<span>Head coach ${coachLink(t.coach.id, t.coach.name)}</span>` : ""}</div>
-    <div class="st-actions">${linkTo("roster", ta, "Roster", "st-btn glass")}${linkTo("schedule", ta, "Schedule", "st-btn glass")}${linkTo("staff", ta, "Staff", "st-btn glass")}</div></div></div>
+    <div class="st-actions">${linkTo("roster", ta, "Roster", "st-btn glass")}${linkTo("schedule", ta, "Schedule", "st-btn glass")}${linkTo("staff", ta, "Staff", "st-btn glass")}${logoChange(t)}</div></div></div>
     <div class="pad">${gotoFor("team", a, t)}<div class="grid2"><div class="col"><div class="panel"><h2>Lately</h2>${news}</div>${leaders}</div>
     <div class="col"><div class="panel"><h2>Seasons</h2>${seasons}</div>${t.rivals.length ? `<div class="panel"><h2>${pro ? "Division" : t.ref.kind === "hs" ? "Its group" : "Rivals"}</h2><div class="chips">${t.rivals.map((r) => teamChip(r, 20)).join("")}</div></div>` : ""}</div></div></div>`;
 };
@@ -1458,7 +1517,7 @@ screens.news = async (a) => {
   }
   title("News");
   const seg = FEEDS.map(([k, t]) => `<button data-act="newskind" data-v="${k}" aria-pressed="${N.kind === k}">${t}</button>`).join("");
-  const rows = x.rows.map((r) => `<article class="story ${r.mine ? "mine" : ""} loud-${esc(r.loud || "small")}"><div class="story-art">${posterScene(r.scene || "news", (S.status && S.status.mine && S.status.mine.colors) || ["#3b4252", "#1c1f27"])}</div><div class="story-copy"><div class="story-meta"><span class="st-label">${esc(r.kind)}</span><span class="cert cert-${esc((r.certainty || "").toLowerCase())}" title="How sure the source is">${esc(r.certainty || "")}</span><span class="muted">${esc(r.source || "")} · ${esc(r.date)}</span></div><p>${rich(r.text)}</p>${r.chain ? `<a class="link small" data-act="newschain" data-k="${esc(r.chain.key)}">${r.chain.count} more in this story</a>` : ""}</div></article>`).join("");
+  const rows = x.rows.map((r) => `<article class="story ${r.mine ? "mine" : ""} loud-${esc(r.loud || "small")}"><div class="story-art">${posterScene(r.scene || "news", (S.status && S.status.mine && S.status.mine.colors) || ["#3b4252", "#1c1f27"])}</div><div class="story-copy"><div class="story-meta"><span class="st-label">${esc(r.kind)}</span><span class="cert cert-${esc((r.certainty || "").toLowerCase())}" title="How sure the source is">${esc(r.certainty || "")}</span><span class="muted">${esc(r.source || "")} · ${esc(r.date)}</span></div><p>${rich(r.text)}</p>${typeof hpWhy === "function" ? hpWhy(r.why, "small") : ""}${r.chain ? `<a class="link small" data-act="newschain" data-k="${esc(r.chain.key)}">${r.chain.count} more in this story</a>` : ""}</div></article>`).join("");
   const chain = N.chain ? `<div class="chainbar">Following one story <a class="link" data-act="newschain" data-k="">Show everything</a></div>` : "";
   return `<div class="pad">${pageHead({ kicker: "Rumours are marked as rumours", title: "News", actions: `<div class="seg">${seg}</div>` })}${chain}<div class="stories">${rows || `<div class="empty">${N.kind === "beat" ? "Your beat writers haven't filed anything yet." : "Nothing in this feed yet."}</div>`}</div></div>`;
 };
@@ -1503,7 +1562,7 @@ screens.standings = async (a) => {
   let body = "";
   if (tab === "Standings") {
     const x = await api("standings", a.conference ? { conference: a.conference } : {});
-    const groups = x.groups.map((g) => `<div class="panel"><h2>${esc(g.name)}</h2>${table("st:" + g.name, [
+    const groups = x.groups.map((g) => `<div class="panel"><h2>${compIn(g.name)}${esc(g.name)}</h2>${table("st:" + g.name, [
       { k: "team", t: "Team", l: true, f: (t) => teamChip(t.team, 20), v: (t) => t.team.name },
       ...(g.teams[0] && g.teams[0].cw != null ? [{ k: "conf", t: "Conf", f: (t) => `${t.cw}-${t.cl}`, v: (t) => t.cw - t.cl + t.cw / 100 }] : []),
       { k: "all", t: "Overall", f: (t) => `<b>${t.w}-${t.l}${t.t ? "-" + t.t : ""}</b>`, v: (t) => t.w - t.l + t.w / 100 },
@@ -1653,6 +1712,7 @@ screens.settings = async () => {
     <div class="panel"><h2>Reading</h2>
     ${row("Hover cards", "A card when you rest on a name", seg("hover", [["", "On"], ["off", "Off"]], prefs.hover || ""))}
     ${row("Hover delay", "How long to rest first", seg("hoverDelay", [["250", "Quick"], ["", "Normal"], ["900", "Slow"]], prefs.hoverDelay || ""))}</div></div>
+    <div class="panel"><h2>Logos</h2>${row("Logo packs", "AFM has no logos of its own: install a pack, the way Football Manager's work", linkTo("logos", {}, "Logos", "st-btn small"))}</div>
     <div class="panel"><h2>Keys and clicks</h2><div class="keys">${keys.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join("")}</div></div></div>`;
 };
 
