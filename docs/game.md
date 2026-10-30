@@ -1158,6 +1158,29 @@ What people say comes from the line bank (`crates/afm-engine/data/lines/`, picke
 - The position groups (`skill`, `lineman`, `rusher`, `cover`...) and career stages (`freshman` to `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) the new lines are tagged by.
 - A speaker who hasn't spoken to you for a season is dropped from the memory, to keep saves small.
 
+### Lane 11 (next update): the hunt (SK67)
+
+One target chased over seasons, at every level and every position: yours at a high school, a college or a club, the AI's at every program, club and powerhouse school, and once or twice a decade a generational prospect the whole world chases. It grows update 2's quarterback search (lane 2), which stays. How each part works, with every number: [hunt.md](reference/how-it-works/hunt.md).
+
+- **Your hunt** (`world/hunt/mod.rs`): name one man (the hunt page's suggestions, or his player page). You watch every game he plays the day after, from your own film hours; a week with none left misses it and says so. At a college he goes to the top of your board, his position holds a scholarship, your head coach's time goes to him first and you can bank NIL money for him out of your budget; at a club your board reads him higher on draft day, and the page shows what moving up to him takes on your chart this draft and next; at a high school your off-season weeks around him build his family's trust, which your pitch reads.
+- **Keeping it hidden** (SK13): the page shows how much the world knows and from what (trips where you were seen, your offer, his visits, leaks, top-30 visits, talks with his family, time). The more it knows, the likelier rivals pile on (a program at your level or above, a club ahead of you in the order). You can say it out loud: everyone knows the same day.
+- **His say**: a recruit whose list keeps you outside his top three for weeks tells your staff to stop calling (sooner if proud, later if loyal); a quarterback can refuse your club at the draft, and you take him and trade his rights to the club that wants him most for its pick and its next first; a high schooler can stay where he is.
+- **The boss and the look-back**: a chase the world knows wears on your boss while you lose, and the boss can end it; landing or losing a known chase moves the boss's trust. Three years after you land him the inbox says whether he was what the hints said, and your reputation moves (more if you said it out loud).
+- **The world's hunts** (`world/hunt/ai.rs`): programs pick their man each July from their coach's ambition and recruiting, clubs each September (the weakest reach highest, a club without a franchise quarterback most often), powerhouse high schools each January. A hunted recruit gets the same edge as yours (first on the board, a held scholarship, the head coach's time, an NIL bid), a hunted draft prospect the same draft-day edge, a hunted high schooler the same transfer pull.
+- **The generational prospect** (`world/hunt/generational.rs`): when the public's read of a class's best (or a draft's) beats the best of each of the nine before it, the news calls him generational; every power program hunts him, and in his draft year the five worst clubs do. It is the public's word: potential stays hidden, so it can miss.
+- **On screen** (`crates/afm-game/src/lane_hunt.rs`, `app/ui/screens/hunt.js`): the hunt page in scouting at all three seats, a button on every player page, and a Handbook page with a live example. `seat_season` names a hunt at each seat and opens the page at every stop.
+
+#### Claude's picks (proposed, not confirmed)
+
+- Head coach's time on a hunt 1.8 (others 0.12 less while hunting), an AI hunter's NIL bid at least 6% of its collective's budget, the draft-day edge 2 points, film 1.0 hour a high school game and 1.5 a college one, 12 past hunts kept.
+- Heat weights: out loud 1.0, seen 0.25, an offer 0.30, an official visit 0.20 (others 0.10), a leak 0.20, a top-30 visit or workout 0.15, a pitch 0.30, off-season weeks 1 - 0.97^n, word getting around 1 - 0.95^quarters.
+- Piling on from heat 0.2: programs 0.1 x heat a week (at most three), clubs 0.15 x heat a week in March and April (at most two).
+- His say: 8 cold weeks, 0.3 a point of ego sooner and of loyalty later (4 to 12).
+- The boss: from heat 0.5, 0.01 of trust a losing month, the end below 0.2; landing +0.02 + 0.03 x heat, losing -0.03 x heat.
+- The look-back three years on; reputation +0.3, +0.6 out loud, -0.2, -0.6 out loud.
+- AI chances: programs 0.2 + 0.03(ambition - 10) + 0.02(recruiting - 10), 0.05 to 0.6; clubs 0.25 + 0.35 without a franchise quarterback + 0.2 x impatience, at most 0.85; schools 0.35 + 0.03(ambition - 10), 0.1 to 0.7; a school's pull on a hunted transfer 1.8 times.
+- Generational: nine classes of record, the services' summer read and the pro scouts' December read, power programs from relative prestige 0.6, the five worst clubs by the mock order.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

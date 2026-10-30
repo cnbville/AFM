@@ -1388,8 +1388,10 @@ pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, S
     }
     let b = budget(w, j);
     let current = w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.nil).unwrap_or(0.0);
+    // Your hunt draws on what you set aside for him (SK67).
+    let banked = if crate::world::hunt::is_yours(w, id) { b.hunt } else { 0.0 };
     if let Some(x) = nil
-        && x - current > b.left + 1.0
+        && x - current > b.left + banked + 1.0
     {
         return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));
     }
@@ -1418,6 +1420,8 @@ pub struct Budget {
     pub recruits: f64,
     /// Offered to portal targets.
     pub portal: f64,
+    /// Set aside for your hunt and not yet promised to him (SK67).
+    pub hunt: f64,
     pub left: f64,
 }
 
@@ -1442,6 +1446,7 @@ pub fn budget(w: &World, j: usize) -> Budget {
     };
     let recruits = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).filter_map(|t| t.nil).sum();
     let portal = desk.portal.iter().filter(|t| t.offered.is_some() && !t.settled).filter_map(|t| t.nil).sum();
+    let hunt = crate::world::hunt::reserve(w, j);
     Budget {
         total,
         revenue_share: revenue_share.min(total),
@@ -1449,7 +1454,8 @@ pub fn budget(w: &World, j: usize) -> Budget {
         roster,
         recruits,
         portal,
-        left: total - roster - recruits - portal,
+        hunt,
+        left: total - roster - recruits - portal - hunt,
     }
 }
 

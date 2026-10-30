@@ -2170,6 +2170,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "yours_looks": reads::seen(w, k).mine_looks,
         "stake": stake_json(w, k),
         "pitch": pitch_json(w, k),
+        "hunt": crate::lane_hunt::player_json(w, k),
         "potential": potential,
         "groups": groups,
         "tendencies": tendencies,
