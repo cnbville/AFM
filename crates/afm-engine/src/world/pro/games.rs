@@ -145,6 +145,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     };
     let (top_off, top_def) = (fam_top(true), fam_top(false));
     let has_film = club.film.off_snaps >= 40.0;
+    let (seat, rel) = (w.seat_club(t), crate::world::season::coach_relationships(w, w.nfl[t].head_coach));
     let mut who = HashMap::new();
     let mut players: Vec<GamePlayer> = Vec::with_capacity(list.len());
     for &(i, starter) in &list {
@@ -161,6 +162,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         let experience =
             p.college_snaps as f64 / crate::world::season::SEASON_SNAPS as f64 + pro_snaps(p) / NFL_SEASON_SNAPS as f64;
         let mut g = GamePlayer::from_player(&p.player, know, experience);
+        (g.mood, g.belief) = crate::world::season::game_mind(p, seat, rel);
         let iq = 0.5 * (p.player.attributes.get(Attr::FootballIq) + p.player.attributes.get(Attr::PlayRecognition));
         let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
         for f in Family::ALL {
@@ -258,6 +260,8 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
             install,
             style: tm.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
+            motivation: hc.map_or(10.0, |a| a.motivation),
+            temper: tm.head_coach.map_or(10.0, |c| w.coaches[c].personality.temper),
         },
     );
     // The head coach's guidelines (update 2, G2).
@@ -281,7 +285,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
 pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bool, loud: f64) -> Venue {
     let year = w.year;
     let seed = w.options.seed as u64;
-    let era = franchise::era(home, year.min(franchise::PRESENT));
+    let era = franchise::era_in(w, home, year.min(franchise::PRESENT));
     // The club's town: its own after a move (later extras topic 1).
     let (town, st) = crate::world::finance::nfl::city(w, home, year);
     let code = if st.is_empty() { "NY" } else { st.as_str() };
@@ -321,7 +325,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
     };
     // Travel (proposed, not confirmed: the college rule's weights): miles,
     // time zones and a body clock kickoff.
-    let home_of = |t: usize| franchise::era(t, year.min(franchise::PRESENT)).map_or("NY", |e| e.state);
+    let home_of = |t: usize| franchise::era_in(w, t, year.min(franchise::PRESENT)).map_or("NY", |e| e.state);
     let wear_of = |t: usize| {
         if t == home && !neutral {
             return 0.0;
@@ -338,7 +342,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         if closed || neutral {
             return 0.0;
         }
-        let e = franchise::era(t, year.min(franchise::PRESENT));
+        let e = franchise::era_in(w, t, year.min(franchise::PRESENT));
         let usual = match e {
             Some(e) if e.roof == franchise::Roof::Dome => 72.0,
             Some(e) => crate::calendar::weather::usual_high_in(e.state, e.city, at.date),
@@ -385,8 +389,10 @@ pub(crate) fn play(w: &World, games: &[Fixture]) -> Vec<Option<(GameResult, [Sid
     let jobs: Vec<Option<(Side, Side, Venue, u64)>> = games
         .iter()
         .map(|g| {
-            let a = sides.get(&g.home)?.clone()?;
-            let b = sides.get(&g.away)?.clone()?;
+            let mut a = sides.get(&g.home)?.clone()?;
+            let mut b = sides.get(&g.away)?.clone()?;
+            a.team.day = nfl_day(w, g.home, g.away, &a.team);
+            b.team.day = nfl_day(w, g.away, g.home, &b.team);
             let v = Venue { playoff: g.playoff, ..venue(w, g.home, g.away, g.at, g.neutral, g.loud) };
             Some((a, b, v, g.seed))
         })
@@ -408,10 +414,54 @@ pub(crate) fn play(w: &World, games: &[Fixture]) -> Vec<Option<(GameResult, [Sid
         .collect()
 }
 
+/// The world reader's game log: an NFL game's row (with the caller's
+/// facts in `head`: kind, week, window, line, crowd), its snaps and its
+/// situation totals. Only watches.
+pub(crate) fn log_game(
+    w: &mut World,
+    mut head: serde_json::Map<String, serde_json::Value>,
+    f: &Fixture,
+    r: &GameResult,
+    sides: &[Side; 2],
+) {
+    if !w.logging() {
+        return;
+    }
+    let season = w.nfl_season.as_ref().map_or(w.year, |s| s.year);
+    let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
+    head.insert("level".into(), "nfl".into());
+    head.insert("season".into(), season.into());
+    head.insert("date".into(), f.at.date.to_string().into());
+    head.insert("kickoff".into(), format!("{} ET", f.at.clock()).into());
+    head.insert("teams".into(), serde_json::json!([f.home, f.away]));
+    head.insert("neutral".into(), f.neutral.into());
+    head.insert("indoor".into(), v.indoor.into());
+    head.insert("conditions".into(), serde_json::json!(v.cond));
+    let body = crate::world::wlog::games::game_body(r, Some([&sides[0].team, &sides[1].team]));
+    let row = crate::world::wlog::games::game_row(head, body);
+    let plays = crate::world::wlog::games::plays(&r.stats);
+    let situ = crate::world::game_log::game_situations(&r.stats, true);
+    let Some(l) = w.wlog.as_mut() else { return };
+    l.add_situations(season, "nfl", "NFL", [f.home, f.away], situ);
+    l.game("games-nfl", "plays-nfl", &row, Some(plays));
+}
+
+/// The day a club brings into a game (dialogue D4): a division game is the
+/// rivalry; the playoffs the engine reads itself.
+fn nfl_day(w: &World, t: usize, opp: usize, dressed: &crate::game::GameTeam) -> crate::game::talk::Day {
+    use crate::world::folk::Team;
+    let year = w.year;
+    let div = |x: usize| crate::world::franchise::era_in(w, x, year).map(|e| e.div);
+    let rival = div(t).is_some() && div(t) == div(opp);
+    crate::world::folk::gametalk::day_for(w, Team::Nfl(t), Team::Nfl(opp), 0.0, rival, dressed)
+}
+
 /// Your NFL game today as the day will play it (section 9).
 pub(crate) fn seat_setup(w: &World, f: &Fixture) -> Option<super::super::live_seat::SeatSetup> {
-    let a = game_side(w, f.home)?;
-    let b = game_side(w, f.away)?;
+    let mut a = game_side(w, f.home)?;
+    let mut b = game_side(w, f.away)?;
+    a.team.day = nfl_day(w, f.home, f.away, &a.team);
+    b.team.day = nfl_day(w, f.away, f.home, &b.team);
     let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
     let mut setup = crate::game::GameSetup::new(&a.team, &b.team, crate::player::Level::NFL, f.seed);
     // The season's book, and a playoff game's overtime (update 3, F25).
@@ -457,6 +507,8 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
         }
         let Some(&(i, _)) = sides[inj.side].who.get(&inj.id) else { continue };
         let weeks = inj.weeks.ceil().max(1.0) as u32;
+        // Your club decides its own list (minor bug 73).
+        let you = crate::world::front_office::reserve::you_decide(w, i);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.out_weeks = c.out_weeks.max(weeks);
         if weeks >= 6 {
@@ -467,17 +519,23 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
             // (trial 9: every camp injury went to reserve, so settlements
             // almost never happened).
             let vested = c.accrued >= 4;
-            if vested {
+            let placed = vested && !you;
+            if placed {
                 c.status = Status::Reserve;
                 c.pup = false;
+                // Placed before the cutdown: out for the season.
+                c.ir_out = true;
             }
             let p = &mut w.people[i];
             let age = p.row_age();
             p.note(format!(
                 "Hurt in the preseason at {age} ({}, about {weeks} weeks){}.",
                 inj.kind.name(),
-                if vested { ": injured reserve" } else { "" }
+                if placed { ": injured reserve" } else { "" }
             ));
+            if vested && you {
+                crate::world::front_office::reserve::recommend(w, i, weeks);
+            }
         }
     }
     let _ = year;
@@ -488,7 +546,7 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 /// player out for a long spell goes on injured reserve).
 pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
     let year = w.year;
-    w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref());
+    w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref(), &r.talks);
     // The league's numbers for the game boards (lane 9), by season.
     let season = w.nfl_season.as_ref().map_or(year, |s| s.year);
     crate::world::charts::add_game(w, season, crate::world::charts::NFL, &r.stats);
@@ -549,9 +607,14 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
         let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating));
         let weeks = (inj.weeks * (1.0 - 0.12 * med)).ceil().max(1.0) as u32;
         let ir = weeks >= ir_minimum(year);
+        // Your club decides its own list (minor bug 73): the medical staff
+        // recommends.
+        let you = crate::world::front_office::reserve::you_decide(w, i);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.out_weeks = c.out_weeks.max(weeks);
-        if ir && c.status == Status::Roster {
+        if ir && you && c.status == Status::Roster {
+            crate::world::front_office::reserve::recommend(w, i, weeks);
+        } else if ir && c.status == Status::Roster {
             c.status = Status::Reserve;
             c.pup = false;
             let t = teams[inj.side];
@@ -599,7 +662,7 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
         (K::Fracture, 2.0),
     ];
     let seed = w.options.seed as u64 ^ 0x9AC7 ^ (d.0 as u64) << 20;
-    for t in franchise::active_teams(year) {
+    for t in franchise::active_teams_in(w, year) {
         let med = crate::world::people::Support::z(w.clubs[t].support.medical.rating);
         let name = w.nfl[t].name;
         let roster = w.clubs[t].roster.clone();
@@ -631,12 +694,17 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
             }
             let vested = c.accrued >= 4;
             let squad = c.status == Status::PracticeSquad;
+            let you = crate::world::front_office::reserve::you_decide(w, i);
             let c = w.people[i].pro.as_mut().unwrap();
             c.out_weeks = c.out_weeks.max(weeks);
-            let ir = if camp { weeks >= 6 && vested } else { weeks >= ir_minimum(year) && !squad };
+            let due = if camp { weeks >= 6 && vested } else { weeks >= ir_minimum(year) && !squad };
+            // Your club decides its own list (minor bug 73).
+            let ir = due && !you;
             if ir {
                 c.status = Status::Reserve;
                 c.pup = false;
+                // Placed in camp, before the cutdown: out for the season.
+                c.ir_out = camp;
             }
             let p = &mut w.people[i];
             let age = p.row_age();
@@ -651,6 +719,9 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
                     "Placed on injured reserve by the {name} at {age} ({} in practice, about {weeks} weeks).",
                     kind.name()
                 ));
+            }
+            if due && you {
+                crate::world::front_office::reserve::recommend(w, i, weeks);
             }
         }
     }
@@ -667,7 +738,7 @@ pub(crate) fn ir_minimum(year: i32) -> u32 {
 /// How many players a team may bring back from injured reserve in a
 /// season (real: none before 2012, one 2012-16, two 2017-19, unlimited in
 /// 2020-21, eight from 2022).
-pub(crate) fn ir_returns(year: i32) -> u32 {
+pub fn ir_returns(year: i32) -> u32 {
     match year {
         ..=2011 => 0,
         2012..=2016 => 1,

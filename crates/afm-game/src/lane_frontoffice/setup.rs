@@ -21,6 +21,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let home = game.home.clone();
             game.wm().and_then(|w| {
                 start(w, args)?;
+                crate::lane_handbook::on_start(w, args);
                 // Your coach is kept outside any save (update 3, SA1).
                 crate::setup::save_coach_profile(&home, args);
                 Ok(crate::views::status(w))
@@ -207,6 +208,11 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
             Some("other") => Level::Other,
             _ => Level::College,
         }),
+        // A team that doesn't exist yet (next update, lane 10, SK68).
+        "ground" => Start::Head(
+            crate::lane_groundzero::make_team(w, args.get("job").unwrap_or(&Value::Null))?
+                .ok_or("Pick a team to build.")?,
+        ),
         _ => Start::Head(job()?),
     };
     let (placement, resume) = placement(w, args);

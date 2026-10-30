@@ -34,6 +34,8 @@ use std::thread::JoinHandle;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod fp;
+pub(crate) mod games;
+pub(crate) mod lean;
 mod narrow;
 pub mod read;
 pub(crate) mod rows;
@@ -51,6 +53,13 @@ const FRAME: usize = 1 << 20;
 /// zstd level: 3 packs a world's rows 5% bigger than 6 in less than half
 /// the time (measured on a year's player rows).
 const LEVEL: i32 = 3;
+
+/// One record as the log writes it (named MessagePack, `f64`s as `f32`s),
+/// for `WorldLog::put_packed`.
+pub(crate) fn pack<T: Serialize + ?Sized>(rec: &T) -> Option<Vec<u8>> {
+    let mut one = Vec::with_capacity(256);
+    rmp_serde::encode::write_named(&mut one, &narrow::Narrow(rec)).ok().map(|_| one)
+}
 
 /// What each kind of record holds (written into `meta.json`).
 pub const KINDS: &[(&str, &str)] = &[
@@ -103,6 +112,30 @@ pub const KINDS: &[(&str, &str)] = &[
     (
         "world",
         "One row per year: the calendar's counters, the year's rule book and changes, signing classes, champions, the fitted numbers and a fingerprint of each store.",
+    ),
+    (
+        "games-college",
+        "Every college game (lane R1): kind, date, week, site, kickoff, line, weather, crowd, the toss, score by quarter, both team boxes, every player's line and snaps, drives, scoring, injuries, penalties, officiating. Stand-in games: the facts and the winner.",
+    ),
+    (
+        "plays-college",
+        "Every college engine game's snaps (lane R1): the call and its why, the defense, every block, rush win, tackle and miss, the result and its why, expected points and win chance before and after; named by level, season, date and teams.",
+    ),
+    ("games-nfl", "Every NFL game, preseason and playoffs too, as games-college (lane R1)."),
+    ("plays-nfl", "Every NFL game's snaps, as plays-college (lane R1)."),
+    ("games-other", "Every game of the other pro leagues, as games-college (lane R1)."),
+    ("plays-other", "Every other-league game's snaps, as plays-college (lane R1)."),
+    (
+        "games-hs",
+        "Every high school game (lane R1): engine games as games-college (no snaps); stand-in games and forfeits with the winner.",
+    ),
+    (
+        "situations",
+        "Each level's plays summed by situation key (lane R1), one record per key with its eight totals (v: plays, yards, EPA, successes, first downs, touchdowns, turnovers, the extra): college by division, the pro leagues by league, high school by state with its play names under all. A season's totals are the sum of its records (written at the year's close, and at each save for what came before it).",
+    ),
+    (
+        "team-situations",
+        "Each college and pro team's plays summed by its own keys, o| with the ball and d| defending (lane R1), summed like situations.",
     ),
 ];
 
@@ -157,6 +190,8 @@ pub struct WorldLog {
     worker: Option<JoinHandle<()>>,
     /// How far the append-only lists have been written (news, alumni).
     pub(crate) marks: Mutex<Marks>,
+    /// The game log's situation totals not written yet (`games.rs`).
+    totals: games::Totals,
 }
 
 /// How far each append-only list has been written.
@@ -230,6 +265,7 @@ impl WorldLog {
             tx: Some(tx),
             worker: Some(worker),
             marks: Mutex::new(Marks { people, ..Marks::default() }),
+            totals: games::Totals::default(),
         }
     }
 
@@ -248,10 +284,14 @@ impl WorldLog {
     /// follows the threads, so readers key records by their ids.
     pub(crate) fn put<T: Serialize + ?Sized>(&self, kind: &'static str, rec: &T) {
         // Packed before the lock, so the cores don't wait on each other.
-        let mut one = Vec::with_capacity(256);
-        if rmp_serde::encode::write_named(&mut one, &narrow::Narrow(rec)).is_err() {
-            return;
+        if let Some(one) = pack(rec) {
+            self.put_packed(kind, one);
         }
+    }
+
+    /// Adds one record packed by `pack`: a caller that packs on many cores
+    /// adds them here in its own order (the game log).
+    pub(crate) fn put_packed(&self, kind: &'static str, one: Vec<u8>) {
         // A record of a frame or more (a whole season's store) goes as its
         // own frame, after what was waiting, without being copied.
         let (full, own) = {
@@ -324,6 +364,7 @@ impl WorldLog {
 
     /// Writes everything and stops the writer.
     pub fn close(mut self) -> std::io::Result<()> {
+        self.write_totals();
         let r = self.flush();
         self.stop();
         r
@@ -340,6 +381,7 @@ impl WorldLog {
     /// and mirrors the folder into `to` (hard links where the disk allows,
     /// copies where it doesn't), replacing what was there.
     pub fn save_to(&mut self, to: &Path) -> std::io::Result<()> {
+        self.write_totals();
         self.rotate()?;
         mirror(&self.dir, to)
     }
@@ -490,6 +532,9 @@ pub(crate) fn book(w: &mut crate::world::World, season: i32) {
 pub(crate) fn year_end(w: &mut crate::world::World) {
     if !w.logging() {
         return;
+    }
+    if let Some(l) = w.wlog.as_deref_mut() {
+        l.write_totals();
     }
     rows::year_end(w);
 }

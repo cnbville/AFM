@@ -1,11 +1,12 @@
 # Recruiting: how it works today
 
-Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, and cuts (minor bug 60) at 8198872 the same day.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, the why-lines on commitments (lane 6) the same day, redshirts, portal NIL and staff duties (minor bugs 76-77, SC6) at 6200524 the same day, and build-year tryouts with next update lane 10 the same day, and the hunt (next update lane 11) on 2026-10-30, and home visit talks with the next update's lane 14 the same day.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
 ## Quick answers
 
+- Does a head coach's home visit matter? Yes: in the winter contact periods AI head coaches visit their commits and near recruits they offered, and the pitch adds -0.012 to +0.03 to that school's pull in the feel and on signing day; yours is a talk with whoever decides in his family (`world/folk/dialogue.rs`, `home_lean`, `ai_home_visit`; `world/recruiting.rs`, `recruiting_day`, `appeal`). See [people.md](people.md), "Talks on game day and off it".
 - How many stars go out a class? Fixed quotas of a 250,000 class (times world scale), from the 247 Composite: 33 five-stars, 350 four-stars, 2,800 three-stars, 3,200 two-stars; everyone else 0 ("unranked") (recruiting, `SERVICE_TIERS`, `run_signing_stage`, `rate_underclass`, `service_stars`). The standalone class sim keeps 2,000 and 4,000 (`career.rs`, `PIPELINE.star_shares`).
 - What do the services rank on? 0.25 × film + 0.75 × their upside projection, minus 12 × (1 - seen)², plus a small physical-gift term, plus 6 film-SD × his offer sheet; seen is the larger of his visibility and his offer sheet (recruiting, `star_score`, `OFFER_READ`).
 - What is the offer sheet? 0-1: the school holding his scholarship commitment, or before he commits his best scholarship offer (early offers too), weighted by the level he reads in it (`recruit_level`: FBS 1, Group of 5 0.85, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2) × (0.5 + 0.5 × the program's prestige at its level) (recruiting, `offer_sheet`). An SEC offer moves a kid about a tier; an FCS-only list keeps him below the FBS signees; a Group of 5 commitment reads as that school, whatever else offered.
@@ -22,7 +23,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - What's a decommit? A commitment that loses its place or is beaten at a signing stage, or a fired coach's commit reopening: 45% of 5-stars, 35% 4, 25% 3, 15% others, times loyalty and closeness (`decommit_after_firing`).
 - What decides a portal entry? A yearly "lean" built from role, how buried he is and dated events, then a uniform draw against lean × era factor (`world/college.rs`, `lean_checkpoint`; recruiting, `portal_open`).
 - How is NIL paid? On July 1, each collective's budget × 0.6 is split over the roster by role, position value and stars (`nil_payouts`, `nil_weight`).
-- What NIL does a recruit get offered? Position market rate × a star factor × (budget / $10M)^0.8, capped by the collective and the position's top rate (`offer_for`, `position_nil`; `world/ncaa.rs`, `position_nil_max`).
+- What NIL does a recruit get offered? Position market rate × a star factor × (budget / $10M)^0.8, capped by the collective. A school pays within the going rate's top for his position (`world/ncaa.rs`, `position_nil_max`) unless it's buying: a reach program whose NIL money ranks at least 10 places above its prestige in its division (`BUY_RANKS`) pays a 4- or 5-star near the top of its board (rank < 0.3) past it, up to 6% of its money (`BUY_SHARE`) (`offer_for`, `buying`, `position_nil`; minor bug 61). The established powers never buy. No recruit has a ceiling of his own, as in real life.
 - How much NIL can you still promise? The budget less this money year's deals for players still on your roster, less the offers out to recruits and portal targets: the deals, NIL and portal offers check it, and the NIL board shows it (`world/front_office/college.rs`, `budget`).
 - What grades does he need? Division I 2.3 core GPA to qualify, 2.0-2.299 academic redshirt, under 2.0 can't enroll; Division II 2.2; JUCO anyone (`ncaa_tier`).
 - When do the services first rank a class? From its sophomore year: four updates a year (21 Jan, 12 May, 14 Jul, 20 Oct) for the classes behind the one the signing stages rate, which they take over at 20 March of its junior year (`world/scouting/services.rs`, `update_days`, `underclasses`; recruiting, `rate_underclass`).
@@ -30,6 +31,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Who predicts where a recruit goes? Each service's insider, from 2011, every Tuesday (`world/scouting/services.rs`, `insiders_week`).
 - Do walk-ons exist? Yes: planned preferred walk-ons, local walk-on offers in February, open tryouts, and fall-camp scholarships for walk-ons who play (`class_plan`, `run_signing_stage`, `camp_walk_ons`).
 - Can a college coach cut a player? Yes, your own, from his player page: he is off the roster and out of your games that day and enters the next transfer window (see Cuts) (`world/front_office/college.rs`, `cut`).
+- What does a hunted recruit get? The hunter puts him first on its board, holds his scholarship (the others at his spot share one fewer; he still fits as a star would), gives him its head coach's time 1.8 and, an AI program, bids at least 6% of its collective's budget; a hunting program's other targets get 0.12 less of its head coach's time. A school's hunt pulls a transfer 1.8 times as hard. All of it in [hunt.md](hunt.md) (`world/recruiting.rs`, `run_signing_stage`, `high_school_transfers`).
 
 ## High schools and being seen
 
@@ -126,7 +128,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 
 - Stages (`SignStage`, dates `world/clock.rs`): five commitment waves Summer(0-4) (the enum's comment says 0-3; the code has five) on Mar 20, Apr 30, Jun 15, Aug 31, Oct 31; Early (early signing day; third Wednesday of December 2017-23, first Wednesday from 2024); JanuaryEnrollees (before 2017 only); Final (first Wednesday of February).
 - Each stage runs the same matching: programs offer down their boards in rounds; each recruit holds the best offer and trades up; an offer at a full position is made only for a recruit about (1 − 0.75 × prestige_rel) film-SD better than the best left at an open spot, at most 2 over the plan; a D-I staff always finds 2 extra places for a 5-star (`next_offer`, `OVER_PLAN`, `OVER_CLASS`).
-- Bidding: a school near the top of its board (rank < 0.3) can raise its NIL offer 1.5× to beat a held offer, within its cap (`run_signing_stage`, bidding block).
+- Bidding: a school near the top of its board (rank < 0.3) can raise its NIL offer 1.5× to beat a held offer, within its cap and the going rate's top, or for a buying school and a 4- or 5-star, 6% of its money (`run_signing_stage`, bidding block).
 - Who decides at each stage: only recruits whose `commit_timing` has come. Commitment timing z = 0.8 × noise + 0.25 decides himself − 0.3 social-media parent − 0.3 handler + 0.03 × (love of game − 10) + 0.15 older brother + 4★ 0.15 / ≤2★ −0.2; cut points 1.34, 0.81, −0.11, −0.35, −0.57, −1.1 (`commit_timing`). A summer commitment is announced on a day of its own before the next wave (`announce_commitments`).
 - A commitment holds +10 utility through the summer waves; at signing stages it holds by stickiness 0.18 × loyalty (halved when the head coach changed) (`pull`, `stickiness`).
 - Waits for February (`waits_for_february`): 50% with a new head coach, 60% borderline students, 40% of 5-stars with a show-minded family, 3% others.
@@ -140,6 +142,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - Planned walk-ons fill a real squad for the level (FBS 119.7, FCS 108, D2 115, D3 107, NAIA 100, JUCO 80) under a scholarship limit; under the House limit they fill what the class leaves (`level_roster`, `class_plan`).
 - Fall camp: walk-ons who started or rotated go on scholarship where the limit has room, at most one snapper on aid (not D3, Ivy, PFL). Open tryouts: 8% of FBS/FCS programs a year, 16% below, take the best unsigned new graduate in their state (`camp_walk_ons`, `tryout_sticks`).
 - House era: 2024-25 walk-ons and the 2025 class's promised walk-ons don't count against the limit (`takes_a_place`).
+- A college in its build year (SK68) holds walk-on tryouts on summer enrollment day: the best unsigned seniors and up to 12 junior college players until its squad is 75% of its level's full squad (`world/new_teams/college.rs`, `tryouts`; [new-teams.md](new-teams.md)).
 
 ## Cuts (minor bug 60)
 
@@ -177,11 +180,31 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - A player you placed with a friend a level down (C16) enters the next winter or spring window as a playing-time mover; the friend's program gets (0.08 + 0.08 × warmth) × his pull (head coach 1, coordinator 0.7, assistant 0.5).
 - His own high school coach on a staff (C17) adds 0.05 to that program's relationship with him (`run_signing_stage`, `hs_coach_at`).
 
+## Your offer chain (update 3, lane 7)
+
+`world/front_office/chain.rs`:
+
+- Mondays each position coach brings recruits he wants offered: his group's on your board with a staff read, best first, down to the line (the read centre of the cap-th kid; cap = live offers per open spot × need, FBS 4, FCS 3, below 2.5), at most two a week, only kids within reach (2 + ⌈3 × prestige⌉ stars, 3-5). His side's coordinator's film look goes in first (`dept::add`, HsFilm or CollegeFilm), and the recommendation reaches you once it's written up (`recommend`, `day`).
+- His conviction = clamp(8 + 2.5 × (read − line) / sd, 1, 20). You sign, decline, or sign all; with the board handed to your staff, their offers and pulls wait on the same list (`sign`, `decline`, `sign_all`; `front_office/college.rs`, `stage_board`).
+- Every offer you make or sign carries a film look of yours (`your_film`, `on_offer`). You can offer or pull anyone (`front_office/college.rs`, `offer`, `pull`).
+- Overruling a recommendation costs his trust 0.01 + 0.03 × conviction / 20; a tell at the third and fifth. September 1 three years on it settles: −0.05 more if he was right, +0.03 if you were (`overrule`, `settle`, `turned`: a hit starts at your level or higher, or is drafted). With more than two overrules in a year his area calls run at heart 1 − 0.1 × (n − 2), at least 0.6 (`heart`; `world/scouting/dept.rs`), and he weighs other jobs 0.015 × (n − 2), at most 4 steps, more (`world/staff.rs`, `weigh_offer`).
+- Passed on: a kid two or more points under the line with four stars or more (or more stars than the kids taken) is kept with who passed, when and why; flagged when four stars and in the top half of the class (`recommend`, `Passed`). Back on the board puts him back (`back_on_board`).
+
+## A high school coach recruiting to his school (update 3, lane 7)
+
+- At a high school seat you can pitch a kid in your state with a season left, four a season (`world/scouting/pitch.rs`, `pitch`). His family says yes at 0.2 + 0.8 × (your prestige − his school's), +0.15 for a backup, +0.05 rotation, −0.1 a starter; −0.05 across counties at a private school, −0.3 at a public one; 0.02-0.7 (`chance`).
+- June 15 the yeses move: an athletic transfer, sitting a year in Texas, else the state's rule (at least half a year) (`moves`). Found out 18% + 8% for each other kid that year (+15% in Texas from 2024 with three or more), between September 1 and November 15: every win so far forfeited if he played, he's ineligible to January 15, you're suspended a year (your school's games are coached without you; `world/hs_year.rs`) and lose a point of standing (`caught`, `sits`).
+
+## A famous coach's name (coaching C8)
+
+- A head coach's name from his playing days pulls recruits: (fame − 11) / 2 recruiting points, 0 to 3 (a star 17 → 3, a Pro Bowler 14 → 1.5), added to his recruiting and relationships read (`world/coach.rs`, `name_pull`; `recruiting.rs`, the `hc_skill` line). Full his first two seasons in the job, half the third, none from the fourth unless his last season beat expectation.
+- At a high school his name draws transfers: the pull to his school × (1 + points / 6) (`recruiting.rs`, `high_school_transfers`).
+
 ## NIL money
 
 - Era: none before July 2021; market scale 0.39 (2021), 0.67, 0.84, 1.0 from 2024 (`world/ncaa.rs`, `nil_market`). Budget = market × boosters + revenue share (P4 0.75 × $20.5M × 1.04^yrs from 2025; G5 0.75 × $3.33M) (`nil_budget`, `revenue_share`).
 - Boosters' target: P4 $4M + $14M × fans × max(recent, 0.3); other FBS $0.6M + $2.5M × fans; FCS $0.08M + $0.5M × fans; below $0.02M + $0.1M × fans. Base moves with win % and prestige, drifts 8%/yr to target, capped at $20M (`world/program.rs`, `nil_target`, `update_collective`; `COLLECTIVE_CEILING`).
-- Recruit offer (`offer_for`): position rate (QB $650K, OL/DL $425K, RB $250K, LB $200K, WR $187.5K, DB $172.5K, TE $150K, specialists $25K) × star factor (5★ 2.5, 4★ 1.0, 3★ 0.3, 2★ 0.08, else 0.03) × (1.3 − 0.6 × board rank) × (budget/$10M)^0.8; cap 0.25 × 0.6 × budget (0.35 for a rising rich program's reach, ×1.6); never above the position max (QB $800K ... specialists $50K).
+- Recruit offer (`offer_for`): position rate (QB $650K, OL/DL $425K, RB $250K, LB $200K, WR $187.5K, DB $172.5K, TE $150K, specialists $25K) × star factor (5★ 2.5, 4★ 1.0, 3★ 0.3, 2★ 0.08, else 0.03) × (1.3 − 0.6 × board rank) × (budget/$10M)^0.8; cap 0.25 × 0.6 × budget (0.35 for a rising rich program's reach, ×1.6). The reach: the head coach's last season beat expectations by more than 0.25, the collective's budget / scale is over 1.15 × the program's relative prestige, and a 60% draw per program and year. A school stays within the going rate's top (QB $800K, EDGE/DT $600K, OT/IOL $500K, RB/WR/TE/LB $300K, CB/S $225K, specialists $50K) unless it's buying (above): then the uncapped figure, up to 6% of its NIL money, for a 4- or 5-star at rank < 0.3 (`buying`, `BUY_RANKS`, `BUY_SHARE`; minor bug 61). Your own promise, portal offer and roster deals are limited only by your budget left (`world/front_office/college.rs`, `set_promise`, `portal_offer`, `set_deal`).
 - Portal offer (`portal_nil`): budget × 0.6 × his weight / (roster weight + his), × (1 + 0.04 × points above the level median), 0.6-1.6.
 - Payday (`nil_payouts`): weight = role (starter 3, rotation 1.2, else 0.3) × (1 + 0.25 × position value) × (1 + 0.1 × stars). Brand deals (`brand`, fame) are added. A top-3 earner over $250K who plays below the team median loses stability and dings the head coach's reputation; 8% get complacent (work ethic −1). Entering the portal ends his deal (`enter_portal`).
 - Before NIL: rogue boosters (2% × fans a year at FBS, ×1.5 with a big booster) pay $150K/$50K/$15K by stars from a $50-300K pot; found with chance 1 − e^(−paid/$8M) over four years; penalties: 1 scholarship per $15K (3-30) over three years, bowl bans at $100K/$300K, a show-cause order of 1 + paid/$100K years (`world/ncaa.rs`, `before_matching`, `enforcement`, `ncaa_case`).
@@ -198,6 +221,8 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - Your college board, visits, portal offers and NIL promises replace your staff's in the same matching; recruits decide by the same code (`world/front_office/college.rs`; recruiting, `stage_board` use in `run_signing_stage`). `appeal` and `usual_nil_offer` are the reads your screens show.
 - The race log: every Monday your office logs each followed recruit's top 6 schools by appeal and your staff's read of his interest in each, at most 400 recruits (a college follows its board's high school, prep and JUCO recruits; a high school coach his players with an offer or commitment). Interest 0-100 is logistic: 50 sits 0.10 below his best school's appeal in the first logged week, 0.06 appeal a step; the read adds a lasting lean (2.5 your school, 4.5 a rival, 2 a coach's own player) and a week's own (3.5, 5, 1.5), each 8% narrower a contact down to 40% (`world/front_office/race.rs`, `day`, `followed`, `interest`, `read`, `reader`, `SCHOOLS`, `MOST`).
 - A school's appeal split into seven reasons (close to home, playing time, NIL money, coaching and development, winning and the name, academics, ties and feel; they add up to its appeal) (`world/front_office/college.rs`, `reasons`). The race page reads them as your staff's ranges (`crates/afm-game/src/lane_find/race.rs`, `weight_read`), and scores the seventh from public ties only (`ties_score`).
+- Where you offer: a recruit's file ("Your moves", also on the board's Top targets), each row of the board's Full board, and, for a college seat, the top of a live recruit's player page, which is where a name in Find recruits opens (minor bug 58). All three send `recruit_offer` (`world/front_office/college.rs`, `offer`), which puts him on your board if he isn't. With the board handed to your staff (the board's Class plan and staff tab) the buttons give way to a line saying your coordinator runs it (`app/ui/screens/fo-college.js`, `fcActions`, `fcPlayerMoves`).
+- Your NIL number for a recruit: the file's NIL promise box and its Promise button (or Enter), whoever runs NIL; the NIL duty only decides the portal's money and the roster's July deals. A number for a kid off your board puts him on it, and it must fit his position's top rate and the budget left. Recruits weigh it in place of the collective's usual offer in the matching and in the appeal your screens show (`world/front_office/college.rs`, `set_promise`, `stage_board`, `promise_of`; minor bug 59).
 - Find recruits reads only your staff's files and public values (stars, composite, offers, visits, the public NIL value), never a true rating (`crates/afm-game/src/lane_find/fields.rs`, `value`). Core courses and academic risk read the transcript once your staff has it, the profile's GPA before (`core_behind`, `risk`). A name filter matches whole names (`crates/afm-game/src/lane_find/query.rs`, `names_match`). The public NIL value is $3,000 × e^(17 × (composite − .70)) × a position factor (QB 1.8; WR, RB, EDGE 1.1; CB 1.0; OT 0.85; IOL 0.75; K, P, LS 0.4; others 0.9) + $1.20 a follower (`nil_value`).
 - A preferred walk-on signs no letter: your screens say "Walk-on" or "Walking on at" (`crates/afm-game/src/lane_frontoffice/college.rs`, `interest`).
 
@@ -219,6 +244,11 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - `world/scouting/services.rs`: `update_days`, `reach`, `BANDS`, `COMPOSITE_FROM`, `INSIDERS_FROM`, the insiders' thresholds in `insiders_week`, `lean`. `world/front_office/race.rs`: `SCHOOLS`, `MOST`, `BELOW`, `SPREAD`.
 - `world/clock.rs`: `commit_wave`, `portal_windows`, early-offer dates. `calendar/anchors.rs`: signing days. `calendar/mod.rs`: `recruiting_period`.
 
+## Why a recruit picked (update 3, lane 6)
+
+- A commitment to you, to another school over your offer (a new memo, tag `lost|id`) or of your high schooler gets a why-line: who decided (himself, a parent, grandparents, a trainer) and what the family weighs most, then the two biggest edges of the chosen school, each the family's want (`family_read`) times the school's edge over yours (or over a middle 0.5): closeness 1/(1 + (miles/300)²), name (the mean of four program grades), playing time, academics, development and NIL grades; only edges over 0.004 (`crates/afm-game/src/lane_help.rs`, `pick_why`, `program_reads`; `lane_core/mail.rs`).
+- News items about your recruits and players carry the same lines (`lane_help.rs`, `news_why`; `views.rs`, `news`; `lane_core/pages.rs`, `feed`).
+
 ## Related pages
 
 - [scouting.md](scouting.md): how the scouting reads behind projections and your staff's ranges work.
@@ -226,3 +256,9 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - [draft.md](draft.md): declaring and the draft bars the class plans read.
 - [people.md](people.md): personality, families, fame and brand money.
 - [ratings.md](ratings.md): overall and the scales behind film.
+
+## Your redshirts and the staff's duties (minor bugs 76-77, SC6)
+
+- **Redshirts**: your staff picks them at fall camp; you keep or change each one while the season runs (`world/front_office/redshirt.rs`, `read`, `set`). From 2018 a redshirt may play four games and keep his year (`w.rules.four_game_redshirt`, `world/college.rs`, `held_redshirts`, `settle_eligibility`); before 2018 any game costs it. No redshirts once Division I counts five in five (`world/eligibility.rs`, `five_in_five`), none for an academic or transfer sit, and none once his games burned the year.
+- **Portal NIL**: your number for an entrant goes with your offer whoever runs NIL, as a recruit's promise does (`world/front_office/college.rs`, `portal_offer`, `portal_wants`).
+- **A duty at your staff keeps your moves (SC6)**: visits you set run beside the staff's (`set_visit`, `run_visits`); your portal offers, quiet words and stay talks stand and the staff works the other entrants and players as any program's would (`portal_wants`, `stay_talks` carry a `staff` flag; `world/recruiting.rs`); a NIL deal you set is that player's number (a $0 deal is kept and pays nothing) and the rest get the collective's usual split (`roster_deals`, `nil_payouts`). An official visit you set and he accepted holds one of his five, so the world's bookings leave his slot for it (`planned_officials`, `recruiting_day`), whoever runs the visits. The board's offers are lane 7's chain (SK26, SK28).

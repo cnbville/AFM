@@ -32,6 +32,22 @@ pub struct HsSeason {
     /// Reached the last four of its bracket (U-d; Connecticut's play-up rule).
     #[serde(default)]
     pub semifinal: bool,
+    /// The units' season from engine games (C42): what "coaches to watch"
+    /// reads beside the points.
+    #[serde(default)]
+    pub unit: HsUnit,
+}
+
+/// A high school season's unit totals (C42), compact: engine games only.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct HsUnit {
+    pub games: u8,
+    pub sacks: u16,
+    pub sacks_allowed: u16,
+    pub takeaways: u16,
+    pub turnovers: u16,
+    pub yards: u32,
+    pub yards_allowed: u32,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -64,6 +80,12 @@ pub struct HighSchool {
     /// Recruits transfers from out of state too.
     pub national: bool,
     pub coach: Option<usize>,
+    /// Its coordinators (C37): real coaches with ratings. Your own school's
+    /// staff is yours (`Career::hs_staff`).
+    #[serde(default)]
+    pub oc: Option<usize>,
+    #[serde(default)]
+    pub dc: Option<usize>,
     pub roster: Vec<usize>,
     pub seasons: Vec<HsSeason>,
     pub state_titles: u32,
@@ -311,6 +333,8 @@ pub fn generate_state_schools(
             prestige,
             national,
             coach: None,
+            oc: None,
+            dc: None,
             roster: Vec::new(),
             seasons: Vec::new(),
             state_titles: 0,

@@ -337,19 +337,24 @@ document.addEventListener("keydown", (ev) => {
  * the picked block's dates and rules, and what's coming up. */
 
 const YR_KINDS = [["prac", "Practice"], ["film", "Film"], ["meet", "Meetings"], ["lift", "Strength"], ["game", "Game"]];
-navAdd({ go: "year", label: "The year", icon: "cal", sec: "team", after: "schedule", seats: ["college", "nfl", "hs"] });
 CRUMBS.year = "The year";
 GOTO.year = () => [["Schedule", "schedule"], ["Calendar", "calendar"], ["Training", "training"]];
 
-screens.year = async (a) => {
+// The year is Training's "The year" tab (SC1), drawn under Training's own
+// head; its old key opens it there.
+screens.year = (a) => {
+  const args = { ...(a || {}), tab: "The year" };
+  if (!S.besideDrawing && S.route.screen === "year") { S.route.screen = "training"; S.route.args = args; }
+  return screens.training(args);
+};
+// The year board on its own (the ribbon, the week and the phase card), for
+// the top of Training's "The year" tab.
+async function yrBoard(a = {}) {
   const x = await api("year_board", {});
   const pk = schKeep(x);
-  setColors(x.team.colors);
-  title("The year", String(x.season));
-  const sel = Math.min(Math.max(0, a.pick != null ? Number(a.pick) : x.cur), x.phases.length - 1);
+  const sel = Math.min(Math.max(0, a && a.pick != null ? Number(a.pick) : x.cur), x.phases.length - 1);
   requestAnimationFrame(yrFit);
-  return `<div class="pad sl yr yr-${x.level}" data-pk="${pk}">
-    ${yrHead(x)}
+  return `<div class="sl yr yr-in yr-${x.level}" data-pk="${pk}">
     ${yrRibbon(x, sel)}
     <div class="yr-low">
       ${yrWeek(x.week)}
@@ -358,18 +363,7 @@ screens.year = async (a) => {
         <div class="yr-next"><span class="st-label">Coming up</span>${x.ahead.map((n) => `<div class="yr-nx"><span class="yr-nd"><b>${n.d}</b><span class="st-label">${esc(n.m)}</span></span><span class="yr-nt"><b>${esc(n.t)}</b><span>${esc(n.s)}${n.in == null ? "" : n.in === 0 ? " · today" : ` · in ${n.in} day${n.in === 1 ? "" : "s"}`}</span></span></div>`).join("") || `<p class="sch-dim">Nothing more this year. The next football year starts ${esc(x.next_year)}.</p>`}</div>
       </aside>
     </div>
-    <div class="sch-foot">${gotoFor("year", a, x)}</div>
   </div>`;
-};
-
-function yrHead(x) {
-  const cell = (k, v) => `<div class="yr-hc"><span class="st-label">${esc(k)}</span><b>${v}</b></div>`;
-  const rankWord = x.level === "nfl" ? "Place" : "Ranked";
-  return `<header class="yr-head">
-    <div class="yr-id">${mark(x.team, 40)}<div><span class="st-label">${teamA(x.team)} · ${esc(x.from)} to ${esc(x.to)} · today ${esc(x.today)}</span><h1 class="yr-h1">The year</h1></div>
-      <nav class="yr-tabs" aria-label="Views"><span class="on" aria-current="page">Year</span>${linkTo("schedule", {}, "Schedule")}${linkTo("calendar", {}, "Calendar")}${linkTo("training", {}, "Training")}</nav></div>
-    <div class="yr-hcells">${cell("Record", esc(x.record))}${cell(rankWord, esc(x.ranked || (x.level !== "nfl" && x.record !== "0-0" ? "Unranked" : "–")))}${cell("Next", x.next ? linkTo("schedule", {}, esc(x.next)) : "–")}</div>
-  </header>`;
 }
 
 function yrRibbon(x, sel) {
@@ -464,7 +458,8 @@ Object.assign(CORE_MORE, {
     el.classList.add("on");
     const c = root.querySelector(".yr-card");
     if (c) c.innerHTML = yrCard(x.phases[k]);
-    if (!el.closest(".beside") && S.route && S.route.screen === "year") S.route.args = { ...S.route.args, pick: k };
+    // The pick stays when Training redraws its "The year" tab.
+    if (!el.closest(".beside") && S.route && S.route.screen === "training") S.route.args = { ...S.route.args, pick: k };
   },
 });
 window.addEventListener("resize", () => { if (document.querySelector(".yr-rib")) yrFit(); });

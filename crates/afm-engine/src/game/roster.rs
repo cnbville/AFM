@@ -70,6 +70,18 @@ pub struct GamePlayer {
     /// changes nothing).
     #[serde(default = "no_prep")]
     pub prep: f32,
+    /// His mood today, -1 to 1 (people topic 3): a talk lands on how he
+    /// came in (dialogue D4). 0 changes nothing.
+    #[serde(default)]
+    pub mood: f32,
+    /// How much he believes his head coach, 0-1 (your players' trust in
+    /// you): how much of a talk reaches him (dialogue D4).
+    #[serde(default = "half")]
+    pub belief: f32,
+}
+
+fn half() -> f32 {
+    0.5
 }
 
 fn typical_chem() -> f32 {
@@ -119,6 +131,8 @@ impl GamePlayer {
             links: crate::links::measure(p.position, &b, &p.attributes, p.game.recovery),
             impression: crate::training::impression(&p.train),
             prep: prep_of(p),
+            mood: 0.0,
+            belief: 0.5,
         }
     }
 
@@ -172,7 +186,7 @@ impl GamePlayer {
     /// His real 40 time from speed, burst and weight (same fit as the combine).
     pub fn forty(&self) -> f64 {
         5.56 - 0.0124 * (0.75 * self.a(Attr::Speed) + 0.25 * self.a(Attr::Acceleration))
-            + 0.0033 * (self.weight - 220.0)
+            + crate::body::forty_weight(self.weight)
     }
 
     /// Top speed, yards per second. A 4.35 forty gives about 10.7 (21.9 mph),
@@ -369,6 +383,17 @@ pub struct Staff {
     /// to play, each with a firmness. They lean the play callers.
     #[serde(default)]
     pub guide: super::guide::Guidelines,
+    /// The head coach's motivation, 1-20 (dialogue D4): how his talks carry
+    /// and how well he reads his room.
+    #[serde(default = "ten")]
+    pub motivation: f64,
+    /// The head coach's temper, 1-20: a hot one leans to the fiery talk.
+    #[serde(default = "ten")]
+    pub temper: f64,
+}
+
+fn ten() -> f64 {
+    10.0
 }
 
 impl Staff {
@@ -389,6 +414,8 @@ impl Staff {
             year: 2026,
             film_study: 10.0,
             guide: Default::default(),
+            motivation: 10.0,
+            temper: 10.0,
         }
     }
 }
@@ -421,6 +448,11 @@ pub struct GameTeam {
     /// the call sheet. Empty for AI teams.
     #[serde(default)]
     pub prep: Prep,
+    /// The day as the world sees it for this team (dialogue D4): the
+    /// stakes, the rival, the paper, the week, the captains. The default is
+    /// a plain game.
+    #[serde(default)]
+    pub day: super::talk::Day,
 }
 
 /// A call sheet play: the formation's personnel, backfield and set, and the play.
@@ -646,6 +678,7 @@ impl GameTeam {
             week: 1.0,
             order: Vec::new(),
             prep: Prep::default(),
+            day: Default::default(),
         }
     }
 

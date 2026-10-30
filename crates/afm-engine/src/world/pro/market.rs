@@ -356,7 +356,7 @@ pub(crate) fn set_ladders(w: &mut World) {
     }
     w.market.ladder = lists;
     w.market.depth = depth;
-    w.market.teams = super::super::franchise::active_teams(year).len();
+    w.market.teams = super::super::franchise::active_teams_in(w, year).len();
 }
 
 /// What a veteran of this grade costs a year on the open market at his age,
@@ -561,8 +561,8 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
 
 /// A city's pull (topic 5 question 2, Cain: New York and Miami have a leg
 /// up): warm weather, nightlife, a big market. 0-1.
-fn city_pull(t: usize, year: i32) -> f64 {
-    let Some(e) = super::super::franchise::era(t, year) else { return 0.5 };
+fn city_pull(w: &World, t: usize, year: i32) -> f64 {
+    let Some(e) = super::super::franchise::era_in(w, t, year) else { return 0.5 };
     let warm = matches!(e.state, "FL" | "CA" | "AZ" | "NV" | "TX" | "LA" | "GA" | "HI") as u8 as f64;
     let night = match e.city {
         "New York" | "East Rutherford" | "Miami" | "Miami Gardens" | "Las Vegas" | "Los Angeles" | "Inglewood" => 1.0,
@@ -575,8 +575,8 @@ fn city_pull(t: usize, year: i32) -> f64 {
 
 /// Top state income tax rates where each team plays (2025, rounded):
 /// none in Florida, Texas, Tennessee, Nevada and Washington.
-pub(crate) fn state_tax(t: usize, year: i32) -> f64 {
-    let Some(e) = super::super::franchise::era(t, year) else { return 0.05 };
+pub(crate) fn state_tax(w: &World, t: usize, year: i32) -> f64 {
+    let Some(e) = super::super::franchise::era_in(w, t, year) else { return 0.05 };
     match e.state {
         "FL" | "TX" | "TN" | "NV" | "WA" => 0.0,
         "CA" => 0.133,
@@ -610,15 +610,15 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
     let year = w.year;
     let g = goals(w, i);
     let p = &w.people[i];
-    let take = o.apy * (1.0 - state_tax(o.team, year)) / (ideal.apy * 0.95).max(1.0);
+    let take = o.apy * (1.0 - state_tax(w, o.team, year)) / (ideal.apy * 0.95).max(1.0);
     let money_q = take.min(1.2);
     let gtd_q = if ideal.gtd < 0.05 { 1.0 } else { (o.gtd / ideal.gtd).min(1.2) };
     let years_q = 1.0 - 0.12 * (o.years as f64 - ideal.years as f64).abs();
     let strength = w.nfl[o.team].strength();
     let win_q = clamp(0.75 + (strength - 80.0) / 12.0, 0.4, 1.15);
     let role_q = if !ideal.start || o.start { 1.0 } else { 0.6 };
-    let city_q = 0.85 + 0.3 * city_pull(o.team, year);
-    let home_q = if super::super::franchise::era(o.team, year)
+    let city_q = 0.85 + 0.3 * city_pull(w, o.team, year);
+    let home_q = if super::super::franchise::era_in(w, o.team, year)
         .and_then(|e| super::super::geo::state_index(e.state))
         .is_some_and(|s| s == p.home_state)
     {
@@ -865,7 +865,7 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
     let mut pool: Vec<(usize, f64)> =
         (0..w.people.len()).filter(|&i| on_market(w, i, tampering)).map(|i| (i, consensus(w, i))).collect();
     pool.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, year)).collect();
+    let teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active_in(w, t, year)).collect();
     let limit = super::roster_limit(w, d);
     let mut committed = vec![0.0; w.clubs.len()];
     for p in &w.market.pending {
@@ -880,7 +880,7 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
         let former = w.people[i].pro.as_ref().unwrap().teams.last().copied();
         let mut offers: Vec<(Offer, f64)> = Vec::new();
         for &t in &teams {
-            if w.clubs[t].roster.len() >= limit || fo::yours(w, t, Duty::FreeAgency) {
+            if w.clubs[t].roster.len() >= limit || fo::yours(w, t, Duty::FreeAgency) || fo::nfl::talking(w, t, i) {
                 continue;
             }
             if let Some(o) = make_offer(w, t, i, &ideal, days, committed[t], year) {
@@ -923,7 +923,13 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
         // The agent's move: with no real competition, a less honest agent
         // claims other interest (topic 3 question 1).
         // Your own offer gets your answer from the agent instead (lane 10).
-        let (best, s) = if s < 0.85 && offers.len() == 1 && !fo::yours(w, best.team, Duty::FreeAgency) {
+        // Your own offer gets the agent's answer in your talk, never a bluff
+        // (lane 10), whoever runs the rest of free agency (SC6).
+        let (best, s) = if s < 0.85
+            && offers.len() == 1
+            && !fo::yours(w, best.team, Duty::FreeAgency)
+            && !fo::nfl::talking(w, best.team, i)
+        {
             bluff(w, i, best, &ideal, former, d)
         } else {
             (best, s)
@@ -1063,8 +1069,9 @@ fn expiring(w: &World) -> Vec<(usize, usize)> {
 pub(crate) fn resign_talks(w: &mut World, d: Date, deadline: bool) {
     let year = w.year;
     for (t, i) in expiring(w) {
-        // Your own players are yours to re-sign (lane 10).
-        if fo::yours(w, t, Duty::Contracts) {
+        // Your own players are yours to re-sign (lane 10), and one you're
+        // talking to while your staff runs contracts (SC6).
+        if fo::yours(w, t, Duty::Contracts) || fo::nfl::talking(w, t, i) {
             continue;
         }
         let c = w.people[i].pro.as_ref().unwrap();
@@ -1121,9 +1128,28 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
     let mut list = expiring(w);
     list.sort_by_cached_key(|&(_, i)| std::cmp::Reverse((consensus(w, i) * 100.0) as i64));
     let mut used: std::collections::HashMap<usize, [bool; 2]> = std::collections::HashMap::new();
+    // A tag you gave yourself while your staff runs the tags uses your
+    // club's tag (SC6).
+    if let Some(me) = fo::club(w) {
+        let mut u = [false; 2];
+        for &i in &w.clubs[me].roster {
+            if let Some(k) =
+                w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).filter(|k| k.signed == year && k.team == me)
+            {
+                u[0] |= k.kind == money::Kind::Franchise;
+                u[1] |= k.kind == money::Kind::Transition;
+            }
+        }
+        used.insert(me, u);
+    }
     for (t, i) in list {
-        // Your tags and tenders are yours (lane 10).
-        if fo::yours(w, t, Duty::Tags) {
+        // Your tags and tenders are yours (lane 10), and a talk of yours or
+        // a tag you withdrew stands with the staff on the rest (SC6).
+        let id = w.people[i].player.id;
+        if fo::yours(w, t, Duty::Tags)
+            || fo::nfl::talking(w, t, i)
+            || (fo::seat_head_club(w, t) && w.front_office.nfl.withdrawn.iter().any(|x| x.0 == id && x.1 == year))
+        {
             continue;
         }
         let p = &w.people[i];
@@ -1410,7 +1436,7 @@ pub(crate) fn offer_sheets(w: &mut World, d: Date) {
             continue;
         }
         for t in 0..w.clubs.len() {
-            if t == old || !super::super::franchise::active(t, year) || fo::yours(w, t, Duty::Tags) {
+            if t == old || !super::super::franchise::active_in(w, t, year) || fo::yours(w, t, Duty::Tags) {
                 continue;
             }
             let (_, walk) = worth(w, t, i);
@@ -1576,8 +1602,8 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
         })
         .collect();
     for (t, i) in list {
-        // Your own extensions are yours (lane 10).
-        if fo::yours(w, t, Duty::Contracts) {
+        // Your own extensions are yours (lane 10), and a talk of yours (SC6).
+        if fo::yours(w, t, Duty::Contracts) || fo::nfl::talking(w, t, i) {
             continue;
         }
         let (view, walk) = worth(w, t, i);
@@ -1863,7 +1889,7 @@ pub(crate) fn cap_moves(w: &mut World, d: Date, before_league_year: bool) {
     for t in 0..w.clubs.len() {
         // Your cap is yours until opening day, when the league makes every
         // club get under (lane 10: your cap manager then does what it takes).
-        if super::super::franchise::active(t, year) && !(before_league_year && fo::yours(w, t, Duty::Cap)) {
+        if super::super::franchise::active_in(w, t, year) && !(before_league_year && fo::yours(w, t, Duty::Cap)) {
             clear_room(w, t, d, before_league_year, 0.0, true);
         }
     }
@@ -2200,13 +2226,16 @@ pub(crate) fn claims(w: &mut World, d: Date) {
             if Some(t) == from {
                 continue;
             }
-            // Your claims are yours (lane 10).
-            if fo::yours(w, t, Duty::Waivers) {
+            // Your claims are yours (lane 10), and stand while your staff
+            // works the rest of the wire (SC6).
+            if fo::seat_head_club(w, t) {
                 if let Some(drop) = fo::roster::seat_claim(w, t, i, limit) {
                     claimed = Some((t, drop));
                     break;
                 }
-                continue;
+                if fo::yours(w, t, Duty::Waivers) {
+                    continue;
+                }
             }
             let g = grade(w, t, i);
             let active: Vec<usize> = w.clubs[t]
@@ -2266,7 +2295,7 @@ pub(crate) fn waiver_order(w: &World, d: Date) -> Vec<usize> {
     let year = w.year;
     let early = w.dates.nfl_weeks.get(3).is_none_or(|&wk| d < wk);
     let base: Vec<usize> = super::super::nfl_year::draft_order(w).unwrap_or_else(|| (0..w.nfl.len()).collect());
-    let mut v: Vec<usize> = base.into_iter().filter(|&t| super::super::franchise::active(t, year)).collect();
+    let mut v: Vec<usize> = base.into_iter().filter(|&t| super::super::franchise::active_in(w, t, year)).collect();
     if !early && let Some(s) = w.nfl_season.as_ref() {
         v.sort_by(|&a, &b| {
             let pa = s.wins[a] as f64 + 0.5 * s.ties[a] as f64;
@@ -2319,7 +2348,7 @@ pub(crate) fn cash_floor(w: &mut World, d: Date) {
     let from = year - 3;
     let cap: f64 = (from..=year).map(money::price_cap).sum();
     for t in 0..w.clubs.len() {
-        if !super::super::franchise::active(t, year) {
+        if !super::super::franchise::active_in(w, t, year) {
             continue;
         }
         let spent: f64 = w.clubs[t].cash.iter().filter(|x| x.0 >= from && x.0 <= year).map(|x| x.1).sum();

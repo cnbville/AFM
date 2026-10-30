@@ -187,6 +187,9 @@ fn finish_team(
         install: absorb(aware).clamp(0.35, 1.0),
         style: Default::default(),
         guide: Default::default(),
+        // Own streams, so the draws above keep their values.
+        motivation: clamp(Rng::new(seed ^ 0x40C1_7A11).normal(10.0, 3.0), 1.0, 20.0),
+        temper: clamp(Rng::new(seed ^ 0x7E3B_0D21).normal(10.0, 3.5), 1.0, 20.0),
     };
     // The head coach's guidelines (update 2, G2), from their own stream so
     // the draws above keep their values.

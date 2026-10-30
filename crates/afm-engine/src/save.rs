@@ -321,6 +321,9 @@ pub fn read_world(path: &Path) -> std::io::Result<World> {
     w.options.keep_game_log = false;
     // A file from before the contract books (update 2, lane 6): fill them.
     crate::world::deals::ensure(&mut w);
+    // A file from before lane 18: real junior posts and high school
+    // coordinators.
+    crate::world::staff::ensure_lane18(&mut w);
     Ok(w)
 }
 
