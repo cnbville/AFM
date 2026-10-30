@@ -11,6 +11,7 @@ pub mod book;
 pub mod coach;
 pub mod compare;
 pub mod demo;
+pub mod games;
 pub mod inst;
 pub mod library;
 pub mod pages;
@@ -199,6 +200,11 @@ impl Reader {
             ["tools", "odd", page] => pages::tools(b, "odd", &f, &json!({ "page": page }))?,
             ["tools", tab] => pages::tools(b, tab, &f, args)?,
             ["table", name] => pages::table(b, name, &f, args)?,
+            ["game", id] | ["e", "log_games", id] => games::game(b, num(id)?, &f)?,
+            ["club", id] | ["e", "nfl", id] => games::club(b, num(id)?, &f)?,
+            ["club", id, year] => games::club_season(b, num(id)?, num(year)?, &f)?,
+            ["draft", year] => games::draft(b, num(year)?, &f)?,
+            ["e", "market__agents", id] => games::agent(b, num(id)?, &f)?,
             ["e", table, id] => {
                 let id: Value = id.parse::<i64>().map(Value::from).unwrap_or_else(|_| json!(id));
                 pages::entity(b, table, &id, &f)?
@@ -401,4 +407,9 @@ fn year_span(b: &Book) -> Value {
         }
     }
     if lo > hi { Value::Null } else { json!([lo, hi]) }
+}
+
+/// A route's number part ("game/1013").
+fn num(s: &str) -> Result<i64, String> {
+    s.parse().map_err(|_| format!("{s} is not a number."))
 }

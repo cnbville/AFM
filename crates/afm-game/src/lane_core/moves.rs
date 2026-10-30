@@ -60,6 +60,15 @@ pub fn player(w: &World, id: u32) -> Vec<Value> {
         if afm_engine::world::scouting::own::film_cost(w, id).is_ok() {
             out.push(mv("film", "Watch his film"));
         }
+        // The hunt (next update, lane 11): yours, or one you could name.
+        let hunt = afm_engine::world::hunt::yours(w);
+        if hunt.is_some_and(|h| h.id == id) {
+            out.push(mv("hunt_page", "Your hunt"));
+        } else if afm_engine::world::hunt::can_hunt(w, id).is_ok() {
+            let mut v = mv("hunt", "Make him your hunt");
+            v["busy"] = json!(hunt.map(|h| h.name.clone()));
+            out.push(v);
+        }
     }
     out.push(if crate::lane_core::desk::is_listed(w, id) {
         mv("list_remove", "Take off my players")

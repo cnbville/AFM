@@ -24,6 +24,11 @@ pub fn replay_page(b: &mut Book, mut p: Value, f: &Filters, args: &Value) -> Res
         }
         return Ok(p);
     };
+    if args.get("game").is_none_or(Value::is_null)
+        && b.table(&plays).is_some_and(|t| t.pick(&["game_id", "game"]).is_none() && t.has("_more"))
+    {
+        return crate::games::replay(b, p, None);
+    }
     let Some(game) = args.get("game").filter(|v| !v.is_null()) else {
         p["verdict"] = json!("Pick a game: search a team, or page through the games below.");
         let first = b.rows(&games, f, None, None, false, 0, 50)?;
@@ -33,6 +38,10 @@ pub fn replay_page(b: &mut Book, mut p: Value, f: &Filters, args: &Value) -> Res
         );
         return Ok(p);
     };
+    // The game log keeps each game's snaps packed in one row (lane R1).
+    if b.table(&plays).is_some_and(|t| t.pick(&["game_id", "game"]).is_none() && t.has("_more")) {
+        return crate::games::replay(b, p, game.as_i64().or_else(|| game.as_str().and_then(|s| s.parse().ok())));
+    }
     let t = b.table(&plays).expect("found");
     let gc = t.pick(&["game_id", "game"]).ok_or("The plays table has no game id.")?;
     let order = t.pick(&ORDER_COLS).map(q).unwrap_or_else(|| "rowid".into());

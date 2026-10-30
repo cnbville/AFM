@@ -11,7 +11,7 @@ on:
     branches: [main]
     paths-ignore: ["docs/**", "**/*.md", "tools/**", "legacy-ts/**", "crates/afm-tools/**", "crates/afm-reader/**",
       "crates/afm-reader-app/**", "reader/**", ".github/workflows/reader-app.yml",
-      ".github/workflows/ci.yml", ".github/workflows/full-tests.yml", ".github/workflows/build-world.yml"]
+      ".github/workflows/ci.yml", ".github/workflows/full-tests.yml", ".github/workflows/build-world.yml", ".github/scripts/**"]
   workflow_dispatch:
 permissions:
   contents: write

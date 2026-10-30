@@ -394,7 +394,8 @@ pub(crate) fn bonus(w: &World, e: Employer, r: Role) -> f64 {
     if r == Role::HeadCoach {
         b += 0.08 * (c.you.aura() - 10.0);
     }
-    b
+    // How your interview went (lane 14, D11).
+    b + crate::world::folk::dialogue::interview_bonus(w, e, r)
 }
 
 /// Your own stream for a search's reads of you.
@@ -662,8 +663,16 @@ pub fn apply(w: &mut World, e: Employer, r: Role) -> Result<String, String> {
     }
     let name = employer_name(w, e);
     log(w, format!("Applied: {}, {name}.", role_title(r)));
+    // A head job sits you down with the people who hire (lane 14, D11).
+    let sit = crate::world::folk::dialogue::interview_set(w, e, r, open.decides);
     if let Some(d) = open.decides {
-        return Ok(format!("Your name is in at {name}. The search decides around {}.", d.pretty()));
+        let talk = sit.map_or(String::new(), |t| format!(" They want to sit down with you on {}.", t.pretty()));
+        return Ok(format!("Your name is in at {name}. The search decides around {}.{talk}", d.pretty()));
+    }
+    if sit.is_some() {
+        return Ok(format!(
+            "{name} wants to sit down with you first. The interview is on your agenda today; they decide after it."
+        ));
     }
     let prestige = super::super::staff::prestige_of(w, e);
     super::super::staff::fill_now(w, e, r, prestige);

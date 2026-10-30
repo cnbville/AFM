@@ -30,7 +30,7 @@ World reader lane R6 (brief `briefs/r6.md`) fills the People and Recruiting page
 - **Class and state pages**: `class <year>` and `state <XX>` pages are the panels filed under them, cut to that one class or state, with their own verdict line.
 - **Dynamic Links**: the book works out each person's 12 links with the engine's own `links_of` (`people.x_links`, 0 to 1 in `engine_links` order), since the world stores none.
 - **Small or early worlds**: a child table such a world never filled (no five-stars yet, no grudges) makes its panels and checks "no data", not an error. A newer world's columns that an older one lacks (birth dates, followers) are added empty.
-- `afm_read refresh <book>` works out the checks and panels again with this reader's definitions, without reading the world again.
+- `afm_read refresh <book>` works out the distributions, checks, panels and consistency checks again (since R8; before, it left the distributions and consistency checks as built) with this reader's definitions, without reading the world again.
 - **Time and memory**: on the trial 10 world the panels take about 3.5 minutes of the book's 11 and stay under the world read's 0.7 GB memory peak; `afm_read refresh` takes under 5 minutes at 0.36 GB. Each panel's time is in `panels.seconds`.
 
 ## Programs, high school and coaches (lane R7)
@@ -44,7 +44,22 @@ World reader lane R7 (brief `briefs/r7.md`) fills the Programs, High school and 
 - **Indexes**: `people(hs)`, `people(college)`, `coaches(mentor)` and `news__refs` by program, coach and club. Child tables' `_parent` is untyped, so a lookup against a row number is written `x._parent = +p._row` to use the index.
 - **The engine's what-beats-what table**: `engine_call_values` (concept, look, yards) is `crates/afm-engine/data/call_values.csv`, read when the book is built.
 - **Not stored**: S15 (head coach guidelines) and S33 (road marks) are worked out by the engine and kept nowhere; the coverage page says so.
+- **Generator**: `defs_programs.rs` is written by `tools/reader-defs/r7/gen.py` from the Python beside it.
 - **Time and memory**: on the trial 10 world (no logs) the book takes 7 min 10 s (5 min 27 s before this lane), 4.11 GB, at a 0.72 GB memory peak; this lane's panels and checks take about 75 s of it. `afm_read refresh` takes 3 min 16 s.
+
+## Games, the NFL, money, world and time (lane R8)
+
+World reader lane R8 (brief `briefs/r8.md`) fills the Games and stats, NFL, Money and World and time pages: inventory areas G1-G38, N1-N44, N48 and T9, each with the four layers (verdict, checks as tiles, panels, a way down to rows and pages). The definitions are `defs_games.rs`, `defs_nfl.rs` and `defs_world.rs`.
+
+- **Panels**: 256 more (119 for games and stats, 59 for the NFL, 78 for money, world and time). Games: results, margins and scoring by level and era, team box numbers against nflverse and cfbfastR per game, player lines and season leaders, every situation (down and distance, field position, red zone, two-minute, fourth downs) against real, kicking and punting by distance, penalties by kind, injuries in games, officiating and challenges, weather and crowds, the win chance's calibration, records and streaks, awards and halls of fame, film tapes, and the game pages behind them. NFL: franchises by era, standings, playoffs and titles, rosters and depth, contracts and the cap, free agency, tags, trades and comp picks, waivers, front offices, coaches, agents, the draft by pick band and college, careers and honors. Money: the NFL's books (revenue against the league's real totals by year, each club's lines, attendance, blackouts, tickets, values, sales), college athletics by tier (revenue, university support, guarantee games, revenue share), high school budgets and crowds, and betting lines against results. World and time: the calendar's real anchors, rule books by era, events and loud events, weather by level and state, births and ages, the calendar log, the news and the coaching carousel, nicknames and units, honors and policies, media and fame, storylines and T9's fantasy points, jerseys and video-game ratings.
+- **Checks**: 218 more against real or, where none exists, with the world's own value, and 23 consistency rules (one kicker per club in season, byes in the real window, the draft on its weekday, the Super Bowl in its window, Thanksgiving games, the real cap history, NFL dates once each, domes stay dry, a class that fits its birth year, a game's last score matching its final, at most four comp picks a club, and more). A rule's failures carry what, the id, the year and what it says.
+- **Engine tables**: the rule books and dates now start in 1984 so every era's checks have the real rules beside the world's; the reader adds `engine_leagues`, `engine_story_kinds` and `engine_story_endings`, `engine_finance_lines` (each level's book lines and whether each is income), `engine_finance_anchors` (the league revenue, national share, average ticket and value multiple the money model is tied to by year), `engine_card_parts` and `engine_grades`.
+- **Game pages**: every game in the log opens its own page in the app, with its box, lines, drives, scoring plays, win chance and play by play with its whys (`docs/world-reader-app.md`).
+- **Packed records in panels**: a panel can read a packed record with `more()` while the book is being built (the dictionaries are read from the builder's own connection).
+- **Speed**: a child table's `_parent` column is now typed, so joins from a parent to its lists use the index (they scanned the whole child table for every parent before, which made R8's NFL career panels take over 12 minutes each on the trial 10 world). The build names any panel that takes 10 seconds or more.
+- **Measured** on the trial 10 world (30 years, 1.98 GB, no logs; this container, 4 cores): the book builds in 549 s (222 reading the world, 211 for the panels, 16 for the consistency checks), 4.09 GB, 240 tables, 13.4 million rows, peak memory 0.71 GB. The slowest panels are G17.spread 17 s, G27.tops 15 s and G17.stickiness 11 s. With a game log, on a quarter-size world on today's main (3 logged seasons with high school games on the engine: a 1.8 GB log, 478 MB world file): the book builds in 865 s (103 reading the world, 401 reading the log, 241 for the panels), 5.53 GB, 426 tables, 23.4 million rows, peak memory 2.08 GB (reading the team situations). The slowest panels are G10.kickers 19 s, G16.leaders 14 s, N2.standings 13 s and G1.margin 11 s. Panel time grows slower than the log: from the test world to this one the game log grew 55 to 68 times and R8's panels 16 times (9 s to 151 s), so a full-size 30-year log, about 33 times this one in games, should take about an hour and a half of panels.
+- **Generator**: the three files are written by `tools/reader-defs/run_gen.py` from the Python beside it.
+- **Findings**: what these pages found off real on the two books is bugs 132-152 in the project's minor bugs list (`afm/minor-bugs/list.md`), with each check's id; the quarter-world reads that may be scale (its draft is 64 picks) are named there to recheck on L12's book.
 
 ## A book without a log
 
@@ -60,7 +75,7 @@ The library gives the same pages to the app: `Book::open`, `book.text(page, &Fil
 
 ## On GitHub
 
-`build-world.yml` builds the book after the world and its log, puts its overview in the run's summary, and publishes it beside the world on the worlds page as `name.afmbook.zst` (zstd), in 1.9 GB parts when it is bigger than 2 GB. With `check` set to a worlds page release, it builds a book for that world (world file only) and adds it to that release.
+`build-world.yml` publishes the world and its log first, then its `book` job builds the book on a fresh machine from the world and log on the worlds page, puts its overview in the run's summary, and publishes it beside the world as `name.afmbook.zst` (zstd), in 1.9 GB parts when it is bigger than 2 GB. A check world (publish no) gets its book in the world job. With `check` set to a worlds page release, it builds a book for that world (world file only) and adds it to that release.
 
 ## Claude's picks, proposed, not confirmed
 
@@ -92,3 +107,14 @@ The library gives the same pages to the app: `Book::open`, `book.text(page, &Fil
 - High school season records (sacks about 40, interceptions 12) and the longest streak (151, De La Salle) are from memory, as trial 10 had them.
 - A national powerhouse's out-of-state players are counted by home state: a boarder keeps his home, a family that moves takes the new state. The moves the career notes name show where the rest came from.
 - The roster against the limit is a panel, not a rule: the ledger counts the roster on signing day, and real programs trim to the House settlement's 105 before the season.
+
+### Lane R8's picks, proposed, not confirmed
+
+- Where no sourced real figure exists, a check uses one from memory and says so ("from memory"); a figure worked out from the real data's own counts says how (for example NFL freezing games 9.2% from the weather attempts).
+- College money tiers group programs by today's conference (SEC and Big Ten, the other power conferences, the Group of Five, FCS), not the conference of each year.
+- The one-kicker rule counts only between the cutdown and the Super Bowl; in the offseason clubs carry two kickers in real life too.
+- The league year rule allows 10 February to 20 March: real free agency opened in February in 1994-2000, 2003 and 2008-09. The cap history rule allows 2010 with no cap.
+- The win chance check buckets the offense's chance before each snap of the last NFL season and counts how often the offense's team won (ties left out).
+- Video-game ratings against play are split by level (NFL games and college games), since mixing the two levels hides both.
+- Storylines are named by their cast; a beat opens the first cast member's page.
+

@@ -1121,26 +1121,12 @@ pub fn interview(w: &mut World, id: u32, room: &str, spent: Vec<(Topic, u8)>) ->
     let i = super::place(w, id).ok_or("No such player.")?;
     let you = me(w).ok_or("Start a career first.")?;
     let p = &w.people[i];
-    let trouble = p.player.history.iter().any(|h| {
-        h.events.has(crate::player::DevelopmentEvent::Suspended)
-            || h.events.has(crate::player::DevelopmentEvent::Dismissed)
-    }) || p.incident;
     let mut answers = Vec::new();
     for &(t, m) in &spent {
         if m == 0 {
             continue;
         }
-        let line = if t == Topic::Incident && !trouble {
-            "There's nothing on my record, coach. Ask anybody back home.".to_string()
-        } else {
-            super::lines::interview_answer(
-                t.key(),
-                answer_band(p, t),
-                p.player.id as u64 ^ (w.today.0 as u64) << 20,
-                t as u64,
-            )
-        };
-        answers.push((t, line));
+        answers.push((t, answer_line(w, i, t)));
     }
     // The whiteboard quiz comes at the end of the day: how many of six
     // assignments he draws back, from his football IQ and recognition.
@@ -1154,6 +1140,20 @@ pub fn interview(w: &mut World, id: u32, room: &str, spent: Vec<(Topic, u8)>) ->
     super::dept::add(w, id, you, Kind::Interview, d);
     w.scouting.own.interviews.push(Interview { id, date: d, room: room.to_string(), minutes, spent, answers, quiz });
     Ok(format!("{room} with {} is done.", w.people[i].name))
+}
+
+/// His answer on a topic, in his own voice from the line bank (SK15; the
+/// timed combine talk, lane 14 D8, asks the same way).
+pub(crate) fn answer_line(w: &World, i: usize, t: Topic) -> String {
+    let p = &w.people[i];
+    let trouble = p.player.history.iter().any(|h| {
+        h.events.has(crate::player::DevelopmentEvent::Suspended)
+            || h.events.has(crate::player::DevelopmentEvent::Dismissed)
+    }) || p.incident;
+    if t == Topic::Incident && !trouble {
+        return "There's nothing on my record, coach. Ask anybody back home.".to_string();
+    }
+    super::lines::interview_answer(t.key(), answer_band(p, t), p.player.id as u64 ^ (w.today.0 as u64) << 20, t as u64)
 }
 
 /// Where his answer on a topic falls (0 worrying, 1 fine, 2 strong), from

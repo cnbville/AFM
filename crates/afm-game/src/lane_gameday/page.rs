@@ -548,6 +548,7 @@ pub fn game_page(w: &World, k: usize) -> Result<Value, String> {
         _ => "College",
     });
     v["mine"] = json!(mine);
+    v["talks"] = super::talk::record_json(w, &g.talks, mine, &names);
     v["wp"] = json!(wp_series(s, &m));
     v["key_plays"] = json!(key_plays(s, &names, &g.names, &m, mine, 14));
     v["advanced"] = advanced(s, &g.names);

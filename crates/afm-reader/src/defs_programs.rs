@@ -8,12 +8,13 @@
 //! - a coach's job's role is `role` (head coach, coordinators) or
 //!   `role__PositionCoach` (the group); a job's years overlap a season at
 //!   each end, so tenure counts runs of the season's coach, as real data does;
-//! - a child table's `_parent` has no type: compare it with `+x._row` so its
-//!   index is used;
+//! - a child table's `_parent` is compared with `+x._row`, which keeps its
+//!   index on books from before `_parent` was typed;
 //! - real figures in the panels are read straight from the real files
 //!   (`real_data.json`, `real_<csv>` tables).
 //!
-//! Written with a generator from one list; edit here and keep the style.
+//! Written by `tools/reader-defs/r7/gen.py`: edit the Python there and run it
+//! again.
 
 use crate::defs::{Check, Metric, Outlier, Real, Rule};
 use crate::panels::Panel;

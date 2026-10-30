@@ -1,9 +1,10 @@
 # Scouting: how it works today
 
-Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7 and 9 on 2026-10-29.
+Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7 and 9 on 2026-10-29, and the hunt (next update lane 11) on 2026-10-30, and timed interview talks and college calls with the next update's lane 14 the same day.
 
 ## Quick answers
 
+- Can I hold a combine interview as a talk? Yes: "Sit down with him" runs any open interview room as a timed talk, topic by topic against the clock, with follow-ups; the minutes go to the same read as the form. College staffs also call you, the high school coach, about your players, and what you tell them moves your credibility with each staff a year later (`world/folk/dialogue.rs`, `start_combine_talk`, `college_calls`, `settle_calls`). See [people.md](people.md), "Talks on game day and off it".
 - How much does the head coach's eye count in AI college recruiting? 40% of the staff eye that sets the misread width; the position coach's is 60%. Width = clamp(3.5 - 0.15 × (0.6 × position coach + 0.4 × head coach - 10), 1, 6) rating points. The lasting lean comes from the position coach (`world/recruiting.rs`, `run_signing_stage`, the `noise_sd` and `read` lines).
 - And in your own college scouting file? The head coach is one reader among the people who looked. His weight in the centre is say 1.0, the same as a position coach (1.5 if the head coach is you). He looks at a recruit on visits, and on evaluation days and at camps only when the player's group has no position coach (`world/scouting/readers.rs`, `coach_reader`; `world/scouting/dept.rs`, `college_day`, `evaluator_for`).
 - What is a coach's "eye"? `evaluation()` = 10 + 0.3 × (recruiting - 10) + 0.3 × (mean teaching - 10) + 3 × a fixed personal draw, clamped 1-20. Your own coach uses his set value (`world/coach.rs`, `Coach::evaluation`).
@@ -23,6 +24,7 @@ Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7
 - Do the services' errors average out? No. A service's misread is lasting (sd 9 points plus 1.6 per year older than his class) and each new look moves its projection only halfway (`world/recruiting.rs`, `service_bias`, `run_signing_stage`).
 - Does a high school coach's call to colleges get a kid stars? No. It raises his visibility by up to 0.12, scaled by your credibility; staffs still judge his film (`world/scouting/hs.rs`, `promos`).
 - Does your staff keep its read of a prospect from year to year? Yes, once a season for the top 300 of your scouting board, the players you keep notes on and your roster: the simple read (`reads.rs`) the player page shows, not the scouting file's (`crates/afm-game/src/lane_squadboards.rs`, `followed`, `read_now`; the ratings page, "Kept reads").
+- Does a hunt add looks? Yes: you watch every game your hunt plays the day after, from your film hours (1.0 a high school game, 1.5 a college one), as your own look; an AI club's hunt adds GM looks on Saturdays from September to December; a high school hunt's off-season weeks raise the family's trust in your pitch. See [hunt.md](hunt.md) (`world/hunt/mod.rs`, `watch`; `world/hunt/ai.rs`, `looks`; `world/scouting/pitch.rs`, `chance`).
 
 ## One read on every screen, and yours beside it (update 3, lane 7)
 
