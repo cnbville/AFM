@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, the why-lines on commitments (lane 6) the same day, redshirts, portal NIL and staff duties (minor bugs 76-77, SC6) at 6200524 the same day, and build-year tryouts with next update lane 10 the same day.
+Checked against main at acfae07 (the update 2 lane 10 follow-up: the Group of 5 step, the staffs' star read, the commitment read) with update 3 lane 5 on 2026-10-28, cuts (minor bug 60) at 8198872 the same day, where you offer and NIL promises (minor bugs 58, 59, 61) at 2a6e50c on 2026-10-29, update 3 lane 7 at 3cb32e3 the same day, the why-lines on commitments (lane 6) the same day, redshirts, portal NIL and staff duties (minor bugs 76-77, SC6) at 6200524 the same day, and build-year tryouts with next update lane 10 the same day, and the hunt (next update lane 11) on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -30,6 +30,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Who predicts where a recruit goes? Each service's insider, from 2011, every Tuesday (`world/scouting/services.rs`, `insiders_week`).
 - Do walk-ons exist? Yes: planned preferred walk-ons, local walk-on offers in February, open tryouts, and fall-camp scholarships for walk-ons who play (`class_plan`, `run_signing_stage`, `camp_walk_ons`).
 - Can a college coach cut a player? Yes, your own, from his player page: he is off the roster and out of your games that day and enters the next transfer window (see Cuts) (`world/front_office/college.rs`, `cut`).
+- What does a hunted recruit get? The hunter puts him first on its board, holds his scholarship (the others at his spot share one fewer; he still fits as a star would), gives him its head coach's time 1.8 and, an AI program, bids at least 6% of its collective's budget; a hunting program's other targets get 0.12 less of its head coach's time. A school's hunt pulls a transfer 1.8 times as hard. All of it in [hunt.md](hunt.md) (`world/recruiting.rs`, `run_signing_stage`, `high_school_transfers`).
 
 ## High schools and being seen
 

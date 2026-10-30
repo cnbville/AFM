@@ -224,6 +224,9 @@ pub fn pick(w: &mut World, id: u32) -> Result<(), String> {
     };
     let pk = l.run.next;
     recruiting::draft_step(w, &mut l.run, Some(l.team), Some(i));
+    if super::predraft::refuses(w, id, l.team) {
+        refused(w, &mut l, i, pk);
+    }
     let n = l.run.swaps.len();
     push_feed(w, &mut l, n);
     l.revealed = Some((pk, id));
@@ -234,6 +237,46 @@ pub fn pick(w: &mut World, id: u32) -> Result<(), String> {
     }
     w.scouting.live = Some(l);
     Ok(())
+}
+
+/// You took a man whose camp said he won't play for you (the hunt's risk,
+/// SK67): he won't sign, so his rights go to the club further down the
+/// order that wants him most, for its next pick and its next first, as the
+/// Chargers traded Eli Manning to the Giants on draft day (2004) and the
+/// Colts John Elway to Denver (1983). With no taker he stays yours.
+fn refused(w: &mut World, l: &mut LiveDraft, i: usize, pk: u32) {
+    let id = w.people[i].player.id;
+    let from = l.run.next as usize - 1;
+    let mut best: Option<(f64, usize)> = None;
+    for s in from..l.run.board.len().min(from + 32) {
+        let t = l.run.board[s].0;
+        if t == l.team || super::predraft::refuses(w, id, t) {
+            continue;
+        }
+        let g = l.run.boards.get(t).and_then(|b| b.grade.get(&i).copied());
+        if let Some(v) = g
+            && best.is_none_or(|b| v > b.0)
+        {
+            best = Some((v, s));
+        }
+    }
+    let Some((_, s)) = best else { return };
+    let buyer = l.run.board[s].0;
+    l.run.board[s].0 = l.team;
+    let pos = w.people[i].player.position.index();
+    if let Some(m) = w.nfl[l.team].depth[pos].pop() {
+        w.nfl[buyer].depth[pos].push(m);
+    }
+    let (you, them, name) = (w.nfl[l.team].name, w.nfl[buyer].name, w.people[i].name.clone());
+    if let Some(last) = l.run.picked.last_mut().filter(|x| x.0 == i) {
+        last.2 = buyer;
+        last.3 = format!(
+            "he refused to play for the {you}, who took him and traded his rights to the {them} for pick {} and a {} first",
+            s + 1,
+            l.run.year + 1
+        );
+    }
+    l.run.swaps.push((buyer, l.team, pk, format!("pick {} for {name}'s rights", s + 1), Some(1)));
 }
 
 /// Your staff's pick: the top of your board that is still there, unless the

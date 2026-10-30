@@ -70,7 +70,16 @@ fn chance(w: &World, h: usize, i: usize) -> f64 {
     } else {
         -0.3
     };
-    (0.2 + 0.8 * (mine.prestige - his.prestige) + role + near).clamp(0.02, 0.7)
+    // Your hunt (SK67): the family's trust you built over the off-season.
+    let warmth = crate::world::hunt::yours(w).filter(|x| x.id == p.player.id).map_or(0.0, |x| x.warmth as f64);
+    (0.2 + 0.8 * (mine.prestige - his.prestige) + role + near + 0.25 * warmth).clamp(0.02, 0.7 + 0.15 * warmth)
+}
+
+/// How likely a pitch is to be said yes to now (the hunt's page).
+pub fn chance_now(w: &World, id: u32) -> Option<f64> {
+    let h = yours(w)?;
+    let i = super::place(w, id)?;
+    Some(chance(w, h, i))
 }
 
 /// You go after a kid at another school.
@@ -176,7 +185,14 @@ fn moves(w: &mut World, h: usize, d: Date) {
         w.rebuild_rosters();
         let review = if texas && season >= 2024 && landed >= 3 { 0.15 } else { 0.0 };
         let p_out = 0.18 + 0.08 * (landed - 1) as f64 + review;
+        // Your hunt (SK67): the more people knew you wanted him, the
+        // likelier it comes out.
+        let hunt = crate::world::hunt::yours(w).map(|x| (x.id, crate::world::hunt::heat(w, x).0));
         for x in w.scouting.pitches.list.iter_mut().filter(|x| x.moved && x.caught.is_none() && !x.done) {
+            let p_out = match hunt {
+                Some((id, heat)) if id == x.id => p_out * (0.6 + 0.8 * heat),
+                _ => p_out,
+            };
             let u = key_uniform(0xCA06 ^ (season as u64) << 8, x.id as u64);
             if u < p_out {
                 let span = Date::ymd(season, 11, 15).0 - Date::ymd(season, 9, 1).0;
