@@ -1,11 +1,12 @@
 # The living NFL: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28.
+Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28, your IR and staff duties (minor bug 73, SC6) at 6200524 on 2026-10-29, and the expansion line with next update lane 10 the same day; agents' own voice with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
 ## Quick answers
 
+- Do agents sound different? Yes: an agent's words come from his honesty, his temper and his agency's size, and a bluff comes out vague; the numbers and the market's scoring are unchanged (`world/folk/dialogue.rs`, `agent_says`; `world/front_office/nfl.rs`, `propose`, `agent_claim`).
 - How is a free agent's asking price set? His league-wide consensus read is ranked against the league's veterans at his position, read off the real pay ladder, then cut for age past his prime (`world/pro/market.rs`, `ideal`, `market_grade`, `ladder_share`, `market_price`, `decline`).
 - Does a team see a player's true rating? No. Each club reads `overall()` plus a keyed misread that shrinks with GM judgment and seasons on film (`world/pro/mod.rs`, `grade`).
 - What signs a deal on the spot? An offer scoring 1.0 against his hidden ideal. At 0.85 or more he agrees with a 7-day window; below that his ideal falls (`world/pro/market.rs`, `market_day`, `score`, `decay`).
@@ -150,7 +151,9 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
   - +0.5 if on the hot seat (owner trust < 0.35)
   - +0.3 x fans x (1 - patience).
   - Contend if x > 0.6. Rebuild if x < -0.6, not on the hot seat and patience > 0.3. Otherwise middle. A reason string is kept (`world/pro/office.rs`, `choose_modes`).
-- **Your club**: every duty (Contracts, Tags, FreeAgency, Trades, Cap, Cutdown, Waivers, PracticeSquad, and college Board/Visits/Portal/Nil) runs the same code, with `yours` checked first (`world/front_office/mod.rs`, `Duty`, `yours`).
+- **Your club**: every duty (Contracts, Tags, FreeAgency, Trades, Cap, Cutdown, Waivers, PracticeSquad, InjuredReserve, and college Board/Visits/Portal/Nil) runs the same code, with `yours` checked first (`world/front_office/mod.rs`, `Duty`, `yours`).
+- **A move you make with the duty at your staff stands (SC6)**: it no longer takes the whole duty back. A deal, trade, tag, tender or option you make is done; your staff leaves alone a player you're in talks with (open, standing or agreed) when it re-signs, extends, tags or bids in free agency (`world/front_office/nfl.rs`, `talking`; `world/pro/market.rs`, `resign_talks`, the extensions, the tags, `free_agency`). Your cut plan, protections and waiver claims stand and the staff fills the rest: `seat_cutdown` runs when the plan isn't empty, `protected` returns your list and the staff protects its best for the places left, and your claims come first in `claims` (`world/front_office/roster.rs`; `world/pro/squad.rs`; `world/front_office/mod.rs`, `seat_head_club`). A tag you give yourself uses your club's tag for the staff too.
+- **Injured reserve at your club (minor bug 73)**: with the duty yours (the default), a player hurt past the minimum isn't placed by the engine: your medical staff sends a decision (`world/front_office/reserve.rs`, `recommend`) at the three injury sites (`world/pro/games.rs`: preseason, games, practice). You place him (`place`: he sits at least `ir_minimum`) and bring him back once healed (`activate`: a return used unless off PUP, roster room needed); a healed player waits for your word (`healed`, from `heal_week`). With the duty at your staff it runs as every club's. Between the league year and the final cutdown (cutdown morning included, since your moves come before that day's cut) the list ends the season and a player with fewer than four accrued seasons reaches it only through waivers (`place_words`, `before_cut`). Every club's pre-cutdown placement is season-ending (`ProCareer::ir_out`, set in `games.rs` `record_preseason` and in camp in `practice_injuries`; `heal_week` skips him); a release clears it (`release_with`) and so does the next league year.
 
 ## Waivers, cuts and releases
 
@@ -193,9 +196,17 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 
 ## Franchises and books
 
-- **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`).
+- **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`). From 2027 it can also vote two expansion clubs in, at the real rate; they get indices from 32 on, an expansion draft and the first and last picks of their first draft ([new-teams.md](new-teams.md); `world/new_teams/nfl.rs`, `vote`; every lookup past index 31 reads `World::expansion` through `franchise::*_in`).
 - **Stand-in games** (when the engine is off): win odds are a logit of 0.52 x strength gap in sd + 0.24 x staff gap + 0.2 home. Ties 0.3% (`world/nfl_year.rs`, `PER_SD`, `win_prob`).
 - **Club finance**: revenue and cost lines, gates, stadiums and NFLPA report cards (`world/finance/nfl.rs`). The cards feed free agents' scores (`card_pull`). `spend_level` sets support-staff budgets (`world/people.rs`, `staff_support`).
+
+### Schedules, numbers and news (update 3, lane 4)
+
+- Christmas Day games: 1999-2025 from the real schedules (1 in 1999, 2 in 2004; minor bug 45), three a year after 2025 (proposed, not confirmed) (`world/nfl_year.rs`, `christmas_games`).
+- College holiday games keep the real 2001-2025 Thanksgiving and Black Friday days per pair, each pair keeping its 2025 day from 2026 (minor bug 46; `world/schedule.rs`, `HOLIDAY_GAMES`).
+- NFL players may wear 0 from 2023 (minor bug 47; `world/stories/numbers.rs`).
+- A flex story pairs each game with the stored game of the same meeting, so a division rival's second game no longer reads as a flex every day (B4, minor bug 57; `world/stories/nfl.rs`, `season_day`).
+- The trial reads the world's trades and comp picks year by year against the real counts: 40-102 trades a year in 2002-2025 (86-96 since 2021) and 29-38 comp picks (minor bug 48; `afm-tools` `world_trial.rs`, `real_trades_and_comp`).
 
 ### Placing a player at cutdown (update 3, lane 5)
 

@@ -237,6 +237,14 @@ pub struct Agent {
     pub burner: f64,
     #[serde(default)]
     pub bend: f64,
+    /// The day's talks on him (dialogue D4-D6): trait points of focus
+    /// (discipline, concentration) and of composure, and heat (late hits).
+    #[serde(default)]
+    pub focus20: f64,
+    #[serde(default)]
+    pub poise20: f64,
+    #[serde(default)]
+    pub heat: f64,
 }
 
 impl Agent {
@@ -296,6 +304,9 @@ impl Agent {
             vmax0: vmax,
             burner: BURNER * gp.links.share(&[Link::Burner]),
             bend: gp.links.share(&[Link::Bend]),
+            focus20: 0.0,
+            poise20: 0.0,
+            heat: 0.0,
         }
     }
     /// How hard he can stop, yards per second squared: his grip and his
@@ -339,6 +350,9 @@ impl Agent {
             vmax0: self.vmax0,
             burner: self.burner,
             bend: self.bend,
+            focus20: self.focus20,
+            poise20: self.poise20,
+            heat: self.heat,
         }
     }
 
@@ -558,6 +572,17 @@ impl InjuryKind {
 /// itself (`InjuryKind::hampers`: a hamstring costs speed and burst, a hand
 /// catching and ball security), and his speed, burst and cut follow from
 /// the hampered ratings. A healthy man is passed through untouched.
+/// Rating points his body costs a make-a-man-miss check (update 3, A3):
+/// elusiveness, agility and speed are rated for his size, so the check
+/// reads his weight the way the forty does (`body::forty_weight`, 0.0124 s
+/// a rating point; being lighter than 175 lb adds nothing more), against
+/// the typical man for that check, so its league average stays put. A
+/// 330 lb tackle rated 85 makes fewer men miss than a 200 lb back rated 85,
+/// and more than a tackle rated 60.
+pub(crate) fn size_cost(weight: f64, typical: f64) -> f64 {
+    (crate::body::forty_weight(weight) - crate::body::forty_weight(typical)) / 0.0124
+}
+
 pub fn hampered(gp: &GamePlayer, hurt: Option<InjuryKind>) -> std::borrow::Cow<'_, GamePlayer> {
     match hurt {
         None => std::borrow::Cow::Borrowed(gp),
@@ -831,7 +856,7 @@ impl<'a> Sim<'a> {
         }
         let base = gp.tend.get(t);
         let was = gp.tend.was[t.index()] as f64;
-        let poise = gp.trait20(Attr::Composure, self.level);
+        let poise = (gp.trait20(Attr::Composure, self.level) + a.poise20).clamp(1.0, 20.0);
         let stress = clamp(self.mood.stakes[a.side] + 0.8 * a.tired + 0.05 * (10.0 - poise), 0.0, 1.0);
         let gamble = if t.gamble() { self.mood.gamble[a.side] } else { 0.0 };
         clamp(base + stress * (was - base) / 3.0 + gamble, 1.0, 20.0)
@@ -865,7 +890,15 @@ impl<'a> Sim<'a> {
     /// (see `GamePlayer::trait20`).
     #[inline]
     pub fn trait20(&self, i: usize, a: Attr) -> f64 {
-        self.player(i).trait20(a, self.level)
+        let base = self.player(i).trait20(a, self.level);
+        // The day's talks (dialogue D4-D6): focus on discipline and
+        // concentration, poise on composure.
+        let ag = &self.agents[i];
+        match a {
+            Attr::Discipline | Attr::Concentration if ag.focus20 != 0.0 => (base + ag.focus20).clamp(1.0, 20.0),
+            Attr::Composure if ag.poise20 != 0.0 => (base + ag.poise20).clamp(1.0, 20.0),
+            _ => base,
+        }
     }
 
     pub fn carrier(&self) -> Option<usize> {
@@ -1929,9 +1962,8 @@ impl<'a> Sim<'a> {
         // Dynamic Links: Sudden makes the first man miss; a Sudden tackler
         // mirrors the cut.
         use crate::links::Link;
-        let evade = 0.5 * r.a(Attr::Elusiveness)
-            + 0.3 * r.a(Attr::Agility)
-            + 0.2 * r.a(Attr::Speed)
+        let evade = 0.5 * r.a(Attr::Elusiveness) + 0.3 * r.a(Attr::Agility) + 0.2 * r.a(Attr::Speed)
+            - size_cost(r.mass, 210.0)
             + self.link(c, &[Link::Sudden]);
         let tackle = 0.6 * d.a(Attr::Tackling)
             + 0.2 * d.a(Attr::Agility)
@@ -2209,7 +2241,8 @@ impl<'a> Sim<'a> {
             let technique = (1.6 - disc / 12.0).max(0.2) * 0.6;
             let temper = (1.6 - self.player(i).traits.temperament / 12.0).max(0.2)
                 * 0.6
-                * (1.0 + 0.6 * self.lean(i, Tend::BigHit)).max(0.2);
+                * (1.0 + 0.6 * self.lean(i, Tend::BigHit)).max(0.2)
+                * (1.0 + self.agents[i].heat).max(0.3);
             let (id, side) = (self.agents[i].id, self.agents[i].side);
             if self.rng.chance(0.0087 * self.crew.personal * technique) {
                 self.notes.fouls.push(Foul { kind: FoulKind::FaceMask, side, player: id, at: x });

@@ -27,9 +27,11 @@
 //!   reach out quietly to a player elsewhere (tampering: never punished,
 //!   but it can leak).
 //! - **NIL.** From July 2021 the collective's money (and from 2025 the
-//!   House settlement's revenue share) is yours to promise: a recruit or an
-//!   entrant weighs your number instead of the collective's usual one, and
-//!   on July 1 your roster is paid your deals instead of the usual split.
+//!   House settlement's revenue share) is yours to promise: a recruit you
+//!   name a number for weighs it instead of the collective's usual one,
+//!   whoever runs NIL (minor bug 59), and so does a portal entrant you
+//!   offer (minor bug 76). With NIL taken back, on July 1 your roster is
+//!   paid your deals instead of the usual split.
 //!
 //! A duty handed to your staff runs exactly as the AI's. The desk keeps
 //! person ids (people move when the world compacts each year).
@@ -242,23 +244,39 @@ fn need(w: &World, d: Duty) -> Result<usize, String> {
     .into())
 }
 
+/// Your board for a signing stage. Whoever holds the board, only the
+/// offers you made or signed go out (SK26); the fill switch is your
+/// standing word to your coordinator for the open spots.
 pub(crate) fn stage_board(w: &World) -> Option<StageBoard> {
-    let j = mine(w, Duty::Board)?;
+    let j = super::program(w)?;
     let desk = &w.front_office.college;
     let live: Vec<&Target> = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).collect();
     let at = indices(w, &live.iter().map(|t| t.id).collect::<Vec<_>>());
-    let nil = nil_yours(w);
     let offers = live
         .iter()
-        .filter_map(|t| {
-            Some(StageOffer { person: *at.get(&t.id)?, priority: t.priority, nil: if nil { t.nil } else { None } })
-        })
+        .filter_map(|t| Some(StageOffer { person: *at.get(&t.id)?, priority: t.priority, nil: t.nil }))
         .collect();
     Some(StageBoard { program: j, offers, fill: w.front_office.fill_board })
 }
 
 pub(crate) fn visits_program(w: &World) -> Option<usize> {
     mine(w, Duty::Visits)
+}
+
+/// Your program and the recruits you set an official visit for, still to
+/// come: the world's bookings save his slot for it and, with your staff on
+/// visits, leave your school alone (SC6).
+pub(crate) fn planned_officials(w: &World) -> Option<(usize, std::collections::HashSet<u32>)> {
+    let j = super::program(w)?;
+    let ids: std::collections::HashSet<u32> = w
+        .front_office
+        .college
+        .visits
+        .iter()
+        .filter(|v| v.state == VisitState::Set && v.kind == VisitKind::Official && v.date >= w.today)
+        .map(|v| v.id)
+        .collect();
+    (!ids.is_empty()).then_some((j, ids))
 }
 
 /// Your offer to a portal entrant: the money and the ties behind it.
@@ -270,6 +288,8 @@ pub(crate) struct PortalOffer {
 pub(crate) struct PortalWants {
     pub program: usize,
     pub offers: HashMap<u32, PortalOffer>,
+    /// Your staff runs the portal: entrants you didn't offer are theirs.
+    pub staff: bool,
 }
 
 /// A quiet word before he entered is worth a little at decision time
@@ -278,8 +298,8 @@ pub(crate) struct PortalWants {
 const CONTACT_BOND: f64 = 0.05;
 
 pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
-    let j = mine(w, Duty::Portal)?;
-    let nil = nil_yours(w);
+    let j = super::program(w)?;
+    let staff = mine(w, Duty::Portal).is_none();
     let offers = w
         .front_office
         .college
@@ -290,26 +310,46 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
             (
                 t.id,
                 PortalOffer {
-                    nil: if nil { t.nil } else { None },
+                    // Your number for him, whoever runs the rest of NIL (minor bug 76).
+                    nil: t.nil,
                     bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 },
                 },
             )
         })
-        .collect();
-    Some(PortalWants { program: j, offers })
+        .collect::<HashMap<_, _>>();
+    // With your staff on the portal, your own offers stand and it works the
+    // rest as the AI's staffs do (SC6).
+    if staff && offers.is_empty() {
+        return None;
+    }
+    Some(PortalWants { program: j, offers, staff })
 }
 
-pub(crate) fn stay_talks(w: &World) -> Option<(usize, HashMap<u32, f64>)> {
-    let j = mine(w, Duty::Portal)?;
-    Some((j, w.front_office.college.talks.iter().map(|t| (t.id, t.factor)).collect()))
+/// Your stay talks: (program, each player's factor, whether your staff
+/// runs the portal and talks to the rest as the AI's would; SC6).
+pub(crate) fn stay_talks(w: &World) -> Option<(usize, HashMap<u32, f64>, bool)> {
+    let j = super::program(w)?;
+    let staff = mine(w, Duty::Portal).is_none();
+    let talks: HashMap<u32, f64> = w.front_office.college.talks.iter().map(|t| (t.id, t.factor)).collect();
+    if staff && talks.is_empty() {
+        return None;
+    }
+    Some((j, talks, staff))
 }
 
-pub(crate) fn roster_deals(w: &World) -> Option<(usize, HashMap<u32, f64>)> {
-    let j = mine(w, Duty::Nil)?;
+/// Your NIL deals for the money year: (program, deals, whether your staff
+/// runs NIL and the collective's usual split pays everyone you left; SC6).
+pub(crate) fn roster_deals(w: &World) -> Option<(usize, HashMap<u32, f64>, bool)> {
+    let j = super::program(w)?;
+    let staff = mine(w, Duty::Nil).is_none();
     let desk = &w.front_office.college;
     let year = w.today.year();
-    let deals = if desk.deals_year == year { desk.deals.iter().copied().collect() } else { HashMap::new() };
-    Some((j, deals))
+    let deals: HashMap<u32, f64> =
+        if desk.deals_year == year { desk.deals.iter().copied().collect() } else { HashMap::new() };
+    if staff && deals.is_empty() {
+        return None;
+    }
+    Some((j, deals, staff))
 }
 
 /// After a signing stage: your coordinator's offers go on your board with
@@ -430,6 +470,7 @@ pub(crate) fn after_payouts(w: &mut World, short: &[(u32, f64, f64)]) {
 
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(j) = ready(w) else { return };
+    super::chain::day(w, j, d);
     run_visits(w, j, d);
     scan_board(w, j, d);
     roll_class(w, j);
@@ -1018,7 +1059,8 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
 
 /// Sets a visit, if the rules allow it and he says yes.
 pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
-    let j = need(w, Duty::Visits)?;
+    // A visit you set stands while your staff plans the rest (SC6).
+    let j = super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such recruit.")?;
     if let Some(why) = visit_rule(w, i, kind, d) {
         return Err(why);
@@ -1029,13 +1071,16 @@ pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<Str
         Err(t) => (VisitState::Declined, t.clone()),
     };
     w.front_office.college.visits.push(Plan { id, kind, date: d, state, note: text.clone() });
+    if kind == VisitKind::Home && state == VisitState::Set {
+        crate::world::folk::dialogue::home_visit_set(w, id, j, d);
+    }
     let name = w.people[i].name.clone();
     note(w, format!("{} for {name} on {}: {text}", kind.name(), d.pretty()), Some(id));
     reply
 }
 
 pub fn cancel_visit(w: &mut World, id: u32, kind: VisitKind) -> Result<String, String> {
-    need(w, Duty::Visits)?;
+    super::program(w).ok_or("You have no college job.")?;
     let v = w
         .front_office
         .college
@@ -1045,6 +1090,9 @@ pub fn cancel_visit(w: &mut World, id: u32, kind: VisitKind) -> Result<String, S
         .ok_or("No such visit is set.")?;
     v.state = VisitState::Off;
     v.note = "You called it off.".into();
+    if kind == VisitKind::Home {
+        crate::world::folk::dialogue::home_visit_off(w, id, "You called it off.");
+    }
     Ok(format!("{} called off.", kind.name()))
 }
 
@@ -1073,10 +1121,21 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
             Some("He is no longer a recruit.".to_string())
         } else if !recruiting_period(&w.dates, d).unofficial_visits() {
             Some("A dead period closed it.".to_string())
+        } else if kind == VisitKind::Official && p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official) {
+            // One official visit to a school, and five in all (the rules
+            // re-checked on the day: your staff may have booked one; SC6).
+            Some("He already took his official visit to you.".to_string())
+        } else if kind == VisitKind::Official
+            && p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count() >= rec::OFFICIAL_VISITS
+        {
+            Some("He used all his official visits.".to_string())
         } else {
             None
         };
         if let Some(why) = off {
+            if kind == VisitKind::Home {
+                crate::world::folk::dialogue::home_visit_off(w, id, &why);
+            }
             let v = &mut w.front_office.college.visits[k];
             v.state = VisitState::Off;
             v.note = why;
@@ -1144,14 +1203,11 @@ fn offered_here(w: &World, id: u32) -> bool {
 }
 
 fn promise_of(w: &World, id: u32) -> Option<f64> {
-    if !nil_yours(w) {
-        return None;
-    }
     w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.nil)
 }
 
 /// Whether a person can be recruited by you now.
-fn recruitable(w: &World, i: usize) -> Result<(), String> {
+pub fn recruitable(w: &World, i: usize) -> Result<(), String> {
     let p = &w.people[i];
     let sign_year = rec::next_class(w);
     let hs = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool);
@@ -1230,6 +1286,19 @@ pub fn set_priority(w: &mut World, id: u32, on: bool) -> Result<String, String> 
 /// A scholarship offer. A recruit off your board goes on it.
 pub fn offer(w: &mut World, id: u32) -> Result<String, String> {
     let j = need(w, Duty::Board)?;
+    let text = offer_at(w, j, id, Source::You, None)?;
+    // Your film look, and any coach of yours it overrules (SK25, SK28).
+    super::chain::on_offer(w, id);
+    Ok(text)
+}
+
+/// An offer the chain brought you, signed (SK26): it goes out whoever
+/// holds the board, marked as your staff's with the coach's word.
+pub(crate) fn offer_by_chain(w: &mut World, j: usize, id: u32, why: String) -> Result<String, String> {
+    offer_at(w, j, id, Source::Coordinator, Some(why))
+}
+
+fn offer_at(w: &mut World, j: usize, id: u32, by: Source, why: Option<String>) -> Result<String, String> {
     let i = super::index_of(w, id).ok_or("No such player.")?;
     recruitable(w, i)?;
     let p = &w.people[i];
@@ -1252,8 +1321,8 @@ pub fn offer(w: &mut World, id: u32) -> Result<String, String> {
     }
     t.offered = Some(today);
     t.pulled = None;
-    t.by = Source::You;
-    t.why = None;
+    t.by = by;
+    t.why = why;
     // He hears it now: the offer is on his list, and an early one is remembered.
     let sign_year = rec::next_class(w);
     let p = &mut w.people[i];
@@ -1297,6 +1366,17 @@ pub fn offer(w: &mut World, id: u32) -> Result<String, String> {
 /// Pulls an offer. A commitment goes with it.
 pub fn pull(w: &mut World, id: u32) -> Result<String, String> {
     let j = need(w, Duty::Board)?;
+    let text = pull_at(w, j, id)?;
+    super::chain::on_pull(w, id);
+    Ok(text)
+}
+
+/// A pull your staff asked for, signed (SK26).
+pub(crate) fn pull_by_chain(w: &mut World, j: usize, id: u32) -> Result<String, String> {
+    pull_at(w, j, id)
+}
+
+fn pull_at(w: &mut World, j: usize, id: u32) -> Result<String, String> {
     let i = super::index_of(w, id).ok_or("No such player.")?;
     if w.people[i].cal.signed.is_some_and(|s| s.program == j) {
         return Err("He signed his letter with you: only a release frees him.".into());
@@ -1349,33 +1429,31 @@ pub fn pull(w: &mut World, id: u32) -> Result<String, String> {
     Ok(text)
 }
 
-/// Your NIL promise to a recruit (None: the collective's usual offer).
+/// Your NIL promise to a recruit (None: the collective's usual offer). The
+/// collective pays the number you name for him even while it runs the rest
+/// of the money (minor bug 59).
 pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, String> {
     let j = super::program(w).ok_or("You have no college job.")?;
     if !ncaa::nil_era(w.today.year()) && !(w.today >= Date::ymd(ncaa::NIL_START, 7, 1)) {
         return Err("NIL deals are allowed from July 1, 2021.".into());
     }
-    if w.front_office.owner(Duty::Nil) != Owner::You {
-        return Err("Your collective sets the money now: take NIL back first.".into());
-    }
-    let i = super::index_of(w, id).ok_or("No such player.")?;
-    let pos = w.people[i].player.position;
-    let cap = ncaa::position_nil_max(pos);
-    if let Some(x) = nil
-        && (x < 0.0 || x > cap)
-    {
-        return Err(format!(
-            "The most a {} gets is about {} a year (the real top of his market).",
-            pos.name(),
-            dollars(cap)
-        ));
+    super::index_of(w, id).ok_or("No such player.")?;
+    // Only your budget limits the number (minor bug 61).
+    if nil.is_some_and(|x| x < 0.0) {
+        return Err("A promise can't be below nothing.".into());
     }
     let b = budget(w, j);
     let current = w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.nil).unwrap_or(0.0);
+    // Your hunt draws on what you set aside for him (SK67).
+    let banked = if crate::world::hunt::is_yours(w, id) { b.hunt } else { 0.0 };
     if let Some(x) = nil
-        && x - current > b.left + 1.0
+        && x - current > b.left + banked + 1.0
     {
         return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));
+    }
+    // A number for a recruit off your board puts him on it, as an offer does.
+    if nil.is_some() && !w.front_office.college.board.iter().any(|t| t.id == id) {
+        add(w, id)?;
     }
     let t = w.front_office.college.board.iter_mut().find(|t| t.id == id).ok_or("He isn't on your board.")?;
     t.nil = nil;
@@ -1398,6 +1476,8 @@ pub struct Budget {
     pub recruits: f64,
     /// Offered to portal targets.
     pub portal: f64,
+    /// Set aside for your hunt and not yet promised to him (SK67).
+    pub hunt: f64,
     pub left: f64,
 }
 
@@ -1415,13 +1495,21 @@ pub fn budget(w: &World, j: usize) -> Budget {
         .filter(|p| p.stage == crate::world::Stage::College && p.college == Some(j))
         .map(|p| p.player.id)
         .collect();
-    let roster = if desk.deals_year == deals_year(w) {
-        desk.deals.iter().filter(|d| on.contains(&d.0)).map(|d| d.1).sum::<f64>()
+    let set: HashMap<u32, f64> = if desk.deals_year == deals_year(w) {
+        desk.deals.iter().copied().filter(|d| on.contains(&d.0)).collect()
     } else {
-        0.0
+        HashMap::new()
+    };
+    // With NIL at your staff, a player you set no deal for still gets the
+    // collective's usual split (SC6), so the budget counts it.
+    let roster = if mine(w, Duty::Nil).is_none() && super::program(w) == Some(j) {
+        usual_deals(w, j).into_iter().map(|(id, usual)| set.get(&id).copied().unwrap_or(usual)).sum::<f64>()
+    } else {
+        set.values().sum::<f64>()
     };
     let recruits = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).filter_map(|t| t.nil).sum();
     let portal = desk.portal.iter().filter(|t| t.offered.is_some() && !t.settled).filter_map(|t| t.nil).sum();
+    let hunt = crate::world::hunt::reserve(w, j);
     Budget {
         total,
         revenue_share: revenue_share.min(total),
@@ -1429,16 +1517,15 @@ pub fn budget(w: &World, j: usize) -> Budget {
         roster,
         recruits,
         portal,
-        left: total - roster - recruits - portal,
+        hunt,
+        left: total - roster - recruits - portal - hunt,
     }
 }
 
 /// A deal for one of your players for the money year starting July 1.
 pub fn set_deal(w: &mut World, id: u32, amount: f64) -> Result<String, String> {
+    // A deal you set stands while your collective pays the rest (SC6).
     let j = super::program(w).ok_or("You have no college job.")?;
-    if w.front_office.owner(Duty::Nil) != Owner::You {
-        return Err("Your collective sets the money now: take NIL back first.".into());
-    }
     if !ncaa::nil_era(w.today.year()) && w.today < Date::ymd(ncaa::NIL_START, 6, 1) {
         return Err("NIL deals are allowed from July 1, 2021.".into());
     }
@@ -1446,10 +1533,9 @@ pub fn set_deal(w: &mut World, id: u32, amount: f64) -> Result<String, String> {
     if w.people[i].college != Some(j) || w.people[i].stage != Stage::College {
         return Err("He isn't on your roster.".into());
     }
-    let pos = w.people[i].player.position;
-    let cap = ncaa::position_nil_max(pos) * 2.5;
-    if amount < 0.0 || amount > cap {
-        return Err(format!("A deal for a {} tops out near {} a year.", pos.name(), dollars(cap)));
+    // Only your budget limits a deal (minor bug 61).
+    if amount < 0.0 {
+        return Err("A deal can't be below nothing.".into());
     }
     let year = deals_year(w);
     let desk = &mut w.front_office.college;
@@ -1457,14 +1543,19 @@ pub fn set_deal(w: &mut World, id: u32, amount: f64) -> Result<String, String> {
         desk.deals.clear();
         desk.deals_year = year;
     }
-    let old = desk.deals.iter().find(|d| d.0 == id).map_or(0.0, |d| d.1);
+    // With NIL at your staff, his usual share is what your deal replaces.
+    let staff = mine(w, Duty::Nil).is_none();
+    let usual = if staff { usual_deals(w, j).into_iter().find(|d| d.0 == id).map_or(0.0, |d| d.1) } else { 0.0 };
+    let old = w.front_office.college.deals.iter().find(|d| d.0 == id).map_or(usual, |d| d.1);
     let b = budget(w, j);
     if amount - old > b.left + 1.0 {
         return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));
     }
     let desk = &mut w.front_office.college;
     desk.deals.retain(|d| d.0 != id);
-    if amount > 0.0 {
+    // With your staff on NIL a missing deal means the usual split, so a $0
+    // deal is kept to pay him nothing (SC6).
+    if amount > 0.0 || staff {
         desk.deals.push((id, amount));
     }
     Ok(format!("{}: {} a year from July 1, {year}.", w.people[i].name, dollars(amount)))
@@ -1543,20 +1634,20 @@ fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget, String> {
 }
 
 pub fn portal_offer(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, String> {
-    need(w, Duty::Portal)?;
+    // Your offer stands while your staff works the rest of the portal (SC6).
+    super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such player.")?;
     if w.people[i].cal.portal.is_none() {
         return Err("He isn't in the portal: an offer before he enters is tampering. Reach out quietly instead.".into());
     }
     let j = super::program(w).ok_or("You have no college job.")?;
-    if nil.is_some() && !nil_yours(w) {
-        return Err("Your collective sets the money now: take NIL back first.".into());
+    if nil.is_some() && !ncaa::nil_era(w.today.year()) {
+        return Err("NIL deals are allowed from July 1, 2021.".into());
     }
     if let Some(x) = nil {
-        let pos = w.people[i].player.position;
-        let cap = ncaa::position_nil_max(pos) * 2.5;
-        if x > cap {
-            return Err(format!("A {} in the portal tops out near {} a year.", pos.name(), dollars(cap)));
+        // Only your budget limits the number (minor bug 61).
+        if x < 0.0 {
+            return Err("An offer can't be below nothing.".into());
         }
         let b = budget(w, j);
         let old =
@@ -1593,7 +1684,7 @@ pub fn portal_forget(w: &mut World, id: u32) -> Result<String, String> {
 /// family friend; the NCAA rarely proves it, and the world never punishes
 /// it. It can leak (proposed, not confirmed: one time in eight).
 pub fn portal_contact(w: &mut World, id: u32) -> Result<String, String> {
-    let j = need(w, Duty::Portal)?;
+    let j = super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such player.")?;
     if w.people[i].cal.portal.is_some() {
         return Err("He's in the portal: you may call him openly.".into());
@@ -1634,7 +1725,7 @@ pub fn portal_contact(w: &mut World, id: u32) -> Result<String, String> {
 /// relationships rating sways him the way an AI head coach sways his own
 /// (the same formula, 0.75 to 1.25 on his lean).
 pub fn keep_talk(w: &mut World, id: u32) -> Result<String, String> {
-    let j = need(w, Duty::Portal)?;
+    let j = super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
     if p.college != Some(j) || p.stage != Stage::College {
@@ -1664,6 +1755,17 @@ pub fn keep_talk(w: &mut World, id: u32) -> Result<String, String> {
         format!("{first} said he'd think it over.")
     };
     let today = w.today;
+    // He has already told you he wants to leave: your word lands before
+    // his decision, not at a window already open.
+    if w.portal_intents.iter().any(|t| t.is(id)) && w.people[i].cal.lean > 0.0 {
+        let p = &mut w.people[i];
+        p.cal.lean *= factor;
+        p.cal.lean_events.push((
+            today,
+            if factor < 1.0 { "his head coach asked him to stay" } else { "his head coach didn't fight to keep him" },
+            factor,
+        ));
+    }
     w.front_office.college.talks.push(Talk { id, date: today, factor, answer: answer.clone() });
     note(w, format!("Sat down with {}: {answer}", w.people[i].name), Some(id));
     Ok(answer)
@@ -2116,8 +2218,10 @@ mod tests {
     }
 
     /// A duty handed to your staff runs as the AI's: the hooks give the
-    /// signing stage, the visit days and the portal nothing of yours, and
-    /// your own moves are refused with the staff's words.
+    /// visit days and the portal nothing of yours, the board's offers wait
+    /// on your signature (SK26) and an offer of your own is refused with
+    /// the staff's words; a visit, portal offer or NIL deal you make
+    /// yourself still stands (SC6).
     #[test]
     fn a_staff_duty_runs_like_the_ai() {
         let (mut w, _) = world(true);
@@ -2127,7 +2231,9 @@ mod tests {
         for d in [Duty::Board, Duty::Visits, Duty::Portal, Duty::Nil] {
             w.front_office.set_owner(d, Owner::Staff);
         }
-        assert!(stage_board(&w).is_none());
+        // SK26: a board handed to your staff still waits on your
+        // signature, so the signing stage keeps reading it.
+        assert!(stage_board(&w).is_some());
         assert!(visits_program(&w).is_none());
         assert!(portal_wants(&w).is_none());
         assert!(stay_talks(&w).is_none());
@@ -2137,8 +2243,11 @@ mod tests {
         let e = offer(&mut w, id).unwrap_err();
         assert!(e.contains("coordinator"), "{e}");
         let soon = w.today.add(10);
-        let e = set_visit(&mut w, id, VisitKind::Unofficial, soon).unwrap_err();
-        assert!(e.contains("staff"), "{e}");
+        // A visit you set yourself is weighed on the calendar's rules, not
+        // refused for the staff's duty (SC6).
+        if let Err(e) = set_visit(&mut w, id, VisitKind::Unofficial, soon) {
+            assert!(!e.contains("staff"), "{e}");
+        }
     }
 
     /// Visits keep the NCAA's calendar: nothing in a dead period, a home

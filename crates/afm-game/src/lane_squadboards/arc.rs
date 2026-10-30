@@ -235,9 +235,8 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let i = views::person_index(w, id).ok_or("That player is no longer in football.")?;
     let p = &w.people[i];
     let pos = p.player.position;
-    let (ovr, own, eye) = any_read(w, i);
-    let reader = views::reader_key(w);
-    let attrs = reads::attributes(&p.player, own, eye, reader);
+    let (ovr, own, _) = any_read(w, i);
+    let attrs = reads::attributes(w, i);
     let keys = key_attrs(pos);
     let hist = &p.player.history;
     let seasons_rows = crate::lane_core::pages::seasons(w, i);
@@ -269,7 +268,12 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
             "games": stat.and_then(|s| s["games"].as_u64()),
             "line": stat.and_then(|s| s["line"].as_str()),
             "what": what_happened(h),
-            "level_rating": h.level_rating_end.or(h.level_rating),
+            // The badge from the read your staff kept that season (minor
+            // bug 49), never his hidden rating.
+            "level_rating": kr.and_then(|r| {
+                let c = (r.ovr[0] as f64 + r.ovr[1] as f64) / 2.0;
+                (r.ovr[1] > 0).then(|| afm_engine::world::level_from_read(w, i, k, c)).flatten()
+            }).map(|(r, words)| format!("{words} level {r}")),
         }));
         if let Some(r) = kr {
             points.push(json!({
@@ -289,6 +293,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         table.push(json!({
             "season": w.year, "age": age, "level": level_word(level_now), "pos": pos.name(), "team": team_now,
             "read": ovr.json(), "keys": key_now, "now": true,
+            "level_rating": crate::lane_core::pages::level_read(w, i).map(|(r, words)| format!("{words} level {r}")),
             "games": this_stat.and_then(|s| s["games"].as_u64()),
             "line": this_stat.and_then(|s| s["line"].as_str()),
             "what": "This season, so far",
@@ -405,7 +410,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let ghosts: Vec<Value> = near
         .iter()
         .take(12)
-        .map(|a| json!({ "name": a.name, "d": a.deltas.iter().map(|x| (x * 10.0).round() / 10.0).collect::<Vec<_>>() }))
+        .map(|a| json!({ "name": a.name, "id": a.id, "d": a.deltas.iter().map(|x| (x * 10.0).round() / 10.0).collect::<Vec<_>>() }))
         .collect();
     let named: Vec<Value> = near
         .iter()

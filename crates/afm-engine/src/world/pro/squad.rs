@@ -161,7 +161,7 @@ pub(crate) fn poach(w: &mut World, d: Date) -> bool {
     if !money::capped(year) && year < 1990 {
         return false;
     }
-    let teams = super::super::franchise::active_teams(year);
+    let teams = super::super::franchise::active_teams_in(w, year);
     let protect = protected_count(year);
     // Each team's protected list: its best squad players by its own grade.
     let mut open: Vec<(usize, usize)> = Vec::new();
@@ -172,13 +172,22 @@ pub(crate) fn poach(w: &mut World, d: Date) -> bool {
         // Your four are the ones you protect (lane 10).
         if let Some(mine) = crate::world::front_office::roster::protected(w, t) {
             let mut kept = 0;
+            let mut rest = Vec::new();
             for i in squad {
                 if mine.contains(&w.people[i].player.id) && kept < protect {
                     kept += 1;
                 } else {
-                    open.push((t, i));
+                    rest.push(i);
                 }
             }
+            // With the squad your staff's, it protects its best for the
+            // places you left (SC6).
+            let fill = if crate::world::front_office::yours(w, t, crate::world::front_office::Duty::PracticeSquad) {
+                0
+            } else {
+                protect.saturating_sub(kept)
+            };
+            open.extend(rest.into_iter().skip(fill).map(|i| (t, i)));
             continue;
         }
         for i in squad.into_iter().skip(protect) {
@@ -353,7 +362,7 @@ pub(crate) fn refill_squads(w: &mut World, d: Date) -> bool {
     let weeks_left = ((w.dates.super_bowl.0 - d.0) as f64 / 7.0).clamp(1.0, w.rules.nfl_games as f64 + 1.0);
     let pay = money::practice_squad_week(year) * weeks_left;
     let mut changed = false;
-    for t in super::super::franchise::active_teams(year) {
+    for t in super::super::franchise::active_teams_in(w, year) {
         if crate::world::front_office::yours(w, t, crate::world::front_office::Duty::PracticeSquad) {
             continue;
         }

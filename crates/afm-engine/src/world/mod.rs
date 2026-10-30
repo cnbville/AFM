@@ -32,20 +32,23 @@ pub mod front_office;
 pub mod game_log;
 pub mod geo;
 pub mod guide;
+pub mod help;
 pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
+pub mod hunt;
 pub mod legacy;
 pub mod live_seat;
 pub mod looks;
 pub mod names;
 pub mod ncaa;
+pub mod new_teams;
 pub mod news;
 pub(crate) mod nfl_year;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
 pub use recruiting::DraftRun;
-pub use season::{key_normal, key_uniform};
+pub use season::{key_normal, key_uniform, level_from_read, level_pool};
 
 /// Last season's draft order once the season has ended (for the coming draft).
 pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
@@ -71,7 +74,9 @@ pub mod stories;
 pub mod storylines;
 pub mod systems;
 pub mod tape;
+pub mod times;
 pub mod trends;
+pub mod units;
 pub mod voters;
 pub mod wlog;
 
@@ -311,6 +316,9 @@ pub struct Signed {
     pub walk_on: bool,
     pub date: crate::calendar::Date,
     pub early_enrollee: bool,
+    /// He signed somewhere other than where he was committed.
+    #[serde(default)]
+    pub flipped: bool,
 }
 
 /// A portal entrant's dates (T3): the day he entered and the day his
@@ -412,6 +420,11 @@ pub struct PersonCal {
     /// at that program (`Person::cut_here`), until the next window moves him.
     #[serde(default)]
     pub cut: Option<CollegeCut>,
+    /// What each head coach's living-room talk did for him (lane 14, D7):
+    /// program, lean. It weighs in his choice like the rest of the
+    /// relationship.
+    #[serde(default)]
+    pub home_talks: Vec<(usize, f32)>,
 }
 
 /// A college cut (minor bug 60): the program, the day, and whether his
@@ -715,6 +728,11 @@ pub struct World {
     /// tapes, so a new career has film of its first opponents (tape.rs).
     #[serde(skip)]
     pub(crate) world_tapes: bool,
+    /// Pros out injured by player id, for the nightly heal (B1), and the
+    /// day it last ran; rebuilt from everyone each Tuesday and after a load.
+    /// Ids, not places in `people`, since the people list is purged.
+    #[serde(skip)]
+    pub(crate) hurt_pros: (Vec<u32>, Option<crate::calendar::Date>),
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -759,6 +777,10 @@ pub struct World {
     /// Portal entrants still deciding (person indices; resolved before the
     /// year-end book compacts the people list).
     pub(crate) portal_pending: Vec<usize>,
+    /// Your players who asked to see you before they enter the portal
+    /// (`recruiting::Intent`).
+    #[serde(default)]
+    pub(crate) portal_intents: Vec<recruiting::Intent>,
     /// Verbal commitments decided at a commitment wave and waiting for the
     /// recruit's own announcement day (T5.2): day, person index, player id,
     /// program, and whether it is a walk-on place.
@@ -794,6 +816,10 @@ pub struct World {
     /// Your depth chart where you set one (section 8, topic 6).
     #[serde(default)]
     pub seat_depth: Vec<(crate::positions::Position, Vec<u32>)>,
+    /// When you set or gave back an order, newest last (update 3, H4): the
+    /// day, the position and the first man (0: given back to the staff).
+    #[serde(default)]
+    pub seat_depth_log: Vec<(crate::calendar::Date, crate::positions::Position, u32)>,
     /// Your players' plan focus (section 6b topic 5): player id and
     /// attribute index.
     #[serde(default)]
@@ -806,6 +832,9 @@ pub struct World {
     /// contracts and your network (`folk`).
     #[serde(default)]
     pub folk: folk::Folk,
+    /// Every high schooler's recorded times (speed update S6e).
+    #[serde(default)]
+    pub times: times::Times,
     /// Your game being played live today (section 9): the day books it
     /// when it runs.
     #[serde(default)]
@@ -882,6 +911,19 @@ pub struct World {
     pub(crate) nfl_prev: Option<nfl_year::NflSeason>,
     #[serde(default)]
     pub(crate) kept_schedules: Vec<season_page::KeptSeason>,
+    /// The NFL clubs the world added after 2026 and its owners' votes (SK68).
+    #[serde(default)]
+    pub expansion: franchise::Expansion,
+    /// College programs and high schools that started after 2026 (SK68).
+    #[serde(default)]
+    pub new_teams: new_teams::NewTeams,
+    /// The hunts (SK67): yours, the AI's and the generational prospects.
+    #[serde(default)]
+    pub hunt: hunt::Hunts,
+    /// Each NFL team's regular-season points by year (C27): (season, team,
+    /// games, points for, points against); the last twenty seasons.
+    #[serde(default)]
+    pub nfl_units: Vec<(i32, u8, u8, u16, u16)>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1120,6 +1162,19 @@ impl World {
             p.set_history(dropped);
             programs.push(p);
         }
+        // Colleges without a team that may start one after 2026 (SK68) wait
+        // in the list like a dropped program, on their own stream: real
+        // ones, then small colleges in growing towns.
+        let mut cand_rng = Rng::new(seed ^ 0x0CA4_D1D0);
+        let generated = new_teams::college::generated(seed);
+        for row in data::CANDIDATE_COLLEGES.iter().chain(generated.iter()) {
+            if programs.iter().any(|p| p.real_name == row.name) {
+                continue;
+            }
+            let mut p = program::program_from_row(programs.len(), row, seed, &mut cand_rng);
+            p.set_history(true);
+            programs.push(p);
+        }
         let mut high_schools = Vec::new();
         let mut states = Vec::new();
         let total_programs: f64 = data::STATES.iter().map(|s| s.programs as f64).sum();
@@ -1187,6 +1242,8 @@ impl World {
             rng,
             recording: false,
             world_tapes: false,
+            hurt_pros: (Vec::new(), None),
+            times: times::Times::default(),
             game_log: game_log::GameLog::default(),
             wlog: None,
             stats: records::StatBook::default(),
@@ -1210,6 +1267,7 @@ impl World {
             log_history: Vec::new(),
             event_history: Vec::new(),
             portal_pending: Vec::new(),
+            portal_intents: Vec::new(),
             announcements: Vec::new(),
             portal_market: None,
             nfl_champions: Vec::new(),
@@ -1224,6 +1282,7 @@ impl World {
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
             seat_games: Vec::new(),
             seat_depth: Vec::new(),
+            seat_depth_log: Vec::new(),
             seat_focus: Vec::new(),
             training: Default::default(),
             career: None,
@@ -1245,6 +1304,10 @@ impl World {
             prev_polls: Vec::new(),
             nfl_prev: None,
             kept_schedules: Vec::new(),
+            expansion: Default::default(),
+            new_teams: Default::default(),
+            hunt: Default::default(),
+            nfl_units: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -1730,7 +1793,15 @@ fn new_kid(
     let family = generate_family(&bg, Some(structure), &mut rng);
     apply_background(&mut player, &mut bg, &family, &mut rng);
     people::sync_new(&mut player, &bg, &family);
-    let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+    // Drawn with the odds of the position his body fits now, before any
+    // coach moves him, or a snapper's if he has the knack (A25).
+    let knack = ethnicity::snapper_knack(
+        player.ceilings.get(crate::attributes::Attr::LongSnapping),
+        player.original_potential,
+        z,
+    );
+    let fits = if knack { crate::positions::Position::LS } else { player.position };
+    let ethnicity = ethnicity::player_ethnicity(s, z, Some(fits), &mut rng);
     // Grades drift through high school: effort pushes them up.
     let gpa_trend =
         rng.normal(0.0, 0.07) + 0.012 * (player.personality.work_ethic - 10.0) + 0.04 * (bg.home_stability - 0.5);

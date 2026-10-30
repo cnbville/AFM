@@ -906,12 +906,19 @@ pub(crate) fn notice(w: &mut World, s: Spot) -> Option<u32> {
 fn told(w: &World, id: u32, text: &str) -> bool {
     let Some(s) = w.storylines.get(id) else { return false };
     let lead = s.lead();
+    let now = told_season(w.today);
     w.storylines.open.iter().chain(&w.storylines.ended).any(|o| {
-        o.season == s.season
-            && o.id != id
+        o.id != id
             && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
-            && o.beats.iter().any(|b| b.text == text)
+            && o.beats.iter().any(|b| b.text == text && (o.season == s.season || told_season(b.date) == now))
     })
+}
+
+/// The season a told line counts in: January and February belong to the
+/// season before (the bowls, the playoffs and signing day), whichever
+/// football year the story was opened in.
+pub(crate) fn told_season(d: Date) -> i32 {
+    if d.month() <= 2 { d.year() - 1 } else { d.year() }
 }
 
 /// Adds a world fact to an open story (a game, a filing, a report).
@@ -1155,8 +1162,8 @@ fn near(w: &World, s: &Story) -> bool {
             w.programs.get(a).zip(w.programs.get(b)).is_some_and(|(x, y)| x.conference == y.conference)
                 || w.college.as_ref().is_some_and(|c| c.rivalry_of.contains_key(&(a.min(b), a.max(b))))
         }
-        (TeamKey::Nfl(a), TeamKey::Nfl(b)) => super::franchise::alignment(a as usize, w.year)
-            .is_some_and(|da| super::franchise::alignment(b as usize, w.year).map(|x| x.1) == Some(da.1)),
+        (TeamKey::Nfl(a), TeamKey::Nfl(b)) => super::franchise::alignment_in(w, a as usize, w.year)
+            .is_some_and(|da| super::franchise::alignment_in(w, b as usize, w.year).map(|x| x.1) == Some(da.1)),
         (TeamKey::Hs(a), TeamKey::Hs(b)) => {
             w.high_schools.get(a as usize).zip(w.high_schools.get(b as usize)).is_some_and(|(x, y)| x.state == y.state)
         }

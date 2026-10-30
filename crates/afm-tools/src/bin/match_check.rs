@@ -207,6 +207,27 @@ fn main() {
             }
         }
     }
+    // AFM_BURNER=12 makes each team's second receiver that many points
+    // faster (speed and burst only), the speed update's S10 proof: does a
+    // burner raise his teammates' short catches and yards after the catch?
+    // Run it beside AFM_BURNER=0 on the same seed.
+    let mut burners: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    if let Some(add) = std::env::var("AFM_BURNER").ok().and_then(|v| v.parse::<f64>().ok()) {
+        use afm_engine::positions::Position;
+        for t in teams.iter_mut() {
+            let mut wrs: Vec<usize> = (0..t.players.len()).filter(|&i| t.players[i].position == Position::WR).collect();
+            wrs.sort_by(|&a, &b| {
+                t.players[b].overall_at(Position::WR).total_cmp(&t.players[a].overall_at(Position::WR))
+            });
+            if let Some(&i) = wrs.get(1) {
+                let p = &mut t.players[i];
+                for a in [afm_engine::attributes::Attr::Speed, afm_engine::attributes::Attr::Acceleration] {
+                    p.attrs.set(a, (p.attrs.get(a) + add).min(99.0));
+                }
+                burners.insert(p.id);
+            }
+        }
+    }
     // AFM_TRACE=1 prints every agent's state (use with one game).
     if std::env::var("AFM_TRACE").is_ok() {
         afm_engine::game::sim::TRACE.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -402,6 +423,10 @@ fn main() {
     let mut m = std::collections::BTreeMap::<&str, f64>::new();
     let mut fg = [[0.0f64; 2]; 4];
     let mut ay = [[0.0f64; 6]; 4];
+    // The burner proof: [his teammates' catches under 10 air yards, their
+    // yards after those catches, his own targets, his catches, his yards,
+    // two-high snaps, coverage snaps].
+    let mut bp = [0.0f64; 7];
     let mut by_cov = [[0.0f64; 3]; 2];
     let pos_of: std::collections::HashMap<u32, afm_engine::positions::Position> =
         teams.iter().flat_map(|t| t.players.iter().map(|p| (p.id, p.position))).collect();
@@ -599,6 +624,22 @@ fn main() {
             let e = &mut between[stopped as usize][tb];
             e[0] += gap;
             e[1] += 1.0;
+        }
+        if !burners.is_empty() {
+            for p in s.plays.iter().filter(|p| p.kind == PlayType::Pass && !p.nullified && !p.throw_away) {
+                let his = p.target.is_some_and(|t| burners.contains(&t));
+                if his {
+                    bp[2] += 1.0;
+                    bp[3] += p.complete as u8 as f64;
+                    bp[4] += if p.complete { p.yards } else { 0.0 };
+                } else if p.complete && p.air_yards < 10.0 {
+                    bp[0] += 1.0;
+                    bp[1] += p.yac;
+                }
+                let d = p.defense_call.to_lowercase();
+                bp[5] += ["cover 2", "tampa", "cover 4", "cover 6", "2-man"].iter().any(|c| d.contains(c)) as u8 as f64;
+                bp[6] += 1.0;
+            }
         }
         // Plays ending out of bounds in normal time (fix list S6.2), as
         // nflverse's out_of_bounds flag counts them.
@@ -1355,5 +1396,16 @@ fn main() {
         let throws = (sd[1] + sd[3] + sd[5]).max(1) as f64;
         let batted = afm_engine::game::scrimmage::BATTED.load(std::sync::atomic::Ordering::Relaxed);
         println!("  batted at the line {:.1}% of throws", 100.0 * batted as f64 / throws);
+    }
+    if !burners.is_empty() {
+        println!(
+            "\nBurner proof (AFM_BURNER): per team game, teammates' catches under 10 air yards {:.2}, their yards after the catch {:.2} a catch; the burner {:.2} targets, {:.2} catches, {:.1} yards; two-high on {:.1}% of passes",
+            bp[0] / n,
+            bp[1] / bp[0].max(1.0),
+            bp[2] / n,
+            bp[3] / n,
+            bp[4] / n,
+            100.0 * bp[5] / bp[6].max(1.0)
+        );
     }
 }

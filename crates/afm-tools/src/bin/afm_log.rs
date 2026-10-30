@@ -4,7 +4,8 @@
 //! - `afm_log build <seed> <years> <scale> <folder> [future]`: builds a
 //!   world with the log on (`AFM_WORLD_LOG=off`: off, to time the
 //!   difference), playing `future` more seasons after the history, and
-//!   prints each season's time, memory and the log's size so far.
+//!   prints each season's time, memory and the log's size so far
+//!   (`AFM_ENGINE_FROM` and `AFM_HS_YEARS` set the engine's years).
 //! - `afm_log book <world file> <folder>`: writes a year-end book and the
 //!   year's close for a world file as it stands, timed: what a full-size
 //!   year's rows cost.
@@ -42,7 +43,21 @@ fn build(a: &[String]) {
     let folder = PathBuf::from(a.get(3).map_or("out", String::as_str));
     let future = n(4, 0.0) as u32;
     let on = std::env::var("AFM_WORLD_LOG").map_or(true, |v| v != "off");
-    let opts = WorldOptions { seed, history_years: years, scale, keep_game_log: false, ..Default::default() };
+    // AFM_ENGINE_FROM=year keeps the seasons before it on the stand-in and
+    // AFM_HS_YEARS=n puts the history's last n high school years on the
+    // engine (the world build: every college season and 12), to time one
+    // full-size season with every level on the engine.
+    let env = |k: &str| std::env::var(k).ok().and_then(|v| v.parse::<i64>().ok());
+    let d = WorldOptions::default();
+    let opts = WorldOptions {
+        seed,
+        history_years: years,
+        scale,
+        keep_game_log: false,
+        engine_from: env("AFM_ENGINE_FROM").map(|y| y as i32).or(d.engine_from),
+        hs_engine_years: env("AFM_HS_YEARS").map(|n| n as u32).or(d.hs_engine_years),
+        ..d
+    };
     let dir = folder.join(format!("world-{seed}-{years}y.{}", afm_engine::world::wlog::EXT));
     let log = on.then(|| WorldLog::create(&dir, &opts, "afm_log", "").expect("the log folder"));
     let t = Instant::now();
@@ -75,7 +90,12 @@ fn build(a: &[String]) {
         println!("records: {counts:?}");
         sizes(&dir);
     }
-    println!("all done in {:.0}s, resident {}", t.elapsed().as_secs_f64(), afm_tools::memory_text());
+    println!(
+        "all done in {:.0}s, resident {}, fingerprint {:016x}",
+        t.elapsed().as_secs_f64(),
+        afm_tools::memory_text(),
+        afm_tools::fingerprint(&w)
+    );
 }
 
 fn book(world: &Path, folder: &Path) {

@@ -488,6 +488,12 @@ pub struct Player {
     /// how much of each family's year has landed (`training::Train`).
     #[serde(default)]
     pub train: crate::training::Train,
+    /// How far past his whole-year age he is today, in years (update 3,
+    /// A16): the world sets it each day from his birthday, so his body grows
+    /// by the date and the oldest in a class are the biggest. 0 outside a
+    /// world.
+    #[serde(default)]
+    pub grow: f32,
 }
 
 /// Hidden game-day traits on Football Manager's 1-20 scale (section 3). The
@@ -659,5 +665,6 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         game: GameTraits::for_id(id),
         tend,
         train: Default::default(),
+        grow: 0.0,
     }
 }

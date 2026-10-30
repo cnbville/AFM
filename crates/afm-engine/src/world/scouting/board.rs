@@ -188,11 +188,17 @@ pub fn coming_slots(w: &World) -> Vec<(usize, u32)> {
     let seed = w.options.seed as u64;
     let order = if year == w.year { crate::world::nfl_year_order(w) } else { None };
     let base: Vec<usize> = order
-        .unwrap_or_else(|| crate::world::franchise::active_teams(year))
+        .unwrap_or_else(|| crate::world::franchise::active_teams_in(w, year))
         .into_iter()
-        .filter(|&t| crate::world::franchise::active(t, year))
+        .filter(|&t| crate::world::franchise::active_in(w, t, year))
         .collect();
-    let mut board = crate::world::franchise::draft_board(year, &base, w.options.scale, seed);
+    let mut board = crate::world::franchise::draft_board(
+        year,
+        &base,
+        w.options.scale,
+        seed,
+        &crate::world::franchise::first_draft_in(w, year),
+    );
     crate::world::pro::trades::board_owners(w, year, &mut board, &base);
     board
 }

@@ -3,8 +3,9 @@
 //! year's); at a high school, your former players in college. Each with
 //! where he stands (declared, deciding, back for another year, drafted),
 //! the advisory committee's grade sent to his school, what the NFL scouts
-//! who came through say, the public's rank and best mock, and your staff's
-//! read against what it took to go in last year's rounds.
+//! who came through say, the public's rank and best mock, his all-star and
+//! combine invites, and your staff's read against what it took to go in
+//! last year's rounds. The college Squad's Draft view reads it too.
 
 use afm_engine::calendar::{Date, YearDates};
 use afm_engine::world::eligibility::{division_of, exhausted_after};
@@ -104,6 +105,20 @@ pub fn view(w: &World) -> Reply {
         let scouts = read_now.map(|d| d.round);
         let pub_rank = if this_cycle { consensus.iter().position(|&x| x == id).map(|x| x + 1) } else { None };
         let mock = if this_cycle { best_mock.get(&id).copied() } else { None };
+        // His invitations this cycle, once the December reads are out: an
+        // all-star game (or the one he turned down; "declined" is the
+        // engine's mark for it) and, for a declared player, the combine.
+        let mut invites: Vec<String> = Vec::new();
+        if this_cycle && reads_out {
+            match p.cal.all_star {
+                Some("declined") => invites.push("Turned down an all-star game".into()),
+                Some(game) => invites.push(game.to_string()),
+                None => {}
+            }
+            if p.cal.combine_invite && p.stage == Stage::Declared {
+                invites.push("Combine".into());
+            }
+        }
         // Your staff's read: your own player's (narrow) at a college, the
         // public's read (wide) of a former player from a high school.
         let read = if college && p.stage == Stage::College { own_read(w, me, i) } else { any_read(w, i).0 };
@@ -150,7 +165,7 @@ pub fn view(w: &World) -> Reply {
                     let (lo, hi) = (r.saturating_sub(1).max(1), (r + 1).min(8));
                     if r >= 8 { "Free agent".to_string() } else if hi >= 8 { format!("Round {lo} or later") } else { format!("Rounds {lo}-{hi}") }
                 }),
-                "public": pub_rank, "mock": mock, "read": range(read), "staff": staff,
+                "public": pub_rank, "mock": mock, "invites": invites, "read": range(read), "staff": staff,
                 "team": views::team_of(w, p).map(|t| team_brief(w, t)),
             }),
         ));

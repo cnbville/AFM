@@ -15,7 +15,7 @@ use crate::world::{World, WorldOptions};
 fn nfl_world() -> (World, usize) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     let t = (0..w.clubs.len())
-        .filter(|&t| crate::world::franchise::active(t, w.year))
+        .filter(|&t| crate::world::franchise::active_in(&w, t, w.year))
         .max_by_key(|&t| w.clubs[t].roster.len())
         .unwrap();
     let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];
@@ -61,6 +61,7 @@ fn answered_letter(date: Date, yes: u8, no: u8, target: u32, pick: u8) -> Mail {
         loud: 2,
         ids: Vec::new(),
         org_team: None,
+        why: Vec::new(),
     }
 }
 
@@ -103,11 +104,12 @@ fn each_era_lets_a_position_wear_its_own_numbers() {
     // Linebackers got 40-49 in 2015.
     assert!(!nfl(Position::LB, 2014).iter().any(|n| (40..=49).contains(n)));
     assert!(nfl(Position::LB, 2016).iter().any(|n| (40..=49).contains(n)));
-    // 2021 opened single digits to backs, receivers and defenders; 2024 allowed 0.
+    // 2021 opened single digits to backs, receivers and defenders; 2023 allowed 0
+    // (minor bug 47: 23 players wore it that year).
     assert!(!nfl(Position::RB, 2020).iter().any(|&n| n < 10));
     assert!(nfl(Position::RB, 2021).iter().any(|&n| (1..=9).contains(&n)));
-    assert!(!nfl(Position::CB, 2023).contains(&0));
-    assert!(nfl(Position::CB, 2024).contains(&0));
+    assert!(!nfl(Position::CB, 2022).contains(&0));
+    assert!(nfl(Position::CB, 2023).contains(&0));
     // Interior linemen stay ineligible at every level: 50-79.
     for level in [Level::HighSchool, Level::College, Level::Nfl] {
         assert!(numbers::allowed(Position::IOL, level, 2026).iter().all(|n| (50..=79).contains(n)));
