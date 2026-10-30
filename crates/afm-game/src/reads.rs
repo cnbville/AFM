@@ -252,6 +252,12 @@ pub fn range(truth: f64, half: f64, reader: u64, player: u32, attr: usize) -> Re
     Read::Range(lo, hi.max(lo))
 }
 
+/// Whether your staff has measured a high schooler (a camp or a showcase look).
+pub fn hs_tested(w: &afm_engine::world::World, id: u32) -> bool {
+    use afm_engine::world::scouting::Kind;
+    w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| matches!(l.kind, Kind::Camp | Kind::Showcase)))
+}
+
 /// Your staff's read of his Dynamic Links (`docs/design/dynamic-links.md`):
 /// each link it sees, how strong it looks and the numbers it is named by.
 /// Your own players are measured by your staff; a pro or a combine invite

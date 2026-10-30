@@ -1,13 +1,13 @@
 # Match engine: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
 ## Quick answers
 
 - Do pregame and halftime talks change play? Yes, for every team: up to ±1.5 rating points on everything, ±2 discipline and concentration, ±2.5 composure and a late-hit share per player, fading through the half; a sideline word after a costly mistake adds its own (`game/talk.rs`, `land`, `Pulse`; `game/flow.rs`, `room_talk`, `give_word`). See [people.md](people.md), "Talks on game day and off it".
-- Does the elusiveness check read weight? No. The first-contact miss roll is 0.5 Elusiveness + 0.3 Agility + 0.2 Speed (+ Sudden) against 0.6 Tackling + 0.2 Agility + 0.2 Pursuit (+ Sudden); neither man's weight is in it (`game/sim.rs`, `first_hit`). Weight comes in once he is wrapped up: the broken-tackle roll and the pile (`game/sim.rs`, `fight_tick`).
+- Does the elusiveness check read weight? Yes, since lane 4 (A3): every make-a-man-miss check takes off size_cost = (forty_weight(his weight) - forty_weight(typical)) / 0.0124 rating points, the way the forty reads weight (`game/sim.rs`, `size_cost`): the first-contact miss (typical 210 lb, `first_hit`), the QB's sack escape (× 0.7, typical 222, `game/scrimmage.rs`), a QB run's moves (typical 222, `game/flow.rs`, `qb_run`) and a returner's danger (typical 200, `game/kicking.rs`). A 330 lb man rated 85 makes fewer men miss than a 200 lb back rated 85. Weight also comes in once he is wrapped up: the broken-tackle roll and the pile (`game/sim.rs`, `fight_tick`).
 - Where does weight count? Top speed, burst and cut (`game/roster.rs`, `forty`, `sprint_tau`, `accel`, `cut`); momentum and hit force (`game/sim.rs`, `hit_effects`); broken tackles, 0.08 a pound from 215 lb, and the wrap-up, (mass - 215) / 300 on both sides, and the pile's push by mass (`fight_tick`); blocks, 0.08 a pound from 300 lb, 280 for rushers and shedders (`block_base`, `rush_power`, `shed_power`, `anchor`); the jump at the catch point, -0.035 inch a pound over 220 (`game/scrimmage.rs`, `high_reach`); a contact-shy tackler passing on a man 15+ lb heavier (`game/sim.rs`, `tackles`).
 - How fine is the sim? 22 tracked bodies, 10 ticks a second (`game/geom.rs`, `DT`; `game/scrimmage.rs`, `run_snap`).
 - What decides a sack? A free rusher within 1.25 yards, or one winning his block (w > 0.45) within 1.2, then an escape roll: 0.4 Elusiveness + 0.3 Agility + 0.3 Strength against 0.6 Tackling + 0.2 Strength + 0.2 Agility (`game/scrimmage.rs`, `sack_check`).
@@ -71,6 +71,14 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 - Bodies push apart below 0.8 yards, scaled by clamp(1 - 0.008 × (Traffic - 60), 0.55, 1.35) (`Agent::traffic`, `advance`).
 - Burner: +1.25% top speed × share for the carrier 2+ yards past the line or a returner, a chaser behind the carrier, a route past 9 yards, a man defender trailing deep, the target of a ball in the air past 9 yards (`link_speeds`, `BURNER`).
 
+## The raw burner's roles (lane 4, S10-S10d)
+
+- Who he is: the fastest backup receiver or back by deep speed (0.4 Acceleration + 0.6 Speed, `game/roster.rs`, `deep_speed`) when he beats the top starting receiver by more than 1 and the starters' mean by more than 4; lean = clamp((his - mean - 2) / 10, 0, 1) (`roster.rs`, `burner`, kept on the depth chart).
+- Returns: the returner rating reads 0.4 × deep speed in place of Speed (`roster.rs`). Punt gunners: the two best non-starting receivers, corners and safeties by 0.5 deep speed + 0.3 Release + 0.2 Strength, filled with corners when short (`game/flow.rs`, `Side::gunners`, `punt_units`).
+- Snaps on offense: on a jet sweep he takes the motion man's place with chance 0.5 + 0.4 × lean; on a deep pass the Z (else the X) with 0.25 + 0.5 × lean, keyed per snap (`game/flow.rs`, `speed_package`).
+- How the defense respects him (`game/scrimmage.rs`, `align_defense`, with the plan's fear, `Tactics::fear`): his corner's cushion + 6 × (fear - 0.5) in press, + 3 × fear off (a Cover 2 or Tampa 2 cloud corner keeps his); a slot corner over him + 3 × fear; the single-high safety leans toward him by clamp((his y - ball) × 0.3 × fear, -5, 5) and sits 2 × fear deeper; two-high safeties half the lean, 1.5 × fear deeper, the one on his side another fear yards (proposed, not confirmed).
+- The proof (`match_check`, `AFM_BURNER=pts` adds pts to each team's second receiver's Speed and Acceleration): 3,000 NFL games, seed 7, +12 against +0. His teammates' catches under 10 air yards 12.38 to 12.71 a team game, their yards after the catch 4.97 to 5.01 a catch, two-high shells 59.4% to 62.5% of passes; his own catches 4.71 to 4.48 (bracketed more), points 26.30 to 26.42.
+
 ## Line blocking (run)
 
 What it reads: run blocking, strength, hands, balance, burst and mass against shedding, hands, anchor, strength, recognition and mass. What it does not read: arm length in inches (only the Length link), height, Speed, the blocker's Agility or Football IQ.
@@ -115,7 +123,7 @@ What it reads: the rush move's ratings against the matching set, mass on the bul
 
 ## Sacks
 
-What it reads: who gets there (the blocks above), the QB's elusiveness, agility and strength against the rusher's tackling. What it does not read: either man's weight, the QB's Speed, the rush ratings.
+What it reads: who gets there (the blocks above), the QB's elusiveness, agility and strength against the rusher's tackling, and the QB's weight (A3: - 0.7 × size_cost from 222 lb). What it does not read: the rusher's weight, the QB's Speed, the rush ratings.
 
 - A rusher tries when he is free within 1.25 yards, or winning his block (w > 0.45) within 1.2, and hasn't tried in 0.6 s (`game/scrimmage.rs`, `sack_check`).
 - Escape chance = sigmoid(-2.4 + (escape - tackle) / 12 - 1 if unseen + 1.2 if the rusher is still engaged) (`sack_check`).
@@ -232,7 +240,7 @@ What it reads: Ball Carrier Vision, his speed and cut, the Patience, Bounce and 
 - Who gets a try: reach 1.6 yards, or 2.5 for a free man in space more than 3 yards past the line (+ clamp(0.01 × (Tackling - 60), ±0.4)), + 0.03 × (arm - 32) + 0.05 × Length share; one try each 0.7 s (`tackles`, `OPEN_REACH`).
   - An engaged defender grabs only with w ≥ -0.2, chance 0.25 + 0.3 × w, inside reach - 0.55: an arm tackle.
   - A free defender with Contact lean below -0.15 facing a carrier 15+ lb heavier moving over 4 yd/s passes with 0.35 × shyness.
-- The miss (first hit), what it reads: evade = 0.5 Elusiveness + 0.3 Agility + 0.2 Speed + Sudden; tackle = 0.6 Tackling + 0.2 Agility + 0.2 Pursuit + Sudden; angle, closing speed, the carrier's speed, arm-only, lunge; Big hit and Strip. What it does not read: either man's weight, Strength, Balance, height, Ball Carrier Vision (`first_hit`).
+- The miss (first hit), what it reads: evade = 0.5 Elusiveness + 0.3 Agility + 0.2 Speed - size_cost(his weight, 210) + Sudden (A3); tackle = 0.6 Tackling + 0.2 Agility + 0.2 Pursuit + Sudden; angle, closing speed, the carrier's speed, arm-only, lunge; Big hit and Strip. What it does not read: the tackler's weight, Strength, Balance, height, Ball Carrier Vision (`first_hit`).
   - p_miss = min(style × sigmoid(-3 + (evade - tackle) / 50 + angle + fast + space + arm + dive), 0.95).
   - angle -0.3 head-on, +0.3 from behind; fast +0.25 closing over 9 yd/s; space +0.25 carrier over 5 yd/s, else -0.2; arm-only +1.5; dive 2 × yards lunged; style = max(1 + 0.7 × lean(Big hit) + 0.25 × lean(Strip), 0.2).
   - After a miss he keeps 0.72 of his speed (side or behind) or 0.88 (head-on), ± clamp(0.002 × (Balance + Low center - 60), ±0.08).
@@ -286,7 +294,7 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 - Leg distance = (base + per × power) × (1 + 0.000015 × altitude) × (1 - 0.0018 × (55 - °F)₊) + 0.35 × wind along, × 0.96 in rain or snow (`leg`).
 - Kickoff (`kickoff`):
   - leg 49 + 0.23 × Kick Power + N(0, 3); land spread 2.5 × clamp(1 - 0.01 × (Kickoff Technique - 60), 0.6, 1.4); hang clamp(3.4 + 0.014 × (KP - 60) + 0.006 × (KT - 60) + N(0, 0.2), 2.8, 4.8) s; out of bounds 0.006 × (1.4 - KT / 100).
-  - NFL 2025 rules: aims into the landing zone; against a dangerous returner (0.5 Speed + 0.5 Elusiveness over 80) kicks deep with clamp(0.2 + 0.012 × danger, 0.08, 0.45). Elsewhere a big leg aims for the touchback.
+  - NFL 2025 rules: aims into the landing zone; against a dangerous returner (0.5 Speed + 0.5 Elusiveness - size_cost(weight, 200) over 80) kicks deep with clamp(0.2 + 0.012 × danger, 0.08, 0.45). Elsewhere a big leg aims for the touchback.
   - Deep in the end zone the returner kneels by a logistic of where he thinks he'll get, land + 22 + 0.1 × (Speed - 70) + 0.9 × (Return risk - 10.5), against the touchback, width clamp(5.5 - 0.04 × Decisions, 1.5, 4.5); a followed kneel order decides it. College: a fair catch inside the 25 is a touchback 30% of the time.
   - Onside recovered with clamp(0.08 + 0.0025 × (KT - 50) - 0.02 (NFL) or + 0.03, 0.03, 0.25), 11-14 yards.
 - Punt (`punt`):

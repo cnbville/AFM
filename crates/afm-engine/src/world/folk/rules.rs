@@ -1108,7 +1108,7 @@ fn hit_fine(year: i32, kind: u8) -> u32 {
 /// games. Rates from the real record (proposed where none is published):
 /// the NFL fined about 250 to 350 hits a season, suspended two to four
 /// players for repeat hits; FBS calls about 0.2 targeting ejections a game;
-/// high school ejections sit the next game under NFHS rules.
+/// high school ejections sit the next game under NFHS rules, at every school.
 fn league_week(w: &mut World, d: Date) {
     if d.weekday() != Weekday::Tue {
         return;
@@ -1226,7 +1226,28 @@ fn league_week(w: &mut World, d: Date) {
             counts.2 += 1;
         }
     }
-    // High school ejections (your team's): the next game out by rule.
+    // High school ejections: the next game out by rule, at every school
+    // (B2: only your own team's sat out before). Yours make the news and
+    // the record; an AI school's player sits his school's next game.
+    if d >= w.dates.hs_school_start && d <= w.dates.december_graduation {
+        let yours = match seat {
+            Some(Team::High(h)) => Some(h),
+            _ => None,
+        };
+        for h in 0..w.high_schools.len() {
+            if Some(h) == yours || super::roll(w, 0x4E5 ^ d.0 as u64, h as u64) >= 0.08 {
+                continue;
+            }
+            let r = &w.high_schools[h].roster;
+            if r.is_empty() {
+                continue;
+            }
+            let k = (super::roll(w, 0x4E6 ^ d.0 as u64, h as u64) * r.len() as f64) as usize;
+            let id = w.people[r[k.min(r.len() - 1)]].player.id;
+            let until = after_games(w, Team::High(h), 1);
+            w.folk.ai_out.insert(id, until);
+        }
+    }
     if let Some(Team::High(h)) = seat
         && d >= w.dates.hs_school_start
         && d <= w.dates.december_graduation

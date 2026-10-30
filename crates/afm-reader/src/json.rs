@@ -131,11 +131,12 @@ pub fn to_value(v: &V) -> serde_json::Value {
 pub fn get<'a>(v: &'a V, name: &str) -> Option<&'a V> {
     match v {
         V::Map(m) => m.iter().find(|(k, _)| k.as_str() == Some(name)).map(|(_, x)| x),
+        V::Array(a) => a.get(name.parse::<usize>().ok()?),
         _ => None,
     }
 }
 
-/// A field down a path of names (`a.b.c`).
+/// A field down a path of names (`a.b.c`; a number picks a list's item).
 pub fn path<'a>(v: &'a V, p: &str) -> Option<&'a V> {
     p.split('.').try_fold(v, |v, k| get(v, k))
 }

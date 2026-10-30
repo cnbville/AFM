@@ -262,6 +262,19 @@ fn indexes(b: &Book) -> rusqlite::Result<()> {
                 idx.push(vec![k]);
             }
         }
+        // A school's and a college's players, a coach's protégés, the news
+        // that names a program, coach or club (the entity pages, R7).
+        let more: &[&str] = match t.as_str() {
+            "people" => &["hs", "college"],
+            "coaches" => &["mentor"],
+            "news__refs" => &["to__Program", "to__Coach", "to__Club"],
+            _ => &[],
+        };
+        for k in more {
+            if has(k) {
+                idx.push(vec![k]);
+            }
+        }
         for (i, cols) in idx.iter().enumerate() {
             let list: Vec<String> = cols.iter().map(|c| q(c)).collect();
             b.conn.execute_batch(&format!("CREATE INDEX \"ix_{t}_{i}\" ON \"{t}\"({})", list.join(",")))?;

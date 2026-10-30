@@ -249,7 +249,8 @@ function rrChart(rec, pick) {
     const dots = s.players.map((p, j) => {
       const cx = x0 + ((j * 37) % 100) / 100 * (x1 - x0);
       if (p.id === pick) gold.push([cx, y(p.r)]);
-      return `<circle cx="${cx.toFixed(1)}" cy="${y(p.r).toFixed(1)}" r="3.2" class="${p.id === pick ? "pick" : p.r < -0.5 ? "low" : ""}"><title>${esc(p.name || "")}: ${rrSigned(p.r)}</title></circle>`;
+      const c = `<circle cx="${cx.toFixed(1)}" cy="${y(p.r).toFixed(1)}" r="3.2" class="${p.id === pick ? "pick" : p.r < -0.5 ? "low" : ""}"><title>${esc(p.name || "")}: ${rrSigned(p.r)}</title></circle>`;
+      return p.id != null ? `<a data-go="player" data-id="${p.id}">${c}</a>` : c;
     }).join("");
     return `${dots}<line x1="${x0}" x2="${x1}" y1="${y(s.mean)}" y2="${y(s.mean)}" class="mean"/><text x="${x1}" y="${y(s.mean) - 5}" text-anchor="end" class="mv">${rrSigned(s.mean)}</text><text x="${(x0 + x1) / 2}" y="${H - 4}" text-anchor="middle" class="yr">${s.year}</text>`;
   }).join("");
