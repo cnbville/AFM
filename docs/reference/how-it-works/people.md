@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 13e, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at a6467e3 on 2026-10-30; lane 13b (one-on-one openings and reveals) merged with main at 3a99d4f on 2026-10-30. The players-only meeting (bug 153) checked at b2b4213 on 2026-10-30.
+Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 13e, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at a6467e3 on 2026-10-30; lane 13b (one-on-one openings and reveals) merged with main at 3a99d4f on 2026-10-30. The players-only meeting (bug 153) checked at b2b4213 on 2026-10-30. The fan lane (fan voices) merged with main at 5527c36 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
