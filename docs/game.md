@@ -1188,7 +1188,7 @@ Talks on game day and off it, each a scene or a page you play, with every team's
 - **D11: your job interviews**: applying for a head job sits you down with the panel; an empty seat fills after the talk.
 - **D12: the staff meeting** the morning after each game: a coordinator argues a change from the game's numbers; agree, meet him halfway or overrule. The next game settles who was right.
 - **D13: players-only meetings** after a third straight loss, at every college and NFL team and your high school; you hear of yours secondhand, or read it first.
-- **D1: face to face**: a one-on-one and a timed interview room show his drawn head up close in the room for your level, seen over your shoulder, with the expression and turn of his head for the tell your read caught; the talk so far, how he is and your staff's read beside him; his line as a subtitle; move, tone and subject along the bottom. The head is drawn live in the page (`tools/faces/heads/heads.src.js`: an expression's strength and a view turned by degrees).
+- **D1: face to face**: a one-on-one and a timed interview room show his drawn head up close in the room for your level, seen over your shoulder, with the expression and turn of his head for the tell your read caught; the talk so far, how he is and your staff's read beside him; his line as a subtitle; move, tone and subject along the bottom (two picks with one move, such as two different promises, show their first words). The head is drawn live in the page (`tools/faces/heads/heads.src.js`: an expression's strength and a view turned by degrees).
 - `seat_season` plays a pregame talk, the first game live (its sideline words and halftime talk) at every seat.
 
 #### Claude's picks (proposed, not confirmed)

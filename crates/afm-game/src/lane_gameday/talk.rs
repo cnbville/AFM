@@ -208,7 +208,7 @@ fn risk(team: &GameTeam, ls: &[Landing], w: &[f64], names: &Names) -> (String, &
         parts.push(format!("{} wound tight: a mistake will bite", list(&tight)));
     }
     if parts.is_empty() {
-        parts.push("Little: nobody goes over the top and nobody tightens up.".into());
+        parts.push("Little: nobody goes over the top and nobody tightens up".into());
     }
     (parts.join(". ") + ".", level)
 }
@@ -591,7 +591,12 @@ pub(super) fn room(w: &World, a: &Value) -> Reply {
     v["opp"] = views::team_brief(w, refs[1 - side]);
     v["opp_index"] = json!(opp);
     v["home"] = json!(side == 0);
-    v["records"] = json!([views::record_text(w, refs[side]), views::record_text(w, refs[1 - side])]);
+    // Before a team's first game the record is last season's, so it says which.
+    let rec = |t| match views::season_record(w, t) {
+        (r, n) if n == "this season" => r,
+        (r, n) => format!("{r} {n}"),
+    };
+    v["records"] = json!([rec(refs[side]), rec(refs[1 - side])]);
     v["date"] = json!(views::date_text(w.today));
     v["level"] = json!(level_name(level));
     v["stakes"] = stakes_json(team, cx.stakes, s.params.playoff, next.as_ref().map_or(&[][..], |n| &n.why[..]));

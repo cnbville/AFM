@@ -617,7 +617,7 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     } else {
         "He sits down and waits for you to start."
     };
-    s.narrate(format!("{} {posture}", player_link(w, i)));
+    s.narrate(format!("In comes {}. {posture}", player_link(w, i)));
     let spk = Speaker::player(w, i);
     let mut f = player_facts(w, i);
     f.set("subject", subject.name());
@@ -694,8 +694,10 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     let p = &w.people[i];
     let starter = p.last_role == Some(PlayingTime::Starter);
     let nfl = p.stage == Stage::Pro;
+    // One pick per move and tone: the subject's own line wins over the
+    // general one (two picks on one code read as the same chip twice).
     let mut add = |m: Move, t: Tone, label: String, hint: &str| {
-        if !used.contains(&m) {
+        if !used.contains(&m) && !s.picks.iter().any(|p| p.code == code_of(m, t)) {
             s.picks.push(Pick {
                 label,
                 mv: m.name().into(),

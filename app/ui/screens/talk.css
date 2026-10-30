@@ -8,7 +8,7 @@
 :root[data-theme="light"] .tk { --tk-panel: #ffffff; --tk-hover: rgba(0, 0, 0, .05); }
 .tk-room { position: absolute; inset: 0 0 auto 0; height: 360px; pointer-events: none;
   background: radial-gradient(120% 90% at 70% 0%, rgba(241, 190, 72, .07), transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, .03), transparent); }
-.tk-pad { position: relative; padding-bottom: 48px; }
+.tk-pad { position: relative; padding: 22px 26px 60px; }
 
 .tk-top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; background: var(--tk-panel); border-radius: 16px; box-shadow: inset 0 0 0 1px var(--hair); padding: 10px 16px; }
 .tk-pill { font-size: 11.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--hair); white-space: nowrap; }
@@ -19,7 +19,7 @@
 .tk-clock { margin-left: auto; display: flex; align-items: center; gap: 12px; min-width: 0; }
 .tk-clock > b { font-size: 26px; font-weight: 800; font-stretch: 90%; }
 .tk-clock > span { display: flex; gap: 14px; font-size: 11.5px; color: var(--sl-dim); }
-.tk-line { position: relative; width: 150px; height: 2px; background: var(--sl-track-dim); }
+.tk-line { position: relative; width: 100px; height: 2px; background: var(--sl-track-dim); }
 .tk-line i { position: absolute; top: -4px; width: 1px; height: 10px; background: var(--sl-track); }
 
 .tk-head { margin: 22px 0 18px; max-width: 1100px; }
@@ -31,6 +31,8 @@
 .tk-chips .tk-label { margin-left: 10px; }
 
 .tk-grid { display: grid; grid-template-columns: minmax(250px, .9fr) minmax(0, 1.2fr) minmax(0, 1.2fr); gap: 14px; align-items: start; }
+/* After the talk the unit table sits on the left, so that column is the wide one. */
+.tk-grid-said { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); }
 .tk-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .tk-panel { background: var(--tk-panel); border-radius: 16px; box-shadow: inset 0 0 0 1px var(--hair); padding: 14px 18px; min-width: 0; }
 .tk-sub + .tk-sub, .tk-panel > .tk-sub + .tk-sub { margin-top: 12px; padding-top: 12px; box-shadow: inset 0 1px 0 var(--sl-line); }
@@ -38,10 +40,11 @@
 .tk-ph b { font-size: 11.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--sl-text3); white-space: nowrap; }
 .tk-ph span { font-size: 11.5px; color: var(--sl-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-panel p { font-size: 13.5px; line-height: 1.5; margin: 4px 0; }
+.tk-nw { white-space: nowrap; }
 .tk-note, .tk-dim { font-size: 12.5px; color: var(--sl-dim); line-height: 1.45; }
 .tk-warn { color: var(--sl-bad) !important; }
 
-.tk-picks { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px 8px; align-items: start; }
+.tk-picks { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px 8px; align-items: start; margin-bottom: 16px; }
 .tk-picks > span { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--sl-faint); padding-top: 7px; }
 .tk-picks > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .tk .tk-chip { font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--hair); color: var(--fg2); background: transparent; white-space: nowrap; }
@@ -62,7 +65,7 @@
 .tk-actions .tk-dim { margin-left: auto; }
 
 .tk-units { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-.tk-units th { text-align: left; font-size: 11px; font-weight: 600; color: var(--sl-faint); padding: 4px 6px 6px 0; }
+.tk-units th { text-align: left; font-size: 11px; font-weight: 600; color: var(--sl-faint); padding: 4px 6px 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-units th:nth-child(1) { width: 30%; }
 .tk-units th:nth-child(3), .tk-units th:nth-child(4) { width: 18%; }
 .tk-units td { padding: 7px 6px 7px 0; box-shadow: inset 0 -1px 0 var(--sl-row); overflow: hidden; text-overflow: ellipsis; }
@@ -112,7 +115,10 @@
   .tk-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .tk-grid > .tk-col:first-child { order: 3; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
   .tk-tag { max-width: 220px; }
+  .tk-line { display: none; }
 }
+/* The date is in the bar above too: the clock keeps the line. */
+@media (max-width: 1520px) { .tk-date { display: none; } }
 @media (max-width: 1000px) {
   .tk-grid { grid-template-columns: minmax(0, 1fr); }
   .tk-clock { margin-left: 0; }
@@ -121,9 +127,9 @@
 /* Face to face (dialogue D1, mock-up A): the room for the setting behind
    him, his drawn head up close, your shoulder in the corner, glass panels
    either side, his line as a subtitle and your picks along the bottom. */
-.tk-f2f { --tk-glass: rgba(16, 18, 23, .74); position: relative; overflow: hidden; min-height: calc(100vh - 60px); display: grid;
+.tk-f2f { --tk-glass: rgba(16, 18, 23, .74); position: relative; overflow: hidden; min-height: calc(100vh - 124px); display: grid;
   grid-template-columns: minmax(250px, 310px) minmax(0, 1fr) minmax(250px, 310px); grid-template-rows: auto minmax(0, 1fr) auto auto;
-  gap: 14px 18px; padding: 20px 26px 22px; background: #0c0e12; color: #eef0f4; }
+  gap: 12px 18px; padding: 16px 26px 18px; background: #0c0e12; color: #eef0f4; }
 :root[data-theme="light"] .tk-f2f { --tk-glass: rgba(16, 18, 23, .74); color: #eef0f4; }
 .tk-fbg { position: absolute; inset: -20px; z-index: 0; filter: blur(14px) saturate(.9); opacity: .9;
   background: radial-gradient(60% 50% at 70% 35%, rgba(255, 255, 255, .08), transparent 70%), linear-gradient(180deg, #23262d, #0d0f13 75%); }
@@ -139,7 +145,7 @@
   linear-gradient(180deg, #2d2620, #110e0c 80%); }
 .tk-fshoulder { position: absolute; left: -6%; bottom: -14%; width: 38%; height: 62%; z-index: 1; pointer-events: none; border-radius: 50% 50% 0 0;
   background: radial-gradient(60% 55% at 50% 60%, rgba(5, 6, 8, .92), rgba(5, 6, 8, .55) 60%, transparent 75%); filter: blur(18px); }
-.tk-f2f > * { position: relative; z-index: 2; min-width: 0; }
+.tk-f2f > :not(.tk-fbg):not(.tk-fshoulder) { position: relative; z-index: 2; min-width: 0; }
 .tk-fglass { background: var(--tk-glass); border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); backdrop-filter: blur(10px); padding: 14px 16px; }
 .tk-flabel { display: block; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(238, 240, 244, .55); margin-bottom: 8px; }
 
@@ -153,7 +159,7 @@
 .tk-fwhen b { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .tk-fwhen small { font-size: 12.5px; font-weight: 500; color: rgba(238, 240, 244, .62); }
 
-.tk-fleft { grid-column: 1; grid-row: 2; align-self: start; max-height: 52vh; overflow: auto; }
+.tk-fleft { grid-column: 1; grid-row: 2; align-self: start; max-height: 46vh; overflow: auto; }
 .tk-fso { list-style: none; margin: 0; padding: 0; }
 .tk-fso li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; padding: 9px 0; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .07); }
 .tk-fso li:last-child { box-shadow: none; }
@@ -163,8 +169,8 @@
 .tk-fyou { font-weight: 700; }
 .tk-fnote { font-size: 12px !important; color: rgba(238, 240, 244, .55); line-height: 1.4; margin: 0; }
 
-.tk-fface { grid-column: 2; grid-row: 2 / 4; position: relative; display: flex; justify-content: center; align-items: flex-end; min-height: 380px; }
-.tk-fhead { height: min(66vh, 640px); width: auto; max-width: 100%; object-fit: contain; object-position: bottom; transition: opacity .35s; }
+.tk-fface { grid-column: 2; grid-row: 2 / 4; position: relative; display: flex; justify-content: center; align-items: flex-end; min-height: 320px; }
+.tk-fhead { height: min(46vh, 500px); width: auto; max-width: 100%; object-fit: contain; object-position: bottom; transition: opacity .35s; }
 .tk-fhead[data-tkhead]:not(.on) { opacity: .55; filter: blur(2px); }
 .tk-fhead:not([src]) { visibility: hidden; }
 .tk-fsil { align-self: center; opacity: .8; }
@@ -184,7 +190,7 @@
 
 .tk-fsub { grid-column: 1 / -1; grid-row: 3; align-self: end; justify-self: center; width: min(900px, 100%); text-align: center; }
 .tk-fsub b { display: block; font-size: 11px; font-weight: 800; letter-spacing: .16em; color: rgba(238, 240, 244, .6); margin-bottom: 6px; }
-.tk-fsub p { margin: 0; padding: 12px 22px; border-radius: 12px; background: rgba(10, 11, 14, .78); font-size: 21px; font-weight: 600; line-height: 1.35; }
+.tk-fsub p { margin: 0; padding: 10px 22px; border-radius: 12px; background: rgba(10, 11, 14, .78); font-size: 19px; font-weight: 600; line-height: 1.35; }
 
 .tk-fbottom { grid-column: 1 / -1; grid-row: 4; justify-self: center; width: min(1040px, 100%); }
 .tk-fpick { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 8px; align-items: start; padding: 4px 0; }

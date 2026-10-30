@@ -44,7 +44,7 @@ function tkTop(x) {
   const tag = [x.level, x.name, ...(x.stakes ? x.stakes.why.slice(0, 1) : [])].filter(Boolean).map(esc).join(" · ");
   return `<div class="tk-top"><span class="tk-pill">${half ? "Halftime talk" : "Pregame talk"}</span>
     <span class="tk-teams">${teamLink(x.me)} <small>${esc(rec[0])}</small> <em>${at}</em> ${teamLink(x.opp)} <small>${esc(rec[1])}</small></span>
-    <span class="tk-tag">${tag}</span>${x.date ? `<span class="tk-tag">${esc(x.date)}</span>` : ""}${clock}</div>`;
+    <span class="tk-tag">${tag}</span>${x.date ? `<span class="tk-tag tk-date">${esc(x.date)}</span>` : ""}${clock}</div>`;
 }
 
 const tkBar = (now, tick, worry) =>
@@ -61,15 +61,16 @@ function tkUnits(units, title, note, afterNow) {
 }
 
 function tkKey(key, title) {
-  const rows = key.map((p) => `<li><div class="tk-kp"><div>${playerLink(p.id, p.name)} <small>${esc(p.pos)}${p.class ? " · " + esc(p.class) : ""}${p.captain ? " · captain" : ""}</small><div class="tk-dim">${esc(p.tag)}</div></div>
+  const rows = key.map((p) => `<li><div class="tk-kp"><div>${playerLink(p.id, p.name)} <small>${[p.pos, p.class, p.captain ? "captain" : ""].filter(Boolean).map((t) => `<span class="tk-nw">${esc(t)}</span>`).join(" · ")}</small><div class="tk-dim">${esc(p.tag)}</div></div>
     <div><b class="${p.worry ? "tk-warn" : ""}">${esc(p.why)}</b><div class="tk-dim">${esc(p.detail)}</div></div></div></li>`).join("");
   return `<section class="tk-panel"><div class="tk-ph"><b>${title}</b><span>why each one</span></div><ul class="tk-list">${rows || '<li class="tk-dim">Nobody moves much.</li>'}</ul></section>`;
 }
 
 function tkStaff(x) {
-  const st = (x.staff || []).map((s) => `<p class="tk-q">${coachLink(s.coach, s.name)}, ${esc(s.role)}: “${esc(s.text)}”</p>`).join("");
+  const n = (x.staff || []).length;
+  const st = n ? x.staff.map((s) => `<p class="tk-q">${coachLink(s.coach, s.name)}, ${esc(s.role)}: “${esc(s.text)}”</p>`).join("") : `<p class="tk-q tk-dim">No coordinators on your staff: the read is yours alone.</p>`;
   const r = x.risk;
-  return `<section class="tk-sub"><div class="tk-ph"><b>Your staff's read</b><span>${(x.staff || []).length} coordinator${(x.staff || []).length === 1 ? "" : "s"}</span></div>${st}
+  return `<section class="tk-sub"><div class="tk-ph"><b>Your staff's read</b><span>${n ? `${n} coordinator${n === 1 ? "" : "s"}` : "none"}</span></div>${st}
     ${r ? `<div class="tk-risk ${r.level}"><b>Risk · ${esc(r.level)}</b><span>${esc(r.text)}</span></div>` : ""}</section>`;
 }
 
@@ -161,7 +162,7 @@ function tkSaid(x) {
   const right = `<div class="tk-col">${tkFirst(x)}<section class="tk-panel">${tkStaff(x)}
     <div class="tk-actions">${half ? `<button class="st-btn primary" data-go="live">Back out for the second half</button>` : `<button class="st-btn primary" data-act="tk-run">Run out</button><button class="st-btn glass" data-act="tk-undo">Change it</button>`}
     <span class="tk-dim">${x.clock ? `Out at ${esc(x.clock.out)}` : ""}</span></div></section></div>`;
-  return `${head}<div class="tk-grid"><div class="tk-col">${what}${tkUnits(x.units, "By unit", "bar: now · tick: before your line", true)}</div><div class="tk-col">${tkKey(x.key, "Who stood out")}</div>${right}</div>`;
+  return `${head}<div class="tk-grid tk-grid-said"><div class="tk-col">${what}${tkUnits(x.units, "By unit", "bar: now · tick: before your line", true)}</div><div class="tk-col">${tkKey(x.key, "Who stood out")}</div>${right}</div>`;
 }
 
 function tkCaptainSaid(x) {
@@ -346,7 +347,15 @@ async function tkFaceToFace(s, lead, pp, st) {
   const talk = s.kind === "OneOnOne";
   const isTalk = (c) => talk && c >= 100 && c < 190;
   const chosen = st.pick != null ? s.picks.find((p) => p.code === st.pick) : null;
-  const moves = s.picks.filter((p) => p.code !== 900 && p.code !== 969).map((p) => `<button class="tk-chip ${chosen && chosen.code === p.code ? "on" : ""}" data-act="pppick" data-id="${s.id}" data-code="${p.code}" data-tone="${esc(p.tone)}" title="${esc(plainText(p.label))}">${esc(p.mv)}</button>`).join("");
+  // Two picks with one move (two different promises) carry their first words.
+  const offered = s.picks.filter((p) => p.code !== 900 && p.code !== 969);
+  const twice = (mv) => offered.filter((p) => p.mv === mv).length > 1;
+  const chipText = (p) => {
+    if (!twice(p.mv)) return p.mv;
+    const w = plainText(p.label).replace(/^["“]|["”]$/g, "").split(/\s+/);
+    return w.length > 4 ? `${p.mv} · ${w.slice(0, 4).join(" ").replace(/[.,!?;:]+$/, "")}…` : `${p.mv} · ${w.join(" ")}`;
+  };
+  const moves = offered.map((p) => `<button class="tk-chip ${chosen && chosen.code === p.code ? "on" : ""}" data-act="pppick" data-id="${s.id}" data-code="${p.code}" data-tone="${esc(p.tone)}" title="${esc(plainText(p.label))}">${esc(chipText(p))}</button>`).join("");
   const tone = st.tone || (chosen && chosen.tone);
   const tones = talk ? `<div class="tk-fpick"><span>Tone</span><div>${PP_TONES.map(([k, t]) => `<button class="tk-chip ${tone === k ? "on" : ""}" data-act="pptone" data-id="${s.id}" data-v="${k}">${t}</button>`).join("")}</div></div>` : "";
   const subjects = talk && s.subjects ? `<div class="tk-fpick"><span>Subject</span><div>${s.subjects.map((x) => `<button class="tk-chip ${x.key === s.subject ? "on" : ""}" data-act="tksubject" data-id="${s.id}" data-s="${x.key}">${esc(x.name)}</button>`).join("")}</div></div>` : "";

@@ -75,7 +75,12 @@ fn z(v: f64) -> f64 {
 
 fn line(w: &mut World, s: &Scene, k: u64, key: &str, who: &Speaker, f: &Facts) -> String {
     let mut pen = scene::pen(w, s, k);
-    let t = pen.part(key, who, f).map(|x| super::voice::tidy(&x)).unwrap_or_default();
+    // A speaker no tagged version fits says one of the plain ones.
+    let t = pen
+        .part(key, who, f)
+        .or_else(|| pen.part(key, &Speaker { key: who.key, tags: Vec::new() }, f))
+        .map(|x| super::voice::tidy(&x))
+        .unwrap_or_default();
     pen.put(w);
     t
 }
@@ -298,7 +303,7 @@ fn pitch_picks(s: &mut Scene) {
     }
 }
 
-fn visit_answer(w: &mut World, s: &mut Scene, code: u32) {
+fn visit_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let id = s.a as u32;
     let j = s.b as usize;
     let Some(i) = super::person(w, id) else { return s.end() };
@@ -318,6 +323,7 @@ fn visit_answer(w: &mut World, s: &mut Scene, code: u32) {
         return;
     }
     let k = (code.saturating_sub(701) as usize).min(PITCHES.len() - 1);
+    s.you(&scene::your_name(w), picked.label.trim_matches('"'));
     let lean = home_lean(w, i, j, k, you(w), s.c == 1);
     keep_lean(w, i, j, lean);
     let mood = if lean > 0.012 {
@@ -474,7 +480,7 @@ fn call_open(w: &mut World, s: &mut Scene) {
     );
 }
 
-fn call_answer(w: &mut World, s: &mut Scene, code: u32) {
+fn call_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let id = s.a as u32;
     let j = s.b as usize;
     let word = (code.saturating_sub(901)).min(2) as u8;
@@ -505,10 +511,7 @@ fn call_answer(w: &mut World, s: &mut Scene, code: u32) {
             0.0
         })
     .clamp(-1.0, 1.0);
-    s.you(
-        &scene::your_name(w),
-        s.picks.iter().find(|p| p.code == code).map_or(String::new(), |p| p.label.trim_matches('"').to_string()),
-    );
+    s.you(&scene::your_name(w), picked.label.trim_matches('"'));
     s.outcome.push(
         match (word, concern) {
             (0, _) => "You sold him. They'll look harder at his film.",
@@ -925,7 +928,7 @@ fn cap(s: &str) -> String {
     c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
 }
 
-fn meeting_answer(w: &mut World, s: &mut Scene, code: u32) {
+fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let c = s.a as usize;
     let kind = (s.b as u8).min(3);
     let said = (code.saturating_sub(951)).min(2) as u8;
@@ -933,6 +936,7 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32) {
         shift_plan(w, kind, if said == 0 { 1.0 } else { 0.5 });
     }
     w.folk.dialogue.case = Some(Case { coach: c, kind, said, date: w.today, before: s.c as i32 });
+    s.you(&scene::your_name(w), picked.label.trim_matches('"'));
     let sp = Speaker::coach(w, c);
     let mood = ["yes", "half", "no"][said as usize];
     let t = line(w, s, 2, &format!("staffmeet.reply.{mood}"), &sp, &Facts::new());
@@ -1405,12 +1409,12 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
     }
 }
 
-pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, _picked: &Pick) {
+pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     match s.kind {
-        Kind::HomeVisit => visit_answer(w, s, code),
-        Kind::CollegeCall => call_answer(w, s, code),
+        Kind::HomeVisit => visit_answer(w, s, code, picked),
+        Kind::CollegeCall => call_answer(w, s, code, picked),
         Kind::JobInterview => interview_answer(w, s, code),
-        Kind::StaffMeeting => meeting_answer(w, s, code),
+        Kind::StaffMeeting => meeting_answer(w, s, code, picked),
         Kind::CombineTalk => combine_answer(w, s, code),
         _ => s.end(),
     }
