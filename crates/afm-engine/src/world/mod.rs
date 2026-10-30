@@ -37,7 +37,6 @@ pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
 pub mod hunt;
-pub(crate) mod knockout;
 pub mod legacy;
 pub mod live_seat;
 pub mod looks;
