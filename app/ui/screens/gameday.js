@@ -237,7 +237,7 @@
           <label>Tempo<small>${r.tempo === "hurry" ? "No-huddle: more snaps, less time for their defense to substitute and disguise." : r.tempo === "milk" ? "Use the play clock: fewer snaps, the game shorter." : "Huddle and snap as the play caller likes."}</small></label>${seg("tempo", r.tempo, [["normal", "Normal"], ["hurry", "No-huddle"], ["milk", "Milk the clock"]])}
           <label>Timeouts<small>${r.timeouts === "keep_two" ? "Keep two for the end of each half." : r.timeouts === "keep_one" ? "Keep one for the end of each half." : r.timeouts === "free" ? "Use them when the snap needs it." : "Your staff spends them as the game goes."}</small></label>${seg("timeouts", r.timeouts, [["staff", "Staff"], ["keep_two", "Keep two"], ["keep_one", "Keep one"], ["free", "Freely"]])}
           <label>Four-minute plan<small>${r.four === "run" ? "Ahead by one score late: run it out." : r.four === "attack" ? "Keep attacking with the lead." : "Your staff decides with the lead and the clock."}</small></label>${seg("four", r.four, [["staff", "Staff"], ["run", "Run it out"], ["attack", "Keep attacking"]])}
-        </div>${r.changed ? `<div class="sub">Changed for this game only: the standing rules on Plans come back after it. <a class="link" data-act="gd-rulereset">Back to the standing rules</a></div>` : ""}</div></div>`;
+        </div>${r.changed ? `<div class="sub">Changed for this game only: the standing rules on the Playbook come back after it. <a class="link" data-act="gd-rulereset">Back to the standing rules</a></div>` : ""}</div></div>`;
   }
 
   function settingsPanel(s) {

@@ -17,7 +17,7 @@ use crate::world::pro::market::{self, Ideal, Offer, Sheet};
 use crate::world::pro::{self, DeadWhy, Status, money};
 use crate::world::{Stage, World};
 
-use super::{Duty, Owner};
+use super::Duty;
 
 /// What kind of talk it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -168,6 +168,9 @@ pub struct NflDesk {
     /// Tags and tenders placed before the new league year, with the deal
     /// they replaced, so one can be withdrawn until the league files it.
     pub placed: Vec<Placed>,
+    /// Tags and tenders you withdrew (player id, league year): your staff
+    /// doesn't put one back on him while it runs the tags (SC6).
+    pub withdrawn: Vec<(u32, i32)>,
 }
 
 /// A tag or tender placed before the league year and what it replaced.
@@ -327,7 +330,7 @@ fn ideal_of(w: &World, i: usize, kind: TalkKind) -> Ideal {
 fn offer_score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<usize>) -> f64 {
     let s = market::score(w, i, o, ideal, own);
     let id = w.people[i].player.id;
-    let visited = w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60);
+    let visited = visited_recently(w, id);
     if !visited {
         return s;
     }
@@ -464,8 +467,7 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
     let t = club(w)?;
     let i = person(w, id)?;
     let kind = negotiable(w, i).ok_or("He isn't someone you can talk terms with today.")?;
-    // Acting on a duty takes it back from your staff.
-    w.front_office.set_owner(kind_duty(kind), Owner::You);
+    // A talk you open is yours; your staff keeps the rest of the duty (SC6).
     check(w, t, i, &p, kind)?;
     let today = w.today;
     if let Some(cold) = w.front_office.nfl.talk(id).and_then(|x| x.cold_until)
@@ -614,13 +616,6 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
 /// A free agent no club holds: off the street or on the open market.
 fn free_now(w: &World, i: usize) -> bool {
     w.people[i].pro.as_ref().is_some_and(|c| c.status == Status::FreeAgent && c.team.is_none() && !c.on_waivers)
-}
-
-fn kind_duty(k: TalkKind) -> Duty {
-    match k {
-        TalkKind::ReSign | TalkKind::Extension => Duty::Contracts,
-        TalkKind::FreeAgent | TalkKind::OfferSheet => Duty::FreeAgency,
-    }
 }
 
 /// What the agent claims about other interest, and your read of it. An
@@ -824,11 +819,38 @@ pub(crate) fn sheet_match(w: &World, s: &Sheet) -> Option<bool> {
 
 /// Your fifth-year option choice on a player of yours.
 pub(crate) fn option_choice(w: &World, t: usize, i: usize) -> Option<bool> {
+    let id = w.people[i].player.id;
+    let set = w.front_office.nfl.options.iter().find(|x| x.0 == id);
+    // A choice you made stands whoever holds the duty (SC6).
+    if super::seat_head_club(w, t)
+        && let Some(x) = set
+    {
+        return Some(x.1);
+    }
     if !super::yours(w, t, Duty::Contracts) {
         return None;
     }
-    let id = w.people[i].player.id;
-    Some(w.front_office.nfl.options.iter().find(|x| x.0 == id).is_some_and(|x| x.1))
+    Some(set.is_some_and(|x| x.1))
+}
+
+/// Whether you are in talks with player `i` of club `t` (your club): your
+/// staff leaves him to you while it runs the rest of the duty (SC6). Only a
+/// live talk counts: an offer standing or agreed, or an open talk of the
+/// kind he's open to today with a word from either side in the last three
+/// weeks. A talk you leave goes back to your staff.
+pub(crate) fn talking(w: &World, t: usize, i: usize) -> bool {
+    if !super::seat_head_club(w, t) {
+        return false;
+    }
+    let today = w.today;
+    w.front_office.nfl.talk(w.people[i].player.id).is_some_and(|x| {
+        let last = x.lines.last().map_or(x.opened, |l| l.date);
+        match x.state {
+            TalkState::Standing | TalkState::Agreed => true,
+            TalkState::Open => negotiable(w, i) == Some(x.kind) && last.days_to(today) <= 21,
+            _ => false,
+        }
+    })
 }
 
 /// Sets a fifth-year option choice (it takes effect on the deadline).
@@ -847,7 +869,6 @@ pub fn set_option(w: &mut World, id: u32, take: bool) -> Result<(), String> {
     if w.today > w.dates.fifth_year_option {
         return Err("The option deadline has passed.".into());
     }
-    w.front_office.set_owner(Duty::Contracts, Owner::You);
     w.front_office.nfl.options.retain(|x| x.0 != id);
     w.front_office.nfl.options.push((id, take));
     let name = w.people[i].name.clone();
@@ -1003,7 +1024,6 @@ pub fn tag(w: &mut World, id: u32, what: &str) -> Result<String, String> {
         crate::calendar::Kind::Signing,
         format!("{who} gets the {label} tag (${:.1}M).", price / 1e6),
     );
-    w.front_office.set_owner(Duty::Tags, Owner::You);
     let text = format!("Tagged {pname} ({label}, {} for one year).", super::dollars(price));
     super::note(w, text.clone(), Some(id));
     Ok(text)
@@ -1081,7 +1101,6 @@ pub fn tender(w: &mut World, id: u32, level: &str) -> Result<String, String> {
     if rfa.is_some() {
         w.market.year_mut(year).tenders += 1;
     }
-    w.front_office.set_owner(Duty::Tags, Owner::You);
     let line = format!("Tendered {pname}: {text}, {}.", super::dollars(deal_price));
     super::note(w, line.clone(), Some(id));
     Ok(line)
@@ -1146,6 +1165,8 @@ fn withdraw(w: &mut World, i: usize, id: u32) -> Result<String, String> {
     let k = w.front_office.nfl.placed.iter().position(|x| x.player == id && x.year == year);
     let Some(k) = k else { return Err("That tag or tender can be taken back once the new league year opens.".into()) };
     let x = w.front_office.nfl.placed.remove(k);
+    w.front_office.nfl.withdrawn.retain(|x| x.1 >= year - 1);
+    w.front_office.nfl.withdrawn.push((id, year));
     let kind = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).map(|k| k.kind);
     let tendered = w.people[i].pro.as_ref().is_some_and(|c| c.rfa.is_some());
     let team = x.old.team;
@@ -1256,6 +1277,12 @@ pub fn release(w: &mut World, id: u32, june1: bool) -> Result<String, String> {
     Ok(text)
 }
 
+/// A visit within the last 60 days: a second visit waits that long, and
+/// the offer's lean counts only these.
+pub fn visited_recently(w: &World, id: u32) -> bool {
+    w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60)
+}
+
 /// Brings a free agent in for a visit (not in the negotiating window: the
 /// rules allow talks, not visits). Your staff gets a medical and both
 /// sides learn what matters: he tells you what he wants most.
@@ -1268,7 +1295,7 @@ pub fn visit(w: &mut World, id: u32) -> Result<String, String> {
     if w.today < w.dates.league_year.date {
         return Err("Visits wait for the new league year; the negotiating window allows talks only.".into());
     }
-    if w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60) {
+    if visited_recently(w, id) {
         return Err("He visited already.".into());
     }
     w.front_office.nfl.visits.push((id, w.today));
