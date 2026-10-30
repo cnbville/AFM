@@ -23,6 +23,7 @@ mod lines;
 mod links;
 mod live_game;
 mod new_teams;
+mod no_fire;
 mod polls;
 mod portal_talks;
 mod ratings;

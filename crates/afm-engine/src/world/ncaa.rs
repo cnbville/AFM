@@ -483,7 +483,9 @@ fn ncaa_case(w: &mut World, j: usize) {
         let was_head = biggest.is_some_and(|b| b.head_coach == Some(c));
         w.coaches[c].show_cause = Some(year + years as i32);
         show_cause = Some((c, years, was_head));
-        if matches!(w.coaches[c].job, Some(job) if matches!(job.employer, Employer::College(_))) {
+        if matches!(w.coaches[c].job, Some(job) if matches!(job.employer, Employer::College(_)))
+            && !super::front_office::market::spared(w, c, "left under an NCAA show-cause order")
+        {
             super::staff::leave(w, c, "left under an NCAA show-cause order");
         }
     }
