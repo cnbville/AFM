@@ -22,6 +22,7 @@
 use std::collections::HashMap;
 
 use afm_engine::positions::Position;
+use afm_engine::world::eligibility::{division_of, exhausted_after};
 use afm_engine::world::pro::scouts::{LookKind, Role, Scout};
 use afm_engine::world::scouting::own::{self, Call, Measure, Service, Topic, TripKind};
 use afm_engine::world::scouting::readers::{self, Staff};
@@ -500,7 +501,9 @@ fn college_desk(w: &World, c: usize) -> Value {
         .filter(|(_, p)| {
             p.college == Some(c) && p.stage == Stage::College && p.cal.draft_read.is_some_and(|r| r.round <= 7)
         })
-        .filter(|(_, p)| year + 1 - p.class_of < 4)
+        // Any underclassman with college football left, by the same test the
+        // advisory committee uses (a redshirt junior too).
+        .filter(|(_, p)| !exhausted_after(p, division_of(p, &w.programs), year))
         .map(|(i, p)| {
             let r = p.cal.draft_read.unwrap();
             let mut row = person_row(w, i);

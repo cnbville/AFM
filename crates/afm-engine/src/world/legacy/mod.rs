@@ -293,6 +293,8 @@ pub fn hire_check(w: &mut World) {
         // A new job's collective starts on its own split (L9).
         if w.legacy.job_seen.is_some() {
             w.legacy.college.split = [0.0; 3];
+            // The old school's feeder plans stay there.
+            w.legacy.hs.feeders.clear();
         }
         w.legacy.job_seen = now;
         ambitions::offer(w);

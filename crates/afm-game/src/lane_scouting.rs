@@ -667,17 +667,31 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
 }
 
 /// The looks you can ask your staff for on this player, by your seat.
-fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
+/// A free agent your club can make an offer to today.
+fn can_sign(w: &World, i: usize) -> bool {
+    afm_engine::world::front_office::nfl::negotiable(w, i)
+        == Some(afm_engine::world::front_office::nfl::TalkKind::FreeAgent)
+}
+
+pub(crate) fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
     let Some(s) = w.seat else { return Vec::new() };
     let mut v = match s.level {
         CalLevel::Nfl if matches!(p.stage, Stage::College | Stage::Declared) => {
             vec!["See him again", "Cross-check", "Private workout", "Background check", "Medical recheck"]
         }
-        CalLevel::Nfl => vec!["Pro film", "Tryout"],
+        // A pro: film on anyone in the league, a tryout only for a man no
+        // club holds; your own players your staff reads every day.
+        CalLevel::Nfl if p.stage == Stage::Pro => match p.pro.as_ref() {
+            Some(c) if c.team.is_some() && c.team == s.nfl_team => Vec::new(),
+            Some(c) if c.team.is_none() && c.status == afm_engine::world::pro::Status::FreeAgent && !c.on_waivers => {
+                vec!["Pro film", "Tryout"]
+            }
+            _ => vec!["Pro film"],
+        },
         CalLevel::College if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) => {
             vec!["Evaluate in person", "Film study", "Call his coach", "Transcript", "Social media"]
         }
-        CalLevel::College => vec!["Film study", "Call his old staff", "Transcript"],
+        CalLevel::College if p.stage == Stage::College => vec!["Film study", "Call his old staff", "Transcript"],
         _ => Vec::new(),
     };
     // Bug 82: you watch his film yourself, today, on your own hours.
@@ -1680,6 +1694,8 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
             let mut r = row(w, i);
             r["read"] = brief_read(w, staff, w.people[i].player.id);
             r["tried"] = json!(ps.tryouts.iter().any(|x| x.0 == w.people[i].player.id));
+            // He can sign with you today (minor bug 72).
+            r["can_sign"] = json!(can_sign(w, i));
             r
         })
         .collect();
@@ -1692,6 +1708,7 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
             let i = sc::place(w, id)?;
             let mut r = row(w, i);
             r["date"] = json!(date_text(d));
+            r["can_sign"] = json!(can_sign(w, i));
             Some(r)
         })
         .collect();

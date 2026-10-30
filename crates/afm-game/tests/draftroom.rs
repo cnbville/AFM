@@ -90,7 +90,15 @@ fn the_draft_room_and_the_outlook() {
     nothing_hidden("dr_outlook", &o, "");
     assert_eq!(o["seat"], "college");
     assert!(o["rows"].as_array().unwrap().iter().all(|r| r["status"].as_str().is_some_and(|s| !s.is_empty())));
+    assert!(o["rows"].as_array().unwrap().iter().all(|r| r["invites"].is_array()), "the Squad's Draft view reads them");
     assert!(g.call("dr_room", &json!({})).is_ok(), "the room answers off draft night");
+    // The Visits desk invites from your board (SC7): each target's open
+    // days by kind of visit.
+    let v = ok(&mut g, "visits_desk", json!({}));
+    if let Some(t) = v["targets"].as_array().and_then(|t| t.first()) {
+        let opts = ok(&mut g, "visit_options", json!({ "id": t["id"] }));
+        assert_eq!(opts["options"].as_array().unwrap().len(), 4, "{opts}");
+    }
 
     // An NFL club with an early pick.
     ok(&mut g, "load", json!({ "path": &fresh }));
