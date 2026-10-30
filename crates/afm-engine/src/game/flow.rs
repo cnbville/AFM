@@ -1154,6 +1154,7 @@ impl<'a> Game<'a> {
             def_concede: self.sides[1 - o].coach.read.concede,
             college: self.rules().level != Level::NFL,
             lean: self.rules().code.pass_lean,
+            weather: self.weather_lean(),
         }
     }
 
@@ -1434,6 +1435,25 @@ impl<'a> Game<'a> {
     /// bad-weather versions (update 2, G13).
     fn bad_weather(&self) -> bool {
         self.s.cond.rain || self.s.cond.snow || self.s.cond.wind >= 15.0
+    }
+
+    /// How far the weather moves a call toward the run (minor bug 144).
+    /// Real offenses on 1st and 2nd down within 7 points throw 51.8% in
+    /// 0-4 mph, about the same to 14 mph, 49.7% at 15-19 (16.4 on average)
+    /// and 44.9% at 20+ (23.2), 47.4% in rain and 42.6% in snow (nflverse
+    /// 2021-2025, outdoor and open-roof games; snow 11 games). Proposed,
+    /// not confirmed.
+    fn weather_lean(&self) -> f64 {
+        let c = &self.s.cond;
+        let wind = 0.007 * (c.wind - 13.0).max(0.0);
+        let sky = if c.snow {
+            0.08
+        } else if c.rain {
+            0.04
+        } else {
+            0.0
+        };
+        wind.max(sky)
     }
 
     fn wind_along(&self, team: usize) -> f64 {
@@ -2370,7 +2390,7 @@ impl<'a> Game<'a> {
         // Fourth down.
         if self.down == self.rules().downs() && !(self.ot && self.rules().overtime != Overtime::NflPeriod && false) {
             let make = self.fg_make_estimate(o, fg_dist);
-            let mut choice = calling::fourth_down(&staff, &sit, make, &mut self.rng);
+            let mut choice = calling::fourth_down(&staff, &sit, self.rules().level, make, &mut self.rng);
             if self.ot && !self.ot_timed() && choice == FourthDown::Punt {
                 choice = if make > 0.35 { FourthDown::FieldGoal } else { FourthDown::Go };
             }
@@ -3499,11 +3519,22 @@ impl<'a> Game<'a> {
             // two are on unless switched off, the last two off unless on.
             let checks = self.sides[o].checks;
             let on = |b: u8| (checks >> b) & 1 == 1;
-            let want = if !on(0) && run_called && numbers >= 2 && sit.togo > 2.0 {
+            // Protecting a lead late, or with the game won, he stays with
+            // the run whatever the box (the clock is the point; minor bug
+            // 142: checks to a pass took NFL teams up 28+ to 33% passes in
+            // the fourth quarter, real 28%; proposed, not confirmed).
+            let keep_run = sit.quarter >= 4 && sit.score_diff > 0 && (sit.half_left <= 300.0 || sit.ease >= 0.5);
+            let want = if !on(0) && run_called && numbers >= 2 && sit.togo > 2.0 && !keep_run {
                 Some(true)
             } else if !on(1) && pass_called && numbers <= -1 && (shows_two && !fooled) && sit.togo <= 6.0 {
                 Some(false)
-            } else if on(2) && run_called && dcall.coverage == Coverage::Cover0 && !fooled && sit.togo > 2.0 {
+            } else if on(2)
+                && run_called
+                && dcall.coverage == Coverage::Cover0
+                && !fooled
+                && sit.togo > 2.0
+                && !keep_run
+            {
                 Some(true)
             } else if on(3) && pass_called && sit.down <= 2 && shows_two && !fooled && numbers <= 0 {
                 Some(false)
@@ -4394,7 +4425,13 @@ impl<'a> Game<'a> {
                 return;
             }
             self.no_huddle = true;
-            13.0
+            // The hurry-up's snap to snap with the clock running (minor bug
+            // 142: 13 s made 64.6 NFL plays a team game, real 61.9, and
+            // 11.6 s between snaps in the last two minutes, real 18.1).
+            // College and high school keep 13 s: their plays a team game
+            // were already under real (FBS 64.8, real 66.6) and the chains
+            // stop their clock on first downs (proposed, not confirmed).
+            if self.rules().level == Level::NFL { 19.0 } else { 13.0 }
         } else if self.four_minute_rule(o) == Some(live::FourMinute::RunItOut) && super::sheet::four_minute(&sit) {
             39.5
         } else if (self.quarter == 4
@@ -5237,9 +5274,12 @@ impl<'a> Game<'a> {
             && self.sides[against].timeouts > 0
             && !(nfl && late);
         // The replay assistant upstairs (stand-in for his eye: the head
-        // coach's game management): "throw it" or "don't".
+        // coach's game management, read against the level's own coaches,
+        // since the real rates are theirs; minor bug 140: read against 10,
+        // NFL staffs hit the cap, threw only on sure things and won 54%):
+        // "throw it" or "don't".
         let gm = self.sides[against].team.staff.game_management;
-        let acc = clamp(0.55 + 0.025 * gm, 0.55, 0.92);
+        let acc = clamp(0.80 + 0.025 * (gm - super::rules::coach_norm(self.rules().level)), 0.55, 0.92);
         let says = if wrong { self.refs.chance(acc) } else { self.refs.chance((1.0 - acc) * 0.6) };
         let swing = (self.ruling_value(&counter) - self.ruling_value(&ruled)).abs();
         let worth = swing >= 0.8 || self.refs.chance(swing / 0.8);

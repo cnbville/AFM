@@ -1702,6 +1702,9 @@ fn camp(w: &mut World, d: Date) {
         if let Some(row) = p.player.history.last_mut() {
             row.team = team;
             row.depth = Some(role.name().to_string());
+            // The season's games missed are counted game by game
+            // (`games::record`, minor bug 96), not the step's roll.
+            row.games_missed = 0;
         }
         let c = p.pro.as_mut().unwrap();
         c.paid = false;

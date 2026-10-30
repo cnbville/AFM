@@ -164,7 +164,7 @@ check("N37.nfl_snow", WP, "N37", "NFL snow games a season", "games",
   Memory(5.0, "real: a handful of NFL games a season are played in falling snow (from memory)"), (0.4, 0.8, 0.0), "NFL games with snow falling, per logged season.", needs=G)
 check("N37.nfl_freezing", WP, "N37", "NFL games below freezing a season", "games",
   "SELECT 1.0 * SUM(conditions__temperature < 32) / COUNT(DISTINCT season) FROM log_games WHERE stream = 'nfl' AND COALESCE(kind, 'regular') <> 'preseason'",
-  Fixed(9.2, "nfl_history.json weather_splits: 17,464 pass attempts below 32°F in 1999-2025 at about 70 a game, about 9 games a season (games with a reading, about 77% of all)", "1999-2025"), (0.3, 0.6, 0.0),
+  Fixed(10.2, "nflverse play-by-play 2021-2025: regular-season outdoor and open-roof games below 32°F at kickoff, 7, 15, 3, 11 and 15 a season (the game's temp, or its weather line's where that is missing; minor bug 144: the old 9.2 came from pass attempts and missed the games without a reading)", "2021-2025"), (0.3, 0.6, 0.0),
   "NFL games below 32°F per logged season.", needs=G)
 
 # ---------------------------------------------------------------- N38 births

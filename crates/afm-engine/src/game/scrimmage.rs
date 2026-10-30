@@ -5,12 +5,19 @@ use super::geom::{DT, V2, end_line, goal, mid, v2, width};
 
 /// Extra bust chance per road offensive player per snap at full crowd
 /// noise (trial 4 topic 3).
-const NOISE_BUSTS: f64 = 0.03;
+const NOISE_BUSTS: f64 = 0.06;
 /// Awareness a road offensive player loses to full crowd noise. With
-/// `NOISE_BUSTS` and the silent count it is fitted so an average FBS
-/// conference crowd (0.65) is worth the real 2.4 points (2023-24 cfbfastR:
-/// road passing loses 0.05 EPA a play); proposed, not confirmed.
+/// `NOISE_BUSTS`, the silent count and `SILENT_RELEASE` it is fitted so a
+/// 0.65 crowd is worth the real home margin: 2.2 NFL points over 6,000
+/// games (real 2.1, nflverse 2021-2025; 2020 without fans +0.1) and 2.5
+/// FBS (real 2.4 in conference games, CFBD 2014-2025). Real road offenses
+/// lose it through the air: completions 63.8% against 65.2% at home, runs
+/// about even (minor bug 143: the engine had drifted to 0.8 and 1.2
+/// points); proposed, not confirmed.
 const NOISE_LOAD: f64 = 11.0;
+/// Seconds a road receiver leaves late at full crowd noise: on a silent
+/// count he watches the ball, not the cadence.
+const SILENT_RELEASE: f64 = 0.3;
 use super::playbook::*;
 use super::roster::GamePlayer;
 use super::rules::Rules;
@@ -678,6 +685,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 }
                 let route = route_for(c, r);
                 sim.agents[i].job = route_job(&sim.agents[i], route, los, by, s.hurry);
+                // A road receiver on a silent count leaves late, less so a
+                // focused one.
+                let conc = s.teams[0][sim.agents[i].p].trait20(Attr::Concentration, s.rules.level);
+                let late = SILENT_RELEASE * s.cond.crowd * clamp(1.0 - 0.05 * (conc - 10.0), 0.5, 1.5);
+                if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
+                    *release_delay += late;
+                }
             }
             let side = if f.strength > 0.0 { 1.0 } else { -1.0 };
             let (dx, dy) = match (c.drop, f.backfield) {
@@ -762,7 +776,19 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 && ps.reads.len() > 1
                 && !matches!(c.drop, Drop::Screen | Drop::Bubble)
             {
-                let rate = |sim: &Sim, r: usize| sim.player(r).spot_r[crate::spots::Spot::WR.index()];
+                // Each man is rated at his own spot: read at the receiver's
+                // spot, tight ends and backs never looked best and receivers
+                // drew 73% of NFL targets, real 59% (minor bug 137).
+                let rate = |sim: &Sim, r: usize| {
+                    use crate::spots::Spot;
+                    let spot = match sim.agents[r].label {
+                        "TE" => Spot::TE,
+                        "RB" => Spot::RB,
+                        "FB" => Spot::FB,
+                        _ => Spot::WR,
+                    };
+                    sim.player(r).spot_r[spot.index()]
+                };
                 let mut by: Vec<(usize, f64)> = ps.reads.iter().enumerate().map(|(k, &r)| (k, rate(&sim, r))).collect();
                 by.sort_by(|a, b| b.1.total_cmp(&a.1));
                 let gap = by[0].1 - by[1].1;
@@ -3694,7 +3720,12 @@ fn throw(
     if moving {
         sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::ThrowOnMove);
     }
-    let wind = s.cond.wind * (0.004 + 0.0004 * dist);
+    // Wind, a little more on the long ones: from 5 to 18 mph 2.1 points of
+    // completions and 7.3% of the yards an attempt, real 2.0 and 6.9% from
+    // 5-9 mph to 15+ (nflverse 2021-2025). Minor bug 144: 0.004 + 0.0004 a
+    // yard with the old bad-weather sheet's short throws cost 13% of the
+    // yards and raised completions (proposed, not confirmed).
+    let wind = s.cond.wind * (0.010 + 0.0001 * dist);
     sd *= 1.0 + wind;
     if s.cond.rain || s.cond.snow {
         sd *= 1.1;
@@ -4014,6 +4045,13 @@ fn defend(
     let t = sim.t;
     let job = sim.agents[i].job.clone();
     let carrier = sim.carrier();
+    // The man returning an interception runs with it (the ball carrier's
+    // step moves him). He used to chase himself here first, braking to a
+    // stop every tick: 2 pick sixes in 999 NFL games, real 0.05 a team
+    // game (minor bug 132).
+    if carrier == Some(i) {
+        return;
+    }
     let pass_play = pass.is_some();
     let knows = t >= sim.agents[i].read_at;
     if let Some(spot) = bitten(sim, i) {

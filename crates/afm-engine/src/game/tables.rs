@@ -20,6 +20,9 @@ const GO_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go.csv
 // (no real table; proposed, not confirmed).
 const COLLEGE_PASS_CSV: &str = include_str!("../../../../data/real-world/college_pass_rate.csv");
 const COLLEGE_GO_CSV: &str = include_str!("../../../../data/real-world/college_fourth_go.csv");
+/// The NFL's go rates outside the fourth quarter's last 2:30 when down four
+/// or more (`nfl_fourth_go_habit.csv`), where every coach goes anyway.
+const GO_HABIT_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go_habit.csv");
 const WP_CSV: &str = include_str!("../../../../data/real-world/nfl_win_prob.csv");
 
 fn rows(csv: &str) -> impl Iterator<Item = Vec<&str>> {
@@ -177,6 +180,7 @@ fn go_table(csv: &str) -> HashMap<(i32, i32, i32), f64> {
 
 static GO: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| go_table(GO_CSV));
 static COLLEGE_GO: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| go_table(COLLEGE_GO_CSV));
+static GO_HABIT: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| go_table(GO_HABIT_CSV));
 
 /// How often real teams go for it on fourth down here (NFL, or college
 /// below the NFL).
@@ -191,6 +195,24 @@ pub fn real_fourth_go_rate(togo: f64, yardline_100: f64, score_diff: i32, colleg
         }
     }
     0.1
+}
+
+/// The coaches' habit on fourth down: the real go rate here, in the NFL
+/// leaving out the late tries `calling::fourth_down` makes on its own
+/// (college keeps its whole table: no college play by play on file to cut).
+pub fn real_fourth_go_habit(togo: f64, yardline_100: f64, score_diff: i32, college: bool) -> f64 {
+    if college {
+        return real_fourth_go_rate(togo, yardline_100, score_diff, true);
+    }
+    let t = togo_bucket(togo);
+    let y = ((yardline_100.clamp(1.0, 99.0) as i32) / 10).min(9) * 10;
+    let s = score_bucket(score_diff);
+    for ss in [s, 0, -1, 7] {
+        if let Some(&r) = GO_HABIT.get(&(t, y, ss)) {
+            return r;
+        }
+    }
+    real_fourth_go_rate(togo, yardline_100, score_diff, false)
 }
 
 static WP: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| {

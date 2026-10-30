@@ -401,6 +401,7 @@ fn sit(down: u8, togo: f64, yl: f64, college: bool) -> Situation {
         def_concede: false,
         college,
         lean: 0.0,
+        weather: 0.0,
     }
 }
 
@@ -1140,17 +1141,16 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
             marks,
         });
     }
-    // The bad-weather sheet (G13): the downs and the red zone, runs up and
-    // no deep shots.
+    // The bad-weather sheet (G13): the downs and the red zone, his own
+    // plays only. Real offenses run more in the weather (`Game::
+    // weather_lean`) but throw as deep: air yards an attempt 7.68 dry, 7.80
+    // in rain, 7.51 in 15+ mph wind (nflverse 2021-2025; minor bug 144:
+    // without deep shots completions rose in the wind, real fall 3 points).
     let wet: Vec<Entry> = off
         .iter()
         .filter(|e| matches!(sheet::split(e.k).0, 1..=7 | 10) && e.marks & BREAKER == 0)
         .filter(|e| match e.play {
-            Play::Off(p) => match p.play {
-                SheetKind::Pass(i) => pass_concept(i as usize).depth != PassDepth::Deep,
-                SheetKind::Run(_) => true,
-                SheetKind::Design(_) => false,
-            },
+            Play::Off(p) => !matches!(p.play, SheetKind::Design(_)),
             _ => false,
         })
         .map(|e| {
@@ -1158,6 +1158,11 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
             e.marks |= WET;
             e.why = match e.play {
                 Play::Off(p) if is_run(&p) => "in the weather: run it and keep the ball safe".into(),
+                Play::Off(SheetPlay { play: SheetKind::Pass(i), .. })
+                    if pass_concept(i as usize).depth == PassDepth::Deep =>
+                {
+                    "a shot he still trusts in the weather".into()
+                }
                 _ => "a short, sure throw for a wet ball".into(),
             };
             e
