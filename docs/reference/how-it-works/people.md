@@ -183,7 +183,7 @@ Sizes are Claude's picks (proposed, not confirmed).
 - **Picking**: among fitting versions, ones the same speaker hasn't said to you in 365 days come first, weighted 1 + 0.8 per tag or check they need; if none is fresh, the one he said longest ago (`Pen::part`, `REST_DAYS`).
 - **The rest changes words only.** What a person says and does is decided before the bank is asked (`talks.rs` `landing`, `outcome`), and the pen's own random stream never feeds back into the world (`tests/lines.rs`, `the_rest_changes_the_words_only`).
 - **Memory**: each speaker's said versions with the day (`Folk::said_on`), saved with the career; a speaker silent for a season is dropped. A version's id is a hash of its part and words, so growing the bank keeps old memories (`version_id`). Saves from before the rest drop the old memory and load fine.
-- **Proof** (`a_season_of_talks_counts_its_repeats`): a season of one-on-ones at all three levels, 1,869 talks and 9,338 parts: the same man repeated a version inside the season 0 times (2.63% before), and 36% of parts were heard from anyone else inside the season (68% before lane 13, 47% after it).
+- **Proof** (`a_season_of_talks_counts_its_repeats`): a season of one-on-ones at all three levels, 1,869 talks and 9,338 parts: the same man repeated a version inside the season 0 times (2.63% before), and 16% of parts were heard from anyone else inside the season (68% before lane 13, 47% after it, 16% with lanes 13b and 13c's openings, reveals and replies).
 
 ## Life off the field
 
