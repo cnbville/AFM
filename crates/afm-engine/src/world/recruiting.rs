@@ -2655,10 +2655,13 @@ const NAME_TIE: f64 = 0.85;
 /// Sized against the real share of FBS signees who stay in their home
 /// state, by stars (classes 2010-2025, sportsdataverse `cfb_recruits` matched
 /// to cfbfastR rosters): 2-stars 34%, 3-stars 33%, 4-stars 40%, 5-stars 45%.
-/// The world's blue chips signed in-state 55-59% before. Proposed, not
-/// confirmed.
-const HOME_FADE_FLOOR: f64 = 0.4;
-const HOME_FADE_OFFERS: f64 = 5.0;
+/// The world's blue chips signed in-state 55-59% before. Calibrated on seven
+/// 30-year worlds, blue chips at their signing school in the last two
+/// classes (real 41%, 5-stars 45%): no fade 62% (5-stars 73%), a floor of
+/// 0.4 over 5 offers 46-47%, 0.5 over 3 offers 43-49%, 0.3 over 4 offers
+/// 40-41% (5-stars 46-56%). Proposed, not confirmed.
+const HOME_FADE_FLOOR: f64 = 0.3;
+const HOME_FADE_OFFERS: f64 = 4.0;
 
 /// How much home pulls him, from the floor to 1 ([`HOME_FADE_FLOOR`]): his
 /// offers (the early ones and the last stage's) from power-conference
