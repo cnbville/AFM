@@ -92,7 +92,7 @@
     let action = "";
     if (live && !live.over) action = `<button class="st-btn primary" data-go="live">Back to the game · ${esc(live.quarter)} ${esc(live.clock)}</button>`;
     else if (live && live.over) action = `<button class="st-btn primary" data-go="live">The final whistle</button>`;
-    else if (h.can_kick_off) action = `<button class="st-btn primary" data-act="gd-kick">Kick off</button><button class="st-btn glass" data-act="gd-delegate" title="Your staff coaches the whole game with your plan and rules; you see the result">Let the staff coach it</button>`;
+    else if (h.can_kick_off) action = `<button class="st-btn primary" data-go="talk" title="The locker room before kickoff: your talk, or a captain's">Pregame talk</button><button class="st-btn glass" data-act="gd-kick" title="Kick off now; without your talk, your staff reads the room for you">Kick off</button><button class="st-btn glass" data-act="gd-delegate" title="Your staff coaches the whole game with your plan and rules; you see the result">Let the staff coach it</button>`;
     const wx = h.weather;
     const why = [h.name, ...(h.why || [])].filter(Boolean);
     const hero = `<div class="st-room gd-room"><i></i><i></i><i></i>
@@ -237,7 +237,7 @@
           <label>Tempo<small>${r.tempo === "hurry" ? "No-huddle: more snaps, less time for their defense to substitute and disguise." : r.tempo === "milk" ? "Use the play clock: fewer snaps, the game shorter." : "Huddle and snap as the play caller likes."}</small></label>${seg("tempo", r.tempo, [["normal", "Normal"], ["hurry", "No-huddle"], ["milk", "Milk the clock"]])}
           <label>Timeouts<small>${r.timeouts === "keep_two" ? "Keep two for the end of each half." : r.timeouts === "keep_one" ? "Keep one for the end of each half." : r.timeouts === "free" ? "Use them when the snap needs it." : "Your staff spends them as the game goes."}</small></label>${seg("timeouts", r.timeouts, [["staff", "Staff"], ["keep_two", "Keep two"], ["keep_one", "Keep one"], ["free", "Freely"]])}
           <label>Four-minute plan<small>${r.four === "run" ? "Ahead by one score late: run it out." : r.four === "attack" ? "Keep attacking with the lead." : "Your staff decides with the lead and the clock."}</small></label>${seg("four", r.four, [["staff", "Staff"], ["run", "Run it out"], ["attack", "Keep attacking"]])}
-        </div>${r.changed ? `<div class="sub">Changed for this game only: the standing rules on Plans come back after it. <a class="link" data-act="gd-rulereset">Back to the standing rules</a></div>` : ""}</div></div>`;
+        </div>${r.changed ? `<div class="sub">Changed for this game only: the standing rules on the Playbook come back after it. <a class="link" data-act="gd-rulereset">Back to the standing rules</a></div>` : ""}</div></div>`;
   }
 
   function settingsPanel(s) {
@@ -507,7 +507,8 @@
         ${fourth && choose && choose !== "go" ? `<div class="lv-row"><button class="st-btn primary" data-act="lv-fourth-go">${choose === "punt" ? "Send the punt team" : "Send the kicking team"} <kbd>↵</kbd></button></div>` : ""}`;
       foot = sideline();
     }
-    return `<div class="panel warm lv-decide">${clock}${head}${ruling && p.ask !== "challenge" ? ruling : ""}${body}
+    const word = typeof tkWordCard === "function" ? tkWordCard(st) : "";
+    return `<div class="panel warm lv-decide">${clock}${word}${head}${ruling && p.ask !== "challenge" ? ruling : ""}${body}
       <div class="lv-row lv-keys"><button class="st-btn small glass" data-act="lv-staff" title="Your staff's call on this snap"><kbd>↵</kbd> Go with the staff</button>
       <button class="st-btn small glass" data-act="lv-watch" title="Your staff calls the snaps and you watch, stepping in at any one"><kbd>W</kbd> Watch</button>
       <button class="st-btn small glass" data-act="lv-sim" title="Your staff coaches the rest of the game at once"><kbd>E</kbd> Staff to the end</button></div>${foot}</div>`;
@@ -526,6 +527,7 @@
       ${h.fails.length ? `<div><div class="st-label">What doesn't</div>${h.fails.map((x) => `<div class="lv-advice">${esc(upper(x))}</div>`).join("")}</div>` : ""}
       ${adj ? `<div><div class="st-label">Your coordinators' adjustments</div>${adj}</div>` : `<div class="lv-advice">Your coordinators want no change: the plan holds.</div>`}
       ${h.hurt.length ? `<div><div class="st-label">The trainers</div>${h.hurt.map((x) => `<div class="lv-hurt">${esc(x)}</div>`).join("")}</div>` : ""}
+      ${typeof tkHalfBlock === "function" ? tkHalfBlock(st) : ""}
       <div class="lv-row"><button class="st-btn primary" data-act="lv-half">Start the second half <kbd>↵</kbd></button></div></div>`;
   }
 
@@ -687,6 +689,12 @@
     "lv-timeout": () => send({ kind: "timeout" }),
     "lv-tempo": (d) => send({ kind: "tempo", tempo: d.v }),
     "lv-wordb": (d) => send({ kind: "plan", [d.k]: d.v === "1" }),
+    // A word on the sideline to a player after his mistake (lane 14, D6).
+    "tk-word": (d) => {
+      const w = (LV.state.words || []).find((x) => x.id === Number(d.id));
+      const o = w && w.options[Number(d.i)];
+      if (o) send({ kind: "word", id: w.id, move: o.pick.move, tone: o.pick.tone });
+    },
     "lv-half": () => {
       const st = LV.state;
       const input = { kind: "halftime" };

@@ -1210,8 +1210,46 @@ fn live(w: &World, t: TeamRef, id: &str, probe: &Value) -> Option<Value> {
         "training" => live_training(w, t),
         "people" => live_people(w, t),
         "calendar" => live_calendar(w, t),
+        "hunt" => live_hunt(w),
         _ => None,
     }
+}
+
+/// The hunt: yours, how many of his games you've watched and how much the
+/// world knows; else the latest generational prospect.
+fn live_hunt(w: &World) -> Option<Value> {
+    use afm_engine::world::hunt;
+    if let Some(h) = hunt::yours(w) {
+        let k = views::person_index(w, h.id)?;
+        let seen = h.watched.iter().filter(|x| x.seen).count();
+        let heat = hunt::heat(w, h).0;
+        let known = match heat {
+            x if x < 0.15 => "nobody knows you want him",
+            x if x < 0.35 => "there are whispers",
+            x if x < 0.6 => "people are talking",
+            _ => "the world knows you want him",
+        };
+        return Some(json!({ "big": seen.to_string(), "when": "of his games watched", "lines": [format!(
+            "Your hunt is {} since {}: {known}.",
+            link(w, k),
+            date_text(h.since)
+        )] }));
+    }
+    let line = match w.hunt.generational.last() {
+        Some(g) => match views::person_index(w, g.id) {
+            Some(k) => format!(
+                "You have no hunt. The last generational prospect the public named was {} ({}).",
+                link(w, k),
+                g.year
+            ),
+            None => format!(
+                "You have no hunt. The last generational prospect the public named was {} ({}).",
+                g.name, g.year
+            ),
+        },
+        None => "You have no hunt. Name one from a player's page or the Hunt page.".into(),
+    };
+    Some(json!({ "lines": [line] }))
 }
 
 /// Ratings: your best player's read at his spot and at two others, from

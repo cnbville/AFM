@@ -1,11 +1,12 @@
 # The living NFL: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28; the expansion line with next update lane 10 on 2026-10-29.
+Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28, your IR and staff duties (minor bug 73, SC6) at 6200524 on 2026-10-29, and the expansion line with next update lane 10 the same day; agents' own voice with the next update's lane 14 at 7487fc5 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
 ## Quick answers
 
+- Do agents sound different? Yes: an agent's words come from his honesty, his temper and his agency's size, and a bluff comes out vague; the numbers and the market's scoring are unchanged (`world/folk/dialogue.rs`, `agent_says`; `world/front_office/nfl.rs`, `propose`, `agent_claim`).
 - How is a free agent's asking price set? His league-wide consensus read is ranked against the league's veterans at his position, read off the real pay ladder, then cut for age past his prime (`world/pro/market.rs`, `ideal`, `market_grade`, `ladder_share`, `market_price`, `decline`).
 - Does a team see a player's true rating? No. Each club reads `overall()` plus a keyed misread that shrinks with GM judgment and seasons on film (`world/pro/mod.rs`, `grade`).
 - What signs a deal on the spot? An offer scoring 1.0 against his hidden ideal. At 0.85 or more he agrees with a 7-day window; below that his ideal falls (`world/pro/market.rs`, `market_day`, `score`, `decay`).
@@ -150,7 +151,9 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
   - +0.5 if on the hot seat (owner trust < 0.35)
   - +0.3 x fans x (1 - patience).
   - Contend if x > 0.6. Rebuild if x < -0.6, not on the hot seat and patience > 0.3. Otherwise middle. A reason string is kept (`world/pro/office.rs`, `choose_modes`).
-- **Your club**: every duty (Contracts, Tags, FreeAgency, Trades, Cap, Cutdown, Waivers, PracticeSquad, and college Board/Visits/Portal/Nil) runs the same code, with `yours` checked first (`world/front_office/mod.rs`, `Duty`, `yours`).
+- **Your club**: every duty (Contracts, Tags, FreeAgency, Trades, Cap, Cutdown, Waivers, PracticeSquad, InjuredReserve, and college Board/Visits/Portal/Nil) runs the same code, with `yours` checked first (`world/front_office/mod.rs`, `Duty`, `yours`).
+- **A move you make with the duty at your staff stands (SC6)**: it no longer takes the whole duty back. A deal, trade, tag, tender or option you make is done; your staff leaves alone a player you're in talks with (open, standing or agreed) when it re-signs, extends, tags or bids in free agency (`world/front_office/nfl.rs`, `talking`; `world/pro/market.rs`, `resign_talks`, the extensions, the tags, `free_agency`). Your cut plan, protections and waiver claims stand and the staff fills the rest: `seat_cutdown` runs when the plan isn't empty, `protected` returns your list and the staff protects its best for the places left, and your claims come first in `claims` (`world/front_office/roster.rs`; `world/pro/squad.rs`; `world/front_office/mod.rs`, `seat_head_club`). A tag you give yourself uses your club's tag for the staff too.
+- **Injured reserve at your club (minor bug 73)**: with the duty yours (the default), a player hurt past the minimum isn't placed by the engine: your medical staff sends a decision (`world/front_office/reserve.rs`, `recommend`) at the three injury sites (`world/pro/games.rs`: preseason, games, practice). You place him (`place`: he sits at least `ir_minimum`) and bring him back once healed (`activate`: a return used unless off PUP, roster room needed); a healed player waits for your word (`healed`, from `heal_week`). With the duty at your staff it runs as every club's. Between the league year and the final cutdown (cutdown morning included, since your moves come before that day's cut) the list ends the season and a player with fewer than four accrued seasons reaches it only through waivers (`place_words`, `before_cut`). Every club's pre-cutdown placement is season-ending (`ProCareer::ir_out`, set in `games.rs` `record_preseason` and in camp in `practice_injuries`; `heal_week` skips him); a release clears it (`release_with`) and so does the next league year.
 
 ## Waivers, cuts and releases
 

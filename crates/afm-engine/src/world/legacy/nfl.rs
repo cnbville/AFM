@@ -93,7 +93,7 @@ pub fn qb_rank(w: &World, t: usize) -> Option<(u8, usize)> {
 }
 
 /// A franchise quarterback: a top-12 starter.
-fn franchise(rank: u8) -> bool {
+pub(crate) fn franchise(rank: u8) -> bool {
     rank <= 12
 }
 

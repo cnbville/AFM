@@ -12,6 +12,7 @@ mod game_stats;
 mod gameplan;
 mod hiring;
 mod hs_playoffs;
+mod hunt;
 mod kick_units;
 mod lane7;
 mod lane9;

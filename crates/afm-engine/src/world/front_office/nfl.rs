@@ -13,11 +13,12 @@
 use crate::calendar::Date;
 use crate::positions::Position;
 use crate::rng::clamp;
+use crate::world::folk::voice::Facts;
 use crate::world::pro::market::{self, Ideal, Offer, Sheet};
 use crate::world::pro::{self, DeadWhy, Status, money};
 use crate::world::{Stage, World};
 
-use super::{Duty, Owner};
+use super::Duty;
 
 /// What kind of talk it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -168,6 +169,9 @@ pub struct NflDesk {
     /// Tags and tenders placed before the new league year, with the deal
     /// they replaced, so one can be withdrawn until the league files it.
     pub placed: Vec<Placed>,
+    /// Tags and tenders you withdrew (player id, league year): your staff
+    /// doesn't put one back on him while it runs the tags (SC6).
+    pub withdrawn: Vec<(u32, i32)>,
 }
 
 /// A tag or tender placed before the league year and what it replaced.
@@ -327,7 +331,7 @@ fn ideal_of(w: &World, i: usize, kind: TalkKind) -> Ideal {
 fn offer_score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<usize>) -> f64 {
     let s = market::score(w, i, o, ideal, own);
     let id = w.people[i].player.id;
-    let visited = w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60);
+    let visited = visited_recently(w, id);
     if !visited {
         return s;
     }
@@ -464,8 +468,7 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
     let t = club(w)?;
     let i = person(w, id)?;
     let kind = negotiable(w, i).ok_or("He isn't someone you can talk terms with today.")?;
-    // Acting on a duty takes it back from your staff.
-    w.front_office.set_owner(kind_duty(kind), Owner::You);
+    // A talk you open is yours; your staff keeps the rest of the duty (SC6).
     check(w, t, i, &p, kind)?;
     let today = w.today;
     if let Some(cold) = w.front_office.nfl.talk(id).and_then(|x| x.cold_until)
@@ -552,27 +555,43 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
         let (claim, read) = agent_claim(w, i, t, kind, s, &ideal);
         answer.claim = claim;
         answer.read = read;
-        answer.text = match (kind, answer.verdict) {
-            (TalkKind::FreeAgent | TalkKind::OfferSheet, _) if s >= 1.0 => {
+        // In the agent's own voice (lane 14, D10); the numbers are the market's.
+        let f = Facts::new().with("name", name.clone()).with("money", super::dollars(ask.apy));
+        let (part, plain) = match kind {
+            TalkKind::FreeAgent | TalkKind::OfferSheet if s >= 1.0 => (
+                "yes",
                 format!(
                     "\"That works for {name}. He'll give everyone until the next market day, but you're where he wants to be.\""
-                )
-            }
-            (TalkKind::FreeAgent | TalkKind::OfferSheet, _) if s >= 0.85 => {
-                format!("\"That's in range. {name} will weigh it against what else comes in.\"")
-            }
-            (TalkKind::FreeAgent | TalkKind::OfferSheet, _) => format!(
-                "\"We're {} on this. Here's where {name} is.\"",
-                if s >= 0.72 { "still apart" } else { "a long way apart" }
+                ),
             ),
-            _ if s >= 0.85 => format!("\"We're close. Get us to {} and {name} signs.\"", super::dollars(ask.apy)),
-            _ if s >= 0.72 => format!("\"That's short of what {name} is worth. Here's our number.\""),
-            _ => format!("\"Respectfully, that isn't a serious offer for {name}.\""),
+            TalkKind::FreeAgent | TalkKind::OfferSheet if s >= 0.85 => {
+                ("range", format!("\"That's in range. {name} will weigh it against what else comes in.\""))
+            }
+            TalkKind::FreeAgent | TalkKind::OfferSheet if s >= 0.72 => {
+                ("apart", format!("\"We're still apart on this. Here's where {name} is.\""))
+            }
+            TalkKind::FreeAgent | TalkKind::OfferSheet => {
+                ("far", format!("\"We're a long way apart on this. Here's where {name} is.\""))
+            }
+            _ if s >= 0.85 => {
+                ("near", format!("\"We're close. Get us to {} and {name} signs.\"", super::dollars(ask.apy)))
+            }
+            _ if s >= 0.72 => ("short", format!("\"That's short of what {name} is worth. Here's our number.\"")),
+            _ => ("insult", format!("\"Respectfully, that isn't a serious offer for {name}.\"")),
         };
+        answer.text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain);
     }
     if answer.verdict == Verdict::Broken {
         let cold = today.add(if kind == TalkKind::FreeAgent { 7 } else { 30 });
-        answer.text = format!("\"We're done for now. {name} will look elsewhere.\" His agent ended the talks.");
+        let f = Facts::new().with("name", name.clone());
+        let said = crate::world::folk::dialogue::agent_says(
+            w,
+            i,
+            "done",
+            &f,
+            format!("\"We're done for now. {name} will look elsewhere.\""),
+        );
+        answer.text = format!("{said} His agent ended the talks.");
         let talk = w.front_office.nfl.talk_mut(id).unwrap();
         talk.state = TalkState::Broken;
         talk.cold_until = Some(cold);
@@ -616,13 +635,6 @@ fn free_now(w: &World, i: usize) -> bool {
     w.people[i].pro.as_ref().is_some_and(|c| c.status == Status::FreeAgent && c.team.is_none() && !c.on_waivers)
 }
 
-fn kind_duty(k: TalkKind) -> Duty {
-    match k {
-        TalkKind::ReSign | TalkKind::Extension => Duty::Contracts,
-        TalkKind::FreeAgent | TalkKind::OfferSheet => Duty::FreeAgency,
-    }
-}
-
 /// What the agent claims about other interest, and your read of it. An
 /// honest agent tells you what's out there; a less honest one claims
 /// interest that isn't there (the market's bluff, topic 3). Your
@@ -654,27 +666,32 @@ fn agent_claim(
     };
     let best = rivals.iter().max_by(|a, b| a.1.total_cmp(&b.1)).copied();
     let bluffs = super::key(w, 0xB1A0 ^ day, id) > 1.0 - (1.0 - agent.honesty) * 0.8;
-    let (text, true_claim) = match (kind, best, bluffs) {
+    let name = w.people[i].name.clone();
+    let (part, f, plain, true_claim) = match (kind, best, bluffs) {
         (TalkKind::FreeAgent, Some((o, apy)), _) => {
-            (format!("\"The {} are at about {} a year.\"", w.nfl[o].name, super::dollars(round_q(apy))), true)
+            let money = super::dollars(round_q(apy));
+            let club = w.nfl[o].name;
+            let plain = format!("\"The {club} are at about {money} a year.\"");
+            ("claim.real", Facts::new().with("club", club).with("money", money), plain, true)
         }
-        (TalkKind::FreeAgent, None, true) => (
-            format!("\"Two other clubs are above you, near {} a year.\"", super::dollars(round_q(ideal.apy * 1.05))),
-            false,
-        ),
-        (TalkKind::ReSign, _, true) => (
-            format!(
-                "\"On the open market {} gets {} a year, easily.\"",
-                w.people[i].name,
-                super::dollars(round_q(ideal.apy * 1.12))
-            ),
-            false,
-        ),
+        (TalkKind::FreeAgent, None, true) => {
+            let money = super::dollars(round_q(ideal.apy * 1.05));
+            let plain = format!("\"Two other clubs are above you, near {money} a year.\"");
+            ("claim.bluff", Facts::new().with("money", money), plain, false)
+        }
+        (TalkKind::ReSign, _, true) => {
+            let money = super::dollars(round_q(ideal.apy * 1.12));
+            let plain = format!("\"On the open market {name} gets {money} a year, easily.\"");
+            ("claim.market", Facts::new().with("name", name.clone()).with("money", money), plain, false)
+        }
         (TalkKind::ReSign, _, false) if ideal.apy > money::minimum(w.year, 4) * 3.0 => {
-            ("\"He knows what the market pays, and he'd like to stay. Meet us near our number.\"".to_string(), true)
+            let plain =
+                "\"He knows what the market pays, and he'd like to stay. Meet us near our number.\"".to_string();
+            ("claim.stay", Facts::new().with("name", name.clone()), plain, true)
         }
         _ => return (None, None),
     };
+    let text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain);
     // Your read: right more often the better you negotiate and the more
     // you know this agent (his history with your club).
     let rel = agent.rel.get(t).copied().unwrap_or(0.0);
@@ -824,11 +841,38 @@ pub(crate) fn sheet_match(w: &World, s: &Sheet) -> Option<bool> {
 
 /// Your fifth-year option choice on a player of yours.
 pub(crate) fn option_choice(w: &World, t: usize, i: usize) -> Option<bool> {
+    let id = w.people[i].player.id;
+    let set = w.front_office.nfl.options.iter().find(|x| x.0 == id);
+    // A choice you made stands whoever holds the duty (SC6).
+    if super::seat_head_club(w, t)
+        && let Some(x) = set
+    {
+        return Some(x.1);
+    }
     if !super::yours(w, t, Duty::Contracts) {
         return None;
     }
-    let id = w.people[i].player.id;
-    Some(w.front_office.nfl.options.iter().find(|x| x.0 == id).is_some_and(|x| x.1))
+    Some(set.is_some_and(|x| x.1))
+}
+
+/// Whether you are in talks with player `i` of club `t` (your club): your
+/// staff leaves him to you while it runs the rest of the duty (SC6). Only a
+/// live talk counts: an offer standing or agreed, or an open talk of the
+/// kind he's open to today with a word from either side in the last three
+/// weeks. A talk you leave goes back to your staff.
+pub(crate) fn talking(w: &World, t: usize, i: usize) -> bool {
+    if !super::seat_head_club(w, t) {
+        return false;
+    }
+    let today = w.today;
+    w.front_office.nfl.talk(w.people[i].player.id).is_some_and(|x| {
+        let last = x.lines.last().map_or(x.opened, |l| l.date);
+        match x.state {
+            TalkState::Standing | TalkState::Agreed => true,
+            TalkState::Open => negotiable(w, i) == Some(x.kind) && last.days_to(today) <= 21,
+            _ => false,
+        }
+    })
 }
 
 /// Sets a fifth-year option choice (it takes effect on the deadline).
@@ -847,7 +891,6 @@ pub fn set_option(w: &mut World, id: u32, take: bool) -> Result<(), String> {
     if w.today > w.dates.fifth_year_option {
         return Err("The option deadline has passed.".into());
     }
-    w.front_office.set_owner(Duty::Contracts, Owner::You);
     w.front_office.nfl.options.retain(|x| x.0 != id);
     w.front_office.nfl.options.push((id, take));
     let name = w.people[i].name.clone();
@@ -1003,7 +1046,6 @@ pub fn tag(w: &mut World, id: u32, what: &str) -> Result<String, String> {
         crate::calendar::Kind::Signing,
         format!("{who} gets the {label} tag (${:.1}M).", price / 1e6),
     );
-    w.front_office.set_owner(Duty::Tags, Owner::You);
     let text = format!("Tagged {pname} ({label}, {} for one year).", super::dollars(price));
     super::note(w, text.clone(), Some(id));
     Ok(text)
@@ -1081,7 +1123,6 @@ pub fn tender(w: &mut World, id: u32, level: &str) -> Result<String, String> {
     if rfa.is_some() {
         w.market.year_mut(year).tenders += 1;
     }
-    w.front_office.set_owner(Duty::Tags, Owner::You);
     let line = format!("Tendered {pname}: {text}, {}.", super::dollars(deal_price));
     super::note(w, line.clone(), Some(id));
     Ok(line)
@@ -1146,6 +1187,8 @@ fn withdraw(w: &mut World, i: usize, id: u32) -> Result<String, String> {
     let k = w.front_office.nfl.placed.iter().position(|x| x.player == id && x.year == year);
     let Some(k) = k else { return Err("That tag or tender can be taken back once the new league year opens.".into()) };
     let x = w.front_office.nfl.placed.remove(k);
+    w.front_office.nfl.withdrawn.retain(|x| x.1 >= year - 1);
+    w.front_office.nfl.withdrawn.push((id, year));
     let kind = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).map(|k| k.kind);
     let tendered = w.people[i].pro.as_ref().is_some_and(|c| c.rfa.is_some());
     let team = x.old.team;
@@ -1256,6 +1299,12 @@ pub fn release(w: &mut World, id: u32, june1: bool) -> Result<String, String> {
     Ok(text)
 }
 
+/// A visit within the last 60 days: a second visit waits that long, and
+/// the offer's lean counts only these.
+pub fn visited_recently(w: &World, id: u32) -> bool {
+    w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60)
+}
+
 /// Brings a free agent in for a visit (not in the negotiating window: the
 /// rules allow talks, not visits). Your staff gets a medical and both
 /// sides learn what matters: he tells you what he wants most.
@@ -1268,7 +1317,7 @@ pub fn visit(w: &mut World, id: u32) -> Result<String, String> {
     if w.today < w.dates.league_year.date {
         return Err("Visits wait for the new league year; the negotiating window allows talks only.".into());
     }
-    if w.front_office.nfl.visits.iter().any(|v| v.0 == id && v.1.days_to(w.today) <= 60) {
+    if visited_recently(w, id) {
         return Err("He visited already.".into());
     }
     w.front_office.nfl.visits.push((id, w.today));

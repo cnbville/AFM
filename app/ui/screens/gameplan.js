@@ -1,5 +1,5 @@
 // The deeper game plan (update 2, lane 5: G1-G23), boards 19-27 in Press
-// Box. The Plans page holds the program's decisions: the identity (your
+// Box. The Playbook page holds the program's decisions: the identity (your
 // guidelines for the coordinators, with the standing game rules and the
 // call names), the self-scout, the call sheet your coordinators draft each
 // week and the installs. The depth chart gets a Packages tab (three deep
@@ -64,7 +64,7 @@ function dpBars(games, lines, opts = {}) {
 }
 
 // ======================================================================
-// Plans: Identity, Self-scout, Call sheet, Playbook, Installs
+// The Playbook: Identity, Self-scout, Call sheet, Playbook, Installs
 // ======================================================================
 const DP_PLAN_TABS = ["Identity", "Self-scout", "Call sheet", "Playbook", "Installs"];
 screens.plans = async (a) => {
@@ -84,7 +84,7 @@ screens.plans = async (a) => {
 };
 async function dpPlans(a) {
   const tab = tabOf("dpplan", DP_PLAN_TABS, a);
-  title("Plans", tab);
+  title("Playbook", tab === "Playbook" ? "" : tab);
   const st = S.status || {};
   const team = st.mine || null;
   if (team) setColors(team.colors);
@@ -99,7 +99,7 @@ async function dpPlans(a) {
   }
   const kicker = [team ? esc(team.name) : "", st.season ? esc(st.season) : "", st.today ? esc(st.today) : "", out.kick || ""].filter(Boolean).join(" · ");
   const goto = gotoLine([["Game day", "gameday"], ["Depth chart", "depth"], ["Training", "training"], ["Play designer", "designer"], ["Staff", "people_staff"]]);
-  return `<div class="film"><div class="pad dp">${dpHead(team, kicker, "Plans", tabs("dpplan", DP_PLAN_TABS, tab), out.actions)}${goto}<div class="tabbody">${out.body}</div></div></div>`;
+  return `<div class="film"><div class="pad dp">${dpHead(team, kicker, "Playbook", tabs("dpplan", DP_PLAN_TABS, tab), out.actions)}${goto}<div class="tabbody">${out.body}</div></div></div>`;
 }
 
 // ---------- Identity (board 19) ----------
@@ -184,7 +184,7 @@ function dpCoord(c) {
 }
 async function dpIdentityTab(a) {
   const seg = keep("dpidseg", { v: "guide" });
-  // A link can ask for a segment (game day's "Open Plans" asks for the rules).
+  // A link can ask for a segment (game day asks for the rules).
   if (a && (a.seg === "rules" || a.seg === "guide")) seg.v = a.seg;
   const segHtml = dpSeg("dpkeep", [["guide", "Guidelines"], ["rules", "Game rules and call names"]], seg.v, { key: "dpidseg", f: "v" });
   if (seg.v === "rules") return dpRulesTab(segHtml);
@@ -442,7 +442,7 @@ async function dpPackagesPage(a) {
   setColors(bx.team.colors);
   title("Depth chart", "Packages");
   const names = [...bx.boards.map((b) => b.label), "Packages", "By position"];
-  const head = pageHead({ kicker: `${esc(typeof trCap === "function" ? trCap(bx.tier) : bx.tier)} · game day`, title: "Depth chart", sub: "Who plays in each package, three deep, and how the defensive line rotates. Your position coaches fill what you leave.", goto: gotoLine([["Squad", "roster"], ["Training", "training"], ["Plans", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
+  const head = pageHead({ kicker: `${esc(typeof trTier === "function" ? trTier(bx.tier) : bx.tier)} · game day`, title: "Depth chart", sub: "Who plays in each package, three deep, and how the defensive line rotates. Your position coaches fill what you leave.", goto: gotoLine([["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
   const tabsHtml = tabs("trboard", names.map((n) => { const b = bx.boards.find((q) => q.label === n); return b && b.yours ? { name: n, badge: "●" } : n; }), "Packages");
   const want = keep("dppk", { board: "Nickel" });
   const x = await dpGet("dp_packages", { board: want.board });
@@ -551,7 +551,7 @@ window.dpWeekTab = async (h, parts) => {
     <div class="row"><small>Tempo</small>${rseg("tempo", [["normal", "Normal"], ["hurry", "No-huddle"], ["milk", "Milk it"]])}</div>
     <div class="row"><small>Timeouts</small>${rseg("timeouts", [["staff", "Staff"], ["keep_two", "Keep two"], ["keep_one", "Keep one"], ["free", "Freely"]])}</div>
     <div class="row"><small>Four-minute</small>${rseg("four", [["staff", "Staff"], ["run", "Run it out"], ["attack", "Attack"]])}</div>
-    <div class="row"><small>${x.rules_changed ? "Only this game: the standing rules come back after it." : "The standing rules and the 4th-down chart are on Plans."}</small><span class="dp-btns">${x.rules_changed && x.head ? '<button class="dp-chipbtn" data-act="gd-rulereset">Back to the standing rules</button>' : ""}<a class="link" data-go="plans" data-args='{"tab":"Identity","seg":"rules"}'>Open Plans ›</a></span></div></div>`;
+    <div class="row"><small>${x.rules_changed ? "Only this game: the standing rules come back after it." : "The standing rules and the 4th-down chart are on the Playbook."}</small><span class="dp-btns">${x.rules_changed && x.head ? '<button class="dp-chipbtn" data-act="gd-rulereset">Back to the standing rules</button>' : ""}<a class="link" data-go="plans" data-args='{"tab":"Identity","seg":"rules"}'>Open Plans ›</a></span></div></div>`;
   const p3 = `<div class="panel"><div><div class="dp-sec"><b>Special teams</b><small>${x.teams.fg_range ? `field goal range ${esc(x.teams.fg_range)}` : "no kicker on the roster"}</small></div>${teams}<div class="dp-foot" style="padding-top:6px">Returners and the cover teams are on the depth chart's <a class="link" data-go="depth" data-tab="Kickoff return">return boards</a>.</div></div>
     <div><div class="dp-sec"><b>Keys to the game</b><small>checked after the final whistle</small></div>${keys}</div>${last}${rules}</div>`;
   const bar = `<div class="dp-ph" style="margin-bottom:12px"><span><span class="dp-pt">The week's plan</span><span class="dp-ps">against ${rich(x.opp)} · ${esc(x.game)}${x.locked ? " · locked" : ""}</span></span><span class="dp-btns"><button class="st-btn small glass" data-go="plans" data-tab="Call sheet">The call sheet${x.sheet.waiting ? ` · ${dpPlural(x.sheet.waiting, "part")} waiting` : x.sheet.drafted ? " · approved" : ""}</button>${x.head ? `<button class="st-btn small ${x.locked ? "glass" : "primary"}" ${wk({ lock: !x.locked })}>${x.locked ? "Unlock the plan" : "Lock the plan"}</button>` : ""}</span></div>`;
@@ -593,7 +593,7 @@ function dpFitStaffHtml(x) {
   const sym = { yes: "✓", part: "~", no: "✕" };
   const word = { yes: "fits", part: "in part", no: "against" };
   const rows = x.rows.slice(0, 15).map((r) => `<div class="dp-hrow"><span>${rich(r.link)}<small>${esc(r.calls)} · ${esc(plainText(r.now))} · ${esc(r.rep)}</small></span>${pad((r.ticks || []).slice(0, 3).map((t) => `<span class="fx" title="${esc(t.why)}"><b class="${t.t}">${sym[t.t]}</b><small>${word[t.t]}</small></span>`))}<b class="${esc(r.fit)}">${esc(r.fit === "No guidelines" ? "–" : r.fit)}</b></div>`).join("");
-  const against = x.against.length ? `Your guidelines: ${x.against.map((a) => `${a.k} ${a.v} (${DP_FIRM_WORDS[a.firm] || a.firm})`).join(" · ")}.` : "No guidelines on this side yet: set them on Plans, Identity, and every candidate is ticked against them.";
+  const against = x.against.length ? `Your guidelines: ${x.against.map((a) => `${a.k} ${a.v} (${DP_FIRM_WORDS[a.firm] || a.firm})`).join(" · ")}.` : "No guidelines on this side yet: set them on the Playbook's Identity tab, and every candidate is ticked against them.";
   return `<div class="dp dp-fitp"><div class="panel"><div class="dp-ph"><span><span class="dp-pt small">Fit with how we play</span><span class="dp-ps">${esc(against)}</span></span><a class="link" data-go="plans" data-tab="Identity">Identity</a></div>
     ${cols.length ? `<div class="dp-hrow th"><span>Candidate · what he calls</span>${pad(cols.map((c) => `<span style="text-align:center">${esc(c)}</span>`))}<b>Fit</b></div>${rows}` : ""}</div></div>`;
 }
@@ -860,4 +860,4 @@ document.addEventListener("change", (ev) => {
       break;
   }
 });
-Object.assign(CRUMBS, { plans: "Plans" });
+Object.assign(CRUMBS, { plans: "Playbook" });

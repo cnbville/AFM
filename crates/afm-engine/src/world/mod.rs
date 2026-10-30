@@ -36,6 +36,7 @@ pub mod help;
 pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
+pub mod hunt;
 pub mod legacy;
 pub mod live_seat;
 pub mod looks;
@@ -418,6 +419,11 @@ pub struct PersonCal {
     /// at that program (`Person::cut_here`), until the next window moves him.
     #[serde(default)]
     pub cut: Option<CollegeCut>,
+    /// What each head coach's living-room talk did for him (lane 14, D7):
+    /// program, lean. It weighs in his choice like the rest of the
+    /// relationship.
+    #[serde(default)]
+    pub home_talks: Vec<(usize, f32)>,
 }
 
 /// A college cut (minor bug 60): the program, the day, and whether his
@@ -898,6 +904,9 @@ pub struct World {
     /// College programs and high schools that started after 2026 (SK68).
     #[serde(default)]
     pub new_teams: new_teams::NewTeams,
+    /// The hunts (SK67): yours, the AI's and the generational prospects.
+    #[serde(default)]
+    pub hunt: hunt::Hunts,
     /// Each NFL team's regular-season points by year (C27): (season, team,
     /// games, points for, points against); the last twenty seasons.
     #[serde(default)]
@@ -1281,6 +1290,7 @@ impl World {
             kept_schedules: Vec::new(),
             expansion: Default::default(),
             new_teams: Default::default(),
+            hunt: Default::default(),
             nfl_units: Vec::new(),
         };
         staff::staff_everyone(&mut w);

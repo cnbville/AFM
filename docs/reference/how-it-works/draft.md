@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, and the hunt (next update lane 11) on 2026-10-30.
 
 ## Quick answers
 
@@ -21,6 +21,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28.
 - Are there compensatory picks? From 1994: up to 32 a year at the end of rounds 3-7 for net free agents lost, at most four per club, topped up to 32 with supplemental 7ths; diversity picks from 2021 (`world/pro/trades.rs`, `award_comp_picks`).
 - Can an owner overrule the draft room? In round one, with chance 0.15 × his `draft_override`; he takes the first 5-star, or in-state 4-star, in the top 40 left (`world/recruiting.rs`, `draft_step`).
 - Can a prospect refuse a club? Rarely: a top QB (score 85+, ego z > 1, a parent or handler deciding) with the first pick held by a weak team, 12%; that club puts him on its do-not-draft list (`world/scouting/predraft.rs`, `choose`, `on_boards`).
+- Does a club's hunt change its board? Yes: on draft day the man a club has hunted all year reads 2 points higher on its board, so it trades up for him sooner; a quarterback who refuses your club is taken and his rights traded to the club that wants him most in the next 32 picks, for its pick and its next first. See [hunt.md](hunt.md) (`world/recruiting.rs`, `draft_begin`, `draft_value`; `world/scouting/live.rs`, `refused`).
 
 ## The draft order and the slots
 
