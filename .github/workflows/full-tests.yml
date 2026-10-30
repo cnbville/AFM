@@ -8,8 +8,10 @@ name: Full tests
 #   that wants every test before it merges;
 # - once on main before the world rebuild (lane 12), which waits for green.
 on:
+  # At 01:47 UTC: GitHub delays or drops scheduled runs at the top of the hour
+  # under load, and the first night's 01:00 run never started.
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "47 1 * * *"
   workflow_dispatch:
 permissions:
   actions: read
