@@ -507,8 +507,10 @@ pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
 
 /// A pro's trust in his club, read at camp beside his trust in the head
 /// coach (minor bug 114: it began at 1 and only fell, so it averaged 0.99
-/// and drove nothing). A club he has just joined starts where a new head
-/// coach does, a tenth higher when it has just paid him; after that a fair
+/// and drove nothing). A club he has just joined starts at three quarters
+/// (it chose him; starting at a half, like a new head coach, held out 55%
+/// more players a year than before), a tenth higher when it has just paid
+/// him; after that a fair
 /// role earns a little each year and a short one costs, as in college. Pay
 /// under his market wears it, the more for a greedy man, and so does each
 /// tag he plays under (real players resent the tag: Le'Veon Bell sat out
@@ -519,7 +521,7 @@ fn club_trust(p: &mut Person, role: f64, pay: f64) {
     let (loyal, adapt, greed) = (t.z(Trait::Loyalty), t.z(Trait::Adaptability), t.z(Trait::Greed));
     let Some(c) = p.pro.as_mut() else { return };
     let mut x = if c.new_team {
-        clamp(0.5 + 0.08 * loyal + 0.08 * adapt, 0.2, 0.8)
+        clamp(0.75 + 0.08 * loyal + 0.08 * adapt, 0.5, 0.95)
     } else {
         c.trust + if role >= 0.0 { 0.06 } else { 0.18 * role }
     };

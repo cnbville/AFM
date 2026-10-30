@@ -378,10 +378,11 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
 /// The college trouble roll's base before his personality, background and
 /// the program's engagement staff. College players are a steadier group
 /// than high schoolers (more work ethic and professionalism, less temper),
-/// so the class model's 3% base came out at 2.0% of college players a
-/// season; 4.4% gives the design's 3% (minor bug 112; proposed, not
+/// so the class model's 3% base came out at about 2.5% of college players
+/// a season (the book read 2.0%: the dismissed leave college); 3.6% gives
+/// the design's 3%, measured on a full world (minor bug 112; proposed, not
 /// confirmed: no national college rate is on file).
-const COLLEGE_TROUBLE: f64 = 0.044;
+const COLLEGE_TROUBLE: f64 = 0.036;
 
 /// The season's development step (one checkpoint a year, `development.rs`)
 /// for the people given, with their roles. High school players develop when
