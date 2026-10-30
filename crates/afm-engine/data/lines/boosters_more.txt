@@ -61,6 +61,305 @@ Coach. I heard you got in late last night. Hope they put you somewhere decent. ~
 I have about a hundred things to say and I'm going to try to say six of them today. ~ patient
 Coach. Good to have you. Last time this many people were excited, we had a winning record. ~ !nfl
 Welcome. I sat through the whole search. Don't let me down. ~ impatient
+Welcome to {town}, Coach. I hope somebody's already told you where to get a decent cup of coffee.
+There he is. The man of the hour. Come in before somebody else grabs you.
+Congratulations, Coach. Hell of a week, I bet. ~ blunt
+Good to meet you, {coach}. You've shaken a thousand hands this week, so I'll go easy on yours.
+Took you long enough to get over here. I'm kidding. Mostly. ~ hot
+Morning, Coach. The coffee's fresh and I cleared my calendar till noon. ~ warm
+Pleased to meet you. I've followed this team through every kind of year there is. Glad to start a new one with you.
+The new head coach of the {team}. That'll sound strange for about a week. Then it'll sound like home. ~ warm
+Come in. I won't keep you long. Your phone probably has two hundred messages on it right now.
+A lot of folks in this town are going to call themselves your friend this month. I'd like to actually be one. ~ warm
+Hello, Coach. I'll be straight with you from the first minute. It's the only way I know. ~ blunt
+Thanks for coming by. Don't worry, I'm not going to tell you how to run the offense. Not today, anyway. ~ meddler
+Welcome to the organization, Coach. The family's glad you said yes. ~ kin
+You met most of the family at the press conference. I'm the one you'll actually run into in the hallways. ~ kin
+Don't let the last name on the door scare you. I'm just one more person in this building who wants to win. ~ kin
+Upstairs, they've been calling you the guy for two weeks. Nice to finally meet the guy. ~ kin
+My office is two floors up. Take the stairs. The elevator in this place is older than I am. ~ kin
+Take your jacket off, Coach. Nobody in this office wears one unless the bank's visiting. ~ booster
+Pardon the boots. I came straight from a job site. ~ booster
+Good to meet you. You've got the look of somebody who's slept four hours a night since the hire.
+Three phone calls it took me to get on your calendar this week. Worth every one.
+You must be {coach}. I'd have known you anywhere. Your picture's been on every screen in {town} for a week.
+I hear you're a film person. So am I, in my amateur way. ~ meddler
+You'll meet a lot of people who say they've got your back. Put me at the top of that list. ~ warm
+You came highly recommended. We'll find out soon enough if they were right. ~ cold
+Hello, Coach. I've been a {team} fan since before I could spell it.
+This place has a long memory, Coach. The good days and the bad ones. Welcome to it.
+I was in the back at your press conference. You handled the local reporters fine. They're tougher than they look. ~ !hs
+You've met the president, the AD and half the big donors this week. I hope I'm the fun one. ~ college booster
+The booster club meets the first Monday of every month in the cafeteria. You're invited to all of them and forgiven for skipping most. ~ hs booster
+Hey, Coach. The principal said you might stop by. Glad you did. ~ hs
+Welcome to {town}. You'll know everybody in a month, and they'll know your business in a week. ~ hs
+Big day, Coach. Your name's already up on the sign in front of the bank. ~ hs
+Welcome to the conference, Coach. Hope you like road trips and hostile stadiums. ~ college
+This league is a meat grinder. Welcome to our corner of it. ~ nfl
+I've backed every coach this place has hired in my lifetime. Some deserved it more than others. ~ booster old
+My name's on a few things around the stadium. Don't hold it against me. ~ booster ego
+Welcome to {team} country, Coach. From here to the county line, they bleed the colors. ~ !nfl
+How's everybody treating you so far? If folks aren't being sweet to you, you let me know. ~ south warm
+Bless your heart, you look worn out. Sit down before you fall down. ~ south warm
+How you doing, Coach? Come in, sit, take a load off. ~ northeast
+We don't do fancy here, Coach. We do football, and we do it loud. ~ midwest
+Welcome to {town}. Out here, people drive six hours to a road game and call it a short trip. ~ west
+Howdy, Coach. You've met half of Texas this week, I'd bet. This is the half that matters. ~ texas ego
+Down here we've got two seasons. Football, and waiting on football. ~ south
+Welcome home, Coach. I hope you let it be that. ~ warm
+The first few weeks are going to be a blur. I'll try to be one of the parts you remember. ~ smooth
+They tell me you're a straight shooter. I can work with that. ~ blunt
+Sit. I've got fifteen minutes, and you get all fifteen. ~ impatient
+I don't get excited easily, Coach. I'm close today. ~ cold
+I'm going to like you or I'm not, and I'll know by the opener. ~ blunt
+You've got a good face for a press conference. That counts for more than people think. ~ smooth !hs
+Nobody's going to give you the whole truth about this place for a while. I'll start whenever you're ready. ~ blunt
+Welcome aboard. Before you ask, yes, I'm always this loud.
+The night they hired you, I slept like a baby. First time in a while.
+Ignore the photos on the wall. That's forty years of me grinning next to people. ~ old ego
+Parking out here's a nightmare, I know. Next time, pull right up front.
+You're going to get a lot of advice in this town. Most of it's free, and most of it's worth what you pay for it.
+I don't usually do these first meetings. Made an exception for you. ~ cold
+Saw your car pull in. Figured I'd catch you before the rest of the vultures did.
+Welcome to the {team}, {coach}. I've been looking forward to this since the rumors started.
+I'll tell you what I tell everybody. This team is the best thing about {town}. Treat it that way.
+Ten minutes, I promise. Okay, twenty.
+Say what you want about this place, but nobody here has ever been bored on game day.
+If you're half as good as your references, we'll get along fine.
+You're braver than I am, Coach. I couldn't stand in front of this town every week.
+I'm the one in the family who reads the scouting reports. Don't tell the others. ~ kin meddler
+The cap people are going to bury you in numbers this week. I'm just here to say hello. ~ kin nfl
+We're a {town} family before we're anything else. You'll see what I mean. ~ kin
+Welcome to Friday nights, Coach. You'll never get used to the noise. Nobody does. ~ hs
+The band director already asked me if you're nice. I said I'd report back. ~ hs
+You're going to love these kids. A few of them will drive you crazy, but you'll love them. ~ hs warm
+Half the dads in {town} are already drawing up plays for you on napkins. ~ hs
+Your first booster club meeting, they'll clap for ten minutes. Enjoy it. It never happens again. ~ hs booster
+Welcome to Saturdays, Coach. They're bigger than you think, even if you already think they're big. ~ college
+Recruiting never sleeps here. I hope you don't either. ~ college
+The civic clubs are already lining up to have you speak at lunch. Welcome to the circuit. ~ !nfl
+I'm one of those people who says what she thinks. You'll get used to it. ~ she blunt
+I've been the only woman at a lot of these meetings. Nice to be the first one at yours. ~ she
+I'll keep it short. I'm saving my long speeches for the first time we beat {rival}.
+Just so you know, nobody in {town} says {rival} without making a face first.
+{last_record} last year and a new man in charge this year. Everything starts over today.
+{series}. That's the all-time number against {rival}. You'll hear it in your sleep.
+I'm not going to talk about {old_last} today. Today's yours.
+Folks are already asking me about {rivalry}. I told them to let the man unpack. ~ patient
+I drove two hours to shake your hand. Don't make me regret the gas money. ~ tight
+Excuse the folding chairs. Real ones cost money. ~ tight
+Damn, it's good to see a new face around here. ~ hot
+Sit down. You'll find I'm not much for fuss. ~ cold
+Every coach this place has had has a picture with me. Let's get yours out of the way. ~ ego
+You've already made my week, Coach. And the week's barely started. ~ smooth
+Oh, it's so good to meet you. Everybody's been dying to. ~ warm
+Come here. You've had a week. Let somebody take care of you for an hour. ~ warm
+I'm old enough to remember when coaches wore ties on the sideline. Welcome, Coach. ~ old
+My eyes aren't what they were, but I can still tell a football man when I see one. ~ old
+Pull that chair closer. My hearing went sometime in the nineties, along with my hairline. ~ old !she
+Don't look so surprised. Plenty of the biggest checks in this program are signed by women. ~ she booster
+Excuse the cast. Pickup basketball. I'm too old for it and too stubborn to quit.
+Excuse the sunburn. I was out on the water all weekend. ~ south
+I'd have brought cookies, but I figured you've had fifty dozen this week.
+I rehearsed this in the car. Welcome to {town}, Coach. There, I said it.
+I'd bet you're still living out of a suitcase. Welcome to {town} anyway.
+A head coach who calls back the same day. I think we'll get along.
+Had a whole speech ready. My better judgment says skip it. Welcome.
+Hope the bypass didn't eat you alive getting here. It's murder this time of day. ~ !nfl
+You got the job, and now you've got me. Sorry about that.
+I promised myself I'd listen more than I talk today. Let's see how long that lasts.
+Welcome, congratulations, and good luck. You'll need all three. ~ blunt
+Everybody in {town} already has an opinion about you. Mine's about to be the first one formed in person.
+Glad they let you out of the building long enough to come see me. ~ booster
+I've had this meeting in my head for a month. You're better than the version I made up. ~ smooth
+People here will love you on Monday and want you gone by Tuesday. I try to stay somewhere in the middle. ~ patient
+I'll be honest. A month ago I didn't know your name. Now I can't stop hearing it. ~ blunt
+Sorry for the rush. I'm due somewhere in thirty minutes, but I wasn't letting the week go by without saying hello. ~ impatient
+Hope you brought a good coat and a thick skin. You'll need both up here. ~ northeast
+Folks here will say it's nice to meet you and mean it. Then they'll tell you what you did wrong on third down. ~ midwest
+We're slow to warm up in this part of the country. Once we do, it sticks. ~ northeast
+They made a fine hire. That's what I told everybody at church on Sunday. ~ south
+I had the brisket brought in from the good place. Don't let anybody tell you there's a better one. ~ texas warm
+Around here we wave at strangers and yell at referees. You'll fit right in. ~ south
+You'll love it out here, Coach. Big sky, long drives, and fans who'll follow this team anywhere. ~ west
+Out here nobody cares where you came from. Just what you do once you're here. ~ west
+Come in. You'll forgive me if I talk with my hands. It's a family thing. ~ northeast
+People in {town} are going to give you a nickname by the second game. Don't fight it.
+I'll be at every game, home and away. Wave once in a while.
+A few days on the job and you already look like you've had it for years.
+Let me apologize in advance for the fans. They mean well. Most of them.
+I hope you like people, Coach, because this job is mostly people.
+I'm not hard to please. I'm hard to fool. ~ blunt
+I've seen good coaches fail here and bad ones get lucky. I'd like to see a good one win. ~ old blunt
+All week I told folks I'd reserve judgment on you. I'm a terrible liar.
+Your first game here, look up at the stands right before kickoff. You'll never forget it. ~ warm
+I'd stand up, but my knees haven't forgiven me for the last forty years. Come here. ~ old
+{you}. That's a good name for a head coach. Short and easy to chant.
+{coach}. I've been practicing it all week. It'll sound good over the PA.
+By Labor Day you'll be the most recognized face in {town}. ~ !nfl
+Don't let the size of the place fool you. This town takes football more seriously than cities ten times its size. ~ hs
+You'll meet the moms soon. The moms run this program. I'm just the one with the checkbook. ~ hs booster
+The concession stand already named a sandwich after you. It's not a great sandwich. ~ hs
+Recruits will notice the change before anybody else does. Welcome to the program. ~ college
+The collective folks are going to want a minute with you. I told them I get the first one. ~ college nil booster
+Half the alumni club has been asking me about you. Now I can tell them I've met you. ~ college
+If you ever need to know which way the wind's blowing upstairs, you come to me. ~ kin smooth
+The family asked me to make sure you have everything you need. That's my whole job this week. ~ kin warm
+The rest of the family will be polite. I'll be useful. ~ kin blunt
+The family is thrilled. I'm cautiously thrilled. ~ kin cold
+You'll know the cap number of every guy on the roster before you know my name. That's fine. ~ kin nfl
+OTAs feel like a long way off. They're not. ~ nfl
+Sundays in this city are something else, Coach. Wait till you see your first one here. ~ nfl
+I'm the relative who actually likes football. You'll figure out which ones are faking it. ~ kin
+I don't need to be your friend, Coach. I'd like to be your fan. ~ cold
+I get worked up on game days. Don't take it personally when I'm loud. ~ hot
+Hey, hey. Get in here, Coach. ~ warm
+You've got about a week before everybody in this town expects you to know their name.
+I've lived in this town my whole life. Never wanted to live anywhere else.
+Fair warning. I'm going to bring up {rivalry} at least once today.
+Somebody in this town is going to tell you I'm difficult. They're right. ~ hot
+I never miss a first impression. You're doing fine so far. ~ smooth
+I don't go to many meet-and-greets anymore. I wasn't going to miss yours. ~ old
+Usually I make new folks come to me. I came to you. That tells you something. ~ ego
+You've got the town's attention. That's the easy part. ~ blunt
+When I was a kid, I'd have given anything to be in a room with the head coach. Still feels that way a little. ~ warm
+{old} had his fans and his critics. You'll have yours soon enough.
+Everybody keeps telling me {year} feels different. You haven't coached a down yet, and I'm starting to believe them.
+{rivalry} is already circled on my calendar. Is it on yours?
+Shake with your left hand. I'm superstitious. Humor me.
+Nothing's decided on day one. I've been through enough of these hires to know that. ~ patient old
+Took the morning off for this. First one in years.
+Somebody's got to say it out loud. Thank God it's settled.
+No tie today. Figured you'd rather meet the real me.
+The local paper called me for a quote about you. I told them I'd talk after I met you.
+You don't look like a coach who loses much. That's a compliment. ~ smooth
+If I seem nervous, it's because I've never wanted somebody to succeed this badly. ~ warm
+Talk radio's been on you all week. They don't know a thing. ~ !hs
+When you've been around this team as long as I have, you stop getting excited about hires. I'm excited anyway. ~ old
+I'll be the one behind the bench yelling at the officials. Don't look over. ~ hot booster
+I'm the loudest voice in the owner's box on Sundays. Ask anybody. ~ kin hot nfl
+I've been meaning to call you since Tuesday. Then I figured in person was better.
+The whole booster club chipped in for flowers. They're on your desk. You'll hate them. ~ hs booster
+The parents in this program are passionate. That's the nice word for it. ~ hs
+The JV coaches, the middle school coaches, the whole feeder system has been calling me. They all want to know what you run. ~ hs
+First home game, the whole town's going to be in those stands. Nobody locks their doors that night. ~ hs
+Don't bother learning every alumni name. Learn the ones who call twice. ~ college smooth
+My door's down the hall from yours. I knock. I'd appreciate the same. ~ kin cold
+Our family has never been shy about wanting to win. You've probably heard that already. ~ kin
+The official family welcome comes later, with speeches. This is the unofficial one. ~ kin
+You're the first head coach I've met who looked me in the eye on the first try. ~ old
+I'm still getting used to saying your name instead of {old_last}'s. Give me a week.
+Whatever you've heard about us, half of it's true and the other half is worse. ~ blunt
+I'll get out of your way quick. I just needed to see you with my own eyes.
+Pardon the tie. I came from a board meeting, and I wasn't about to be late for this.
+Everybody's going to tell you what this team needs. I'll just tell you where to get a good steak.
+You've got a lot of people to impress, Coach. I'm not one of them. I'm already sold. ~ warm
+If you ever need a place to hide from the press, my back office has a lock. ~ booster warm
+{coach}, the pleasure's all mine. Well, mostly mine. You haven't heard me talk yet.
+Sit wherever you like. I've learned not to read anything into it.
+Football's a hard business. I'd like to make your corner of it a little easier. ~ smooth
+Before you ask, yes, the coffee's from the gas station. Best in town. ~ !nfl
+This team needs somebody who'll stay a while. I hope that's you. ~ patient
+Are they making you teach a class too? Most of the coaches here do. ~ hs
+The Quarterback Club wanted to throw you a dinner. I told them to let you breathe first. ~ hs south
+The board meeting where they approved you drew a bigger crowd than graduation. ~ hs
+The coffee's free, Coach. That's about the only thing around here that is. ~ tight
+I'm the one who actually reads the expense reports. Somebody has to. ~ tight
+I'd take you somewhere fancy for lunch, but the diner's just as good at half the price. ~ tight
+Finally. I've been waiting on this meeting since the day they announced you. ~ impatient
+No rush getting settled. We've waited this long, we can wait a few more weeks. ~ patient
+Punctual. Good. Have a seat. ~ cold
+Thank you for your time, Coach. I'll try to be worth it.
+It's an honor, Coach. Truly. And I don't say that to everybody. ~ smooth
+I've already got some thoughts on the team. Not today. But I've got them. ~ meddler
+Most new hires come meet me eventually. You came the first week. Smart. ~ ego
+Sorry I'm late. Got stuck on a call that should've been an email.
+Hang on, let me get off this call. Okay. Welcome, welcome.
+Don't tell anybody, but I teared up a little when they announced it. ~ warm
+Here, I brought you a hat. Wear it to the grocery store and see what happens.
+I brought you a jar of local honey. It's an old custom here. Sweet start. ~ warm
+Here's to a long run and a short list of excuses. ~ blunt
+Hello there, son. You don't mind if I call you son, do you? I call everybody son. ~ old south
+My mama raised me to hug folks I'm glad to see. So come here. ~ south warm
+Welcome to the twelve-team era, Coach. Every fan in {town} can do the bracket math in their head now. ~ college
+Between revenue sharing and the portal, this job is half CEO now. Hope you like spreadsheets. ~ college nil
+The draft room's down the hall from you. Come April you'll basically live in it. ~ kin nfl
+The 53 is your problem now, Coach. Lucky you. ~ nfl
+You'll hear a lot of noise from the fans these next few months. Most of it just means they care.
+One piece of advice I give everybody new. Learn the waitress's name at the diner on the square. ~ !nfl
+This town's going to put you on a pedestal. I'll be the one who tells you when it's wobbling. ~ blunt
+I've got the barbecue going out back. You'll stay for a plate. That's not a question. ~ south warm
+Wipe your feet, Coach. I just had the carpets done.
+Speak of the devil. I was just telling somebody about you. ~ smooth
+Not going to pretend I'm not excited. I've got the shirt on under this jacket. ~ warm
+{town} is a football town that pretends to be about other things. You'll figure that out quick.
+Some people are going to try to scare you off this place. Don't let them. ~ warm
+You've got a lot of eyes on you, Coach. Most of them are on your side.
+My accountant thinks I spend too much time on this team. My accountant isn't wrong. ~ booster
+Hope you like dogs, kids and loud music, because that's game day at my place.
+Don't worry about learning who's who. Everybody will tell you. Loudly.
+The old-timers are going to compare you to every coach they ever watched. Don't listen.
+Real people, real football. That's what we've got here. ~ midwest
+The last two weeks, people have been driving past the stadium just to see if the lights were on. ~ !nfl
+Your schedule's already on my fridge. Half the town has it on theirs. ~ !nfl
+The old money is going to want you at lunch. The new money is going to want you on their podcast. Pick carefully. ~ booster
+Hope you don't mind me showing up at the field. I couldn't wait for a proper appointment. ~ impatient booster
+I've had my eye on you for a while. I just never said so out loud. ~ smooth
+Nice to meet the man who's going to wreck my blood pressure for the next few years. ~ hot
+I'll be your loudest fan and your quietest critic. That's a promise.
+{old_last}'s nameplate came off the door yesterday. Yours goes up today. ~ kin
+It's been a long time since this many people in {town} agreed on anything.
+Welcome to the circus. I'm one of the clowns, but I'm one of the friendly ones. ~ warm
+You're about to get a lot of mail. Half of it from people who swear their nephew can kick.
+They told me you'd be in meetings all day. I told them you'd want to meet me. Here we are. ~ ego
+Welcome to the {team}, Coach. This is the best job in {town}, and the hardest.
+Nobody wants this job until they get it. Then nobody wants to leave. Welcome.
+I bet everybody's told you how special this place is. Let me be the one who tells you it's also a little crazy. ~ blunt
+The guys at the coffee shop gave your press conference a B-plus. That's high for them. ~ college
+You picked a fine time to come aboard, Coach. Everybody's still in a forgiving mood.
+I like to meet the new coach before the town decides who he is.
+The building's been quiet for a few weeks. It'll be loud again now that you're here. ~ kin
+I've watched a lot of men walk into this building on their first day. You walk like you mean it. ~ kin old
+My people have been in {town} for five generations. I've never seen this town want a coach to succeed this much.
+The first thing the fans asked me was whether you're a runner or a thrower. I said I'd find out.
+Every coach who's come through here has sat in that chair. Some of them even listened to me. ~ ego old
+You and I are going to spend a lot of game days worrying about the same things. Might as well start now.
+I'm the reason half the people you met this week were nervous. ~ ego
+This community has a lot of love to give a football coach. Some of it's even the kind you want.
+I only have one question today, and it's not about football. How are you holding up? ~ warm
+I'm told you prefer handshakes to speeches. Same here.
+Every time this place hires a coach, I buy a new hat. This is my new hat.
+The chamber of commerce wants a picture of you with a ribbon and a big pair of scissors. I told them I'd ask. ~ !nfl
+I hope you're a patient man, Coach. This town isn't. ~ blunt
+Good to meet the new boss of the {team}. Well, the second boss. Don't tell the family I said that. ~ kin
+You'll be fine here. I can tell already. ~ warm
+Here's the thing about {town}. Win and you never pay for a meal. Lose and you'd better cook at home.
+Before we get started, I want you to know I'm on your side. Whatever that's worth to you. ~ warm
+I've heard all about you. Now I'd like to hear it from you.
+They named you while I was on the front nine. Played the back nine terrible.
+Hey, you made it. I was starting to think they'd locked you in the film room.
+I've been a part of this for a long time, and I still get butterflies meeting the head coach.
+I've spent a lot of years in this building. Today's one of the good ones. ~ kin
+A new coach is like a new season. Nobody's lost a game yet.
+You know how many people asked me to put in a good word for them with you this week? Don't worry, I didn't. ~ smooth
+Good to meet you before you get buried under film and phone calls.
+My shop's right across the street from the school. You'll see me waving every morning. ~ hs booster
+The trustees voted and so did the tailgate lot. You won both. ~ college
+The president's nice, the faculty's skeptical and the students are already making shirts. Welcome to campus. ~ college
+The letterwinners already want you at their banquet. Wear something comfortable, it runs long. ~ college
+The family's had a lot of sleepless nights over this hire. Tonight we'll sleep. ~ kin
+The equipment staff already has your sideline gear in three sizes. They guessed. ~ kin
+If you need anything from the business side, I'm your shortcut. ~ kin smooth
+The ticket office has been getting calls all week. Good calls. ~ kin nfl
+You'll have the owner's ear. You'll also have the owner's opinions. Both come free. ~ kin
+I've called every head coach in this building by his first name eventually. For now, you're Coach. ~ kin cold
+Y'all getting settled all right? You and the staff, I mean. ~ south
+You're going to hear a lot of big talk in this state. Most of it's backed up. ~ texas
+Folks here are polite to a fault. Don't mistake it for not caring. ~ midwest
+People out here are laid back about everything except this team. ~ west
+Up here we don't sugarcoat things. You'll appreciate it by October. ~ northeast
+I've got the accent, Coach, and the opinions to match. ~ northeast
+I'd offer you a drink, but it's a little early. Ask me again at noon.
 
 @key booster.small
 I've been driving the same route to the stadium for thirty years. I could do it asleep. ~ old !nfl
@@ -123,6 +422,308 @@ I used to be loud at games. Now I mostly hold my breath.
 I married into this team. My wife's family has had seats for sixty years. ~ !she !kin
 I used to keep score at the Little League field across the street. Some of those kids played for you guys later. ~ hs
 I'm not a football guy, really. I'm a {town} guy. Football's just how this town talks to itself.
+Found a place to live yet? Don't let a realtor show you anything near the interstate. You'll never sleep.
+Rent the first year. Learn the town before you buy into it. That's free advice.
+If you want quiet, look out by the lake. If you want people waving at you in the driveway, stay in town.
+The best breakfast in {town} is the little place by the feed store. No sign out front. Just look for the trucks. ~ !nfl
+Barbecue's a sore subject around here. Pick a place and defend it. Everybody else has. ~ south
+You'll get offered brisket at every function from now till kickoff. Pace yourself. ~ texas
+The Friday fish fry at the church hall is a big deal here. Show up once in the offseason and they'll love you forever. ~ midwest
+There's a pizza place on the corner that's been there since my grandfather's day. Don't order anything fancy. Plain cheese. ~ northeast
+Out here, good tacos are a basic human right. I'll send you a list. ~ west
+The steakhouse downtown, ask for the back booth. That's where everything in {town} gets decided.
+Has anybody poured you real sweet tea yet? Not the machine stuff. The real thing. ~ south
+August practices here will try to kill you. Keep the trainers close and the water closer. ~ south
+Get a real winter coat, not one of those sideline jackets. November will go right through you. ~ midwest
+Snow games are the best games up here. Nobody leaves early, and nobody can feel their feet. ~ northeast
+They test the tornado sirens once a month at noon. First time you hear it, don't panic. ~ midwest
+We've tailgated through a hurricane watch before. Wouldn't have missed it. ~ south !hs
+It never rains when you need it and always rains on homecoming. ~ !nfl
+On game days the traffic backs up clear to the highway. Folks start parking at sunrise. ~ !hs
+They're building a new subdivision out past the water tower. Half the town hates it. The other half is buying in. ~ !nfl
+{town} has changed a lot. More traffic, more chain restaurants, same football.
+The paper runs a picture of the head coach every Monday, win or lose. Learn your good side.
+The radio guy has called games here for a long time. He'll get your name wrong for a month. Let it go. ~ !nfl
+Downtown used to be dead. Now there's a brewery on every corner and a line for coffee.
+If you need a doctor, a dentist or a lawyer, ask me first. I'll tell you which ones are fans.
+You go to church, Coach? No pressure. Just know folks will notice which one. ~ south
+There are good schools on the north side, if that's something you're thinking about.
+Whatever you do, don't buy the house next to the band director. Practice starts at six-thirty. ~ hs
+Trucks are my business. Half the boosters drive one of mine, and every one of them complains about the payments. ~ booster
+My face is on a billboard on the way into town. Personal injury law. I'm sorry about that. ~ booster
+I'm in oil and gas, which means some years I'm a genius and some years I'm an idiot. Same as coaching. ~ texas booster
+Roads are what my company builds. Half the potholes in {town} are somebody else's fault, I promise. ~ booster
+I've run the hardware store on Main for [thirty|forty] years. Every coach this place ever had bought a shovel from us. ~ hs booster old
+I'm a lawyer by trade. Mostly real estate. Nobody wants to hear about it, including me. ~ booster
+Harvest and football season land right on top of each other. I've never once picked the harvest. ~ midwest booster
+I've got a few restaurants around the state. Walk into any of them and they'll know who you are before you sit down. ~ booster
+Funeral homes. People think it's grim. It's steady work, and it's taught me patience. ~ booster patient
+I'm in banking. You'd be amazed how many deals get done at a tailgate. ~ booster !hs
+Trucking's my line of work. When we travel for a road game, half the interstate is mine. ~ booster
+I'm a dentist. Every kid on this team has been in my chair at some point. ~ hs booster
+Medical devices. Very boring. I travel a lot, but I plan every trip around the schedule. ~ booster
+I sold my company a few years back. Now I've got nothing to do but worry about this team. ~ booster
+Real estate's my business. If you're looking, I'll find you something. If you're not, I'll find you something anyway. ~ booster smooth
+Half the doctors in town let me manage their money. They ask about the team before they ask about their accounts. ~ booster
+Cattle, mostly. Some pecans. A lot of praying for rain. ~ texas booster
+My crews poured the concrete for half the buildings on campus. I still drive by and admire my own sidewalks. ~ college booster
+Most of my week is meetings about suites and sponsors. Game day is the only day I get to feel like a fan. ~ kin
+Growing up, the team was the dinner table conversation every night. You couldn't get away from it. ~ kin
+I spent one summer driving the equipment truck to training camp. Best job I ever had in this building. ~ kin
+Everybody thinks I got my job because of my last name. They're right. I've worked hard to deserve it since. ~ kin blunt
+You a golfer? I'm a [twelve|fourteen] handicap on my best day and a liar on my worst.
+The club has a member-guest every spring. You can be my guest if you can stand losing to me. ~ ego
+There's a public course out by the airport with better greens than the club. Don't tell anybody I said so.
+Golf? Never understood paying money to be frustrated. That's what football's for. ~ blunt
+Opening day of deer season, the school's half empty and so are the stands. You'll see. ~ midwest hs
+You hunt? I've got a lease about an hour south. Dove season opens the first of September. Lousy timing for you, I know. ~ texas
+I've got a duck blind on the river. Four in the morning, coffee in a thermos, not a word spoken. Best part of my year. ~ south
+Elk season, I disappear for a week. Everybody knows not to call. ~ west
+Bass fishing on the reservoir is the best-kept secret around here. If you ever get a free summer morning, I'll take you out. ~ south
+Walleye. If you haven't had it fresh out of the lake, you haven't lived. ~ midwest
+Fly-fishing up in the mountains is the only time I don't check my phone. ~ west
+Offshore fishing, when I can get away. Six hours out, nothing but water. Clears the head. ~ south
+I'm not an outdoors person. My idea of roughing it is a hotel without room service.
+Saturday mornings in the offseason, I shoot sporting clays. Good for the nerves.
+Ice fishing. I know how it sounds. Sit out there once with a heater and a radio and you'll understand. ~ midwest
+The folks around my seats are like family now. We've seen each other through weddings and funerals, all from the same two rows. ~ booster
+The fellow behind me has yelled the same thing at every referee since the nineties. I've never once turned around to see his face. ~ booster
+My seats are right behind the bench. I can hear everything you say. Fair warning. ~ booster
+Most games I'm up in the box. Glass in front of you, heat on, and you still can't sit still. ~ !hs
+Have you been down on the field at night yet, with the lights on and nobody there? Do it once. It's like church.
+The press box is older than both of us. Every winter somebody says we'll fix it. Every winter we don't. ~ hs
+The old scoreboard had a clock that ran fast in the cold. People still argue about one game because of it. ~ hs old
+The walk out of that tunnel is the best walk in sports. You'll feel it the first time. ~ !hs
+The student section will make up chants about you. Some of them you'll even want to hear. ~ !nfl
+People from other places don't believe how loud our stadium gets until they're in it.
+My name's on a brick by the front door of the field house. Third row, fourth from the left. ~ hs booster
+I don't remember the score of my first game here. I remember the smell. Popcorn, rain and cigar smoke.
+There's a game from years back that people in {town} still argue about. A spot on fourth down. I'll give you my side sometime.
+You'll hear about the snow game. Everybody claims they were there. The stadium would've had to hold a hundred thousand. ~ midwest
+People still talk about the night the lights went out in the third quarter. Forty minutes in the dark, and nobody left. ~ !nfl
+{old_last} and I had lunch once a month. We argued about the offense every time and split the check every time.
+I liked {old_last}. I won't pretend I didn't. That doesn't mean I'm not glad you're here.
+You'll hear all kinds of stories about {old}. Take them with a grain of salt. A few of them I started. ~ smooth
+I send every coach a card when they leave. Sent one to {old_last}. I hope I don't have to send you one for a long time. ~ warm
+Don't let anybody compare you to {old_last}. Different man, different time.
+{rival}. You'll hear that name a lot. It takes about a week to learn to hate it.
+Not one thing I own comes close to {rival}'s colors. Not a tie, not a shirt, not a napkin. ~ hot
+The all-time series is {series}. I know every one of those scores. Don't quiz me.
+My neighbor's a {rival} fan. We don't speak during rivalry week. Haven't in years.
+I don't sleep the week of {rivalry}. Ask anybody who's ever shared a hotel room with me on the road. ~ !hs
+The collective took up half my calendar last year. Never thought I'd spend so much time on contracts for college kids. ~ college nil booster
+Kids film everything now. Somebody's going to post your first practice before you've blown the whistle. ~ !nfl
+The message boards already have your depth chart figured out. Read it sometime for a laugh. ~ college
+With the twelve-team playoff, folks around here don't make holiday plans until the bracket comes out. ~ college
+The man who runs the hot dog stand by the gate has been there longer than the goalposts. Buy one. It's bad luck not to. ~ !nfl
+Every usher in the place knows me by name. They've seen me at my best and at my worst. ~ booster
+If anybody offers to sell you a house this week, say no. Prices go up the day a new coach gets hired.
+You hunt at all? Fish? I need to know what to invite you to.
+I've missed one Friday night in thirty years. Kidney stone. I made the nurse turn on the radio. ~ hs old
+When I was a kid I'd hang on the fence after games just to get close to the players. ~ booster
+I don't sit down in the fourth quarter. Haven't in years. My knees are paying for it.
+I don't watch the replays on the big screen. I trust my own eyes from my own seat. ~ booster
+{rivalry} week, I don't go into the office. Haven't for years. ~ booster
+Road trips are my favorite. A hotel lobby full of people in our colors in a strange city. ~ !hs
+Back in school I rode the fan bus to away games. Forty of us singing the fight song for three hours. ~ !nfl
+I've worn the same jacket to every home game for a long time. It's in rough shape. So am I. ~ old
+Growing up, the games came on the radio in the barn. The cows heard more football than most people in this town. ~ midwest
+I can still sing the old fight song, the one they replaced. Don't ask me to. ~ old
+Learn the back roads. On game day the main drag turns into a parking lot. ~ !nfl
+People here give directions by things that aren't there anymore. Turn left where the drive-in used to be. ~ !nfl
+The water tower's got the team logo on it. Kids climb it every year before {rivalry}. The sheriff pretends not to notice. ~ hs
+The homecoming parade goes right down Main. You'll be in a convertible, waving. Don't fight it. ~ hs
+There's a mural of the team downtown. Somebody touches it up every fall, and nobody knows who. ~ !nfl
+Every bar in {town} has a game day special. Most of them aren't that special.
+The grocery store sells cakes in team colors all fall. They're terrible. Everybody buys one.
+People here still leave their porch lights on in team colors after a win. ~ !nfl
+Go to the hardware store on a Saturday and plan on an hour. Not for the hardware. For the conversation. ~ hs
+Housing's gotten expensive here. Everybody blames the new people, and the new people blame the old people.
+The city council meets on Tuesdays. Stay away. Nothing good ever happens at a city council meeting. ~ blunt
+You like Mexican food? There's a place out on the highway with a dirt lot and no menu. Best in the county. ~ texas
+Somebody will try to feed you chili at every function this winter. Smile and say yes. ~ midwest
+The bakery downtown does cookies in team colors. They sell out every Friday in the fall. ~ hs
+Real bagels and real opinions. That's this part of the country. You'll get both before breakfast. ~ northeast
+Lunch counters here close at two. Learn that the hard way once and you'll never forget it. ~ !nfl
+Every potluck in this town has the same six casseroles. You'll learn to love all of them. ~ midwest
+The burger place across from the stadium has been open longer than anybody can remember. Get the onion rings. ~ !nfl
+Everything out here is an hour away. Groceries, golf, the airport. You'll start measuring in hours, not miles. ~ west
+There's a spreadsheet on my laptop with every fourth-down call this team has made in the last ten years. It's a sickness. ~ meddler
+People call me cheap. I call it careful. I've had the same pair of loafers for eleven years. ~ tight
+I still clip coupons. The money I've got, I kept by not spending it. ~ tight
+Waiting kills me. Restaurants, airports, offseasons. The offseason most of all. ~ impatient
+I've been asked to sit down by more than one usher. I get hot during games. ~ hot booster
+I've learned to wait on things. Seasons, deals, people. Most good things come late. ~ patient
+I'd rather watch film at home with a bowl of popcorn than go to a party.
+Two hours before kickoff, when the stadium's empty and you can hear the flags. That's my favorite part. ~ cold
+There's a plaque with my name on it in the weight room. I didn't ask for it. I didn't argue either. ~ booster ego
+I'm on a first name basis with half the state legislature. Comes in handy more than you'd think. ~ booster ego
+I know everybody. That's not bragging. That's just this town. ~ smooth
+I've watched the cap go up every year, and somehow there's never enough of it. ~ kin nfl tight
+Draft night, I stay in the war room till the last pick of the seventh round. Most of the family goes home after the first. ~ kin nfl
+Nobody in this building sleeps during free agency week. You'll see. ~ kin nfl
+Camp is my favorite time of year. Everybody's undefeated and everybody's healthy.
+The practice squad guys are my favorites. They fight for everything. ~ kin nfl
+Spring ball's when I fall in love with players I might never see again once the portal opens. ~ college
+Signing day used to be a holiday around here. Now with the early period and the portal, it's every day. ~ college
+Revenue sharing changed everything. Donors used to talk about suites. Now we talk about rosters. ~ college nil booster
+Get to know the trainers and the equipment staff. Treat them right and the whole place runs.
+We get about two weeks of fall around here. Blink and it's winter. ~ midwest
+The leaves turn the first week of October. Best drive to a stadium anywhere. ~ northeast
+The weather in {town} changes four times a day. Bring a jacket to every game.
+When {rival} comes to town, I don't let anybody in their colors park on my street. I have a sign. ~ hot
+{rival}'s logo is on the dartboard in my garage. Has been for years.
+People here measure years by {rivalry}. Births, weddings, funerals. Which game it was the week of.
+Not every {rival} fan is bad. I've met two or three I'd have dinner with. ~ warm
+{series}. People here can recite it like a phone number.
+I won't say a bad word about {old_last}. Not to you, not to anybody. That's how I was raised.
+Buy something with a big yard. People are going to drop off food. A lot of food. ~ !nfl
+If you want privacy, buy outside the city limits. People drive past the coach's house. They just do. ~ !nfl
+Don't live too close to the stadium. You'll hear every concert and every car horn.
+There's a neighborhood by the old courthouse with big porches and bigger trees. A few coaches have lived there over the years. ~ !nfl
+The commute to the facility is twenty minutes from the west side. From the suburbs it's an hour if there's a wreck. ~ kin nfl
+Wednesdays at seven, I tee off. If you ever need to clear your head, there's a spot for you.
+The booster club has a golf scramble every summer. You'll be asked to play. Bring your patience, not your clubs. ~ booster
+I quit golf years ago. Bad back. Now I ride in the cart and give advice nobody wants. ~ old
+Turkey season's in the spring. You won't have time, but I'll invite you anyway. ~ south
+Opening weekend of deer season, half the dads in the stands will be in camo. ~ south hs
+Pheasant's my thing. A cold morning and a couple of old dogs who know more about it than I do. ~ midwest
+I don't hunt. Tried it once. Sat in a blind for six hours and saw a raccoon.
+My boat's down at the marina. Any time you want to get away from the phone, call me.
+I fish the creek behind my house most mornings. Never catch much. That's not really the point.
+I've read every book ever written about this team. Most of them get the important stuff wrong. ~ !hs
+Old helmets are my weakness. I've got one from almost every era of this team. It's my favorite room in the house.
+My office window looks right at the practice field. I don't get much work done in August. ~ kin
+There's a parking spot with my name on it. The sign's been stolen three times. Fans think it's a souvenir. ~ kin
+The family splits up the jobs. One of us does the stadium, one does the foundation, one does the football. Guess which one I wanted. ~ kin
+The family still argues about every coaching hire we ever made. Thanksgiving dinner, like clockwork. ~ kin
+When I was little, players used to let me sit on the bench at training camp. ~ kin
+The older folks in my family still call the GM after a bad pick. We let them. ~ kin nfl
+People think owning a team means you're rich. Mostly it means you're worried. ~ kin
+Every Sunday the family sits in the box together. Nobody talks on third down. Family rule. ~ kin nfl
+I've been to every booster banquet for decades. The chicken hasn't changed once. ~ booster old
+The last big fundraiser I ran was for the weight room. Pancake breakfasts, raffles, car washes. Two years of it. ~ hs booster
+Homecoming here means mums. You'll see a sophomore wearing one bigger than her head. ~ texas hs
+The booster club runs the concession stand. Best nachos in the district, worst coffee in the state. ~ hs booster
+Our booster club has bylaws now. It used to be four guys and a cooler. ~ hs booster
+I joined the booster club for one season. That was a long time ago. ~ hs booster
+The band gets a little from me every year too. Halftime is half the show around here. ~ hs booster
+The donor lounge at the stadium has better food than most restaurants. Don't tell the fans. ~ college booster
+My name's on a scholarship. A kid from {town} gets it every year. That's the thing I'm proudest of. ~ college booster
+I dated somebody from {rival} once. It lasted about one {rivalry}. ~ !nfl
+My first fight was over {rival}. Third grade. I won.
+When they let me, I watch practice from way back. I just like the sound of the pads.
+You'll meet the old players soon. Some still come to every game. They'll shake your hand and tell you about their knees.
+Where'd you grow up, Coach? I like to know where a man learned his football.
+You a fisherman? Doesn't matter if you're any good. Most of it's sitting.
+You a morning person? Better be. This town eats breakfast at five-thirty. ~ !nfl
+You follow baseball at all? I need somebody to talk to in the summer.
+Do you cook? Don't answer that. Coaches don't have time to cook. I'll send something over. ~ warm
+Coffee person or tea person? I need to know what to keep on hand. ~ warm
+Somebody in town will try to sell you a truck by Friday. Doesn't matter what you drove in on. ~ !nfl
+You like country music? Doesn't matter. You'll hear it out of every truck in the parking lot. ~ south
+I'm a history buff. Old battlefields, mostly. Don't get me started.
+Do you still get to watch football for fun, or is it all work now? I can't watch a game without picking it apart. ~ meddler
+The county rodeo's in the spring. You'll be guest of honor whether you like it or not. ~ texas
+The county fair has a pie auction, and the head coach always buys the first pie. Tradition. ~ hs midwest
+Weekends, I restore old cars. There's one in my garage I've been working on for six years. Someday it'll run.
+Barbecue contests are my hobby. Brisket and ribs. My smoker trailer is nicer than my first house. ~ texas
+A little woodworking keeps me sane. Made cornhole boards in team colors for half the tailgates in town. ~ !hs
+I play piano. People don't expect that from a guy in boots. ~ !she
+I've got horses. One of them is named after an old running back from this team.
+Tomatoes, peppers, squash. I garden. Every August you'll find a bag of them on your desk. ~ warm
+Doctor's orders, I took up running a couple of years ago. I hate every step.
+I've been learning to fly. Little single-engine plane. Road trips will never be the same.
+The Fourth of July fireworks go up from the stadium parking lot. Best seat in town is the fifty. ~ !nfl
+The Christmas parade goes right past the field house. The team rides a float. So will you. ~ hs
+The fall festival lands on homecoming weekend. Funnel cakes and football. Nothing better. ~ hs
+We've got other sports here, sure. But this is a football town, and everybody knows it.
+Baseball's big here in the spring. Half your guys will be on the diamond. Don't fight the baseball coach. ~ hs
+The wrestling coach is going to want your linemen in the winter. Let a few go. It makes them nasty. ~ hs
+I was a cheerleader here, believe it or not. It was a big deal back then. ~ !nfl
+Student manager, that was me. Laundry, water bottles, all of it. Loved every minute. ~ college
+Four years in the Army before college. That's where I learned to love a disciplined team.
+I was the first in my family to go to college. Game days here were the first time I felt like I belonged. ~ college
+Twelve years on the chain crew, Friday nights. You see the game differently from the sideline. ~ hs
+Years ago I drove the team bus as a volunteer. Some of those boys have grandkids now. ~ hs old
+For a decade I ran the clock in the press box. Never once got blamed for a bad call. Well, once. ~ hs
+My tailgate has a smoker, a generator and a TV for the early games. You're welcome to stop by after you retire. ~ !hs
+Game days, I don't eat until the final whistle. Never have.
+Even at the game, I've got the radio call in one ear. I like hearing it said out loud.
+The coffee shop on the square opens at five. Coaches have held court there for years. You'll be expected. ~ hs
+Don't stop at the tire shop after a loss. The man at the counter will tell you exactly what went wrong. ~ !nfl
+The barber shop downtown is where the real press conference happens. Get one haircut there and you'll hear everything. ~ !nfl
+There are kids in this town named after players from this team. I know three named after the same linebacker.
+Folks here name their dogs after the head coach. Give it about a year before you meet yours.
+People get married at the stadium here. I've been to four weddings on the fifty. ~ !hs
+Our fans still write letters. Real letters, with stamps. Read the nice ones twice.
+The call-in show after games is the best entertainment in {town}. Half the callers are the same five guys.
+Football's the last thing that gets everybody in this town in one place. Church doesn't anymore. Politics sure doesn't.
+The week before the first game, you can feel it in the whole town.
+I'm a defense person. Always have been. You can keep your fireworks.
+I like a team that runs the ball. I'm open-minded, though. Mostly. ~ old meddler
+Too many flags these days. I don't care for the new rules. Nobody asked me, though. ~ old
+Analytics, going for it on fourth down, all that. I read about it. I'm still not sure I trust it. ~ old
+Everybody holds a phone up at games now. We used to just watch. ~ old
+Every year the season starts earlier and ends later. I'm not complaining.
+I don't really do small talk. My assistant says I should. So. The weather's fine. ~ cold
+I've got a guy for everything. Tailor, mechanic, a contractor who actually shows up. ~ smooth
+This town will turn on you fast. It turned on me when I opened a second store. It'll turn on you over a punt. ~ blunt booster
+The suite catering bill last year would have paid for a house. I've been fighting about it ever since. ~ tight !hs
+I've broken two remotes and a lawn chair over this team. I'm working on it. ~ hot
+People see a woman at the donor dinners and assume she's somebody's wife. I sign my own checks. ~ she booster
+When I joined the booster club board, some of the old boys didn't know what to make of me. They do now. ~ she booster
+I was the only girl at the family's draft parties who knew every prospect's forty time. I still do. ~ she kin nfl
+People here will tell you exactly what they think of you, to your face. It's a gift, once you get used to it. ~ northeast
+Up here, people say it's not bad when it's terrible and pretty good when it's the best thing they've ever seen. ~ midwest
+Most people out here moved from somewhere else. Football is how they figure out they're from here now. ~ west
+In Texas, high school football is church, the county fair and the family reunion rolled into one. ~ texas
+Saturdays in the fall, the whole South holds its breath. ~ south college
+You'll get invited to a lot of Sunday dinners. Go to the first few. After that, pick your battles. ~ south
+I've got a wooden bleacher seat from the original stands in my den. Took four of us to carry it out. ~ !nfl old
+The alumni guys play golf every spring and spend the whole round arguing about which team was better. ~ !nfl
+Every year's team photo hangs in the hallway. Stop and look at them sometime.
+My grill has seen more game days than most of the coaches here.
+A good season and the restaurants are full on Mondays. A bad one and they're empty. Football runs this economy.
+The population sign says one number. On a Friday night in the fall, add a zero. ~ hs
+There's a cemetery on the hill where you can see the stadium lights. My people are buried up there. Best seats in town. ~ !nfl
+Learned to drive in the stadium parking lot. Weekday mornings, nobody around.
+People will tell you this town is dying. It's not. It's just quiet between Fridays. ~ hs
+I'm a night owl. I'll text you at midnight with thoughts. Feel free to ignore them. ~ meddler
+Every so often I drive past the field at night on my way home. Can't explain it. I just like seeing it there. ~ warm
+I shot the team photos for the paper for a while. You can tell who's going to make it just from how they stand. ~ hs
+Did they give you a key to the building yet? Took me years to get one, and I'm family. ~ kin
+The players' parking lot tells you everything about a roster. Trucks, sports cars, a minivan or two. ~ kin nfl
+The best restaurant in {town} is a gas station. I'm serious. The fried chicken. ~ south
+If you ever want a quiet dinner, there's a supper club out on the county road where nobody bothers anybody. ~ midwest
+There's a weather radio by my bed. Spring storms here don't mess around. ~ midwest
+I go to the state championships every year, whether we're in them or not. Good football is good football. ~ hs
+My favorite part of game day is the band marching in. Chills, every time. ~ !nfl
+You'll learn the fight song by the second game whether you want to or not. ~ !nfl
+I've got a recliner in my office that I watch every road game from. Nobody's allowed to touch it.
+Ask me sometime about the year it snowed at homecoming and the band played with gloves on. ~ !nfl !south
+Most parents don't go to as many JV games as I do. You learn who's coming. ~ hs
+I watch high school games on Fridays to see who's coming up. You'd be surprised what you spot from the top row. ~ college booster
+You want to know this town, eat at the truck stop at six in the morning. That's where everybody tells the truth. ~ !nfl
+I've got a hammock in the backyard and a radio. On a fall afternoon, that's my idea of heaven.
+Nobody here asks how you're doing. They ask how the team looks. You'll learn to answer that instead.
+Every winter I promise myself I'll care less next year. Every August I'm back.
+My office is full of team stuff. Clients think it's charming. My accountant thinks it's a write-off. ~ booster
+Tried to quit coffee once. Lasted till the first road trip.
+The best seat in the house is the top row of the end zone. You can see every route develop. ~ meddler
+Spring here is short and pretty. Then the heat shows up and stays till October. ~ south
+Some summers we lose a few weeks to wildfire smoke. Practice gets moved inside. ~ west
+Has anybody taken you up to the overlook yet? You can see the whole town and the stadium lights from up there. ~ !nfl
+Fried catfish on Fridays at the place by the bait shop. Don't ask what's in the batter. ~ south
+There's a fishing hole out past the dam that nobody knows about. Well, everybody knows about it. Nobody admits it. ~ !nfl
+Thursday nights I play poker with a few friends. We argue about football all night and nobody ever wins much.
+I've been trying to get the town to put up a statue of somebody from this team for years. Nobody can agree on who.
+Summers, I coach youth baseball. Ten-year-olds. It's humbling.
+My church prays for the team every Sunday in the fall. Not for wins. Mostly for health. ~ south
+You'll hear the train horn at night. The tracks run right past the stadium. After a while it sounds like home. ~ !nfl
+My granddad's old radio still sits on my desk. I listen to games on it when I can't be there.
+I tell everybody I'm retired. Nobody believes me, because I'm at the stadium more than I ever was at work. ~ booster
+Basketball season starts when yours ends. I go to those games too, but my heart's not in it. ~ !nfl
 
 @key booster.want.rival
 Win that game and everything else gets easier. Ask any coach who's been here.
@@ -160,6 +761,128 @@ We play them twice a year. Win both and the season's a success to me, whatever t
 I know it's just one game on the schedule. To me it's not. It's never been.
 I want the trophy in our case. That's it. That's the whole ask.
 Friday night against {rival} fills the stands. Win it and the town will follow you anywhere. ~ hs
+You'll get a lot of advice in this town. Mine fits on a napkin. Beat {rival}.
+I can live with a lot of losses. One to {rival} isn't on that list.
+I've got the week of {rivalry} blocked off on my calendar for as long as I'm breathing. ~ old
+When people ask me about the new coach, I want to give them one sentence. He beats {rival}.
+Spare me the talk about process. I want the {rival} game. ~ blunt
+Every dollar I give, I give thinking about {rival}. ~ tight
+Their people are already talking about your hire. Give me something to say back. ~ hot
+You don't have to love that game the way I do. You just have to win it.
+Treat that week different. The players will feel it, the town will feel it, and so will {rival}.
+Their fans always find a way into our stands. I want them heading for the exits early.
+{series}. Somebody's going to write the next chapter of that. Make it ours.
+You want to know what I want? Ask anybody in {town}. They'll tell you. {rival}.
+Some people here judge a season by the record. I judge it by one Saturday. ~ college
+Friday night against {rival} is the only game where I can't sit down. ~ hs
+I'll take an ugly win over {rival}. A safety, a blocked kick, I don't care how.
+Save something for that week. A look they've never seen on film.
+I don't want to read about how close it was. I want to read the final and smile.
+That game doesn't go in the record book like the others. It goes in people's heads and stays there.
+My office splits right down the middle the week of {rivalry}. I'd like to own Monday morning.
+Win that game and the donors come out of the woodwork. Lose it and they find somewhere else to be. ~ college
+Bring the old players in to talk the week of {rivalry}. The young ones need to hear what it means.
+Get every senior a win over {rival} before he leaves. Nobody should walk out of here without one.
+When I see a {rival} sticker on a car, I'd like to feel a little sorry for the driver.
+I've given this place a lot and asked for little. That game is the little.
+I'll be honest, that game is personal. I carry it around for a year, win or lose.
+Learn the history before {rivalry}. Then go write some.
+I don't care if we're picked to lose by thirty. Find a way.
+The town shuts down for that game. Give it a reason to stay up late.
+It's the first score I look for every year and the last one I forget.
+You'll be judged on a lot of things here. That game counts double.
+A win over {rival} buys you a lot of patience from me. ~ patient
+I'm too old to wait on that game. Win it this year and every year after. ~ old impatient
+Their fans think they're better than us. Prove they're not.
+I'll say it plain. A bowl game doesn't fix a loss to {rival}. ~ blunt college
+The playoffs are nice. Beating {rival} is nicer.
+I sit with the same group every year for {rivalry}. I'd like us all hoarse by the fourth quarter.
+I've got a steak dinner riding on that game every year with a friend from {rival}. I'd like to eat for free.
+Beat {rival} and the whole town will know your name by Sunday morning.
+I don't yell at many games. That one, I yell. ~ !cold
+You can bet {rival} starts thinking about us in the spring. We should too.
+A rivalry isn't a game. It's a grudge with a scoreboard.
+I can't stand their colors. I can't stand their fight song. I'd like to stand on their field after a win.
+I've got one game on my calendar in ink. You know which one.
+Ask anybody at the diner which game matters. They won't let you finish the question. ~ midwest
+Recruits notice who wins that game. So do their parents. ~ college
+Kids in this town grow up wanting to beat {rival}. Make sure they get to. ~ hs
+If you want this town on your side, it starts the week of {rivalry}.
+You and their head coach will be measured against each other as long as you're both around. Come out ahead.
+Shake hands with the {rival} people at every banquet. Then beat them on the field. ~ smooth
+Don't play that game not to lose. Go after them from the first snap.
+Ask around. The coaches people still talk about here are the ones who beat {rival}.
+My money goes further when we win {rivalry}. That's not a threat. It's arithmetic.
+I want to drive past their campus the next morning with the windows down. ~ college
+The Saturday after we beat {rival}, I want to buy coffee on their side of town in our colors. ~ hs
+Most games I watch. That one I live.
+Y'all are going to hear about {rival} at church, at the grocery store, everywhere. Get used to it, then beat them. ~ south
+People around here are polite about most things. Not {rival}. ~ midwest
+In this part of the country that game's bigger than Thanksgiving for some folks. I'm one of them. ~ south
+In this state, you'd better beat {rival}. Everything else is a footnote. ~ texas
+People here hold grudges for generations. I've held this one my whole life. ~ northeast
+Folks think it's laid back out here. Not that week. ~ west
+I won't scream at you about it. I'll just be very quietly disappointed for a year. ~ cold
+Losing to them isn't the end of the world. It only feels like it. ~ warm
+Beat {rival} and I'll hug you in front of everybody. You've been warned. ~ warm
+Between us, the board cares about that game more than it lets on in public. ~ smooth
+I'll buy a full page in the game program that week. I'd like it to run next to a win. ~ ego
+I want a win over them that people talk about for twenty years.
+Win it at home, win it on the road, win it in a parking lot. Just win it.
+Write {series} on the board in the locker room that week. They'll figure out the rest.
+{series}. I know that number the way I know my own phone number.
+The all-time record is {series}. I'd like to add to our side of it every fall.
+Nobody remembers the September games. Everybody remembers {rivalry}.
+Don't let them in your head. Let them in your film room.
+Get the players mad that week. Not dirty. Mad.
+I want our band playing on their field after the clock hits zero.
+I want our side loud and theirs half empty with four minutes left.
+Every {rival} fan I know is going to text me the second it ends. I'd like to text first.
+Against anybody else I'd say be gracious. Against them, run it up. ~ hot
+Win with class. Then go home and enjoy it like a lunatic. ~ warm
+It's the one game my phone stays off for. I'd like to turn it back on to good news.
+The whole state picks a side that week. Give our side something to brag about. ~ college
+I don't need a ring. I need one Saturday a year that goes our way. ~ college
+Every coach who comes in here has a plan. The good ones had a plan for {rival}.
+When you map out the year, start with that game and work backward.
+Beat {rival} and the booster club meeting is a party. Lose and it's a funeral. ~ hs
+You'll meet people who say that game doesn't mean what it used to. They're wrong.
+Players don't stay four years for a rivalry anymore. Make the ones we have care anyway. ~ college
+I'd trade a lot of what I've given this place for a win over {rival} this fall.
+I want their fans driving home in silence.
+Make it a bad week to be from {rival}. That's my whole request.
+I wear the same jacket to {rivalry} every year. Give it a reason to keep coming out of the closet.
+That game is how this town keeps score with its neighbors. Keep our score up. ~ hs
+Win it and I'll buy steaks for the whole team. ~ hs warm !tight
+Those people get insufferable when they win. Don't let them. ~ hot
+I'm not asking you to hate them. I'm asking you to beat them. ~ patient
+Beat {rival} and every porch light in {town} stays on late. ~ hs
+{town} remembers every one of those games. So do I.
+People here wear {team} colors to work the week of {rivalry}. Give them a reason to keep wearing them the week after.
+I want {year} to be the year they remember losing to us.
+{last_record} goes in the book either way. The {rival} game goes in people's heads.
+Plan that week like your job depends on it. Around here, it partly does. ~ blunt
+I'll tell you the truth. I can't enjoy a season with a loss to them in it.
+I want their coach spending his Monday press conference answering questions about us. ~ college
+I give to a lot of things. The one I really care about is three hours long and it's against {rival}.
+Don't tell the players it's just another game. They'll know you're lying.
+Keep our guys from painting their sign or posting anything stupid that week. Then go beat them.
+Win {rivalry} and you can drop a close one somewhere else. I'll understand. ~ patient
+Five days a year I'm a nervous wreck. All five are the week of {rivalry}. ~ warm
+Have the players watch the last few games against {rival}. All of them, every snap. ~ meddler
+I'm reasonable about almost everything. {rival} is the almost.
+You win that one and I stop worrying about you. ~ cold
+Everybody talks about culture. Here's ours. We beat {rival}.
+I've seen grown adults cry after that game. One of them was me. ~ warm
+Your first {rivalry} is your introduction to this town. Make it a good one.
+You'll get more emails that week than all season. Give them something nice to write the Monday after.
+They circle us on their schedule. I'd like them to dread it.
+A win over {rival} makes the drive to work shorter for a whole year. ~ warm
+I've got a grudge against {rival} that's older than some of your coaches. ~ old
+I'd like that game over by halftime. My heart would thank you. ~ old
+Don't let them have the last word. Not on the field, not in the paper, not anywhere. ~ hot
+Their booster club and ours sit across the aisle at the county dinner. I'd like to be the one smiling. ~ hs
+I'll judge your first season by one game. Unfair? Probably. That's how it is here. ~ blunt
 
 @key booster.want.access
 I'd like to come to a practice now and then. I'll stand in the back.
@@ -192,6 +915,124 @@ When the team flies, I'd like a seat in the back. Quiet. Just there. ~ college
 Have breakfast with my group once a month. Twenty guys, all of them give money. ~ college
 I'd like you to come speak at the Rotary in the spring. It goes a long way here. ~ hs
 I just want to feel like part of it. That's the whole ask.
+Home games, I'd like a sideline pass. I'll stay behind the bench and out of everybody's way.
+I've never been in the locker room after a win. That's the one thing on my list.
+Let me come to one practice a week. I'll stand by the fence and keep my mouth shut.
+Get me a credential for the tunnel. Just the walk out with the team. ~ college
+Let me ride the bus to the away games. I'll sit up front with the trainer and behave. ~ hs
+Put me on the charter for road games. I'll pay my share of the fuel if that makes it cleaner. ~ college
+Postgame, I'd like five minutes in the locker room. I like to shake hands with the players.
+One halftime talk. That's what I want to hear. I've wondered about it my whole life.
+Last two minutes of a close game, I want to be on that sideline. That's when you hear what a team is.
+Warmups are when you see how big these players really are. Let me stand on the field for those.
+Friday walk-through, if you'll have me. I'll watch from the end zone and leave when you say. ~ college
+I'd like to be in the tunnel when they run out. The noise in there, you can't buy that.
+Let me help with the pregame meal. I'll pay for it, I'll serve it, and I'll get out of the way. ~ hs
+When they sing the alma mater after the game, I want to be down on the field with them.
+If there's a team dinner the night before a game, I'd like a chair at it once a year. ~ hs
+A parking spot by the field house would do wonders for my knees. So would a pass from there to the sideline. ~ old
+A key card to the football building would mean a lot. I won't abuse it. ~ college ego
+Can I get a headset on game day? Not to talk. Just to listen to the calls. ~ meddler
+One night this fall, let me watch film with the staff. I'll bring the food. ~ meddler
+Some day let me sit in on a position meeting. Back row, notebook closed. ~ meddler college
+The sideline is the only place I really feel the game. I'd like to keep feeling it.
+Let me bring a couple of friends to a spring practice. They write checks, and they'd write bigger ones. ~ college smooth
+My employees would love to see a practice. Thirty minutes, behind a rope, then gone. ~ college
+Before the game is when I want to be in the locker room, not just after. I want to see what nerves look like.
+Road credentials too, not just home ones. Anybody can get the home ones. ~ college ego
+Senior night, let me stand on the sideline and shake every hand as they come by. ~ hs
+Put me near the coin toss. Not in it. Near it. ~ ego
+Make sure your staff knows my face. I don't want a security guard asking who I am on my own sideline. ~ ego
+Don't make me watch from the stands. I didn't give all that money to sit with the general public. ~ ego hot
+Let me watch the special teams period one day. Nobody believes me, but that's my favorite part of practice.
+Friday nights, put me in the press box. I'll keep stats if you need somebody. ~ hs
+If we make a bowl trip, I'd like to travel with the team, not two days behind it. ~ college
+On the road, I'd like a room at the team hotel. I'll pay for it. I just like being near it. ~ college
+Keep the suite. Give me a field pass. The field is where it happens. ~ college
+The weight room at six in the morning. I'd like to see that once. That's where you find out who wants it.
+Let me drop by summer workouts. People keep telling me that's where seasons get won.
+Spring ball, I want to be on the field, not up in the stands. ~ college
+Thursdays are my day off. I'd like to spend them at your practice.
+Give me a sideline pass and I'll stay behind the white line. I know exactly where the line is.
+Put my name on the list at the gate. I hate the look you get when you're not on the list.
+I like to be the first face they see coming off the bus. I'll have a handshake for every one of them. ~ warm
+After road wins, let me meet the team at the airport. Me and whoever else wants to come. ~ college warm
+Thirty seconds with the team before the season. Just to tell them what this place means. ~ old
+Midfield for the handshake line after the game, that's where I want to be. You learn everything about the other team right there.
+Can I get a pass for the field after the game? I like watching the players find their families. ~ warm
+The tunnel, the sideline, the locker room. That's the tour I'd like every home game.
+Let me park in the team lot. I'll get there early and leave late.
+Find me a seat upstairs close enough to hear the coordinator yell.
+Pregame chapel is where I'd like to be. I want to pray with the team before they go out. ~ south
+Sunday film with the staff. I'd like to sit in once a month and just watch what you watch. ~ meddler college
+Practice is where the real team is. I'd like to see the real team.
+Fourth quarter, I stand behind the end zone. It's a superstition. Let me keep it.
+A sideline pass for me and one guest, and you'll never hear me complain about anything.
+No appointment. I'd like to walk into the football office when it matters. Not every day. ~ ego
+Keep me on the travel list for road games. I've paid for a few of those flights, more or less. ~ college ego
+Give me the pass color the big donors get. People notice the color. ~ college ego
+Don't make me hear about practice from a message board. Better yet, let me watch it.
+There's a spot behind the bench where I always stand. Leave it open for me.
+Find me a way onto that sideline. I know the rules got tighter. Find a way anyway. ~ smooth
+Not a list with my name on it. An open door at practice. A door I can walk through. ~ ego
+During the anthem, I'd like to be on the field, not in my seat. That's when it gets me, every time. ~ old warm
+After a big win, let me say thank you to the team. Ten seconds.
+Whatever you give the other big donors, I'd like the same. Sideline, box, travel. ~ college ego
+I don't want a seat. I want to be close enough to hear the pads pop.
+Let me drive the equipment truck to the road games. I'll be your best volunteer. ~ hs
+I'd like to work the sideline on Friday nights. Water, towels, whatever. I'll be the oldest manager you've ever had. ~ hs old
+Can I be there when the team picks its captains? I've always wanted to see how that goes.
+Included. That's the word I'd use. When the team does something, I'd like to be there.
+Let me sit at a front table at the team banquet. I'll buy the table. ~ !tight
+Let me up in the practice tower one day. I've always wondered what it looks like from up there.
+Give me the sideline for one road game a year. The road sideline is a different animal. ~ college
+Let me in the locker room after a loss too. That's when you find out who people are. ~ cold
+Up front on the plane with the staff, that's my seat. I'll bring my own reading. ~ college
+Nobody watches the scout team. Let me. I like those players.
+Put me on the sideline when the stadium shakes. Sounds silly. It isn't to me.
+One pass that gets me into the press box, the field and the locker room. That's what I'd like. ~ ego
+A sideline pass, a parking pass and a phone number you answer. That's my list.
+I'd rather watch a Tuesday practice than most games. You learn more on a Tuesday.
+Treat me like family. Family gets into the locker room. ~ smooth
+Let me hand out the game ball after a big win. Just once. ~ ego
+Let me stand with the chain crew on the visitors' side. I like hearing what their sideline says. ~ hs
+Have the team out to my place for a cookout before the season. Then let me come out to practice once in a while. ~ hs warm
+I'd like to be along the walk into the stadium, shaking hands. Not in it. Along it. ~ college
+Can I get to the sideline in the second half? I'll watch the first half from my seat like everybody else. ~ patient
+I'd like to see the inside of this program. Not the brochure. The inside.
+I'd like to be one of the people the staff waves through. You know the kind.
+A credential with my name printed on it. Not a guest pass. My name. ~ ego
+Is there room in the coaches' box for one more? I've always wanted to hear a game called from up there.
+The bus ride home after a win is the best ride there is. Save me a seat. ~ hs warm
+After a road win, I'd like to be on the flight home. Nobody sleeps on that flight. ~ college warm
+Fall camp. The heat, the hitting, all of it. Let me stand in the shade and watch. ~ college
+I'm not a meddler. I just want to be close to it. The sideline, the practice field. That's all. ~ !meddler
+Save me a spot on the sideline by the heaters. I've earned that much. ~ midwest
+I'll stand on that sideline in sleet. Just let me stand on it. ~ northeast
+Friday nights in this state, the sideline is the best seat in town. I'd like it. ~ texas hs
+Out here people watch from their couch. Not me. I want to be on the field. ~ west
+Down here game day starts at breakfast and ends in the locker room. I'd like to be there for all of it. ~ south
+The week of {rivalry}, let me sit in on a team meeting. Just to feel it. ~ meddler
+Put me on the sideline for {rivalry}. The rest of the year I'll take my seat in the stands.
+Your locker room is my favorite room in {town}. I'd like to see it once a season.
+Tell me when practice ends. I'd like to catch the last twenty minutes. That's when they're tired and you learn the most.
+The trainers and managers should know me by name. I like being useful on game day.
+There's a quiet in the locker room right before kickoff. Nothing else sounds like it. Let me hear it.
+I'll stay off the field during the game. Before and after, I'd like to be on it.
+Let me come to the Thursday practice before {rivalry}. Just that one. ~ patient
+Let me watch the depth chart get made. Not change it. Watch it. ~ meddler
+The night before home games, a lobby chair at the team hotel and a cup of coffee. Nothing more. ~ college
+I'm a big believer in being seen. Put me on the sideline where the cameras can find me. ~ ego
+After the last home game, whatever the score, let me walk into the locker room with the team.
+Don't take my sideline pass away to make a point. Whatever the last staff did, I'd like it to stay. ~ hot
+When the team bus pulls in, let me stand at the gate and wave them through. ~ hs warm
+Playoff games, put me at the bench end of the sideline. If we get there. ~ hs
+Give me a field pass for the home opener and I'll leave you alone until October. ~ smooth
+When the team flies out on Friday, I want to be on the tarmac to see them off. ~ college
+Rainy practices are my favorite. That's when you really see a team. Nobody else will be there.
+I'll be honest. I like being on the inside. Practice, locker room, all of it. ~ blunt
+Every program has a few people who get in anywhere. I'd like to be one of yours. ~ ego
+I'm not asking for the plane. I'm asking for the practice field on Tuesdays. Cheap for both of us. ~ tight
 
 @key booster.want.hires
 Whoever you hire as defensive coordinator, make sure that hire can recruit this state. ~ college
@@ -219,6 +1060,122 @@ I've known the offensive line coach since he was a boy. I'd hate to see him go.
 You need somebody who can talk to parents. The last guy couldn't. ~ hs
 The middle school coach has been asking to move up for years. Give him a look. ~ hs
 The pro scout's been in this building twenty years. He knows where the bodies are buried. Keep him. ~ kin nfl
+Give me an hour with each finalist. Not to grill them. To size them up.
+I'm not asking for a vote. I'm asking for a chair in the interviews.
+Run your short list by me. I'll tell you what I hear about each name.
+I know a lot of people in this game. Use me as a reference check.
+The defensive coordinator matters more than people think. I'd like a hand in that one.
+If a name on your list has baggage, I'll know about it. Let me look before anybody signs.
+You'll bring your own people. I understand that. Leave me one spot to have an opinion on.
+Hire who you want on offense. On defense, I'd like a say. ~ meddler
+There's a coach I've followed for years. Sharp, honest, can teach. I'd like you to interview him.
+Don't hand anybody a big contract until I've seen the numbers. ~ tight !hs
+Whoever runs the strength program, I'd like to meet first. That's who the players see every day.
+You can have your coordinators. I want a say on special teams. Nobody cares about special teams but me.
+A phone call before an offer goes out. Not after it's accepted. That's all I need.
+I've read up on the people you've worked with. A few of them I'd rather not see here. ~ blunt
+When you're down to two names, call me. I'm good at tiebreakers.
+A staff is a family. I'd like to know who's joining mine. ~ warm
+A lot of those salaries come through donors like me. I'd like to see the names before they're final. ~ college
+The family's money pays those salaries. The family would like a word before it's spent. ~ nfl
+The family likes to meet the coordinators before they're hired. I'd keep that in mind. ~ nfl
+Hire people who'll tell you the truth. If you're not sure who those are, ask me. ~ blunt
+Show me your finalists before the names leak. I'll be the last person to leak them.
+I won't push a name on you. I'll ask you to talk to one. That's different. ~ smooth
+There's someone I'd like on your staff. I'll tell you about it over dinner. ~ smooth
+I'm going to send you three names. Look at them. If you don't like them, tell me why. ~ meddler
+I've seen what one bad hire does to a place. Let me help you skip that part.
+Do me a favor. Call me before you name a coordinator, not after I've read it online.
+I'd like a say on your assistant head coach. That person speaks for you when you're not in the room.
+Don't hire anybody who got run off from his last job. I'll find out, and so will everybody else. ~ blunt
+Let me help pick the strength coach. I've seen too many players get hurt under the wrong one.
+Keep one of the old staff. Continuity matters, and I know who it should be. ~ meddler
+Keep the equipment manager. That's the one staff decision I care about, and it's a keep.
+The family has a few people it trusts in this business. They'd like them interviewed. ~ nfl
+I'd like your hires at the donor events. So let me help pick people who'll actually show up. ~ college
+Most of your assistants will need a teaching job too. I know the people who hand those out. ~ hs smooth
+Let me take your finalists to dinner. You learn a lot about a coach from how he treats a waiter.
+Don't hire your old roommate. I've watched that go wrong too many times. ~ blunt
+Put somebody with gray hair on that staff. I'd sleep better. ~ old
+I'd like a hand in hiring people who'll still be here when the bad year comes. It always comes.
+You hire the coordinators. I'd like to approve the money. ~ tight !hs
+Every new hire should spend an hour with me their first week. I like to tell them what this place is.
+When you let someone go, I'd like to know why. Not the press release. The real why. ~ meddler
+I'd like to see the names before the board does. Call it a courtesy. ~ !nfl
+You're going to hear a name from me. Probably more than once.
+I don't much care where they've coached. I care whether they'll pick up when I call. ~ ego
+I'd like my opinion to count on the coordinators. Not to decide it. To count.
+The family wants a defensive coordinator who's been a head coach. Somebody who could step in. ~ nfl
+I've got a name for you. Coaching somewhere small right now, and not for long. Let me introduce you. ~ smooth
+I've got a friend who's coordinated at a couple of stops. All I'm asking is a phone call.
+Show me the list. I'll cross off the ones I don't like, and you pick from what's left. ~ meddler ego
+I want a say on the coordinators, the strength coach and anybody who'll be talking to the press. ~ meddler
+The GM picks the players. The family would like a hand in picking the coaches. ~ nfl
+Before any coordinator gets an offer, it comes through me, and I take it upstairs. ~ nfl
+Put your list in order, one through five, and show it to me. I'll tell you where I'd move them. ~ meddler
+Hire cheap if you can, but never hire bad. That's where I'd like a say. ~ tight
+Ask me about anyone. I've been around this game long enough to know who's real. ~ old
+I'm going to recommend somebody, and you'll think it's for a friend. It is. He's also good. ~ blunt
+Somebody on that staff should speak Spanish. A lot of the families in this county do. ~ hs texas
+Hire people who'll want to live in {town}. They're the ones who stay.
+I'm no football coach. But I'm a good judge of people, and that's half of hiring. ~ ego
+Let me find you a recruiting coordinator. I know everybody worth knowing in this state. ~ college
+If you need help paying an assistant what he's worth, I can help. I'd like a say in return. ~ college !tight
+The family has opinions on the coordinators. I'm the one who carries them down the hall. ~ nfl
+You'll make the call. I'd just like to be the last person you talk to before you make it. ~ smooth
+Let me sit in on the strength coach interview. I lift. I know a fraud when I see one. ~ meddler
+Anybody on your list with four jobs in five years, I'd like to hear about first.
+When you're ready to hire, I'm ready to listen. And talk. Mostly talk.
+Get me in the room with your top two for defensive coordinator. Twenty minutes each.
+I want people on that staff who'll be in church on Sunday and on the field on Monday. ~ south !nfl
+If there's a local coach who's earned a shot, I'd like you to give it to him. We take care of our own here. ~ midwest !nfl
+Down here you hire people who know the families. I can tell you who does. ~ south !nfl
+In this state the high school coaches all talk to each other. Hire one of them and they'll all talk about you. ~ texas college
+The family would like an analytics person on that staff. Somebody who can explain it to us in plain English. ~ nfl
+Hire a coordinator who can handle a microphone. I don't want to wince every time he talks.
+I'd like to read the staff contracts before they're signed. Buyouts matter. ~ tight college
+Before you bring anyone in, tell me who. If I have a problem, you'll hear it then and not later. ~ blunt
+I've got a soft spot for the offensive line coach. If you're cleaning house, leave him for last. ~ warm meddler
+Whatever staff you build, I'd like to say I helped build it. ~ ego
+Two names on your staff should be names I gave you. That's my ask. ~ meddler blunt
+You'll have a list from me by Friday. I'd appreciate it if you read it. ~ impatient
+Before you start making calls, walk me through your plan for the whole staff.
+I won't fight you on the coordinators. The position coaches, I'd like to see. ~ patient
+I've hired a lot of people in my business. Mostly good ones. Let me help with yours. ~ ego
+You know who's good at judging coaches? Somebody who's watched a lot of them come and go. That's me. ~ old
+I'd like to meet whoever runs your defense before the press conference, not at it. ~ !hs
+If a name comes up that I know, I'd like to tell you what I know. Good or bad.
+Don't make me learn about your staff on the radio. Let me help you pick it.
+I'd like to approve the coordinators. I know that's a big ask. I'm asking anyway. ~ blunt
+The family thinks of the coordinators as an investment. They'd like to be consulted like investors. ~ nfl smooth
+Who coaches the quarterbacks? That's the most important room in the building, and I'd like a say.
+Hire somebody the players trust. I'd like to meet them and decide if I trust them too.
+Talk to me before you hire anybody from {rival}. Some of us have long memories.
+I'd like to buy each coordinator finalist lunch. You can just come along. ~ !tight
+I've got somebody in mind for the running backs. I'll text you a number tonight. ~ impatient
+Let me help pick the person who talks to parents. That job matters more than any coordinator. ~ hs
+I'd like a say on who runs the middle school program. That's where your team really starts. ~ hs
+The JV coach might be the most important hire you make. Let me help you make it. ~ hs
+Whoever you hire, I'd like them to live in the district. ~ hs
+The family would like the new coordinators to come to the house for dinner before anything's signed. ~ nfl
+If you want the best young coaches in this league, the family can help you pay them. They'd like to meet them first. ~ nfl
+The quarterbacks coach and the strength coach. Those two I'd like to help pick.
+Let me sit in on the video interviews. I'll stay on mute, I promise.
+A good staff starts with a few good phone calls. I'd like to make some of them for you. ~ smooth
+I know the agents for half the coaches you're looking at. Let me handle a couple of those calls. ~ smooth !hs
+I don't trust coaches who interview well. Let me see the ones who don't. ~ cold
+Hire somebody who's been fired once. They learn things the rest never do. I'd like a say in which one. ~ blunt
+Give me a seat at the table when you pick the coordinators. I'll bring the coffee and my opinions.
+Find somebody young and hungry for that staff, the kind who answers texts at midnight. I'll help you look.
+I can't call plays. I can read people. Put me in the room when you read yours.
+Your coordinators will be the faces people see when things go wrong. I'd like to see those faces first.
+I'll keep my nose out of the playbook. The hiring, I'd like my nose in. ~ meddler
+Before the names go to the paper, they go to me. That's how it's always worked with me. ~ ego
+Put the final two for every coordinator job on my calendar. I'll make the time.
+A name you should hear before you hire anybody for defense. I'll give it to you when you're ready.
+I don't want to run your staff. I want to help you pick it, and then I'll get out of the way.
+If a candidate won't sit down with me, that tells you something about him. ~ ego
+I'd like at least one hire who's lost a lot and kept going. I'll know one when I meet him.
 
 @key booster.want.player
 The kid from {old_school} deserves a scholarship. I've seen him play. ~ college
@@ -243,6 +1200,121 @@ I've got a nephew who can kick it sixty yards. I'm not kidding. Sixty. ~ !nfl
 You've got a running back sitting on the bench who'd start anywhere else in the state. ~ hs
 I don't pretend to know football like you do. But I know a player when I see one.
 The quarterback's a good kid, but the other one has an arm. You see it, right?
+There's a player on this roster I believe in more than your staff does. I'd like you to find out why.
+In public I won't name names. In private I've got one, and I'd like you to hear it.
+Give my guy a few snaps in the opener. If he can't play, I'll never mention him again.
+You're going to watch a lot of film. Watch number [twenty-two|forty-four|eighty-one] closely. That's all I ask.
+I watched every rep that young man took in the spring. He's better than where he sits on the depth chart.
+The depth chart is your call. I'd just like my favorite to get a fair shot at it.
+I'm not asking you to start him. I'm asking you to look at him with fresh eyes.
+My favorite player is the [backup guard|third receiver|backup tight end], and I'm serious. He should be on the field more.
+There's a defensive end on this team who plays every snap like it's his last. Get him more of them.
+Some players look good in shorts. Mine looks good in pads. Give him a real look.
+I've got one name. I'll write it on a napkin, and you can throw the napkin away if you want. ~ smooth
+When you set the two-deep, I'd like to talk about one name first. ~ meddler !nfl
+The one I'm thinking of runs angry. Your coaches will call him raw. He's not raw. He's hungry.
+I'm going to keep bringing him up until he plays. Fair warning. ~ impatient blunt
+The people who buy tickets love him. Find him some snaps.
+The family has a soft spot for one of the veterans. Keep him on the 53 if you can. ~ nfl
+Don't cut the [backup linebacker|fifth receiver|third tight end]. The family likes him, and so does the locker room. ~ nfl
+I've been watching the kid on the practice squad. Bring him up. ~ nfl
+Get that big lineman in the weight room and then get him on the field. I've seen him move.
+Please don't redshirt the young receiver. People came to see him. ~ college
+Don't let him sit all year behind a senior who won't be here next fall. ~ !nfl
+He's not the biggest. He's not the fastest. He makes plays. I'd like you to notice.
+I'll give you a name now. You can tell me I was wrong in October.
+There's a quarterback I'd like you to look at. Not to start. Just to look.
+I watch effort. One player on this team gives more than the rest. He should play more.
+If my favorite plays and we lose, fine. I just want to see him get the chance.
+Let me show you a clip on my phone. Thirty seconds. Then tell me he can't play. ~ meddler
+There's a [kid|young man] in this county who should be getting mail from us. I'd like to know why he isn't. ~ college
+Offer the kid from {town}. You'll make a lot of friends here with one phone call. ~ college
+Get in on the [lineman|linebacker|safety] at the county school before somebody bigger does. ~ college
+The young guy at [corner|safety|linebacker] is ready. I'd stake my reputation on it.
+My guy never got a fair shake from the last staff. I'd like to see him get one from you.
+I'll say it once. The starter isn't the best player at his position. You'll figure out which position.
+The scout team has a guy who wins every rep. I've seen it from the fence. Play him. ~ !nfl
+I've known him since he was in peewee. I'd like to see him get a real chance. ~ hs
+He's the hardest worker in the weight room. Ask the strength coach. Then play him.
+You've got a backup safety who hits like a truck. Let him hit somebody on Saturday. ~ college
+Let him return kicks. That's all. One job. He'll make the most of it.
+I've got a list of one. Want to hear it?
+I'll make you a deal. Play him one series and I'll stop asking. ~ smooth
+Everybody in the stands can see it. The young one is better. I'd like the staff to see it too.
+The family has its eye on a free agent. I'd like you to make the case for him upstairs. ~ nfl
+Ownership likes the veteran. He sells tickets and he shows up. Keep him in the plans. ~ nfl
+I'm partial to the undrafted kid from camp. Give him the last spot. ~ nfl
+Bring the fan favorite back next year. Whatever it takes on the cap. ~ nfl !tight
+Don't trade him. That's all I'll say about him. Don't trade him. ~ nfl
+People love the guy who plays special teams like his hair's on fire. Keep him around. ~ warm
+If you're stuck on the last roster spot, call me. The family has a vote, and I've got a name. ~ nfl meddler
+Watch the walk-on at fullback. Every time I see him, he's knocking somebody over. ~ college
+There's a sophomore on JV who'd start for you right now. Bring him up. ~ hs
+His dad played here. That's not why I want him to play. But it doesn't hurt. ~ !nfl
+The real leader on this team isn't wearing a C. Play him more. ~ meddler
+I've seen him on film, I've seen him at practice, and I've seen him at the gas station at six in the morning on his way to lift. He's a player. ~ hs
+My pick for breakout player is sitting third on your depth chart. Fix that. ~ impatient
+I've got a favorite. I'll admit it. I'd like him to have a role. Any role. ~ warm
+Play him and you'll have a friend in me. Bench him and you'll have questions from me. ~ smooth
+The kid at the little school is better than the ones at the big schools. I want you to recruit him. ~ college
+I'm not shy about this. I want a say on the quarterback. ~ blunt meddler
+You've got a guard nobody talks about who moves people. Tell the coordinator to run behind him. ~ meddler
+Take care of the [kicker|punter|long snapper]. He's a good young man who works harder than anybody knows. ~ warm
+When you're down to the last couple of roster spots, I'd like my opinion counted. ~ !hs
+The one I like is a late bloomer. They always are. Don't give up on him.
+Some players need a coach to believe in them. I'd like you to believe in mine.
+He's not a five-star. He's a ten in my book. Recruit him. ~ college
+I hear he's thinking about the portal. Find him some snaps and he'll stay. ~ college
+A friend of mine has a son on this roster. I'm not asking for favors. I'm asking for an honest look.
+I'm going to come to practice and watch one player. You'll know which one by Friday. ~ meddler !nfl
+The best tackler on this team doesn't start. I can't explain it. Can you? ~ blunt
+One name. That's all you'll get from me. One. Play him. ~ blunt
+If the depth chart's a tie, break it toward the player who loves this place.
+He's got good hands and bad luck. Give him some good luck. ~ warm
+There's a defensive tackle in {town} who's going to be special. I'd like him to stay home. ~ college
+I'd like him on the field for {rivalry}. That's when this town will remember him. ~ !nfl
+Don't move him to another position. He's a [running back|linebacker|receiver]. Let him be one. ~ meddler
+The family wants the rookie active on game day. They'd like to see what they paid for. ~ nfl
+The family likes the older receiver. They'd like him to finish his career here. ~ nfl
+A team just cut a player the family thinks can help. I'll send you his name tonight. ~ nfl
+You'll hear people say he's too small. They said that about a lot of good players.
+Run the team however you want. Just let me root for one player who actually plays.
+If you're going to sit him, I'd like to hear why from you.
+That young [pass rusher|corner|receiver] is going to be a star. I'd like him to be our star sooner. ~ impatient
+I want our best athlete on the field somewhere. Offense, defense, I don't care. Find him a spot.
+He's a two-way player at heart. Let him go both ways once in a while. ~ hs
+That young man is going to win a game for you one day if you let him. I'd like that day to come soon.
+He's from here. His whole family is in the stands every week. Give them something to cheer. ~ !nfl
+Don't bury him for one mistake. Everybody makes one.
+I'd like a say on this one. If he plays well, I'll take the credit. If he doesn't, I'll take the blame. ~ ego
+There's a kicker at a school near here who'd fix everything. I'm not exaggerating. Much. ~ college
+In this state, you don't let a player like him go somewhere else. ~ texas college
+Up here, the tough ones don't get noticed. I'd like you to notice one. ~ northeast
+Around here the farm kids are the strongest players you'll find. There's one I'd like you to see. ~ midwest !nfl
+Out here kids get missed because nobody flies in to see them. Go see the one I'm going to tell you about. ~ west college
+Down here we know a ballplayer when we see one. I've seen one. Let me tell you about him. ~ south
+The player I like gets better every week. Give him the weeks.
+I've watched the [freshman|sophomore] since summer workouts. He's ready now, not next year. ~ !nfl
+Is there a reason the young running back only gets carries in the fourth quarter? I'd like to hear it. ~ blunt
+I like the backup quarterback. I'm not the only one in {town} who does.
+I'd like ten minutes with you and the position coach about one player. ~ meddler
+Give the young quarterback some meaningful snaps. Not mop-up. Meaningful.
+Here's a name you should know before camp. I'll leave it at that for now.
+I've had my eye on one player since the day he got here. I'd like you to put yours on him too.
+My guy plays hurt, plays hard and never says a word about it. Those are the ones you want.
+I'd like to see the young tight end split out once in a while. He catches everything. ~ meddler
+Let him play in front of the home crowd. That's all I'm asking for him.
+Whatever happens at cutdown, the family would like one particular young man still here on Wednesday. ~ nfl
+Some of us have followed one player since he first put on a helmet. You'll know him by the noise when he goes in. ~ !nfl
+I don't care about his stars or his rankings. I care that he's the last one off the field every night. Offer him. ~ college
+If he's on the bubble, push him over to our side. I'd take it as a personal favor. ~ smooth !hs
+I'll be honest, I don't know schemes. I know when a player makes the crowd stand up. Mine does.
+The quarterback I like doesn't throw pretty. He throws completions. Think about that.
+He reminds me of the best players I ever watched here. Don't let him rot on the bench. ~ old
+There's a player in this building who can be special. Ask me who and I'll tell you all about him.
+The family watches the preseason closely. They'd like to see the young running back get his carries. ~ nfl
+Some players make you want to buy a ticket. I'd like to see more of the one who does it for me.
+If he plays and fails, I'll never say another word. If he never plays, I'll never stop. ~ hot
 
 @key booster.want.nil
 I'll fund it. I just want to know where the money goes. ~ nil
@@ -266,6 +1338,120 @@ The collective needs a coach who'll take its calls. Will you? ~ nil college
 I'll pay for the kids who stay all four years. Loyalty should pay. ~ nil college
 The money has to be clean, Coach. I won't fund anything I can't explain to my accountant. ~ nil
 I know a lot of people who'd give, if they thought it would keep the good ones here. ~ nil college
+My company's planning a fall campaign. I'd like two or three of your players in it, paid properly. ~ nil
+Local ads with local players. That's my pitch. Good for the players, good for business. ~ nil
+Big guys sell. I want the starting offensive line in our holiday commercial. ~ nil
+I want your players on my billboards. Their names, their numbers, my logo. ~ nil
+I'll pay the going rate for a few social posts a month. Just point me at the right players. ~ nil
+We're shooting a commercial in June. I'd like the most recognizable player you've got. ~ nil
+I'd rather pay a player than an ad agency. Help me find the right ones. ~ nil tight
+The collective handles the big money. I want my own deals for my own business on top of it. ~ nil college
+The school pays them now through revenue sharing. My ads are extra, and I'd like them with our best players. ~ nil college
+I want a few players in my stores on an off weekend, signing posters. Paid, of course. ~ nil college
+Your quarterback's face on a coffee cup. I'm serious. ~ nil
+I'd bet your middle linebacker has a radio voice. My spots could use it. ~ nil
+I'm not trying to buy players. I'm trying to buy ads. There's a difference, and I'd like your help keeping it that way. ~ nil
+The rules say a player can be paid for his name. I'd like to pay a few of yours for theirs. ~ nil
+My marketing people want athletes. I'd like them to be our athletes, not somebody else's. ~ nil
+Grand opening next month. Ribbon, scissors, photos and a few of your players. They'll get paid. ~ nil
+Group shot of the whole defensive line, matching shirts, my logo. That's a deal I'd sign today. ~ nil
+Tell me who handles each player's deals, a parent, an agent, whoever, and I'll make the calls. ~ nil
+I want my ads to say {team} without having to say {team}. You know how that works. ~ nil smooth
+Hometown sells. I want the players from {town} in my ads first. ~ nil
+My business does well when the team does well. I'd like the two seen together. ~ nil smooth
+I've already talked to compliance. They're fine with it. All I need are the players. ~ nil college
+The state association says no school uniforms in my ads. Fine. I'll buy them shirts. ~ nil hs
+I want the best player on this team in my commercial before he leaves for the league. ~ nil college
+Social media is where the money is now. I'd like a couple of your players posting for my company. ~ nil
+Find me a player with a big following. I'll find him a deal. ~ nil
+Put the whole defense on a billboard. People are tired of quarterbacks. ~ nil
+Every register in my stores has a screen. I'd like our players on them. ~ nil
+I'd like to sponsor the quarterback's videos. Whatever he calls them. ~ nil old
+I'll sign whoever you think will stay out of trouble. My brand can't afford a bad headline. ~ nil
+The money's real, the ads are real, the work is real. All I need is your blessing. ~ nil smooth
+There's a market for these players now. I'd rather it be my market. ~ nil ego
+You tell me who's worth it. I'll tell my ad people who to call. ~ nil
+Every deal goes through the clearinghouse now. Mine will pass. I just need your best players in them. ~ nil college
+Valid business purpose. That's the phrase, isn't it? I've got one. I need players. ~ nil college smooth
+My ads run during the broadcast. I'd like the players in them to be the ones on the field. ~ nil
+Let me put your seniors on the scoreboard ads. They've earned it. ~ nil hs
+I'd like to pay a few of the boys to work my booth at the county fair. Their picture on the banner. ~ nil hs
+Let me sponsor the player of the week. His picture in my window and a gift card in his pocket. ~ nil hs
+Put me down for three deals a year. You pick the players, I'll pick the ads. ~ nil
+Nobody ever gives the kicker a deal. I'd like to. I think he'd sell. ~ nil warm
+I don't need the biggest name. I need the one people trust. ~ nil
+I'd rather have your team in my ads than my name on a building. ~ nil
+I'm going to make a TV spot with your players, and you're going to love it. ~ nil ego
+Bring a few players to the company picnic and my people would talk about it for a year. ~ nil
+With a cap on what the school can pay, my deals are how you keep the stars. I'd like the stars in my ads. ~ nil college
+If I sign the quarterback, I'd like to know he's the quarterback in September. ~ nil college meddler
+I watch every dollar. A player in my ad is a dollar that comes back. ~ nil tight
+NIL is just advertising with better-looking people. I'd like some of yours. ~ nil
+I don't love the word collective. I like the word commercial. Let me make some with your players. ~ nil college
+Get me a lineman with a sense of humor. I've already got a script. ~ nil
+My ads are corny. That's the point. I'd like your players to be corny with me. ~ nil warm
+The players get paid either way. I'd like them paid by a company from here. ~ nil
+Social posts, a signing or two, maybe a commercial. I'll put it all in writing. ~ nil
+I've got a deal sheet ready. I just need names. ~ nil impatient
+I'd like to be the first local business your players call. Make sure they have my number. ~ nil
+My competitors already have players. I'm not losing that race. ~ nil hot
+Down here people buy from people they know. Put your players in my ads and everybody will know them. ~ nil south
+In this state the high school stars are famous. Let me put one on my billboard. ~ nil hs texas
+Out here everything's online. I'd like a player doing my posts every week. ~ nil west
+In a town like {town}, a player in my ad is bigger than any celebrity. Let me have a couple. ~ nil midwest
+I'm asking for players, not favors. The ads go through compliance like everything else. ~ nil college
+Fifteen minutes after practice, three players, one camera. That's my whole shoot. ~ nil
+The players get the money. I get the faces. Everybody wins. ~ nil
+I'll pay them a lot more than the gas station down the street does, for a lot less work. ~ nil hs
+I've sponsored teams before. I'd like to sponsor players now. ~ nil
+I want a calendar with a different player every month. Twelve months, twelve players, my logo on every page. ~ nil
+Let me put two of your players on the side of my building. It's the biggest wall in {town}. ~ nil
+Put them in my ads and the players will know which company takes care of them. ~ nil smooth
+If a player's good on camera, I'll find him a deal. Send me the ones who talk well. ~ nil
+These players will be famous with or without me. I'd like to be in the picture with them. ~ nil ego
+Point me at the players with clean records and good grades. Those are the ones I want selling my product. ~ nil
+Before games I do a radio spot. I'd like a couple of players in the booth with me. My company buys the time. ~ nil
+I'd like an ad shoot every spring. Same day every year, same players if they stay. ~ nil college
+Every ad I've run with a player has sold. I'd like more of your players. ~ nil
+Give me the players the fans already love. I'll make them famous in {town}. ~ nil
+Hell, every company in the state is signing players. Mine's going to sign the best ones. ~ nil hot
+You get me the players, I'll get them paid, and nobody will have a thing to complain about. ~ nil smooth
+I want my company to be the name every recruit hears about on his visit. ~ nil college
+I'll put a player's number on my menu. Every time he scores, that dish is half price. ~ nil
+My ads need a quarterback. They always need a quarterback. ~ nil
+Every player on the roster, the same check, one group photo for my ad. Walk-ons too. ~ nil college
+My ad agency wants athletes, and it wants them by spring. ~ nil impatient
+I want the players with followers, not just the ones with stats. ~ nil
+Let me put a couple of your players in a commercial with me. I'll do the talking. ~ nil ego
+I'd like a deal with one player from every class, so the fans get to know all of them. ~ nil
+I'd like to start small. One player, one ad, one season. If it works, we'll grow it. ~ nil patient
+You don't have to do anything but say yes when I ask about a player. ~ nil smooth
+Every player I sign gets lunch with me once a month. I like to know who's wearing my name. ~ nil warm
+My company could use a face. Your locker room's full of them. ~ nil
+I want my logo next to their faces after the big play. Not on the jersey. In the post afterward. ~ nil
+The rules for high school deals are new to a lot of people here. I'd like to be the first in {town} to do one right. ~ nil hs
+I'll pay for the deals. You just make sure the players show up to the shoot. ~ nil
+Put the seniors in my spring catalog. They've earned a little money on the way out. ~ nil
+I want our players on the side of every delivery truck I own. ~ nil
+My agency says players move product better than actors. I'd like to find out with yours. ~ nil
+A good deal is a good ad, a fair check and no surprises. I'd like to do a few with your players. ~ nil
+The collective wants to pay them to stay. I want to pay them to sell. Both of us need you. ~ nil college
+Players at the other schools around here are already in ads. I'd like ours in better ones. ~ nil ego
+I've got a product launching in the fall. A player in the ad would make it. Help me pick one. ~ nil
+If you've got a player who's good with little kids, I'd like him in my ads. Families are my customers. ~ nil warm
+The moment doesn't last. I'd like your players in my ads while people are still talking about them. ~ nil impatient
+I'd like the deals signed before fall camp, so nobody's distracted in September. ~ nil college
+Pick two players who'll still be here next fall. I'll build a whole campaign around them. ~ nil college patient
+I'd like our players in my ad the week of {rivalry}. That's when everybody's watching. ~ nil
+A player in a local ad gets recognized at the grocery store. That's good for him and great for me. ~ nil
+I'll handle the contracts, the shoot and the check. All I need from you is a name or two. ~ nil
+My name's on the shop. I'd like a player's face next to it. ~ nil
+I don't want anything shady. Paperwork, taxes, the whole thing done right. I just want players in my ads. ~ nil blunt
+I'd like our new signees in my company's shirt on signing day. Paid, legal, on camera. ~ nil college
+I'd like a couple of players signing autographs at my booth on fan day, right under my sign. ~ nil college
+Put a player in my ads in {year} and I'll be back with a bigger deal in the spring. ~ nil
+The players are already on their phones all day. I'd like a few of those posts to be mine. ~ nil
+Big deals go to the stars. I'd like to do small ones with the players nobody's signed yet. ~ nil warm
 
 @key booster.want.clean
 I'd like to win the right way. If we can't, I'd rather not win at all.
@@ -291,6 +1477,123 @@ Fighting on the field, I can live with. Fighting off it, I can't.
 I'd like the boys to keep their grades up and their helmets on. That's my whole philosophy. ~ hs
 A clean program wins in the long run. A dirty one wins for a while.
 Treat the community well and it'll treat you well. That's how this works. ~ !nfl
+Win games and keep our name off the police report. That's the whole deal.
+If somebody gets in trouble, I want to hear it from you before I hear it from a reporter.
+I'd rather go seven and five with good people than ten and two with a mess. ~ college
+Character first. If a player can't stay out of trouble, he doesn't stay here.
+I don't want one eligibility problem while you're here. Not one. ~ !nfl
+Every rule, every time. That's the only way I know how to do anything. ~ blunt
+Run a team I can brag about at church. ~ south
+I'd like to be proud of how we win, not just that we win.
+Don't let anybody near this team who offers players things they shouldn't. I mean anybody. ~ !nfl
+When we win, I want people to say we earned it.
+I've seen programs go on probation. I've seen what it does to a town. Not here. ~ college
+Recruiting, transfers, eligibility. The state association watches all of it. Give them nothing to find. ~ hs
+A forfeit for an ineligible player would kill me. Check every transcript. ~ hs
+Keep the coaches clean too. It's not only the players.
+If you have to bench a star for doing something wrong, bench him. I'll back you.
+League fines go straight to the family's desk. Keep them rare. ~ nfl
+The family has no patience for players with arrest records. Keep that in mind on the roster. ~ nfl
+A whole season without a single suspension from the league office. That's what the family wants. ~ nfl
+I'd like you to go your whole time here without ever having to self-report a thing. ~ college
+I'd like to watch every one of your seniors walk at graduation. ~ !nfl
+Don't give me a reason to defend you. Give me a reason to brag about you.
+Bad news travels fast in {town}. I'd like ours to be slow and rare.
+Fix problems the right way, even when the right way is loud.
+I want honesty. If you make a mistake, own it, and I'll stand with you.
+No shortcuts. Not in recruiting, not in the classroom, not anywhere. ~ college
+The rulebook is thick for a reason. Read it, then follow it.
+Tell your staff I'd rather lose than cheat. They should hear it from somebody besides you.
+I want the cleanest program in the conference. Somebody has to be. ~ college
+I'd like the principal never to have to call you about a player. Or me. ~ hs
+Make sure your coaches know the transfer rules. One bad move and we're forfeiting games. ~ hs
+If a family moves into the district, I want it on the level. Every address checked. ~ hs
+I don't care how good a player is. If he's trouble, he's somebody else's trouble.
+I want parents trusting you with their sons. That's how you build something. ~ !nfl
+Keep an eye on what the players post. One bad post and it's on every screen in the state.
+Hold the stars to the same rules as the last guy on the roster.
+If someone on staff is cutting corners, I want them gone the same day. ~ blunt
+I'll give money to a lot of things. I won't give a dime to clean up a scandal. ~ !nfl
+Drugs, guns, hitting a woman. Any of it, and the player's gone. I don't care who he is. ~ blunt
+The family can't stand seeing our players on the morning shows for the wrong reasons. ~ nfl
+We sell this team to sponsors on its character. Don't turn that into a lie. ~ nfl
+Report every injury straight. The league fines teams that play games with that list. ~ nfl
+No tampering, no cap games, no shortcuts. The family wants a clean house. ~ nfl
+Never give the league a reason to take a draft pick from us. ~ nfl
+Hazing ends the day you start. I don't care what the tradition is.
+If a player gets in trouble, don't hide it. Hiding it is always worse.
+Let's be the team no investigative reporter ever bothers with.
+I like winning. I like sleeping at night more.
+People in {town} will forgive a loss. They won't forgive a scandal.
+I'd rather explain a losing season than a lawsuit. ~ blunt
+Keep the bad apples away from the good ones. That's half of coaching, isn't it? ~ old
+I've seen boosters get a school in trouble. Don't let any of us do that to you. Me included. ~ college
+Don't take anybody's cash. Not mine, not anybody's. Everything runs through the right office. ~ college
+Every deal a player signs should go through the clearinghouse. No side deals. No handshakes. ~ college nil
+I want a program where the academic people smile when they see you coming. ~ college
+Teachers should like your players. That's my test. ~ hs
+If a teacher calls me about one of your players, I'm calling you. Let's keep my phone quiet. ~ hs
+Grades, behavior, then football. Get those in order and I'll be happy. ~ !nfl
+Be fair with playing time. Unfair coaches end up in the paper and in front of the board. ~ hs
+The school board should only talk about football when we win something. ~ hs
+No player in the drunk tank, no player on the news, no player in a courtroom. ~ blunt
+Let the other teams have the scandals. We'll have the trophies. ~ ego
+Win clean or lose clean. I can live with either. I can't live with dirty.
+They wear our name whether they're in uniform or not. Teach them how to act in public.
+I'm not naive. Everybody bends a rule somewhere. I'd like us to bend none. ~ blunt
+If you see something wrong, report it. Even if it's one of your own.
+The last thing I want is to read our name next to the word investigation.
+Keep your hands clean and your staff's hands clean. That's all I'm asking.
+A reputation takes years to build and one bad weekend to lose. Protect ours.
+When a player messes up, I want real accountability. Not a press release. ~ blunt
+Don't let a player's talent buy him out of the rules.
+The family's name is on this franchise. Keep it out of the courtroom. ~ nfl
+If the league is looking at one of our players, the family wants to know before the league calls. ~ nfl
+We're a church town. I'd like a team that acts like it. ~ south !nfl
+People here are decent. I'd like the team to be decent too. ~ midwest
+A clean program is the best recruiting pitch there is. ~ college
+Win, graduate them, keep them out of trouble. Two out of three won't do. ~ !nfl
+Do it right and I'll be with you through the bad years. Do it wrong and I won't wait for one.
+They should leave here better men than they came in.
+I'll pay for a life skills program if you want one. I just want them growing up right. ~ !nfl !tight
+Treat the other team's players with respect after the whistle. I don't want a cheap shot on the highlight shows.
+Talk to the players about gambling. It's on every phone now, and one bet can end a career.
+Ask me for anything except to look the other way.
+Recruit players whose parents you'd want to have dinner with. ~ college
+Suspend the same day and say why. Waiting a week looks like you're hiding something. ~ cold
+The press is going to dig. I'd like them to find nothing.
+Respect the officials, respect the other team, respect the town. Then beat everybody.
+Someday I want to see our players coaching youth football, not showing up in the news.
+Keep the agents and runners away from your locker room. ~ college
+Run this team like your mother is watching. Because somebody's mother is. ~ warm
+I watch every penny, but I'll pay for the compliance staff you need. It's cheaper than a penalty. ~ college tight
+No shortcuts in the weight room either. Nothing in a bottle a test would find.
+Don't run up scores. Don't embarrass anybody. I want us known for class.
+Concussion rules by the book. I don't want us in the paper for putting a hurt player back in.
+Never lie to the press. Say no comment if you have to, but don't lie. ~ blunt
+The family would like a locker room the league office never has to visit. ~ nfl
+How the staff treats the interns, the trainers and the cleaning crew matters too. I'd like that clean. ~ !hs
+I'd like this place to pass any audit anybody wants to run. Books, grades, all of it. ~ college
+One scandal and every win gets an asterisk. I don't want asterisks.
+I'd like you to walk into the conference office and have them glad to see you. ~ college
+If your staff can't tell me where every dollar went, we have a problem. ~ tight
+I'd like our players to say please and thank you to the bus driver. Little things grow into big things. ~ hs warm
+Graduation, not just eligibility. There's a difference, and I'd like you to know it. ~ college
+Know who your players spend their time with. That's where most trouble starts.
+Every coach says he runs a clean program. I'd like you to actually run one. ~ cold
+Keep the parents in the loop and the paperwork in order. That's how a high school team stays out of trouble. ~ hs
+I'd like other coaches to point at {team} when they talk about doing it right.
+The people at the courthouse should never learn our players' names.
+If something goes wrong, call me before the lawyers do. I'd rather help than read about it. ~ warm
+You can be tough on players without being cruel. I don't want us in the news for how we treat them.
+I've got a reputation in {town}. It's tied to this team now. Guard it like your own. ~ ego
+I don't want to hear that everybody does it. We don't. ~ hot
+The family won't spend a dollar defending a player who embarrassed us. Keep that in mind. ~ nfl tight
+Wrong place, wrong time still makes the paper. Teach them when to go home.
+If you need to choose between a win and the right thing, I'll be on the right thing's side.
+I'd like our team to be the one parents in this town point to and say, that's how it's done. ~ !nfl
+Nobody gets paid under the table. Not players, not their families, not anybody. ~ college
+I want this team spoken of with respect at every level of this game. That starts with how we act.
 
 @key booster.want.building
 I want our weight room to be the best in the state. ~ hs
@@ -312,6 +1615,125 @@ The facility is everything now. Kids pick schools by the cafeteria. ~ college mo
 Our stadium is the oldest in the league. My father won't build a new one. I want to change his mind. ~ kin nfl
 I'd like to redo the practice facility before we start talking about a new stadium. ~ kin nfl
 We're raising money for a new field house. Your name on the brochure would help. ~ hs
+Whatever we build next, I'd like to pay for most of it and see my name over the door.
+A new indoor facility is what I want to fund. You'd make my year if you asked for it by name. ~ college
+A new locker room with my name on the plaque by the door. That's what I'm after.
+I've got a number in mind for a new football building. I've got a name in mind too. Mine. ~ college ego
+Put me down for the lead gift on the next project. I'll want the naming rights.
+I'd like my name on something that'll still be standing in fifty years.
+I don't want to give to something. I want to build it, and I want people to know who built it. ~ ego
+The weight room needs to be twice as big. I'll fund it if my name goes on the wall.
+Tell the AD you want a new football operations center. Then tell him who's paying. ~ college
+Let's break ground before your first season is over. My name goes on the sign by the dirt. ~ impatient
+Every big program has a building with a donor's name on it. I'd like ours to have mine. ~ college
+I'll fund a new press box if my name is in big letters facing the home side. ~ hs ego
+I'd like to build you a players' lounge. My name can go on it in small letters. Tasteful. ~ warm
+Turf, lights, a new scoreboard. Pick one and I'll put my name on it. ~ hs
+The new indoor needs a name before it needs a shovel. I've got one. ~ college
+I've talked to the president about a naming gift. The president needs to hear from you that football comes first. ~ college
+The {team} name goes on the front. Mine can go on the side. That's fair. ~ ego
+When the next capital campaign kicks off, I want the football building at the center of it and my name on it. ~ college
+I'd rather give one big gift with my name on it than a hundred small ones nobody remembers.
+I'm not asking for a statue. Just letters over a door.
+Go to the board for a new weight room, and I'll stand next to you holding the check.
+A new film room. My name, our logo, and the best screen money can buy.
+I've given to the library, the hospital and the church. Now I'd like to give to football, with my name on it.
+The stadium's going to need work soon. I'd like to be the name on the new end zone building. ~ college
+Locker rooms win recruits now. Let me build one they'll post about, with my name in the hallway. ~ college
+There's a name on the old gym. I'd like mine on the new field house. ~ hs
+I've stood at a lot of ribbon cuttings. I'd like to stand at one for a building with my name on it.
+Plans first, then money, then a name. I've already got the money and the name. ~ smooth
+I'll match whatever the school raises for the next building, as long as the name is mine.
+The next facility should be the nicest in the conference, and it should carry my name. ~ college
+These players work out in a building older than most of their parents. Let me build them a new one. My name on it, sure.
+Suites don't interest me. Buildings do. One building, with my name. ~ college
+You need an indoor practice field for the winters here. I'd like to give you one, name and all. ~ midwest
+Practice in August here can put a kid in the hospital. An indoor facility fixes that. I'll fund it if it carries my name. ~ south
+It snows here in November. An indoor field with my name on it would fix that. ~ northeast
+In this state, some high schools have nicer stadiums than colleges. I'd like ours to be one of them, with my name over the home side. ~ texas hs
+Out here we build fast. Let's build something, and let's put my name on it. ~ west
+I'll fund the new concession stand, the ticket booth and the restrooms. Name the whole thing after me. ~ hs
+The field and the stadium can have different names. I'd like the field. ~ ego
+I want my name on the scoreboard. Big, lit up, right under the score. ~ hs ego
+Study hall needs a real home. Let me build an academic center, and every player will see my name on the way in. ~ college
+I'll pay for the new turf if my company's name goes in the end zone. ~ hs
+I'd like the groundbreaking on the calendar and my name on the shovel. The building can follow. ~ impatient
+I'm patient. I'll wait for the right building. But it's going to have my name on it. ~ patient
+I hear another donor is sniffing around the next building. I'd like you to steer that one my way.
+The coaches' offices look like a dentist's waiting room. Let me fix them. You'll walk past my name every morning.
+Glass on the side facing the practice field, and my name on the glass. That's the building I see. ~ college
+I'll build it, I'll name it, and I'll never ask you for anything else. Well, almost never.
+I've seen the sketches for a new practice facility. I've already picked the font for my name. ~ ego
+Every time a recruit walks in, I'd like my name to be the first thing he reads. ~ college ego
+Spend money on coaches, sure. I'd like to spend mine on bricks, with my name on a few of them.
+I don't give often. When I do, I want a building to show for it. ~ tight
+I don't need a parking lot named after me. I'd like the next real building. ~ ego
+I'll fund a renovation if the new wing carries my name. That's a fair trade.
+Help me get the board to approve it. I'll handle the money and the name.
+At my age you think about what you leave behind. I'd like it to be a building with my name on it. ~ old
+I'd like the name over the door to be one people in {town} know. They know mine. ~ ego
+The other schools around here keep building. I'd like us to answer with a building of our own, and I'll pay for it.
+Ask me what we need and I'll tell you what I'll build. My name goes on it. That's the deal. ~ blunt
+Before I write a check this size, I want to know the building will be standing in thirty years with my name still on it. ~ tight
+Football gets a new building, I get the name, the players get a better place to work. Everybody wins.
+My name's on my business. I'd like it on something that matters more.
+The visitors' locker room at our place should be miserable. The home one should be a palace with my name on it.
+Let me build you an indoor field. You pick the turf. I'll pick the name on the front. ~ college
+Call me when you're ready to build. Have a spot picked out for the plaque.
+A players' dining hall. My name on the wall, food on the table. ~ college
+I want my name on a building where players sweat. Not a library. A football building. ~ blunt
+I'm going to build something here before I die. I'd like it to be for football. ~ old
+A new weight room needs a name. I have a suggestion. ~ smooth
+The stadium entrance could use some pride. Gates, brick and a big sign with my name on it.
+Fundraising is slow. I can make it fast. One check, one name. ~ impatient
+Name the new practice field after me. Nothing fancy. My name and the year it opened.
+I'd like to break ground on a new football building in {year}. The sign out front should say whose money it was.
+People still talk about whoever paid for the old stadium. I'd like them to talk about me someday. ~ ego
+A new home locker room with a players' lounge, a barber chair and my name on the wall. ~ college
+A cold tub room. A recovery center. Whatever they call it now. Put my name on it. ~ old
+Redo the track around the field and rename the whole facility. I'll pay. My name on the gate. ~ hs
+A booster club building with a kitchen and a meeting room. My name on the front, of course. ~ hs
+Get the school to commit to a new football building, and I'll commit to paying for most of it. The name is my price.
+The big gift is ready. I just need the right building to put it in and the right wall to put my name on.
+You'll want an indoor eventually. Everybody does. I'd like to be the reason you get it, and the name you read on it. ~ college
+I'm not giving to the general fund. I'm giving to a building, with my name on it. ~ tight
+Name a building after me and I'll stop calling about everything else. Mostly.
+I've already had a drawing made. My name across the front in steel letters. ~ ego
+I'd like a building with my name on it before somebody from {rival} gets one over there. ~ hot
+Show me the plans for anything new and I'll show you the check. The name on the front is all I want back.
+I've never asked for my name on anything. This time I am.
+Build it, name it, win in it. In that order.
+I want the players reading my name every time they walk out to practice.
+Let me fund the new team room. Every meeting you hold in there, my name will be over the door.
+You don't need to raise money for the next building. You need to call me. I'll want the name.
+A weight room with glass walls so the whole town can watch them work. My name etched in the glass. ~ hs
+Let me build a real training room. Put my name on it and nobody will ever call it a closet again.
+The band room and the field house share a wall and a leak. Let me fix both and put my name on the new field house. ~ hs
+A new video board with my name underneath it, lit up every time we score.
+I'd like my name on the hall of fame room. Every great player who comes back will walk through it.
+I've been saving for this. A gift big enough to put my name on a building.
+My accountant says this is a good year to give. I'd like that gift to come back to me as a building with my name on it. ~ tight
+Recruits ask about the food now. Let me build the nutrition center and put my name on it. ~ college
+Let me put up a new field house. My name over the door, a team room inside and showers that work. ~ hs
+I'd like a new practice facility with my name on the side facing the highway, so everybody driving through {town} sees it. ~ ego
+You coach. I'll build. And I'll name what I build. That's a partnership.
+The donors who built this place have their names everywhere. I'd like to join them. ~ old
+I'm not looking for a thank-you note. I'm looking for a cornerstone with my name on it. ~ blunt
+Give me a building to name and I'll give you a building to recruit in. ~ college smooth
+The kids in {town} should grow up seeing my name on the field house and thinking it's where the good players go. ~ hs warm
+I'd like a new weight room before the season after next, and I'd like to cut the ribbon myself. ~ patient
+Let me know what the AD's wish list looks like. I'll take the top item, and I'll take the name. ~ college meddler
+I've got the money. What I don't have is my name on anything here. Let's fix that.
+I know a building won't win a game. But a building with my name on it will get me out of bed in the morning. ~ warm old
+Whatever's next, a locker room, a weight room, a field house, I'd like to be first in line to put my name on it. ~ impatient
+I'm not a meddler. I just want my name on the next building and a hard hat at the groundbreaking. ~ !meddler
+A new building is coming one way or another. When it does, I'd like my name in the stone over the door.
+I'd like my name on the place where the players spend the most hours. That's probably the weight room.
+I'll write the check the day you show me a site plan. My one condition is the sign.
+I want a building the alumni walk past on game day and point at. With my name on it.
+A building lasts longer than any of us. Put my name on one and I'll feel like I did something here.
+I've got one big gift left in me. I'd like it to be a building, and I'd like it to say who paid.
+I'd like my name somewhere the players will see it the morning of every home game.
 
 @key booster.want.oldschool
 Go see the coaches at {old_school}. I'll make the call.
@@ -333,6 +1755,120 @@ The city schools have talent nobody's recruiting. Go find it. ~ northeast
 I'd rather lose with our kids than win with somebody else's.
 Every coach who won here won with homegrown kids. Every one.
 There's a coach at {old_school} who says nobody from here has come by in two years. That has to change.
+{old_school} always has somebody. Get there before the big schools do.
+I went to {old_school}. If they've got a player, I want him here.
+Make {old_school} your first stop on the road. It'll pay off for both of us.
+I'd like an offer to the best player at {old_school} every year he's good enough. Some years when he's close.
+Come to a {old_school} game this fall. Friday night. I'll save you a seat.
+Put {old_school} on your recruiting map in red ink. ~ blunt
+I still go to {old_school} games. I'll tell you who's worth a look. ~ old
+The best players at {old_school} grow up wanting to come here. Make sure somebody asks them.
+I'd like {old_school} to be a pipeline for us. A real one, with a kid in every class.
+Send your best recruiter to {old_school}. Not your newest one. Your best. ~ meddler
+When {old_school} has a player, the whole town knows it. Make sure we're the first ones knocking.
+I want {old_school} kids on this roster. Not all of them. The good ones.
+When {old_school} sends somebody to play college ball, I'd like it to be here.
+There's a pride thing at {old_school} about playing here. Don't let it die out.
+Know every good player at {old_school} by name before signing day.
+I'd like a {old_school} kid on your two-deep before you leave here.
+If a kid from {old_school} is good enough, he plays here. If he's close, he walks on here.
+Look at the linemen at {old_school}. They grow them big over there.
+Speak at the {old_school} banquet this spring. Then offer their best player.
+Kids from {old_school} are tough and coachable, and they don't run to the portal.
+I'll be honest. {old_school} is my school. It's personal. Recruit it. ~ blunt
+If you only visit one high school in the state this spring, make it {old_school}.
+My license plate frame says {old_school}. I'd like your recruiting board to say it too. ~ ego
+Don't let a {old_school} kid sign somewhere else without a fight. ~ hot
+Somebody at {old_school} told me they've got a player like they haven't seen in years. Go see.
+When I see a {old_school} kid in our uniform, that's worth more to me than a win. ~ warm
+Half the kids at {old_school} grew up watching us on Saturdays. Give them a reason to come.
+Offer the best kid at {old_school}. Even if he goes somewhere else, they'll remember who asked first.
+I'm loyal to two places, this one and {old_school}. Help me be loyal to both at once. ~ warm
+Recruit {old_school} and you'll have my support for as long as you're here. ~ smooth
+I'm going to call you every time {old_school} plays a big game. Consider yourself warned. ~ meddler
+I'd like at least one {old_school} kid in every class you sign.
+You'll hear {old_school} kids are too slow for this level. Go time them yourself.
+Be at the {old_school} homecoming. That's when the whole town comes out.
+Go watch a {old_school} practice in May. Shorts, no pads. You'll still see who can play.
+I sat in those same bleachers at {old_school}. I'd like to see one of their kids in our stadium. ~ warm
+The best player I ever saw came out of {old_school}. He ended up somewhere else. Let's not miss the next one.
+{old_school} kids don't need much convincing. They just need to be asked.
+Recruit the whole {old_school} roster if that's what it takes. Just get me the best one.
+I'd like a {old_school} kid in every position room within five years. That's my dream.
+I want our schedule poster on the wall of the {old_school} weight room. Start there.
+Show up at {old_school} once and the kids will talk about it for a month. Show up twice and you'll get their best player.
+I'm not asking you to take a player who can't play. I'm asking you to look hard at the ones from {old_school} who can.
+Not enough people recruit around {old_school}. That's why it's a gold mine.
+I want the {old_school} coach calling you before he calls anybody else. Make that happen. ~ ego
+There's more football in the {old_school} locker room than in half the prep academies in the country.
+Eat at the diner near {old_school}. Ask anybody there who the best player is. They'll know. ~ midwest
+If {old_school} sends you film, watch all of it. Don't skip to the highlights.
+Make {old_school} the place every other school has to go through to get a kid. ~ ego
+I'd love to see a photo of a {old_school} kid in our uniform hanging in their trophy case. ~ warm
+You don't win this state from the airport. You win it at places like {old_school}.
+The recruiting sites miss kids at {old_school}. Don't you miss them.
+I'd like a camp invite going to every good player at {old_school}.
+Get the best player at {old_school} here for a game day visit. I'll make sure the stands are loud.
+Recruit {old_school}, then recruit the schools around it. That whole area's ours if we want it.
+Remember the name {old_school}. You'll be hearing it from me a lot. ~ impatient
+The {old_school} booster club will make sure the best kids hear about us. I'll introduce you. ~ smooth
+A kid from {old_school} once told me he'd have come here if anybody had asked. Ask.
+The portal is fine. I'd still rather have a {old_school} kid for four years.
+Every signing day I check one thing first. Did we get the {old_school} kid?
+Be sitting in the living room of the best player at {old_school} by December. ~ impatient
+The best player at {old_school} should never have to wonder whether we want him. ~ warm
+When a {old_school} kid commits somewhere else, I hear about it at the barbershop for a week. Spare me that. ~ !she
+Find the {old_school} kid nobody else wants and make him a star here.
+Ask the {old_school} coach who his toughest kid is. Offer that one.
+I'm tired of watching {old_school} kids leave the state. Keep them home. ~ impatient
+If {old_school} has a two-star with a five-star heart, I want him.
+I'd like a {old_school} kid lined up for us in {rivalry} before I die. ~ old
+I've kept a list of every good player out of {old_school} for years. Want it? ~ meddler
+I'd like to see a {old_school} kid run out of our tunnel every fall. ~ warm
+Down here high school football is everything. {old_school} is where I learned that. Recruit it. ~ south
+In this state you can't recruit from a plane. Drive to {old_school}. ~ texas
+{old_school} kids grow up playing in the cold. Weather won't scare them. ~ midwest
+Up here, {old_school} is as good as it gets. Don't skip it for some school down south. ~ northeast
+Everybody out here chases the big-city schools. {old_school} has players worth the drive. ~ west
+Every coach who comes here says the state is the priority. Prove it at {old_school}. ~ blunt
+Let the {old_school} kids see your face at least twice a year.
+Send a coach to {old_school}'s spring practice. One coach, one afternoon. It matters.
+If you sign a {old_school} kid, I'll double what I give. ~ !tight
+I don't give much. I give more when a {old_school} kid signs here. ~ tight
+{old_school} kids are smart too. They'll help your graduation rate.
+Go to {old_school} in the fall, the winter and the spring. Then go back. ~ meddler
+I want {old_school} to think of us as their school. That's my whole wish.
+Don't make me watch a {old_school} kid star for {rival}. I couldn't take it. ~ hot
+A pipeline isn't one kid. It's a habit. Make {old_school} a habit. ~ blunt
+The coach at {old_school} will open his film room for you. Trust me on that. ~ smooth
+Recruit {old_school}, and everybody who ever wore that jersey will be pulling for you. Me included.
+I'd like you to know where {old_school} is without looking it up.
+Here's a free scouting report. {old_school}. Every year. You can thank me later. ~ ego
+I learned football at {old_school}. So did a lot of kids who should be playing here.
+When {old_school} makes the playoffs, I'd like somebody from our staff in the stands.
+{old_school} kids work. I've never met one who didn't.
+You've got a lot of schools to cover. I'm asking you to cover one of them twice. {old_school}.
+Before you finalize a class, talk to me. I'll tell you if you missed anybody from {old_school}. ~ meddler
+I bleed for {old_school} and I bleed for this place. I'd like to see the two come together. ~ warm
+Give the {old_school} kids a reason to dream about this place. An offer will do it.
+If a {old_school} kid lands in the portal, I want you to be his first call.
+Check the junior colleges for {old_school} kids too. Some of them just needed another year.
+I'd take a {old_school} walk-on over a five-star from out of state. I mean that. ~ blunt
+My class at {old_school} still gets together. I'd like to tell them we've got one of theirs on the roster. ~ old
+If the {old_school} quarterback is any good, he should be throwing for us in three years.
+Learn what the {old_school} coach takes in his coffee. That's how you get his best player. ~ smooth
+Our roster should look like the state. Start with {old_school} and work out from there.
+I want you known at {old_school}. The secretary in the front office should know your voice on the phone.
+Win the living rooms around {old_school} and the rest of the state starts to follow.
+I don't care what the recruiting rankings say about {old_school}. Go watch them on a Friday and decide for yourself.
+I've followed {old_school} football my whole life. Start there and you'll have me for life. ~ old
+Every time a {old_school} kid signs here, I'll send the staff dinner. Every time. ~ warm !tight
+Get a {old_school} kid on this team and I'll be the loudest person in the stadium. More than I already am. ~ ego
+Offer early at {old_school}. Late offers there look like an afterthought, and people notice.
+Ask me what {old_school} means to me and I'll talk for an hour. Recruit it and I won't have to.
+The kids at {old_school} know who comes around and who doesn't. Be somebody who comes around. ~ patient
+I'm not asking for charity for {old_school}. I'm telling you where the players are.
+If you miss on the {old_school} kid this year, I'll forgive you. If you never try, I won't. ~ hot
 
 @key booster.want.winnow
 I'm tired of moral victories, Coach. I want real ones.
@@ -355,3 +1891,122 @@ My father isn't asking for much. Just to see this team play in February before h
 The last coach kept saying next year. I'm not interested in next year.
 Win early, and you'll have more friends than you can count. Lose early, and you'll find out who I am. ~ hot
 I don't need perfect. I need better than last year. ~ patient
+I don't want a five-year plan. I want this fall.
+Give me a winner this year and I'll stop asking about the plan.
+There's talent in this building right now. Use it now.
+I'm not asking for a title. I'm asking for a team that wins this year.
+Every team says it's building. I'd like to be the one that's already built.
+First years go sideways all the time. I'd like yours to go straight up.
+Don't tear it down to build it back up. Win with what's here.
+If the plan is two years out, I'd like a plan that's one.
+I'll give you everything you need. In return, I'd like games won in {year}.
+I want {year} to be a winning year, not a building year.
+{last_record} is behind us. I want to see what this group can do, starting now.
+I want playoff football this season. I won't settle for less. ~ hot
+Wins first. Then talk to me about culture.
+Don't sell me on next year. I've bought that before. ~ impatient
+The fans are buying tickets for this season, not one down the road.
+You'll get plenty of time later. Earn it by winning early.
+I'll judge you on the first year. I know that's not fair. I'm telling you anyway. ~ blunt
+I've seen too many coaches ask for time and leave before it ran out. Win now and you won't need it.
+Spare me the building blocks. I want the W.
+Every year matters. The first one matters most.
+Use the portal. Bring in grown men who can win this year. ~ college
+I'd rather have a transfer who can play now than a freshman who might in three years. ~ college
+The family isn't interested in a development year. The cap money's already spent. Win with it. ~ nfl
+Free agency is for winning now. Use it. ~ nfl
+I want a playoff game in this building in January. ~ nfl
+Trade a pick if you have to. The family would rather have the player now. ~ nfl
+Draft picks are lottery tickets. The family wants players who can win now. ~ nfl
+Win right away. Culture is easier to build with a winning record than a losing one.
+Nobody here remembers a good process. They remember the scoreboard.
+Win this year and I'm with you for ten. ~ smooth
+Get to the state playoffs this fall. Anything less and the bleachers go quiet. ~ hs
+I want a home playoff game on a Friday night this year. ~ hs
+I want us in the playoff conversation in November. This November. ~ college
+I'd like us playing meaningful games in December.
+Win now. I've got friends who'll double their giving if you do. ~ college
+Every losing year costs me money. Win now and save us both. ~ tight
+You'll have rebuilding years later. Everybody does. Don't start with one.
+I don't want to hear about youth. Play the best players and win.
+Start fast. September sets the tone for the whole year.
+At my age, three years is a lot to ask. Give me one. ~ old
+You know what wins in this town? Winning. Start this fall.
+The players here now didn't sign up for a rebuild.
+The upperclassmen deserve a winner. Don't make them a bridge to your guys. ~ !nfl
+The family thinks this roster can win now. Prove them right. ~ nfl
+The owner isn't a patient person. I'm telling you that as family. ~ nfl
+My family owns this team to win, not to wait. ~ nfl
+A rebuild in this league can last a decade. The family won't sit through one. ~ nfl
+I'd like a winning record by Thanksgiving.
+If we're not winning by midseason, I'll be on the phone. Fair warning. ~ hot
+I'll back you as long as we're winning. Start soon. ~ cold
+You've got one season to show this place it was right about you. ~ cold
+Win the first three and the whole town gets behind you.
+I don't need a dynasty. I need a good year, this year.
+The stands aren't patient. Neither am I. ~ impatient
+Short-term thinking? Maybe. But the short term is the only term I've got left. ~ old
+Sign a couple of veterans who know how to win. The family will pay for it. ~ nfl !tight
+You'll be judged in November. Not three Novembers from now.
+I don't want a long story. I want a short one with a happy ending.
+Winning cures everything. I'd like to be cured soon.
+I want to walk into church on Sunday after a win, not after an excuse. ~ south !nfl
+Folks in this state want a winner now. Not a story about one. ~ texas
+People up here have long memories and short patience. Win now. ~ northeast
+Around here a slow start means a long winter. Win early. ~ midwest
+Everybody out here wants results yesterday. I'm one of them. ~ west
+One thing. Win now. We'll talk about everything else after.
+I don't plant trees for other people's shade. Win while I can still see it. ~ old
+The plan is good. The plan is also slow. Speed it up. ~ impatient
+I'll give you room on everything else if you give me a winner this year. ~ smooth
+A three-year plan is a polite way of saying we'll lose for two. Not here. ~ blunt
+If you need something to win now, ask me today. Not in the spring. ~ impatient
+You can build for later and win now at the same time. The good ones do.
+Win the games you're supposed to win this year. Then steal a couple.
+I'm not looking for a miracle. Just a winner, this season.
+Don't play for next year. Next year has its own problems.
+People are excited about you. That lasts about six games. Win them.
+Your first year sets your price. Win and it goes up. Lose and it stays down. ~ cold
+Don't waste a year finding out who can play. Find out fast and win.
+If there's a better player out there right now, go get him. ~ !hs
+A good young team is still a losing team. I'd like a good team, period. ~ blunt
+I didn't give my money to a waiting room. ~ !nfl
+Win now and I'll defend every decision you make. Lose now and you'll be defending them yourself. ~ hot
+Put a winning record in the books and the rest of the plan sells itself.
+There's no such thing as a free year here. Every one counts.
+The playoffs this season, {coach}. Write it on the board.
+Your contract has years on it. I'd like you to coach like it doesn't. ~ cold
+A new coach gets one free season most places. Not here.
+I'm putting my reputation behind you. I'd like it paid back by Christmas. ~ ego
+I've sat through enough banquets where the best line was wait till next year. I'd like a different speech. ~ !nfl
+Give me something to brag about by Halloween.
+I'd like this town talking about wins at Thanksgiving dinner, not about the future.
+You don't have to be perfect. You have to be winning, and soon.
+I want people in {town} buying tickets because we're good, not because we're new.
+Nobody hangs a banner for being on the right track.
+Ask me for patience in year three. In year one, I want results.
+The window for players is short at every level. Don't waste theirs.
+I'd like a team I'm proud of in October, not one I'm hopeful about in March.
+Some coaches build. Some coaches win. I'd like you to win first and build later.
+Tell the staff the timeline is this year. Not next year. This one. ~ meddler
+The family has watched other teams take forever. They'd like a winner in the first year. ~ nfl
+I've heard about your plan. It's good. I'd like the first chapter to end in the playoffs. ~ smooth
+My friends keep asking when we'll be good. I'd like to say now. ~ warm
+You'd be surprised how many friends you make here by winning in October. ~ smooth
+Losing seasons cost this place more than money. Don't give us one.
+I've done the math on my age and your timeline. They don't line up. Win now. ~ old blunt
+The quarterback you have is the quarterback you win with. Don't wait for the next one. ~ meddler
+I'm told you like to build slow. I'd like you to build fast, just this once. ~ impatient
+Every Monday this fall, I'd like to wake up happy. That's my whole ask.
+I don't care how it looks on paper in three years. I care how it looks on the scoreboard this year. ~ blunt
+Win now. If you need me to make some calls to help, I'll make them tonight. ~ warm
+There's nothing wrong with the long view. I'd just like to see a short one first.
+Give the people here a reason to stay for the fourth quarter this season.
+I'll tell anyone who asks that you're building something. I'd like to say you're winning something instead. ~ smooth
+I'd like something new in the trophy case before I'm a year older. ~ old
+Play for this year and coach for this year. The future can find its own coach. ~ blunt
+Put your best players out there from the first snap of the season. Development can happen in practice.
+The season is short. Every game you give away to teach somebody is one we don't get back. ~ impatient
+Winning now buys you every hard decision later.
+If it's the veteran who helps today or the youngster who helps in three years, play the veteran.
+People around here have short memories for plans and long memories for losing seasons.
