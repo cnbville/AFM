@@ -210,6 +210,10 @@ impl ProCareer {
 
     /// Out for at least `days` more days, counted down from tonight.
     pub fn hurt_for(&mut self, days: u32) {
+        // A save from before keeps its weeks as days (as `heal_day` reads it).
+        if self.out_days == 0 {
+            self.out_days = self.out_weeks * 7;
+        }
         self.out_days = self.out_days.max(days);
         self.out_weeks = self.out_days.div_ceil(7);
     }
