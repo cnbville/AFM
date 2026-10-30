@@ -6087,6 +6087,20 @@ fn lean_on(p: &Person, d: Date) -> f64 {
     seen.map(|e| e.2).product()
 }
 
+/// Why your player means to enter the portal, as the word his talk's
+/// opening checks (`reason=snaps`), while his talk with you is pending.
+pub(crate) fn intent_reason(w: &World, id: u32) -> Option<&'static str> {
+    w.portal_intents.iter().find(|t| t.is(id)).map(|t| match t.why {
+        Why::PlayingTime | Why::SpringDepth => "snaps",
+        Why::CoachingChange => "coach",
+        Why::Steered => "choice",
+        Why::MoveUp => "up",
+        Why::Money => "money",
+        Why::Graduate => "grad",
+        Why::Dismissed | Why::Cut | Why::ProgramDropped => "other",
+    })
+}
+
 /// Your program, when you are its head coach.
 fn talks_first(w: &World) -> Option<usize> {
     fo::program(w)

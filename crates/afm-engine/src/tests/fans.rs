@@ -1,7 +1,8 @@
 //! Fan voices (people topic 9, the fan lane): the town after a game, the
 //! call-in show and the board read whole at every level; the live crowd
 //! says what the kept game's page says; the mood follows the results
-//! against the lines; a crowd says every version before it repeats one.
+//! against the lines; a crowd says every version before it repeats one;
+//! and a whole fan year rarely says a line again (lane 13f).
 
 use crate::calendar::{Date, Level};
 use crate::game::OffScheme;
@@ -206,4 +207,60 @@ fn a_crowd_says_every_version_before_it_repeats_one() {
     // Another crowd's memory is its own.
     let other = Speaker { key: 8, ..who };
     assert_eq!(ch.fresh(key, &other, &f), n);
+}
+
+/// A whole season of games and the fan year around it (lane 13f): how
+/// often your fans and the crowds say a version again because every
+/// version that fits has had its turn. Real fans repeat themselves; the
+/// bank lets them do it rarely.
+#[test]
+fn a_fan_year_rarely_says_a_line_again() {
+    use crate::world::folk::voice::again;
+    let mut bad = Vec::new();
+    for (level, n) in [("hs", 10), ("college", 12), ("nfl", 17)] {
+        let (mut w, team, opp, lv) = seat(level);
+        let (_, i) = team.parts();
+        let pl = match lv {
+            Level::Nfl => crate::player::Level::NFL,
+            Level::HighSchool => crate::player::Level::HS,
+            _ => crate::player::Level::FBS,
+        };
+        w.today = Date::ymd(2038, 1, 5);
+        let first = Date::ymd(2037, 9, 4);
+        for g in 0..n {
+            let home = synthetic_team("Home", pl, 0.5, OffScheme::WestCoast, 900 + g);
+            let away = synthetic_team("Away", pl, 0.5, OffScheme::SpreadOption, 1300 + g);
+            let r = play_game(&GameSetup::new(&home, &away, pl, 80 + g as u64));
+            let teams = if g % 2 == 1 { [opp, i] } else { [i, opp] };
+            let spread = if g % 3 == 0 { -4.0 } else { 3.0 };
+            let ago = first.add(7 * g as i32).days_to(w.today);
+            keep(&mut w, ago, lv, teams, r.stats, Some(spread));
+        }
+        again::take();
+        let _ = fans::week(&w, team);
+        let said = again::take();
+        let sum = |crowd: bool| {
+            said.iter()
+                .filter(|(k, _)| k.starts_with("fans.crowd.") == crowd)
+                .fold((0, 0), |a, (_, &(s, r))| (a.0 + s, a.1 + r))
+        };
+        let (crowd, crowd_again) = sum(true);
+        let (talk, talk_again) = sum(false);
+        let mut worst: Vec<(&String, &(u32, u32))> = said.iter().filter(|x| x.1.1 > 0).collect();
+        worst.sort_by_key(|x| std::cmp::Reverse(x.1.1));
+        eprintln!(
+            "{level}: crowd {crowd_again} again of {crowd}, fans {talk_again} again of {talk}; most again: {:?}",
+            &worst[..worst.len().min(8)]
+        );
+        if crowd < 100 || talk < 300 {
+            bad.push(format!("{level}: a season said only {crowd} crowd and {talk} fan parts"));
+        }
+        if crowd_again * 100 > crowd * 2 {
+            bad.push(format!("{level}: the crowd said {crowd_again} of {crowd} again"));
+        }
+        if talk_again * 100 > talk * 2 {
+            bad.push(format!("{level}: the fans said {talk_again} of {talk} again"));
+        }
+    }
+    assert!(bad.is_empty(), "{bad:?}");
 }

@@ -791,6 +791,8 @@ impl Chorus {
             return None;
         }
         let fresh: Vec<&Frag> = ok.iter().copied().filter(|f| !self.used.contains_key(&(who.key, f.id))).collect();
+        #[cfg(test)]
+        again::note(key, fresh.is_empty());
         let f = if fresh.is_empty() {
             let k = (0..ok.len()).min_by_key(|&k| (self.used.get(&(who.key, ok[k].id)).copied(), k)).unwrap_or(0);
             ok[k]
@@ -899,4 +901,30 @@ pub fn tidy(s: &str) -> String {
         k += n;
     }
     out
+}
+
+/// How often a chorus said a version again for want of a fresh one, by
+/// part: (said, said again). Tests only (the fans' season, `tests/fans.rs`).
+#[cfg(test)]
+pub(crate) mod again {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    thread_local! {
+        static SAID: RefCell<HashMap<String, (u32, u32)>> = RefCell::new(HashMap::new());
+    }
+
+    pub(crate) fn note(key: &str, again: bool) {
+        SAID.with(|m| {
+            let mut m = m.borrow_mut();
+            let e = m.entry(key.to_string()).or_default();
+            e.0 += 1;
+            e.1 += u32::from(again);
+        });
+    }
+
+    /// Everything noted on this thread since the last take.
+    pub(crate) fn take() -> HashMap<String, (u32, u32)> {
+        SAID.with(|m| std::mem::take(&mut *m.borrow_mut()))
+    }
 }
