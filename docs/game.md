@@ -1309,6 +1309,32 @@ The fans' full set of lines in `crates/afm-engine/data/lines/fans.txt`: 10,428 v
 - How the lines spread over the tags (about a third true at every level, a sixth each per level, about 1 in 8 subject lines for the board only).
 - The bank's size: 10,428 rather than the plan's 8,000, because the frames (the host's intros, callers' first and last words, offseason talk and titles) are said far more often than the plan counted (an NFL show takes about 257 calls a year).
 
+### Lane 12, the NFL league's fixes before the world rebuild (minor bugs 87, 94, 95, 97, 115, 122, 123, 134, 146, 147, 149, 151, 152)
+
+Cain's standing rule (2026-10-28): code that disagrees with real data is a bug, fixed before the world rebuild without asking. How each works, with every number: [nfl.md](reference/how-it-works/nfl.md) and [draft.md](reference/how-it-works/draft.md).
+
+- **Trades** (87, 123): an August depth trade, a club's extra man to a club he'd play for, for a late pick; the pay a club handed out before an in-season trade stays on its books, and the buyer's cap carries only the weeks to come.
+- **Free agents** (147, 95): a season accrues on six weeks of full pay (active, inactive or hurt), not six games dressed; a backup quarterback is paid for the fifth of starts backups make, and an unsigned veteran's price falls toward a backup's after six weeks, so good veterans sign instead of retiring unsigned. A man owed a big next year rarely retires. Supplemental comp picks skip clubs that already have four.
+- **Draft** (97, 134): about 330 combine invites a year; the supplemental draft only for players a club would take in the first four rounds.
+- **Rosters** (122, 115): practice squads fill by the real 2025 squads' places per position, so almost no kickers, punters or snappers and a quarterback at half the clubs; a man who started half the games is a starter in his season row.
+- **Schedule** (146): byes in the era's real weeks, never week 18; the Hall of Fame Game is played.
+- **Money and stories** (149, 151): 2020's empty stadiums, club sales and values at real rates; about 4 new NFL nicknames a year, starting quarterbacks in the jersey top ten, fines at real counts, title parades near a million.
+- **Hall of Fame** (152): seniors (two a year, one from 2015, three from 2023) and one retired coach a year with a strong case, beside the five modern-era players.
+- **94** needed no change: quarterbacks went first overall in 64.5% of the latest book's drafts against 73.1% real, about one draft's noise over 31 drafts.
+
+#### Claude's picks (proposed, not confirmed)
+
+- Depth trades: in cutdown week, gain 2+ over the buyer's worst man in its usual count (60 if short), worth as much to the buyer as the man he pushes out, that man's unguaranteed pay counted as room, one a buyer a window, talks fail 35%.
+- A second March trade window 10 days after the new league year; the camp window three weeks after the veterans report (was one); in-season calls at 0.1 x clamp(weeks since kickoff / 5, 0.15, 1.2).
+- The pay split by regular-season weeks before the trade date; roster and workout bonuses count as paid once the season starts.
+- The retirement hold e^(-60 × next year's pay / cap × worn), worn fading over four years past his usual end.
+- The backup quarterback at a fifth of his market price (at least twice the minimum); an unsigned ideal falling 5% a market day after six weeks.
+- Practice squad places split from the real line, front and secondary counts by the world's own depth, rounded on a keyed draw a club a year; past them any spot but a quarterback's or a specialist's.
+- 330 × scale combine invites; the supplemental bar at the last draft's round 3-4 bar (70 before any draft).
+- Bye windows from nflverse 1999-2025 by era (4-12 to 2001); at most six byes a week; 400 keyed tries before the old search. The Hall of Fame Game pair is a keyed draw at a neutral site, 8 pm.
+- 2020: three in five stadiums shut, the rest 5-25% full. Sales 1.5% a club a year, heirs 2.7%. Nicknames 0.04, the starting quarterback +6 in jersey sales, fines 0.019 a defender a week, parades 780,000.
+- Hall: the seniors' bar 16, the coach's case NFL wins / 10 + 5 a title with a bar of 20; contributors are not in the world. The Hall check counts players from 2010 against 6.3 (from memory) and coaches against 0.33.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

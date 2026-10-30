@@ -58,6 +58,10 @@ pub struct ProSeason {
     /// Weeks on a practice squad and on injured reserve.
     pub ps_weeks: u32,
     pub ir_weeks: u32,
+    /// Regular-season weeks on full pay status: on the roster (active or
+    /// inactive) or on reserve, as the CBA counts an accrued season.
+    #[serde(default)]
+    pub full_pay_weeks: u32,
     /// Cash paid this league year.
     pub pay: f64,
     pub pro_bowl: bool,
@@ -286,6 +290,10 @@ pub enum DeadWhy {
     Voided,
     /// Incentives settled after the season (can be a credit).
     Incentives,
+    /// The pay a seller handed a traded player before the trade: the
+    /// season's weekly checks already paid, and the offseason bonuses once
+    /// the season is on (minor bug 123).
+    PaidBeforeTrade,
 }
 
 /// One dead-money charge, as real cap pages list them: the league year it
@@ -1168,9 +1176,14 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d == y.fifth_year_option {
         market::fifth_year_options(w, d);
     }
+    // Two calls in March, as real clubs trade through the month after the
+    // new league year, and camp's in mid-August, not July (minor bug 87:
+    // real 14 player trades in March, 1 in July and 19 in August,
+    // trades.csv 2021-2025; one March window made 7).
     if d == y.league_year.date.add(3)
+        || d == y.league_year.date.add(10)
         || d == y.draft[0].date.add(-2)
-        || d == y.veterans_report.add(7)
+        || d == y.veterans_report.add(21)
         || d == y.cutdown.date.add(-2)
     {
         trades::trade_window(w, d, trades::Window::Offseason);
@@ -1783,6 +1796,48 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
     w.log.nfl_preseason_games += pairs.len() as u32;
 }
 
+/// The Hall of Fame Game (minor bug 146): two clubs open the preseason in
+/// Canton with a game on top of their usual ones (real: 49 preseason games
+/// a year from 2021, 65 before; called off in 2011, 2016 and 2020). The
+/// clubs are a keyed draw (real: the league picks them, often a club with
+/// a man in the year's class; proposed, not confirmed). Played in the late
+/// summer evening under Canton's open sky, with backups and rookies.
+pub(crate) fn hof_game(w: &mut World, d: Date) {
+    let year = w.year;
+    if !w.options.engine_from.is_none_or(|from| year >= from) {
+        return;
+    }
+    let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0x40F;
+    let mut teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
+    teams.sort_by(|&a, &b| key_uniform(seed, a as u64).total_cmp(&key_uniform(seed, b as u64)));
+    let [h, a, ..] = teams[..] else { return };
+    let weeks = preseason_dates(w).len() + 1;
+    let (Some(sa), Some(sb)) = (games::preseason_side(w, h, 0, weeks), games::preseason_side(w, a, 0, weeks)) else {
+        return;
+    };
+    let at = crate::calendar::Moment::at(d, 20, 0);
+    let v = games::venue(w, h, a, at, true, -0.25);
+    let r = crate::game::quick_game_in(
+        &sa.team,
+        &sb.team,
+        Level::NFL,
+        seed ^ (h as u64) << 8 ^ a as u64,
+        Default::default(),
+        v,
+    );
+    let sides = [sa, sb];
+    games::record_preseason(w, &r, &sides);
+    if w.logging() {
+        let f = games::Fixture { home: h, away: a, at, neutral: true, loud: -0.25, seed: 0, playoff: false };
+        let mut head = serde_json::Map::new();
+        head.insert("week".into(), 0.into());
+        head.insert("kind".into(), "preseason".into());
+        head.insert("hall_of_fame_game".into(), true.into());
+        games::log_game(w, head, &f, &r, &sides);
+    }
+    w.log.nfl_preseason_games += 1;
+}
+
 /// How a club's staff ranks its players for the cut to 53 (see
 /// `cutdown`), best first: (person, score).
 pub(crate) fn cut_scores(w: &World, t: usize) -> Vec<(usize, f64)> {
@@ -1859,7 +1914,7 @@ pub(crate) fn cut_scores(w: &World, t: usize) -> Vec<(usize, f64)> {
 
 /// The staff's cut from its ranking (see `cutdown`): the 53 kept, the
 /// practice squad and the players released.
-pub(crate) fn cut_split(w: &World, keep: &[(usize, f64)]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+pub(crate) fn cut_split(w: &World, t: usize, keep: &[(usize, f64)]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     let year = w.year;
     let limit = w.rules.nfl_roster as usize;
     let ps = w.rules.nfl_practice_squad as usize;
@@ -1884,24 +1939,29 @@ pub(crate) fn cut_split(w: &World, keep: &[(usize, f64)]) -> (Vec<usize>, Vec<us
     // and from 2014 a few veterans in the places the rules open to
     // them (`squad::veteran_places`).
     let (places, most) = squad::veteran_places(year);
+    // Each position's places first, then any spot but a quarterback's or a
+    // specialist's (minor bug 122, `squad::squad_places`).
     let mut squad: Vec<usize> = Vec::new();
-    let mut cut: Vec<usize> = Vec::new();
     let mut vets = 0;
-    for &(i, v) in keep {
-        if chosen.contains(&i) {
-            continue;
-        }
-        let c = w.people[i].pro.as_ref().unwrap();
-        let young = squad::squad_eligible(c, w.people[i].player.age);
-        let vet = !young && vets < places && c.accrued <= most;
-        let eligible = (young || vet) && v >= cut_line - 7.0 && c.out_weeks == 0;
-        if squad.len() < ps && eligible {
-            squad.push(i);
-            vets += usize::from(vet);
-        } else {
-            cut.push(i);
+    let mut on = [0usize; crate::positions::POSITION_COUNT];
+    for strict in [true, false] {
+        for &(i, v) in keep {
+            if chosen.contains(&i) || squad.contains(&i) || squad.len() >= ps {
+                continue;
+            }
+            let c = w.people[i].pro.as_ref().unwrap();
+            let pos = w.people[i].player.position;
+            let young = squad::squad_eligible(c, w.people[i].player.age);
+            let vet = !young && vets < places && c.accrued <= most;
+            let eligible = (young || vet) && v >= cut_line - 7.0 && c.out_weeks == 0;
+            if eligible && squad::squad_fits(w, t, pos, on[pos.index()], ps, strict) {
+                squad.push(i);
+                on[pos.index()] += 1;
+                vets += usize::from(vet);
+            }
         }
     }
+    let cut = keep.iter().map(|x| x.0).filter(|i| !chosen.contains(i) && !squad.contains(i)).collect();
     (chosen, squad, cut)
 }
 
@@ -1923,7 +1983,7 @@ pub(crate) fn cutdown(w: &mut World, d: Date) {
         // Your cut is yours (lane 10): your plan, and the staff's for
         // whatever you left open.
         let (chosen, squad, cut) =
-            super::front_office::roster::seat_cutdown(w, t, &keep).unwrap_or_else(|| cut_split(w, &keep));
+            super::front_office::roster::seat_cutdown(w, t, &keep).unwrap_or_else(|| cut_split(w, t, &keep));
         if super::front_office::club(w) == Some(t) {
             tell_cutdown(w, d, &chosen, &squad, &cut);
         }
@@ -2051,6 +2111,9 @@ pub(crate) fn black_monday(w: &mut World) {
 /// Injuries heal day by day (`heal_day`).
 fn heal_week(w: &mut World) {
     let year = w.year;
+    // The Tuesday after a regular-season Sunday.
+    let today = w.today;
+    let regular = w.dates.nfl_weeks.iter().any(|&s| today > s && today <= s.add(6));
     let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).collect();
     for i in pros {
         let Some(c) = w.people[i].pro.as_mut() else { continue };
@@ -2061,6 +2124,9 @@ fn heal_week(w: &mut World) {
             Status::Reserve => s.ir_weeks += 1,
             Status::PracticeSquad => s.ps_weeks += 1,
             _ => {}
+        }
+        if regular && team.is_some() && matches!(status, Status::Roster | Status::Reserve) {
+            s.full_pay_weeks += 1;
         }
         // Your club with the duty at your staff also brings back one
         // already waiting healed (minor bug 73); every club brings a man
@@ -2273,6 +2339,7 @@ pub(crate) fn retire(w: &mut World, i: usize, d: Date, why: &str) {
 fn season_end(w: &mut World, d: Date) {
     let year = w.year;
     let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).collect();
+    let season_games = w.rules.nfl_games.max(1);
     // A season on the stand-in has no box scores: a player on a roster at
     // the end played the season, a starter started it.
     if !w.options.engine_from.is_none_or(|from| year >= from) {
@@ -2313,12 +2380,26 @@ fn season_end(w: &mut World, d: Date) {
         let c = w.people[i].pro.as_mut().unwrap();
         let s = c.season_mut(year);
         s.pay += pay;
-        // Six games on full pay status accrue a season (games fill in from the engine).
-        let accrues = held && (s.games >= 6 || s.games == 0 && !squad && s.ps_weeks == 0);
+        // Real (CBA Article 8): six or more regular-season games on full
+        // pay status, active, inactive or on reserve, accrue a season. Before,
+        // only games dressed counted, so a backup who dressed for 1-5 games or
+        // a starter hurt in week 3 accrued nothing (minor bug 147: 233 free
+        // agents a year against about 550).
+        let accrues = (held && (s.games >= 6 || s.games == 0 && !squad && s.ps_weeks == 0)) || s.full_pay_weeks >= 6;
+        // His season's row keeps the role he won, not only the one he had at
+        // camp: half the games started make him a starter (minor bug 115: an
+        // All-Pro who started the year behind someone read as a backup).
+        let started = s.starts * 2 >= season_games;
         c.earnings += pay;
         if accrues {
             c.accrued += 1;
             c.credited += 1;
+        }
+        if started
+            && let Some(h) = w.people[i].player.history.last_mut()
+            && h.level == Level::NFL
+        {
+            h.playing_time = PlayingTime::Starter;
         }
     }
     for i in pros {
@@ -2343,8 +2424,20 @@ fn season_end(w: &mut World, d: Date) {
         if age > typical + 2.0 {
             standing += (1.0 - standing) * ((age - typical - 2.0) / 3.0).min(1.0);
         }
-        let chance =
-            (0.008 + 0.5 / (1.0 + (-(age - typical) / 1.3).exp())) * standing + (age - typical - 4.0).max(0.0) * 0.08;
+        // Pay still owed holds a man in the game (minor bug 147): real
+        // players rarely walk away from a deal's next year (a retiring
+        // player forfeits it and owes back unearned bonus), so a 29-year-old
+        // star under a big deal retiring left $714M of dead money in one
+        // year. Next year's pay as a share of the cap holds him, less as he
+        // ages past his usual end, not at all four years past it (the size
+        // of the hold is proposed, not confirmed).
+        let owed =
+            c.contract.as_ref().and_then(|k| k.year(year + 1)).map_or(0.0, |y| y.pay()) / money::price_cap(year + 1);
+        let worn = clamp(1.0 - (age - typical) / 4.0, 0.0, 1.0);
+        let hold = (-60.0 * owed * worn).exp();
+        let chance = ((0.008 + 0.5 / (1.0 + (-(age - typical) / 1.3).exp())) * standing
+            + (age - typical - 4.0).max(0.0) * 0.08)
+            * hold;
         let roll = key_uniform(w.options.seed as u64 ^ 0x2E71 ^ (year as u64) << 32, p.player.id as u64);
         // A star who announced this as his last season keeps his word.
         let farewell = w.stories.careers.farewell_due(p.player.id, year);

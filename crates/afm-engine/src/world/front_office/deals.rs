@@ -266,14 +266,18 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
         let june1 = pro::after_june1(w, w.today);
         for (t, out, inn) in [(me, &p.give, &p.get), (o, &p.get, &p.give)] {
             let mut delta = 0.0;
+            // The seller keeps the pay it has handed out; the buyer takes the
+            // rest (bug 123).
+            let share = trades::paid_share(w, w.today);
             for id in &out.players {
                 let k = w.people[at[id]].pro.as_ref().unwrap().contract.as_ref().unwrap();
-                delta -= k.cap_hit(year);
+                let left = trades::left_to_pay(k, year, share);
+                delta -= left + k.year(year).map_or(0.0, |x| x.proration);
                 delta += trades::kept_bonus(k, year, june1).0;
             }
             for id in &inn.players {
                 let k = w.people[at[id]].pro.as_ref().unwrap().contract.as_ref().unwrap();
-                delta += k.cap_hit(year) - k.year(year).map_or(0.0, |x| x.proration);
+                delta += trades::left_to_pay(k, year, share);
             }
             // You answer to the cap; the other GM keeps his season's reserve.
             let room = if t == me { pro::cap_room(w, t, year) } else { pro::space(w, t, year) };
@@ -473,6 +477,7 @@ pub(crate) fn execute(w: &mut World, me: usize, p: &Proposal) {
         let id = w.people[i].player.id;
         w.clubs[from].add_dead(year, now, id, DeadWhy::Traded);
         w.clubs[from].add_dead(year + 1, later, id, DeadWhy::Traded);
+        trades::keep_paid(w, i, from, d);
         if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.as_mut() {
             for y in k.years.iter_mut().filter(|y| y.year >= year) {
                 y.proration = 0.0;
@@ -562,7 +567,8 @@ pub fn shop(w: &mut World, id: u32) -> Result<Vec<(usize, Vec<Pick>, f64)>, Stri
             continue;
         }
         let k = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref());
-        if money::capped(year) && k.is_some_and(|k| k.cap_hit(year) > pro::space(w, o, year)) {
+        let share = trades::paid_share(w, w.today);
+        if money::capped(year) && k.is_some_and(|k| trades::left_to_pay(k, year, share) > pro::space(w, o, year)) {
             continue;
         }
         let theirs = picks_of(w, o);
