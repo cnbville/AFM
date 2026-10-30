@@ -543,7 +543,8 @@ fn nfl(w: &World, t: usize, tab: Option<&str>) -> Reply {
         (Some(r), _) => (r, false),
         _ => return Ok(json!({ "level": "nfl", "none": true, "why": "The season's schedule isn't out yet." })),
     };
-    if t >= race.conf.len() {
+    // A club pending its first season has no conference yet.
+    if race.conf.get(t).is_none_or(|&c| c >= CONF.len()) {
         return Ok(json!({ "level": "nfl", "none": true, "why": "Your club isn't on this season's schedule." }));
     }
     let name = |x: usize| views::team_name(w, TeamRef::Nfl(x));

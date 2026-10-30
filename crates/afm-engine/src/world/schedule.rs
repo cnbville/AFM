@@ -496,7 +496,7 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
     for (k, r) in RIVALRIES.iter().enumerate() {
         let (Some(&a), Some(&c)) = (by_name.get(r.a), by_name.get(r.b)) else { continue };
         let (pa, pc) = (&w.programs[a], &w.programs[c]);
-        if pa.division != pc.division || !pa.plays(season) || !pc.plays(season) {
+        if pa.division != pc.division || !pa.fields_games(season) || !pc.fields_games(season) {
             continue;
         }
         // Only in its real years: starts, pauses and ends (part B 28).
@@ -550,7 +550,7 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
     for division in Division::ALL {
         let last = last_week(division, y);
         let mut confs: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
-        for p in w.programs.iter().filter(|p| p.division == division && p.plays(season)) {
+        for p in w.programs.iter().filter(|p| p.division == division && p.fields_games(season)) {
             confs.entry(p.conference.as_str()).or_default().push(p.id);
         }
         for (name, list) in confs.iter() {
@@ -581,7 +581,7 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         if home >= np || away >= np || b.opp[home].contains(&away) {
             continue;
         }
-        if !w.programs[home].plays(season) || !w.programs[away].plays(season) {
+        if !w.programs[home].fields_games(season) || !w.programs[away].fields_games(season) {
             continue;
         }
         if !room(&b, home) || !room(&b, away) {
@@ -605,7 +605,7 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
             continue;
         }
         let (ph, pa) = (&w.programs[home], &w.programs[away]);
-        if !ph.plays(season) || !pa.plays(season) {
+        if !ph.fields_games(season) || !pa.fields_games(season) {
             continue;
         }
         if !room(&b, home) || !room(&b, away) {
@@ -635,11 +635,15 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         let last = last_week(division, y);
         let target = games_target(division, season);
         let members: Vec<usize> =
-            w.programs.iter().filter(|p| p.division == division && p.plays(season)).map(|p| p.id).collect();
+            w.programs.iter().filter(|p| p.division == division && p.fields_games(season)).map(|p| p.id).collect();
         // --- FBS buy games: most FBS teams host one FCS opponent ------------------------
         if division == Division::FBS {
-            let fcs: Vec<usize> =
-                w.programs.iter().filter(|p| p.division == Division::FCS && p.plays(season)).map(|p| p.id).collect();
+            let fcs: Vec<usize> = w
+                .programs
+                .iter()
+                .filter(|p| p.division == Division::FCS && p.fields_games(season))
+                .map(|p| p.id)
+                .collect();
             let fcs_target = games_target(Division::FCS, season);
             // The FCS schools' league games are already in, so a buy game
             // never pushes one past 12 games (one FBS opponent each, rarely two).
@@ -915,7 +919,7 @@ mod tests {
         let games = build(&w, 2026, &y);
         // Programs that dropped football keep their old division but play no one.
         let fbs: Vec<usize> =
-            w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(2026)).map(|p| p.id).collect();
+            w.programs.iter().filter(|p| p.division == Division::FBS && p.fields_games(2026)).map(|p| p.id).collect();
         let mut counts: Vec<u32> = fbs.iter().map(|&p| games.iter().filter(|g| g.involves(p)).count() as u32).collect();
         counts.sort();
         let avg = counts.iter().sum::<u32>() as f64 / counts.len() as f64;

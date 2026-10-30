@@ -531,7 +531,10 @@ pub(crate) fn made_up(w: &World, c: &Coach, tier: CoachTier, college: bool) -> O
         Division::D3
     };
     let college = {
-        let list: Vec<usize> = w.programs.iter().filter(|p| p.division == div).map(|p| p.id).collect();
+        // A program that had a team when he played (not a college still
+        // waiting to start football, SK68).
+        let list: Vec<usize> =
+            w.programs.iter().filter(|p| p.division == div && p.plays(born + 21)).map(|p| p.id).collect();
         (!list.is_empty()).then(|| list[(u(5) * list.len() as f64) as usize % list.len()])
     };
     // Most coaches coach what they played (proposed, not confirmed: three

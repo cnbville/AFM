@@ -183,10 +183,8 @@ pub(crate) fn band(m: &Marks, lo: u8, hi: u8, who: &str) -> (String, String) {
 /// What a physical range stands for at the combine for his body (RR4).
 fn combine_line(w: &World, k: usize, attr: Attr, lo: u8, hi: u8) -> Option<String> {
     let p = &w.people[k];
-    let own = views::team_of(w, p).is_some_and(|t| views::is_mine(w, t));
-    let eye = views::team_of(w, p).filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
     // The other ratings a drill reads are taken at your read's middle.
-    let reads = reads::attributes_of(w, p, own, eye, views::reader_key(w));
+    let reads = reads::attributes(w, k);
     let mid = |a: Attr| match reads.iter().find(|x| x.0 == a).map(|x| x.1) {
         Some(Read::Range(l, h)) => (l as f64 + h as f64) / 2.0,
         _ => p.player.attributes.get(a).round(),
@@ -277,6 +275,11 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
         Rated::Attr(a) => combine_line(w, i, a, lo, hi),
         _ => None,
     };
+    // H2 (update 3, lane 6): how the read moved since last season, and why.
+    let change = match rated {
+        Rated::Attr(a) => crate::lane_help::last_year(w, i, a, (lo, hi)),
+        _ => None,
+    };
     Ok(json!({
         "title": title,
         "range": [lo, hi],
@@ -294,6 +297,8 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
         "band": word,
         "line": line,
         "combine": combine,
+        "change": change,
+        "dev": views::team_of(w, p).is_some_and(|t| views::is_mine(w, t)),
         "count": format!("{} starters on {} teams", m.starters.len(), m.teams),
     }))
 }
@@ -674,9 +679,8 @@ fn ratings_page(w: &World, m: &Member) -> Value {
         .filter_map(|&(id, year, role, start)| {
             let i = views::person_index(w, id)?;
             let p = &w.people[i];
-            let eye = 12.0;
             let then = reads::range(start, 2.5, reader, id, 99);
-            let now = reads::overall(&p.player, true, eye, reader);
+            let now = reads::overall(w, i);
             let mid = |r: Read| match r {
                 Read::Range(a, b) => Some(((a as u32 + b as u32) / 2) as u8),
                 Read::NotSeen => None,

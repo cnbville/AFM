@@ -418,9 +418,9 @@ fn l5(w: &World, t: usize) -> Chase {
         v
     };
     let last = done.last().copied().unwrap_or(w.year - 1);
-    let div = crate::world::franchise::era(t, w.year).map(|e| e.div);
+    let div = crate::world::franchise::era_in(w, t, w.year).map(|e| e.div);
     let mates: Vec<usize> = (0..w.nfl.len())
-        .filter(|&x| div.is_some() && crate::world::franchise::era(x, w.year).map(|e| e.div) == div)
+        .filter(|&x| div.is_some() && crate::world::franchise::era_in(w, x, w.year).map(|e| e.div) == div)
         .collect();
     let years: Vec<i32> = done.iter().rev().take(10).copied().collect();
     let champs: Vec<Vec<usize>> = years.iter().map(|&y| super::nfl::div_champs(w, y)).collect();

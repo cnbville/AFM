@@ -190,7 +190,7 @@ fn choose(w: &mut World, d: Date) {
 /// overconfidence and impatience stand in for his taste for games).
 fn leaks(w: &mut World, d: Date) {
     let year = w.year;
-    let teams: Vec<usize> = crate::world::franchise::active_teams(year);
+    let teams: Vec<usize> = crate::world::franchise::active_teams_in(w, year);
     let pool = super::public::prospects(w);
     if pool.is_empty() {
         return;
@@ -308,6 +308,20 @@ pub(crate) fn on_boards(w: &World, slots: &[(usize, u32)], boards: &mut [crate::
             }
         }
     }
+}
+
+/// F20: whether a quarterback throws for a club. One who throws only for
+/// some throws for the clubs that pick early enough to take him (the first
+/// twelve in the order) and a few others his agent picks; every other club
+/// sees his pro day numbers, not his throws (proposed, not confirmed).
+pub fn throws_for(w: &World, i: usize, t: usize) -> bool {
+    let p = &w.people[i];
+    if !w.scouting.predraft.has(p.player.id, PRO_DAY_ONLY_SOME) {
+        return true;
+    }
+    let order = super::super::nfl_year::draft_order(w).unwrap_or_default();
+    order.iter().position(|&x| x == t).is_some_and(|k| k < 12)
+        || key_uniform(0x7A20 ^ (t as u64) << 24 ^ w.year as u64, p.player.id as u64) < 0.12
 }
 
 /// Whether a prospect refuses a club (his camp said so).

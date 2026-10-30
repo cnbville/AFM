@@ -77,7 +77,16 @@ function rrPlayerHtml(x) {
     <div class="rr-marks"><span><small>Typical backup</small><b>${m.backup}</b></span><span><small>Typical starter</small><b>${m.starter}</b></span><span><small>Elite from</small><b>${m.elite}</b></span></div>
     <p>${esc(x.line)}</p>
     ${x.combine ? `<p class="rr-comb"><span class="st-label">At the combine</span>${esc(x.combine)}</p>` : ""}
-    <p class="rr-pool">${esc(x.pool)}, ${esc(x.count)}.${x.widened ? ` ${esc(x.widened)}` : ""}</p>`;
+    <p class="rr-pool">${esc(x.pool)}, ${esc(x.count)}.${x.widened ? ` ${esc(x.widened)}` : ""}</p>
+    ${x.change ? rrChangeHtml(x.change, x.dev ? x.pid : null) : ""}`;
+}
+// H2 (lane 6): how the read moved since the last season's end, and why.
+function rrChangeHtml(c, pid) {
+  const cls = /^Up/.test(c.word) ? "up" : /^Down/.test(c.word) ? "down" : "";
+  return `<div class="hp-chg"><div class="rr-top"><span class="st-label">Since the end of ${esc(c.season)}</span><b class="${cls}">${esc(c.word)}</b></div>
+    <p>${esc(c.line)}</p>
+    ${c.why && c.why.length ? `<ul>${c.why.map((t) => `<li>${rich(t)}</li>`).join("")}</ul>` : ""}
+    ${pid != null ? playerLink(pid, "His Development tab", "Development") : ""}</div>`;
 }
 function rrStaffHtml(x) {
   const m = x.marks;
@@ -97,7 +106,7 @@ function rrShow(t, x) {
   const lo = t.dataset.lo, hi = t.dataset.hi;
   el.innerHTML = x.error
     ? `<div class="rr-top"><span class="st-label">Your read</span><b>${esc(lo)}-${esc(hi)}</b></div><p>${esc(x.error)}</p>`
-    : t.dataset.rr.startsWith("s:") ? rrStaffHtml(x) : rrPlayerHtml(x);
+    : t.dataset.rr.startsWith("s:") ? rrStaffHtml(x) : rrPlayerHtml({ ...x, pid: Number(t.dataset.rr.slice(2)) });
   document.body.appendChild(el);
   // A range laid out in its table's columns has no box of its own: its bar does.
   let r = t.getBoundingClientRect();

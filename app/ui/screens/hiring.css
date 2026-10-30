@@ -1,0 +1,55 @@
+/* Lane styles: finding and hiring coaches (lane 18). A read on the hidden
+   1-20 scale, the coach page's read for anyone, the Hiring search's
+   filters and pages, the offer dialog and coaches to watch. Showtime's
+   tokens throughout, so the light theme follows; one gold accent. Every
+   class is hr- so the app's global names never restyle these. */
+
+.hr-bar { display: inline-grid; grid-template-columns: minmax(64px, 1fr) 40px; align-items: center; gap: 8px; min-width: 96px; width: 100%; vertical-align: middle; }
+.hr-t { position: relative; height: 6px; border-radius: 6px; background: var(--fill-2); overflow: hidden; }
+.hr-t i { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+.hr-bar b { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+:root[data-theme="light"] .hr-t { background: rgba(0, 0, 0, .12); }
+
+/* ---------- a coach's read ---------- */
+.hr-fg { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--hair); }
+.hr-fg:first-of-type { border-top: 0; padding-top: 2px; }
+.hr-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(140px, 220px); align-items: center; gap: 12px; font-size: 13px; }
+.hr-row > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-pot { display: grid; gap: 3px; margin-top: 6px; padding: 12px 14px; border-radius: 12px; background: var(--fill-1); box-shadow: inset 3px 0 0 var(--gold); }
+.hr-pot b { font-size: 15px; font-weight: 800; }
+.hr-pot small { font-size: 12px; }
+.hr-acts { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.hr-mt { display: block; margin-top: 14px; }
+.hr-src { display: grid; gap: 6px; }
+.hr-srow, .hr-job { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--fill-1); font-size: 13px; }
+.hr-srow > span, .hr-job > span:first-child { min-width: 0; }
+.hr-jobs { display: grid; gap: 6px; }
+.hr-talk { margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; background: color-mix(in oklab, var(--gold) 12%, transparent); font-size: 13px; }
+
+/* ---------- the Hiring search ---------- */
+.hr-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 12px; }
+.hr-filters .ssel { max-width: 200px; }
+.hr-num { width: 112px; padding: 6px 10px; border: 0; border-radius: 10px; background: var(--fill-1); color: inherit; font: inherit; font-size: 13px; box-shadow: inset 0 0 0 1px var(--hair); }
+.hr-tog { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg2); cursor: pointer; }
+.hr-sp { flex: 1 1 0; }
+.hr-pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; font-size: 13px; color: var(--fg2); }
+.hr .tag { white-space: nowrap; }
+.hr-two { display: grid; gap: 2px; min-width: 0; }
+.hr-two small { font-size: 11.5px; color: var(--fg2); white-space: normal; }
+.hr-two small .tag { margin-left: 4px; }
+.hr-mini { display: inline-grid; gap: 4px; width: 52px; vertical-align: middle; }
+.hr-mini b { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.hr-mini .hr-t { height: 4px; }
+.tbl[data-table="hr-cand"] td.wrap { min-width: 150px; max-width: 220px; }
+
+/* ---------- the offer ---------- */
+.hr-form { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 10px; }
+.hr-form label { display: grid; gap: 4px; font-size: 12px; color: var(--fg2); }
+.hr-form input, .hr-form select { min-width: 140px; }
+.hr-proms { display: grid; gap: 6px; margin: 6px 0 10px; }
+.hr-chk { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: var(--fill-1); font-size: 13px; cursor: pointer; }
+.hr-mrow { display: flex; justify-content: space-between; gap: 12px; }
+
+@media (max-width: 1360px) {
+  .hr-row { grid-template-columns: minmax(0, 1fr) minmax(120px, 180px); }
+}

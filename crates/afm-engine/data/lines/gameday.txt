@@ -1,0 +1,479 @@
+# The line bank: game day talks (dialogue D4-D6, lane 14; format in
+# src/world/folk/voice.rs). Your talk is an opening for the tone, the point
+# for the move (subject=... picks the versions about one subject), and
+# often a close. Your tone is one of your voice's tags (fiery, warm, firm,
+# calm). Facts: {them} their name, {player} the man the talk is about,
+# {captain} the captain you hand it to; moment=pregame|halftime,
+# lead=up|down|level at halftime, last=win|loss|none, rival=yes.
+
+# ---------------------------------------------------------------------------
+# Openings, one per tone.
+
+@key gameday.open.fiery
+Listen up!
+Everybody up. Look at me.
+Eyes up here. All of you.
+Get up. Get up and look at me.
+Alright, enough sitting around.
+Hey! Bring it in. Now.
+I want every one of you to hear this.
+Helmets down. Ears open.
+Stand up. I'm not saying this twice.
+You want to know what I think? ~ moment=halftime
+That half? Look at me. ~ moment=halftime lead=down
+Shut the door. ~ moment=halftime
+Everybody on your feet. ~ hs
+Alright, men!
+Gentlemen, up. ~ nfl
+I've been waiting all week to say this.
+
+@key gameday.open.warm
+Hey. Bring it in close.
+Come here, all of you.
+Take a breath with me.
+Look around this room for a second.
+Guys, sit down. Get comfortable.
+I'm proud of this group. I want you to hear that first.
+Before we go, one thing.
+Everybody in. Closer.
+Fellas. ~ south
+Boys, come here. ~ hs
+Men, a minute. ~ nfl
+Hey. Good half. Sit down. ~ moment=halftime lead=up
+Hey. Heads up. We're alright. ~ moment=halftime lead=down
+Alright, y'all. ~ south
+Gather up.
+
+@key gameday.open.firm
+Alright. Listen.
+Okay. Here's where we are.
+Settle down. Eyes on me.
+Here's the deal.
+Quiet. Listen.
+Let's be clear about something.
+Alright, men. Business.
+Okay, focus. One minute.
+I'm going to keep this short.
+Here it is.
+Here's what the first half told us. ~ moment=halftime
+Thirty minutes left. Listen. ~ moment=halftime
+Alright, gentlemen. ~ nfl
+Okay, boys. Listen up. ~ hs
+
+@key gameday.open.calm
+Alright. Easy.
+Sit down. Breathe.
+Nobody needs to get loud in here.
+Take a second. Get your mind right.
+Okay. Let's slow down.
+Quiet room. Good.
+Everybody find a seat.
+Look at me. Breathe out.
+We've done the work. Relax a second.
+Settle in.
+Okay. Drink some water. Listen. ~ moment=halftime
+It's a long game. Calm down. ~ moment=halftime
+Easy, fellas. ~ south
+Relax, guys.
+
+# ---------------------------------------------------------------------------
+# The point: what you say, by move. subject=... versions are about that
+# subject; versions with no subject fit any.
+
+@key gameday.ask
+What do we want out of tonight? ~ subject=us
+Who in here is ready? I want to see it. ~ subject=us
+What did you see on film this week? Say it out loud. ~ subject=plan
+Tell me what we do on third down. Anybody. ~ subject=plan
+What do we know about {them}? ~ subject=them
+Who in here has been waiting for this one? ~ subject=them rival=yes
+What does this game mean to you? ~ subject=stakes
+Seniors, what do you want them to remember? ~ subject=seniors
+Who are we playing for tonight? ~ subject=one
+What's the one thing we fix right now? ~ moment=halftime
+What are they doing to us? Tell me. ~ moment=halftime lead=down
+What got us here? Keep doing it. ~ moment=halftime lead=up
+How do we want to feel at the end of this? ~ moment=pregame
+What do we owe each other out there?
+Anybody want to say something? Now's the time.
+Tell me what kind of team we are.
+
+@key gameday.straight
+This is a big one. You know it, I know it. ~ subject=stakes
+Everything we wanted is in front of us. ~ subject=stakes
+Win and it's ours. That's all this is. ~ subject=stakes
+Nobody gave us this. Go take it. ~ subject=stakes
+We are a good football team. Play like one. ~ subject=us
+We've done the work. Trust it. ~ subject=us
+Play for the man next to you. ~ subject=us
+Do your job. Nothing more, nothing less. ~ subject=us
+{them} is good. We're better if we play our game. ~ subject=them
+{them} will hit you. Hit them back. ~ subject=them
+This is {them}. You know what it means. ~ subject=them rival=yes
+Win the line and we win the game. ~ subject=plan
+First series, we run what we practiced. No surprises. ~ subject=plan
+Protect the ball, win the turnovers. That's the plan. ~ subject=plan
+Eat the clock, keep their offense on the bench. ~ subject=plan
+Seniors, this is your last time in this room before a game here. Make it count. ~ subject=seniors
+Seniors, lead them out. ~ subject=seniors
+{player} can't be out there tonight. Play for him. ~ subject=one
+We do this for {player}. ~ subject=one
+We're down. It's one half. We've got thirty minutes. ~ moment=halftime lead=down
+We're up, but nothing's done. ~ moment=halftime lead=up
+Tied. Whoever wants it more takes it. ~ moment=halftime lead=level
+Last week's over. This is this week. ~ last=loss
+Last week doesn't win this one for us. ~ last=win
+Same as every week. Do your job.
+
+@key gameday.praise
+I'm proud of every one of you. ~ subject=us
+This is the hardest-working group I've coached. ~ subject=us
+You earned this week. Every day of it. ~ subject=us
+Nobody outworked you this week. ~ subject=us
+You've beaten good teams already. You belong here. ~ subject=stakes
+Big games are for teams like this one. ~ subject=stakes
+Their film's good. Ours is better. ~ subject=them
+They should be worried about you, not the other way around. ~ subject=them
+Best week of practice we've had. Go show it. ~ subject=plan
+The plan's good because you made it good. ~ subject=plan
+Seniors, you built this. Thank you. ~ subject=seniors
+Seniors, four years. This place is better because of you. ~ subject=seniors college
+Seniors, you were freshmen in this room once. Look at you now. ~ subject=seniors hs
+{player} has carried this team. Tonight, carry it for him. ~ subject=one
+Great half. Everything we talked about, you did it. ~ moment=halftime lead=up
+That was hard-nosed football. I love it. ~ moment=halftime
+You're tougher than they are. You showed it. ~ moment=halftime lead=down
+You bounced back this week. That's who you are. ~ last=loss
+That's what a good team looks like. Again. ~ last=win
+I believe in this room.
+
+@key gameday.challenge
+This is the game that decides who we are. ~ subject=stakes
+Everything you said you wanted all year, it's right there. Go take it. ~ subject=stakes
+Somebody's season ends tonight. Make it theirs. ~ subject=stakes
+Nobody out there thinks we win. Prove them wrong. ~ subject=us
+Are we good, or did we just say we were? ~ subject=us
+I want to find out who's tough tonight. ~ subject=us
+They've been talking all week. They think last year settles it. ~ subject=them
+{them} thinks they own us. Sixty minutes. Take it back. ~ subject=them rival=yes
+You read what they said. Go answer it. ~ subject=them
+They think you're the soft spot. Show them. ~ subject=them
+They think they know what we're doing. Let them. Beat your man anyway. ~ subject=plan
+Execute it like you mean it, or don't bother. ~ subject=plan
+Seniors, one more time on this field. Leave it all here. ~ subject=seniors
+{player} would give anything to be out there. Don't you waste it. ~ subject=one
+They punched us. What are you going to do about it? ~ moment=halftime lead=down
+They're coming back out angry. Be angrier. ~ moment=halftime lead=up
+Whoever wins the next quarter wins the game. Who wants it? ~ moment=halftime lead=level
+Last week was embarrassing. Fix it. ~ last=loss
+Anybody can win one. Win two. ~ last=win
+Go take it.
+
+@key gameday.criticize
+That's not who we are. ~ subject=us
+I didn't see a team out there. I saw guys. ~ subject=us moment=halftime
+We're playing scared. Stop it. ~ subject=us
+Too many guys are waiting for somebody else to make a play. ~ subject=us
+We're beating ourselves. Every flag, every drop. ~ subject=plan
+We had a plan. Nobody's running it. ~ subject=plan moment=halftime
+You're letting {them} push you around. ~ subject=them
+We're giving {them} everything they get. ~ subject=them
+Seniors, I expected more from you. ~ subject=seniors
+That half was soft. Every one of you knows it. ~ moment=halftime lead=down
+We're up and we're playing like we're down. Sloppy. ~ moment=halftime lead=up
+Last week was not good enough. Nobody in here played well. ~ last=loss
+I don't like what I saw this week in practice.
+Some of you aren't ready. Get ready.
+
+@key gameday.promise
+Do your job and you'll see the field more. ~ subject=us
+Win this one and we're off Monday. ~ subject=us hs
+Play hard and I'll live with the result. Every time. ~ subject=us
+Win tonight and nobody can take it from you. ~ subject=stakes
+Win it and you'll remember it for the rest of your life. ~ subject=stakes
+We're going to run the ball at {them} until they quit. ~ subject=them
+I'm going to call it aggressive. You go play it aggressive. ~ subject=plan
+We'll go for it on fourth. I trust you. ~ subject=plan
+Seniors, you'll walk off this field winners. ~ subject=seniors
+We'll bring {player} the ball after this. ~ subject=one
+We'll fix it. I've got the changes. Go play. ~ moment=halftime lead=down
+Keep this up and this one's over by the fourth. ~ moment=halftime lead=up
+I've got your back. Whatever happens out there.
+
+@key gameday.warn
+They're going to come out fast. Weather it. ~ subject=them
+{them} will try to get in your head. Don't let them. ~ subject=them
+Don't take the bait. No extra shoves, no talking. ~ subject=them rival=yes
+A big game makes guys do dumb things. Don't be that guy. ~ subject=stakes
+One stupid penalty can lose a game like this. ~ subject=stakes
+No flags. Not one. Win your guy clean. ~ subject=plan
+Hold on to the ball. That's the whole game. ~ subject=plan
+Watch the snap count. Don't jump. ~ subject=plan
+Don't get comfortable. Nobody's done anything yet. ~ subject=us
+Seniors, keep the young guys calm out there. ~ subject=seniors
+They'll come out swinging. Be ready for the first series. ~ moment=halftime lead=up
+Don't panic. No hero plays. Do your job. ~ moment=halftime lead=down
+It's going to get loud. Communicate.
+Don't play the scoreboard. Play the next snap.
+
+@key gameday.listen
+Somebody tell me what they're seeing out there. ~ moment=halftime
+Seniors, you've got the floor. ~ subject=seniors
+I want to hear from you. Who's got something? ~ subject=us
+Captains, say what you need to say. ~ subject=us
+Tell me what's working. ~ subject=plan
+Line, what are they doing up front? ~ subject=plan
+Let the guys talk.
+I'm listening. Go ahead.
+
+@key gameday.captain
+You know what this one is. I'm not going to stand up here and yell about it. {captain}, it's yours.
+{captain}, the room's yours.
+I've said everything I can say this week. {captain}, tell them.
+This one's not mine to say. {captain}.
+{captain}, go ahead. ~ calm
+You all know {captain}. Listen to him.
+{captain}, take it from here. ~ moment=halftime
+
+# ---------------------------------------------------------------------------
+# Closes, one per tone.
+
+@key gameday.close.fiery
+Now go!
+Let's go!
+Let's go take it!
+Go get it!
+Now get out there!
+Bring it in. Win on three!
+Let's go to work!
+Go!
+
+@key gameday.close.warm
+I love you guys. Let's go.
+Go have fun out there.
+Enjoy it. You earned it.
+Proud of you. Let's play.
+Go play for each other.
+Bring it in.
+Let's go, fellas.
+
+@key gameday.close.firm
+Let's go to work.
+Do your job.
+That's it. Let's go.
+Go execute.
+Bring it in.
+Let's play.
+Next play, every play.
+
+@key gameday.close.calm
+Breathe. Let's go play.
+One play at a time.
+Go play your game.
+We're fine. Let's go.
+Easy. Do your job.
+Trust it. Go.
+
+# ---------------------------------------------------------------------------
+# A captain's speech when you hand him the room, in his own voice.
+
+@key gameday.captain.open
+Look around.
+Look at the man next to you.
+Everybody look at me for a second.
+Alright, listen.
+Hey. Listen to me. ~ leader
+I'm not gonna talk long. ~ quiet
+Y'all know me. ~ south
+Bring it in, bring it in. ~ young
+Real quick. ~ loose
+
+@key gameday.captain.own
+Last week's on me. It won't happen twice. ~ last=loss
+I didn't play good enough last week. That's done. ~ last=loss
+We all saw last week. I saw it more than anybody. ~ last=loss leader
+Last week was good. It means nothing tonight. ~ last=win
+We're down. I don't care. We've been down before. ~ lead=down
+We're up. That means nothing. ~ lead=up
+
+@key gameday.captain.us
+Same guys who worked all summer. Same guys.
+Nobody's coming to save us. We don't need them to.
+Everybody in here worked for this.
+I trust every guy in this room.
+We do it together or we don't do it.
+I'd go to war with this team. ~ competitor
+I'm not losing this one with y'all. ~ south
+We got each other. That's it. ~ young
+This is our house. ~ moment=pregame
+I've been here {years} years. This is the best group. ~ senior
+
+@key gameday.captain.job
+Win your guy. No free yards. Not one flag.
+Do your job. Trust the guy next to you to do his.
+It's loud, it's theirs. Make it quiet.
+Hit them in the mouth on the first snap.
+Fast, physical, no mistakes.
+Finish every play.
+First series sets it. Let's go set it.
+Talk to each other out there.
+Play like you practiced.
+
+@key gameday.captain.break
+Bring it in.
+On three.
+Family on three.
+Let's go.
+Win on three. One, two, three!
+Let's eat. ~ young
+Let's work. ~ steady
+
+# ---------------------------------------------------------------------------
+# Their player in the paper this week, about one of our units ({unit}).
+
+@key gameday.quote
+We had their number last year. Their {unit} can't stay with us.
+I've watched the film. Their {unit} is the weak spot.
+No disrespect, but their {unit} hasn't seen anybody like us.
+We know what {us} is going to do. We'll be ready.
+Their {unit}? We're going to find out how tough they are.
+I'm not worried about their {unit}. At all. ~ ego
+We're going in there to take it. Simple as that. ~ ego
+They talk a lot. We'll see on Saturday. ~ college
+They talk a lot. We'll see on Sunday. ~ nfl
+They talk a lot. We'll see Friday night. ~ hs
+Their {unit} gave up a lot of big plays on film. We noticed. ~ pro
+I'm going to eat. Their {unit} knows it. ~ young ego
+It's personal. They know why. ~ hot
+I respect them. But we're the better team. ~ humble
+We owe {us} one. ~ hot
+
+# ---------------------------------------------------------------------------
+# Your word on the sideline to one player after a mistake (dialogue D6).
+# mistake=interception|fumble|extended|killed|blown|pattern.
+
+@key gameday.word.straight
+Next play, {player}. It's gone.
+That one's over. Next series.
+You know what happened. Fix it and go.
+Breathe. You're fine. Next one.
+Shake it off. We need you.
+Look at me. One play. That's all it was.
+Ball security, {player}. Two hands in traffic. ~ mistake=fumble
+You stared him down. Move his eyes next time. ~ mistake=interception
+Keep your hands in. That flag kept them alive. ~ mistake=extended
+That flag cost us the drive. Discipline. ~ mistake=killed
+That was your gap, {player}. Know it. ~ mistake=blown
+That's three today. Lock in. ~ mistake=pattern
+
+@key gameday.word.praise
+I love how you're playing, {player}. One bad play.
+You're our guy. Go get the next one.
+You've made a lot of plays for us. Make the next one.
+Still the best player out there. Act like it.
+Good aggression. Just keep it clean. ~ mistake=extended
+Good read, just a bad ball. Keep firing. ~ mistake=interception
+
+@key gameday.word.challenge
+Are you going to let that beat you? Go get it back.
+They think they got you. Prove them wrong.
+Make up for it. Right now.
+That's on you. Go fix it.
+Get it back, {player}. Next series.
+You want the ball? Hold on to it. ~ mistake=fumble
+You want to throw it? Then make better throws. ~ mistake=interception
+
+@key gameday.word.criticize
+That's not good enough, {player}.
+What was that? Come on!
+You're killing us out there.
+That's a stupid penalty. Stupid. ~ mistake=extended
+That flag killed the drive. Stupid. ~ mistake=killed
+You blew it. Everybody saw it. ~ mistake=blown
+Three mistakes, {player}. Three. ~ mistake=pattern
+Hold on to the ball! ~ mistake=fumble
+Where were you looking? ~ mistake=interception
+
+@key gameday.word.warn
+One more like that and you're sitting.
+Do that again and someone else plays.
+Lock it in or I'll find someone who will.
+Next flag, you're on the bench. ~ mistake=extended
+Hold on to it or you're done today. ~ mistake=fumble
+I need you clean, {player}. Last warning.
+Another flag and you're watching from here. ~ mistake=killed
+
+@key gameday.word.listen
+What happened there? Talk to me.
+What did you see?
+Tell me what they're doing to you.
+Walk me through it.
+What's going on out there, {player}?
+Was that the call or the read?
+What's he doing to you off the line? ~ mistake=pattern
+
+@key gameday.word.promise
+We're coming right back to you. Be ready.
+Next series, you're getting the ball again.
+I'm not taking you out. Go win it back.
+
+@key gameday.word.ask
+You good?
+You alright, {player}?
+Need a breather?
+
+# ---------------------------------------------------------------------------
+# A coordinator's read of the room before you speak (dialogue D4).
+# good: it should land; amped: some go over the top; tight: some tighten
+# up; flat: it won't move them; hollow: they've heard it before; captain:
+# on handing it over.
+
+@key gameday.staff.good
+That'll land. They're ready for it.
+Good call. The room wants that.
+They'll go out right after that.
+That's what they need to hear today.
+I'd say exactly that.
+Room's ready for it, Coach. ~ south
+That plays. ~ old
+Yeah. That's the one. ~ calm
+
+@key gameday.staff.amped
+Careful. {player} is already wound up. That might send him over.
+That'll fire them up. Maybe too much up front. Watch the first series for flags.
+Some of the young guys will jump offsides on that.
+{player} will want a piece of somebody after that. I'll keep an eye on him.
+That'll get them going. Too much for some.
+Easy with the fire. They're hot already. ~ calm
+
+@key gameday.staff.tight
+{player} won't take that well. He's nervous enough.
+That'll tighten some of the young guys up.
+{player} is tight already. Don't put more on him.
+The quote was about them. Lean on it and they'll press.
+Some of them are going to play scared after that.
+Go easy on {player}. He's the one they talked about.
+
+@key gameday.staff.flat
+That won't move them much.
+They've heard that one, Coach.
+Honest? That room's already where it's going to be.
+Won't hurt. Won't help much either.
+Vets won't blink at that. ~ nfl
+Fine. Doesn't change much.
+
+@key gameday.staff.hollow
+That's the third time this month, Coach. They hear it as noise.
+They tune that one out now.
+They know that speech by heart.
+Same tone every week and they stop hearing it.
+You've gone to that well a lot lately, Coach.
+I'd change it up. They know what's coming.
+
+@key gameday.staff.captain
+Right call. They needed it from him, not us.
+He's the one they'll follow. Let him go.
+Good. The room listens to him.
+Maybe. Do it every week and they'll wonder who runs this team.
+Smart. They'll run through a wall for him.
+His voice carries further than ours right now.

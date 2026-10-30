@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 21ae52c with update 3 lanes 5, 3, 13 and 4 on 2026-10-29.
+Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -20,6 +20,10 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - Do friends matter? Yes. A friend leaving dips mood (your team). A friend's portal entry raises a college player's lean. Each friend on an NFL club adds 4% to the ties part of its free-agent score (weight 0.4 of ten parts), two at most (`world/folk/ties.rs`; `world/people.rs`, `ties_q`).
 - Can a cut create a grudge? Yes, a veteran cut before his deal ran out, waived or not; so can a trade (see Grudges) (`world/pro/mod.rs`, `release_with`; `world/pro/trades.rs`, `trade_hurt`).
 - How many talk hours do I get? 10 a week in season, 16 out of it. A one-on-one costs 1 (`world/folk/talks.rs`, `week_budget`, `start_talk`).
+- Do pregame and halftime talks change a game? Yes, for every team: each player's fire, poise and focus move, and on the field that is up to ±1.5 rating points on everything, ±2 points of discipline and concentration, ±2.5 of composure and a late-hit share, fading with a half-life of 16 + 20 x his years' share snaps (`game/talk.rs`, `land`, `Pulse`).
+- Who gives the AI's talks? Its head coach: he scores every option on his room and picks the best, read with noise 0.12 x (1.7 - 0.07 x motivation) and a lean to fiery from his temper (`game/talk.rs`, `coach_pick`).
+- Do home visits change a recruit's choice? Yes: the head coach's pitch adds -0.012 to +0.03 to that school's pull, in both the yearly feel and signing day (`world/folk/dialogue.rs`, `home_lean`, `home_talk`; `world/recruiting.rs`, `appeal`).
+- Do job interviews matter? Yes, for head jobs: three answers, each +0.45 on what the panel wants, 0 a step off, -0.3 the opposite, plus 0.015 x (Aura - 10); a missed interview is -1.0 in the hiring score (`world/folk/dialogue.rs`, `interview_answer`, `interview_bonus`; `world/front_office/market.rs`, `bonus`).
 - Do AI coaches talk to players? College only. Every second Monday out of season (weekly in season), each AI head coach talks to his 2 unhappiest players (mood < -0.3). Success odds are 0.25 + 0.035 x relationships (`world/folk/talks.rs`, `ai_talks`).
 
 ## Personality and hidden traits
@@ -139,6 +143,23 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
   - Stunt pickup odds 0.35 + 0.45 x line chem + 0.004 x (IQ - 60).
   - (`game/scrimmage.rs`, the pass commit, placement, misreads, `stunt_pickup`)
 
+## Talks on game day and off it (next update, lane 14)
+
+Sizes are Claude's picks (proposed, not confirmed).
+
+- **Pregame and halftime (D4, D5)**: every team's head coach talks to the room; yours picks a move, tone and subject on the talk page, or hands it to a captain. Each player's mind (fire, poise, focus, 0-1) starts from the stakes, his temper, composure, concentration, years, mood and his week of practice; halftime adds the score (down 14+: fire -0.10 and poise -0.10; up 17+: fire and focus -0.08; within 7: fire +0.05) (`game/talk.rs`, `mind_now`).
+- **How much reaches him**: (0.45 + 0.75 x his belief in the coach) x (0.78 + 0.22 x the speaker's motivation) x (1 - 3.5% a year of experience, to 35%) x (1 - 0.45 x how worn the tone is) x coachability; a word to him alone x1.35 (`land`). A captain's voice reaches by his leadership, years and side of the ball (`reach`).
+- **On the field**: each position has a best pitch of fire (kickers 0.34, QB 0.42, guards 0.62, edge 0.66); moving toward it lifts all his ratings up to 1.5 points, overshooting costs focus, a hot head past 0.72 fire adds late hits (`ideal_fire`, `land`, `Pulse`). The break is 13 minutes in the NFL, 20 in college and high school, 15 in the other pro leagues (`crates/afm-game/src/lane_gameday/talk.rs`, `halftime_room`).
+- **Sideline words (D6)**: after a turnover, a foul that kept their drive alive or killed ours, a blown assignment on their score, or a third small mistake in a game, his position coach has a word (yours to pick in your live game); it lands x1.35 and fades with a half-life of 10 + 10 x years' share snaps; it moves his trust in you from -0.05 to +0.04 (`game/flow.rs`, `give_word`; `game/talk.rs`, `coach_word`, `word_trust`).
+- **Home visits (D7)**: in the winter contact periods (November to January, not Sundays) AI head coaches visit their commits (8% a day) and near three-star or better recruits they offered (1.5%), one visit a school (`world/recruiting.rs`, `recruiting_day`). Yours is a scene on the visit's day with whoever decides in his family: seven pitches (playing time, NIL, the school, close to home, family, development, winning). A pitch lands by what the family weighs (the decider's wants; family weight 1.0 when a parent or grandparent decides, 0.5 himself, +0.2 single parent or grandparents) times what the school can back up (its grades, the usual NIL offer, the distance, the head coach's years there and relationships), times the coach's recruiting and relationships; selling a weak point to a family that cares costs 0.006, listening first adds 0.003 (`world/folk/dialogue.rs`, `wants`, `backing`, `home_lean`). The AI coach picks his pitch the same way with noise from his recruiting rating (`coach_pitch`).
+- **College calls to a high school coach (D9)**: on a Wednesday outside a dead period, at most every 13 days and 60% of the time, a college staff that offered one of your players calls about him (football, or his grades or character when either is a real worry). Selling or a straight word reaches his recruitment like your own calls; a year later a worry you hid that came true costs 0.10 of your credibility with that staff (a sell 0.06), and one you told them about earns 0.04 (`dialogue.rs`, `college_calls`, `call_answer`, `settle_calls`; `world/scouting/hs.rs`, `credibility`).
+- **Your job interviews (D11)**: applying for a head job sits you down with its panel (high school: principal and athletic director; college: athletic director and president; NFL and other leagues: owner and GM), two days before a college search decides, or the same day for an empty seat, which fills when the talk is over. Three questions: the plan, the staff and your past. What the panel wants comes from its patience, warmth and meddling and how good the team is (`dialogue.rs`, `panel`, `wants_of`, `interview_set`, `fill_after`).
+- **The weekly staff meeting (D12)**: the morning after each of your games a coordinator may argue a change from the game's numbers: the DC more pressure (28+ allowed with pressure under 28%) or more zone (6+ explosive plays allowed); the OC more runs (5+ a carry on under 48% runs) or more passes (under 3.3 a carry on over 45% runs). Agreeing moves the game plan's guideline (pressure +0.08, man -0.10, run share ±0.06), halfway half that; the next game checks it: overruled and his unit bad again (28+ allowed, or under 17 scored) costs his trust in you 0.06, agreed and good earns 0.03 (`dialogue.rs`, `case_from`, `shift_plan`, `check_case`).
+- **Players-only meetings (D13)**: on the Monday after a third straight loss, every college and NFL team (and your high school) may hold one: chance 0.2 + 0.05 x (the captains' best leadership - 10), at most every 21 days. It moves every player's mood by 0.06 x leadership z + 0.03 x professionalism z + 0.02, -0.06 if a captain has ego 15+ and temper 13+, clamped -0.08 to +0.10. You hear of yours from a position coach, unless it leaks first (50% when it went badly, 30% otherwise) (`dialogue.rs`, `players_only_day`, `players_only`).
+- **Combine and visit rooms as timed talks (D8)**: "Sit down with him" opens the interview room as a scene with the room's minutes (combine 18 from 2020, 15 before; top-30 visit 60; official visit 45). Each topic takes 6, 4, 4, 3 and 3 minutes in an 18-minute room (scaled to the room), a follow-up 2; pushed, a composed man (composure 60+, temper under 13) answers steady, a hot one (temper 14+) bristles. The minutes spent go to the same interview read as the form (`dialogue.rs`, `start_combine_talk`, `combine_answer`; `world/scouting/own.rs`, `interview`, `answer_line`).
+- **Agents in their own voice (D10)**: an agent's words in contract talks come from the line bank by his honesty (straight 0.75+, slick under 0.45), a temper drawn once per agent (10 ± 3.5) and his agency's size; the market still decides the part (in range, apart, a bluff) and the numbers (`dialogue.rs`, `agent_says`; `world/front_office/nfl.rs`, `propose`, `agent_claim`).
+- **Face to face (D1)**: a one-on-one and a timed room show his drawn head with the expression and head turn of the tell your read caught (`crates/afm-game/src/lane_people.rs`, `face_cue`; `app/ui/screens/talk.js`, `tkFaceToFace`). You can turn a one-on-one to another subject without spending an exchange (`talks.rs`, `change_subject`).
+
 ## Talks (your side)
 
 - **Moves**: Ask, Tell him straight, Praise, Challenge, Criticize, Promise, Warn, Hand him something, Listen. **Tones**: Fiery, Warm, Firm, Calm. **Subjects**: role, touches, money, behavior, life, team, future (`world/folk/talks.rs`, `Move`, `Subject`; `landing`).
@@ -157,7 +178,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 
 ## The words people say (the line bank)
 
-- **The bank** is plain text in `crates/afm-engine/data/lines/` (about 7,700 versions in 20 files after update 3, lane 13), read once by `world/folk/voice.rs` (`BANKS`, `Bank::parse`). `@key` names a part; each line under it is one version, with `[a|b]` choices and `{fact}` holes (a version whose fact is missing is skipped).
+- **The bank** is plain text in `crates/afm-engine/data/lines/` (about 26,500 versions in 20 files after update 3, lanes 13, 13c and 13d; one-on-one replies, closes and deflects in `talk_reply.txt` about 10,000, press questions about 5,740, story quotes about 6,440), read once by `world/folk/voice.rs` (`BANKS`, `Bank::parse`). `@key` names a part; each line under it is one version, with `[a|b]` choices and `{fact}` holes (a version whose fact is missing is skipped).
 - **Who can say a version**: tags after ` ~ ` must all fit the speaker, `!tag` rules him out, and `fact=value` or `!fact=value` checks a fact (press `result=win`). Players carry level, traits, region, era, position (`qb`, `skill`, `lineman`, `offense`...) and career stage (`freshman`... `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) (`Speaker::player`, `Speaker::position`). `@with other.key` lends another part's versions (story tone keys borrow their base key).
 - **Picking**: among fitting versions, ones the same speaker hasn't said to you in 365 days come first, weighted 1 + 0.8 per tag or check they need; if none is fresh, the one he said longest ago (`Pen::part`, `REST_DAYS`).
 - **The rest changes words only.** What a person says and does is decided before the bank is asked (`talks.rs` `landing`, `outcome`), and the pen's own random stream never feeds back into the world (`tests/lines.rs`, `the_rest_changes_the_words_only`).
@@ -271,6 +292,27 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - Placing a player (C16, `place_player`): at a college, a player who doesn't start, to a coach at 0.2 warmth or more at a smaller program; he refuses when his lean is under 0.03 and your roster isn't over the limit. The friend's `sent` count and his favour balance go up.
 - A steered transfer at a high school (C18, `c18_week`): March-June Thursdays, an eighth of the weeks, once a year, a camp man or trainer in your state at 0.3 or more offers a 15-16 year old from another school, his best by his read. Taking him logs promises to start him and give him the ball; every state uses California's undue influence rule (CIF Bylaw 510) for now: ruled so two times in five, he sits a year and you lose half a point of standing. A broken promise costs you 0.3 warmth with the man who sent him (`steered_check`).
 
+## The network: favours asked of you (update 3, lane 7)
+
+`world/folk/network.rs` (`asks_week`, `ask_open`, `ask_answer`), `world/folk/tips.rs` (`ask_kid`, `from_ask`), `world/folk/backchannel.rs` (C20):
+
+- Tuesdays, when no favour call came in the last 21 days, a coach at 0.25 warmth or more may call (4% each, the first who rolls): a job for his nephew, a clinic talk, or a kid (a third each).
+- Your own staff only ask the job for a relative: no kid or clinic calls from them (SK73). No kid calls at a high school seat (SK74).
+- A kid call comes only with a kid worth it: his best kids by his read, the first above the floor whose public miss has a true reason (SK69, SK70; see [scouting.md](scouting.md), "What lane 7 added to tips"). No such kid, no call. His claim is at least "He can play for you".
+- Saying yes ("Send it over") costs an hour of your week (a clinic five), puts a favour on his ledger (+1 balance, +0.08 warmth) naming the kid with a link, sends his tape to your staff within the week, and puts the kid on My players with "<caller>'s word" as the reason (SK71, SK72; `network.rs`, `follow_on_word`). No costs 0.04 warmth; never calling back 0.05.
+- The cold call (C20): Tuesdays November-January, at a college seat, the coach of a five-star at a small school (under 1,000 students, or below the state's top two classes) whose top three includes you calls with no tie needed (8% a week, once a kid): hire him and the kid comes. From 2017 the NCAA allows only an on-field job; the job is his own group's position coach, and its holder is let go. The kid follows 25% + 60% × closeness (half a hidden draw, half his years under the coach of four); a follower commits to you two days later. December 1 after his first college season he leans 0.5 more toward the portal half the time if the coach has left your staff, else 15% + 30% × (1 − closeness) (`backchannel.rs`, `c20_week`, `c20_answer`, `c20_stay`, `closeness`).
+
+## Ethnicity by position and level (update 3, lane 17)
+
+`world/ethnicity.rs`, `player_ethnicity`, called from `world/mod.rs` (`new_kid`) and `world/pro/mod.rs` (`veteran`). It never changes a rating; it picks his name and face.
+
+- **When**: once, when he is made, after his body, ratings and natural position (`athlete::create`). A later move keeps it, so a boy built like a back who ends up a linebacker carries back odds (A25).
+- **The weights**: his home state's child mix (`STATE_SHARES`) x how often each group plays (`participation`: white 1, Black 1.5, Hispanic 0.65, Polynesian 2.5, Asian 0.3) x a talent lean x his position's odds.
+- **The talent lean** (A23): `exp(level_lean x ramp)`, the ramp running from talent draw 0.5 (none) to 1.4 (full; an average boy is 0). Black +1.91, Hispanic -1.88, Polynesian +0.95, Asian -0.6. It levels off past college because real rosters change a lot from high school to FBS and little after: FBS 48.9% Black and 2.7% Hispanic, the NFL 53.5% Black (A23 targets).
+- **The position odds** (A20-A22): `ODDS_LOW`, `ODDS_MID` and `ODDS_HIGH` (white, Black, Hispanic, Asian or Pacific Islander, by QB, RB, WR, TE, OL, DL, LB, DB, K, P, LS) at talent draws 1, 2 and 3 (`ODDS_AT`), blended smoothly between them (median draw: FCS 1.4, FBS 1.9, NFL 2.9). Started from the FBS table in `afm/race-check/report.md`, then fitted by least squares on the test world's final rosters (every position's white, Black and Hispanic share at FBS, FCS and the NFL at once, FBS 48.9% Black and 2.7% Hispanic held, the NFL near 53.5%), because stacking grows with the level (receivers 52% Black at FCS, 64% at FBS, 77% in the NFL). The high table's Black column sits below the middle one at the skill spots, which holds the NFL near 53.5% while FBS is at 48.9%. Polynesian players read the Asian and Pacific Islander column; the three Asian American groups get no odds. An athlete from another sport (`scouting/own.rs`) has no position and no odds.
+- **Long snappers**: no boy is built as one, so a boy with the knack draws with the snapper row (`snapper_knack`): long snapping ceiling / talent x exp(0.1 x talent draw) at least 1.25 (`SNAPPER_KNACK`), and a talent draw under 2.6 (higher, he is recruited as a regular; `SNAPPER_TOP`). About 4% of boys, 92% of those the camps later make snappers.
+- **Measured** (the 3-year test world, seed 7, on final rosters; `tests/world.rs`, `each_position_has_its_real_race_mix`, which checks FBS within 5 points of real at every position and FCS and the NFL within 8, or 3 standard errors where a group is too small for that): see `afm/race-check/report.md`, "After lane 17". High school comes out about 30% Black and 9.5% Hispanic (no national source; it was 24% and 15% before lane 17). FCS lands a few points less white than real at most positions (more Hispanic and Polynesian players than its 2.5% and 1.4%).
+
 ## Where the knobs are
 
 - `player.rs`: `Traits::draw` correlations, `draw_aura` (0.2, 0.15).
@@ -282,8 +324,16 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - `world/folk/life.rs`: `chance` rates, `Event::mood`, coach health risk.
 - `world/folk/rules.rs`: `risk` terms, weekly bases, `see`, `nfl_fine`, `trouble_factor`, hit-fine odds 0.0055.
 - `world/folk/voice.rs`: `REST_DAYS` 365, pick weight 1 + 0.8 per need.
+- `game/talk.rs`: `mind_now` terms, `ideal_fire`, `land` (ear, lift, focus, poise, heat, half-lives), `coach_pick` read noise, `word_trust`.
+- `world/folk/dialogue.rs`: `home_lean` (0.012, -0.006, +0.003, clamp -0.012 to 0.03), `wants` family weights, `backing`, home visit odds in `world/recruiting.rs` `recruiting_day` (0.08, 0.015, 400 miles); `college_calls` (13 days, 60%), `settle_calls` (+0.04, -0.10, -0.06); interview answers (0.45, 0, -0.3, 0.015 per Aura point, -1.0 missed, 120 days); `case_from` thresholds and `shift_plan` steps; `players_only` (0.2, 0.05, 21 days, mood terms, leak 50%/30%); `COMBINE_COST`.
 - `world/folk/press.rs`: answer effects. `world/folk/cast.rs`: reporter draws.
 - `world/fame.rs`: `position_draw`, `market_households`, `aura_mult`, `brand_money` (80M, 4M, ^4), `follower_target`, `reach`.
+- `world/ethnicity.rs`: `participation`, `level_lean`, `LEAN_RAMP`, `ODDS_AT`, `ODDS_LOW`, `ODDS_MID`, `ODDS_HIGH`, `SNAPPER_KNACK`, `SNAPPER_TOP`.
+
+## Why-lines on mood (update 3, lane 6)
+
+- Every Monday your chief of staff lists the players whose mood fell this week: those whose mood reasons of the last 7 days add to -0.08 or less, best-starred first, each with his mood word and his biggest reasons (`crates/afm-game/src/lane_help.rs`, `mood_dips`; `lane_core/mail.rs`, `morale`; `folk/talks.rs`, `reasons`, `mood_words`).
+- A portal entry's why-line: his own words, his role last season, his mood and a graduate's last chance (`lane_help.rs`, `portal_why`). A losing streak's: the scores and the job's expectation (`streak_why`).
 
 ## Related pages
 
