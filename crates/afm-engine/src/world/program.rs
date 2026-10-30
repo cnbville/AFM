@@ -261,6 +261,10 @@ pub struct Program {
     /// Seasons with no team (not started yet, dropped or suspended), from
     /// the real history (`college_history.csv`).
     pub dark: Vec<(i32, i32)>,
+    /// A new program's build year (SK68): it fields a team that practices
+    /// and plays no games.
+    #[serde(default)]
+    pub build_year: Option<i32>,
     /// Its real past where it differs from today (1984-2025, college
     /// history): first and last season, division (None: no team) and conference.
     pub history: Vec<(i32, i32, Option<Division>, String)>,
@@ -405,6 +409,12 @@ impl Program {
         !self.dark.iter().any(|&(a, b)| (a..=b).contains(&year))
     }
 
+    /// Whether it plays games this season: it fields a team and isn't in
+    /// its build year (SK68).
+    pub fn fields_games(&self, year: i32) -> bool {
+        self.plays(year) && self.build_year != Some(year)
+    }
+
     /// The seats its crowds are read from: the stadium, capped by the level
     /// it plays at now (a Division II school in a 22,000-seat city stadium
     /// draws like a Division II school).
@@ -543,6 +553,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         prestige_start: 0.0,
         prestige_rel: 0.5,
         dark: Vec::new(),
+        build_year: None,
         history: Vec::new(),
         base: Some((row.division, row.conference.clone())),
         season_records: [None, None, None, None],

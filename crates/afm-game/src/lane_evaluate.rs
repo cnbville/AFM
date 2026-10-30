@@ -22,6 +22,7 @@
 use std::collections::HashMap;
 
 use afm_engine::positions::Position;
+use afm_engine::world::eligibility::{division_of, exhausted_after};
 use afm_engine::world::pro::scouts::{LookKind, Role, Scout};
 use afm_engine::world::scouting::own::{self, Call, Measure, Service, Topic, TripKind};
 use afm_engine::world::scouting::readers::{self, Staff};
@@ -32,7 +33,7 @@ use serde_json::{Value, json};
 use crate::views::{self, date_text};
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 17] = [
+const COMMANDS: [&str; 18] = [
     "eval_home",
     "eval_file",
     "eval_review_call",
@@ -42,6 +43,7 @@ const COMMANDS: [&str; 17] = [
     "eval_let_go",
     "eval_trip",
     "eval_interview",
+    "eval_interview_talk",
     "eval_settle",
     "eval_minimum",
     "eval_service",
@@ -62,6 +64,12 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     Some(match cmd {
         "eval_home" => game.w().map(home),
         "eval_file" => (|| file(game.w()?, id()?))(),
+        // The room as a timed talk (lane 14, D8): a scene you play.
+        "eval_interview_talk" => (|| {
+            let w = game.wm()?;
+            afm_engine::world::folk::dialogue::start_combine_talk(w, id()?, &text("room"))
+                .map(|sid| json!({ "scene": sid }))
+        })(),
         _ => (|| {
             let w = game.wm()?;
             let said = match cmd {
@@ -469,7 +477,7 @@ fn college_desk(w: &World, c: usize) -> Value {
         })
         .collect();
     let clubs: Vec<Value> = (0..w.nfl.len())
-        .filter(|&t| afm_engine::world::franchise::active_teams(w.year).contains(&t))
+        .filter(|&t| afm_engine::world::franchise::active_teams_in(w, w.year).contains(&t))
         .map(|t| {
             let cr = own::cred(w, t);
             json!({ "club": t, "name": w.nfl[t].name.to_string(), "cred": (cr * 100.0).round(), "words": cred_words(cr) })
@@ -493,7 +501,9 @@ fn college_desk(w: &World, c: usize) -> Value {
         .filter(|(_, p)| {
             p.college == Some(c) && p.stage == Stage::College && p.cal.draft_read.is_some_and(|r| r.round <= 7)
         })
-        .filter(|(_, p)| year + 1 - p.class_of < 4)
+        // Any underclassman with college football left, by the same test the
+        // advisory committee uses (a redshirt junior too).
+        .filter(|(_, p)| !exhausted_after(p, division_of(p, &w.programs), year))
         .map(|(i, p)| {
             let r = p.cal.draft_read.unwrap();
             let mut row = person_row(w, i);
@@ -624,7 +634,7 @@ fn file(w: &World, id: u32) -> Reply {
             out["service"] = json!(own::service_grade(w, svc, i).map(|g| json!({ "name": svc.words(), "grade": g })));
         }
         Staff::Program(c) if p.college == Some(c) && matches!(p.stage, Stage::College | Stage::Declared) => {
-            let clubs: Vec<Value> = afm_engine::world::franchise::active_teams(w.year)
+            let clubs: Vec<Value> = afm_engine::world::franchise::active_teams_in(w, w.year)
                 .into_iter()
                 .filter(|&t| t < w.nfl.len())
                 .map(|t| {

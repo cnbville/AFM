@@ -253,11 +253,15 @@ pub struct Prep {
     pub four: FourMinute,
     #[serde(default)]
     pub cells: [u32; 7],
+    /// Your pregame talk (dialogue D4); None: your own coach profile's.
+    #[serde(default)]
+    pub talk: Option<super::talk::Pick>,
 }
 
 impl Prep {
     pub fn is_empty(&self) -> bool {
-        self.plan == PlanChange::default()
+        self.talk.is_none()
+            && self.plan == PlanChange::default()
             && self.study.is_none()
             && self.fourth == FourthChart::Staff
             && self.two == TwoChart::Staff
@@ -295,6 +299,14 @@ pub enum Input {
     Challenge(bool),
     /// Halftime: back out for the second half, with any change to the plan.
     Halftime(PlanChange),
+    /// Your halftime talk (dialogue D5); the halftime stop then asks again.
+    Talk(super::talk::Pick),
+    /// A word on the sideline to one of your players after his mistake
+    /// (dialogue D6); the snap then asks again.
+    Word {
+        id: u32,
+        pick: super::talk::Pick,
+    },
 }
 
 /// The kinds of points where you may decide.
@@ -365,6 +377,24 @@ pub struct Pending {
     pub fourth_wp: Option<[f64; 3]>,
     /// The kicker's make chance from here.
     pub fg_make: Option<f64>,
+    /// Your players waiting for a word after a costly mistake or a third
+    /// small one (dialogue D6), with the word your staff would give.
+    #[serde(default)]
+    pub words: Vec<WordOffer>,
+    /// At halftime: the talk you gave, once you gave it (dialogue D5).
+    #[serde(default)]
+    pub talked: Option<super::talk::Pick>,
+}
+
+/// A player waiting for a word (dialogue D6).
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+pub struct WordOffer {
+    pub id: u32,
+    pub mistake: super::talk::Mistake,
+    /// The play it came on.
+    pub play: u32,
+    /// The word your staff would give him.
+    pub staff: super::talk::Pick,
 }
 
 /// The game's link to you. Kept in the save with the game: your settings
@@ -405,6 +435,8 @@ pub struct StopCtx {
     pub goal_to_go: bool,
     /// Your team trails.
     pub trailing: bool,
+    /// One of your players is waiting for a word (dialogue D6).
+    pub word: bool,
 }
 
 impl Control {
@@ -432,6 +464,11 @@ impl Control {
             Ask::Onside => s.stop == StopMode::EverySnap || (s.situations.decisions && c.trailing && c.quarter >= 4),
             Ask::Snap | Ask::Defense => {
                 if s.stop == StopMode::EverySnap || self.take_next {
+                    return true;
+                }
+                // A player waiting for a word stops it when you take the
+                // decisions (dialogue D6).
+                if c.word && s.situations.decisions {
                     return true;
                 }
                 let t = &s.situations;

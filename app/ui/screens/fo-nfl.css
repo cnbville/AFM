@@ -22,6 +22,7 @@
 .fo-staffdoes { color: var(--fg2); font-size: 12.5px; line-height: 1.45; max-width: 520px; }
 .fo-owner button { padding: 5px 11px; font-size: 12px; }
 .fo-owner button[aria-pressed="true"]:first-child { background: color-mix(in oklab, var(--accent) 35%, transparent); color: #fff; }
+.fo-ownernote { align-self: center; margin-right: 8px; font-size: 12px; max-width: 26ch; line-height: 1.3; }
 .fo-log { max-height: 340px; overflow-y: auto; }
 
 /* The cap sheet: five league years side by side. */

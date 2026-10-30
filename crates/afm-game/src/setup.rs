@@ -1097,6 +1097,8 @@ pub fn bug_pack(g: &Game, args: &Value) -> Result<Value, String> {
     });
     std::fs::write(dir.join("note.json"), serde_json::to_string_pretty(&note).unwrap_or_default())
         .map_err(|e| e.to_string())?;
+    // The Mac app's slow calls, when there were any (`app/src-tauri`, `slow_call`).
+    let _ = std::fs::copy(g.home.join("logs").join("slow-calls.log"), dir.join("slow-calls.log"));
     write(w, &dir.join("world.afmsave"))?;
     Ok(json!({ "folder": dir.display().to_string() }))
 }

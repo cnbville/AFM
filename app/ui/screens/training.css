@@ -141,6 +141,9 @@
 .tr-views { flex-wrap: wrap; }
 .tr-key { display: grid; gap: 1px; }
 .tr-key small { font-size: 10.5px; color: var(--fg3); white-space: nowrap; }
+.tr-calls { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tr-calls .st-btn[aria-pressed="true"] { background: var(--fill-2); color: var(--fg); }
+.tr-say button { padding: 4px 9px; font-size: 12px; white-space: nowrap; }
 
 /* ---------- the depth chart boards ---------- */
 .tr-boardwrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 14px; align-items: start; }

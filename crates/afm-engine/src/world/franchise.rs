@@ -259,7 +259,98 @@ pub fn active(team: usize, year: i32) -> bool {
 
 /// Its name that season (today's name when it didn't play).
 pub fn name(team: usize, year: i32) -> &'static str {
-    era(team, year).map_or(crate::league::NFL_TEAM_NAMES[team], |e| e.name)
+    era(team, year).map_or_else(|| crate::league::NFL_TEAM_NAMES.get(team).copied().unwrap_or(""), |e| e.name)
+}
+
+// ---------------------------------------------------------------------------
+// The world's own clubs (SK68): the lookups below read the real franchises
+// above and, past index 31, the clubs the world added after 2026.
+// ---------------------------------------------------------------------------
+
+/// A club the world added after 2026 (SK68): awarded at an owners' vote,
+/// it plays its first season two or three years later.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct NewClub {
+    /// Its index in `World::nfl` (32 and up).
+    pub team: usize,
+    /// The season of the owners' vote and its first season.
+    pub awarded: i32,
+    pub first: i32,
+    /// Its name, home, division and roof from its first season.
+    pub era: Era,
+    /// The expansion fee in dollars, shared by the other owners.
+    pub fee: f64,
+    /// Metro population in millions (its market).
+    pub metro: f64,
+    /// Its expansion draft is done.
+    #[serde(default)]
+    pub drafted: bool,
+}
+
+/// The clubs the world has added, and its owners' last expansion vote.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Expansion {
+    pub clubs: Vec<NewClub>,
+    /// Seasons of the owners' expansion votes (passed or not).
+    pub votes: Vec<(i32, bool)>,
+    /// This February's open players (old club, player id), listed a week
+    /// before the expansion draft.
+    #[serde(default)]
+    pub lists: Vec<(usize, u32)>,
+    /// Your picks in order for the expansion draft (player ids), when your
+    /// club is new.
+    #[serde(default)]
+    pub queue: Vec<u32>,
+    /// The last expansion draft's picks (new club, player id).
+    #[serde(default)]
+    pub taken: Vec<(usize, u32)>,
+}
+
+impl Expansion {
+    /// The added club at this index, if it is one.
+    pub fn club(&self, team: usize) -> Option<&NewClub> {
+        self.clubs.iter().find(|c| c.team == team)
+    }
+}
+
+/// The franchise's era in a season in this world: a real franchise's real
+/// era, or an added club's from its first season.
+pub fn era_in(w: &super::World, team: usize, year: i32) -> Option<Era> {
+    match w.expansion.club(team) {
+        Some(c) => (year >= c.first).then_some(c.era),
+        None => era(team, year).copied(),
+    }
+}
+
+/// Whether the franchise plays this season in this world.
+pub fn active_in(w: &super::World, team: usize, year: i32) -> bool {
+    era_in(w, team, year).is_some()
+}
+
+/// The franchises playing a season in this world.
+pub fn active_teams_in(w: &super::World, year: i32) -> Vec<usize> {
+    (0..w.nfl.len()).filter(|&t| active_in(w, t, year)).collect()
+}
+
+/// Conference and division of a franchise in a season in this world.
+pub fn alignment_in(w: &super::World, team: usize, year: i32) -> Option<(usize, usize)> {
+    match w.expansion.club(team) {
+        Some(c) => (year >= c.first).then_some((c.era.div as usize / 4, c.era.div as usize)),
+        None => alignment(team, year),
+    }
+}
+
+/// Its first season in the league in this world.
+pub fn joined_in(w: &super::World, team: usize, year: i32) -> bool {
+    active_in(w, team, year) && !active_in(w, team, year - 1)
+}
+
+/// Its name that season in this world.
+pub fn name_in(w: &super::World, team: usize, year: i32) -> &'static str {
+    match w.expansion.club(team) {
+        Some(_) => w.nfl.get(team).map_or("", |t| t.name),
+        None => name(team, year),
+    }
 }
 
 /// Its first season in the league since `year` began counting (an
@@ -321,16 +412,23 @@ fn comp_picks(year: i32, round: u32, teams: usize) -> usize {
 /// taking turns at the front (the Panthers won the toss for the first
 /// pick); in 1999 the Browns and in 2002 the Texans picked first in every
 /// round.
-pub fn round_order(year: i32, round: u32, base: &[usize]) -> Vec<usize> {
-    let (front, back): (Vec<usize>, Vec<usize>) = match year {
-        1995 if round % 2 == 1 => (vec![4, 14], vec![14, 4]),
-        1995 => (vec![14, 4], vec![4, 14]),
-        1999 => (vec![7], vec![]),
-        2002 => (vec![12], vec![]),
+///
+/// `new` names the world's own clubs in their first draft (SK68): two take
+/// the 1995 places, one the 2002 places (proposed, not confirmed: the last
+/// precedents for two clubs and for one).
+pub fn round_order(year: i32, round: u32, base: &[usize], new: &[usize]) -> Vec<usize> {
+    let (front, back): (Vec<usize>, Vec<usize>) = match (year, new) {
+        (1995, _) if round % 2 == 1 => (vec![4, 14], vec![14, 4]),
+        (1995, _) => (vec![14, 4], vec![4, 14]),
+        (1999, _) => (vec![7], vec![]),
+        (2002, _) => (vec![12], vec![]),
+        (_, &[a]) => (vec![a], vec![]),
+        (_, &[a, b, ..]) if round % 2 == 1 => (vec![a, b], vec![b, a]),
+        (_, &[a, b, ..]) => (vec![b, a], vec![a, b]),
         _ => (vec![], vec![]),
     };
-    let mid = base.iter().copied().filter(|t| !front.contains(t));
-    front.iter().copied().chain(mid).chain(back).collect()
+    let mid: Vec<usize> = base.iter().copied().filter(|t| !front.contains(t) && !back.contains(t)).collect();
+    front.into_iter().chain(mid).chain(back).collect()
 }
 
 /// The whole draft, pick by pick: the team and the round. `base` is last
@@ -338,11 +436,11 @@ pub fn round_order(year: i32, round: u32, base: &[usize]) -> Vec<usize> {
 /// teams until free agency awards them (proposed, not confirmed). A world
 /// smaller than full size keeps every k-th pick, so its rounds keep their
 /// real shares.
-pub fn draft_board(year: i32, base: &[usize], scale: f64, seed: u64) -> Vec<(usize, u32)> {
+pub fn draft_board(year: i32, base: &[usize], scale: f64, seed: u64, new: &[usize]) -> Vec<(usize, u32)> {
     let teams = base.len().max(1);
     let mut full = Vec::new();
     for round in 1..=draft_rounds(year) {
-        for t in round_order(year, round, base) {
+        for t in round_order(year, round, base, new) {
             full.push((t, round));
         }
         for k in 0..comp_picks(year, round, teams) {
@@ -360,8 +458,13 @@ pub fn draft_board(year: i32, base: &[usize], scale: f64, seed: u64) -> Vec<(usi
 /// The round a pick falls in, for a league of `teams` that year.
 pub fn round_at(year: i32, pick: usize, teams: usize, scale: f64) -> u32 {
     let base: Vec<usize> = (0..teams).collect();
-    let board = draft_board(year, &base, scale, 0);
+    let board = draft_board(year, &base, scale, 0, &[]);
     board.get(pick.max(1) - 1).map_or(draft_rounds(year) + 1, |x| x.1)
+}
+
+/// The world's own clubs in their first draft this year (SK68).
+pub fn first_draft_in(w: &super::World, year: i32) -> Vec<usize> {
+    w.expansion.clubs.iter().filter(|c| c.first == year).map(|c| c.team).collect()
 }
 
 /// Franchises playing a season.
@@ -406,9 +509,10 @@ pub(crate) fn year_start(w: &mut super::World) {
                     Cleveland keeps the Browns' name, colors and records and is promised a team by 1999.";
         w.calendar.post(Event::new(d, Level::Nfl, Kind::News, Loudness::Huge, text).team(RAVENS).memorable());
     }
-    // A franchise that doesn't play this season: no staff, no roster.
+    // A franchise that doesn't play this season: no staff, no roster. (A
+    // club the world added waits for its first season with its staff.)
     for t in 0..n {
-        if active(t, year) {
+        if active_in(w, t, year) {
             continue;
         }
         let team = &w.nfl[t];
@@ -420,10 +524,11 @@ pub(crate) fn year_start(w: &mut super::World) {
             super::pro::release(w, i, d, "his franchise went dark");
         }
     }
+    let playing = active_teams_in(w, year);
     if let Some(s) = w.nfl_season.as_mut()
         && let Some(order) = s.last_order.as_mut()
     {
-        order.retain(|&t| active(t, year));
+        order.retain(|t| playing.contains(t));
     }
     expansion(w, year);
     super::pro::rebuild(w);
@@ -433,8 +538,8 @@ pub(crate) fn year_start(w: &mut super::World) {
 /// the background league's yearly refill).
 pub(crate) fn clear_dark(w: &mut super::World) {
     let year = w.year;
-    for t in 0..w.nfl.len().min(32) {
-        if !active(t, year) {
+    for t in 0..w.nfl.len() {
+        if !active_in(w, t, year) {
             w.nfl[t].depth = Default::default();
         }
     }
@@ -459,7 +564,7 @@ fn expansion(w: &mut super::World, year: i32) {
     }
     // (team, person, the team's keep value)
     let mut pool: Vec<(usize, usize, f64)> = Vec::new();
-    for t in (0..32).filter(|&t| active(t, year) && !new.contains(&t)) {
+    for t in (0..32).filter(|&t| active_in(w, t, year) && !new.contains(&t)) {
         let mut ranked: Vec<(usize, f64, u32)> = w.clubs[t]
             .roster
             .iter()
@@ -545,13 +650,13 @@ mod tests {
     fn drafts_have_their_real_rounds_and_size() {
         // Last season's teams that play this year.
         let base = |y: i32| -> Vec<usize> { active_teams(y - 1).into_iter().filter(|&t| active(t, y)).collect() };
-        let size = |y: i32| draft_board(y, &base(y), 1.0, 1).len();
+        let size = |y: i32| draft_board(y, &base(y), 1.0, 1, &[]).len();
         assert_eq!(size(1990), 12 * 28);
         assert_eq!(size(1993), 8 * 28);
         assert_eq!(size(2024), 257);
         // 1995: 28 old teams and both new teams twice a round, plus 29 compensatory picks.
         assert_eq!(size(1995), 7 * 32 + 29);
-        let b = draft_board(1999, &base(1999), 1.0, 1);
+        let b = draft_board(1999, &base(1999), 1.0, 1, &[]);
         assert_eq!(b[0].0, 7);
         assert_eq!(b.iter().find(|x| x.1 == 2).unwrap().0, 7);
         assert_eq!(round_at(2024, 32, 32, 1.0), 1);

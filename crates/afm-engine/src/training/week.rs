@@ -54,34 +54,13 @@ pub struct Frames {
 
 impl Frames {
     pub fn new(w: &World, y: &YearDates) -> Frames {
-        let div = [
-            (y.conference_championships, true),
-            (y.fcs_regular_end, true),
-            (y.d2_regular_end, true),
-            (y.d2_regular_end, true),
-            // Division III has no spring practice.
-            (y.d2_regular_end, false),
-            (y.juco_regular_end, true),
-        ];
-        let mut college = div.map(|(end, spring)| Frame::college(y, end, spring));
-        college[Division::FBS as usize].big = true;
+        let college = DIVISIONS.map(|d| division_frame(y, d));
         let college_weeks = college.map(|f| f.weeks());
         let pro = Frame::pro(y, false);
-        let states = w
-            .states
-            .iter()
-            .enumerate()
-            .map(|(s, st)| {
-                let cal = crate::calendar::data::hs_calendar(&st.code);
-                let (start, finals) =
-                    w.hs_season.as_ref().and_then(|h| h.states.get(s)).map(|x| (x.start, x.finals)).unwrap_or_else(
-                        || {
-                            let (a, _, f) = crate::world::hs_year::state_season_dates(&st.code, y.season);
-                            (a, f)
-                        },
-                    );
-                let f = Frame::high(y, start, finals, cal.spring_ball);
-                (f, f.weeks(), cal.state, cal.heat_rule)
+        let states = (0..w.states.len())
+            .map(|s| {
+                let (f, code, heat) = state_frame(w, y, s);
+                (f, f.weeks(), code, heat)
             })
             .collect();
         Frames { college, college_weeks, pro, pro_weeks: pro.weeks(), states }
@@ -90,6 +69,37 @@ impl Frames {
     pub fn division(&self, d: Division) -> (&Frame, &[u8; BLOCKS]) {
         (&self.college[d as usize], &self.college_weeks[d as usize])
     }
+}
+
+/// The college divisions in `Frames::college` order.
+const DIVISIONS: [Division; 6] =
+    [Division::FBS, Division::FCS, Division::D2, Division::NAIA, Division::D3, Division::JUCO];
+
+/// A college division's frame for the football year of `y`.
+pub fn division_frame(y: &YearDates, d: Division) -> Frame {
+    let (end, spring) = match d {
+        Division::FBS => (y.conference_championships, true),
+        Division::FCS => (y.fcs_regular_end, true),
+        // Division III has no spring practice.
+        Division::D3 => (y.d2_regular_end, false),
+        Division::JUCO => (y.juco_regular_end, true),
+        _ => (y.d2_regular_end, true),
+    };
+    let mut f = Frame::college(y, end, spring);
+    f.big = d == Division::FBS;
+    f
+}
+
+/// State `s`'s high school frame for the football year of `y`, with the
+/// state's code and whether it has a heat rule.
+pub fn state_frame(w: &World, y: &YearDates, s: usize) -> (Frame, &'static str, bool) {
+    let cal = crate::calendar::data::hs_calendar(&w.states[s].code);
+    let (start, finals) =
+        w.hs_season.as_ref().and_then(|h| h.states.get(s)).map(|x| (x.start, x.finals)).unwrap_or_else(|| {
+            let (a, _, f) = crate::world::hs_year::state_season_dates(&w.states[s].code, y.season);
+            (a, f)
+        });
+    (Frame::high(y, start, finals, cal.spring_ball), cal.state, cal.heat_rule)
 }
 
 /// The days the camp has run (acclimatization), -1 before it.
@@ -719,6 +729,9 @@ fn absent_news(w: &mut World, missing: &[usize]) {
 /// The college teams the season keeps (built at camp) take the players'
 /// ratings as they stand now, and their practice impressions.
 pub(crate) fn refresh_college_teams(w: &mut World) {
+    let seat = w.seat.filter(|s| s.level == crate::calendar::Level::College).and_then(|s| s.program);
+    let rels: Vec<f64> =
+        w.programs.iter().map(|p| crate::world::season::coach_relationships(w, p.head_coach)).collect();
     let people = &w.people;
     let Some(cs) = w.college.as_mut() else { return };
     let programs = &w.programs;
@@ -729,6 +742,8 @@ pub(crate) fn refresh_college_teams(w: &mut World) {
         for g in t.players.iter_mut() {
             if let Some(&i) = by_id.get(&g.id) {
                 g.refresh(&people[i].player);
+                // How he comes into this week's game (dialogue D4).
+                (g.mood, g.belief) = crate::world::season::game_mind(&people[i], seat == Some(c), rels[c]);
             }
         }
     });

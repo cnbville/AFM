@@ -266,7 +266,7 @@ pub(crate) fn fan_year(w: &mut World) {
 /// trust) chases now. A readable reason is kept.
 pub(crate) fn choose_modes(w: &mut World) {
     let year = w.year;
-    let active: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, year)).collect();
+    let active: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active_in(w, t, year)).collect();
     let strengths: Vec<(usize, f64)> = active.iter().map(|&t| (t, w.nfl[t].strength())).collect();
     let mean = strengths.iter().map(|x| x.1).sum::<f64>() / strengths.len().max(1) as f64;
     for &(t, st) in &strengths {

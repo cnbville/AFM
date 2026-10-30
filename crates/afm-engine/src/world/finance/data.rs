@@ -106,6 +106,14 @@ pub fn nfl_pay_index(year: i32) -> f64 {
 /// A franchise's national pull (Forbes revenue ranks and TV ratings over
 /// the decades), 0-1, in `league::NFL_TEAM_NAMES` order. Proposed, not
 /// confirmed.
+/// A franchise's national pull: the real clubs' from `BRAND`; a club the
+/// world added after 2026 starts with the pull of the league's newest real
+/// clubs (Houston, Jacksonville, Carolina: 0.45-0.70, SK68; proposed, not
+/// confirmed) and grows with its fans.
+pub fn brand(t: usize) -> f64 {
+    BRAND.get(t).copied().unwrap_or(0.45)
+}
+
 pub const BRAND: [f64; 32] = [
     0.50, 0.60, 0.65, 0.55, 0.55, 0.80, 0.45, 0.60, 1.00, 0.70, 0.55, 0.85, 0.70, 0.60, 0.45, 0.70, 0.70, 0.50, 0.70,
     0.65, 0.65, 0.85, 0.60, 0.85, 0.70, 0.80, 0.80, 0.80, 0.70, 0.55, 0.55, 0.75,

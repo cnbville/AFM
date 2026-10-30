@@ -13,7 +13,7 @@ fn nfl_world() -> (World, usize) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     assert_eq!(w.year, 2025);
     let t = (0..w.clubs.len())
-        .filter(|&t| crate::world::franchise::active(t, w.year))
+        .filter(|&t| crate::world::franchise::active_in(&w, t, w.year))
         .max_by_key(|&t| w.clubs[t].roster.len())
         .unwrap();
     let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];
@@ -137,7 +137,7 @@ fn a_trade_needs_the_other_gm_to_gain_on_his_own_chart() {
     let (mut w, t) = nfl_world();
     w.today = w.dates.league_year.date.add(2);
     assert!(deals::window_open(&w));
-    let o = (0..w.clubs.len()).find(|&o| o != t && crate::world::franchise::active(o, w.year)).unwrap();
+    let o = (0..w.clubs.len()).find(|&o| o != t && crate::world::franchise::active_in(&w, o, w.year)).unwrap();
     let mine = deals::picks_of(&w, t);
     let theirs = deals::picks_of(&w, o);
     let first = *mine.iter().find(|p| p.round == 1).unwrap();
@@ -221,7 +221,7 @@ fn the_negotiating_window_agrees_terms_but_signs_nothing() {
     let (mut w, t) = nfl_world();
     let Some(open) = w.dates.tampering_open else { panic!("no window in 2025") };
     w.today = open.date;
-    let o = (0..w.clubs.len()).find(|&o| o != t && crate::world::franchise::active(o, w.year)).unwrap();
+    let o = (0..w.clubs.len()).find(|&o| o != t && crate::world::franchise::active_in(&w, o, w.year)).unwrap();
     let i = *w.clubs[o]
         .roster
         .iter()
@@ -246,4 +246,53 @@ fn the_negotiating_window_agrees_terms_but_signs_nothing() {
     let a = nfl::propose(&mut w, id, rich).unwrap();
     assert_ne!(a.verdict, nfl::Verdict::Signed, "{}", a.text);
     assert_eq!(w.people[i].pro.as_ref().unwrap().team, Some(o), "he left his club in the window");
+}
+
+#[test]
+fn your_cut_plan_stands_with_the_staff_on_the_cutdown() {
+    // SC6: a cut you mark with the cutdown at your staff stands, the staff
+    // decides the rest, and the duty stays with the staff.
+    let (mut w, t) = nfl_world();
+    w.rules.nfl_roster = 40;
+    w.front_office.set_owner(Duty::Cutdown, Owner::Staff);
+    let (ranked, _, _) = roster::staff_cut(&w, t);
+    let best = ranked[0].0;
+    let best_id = w.people[best].player.id;
+    roster::set_plan(&mut w, best_id, Some(roster::Cut::Release)).unwrap();
+    assert_eq!(w.front_office.owner(Duty::Cutdown), Owner::Staff, "a move took the duty back");
+    let d = w.today;
+    pro::cutdown(&mut w, d);
+    assert_ne!(w.people[best].pro.as_ref().and_then(|c| c.team), Some(t), "your cut stayed");
+    assert_eq!(roster::count(&w, t, Status::Roster) + roster::count(&w, t, Status::Reserve), 40);
+}
+
+#[test]
+fn injured_reserve_is_your_call_on_the_leagues_rules() {
+    // Minor bug 73: your player goes on injured reserve only when you put
+    // him there; he sits the minimum, and coming back uses a return.
+    let (mut w, t) = nfl_world();
+    assert!(fo::yours(&w, t, Duty::InjuredReserve), "injured reserve starts yours");
+    let i = *w.clubs[t].roster.iter().find(|&&i| w.people[i].pro.as_ref().unwrap().status == Status::Roster).unwrap();
+    let id = w.people[i].player.id;
+    assert!(fo::reserve::place(&mut w, id).is_err(), "a healthy player went on reserve");
+    w.people[i].pro.as_mut().unwrap().out_weeks = 2;
+    fo::reserve::place(&mut w, id).unwrap();
+    let c = w.people[i].pro.as_ref().unwrap();
+    assert_eq!(c.status, Status::Reserve);
+    assert_eq!(c.out_weeks, pro::games::ir_minimum(w.year), "he must sit the list's minimum");
+    assert!(fo::reserve::activate(&mut w, id).is_err(), "back before he healed");
+    w.people[i].pro.as_mut().unwrap().out_weeks = 0;
+    // Room on the 53 for him.
+    while roster::count(&w, t, Status::Roster) >= w.rules.nfl_roster as usize {
+        let j = *w.clubs[t]
+            .roster
+            .iter()
+            .find(|&&j| j != i && w.people[j].pro.as_ref().unwrap().status == Status::Roster)
+            .unwrap();
+        w.people[j].pro.as_mut().unwrap().status = Status::PracticeSquad;
+    }
+    let used = w.clubs[t].ir_used;
+    fo::reserve::activate(&mut w, id).unwrap();
+    assert_eq!(w.people[i].pro.as_ref().unwrap().status, Status::Roster);
+    assert_eq!(w.clubs[t].ir_used, used + 1, "a return was used");
 }

@@ -54,6 +54,13 @@ pub struct GameDay {
     /// (`rules`), set on the Plans page.
     #[serde(default)]
     pub week_rules: Option<(Date, GameRules)>,
+    /// Your pregame talk for a game (dialogue D4): its date and your pick.
+    #[serde(default)]
+    pub pregame: Option<(Date, crate::game::talk::Pick)>,
+    /// Your last talks (dialogue D4, D5), newest last: the next game's wear
+    /// of your tones and your hand-offs to a captain read them.
+    #[serde(default)]
+    pub talks: Vec<super::folk::gametalk::Given>,
 }
 
 impl GameDay {
@@ -192,6 +199,7 @@ impl World {
             timeouts: r.timeouts,
             four: r.four,
             cells: r.cells,
+            talk: gd.pregame.filter(|p| p.0 == self.today).map(|p| p.1),
         }
     }
 
@@ -211,6 +219,7 @@ impl World {
         let today = self.today;
         let worked = gd.rules_for(today) != GameRules::default()
             || gd.plan.date == Some(today)
+            || gd.pregame.is_some_and(|p| p.0 == today)
             || gd.studied.iter().any(|s| s.0 == today);
         if !worked || self.seat_team()?.0 != level {
             return None;
