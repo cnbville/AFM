@@ -1087,36 +1087,88 @@ pub(crate) fn players_only_day(w: &mut World, d: Date) {
             teams.push((seat, Vec::new()));
         }
     }
+    let mut usual: Vec<(std::mem::Discriminant<Team>, (f64, f64))> = Vec::new();
     for (team, caps) in teams {
         if w.folk.dialogue.players_only.iter().any(|x| x.0 == team && x.1.days_to(d) < 21) {
             continue;
         }
-        players_only(w, team, caps, d);
+        let kind = std::mem::discriminant(&team);
+        let norm = match usual.iter().find(|x| x.0 == kind) {
+            Some(x) => x.1,
+            None => {
+                let n = usual_leaders(w, team);
+                usual.push((kind, n));
+                n
+            }
+        };
+        players_only(w, team, caps, norm, d);
     }
 }
 
-fn players_only(w: &mut World, team: Team, caps: Vec<usize>, d: Date) {
-    let roster = team.roster(w);
-    let caps: Vec<usize> = if caps.is_empty() {
-        // The natural leaders stand in: leadership, then years.
-        let mut v = roster.clone();
-        v.sort_by(|&a, &b| {
-            let s = |i: usize| {
-                w.people[i].player.personality.traits.get(Trait::Leadership) + 0.3 * w.people[i].player.age as f64
-            };
-            s(b).total_cmp(&s(a))
-        });
-        v.truncate(2);
-        v
-    } else {
-        caps
+/// Who leads a players-only meeting: the captains, or when a team has
+/// none its natural leaders (leadership, then years).
+fn meeting_leaders(w: &World, team: Team, caps: &[usize]) -> Vec<usize> {
+    if !caps.is_empty() {
+        return caps.to_vec();
+    }
+    let mut v = team.roster(w);
+    v.sort_by(|&a, &b| {
+        let s = |i: usize| {
+            w.people[i].player.personality.traits.get(Trait::Leadership) + 0.3 * w.people[i].player.age as f64
+        };
+        s(b).total_cmp(&s(a))
+    });
+    v.truncate(2);
+    v
+}
+
+/// The best leadership and the professionalism a meeting's leaders bring
+/// at teams of this kind, on average. Captains are picked for both, so a
+/// meeting goes well or badly against the usual captain, not the average
+/// player: with ordinary captains it neither lifts the room nor sinks it.
+fn usual_leaders(w: &World, team: Team) -> (f64, f64) {
+    let teams: Vec<(Team, &[usize])> = match team {
+        Team::College(_) => w
+            .programs
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.plays(w.year))
+            .map(|(k, p)| (Team::College(k), p.captains.as_slice()))
+            .collect(),
+        Team::Nfl(_) => w.clubs.iter().enumerate().map(|(k, c)| (Team::Nfl(k), c.captains.as_slice())).collect(),
+        Team::High(_) => (0..w.high_schools.len()).map(|h| (Team::High(h), &[][..])).collect(),
+        Team::Other(_) => (0..w.others.teams.len()).map(|f| (Team::Other(f), &[][..])).collect(),
     };
+    let (mut lead, mut pro, mut n) = (0.0, 0.0, 0.0);
+    for (t, caps) in teams {
+        let caps = meeting_leaders(w, t, caps);
+        if caps.is_empty() {
+            continue;
+        }
+        let (l, p) = leaders_read(w, &caps);
+        lead += l;
+        pro += p;
+        n += 1.0;
+    }
+    if n == 0.0 { (10.0, 10.0) } else { (lead / n, pro / n) }
+}
+
+/// The leaders' best leadership and their average professionalism.
+fn leaders_read(w: &World, caps: &[usize]) -> (f64, f64) {
+    let t = |i: usize, k: Trait| w.people[i].player.personality.traits.get(k);
+    let lead = caps.iter().map(|&i| t(i, Trait::Leadership)).fold(0.0, f64::max);
+    let pro = caps.iter().map(|&i| t(i, Trait::Professionalism)).sum::<f64>() / caps.len() as f64;
+    (lead, pro)
+}
+
+fn players_only(w: &mut World, team: Team, caps: Vec<usize>, usual: (f64, f64), d: Date) {
+    let roster = team.roster(w);
+    let caps = meeting_leaders(w, team, &caps);
     if caps.is_empty() {
         return;
     }
     let t = |i: usize, k: Trait| w.people[i].player.personality.traits.get(k);
-    let lead = caps.iter().map(|&i| t(i, Trait::Leadership)).fold(0.0, f64::max);
-    let pro = caps.iter().map(|&i| t(i, Trait::Professionalism)).sum::<f64>() / caps.len() as f64;
+    let (lead, pro) = leaders_read(w, &caps);
     let ego = caps.iter().map(|&i| t(i, Trait::Ego)).fold(0.0, f64::max);
     let temper = caps.iter().map(|&i| t(i, Trait::Temper)).fold(0.0, f64::max);
     let key = match team {
@@ -1131,8 +1183,10 @@ fn players_only(w: &mut World, team: Team, caps: Vec<usize>, d: Date) {
     }
     let noise = 0.03 * crate::game::talk::normal(w.options.seed as u64 ^ 0xD130, key ^ (d.0 as u64) << 36);
     let heated = ego >= 15.0 && temper >= 13.0;
-    let delta =
-        (0.06 * z(lead) + 0.03 * z(pro) - if heated { 0.06 } else { 0.0 } + 0.02 + noise).clamp(-0.08, 0.1) as f32;
+    // How it goes comes from the captains (D13), against the usual ones.
+    let delta = (0.06 * z(10.0 + lead - usual.0) + 0.03 * z(10.0 + pro - usual.1) - if heated { 0.06 } else { 0.0 }
+        + noise)
+        .clamp(-0.08, 0.1) as f32;
     w.folk.dialogue.players_only.retain(|x| x.0 != team);
     w.folk.dialogue.players_only.push((team, d));
     let yours = Team::seat(w) == Some(team);
