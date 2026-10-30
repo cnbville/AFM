@@ -625,16 +625,26 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     let spk = Speaker::player(w, i);
     let mut f = player_facts(w, i);
     f.set("subject", subject.name());
+    if let Some(r) = crate::world::recruiting::intent_reason(w, id) {
+        f.set("reason", r);
+    }
     let mut pen = scene::pen(w, s, 1);
-    let key = if asked { "talk.open.portal".to_string() } else { format!("talk.open.{}", subject.key()) };
     let tone = if mood < -0.2 {
-        "talk.open.sour"
+        "sour"
     } else if mood > 0.2 {
-        "talk.open.good"
+        "good"
     } else {
-        "talk.open.flat"
+        "flat"
     };
-    let line = pen.line(&[tone, &key], &spk, &f);
+    // He asked for this meeting to say he means to leave (minor bug 155): his
+    // own opening in his mood says why he came, never a mood part that
+    // assumes you called him in.
+    let keys = if asked {
+        vec![format!("talk.open.portal.{tone}")]
+    } else {
+        vec![format!("talk.open.{tone}"), format!("talk.open.{}", subject.key())]
+    };
+    let line = pen.line(&keys.iter().map(String::as_str).collect::<Vec<_>>(), &spk, &f);
     pen.put(w);
     let line = match (line.is_empty(), asked) {
         (false, _) => line,
