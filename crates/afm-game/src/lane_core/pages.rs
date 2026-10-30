@@ -1306,7 +1306,8 @@ pub fn brackets(w: &World, args: &Value) -> Value {
     }
 }
 
-// ---- News feeds: the beat, the national desk, recruiting, the fans ----
+// ---- News feeds: the beat, the national desk, recruiting (the fans are
+// `lane_gameday::fans`) ----
 
 fn certainty(e: &Event) -> &'static str {
     match e.kind {
@@ -1318,6 +1319,10 @@ fn certainty(e: &Event) -> &'static str {
 
 pub fn feed(w: &World, args: &Value) -> Value {
     let kind = args.get("kind").and_then(Value::as_str).unwrap_or("beat");
+    // The fans: the town, the call-in show and the board (people topic 9).
+    if kind == "fans" {
+        return crate::lane_gameday::fans::feed(w);
+    }
     let chain = args.get("chain").and_then(Value::as_str).unwrap_or("");
     let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(80) as usize;
     let me = views::mine(w);
@@ -1396,36 +1401,7 @@ pub fn feed(w: &World, args: &Value) -> Value {
             items[k].0["chain"] = json!({ "key": s, "count": n });
         }
     }
-    // The fans' voice on your own games.
-    let mut fans = Vec::new();
-    if kind == "fans"
-        && let Some(t) = me
-    {
-        for (k, g) in w.seat_games().iter().enumerate().rev().take(12) {
-            let side = usize::from(match t {
-                TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) | TeamRef::Other(i) => g.teams[0] != i,
-            });
-            let (us, them) = (g.stats.score[side], g.stats.score[1 - side]);
-            let margin = us - them;
-            let mood = match margin {
-                m if m >= 21 => {
-                    ["That was a statement.", "Book the trip to the title game.", "Best we've looked in years."]
-                }
-                m if m > 0 => ["A win is a win.", "Ugly but we'll take it.", "Fourth quarter defense won that one."],
-                0 => ["A tie feels like a loss.", "Nobody goes home happy.", "Strange night."],
-                m if m > -14 => {
-                    ["We'll get them next week.", "Clock management cost us that one.", "Too many penalties."]
-                }
-                _ => ["Embarrassing.", "Somebody has to answer for that.", "I want my ticket money back."],
-            };
-            let handle =
-                ["@SectionTwelve", "@TailgateTom", "@OldGoldFan", "@BlitzBoys", "@ThirdAndLong", "@HomecomingQueen"];
-            for (j, line) in mood.iter().enumerate() {
-                fans.push(json!({ "date": d_text(g.date), "text": format!("{} {}", line, links::game(k, &format!("{us}-{them}"))), "source": handle[(k + j) % handle.len()], "certainty": "Opinion", "kind": "Fans", "scene": "fans" }));
-            }
-        }
-    }
-    let rows: Vec<Value> = if kind == "fans" { fans } else { items.into_iter().map(|x| x.0).collect() };
+    let rows: Vec<Value> = items.into_iter().map(|x| x.0).collect();
     json!({ "kind": kind, "rows": rows, "chain": if chain.is_empty() { Value::Null } else { json!(chain) } })
 }
 

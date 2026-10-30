@@ -58,6 +58,8 @@ const BANKS: &[&str] = &[
     // Game day talks, home visits, interviews, agents, meetings (lane 14).
     include_str!("../../../data/lines/gameday.txt"),
     include_str!("../../../data/lines/dialogue.txt"),
+    // The fans (people topic 9; the fan lane, then 13f).
+    include_str!("../../../data/lines/fans.txt"),
 ];
 
 #[derive(Clone, Debug)]
@@ -264,7 +266,7 @@ impl Speaker {
         self.tags.contains(&t)
     }
 
-    fn era(tags: &mut Vec<&'static str>, year: i32) {
+    pub(crate) fn era(tags: &mut Vec<&'static str>, year: i32) {
         tags.push(if year < 2000 {
             "pre2000"
         } else if year < 2010 {
@@ -318,7 +320,7 @@ impl Speaker {
         }
     }
 
-    fn region(tags: &mut Vec<&'static str>, w: &World, state: Option<usize>) {
+    pub(crate) fn region(tags: &mut Vec<&'static str>, w: &World, state: Option<usize>) {
         let Some(s) = state else { return };
         let code = w.states.get(s).map_or("", |x| x.code.as_str());
         tags.push(match code {
@@ -728,6 +730,70 @@ impl Pen {
     /// A whole line from several parts; a part starting with `?` is
     /// optional (said about half the time). Parts the speaker can't say
     /// are left out.
+    pub fn line(&mut self, keys: &[&str], who: &Speaker, facts: &Facts) -> String {
+        let mut out: Vec<String> = Vec::new();
+        for k in keys {
+            let (opt, k) = match k.strip_prefix('?') {
+                Some(r) => (true, r),
+                None => (false, *k),
+            };
+            if opt && !self.rng.chance(0.55) {
+                continue;
+            }
+            if let Some(s) = self.part(k, who, facts) {
+                out.push(s);
+            }
+        }
+        tidy(&out.join(" "))
+    }
+}
+
+/// Writes a crowd's lines (a town's fans, `fans.rs`): the memory is the
+/// crowd's as one, over the year the chorus is walked through, and is
+/// never saved. A version said once waits until every other version that
+/// fits has had its turn, then the one said longest ago comes back.
+pub struct Chorus {
+    pub rng: Rng,
+    /// (the crowd's key, the version) and when in the walk it was said.
+    used: HashMap<(u64, u32), u32>,
+    n: u32,
+}
+
+impl Chorus {
+    pub fn new(seed: u64) -> Chorus {
+        Chorus { rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0xC40B_0000), used: HashMap::new(), n: 0 }
+    }
+
+    /// How many versions of this part the crowd could say that it hasn't.
+    pub fn fresh(&self, key: &str, who: &Speaker, facts: &Facts) -> usize {
+        let Some(frags) = bank().by_key.get(key) else { return 0 };
+        frags.iter().filter(|f| f.fits(who, facts) && !self.used.contains_key(&(who.key, f.id))).count()
+    }
+
+    /// One part for this voice, or None when no version fits. Weighted like
+    /// `Pen::part`: a version written for this voice or moment is likelier.
+    pub fn part(&mut self, key: &str, who: &Speaker, facts: &Facts) -> Option<String> {
+        let frags = bank().by_key.get(key)?;
+        let ok: Vec<&Frag> = frags.iter().filter(|f| f.fits(who, facts)).collect();
+        if ok.is_empty() {
+            return None;
+        }
+        let fresh: Vec<&Frag> = ok.iter().copied().filter(|f| !self.used.contains_key(&(who.key, f.id))).collect();
+        let f = if fresh.is_empty() {
+            let k = (0..ok.len()).min_by_key(|&k| (self.used.get(&(who.key, ok[k].id)).copied(), k)).unwrap_or(0);
+            ok[k]
+        } else {
+            let weights: Vec<(usize, f64)> =
+                fresh.iter().enumerate().map(|(k, f)| (k, 1.0 + 0.8 * (f.need.len() + f.when.len()) as f64)).collect();
+            fresh[self.rng.weighted(&weights)]
+        };
+        self.n += 1;
+        self.used.insert((who.key, f.id), self.n);
+        Some(fill(&f.text, facts, &mut self.rng))
+    }
+
+    /// A whole line from several parts, as `Pen::line` (`?` marks a part
+    /// said about half the time).
     pub fn line(&mut self, keys: &[&str], who: &Speaker, facts: &Facts) -> String {
         let mut out: Vec<String> = Vec::new();
         for k in keys {

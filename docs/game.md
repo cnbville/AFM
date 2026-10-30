@@ -1273,6 +1273,23 @@ Cain agreed to the speed items on 2026-10-26 and to B1-B4 on 2026-10-28.
 - Out of season, your club's healed man on the reserve/PUP list now waits for your word too (main's offseason step moved him by itself before minor bug 73); one you miss stays on the list into camp.
 - `lib.rs` `LANES` did not grow: this lane added no commands of its own.
 
+### The fan lane (next update): fan voices (people topic 9)
+
+The places where fans speak, at high school, college and the NFL, with seed lines for each so every screen reads whole before lane 13f writes the full 8,000. How each works, with every number: [people.md](reference/how-it-works/people.md), "Fan voices".
+
+- **The town after a game**: a few people the night and morning after (the barber, the diner, the parking lot, the dorm), more after a rivalry game, a blowout or an upset, and in a high school town. On the News page's Fans feed for your last game and on every kept game's page (the Fans tab).
+- **The call-in show**: the local station's show (real call letters by the Mississippi rule) on game nights and quiet Mondays, its host bringing on callers, some of them regulars all year.
+- **The message board**: threads on the talk days, by level and era (an area forum or the town's community page for a high school, the team's board for a college, a fan forum or fans online for the NFL).
+- **The crowd on game day**: signs as you walk in, the stands reacting play by play (scores, turnovers, big plays, sacks, stops, boos, the officials, injuries, leaving early, the final whistle), in the live game and the same lines on the kept game's Fans tab.
+- **The mood** behind it all: what the fans carried in plus the season against the lines, last week's game and a streak; shown at the head of the Fans feed.
+- Nothing is stored: each screen replays the fan year through one crowd memory, so lines don't repeat inside a year.
+
+#### Claude's picks (proposed, not confirmed)
+
+- Every size in `world/folk/fans.rs`: the mood's weights and buckets, the spread spreads per level, the crowd's chances and spacing, the town's size, the share of women by place, the kinds of fan by level, 24 regulars per place.
+- The board names by level and era, and FM from 2010 for some stations.
+- The 63 parts and their tags and facts (lane 13f writes to them).
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

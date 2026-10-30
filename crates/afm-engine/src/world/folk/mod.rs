@@ -23,6 +23,7 @@ pub mod coach_look;
 pub mod courts;
 pub mod dialogue;
 pub mod facts;
+pub mod fans;
 pub mod gametalk;
 pub mod hiring;
 pub mod letters;

@@ -6,6 +6,7 @@ mod coaching_people;
 mod compact;
 mod development;
 mod faces;
+mod fans;
 mod foundations;
 mod front_office;
 mod game_stats;

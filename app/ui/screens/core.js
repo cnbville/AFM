@@ -1777,19 +1777,38 @@ screens.news = async (a) => {
   if (a.kind) N.kind = a.kind;
   let x = await api("feed", { kind: N.kind, chain: N.chain || undefined, limit: 120 });
   // A quiet feed you didn't pick yourself: open the first one with stories.
-  if (!x.rows.length && !a.kind && !N.chain) {
-    for (const [k] of FEEDS.filter(([k]) => k !== N.kind)) {
+  if (!x.rows.length && !x.fans && !a.kind && !N.chain) {
+    for (const [k] of FEEDS.filter(([k]) => k !== N.kind && k !== "fans")) {
       const y = await api("feed", { kind: k, limit: 120 });
       if (y.rows.length) { N.kind = k; x = y; break; }
     }
   }
   title("News");
   const seg = FEEDS.map(([k, t]) => `<button data-act="newskind" data-v="${k}" aria-pressed="${N.kind === k}">${t}</button>`).join("");
+  if (N.kind === "fans") return `<div class="pad">${pageHead({ kicker: "What the town is saying", title: "News", actions: `<div class="seg">${seg}</div>` })}${fansFeed(x.fans)}</div>`;
   const rows = x.rows.map((r) => `<article class="story ${r.mine ? "mine" : ""} loud-${esc(r.loud || "small")}"><div class="story-art">${posterScene(r.scene || "news", (S.status && S.status.mine && S.status.mine.colors) || ["#3b4252", "#1c1f27"])}</div><div class="story-copy"><div class="story-meta"><span class="st-label">${esc(r.kind)}</span><span class="cert cert-${esc((r.certainty || "").toLowerCase())}" title="How sure the source is">${esc(r.certainty || "")}</span><span class="muted">${esc(r.source || "")} · ${esc(r.date)}</span></div><p>${rich(r.text)}</p>${typeof hpWhy === "function" ? hpWhy(r.why, "small") : ""}${r.chain ? `<a class="link small" data-act="newschain" data-k="${esc(r.chain.key)}">${r.chain.count} more in this story</a>` : ""}</div></article>`).join("");
   const chain = N.chain ? `<div class="chainbar">Following one story <a class="link" data-act="newschain" data-k="">Show everything</a></div>` : "";
   return `<div class="pad">${pageHead({ kicker: "Rumours are marked as rumours", title: "News", actions: `<div class="seg">${seg}</div>` })}${chain}<div class="stories">${rows || `<div class="empty">${N.kind === "beat" ? "Your beat writers haven't filed anything yet." : "Nothing in this feed yet."}</div>`}</div></div>`;
 };
 GOTO.news = () => [["Inbox", "inbox"], ["Calendar", "calendar"], ["Standings", "standings"]];
+
+// The fans (people topic 9): the town after your last game, the call-in
+// show and the message board, all drawn as the page opens.
+function fansFeed(f) {
+  if (!f) return '<div class="empty">Take a job and your fans will have plenty to say.</div>';
+  const who = (v) => `<div class="fn-who">${esc(v.who)}${v.place ? `, ${esc(v.place)}` : ""}</div>`;
+  const town = f.town && f.town.voices.length
+    ? `<section class="panel warm fn-town"><h2>${esc(f.town.label)} <small>${esc(f.town.date)} · around town that night and the morning after · <a class="link" data-go="game" data-index="${f.town.index}" data-tab="Fans">the game's fans</a></small></h2><div class="fn-voices">${f.town.voices.map((v) => `<div class="fn-voice"><p>${rich(v.text)}</p>${who(v)}</div>`).join("")}</div></section>`
+    : "";
+  const shows = f.shows.length
+    ? f.shows.map((s) => `<div class="fn-show"><div class="fn-show-h"><span class="st-label">${esc(s.date)}</span><b>${esc(s.name)}</b></div>${s.calls.map((c) => `<div class="fn-call">${c.intro ? `<div class="fn-host">${esc(c.intro)}</div>` : ""}<p>${rich(c.text)}</p><div class="fn-who">${esc(c.caller)}${c.regular ? ' <span class="st-pill">Regular</span>' : ""}</div></div>`).join("")}</div>`).join("")
+    : '<div class="empty">The phone lines are quiet this fortnight.</div>';
+  const threads = f.threads.length
+    ? f.threads.map((t) => `<div class="fn-thread"><div class="fn-show-h"><span class="st-label">${esc(t.date)}</span><b>${rich(t.title)}</b><span class="muted small">${t.posts.length} post${t.posts.length === 1 ? "" : "s"}</span></div>${t.posts.map((p) => `<div class="fn-post"><span class="fn-by">${esc(p.by)}</span><p>${rich(p.text)}</p></div>`).join("")}</div>`).join("")
+    : '<div class="empty">Nothing new on the board this fortnight.</div>';
+  return `<div class="fn-head"><span class="st-label">The fans</span><b class="fn-mood fn-${esc(f.mood_key)}">${esc(f.mood)}</b><span class="muted">${esc(f.team ? f.team.name : "")} · every line here is a fan's, not your staff's</span></div>
+    ${town}<div class="grid2 fn-grid"><section class="panel"><h2>On the air <small>${esc(f.station)} · the call-in show</small></h2>${shows}</section><section class="panel"><h2>${esc(f.board)} <small>the threads this fortnight</small></h2>${threads}</section></div>`;
+}
 
 // ---------- the calendar (section 4 on screen) ----------
 screens.calendar = async (a) => {

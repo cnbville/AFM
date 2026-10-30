@@ -402,6 +402,7 @@
     const cls = [p.key ? "key" : "", p.td ? "td" : "", p.turnover ? "to" : "", p.ours ? "ours" : "theirs", fresh ? "fresh" : ""].join(" ");
     const extra = [
       p.officiating ? `<div class="lv-ref">${esc(p.officiating)}</div>` : "",
+      p.crowd ? `<div class="lv-crowd">${rich(p.crowd)}</div>` : "",
       ...(p.injuries || []).map((i) => `<div class="lv-hurt">${esc(i)}</div>`),
       yours && p.staff_call ? `<div class="lv-cmp">Your call: ${esc(p.ours ? p.call : p.defense)}${p.off_sheet ? " (off the sheet)" : ""} · your staff's: ${esc(p.staff_call)}</div>` : "",
       !yours && st.view && p.ours && p.call ? `<div class="lv-cmp">${esc(p.call)}${p.why ? " · " + esc(p.why) : ""}</div>` : "",
@@ -554,6 +555,15 @@
       <div class="ask-actions"><button class="st-btn glass" data-act="lv-sheet-x">Cancel</button><button class="st-btn primary" data-act="lv-sheet-go">Call it</button></div></div></div>`;
   }
 
+  // The home crowd (people topic 9): its signs, and its latest roar or
+  // groan; every line also rides on its play in the feed.
+  function standsPanel(st, last) {
+    const signs = st.signs || [];
+    const crowd = (st.crowd || []).slice(0, last ? 1 : 2);
+    if (!signs.length && !crowd.length) return "";
+    return `<div class="panel warm lv-stands"><h2>The stands <small>${esc(st.names[0])}'s home crowd</small></h2>${crowd.map((c) => `<div class="lv-crowd big">${rich(c)}</div>`).join("")}${signs.length ? `<div class="lv-signs">${signs.map((x) => `<span class="lv-sign">${esc(x)}</span>`).join("")}</div>` : ""}</div>`;
+  }
+
   function liveScreen(st) {
     const p = st.pending;
     const watching = LV.watch ? `<div class="lv-watching"><span class="st-pill live">Watching</span> Your staff calls it at ${LV.watch.pace === "every" ? "every-snap" : "key-play"} pace. <a class="link" data-act="lv-pace">${LV.watch.pace === "every" ? "Key plays only" : "Every snap"}</a> · <button class="st-btn small primary" data-act="lv-stepin">Step in <kbd>Esc</kbd></button></div>` : "";
@@ -565,7 +575,7 @@
           <button class="st-btn small glass" data-act="lv-take" title="The next snap stops for you whatever the situation" aria-pressed="${st.take_next}"><kbd>N</kbd> ${st.take_next ? "Next snap is yours" : "Take the next snap"}</button></span></div>
         ${watching}
         <div class="lv-grid">${p ? decision(st) : ""}
-          <div class="lv-right"><div class="panel warm"><h2>The game <small>newest first · names link</small></h2>${feed(st)}</div>${teamLine(st)}</div></div>
+          <div class="lv-right"><div class="panel warm"><h2>The game <small>newest first · names link</small></h2>${feed(st)}</div>${standsPanel(st, false)}${teamLine(st)}</div></div>
       </div>${LV.sheet ? sheetPanel(st) : ""}`;
   }
 
@@ -588,6 +598,7 @@
             <div class="panel warm"><h2>Game balls</h2>${balls || '<div class="empty">Nobody stood out.</div>'}</div>
             ${a.hurt.length ? `<div class="panel warm"><h2>The trainers <small>scans tomorrow</small></h2>${a.hurt.map((x) => `<div class="lv-hurt">${esc(x)}</div>`).join("")}</div>` : ""}
             <div class="panel warm"><h2>The officials</h2><div class="sub">${off.close ? `${off.close} close call${off.close === 1 ? "" : "s"}: ${off.wrong} wrong on the field, ${off.fixed} fixed by replay.` : "No close calls."}</div></div>
+            ${standsPanel(st, true)}
           </div></div></div>`;
   }
 
@@ -828,6 +839,20 @@
   // ======================================================================
   // Tabs other lanes add (the Watch tab): name -> async (game, args) => html.
   window.gamePageTabs = window.gamePageTabs || {};
+  // The fans (people topic 9): the town after the game, and the home crowd
+  // play by play with its signs, drawn as the tab opens.
+  window.gamePageTabs.Fans = async (g) => {
+    const f = await api("fans_game", { index: g.index });
+    const town = f.town.length
+      ? `<div class="fn-voices">${f.town.map((v) => `<div class="fn-voice"><p>${rich(v.text)}</p><div class="fn-who">${esc(v.who)}${v.place ? `, ${esc(v.place)}` : ""}</div></div>`).join("")}</div>`
+      : '<div class="empty">The town had nothing to say.</div>';
+    const signs = f.signs.length ? `<div class="lv-signs">${f.signs.map((x) => `<span class="lv-sign">${esc(x)}</span>`).join("")}</div>` : "";
+    const crowd = f.crowd.length
+      ? `<ul class="lv-feed">${f.crowd.map((c) => `<li><span class="lv-fq">${esc(c.q || "")} ${esc(c.clock || "")}</span><div>${c.play ? `<div class="lv-ftext">${linkNames(c.play, c.who)}</div>` : ""}<div class="lv-crowd">${rich(c.text)}</div></div><span></span></li>`).join("")}</ul>`
+      : '<div class="empty">A quiet crowd.</div>';
+    return `<div class="grid2"><div class="panel warm"><h2>Around town <small>${esc(f.team.name)}'s fans after the game · going in ${esc(f.mood_before.toLowerCase())}, now ${esc(f.mood_after.toLowerCase())}</small></h2>${town}</div>
+      <div class="panel warm"><h2>The stands <small>${esc(f.crowd_team.name)}'s home crowd · its signs, then the plays that moved it</small></h2>${signs}${crowd}</div></div>`;
+  };
   const GP_TABS = ["Key plays", "Box score", "Advanced", "Drive chart", "Play by play", "Snaps", "Charts", "Officials"];
 
   screens.game = async (a) => {
