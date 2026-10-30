@@ -358,6 +358,49 @@ const SCREENS: &[&str] = &[
 /// staff's plan and runs its staff's playbook (its sidebar leaves them out).
 const NOT_OTHER: &[&str] = &["training", "practice", "plans", "designer", "squad", "boards", "recruiting", "contracts"];
 
+/// Game day talks (lane 14): on a game morning the pregame room with a
+/// challenge and with a captain, the talk said; the first such game is
+/// played live to the end on the staff's calls, with your halftime talk
+/// and every sideline word your own.
+fn game_talks(run: &mut Run, g: &mut Game, lived: &mut bool) {
+    let Some(now) = run.call(g, "gameday_now", json!({})) else { return };
+    if now["today"] != json!(true) || now["live"] != json!("none") {
+        return;
+    }
+    let Some(room) = run.call(g, "talk_room", json!({})) else { return };
+    run.call(g, "talk_room", json!({ "move": "challenge", "tone": "fiery", "subject": "them" }));
+    if let Some(c) = room["captains"]["voices"][0]["id"].as_u64() {
+        run.call(g, "talk_room", json!({ "move": "captain", "tone": "calm", "who": c }));
+    }
+    run.call(g, "talk_say", json!({ "move": "straight", "tone": "firm", "subject": "us" }));
+    if *lived {
+        return;
+    }
+    *lived = true;
+    let Some(mut st) = run.call(g, "gameday_kickoff", json!({})) else { return };
+    for _ in 0..600 {
+        if st["status"] != json!("live") {
+            break;
+        }
+        let ask = st["pending"]["ask"].as_str().unwrap_or("");
+        let next = if let Some(w) = st["words"][0].as_object() {
+            json!({ "kind": "word", "id": w["id"], "move": "straight", "tone": "calm" })
+        } else if ask == "halftime" && st["halftime"]["talked"] == json!(false) {
+            run.call(g, "talk_room", json!({}));
+            json!({ "kind": "talk", "move": "challenge", "tone": "firm", "subject": "us" })
+        } else if ask == "halftime" {
+            json!({ "kind": "halftime" })
+        } else {
+            json!({ "kind": "staff", "stop": "every" })
+        };
+        match run.call(g, "live_answer", next) {
+            Some(v) => st = v,
+            None => break,
+        }
+    }
+    run.call(g, "day", json!({}));
+}
+
 fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str) {
     let mut players = BTreeSet::new();
     let mut coaches = BTreeSet::new();
@@ -1098,6 +1141,7 @@ fn main() {
         let mut longest_span = String::new();
         let mut peak = resident_gb();
         let mut saved_once = false;
+        let mut lived = false;
         while g.world.as_ref().map(|w| begin.days_to(w.today)).unwrap_or(days) < days && stops < 600 {
             let tc = Instant::now();
             let from = g.world.as_ref().map(|w| w.today.pretty()).unwrap_or_default();
@@ -1143,6 +1187,7 @@ fn main() {
                 continue;
             }
             visit_all(&mut run, &mut g, &extra, seat);
+            game_talks(&mut run, &mut g, &mut lived);
             if ground {
                 ground_zero(&mut run, &mut g);
             }

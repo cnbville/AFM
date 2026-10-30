@@ -23,6 +23,8 @@ const TAGS: &str = concat!(
     "freshman sophomore junior senior redshirt transfer walkon rookie undrafted firstround psquad ",
     // coaches
     "climber old expro strict warm cold ",
+    // your tone (game day talks)
+    "fiery firm ",
     // the cast
     "she blunt smooth impatient patient meddler tight ",
     // parents
@@ -40,7 +42,7 @@ const FACTS: &str = concat!(
     "old_school opp other other_name other_short outlet player pos question rank rank_of record record_mark ",
     "result rival rival_last rivalry role scope score season series since since_year starters stars_now stars_was ",
     "stat subject team through tried to_go town unit want weeks word worry writer year years you young ",
-    "last_record ",
+    "last_record them captain moment last mistake us ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -111,6 +113,24 @@ fn asked() -> Vec<String> {
     ] {
         v.push(k.into());
     }
+    // Game day talks (lane 14).
+    for t in ["fiery", "warm", "firm", "calm"] {
+        v.push(format!("gameday.open.{t}"));
+        v.push(format!("gameday.close.{t}"));
+    }
+    for m in ["ask", "straight", "praise", "challenge", "criticize", "promise", "warn", "listen", "captain"] {
+        v.push(format!("gameday.{m}"));
+    }
+    for m in ["straight", "praise", "challenge", "criticize", "warn", "listen"] {
+        v.push(format!("gameday.word.{m}"));
+    }
+    for k in ["open", "own", "us", "job", "break"] {
+        v.push(format!("gameday.captain.{k}"));
+    }
+    for k in ["good", "amped", "tight", "flat", "hollow", "captain"] {
+        v.push(format!("gameday.staff.{k}"));
+    }
+    v.push("gameday.quote".into());
     v
 }
 

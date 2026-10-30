@@ -1395,8 +1395,14 @@ pub(crate) fn seat_setup(w: &World) -> Option<crate::world::live_seat::SeatSetup
     let g = pairs.iter().position(|&(h, a)| h as usize == fr || a as usize == fr)?;
     let (h, a) = pairs[g];
     let (k, year) = (live.league, live.year);
-    let sh = side(w, k, h as usize, year)?;
-    let sa = side(w, k, a as usize, year)?;
+    let mut sh = side(w, k, h as usize, year)?;
+    let mut sa = side(w, k, a as usize, year)?;
+    // The day each team brings (dialogue D4): your own week on yours.
+    {
+        use crate::world::folk::{Team, gametalk::day_for};
+        sh.team.day = day_for(w, Team::Other(h as usize), Team::Other(a as usize), 0.0, false, &sh.team);
+        sa.team.day = day_for(w, Team::Other(a as usize), Team::Other(h as usize), 0.0, false, &sa.team);
+    }
     let round =
         if wk < live.weeks.len() && f.stop_after.is_none_or(|s| wk < s as usize) { 0 } else { live.round.max(1) };
     // The title game's neutral site, as `play_week` reads it after seeding.
@@ -1643,7 +1649,7 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             if w.logging() {
                 log_game(w, (k, year, wk, round, neutral, d), teams, &r, [&sh.team, &sa.team]);
             }
-            w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref());
+            w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref(), &r.talks);
             w.seat_line(crate::calendar::Level::Other, teams, None, neutral);
             crate::world::stories::other_game(w, teams, &r.stats, round > 0);
             if let Some(o) = w.tape_watch(crate::calendar::Level::Other) {

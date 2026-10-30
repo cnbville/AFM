@@ -87,6 +87,8 @@ pub struct Snap<'a> {
     /// per player index, per team.
     pub energy: [&'a [f64]; 2],
     pub edge: [&'a [f64]; 2],
+    /// The day's talks on each player (dialogue D4-D6).
+    pub pulse: [&'a [super::talk::Pulse]; 2],
     /// Who plays hurt, and with what (update 3, F7: `sim::hampered`).
     pub hurt: [&'a [Option<super::sim::InjuryKind>]; 2],
     /// How much each player's coach lets him freelance, 0-1 (topic 3.1).
@@ -309,7 +311,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     for &(r, p) in s.offense {
         let gp = super::sim::hampered(&s.teams[0][p], s.hurt[0][p]);
         let pos = if s.fake_punt.is_some() { punt_spot(&f, r, los, by, s.rules.level) } else { align(&f, r, los, by) };
-        agents.push(Agent::new(0, p, &gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]));
+        let mut a = Agent::new(0, p, &gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]);
+        if let Some(t) = s.pulse[0].get(p) {
+            (a.focus20, a.poise20, a.heat) = (t.focus, t.poise, t.heat);
+        }
+        agents.push(a);
         role_of.push(Some(r));
         slot_of.push(None);
     }
@@ -333,14 +339,19 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     // A focused player loses less of it (concentration, against the level).
     let load = NOISE_LOAD * s.cond.crowd;
     for a in agents.iter_mut() {
-        let focus = clamp(1.6 - 0.06 * s.teams[0][a.p].trait20(Attr::Concentration, s.rules.level), 0.4, 1.6);
+        let conc = (s.teams[0][a.p].trait20(Attr::Concentration, s.rules.level) + a.focus20).clamp(1.0, 20.0);
+        let focus = clamp(1.6 - 0.06 * conc, 0.4, 1.6);
         a.r[Attr::FootballIq.index()] = (a.r[Attr::FootballIq.index()] - load * focus).max(1.0);
     }
     let def_spots =
         if s.fake_punt.is_some() { return_spots(s, &agents, &role_of) } else { align_defense(s, &agents, &role_of) };
     for (k, &(d, p)) in s.defense.iter().enumerate() {
         let gp = super::sim::hampered(&s.teams[1][p], s.hurt[1][p]);
-        agents.push(Agent::new(1, p, &gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]));
+        let mut a = Agent::new(1, p, &gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]);
+        if let Some(t) = s.pulse[1].get(p) {
+            (a.focus20, a.poise20, a.heat) = (t.focus, t.poise, t.heat);
+        }
+        agents.push(a);
         role_of.push(None);
         slot_of.push(Some(d));
     }
@@ -618,7 +629,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let gp = sim.player(i);
             let pr = gp.a(Attr::PlayRecognition);
             let know = gp.know[Family::Front as usize] as f64;
-            let disc = gp.trait20(Attr::Discipline, s.rules.level);
+            let disc = sim.trait20(i, Attr::Discipline);
             let prep = gp.prep as f64;
             let p = 0.035
                 + 0.002 * (65.0 - pr).max(-15.0)

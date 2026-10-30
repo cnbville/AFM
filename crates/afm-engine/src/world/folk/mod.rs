@@ -22,6 +22,7 @@ pub mod cast;
 pub mod coach_look;
 pub mod courts;
 pub mod facts;
+pub mod gametalk;
 pub mod hiring;
 pub mod letters;
 pub mod life;
