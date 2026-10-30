@@ -2610,7 +2610,46 @@ pub(crate) fn closeness(miles: f64) -> f64 {
 /// (fix list 2.3). Proposed, not confirmed.
 const CHILDHOOD_LEAN: f64 = 0.18;
 
+/// Where a recruit's read of a program's name stops growing (dynasty item
+/// 8, Cain 2026-10-29): every program at or above 85% of the old leader's
+/// name reads the same, and so does the 5-star pull, its cube. Below that a
+/// bigger name still counts for more. In test worlds a bend at 75% left
+/// the national names small gaps that kept the same three programs on top;
+/// the tie, with home fading (minor bug 89), cut the share of seasons the
+/// same three held the most talent from 81% to 61% (real 51%).
+const NAME_TIE: f64 = 0.85;
+
+/// How much home still pulls a recruit (minor bug 89): closeness, his
+/// stay-home lean and the team he grew up with count less as power programs
+/// from outside his state offer him. A kid courted from across the country
+/// has seen the national stage and weighs more than home; a kid with one
+/// out-of-state power offer barely changes. 1 with none, falling toward
+/// the floor: `HOME_FADE_FLOOR + (1 - floor) × e^(-offers / HOME_FADE_OFFERS)`.
+/// Sized against the real share of FBS signees who stay in their home
+/// state, by stars (classes 2010-2025, sportsdataverse `cfb_recruits` matched
+/// to cfbfastR rosters): 2-stars 34%, 3-stars 33%, 4-stars 40%, 5-stars 45%.
+/// The world's blue chips signed in-state 55-59% before. Proposed, not
+/// confirmed.
+const HOME_FADE_FLOOR: f64 = 0.4;
+const HOME_FADE_OFFERS: f64 = 5.0;
+
+/// How much home pulls him, from the floor to 1 ([`HOME_FADE_FLOOR`]): his
+/// offers (the early ones and the last stage's) from power-conference
+/// programs outside his home state.
+pub(crate) fn home_weight(programs: &[Program], p: &Person, year: i32) -> f64 {
+    let mut seen: Vec<usize> = Vec::with_capacity(32);
+    for j in p.cal.early_offers.iter().map(|o| o.0).chain(p.cal.offers.iter().copied()) {
+        if !seen.contains(&j) {
+            seen.push(j);
+        }
+    }
+    let away =
+        seen.iter().filter(|&&j| programs[j].state != p.home_state && programs[j].power_conference(year)).count();
+    HOME_FADE_FLOOR + (1.0 - HOME_FADE_FLOOR) * (-(away as f64) / HOME_FADE_OFFERS).exp()
+}
+
 /// How much a school appeals to a recruit, from the wants of whoever decides (topic 5).
+#[allow(clippy::too_many_arguments)]
 fn utility(
     norms: &super::systems::SystemNorms,
     p: &Person,
@@ -2619,12 +2658,16 @@ fn utility(
     year: i32,
     nil_offer: f64,
     eval_rank: f64,
+    home: f64,
 ) -> f64 {
     let fits = super::systems::fits(&p.player, p.player.position, norms);
-    utility_fit(&fits, p, wants, prog, year, nil_offer, eval_rank)
+    utility_fit(&fits, p, wants, prog, year, nil_offer, eval_rank, home)
 }
 
 /// [`utility`] from his fits to every system, read once (`systems::fits`).
+/// `home` is how much home still pulls him ([`home_weight`]; 1 for a
+/// transfer).
+#[allow(clippy::too_many_arguments)]
 fn utility_fit(
     fits: &[f64; 11],
     p: &Person,
@@ -2633,6 +2676,7 @@ fn utility_fit(
     year: i32,
     nil_offer: f64,
     eval_rank: f64,
+    home: f64,
 ) -> f64 {
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
     let close = closeness(geo::miles(p.home_state, prog.state));
@@ -2656,17 +2700,18 @@ fn utility_fit(
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
     // Every recruit wants the biggest name he can get at a level; how much
     // more depends on what he (or his decider) wants. A name stops growing
-    // at the biggest in the sport (A6): a program that passes the leader of
-    // 30 years ago is one of the blue bloods, not a bigger one, so a run of
-    // titles can't lift it clear of the rest of the elite.
-    let brand = prog.prestige_rel.min(1.0);
+    // among the national names (dynasty item 8, `NAME_TIE`): past 85% of the
+    // leader of 30 years ago a program is one of the blue bloods, not a
+    // bigger one, so a run of titles can't lift it clear of the rest of the
+    // elite.
+    let brand = prog.prestige_rel.min(NAME_TIE);
     let lv = recruit_level(prog, year);
     let mut u = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
         + 0.1 * g(GradeCat::Facilities)
         + wants.prestige * prestige
         + money_w * money * 1.5
-        + close_w * close
+        + home * close_w * close
         + wants.playing_time * playing
         + wants.academics * academics
         + (wants.development + path_w) * development
@@ -2689,12 +2734,13 @@ fn utility_fit(
     // pros, more to the kid who wants it.
     u += prog.pro_day as f64 * (0.6 + wants.development + path_w);
     // His own pull to stay in his state, and the team he grew up with
-    // (fix list 2.2, 2.3; the lean is proposed, not confirmed).
+    // (fix list 2.2, 2.3; the lean is proposed, not confirmed), both fading
+    // as the country courts him (minor bug 89).
     if prog.state == p.home_state {
-        u += p.stay_home;
+        u += home * p.stay_home;
     }
     if p.childhood_team == Some(prog.id) {
-        u += CHILDHOOD_LEAN;
+        u += home * CHILDHOOD_LEAN;
     }
     if p.family.older_brother_at == Some(prog.id) {
         u += if p.family.follows_brother { 0.15 } else { -0.05 };
@@ -4585,6 +4631,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             super::systems::fits(&p.player, p.player.position, &norms)
         })
         .collect();
+    // How much home still pulls each recruit (minor bug 89).
+    let home_w: Vec<f64> = pool.iter().map(|r| home_weight(programs, &w.people[r.person], year)).collect();
     // --- Relationships built over the year (dynasty item 11.18) -------------------------
     // Staffs recruit the top of each position board all year: the position
     // coach calls and visits every target, the head coach gives his own time
@@ -4663,6 +4711,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             year,
                             offer_for(j, k, share),
                             1.0 - share,
+                            home_w[k],
                         );
                         (u + feel(j, k), j)
                     })
@@ -4839,8 +4888,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         Fixed {
             offer,
             // A walk-on is last in line for reps, wherever he sits on the board.
-            scholarship: utility_fit(&pool_fits[k], p, &wants, prog, year, offer, 1.0 - rank) + ties,
-            walk_on: utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0) + (ties - walk_on_cost(p, prog)),
+            scholarship: utility_fit(&pool_fits[k], p, &wants, prog, year, offer, 1.0 - rank, home_w[k]) + ties,
+            walk_on: utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0, home_w[k])
+                + (ties - walk_on_cost(p, prog)),
             ties,
         }
     };
@@ -4925,7 +4975,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         super::ncaa::position_nil_max(seat.pos)
                     };
                     let raised = (offer * 1.5).min(cap).min(top.max(offer));
-                    let ru = utility_fit(&pool_fits[k], p, &wants, prog, year, raised, 1.0 - rank) + fx.ties + fit;
+                    let ru = utility_fit(&pool_fits[k], p, &wants, prog, year, raised, 1.0 - rank, home_w[k])
+                        + fx.ties
+                        + fit;
                     if ru > hu {
                         offer = raised;
                         u = ru;
@@ -5034,7 +5086,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     continue;
                 }
                 let standing = if walk_on { 0.0 } else { 1.0 - share };
-                let u = utility_fit(&pool_fits[k], p, &wants, &programs[j], year, 0.0, standing)
+                let u = utility_fit(&pool_fits[k], p, &wants, &programs[j], year, 0.0, standing, home_w[k])
                     + relationship(j, k)
                     + feel(j, k)
                     - if walk_on { walk_on_cost(p, &programs[j]) } else { 0.0 };
@@ -5122,7 +5174,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     continue;
                 }
                 let wants = p.family.decider_wants;
-                let u = utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0) + relationship(j, k) + feel(j, k)
+                let u = utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0, home_w[k])
+                    + relationship(j, k)
+                    + feel(j, k)
                     - walk_on_cost(p, prog);
                 if let Some(h) = held[k] {
                     let given_up = if h.walk_on { 0.0 } else { scholarship_given_up(pos, &programs[h.program]) };
@@ -5320,11 +5374,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let p = &w.people[i];
                 let steered = p.family.decider != Decider::Himself && {
                     let own = p.family.own_wants;
-                    let mine = utility(&norms, p, &own, &w.programs[j], year, 1e5, 0.5);
+                    let mine = utility(&norms, p, &own, &w.programs[j], year, 1e5, 0.5, home_w[k]);
                     // His own favorite among the programs that wanted him.
-                    offers[k]
-                        .iter()
-                        .any(|&jj| jj != j && utility(&norms, p, &own, &w.programs[jj], year, 1e5, 0.5) > mine + 0.06)
+                    offers[k].iter().any(|&jj| {
+                        jj != j && utility(&norms, p, &own, &w.programs[jj], year, 1e5, 0.5, home_w[k]) > mine + 0.06
+                    })
                 };
                 if w.recording && !r.juco_mover && !walk_on && division == Division::FBS {
                     w.fbs_signees_by_state[w.people[i].home_state] += 1;
@@ -6412,7 +6466,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                         portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d))
                             * super::legacy::college::split_q(wr, j, 1)
                     });
-                    let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6)
+                    let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
                         + mk.view.fit(
                             j,
                             i,
@@ -6462,7 +6516,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 let p = &wr.people[i];
                 let nil = portal_nil(&wr.programs[j], mk.pool(j), p, role_at(ahead, slots), perf - median(d))
                     * super::legacy::college::split_q(wr, j, 1);
-                let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6)
+                let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
                     + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars))
                     + bond;
                 Some((j, u))
@@ -6729,7 +6783,7 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     let prog = &w.programs[j];
     let nil = nil.unwrap_or_else(|| usual_nil_offer(w, j, i));
     let wants = p.family.decider_wants;
-    let mut u = utility(&w.system_norms, p, &wants, prog, w.year, nil, 0.6);
+    let mut u = utility(&w.system_norms, p, &wants, prog, w.year, nil, 0.6, home_weight(&w.programs, p, w.year));
     let seed = w.options.seed as u64 ^ (p.class_of as u64) << 20;
     u += FEEL_SD * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
     let contact = p.cal.visits.iter().filter(|v| v.0 == j).count().min(5) as f64;
@@ -6776,8 +6830,9 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
     let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * 0.6);
     let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
-    let brand = prog.prestige_rel.min(1.0);
+    let brand = prog.prestige_rel.min(NAME_TIE);
     let lv = recruit_level(prog, w.year);
+    let home = home_weight(&w.programs, p, w.year);
     let mut name = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
         + 0.1 * g(GradeCat::Facilities)
@@ -6786,7 +6841,7 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
         name += FIVE_STAR_PULL * brand.powi(3) * lv;
     }
     let six = [
-        (close_w * close, close),
+        (home * close_w * close, close),
         ((wants.playing_time + path_w) * playing, playing),
         (money_w * money * 1.5, money.min(1.0)),
         ((wants.development + path_w) * development, development),
@@ -6800,12 +6855,13 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
 /// How much each of the six reasons counts with whoever decides for him,
 /// as [`reason_parts`] weighs them (close to home, playing time, money,
 /// development, winning and the name, academics).
-pub(crate) fn reason_weights(p: &Person) -> [f64; 6] {
+pub(crate) fn reason_weights(w: &World, i: usize) -> [f64; 6] {
+    let p = &w.people[i];
     let wants = p.family.decider_wants;
     let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
     let (money_w, path_w) = money_weights(p, &wants, crisis);
     [
-        wants.close_to_home + if crisis { 0.15 } else { 0.0 },
+        home_weight(&w.programs, p, w.year) * (wants.close_to_home + if crisis { 0.15 } else { 0.0 }),
         wants.playing_time + path_w,
         money_w,
         wants.development + path_w,

@@ -1502,7 +1502,8 @@ impl World {
     }
 
     /// Each new boy's pull to stay in his state and the team he grew up
-    /// cheering for (fix list 2.2, 2.3), on keyed draws. Proposed, not
+    /// cheering for (fix list 2.2, 2.3), on keyed draws and his family
+    /// (minor bug 89). Proposed, not
     /// confirmed: a quarter feel no pull, half a little (0.02-0.08), a
     /// quarter a lot (0.10-0.25). Four in five grew up with a team in their
     /// own state, picked by fan base and tradition; the rest with a national
@@ -1533,9 +1534,29 @@ impl World {
             }
             list.last().map(|x| x.0)
         };
+        // Who feels the pull comes from his family as much as from chance
+        // (minor bug 89): a settled home, and a parent or grandparent making
+        // the choice, keep a boy closer. Read against his own class, so each
+        // band keeps its share; a boy added alone draws by chance (proposed,
+        // not confirmed: family 0.6 of the draw's spread).
+        let rooted = |p: &Person| {
+            p.bg.home_stability
+                + if matches!(p.family.decider, background::Decider::Parent | background::Decider::Grandparent) {
+                    0.15
+                } else {
+                    0.0
+                }
+        };
+        let n = self.people.len() - start;
+        let mean = self.people[start..].iter().map(rooted).sum::<f64>() / n.max(1) as f64;
+        let sd =
+            (self.people[start..].iter().map(|p| (rooted(p) - mean).powi(2)).sum::<f64>() / n.max(1) as f64).sqrt();
+        let fam: f64 = if n >= 50 && sd > 1e-6 { 0.6 } else { 0.0 };
         for person in &mut self.people[start..] {
             let id = person.player.id as u64;
-            let u = season::key_uniform(seed ^ 0x57A1, id);
+            let z = (1.0 - fam * fam).sqrt() * finance::probit(season::key_uniform(seed ^ 0x57A1, id))
+                + if fam > 0.0 { fam * (rooted(person) - mean) / sd } else { 0.0 };
+            let u = crate::athlete::phi(z);
             // Sized against the real home-state shares (fix list 2.8: FBS
             // median 37%, p10 15%, p90 65%); a first pass at 0-0.25 gave a
             // median of 20% (proposed, not confirmed).
