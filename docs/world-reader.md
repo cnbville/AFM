@@ -47,7 +47,7 @@ The library gives the same pages to the app: `Book::open`, `book.text(page, &Fil
 
 ## On GitHub
 
-`build-world.yml` builds the book after the world and its log, puts its overview in the run's summary, and publishes it beside the world on the worlds page as `name.afmbook.zst` (zstd), in 1.9 GB parts when it is bigger than 2 GB. With `check` set to a worlds page release, it builds a book for that world (world file only) and adds it to that release.
+`build-world.yml` publishes the world and its log first, then its `book` job builds the book on a fresh machine from the world and log on the worlds page, puts its overview in the run's summary, and publishes it beside the world as `name.afmbook.zst` (zstd), in 1.9 GB parts when it is bigger than 2 GB. A check world (publish no) gets its book in the world job. With `check` set to a worlds page release, it builds a book for that world (world file only) and adds it to that release.
 
 ## Claude's picks, proposed, not confirmed
 

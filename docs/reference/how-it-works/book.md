@@ -31,7 +31,7 @@ The book is world reader lane R4: one SQLite file per world (`name.afmbook`) hol
 - What is the coverage map? Every inventory area with the book tables its data is in, the checks and distributions over it, and a status: checked, data with no check yet, needs the log, or not stored (`coverage.rs`, `write`). The inventory is `crates/afm-reader/data/inventory.json`.
 - What does a page print? The same `View` for both: `Book::text` for `afm_read` and "Copy for Claude", `Book::page` for the app as JSON (`view.rs`).
 - What happens without a log? Every check that needs one says "no data" and names the log; the overview and the odd list name what is missing (`make.rs`, `build`, `missing`).
-- Where is it published? `build-world.yml` builds the book after the world, adds its overview to the run's summary, compresses it with zstd and uploads it beside the world, in 1.9 GB parts when bigger than 2 GB (`.github/workflows/build-world.yml`, "Build the book").
+- Where is it published? `build-world.yml` publishes the world and its log first; its `book` job then downloads both on a fresh machine, builds the book under a 13 GB memory cap, adds its overview to the run's summary, compresses it with zstd and uploads it beside the world, in 1.9 GB parts when bigger than 2 GB (`.github/workflows/build-world.yml`, job `book`; `.github/scripts/build-book.sh`). A check world gets its book in the world job.
 
 ## The tables it adds
 
