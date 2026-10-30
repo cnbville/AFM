@@ -1071,6 +1071,9 @@ pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<Str
         Err(t) => (VisitState::Declined, t.clone()),
     };
     w.front_office.college.visits.push(Plan { id, kind, date: d, state, note: text.clone() });
+    if kind == VisitKind::Home && state == VisitState::Set {
+        crate::world::folk::dialogue::home_visit_set(w, id, j, d);
+    }
     let name = w.people[i].name.clone();
     note(w, format!("{} for {name} on {}: {text}", kind.name(), d.pretty()), Some(id));
     reply
@@ -1087,6 +1090,9 @@ pub fn cancel_visit(w: &mut World, id: u32, kind: VisitKind) -> Result<String, S
         .ok_or("No such visit is set.")?;
     v.state = VisitState::Off;
     v.note = "You called it off.".into();
+    if kind == VisitKind::Home {
+        crate::world::folk::dialogue::home_visit_off(w, id, "You called it off.");
+    }
     Ok(format!("{} called off.", kind.name()))
 }
 
@@ -1127,6 +1133,9 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
             None
         };
         if let Some(why) = off {
+            if kind == VisitKind::Home {
+                crate::world::folk::dialogue::home_visit_off(w, id, &why);
+            }
             let v = &mut w.front_office.college.visits[k];
             v.state = VisitState::Off;
             v.note = why;

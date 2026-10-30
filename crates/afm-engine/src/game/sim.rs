@@ -237,6 +237,14 @@ pub struct Agent {
     pub burner: f64,
     #[serde(default)]
     pub bend: f64,
+    /// The day's talks on him (dialogue D4-D6): trait points of focus
+    /// (discipline, concentration) and of composure, and heat (late hits).
+    #[serde(default)]
+    pub focus20: f64,
+    #[serde(default)]
+    pub poise20: f64,
+    #[serde(default)]
+    pub heat: f64,
 }
 
 impl Agent {
@@ -296,6 +304,9 @@ impl Agent {
             vmax0: vmax,
             burner: BURNER * gp.links.share(&[Link::Burner]),
             bend: gp.links.share(&[Link::Bend]),
+            focus20: 0.0,
+            poise20: 0.0,
+            heat: 0.0,
         }
     }
     /// How hard he can stop, yards per second squared: his grip and his
@@ -339,6 +350,9 @@ impl Agent {
             vmax0: self.vmax0,
             burner: self.burner,
             bend: self.bend,
+            focus20: self.focus20,
+            poise20: self.poise20,
+            heat: self.heat,
         }
     }
 
@@ -831,7 +845,7 @@ impl<'a> Sim<'a> {
         }
         let base = gp.tend.get(t);
         let was = gp.tend.was[t.index()] as f64;
-        let poise = gp.trait20(Attr::Composure, self.level);
+        let poise = (gp.trait20(Attr::Composure, self.level) + a.poise20).clamp(1.0, 20.0);
         let stress = clamp(self.mood.stakes[a.side] + 0.8 * a.tired + 0.05 * (10.0 - poise), 0.0, 1.0);
         let gamble = if t.gamble() { self.mood.gamble[a.side] } else { 0.0 };
         clamp(base + stress * (was - base) / 3.0 + gamble, 1.0, 20.0)
@@ -865,7 +879,15 @@ impl<'a> Sim<'a> {
     /// (see `GamePlayer::trait20`).
     #[inline]
     pub fn trait20(&self, i: usize, a: Attr) -> f64 {
-        self.player(i).trait20(a, self.level)
+        let base = self.player(i).trait20(a, self.level);
+        // The day's talks (dialogue D4-D6): focus on discipline and
+        // concentration, poise on composure.
+        let ag = &self.agents[i];
+        match a {
+            Attr::Discipline | Attr::Concentration if ag.focus20 != 0.0 => (base + ag.focus20).clamp(1.0, 20.0),
+            Attr::Composure if ag.poise20 != 0.0 => (base + ag.poise20).clamp(1.0, 20.0),
+            _ => base,
+        }
     }
 
     pub fn carrier(&self) -> Option<usize> {
@@ -2209,7 +2231,8 @@ impl<'a> Sim<'a> {
             let technique = (1.6 - disc / 12.0).max(0.2) * 0.6;
             let temper = (1.6 - self.player(i).traits.temperament / 12.0).max(0.2)
                 * 0.6
-                * (1.0 + 0.6 * self.lean(i, Tend::BigHit)).max(0.2);
+                * (1.0 + 0.6 * self.lean(i, Tend::BigHit)).max(0.2)
+                * (1.0 + self.agents[i].heat).max(0.3);
             let (id, side) = (self.agents[i].id, self.agents[i].side);
             if self.rng.chance(0.0087 * self.crew.personal * technique) {
                 self.notes.fouls.push(Foul { kind: FoulKind::FaceMask, side, player: id, at: x });

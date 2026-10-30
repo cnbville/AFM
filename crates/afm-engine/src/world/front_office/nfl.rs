@@ -13,6 +13,7 @@
 use crate::calendar::Date;
 use crate::positions::Position;
 use crate::rng::clamp;
+use crate::world::folk::voice::Facts;
 use crate::world::pro::market::{self, Ideal, Offer, Sheet};
 use crate::world::pro::{self, DeadWhy, Status, money};
 use crate::world::{Stage, World};
@@ -554,27 +555,43 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
         let (claim, read) = agent_claim(w, i, t, kind, s, &ideal);
         answer.claim = claim;
         answer.read = read;
-        answer.text = match (kind, answer.verdict) {
-            (TalkKind::FreeAgent | TalkKind::OfferSheet, _) if s >= 1.0 => {
+        // In the agent's own voice (lane 14, D10); the numbers are the market's.
+        let f = Facts::new().with("name", name.clone()).with("money", super::dollars(ask.apy));
+        let (part, plain) = match kind {
+            TalkKind::FreeAgent | TalkKind::OfferSheet if s >= 1.0 => (
+                "yes",
                 format!(
                     "\"That works for {name}. He'll give everyone until the next market day, but you're where he wants to be.\""
-                )
-            }
-            (TalkKind::FreeAgent | TalkKind::OfferSheet, _) if s >= 0.85 => {
-                format!("\"That's in range. {name} will weigh it against what else comes in.\"")
-            }
-            (TalkKind::FreeAgent | TalkKind::OfferSheet, _) => format!(
-                "\"We're {} on this. Here's where {name} is.\"",
-                if s >= 0.72 { "still apart" } else { "a long way apart" }
+                ),
             ),
-            _ if s >= 0.85 => format!("\"We're close. Get us to {} and {name} signs.\"", super::dollars(ask.apy)),
-            _ if s >= 0.72 => format!("\"That's short of what {name} is worth. Here's our number.\""),
-            _ => format!("\"Respectfully, that isn't a serious offer for {name}.\""),
+            TalkKind::FreeAgent | TalkKind::OfferSheet if s >= 0.85 => {
+                ("range", format!("\"That's in range. {name} will weigh it against what else comes in.\""))
+            }
+            TalkKind::FreeAgent | TalkKind::OfferSheet if s >= 0.72 => {
+                ("apart", format!("\"We're still apart on this. Here's where {name} is.\""))
+            }
+            TalkKind::FreeAgent | TalkKind::OfferSheet => {
+                ("far", format!("\"We're a long way apart on this. Here's where {name} is.\""))
+            }
+            _ if s >= 0.85 => {
+                ("near", format!("\"We're close. Get us to {} and {name} signs.\"", super::dollars(ask.apy)))
+            }
+            _ if s >= 0.72 => ("short", format!("\"That's short of what {name} is worth. Here's our number.\"")),
+            _ => ("insult", format!("\"Respectfully, that isn't a serious offer for {name}.\"")),
         };
+        answer.text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain);
     }
     if answer.verdict == Verdict::Broken {
         let cold = today.add(if kind == TalkKind::FreeAgent { 7 } else { 30 });
-        answer.text = format!("\"We're done for now. {name} will look elsewhere.\" His agent ended the talks.");
+        let f = Facts::new().with("name", name.clone());
+        let said = crate::world::folk::dialogue::agent_says(
+            w,
+            i,
+            "done",
+            &f,
+            format!("\"We're done for now. {name} will look elsewhere.\""),
+        );
+        answer.text = format!("{said} His agent ended the talks.");
         let talk = w.front_office.nfl.talk_mut(id).unwrap();
         talk.state = TalkState::Broken;
         talk.cold_until = Some(cold);
@@ -649,27 +666,32 @@ fn agent_claim(
     };
     let best = rivals.iter().max_by(|a, b| a.1.total_cmp(&b.1)).copied();
     let bluffs = super::key(w, 0xB1A0 ^ day, id) > 1.0 - (1.0 - agent.honesty) * 0.8;
-    let (text, true_claim) = match (kind, best, bluffs) {
+    let name = w.people[i].name.clone();
+    let (part, f, plain, true_claim) = match (kind, best, bluffs) {
         (TalkKind::FreeAgent, Some((o, apy)), _) => {
-            (format!("\"The {} are at about {} a year.\"", w.nfl[o].name, super::dollars(round_q(apy))), true)
+            let money = super::dollars(round_q(apy));
+            let club = w.nfl[o].name;
+            let plain = format!("\"The {club} are at about {money} a year.\"");
+            ("claim.real", Facts::new().with("club", club).with("money", money), plain, true)
         }
-        (TalkKind::FreeAgent, None, true) => (
-            format!("\"Two other clubs are above you, near {} a year.\"", super::dollars(round_q(ideal.apy * 1.05))),
-            false,
-        ),
-        (TalkKind::ReSign, _, true) => (
-            format!(
-                "\"On the open market {} gets {} a year, easily.\"",
-                w.people[i].name,
-                super::dollars(round_q(ideal.apy * 1.12))
-            ),
-            false,
-        ),
+        (TalkKind::FreeAgent, None, true) => {
+            let money = super::dollars(round_q(ideal.apy * 1.05));
+            let plain = format!("\"Two other clubs are above you, near {money} a year.\"");
+            ("claim.bluff", Facts::new().with("money", money), plain, false)
+        }
+        (TalkKind::ReSign, _, true) => {
+            let money = super::dollars(round_q(ideal.apy * 1.12));
+            let plain = format!("\"On the open market {name} gets {money} a year, easily.\"");
+            ("claim.market", Facts::new().with("name", name.clone()).with("money", money), plain, false)
+        }
         (TalkKind::ReSign, _, false) if ideal.apy > money::minimum(w.year, 4) * 3.0 => {
-            ("\"He knows what the market pays, and he'd like to stay. Meet us near our number.\"".to_string(), true)
+            let plain =
+                "\"He knows what the market pays, and he'd like to stay. Meet us near our number.\"".to_string();
+            ("claim.stay", Facts::new().with("name", name.clone()), plain, true)
         }
         _ => return (None, None),
     };
+    let text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain);
     // Your read: right more often the better you negotiate and the more
     // you know this agent (his history with your club).
     let rel = agent.rel.get(t).copied().unwrap_or(0.0);

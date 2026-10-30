@@ -38,6 +38,9 @@ pub struct SeatGame {
     /// one. None for a home game with no line (and games kept before).
     #[serde(default)]
     pub spread: Option<f32>,
+    /// The game's talks (dialogue D4-D6).
+    #[serde(default)]
+    pub talks: crate::game::talk::Record,
 }
 
 /// A drawing on a paused frame of the film: a line, an arrow, a circle or
@@ -84,12 +87,17 @@ impl World {
         teams: [usize; 2],
         stats: &GameStats,
         replay: Option<&crate::game::ReplaySetup>,
+        talks: &crate::game::talk::Record,
     ) {
         if !self.seat_plays(level, teams) {
             return;
         }
         // The day booked your game: a live game of it is over.
         self.live_booked(level, teams);
+        // Your words land on your players' trust, and your talks go in the
+        // log (dialogue D4-D6).
+        let mine = self.seat_team().map_or(0, |(_, t)| if teams[0] == t { 0 } else { 1 });
+        super::folk::gametalk::after_game(self, talks, mine);
         let names = match level {
             crate::calendar::Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
             crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
@@ -107,6 +115,7 @@ impl World {
             marks: Vec::new(),
             gone: Vec::new(),
             spread: None,
+            talks: talks.clone(),
         });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;
