@@ -85,16 +85,37 @@ fn team_box(s: &GameStats, side: usize) -> Value {
 }
 
 /// Every scoring play: what it was, the try after it and the score after.
+/// A defensive touchdown (a pick six or a fumble return) counts, and so does
+/// a two-point play that follows no score: the college and other leagues'
+/// overtime rounds from the third on are two-point plays only.
 fn scoring(s: &GameStats) -> Vec<Value> {
     let mut out = Vec::new();
+    // The tries already listed with the score they followed.
+    let mut taken = Vec::new();
     for (i, r) in s.plays.iter().enumerate() {
-        if r.nullified
-            || r.offense > 1
-            || matches!(r.kind, PlayType::ExtraPoint | PlayType::TwoPoint | PlayType::NoPlay)
-        {
+        if r.nullified || r.offense > 1 || matches!(r.kind, PlayType::ExtraPoint | PlayType::NoPlay) {
             continue;
         }
-        let what = if r.touchdown {
+        let rest = &s.plays[i + 1..];
+        if r.kind == PlayType::TwoPoint {
+            if taken.contains(&i) {
+                continue;
+            }
+            // An overtime round's try: its own entry when it scored.
+            let after = rest.iter().find(|x| x.kind != PlayType::NoPlay).map_or(s.score, |x| x.score);
+            if after == r.score {
+                continue;
+            }
+            let team = if after[0] - r.score[0] >= after[1] - r.score[1] { 0 } else { 1 };
+            out.push(json!({
+                "n": r.n, "q": r.quarter, "clock": r.clock, "team": team, "what": "two point", "kind": format!("{:?}", r.kind),
+                "yards": r.yards, "passer": r.passer, "carrier": r.carrier, "target": r.target, "kicker": r.kicker,
+                "returner": r.returner, "interceptor": r.interceptor, "defense_td": r.defense_td, "try": Value::Null,
+                "after": after,
+            }));
+            continue;
+        }
+        let what = if r.touchdown || r.defense_td {
             "touchdown"
         } else if r.kind == PlayType::FieldGoal && r.kick_good {
             "field goal"
@@ -105,12 +126,28 @@ fn scoring(s: &GameStats) -> Vec<Value> {
         } else {
             continue;
         };
-        let rest = &s.plays[i + 1..];
-        let tried =
-            rest.iter().take(3).find(|x| matches!(x.kind, PlayType::ExtraPoint | PlayType::TwoPoint) && !x.nullified);
-        let after = rest
+        // Only a touchdown has a try: the first one that stood after it,
+        // past flags (a field goal before an overtime round's two-point
+        // play keeps none).
+        let tried = rest
             .iter()
-            .find(|x| !matches!(x.kind, PlayType::ExtraPoint | PlayType::TwoPoint | PlayType::NoPlay))
+            .enumerate()
+            .take_while(|(_, x)| matches!(x.kind, PlayType::ExtraPoint | PlayType::TwoPoint | PlayType::NoPlay))
+            .find(|(_, x)| matches!(x.kind, PlayType::ExtraPoint | PlayType::TwoPoint) && !x.nullified)
+            .filter(|_| what == "touchdown");
+        let from = tried.map_or(i, |(k, _)| i + 1 + k);
+        if from > i {
+            taken.push(from);
+        }
+        let tried = tried.map(|(_, x)| x);
+        // The score at the next snap after it (and its try): a no-play and
+        // a try wiped out by a flag don't count.
+        let after = s.plays[from + 1..]
+            .iter()
+            .find(|x| {
+                x.kind != PlayType::NoPlay
+                    && !(x.nullified && matches!(x.kind, PlayType::ExtraPoint | PlayType::TwoPoint))
+            })
             .map_or(s.score, |x| x.score);
         let team = if after[0] - r.score[0] >= after[1] - r.score[1] { 0 } else { 1 };
         let tried = tried.map(|x| {
@@ -497,5 +534,45 @@ pub(crate) fn empty(v: &serde_json::Value) -> bool {
         Value::String(s) => s.is_empty(),
         Value::Array(a) => a.is_empty(),
         Value::Object(m) => m.is_empty(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn play(n: u32, offense: usize, kind: PlayType, score: [i32; 2]) -> PlayRecord {
+        let mut r = PlayRecord::new(n, 4, 100.0, offense, kind);
+        r.score = score;
+        r
+    }
+
+    /// Minor bug 133: a pick six and the overtime two-point rounds are scores.
+    #[test]
+    fn the_scoring_list_keeps_pick_sixes_and_two_point_rounds() {
+        let mut s = GameStats::default();
+        // A pick six by the away side, then its kick.
+        let mut six = play(1, 0, PlayType::Pass, [42, 35]);
+        six.turnover = true;
+        six.defense_td = true;
+        s.plays.push(six);
+        let mut kick = play(2, 1, PlayType::ExtraPoint, [42, 41]);
+        kick.kick_good = true;
+        s.plays.push(kick);
+        // Third overtime: each side tries for two from the 3; home makes it.
+        let mut home = play(3, 0, PlayType::TwoPoint, [42, 42]);
+        home.touchdown = true;
+        s.plays.push(home);
+        s.plays.push(play(4, 1, PlayType::TwoPoint, [44, 42]));
+        s.score = [44, 42];
+        let list = scoring(&s);
+        assert_eq!(list.len(), 2, "{list:?}");
+        assert_eq!(list[0]["what"], "touchdown");
+        assert_eq!(list[0]["team"], 1);
+        assert_eq!(list[0]["try"]["good"], true);
+        assert_eq!(list[0]["after"], json!([42, 42]));
+        assert_eq!(list[1]["what"], "two point");
+        assert_eq!(list[1]["team"], 0);
+        assert_eq!(list[1]["after"], json!([44, 42]));
     }
 }

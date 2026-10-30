@@ -43,6 +43,11 @@ panel("N42.honors", WP, "N42", "Retired numbers, rings of honor and statues", "t
   f"""SELECT h.year, {team('h.team__Nfl', 'h.team__College')} AS team, h.kind, h.name, h.player AS id, h.pos, h.number, h.years, CASE WHEN h.ceremony_done THEN 'held' ELSE 'to come' END AS ceremony
        FROM stories__traditions__honors h ORDER BY h.year DESC""", open="e/people/{id}")
 col("stories__traditions__honors", "team__Nfl"); col("stories__traditions__honors", "team__College")
+# A small world may have no honors or stormings yet: the book makes these columns (PR #174).
+for c_ in ["kind", "player", "name", "pos", "number", "year", "years", "ceremony_done"]:
+    col("stories__traditions__honors", c_)
+for c_ in ["date", "team", "opp", "score", "fine"]:
+    col("stories__traditions__stormings", c_)
 panel("N42.policies", WP, "N42", "NFL clubs' honors against their real policy", "table",
   "Each NFL club's honors in the world (retired numbers, ring of honor, statues) beside its real policy and real count of retired numbers (retired_numbers_policy.csv). Real: some clubs never retire numbers (Dallas, Oakland and Las Vegas), the Giants and Bears many.",
   f"""SELECT n.name AS club, n._row AS id, SUM(h.kind = 'RetiredJersey') AS "retired (world)", SUM(h.kind LIKE 'Ring%') AS "ring of honor (world)", SUM(h.kind = 'Statue') AS "statues (world)",

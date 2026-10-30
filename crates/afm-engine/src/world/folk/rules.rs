@@ -158,7 +158,7 @@ impl Response {
             Response::BenchStart => "benched for the start".into(),
             Response::BenchGame if level == Level::Nfl => "deactivated for a game".into(),
             Response::BenchGame => "sat out a game".into(),
-            Response::Suspend(n) => format!("suspended {n} games"),
+            Response::Suspend(n) => format!("suspended {n} game{}", if n == 1 { "" } else { "s" }),
             Response::Dismiss if level == Level::Nfl => "released".into(),
             Response::Dismiss => "dismissed from the team".into(),
             Response::Council => "handed to the leadership council".into(),
@@ -391,6 +391,9 @@ fn ai_week(w: &mut World, d: Date) {
         let base = rules_base(level);
         for i in roster {
             let id = w.people[i].player.id;
+            if dismissed(w, id, d) {
+                continue;
+            }
             if super::roll(w, 0xA17E ^ d.0 as u64, id as u64) as f32 >= risk(w, i, &book, room, base) {
                 continue;
             }
@@ -507,6 +510,9 @@ fn your_week(w: &mut World, d: Date) {
     }
     for i in roster {
         let id = w.people[i].player.id;
+        if dismissed(w, id, d) {
+            continue;
+        }
         let r = risk(w, i, &book, room, base);
         if super::roll(w, 0x7B1E ^ d.0 as u64, id as u64) as f32 >= r {
             continue;
@@ -886,8 +892,23 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
     s.end();
 }
 
+/// Days a dismissed college or high school player is off the team: the
+/// rest of the season, bowls and playoffs too, until his next school takes
+/// him (minor bug 116: dismissed players kept playing, and were dismissed
+/// again).
+const DISMISSED_DAYS: i32 = 200;
+
+/// Whether he is off his team for good this season (a dismissal, never the
+/// few weeks of a suspension).
+fn dismissed(w: &World, id: u32, d: Date) -> bool {
+    w.folk.ai_out.get(&id).is_some_and(|&x| d.days_to(x) > DISMISSED_DAYS / 2)
+}
+
 fn dismiss(w: &mut World, i: usize, level: Level) {
     let d = w.today;
+    if level != Level::Nfl {
+        w.folk.ai_out.insert(w.people[i].player.id, d.add(DISMISSED_DAYS));
+    }
     match level {
         Level::Nfl => {
             crate::world::pro::release(w, i, d, "released for a violation of team rules");

@@ -340,9 +340,19 @@ impl Speaker {
         let t = &p.player.personality.traits;
         let mut tags: Vec<&'static str> = vec!["player"];
         let age = p.player.age;
+        // A man out of football (retired, or away on a mission or a
+        // military term) speaks from the last level he played (minor bug 92).
+        let last = || p.player.history.last().map(|h| h.level);
         tags.push(match p.stage {
             crate::world::Stage::Pro => "nfl",
             crate::world::Stage::College | crate::world::Stage::Declared => "college",
+            crate::world::Stage::Done | crate::world::Stage::Away => match last() {
+                Some(crate::player::Level::NFL) => "nfl",
+                Some(l) if l.is_college() => "college",
+                _ if p.pro.is_some() => "nfl",
+                _ if p.college_seasons > 0 => "college",
+                _ => "hs",
+            },
             _ => "hs",
         });
         if age < 23 {
@@ -429,6 +439,8 @@ impl Speaker {
                     tags.push("walkon");
                 }
             }
+            // No class year for a man whose playing days are behind him.
+            crate::world::Stage::Done | crate::world::Stage::Away => {}
             _ => {
                 let fall = if w.today.month() >= 7 { w.today.year() } else { w.today.year() - 1 };
                 tags.push(match p.class_of - fall {

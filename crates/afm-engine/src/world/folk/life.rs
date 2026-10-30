@@ -216,6 +216,24 @@ fn chance(e: Event, age: u32, pro: bool) -> f64 {
     }
 }
 
+/// Whether his story allows the event (minor bug 116: weddings while
+/// married, a second youth camp, the same event twice at one age): a
+/// wedding only while single and a divorce only while married (his story
+/// keeps both), one youth camp of his own, and no event twice at one age.
+fn can_happen(notes: &[String], e: Event, line: &str) -> bool {
+    let wed = format!(" he {}.", Event::Wedding.words());
+    let split = format!(" he {}.", Event::Divorce.words());
+    let married =
+        notes.iter().rev().find(|n| n.ends_with(&wed) || n.ends_with(&split)).is_some_and(|n| n.ends_with(&wed));
+    let camp = format!(" he {}.", Event::Community.words());
+    match e {
+        Event::Wedding if married => false,
+        Event::Divorce if !married => false,
+        Event::Community if notes.iter().any(|n| n.ends_with(&camp)) => false,
+        _ => !notes.iter().any(|n| n == line),
+    }
+}
+
 /// Weekly: life happens to every pro, and to your own players at every level.
 fn players_week(w: &mut World, d: Date) {
     let in_season_nfl = d > w.dates.nfl_kickoff && d <= w.dates.super_bowl;
@@ -254,6 +272,10 @@ fn players_week(w: &mut World, d: Date) {
     }
     let year = w.year;
     for (i, e) in hits {
+        let line = format!("At {} he {}.", w.people[i].player.age, e.words());
+        if !can_happen(&w.people[i].notes, e, &line) {
+            continue;
+        }
         let id = w.people[i].player.id;
         let st = w.people[i].bg.stability;
         let swing = (1.0 + 0.05 * (10.0 - st) as f32).clamp(0.6, 1.5);
@@ -264,8 +286,7 @@ fn players_week(w: &mut World, d: Date) {
         } else if matches!(e, Event::Wedding | Event::Birth) {
             p.bg.stability = (p.bg.stability + 0.4).min(20.0);
         }
-        let age = p.player.age;
-        p.note(format!("At {age} he {}.", e.words()));
+        p.note(line);
         // A player who trusts you tells you (topic 6).
         let told = p.trust >= 0.55;
         w.folk.life.events.push(Happening { id, event: e, date: d, told });
