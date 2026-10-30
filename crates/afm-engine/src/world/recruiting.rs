@@ -413,7 +413,9 @@ fn credit_impact(w: &mut World, i: usize, c: usize, weight: f64, year: i32) {
     }
     let (state, hs) = (w.people[i].home_state, w.people[i].hs);
     let area = w.high_schools[hs].area;
-    record_impact(&mut w.programs[c], state, hs, area, weight, year);
+    if !super::knockout::frozen_form() {
+        record_impact(&mut w.programs[c], state, hs, area, weight, year);
+    }
     let group = super::coach::Group::of(w.people[i].player.position);
     let prog = &w.programs[c];
     let coord = if group.offense() { prog.oc } else { prog.dc };
@@ -510,7 +512,9 @@ pub(crate) fn honors(w: &mut World) {
         for (i, c, weight) in regulars {
             let (state, hs) = (w.people[i].home_state, w.people[i].hs);
             let area = w.high_schools[hs].area;
-            record_impact(&mut w.programs[c], state, hs, area, weight, year);
+            if !super::knockout::frozen_form() {
+                record_impact(&mut w.programs[c], state, hs, area, weight, year);
+            }
         }
     }
     let n_all_america = honors.iter().filter(|h| h.1 >= 1.0).count();
@@ -2672,7 +2676,8 @@ pub(crate) fn home_weight(programs: &[Program], p: &Person, year: i32) -> f64 {
     }
     let away =
         seen.iter().filter(|&&j| programs[j].state != p.home_state && programs[j].power_conference(year)).count();
-    HOME_FADE_FLOOR + (1.0 - HOME_FADE_FLOOR) * (-(away as f64) / HOME_FADE_OFFERS).exp()
+    let (floor, half) = super::knockout::home_fade().unwrap_or((HOME_FADE_FLOOR, HOME_FADE_OFFERS));
+    floor + (1.0 - floor) * (-(away as f64) / half).exp()
 }
 
 /// How much a school appeals to a recruit, from the wants of whoever decides (topic 5).
@@ -2731,7 +2736,7 @@ fn utility_fit(
     // leader of 30 years ago a program is one of the blue bloods, not a
     // bigger one, so a run of titles can't lift it clear of the rest of the
     // elite.
-    let brand = prog.prestige_rel.min(NAME_TIE);
+    let brand = super::knockout::brand_read(prog.prestige_rel).min(NAME_TIE);
     let lv = recruit_level(prog, year);
     let mut u = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
@@ -2936,7 +2941,8 @@ impl RosterView {
             .iter()
             .map(|&(q, wt)| wt * clamp((self.unit[j][q.index()] - self.norm[d][q.index()]) / 4.0, -1.0, 1.0))
             .sum();
-        (0.06 + 0.2 * wants.playing_time) * early * room + (0.04 + 0.15 * wants.development) * cast
+        (0.06 + 0.2 * wants.playing_time) * early * room * super::knockout::room_scale(pos)
+            + (0.04 + 0.15 * wants.development) * cast
     }
 }
 
@@ -3406,7 +3412,9 @@ pub(crate) fn official_visit_allowed(season: i32, d: Date, class_of: i32, junior
 /// evaluation weeks, most of all for their own commitments. Proposed, not
 /// confirmed: a weekend official visit chance of 12% for a recruit with
 /// offers left to see, 25% for a nearby home game, 20% a week for a drop-in
-/// (40% for a commitment).
+/// (40% for a commitment). Head coaches' home visits in the winter contact
+/// periods (lane 14): 8% a day for a commitment, 1.5% for a near three-star
+/// or better holding an offer, also proposed, not confirmed.
 pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     use super::Visit;
     use crate::calendar::Weekday;
@@ -3420,7 +3428,11 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     // Junior days (part B 34): Saturdays in February and March, juniors
     // visit the schools that offered them early.
     let junior_day = wd == Weekday::Sat && d >= y.junior_days.0 && d <= y.junior_days.1;
-    if !(official_day || game_day || drop_day || junior_day) {
+    // Head coaches sit in seniors' living rooms in the winter contact
+    // periods (lane 14, D7): their commits and the near prospects they
+    // offered, one visit a school.
+    let home_day = period == crate::calendar::Period::Contact && wd != Weekday::Sun && matches!(d.month(), 11 | 12 | 1);
+    if !(official_day || game_day || drop_day || junior_day || home_day) {
         return;
     }
     let season = y.season;
@@ -3442,6 +3454,7 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     let vj = fo::college::visits_program(w);
     let planned = fo::college::planned_officials(w);
     let mut posts = Vec::new();
+    let mut homes = Vec::new();
     let (mut off, mut unoff, mut drops) = (0u32, 0u32, 0u32);
     let n = w.people.len();
     for i in 0..n {
@@ -3512,6 +3525,26 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
                 }
             }
         }
+        if home_day && p.class_of == sign_year {
+            for &j in p.cal.offers.iter().filter(|&&j| Some(j) != vj) {
+                if p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Home) {
+                    continue;
+                }
+                let committed = p.cal.commit.is_some_and(|c| c.0 == j);
+                let near = geo::miles(p.home_state, w.programs[j].state) <= 400.0;
+                let chance = if committed {
+                    0.08
+                } else if near && p.stars >= 3 {
+                    0.015
+                } else {
+                    0.0
+                };
+                if chance > 0.0 && key_uniform(seed ^ 5 ^ (j as u64) << 8, id) < chance {
+                    new.push((j, Visit::Home));
+                    homes.push((i, j));
+                }
+            }
+        }
         if new.is_empty() {
             continue;
         }
@@ -3540,6 +3573,9 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     w.log.official_visits += off;
     w.log.unofficial_visits += unoff;
     w.log.drop_ins += drops;
+    for (i, j) in homes {
+        super::folk::dialogue::ai_home_visit(w, i, j, d);
+    }
     for (j, text, id, name) in posts {
         w.calendar.post(
             Event::new(d, CalLevel::Recruiting, Kind::Visit, Loudness::Small, text)
@@ -4694,7 +4730,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         }
         // Talent beats need (fix list 1.3).
         if let Some(bar) = open_bar {
-            let margin = film_sd * (1.0 - 0.75 * programs[j].prestige_rel);
+            let margin = film_sd * (1.0 - 0.75 * super::knockout::rel_read(programs[j].prestige_rel));
             for pos in Position::ALL.into_iter().filter(|p| !p.is_specialist()) {
                 let i = pos.index();
                 let Some(e) = head(i) else { continue };
@@ -4890,13 +4926,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         };
                         let rel = known
                             * (0.025 * hc_time
-                                + 0.006 * (hc_skill - 10.0) * hc_time
-                                + 0.003 * (pc_skill - 10.0) * pc_time)
+                                + 0.006 * super::knockout::coach_bond() * (hc_skill - 10.0) * hc_time
+                                + 0.003 * super::knockout::coach_bond() * (pc_skill - 10.0) * pc_time)
                             + 0.03 * tie
                             + babysat
                             + early_offer
                             + if hs_coach_at.get(&p.hs).is_some_and(|v| v.contains(&j)) { 0.05 } else { 0.0 }
                             + 0.004 * contact
+                            + super::folk::dialogue::home_talk(p, j)
                             + chemistry(j, k) * if visited { 1.0 } else { 0.5 };
                         (j, rel)
                     })
@@ -6906,6 +6943,8 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     let contact = p.cal.visits.iter().filter(|v| v.0 == j).count().min(5) as f64;
     let official = p.cal.visits.iter().any(|v| v.0 == j && v.2 == super::Visit::Official);
     u += 0.004 * contact + if official { 0.02 } else { 0.0 };
+    // What the head coach said in the living room (lane 14, D7).
+    u += super::folk::dialogue::home_talk(p, j);
     if let Some(k) = p.cal.early_offers.iter().position(|o| o.0 == j) {
         u += if k == 0 { 0.02 } else { 0.01 };
     }
@@ -6967,6 +7006,116 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
     ];
     let rest = appeal(w, i, j, Some(nil)) - six.iter().map(|x| x.0).sum::<f64>();
     [six[0], six[1], six[2], six[3], six[4], six[5], (rest, clamp(0.5 + rest / 0.4, 0.0, 1.0))]
+}
+
+/// Trial tooling (dynasty thread, 2026-10-28): what a school means to a
+/// recruit, term by term as [`utility_fit`] adds them, read like [`appeal`]
+/// (0.6 down a board, the collective's usual offer) with his own feel and
+/// without the process (visits, offers, a commitment, the staff's bond, his
+/// room): level, brand, 5-star pull, the prestige grades, facilities,
+/// development, money, playing time, close to home, home ties (staying in
+/// his state, the team he grew up with, a brother, his school's pipeline),
+/// academics, the rest (stories, pro day, a showcase system, leagues
+/// without scholarships), feel; entry 14 is `utility` itself, which the
+/// first twelve add up to; then home ties split (pipeline, staying in his
+/// state, the team he grew up with, a brother); then the money: the usual
+/// offer, the same without the position's market top, and that top.
+#[cfg(feature = "debug")]
+pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 21] {
+    let p = &w.people[i];
+    let prog = &w.programs[j];
+    let year = w.year;
+    let nil_offer = usual_nil_offer(w, j, i);
+    let wants = p.family.decider_wants;
+    let fits = super::systems::fits(&p.player, p.player.position, &w.system_norms);
+    let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
+    let close = closeness(geo::miles(p.home_state, prog.state));
+    let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
+    let close_w = wants.close_to_home + if crisis { 0.15 } else { 0.0 };
+    let prestige = (g(GradeCat::TitleChances)
+        + g(GradeCat::StadiumAtmosphere)
+        + g(GradeCat::Tradition)
+        + g(GradeCat::BrandExposure))
+        / 4.0;
+    let money = (nil_offer.max(0.0) / 1.0e6).powf(0.6);
+    let need = clamp(0.25 + 0.75 * (1.0 - p.bg.money) + if crisis { 0.2 } else { 0.0 }, 0.1, 1.2);
+    let drive = clamp((p.family.ambition - 10.0) / 10.0, -1.0, 1.0);
+    let money_w = wants.money * need * (1.0 - 0.35 * drive);
+    let path_w = 0.35 * drive.max(0.0) * wants.money;
+    let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * 0.6);
+    let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
+    let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
+    let brand = super::knockout::brand_read(prog.prestige_rel).min(NAME_TIE);
+    let lv = recruit_level(prog, year);
+    let mut rest = match prog.conference.as_str() {
+        "PFL" => -0.8 * (1.0 - 0.6 * p.bg.money),
+        "Ivy" => -0.4,
+        _ => 0.0,
+    };
+    rest += prog.story_push as f64;
+    rest += prog.pro_day as f64 * (0.6 + wants.development + path_w);
+    rest += SHOWCASE * super::systems::showcase(&fits, p.player.position, &prog.installed);
+    let mut split = [0.0; 4];
+    if let Some(&(v, _)) = prog.hs_pipeline.get(&p.hs) {
+        split[0] = 0.12 * v;
+    }
+    let local = home_weight(&w.programs, p, year);
+    if prog.state == p.home_state {
+        split[1] = local * p.stay_home;
+    }
+    if p.childhood_team == Some(prog.id) {
+        split[2] = local * CHILDHOOD_LEAN;
+    }
+    if p.family.older_brother_at == Some(prog.id) {
+        split[3] = if p.family.follows_brother { 0.15 } else { -0.05 };
+    }
+    let home: f64 = split.iter().sum();
+    let five = if p.stars == 5 { FIVE_STAR_PULL * brand.powi(3) * lv } else { 0.0 };
+    let seed = w.options.seed as u64 ^ (p.class_of as u64) << 20;
+    let feel = FEEL_SD * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
+    [
+        1.6 * lv * (0.5 + wants.prestige + wants.development),
+        (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv),
+        five,
+        wants.prestige * prestige,
+        0.1 * g(GradeCat::Facilities),
+        (wants.development + path_w) * development,
+        money_w * money * 1.5,
+        (wants.playing_time + path_w) * playing,
+        local * close_w * close,
+        home,
+        wants.academics * academics,
+        rest,
+        feel,
+        utility_fit(&fits, p, &wants, prog, year, nil_offer, 0.6, local),
+        split[0],
+        split[1],
+        split[2],
+        split[3],
+        nil_offer,
+        usual_nil_uncapped(w, j, i),
+        super::ncaa::position_nil_max(p.player.position),
+    ]
+}
+
+/// [`usual_nil_offer`] without the position's market top (trial tooling).
+#[cfg(feature = "debug")]
+fn usual_nil_uncapped(w: &World, j: usize, i: usize) -> f64 {
+    let prog = &w.programs[j];
+    let p = &w.people[i];
+    if prog.collective.budget <= 0.0 {
+        return 0.0;
+    }
+    let talent = match recruiting_stars(p) {
+        5 => 2.5,
+        4 => 1.0,
+        3 => 0.3,
+        2 => 0.08,
+        _ => 0.03,
+    };
+    let q = super::legacy::college::split_q(w, j, 2);
+    let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
+    (position_nil(p.player.position) * talent * pay).min(prog.collective.budget * 0.6 * 0.25 * q)
 }
 
 /// How much each of the six reasons counts with whoever decides for him,

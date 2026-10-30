@@ -1,0 +1,81 @@
+//! Test switches for the dynasty knockout worlds (thread "Stop college
+//! dynasties for good", 2026-10-28). `AFM_KO` names one suspect to turn
+//! up or off: `coach4`, `frozen`, `flatdev`, `brand85`, `local50`, `rel85`,
+//! `bend75`, `qbroom` or `fadeFFxO` (the home fade's floor in hundredths and offers, minor bug 89);
+//! `+` joins several (`brand85+local50`). Unset, nothing changes.
+//! Trial tooling only, never merged.
+
+use std::sync::OnceLock;
+
+fn which() -> &'static str {
+    static KO: OnceLock<String> = OnceLock::new();
+    KO.get_or_init(|| {
+        let ko = std::env::var("AFM_KO").unwrap_or_default();
+        if !ko.is_empty() {
+            eprintln!("dynasty test switch on: AFM_KO={ko}");
+        }
+        ko
+    })
+}
+
+fn has(part: &str) -> bool {
+    which().split('+').any(|x| x == part)
+}
+
+/// The coach's and the position coach's recruiting count 4 times as much in a recruit's bond.
+pub(crate) fn coach_bond() -> f64 {
+    if has("coach4") { 4.0 } else { 1.0 }
+}
+
+/// Wins stop feeding a program's recent prestige, tradition, boosters and pipelines.
+pub(crate) fn frozen_form() -> bool {
+    has("frozen")
+}
+
+/// The highest brand a recruit reads: every program from 0.85 of the old
+/// leader's size up reads the same name, and its 5-star pull with it.
+pub(crate) fn brand_cap() -> f64 {
+    if has("brand85") || has("rel85") { 0.85 } else { 1.0 }
+}
+
+/// The brand a recruit reads (item 8's test): under `bend75`, above 0.75 of
+/// the old leader's size the name grows at a quarter of the rate (0.85
+/// reads 0.775, 1.0 reads 0.81), and the 5-star pull with it.
+pub(crate) fn brand_read(rel: f64) -> f64 {
+    let r = rel.min(brand_cap());
+    if has("bend75") && r > 0.75 { 0.75 + 0.25 * (r - 0.75) } else { r }
+}
+
+/// Every FBS player grows under the same coaching number.
+pub(crate) fn flat_development() -> bool {
+    has("flatdev")
+}
+
+/// How much a 4- or 5-star weighs being close to home, his own stay-home
+/// lean and the team he grew up with: half under `local50`, so blue chips
+/// leave home about as often as real ones (real 41% sign in their home state).
+pub(crate) fn local_scale(stars: u8) -> f64 {
+    if stars >= 4 && has("local50") { 0.5 } else { 1.0 }
+}
+
+/// The prestige the other recruiting reads see (how far a staff's eyes
+/// reach, the talent-over-need margin): capped at 0.85 under `rel85`, which
+/// also caps the brand.
+pub(crate) fn rel_read(rel: f64) -> f64 {
+    if has("rel85") { rel.min(0.85) } else { rel }
+}
+
+/// How much a quarterback weighs the room at his position (who'd be ahead
+/// of him): 3 times as much under `qbroom`. Real blue-chip QBs steer clear
+/// of rooms with young blue-chip QBs; the world's pile in.
+pub(crate) fn room_scale(pos: crate::positions::Position) -> f64 {
+    if pos == crate::positions::Position::QB && has("qbroom") { 3.0 } else { 1.0 }
+}
+
+/// The home fade's floor and offers (minor bug 89's calibration):
+/// `fade40x5` is a floor of 0.40 and 5 offers.
+pub(crate) fn home_fade() -> Option<(f64, f64)> {
+    let part = which().split('+').find_map(|x| x.strip_prefix("fade"))?;
+    let (f, o) = part.split_once('x')?;
+    Some((f.parse::<f64>().ok()? / 100.0, o.parse().ok()?))
+}

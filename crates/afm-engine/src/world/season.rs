@@ -488,12 +488,13 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                     (h, c) => h.or(c),
                 };
                 scheme = Some((prog.installed.offense(), prog.installed.front()));
+                let flat = prog.division == Division::FBS && super::knockout::flat_development();
                 (
                     division_level(prog.division),
                     // C57: position coach 0.4, coordinator 0.25, head coach
                     // 0.2, facilities 0.15.
-                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
-                    (prog.facilities - 0.5) * 0.15,
+                    if flat { 13.0 } else { 0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities) },
+                    if flat { 0.0 } else { (prog.facilities - 0.5) * 0.15 },
                     crate::career::PIPELINE.college_trouble.chance,
                 )
             }
@@ -973,8 +974,22 @@ pub(crate) fn your_calls(w: &World, who: Option<usize>, base: f64, adaptation: f
 /// A college team for the match engine: its players and its staff's calling.
 /// The systems are the ones the staff installed this spring (S3); a new
 /// playbook is known only as far as it shares the old one (S5).
+/// How a player comes into a game (dialogue D4): his mood, and how much
+/// he believes his head coach: your players their trust in you, everyone
+/// else by his coach's way with people (proposed, not confirmed).
+pub(crate) fn game_mind(p: &super::Person, seat: bool, relationships: f64) -> (f32, f32) {
+    let belief = if seat { p.trust } else { (0.5 + 0.015 * (relationships as f32 - 10.0)).clamp(0.25, 0.75) };
+    (p.mood, belief)
+}
+
+/// The head coach's way with people, for `game_mind`.
+pub(crate) fn coach_relationships(w: &World, c: Option<usize>) -> f64 {
+    c.map_or(10.0, |c| w.coaches[c].ability().relationships)
+}
+
 pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
     let inst = prog.installed;
+    let (seat, rel) = (w.seat_program(prog.id), coach_relationships(w, prog.head_coach));
     // What the playbook leans on (plays and tactics topic 4): families the
     // team runs a lot get the reps, the rest are known less well. Its own
     // tape says which; with none yet every family counts the same.
@@ -997,6 +1012,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             let side = if super::systems::offense(p.player.position) { inst.off_known } else { inst.def_known };
             let know = clamp(0.78 + 0.05 * seasons, 0.0, 0.95) * (0.8 + 0.2 * side);
             let mut g = GamePlayer::from_player(&p.player, know, experience);
+            (g.mood, g.belief) = game_mind(p, seat, rel);
             // Per family: reps by how much the playbook uses it, and the
             // understanding a sharp player builds faster (topic 4.2, 4.4;
             // proposed, not confirmed).
@@ -1072,6 +1088,8 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             install,
             style: prog.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
+            motivation: hc.map_or(10.0, |a| a.motivation),
+            temper: prog.head_coach.map_or(10.0, |c| w.coaches[c].personality.temper),
         },
     );
     // The head coach's guidelines (update 2, G2).

@@ -529,5 +529,38 @@
     if (!queued) { queued = true; requestAnimationFrame(scan); }
   }).observe(document.getElementById("app"), { childList: true, subtree: true });
 
-  window.AFMFaces = { refresh, silhouette, dot };
+  // A head drawn live for a talk (dialogue D1): his face for a tell, kept for
+  // the session, never stored. Null when heads are off or can't be drawn. It
+  // takes its turn like any head: after a quiet moment, never beside another.
+  const live = new Map();
+  const turn = () => new Promise((go) => {
+    const t = () => (running || apiBusy > 0 || performance.now() - lastInput < QUIET ? setTimeout(t, 120) : go());
+    t();
+  });
+  function liveHead(key, spec) {
+    if (broken || !spec) return Promise.resolve(null);
+    if (!live.has(key)) {
+      live.set(key, heads()
+        .then(async (H) => {
+          if (spec.logo && !spec.logo.img && typeof logoImageById === "function") spec.logo.img = await logoImageById(spec.logo.id);
+          await turn();
+          running = true;
+          try {
+            return await H.draw(spec);
+          } finally {
+            running = false;
+            pump();
+          }
+        })
+        .then((r) => r.url)
+        .catch((e) => {
+          broken = true;
+          console.warn("drawn heads off for this session:", e);
+          return null;
+        }));
+    }
+    return live.get(key);
+  }
+
+  window.AFMFaces = { refresh, silhouette, dot, liveHead };
 })();

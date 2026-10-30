@@ -5,7 +5,8 @@ name: Build a world
 # three hours. Needs the WORLDS_TOKEN secret: a token that may write to
 # cnbville/afm-worlds. Every world gets a star mix check (`star_mix`: squad
 # and signing stars by group, newcomers and leavers, the dynasty check) in
-# the run's summary. With publish set to no it is a check world only, and
+# the run's summary, and a dynasty check (`dynasty_why`: does the strongest
+# team win, the leader's edge, its talent and its coach). With publish set to no it is a check world only, and
 # with check set to a worlds page release it checks that world instead of
 # building one; quick builds a stand-in world (`star_mix build`, about an
 # hour for 8 years) for the check alone (lane 10 follow-up; Cain
@@ -28,6 +29,15 @@ on:
       quick:
         description: "A quick stand-in world for the star mix check only (yes or no)"
         default: "no"
+      keep:
+        description: "Keep the built world as a run artifact for 3 days (yes or no)"
+        default: "no"
+      knockout:
+        description: "A dynasty test switch (AFM_KO: coach4, frozen, flatdev, brand85, local50, rel85, bend75, qbroom or fadeFFxO; + joins several); empty for none, never published"
+        default: ""
+      check_run:
+        description: "A run whose kept world to check instead of building one (its run id)"
+        default: ""
 jobs:
   world:
     runs-on: ubuntu-latest
@@ -37,10 +47,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build the world
-        if: inputs.check == '' && inputs.quick != 'yes'
+        if: inputs.check == '' && inputs.check_run == '' && inputs.quick != 'yes'
         env:
           AFM_COMMIT: ${{ github.sha }}
+          AFM_KO: ${{ inputs.knockout }}
+          # Test worlds skip the log and the book (the book step lost its
+          # runner on two 30-year worlds with their logs, 2026-10-30).
+          AFM_WORLD_LOG: ${{ inputs.knockout != '' && 'off' || 'on' }}
         run: |
+          if [ -n "$AFM_KO" ] && [ "${{ inputs.publish }}" = yes ]; then echo "A knockout world is never published"; exit 1; fi
           # The world log beside the world runs to tens of GB, so both go on
           # the runner's big temporary disk when it has one.
           if sudo mkdir -p /mnt/afm-out && sudo chown "$(id -u)" /mnt/afm-out; then ln -sfn /mnt/afm-out out; else mkdir -p out; fi
@@ -61,7 +76,7 @@ jobs:
       # map, from the world file and the log beside it. Its overview goes in
       # the run's summary. A book that fails never stops a world.
       - name: Build the book
-        if: inputs.quick != 'yes'
+        if: inputs.quick != 'yes' && inputs.knockout == ''
         continue-on-error: true
         env:
           AFM_COMMIT: ${{ github.sha }}
@@ -73,6 +88,13 @@ jobs:
           { echo '```'; target/release/afm_read "$b" overview limit=20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           zstd -T0 -9 --rm "$b" -o "$b.zst"
           ls -la out/
+      - name: Download a kept world to check
+        if: inputs.check_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ inputs.check_run }}" --repo "${{ github.repository }}" -n world -D out
+          ls -la out
       # A check that fails never stops a world from being published.
       - name: Star mix check
         continue-on-error: true
@@ -83,15 +105,33 @@ jobs:
             cargo run --release --bin star_mix -- out/*.afmworld | tee star_mix.txt
           fi
           { echo '```'; cat star_mix.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Dynasty check
+        if: inputs.quick != 'yes'
+        continue-on-error: true
+        env:
+          AFM_KO: ${{ inputs.knockout }}
+        run: |
+          cargo run --release --bin dynasty_why -- out/*.afmworld | tee dynasty_why.txt
+          { echo '```'; cat dynasty_why.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
           name: star-mix
-          path: star_mix.txt
+          path: |
+            star_mix.txt
+            dynasty_why.txt
+      - uses: actions/upload-artifact@v4
+        if: inputs.keep == 'yes' && inputs.check == '' && inputs.quick != 'yes'
+        continue-on-error: true
+        with:
+          name: world
+          path: out/*.afmworld
+          retention-days: 3
+          compression-level: 0
       # A release file may be at most 2 GB, so a bigger world goes up in parts
       # (name.afmworld.001, .002, ...), which the game joins.
       - name: Publish it on the worlds page
-        if: inputs.publish != 'no' && inputs.check == '' && inputs.quick != 'yes'
+        if: inputs.publish != 'no' && inputs.check == '' && inputs.check_run == '' && inputs.quick != 'yes'
         env:
           GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
         run: |

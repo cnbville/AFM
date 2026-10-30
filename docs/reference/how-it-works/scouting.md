@@ -1,9 +1,10 @@
 # Scouting: how it works today
 
-Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7 and 9 on 2026-10-29, and the hunt (next update lane 11) on 2026-10-30.
+Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7 and 9 on 2026-10-29, and the hunt (next update lane 11) on 2026-10-30, and timed interview talks and college calls with the next update's lane 14 the same day.
 
 ## Quick answers
 
+- Can I hold a combine interview as a talk? Yes: "Sit down with him" runs any open interview room as a timed talk, topic by topic against the clock, with follow-ups; the minutes go to the same read as the form. College staffs also call you, the high school coach, about your players, and what you tell them moves your credibility with each staff a year later (`world/folk/dialogue.rs`, `start_combine_talk`, `college_calls`, `settle_calls`). See [people.md](people.md), "Talks on game day and off it".
 - How much does the head coach's eye count in AI college recruiting? 40% of the staff eye that sets the misread width; the position coach's is 60%. Width = clamp(3.5 - 0.15 × (0.6 × position coach + 0.4 × head coach - 10), 1, 6) rating points. The lasting lean comes from the position coach (`world/recruiting.rs`, `run_signing_stage`, the `noise_sd` and `read` lines).
 - And in your own college scouting file? The head coach is one reader among the people who looked. His weight in the centre is say 1.0, the same as a position coach (1.5 if the head coach is you). He looks at a recruit on visits, and on evaluation days and at camps only when the player's group has no position coach (`world/scouting/readers.rs`, `coach_reader`; `world/scouting/dept.rs`, `college_day`, `evaluator_for`).
 - What is a coach's "eye"? `evaluation()` = 10 + 0.3 × (recruiting - 10) + 0.3 × (mean teaching - 10) + 3 × a fixed personal draw, clamped 1-20. Your own coach uses his set value (`world/coach.rs`, `Coach::evaluation`).

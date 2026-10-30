@@ -122,6 +122,10 @@ pub struct GameResult {
     /// play number, team, what happened).
     #[serde(default)]
     pub log: Vec<(u32, usize, String)>,
+    /// The talks (dialogue D4-D6): each side's pregame and halftime talk and
+    /// every sideline word.
+    #[serde(default)]
+    pub talks: super::talk::Record,
 }
 
 struct Side<'a> {
@@ -176,6 +180,13 @@ struct Side<'a> {
     /// rotation is a defense's).
     scrimmage: bool,
     defending: bool,
+    /// What the talks do to each player on the field (dialogue D4-D6),
+    /// fading snap by snap.
+    pulse: Vec<super::talk::Pulse>,
+    /// Small mistakes today (drops, missed tackles, small fouls, busts),
+    /// and the words each player has had.
+    small: Vec<u8>,
+    worded: Vec<u8>,
 }
 
 impl<'a> Side<'a> {
@@ -246,6 +257,9 @@ impl<'a> Side<'a> {
                 .collect(),
             scrimmage: false,
             defending: false,
+            pulse: vec![super::talk::Pulse::default(); n],
+            small: vec![0; n],
+            worded: vec![0; n],
             limit: team
                 .players
                 .iter()
@@ -739,6 +753,11 @@ struct Game<'a> {
     /// A fake punt's two units on the field and the look (G18): the next
     /// scrimmage snap is played with them.
     fake: Option<FakeUnits>,
+    /// Players waiting for a sideline word (dialogue D6), the plays read
+    /// for mistakes so far, and this drive's offensive fouls (team, id).
+    due: Vec<super::talk::WordDue>,
+    scanned: usize,
+    drive_fouls: Vec<(usize, u32)>,
 }
 
 /// Play a game.
@@ -916,6 +935,9 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         def_script: false,
         kick_look: false,
         fake: None,
+        due: Vec::new(),
+        scanned: 0,
+        drive_fouls: Vec::new(),
     };
     if let Some(c) = g.ctl.as_mut() {
         c.asked = 0;
@@ -929,6 +951,12 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             g.apply_plan(team, plan);
         }
         g.tempo = tempo;
+    }
+    // The pregame talks (dialogue D4): yours, or each head coach's own.
+    let mine = g.ctl.as_ref().and_then(|c| c.prep.talk.map(|p| (c.team, p)));
+    for k in 0..2 {
+        let pick = mine.filter(|m| m.0 == k).map(|m| m.1);
+        g.room_talk(k, super::talk::Moment::Pregame, pick);
     }
     g.eye = live::draw_eye(&mut g.refs);
     g.challenges = [g.replay.challenges; 2];
@@ -1460,14 +1488,40 @@ impl<'a> Game<'a> {
         }
         match self.quarter {
             2 => {
-                // Halftime (topic 9): one stop with no clock.
-                if let Some(Input::Halftime(pc)) = self.ask(Ask::Halftime, false) {
-                    self.apply_plan(self.ctl_team(), pc);
+                // Halftime (topic 9): one stop with no clock. Your talk
+                // (dialogue D5) comes first and the stop asks again.
+                let mut again = false;
+                let mut talked: Option<super::talk::Pick> = None;
+                loop {
+                    match self.ask(Ask::Halftime, again) {
+                        Some(Input::Talk(pick)) if talked.is_none() => {
+                            let k = self.ctl_team();
+                            let margin = self.diff(k);
+                            self.room_talk(k, super::talk::Moment::Halftime { margin }, Some(pick));
+                            talked = Some(pick);
+                        }
+                        Some(Input::Halftime(pc)) => {
+                            self.apply_plan(self.ctl_team(), pc);
+                            break;
+                        }
+                        Some(Input::Talk(_)) => {}
+                        _ => break,
+                    }
+                    again = true;
                 }
                 if self.probe == Some(Ask::Halftime) {
-                    let p = self.pending(Ask::Halftime);
+                    let mut p = self.pending(Ask::Halftime);
+                    p.talked = talked;
                     self.hold(p);
                     return;
+                }
+                // Every head coach who hasn't talked does now.
+                for k in 0..2 {
+                    if talked.is_some() && k == self.ctl_team() {
+                        continue;
+                    }
+                    let margin = self.diff(k);
+                    self.room_talk(k, super::talk::Moment::Halftime { margin }, None);
                 }
                 self.quarter = 3;
                 self.clock = self.rules().quarter;
@@ -2171,6 +2225,9 @@ impl<'a> Game<'a> {
 
     fn scrimmage(&mut self) {
         self.review();
+        // The plays since the last snap, read for mistakes that call for a
+        // word on the sideline (dialogue D6).
+        self.scan_mistakes();
         // The fourth-down play in place of an onside kick (X7) is this snap only.
         let must_go = std::mem::take(&mut self.must_go);
         self.mark = (false, false, false, String::new());
@@ -2183,6 +2240,7 @@ impl<'a> Game<'a> {
                 match self.ask(Ask::Snap, again) {
                     Some(Input::Timeout) => self.user_timeout(self.poss),
                     Some(Input::Plan(pc)) => self.apply_plan(self.poss, pc),
+                    Some(Input::Word { id, pick }) => self.your_word(self.poss, id, pick),
                     Some(Input::Tempo(t)) => {
                         self.tempo = t;
                         let name = match t {
@@ -3012,8 +3070,9 @@ impl<'a> Game<'a> {
             // (1.28 a game against 1.06, cfbfastR 2023-24). Concentration
             // joins discipline, and decides how much the noise gets to him
             // (proposed, not confirmed).
-            let conc = p.trait20(Attr::Concentration, level);
-            let focus = 0.6 * p.trait20(Attr::Discipline, level) + 0.4 * conc;
+            let talk = self.sides[o].pulse[i].focus;
+            let conc = (p.trait20(Attr::Concentration, level) + talk).clamp(1.0, 20.0);
+            let focus = 0.6 * (p.trait20(Attr::Discipline, level) + talk).clamp(1.0, 20.0) + 0.4 * conc;
             let chance = 0.00162
                 * (1.6 - focus / 15.0).max(0.3)
                 * (1.0 + 0.32 * crowd * clamp(1.5 - 0.05 * conc, 0.5, 1.5))
@@ -3066,12 +3125,9 @@ impl<'a> Game<'a> {
             // (0.0019 before tendencies: guessers are the less disciplined
             // men and a hard count now targets them, so 0.00172 keeps the
             // league's offside where it was.)
-            let chance = 0.00172
-                * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3)
-                * jump
-                * hard
-                * guess
-                * def_crew;
+            let disc =
+                (p.trait20(Attr::Discipline, self.s.rules.level) + self.sides[1 - o].pulse[i].focus).clamp(1.0, 20.0);
+            let chance = 0.00172 * (1.6 - disc / 15.0).max(0.3) * jump * hard * guess * def_crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
             }
@@ -3214,6 +3270,7 @@ impl<'a> Game<'a> {
                 match self.ask(Ask::Defense, again) {
                     Some(Input::Timeout) => self.user_timeout(1 - o),
                     Some(Input::Plan(pc)) => self.apply_plan(1 - o, pc),
+                    Some(Input::Word { id, pick }) => self.your_word(1 - o, id, pick),
                     Some(Input::Tempo(_)) => {}
                     other => {
                         dinput = other;
@@ -3448,8 +3505,14 @@ impl<'a> Game<'a> {
             |id: u32| labels.iter().find(|l| l.0 == id).map(|l| format!("{} #{}", l.1, id)).unwrap_or(format!("#{id}"));
         // A man playing hurt loses what his injury limits (update 3, F7:
         // `sim::hampered`, read in `run_snap`), not a flat cut.
-        let mut hurt_edge_o: Vec<f64> = self.sides[o].edge.clone();
-        let mut hurt_edge_d: Vec<f64> = self.sides[d].edge.clone();
+        // The words the staff gives before this snap (yours were given at
+        // the call), then the talks' lift rides on the momentum edge
+        // (dialogue D4-D6).
+        self.settle_words();
+        let mut hurt_edge_o: Vec<f64> =
+            self.sides[o].edge.iter().zip(&self.sides[o].pulse).map(|(e, p)| e + p.lift).collect();
+        let mut hurt_edge_d: Vec<f64> =
+            self.sides[d].edge.iter().zip(&self.sides[d].pulse).map(|(e, p)| e + p.lift).collect();
         // A man at a spot he doesn't know plays below his rating there (3.3);
         // the punt units' jobs are their own.
         if fake.is_none() {
@@ -3519,6 +3582,7 @@ impl<'a> Game<'a> {
             defense: &def,
             energy: [&self.sides[o].energy, &self.sides[d].energy],
             edge: [&hurt_edge_o, &hurt_edge_d],
+            pulse: [&self.sides[o].pulse, &self.sides[d].pulse],
             hurt: [&self.sides[o].hurt, &self.sides[d].hurt],
             trust: [&self.sides[o].trust, &self.sides[d].trust],
             call,
@@ -3646,7 +3710,8 @@ impl<'a> Game<'a> {
     fn edge_hit(&mut self, team: usize, id: u32, amount: f64) {
         // Momentum (topic 4.1): small, and composure decides how much it bites.
         if let Some(i) = self.sides[team].team.players.iter().position(|p| p.id == id) {
-            let c = self.sides[team].team.players[i].composure(self.s.rules.level);
+            let c = (self.sides[team].team.players[i].composure(self.s.rules.level) + self.sides[team].pulse[i].poise)
+                .clamp(1.0, 20.0);
             let delta = if amount < 0.0 { amount * 1.5 * (1.25 - c / 20.0) } else { amount * 0.8 };
             let e = &mut self.sides[team].edge[i];
             *e = clamp(*e + delta, -3.0, 2.0);
@@ -3657,9 +3722,12 @@ impl<'a> Game<'a> {
         let level = self.s.rules.level;
         for s in self.sides.iter_mut() {
             for (i, e) in s.edge.iter_mut().enumerate() {
-                let c = s.team.players[i].composure(level);
+                let c = (s.team.players[i].composure(level) + s.pulse[i].poise).clamp(1.0, 20.0);
                 let k = if *e < 0.0 { (0.8 - 0.03 * c).max(0.2) } else { 0.7 };
                 *e *= k;
+            }
+            for p in s.pulse.iter_mut() {
+                p.fade();
             }
         }
     }
@@ -4516,6 +4584,7 @@ impl<'a> Game<'a> {
             quarter: self.quarter,
             goal_to_go: yl <= 10.0 && self.togo >= yl - 0.01,
             trailing: self.ctl_team() < 2 && self.diff(self.ctl_team()) < 0,
+            word: self.ctl_team() < 2 && self.words_ready(self.ctl_team()).next().is_some(),
         }
     }
 
@@ -4606,7 +4675,19 @@ impl<'a> Game<'a> {
             ruling: None,
             fourth_wp: None,
             fg_make: None,
+            words: Vec::new(),
+            talked: None,
         };
+        let k = self.ctl_team();
+        if k < 2 && matches!(ask, Ask::Snap | Ask::Defense) {
+            let ready: Vec<super::talk::WordDue> = self.words_ready(k).copied().collect();
+            for w in ready {
+                if let Some(i) = self.sides[k].team.players.iter().position(|p| p.id == w.id) {
+                    let staff = self.staff_word(k, i, w.mistake, w.play);
+                    p.words.push(live::WordOffer { id: w.id, mistake: w.mistake, play: w.play, staff });
+                }
+            }
+        }
         let o = self.poss;
         if ask == Ask::Snap {
             let yl = goal() - self.x;
@@ -5401,6 +5482,9 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         def_script: false,
         kick_look: false,
         fake: None,
+        due: Vec::new(),
+        scanned: 0,
+        drive_fouls: Vec::new(),
     };
     g.stats.quarters.push([0, 0]);
     g
@@ -5556,4 +5640,233 @@ pub fn fg_make(p: &GamePlayer, dist: f64) -> f64 {
 /// A quarterback's running threat (0 to 1) from his speed and elusiveness.
 pub fn qb_run(p: &GamePlayer) -> f64 {
     clamp((0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - 68.0) / 20.0, 0.0, 1.0)
+}
+
+// ------------------------------------------------------------ talks
+
+impl<'a> Game<'a> {
+    fn talk_cx(&self, k: usize, moment: super::talk::Moment) -> super::talk::Ctx<'a> {
+        let team: &'a GameTeam = self.sides[k].team;
+        super::talk::ctx(team, self.s.rules.level, self.s.playoff, &self.s.context[k], moment)
+    }
+
+    /// A talk to one side's whole room (dialogue D4, D5): yours, or the
+    /// head coach's own read of his room. The halftime talk takes over from
+    /// what is left of the pregame one.
+    fn room_talk(&mut self, k: usize, moment: super::talk::Moment, pick: Option<super::talk::Pick>) {
+        let team: &'a GameTeam = self.sides[k].team;
+        let cx = self.talk_cx(k, moment);
+        let half = matches!(moment, super::talk::Moment::Halftime { .. });
+        let seed = self.s.seed ^ 0x7A1C_0000 ^ ((k as u64) << 40) ^ ((half as u64) << 44);
+        let pick = pick.unwrap_or_else(|| super::talk::coach_pick(team, &cx, seed));
+        let ls = super::talk::room(team, &pick, &cx);
+        for (i, l) in ls.iter().enumerate() {
+            self.sides[k].pulse[i] = super::talk::Pulse::of(l);
+        }
+        self.res.talks.rooms.push(super::talk::note(team, &ls, k, half));
+        if half {
+            self.res.talks.halftime[k] = Some(pick);
+        } else {
+            self.res.talks.pregame[k] = Some(pick);
+        }
+    }
+
+    /// Whether a word can come now: he is off the field since his mistake
+    /// (an offensive player while his team defends, a defender while it has
+    /// the ball, a specialist any time).
+    fn word_ready(&self, w: &super::talk::WordDue) -> bool {
+        match w.unit {
+            0 => self.poss != w.team,
+            1 => self.poss == w.team,
+            _ => true,
+        }
+    }
+
+    fn words_ready(&self, k: usize) -> impl Iterator<Item = &super::talk::WordDue> {
+        self.due.iter().filter(move |w| w.team == k && self.word_ready(w))
+    }
+
+    /// The word the staff gives him: the head coach's read, seeded by the
+    /// play it follows so it is the same whether you watch or not.
+    fn staff_word(&self, k: usize, i: usize, mistake: super::talk::Mistake, play: u32) -> super::talk::Pick {
+        let p = &self.sides[k].team.players[i];
+        let cx = self.talk_cx(k, super::talk::Moment::Sideline { mistake });
+        super::talk::coach_word(p, &cx, self.s.seed ^ 0x5D1E_0000 ^ ((p.id as u64) << 24) ^ play as u64)
+    }
+
+    fn give_word(&mut self, w: super::talk::WordDue, pick: super::talk::Pick, yours: bool) {
+        let k = w.team;
+        let Some(i) = self.sides[k].team.players.iter().position(|p| p.id == w.id) else { return };
+        let team: &'a GameTeam = self.sides[k].team;
+        let cx = self.talk_cx(k, super::talk::Moment::Sideline { mistake: w.mistake });
+        let pick = super::talk::Pick { subject: super::talk::Subject::One, who: w.id, ..pick };
+        let l = super::talk::land(&team.players[i], &pick, &cx, None);
+        self.sides[k].pulse[i].add(&l);
+        // A word that lands takes some of the sting out of the mistake; one
+        // that misses adds to it.
+        let e = &mut self.sides[k].edge[i];
+        if l.lift > 0.0 {
+            *e *= (1.0 - 0.35 * (l.lift as f64).min(1.5)).max(0.3);
+        } else {
+            *e = (*e + 0.5 * l.lift as f64).max(-3.0);
+        }
+        self.sides[k].worded[i] = self.sides[k].worded[i].saturating_add(1);
+        let trust = if yours { super::talk::word_trust(&l, &pick) } else { 0.0 };
+        self.res.talks.words.push(super::talk::WordNote {
+            side: k as u8,
+            id: w.id,
+            mistake: w.mistake,
+            pick,
+            yours,
+            trust,
+            play: w.play,
+            why: l.why,
+            lift: l.lift,
+        });
+    }
+
+    /// Your word to one of your players waiting for one.
+    fn your_word(&mut self, k: usize, id: u32, pick: super::talk::Pick) {
+        let Some(at) = self.due.iter().position(|w| w.team == k && w.id == id && self.word_ready(w)) else {
+            return;
+        };
+        let w = self.due.remove(at);
+        self.give_word(w, pick, true);
+    }
+
+    /// Before a snap: every word that can come now and wasn't given is the
+    /// staff's (each side's position coach, for AI teams and yours alike).
+    fn settle_words(&mut self) {
+        let ready: Vec<super::talk::WordDue> = self.due.iter().filter(|w| self.word_ready(w)).copied().collect();
+        if ready.is_empty() {
+            return;
+        }
+        self.due.retain(|w| !ready.contains(w));
+        for w in ready {
+            if let Some(i) = self.sides[w.team].team.players.iter().position(|p| p.id == w.id) {
+                let pick = self.staff_word(w.team, i, w.mistake, w.play);
+                self.give_word(w, pick, false);
+            }
+        }
+    }
+
+    /// The plays since the last snap, read for mistakes (Cain 2026-10-27):
+    /// costly ones (a turnover, a foul that kept their drive alive or
+    /// killed ours, a blown assignment on their score) and a third small
+    /// one in a game (drops, missed tackles, small fouls, busts). A player
+    /// gets at most two words a game.
+    fn scan_mistakes(&mut self) {
+        use super::talk::Mistake as M;
+        use crate::game::sim::FoulKind as F;
+        let (from, to) = (self.scanned, self.stats.plays.len());
+        self.scanned = to;
+        if from >= to {
+            return;
+        }
+        let team_of = |sides: &[Side; 2], id: u32| -> Option<(usize, usize)> {
+            (0..2).find_map(|t| sides[t].team.players.iter().position(|p| p.id == id).map(|i| (t, i)))
+        };
+        let mut costly: Vec<(u32, M, u32)> = Vec::new();
+        let mut small: Vec<u32> = Vec::new();
+        let mut fouls = std::mem::take(&mut self.drive_fouls);
+        for r in &self.stats.plays[from..to] {
+            let off = r.offense;
+            if fouls.first().is_some_and(|f| f.0 != off) {
+                fouls.clear();
+            }
+            if !r.nullified
+                && r.interception
+                && let Some(qb) = r.passer
+            {
+                costly.push((qb, M::Interception, r.n));
+            }
+            if !r.nullified
+                && r.fumble_lost
+                && let Some(f) = r.fumbled
+            {
+                costly.push((f, M::Fumble, r.n));
+            }
+            for &(kind, team, id, yards, accepted) in &r.penalties {
+                if !accepted {
+                    continue;
+                }
+                if team == off {
+                    match kind {
+                        F::FalseStart | F::DelayOfGame | F::IllegalFormation => small.push(id),
+                        _ => {
+                            fouls.push((team, id));
+                            small.push(id);
+                        }
+                    }
+                } else {
+                    let personal =
+                        matches!(kind, F::PassInterference | F::RoughingPasser | F::UnnecessaryRoughness | F::FaceMask);
+                    if personal || (r.down >= 3 && yards + 0.01 >= r.togo) {
+                        costly.push((id, M::ExtendedDrive, r.n));
+                    } else {
+                        small.push(id);
+                    }
+                }
+            }
+            for &b in &r.busts {
+                let on_off = r.on_field[0].contains(&b);
+                if (!on_off && r.touchdown && !r.nullified) || (on_off && r.defense_td) {
+                    costly.push((b, M::BlownScore, r.n));
+                } else {
+                    small.push(b);
+                }
+            }
+            if r.drop
+                && let Some(t) = r.target
+            {
+                small.push(t);
+            }
+            for &(tk, _) in &r.missed_tackles {
+                small.push(tk);
+            }
+            // The drive ends without points: its last offensive foul killed it.
+            let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+            let dead = r.kind == PlayType::Punt
+                || (r.kind == PlayType::FieldGoal && !r.kick_good)
+                || (scrimmage && r.down == 4 && !r.first_down && !r.touchdown && !r.turnover && !r.nullified);
+            if dead {
+                if let Some(&(_, id)) = fouls.iter().rev().find(|f| f.0 == off) {
+                    costly.push((id, M::KilledDrive, r.n));
+                }
+                fouls.clear();
+            } else if r.touchdown || r.turnover || (r.kind == PlayType::FieldGoal && r.kick_good) {
+                fouls.clear();
+            }
+        }
+        self.drive_fouls = fouls;
+        for (id, m, play) in costly {
+            self.word_due(team_of(&self.sides, id), m, play);
+        }
+        for id in small {
+            if let Some((t, i)) = team_of(&self.sides, id) {
+                let s = &mut self.sides[t].small[i];
+                *s = s.saturating_add(1);
+                if *s == 3 {
+                    let play = self.stats.plays[to - 1].n;
+                    self.word_due(Some((t, i)), M::Pattern, play);
+                }
+            }
+        }
+    }
+
+    fn word_due(&mut self, at: Option<(usize, usize)>, mistake: super::talk::Mistake, play: u32) {
+        let Some((t, i)) = at else { return };
+        let p = &self.sides[t].team.players[i];
+        let id = p.id;
+        let waiting = self.due.iter().any(|w| w.id == id);
+        if waiting || self.sides[t].worded[i] >= 2 {
+            return;
+        }
+        let unit = match p.position {
+            Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL => 0,
+            Position::EDGE | Position::DT | Position::LB | Position::CB | Position::S => 1,
+            Position::K | Position::P | Position::LS => 2,
+        };
+        self.due.push(super::talk::WordDue { team: t, id, mistake, play, unit });
+    }
 }

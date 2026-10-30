@@ -145,6 +145,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     };
     let (top_off, top_def) = (fam_top(true), fam_top(false));
     let has_film = club.film.off_snaps >= 40.0;
+    let (seat, rel) = (w.seat_club(t), crate::world::season::coach_relationships(w, w.nfl[t].head_coach));
     let mut who = HashMap::new();
     let mut players: Vec<GamePlayer> = Vec::with_capacity(list.len());
     for &(i, starter) in &list {
@@ -161,6 +162,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         let experience =
             p.college_snaps as f64 / crate::world::season::SEASON_SNAPS as f64 + pro_snaps(p) / NFL_SEASON_SNAPS as f64;
         let mut g = GamePlayer::from_player(&p.player, know, experience);
+        (g.mood, g.belief) = crate::world::season::game_mind(p, seat, rel);
         let iq = 0.5 * (p.player.attributes.get(Attr::FootballIq) + p.player.attributes.get(Attr::PlayRecognition));
         let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
         for f in Family::ALL {
@@ -258,6 +260,8 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
             install,
             style: tm.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
+            motivation: hc.map_or(10.0, |a| a.motivation),
+            temper: tm.head_coach.map_or(10.0, |c| w.coaches[c].personality.temper),
         },
     );
     // The head coach's guidelines (update 2, G2).
@@ -385,8 +389,10 @@ pub(crate) fn play(w: &World, games: &[Fixture]) -> Vec<Option<(GameResult, [Sid
     let jobs: Vec<Option<(Side, Side, Venue, u64)>> = games
         .iter()
         .map(|g| {
-            let a = sides.get(&g.home)?.clone()?;
-            let b = sides.get(&g.away)?.clone()?;
+            let mut a = sides.get(&g.home)?.clone()?;
+            let mut b = sides.get(&g.away)?.clone()?;
+            a.team.day = nfl_day(w, g.home, g.away, &a.team);
+            b.team.day = nfl_day(w, g.away, g.home, &b.team);
             let v = Venue { playoff: g.playoff, ..venue(w, g.home, g.away, g.at, g.neutral, g.loud) };
             Some((a, b, v, g.seed))
         })
@@ -440,10 +446,22 @@ pub(crate) fn log_game(
     l.game("games-nfl", "plays-nfl", &row, Some(plays));
 }
 
+/// The day a club brings into a game (dialogue D4): a division game is the
+/// rivalry; the playoffs the engine reads itself.
+fn nfl_day(w: &World, t: usize, opp: usize, dressed: &crate::game::GameTeam) -> crate::game::talk::Day {
+    use crate::world::folk::Team;
+    let year = w.year;
+    let div = |x: usize| crate::world::franchise::era_in(w, x, year).map(|e| e.div);
+    let rival = div(t).is_some() && div(t) == div(opp);
+    crate::world::folk::gametalk::day_for(w, Team::Nfl(t), Team::Nfl(opp), 0.0, rival, dressed)
+}
+
 /// Your NFL game today as the day will play it (section 9).
 pub(crate) fn seat_setup(w: &World, f: &Fixture) -> Option<super::super::live_seat::SeatSetup> {
-    let a = game_side(w, f.home)?;
-    let b = game_side(w, f.away)?;
+    let mut a = game_side(w, f.home)?;
+    let mut b = game_side(w, f.away)?;
+    a.team.day = nfl_day(w, f.home, f.away, &a.team);
+    b.team.day = nfl_day(w, f.away, f.home, &b.team);
     let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
     let mut setup = crate::game::GameSetup::new(&a.team, &b.team, crate::player::Level::NFL, f.seed);
     // The season's book, and a playoff game's overtime (update 3, F25).
@@ -528,7 +546,7 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 /// player out for a long spell goes on injured reserve).
 pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
     let year = w.year;
-    w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref());
+    w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref(), &r.talks);
     // The league's numbers for the game boards (lane 9), by season.
     let season = w.nfl_season.as_ref().map_or(year, |s| s.year);
     crate::world::charts::add_game(w, season, crate::world::charts::NFL, &r.stats);

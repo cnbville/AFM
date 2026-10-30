@@ -37,6 +37,7 @@ pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
 pub mod hunt;
+pub(crate) mod knockout;
 pub mod legacy;
 pub mod live_seat;
 pub mod looks;
@@ -419,6 +420,11 @@ pub struct PersonCal {
     /// at that program (`Person::cut_here`), until the next window moves him.
     #[serde(default)]
     pub cut: Option<CollegeCut>,
+    /// What each head coach's living-room talk did for him (lane 14, D7):
+    /// program, lean. It weighs in his choice like the rest of the
+    /// relationship.
+    #[serde(default)]
+    pub home_talks: Vec<(usize, f32)>,
 }
 
 /// A college cut (minor bug 60): the program, the day, and whether his

@@ -729,6 +729,9 @@ fn absent_news(w: &mut World, missing: &[usize]) {
 /// The college teams the season keeps (built at camp) take the players'
 /// ratings as they stand now, and their practice impressions.
 pub(crate) fn refresh_college_teams(w: &mut World) {
+    let seat = w.seat.filter(|s| s.level == crate::calendar::Level::College).and_then(|s| s.program);
+    let rels: Vec<f64> =
+        w.programs.iter().map(|p| crate::world::season::coach_relationships(w, p.head_coach)).collect();
     let people = &w.people;
     let Some(cs) = w.college.as_mut() else { return };
     let programs = &w.programs;
@@ -739,6 +742,8 @@ pub(crate) fn refresh_college_teams(w: &mut World) {
         for g in t.players.iter_mut() {
             if let Some(&i) = by_id.get(&g.id) {
                 g.refresh(&people[i].player);
+                // How he comes into this week's game (dialogue D4).
+                (g.mood, g.belief) = crate::world::season::game_mind(&people[i], seat == Some(c), rels[c]);
             }
         }
     });

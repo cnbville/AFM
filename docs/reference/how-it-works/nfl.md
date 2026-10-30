@@ -1,11 +1,12 @@
 # The living NFL: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28, your IR and staff duties (minor bug 73, SC6) at 6200524 on 2026-10-29, and the expansion line with next update lane 10 the same day.
+Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28, your IR and staff duties (minor bug 73, SC6) at 6200524 on 2026-10-29, and the expansion line with next update lane 10 the same day; agents' own voice with the next update's lane 14 at 7487fc5 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
 ## Quick answers
 
+- Do agents sound different? Yes: an agent's words come from his honesty, his temper and his agency's size, and a bluff comes out vague; the numbers and the market's scoring are unchanged (`world/folk/dialogue.rs`, `agent_says`; `world/front_office/nfl.rs`, `propose`, `agent_claim`).
 - How is a free agent's asking price set? His league-wide consensus read is ranked against the league's veterans at his position, read off the real pay ladder, then cut for age past his prime (`world/pro/market.rs`, `ideal`, `market_grade`, `ladder_share`, `market_price`, `decline`).
 - Does a team see a player's true rating? No. Each club reads `overall()` plus a keyed misread that shrinks with GM judgment and seasons on film (`world/pro/mod.rs`, `grade`).
 - What signs a deal on the spot? An offer scoring 1.0 against his hidden ideal. At 0.85 or more he agrees with a 7-day window; below that his ideal falls (`world/pro/market.rs`, `market_day`, `score`, `decay`).
