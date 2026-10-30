@@ -461,9 +461,15 @@ fn job_whys(b: &Book, id: i64, js: &[Job]) -> Option<Value> {
 /// three generations down.
 fn tree(b: &Book, row: &Map<String, Value>) -> Option<Value> {
     let id = i(row.get("id"))?;
+    // A position coach's job names his group, not a role (older books lack it).
+    let pc = if b.table("coaches").is_some_and(|t| t.has("job__role__PositionCoach")) {
+        "COALESCE(job__role, 'PositionCoach:' || job__role__PositionCoach)"
+    } else {
+        "job__role"
+    };
     let all = rows(
         b,
-        "SELECT id, name, mentor, COALESCE(job__role, 'PositionCoach:' || job__role__PositionCoach) AS role, wins, losses, career_titles AS t, retired FROM coaches",
+        &format!("SELECT id, name, mentor, {pc} AS role, wins, losses, career_titles AS t, retired FROM coaches"),
         &[],
     );
     let by: HashMap<i64, &Map<String, Value>> = all.iter().filter_map(|r| Some((i(r.get("id"))?, r))).collect();
