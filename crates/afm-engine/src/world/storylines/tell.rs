@@ -734,9 +734,15 @@ pub(crate) fn voice_beat(w: &mut World, id: u32, attended: bool) {
 }
 
 /// A quote from a cast member in his own voice, with who said it:
-/// "\"We'll see,\" Smith said."
+/// "\"We'll see,\" Smith said." A story with no lead (a team's run, a
+/// class race, a portal exodus) quotes its decider, the head coach, in the
+/// lead's words, as beat writers quote him (minor bug 91).
 pub(crate) fn quote(w: &mut World, s: &Story, part: Part) -> Option<String> {
-    let m = s.cast.iter().find(|m| m.part == part)?;
+    let m = s
+        .cast
+        .iter()
+        .find(|m| m.part == part)
+        .or_else(|| (part == Part::Lead).then(|| s.cast.iter().find(|m| m.part == Part::Decider)).flatten())?;
     let fam = s.family().key();
     let (speaker, who) = match m.who {
         Who::Player(id) => {

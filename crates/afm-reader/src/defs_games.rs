@@ -3748,7 +3748,7 @@ pub const PANELS: &[Panel] = &[
         sql: r#"WITH f AS (SELECT _row AS bit, name FROM engine_footprints UNION ALL SELECT 15, 'testing day')
      SELECT s.year, s.division, s.pos, s.id, COALESCE((SELECT name FROM people WHERE player__id = s.id), (SELECT name FROM alumni WHERE player__id = s.id), (SELECT name FROM log_people WHERE id = s.id LIMIT 1), '#' || s.id) AS name, COALESCE(p.real_name, p.fictional_name) AS program,
             (SELECT group_concat(f.name, ', ') FROM f WHERE (s.footprint >> f.bit) & 1) AS flags,
-            COALESCE((SELECT 'pro: ' || json_extract(a.pro__status, '$') FROM alumni a WHERE a.player__id = s.id), (SELECT 'still in the world' FROM people WHERE player__id = s.id)) AS later
+            COALESCE((SELECT 'pro: ' || a.pro__status FROM alumni a WHERE a.player__id = s.id), (SELECT 'still in the world' FROM people WHERE player__id = s.id)) AS later
        FROM stats__seasons s LEFT JOIN programs p ON p.id = s.program WHERE s.footprint > 0 ORDER BY (CASE s.division WHEN 'FBS' THEN 1 WHEN 'FCS' THEN 2 WHEN 'D2' THEN 3 WHEN 'NAIA' THEN 4 WHEN 'D3' THEN 5 WHEN 'JUCO' THEN 6 ELSE 7 END) DESC, s.year DESC"#,
         says: None,
         needs: W,

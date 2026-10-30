@@ -482,6 +482,13 @@ impl Person {
         self.notes.reserve_exact(1);
         self.notes.push(s);
     }
+    /// A note that can come twice at one age (a second spring notice, a
+    /// second trip to the portal): the second time it reads as again, so
+    /// his story never repeats a line word for word (minor bug 116).
+    pub fn note_again(&mut self, first: String, again: impl FnOnce() -> String) {
+        let s = if self.notes.contains(&first) { again() } else { first };
+        self.note(s);
+    }
     /// His family's football ties (a brother's program, a bloodline): the
     /// public record a recruiting search reads.
     pub fn family(&self) -> &background::Family {
@@ -637,7 +644,7 @@ impl Alumnus {
             class_of: p.class_of,
             born: p.born,
             visibility: p.visibility,
-            steered: p.notes.iter().any(|n| n.contains("more than his own")),
+            steered: p.notes.iter().any(|n| n.ends_with(" than his own.") || n.contains("more than his own")),
             background_summary,
             notes: p.notes.clone(),
             nfl_team: None,
@@ -1029,6 +1036,13 @@ pub struct CalendarLog {
     pub returned: u32,
     #[serde(default)]
     pub moved_up_far: u32,
+    /// College players through the year's development step, and those in
+    /// off-field trouble there, suspended or dismissed (minor bug 112:
+    /// today's rosters have lost the dismissed, so the rate read low).
+    #[serde(default)]
+    pub college_rolled: u32,
+    #[serde(default)]
+    pub college_trouble: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team, college

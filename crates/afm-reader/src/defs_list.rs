@@ -420,15 +420,16 @@ pub const CHECKS: &[Check] = &[
         areas: "P3",
         title: "College players who share a full name",
         unit: "%",
-        world: "WITH n AS (SELECT name, COUNT(*) AS k FROM people WHERE stage = 'College' GROUP BY name)
+        world: "WITH s AS (SELECT name FROM people WHERE stage = 'College' ORDER BY (player__id * 2654435761) % 4294967296 LIMIT 22843),
+                     n AS (SELECT name, COUNT(*) AS k FROM s GROUP BY name)
                 SELECT 1.0 * SUM(CASE WHEN k > 1 THEN k ELSE 0 END) / SUM(k) FROM n",
         scale: 100.0,
         years: None,
-        detail: Some("SELECT COUNT(*) || ' college players in the pool (real pool 22,843: a bigger pool repeats more).' FROM people WHERE stage = 'College'"),
+        detail: Some("SELECT MIN(COUNT(*), 22843) || ' of ' || COUNT(*) || ' college players in the pool, a fixed draw by id the size of the real one (22,843: a bigger pool repeats more).' FROM people WHERE stage = 'College'"),
         real: Real::Key("trial3_baselines.json:name_repeats.cfbd_rosters_2024_share", 100.0),
         tol: (0.2, 0.5, 0.0),
         needs: W,
-        how: "Every college player on the world's date whose full name another college player has.",
+        how: "College players on the world's date whose full name another has, in a pool the size of CFBD's 2024 rosters (22,843, drawn by id): every college player in a full world is about four times that pool, and repeats grow with the pool (CFBD: 1.9% at 10,000, 4.4% at 22,843; minor bug 108).",
     },
     // Coaches.
     Check {

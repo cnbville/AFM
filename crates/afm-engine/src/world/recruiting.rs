@@ -5784,13 +5784,15 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 }
                 if steered {
                     p.steered = true;
-                    let who = match p.family.decider {
-                        Decider::Parent => "a parent",
-                        Decider::Grandparent => "his grandparents",
-                        Decider::Handler => "a handler close to the family",
-                        Decider::Himself => "himself",
+                    // Named for the school: a JUCO player who moves up signs
+                    // again (minor bug 116: the line repeated word for word).
+                    let whose = match p.family.decider {
+                        Decider::Parent => "a parent's choice",
+                        Decider::Grandparent => "his grandparents' choice",
+                        Decider::Handler => "the choice of a handler close to the family",
+                        Decider::Himself => "someone else's choice",
                     };
-                    p.note(format!("The choice was {who}'s more than his own."));
+                    p.note(format!("{prog_name} was more {whose} than his own."));
                 }
                 let flipped = p.cal.commit.is_some_and(|c| c.0 != j);
                 p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped });
@@ -6992,7 +6994,10 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                     < if perf >= median(from) - 2.0 { 0.4 } else { 0.15 };
             let p = &mut w.people[i];
             if back {
-                p.note(format!("Entered the portal at {age} {what}, found no new school and returned to {from_name}."));
+                p.note_again(
+                    format!("Entered the portal at {age} {what}, found no new school and returned to {from_name}."),
+                    || format!("Entered the portal again at {age} {what}, and again returned to {from_name}."),
+                );
                 w.log.portal_returned += 1;
             } else {
                 p.stage = Stage::Done;
@@ -7044,13 +7049,20 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         p.transfers += 1;
         p.steered = false;
         p.on_notice = false;
+        // He left the school chosen for him, free to choose for himself, and
+        // goes on choosing for himself (minor bug 116: a later JUCO move up
+        // read as the family's choice again).
+        if why == Why::Steered {
+            p.family.decider = Decider::Himself;
+            p.family.decider_wants = p.family.own_wants;
+        }
         if to == Division::JUCO {
             p.juco = true;
         }
         p.note(format!("Entered the portal at {age} {what} and moved from {from_name} to {to_name} ({}).", to.name()));
         if sits {
             p.cal.transfer_sit = true;
-            p.note("Under the transfer rules of the day he had to sit out a season.");
+            p.note(format!("Under the transfer rules of the day he had to sit out a season at {to_name}."));
             w.log.sit_out_transfers += 1;
         }
         if stars >= 4 || starter {

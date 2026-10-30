@@ -126,7 +126,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
   - a free agent signed this year,
   - the buyer's cap,
   - the seller staying under the cap after the bonus it keeps.
-  - Talks fail 35% of the time, and a failed talk can leak as a shopping rumor (30%: trust -0.1 - 0.2 x loyalty). A failed physical voids 2%. The package is the cheapest single pick or pair over 3 drafts (`world/pro/trades.rs`, `trade_window`, `package`, `shopping_rumor`).
+  - Talks fail 35% of the time, and a failed talk can leak as a shopping rumor (30%: trust -0.1 - 0.2 x loyalty; he hears a club's rumor once a year, minor bug 116). A failed physical voids 2%. The package is the cheapest single pick or pair over 3 drafts (`world/pro/trades.rs`, `trade_window`, `package`, `shopping_rumor`).
 - **Comp picks**: OverTheCap's method. Value from APY rank, snap share and honors (All-Pro 20, Pro Bowl 5). The top 5% get a round 3 value, then 10/15/25/35% for rounds 4-7. Losses are cancelled by signings, at most 4 a team and 32 for the league. The rest are supplemental 7ths. Only players whose deal expired count, signed by the Monday after the draft at 1.5x+ the 4-year minimum (`world/pro/trades.rs`, `note_cfa`, `award_comp_picks`). Board slots: `world/franchise.rs`, `comp_picks`.
 - **Draft rounds**: 12 to 1992, 8 in 1993, 7 after (`world/franchise.rs`, `draft_rounds`). Draft-day trades and the boards are on the draft page.
 

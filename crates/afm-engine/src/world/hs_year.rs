@@ -2237,7 +2237,9 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
             _ => "keeps stacking good days and keeps his footwork sharp",
         };
         let age = row_age(p);
-        p.note(format!("Spring notice at {age}: if {first} {what}, he'll likely make a big step."));
+        p.note_again(format!("Spring notice at {age}: if {first} {what}, he'll likely make a big step."), || {
+            format!("Spring notice again at {age}: if {first} {what}, he'll likely make a big step.")
+        });
         if college && p.stars >= 4 {
             let text = format!("Spring practice: {} is turning heads.", p.name);
             let prog = p.college;
@@ -2288,7 +2290,9 @@ fn jumps(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
         let age = row_age(p);
         if gain < 0.5 {
             fizzles += 1;
-            p.note(format!("At {age} the spring step he was tipped for didn't come."));
+            p.note_again(format!("At {age} the spring step he was tipped for didn't come."), || {
+                format!("At {age} the spring step he was tipped for again didn't come.")
+            });
             continue;
         }
         if college && before_first_college_row(p) {

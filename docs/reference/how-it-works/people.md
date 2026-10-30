@@ -54,7 +54,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 
 - **Two trusts**:
   - `Person::trust` (0-1) is trust in his head coach (you, for your players). It resets when the coach changes, to 0.5 + 0.08 x loyalty z + 0.08 x adaptability z, clamped 0.2-0.8 (`world/people.rs`, `read`).
-  - `ProCareer::trust` (0-1) is a pro's trust in his club, moved by broken promises and shopping rumors (`world/pro/market.rs`, `check_promises`; `world/pro/trades.rs`, `shopping_rumor`).
+  - `ProCareer::trust` (0-1) is a pro's trust in his club, read at each camp beside his trust in the head coach (`world/people.rs`, `club_trust`; minor bug 114). A club he has just joined starts at 0.75 + 0.08 x loyalty z + 0.08 x adaptability z, clamped 0.5-0.95 (a start at 0.5 lifted holdouts from 5.6 a year to 8.7 on the same world); after that +0.06 a year for a fair role, or 0.18 x role part if it is negative. +0.1 when the club has just paid him (a deal over 3% of the cap); pay under his market costs 0.1 x (pay / market - 1) x clamp(1 + 0.3 x greed z, 0.4, 1.6); playing under a franchise or transition tag costs 0.08 x tags. Broken promises (-0.3) and shopping rumors still cost it on their days (`world/pro/market.rs`, `check_promises`; `world/pro/trades.rs`, `shopping_rumor`). Sizes proposed, not confirmed.
 - **Trust each read**: +0.06 for a fair role, or 0.18 x role part if it is negative, + 0.03 x (coach motivation - 10)/10 (`world/people.rs`, `read`).
 - **Mood parts** (each -1 to 1) and weights (`world/people.rs`, `read`):
   - role 0.4
@@ -179,7 +179,7 @@ Sizes are Claude's picks (proposed, not confirmed).
 ## The words people say (the line bank)
 
 - **The bank** is plain text in `crates/afm-engine/data/lines/` (about 54,700 versions in 23 files after update 3, lanes 13 and 13b to 13f, the next update's lane 14 and minor bug 155; one-on-one openings 7,174, 290 of them the portal meeting's, and reveals 3,588 in `talk_open.txt` and `talk_reveal.txt`, one-on-one replies, closes and deflects in `talk_reply.txt` about 10,000, press questions about 5,740, story quotes about 6,440, the cast's five `*_more` files 8,450 more in 13e), read once by `world/folk/voice.rs` (`BANKS`, `Bank::parse`). `@key` names a part; each line under it is one version, with `[a|b]` choices and `{fact}` holes (a version whose fact is missing is skipped).
-- **Who can say a version**: tags after ` ~ ` must all fit the speaker, `!tag` rules him out, and `fact=value` or `!fact=value` checks a fact (press `result=win`). Players carry level, traits, region, era, position (`qb`, `skill`, `lineman`, `offense`...) and career stage (`freshman`... `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) (`Speaker::player`, `Speaker::position`). `@with other.key` lends another part's versions (story tone keys borrow their base key).
+- **Who can say a version**: tags after ` ~ ` must all fit the speaker, `!tag` rules him out, and `fact=value` or `!fact=value` checks a fact (press `result=win`). Players carry level, traits, region, era, position (`qb`, `skill`, `lineman`, `offense`...) and career stage (`freshman`... `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) (`Speaker::player`, `Speaker::position`). A man out of football (retired, or away on a mission or military term) speaks from his last level (`nfl` or `college`, `hs` only if he never played past it) with no class year (minor bug 92). `@with other.key` lends another part's versions (story tone keys borrow their base key).
 - **Picking**: among fitting versions, ones the same speaker hasn't said to you in 365 days come first, weighted 1 + 0.8 per tag or check they need; if none is fresh, the one he said longest ago (`Pen::part`, `REST_DAYS`).
 - **The rest changes words only.** What a person says and does is decided before the bank is asked (`talks.rs` `landing`, `outcome`), and the pen's own random stream never feeds back into the world (`tests/lines.rs`, `the_rest_changes_the_words_only`).
 - **Memory**: each speaker's said versions with the day (`Folk::said_on`), saved with the career; a speaker silent for a season is dropped. A version's id is a hash of its part and words, so growing the bank keeps old memories (`version_id`). Saves from before the rest drop the old memory and load fine.
@@ -195,6 +195,7 @@ Sizes are Claude's picks (proposed, not confirmed).
   - money trouble 1% (pros)
   - community work 6% (pros)
   - homesick 8% (amateurs 19 or under)
+- **What his story allows** (`can_happen`, minor bug 116): a wedding only while single and a divorce only while married (read from his story: the later of his last wedding and last divorce), one youth camp in a career, and no event twice at one age. A disallowed hit is no event that week.
 - **Mood**:
   - birth/wedding/graduation +0.12, community +0.05
   - parent ill -0.18, death -0.25, divorce -0.2, money -0.15, homesick -0.12
@@ -219,7 +220,7 @@ Sizes are Claude's picks (proposed, not confirmed).
   - Gambling: 17 (15%), else 2 from 2023, else 4.
   - The year's base is cut by games/17 and its guarantees voided. Clubs cut a fringe player (consensus < 64) after a violent case with odds 60% from 2015, 30% before (`rule`).
 - **Appeals**: 75% appeal. Upheld 96% for PED/drugs, 80% otherwise. A reduced suspension becomes max(games - 1, games/2) (`world/folk/courts.rs`, `suspension`, the appeal step). Courts mirror the arrest and charge dates (`mirror`).
-- **College and high school** trouble gets a kind from the level's mix (`world/people.rs`, `amateur_kind`). The roll itself lives in the development and season code.
+- **College and high school** trouble gets a kind from the level's mix (`world/people.rs`, `amateur_kind`). The roll itself lives in the development step at each level's season start (`world/season.rs`, `develop`): base x clamp(1 + 0.07 x (10 - work ethic) + 0.04 x (10 - coachability) - 0.5 x professionalism z + 0.3 x temper z, 0.25, 3) x background (`trouble_multiplier`, 0.6-2.2) x (1 - 0.12 x engagement staff z, college). Bases: high school 1.2%, prep school 1%, college 3.6% (`COLLEGE_TROUBLE`; minor bug 112: college players are steadier than high schoolers, so the 3% base came out at about 2.5% a season, which the book read as 2.0% because the dismissed leave college; 3.6% gives the design's 3%). A college roll ends in a dismissal 30% of the time (always for a player already on notice). The yearly log counts the college players rolled and those in trouble (`CalendarLog::college_rolled`, `college_trouble`), read by the book's `P22.college_trouble`.
 - **Hit fines** (NFL, weekly in season): each defender's odds are 0.0055 x max(1 + 0.6 x temper z, 0.3). The amount doubles with any prior fine in the past year. With 2+ prior fines, a hit on a defenseless player also costs a game. College targeting: about 0.2 ejections a week per FBS team (`world/folk/rules.rs`, `league_week`). High school ejections sit the next game at every school, not only yours (B2): in the school season each other school has a 0.08 chance a week that one of its players is thrown out (keyed draws, proposed, not confirmed), and he sits his school's next game through `folk.ai_out`, read by `hs_year::can_play`. Yours make the news and the record.
 
 ## Team rules (your team)
@@ -237,6 +238,7 @@ Sizes are Claude's picks (proposed, not confirmed).
 - Every Monday in the rules season, for each AI NFL club, college and high school (`world/folk/rules.rs`, `ai_week`): the book is the head coach's `ai_book` (the standard book without a coach); each player breaks one with the same `risk` as yours, the kind drawn by strictness; the coach sees it with 0.45 + 0.025 x his discipline, clamped 0.4-0.95.
 - Severity = the rule's weight + his breaks this season and last (up to 3) - 1, +1 for a coach of discipline 14+, -1 at 6 or less, -1 for a star under a coach below 12, clamped 0-6. It maps to talk, a fine (NFL) or running, bench the start, bench a game, suspend 1, suspend 2, dismiss (an NFL drug or non-conduct case 3 games instead).
 - What it does: mood - 0.05 x severity / 3; NFL fines off his earnings and games through `suspended`; college and high school games sat through `folk.ai_out` (`sitting`, read by the game builders); a dismissal; a note on his page for severity 3-5 (`ai_week`, `dismiss`).
+- A dismissed college or high school player (yours or an AI team's) is off the team for 200 days through `folk.ai_out`: the rest of the season with its bowls and playoffs, until his next school. Neither weekly rules roll reads him again while he is out (`DISMISSED_DAYS`, `dismissed`; minor bug 116: dismissed players kept playing and were dismissed twice). An NFL dismissal is a release.
 
 ## Media and fans
 
@@ -247,6 +249,7 @@ Sizes are Claude's picks (proposed, not confirmed).
   - 2-3 sources
   - College beats: paper, recruiting site by era, radio, TV, ESPN, then The Athletic from 2016.
 - **Press conferences** (your team, in season, from two weeks into the job): postgame (college/NFL), Monday availability, the high school paper's Thursday call (`world/folk/press.rs`, `day`).
+  - Each question names its own man (minor bug 90): the player in trouble (an open case from the last three weeks), the injured starter, the quarterback battle's leader, and the key player (the starting quarterback, else the best-standing player) for the last game and the "his play" question (`press.rs`, `subject`).
   - Deflecting cools every reporter 0.015. Substance warms them 0.01.
   - Criticizing a player in public: -0.24 - 0.1 x ego mood, 60% of that to his trust, and -0.008 trust for the rest of the room.
   - Naming a starter in public logs a public promise (+0.15 for him, -0.15 for the other).
