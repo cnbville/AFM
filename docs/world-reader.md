@@ -33,6 +33,16 @@ World reader lane R6 (brief `briefs/r6.md`) fills the People and Recruiting page
 - `afm_read refresh <book>` works out the checks and panels again with this reader's definitions, without reading the world again.
 - **Time and memory**: on the trial 10 world the panels take about 3.5 minutes of the book's 11 and stay under the world read's 0.7 GB memory peak; `afm_read refresh` takes under 5 minutes at 0.36 GB. Each panel's time is in `panels.seconds`.
 
+## Games, the NFL, money, world and time (lane R8)
+
+World reader lane R8 (brief `briefs/r8.md`) fills the Games and stats, NFL, Money and World and time pages: inventory areas G1-G38, N1-N44, N48 and T9, each with the four layers (verdict, checks as tiles, panels, a way down to rows and pages). The definitions are `defs_games.rs`, `defs_nfl.rs` and `defs_world.rs`.
+
+- **Panels**: 256 more (119 for games and stats, 59 for the NFL, 78 for money, world and time). Games: results, margins and scoring by level and era, team box numbers against nflverse and cfbfastR per game, player lines and season leaders, every situation (down and distance, field position, red zone, two-minute, fourth downs) against real, kicking and punting by distance, penalties by kind, injuries in games, officiating and challenges, weather and crowds, the win chance's calibration, records and streaks, awards and halls of fame, film tapes, and the game pages behind them. NFL: franchises by era, standings, playoffs and titles, rosters and depth, contracts and the cap, free agency, tags, trades and comp picks, waivers, front offices, coaches, agents, the draft by pick band and college, careers and honors. Money: the NFL's books (revenue against the league's real totals by year, each club's lines, attendance, blackouts, tickets, values, sales), college athletics by tier (revenue, university support, guarantee games, revenue share), high school budgets and crowds, and betting lines against results. World and time: the calendar's real anchors, rule books by era, events and loud events, weather by level and state, births and ages, the calendar log, the news and the coaching carousel, nicknames and units, honors and policies, media and fame, storylines and T9's fantasy points, jerseys and video-game ratings.
+- **Checks**: 214 more against real, and 23 consistency rules (one kicker per club in season, byes in the real window, the draft on its weekday, the Super Bowl in its window, Thanksgiving games, the real cap history, NFL dates once each, domes stay dry, a class that fits its birth year, a game's last score matching its final, at most four comp picks a club, and more). A rule's failures carry what, the id, the year and what it says.
+- **Engine tables**: the rule books and dates now start in 1984 so every era's checks have the real rules beside the world's; the reader adds `engine_leagues`, `engine_story_kinds` and `engine_story_endings`, `engine_finance_lines` (each level's book lines and whether each is income), `engine_finance_anchors` (the league revenue, national share, average ticket and value multiple the money model is tied to by year), `engine_card_parts` and `engine_grades`.
+- **Game pages**: every game in the log opens its own page in the app, with its box, lines, drives, scoring plays, win chance and play by play with its whys (`docs/world-reader-app.md`).
+- **Packed records in panels**: a panel can read a packed record with `more()` while the book is being built (the dictionaries are read from the builder's own connection).
+
 ## A book without a log
 
 A book always builds from a world file alone. Checks that need a log show "no data" and say which log they need, and the overview and the odd list name what is missing.
@@ -67,3 +77,14 @@ The library gives the same pages to the app: `Book::open`, `book.text(page, &Fil
 - Conduct cases by kind are read from the words of career-note lines (DUI, assault, domestic, drugs, weapons, theft, PEDs, gambling, dismissed).
 - Keyed tables keep the top rows per key: the class page's 60 best 4- and 5-stars, the state page's 40 strongest pipelines.
 - Where a check's real figure is the design's target and not a sourced number (college trouble 3%, high school 1.2%, morale's 15%, specialists' stars), the source says "design".
+
+### Lane R8's picks, proposed, not confirmed
+
+- Where no sourced real figure exists, a check uses one from memory and says so ("from memory"); a figure worked out from the real data's own counts says how (for example NFL freezing games 9.2% from the weather attempts).
+- College money tiers group programs by today's conference (SEC and Big Ten, the other power conferences, the Group of Five, FCS), not the conference of each year.
+- The one-kicker rule counts only between the cutdown and the Super Bowl; in the offseason clubs carry two kickers in real life too.
+- The league year rule allows 10 February to 20 March: real free agency opened in February in 1994-2000, 2003 and 2008-09. The cap history rule allows 2010 with no cap.
+- The win chance check buckets the offense's chance before each snap of the last NFL season and counts how often the offense's team won (ties left out).
+- Video-game ratings against play are split by level (NFL games and college games), since mixing the two levels hides both.
+- Storylines are named by their cast; a beat opens the first cast member's page.
+

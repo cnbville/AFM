@@ -213,3 +213,99 @@ fn player_page_and_keyed_pages() {
     assert!(shown.contains("IA") && !shown.contains("\"TX\""), "{shown}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A book with one NFL game from the game log, two clubs, a season, a
+/// draft pick and an agent (lane R8).
+fn r8_book(dir: &std::path::Path) -> std::path::PathBuf {
+    let path = dir.join("r8.afmbook");
+    let c = rusqlite::Connection::open(&path).unwrap();
+    c.execute_batch(
+        r#"CREATE TABLE nfl(_row INTEGER PRIMARY KEY, id, name, head_coach);
+           INSERT INTO nfl VALUES (0, 0, 'Kansas City Chiefs', 0), (1, 1, 'Buffalo Bills', 1);
+           CREATE TABLE coaches(_row INTEGER PRIMARY KEY, id, name);
+           INSERT INTO coaches VALUES (0, 0, 'Andy Reed'), (1, 1, 'Sean Mack');
+           CREATE TABLE log_games(_row INTEGER PRIMARY KEY, season, stream, home, away, home_pts, away_pts, date, kind, week, line, neutral);
+           INSERT INTO log_games VALUES (0, 2025, 'nfl', 0, 1, 24, 17, '2025-09-07', 'regular', 1, '[-3.5,44.5]', NULL),
+                                        (1, 2025, 'nfl', 1, 0, 20, 23, '2025-11-02', 'regular', 9, '[-1.5,47.5]', NULL);
+           CREATE TABLE log_games__box(_row INTEGER PRIMARY KEY, _parent, _i, points, yards, pass_yards, rush_yards, plays, penalties, clock_possession);
+           INSERT INTO log_games__box VALUES (0, 0, 0, 24, 380, 250, 130, 64, 5, 1850), (1, 0, 1, 17, 300, 210, 90, 60, 14, 1750),
+                                             (2, 1, 0, 20, 330, 230, 100, 62, 6, 1800), (3, 1, 1, 23, 350, 240, 110, 63, 7, 1800);
+           CREATE TABLE log_games__quarters(_row INTEGER PRIMARY KEY, _parent, _i, _0, _1);
+           INSERT INTO log_games__quarters VALUES (0, 0, 0, 7, 3), (1, 0, 1, 7, 7), (2, 0, 2, 3, 0), (3, 0, 3, 7, 7);
+           CREATE TABLE log_games__players(_row INTEGER PRIMARY KEY, _parent, _i, _j, id, pos, att, cmp, pass_yds, rush, rush_yds, tackles, snaps_def);
+           INSERT INTO log_games__players VALUES (0, 0, 0, 0, 15, 'QB', 30, 20, 250, 2, 8, NULL, NULL), (1, 0, 1, 0, 17, 'LB', NULL, NULL, NULL, NULL, NULL, 9, 60);
+           CREATE TABLE log_games__drives(_row INTEGER PRIMARY KEY, _parent, _i, q, clock, start, "end", plays, secs, result, points, team);
+           INSERT INTO log_games__drives VALUES (0, 0, 0, 1, 900, 25, 100, 8, 240, 'Touchdown', 7, NULL), (1, 0, 1, 1, 660, 30, 41, 4, 100, 'Punt', NULL, 1);
+           CREATE TABLE log_games__scoring(_row INTEGER PRIMARY KEY, _parent, _i, q, clock, kind, what, yards, carrier, passer, target, kicker, team, after, try__kind, try__good);
+           INSERT INTO log_games__scoring VALUES (0, 0, 0, 1, 660, 'Pass', 'touchdown', 12, 15, 15, 16, NULL, NULL, '[7,0]', 'kick', 1);
+           CREATE TABLE people(_row INTEGER PRIMARY KEY, player__id, name, player__position, player__age, pro__team, pro__status, pro__contract__kind, pro__earnings, pro__agent, pro__draft, college, x_overall);
+           INSERT INTO people VALUES (0, 15, 'Pat Holmes', 'QB', 30, 0, 'Roster', 'Extension', 250000000, 0, '[2017,1,10,0]', NULL, 90),
+                                     (1, 16, 'Travis Kell', 'TE', 35, 0, 'PracticeSquad', 'Veteran', 90000000, 0, NULL, NULL, 80);
+           CREATE TABLE nfl_seasons(_row INTEGER PRIMARY KEY, year, team, wins, losses, ties, coach, round);
+           INSERT INTO nfl_seasons VALUES (0, 2025, 0, 13, 4, 0, 0, 5), (1, 2025, 1, 11, 6, 0, 1, 2);
+           CREATE TABLE nfl_champions(_row INTEGER PRIMARY KEY, _0, _1);
+           INSERT INTO nfl_champions VALUES (0, 2025, 0);
+           CREATE TABLE market__agents(_row INTEGER PRIMARY KEY, name, agency, size, skill, honesty, clients, rel, fired);
+           INSERT INTO market__agents VALUES (0, 'Drew Rosen', 'Big Sports', 3, 15, 0.8, 120, '[0.1,-0.3]', 0);"#,
+    )
+    .unwrap();
+    path
+}
+
+#[test]
+fn game_club_draft_and_agent_pages() {
+    let dir = std::env::temp_dir().join(format!("afm-reader-test-r8-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = r8_book(&dir);
+    let mut r = Reader::new(dir.join("home"), dir.join("game"));
+    r.call("open", &json!({ "path": path.to_string_lossy() })).unwrap();
+    let kinds = |p: &Value| {
+        p["blocks"].as_array().unwrap().iter().map(|b| b["kind"].as_str().unwrap().to_string()).collect::<Vec<_>>()
+    };
+
+    let g = page(&mut r, "game/0", Value::Null);
+    assert_eq!(g["title"], "Buffalo Bills 17, Kansas City Chiefs 24");
+    assert!(g["blocks"][0]["text"].as_str().unwrap().contains("Chiefs covered"), "{}", g["blocks"][0]["text"]);
+    for k in ["drives", "tabtables"] {
+        assert!(kinds(&g).contains(&k.to_string()), "{k}: {:?}", kinds(&g));
+    }
+    let shown = serde_json::to_string(&g["blocks"]).unwrap();
+    assert!(shown.contains("Travis Kell 12-yard pass from Pat Holmes (kick good)"), "{shown}");
+    let team_box = g["blocks"].as_array().unwrap().iter().find(|b| b["title"] == "Team box").unwrap();
+    let pens = team_box["rows"].as_array().unwrap().iter().find(|r| r[0] == "Penalties").unwrap();
+    assert_eq!(pens, &json!(["Penalties", "14", "5", "8", "6"]));
+    assert_eq!(page(&mut r, "e/log_games/0", Value::Null)["title"], g["title"]);
+
+    let c = page(&mut r, "club/0", Value::Null);
+    assert_eq!(c["title"], "Kansas City Chiefs");
+    assert!(kinds(&c).contains(&"strip".to_string()), "{:?}", kinds(&c));
+    let roster = c["blocks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["title"].as_str().unwrap_or("").starts_with("Roster"))
+        .unwrap();
+    assert_eq!(roster["rows"][1][3], "practice squad");
+    assert_eq!(page(&mut r, "e/nfl/0", Value::Null)["title"], "Kansas City Chiefs");
+
+    let s = page(&mut r, "club/0/2025", Value::Null);
+    assert!(s["verdict"].as_str().unwrap().contains("13-4 in 2025 and won the Super Bowl"), "{}", s["verdict"]);
+    let sched = s["blocks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["title"].as_str().unwrap_or("").starts_with("Schedule"))
+        .unwrap();
+    assert_eq!(sched["links"], json!(["game/0", "game/1"]));
+
+    let d = page(&mut r, "draft/2017", Value::Null);
+    assert!(d["verdict"].as_str().unwrap().starts_with("1 pick on record"), "{}", d["verdict"]);
+    assert_eq!(page(&mut r, "draft/1990", Value::Null)["blocks"].as_array().unwrap().len(), 1);
+
+    let a = page(&mut r, "e/market__agents/0", Value::Null);
+    assert_eq!(a["title"], "Drew Rosen");
+    let standing = a["blocks"].as_array().unwrap().iter().find(|b| b["title"] == "Standing with each club").unwrap();
+    assert_eq!(standing["rows"][0][0], "Buffalo Bills");
+    let _ = std::fs::remove_dir_all(dir);
+}

@@ -88,9 +88,11 @@ pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&
     }
     say("indexes");
     indexes(&b).map_err(e)?;
-    for (t, c) in crate::defs_list::COLUMNS.iter().chain(crate::defs_people::COLUMNS) {
+    for (t, c) in crate::defs::columns() {
         let cols = b.columns(t);
-        if !cols.is_empty() && !cols.iter().any(|x| x == c) {
+        if cols.is_empty() && crate::defs::makes_missing(t) {
+            b.conn.execute_batch(&format!("CREATE TABLE \"{t}\" (_row INTEGER, \"{c}\")")).map_err(e)?;
+        } else if !cols.is_empty() && !cols.iter().any(|x| x == c) {
             b.conn.execute_batch(&format!("ALTER TABLE \"{t}\" ADD COLUMN \"{c}\"")).map_err(e)?;
         }
     }
@@ -194,9 +196,11 @@ pub fn refresh(book: &Path, say: &mut dyn FnMut(&str)) -> rusqlite::Result<(usiz
         "world log" => has_world_log,
         _ => true,
     };
-    for (t, c) in crate::defs_list::COLUMNS.iter().chain(crate::defs_people::COLUMNS) {
+    for (t, c) in crate::defs::columns() {
         let cols = b.columns(t);
-        if !cols.is_empty() && !cols.iter().any(|x| x == c) {
+        if cols.is_empty() && crate::defs::makes_missing(t) {
+            b.conn.execute_batch(&format!("CREATE TABLE \"{t}\" (_row INTEGER, \"{c}\")"))?;
+        } else if !cols.is_empty() && !cols.iter().any(|x| x == c) {
             b.conn.execute_batch(&format!("ALTER TABLE \"{t}\" ADD COLUMN \"{c}\""))?;
         }
     }
