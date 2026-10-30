@@ -777,6 +777,10 @@ pub struct World {
     /// Portal entrants still deciding (person indices; resolved before the
     /// year-end book compacts the people list).
     pub(crate) portal_pending: Vec<usize>,
+    /// Your players who asked to see you before they enter the portal
+    /// (`recruiting::Intent`).
+    #[serde(default)]
+    pub(crate) portal_intents: Vec<recruiting::Intent>,
     /// Verbal commitments decided at a commitment wave and waiting for the
     /// recruit's own announcement day (T5.2): day, person index, player id,
     /// program, and whether it is a walk-on place.
@@ -1263,6 +1267,7 @@ impl World {
             log_history: Vec::new(),
             event_history: Vec::new(),
             portal_pending: Vec::new(),
+            portal_intents: Vec::new(),
             announcements: Vec::new(),
             portal_market: None,
             nfl_champions: Vec::new(),

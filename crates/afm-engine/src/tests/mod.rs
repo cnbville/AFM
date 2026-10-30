@@ -24,6 +24,7 @@ mod links;
 mod live_game;
 mod new_teams;
 mod polls;
+mod portal_talks;
 mod ratings;
 mod save;
 mod schedule;

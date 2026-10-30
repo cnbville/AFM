@@ -5988,11 +5988,129 @@ struct Held {
     extra: i32,
     decide_in: i32,
     why: Why,
+    /// Your own player's bar (`Intent`): he talks to you once he's out.
+    #[serde(default)]
+    bar: Option<f64>,
 }
 
 /// The entry dates of a held entrant until he is released: no decision is
 /// due before then.
 const HELD: Date = Date(i32::MAX / 2);
+
+/// One of your players who wants to leave (your program, as head coach):
+/// he asks to see you first, and on his day he enters only if his lean is
+/// still above the bar his draw set (`bar`), so the talk can change his mind.
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Intent {
+    id: u32,
+    program: usize,
+    /// The day of his talk with you, and the day he decides.
+    talk: Date,
+    enters: Date,
+    decide_in: i32,
+    why: Why,
+    bar: f64,
+}
+
+impl Intent {
+    pub(crate) fn is(&self, id: u32) -> bool {
+        self.id == id
+    }
+}
+
+/// His lean as it stood on `d`: the product of its dated factors (the fall
+/// camp base comes first), or none before fall camp.
+fn lean_on(p: &Person, d: Date) -> f64 {
+    let mut seen = p.cal.lean_events.iter().filter(|e| e.0 <= d).peekable();
+    if seen.peek().is_none() {
+        return 0.0;
+    }
+    seen.map(|e| e.2).product()
+}
+
+/// Your program, when you are its head coach.
+fn talks_first(w: &World) -> Option<usize> {
+    fo::program(w)
+}
+
+/// Your players who want to leave ask to see you before they enter (Cain
+/// 2026-10-28: "players should contact me"). Up to six talks a day, the
+/// best first; one already on your calendar counts. Each decides the day
+/// after his talk at the earliest. Proposed, not confirmed: six a day.
+fn ask_first(w: &mut World, mut list: Vec<(usize, Date, i32, Why, f64)>) {
+    list.sort_by_key(|x| (x.1, x.0));
+    let today = w.today;
+    for (k, (i, entered_on, decide_in, why, bar)) in list.into_iter().enumerate() {
+        let id = w.people[i].player.id;
+        let Some(program) = w.people[i].college else { continue };
+        let booked = w
+            .folk
+            .scenes
+            .iter()
+            .filter(|s| !s.done && s.kind == super::folk::scene::Kind::OneOnOne && s.a == id as u64 && s.date >= today)
+            .map(|s| s.date)
+            .min();
+        let talk = match booked {
+            Some(d) => d,
+            None => {
+                let d = today.add(k as i32 / 6);
+                super::folk::talks::portal_ask(w, i, d);
+                d
+            }
+        };
+        let enters = entered_on.max(talk.add(1));
+        w.portal_intents.push(Intent { id, program, talk, enters, decide_in, why, bar });
+    }
+}
+
+/// Your players' decisions on their day (after their talk with you): in,
+/// or staying.
+pub(crate) fn intents_day(w: &mut World) {
+    let today = w.today;
+    let (due, rest): (Vec<Intent>, Vec<Intent>) =
+        std::mem::take(&mut w.portal_intents).into_iter().partition(|t| t.enters <= today);
+    w.portal_intents = rest;
+    for t in due {
+        let Some(i) = super::folk::person(w, t.id) else { continue };
+        let p = &w.people[i];
+        if p.stage != Stage::College || p.college != Some(t.program) || p.cal.portal.is_some() {
+            continue;
+        }
+        let link = super::folk::player_link(w, i);
+        if p.cal.lean > t.bar {
+            if let Some(e) = enter_portal(w, i, t.program, today, today.add(t.decide_in), t.why) {
+                w.calendar.post(e);
+            }
+            w.portal_pending.push(i);
+            w.log.portal_entries += 1;
+            match w.log.portal_by_day.iter_mut().find(|x| x.0 == today) {
+                Some(x) => x.1 += 1,
+                None => w.log.portal_by_day.push((today, 1)),
+            }
+            if let Some(cs) = w.college.as_mut() {
+                cs.out.insert(t.id, "entered the transfer portal");
+            }
+            super::folk::post_mine(
+                w,
+                today,
+                Loudness::Small,
+                false,
+                "people: portal",
+                &format!("{link} entered the transfer portal."),
+            );
+        } else {
+            w.people[i].cal.lean_events.push((today, "decided to stay after talking it over", 1.0));
+            super::folk::post_mine(
+                w,
+                today,
+                Loudness::Small,
+                false,
+                "people: portal",
+                &format!("{link} decided to stay."),
+            );
+        }
+    }
+}
 
 /// A player's portal entry is set (T3): his NIL deal ends, and a starter's
 /// or blue-chip's entry is news on his day.
@@ -6071,8 +6189,14 @@ fn release_held(w: &mut World, market: &mut PortalMarket) {
         out.push((h, last));
     }
     market.held = still;
+    let mine = talks_first(w);
+    let mut ask = Vec::new();
     for (h, last) in out {
         let entered = h.window_day.max(last.add(1 + h.extra));
+        if let Some(bar) = h.bar.filter(|_| mine == Some(h.program)) {
+            ask.push((h.person, entered, h.decide_in, h.why, bar));
+            continue;
+        }
         if let Some(e) = enter_portal(w, h.person, h.program, entered, entered.add(h.decide_in), h.why) {
             w.calendar.post(e);
         }
@@ -6085,6 +6209,7 @@ fn release_held(w: &mut World, market: &mut PortalMarket) {
             None => w.log.portal_by_day.push((entered, 1)),
         }
     }
+    ask_first(w, ask);
 }
 
 /// How much of the yearly transfer flow an era had (T11 and part B 10;
@@ -6116,8 +6241,16 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     use super::clock::PortalWindow;
     let today = w.today;
     // The offseason it belongs to: the winter window follows this season; the
-    // spring and graduate windows come in the next football year.
-    let label = if matches!(which, PortalWindow::Spring | PortalWindow::Graduate) { w.year - 1 } else { w.year };
+    // spring and graduate windows come in the next football year, and so
+    // does a coaching-change window from a hire after the year turned (your
+    // February takeover). It belonged to the coming season, so every player
+    // drew afresh after the January window and juniors counted as out of
+    // eligibility.
+    let label = match which {
+        PortalWindow::Spring | PortalWindow::Graduate => w.year - 1,
+        PortalWindow::CoachChange if today < w.dates.fall_camp => w.year - 1,
+        _ => w.year,
+    };
     let rule = w.changes.rules(label).transfer;
     let era = era_factor(label, rule);
     let seed = w.options.seed as u64 ^ ((label as u64) << 24) ^ if which == PortalWindow::Spring { 0x5A } else { 0xA5 };
@@ -6187,10 +6320,20 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         }
     }
     let mut entrants: Vec<(usize, Why)> = Vec::new();
+    // The lean each lean-driven entrant must still be above on his day
+    // (`Intent`): his draw over the window's rate.
+    let mut bars: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     let mut moved_up_far = 0u32;
     let mut steered_stays: Vec<usize> = Vec::new();
     // A coach-change window is only for the players whose head coach left.
     let new_coach: Vec<bool> = w.programs.iter().map(|p| p.hc_changed == w.year).collect();
+    // The winter window this coaching-change window follows, when it came
+    // first in the same cycle (your February takeover).
+    let late = (which == PortalWindow::CoachChange && label == w.year - 1)
+        .then(|| super::clock::portal_windows(label, rule).into_iter().find(|x| x.2 == PortalWindow::Winter))
+        .flatten()
+        .map(|x| x.0)
+        .filter(|&open| open < today);
     // Spring (part D 20): who was passed at his spot by a newcomer, a winter
     // transfer or a January enrollee, with the spring depth chart.
     let mut newcomer_best = vec![[f64::NEG_INFINITY; POSITION_COUNT]; w.programs.len()];
@@ -6266,6 +6409,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             let starter_up = if p.last_role == Some(PlayingTime::Starter) && div != Division::FBS { 0.08 } else { 0.0 };
             if u < (1.2 * p.cal.lean + starter_up) * free * era {
                 entrants.push((i, Why::Graduate));
+                bars.insert(i, ((u / (free * era) - starter_up) / 1.2).max(-1.0));
             }
             continue;
         }
@@ -6283,6 +6427,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
                 && u < f * p.cal.lean * era
             {
                 entrants.push((i, Why::SpringDepth));
+                bars.insert(i, u / (f * era));
             }
             continue;
         }
@@ -6340,9 +6485,27 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             steered_stays.push(i);
         }
         // The lean built over the season (T3).
-        if u < p.cal.lean * era {
+        // A coaching-change window after this cycle's winter window (your
+        // February takeover) draws only from the players who stayed through
+        // it: the share the change adds, over those who stayed. A career's
+        // own seed makes this a fresh draw, so it can't simply reuse
+        // January's.
+        let (go, bar) = match late {
+            Some(open) => {
+                let stayed = (lean_on(p, open) * era).min(1.0);
+                let now = (p.cal.lean * era).min(1.0);
+                if stayed >= 1.0 {
+                    (false, 0.0)
+                } else {
+                    (u < (now - stayed) / (1.0 - stayed), (u * (1.0 - stayed) + stayed) / era)
+                }
+            }
+            None => (u < p.cal.lean * era, u / era),
+        };
+        if go {
             let changed = p.cal.lean_events.iter().any(|e| e.1 == "his head coach is gone");
             entrants.push((i, if changed { Why::CoachingChange } else { Why::PlayingTime }));
+            bars.insert(i, bar);
             continue;
         }
         // A greedy starter at a poor program can be bought away.
@@ -6381,6 +6544,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             let u = key_uniform(seed ^ 0x7EA, p.player.id as u64);
             if u < p.cal.lean * era * 1.15 {
                 entrants.push((i, Why::PlayingTime));
+                bars.insert(i, u / (era * 1.15));
                 w.people[i].cal.lean_events.push((today, "a high school teammate left", 1.15));
             }
         }
@@ -6433,6 +6597,8 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     };
     let mut held: Vec<Held> = Vec::new();
     let mut cs_out: Vec<u32> = Vec::new();
+    let mine = talks_first(w);
+    let mut ask: Vec<(usize, Date, i32, Why, f64)> = Vec::new();
     for &(i, why) in &entrants {
         let c = w.people[i].college.unwrap();
         let div = w.programs[c].division;
@@ -6454,15 +6620,21 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         if why == Why::Dismissed && w.people[i].rng.chance(PIPELINE.college_trouble.serious_share) {
             serious.insert(i);
         }
+        let bar = bars.get(&i).copied().filter(|_| mine == Some(c));
         if alive[c]
             && !matches!(why, Why::Dismissed | Why::Cut)
             && !matches!(which, PortalWindow::Spring | PortalWindow::Graduate)
         {
             let extra = (5.0 * key_uniform(seed ^ 0xE8, id)).floor() as i32;
-            held.push(Held { person: i, program: c, window_day: entered_on, extra, decide_in, why });
+            held.push(Held { person: i, program: c, window_day: entered_on, extra, decide_in, why, bar });
             // On hold: no day yet, and no decision due until he is released.
             w.people[i].cal.portal =
                 Some(super::PortalEntry { entered: HELD, decide_by: HELD, why: why.reason(), held: true });
+            continue;
+        }
+        // Your own player asks to see you first and decides on his day.
+        if let Some(bar) = bar {
+            ask.push((i, entered_on, decide_in, why, bar));
             continue;
         }
         cs_out.push(id as u32);
@@ -6472,7 +6644,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     for e in events {
         w.calendar.post(e);
     }
-    w.log.portal_entries += (entrants.len() - held.len()) as u32;
+    w.log.portal_entries += (entrants.len() - held.len() - ask.len()) as u32;
     w.log.portal_by_day.extend(by_day);
     // Players still to play a bowl or playoff game sit it out.
     if let Some(cs) = w.college.as_mut() {
@@ -6536,7 +6708,9 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         market.held.extend(old.held);
     }
     w.portal_market = Some(market);
-    w.portal_pending.extend(entrants.iter().map(|e| e.0));
+    let asked: std::collections::HashSet<usize> = ask.iter().map(|x| x.0).collect();
+    w.portal_pending.extend(entrants.iter().map(|e| e.0).filter(|i| !asked.contains(i)));
+    ask_first(w, ask);
 }
 
 /// Entrants whose day has come decide (T3, T9): each shops among programs
@@ -6617,6 +6791,10 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let perf = perf_of(&w.people[i]);
         let serious = market.serious.contains(&i);
         w.people[i].cal.portal = None;
+        // His move is made: last season's reasons to leave are spent, so a
+        // later window this offseason (spring, or a coaching change where he
+        // landed) doesn't draw him again.
+        w.people[i].cal.lean = 0.0;
         if serious && w.people[i].rng.chance(PIPELINE.college_trouble.serious_quit_share) {
             let p = &mut w.people[i];
             p.stage = Stage::Done;

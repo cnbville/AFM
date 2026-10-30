@@ -439,6 +439,10 @@ pub(crate) fn advance_day(w: &mut World) {
         w.coach_window = None;
         recruiting::portal_open(w, PortalWindow::CoachChange, close);
     }
+    // Your players who talked to you first decide on their day.
+    if !w.portal_intents.is_empty() {
+        recruiting::intents_day(w);
+    }
     // Entrants decide on their own days (T3, T9).
     if !w.portal_pending.is_empty() {
         timed("portal day", || recruiting::portal_day(w, false));
