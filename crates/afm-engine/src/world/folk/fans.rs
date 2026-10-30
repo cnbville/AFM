@@ -939,7 +939,9 @@ impl<'a> Year<'a> {
                     ff.set("since", (self.season - years).to_string());
                 }
                 Sort::Alum => {
-                    ff.set("class", (fan.born + 22).to_string());
+                    // High school at 18, college at 22.
+                    let at = if matches!(self.team, Team::High(_)) { 18 } else { 22 };
+                    ff.set("class", (fan.born + at).to_string());
                 }
                 Sort::Parent if !ours.is_empty() => {
                     let id = ours[self.ch.rng.int(0, ours.len() as i32 - 1) as usize];
@@ -994,9 +996,22 @@ impl<'a> Year<'a> {
         }
         // The next game, inside two weeks.
         let next = super::facts::team_games(w, self.team).into_iter().find(|x| x.0 > d && d.days_to(x.0) <= 13);
+        let has_next = next.is_some();
         if let Some((_, opp, _)) = next {
             f.set("next", self.said(opp));
             pool.push(("next", if last.is_some() { 0.6 } else { 1.5 }));
+        }
+        // When a day without a game falls: before the first game, an open
+        // week (the next game inside two weeks), or after the last so far.
+        if last.is_none() {
+            f.set(
+                "time",
+                match (run.games, has_next) {
+                    (0, _) => "before",
+                    (_, true) => "bye",
+                    _ => "after",
+                },
+            );
         }
         if run.games >= 2 {
             pool.push(("season", 0.7));

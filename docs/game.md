@@ -1290,6 +1290,25 @@ The places where fans speak, at high school, college and the NFL, with seed line
 - The board names by level and era, and FM from 2010 for some stations.
 - The 63 parts and their tags and facts (lane 13f writes to them).
 
+### Lane 13f: the fans' lines
+
+The fans' full set of lines in `crates/afm-engine/data/lines/fans.txt`: 10,428 versions in the 63 parts (the fan lane's 496 seed lines and 9,932 new), so a team's fans and its crowd rarely say the same thing twice in a fan year. How the places work: [people.md](reference/how-it-works/people.md), "Fan voices".
+
+- **The crowd at each level**: every crowd part has its own high school, college and NFL versions plus versions true at all three (the NFL crowd had 4 score lines; it now has 105).
+- **What they talk about**: wins, losses and ties by margin, upsets, rivals, home and road; the quarterback, the day's best player and the costliest mistake by its kind; the coach, the play calling, the defense, the officials; the next opponent, the rival, the season, the hot seat, recruiting, the draft, the offseason and a new coach. Each by level, kind of fan, age, temper (hot, calm, homer, doomer), region and era (no phones before 2010, NIL and the portal from 2021).
+- **The frame**: who is talking in town and where, the call-in show's name, the host's intros, the callers' first and last words, thread titles, replies and handles, signs in the stands.
+- **A new fact, `time`**, on days without a game: `before` (no game yet this season), `bye` (games played, the next inside two weeks) and `after` (games played, nothing inside two weeks), so spring talk is never said in an open week (`fans.rs`, `talk`).
+- **A fix**: a high school alum's class year is his age 18, not 22 (`fans.rs`, `town`).
+- **Seed lines changed**: eleven that named a weekday, claimed past meetings with a rival, read "the Bills is" or "the Packers week" at the NFL, or "a Austin kid"; the church line moved from high school (games on Friday nights) to college.
+- **The proof** (`tests/fans.rs`, `a_fan_year_rarely_says_a_line_again`): a full season (10 high school, 12 college, 17 NFL games) and the fan year around it, counting each part a crowd said again because every version that fits had had its turn. On the full bank: a high school year said 0 of 175 crowd lines and 0 of 891 fan lines again, a college year 0 of 301 and 4 of 1,446, an NFL year 0 of 395 and 0 of 1,793 (on the seed lines alone a high school year said 43 of 174 and 663 of 875 again). The bars: 2% each.
+
+#### Claude's picks (proposed, not confirmed)
+
+- The `time` fact and its three values.
+- The proof's bars: the crowd and the fans each say at most 2% of their lines again in a fan year.
+- How the lines spread over the tags (about a third true at every level, a sixth each per level, about 1 in 8 subject lines for the board only).
+- The bank's size: 10,428 rather than the plan's 8,000, because the frames (the host's intros, callers' first and last words, offseason talk and titles) are said far more often than the plan counted (an NFL show takes about 257 calls a year).
+
 ### Lane 12, the NFL league's fixes before the world rebuild (minor bugs 87, 94, 95, 97, 115, 122, 123, 134, 146, 147, 149, 151, 152)
 
 Cain's standing rule (2026-10-28): code that disagrees with real data is a bug, fixed before the world rebuild without asking. How each works, with every number: [nfl.md](reference/how-it-works/nfl.md) and [draft.md](reference/how-it-works/draft.md).
