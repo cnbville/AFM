@@ -245,7 +245,8 @@ pub fn kickoff(
         -1.0 - rng.range(0.0, 3.0)
     } else if rules.nfl_kickoff {
         let r = &k.ret[k.ret_on[0]];
-        let danger = 0.5 * (r.a(Attr::Speed) + r.a(Attr::Elusiveness)) - 80.0;
+        // Read for his weight, as the forty is (A3).
+        let danger = 0.5 * (r.a(Attr::Speed) + r.a(Attr::Elusiveness)) - super::sim::size_cost(r.weight, 200.0) - 80.0;
         let away = clamp(0.2 + 0.012 * danger, 0.08, 0.45);
         if from - max < -1.0 && rng.chance(away) { -2.0 - rng.range(0.0, 5.0) } else { 2.0 + rng.range(0.0, 8.0) }
     } else if from - max < -2.0 {

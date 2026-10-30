@@ -2385,6 +2385,7 @@ pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
     let seed = w.options.seed as u64 ^ (class as u64) << 16 ^ name.len() as u64;
     let poly = name.starts_with("Polynesian");
     let scale = w.options.scale;
+    let played = super::recruiting::hs_played(w);
     let mut invited = 0u32;
     for (pos, places) in ALL_STAR_PLACES {
         let mut pool: Vec<(f64, usize)> = w
@@ -2401,8 +2402,10 @@ pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
             .map(|(i, p)| {
                 let stars = if pos.is_specialist() { p.camp_stars } else { p.stars } as f64;
                 let read = p.cal.service_read.unwrap_or(p.player.overall());
-                let mut score =
-                    10.0 * stars + 0.25 * film_raw(p) + 0.75 * read + 0.3 * key_normal(seed, p.player.id as u64);
+                let mut score = 10.0 * stars
+                    + 0.25 * film_raw(p, &played)
+                    + 0.75 * read
+                    + 0.3 * key_normal(seed, p.player.id as u64);
                 if poly && p.ethnicity == super::ethnicity::Ethnicity::Polynesian {
                     score += 15.0;
                 }

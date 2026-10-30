@@ -707,6 +707,12 @@ fn ai_hs_hires(w: &mut World) {
         let Some((_, j)) = lead else { continue };
         let role = Role::PositionCoach(w.coaches[c].came_up);
         w.folk.backchannel.asked.push(id);
+        // Your own college job isn't given away under the no-fire override.
+        if let Some(old) = crate::world::staff::holder(w, Employer::College(j), role)
+            && crate::world::front_office::market::spared(w, old, "reassigned")
+        {
+            continue;
+        }
         if let Some(old) = crate::world::staff::holder(w, Employer::College(j), role) {
             crate::world::staff::leave(w, old, "reassigned");
         }

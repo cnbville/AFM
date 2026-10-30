@@ -299,6 +299,7 @@ pub(crate) fn advance_day(w: &mut World) {
         college::release_poll(w, d, PollKind::ApPreseason);
     }
     timed("hs", || hs_year::day(w, d));
+    super::times::day(w, d);
 
     // --- College Saturdays and the weeks around them (T3, T6) ------------------------
     timed("college games", || college::play_day(w, d));
@@ -437,6 +438,10 @@ pub(crate) fn advance_day(w: &mut World) {
     {
         w.coach_window = None;
         recruiting::portal_open(w, PortalWindow::CoachChange, close);
+    }
+    // Your players who talked to you first decide on their day.
+    if !w.portal_intents.is_empty() {
+        recruiting::intents_day(w);
     }
     // Entrants decide on their own days (T3, T9).
     if !w.portal_pending.is_empty() {

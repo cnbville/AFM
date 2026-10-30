@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7 and 9 on 2026-10-29, and the hunt (next update lane 11) on 2026-10-30, and timed interview talks and college calls with the next update's lane 14 the same day.
+Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7 and 9 on 2026-10-29, and the hunt (next update lane 11) on 2026-10-30, and timed interview talks and college calls with the next update's lane 14 the same day; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30.
 
 ## Quick answers
 
@@ -113,7 +113,8 @@ Sources: `readers.rs`, `coach_reader`, `scout_reader`, `club_reader`, `staffer_r
   - Mondays: personnel study a quarter of the board on film. Before 2008 a small high school's tape gets through 35% of the time.
   - Tuesdays in contact, evaluation and quiet periods: the area recruiter calls a sixth of the board (old staff for portal players).
   - Evaluation days (Thursday practice, Friday game in the fall; Thursdays in the spring window): the position coach (`evaluator_for`), your assignments first, then your asks, then the board's unseen. Limits 42 fall days (33 from 2023) and 168 spring (`dept.rs`, `eval_limits`).
-  - June camps (2nd and 3rd Saturdays): board recruits within 400 miles, 45% chance each, read by the position coach or head coach.
+  - June camps (2nd and 3rd Saturdays): board recruits within 400 miles, 0.45 × (0.3 + 0.7 × family money) each (minor bug 22: the money check never applied), read by the position coach or head coach. Each camper's laser forty and split are stored that day (`times::your_camp`; minor bug 23: the body tab and file show the stored times, not a time rebuilt from today's ratings).
+  - Showcases (minor bug 26): a recruit on your board who tests at a regional showcase or the national finals gives your staff a Showcase look that day (`world/times.rs`, `test`).
   - Visits on campus and home visits are filed under the head coach. October 1: transcripts (academic staff) and social media (personnel) for the board's seniors.
 - NFL seat: the built club year below, plus your assignments every second Wednesday (school calls in the fall, film after) and the director's five extra film looks a week on a focus group (`dept.rs`, `nfl_day`). The other instructions (small schools, scheme fit, ask before taking off, analytics) are kept but nothing in the engine reads them.
 - Asks from the file screen: only "Evaluate in person" (a practice look) is turned into a look by the engine; the others, and the private workout and medical recheck lists, wait on the ask list (`dept.rs`, `college_day`; `crates/afm-game/src/lane_scouting.rs`, `ask`, `board_list`).
@@ -183,7 +184,7 @@ All in `world/recruiting.rs`, `run_signing_stage` (the board per position):
 - Five services (from 1998, 2006, 2010, 2021; one ends 2017) and four draft analysts (1978, 2004-2017, 2010, 2014), made-up names, hidden skill N(12, 2) clamped 7-17 (analysts 8-17), each with a lean (`staff_desks`).
 - Analyst grade = December score + 3.5 × (1.4 - 0.04 × skill) × (0.8 × lasting lean + 0.35 × weekly noise), plus its lean: big programs +1.0 (FBS with prestige ≥ 60; prestige is stored 0-1, so this never fires), size 0.8 × z, viral 0.6 × speed z, production 0.6 × last performance clamped to ±1.5 (a rating, so in practice +0.9) (`desk_grade`).
 - Big boards on the 1st of September-December, then Tuesdays from mid-December; mocks Thursdays from mid-December (round 1; two rounds in the last week), picking best grade + 0.8 × need. The season runs for the draft the boards are for (`draft_year`): any day September-December, and January-April only in that draft's own year, since a football year's dates hold last spring's draft until the Super Bowl turns it. Consensus top 50 = sum of (100 - rank) (`day`, `mock`). Risers of 10+ places make the news (`risers_and_fallers`). Mocks scored the morning after (`score_mocks`), with each desk's final top 100 against the first 100 picks, per 100 (`Desk::board_hits`, ten drafts; `board_hit_rate`: a small world's top N against its first N picks). Before the season sets the draft order, mocks pick in today's standings' order (`world/nfl_year.rs`, `mock_order`).
-- A service's recruit stars stay within ±0.6 of the shared stars (`service_read`). The recruit search and the high school coach's page show each service's own stars and rank as kept at its last update (`world/scouting/services.rs`, `service_boards`; see [recruiting.md](recruiting.md), "The services before the signing stages").
+- A service's recruit stars come from its own list (`world/scouting/services.rs`, `lean`; its bias reads offers, recorded times and listed weight, see [recruiting.md](recruiting.md)). The unused `service_read` was removed (minor bug 27). The recruit search and the high school coach's page show each service's own stars and rank as kept at its last update (`world/scouting/services.rs`, `service_boards`; see [recruiting.md](recruiting.md), "The services before the signing stages").
 - The search screens (Find recruits, Find prospects) filter and sort on what your staff's file and the public know: a kid with no file reads "Not seen", and a range filter takes a "how sure" floor (a fair read spreads 6 points or less, a narrow one 3.5) (`crates/afm-game/src/lane_find/fields.rs`, `value`, `Sure`). An NFL prospect's marks count as verified after the combine (if invited) or his school's pro day, read from the coming draft's own dates (`verified`, `draft_dates`). Find prospects' "Scheme fit" reads your scouts' attribute reads against your club's systems (`scheme_fit`; `world/systems.rs`, `read_fit`). The search's day cache keys on the day, the files' looks and who reads (`crates/afm-game/src/lane_find/staff.rs`, `cache_key`).
 
 ## The high school coach's side
@@ -277,7 +278,7 @@ Your own side (`world/scouting/own.rs`; the commands in `crates/afm-game/src/lan
 - `world/recruiting.rs`: the college `noise_sd` formula, `FIT_EVAL`, `STAFF_GIFT`, `SERVICE_MISREAD`, `SERVICE_MATURITY`.
 - `world/scouting/dept.rs`: `eval_limits`, board sizes in `watch`, camp radius and odds.
 - `world/scouting/public.rs`: desk lists and skills, grade spread 3.5, the season's months in `day`.
-- `world/scouting/services.rs`: each service's `lean` on its own list.
+- `world/scouting/services.rs`: each service's `lean` on its own list (3 power-conference offers, the 4.45 laser forty and 10.75 FAT 100 m for a viral clip).
 - `world/coach.rs`: `Coach::evaluation`.
 - `world/scouting/footage.rs` and `world/scouting/own.rs`: the fresh look's sizes (listed in `docs/game.md`, update 2 lane 8, Claude's picks).
 

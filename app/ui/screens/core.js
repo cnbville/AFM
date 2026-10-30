@@ -1972,6 +1972,7 @@ screens.settings = async () => {
   title("Settings");
   const seg = (k, list, cur) => `<div class="seg">${list.map(([v, t]) => `<button data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${String(cur) === String(v)}">${t}</button>`).join("")}</div>`;
   const row = (t, sub, ctl) => `<div class="setrow"><div><b>${t}</b><small>${sub}</small></div>${ctl}</div>`;
+  const nf = await api("no_fire").catch(() => null);
   const keys = [["Space", "Continue"], ["⌘K", "Search anything"], ["⌘[ and ⌘]", "Back and forward"], ["Shift-click", "Open beside this screen"], ["⌘-click", "Open in its own window"], ["Right-click a name", "Add to my players, add a note, compare"], ["↑ ↓ and return", "Move through a table and open the row"], ["← →", "Older and newer letter"], ["Esc", "Close the letter or panel"]];
   return `<div class="pad">${pageHead({ title: "Settings" })}<div class="grid2"><div class="panel"><h2>Look</h2>
     ${row("Theme", "Showtime dark, or light for daytime", seg("theme", [["", "Dark"], ["light", "Light"]], prefs.theme || ""))}
@@ -1980,9 +1981,21 @@ screens.settings = async () => {
     <div class="panel"><h2>Reading</h2>
     ${row("Hover cards", "A card when you rest on a name", seg("hover", [["", "On"], ["off", "Off"]], prefs.hover || ""))}
     ${row("Hover delay", "How long to rest first", seg("hoverDelay", [["250", "Quick"], ["", "Normal"], ["900", "Slow"]], prefs.hoverDelay || ""))}</div></div>
+    ${nf && nf.career ? noFirePanel(nf, row) : ""}
     <div class="panel"><h2>Logos</h2>${row("Logo packs", "AFM has no logos of its own: install a pack, the way Football Manager's work", linkTo("logos", {}, "Logos", "st-btn small"))}</div>
     <div class="panel"><h2>Keys and clicks</h2><div class="keys">${keys.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join("")}</div></div></div>`;
 };
+
+// The no-fire override (a test switch): nothing ends your job while it is
+// on, and each time something would have, it is listed here and in the inbox.
+function noFirePanel(nf, row) {
+  const seg = `<div class="seg"><button data-act="nofire" data-v="" aria-pressed="${!nf.on}">Off</button><button data-act="nofire" data-v="1" aria-pressed="${nf.on}">On</button></div>`;
+  const mark = nf.since ? ` This career is marked as having used it since ${esc(nf.since)}; the mark stays when you turn it off.` : " Turning it on marks this career and its saves for good.";
+  const list = nf.spared.slice(0, 12).map((x) => `<div class="setrow"><div><b>${esc(x.date)}</b><small>${esc(x.at)}: ${esc(x.why)}</small></div></div>`).join("");
+  const more = nf.spared.length > 12 ? `<small class="muted">and ${nf.spared.length - 12} more</small>` : "";
+  const kept = nf.spared.length ? `<h3 class="st-label" style="margin-top:12px">Times it kept you in a job (${nf.spared.length})</h3>${list}${more}` : nf.since ? `<small class="muted">It hasn't had to keep you yet.</small>` : "";
+  return `<div class="panel"><h2>Testing</h2>${row("No-fire override", `Nothing ends your job: no firing, no contract left to run out, no new head coach letting you go. Your inbox still says each time it would have happened.${mark}`, seg)}${kept}</div>`;
+}
 
 // ---------- search as a page (the palette is ⌘K) ----------
 screens.search = async (a) => {
@@ -2004,6 +2017,16 @@ if (!screens.studio) screens.studio = async (a) => liveRoom({ kicker: a.kicker |
 
 // The actions the screens above add.
 const CORE_MORE = {
+  nofire: async (el) => {
+    const on = el.dataset.v === "1";
+    if (el.getAttribute("aria-pressed") === "true") return;
+    if (on && !(await sure("Turn on the no-fire override?", "Nothing will end your job while it is on. This career is marked as having used it, on its saves too, even after you turn it off.", "Turn it on"))) return;
+    try {
+      await api("no_fire_set", { on });
+      toast(on ? "No-fire override on: nothing ends your job." : "No-fire override off.");
+      refresh(el);
+    } catch (e) { toast(e.message); }
+  },
   pstatv: (el) => { keep("pstats", {}).v = el.dataset.v; refresh(el); },
   cmpdrop: (el) => { const t = keep("cmp", { ids: [] }); const id = Number(el.dataset.id); t.ids = (S.route.args.ids || t.ids).filter((x) => x !== id); go("compare", { ids: t.ids }, false); },
   newschain: (el) => { keep("newsfeed", {}).chain = el.dataset.k || null; refresh(el); },

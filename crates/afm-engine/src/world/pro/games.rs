@@ -501,16 +501,21 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
             }
         }
     }
-    for (_, inj) in &r.injuries {
-        if inj.plays_on || inj.side > 1 {
+    // Injuries by the team he plays for, not his side on the snap (B1: a
+    // defender hurt on a snap read the offense's list and never carried),
+    // out day by day from the day after the game, as in college.
+    for &(team, ref inj) in &r.injuries {
+        if inj.plays_on || team > 1 {
             continue;
         }
-        let Some(&(i, _)) = sides[inj.side].who.get(&inj.id) else { continue };
-        let weeks = inj.weeks.ceil().max(1.0) as u32;
+        let Some(&(i, _)) = sides[team].who.get(&inj.id) else { continue };
+        let days = (inj.weeks * 7.0).ceil().max(1.0) as u32;
+        let weeks = days.div_ceil(7);
         // Your club decides its own list (minor bug 73).
         let you = crate::world::front_office::reserve::you_decide(w, i);
+        w.hurt_pros.0.push(w.people[i].player.id);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
-        c.out_weeks = c.out_weeks.max(weeks);
+        c.hurt_for(1 + days);
         if weeks >= 6 {
             // A vested veteran goes straight to injured reserve; anyone else
             // hurt before the cutdown must be waived/injured first (real
@@ -596,28 +601,30 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
             s.stats.add(l);
         }
     }
-    for (_, inj) in &r.injuries {
-        if inj.plays_on || inj.side > 1 {
+    // By team, day by day (B1; see `record_preseason`).
+    for &(team, ref inj) in &r.injuries {
+        if inj.plays_on || team > 1 {
             continue;
         }
-        let Some(&(i, _)) = sides[inj.side].who.get(&inj.id) else { continue };
+        let Some(&(i, _)) = sides[team].who.get(&inj.id) else { continue };
         // The medical staff's head: a good one brings a player back sooner
         // (section 6 topic 10; proposed, not confirmed: up to 12%).
-        let t = teams[inj.side];
+        let t = teams[team];
         let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating));
-        let weeks = (inj.weeks * (1.0 - 0.12 * med)).ceil().max(1.0) as u32;
+        let days = (inj.weeks * (1.0 - 0.12 * med) * 7.0).ceil().max(1.0) as u32;
+        let weeks = days.div_ceil(7);
         let ir = weeks >= ir_minimum(year);
         // Your club decides its own list (minor bug 73): the medical staff
         // recommends.
         let you = crate::world::front_office::reserve::you_decide(w, i);
+        w.hurt_pros.0.push(w.people[i].player.id);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
-        c.out_weeks = c.out_weeks.max(weeks);
+        c.hurt_for(1 + days);
         if ir && you && c.status == Status::Roster {
             crate::world::front_office::reserve::recommend(w, i, weeks);
         } else if ir && c.status == Status::Roster {
             c.status = Status::Reserve;
             c.pup = false;
-            let t = teams[inj.side];
             let name = w.nfl[t].name;
             let p = &mut w.people[i];
             let age = p.row_age();
@@ -688,15 +695,18 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
             let kind = rng.weighted(&MIX);
             let recovery = p.player.game.recovery;
             let weeks = injury_weeks(kind, &mut rng) * (1.3 - 0.03 * recovery) * (1.0 - 0.12 * med);
-            let weeks = weeks.ceil() as u32;
-            if weeks == 0 {
+            // Day by day from tomorrow (B1).
+            let days = (weeks * 7.0).ceil() as u32;
+            if days == 0 {
                 continue;
             }
+            let weeks = days.div_ceil(7);
             let vested = c.accrued >= 4;
             let squad = c.status == Status::PracticeSquad;
             let you = crate::world::front_office::reserve::you_decide(w, i);
+            w.hurt_pros.0.push(w.people[i].player.id);
             let c = w.people[i].pro.as_mut().unwrap();
-            c.out_weeks = c.out_weeks.max(weeks);
+            c.hurt_for(days);
             let due = if camp { weeks >= 6 && vested } else { weeks >= ir_minimum(year) && !squad };
             // Your club decides its own list (minor bug 73).
             let ir = due && !you;

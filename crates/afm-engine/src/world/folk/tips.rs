@@ -324,9 +324,9 @@ fn source(w: &World, k: usize, nfl: bool, team: Team) -> Option<From> {
 
 /// What a kid shows on the scale the claims use: a recruit's film, a
 /// college player's play.
-fn value(p: &crate::world::Person) -> f64 {
+fn value(p: &crate::world::Person, played: &[f64]) -> f64 {
     if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
-        crate::world::recruiting::film_raw(p)
+        crate::world::recruiting::film_raw(p, played)
     } else {
         p.player.overall()
     }
@@ -351,6 +351,7 @@ fn pool(w: &World, f: &From, nfl: bool, key: u64) -> Vec<(f64, usize)> {
     let sd = 1.5 + 0.45 * (20.0 - f.eye).max(0.0);
     let sent: Vec<u32> = w.folk.tips.list.iter().filter(|t| same(t, w, f.k)).map(|t| t.player).collect();
     let mut v: Vec<(f64, usize)> = Vec::new();
+    let played = crate::world::recruiting::hs_played(w);
     for (i, p) in w.people.iter().enumerate() {
         let ok = if nfl {
             draft_pool(p)
@@ -375,7 +376,7 @@ fn pool(w: &World, f: &From, nfl: bool, key: u64) -> Vec<(f64, usize)> {
                 }
         };
         if ok && !sent.contains(&p.player.id) {
-            v.push((value(p) + sd * key_normal(key, p.player.id as u64), i));
+            v.push((value(p, &played) + sd * key_normal(key, p.player.id as u64), i));
         }
     }
     v.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -388,18 +389,19 @@ fn pool(w: &World, f: &From, nfl: bool, key: u64) -> Vec<(f64, usize)> {
 fn percentile(w: &World, i: usize, read: f64) -> f64 {
     let p = &w.people[i];
     let (mut below, mut n) = (0usize, 0usize);
+    let played = crate::world::recruiting::hs_played(w);
     if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
         let class = p.class_of;
         for q in
             w.people.iter().filter(|q| matches!(q.stage, Stage::HighSchool | Stage::PrepSchool) && q.class_of == class)
         {
             n += 1;
-            below += (value(q) < read) as usize;
+            below += (value(q, &played) < read) as usize;
         }
     } else {
         for q in w.people.iter().filter(|q| draft_pool(q)) {
             n += 1;
-            below += (value(q) < read) as usize;
+            below += (value(q, &played) < read) as usize;
         }
     }
     if n == 0 { 0.0 } else { below as f64 / n as f64 }

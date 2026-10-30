@@ -131,7 +131,10 @@ function sbArcChart(x, metric, ghostsOn, selSeason) {
     const P = [{ season: now.season, q: [now.read[0], now.read[0], m0, now.read[1], now.read[1]] }, ...x.path];
     const area = (lo, hi) => `${P.map((p) => `${X(p.season).toFixed(1)},${Y(p.q[hi]).toFixed(1)}`).join(" ")} ${P.slice().reverse().map((p) => `${X(p.season).toFixed(1)},${Y(p.q[lo]).toFixed(1)}`).join(" ")}`;
     proj = `<polygon points="${area(0, 4)}" class="sb-po"/><polygon points="${area(1, 3)}" class="sb-pi"/><polyline points="${P.map((p) => `${X(p.season).toFixed(1)},${Y(p.q[2]).toFixed(1)}`).join(" ")}" class="sb-pm"/>`;
-    if (ghostsOn) ghosts = x.ghosts.map((g) => `<polyline points="${g.d.map((d, i) => `${X(now.season + i).toFixed(1)},${Y(m0 + d).toFixed(1)}`).join(" ")}" class="sb-gh"><title>${esc(g.name)}</title></polyline>`).join("");
+    if (ghostsOn) ghosts = x.ghosts.map((g) => {
+      const line = `<polyline points="${g.d.map((d, i) => `${X(now.season + i).toFixed(1)},${Y(m0 + d).toFixed(1)}`).join(" ")}" class="sb-gh"><title>${esc(g.name)}</title></polyline>`;
+      return g.id != null ? `<a data-go="player" data-id="${g.id}">${line}</a>` : line;
+    }).join("");
   }
   const pts = x.points.filter((p) => rd(p));
   const line = pts.length > 1 ? `<polyline points="${pts.map((p) => `${X(p.season).toFixed(1)},${Y((rd(p)[0] + rd(p)[1]) / 2).toFixed(1)}`).join(" ")}" class="sb-al"/>` : "";
@@ -224,7 +227,7 @@ function sbBodyPlot(x, ti, ci) {
   const t = x.rows[ti];
   const me = t.value, mw = x.rows[1].value;
   const pool = ci === 0 ? x.plot.level : ci === 1 ? x.plot.drafted : [];
-  const pts = pool.map((m) => [m.v[ti], m.v[1], m.f]).filter((q) => q[0] != null && q[1] != null);
+  const pts = pool.map((m) => [m.v[ti], m.v[1], m.f, m]).filter((q) => q[0] != null && q[1] != null);
   const real = x.plot.real;
   let xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
   if (ci === 2 && real[ti] && real[1]) {
@@ -244,7 +247,18 @@ function sbBodyPlot(x, ti, ci) {
   const dec = Math.abs(x1 - x0) < 3 ? 2 : Math.abs(x1 - x0) < 20 ? 1 : 0;
   const gx = tick(x0, x1, 6).map((v) => `<line x1="${X(v).toFixed(1)}" x2="${X(v).toFixed(1)}" y1="${T}" y2="${H - B}" class="sb-ag"/><text x="${X(v).toFixed(1)}" y="${H - B + 16}" class="sb-ayt">${v.toFixed(dec)}</text>`).join("");
   const gy = tick(y0, y1, 4).map((v) => `<line x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="sb-ag"/><text x="${L - 6}" y="${(Y(v) + 4).toFixed(1)}" class="sb-agt">${Math.round(v)}</text>`).join("");
-  const dots = pts.map((q) => `<circle cx="${X(q[0]).toFixed(1)}" cy="${Y(q[1]).toFixed(1)}" r="${q[2] ? 3.6 : 2.6}" class="sb-dot ${q[2] ? "first" : ""}"/>`).join("");
+  // Every dot is a man (minor bug 30): his name, school and both numbers on
+  // hover, his page on Body and testing on a click; a retired man the world
+  // keeps no page for shows his name only.
+  const fmt = (k, v) => (k === 1 ? `${Math.round(v)} lb` : k === 0 ? `${Math.floor(v / 12)}'${Math.round(v % 12)}"` : t.lower ? v.toFixed(2) : v.toFixed(1));
+  const dots = pts.map((q) => {
+    const m = q[3], cx = X(q[0]).toFixed(1), cy = Y(q[1]).toFixed(1);
+    const l = `${m.n || ""}${m.s ? " · " + m.s : ""} · ${fmt(ti, q[0])} · ${fmt(1, q[1])}`;
+    const c = `<circle cx="${cx}" cy="${cy}" r="${q[2] ? 3.6 : 2.6}" class="sb-dot ${q[2] ? "first" : ""}"/>`;
+    return m.id != null
+      ? `<a class="sb-pt" data-go="player" data-id="${m.id}" data-tab="Body and testing" data-l="${esc(l)}" data-x="${cx}" data-y="${cy}">${c}</a>`
+      : `<g class="sb-pt" data-l="${esc(l)}" data-x="${cx}" data-y="${cy}">${c}</g>`;
+  }).join("");
   let ell = "";
   if (ci === 2 && real[ti] && real[1]) {
     const [mx, sx] = real[ti], [my, sy] = real[1];
@@ -258,9 +272,25 @@ function sbBodyPlot(x, ti, ci) {
     return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6" class="sb-me"/><rect x="${bx.toFixed(1)}" y="${(cy - 30).toFixed(1)}" width="${bw.toFixed(1)}" height="22" rx="6" class="sb-mel"/><text x="${(bx + 9).toFixed(1)}" y="${(cy - 15).toFixed(1)}" class="sb-melt">${esc(label)}</text>`;
   })() : "";
   const legend = ci === 1 ? '<div class="sb-rleg"><span><i class="dot"></i>Drafted</span><span><i class="ring"></i>First round</span><span><i class="me"></i>Him</span></div>' : ci === 2 ? '<div class="sb-rleg"><span><i class="po"></i>The real combine since 2000, one and two spreads</span><span><i class="me"></i>Him</span></div>' : '<div class="sb-rleg"><span><i class="dot"></i>His level at his position</span><span><i class="me"></i>Him</span></div>';
-  return `<svg class="sb-plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t.label)} against weight">${gx}${gy}${ell}${dots}${meDot}<text x="${W - R}" y="${H - 4}" class="sb-axl">${esc(t.label.toUpperCase())}${flip ? " · FASTER TO THE RIGHT" : ""}</text><text x="${L}" y="${T - 4}" class="sb-axl l">WEIGHT (LB)</text></svg>${legend}`;
+  return `<svg class="sb-plot" viewBox="0 0 ${W} ${H}" data-w="${W}" role="img" aria-label="${esc(t.label)} against weight">${gx}${gy}${ell}${dots}${meDot}<g class="sb-hov"></g><text x="${W - R}" y="${H - 4}" class="sb-axl">${esc(t.label.toUpperCase())}${flip ? " · FASTER TO THE RIGHT" : ""}</text><text x="${L}" y="${T - 4}" class="sb-axl l">WEIGHT (LB)</text></svg>${legend}`;
 }
 PLAYER_TABS.push({ name: "Body and testing", after: "Shape", draw: sbSafe(sbBodyTab) });
+// A dot's label on hover (minor bug 30), drawn as the plot's own label.
+document.addEventListener("mouseover", (ev) => {
+  const a = ev.target.closest && ev.target.closest(".sb-plot .sb-pt");
+  if (!a) return;
+  const svg = a.closest("svg"), g = svg && svg.querySelector(".sb-hov");
+  if (!g) return;
+  const cx = Number(a.dataset.x), cy = Number(a.dataset.y), W = Number(svg.dataset.w) || 900, label = a.dataset.l || "";
+  const bw = label.length * 6.6 + 18, bx = cx + bw + 14 > W ? cx - bw - 12 : cx + 12;
+  g.innerHTML = `<circle cx="${cx}" cy="${cy}" r="5" class="sb-hdot"/><rect x="${bx.toFixed(1)}" y="${(cy - 30).toFixed(1)}" width="${bw.toFixed(1)}" height="22" rx="6" class="sb-hlab"/><text x="${(bx + 9).toFixed(1)}" y="${(cy - 15).toFixed(1)}" class="sb-hlabt">${esc(label)}</text>`;
+});
+document.addEventListener("mouseout", (ev) => {
+  const a = ev.target.closest && ev.target.closest(".sb-plot .sb-pt");
+  if (!a || (ev.relatedTarget && a.contains(ev.relatedTarget))) return;
+  const g = a.closest("svg") && a.closest("svg").querySelector(".sb-hov");
+  if (g) g.innerHTML = "";
+});
 
 // ---------- clicks ----------
 Object.assign(CORE_MORE, {

@@ -1755,6 +1755,17 @@ pub fn keep_talk(w: &mut World, id: u32) -> Result<String, String> {
         format!("{first} said he'd think it over.")
     };
     let today = w.today;
+    // He has already told you he wants to leave: your word lands before
+    // his decision, not at a window already open.
+    if w.portal_intents.iter().any(|t| t.is(id)) && w.people[i].cal.lean > 0.0 {
+        let p = &mut w.people[i];
+        p.cal.lean *= factor;
+        p.cal.lean_events.push((
+            today,
+            if factor < 1.0 { "his head coach asked him to stay" } else { "his head coach didn't fight to keep him" },
+            factor,
+        ));
+    }
     w.front_office.college.talks.push(Talk { id, date: today, factor, answer: answer.clone() });
     note(w, format!("Sat down with {}: {answer}", w.people[i].name), Some(id));
     Ok(answer)

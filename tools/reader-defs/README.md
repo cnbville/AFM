@@ -8,3 +8,7 @@ World reader lane R8 wrote its panels, checks against real, consistency rules an
 - `g_a.py` to `g_d.py`: games and stats (G1-G38). `g_n.py`: the NFL (N1-N29). `g_w.py`, `g_x.py`, `g_y.py`: money, world and time (N30-N44, N48, T9).
 
 Edit the Python, then run `python3 tools/reader-defs/run_gen.py` from anywhere and `cargo fmt`. An edit made straight to the `.rs` files is lost the next time the generator runs.
+
+## Lane R7
+
+`r7/` holds lane R7's definitions the same way: `programs.py` (Programs, Money's C14, the conference pages), `hs.py` (High school), `coaches.py` (Coaches and the NFL page's S34), `common.py` (shared SQL pieces) and `gen.py`, which writes `crates/afm-reader/src/defs_programs.rs` and runs `rustfmt` on it. Run `python3 tools/reader-defs/r7/gen.py` from anywhere.

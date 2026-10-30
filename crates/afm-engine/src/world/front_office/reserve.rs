@@ -99,9 +99,11 @@ pub fn place(w: &mut World, id: u32) -> Result<String, String> {
     c.status = Status::Reserve;
     c.pup = false;
     c.ir_out = season;
-    // The list's minimum stay: he can't come back sooner, healed or not.
-    c.out_weeks = c.out_weeks.max(min);
+    // The list's minimum stay: he can't come back sooner, healed or not
+    // (day by day, as every injury heals: lane 4, B1).
+    c.hurt_for(7 * min);
     let weeks = c.out_weeks;
+    w.hurt_pros.0.push(id);
     let p = &mut w.people[i];
     let age = p.row_age();
     let name = p.name.clone();

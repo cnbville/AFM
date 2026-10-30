@@ -410,7 +410,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let ghosts: Vec<Value> = near
         .iter()
         .take(12)
-        .map(|a| json!({ "name": a.name, "d": a.deltas.iter().map(|x| (x * 10.0).round() / 10.0).collect::<Vec<_>>() }))
+        .map(|a| json!({ "name": a.name, "id": a.id, "d": a.deltas.iter().map(|x| (x * 10.0).round() / 10.0).collect::<Vec<_>>() }))
         .collect();
     let named: Vec<Value> = near
         .iter()
