@@ -1790,7 +1790,9 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
             }
             let rookie = k.kind == money::Kind::Rookie;
             let paid = k.apy();
-            let out = if year >= 2020 && rookie { push > 0.55 } else { push > 0.4 };
+            // From the 2011 CBA a club can't waive a rookie-deal holdout's fines, so a star
+            // on his rookie deal shows up and holds in far more often (minor bug 160).
+            let out = if year >= 2011 && rookie { push > 0.55 } else { push > 0.4 };
             let name = w.nfl[t].name;
             let p = &mut w.people[i];
             let c = p.pro.as_mut().unwrap();
