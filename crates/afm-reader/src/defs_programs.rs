@@ -27,6 +27,7 @@ const GL: &str = "game log";
 pub const COLUMNS: &[(&str, &str)] = &[
     ("coaches", "born"),
     ("coaches", "job__employer__Other"),
+    ("coaches", "prove_it"),
     ("coaches__history", "employer__Other"),
     ("high_schools", "county"),
     ("high_schools", "oc"),
