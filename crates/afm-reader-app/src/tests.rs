@@ -224,9 +224,9 @@ fn r8_book(dir: &std::path::Path) -> std::path::PathBuf {
            INSERT INTO nfl VALUES (0, 0, 'Kansas City Chiefs', 0), (1, 1, 'Buffalo Bills', 1);
            CREATE TABLE coaches(_row INTEGER PRIMARY KEY, id, name);
            INSERT INTO coaches VALUES (0, 0, 'Andy Reed'), (1, 1, 'Sean Mack');
-           CREATE TABLE log_games(_row INTEGER PRIMARY KEY, season, stream, home, away, home_pts, away_pts, date, kind, week, line, neutral);
-           INSERT INTO log_games VALUES (0, 2025, 'nfl', 0, 1, 24, 17, '2025-09-07', 'regular', 1, '[-3.5,44.5]', NULL),
-                                        (1, 2025, 'nfl', 1, 0, 20, 23, '2025-11-02', 'regular', 9, '[-1.5,47.5]', NULL);
+           CREATE TABLE log_games(_row INTEGER PRIMARY KEY, season, stream, home, away, home_pts, away_pts, date, kind, week, line, neutral, standin, attendance);
+           INSERT INTO log_games VALUES (0, 2025, 'nfl', 0, 1, 24, 17, '2025-09-07', 'regular', 1, '[-3.5,44.5]', NULL, NULL, 73000),
+                                        (1, 2025, 'nfl', 1, 0, 20, 23, '2025-11-02', 'regular', 9, '[-1.5,47.5]', NULL, NULL, 71000);
            CREATE TABLE log_games__box(_row INTEGER PRIMARY KEY, _parent, _i, points, yards, pass_yards, rush_yards, plays, penalties, clock_possession);
            INSERT INTO log_games__box VALUES (0, 0, 0, 24, 380, 250, 130, 64, 5, 1850), (1, 0, 1, 17, 300, 210, 90, 60, 14, 1750),
                                              (2, 1, 0, 20, 330, 230, 100, 62, 6, 1800), (3, 1, 1, 23, 350, 240, 110, 63, 7, 1800);
@@ -238,9 +238,11 @@ fn r8_book(dir: &std::path::Path) -> std::path::PathBuf {
            INSERT INTO log_games__drives VALUES (0, 0, 0, 1, 900, 25, 100, 8, 240, 'Touchdown', 7, NULL), (1, 0, 1, 1, 660, 30, 41, 4, 100, 'Punt', NULL, 1);
            CREATE TABLE log_games__scoring(_row INTEGER PRIMARY KEY, _parent, _i, q, clock, kind, what, yards, carrier, passer, target, kicker, team, after, try__kind, try__good);
            INSERT INTO log_games__scoring VALUES (0, 0, 0, 1, 660, 'Pass', 'touchdown', 12, 15, 15, 16, NULL, NULL, '[7,0]', 'kick', 1);
-           CREATE TABLE people(_row INTEGER PRIMARY KEY, player__id, name, player__position, player__age, pro__team, pro__status, pro__contract__kind, pro__earnings, pro__agent, pro__draft, college, x_overall);
-           INSERT INTO people VALUES (0, 15, 'Pat Holmes', 'QB', 30, 0, 'Roster', 'Extension', 250000000, 0, '[2017,1,10,0]', NULL, 90),
-                                     (1, 16, 'Travis Kell', 'TE', 35, 0, 'PracticeSquad', 'Veteran', 90000000, 0, NULL, NULL, 80);
+           CREATE TABLE programs(_row INTEGER PRIMARY KEY, real_name, fictional_name, conference);
+           INSERT INTO programs VALUES (0, 'Texas Tech', NULL, 'Big 12');
+           CREATE TABLE people(_row INTEGER PRIMARY KEY, player__id, name, player__position, player__age, pro__team, pro__status, pro__contract__kind, pro__earnings, pro__accrued, pro__agent, pro__draft, college, x_overall);
+           INSERT INTO people VALUES (0, 15, 'Pat Holmes', 'QB', 30, 0, 'Roster', 'Extension', 250000000, 8, 0, '[2017,1,10,0]', 0, 90),
+                                     (1, 16, 'Travis Kell', 'TE', 35, 0, 'PracticeSquad', 'Veteran', 90000000, 12, 0, NULL, NULL, 80);
            CREATE TABLE nfl_seasons(_row INTEGER PRIMARY KEY, year, team, wins, losses, ties, coach, round);
            INSERT INTO nfl_seasons VALUES (0, 2025, 0, 13, 4, 0, 0, 5), (1, 2025, 1, 11, 6, 0, 1, 2);
            CREATE TABLE nfl_champions(_row INTEGER PRIMARY KEY, _0, _1);
@@ -301,6 +303,7 @@ fn game_club_draft_and_agent_pages() {
 
     let d = page(&mut r, "draft/2017", Value::Null);
     assert!(d["verdict"].as_str().unwrap().starts_with("1 pick on record"), "{}", d["verdict"]);
+    assert_eq!(d["blocks"][1]["picks"][0]["college"], "Texas Tech");
     assert_eq!(page(&mut r, "draft/1990", Value::Null)["blocks"].as_array().unwrap().len(), 1);
 
     let a = page(&mut r, "e/market__agents/0", Value::Null);

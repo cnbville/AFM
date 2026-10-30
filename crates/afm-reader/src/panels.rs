@@ -172,10 +172,18 @@ pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool) -> rusqlite::Result<usiz
                 t.elapsed().as_secs_f64()
             ],
         )?;
+        // A slow panel says so as the book is built, so a thread can find it.
+        let secs = t.elapsed().as_secs_f64();
+        if secs >= SLOW {
+            eprintln!("  panel {} took {secs:.0}s", p.id);
+        }
         n += 1;
     }
     Ok(n)
 }
+
+/// Seconds after which a panel is named as slow while a book is built.
+const SLOW: f64 = 10.0;
 
 /// Every panel the reader knows, page by page.
 pub fn all() -> impl Iterator<Item = &'static Panel> {

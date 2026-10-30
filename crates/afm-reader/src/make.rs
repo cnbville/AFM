@@ -91,9 +91,9 @@ pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&
     for (t, c) in crate::defs::columns() {
         let cols = b.columns(t);
         if cols.is_empty() && crate::defs::makes_missing(t) {
-            b.conn.execute_batch(&format!("CREATE TABLE \"{t}\" (_row INTEGER, \"{c}\")")).map_err(e)?;
+            b.conn.execute_batch(&format!("CREATE TABLE \"{t}\" (_row INTEGER, \"{c}\"{})", ty(c))).map_err(e)?;
         } else if !cols.is_empty() && !cols.iter().any(|x| x == c) {
-            b.conn.execute_batch(&format!("ALTER TABLE \"{t}\" ADD COLUMN \"{c}\"")).map_err(e)?;
+            b.conn.execute_batch(&format!("ALTER TABLE \"{t}\" ADD COLUMN \"{c}\"{}", ty(c))).map_err(e)?;
         }
     }
     // What the book has, for the checks that need a log.
@@ -183,9 +183,10 @@ pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&
     })
 }
 
-/// Works out a built book's checks and panels again with this reader's
-/// definitions, without reading the world again (`afm_read refresh`): for
-/// a thread that adds or fixes a check or a panel. Returns how many.
+/// Works out a built book's distributions, checks, panels and consistency
+/// checks again with this reader's definitions, without reading the world
+/// again (`afm_read refresh`): for a thread that adds or fixes one. Returns
+/// how many checks and panels.
 pub fn refresh(book: &Path, say: &mut dyn FnMut(&str)) -> rusqlite::Result<(usize, usize)> {
     let b = Book::with(rusqlite::Connection::open(book)?)?;
     let streams: Vec<String> = b.meta("log_streams").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
@@ -199,9 +200,9 @@ pub fn refresh(book: &Path, say: &mut dyn FnMut(&str)) -> rusqlite::Result<(usiz
     for (t, c) in crate::defs::columns() {
         let cols = b.columns(t);
         if cols.is_empty() && crate::defs::makes_missing(t) {
-            b.conn.execute_batch(&format!("CREATE TABLE \"{t}\" (_row INTEGER, \"{c}\")"))?;
+            b.conn.execute_batch(&format!("CREATE TABLE \"{t}\" (_row INTEGER, \"{c}\"{})", ty(c)))?;
         } else if !cols.is_empty() && !cols.iter().any(|x| x == c) {
-            b.conn.execute_batch(&format!("ALTER TABLE \"{t}\" ADD COLUMN \"{c}\""))?;
+            b.conn.execute_batch(&format!("ALTER TABLE \"{t}\" ADD COLUMN \"{c}\"{}", ty(c)))?;
         }
     }
     // The live known issues, as the build marked them.
@@ -217,13 +218,27 @@ pub fn refresh(book: &Path, say: &mut dyn FnMut(&str)) -> rusqlite::Result<(usiz
             .map(|(id, touches)| crate::issues::Issue { id, live: true, touches, ..Default::default() })
             .collect(),
     );
-    b.conn.execute_batch("BEGIN; DROP TABLE IF EXISTS checks; DROP TABLE IF EXISTS check_years;")?;
+    // Every table these steps make is made again, so a definition this
+    // reader dropped leaves nothing behind.
+    b.conn.execute_batch(
+        "BEGIN; DROP TABLE IF EXISTS checks; DROP TABLE IF EXISTS check_years; DROP TABLE IF EXISTS dist;
+         DROP TABLE IF EXISTS hist; DROP TABLE IF EXISTS metrics; DROP TABLE IF EXISTS odd; DROP TABLE IF EXISTS consistency;",
+    )?;
+    say("distributions");
+    crate::dist::write_all(&b, &have)?;
     say("checks against real");
     let checks = crate::checks::write_all(&b, &crate::real_in::index(), &have, &|id| issues.touching(id))?;
     say("panels");
     let panels = crate::panels::write_all(&b, &have)?;
+    say("consistency checks and odd things");
+    crate::odd::write_all(&b, &have, &issues)?;
     b.conn.execute_batch("COMMIT;")?;
     Ok((checks, panels))
+}
+
+/// A column's declared type: `_parent` is an integer, as the sink makes it.
+fn ty(c: &str) -> &'static str {
+    if c == "_parent" { " INTEGER" } else { "" }
 }
 
 fn indexes(b: &Book) -> rusqlite::Result<()> {

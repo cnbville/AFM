@@ -1,6 +1,7 @@
 //! World reader lane R8: the games and stats page (G1-G38): panels, checks against
 //! real, consistency rules and distributions over the game log and the stat
-//! books. Written by the lane's generator; each item says what it reads and why.
+//! books. Written by `tools/reader-defs/run_gen.py`: edit the Python there and
+//! run it again. Each item says what it reads and why.
 
 use crate::defs::{Check, Metric, Outlier, Real, Rule};
 use crate::panels::Panel;
@@ -1914,8 +1915,8 @@ pub const CHECKS: &[Check] = &[
                  p._i AS side, p.id, p.pos, COALESCE(p.snaps_off, 0) AS off, COALESCE(p.snaps_def, 0) AS def, COALESCE(p.rush, 0) AS car, COALESCE(p.targets, 0) AS tg
             FROM log_games__players p JOIN log_games g ON g._row = p._parent WHERE g.stream IN ('nfl', 'college') AND COALESCE(g.kind, 'regular') = 'regular'),
        tm AS (SELECT gid, side, MAX(off) AS toff, MAX(def) AS tdef FROM sn GROUP BY gid, side),
-       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(toff, 0) ELSE 1.0 * def / NULLIF(tdef, 0) END AS share
-            FROM sn JOIN tm USING (gid, side)),
+       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(MAX(off) OVER w, 0) ELSE 1.0 * def / NULLIF(MAX(def) OVER w, 0) END AS share
+            FROM sn WINDOW w AS (PARTITION BY gid, side)),
        rk AS (SELECT sh.*, ROW_NUMBER() OVER (PARTITION BY gid, side, CASE WHEN pos IN ('OT', 'IOL') THEN 'OL' ELSE pos END ORDER BY share DESC) AS rank FROM sh) SELECT 100 * AVG(share) FROM rk WHERE lv = 'NFL' AND pos = 'QB' AND rank = 1"#,
         scale: 1.0,
         years: None,
@@ -1935,8 +1936,8 @@ pub const CHECKS: &[Check] = &[
                  p._i AS side, p.id, p.pos, COALESCE(p.snaps_off, 0) AS off, COALESCE(p.snaps_def, 0) AS def, COALESCE(p.rush, 0) AS car, COALESCE(p.targets, 0) AS tg
             FROM log_games__players p JOIN log_games g ON g._row = p._parent WHERE g.stream IN ('nfl', 'college') AND COALESCE(g.kind, 'regular') = 'regular'),
        tm AS (SELECT gid, side, MAX(off) AS toff, MAX(def) AS tdef FROM sn GROUP BY gid, side),
-       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(toff, 0) ELSE 1.0 * def / NULLIF(tdef, 0) END AS share
-            FROM sn JOIN tm USING (gid, side)),
+       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(MAX(off) OVER w, 0) ELSE 1.0 * def / NULLIF(MAX(def) OVER w, 0) END AS share
+            FROM sn WINDOW w AS (PARTITION BY gid, side)),
        rk AS (SELECT sh.*, ROW_NUMBER() OVER (PARTITION BY gid, side, CASE WHEN pos IN ('OT', 'IOL') THEN 'OL' ELSE pos END ORDER BY share DESC) AS rank FROM sh) SELECT 100 * AVG(share) FROM rk WHERE lv = 'NFL' AND pos = 'RB' AND rank = 1"#,
         scale: 1.0,
         years: None,
@@ -1956,8 +1957,8 @@ pub const CHECKS: &[Check] = &[
                  p._i AS side, p.id, p.pos, COALESCE(p.snaps_off, 0) AS off, COALESCE(p.snaps_def, 0) AS def, COALESCE(p.rush, 0) AS car, COALESCE(p.targets, 0) AS tg
             FROM log_games__players p JOIN log_games g ON g._row = p._parent WHERE g.stream IN ('nfl', 'college') AND COALESCE(g.kind, 'regular') = 'regular'),
        tm AS (SELECT gid, side, MAX(off) AS toff, MAX(def) AS tdef FROM sn GROUP BY gid, side),
-       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(toff, 0) ELSE 1.0 * def / NULLIF(tdef, 0) END AS share
-            FROM sn JOIN tm USING (gid, side)),
+       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(MAX(off) OVER w, 0) ELSE 1.0 * def / NULLIF(MAX(def) OVER w, 0) END AS share
+            FROM sn WINDOW w AS (PARTITION BY gid, side)),
        rk AS (SELECT sh.*, ROW_NUMBER() OVER (PARTITION BY gid, side, CASE WHEN pos IN ('OT', 'IOL') THEN 'OL' ELSE pos END ORDER BY share DESC) AS rank FROM sh), c AS (SELECT gid, side, MAX(car) AS top, SUM(car) AS tot FROM sn WHERE pos = 'RB' AND lv = 'NFL' GROUP BY gid, side HAVING SUM(car) >= 5) SELECT 100.0 * AVG(1.0 * top / tot) FROM c"#,
         scale: 1.0,
         years: None,
@@ -1977,8 +1978,8 @@ pub const CHECKS: &[Check] = &[
                  p._i AS side, p.id, p.pos, COALESCE(p.snaps_off, 0) AS off, COALESCE(p.snaps_def, 0) AS def, COALESCE(p.rush, 0) AS car, COALESCE(p.targets, 0) AS tg
             FROM log_games__players p JOIN log_games g ON g._row = p._parent WHERE g.stream IN ('nfl', 'college') AND COALESCE(g.kind, 'regular') = 'regular'),
        tm AS (SELECT gid, side, MAX(off) AS toff, MAX(def) AS tdef FROM sn GROUP BY gid, side),
-       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(toff, 0) ELSE 1.0 * def / NULLIF(tdef, 0) END AS share
-            FROM sn JOIN tm USING (gid, side)),
+       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(MAX(off) OVER w, 0) ELSE 1.0 * def / NULLIF(MAX(def) OVER w, 0) END AS share
+            FROM sn WINDOW w AS (PARTITION BY gid, side)),
        rk AS (SELECT sh.*, ROW_NUMBER() OVER (PARTITION BY gid, side, CASE WHEN pos IN ('OT', 'IOL') THEN 'OL' ELSE pos END ORDER BY share DESC) AS rank FROM sh) SELECT 100 * AVG(share) FROM rk WHERE lv = 'NFL' AND pos = 'CB' AND rank = 2"#,
         scale: 1.0,
         years: None,
@@ -3685,9 +3686,11 @@ pub const PANELS: &[Panel] = &[
         title: r#"Hidden-gem footprint flags: how often each is set"#,
         kind: "bars",
         note: r#"Share of book seasons at each position flagged on each footprint metric (top 1% of the division and position, with 50+ qualified seasons), and the testing-day flag (top 0.2% nationally in the forty or the jumps). About 1% of qualified seasons per metric is the rule's design; the share here is over all seasons at the position, so it runs lower."#,
-        sql: r#"WITH f AS (SELECT _row AS bit, name FROM engine_footprints UNION ALL SELECT 15, 'testing day')
-     SELECT s.division AS grp, f.name AS label, ROUND(100.0 * SUM((s.footprint >> f.bit) & 1) / COUNT(*), 2) AS world, 1.0 AS real, SUM((s.footprint >> f.bit) & 1) AS n
-       FROM stats__seasons s, f GROUP BY s.division, f.bit HAVING n > 0 ORDER BY (CASE s.division WHEN 'FBS' THEN 1 WHEN 'FCS' THEN 2 WHEN 'D2' THEN 3 WHEN 'NAIA' THEN 4 WHEN 'D3' THEN 5 WHEN 'JUCO' THEN 6 ELSE 7 END), f.bit"#,
+        sql: r#"WITH a AS MATERIALIZED (SELECT division, COUNT(*) AS seasons, SUM((footprint >> 0) & 1) AS b0, SUM((footprint >> 1) & 1) AS b1, SUM((footprint >> 2) & 1) AS b2, SUM((footprint >> 3) & 1) AS b3, SUM((footprint >> 4) & 1) AS b4, SUM((footprint >> 5) & 1) AS b5, SUM((footprint >> 6) & 1) AS b6, SUM((footprint >> 7) & 1) AS b7, SUM((footprint >> 8) & 1) AS b8, SUM((footprint >> 9) & 1) AS b9, SUM((footprint >> 10) & 1) AS b10, SUM((footprint >> 11) & 1) AS b11, SUM((footprint >> 12) & 1) AS b12, SUM((footprint >> 13) & 1) AS b13, SUM((footprint >> 14) & 1) AS b14, SUM((footprint >> 15) & 1) AS b15 FROM stats__seasons GROUP BY division),
+       f AS (SELECT _row AS bit, name FROM engine_footprints UNION ALL SELECT 15, 'testing day'),
+       x AS (SELECT a.division, a.seasons, f.bit, f.name, CASE f.bit WHEN 0 THEN a.b0 WHEN 1 THEN a.b1 WHEN 2 THEN a.b2 WHEN 3 THEN a.b3 WHEN 4 THEN a.b4 WHEN 5 THEN a.b5 WHEN 6 THEN a.b6 WHEN 7 THEN a.b7 WHEN 8 THEN a.b8 WHEN 9 THEN a.b9 WHEN 10 THEN a.b10 WHEN 11 THEN a.b11 WHEN 12 THEN a.b12 WHEN 13 THEN a.b13 WHEN 14 THEN a.b14 WHEN 15 THEN a.b15 END AS flagged FROM a, f)
+     SELECT division AS grp, name AS label, ROUND(100.0 * flagged / seasons, 2) AS world, 1.0 AS real, flagged AS n
+       FROM x WHERE flagged > 0 ORDER BY (CASE division WHEN 'FBS' THEN 1 WHEN 'FCS' THEN 2 WHEN 'D2' THEN 3 WHEN 'NAIA' THEN 4 WHEN 'D3' THEN 5 WHEN 'JUCO' THEN 6 ELSE 7 END), bit"#,
         says: None,
         needs: W,
         open: "",
@@ -4018,9 +4021,9 @@ pub const PANELS: &[Panel] = &[
         kind: "table",
         note: r#"The best high school seasons in each stat, from every kept high school line (engine games 2014 on; players who left football are not kept). Real, from memory (world trial 10 notes; real high school books need a source): receiving seasons over 1,500 yards are common, the sack record is near 40 and interception seasons reach 10-15."#,
         sql: r#"WITH hsl AS (SELECT l.year, l.school, l.pos, l.games, l.s, p.name, p.player__id AS id FROM people__hs_lines l JOIN people p ON p._row = l._parent
-          UNION ALL SELECT l.year, l.school, l.pos, l.games, l.s, a.name, a.player__id FROM alumni__hs_lines l JOIN alumni a ON a._row = l._parent), r AS (SELECT 'Passing yards' AS stat, 0 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[4]'), 0) AS value, ROW_NUMBER() OVER (ORDER BY COALESCE(json_extract(hsl.s, '$[4]'), 0) DESC) AS rank FROM hsl UNION ALL SELECT 'Rushing yards' AS stat, 1 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[8]'), 0) AS value, ROW_NUMBER() OVER (ORDER BY COALESCE(json_extract(hsl.s, '$[8]'), 0) DESC) AS rank FROM hsl UNION ALL SELECT 'Rushing TDs' AS stat, 2 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[9]'), 0) AS value, ROW_NUMBER() OVER (ORDER BY COALESCE(json_extract(hsl.s, '$[9]'), 0) DESC) AS rank FROM hsl UNION ALL SELECT 'Receiving yards' AS stat, 3 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[11]'), 0) AS value, ROW_NUMBER() OVER (ORDER BY COALESCE(json_extract(hsl.s, '$[11]'), 0) DESC) AS rank FROM hsl UNION ALL SELECT 'Tackles' AS stat, 4 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[13]'), 0) AS value, ROW_NUMBER() OVER (ORDER BY COALESCE(json_extract(hsl.s, '$[13]'), 0) DESC) AS rank FROM hsl UNION ALL SELECT 'Sacks' AS stat, 5 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[15]'), 0) / 2.0 AS value, ROW_NUMBER() OVER (ORDER BY COALESCE(json_extract(hsl.s, '$[15]'), 0) / 2.0 DESC) AS rank FROM hsl UNION ALL SELECT 'Interceptions' AS stat, 6 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[16]'), 0) AS value, ROW_NUMBER() OVER (ORDER BY COALESCE(json_extract(hsl.s, '$[16]'), 0) DESC) AS rank FROM hsl)
-     SELECT stat, rank, value, name, id, pos, year, (SELECT COALESCE(name, fictional_name) || ' (' || (SELECT code FROM states WHERE _row = h.state) || ')' FROM high_schools h WHERE h.id = r.school) AS school, games
-       FROM r WHERE rank <= 10 ORDER BY o, rank"#,
+          UNION ALL SELECT l.year, l.school, l.pos, l.games, l.s, a.name, a.player__id FROM alumni__hs_lines l JOIN alumni a ON a._row = l._parent), r AS (SELECT * FROM (SELECT 'Passing yards' AS stat, 0 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[4]'), 0) AS value FROM hsl ORDER BY value DESC LIMIT 10) UNION ALL SELECT * FROM (SELECT 'Rushing yards' AS stat, 1 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[8]'), 0) AS value FROM hsl ORDER BY value DESC LIMIT 10) UNION ALL SELECT * FROM (SELECT 'Rushing TDs' AS stat, 2 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[9]'), 0) AS value FROM hsl ORDER BY value DESC LIMIT 10) UNION ALL SELECT * FROM (SELECT 'Receiving yards' AS stat, 3 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[11]'), 0) AS value FROM hsl ORDER BY value DESC LIMIT 10) UNION ALL SELECT * FROM (SELECT 'Tackles' AS stat, 4 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[13]'), 0) AS value FROM hsl ORDER BY value DESC LIMIT 10) UNION ALL SELECT * FROM (SELECT 'Sacks' AS stat, 5 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[15]'), 0) / 2.0 AS value FROM hsl ORDER BY value DESC LIMIT 10) UNION ALL SELECT * FROM (SELECT 'Interceptions' AS stat, 6 AS o, year, id, name, pos, school, games, COALESCE(json_extract(hsl.s, '$[16]'), 0) AS value FROM hsl ORDER BY value DESC LIMIT 10)), rk AS (SELECT r.*, ROW_NUMBER() OVER (PARTITION BY o ORDER BY value DESC) AS rank FROM r)
+     SELECT stat, rank, value, name, id, pos, year, (SELECT COALESCE(name, fictional_name) || ' (' || (SELECT code FROM states WHERE _row = h.state) || ')' FROM high_schools h WHERE h.id = rk.school) AS school, games
+       FROM rk ORDER BY o, rank"#,
         says: Some(
             r#"WITH hsl AS (SELECT l.year, l.school, l.pos, l.games, l.s, p.name, p.player__id AS id FROM people__hs_lines l JOIN people p ON p._row = l._parent
           UNION ALL SELECT l.year, l.school, l.pos, l.games, l.s, a.name, a.player__id FROM alumni__hs_lines l JOIN alumni a ON a._row = l._parent) SELECT printf('%d high school seasons kept; the best sack season is %.1f (real record near 40) and %d seasons have 30 or more sacks.', COUNT(*), MAX(COALESCE(json_extract(hsl.s, '$[15]'), 0) / 2.0), SUM(COALESCE(json_extract(hsl.s, '$[15]'), 0) >= 60)) FROM hsl"#,
@@ -4056,8 +4059,8 @@ pub const PANELS: &[Panel] = &[
                  p._i AS side, p.id, p.pos, COALESCE(p.snaps_off, 0) AS off, COALESCE(p.snaps_def, 0) AS def, COALESCE(p.rush, 0) AS car, COALESCE(p.targets, 0) AS tg
             FROM log_games__players p JOIN log_games g ON g._row = p._parent WHERE g.stream IN ('nfl', 'college') AND COALESCE(g.kind, 'regular') = 'regular'),
        tm AS (SELECT gid, side, MAX(off) AS toff, MAX(def) AS tdef FROM sn GROUP BY gid, side),
-       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(toff, 0) ELSE 1.0 * def / NULLIF(tdef, 0) END AS share
-            FROM sn JOIN tm USING (gid, side)),
+       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(MAX(off) OVER w, 0) ELSE 1.0 * def / NULLIF(MAX(def) OVER w, 0) END AS share
+            FROM sn WINDOW w AS (PARTITION BY gid, side)),
        rk AS (SELECT sh.*, ROW_NUMBER() OVER (PARTITION BY gid, side, CASE WHEN pos IN ('OT', 'IOL') THEN 'OL' ELSE pos END ORDER BY share DESC) AS rank FROM sh) SELECT lv AS grp, CASE WHEN pos IN ('OT', 'IOL') THEN 'OL' ELSE pos END || rank AS label, ROUND(100 * AVG(share), 1) AS world,
             ROUND(100 * json_extract((SELECT value_json FROM real_figures WHERE key = 'engine_targets.json:snap_shares.' ||
                 CASE CASE WHEN pos IN ('OT', 'IOL') THEN 'OL' ELSE pos END WHEN 'QB' THEN 'QB' WHEN 'RB' THEN 'RB' WHEN 'WR' THEN 'WR' WHEN 'TE' THEN 'TE' WHEN 'OL' THEN 'OL' WHEN 'EDGE' THEN 'EDGE' WHEN 'DT' THEN 'DL_interior' WHEN 'LB' THEN 'LB_off_ball' WHEN 'CB' THEN 'CB' WHEN 'S' THEN 'S' END), '$.rank_mean[' || (rank - 1) || ']'), 1) AS real,
@@ -4080,8 +4083,8 @@ pub const PANELS: &[Panel] = &[
                  p._i AS side, p.id, p.pos, COALESCE(p.snaps_off, 0) AS off, COALESCE(p.snaps_def, 0) AS def, COALESCE(p.rush, 0) AS car, COALESCE(p.targets, 0) AS tg
             FROM log_games__players p JOIN log_games g ON g._row = p._parent WHERE g.stream IN ('nfl', 'college') AND COALESCE(g.kind, 'regular') = 'regular'),
        tm AS (SELECT gid, side, MAX(off) AS toff, MAX(def) AS tdef FROM sn GROUP BY gid, side),
-       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(toff, 0) ELSE 1.0 * def / NULLIF(tdef, 0) END AS share
-            FROM sn JOIN tm USING (gid, side)),
+       sh AS (SELECT sn.*, CASE WHEN sn.pos IN ('QB', 'RB', 'WR', 'TE', 'OT', 'IOL') THEN 1.0 * off / NULLIF(MAX(off) OVER w, 0) ELSE 1.0 * def / NULLIF(MAX(def) OVER w, 0) END AS share
+            FROM sn WINDOW w AS (PARTITION BY gid, side)),
        rk AS (SELECT sh.*, ROW_NUMBER() OVER (PARTITION BY gid, side, CASE WHEN pos IN ('OT', 'IOL') THEN 'OL' ELSE pos END ORDER BY share DESC) AS rank FROM sh), c AS (SELECT lv, gid, side, MAX(car) AS top, SUM(car) AS tot FROM sn WHERE pos = 'RB' GROUP BY lv, gid, side HAVING SUM(car) >= 5)
      SELECT lv AS grp, 5 * CAST(20.0 * top / tot AS INTEGER) AS x, 100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY lv) AS world, COUNT(*) AS n
        FROM c WHERE lv IN ('NFL', 'FBS') GROUP BY lv, x ORDER BY lv, x"#,

@@ -979,13 +979,16 @@ pub fn game(b: &mut Book, row: i64, f: &Filters) -> Result<Value, String> {
     Ok(p)
 }
 
+/// A player-line column: its label's value from the line.
+type Cell = fn(&Row) -> Value;
+
 /// One player-line table: who, then the columns, for the rows `keep` takes.
 struct Line {
     title: &'static str,
     note: &'static str,
     keep: fn(&Row) -> bool,
     order: fn(&Row) -> f64,
-    cols: &'static [(&'static str, fn(&Row) -> Value)],
+    cols: &'static [(&'static str, Cell)],
 }
 
 fn ratio(r: &Row, a: &str, b: &str, scale: f64) -> Value {
@@ -1233,14 +1236,24 @@ fn sum_lines(l: &[Value], names: &[(String, bool)], income: bool) -> f64 {
 }
 
 /// Every pick on record, with where the player went to school.
-const DRAFTED: &str = "WITH dr AS (
+fn drafted(b: &Book) -> String {
+    // Retired men keep their pick in the alumni store, when the world has one.
+    let alumni = if b.table("alumni").is_some_and(|t| t.has("pro__draft")) {
+        "UNION ALL SELECT a.player__id, a.name, a.position, a.pro__draft, NULL, NULL, 'retired', 'alumni', a.overall FROM alumni a WHERE a.pro__draft IS NOT NULL"
+    } else {
+        ""
+    };
+    format!(
+        "WITH dr AS (
     SELECT p.player__id AS id, p.name, p.player__position AS pos, p.pro__draft AS draft, p.college AS college, p.pro__team AS now_team, p.pro__status AS status, 'people' AS tbl, p.x_overall AS ovr FROM people p WHERE p.pro__draft IS NOT NULL
-    UNION ALL SELECT a.player__id, a.name, a.position, a.pro__draft, NULL, NULL, 'retired', 'alumni', a.overall FROM alumni a WHERE a.pro__draft IS NOT NULL)
+    {alumni})
   SELECT dr.id, dr.name, dr.pos, json_extract(dr.draft, '$[0]') AS year, json_extract(dr.draft, '$[1]') AS round, json_extract(dr.draft, '$[2]') AS pick,
          json_extract(dr.draft, '$[3]') AS team, dr.status, dr.now_team, dr.tbl, dr.ovr,
          (SELECT COALESCE(real_name, fictional_name) FROM programs WHERE _row = dr.college) AS college,
          (SELECT conference FROM programs WHERE _row = dr.college) AS conference
-    FROM dr";
+    FROM dr"
+    )
+}
 
 pub fn club(b: &mut Book, team: i64, f: &Filters) -> Result<Value, String> {
     let c = one(b, "SELECT * FROM nfl WHERE _row = ?1", &[i(team)])
@@ -1456,7 +1469,7 @@ pub fn club(b: &mut Book, team: i64, f: &Filters) -> Result<Value, String> {
     // Picks, trades and the last games.
     let picks = all(
         b,
-        &format!("{DRAFTED} WHERE json_extract(dr.draft, '$[3]') = ?1 ORDER BY year DESC, round, pick LIMIT 80"),
+        &format!("{} WHERE json_extract(dr.draft, '$[3]') = ?1 ORDER BY year DESC, round, pick LIMIT 80", drafted(b)),
         &[i(team)],
     );
     if !picks.is_empty() {
@@ -1534,13 +1547,7 @@ fn game_rows(b: &Book, games: &[Row], team: i64) -> (Vec<Value>, Vec<Value>) {
             game,
             format!(
                 "{}{}",
-                if has(g, "neutral") {
-                    "vs "
-                } else if home {
-                    "vs "
-                } else {
-                    "at "
-                },
+                if home || has(g, "neutral") { "vs " } else { "at " },
                 team_name(b, "nfl", int(g, "season"), opp)
             ) + if has(g, "neutral") { " (neutral site)" } else { "" },
             if us > them {
@@ -1892,7 +1899,8 @@ pub fn club_season(b: &mut Book, team: i64, year: i64, f: &Filters) -> Result<Va
     let picks = all(
         b,
         &format!(
-            "{DRAFTED} WHERE json_extract(dr.draft, '$[3]') = ?1 AND json_extract(dr.draft, '$[0]') = ?2 ORDER BY round, pick"
+            "{} WHERE json_extract(dr.draft, '$[3]') = ?1 AND json_extract(dr.draft, '$[0]') = ?2 ORDER BY round, pick",
+            drafted(b)
         ),
         &[i(team), i(year)],
     );
@@ -1926,8 +1934,8 @@ pub fn draft(b: &mut Book, year: i64, f: &Filters) -> Result<Value, String> {
     let title = format!("The {year} NFL draft");
     let mut p = new_page(&title, &format!("{} · NFL · {title}", world_name(b)));
     let picks =
-        all(b, &format!("{DRAFTED} WHERE json_extract(dr.draft, '$[0]') = ?1 ORDER BY round, pick"), &[i(year)]);
-    let years: Vec<i64> = all(b, &format!("{DRAFTED} WHERE year IS NOT NULL GROUP BY year ORDER BY year"), &[])
+        all(b, &format!("{} WHERE json_extract(dr.draft, '$[0]') = ?1 ORDER BY round, pick", drafted(b)), &[i(year)]);
+    let years: Vec<i64> = all(b, &format!("{} WHERE year IS NOT NULL GROUP BY year ORDER BY year", drafted(b)), &[])
         .iter()
         .map(|r| int(r, "year"))
         .collect();

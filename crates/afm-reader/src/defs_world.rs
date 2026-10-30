@@ -1,7 +1,8 @@
 //! World reader lane R8: the money page (N30, N31, N33), high school budgets
 //! (N32) and the world and time page (N34-N44, N48, T9): club and department
 //! books, betting lines, dates, rule books, events, weather, births, the
-//! calendar log, news, stories, traditions, media, storylines and pop culture.
+//! calendar log, news, stories, traditions, media, storylines and pop culture. Written
+//! by `tools/reader-defs/run_gen.py`: edit the Python there and run it again.
 
 use crate::defs::{Check, Metric, Outlier, Real, Rule};
 use crate::panels::Panel;
@@ -470,7 +471,7 @@ pub const CHECKS: &[Check] = &[
         areas: "N31",
         title: r#"Largest revenue share paid to players"#,
         unit: "$M",
-        world: r#"SELECT MAX(json_extract(l, '$[16]')) / 1e6 FROM finance__college__years WHERE year = (SELECT MAX(year) FROM finance__college__years)"#,
+        world: r#"SELECT MAX(json_extract(l, '$[16]')) / 1e6 FROM finance__college__years WHERE year = (SELECT MAX(year) FROM finance__college__years) AND year >= 2025"#,
         scale: 1.0,
         years: None,
         detail: None,
@@ -481,7 +482,7 @@ pub const CHECKS: &[Check] = &[
         ),
         tol: (0.05, 0.15, 0.0),
         needs: W,
-        how: r#"The biggest department's revenue-sharing line in the last closed year (0 before the 2025-26 year)."#,
+        how: r#"The biggest department's revenue-sharing line in the last closed year; no data before the 2025-26 year, when sharing began."#,
     },
     Check {
         id: "N32.median_beyond",
@@ -625,6 +626,21 @@ pub const CHECKS: &[Check] = &[
         how: r#"The rule book's cap for 1994."#,
     },
     Check {
+        id: "N36.huge_a_year",
+        page: "world",
+        areas: "N36",
+        title: r#"Huge moments a year (not games)"#,
+        unit: "events",
+        world: r#"SELECT 1.0 * SUM(kind <> 'Game') / (MAX(y) - MIN(y) + 1) FROM (SELECT kind, CAST(strftime('%Y', date(when__date * 86400, 'unixepoch')) AS INTEGER) AS y FROM calendar__history WHERE loud = 'Huge')"#,
+        scale: 1.0,
+        years: None,
+        detail: None,
+        real: Real::None(r#"loudness is the game's own scale; no real count exists"#),
+        tol: (0.3, 0.7, 0.0),
+        needs: W,
+        how: r#"Huge calendar moments that are not games, over the years the calendar covers."#,
+    },
+    Check {
         id: "N37.nfl_snow",
         page: "world",
         areas: "N37",
@@ -745,14 +761,14 @@ pub const CHECKS: &[Check] = &[
         areas: "N40",
         title: r#"FBS head coaches hired a year"#,
         unit: "coaches",
-        world: r#"SELECT 1.0 * COUNT(*) / COUNT(DISTINCT n.year) FROM news n JOIN programs p ON p._row = n.program WHERE n.kind = 'CoachHired' AND p.division = 'FBS'"#,
+        world: r#"SELECT 1.0 * COUNT(*) / COUNT(DISTINCT n.year) FROM news n JOIN programs p ON p._row = n.program WHERE n.kind = 'CoachHired' AND p.division = 'FBS' AND n.text NOT LIKE '% as %coach%' AND n.text NOT LIKE '% as %coordinator%'"#,
         scale: 1.0,
         years: None,
         detail: None,
         real: Real::Memory(24.0, r#"real: about 20-30 FBS head coaching changes a year since 2010 (from memory)"#),
         tol: (0.25, 0.5, 0.0),
         needs: W,
-        how: r#"FBS head-coach hirings in the news per year."#,
+        how: r#"FBS head-coach hirings in the news per year (assistants hired "as" a position coach or coordinator left out)."#,
     },
     Check {
         id: "N40.black_fbs_coaches",
@@ -844,6 +860,21 @@ pub const CHECKS: &[Check] = &[
         tol: (0.4, 0.8, 0.0),
         needs: W,
         how: r#"Quarterbacks among the 25 pros with the most followers."#,
+    },
+    Check {
+        id: "N44.fizzled",
+        page: "world",
+        areas: "N44",
+        title: r#"Ended stories that fizzled"#,
+        unit: "%",
+        world: r#"SELECT 100.0 * SUM(phase = 'Fizzled') / COUNT(*) FROM storylines__ended"#,
+        scale: 1.0,
+        years: None,
+        detail: None,
+        real: Real::None(r#"no real count of storylines that fizzle"#),
+        tol: (0.3, 0.7, 0.0),
+        needs: W,
+        how: r#"Share of ended storylines whose last phase was Fizzled."#,
     },
     Check {
         id: "N44.nfl_qb_battles",
@@ -1001,7 +1032,7 @@ pub const CHECKS: &[Check] = &[
         areas: "T9",
         title: r#"One-day contracts a year"#,
         unit: "contracts",
-        world: r#"SELECT 1.0 * COUNT(*) / (MAX(_1) - MIN(_1) + 1) FROM stories__careers__one_day"#,
+        world: r#"SELECT CASE WHEN (SELECT COUNT(*) FROM stories__careers__farewells) > 0 THEN 1.0 * COUNT(*) / NULLIF(MAX(_1) - MIN(_1) + 1, 0) END FROM stories__careers__one_day"#,
         scale: 1.0,
         years: None,
         detail: None,
@@ -1014,39 +1045,26 @@ pub const CHECKS: &[Check] = &[
         needs: W,
         how: r#"One-day contracts signed per year."#,
     },
-];
-
-pub const METRICS: &[Metric] = &[
-    Metric {
-        id: "N36.huge_a_year",
-        page: "world",
-        areas: "N36",
-        title: r#"Huge moments a year (not games)"#,
-        unit: "events",
-        sql: r#"SELECT 1.0 * SUM(kind <> 'Game') / (MAX(y) - MIN(y) + 1) FROM (SELECT kind, CAST(strftime('%Y', date(when__date * 86400, 'unixepoch')) AS INTEGER) AS y FROM calendar__history WHERE loud = 'Huge')"#,
-        needs: W,
-    },
-    Metric {
-        id: "N44.fizzled",
-        page: "world",
-        areas: "N44",
-        title: r#"Ended stories that fizzled"#,
-        unit: "%",
-        sql: r#"SELECT 100.0 * SUM(phase = 'Fizzled') / COUNT(*) FROM storylines__ended"#,
-        needs: W,
-    },
-    Metric {
+    Check {
         id: "T9.vg_corr",
         page: "world",
         areas: "T9",
         title: r#"NFL video-game rating against true overall: rank correlation"#,
         unit: "r",
-        sql: r#"WITH vg AS (SELECT r._key AS id, r._v AS rating, p.x_overall AS overall, p.player__position AS pos, CASE WHEN p.stage IN ('Pro', 'Done') THEN 'NFL game' ELSE 'College game' END AS game
+        world: r#"WITH vg AS (SELECT r._key AS id, r._v AS rating, p.x_overall AS overall, p.player__position AS pos, CASE WHEN p.stage IN ('Pro', 'Done') THEN 'NFL game' ELSE 'College game' END AS game
               FROM stories__media__ratings r JOIN people p ON p.player__id = r._key WHERE p.x_overall IS NOT NULL),
         vr AS (SELECT vg.*, RANK() OVER (PARTITION BY game ORDER BY rating) AS ra, RANK() OVER (PARTITION BY game ORDER BY overall) AS rb FROM vg) SELECT (AVG(ra * rb) - AVG(ra) * AVG(rb)) / sqrt((AVG(ra * ra) - AVG(ra) * AVG(ra)) * (AVG(rb * rb) - AVG(rb) * AVG(rb))) FROM vr WHERE game = 'NFL game'"#,
+        scale: 1.0,
+        years: None,
+        detail: None,
+        real: Real::None(r#"no real video game publishes its ratings beside a true overall"#),
+        tol: (0.3, 0.7, 0.0),
         needs: W,
+        how: r#"Rank correlation of NFL players' video-game ratings with their true overall."#,
     },
 ];
+
+pub const METRICS: &[Metric] = &[];
 
 pub const RULES: &[Rule] = &[
     Rule {
