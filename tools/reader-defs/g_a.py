@@ -546,6 +546,6 @@ check("G8.nfl_deep_share", GP, "G8", "NFL throws 20+ air yards", "%",
   Fixed(11.5, "nflverse 2021-2025 (match_check depth rows)", "2021-2025"), (0.1, 0.25, 0.0),
   "Pass attempts by air yards, NFL engine games.", scale=100.0, needs=G)
 check("G8.nfl_box8_ypc", GP, "G8", "NFL yards a carry against 8+ in the box", "yds",
-  f"SELECT 1.0 * SUM(yards) / SUM(plays) FROM {SIT} WHERE level = 'nfl' AND key LIKE 'box|%' AND CAST(substr(key, 5) AS INTEGER) >= 8",
+  f"SELECT 1.0 * SUM(yards) / SUM(plays) FROM {SIT} WHERE level = 'nfl' AND key LIKE 'box|%|run' AND CAST(substr(key, 5) AS INTEGER) IN (8, 9)",
   Fixed(3.50, "engine_targets.json runs_by_box.all: 8 and 9 in the box, weighted by runs (nflverse and FTN 2021-2025)", "2021-2025"), (0.08, 0.2, 0.0),
-  "Runs against eight or more in the box, NFL engine games.", needs=G)
+  "Runs against eight or nine in the box, NFL engine games (minor bug 136: it counted the passes against them too).", needs=G)

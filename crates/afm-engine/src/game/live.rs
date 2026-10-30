@@ -656,12 +656,13 @@ pub(crate) fn draw_eye(rng: &mut Rng) -> Eye {
 }
 
 /// The toss: the AI winner's habit. Since the NFL allowed deferring in
-/// 2008 most winners defer (about nine in ten); college and high school
+/// 2008 most winners defer (82%, the level's typical head coach; minor bug
+/// 140: read against 10, the NFL's deferred 90%); college and high school
 /// coaches defer a little less often (proposed, not confirmed).
 pub(crate) fn ai_toss(level: Level, year: i32, gm: f64, rng: &mut Rng) -> TossChoice {
     let defer = match level {
         Level::NFL if year < 2008 => 0.0,
-        Level::NFL => clamp(0.82 + 0.008 * (gm - 10.0), 0.6, 0.97),
+        Level::NFL => clamp(0.82 + 0.008 * (gm - super::rules::coach_norm(level)), 0.6, 0.97),
         Level::HS => 0.6,
         _ => 0.78,
     };

@@ -295,10 +295,11 @@ check("G32.nfl_home_cover", GP, "G32", "NFL home teams covering the spread", "%"
 # ---------------------------------------------------------------- G33 injuries in games
 INJ = """inj AS (SELECT CASE WHEN g.stream = 'nfl' THEN 'NFL' WHEN g.stream = 'college' THEN 'College' WHEN g.stream = 'hs' THEN 'High school' ELSE COALESCE(g.league, 'Other') END AS lv,
                   g.season AS year, i.*, CASE i.kind WHEN 'Acl' THEN 'Knee' WHEN 'Knee' THEN 'Knee' WHEN 'AnkleSprain' THEN 'Ankle' WHEN 'HighAnkleSprain' THEN 'Ankle' WHEN 'Shoulder' THEN 'Shoulder'
-                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' END AS part
+                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' WHEN 'Foot' THEN 'Foot'
+                       WHEN 'Groin' THEN 'Groin' WHEN 'Calf' THEN 'Calf' WHEN 'Neck' THEN 'Neck' WHEN 'Hip' THEN 'Hip' WHEN 'Quad' THEN 'Quadricep' END AS part
              FROM log_games__injuries i JOIN log_games g ON g._row = i._parent)"""
 panel("G33.mix", GP, "G33", "Injuries of a week or more by kind against real body parts", "bars",
-  "Share of game injuries that cost a week or more, by kind. Real: NFL injury episodes by body part (development_injuries.json, games missed); where two kinds share a body part (knee and ACL, ankle and high ankle) the real share is split between them as the world splits them; kinds with no real body part of their own (bruise, hand, ribs, fracture) have no real bar.",
+  "Share of game injuries that cost a week or more, by kind. Real: NFL injury episodes by body part (development_injuries.json, games missed); where two kinds share a body part (knee and ACL, ankle and high ankle) the real share is split between them as the world splits them; kinds with no real body part of their own (bruise, hand, ribs, fracture) have no real bar. Foot, groin, calf, neck, hip and quad are their own kinds since minor bug 145.",
   f"""WITH {INJ}, k AS (SELECT lv, kind, part, COUNT(*) AS n FROM inj WHERE weeks >= 1 GROUP BY lv, kind, part),
        t AS (SELECT lv, SUM(n) AS tot FROM k GROUP BY lv), pt AS (SELECT lv, part, SUM(n) AS pn FROM k GROUP BY lv, part)
      SELECT k.lv AS grp, k.kind AS label, ROUND(100.0 * k.n / t.tot, 1) AS world,
