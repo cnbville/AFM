@@ -52,7 +52,7 @@ function hnYours(x, y) {
     ${hnCell("His say", esc(y.say.words), y.say.committed ? `Committed to ${teamLink(y.say.committed)}` : y.say.offers != null ? `${y.say.offers} offer${y.say.offers === 1 ? "" : "s"}` : "")}
     ${y.boss ? hnCell(`Your ${y.boss.title ? y.boss.title.toLowerCase() : "boss"}`, esc(y.boss.name), esc(y.boss.words)) : ""}</div>`;
   const games = y.watched.length ? `<div class="hn-tbl"><table><thead><tr><th>Game</th><th>Against</th><th class="n"></th></tr></thead><tbody>${y.watched.map((g) => `<tr><td>${esc(g.date)}</td><td>${esc(g.against)}</td><td class="n">${g.seen ? '<span class="hn-on">Watched</span>' : '<span class="hn-amber">Missed</span>'}</td></tr>`).join("")}</tbody></table></div>` : `<div class="hn-empty">No game of his since you named him. The day after each game you watch his film, from your own hours.</div>`;
-  const signals = y.signals.length ? `<ul class="hn-list">${y.signals.map((s) => `<li><span class="hn-dim">${esc(s.date)}</span><span>${esc(s.what)}</span><b>${s.weight}</b></li>`).join("")}</ul>` : `<div class="hn-empty">Nothing yet: nobody has a reason to think you want him.</div>`;
+  const signals = y.signals.length ? `<ul class="hn-list">${y.signals.map((s) => `<li><span class="hn-dim">${esc(s.date)}</span><span>${esc(s.what)}</span><b>${s.weight}%</b></li>`).join("")}</ul>` : `<div class="hn-empty">Nothing yet: nobody has a reason to think you want him.</div>`;
   const rivals = y.rivals.length ? `<ul class="hn-list">${y.rivals.map((r) => `<li>${hnTeam(r.team)}<small>${esc(HN_WHY[r.why] || `since ${r.since}`)}</small></li>`).join("")}</ul>` : `<div class="hn-empty">Nobody the world knows of. That can change: what leaks of your interest draws rivals.</div>`;
   const side = hnBank(x, y) + hnPanel("Rivals", "who the world knows is after him", rivals) + hnPanel("The hunt so far", "", `<ul class="hn-list">${y.log.map((l) => `<li><span class="hn-dim">${esc(l.date)}</span><span>${esc(l.text)}</span></li>`).join("")}</ul>`);
   const main = hnPanel("His games", "his film the day after, from your hours", games) + hnPanel("Who knows you want him", "each sign adds to what's left hidden", signals);
@@ -72,7 +72,7 @@ function hnBank(x, y) {
   if (x.seat === "nfl") {
     const pts = (v) => (v == null ? "-" : Math.round(v).toLocaleString());
     return hnPanel("What you bank", `the ${b.draft} draft, on your GM's chart`, `<div class="hn-kv"><span>His place</span><span>${b.rank ? `No. ${b.rank} on the public's board` : "Not in the public's top 50"}</span>
-      <span>Your first pick</span><span>${b.first ? `No. ${b.first}` : "The order isn't set yet"}</span>
+      <span>Your first pick</span><span>${b.first ? `No. ${b.first}${b.projected ? " <small class=\"hn-dim\">on the standings so far</small>" : ""}` : "The order isn't set yet"}</span>
       <span>To be sure of him</span><span>${b.gap == null ? "-" : b.gap > 0 ? `${pts(b.gap)} points over your first pick` : "Your pick comes before his place"}</span>
       <span>Your picks</span><span>${pts(b.this_year)} points this draft, ${pts(b.next_year)} next</span></div>
       <p class="hn-note">Trades for picks bank more; on draft day the war room can trade up.</p>`);

@@ -2128,7 +2128,8 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     // college seasons (the coaches' book has one row a season), his NFL club.
     let college = |l: Level| matches!(l, Level::FBS | Level::FCS | Level::SmallCollege);
     let college_rows = p.player.history.iter().filter(|h| college(h.level)).count();
-    let mut k = 0;
+    // The college row's place (not `k`: the reads below need his index).
+    let mut row = 0;
     let mut history: Vec<Value> = p
         .player
         .history
@@ -2139,9 +2140,9 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
                 // A pro season with no club: unsigned all year.
                 Level::NFL => Some(h.team.map_or("Unsigned".to_string(), |t| w.nfl_team_name(t))),
                 _ => {
-                    k += 1;
+                    row += 1;
                     (p.college_staff.len() == college_rows)
-                        .then(|| p.college_staff.get(k - 1).map(|s| w.program_name(s.1).to_string()))
+                        .then(|| p.college_staff.get(row - 1).map(|s| w.program_name(s.1).to_string()))
                         .flatten()
                 }
             };

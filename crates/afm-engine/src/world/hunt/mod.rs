@@ -142,6 +142,10 @@ pub struct Hunt {
     pub look_back: Option<(Date, bool, String)>,
     /// The hunt's moments, newest last.
     pub log: Vec<(Date, String)>,
+    /// His high school's next playoff game (date, home, away), kept until
+    /// the day after so it can be watched.
+    #[serde(default)]
+    pub playoff: Option<(Date, usize, usize)>,
 }
 
 impl Hunt {
@@ -259,6 +263,7 @@ pub fn name(w: &mut World, id: u32) -> Result<String, String> {
         end: None,
         look_back: None,
         log: Vec::new(),
+        playoff: None,
     };
     let text = match s {
         Seat::College => {
@@ -625,9 +630,21 @@ fn watch(w: &mut World, d: Date) {
     let yday = d.add(-1);
     let (against, kind, hours) = match p.stage {
         Stage::HighSchool => {
-            let Some(f) = w.hs_fixtures(p.hs).into_iter().find(|f| f.date == yday) else { return };
-            let (opp, home) = if f.home == p.hs { (f.away, true) } else { (f.home, false) };
-            (format!("{} {}", if home { "vs" } else { "at" }, w.school_name(opp)), Kind::HsFilm, FILM_HS)
+            // His playoff game is kept from before it's played until the
+            // day after (the bracket moves on the day it's played).
+            let kept = yours(w).unwrap().playoff;
+            let next = if kept.is_none_or(|x| x.0 < yday) { w.hs_playoff_next(p.hs) } else { kept };
+            w.hunt.yours.as_mut().unwrap().playoff = next;
+            let p = &w.people[i];
+            let game = w
+                .hs_fixtures(p.hs)
+                .into_iter()
+                .find(|f| f.date == yday)
+                .map(|f| (f.home, f.away, ""))
+                .or_else(|| kept.filter(|x| x.0 == yday).map(|x| (x.1, x.2, ", playoffs")));
+            let Some((h, a, round)) = game else { return };
+            let (opp, home) = if h == p.hs { (a, true) } else { (h, false) };
+            (format!("{} {}{round}", if home { "vs" } else { "at" }, w.school_name(opp)), Kind::HsFilm, FILM_HS)
         }
         Stage::College => {
             let Some(c) = p.college else { return };
@@ -844,6 +861,8 @@ pub struct Capital {
     pub first: Option<usize>,
     /// Points: what moving to his place takes over your first pick.
     pub gap: Option<f64>,
+    /// The order is the standings so far, not set yet.
+    pub projected: bool,
     /// Your picks' points this draft and next.
     pub this_year: f64,
     pub next_year: f64,
@@ -870,7 +889,17 @@ pub fn capital(w: &World, t: usize, id: u32) -> Capital {
         }
     }
     c.rank = sc::public::consensus(w).and_then(|v| v.iter().position(|&x| x == id)).map(|k| k + 1);
-    if let Some(order) = crate::world::nfl_year::draft_order(w).filter(|_| dy == w.year) {
+    // His draft's order: set once the season ends; while it runs, the
+    // standings so far (projected).
+    let set = if dy == w.year {
+        crate::world::nfl_year::draft_order(w)
+    } else {
+        w.nfl_season.as_ref().filter(|s| s.year + 1 == dy).and_then(|s| s.final_order.clone())
+    };
+    let started = w.nfl_season.as_ref().is_some_and(|s| s.year + 1 == dy && s.started);
+    c.projected = set.is_none() && started;
+    let order = set.or_else(|| crate::world::nfl_year::mock_order(w).filter(|_| started));
+    if let Some(order) = order {
         let n = order.len();
         let mut picks: Vec<usize> = Vec::new();
         for r in 1..=7u32 {

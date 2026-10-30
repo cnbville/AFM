@@ -86,7 +86,11 @@ fn class_words(w: &World, k: usize) -> String {
 
 /// Where he plays now.
 fn where_of(w: &World, k: usize) -> Value {
-    crate::views::team_of(w, &w.people[k]).map_or(Value::Null, |t| team_brief(w, t))
+    let p = &w.people[k];
+    // A declared man is still his college's until the draft.
+    crate::views::team_of(w, p)
+        .or_else(|| (p.stage == Stage::Declared).then_some(p.college).flatten().map(TeamRef::College))
+        .map_or(Value::Null, |t| team_brief(w, t))
 }
 
 /// A player row: who, where, your staff's read and yours, potential words.
@@ -233,6 +237,7 @@ fn bank(w: &World, h: &Hunt) -> Value {
                 "draft": c.draft,
                 "rank": c.rank,
                 "first": c.first,
+                "projected": c.projected,
                 "gap": c.gap.map(|x| x.round()),
                 "this_year": c.this_year.round(),
                 "next_year": c.next_year.round(),
@@ -284,8 +289,8 @@ fn yours_json(w: &World, h: &Hunt) -> Value {
         "watched": h.watched.iter().rev().take(16).map(|x| json!({ "date": date_text(x.date), "against": x.against, "seen": x.seen })).collect::<Vec<_>>(),
         "games_seen": seen,
         "games_missed": h.watched.len() - seen,
-        "film_left": (sc::own::film_left(w) * 10.0).round() / 10.0,
-        "film_week": (sc::own::film_budget(w) * 10.0).round() / 10.0,
+        "film_left": (f64::from(sc::own::film_left(w)) * 10.0).round() / 10.0,
+        "film_week": (f64::from(sc::own::film_budget(w)) * 10.0).round() / 10.0,
         "rivals": rivals,
         "say": say(w, h, k),
         "bank": bank(w, h),

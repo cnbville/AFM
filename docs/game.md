@@ -1187,6 +1187,8 @@ One target chased over seasons, at every level and every position: yours at a hi
 - **The generational prospect** (`world/hunt/generational.rs`): when the public's read of a class's best (or a draft's) beats the best of each of the nine before it, the news calls him generational; every power program hunts him, and in his draft year the five worst clubs do. It is the public's word: potential stays hidden, so it can miss.
 - **On screen** (`crates/afm-game/src/lane_hunt.rs`, `app/ui/screens/hunt.js`): the hunt page in scouting at all three seats, a button on every player page, and a Handbook page with a live example. `seat_season` names a hunt at each seat and opens the page at every stop.
 
+- **A fix on the way**: every player page read its staff read, your read, your stake, the pitch and another league's club for the wrong person (a counter for his college seasons reused the page's name for him, `views.rs`, `player`). Fixed here, since the hunt's part of the page reads the same name.
+
 #### Claude's picks (proposed, not confirmed)
 
 - Head coach's time on a hunt 1.8 (others 0.12 less while hunting), an AI hunter's NIL bid at least 6% of its collective's budget, the draft-day edge 2 points, film 1.0 hour a high school game and 1.5 a college one, 12 past hunts kept.
