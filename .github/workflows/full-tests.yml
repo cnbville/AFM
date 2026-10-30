@@ -45,21 +45,21 @@ jobs:
       matrix:
         include:
           # The unit tests (the world log's and the find and logo screens'
-          # included) and the doc tests: about 17 minutes of tests.
+          # included) and the doc tests: about 50 minutes.
           - part: units
             packages: --workspace
-            run: cargo test --workspace --lib --bins && cargo test --workspace --doc
+            run: cargo test --workspace --lib --bins --no-fail-fast
           # The game's screen tests, each on its own small world: about 50
           # minutes, on the engine as the game builds it.
           - part: screens
             packages: -p afm-game
-            run: cargo test -p afm-game --test '*'
+            run: cargo test -p afm-game --test '*' --no-fail-fast
           # Every other integration test: the tools' 3-year world (about 45
           # minutes), the world reader's book, the national class and the match
           # engine checks.
           - part: worlds
             packages: --workspace --exclude afm-game
-            run: cargo test --workspace --exclude afm-game --test '*'
+            run: cargo test --workspace --exclude afm-game --test '*' --no-fail-fast
     name: test (${{ matrix.part }})
     runs-on: ubuntu-latest
     timeout-minutes: 240
@@ -74,4 +74,8 @@ jobs:
       # The engine lib and its unit-test binary each take about 8 GB to compile.
       # Building the libraries first keeps the two from compiling at once.
       - run: cargo build ${{ matrix.packages }} --lib --profile test
+      # Every test binary runs even when one fails, so a run names every
+      # failing test, not only the first.
       - run: ${{ matrix.run }}
+      - if: ${{ matrix.part == 'units' && !cancelled() }}
+        run: cargo test --workspace --doc --no-fail-fast
