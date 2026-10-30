@@ -3333,7 +3333,9 @@ pub(crate) fn official_visit_allowed(season: i32, d: Date, class_of: i32, junior
 /// evaluation weeks, most of all for their own commitments. Proposed, not
 /// confirmed: a weekend official visit chance of 12% for a recruit with
 /// offers left to see, 25% for a nearby home game, 20% a week for a drop-in
-/// (40% for a commitment).
+/// (40% for a commitment). Head coaches' home visits in the winter contact
+/// periods (lane 14): 8% a day for a commitment, 1.5% for a near three-star
+/// or better holding an offer, also proposed, not confirmed.
 pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     use super::Visit;
     use crate::calendar::Weekday;
@@ -3347,7 +3349,11 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     // Junior days (part B 34): Saturdays in February and March, juniors
     // visit the schools that offered them early.
     let junior_day = wd == Weekday::Sat && d >= y.junior_days.0 && d <= y.junior_days.1;
-    if !(official_day || game_day || drop_day || junior_day) {
+    // Head coaches sit in seniors' living rooms in the winter contact
+    // periods (lane 14, D7): their commits and the near prospects they
+    // offered, one visit a school.
+    let home_day = period == crate::calendar::Period::Contact && wd != Weekday::Sun && matches!(d.month(), 11 | 12 | 1);
+    if !(official_day || game_day || drop_day || junior_day || home_day) {
         return;
     }
     let season = y.season;
@@ -3368,6 +3374,7 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     // Your program's visits are the ones you set (lane 10): nobody comes on his own.
     let vj = fo::college::visits_program(w);
     let mut posts = Vec::new();
+    let mut homes = Vec::new();
     let (mut off, mut unoff, mut drops) = (0u32, 0u32, 0u32);
     let n = w.people.len();
     for i in 0..n {
@@ -3434,6 +3441,26 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
                 }
             }
         }
+        if home_day && p.class_of == sign_year {
+            for &j in p.cal.offers.iter().filter(|&&j| Some(j) != vj) {
+                if p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Home) {
+                    continue;
+                }
+                let committed = p.cal.commit.is_some_and(|c| c.0 == j);
+                let near = geo::miles(p.home_state, w.programs[j].state) <= 400.0;
+                let chance = if committed {
+                    0.08
+                } else if near && p.stars >= 3 {
+                    0.015
+                } else {
+                    0.0
+                };
+                if chance > 0.0 && key_uniform(seed ^ 5 ^ (j as u64) << 8, id) < chance {
+                    new.push((j, Visit::Home));
+                    homes.push((i, j));
+                }
+            }
+        }
         if new.is_empty() {
             continue;
         }
@@ -3462,6 +3489,9 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     w.log.official_visits += off;
     w.log.unofficial_visits += unoff;
     w.log.drop_ins += drops;
+    for (i, j) in homes {
+        super::folk::dialogue::ai_home_visit(w, i, j, d);
+    }
     for (j, text, id, name) in posts {
         w.calendar.post(
             Event::new(d, CalLevel::Recruiting, Kind::Visit, Loudness::Small, text)
@@ -4741,6 +4771,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             + early_offer
                             + if hs_coach_at.get(&p.hs).is_some_and(|v| v.contains(&j)) { 0.05 } else { 0.0 }
                             + 0.004 * contact
+                            + super::folk::dialogue::home_talk(p, j)
                             + chemistry(j, k) * if visited { 1.0 } else { 0.5 };
                         (j, rel)
                     })
@@ -6735,6 +6766,8 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     let contact = p.cal.visits.iter().filter(|v| v.0 == j).count().min(5) as f64;
     let official = p.cal.visits.iter().any(|v| v.0 == j && v.2 == super::Visit::Official);
     u += 0.004 * contact + if official { 0.02 } else { 0.0 };
+    // What the head coach said in the living room (lane 14, D7).
+    u += super::folk::dialogue::home_talk(p, j);
     if let Some(k) = p.cal.early_offers.iter().position(|o| o.0 == j) {
         u += if k == 0 { 0.02 } else { 0.01 };
     }

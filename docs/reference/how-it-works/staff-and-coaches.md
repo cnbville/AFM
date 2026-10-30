@@ -1,11 +1,12 @@
 # Staff and coaches: how it works today
 
-Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29.
+Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; interviews and the staff meeting with the next update's lane 14 at 7487fc5 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
 ## Quick answers
 
+- Is there a job interview? Yes, for head jobs: a talk with the panel (principal and AD, AD and president, owner and GM) before the search decides, worth +1.35 to -0.9 in the hiring score, plus a little for Aura; missing it is -1.0. Your coordinators also argue a change at the staff meeting the morning after each game, and overruling one whose unit struggles again costs his trust (`world/folk/dialogue.rs`, `interview_answer`, `interview_bonus`, `case_from`, `check_case`). See [people.md](people.md), "Talks on game day and off it".
 - What scale are coach ratings on? 1-20 for every ability part, personality trait and reputation (`world/coach.rs`, `Ability`, `CoachPersonality`, `Coach`).
 - Which ratings are hidden? All of `Ability` (teaching per group, scheme, game management, motivation, discipline, recruiting, network, relationships), the learning ceiling, sportsmanship, home state, decline age and rate, systems knowledge. The world shows reputation (`world/coach.rs`, `Coach` field notes).
 - What does the game show of a coach? Reputation in words ("one of the best in the game" ≥ 17 ... "unproven" < 5) (`world/folk/mod.rs`, `rep_words`). Every coach's page has your read as ranges on the hidden 1-20 and his potential in words: a stranger is the whole scale, narrowing with your film, talk, interviews and honest words (`world/folk/coach_look.rs`; lane 18 below). Your own staff: ranges that narrow with seasons worked (`world/staff_read.rs`).

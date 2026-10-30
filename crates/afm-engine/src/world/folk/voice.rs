@@ -57,6 +57,7 @@ const BANKS: &[&str] = &[
     include_str!("../../../data/lines/takeover_more.txt"),
     // Game day talks, home visits, interviews, agents, meetings (lane 14).
     include_str!("../../../data/lines/gameday.txt"),
+    include_str!("../../../data/lines/dialogue.txt"),
 ];
 
 #[derive(Clone, Debug)]

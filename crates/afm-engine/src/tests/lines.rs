@@ -25,6 +25,10 @@ const TAGS: &str = concat!(
     "climber old expro strict warm cold ",
     // your tone (game day talks)
     "fiery firm ",
+    // who decides in a recruit's family (home visits)
+    "himself grandparent handler ",
+    // agents (honesty, agency size)
+    "agent straight slick big small ",
     // the cast
     "she blunt smooth impatient patient meddler tight ",
     // parents
@@ -42,7 +46,7 @@ const FACTS: &str = concat!(
     "old_school opp other other_name other_short outlet player pos question rank rank_of record record_mark ",
     "result rival rival_last rivalry role scope score season series since since_year starters stars_now stars_was ",
     "stat subject team through tried to_go town unit want weeks word worry writer year years you young ",
-    "last_record them captain moment last mistake us ",
+    "last_record them captain moment last mistake us first second club ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -131,6 +135,36 @@ fn asked() -> Vec<String> {
         v.push(format!("gameday.staff.{k}"));
     }
     v.push("gameday.quote".into());
+    // Talks off the game day (lane 14).
+    for k in ["playing", "nil", "school", "distance", "family", "development", "winning"] {
+        v.push(format!("homevisit.ask.{k}"));
+    }
+    v.push("homevisit.tell".into());
+    for m in ["good", "flat", "bad"] {
+        v.push(format!("homevisit.react.{m}"));
+        v.push(format!("interview.react.{m}"));
+    }
+    for k in ["football", "grades", "character"] {
+        v.push(format!("hscall.ask.{k}"));
+    }
+    for k in ["plan", "staff", "past"] {
+        v.push(format!("interview.ask.{k}"));
+    }
+    for k in ["pressure", "zone", "run", "pass"] {
+        v.push(format!("staffmeet.case.{k}"));
+    }
+    for k in ["yes", "half", "no"] {
+        v.push(format!("staffmeet.reply.{k}"));
+    }
+    for k in ["steady", "bristles", "shaken"] {
+        v.push(format!("combine.press.{k}"));
+    }
+    for k in ["yes", "range", "apart", "far", "near", "short", "insult", "done"] {
+        v.push(format!("agent.{k}"));
+    }
+    for k in ["real", "bluff", "market", "stay"] {
+        v.push(format!("agent.claim.{k}"));
+    }
     v
 }
 

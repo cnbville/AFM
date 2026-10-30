@@ -638,6 +638,42 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     add_talk_picks(w, s, i, subject, &[]);
 }
 
+/// You turn a one-on-one to another subject (dialogue D1, the subject
+/// chips): he answers on that one now, and the talk goes on. It costs no
+/// exchange.
+pub fn change_subject(w: &mut World, id: u32, subject: Subject) -> Result<(), String> {
+    let k = w.folk.scenes.iter().position(|s| s.id == id).ok_or("No such talk.")?;
+    let mut s = w.folk.scenes[k].clone();
+    if s.done || s.kind != Kind::OneOnOne || !s.opened {
+        return Err("That talk isn't going on.".into());
+    }
+    if Subject::from_u64(s.b) == subject {
+        return Ok(());
+    }
+    let Some(i) = super::person(w, s.a as u32) else { return Err("He's gone.".into()) };
+    s.b = subject as u64;
+    s.c &= !1;
+    let about = subject.name().replace("his ", "your ");
+    s.you(&scene::your_name(w), format!("Let's talk about {about}."));
+    let spk = Speaker::player(w, i);
+    let mut f = player_facts(w, i);
+    f.set("subject", subject.name());
+    let mood = w.people[i].mood;
+    let mut pen = scene::pen(w, &s, 7);
+    let line = pen.line(&[&format!("talk.open.{}", subject.key())], &spk, &f);
+    pen.put(w);
+    let line = if line.is_empty() { open_fallback(subject, mood) } else { line };
+    let name = w.people[i].name.clone();
+    let tell = read_tell(w, i, 0);
+    s.them(&name, line, tell);
+    let used: Vec<Move> =
+        Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
+    s.picks.clear();
+    add_talk_picks(w, &mut s, i, subject, &used);
+    w.folk.scenes[k] = s;
+    Ok(())
+}
+
 fn open_fallback(subject: Subject, mood: f32) -> String {
     match (subject, mood < -0.2) {
         (Subject::Role, true) => {

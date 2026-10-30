@@ -282,3 +282,133 @@ if (typeof hbAdd === "function") {
     ["Key players", "The men it moves most, and why.", "Key players"],
   ]);
 }
+
+// ---------- face to face (dialogue D1) ----------
+// A one-on-one, or a timed interview room, seen over your shoulder: his
+// drawn head up close in the room for the setting, the talk so far on the
+// left, how he is and your staff's read on the right, his last line as a
+// subtitle and your move, tone and subject along the bottom. His
+// expression and the turn of his head are the tells, named in words beside
+// him. People's scene page calls this for those talks.
+const TK_ROOMS = {
+  hs: "A coach's office: cinderblock, a desk, the trophy case",
+  college: "Your office, the field through the window",
+  nfl: "Your office at the facility",
+  combine: "A hotel suite in Indianapolis",
+  office: "Your office",
+};
+async function tkFaceToFace(s, lead, pp, st) {
+  const f = await api("face", { id: lead.id }).catch(() => null);
+  const cue = s.face || { expression: "slight_smile", strength: 1, yaw: 0, down: 0, words: "" };
+  const key = `${lead.id}|${cue.expression}|${cue.strength}|${cue.yaw}|${cue.down}`;
+  const mine = f && f.mine && f.mine.mode !== "team" && f.mine.data;
+  let head;
+  if (mine) head = `<img class="tk-fhead photo" src="${mine}" alt="">`;
+  else if (f && f.drawn_on && f.spec && window.AFMFaces && AFMFaces.liveHead) {
+    const spec = { ...f.spec, expression: cue.expression, strength: cue.strength, view: { yaw: cue.yaw, down: cue.down } };
+    const fallback = f.drawn ? `src="${f.drawn}"` : "";
+    head = `<img class="tk-fhead" data-tkhead="${esc(key)}" ${fallback} alt="">`;
+    AFMFaces.liveHead(key, spec).then((url) => {
+      const el = document.querySelector(`[data-tkhead="${CSS.escape(key)}"]`);
+      if (url && el) { el.src = url; el.classList.add("on"); }
+    });
+  } else head = `<div class="tk-fsil">${face({ name: plainText(lead.link), id: lead.id }, 260)}</div>`;
+
+  // The talk so far, an exchange at a time: what you said, what he said and
+  // what your read caught.
+  const ex = [];
+  for (const l of s.lines) {
+    if (l.by === 1 || !ex.length) ex.push({ you: null, them: [], notes: [] });
+    const cur = ex[ex.length - 1];
+    if (l.by === 1) cur.you = l.text;
+    else if (l.by === 0) cur.notes.push(l.text);
+    else cur.them.push(l);
+  }
+  const lastThem = [...s.lines].reverse().find((l) => l.by === 2);
+  const so = ex.map((e, k) => `<li><span class="tk-fn">${k + 1}</span><div>${e.you ? `<p class="tk-fyou">${rich(e.you)}</p>` : ""}${e.notes.map((n) => `<p class="tk-fnote">${rich(n)}</p>`).join("")}${e.them.map((t) => `<p>"${rich(t.text)}"</p>${t.tell ? `<p class="tk-fnote">${esc(t.tell)}</p>` : ""}`).join("")}</div></li>`).join("");
+
+  // How he is: words with thin bars (yours only), and your staff's read.
+  const bar = (v, bad) => `<span class="tk-fbar ${bad ? "bad" : ""}"><i style="width:${Math.round(100 * Math.max(0, Math.min(1, v)))}%"></i></span>`;
+  let how = "";
+  if (s.clock) {
+    how = `<div class="tk-fsec"><b>The clock</b><div class="tk-frow"><span>Minutes left</span><em>${s.clock.left} of ${s.clock.of}</em></div>${bar(s.clock.left / Math.max(1, s.clock.of), s.clock.left <= 3)}<p class="tk-fnote">Each question takes minutes; a follow-up shows how he handles being pushed.</p></div>`;
+  }
+  if (pp && pp.mine) {
+    const mood = pp.mood.value, low = mood < -0.2;
+    how += `<div class="tk-fsec"><b>How he is</b>${pp.trust ? `<div class="tk-frow"><span>Trust in you</span><em>${esc(pp.trust.words)}</em></div>${bar(pp.trust.value, pp.trust.value < 0.35)}` : ""}
+      <div class="tk-frow"><span>Mood</span><em class="${low ? "tk-warn" : ""}">${esc(pp.mood.words)}</em></div>${bar((mood + 1) / 2, low)}
+      ${pp.reasons && pp.reasons[0] ? `<p class="tk-fnote">Lately: ${esc(ppCap(pp.reasons[0].why))}.</p>` : ""}</div>`;
+    if (pp.staffSays) how += `<div class="tk-fsec"><b>Your staff's read</b><p>"${esc(pp.staffSays)}"</p></div>`;
+  }
+  if (cue.words) how += `<div class="tk-fsec"><b>His face</b><p>${esc(cue.words)}</p></div>`;
+
+  // Your move.
+  const talk = s.kind === "OneOnOne";
+  const isTalk = (c) => talk && c >= 100 && c < 190;
+  const chosen = st.pick != null ? s.picks.find((p) => p.code === st.pick) : null;
+  const moves = s.picks.filter((p) => p.code !== 900 && p.code !== 969).map((p) => `<button class="tk-chip ${chosen && chosen.code === p.code ? "on" : ""}" data-act="pppick" data-id="${s.id}" data-code="${p.code}" data-tone="${esc(p.tone)}" title="${esc(plainText(p.label))}">${esc(p.mv)}</button>`).join("");
+  const tone = st.tone || (chosen && chosen.tone);
+  const tones = talk ? `<div class="tk-fpick"><span>Tone</span><div>${PP_TONES.map(([k, t]) => `<button class="tk-chip ${tone === k ? "on" : ""}" data-act="pptone" data-id="${s.id}" data-v="${k}">${t}</button>`).join("")}</div></div>` : "";
+  const subjects = talk && s.subjects ? `<div class="tk-fpick"><span>Subject</span><div>${s.subjects.map((x) => `<button class="tk-chip ${x.key === s.subject ? "on" : ""}" data-act="tksubject" data-id="${s.id}" data-s="${x.key}">${esc(x.name)}</button>`).join("")}</div></div>` : "";
+  let say = "";
+  if (chosen) {
+    const code = isTalk(chosen.code) ? chosen.code - (chosen.code % 10) + PP_TONE_CODE[tone || chosen.tone] : chosen.code;
+    const expect = talk ? await api("people_expect", { id: s.id, code }).catch(() => null) : null;
+    say = `<div class="tk-fsay"><p class="tk-fquote">${rich(chosen.label)}</p>${expect ? `<p class="tk-fnote">${rich(expect.who)} · ${esc(expect.sure)}: ${esc(expect.what)}</p>` : chosen.hint ? `<p class="tk-fnote">${esc(chosen.hint)}</p>` : ""}</div>
+      <button class="st-btn small primary" data-act="ppsay" data-id="${s.id}" data-code="${code}">Say it</button>`;
+  }
+  const end = s.picks.find((p) => p.code === 900 || p.code === 969);
+  const left = s.clock ? `${s.clock.left} minutes on the clock` : `${ppHours(s.hours)} left this week`;
+  const bottom = s.done
+    ? `<div class="tk-fend"><b>${s.handed ? `Handed to ${esc(s.handed)}` : "How it went"}</b>${(s.outcome.length ? s.outcome : ["It's done."]).map((o) => `<p>${rich(o)}</p>`).join("")}<div class="tk-factions">${s.next ? `<button class="st-btn small primary" data-act="ppopen" data-id="${s.next.id}">Next: ${esc(plainText(s.next.title))}</button>` : ""}<button class="st-btn small glass" data-nav="people">Back to People</button></div></div>`
+    : `<div class="tk-fmoves"><div class="tk-fpick"><span>Move</span><div>${moves || '<em class="tk-fnote">Waiting on him.</em>'}</div></div>${tones}${subjects}
+      <div class="tk-factions">${say}<span class="tk-fnote">${left}</span>${end ? `<button class="st-btn small glass" data-act="ppsay" data-id="${s.id}" data-code="${end.code}">${esc(end.mv === "End" ? "End the talk" : end.mv)}</button>` : ""}<button class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand it to your staff</button></div></div>`;
+
+  const first = plainText(lead.link).split(" ")[0] || "";
+  return `<div class="sl tk tk-f2f room-${esc(s.room || "college")}" style="--c1:${(S.status && S.status.mine && S.status.mine.colors || ["#2b3140"])[0]}">
+    <div class="tk-fbg"></div><div class="tk-fshoulder"></div>
+    <header class="tk-fhead-top"><span class="tk-pill">${esc(s.kindName)}</span><div><h1>${rich(lead.link)}</h1><p>${esc(lead.pos || "")} · <a class="link" data-go="player" data-id="${lead.id}">Player page</a></p></div>
+      <div class="tk-fwhen"><span>${esc(s.place || TK_ROOMS[s.room] || "")} · ${esc(s.dateText)}</span>${s.clock ? `<b>${s.clock.left}:00 <small>left of ${s.clock.of}:00</small></b>` : `<b>${ppHours(s.hours)} <small>of talk left this week</small></b>`}</div></header>
+    <aside class="tk-fleft tk-fglass"><b class="tk-flabel">The talk so far</b><ol class="tk-fso">${so}</ol></aside>
+    <div class="tk-fface">${head}${lastThem && lastThem.tell ? `<div class="tk-ftell tk-fglass"><b class="tk-flabel">Tell</b><p>${esc(lastThem.tell)}</p>${cue.words ? `<p class="tk-fnote">${esc(cue.words)}.</p>` : ""}</div>` : ""}</div>
+    <aside class="tk-fright tk-fglass">${how || '<p class="tk-fnote">Nothing to read yet.</p>'}</aside>
+    ${lastThem ? `<div class="tk-fsub"><b>${esc(first.toUpperCase())}</b><p>"${rich(lastThem.text)}"</p></div>` : ""}
+    <div class="tk-fbottom tk-fglass">${bottom}</div></div>`;
+}
+Object.assign(CORE_MORE, {
+  tksubject: async (el) => {
+    try {
+      await api("people_subject", { id: Number(el.dataset.id), subject: el.dataset.s });
+      const st = keep("ppscene:" + el.dataset.id, {});
+      st.pick = null;
+      st.tone = null;
+      refresh(el);
+    } catch (e) { toast(e.message); }
+  },
+});
+
+// The Handbook's page (lane 8's hbAdd), from docs/reference/how-it-works/people.md.
+if (typeof hbAdd === "function") {
+  hbAdd({
+    id: "talks", group: "Running the team", title: "Talks",
+    lede: "What you say moves people: the room before kickoff and at the break, a player after a mistake, a family in their living room, a coordinator at the staff meeting. Every other team's people talk the same way.",
+    how: [
+      ["The room takes it man by man", "A talk moves how amped, how settled and how locked in each player is, by his temper, composure, years, ego and how much he believes you. Each position plays best at its own pitch: a guard can use more fire than a quarterback."],
+      ["It shows on the field, then fades", "A small edge on all his ratings, his focus and how hard the next mistake bites, fading through the half; a young player settles sooner than a veteran. A word on the sideline after a costly mistake adds its own."],
+      ["Off the field, it's who you're talking to", "A home visit lands on what the family weighs and what your school can back up. A panel hiring a head coach wants a plan, a staff and a past that fit them. A college staff remembers whether you were straight about a player."],
+      ["You read faces", "In a one-on-one or an interview room you see his face: the expression and the turn of his head are the tells your read catches."],
+    ],
+    lv: {
+      hs: "Pregame in the locker room 22 minutes before kick; a 20-minute halftime. College staffs call you about your players.",
+      college: "A 20-minute halftime. Your home visits in the winter contact periods; captains may call a players-only meeting after three straight losses.",
+      nfl: "A 13-minute halftime. Combine interviews run 18 minutes from 2020 (15 before); agents talk in their own voice.",
+    },
+    where: [["Team talk", "talk"], ["Game day", "gameday"], ["People", "people"]],
+    rel: ["people", "recruiting", "gameplan"],
+  });
+  hbScreen("talk", "talks", [
+    ["The room", "How each unit and the key players will likely take the talk you picked: your staff's read, not a certainty.", "Unit"],
+    ["Your pick", "A move, a tone and a subject; or hand the room to a captain.", ""],
+    ["The clock", "When the team comes in and goes out; at halftime, how long the break is.", ""],
+  ]);
+}

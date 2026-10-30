@@ -512,7 +512,7 @@ fn clock_json(kick: Option<u32>, level: CalLevel) -> Value {
     };
     let t = |m: u32| {
         let h = (m / 60) % 24;
-        format!("{}:{:02}", if h % 12 == 0 { 12 } else { h % 12 }, m % 60)
+        format!("{}:{:02}", if h.is_multiple_of(12) { 12 } else { h % 12 }, m % 60)
     };
     json!({ "in": t(k.saturating_sub(inn)), "out": t(k.saturating_sub(out)), "kick": t(k), "minutes": inn - out })
 }
@@ -627,7 +627,7 @@ fn options_json(team: &GameTeam, cx: &Ctx) -> Value {
         .filter(|s| {
             **s != Subject::Seniors
                 || cx.day.seniors
-                || team.players.len() > 0 && cx.level != afm_engine::player::Level::NFL
+                || !team.players.is_empty() && cx.level != afm_engine::player::Level::NFL
         })
         .map(|s| json!({ "key": s.key(), "name": subject_name(*s) }))
         .collect();

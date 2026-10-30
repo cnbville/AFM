@@ -362,6 +362,56 @@ const NOT_OTHER: &[&str] = &["training", "practice", "plans", "designer", "squad
 /// challenge and with a captain, the talk said; the first such game is
 /// played live to the end on the staff's calls, with your halftime talk
 /// and every sideline word your own.
+/// Lane 14's talks off the game day, held the way a player would: each
+/// kind once a run (a home visit, a college's call, a job interview, the
+/// staff meeting, a one-on-one with a subject change), each answered with
+/// its first pick until it ends.
+fn off_field_talks(run: &mut Run, g: &mut Game, held: &mut std::collections::BTreeSet<String>) {
+    let Some(a) = run.call(g, "people_agenda", json!({})) else { return };
+    let waiting: Vec<(u64, String)> = a["waiting"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|s| s["today"] == json!(true) || s["late"] == json!(true))
+        .filter_map(|s| Some((s["id"].as_u64()?, s["kind"].as_str()?.to_string())))
+        .filter(|(_, k)| {
+            matches!(k.as_str(), "HomeVisit" | "CollegeCall" | "JobInterview" | "StaffMeeting" | "CombineTalk")
+        })
+        .collect();
+    // A one-on-one face to face (D1), turned to another subject once.
+    if !held.contains("OneOnOne")
+        && let Some(room) = run.call(g, "people_room", json!({}))
+        && let Some(pid) = room["rows"][0]["id"].as_u64()
+        && let Some(t) = g.call("people_talk", &json!({ "id": pid, "subject": "role" })).ok()
+        && let Some(sid) = t["scene"].as_u64()
+    {
+        held.insert("OneOnOne".into());
+        run.call(g, "people_scene", json!({ "id": sid }));
+        run.call(g, "people_subject", json!({ "id": sid, "subject": "team" }));
+        for _ in 0..6 {
+            let Some(s) = run.call(g, "people_scene", json!({ "id": sid })) else { break };
+            if s["done"] == json!(true) {
+                break;
+            }
+            let Some(code) = s["picks"][0]["code"].as_u64() else { break };
+            run.call(g, "people_answer", json!({ "id": sid, "code": code }));
+        }
+    }
+    for (id, kind) in waiting {
+        if !held.insert(kind) {
+            continue;
+        }
+        for _ in 0..8 {
+            let Some(s) = run.call(g, "people_scene", json!({ "id": id })) else { break };
+            if s["done"] == json!(true) {
+                break;
+            }
+            let Some(code) = s["picks"][0]["code"].as_u64() else { break };
+            run.call(g, "people_answer", json!({ "id": id, "code": code }));
+        }
+    }
+}
+
 fn game_talks(run: &mut Run, g: &mut Game, lived: &mut bool) {
     let Some(now) = run.call(g, "gameday_now", json!({})) else { return };
     if now["today"] != json!(true) || now["live"] != json!("none") {
@@ -546,6 +596,19 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             {
                 let _ = g.call("eval_trip", &json!({ "id": id, "kind": t["kind"] }));
                 if let Some(r) = f["rooms"].as_array().and_then(|r| r.first()) {
+                    // The room as a timed talk (lane 14, D8), played to its end.
+                    if let Ok(t) = g.call("eval_interview_talk", &json!({ "id": id, "room": r["room"] }))
+                        && let Some(sid) = t["scene"].as_u64()
+                    {
+                        for _ in 0..12 {
+                            let Some(s) = run.call(g, "people_scene", json!({ "id": sid })) else { break };
+                            if s["done"] == json!(true) {
+                                break;
+                            }
+                            let Some(code) = s["picks"][0]["code"].as_u64() else { break };
+                            run.call(g, "people_answer", json!({ "id": sid, "code": code }));
+                        }
+                    }
                     let _ = g.call(
                         "eval_interview",
                         &json!({ "id": id, "room": r["room"], "spent": { "football": 6, "family": 4 } }),
@@ -1142,6 +1205,7 @@ fn main() {
         let mut peak = resident_gb();
         let mut saved_once = false;
         let mut lived = false;
+        let mut held = std::collections::BTreeSet::new();
         while g.world.as_ref().map(|w| begin.days_to(w.today)).unwrap_or(days) < days && stops < 600 {
             let tc = Instant::now();
             let from = g.world.as_ref().map(|w| w.today.pretty()).unwrap_or_default();
@@ -1188,6 +1252,7 @@ fn main() {
             }
             visit_all(&mut run, &mut g, &extra, seat);
             game_talks(&mut run, &mut g, &mut lived);
+            off_field_talks(&mut run, &mut g, &mut held);
             if ground {
                 ground_zero(&mut run, &mut g);
             }

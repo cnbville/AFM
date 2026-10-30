@@ -1158,6 +1158,29 @@ What people say comes from the line bank (`crates/afm-engine/data/lines/`, picke
 - The position groups (`skill`, `lineman`, `rusher`, `cover`...) and career stages (`freshman` to `senior`, `redshirt`, `transfer`, `walkon`, `rookie`, `undrafted`, `firstround`, `psquad`) the new lines are tagged by.
 - A speaker who hasn't spoken to you for a season is dropped from the memory, to keep saves small.
 
+### Lane 14 (next update): dialogue talks (D1, D4-D13)
+
+Talks on game day and off it, each a scene or a page you play, with every team's people doing the same on their own. How each works, with every number: [people.md](reference/how-it-works/people.md), "Talks on game day and off it".
+
+- **D4, D5: the pregame and halftime talks** (`game/talk.rs`, `crates/afm-game/src/lane_gameday/talk.rs`, `app/ui/screens/talk.js`). The talk page opens from Game day before kickoff and from the live game at the break: the room by unit with your staff's read (likely, not certain), the key players, the captains, the stakes and the clock (in and out of the locker room; the break is 13 minutes in the NFL, 20 in college and high school). You pick a move, a tone and a subject, or hand the room to a captain; then the page shows what was said and how each unit took it. Every AI head coach gives his own from his room and his motivation. No faces in group talks.
+- **D6: a word on the sideline** after a turnover, a foul that kept their drive alive or killed yours, a blown assignment on their score, or a third small mistake: a card in your live game with the words to pick; the AI's and your staff's own words otherwise. It moves the man's trust in you a little.
+- **D7: home visits** (`world/folk/dialogue.rs`). Your home visit is a talk with the recruit and whoever decides in his family, on seven pitches; AI head coaches make theirs in the winter contact periods. What the pitch did counts in his choice.
+- **D8: interview rooms as timed talks**: "Sit down with him" in the scouting file's interview room (the combine's 18 minutes from 2020, 15 before; a top-30 visit; an official visit's sit-down).
+- **D9: college staffs call the high school coach** about your players; sell him, be straight about grades and character, or protect him. A year later your word is checked against what he became, with each staff.
+- **D10: agents in their own voice** in contract talks, from honesty, temper and agency size; the numbers stay the market's.
+- **D11: your job interviews**: applying for a head job sits you down with the panel; an empty seat fills after the talk.
+- **D12: the staff meeting** the morning after each game: a coordinator argues a change from the game's numbers; agree, meet him halfway or overrule. The next game settles who was right.
+- **D13: players-only meetings** after a third straight loss, at every college and NFL team and your high school; you hear of yours secondhand, or read it first.
+- **D1: face to face**: a one-on-one and a timed interview room show his drawn head up close in the room for your level, seen over your shoulder, with the expression and turn of his head for the tell your read caught; the talk so far, how he is and your staff's read beside him; his line as a subtitle; move, tone and subject along the bottom. The head is drawn live in the page (`tools/faces/heads/heads.src.js`: an expression's strength and a view turned by degrees).
+- `seat_season` plays a pregame talk, the first game live (its sideline words and halftime talk) at every seat.
+
+#### Claude's picks (proposed, not confirmed)
+
+- Every size in `game/talk.rs` (minds, reach, lift, focus, composure, heat, half-lives, the AI's read) and in `world/folk/dialogue.rs` (home visit pitch weights, odds and lean, the call odds and credibility steps, interview answer values and the panels' wants, the staff meeting's thresholds and plan steps, the players-only odds and mood terms, the interview minutes per topic).
+- The seventh home visit pitch (family) and its weights; the three answers per interview question; the coordinators' four cases; an agent's temper as a draw per agent (the market keeps no temper).
+- The faces for each tell (expression, strength and turn).
+- The rooms' backdrops per level, drawn in CSS rather than 3D rooms.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

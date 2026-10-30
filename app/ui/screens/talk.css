@@ -117,3 +117,95 @@
   .tk-grid { grid-template-columns: minmax(0, 1fr); }
   .tk-clock { margin-left: 0; }
 }
+
+/* Face to face (dialogue D1, mock-up A): the room for the setting behind
+   him, his drawn head up close, your shoulder in the corner, glass panels
+   either side, his line as a subtitle and your picks along the bottom. */
+.tk-f2f { --tk-glass: rgba(16, 18, 23, .74); position: relative; overflow: hidden; min-height: calc(100vh - 60px); display: grid;
+  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr) minmax(250px, 310px); grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 14px 18px; padding: 20px 26px 22px; background: #0c0e12; color: #eef0f4; }
+:root[data-theme="light"] .tk-f2f { --tk-glass: rgba(16, 18, 23, .74); color: #eef0f4; }
+.tk-fbg { position: absolute; inset: -20px; z-index: 0; filter: blur(14px) saturate(.9); opacity: .9;
+  background: radial-gradient(60% 50% at 70% 35%, rgba(255, 255, 255, .08), transparent 70%), linear-gradient(180deg, #23262d, #0d0f13 75%); }
+.room-hs .tk-fbg { background: radial-gradient(40% 35% at 78% 30%, rgba(255, 214, 150, .16), transparent 70%),
+  repeating-linear-gradient(0deg, rgba(255, 255, 255, .035) 0 2px, transparent 2px 46px), linear-gradient(180deg, #3a332b, #17130f 80%); }
+.room-college .tk-fbg { background: radial-gradient(45% 30% at 30% 62%, rgba(90, 150, 90, .32), transparent 75%),
+  linear-gradient(180deg, rgba(150, 175, 205, .22) 0 34%, transparent 34%), linear-gradient(90deg, transparent 8%, rgba(0, 0, 0, .35) 8% 9%, transparent 9% 52%, rgba(0, 0, 0, .35) 52% 53%, transparent 53%),
+  linear-gradient(180deg, #2b3038, #121418 80%); }
+.room-nfl .tk-fbg { background: radial-gradient(50% 40% at 70% 30%, rgba(160, 180, 210, .12), transparent 70%),
+  repeating-linear-gradient(90deg, rgba(255, 255, 255, .03) 0 1px, transparent 1px 120px), linear-gradient(180deg, #1c2027, #0b0d11 80%); }
+.room-combine .tk-fbg { background: radial-gradient(8% 9% at 86% 70%, rgba(255, 200, 130, .3), transparent), radial-gradient(6% 7% at 92% 58%, rgba(255, 220, 160, .25), transparent),
+  radial-gradient(5% 6% at 80% 84%, rgba(255, 190, 120, .22), transparent), radial-gradient(40% 40% at 20% 30%, rgba(255, 170, 90, .14), transparent 70%),
+  linear-gradient(180deg, #2d2620, #110e0c 80%); }
+.tk-fshoulder { position: absolute; left: -6%; bottom: -14%; width: 38%; height: 62%; z-index: 1; pointer-events: none; border-radius: 50% 50% 0 0;
+  background: radial-gradient(60% 55% at 50% 60%, rgba(5, 6, 8, .92), rgba(5, 6, 8, .55) 60%, transparent 75%); filter: blur(18px); }
+.tk-f2f > * { position: relative; z-index: 2; min-width: 0; }
+.tk-fglass { background: var(--tk-glass); border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); backdrop-filter: blur(10px); padding: 14px 16px; }
+.tk-flabel { display: block; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(238, 240, 244, .55); margin-bottom: 8px; }
+
+.tk-fhead-top { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.tk-fhead-top .tk-pill { background: rgba(16, 18, 23, .6); color: inherit; }
+.tk-fhead-top h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+.tk-fhead-top h1 a { color: inherit; }
+.tk-fhead-top p { margin: 2px 0 0; font-size: 13px; color: rgba(238, 240, 244, .62); }
+.tk-fwhen { margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 2px; }
+.tk-fwhen span { font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: rgba(238, 240, 244, .55); }
+.tk-fwhen b { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tk-fwhen small { font-size: 12.5px; font-weight: 500; color: rgba(238, 240, 244, .62); }
+
+.tk-fleft { grid-column: 1; grid-row: 2; align-self: start; max-height: 52vh; overflow: auto; }
+.tk-fso { list-style: none; margin: 0; padding: 0; }
+.tk-fso li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; padding: 9px 0; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .07); }
+.tk-fso li:last-child { box-shadow: none; }
+.tk-fso li:last-child .tk-fn { color: var(--sl-gold, #f1be48); }
+.tk-fn { font-size: 12px; font-weight: 800; color: rgba(238, 240, 244, .45); padding-top: 1px; }
+.tk-fso p { margin: 0 0 4px; font-size: 13px; line-height: 1.4; }
+.tk-fyou { font-weight: 700; }
+.tk-fnote { font-size: 12px !important; color: rgba(238, 240, 244, .55); line-height: 1.4; margin: 0; }
+
+.tk-fface { grid-column: 2; grid-row: 2 / 4; position: relative; display: flex; justify-content: center; align-items: flex-end; min-height: 380px; }
+.tk-fhead { height: min(66vh, 640px); width: auto; max-width: 100%; object-fit: contain; object-position: bottom; transition: opacity .35s; }
+.tk-fhead[data-tkhead]:not(.on) { opacity: .55; filter: blur(2px); }
+.tk-fhead:not([src]) { visibility: hidden; }
+.tk-fsil { align-self: center; opacity: .8; }
+.tk-ftell { position: absolute; left: 0; top: 8%; max-width: 280px; }
+.tk-ftell p { margin: 0 0 4px; font-size: 13.5px; line-height: 1.4; }
+
+.tk-fright { grid-column: 3; grid-row: 2; align-self: start; }
+.tk-fsec + .tk-fsec { margin-top: 12px; padding-top: 12px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
+.tk-fsec > b { display: block; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(238, 240, 244, .55); margin-bottom: 8px; }
+.tk-fsec p { margin: 0 0 4px; font-size: 13px; line-height: 1.45; }
+.tk-frow { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; margin-top: 6px; }
+.tk-frow em { font-style: normal; font-weight: 700; font-size: 14.5px; }
+.tk-fbar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .12); margin: 6px 0 8px; }
+.tk-fbar i { display: block; height: 100%; border-radius: 2px; background: rgba(238, 240, 244, .7); }
+.tk-fbar.bad i { background: var(--sl-bad, #f0a35e); }
+.tk-f2f .tk-warn { color: var(--sl-bad, #f0a35e) !important; }
+
+.tk-fsub { grid-column: 1 / -1; grid-row: 3; align-self: end; justify-self: center; width: min(900px, 100%); text-align: center; }
+.tk-fsub b { display: block; font-size: 11px; font-weight: 800; letter-spacing: .16em; color: rgba(238, 240, 244, .6); margin-bottom: 6px; }
+.tk-fsub p { margin: 0; padding: 12px 22px; border-radius: 12px; background: rgba(10, 11, 14, .78); font-size: 21px; font-weight: 600; line-height: 1.35; }
+
+.tk-fbottom { grid-column: 1 / -1; grid-row: 4; justify-self: center; width: min(1040px, 100%); }
+.tk-fpick { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 8px; align-items: start; padding: 4px 0; }
+.tk-fpick > span { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(238, 240, 244, .5); padding-top: 7px; }
+.tk-fpick > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.tk-f2f .tk-chip { color: #eef0f4; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.tk-f2f .tk-chip:hover { background: rgba(255, 255, 255, .08); }
+.tk-f2f .tk-chip.on { background: var(--sl-gold, #f1be48); color: #15120a; box-shadow: none; }
+.tk-factions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; padding-top: 10px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
+.tk-factions > .tk-fnote { margin-left: auto; }
+.tk-fsay { flex: 1 1 360px; min-width: 0; }
+.tk-fquote { margin: 0 0 2px; font-size: 14px; font-weight: 700; }
+.tk-fend > b { display: block; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(238, 240, 244, .55); margin-bottom: 6px; }
+.tk-fend p { margin: 0 0 4px; font-size: 14px; }
+
+@media (max-width: 1100px) {
+  .tk-f2f { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto auto auto; }
+  .tk-fface { grid-column: 1 / -1; grid-row: 2; min-height: 300px; }
+  .tk-fhead { height: 46vh; }
+  .tk-fleft { grid-column: 1; grid-row: 3; max-height: none; }
+  .tk-fright { grid-column: 2; grid-row: 3; }
+  .tk-fsub { grid-row: 4; }
+  .tk-fbottom { grid-row: 5; }
+}

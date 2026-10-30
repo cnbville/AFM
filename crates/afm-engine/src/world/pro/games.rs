@@ -457,7 +457,6 @@ fn nfl_day(w: &World, t: usize, opp: usize, dressed: &crate::game::GameTeam) -> 
 }
 
 /// Your NFL game today as the day will play it (section 9).
-
 pub(crate) fn seat_setup(w: &World, f: &Fixture) -> Option<super::super::live_seat::SeatSetup> {
     let mut a = game_side(w, f.home)?;
     let mut b = game_side(w, f.away)?;

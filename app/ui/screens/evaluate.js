@@ -249,7 +249,7 @@ async function evFileTab(id) {
   const planned = f.planned.length ? `<table class="tbl ev-tbl"><tbody>${f.planned.map((t) => `<tr><td class="ev-date">${esc(t.date)}</td><td>${esc(t.kind)}</td><td>${t.sent ? `Sent ${esc(t.sent)}` : "You"}</td><td>${t.done ? (t.seen ? '<span class="ev-amber">Seen</span>' : "Done") : '<span class="ev-gold">Planned</span>'}</td></tr>`).join("")}</tbody></table>` : "";
   const rooms = f.rooms.map((r) => `<div class="ev-room" data-room="${esc(r.room)}"><div class="ev-ph"><b>${esc(r.room)}</b><small>${r.minutes} minutes</small></div>
     <div class="ev-topics">${f.topics.map((t) => `<label><span>${esc(t.words)}</span><input type="number" min="0" max="${r.minutes}" step="1" value="0" data-topic="${t.key}"></label>`).join("")}</div>
-    ${evLk("evinterview", { id: f.id, room: r.room }, "Run the interview", "pri")}</div>`).join("");
+    ${evLk("evtalkroom", { id: f.id, room: r.room }, "Sit down with him", "pri")} ${evLk("evinterview", { id: f.id, room: r.room }, "Spend the minutes as set")}</div>`).join("");
   const done = f.interviews.map((iv) => `<div class="ev-iv"><div class="ev-ph"><b>${esc(iv.room)}</b><small>${esc(iv.date)} · ${iv.minutes} minutes</small></div>${iv.answers.map((a) => `<p><span class="st-label">${esc(a.topic)}</span> ${esc(a.line)}</p>`).join("")}${iv.quiz ? `<p class="ev-note">${esc(iv.quiz)}</p>` : ""}</div>`).join("");
   const word = f.word ? evCard("Your word to NFL clubs", `<div class="ev-form"><select data-ev="club" aria-label="Club">${f.word.clubs.map((c) => `<option value="${c.club}" ${c.given != null ? "disabled" : ""}>${esc(c.name)} · ${esc(c.words)}${c.given != null ? " (told)" : ""}</option>`).join("")}</select>
     <select data-ev="strength" aria-label="What you tell them">${f.word.strengths.map((s, k) => `<option value="${k}">${esc(s)}</option>`).join("")}</select>${evLk("evword", { id: f.id }, "Tell them", "pri")}</div><p class="ev-dim">Settled after his draft: a sure thing holds if he goes in two rounds.</p>`) : "";
@@ -295,6 +295,7 @@ Object.assign(CORE_MORE, {
     room.querySelectorAll("[data-topic]").forEach((i) => { spent[i.dataset.topic] = Number(i.value || 0); });
     evDo(el, "eval_interview", { id: Number(el.dataset.id), room: el.dataset.room, spent });
   },
+  evtalkroom: (el) => ppGoScene(api("eval_interview_talk", { id: Number(el.dataset.id), room: el.dataset.room })),
   evsettle: (el) => evDo(el, "eval_settle", { meeting: Number(el.dataset.meeting), id: Number(el.dataset.id), side: Number(el.dataset.side) }),
   evmin: (el) => {
     const v = Number(evVal(el, "value"));

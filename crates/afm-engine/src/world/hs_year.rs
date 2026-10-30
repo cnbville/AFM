@@ -1327,7 +1327,6 @@ fn hs_day(w: &World, h: usize, opp: usize, dressed: &GameTeam) -> crate::game::t
 
 /// Your school's game today as the day will play it (section 9): a
 /// regular-season Friday or a playoff round.
-
 pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatSetup> {
     let d = w.today;
     let hs = w.hs_season.as_ref()?;
