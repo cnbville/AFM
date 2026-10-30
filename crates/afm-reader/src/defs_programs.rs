@@ -2486,7 +2486,7 @@ pub const PANELS: &[Panel] = &[
         open: "",
     },
     Panel {
-        id: "N32.budgets",
+        id: "N32.by_state",
         page: "high-school",
         area: "N32",
         title: r#"High school football spending by state"#,
@@ -2497,23 +2497,12 @@ pub const PANELS: &[Panel] = &[
          SELECT state, ROUND(MAX(CASE WHEN r = CAST(0.5 * (n - 1) AS INTEGER) + 1 THEN v END)) AS median, ROUND(MAX(CASE WHEN r = CAST(0.9 * (n - 1) AS INTEGER) + 1 THEN v END)) AS p90, ROUND(MAX(v)) AS biggest, MAX(CASE WHEN rc = CAST(0.5 * (n - 1) AS INTEGER) + 1 THEN crowd END) AS median_crowd, MAX(n) AS schools
          FROM r GROUP BY state ORDER BY median DESC"#,
         says: Some(
-            r#"WITH x AS (SELECT (SELECT SUM(value) FROM json_each(f.last__l) WHERE key >= 6) AS v FROM finance__hs f), r AS (SELECT v, ROW_NUMBER() OVER (ORDER BY v) AS r, COUNT(*) OVER () AS n FROM x)
-         SELECT printf('Median school spends $%,d a year beyond stipends (real public programs $25-60K); the top tenth $%,d or more.', MAX(CASE WHEN r = CAST(0.5 * (n - 1) AS INTEGER) + 1 THEN v END), MAX(CASE WHEN r = CAST(0.9 * (n - 1) AS INTEGER) + 1 THEN v END)) FROM r"#,
+            r#"WITH x AS (SELECT st.code AS state, (SELECT SUM(value) FROM json_each(f.last__l) WHERE key >= 6) AS v FROM finance__hs f JOIN high_schools h ON h._row = f._row JOIN states st ON st._row = h.state),
+         r AS (SELECT state, v, ROW_NUMBER() OVER (PARTITION BY state ORDER BY v) AS r, COUNT(*) OVER (PARTITION BY state) AS n FROM x),
+         s AS (SELECT state, MAX(CASE WHEN r = CAST(0.5 * (n - 1) AS INTEGER) + 1 THEN v END) AS median FROM r GROUP BY state HAVING median IS NOT NULL)
+         SELECT printf('By state, %s schools spend the most (median $%,d a year beyond stipends) and %s the least ($%,d); real public programs $25-60K.',
+         (SELECT state FROM s ORDER BY median DESC LIMIT 1), (SELECT MAX(median) FROM s), (SELECT state FROM s ORDER BY median LIMIT 1), (SELECT MIN(median) FROM s)) WHERE EXISTS (SELECT 1 FROM s)"#,
         ),
-        needs: W,
-        open: "",
-    },
-    Panel {
-        id: "N32.lines",
-        page: "high-school",
-        area: "N32",
-        title: r#"Where the money comes from and goes"#,
-        kind: "bars",
-        note: r#"Every school's books last money year summed by line (`finance.hs` LINES), in dollars a school."#,
-        sql: r#"WITH l(k, name) AS (VALUES (0, 'District allocation'), (1, 'Gate receipts'), (2, 'Playoff gate share'), (3, 'Pay-to-play fees'), (4, 'Booster club'), (5, 'Coaching stipends'),
-         (6, 'Equipment and reconditioning'), (7, 'Buses and travel'), (8, 'Officials and game day'), (9, 'Field, lights and upkeep'), (10, 'Booster purchases'), (11, 'Team meals'))
-         SELECT l.name AS label, ROUND(AVG(j.value)) AS world, COUNT(*) AS n FROM finance__hs f, json_each(f.last__l) j JOIN l ON l.k = j.key GROUP BY l.k ORDER BY l.k"#,
-        says: None,
         needs: W,
         open: "",
     },
