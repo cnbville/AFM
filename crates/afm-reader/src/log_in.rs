@@ -171,6 +171,13 @@ fn route(w: &mut Writer, stream: &str, season: i32, seq: i32, v: &V) -> std::io:
             if let Some(V::Array(p)) = json::get(v, "plays") {
                 fixed.push(("n".into(), S::Integer(p.len() as i64)));
             }
+            // A game's snaps join its row by season, level, date and teams (R8).
+            if let Some(V::Array(t)) = json::get(v, "teams")
+                && t.len() == 2
+            {
+                fixed.push(("home".into(), crate::sink::scalar(&t[0]).unwrap_or(S::Null)));
+                fixed.push(("away".into(), crate::sink::scalar(&t[1]).unwrap_or(S::Null)));
+            }
             w.put_packed("log_plays", fixed, v).map_err(e)?;
             "log_plays"
         }

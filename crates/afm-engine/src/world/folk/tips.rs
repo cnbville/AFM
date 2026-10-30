@@ -47,6 +47,9 @@ pub struct Tip {
     /// What only his camp saw (C14), in words.
     pub lines: Vec<String>,
     pub settled: Option<bool>,
+    /// Why the public missed him (SK70), from his own record.
+    #[serde(default)]
+    pub why: Option<String>,
 }
 
 pub const CLAIMS: [&str; 3] = ["He's worth a look", "He can play for you", "He's a sure thing"];
@@ -111,6 +114,143 @@ fn bar(nfl: bool, level: u8) -> f64 {
         2 => 0.94,
         _ => 0.92,
     }
+}
+
+/// The floor for a call (SK69): half a level's share below its bar, so a
+/// kid on the edge of your level is "worth a look" and nobody calls about a
+/// kid below it (proposed, not confirmed: FBS the top 2.25% of a class,
+/// the NFL the top 2.25% of college players two seasons in, which takes in
+/// the undrafted who sign right after the draft).
+fn floor(nfl: bool, level: u8) -> f64 {
+    let b = bar(nfl, level);
+    b - 0.5 * (1.0 - b)
+}
+
+/// The public grade of him that a caller says missed him: three stars or
+/// fewer at an FBS seat, two below it; at an NFL club, no public grade or
+/// one past the third round.
+fn public_missed(w: &World, i: usize, nfl: bool, level: u8) -> bool {
+    let p = &w.people[i];
+    if nfl { p.cal.draft_read.as_ref().is_none_or(|r| r.round >= 4) } else { p.stars <= if level >= 5 { 3 } else { 2 } }
+}
+
+/// Why the public missed him (SK70): the true facts of his own record that
+/// held his public grade down, the strongest first; None when nothing did.
+/// For a recruit these are the parts of a recruit's visibility
+/// (`recruiting.rs`, `recruit_visibility`) and his tape: a small school few
+/// staffs visit, a coach with no college ties, a family that can't pay for
+/// camps, a growth spurt the lists haven't caught, a season lost to injury,
+/// a new position, a year behind an older kid. For a college player: a
+/// small division, an injury, a new position, one season as a starter, a
+/// late breakout.
+pub(crate) fn why_missed(w: &World, i: usize) -> Option<String> {
+    use crate::player::{DevelopmentEvent as Ev, Level, PlayingTime as Pt};
+    let p = &w.people[i];
+    let hs_kid = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool);
+    let rows: Vec<&crate::player::SeasonRecord> = p
+        .player
+        .history
+        .iter()
+        .filter(|r| if hs_kid { r.level == Level::HS } else { !matches!(r.level, Level::HS | Level::NFL) })
+        .collect();
+    let last = rows.last().copied();
+    let prev = rows.len().checked_sub(2).map(|k| rows[k]);
+    let mut v: Vec<(f64, String)> = Vec::new();
+    let missed: u32 = rows.iter().rev().take(2).map(|r| r.games_missed).sum();
+    if let Some(r) = last {
+        if let Some(q) = prev
+            && q.position != r.position
+        {
+            v.push((
+                0.07,
+                format!(
+                    "He moved from {} to {} last season, and the lists still have him as a {}.",
+                    q.position.name(),
+                    r.position.name(),
+                    q.position.name()
+                ),
+            ));
+        }
+        if r.events.has(Ev::GrowthSpurt) && hs_kid {
+            v.push((0.1, "He grew into his frame this past year, and the services ranked the smaller kid.".into()));
+        }
+        if r.events.has(Ev::Breakout) && !hs_kid {
+            v.push((0.09, "He broke out last season, after the boards were set.".into()));
+        }
+        let starts = rows.iter().filter(|x| x.playing_time == Pt::Starter).count();
+        if r.playing_time == Pt::Starter && starts == 1 && rows.len() >= 2 {
+            v.push((
+                0.08,
+                if hs_kid {
+                    "He sat behind an older kid until last season: one year of tape.".to_string()
+                } else {
+                    "One season as a starter: he waited behind an older player until last fall.".to_string()
+                },
+            ));
+        }
+    }
+    if missed >= 4 {
+        v.push((
+            0.025 * missed as f64,
+            format!("He missed {missed} games hurt, so the tape the graders look at is thin."),
+        ));
+    }
+    if hs_kid {
+        let h = &w.high_schools[p.hs];
+        if h.prestige < 0.35 && !h.national {
+            v.push((
+                0.3 * (0.5 - h.prestige),
+                format!(
+                    "{} is a small school of {} kids, and few college staffs ever come through.",
+                    w.school_name(p.hs),
+                    h.enrollment
+                ),
+            ));
+        }
+        let net = h.coach.map_or(0.4, |c| w.coaches[c].ability().network / 20.0);
+        if net < 0.4 {
+            v.push((
+                0.2 * (0.55 - net),
+                "His coach has no college ties, so nobody has called anyone about him.".into(),
+            ));
+        }
+        if p.bg.money < 0.3 {
+            v.push((
+                0.15 * 0.7 * (0.5 - p.bg.money),
+                "His family can't pay for the camp circuit, so no service has timed or measured him.".into(),
+            ));
+        }
+    } else if let Some(c) = p.college {
+        let div = w.programs[c].division;
+        if div != Division::FBS {
+            v.push((
+                if div == Division::FCS { 0.2 } else { 0.3 },
+                format!(
+                    "He plays at {} in {}: most clubs never send more than an area scout.",
+                    w.program_name(c),
+                    div.name()
+                ),
+            ));
+        }
+    }
+    v.retain(|x| x.0 >= 0.03);
+    v.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let first = v.first()?;
+    Some(match v.get(1) {
+        Some(second) if second.0 >= 0.6 * first.0 => format!("{} {}", first.1, second.1),
+        _ => first.1.clone(),
+    })
+}
+
+/// A kid worth the call (SK69, SK70): his claim, and why the public missed
+/// him when it did. A kid the public missed with no true reason in his
+/// record isn't one: the caller's read is just high.
+fn worth(w: &World, f: &From, i: usize, read: f64, nfl: bool, level: u8, key: u64) -> Option<(u8, Option<String>)> {
+    let c = claim(w, f, i, read, nfl, level, key)?;
+    if !public_missed(w, i, nfl, level) {
+        return Some((c, None));
+    }
+    Some((c, Some(why_missed(w, i)?)))
 }
 
 /// Your seat for tips: (NFL, the college's rank, your coach). None at a
@@ -275,8 +415,10 @@ fn same(t: &Tip, w: &World, k: usize) -> bool {
 fn claim(w: &World, f: &From, i: usize, read: f64, nfl: bool, level: u8, key: u64) -> Option<u8> {
     let b = bar(nfl, level);
     let pct = percentile(w, i, read);
-    // He won't call you about a kid he doesn't think has a shot.
-    if pct < b - 2.0 * (1.0 - b) {
+    // SK69: he calls only about a kid his own eye says can play at your
+    // level: one a program like yours would offer, or one he thinks gets
+    // drafted or signed right after the draft.
+    if pct < floor(nfl, level) {
         return None;
     }
     let mut c = if pct >= 1.0 - 0.35 * (1.0 - b) {
@@ -328,8 +470,20 @@ fn camp_lines(w: &World, f: &From, i: usize, key: u64) -> Vec<String> {
     out
 }
 
-/// Sends the tip: the note in your inbox, the tape into your files.
-fn send(w: &mut World, f: &From, i: usize, claim: u8, (nfl, level): (bool, u8), camp: bool, key: u64) -> String {
+/// Sends the tip: the note in your inbox, the tape to your staff (SK72:
+/// your staff watch it within the week, a film look in his file; film
+/// uses no evaluation days).
+#[allow(clippy::too_many_arguments)]
+fn send(
+    w: &mut World,
+    f: &From,
+    i: usize,
+    claim: u8,
+    why: Option<String>,
+    (nfl, level): (bool, u8),
+    camp: bool,
+    key: u64,
+) -> String {
     let d = w.today;
     let lines = if camp { camp_lines(w, f, i, key) } else { Vec::new() };
     let (coach, other) = {
@@ -348,41 +502,36 @@ fn send(w: &mut World, f: &From, i: usize, claim: u8, (nfl, level): (bool, u8), 
         level,
         lines: lines.clone(),
         settled: None,
+        why: why.clone(),
     });
     let n = w.folk.tips.list.len();
     if n > 200 {
         let drop = w.folk.tips.list.iter().position(|t| t.settled.is_some()).unwrap_or(0);
         w.folk.tips.list.remove(drop);
     }
-    if let Some(you) = w.career.as_ref().map(|c| c.coach) {
-        crate::world::scouting::dept::add(w, id, you as u32, LookKind::Film, d);
-        if let Some(Team::Nfl(t)) = Team::seat(w) {
-            crate::world::scouting::dept::club_look(
-                w,
-                t,
-                id,
-                crate::world::pro::scouts::HC,
-                crate::world::pro::scouts::LookKind::Film,
-                d,
-            );
-        }
-    }
     let p = &w.people[i];
+    let film =
+        if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) { LookKind::HsFilm } else { LookKind::CollegeFilm };
+    if !w.scouting.dept.asks.iter().any(|a| a.0 == id && a.1 == film) {
+        w.scouting.dept.asks.push((id, film, d));
+    }
     let at = match p.stage {
         Stage::College => p.college.map_or(String::new(), |c| format!(", {}", w.program_name(c))),
         _ => format!(", {}", w.school_name(p.hs)),
     };
     let mut text = format!(
-        "{} sent tape on {}, {}{at}: \"{}.\"",
+        "{} sent tape on {}, {}{at}: \"{}.{}\"",
         f.link,
         player_link(w, i),
         p.player.position.name(),
-        CLAIMS[claim as usize]
+        CLAIMS[claim as usize],
+        why.as_ref().map_or(String::new(), |y| format!(" {y}"))
     );
     for l in &lines {
         text.push(' ');
         text.push_str(l);
     }
+    text.push_str(" Your staff will watch his film this week.");
     super::note(w, "tips", f.link.clone(), text.clone(), None);
     text
 }
@@ -417,23 +566,39 @@ pub(crate) fn week(w: &mut World, d: Date) {
     let Some((_, f)) = best else { return };
     let k = f.k;
     let key = w.folk.base as u64 ^ 0x7196 ^ ((d.0 as u64) << 20) ^ k as u64;
-    let Some(&(read, i)) = pool(w, &f, nfl, key).first() else { return };
-    let Some(c) = claim(w, &f, i, read, nfl, level, key) else { return };
-    send(w, &f, i, c, (nfl, level), f.src == Src::Camp, key);
+    let Some((i, (c, why))) =
+        pool(w, &f, nfl, key).into_iter().find_map(|(read, i)| Some((i, worth(w, &f, i, read, nfl, level, key)?)))
+    else {
+        return;
+    };
+    send(w, &f, i, c, why, (nfl, level), f.src == Src::Camp, key);
 }
 
 /// A coach's favour call, "I've got a kid I think can play for you" (C14,
-/// `asks_week`): you said yes, so his best kid's tape comes in. None when
-/// he has nobody for your seat.
-pub(crate) fn from_ask(w: &mut World, c: usize) -> Option<String> {
+/// SK69-SK70, `asks_week`): the kid he'd call about, before he calls. Only
+/// a kid worth the call: one his own eye says can play at your level, and
+/// when the public missed him, a true reason why. None means no call.
+pub(crate) fn ask_kid(w: &World, c: usize) -> Option<(u32, u8, Option<String>)> {
     let (nfl, level, _, team) = seat(w)?;
     let k = w.folk.network.contacts.iter().position(|x| x.coach_id() == Some(c))?;
     let f = source(w, k, nfl, team)?;
     let key = w.folk.base as u64 ^ 0x7197 ^ ((w.today.0 as u64) << 20) ^ c as u64;
-    let &(read, i) = pool(w, &f, nfl, key).first()?;
-    // He asked because he believes in him: never less than "can play".
-    let cl = claim(w, &f, i, read, nfl, level, key).unwrap_or(1).max(1);
-    Some(send(w, &f, i, cl, (nfl, level), false, key))
+    pool(w, &f, nfl, key).into_iter().find_map(|(read, i)| {
+        let (cl, why) = worth(w, &f, i, read, nfl, level, key)?;
+        // He asked because he believes in him: never less than "can play".
+        Some((w.people[i].player.id, cl.max(1), why))
+    })
+}
+
+/// You said yes to his call: his tape comes to your staff.
+pub(crate) fn from_ask(w: &mut World, c: usize, id: u32, cl: u8) -> Option<String> {
+    let (nfl, level, _, team) = seat(w)?;
+    let k = w.folk.network.contacts.iter().position(|x| x.coach_id() == Some(c))?;
+    let f = source(w, k, nfl, team)?;
+    let i = crate::world::scouting::place(w, id)?;
+    let why = if public_missed(w, i, nfl, level) { why_missed(w, i) } else { None };
+    let key = w.folk.base as u64 ^ 0x7197 ^ ((w.today.0 as u64) << 20) ^ c as u64;
+    Some(send(w, &f, i, cl, why, (nfl, level), false, key))
 }
 
 /// September 1: tips whose kids' roads show are settled (proposed, not

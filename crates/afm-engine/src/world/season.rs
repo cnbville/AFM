@@ -784,7 +784,7 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
             if s.age + 1 != p.player.age || !sets_level_scale(s.level) {
                 continue;
             }
-            if let Some(key) = level_group(s.level, s.age) {
+            if let Some(key) = level_group(s.level, class_age(p, s)) {
                 groups
                     .entry(key)
                     .or_default()
@@ -816,18 +816,20 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
         let i = match w.level_scales.iter().position(|h| h.group == key) {
             Some(i) => i,
             None => {
-                w.level_scales.push(ScaleHistory { group: key, start: Vec::new(), end: Vec::new() });
+                w.level_scales.push(ScaleHistory { group: key, start: Vec::new(), end: Vec::new(), align: None });
                 w.level_scales.len() - 1
             }
         };
         let h = &mut w.level_scales[i];
         h.push(a_start, a_end);
+        h.align = Some(align_end.clone());
         start.insert(key, (pooled_level_scale(&h.start), align_start));
         end.insert(key, (pooled_level_scale(&h.end), align_end));
     }
     w.people.par_iter_mut().for_each(|p| {
         let pos = p.player.position;
         let age_now = p.player.age;
+        let off = p.years_off_class();
         let Some(s) = p.player.history.last_mut() else { return };
         if s.age + 1 != age_now {
             return;
@@ -837,7 +839,9 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
             Level::SmallCollege => 5.0,
             _ => 0.0,
         };
-        let key = level_group(s.level, s.age);
+        // A high schooler is rated against his class, not his age (minor
+        // bug 52: a held-back senior is 18 like no on-time senior).
+        let key = level_group(s.level, if s.level == Level::HS { (s.age as i32 - off).max(0) as u32 } else { s.age });
         let level = s.level;
         let rate = |scales: &Scales, ovr: f64| {
             let g = key.and_then(|k| scales.get(&k));
@@ -847,6 +851,63 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
         s.level_rating = Some(rate(&start, s.overall_start));
         s.level_rating_end = Some(rate(&end, s.overall));
     });
+}
+
+/// A season's age as his class counts it: a high schooler held back a year
+/// is rated with his class (minor bug 52).
+fn class_age(p: &super::Person, s: &crate::player::SeasonRecord) -> u32 {
+    if s.level == Level::HS { (s.age as i32 - p.years_off_class()).max(0) as u32 } else { s.age }
+}
+
+/// His class in a season's words, for the badge: "Senior" for a high
+/// schooler in his last year, "FBS" for a college player (FCS and small
+/// colleges are put on the FBS scale).
+fn level_words(p: &super::Person, s: &crate::player::SeasonRecord) -> &'static str {
+    match s.level {
+        Level::HS => match class_age(p, s) {
+            ..=14 => "Freshman",
+            15 => "Sophomore",
+            16 => "Junior",
+            _ => "Senior",
+        },
+        _ => "FBS",
+    }
+}
+
+/// The level badge from a read of his overall (minor bugs 49-52): the read
+/// placed on the scale of the group his season `k` rated him in, the way
+/// the true ratings are placed (his position aligned, a small school's
+/// discount), and the words of that season ("Senior level 89", "FBS level
+/// 73"). None for a pro or a group with no scale yet.
+pub fn level_from_read(w: &World, i: usize, k: usize, centre: f64) -> Option<(u8, &'static str)> {
+    use crate::level_rating::{level_group, level_rating, pooled_level_scale};
+    let p = w.people.get(i)?;
+    let s = p.player.history.get(k)?;
+    if s.level == Level::NFL {
+        return None;
+    }
+    let key = level_group(s.level, class_age(p, s))?;
+    let h = w.level_scales.iter().find(|h| h.group == key)?;
+    let scale = pooled_level_scale(&h.end);
+    if scale.points.is_empty() {
+        return None;
+    }
+    let discount = match s.level {
+        Level::FCS => 1.0,
+        Level::SmallCollege => 5.0,
+        _ => 0.0,
+    };
+    let x = h.align.as_ref().map_or(centre - discount, |a| a.align(p.player.position, centre - discount));
+    Some((level_rating(x, s.level, Some(&scale)), level_words(p, s)))
+}
+
+/// The pool a season's badge is read against, for its marks.
+pub fn level_pool(level: Level) -> Option<crate::level_rating::Pool> {
+    match level {
+        Level::NFL => None,
+        Level::HS => Some(crate::level_rating::Pool::HS),
+        _ => Some(crate::level_rating::Pool::College),
+    }
 }
 
 /// About the snaps of a full college season as a starter on one side of the
@@ -912,8 +973,22 @@ pub(crate) fn your_calls(w: &World, who: Option<usize>, base: f64, adaptation: f
 /// A college team for the match engine: its players and its staff's calling.
 /// The systems are the ones the staff installed this spring (S3); a new
 /// playbook is known only as far as it shares the old one (S5).
+/// How a player comes into a game (dialogue D4): his mood, and how much
+/// he believes his head coach: your players their trust in you, everyone
+/// else by his coach's way with people (proposed, not confirmed).
+pub(crate) fn game_mind(p: &super::Person, seat: bool, relationships: f64) -> (f32, f32) {
+    let belief = if seat { p.trust } else { (0.5 + 0.015 * (relationships as f32 - 10.0)).clamp(0.25, 0.75) };
+    (p.mood, belief)
+}
+
+/// The head coach's way with people, for `game_mind`.
+pub(crate) fn coach_relationships(w: &World, c: Option<usize>) -> f64 {
+    c.map_or(10.0, |c| w.coaches[c].ability().relationships)
+}
+
 pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
     let inst = prog.installed;
+    let (seat, rel) = (w.seat_program(prog.id), coach_relationships(w, prog.head_coach));
     // What the playbook leans on (plays and tactics topic 4): families the
     // team runs a lot get the reps, the rest are known less well. Its own
     // tape says which; with none yet every family counts the same.
@@ -936,6 +1011,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             let side = if super::systems::offense(p.player.position) { inst.off_known } else { inst.def_known };
             let know = clamp(0.78 + 0.05 * seasons, 0.0, 0.95) * (0.8 + 0.2 * side);
             let mut g = GamePlayer::from_player(&p.player, know, experience);
+            (g.mood, g.belief) = game_mind(p, seat, rel);
             // Per family: reps by how much the playbook uses it, and the
             // understanding a sharp player builds faster (topic 4.2, 4.4;
             // proposed, not confirmed).
@@ -1011,6 +1087,8 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             install,
             style: prog.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
+            motivation: hc.map_or(10.0, |a| a.motivation),
+            temper: prog.head_coach.map_or(10.0, |c| w.coaches[c].personality.temper),
         },
     );
     // The head coach's guidelines (update 2, G2).

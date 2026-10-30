@@ -168,7 +168,7 @@ fn block(out: &mut String, b: &Value) {
             }
         }
         "note" => out.push_str(&format!("{}\n", s(&b["text"]))),
-        _ => {}
+        _ => crate::areas::text_block(out, b),
     }
 }
 

@@ -173,8 +173,13 @@ struct HsPlayed {
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
     /// The whole game, kept only for your school's game page (with its
     /// setup for watching it back) and your coming opponents' film.
-    full:
-        Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2], Option<Box<crate::game::ReplaySetup>>)>,
+    #[allow(clippy::type_complexity)]
+    full: Option<(
+        crate::game::stats::GameStats,
+        [crate::game::calling::Film; 2],
+        Option<Box<crate::game::ReplaySetup>>,
+        crate::game::talk::Record,
+    )>,
     /// The game on the state's numbers for the game boards (lane 9).
     tally: super::charts::Tally,
     /// A final at a neutral site.
@@ -690,6 +695,21 @@ pub(crate) fn state_schedule(
     (weeks, districts.into_iter().map(|d| d.into_iter().map(|i| ids[i]).collect()).collect())
 }
 
+/// A school that opens after the year's season was drawn (SK68, a ground
+/// zero start): the season is drawn again with it while no state has
+/// started; later it sits out until next season.
+pub(crate) fn add_school(w: &mut World, h: usize) {
+    let Some(hs) = w.hs_season.as_ref() else { return };
+    if hs.states.iter().all(|s| !s.developed && !s.done) && hs.played.is_empty() {
+        w.hs_season = Some(new_season(w));
+        return;
+    }
+    let hs = w.hs_season.as_mut().unwrap();
+    hs.results.resize(h + 1, TeamResult::default());
+    hs.marks.resize(h + 1, None);
+    hs.district.resize(h + 1, super::hs_playoffs::NONE);
+}
+
 /// The high school day.
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(hs) = w.hs_season.as_ref() else { return };
@@ -697,6 +717,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
         super::clock::timed("hs class", || {
             w.add_class();
             w.rebuild_rosters();
+            // New schools take their zones' players (SK68).
+            if super::new_teams::school::class_day(w) {
+                w.rebuild_rosters();
+            }
         });
     }
     let n_states = w.states.len();
@@ -1157,6 +1181,7 @@ pub(crate) fn squad_team(
     } else {
         Vec::new()
     };
+    let (seat_mind, rel_mind) = (seat, season::coach_relationships(w, w.high_schools[h].coach));
     let players: Vec<GamePlayer> = dressed
         .iter()
         .map(|&i| {
@@ -1166,10 +1191,13 @@ pub(crate) fn squad_team(
             let side =
                 stored.map_or(1.0, |s| if super::systems::offense(p.position) { s.off_known } else { s.def_known });
             let know = clamp(0.72 + 0.04 * years + head, 0.0, 0.9) * (0.8 + 0.2 * side);
-            GamePlayer::from_player(p, know, 0.7 * years)
+            let mut g = GamePlayer::from_player(p, know, 0.7 * years);
+            (g.mood, g.belief) = season::game_mind(&w.people[i], seat_mind, rel_mind);
+            g
         })
         .collect();
-    let coach = school.coach;
+    // A suspended coach (SK42) is off the sideline: his staff coaches.
+    let coach = if super::scouting::pitch::sits(w, h) { None } else { school.coach };
     // Your guidelines pick your varsity's systems (update 2, G2) at camp.
     // An AI school's head coach calls the side he came up on and his
     // coordinator the other (C37); with no coordinator he calls both.
@@ -1208,6 +1236,8 @@ pub(crate) fn squad_team(
             install,
             style: coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
+            motivation: ab.map_or(10.0, |a| a.motivation),
+            temper: coach.map_or(10.0, |c| w.coaches[c].personality.temper),
         },
     );
     super::guide::apply(w, &mut team, guide, coach, coach);
@@ -1235,12 +1265,22 @@ pub(crate) fn squad_team(
 
 /// Your school's game team for its next game (the week after the last one
 /// played; the first week before the season), for the depth chart screen.
-pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
-    let week = w.hs_season.as_ref().map_or(0, |hs| {
+/// A school's team for its film (update 3, lane 9): the team as it would
+/// dress for a game this week, for a tape played on the engine.
+pub(crate) fn film_team(w: &World, h: usize) -> Option<(GameTeam, Vec<(u32, usize)>)> {
+    hs_team(w, h, this_week(w, h))
+}
+
+/// The school's games played so far this season.
+fn this_week(w: &World, h: usize) -> usize {
+    w.hs_season.as_ref().map_or(0, |hs| {
         let st = &hs.states[w.high_schools[h].state];
         st.weeks.iter().chain(&st.rounds).filter(|&&d| d < w.today).count()
-    });
-    hs_team(w, h, week).map(|t| t.0)
+    })
+}
+
+pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
+    hs_team(w, h, this_week(w, h)).map(|t| t.0)
 }
 
 /// Whether a high school's home field is artificial turf this season
@@ -1275,6 +1315,14 @@ fn hs_conditions(
         turf,
         ..Default::default()
     }
+}
+
+/// The day a school brings into a game (dialogue D4): the crosstown rival
+/// is the one game that means more; the playoffs the engine reads itself.
+fn hs_day(w: &World, h: usize, opp: usize, dressed: &GameTeam) -> crate::game::talk::Day {
+    use super::folk::Team;
+    let rival = super::folk::facts::rival(w, Team::High(h)).is_some_and(|r| r.0 == Team::High(opp));
+    super::folk::gametalk::day_for(w, Team::High(h), Team::High(opp), 0.0, rival, dressed)
 }
 
 /// Your school's game today as the day will play it (section 9): a
@@ -1317,8 +1365,10 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     } else {
         crate::calendar::weather::weather_in(w.options.seed as u64, s, &code, &w.high_schools[h].town, d, 19)
     };
-    let (home, _) = hs_team(w, h, week)?;
-    let (away, _) = hs_team(w, a, week)?;
+    let (mut home, _) = hs_team(w, h, week)?;
+    let (mut away, _) = hs_team(w, a, week)?;
+    home.day = hs_day(w, h, a, &home);
+    away.day = hs_day(w, a, h, &away);
     let mut setup = crate::game::GameSetup::new(
         &home,
         &away,
@@ -1423,7 +1473,7 @@ fn engine_games(
     let played: Vec<Result<HsPlayed, bool>> = games
         .par_iter()
         .map(|&(h, a, key)| {
-            let ((home, hid), (away, aid)) = match (hs_team(world, h, week), hs_team(world, a, week)) {
+            let ((mut home, hid), (mut away, aid)) = match (hs_team(world, h, week), hs_team(world, a, week)) {
                 (Some(x), Some(y)) => (x, y),
                 // A forfeit: the home side wins only if it could dress a team.
                 (x, _) => return Err(x.is_some()),
@@ -1439,6 +1489,8 @@ fn engine_games(
                 &town_wx
             };
             let cond = hs_conditions(world, h, wx, seed, key);
+            home.day = hs_day(world, h, a, &home);
+            away.day = hs_day(world, a, h, &away);
             let mut setup = crate::game::GameSetup::new(
                 &home,
                 &away,
@@ -1472,7 +1524,7 @@ fn engine_games(
             let kept =
                 seat.is_some_and(|x| x == h || x == a) || watch.as_ref().is_some_and(|o| o.watches(h) || o.watches(a));
             let replay = r.replay.take();
-            let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
+            let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay, r.talks.clone()));
             let mut tally = super::charts::Tally::default();
             tally.add_game(&r.stats);
             let log = logging.then(|| {
@@ -1555,8 +1607,8 @@ fn engine_games(
         // medical staff.
         let side = [h, a].iter().position(|&x| seat == Some(x));
         crate::training::seat::game_injuries(w, day, &g.injuries, [0.0; 2], side);
-        if let Some((full, film, replay)) = g.full.as_ref() {
-            w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
+        if let Some((full, film, replay, talks)) = g.full.as_ref() {
+            w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref(), talks);
             w.seat_line(Level::HighSchool, [h, a], None, g.neutral);
             if let Some(o) = &watch {
                 w.keep_tape(o, Level::HighSchool, [h, a], full, film);

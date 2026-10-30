@@ -238,3 +238,80 @@ pre.copy { margin: 0; padding: 18px; border-radius: 16px; background: var(--grou
   input[type="search"].field { width: 100%; }
   .searchbox { flex: 1 1 100%; }
 }
+
+/* Lane R6: area sections and the panels' views (charts.js). */
+.area { display: flex; flex-direction: column; gap: 8px; padding-top: 18px; border-top: 1px solid var(--line-2); }
+.area .head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.area h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -.01em; }
+.area h2 a { color: var(--text); }
+.area details { font-size: 13px; color: var(--text-2); }
+.area details ul { margin: 6px 0 0; padding-left: 18px; }
+.mk.code { color: var(--text); background: var(--fill-3); letter-spacing: .04em; }
+.pnl .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; justify-content: space-between; }
+.says { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); max-width: 100ch; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 999px; background: var(--fill-1); align-self: flex-start; }
+.seg button { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.seg button.on { background: var(--text); color: #08090c; font-weight: 700; }
+table.bars td { padding-top: 8px; padding-bottom: 8px; }
+.bar { height: 10px; border-radius: 999px; background: var(--fill-2); overflow: hidden; min-width: 90px; }
+.bar span { display: block; height: 100%; border-radius: 999px; background: #f0607c; }
+.bar.r span { background: #7c818c; }
+table.matrix td.heat { text-align: right; min-width: 64px; }
+table.matrix td.click, tr.click, .click { cursor: pointer; }
+.funnel { display: flex; flex-direction: column; gap: 10px; }
+.fstage { display: grid; grid-template-columns: minmax(180px, 300px) 1fr; gap: 14px; align-items: center; }
+.fstage .fl { display: flex; flex-direction: column; gap: 2px; }
+.fstage .fl b { font-size: 14px; }
+.fstage .fb { position: relative; height: 22px; border-radius: 8px; background: var(--fill-1); }
+.fstage .fb span { display: block; height: 100%; border-radius: 8px; background: rgba(240, 96, 124, .8); }
+.fstage .fb .tick { position: absolute; top: -4px; bottom: -4px; width: 3px; border-radius: 2px; background: #d6d9df; }
+.chart.map svg { max-width: 980px; }
+.chart.map text { fill: inherit; font-family: inherit; }
+.tline { display: flex; flex-direction: column; }
+.tl-it { display: grid; grid-template-columns: 88px 1fr auto; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.tl-it b { font-variant-numeric: tabular-nums; font-stretch: 68%; font-size: 17px; }
+.tl-it p { margin: 0; font-size: 14px; line-height: 1.45; }
+.tl-it .why { display: block; color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.meters { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px 28px; }
+.mg { display: flex; flex-direction: column; gap: 6px; }
+.at { display: grid; grid-template-columns: minmax(110px, 1fr) 110px 34px; gap: 10px; align-items: center; font-size: 13px; color: var(--text-2); }
+.at b { color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
+.at em { grid-column: 1 / -1; font-style: normal; font-size: 12px; color: var(--text-3); margin-top: -4px; }
+.meter { position: relative; height: 8px; border-radius: 999px; background: var(--fill-2); }
+.meter span { display: block; height: 100%; border-radius: 999px; background: #f0607c; }
+.meter .ghost { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #d6d9df; }
+@media (max-width: 700px) {
+  .fstage { grid-template-columns: 1fr; }
+  .tl-it { grid-template-columns: 64px 1fr; }
+}
+
+/* Lane R8: a game's drives and play by play, a club's seasons, a draft board. */
+.drvs { display: flex; flex-direction: column; gap: 6px; }
+.drv { display: grid; grid-template-columns: 110px 74px minmax(200px, 1fr) 150px 140px; align-items: center; gap: 12px; font-size: 13px; }
+.drv-h { color: var(--text-3); }
+.drv-ax { display: flex; justify-content: space-between; }
+.drv-t { display: inline-block; padding-left: 8px; border-left: 3px solid; font-weight: 600; }
+.drv-f { position: relative; height: 16px; border-radius: 6px; background: repeating-linear-gradient(90deg, rgba(48, 120, 60, .28) 0 10%, rgba(40, 105, 52, .28) 10% 20%); overflow: hidden; }
+.drv-f .ez { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: rgba(255, 255, 255, .35); }
+.drv-f .ez.r { left: auto; right: 0; }
+.drv-f b { position: absolute; top: 3px; bottom: 3px; border-radius: 4px; }
+.seg-near { background: var(--near); } .seg-off { background: var(--off); } .seg-far { background: var(--far); } .seg-dim { background: var(--text-3); }
+.drv-r { font-weight: 600; } .t-dim { color: var(--text-3); }
+.pbp td { vertical-align: top; }
+.pbp-q td { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); background: var(--fill-1); }
+.pbp-sc td { background: rgba(48, 209, 88, .06); }
+.pbp-to td { background: rgba(255, 55, 95, .07); }
+.strip { display: flex; flex-wrap: wrap; gap: 6px; }
+.strip-it { display: flex; flex-direction: column; align-items: center; min-width: 62px; padding: 8px 6px; border-radius: 10px; border: 2px solid transparent; color: var(--text); text-decoration: none; font-size: 12px; }
+.strip-it b { font-size: 13px; }
+.strip-po { border-color: var(--text-2); }
+.strip-gold { border-color: #ffd60a; }
+.pk-r { display: flex; flex-direction: column; gap: 8px; }
+.pk-g { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.pk { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--fill-1); border: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.pk:hover { background: var(--fill-2); }
+.pk-n { font-size: 20px; font-weight: 700; color: var(--text-2); }
+@media (max-width: 900px) {
+  .drv { grid-template-columns: 90px 64px 1fr; }
+  .drv > .num, .drv > .drv-r { grid-column: span 1; }
+}

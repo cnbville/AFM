@@ -37,8 +37,13 @@
 
   // ---------- drawn heads ----------
   // The drawing code and its data (about 20 MB) load the first time a head is
-  // drawn; heads are drawn one at a time, newest asks first, so a long list
-  // never holds up the screen. A computer without WebGL keeps the silhouettes.
+  // drawn. A head holds the page's only thread while it is drawn (a fifth of a
+  // second to seconds), so heads give way to you (the app froze on clicks
+  // while a list's hundred heads drew, 2026-10-30): one at a time, newest ask
+  // first, only a face on screen, never while a screen loads or just after a
+  // click, a key or a scroll, with a pause as long as the last head took. A
+  // face whose page you left is dropped, and asked again when it shows again.
+  // A computer without WebGL keeps the silhouettes.
   let headsP = null, broken = false;
   const loadScript = (src) => new Promise((res, rej) => {
     const el = document.createElement("script");
@@ -53,26 +58,68 @@
     return headsP;
   }
   const drawing = new Map(); // id -> promise of the drawn picture
+  let jobs = []; // heads asked for, newest last: {id, key, spec, done}
+  let running = false, timer = 0, lastInput = 0;
+  const QUIET = 800; // ms after your last click, key or scroll
+  for (const ev of ["pointerdown", "keydown", "wheel", "scroll", "touchstart"]) {
+    document.addEventListener(ev, () => { lastInput = performance.now(); }, { capture: true, passive: true });
+  }
   function drawHead(id, key, spec) {
     if (broken || !spec) return Promise.resolve(null);
     if (!drawing.has(id)) {
-      drawing.set(id, heads()
-        .then(async (H) => {
-          // a logo from an installed pack on the jersey (lane 15)
-          if (spec.logo && !spec.logo.img && typeof logoImageById === "function") spec.logo.img = await logoImageById(spec.logo.id);
-          return H.queue(spec);
-        })
-        .then(async (r) => {
-          await api("face_drawn_store", { id, key: key || "", data: r.url }).catch(() => {});
-          return r.url;
-        })
-        .catch((e) => {
-          broken = true;
-          console.warn("drawn heads off for this session:", e);
-          return null;
-        }));
+      drawing.set(id, new Promise((done) => jobs.push({ id, key, spec, done })));
+      pump();
     }
     return drawing.get(id);
+  }
+  // Where each asked face is: 2 on screen (or nearly), 1 on the page but out
+  // of sight (scrolled away, a closed tab), absent when its page is gone.
+  function places() {
+    const at = new Map();
+    for (const el of document.querySelectorAll(".fc-slot[data-face-id], .fc-portrait[data-id]")) {
+      const id = Number(el.dataset.faceId || el.dataset.id);
+      if (at.get(id) === 2) continue;
+      const r = el.getBoundingClientRect();
+      const seen = (r.width || r.height) && r.bottom > -150 && r.top < innerHeight + 150 && r.right > 0 && r.left < innerWidth;
+      at.set(id, seen ? 2 : 1);
+    }
+    return at;
+  }
+  function pump() {
+    clearTimeout(timer);
+    timer = 0;
+    if (running || broken || !jobs.length) return;
+    const wait = Math.max(QUIET - (performance.now() - lastInput), apiBusy > 0 || document.hidden ? 250 : 0);
+    if (wait > 0) { timer = setTimeout(pump, wait); return; }
+    const at = places();
+    for (const j of jobs) if (!at.has(j.id)) { drawing.delete(j.id); j.done(null); }
+    jobs = jobs.filter((j) => at.has(j.id));
+    let i = jobs.length - 1;
+    while (i >= 0 && at.get(jobs[i].id) !== 2) i--;
+    if (i < 0) { if (jobs.length) timer = setTimeout(pump, 500); return; }
+    const j = jobs.splice(i, 1)[0];
+    running = true;
+    const t0 = performance.now();
+    heads()
+      .then(async (H) => {
+        // a logo from an installed pack on the jersey (lane 15)
+        if (j.spec.logo && !j.spec.logo.img && typeof logoImageById === "function") j.spec.logo.img = await logoImageById(j.spec.logo.id);
+        return H.draw(j.spec);
+      })
+      .then(async (r) => {
+        await api("face_drawn_store", { id: j.id, key: j.key || "", data: r.url }).catch(() => {});
+        j.done(r.url);
+      })
+      .catch((e) => {
+        broken = true;
+        console.warn("drawn heads off for this session:", e);
+        for (const x of [j, ...jobs]) x.done(null);
+        jobs = [];
+      })
+      .finally(() => {
+        running = false;
+        timer = setTimeout(pump, Math.min(1500, Math.max(60, performance.now() - t0)));
+      });
   }
 
   // ---------- the player page ----------
@@ -143,8 +190,10 @@
       span.className = "fc-slot";
       span.dataset.faceId = id;
       const f = cache.get(id);
-      if (f) span.innerHTML = dot(f);
-      else if (!waiting.has(id)) need.push(id);
+      if (f) {
+        span.innerHTML = dot(f);
+        if (f.spec) askHead(f);
+      } else if (!waiting.has(id)) need.push(id);
       a.parentNode.insertBefore(span, a);
     }
     if (need.length) load(need);
@@ -158,18 +207,20 @@
         for (const f of x.faces) {
           cache.set(f.id, f);
           document.querySelectorAll(`.fc-slot[data-face-id="${f.id}"]`).forEach((s) => (s.innerHTML = dot(f)));
-          if (f.spec) {
-            drawHead(f.id, f.key, f.spec).then((url) => {
-              if (!url) return;
-              const g = { ...f, drawn: url, spec: null };
-              cache.set(f.id, g);
-              document.querySelectorAll(`.fc-slot[data-face-id="${f.id}"]`).forEach((s) => (s.innerHTML = dot(g)));
-            });
-          }
+          if (f.spec) askHead(f);
         }
       } catch (e) { /* the list still works without faces */ }
       part.forEach((i) => waiting.delete(i));
     }
+  }
+  // A list face still to draw (again, when its page was left before its turn).
+  function askHead(f) {
+    drawHead(f.id, f.key, f.spec).then((url) => {
+      if (!url) return;
+      const g = { ...f, drawn: url, spec: null };
+      cache.set(f.id, g);
+      document.querySelectorAll(`.fc-slot[data-face-id="${f.id}"]`).forEach((s) => (s.innerHTML = dot(g)));
+    });
   }
 
   // ---------- picking and cropping a photo ----------
@@ -478,5 +529,38 @@
     if (!queued) { queued = true; requestAnimationFrame(scan); }
   }).observe(document.getElementById("app"), { childList: true, subtree: true });
 
-  window.AFMFaces = { refresh, silhouette, dot };
+  // A head drawn live for a talk (dialogue D1): his face for a tell, kept for
+  // the session, never stored. Null when heads are off or can't be drawn. It
+  // takes its turn like any head: after a quiet moment, never beside another.
+  const live = new Map();
+  const turn = () => new Promise((go) => {
+    const t = () => (running || apiBusy > 0 || performance.now() - lastInput < QUIET ? setTimeout(t, 120) : go());
+    t();
+  });
+  function liveHead(key, spec) {
+    if (broken || !spec) return Promise.resolve(null);
+    if (!live.has(key)) {
+      live.set(key, heads()
+        .then(async (H) => {
+          if (spec.logo && !spec.logo.img && typeof logoImageById === "function") spec.logo.img = await logoImageById(spec.logo.id);
+          await turn();
+          running = true;
+          try {
+            return await H.draw(spec);
+          } finally {
+            running = false;
+            pump();
+          }
+        })
+        .then((r) => r.url)
+        .catch((e) => {
+          broken = true;
+          console.warn("drawn heads off for this session:", e);
+          return null;
+        }));
+    }
+    return live.get(key);
+  }
+
+  window.AFMFaces = { refresh, silhouette, dot, liveHead };
 })();

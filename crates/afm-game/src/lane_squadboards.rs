@@ -77,19 +77,19 @@ pub(crate) fn mid(r: Read) -> Option<f64> {
 }
 
 /// Your staff's overall read of one of your players.
-pub(crate) fn own_read(w: &World, t: TeamRef, i: usize) -> Read {
-    let p = &w.people[i];
-    reads::overall(&p.player, true, views::eye_for(w, t, p.player.position), views::reader_key(w))
+pub(crate) fn own_read(w: &World, _t: TeamRef, i: usize) -> Read {
+    reads::overall(w, i)
 }
 
-/// Your staff's read of anyone: narrow for your own players, the public
-/// read (wide) for everyone else.
+/// Your staff's read of anyone (minor bug 54: from his file, "Not seen"
+/// while nobody of yours has looked), whether he is yours, and the eye of
+/// the coach who reads him for the potential words.
 pub(crate) fn any_read(w: &World, i: usize) -> (Read, bool, f64) {
     let p = &w.people[i];
     let team = views::team_of(w, p);
     let own = team.is_some_and(|t| views::is_mine(w, t));
     let eye = team.filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
-    (reads::overall(&p.player, own, eye, views::reader_key(w)), own, eye)
+    (reads::overall(w, i), own, eye)
 }
 
 /// The pool a team's players are read against: a high school's state and
@@ -298,14 +298,18 @@ pub(crate) struct UnitTable {
     pub among: String,
 }
 
+/// A team's reads by position: your staff's read of your own, and of a
+/// rival's players your staff's where it has looked, else the public read
+/// from the film every staff studies of its opponents (`reads::public`).
 fn team_reads(w: &World, t: TeamRef, own: bool) -> Vec<Vec<f32>> {
-    let reader = views::reader_key(w);
     let mut by: Vec<Vec<f32>> = vec![Vec::new(); Position::ALL.len()];
     for k in views::roster_people(w, t) {
-        let p = &w.people[k];
-        let pos = p.player.position;
-        let eye = if own { views::eye_for(w, t, pos) } else { 10.0 };
-        if let Some(m) = mid(reads::overall(&p.player, own, eye, reader)) {
+        let pos = w.people[k].player.position;
+        let r = match reads::overall(w, k) {
+            Read::NotSeen if !own => reads::public(w, k),
+            r => r,
+        };
+        if let Some(m) = mid(r) {
             by[pos.index()].push(m as f32);
         }
     }
@@ -583,8 +587,8 @@ pub(crate) fn family_read(reads: &[(Attr, Read)], f: &Family) -> Option<(f64, f6
 pub(crate) fn read_now(w: &World, i: usize, season: i32) -> KeptRead {
     let p = &w.people[i];
     let pos = p.player.position;
-    let (ovr, own, eye) = any_read(w, i);
-    let attrs = reads::attributes(&p.player, own, eye, views::reader_key(w));
+    let (ovr, _, _) = any_read(w, i);
+    let attrs = reads::attributes(w, i);
     let pair = |r: Read| match r {
         Read::Range(lo, hi) => [lo, hi],
         Read::NotSeen => [0, 0],

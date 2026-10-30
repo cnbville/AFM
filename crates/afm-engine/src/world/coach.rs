@@ -810,6 +810,29 @@ impl Coach {
         if self.renown > 0.0 { self.renown } else { clamp(self.fame.max(0.5 * self.reputation), 1.0, 20.0) }
     }
 
+    /// A famous name's pull on recruits (C8), in recruiting points: about 3
+    /// for a star, half that for a Pro Bowler, nothing for a name nobody
+    /// knows, read from his name (Deion Sanders flipped Travis Hunter, the No. 1 recruit, to
+    /// Jackson State in 2021). Full through his first two seasons in the
+    /// job, half in the third, gone by the fourth unless he wins (his last
+    /// season above what was expected of him).
+    pub fn name_pull(&self, season: i32) -> f64 {
+        // His name from his playing days (C10: a star 17, a Pro Bowler 14,
+        // a starter 11), fading a little each year.
+        let base = ((self.fame - 11.0) / 2.0).clamp(0.0, 3.0);
+        if base <= 0.0 {
+            return 0.0;
+        }
+        let years = self.job.map_or(0, |j| season - j.since);
+        let fade = match years {
+            ..=1 => 1.0,
+            2 => 0.5,
+            _ => 0.0,
+        };
+        let winning = self.recent.last().is_some_and(|&r| r > 0.0);
+        base * if winning { 1.0 } else { fade }
+    }
+
     /// A title's boost, when it is won.
     pub fn title_reputation(&mut self, title: TitleKind, head: bool, stage: f64) {
         let speed = if head { 1.0 } else { 0.5 };

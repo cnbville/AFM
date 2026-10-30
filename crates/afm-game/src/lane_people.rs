@@ -24,13 +24,14 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 27] = [
+const COMMANDS: [&str; 28] = [
     "people_agenda",
     "people_expect",
     "people_scene",
     "people_answer",
     "people_hand",
     "people_talk",
+    "people_subject",
     "people_team_talk",
     "people_line",
     "people_player",
@@ -80,6 +81,13 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_hand" => (|| {
             let id = num(args, "id")? as u32;
             folk::scene::hand(w, id)?;
+            scene(w, id)
+        })(),
+        "people_subject" => (|| {
+            let id = num(args, "id")? as u32;
+            let key = args.get("subject").and_then(Value::as_str).unwrap_or("role");
+            let sub = Subject::ALL.iter().copied().find(|s| s.key() == key).ok_or("Unknown subject.")?;
+            talks::change_subject(w, id, sub)?;
             scene(w, id)
         })(),
         "people_talk" => (|| {
@@ -340,6 +348,29 @@ fn scene(w: &mut World, id: u32) -> Reply {
         })
         .collect();
     v["picks"] = json!(picks);
+    // Face to face (lane 14, D1): his face for the last thing he said, the
+    // subject chips of a one-on-one and a timed room's clock.
+    if matches!(s.kind, Kind::OneOnOne | Kind::CombineTalk) && matches!(s.who.first(), Some(Who::Player(_))) {
+        let last = s.lines.iter().rev().find(|l| l.by == 2);
+        let mood = match s.who.first() {
+            Some(Who::Player(id)) => folk::person(w, *id).map_or(0.0, |i| w.people[i].mood),
+            _ => 0.0,
+        };
+        v["face"] = face_cue(last.and_then(|l| l.tell.as_deref()), mood);
+        v["room"] = json!(if s.kind == Kind::CombineTalk {
+            if s.place.contains("Indianapolis") { "combine" } else { "office" }
+        } else {
+            Team::seat(w).map_or("college", |t| level_key(t.level()))
+        });
+    }
+    if s.kind == Kind::OneOnOne {
+        v["subject"] = json!(Subject::from_u64(s.b).key());
+        v["subjects"] =
+            json!(Subject::ALL.iter().map(|x| json!({ "key": x.key(), "name": cap(x.name()) })).collect::<Vec<_>>());
+    }
+    if s.kind == Kind::CombineTalk {
+        v["clock"] = json!({ "left": s.c.max(0), "of": s.f[0] as i64 });
+    }
     v["docs"] = json!(s.docs);
     v["step"] = json!(s.step);
     v["hours"] = json!(talks::hours_left(w));
@@ -354,6 +385,32 @@ fn scene(w: &mut World, id: u32) -> Reply {
         .next();
     v["next"] = next.unwrap_or(Value::Null);
     Ok(v)
+}
+
+/// His face for a tell your read caught (dialogue D1): the drawn head's
+/// expression and how strongly, which way he turns (degrees, to his left)
+/// and how far he drops his eyes, with the words. A line with no tell reads
+/// from his mood.
+fn face_cue(tell: Option<&str>, mood: f32) -> Value {
+    let (expr, strength, yaw, down, words) = match tell.unwrap_or("") {
+        t if t.starts_with("He nods like he already knew it") => ("smirk", 0.8, 0, -3, "A half smile, chin up"),
+        t if t.starts_with("He looks you in the eye") => ("game_face", 0.8, 0, 0, "Eyes on yours"),
+        t if t.starts_with("His shoulders drop") => ("slight_smile", 1.0, 4, 5, "Softer"),
+        t if t.starts_with("His jaw works") => ("game_face", 1.3, 14, 2, "Jaw set, looking off"),
+        t if t.starts_with("He mentions his agent") => ("smirk", 0.5, -10, 0, "Glances away"),
+        t if t.starts_with("He says his dad") => ("tight_smile", 1.0, 8, 0, "A tight smile"),
+        t if t.starts_with("Short answers") => ("game_face", 1.0, 24, 4, "Looking at the door"),
+        t if t.starts_with("He gives you nothing") => ("game_face", 0.6, 0, 0, "Nothing on his face"),
+        t if t.starts_with("He shifts in his chair") => ("tight_smile", 0.6, -8, 3, "Shifting"),
+        t if t.starts_with("He held your eyes") => ("game_face", 0.9, 0, 0, "Steady eyes"),
+        t if t.starts_with("His jaw set") => ("game_face", 1.5, 6, -4, "Jaw set, leaning back"),
+        t if t.starts_with("He looked at the table") => ("game_face", 0.5, 4, 14, "Eyes on the table"),
+        _ if mood < -0.35 => ("game_face", 1.1, 10, 6, "Closed off"),
+        _ if mood < -0.1 => ("tight_smile", 0.8, 6, 2, "Guarded"),
+        _ if mood > 0.35 => ("smile", 0.9, 0, 0, "At ease"),
+        _ => ("slight_smile", 0.9, 0, 0, "Waiting"),
+    };
+    json!({ "expression": expr, "strength": strength, "yaw": yaw, "down": down, "words": words })
 }
 
 /// The people hub: what waits for you, your week's hours, the room, your
@@ -841,6 +898,36 @@ fn staff(w: &World) -> Value {
         "pool": w.folk.staff.pool_bonus,
         "hours": talks::hours_left(w),
     })
+}
+
+/// The moves that fit a coach for your seat (minor bug 62): a raise or
+/// letting him go for one of your assistants; an interview or the job for
+/// a coach outside your staff at one of your openings (the offer is
+/// lane 18's dialog).
+pub(crate) fn coach_moves(w: &World, c: usize) -> Vec<Value> {
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    if w.career.as_ref().is_some_and(|x| x.coach == c) {
+        return Vec::new();
+    }
+    if let Some((_, r)) = facts::assistants(w, team).into_iter().find(|x| x.0 == c) {
+        return vec![
+            json!({ "k": "raise", "t": "Give him a raise", "coach": c, "role": role_key(r) }),
+            json!({ "k": "fire", "t": "Let him go", "coach": c }),
+        ];
+    }
+    let Some(co) = w.coaches.get(c) else { return Vec::new() };
+    if co.retired || co.age > 70 || co.show_cause.is_some_and(|y| y >= w.year) {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for r in staffing::openings(w) {
+        let role = cap(r.name());
+        out.push(
+            json!({ "k": "interview", "t": format!("Interview him for {role}"), "coach": c, "role": role_key(r) }),
+        );
+        out.push(json!({ "k": "hire", "t": format!("Offer him {role}"), "coach": c, "role": role_key(r) }));
+    }
+    out
 }
 
 /// Your coaching network: every contact with how you know him, how warm,

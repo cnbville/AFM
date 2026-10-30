@@ -3,6 +3,9 @@
 //! - `afm_read build <world file> [log folder] [book]`: the log defaults to
 //!   `name.afmlog` beside the world file (`-` for none), the book to
 //!   `name.afmbook`.
+//! - `afm_read refresh <book>`: works out the distributions, checks, panels
+//!   and consistency checks again with this reader's definitions, without
+//!   reading the world again.
 //! - `afm_read <book> [page] [filters]`: a page as short text, the same
 //!   text the app's "Copy for Claude" gives. `afm_read <book> help` lists
 //!   the pages; filters are `key=value` (`year=2031 level=FBS pos=QB
@@ -19,7 +22,7 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() || args[0] == "-h" || args[0] == "--help" {
         eprintln!(
-            "afm_read build <world file> [log folder] [book]\nafm_read <book> [page] [key=value ...]\nafm_read <book> help"
+            "afm_read build <world file> [log folder] [book]\nafm_read refresh <book>\nafm_read <book> [page] [key=value ...]\nafm_read <book> help"
         );
         std::process::exit(2);
     }
@@ -53,6 +56,20 @@ fn main() {
             }
             Err(e) => {
                 eprintln!("could not build the book: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+    if args[0] == "refresh" {
+        let Some(book) = args.get(1) else {
+            eprintln!("afm_read refresh <book>");
+            std::process::exit(2);
+        };
+        match make::refresh(Path::new(book), &mut |s| eprintln!("{s}")) {
+            Ok((c, p)) => println!("book {book}: {c} checks and {p} panels worked out again"),
+            Err(e) => {
+                eprintln!("could not refresh the book: {e}");
                 std::process::exit(1);
             }
         }

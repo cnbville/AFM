@@ -18,8 +18,8 @@ use serde_json::{Value, json};
 
 use super::{lvl, seat, team_link};
 use crate::Reply;
-use crate::reads::{self, Read};
-use crate::views::{class_text, date_text, person_index, reader_key};
+use crate::reads;
+use crate::views::{class_text, date_text, person_index};
 
 /// The game-ready line by level: what a starter two years in the system
 /// knows of the families he runs every week under the engine's own
@@ -160,12 +160,11 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
         .unwrap_or_default();
     // Your staff's read of each mind (a range, never the true number): the
     // projection and the words go by its middle.
-    let reader = reader_key(w);
-    let read_iq =
-        |p: &GamePlayer| match reads::range(p.a(Attr::FootballIq), 6.0, reader, p.id, Attr::FootballIq as usize) {
-            Read::Range(lo, hi) => (lo as f64 + hi as f64) / 2.0,
-            Read::NotSeen => 60.0,
-        };
+    let read_iq = |p: &GamePlayer| {
+        crate::views::person_index(w, p.id)
+            .and_then(|k| reads::seen(w, k).attrs.get(Attr::FootballIq.index()).copied().flatten())
+            .map_or(60.0, |(lo, hi)| (lo as f64 + hi as f64) / 2.0)
+    };
     let ready = ready_line(s.level);
     let mut rows: Vec<Value> = Vec::new();
     let (mut sum_now, mut sum_fri, mut sum_busts, mut n) = (0.0, 0.0, 0.0, 0usize);

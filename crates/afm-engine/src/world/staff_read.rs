@@ -1001,7 +1001,9 @@ fn level_teams(w: &World, team: Team) -> Vec<Team> {
             .filter(|&p| w.programs[p].plays(w.year) && super::norms::tier(w.programs[p].division) == lv)
             .map(Team::College)
             .collect(),
-        Team::Nfl(_) => (0..w.nfl.len()).filter(|&t| super::franchise::active(t, w.year)).map(Team::Nfl).collect(),
+        Team::Nfl(_) => {
+            (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, w.year)).map(Team::Nfl).collect()
+        }
         Team::Other(_) => vec![team],
         Team::High(h) => {
             let st = w.high_schools[h].state;

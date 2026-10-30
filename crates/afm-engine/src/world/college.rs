@@ -697,16 +697,21 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                 t.week = week(me);
                 t
             };
+            let context = [(g.home, g.away), (g.away, g.home)]
+                .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
             let teams = if cs.on_engine {
                 match (cs.teams.get(g.home).and_then(|t| t.as_ref()), cs.teams.get(g.away).and_then(|t| t.as_ref())) {
-                    (Some(a), Some(b)) => Some((strip(a, g.home), strip(b, g.away))),
+                    (Some(a), Some(b)) => {
+                        let (mut a, mut b) = (strip(a, g.home), strip(b, g.away));
+                        a.day = game_day(w, g, g.home, &context[0], &a);
+                        b.day = game_day(w, g, g.away, &context[1], &b);
+                        Some((a, b))
+                    }
                     _ => None,
                 }
             } else {
                 None
             };
-            let context = [(g.home, g.away), (g.away, g.home)]
-                .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
             Job { k, venue, played, neutral: g.site.is_some(), teams, context }
         })
         .collect();
@@ -801,7 +806,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         };
         played.home_won = home_won;
         if let Some(r) = &r {
-            w.keep_seat_game(CalLevel::College, [home, away], &r.stats, r.replay.as_deref());
+            w.keep_seat_game(CalLevel::College, [home, away], &r.stats, r.replay.as_deref(), &r.talks);
             let line = w.college.as_ref().unwrap().games[k].line;
             w.seat_line(CalLevel::College, [home, away], line, j.neutral);
             if let Some(o) = &watch {
@@ -1227,7 +1232,7 @@ pub(crate) fn ranking(w: &World, division: Division) -> Vec<(usize, f64)> {
     let members: Vec<usize> = w
         .programs
         .iter()
-        .filter(|p| p.division == division && !p.roster.is_empty() && p.plays(w.year))
+        .filter(|p| p.division == division && !p.roster.is_empty() && p.fields_games(w.year))
         .map(|p| p.id)
         .collect();
     let set: HashSet<usize> = members.iter().copied().collect();
@@ -1376,6 +1381,21 @@ type StakeUpdate = (usize, Vec<Tag>, Loudness, [bool; 2], Vec<&'static str>);
 /// A news line the stakes post: the school, the text and the coach it names.
 type StakeNote = (usize, String, u32, String);
 
+/// The day a team brings into a college game (dialogue D4): the stakes
+/// from the game's tags and kind, the rivalry, its captains.
+fn game_day(
+    w: &World,
+    g: &Game,
+    me: usize,
+    ctx: &crate::game::garbage::Context,
+    dressed: &GameTeam,
+) -> crate::game::talk::Day {
+    let (stakes, rival) = super::folk::gametalk::college_stakes(g, ctx);
+    let opp = g.opponent(me);
+    use super::folk::Team;
+    super::folk::gametalk::day_for(w, Team::College(me), Team::College(opp), stakes, rival, dressed)
+}
+
 fn stakes_for_day(w: &mut World, idx: &[usize]) {
     let (updates, notes) = stakes_of(w, idx);
     let cs = w.college.as_mut().unwrap();
@@ -1406,7 +1426,7 @@ fn stakes_of(w: &World, idx: &[usize]) -> (Vec<StakeUpdate>, Vec<StakeNote>) {
     // conference, and the regular-season games it has left.
     let mut conf_best: HashMap<&str, u32> = HashMap::new();
     for (t, prog) in w.programs.iter().enumerate() {
-        if prog.division == Division::FBS && !prog.roster.is_empty() && prog.plays(w.year) {
+        if prog.division == Division::FBS && !prog.roster.is_empty() && prog.fields_games(w.year) {
             let e = conf_best.entry(prog.conference.as_str()).or_insert(u32::MAX);
             *e = (*e).min(cs.results[t].conf_losses);
         }
@@ -1711,7 +1731,7 @@ pub(crate) fn regular_season_end(w: &mut World, division: Division) {
     let rank: HashMap<usize, usize> =
         ranking(w, division).into_iter().enumerate().map(|(k, (t, _))| (t, k + 1)).collect();
     let mut confs: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    for p in w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty() && p.plays(w.year)) {
+    for p in w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty() && p.fields_games(w.year)) {
         if !p.conference.contains("Independent") {
             confs.entry(p.conference.clone()).or_default().push(p.id);
         }
@@ -2388,7 +2408,9 @@ pub(crate) fn bowl_practices(w: &mut World, date: Date) {
         })
         .collect();
     let practice: HashMap<usize, u32> = teams.into_iter().collect();
-    let gains: f64 = w
+    // Summed in people order: a parallel float sum depends on how the
+    // work was split, and a saved world must play on identically.
+    let gains: Vec<f64> = w
         .people
         .par_iter_mut()
         .filter(|p| p.stage == Stage::College && p.college.is_some_and(|c| practice.contains_key(&c)))
@@ -2396,8 +2418,8 @@ pub(crate) fn bowl_practices(w: &mut World, date: Date) {
             let c = p.college.unwrap();
             crate::development::extra_practices(&mut p.player, practice[&c], coaching[&c], &mut p.rng)
         })
-        .sum();
-    w.log.bowl_practice_gain += gains;
+        .collect();
+    w.log.bowl_practice_gain += gains.iter().sum::<f64>();
 }
 
 // --- Awards and honors (A25) ---------------------------------------------------------------
@@ -3874,13 +3896,15 @@ pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSe
         t.week = week(me);
         t
     };
-    let home = strip(cs.teams.get(g.home)?.as_ref()?, g.home);
-    let away = strip(cs.teams.get(g.away)?.as_ref()?, g.away);
+    let mut home = strip(cs.teams.get(g.home)?.as_ref()?, g.home);
+    let mut away = strip(cs.teams.get(g.away)?.as_ref()?, g.away);
     if home.players.len() < 30 || away.players.len() < 30 {
         return None;
     }
     let context = [(g.home, g.away), (g.away, g.home)]
         .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
+    home.day = game_day(w, g, g.home, &context[0], &home);
+    away.day = game_day(w, g, g.away, &context[1], &away);
     let level = division_level(w.programs[g.home].division.min(w.programs[g.away].division));
     let seed = (w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8))
         .wrapping_mul(1_000_003)

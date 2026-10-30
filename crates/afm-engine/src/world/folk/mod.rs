@@ -21,7 +21,9 @@ pub mod boss;
 pub mod cast;
 pub mod coach_look;
 pub mod courts;
+pub mod dialogue;
 pub mod facts;
+pub mod gametalk;
 pub mod hiring;
 pub mod letters;
 pub mod life;
@@ -157,7 +159,7 @@ impl Team {
         match self {
             Team::College(p) => Some(w.programs[p].state),
             Team::High(h) => Some(w.high_schools[h].state),
-            Team::Nfl(t) => super::franchise::era(t, w.year).and_then(|e| super::geo::state_index(e.state)),
+            Team::Nfl(t) => super::franchise::era_in(w, t, w.year).and_then(|e| super::geo::state_index(e.state)),
             Team::Other(_) => None,
         }
     }
@@ -167,7 +169,7 @@ impl Team {
         match self {
             Team::College(p) => w.programs[p].city.clone(),
             Team::High(h) => w.high_schools[h].town.clone(),
-            Team::Nfl(t) => super::franchise::era(t, w.year).map_or_else(String::new, |e| e.city.to_string()),
+            Team::Nfl(t) => super::franchise::era_in(w, t, w.year).map_or_else(String::new, |e| e.city.to_string()),
             Team::Other(f) => super::pro::other::city(f, w.year).to_string(),
         }
     }
@@ -332,6 +334,9 @@ pub struct Folk {
     pub(crate) hush: bool,
     /// Your lines to the position coaches, by player id.
     pub lines: Vec<(u32, talks::Line)>,
+    /// Lane 14's talks: high school calls, interviews, staff meetings,
+    /// players-only meetings.
+    pub dialogue: dialogue::State,
     /// Players out by your discipline, a family leave or a rest: (id,
     /// through, why).
     pub out: Vec<(u32, Date, String)>,
@@ -386,7 +391,11 @@ pub(crate) fn day(w: &mut World, d: Date) {
     network::day(w, d);
     backchannel::day(w, d);
     press::day(w, d);
+    dialogue::players_only_day(w, d);
     if w.seat.is_some() {
+        dialogue::college_calls(w, d);
+        dialogue::settle_calls(w, d);
+        dialogue::staff_meeting_day(w, d);
         takeover::day(w, d);
         scene::day(w, d);
     }

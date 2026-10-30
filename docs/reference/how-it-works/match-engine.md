@@ -1,11 +1,12 @@
 # Match engine: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
 ## Quick answers
 
+- Do pregame and halftime talks change play? Yes, for every team: up to ±1.5 rating points on everything, ±2 discipline and concentration, ±2.5 composure and a late-hit share per player, fading through the half; a sideline word after a costly mistake adds its own (`game/talk.rs`, `land`, `Pulse`; `game/flow.rs`, `room_talk`, `give_word`). See [people.md](people.md), "Talks on game day and off it".
 - Does the elusiveness check read weight? No. The first-contact miss roll is 0.5 Elusiveness + 0.3 Agility + 0.2 Speed (+ Sudden) against 0.6 Tackling + 0.2 Agility + 0.2 Pursuit (+ Sudden); neither man's weight is in it (`game/sim.rs`, `first_hit`). Weight comes in once he is wrapped up: the broken-tackle roll and the pile (`game/sim.rs`, `fight_tick`).
 - Where does weight count? Top speed, burst and cut (`game/roster.rs`, `forty`, `sprint_tau`, `accel`, `cut`); momentum and hit force (`game/sim.rs`, `hit_effects`); broken tackles, 0.08 a pound from 215 lb, and the wrap-up, (mass - 215) / 300 on both sides, and the pile's push by mass (`fight_tick`); blocks, 0.08 a pound from 300 lb, 280 for rushers and shedders (`block_base`, `rush_power`, `shed_power`, `anchor`); the jump at the catch point, -0.035 inch a pound over 220 (`game/scrimmage.rs`, `high_reach`); a contact-shy tackler passing on a man 15+ lb heavier (`game/sim.rs`, `tackles`).
 - How fine is the sim? 22 tracked bodies, 10 ticks a second (`game/geom.rs`, `DT`; `game/scrimmage.rs`, `run_snap`).

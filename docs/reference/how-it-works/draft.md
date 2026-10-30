@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 200e5eb on 2026-10-27.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, and the hunt (next update lane 11) on 2026-10-30.
 
 ## Quick answers
 
@@ -21,6 +21,7 @@ Checked against main at 200e5eb on 2026-10-27.
 - Are there compensatory picks? From 1994: up to 32 a year at the end of rounds 3-7 for net free agents lost, at most four per club, topped up to 32 with supplemental 7ths; diversity picks from 2021 (`world/pro/trades.rs`, `award_comp_picks`).
 - Can an owner overrule the draft room? In round one, with chance 0.15 × his `draft_override`; he takes the first 5-star, or in-state 4-star, in the top 40 left (`world/recruiting.rs`, `draft_step`).
 - Can a prospect refuse a club? Rarely: a top QB (score 85+, ego z > 1, a parent or handler deciding) with the first pick held by a weak team, 12%; that club puts him on its do-not-draft list (`world/scouting/predraft.rs`, `choose`, `on_boards`).
+- Does a club's hunt change its board? Yes: on draft day the man a club has hunted all year reads 2 points higher on its board, so it trades up for him sooner; a quarterback who refuses your club is taken and his rights traded to the club that wants him most in the next 32 picks, for its pick and its next first. See [hunt.md](hunt.md) (`world/recruiting.rs`, `draft_begin`, `draft_value`; `world/scouting/live.rs`, `refused`).
 
 ## The draft order and the slots
 
@@ -180,6 +181,14 @@ Checked against main at 200e5eb on 2026-10-27.
 - What it took to go in rounds 1-2 and 3-4 is kept as overall bars for staffs to read their underclassmen against (`recruiting.rs`, `draft_end`, `w.draft_bars`).
 - A public top-32 player who slides 40+ picks gets a note (`scouts.rs`, `note_slide`).
 - Mocks are scored, your class kept for the look-back, files cleared and scouting departments turned over (`world/scouting/mod.rs`, `after_draft`; `scouts.rs`, `after_rush`).
+
+## Lane 7's draft fixes (update 3, F2-F4, F19-F23, bug 28)
+
+- The December read's second look reads at accuracy 18 against everyone else's 13 (F4; `world/scouting/predraft.rs`).
+- A quarterback who throws only for some clubs throws for the first twelve in the order and a few his agent picks; the rest see his pro day numbers (F20; `predraft.rs`, `throws_for`). Private workouts wait for it (F22; `world/scouting/dept.rs`, `asks_day`).
+- Your department's instructions reach your board: "Players who fit what we run" adds 3 points a unit of fit, "Lean on the analytics" gives the numbers a voice of 1.1 and a point each for youth, production and testing (F21; `world/pro/scouts.rs`, `seat_fit`, `numbers_lean`; `world/scouting/readers.rs`).
+- AI boards read medicals: the combine's invitees and a club's top-30 visitors by its own doctors, the rest from the records; a minor concern about 1.5 grade points, a major one 3-6, a failed physical off the board (F23; `scouts.rs`, `medical_cost`).
+- The public analysts' production lean reads his production, not a flat bonus (bug 28; `world/scouting/public.rs`, `desk_grade`).
 
 ## Where the knobs are
 

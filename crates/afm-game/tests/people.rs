@@ -39,10 +39,14 @@ fn takeover(level: &str, seed: u64) {
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));
 
-    // One letter on day one: the welcome, with the first two weeks in it.
+    // Two letters on day one: the welcome, with the first two weeks in it,
+    // and your No. 2's first note of the guided week (lane 8, H12).
     let mail = ok(&mut g, "mail", json!({}));
-    assert_eq!(mail["unread"], 1, "{level}: {mail}");
-    let id = mail["rows"][0]["id"].as_str().unwrap().to_string();
+    assert_eq!(mail["unread"], 2, "{level}: {mail}");
+    let rows = mail["rows"].as_array().unwrap();
+    assert!(rows.iter().any(|r| r["head"] == "memo"), "{level}: {mail}");
+    let welcome = rows.iter().find(|r| r["head"] != "memo").unwrap_or_else(|| panic!("{level}: {mail}"));
+    let id = welcome["id"].as_str().unwrap().to_string();
     let letter = ok(&mut g, "letter", json!({ "id": id }));
     let table = letter["table"].as_array().unwrap();
     assert!(table.len() >= 6, "{level}: the welcome lists the meetings: {letter}");

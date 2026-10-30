@@ -249,6 +249,8 @@ pub(crate) fn advance_day(w: &mut World) {
         }
     }
     if d == y.summer_enrollment {
+        // Walk-on tryouts and finds at the colleges in their build year (SK68).
+        super::new_teams::college::tryouts(w);
         super::eligibility::summer_roads(w);
         recruiting::enroll(w, false);
     }
@@ -525,6 +527,8 @@ pub(crate) fn advance_day(w: &mut World) {
     // The systems to chase (update 2, lane 2) and the world's halls.
     timed("legacy", || super::legacy::day(w, d));
     timed("scouting", || super::scouting::day(w, d));
+    // The hunts (SK67): yours, the AI's, the generational prospect.
+    timed("hunt", || super::hunt::day(w, d));
     // Update 2, lane 5: the call sheet drafted on plan day, the week's
     // keys, and the call words.
     timed("plans", || super::plans::day(w, d));
@@ -562,6 +566,8 @@ fn year_start(w: &mut World) {
     super::finance::college::switch(w);
     // The real moves of the season (college history, through 2026).
     super::program::apply_history(w);
+    // Colleges start football and districts open schools (SK68).
+    super::new_teams::year_start(w);
     w.college_prev = w.college.take();
     w.college = Some(college::new_season(w));
     if let Some(prev) = w.college_prev.as_mut() {

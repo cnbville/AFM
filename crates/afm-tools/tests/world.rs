@@ -550,7 +550,7 @@ fn a_history_through_the_expansion_years_runs() {
         ..Default::default()
     });
     for (t, c) in w.clubs.iter().enumerate() {
-        if !afm_engine::world::franchise::active(t, w.year) {
+        if !afm_engine::world::franchise::active_in(&w, t, w.year) {
             continue;
         }
         let name = &w.nfl[t].name;

@@ -1162,8 +1162,8 @@ fn near(w: &World, s: &Story) -> bool {
             w.programs.get(a).zip(w.programs.get(b)).is_some_and(|(x, y)| x.conference == y.conference)
                 || w.college.as_ref().is_some_and(|c| c.rivalry_of.contains_key(&(a.min(b), a.max(b))))
         }
-        (TeamKey::Nfl(a), TeamKey::Nfl(b)) => super::franchise::alignment(a as usize, w.year)
-            .is_some_and(|da| super::franchise::alignment(b as usize, w.year).map(|x| x.1) == Some(da.1)),
+        (TeamKey::Nfl(a), TeamKey::Nfl(b)) => super::franchise::alignment_in(w, a as usize, w.year)
+            .is_some_and(|da| super::franchise::alignment_in(w, b as usize, w.year).map(|x| x.1) == Some(da.1)),
         (TeamKey::Hs(a), TeamKey::Hs(b)) => {
             w.high_schools.get(a as usize).zip(w.high_schools.get(b as usize)).is_some_and(|(x, y)| x.state == y.state)
         }

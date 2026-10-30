@@ -41,7 +41,7 @@ fn t(v: &S) -> String {
 
 pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool) -> rusqlite::Result<()> {
     create(b)?;
-    for m in crate::defs::METRICS {
+    for m in crate::defs::metrics() {
         if !have(m.needs) {
             b.conn.execute(
                 "INSERT INTO metrics VALUES(?1,?2,?3,?4,?5,?6,0,?7,?8)",

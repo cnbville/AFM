@@ -38,6 +38,9 @@ pub struct SeatGame {
     /// one. None for a home game with no line (and games kept before).
     #[serde(default)]
     pub spread: Option<f32>,
+    /// The game's talks (dialogue D4-D6).
+    #[serde(default)]
+    pub talks: crate::game::talk::Record,
 }
 
 /// A drawing on a paused frame of the film: a line, an arrow, a circle or
@@ -84,12 +87,17 @@ impl World {
         teams: [usize; 2],
         stats: &GameStats,
         replay: Option<&crate::game::ReplaySetup>,
+        talks: &crate::game::talk::Record,
     ) {
         if !self.seat_plays(level, teams) {
             return;
         }
         // The day booked your game: a live game of it is over.
         self.live_booked(level, teams);
+        // Your words land on your players' trust, and your talks go in the
+        // log (dialogue D4-D6).
+        let mine = self.seat_team().map_or(0, |(_, t)| if teams[0] == t { 0 } else { 1 });
+        super::folk::gametalk::after_game(self, talks, mine);
         let names = match level {
             crate::calendar::Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
             crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
@@ -107,6 +115,7 @@ impl World {
             marks: Vec::new(),
             gone: Vec::new(),
             spread: None,
+            talks: talks.clone(),
         });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;
@@ -165,9 +174,19 @@ impl World {
 
     /// Your depth chart order at a position (player ids, best first).
     pub fn set_seat_depth(&mut self, pos: Position, ids: Vec<u32>) {
+        let had = self.seat_depth.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.first().copied());
+        let first = ids.first().copied();
         self.seat_depth.retain(|(p, _)| *p != pos);
         if !ids.is_empty() {
             self.seat_depth.push((pos, ids));
+        }
+        // The change log the depth chart's "Changes this week" reads.
+        if had != Some(first) && !(had.is_none() && first.is_none()) {
+            self.seat_depth_log.push((self.today, pos, first.unwrap_or(0)));
+            let n = self.seat_depth_log.len();
+            if n > 40 {
+                self.seat_depth_log.drain(..n - 40);
+            }
         }
     }
 
@@ -993,6 +1012,7 @@ impl World {
             staff_book: Default::default(),
             kept_reads: Vec::new(),
             kept_through: 0,
+            help: Default::default(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -1072,6 +1092,10 @@ pub struct Career {
     /// before the kept reads starts keeping at the next season's end).
     #[serde(default)]
     pub kept_through: i16,
+    /// Your in-game help: the Help setting, the guided week, the calendar
+    /// moments explained and the Handbook pages read (update 3, lane 8).
+    #[serde(default)]
+    pub help: super::help::Help,
 }
 
 /// One player's kept reads, oldest season first.

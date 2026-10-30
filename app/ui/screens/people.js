@@ -249,6 +249,8 @@ screens.people_scene = async (a) => {
   if (st.pick != null && !s.picks.some((p) => p.code === st.pick || (s.kind === "OneOnOne" && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10) && p.code >= 100 && p.code < 190))) st.pick = null;
   const colors = (S.status && S.status.mine && S.status.mine.colors) || ["#2b3140", "#11141b"];
   setColors(colors);
+  // A one-on-one and a timed interview room are face to face (lane 14, D1).
+  if (s.face && !s.future && lead && lead.kind === "player" && typeof tkFaceToFace === "function") return tkFaceToFace(s, lead, pp, st);
   // The conversation.
   const lines = s.lines.map((l) => {
     if (l.by === 0) return `<p class="pp-n">${rich(l.text)}</p>`;
@@ -378,7 +380,7 @@ screens.people_staff = async (a) => {
   } else {
     body = await hrWatch();
   }
-  const act = `${linkTo("people", {}, "Meetings", "st-btn small glass")}<button class="st-btn small primary" data-act="tab" data-key="pstab" data-t="Hiring">Find a coach</button>`;
+  const act = `${linkTo("people", {}, "Meetings ›")}<button class="st-btn small primary" data-act="tab" data-key="pstab" data-t="Hiring">Find a coach</button>`;
   return `<div class="pad sl rr">${pageHead({ kicker: `${rich(x.team.link)}${S.status && S.status.today ? ` · ${esc(S.status.today)}` : ""}`, title: "Your staff", actions: act, goto: gotoFor("people_staff", a, x) })}${tabs("pstab", PS_TABS, tab)}<div class="tabbody">${body}</div></div>`;
 };
 GOTO.people_staff = () => [["People", "people"], ["Network", "people", { tab: "Network" }], ["Your profile", "you"]];

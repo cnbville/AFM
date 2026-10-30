@@ -122,7 +122,11 @@ impl Writer {
                 }
                 continue;
             }
-            self.conn.execute_batch(&format!("ALTER TABLE {} ADD COLUMN {}", q(name), q(c)))?;
+            // `_parent` is declared INTEGER so `_parent = p._row` compares
+            // without a conversion and can use its index; a column with no
+            // type would be read as a number first and scanned (R8).
+            let ty = if c == "_parent" { " INTEGER" } else { "" };
+            self.conn.execute_batch(&format!("ALTER TABLE {} ADD COLUMN {}{ty}", q(name), q(c)))?;
             t.index.insert(c.clone(), t.cols.len());
             t.cols.push(c.clone());
             changed = true;
