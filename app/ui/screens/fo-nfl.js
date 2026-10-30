@@ -7,7 +7,7 @@
 
 foNavHide("contracts", "nfl");
 foNavAdd("nfl", [
-  ["fo_office", "Overview", "office"],
+  ["fo_office", "Front office", "office"],
   ["fo_cap", "Cap sheet", "cap"],
   ["fo_expiring", "Deals and tags", "tag"],
   ["fo_market", "Free agency", "fa"],
@@ -24,7 +24,7 @@ const foM = (v) => (v == null ? "-" : Math.abs(v) < 500 ? "$0" : money(v));
 const foPct = (v) => Math.round((v || 0) * 100) + "%";
 // Where each desk screen leads (lane 9's "Go to" line under the head).
 GOTO.fo_office = () => [["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Free agency", "fo_market"], ["Trades", "fo_trades"], ["Roster moves", "fo_moves"], ["Staff", "staff"], ["Money mail", "inbox", { key: "Money" }]];
-GOTO.fo_cap = () => [["Front office", "fo_office"], ["Deals and tags", "fo_expiring"], ["Trades", "fo_trades"], ["Contracts", "contracts"], ["Squad", "roster"]];
+GOTO.fo_cap = () => [["Squad", "roster"], ["Free agency", "fo_market"], ["Trades", "fo_trades"], ["Draft board", "draftboard"]];
 GOTO.fo_expiring = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Free agency", "fo_market"], ["Squad", "roster"]];
 GOTO.fo_talk = (a) => [["Player page", "player", { id: a.id }], ["Deals and tags", "fo_expiring"], ["Free agency", "fo_market"], ["Cap sheet", "fo_cap"]];
 GOTO.fo_market = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Squad", "roster"], ["Depth chart", "depth"]];
@@ -40,8 +40,10 @@ function foHead(team, title, sub, extra = "") {
 function foBtn(fo, text, data = {}, cls = "glass") {
   return `<button class="st-btn small ${cls}" data-act="fo" data-fo="${fo}"${Object.entries(data).map(([k, v]) => ` data-${k}="${esc(v)}"`).join("")}>${esc(text)}</button>`;
 }
-function foOwner(key, owner) {
-  return `<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
+// Who runs a duty; with your staff, a move you make yourself still stands (SC6).
+function foOwner(key, owner, label) {
+  const note = owner === "staff" ? `<small class="muted fo-ownernote">${label ? esc(label) + ": y" : "Y"}our staff runs it; a move you make yourself stands.</small>` : label ? `<small class="muted fo-ownernote">${esc(label)}</small>` : "";
+  return `${note}<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
 }
 function foPick(p) {
   return `<span class="fo-pick ${p.comp ? "comp" : ""}" title="${esc(p.text)} · ${p.points} point${p.points === 1 ? "" : "s"} on your chart">${mark(p.from, 18)}<b>${p.year} R${p.round}</b>${p.own ? "" : `<small>${esc(p.from.name.split(" ").pop())}</small>`}${p.comp ? "<small>comp</small>" : ""}</span>`;
@@ -90,9 +92,16 @@ screens.fo_office = async () => {
 };
 
 // ---------- Cap sheet ----------
-screens.fo_cap = async () => {
+screens.fo_cap = async (a) => {
   const x = await api("fo_cap");
   const yrs = x.years;
+  // A link from his contract, the Squad or the cap board marks his row (the
+  // arrow keys go on from it) and brings it into view.
+  const him = a && a.id != null ? x.rows.find((r) => r.id === a.id) : null;
+  if (him) {
+    him.cls = "kbd";
+    setTimeout(() => { const tr = document.querySelector('.tbl[data-table="fo_cap"] tr.kbd'); if (tr) tr.scrollIntoView({ block: "nearest" }); }, 30);
+  }
   const book = x.books.map((b) => {
     const used = Math.min(1, (b.committed + b.dead) / (b.cap + (b.carryover || 0)));
     const dead = b.dead / (b.cap + (b.carryover || 0));
@@ -102,7 +111,7 @@ screens.fo_cap = async () => {
   }).join("");
   const hit = (h) => (h == null ? '<span class="muted">-</span>' : h.void ? `<span class="fo-void" title="A void year: only the bonus spread lands here">${foM(h.hit)}</span>` : `<span title="Base ${foM(h.base)} · bonus ${foM(h.bonus)} · roster and workout ${foM(h.roster)}${h.gtd ? " · guaranteed " + foM(h.gtd) : ""}" class="${h.gtd >= h.base && h.base > 0 ? "fo-gtd" : ""}">${foM(h.hit)}</span>`);
   const cols = [
-    { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.no_trade ? ' <span class="st-pill" title="No-trade clause">NTC</span>' : ""}` },
+    { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name, "Contract")}${r.no_trade ? ' <span class="st-pill" title="No-trade clause">NTC</span>' : ""}` },
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
     { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
@@ -112,12 +121,12 @@ screens.fo_cap = async () => {
     { k: "gtd_left", t: "Gtd left", tip: "Pay still guaranteed from this league year on", f: (r) => (r.gtd_left ? foM(r.gtd_left) : '<span class="muted">-</span>') },
     { k: "dead", t: "Dead if cut", div: true, v: (r) => r.cut.dead, f: (r) => foM(r.cut.dead) },
     { k: "saves", t: "Saves", tip: "Cap room a release frees this year", v: (r) => r.cut.saves, f: (r) => `<span class="${r.cut.saves < 0 ? "neg" : "pos"}">${foM(r.cut.saves)}</span>` },
-    { k: "act", t: "", f: (r) => (r.where === "Practice squad" ? `<span class="muted">Squad</span>` : foBtn("capmove", "Moves", { id: r.id, name: r.name, voids: x.voids_ok ? 1 : 0, re: r.can_restructure ? 1 : 0, dead: r.cut.dead, saves: r.cut.saves, dj: r.cut.dead_june1, dj2: r.cut.dead_june1_next, sj: r.cut.saves_june1, june1: x.after_june1 ? 0 : 2 - x.june1_used })) },
+    { k: "act", t: "", f: (r) => (r.where === "Practice squad" ? `<span class="muted">Squad</span>` : foBtn("capmove", "Moves", { id: r.id, name: r.name, voids: x.voids_ok ? 1 : 0, re: r.can_restructure ? 1 : 0, last: r.last_year ? 1 : 0, dead: r.cut.dead, saves: r.cut.saves, dj: r.cut.dead_june1, dj2: r.cut.dead_june1_next, sj: r.cut.saves_june1, june1: x.after_june1 ? 0 : 2 - x.june1_used })) },
   ];
   const dead = x.dead.map((d) => `<tr><td class="l">${d.year}</td><td class="l">${playerLink(d.id, d.name)}</td><td class="l">${esc(d.why)}</td><td>${foM(d.amount)}</td></tr>`).join("") || `<tr><td class="l" colspan="4"><div class="empty">No dead money on the books.</div></td></tr>`;
   const picks = x.picks.map(foPick).join("") || '<span class="muted">No picks.</span>';
   return `<div class="film"><div class="pad fo">
-    ${foHead(x.team, "Cap sheet", `Every contract's cap number for five league years, with what a release costs and saves today. ${x.top51 ? "<b>The rule of 51 is on:</b> until the first game only the 51 biggest cap numbers count. " : ""}${x.after_june1 ? "After June 1 a release splits its dead money over two years by itself." : `Post-June 1 designations used: ${x.june1_used} of 2.`}`)}
+    ${foHead(x.team, "Cap sheet", `Every contract's cap number for five league years, with what a release costs and saves today. ${x.top51 ? "<b>The rule of 51 is on:</b> until the first game only the 51 biggest cap numbers count. " : ""}${x.after_june1 ? "After June 1 a release splits its dead money over two years by itself." : `Post-June 1 designations used: ${x.june1_used} of 2.`}`, foOwner("cap", x.owner))}
     <div class="fo-books">${book}</div>
     <div class="fo-legend"><span><i class="fo-gtd">Underlined</i> fully guaranteed</span><span><i class="fo-void">In italics</i> a void year: only the bonus spread</span><span><i class="neg">In red</i> a release costs room</span><span>Hover a cap number for its parts.</span></div>
     ${table("fo_cap", cols, x.rows, { sort: "y" + yrs[0], groups: [{ t: "", span: 4 }, { t: "Cap number by league year", span: yrs.length, div: true }, { t: "The deal", span: 3, div: true }, { t: `Released today${x.after_june1 ? " (split)" : ""}`, span: 3, div: true }] })}
@@ -165,7 +174,7 @@ screens.fo_expiring = async () => {
     { k: "act", t: "", l: true, f: act },
   ];
   return `<div class="film"><div class="pad fo">
-    ${foHead(x.team, "Deals and tags", `Players whose deals end at the new league year (${esc(x.league_year)}), rookies with a fifth-year option, and stars due an extension. ${x.window ? `<b>The tag window is open until ${esc(x.deadline)}.</b>` : `The tag window runs ${esc(x.window_open)} to ${esc(x.deadline)}.`} ${x.one_tag ? "One tag a club a year." : "A franchise and a transition tag a club a year."} Undecided options are declined on ${esc(x.option_deadline)}. Cap room ${foM(x.room)}.`)}
+    ${foHead(x.team, "Deals and tags", `Players whose deals end at the new league year (${esc(x.league_year)}), rookies with a fifth-year option, and stars due an extension. ${x.window ? `<b>The tag window is open until ${esc(x.deadline)}.</b>` : `The tag window runs ${esc(x.window_open)} to ${esc(x.deadline)}.`} ${x.one_tag ? "One tag a club a year." : "A franchise and a transition tag a club a year."} Undecided options are declined on ${esc(x.option_deadline)}. Cap room ${foM(x.room)}.`, `${foOwner("contracts", x.owner, "Contracts")}${foOwner("tags", x.owner_tags, "Tags")}`)}
     ${table("fo_exp", cols, x.rows, { groupBy: (r) => r.group, empty: "Nobody's deal is running out, and no option or extension is due." })}
   </div></div>`;
 };
@@ -259,7 +268,7 @@ screens.fo_market = async () => {
     { k: "market", t: "His market", v: (r) => r.market[0], f: (r) => `${foM(r.market[0])}-${foM(r.market[1])}` },
     { k: "status", t: "Market", l: true, v: (r) => (r.agreed ? 1 : 0), f: status },
     { k: "talk", t: "Your talks", l: true, div: true, v: (r) => (r.talk ? 1 : 0), f: (r) => foTalkChip(r.talk) },
-    { k: "act", t: "", f: (r) => (r.kind ? foBtn("talk", r.talk ? "Talks" : "Make an offer", { id: r.id }, r.talk ? "glass" : "primary") : "") },
+    { k: "act", t: "", f: (r) => `${r.can_visit ? foBtn("visit", "Bring him in", { id: r.id }) + " " : ""}${r.kind ? foBtn("talk", r.talk ? "Talks" : "Make an offer", { id: r.id }, r.talk ? "glass" : "primary") : ""}` },
   ];
   const posSeg = `<div class="seg"><button data-act="fo" data-fo="mpos" data-v="" aria-pressed="${!f.pos}">All</button>${x.positions.map((p) => `<button data-act="fo" data-fo="mpos" data-v="${p}" aria-pressed="${f.pos === p}">${p}</button>`).join("")}</div>`;
   return `<div class="film"><div class="pad fo">
@@ -274,9 +283,19 @@ function foTrade() {
   return keep("fotrade", { team: null, give: [], givePicks: [], get: [], getPicks: [], cond: null, answer: null, shop: null });
 }
 const foPickKey = (p) => `${p.year}:${p.round}:${p.orig}:${p.comp ? 1 : 0}`;
-screens.fo_trades = async () => {
+screens.fo_trades = async (a = {}) => {
   const x = await api("fo_trades");
   const tr = foTrade();
+  // Opened on a club or a player (minor bug 71): "Trade for him", a club's
+  // menu, the cap board's "Trade now". Read once, so later picks stand.
+  if (a.team != null || a.get || a.give) {
+    const t = a.team != null ? Number(a.team) : tr.team;
+    if (t !== tr.team) Object.assign(tr, { get: [], getPicks: [], cond: null, answer: null });
+    tr.team = t;
+    for (const id of a.get || []) if (!tr.get.includes(Number(id))) tr.get.push(Number(id));
+    for (const id of a.give || []) if (!tr.give.includes(Number(id))) tr.give.push(Number(id));
+    delete a.team; delete a.get; delete a.give;
+  }
   if (tr.team == null && x.teams.length) tr.team = x.teams[0].ref.id;
   const other = tr.team != null ? await api("fo_trade_team", { team: tr.team }) : null;
   const pts = (list, sel, key) => list.filter((p) => sel.includes(key(p))).reduce((s, p) => s + (p.points || 0), 0);
@@ -371,12 +390,34 @@ screens.fo_moves = async () => {
 };
 
 // ---------- actions ----------
+// Restructure or release one of your players, from the cap sheet, his page
+// or a menu (minor bug 62): `cap` is the game's numbers for him today.
+async function foCapMove(kind, id, name, cap) {
+  const c = cap || {};
+  if (kind === "restructure") {
+    // A deal in its last year has only void years to spread a bonus over.
+    const v = await foChoose(`Restructure ${name}`, "His base salary above the minimum becomes a signing bonus spread over the years left: room now, more on later caps.", [
+      ...(c.last ? [] : [{ v: "0", t: "Over the years left", s: "No void years." }]),
+      ...(c.voids ? [{ v: "2", t: "Add two void years", s: "Spreads it further; the leftover lands on the cap when the deal voids." }] : []),
+    ]);
+    if (v != null) await foDo("fo_restructure", { id, voids: Number(v) });
+    return;
+  }
+  const split = c.june1 > 0 && (c.dj2 > 0 || c.dj !== c.dead);
+  const v = await foChoose(`Release ${name}`, "Every later year's bonus spread lands on the cap, with any guaranteed pay he's owed.", [
+    { v: "now", t: `Release now · ${foM(c.dead)} dead, ${c.saves >= 0 ? "saves" : "costs"} ${foM(Math.abs(c.saves || 0))}` },
+    ...(split ? [{ v: "june1", t: `Post-June 1 designation · ${foM(c.dj)} dead now, ${foM(c.dj2)} next year`, s: `Saves ${foM(c.sj)} this year once June 1 passes. ${c.june1} of 2 left this year.` }] : []),
+  ]);
+  if (v) await foDo("fo_release", { id, june1: v === "june1" });
+}
 function foRedraw() { render($(".view") && $(".view").scrollTop); }
 async function foDo(cmd, args, ok) {
   try {
     const r = await api(cmd, args);
     if (r && r.text) toast(r.text);
     else if (ok) toast(ok);
+    // The hover card's moves are stale after a move.
+    if (typeof peekForget === "function") peekForget();
     S.status = null;
     foRedraw();
     return r;
@@ -425,7 +466,7 @@ document.addEventListener("click", async (ev) => {
     case "sheet": await foDo("fo_sheet", { id, match: d.m === "1" }, d.m === "1" ? "You'll match." : "You'll let him go."); break;
     case "capmove": {
       const opts = [];
-      if (Number(d.re)) opts.push({ v: "re0", t: "Restructure over the years left", s: "His base above the minimum becomes a signing bonus spread over his deal: room now, more on later caps." });
+      if (Number(d.re) && !Number(d.last)) opts.push({ v: "re0", t: "Restructure over the years left", s: "His base above the minimum becomes a signing bonus spread over his deal: room now, more on later caps." });
       if (Number(d.re) && Number(d.voids)) opts.push({ v: "re2", t: "Restructure with two void years", s: "Spreads it further; what's left lands on the cap the year the deal voids." });
       opts.push({ v: "now", t: `Release him now · ${foM(Number(d.dead))} dead, ${Number(d.saves) >= 0 ? "saves" : "costs"} ${foM(Math.abs(Number(d.saves)))}`, s: "Every later year's bonus spread lands on this year's cap, with any guaranteed pay he's owed." });
       if (Number(d.june1) > 0 && (Number(d.dj2) > 0 || Number(d.dj) !== Number(d.dead))) opts.push({ v: "june1", t: `Release with a post-June 1 designation · ${foM(Number(d.dj))} dead now, ${foM(Number(d.dj2))} next year`, s: `Saves ${foM(Number(d.sj))} once June 1 passes. ${d.june1} of 2 left this year.` });

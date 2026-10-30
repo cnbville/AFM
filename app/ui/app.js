@@ -34,13 +34,19 @@ function plain(m) {
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = (v) => (v == null ? "" : (v < 0 ? "-" : "") + (Math.abs(v) >= 1e6 ? "$" + (Math.abs(v) / 1e6).toFixed(1) + "M" : "$" + Math.round(Math.abs(v) / 1e3) + "k"));
-function toast(text) {
+function toast(text, open) {
   const t = document.createElement("div");
   t.className = "st-toast";
   // A name ending "Jr." closes its own sentence.
   t.textContent = String(text).replace(/\b(Jr|Sr)\.\./g, "$1.");
+  // A stop for a decision opens its desk on a click (minor bug 69).
+  if (open && open.go) {
+    t.classList.add("click");
+    t.title = "Open it";
+    t.onclick = () => { t.remove(); go(open.go, open.args || {}); };
+  }
   $("#toasts").appendChild(t);
-  setTimeout(() => t.remove(), 4200);
+  setTimeout(() => t.remove(), open && open.go ? 8000 : 4200);
 }
 function setColors(c) {
   if (!c) return;
@@ -183,10 +189,23 @@ const keep = (k, d) => (S.keep[k] ??= d);
 // The opening, load and new-career pages sit outside a career: back and forward move
 // between the career's screens only, so they never lead out of it.
 const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load";
+// The NFL desk's cap sheet holds every contract by year, so at the NFL a
+// link to the old Contracts table (a calendar line, search, an older
+// screen) opens the cap sheet instead.
+// At the NFL the head coach's Contracts is his Cap sheet; an assistant
+// keeps the read-only Contracts table, whichever link he followed.
+function screenFor(screen) {
+  if (seatKind() !== "nfl" || !screens.fo_cap) return screen;
+  const head = typeof foIsHead !== "function" || foIsHead();
+  if (screen === "contracts" && head) return "fo_cap";
+  if (screen === "fo_cap" && !head) return "contracts";
+  return screen;
+}
 // go(screen, args, push) keeps its old third argument (false: don't add to
 // history); an object can say {root: true} for a sidebar click, which
 // starts a new path in the breadcrumb.
 function go(screen, args = {}, opt = true) {
+  screen = screenFor(screen);
   const o = typeof opt === "object" ? opt : { push: opt };
   const push = o.push !== false;
   if (push && !(outside(S.route) && !outside({ screen }))) {
@@ -298,7 +317,7 @@ const NAV = [
   { go: "leaders", label: "Leaderboards", icon: "leader", sec: "world" },
   { go: "history", label: "History", icon: "history", sec: "world" },
   { go: "team", label: "Team history", icon: "team", sec: "world" },
-  { go: "you", label: "Your profile", icon: "you", sec: "world" },
+  { go: "you", label: "Your career", icon: "you", sec: "world" },
 ];
 const NAV_SECS = [["top", ""], ["team", "Your team"], ["world", "World"]];
 function navAdd(item) {
@@ -365,7 +384,7 @@ function pinnedHtml(st) {
   const list = (st.pinned || []).slice(0, 4);
   if (!list.length) return "";
   return `<div class="pinned">${list.map((p) => {
-    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"${p.id != null ? ` data-id="${p.id}"` : ""}` : "";
+    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"${p.id != null ? ` data-id="${p.id}"` : ""}${p.args ? ` data-args='${esc(JSON.stringify(p.args))}'` : ""}` : "";
     return `<button class="pin" ${open}><span class="pdot"></span><span class="ptxt"><b>${esc(p.text)}</b><small>${esc(p.rule || "Needs your answer")}</small></span><span class="when">${esc(p.by ? "Answer by " + p.by : p.date || "")}</span></button>`;
   }).join("")}</div>`;
 }
@@ -476,6 +495,8 @@ screens.recruiting = async () => {
   return `<div class="film"><div class="pad"><div class="h1">Recruiting</div><p class="sub">${sub}</p>${table("recruiting", cols, x.rows, { sort: "rank", empty: "Nobody yet." })}</div></div>`;
 };
 
+// The read-only contracts table. At the NFL every link to it opens the cap
+// sheet (screenFor), where you run the books yourself.
 screens.contracts = async () => {
   const x = await api("contracts");
   setColors(x.team.colors);
@@ -492,7 +513,7 @@ screens.contracts = async () => {
   ];
   const counted = x.top51 ? `the top 51 ${money(x.committed)} (all ${x.rows.length}: ${money(x.all)})` : money(x.committed);
   return `<div class="film"><div class="pad"><div class="h1">Contracts</div>
-    <p class="sub">Your cap manager runs the books for now. Cap ${money(x.cap)}${x.carryover ? ` + ${money(x.carryover)} carried over` : ""} · contracts ${counted} · dead money ${money(x.dead)} · <b>room ${money(x.room)}</b>${x.top51 ? ". Until the first game only a team's 51 biggest cap hits count." : ""}</p>
+    <p class="sub">Cap ${money(x.cap)}${x.carryover ? ` + ${money(x.carryover)} carried over` : ""} · contracts ${counted} · dead money ${money(x.dead)} · <b>room ${money(x.room)}</b>${x.top51 ? ". Until the first game only a team's 51 biggest cap hits count." : ""}</p>
     ${table("contracts", cols, x.rows, { sort: "cap_hit" })}</div></div>`;
 };
 
@@ -509,7 +530,7 @@ screens.depth = async () => {
     const n = i < cur.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`;
     const where = r.here ? esc(r.pos) : `<span class="st-pill gold" title="Listed at ${esc(r.pos)}: the staff plays him here too">${esc(r.pos)}</span>`;
     const deep = i >= cur.listed ? ' class="deep"' : "";
-    return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${esc(r.status)}</td>
+    return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name, "Development")}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${esc(r.status)}</td>
       <td><button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="-1" ${i === 0 || !ctl ? "disabled" : ""}>Up</button> <button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="1" ${i === cur.players.length - 1 || !ctl ? "disabled" : ""}>Down</button></td></tr>`;
   }).join("");
   return `<div class="film"><div class="pad">
@@ -692,7 +713,7 @@ async function cont() {
     } else {
       // A morning stop is today, before it plays; any other stop is the
       // day just played, and you are on the morning after it.
-      toast(r.morning ? `${r.today}, morning${why ? ": " + why : ""}` : `${r.days} day${r.days === 1 ? "" : "s"} played, to ${r.today}. On ${r.stopped_on}${why ? ": " + why : ""}`);
+      toast(r.morning ? `${r.today}, morning${why ? ": " + why : ""}` : `${r.days} day${r.days === 1 ? "" : "s"} played, to ${r.today}. On ${r.stopped_on}${why ? ": " + why : ""}`, r.why.find((w) => w.go));
       // A live day (signing day, the draft, cutdown day) opens its room.
       // A room with its own screen (the war room) opens that screen.
       if (r.studio && !moved && (screens[r.studio.screen] || screens.studio)) go(screens[r.studio.screen] ? r.studio.screen : "studio", r.studio);
@@ -753,8 +774,8 @@ document.addEventListener("click", async (ev) => {
     const args = linkArgs(d);
     if (d.go === "player") S.notesOpen = false;
     // Shift-click: the page beside this one (L6); ⌘-click: its own window.
-    if (ev.shiftKey && typeof openBeside === "function") { openBeside(d.go, args); return; }
-    if ((ev.metaKey || ev.ctrlKey) && typeof openWindow === "function") { openWindow(d.go, args); return; }
+    if (ev.shiftKey && typeof openBeside === "function") { openBeside(screenFor(d.go), args); return; }
+    if ((ev.metaKey || ev.ctrlKey) && typeof openWindow === "function") { openWindow(screenFor(d.go), args); return; }
     if (el.closest(".beside") && typeof closeBeside === "function") closeBeside();
     if (typeof peekHide === "function") peekHide();
     go(d.go, args);
@@ -1037,7 +1058,7 @@ function routeFromHash() {
       S.status = await api("status");
       const r = routeFromHash();
       const inCareer = S.status.mine || S.status.you;
-      if (inCareer && r && r.screen) { S.route = { screen: r.screen, args: r.args, root: true }; render(); return; }
+      if (inCareer && r && r.screen) { S.route = { screen: screenFor(r.screen), args: r.args, root: true }; render(); return; }
       go(inCareer ? "home" : "start", {}, { push: false, root: true });
     } else go("start", {}, false);
   } catch (e) {

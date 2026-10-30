@@ -105,35 +105,36 @@ function hnPast(x) {
   return hnPanel("Your past hunts", "and what became of them", `<div class="hn-tbl"><table><thead><tr><th>Player</th><th>Pos</th><th>Named</th><th>Ended</th><th>How</th><th>Why</th><th class="n">Games</th><th>Look-back</th></tr></thead><tbody>${rows}</tbody></table></div>`, "hn-wide hn-gap");
 }
 
-// The player page's part (core.js calls it beside "Stake your name").
+// The player page's part (core.js calls it beside "Stake your name"): the
+// pills. Naming him is one of his moves (lane_core/moves.rs), on the hero's
+// More, the right-click menu and the rows' ⋯.
 function l11Hunt(p) {
   const h = p.hunt;
   if (!h) return "";
   const gen = h.generational ? `<span class="st-pill gold" title="${esc(h.generational.since ? `The public's best since ${h.generational.since.name} (${h.generational.since.year})` : "The best the public has read")}">Generational</span>` : "";
-  if (h.on) return `${gen}<a class="st-pill gold" data-go="hunt" title="Your hunt: his page in The hunt">Your hunt</a>`;
-  if (!h.can) return gen;
-  const tip = h.busy ? `Your hunt is ${h.busy}: naming him lets ${h.busy} go` : "Chase him over seasons: watch every game, bank what he'll cost, keep it quiet";
-  return `${gen}<button class="st-btn glass" data-act="hnname" data-id="${p.id}" data-name="${esc(p.name)}" data-busy="${esc(h.busy || "")}" title="${esc(tip)}">Make him your hunt</button>`;
+  return h.on ? `${gen}<a class="st-pill gold" data-go="hunt" title="Your hunt: his page in The hunt">Your hunt</a>` : gen;
+}
+
+// Names him your hunt, letting the one you have go if you say so.
+async function l11Name(id, name, busy) {
+  if (busy && !(await sure(`Let ${busy} go?`, `Your hunt is ${busy}. Naming ${name} ends that chase; it goes to your record.`, `Hunt ${name}`))) return;
+  try {
+    if (busy) await api("hunt_drop", {});
+    toast((await api("hunt_name", { id: Number(id) })).text);
+  } catch (e) { toast(e.message || String(e)); }
+  peekForget();
+  refresh();
 }
 
 Object.assign(CORE_MORE, {
-  hnname: async (el) => {
-    const busy = el.dataset.busy;
-    if (busy && !confirm(`Your hunt is ${busy}. Let him go and hunt ${el.dataset.name}?`)) return;
-    try {
-      if (busy) await api("hunt_drop", {});
-      const r = await api("hunt_name", { id: Number(el.dataset.id) });
-      toast(r.text);
-    } catch (e) { toast(e.message); }
-    refresh(el);
-  },
+  hnname: (el) => l11Name(el.dataset.id, el.dataset.name, el.dataset.busy),
   hndrop: async (el) => {
-    if (!confirm(`Let ${el.dataset.name} go? The hunt goes to your record.`)) return;
+    if (!(await sure(`Let ${el.dataset.name} go?`, "The hunt goes to your record, and your staff's time goes back to the board.", "Let him go"))) return;
     try { toast((await api("hunt_drop", {})).text); } catch (e) { toast(e.message); }
     refresh(el);
   },
   hnloud: async (el) => {
-    if (!confirm("Say it out loud? The press has it today, and everyone will know.")) return;
+    if (!(await sure("Say it out loud?", "The press has it today, and everyone will know you want him. If he becomes what you said, it counts for more; if not, it counts against you.", "Say it"))) return;
     try { toast((await api("hunt_loud", {})).text); } catch (e) { toast(e.message); }
     refresh(el);
   },

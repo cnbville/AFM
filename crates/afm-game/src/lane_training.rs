@@ -1832,6 +1832,18 @@ pub(crate) fn squad(w: &World) -> Reply {
                 v["apy"] = json!(k.map(|k| k.apy()));
                 v["through"] = json!(k.map(|k| k.last_year()));
                 v["accrued"] = json!(c.accrued);
+                // A new deal from the Contract view (bug 70): only for your club's players.
+                v["deal"] = json!(match afm_engine::world::front_office::nfl::negotiable(w, i) {
+                    Some(afm_engine::world::front_office::nfl::TalkKind::Extension) => Some("Offer an extension"),
+                    Some(afm_engine::world::front_office::nfl::TalkKind::ReSign) => Some("Re-sign him"),
+                    _ => None,
+                });
+            }
+            // Redshirt him or play him, from the Eligibility view (bug 77).
+            if p.stage == Stage::College
+                && let Ok(r) = afm_engine::world::front_office::redshirt::read(w, id)
+            {
+                v["rs"] = json!({ "on": r.redshirt, "games": r.games, "four": r.four, "can": r.can.is_ok(), "why": r.can.err() });
             }
             v["years_left"] = json!(match p.stage {
                 Stage::College => Some((4 - p.college_seasons as i32).max(0)),

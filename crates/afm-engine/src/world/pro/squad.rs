@@ -172,13 +172,22 @@ pub(crate) fn poach(w: &mut World, d: Date) -> bool {
         // Your four are the ones you protect (lane 10).
         if let Some(mine) = crate::world::front_office::roster::protected(w, t) {
             let mut kept = 0;
+            let mut rest = Vec::new();
             for i in squad {
                 if mine.contains(&w.people[i].player.id) && kept < protect {
                     kept += 1;
                 } else {
-                    open.push((t, i));
+                    rest.push(i);
                 }
             }
+            // With the squad your staff's, it protects its best for the
+            // places you left (SC6).
+            let fill = if crate::world::front_office::yours(w, t, crate::world::front_office::Duty::PracticeSquad) {
+                0
+            } else {
+                protect.saturating_sub(kept)
+            };
+            open.extend(rest.into_iter().skip(fill).map(|i| (t, i)));
             continue;
         }
         for i in squad.into_iter().skip(protect) {
