@@ -321,7 +321,8 @@ function drawPage(t0) {
     html += blockHtml(b, i);
     if (i === 0 && firstHero) html += verdict;
   });
-  if (!firstHero) html = html.replace(/(<\/h1><\/div>)/, `$1${verdict}`);
+  // A function, so a "$1.2B" in the verdict is not read as a group.
+  if (!firstHero) html = html.replace(/(<\/h1><\/div>)/, (m) => m + verdict);
   if (p.play) html += playForm(p);
   if (t0) html += `<p class="sub" style="margin:0">Read in ${Math.round(performance.now() - t0)} ms from the book.</p>`;
   $("#page").innerHTML = html;

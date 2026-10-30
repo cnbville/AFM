@@ -284,3 +284,34 @@ table.matrix td.click, tr.click, .click { cursor: pointer; }
   .fstage { grid-template-columns: 1fr; }
   .tl-it { grid-template-columns: 64px 1fr; }
 }
+
+/* Lane R8: a game's drives and play by play, a club's seasons, a draft board. */
+.drvs { display: flex; flex-direction: column; gap: 6px; }
+.drv { display: grid; grid-template-columns: 110px 74px minmax(200px, 1fr) 150px 140px; align-items: center; gap: 12px; font-size: 13px; }
+.drv-h { color: var(--text-3); }
+.drv-ax { display: flex; justify-content: space-between; }
+.drv-t { display: inline-block; padding-left: 8px; border-left: 3px solid; font-weight: 600; }
+.drv-f { position: relative; height: 16px; border-radius: 6px; background: repeating-linear-gradient(90deg, rgba(48, 120, 60, .28) 0 10%, rgba(40, 105, 52, .28) 10% 20%); overflow: hidden; }
+.drv-f .ez { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: rgba(255, 255, 255, .35); }
+.drv-f .ez.r { left: auto; right: 0; }
+.drv-f b { position: absolute; top: 3px; bottom: 3px; border-radius: 4px; }
+.seg-near { background: var(--near); } .seg-off { background: var(--off); } .seg-far { background: var(--far); } .seg-dim { background: var(--text-3); }
+.drv-r { font-weight: 600; } .t-dim { color: var(--text-3); }
+.pbp td { vertical-align: top; }
+.pbp-q td { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); background: var(--fill-1); }
+.pbp-sc td { background: rgba(48, 209, 88, .06); }
+.pbp-to td { background: rgba(255, 55, 95, .07); }
+.strip { display: flex; flex-wrap: wrap; gap: 6px; }
+.strip-it { display: flex; flex-direction: column; align-items: center; min-width: 62px; padding: 8px 6px; border-radius: 10px; border: 2px solid transparent; color: var(--text); text-decoration: none; font-size: 12px; }
+.strip-it b { font-size: 13px; }
+.strip-po { border-color: var(--text-2); }
+.strip-gold { border-color: #ffd60a; }
+.pk-r { display: flex; flex-direction: column; gap: 8px; }
+.pk-g { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.pk { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--fill-1); border: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.pk:hover { background: var(--fill-2); }
+.pk-n { font-size: 20px; font-weight: 700; color: var(--text-2); }
+@media (max-width: 900px) {
+  .drv { grid-template-columns: 90px 64px 1fr; }
+  .drv > .num, .drv > .drv-r { grid-column: span 1; }
+}

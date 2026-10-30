@@ -374,7 +374,8 @@ fn round(x: f64) -> f64 {
 /// (`YearDates::new`); the attributes' and Dynamic Links' names.
 pub fn engine_tables(w: &mut Writer, first: i32, last: i32) -> std::io::Result<()> {
     w.source = "engine".into();
-    for season in first..=last {
+    // From 1984 so every era's rule book and dates sit beside the world's (R8).
+    for season in first.min(1984)..=last {
         let fixed = || vec![("season".to_string(), S::Integer(season as i64))];
         let rules = afm_engine::calendar::RuleBook::era(season);
         w.put("engine_rules", fixed(), &to_value(&rules)?).map_err(std::io::Error::other)?;
@@ -398,6 +399,125 @@ pub fn engine_tables(w: &mut Writer, first: i32, last: i32) -> std::io::Result<(
             ("edge".into(), S::Text(l.edge().to_string())),
         ];
         w.insert("engine_links", None, row).map_err(std::io::Error::other)?;
+    }
+    // World reader R8: each franchise's eras (name, home, division, roof
+    // on their real dates) and the stat book's stats by place, which the
+    // world file keeps as plain lists.
+    use afm_engine::world::franchise;
+    let mut k = 0;
+    for team in 0..afm_engine::league::NFL_TEAM_NAMES.len() {
+        let mut seen = std::collections::HashSet::new();
+        for year in 1920..=last.max(2026) + 1 {
+            let Some(e) = franchise::era(team, year) else { continue };
+            if !seen.insert(e.from) {
+                continue;
+            }
+            let row = vec![
+                ("_row".to_string(), S::Integer(k)),
+                ("team".into(), S::Integer(team as i64)),
+                ("from".into(), S::Integer(e.from.max(1920) as i64)),
+                ("to".into(), S::Integer(e.to.min(9999) as i64)),
+                ("name".into(), S::Text(e.name.to_string())),
+                ("fictional".into(), S::Text(franchise::fictional_name(team, year).to_string())),
+                ("city".into(), S::Text(e.city.to_string())),
+                ("state".into(), S::Text(e.state.to_string())),
+                ("conference".into(), S::Text(if e.div < 4 { "AFC" } else { "NFC" }.into())),
+                ("div".into(), S::Integer(e.div as i64)),
+                ("roof".into(), S::Text(format!("{:?}", e.roof))),
+            ];
+            w.insert("engine_franchises", None, row).map_err(std::io::Error::other)?;
+            k += 1;
+        }
+    }
+    for (i, s) in afm_engine::world::records::Stat::ALL.iter().enumerate() {
+        let row = vec![
+            ("_row".to_string(), S::Integer(i as i64)),
+            ("key".into(), S::Text(s.key().to_string())),
+            ("name".into(), S::Text(s.name().to_string())),
+        ];
+        w.insert("engine_stats", None, row).map_err(std::io::Error::other)?;
+    }
+    for (i, m) in afm_engine::world::records::FOOTPRINT.iter().enumerate() {
+        let row = vec![("_row".to_string(), S::Integer(i as i64)), ("name".into(), S::Text(m.name().to_string()))];
+        w.insert("engine_footprints", None, row).map_err(std::io::Error::other)?;
+    }
+    // The other pro leagues by number, with their real years (R8).
+    for (i, l) in afm_engine::world::pro::leagues::LEAGUES.iter().enumerate() {
+        let row = vec![
+            ("_row".to_string(), S::Integer(i as i64)),
+            ("name".into(), S::Text(l.name.to_string())),
+            ("from".into(), S::Integer(l.from as i64)),
+            ("to".into(), S::Integer(l.to as i64)),
+        ];
+        w.insert("engine_leagues", None, row).map_err(std::io::Error::other)?;
+    }
+    // The storyline kinds, so a story's kind number reads as its name (R8).
+    for (i, d) in afm_engine::world::storylines::catalogue::CATALOGUE.iter().enumerate() {
+        let row = vec![
+            ("_row".to_string(), S::Integer(i as i64)),
+            ("key".into(), S::Text(d.key.to_string())),
+            ("family".into(), S::Text(format!("{:?}", d.family))),
+            ("name".into(), S::Text(d.name.to_string())),
+            ("stakes".into(), S::Integer(d.stakes as i64)),
+            ("tone".into(), S::Integer(d.tone as i64)),
+            ("public".into(), S::Integer(d.public as i64)),
+        ];
+        w.insert("engine_story_kinds", None, row).map_err(std::io::Error::other)?;
+        // Each ending and how it reads for its team (good above 0).
+        for (j, (name, reads)) in d.endings.iter().enumerate() {
+            let row = vec![
+                ("kind".to_string(), S::Integer(i as i64)),
+                ("i".into(), S::Integer(j as i64)),
+                ("name".into(), S::Text(name.to_string())),
+                ("reads".into(), S::Real(f64::from(*reads))),
+            ];
+            w.insert("engine_story_endings", None, row).map_err(std::io::Error::other)?;
+        }
+    }
+    // The finance books' line names and the real anchors the money follows (R8).
+    use afm_engine::world::finance::{college, data, hs, nfl};
+    let levels: [(&str, &[afm_engine::world::finance::Line]); 3] =
+        [("nfl", &nfl::LINES), ("college", &college::LINES), ("hs", &hs::LINES)];
+    let mut k = 0;
+    for (level, lines) in levels {
+        for (i, l) in lines.iter().enumerate() {
+            let row = vec![
+                ("_row".to_string(), S::Integer(k)),
+                ("level".into(), S::Text(level.to_string())),
+                ("i".into(), S::Integer(i as i64)),
+                ("name".into(), S::Text(l.name.to_string())),
+                ("income".into(), S::Integer(l.income as i64)),
+            ];
+            w.insert("engine_finance_lines", None, row).map_err(std::io::Error::other)?;
+            k += 1;
+        }
+    }
+    let anchors: [(&str, &[(i32, f64)]); 4] = [
+        ("league revenue ($B)", &data::LEAGUE_REVENUE),
+        ("national share", &data::NATIONAL_SHARE),
+        ("average ticket ($)", &data::TICKET_PRICE),
+        ("value multiple", &data::VALUE_MULTIPLE),
+    ];
+    let mut k = 0;
+    for (kind, xs) in anchors {
+        for (year, v) in xs {
+            let row = vec![
+                ("_row".to_string(), S::Integer(k)),
+                ("kind".into(), S::Text(kind.to_string())),
+                ("year".into(), S::Integer(*year as i64)),
+                ("value".into(), S::Real(*v)),
+            ];
+            w.insert("engine_finance_anchors", None, row).map_err(std::io::Error::other)?;
+            k += 1;
+        }
+    }
+    for (i, part) in data::CARD_PARTS.iter().enumerate() {
+        let row = vec![("_row".to_string(), S::Integer(i as i64)), ("name".into(), S::Text(part.to_string()))];
+        w.insert("engine_card_parts", None, row).map_err(std::io::Error::other)?;
+    }
+    for (i, g) in data::GRADES.iter().enumerate() {
+        let row = vec![("_row".to_string(), S::Integer(i as i64)), ("grade".into(), S::Text(g.to_string()))];
+        w.insert("engine_grades", None, row).map_err(std::io::Error::other)?;
     }
     w.flush().map_err(std::io::Error::other)
 }

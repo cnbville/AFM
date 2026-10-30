@@ -30,6 +30,15 @@ impl Book {
     pub fn with(conn: Connection) -> rusqlite::Result<Book> {
         let dicts: Arc<Mutex<HashMap<String, Option<Vec<u8>>>>> = Arc::default();
         conn.execute_batch("PRAGMA cache_size=-131072; PRAGMA temp_store=MEMORY;")?;
+        // The dictionaries this connection already holds: the builder's lock
+        // is exclusive, so a second handle could not read them while the
+        // book's panels are worked out (R8).
+        if let Ok(mut st) = conn.prepare("SELECT tbl, dict FROM dicts") {
+            let got = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<Vec<u8>>>(1)?)));
+            if let Ok(rows) = got {
+                dicts.lock().unwrap().extend(rows.flatten());
+            }
+        }
         let d = dicts.clone();
         // `more` reads the dictionaries through its own handle on the file.
         let path = conn.path().map(str::to_string);
