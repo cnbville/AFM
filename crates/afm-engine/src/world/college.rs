@@ -3477,8 +3477,6 @@ pub(crate) enum LeanCheck {
     FallCamp,
     /// Midseason: the snaps he has had.
     MidSeason,
-    /// The Sunday after rivalry week: a coaching change at his school.
-    CoachingChanges,
     /// Selection day: a bowl (and its practices) or none.
     Bowls,
     /// Early signing day: a blue-chip signed at his position.
@@ -3488,6 +3486,29 @@ pub(crate) enum LeanCheck {
 pub(crate) fn lean_push(p: &mut super::Person, date: Date, why: &'static str, factor: f64) {
     p.cal.lean *= factor;
     p.cal.lean_events.push((date, why, factor));
+}
+
+/// The lean event a head coach's departure leaves on his players.
+pub(crate) const COACH_GONE: &str = "his head coach is gone";
+
+/// His head coach is gone (T3): the day a college head coach leaves, for
+/// any reason (fired, retired, another job, the NFL), each of his players
+/// leans harder toward the portal, once a cycle (the events clear at fall
+/// camp). It hung on the Sunday after rivalry week, so a coach who left
+/// for another job after it, as most do, never moved his players (minor
+/// bug 88).
+pub(crate) fn coach_gone(w: &mut World, prog: usize) {
+    let factor = crate::career::PIPELINE.portal_entry.coaching_change;
+    let today = w.today;
+    for p in w.people.iter_mut() {
+        if p.stage == Stage::College
+            && p.college == Some(prog)
+            && p.cal.lean > 0.0
+            && !p.cal.lean_events.iter().any(|e| e.1 == COACH_GONE)
+        {
+            lean_push(p, today, COACH_GONE, factor);
+        }
+    }
 }
 
 /// Reads and moves each college player's lean toward leaving (T3). The base
@@ -3631,19 +3652,6 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                     .school_link(c, &w.programs[c].real_name);
                 w.calendar.post(e);
                 w.log.whispers += 1;
-            }
-        }
-        LeanCheck::CoachingChanges => {
-            let changed: Vec<bool> = w.programs.iter().map(|p| p.hc_changed == year).collect();
-            let factor = PIPELINE.portal_entry.coaching_change;
-            for p in w.people.iter_mut() {
-                if p.stage == Stage::College
-                    && p.cal.lean > 0.0
-                    && let Some(c) = p.college
-                    && changed[c]
-                {
-                    lean_push(p, date, "his head coach is gone", factor);
-                }
             }
         }
         LeanCheck::Bowls => {

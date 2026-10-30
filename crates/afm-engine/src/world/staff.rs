@@ -217,6 +217,21 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
     {
         w.coaches[coach].mentor = Some(hc);
     }
+    // His program's late coaching-change window (minor bug 88) opens five
+    // days after his hire; your own hire opens yours instead.
+    if role == Role::HeadCoach
+        && let Employer::College(p) = employer
+        && let Some(k) = w.late_windows.iter().position(|x| x.0 == p && x.1.is_none())
+    {
+        if market::is_you(w, coach) {
+            w.late_windows.remove(k);
+        } else {
+            use crate::calendar::rules::TransferRule;
+            let days = if w.changes.rules(cycle_year(w)).transfer == TransferRule::Windows { 30 } else { 15 };
+            let open = w.today.add(5);
+            w.late_windows[k].1 = Some((open, open.add(days)));
+        }
+    }
     // Your seat follows your job; anyone else's hire may be news to you.
     if market::is_you(w, coach) {
         market::hired(w, employer, role);
@@ -266,7 +281,15 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
                 }
             }
             if job.role == Role::HeadCoach {
+                let again = w.programs[p].hc_changed == cycle_year(w);
                 w.programs[p].hc_changed = cycle_year(w);
+                // His players lean toward the portal the day he goes, and a
+                // departure after the cycle's window opened gets its own
+                // (minor bug 88). A second change in a cycle moves no one again.
+                if !again {
+                    super::college::coach_gone(w, p);
+                    late_window_due(w, p);
+                }
                 // His team still has games this season: a coach retiring or
                 // stepping away coaches them, otherwise an interim does
                 // (part B 38, 45).
@@ -1418,6 +1441,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             return;
         }
     }
+    let left = hired.and_then(|c| w.coaches[c].job);
     let c = match hired {
         Some(c) => {
             if let Some(job) = w.coaches[c].job {
@@ -1488,6 +1512,18 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     moved.insert(c);
     let from_job = w.coaches[c].history.last().map(|s| (s.employer, s.role));
     hire(w, c, o.employer, o.role);
+    // A college head coach who moved to another college head job: the
+    // players he is close to may follow him (minor bug 86).
+    if let (
+        Some(Job { employer: Employer::College(a), role: Role::HeadCoach, .. }),
+        Employer::College(b),
+        Role::HeadCoach,
+    ) = (left, o.employer, o.role)
+        && a != b
+        && !market::is_you(w, c)
+    {
+        super::recruiting::follow_coach(w, a, b, c);
+    }
     // Where he came from, and why he came (11.13).
     let from = from_job.map_or("a new coach".to_string(), |(e, _)| match e {
         e if e == o.employer => "promoted from his own staff".to_string(),
@@ -1946,6 +1982,23 @@ pub(crate) fn interim(w: &World, p: usize) -> Option<usize> {
     };
     best(&mut [prog.oc, prog.dc].into_iter().flatten())
         .or_else(|| best(&mut prog.position_coaches.iter().copied().flatten()))
+}
+
+/// A college head coach left after his cycle's coaching-change window
+/// opened (five days after the Sunday after rivalry week): his program gets
+/// a window of its own, five days after its new hire, in the eras that have
+/// these windows (minor bug 88). Your own hire opens yours (takeover T-B).
+fn late_window_due(w: &mut World, p: usize) {
+    use crate::calendar::rules::TransferRule;
+    let cy = cycle_year(w);
+    if !matches!(w.changes.rules(cy).transfer, TransferRule::Windows | TransferRule::January) {
+        return;
+    }
+    let dates = if w.dates.season == cy { Some(&w.dates) } else { w.prev_dates.as_ref().filter(|y| y.season == cy) };
+    let opened = dates.is_some_and(|y| w.today > y.fbs_regular_end.add(6));
+    if opened && !w.late_windows.iter().any(|x| x.0 == p) {
+        w.late_windows.push((p, None));
+    }
 }
 
 /// The carousel cycle a college job change belongs to: a search that runs
@@ -2642,9 +2695,12 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             w.news.extend(news::nil_warnings(year, i, &name, level, booster_left, change));
         }
     }
+    // Where the power programs can't take every signee, by this season's
+    // conferences (minor bug 104).
+    w.overflow = super::overflow_by_state(&w.programs, year);
     for p in w.programs.iter_mut() {
         program::fade_pipelines(p, year);
-        program::rebuild_footprint(p, &w.overflow);
+        program::rebuild_footprint(p, &w.overflow, year);
         if w.recording {
             p.grade_history.push((year, p.grades));
             p.prestige_history.push((year, p.prestige));

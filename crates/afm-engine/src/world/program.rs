@@ -636,7 +636,7 @@ pub fn prestige_of(p: &Program, coach_rep: f64, conference: f64) -> f64 {
 /// brands, plus pipelines, plus overflow regions: Group of 5 and FCS staffs
 /// recruit talent-rich states where the big schools can't take everyone
 /// (the MAC in Florida and Georgia, note 4).
-pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51]) {
+pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51], year: i32) {
     // A national brand recruits everywhere; a small school knows its own area.
     // Reach follows how big a name it is at its own level.
     let level_reach = match p.division {
@@ -648,7 +648,7 @@ pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51]) {
         Division::JUCO => 0.6,
     };
     let overflow_reach = match p.division {
-        Division::FBS if !p.power_four() => 0.45,
+        Division::FBS if !p.power_conference(year) => 0.45,
         Division::FCS => 0.3,
         _ => 0.0,
     };

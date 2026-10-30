@@ -73,10 +73,18 @@ fn main() {
         }
     }
     let mut changes: HashMap<(usize, i32), &'static str> = HashMap::new();
+    // A head coach who left for another college head job: (old program, cycle) to the new one.
+    let mut moved: HashMap<(usize, i32), usize> = HashMap::new();
     for c in &w.coaches {
-        for s in &c.history {
+        for (k, s) in c.history.iter().enumerate() {
             if let (Employer::College(p), Role::HeadCoach) = (s.employer, s.role) {
                 changes.insert((p, s.to), s.ended);
+                let next = c.history.get(k + 1).map(|n| (n.employer, n.role)).or(c.job.map(|j| (j.employer, j.role)));
+                if let Some((Employer::College(b), Role::HeadCoach)) = next
+                    && b != p
+                {
+                    moved.insert((p, s.to), b);
+                }
             }
         }
     }
@@ -112,7 +120,13 @@ fn main() {
             };
             match changes.get(&(p, year)) {
                 Some(why) => {
-                    let kind = if why.starts_with("fired") { "fired" } else { "left (job, retired...)" };
+                    let kind = if why.starts_with("fired") {
+                        "fired"
+                    } else if moved.contains_key(&(p, year)) {
+                        "left for a head job"
+                    } else {
+                        "left (other job, retired...)"
+                    };
                     add(format!("change, {kind}, {band}"), e);
                     add("change, all".into(), e);
                 }
@@ -129,6 +143,26 @@ fn main() {
     for (label, n, e, c) in &rows {
         println!("{label:<44} {n:>6} {:>9.1} {:>14.1}", *e as f64 / *n as f64, *c as f64 / *n as f64);
     }
+    // Followers (bug 86): players who left the old program for the coach's new one that cycle.
+    let follows = |a: usize, b: usize, year: i32| {
+        records(&w).iter().filter(|r| r.from_program == a && r.to_program == Some(b) && r.year == year).count()
+    };
+    let in_window: Vec<(&(usize, i32), &usize)> =
+        moved.iter().filter(|((_, y), _)| *y >= first && *y < w.year).collect();
+    let total: usize = in_window.iter().map(|((a, y), b)| follows(*a, **b, *y)).sum();
+    let with: usize = in_window.iter().filter(|((a, y), b)| follows(*a, **b, *y) > 0).count();
+    println!(
+        "college head coaches who moved to another college head job: {}, followers {total} ({:.2} a move, {with} moves with one or more)",
+        in_window.len(),
+        total as f64 / in_window.len().max(1) as f64
+    );
+    let fbs: Vec<_> = in_window.iter().filter(|(_, b)| w.programs[**b].division == Division::FBS).collect();
+    let total: usize = fbs.iter().map(|((a, y), b)| follows(*a, **b, *y)).sum();
+    println!(
+        "  to an FBS head job: {} moves, followers {total} ({:.2} a move)",
+        fbs.len(),
+        total as f64 / fbs.len().max(1) as f64
+    );
 
     // (2) Your own takeover at a losing FBS program on the start morning.
     let last = w.year - 1;

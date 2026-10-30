@@ -330,14 +330,14 @@ P("C21.best_22", "C21", "The strongest rosters: each FBS program's best 22", "ta
 # ---------- C22 records and production ----------
 P("C22.picks", "C22", "Draft picks by program, the last ten drafts", "bars",
   "Each program's draft picks over the world's last ten drafts (`Program.draft_picks`), against its real picks over the last ten real drafts (nflverse, `nfl_draft_by_college.csv`).",
-  """WITH w AS (SELECT d._parent AS prog, SUM(d._1) AS n FROM programs__draft_picks d WHERE d._0 > (SELECT MAX(_0) FROM programs__draft_picks) - 10 GROUP BY d._parent),
+  """WITH w AS (SELECT d._parent AS prog, COUNT(*) AS n FROM programs__draft_picks d WHERE d._0 > (SELECT MAX(_0) FROM programs__draft_picks) - 10 GROUP BY d._parent),
    ry AS (SELECT MAX(season) AS y FROM real_nfl_draft_by_college)
   SELECT COALESCE(p.real_name, p.fictional_name) AS label, w.n AS world,
         (SELECT SUM(r.picks) FROM real_nfl_draft_by_college r WHERE r.season > (SELECT y FROM ry) - 10 AND (r.college = p.real_name OR r.college = REPLACE(p.real_name, ' State', ' St.'))) AS real, p.id
    FROM w JOIN programs p ON p._row = w.prog ORDER BY w.n DESC LIMIT 30""", open="e/programs/{id}"),
 P("C22.picks_by_conference", "C22", "Draft picks by conference, draft by draft", "table",
   "Draft picks per draft by today's conference of the program, from `Program.draft_picks`.",
-  """SELECT d._0 AS year, p.division, p.conference, SUM(d._1) AS picks, COUNT(*) AS programs FROM programs__draft_picks d JOIN programs p ON p._row = d._parent
+  """SELECT d._0 AS year, p.division, p.conference, COUNT(*) AS picks, COUNT(DISTINCT d._parent) AS programs FROM programs__draft_picks d JOIN programs p ON p._row = d._parent
    GROUP BY d._0, p.conference ORDER BY d._0 DESC, picks DESC"""),
 P("C22.records", "C22", "School single-season records", "table",
   "Each FBS program's season records (passing, rushing and receiving yards, sacks; `Program.season_records`), the best first. Real FBS records (from memory, not checked): passing 5,833, rushing 2,628, receiving 2,060, sacks 24.",

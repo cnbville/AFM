@@ -1578,16 +1578,9 @@ pub fn usual_deals(w: &World, j: usize) -> Vec<(u32, f64)> {
         .copied()
         .filter(|&i| w.people[i].stage == Stage::College && w.people[i].college == Some(j))
         .collect();
-    let value = |i: usize| {
-        let p = &w.people[i];
-        let role = match p.last_role {
-            Some(crate::player::PlayingTime::Starter) => 3.0,
-            Some(crate::player::PlayingTime::Rotation) => 1.2,
-            _ => 0.3,
-        };
-        let pos = 1.0 + 0.25 * crate::career::position_value(p.player.position).max(-2.0);
-        role * pos * (1.0 + 0.1 * p.stars as f64)
-    };
+    // The split `nil_payouts` makes on July 1 (minor bug 100).
+    let medians = crate::world::recruiting::nil_medians(w);
+    let value = |i: usize| crate::world::recruiting::nil_value(&w.people[i], prog.division, &medians);
     let total: f64 = roster.iter().map(|&i| value(i)).sum();
     roster.iter().map(|&i| (w.people[i].player.id, budget * value(i) / total.max(1e-9))).collect()
 }

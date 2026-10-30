@@ -490,7 +490,7 @@ pub(crate) fn power_conf(conf: &str, year: i32) -> bool {
         "SEC" | "Big Ten" | "Big 12" | "ACC" => true,
         "Pac-12" | "Pac-10" => year <= 2023,
         "Big East" => year <= 2013,
-        "Big Eight" | "Southwest" => true,
+        "Big Eight" | "SWC" | "Southwest" => true,
         _ => false,
     }
 }

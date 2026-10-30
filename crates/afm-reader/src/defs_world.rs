@@ -392,7 +392,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH cy AS (SELECT y._parent AS prog, y.year, y.l,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key < 11) AS rev,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key >= 11) AS cost FROM finance__college__years y) SELECT AVG(c.rev) / 1e6 FROM cy c JOIN programs p ON p._row = c.prog WHERE c.year = (SELECT MAX(year) FROM finance__college__years) AND (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END) LIKE '3%'"#,
         scale: 1.0,
         years: None,
@@ -432,7 +432,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH cy AS (SELECT y._parent AS prog, y.year, y.l,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key < 11) AS rev,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key >= 11) AS cost FROM finance__college__years y) SELECT 100.0 * SUM(json_extract(c.l, '$[10]') + json_extract(c.l, '$[9]')) / SUM(c.rev) FROM cy c JOIN programs p ON p._row = c.prog WHERE c.year = (SELECT MAX(year) FROM finance__college__years) AND (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END) LIKE '3%'"#,
         scale: 1.0,
         years: None,
@@ -1472,32 +1472,32 @@ pub const PANELS: &[Panel] = &[
         sql: r#"WITH cy AS (SELECT y._parent AS prog, y.year, y.l,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key < 11) AS rev,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key >= 11) AS cost FROM finance__college__years y) SELECT c.year, substr((CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END), 3) AS tier, COUNT(*) AS schools, ROUND(AVG(c.rev) / 1e6, 1) AS "revenue $M", ROUND(AVG(c.cost) / 1e6, 1) AS "costs $M",
             ROUND(AVG(json_extract(c.l, '$[10]')) / 1e6, 1) AS "university support $M", ROUND(100.0 * SUM(json_extract(c.l, '$[10]') + json_extract(c.l, '$[9]')) / SUM(c.rev), 1) AS "support and fees %",
             ROUND(AVG(json_extract(c.l, '$[0]')) / 1e6, 1) AS "conference $M", ROUND(AVG(json_extract(c.l, '$[2]')) / 1e6, 1) AS "tickets $M",
             ROUND(AVG(json_extract(c.l, '$[7]')) / 1e6, 2) AS "guarantees in $M",
             (SELECT CAST(SUM(s.attendance) / NULLIF(SUM(s.home_games), 0) AS INTEGER) FROM finance__college__seasons s JOIN programs p2 ON p2._row = s._parent
               WHERE s.year = c.year AND (CASE WHEN p2.division = 'FBS' AND p2.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p2.division = 'FBS' AND (p2.conference IN ('ACC', 'Big 12', 'Pac-12') OR p2.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p2.division = 'FBS' AND (p2.conference IN ('ACC', 'Big 12') OR (p2.conference = 'Pac-12' AND c.year <= 2023) OR p2.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p2.division = 'FBS' THEN '3 Group of 5' WHEN p2.division = 'FCS' THEN '4 FCS' WHEN p2.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END) = (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END)) AS "crowd a game"
        FROM cy c JOIN programs p ON p._row = c.prog GROUP BY c.year, (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END) ORDER BY c.year DESC, (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END)"#,
         says: Some(
             r#"WITH cy AS (SELECT y._parent AS prog, y.year, y.l,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key < 11) AS rev,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key >= 11) AS cost FROM finance__college__years y) SELECT printf('%d: SEC and Big Ten schools average $%.0fM, Group of 5 $%.0fM, FCS $%.0fM (real 2023: $150-250M, $40-70M, $15-35M).', (SELECT MAX(year) FROM finance__college__years),
      AVG(CASE WHEN (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END) LIKE '1%' THEN c.rev END) / 1e6, AVG(CASE WHEN (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END) LIKE '3%' THEN c.rev END) / 1e6, AVG(CASE WHEN (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND c.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END) LIKE '4%' THEN c.rev END) / 1e6)
      FROM cy c JOIN programs p ON p._row = c.prog WHERE c.year = (SELECT MAX(year) FROM finance__college__years)"#,
         ),
@@ -1513,7 +1513,7 @@ pub const PANELS: &[Panel] = &[
         note: r#"The average department per tier on every line (finance/college.rs LINES) for the last closed money year. Revenue sharing with players starts in the 2025-26 year (the House settlement, about $20.5M a school at most)."#,
         sql: r#"WITH ly AS (SELECT (SELECT MAX(year) FROM finance__college__years) AS y),
           v AS (SELECT y.year, (CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND y.year <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END) AS t, j.key AS i, j.value AS v FROM finance__college__years y JOIN programs p ON p._row = y._parent, json_each(y.l) j WHERE y.year = (SELECT y FROM ly))
      SELECT f.i + 1 AS line_no, f.name AS line, CASE f.income WHEN 1 THEN 'income' ELSE 'cost' END AS side, ROUND(AVG(CASE WHEN t LIKE '1%' AND v.year = (SELECT y FROM ly) THEN v.v END) / 1e6, 2) AS "SEC, Big Ten $M", ROUND(AVG(CASE WHEN t LIKE '2%' AND v.year = (SELECT y FROM ly) THEN v.v END) / 1e6, 2) AS "ACC, Big 12, Pac-12 $M", ROUND(AVG(CASE WHEN t LIKE '3%' AND v.year = (SELECT y FROM ly) THEN v.v END) / 1e6, 2) AS "Group of 5 $M", ROUND(AVG(CASE WHEN t LIKE '4%' AND v.year = (SELECT y FROM ly) THEN v.v END) / 1e6, 2) AS "FCS $M", ROUND(AVG(CASE WHEN t LIKE '5%' AND v.year = (SELECT y FROM ly) THEN v.v END) / 1e6, 2) AS "D2 $M"
        FROM engine_finance_lines f JOIN v ON v.i = f.i WHERE f.level = 'college' GROUP BY f.i ORDER BY f.i"#,

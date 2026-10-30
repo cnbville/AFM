@@ -126,10 +126,19 @@ fn coach_change_window(w: &mut World, p: usize, d0: Date) {
         _ => None,
     };
     let factor = crate::career::PIPELINE.portal_entry.coaching_change;
+    // Your window replaces the late one your predecessor's exit scheduled
+    // before the career was set (minor bug 88).
+    w.late_windows.retain(|x| x.0 != p);
     for i in 0..w.people.len() {
         let pp = &w.people[i];
-        if pp.stage == Stage::College && pp.college == Some(p) && pp.cal.lean > 0.0 {
-            crate::world::college::lean_push(&mut w.people[i], d0, "his head coach is gone", factor);
+        // The man you replaced already moved them the day he left
+        // (`college::coach_gone`): once a cycle.
+        if pp.stage == Stage::College
+            && pp.college == Some(p)
+            && pp.cal.lean > 0.0
+            && !pp.cal.lean_events.iter().any(|e| e.1 == crate::world::college::COACH_GONE)
+        {
+            crate::world::college::lean_push(&mut w.people[i], d0, crate::world::college::COACH_GONE, factor);
         }
     }
     if let Some(days) = days {
