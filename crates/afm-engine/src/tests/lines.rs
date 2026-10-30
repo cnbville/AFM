@@ -50,7 +50,7 @@ const FACTS: &str = concat!(
     "stat subject team through tried to_go town unit want weeks word worry writer year years you young ",
     "last_record them captain moment last mistake us first second club ",
     // the fans (fans.rs)
-    "defense margin upset streak run mood qb star goat cost next mascot color place at from station late class move draft ",
+    "defense margin upset streak run mood qb star goat cost next mascot color place at from station late class move draft time ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
