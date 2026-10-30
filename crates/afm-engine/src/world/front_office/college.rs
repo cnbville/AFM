@@ -1979,7 +1979,7 @@ pub fn reasons(w: &World, i: usize, j: usize) -> [(f64, f64); 7] {
 /// How much each of the six weighed reasons counts with whoever decides for
 /// him. True values: a screen shows them only through your staff's read.
 pub fn reason_weights(w: &World, i: usize) -> [f64; 6] {
-    rec::reason_weights(&w.people[i])
+    rec::reason_weights(w, i)
 }
 
 /// How firmly a committed recruit holds, in the same units as `race`.
