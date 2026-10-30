@@ -174,6 +174,9 @@ check("G10.nfl_pr_avg", GP, "G10", "NFL punt return average", "yards",
 check("G10.nfl_return_tds", GP, "G10", "NFL return touchdowns a team game", "a team game",
   "SELECT AVG(COALESCE(b.kr_td, 0) + COALESCE(b.pr_td, 0)) FROM log_games__box b JOIN log_games g ON g._row = b._parent WHERE g.stream = 'nfl'",
   Fixed(0.024, "match_check.rs return rows: 0.012 kick and 0.012 punt return touchdowns a team game", "2021-2025"), (0.3, 0.7, 0.01), "Kick and punt return touchdowns per NFL team game.", needs=G)
+check("G10.nfl_pick_sixes", GP, "G10", "NFL pick sixes a team game", "a team game",
+  "SELECT 1.0 * SUM(d.result = 'Pick six') / (2.0 * COUNT(DISTINCT g._row)) FROM log_games g JOIN log_games__drives d ON d._parent = g._row WHERE g.stream = 'nfl'",
+  Fixed(0.05, "match_check.rs pick six row (nflverse 2021-2025)", "2021-2025"), (0.3, 0.7, 0.01), "Drives that end in an interception returned for a touchdown, per NFL team game.", needs=G)
 check("G10.fbs_punt_gross", GP, "G10", "FBS punt gross average", "yards",
   f"WITH {BOX} SELECT 1.0 * SUM(punt_yds) / SUM(punts) FROM bx WHERE lv = 'FBS'",
   Key("college_game_targets.json:divisions.fbs#rates.punt_gross"), (0.04, 0.1, 0.0), "Punt yards over punts, FBS box scores.", needs=G)
@@ -277,11 +280,11 @@ panel("G12.notes", GP, "G12", "Reviewed calls, the latest season", "table",
       WHERE g.season = (SELECT MAX(season) FROM log_games) AND (c.reviewer <> 'None' OR COALESCE(c.wrong, 0) = 1) ORDER BY g._row, c._i""", needs=G, open="game/{game}")
 
 check("G12.nfl_challenges", GP, "G12", "NFL coach's challenges a game", "a game",
-  "SELECT 1.0 * (SELECT COUNT(*) FROM log_games__officiating__calls c JOIN log_games g ON g._row = c._parent WHERE g.stream = 'nfl' AND c.reviewer LIKE 'Challenge%') / (SELECT COUNT(*) FROM log_games WHERE stream = 'nfl')",
+  "SELECT 1.0 * (SELECT COUNT(*) FROM log_games__officiating__calls c JOIN log_games g ON g._row = c._parent WHERE g.stream = 'nfl' AND COALESCE(g.kind, 'regular') <> 'preseason' AND c.reviewer LIKE 'Challenge%') / (SELECT COUNT(*) FROM log_games WHERE stream = 'nfl' AND COALESCE(kind, 'regular') <> 'preseason')",
   Fixed(0.467, "NFL 2024: 133 coach's challenges in 285 games (docs/match-engine.md, 'Live games, officials and the toss')", "2024"), (0.2, 0.5, 0.05),
   "Challenges per NFL game, both teams, counted from the game's list of close calls.", needs=G)
 check("G12.nfl_challenges_won", GP, "G12", "NFL challenges won", "%",
-  "SELECT 100.0 * SUM(COALESCE(c.overturned, 0)) / COUNT(*) FROM log_games__officiating__calls c JOIN log_games g ON g._row = c._parent WHERE g.stream = 'nfl' AND c.reviewer LIKE 'Challenge%'",
+  "SELECT 100.0 * SUM(COALESCE(c.overturned, 0)) / COUNT(*) FROM log_games__officiating__calls c JOIN log_games g ON g._row = c._parent WHERE g.stream = 'nfl' AND COALESCE(g.kind, 'regular') <> 'preseason' AND c.reviewer LIKE 'Challenge%'",
   Fixed(37.6, "NFL 2024: 50 of 133 challenges won (docs/match-engine.md)", "2024"), (0.15, 0.4, 0.0), "Challenges that overturned the call.", needs=G)
 check("G12.nfl_booth", GP, "G12", "NFL booth reviews a game", "a game",
   "SELECT AVG(COALESCE(officiating__booth_reviews, 0)) FROM log_games WHERE stream = 'nfl'",

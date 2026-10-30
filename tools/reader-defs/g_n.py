@@ -112,9 +112,9 @@ panel("N4.depth", NP, "N4", "Depth charts: the top two at each spot", "table",
        FROM nfl__depth d WHERE d._j < 2 ORDER BY d._parent, d._i, d._j""", open="e/people/{id}")
 check("N4.undrafted", NP, "N4", "Undrafted players on 53-man rosters", "%",
   f"WITH {ROST} SELECT 100.0 * SUM(draft IS NULL) / COUNT(*) FROM ro WHERE status = 'Roster'",
-  Memory(30.0, "about 30% of 53-man rosters went undrafted (from memory)"), (0.2, 0.5, 0.0), "Share of active roster players with no draft record. Spin-up veterans generated before the first season count as undrafted.")
+  Fixed(40.8, "nfl_careers.json undrafted_share_of_rosters: 40.8% in 2025 (41-48% every year since 2016, 28-34% in 1999-2015)", "2025"), (0.2, 0.5, 0.0), "Share of active roster players with no draft record. Spin-up veterans generated before the first season count as undrafted.")
 check("N4.average_age", NP, "N4", "Average age on NFL rosters", "years", f"WITH {ROST} SELECT AVG(age) FROM ro WHERE status = 'Roster'",
-  Memory(26.2, "real 53-man rosters average about 26 (from memory)"), (0.03, 0.08, 0.0), "Mean age of active roster players now.")
+  Fixed(26.6, "nfl_careers.json roster_age_by_season: 26.6 in 2025 (26.3-26.9 since 1999)", "2025"), (0.03, 0.08, 0.0), "Mean age of active roster players now.")
 rule("N4.one_kicker", "N4", "In season every club carries exactly one kicker, punter and long snapper",
   "SELECT COUNT(DISTINCT pro__team) FROM people WHERE pro__status = 'Roster' AND (SELECT today FROM world) BETWEEN (SELECT cutdown__date FROM dates) AND (SELECT super_bowl FROM dates)",
   f"""WITH {ROST} SELECT team, {club_now('team')} AS club, SUM(pos = 'K') AS k, SUM(pos = 'P') AS p, SUM(pos = 'LS') AS ls FROM ro WHERE status = 'Roster' AND (SELECT today FROM world) BETWEEN (SELECT cutdown__date FROM dates) AND (SELECT super_bowl FROM dates) GROUP BY team
@@ -137,13 +137,13 @@ panel("N5.careers", NP, "N5", "Pro careers: draft slot, seasons, clubs and money
             json_extract(draft, '$[2]') AS pick, first AS "first season", seasons, clubs, accrued, ROUND(earnings / 1e6, 2) AS "earnings ($M)"
        FROM pc ORDER BY earnings DESC""", open="e/people/{id}")
 panel("N5.length", NP, "N5", "Career length by draft round", "bars",
-  "Seasons played by drafted players whose careers have ended, by the round they went in. Real (from memory): round 1 about 9 seasons, round 7 about 2-3.",
+  "Seasons played by drafted players whose careers have ended, by the round they went in. Real (nfl_careers.json career_by_round, draft classes 1980-2015, the draft to the last season played): round 1 9.0, 2 7.4, 3 6.3, 4 5.5, 5 4.6, 6 4.1, 7 3.4.",
   f"""WITH {PROC} SELECT 'Seasons' AS grp, 'Round ' || json_extract(draft, '$[1]') AS label, ROUND(AVG(seasons), 2) AS world,
-            CASE json_extract(draft, '$[1]') WHEN 1 THEN 9.0 WHEN 7 THEN 2.5 END AS real, COUNT(*) AS n
+            CASE json_extract(draft, '$[1]') WHEN 1 THEN 9.0 WHEN 2 THEN 7.4 WHEN 3 THEN 6.3 WHEN 4 THEN 5.5 WHEN 5 THEN 4.6 WHEN 6 THEN 4.1 WHEN 7 THEN 3.4 END AS real, COUNT(*) AS n
        FROM pc WHERE NOT active AND draft IS NOT NULL GROUP BY json_extract(draft, '$[1]') ORDER BY json_extract(draft, '$[1]')""")
 check("N5.round1_length", NP, "N5", "Seasons played by retired first-round picks", "seasons",
   f"WITH {PROC} SELECT AVG(seasons) FROM pc WHERE NOT active AND json_extract(draft, '$[1]') = 1",
-  Memory(9.0, "first-round picks play about 9 seasons (from memory)"), (0.2, 0.45, 0.0), "Mean seasons with a game for first-round picks whose careers have ended.")
+  Fixed(9.0, "nfl_careers.json career_by_round: draft classes 1980-2015, round 1 a mean of 9.0 seasons from the draft to the last season played", "1980-2015"), (0.2, 0.45, 0.0), "Mean seasons with a game for first-round picks whose careers have ended.")
 
 # ---------------------------------------------------------------- N6 pro stat lines and the career book
 PS = """ps AS (SELECT year, stats__att AS att, stats__cmp AS cmp, stats__pass_yds AS yds, stats__int AS ints, stats__sacked AS sacked, stats__dropbacks AS db, stats__fg_att AS fga, stats__fg_made AS fgm
@@ -293,7 +293,7 @@ panel("N13.comp", NP, "N13", "Compensatory picks by year, round and kind", "tabl
 panel("N13.clubs", NP, "N13", "Clubs that live on comp picks", "bars", "Comp picks per club, all years. Real: Baltimore, New England and the Rams have lived on them.",
   f"SELECT 'Comp picks' AS grp, {club_now('team')} AS label, COUNT(*) AS world, NULL AS real, COUNT(*) AS n FROM market__picks__comp GROUP BY team ORDER BY world DESC")
 check("N13.comp_a_year", NP, "N13", "Compensatory picks a year", "a year", "SELECT 1.0 * COUNT(*) / COUNT(DISTINCT year) FROM market__picks__comp WHERE kind <> 'Diversity'",
-  Memory(32.0, "32 a year by the CBA (formula plus supplemental)"), (0.1, 0.3, 0.0), "Formula and supplemental comp picks per year.")
+  Fixed(32.0, "nfl_careers.json compensatory_picks: a mean of 32.0 a year in 2000-2025 (the CBA aims at 32, formula plus supplemental)", "2000-2025"), (0.1, 0.3, 0.0), "Formula and supplemental comp picks per year.")
 rule("N13.four_per_club", "N13", "No club gets more than four comp picks in a year", "SELECT COUNT(DISTINCT year || '-' || team) FROM market__picks__comp",
   "SELECT year, team, COUNT(*) AS picks FROM market__picks__comp WHERE kind <> 'Diversity' GROUP BY year, team HAVING COUNT(*) > 4", "The CBA caps formula comp picks at four a club a year.")
 
@@ -332,9 +332,9 @@ col("clubs", "team_mood"); col("clubs", "captains")
 # ---------------------------------------------------------------- N16 retirement
 RET = """ret AS (SELECT a.player__id AS id, a.name, a.position AS pos, (SELECT MAX(year) FROM alumni__pro__seasons s WHERE s._parent = a._row) AS last,
                   CAST(strftime('%Y', date(a.born * 86400, 'unixepoch')) AS INTEGER) AS born_year FROM alumni a WHERE a.pro__first_year IS NOT NULL)"""
-RAGE = [("QB", 35.0), ("RB", 28.0), ("WR", 30.0), ("K", 37.0), ("P", 37.0), ("LS", 36.0)]
+RAGE = [("QB", 29.1), ("RB", 26.9), ("WR", 26.8), ("TE", 27.7), ("OL", 27.9), ("DL", 27.9), ("LB", 27.3), ("DB", 27.2), ("K", 31.2), ("P", 30.7), ("LS", 31.6)]
 panel("N16.age", NP, "N16", "Retirement age by position", "bars",
-  "Age in the last season of pros whose careers are over, by position. Real (from memory): QB about 35, RB about 28, specialists about 37.",
+  "Age in the last season of pros whose careers are over, by position. Real (nfl_careers.json last_season_age, last roster season 2000-2020, age on 1 September): QB 29.1, RB 26.9, WR 26.8, kickers 31.2, punters 30.7, snappers 31.6; positions the world splits finer (OT, IOL, EDGE, DT, CB, S) have no real bar.",
   f"""WITH {RET}, r(pos, real) AS (VALUES {", ".join(f"('{p}', {v})" for p, v in RAGE)})
      SELECT 'Age at the end' AS grp, ret.pos AS label, ROUND(AVG(last - born_year), 1) AS world, r.real, COUNT(*) AS n FROM ret LEFT JOIN r ON r.pos = ret.pos WHERE last IS NOT NULL GROUP BY ret.pos ORDER BY world""")
 panel("N16.farewells", NP, "N16", "Farewell seasons, celebrations and one-day contracts", "table",
@@ -345,9 +345,9 @@ panel("N16.farewells", NP, "N16", "Farewell seasons, celebrations and one-day co
 for t_, cs in [("stories__careers__farewells", ["id", "year", "team"]), ("stories__careers__one_day", ["_0", "_1", "_2"]), ("stories__careers__celebrations", ["_0", "_1", "_2"])]:
     for c_ in cs: col(t_, c_)
 check("N16.qb_age", NP, "N16", "QB age at retirement", "years", f"WITH {RET} SELECT AVG(last - born_year) FROM ret WHERE pos = 'QB' AND last IS NOT NULL",
-  Memory(35.0, "QBs retire about 35 (from memory)"), (0.06, 0.15, 0.0), "Mean age in the last season of retired quarterbacks.")
+  Fixed(29.1, "nfl_careers.json last_season_age: QBs whose last roster season was 2000-2020, mean 29.1 (median 27.6)", "2000-2020"), (0.06, 0.15, 0.0), "Mean age in the last season of retired quarterbacks.")
 check("N16.rb_age", NP, "N16", "RB age at retirement", "years", f"WITH {RET} SELECT AVG(last - born_year) FROM ret WHERE pos = 'RB' AND last IS NOT NULL",
-  Memory(28.0, "running backs retire about 28 (from memory)"), (0.06, 0.15, 0.0), "Mean age in the last season of retired running backs.")
+  Fixed(26.9, "nfl_careers.json last_season_age: RBs whose last roster season was 2000-2020, mean 26.9 (median 26.2)", "2000-2020"), (0.06, 0.15, 0.0), "Mean age in the last season of retired running backs.")
 check("N16.one_day", NP, "N16", "One-day contracts a year", "a year", "SELECT CASE WHEN (SELECT COUNT(*) FROM stories__careers__farewells) + (SELECT COUNT(*) FROM stories__careers__one_day) > 0 THEN 1.0 * COUNT(*) / MAX(COUNT(DISTINCT _1), 1) END FROM stories__careers__one_day",
   Memory(1.5, "about 1-2 a year (one_day_contracts.csv, from memory)"), (0.5, 1.0, 1.0), "One-day contracts per year that had any.")
 
@@ -477,8 +477,9 @@ panel("N25.picks", NP, "N25", "Supplemental draft picks", "table", "Players take
   f"SELECT year, name, player AS id, {club('team', 'year')} AS club, round FROM scouting__supplemental ORDER BY year DESC", open="e/people/{id}")
 for c_ in ["year", "player", "name", "team", "round"]:
     col("scouting__supplemental", c_)
-check("N25.rate", NP, "N25", "Supplemental picks a year", "a year", "SELECT 1.0 * COUNT(*) / MAX((SELECT COUNT(DISTINCT year) FROM nfl_seasons WHERE year <= 2019), 1) FROM scouting__supplemental",
-  Memory(0.4, "about one player every 2-3 years (from memory)"), (0.6, 1.5, 0.5), "Supplemental picks per season through 2019.")
+check("N25.rate", NP, "N25", "Supplemental picks a year", "a year",
+  "SELECT 1.0 * SUM(team IS NOT NULL) / MAX(MAX(year) - MIN(year) + 1, 1) FROM scouting__supplemental WHERE year <= 2019",
+  Memory(0.4, "about one player every 2-3 years (from memory)"), (0.6, 1.5, 0.5), "Players taken in the supplemental draft (a club named) per season through 2019, over the seasons the store holds; entrants nobody took are left out.")
 
 # ---------------------------------------------------------------- N26 other leagues
 panel("N26.seasons", NP, "N26", "Other pro leagues: champions and finals", "table",
