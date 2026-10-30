@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29.
+Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; where you fire checked at 9c7ec8d on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -157,6 +157,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - An interview (C25) reads ratings onto his page: the scheme question reads scheme and the job's teaching, the difficult player relationships and discipline, recruiting recruiting and network, what he wants ambition. Each read is truth + 0.3 × (ambition − 10) + 0.2 × (relationships − 10) (not for ambition) + noise ×1.5: a smooth talker reads better than he is (`interview_facet`).
 - Offers: `world/folk/hiring.rs`, below.
 - Firing: you owe the rest of his deal (× buyout share, or 25%); the room reacts by his relationships and growth record (`fire`).
+- Where you fire: any day, not only at the takeover meetings. Staff, Contracts tab, Let go on his row; or his move list (right-click his name, Let him go). Either opens the firing talk, a scene in your office (`staffing::start_firing`; `app/ui/screens/people.js`, `ppfire`; `lane_people.rs`, `coach_moves`). It works on assistants, never the head coach; a high school's staff below the head coach is drawn names with no button (`staffing::drawn_staff`; coaching update C37 makes them coaches).
 - Your staff brings you proposals (start a young player, rest a starter) about one week in two (`proposals_week`).
 - Your own job hunt: searches score you with the same formula plus a bonus for someone on the staff who knows you (1 + 1.5 × strength), home state +0.5, alma mater +0.6, and Aura for head jobs (`world/front_office/market.rs`, `bonus`, `candidate`).
 - Taking over a job: two weeks of dated meetings; you keep or let go each holdover assistant; a college hire opens your players' coaching-change window (`world/folk/takeover.rs`, `begin`, `coach_change_window`, `holdover_answer`).
