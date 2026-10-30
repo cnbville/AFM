@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 13e, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at a6467e3 on 2026-10-30; lane 13b (one-on-one openings and reveals) merged with main at 3a99d4f on 2026-10-30. The players-only meeting (bug 153) checked at b2b4213 on 2026-10-30.
+Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 13e, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at a6467e3 on 2026-10-30; lane 13b (one-on-one openings and reveals) merged with main at 3a99d4f on 2026-10-30. The players-only meeting (bug 153) checked at b2b4213 on 2026-10-30. The fan lane (fan voices) merged with main at 5527c36 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -257,6 +257,36 @@ Sizes are Claude's picks (proposed, not confirmed).
 - **Public score** (jersey lists, magazines): 0.55 x overall + 1.5 x stars + honors + draft round + position bonus (`world/stories/media.rs`, `public_score`).
 - **NFL fans**: the club's fan mood after each season (`world/pro/office.rs`, `fan_year`). It feeds the owner's trust, contend/rebuild and splash signings. See the NFL page.
 
+## Fan voices (the fan lane, next update)
+
+What your fans say, at all three levels (`world/folk/fans.rs`; screens in `crates/afm-game/src/lane_gameday/fans.rs`). Nothing is stored and nothing feeds back into the world: each screen works out the fan year again when it opens. Every size here is proposed, not confirmed.
+
+- **The places**:
+  - the town the night and morning after a game: 3 people, +1 for a rival, +1 for a 21-point game or an upset, +1 in a high school town, 6 at most (`town`);
+  - the call-in show and the message board on a talk day: the night of each game, and a Monday in a week with no game or talk in the last 6 days (`occasions`, `talk`);
+  - the crowd and its signs in the stands on game day (`crowd`, `signs`).
+  - The News page's Fans feed shows the town after your last game (in the past week) and the last two weeks of shows and threads. A game page's Fans tab shows the signs, the crowd play by play and the town. The live game shows the crowd under the plays and in the stands panel.
+- **The fan year** runs from the day after a Super Bowl (`year_start`). Each opening replays it from that day through one crowd memory (`voice.rs`, `Chorus`), so no version repeats inside the year while another fits; then the one said longest ago comes back. All of a team's fans share one memory key (`crowd_key`).
+- **Live and kept read the same.** The live crowd replays the year to the day before, then the signs, then the crowd. Each crowd line's score comes from its own play (`score_after`), so a line said live doesn't change when the next snap comes or when the game is kept (`tests/fans.rs`).
+- **Mood**, -1 to 1 (`mood`):
+  - It starts from what the fans carry: the NFL club's `office.fans`, your high school's support, or last season's win share against what the program's prestige hoped for (`carry`).
+  - Then 0.45 x carry + 0.55 x the season against the lines. The lines are the closing spread through a normal curve, sd 13.5 NFL, 15.5 college, 17 high school; with no line, the two teams' strength. The season term is (wins - expected) / sqrt(games) x 0.6.
+  - A game in the last 8 days adds +0.15 for a win or -0.2 for a loss, 0.15 more for a rival and 0.1 more for an upset. Upsets are a win at under 35% or a loss at over 65%.
+  - A streak past 2 adds 0.06 a game, 4 at most.
+  - Buckets: riding high 0.45+, happy 0.15+, unsure above -0.15, grumbling above -0.45, else up in arms (`Mood::of`).
+- **The crowd** is the home side's. A visiting crowd walks in unsure.
+  - Scores, turnovers and the kickoff always get a line.
+  - Others get one at most every 3 plays, at a chance: a third-down stop 55%; a sack, a boo, the officials or a big play against 70%; a big play (25+ yards) or an injury 80%.
+  - They leave once when the home side trails by 21+ in the fourth quarter. The final whistle gets a line.
+- **The fans are people**, drawn from a slot and never stored. Slots under 24 are regulars, the same person all year (`REGULARS`).
+  - Kinds by level: season ticket holders, students, alumni, parents, boosters and locals.
+  - Women: 45% in a high school town, 35% in other towns, 10% of radio callers, 12% of board posters.
+  - Names come from the cast's name draw. Callers come from towns in the team's state.
+- **Real names for places**:
+  - Stations: W east of the Mississippi, K west; some on FM from 2010 (`station`).
+  - The board: high school, an area forum before 2010, then the town's community page with real names. College, the team's message board. NFL, a fan forum before 2010, then fans online with @handles (`board_name`, `handle`).
+- **The lines**: `data/lines/fans.txt`, 63 parts (`fans::parts`; the 13f lane writes the full set). Speaker tags: `fan`, `crowd`, `host`, `ticket`, `student`, `alum`, `parent`, `booster`, `local`, `young`, `old`, `homer`, `doomer`, plus level, region and era. Facts: `result`, `score`, `margin`, `upset`, `streak`, `run`, `mood`, `rival`, `qb`, `star`, `goat`, `cost`, `defense`, `coach`, `next`, `mascot`, `color`, `place`, `at`, `from`, `station`, `late`, `class`, `move`, `draft` and the team facts.
+
 ## Fame, Aura, followers and brand money
 
 - **Fame** (0-1) = stage x play x role^0.6 x position draw x market + honors (`world/fame.rs`, `fame`).
@@ -324,6 +354,7 @@ Sizes are Claude's picks (proposed, not confirmed).
 - `world/folk/life.rs`: `chance` rates, `Event::mood`, coach health risk.
 - `world/folk/rules.rs`: `risk` terms, weekly bases, `see`, `nfl_fine`, `trouble_factor`, hit-fine odds 0.0055.
 - `world/folk/voice.rs`: `REST_DAYS` 365, pick weight 1 + 0.8 per need.
+- `world/folk/fans.rs`: `mood` (0.45/0.55, 0.6, +0.15/-0.2, rival 0.15, upset 0.1, streak 0.06), the spread sds 13.5/15.5/17, `Mood::of` cuts, `REGULARS` 24, the crowd chances in `crowd`, the town size in `town`, the women shares in `fan`.
 - `game/talk.rs`: `mind_now` terms, `ideal_fire`, `land` (ear, lift, focus, poise, heat, half-lives), `coach_pick` read noise, `word_trust`.
 - `world/folk/dialogue.rs`: `home_lean` (0.012, -0.006, +0.003, clamp -0.012 to 0.03), `wants` family weights, `backing`, home visit odds in `world/recruiting.rs` `recruiting_day` (0.08, 0.015, 400 miles); `college_calls` (13 days, 60%), `settle_calls` (+0.04, -0.10, -0.06); interview answers (0.45, 0, -0.3, 0.015 per Aura point, -1.0 missed, 120 days); `case_from` thresholds and `shift_plan` steps; `players_only` (0.2, 0.05, 21 days, mood terms, leak 50%/30%); `COMBINE_COST`.
 - `world/folk/press.rs`: answer effects. `world/folk/cast.rs`: reporter draws.

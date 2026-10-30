@@ -35,6 +35,8 @@ const TAGS: &str = concat!(
     "loud online absent ",
     // where and when
     "texas south midwest northeast west pre2000 pre2010 social modern nil ",
+    // the fans (fans.rs): who they are and how they lean, the radio host, the crowd
+    "fan crowd host ticket student alum local homer doomer ",
 );
 
 /// Every fact a caller hands the bank (`Facts::set` and `with` across
@@ -47,6 +49,8 @@ const FACTS: &str = concat!(
     "result rival rival_last rivalry role scope score season series since since_year starters stars_now stars_was ",
     "stat subject team through tried to_go town unit want weeks word worry writer year years you young ",
     "last_record them captain moment last mistake us first second club ",
+    // the fans (fans.rs)
+    "defense margin upset streak run mood qb star goat cost next mascot color place at from station late class move draft ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -165,6 +169,8 @@ fn asked() -> Vec<String> {
     for k in ["real", "bluff", "market", "stay"] {
         v.push(format!("agent.claim.{k}"));
     }
+    // The fans (fans.rs).
+    v.extend(crate::world::folk::fans::parts());
     v
 }
 

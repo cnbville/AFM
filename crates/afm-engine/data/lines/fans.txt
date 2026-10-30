@@ -1,0 +1,670 @@
+# The line bank: the fans (people topic 9, "Fan voices"; the fan lane
+# 2026-10-30, then lane 13f). Format in src/world/folk/voice.rs. The places
+# are in src/world/folk/fans.rs: the town after your game, the call-in show
+# and the message board on the News page, and the crowd on game day.
+#
+# Who speaks: a fan carries `fan`, his level (hs, college, nfl), what he is
+# (ticket: a season-ticket holder; student; alum; parent; booster; local),
+# young (under 30) or old (60 and up), she, hot or calm, homer (always
+# sees the bright side) or doomer (always the dark one), his region and
+# era (pre2000, pre2010, social, modern, nil). The radio host is `host`; the
+# crowd in the stands is `crowd` with its level, region and era.
+#
+# Facts every fan line can use: {team} how the fans say their own team
+# (the Bills, Alabama, Lincoln), {mascot}, {town}, {year}, {color} (some
+# colleges), {coach} (Coach Hale) and {coach_last} (Hale), mood=high, good,
+# mixed, low or angry, {record} once a game is played, {streak} (three
+# straight) with run=won or lost from three in a row.
+# After a game: {them}, {score} (ours first), result=win, loss or tie,
+# margin=big (17+), close (7 or less) or mid, at=home or away, rival=yes,
+# upset=won or lost (against the line), {qb}, {star} (our best player that
+# day), {goat} with cost=pick, fumble, miss or drop (our costliest
+# mistake), defense=good (held them to 10) or bad (gave up 28). {next} is the next opponent inside two weeks.
+# Recruiting: {player} the recruit, move=commit, decommit or sign, and on a
+# high school's side {other} the college. The draft: draft=before or after,
+# {player} the pick, and on a college's side {other} the club.
+# Names in {qb}, {star}, {goat} and {player} are last names, linked.
+#
+# The subjects (fans.<subject>) are said in every place; place=town, radio
+# or board marks a version for one place (a board post is written, short).
+
+# ---------------------------------------------------------------------------
+# After a game.
+
+@key fans.win
+That's how you do it.
+A win's a win. I'll take it every week.
+Good night to be from {town}.
+We beat {them} {score}. That's all I need to say.
+Told my wife at halftime we had it. She didn't believe me. ~ !she
+Never in doubt. Okay, a little in doubt.
+That one felt good. That one felt real good. ~ margin=big
+Ugly, but I'll take it. ~ margin=close
+{score} over {them}. Put it on the fridge. ~ margin=big
+Nobody gave us a chance against {them}. Nobody. ~ upset=won
+I've been waiting all year for a win like that. ~ upset=won
+Beat {them}. Best day of the year. ~ rival=yes
+Got the bragging rights back. Don't let them forget it. ~ rival=yes
+Bring on {next}.
+{star} was the best player on the field and it wasn't close.
+Ugly win. Glad nobody from out of town saw it. ~ margin=close doomer
+We won but I'm not sold yet. Let's see it against somebody good. ~ doomer
+Nothing like a win at home. ~ at=home
+Going on the road and winning, that's what good teams do. ~ at=away
+W. ~ place=board
+Never doubted. Never. ~ place=board homer
+Sweet win. ~ place=board young
+Whole town was out on Main Street honking. ~ hs
+Football Friday and we got it done. ~ hs
+The bars downtown were packed till close. ~ college
+Monday's going to be a good day at work. ~ nfl
+
+@key fans.loss
+That one hurt.
+Lost to {them}. I don't want to talk about it, but here I am.
+I turned it off in the fourth quarter. ~ !margin=close
+We'll get them next year. ~ rival=yes
+I can take losing. I can't take losing like that. ~ margin=big
+Lost by {score}. Look at that score again. ~ margin=big
+One play here or there. That's football. ~ margin=close
+We had that one and gave it away. ~ margin=close
+Nobody expected that. We were supposed to win by two scores. ~ upset=lost
+Losing to {them} is the worst day of the year around here. ~ rival=yes
+That's {streak} now. Something's got to change. ~ run=lost
+I've seen this movie before and I don't like the ending. ~ doomer
+Chin up. Long season. ~ homer
+We're better than that. I know we are. ~ homer
+L. ~ place=board
+Just awful. ~ place=board
+Don't talk to me today. ~ place=board young
+Quiet at the diner this morning. ~ hs
+Long ride home for everybody. ~ at=away
+Ruined my Sunday. ~ nfl
+Ruined my weekend. ~ college
+
+@key fans.tie
+A tie. I don't know what to do with a tie.
+Nobody won. Nobody's happy.
+Kissing your sister, my dad used to call it. ~ old
+Felt like a loss to me.
+A tie against {them}. I'll take it, barely.
+I'd rather lose than tie. At least you know where you stand.
+
+@key fans.qb
+{qb} is the real deal.
+I don't know what everybody else is watching, but {qb} can play.
+{qb} has to take care of the ball. ~ result=loss
+That kid {qb} has ice in his veins. ~ result=win margin=close
+{qb} missed two easy throws. Easy ones. ~ result=loss
+Give {qb} some time and he finds the open man. Every time.
+I'd start the backup. I said it. ~ hot
+{qb} is the best quarterback we've had since I've been coming. ~ homer
+{qb} looks lost out there. ~ doomer
+Put the ball in {qb}'s hands and get out of the way. ~ result=win
+{qb} to the house. That's all. ~ place=board result=win
+{qb} is a college quarterback already. ~ hs
+
+@key fans.star
+{star}. What a game.
+Did you see {star}? That's a player.
+{star} carried us today.
+They couldn't stop {star}. Nobody could.
+Give {star} the game ball and the keys to the town.
+{star} is going to be playing on Sundays. ~ !nfl
+{star} is going to Canton if he keeps this up. ~ nfl
+{star} put the team on his back. ~ result=win
+{star} was the only one who showed up. ~ result=loss
+{star} for Heisman. I'm not kidding. ~ college
+{star} goes D1. Book it. ~ hs
+{star} is a problem. ~ place=board
+
+@key fans.goat
+{goat} can't throw it to the other team. ~ cost=pick
+Another pick from {goat}. Read the coverage. ~ cost=pick
+{goat} has to take care of the ball. ~ cost=fumble
+Two hands on the ball, {goat}. That's day one stuff. ~ cost=fumble
+How do you miss that kick? {goat} has to make that. ~ cost=miss
+I could have made that kick in my church shoes. ~ cost=miss old
+{goat} dropped a sure thing. It hit him right in the hands. ~ cost=drop
+{goat} has stone hands. ~ cost=drop hot
+That one's on {goat}. I'm not saying it's all on him, but it's on him.
+I'm not blaming {goat}. Okay, I'm blaming {goat}. ~ result=loss
+Everybody makes mistakes. {goat} will bounce back. ~ calm
+Bench {goat}. ~ place=board hot
+
+@key fans.coach
+{coach} had them ready.
+I like what {coach} is building.
+{coach} got outcoached today. Simple as that. ~ result=loss
+You've got to give {coach} credit for that one. ~ result=win
+{coach_last} knows ball. I'll leave it at that. ~ homer
+I'm not sure {coach_last} knows what he's doing. ~ doomer
+{coach} needs to look at himself in the mirror. ~ result=loss hot
+Best coach we've had in my lifetime. ~ result=win homer
+{coach_last} has to win the big ones. ~ result=loss
+{coach_last} is the right man. Give him time. ~ calm
+In {coach_last} we trust. ~ place=board homer
+
+@key fans.calls
+Why are we throwing it on third and one?
+Run the ball. Just run the ball.
+Who's calling these plays?
+Same three plays every series. They know what's coming.
+Too cute in the red zone. Again. ~ result=loss
+I don't understand half the calls we make.
+The play calling was fine. The players didn't execute. ~ calm
+Fire the coordinator. ~ hot place=board
+Third and long, draw play, punt. Every time. ~ doomer
+Be aggressive. Go for it on fourth down. ~ young
+
+@key fans.defense
+The defense showed up. ~ defense=good
+Our defense can't tackle. ~ defense=bad
+They ran right through us. ~ defense=bad
+Hold them to ten and you'll win most weeks. ~ defense=good
+Defense wins games. I've been saying it for forty years. ~ old defense=good
+Somebody tackle somebody. ~ defense=bad
+Bend but don't break, my foot. We broke. ~ defense=bad
+That defense is the real thing. ~ homer defense=good
+It all starts with the defense.
+Let's talk about the defense for a minute.
+
+@key fans.refs
+The refs took that one from us. ~ result=loss
+That was the worst call I've ever seen.
+You can't make that call there.
+We didn't lose because of the refs. But it didn't help. ~ result=loss
+The officials wanted the other team to win. I'm just saying. ~ hot !result=win
+Bad call, but we had chances. ~ calm
+Ref show. ~ place=board
+
+# ---------------------------------------------------------------------------
+# Around the week.
+
+@key fans.next
+{next} next. That's the one I've been waiting for.
+We better be ready for {next}.
+{next} is no pushover.
+If we lose to {next}, I'm done.
+Beat {next} and we're right where we want to be.
+I'll be there for {next}. Wouldn't miss it.
+{next} this week. Get your seats early. ~ ticket
+{next} is beatable. Very beatable. ~ homer
+
+@key fans.rival
+Beat them. That's the whole season right there.
+I don't care what else happens. Beat them.
+Whole year comes down to that one game.
+My brother-in-law roots for {them}. Thanksgiving's going to be fun. ~ result=win
+My brother-in-law roots for {them}. I'm skipping Thanksgiving. ~ result=loss
+They've had our number lately. Time to change that.
+Rivalry week. Doesn't matter what the records say.
+
+@key fans.season
+We're {record}. I'll take that.
+{record}. That's not good enough for this program. ~ mood=low
+{record} and nobody saw it coming. ~ mood=high
+We're {record} and it feels worse than that. ~ mood=angry
+I knew we'd be good this year. I said it in August. ~ mood=high
+The season's not over. Long way to go. ~ calm
+Halfway through and I still don't know who we are.
+{streak}. Somebody pinch me. ~ run=won
+{streak}. I can't watch anymore. ~ run=lost
+
+@key fans.hotseat
+It's time for a change.
+I like {coach_last} as a man. But it's time.
+How many more years do we give him?
+You can't keep losing like this and keep your job.
+Fire {coach_last}. ~ hot
+Somebody upstairs has to make a call. ~ !hs
+The school board needs to hear from us. ~ hs
+Patience. Give the man one more year. ~ calm
+
+@key fans.recruiting
+{player} committed. Huge get. ~ move=commit
+{player} is coming here. Let's go. ~ move=commit
+Big pickup with {player}. That's a statement. ~ move=commit
+{player} flipped. That hurts. ~ move=decommit
+We lost {player}. Somebody dropped the ball. ~ move=decommit
+{player} signed. It's official. ~ move=sign
+{player} is going to {other}. Proud of that kid. ~ hs
+{player} to {other}. That's a {town} kid going big time. ~ hs
+How's the class looking? Anybody know? ~ college
+Recruiting wins championships. ~ college
+
+@key fans.draft
+Take the best player on the board. ~ draft=before
+We need a corner. Badly. ~ draft=before
+Don't trade up. We always trade up. ~ draft=before doomer
+I hope we draft a quarterback. I hope we don't. I don't know. ~ draft=before
+{player}? Who's {player}? ~ draft=after nfl
+I love the {player} pick. Love it. ~ draft=after
+{player} went to {other}. Proud of him. ~ draft=after college
+{player} is going to be a star in the league. ~ draft=after
+
+@key fans.offseason
+Counting the days till kickoff.
+Too long till the season.
+Who's going to step up this year?
+Schedule's out. I've got the dates circled. ~ !hs
+Saw some of the guys running hills at the park. ~ hs
+Season tickets are in the mail. ~ ticket
+I'm already worried about the line.
+This is our year. I say it every year. ~ homer
+Slow time of year. Nothing to talk about but football anyway.
+
+@key fans.hire
+I like the hire.
+New coach, new start.
+Give {coach_last} a chance. That's all I'm asking.
+Don't know much about {coach_last}. Guess we'll find out.
+I wanted somebody bigger, honestly. ~ doomer
+{coach_last} is going to turn this around. ~ homer
+Met {coach_last} at the hardware store. Seems like a good man. ~ hs
+
+# ---------------------------------------------------------------------------
+# The town after a game.
+
+@key fans.town.who
+{name}, a regular at the counter
+{name}, who hasn't missed a home game in years
+{name}, a season-ticket holder since {since} ~ ticket
+{name}, who has had the same two seats since {since} ~ ticket
+{name}, class of {class} ~ alum
+{name}, who graduated in {class} and still comes back for every game ~ alum
+{name}, whose son {player} plays {pos} ~ parent
+{name}, mother of {player} ~ parent she
+{name}, father of {player} ~ parent !she
+{name}, a student in the front row ~ student
+{name}, who runs the booster club concession stand ~ booster hs
+{name}, a big giver to the athletic department ~ booster college
+{name}, who works downtown ~ local
+
+@key fans.town.where
+at the diner on Main Street ~ hs
+in line at the gas station ~ hs
+at the barbershop ~ hs
+outside church after the early service ~ hs south
+at the grocery store ~ hs
+at a tailgate that never really ended ~ college
+in a bar downtown ~ college young
+at the coffee shop across from campus ~ college
+in the parking lot after the game ~ !hs
+at work Monday morning ~ nfl
+at the sports bar ~ nfl
+on the walk back to the car
+
+# ---------------------------------------------------------------------------
+# The call-in show.
+
+@key fans.radio.show
+{station} Sports Talk
+Sports Talk on {station}
+The {town} Sports Hour on {station}
+The {mascot} Report on {station}
+Saturday Morning Scoreboard on {station} ~ hs
+The Locker Room on {station}
+The Postgame Show on {station} ~ !hs
+
+@key fans.radio.intro
+Let's go to {name} in {from}. You're on the air.
+{name} in {from}, go ahead.
+{name}, {from}. What's on your mind?
+Next up, {name} in {from}.
+{name} from {from}, thanks for holding.
+Let's get one more in. {name} in {from}.
+{name}'s been holding a while. Go ahead, {name}.
+
+@key fans.radio.open
+Long-time listener, first-time caller.
+Hey, thanks for taking my call.
+Love the show.
+I'll be quick.
+I've been holding for twenty minutes so I'm going to say it.
+Here's the thing.
+Okay, listen.
+Yeah, hi. ~ young
+
+@key fans.radio.close
+I'll hang up and listen.
+That's all I got.
+Thanks for letting me vent.
+Keep up the good work, guys.
+Go {mascot}.
+You can quote me on that.
+And I'll say it again next week.
+
+# ---------------------------------------------------------------------------
+# The message board.
+
+@key fans.board.reply
+This.
+Bingo.
+Exactly what I said.
+Settle down.
+Hard disagree.
+Not even close.
+You must have watched a different game. ~ hot
+Fair point. ~ calm
+Facts. ~ social young
+Agree 100%. ~ social
+Ha. No. ~ doomer
+
+@key fans.handle
+{mascot}Fan{n}
+Old{mascot}
+{town}Tailgater
+{mascot}Nation{n}
+{name}{year}
+{color}Blood{n}
+Section{n}
+ThirdAndLong{n}
+{mascot}4Life
+
+@key fans.board.title.win
+Postgame: {team} {score} over {them}
+That's a W
+How about that win
+Postgame thoughts
+We did it
+{them} game postgame thread
+
+@key fans.board.title.loss
+Postgame: that one hurt
+Postgame thread
+Well that happened
+Lost to {them}. Discuss.
+What went wrong
+Where do we go from here
+
+@key fans.board.title.tie
+Postgame: a tie
+A tie, really?
+Tie with {them}. Thoughts?
+Nobody won tonight
+Postgame thread
+How do we feel about a tie
+
+@key fans.board.title.qb
+{qb} discussion
+QB thread
+Is {qb} the guy?
+{qb} appreciation thread
+Let's talk about {qb}
+Quarterback controversy?
+
+@key fans.board.title.star
+{star}!!!
+{star} appreciation thread
+Can we talk about {star}
+{star} is a problem
+Give {star} the ball
+{star} for all-conference
+
+@key fans.board.title.goat
+What was {goat} doing?
+{goat} again
+The play that lost it
+Somebody explain that play
+That mistake
+Bench {goat}?
+
+@key fans.board.title.coach
+{coach_last} thread
+Is {coach_last} the guy?
+{coach_last} press conference ~ !hs
+Coaching thoughts
+Grading {coach_last}
+In {coach_last} we trust?
+
+@key fans.board.title.calls
+Play calling thread
+Who calls these plays?
+Third and short
+The red zone
+Run the ball
+Fourth down decisions
+
+@key fans.board.title.defense
+Defense thread
+Can anybody tackle?
+Defense is legit
+What happened on defense
+Defensive grades
+That secondary
+
+@key fans.board.title.refs
+Officiating thread
+That call
+Refs
+Worst call of the year
+Replay?
+Zebras
+
+@key fans.board.title.next
+{next} week
+{next} prediction thread
+Who's going to {next}?
+Scouting {next}
+Keys to beating {next}
+Pick the score: {next}
+
+@key fans.board.title.rival
+Rivalry week
+I hate {them}
+Beat them
+Rivalry thread
+Bragging rights
+Hate week
+
+@key fans.board.title.season
+Season so far
+{record} and counting
+Where are we at
+Midseason thoughts
+State of the program
+Season predictions revisited
+
+@key fans.board.title.hotseat
+Time for a change?
+Hot seat thread
+Fire {coach_last}?
+One more year?
+Who's next
+Patience thread
+
+@key fans.board.title.recruiting
+Recruiting thread
+{player}!
+Commit watch
+Class rankings
+Signing day
+Recruiting news
+
+@key fans.board.title.draft
+Draft thread
+Mock draft
+Who do we take?
+Draft grades
+{player} pick
+Draft night
+
+@key fans.board.title.offseason
+Offseason thread
+Depth chart predictions
+How many days till kickoff
+Schedule thoughts
+Way too early predictions
+Offseason boredom thread
+
+@key fans.board.title.hire
+New coach thread
+{coach_last} hire
+Welcome {coach_last}
+Thoughts on the hire
+New era
+Grading the hire
+
+# ---------------------------------------------------------------------------
+# The crowd on game day.
+
+@key fans.crowd.kickoff
+The crowd is on its feet for the opening kickoff.
+The stands are full and loud.
+The home crowd roars as the ball goes up.
+Flags wave all over the stands as the game gets going.
+The band hits the fight song and the stands come alive. ~ !nfl
+The student section is packed and already loud. ~ college
+The whole town is in the bleachers. ~ hs
+The place is rocking before the first snap. ~ rival=yes
+
+@key fans.crowd.score
+The place erupts.
+The stands go wild.
+The crowd is on its feet.
+The home crowd roars.
+The band plays the fight song. ~ !nfl
+The student section loses its mind. ~ college
+The bleachers are shaking. ~ hs
+That one goes off like a bomb in the stands. ~ late=yes
+
+@key fans.crowd.scored_on
+The stands go quiet.
+You can hear a pin drop.
+A groan rolls through the crowd.
+Silence in the home stands.
+The crowd sits back down.
+A few boos from the upper deck. ~ nfl
+
+@key fans.crowd.away
+The visiting fans in the corner are the only ones cheering.
+The road section goes wild.
+A pocket of visiting fans is on its feet.
+The traveling fans make themselves heard.
+The visitors' section erupts.
+The away bleachers are going crazy. ~ hs
+
+@key fans.crowd.takeaway
+The crowd explodes.
+The place goes crazy.
+The stands are on their feet.
+The home crowd roars its approval.
+Turnover! The stands erupt.
+The crowd chants for the defense.
+
+@key fans.crowd.giveaway
+A groan goes through the stands.
+The crowd can't believe it.
+Boos rain down. ~ nfl
+Heads in hands all over the stands.
+The home crowd goes quiet.
+Somebody in the stands throws his hat.
+
+@key fans.crowd.sack
+The crowd roars.
+The stands are on their feet.
+Big cheer for the sack.
+The defense feeds off the crowd.
+The home crowd is loud.
+The bleachers stomp and cheer. ~ hs
+
+@key fans.crowd.big
+The crowd rises as the play goes.
+The stands roar.
+Everybody's on their feet.
+Big roar from the home crowd.
+The crowd gets louder with every yard.
+The home crowd loves that one.
+
+@key fans.crowd.big_against
+The crowd groans.
+The home stands go quiet.
+That one quiets the crowd.
+Boos for the defense. ~ nfl
+Somebody yells for a tackle.
+The crowd can't believe it.
+
+@key fans.crowd.stop
+De-fense! De-fense!
+The crowd roars for the stop.
+Big cheer from the stands.
+The home crowd is loud.
+The stands are rocking.
+The noise is deafening on third down.
+
+@key fans.crowd.boo
+Boos from the stands.
+The crowd lets them hear it.
+Scattered boos.
+Some boos as the punt team comes out.
+The home crowd is getting restless.
+The crowd isn't happy.
+
+@key fans.crowd.miss
+A groan from the stands.
+The crowd can't believe it.
+Somebody yells at the kicker.
+Silence, then groans.
+The home crowd sits down.
+Boos for the miss. ~ nfl
+
+@key fans.crowd.kick
+The crowd roars as it goes through.
+Big cheer from the stands.
+The home crowd is on its feet.
+The stands go wild.
+The kicker gets a big hand.
+The crowd erupts. ~ late=yes
+
+@key fans.crowd.refs
+The crowd boos the officials.
+The stands let the refs hear it.
+Loud boos for that call.
+The crowd can't believe the call.
+Boos rain down on the officials.
+Somebody yells at the line judge.
+
+@key fans.crowd.hurt
+The crowd goes quiet as the trainers come out.
+The stands applaud as he gets up.
+A hush over the crowd.
+The crowd claps as he walks off.
+Everybody waits.
+The home crowd gives him a hand.
+
+@key fans.crowd.leaving
+The stands are emptying out.
+Fans are heading for the exits.
+The parking lot is filling up.
+Half the crowd has left.
+The crowd is thinning out.
+Only the diehards are left.
+
+@key fans.crowd.final.win
+The crowd stays to sing the fight song. ~ !nfl
+The stands roar at the final whistle.
+The home crowd celebrates.
+The crowd stays on its feet to the end.
+Everybody's hugging in the stands.
+Happy fans pour out of the stadium.
+
+@key fans.crowd.final.loss
+The crowd files out quietly.
+A few boos at the final whistle.
+The stands are empty before the clock hits zero.
+The home crowd heads home unhappy.
+Silence at the final whistle.
+The crowd sits in disbelief.
+
+@key fans.sign
+Beat {them}!
+Our house!
+{team} all the way
+We believe!
+Go {mascot}!
+Defense!
+Hi Mom!
+Win it for {town}! ~ hs
+This is {mascot} country ~ !hs
+Beat {them}! Again! ~ rival=yes

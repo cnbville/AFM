@@ -6,6 +6,7 @@
 //! hints, your plan and game rules, which snaps stop for you), your game
 //! played live snap by snap, and the game page of every game you kept.
 
+pub(crate) mod fans;
 pub(crate) mod film;
 pub(crate) mod page;
 pub(crate) mod talk;
@@ -63,6 +64,10 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "game_page" => game.w().and_then(|w| {
             let k = args.get("index").and_then(Value::as_u64).ok_or("Missing index.")? as usize;
             page::game_page(w, k)
+        }),
+        "fans_game" => game.w().and_then(|w| {
+            let k = args.get("index").and_then(Value::as_u64).ok_or("Missing index.")? as usize;
+            fans::game(w, k)
         }),
         _ => return None,
     };
@@ -1124,8 +1129,23 @@ fn live_state(w: &mut World) -> Reply {
         pending_json(p, mine, rules_q, pool, &names, can_defer, bar)
     });
     let home = m.series(&r.stats.plays);
-    let feed: Vec<Value> =
-        r.stats.plays.iter().zip(&home).map(|(p, &h)| play_row(p, &names, &sides_names, mine, h)).collect();
+    // The home crowd (people topic 9): its line after a play rides on that
+    // play's row; its signs go up before the kickoff.
+    let (signs, crowd) = fans::live(w, date, level, teams, &r.stats.plays, over.then_some(r.stats.score));
+    let feed: Vec<Value> = r
+        .stats
+        .plays
+        .iter()
+        .zip(&home)
+        .map(|(p, &h)| {
+            let mut row = play_row(p, &names, &sides_names, mine, h);
+            let said: Vec<&str> = crowd.iter().filter(|c| c.0 == p.n).map(|c| c.1.as_str()).collect();
+            if !said.is_empty() {
+                row["crowd"] = json!(said.join(" "));
+            }
+            row
+        })
+        .collect();
     let log: Vec<Value> =
         r.log.iter().map(|(n, t, what)| json!({ "n": n, "team": t, "text": page::with_names(what, &names) })).collect();
     let totals = page::totals(&r.stats, &sides_names);
@@ -1179,6 +1199,8 @@ fn live_state(w: &mut World) -> Reply {
         "words": words,
         "talks": talks,
         "frames": r.frames.iter().map(|f| f.0).collect::<Vec<_>>(),
+        "signs": signs,
+        "crowd": crowd.iter().rev().take(4).map(|c| c.1.clone()).collect::<Vec<_>>(),
         "toss": r.toss.map(|(t, c)| json!({ "winner": sides_names[t], "choice": toss_name(c), "mine": t == mine })),
         "sheet": sheet(),
     }))
