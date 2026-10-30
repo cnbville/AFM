@@ -1094,13 +1094,13 @@ function nextReveal() {
 
 // ---------- holiday mode on screen ----------
 async function holiday() {
-  const { f: box } = dialog(`<b>Go on holiday</b><p class="sub">Your staff runs the team while you're away: they answer what can wait, and the game stops for anything only you can decide.</p>
+  const { f: box } = dialog(`<b>Go on holiday</b><p class="sub">Your staff runs the team while you're away and makes every call for you, meetings and choices included. The game comes back early only for a huge moment: the draft, cutdown day, the deadlines, the playoffs and title games, or one of your own team's biggest games.</p>
     <div class="seg hseg">${[[7, "A week"], [14, "Two weeks"], [30, "A month"], [90, "Three months"]].map(([d, t], i) => `<button type="button" data-days="${d}" aria-pressed="${i === 0}">${t}</button>`).join("")}</div>`, "Go on holiday", async (b) => {
     const pressed = b.querySelector('.hseg [aria-pressed="true"]');
     const days = Number(pressed ? pressed.dataset.days : 7);
     const room = document.createElement("div");
     room.className = "holiday-room";
-    room.innerHTML = `<div class="hol-sun"></div><div class="hol-copy"><div class="st-label">On holiday</div><div class="h1">Your staff has the keys</div><p class="sub">Back in ${days} days, or sooner if something needs you.</p><div class="st-bar"><i></i></div></div>`;
+    room.innerHTML = `<div class="hol-sun"></div><div class="hol-copy"><div class="st-label">On holiday</div><div class="h1">Your staff has the keys</div><p class="sub">Back in ${days} days, or sooner for a huge moment.</p><div class="st-bar"><i></i></div></div>`;
     document.body.appendChild(room);
     try {
       const r = await api("holiday", { days });

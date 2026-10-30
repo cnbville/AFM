@@ -510,12 +510,12 @@ pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
 /// and drove nothing). A club he has just joined starts at three quarters
 /// (it chose him; starting at a half, like a new head coach, held out 55%
 /// more players a year than before), a tenth higher when it has just paid
-/// him; after that a fair
-/// role earns a little each year and a short one costs, as in college. Pay
-/// under his market wears it, the more for a greedy man, and so does each
-/// tag he plays under (real players resent the tag: Le'Veon Bell sat out
-/// 2018 rather than play a second one). Broken promises and shopping
-/// rumors still cost it on their days. Sizes proposed, not confirmed.
+/// him; after that a fair role earns a little each year and a short one
+/// costs, as in college. Pay under his market wears it, the more for a
+/// greedy man, and so does each tag he plays under (real players resent
+/// the tag: Le'Veon Bell sat out 2018 rather than play a second one).
+/// Broken promises and shopping rumors still cost it on their days. Sizes
+/// proposed, not confirmed.
 fn club_trust(p: &mut Person, role: f64, pay: f64) {
     let t = &p.player.personality.traits;
     let (loyal, adapt, greed) = (t.z(Trait::Loyalty), t.z(Trait::Adaptability), t.z(Trait::Greed));

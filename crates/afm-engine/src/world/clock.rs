@@ -771,7 +771,7 @@ fn rhythm(w: &mut World, d: Date, y: &YearDates) {
             Level::HighSchool,
             Kind::Rhythm,
             Loudness::Small,
-            "High school week: film Monday, practice Tuesday to Thursday, games Friday, JV and film Saturday.",
+            "High school week: film Monday, practice Tuesday to Thursday, JV and freshman games Thursday, varsity Friday, film Saturday.",
         ));
     }
 }

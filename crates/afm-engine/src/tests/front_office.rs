@@ -296,3 +296,19 @@ fn injured_reserve_is_your_call_on_the_leagues_rules() {
     assert_eq!(w.people[i].pro.as_ref().unwrap().status, Status::Roster);
     assert_eq!(w.clubs[t].ir_used, used + 1, "a return was used");
 }
+
+/// Minor bug 156: the owner's season goals go on the calendar the day
+/// before, so their morning stops Continue, and the end of that day before
+/// doesn't hand them to your staff.
+#[test]
+fn the_owners_goals_meeting_stops_its_morning() {
+    use crate::world::folk::{boss, scene};
+    let (mut w, _) = nfl_world();
+    let pre = w.dates.minicamp.1.add(2);
+    w.folk.mine.since = Some(pre.add(-60));
+    boss::day(&mut w, pre.add(-1));
+    scene::day(&mut w, pre.add(-1));
+    let s = w.folk.scenes.iter().find(|s| s.title == "The season's goals").expect("the goals meeting");
+    assert!(s.date == pre && !s.done && s.handed.is_none(), "{:?} done {} handed {:?}", s.date, s.done, s.handed);
+    assert!(scene::due(&w, pre).is_some());
+}

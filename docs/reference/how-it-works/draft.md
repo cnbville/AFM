@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, and the hunt (next update lane 11) on 2026-10-30.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, and the pick times (minor bug 159) on 2026-10-30.
 
 ## Quick answers
 
@@ -30,7 +30,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, and the hunt
 - Comp slots per round from 1994: rounds 3-7 get 6, 4, 6, 8, 9 (scaled by league size). Until free agency awards them they go to keyed teams (`franchise.rs`, `comp_picks`, `draft_board`). Once awarded they sit at the end of their round, the best value first, diversity picks last (`world/pro/trades.rs`, `board_owners`).
 - Traded picks go to their owners; a pick forfeited in a supplemental draft is removed (`trades.rs`, `board_owners`).
 - A world smaller than full size keeps every k-th pick (`franchise.rs`, `draft_board`).
-- Pick times: round 1 Thursday at 10 minutes a pick, rounds 2-3 Friday at 7, rounds 4-7 Saturday at 5 (`recruiting.rs`, `draft_end`, `pick_time`).
+- Pick times: round 1 Thursday from 8 PM ET, rounds 2-3 Friday from 7 PM, rounds 4-7 Saturday from noon. Each pick takes 0.6 of its round's clock in rounds 1-3 and 0.5 on Saturday, counted on the board's own rounds (comp picks included), after a 10-minute opening and with 5 minutes between rounds on a day; in a smaller world each pick stands for the real picks it thins out, and a day that would run past the next session or midnight is squeezed (minor bug 159). So round 1 ends near 11:15 PM (10:40 PM with 2026's 8-minute clock), pick 33 comes at 7 PM Friday, round 3 ends near 11 PM and the last pick near 6:20 PM Saturday. Draft-day trades post 2 minutes before their pick (`recruiting.rs`, `pick_stamps`, `draft_end`).
 
 ## The December read and declaring
 
@@ -111,7 +111,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, and the hunt
 `world/scouting/live.rs`:
 
 - Opens on draft day when your seat is at an NFL club that holds a pick; AI picks run to your turn (`start`, `advance`).
-- Pick clock (minutes): 15 in round 1 and 10 after until 2007; then 10, 7, 5 for rounds 3-6, 4 in round 7; round 1 is 8 from 2026 (`clock_minutes`). If time runs out the next club in the round jumps in and you pick after it (`timeout`).
+- Pick clock (minutes): 15 in round 1, 10 in round 2 and 5 after until 2007; then 10, 7, 5 for rounds 3-6, 4 in round 7; round 1 is 8 from 2026 (`clock_minutes`). If time runs out the next club in the round jumps in and you pick after it (`timeout`).
 - Your staff's pick: the top of your board order (your moves first, then your director's grades) that the club would take and isn't on your do-not-draft list (`staff_choice`; `world/scouting/board.rs`, `ordered`).
 - Offers while you're on the clock: clubs in the next 12 whose eagerness is 2.5+, each calling with chance 0.55 + 0.1 × min(eagerness, 3), so 80-85% (the code comment says about half), at most three, priced on their chart (`offers`).
 - Trading up: the club above asks 1.05 × the chart gap, free if the gap is ≤3% of its slot (`quote`, `trade_up`).
