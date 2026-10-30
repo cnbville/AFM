@@ -12,15 +12,22 @@
 "use strict";
 
 // ---------- talking to the game ----------
+// Calls still waiting on the game: the drawn heads wait while any is (faces.js).
+let apiBusy = 0;
 async function api(cmd, args = {}) {
-  if (window.__TAURI__ && window.__TAURI__.core) {
-    // The Mac app rejects with the game's message as a plain string.
-    try { return await window.__TAURI__.core.invoke("call", { cmd, args }); } catch (e) { throw new Error(plain(e && e.message ? e.message : String(e))); }
+  apiBusy++;
+  try {
+    if (window.__TAURI__ && window.__TAURI__.core) {
+      // The Mac app rejects with the game's message as a plain string.
+      try { return await window.__TAURI__.core.invoke("call", { cmd, args }); } catch (e) { throw new Error(plain(e && e.message ? e.message : String(e))); }
+    }
+    const r = await fetch("/api/" + cmd, { method: "POST", body: JSON.stringify(args) });
+    const j = await r.json();
+    if (j.err !== undefined) throw new Error(plain(j.err));
+    return j.ok;
+  } finally {
+    apiBusy--;
   }
-  const r = await fetch("/api/" + cmd, { method: "POST", body: JSON.stringify(args) });
-  const j = await r.json();
-  if (j.err !== undefined) throw new Error(plain(j.err));
-  return j.ok;
 }
 // The system's file errors in plain words.
 function plain(m) {
