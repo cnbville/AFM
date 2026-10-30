@@ -421,7 +421,7 @@ fn job_whys(b: &Book, id: i64, js: &[Job]) -> Option<Value> {
         // the AD's reviews.
         let mut end: Vec<String> = Vec::new();
         if j.ended != "current" {
-            end.push(capital(&j.ended));
+            end.push(format!("{}.", capital(&j.ended)));
             end.extend(in_years(&["CoachFired", "CoachLeft"], j.to - 1, j.to + 1, ""));
         }
         if j.kind == "College" && j.role == "HeadCoach" {
@@ -532,7 +532,11 @@ fn tree(b: &Book, row: &Map<String, Value>) -> Option<Value> {
     }
     Some(json!({
         "kind": "tree", "title": "His coaching tree",
-        "note": format!("{} learned under him directly, {total} in all down his tree; above him, the head coaches he learned under longest. Three generations shown, the biggest branches first", direct),
+        "note": if direct == 0 {
+            "No one has learned under him yet; above him, the head coaches he learned under longest".to_string()
+        } else {
+            format!("{direct} learned under him directly, {total} in all down his tree; above him, the head coaches he learned under longest. Three generations shown, the biggest branches first")
+        },
         "up": up, "root": root,
     }))
 }

@@ -44,6 +44,7 @@ pub const COLUMNS: &[(&str, &str)] = &[
     ("log_programs", "result__losses"),
     ("people", "player__train__prep"),
     ("people", "player__train__rust"),
+    ("people", "player__train__load"),
     ("log_coaches", "coach__ability__teaching__0"),
     ("log_coaches", "coach__ability__teaching__1"),
     ("log_coaches", "coach__ability__teaching__2"),

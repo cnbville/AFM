@@ -1159,7 +1159,7 @@ pub fn school_blocks(b: &Book, row: &Map<String, Value>, f: &Filters) -> Vec<Val
             .filter(|r| i(r.get("state_title")) == Some(1))
             .map(|r| {
                 let y = i(r.get("year")).unwrap_or(0);
-                json!({ "from": y, "to": y, "text": "", "tone": "FBS", "sub": "state title" })
+                json!({ "from": y, "to": y, "text": "", "tone": "FBS" })
             })
             .collect();
         out.push(json!({ "kind": "bands", "title": "Its coaches over the years", "note": "Each head coach's run with his record and how it ended; state titles below",
