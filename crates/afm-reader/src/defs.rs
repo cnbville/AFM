@@ -94,6 +94,7 @@ pub fn checks() -> impl Iterator<Item = &'static Check> {
         .chain(crate::defs_games::CHECKS)
         .chain(crate::defs_nfl::CHECKS)
         .chain(crate::defs_world::CHECKS)
+        .chain(crate::defs_programs::CHECKS)
 }
 
 /// Every distribution.
@@ -104,6 +105,7 @@ pub fn metrics() -> impl Iterator<Item = &'static Metric> {
         .chain(crate::defs_games::METRICS)
         .chain(crate::defs_nfl::METRICS)
         .chain(crate::defs_world::METRICS)
+        .chain(crate::defs_programs::METRICS)
 }
 
 /// Every consistency check.
@@ -114,6 +116,7 @@ pub fn rules() -> impl Iterator<Item = &'static Rule> {
         .chain(crate::defs_games::RULES)
         .chain(crate::defs_nfl::RULES)
         .chain(crate::defs_world::RULES)
+        .chain(crate::defs_programs::RULES)
 }
 
 /// Every column the defs read that a small or early world may lack.
@@ -124,6 +127,7 @@ pub fn columns() -> impl Iterator<Item = &'static (&'static str, &'static str)> 
         .chain(crate::defs_games::COLUMNS)
         .chain(crate::defs_nfl::COLUMNS)
         .chain(crate::defs_world::COLUMNS)
+        .chain(crate::defs_programs::COLUMNS)
 }
 
 /// Tables the lane R8 pages read that an older or smaller world may not
@@ -145,4 +149,5 @@ pub fn outliers() -> impl Iterator<Item = &'static Outlier> {
         .chain(crate::defs_games::OUTLIERS)
         .chain(crate::defs_nfl::OUTLIERS)
         .chain(crate::defs_world::OUTLIERS)
+        .chain(crate::defs_programs::OUTLIERS)
 }

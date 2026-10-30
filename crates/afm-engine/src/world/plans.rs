@@ -1019,6 +1019,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         level: inp.level,
         plan: team.plan().0,
         designs: [None; 8],
+        burner: 0.0,
     };
     let staff = team.staff;
     let two_from = inp.two_from;

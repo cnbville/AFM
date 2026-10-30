@@ -922,6 +922,8 @@ fn marks(w: &World, t: TeamRef, lv: Lv, r0: Date, r1: Date, ys: &mut Years) -> V
                 }
                 out.push((y.portal_open, "Portal window opens".into()));
                 out.push((y.signing_day, "Signing day".into()));
+                // The sites' national showcase finals (speed update S6d).
+                out.push((afm_engine::world::times::showcase_dates(s).1, "Showcase finals".into()));
             }
             Lv::High => {
                 if let TeamRef::HighSchool(h) = t
@@ -934,6 +936,10 @@ fn marks(w: &World, t: TeamRef, lv: Lv, r0: Date, r1: Date, ys: &mut Years) -> V
                     out.push((e, "Early signing".into()));
                 }
                 out.push((y.signing_day, "Signing day".into()));
+                // The spring track season (speed update S6a).
+                let (open, _, state) = afm_engine::world::times::track_dates(s);
+                out.push((open, "Track season opens".into()));
+                out.push((state, "State track meet".into()));
             }
             Lv::Nfl => {
                 out.push((y.draft[0].date, "Draft".into()));

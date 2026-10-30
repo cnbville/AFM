@@ -214,7 +214,7 @@ pub(crate) fn unrelated(pos: Position, key: Attr, hs: bool) -> bool {
 /// spring and a late bloomer less (Biology of Sport, 2026; proposed, not
 /// confirmed: 66% at the start of growth, 96% when grown, straight between;
 /// the year's growth adds the rest).
-fn speed_with_body(age: f64, bloom: f64) -> f64 {
+pub(crate) fn speed_with_body(age: f64, bloom: f64) -> f64 {
     let grown = clamp((age + 0.75 - 13.0 - 0.6 * bloom) / 6.0, 0.0, 1.0);
     0.66 + 0.30 * grown
 }

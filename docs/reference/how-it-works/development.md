@@ -1,6 +1,6 @@
 # Development: how it works today
 
-Checked against main at 2a6e50c with update 3 lanes 1 (bodies and the speed core) and 3 and world reader lane R2 on 2026-10-29.
+Checked against main at 6200524 with update 3 lanes 1 (bodies and the speed core), 3 and 4, and world reader lane R2 on 2026-10-29.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 

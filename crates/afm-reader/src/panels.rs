@@ -192,4 +192,5 @@ pub fn all() -> impl Iterator<Item = &'static Panel> {
         .chain(crate::defs_games::PANELS)
         .chain(crate::defs_nfl::PANELS)
         .chain(crate::defs_world::PANELS)
+        .chain(crate::defs_programs::PANELS)
 }

@@ -617,12 +617,16 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     } else {
         "He sits down and waits for you to start."
     };
+    let asked = asked_to_leave(w, id);
+    if asked {
+        s.narrate("He asked for this meeting.");
+    }
     s.narrate(format!("In comes {}. {posture}", player_link(w, i)));
     let spk = Speaker::player(w, i);
     let mut f = player_facts(w, i);
     f.set("subject", subject.name());
     let mut pen = scene::pen(w, s, 1);
-    let key = format!("talk.open.{}", subject.key());
+    let key = if asked { "talk.open.portal".to_string() } else { format!("talk.open.{}", subject.key()) };
     let tone = if mood < -0.2 {
         "talk.open.sour"
     } else if mood > 0.2 {
@@ -632,7 +636,13 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     };
     let line = pen.line(&[tone, &key], &spk, &f);
     pen.put(w);
-    let line = if line.is_empty() { open_fallback(subject, mood) } else { line };
+    let line = match (line.is_empty(), asked) {
+        (false, _) => line,
+        (true, true) => {
+            "Coach, I wanted you to hear it from me first. I'm thinking about putting my name in the portal.".into()
+        }
+        (true, false) => open_fallback(subject, mood),
+    };
     let tell = read_tell(w, i, if trust < 0.4 { -1 } else { 0 });
     s.them(&name, line, tell);
     add_talk_picks(w, s, i, subject, &[]);
@@ -1511,6 +1521,10 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
                 let d = 0.02 * (rel - 9.0) as f32 / 5.0;
                 w.people[i].trust = (w.people[i].trust + d * 0.5).clamp(0.0, 1.0);
                 mood_event(w, id, Reason::Talk, d);
+                // He came to say he's leaving: his position coach asks him to stay.
+                if asked_to_leave(w, id) {
+                    super::takeover::position_coach_word(w, i);
+                }
             }
             s.handed = Some("his position coach".into());
             s.outcome
@@ -1682,6 +1696,22 @@ pub(crate) fn day(w: &mut World, d: Date) {
         }
         ai_talks(w, d);
     }
+}
+
+/// One of your players asks to see you before he enters the portal: a
+/// one-on-one about his future on your calendar. What you say there moves
+/// his lean; he decides the day after (`recruiting::intents_day`).
+pub(crate) fn portal_ask(w: &mut World, i: usize, d: Date) {
+    let mut s = Scene::new(Kind::OneOnOne, d, format!("{} wants to talk about his future", w.people[i].name));
+    s.a = w.people[i].player.id as u64;
+    s.b = Subject::Future as u64;
+    s.place = "Your office".into();
+    scene::add(w, s);
+}
+
+/// Whether he asked for this talk because he means to enter the portal.
+fn asked_to_leave(w: &World, id: u32) -> bool {
+    w.portal_intents.iter().any(|t| t.is(id))
 }
 
 /// A loud parent calls when his son's role sours (high school and

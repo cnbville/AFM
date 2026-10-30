@@ -18,6 +18,7 @@ pub mod defs_games;
 pub mod defs_list;
 pub mod defs_nfl;
 pub mod defs_people;
+pub mod defs_programs;
 pub mod defs_world;
 pub mod dist;
 pub mod issues;
