@@ -505,6 +505,8 @@ pub fn game(b: &mut Book, row: i64, f: &Filters) -> Result<Value, String> {
     if !played || has(&g, "standin") && num(&g, "standin") != 0.0 {
         p["verdict"] = json!(if played {
             "A stand-in result: the world decided this game without the engine, so it has a score but no box, lines or snaps."
+        } else if has(&g, "forfeit") && num(&g, "forfeit") != 0.0 {
+            "A forfeit: the game was never played, so it has no score, box, lines or snaps."
         } else {
             "Not played yet."
         });
