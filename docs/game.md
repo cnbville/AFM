@@ -1227,6 +1227,50 @@ Talks on game day and off it, each a scene or a page you play, with every team's
 - The faces for each tell (expression, strength and turn).
 - The rooms' backdrops per level, drawn in CSS rather than 3D rooms.
 
+### Lane 4: speed in recruiting and on the field (speed S2a, S5-S7a, S9, S10-S10d; A3; B1-B4; minor bugs 20, 22-27, 30, 45-48, 57)
+
+Cain agreed to the speed items on 2026-10-26 and to B1-B4 on 2026-10-28.
+
+- **Recorded times** (S6, S6a-S6e; `world/times.rs`, `World::times`). A high schooler's forty, split, 100 m and 200 m are stored when he runs them, with how they were timed, where and the date; nothing is recalculated when a page opens. Spring track (March to the 2nd Saturday of May, the state meet on the 3rd Saturday of May, its top 16 a state on the calendar), June camps at colleges (at a school that offered him or one in his state; family money and distance decide), eight Sunday regional showcases and the national finals on the 4th Sunday of June, and each school's own hand forty on August 20. Hand times run 0.24 s fast and count less; a school's own forty runs faster still and is a reason to come test, not proof. How the times are made: [body.md](reference/how-it-works/body.md), "Recorded times"; when and where: [recruiting.md](reference/how-it-works/recruiting.md), "Recorded times".
+- **Stars and offers read recorded speed** (S2a, S5, S6f, S9; `world/times.rs`, `seen`, `speed_floors`; `world/recruiting.rs`, `service_stars_floored`). The services and the college staffs read a kid's speed and burst only from times someone recorded, weighted by how they were timed, on top of a film prior. Edges, tackles and linebackers read the split more than the forty (the S2b mix). The fastest 1 in 100 timed at his position is at least a 3-star, the fastest 1 in 1,000 a 4-star, and the tiers keep their sizes by moving others down. The services' random misread is 6 points, down from 9.
+- **Film is what he has shown** (minor bug 20; `film_raw`, `hs_played`): before his season ends, the film read blends last season's play with this one's by the share of games played.
+- **Desperate schools offer raw burners** (S7, S7a; `run_signing_stage`). A school with a need unfilled after December's signing day, a head coach on the hot seat (pressure 0.34 or more) or a G5 or FCS staff poached in the year adds the timed speed to its read of a burner, half again with two signs; a burner in its state or footprint is always looked at.
+- **Burners on the field** (S10, S10a-S10d; `game/roster.rs`, `burner`; `game/flow.rs`, `speed_package`; `game/calling.rs`, `make_plan`; `game/scrimmage.rs`). A backup receiver or back much faster than the starters returns kicks, takes some jet motions and a few deep shots, and gunners on punts. Against a feared burner corners give a deeper cushion, the safeties sit deeper and lean to his side, the bracket goes by deep speed as well as overall, and coordinators call more two-high shells.
+- **The S10 proof** (`match_check`, NFL, 3,000 games, burner on against off): his teammates' short catches rise 2.7% and their yards after the catch 0.8%. It holds, but small.
+- **Weight in every make-a-man-miss check** (A3; `game/sim.rs`, `size_cost`).
+- **The layered blitz** (B3; `game/calling.rs`, `call_defense`). Against an offense that throws quick a defense blitzes less, by how restrained its coordinator is (an aggressive one, Brian Flores style, barely backs off), and a snap it backed off on leans to a simulated pressure or a disguised look, so the quick thrower can't tell a zone from a blitz.
+- **NFL injuries day by day** (B1; `world/pro/mod.rs`, `heal_day`): game injuries carry by team, not snap side (oddity 28), and heal a day at a time, each night after the day's games; a healed man on reserve comes back while the club has returns left. Your club's injured reserve (minor bug 73, on main first) keeps its rules: your healed man waits for your word, a man placed before the cutdown is out for the season, and your staff with the duty brings back one already waiting; a placement's minimum stay is counted in days too (`front_office/reserve.rs`, `place`).
+- **High school ejections at every school** (B2; `world/folk/rules.rs`, `league_week`).
+- **Flex news** (B4, minor bug 57; `world/stories/nfl.rs`): each meeting pairs with its own stored game.
+- **Your staff's reads** (minor bugs 23-25). Lane 7's scouting files now give every read on screen (`crates/afm-game/src/reads.rs`), so a kid nobody of yours has looked at reads "Not seen" (bug 25 is fixed there; this lane's own read from recorded times gave way to it in the merge). His page shows his listed height and weight, arm and hand only when measured, and his best time per event with place, timing and date (`lane_core/pages.rs`, `measurables`, `times_rows`).
+- **Camps and showcases on the scouting side** (minor bugs 22, 26; `world/scouting/dept.rs`; `world/times.rs`, `your_camp`, `test`): your camp lasers its kids and a showcase gives your staff a look at the kids on your board.
+- **The services' leans** (minor bug 27; `world/scouting/services.rs`, `lean`): big programs by power-conference offers, viral by a fast recorded time, size by listed weight; the unused `service_read` is gone.
+- **Every comparison links its player** (minor bug 30; `app/ui/screens/squadboards-player.js`, `ratings.js`; `lane_squadboards/body.rs`, `arc.rs`): the dots and lines on the body, ratings and arc charts name the player on hover and open his page on click, at the numbers your staff know, at all three seats.
+- **Schedules and numbers** (minor bugs 45-48): Christmas games in 1999 and 2004, college holiday games on their real days, NFL 0 jerseys from 2023, and the trial's trades and comp picks read year by year against the real counts. See [nfl.md](reference/how-it-works/nfl.md), "Schedules, numbers and news".
+- **What moved** (`match_check nfl 400` and `fbs 400`, main against this lane with lane 1's bodies under it, same seeds). NFL points 27.8 to 27.2 a team game, pass yards 290 to 286, rush yards 104 to 101, man share 33.5% to 32.4%, blitz share 23.2% both, sacks 2.28 to 2.24, interceptions 0.92 to 0.97, injuries of a week or more 1.10 to 1.15. FBS points 22.3 to 22.2, pass yards 242 to 238, rush yards 124 to 126, man share 33.9% to 32.8%, blitz share 23.0% to 23.8%, sacks 2.58 to 2.54, interceptions 0.82 to 0.77, injuries 0.82 to 0.86. The more two-high shells against fast teams show as less man.
+- **In a world** (`star_mix build 2026 4 0.25`, a quarter-scale world on the stand-in history, the class of 2026 on January 1): 14% of the 19,198 seniors have track times, 66% a laser forty from a camp or showcase, 92% a school forty, 70% some electronic time. Of the fastest 1 in 100 at each position whose film is below the position's median (23 kids), 21 were timed; all 23 hold an offer or signed; their stars: 15 three-stars, 6 four-stars, 2 unrated (the two never timed). Comp picks 32-34 a year (real 29-38); trades 10-37 a year in 2011-2025 against the real 40-102 (86-96 since 2021): too few, on the minor bugs list as 87 to fix before the world rebuild.
+
+#### Claude's picks (proposed, not confirmed)
+
+- Track: who runs it by position (backs, receivers and the secondary 45%, quarterbacks, tight ends, linebackers and edges 18%, linemen 4%) times his speed; 70% of runners at a meet, 75% of meets fully automatic, the 200 m 60% of the time; the state meet's top 16.
+- Camps: rising seniors 1.0, juniors 0.8, sophomores 0.3; a recruit colleges want goes to a few, a little-known kid about one, both times (0.3 + 0.7 × family money); 60% at a school that offered him, else in his state; over 400 miles needs money of 0.5. Showcases: 45% of invited kids within 500 miles; the finals invite the best 150 by the services and the 40 fastest timed.
+- The speed read: film prior sd 6, a hand time weighs 0.4, a school forty 0.1, the grown read at 0.96 of his age's typical share.
+- Floors at 1 in 100 (3-star) and 1 in 1,000 (4-star) on the grown play-speed mix; the misread at 6.
+- Desperation: the hot seat at pressure 0.34, a G5 or FCS staff counting as poached by its level (the portal log is not kept outside trials), the burner's lift 1.0 sd of the timed speed (1.5 with two signs).
+- High school ejections at 0.08 a team week.
+- The burner: more than 1 point faster than the top starter and 4 over the starters' mean on the deep speed mix (0.6 speed + 0.4 burst); jet motion 0.5 + 0.4 × lean, deep shots 0.25 + 0.5 × lean; gunners by 0.5 deep speed + 0.3 release + 0.2 strength; fear = (his speed − the secondary's deep speed − 2) / 8; safeties 2 yards deeper single-high, 1.5 in two-high (plus 1 on his side); two-high × (1 + 0.8 fear).
+- The layered blitz: restraint = (19 − aggressiveness) / 10, 0.1-1; a backed-off snap is simulated pressure with chance 1.5 × the back-off (0.6 for a coordinator of 9 or less) and disguised with 0.05 + 0.025 × skill + 1.5 × the back-off.
+
+#### Doubts
+
+- Your staff's reads of other skills still read 0.96 of a kid's ceilings, not what he has shown; only speed and burst moved to recorded times here.
+- The S10 proof is small (2.7% and 0.8%).
+- The 6-point misread should be checked against the real five-star draft rate on the world reader's data (R2).
+- 66% of the world's seniors have a laser forty; there is no real share to check it against, and real college camps often hand-time, so camps may laser too many.
+- B1 carries every injury now (a defender's never carried before): in a 3-year world's February most clubs hold 0-7 on reserve and four hold 10-25 (the Lions 25, 20 of them healed with no IR returns left). Not checked against real end-of-season reserve lists.
+- Out of season, your club's healed man on the reserve/PUP list now waits for your word too (main's offseason step moved him by itself before minor bug 73); one you miss stays on the list into camp.
+- `lib.rs` `LANES` did not grow: this lane added no commands of its own.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

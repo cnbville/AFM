@@ -1794,13 +1794,15 @@ fn record(w: &mut World, k: u8, teams: [u16; 2], r: &GameResult, who: [&HashMap<
             c.sharpness = (c.sharpness + 0.34).min(1.0);
         }
     }
-    for (_, inj) in &r.injuries {
-        if inj.plays_on || inj.side > 1 {
+    // By team, day by day from the day after the game (B1).
+    for &(team, ref inj) in &r.injuries {
+        if inj.plays_on || team > 1 {
             continue;
         }
-        let Some(&i) = who[inj.side].get(&inj.id) else { continue };
+        let Some(&i) = who[team].get(&inj.id) else { continue };
         if let Some(c) = w.people[i].pro.as_mut() {
-            c.out_weeks = c.out_weeks.max(inj.weeks.ceil().max(1.0) as u32);
+            c.hurt_for(1 + (inj.weeks * 7.0).ceil().max(1.0) as u32);
+            w.hurt_pros.0.push(w.people[i].player.id);
         }
     }
 }

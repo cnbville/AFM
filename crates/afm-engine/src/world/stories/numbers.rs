@@ -192,15 +192,16 @@ pub fn state_name(code: &str) -> String {
 /// NFL (rule 5, from memory, to verify): before 2004 receivers wore 80-89;
 /// 2004 opened 10-19 to receivers; 2015 opened 40-49 to linebackers; 2021
 /// opened 1-49 to backs, receivers, tight ends, linebackers and defensive
-/// backs; 2024 allowed 0. College and high school: interior linemen must
-/// wear 50-79 to be ineligible receivers, the rest follows habit; college
-/// allowed 0 from 2020.
+/// backs; 2023 allowed 0 (23 players wore it that season,
+/// `memory_checks.json` `jersey_numbers`). College and high school:
+/// interior linemen must wear 50-79 to be ineligible receivers, the rest
+/// follows habit; college allowed 0 from 2020.
 pub fn allowed(pos: Position, level: crate::calendar::Level, year: i32) -> Vec<u8> {
     use crate::calendar::Level as L;
     let r = |a: u8, b: u8| (a..=b).collect::<Vec<u8>>();
     let cat = |parts: &[Vec<u8>]| parts.concat();
     let zero = match level {
-        L::Nfl => year >= 2024,
+        L::Nfl => year >= 2023,
         L::College => year >= 2020,
         _ => true,
     };

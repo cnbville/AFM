@@ -2105,6 +2105,12 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     let eye = team.filter(|_| own).map_or(10.0, |t| eye_for(w, t, pos));
     let attrs = reads::attributes(w, k);
     let mine_attrs = reads::mine_attributes(w, k);
+    // Minor bug 24: an outside high schooler shows his school's listing,
+    // and his arms and hands only once your staff has measured him.
+    let hs_out = !own && matches!(p.stage, Stage::HighSchool | Stage::PrepSchool);
+    let measured = !hs_out || reads::hs_tested(w, id);
+    let (lh, lw) =
+        if measured { (body.height, body.weight) } else { afm_engine::world::scouting::file::listed(&p.player) };
     let groups: Vec<Value> = [
         (Category::Physical, "Physical"),
         (Category::Passing, "Passing"),
@@ -2215,10 +2221,10 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "high_school": w.high_schools.get(p.hs).filter(|_| !w.others.national(p.player.id)).map(|s| w.school_name(s.id).to_string()),
         "high_school_id": w.high_schools.get(p.hs).filter(|_| !w.others.national(p.player.id)).map(|_| p.hs),
         "national": w.others.nationals.get(&p.player.id).map(|&s| afm_engine::world::pro::other::U_SPORTS.get(s as usize).copied().unwrap_or("")),
-        "ht": ft_in(body.height),
-        "wt": body.weight.round(),
-        "arm": body.arm,
-        "hand": body.hand,
+        "ht": ft_in(lh),
+        "wt": lw.round(),
+        "arm": measured.then_some(body.arm),
+        "hand": measured.then_some(body.hand),
         "stars": p.stars,
         "status": status_text(w, p),
         "mood": mood_words(p),

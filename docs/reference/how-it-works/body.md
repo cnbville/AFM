@@ -1,6 +1,6 @@
 # Body and combine: how it works today
 
-Checked against main at 2a6e50c with update 3 lane 1 (bodies and the speed core) on 2026-10-28.
+Checked against main at 6200524 with update 3 lanes 1 and 4 (bodies, the speed core, recorded times) on 2026-10-29.
 
 ## Quick answers
 
@@ -117,7 +117,14 @@ Test day (`body.rs`, `combine`): forty + track offset (normal(0, 0.04), fixed pe
 - `sprint_tau()` = clamp(0.78 + 0.003 × (60 - acceleration) + 0.0006 × (weight - 220), 0.55, 1.0) s.
 - `accel()` = 4.65 + 0.008 × (acc - 60) at 60+, 4.65 + 0.0046 × (acc - 60) below, minus 0.006 × (weight - 220), clamped 2.2-7.5 yd/s².
 - `cut()` = 0.99 + 0.004 × (agility - 60) at 60+, 0.99 + 0.0022 × (agility - 60) below, minus 0.002 × (weight - 220), clamped 0.4-1.7.
-So weight costs a big man straight-line speed, burst and cutting, with the same speed rating.
+So weight costs a big man straight-line speed, burst and cutting, with the same speed rating. Every make-a-man-miss check reads weight too (A3; `game/sim.rs`, `size_cost`; see [match-engine.md](match-engine.md)).
+
+## Recorded times (update 3, lane 4)
+
+A high schooler's forty, 10-yard split, 100 m and 200 m are times on record, run at track meets, camps, showcases and his school's own testing (`world/times.rs`; when and where in [recruiting.md](recruiting.md), "Recorded times").
+- Each run starts from his true Speed, Acceleration and real weight: run(a) = 5.56 - 0.0124 × (a × Speed + (1 - a) × Acceleration) + the forty's weight term; forty = run(0.75), split = 0.348 × run(0.25), 100 m = 2.5 × run(0.9) - 0.3, 200 m = 5 × run(0.9) - 0.35 (`base`). Day-to-day spread: forty 0.05 s, split 0.03, 100 m 0.08, 200 m 0.15 (`spread`).
+- Hand timing reads 0.24 s fast (sd 0.10); a school's own listed forty another 0.05-0.15 (`HAND_FAST`, `HAND_SD`, `SCHOOL_FAST`). A meet or school reads the time against his listed weight, a camp against his measured one.
+- A reader turns the times into a speed read by weighted least squares from his film read (sd 6): a hand time counts 0.4, a school forty 0.1. A young kid's read is corrected by his age's share of grown speed (`seen`, `typical_share`).
 
 ## Athletic traits at creation (athlete first)
 

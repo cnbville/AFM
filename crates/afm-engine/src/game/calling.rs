@@ -167,6 +167,13 @@ pub struct Plan {
     pub box_up: bool,
     #[serde(default)]
     pub run_more: f64,
+    /// Their deep threat (speed update S10a-S10d): the receiver whose speed
+    /// our corners can't run with as the film shows it (an offense player
+    /// index), and how much the staff fears him, 0-1.
+    #[serde(default)]
+    pub burner: Option<usize>,
+    #[serde(default)]
+    pub fear: f64,
 }
 
 /// Your defense's answer to one of their personnel groups (update 2,
@@ -462,6 +469,10 @@ pub struct OffCtx {
     /// number and the look it was drawn from.
     #[serde(default)]
     pub designs: [Option<(u16, Personnel, Backfield, Set)>; 8],
+    /// How much the offense leans on its raw burner (speed update S10),
+    /// 0-1; 0 without one who can go.
+    #[serde(default)]
+    pub burner: f64,
 }
 
 /// The designed plays on a team's sheets, dry and wet, first eight.
@@ -604,7 +615,7 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
             why = "breaking our pass tendency from this look";
         }
     }
-    formation.motion = pick_motion(scheme, &formation, pass, year, ctx.level, rng);
+    formation.motion = pick_motion(scheme, &formation, pass, year, ctx, rng);
     let mut call = if pass {
         let concept = pick_concept(staff, mem, sit, &formation, ctx, rng);
         // A designed play runs from the set it was drawn in.
@@ -813,16 +824,18 @@ fn pick_set(scheme: OffScheme, p: Personnel, pass: bool, short: bool, year: i32,
 /// Motion (topic 3.1): about a quarter of snaps before 2015, more than half
 /// by the 2020s (NFL Next Gen Stats); jet motion is about a third of it.
 /// High school teams motion less (proposed, not confirmed).
-fn pick_motion(scheme: OffScheme, f: &Formation, pass: bool, year: i32, level: Level, rng: &mut Rng) -> Motion {
+fn pick_motion(scheme: OffScheme, f: &Formation, pass: bool, year: i32, ctx: &OffCtx, rng: &mut Rng) -> Motion {
     if f.set == Set::Empty {
         return Motion::None;
     }
-    let rate = (0.22 + 0.33 * era(year, 2014, 9.0)) * if level == Level::HS { 0.6 } else { 1.0 };
+    let rate = (0.22 + 0.33 * era(year, 2014, 9.0)) * if ctx.level == Level::HS { 0.6 } else { 1.0 };
     if !rng.chance(rate) {
         return Motion::None;
     }
+    // A team with a burner runs more jet motion to get him the ball (S10).
     let jet =
-        if matches!(scheme, OffScheme::WideZone | OffScheme::WingT | OffScheme::SpreadOption) { 1.5 } else { 1.0 };
+        if matches!(scheme, OffScheme::WideZone | OffScheme::WingT | OffScheme::SpreadOption) { 1.5 } else { 1.0 }
+            * (1.0 + ctx.burner);
     weigh(
         rng,
         &[
@@ -1135,6 +1148,10 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
             }
             let agg = c.aggressiveness + 4.0 * c.nerve * sit.pressure();
             w *= 1.0 + 0.03 * (agg - 10.0) * if pc.depth == PassDepth::Deep { 1.0 } else { -0.3 };
+            // A few more shots with a burner to throw them to (S10).
+            if pc.depth == PassDepth::Deep {
+                w *= 1.0 + 0.3 * ctx.burner;
+            }
             // Up big, a little less going deep (real NFL: 11.7% of throws
             // travel 20+ yards up 28+, 13.6% in close games).
             if pc.depth == PassDepth::Deep || name == "play-action shot" {
@@ -1458,6 +1475,11 @@ pub fn call_defense(
             if sit.hurry() && cov.high() == 2 {
                 w *= 1.6;
             }
+            // Two deep safeties against a burner (S10d), as teams played
+            // Tyreek Hill's Dolphins in 2023.
+            if cov.high() == 2 {
+                w *= 1.0 + 0.8 * mem.plan.fear;
+            }
             if personnel == DefPersonnel::GoalLine && !cov.is_man() {
                 w *= 0.3;
             }
@@ -1510,9 +1532,16 @@ pub fn call_defense(
         blitz -= 0.1;
     }
     // Their quick throws over this game's plays, from a four-play prior at
-    // the 30% mark so the first snaps read nothing (update 3, F32).
+    // the 30% mark so the first snaps read nothing (update 3, F32). Layered
+    // (B3): the ball out quick beats the rush, so a coordinator blitzes a
+    // quick-throwing offense less and one that holds the ball more; how far
+    // he backs off is his own nature (a Brian Flores barely does), and the
+    // snaps he backs off lean to simulated pressure and disguise, so the
+    // quarterback still has to read whether it's zone or a blitz.
     let quick = (mem.opp_quick + 0.3 * 4.0) / (mem.opp_game_plays + 4.0);
-    blitz += sharp * (quick - 0.3).min(0.0) * 0.5;
+    let restraint = clamp((19.0 - c.aggressiveness) / 10.0, 0.1, 1.0);
+    let back_off = sharp * (quick - 0.3).max(0.0) * 0.5 * restraint;
+    blitz += sharp * (0.3 - quick).max(0.0) * 0.5 - back_off;
     // The head coach's pressure rate (update 2, G2).
     if let Some(r) = answer.rush {
         blitz += 0.7 * (r as f64 - super::guide::habit_pressure(c.aggressiveness));
@@ -1534,12 +1563,16 @@ pub fn call_defense(
                 (Pressure::FireZone, if zone && coverage.high() == 1 { 1.0 + 0.1 * c.skill } else { 0.0 }),
             ],
         )
+    } else if back_off > 0.0 && zone && rng.chance(back_off * if c.skill > 9.0 { 1.5 } else { 0.6 }) {
+        // A backed-off blitz still shows pressure: four rush from where the
+        // quarterback doesn't expect them, zone behind (B3).
+        Pressure::Simulated
     } else {
         Pressure::Four
     };
     let pressure =
         if personnel == DefPersonnel::Dime && pressure == Pressure::DoubleA { Pressure::DbBlitz } else { pressure };
-    let disguise = rng.chance(clamp(0.05 + 0.025 * c.skill, 0.05, 0.6) * (1.0 - ease));
+    let disguise = rng.chance(clamp(0.05 + 0.025 * c.skill + 1.5 * back_off, 0.05, 0.7) * (1.0 - ease));
     let front = pick_front(staff, mem, sit, off, lean_run, rng);
     // Stunts (topic 1): on four-man rushes, more on passing downs; real
     // NFL lines run one on roughly a fifth of dropbacks (proposed, not
@@ -1644,19 +1677,37 @@ pub fn make_plan(
     their_qb_run: f64,
     their_rushers: &[(usize, f64)],
     our_blockers: &[f64],
+    speeds: (&[(usize, f64)], &[f64]),
     rng: &mut Rng,
 ) -> Plan {
     let err = 0.8 * (20.0 - own.film_study).max(1.0);
     let seen = |v: f64, rng: &mut Rng| v + rng.normal(0.0, err);
+    // How fast their receivers play deep and how fast our corners do
+    // (S10a-S10d). Speed shows on film plainer than the rest: half the
+    // error, read before the rest of the plan.
+    let (their_deep, our_deep) = speeds;
+    let deep_seen: Vec<(usize, f64)> = their_deep.iter().map(|&(i, v)| (i, v + rng.normal(0.0, 0.5 * err))).collect();
+    let our_deep = if our_deep.is_empty() { 0.0 } else { our_deep.iter().sum::<f64>() / our_deep.len() as f64 };
+    let edge = |i: usize| deep_seen.iter().find(|x| x.0 == i).map_or(0.0, |x| (x.1 - our_deep).max(0.0));
+    // The man our corners can't run with: from 2 points faster than their
+    // average, all-out fear at 10 (proposed, not confirmed).
+    let (burner, fear) = deep_seen
+        .iter()
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|&(i, v)| (i, clamp((v - our_deep - 2.0) / 8.0, 0.0, 1.0)))
+        .filter(|x| x.1 > 0.0)
+        .map_or((None, 0.0), |(i, f)| (Some(i), f));
     // Attack the weakest corner when he is clearly the weak one.
     let target_cb = {
         let mut cbs: Vec<(usize, f64)> = their_cbs.iter().map(|&(i, v)| (i, seen(v, rng))).collect();
         cbs.sort_by(|a, b| a.1.total_cmp(&b.1));
         if cbs.len() >= 2 && cbs[1].1 - cbs[0].1 > 4.0 { Some(cbs[0].0) } else { None }
     };
-    // Bracket their best receiver when no corner of ours can match him.
+    // Bracket their best receiver when no corner of ours can match him,
+    // read partly by deep speed (S10c): a Jameson Williams can draw it
+    // over an Amon-Ra St. Brown.
     let bracket = {
-        let best = their_wrs.iter().map(|&(i, v)| (i, seen(v, rng))).max_by(|a, b| a.1.total_cmp(&b.1));
+        let best = their_wrs.iter().map(|&(i, v)| (i, seen(v, rng) + 0.6 * edge(i))).max_by(|a, b| a.1.total_cmp(&b.1));
         let our = our_cbs.iter().copied().fold(0.0, f64::max);
         best.filter(|b| b.1 - our > 5.0).map(|b| b.0)
     };
@@ -1679,6 +1730,8 @@ pub fn make_plan(
         answers: Default::default(),
         box_up: false,
         run_more: 0.0,
+        burner,
+        fear,
     }
 }
 

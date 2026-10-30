@@ -299,6 +299,7 @@ pub(crate) fn advance_day(w: &mut World) {
         college::release_poll(w, d, PollKind::ApPreseason);
     }
     timed("hs", || hs_year::day(w, d));
+    super::times::day(w, d);
 
     // --- College Saturdays and the weeks around them (T3, T6) ------------------------
     timed("college games", || college::play_day(w, d));

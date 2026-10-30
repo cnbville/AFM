@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 13e, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30.
+Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 13e, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at a6467e3 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -220,7 +220,7 @@ Sizes are Claude's picks (proposed, not confirmed).
   - The year's base is cut by games/17 and its guarantees voided. Clubs cut a fringe player (consensus < 64) after a violent case with odds 60% from 2015, 30% before (`rule`).
 - **Appeals**: 75% appeal. Upheld 96% for PED/drugs, 80% otherwise. A reduced suspension becomes max(games - 1, games/2) (`world/folk/courts.rs`, `suspension`, the appeal step). Courts mirror the arrest and charge dates (`mirror`).
 - **College and high school** trouble gets a kind from the level's mix (`world/people.rs`, `amateur_kind`). The roll itself lives in the development and season code.
-- **Hit fines** (NFL, weekly in season): each defender's odds are 0.0055 x max(1 + 0.6 x temper z, 0.3). The amount doubles with any prior fine in the past year. With 2+ prior fines, a hit on a defenseless player also costs a game. College targeting: about 0.2 ejections a week per FBS team (`world/folk/rules.rs`, `league_week`).
+- **Hit fines** (NFL, weekly in season): each defender's odds are 0.0055 x max(1 + 0.6 x temper z, 0.3). The amount doubles with any prior fine in the past year. With 2+ prior fines, a hit on a defenseless player also costs a game. College targeting: about 0.2 ejections a week per FBS team (`world/folk/rules.rs`, `league_week`). High school ejections sit the next game at every school, not only yours (B2): in the school season each other school has a 0.08 chance a week that one of its players is thrown out (keyed draws, proposed, not confirmed), and he sits his school's next game through `folk.ai_out`, read by `hs_year::can_play`. Yours make the news and the record.
 
 ## Team rules (your team)
 

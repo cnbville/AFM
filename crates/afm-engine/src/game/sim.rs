@@ -572,6 +572,17 @@ impl InjuryKind {
 /// itself (`InjuryKind::hampers`: a hamstring costs speed and burst, a hand
 /// catching and ball security), and his speed, burst and cut follow from
 /// the hampered ratings. A healthy man is passed through untouched.
+/// Rating points his body costs a make-a-man-miss check (update 3, A3):
+/// elusiveness, agility and speed are rated for his size, so the check
+/// reads his weight the way the forty does (`body::forty_weight`, 0.0124 s
+/// a rating point; being lighter than 175 lb adds nothing more), against
+/// the typical man for that check, so its league average stays put. A
+/// 330 lb tackle rated 85 makes fewer men miss than a 200 lb back rated 85,
+/// and more than a tackle rated 60.
+pub(crate) fn size_cost(weight: f64, typical: f64) -> f64 {
+    (crate::body::forty_weight(weight) - crate::body::forty_weight(typical)) / 0.0124
+}
+
 pub fn hampered(gp: &GamePlayer, hurt: Option<InjuryKind>) -> std::borrow::Cow<'_, GamePlayer> {
     match hurt {
         None => std::borrow::Cow::Borrowed(gp),
@@ -1951,9 +1962,8 @@ impl<'a> Sim<'a> {
         // Dynamic Links: Sudden makes the first man miss; a Sudden tackler
         // mirrors the cut.
         use crate::links::Link;
-        let evade = 0.5 * r.a(Attr::Elusiveness)
-            + 0.3 * r.a(Attr::Agility)
-            + 0.2 * r.a(Attr::Speed)
+        let evade = 0.5 * r.a(Attr::Elusiveness) + 0.3 * r.a(Attr::Agility) + 0.2 * r.a(Attr::Speed)
+            - size_cost(r.mass, 210.0)
             + self.link(c, &[Link::Sudden]);
         let tackle = 0.6 * d.a(Attr::Tackling)
             + 0.2 * d.a(Attr::Agility)
