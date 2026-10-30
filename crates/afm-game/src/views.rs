@@ -2105,6 +2105,12 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     let eye = team.filter(|_| own).map_or(10.0, |t| eye_for(w, t, pos));
     let attrs = reads::attributes(w, k);
     let mine_attrs = reads::mine_attributes(w, k);
+    // Minor bug 24: an outside high schooler shows his school's listing,
+    // and his arms and hands only once your staff has measured him.
+    let hs_out = !own && matches!(p.stage, Stage::HighSchool | Stage::PrepSchool);
+    let measured = !hs_out || reads::hs_tested(w, id);
+    let (lh, lw) =
+        if measured { (body.height, body.weight) } else { afm_engine::world::scouting::file::listed(&p.player) };
     let groups: Vec<Value> = [
         (Category::Physical, "Physical"),
         (Category::Passing, "Passing"),
@@ -2128,7 +2134,8 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     // college seasons (the coaches' book has one row a season), his NFL club.
     let college = |l: Level| matches!(l, Level::FBS | Level::FCS | Level::SmallCollege);
     let college_rows = p.player.history.iter().filter(|h| college(h.level)).count();
-    let mut k = 0;
+    // The college row's place (not `k`: the reads below need his index).
+    let mut row = 0;
     let mut history: Vec<Value> = p
         .player
         .history
@@ -2139,9 +2146,9 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
                 // A pro season with no club: unsigned all year.
                 Level::NFL => Some(h.team.map_or("Unsigned".to_string(), |t| w.nfl_team_name(t))),
                 _ => {
-                    k += 1;
+                    row += 1;
                     (p.college_staff.len() == college_rows)
-                        .then(|| p.college_staff.get(k - 1).map(|s| w.program_name(s.1).to_string()))
+                        .then(|| p.college_staff.get(row - 1).map(|s| w.program_name(s.1).to_string()))
                         .flatten()
                 }
             };
@@ -2214,10 +2221,10 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "high_school": w.high_schools.get(p.hs).filter(|_| !w.others.national(p.player.id)).map(|s| w.school_name(s.id).to_string()),
         "high_school_id": w.high_schools.get(p.hs).filter(|_| !w.others.national(p.player.id)).map(|_| p.hs),
         "national": w.others.nationals.get(&p.player.id).map(|&s| afm_engine::world::pro::other::U_SPORTS.get(s as usize).copied().unwrap_or("")),
-        "ht": ft_in(body.height),
-        "wt": body.weight.round(),
-        "arm": body.arm,
-        "hand": body.hand,
+        "ht": ft_in(lh),
+        "wt": lw.round(),
+        "arm": measured.then_some(body.arm),
+        "hand": measured.then_some(body.hand),
         "stars": p.stars,
         "status": status_text(w, p),
         "mood": mood_words(p),
@@ -2226,6 +2233,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "yours_looks": reads::seen(w, k).mine_looks,
         "stake": stake_json(w, k),
         "pitch": pitch_json(w, k),
+        "hunt": crate::lane_hunt::player_json(w, k),
         "potential": potential,
         "groups": groups,
         "tendencies": tendencies,

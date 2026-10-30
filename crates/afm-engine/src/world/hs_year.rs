@@ -173,8 +173,13 @@ struct HsPlayed {
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
     /// The whole game, kept only for your school's game page (with its
     /// setup for watching it back) and your coming opponents' film.
-    full:
-        Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2], Option<Box<crate::game::ReplaySetup>>)>,
+    #[allow(clippy::type_complexity)]
+    full: Option<(
+        crate::game::stats::GameStats,
+        [crate::game::calling::Film; 2],
+        Option<Box<crate::game::ReplaySetup>>,
+        crate::game::talk::Record,
+    )>,
     /// The game on the state's numbers for the game boards (lane 9).
     tally: super::charts::Tally,
     /// A final at a neutral site.
@@ -1176,6 +1181,7 @@ pub(crate) fn squad_team(
     } else {
         Vec::new()
     };
+    let (seat_mind, rel_mind) = (seat, season::coach_relationships(w, w.high_schools[h].coach));
     let players: Vec<GamePlayer> = dressed
         .iter()
         .map(|&i| {
@@ -1185,7 +1191,9 @@ pub(crate) fn squad_team(
             let side =
                 stored.map_or(1.0, |s| if super::systems::offense(p.position) { s.off_known } else { s.def_known });
             let know = clamp(0.72 + 0.04 * years + head, 0.0, 0.9) * (0.8 + 0.2 * side);
-            GamePlayer::from_player(p, know, 0.7 * years)
+            let mut g = GamePlayer::from_player(p, know, 0.7 * years);
+            (g.mood, g.belief) = season::game_mind(&w.people[i], seat_mind, rel_mind);
+            g
         })
         .collect();
     // A suspended coach (SK42) is off the sideline: his staff coaches.
@@ -1228,6 +1236,8 @@ pub(crate) fn squad_team(
             install,
             style: coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
+            motivation: ab.map_or(10.0, |a| a.motivation),
+            temper: coach.map_or(10.0, |c| w.coaches[c].personality.temper),
         },
     );
     super::guide::apply(w, &mut team, guide, coach, coach);
@@ -1307,6 +1317,14 @@ fn hs_conditions(
     }
 }
 
+/// The day a school brings into a game (dialogue D4): the crosstown rival
+/// is the one game that means more; the playoffs the engine reads itself.
+fn hs_day(w: &World, h: usize, opp: usize, dressed: &GameTeam) -> crate::game::talk::Day {
+    use super::folk::Team;
+    let rival = super::folk::facts::rival(w, Team::High(h)).is_some_and(|r| r.0 == Team::High(opp));
+    super::folk::gametalk::day_for(w, Team::High(h), Team::High(opp), 0.0, rival, dressed)
+}
+
 /// Your school's game today as the day will play it (section 9): a
 /// regular-season Friday or a playoff round.
 pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatSetup> {
@@ -1347,8 +1365,10 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     } else {
         crate::calendar::weather::weather_in(w.options.seed as u64, s, &code, &w.high_schools[h].town, d, 19)
     };
-    let (home, _) = hs_team(w, h, week)?;
-    let (away, _) = hs_team(w, a, week)?;
+    let (mut home, _) = hs_team(w, h, week)?;
+    let (mut away, _) = hs_team(w, a, week)?;
+    home.day = hs_day(w, h, a, &home);
+    away.day = hs_day(w, a, h, &away);
     let mut setup = crate::game::GameSetup::new(
         &home,
         &away,
@@ -1453,7 +1473,7 @@ fn engine_games(
     let played: Vec<Result<HsPlayed, bool>> = games
         .par_iter()
         .map(|&(h, a, key)| {
-            let ((home, hid), (away, aid)) = match (hs_team(world, h, week), hs_team(world, a, week)) {
+            let ((mut home, hid), (mut away, aid)) = match (hs_team(world, h, week), hs_team(world, a, week)) {
                 (Some(x), Some(y)) => (x, y),
                 // A forfeit: the home side wins only if it could dress a team.
                 (x, _) => return Err(x.is_some()),
@@ -1469,6 +1489,8 @@ fn engine_games(
                 &town_wx
             };
             let cond = hs_conditions(world, h, wx, seed, key);
+            home.day = hs_day(world, h, a, &home);
+            away.day = hs_day(world, a, h, &away);
             let mut setup = crate::game::GameSetup::new(
                 &home,
                 &away,
@@ -1502,7 +1524,7 @@ fn engine_games(
             let kept =
                 seat.is_some_and(|x| x == h || x == a) || watch.as_ref().is_some_and(|o| o.watches(h) || o.watches(a));
             let replay = r.replay.take();
-            let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
+            let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay, r.talks.clone()));
             let mut tally = super::charts::Tally::default();
             tally.add_game(&r.stats);
             let log = logging.then(|| {
@@ -1585,8 +1607,8 @@ fn engine_games(
         // medical staff.
         let side = [h, a].iter().position(|&x| seat == Some(x));
         crate::training::seat::game_injuries(w, day, &g.injuries, [0.0; 2], side);
-        if let Some((full, film, replay)) = g.full.as_ref() {
-            w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
+        if let Some((full, film, replay, talks)) = g.full.as_ref() {
+            w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref(), talks);
             w.seat_line(Level::HighSchool, [h, a], None, g.neutral);
             if let Some(o) = &watch {
                 w.keep_tape(o, Level::HighSchool, [h, a], full, film);
@@ -2363,6 +2385,7 @@ pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
     let seed = w.options.seed as u64 ^ (class as u64) << 16 ^ name.len() as u64;
     let poly = name.starts_with("Polynesian");
     let scale = w.options.scale;
+    let played = super::recruiting::hs_played(w);
     let mut invited = 0u32;
     for (pos, places) in ALL_STAR_PLACES {
         let mut pool: Vec<(f64, usize)> = w
@@ -2379,8 +2402,10 @@ pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
             .map(|(i, p)| {
                 let stars = if pos.is_specialist() { p.camp_stars } else { p.stars } as f64;
                 let read = p.cal.service_read.unwrap_or(p.player.overall());
-                let mut score =
-                    10.0 * stars + 0.25 * film_raw(p) + 0.75 * read + 0.3 * key_normal(seed, p.player.id as u64);
+                let mut score = 10.0 * stars
+                    + 0.25 * film_raw(p, &played)
+                    + 0.75 * read
+                    + 0.3 * key_normal(seed, p.player.id as u64);
                 if poly && p.ethnicity == super::ethnicity::Ethnicity::Polynesian {
                     score += 15.0;
                 }

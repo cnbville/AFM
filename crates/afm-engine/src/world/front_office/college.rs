@@ -1071,6 +1071,9 @@ pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<Str
         Err(t) => (VisitState::Declined, t.clone()),
     };
     w.front_office.college.visits.push(Plan { id, kind, date: d, state, note: text.clone() });
+    if kind == VisitKind::Home && state == VisitState::Set {
+        crate::world::folk::dialogue::home_visit_set(w, id, j, d);
+    }
     let name = w.people[i].name.clone();
     note(w, format!("{} for {name} on {}: {text}", kind.name(), d.pretty()), Some(id));
     reply
@@ -1087,6 +1090,9 @@ pub fn cancel_visit(w: &mut World, id: u32, kind: VisitKind) -> Result<String, S
         .ok_or("No such visit is set.")?;
     v.state = VisitState::Off;
     v.note = "You called it off.".into();
+    if kind == VisitKind::Home {
+        crate::world::folk::dialogue::home_visit_off(w, id, "You called it off.");
+    }
     Ok(format!("{} called off.", kind.name()))
 }
 
@@ -1127,6 +1133,9 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
             None
         };
         if let Some(why) = off {
+            if kind == VisitKind::Home {
+                crate::world::folk::dialogue::home_visit_off(w, id, &why);
+            }
             let v = &mut w.front_office.college.visits[k];
             v.state = VisitState::Off;
             v.note = why;
@@ -1435,8 +1444,10 @@ pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, S
     }
     let b = budget(w, j);
     let current = w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.nil).unwrap_or(0.0);
+    // Your hunt draws on what you set aside for him (SK67).
+    let banked = if crate::world::hunt::is_yours(w, id) { b.hunt } else { 0.0 };
     if let Some(x) = nil
-        && x - current > b.left + 1.0
+        && x - current > b.left + banked + 1.0
     {
         return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));
     }
@@ -1465,6 +1476,8 @@ pub struct Budget {
     pub recruits: f64,
     /// Offered to portal targets.
     pub portal: f64,
+    /// Set aside for your hunt and not yet promised to him (SK67).
+    pub hunt: f64,
     pub left: f64,
 }
 
@@ -1496,6 +1509,7 @@ pub fn budget(w: &World, j: usize) -> Budget {
     };
     let recruits = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).filter_map(|t| t.nil).sum();
     let portal = desk.portal.iter().filter(|t| t.offered.is_some() && !t.settled).filter_map(|t| t.nil).sum();
+    let hunt = crate::world::hunt::reserve(w, j);
     Budget {
         total,
         revenue_share: revenue_share.min(total),
@@ -1503,7 +1517,8 @@ pub fn budget(w: &World, j: usize) -> Budget {
         roster,
         recruits,
         portal,
-        left: total - roster - recruits - portal,
+        hunt,
+        left: total - roster - recruits - portal - hunt,
     }
 }
 
@@ -1740,6 +1755,17 @@ pub fn keep_talk(w: &mut World, id: u32) -> Result<String, String> {
         format!("{first} said he'd think it over.")
     };
     let today = w.today;
+    // He has already told you he wants to leave: your word lands before
+    // his decision, not at a window already open.
+    if w.portal_intents.iter().any(|t| t.is(id)) && w.people[i].cal.lean > 0.0 {
+        let p = &mut w.people[i];
+        p.cal.lean *= factor;
+        p.cal.lean_events.push((
+            today,
+            if factor < 1.0 { "his head coach asked him to stay" } else { "his head coach didn't fight to keep him" },
+            factor,
+        ));
+    }
     w.front_office.college.talks.push(Talk { id, date: today, factor, answer: answer.clone() });
     note(w, format!("Sat down with {}: {answer}", w.people[i].name), Some(id));
     Ok(answer)
@@ -1953,7 +1979,7 @@ pub fn reasons(w: &World, i: usize, j: usize) -> [(f64, f64); 7] {
 /// How much each of the six weighed reasons counts with whoever decides for
 /// him. True values: a screen shows them only through your staff's read.
 pub fn reason_weights(w: &World, i: usize) -> [f64; 6] {
-    rec::reason_weights(&w.people[i])
+    rec::reason_weights(w, i)
 }
 
 /// How firmly a committed recruit holds, in the same units as `race`.

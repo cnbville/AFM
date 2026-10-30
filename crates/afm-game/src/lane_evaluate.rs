@@ -33,7 +33,7 @@ use serde_json::{Value, json};
 use crate::views::{self, date_text};
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 17] = [
+const COMMANDS: [&str; 18] = [
     "eval_home",
     "eval_file",
     "eval_review_call",
@@ -43,6 +43,7 @@ const COMMANDS: [&str; 17] = [
     "eval_let_go",
     "eval_trip",
     "eval_interview",
+    "eval_interview_talk",
     "eval_settle",
     "eval_minimum",
     "eval_service",
@@ -63,6 +64,12 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     Some(match cmd {
         "eval_home" => game.w().map(home),
         "eval_file" => (|| file(game.w()?, id()?))(),
+        // The room as a timed talk (lane 14, D8): a scene you play.
+        "eval_interview_talk" => (|| {
+            let w = game.wm()?;
+            afm_engine::world::folk::dialogue::start_combine_talk(w, id()?, &text("room"))
+                .map(|sid| json!({ "scene": sid }))
+        })(),
         _ => (|| {
             let w = game.wm()?;
             let said = match cmd {

@@ -487,10 +487,12 @@ fn old_formula(s: &NflSeason, season: i32, games: u32, seed: u64) -> Vec<(usize,
             need[t] -= before[t] - q[t];
         }
     }
-    // A league past 32 clubs (SK68) can leave two clubs short with no
-    // opponent left they haven't met: they meet a second time, outside
-    // their division where they can.
-    while teams.len() > 32 {
+    // The pairing can leave two clubs short with no opponent left they
+    // haven't met (a league past 32 clubs, SK68, or 1999-2001's 31 clubs,
+    // which lost two games a season, minor bug 146: 257 games against the
+    // real 259): they meet a second time, outside their division where they
+    // can.
+    loop {
         let short: Vec<usize> = (0..n).filter(|&t| need[t] > 0).collect();
         let [a, ref rest @ ..] = short[..] else { break };
         let Some(&b) = rest.iter().find(|&&b| s.div[b] != s.div[a]).or(rest.first()) else { break };
@@ -610,6 +612,12 @@ fn round_weeks(games: &[(usize, usize)], n: usize, n_weeks: usize, seed: u64) ->
 
 /// One week in which every team with games left plays one of them, or None.
 fn perfect_week(left: &[(usize, usize)], n: usize, key: u64) -> Option<Vec<usize>> {
+    week_matching(left, n, key, &vec![false; n])
+}
+
+/// One week in which every team with games left and not `off` (on its bye)
+/// plays exactly one of its games, or None.
+fn week_matching(left: &[(usize, usize)], n: usize, key: u64, off: &[bool]) -> Option<Vec<usize>> {
     let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
     for (g, &(a, b)) in left.iter().enumerate() {
         adj[a].push(g);
@@ -618,7 +626,7 @@ fn perfect_week(left: &[(usize, usize)], n: usize, key: u64) -> Option<Vec<usize
     for (t, list) in adj.iter_mut().enumerate() {
         list.sort_by(|&x, &y| key_uniform(key ^ t as u64, x as u64).total_cmp(&key_uniform(key ^ t as u64, y as u64)));
     }
-    let mut used: Vec<bool> = adj.iter().map(|a| a.is_empty()).collect();
+    let mut used: Vec<bool> = adj.iter().zip(off).map(|(a, &o)| a.is_empty() || o).collect();
     let mut pick = Vec::new();
     let mut budget = 5000u32;
     fn other(g: (usize, usize), t: usize) -> usize {
@@ -667,9 +675,106 @@ fn perfect_week(left: &[(usize, usize)], n: usize, key: u64) -> Option<Vec<usize
     go(left, &adj, &mut used, &mut pick, &mut budget).then_some(pick)
 }
 
-/// Spreads the games over the weeks, one game a team a week, with byes
-/// between weeks 4 and 14 (a keyed search; any byes are allowed if it fails).
-fn assign_weeks(games: &[(usize, usize)], n: usize, n_weeks: usize, seed: u64) -> Vec<Vec<(usize, usize)>> {
+/// The weeks a season's byes fall in (0-based, inclusive), as the real
+/// schedules placed them (nflverse games 1999-2025): weeks 3-10 in
+/// 2002-2010, 4-13 in 2011-2020, 6-14 in 2021-22 and 5-14 from 2023; a
+/// league with an odd number of clubs (31 in 1999-2001) has someone off
+/// every week. Before 1999, weeks 4-12 (proposed, not confirmed).
+fn bye_window(season: i32, n_weeks: usize, odd: bool) -> (usize, usize) {
+    let (a, b) = match season {
+        _ if odd => (1, n_weeks),
+        ..=2001 => (4, 12),
+        2002..=2010 => (3, 10),
+        2011..=2020 => (4, 13),
+        2021 | 2022 => (6, 14),
+        _ => (5, 14),
+    };
+    (a - 1, (b - 1).min(n_weeks - 1))
+}
+
+/// The weeks with the byes drawn first (minor bug 146): each club gets its
+/// byes inside the era's window, two clubs at a time (one alone when the
+/// league is odd) and at most six a week, then each week is an exact
+/// matching of the clubs that play, found by a keyed search that draws the
+/// byes again when a week can't be paired. None if 400 draws fail.
+fn byes_first(
+    games: &[(usize, usize)],
+    n: usize,
+    n_weeks: usize,
+    seed: u64,
+    season: i32,
+) -> Option<Vec<Vec<(usize, usize)>>> {
+    let mut count = vec![0usize; n];
+    for &(a, b) in games {
+        count[a] += 1;
+        count[b] += 1;
+    }
+    let playing: Vec<usize> = (0..n).filter(|&t| count[t] > 0).collect();
+    if playing.iter().any(|&t| count[t] > n_weeks) {
+        return None;
+    }
+    let odd = playing.len() % 2 == 1;
+    let (lo, hi) = bye_window(season, n_weeks, odd);
+    'draw: for attempt in 0..400u64 {
+        let key = seed ^ 0xB1E5 ^ attempt << 40;
+        // Every bye a club needs, in a keyed order.
+        let mut owed: Vec<usize> = playing.iter().flat_map(|&t| std::iter::repeat_n(t, n_weeks - count[t])).collect();
+        owed.sort_by(|&a, &b| key_uniform(key, a as u64).total_cmp(&key_uniform(key, b as u64)));
+        let mut off = vec![vec![false; n]; n_weeks];
+        let mut per = vec![0usize; n_weeks];
+        let weeks: Vec<usize> = (lo..=hi).collect();
+        // An odd league: one club off every week first.
+        if odd {
+            for &k in &weeks {
+                let Some(pos) = owed.iter().position(|&t| !off[k][t]) else { continue 'draw };
+                let t = owed.remove(pos);
+                off[k][t] = true;
+                per[k] += 1;
+            }
+        }
+        while !owed.is_empty() {
+            let a = owed.remove(0);
+            let Some(pos) = owed.iter().position(|&b| b != a) else { continue 'draw };
+            let b = owed.remove(pos);
+            let mut order = weeks.clone();
+            order.sort_by(|&x, &y| {
+                key_uniform(key ^ 0x77, (x as u64) << 16 ^ a as u64)
+                    .total_cmp(&key_uniform(key ^ 0x77, (y as u64) << 16 ^ a as u64))
+            });
+            let Some(&k) = order.iter().find(|&&k| per[k] + 2 <= 6 && !off[k][a] && !off[k][b]) else {
+                continue 'draw;
+            };
+            off[k][a] = true;
+            off[k][b] = true;
+            per[k] += 2;
+        }
+        let mut left = games.to_vec();
+        let mut out = Vec::with_capacity(n_weeks);
+        for (k, week_off) in off.iter().enumerate() {
+            let Some(mut pick) = week_matching(&left, n, key ^ (k as u64) << 8, week_off) else { continue 'draw };
+            pick.sort_unstable_by(|a, b| b.cmp(a));
+            out.push(pick.iter().map(|&g| left.swap_remove(g)).collect());
+        }
+        if left.is_empty() {
+            return Some(out);
+        }
+    }
+    None
+}
+
+/// Spreads the games over the weeks, one game a team a week, with the byes
+/// in the era's window (`byes_first`); if that fails, the older keyed
+/// search with byes in weeks 4-14, and any byes after that.
+fn assign_weeks(
+    games: &[(usize, usize)],
+    n: usize,
+    n_weeks: usize,
+    seed: u64,
+    season: i32,
+) -> Vec<Vec<(usize, usize)>> {
+    if let Some(weeks) = byes_first(games, n, n_weeks, seed, season) {
+        return weeks;
+    }
     // With an odd number of teams someone sits every week, so byes can't
     // all fall in weeks 4-14.
     let mut playing = vec![false; n];
@@ -808,6 +913,9 @@ pub(crate) fn day(w: &mut World, d: Date) {
     // The pros' own day: the league year, free agency, camp, cutdowns,
     // the street and the season's end (section 5).
     super::clock::timed("nfl people", || super::pro::day(w, d));
+    // Injuries heal a day at a time, after the day's games, so the day
+    // plays the game its morning showed (B1).
+    super::pro::heal_day(w, d, &y);
 }
 
 fn post(w: &mut World, d: Date, kind: Kind, loud: Loudness, rule: &'static str, text: impl Into<String>) {
@@ -1089,12 +1197,13 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         post(w, d, Kind::Practice, Loudness::Small, "CBA: acclimation", "Five days without pads are done: pads go on.");
     }
     if d == y.hof_game {
-        let text = if crate::calendar::anchors::cancelled("Hall of Fame Game", y.season) {
-            "The Hall of Fame Game is called off."
-        } else {
-            "The Hall of Fame Game opens the preseason."
-        };
+        let off = crate::calendar::anchors::cancelled("Hall of Fame Game", y.season);
+        let text =
+            if off { "The Hall of Fame Game is called off." } else { "The Hall of Fame Game opens the preseason." };
         post(w, d, Kind::Game, Loudness::Medium, "", text);
+        if !off {
+            super::pro::hof_game(w, d);
+        }
     }
     if d == y.hof_enshrinement {
         let text = if crate::calendar::anchors::cancelled("Hall of Fame enshrinement", y.season) {
@@ -1301,9 +1410,9 @@ pub(crate) fn build_schedule(w: &mut World, d: Date) {
             };
             // Before 1990 there were no byes: every team played every week.
             s.weeks = if n_weeks <= drawn as usize {
-                round_weeks(&list, n, n_weeks, seed).unwrap_or_else(|| assign_weeks(&list, n, n_weeks, seed))
+                round_weeks(&list, n, n_weeks, seed).unwrap_or_else(|| assign_weeks(&list, n, n_weeks, seed, season))
             } else {
-                assign_weeks(&list, n, n_weeks, seed)
+                assign_weeks(&list, n, n_weeks, seed, season)
             };
             if season == 1987 && s.weeks.len() > 2 {
                 s.weeks[2].clear();
@@ -1744,12 +1853,13 @@ fn capitalize(text: &str) -> String {
 const PRIME_CAP: u32 = 5;
 
 /// Christmas Day games by season (part D 30, N35): the real number each
-/// year (2016-2025 from the schedules; earlier years from memory, to
-/// verify), three a year after 2025 (proposed, not confirmed).
+/// year (1999-2025 from the real schedules, `nfl_history.json`
+/// `schedule_facts`; earlier years from memory), three a year after 2025
+/// (proposed, not confirmed).
 fn christmas_games(season: i32) -> usize {
     match season {
-        1989 | 1995 | 2000 | 2009 | 2010 | 2011 | 2020 => 1,
-        2005 | 2006 | 2016 | 2017 | 2021 | 2024 => 2,
+        1989 | 1995 | 1999 | 2000 | 2009 | 2010 | 2011 | 2020 => 1,
+        2004 | 2005 | 2006 | 2016 | 2017 | 2021 | 2024 => 2,
         2022 | 2023 | 2025 => 3,
         s if s > 2025 => 3,
         _ => 0,

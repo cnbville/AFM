@@ -911,6 +911,9 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
             _ => 1.0,
         };
     if w.rng.chance(p) {
+        if market::spared(w, c, "fired") {
+            return;
+        }
         leave(w, c, "fired");
         w.coaches[c].recent.clear();
         openings.push(Opening { employer: Employer::Nfl(t), role: Role::HeadCoach, prestige: 1.0 });
@@ -931,6 +934,7 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
             if let Some(a) = nfl_slot(&w.nfl[t], role)
                 && !w.rng.chance(0.3)
+                && !market::spared(w, a, "let go by the new staff")
             {
                 leave(w, a, "let go by the new staff");
                 openings.push(Opening { employer: Employer::Nfl(t), role, prestige: 1.0 });
@@ -941,6 +945,7 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
             let p = clamp((0.42 - last) * 1.5, 0.0, 0.35);
             if let Some(a) = nfl_slot(&w.nfl[t], role)
                 && w.rng.chance(p)
+                && !market::spared(w, a, "fired")
             {
                 leave(w, a, "fired");
                 openings.push(Opening { employer: Employer::Nfl(t), role, prestige: 1.0 });
@@ -996,7 +1001,7 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
         // his late fifties (A6: Osborne at 60 after three titles in four
         // years, Stoops at 56): 2% a year a title, to three. Keyed, so the
         // world's shared stream doesn't move.
-        let on_top = !retire && early.is_none() && (55..60).contains(&age) && {
+        let on_top = !you && !retire && early.is_none() && (55..60).contains(&age) && {
             let won = national_titles_here(w, c);
             let key = ((c as u64) << 16) | (year as u64 & 0xFFFF);
             won >= 2 && super::season::key_uniform(w.options.seed as u64 ^ 0xA6_70B, key) < 0.02 * won.min(3) as f64
@@ -1550,6 +1555,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             if let Some(a) = slot(&w.programs[p], role)
                 && a != c
                 && !w.rng.chance(keep)
+                && !market::spared(w, a, "let go by the new staff")
             {
                 leave(w, a, "let go by the new staff");
                 let prestige = employer_prestige(w, o.employer);
@@ -1565,7 +1571,7 @@ fn hs_review(w: &mut World, c: usize, s: usize, tenure: i32, openings: &mut Vec<
     // Your own school decides on the people you answer to: the principal's
     // and the athletic director's trust, built through the year.
     if market::is_you(w, c) {
-        if school::verdict(w, tenure) {
+        if school::verdict(w, tenure) && !market::spared(w, c, "stipend not renewed") {
             leave(w, c, "stipend not renewed");
             w.coaches[c].recent.clear();
             market::kept_teaching(w, s);
@@ -1763,6 +1769,10 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             outcome,
         });
     }
+    // The no-fire override keeps you: an expired deal then renews below.
+    if fire && market::spared(w, c, why) {
+        fire = false;
+    }
     if fire {
         leave(w, c, why);
         w.coaches[c].recent.clear();
@@ -1849,7 +1859,7 @@ pub(crate) fn in_season_firings(w: &mut World) {
         fired.push((p, c, chance));
     }
     for (p, c, chance) in fired {
-        if w.rng.chance(chance) {
+        if w.rng.chance(chance) && !market::spared(w, c, "fired during the season") {
             fire_in_season(w, p, c);
         }
     }

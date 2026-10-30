@@ -539,7 +539,10 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
         }
     }
     // Camps: your one-day camps in June (laser times, a day of coaching),
-    // for the board's recruits within a day's drive whose families can pay.
+    // for the board's recruits within a day's drive whose families can pay
+    // (minor bug 22: as the world's camps, `times::camps_wanted`, a family
+    // with no money comes at 0.3 the rate). The times are stored that day
+    // (minor bug 23).
     if d == Date::nth_weekday(season, 6, Weekday::Sat, 2) || d == Date::nth_weekday(season, 6, Weekday::Sat, 3) {
         let board = watch(w, prog);
         let home = w.programs[prog].state;
@@ -550,11 +553,14 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                 continue;
             }
             let near = crate::world::geo::miles(home, q.home_state) <= 400.0;
-            let can = q.bg.money >= 0.3 || near;
-            if near && can && readers::chance(Staff::Program(prog), 0xCA4B ^ d.0 as u64, q.player.id, 0.45) {
+            let can = 0.45 * (0.3 + 0.7 * q.bg.money);
+            if near && readers::chance(Staff::Program(prog), 0xCA4B ^ d.0 as u64, q.player.id, can) {
                 let who = evaluator_for(w, prog, i).or(hc).map_or(PERSONNEL, |c| COACH + c as u32);
-                let id = q.player.id;
+                let (id, kicker) = (q.player.id, q.player.position.is_specialist());
                 add(w, id, who, Kind::Camp, d);
+                if !kicker {
+                    crate::world::times::your_camp(w, i, prog, d);
+                }
             }
         }
     }

@@ -394,7 +394,8 @@ pub(crate) fn bonus(w: &World, e: Employer, r: Role) -> f64 {
     if r == Role::HeadCoach {
         b += 0.08 * (c.you.aura() - 10.0);
     }
-    b
+    // How your interview went (lane 14, D11).
+    b + crate::world::folk::dialogue::interview_bonus(w, e, r)
 }
 
 /// Your own stream for a search's reads of you.
@@ -662,8 +663,16 @@ pub fn apply(w: &mut World, e: Employer, r: Role) -> Result<String, String> {
     }
     let name = employer_name(w, e);
     log(w, format!("Applied: {}, {name}.", role_title(r)));
+    // A head job sits you down with the people who hire (lane 14, D11).
+    let sit = crate::world::folk::dialogue::interview_set(w, e, r, open.decides);
     if let Some(d) = open.decides {
-        return Ok(format!("Your name is in at {name}. The search decides around {}.", d.pretty()));
+        let talk = sit.map_or(String::new(), |t| format!(" They want to sit down with you on {}.", t.pretty()));
+        return Ok(format!("Your name is in at {name}. The search decides around {}.{talk}", d.pretty()));
+    }
+    if sit.is_some() {
+        return Ok(format!(
+            "{name} wants to sit down with you first. The interview is on your agenda today; they decide after it."
+        ));
     }
     let prestige = super::super::staff::prestige_of(w, e);
     super::super::staff::fill_now(w, e, r, prestige);
@@ -795,6 +804,47 @@ pub(crate) fn left(w: &mut World, why: &str) {
             format!("You are out at {name} ({why}). Your job market page lists what's open and what you'd take."),
             true,
         );
+    }
+}
+
+/// The no-fire override (Settings): when the world is about to end your
+/// job (`why`, the reason it would give) and the override is on, the job
+/// stays, the day and reason are kept on your career and your inbox says
+/// what would have happened. True when the caller must skip the move.
+pub(crate) fn spared(w: &mut World, c: usize, why: &str) -> bool {
+    if !is_you(w, c) || !w.career.as_ref().is_some_and(|k| k.no_fire) {
+        return false;
+    }
+    let Some(job) = w.coaches[c].job else { return false };
+    let today = w.today;
+    let name = employer_name(w, job.employer);
+    if let Some(k) = w.career.as_mut() {
+        k.spared.push((today, name.clone(), why.to_string()));
+    }
+    log(w, format!("{name}: {why} (kept by the no-fire override)."));
+    post(
+        w,
+        today,
+        level_of(job.employer),
+        format!(
+            "No-fire override: without it you would be out at {name} today ({why}). You keep the job; turn the override off in Settings."
+        ),
+        true,
+    );
+    true
+}
+
+impl World {
+    /// Turns the no-fire override on or off (Settings). The first time it
+    /// goes on, the career is marked for good.
+    pub fn set_no_fire(&mut self, on: bool) {
+        let today = self.today;
+        if let Some(k) = self.career.as_mut() {
+            k.no_fire = on;
+            if on && k.no_fire_since.is_none() {
+                k.no_fire_since = Some(today);
+            }
+        }
     }
 }
 

@@ -358,6 +358,99 @@ const SCREENS: &[&str] = &[
 /// staff's plan and runs its staff's playbook (its sidebar leaves them out).
 const NOT_OTHER: &[&str] = &["training", "practice", "plans", "designer", "squad", "boards", "recruiting", "contracts"];
 
+/// Game day talks (lane 14): on a game morning the pregame room with a
+/// challenge and with a captain, the talk said; the first such game is
+/// played live to the end on the staff's calls, with your halftime talk
+/// and every sideline word your own.
+/// Lane 14's talks off the game day, held the way a player would: each
+/// kind once a run (a home visit, a college's call, a job interview, the
+/// staff meeting, a one-on-one with a subject change), each answered with
+/// its first pick until it ends.
+fn off_field_talks(run: &mut Run, g: &mut Game, held: &mut std::collections::BTreeSet<String>) {
+    let Some(a) = run.call(g, "people_agenda", json!({})) else { return };
+    let waiting: Vec<(u64, String)> = a["waiting"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|s| s["today"] == json!(true) || s["late"] == json!(true))
+        .filter_map(|s| Some((s["id"].as_u64()?, s["kind"].as_str()?.to_string())))
+        .filter(|(_, k)| {
+            matches!(k.as_str(), "HomeVisit" | "CollegeCall" | "JobInterview" | "StaffMeeting" | "CombineTalk")
+        })
+        .collect();
+    // A one-on-one face to face (D1), turned to another subject once.
+    if !held.contains("OneOnOne")
+        && let Some(room) = run.call(g, "people_room", json!({}))
+        && let Some(pid) = room["rows"][0]["id"].as_u64()
+        && let Some(t) = g.call("people_talk", &json!({ "id": pid, "subject": "role" })).ok()
+        && let Some(sid) = t["scene"].as_u64()
+    {
+        held.insert("OneOnOne".into());
+        run.call(g, "people_scene", json!({ "id": sid }));
+        run.call(g, "people_subject", json!({ "id": sid, "subject": "team" }));
+        for _ in 0..6 {
+            let Some(s) = run.call(g, "people_scene", json!({ "id": sid })) else { break };
+            if s["done"] == json!(true) {
+                break;
+            }
+            let Some(code) = s["picks"][0]["code"].as_u64() else { break };
+            run.call(g, "people_answer", json!({ "id": sid, "code": code }));
+        }
+    }
+    for (id, kind) in waiting {
+        if !held.insert(kind) {
+            continue;
+        }
+        for _ in 0..8 {
+            let Some(s) = run.call(g, "people_scene", json!({ "id": id })) else { break };
+            if s["done"] == json!(true) {
+                break;
+            }
+            let Some(code) = s["picks"][0]["code"].as_u64() else { break };
+            run.call(g, "people_answer", json!({ "id": id, "code": code }));
+        }
+    }
+}
+
+fn game_talks(run: &mut Run, g: &mut Game, lived: &mut bool) {
+    let Some(now) = run.call(g, "gameday_now", json!({})) else { return };
+    if now["today"] != json!(true) || now["live"] != json!("none") {
+        return;
+    }
+    let Some(room) = run.call(g, "talk_room", json!({})) else { return };
+    run.call(g, "talk_room", json!({ "move": "challenge", "tone": "fiery", "subject": "them" }));
+    if let Some(c) = room["captains"]["voices"][0]["id"].as_u64() {
+        run.call(g, "talk_room", json!({ "move": "captain", "tone": "calm", "who": c }));
+    }
+    run.call(g, "talk_say", json!({ "move": "straight", "tone": "firm", "subject": "us" }));
+    if *lived {
+        return;
+    }
+    *lived = true;
+    let Some(mut st) = run.call(g, "gameday_kickoff", json!({})) else { return };
+    for _ in 0..600 {
+        if st["status"] != json!("live") {
+            break;
+        }
+        let ask = st["pending"]["ask"].as_str().unwrap_or("");
+        let next = if let Some(w) = st["words"][0].as_object() {
+            json!({ "kind": "word", "id": w["id"], "move": "straight", "tone": "calm" })
+        } else if ask == "halftime" && st["halftime"]["talked"] == json!(false) {
+            run.call(g, "talk_room", json!({}));
+            json!({ "kind": "talk", "move": "challenge", "tone": "firm", "subject": "us" })
+        } else if ask == "halftime" {
+            json!({ "kind": "halftime" })
+        } else {
+            json!({ "kind": "staff", "stop": "every" })
+        };
+        match run.call(g, "live_answer", next) {
+            Some(v) => st = v,
+            None => break,
+        }
+    }
+    run.call(g, "day", json!({}));
+}
+
 fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str) {
     let mut players = BTreeSet::new();
     let mut coaches = BTreeSet::new();
@@ -503,6 +596,19 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             {
                 let _ = g.call("eval_trip", &json!({ "id": id, "kind": t["kind"] }));
                 if let Some(r) = f["rooms"].as_array().and_then(|r| r.first()) {
+                    // The room as a timed talk (lane 14, D8), played to its end.
+                    if let Ok(t) = g.call("eval_interview_talk", &json!({ "id": id, "room": r["room"] }))
+                        && let Some(sid) = t["scene"].as_u64()
+                    {
+                        for _ in 0..12 {
+                            let Some(s) = run.call(g, "people_scene", json!({ "id": sid })) else { break };
+                            if s["done"] == json!(true) {
+                                break;
+                            }
+                            let Some(code) = s["picks"][0]["code"].as_u64() else { break };
+                            run.call(g, "people_answer", json!({ "id": sid, "code": code }));
+                        }
+                    }
                     let _ = g.call(
                         "eval_interview",
                         &json!({ "id": id, "room": r["room"], "spent": { "football": 6, "family": 4 } }),
@@ -555,6 +661,12 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
         // refuse it), its report, your next opponent's tape, and the days
         // you are there when they come round.
         lane9(run, g, &ids);
+    }
+    // The hunt (next update, lane 11): the page, a target named from its
+    // suggestions when there is none, his player page, and the seat's
+    // own lever once.
+    if seat != "other" {
+        lane11(run, g);
     }
     // Your staff and the ranges (update 2, lane 3): the quality page, each
     // member's detail and ratings page with his key reads' cards, and the
@@ -940,6 +1052,26 @@ fn find_stops(run: &mut Run, g: &mut Game, seat: &str) -> Vec<Value> {
     out
 }
 
+/// One stop on the hunt (lane 11).
+fn lane11(run: &mut Run, g: &mut Game) {
+    run.call(g, "l8_page", json!({ "page": "hunt", "panel": true }));
+    let Some(h) = run.call(g, "hunt_page", json!({})) else { return };
+    if h["yours"].is_null() {
+        if let Some(id) = h["suggest"][0]["id"].as_u64() {
+            run.call(g, "hunt_name", json!({ "id": id }));
+            run.call(g, "player", json!({ "id": id }));
+            let h = run.call(g, "hunt_page", json!({})).unwrap_or_default();
+            // The college seat banks money and holds a place; refusals
+            // (no NIL era, no money left) go straight to the game.
+            if h["seat"] == json!("college") {
+                let _ = g.call("hunt_bank", &json!({ "nil": 50_000.0, "hold": true }));
+            }
+        }
+    } else if let Some(id) = h["yours"]["player"]["id"].as_u64() {
+        run.call(g, "player", json!({ "id": id }));
+    }
+}
+
 /// One stop in the film room (lane 9).
 fn lane9(run: &mut Run, g: &mut Game, ids: &[u64]) {
     let Some(h) = run.call(g, "film_home", json!({})) else { return };
@@ -1098,6 +1230,8 @@ fn main() {
         let mut longest_span = String::new();
         let mut peak = resident_gb();
         let mut saved_once = false;
+        let mut lived = false;
+        let mut held = std::collections::BTreeSet::new();
         while g.world.as_ref().map(|w| begin.days_to(w.today)).unwrap_or(days) < days && stops < 600 {
             let tc = Instant::now();
             let from = g.world.as_ref().map(|w| w.today.pretty()).unwrap_or_default();
@@ -1143,6 +1277,8 @@ fn main() {
                 continue;
             }
             visit_all(&mut run, &mut g, &extra, seat);
+            game_talks(&mut run, &mut g, &mut lived);
+            off_field_talks(&mut run, &mut g, &mut held);
             if ground {
                 ground_zero(&mut run, &mut g);
             }

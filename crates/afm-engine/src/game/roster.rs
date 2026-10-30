@@ -70,6 +70,18 @@ pub struct GamePlayer {
     /// changes nothing).
     #[serde(default = "no_prep")]
     pub prep: f32,
+    /// His mood today, -1 to 1 (people topic 3): a talk lands on how he
+    /// came in (dialogue D4). 0 changes nothing.
+    #[serde(default)]
+    pub mood: f32,
+    /// How much he believes his head coach, 0-1 (your players' trust in
+    /// you): how much of a talk reaches him (dialogue D4).
+    #[serde(default = "half")]
+    pub belief: f32,
+}
+
+fn half() -> f32 {
+    0.5
 }
 
 fn typical_chem() -> f32 {
@@ -119,6 +131,8 @@ impl GamePlayer {
             links: crate::links::measure(p.position, &b, &p.attributes, p.game.recovery),
             impression: crate::training::impression(&p.train),
             prep: prep_of(p),
+            mood: 0.0,
+            belief: 0.5,
         }
     }
 
@@ -369,6 +383,17 @@ pub struct Staff {
     /// to play, each with a firmness. They lean the play callers.
     #[serde(default)]
     pub guide: super::guide::Guidelines,
+    /// The head coach's motivation, 1-20 (dialogue D4): how his talks carry
+    /// and how well he reads his room.
+    #[serde(default = "ten")]
+    pub motivation: f64,
+    /// The head coach's temper, 1-20: a hot one leans to the fiery talk.
+    #[serde(default = "ten")]
+    pub temper: f64,
+}
+
+fn ten() -> f64 {
+    10.0
 }
 
 impl Staff {
@@ -389,6 +414,8 @@ impl Staff {
             year: 2026,
             film_study: 10.0,
             guide: Default::default(),
+            motivation: 10.0,
+            temper: 10.0,
         }
     }
 }
@@ -421,6 +448,11 @@ pub struct GameTeam {
     /// the call sheet. Empty for AI teams.
     #[serde(default)]
     pub prep: Prep,
+    /// The day as the world sees it for this team (dialogue D4): the
+    /// stakes, the rival, the paper, the week, the captains. The default is
+    /// a plain game.
+    #[serde(default)]
+    pub day: super::talk::Day,
 }
 
 /// A call sheet play: the formation's personnel, backfield and set, and the play.
@@ -646,6 +678,7 @@ impl GameTeam {
             week: 1.0,
             order: Vec::new(),
             prep: Prep::default(),
+            day: Default::default(),
         }
     }
 
@@ -759,6 +792,13 @@ pub struct Depth {
     pub holder: usize,
     pub kick_returners: Vec<usize>,
     pub punt_returner: usize,
+    /// The raw burner (speed update S10): a backup receiver or back whose
+    /// speed wins even though his overall says backup, and how much the
+    /// team leans on him (0-1), the more the less speed it has.
+    #[serde(default)]
+    pub burner: Option<usize>,
+    #[serde(default)]
+    pub burner_lean: f64,
 }
 
 impl Depth {
@@ -825,7 +865,42 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         }
         d.at[pos.index()] = list;
     }
+    (d.burner, d.burner_lean) = burner(&team.players, &d);
     d
+}
+
+/// How fast he plays deep or with the ball in space: the receivers'
+/// burst-and-speed mix (speed update S2b, `body::play_speed`), for anyone
+/// who runs routes or returns kicks.
+pub fn deep_speed(p: &GamePlayer) -> f64 {
+    0.4 * p.a(Attr::Acceleration) + 0.6 * p.a(Attr::Speed)
+}
+
+/// The team's raw burner (S10): the fastest backup receiver or back, when
+/// he is faster than every starting receiver and clearly faster than
+/// their average. The team leans on him by how much faster: 0 at 2 points
+/// over, all in at 12 (proposed, not confirmed).
+fn burner(ps: &[GamePlayer], d: &Depth) -> (Option<usize>, f64) {
+    let starting: Vec<usize> = d.list(Position::WR).iter().take(starters(Position::WR)).copied().collect();
+    if starting.is_empty() {
+        return (None, 0.0);
+    }
+    let speeds: Vec<f64> = starting.iter().map(|&i| deep_speed(&ps[i])).collect();
+    let mean = speeds.iter().sum::<f64>() / speeds.len() as f64;
+    let top = speeds.iter().copied().fold(f64::MIN, f64::max);
+    let fastest = d
+        .list(Position::WR)
+        .iter()
+        .skip(starters(Position::WR))
+        .chain(d.list(Position::RB).iter().skip(starters(Position::RB)))
+        .copied()
+        .filter(|i| !starting.contains(i))
+        .map(|i| (i, deep_speed(&ps[i])))
+        .max_by(|a, b| a.1.total_cmp(&b.1));
+    match fastest {
+        Some((i, v)) if v > top + 1.0 && v > mean + 4.0 => (Some(i), clamp((v - mean - 2.0) / 10.0, 0.0, 1.0)),
+        _ => (None, 0.0),
+    }
 }
 
 /// The depth chart as the staff orders it.
@@ -974,8 +1049,9 @@ fn staff_depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         .copied()
         .find(|&i| ps[i].position == Position::P && Some(i) != kicker && i != d.snapper)
         .unwrap_or_else(|| d.list(Position::QB)[1.min(d.list(Position::QB).len() - 1)]);
+    // How fast he plays, not his top speed alone (S10, S2b).
     let returner = |p: &GamePlayer| {
-        0.4 * p.a(Attr::Speed)
+        0.4 * deep_speed(p)
             + 0.25 * p.a(Attr::Elusiveness)
             + 0.2 * p.a(Attr::BallCarrierVision)
             + 0.15 * p.a(Attr::BallTracking)

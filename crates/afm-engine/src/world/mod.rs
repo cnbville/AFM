@@ -36,6 +36,7 @@ pub mod help;
 pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
+pub mod hunt;
 pub mod legacy;
 pub mod live_seat;
 pub mod looks;
@@ -73,6 +74,7 @@ pub mod stories;
 pub mod storylines;
 pub mod systems;
 pub mod tape;
+pub mod times;
 pub mod trends;
 pub mod units;
 pub mod voters;
@@ -418,6 +420,11 @@ pub struct PersonCal {
     /// at that program (`Person::cut_here`), until the next window moves him.
     #[serde(default)]
     pub cut: Option<CollegeCut>,
+    /// What each head coach's living-room talk did for him (lane 14, D7):
+    /// program, lean. It weighs in his choice like the rest of the
+    /// relationship.
+    #[serde(default)]
+    pub home_talks: Vec<(usize, f32)>,
 }
 
 /// A college cut (minor bug 60): the program, the day, and whether his
@@ -721,6 +728,11 @@ pub struct World {
     /// tapes, so a new career has film of its first opponents (tape.rs).
     #[serde(skip)]
     pub(crate) world_tapes: bool,
+    /// Pros out injured by player id, for the nightly heal (B1), and the
+    /// day it last ran; rebuilt from everyone each Tuesday and after a load.
+    /// Ids, not places in `people`, since the people list is purged.
+    #[serde(skip)]
+    pub(crate) hurt_pros: (Vec<u32>, Option<crate::calendar::Date>),
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -765,6 +777,10 @@ pub struct World {
     /// Portal entrants still deciding (person indices; resolved before the
     /// year-end book compacts the people list).
     pub(crate) portal_pending: Vec<usize>,
+    /// Your players who asked to see you before they enter the portal
+    /// (`recruiting::Intent`).
+    #[serde(default)]
+    pub(crate) portal_intents: Vec<recruiting::Intent>,
     /// Verbal commitments decided at a commitment wave and waiting for the
     /// recruit's own announcement day (T5.2): day, person index, player id,
     /// program, and whether it is a walk-on place.
@@ -816,6 +832,9 @@ pub struct World {
     /// contracts and your network (`folk`).
     #[serde(default)]
     pub folk: folk::Folk,
+    /// Every high schooler's recorded times (speed update S6e).
+    #[serde(default)]
+    pub times: times::Times,
     /// Your game being played live today (section 9): the day books it
     /// when it runs.
     #[serde(default)]
@@ -898,6 +917,9 @@ pub struct World {
     /// College programs and high schools that started after 2026 (SK68).
     #[serde(default)]
     pub new_teams: new_teams::NewTeams,
+    /// The hunts (SK67): yours, the AI's and the generational prospects.
+    #[serde(default)]
+    pub hunt: hunt::Hunts,
     /// Each NFL team's regular-season points by year (C27): (season, team,
     /// games, points for, points against); the last twenty seasons.
     #[serde(default)]
@@ -1220,6 +1242,8 @@ impl World {
             rng,
             recording: false,
             world_tapes: false,
+            hurt_pros: (Vec::new(), None),
+            times: times::Times::default(),
             game_log: game_log::GameLog::default(),
             wlog: None,
             stats: records::StatBook::default(),
@@ -1243,6 +1267,7 @@ impl World {
             log_history: Vec::new(),
             event_history: Vec::new(),
             portal_pending: Vec::new(),
+            portal_intents: Vec::new(),
             announcements: Vec::new(),
             portal_market: None,
             nfl_champions: Vec::new(),
@@ -1281,6 +1306,7 @@ impl World {
             kept_schedules: Vec::new(),
             expansion: Default::default(),
             new_teams: Default::default(),
+            hunt: Default::default(),
             nfl_units: Vec::new(),
         };
         staff::staff_everyone(&mut w);
@@ -1502,7 +1528,8 @@ impl World {
     }
 
     /// Each new boy's pull to stay in his state and the team he grew up
-    /// cheering for (fix list 2.2, 2.3), on keyed draws. Proposed, not
+    /// cheering for (fix list 2.2, 2.3), on keyed draws and his family
+    /// (minor bug 89). Proposed, not
     /// confirmed: a quarter feel no pull, half a little (0.02-0.08), a
     /// quarter a lot (0.10-0.25). Four in five grew up with a team in their
     /// own state, picked by fan base and tradition; the rest with a national
@@ -1533,9 +1560,29 @@ impl World {
             }
             list.last().map(|x| x.0)
         };
+        // Who feels the pull comes from his family as much as from chance
+        // (minor bug 89): a settled home, and a parent or grandparent making
+        // the choice, keep a boy closer. Read against his own class, so each
+        // band keeps its share; a boy added alone draws by chance (proposed,
+        // not confirmed: family 0.6 of the draw's spread).
+        let rooted = |p: &Person| {
+            p.bg.home_stability
+                + if matches!(p.family.decider, background::Decider::Parent | background::Decider::Grandparent) {
+                    0.15
+                } else {
+                    0.0
+                }
+        };
+        let n = self.people.len() - start;
+        let mean = self.people[start..].iter().map(rooted).sum::<f64>() / n.max(1) as f64;
+        let sd =
+            (self.people[start..].iter().map(|p| (rooted(p) - mean).powi(2)).sum::<f64>() / n.max(1) as f64).sqrt();
+        let fam: f64 = if n >= 50 && sd > 1e-6 { 0.6 } else { 0.0 };
         for person in &mut self.people[start..] {
             let id = person.player.id as u64;
-            let u = season::key_uniform(seed ^ 0x57A1, id);
+            let z = (1.0 - fam * fam).sqrt() * finance::probit(season::key_uniform(seed ^ 0x57A1, id))
+                + if fam > 0.0 { fam * (rooted(person) - mean) / sd } else { 0.0 };
+            let u = crate::athlete::phi(z);
             // Sized against the real home-state shares (fix list 2.8: FBS
             // median 37%, p10 15%, p90 65%); a first pass at 0-0.25 gave a
             // median of 20% (proposed, not confirmed).

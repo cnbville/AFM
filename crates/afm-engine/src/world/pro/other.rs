@@ -1395,8 +1395,14 @@ pub(crate) fn seat_setup(w: &World) -> Option<crate::world::live_seat::SeatSetup
     let g = pairs.iter().position(|&(h, a)| h as usize == fr || a as usize == fr)?;
     let (h, a) = pairs[g];
     let (k, year) = (live.league, live.year);
-    let sh = side(w, k, h as usize, year)?;
-    let sa = side(w, k, a as usize, year)?;
+    let mut sh = side(w, k, h as usize, year)?;
+    let mut sa = side(w, k, a as usize, year)?;
+    // The day each team brings (dialogue D4): your own week on yours.
+    {
+        use crate::world::folk::{Team, gametalk::day_for};
+        sh.team.day = day_for(w, Team::Other(h as usize), Team::Other(a as usize), 0.0, false, &sh.team);
+        sa.team.day = day_for(w, Team::Other(a as usize), Team::Other(h as usize), 0.0, false, &sa.team);
+    }
     let round =
         if wk < live.weeks.len() && f.stop_after.is_none_or(|s| wk < s as usize) { 0 } else { live.round.max(1) };
     // The title game's neutral site, as `play_week` reads it after seeding.
@@ -1643,7 +1649,7 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             if w.logging() {
                 log_game(w, (k, year, wk, round, neutral, d), teams, &r, [&sh.team, &sa.team]);
             }
-            w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref());
+            w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref(), &r.talks);
             w.seat_line(crate::calendar::Level::Other, teams, None, neutral);
             crate::world::stories::other_game(w, teams, &r.stats, round > 0);
             if let Some(o) = w.tape_watch(crate::calendar::Level::Other) {
@@ -1788,13 +1794,15 @@ fn record(w: &mut World, k: u8, teams: [u16; 2], r: &GameResult, who: [&HashMap<
             c.sharpness = (c.sharpness + 0.34).min(1.0);
         }
     }
-    for (_, inj) in &r.injuries {
-        if inj.plays_on || inj.side > 1 {
+    // By team, day by day from the day after the game (B1).
+    for &(team, ref inj) in &r.injuries {
+        if inj.plays_on || team > 1 {
             continue;
         }
-        let Some(&i) = who[inj.side].get(&inj.id) else { continue };
+        let Some(&i) = who[team].get(&inj.id) else { continue };
         if let Some(c) = w.people[i].pro.as_mut() {
-            c.out_weeks = c.out_weeks.max(inj.weeks.ceil().max(1.0) as u32);
+            c.hurt_for(1 + (inj.weeks * 7.0).ceil().max(1.0) as u32);
+            w.hurt_pros.0.push(w.people[i].player.id);
         }
     }
 }
@@ -1930,7 +1938,10 @@ fn reviews(w: &mut World, k: u8, teams: &[usize]) {
         } else {
             0.0
         };
-        if p > 0.0 && key_uniform(w.options.seed as u64 ^ 0xF1E5 ^ (w.year as u64) << 8, hc as u64) < p {
+        if p > 0.0
+            && key_uniform(w.options.seed as u64 ^ 0xF1E5 ^ (w.year as u64) << 8, hc as u64) < p
+            && !crate::world::front_office::market::spared(w, hc, "fired")
+        {
             crate::world::staff::leave(w, hc, "fired");
             if w.recording {
                 let text =
@@ -1942,6 +1953,7 @@ fn reviews(w: &mut World, k: u8, teams: &[usize]) {
                     if role == Role::OffensiveCoordinator { w.others.teams[fr].oc } else { w.others.teams[fr].dc };
                 if let Some(a) = slot
                     && key_uniform(0x0C5 ^ w.year as u64, a as u64) < 0.5
+                    && !crate::world::front_office::market::spared(w, a, "let go by the new staff")
                 {
                     crate::world::staff::leave(w, a, "let go by the new staff");
                 }

@@ -28,6 +28,7 @@ pub mod sim;
 pub mod stats;
 pub mod synthetic;
 pub mod tables;
+pub mod talk;
 pub mod win_chance;
 
 pub use books::Book;

@@ -47,9 +47,67 @@ fn packed_keys(kind: &str) -> &'static [&'static str] {
             "person.player.age",
             "why",
         ],
-        "coaches" => &["coach.name", "coach.age", "coach.job", "coach.role", "coach.program", "coach.team"],
-        "programs" => &["program.name", "program.division", "program.conference", "program.prestige"],
-        "schools" => &["school.name", "school.state", "school.class"],
+        // A coach's year: his job, reputation and hidden parts (the Coaches page's lines by year).
+        "coaches" => &[
+            "coach.name",
+            "coach.age",
+            "coach.ethnicity",
+            "coach.retired",
+            "coach.reputation",
+            "coach.stat_buzz",
+            "coach.learning_ceiling",
+            "coach.mentor",
+            "coach.wins",
+            "coach.losses",
+            "coach.career_titles",
+            "coach.prove_it",
+            "coach.contract.salary",
+            "coach.job.role",
+            "coach.job.role.PositionCoach",
+            "coach.job.since",
+            "coach.job.employer.College",
+            "coach.job.employer.HighSchool",
+            "coach.job.employer.Nfl",
+            "coach.job.employer.Other",
+            "coach.ability.teaching.0",
+            "coach.ability.teaching.1",
+            "coach.ability.teaching.2",
+            "coach.ability.teaching.3",
+            "coach.ability.teaching.4",
+            "coach.ability.teaching.5",
+            "coach.ability.teaching.6",
+            "coach.ability.teaching.7",
+            "coach.ability.scheme",
+            "coach.ability.game_management",
+            "coach.ability.motivation",
+            "coach.ability.discipline",
+            "coach.ability.recruiting",
+            "coach.ability.network",
+            "coach.ability.relationships",
+        ],
+        "programs" => &[
+            "program.real_name",
+            "program.fictional_name",
+            "program.division",
+            "program.conference",
+            "program.prestige",
+            "program.head_coach",
+            "result.expected",
+            "result.wins",
+            "result.losses",
+        ],
+        "schools" => &[
+            "school.name",
+            "school.state",
+            "school.classification",
+            "school.enrollment",
+            "school.private",
+            "school.prestige",
+            "school.coach",
+            "result.wins",
+            "result.losses",
+            "result.state_title",
+        ],
         _ => &[],
     }
 }
@@ -170,6 +228,13 @@ fn route(w: &mut Writer, stream: &str, season: i32, seq: i32, v: &V) -> std::io:
             fixed.push(("stream".into(), S::Text(level.to_string())));
             if let Some(V::Array(p)) = json::get(v, "plays") {
                 fixed.push(("n".into(), S::Integer(p.len() as i64)));
+            }
+            // A game's snaps join its row by season, level, date and teams (R8).
+            if let Some(V::Array(t)) = json::get(v, "teams")
+                && t.len() == 2
+            {
+                fixed.push(("home".into(), crate::sink::scalar(&t[0]).unwrap_or(S::Null)));
+                fixed.push(("away".into(), crate::sink::scalar(&t[1]).unwrap_or(S::Null)));
             }
             w.put_packed("log_plays", fixed, v).map_err(e)?;
             "log_plays"

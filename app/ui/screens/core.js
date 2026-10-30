@@ -758,6 +758,8 @@ async function runMove(m, who, at) {
     case "ask": return moveMenu(at, "Ask your staff for", m.kinds.map((k) => [k, k]), (k) => moveDo("scout_ask", { id, kind: k }));
     case "scout": return go("scout", { id });
     case "film": return go("film", { id });
+    case "hunt": return l11Name(id, name, m.busy);
+    case "hunt_page": return go("hunt");
     case "list_add": return moveDo("list_add", { id }, `${name} is on your list.`);
     case "list_remove": return moveDo("list_remove", { id }, `${name} is off your list.`);
     case "note": return noteBox({ kind: "player", id, name }, S.title || "Page");
@@ -1601,7 +1603,7 @@ screens.player = async (a) => {
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
       <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
-      <div class="st-actions">${heroMoves(p, listBtn)}${l7Stake(p)}</div></div></div></div>
+      <div class="st-actions">${heroMoves(p, listBtn)}${l7Stake(p)}${typeof l11Hunt === "function" ? l11Hunt(p) : ""}</div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
 // The hero's moves (minor bug 63): the main ones as buttons, the rest
@@ -1775,19 +1777,38 @@ screens.news = async (a) => {
   if (a.kind) N.kind = a.kind;
   let x = await api("feed", { kind: N.kind, chain: N.chain || undefined, limit: 120 });
   // A quiet feed you didn't pick yourself: open the first one with stories.
-  if (!x.rows.length && !a.kind && !N.chain) {
-    for (const [k] of FEEDS.filter(([k]) => k !== N.kind)) {
+  if (!x.rows.length && !x.fans && !a.kind && !N.chain) {
+    for (const [k] of FEEDS.filter(([k]) => k !== N.kind && k !== "fans")) {
       const y = await api("feed", { kind: k, limit: 120 });
       if (y.rows.length) { N.kind = k; x = y; break; }
     }
   }
   title("News");
   const seg = FEEDS.map(([k, t]) => `<button data-act="newskind" data-v="${k}" aria-pressed="${N.kind === k}">${t}</button>`).join("");
+  if (N.kind === "fans") return `<div class="pad">${pageHead({ kicker: "What the town is saying", title: "News", actions: `<div class="seg">${seg}</div>` })}${fansFeed(x.fans)}</div>`;
   const rows = x.rows.map((r) => `<article class="story ${r.mine ? "mine" : ""} loud-${esc(r.loud || "small")}"><div class="story-art">${posterScene(r.scene || "news", (S.status && S.status.mine && S.status.mine.colors) || ["#3b4252", "#1c1f27"])}</div><div class="story-copy"><div class="story-meta"><span class="st-label">${esc(r.kind)}</span><span class="cert cert-${esc((r.certainty || "").toLowerCase())}" title="How sure the source is">${esc(r.certainty || "")}</span><span class="muted">${esc(r.source || "")} · ${esc(r.date)}</span></div><p>${rich(r.text)}</p>${typeof hpWhy === "function" ? hpWhy(r.why, "small") : ""}${r.chain ? `<a class="link small" data-act="newschain" data-k="${esc(r.chain.key)}">${r.chain.count} more in this story</a>` : ""}</div></article>`).join("");
   const chain = N.chain ? `<div class="chainbar">Following one story <a class="link" data-act="newschain" data-k="">Show everything</a></div>` : "";
   return `<div class="pad">${pageHead({ kicker: "Rumours are marked as rumours", title: "News", actions: `<div class="seg">${seg}</div>` })}${chain}<div class="stories">${rows || `<div class="empty">${N.kind === "beat" ? "Your beat writers haven't filed anything yet." : "Nothing in this feed yet."}</div>`}</div></div>`;
 };
 GOTO.news = () => [["Inbox", "inbox"], ["Calendar", "calendar"], ["Standings", "standings"]];
+
+// The fans (people topic 9): the town after your last game, the call-in
+// show and the message board, all drawn as the page opens.
+function fansFeed(f) {
+  if (!f) return '<div class="empty">Take a job and your fans will have plenty to say.</div>';
+  const who = (v) => `<div class="fn-who">${esc(v.who)}${v.place ? `, ${esc(v.place)}` : ""}</div>`;
+  const town = f.town && f.town.voices.length
+    ? `<section class="panel warm fn-town"><h2>${esc(f.town.label)} <small>${esc(f.town.date)} · around town that night and the morning after · <a class="link" data-go="game" data-index="${f.town.index}" data-tab="Fans">the game's fans</a></small></h2><div class="fn-voices">${f.town.voices.map((v) => `<div class="fn-voice"><p>${rich(v.text)}</p>${who(v)}</div>`).join("")}</div></section>`
+    : "";
+  const shows = f.shows.length
+    ? f.shows.map((s) => `<div class="fn-show"><div class="fn-show-h"><span class="st-label">${esc(s.date)}</span><b>${esc(s.name)}</b></div>${s.calls.map((c) => `<div class="fn-call">${c.intro ? `<div class="fn-host">${esc(c.intro)}</div>` : ""}<p>${rich(c.text)}</p><div class="fn-who">${esc(c.caller)}${c.regular ? ' <span class="st-pill">Regular</span>' : ""}</div></div>`).join("")}</div>`).join("")
+    : '<div class="empty">The phone lines are quiet this fortnight.</div>';
+  const threads = f.threads.length
+    ? f.threads.map((t) => `<div class="fn-thread"><div class="fn-show-h"><span class="st-label">${esc(t.date)}</span><b>${rich(t.title)}</b><span class="muted small">${t.posts.length} post${t.posts.length === 1 ? "" : "s"}</span></div>${t.posts.map((p) => `<div class="fn-post"><span class="fn-by">${esc(p.by)}</span><p>${rich(p.text)}</p></div>`).join("")}</div>`).join("")
+    : '<div class="empty">Nothing new on the board this fortnight.</div>';
+  return `<div class="fn-head"><span class="st-label">The fans</span><b class="fn-mood fn-${esc(f.mood_key)}">${esc(f.mood)}</b><span class="muted">${esc(f.team ? f.team.name : "")} · every line here is a fan's, not your staff's</span></div>
+    ${town}<div class="grid2 fn-grid"><section class="panel"><h2>On the air <small>${esc(f.station)} · the call-in show</small></h2>${shows}</section><section class="panel"><h2>${esc(f.board)} <small>the threads this fortnight</small></h2>${threads}</section></div>`;
+}
 
 // ---------- the calendar (section 4 on screen) ----------
 screens.calendar = async (a) => {
@@ -1970,6 +1991,7 @@ screens.settings = async () => {
   title("Settings");
   const seg = (k, list, cur) => `<div class="seg">${list.map(([v, t]) => `<button data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${String(cur) === String(v)}">${t}</button>`).join("")}</div>`;
   const row = (t, sub, ctl) => `<div class="setrow"><div><b>${t}</b><small>${sub}</small></div>${ctl}</div>`;
+  const nf = await api("no_fire").catch(() => null);
   const keys = [["Space", "Continue"], ["⌘K", "Search anything"], ["⌘[ and ⌘]", "Back and forward"], ["Shift-click", "Open beside this screen"], ["⌘-click", "Open in its own window"], ["Right-click a name", "Add to my players, add a note, compare"], ["↑ ↓ and return", "Move through a table and open the row"], ["← →", "Older and newer letter"], ["Esc", "Close the letter or panel"]];
   return `<div class="pad">${pageHead({ title: "Settings" })}<div class="grid2"><div class="panel"><h2>Look</h2>
     ${row("Theme", "Showtime dark, or light for daytime", seg("theme", [["", "Dark"], ["light", "Light"]], prefs.theme || ""))}
@@ -1978,9 +2000,21 @@ screens.settings = async () => {
     <div class="panel"><h2>Reading</h2>
     ${row("Hover cards", "A card when you rest on a name", seg("hover", [["", "On"], ["off", "Off"]], prefs.hover || ""))}
     ${row("Hover delay", "How long to rest first", seg("hoverDelay", [["250", "Quick"], ["", "Normal"], ["900", "Slow"]], prefs.hoverDelay || ""))}</div></div>
+    ${nf && nf.career ? noFirePanel(nf, row) : ""}
     <div class="panel"><h2>Logos</h2>${row("Logo packs", "AFM has no logos of its own: install a pack, the way Football Manager's work", linkTo("logos", {}, "Logos", "st-btn small"))}</div>
     <div class="panel"><h2>Keys and clicks</h2><div class="keys">${keys.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join("")}</div></div></div>`;
 };
+
+// The no-fire override (a test switch): nothing ends your job while it is
+// on, and each time something would have, it is listed here and in the inbox.
+function noFirePanel(nf, row) {
+  const seg = `<div class="seg"><button data-act="nofire" data-v="" aria-pressed="${!nf.on}">Off</button><button data-act="nofire" data-v="1" aria-pressed="${nf.on}">On</button></div>`;
+  const mark = nf.since ? ` This career is marked as having used it since ${esc(nf.since)}; the mark stays when you turn it off.` : " Turning it on marks this career and its saves for good.";
+  const list = nf.spared.slice(0, 12).map((x) => `<div class="setrow"><div><b>${esc(x.date)}</b><small>${esc(x.at)}: ${esc(x.why)}</small></div></div>`).join("");
+  const more = nf.spared.length > 12 ? `<small class="muted">and ${nf.spared.length - 12} more</small>` : "";
+  const kept = nf.spared.length ? `<h3 class="st-label" style="margin-top:12px">Times it kept you in a job (${nf.spared.length})</h3>${list}${more}` : nf.since ? `<small class="muted">It hasn't had to keep you yet.</small>` : "";
+  return `<div class="panel"><h2>Testing</h2>${row("No-fire override", `Nothing ends your job: no firing, no contract left to run out, no new head coach letting you go. Your inbox still says each time it would have happened.${mark}`, seg)}${kept}</div>`;
+}
 
 // ---------- search as a page (the palette is ⌘K) ----------
 screens.search = async (a) => {
@@ -2002,6 +2036,16 @@ if (!screens.studio) screens.studio = async (a) => liveRoom({ kicker: a.kicker |
 
 // The actions the screens above add.
 const CORE_MORE = {
+  nofire: async (el) => {
+    const on = el.dataset.v === "1";
+    if (el.getAttribute("aria-pressed") === "true") return;
+    if (on && !(await sure("Turn on the no-fire override?", "Nothing will end your job while it is on. This career is marked as having used it, on its saves too, even after you turn it off.", "Turn it on"))) return;
+    try {
+      await api("no_fire_set", { on });
+      toast(on ? "No-fire override on: nothing ends your job." : "No-fire override off.");
+      refresh(el);
+    } catch (e) { toast(e.message); }
+  },
   pstatv: (el) => { keep("pstats", {}).v = el.dataset.v; refresh(el); },
   cmpdrop: (el) => { const t = keep("cmp", { ids: [] }); const id = Number(el.dataset.id); t.ids = (S.route.args.ids || t.ids).filter((x) => x !== id); go("compare", { ids: t.ids }, false); },
   newschain: (el) => { keep("newsfeed", {}).chain = el.dataset.k || null; refresh(el); },

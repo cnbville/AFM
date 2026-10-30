@@ -1935,7 +1935,7 @@ fn flight_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
 
 /// A position coach's word with a player: a small push to stay, by his
 /// relationships rating.
-fn position_coach_word(w: &mut World, i: usize) {
+pub(crate) fn position_coach_word(w: &mut World, i: usize) {
     let rel = w.people[i]
         .college_staff
         .last()

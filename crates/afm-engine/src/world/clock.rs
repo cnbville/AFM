@@ -299,6 +299,7 @@ pub(crate) fn advance_day(w: &mut World) {
         college::release_poll(w, d, PollKind::ApPreseason);
     }
     timed("hs", || hs_year::day(w, d));
+    super::times::day(w, d);
 
     // --- College Saturdays and the weeks around them (T3, T6) ------------------------
     timed("college games", || college::play_day(w, d));
@@ -438,6 +439,10 @@ pub(crate) fn advance_day(w: &mut World) {
         w.coach_window = None;
         recruiting::portal_open(w, PortalWindow::CoachChange, close);
     }
+    // Your players who talked to you first decide on their day.
+    if !w.portal_intents.is_empty() {
+        recruiting::intents_day(w);
+    }
     // Entrants decide on their own days (T3, T9).
     if !w.portal_pending.is_empty() {
         timed("portal day", || recruiting::portal_day(w, false));
@@ -527,6 +532,8 @@ pub(crate) fn advance_day(w: &mut World) {
     // The systems to chase (update 2, lane 2) and the world's halls.
     timed("legacy", || super::legacy::day(w, d));
     timed("scouting", || super::scouting::day(w, d));
+    // The hunts (SK67): yours, the AI's, the generational prospect.
+    timed("hunt", || super::hunt::day(w, d));
     // Update 2, lane 5: the call sheet drafted on plan day, the week's
     // keys, and the call words.
     timed("plans", || super::plans::day(w, d));

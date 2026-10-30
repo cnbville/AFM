@@ -8,8 +8,11 @@
 
 pub mod areas;
 pub mod book;
+pub mod coach;
 pub mod compare;
 pub mod demo;
+pub mod games;
+pub mod inst;
 pub mod library;
 pub mod pages;
 pub mod play;
@@ -167,7 +170,8 @@ impl Reader {
     }
 
     /// One page by its route: `overview`, `page/<topic>`, `tools/<tab>`,
-    /// `career`, `table/<name>`, `e/<table>/<id>`, `compare/<mode>`.
+    /// `career`, `table/<name>`, `e/<table>/<id>`, `compare/<mode>`, `season/<program>/<year>`,
+    /// `conference/<name>`.
     fn page(&mut self, route: &str, args: &Value) -> Result<Value, String> {
         let f = self.filters(args);
         let parts: Vec<&str> = route.trim_matches('/').split('/').collect();
@@ -187,9 +191,20 @@ impl Reader {
             ["area", code] => areas::area(b, code, &f)?,
             ["class", year] => areas::keyed(b, "class", "class", year, &f)?,
             ["state", code] => areas::keyed(b, "state", "state", code, &f)?,
+            // Lane R7: a program's season, and a conference's page.
+            ["season", prog, year] => inst::season_page(b, prog, year.parse().unwrap_or(0), &f)?,
+            ["conference", name] => {
+                let name = name.replace("%20", " ").replace("%2F", "/").replace("%26", "&");
+                areas::keyed(b, "conference", "conference", &name, &f)?
+            }
             ["tools", "odd", page] => pages::tools(b, "odd", &f, &json!({ "page": page }))?,
             ["tools", tab] => pages::tools(b, tab, &f, args)?,
             ["table", name] => pages::table(b, name, &f, args)?,
+            ["game", id] | ["e", "log_games", id] => games::game(b, num(id)?, &f)?,
+            ["club", id] | ["e", "nfl", id] => games::club(b, num(id)?, &f)?,
+            ["club", id, year] => games::club_season(b, num(id)?, num(year)?, &f)?,
+            ["draft", year] => games::draft(b, num(year)?, &f)?,
+            ["e", "market__agents", id] => games::agent(b, num(id)?, &f)?,
             ["e", table, id] => {
                 let id: Value = id.parse::<i64>().map(Value::from).unwrap_or_else(|_| json!(id));
                 pages::entity(b, table, &id, &f)?
@@ -392,4 +407,9 @@ fn year_span(b: &Book) -> Value {
         }
     }
     if lo > hi { Value::Null } else { json!([lo, hi]) }
+}
+
+/// A route's number part ("game/1013").
+fn num(s: &str) -> Result<i64, String> {
+    s.parse().map_err(|_| format!("{s} is not a number."))
 }

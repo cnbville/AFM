@@ -414,10 +414,20 @@ fn measurables(w: &World, k: usize) -> Vec<Value> {
             }
         }
     };
+    // Minor bug 24: a high schooler's page shows what his school lists,
+    // not his true body.
+    let (ht, wt) = if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::Away) {
+        afm_engine::world::scouting::file::listed(&p.player)
+    } else {
+        (b.height, b.weight)
+    };
     let mut v = vec![
-        json!({ "label": "Height", "value": views::ft_in(b.height), "at": at }),
-        json!({ "label": "Weight", "value": format!("{:.0} lb", b.weight), "at": at }),
+        json!({ "label": "Height", "value": views::ft_in(ht), "at": at }),
+        json!({ "label": "Weight", "value": format!("{:.0} lb", wt), "at": at }),
     ];
+    // His recorded times (speed update S6e): his best at each event, as
+    // MileSplit and the camps print them, with how each was timed.
+    v.extend(times_rows(w, p));
     if matches!(p.stage, Stage::College | Stage::Declared | Stage::Pro | Stage::Done) {
         v.push(json!({ "label": "Arm", "value": eighths(b.arm), "at": at }));
         v.push(json!({ "label": "Hand", "value": eighths(b.hand), "at": at }));
@@ -436,6 +446,60 @@ fn measurables(w: &World, k: usize) -> Vec<Value> {
         v.push(json!({ "label": "Shuttle", "value": format!("{:.2} s", c.shuttle), "at": at }));
     }
     v
+}
+
+/// The height and weight a screen shows (minor bug 24): his true body for
+/// your own players and anyone past high school, an outside high
+/// schooler's school listing until your staff has measured him.
+pub(crate) fn shown_body(w: &World, p: &afm_engine::world::Person, own: bool) -> (f64, f64) {
+    let b = body_now(&p.player);
+    if own || !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) || crate::reads::hs_tested(w, p.player.id) {
+        (b.height, b.weight)
+    } else {
+        afm_engine::world::scouting::file::listed(&p.player)
+    }
+}
+
+/// A high schooler's best recorded time at each event (the forty and its
+/// split from a laser, the 100m and 200m from the track), where and how.
+pub(crate) fn times_rows(w: &World, p: &afm_engine::world::Person) -> Vec<Value> {
+    use afm_engine::world::times::{At, Event, Timed};
+    let all = w.times.of(p.player.id);
+    let mut out = Vec::new();
+    for (ev, label) in [
+        (Event::Forty, "40-yard dash"),
+        (Event::Split, "10-yard split"),
+        (Event::M100, "100 m"),
+        (Event::M200, "200 m"),
+    ] {
+        // Electronic first; a hand time only when there is nothing else.
+        let best = |hand: bool| {
+            all.iter()
+                .filter(|t| t.event == ev && (t.timed == Timed::Hand) == hand)
+                .min_by(|a, b| a.secs.total_cmp(&b.secs).then(b.date.0.cmp(&a.date.0)))
+        };
+        let Some(t) = best(false).or_else(|| best(true)) else { continue };
+        let place = match t.at {
+            At::Meet => "Track meet".to_string(),
+            At::StateMeet => "State meet".to_string(),
+            At::Camp(j) => format!("{} camp", w.program_name(j as usize)),
+            At::Regional => "Regional showcase".to_string(),
+            At::National => "National showcase finals".to_string(),
+            At::School => "School-listed".to_string(),
+        };
+        let how = match t.timed {
+            Timed::Laser => "laser",
+            Timed::Fat => "fully automatic",
+            Timed::Hand => "hand-timed",
+        };
+        let dec = if t.timed == Timed::Hand && matches!(ev, Event::M100 | Event::M200) { 1 } else { 2 };
+        out.push(json!({
+            "label": label,
+            "value": format!("{:.*} s", dec, t.secs),
+            "at": format!("{place}, {how}, {}", views::date_text(t.date)),
+        }));
+    }
+    out
 }
 
 /// Every season's stat line he has: high school, college, NFL.
@@ -726,7 +790,7 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
             Ok(json!({
                 "kind": "player", "id": id, "name": p.name, "pos": p.player.position.name(), "age": p.player.age,
                 "class": views::class_text(w, p), "team": team.map(|t| views::team_brief(w, t)), "where": views::where_now(w, p),
-                "ht": views::ft_in(body_now(&p.player).height), "wt": body_now(&p.player).weight.round(), "stars": p.stars,
+                "ht": views::ft_in(shown_body(w, p, own).0), "wt": shown_body(w, p, own).1.round(), "stars": p.stars,
                 "read": reads::overall(w, k).json(), "yours": reads::mine(w, k).json(),
                 "level_rating": level_rating(w, k), "level_marks": level_marks(w, k), "last": last, "status": views::status_text(w, p),
                 "listed": desk::is_listed(w, id), "noted": desk::has_note(w, id),
@@ -1058,6 +1122,7 @@ pub fn history(w: &World, args: &Value) -> Value {
                 .map(|h| json!({ "year": h.year, "name": h.name, "coach": h.coach, "level": format!("College Football Hall of Fame · {}", h.division.name()), "teams": h.programs.iter().map(|&p| views::team_brief(w, TeamRef::College(p))).collect::<Vec<_>>(), "why": h.why }))
                 .collect();
             v.extend(w.nfl_book.hall.iter().rev().map(|h| json!({ "year": h.0, "id": h.1, "name": h.2, "pos": h.3.name(), "level": "Pro Football Hall of Fame", "why": h.4 })));
+            v.extend(w.nfl_book.hall_coaches.iter().rev().map(|h| json!({ "year": h.0, "name": h.2, "coach": true, "level": "Pro Football Hall of Fame", "why": h.3 })));
             v.sort_by_key(|x| std::cmp::Reverse(x["year"].as_i64().unwrap_or(0)));
             json!(v)
         }
@@ -1242,7 +1307,8 @@ pub fn brackets(w: &World, args: &Value) -> Value {
     }
 }
 
-// ---- News feeds: the beat, the national desk, recruiting, the fans ----
+// ---- News feeds: the beat, the national desk, recruiting (the fans are
+// `lane_gameday::fans`) ----
 
 fn certainty(e: &Event) -> &'static str {
     match e.kind {
@@ -1254,6 +1320,10 @@ fn certainty(e: &Event) -> &'static str {
 
 pub fn feed(w: &World, args: &Value) -> Value {
     let kind = args.get("kind").and_then(Value::as_str).unwrap_or("beat");
+    // The fans: the town, the call-in show and the board (people topic 9).
+    if kind == "fans" {
+        return crate::lane_gameday::fans::feed(w);
+    }
     let chain = args.get("chain").and_then(Value::as_str).unwrap_or("");
     let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(80) as usize;
     let me = views::mine(w);
@@ -1332,36 +1402,7 @@ pub fn feed(w: &World, args: &Value) -> Value {
             items[k].0["chain"] = json!({ "key": s, "count": n });
         }
     }
-    // The fans' voice on your own games.
-    let mut fans = Vec::new();
-    if kind == "fans"
-        && let Some(t) = me
-    {
-        for (k, g) in w.seat_games().iter().enumerate().rev().take(12) {
-            let side = usize::from(match t {
-                TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) | TeamRef::Other(i) => g.teams[0] != i,
-            });
-            let (us, them) = (g.stats.score[side], g.stats.score[1 - side]);
-            let margin = us - them;
-            let mood = match margin {
-                m if m >= 21 => {
-                    ["That was a statement.", "Book the trip to the title game.", "Best we've looked in years."]
-                }
-                m if m > 0 => ["A win is a win.", "Ugly but we'll take it.", "Fourth quarter defense won that one."],
-                0 => ["A tie feels like a loss.", "Nobody goes home happy.", "Strange night."],
-                m if m > -14 => {
-                    ["We'll get them next week.", "Clock management cost us that one.", "Too many penalties."]
-                }
-                _ => ["Embarrassing.", "Somebody has to answer for that.", "I want my ticket money back."],
-            };
-            let handle =
-                ["@SectionTwelve", "@TailgateTom", "@OldGoldFan", "@BlitzBoys", "@ThirdAndLong", "@HomecomingQueen"];
-            for (j, line) in mood.iter().enumerate() {
-                fans.push(json!({ "date": d_text(g.date), "text": format!("{} {}", line, links::game(k, &format!("{us}-{them}"))), "source": handle[(k + j) % handle.len()], "certainty": "Opinion", "kind": "Fans", "scene": "fans" }));
-            }
-        }
-    }
-    let rows: Vec<Value> = if kind == "fans" { fans } else { items.into_iter().map(|x| x.0).collect() };
+    let rows: Vec<Value> = items.into_iter().map(|x| x.0).collect();
     json!({ "kind": kind, "rows": rows, "chain": if chain.is_empty() { Value::Null } else { json!(chain) } })
 }
 

@@ -738,23 +738,52 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
     games
 }
 
-/// Rivalry-week games played on Thanksgiving or the day after, by years
-/// (part B 31; from memory, to verify): Texas and Texas A&M on Thanksgiving
-/// through 2011, the Egg Bowl on Thanksgiving from 2013, and the Black
-/// Friday games.
-const HOLIDAY_GAMES: &[(&str, &str, i32, i32, bool)] = &[
-    ("Texas", "Texas A&M", 1984, 2011, true),
-    ("Ole Miss", "Mississippi State", 2013, 2023, true),
-    ("Nebraska", "Iowa", 2011, 2025, false),
-    ("Iowa", "Nebraska", 2011, 2025, false),
-    ("Missouri", "Arkansas", 2014, 2025, false),
-    ("LSU", "Arkansas", 1992, 2013, false),
-    ("Washington", "Washington State", 2012, 2016, false),
-    ("Oregon", "Oregon State", 2008, 2022, false),
-    ("Toledo", "Bowling Green", 2005, 2025, false),
-    ("UCF", "South Florida", 2013, 2025, false),
-    ("Virginia", "Virginia Tech", 2012, 2018, false),
-    ("Pittsburgh", "West Virginia", 2000, 2011, false),
+/// Each pair's spans of years: first, last, Thanksgiving (true) or the day after.
+type Spans = &'static [(i32, i32, bool)];
+
+/// Rivalry-week games played on Thanksgiving (true) or the day after
+/// (false), by years (part B 31; minor bug 46): the real 2001-2025
+/// schedules (`data/real-world/memory_checks.json`, `college_holiday_games`
+/// `by_pair`), earlier years from memory, and from 2026 each pair keeps its
+/// 2025 day. Years not listed stay on Saturday or the MAC's weeknights.
+const HOLIDAY_GAMES: &[(&str, &str, Spans)] = &[
+    ("Texas", "Texas A&M", &[(1984, 2000, true), (2001, 2007, false), (2008, 2011, true), (2025, 9999, false)]),
+    (
+        "Ole Miss",
+        "Mississippi State",
+        &[
+            (2001, 2003, true),
+            (2007, 2008, false),
+            (2013, 2013, true),
+            (2017, 2019, true),
+            (2021, 2023, true),
+            (2024, 9999, false),
+        ],
+    ),
+    ("Nebraska", "Iowa", &[(2011, 9999, false)]),
+    ("Missouri", "Arkansas", &[(2014, 2019, false), (2021, 2023, false)]),
+    ("LSU", "Arkansas", &[(1992, 2008, false), (2011, 2013, false)]),
+    (
+        "Washington",
+        "Washington State",
+        &[(2012, 2013, false), (2015, 2016, false), (2018, 2019, false), (2021, 2021, false)],
+    ),
+    (
+        "Oregon",
+        "Oregon State",
+        &[
+            (2006, 2006, false),
+            (2013, 2013, false),
+            (2015, 2015, false),
+            (2018, 2018, false),
+            (2020, 2020, false),
+            (2023, 2023, false),
+        ],
+    ),
+    ("Toledo", "Bowling Green", &[(2001, 2001, false), (2007, 2009, false)]),
+    ("UCF", "South Florida", &[(2013, 2014, false), (2015, 2015, true), (2017, 2021, false)]),
+    ("Virginia", "Virginia Tech", &[(2014, 2014, false), (2017, 2019, false)]),
+    ("Pittsburgh", "West Virginia", &[(2000, 2000, false), (2004, 2005, true), (2008, 2011, false)]),
 ];
 
 /// College games off Saturday (part B 31). Proposed, not confirmed, sized
@@ -810,8 +839,9 @@ fn weeknights(games: &mut [Game], w: &World, season: i32, y: &YearDates, seed: u
                 let (h, a) = (w.programs[g.home].real_name.as_str(), w.programs[g.away].real_name.as_str());
                 let hit = HOLIDAY_GAMES
                     .iter()
-                    .find(|x| ((x.0 == h && x.1 == a) || (x.0 == a && x.1 == h)) && (x.2..=x.3).contains(&season));
-                if let Some(&(_, _, _, _, thanksgiving)) = hit {
+                    .filter(|x| (x.0 == h && x.1 == a) || (x.0 == a && x.1 == h))
+                    .find_map(|x| x.2.iter().find(|r| (r.0..=r.1).contains(&season)).map(|r| r.2));
+                if let Some(thanksgiving) = hit {
                     let day = if thanksgiving { y.thanksgiving } else { y.thanksgiving.add(1) };
                     let ko = if thanksgiving { night(w, g.home) } else { (12, 0) };
                     moves.push((k, day, ko));

@@ -508,7 +508,7 @@ fn opinion_answer(w: &mut World, s: &mut Scene, code: u32) {
                 0
             };
             if let Some(c) = w.people[i].pro.as_mut() {
-                c.out_weeks = (c.out_weeks as i32 + change).max(1) as u32;
+                c.out_for((c.out_days as i32 + 7 * change).max(1) as u32);
             }
             s.outcome.push(match change {
                 -1 => format!(
@@ -532,7 +532,7 @@ fn opinion_answer(w: &mut World, s: &mut Scene, code: u32) {
                 s.outcome.push(format!("{} refused to rush {name}. The timeline holds.", trainer.name));
             } else {
                 if let Some(c) = w.people[i].pro.as_mut() {
-                    c.out_weeks = (c.out_weeks * 3 / 4).max(1);
+                    c.out_for((c.out_days * 3 / 4).max(1));
                 }
                 w.folk.rushed.push((id, w.today));
                 let comp = w.people[i].player.personality.competitiveness;
@@ -825,7 +825,8 @@ fn rushed_week(w: &mut World, d: Date) {
         }
         let weeks = 2 + (super::roll(w, 0x8E1B ^ d.0 as u64, id as u64) * 5.0) as u32;
         if let Some(c) = w.people[i].pro.as_mut() {
-            c.out_weeks = weeks;
+            c.out_for(7 * weeks);
+            w.hurt_pros.0.push(w.people[i].player.id);
         }
         w.folk.rushed.retain(|x| x.0 != id);
         let name = w.people[i].name.clone();

@@ -1,7 +1,7 @@
 // AFM World Reader: the area panels (lane R6) and the views they need: a
 // histogram against real, world-against-real bars, a year line with the
 // real band shaded, a heat grid, a class funnel, a state map and a dated
-// timeline. The book works each panel out when it is built (`panels`
+// timeline; lanes over years and a tree (lane R7). The book works each panel out when it is built (`panels`
 // table); this file draws one from its columns. A `grp` column becomes a
 // row of buttons to pick the group; a `year` column follows the year slider.
 "use strict";
@@ -255,6 +255,8 @@ function mapHtml(b, rows) {
 
 function panelTableHtml(b, rows) {
   const hide = new Set(["grp", "_link"]);
+  // A row that opens its page needs no id on screen (lane R7).
+  if (b.open && /\{id\}/.test(b.open)) hide.add("id");
   const cols = (b.cols || []).map((c, i) => ({ c, i })).filter((x) => !hide.has(x.c));
   const head = cols.map(({ c }) => `<th class="${/^(n|world|real|share|pct|value)$|_n$|^n_/.test(c) ? "n" : ""}">${esc(label(c))}</th>`).join("");
   const body = rows.map((r) => {
@@ -313,6 +315,44 @@ function metersHtml(b) {
   }).join("")}</div>`).join("")}</div>`;
 }
 
+// Lanes over the years (lane R7): a program's levels and conferences, its
+// head coaches, a coach's jobs. Each lane is a row; each item a band from
+// its first season to its last, coloured by its tone, with its words on
+// hover and its page on click. Marks are dated pins under the lanes.
+function bandsHtml(b) {
+  const lanes = b.lanes || [];
+  const all = lanes.flatMap((l) => l.items || []);
+  if (!all.length) return `<p class="sub">${esc(b.empty || "Nothing to draw.")}</p>`;
+  const x0 = b.x0 != null ? b.x0 : Math.min(...all.map((i) => i.from));
+  const x1 = Math.max(x0 + 1, b.x1 != null ? b.x1 : Math.max(...all.map((i) => i.to)));
+  const span = x1 - x0 + 1;
+  const pct = (y) => (((y - x0) / span) * 100).toFixed(2);
+  const wid = (a, z) => (((z - a + 1) / span) * 100).toFixed(2);
+  const row = (l) => `<div class="bl"><span class="bn">${l.link ? `<a href="#/${esc(l.link)}">${esc(l.label)}</a>` : esc(l.label || "")}</span><div class="lane">${(l.items || []).map((i) =>
+    `<${i.link ? "a" : "span"} class="bd t-${esc(i.tone || "x")}" ${i.link ? `href="#/${esc(i.link)}"` : ""} style="left:${pct(i.from)}%;width:${wid(i.from, i.to)}%" title="${esc(`${i.from === i.to ? i.from : `${i.from}-${i.to}`}: ${i.text || ""}${i.sub ? ` · ${i.sub}` : ""}`)}"><b>${esc(i.text || "")}</b>${i.sub ? `<em>${esc(i.sub)}</em>` : ""}</${i.link ? "a" : "span"}>`).join("")}</div></div>`;
+  const step = Math.max(1, Math.round(span / 10));
+  let ticks = "";
+  for (let y = x0; y <= x1; y += step) ticks += `<span style="left:${pct(y)}%">${y}</span>`;
+  const marks = (b.marks || []).map((m) => `<i class="pin" style="left:${pct(m.year)}%" title="${esc(`${m.year}: ${m.text}`)}"></i>`).join("");
+  // A key without a tone heads the group of keys after it ("Head coach:").
+  const keys = (b.keys || []).map((k) => k.tone ? `<span class="key"><i class="t-${esc(k.tone)}"></i>${esc(k.text)}</span>` : `<span class="key kh">${esc(k.text)}</span>`).join("");
+  return `${keys ? `<div class="legend bkeys">${keys}</div>` : ""}<div class="bands">${lanes.map(row).join("")}<div class="bl"><span class="bn"></span><div class="axis">${ticks}${marks}</div></div></div>`;
+}
+
+// A tree (lane R7): a coach's mentors above him, his protégés and theirs
+// below, each node with its best job and record.
+function treeHtml(b) {
+  const node = (n, depth) => {
+    const kids = n.kids || [];
+    const label = `<span class="tn${n.me ? " me" : ""}">${n.link ? `<a href="#/${esc(n.link)}">${esc(n.text)}</a>` : esc(n.text)}${n.sub ? `<em>${esc(n.sub)}</em>` : ""}${kids.length ? `<span class="tc">${kids.length}</span>` : ""}</span>`;
+    if (!kids.length) return `<li>${label}</li>`;
+    return `<li><details ${depth < 2 ? "open" : ""}><summary>${label}</summary><ul>${kids.map((k) => node(k, depth + 1)).join("")}</ul></details></li>`;
+  };
+  // Mentors from the oldest down to his own.
+  const up = (b.up || []).map((u) => `<li class="upn">↑ <span class="tn">${u.link ? `<a href="#/${esc(u.link)}">${esc(u.text)}</a>` : esc(u.text)}${u.sub ? `<em>${esc(u.sub)}</em>` : ""}</span></li>`).reverse().join("");
+  return `<ul class="tree">${up}${b.root ? node(b.root, 0) : ""}</ul>`;
+}
+
 window.extraBlock = function (b, id) {
   const title = b.title ? `<div class="head"><h2>${esc(b.title)}</h2>${b.note ? `<span class="sub">${esc(b.note)}</span>` : ""}</div>` : "";
   switch (b.kind) {
@@ -320,6 +360,8 @@ window.extraBlock = function (b, id) {
     case "area": return areaHtml(b);
     case "timeline": return `<section class="panel sec">${title}${timelineHtml(b)}</section>`;
     case "meters": return `<section class="panel sec">${title}${metersHtml(b)}</section>`;
+    case "bands": return `<section class="panel sec">${title}${bandsHtml(b)}</section>`;
+    case "tree": return `<section class="panel sec">${title}${treeHtml(b)}</section>`;
     default: return "";
   }
 };

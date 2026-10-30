@@ -133,6 +133,8 @@ const YEARISH = /^(year|season)$|_year$|^year_|_season$/i;
 // The book keeps dates as days since 1 January 1970.
 const dayText = (d) => new Date(d * 86400000).toISOString().slice(0, 10);
 function cellHtml(v, col, names) {
+  // A linked cell (lane R7): {t: its words, l: the page it opens}.
+  if (v && typeof v === "object" && !Array.isArray(v) && "t" in v) return v.l ? `<a href="#/${esc(v.l)}">${esc(v.t)}</a>` : esc(v.t);
   if (col.mark) return mark(v) || esc(v);
   if (col.moved) return mark(v) || esc(v);
   const n = typeof v === "number" ? v : NaN;
@@ -321,7 +323,8 @@ function drawPage(t0) {
     html += blockHtml(b, i);
     if (i === 0 && firstHero) html += verdict;
   });
-  if (!firstHero) html = html.replace(/(<\/h1><\/div>)/, `$1${verdict}`);
+  // A function, so a "$1.2B" in the verdict is not read as a group.
+  if (!firstHero) html = html.replace(/(<\/h1><\/div>)/, (m) => m + verdict);
   if (p.play) html += playForm(p);
   if (t0) html += `<p class="sub" style="margin:0">Read in ${Math.round(performance.now() - t0)} ms from the book.</p>`;
   $("#page").innerHTML = html;

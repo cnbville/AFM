@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use afm_engine::body::{Combine, Drills, body_now};
+use afm_engine::body::{Combine, body_now};
 use afm_engine::player::Player;
 use afm_engine::positions::Position;
 use afm_engine::world::scouting::Kind;
@@ -76,12 +76,25 @@ fn values(p: &Player, c: &Combine) -> [Option<f64>; 12] {
     ]
 }
 
-/// A man in a comparison pool.
+/// A man in a comparison pool, at what is known of him (minor bug 30:
+/// his listing, and a test only where someone timed or measured him).
 #[derive(Clone)]
 struct Member {
     vals: [Option<f64>; 12],
     /// Drafted in the first round.
     first: bool,
+    name: String,
+    id: Option<u32>,
+    school: String,
+}
+
+/// Where a man plays now, for a dot's label.
+fn team_words(w: &World, q: &afm_engine::world::Person) -> String {
+    match q.stage {
+        Stage::HighSchool | Stage::PrepSchool => w.school_name(q.hs).to_string(),
+        Stage::College | Stage::Declared => q.college.map_or(String::new(), |c| w.program_name(c).to_string()),
+        _ => q.pro.as_ref().and_then(|c| c.team).map_or(String::new(), |t| w.nfl_team_name(t)),
+    }
 }
 
 /// A past player built like him (the drafted pool keeps who they were).
@@ -109,8 +122,15 @@ fn level_pool(w: &World, i: usize) -> (String, Vec<Member>) {
     let collect = |keep: &dyn Fn(&afm_engine::world::Person) -> bool| -> Vec<Member> {
         w.people
             .iter()
-            .filter(|q| q.player.position == pos && keep(q))
-            .map(|q| Member { vals: values(&q.player, &Drills::of(&q.player).expected()), first: false })
+            .enumerate()
+            .filter(|(_, q)| q.player.position == pos && keep(q))
+            .map(|(j, q)| Member {
+                vals: known(w, j).vals,
+                first: false,
+                name: q.name.clone(),
+                id: Some(q.player.id),
+                school: team_words(w, q),
+            })
             .collect()
     };
     match p.stage {
@@ -197,11 +217,10 @@ fn drafted_pool(w: &World, pos: Position) -> Vec<Past> {
             career: career_words(a.pro.as_deref()),
         });
     }
-    for q in w.people.iter().filter(|q| q.player.position == pos && q.stage == Stage::Pro) {
+    for (j, q) in w.people.iter().enumerate().filter(|(_, q)| q.player.position == pos && q.stage == Stage::Pro) {
         let Some(d) = q.pro.as_ref().and_then(|c| c.draft) else { continue };
-        let c = afm_engine::body::combine(&q.player, &mut afm_engine::rng::Rng::new(q.player.id ^ 0x00C0_FFEE));
         out.push(Past {
-            vals: values(&q.player, &c),
+            vals: known(w, j).vals,
             name: q.name.clone(),
             id: Some(q.player.id),
             school: q.college.map_or(String::new(), |c| w.program_name(c).to_string()),
@@ -327,6 +346,37 @@ fn known(w: &World, i: usize) -> Known {
         }
         for (k, v) in [(5, c.forty), (7, c.vertical), (8, c.broad), (9, c.cone), (10, c.shuttle), (11, c.bench)] {
             set(&mut vals, &mut source, k, v, s, true);
+        }
+    }
+    // His laser times as he ran them (speed update S6e, minor bug 23),
+    // public once he has run them.
+    {
+        use afm_engine::world::times::{At, Event, Timed};
+        for (k, ev) in [(5, Event::Forty), (6, Event::Split)] {
+            let best = w
+                .times
+                .of(id)
+                .iter()
+                .filter(|t| t.event == ev && t.timed == Timed::Laser)
+                .min_by(|a, b| a.secs.total_cmp(&b.secs));
+            if let Some(t) = best {
+                let place = match t.at {
+                    At::Camp(j) => format!("{} camp", w.program_name(j as usize)),
+                    At::National => "National showcase finals".to_string(),
+                    _ => "Regional showcase".to_string(),
+                };
+                let s = format!("Laser, {place}, {}", views::date_text(t.date));
+                set(&mut vals, &mut source, k, t.secs as f64, &s, true);
+            }
+        }
+        // Your own high school's hand-timed forty is your staff's own
+        // watch (S6c): shown to you, not counted as verified.
+        if own && matches!(team, Some(TeamRef::HighSchool(_))) {
+            let hand = w.times.of(id).iter().rev().find(|t| t.event == Event::Forty && t.at == At::School);
+            if let Some(t) = hand {
+                let s = format!("Your staff's hand time, {}", views::date_text(t.date));
+                set(&mut vals, &mut source, 5, t.secs as f64, &s, false);
+            }
         }
     }
     // A camp, showcase or pro day your scouts saw.
@@ -472,16 +522,18 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         }));
     }
     // The scatter: each test against weight, for the level and the drafted.
-    let sample = |pool: &[[Option<f64>; 12]], firsts: &[bool]| -> Vec<Value> {
-        let step = (pool.len() / 350).max(1);
-        pool.iter()
-            .zip(firsts)
-            .step_by(step)
-            .map(|(m, &f)| json!({ "v": m.iter().map(|x| x.map(|v| (v * 100.0).round() / 100.0)).collect::<Vec<_>>(), "f": f }))
-            .collect()
-    };
-    let lfirst: Vec<bool> = level.iter().map(|m| m.first).collect();
-    let dfirst: Vec<bool> = drafted.iter().map(|m| m.pick.is_some_and(|x| x <= 32)).collect();
+    // Every man in the group (minor bug 30), named, with his page a click away.
+    let dot = |m: &[Option<f64>; 12], f: bool, name: &str, school: &str, id: Option<u32>| json!({ "v": m.iter().map(|x| x.map(|v| (v * 100.0).round() / 100.0)).collect::<Vec<_>>(), "f": f, "n": name, "s": school, "id": id });
+    let level_dots: Vec<Value> =
+        level.iter().filter(|m| m.id != Some(id)).map(|m| dot(&m.vals, m.first, &m.name, &m.school, m.id)).collect();
+    let drafted_dots: Vec<Value> = drafted
+        .iter()
+        .filter(|m| m.id != Some(id))
+        .map(|m| {
+            let school = if m.school.is_empty() { format!("{}", m.year) } else { format!("{} {}", m.school, m.year) };
+            dot(&m.vals, m.pick.is_some_and(|x| x <= 32), &m.name, &school, m.id)
+        })
+        .collect();
     let real_json: Vec<Value> =
         TESTS.iter().enumerate().map(|(t, _)| json!(real.and_then(|r| r[t]).map(|(m, s)| [m, s]))).collect();
     // Built like him: the closest drafted players by size and testing.
@@ -573,7 +625,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         "rows": rows,
         "lifts": k.lifts.iter().map(|(a, b)| json!({ "label": a, "text": b })).collect::<Vec<_>>(),
         "scores": scores,
-        "plot": { "level": sample(&lv, &lfirst), "drafted": sample(&dv, &dfirst), "real": real_json },
+        "plot": { "level": level_dots, "drafted": drafted_dots, "real": real_json },
         "alikes": alikes,
         "weights": weights,
         "body": {

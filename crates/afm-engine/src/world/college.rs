@@ -697,16 +697,21 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                 t.week = week(me);
                 t
             };
+            let context = [(g.home, g.away), (g.away, g.home)]
+                .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
             let teams = if cs.on_engine {
                 match (cs.teams.get(g.home).and_then(|t| t.as_ref()), cs.teams.get(g.away).and_then(|t| t.as_ref())) {
-                    (Some(a), Some(b)) => Some((strip(a, g.home), strip(b, g.away))),
+                    (Some(a), Some(b)) => {
+                        let (mut a, mut b) = (strip(a, g.home), strip(b, g.away));
+                        a.day = game_day(w, g, g.home, &context[0], &a);
+                        b.day = game_day(w, g, g.away, &context[1], &b);
+                        Some((a, b))
+                    }
                     _ => None,
                 }
             } else {
                 None
             };
-            let context = [(g.home, g.away), (g.away, g.home)]
-                .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
             Job { k, venue, played, neutral: g.site.is_some(), teams, context }
         })
         .collect();
@@ -801,7 +806,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         };
         played.home_won = home_won;
         if let Some(r) = &r {
-            w.keep_seat_game(CalLevel::College, [home, away], &r.stats, r.replay.as_deref());
+            w.keep_seat_game(CalLevel::College, [home, away], &r.stats, r.replay.as_deref(), &r.talks);
             let line = w.college.as_ref().unwrap().games[k].line;
             w.seat_line(CalLevel::College, [home, away], line, j.neutral);
             if let Some(o) = &watch {
@@ -1375,6 +1380,21 @@ pub(crate) fn rank_of(cs: &CollegeSeason, t: usize) -> Option<usize> {
 type StakeUpdate = (usize, Vec<Tag>, Loudness, [bool; 2], Vec<&'static str>);
 /// A news line the stakes post: the school, the text and the coach it names.
 type StakeNote = (usize, String, u32, String);
+
+/// The day a team brings into a college game (dialogue D4): the stakes
+/// from the game's tags and kind, the rivalry, its captains.
+fn game_day(
+    w: &World,
+    g: &Game,
+    me: usize,
+    ctx: &crate::game::garbage::Context,
+    dressed: &GameTeam,
+) -> crate::game::talk::Day {
+    let (stakes, rival) = super::folk::gametalk::college_stakes(g, ctx);
+    let opp = g.opponent(me);
+    use super::folk::Team;
+    super::folk::gametalk::day_for(w, Team::College(me), Team::College(opp), stakes, rival, dressed)
+}
 
 fn stakes_for_day(w: &mut World, idx: &[usize]) {
     let (updates, notes) = stakes_of(w, idx);
@@ -3876,13 +3896,15 @@ pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSe
         t.week = week(me);
         t
     };
-    let home = strip(cs.teams.get(g.home)?.as_ref()?, g.home);
-    let away = strip(cs.teams.get(g.away)?.as_ref()?, g.away);
+    let mut home = strip(cs.teams.get(g.home)?.as_ref()?, g.home);
+    let mut away = strip(cs.teams.get(g.away)?.as_ref()?, g.away);
     if home.players.len() < 30 || away.players.len() < 30 {
         return None;
     }
     let context = [(g.home, g.away), (g.away, g.home)]
         .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
+    home.day = game_day(w, g, g.home, &context[0], &home);
+    away.day = game_day(w, g, g.away, &context[1], &away);
     let level = division_level(w.programs[g.home].division.min(w.programs[g.away].division));
     let seed = (w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8))
         .wrapping_mul(1_000_003)

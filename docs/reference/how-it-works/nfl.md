@@ -1,11 +1,12 @@
 # The living NFL: how it works today
 
-Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28, your IR and staff duties (minor bug 73, SC6) at 6200524 on 2026-10-29, and the expansion line with next update lane 10 the same day.
+Checked against main at b9acd15 with update 3 lanes 5 and 3 on 2026-10-28, your IR and staff duties (minor bug 73, SC6) at 6200524 on 2026-10-29, and the expansion line with next update lane 10 the same day; agents' own voice with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; L12's league fixes (minor bugs 87, 95, 115, 123, 146, 147, 149, 151, 152) on dd2ece1 on 2026-10-30; rookie-deal holdouts from 2011 (minor bug 160) on b71c12a the same day.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
 ## Quick answers
 
+- Do agents sound different? Yes: an agent's words come from his honesty, his temper and his agency's size, and a bluff comes out vague; the numbers and the market's scoring are unchanged (`world/folk/dialogue.rs`, `agent_says`; `world/front_office/nfl.rs`, `propose`, `agent_claim`).
 - How is a free agent's asking price set? His league-wide consensus read is ranked against the league's veterans at his position, read off the real pay ladder, then cut for age past his prime (`world/pro/market.rs`, `ideal`, `market_grade`, `ladder_share`, `market_price`, `decline`).
 - Does a team see a player's true rating? No. Each club reads `overall()` plus a keyed misread that shrinks with GM judgment and seasons on film (`world/pro/mod.rs`, `grade`).
 - What signs a deal on the spot? An offer scoring 1.0 against his hidden ideal. At 0.85 or more he agrees with a 7-day window; below that his ideal falls (`world/pro/market.rs`, `market_day`, `score`, `decay`).
@@ -44,7 +45,8 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 
 - **Cap**: the real cap from 1994. 2010 is priced as 2009 and has no hard cap. Before 1994 a notional cap of $34.6M x 1.065^(year-1994). After 2026, `future_cap` (`world/pro/money.rs`, `price_cap`, `capped`, `cap_books`).
 - **Minimum**: shares of the cap by accrued seasons: 0.301% (0), 0.344% (1), 0.369% (2), 0.394% (3), 0.419% (4-6), 0.45% (7+) (`world/pro/money.rs`, `minimum`). A practice squad week pays the rookie minimum / 17 x 0.28 (`practice_squad_week`).
-- **Free agency**: unrestricted at 4 accrued seasons, 6 in 2010 (`world/pro/money.rs`, `ufa_seasons`). A season accrues with 6+ games on full pay (`world/pro/mod.rs`, `season_end`).
+- **Free agency**: unrestricted at 4 accrued seasons, 6 in 2010 (`world/pro/money.rs`, `ufa_seasons`). A season accrues with 6+ regular-season weeks on full pay status: on the roster, active or inactive, or on reserve, never the practice squad (CBA Article 8; minor bug 147: only games dressed counted before). Each Tuesday after a regular-season week adds one (`world/pro/mod.rs`, `heal_week`, `full_pay_weeks`, `season_end`).
+- **His season's role** (minor bug 115): a pro who started half the regular season's games is a starter in that season's row, whatever camp said (`season_end`).
 - **Contract kinds**: Rookie, Undrafted, Veteran, Minimum, Franchise, Transition, Tender, Future, PracticeSquad, Extension (`world/pro/money.rs`, `Kind`).
 - **Dead money**: a release accelerates every later year's proration and owes the guaranteed money left. After June 1, or with a June 1 designation (from 2006, up to 2 a year), this year's proration stays and the rest moves to next year (`world/pro/money.rs`, `dead_if_cut`; `world/pro/market.rs`, `clear_room`). Each charge is kept with its player and cause (`world/pro/mod.rs`, `DeadWhy`, `add_dead`).
 - **Top 51**: until the first game, only the 51 biggest cap hits count. Clubs also hold back 5% of the cap for the season (`world/pro/mod.rs`, `payroll`, `space`, `IN_SEASON_RESERVE`). Void-year bonus lands the March after a deal's last season (`payroll`, `market::open_league_year`).
@@ -85,15 +87,16 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
   - home 1.1.
   - loyalty with his old team 0.9 + 0.25 x trust.
   - (`world/pro/market.rs`, `score`, `city_pull`; `world/finance/nfl.rs`, `card_pull`, 0.94-1.06)
+- **A backup quarterback's worth** (minor bug 95): a club whose starter grades above him prices him at a fifth of his market price (at least twice the minimum), for the fifth of starts real backups make (nflverse games 2012-2024: 79.8% by the week 1 starter). Every other backup beyond the rotation is at most twice the minimum (`world/pro/market.rs`, `worth`).
 - **Offers**: a club offers only if its walk-away price is at least 72% of his ideal. It opens at 88% of the ideal and climbs 1.5% a day to 103%. A needy club (need ≥ 2.5, or a contender with need ≥ 1) goes straight to its number. It needs 75% of the money free in cap space. The guarantee is capped at 0.25 + 0.5 x the owner's cash will (`world/pro/market.rs`, `make_offer`).
-- **Inside the 7-day window** a clearly better offer (+0.03) sways him. Unsigned, his ideal falls toward the best offer (x0.97, but not below 1.02 x that offer) or 1% a market day with none. His guarantee wish falls 2%, and after 6 weeks he drops the starting-job wish (`world/pro/market.rs`, `market_day`, `decay`).
+- **Inside the 7-day window** a clearly better offer (+0.03) sways him. Unsigned, his ideal falls toward the best offer (x0.97, but not below 1.02 x that offer) or 1% a market day with none, 5% after six weeks (minor bug 95: an 85-rated quarterback stayed priced as a starter all spring and retired unsigned). His guarantee wish falls 2%, and after 6 weeks he drops the starting-job wish (`world/pro/market.rs`, `market_day`, `decay`).
 - **Bluffs**: believed, the club moves up to its number (+8% at most). Called (odds 0.3 + 0.03 x (GM skill - 10), moved by the agent relationship), the offer is pulled (25%) or cut 6%. The agent loses 0.2 relationship with that club. The player fires him with odds 0.15 + 0.3 x temper (`world/pro/market.rs`, `bluff`).
 - **Agents**: 180 x world scale (at least 40). 30 giants, 50 mid-size, the rest one-man shops. Skill is about 9 + 2.5 x size, honesty about 0.7. Round 1 picks go to giants 75% of the time (`world/pro/market.rs`, `staff_agents`, `sign_agent`).
 - **Re-signing**: a club talks early only with players at market grade 68+. He re-signs at a score of 0.85, or 0.82 at the deadline, plus 0.12 x money x (1 - loyalty) for a money-minded player who wants to test the market. Before 1993 a team keeps anyone it wants (`world/pro/market.rs`, `resign_talks`).
 - **Extensions**: offered in the last year, or with a year left for an early-extension GM (> 0.55) or a rookie after 3 seasons (2011 on). Market grade 76+ only. The ask is cut 4% per year left on the deal. It adds at least 2 years (age 32 or under). It signs at 0.87, or 0.82 near a deadline (`world/pro/market.rs`, `extension_talks`, `extend`).
 - **Street signings** (players under consensus 66 before camp, everyone after): price = market share x decline x (1 - 4% a week unsigned). The club where he would gain the most playing time wins. Grade 58+ only (`world/pro/mod.rs`, `ask`, `street_signings`).
 - **Reserve/future deals**: at Black Monday for non-playoff teams and at the Super Bowl for playoff teams. A club keeps squad players graded 58+ who are 28 or younger, and adds up to 4 street players (27 or under, grade 60+) (`world/pro/market.rs`, `futures`).
-- **Holdouts**: only a star (market grade 85+) paid under half his market, with 3+ seasons. Push = greed x min(under/3, 1) x leverage (1, or 0.6 at 30+) - 0.3 x loyalty x trust + 0.1 x temper - 0.15 x mood. At push ≥ 0.3 he holds in. He holds out if push > 0.4, or > 0.55 on a rookie deal from 2020. Each week he gives in with odds 0.08 + 0.05 x weeks, +0.15 in season. A holdout at a rebuilding club, or with trust under 0.5, requests a trade (`world/pro/market.rs`, `holdouts`). A holdout misses camp: +0.3 on that year's development dip (see [development.md](development.md)) (`world/pro/mod.rs`, `camp`).
+- **Holdouts**: only a star (market grade 85+) paid under half his market, with 3+ seasons. Push = greed x min(under/3, 1) x leverage (1, or 0.6 at 30+) - 0.3 x loyalty x trust + 0.1 x temper - 0.15 x mood. At push ≥ 0.3 he holds in. He holds out if push > 0.4, or > 0.55 on a rookie deal from 2011 (that CBA made a rookie-deal holdout's fines unwaivable). Each week he gives in with odds 0.08 + 0.05 x weeks, +0.15 in season. A holdout at a rebuilding club, or with trust under 0.5, requests a trade (`world/pro/market.rs`, `holdouts`). A holdout misses camp: +0.3 on that year's development dip (see [development.md](development.md)) (`world/pro/mod.rs`, `camp`).
 - **Voluntary weeks** (offseason phases 1-2 and OTAs): each pro comes with chance clamp(0.9 + 0.015 x (work ethic - 10) - 0.04 x max(age - 29, 0), 0.45, 0.99), drawn each week; one who skips works at his own effort and reads Unprepared for prep that week. In OTA weeks the three best absent starters at 82+ overall make small news (`training/week.rs`, `attends`, `monday`, `absent_news`; see [training.md](training.md)).
 - **Promises**: a starting job promised in a deal is checked in week 1. If broken: his trust -0.3 and the agent's relationship with the club -0.1 (`world/pro/market.rs`, `check_promises`).
 
@@ -112,21 +115,24 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 
 - **Pick charts**: Classic (Jimmy Johnson: 3,000 at pick 1, 590 at 32) or a flatter Surplus chart (1,400 at 32). Future picks are discounted per year by urgency: contend 0.3, middle 0.18, rebuild 0.08 (`world/pro/trades.rs`, `CLASSIC`, `SURPLUS`, `pick_value`). The classic chart is drawn with odds 0.85 - 0.5 x era (`world/pro/office.rs`, `new_gm`).
 - **A player in points**: Σ over his deal's years of 10,000 x (the club's yearly worth x 0.88^years once he is 30+ - his cash cost) / cap. A rebuilder counts 0.35 of the surplus for years at 27+. A contender counts 1.15 for this year (`world/pro/trades.rs`, `player_points`).
-- **A call**: a non-rebuilding buyer with a hole (need ≥ 1.2) calls. The odds per window: offseason 0.45, season week 0.1, deadline 0.45, x1.5 for a contender. The target must grade 2+ above the buyer's worst starter and be "surplus" to the seller:
+- **A call**: a non-rebuilding buyer with a hole (need ≥ 1.2) calls. The windows: 3 and 10 days after the new league year, 2 days before the draft, three weeks after the veterans report, 2 days before cutdown (offseason, odds 0.45), each Tuesday of the season before the deadline (0.1 x clamp(weeks since kickoff / 5, 0.15, 1.2), so September is quiet), and deadline week (0.45); x1.5 for a contender (`world/pro/mod.rs`, `day`; minor bug 87, against real trades by month 2021-2025). The target must grade 2+ above the buyer's worst starter and be "surplus" to the seller:
   - the seller is rebuilding and he is 26+,
   - he is not a starter there,
   - he asked out, or
-  - he is on your block.
+  - he is on your block, or
+  - he is 27+ and costs more than he is worth to the seller (points below 0: an overpaid veteran, minor bug 87).
   - The ask is the seller's points (x0.85 if he wants out, at least 30) x 1.05-1.35 by past fleecing. The buyer pays if its own points ≥ the ask (`world/pro/trades.rs`, `trade_window`).
 - **What blocks or kills a trade**:
   - a no-trade clause,
   - the owner's pet,
   - injury, or a player just moved,
   - a free agent signed this year,
-  - the buyer's cap,
-  - the seller staying under the cap after the bonus it keeps.
+  - the buyer's cap under the league's rule (before the first game the top 51, without the 5% the staffs hold back for signings; minor bug 87): room for what is left to pay this year (base and per-game pay x the weeks still to come, the roster and workout bonuses if before week 1, the likely incentives), not the whole cap hit (minor bug 123),
+  - the seller staying under the cap after the bonus it keeps and the pay it already paid.
   - Talks fail 35% of the time, and a failed talk can leak as a shopping rumor (30%: trust -0.1 - 0.2 x loyalty). A failed physical voids 2%. The package is the cheapest single pick or pair over 3 drafts (`world/pro/trades.rs`, `trade_window`, `package`, `shopping_rumor`).
-- **Comp picks**: OverTheCap's method. Value from APY rank, snap share and honors (All-Pro 20, Pro Bowl 5). The top 5% get a round 3 value, then 10/15/25/35% for rounds 4-7. Losses are cancelled by signings, at most 4 a team and 32 for the league. The rest are supplemental 7ths. Only players whose deal expired count, signed by the Monday after the draft at 1.5x+ the 4-year minimum (`world/pro/trades.rs`, `note_cfa`, `award_comp_picks`). Board slots: `world/franchise.rs`, `comp_picks`.
+- **Depth trades** (the window 2 days before cutdown, minor bug 87): a club's extra man beyond its usual count at a position (not a specialist, healthy, on its roster, not the owner's pet) goes to a club whose worst man in its usual count grades 2+ below him (60 if it is short of bodies). The ask is his points (at least 0.5); the buyer must value him at least as much as the man he pushes out and fit what is left to pay in its room under the league's rule plus that man's pay to come that isn't guaranteed (he is cut at cutdown); the best gain wins, each buyer takes one a window, and talks fail 35% (`world/pro/trades.rs`, `depth_trades`). Real August is the busiest trade month after March (`trades.csv`).
+- **Pay already paid** (minor bug 123): a player traded in season leaves the seller's books with the weeks it paid. The seller keeps that cash as a charge on its own cap (`DeadWhy::PaidBeforeTrade`, "Traded (pay already paid)"); the buyer's deal is the rest: base, per-game pay, guarantees and injury pay x the share of weeks to come, no roster or workout bonus (`world/pro/trades.rs`, `paid_share`, `left_to_pay`, `keep_paid`; the same in your trades, `world/front_office/deals.rs`).
+- **Comp picks**: OverTheCap's method. Value from APY rank, snap share and honors (All-Pro 20, Pro Bowl 5). The top 5% get a round 3 value, then 10/15/25/35% for rounds 4-7. Losses are cancelled by signings, at most 4 a team and 32 for the league. The rest are supplemental 7ths, never to a club that already has 4 formula picks (minor bug 147). Only players whose deal expired count, signed by the Monday after the draft at 1.5x+ the 4-year minimum (`world/pro/trades.rs`, `note_cfa`, `award_comp_picks`). Board slots: `world/franchise.rs`, `comp_picks`.
 - **Draft rounds**: 12 to 1992, 8 in 1993, 7 after (`world/franchise.rs`, `draft_rounds`). Draft-day trades and the boards are on the draft page.
 
 ## Front offices
@@ -164,12 +170,13 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 ## Retirement
 
 - **At the Super Bowl** (`world/pro/mod.rs`, `season_end`): typical age = `career::retire_age` (QB 35, RB 28, WR/EDGE/LB/CB/S 30, TE/DT 31, OT/IOL 32, K/P/LS 37) + 0.8 x longevity + 0.2 x (love - 10) - 0.3 x (wear - 6, if positive).
-  - Chance = (0.008 + 0.5 / (1 + e^(-(age - typical)/1.3))) x standing, plus 0.08 for each year past typical + 4.
+  - Chance = (0.008 + 0.5 / (1 + e^(-(age - typical)/1.3))) x standing, plus 0.08 for each year past typical + 4, all x the hold.
+  - The hold (minor bug 147): e^(-60 x next year's pay / next year's cap x worn), worn = clamp(1 - (age - typical)/4, 0, 1). A man owed a big next year rarely walks away; four years past his usual end the hold is gone.
   - Standing: 0.35 if overall ≥ 85, 0.6 if ≥ 78, else 1. It rises toward 1 once he is 2+ years past typical.
   - A star's announced farewell season always ends the career (`stories::careers`).
   - Unsigned free agents are not rolled here.
 - **Unsigned, weekly in season**: chance = 0.03 + 0.05 x (1 - call) + 0.01 a year past 28 + 0.02 x rich - 0.004 x (love - 10) - 0.01 x (1 - family money), clamped 0.005-0.4. Sharpness falls 0.02 + 0.002 x (10 - work ethic) a week, floor 0.4 (`world/pro/mod.rs`, `unsigned_week`).
-- **What it reads**: age, position, longevity, love of the game, wear, overall, earnings (unsigned only). What it does not read: mood, team, contract money left (for rostered players).
+- **What it reads**: age, position, longevity, love of the game, wear, overall, next year's pay (rostered), earnings (unsigned only). What it does not read: mood, team.
 - A retiring player under contract leaves his proration as dead money. His Hall of Fame case is filed (`world/pro/mod.rs`, `retire`).
 
 ## Other leagues
@@ -187,6 +194,8 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Awards**: MVP, OPOY (QB x0.9), DPOY (EDGE/DT x1.1), the two Rookies of the Year, and Comeback (last season ≤ 6 games or 6+ IR weeks). Super Bowl MVP: the winners' best stats_value (non-QB x1.3) + 2 x grade sum (`world/pro/honors.rs`, `season_honors`, `super_bowl_mvp`).
 - **Records**: seeded with the real 1983 marks and updated each season (`world/pro/honors.rs`, `REAL_1983`, `season_records`).
 - **Hall of Fame**: case = 4 x first-team All-Pro + 1.5 x second-team + Pro Bowls + 5 x MVPs + 1.5 x other awards + 0.7 x rings + 0.4 x seasons as a starter. It is filed only if 12+. Eligible 6-25 years after retiring. Up to 5 a year get in if case + 0.6 x years waited ≥ 20. The vote is the Saturday before the Super Bowl (`world/pro/honors.rs`, `hall_case`, `hall_vote`).
+  - **Seniors** (minor bug 152): cases retired more than 25 seasons with a case of 16+, best first: 2 a year to 2014, 1 from 2015, 3 from 2023. Their line reads "Senior: ...".
+  - **A coach** (minor bug 152): a retired NFL head coach five full seasons gone, case = NFL wins / 10 + 5 x Super Bowl titles, the best one a year at 20+ (`hall_coach`; `nfl_book.hall_coaches`). Contributors (owners, executives) are not people in the world.
 - **Honors feed back** into price (consensus), fame (`world/fame.rs`) and ego (`world/people.rs`, `year_book`: 40% chance of +1 ego after a Pro Bowl or All-Pro season).
 
 ## Off-field trouble and suspensions
@@ -198,6 +207,18 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`). From 2027 it can also vote two expansion clubs in, at the real rate; they get indices from 32 on, an expansion draft and the first and last picks of their first draft ([new-teams.md](new-teams.md); `world/new_teams/nfl.rs`, `vote`; every lookup past index 31 reads `World::expansion` through `franchise::*_in`).
 - **Stand-in games** (when the engine is off): win odds are a logit of 0.52 x strength gap in sd + 0.24 x staff gap + 0.2 home. Ties 0.3% (`world/nfl_year.rs`, `PER_SD`, `win_prob`).
 - **Club finance**: revenue and cost lines, gates, stadiums and NFLPA report cards (`world/finance/nfl.rs`). The cards feed free agents' scores (`card_pull`). `spend_level` sets support-staff budgets (`world/people.rs`, `staff_support`).
+
+### Schedules, numbers and news (update 3, lane 4)
+
+- Christmas Day games: 1999-2025 from the real schedules (1 in 1999, 2 in 2004; minor bug 45), three a year after 2025 (proposed, not confirmed) (`world/nfl_year.rs`, `christmas_games`).
+- College holiday games keep the real 2001-2025 Thanksgiving and Black Friday days per pair, each pair keeping its 2025 day from 2026 (minor bug 46; `world/schedule.rs`, `HOLIDAY_GAMES`).
+- NFL players may wear 0 from 2023 (minor bug 47; `world/stories/numbers.rs`).
+- Byes (minor bug 146): placed first, in the era's real weeks (nflverse games: weeks 4-12 to 2001, 3-10 in 2002-10, 4-13 in 2011-20, 6-14 in 2021-22, 5-14 from 2023; any week with an odd number of clubs), at most six a week, then each week's games are matched exactly; the old search stays as the fallback (`world/nfl_year.rs`, `bye_window`, `byes_first`, `assign_weeks`). Any era fills a club short of its formula games (31 clubs in 1999-2001, `old_formula`).
+- The Hall of Fame Game (minor bug 146): a real preseason game the Thursday of enshrinement week, a keyed pair at a neutral site on the engine, so the preseason has 49 games (`world/pro/mod.rs`, `hof_game`).
+- Club money (minor bug 149): in 2020 three in five stadiums stayed empty and the rest let in 5-25% (a keyed draw; real 1.2 million fans all year), so league revenue fell about a fifth. Controlling sales roll 1.5% a year a club (real 12 in 2000-2025) and heirs 2.7% after 15 years. A club's value is revenue x the era's multiple x its brand and stadium lean against the league's average lean (`world/finance/nfl.rs`, `gate`, `value_of`).
+- Stories (minor bug 151): about 4 new NFL nicknames a year (`world/stories/nick.rs`, `level_chance` 0.04), a starting quarterback +6 in the jersey sales (`world/stories/media.rs`, `jersey_lists`), fines 0.019 a rostered defender a regular-season week x (1 + 0.6 x temper) (`world/folk/rules.rs`, `league_week`; real 250-350 a season), a title parade drawing about 780,000 (`world/stories/traditions.rs`; parades.csv averages 853,000).
+- A flex story pairs each game with the stored game of the same meeting, so a division rival's second game no longer reads as a flex every day (B4, minor bug 57; `world/stories/nfl.rs`, `season_day`).
+- The trial reads the world's trades and comp picks year by year against the real counts: 40-102 trades a year in 2002-2025 (86-96 since 2021) and 29-38 comp picks (minor bug 48; `afm-tools` `world_trial.rs`, `real_trades_and_comp`).
 
 ### Placing a player at cutdown (update 3, lane 5)
 

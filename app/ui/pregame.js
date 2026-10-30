@@ -140,7 +140,7 @@ screens.load = async () => {
   const rows = saves.map((x) => {
     const s = seatOf(x);
     return `<tr data-pg="pick-save" data-path="${esc(x.path)}" class="${x.path === st.sel ? "sel" : ""}">
-      <td style="font-weight:600">${esc(x.name)}</td>
+      <td style="font-weight:600">${esc(x.name)}${x.meta && x.meta.no_fire ? ` <small class="pg-dim" title="The no-fire override was used in this career">· no-fire</small>` : ""}</td>
       <td>${s ? pgMark(s.team) + esc(s.team.name) : esc(x.meta && x.meta.career ? x.meta.career.split(", ").slice(1).join(", ") : "")}</td>
       <td>${esc(s ? s.date : x.meta ? x.meta.world_date : "")}</td>
       <td class="n">${esc(s ? s.record : "")}</td>
@@ -156,6 +156,7 @@ screens.load = async () => {
           <span>In the game</span><span>${esc(s ? s.date : cur.meta ? cur.meta.world_date : "")}</span>
           ${s ? `<span>This season</span><span>${esc(s.record)}</span><span>Next</span><span>${esc(s.next || "-")}</span>` : ""}
           <span>World</span><span>${esc(worldOf(cur))}</span>
+          ${cur.meta && cur.meta.no_fire ? `<span>Testing</span><span>No-fire override used, first on ${esc(cur.meta.no_fire)}</span>` : ""}
           <span>Saved</span><span>${esc(savedText(cur.modified))}</span>
           <span>Size</span><span>${esc(size(cur.mb))}</span>
         </div>

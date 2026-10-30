@@ -134,10 +134,19 @@ fn the_nfl_lives() {
     use afm_engine::world::pro::money;
     use afm_engine::world::pro::trades::CompKind;
     let w = &*WORLD;
-    // Every team holds an offseason roster of people.
+    // Every team holds an offseason roster of people. Its reserve lists
+    // are counted apart: until the league year a club still carries the
+    // season's injured reserve, which every injury now reaches (lane 4,
+    // B1), and a club out of IR returns keeps its healed men there.
     for t in active_teams(w.year) {
-        let held = w.clubs[t].roster.len();
-        assert!((45..=95).contains(&held), "the {} hold {held} players", w.nfl[t].name);
+        let roster = &w.clubs[t].roster;
+        let reserve = roster
+            .iter()
+            .filter(|&&i| w.people[i].pro.as_ref().is_some_and(|c| c.status == afm_engine::world::pro::Status::Reserve))
+            .count();
+        let held = roster.len() - reserve;
+        assert!((45..=95).contains(&held), "the {} hold {held} players off reserve", w.nfl[t].name);
+        assert!(reserve <= 30, "the {} hold {reserve} players on reserve", w.nfl[t].name);
     }
     // The hard cap holds on opening day, and teams spend most of it.
     // Every year once the spin-up's first classes are seniors.

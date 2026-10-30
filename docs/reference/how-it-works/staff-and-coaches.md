@@ -1,11 +1,12 @@
 # Staff and coaches: how it works today
 
-Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; where you fire checked at 9c7ec8d on 2026-10-30.
+Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; interviews and the staff meeting with the next update's lane 14 at 7487fc5 on 2026-10-30. The no-fire override checked against main at b2b4213 on 2026-10-30. Where you fire checked at 3f875ea on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
 ## Quick answers
 
+- Is there a job interview? Yes, for head jobs: a talk with the panel (principal and AD, AD and president, owner and GM) before the search decides, worth +1.35 to -0.9 in the hiring score, plus a little for Aura; missing it is -1.0. Your coordinators also argue a change at the staff meeting the morning after each game, and overruling one whose unit struggles again costs his trust (`world/folk/dialogue.rs`, `interview_answer`, `interview_bonus`, `case_from`, `check_case`). See [people.md](people.md), "Talks on game day and off it".
 - What scale are coach ratings on? 1-20 for every ability part, personality trait and reputation (`world/coach.rs`, `Ability`, `CoachPersonality`, `Coach`).
 - Which ratings are hidden? All of `Ability` (teaching per group, scheme, game management, motivation, discipline, recruiting, network, relationships), the learning ceiling, sportsmanship, home state, decline age and rate, systems knowledge. The world shows reputation (`world/coach.rs`, `Coach` field notes).
 - What does the game show of a coach? Reputation in words ("one of the best in the game" ≥ 17 ... "unproven" < 5) (`world/folk/mod.rs`, `rep_words`). Every coach's page has your read as ranges on the hidden 1-20 and his potential in words: a stranger is the whole scale, narrowing with your film, talk, interviews and honest words (`world/folk/coach_look.rs`; lane 18 below). Your own staff: ranges that narrow with seasons worked (`world/staff_read.rs`).
@@ -144,6 +145,8 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 - Your boss is a person with trust in you (0-1) and goals set each season (wins a little above the last three years, postseason, title, recruiting class rank, grades, clean program, beat the rival, crowds) (`world/folk/boss.rs`, `draft_goals`, `trust`). Meetings before the season, at midseason and after it (`day`).
 - Trust moves your college review by 0.1 × (0.5 − trust) + 0.015 × (goals missed − met), ±0.1 (`review_push`). It also moves a big booster's chance of leaving by up to +6 points (`booster_push`).
+- You retire only when you choose to: neither age, health nor "walking away on top" retires you (`carousel`).
+- The no-fire override (Settings, Testing; a test switch, Cain 2026-10-28): while it is on, the world still decides as always, but nothing ends your job. It covers the NFL owner's Black Monday (`nfl_firing`), the college AD's review, a deal left to run out and in-season firings (`college_review`, `in_season_firings`), a new head coach letting you go as an assistant (`fill_opening`, `nfl_firing`), your high school not renewing your stipend (`hs_review`), the other leagues' owners (`pro/other.rs`, `reviews`), an NCAA show-cause order (`ncaa.rs`) and a college giving your position-coach slot away (`folk/backchannel.rs`). Each time, `world/front_office/market.rs`, `spared` keeps the day, the place and the world's reason on `Career::spared` and posts it to your inbox. A college deal that ran out renews at the same pay. A team that stops existing (a school drops football, a franchise goes dark, a league team folds) still ends the job. The career is marked from the first day the override is on (`Career::no_fire_since`, `World::set_no_fire`), the mark stays when it goes off, and the save's header carries it (`save::WorldMeta::no_fire`, shown on Load game). The dice roll the same either way, so with the override off every seed plays the same.
 
 ## Pay
 
