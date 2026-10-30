@@ -423,6 +423,9 @@ pub struct Situation {
     pub college: bool,
     /// The league's lean toward passing (the other leagues' books, X7).
     pub lean: f64,
+    /// How far the weather moves the call toward the run (minor bug 144).
+    #[serde(default)]
+    pub weather: f64,
 }
 
 impl Situation {
@@ -543,6 +546,8 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
     }
     // A line in your plan (G20): run it more.
     p_pass -= mem.plan.run_more;
+    // Bad weather: more runs, the same throws (`Game::weather_lean`).
+    p_pass -= sit.weather;
     if sit.hurry() {
         p_pass = p_pass.max(0.85);
     }
@@ -631,7 +636,22 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
         if pass_concept(concept).play_action && formation.backfield == Backfield::Shotgun && rng.chance(0.4) {
             formation.backfield = Backfield::Pistol;
         }
-        OffCall::new(formation, PlayKind::Pass(concept), strength, hurry)
+        let mut call = OffCall::new(formation, PlayKind::Pass(concept), strength, hurry);
+        // An RPO comes off the pass side of the sheet too: real ones
+        // replace runs and quick throws alike, and the real pass rates
+        // count their throws as passes and their handoffs as runs. Drawn
+        // from runs alone, their throws came on top of the real rate (FBS
+        // teams up 28+ passed 32% in the fourth quarter, real 28%; minor
+        // bug 142, proposed, not confirmed).
+        let pc = pass_concept(concept);
+        if !pc.play_action
+            && pc.depth != PassDepth::Screen
+            && let Some(i) = pick_rpo(staff, sit, &formation, RunConcept::InsideZone, ctx, short, rng)
+        {
+            call.kind = PlayKind::Rpo(RunConcept::InsideZone, i);
+            why = "a quick throw with a run tagged on for the defender in conflict";
+        }
+        call
     } else {
         if formation.set == Set::Empty {
             formation.set = Set::Trips;
@@ -646,7 +666,7 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
         };
         let mut call = OffCall::new(formation, PlayKind::Run(rc), dir, hurry);
         // An RPO (topic 1): the same run with a quick throw attached.
-        if let Some(i) = pick_rpo(staff, sit, &call, ctx, short, rng) {
+        if let Some(i) = pick_rpo(staff, sit, &call.formation, rc, ctx, short, rng) {
             call.kind = PlayKind::Rpo(rc, i);
             why = "a run with a throw tagged on for the defender in conflict";
         }
@@ -975,12 +995,20 @@ fn pick_run(
 /// The pass half of an RPO (topic 1): real college spread offenses tag a
 /// throw on a large share of their runs since the 2010s; NFL teams far
 /// fewer (their linemen may not be past one yard downfield).
-fn pick_rpo(staff: &Staff, sit: &Situation, call: &OffCall, ctx: &OffCtx, short: bool, rng: &mut Rng) -> Option<usize> {
-    let PlayKind::Run(rc) = call.kind else { return None };
+fn pick_rpo(
+    staff: &Staff,
+    sit: &Situation,
+    formation: &Formation,
+    rc: RunConcept,
+    ctx: &OffCtx,
+    short: bool,
+    rng: &mut Rng,
+) -> Option<usize> {
     if short
         || sit.hurry()
         || !matches!(rc, RunConcept::InsideZone | RunConcept::Duo | RunConcept::Power | RunConcept::Counter)
-        || call.formation.personnel.wide_receivers() < 2
+        || formation.personnel.wide_receivers() < 2
+        || formation.set == Set::Empty
     {
         return None;
     }
@@ -1745,7 +1773,7 @@ pub enum FourthDown {
 /// Fourth down (topic 4.2): expected points of going, punting and kicking
 /// from the real EP table, then the head coach's own lean. Sharp and
 /// aggressive coaches follow the numbers; weaker ones stay too cautious.
-pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) -> FourthDown {
+pub fn fourth_down(staff: &Staff, sit: &Situation, level: Level, fg_make: f64, rng: &mut Rng) -> FourthDown {
     let y = sit.yardline_100;
     let togo = sit.togo;
     // Real NFL fourth-down conversion by distance (about 70% on 4th and 1,
@@ -1786,11 +1814,21 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     let noise = rng.normal(0.0, 0.5 * (1.3 - gm / 20.0));
     let best_kick =
         if ev_fg > ev_punt && fg_make > 0.3 { (FourthDown::FieldGoal, ev_fg) } else { (FourthDown::Punt, ev_punt) };
-    // Real coaches still mostly kick: the real go rate as a habit.
-    let habit = tables::real_fourth_go_rate(togo, y, sit.score_diff, sit.college);
-    let by_numbers = ev_go_adj + noise > best_kick.1 + margin;
-    let follow = clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45);
-    let go = if rng.chance(follow) { by_numbers } else { rng.chance(habit) };
+    // Real coaches still mostly kick: the real go rate as a habit. In the
+    // NFL it is the rate outside the late window the last line fills itself
+    // (nflverse 2021-2025: 0.18 of the real 1.46 tries a team game came in
+    // the fourth quarter's last 2:30 down four or more; counted twice, they
+    // helped NFL teams to 1.90 tries a game, minor bug 142).
+    let habit = tables::real_fourth_go_habit(togo, y, sit.score_diff, sit.college);
+    // How far he trusts the numbers over the habit. The real rates are every
+    // kind of coach together, so the level's typical coach keeps the habit;
+    // a sharper, bolder one moves toward what the numbers say, a weaker or
+    // more cautious one away from it (every coach used to follow them on
+    // top of the habit, minor bug 142; proposed, not confirmed).
+    let share = |gm: f64, agg: f64| clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45);
+    let follow = share(gm, agg) - share(super::rules::coach_norm(level), 10.0);
+    let says = if ev_go_adj + noise > best_kick.1 + margin { 1.0 } else { 0.0 };
+    let go = rng.chance(clamp(habit + follow * (says - habit), 0.0, 1.0));
     if go || (late && sit.score_diff < -3 && sit.game_left < 150.0 && !sit.concede) {
         FourthDown::Go
     } else {

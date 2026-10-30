@@ -44,6 +44,7 @@ def main():
     folder, years = sys.argv[1], sys.argv[2:]
     pr = defaultdict(lambda: [0, 0])
     go = defaultdict(lambda: [0, 0])
+    habit = defaultdict(lambda: [0, 0])
     wp = defaultdict(lambda: [0.0, 0])
     depth = defaultdict(lambda: [0, 0, 0.0, 0.0])
     gaps = defaultdict(int)
@@ -84,6 +85,12 @@ def main():
                     k = f"{togo_b(togo)}|{yb}|{score_b(sd)}"
                     go[k][0] += pt in ("run", "pass")
                     go[k][1] += 1
+                    # The same away from the fourth quarter's last 2:30 down
+                    # four or more, where the engine's coaches go anyway
+                    # (nfl_fourth_go_habit.csv, minor bug 142).
+                    if not (q is not None and q >= 4 and gs is not None and gs < 150 and sd < -3):
+                        habit[k][0] += pt in ("run", "pass")
+                        habit[k][1] += 1
                 if r["wp"] and gs is not None and yl is not None:
                     k = f"{max(-28, min(28, int(sd // 4 * 4)))}|{int(gs // 300) * 300}|{min(3, int(yl) // 25)}"
                     wp[k][0] += f(r["wp"])
@@ -100,9 +107,10 @@ def main():
                     gaps[r["run_location"] + "|" + (r["run_gap"] or "middle")] += 1
     out = {
         "source": "nflverse play-by-play, regular seasons " + ", ".join(years),
-        "note": "pass_rate key: down|togo bucket (1,3,6,10,15)|score diff bucket (-15,-8,-1,0,7,14,15)|time (normal, late = 4th qtr last 7 min, two_minute = last 2 min of a half). fourth_go key: togo bucket|yardline_100 bucket (10s)|score bucket. win_prob key: score diff (4-pt buckets)|game seconds left (5-min buckets)|yardline_100 quarter.",
+        "note": "pass_rate key: down|togo bucket (1,3,6,10,15)|score diff bucket (-15,-8,-1,0,7,14,15)|time (normal, late = 4th qtr last 7 min, two_minute = last 2 min of a half). fourth_go key: togo bucket|yardline_100 bucket (10s)|score bucket (fourth_go_habit the same without the 4th qtr's last 150 s down 4+). win_prob key: score diff (4-pt buckets)|game seconds left (5-min buckets)|yardline_100 quarter.",
         "pass_rate": {k: {"rate": round(v[0] / v[1], 4), "n": v[1]} for k, v in sorted(pr.items()) if v[1] >= 30},
         "fourth_go": {k: {"rate": round(v[0] / v[1], 4), "n": v[1]} for k, v in sorted(go.items()) if v[1] >= 15},
+        "fourth_go_habit": {k: {"rate": round(v[0] / v[1], 4), "n": v[1]} for k, v in sorted(habit.items()) if v[1] >= 15},
         "win_prob": {k: {"wp": round(v[0] / v[1], 4), "n": v[1]} for k, v in sorted(wp.items()) if v[1] >= 30},
         "pass_by_air_yards": {str(k): {"att": v[0], "comp_pct": round(v[1] / v[0], 4), "yac_per_att": round(v[2] / v[0], 2), "int_rate": round(v[3] / v[0], 4)} for k, v in sorted(depth.items())},
         "run_direction": dict(sorted(gaps.items())),

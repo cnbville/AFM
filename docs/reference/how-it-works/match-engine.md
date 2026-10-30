@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -34,6 +34,7 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 - Top speed, burst and cut come from his raw ratings and weight; the edge doesn't move them, fatigue does (`game/sim.rs`, `Agent::new`).
 - Road noise: every offensive player loses 11 × crowd × focus points of Football IQ, focus = clamp(1.6 - 0.06 × Concentration20, 0.4, 1.6) (`run_snap`, `NOISE_LOAD`).
 - Crowd, wherever this page uses it: the home crowd × the road offense's `prep.noise`, 0 at home or on a neutral site. `prep.noise` is 1 for AI teams; your week's crowd-noise days set yours, 0.9-1.15 (`game/flow.rs`, `home_crowd`; `training/seat.rs`, `week_habits`).
+- Road receivers leave late on the silent count: + 0.3 × crowd × clamp(1 - 0.05 × (Concentration20 - 10), 0.5, 1.5) s on each route of a called pass (`SILENT_RELEASE`). With the noise load, the busts and the silent count it is fitted to the real home margin: 2.2 NFL points over 6,000 `match_check` games at a 0.65 crowd (real 2.1, nflverse 2021-2025) and 2.5 FBS (real 2.4 in conference games); real road offenses lose it through the air (completions 63.8% against 65.2%, runs about even), the engine's road passing loses 1.0 point of completions and 4.8% of the yards an attempt (minor bug 143: 0.8 and 1.2 points before; proposed, not confirmed).
 - Seeing: a cone of half-angle 1.2 + 0.006 × (rating - 50) radians, read with Pocket Presence for the passer, Ball Carrier Vision for the carrier, Play Recognition for everyone else; anything within 2 yards is felt (`game/sim.rs`, `sees`).
 - `pro()`: some quarterback, catch-radius and decision reads count every point from 68 up and a quarter of the gap below 68 (`game/scrimmage.rs`, `pro`).
 - Chemistry is 0-1 with 0.45 as typical (`game/roster.rs`, `TYPICAL_CHEM`).
@@ -53,7 +54,7 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 ### Busts and misfits
 
 - Bust chance = ((1 - know) × 0.05 + (60 - FIQ)₊ × 0.0006 + noise + check + install + lapse) × call × chem × prep (`run_snap`).
-  - noise (road offense) = 0.03 × crowd × max(1.3 - FIQ / 100, 0.3); check (defense against trips, bunch, empty or motion) = 0.04 × (1 - know).
+  - noise (road offense) = 0.06 × crowd × max(1.3 - FIQ / 100, 0.3) (minor bug 143: 0.03); check (defense against trips, bunch, empty or motion) = 0.04 × (1 - know).
   - install = 0.04 × (plan load - absorb)₊, absorb = clamp((FIQ - 30) / 45, 0.2, 1.3) (`game/roster.rs`, `absorb`, `plan`).
   - lapse = 0.03 × (1 - energy) × (10 - Concentration20) / 9.
   - call = clamp(1 - 0.006 × (Communication - 60), 0.75, 1.25) of the QB (offense), the center (the line), the best communicator among linebackers and safeties (defense).
@@ -84,7 +85,7 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 What it reads: run blocking, strength, hands, balance, burst and mass against shedding, hands, anchor, strength, recognition and mass. What it does not read: arm length in inches (only the Length link), height, Speed, the blocker's Agility or Football IQ.
 
 - Start: get-off = 0.6 Acceleration + 0.4 Anticipation + 12 × lean(Snap timing) + Get-off + Length (defender); run set = 0.5 Run Blocking + 0.3 Acceleration + 0.2 Strength + Get-off + Length (blocker); w0 = -0.1 + 0.006 × (get-off + silent count - set) + front fit + N(0, 0.18) (`game/sim.rs`, `engage`).
-  - Silent count: a road line in its first second gives the defender 24 × crowd × focus, focus = clamp(1 - 0.05 × (Concentration20 - 10), 0.5, 1.5) (`engage`, `SILENT_COUNT`).
+  - Silent count: a road line in its first second gives the defender 36 × crowd × focus (minor bug 143: 24), focus = clamp(1 - 0.05 × (Concentration20 - 10), 0.5, 1.5) (`engage`, `SILENT_COUNT`).
   - Front fit (DE/DT only): a two-gap DT (a 3-4 front) +0.05 against gap runs, -0.02 against zone; a one-gap lineman -0.02 against gap runs, +0.03 against zone (`front_fit`). Duo counts as zone here (`game/scrimmage.rs`, `run_snap`).
 - Each tick: edge = shed power - block power; w += 0.035 × edge × 0.1 + 0.6 × √0.1 × N(0, 1) (`update_blocks`, `RUN_EDGE`).
   - Block power = 0.45 Run Blocking + 0.2 Strength + 0.15 Hand Use + 0.1 Balance + 0.1 Acceleration + 0.08 × (weight - 300) + Low center/Anchor (`block_base`, `block_gift`).
@@ -137,7 +138,7 @@ What it reads: Play Recognition, Decisions, Pocket Presence, Composure, Football
 
 - The drop: top of the drop at quick 1.25 s, medium 1.6, deep 2.1, boot 2.2, screen 1.4, bubble 0.75, +0.35 with play action, + clamp(-0.0015 × (Footwork - 60), -0.06, 0.08) (`game/scrimmage.rs`, `run_snap`).
   - A bad shotgun snap costs 0.3-0.6 s, chance clamp(0.004 - 0.0001 × (center's Shotgun Snap - 60), 0.001, 0.012); a fumbled snap is not modelled (`run_snap`).
-- First read: the concept's order, except the best receiver is fed first with chance min(0.1 + 0.02 × his rating edge, 0.55), or the plan's target corner's man 50% of the time (`run_snap`, `FEED_BASE`, `FEED_MAX`).
+- First read: the concept's order, except the best receiver (each man rated at his own spot, receiver, tight end, back or fullback; minor bug 137) is fed first with chance min(0.1 + 0.02 × his rating edge, 0.55), or the plan's target corner's man 50% of the time (`run_snap`, `FEED_BASE`, `FEED_MAX`).
 - Time on each read = clamp(0.62 - 0.0045 × (iq - 50), 0.3, 0.95) × shown × (1 + 0.6 × lean(Hold)) × prep; iq = 0.5 PR + 0.5 Decisions; shown = (1 - 0.2 × (pre-snap read - 0.45)) × 1.15 if a disguise fooled him; prep = his prep factor, 1.33 Unprepared to 0.93 Sharp (`quarterback`).
 - His clock = clamp(3.6 - 0.01 × (Decisions - 60) - 0.004 × (Pocket Presence - 60), 3.1, 4.1) + 0.3 on a deep drop + 1.0 × lean(Hold) (`quarterback`).
 - Hot read: pressure over 0.6 before 2 s sends him back to read 1 (always above 45 Football IQ, else 40%) (`quarterback`).
@@ -159,7 +160,7 @@ What it reads: Play Recognition, Decisions, Pocket Presence, Composure, Football
 - Placement: the aim moves 0.45 × accuracy / 100 yards away from the nearest defender and stays 1.5 yards inside the sideline (`throw`).
 - Miss sd = (0.25 + 0.036 × distance + 0.0007 × downfield²) × 1.3 × e^(0.005 × (110 - pro(accuracy))) yards (`aim_sd`), then × (`throw`):
   - pressure over 0.3: 1 + 0.9 × min(pressure, 1.5) × (1.35 - Composure / 100); moving over 3 yd/s: 1.25 - 0.002 × Throw on the Move.
-  - wind 1 + wind × (0.004 + 0.0004 × distance); rain or snow 1.1; cold 1 + 0.08 × unused-to-cold.
+  - wind 1 + wind × (0.010 + 0.0001 × distance) (minor bug 144); rain or snow 1.1; cold 1 + 0.08 × unused-to-cold.
   - hidden consistency 1.15 - 0.015 × consistency; chemistry 1 - 0.12 × (chemistry - 0.45).
   - along the line × (1 + 0.022 × (downfield - 12)₊), and past 25 yards × 1.1 × clamp(1 + 0.01 × (75 - Arm), 0.8, 1.4).
 - Roughing the passer: a free rusher closing who lands more than 0.4 s after the release draws it at 0.1, sooner at 0.015, × (1.5 - Discipline20 / 20) × crew (`throw`).
@@ -206,6 +207,7 @@ What it reads: Catching, Body Control, Jumping, height, arm length, Contested Ca
 
 What it reads: the defender's hands (Catching, raised half the gap from his level's norm to the NFL's), coverage, Jumping, height, arms, whether he sees the ball or jumped the route. What it does not read: the defender's Anticipation outside the route jump, the QB's Decisions after the throw.
 
+- The man who picks it off runs it back as a ball carrier (`game/scrimmage.rs`, `defend` skips him; minor bug 132: he chased himself and stopped every tick, 0.005 pick sixes a team game against real 0.05).
 - Hands = Catching + 0.5 × (Catching norm at the NFL - at his level) (`game/scrimmage.rs`, `ball_hands`, `HANDS_LEVEL`).
 - A lane touch is a pick with 0.3 × hands / 70; an off-target ball within 0.8 × (1 + 0.01 × (Jumping - 50)) of a defender with 0.18 × hands / 70 (`catch_point`).
 - In front at the catch point: clamp(0.22 × closeness × (0.45 + hands / 110) × (0.45 if he doesn't see the ball) × (3.5 if he jumped the route) × size, 0, 0.7) (`catch_point`).
@@ -293,7 +295,7 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
   - pressure factor = 1 + pressure × clamp(1.15 - Composure20 / 15, 0, 1) × 0.9 (`pressure_factor`); the game sets pressure 0.8 when the kick decides it late, 0.4 late and close, 0.1 otherwise, +0.15 in the playoffs, +0.1 when iced (50% when it decides) (`game/flow.rs`, `field_goal`).
 - Leg distance = (base + per × power) × (1 + 0.000015 × altitude) × (1 - 0.0018 × (55 - °F)₊) + 0.35 × wind along, × 0.96 in rain or snow (`leg`).
 - Kickoff (`kickoff`):
-  - leg 49 + 0.23 × Kick Power + N(0, 3); land spread 2.5 × clamp(1 - 0.01 × (Kickoff Technique - 60), 0.6, 1.4); hang clamp(3.4 + 0.014 × (KP - 60) + 0.006 × (KT - 60) + N(0, 0.2), 2.8, 4.8) s; out of bounds 0.006 × (1.4 - KT / 100).
+  - leg 55 + 0.23 × Kick Power + N(0, 3) (minor bug 139); land spread 2.5 × clamp(1 - 0.01 × (Kickoff Technique - 60), 0.6, 1.4); hang clamp(3.4 + 0.014 × (KP - 60) + 0.006 × (KT - 60) + N(0, 0.2), 2.8, 4.8) s; out of bounds 0.006 × (1.4 - KT / 100).
   - NFL 2025 rules: aims into the landing zone; against a dangerous returner (0.5 Speed + 0.5 Elusiveness - size_cost(weight, 200) over 80) kicks deep with clamp(0.2 + 0.012 × danger, 0.08, 0.45). Elsewhere a big leg aims for the touchback.
   - Deep in the end zone the returner kneels by a logistic of where he thinks he'll get, land + 22 + 0.1 × (Speed - 70) + 0.9 × (Return risk - 10.5), against the touchback, width clamp(5.5 - 0.04 × Decisions, 1.5, 4.5); a followed kneel order decides it. College: a fair catch inside the 25 is a touchback 30% of the time.
   - Onside recovered with clamp(0.08 + 0.0025 × (KT - 50) - 0.02 (NFL) or + 0.03, 0.03, 0.25), 11-14 yards.
@@ -301,7 +303,8 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
   - bad snap 0.005 × (1 + max(10 - LS/5, -5) × 0.2); operation = clamp(0.75 - 0.003 × (LS - 60), 0.62, 0.95) + clamp(1.3 - 0.004 × (Get-off - 60), 1.12, 1.55) + 0.7 (bad snap) + N(0, 0.08) s; block 0.0028 × (operation / 2.05)^8.
   - leg 17 + 0.215 × Punt Power + 14 + N(0, 4.5); from inside 62 yards of the goal he pins, aiming 8 + N(0, 6 - 0.04 × Placement) from the goal line toward the numbers; hang clamp(3.5 + 0.018 × (PP - 60) + 0.006 × (Placement - 60) + N(0, 0.25) - 0.2 pinning, 2.9, 5.2).
   - shank or out of bounds 0.03 × (1.3 - Composure20 / 20).
-  - coverage gap = clamp(4.6 - 1.6 × (hang - 4.2) - 0.08 × (gunner - jammer) + N(0, 2), 0, 15); gunner = 0.5 Speed + 0.3 Release + 0.2 Strength, jammer = 0.4 Press + 0.3 Strength + 0.3 Speed.
+  - coverage gap = clamp(5.2 - 1.6 × (hang - 4.2) - 0.08 × (gunner - jammer) + N(0, 2), 0, 15); gunner = 0.5 Speed + 0.3 Release + 0.2 Strength, jammer = 0.4 Press + 0.3 Strength + 0.3 Speed.
+  - a returned punt starts with the gunners the gap from the catch, each jammer on his gunner (from 1.5 yards in front of him to 1 beaten) and blocking him man to man, the rest of the unit 5-19 yards behind the gunners in lanes, the punter 30-38 yards back (`run_return`; minor bug 139).
   - inside his 10 the returner fields it with clamp((0.1 + 0.004 × (60 - Decisions)) × max(1 + 1.3 × lean(Return risk), 0.1), 0.02, 0.7), else it rolls N(2, 7).
   - fair catch with clamp(0.95 - 0.004 × (Decisions - 50) - 0.3 × lean, 0.45, 0.99) when coverage is within 5 - 1.5 × lean yards (a followed fair-catch order: 0.99 within 7).
 - Muff = 0.006 × (2 in rain or snow) × (1.2 for a left-footed punter) × (1.5 - (0.6 Ball Tracking + 0.4 Catching) / 100) × (1 + 0.02 × wind); twice the tries with coverage within 5 yards (`muff`, `punt`).
