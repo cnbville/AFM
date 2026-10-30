@@ -188,21 +188,21 @@ panel("G17.stickiness", GP, "G17", "Year-to-year stickiness of a player's rates"
 
 check("G17.qb_epa_spread", GP, "G17", "Spread of FBS QB EPA per dropback (100+ dropbacks)", "EPA",
   f"WITH {MV} SELECT sqrt(AVG(v * v) - AVG(v) * AVG(v)) FROM mv WHERE div = 'FBS' AND metric = 'EPA per dropback'",
-  Key("position_value.json:qb_seasons_300_dropbacks.epa_per_dropback#sd"), (0.2, 0.5, 0.0),
-  "Standard deviation of EPA per dropback across qualified FBS QB seasons in the stats book. Real is the NFL's (300+ dropbacks, 2021-2025); college talent gaps are wider, so a wider world spread is expected, not a fault.")
+  NoReal("no college figure on file; the NFL's is 0.12 (300+ dropbacks, 2021-2025, position_value.json), which G25.qb_epa_spread checks; college talent gaps are wider, so a wider spread here is expected"), (0.2, 0.5, 0.0),
+  "Standard deviation of EPA per dropback across qualified FBS QB seasons in the stats book.")
 check("G17.cpoe_spread", GP, "G17", "Spread of FBS QB completion % over expected", "points",
   f"WITH {MV} SELECT sqrt(AVG(v * v) - AVG(v) * AVG(v)) FROM mv WHERE div = 'FBS' AND metric = 'Completion % over expected'",
-  Key("position_value.json:qb_seasons_300_dropbacks.cpoe#sd"), (0.25, 0.6, 0.0), "Standard deviation of CPOE across qualified FBS QB seasons; real is the NFL's.")
+  NoReal("no college figure on file; the NFL's is 3.0 points (300+ dropbacks, 2021-2025, position_value.json)"), (0.25, 0.6, 0.0), "Standard deviation of CPOE across qualified FBS QB seasons.")
 check("G17.ypc_spread", GP, "G17", "Spread of FBS RB yards a carry (60+ carries)", "yards",
   f"WITH {MV} SELECT sqrt(AVG(v * v) - AVG(v) * AVG(v)) FROM mv WHERE div = 'FBS' AND metric = 'Yards a carry'",
-  Key("position_value.json:rb_seasons_120_carries#yards_per_carry.sd"), (0.25, 0.6, 0.0), "Standard deviation of yards a carry across qualified FBS running back seasons; real is the NFL's (120+ carries).")
+  NoReal("no college figure on file; the NFL's is 0.57 yards (120+ carries, position_value.json), which G25.ypc_spread checks"), (0.25, 0.6, 0.0), "Standard deviation of yards a carry across qualified FBS running back seasons.")
 check("G17.drop_rate", GP, "G17", "FBS wide receiver drop rate", "%",
   f"SELECT 100.0 * SUM({ST('Drops')}) / SUM({ST('Rec')} + {ST('Drops')}) FROM stats__seasons s WHERE s.division = 'FBS' AND s.pos IN ('WR', 'TE')",
   Key("engine_targets.json:ftn_flags.drop_rate_of_catchable", 100.0), (0.2, 0.5, 0.5), "Drops over catches plus drops, FBS receivers and tight ends in the stats book. Real: drops of catchable balls, NFL (FTN 2022-2025).")
 check("G17.qb_stickiness", GP, "G17", "Year-to-year correlation of FBS QB EPA per dropback", "correlation",
   f"""WITH {MV}, p AS (SELECT a.v AS x, b.v AS y FROM mv a JOIN mv b ON b.id = a.id AND b.metric = a.metric AND b.year = a.year + 1 WHERE a.div = 'FBS' AND a.metric = 'EPA per dropback')
      SELECT (AVG(x * y) - AVG(x) * AVG(y)) / sqrt((AVG(x * x) - AVG(x) * AVG(x)) * (AVG(y * y) - AVG(y) * AVG(y))) FROM p""",
-  Key("engine_targets.json:player_spread.year_to_year_corr#qb_epa_per_dropback.0"), (0.25, 0.6, 0.05), "Correlation of a QB's EPA per dropback with his next season's; real is the NFL's (103 QB pairs).")
+  NoReal("no college figure on file; the NFL's is 0.43 over 103 QB pairs (engine_targets.json player_spread); college QBs grow more from year to year"), (0.25, 0.6, 0.05), "Correlation of a QB's EPA per dropback with his next season's, FBS.")
 
 panel("G17.seasons", GP, "G17", "The stats book: every college season", "table",
   "The career stats book's seasons for the latest year, the busiest first: games, snaps, the main line for the position and schedule strength. Open a player for every season he played.",
@@ -269,10 +269,10 @@ BOOK = f"""bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extr
             FROM stats__books b)"""
 BOOKSTATS = "(CASE {s} WHEN 0 THEN 'passing yards' WHEN 1 THEN 'passing TDs' WHEN 2 THEN 'rushing yards' WHEN 3 THEN 'rushing TDs' WHEN 4 THEN 'receptions' WHEN 5 THEN 'receiving yards' WHEN 6 THEN 'receiving TDs' WHEN 7 THEN 'tackles' WHEN 8 THEN 'sacks' WHEN 9 THEN 'interceptions' WHEN 10 THEN 'tackles for loss' WHEN 11 THEN 'field goals' WHEN 12 THEN 'return TDs' ELSE 'stat ' || {s} END)"
 STREAKS = "(CASE {s} WHEN 0 THEN 'games with a TD pass' WHEN 1 THEN '100-yard rushing games' WHEN 2 THEN 'games with a catch' ELSE 'streak ' || {s} END)"
-REC = [("passing yards", 0, 5967, "B.J. Symons, Texas Tech 2003"), ("passing TDs", 1, 62, "Joe Burrow, LSU 2019"), ("rushing yards", 2, 2628, "Barry Sanders, Oklahoma State 1988"),
+REC = [("passing yards", 0, 5967, "Bailey Zappe, Western Kentucky 2021"), ("passing TDs", 1, 62, "Bailey Zappe, Western Kentucky 2021"), ("rushing yards", 2, 2628, "Barry Sanders, Oklahoma State 1988"),
        ("receiving yards", 5, 2060, "Trevor Insley, Nevada 1999"), ("sacks", 8, 24, "Terrell Suggs, Arizona State 2002"), ("interceptions", 9, 14, "Al Worley, Washington 1968")]
 panel("G20.books", GP, "G20", "Record books: the top of each book against the real record", "table",
-  "The holder of each book in each division and in each conference and state: single season, career and streaks, with the runner-up and whether the mark is still running. Real FBS single-season records, written from memory (build_data.py fbs_records; to verify against the NCAA record book): passing 5,967, passing TDs 62, rushing 2,628, receiving 2,060, sacks 24, interceptions 14. College books start empty in 1996, so the early years fill rather than break.",
+  "The holder of each book in each division and in each conference and state: single season, career and streaks, with the runner-up and whether the mark is still running. Real FBS single-season records, written from memory (to verify against the NCAA record book): passing 5,967, passing TDs 62, rushing 2,628, receiving 2,060, sacks 24, interceptions 14. College books start empty in 1996, so the early years fill rather than break.",
   f"""WITH {BOOK}, r(stat, real) AS (VALUES {", ".join(f"({i}, {v})" for _, i, v, _h in REC)})
      SELECT COALESCE(bk.div, bk.conf, (SELECT code FROM states WHERE _row = bk.state)) AS scope, CASE WHEN bk.div IS NOT NULL THEN 'division' WHEN bk.conf IS NOT NULL THEN 'conference' ELSE 'state' END AS kind,
             bk.book, CASE WHEN bk.book = 'Streak' THEN {STREAKS.format(s='bk.stat')} WHEN bk.book = 'Win streak' THEN 'straight wins' ELSE {BOOKSTATS.format(s='bk.stat')} END AS stat,
@@ -293,7 +293,7 @@ col("stats__books", "_1__value"); col("stats__books", "_1__name")
 for lab, i, v, h in REC:
     check(f"G20.fbs_season_{i}", GP, "G20", f"FBS single-season record: {lab}", lab,
       f"""WITH {BOOK} SELECT _0__value FROM bk WHERE div = 'FBS' AND book = 'Season' AND stat = {i}""",
-      Memory(float(v), f"{h} (build_data.py fbs_records, from memory; to verify)"), (0.15, 0.4, 0.0),
+      Memory(float(v), f"{h} (from memory; to verify against the NCAA record book)"), (0.15, 0.4, 0.0),
       f"The top of the FBS single-season {lab} book. In a world with a short history the book has had few seasons to fill, so a low mark is expected.")
 check("G20.fbs_win_streak", GP, "G20", "Longest FBS winning streak", "games",
   f"WITH {BOOK} SELECT MAX(_0__value) FROM bk WHERE div = 'FBS' AND book = 'Win streak'",
@@ -327,7 +327,7 @@ panel("G22.awards", GP, "G22", "College awards by year", "table",
                  ELSE {ST('Tackles')} || ' tkl, ' || {ST('Sacks')} || ' sacks, ' || {ST('Ints')} || ' INT' END AS line,
             (SELECT COUNT(*) FROM stats__honors__all_america x JOIN stats__honors h ON h._row = x._parent WHERE h._key = aw.id) AS "All-America"
        FROM aw LEFT JOIN stats__seasons s ON s.id = aw.id AND s.year = aw.year LEFT JOIN programs p ON p.id = s.program ORDER BY aw.year DESC, aw.award""",
-  says=f"""WITH {AW} SELECT printf('%d awards given; %d of %d Heisman winners were quarterbacks (real: 21 of the 25 winners 2000-2024).', COUNT(*),
+  says=f"""WITH {AW} SELECT printf('%d awards given; %d of %d Heisman winners were quarterbacks (real: 20 of the 25 winners 2000-2024).', COUNT(*),
      SUM(award = 'Heisman Trophy' AND pos = 'QB'), SUM(award = 'Heisman Trophy')) FROM aw""", open="e/people/{id}")
 
 panel("G22.all_america", GP, "G22", "All-Americans and their stats", "table",
@@ -342,7 +342,7 @@ panel("G22.heisman", GP, "G22", "This season's Heisman vote", "bars",
   f"""SELECT 'Points' AS grp, {pname('v.id')} AS label, v.points AS world, NULL AS real, v.first AS n FROM college__heisman_vote v ORDER BY v.points DESC""")
 check("G22.heisman_qbs", GP, "G22", "Heisman winners who were quarterbacks", "%",
   f"WITH {AW} SELECT 100.0 * SUM(pos = 'QB') / COUNT(*) FROM aw WHERE award = 'Heisman Trophy'",
-  Memory(84.0, "21 of the 25 Heisman winners 2000-2024 were quarterbacks (from memory)"), (0.15, 0.35, 0.0), "Share of Heisman winners at quarterback.")
+  Memory(80.0, "20 of the 25 Heisman winners 2000-2024 were quarterbacks; Bush, Ingram, Henry, DeVonta Smith and Hunter were not (from memory)"), (0.15, 0.35, 0.0), "Share of Heisman winners at quarterback.")
 
 # ---------------------------------------------------------------- G23 College Football Hall of Fame
 panel("G23.classes", GP, "G23", "College Football Hall of Fame classes", "table",

@@ -470,7 +470,7 @@ check("N24.udfa", NP, "N24", "Undrafted signings a year", "a year", "SELECT AVG(
 check("N24.rookie_scale", NP, "N24", "First pick's rookie deal per year", "$M",
   f"""WITH {CY} SELECT apy / 1e6 FROM cy JOIN people p ON p.player__id = cy.id WHERE json_extract(p.pro__draft, '$[1]') = 1 AND json_extract(p.pro__draft, '$[2]') = 1 AND cy.kind = 'Rookie'
       ORDER BY json_extract(p.pro__draft, '$[0]') DESC LIMIT 1""",
-  Fixed(11.6, "rookie_scale_2026.csv (OverTheCap): pick 1 about $11.6M a year", "2026"), (0.15, 0.4, 0.0), "Average per year of the latest first overall pick's rookie deal.")
+  Fixed(14.32, "rookie_scale_2026.csv (nflverse contracts): pick 1, 4 years, $57.3M, $14.3M a year", "2026"), (0.15, 0.4, 0.0), "Average per year of the latest first overall pick's rookie deal.")
 
 # ---------------------------------------------------------------- N25 supplemental draft
 panel("N25.picks", NP, "N25", "Supplemental draft picks", "table", "Players taken in a supplemental draft (held through 2019): year, club, round; the winner forfeits that round next year.",

@@ -532,18 +532,18 @@ pub const CHECKS: &[Check] = &[
         areas: "N33",
         title: r#"College spread miss against the final margin"#,
         unit: "points",
-        world: r#"SELECT AVG(ABS(g.home_pts - g.away_pts + json_extract(g.line, '$[0]'))) FROM log_games g WHERE g.stream = 'college' AND g.line IS NOT NULL AND COALESCE(g.standin, 0) = 0 AND g.home_pts IS NOT NULL"#,
+        world: r#"SELECT AVG(ABS(g.home_pts - g.away_pts + json_extract(g.line, '$[0]'))) FROM log_games g WHERE g.stream = 'college' AND g.line IS NOT NULL AND COALESCE(g.standin, 0) = 0 AND g.home_pts IS NOT NULL AND json_extract(g.divisions, '$[0]') = 'FBS' AND json_extract(g.divisions, '$[1]') = 'FBS' AND COALESCE(g.kind, 'regular') = 'regular'"#,
         scale: 1.0,
         years: None,
         detail: None,
         real: Real::Fixed(
-            12.5,
-            r#"finance_check.rs: college closing lines miss the margin by about 12.5 points"#,
-            r#"2010s-2020s"#,
+            12.37,
+            r#"college_plays.json betting_lines.spread_mae: 12.37 points over 8,534 FBS v FBS regular-season games (cfbfastR consensus lines)"#,
+            r#"2014-2025"#,
         ),
         tol: (0.1, 0.25, 0.0),
         needs: G,
-        how: r#"Mean absolute gap between the college closing spread and the final margin."#,
+        how: r#"Mean absolute gap between the closing spread and the final margin, FBS against FBS in the regular season as the real figure."#,
     },
     Check {
         id: "N33.college_favorites",
@@ -551,15 +551,19 @@ pub const CHECKS: &[Check] = &[
         areas: "N33",
         title: r#"College favorites who won"#,
         unit: "%",
-        world: r#"SELECT 100.0 * SUM(CASE WHEN json_extract(line, '$[0]') < 0 THEN home_pts > away_pts ELSE home_pts < away_pts END) / COUNT(*) FROM log_games
-      WHERE stream = 'college' AND line IS NOT NULL AND json_extract(line, '$[0]') <> 0 AND home_pts <> away_pts AND COALESCE(standin, 0) = 0"#,
+        world: r#"SELECT 100.0 * SUM(CASE WHEN json_extract(line, '$[0]') < 0 THEN home_pts > away_pts ELSE home_pts < away_pts END) / COUNT(*) FROM log_games g
+      WHERE stream = 'college' AND line IS NOT NULL AND json_extract(line, '$[0]') <> 0 AND home_pts <> away_pts AND COALESCE(standin, 0) = 0 AND json_extract(g.divisions, '$[0]') = 'FBS' AND json_extract(g.divisions, '$[1]') = 'FBS' AND COALESCE(g.kind, 'regular') = 'regular'"#,
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Fixed(75.0, r#"finance_check.rs: college favorites win about 75%"#, r#"2010s-2020s"#),
+        real: Real::Fixed(
+            74.2,
+            r#"college_plays.json betting_lines: favorites won 74.2% of 8,534 FBS v FBS regular-season games, weighted over the spread bands (cfbfastR)"#,
+            r#"2014-2025"#,
+        ),
         tol: (0.05, 0.12, 0.0),
         needs: G,
-        how: r#"Share of college games the favorite won."#,
+        how: r#"Share of FBS against FBS regular-season games the favorite won, as the real figure."#,
     },
     Check {
         id: "N33.nfl_favorites",
@@ -780,9 +784,10 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Memory(
-            11.5,
-            r#"real: 14-16 of 133-134 FBS head coaches Black in 2023-2025 (from memory, TIDES report)"#,
+        real: Real::Fixed(
+            11.9,
+            r#"CBS Sports 2024-05-16: 16 Black head coaches at 134 FBS schools heading into 2024 (tools/dashboard/build_data.py black_hc)"#,
+            r#"2024"#,
         ),
         tol: (0.25, 0.5, 0.0),
         needs: W,
@@ -1714,7 +1719,7 @@ pub const PANELS: &[Panel] = &[
        FROM ln WHERE sp <> 0 GROUP BY label ORDER BY MIN(ABS(sp))"#,
         says: Some(
             r#"WITH ln AS (SELECT json_extract(g.line, '$[0]') AS sp, g.home_pts - g.away_pts AS m FROM log_games g WHERE g.stream = 'college' AND g.line IS NOT NULL AND COALESCE(g.standin, 0) = 0 AND g.home_pts IS NOT NULL)
-     SELECT printf('%d college games: lines miss the margin by %.1f points (real about 12.5); favorites won %.1f%% (real about 75%%).', COUNT(*), AVG(ABS(m + sp)),
+     SELECT printf('%d college games: lines miss the margin by %.1f points (real FBS 12.4); favorites won %.1f%% (real FBS 74.2%%).', COUNT(*), AVG(ABS(m + sp)),
        100.0 * SUM(CASE WHEN sp < 0 THEN m > 0 ELSE m < 0 END) / SUM(m <> 0 AND sp <> 0)) FROM ln"#,
         ),
         needs: G,

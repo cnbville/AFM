@@ -1231,7 +1231,11 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Fixed(11.6, r#"rookie_scale_2026.csv (OverTheCap): pick 1 about $11.6M a year"#, r#"2026"#),
+        real: Real::Fixed(
+            14.32,
+            r#"rookie_scale_2026.csv (nflverse contracts): pick 1, 4 years, $57.3M, $14.3M a year"#,
+            r#"2026"#,
+        ),
         tol: (0.15, 0.4, 0.0),
         needs: W,
         how: r#"Average per year of the latest first overall pick's rookie deal."#,

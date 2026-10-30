@@ -258,4 +258,4 @@ check("N40.fbs_changes", WP, "N40", "FBS head coaches hired a year", "coaches",
   Memory(24.0, "real: about 20-30 FBS head coaching changes a year since 2010 (from memory)"), (0.25, 0.5, 0.0), "FBS head-coach hirings in the news per year (assistants hired \"as\" a position coach or coordinator left out).")
 check("N40.black_fbs_coaches", WP, "N40", "Black FBS head coaches", "%",
   """SELECT 100.0 * SUM(c.ethnicity = 'Black') / COUNT(*) FROM coaches c JOIN programs p ON p._row = c.job__employer__College WHERE c.job__role = 'HeadCoach' AND p.division = 'FBS'""",
-  Memory(11.5, "real: 14-16 of 133-134 FBS head coaches Black in 2023-2025 (from memory, TIDES report)"), (0.25, 0.5, 0.0), "Share of today's FBS head coaches who are Black.")
+  Fixed(11.9, "CBS Sports 2024-05-16: 16 Black head coaches at 134 FBS schools heading into 2024 (tools/dashboard/build_data.py black_hc)", "2024"), (0.25, 0.5, 0.0), "Share of today's FBS head coaches who are Black.")

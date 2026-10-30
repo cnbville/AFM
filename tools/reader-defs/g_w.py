@@ -288,15 +288,15 @@ panel("N33.college", MP, "N33", "College lines: how good they are", "bars",
             ROUND(100.0 * SUM(CASE WHEN sp < 0 THEN m > 0 ELSE m < 0 END) / SUM(m <> 0), 1) AS world, NULL AS real, COUNT(*) AS n
        FROM ln WHERE sp <> 0 GROUP BY label ORDER BY MIN(ABS(sp))""",
   says="""WITH ln AS (SELECT json_extract(g.line, '$[0]') AS sp, g.home_pts - g.away_pts AS m FROM log_games g WHERE g.stream = 'college' AND g.line IS NOT NULL AND COALESCE(g.standin, 0) = 0 AND g.home_pts IS NOT NULL)
-     SELECT printf('%d college games: lines miss the margin by %.1f points (real about 12.5); favorites won %.1f%% (real about 75%%).', COUNT(*), AVG(ABS(m + sp)),
+     SELECT printf('%d college games: lines miss the margin by %.1f points (real FBS 12.4); favorites won %.1f%% (real FBS 74.2%%).', COUNT(*), AVG(ABS(m + sp)),
        100.0 * SUM(CASE WHEN sp < 0 THEN m > 0 ELSE m < 0 END) / SUM(m <> 0 AND sp <> 0)) FROM ln""", needs=G)
 check("N33.college_miss", MP, "N33", "College spread miss against the final margin", "points",
-  "SELECT AVG(ABS(g.home_pts - g.away_pts + json_extract(g.line, '$[0]'))) FROM log_games g WHERE g.stream = 'college' AND g.line IS NOT NULL AND COALESCE(g.standin, 0) = 0 AND g.home_pts IS NOT NULL",
-  Fixed(12.5, "finance_check.rs: college closing lines miss the margin by about 12.5 points", "2010s-2020s"), (0.1, 0.25, 0.0), "Mean absolute gap between the college closing spread and the final margin.", needs=G)
+  "SELECT AVG(ABS(g.home_pts - g.away_pts + json_extract(g.line, '$[0]'))) FROM log_games g WHERE g.stream = 'college' AND g.line IS NOT NULL AND COALESCE(g.standin, 0) = 0 AND g.home_pts IS NOT NULL AND json_extract(g.divisions, '$[0]') = 'FBS' AND json_extract(g.divisions, '$[1]') = 'FBS' AND COALESCE(g.kind, 'regular') = 'regular'",
+  Fixed(12.37, "college_plays.json betting_lines.spread_mae: 12.37 points over 8,534 FBS v FBS regular-season games (cfbfastR consensus lines)", "2014-2025"), (0.1, 0.25, 0.0), "Mean absolute gap between the closing spread and the final margin, FBS against FBS in the regular season as the real figure.", needs=G)
 check("N33.college_favorites", MP, "N33", "College favorites who won", "%",
-  """SELECT 100.0 * SUM(CASE WHEN json_extract(line, '$[0]') < 0 THEN home_pts > away_pts ELSE home_pts < away_pts END) / COUNT(*) FROM log_games
-      WHERE stream = 'college' AND line IS NOT NULL AND json_extract(line, '$[0]') <> 0 AND home_pts <> away_pts AND COALESCE(standin, 0) = 0""",
-  Fixed(75.0, "finance_check.rs: college favorites win about 75%", "2010s-2020s"), (0.05, 0.12, 0.0), "Share of college games the favorite won.", needs=G)
+  """SELECT 100.0 * SUM(CASE WHEN json_extract(line, '$[0]') < 0 THEN home_pts > away_pts ELSE home_pts < away_pts END) / COUNT(*) FROM log_games g
+      WHERE stream = 'college' AND line IS NOT NULL AND json_extract(line, '$[0]') <> 0 AND home_pts <> away_pts AND COALESCE(standin, 0) = 0 AND json_extract(g.divisions, '$[0]') = 'FBS' AND json_extract(g.divisions, '$[1]') = 'FBS' AND COALESCE(g.kind, 'regular') = 'regular'""",
+  Fixed(74.2, "college_plays.json betting_lines: favorites won 74.2% of 8,534 FBS v FBS regular-season games, weighted over the spread bands (cfbfastR)", "2014-2025"), (0.05, 0.12, 0.0), "Share of FBS against FBS regular-season games the favorite won, as the real figure.", needs=G)
 check("N33.nfl_favorites", MP, "N33", "NFL favorites who won", "%",
   """SELECT 100.0 * SUM(CASE WHEN json_extract(line, '$[0]') < 0 THEN home_pts > away_pts ELSE home_pts < away_pts END) / COUNT(*) FROM log_games
       WHERE stream = 'nfl' AND line IS NOT NULL AND json_extract(line, '$[0]') <> 0 AND home_pts <> away_pts AND COALESCE(kind, 'regular') <> 'preseason'""",

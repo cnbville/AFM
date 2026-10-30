@@ -68,7 +68,7 @@ check("G25.wr_target_share", GP, "G25", "NFL targets to wide receivers", "%",
 
 # ---------------------------------------------------------------- G26 NFL honors and records
 panel("G26.awards", GP, "G26", "NFL awards by year", "table",
-  "MVP, Offensive and Defensive Player and Rookie of the Year, Comeback Player and Super Bowl MVP, each with the winner's position and club. Real: QBs win most MVPs (about 80% since 2000, from memory).",
+  "MVP, Offensive and Defensive Player and Rookie of the Year, Comeback Player and Super Bowl MVP, each with the winner's position and club. Real: QBs win most MVPs (21 of 25 in 2000-2024, from memory).",
   f"""SELECT a._0 AS year, a._1 AS award, a._3 AS name, a._2 AS id, COALESCE((SELECT player__position FROM people WHERE player__id = a._2), (SELECT player__position FROM alumni WHERE player__id = a._2)) AS pos,
             {club('a._4', 'a._0')} AS club FROM nfl_book__awards a ORDER BY a._0 DESC, a._1""",
   says="""SELECT printf('%d MVPs on record, %d of them quarterbacks.', COUNT(*), SUM(COALESCE((SELECT player__position FROM people WHERE player__id = a._2), (SELECT player__position FROM alumni WHERE player__id = a._2)) = 'QB'))
@@ -92,7 +92,7 @@ panel("G26.all_pro", GP, "G26", "All-Pro and Pro Bowl counts by position", "bars
        FROM nfl_book__pro_bowls b GROUP BY 2 ORDER BY 1, 3 DESC""")
 check("G26.mvp_qbs", GP, "G26", "NFL MVPs who were quarterbacks", "%",
   """SELECT 100.0 * SUM(COALESCE((SELECT player__position FROM people WHERE player__id = a._2), (SELECT player__position FROM alumni WHERE player__id = a._2)) = 'QB') / COUNT(*) FROM nfl_book__awards a WHERE a._1 = 'MVP'""",
-  Memory(80.0, "about 20 of 25 MVPs 2000-2024 were quarterbacks (from memory)"), (0.15, 0.35, 0.0), "Share of world MVPs at quarterback.")
+  Memory(84.0, "21 of the 25 NFL MVPs 2000-2024 were quarterbacks; Faulk, Alexander, Tomlinson and Peterson were not (from memory)"), (0.15, 0.35, 0.0), "Share of world MVPs at quarterback.")
 check("G26.hall_class", GP, "G26", "Pro Football Hall of Fame class size", "a class",
   "SELECT 1.0 * COUNT(*) / COUNT(DISTINCT _0) FROM nfl_book__hall", Memory(6.5, "real modern-era classes run 5-8 a year (from memory)"), (0.3, 0.6, 0.0),
   "Inductees per class year.")
@@ -325,10 +325,10 @@ check("G33.knee_share", GP, "G33", "Knee injuries among NFL injuries of a week o
 check("G33.ankle_share", GP, "G33", "Ankle injuries among NFL injuries of a week or more", "%",
   f"WITH {INJ} SELECT 100.0 * SUM(part = 'Ankle') / COUNT(*) FROM inj WHERE lv = 'NFL' AND weeks >= 1",
   Key("development_injuries.json:injury_episodes_by_body_part.Ankle#share", 100.0), (0.2, 0.5, 0.0), "Ankle and high ankle sprains over all game injuries costing a week or more.", needs=G)
-check("G33.knee_weeks", GP, "G33", "Weeks missed for an NFL knee injury", "weeks",
-  f"WITH {INJ} SELECT AVG(weeks) FROM inj WHERE lv = 'NFL' AND part = 'Knee' AND weeks >= 1",
-  Key("development_injuries.json:injury_episodes_by_body_part.Knee#mean_games_missed"), (0.3, 0.7, 0.0),
-  "Mean weeks out for knee injuries of a week or more. Real counts games missed per episode; ACL tears push the world mean up.", needs=G)
+check("G33.knee_4plus", GP, "G33", "NFL knee injuries that cost four weeks or more", "%",
+  f"WITH {INJ} SELECT 100.0 * AVG(weeks >= 4) FROM inj WHERE lv = 'NFL' AND part = 'Knee'",
+  Key("development_injuries.json:injury_episodes_by_body_part.Knee#share_4_plus", 100.0), (0.2, 0.5, 0.0),
+  "Share of NFL knee injuries in games that keep the player out four weeks or more. Real counts games missed per injury report episode, cut at the season's end, so a share of 4+ compares fairly where a mean would not (real mean 3.49 games, median 2).", needs=G)
 
 # ---------------------------------------------------------------- G34 one game snap by snap
 panel("G34.games", GP, "G34", "Games with every snap kept", "table",

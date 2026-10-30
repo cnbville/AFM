@@ -117,7 +117,7 @@ for d, k in [("D2", "ii"), ("D3", "iii")]:
       f"Engine games between two {d} programs.", needs=G)
 check("G1.fbs_over_fcs", GP, "G1", "FBS wins over FCS", "%",
   "SELECT AVG(CASE WHEN json_extract(divisions, '$[0]') = 'FBS' THEN home_pts > away_pts ELSE away_pts > home_pts END) FROM log_games g WHERE g.stream = 'college' AND " + ENGINE + " AND g.divisions IN ('[\"FBS\",\"FCS\"]', '[\"FCS\",\"FBS\"]')",
-  Fixed(87.9, "college_history.json scores_by_season (FBS v FCS games, CollegeFootballData)", "2001-2025"), (0.04, 0.1, 0.0),
+  Fixed(92.3, "college_history.json scores_by_season: FBS won 92.3% of 2,340 FBS v FCS games, weighted by games (CollegeFootballData)", "2001-2025"), (0.04, 0.1, 0.0),
   "Every engine game between an FBS and an FCS program: the FBS side's win share.", scale=100.0, needs=G)
 
 # ---------------------------------------------------------------- G2
@@ -310,7 +310,7 @@ check("G3.nfl_home_win", GP, "G3", "NFL home teams' win share", "%",
   "Regular-season NFL engine games at one side's home.", scale=100.0, needs=G)
 check("G3.nfl_overtime", GP, "G3", "NFL games to overtime", "%",
   "SELECT AVG(COALESCE(ot, 0) > 0) FROM log_games g WHERE g.stream = 'nfl' AND " + ENGINE + " AND " + REG,
-  Fixed(5.6, "nfl_history.json scoring_by_season overtime_share, 2021-2025 average (nflverse)", "2021-2025"), (0.25, 0.6, 1.0),
+  Fixed(6.1, "nfl_history.json scoring_by_season overtime_share, 2021-2025 weighted by games: 83 of 1,359 (nflverse)", "2021-2025"), (0.25, 0.6, 1.0),
   "Regular-season NFL engine games.", scale=100.0, needs=G)
 check("G3.nfl_games_2021", GP, "G3 N3", "NFL regular-season games a season (2021 on)", "",
   "SELECT AVG(n) FROM (SELECT season, COUNT(*) AS n FROM log_games WHERE stream = 'nfl' AND COALESCE(kind, 'regular') = 'regular' AND season >= 2021 GROUP BY season)",
@@ -525,11 +525,11 @@ panel("G8.pressure", GP, "G8", "Pressure, blitz, man coverage, play action and t
      UNION ALL SELECT level, 'Play-action yards a play', ROUND(1.0 * pay / pa, 2), NULL, pa FROM p ORDER BY 1, 2""", needs=G)
 
 panel("G8.box", GP, "G8", "Yards a carry by men in the box", "bars",
-  "Designed runs by the defenders in the box (situation key box). Real NFL 2021-2025: 6 or fewer 4.73, 7 4.22, 8 or more 3.40 yards a carry (engine_targets.json runs by box).",
+  "Designed runs by the defenders in the box (situation key box). Real NFL 2021-2025: 6 or fewer 4.66, 7 4.18, 8 or more 3.50 yards a carry (engine_targets.json runs_by_box.all, weighted by runs).",
   f"""WITH b AS (SELECT level, CAST(substr(key, 5, instr(substr(key, 5) || '|', '|') - 1) AS INTEGER) AS box, SUM(plays) AS n, SUM(yards) AS y FROM {SIT}
                WHERE key LIKE 'box|%' AND "group" NOT LIKE 'cross%' GROUP BY level, box)
      SELECT level AS grp, CASE WHEN box <= 6 THEN '6 or fewer' WHEN box = 7 THEN '7' ELSE '8 or more' END AS label, ROUND(1.0 * SUM(y) / SUM(n), 2) AS world,
-            CASE WHEN box <= 6 THEN 4.73 WHEN box = 7 THEN 4.22 ELSE 3.40 END AS real, SUM(n) AS n FROM b GROUP BY level, label ORDER BY level, label""", needs=G)
+            CASE WHEN box <= 6 THEN 4.66 WHEN box = 7 THEN 4.18 ELSE 3.50 END AS real, SUM(n) AS n FROM b GROUP BY level, label ORDER BY level, label""", needs=G)
 
 panel("G8.explorer", GP, "G8", "Every situation key: plays, yards, EPA, success", "table",
   "The season's situation totals key by key (the latest season, keys with 20 plays or more, up to the panel's 5,000 rows): plays, yards a play, EPA a play, success rate, first downs, touchdowns, turnovers and the key's extra count. Read each key's family on the families panel above; `afm_read <book> table log_situations` pages through all of them.",
@@ -539,7 +539,7 @@ panel("G8.explorer", GP, "G8", "Every situation key: plays, yards, EPA, success"
 
 check("G8.nfl_pressure", GP, "G8", "NFL dropbacks under pressure", "%",
   f"SELECT 1.0 * SUM(CASE WHEN key = 'pressured|true' THEN plays END) / SUM(plays) FROM {SIT} WHERE level = 'nfl' AND key LIKE 'pressured|%'",
-  Fixed(28.3, "position_value.json pressure (FTN charting 2022-2025)", "2022-2025"), (0.08, 0.2, 0.0),
+  Fixed(28.3, "engine_targets.json dropbacks.by_pressure: 28.3% of dropbacks pressured (FTN and nflverse 2021-2025; position_value.json's FTN subset reads 29.5%)", "2022-2025"), (0.08, 0.2, 0.0),
   "Dropbacks with the pressured flag over all dropbacks, NFL engine games.", scale=100.0, needs=G)
 check("G8.nfl_deep_share", GP, "G8", "NFL throws 20+ air yards", "%",
   f"SELECT 1.0 * SUM(CASE WHEN key = 'real air yards|20' THEN plays END) / SUM(plays) FROM {SIT} WHERE level = 'nfl' AND key LIKE 'real air yards|%'",
@@ -547,5 +547,5 @@ check("G8.nfl_deep_share", GP, "G8", "NFL throws 20+ air yards", "%",
   "Pass attempts by air yards, NFL engine games.", scale=100.0, needs=G)
 check("G8.nfl_box8_ypc", GP, "G8", "NFL yards a carry against 8+ in the box", "yds",
   f"SELECT 1.0 * SUM(yards) / SUM(plays) FROM {SIT} WHERE level = 'nfl' AND key LIKE 'box|%' AND CAST(substr(key, 5) AS INTEGER) >= 8",
-  Fixed(3.40, "engine_targets.json runs by box (nflverse and FTN 2021-2025)", "2021-2025"), (0.08, 0.2, 0.0),
+  Fixed(3.50, "engine_targets.json runs_by_box.all: 8 and 9 in the box, weighted by runs (nflverse and FTN 2021-2025)", "2021-2025"), (0.08, 0.2, 0.0),
   "Runs against eight or more in the box, NFL engine games.", needs=G)
