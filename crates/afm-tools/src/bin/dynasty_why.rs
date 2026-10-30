@@ -928,6 +928,43 @@ fn main() {
         groups.push_str(&format!("; {label} ({} programs): {}", progs.len(), part.join(", ")));
     }
     println!("usual NIL offers to these classes' blue chips and the position's market top{groups}");
+    // In-state signing by stars over the last five classes (minor bug 89's
+    // calibration): his first FBS school, or the one he just signed with.
+    let mut by_star = [[0u32; 2]; 6];
+    let mut count_in = |stars: u8,
+                        home: usize,
+                        class_of: i32,
+                        staff: &[(i32, usize, Option<usize>, Option<usize>)],
+                        signed: Option<usize>| {
+        if class_of < w.year - 4 || class_of > w.year || stars == 0 {
+            return;
+        }
+        let first = staff.iter().find(|e| fbs_in(&w.programs[e.1], e.0)).filter(|e| e.0 <= class_of + 1).map(|e| e.1);
+        let Some(j) = first.or(signed.filter(|&j| w.programs[j].division == Division::FBS)) else { return };
+        let s = (stars as usize).min(5);
+        by_star[s][1] += 1;
+        by_star[s][0] += (w.programs[j].state == home) as u32;
+    };
+    for a in w.alumni.iter().filter(|a| !a.position.is_specialist()) {
+        count_in(a.stars, a.home_state, a.class_of, &a.college_staff, None);
+    }
+    for p in w.people.iter().filter(|p| p.stage != afm_engine::world::Stage::Pro && !p.player.position.is_specialist())
+    {
+        count_in(p.stars, p.home_state, p.class_of, &p.college_staff, p.cal.signed.map(|s| s.program));
+    }
+    println!(
+        "FBS signees in their home state by stars, classes {}-{}: {} (real 2010-2025: 2* 34%, 3* 33%, 4* 40%, 5* 45%)",
+        w.year - 4,
+        w.year,
+        (2..=5)
+            .map(|s| format!(
+                "{s}* {:.0}% of {}",
+                100.0 * by_star[s][0] as f64 / by_star[s][1].max(1) as f64,
+                by_star[s][1]
+            ))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     let (mut bc_n, mut bc_home, mut five_n, mut five_home) = (0u32, 0u32, 0u32, 0u32);
     for p in &w.people {
         if p.stars < 4 || p.player.position.is_specialist() || p.class_of < w.year - 1 || p.class_of > w.year {
@@ -1056,6 +1093,74 @@ fn main() {
             .map(|(y, (p, n))| format!("{y} {} {n}", name(*p)))
             .collect::<Vec<_>>()
             .join(", ")
+    );
+    // Contenders and rise and fall (Cain 2026-10-29: diverse contenders that
+    // grow naturally). The world keeps no past final polls, so a season's
+    // order is read from its results: the champion, then wins minus losses,
+    // then strength. Real: the final AP poll, 2004-2025.
+    let order: BTreeMap<i32, Vec<usize>> = years
+        .iter()
+        .map(|&y| {
+            let mut v: Vec<(bool, i64, f64, usize)> = w
+                .programs
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| fbs_in(p, y))
+                .filter_map(|(j, p)| {
+                    p.seasons
+                        .iter()
+                        .find(|s| s.year == y)
+                        .map(|s| (s.national_title, s.wins as i64 - s.losses as i64, s.strength, j))
+                })
+                .collect();
+            v.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.cmp(&a.1)).then(b.2.total_cmp(&a.2)));
+            (y, v.into_iter().map(|x| x.3).collect())
+        })
+        .collect();
+    let top =
+        |y: i32, n: usize| -> Vec<usize> { order.get(&y).map_or(Vec::new(), |v| v.iter().take(n).copied().collect()) };
+    let last = *years.last().expect("a season");
+    println!("\ncontenders, by results (champion, then wins minus losses, then strength):");
+    for (a, b) in [(last - 19, last - 10), (last - 9, last)] {
+        let mut t4: HashMap<usize, u32> = HashMap::new();
+        let mut t10: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        for y in a..=b {
+            for p in top(y, 4) {
+                *t4.entry(p).or_default() += 1;
+            }
+            t10.extend(top(y, 10));
+        }
+        let most = t4.iter().max_by_key(|x| (*x.1, std::cmp::Reverse(*x.0)));
+        println!(
+            "  {a}-{b}: {} schools in a top 4, {} in a top 10; most top-4 finishes {} {} (real AP per decade: 18-20, 38-39, most 5)",
+            t4.len(),
+            t10.len(),
+            most.map_or("-", |m| name(*m.0)),
+            most.map_or(0, |m| *m.1)
+        );
+    }
+    let in25 = |y: i32, p: usize| top(y, 25).contains(&p);
+    let (mut rise, mut fall, mut rs, mut fs, mut keep, mut ks) = (0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
+    for &y in years.iter().filter(|&&y| y > last - 20) {
+        if y - 3 >= years[0] {
+            rs += 1;
+            rise += top(y, 10).iter().filter(|&&p| (y - 3..y).all(|z| !in25(z, p))).count();
+        }
+        if y + 3 <= last {
+            fs += 1;
+            fall += top(y, 10).iter().filter(|&&p| (y + 1..=y + 3).all(|z| !in25(z, p))).count();
+        }
+        if y + 5 <= last {
+            ks += 1;
+            let later = top(y + 5, 10);
+            keep += top(y, 10).iter().filter(|p| later.contains(p)).count();
+        }
+    }
+    println!(
+        "  last 20 seasons: risers (top 10 after three seasons outside the top 25) {:.2} a season, fallers (top 10, then three outside) {:.2} a season, top 10 still top 10 five years on {:.1} (real AP 2004-2025: 1.37, 1.26, 3.6)",
+        rise as f64 / rs.max(1) as f64,
+        fall as f64 / fs.max(1) as f64,
+        keep as f64 / ks.max(1) as f64
     );
     let _ = conf_in;
 }

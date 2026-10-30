@@ -2649,7 +2649,8 @@ pub(crate) fn home_weight(programs: &[Program], p: &Person, year: i32) -> f64 {
     }
     let away =
         seen.iter().filter(|&&j| programs[j].state != p.home_state && programs[j].power_conference(year)).count();
-    HOME_FADE_FLOOR + (1.0 - HOME_FADE_FLOOR) * (-(away as f64) / HOME_FADE_OFFERS).exp()
+    let (floor, half) = super::knockout::home_fade().unwrap_or((HOME_FADE_FLOOR, HOME_FADE_OFFERS));
+    floor + (1.0 - floor) * (-(away as f64) / half).exp()
 }
 
 /// How much a school appeals to a recruit, from the wants of whoever decides (topic 5).
@@ -6894,7 +6895,7 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 21] {
     let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * 0.6);
     let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
-    let brand = super::knockout::brand_read(prog.prestige_rel);
+    let brand = super::knockout::brand_read(prog.prestige_rel).min(NAME_TIE);
     let lv = recruit_level(prog, year);
     let mut rest = match prog.conference.as_str() {
         "PFL" => -0.8 * (1.0 - 0.6 * p.bg.money),
@@ -6908,7 +6909,7 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 21] {
     if let Some(&(v, _)) = prog.hs_pipeline.get(&p.hs) {
         split[0] = 0.12 * v;
     }
-    let local = super::knockout::local_scale(p.stars);
+    let local = home_weight(&w.programs, p, year);
     if prog.state == p.home_state {
         split[1] = local * p.stay_home;
     }
@@ -6936,7 +6937,7 @@ pub(crate) fn debug_terms(w: &World, i: usize, j: usize) -> [f64; 21] {
         wants.academics * academics,
         rest,
         feel,
-        utility_fit(&fits, p, &wants, prog, year, nil_offer, 0.6),
+        utility_fit(&fits, p, &wants, prog, year, nil_offer, 0.6, local),
         split[0],
         split[1],
         split[2],
