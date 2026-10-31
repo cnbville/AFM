@@ -311,7 +311,12 @@ fn only_kept_games_chart_the_line_and_charting_changes_nothing() {
                 .stats
                 .plays
                 .iter()
-                .filter(|p| matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble) && !p.nullified)
+                // An RPO throw comes off run blocks: its line has no rush to chart.
+                .filter(|p| {
+                    matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+                        && !p.nullified
+                        && !p.call.contains(" with RPO ")
+                })
                 .collect();
             let charted = drops
                 .iter()
