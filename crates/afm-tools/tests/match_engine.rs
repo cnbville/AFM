@@ -116,11 +116,11 @@ fn fbs_games_look_like_fbs() {
     // Lower edge from 21 with the trial 8 fixes (2026-10-19): the clock
     // starts again on the ready signal after penalties and the chains, so
     // these slow test rosters (below) run about 63 plays and 21 points; the
-    // world's FBS rosters 63 plays and 24.5 points. Lower edge from 18 with
-    // minor bug 135 (2026-10-31): with throws at their real depth and test
-    // staffs like the world's, these rosters score about 18 and the world's
-    // FBS 21, short of real on yards after the catch (minor bug 162).
-    within("points per team game", t.points / t.team_games, 16.0, 36.0, 27.0);
+    // world's FBS rosters 63 plays and 24.5 points. With throws at their
+    // real depth and test staffs like the world's (minor bug 135,
+    // 2026-10-31) these rosters scored about 18, and with the scrimmage
+    // tackle reach (minor bug 162) about 21.
+    within("points per team game", t.points / t.team_games, 18.0, 36.0, 27.0);
     // Known gap: a few points under the real 60.6%.
     within("completion %", t.cmp / t.att, 0.52, 0.67, 0.606);
     within("yards per attempt", t.pass_yds / t.att, 6.2, 8.6, 7.29);

@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day; the scrimmage tackle reach (minor bug 162) at 1f8d959 on 2026-10-31.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -241,7 +241,7 @@ What it reads: Ball Carrier Vision, his speed and cut, the Patience, Bounce and 
 - Pursuit angle: iq = 0.5 PR + 0.5 Pursuit; he leads the intercept by clamp(0.92 + 0.004 × (iq - 60), 0.75, 1.05), the last man in front by at least 1.1 + 0.003 × (iq - 50) (`game/sim.rs`, `pursue_cap`).
   - In front within 5 yards he breaks down: forward clamp(1.5 + 0.04 × (feet - 50), 0.8, 3.5) yd/s, feet = 0.5 Agility + 0.3 Tackling + 0.2 Pursuit; facing within 4 yards, speed × clamp(0.55 + 0.004 × feet, 0.6, 0.95).
   - Motor20 under 9, 4+ yards behind and 8+ away: effort 0.8 + 0.02 × Motor20.
-- Who gets a try: reach 1.6 yards, or 2.5 for a free man in space more than 3 yards past the line (+ clamp(0.01 × (Tackling - 60), ±0.4)), + 0.03 × (arm - 32) + 0.05 × Length share; one try each 0.7 s (`tackles`, `OPEN_REACH`).
+- Who gets a try: reach 1.6 yards, or for a free man in space more than 3 yards past the line 2.0 on scrimmage plays (`SCRIMMAGE_REACH`, minor bug 162) and 2.5 on returns (`OPEN_REACH`), + clamp(0.01 × (Tackling - 60), ±0.4); + 0.03 × (arm - 32) + 0.05 × Length share; one try each 0.7 s (`tackles`; the sim's `open_reach`).
   - An engaged defender grabs only with w ≥ -0.2, chance 0.25 + 0.3 × w, inside reach - 0.55: an arm tackle.
   - A free defender with Contact lean below -0.15 facing a carrier 15+ lb heavier moving over 4 yd/s passes with 0.35 × shyness.
 - The miss (first hit), what it reads: evade = 0.5 Elusiveness + 0.3 Agility + 0.2 Speed - size_cost(his weight, 210) + Sudden (A3); tackle = 0.6 Tackling + 0.2 Agility + 0.2 Pursuit + Sudden; angle, closing speed, the carrier's speed, arm-only, lunge; Big hit and Strip. What it does not read: the tackler's weight, Strength, Balance, height, Ball Carrier Vision (`first_hit`).
@@ -377,7 +377,7 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 ## Where the knobs are
 
 - `game/geom.rs`: `DT` 0.1.
-- `game/sim.rs`: `OPEN_REACH` 2.5, `RUN_EDGE` 0.035, `SHED_RUNNER` 0.5, `SILENT_COUNT` 36, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1 and break 0.026 in `fight_tick`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
+- `game/sim.rs`: `OPEN_REACH` 2.5, `SCRIMMAGE_REACH` 2.0, `RUN_EDGE` 0.035, `SHED_RUNNER` 0.5, `SILENT_COUNT` 36, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1 and break 0.026 in `fight_tick`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
 - `game/scrimmage.rs`: `RELEASE` 0.5, `RELEASE_PACE` 0.25, `NOISE_BUSTS` 0.06, `NOISE_LOAD` 11, `SILENT_RELEASE` 0.38, `CHIP_TIME` 0.6, `CHIP_W` 0.25, `READ_NEED` 0.3, `READ_START` 0.1, `PRE_READ` 0.45, `FEED_BASE` 0.1, `FEED_PER_POINT` 0.02, `FEED_MAX` 0.55, `BAT` 0.17, `HANDS_LEVEL` 0.5; `aim_sd`; drop times and mesh times in `run_snap`; the prep terms (0.1 on the read in `run_snap`, 0.3 on each read in `quarterback`).
 - `training/prep.rs`: `game_factor`. `training/seat.rs`: `week_habits` (crowd noise 0.075 a day, 0.9-1.15; rules clinic 0.9-1.08).
 - `game/roster.rs`: `forty`, `top_speed`, `sprint_tau`, `accel`, `cut`, `drain`, `RECOVER_ON_FIELD` 0.012, `RECOVER_ON_BENCH` 0.05, `TYPICAL_CHEM` 0.45, `CROSS_LIST` 3, `INSTALL` 0.75, `wanted`.
