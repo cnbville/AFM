@@ -264,11 +264,15 @@ pub fn snapper_knack(long_snapping_ceiling: f64, talent: f64, talent_z: f64) -> 
 /// once FBS stopped losing talent to the portal (minor bug 131) FBS
 /// linebackers read 50-53% Black (real 48%), the NFL's 65% (real 60%) and
 /// FCS's 45% (real 42%), on the test world and a 12-year world alike.
+/// The tight ends' is the fit × 0.88 for the same reason: the test
+/// world's FBS tight ends read 21.5% Black and 74.7% white (real 18 and
+/// 80), its NFL tight ends 26.4% Black (real 23), and a 12-year world's
+/// FBS tight ends 18.8% Black, up from 15.1%.
 const ODDS_LOW: [[f64; 4]; 11] = [
     [1.40, 0.268, 0.740, 0.740],
     [0.626, 1.65, 0.377, 0.580],
     [0.919, 0.698, 0.488, 0.530],
-    [1.64, 0.219, 0.136, 0.630],
+    [1.64, 0.193, 0.136, 0.630],
     [1.26, 0.369, 1.76, 1.53],
     [0.479, 0.685, 0.324, 1.84],
     [0.923, 0.492, 0.343, 1.11],
@@ -281,7 +285,7 @@ const ODDS_MID: [[f64; 4]; 11] = [
     [1.96, 0.202, 0.684, 0.740],
     [0.517, 1.74, 0.408, 0.580],
     [0.644, 0.878, 0.491, 0.530],
-    [1.85, 0.177, 0.135, 0.630],
+    [1.85, 0.156, 0.135, 0.630],
     [1.46, 0.325, 1.61, 1.53],
     [0.367, 0.631, 0.330, 1.84],
     [0.887, 0.480, 0.330, 1.11],
@@ -294,7 +298,7 @@ const ODDS_HIGH: [[f64; 4]; 11] = [
     [2.05, 0.202, 0.638, 0.740],
     [0.763, 1.03, 0.438, 0.580],
     [0.553, 0.885, 0.499, 0.530],
-    [1.85, 0.158, 0.133, 0.630],
+    [1.85, 0.139, 0.133, 0.630],
     [1.98, 0.226, 1.60, 1.53],
     [0.358, 0.416, 0.342, 1.84],
     [0.872, 0.445, 0.324, 1.11],
