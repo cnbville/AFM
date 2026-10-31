@@ -237,8 +237,19 @@ fn drafts_kickers_and_punters_off_their_own_board_late() {
 
 #[test]
 fn ends_running_back_careers_sooner_than_quarterback_careers() {
+    // Real NFL careers of 4+ seasons that ended in 2000-2020 (nflverse,
+    // `nfl_careers.json`): the last season comes at a median 31.1 for
+    // quarterbacks and 28.9 for backs. A class has about a dozen such
+    // quarterbacks, so each median gets 2.5 years. (The check before read
+    // only retirements after 3+ seasons, 7 quarterbacks a class, whose
+    // median moved from 35 to 28 with minor bug 165's placement fix.)
     let records = &result().records;
-    assert!(median_last_age(records, Position::RB) < median_last_age(records, Position::QB) - 2.0);
+    let (rb, qb) = (median_last_age(records, Position::RB), median_last_age(records, Position::QB));
+    assert!(rb < qb, "backs' careers end at {rb}, quarterbacks' at {qb}");
+    assert!(
+        (qb - 31.1).abs() <= 2.5 && (rb - 28.9).abs() <= 2.5,
+        "quarterbacks {qb} (real 31.1), backs {rb} (real 28.9)"
+    );
 }
 
 #[test]
