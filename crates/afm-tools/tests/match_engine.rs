@@ -115,8 +115,9 @@ fn fbs_games_look_like_fbs() {
     let t = play(Level::FBS, 160, 5);
     // Lower edge from 21 with the trial 8 fixes (2026-10-19): the clock
     // starts again on the ready signal after penalties and the chains, so
-    // these slow test rosters (below) run about 63 plays and 21 points; the
-    // world's FBS rosters 63 plays and 24.5 points.
+    // these slow test rosters (below) run about 63 plays and 21 points (19
+    // since receivers take a release, minor bug 135); the world's FBS
+    // rosters 63 plays and 24.5 points.
     within("points per team game", t.points / t.team_games, 18.0, 36.0, 27.0);
     // Known gap: a few points under the real 60.6%.
     within("completion %", t.cmp / t.att, 0.52, 0.67, 0.606);

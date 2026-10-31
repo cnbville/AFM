@@ -588,6 +588,10 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
             }
             let s = c.season_mut(year);
             s.team = Some(t);
+            if postseason {
+                s.playoffs.get_or_insert_with(Default::default).add(l);
+                continue;
+            }
             if dressed {
                 s.games += 1;
                 if starter {

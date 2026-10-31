@@ -9,15 +9,16 @@ const NOISE_BUSTS: f64 = 0.06;
 /// Awareness a road offensive player loses to full crowd noise. With
 /// `NOISE_BUSTS`, the silent count and `SILENT_RELEASE` it is fitted so a
 /// 0.65 crowd is worth the real home margin: 2.2 NFL points over 6,000
-/// games (real 2.1, nflverse 2021-2025; 2020 without fans +0.1) and 2.5
-/// FBS (real 2.4 in conference games, CFBD 2014-2025). Real road offenses
-/// lose it through the air: completions 63.8% against 65.2% at home, runs
-/// about even (minor bug 143: the engine had drifted to 0.8 and 1.2
-/// points); proposed, not confirmed.
+/// games (se 0.22; real 2.1, nflverse 2021-2025; 2020 without fans +0.1)
+/// and 2.7 FBS (se 0.25; real 2.4 in conference games, CFBD 2014-2025).
+/// Real road offenses lose it through the air: completions 63.8% against
+/// 65.2% at home, runs about even (minor bug 143: the engine had drifted
+/// to 0.8 and 1.2 points); proposed, not confirmed.
 const NOISE_LOAD: f64 = 11.0;
 /// Seconds a road receiver leaves late at full crowd noise: on a silent
-/// count he watches the ball, not the cadence.
-const SILENT_RELEASE: f64 = 0.3;
+/// count he watches the ball, not the cadence. (0.3 until every receiver
+/// had a release (minor bug 135), which left the NFL edge at 1.5 points.)
+const SILENT_RELEASE: f64 = 0.38;
 use super::playbook::*;
 use super::roster::GamePlayer;
 use super::rules::Rules;
@@ -685,10 +686,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 }
                 let route = route_for(c, r);
                 sim.agents[i].job = route_job(&sim.agents[i], route, los, by, s.hurry);
-                // A road receiver on a silent count leaves late, less so a
-                // focused one.
-                let conc = s.teams[0][sim.agents[i].p].trait20(Attr::Concentration, s.rules.level);
-                let late = SILENT_RELEASE * s.cond.crowd * clamp(1.0 - 0.05 * (conc - 10.0), 0.5, 1.5);
+                let late = silent_late(&sim, s, i);
                 if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
                     *release_delay += late;
                 }
@@ -1956,6 +1954,9 @@ fn route_job(a: &Agent, route: Route, los: f64, by: f64, hurry: bool) -> Job {
     let delay = match route {
         Route::CheckRelease => 1.0,
         Route::Screen => 0.9,
+        Route::Bubble | Route::Tunnel => 0.0,
+        // A man in motion has his running start.
+        _ if matches!(a.label, "WR" | "TE") && a.vel.len() < 1.5 => footwork(a),
         _ => 0.0,
     };
     Job::Route { pts, next: 0, settle, name: route.name(), release_delay: delay }
@@ -2696,6 +2697,14 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
             }
             return;
         }
+        // A receiver's release: footwork off the line, not a sprint (a jam
+        // keeps him at it longer). On a silent count he first waits for the
+        // ball to move.
+        if matches!(sim.agents[i].label, "WR" | "TE") && t >= silent_late(sim, s, i) {
+            let p = sim.agents[i].pos;
+            sim.go_to(i, p + v2(2.0, 0.0), RELEASE_PACE);
+            return;
+        }
         // A back checks for blitzers before he releases.
         if let Some(r) = blitz_threat(sim, i, qb) {
             sim.agents[i].job = Job::PassBlock { target: Some(r) };
@@ -2781,6 +2790,30 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let vm = route_pace(&sim.agents[i]);
         sim.steer(i, dir.scale(vm));
     }
+}
+
+/// A wide receiver's or tight end's release off the line (minor bug 135):
+/// the stance, the release move and the first steps of the stem take about
+/// half a second, less for a good Release, at a quarter of his speed. With
+/// it, flatter slants and deep balls judged a little worse, NFL throws of
+/// 20+ air yards fell from 15.5% to 13.6% of targets (real 11.5%), those of
+/// 0-9 rose from 36.2% to 46.6% (real 50.1%) and 10-19 fell from 32.0% to
+/// 23.7% (real 20.7%, nflverse 2021-2025; 6,000 `match_check` games):
+/// receivers had left the line at a sprint and ran every route deeper at
+/// the real time to throw (proposed, not confirmed).
+const RELEASE: f64 = 0.5;
+const RELEASE_PACE: f64 = 0.25;
+
+/// How late a road receiver leaves on the silent count, less so a focused
+/// one.
+fn silent_late(sim: &Sim, s: &Snap, i: usize) -> f64 {
+    let conc = s.teams[0][sim.agents[i].p].trait20(Attr::Concentration, s.rules.level);
+    SILENT_RELEASE * s.cond.crowd * clamp(1.0 - 0.05 * (conc - 10.0), 0.5, 1.5)
+}
+
+/// How long his release takes.
+fn footwork(a: &Agent) -> f64 {
+    RELEASE * clamp(1.3 - 0.006 * a.a(Attr::Release), 0.7, 1.3)
 }
 
 /// How fast a receiver runs his route before the ball is in the air: under
@@ -3741,8 +3774,9 @@ fn throw(
     // the line from 12 yards downfield: real NFL completion is 54.5% at
     // 10-19 air yards and 36% at 20+, the engine ran 60% and 46%; a long
     // throw across the field is not a deep ball), and deep balls need the
-    // arm too: a weak arm has to put more air under it.
-    let judge = 1.0 + 0.022 * (down - 12.0).max(0.0);
+    // arm too: a weak arm has to put more air under it. (Minor bug 135:
+    // 0.022 a yard left 20+ throws complete 39%; 0.035 gives 37.4%.)
+    let judge = 1.0 + 0.035 * (down - 12.0).max(0.0);
     let deep = judge * if dist > 25.0 { 1.1 * clamp(1.0 + 0.01 * (75.0 - power), 0.8, 1.4) } else { 1.0 };
     let e1 = sd * deep * gauss(sim.rng);
     let e2 = sd * gauss(sim.rng);

@@ -71,8 +71,13 @@ pub struct ProSeason {
     pub awards: Vec<&'static str>,
     /// Game-day elevations from the practice squad (2020 on).
     pub elevations: u32,
-    /// His statistics (filled by the engine games).
+    /// His statistics (filled by the engine games): the regular season's,
+    /// as real season lines, records and career totals are.
     pub stats: crate::game::stats::StatLine,
+    /// His playoff games, kept apart (minor bug 93: they were added to the
+    /// season line, so a Super Bowl team's passer threw for 21 games).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playoffs: Option<crate::game::stats::StatLine>,
 }
 
 /// A pro's career.

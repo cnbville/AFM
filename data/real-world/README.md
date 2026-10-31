@@ -85,6 +85,7 @@ Gaps (exact):
 
 **Research area 1 files** (added 2026-10-14, explained in `docs/research/engine-and-tactics.md`):
 - `engine_targets.json` (`scripts/engine_targets.py`): NFL 2021-25 runs by box count, pressure and rushers, coverage and route results, play-action, RPO, motion, snap shares, carry and target shares, red zone, returns, player spread by position, contracts by position, home edge 1999-2025, and the 2025 scheme mix. From nflverse pbp, participation (NGS), FTN charting, snap counts, contracts and nfldata games.csv.
+- `nfl_route_depth.json` (`scripts/route_depth.py`): NFL 2023-25 targets by route (one route list, NGS) and by the target's position: share, air yards, the four depth bands (behind the line, 0-9, 10-19, 20+), catch rate, yards a target and time to throw. From nflverse pbp and participation. `match_check` compares its route table with it (minor bug 135).
 - `coach_effect_offense.json`, `coach_effect_defense.json` (`scripts/coach_effect.py`): how much head coaches move EPA per play once the QB is held fixed, 2006-2025.
 - `college_scores.json` (`scripts/college_scores.py`): points, margins, blowouts and home edge for FBS, FCS, D2 and D3 from the sportsdataverse `cfb_schedules` release.
 - Gaps: no open play-by-play for D2, D3, NAIA, JUCO or high school; no NAIA or JUCO scores; no high school scheme survey.
