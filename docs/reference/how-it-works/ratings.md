@@ -1,6 +1,6 @@
 # Ratings: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29; the kicking spots at placement (minor bug 165) at 3817c01 on 2026-10-31.
 
 ## Quick answers
 
@@ -96,7 +96,7 @@ The code comment names five hidden: consistency, injury proneness, recovery, lon
 - Perceived ceilings: true ceiling + bloom illusion (physical only: -3 × bloom × (1 - insight) × clamp((19 - age)/5, 0, 1)) + a sticky misread normal(0, noise × clamp(1 - 0.1 × (age - 14), 0.5, 1)) (`athlete.rs`, `perceived`). It reads ceilings, not current ability.
 - Staff eye: coach of skill s (1-20): insight 0.25 + 0.5 × s/20, noise 7 - 5 × s/20. NFL scouts: insight 0.65, noise 2.5 (`athlete.rs`, `Eye::coach`, `Eye::NFL_SCOUTS`).
 - Misfit (body against the combine): h = (height - pos mean)/sd; w = max(|weight - pos mean| - 25, 0)/sd; misfit = 0.04 × (|h|-1)₊² + 0.04 × (|w|-1)₊², clamped 0-0.5. Weight gets 25 lb of free slack, height none (`athlete.rs`, `misfit`). It is measured on his draft-prospect frame (`player_misfit`, which takes his `talent_size` shift back off his height and frame weight).
-- Placement of a class: best athletes first; score = fit / his best fit + need (+0.08 if 0.5+ open spots, 0 if about full, 0.12 × open if overfilled) + premium (OT and EDGE 0.015, CB 0.01) (`athlete.rs`, `place_class`, `premium`). Long snapper is never placed (`PLACED`).
+- Placement of a class: best athletes first; score = fit / his best fit + need (+0.08 if 0.5+ open spots, 0 if about full, 0.12 × open if overfilled) + premium (OT and EDGE 0.015, CB 0.01) (`athlete.rs`, `place_class`, `premium`). Long snapper is never placed (`PLACED`). Kicker and punter are only for a boy whose natural spot is one of them: a back or receiver with a leg plays his own spot and punts on the side when his team lists no punter (the game gives the kick to the best leg), never listed there (minor bug 165: coaches filled open kicking spots with their best athletes and colleges recruited them as specialists, so 33 of 39 Black college kickers and punters in a half-size seed 7 world had been built at another spot).
 - Moving later: moves when the best spot beats the current one by `margin` (3 × margin if he has played there before); never to or from K, P, LS (`athlete.rs`, `better_position`, `reconsider`).
 - At creation the natural position is the argmax of overall × (1 - misfit) × `FIT_SCALE`, a per-position factor calibrated once on 40,000 athletes so natural positions land in the real HS shares (`athlete.rs`, `best_fit`, `FIT_SCALE`). Details on the body page.
 
