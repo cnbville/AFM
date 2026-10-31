@@ -8,9 +8,9 @@ use super::geom::{DT, V2, end_line, goal, mid, v2, width};
 const NOISE_BUSTS: f64 = 0.06;
 /// Awareness a road offensive player loses to full crowd noise. With
 /// `NOISE_BUSTS`, the silent count and `SILENT_RELEASE` it is fitted so a
-/// 0.65 crowd is worth the real home margin: 2.2 NFL points over 6,000
-/// games (se 0.22; real 2.1, nflverse 2021-2025; 2020 without fans +0.1)
-/// and 2.7 FBS (se 0.25; real 2.4 in conference games, CFBD 2014-2025).
+/// 0.65 crowd is worth the real home margin: 2.3 NFL points over 6,000
+/// games (se 0.21; real 2.1, nflverse 2021-2025; 2020 without fans +0.1)
+/// and 2.8 FBS (se 0.25; real 2.4 in conference games, CFBD 2014-2025).
 /// Real road offenses lose it through the air: completions 63.8% against
 /// 65.2% at home, runs about even (minor bug 143: the engine had drifted
 /// to 0.8 and 1.2 points); proposed, not confirmed.

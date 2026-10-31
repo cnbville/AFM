@@ -2,8 +2,9 @@
 //! defensive look, played on the match engine between two average NFL
 //! teams. The result is the football knowledge coordinators call from
 //! (`crates/afm-engine/data/call_values.csv`): a sharp one trusts it, a
-//! poor one barely uses it. Rerun after engine changes:
-//! `cargo run --release --bin call_values -- 400 > crates/afm-engine/data/call_values.csv`
+//! poor one barely uses it. Rerun after engine changes (2,000 snaps a cell
+//! since minor bug 135; at 400 one cell could be off by a yard or more):
+//! `cargo run --release --bin call_values -- 2000 > crates/afm-engine/data/call_values.csv`
 //! Each value is mean yards on the snap (capped at 40) minus 45 for a turnover.
 
 use afm_engine::game::flow::trace_snap_opt;
