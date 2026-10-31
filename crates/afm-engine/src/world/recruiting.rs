@@ -2648,9 +2648,13 @@ fn service_stars(specialist: &[bool], quotas: &[(u8, usize)]) -> Vec<u8> {
 /// moved the rate only from 87.6% to 84.5%: at the very top of a class of
 /// 250,000 the services need a lot of noise before a kid who won't make
 /// it ranks among the best 32. Speed update S9: with recorded times and
-/// S5 driving stars, the misread was 6 points; minor bug 101 made it 7 and
-/// shared it with every staff's film (`look`, `SERVICE_MISREAD`; proposed,
-/// not confirmed).
+/// S5 driving stars, the misread is 6 points (proposed, not confirmed; the
+/// share of 5-stars drafted is checked on the review list, R2). Minor bug
+/// 101 tried sharing it with every staff's film (7 points): five-stars
+/// drafted fell to the real 63%, but staffs then placed boys less by what
+/// they are, so FBS lost 1.5 points of true talent, four-stars drafted fell
+/// to 17% (real 22%), FBS receivers came out 59% Black (real 64%) and more
+/// colleges had a pick. The services alone carry it.
 fn service_bias(p: &Person, world_seed: u64) -> f64 {
     let older = if p.born == crate::calendar::born::UNKNOWN {
         0.0
@@ -2658,24 +2662,11 @@ fn service_bias(p: &Person, world_seed: u64) -> f64 {
         let start = crate::calendar::Date::ymd(p.class_of - 19, 9, 1);
         ((start.0 - p.born.0) as f64 / 365.25 + 0.5).clamp(-1.5, 1.5)
     };
-    SERVICE_MATURITY * older + look(p, world_seed)
-}
-
-/// The lasting misread of a kid at 17 that everyone who watches him shares,
-/// staffs as well as services (minor bug 101): what his tape shows that
-/// won't carry, or what it hides. The services' projection carries it
-/// (`service_bias`) and so does the film every staff and service grades.
-/// When only the services carried it, the staffs' offers (read on true
-/// film) put it right again through the offer sheet (`OFFER_READ`), and
-/// stars told the draft too well: 89% of five-stars and 39% of four-stars
-/// drafted, against a real 63% and 22% (On3 2022, `rates.json`). Sized on
-/// the five-star rate (proposed, not confirmed).
-fn look(p: &Person, world_seed: u64) -> f64 {
-    SERVICE_MISREAD * key_normal(world_seed ^ 0x5E2_B1A5, p.player.id as u64)
+    SERVICE_MATURITY * older + SERVICE_MISREAD * key_normal(world_seed ^ 0x5E2_B1A5, p.player.id as u64)
 }
 
 const SERVICE_MATURITY: f64 = 1.6;
-const SERVICE_MISREAD: f64 = 7.0;
+const SERVICE_MISREAD: f64 = 6.0;
 
 /// How many of a class of 250,000 the services rate at 5, 4, 3 and 2
 /// stars (minor bug 17). The 247 Composite's own counts: about 32 five-stars
@@ -3435,17 +3426,14 @@ fn camp_rankings(
         let m = grades.iter().sum::<f64>() / grades.len() as f64;
         let sd = (grades.iter().map(|g| (g - m).powi(2)).sum::<f64>() / grades.len() as f64).sqrt().max(1.0);
         for (&k, &g) in snappers.iter().zip(&grades) {
-            // His tape carries everyone's misread too (minor bug 101).
-            let misread = look(&w.people[pool[k].person], w.options.seed as u64);
-            pool[k].film = film_scale.0 + film_scale.1 * (g - m) / sd + misread;
+            pool[k].film = film_scale.0 + film_scale.1 * (g - m) / sd;
         }
     }
     for &k in &snappers {
         let p = &mut w.people[pool[k].person];
         let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
-        let seen = rep.potential + service_bias(p, w.options.seed as u64);
-        pool[k].projection = seen;
-        p.cal.service_read = Some(seen);
+        pool[k].projection = rep.potential;
+        p.cal.service_read = Some(rep.potential);
     }
 }
 
@@ -3493,22 +3481,18 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
         v
     };
     // The services' look, on each prospect's own stream (all cores).
-    let world_seed = w.options.seed as u64;
     let persons = super::pick_mut(&mut w.people, idx.iter().copied());
     let reads: Vec<(usize, f64)> = persons
         .into_par_iter()
         .zip(idx.par_iter())
         .map(|(p, &i)| {
             let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
-            // The services' lasting misread, and everyone's on his tape
-            // (minor bug 101: early offers read him truer than anyone).
-            let seen = rep.potential + service_bias(p, world_seed);
             let read = match p.cal.service_read {
-                Some(prev) => prev + 0.5 * (seen - prev),
-                None => seen,
+                Some(prev) => prev + 0.5 * (rep.potential - prev),
+                None => rep.potential,
             };
             p.cal.service_read = Some(read);
-            (i, 0.6 * (film_raw(p, &played) + look(p, world_seed)) + 0.4 * read)
+            (i, 0.6 * film_raw(p, &played) + 0.4 * read)
         })
         .collect();
     let mut ranked = reads;
@@ -4271,7 +4255,7 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
             };
             let gift = crate::links::gift(&super::times::seen_links(p, &super::times::seen(wr, p)));
             let sheet = offer_sheet(&wr.programs, p, wr.year);
-            (i, read, star_score(film + look(p, world_seed), read, vis, gift, sheet, all_mean_sd.1))
+            (i, read, star_score(film, read, vis, gift, sheet, all_mean_sd.1))
         })
         .collect();
     for &i in &members {
@@ -4430,10 +4414,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             // counted twice.)
             let lean = super::scouting::footage::scout_tilt(&foot, 10.0, vs_good, false) - 0.3 * foot.luck;
             let reel = if foot.reels && !juco_mover { 2.5 * (1.0 - p.visibility.clamp(0.0, 1.0)) } else { 0.0 };
-            // Everyone's shared misread of him (minor bug 101); a junior
-            // college mover has played since and is read afresh.
-            let misread = if juco_mover { 0.0 } else { look(p, wr.options.seed as u64) };
-            let film = film + lean + reel + misread;
+            let film = film + lean + reel;
             let wide = super::scouting::footage::film_factor(&foot);
             Recruit {
                 person: i,
