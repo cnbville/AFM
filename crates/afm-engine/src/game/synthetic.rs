@@ -173,7 +173,8 @@ fn finish_team(
             clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
             clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         ),
-        game_management: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+        // Head coaches like the level's own (minor bug 140).
+        game_management: clamp(rng.normal(super::rules::coach_norm(level), 2.5), 1.0, 20.0),
         strictness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         off_scheme: scheme,
         front: if rng.chance(0.35) { Front::ThreeFour } else { Front::FourThree },

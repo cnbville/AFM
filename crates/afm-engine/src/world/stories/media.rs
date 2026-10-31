@@ -1136,6 +1136,14 @@ fn jersey_lists(w: &mut World, d: Date) {
             let mut s = public_score(w, &fame, i);
             if let Some(TeamKey::Nfl(t)) = super::numbers::team_of(w, i) {
                 s += 6.0 * (1.0 - market_rank(w, t as usize) as f64 / 32.0);
+                // The face of the franchise: a club's starting quarterback
+                // sells as no one else does (minor bug 151: about four of the
+                // NFLPA's top ten a year are quarterbacks, the world had one).
+                if p.player.position == Position::QB
+                    && w.clubs.get(t as usize).is_some_and(|c| c.depth[Position::QB.index()].first() == Some(&i))
+                {
+                    s += 6.0;
+                }
             }
             if let Some(TeamKey::College(c)) = super::numbers::team_of(w, i) {
                 s += 8.0 * w.programs[c as usize].fans.min(1.5);

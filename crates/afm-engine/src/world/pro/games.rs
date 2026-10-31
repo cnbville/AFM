@@ -601,6 +601,26 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
             s.stats.add(l);
         }
     }
+    // Who each team played without (minor bug 96): a man on its roster
+    // still out hurt at kickoff missed the game, and his season row counts
+    // it. The real 1.2 games a season are the regular season's injury
+    // reports, which leave out men on injured reserve, so they don't count
+    // here either. The rows used to keep the yearly step's roll (0.56).
+    if !postseason {
+        let mut hurt = w.hurt_pros.0.clone();
+        hurt.sort_unstable();
+        hurt.dedup();
+        for id in hurt {
+            let Ok(i) = w.people.binary_search_by_key(&id, |p| p.player.id) else { continue };
+            let p = &mut w.people[i];
+            let out = p.pro.as_ref().is_some_and(|c| {
+                c.out_weeks > 0 && c.status == Status::Roster && c.team.is_some_and(|t| teams.contains(&t))
+            });
+            if let Some(row) = p.player.history.last_mut().filter(|h| out && h.level == crate::player::Level::NFL) {
+                row.games_missed += 1;
+            }
+        }
+    }
     // By team, day by day (B1; see `record_preseason`).
     for &(team, ref inj) in &r.injuries {
         if inj.plays_on || team > 1 {

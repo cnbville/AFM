@@ -650,7 +650,7 @@ pub const CHECKS: &[Check] = &[
         areas: "G8",
         title: r#"NFL yards a carry against 8+ in the box"#,
         unit: "yds",
-        world: r#"SELECT 1.0 * SUM(yards) / SUM(plays) FROM log_situations WHERE level = 'nfl' AND key LIKE 'box|%' AND CAST(substr(key, 5) AS INTEGER) >= 8"#,
+        world: r#"SELECT 1.0 * SUM(yards) / SUM(plays) FROM log_situations WHERE level = 'nfl' AND key LIKE 'box|%|run' AND CAST(substr(key, 5) AS INTEGER) IN (8, 9)"#,
         scale: 1.0,
         years: None,
         detail: None,
@@ -661,7 +661,7 @@ pub const CHECKS: &[Check] = &[
         ),
         tol: (0.08, 0.2, 0.0),
         needs: G,
-        how: r#"Runs against eight or more in the box, NFL engine games."#,
+        how: r#"Runs against eight or nine in the box, NFL engine games (minor bug 136: it counted the passes against them too)."#,
     },
     Check {
         id: "G9.nfl_conversion",
@@ -1886,14 +1886,35 @@ pub const CHECKS: &[Check] = &[
         areas: "G26",
         title: r#"Pro Football Hall of Fame class size"#,
         unit: "a class",
-        world: r#"SELECT 1.0 * COUNT(*) / COUNT(DISTINCT _0) FROM nfl_book__hall"#,
+        world: r#"SELECT 1.0 * COUNT(*) / COUNT(DISTINCT _0) FROM nfl_book__hall WHERE _0 >= 2010"#,
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Memory(6.5, r#"real modern-era classes run 5-8 a year (from memory)"#),
-        tol: (0.3, 0.6, 0.0),
+        real: Real::Memory(
+            6.3,
+            r#"players inducted 2010-2025 without the 2020 centennial class: 94 in 15 classes, modern era and seniors (from memory); coaches and contributors come on top"#,
+        ),
+        tol: (0.2, 0.45, 0.0),
         needs: W,
-        how: r#"Inductees per class year."#,
+        how: r#"Players inducted per class year from 2010, when the world's pool of cases is full (its first cases retired in the mid-1980s)."#,
+    },
+    Check {
+        id: "G26.hall_coaches",
+        page: "games",
+        areas: "G26",
+        title: r#"Coaches in the Pro Football Hall of Fame a class"#,
+        unit: "a class",
+        world: r#"SELECT 1.0 * COUNT(*) / (SELECT COUNT(DISTINCT _0) FROM nfl_book__hall WHERE _0 >= 2010) FROM nfl_book__hall_coaches WHERE _0 >= 2010"#,
+        scale: 1.0,
+        years: None,
+        detail: None,
+        real: Real::Memory(
+            0.33,
+            r#"5 coaches in the 15 classes 2010-2025 without 2020: Parcells, Dungy, Flores, Vermeil, Coryell (from memory)"#,
+        ),
+        tol: (0.6, 1.5, 0.0),
+        needs: W,
+        how: r#"Coaches inducted per class year from 2010."#,
     },
     Check {
         id: "G26.hall_receivers",
@@ -2196,7 +2217,8 @@ pub const CHECKS: &[Check] = &[
         unit: "%",
         world: r#"WITH inj AS (SELECT CASE WHEN g.stream = 'nfl' THEN 'NFL' WHEN g.stream = 'college' THEN 'College' WHEN g.stream = 'hs' THEN 'High school' ELSE COALESCE(g.league, 'Other') END AS lv,
                   g.season AS year, i.*, CASE i.kind WHEN 'Acl' THEN 'Knee' WHEN 'Knee' THEN 'Knee' WHEN 'AnkleSprain' THEN 'Ankle' WHEN 'HighAnkleSprain' THEN 'Ankle' WHEN 'Shoulder' THEN 'Shoulder'
-                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' END AS part
+                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' WHEN 'Foot' THEN 'Foot'
+                       WHEN 'Groin' THEN 'Groin' WHEN 'Calf' THEN 'Calf' WHEN 'Neck' THEN 'Neck' WHEN 'Hip' THEN 'Hip' WHEN 'Quad' THEN 'Quadricep' END AS part
              FROM log_games__injuries i JOIN log_games g ON g._row = i._parent) SELECT 100.0 * SUM(part = 'Knee') / COUNT(*) FROM inj WHERE lv = 'NFL' AND weeks >= 1"#,
         scale: 1.0,
         years: None,
@@ -2214,7 +2236,8 @@ pub const CHECKS: &[Check] = &[
         unit: "%",
         world: r#"WITH inj AS (SELECT CASE WHEN g.stream = 'nfl' THEN 'NFL' WHEN g.stream = 'college' THEN 'College' WHEN g.stream = 'hs' THEN 'High school' ELSE COALESCE(g.league, 'Other') END AS lv,
                   g.season AS year, i.*, CASE i.kind WHEN 'Acl' THEN 'Knee' WHEN 'Knee' THEN 'Knee' WHEN 'AnkleSprain' THEN 'Ankle' WHEN 'HighAnkleSprain' THEN 'Ankle' WHEN 'Shoulder' THEN 'Shoulder'
-                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' END AS part
+                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' WHEN 'Foot' THEN 'Foot'
+                       WHEN 'Groin' THEN 'Groin' WHEN 'Calf' THEN 'Calf' WHEN 'Neck' THEN 'Neck' WHEN 'Hip' THEN 'Hip' WHEN 'Quad' THEN 'Quadricep' END AS part
              FROM log_games__injuries i JOIN log_games g ON g._row = i._parent) SELECT 100.0 * SUM(part = 'Ankle') / COUNT(*) FROM inj WHERE lv = 'NFL' AND weeks >= 1"#,
         scale: 1.0,
         years: None,
@@ -2232,7 +2255,8 @@ pub const CHECKS: &[Check] = &[
         unit: "%",
         world: r#"WITH inj AS (SELECT CASE WHEN g.stream = 'nfl' THEN 'NFL' WHEN g.stream = 'college' THEN 'College' WHEN g.stream = 'hs' THEN 'High school' ELSE COALESCE(g.league, 'Other') END AS lv,
                   g.season AS year, i.*, CASE i.kind WHEN 'Acl' THEN 'Knee' WHEN 'Knee' THEN 'Knee' WHEN 'AnkleSprain' THEN 'Ankle' WHEN 'HighAnkleSprain' THEN 'Ankle' WHEN 'Shoulder' THEN 'Shoulder'
-                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' END AS part
+                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' WHEN 'Foot' THEN 'Foot'
+                       WHEN 'Groin' THEN 'Groin' WHEN 'Calf' THEN 'Calf' WHEN 'Neck' THEN 'Neck' WHEN 'Hip' THEN 'Hip' WHEN 'Quad' THEN 'Quadricep' END AS part
              FROM log_games__injuries i JOIN log_games g ON g._row = i._parent) SELECT 100.0 * AVG(weeks >= 4) FROM inj WHERE lv = 'NFL' AND part = 'Knee'"#,
         scale: 1.0,
         years: None,
@@ -4324,10 +4348,11 @@ pub const PANELS: &[Panel] = &[
         area: "G33",
         title: r#"Injuries of a week or more by kind against real body parts"#,
         kind: "bars",
-        note: r#"Share of game injuries that cost a week or more, by kind. Real: NFL injury episodes by body part (development_injuries.json, games missed); where two kinds share a body part (knee and ACL, ankle and high ankle) the real share is split between them as the world splits them; kinds with no real body part of their own (bruise, hand, ribs, fracture) have no real bar."#,
+        note: r#"Share of game injuries that cost a week or more, by kind. Real: NFL injury episodes by body part (development_injuries.json, games missed); where two kinds share a body part (knee and ACL, ankle and high ankle) the real share is split between them as the world splits them; kinds with no real body part of their own (bruise, hand, ribs, fracture) have no real bar. Foot, groin, calf, neck, hip and quad are their own kinds since minor bug 145."#,
         sql: r#"WITH inj AS (SELECT CASE WHEN g.stream = 'nfl' THEN 'NFL' WHEN g.stream = 'college' THEN 'College' WHEN g.stream = 'hs' THEN 'High school' ELSE COALESCE(g.league, 'Other') END AS lv,
                   g.season AS year, i.*, CASE i.kind WHEN 'Acl' THEN 'Knee' WHEN 'Knee' THEN 'Knee' WHEN 'AnkleSprain' THEN 'Ankle' WHEN 'HighAnkleSprain' THEN 'Ankle' WHEN 'Shoulder' THEN 'Shoulder'
-                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' END AS part
+                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' WHEN 'Foot' THEN 'Foot'
+                       WHEN 'Groin' THEN 'Groin' WHEN 'Calf' THEN 'Calf' WHEN 'Neck' THEN 'Neck' WHEN 'Hip' THEN 'Hip' WHEN 'Quad' THEN 'Quadricep' END AS part
              FROM log_games__injuries i JOIN log_games g ON g._row = i._parent), k AS (SELECT lv, kind, part, COUNT(*) AS n FROM inj WHERE weeks >= 1 GROUP BY lv, kind, part),
        t AS (SELECT lv, SUM(n) AS tot FROM k GROUP BY lv), pt AS (SELECT lv, part, SUM(n) AS pn FROM k GROUP BY lv, part)
      SELECT k.lv AS grp, k.kind AS label, ROUND(100.0 * k.n / t.tot, 1) AS world,
@@ -4346,7 +4371,8 @@ pub const PANELS: &[Panel] = &[
         note: r#"Each kind's count, mean weeks out, share that played on, and the quarter it happened in. Real NFL mean games missed by body part (development_injuries.json): knee 3.5, ankle 2.8, shoulder 3.2, concussion 2.2, hamstring 2.6, back 3.9."#,
         sql: r#"WITH inj AS (SELECT CASE WHEN g.stream = 'nfl' THEN 'NFL' WHEN g.stream = 'college' THEN 'College' WHEN g.stream = 'hs' THEN 'High school' ELSE COALESCE(g.league, 'Other') END AS lv,
                   g.season AS year, i.*, CASE i.kind WHEN 'Acl' THEN 'Knee' WHEN 'Knee' THEN 'Knee' WHEN 'AnkleSprain' THEN 'Ankle' WHEN 'HighAnkleSprain' THEN 'Ankle' WHEN 'Shoulder' THEN 'Shoulder'
-                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' END AS part
+                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' WHEN 'Foot' THEN 'Foot'
+                       WHEN 'Groin' THEN 'Groin' WHEN 'Calf' THEN 'Calf' WHEN 'Neck' THEN 'Neck' WHEN 'Hip' THEN 'Hip' WHEN 'Quad' THEN 'Quadricep' END AS part
              FROM log_games__injuries i JOIN log_games g ON g._row = i._parent), w AS (SELECT lv AS grp, kind, COUNT(*) AS injuries, ROUND(AVG(weeks), 2) AS "mean weeks out", SUM(weeks >= 1) AS "a week or more",
             ROUND(100.0 * SUM(COALESCE(plays_on, 0)) / COUNT(*), 1) AS "played on %",
             MAX(part) AS part FROM inj GROUP BY lv, kind)
@@ -4365,7 +4391,8 @@ pub const PANELS: &[Panel] = &[
         note: r#"Game injuries that cost a week or more, per team game, each season."#,
         sql: r#"WITH inj AS (SELECT CASE WHEN g.stream = 'nfl' THEN 'NFL' WHEN g.stream = 'college' THEN 'College' WHEN g.stream = 'hs' THEN 'High school' ELSE COALESCE(g.league, 'Other') END AS lv,
                   g.season AS year, i.*, CASE i.kind WHEN 'Acl' THEN 'Knee' WHEN 'Knee' THEN 'Knee' WHEN 'AnkleSprain' THEN 'Ankle' WHEN 'HighAnkleSprain' THEN 'Ankle' WHEN 'Shoulder' THEN 'Shoulder'
-                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' END AS part
+                       WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' WHEN 'Foot' THEN 'Foot'
+                       WHEN 'Groin' THEN 'Groin' WHEN 'Calf' THEN 'Calf' WHEN 'Neck' THEN 'Neck' WHEN 'Hip' THEN 'Hip' WHEN 'Quad' THEN 'Quadricep' END AS part
              FROM log_games__injuries i JOIN log_games g ON g._row = i._parent), tg AS (SELECT CASE WHEN stream = 'nfl' THEN 'NFL' WHEN stream = 'college' THEN 'College' WHEN stream = 'hs' THEN 'High school' ELSE COALESCE(league, 'Other') END AS lv, season AS year, 2 * COUNT(*) AS n
                FROM log_games g WHERE EXISTS (SELECT 1 FROM log_games__box b WHERE b._parent = g._row) GROUP BY 1, 2)
      SELECT tg.lv AS grp, tg.year, ROUND(1.0 * (SELECT COUNT(*) FROM inj WHERE inj.lv = tg.lv AND inj.year = tg.year AND weeks >= 1) / tg.n, 3) AS world, NULL AS real, tg.n

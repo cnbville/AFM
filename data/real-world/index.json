@@ -9,8 +9,8 @@
   "unconfirmed": "a proposal Raichel hasn't answered"
  },
  "counts": {
-  "files": 61,
-  "figures": 667,
+  "files": 62,
+  "figures": 668,
   "debug_lab_figures": 15,
   "in_code": 146,
   "memory_notes": 131,
@@ -1233,6 +1233,18 @@
    },
    "added": "2026-10-28",
    "bytes": 18147
+  },
+  "nfl_fourth_go_habit.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_situations.py",
+   "areas": [
+    "G9",
+    "T3"
+   ],
+   "bytes": 5371
   }
  },
  "unlisted_files": [],
@@ -8796,6 +8808,20 @@
     "C3"
    ],
    "note": "the day each pair met in November (thanksgiving, black_friday, or the weekday); FBS v FBS games on each holiday by year"
+  },
+  {
+   "key": "nfl_fourth_go_habit.csv",
+   "file": "nfl_fourth_go_habit.csv",
+   "years": "2021-2025",
+   "status": "sourced",
+   "columns": [
+    "togo",
+    "yardline_100",
+    "score",
+    "rate",
+    "n"
+   ],
+   "rows": 304
   }
  ],
  "debug_lab": [
@@ -11639,6 +11665,7 @@
    "garbage_time.json",
    "nfl_situations.json",
    "nfl_fourth_go.csv",
+   "nfl_fourth_go_habit.csv",
    "nfl_history.json",
    "college_plays.json",
    "nfl_history.json:plays_by_season",
@@ -12425,6 +12452,7 @@
    "nfl_win_prob.csv",
    "nfl_pass_rate.csv",
    "nfl_fourth_go.csv",
+   "nfl_fourth_go_habit.csv",
    "nfl_history.json",
    "college_history.json",
    "college_plays.json",

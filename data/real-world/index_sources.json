@@ -509,6 +509,17 @@
     "T3"
    ]
   },
+  "nfl_fourth_go_habit.csv": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
+   "years": "2021-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/nfl_situations.py",
+   "areas": [
+    "G9",
+    "T3"
+   ]
+  },
   "town_climate.csv": {
    "source": "NOAA 1991-2020 monthly normals (noaa-normals-pds S3) and kelvins/US-Cities-Database",
    "years": "1991-2020",

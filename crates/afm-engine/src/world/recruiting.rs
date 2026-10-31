@@ -1024,16 +1024,16 @@ pub(crate) fn combine_invites(w: &mut World) {
         .filter_map(|(i, p)| p.cal.draft_read.map(|r| (r.score, i)))
         .collect();
     pool.sort_by(|a, b| b.0.total_cmp(&a.0));
-    // Everyone the staffs read as draftable, and the best of the rest (part
-    // D 37, N62: real invites run about 300-340 a year with the class;
-    // proposed, not confirmed: up to 60 projected undrafted).
+    // The league invites about 330 a year whatever the class (nflverse
+    // 2000-2026: 319-337, 464 in 2021's virtual year; minor bug 97: the
+    // draftable reads plus 60 gave 214-217), so the best 330 of the pool by
+    // the staffs' reads, and anyone they read as draftable past that.
     let draftable = w
         .people
         .iter()
         .filter(|p| p.stage == Stage::Declared && p.cal.draft_read.is_some_and(|r| r.round <= 7))
         .count();
-    let extra = ((60.0 * w.options.scale).round() as usize).min(pool.len().saturating_sub(draftable));
-    let n = (draftable + extra).max(1).min(pool.len());
+    let n = ((330.0 * w.options.scale).round() as usize).max(draftable).max(1).min(pool.len());
     for &(_, i) in pool.iter().take(n) {
         w.people[i].cal.combine_invite = true;
     }
@@ -6083,6 +6083,20 @@ fn lean_on(p: &Person, d: Date) -> f64 {
         return 0.0;
     }
     seen.map(|e| e.2).product()
+}
+
+/// Why your player means to enter the portal, as the word his talk's
+/// opening checks (`reason=snaps`), while his talk with you is pending.
+pub(crate) fn intent_reason(w: &World, id: u32) -> Option<&'static str> {
+    w.portal_intents.iter().find(|t| t.is(id)).map(|t| match t.why {
+        Why::PlayingTime | Why::SpringDepth => "snaps",
+        Why::CoachingChange => "coach",
+        Why::Steered => "choice",
+        Why::MoveUp => "up",
+        Why::Money => "money",
+        Why::Graduate => "grad",
+        Why::Dismissed | Why::Cut | Why::ProgramDropped => "other",
+    })
 }
 
 /// Your program, when you are its head coach.
