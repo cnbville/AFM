@@ -489,7 +489,7 @@ fn counter(w: &mut World, c: usize, role: Role, t: &Terms) -> Option<(f64, f32, 
     };
     let coord_open = matches!(job.role, Role::PositionCoach(g) if g != Group::Specialists) && side_coord.is_none();
     let close = coord_open || side_coord.is_some_and(|k| w.coaches[k].age >= 63 || w.coaches[k].reputation >= 14.0);
-    let first = job.since >= w.year;
+    let first = job.since >= crate::world::staff::cycle_year(w);
     let chance = (if rated {
         0.7
     } else if close {
