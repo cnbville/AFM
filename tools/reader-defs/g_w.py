@@ -145,9 +145,12 @@ rule("N30.no_blackouts_after_2014", "N30", "No blackouts after 2014 (the league 
   "The NFL suspended its blackout rule from the 2015 season and never brought it back.")
 
 # ---------------------------------------------------------------- N31 college department money
-TIER = """(CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
-                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12', 'Pac-12') OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
+# The Pac-12 is a Group of 5 conference from 2024, as in the engine's tier().
+def tier(y):
+    return f"""(CASE WHEN p.division = 'FBS' AND p.conference IN ('SEC', 'Big Ten') THEN '1 SEC and Big Ten'
+                WHEN p.division = 'FBS' AND (p.conference IN ('ACC', 'Big 12') OR (p.conference = 'Pac-12' AND {y} <= 2023) OR p.real_name = 'Notre Dame') THEN '2 ACC, Big 12, Pac-12'
                 WHEN p.division = 'FBS' THEN '3 Group of 5' WHEN p.division = 'FCS' THEN '4 FCS' WHEN p.division = 'D2' THEN '5 D2' ELSE '6 D3, NAIA, JUCO' END)"""
+TIER = tier("c.year")
 CY = """cy AS (SELECT y._parent AS prog, y.year, y.l,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key < 11) AS rev,
               (SELECT SUM(j.value) FROM json_each(y.l) j WHERE j.key >= 11) AS cost FROM finance__college__years y)"""
@@ -169,7 +172,7 @@ TIERCOLS = ", ".join(f"""ROUND(AVG(CASE WHEN t LIKE '{k}%' AND v.year = (SELECT 
 panel("N31.books", MP, "N31", "The department's books on 24 lines by tier", "table",
   "The average department per tier on every line (finance/college.rs LINES) for the last closed money year. Revenue sharing with players starts in the 2025-26 year (the House settlement, about $20.5M a school at most).",
   f"""WITH ly AS (SELECT {LASTCY} AS y),
-          v AS (SELECT y.year, {TIER} AS t, j.key AS i, j.value AS v FROM finance__college__years y JOIN programs p ON p._row = y._parent, json_each(y.l) j WHERE y.year = (SELECT y FROM ly))
+          v AS (SELECT y.year, {tier('y.year')} AS t, j.key AS i, j.value AS v FROM finance__college__years y JOIN programs p ON p._row = y._parent, json_each(y.l) j WHERE y.year = (SELECT y FROM ly))
      SELECT f.i + 1 AS line_no, f.name AS line, CASE f.income WHEN 1 THEN 'income' ELSE 'cost' END AS side, {TIERCOLS}
        FROM engine_finance_lines f JOIN v ON v.i = f.i WHERE f.level = 'college' GROUP BY f.i ORDER BY f.i""")
 panel("N31.depts", MP, "N31", "Every department, the last closed year", "table",

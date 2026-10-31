@@ -65,14 +65,16 @@ macro_rules! drafted {
             UNION ALL
             SELECT p.player__position, p.stars, p.class_of, NULL, json_extract(p.pro__draft, '$[0]'),
                    json_extract(p.pro__draft, '$[1]'), p.college, p.player__body__weight, p.player__body__height
-              FROM people p WHERE p.pro__draft IS NOT NULL AND json_extract(p.pro__draft, '$[1]') IS NOT NULL) "
+              FROM people p WHERE p.pro__draft IS NOT NULL AND json_extract(p.pro__draft, '$[1]') IS NOT NULL
+               AND p.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) "
     };
 }
 
 macro_rules! recruits {
     () => {
         "WITH r AS (SELECT stars, class_of, pick IS NOT NULL AS d FROM alumni
-                    UNION ALL SELECT stars, class_of, pro__draft IS NOT NULL FROM people),
+                    UNION ALL SELECT stars, class_of, pro__draft IS NOT NULL FROM people
+                    WHERE player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)),
          span AS (SELECT MIN(year) + 4 AS lo, MAX(year) - 5 AS hi FROM programs__seasons) "
     };
 }
@@ -405,7 +407,8 @@ pub const CHECKS: &[Check] = &[
         title: "Quarterbacks among top-10 picks",
         unit: "%",
         world: "SELECT AVG(pos = 'QB') FROM (SELECT position AS pos FROM alumni WHERE pick BETWEEN 1 AND 10
-                UNION ALL SELECT player__position FROM people WHERE json_extract(pro__draft, '$[1]') = 1 AND json_extract(pro__draft, '$[2]') <= 10)",
+                UNION ALL SELECT player__position FROM people WHERE json_extract(pro__draft, '$[1]') = 1 AND json_extract(pro__draft, '$[2]') <= 10
+                AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL))",
         scale: 100.0,
         years: None,
         detail: None,

@@ -416,6 +416,12 @@ pub struct PersonCal {
     /// A big NIL deal came this year (fix list 4.5): read by the season's
     /// development step, then cleared.
     pub payday: bool,
+    /// A transfer's place at his new school until he plays a season there:
+    /// the role and the edge over its starters (points) his collective
+    /// paid him on when he landed, which its July split keeps (minor bug
+    /// 100). Cleared at fall camp.
+    #[serde(default)]
+    pub nil_role: Option<(PlayingTime, f32)>,
     /// Cut from a college team (minor bug 60): it holds while he is still
     /// at that program (`Person::cut_here`), until the next window moves him.
     #[serde(default)]
@@ -769,6 +775,18 @@ pub struct World {
     pub market: pro::market::Market,
     /// A head-coach-change transfer window waiting to open (T3): opens, closes.
     pub(crate) coach_window: Option<(crate::calendar::Date, crate::calendar::Date)>,
+    /// Programs whose head coach left after this cycle's coaching-change
+    /// window opened (minor bug 88): each gets its own window five days
+    /// after its new hire, with the dates once he is hired.
+    #[serde(default)]
+    pub(crate) late_windows: Vec<(usize, Option<(crate::calendar::Date, crate::calendar::Date)>)>,
+    /// While a late window opens: the programs whose players it draws.
+    #[serde(skip)]
+    pub(crate) window_programs: Vec<usize>,
+    /// Players whose head coach left for another college head job and wants
+    /// them there (minor bug 86): player id, his new program, the pull.
+    #[serde(default)]
+    pub(crate) coach_follows: Vec<(u32, usize, f32)>,
     /// Counters for trials: this football year's, and every earlier one.
     pub log: CalendarLog,
     pub log_history: Vec<CalendarLog>,
@@ -1107,6 +1125,11 @@ impl World {
         for age in [17, 16, 15] {
             w.add_class_aged(age);
         }
+        // Pipelines and staff ties are the world's own state, not records:
+        // they grow through the spin-up, so the first recorded classes are
+        // recruited with them (minor bug 131: a short world's draft classes
+        // were all recruited blind, and too many went to FCS).
+        program::seed_pipelines(&mut w);
         for _ in 0..SPIN_UP_YEARS {
             let t = std::time::Instant::now();
             w.advance_year();
@@ -1217,7 +1240,7 @@ impl World {
                 }
             };
         }
-        let overflow = overflow_by_state(&programs);
+        let overflow = overflow_by_state(&programs, year);
         let nfl = crate::league::make_league(&mut rng);
         let changes = crate::calendar::ChangeState::default();
         let dates = crate::calendar::YearDates::new(year);
@@ -1263,6 +1286,9 @@ impl World {
             nfl_season: None,
             market: Default::default(),
             coach_window: None,
+            late_windows: Vec::new(),
+            window_programs: Vec::new(),
+            coach_follows: Vec::new(),
             log: CalendarLog { year, ..CalendarLog::default() },
             log_history: Vec::new(),
             event_history: Vec::new(),
@@ -1320,7 +1346,7 @@ impl World {
             }
         }
         for p in w.programs.iter_mut() {
-            program::rebuild_footprint(p, &w.overflow);
+            program::rebuild_footprint(p, &w.overflow, year);
         }
         w
     }
@@ -1448,10 +1474,21 @@ impl World {
                 continue;
             }
             // Bigger schools field bigger rosters.
-            let mut best = schools[self.rng.int(0, schools.len() as i32 - 1) as usize];
+            let first = schools[self.rng.int(0, schools.len() as i32 - 1) as usize];
             let other = schools[self.rng.int(0, schools.len() as i32 - 1) as usize];
+            let mut best = first;
             if self.high_schools[other].enrollment > self.high_schools[best].enrollment && self.rng.chance(0.5) {
                 best = other;
+            }
+            // A boarding academy has no neighbourhood: it recruits its classes (bug 126).
+            if recruiting::boarding(&self.high_schools[best]) {
+                best = if best == first { other } else { first };
+            }
+            if recruiting::boarding(&self.high_schools[best])
+                && let Some(k) = schools.iter().position(|&h| h == best)
+            {
+                // Both draws were the academy: his neighbour school in the list.
+                best = schools[(k + 1) % schools.len()];
             }
             kids.push((s, best, self.rng.next_u32()));
         }
@@ -1749,11 +1786,14 @@ pub(crate) fn pick_mut<T>(v: &mut [T], idx: impl IntoIterator<Item = usize>) -> 
     out
 }
 
-fn overflow_by_state(programs: &[Program]) -> [f64; 51] {
+pub(crate) fn overflow_by_state(programs: &[Program], year: i32) -> [f64; 51] {
     let mut out = [0.0; 51];
     for row in data::STATES.iter() {
         let Some(s) = geo::state_index(&row.code) else { continue };
-        let p4 = programs.iter().filter(|p| p.state == s && p.power_four()).count() as f64;
+        // The power programs of that season (the Southwest Conference and
+        // the Pac-12 in their day; minor bug 104: today's four names only
+        // left Texas without its SWC schools for the whole history).
+        let p4 = programs.iter().filter(|p| p.state == s && p.plays(year) && p.power_conference(year)).count() as f64;
         // A Power 4 program signs about half of its class from its own state.
         out[s] = (row.fbs_signees_per_year - 14.0 * p4).max(0.0);
     }
