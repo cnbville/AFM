@@ -417,7 +417,7 @@ pub const CHECKS: &[Check] = &[
         areas: "P25 C31",
         title: r#"Draft picks who were 3-stars"#,
         unit: "%",
-        world: r#"SELECT AVG(stars = 3) FROM (SELECT stars FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT stars FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni))"#,
+        world: r#"SELECT AVG(stars = 3) FROM (SELECT stars FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT stars FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL))"#,
         scale: 100.0,
         years: None,
         detail: None,
@@ -432,7 +432,7 @@ pub const CHECKS: &[Check] = &[
         areas: "P25 C30 C31",
         title: r#"Draft picks who were unrated"#,
         unit: "%",
-        world: r#"SELECT AVG(stars <= 1) FROM (SELECT stars FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT stars FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni))"#,
+        world: r#"SELECT AVG(stars <= 1) FROM (SELECT stars FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT stars FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL))"#,
         scale: 100.0,
         years: None,
         detail: None,
@@ -672,7 +672,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"SELECT AVG(stars <= 1) FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL)"#,
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL))"#,
         scale: 100.0,
         years: None,
         detail: None,
@@ -1236,7 +1236,7 @@ pub const PANELS: &[Panel] = &[
         kind: "bars",
         note: r#"Mean height and weight of drafted players by position (today, or when they left) against the 2000-2025 combine means (`combine_by_position.csv`). EDGE reads against the combine's DE, IOL against OG and C, DT against DT."#,
         sql: r#"WITH d AS (SELECT a.position AS pos, a.player__body__height AS h, a.player__body__weight AS w FROM alumni a WHERE a.pick IS NOT NULL
-                   UNION ALL SELECT player__position, player__body__height, player__body__weight FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL),
+                   UNION ALL SELECT player__position, player__body__height, player__body__weight FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)),
               m AS (SELECT pos, CASE pos WHEN 'EDGE' THEN 'DE' WHEN 'IOL' THEN 'OG' ELSE pos END AS rpos, AVG(h) AS h, AVG(w) AS w, COUNT(*) AS n FROM d GROUP BY pos)
          SELECT m.pos || ' weight (lb)' AS label, m.w AS world, c.wt_mean AS real, m.n AS n, 'weight' AS grp FROM m LEFT JOIN real_combine_by_position c ON c.position = m.rpos
          UNION ALL SELECT m.pos || ' height (in)', m.h, c.ht_mean, m.n, 'height' FROM m LEFT JOIN real_combine_by_position c ON c.position = m.rpos ORDER BY grp, label"#,
@@ -1252,7 +1252,7 @@ pub const PANELS: &[Panel] = &[
         kind: "hist",
         note: r#"Drafted players' weight in 10-lb bins by position (share of the position), with the real combine curve (normal at the combine's mean and sd) over it. Pick a position."#,
         sql: r#"WITH d AS (SELECT a.position AS pos, a.player__body__weight AS w FROM alumni a WHERE a.pick IS NOT NULL
-                   UNION ALL SELECT player__position, player__body__weight FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL),
+                   UNION ALL SELECT player__position, player__body__weight FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)),
               b AS (SELECT pos, CAST(w / 10 AS INTEGER) * 10 AS x, COUNT(*) AS n FROM d GROUP BY pos, x),
               t AS (SELECT pos, SUM(n) AS tot FROM b GROUP BY pos)
          SELECT b.pos AS grp, b.x AS x, 100.0 * b.n / t.tot AS world,
@@ -1452,7 +1452,7 @@ pub const PANELS: &[Panel] = &[
         kind: "bars",
         note: r#"Share of every world draft pick by position against nflverse 2000-2025 (`draft_positions_2000_2025.csv`, all picks; LS has no real column). Pick a band of picks."#,
         sql: r#"WITH d AS (SELECT a.position AS pos, json_extract(a.pro__draft, '$[1]') AS round, a.pick AS pick FROM alumni a WHERE a.pick IS NOT NULL
-                   UNION ALL SELECT player__position, json_extract(pro__draft, '$[1]'), NULL FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL),
+                   UNION ALL SELECT player__position, json_extract(pro__draft, '$[1]'), NULL FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)),
               b AS (SELECT 'all' AS band, pos FROM d UNION ALL SELECT 'round_1', pos FROM d WHERE round = 1 UNION ALL SELECT 'round_2', pos FROM d WHERE round = 2
                     UNION ALL SELECT 'round_3', pos FROM d WHERE round = 3 UNION ALL SELECT 'rounds_4_7', pos FROM d WHERE round >= 4),
               w AS (SELECT band, pos, 100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY band) AS share, COUNT(*) AS n FROM b GROUP BY band, pos)
@@ -1547,7 +1547,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"Late bloomers: missed by the services, found later?"#,
         kind: "bars",
         note: r#"Drafted players by bloom (late bloomers +2 and up), with the share who were 2-3 stars or unrated as recruits."#,
-        sql: r#"WITH d AS (SELECT player__bloom AS b, stars FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT player__bloom, stars FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL)
+        sql: r#"WITH d AS (SELECT player__bloom AS b, stars FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT player__bloom, stars FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL))
          SELECT CASE WHEN b >= 2 THEN 'Late (+2 and up)' WHEN b >= 1 THEN 'Late-ish (+1 to +2)' WHEN b > -1 THEN 'On time' ELSE 'Early (-1 and under)' END AS label,
                 100.0 * AVG(stars <= 3) AS world, COUNT(*) AS n FROM d GROUP BY label ORDER BY MIN(b) DESC"#,
         says: None,
@@ -2053,7 +2053,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"Drafted, by stars"#,
         kind: "bars",
         note: r#"Share of each star level drafted, classes whose draft years have all passed, against ESPN classes 2013-2021 (`rates.json` draft_rate_by_star.computed_espn_ratings). Each star level's recruits are the year's signing class counts (`signing_classes`); picks are every drafted player of those classes."#,
-        sql: r#"WITH d AS (SELECT stars, class_of FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT stars, class_of FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni)),
+        sql: r#"WITH d AS (SELECT stars, class_of FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT stars, class_of FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)),
               span AS (SELECT MIN(_0) AS lo, (SELECT MAX(year) FROM programs__seasons) - 5 AS hi FROM signing_classes),
               c AS (SELECT CAST(j.key AS INTEGER) AS stars, SUM(j.value) AS n FROM signing_classes s, json_each(s._1) j, span WHERE s._0 BETWEEN span.lo AND span.hi GROUP BY 1),
               w AS (SELECT d.stars, COUNT(*) AS picks FROM d, span WHERE d.class_of BETWEEN span.lo AND span.hi GROUP BY d.stars),
@@ -2070,7 +2070,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"Draft picks by stars"#,
         kind: "bars",
         note: r#"Share of all world draft picks by the pick's star rating as a recruit, against 247 composite picks (`trial3_baselines.json` draft_picks_by_star.share; real: 25% unrated, 36% 3-stars)."#,
-        sql: r#"WITH d AS (SELECT stars FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT stars FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni))
+        sql: r#"WITH d AS (SELECT stars FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT stars FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL))
          SELECT CASE WHEN stars <= 1 THEN 'unrated' ELSE stars || ' stars' END AS label, 100.0 * COUNT(*) / (SELECT COUNT(*) FROM d) AS world,
                 100.0 * json_extract((SELECT json FROM real_data WHERE file = 'trial3_baselines.json'), '$.draft_picks_by_star.share."' || CASE WHEN stars <= 1 THEN 0 ELSE stars END || '"') AS real, COUNT(*) AS n
            FROM d GROUP BY CASE WHEN stars <= 1 THEN 0 ELSE stars END ORDER BY stars DESC"#,
@@ -2217,7 +2217,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"Kickers, punters and long snappers drafted a year"#,
         kind: "line",
         note: r#"Specialists taken in each world draft against the real counts by year (`nfl_careers.json` kickers_punters_drafted, long_snappers_drafted)."#,
-        sql: r#"WITH d AS (SELECT json_extract(pro__draft, '$[0]') AS year, position AS pos FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT json_extract(pro__draft, '$[0]'), player__position FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL)
+        sql: r#"WITH d AS (SELECT json_extract(pro__draft, '$[0]') AS year, position AS pos FROM alumni WHERE pick IS NOT NULL UNION ALL SELECT json_extract(pro__draft, '$[0]'), player__position FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL AND player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL))
          SELECT d.year, SUM(pos = 'K') AS kickers, SUM(pos = 'P') AS punters, SUM(pos = 'LS') AS long_snappers,
                 json_extract((SELECT json FROM real_data WHERE file = 'nfl_careers.json'), '$.kickers_punters_drafted.' || d.year || '.K') AS real_k, json_extract((SELECT json FROM real_data WHERE file = 'nfl_careers.json'), '$.kickers_punters_drafted.' || d.year || '.P') AS real_p
            FROM d GROUP BY d.year ORDER BY d.year"#,
@@ -2898,7 +2898,7 @@ pub const PANELS: &[Panel] = &[
         sql: r#"WITH w AS (SELECT home_state AS st, COUNT(*) AS n FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) GROUP BY home_state)
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) GROUP BY home_state)
          SELECT s.code AS state, 100.0 * w.n / (SELECT SUM(n) FROM w) AS world, 100.0 * t.avg_nfl_draftees_per_year / (SELECT SUM(avg_nfl_draftees_per_year) FROM real_talent_by_state) AS real, w.n AS n
            FROM w JOIN states s ON s._row = w.st LEFT JOIN real_talent_by_state t ON t.state = s.code ORDER BY s.code"#,
         says: None,
@@ -2916,7 +2916,7 @@ pub const PANELS: &[Panel] = &[
               d AS (SELECT home_state AS st, COUNT(*) AS n FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) GROUP BY home_state)
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) GROUP BY home_state)
          SELECT s.code AS label, 100.0 * w.n / (SELECT SUM(n) FROM w) AS world, 100.0 * t.avg_fbs_signees_per_year / (SELECT SUM(avg_fbs_signees_per_year) FROM real_talent_by_state) AS real,
                 100.0 * d.n / (SELECT SUM(n) FROM d) AS world_picks, 100.0 * t.avg_nfl_draftees_per_year / (SELECT SUM(avg_nfl_draftees_per_year) FROM real_talent_by_state) AS real_picks
            FROM real_talent_by_state t JOIN states s ON s.code = t.state LEFT JOIN w ON w.st = s._row LEFT JOIN d ON d.st = s._row ORDER BY t.avg_fbs_signees_per_year DESC LIMIT 10"#,
@@ -3292,7 +3292,7 @@ pub const PANELS: &[Panel] = &[
         sql: r#"SELECT year, SUM(juco) AS juco_picks, COUNT(*) AS picks FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) GROUP BY year ORDER BY year"#,
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) GROUP BY year ORDER BY year"#,
         says: None,
         needs: W,
         open: "",
@@ -3443,7 +3443,7 @@ pub const PANELS: &[Panel] = &[
               d AS (SELECT COUNT(*) AS drafted, SUM(round = 1) AS r1 FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL), c WHERE class_of = c.y)
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)), c WHERE class_of = c.y)
          SELECT 'Seniors in the class of ' || (SELECT y FROM c) AS stage, k.n AS n, 100.0 AS share, 100.0 AS real FROM k
          UNION ALL SELECT 'Signed with a college', g.signed, 100.0 * g.signed / k.n, NULL FROM g, k
          UNION ALL SELECT 'Signed with FBS', g.fbs, 100.0 * g.fbs / k.n, 100.0 * (SELECT json_extract(json, '$.fbs_signees_per_year.value') FROM real_data WHERE file = 'rates.json') / k.n FROM g, k
@@ -3463,7 +3463,7 @@ pub const PANELS: &[Panel] = &[
         sql: r#"SELECT class_of AS year, COUNT(*) AS drafted, SUM(round = 1) AS round_1, 224 AS real_lo, 262 AS real_hi FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) GROUP BY class_of ORDER BY class_of"#,
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) GROUP BY class_of ORDER BY class_of"#,
         says: None,
         needs: W,
         open: "",
@@ -3478,7 +3478,7 @@ pub const PANELS: &[Panel] = &[
         sql: r#"SELECT d.year, 100.0 * AVG(p.division = 'FCS') AS world, 6 AS real FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) d JOIN programs p ON p._row = d.college GROUP BY d.year ORDER BY d.year"#,
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) d JOIN programs p ON p._row = d.college GROUP BY d.year ORDER BY d.year"#,
         says: None,
         needs: W,
         open: "",
@@ -3521,7 +3521,7 @@ pub const PANELS: &[Panel] = &[
               d AS (SELECT class_of AS class, COUNT(*) AS drafted, SUM(round = 1) AS r1 FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) GROUP BY class_of)
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) GROUP BY class_of)
          SELECT k.class, 'Seniors' AS stage, k.n AS n, 100.0 AS share FROM k
          UNION ALL SELECT k.class, 'Signed with a college', g.signed, 100.0 * g.signed / k.n FROM k JOIN g ON g.class = k.class
          UNION ALL SELECT k.class, 'Signed with FBS', g.fbs, 100.0 * g.fbs / k.n FROM k JOIN g ON g.class = k.class
@@ -3556,7 +3556,7 @@ pub const PANELS: &[Panel] = &[
         sql: r#"SELECT class_of AS class, pos AS label, COUNT(*) AS world FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) GROUP BY class_of, pos ORDER BY class_of, world DESC"#,
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) GROUP BY class_of, pos ORDER BY class_of, world DESC"#,
         says: None,
         needs: W,
         open: "",
@@ -3572,7 +3572,7 @@ pub const PANELS: &[Panel] = &[
               d AS (SELECT class_of AS class, COUNT(*) AS drafted, SUM(round = 1) AS r1 FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) GROUP BY class_of)
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) GROUP BY class_of)
          SELECT k.class, printf('The class of %d: %,d seniors, %d five-stars, %d drafted so far (%d in round 1).', k.class, k.n, k.five, COALESCE(d.drafted, 0), COALESCE(d.r1, 0)) AS says FROM k LEFT JOIN d ON d.class = k.class"#,
         says: None,
         needs: W,
@@ -3589,7 +3589,7 @@ pub const PANELS: &[Panel] = &[
               d AS (SELECT home_state AS st, COUNT(*) AS n FROM (SELECT a.position AS pos, a.stars, a.class_of, json_extract(a.pro__draft, '$[0]') AS year, json_extract(a.pro__draft, '$[1]') AS round, a.pick,
                      CAST(json_extract(a.colleges, '$[#-1]') AS INTEGER) AS college, a.home_state, a.juco, a.name, a.player__id AS id FROM alumni a WHERE a.pick IS NOT NULL
               UNION ALL SELECT x.player__position, x.stars, x.class_of, json_extract(x.pro__draft, '$[0]'), json_extract(x.pro__draft, '$[1]'), NULL, x.college, x.home_state, x.juco, x.name, x.player__id
-                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL) GROUP BY home_state)
+                FROM people x WHERE json_extract(x.pro__draft, '$[1]') IS NOT NULL AND x.player__id NOT IN (SELECT player__id FROM alumni WHERE player__id IS NOT NULL)) GROUP BY home_state)
          SELECT s.code AS state, 'FBS signees' AS label, 100.0 * w.n / (SELECT SUM(n) FROM w) AS world, 100.0 * t.avg_fbs_signees_per_year / (SELECT SUM(avg_fbs_signees_per_year) FROM real_talent_by_state) AS real FROM states s JOIN w ON w.st = s._row LEFT JOIN real_talent_by_state t ON t.state = s.code
          UNION ALL SELECT s.code, 'Draft picks', 100.0 * d.n / (SELECT SUM(n) FROM d), 100.0 * t.avg_nfl_draftees_per_year / (SELECT SUM(avg_nfl_draftees_per_year) FROM real_talent_by_state) FROM states s JOIN d ON d.st = s._row LEFT JOIN real_talent_by_state t ON t.state = s.code
          UNION ALL SELECT s.code, 'Share of the class', 100.0 * s.class_share / (SELECT SUM(class_share) FROM states), NULL FROM states s"#,

@@ -2264,16 +2264,18 @@ pub(crate) fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool
 
 /// Each program's places taken under its limit in `season`, the season the
 /// portal's entrants play next (`takes_a_place`): the players who return
-/// and the recruits signed for it. A senior with no season left and a
-/// player in the portal himself are leaving, so their places are open to
-/// transfers, as a staff counts them (minor bug 131: with them counted, a full
-/// roster in December had no room until its seniors left in January, and
-/// the good transfers it would have taken went to the FCS).
+/// and the recruits signed for it. A senior with no season left, a player
+/// in the portal himself and a junior college player signed with a
+/// four-year school are leaving, so their places are open to transfers, as
+/// a staff counts them (minor bug 131: with them counted, a full roster in
+/// December had no room until its seniors left in January, and the good
+/// transfers it would have taken went to the FCS).
 fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
     let mut n: Vec<usize> = w
         .programs
         .iter()
-        .map(|prog| {
+        .enumerate()
+        .map(|(j, prog)| {
             let whole = super::ncaa::whole_roster_limit(prog, season);
             prog.roster
                 .iter()
@@ -2282,14 +2284,15 @@ fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
                     takes_a_place(p, whole, season)
                         && p.cal.portal.is_none()
                         && p.cal.declare_plan != Some(true)
+                        && p.cal.signed.is_none_or(|s| s.program == j)
                         && !super::college::no_season_left(p, prog.division, season - 1)
                 })
                 .count()
         })
         .collect();
     for p in w.people.iter() {
-        // A signee not yet enrolled (a junior college mover still on his
-        // old roster too).
+        // A signee not yet enrolled, counted at his new school (a junior
+        // college mover is still on his old roster, not counted there).
         let Some(s) = p.cal.signed else { continue };
         if p.college == Some(s.program) {
             continue;
@@ -2645,8 +2648,9 @@ fn service_stars(specialist: &[bool], quotas: &[(u8, usize)]) -> Vec<u8> {
 /// moved the rate only from 87.6% to 84.5%: at the very top of a class of
 /// 250,000 the services need a lot of noise before a kid who won't make
 /// it ranks among the best 32. Speed update S9: with recorded times and
-/// S5 driving stars, the misread is 6 points (proposed, not confirmed; the
-/// share of 5-stars drafted is checked on the review list, R2).
+/// S5 driving stars, the misread was 6 points; minor bug 101 made it 7 and
+/// shared it with every staff's film (`look`, `SERVICE_MISREAD`; proposed,
+/// not confirmed).
 fn service_bias(p: &Person, world_seed: u64) -> f64 {
     let older = if p.born == crate::calendar::born::UNKNOWN {
         0.0
@@ -6689,8 +6693,9 @@ const FOLLOW: &str = "his old head coach wants him at his new school";
 pub(crate) fn follow_coach(w: &mut World, a: usize, b: usize, coach: usize) {
     let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
     let (div_a, div_b) = (w.programs[a].division, w.programs[b].division);
-    // Players follow a coach up or across, not down a level: a coach fired
-    // into an FCS job takes nobody from his FBS roster.
+    // Players follow a coach up or across, not down a level: a coach who
+    // takes an FCS job takes nobody from his FBS roster. A fired coach never
+    // gets here (`fill_opening` asks only a coach who still held his job).
     if div_b == Division::JUCO || div_b as usize > div_a as usize {
         return;
     }
@@ -7266,8 +7271,11 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     let season = market.season;
     let one_time = w.changes.rules(season).one_time_transfer;
     // The rosters change only after the day's decisions, so each program's
-    // count under its limit is read once.
+    // count under its limit is read once. Earlier days' landings are on the
+    // rosters already, so only the day's own add to it (the market's `adds`
+    // keeps the whole cycle's, for its cap of ten).
     let counted = counted_rosters(w, season);
+    let mut today_adds = vec![0usize; pn];
     let seed = w.options.seed as u64 ^ ((market.label as u64) << 24) ^ 0xFA11;
     // The day's landings (person, program), applied to the rosters in
     // place: a full rebuild every portal day costs more than the decisions.
@@ -7358,7 +7366,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 {
                     let o = m.offers.get(&wr.people[i].player.id)?;
                     let limit = super::ncaa::roster_limits(&wr.programs[j], season).0;
-                    if j == c || counted[j] + mk.adds[j] >= limit {
+                    if j == c || counted[j] + today_adds[j] >= limit {
                         return None;
                     }
                     // His old head coach's new school takes him at any level (minor bug 86).
@@ -7404,10 +7412,10 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 let limit = super::ncaa::roster_limits(&wr.programs[j], season).0;
                 // A program with room on its roster also takes an entrant as
                 // its third man at the spot (part B 9).
-                let room = counted[j] + mk.adds[j] + 5 <= limit;
+                let room = counted[j] + today_adds[j] + 5 <= limit;
                 let deep = if room { 3 } else { 2 };
                 let wanted = ahead < deep * slots || (mk.open[j][k] > 0 && perf > mk.backups_best[j][k]);
-                if (!wanted && bond == 0.0) || j == c || mk.adds[j] >= 10 || counted[j] + mk.adds[j] >= limit {
+                if (!wanted && bond == 0.0) || j == c || mk.adds[j] >= 10 || counted[j] + today_adds[j] >= limit {
                     return None;
                 }
                 // A dismissed player starts over a level down or at JUCO; a
@@ -7484,6 +7492,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         record(w, Some(j), fell, false);
         w.log.portal_landed += 1;
         market.adds[j] += 1;
+        today_adds[j] += 1;
         if market.open[j][k] > 0 && perf > market.backups_best[j][k] {
             market.open[j][k] -= 1;
         }

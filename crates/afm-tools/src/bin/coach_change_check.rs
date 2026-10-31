@@ -79,6 +79,11 @@ fn main() {
         for (k, s) in c.history.iter().enumerate() {
             if let (Employer::College(p), Role::HeadCoach) = (s.employer, s.role) {
                 changes.insert((p, s.to), s.ended);
+                // Only a coach who left for the job: a fired coach rehired
+                // later takes no one (`fill_opening` asks a sitting coach).
+                if s.ended != "left for another job" {
+                    continue;
+                }
                 let next = c.history.get(k + 1).map(|n| (n.employer, n.role)).or(c.job.map(|j| (j.employer, j.role)));
                 if let Some((Employer::College(b), Role::HeadCoach)) = next
                     && b != p
