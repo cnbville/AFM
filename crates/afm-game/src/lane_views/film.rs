@@ -165,10 +165,22 @@ impl Film {
                 .map(|(i, p)| (p.player.id, i))
                 .collect()
         };
+        // Who played on the other side of the ball on a scrimmage snap (a
+        // corner at receiver, an emergency): his number must be his alone.
+        let pos_of: HashMap<u32, Position> =
+            setup.home.players.iter().chain(&setup.away.players).map(|p| (p.id, p.position)).collect();
+        let mut crossed = std::collections::HashSet::new();
+        for r in res.stats.plays.iter().filter(|r| {
+            !matches!(r.kind, PlayType::Kickoff | PlayType::Punt | PlayType::FieldGoal | PlayType::ExtraPoint)
+        }) {
+            for (unit, ids) in r.on_field.iter().enumerate() {
+                crossed.extend(ids.iter().filter(|id| pos_of.get(id).is_some_and(|&p| numbers::defense(p) != unit)));
+            }
+        }
         let mut bodies = HashMap::new();
         for (side, team) in [&setup.home, &setup.away].into_iter().enumerate() {
             let list: Vec<(u32, Position)> = team.players.iter().map(|p| (p.id, p.position)).collect();
-            let nums = numbers::for_team(w, cal, teams[side], &list, year);
+            let nums = numbers::for_team(w, cal, teams[side], &list, year, &crossed);
             for p in &team.players {
                 let person = people.get(&p.id).map(|&i| &w.people[i]);
                 bodies.insert(

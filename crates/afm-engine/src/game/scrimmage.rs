@@ -2724,9 +2724,12 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let q = sim.agents[qb].pos;
         let me = sim.agents[i].pos;
         let mut best = (f64::NEG_INFINITY, me);
+        // Open grass stays inside the end line: near the goal line a
+        // receiver who drifted past it ran on out of the stadium.
+        let deep = (s.los + 25.0).min(end_line() - 1.5);
         for k in 0..8 {
             let cand = v2(
-                clamp(me.x + 3.0 * ((k % 3) as f64 - 1.0), s.los + 2.0, s.los + 25.0),
+                clamp(me.x + 3.0 * ((k % 3) as f64 - 1.0), (s.los + 2.0).min(deep), deep),
                 clamp(me.y + 4.0 * ((k / 3) as f64 - 1.0) + (q.y - me.y) * 0.2, 2.0, width() - 2.0),
             );
             let space = (sim.agents.len() / 2..sim.agents.len())
