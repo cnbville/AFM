@@ -841,6 +841,27 @@ pub const OPEN_REACH: f64 = 2.5;
 /// confirmed).
 pub const SCRIMMAGE_REACH: f64 = 2.0;
 
+/// A block in space holds a defensive back only while the runner comes at
+/// him: once the runner is past the line and this many yards to his side,
+/// the back works off the block (a receiver's stalk is a mirror, not a
+/// drive) at `SPACE_BLOCK_LEAVE` a tick and pursues. Corners stayed in
+/// stalk blocks for three seconds and more while inside runs broke the
+/// middle, so at the 20 every defender was behind the runner: 45% of NFL
+/// designed runs past 20 went past 40 against 21% real (nflverse 2022-24),
+/// and 40-64% of inside runs, while tosses and jet sweeps, run at the
+/// sideline, were at real (minor bug 163; proposed, not confirmed).
+const SPACE_BLOCK_GAP: f64 = 3.0;
+/// The chance a tick that he works off it then (proposed, not confirmed).
+const SPACE_BLOCK_LEAVE: f64 = 0.6;
+
+/// How far along the runner's path the last man in front aims, as a share
+/// of the meeting point: a deeper angle keeps the runner in front of him
+/// and inside, so the pursuit catches up (1.1 before; with
+/// `SPACE_BLOCK_GAP`, 6,000 `match_check` games: runs of 40+ 0.9% to 0.5%
+/// of designed runs, real 0.48%; return touchdowns 0.039 to 0.023 a team
+/// game, real 0.024; minor bug 163, proposed, not confirmed).
+const LAST_MAN_LEAD: f64 = 1.4;
+
 /// Rating points a road line loses off the snap at full crowd noise.
 /// Fitted with the other home-field causes to the real home margin
 /// (`scrimmage.rs`, `NOISE_LOAD`; minor bug 143: 24 before; proposed, not
@@ -1481,6 +1502,19 @@ impl<'a> Sim<'a> {
                 self.release(k);
                 continue;
             }
+            // A back in a block in space with the runner through the line
+            // and going by to his side: he works off it to pursue.
+            if !e.pass
+                && !reading
+                && let Some(c) = carrier
+                && matches!(self.agents[d].label, "CB" | "NB" | "FS" | "SS")
+                && (self.agents[c].pos.x - self.los) * self.goal > 0.0
+                && (self.agents[c].pos.y - self.agents[d].pos.y).abs() > SPACE_BLOCK_GAP
+                && self.rng.chance(SPACE_BLOCK_LEAVE)
+            {
+                self.release(k);
+                continue;
+            }
             // The runner coming at him: a defender with leverage on the
             // block fights off it to make the play (shed and tackle).
             if !e.pass
@@ -1862,9 +1896,9 @@ impl<'a> Sim<'a> {
         let tt = if meet.is_finite() { meet.min(4.0) } else { dist / s };
         let mut lead = clamp(0.92 + 0.004 * (iq - 60.0), 0.75, 1.05);
         // The last man in front takes a deeper angle so the runner can't
-        // get outside or past him.
+        // get outside or past him (`LAST_MAN_LEAD`).
         if (a.pos.x - cp.x) * self.goal > 3.0 && dist > 4.0 {
-            lead = lead.max(1.1 + 0.003 * (iq - 50.0));
+            lead = lead.max(LAST_MAN_LEAD + 0.003 * (iq - 50.0));
         }
         let mut target = cp + cv.scale(tt * lead);
         // An alley player keeps his depth: he meets the runner past the line.
