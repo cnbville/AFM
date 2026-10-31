@@ -278,13 +278,7 @@ const ODDS_LOW: [[f64; 4]; 11] = [
     [0.923, 0.492, 0.343, 1.11],
     [0.238, 1.55, 0.308, 0.580],
     [6.66, 0.0086, 9.04, 1.42],
-    // Punters' Black column is the fit × 0.4 (minor bug 165): the seed 7
-    // test world's college punters read 4.5% Black (real 3% at FBS, 0% at
-    // FCS) and its NFL punters 3 of 33 (real none). In a half-size world
-    // 12 of 15 Black college punters were drawn as punters, so the column
-    // was off, not the moves into punting; the odds ratio brings the pool
-    // to about 2%.
-    [2.02, 0.0036, 0.333, 0.110],
+    [2.02, 0.0091, 0.333, 0.110],
     [6.06, 0.0079, 0.682, 0.580],
 ];
 const ODDS_MID: [[f64; 4]; 11] = [
@@ -297,7 +291,7 @@ const ODDS_MID: [[f64; 4]; 11] = [
     [0.887, 0.480, 0.330, 1.11],
     [0.289, 1.22, 0.288, 0.580],
     [6.32, 0.0086, 9.92, 1.42],
-    [2.03, 0.0036, 0.395, 0.110],
+    [2.03, 0.0090, 0.395, 0.110],
     [6.04, 0.0078, 0.698, 0.580],
 ];
 const ODDS_HIGH: [[f64; 4]; 11] = [
@@ -310,7 +304,7 @@ const ODDS_HIGH: [[f64; 4]; 11] = [
     [0.872, 0.445, 0.324, 1.11],
     [0.369, 0.879, 0.279, 0.580],
     [7.52, 0.0084, 8.96, 1.42],
-    [2.08, 0.0035, 0.465, 0.110],
+    [2.08, 0.0088, 0.465, 0.110],
     [5.74, 0.0080, 0.716, 0.580],
 ];
 
