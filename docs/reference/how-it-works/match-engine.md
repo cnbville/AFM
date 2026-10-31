@@ -93,6 +93,7 @@ What it reads: run blocking, strength, hands, balance, burst and mass against sh
   - Before his read time a run defender drifts 0.12 a second toward losing (`update_blocks`).
   - The runner within 2.2 yards and w > 0: +2 × 0.5 × max(0.5 + w, 0.2) a second, the shed to make the play (`update_blocks`, `SHED_RUNNER`).
   - The runner 1.5+ yards past him: he lets go with chance 0.18 × clamp(1 + 0.04 × (Motor20 - 10) - 0.006 × (blocker Hand Use - 60), 0.5, 1.6) a tick.
+  - A corner, nickel or safety who has read the run, with the runner past the line and more than 3 yards to his side: he works off the block with chance 0.6 a tick and pursues (`SPACE_BLOCK_GAP`, `SPACE_BLOCK_LEAVE`; minor bug 163).
 - Double teams: edge -= 0.6 × the helper's block power - 20 - 0.3 × (anchor - 60); anchor = 0.6 Anchor + 0.2 Strength + 0.2 Balance + 0.08 × (weight - 300) + Anchor/Big man (`update_blocks`, `anchor`).
   - Combos: 2 on inside zone, zone read, duo and draw; 1 on outside zone, power, counter and iso (`game/scrimmage.rs`, `run_blocking`).
   - The helper climbs to his linebacker when w < -0.15 after 0.35 s, after 1.0 s, or when the linebacker is within 2 yards of the line or 2.5 of him (`run_snap`).
@@ -238,7 +239,7 @@ What it reads: Ball Carrier Vision, his speed and cut, the Patience, Bounce and 
 
 ## Pursuit, elusiveness, broken tackles and tackling
 
-- Pursuit angle: iq = 0.5 PR + 0.5 Pursuit; he leads the intercept by clamp(0.92 + 0.004 × (iq - 60), 0.75, 1.05), the last man in front by at least 1.1 + 0.003 × (iq - 50) (`game/sim.rs`, `pursue_cap`).
+- Pursuit angle: iq = 0.5 PR + 0.5 Pursuit; he leads the intercept by clamp(0.92 + 0.004 × (iq - 60), 0.75, 1.05), the last man in front (3+ yards ahead of the runner and 4+ away) by at least 1.4 + 0.003 × (iq - 50) (`LAST_MAN_LEAD`, 1.1 before minor bug 163) (`game/sim.rs`, `pursue_cap`).
   - In front within 5 yards he breaks down: forward clamp(1.5 + 0.04 × (feet - 50), 0.8, 3.5) yd/s, feet = 0.5 Agility + 0.3 Tackling + 0.2 Pursuit; facing within 4 yards, speed × clamp(0.55 + 0.004 × feet, 0.6, 0.95).
   - Motor20 under 9, 4+ yards behind and 8+ away: effort 0.8 + 0.02 × Motor20.
 - Who gets a try: reach 1.6 yards, or for a free man in space more than 3 yards past the line 2.0 on scrimmage plays (`SCRIMMAGE_REACH`, minor bug 162) and 2.5 on returns (`OPEN_REACH`), + clamp(0.01 × (Tackling - 60), ±0.4); + 0.03 × (arm - 32) + 0.05 × Length share; one try each 0.7 s (`tackles`; the sim's `open_reach`).
@@ -377,7 +378,7 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 ## Where the knobs are
 
 - `game/geom.rs`: `DT` 0.1.
-- `game/sim.rs`: `OPEN_REACH` 2.5, `SCRIMMAGE_REACH` 2.0, `RUN_EDGE` 0.035, `SHED_RUNNER` 0.5, `SILENT_COUNT` 36, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1 and break 0.026 in `fight_tick`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
+- `game/sim.rs`: `OPEN_REACH` 2.5, `SCRIMMAGE_REACH` 2.0, `SPACE_BLOCK_GAP` 3.0, `SPACE_BLOCK_LEAVE` 0.6, `LAST_MAN_LEAD` 1.4, `RUN_EDGE` 0.035, `SHED_RUNNER` 0.5, `SILENT_COUNT` 36, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1 and break 0.026 in `fight_tick`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
 - `game/scrimmage.rs`: `RELEASE` 0.5, `RELEASE_PACE` 0.25, `NOISE_BUSTS` 0.06, `NOISE_LOAD` 11, `SILENT_RELEASE` 0.38, `CHIP_TIME` 0.6, `CHIP_W` 0.25, `READ_NEED` 0.3, `READ_START` 0.1, `PRE_READ` 0.45, `FEED_BASE` 0.1, `FEED_PER_POINT` 0.02, `FEED_MAX` 0.55, `BAT` 0.17, `HANDS_LEVEL` 0.5; `aim_sd`; drop times and mesh times in `run_snap`; the prep terms (0.1 on the read in `run_snap`, 0.3 on each read in `quarterback`).
 - `training/prep.rs`: `game_factor`. `training/seat.rs`: `week_habits` (crowd noise 0.075 a day, 0.9-1.15; rules clinic 0.9-1.08).
 - `game/roster.rs`: `forty`, `top_speed`, `sprint_tau`, `accel`, `cut`, `drain`, `RECOVER_ON_FIELD` 0.012, `RECOVER_ON_BENCH` 0.05, `TYPICAL_CHEM` 0.45, `CROSS_LIST` 3, `INSTALL` 0.75, `wanted`.

@@ -616,7 +616,34 @@ The world: the same 15-season quarter world as above (seed 2026), before and aft
 
 Tried and dropped (each over 4,000 games): a reach that shrinks with the runner's speed away from the tackler (yards after the catch at real by depth, but return touchdowns doubled); with the gap's opening speed instead (almost no effect); a reach that grows with the tackler's own speed toward the runner (return touchdowns to real, but punt returns of 20+ yards fell from 3.8% to 2.5%, real 8%).
 
-Still off: runs past 20 yards go past 40 about four times in ten, as they already did at 2.5 (real about two in ten). The shorter reach lifts all runs, so 40+ runs now come 0.9% of carries against 0.5% real. Not the blocks downfield (a defender coming off his block near the runner lowered all long runs alike), not the deep safety's fit depth (deeper fills only moved tackles from 4-9 yards to 10-19) and not the pursuit angle: past the second level the chasers are behind the runner and close about a yard a second. Logged as minor bug 163. Also still short: slants (about 1.4 yards after the catch against 4.6; caught at 7.7 air yards against 6.2), drags and screens.
+Still off: runs past 20 yards go past 40 about four times in ten, as they already did at 2.5 (real about two in ten). The shorter reach lifts all runs, so 40+ runs now come 0.9% of carries against 0.5% real. Not the blocks downfield (a defender coming off his block near the runner lowered all long runs alike), not the deep safety's fit depth (deeper fills only moved tackles from 4-9 yards to 10-19) and not the pursuit angle: past the second level the chasers are behind the runner and close about a yard a second. Logged as minor bug 163 and fixed in the next section. Also still short: slants (about 1.4 yards after the catch against 4.6; caught at 7.7 air yards against 6.2), drags and screens.
+
+## Long runs (minor bug 163, 2026-10-31)
+
+Of NFL designed runs that reach 20 yards, 45% went past 40 in the engine; real is 21%.
+
+- **Real long runs** (nflverse play-by-play 2022-2024, regular season, designed runs without kneels): 2.34% of carries reach 20 yards and 0.50% reach 40. Of the runs past 20, 40% end in the next five yards, 30% go out of bounds and 20% score. Inside runs are no different: up the middle or over a guard, 21% of the runs past 20 go past 40 and 37-44% end before 25. Runs to the end reach 20 most often (3.8% of them, against 1.5% up the middle).
+- **The engine's** (4,000 `match_check nfl` games, every designed run traced at the 10 and the 20): the tosses and jet sweeps, run at the sideline, were already real (21% of their runs past 20 went past 40, 35% ended out of bounds). The inside runs were the bug: 41-64% of inside zone, power, counter, draw, trap and iso runs past 20 went past 40, 3-14% went out of bounds and 36-53% scored. On the runs that went 40+, the runner at the 10 had 0.12 free defenders ahead of him; the corners and the nickel had been in a receiver's block on nine in ten of them and half were still in it, behind him. At the 20 every defender was 7 to 10 yards behind him, so it was a footrace he won. The open-field tackling itself is real: free defenders miss about 10% of their tries on backs past the line, at every depth, like PFF's missed tackle rates (from memory).
+- **The check:** the same games with backs that no block can hold bring the 40+ share to 20%, real (but runs of 10+ yards fall to 2.9%), so the blocks on the backs are the cause, not the chase.
+- **The fix** (`game/sim.rs`, proposed, not confirmed): a block in space holds a back only while the runner comes at him. Once the runner is past the line and more than 3 yards to his side (`SPACE_BLOCK_GAP`), a corner, nickel or safety in a block works off it, at 0.6 a tick (`SPACE_BLOCK_LEAVE`, about a tenth of a second), and pursues: a receiver's stalk block mirrors a man and can't hold one who runs around it. The last man in front of the runner takes a deeper angle, 1.4 times the meeting point along the runner's path instead of 1.1 (`LAST_MAN_LEAD`), so he keeps the runner in front of him and inside while the pursuit comes.
+
+Measured over 6,000 `match_check nfl` games (seed 11), before and after:
+
+| NFL | before | after | real |
+|---|---|---|---|
+| designed runs of 10-19 / 20-39 / 40+ yards | 5.7 / 1.1 / 0.9% | 5.4 / 1.2 / 0.5% | 8.2 / 1.8 / 0.48% |
+| share of runs past 20 that go past 40 | 45% | 29% | 21% |
+| yards a carry | 4.37 | 4.20 | 4.50 (designed runs 4.29) |
+| kickoff / punt return touchdowns a team game | 0.020 / 0.019 | 0.014 / 0.009 | 0.012 / 0.012 |
+| yards after the catch | 4.86 | 4.88 | 5.20 |
+| yards an attempt (gross) | 6.98 | 6.96 | 7.05 |
+| points a team game | 23.1 | 22.6 | 22.5 |
+
+The deeper angle also brings return touchdowns to real (minor bug 139: kick returns 0.022-0.028 against 0.012). FBS (4,000 games): runs of 40+ 0.8% to 0.5% of designed runs, the 40+ share of runs past 20 36% to 28%, yards a carry 4.49 to 4.31 (real 5.12), points 21.4 to 20.6 (real 27.0; these rosters score low, see above).
+
+Tried and dropped (each over 4,000 games): the runner's pace with the ball (0.90 of his top speed instead of 0.95 brings the 40+ share to 32% and 0.85 to 13%, but real ball carriers reach about their top speed on long runs, from memory of Next Gen Stats); taking the pursuers' meeting time past 4 seconds or cutting it to 2 (no change); a chaser's try from behind made surer (42%); the deep safety breaking down later or coming forward faster (40-44%); escorts that block pursuers less often past 10 yards (43-45%); backs shedding toward a runner within 4-6 yards whoever leads the block (36-40%, and yards a carry fell to 3.1-4.1); run blocks that stop driving the man back after a second (41-43%, and yards a carry rose to 4.8-4.9).
+
+Still off (minor bug 164): the short end. 30.5% of designed runs gain nothing against 18.2% real and 22.9% gain 1-3 yards against 37.1%, while 4-9 yards run 39.5% against 34.2%. When a lineman makes the first tackle the run has gained 1.0 yard (real 2.44), a linebacker 1.7 (real 3.35), and linebackers make 26% of first tackles against 37% (backs 44% against 30%). With the short end short, runs of 10-19 yards (5.4% against 8.2%) and 20-39 (1.2% against 1.8%) stay short too.
 
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
