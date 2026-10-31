@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, and the pick times (minor bug 159) on 2026-10-30.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31.
 
 ## Quick answers
 
@@ -53,7 +53,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 
 - All-star invites by December score, in order Senior Bowl (110), Shrine (110), HBCU Legacy (90, from 2022, HBCU conferences only), NFLPA (100, from 2012); at most two of each specialist. Skips: the top 15 of the pool in round 1 60%, the rest of round 1 35%, round 2 10%, others 2% (`recruiting.rs`, `all_star_invites`).
 - All-star week: every club's area scout (and a national at the Senior Bowl) files a look, and the public grade and score move 0.3 × (an accuracy-16 read - grade), capped ±2 (`recruiting.rs`, `all_star_game`; `world/pro/scouts.rs`, `all_star`).
-- Combine invites: every declared prospect projected in rounds 1-7 plus up to 60 (× world scale) of the rest by score (`recruiting.rs`, `combine_invites`).
+- Combine invites: the best 330 (× world scale) declared prospects by the staffs' reads, and anyone projected in rounds 1-7 past that (real 319-337 a year, nflverse 2000-2026; minor bug 97) (`recruiting.rs`, `combine_invites`).
 - Combine: shared measurements into every file (none in a year its workouts were cancelled; none for a prospect who chose to skip them), the clubs' interviews (60, 45 from 2020), news for anyone testing 1.8 sd above his position's invitees, and one "combine moment" for the 40 furthest under what his weight predicts (4.25 + 0.0042 × (weight - 180)), if 0.12 s or more (`recruiting.rs`, `combine`; `scouts.rs`, `combine`; `world/scouting/predraft.rs`, `combine_moments`).
 - Pro days: March to early April, FBS and FCS programs only; untested prospects measured (hand times, 0.05 s fast); clubs grading him 66+ send a coach (`world/nfl_year.rs`, `new_season`; `scouts.rs`, `pro_day`; `world/scouting/file.rs`, `tests`). Each is counted (SK20): clubs whose best read there is 60+ came, 74+ sent a head man; kept three years in `Scouting::pro_days` and read by recruiting ([scouting.md](scouting.md), "The fresh look").
 - Pre-draft training: every declared prospect's speed, acceleration and agility measurements read up to +2.0 points for a hard worker with money (2 × clamp((work ethic - 6)/12) × (0.5 + 0.5 × money)), less the staff's test-reading discount (`world/scouting/file.rs`, `read`, `training`). The "testing camp" choice flag is shown in words only; nothing reads it.
@@ -173,7 +173,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 
 `world/scouting/supp.rs` (through 2019, the second Wednesday of July):
 
-- Eligible: college players three years out who lost eligibility this year (`eligible`).
+- Eligible: college players three years out who lost eligibility this year and would go in the first four rounds of a regular draft (overall at least last draft's round 3-4 bar, 70 before any draft; minor bug 134: every such player of 55+ entered, 21-40 a year) (`eligible`).
 - Each club bids from overall + 4 × a draw × (1.4 - 0.04 × GM skill): round 2 at 74+, 3 at 70+, 5 at 66+, 7 at 63+. The earliest round wins; ties by a lottery weighted to worse teams. The winner forfeits that round next year and signs him on an undrafted deal (`hold`).
 
 ## After the draft

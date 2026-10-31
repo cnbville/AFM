@@ -1252,7 +1252,14 @@ fn values() -> &'static Values {
         let get = |row: Option<&Vec<f64>>, k: Option<usize>| {
             row.and_then(|r| k.and_then(|k| r.get(k).copied())).unwrap_or(0.0)
         };
-        let pass = PASS_CONCEPTS
+        // Centered like the runs (minor bug 135): a concept is chosen
+        // against a look by how much better it does there than its own
+        // average, so a sharp caller calls what beats the look, not the
+        // concepts that gain the most everywhere. Uncentered, the deep
+        // concepts' extra yards drew the world's play callers (about 14 of
+        // 20, who trust the table twice as much as a 10) to 19% of NFL
+        // throws at 20+ air yards (real 11.5%).
+        let pass: Vec<[f64; LOOK_COLS]> = PASS_CONCEPTS
             .iter()
             .map(|p| {
                 let row = rows.get(p.name);
@@ -1263,6 +1270,9 @@ fn values() -> &'static Values {
                 v
             })
             .collect();
+        let means: Vec<f64> = pass.iter().map(|v| v.iter().sum::<f64>() / LOOK_COLS as f64).collect();
+        let all = means.iter().sum::<f64>() / means.len().max(1) as f64;
+        let pass = pass.iter().zip(&means).map(|(v, m)| v.map(|x| x - (m - all))).collect();
         let run = RUN_CONCEPTS
             .iter()
             .map(|r| {

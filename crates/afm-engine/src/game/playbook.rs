@@ -393,7 +393,10 @@ impl Route {
             Route::Go => (&[(45.0, 1.5)], false),
             Route::Fade => (&[(3.0, 1.0), (40.0, 4.0)], false),
             Route::Seam => (&[(45.0, -1.0)], false),
-            Route::Slant => (&[(2.0, 0.0), (9.0, -7.0), (14.0, -14.0)], false),
+            // The slant breaks at about thirty degrees off the line: real
+            // NFL slants are caught 6.2 yards past it (NGS 2023-2025, nflverse
+            // participation), the old forty-five-degree slant at 12.
+            Route::Slant => (&[(2.0, 0.0), (6.2, -7.0), (9.2, -14.0)], false),
             Route::Out(_) => (&[(0.0, 0.0), (0.0, 10.0), (4.0, 11.0)], false),
             Route::In(_) => (&[(0.0, 0.0), (0.0, -20.0)], false),
             Route::Curl(_) => (&[(0.0, 0.0), (-2.0, -1.5)], true),

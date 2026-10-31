@@ -2,6 +2,7 @@
 //! national class lives in afm-tools (it needs the debug summary).
 
 mod bodies;
+mod carousel;
 mod coaching_people;
 mod compact;
 mod development;

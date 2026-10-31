@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day; the scrimmage tackle reach (minor bug 162) at 1f8d959 on 2026-10-31; long runs (minor bug 163) at bff75e7 the same day.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -34,7 +34,7 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 - Top speed, burst and cut come from his raw ratings and weight; the edge doesn't move them, fatigue does (`game/sim.rs`, `Agent::new`).
 - Road noise: every offensive player loses 11 × crowd × focus points of Football IQ, focus = clamp(1.6 - 0.06 × Concentration20, 0.4, 1.6) (`run_snap`, `NOISE_LOAD`).
 - Crowd, wherever this page uses it: the home crowd × the road offense's `prep.noise`, 0 at home or on a neutral site. `prep.noise` is 1 for AI teams; your week's crowd-noise days set yours, 0.9-1.15 (`game/flow.rs`, `home_crowd`; `training/seat.rs`, `week_habits`).
-- Road receivers leave late on the silent count: + 0.3 × crowd × clamp(1 - 0.05 × (Concentration20 - 10), 0.5, 1.5) s on each route of a called pass (`SILENT_RELEASE`). With the noise load, the busts and the silent count it is fitted to the real home margin: 2.2 NFL points over 6,000 `match_check` games at a 0.65 crowd (real 2.1, nflverse 2021-2025) and 2.5 FBS (real 2.4 in conference games); real road offenses lose it through the air (completions 63.8% against 65.2%, runs about even), the engine's road passing loses 1.0 point of completions and 4.8% of the yards an attempt (minor bug 143: 0.8 and 1.2 points before; proposed, not confirmed).
+- Road receivers leave late on the silent count: + 0.38 × crowd × clamp(1 - 0.05 × (Concentration20 - 10), 0.5, 1.5) s on each route of a called pass, standing at the line before their release (`SILENT_RELEASE`, `silent_late`; 0.3 s and already running before every receiver had a release, minor bug 135). With the noise load, the busts and the silent count it is fitted to the real home margin: 2.3 NFL points over 6,000 `match_check` games at a 0.65 crowd (se 0.21; real 2.1, nflverse 2021-2025) and 2.8 FBS (se 0.25; real 2.4 in conference games); real road offenses lose it through the air (completions 63.8% against 65.2%, yards an attempt 6.95 against 7.15, runs about even), the engine's road passing loses 1.3 points of completions and 6.9% of the yards an attempt (minor bug 143: 0.8 and 1.2 points before; proposed, not confirmed).
 - Seeing: a cone of half-angle 1.2 + 0.006 × (rating - 50) radians, read with Pocket Presence for the passer, Ball Carrier Vision for the carrier, Play Recognition for everyone else; anything within 2 yards is felt (`game/sim.rs`, `sees`).
 - `pro()`: some quarterback, catch-radius and decision reads count every point from 68 up and a quarter of the gap below 68 (`game/scrimmage.rs`, `pro`).
 - Chemistry is 0-1 with 0.45 as typical (`game/roster.rs`, `TYPICAL_CHEM`).
@@ -93,6 +93,7 @@ What it reads: run blocking, strength, hands, balance, burst and mass against sh
   - Before his read time a run defender drifts 0.12 a second toward losing (`update_blocks`).
   - The runner within 2.2 yards and w > 0: +2 × 0.5 × max(0.5 + w, 0.2) a second, the shed to make the play (`update_blocks`, `SHED_RUNNER`).
   - The runner 1.5+ yards past him: he lets go with chance 0.18 × clamp(1 + 0.04 × (Motor20 - 10) - 0.006 × (blocker Hand Use - 60), 0.5, 1.6) a tick.
+  - A corner, nickel or safety who has read the run, with the runner past the line and more than 3 yards to his side: he works off the block with chance 0.6 a tick and pursues (`SPACE_BLOCK_GAP`, `SPACE_BLOCK_LEAVE`; minor bug 163).
 - Double teams: edge -= 0.6 × the helper's block power - 20 - 0.3 × (anchor - 60); anchor = 0.6 Anchor + 0.2 Strength + 0.2 Balance + 0.08 × (weight - 300) + Anchor/Big man (`update_blocks`, `anchor`).
   - Combos: 2 on inside zone, zone read, duo and draw; 1 on outside zone, power, counter and iso (`game/scrimmage.rs`, `run_blocking`).
   - The helper climbs to his linebacker when w < -0.15 after 0.35 s, after 1.0 s, or when the linebacker is within 2 yards of the line or 2.5 of him (`run_snap`).
@@ -162,13 +163,15 @@ What it reads: Play Recognition, Decisions, Pocket Presence, Composure, Football
   - pressure over 0.3: 1 + 0.9 × min(pressure, 1.5) × (1.35 - Composure / 100); moving over 3 yd/s: 1.25 - 0.002 × Throw on the Move.
   - wind 1 + wind × (0.010 + 0.0001 × distance) (minor bug 144); rain or snow 1.1; cold 1 + 0.08 × unused-to-cold.
   - hidden consistency 1.15 - 0.015 × consistency; chemistry 1 - 0.12 × (chemistry - 0.45).
-  - along the line × (1 + 0.022 × (downfield - 12)₊), and past 25 yards × 1.1 × clamp(1 + 0.01 × (75 - Arm), 0.8, 1.4).
+  - along the line × (1 + 0.035 × (downfield - 12)₊) (minor bug 135; it was 0.022), and past 25 yards × 1.1 × clamp(1 + 0.01 × (75 - Arm), 0.8, 1.4).
 - Roughing the passer: a free rusher closing who lands more than 0.4 s after the release draws it at 0.1, sooner at 0.015, × (1.5 - Discipline20 / 20) × crew (`throw`).
 
 ## Routes against coverage (separation)
 
 What it reads: Route Running, Release, Agility, Strength against Man/Zone Coverage, Press, Play Recognition, Anticipation, Agility, Flexibility. What it does not read: the receiver's height or weight (until the catch point), Speed beyond his own top speed.
 
+- The release (minor bug 135): a receiver or tight end starts each route with 0.5 × clamp(1.3 - 0.006 × Release, 0.7, 1.3) s of footwork at 0.25 × top speed, straight ahead; none for a man in motion at the snap (moving 1.5 yd/s or more), a bubble or a screen. A lost jam adds to it; on the silent count he first stands at the line until the ball moves for him (`silent_late`); the quarterback doesn't read him until all of it ends (`game/scrimmage.rs`, `route_job`, `run_route`, `footwork`, `RELEASE`, `RELEASE_PACE`).
+- The slant breaks at about 30 degrees off the line: points (2, 0), (6.2, -7), (9.2, -14) yards (downfield, inside) from his start (`game/playbook.rs`, `Route::shape`; it was (9, -7), (14, -14)).
 - Routes run at 0.88 × top speed; he moves to the next point 0.6 + 0.012 × RR yards early; a break slows him to top × (1 - (0.62 - 0.004 × (RR - 50)) × min(turn / 1.57, 1.4)) (`game/scrimmage.rs`, `route_pace`, `route_step`).
 - He settles in zone holes with room 1.5 × clamp(1 + 0.015 × (0.6 RR + 0.4 FIQ - 60), 0.6, 1.4) yards (`run_route`).
 - Press: cushion 1.2 yards in Cover 0, 1 and 2-man, 5 in Cover 2 and Tampa 2, 6.5 otherwise (`align_defense`). Within 2 yards it is a jam: x = (0.55 Release + 0.25 Agility + 0.2 Strength + Sudden/Length) - (0.55 Press + 0.25 Strength + 0.2 Agility + Length/Sudden) + N(0, 9); below -9 his release is 0.45 s late, above 9 the defender's lag grows 0.3 s (`assign_defense`).
@@ -236,10 +239,10 @@ What it reads: Ball Carrier Vision, his speed and cut, the Patience, Bounce and 
 
 ## Pursuit, elusiveness, broken tackles and tackling
 
-- Pursuit angle: iq = 0.5 PR + 0.5 Pursuit; he leads the intercept by clamp(0.92 + 0.004 × (iq - 60), 0.75, 1.05), the last man in front by at least 1.1 + 0.003 × (iq - 50) (`game/sim.rs`, `pursue_cap`).
+- Pursuit angle: iq = 0.5 PR + 0.5 Pursuit; he leads the intercept by clamp(0.92 + 0.004 × (iq - 60), 0.75, 1.05), the last man in front (3+ yards ahead of the runner and 4+ away) by at least 1.4 + 0.003 × (iq - 50) (`LAST_MAN_LEAD`, 1.1 before minor bug 163) (`game/sim.rs`, `pursue_cap`).
   - In front within 5 yards he breaks down: forward clamp(1.5 + 0.04 × (feet - 50), 0.8, 3.5) yd/s, feet = 0.5 Agility + 0.3 Tackling + 0.2 Pursuit; facing within 4 yards, speed × clamp(0.55 + 0.004 × feet, 0.6, 0.95).
   - Motor20 under 9, 4+ yards behind and 8+ away: effort 0.8 + 0.02 × Motor20.
-- Who gets a try: reach 1.6 yards, or 2.5 for a free man in space more than 3 yards past the line (+ clamp(0.01 × (Tackling - 60), ±0.4)), + 0.03 × (arm - 32) + 0.05 × Length share; one try each 0.7 s (`tackles`, `OPEN_REACH`).
+- Who gets a try: reach 1.6 yards, or for a free man in space more than 3 yards past the line 2.0 on scrimmage plays (`SCRIMMAGE_REACH`, minor bug 162) and 2.5 on returns (`OPEN_REACH`), + clamp(0.01 × (Tackling - 60), ±0.4); + 0.03 × (arm - 32) + 0.05 × Length share; one try each 0.7 s (`tackles`; the sim's `open_reach`).
   - An engaged defender grabs only with w ≥ -0.2, chance 0.25 + 0.3 × w, inside reach - 0.55: an arm tackle.
   - A free defender with Contact lean below -0.15 facing a carrier 15+ lb heavier moving over 4 yd/s passes with 0.35 × shyness.
 - The miss (first hit), what it reads: evade = 0.5 Elusiveness + 0.3 Agility + 0.2 Speed - size_cost(his weight, 210) + Sudden (A3); tackle = 0.6 Tackling + 0.2 Agility + 0.2 Pursuit + Sudden; angle, closing speed, the carrier's speed, arm-only, lunge; Big hit and Strip. What it does not read: the tackler's weight, Strength, Balance, height, Ball Carrier Vision (`first_hit`).
@@ -375,8 +378,8 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 ## Where the knobs are
 
 - `game/geom.rs`: `DT` 0.1.
-- `game/sim.rs`: `OPEN_REACH` 2.5, `RUN_EDGE` 0.035, `SHED_RUNNER` 0.5, `SILENT_COUNT` 24, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1 and break 0.026 in `fight_tick`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
-- `game/scrimmage.rs`: `NOISE_BUSTS` 0.03, `NOISE_LOAD` 11, `CHIP_TIME` 0.6, `CHIP_W` 0.25, `READ_NEED` 0.3, `READ_START` 0.1, `PRE_READ` 0.45, `FEED_BASE` 0.1, `FEED_PER_POINT` 0.02, `FEED_MAX` 0.55, `BAT` 0.17, `HANDS_LEVEL` 0.5; `aim_sd`; drop times and mesh times in `run_snap`; the prep terms (0.1 on the read in `run_snap`, 0.3 on each read in `quarterback`).
+- `game/sim.rs`: `OPEN_REACH` 2.5, `SCRIMMAGE_REACH` 2.0, `SPACE_BLOCK_GAP` 3.0, `SPACE_BLOCK_LEAVE` 0.6, `LAST_MAN_LEAD` 1.4, `RUN_EDGE` 0.035, `SHED_RUNNER` 0.5, `SILENT_COUNT` 36, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1 and break 0.026 in `fight_tick`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
+- `game/scrimmage.rs`: `RELEASE` 0.5, `RELEASE_PACE` 0.25, `NOISE_BUSTS` 0.06, `NOISE_LOAD` 11, `SILENT_RELEASE` 0.38, `CHIP_TIME` 0.6, `CHIP_W` 0.25, `READ_NEED` 0.3, `READ_START` 0.1, `PRE_READ` 0.45, `FEED_BASE` 0.1, `FEED_PER_POINT` 0.02, `FEED_MAX` 0.55, `BAT` 0.17, `HANDS_LEVEL` 0.5; `aim_sd`; drop times and mesh times in `run_snap`; the prep terms (0.1 on the read in `run_snap`, 0.3 on each read in `quarterback`).
 - `training/prep.rs`: `game_factor`. `training/seat.rs`: `week_habits` (crowd noise 0.075 a day, 0.9-1.15; rules clinic 0.9-1.08).
 - `game/roster.rs`: `forty`, `top_speed`, `sprint_tau`, `accel`, `cut`, `drain`, `RECOVER_ON_FIELD` 0.012, `RECOVER_ON_BENCH` 0.05, `TYPICAL_CHEM` 0.45, `CROSS_LIST` 3, `INSTALL` 0.75, `wanted`.
 - `game/rules.rs`: `trait_norm`, `TRAIT_STEP` 2.6.

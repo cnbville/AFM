@@ -1122,6 +1122,7 @@ pub fn history(w: &World, args: &Value) -> Value {
                 .map(|h| json!({ "year": h.year, "name": h.name, "coach": h.coach, "level": format!("College Football Hall of Fame · {}", h.division.name()), "teams": h.programs.iter().map(|&p| views::team_brief(w, TeamRef::College(p))).collect::<Vec<_>>(), "why": h.why }))
                 .collect();
             v.extend(w.nfl_book.hall.iter().rev().map(|h| json!({ "year": h.0, "id": h.1, "name": h.2, "pos": h.3.name(), "level": "Pro Football Hall of Fame", "why": h.4 })));
+            v.extend(w.nfl_book.hall_coaches.iter().rev().map(|h| json!({ "year": h.0, "name": h.2, "coach": true, "level": "Pro Football Hall of Fame", "why": h.3 })));
             v.sort_by_key(|x| std::cmp::Reverse(x["year"].as_i64().unwrap_or(0)));
             json!(v)
         }

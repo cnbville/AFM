@@ -1134,7 +1134,9 @@ fn league_week(w: &mut World, d: Date) {
     if d.weekday() != Weekday::Tue {
         return;
     }
-    let nfl_season = d > w.dates.nfl_kickoff && d <= w.dates.super_bowl.add(2);
+    // The Tuesday after a regular-season Sunday (the playoffs' few fines
+    // aside: every club's roster is read, playing or not).
+    let nfl_season = w.dates.nfl_weeks.iter().any(|&s| d > s && d <= s.add(6));
     let cfb_season = w.dates.cfb_weeks.first().is_some_and(|&k| d > k) && d <= w.dates.bowl_season.1.add(2);
     let year = w.year;
     let mut entries: Vec<Fine> = Vec::new();
@@ -1163,7 +1165,9 @@ fn league_week(w: &mut World, d: Date) {
                     continue;
                 }
                 let temper = p.player.personality.traits.z(Trait::Temper);
-                let r = 0.0055 * (1.0 + 0.6 * temper).max(0.3);
+                // About 16 a week from some 830 rostered defenders (minor bug
+                // 151: 0.0055 gave about 82 a season against 250-350).
+                let r = 0.019 * (1.0 + 0.6 * temper).max(0.3);
                 if super::roll(w, 0x41E0 ^ d.0 as u64, p.player.id as u64) >= r {
                     continue;
                 }
