@@ -1580,7 +1580,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"Draft picks by program, the last ten drafts"#,
         kind: "bars",
         note: r#"Each program's draft picks over the world's last ten drafts (`Program.draft_picks`), against its real picks over the last ten real drafts (nflverse, `nfl_draft_by_college.csv`)."#,
-        sql: r#"WITH w AS (SELECT d._parent AS prog, SUM(d._1) AS n FROM programs__draft_picks d WHERE d._0 > (SELECT MAX(_0) FROM programs__draft_picks) - 10 GROUP BY d._parent),
+        sql: r#"WITH w AS (SELECT d._parent AS prog, COUNT(*) AS n FROM programs__draft_picks d WHERE d._0 > (SELECT MAX(_0) FROM programs__draft_picks) - 10 GROUP BY d._parent),
          ry AS (SELECT MAX(season) AS y FROM real_nfl_draft_by_college)
          SELECT COALESCE(p.real_name, p.fictional_name) AS label, w.n AS world,
          (SELECT SUM(r.picks) FROM real_nfl_draft_by_college r WHERE r.season > (SELECT y FROM ry) - 10 AND (r.college = p.real_name OR r.college = REPLACE(p.real_name, ' State', ' St.'))) AS real, p.id
@@ -1596,7 +1596,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"Draft picks by conference, draft by draft"#,
         kind: "table",
         note: r#"Draft picks per draft by today's conference of the program, from `Program.draft_picks`."#,
-        sql: r#"SELECT d._0 AS year, p.division, p.conference, SUM(d._1) AS picks, COUNT(*) AS programs FROM programs__draft_picks d JOIN programs p ON p._row = d._parent
+        sql: r#"SELECT d._0 AS year, p.division, p.conference, COUNT(*) AS picks, COUNT(DISTINCT d._parent) AS programs FROM programs__draft_picks d JOIN programs p ON p._row = d._parent
          GROUP BY d._0, p.conference ORDER BY d._0 DESC, picks DESC"#,
         says: None,
         needs: W,
