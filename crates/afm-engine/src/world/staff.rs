@@ -139,7 +139,7 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
         };
         w.coaches[coach].home_state = Some(home);
     }
-    let since = if matches!(employer, Employer::College(_)) { cycle_year(w) } else { year };
+    let since = season_label(w, employer);
     // A coach of color hired away from an NFL coordinator job to be a head
     // coach earns his old team the diversity picks (2020 resolution).
     if let (Employer::Nfl(_), Role::HeadCoach) = (employer, role)
@@ -244,6 +244,7 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
 pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
     let year = w.year;
     let Some(job) = w.coaches[coach].job.take() else { return };
+    let to = season_label(w, job.employer);
     // A coach fired with years left: his buyout lands on the books.
     if why.starts_with("fired")
         && let Some(k) = w.coaches[coach].contract
@@ -256,7 +257,7 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
         employer: job.employer,
         role: job.role,
         from: job.since,
-        to: year,
+        to,
         wins: c.wins,
         losses: c.losses,
         titles: c.titles,
@@ -782,6 +783,18 @@ fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
     }
     // An older coach and a settled family move less.
     let tenure = (year - job.since).clamp(0, 12) as f64;
+    if let Employer::HighSchool(h) = job.employer
+        && job.role == Role::HeadCoach
+    {
+        // A high school head coach who wins his state stays (minor bug
+        // 129): the dynasties keep their coach for decades (Bruce Rollinson
+        // at Mater Dei 1989-2021, Bob Ladouceur at De La Salle 1979-2012).
+        // Each title there in his last three seasons, to two, weighs 0.15
+        // against a move (proposed, not confirmed).
+        let won = w.high_schools[h].seasons.iter().rev().take(3);
+        let won = won.filter(|s| s.coach == Some(c) && s.state_title).count().min(2);
+        parts.push((-0.15 * won as f64, String::new()));
+    }
     parts.push((-0.003 * (coach.age as f64 - 52.0).max(0.0) - 0.0015 * tenure, String::new()));
     // Family roots: going home pulls; leaving home costs.
     let (here, there) = (employer_state(w, job.employer), employer_state(w, o.employer));
@@ -815,7 +828,14 @@ fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
         return None;
     }
     let p = &coach.personality;
-    let chance = clamp(0.35 + 0.04 * (p.ambition - 10.0) - 0.03 * (p.loyalty - 10.0) + 1.5 * pull, 0.05, 0.95);
+    let mut chance = clamp(0.35 + 0.04 * (p.ambition - 10.0) - 0.03 * (p.loyalty - 10.0) + 1.5 * pull, 0.05, 0.95);
+    // A college head coach is slower to go than an assistant: most of the
+    // 17.6% of FBS programs with a new head coach each season (2000-2025,
+    // `college_people.json`) are firings, and the rest leave for a bigger
+    // job (minor bug 124; 0.75 proposed, not confirmed).
+    if job.role == Role::HeadCoach && matches!(job.employer, Employer::College(_)) {
+        chance *= 0.75;
+    }
     if !w.rng.chance(chance) {
         return None;
     }
@@ -1391,7 +1411,19 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                     Role::DefensiveCoordinator => 0.4,
                     Role::PositionCoach(_) => 0.15,
                 };
-                s -= rung * hiring_bias(w.coaches[c].ethnicity, year, needs_prestige);
+                // A head job has its own weight (minor bugs 127 and 148),
+                // set against the real head coaches: in the NFL about 3 of 31
+                // of color around 2000, then about a fifth after the Rooney
+                // Rule (2003) made every search interview one (9 of 32 in
+                // 2024); at FBS about 12% Black since the 2010s (16 of 134 in
+                // 2024, CBS Sports). The weights are proposed, not confirmed.
+                let head = match (o.employer, o.role) {
+                    (Employer::Nfl(_), Role::HeadCoach) if year >= 2003 => 0.15,
+                    (Employer::Nfl(_), Role::HeadCoach) => 0.3,
+                    (_, Role::HeadCoach) => 0.7,
+                    _ => 1.0,
+                };
+                s -= rung * head * hiring_bias(w.coaches[c].ethnicity, year, needs_prestige);
             }
             if Some(c) == me {
                 s += my_bonus;
@@ -1620,7 +1652,12 @@ fn hs_review(w: &mut World, c: usize, s: usize, tenure: i32, openings: &mut Vec<
     let n = coach.recent.len();
     let last = if n >= 1 { coach.recent[n - 1] } else { 0.0 };
     let before = if n >= 2 { coach.recent[n - 2] } else { 0.0 };
-    let badness = -(1.5 * last + 0.7 * before) + super::storylines::effects::review_push(w, c);
+    let mut badness = -(1.5 * last + 0.7 * before) + super::storylines::effects::review_push(w, c);
+    // A state title is the season a school hopes for: whatever the
+    // expectation, the principal doesn't read it as a failure (minor bug 129).
+    if w.high_schools[s].seasons.last().is_some_and(|x| x.state_title && x.coach == Some(c)) {
+        badness = badness.min(0.0);
+    }
     let prestige = w.high_schools[s].prestige;
     let mut p_fire = clamp((badness - 0.06) * (2.0 + 4.0 * prestige), 0.0, 0.85);
     p_fire *= match tenure {
@@ -1637,6 +1674,12 @@ fn hs_review(w: &mut World, c: usize, s: usize, tenure: i32, openings: &mut Vec<
     }
 }
 
+/// How quick an FBS board is to fire, after the season and during it (minor
+/// bug 124): set so about 17.6% of FBS programs start a season with a new head
+/// coach, as they really did in 2000-2025 (`college_people.json`), and a
+/// finished run lasts a median four seasons. Proposed, not confirmed.
+const FBS_FIRE: f64 = 0.7;
+
 /// The athletic director's review of his head coach after the regular
 /// season (trial 4 topic 4). Proposed, not confirmed, in its sizes:
 /// - He reads the last two seasons against what the roster should have won
@@ -1651,7 +1694,8 @@ fn hs_review(w: &mut World, c: usize, s: usize, tenure: i32, openings: &mut Vec<
 ///   impatient AD, lower again for a new AD who did not hire him.
 /// - A honeymoon: after year 1 only a collapse (0.35 under) can end it, and
 ///   rarely; after year 2 only a collapse (0.22 under); year 3 three quarters.
-/// - FCS boards are half as quick, smaller colleges about a third.
+/// - FBS boards fire at `FBS_FIRE` of that, FCS boards half as quick,
+///   smaller colleges about a third.
 /// - The buyout: a school fires less readily when the buyout is a big share
 ///   of its athletic budget and boosters' money.
 /// - Nobody fires a coach whose team still plays for a title.
@@ -1733,7 +1777,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
         _ => p_fire,
     };
     p_fire *= match division {
-        Division::FBS => 1.0,
+        Division::FBS => FBS_FIRE,
         Division::FCS => 0.5,
         _ => 0.35,
     };
@@ -1858,7 +1902,8 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
 /// worse, well under the roster) after a bad year before or a prove-it
 /// extension. Proposed, not confirmed: a quarter chance each Sunday, half
 /// in his second season, more at a big program, less with a big buyout,
-/// and 0.4 before 2010 (in-season firings grew common in the 2010s).
+/// and 0.4 before 2010 (in-season firings grew common in the 2010s), all
+/// times `FBS_FIRE`.
 pub(crate) fn in_season_firings(w: &mut World) {
     if !w.recording {
         return;
@@ -1891,7 +1936,7 @@ pub(crate) fn in_season_firings(w: &mut World) {
         let money = super::finance::college::athletic_budget(w, p).unwrap_or_else(|| athletic_budget(prog))
             + prog.collective.boosters();
         let afford = clamp(1.2 - buyout / (0.2 * money).max(1.0), 0.15, 1.0);
-        let chance = 0.35 * afford * era * (0.6 + 0.8 * prog.prestige) * if tenure == 2 { 0.5 } else { 1.0 };
+        let chance = FBS_FIRE * 0.35 * afford * era * (0.6 + 0.8 * prog.prestige) * if tenure == 2 { 0.5 } else { 1.0 };
         fired.push((p, c, chance));
     }
     for (p, c, chance) in fired {
@@ -2004,8 +2049,20 @@ fn late_window_due(w: &mut World, p: usize) {
 /// The carousel cycle a college job change belongs to: a search that runs
 /// past the Super Bowl into February still counts as last season's (tenure
 /// counts seasons coached).
-fn cycle_year(w: &World) -> i32 {
+pub(crate) fn cycle_year(w: &World) -> i32 {
     if w.today < w.dates.fall_camp { w.year - 1 } else { w.year }
+}
+
+/// The season a job starts or ends on (minor bug 128): the carousel's
+/// cycle, so a man who moves between the Super Bowl and fall camp closes
+/// his old job with the season he last coached, the same year his new job
+/// begins (`to` of the old equals `since` of the new), whatever the level.
+/// The other leagues play on their own calendars and keep the year.
+fn season_label(w: &World, e: Employer) -> i32 {
+    match e {
+        Employer::Other(_) => w.year,
+        _ => cycle_year(w),
+    }
 }
 
 /// A head coach's contract length in seasons (proposed, not confirmed, from
@@ -2211,6 +2268,41 @@ pub(crate) fn diversity_report(w: &mut World) {
     w.news.push(item);
 }
 
+/// Out-of-work coaches who held a head job, or a coordinator job (on the
+/// opening's side, or either for a head job), at `div` or above or in the
+/// NFL within the last three seasons (minor bug 124).
+fn out_of_work(w: &World, role: Role, div: Division, moved: &HashSet<usize>) -> Vec<usize> {
+    if matches!(role, Role::PositionCoach(_)) {
+        return Vec::new();
+    }
+    let cy = cycle_year(w);
+    let level = |e: Employer| match e {
+        Employer::College(q) => (w.programs[q].division as usize) <= div as usize,
+        Employer::Nfl(_) => true,
+        _ => false,
+    };
+    w.coaches
+        .iter()
+        .filter(|c| c.job.is_none() && !c.retired && c.age < 66 && c.junior_now().is_none())
+        .filter(|c| !moved.contains(&c.id) && !barred(w, c.id))
+        .filter(|c| {
+            c.history.iter().rev().take_while(|s| s.to >= cy - 3).any(|s| {
+                level(s.employer)
+                    && match s.role {
+                        Role::HeadCoach => {
+                            role == Role::HeadCoach || c.came_up.offense() == role.offense().unwrap_or(true)
+                        }
+                        Role::OffensiveCoordinator | Role::DefensiveCoordinator => {
+                            role == Role::HeadCoach || s.role == role
+                        }
+                        Role::PositionCoach(_) => false,
+                    }
+            })
+        })
+        .map(|c| c.id)
+        .collect()
+}
+
 /// Who a search looks at for an opening.
 /// Under an NCAA show-cause order: no college will hire him (11.6).
 fn barred(w: &World, c: usize) -> bool {
@@ -2279,6 +2371,15 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
             };
             pool.extend(hottest(w, &list, short));
             sample(w, &list, 40, &mut pool);
+            // Out-of-work head coaches and coordinators (minor bug 124): a
+            // fired head coach is a name every search knows, not one in a
+            // random draw of the unemployed (Rich Rodriguez, Mike Leach,
+            // Butch Davis and Hugh Freeze got FBS head jobs again after a
+            // year or more out). The hottest who held a job like it, at this
+            // level or above, in the last three seasons (five, proposed, not
+            // confirmed).
+            let out = out_of_work(w, o.role, div, moved);
+            pool.extend(hottest(w, &out, 5));
             // A big head job also calls the hottest NFL coordinators (proposed: 3).
             if o.role == Role::HeadCoach && div == Division::FBS {
                 let nfl: Vec<usize> = w

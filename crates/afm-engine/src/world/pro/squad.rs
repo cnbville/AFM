@@ -9,7 +9,7 @@ use crate::calendar::Date;
 use crate::league::depth_slots;
 use crate::positions::Position;
 use crate::world::World;
-use crate::world::season::key_normal;
+use crate::world::season::{key_normal, key_uniform};
 
 /// Game-day elevations from the practice squad (2020 on): two a game, and
 /// each player at most twice a season in 2020-21, three times from 2022.
@@ -297,6 +297,53 @@ pub(crate) fn squad_eligible(c: &super::ProCareer, age: u32) -> bool {
 
 /// Whether a team's squad has room for this player: he passes the basic
 /// test, or a veteran place is open and his accrued seasons fit it.
+/// A practice squad's places at a position (minor bug 122): real squads at
+/// the 2025 season's end, 15.1 a club (nflverse rosters, status DEV), per
+/// 16 places: QB 0.47, RB 1.12, WR 2.31, TE 1.22, OL 2.97, DL 2.38, LB 1.72,
+/// DB 2.72, K 0.12, P 0.03, LS 0.06. The world's line, front and secondary
+/// split those by their own depth. Each club's places round up or down on a
+/// keyed draw each year (the split is proposed, not confirmed). Before,
+/// squads took the best young players left at any spot: 3.6 specialists
+/// and 1.3 quarterbacks a club against 0.2 and 0.5.
+pub(crate) fn squad_places(w: &World, t: usize, pos: Position, size: usize) -> usize {
+    let per16 = match pos {
+        Position::QB => 0.5,
+        Position::RB => 1.2,
+        Position::WR => 2.45,
+        Position::TE => 1.3,
+        Position::OT => 1.4,
+        Position::IOL => 1.75,
+        Position::EDGE => 1.4,
+        Position::DT => 1.15,
+        Position::LB => 1.7,
+        Position::CB => 1.75,
+        Position::S => 1.15,
+        Position::K => 0.13,
+        Position::P => 0.03,
+        Position::LS => 0.06,
+    };
+    let x = per16 * size as f64 / 16.0;
+    let r = key_uniform(w.options.seed as u64 ^ 0x5A0D ^ (w.year as u64) << 20, (t as u64) << 8 ^ pos.index() as u64);
+    x.floor() as usize + usize::from(r < x.fract())
+}
+
+/// Whether a squad may take one more at his spot: under its places, or, once
+/// those are full, any spot but a quarterback's or a specialist's.
+pub(crate) fn squad_fits(w: &World, t: usize, pos: Position, on: usize, size: usize, strict: bool) -> bool {
+    on < squad_places(w, t, pos, size) || !strict && pos != Position::QB && !pos.is_specialist()
+}
+
+/// A club's practice squad players by position.
+fn squad_by_position(w: &World, t: usize) -> [usize; crate::positions::POSITION_COUNT] {
+    let mut on = [0; crate::positions::POSITION_COUNT];
+    for &j in &w.clubs[t].roster {
+        if w.people[j].pro.as_ref().is_some_and(|c| c.status == Status::PracticeSquad && c.team == Some(t)) {
+            on[w.people[j].player.position.index()] += 1;
+        }
+    }
+    on
+}
+
 pub(crate) fn squad_room(w: &World, t: usize, i: usize) -> bool {
     let Some(c) = w.people[i].pro.as_ref() else { return false };
     if squad_eligible(c, w.people[i].player.age) {
@@ -366,17 +413,28 @@ pub(crate) fn refill_squads(w: &mut World, d: Date) -> bool {
         if crate::world::front_office::yours(w, t, crate::world::front_office::Duty::PracticeSquad) {
             continue;
         }
+        let mut on = squad_by_position(w, t);
         while super::count(w, t, Status::PracticeSquad) < size {
-            let Some(k) = (0..pool.len())
-                .filter(|&k| free(w, pool[k]) && squad_room(w, t, pool[k]))
-                .max_by(|&a, &b| super::grade(w, t, pool[a]).total_cmp(&super::grade(w, t, pool[b])))
-            else {
+            // Its open places by position first, then any spot but a
+            // quarterback's or a specialist's (minor bug 122).
+            let pick = |strict: bool| {
+                (0..pool.len())
+                    .filter(|&k| {
+                        let pos = w.people[pool[k]].player.position;
+                        free(w, pool[k])
+                            && squad_room(w, t, pool[k])
+                            && squad_fits(w, t, pos, on[pos.index()], size, strict)
+                    })
+                    .max_by(|&a, &b| super::grade(w, t, pool[a]).total_cmp(&super::grade(w, t, pool[b])))
+            };
+            let Some(k) = pick(true).or_else(|| pick(false)) else {
                 break;
             };
             let i = pool.swap_remove(k);
             if money::cap_books(year) && super::space(w, t, year) < pay {
                 break;
             }
+            on[w.people[i].player.position.index()] += 1;
             let deal = money::build(t, money::Kind::PracticeSquad, year, &money::Terms::flat(1, pay));
             let name = super::possessive(w.nfl[t].name);
             let p = &mut w.people[i];

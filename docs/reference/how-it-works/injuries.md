@@ -1,6 +1,6 @@
 # Injuries: how it works today
 
-Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28.
+Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -14,6 +14,7 @@ There are four injury sources, and they do not talk to each other much:
 ## Quick answers
 
 - Does an engine game injury carry past the game? Yes, at every level unless he played on. In the NFL (and the other pro leagues) it sets `out_days`, counted down day by day, with `out_weeks` the weeks still left (lane 4, B1: `world/pro/games.rs`, `record`, `record_preseason`; `world/pro/other.rs`; `ProCareer::hurt_for`). In college and high school (JV games aside) he is out ceil(weeks × (1 − 0.12 × medical) × 7) days, at least 1, from the day after the game; medical = (the program's medical rating − 10) / 10 in college (a top staff 12% shorter, a poor one up to 11% longer), 0 in high school. Your players get a `Hurt` row ("game") and a trainers' note; everyone else goes in `training.others_hurt`, which `hurt_out` reads, so AI teams sit them too (`training/seat.rs`, `game_injuries`; `world/college.rs`, `play_day`; `world/hs_year.rs`).
+- And an NFL season row's games missed? Counted game by game: each regular-season game his team plays while he is on its roster and still out hurt (`world/pro/games.rs`, `record`). Men on injured reserve don't count, as on real injury reports (nflverse's 1.2 games a player-season); the yearly roll's figure is cleared at camp (`world/pro/mod.rs`, `camp`; minor bug 96: the rows kept the roll, 0.56).
 - Then where do college and high school "games missed" come from? The yearly roll: minor 0-2 games, moderate 2-6, major half the season or more, written on the season row (`development.rs`, `develop_season`, `games_missed`). It does not take him out of engine games.
 - Does toughness make injuries rarer? No. Toughness only decides whether he plays on hurt (`game/sim.rs`, `injury_check`, `plays_on`).
 - Does fatigue raise injury odds? Yes: the chance × (1 + 0.8 × tired), tired 0-1 from his energy (`game/sim.rs`, `injury_check`). Fatigue also scales ratings (`game/sim.rs`, `Agent::new`).
@@ -32,9 +33,9 @@ There are four injury sources, and they do not talk to each other much:
 - Force: (carrier mass × speed + tackler mass × speed) × 0.5 × (1 + 0.2 × share × his big-hit tendency lean) (`game/sim.rs`, `hit_effects`).
 - Share: the carrier 1 + 0.4 × his contact tendency lean (min 0.2); the tackler 0.7 (`hit_effects`).
 - Chance: `injury_scale × 0.022 × share × (force / 1700)^1.6 × prone × turf`, prone = 0.55 + proneness / 18 (1 → 0.61, 10 → 1.11, 20 → 1.66), turf 1.12 or 1.0, `injury_scale` 1.0 (`game/sim.rs`, `injury_check`; `game/flow.rs`).
-- Type mix (weights): bruise 22, ankle sprain 13, high ankle 5, knee sprain 10, ACL 2.2, shoulder 9, concussion 8, ribs 5, hand 6, fracture 3, back 3, hamstring 6 (`injury_check`).
+- Type mix (weights): bruise 23.2, ankle sprain 9.5, high ankle 3.6, knee sprain 7.9, ACL 1.7, shoulder 4.6, concussion 10.7, ribs 5.0, hand 6.1, fracture 3.1, back 2.8, hamstring 7.4, foot 3.1, groin 3.4, calf 3.0, neck 1.8, hip 1.7, quad 1.5 (`injury_check`). Sized so the week-plus ones match nflverse's shares by body part (knee 17.2%, ankle 14.3%, hamstring 12.9%, concussion 11.1%, shoulder 5.6%, foot 4.4%, groin 4.3%, calf 3.8%); foot, groin, calf, neck, hip and quad got their own kinds with minor bug 145 (knees had been 24.7% and ankles 21.1%).
 - Length: `injury_weeks` gives lo + (hi − lo) × u² (most are short) × (1.3 − 0.03 × recovery) (recovery 10 → ×1.0, 20 → ×0.7, 1 → ×1.27) (`game/sim.rs`, `injury_weeks`, `injury_check`).
-- Ranges in weeks: bruise 0-1, ankle 0-3, high ankle 2-7, hamstring 1-5, knee 1-6, ACL 36-56, shoulder 0-8, concussion 0.5-3, ribs 0-4, hand 0-5, fracture 4-12, back 0-4 (`injury_weeks`).
+- Ranges in weeks: bruise 0-1, ankle 0-3, high ankle 2-7, hamstring 1-5, knee 1-6, ACL 36-56, shoulder 0-8, concussion 0.5-3, ribs 0-4, hand 0-5, fracture 4-12, back 0-4, foot 0.5-9.5, groin 0.5-5.5, calf 0.5-5.5, neck 0-10, hip 0-7, quad 0.5-6 (`injury_weeks`; the six new ranges and what each hampers are proposed, not confirmed).
 - Playing on: never after a concussion, ACL or fracture; otherwise chance clamp(0.15 + 0.035 × toughness − 0.12 × weeks, 0, 0.95), toughness as a 1-20 read against the level (`injury_check`; `game/roster.rs`, `trait20`).
 - Concussion protocol: caught 92% in the NFL, 80% in college, 60% in high school; one not caught plays on (`game/flow.rs`, `apply_injuries`).
 - Playing hurt: the ratings his injury limits drop by its share each snap he plays, scrimmage and kicks alike (a hamstring speed and burst, a hand catching) (`game/sim.rs`, `hampered`, `InjuryKind::hampers`; `game/scrimmage.rs`, `run_snap`; `game/kicking.rs`). The rest are untouched.

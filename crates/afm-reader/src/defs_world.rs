@@ -683,9 +683,9 @@ pub const CHECKS: &[Check] = &[
         years: None,
         detail: None,
         real: Real::Fixed(
-            9.2,
-            r#"nfl_history.json weather_splits: 17,464 pass attempts below 32°F in 1999-2025 at about 70 a game, about 9 games a season (games with a reading, about 77% of all)"#,
-            r#"1999-2025"#,
+            10.2,
+            r#"nflverse play-by-play 2021-2025: regular-season outdoor and open-roof games below 32°F at kickoff, 7, 15, 3, 11 and 15 a season (the game's temp, or its weather line's where that is missing; minor bug 144: the old 9.2 came from pass attempts and missed the games without a reading)"#,
+            r#"2021-2025"#,
         ),
         tol: (0.3, 0.6, 0.0),
         needs: G,

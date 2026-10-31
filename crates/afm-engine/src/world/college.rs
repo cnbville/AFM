@@ -2903,6 +2903,18 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
 
 // --- The season's end ----------------------------------------------------------------------
 
+/// The head coach a program fired during `season`, if any.
+fn fired_during(w: &World, p: usize, season: i32) -> Option<usize> {
+    w.coaches.iter().position(|c| {
+        c.history.last().is_some_and(|s| {
+            s.employer == super::coach::Employer::College(p)
+                && s.role == super::coach::Role::HeadCoach
+                && s.to == season
+                && s.ended.starts_with("fired during the season")
+        })
+    })
+}
+
 /// The regular season's book at the Sunday after rivalry week (section 4:
 /// coaches are judged and fired before the title games). Pushes each
 /// program's season (updated as its postseason ends) and moves reputations.
@@ -2924,6 +2936,12 @@ pub(crate) fn record_regular_season(w: &mut World) {
         if t.games() == 0 {
             continue;
         }
+        // The season is credited the way the record books do it (minor
+        // bug 124): to the coach of most of its games, so a coach fired in
+        // November keeps it and his interim, on the sideline at the end,
+        // doesn't get a season of his own.
+        let (cw, cl) = credited[p];
+        let fired = (cw + cl > 0 && 2 * (cw + cl) >= t.games()).then(|| fired_during(w, p, year)).flatten();
         let prog = &mut w.programs[p];
         // The coach on the sideline: an interim after an in-season firing.
         let head = prog.sideline.or(prog.head_coach);
@@ -2933,13 +2951,12 @@ pub(crate) fn record_regular_season(w: &mut World) {
             losses: t.losses,
             conference_title: t.conference_title,
             national_title: false,
-            coach: head,
+            coach: fired.or(head),
             strength: t.strength,
             totals: t.totals,
         });
         let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
         let staff = staff_of(prog, head);
-        let (cw, cl) = credited[p];
         for (c, is_head) in staff {
             if is_head {
                 super::staff::credit_head(w, c, p, t.wins.saturating_sub(cw), t.losses.saturating_sub(cl), 0);

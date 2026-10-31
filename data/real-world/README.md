@@ -85,6 +85,7 @@ Gaps (exact):
 
 **Research area 1 files** (added 2026-10-14, explained in `docs/research/engine-and-tactics.md`):
 - `engine_targets.json` (`scripts/engine_targets.py`): NFL 2021-25 runs by box count, pressure and rushers, coverage and route results, play-action, RPO, motion, snap shares, carry and target shares, red zone, returns, player spread by position, contracts by position, home edge 1999-2025, and the 2025 scheme mix. From nflverse pbp, participation (NGS), FTN charting, snap counts, contracts and nfldata games.csv.
+- `nfl_route_depth.json` (`scripts/route_depth.py`): NFL 2023-25 targets by route (one route list, NGS) and by the target's position: share, air yards, the four depth bands (behind the line, 0-9, 10-19, 20+), catch rate, yards a target and time to throw. From nflverse pbp and participation. `match_check` compares its route table with it (minor bug 135).
 - `coach_effect_offense.json`, `coach_effect_defense.json` (`scripts/coach_effect.py`): how much head coaches move EPA per play once the QB is held fixed, 2006-2025.
 - `college_scores.json` (`scripts/college_scores.py`): points, margins, blowouts and home edge for FBS, FCS, D2 and D3 from the sportsdataverse `cfb_schedules` release.
 - Gaps: no open play-by-play for D2, D3, NAIA, JUCO or high school; no NAIA or JUCO scores; no high school scheme survey.
@@ -107,6 +108,8 @@ Gaps (exact):
 - Gap: no open play-by-play for high school. High school checks will use MaxPreps scoring and blowout rates when researched.
 
 **college_altitude.csv** (added 2026-10-17, trial 4 topic 3): the home field's altitude in feet for every college in `colleges.csv` and `colleges_lower.csv` whose town sits about 2,000 feet up or more (Wyoming 7,220, Air Force 6,620, Colorado 5,330 down to UNLV 2,000), plus neutral-site towns by name. Town elevations rounded, Claude's reading of the towns' published elevations (USGS and town pages), approximate. Every college not listed is taken as 500 feet. Visitors from lower ground tire faster there.
+
+**nfl_fourth_go_habit.csv** (added 2026-10-30, minor bug 142): the real NFL fourth-down go rate in `nfl_fourth_go.csv`'s buckets (yards to go, yards from the end zone, score), counted without the fourth quarter's last 2:30 down four or more, where the engine's coaches go anyway (0.18 of the real 1.46 tries a team game came there). nflverse play-by-play, regular seasons 2021-2025; the `fourth_go_habit` table of `scripts/nfl_situations.py`.
 
 **college_pass_rate.csv** and **college_fourth_go.csv** (added 2026-10-17, trial 4 topic 5): how often real FBS teams pass by down, distance, score and clock, and go for it on fourth down by distance, field position and score, in the same buckets as the NFL tables. FBS-vs-FBS regular seasons 2023-2024 from cfbfastR play-by-play; sacks count as passes, kneels and spikes are left out. Overall pass rate 49.9%. College play calling uses these instead of the NFL tables. Built by `scripts/college_situations.py`.
 

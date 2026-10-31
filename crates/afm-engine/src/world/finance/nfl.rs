@@ -738,6 +738,19 @@ pub(crate) fn gate(w: &mut World, t: usize, opp: usize, d: Date, preseason: bool
         cap * x.max(0.35)
     };
     let blackout = rule && x < bar - 0.05;
+    // 2020's COVID season (minor bug 149): most stadiums stayed empty and
+    // the rest let in 5-25% of their seats, about 1.2 million fans all year
+    // against about 17 million in a usual one (real: 2020 attendance
+    // 1,206,538; league revenue fell from $15.3B to $12.2B). Which clubs
+    // opened and how far is a keyed draw (proposed, not confirmed: three in
+    // five stayed shut).
+    let (att, sold_out) = if year == 2020 && !preseason {
+        let r = draw(w, 0xC0F1D, t as u64, 2020);
+        let allowed = if r < 0.6 { 0.0 } else { 0.05 + 0.2 * (r - 0.6) / 0.4 };
+        (att.min(cap * allowed), false)
+    } else {
+        (att, sold_out)
+    };
     let g = Gate { date: d, opp: opp as u8, attendance: att as u32, sold_out, blackout, preseason, playoff };
     let price = c.price as f64
         * if preseason {
@@ -863,11 +876,20 @@ fn renew(w: &mut World, t: usize) {
 
 /// Forbes-style value: revenue times the era's multiple, more for a big
 /// brand and a new stadium.
+///
+/// The era's multiple is the league's average value over revenue (Forbes:
+/// about 7.9 in 2024), so the brand and stadium lean is read against the
+/// league's average lean (minor bug 149: the lean only ever added, which
+/// gave 8.9 times revenue and $6.45B a club in 2024 against $5.9B).
 pub fn value_of(w: &World, t: usize, year: i32) -> f64 {
+    let lean = |t: usize| (0.84 + 0.32 * data::brand(t)) * (1.0 + 0.2 * w.finance.nfl[t].home.premium(year));
+    let teams: Vec<usize> =
+        franchise::active_teams_in(w, year).into_iter().filter(|&x| x < w.finance.nfl.len()).collect();
+    let mean = if teams.is_empty() { 1.0 } else { teams.iter().map(|&x| lean(x)).sum::<f64>() / teams.len() as f64 };
     let c = &w.finance.nfl[t];
     let rev = c.years.last().map_or_else(|| Club::revenue(&c.budget), Club::revenue);
     let rev = if rev <= 0.0 { data::league_revenue(year) / 32.0 } else { rev };
-    rev * data::value_multiple(year) * (0.84 + 0.32 * data::brand(t)) * (1.0 + 0.2 * c.home.premium(year))
+    rev * data::value_multiple(year) * lean(t) / mean.max(0.1)
 }
 
 fn values(w: &mut World) {
@@ -954,8 +976,11 @@ fn sales(w: &mut World) {
         }
         let tenure = year - w.finance.nfl[t].owner_since;
         let r = draw(w, 0x5A1E, t as u64, year);
-        let sale = r < 0.022 && tenure >= 4;
-        let heir = !sale && r < 0.034 && tenure >= 15;
+        // Real controlling sales: 12 in 2000-2025 (Jets 2000 to Commanders
+        // 2023), about one a year in 32 clubs x 0.015 (minor bug 149: 0.022
+        // gave 0.6 a year against about 0.4-0.5).
+        let sale = r < 0.015 && tenure >= 4;
+        let heir = !sale && r < 0.027 && tenure >= 15;
         if !sale && !heir {
             continue;
         }

@@ -225,6 +225,24 @@ impl Rules {
     }
 }
 
+/// The typical head coach's game management (1-20) at each level, as the
+/// world's coaches come out of hiring (a 15-season world at a quarter's
+/// scale, seed 2026: NFL 15.1, FBS 14.2, FCS 12.8, D2 to JUCO 12.1, high
+/// school 9.2). The real rates a coach's calls are set to (NFL toss
+/// winners deferring 82%, challenges won 38%, fourth-down tries) are what
+/// the level's own coaches do, so a coach is read against this: the NFL's
+/// were read against 10 and, at about 15, went to the replay booth's clamp
+/// (minor bug 140). Proposed, not confirmed.
+pub fn coach_norm(level: Level) -> f64 {
+    match level {
+        Level::NFL => 15.0,
+        Level::FBS => 14.0,
+        Level::FCS => 13.0,
+        Level::SmallCollege => 12.0,
+        Level::HS => 9.0,
+    }
+}
+
 /// What a typical dressed player at a level has in a trait-like rating
 /// (discipline, toughness, motor, composure, concentration, competitiveness,
 /// physicality). The engine reads these against the level, the way the old
