@@ -288,6 +288,9 @@ pub(crate) fn advance_day(w: &mut World) {
 
     // --- Fall: camp, the new high school year, polls -------------------------------
     if d == y.fall_camp {
+        // Last offseason's coaching changes are done with.
+        w.late_windows.clear();
+        w.coach_follows.clear();
         recruiting::camp_walk_ons(w);
         timed("college start", || college::start(w));
         college::lean_checkpoint(w, college::LeanCheck::FallCamp);
@@ -352,8 +355,9 @@ pub(crate) fn advance_day(w: &mut World) {
         super::program::announce_drops(w);
         college::record_regular_season(w);
         college::regular_season_end(w, Division::FBS);
+        // Each head coach who leaves moves his players the day he goes
+        // (`college::coach_gone`, minor bug 88).
         timed("carousel college", || staff::carousel(w, staff::Scope::College));
-        college::lean_checkpoint(w, college::LeanCheck::CoachingChanges);
         // A head coach change opens its own transfer window five days later
         // (T3): 30 days long in the windows era (2022-2024), 15 days from 2025 on.
         let days = match w.changes.rules(w.year).transfer {
@@ -438,6 +442,18 @@ pub(crate) fn advance_day(w: &mut World) {
     {
         w.coach_window = None;
         recruiting::portal_open(w, PortalWindow::CoachChange, close);
+    }
+    // A head coach who left after that window opened: his players' own
+    // window, five days after the new hire (minor bug 88), the day's
+    // programs together.
+    if w.late_windows.iter().any(|x| x.1.is_some_and(|(open, _)| open == d)) {
+        let (today, later): (Vec<_>, Vec<_>) =
+            w.late_windows.iter().copied().partition(|x| x.1.is_some_and(|(open, _)| open == d));
+        w.late_windows = later;
+        let close = today.iter().filter_map(|x| x.1.map(|t| t.1)).max().unwrap_or(d);
+        w.window_programs = today.iter().map(|x| x.0).collect();
+        recruiting::portal_open(w, PortalWindow::CoachChange, close);
+        w.window_programs.clear();
     }
     // Your players who talked to you first decide on their day.
     if !w.portal_intents.is_empty() {

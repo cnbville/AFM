@@ -738,7 +738,9 @@ fn run_return(
             mid() + rng.range(-3.0, 3.0)
         } else if gap.is_some() && (n == 1 || n == 2) {
             // Gunners close on the returner from either side.
-            catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)
+            // Inside the lines: a catch near the sideline put one up to
+            // 4.5 yards out of bounds, his jammer driving him farther.
+            (catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)).clamp(1.0, width() - 1.0)
         } else {
             lane + (catch.y - lane) * (1.0 - (x - catch.x).abs() / 40.0).clamp(0.0, 0.6)
         };
@@ -760,7 +762,7 @@ fn run_return(
             // wall, so the gunners came free and NFL punt returns went 5.5
             // yards against the real 9.5 (minor bug 139).
             let g = agents[n].pos;
-            v2(g.x + rng.range(-1.5, 1.0), g.y + rng.range(-0.7, 0.7))
+            v2(g.x + rng.range(-1.5, 1.0), (g.y + rng.range(-0.7, 0.7)).clamp(0.5, width() - 0.5))
         } else {
             // The wall forms between him and the coverage.
             let lane = 6.0 + ((n - 1) as f64) * (width() - 12.0) / (rules.code.players as f64 - 2.0);

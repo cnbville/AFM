@@ -621,6 +621,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             crate::development::open_row_with_spring_step(&mut p.player, gain);
         }
         p.last_role = Some(role);
+        p.cal.nil_role = None;
         p.last_performance = p.player.history.last().and_then(|h| h.performance.get());
         p.sit_out = 0.0;
         // JUCO classes: transferable credits and grades build back, or don't.

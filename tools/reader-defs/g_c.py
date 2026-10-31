@@ -252,7 +252,7 @@ panel("G19.gems", GP, "G19", "Flagged seasons and what became of the player", "t
   f"""WITH f AS (SELECT _row AS bit, name FROM engine_footprints UNION ALL SELECT 15, 'testing day')
      SELECT s.year, s.division, s.pos, s.id, {pname('s.id')} AS name, {prog('p')} AS program,
             (SELECT group_concat(f.name, ', ') FROM f WHERE (s.footprint >> f.bit) & 1) AS flags,
-            COALESCE((SELECT 'pro: ' || a.pro__status FROM alumni a WHERE a.player__id = s.id), (SELECT 'still in the world' FROM people WHERE player__id = s.id)) AS later
+            COALESCE((SELECT 'pro: ' || CASE a.pro__status WHEN 'FreeAgent' THEN 'free agent' WHEN 'PracticeSquad' THEN 'practice squad' WHEN 'Reserve' THEN 'reserve' WHEN 'Roster' THEN 'roster' ELSE CASE WHEN json_valid(a.pro__status) THEN 'another league' END END FROM alumni a WHERE a.player__id = s.id), (SELECT 'still in the world' FROM people WHERE player__id = s.id)) AS later
        FROM stats__seasons s LEFT JOIN programs p ON p.id = s.program WHERE s.footprint > 0 ORDER BY {divord('s.division')} DESC, s.year DESC""", open="e/people/{id}")
 col("alumni", "pro__status")
 

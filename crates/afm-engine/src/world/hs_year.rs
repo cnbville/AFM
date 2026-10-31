@@ -721,6 +721,9 @@ pub(crate) fn day(w: &mut World, d: Date) {
             if super::new_teams::school::class_day(w) {
                 w.rebuild_rosters();
             }
+            // The boarding academies take their freshmen (minor bug 126).
+            super::recruiting::boarding_freshmen(w);
+            w.rebuild_rosters();
         });
     }
     let n_states = w.states.len();
