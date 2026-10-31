@@ -375,6 +375,15 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
         .collect()
 }
 
+/// The college trouble roll's base before his personality, background and
+/// the program's engagement staff. College players are a steadier group
+/// than high schoolers (more work ethic and professionalism, less temper),
+/// so the class model's 3% base came out at about 2.5% of college players
+/// a season (the book read 2.0%: the dismissed leave college); 3.6% gives
+/// the design's 3%, measured on a full world (minor bug 112; proposed, not
+/// confirmed: no national college rate is on file).
+const COLLEGE_TROUBLE: f64 = 0.036;
+
 /// The season's development step (one checkpoint a year, `development.rs`)
 /// for the people given, with their roles. High school players develop when
 /// their state's season starts, college and prep players at fall camp.
@@ -494,7 +503,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                     // 0.2, facilities 0.15.
                     0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
                     (prog.facilities - 0.5) * 0.15,
-                    crate::career::PIPELINE.college_trouble.chance,
+                    COLLEGE_TROUBLE,
                 )
             }
             Stage::PrepSchool => (Level::HS, 12.0, 0.05, 0.01),
@@ -657,6 +666,13 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             p.stage = Stage::Done;
         }
     });
+    // The year's college trouble rate, counted before the dismissed leave.
+    for (i, p) in w.people.iter().enumerate() {
+        if role_of[i].is_some() && p.player.history.last().is_some_and(|h| h.level.is_college()) {
+            w.log.college_rolled += 1;
+            w.log.college_trouble += p.cal.trouble as u32;
+        }
+    }
 }
 
 /// A team's strength from its starters as they play this season (form,

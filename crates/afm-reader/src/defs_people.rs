@@ -27,6 +27,8 @@ pub const COLUMNS: &[(&str, &str)] = &[
     ("log_history", "sixth_years"),
     ("log_history", "covid_returns"),
     ("log_history", "covid_declined"),
+    ("log_history", "college_rolled"),
+    ("log_history", "college_trouble"),
     ("people", "looks"),
     ("people", "followers"),
     ("people", "brand"),
@@ -83,16 +85,19 @@ pub const CHECKS: &[Check] = &[
         areas: "P2",
         title: r#"Median age of first-round picks"#,
         unit: "years",
-        world: r#"SELECT age FROM (SELECT json_extract(pro__draft, '$[0]') - class_of + 18 AS age FROM people WHERE json_extract(pro__draft, '$[1]') = 1
-                          UNION ALL SELECT json_extract(pro__draft, '$[0]') - class_of + 18 FROM alumni WHERE json_extract(pro__draft, '$[1]') = 1)
-         ORDER BY age LIMIT 1 OFFSET (SELECT (COUNT(*) - 1) / 2 FROM (SELECT 1 FROM people WHERE json_extract(pro__draft, '$[1]') = 1 UNION ALL SELECT 1 FROM alumni WHERE json_extract(pro__draft, '$[1]') = 1))"#,
+        world: r#"WITH r AS (SELECT json_extract(pro__draft, '$[0]') AS y, born, class_of FROM people WHERE json_extract(pro__draft, '$[1]') = 1
+                       UNION ALL SELECT json_extract(pro__draft, '$[0]'), born, class_of FROM alumni WHERE json_extract(pro__draft, '$[1]') = 1),
+              a AS (SELECT CASE WHEN born IS NOT NULL AND born > -100000
+                                THEN y - CAST(strftime('%Y', born * 86400, 'unixepoch') AS INTEGER) - (strftime('%m-%d', born * 86400, 'unixepoch') > '09-01')
+                                ELSE y - class_of + 18 END AS age FROM r)
+         SELECT age FROM a ORDER BY age LIMIT 1 OFFSET (SELECT (COUNT(*) - 1) / 2 FROM a)"#,
         scale: 1.0,
         years: None,
         detail: None,
         real: Real::Key(r#"nfl_careers.json:draft_age.by_round#1.p50"#, 1.0),
         tol: (0.03, 0.07, 0.0),
         needs: W,
-        how: r#"Every first-round pick's age at the draft from his class: draft year less class year plus 18."#,
+        how: r#"Every first-round pick's whole years of age on 1 September of his draft year, from his birth date: nflverse's draft ages are season ages (only 0.5% of its picks are 20, where draft-day ages would make every true junior born from May to August 20). A world without birth dates falls back on his class, draft year less class year plus 18 (minor bug 109: the class read a year young for a true junior)."#,
     },
     Check {
         id: "P3.fbs_black",
@@ -194,8 +199,8 @@ pub const CHECKS: &[Check] = &[
         areas: "P8 P11",
         title: r#"Median level rating of an FBS season"#,
         unit: "",
-        world: r#"WITH f AS (SELECT level_rating AS v FROM people__player__history WHERE level = 'FBS' AND level_rating IS NOT NULL
-                   UNION ALL SELECT level_rating FROM alumni__player__history WHERE level = 'FBS' AND level_rating IS NOT NULL)
+        world: r#"WITH f AS (SELECT h.level_rating AS v FROM people__player__history h JOIN people p ON p._row = h._parent
+                    WHERE h.level = 'FBS' AND h.level_rating IS NOT NULL AND h.age + 1 = p.player__age AND p.stage <> 'Done')
          SELECT v FROM f ORDER BY v LIMIT 1 OFFSET (SELECT COUNT(*) / 2 FROM f)"#,
         scale: 1.0,
         years: None,
@@ -207,7 +212,7 @@ pub const CHECKS: &[Check] = &[
         ),
         tol: (0.09, 0.2, 0.0),
         needs: W,
-        how: r#"Every FBS season on record (people and alumni), its level rating ("89 among seniors"); the real band is 65-78, its middle shown."#,
+        how: r#"Last season's FBS players, each season's level rating ("89 among seniors"); the real band is 65-78, its middle shown. Only last season: the world keeps older seasons mostly for players who went on, so every season on record read 74-78 where each season's own median sits at 72 (minor bug 110)."#,
     },
     Check {
         id: "P8.nfl_mean",
@@ -560,9 +565,12 @@ pub const CHECKS: &[Check] = &[
         areas: "P22",
         title: r#"College players in trouble this season"#,
         unit: "%",
-        world: r#"SELECT AVG(cal__trouble) FROM people WHERE stage = 'College'"#,
+        world: r#"SELECT 1.0 * SUM(college_trouble) / SUM(college_rolled) FROM log_history
+            WHERE college_rolled > 0 AND year > (SELECT MAX(year) - 5 FROM log_history WHERE college_rolled > 0)"#,
         scale: 100.0,
-        years: None,
+        years: Some(
+            r#"SELECT year, 1.0 * college_trouble / college_rolled FROM log_history WHERE college_rolled > 0 ORDER BY year"#,
+        ),
         detail: None,
         real: Real::Fixed(
             3.0,
@@ -571,7 +579,7 @@ pub const CHECKS: &[Check] = &[
         ),
         tol: (0.25, 0.5, 0.0),
         needs: W,
-        how: r#"College players suspended or dismissed this season."#,
+        how: r#"College players suspended or dismissed in a season, over every college player on a roster that season, the last five seasons pooled (log_history, counted at the season's development step before the dismissed leave; minor bug 112: the old read of today's college players missed the dismissed, who have left college)."#,
     },
     Check {
         id: "P22.hs_trouble",
@@ -1099,9 +1107,12 @@ pub const PANELS: &[Panel] = &[
         area: "P2",
         title: r#"Age at the draft by round"#,
         kind: "bars",
-        note: r#"Every drafted player's age at the draft, worked out from his class (draft year less class year plus 18: a held-back boy is a year older), by round, against nflverse draft picks 2000-2026 (`nfl_careers.json` draft_age.by_round mean, ages at 1 September)."#,
-        sql: r#"WITH d AS (SELECT json_extract(pro__draft, '$[1]') AS round, json_extract(pro__draft, '$[0]') - class_of + 18 AS age FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL
-                   UNION ALL SELECT json_extract(pro__draft, '$[1]'), json_extract(pro__draft, '$[0]') - class_of + 18 FROM alumni WHERE json_extract(pro__draft, '$[1]') IS NOT NULL)
+        note: r#"Every drafted player's age on 1 September of his draft year from his birth date (a world without birth dates: draft year less class year plus 18), by round, against nflverse draft picks 2000-2026 (`nfl_careers.json` draft_age.by_round mean, ages at 1 September)."#,
+        sql: r#"WITH r AS (SELECT json_extract(pro__draft, '$[1]') AS round, json_extract(pro__draft, '$[0]') AS y, born, class_of FROM people WHERE json_extract(pro__draft, '$[1]') IS NOT NULL
+                   UNION ALL SELECT json_extract(pro__draft, '$[1]'), json_extract(pro__draft, '$[0]'), born, class_of FROM alumni WHERE json_extract(pro__draft, '$[1]') IS NOT NULL),
+              d AS (SELECT round, CASE WHEN born IS NOT NULL AND born > -100000
+                                THEN y - CAST(strftime('%Y', born * 86400, 'unixepoch') AS INTEGER) - (strftime('%m-%d', born * 86400, 'unixepoch') > '09-01')
+                                ELSE y - class_of + 18 END AS age FROM r)
          SELECT 'Round ' || round AS label, AVG(age) AS world, json_extract((SELECT json FROM real_data WHERE file = 'nfl_careers.json'), '$.draft_age.by_round.' || round || '.mean') AS real, COUNT(*) AS n
            FROM d WHERE round BETWEEN 1 AND 7 GROUP BY round ORDER BY round"#,
         says: None,
@@ -1862,9 +1873,9 @@ pub const PANELS: &[Panel] = &[
         id: "P16.moved",
         page: "people",
         area: "P16",
-        title: r#"Tendencies moved in the last year"#,
+        title: r#"Tendencies coached away from his own habit"#,
         kind: "bars",
-        note: r#"Mean absolute change of each tendency from a year ago among college and pro players (`tend.was`): coaching moves habits, less after 26."#,
+        note: r#"Mean gap between each tendency now and the habit he slips back to under stress (`tend.was`) among college and pro players: what coaching has moved, less after 26. Not the change from a year ago: drift, style and scheme pulls and an injury's dip leave no gap. Contact willingness and gets his hands up have no right number, so results and coaching never move them and read 0 by design (`tendencies.rs`, `ideal`; minor bug 113)."#,
         sql: r#"WITH x AS (SELECT player__tend__v AS v, player__tend__was AS w FROM people WHERE stage IN ('College', 'Pro') AND player__tend__was IS NOT NULL),
               t AS (SELECT CAST(j.key AS INTEGER) AS k, AVG(ABS(j.value - json_extract(x.w, '$[' || j.key || ']'))) AS v, COUNT(*) AS n FROM x, json_each(x.v) j GROUP BY j.key)
          SELECT n.column2 AS label, t.v AS world, t.n FROM t JOIN (VALUES (0, 'Bounces runs'), (1, 'Contact willingness'), (2, 'Reaches the ball out'), (3, 'Patient or downhill'), (4, 'Scrambles'), (5, 'Gunslinger or checkdown'), (6, 'Holds for the big play'), (7, 'Returner risk'), (8, 'Rushes upfield or keeps contain'), (9, 'Times the snap'), (10, 'Gets his hands up'), (11, 'Goes for the strip'), (12, 'Big hit or sure tackle'), (13, 'Flies downhill or reads first'), (14, 'Jumps routes')) n ON n.column1 = t.k ORDER BY t.k"#,

@@ -70,11 +70,13 @@ pub struct DraftRecord {
 
 /// The pick clock by era, minutes per round (real): 15 in round 1 and 10 in
 /// round 2 until 2008; then 10, 7, 5 for rounds 3 to 6 and 4 in round 7;
-/// round 1 down to 8 minutes from 2026.
+/// round 1 down to 8 minutes from 2026. Rounds 3-7 had 5 minutes before
+/// 2008 too (from memory: the 2008 change cut only rounds 1 and 2).
 pub fn clock_minutes(year: i32, round: u32) -> u32 {
     match (year, round) {
         (..=2007, 1) => 15,
-        (..=2007, _) => 10,
+        (..=2007, 2) => 10,
+        (..=2007, _) => 5,
         (2026.., 1) => 8,
         (_, 1) => 10,
         (_, 2) => 7,

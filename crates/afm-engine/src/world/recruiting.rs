@@ -1421,6 +1421,49 @@ pub(crate) fn draft(w: &mut World) {
     draft_end(w, run, None);
 }
 
+/// The minute each pick on the board is made (T1.5): round 1 on the first
+/// night, rounds 2-3 on the second, 4-7 on the last day. A pick takes three
+/// fifths of its round's clock on average in rounds 1-3 and half of it on
+/// the last day (real recent drafts, from memory: round 1 about 6 minutes a
+/// pick and done near 11:20 PM ET, round 2 about 4, round 3 about 3, the
+/// last day about 2.5 and done between 6:30 and 7 PM), after the
+/// commissioner's ten-minute opening and with five minutes between rounds
+/// on the same day. Rounds are counted on the board itself, so the
+/// compensatory picks lengthen rounds 3-7 as they do; in a smaller world
+/// each pick stands for the real picks it thins out. A day that would run
+/// into the next one or past midnight is squeezed to fit (the older drafts).
+pub(crate) fn pick_stamps(year: i32, board: &[(usize, u32)], scale: f64, starts: [Moment; 3]) -> Vec<Moment> {
+    let stands_for = 1.0 / scale.clamp(0.01, 1.0);
+    let day = |r: u32| match r {
+        1 => 0,
+        2 | 3 => 1,
+        _ => 2,
+    };
+    let mut at = [10.0f64, 0.0, 0.0];
+    let mut mins = Vec::with_capacity(board.len());
+    let mut last = 0;
+    for &(_, r) in board {
+        let j = day(r);
+        if last != 0 && r != last && day(last) == j {
+            at[j] += 5.0;
+        }
+        mins.push((j, at[j]));
+        let share = if r <= 3 { 0.6 } else { 0.5 };
+        at[j] += share * super::scouting::live::clock_minutes(year, r) as f64 * stands_for;
+        last = r;
+    }
+    let room = |j: usize| -> f64 {
+        let end = if j < 2 && starts[j + 1].date == starts[j].date {
+            starts[j + 1]
+        } else {
+            Moment::at(starts[j].date, 23, 59)
+        };
+        (starts[j].date.days_to(end.date) * 1440 + end.minute as i32 - starts[j].minute as i32) as f64 - 10.0
+    };
+    let squeeze: Vec<f64> = (0..3).map(|j| (room(j) / at[j].max(1.0)).min(1.0)).collect();
+    mins.into_iter().map(|(j, m)| starts[j].add_minutes((m * squeeze[j]) as i32)).collect()
+}
+
 /// A draft under way: the order, who's left, every club's board and what has
 /// happened so far. Kept on the world while your war room is open, so a save
 /// made mid-draft carries on (people keep their places until the draft ends).
@@ -1751,9 +1794,12 @@ pub(crate) fn draft_end(
     for (i, rank, pick) in slides {
         super::pro::scouts::note_slide(w, i, rank, pick);
     }
-    // The trades on the clock, on the books and in the news.
-    let night = y.draft[0];
+    // Every pick's minute, from the board's own rounds (T1.5).
+    let stamps = pick_stamps(draft_year, &board, w.options.scale, y.draft);
+    // The trades on the clock, on the books and in the news, each at its
+    // pick's minute: the deal is announced as the buyer goes on the clock.
     for (buyer, seller, pick, what, future) in swaps {
+        let night = stamps.get(pick as usize - 1).map_or(y.draft[0], |m| m.add_minutes(-2));
         if let Some(r) = future {
             super::pro::trades::give_pick(w, buyer, seller, draft_year + 1, r);
         }
@@ -1775,6 +1821,7 @@ pub(crate) fn draft_end(
         let loud = if pick <= 10 { Loudness::Medium } else { Loudness::Small };
         w.calendar.post(
             Event::new(night.date, CalLevel::Nfl, Kind::Transfer, loud, text)
+                .at(night)
                 .team(buyer)
                 .club_link(buyer, w.nfl[buyer].name)
                 .club_link(seller, w.nfl[seller].name),
@@ -1829,18 +1876,8 @@ pub(crate) fn draft_end(
             }
         }
     }
-    // The picks on their hours (T1.5): round 1 Thursday night, 2-3 Friday,
-    // 4-7 Saturday, then the undrafted rush.
-    let pick_time = |pick: u32| -> Moment {
-        let round = board[pick as usize - 1].1;
-        let per_round = (slots as f64 / super::franchise::draft_rounds(draft_year) as f64).max(1.0);
-        let into = (pick as f64 - 1.0) - per_round * (round as f64 - 1.0);
-        match round {
-            1 => y.draft[0].add_minutes((into * 10.0) as i32),
-            2 | 3 => y.draft[1].add_minutes(((into + per_round * (round as f64 - 2.0)) * 7.0) as i32),
-            _ => y.draft[2].add_minutes(((into + per_round * (round as f64 - 4.0)) * 5.0) as i32),
-        }
-    };
+    // The picks on their minutes, then the undrafted rush.
+    let pick_time = |pick: u32| -> Moment { stamps.get(pick as usize - 1).copied().unwrap_or(y.draft[2]) };
     let mut events: Vec<Event> = Vec::new();
     for (i, how, offer) in signed {
         let c = w.people[i].college.unwrap();
@@ -6100,13 +6137,15 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 }
                 if steered {
                     p.steered = true;
-                    let who = match p.family.decider {
-                        Decider::Parent => "a parent",
-                        Decider::Grandparent => "his grandparents",
-                        Decider::Handler => "a handler close to the family",
-                        Decider::Himself => "himself",
+                    // Named for the school: a JUCO player who moves up signs
+                    // again (minor bug 116: the line repeated word for word).
+                    let whose = match p.family.decider {
+                        Decider::Parent => "a parent's choice",
+                        Decider::Grandparent => "his grandparents' choice",
+                        Decider::Handler => "the choice of a handler close to the family",
+                        Decider::Himself => "someone else's choice",
                     };
-                    p.note(format!("The choice was {who}'s more than his own."));
+                    p.note(format!("{prog_name} was more {whose} than his own."));
                 }
                 let flipped = p.cal.commit.is_some_and(|c| c.0 != j);
                 p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped });
@@ -7457,7 +7496,10 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                     < if perf >= median(from) - 2.0 { 0.4 } else { 0.15 };
             let p = &mut w.people[i];
             if back {
-                p.note(format!("Entered the portal at {age} {what}, found no new school and returned to {from_name}."));
+                p.note_again(
+                    format!("Entered the portal at {age} {what}, found no new school and returned to {from_name}."),
+                    || format!("Entered the portal again at {age} {what}, and again returned to {from_name}."),
+                );
                 w.log.portal_returned += 1;
             } else {
                 p.stage = Stage::Done;
@@ -7510,6 +7552,13 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         p.transfers += 1;
         p.steered = false;
         p.on_notice = false;
+        // He left the school chosen for him, free to choose for himself, and
+        // goes on choosing for himself (minor bug 116: a later JUCO move up
+        // read as the family's choice again).
+        if why == Why::Steered {
+            p.family.decider = Decider::Himself;
+            p.family.decider_wants = p.family.own_wants;
+        }
         if to == Division::JUCO {
             p.juco = true;
         }
@@ -7527,7 +7576,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         p.cal.nil_role = Some((role, edge as f32));
         if sits {
             p.cal.transfer_sit = true;
-            p.note("Under the transfer rules of the day he had to sit out a season.");
+            p.note(format!("Under the transfer rules of the day he had to sit out a season at {to_name}."));
             w.log.sit_out_transfers += 1;
         }
         if stars >= 4 || starter {
@@ -7928,6 +7977,35 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// T1.5: each pick lands in its own round's night, counted on the
+    /// board's real rounds: round 1 Thursday from 8 PM to before midnight,
+    /// pick 33 opening Friday at 7 PM and round 3 done before midnight,
+    /// Saturday from noon to the early evening.
+    #[test]
+    fn draft_picks_keep_to_their_nights() {
+        let base: Vec<usize> = (0..32).collect();
+        for year in [2005, 2015, 2025, 2026] {
+            let board = super::super::franchise::draft_board(year, &base, 1.0, 7, &[]);
+            let y = crate::calendar::YearDates::new(year);
+            let t = pick_stamps(year, &board, 1.0, y.draft);
+            for (k, &(_, r)) in board.iter().enumerate() {
+                let day = (r > 1) as usize + (r > 3) as usize;
+                assert!(t[k] >= y.draft[day], "{year} pick {} in round {r} at {}", k + 1, t[k]);
+                assert_eq!(t[k].date, y.draft[day].date, "{year} pick {} in round {r} at {}", k + 1, t[k]);
+                if k > 0 {
+                    assert!(t[k] >= t[k - 1] || r != board[k - 1].1, "{year} pick {} runs backwards", k + 1);
+                }
+            }
+            if year >= 2010 {
+                assert_eq!(t[32], y.draft[1], "{year} pick 33");
+                let end1 = t[31].minute;
+                assert!((22 * 60 + 15..23 * 60 + 45).contains(&end1), "{year} round 1 ends {}", t[31]);
+                let last = t[board.len() - 1].minute;
+                assert!((17 * 60..20 * 60).contains(&last), "{year} the last pick at {}", t[board.len() - 1]);
+            }
+        }
+    }
 
     /// The services' quotas count only the regular positions; a kicker,
     /// punter or long snapper ranked among them gets 3 stars at most.

@@ -505,6 +505,40 @@ pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
     Some((apy, market::market_price(w.year, pos, view, c.accrued, p.player.age)))
 }
 
+/// A pro's trust in his club, read at camp beside his trust in the head
+/// coach (minor bug 114: it began at 1 and only fell, so it averaged 0.99
+/// and drove nothing). A club he has just joined starts at three quarters
+/// (it chose him; starting at a half, like a new head coach, held out 55%
+/// more players a year than before), a tenth higher when it has just paid
+/// him; after that a fair role earns a little each year and a short one
+/// costs, as in college. Pay under his market wears it, the more for a
+/// greedy man, and so does each tag he plays under (real players resent
+/// the tag: Le'Veon Bell sat out 2018 rather than play a second one).
+/// Broken promises and shopping rumors still cost it on their days. Sizes
+/// proposed, not confirmed.
+fn club_trust(p: &mut Person, role: f64, pay: f64) {
+    let t = &p.player.personality.traits;
+    let (loyal, adapt, greed) = (t.z(Trait::Loyalty), t.z(Trait::Adaptability), t.z(Trait::Greed));
+    let Some(c) = p.pro.as_mut() else { return };
+    let mut x = if c.new_team {
+        clamp(0.75 + 0.08 * loyal + 0.08 * adapt, 0.5, 0.95)
+    } else {
+        c.trust + if role >= 0.0 { 0.06 } else { 0.18 * role }
+    };
+    if c.paid {
+        x += 0.1;
+    }
+    if pay < 0.0 {
+        x += 0.1 * pay * clamp(1.0 + 0.3 * greed, 0.4, 1.6);
+    }
+    let tagged =
+        c.contract.as_ref().is_some_and(|k| matches!(k.kind, money::Kind::Franchise | money::Kind::Transition));
+    if tagged {
+        x -= 0.08 * c.tags as f64;
+    }
+    c.trust = clamp(x, 0.0, 1.0);
+}
+
 /// NFL camp's mood read (topics 3 and 4): role against his own view, last
 /// season's record, his pay against his market (greed weights it), the
 /// room; then each club's captains and team mood. The year's support
@@ -573,7 +607,9 @@ pub(crate) fn pro_mood(w: &mut World) {
                 life: 0.5 * (p.bg.stability - 10.0) / 10.0,
                 room,
             };
+            let role = parts.role;
             read(&mut w.people[i], coach, motivation, parts);
+            club_trust(&mut w.people[i], role, money);
         }
         read_ids.extend_from_slice(&roster);
         settle_room(w, Room::Club(t), &roster);

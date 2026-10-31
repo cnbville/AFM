@@ -742,10 +742,15 @@ pub(crate) fn shopping_rumor(w: &mut World, i: usize, seller: usize, d: Date) {
     let loyal = super::market::goals(w, i).loyalty;
     let name = w.nfl[seller].name;
     let p = &mut w.people[i];
+    let age = p.row_age();
+    let line = format!("Learned at {age} that the {name} had been shopping him.");
+    // He hears it once a year (minor bug 116: the same leak twice).
+    if p.notes.contains(&line) {
+        return;
+    }
     let c = p.pro.as_mut().unwrap();
     c.trust = clamp(c.trust - 0.1 - 0.2 * loyal, 0.0, 1.0);
-    let age = p.row_age();
-    p.note(format!("Learned at {age} that the {name} had been shopping him."));
+    p.note(line);
     let who = super::describe(w, i);
     post(
         w,

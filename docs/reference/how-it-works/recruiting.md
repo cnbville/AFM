@@ -128,7 +128,7 @@ Utility of a school (`utility_fit`), each grade on 0-1 (`world/program.rs`, `Gra
 - Walk-on places carry no money, cost tuition (0.8 × (1 − 0.6 × money), ×1.77 out of state; free at PFL/Ivy) and, against a real scholarship, 1.4 × level value of what he turns down (specialists exempt) (`walk_on_cost`, `scholarship_given_up`).
 - What it does not read: coach ratings directly (only through coach prestige grade, relationships and pipelines), the program's true roster strength beyond the units, his own true potential.
 
-Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (or grandparents) 45%, a handler 6-12%. A parent adds money, closeness and academics to the boy's wants; grandparents closeness and academics; a handler money. A signing note says "the choice was his parent's" when his own wants would have picked another offer by 0.06 (`run_signing_stage`, `steered`). Steered players get a one-time 45% portal chance after year one (`portal_open`).
+Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (or grandparents) 45%, a handler 6-12%. A parent adds money, closeness and academics to the boy's wants; grandparents closeness and academics; a handler money. A signing note says "Linfield was more a parent's choice than his own" (the school named, minor bug 116) when his own wants would have picked another offer by 0.06 (`run_signing_stage`, `steered`). Steered players get a one-time 45% portal chance after year one (`portal_open`); one who lands somewhere ("free at last to choose for himself") decides for himself from then on: his decider becomes himself and the decider's wants his own (`portal_day`, minor bug 116: a later JUCO move up read as the family's choice again).
 
 ## Relationships and visits
 
