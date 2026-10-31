@@ -1,7 +1,7 @@
 //! One snap from scrimmage: alignment, assignments, then the tracked play
 //! (topics 1-3). The offense goes toward +x from `los`.
 
-use super::geom::{DT, V2, end_line, goal, mid, v2, width};
+use super::geom::{DT, V2, back_line, end_line, goal, mid, v2, width};
 
 /// Extra bust chance per road offensive player per snap at full crowd
 /// noise (trial 4 topic 3).
@@ -1024,6 +1024,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 && tg == i
                 && t >= sim.agents[i].ball_react
             {
+                // A ball sailing out of bounds he chases only to the line:
+                // his feet stay in, and he reaches for what he can.
+                let to = feet_in(to);
                 let d = sim.agents[i].pos.dist(to);
                 let left = (arrive - t).max(DT);
                 let speed = (d / left).min(sim.agents[i].vmax);
@@ -1038,7 +1041,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             }
             let job = sim.agents[i].job.clone();
             match job {
-                Job::Passer => {}
+                // Once the ball is out he pulls up: he used to coast at his
+                // release speed through the whole flight, out of the stadium
+                // from a rollout near the sideline.
+                Job::Passer => {
+                    if pass.as_ref().is_some_and(|p| p.thrown.is_some()) {
+                        sim.steer(i, V2::default());
+                    }
+                }
                 Job::Carrier => {}
                 Job::Fake { to } => {
                     if handoff_done {
@@ -2759,7 +2769,9 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
             *n += 1;
         }
         let bust = sim.agents[i].bust;
-        let target = if bust { v2(target.x + 3.0, target.y + 4.0) } else { target };
+        // A bust runs a few yards off, but inside the lines like any route.
+        let target =
+            if bust { v2((target.x + 3.0).min(end_line() - 1.0), (target.y + 4.0).min(width() - 2.5)) } else { target };
         let dir = (target - sim.agents[i].pos).norm();
         sim.steer(i, dir.scale(speed));
     } else if settle {
@@ -2774,6 +2786,10 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let away = near.map(|d| (me - sim.agents[d].pos).norm().scale(room)).unwrap_or_default();
         let q = sim.agents[qb].pos;
         let spot = me + v2(0.0, away.y) + (q - me).norm().scale(0.3);
+        // He sits down with the room a route keeps at the sideline: the spot
+        // is worked out from him each tick, and with his man inside him he
+        // used to drift on through the sideline on a long play.
+        let spot = v2(spot.x.min(end_line() - 1.5), clamp(spot.y, 2.5, width() - 2.5));
         sim.go_to(i, spot, 0.3);
     } else {
         let v = sim.agents[i].vel;
@@ -2793,6 +2809,17 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let vm = route_pace(&sim.agents[i]);
         sim.steer(i, dir.scale(vm));
     }
+}
+
+/// The nearest spot to `p` with his feet inside the lines: a man who plays
+/// a ball that sails out of bounds runs to the sideline or end line, not
+/// into the bench: a receiver ran 6.4 yards past the sideline after an
+/// overthrow. 3.6% of NFL throws in `match_check` land past a line, and
+/// about 1,400 of them were caught in 4,000 games before and after (toe-taps
+/// within his reach of the line): completions (66.0%) and yards an attempt
+/// (7.04) held.
+fn feet_in(p: V2) -> V2 {
+    v2(clamp(p.x, back_line() + 0.3, end_line() - 0.3), clamp(p.y, 0.3, width() - 0.3))
 }
 
 /// A wide receiver's or tight end's release off the line (minor bug 135):
@@ -4140,7 +4167,7 @@ fn defend(
         // safety reading the quarterback comes downhill at once).
         let d = sim.agents[i].pos.dist(to);
         if d < 25.0 {
-            sim.go_to(i, to, 1.0);
+            sim.go_to(i, feet_in(to), 1.0);
             return;
         }
     }
@@ -4409,7 +4436,8 @@ fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>,
     // His man sees him bite and goes over the top.
     let goal = sim.goal;
     if let Job::Route { pts, next, settle, .. } = &mut sim.agents[w].job {
-        *pts = vec![v2(wp.x + 30.0 * goal, wp.y)];
+        // Over the top, but no deeper than any route: the end line.
+        *pts = vec![v2((wp.x + 30.0 * goal).clamp(back_line() + 1.0, end_line() - 1.0), wp.y)];
         *next = 0;
         *settle = false;
     }
