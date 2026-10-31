@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day; the scrimmage tackle reach (minor bug 162) at 1f8d959 on 2026-10-31.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day; the scrimmage tackle reach (minor bug 162) at 1f8d959 on 2026-10-31; long runs (minor bug 163) at bff75e7 the same day.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
