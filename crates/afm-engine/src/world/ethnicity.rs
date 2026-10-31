@@ -260,7 +260,10 @@ pub fn snapper_knack(long_snapping_ceiling: f64, talent: f64, talent_z: f64) -> 
 /// lower than the middle one at the skill spots, which keeps the NFL near
 /// 53.5% Black while FBS is at 48.9%. Boys who stay in high school read the
 /// low table (A21). The Asian or Pacific Islander column is the measured
-/// one at every level.
+/// one at every level. The linebackers' Black column is the fit × 0.87:
+/// once FBS stopped losing talent to the portal (minor bug 131) FBS
+/// linebackers read 50-53% Black (real 48%), the NFL's 65% (real 60%) and
+/// FCS's 45% (real 42%), on the test world and a 12-year world alike.
 const ODDS_LOW: [[f64; 4]; 11] = [
     [1.40, 0.268, 0.740, 0.740],
     [0.626, 1.65, 0.377, 0.580],
@@ -268,7 +271,7 @@ const ODDS_LOW: [[f64; 4]; 11] = [
     [1.64, 0.219, 0.136, 0.630],
     [1.26, 0.369, 1.76, 1.53],
     [0.479, 0.685, 0.324, 1.84],
-    [0.923, 0.566, 0.343, 1.11],
+    [0.923, 0.492, 0.343, 1.11],
     [0.238, 1.55, 0.308, 0.580],
     [6.66, 0.0086, 9.04, 1.42],
     [2.02, 0.0091, 0.333, 0.110],
@@ -281,7 +284,7 @@ const ODDS_MID: [[f64; 4]; 11] = [
     [1.85, 0.177, 0.135, 0.630],
     [1.46, 0.325, 1.61, 1.53],
     [0.367, 0.631, 0.330, 1.84],
-    [0.887, 0.552, 0.330, 1.11],
+    [0.887, 0.480, 0.330, 1.11],
     [0.289, 1.22, 0.288, 0.580],
     [6.32, 0.0086, 9.92, 1.42],
     [2.03, 0.0090, 0.395, 0.110],
@@ -294,7 +297,7 @@ const ODDS_HIGH: [[f64; 4]; 11] = [
     [1.85, 0.158, 0.133, 0.630],
     [1.98, 0.226, 1.60, 1.53],
     [0.358, 0.416, 0.342, 1.84],
-    [0.872, 0.511, 0.324, 1.11],
+    [0.872, 0.445, 0.324, 1.11],
     [0.369, 0.879, 0.279, 0.580],
     [7.52, 0.0084, 8.96, 1.42],
     [2.08, 0.0088, 0.465, 0.110],
