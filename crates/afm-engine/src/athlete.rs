@@ -611,9 +611,20 @@ pub fn place_class(players: &mut [&mut Player], eye: Eye) {
     let mut filled = [0.0; POSITION_COUNT];
     for i in order {
         let scale = best[i].abs().max(1.0);
+        // Kickers and punters are found, not converted, here as in
+        // `better_position`: only a boy built as one (his natural spot, set
+        // when he is made) is listed there. A back or receiver with a leg
+        // plays his own spot and punts on the side when his team has no
+        // punter (the game gives the ball to the best leg). Coaches had been
+        // filling open kicking spots with their best athletes, and colleges
+        // then recruited them as specialists: in a half-size seed 7 world 33
+        // of 39 Black college kickers and punters had been built as backs,
+        // receivers, linebackers or linemen (minor bug 165).
+        let leg = players[i].position.kicks();
         let pick = PLACED
             .iter()
             .copied()
+            .filter(|q| leg || !q.kicks())
             .max_by(|&a, &b| {
                 let score = |pos: Position| {
                     let k = pos.index();

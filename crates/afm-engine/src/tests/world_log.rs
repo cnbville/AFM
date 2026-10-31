@@ -92,7 +92,15 @@ fn the_world_log_only_watches_and_reads_back() {
         assert!(n > 0, "no {kind} records");
         assert_eq!(n, count(&dir, kind), "{kind} differs in the save");
     }
-    games(&saved, opts.history_years);
+    // The bowls the world played in its last season, the one it still holds.
+    let bowls = b.college.as_ref().map(|cs| {
+        let played = |g: &crate::world::schedule::Game| g.played.as_ref().is_some_and(|p| !p.cancelled);
+        let bowl = |g: &crate::world::schedule::Game| {
+            matches!(g.kind, crate::world::schedule::GameKind::Bowl(_) | crate::world::schedule::GameKind::Celebration)
+        };
+        (cs.year, cs.games.iter().filter(|g| bowl(g) && played(g)).count())
+    });
+    games(&saved, opts.history_years, bowls);
     // One player row per person at each book, and a growth row per step.
     let rows = count(&saved, "players");
     assert!(rows as usize >= b.people.len(), "{rows} rows for {} people", b.people.len());
@@ -124,14 +132,22 @@ fn all(dir: &std::path::Path, kind: &str) -> Vec<serde_json::Value> {
 
 /// The game log (lane R1): every game with its facts, box, lines and
 /// drives, every engine game's snaps, and the season's situation totals.
-fn games(dir: &std::path::Path, years: u32) {
+fn games(dir: &std::path::Path, years: u32, bowls: Option<(i32, usize)>) {
     let college = all(dir, "games-college");
     let engine: Vec<&serde_json::Value> = college.iter().filter(|g| g.get("standin").is_none()).collect();
     assert!(engine.len() > 100, "{} college engine games", engine.len());
     for k in ["level", "season", "date", "week", "kind", "teams", "score", "quarters", "box", "players", "drives"] {
         assert!(engine[0].get(k).is_some(), "a college game row lacks {k}: {}", engine[0]);
     }
-    assert!(college.iter().any(|g| g["kind"] == "bowl"), "no bowl games");
+    // Every bowl the world played is in the log. This tiny world's FBS
+    // rosters run about 15 and a program under 22 plays no games, so its few
+    // teams with six wins can all go to the playoff and leave no bowl.
+    let (season, played) = bowls.expect("a college season");
+    let logged = college.iter().filter(|g| g["kind"] == "bowl" && g["season"] == season).count();
+    assert_eq!(logged, played, "{logged} bowls in the log for {season}, {played} played");
+    for kind in ["playoff", "title"] {
+        assert!(college.iter().any(|g| g["kind"] == kind), "no {kind} games");
+    }
     let boxes = || engine.iter().flat_map(|g| g["box"].as_array().unwrap());
     let trips: f64 = boxes().filter_map(|b| b["red_zone_trips"].as_f64()).sum();
     let tds: f64 = boxes().filter_map(|b| b["red_zone_tds"].as_f64()).sum();

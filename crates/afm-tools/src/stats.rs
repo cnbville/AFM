@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use afm_engine::career::{CareerRecord, CohortResult, CollegeLevel, ProExit, Transfer, draft_round};
+use afm_engine::career::{CareerRecord, CohortResult, CollegeLevel, Transfer, draft_round};
 use afm_engine::debug;
 use afm_engine::player::{DevelopmentEvent as Ev, Level, PlayingTime, SeasonRecord};
 use afm_engine::positions::Position;
@@ -735,12 +735,14 @@ pub fn summarize(result: &CohortResult) -> Summary {
     }
 }
 
-/// Last age of a career that ended in retirement after 3+ seasons, median by position.
+/// Last age of an NFL career of 4+ seasons, however it ended (retired or
+/// left unsigned), median by position: the measure real careers are read
+/// with (`nfl_careers.json`, `last_season_age.by_group_4plus_seasons`).
 pub fn median_last_age(records: &[CareerRecord], pos: Position) -> f64 {
     median(
         &records
             .iter()
-            .filter(|r| r.player.position == pos && r.pro_exit == Some(ProExit::Retired) && r.nfl_seasons >= 3)
+            .filter(|r| r.player.position == pos && r.pro_exit.is_some() && r.nfl_seasons >= 4)
             .map(|r| r.player.history.last().unwrap().age as f64)
             .collect::<Vec<_>>(),
     )
