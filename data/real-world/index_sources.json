@@ -340,6 +340,17 @@
     "T3"
    ]
   },
+  "nfl_route_depth.json": {
+   "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp, participation)",
+   "years": "2023-2025",
+   "level": "NFL",
+   "status": "sourced",
+   "script": "scripts/route_depth.py",
+   "areas": [
+    "G8",
+    "G25"
+   ]
+  },
   "coach_effect_offense.json": {
    "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases) (pbp)",
    "years": "2006-2025",

@@ -1,6 +1,6 @@
 # Play calling: how it works today
 
-Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30.
+Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; the call table rebuilt and centered (minor bug 135) at 3f875ea on 2026-10-31.
 
 Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach skills are 1-20. A list of weights means one option is drawn in proportion to its weight. "Long" means 2nd down or later with 8+ to go. U is a uniform 0-1 draw, N(m, sd) a normal one, N alone N(0, 1).
 
@@ -133,8 +133,9 @@ Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach
 ## What beats what: the call values table
 
 - `crates/afm-engine/data/call_values.csv`, compiled in (`CALL_VALUES_CSV`). Rows: the 30 pass concepts and 15 runs (no sneak). Columns: Cover 0 with the double-A, each other coverage with four rushers and with an LB blitz (19), and the six fronts. Missing rows or columns read as 0 (`values`, `col`).
-- Each value is the mean yards on the snap, capped at 40, minus 45 for a turnover: 400 snaps a cell between two average synthetic NFL West Coast teams; passes from 11 personnel in the shotgun against nickel; runs against base Cover 3 with four rushers, the odd and tite fronts from a 3-4 team. Rebuild: `cargo run --release --bin call_values -- 400 > crates/afm-engine/data/call_values.csv` (`crates/afm-tools/src/bin/call_values.rs`).
+- Each value is the mean yards on the snap, capped at 40, minus 45 for a turnover: 2,000 snaps a cell (400 before minor bug 135) between two average synthetic NFL West Coast teams; passes from 11 personnel in the shotgun against nickel; runs against base Cover 3 with four rushers, the odd and tite fronts from a 3-4 team. Rebuild: `cargo run --release --bin call_values -- 2000 > crates/afm-engine/data/call_values.csv`; rebuilt on 2026-10-31 with receivers' releases (minor bug 135) (`crates/afm-tools/src/bin/call_values.rs`).
 - Each run row is centered on its own six-front mean: a run is picked by how much better it does against a front than it usually does (`values`).
+- Each pass row is centered the same way, on its own mean over the 19 looks, plus the mean of all concepts (minor bug 135): a sharp caller leans toward what beats the looks he expects, not toward the concepts that gain the most everywhere. Uncentered, the deep concepts' extra yards drew the world's NFL play callers (about 14 of 20) to 19.4% of throws at 20+ air yards (real 11.5%). A defense's coverage costs all move by the same amount, so its choice is unchanged (`values`).
 - Offense: a concept's value = Σ p_cov × ((1 - blitz) × four-man value + blitz × LB-blitz value); p_cov = sharp × (seen + 4 × league share) / (snaps seen + 4) + (1 - sharp) × league share; blitz = sharp × the blitz rate seen + 0.25 × (1 - sharp); the league mix is the four shells' mixes averaged (`expected_values`, `league_mix`).
 - Defense: a coverage's cost = what it gives up with four rushers against the concepts expected, each concept's share = sharp × (their calls + 4 / n) / (seen + 4) + (1 - sharp) / n (`coverage_values`).
 

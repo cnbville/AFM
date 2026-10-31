@@ -11,20 +11,24 @@ use afm_engine::player::Level;
 use rayon::prelude::*;
 use serde_json::Value;
 
-/// The engine's routes pooled with the real route types they match.
-const ROUTE_GROUPS: [(&str, &[&str]); 12] = [
-    ("go / fade / seam", &["GO"]),
-    ("post", &["POST"]),
-    ("corner", &["CORNER"]),
-    ("wheel", &["WHEEL"]),
-    ("dig / in / cross", &["IN/DIG", "IN", "CROSS"]),
-    ("out (10+ air)", &["DEEP OUT"]),
-    ("out (under 10)", &["OUT", "QUICK OUT"]),
-    ("slant", &["SLANT"]),
-    ("hitch / curl / sit", &["HITCH", "HITCH/CURL"]),
-    ("drag", &["SHALLOW CROSS/DRAG"]),
-    ("flat / swing", &["FLAT", "SWING"]),
-    ("screen", &["SCREEN"]),
+/// The engine's routes pooled with the real route types they match: the
+/// route lists of 2021-2025 (both charting lists, for the coverage table)
+/// and of 2023-2025 alone (one list, NGS, for the route table).
+type RouteGroup = (&'static str, &'static [&'static str], &'static [&'static str]);
+const ROUTE_GROUPS: [RouteGroup; 12] = [
+    ("go / fade / seam", &["GO"], &["GO"]),
+    ("post", &["POST"], &["POST"]),
+    ("corner", &["CORNER"], &["CORNER"]),
+    ("wheel", &["WHEEL"], &["WHEEL"]),
+    ("dig / in / cross", &["IN/DIG", "IN", "CROSS"], &["IN/DIG"]),
+    ("out (10+ air)", &["DEEP OUT"], &["DEEP OUT"]),
+    // NGS charts the flat as a quick out (2.7 air yards).
+    ("flat / quick out / swing", &["OUT", "QUICK OUT", "FLAT", "SWING"], &["QUICK OUT", "SWING"]),
+    ("slant", &["SLANT"], &["SLANT"]),
+    ("hitch / curl / sit", &["HITCH", "HITCH/CURL"], &["HITCH/CURL"]),
+    ("drag", &["SHALLOW CROSS/DRAG"], &["SHALLOW CROSS/DRAG"]),
+    ("screen", &["SCREEN"], &["SCREEN"]),
+    ("angle", &["ANGLE", "TEXAS/ANGLE"], &["TEXAS/ANGLE"]),
 ];
 
 fn route_group(route: &str, air: f64) -> Option<usize> {
@@ -35,12 +39,12 @@ fn route_group(route: &str, air: f64) -> Option<usize> {
         "wheel" => 3,
         "dig" => 4,
         "out" | "comeback" if air >= 10.0 => 5,
-        "out" | "comeback" => 6,
+        "out" | "comeback" | "flat" | "swing" | "check-release" => 6,
         "slant" => 7,
         "hitch" | "curl" | "sit" => 8,
         "drag" => 9,
-        "flat" | "swing" | "check-release" => 10,
-        "screen" | "bubble" => 11,
+        "screen" | "bubble" => 10,
+        "angle" => 11,
         _ => return None,
     })
 }
@@ -1256,7 +1260,10 @@ fn main() {
     println!("{:<28} {:>9} {:>9}", "rates", "engine", "NFL");
     row("completion %", g("cmp") / g("att"), rr["completion_pct"].as_f64());
     row("sack rate", g("sacks") / g("dropbacks"), rr["sack_rate"].as_f64());
-    row("yards per attempt", (g("pass_yards") + 0.0) / g("att"), rr["yards_per_attempt"].as_f64());
+    // Gross, before sacks, as real yards an attempt are (the team's pass
+    // yards are net of sacks).
+    let ypa = (g("ha_pyds_h") + g("ha_pyds_r")) / (g("ha_att_h") + g("ha_att_r")).max(1.0);
+    row("yards per attempt", ypa, rr["yards_per_attempt"].as_f64());
     row("int rate", g("int") / g("att"), rr["int_rate"].as_f64());
     row("yards per carry", g("rush_yards") / g("carries"), rr["yards_per_carry"].as_f64());
     row("pass rate", g("dropbacks") / g("plays"), rr["pass_rate"].as_f64());
@@ -1333,33 +1340,38 @@ fn main() {
         row("", by_cov[k][1] / by_cov[k][0].max(1.0), None);
         row("", by_cov[k][2] / by_cov[k][0].max(1.0), None);
     }
-    // Targets by route against NFL 2022-25 (data/real-world/engine_targets.json),
-    // with the real route types pooled into the engine's route groups.
-    let et: Value = serde_json::from_str(include_str!("../../../../data/real-world/engine_targets.json")).unwrap();
-    let tr = &et["targets_by_route"];
+    // Targets by route against NFL 2023-25 (data/real-world/nfl_route_depth.json,
+    // one route list), with the real route types pooled into the engine's
+    // route groups.
+    let rd: Value = serde_json::from_str(include_str!("../../../../data/real-world/nfl_route_depth.json")).unwrap();
+    let tr = &rd["by_route"];
     let rt: f64 = by_route.iter().map(|b| b[0]).sum();
-    let real_all: f64 = ROUTE_GROUPS.iter().flat_map(|g| g.1.iter()).map(|k| tr[*k]["n"].as_f64().unwrap_or(0.0)).sum();
-    println!("targets by route            share  real   catch  real    ypt   real    air    ttt");
-    for (k, (name, real_keys)) in ROUTE_GROUPS.iter().enumerate() {
-        let (mut n, mut c, mut y) = (0.0, 0.0, 0.0);
+    let real_all = rd["all"]["n"].as_f64().unwrap_or(1.0);
+    println!("targets by route                share  real  catch  real   ypt  real   air  real   ttt  real");
+    for (k, (name, _, real_keys)) in ROUTE_GROUPS.iter().enumerate() {
+        let mut v = [0.0; 5];
         for key in real_keys.iter() {
             let r = &tr[*key];
             let rn = r["n"].as_f64().unwrap_or(0.0);
-            n += rn;
-            c += rn * r["catch"].as_f64().unwrap_or(0.0);
-            y += rn * r["ypt"].as_f64().unwrap_or(0.0);
+            v[0] += rn;
+            for (j, f) in ["catch", "ypt", "air", "ttt"].iter().enumerate() {
+                v[j + 1] += rn * r[*f].as_f64().unwrap_or(0.0);
+            }
         }
         let b = by_route[k];
+        let n = v[0].max(1.0);
         println!(
-            "  {name:<24} {:>6.3} {:>6.3} {:>6.3} {:>6.3} {:>6.2} {:>6.2} {:>6.1} {:>6.2}",
+            "  {name:<28} {:.3} {:.3}  {:.3} {:.3} {:5.2} {:5.2} {:5.1} {:5.1}  {:.2}  {:.2}",
             b[0] / rt.max(1.0),
-            n / real_all.max(1.0),
+            v[0] / real_all,
             b[1] / b[0].max(1.0),
-            c / n.max(1.0),
+            v[1] / n,
             b[2] / b[0].max(1.0),
-            y / n.max(1.0),
+            v[2] / n,
             b[3] / b[0].max(1.0),
-            b[4] / b[0].max(1.0)
+            v[3] / n,
+            b[4] / b[0].max(1.0),
+            v[4] / n
         );
     }
     // Designed runs against nflverse 2021-25 (data/real-world/position_value.json).
@@ -1411,18 +1423,19 @@ fn main() {
         );
     }
     if std::env::var("AFM_COVROUTE").is_ok() {
+        let et: Value = serde_json::from_str(include_str!("../../../../data/real-world/engine_targets.json")).unwrap();
         let tc = &et["targets_by_route_and_coverage"];
         for (cov, key) in [("Cover 1", "COVER_1"), ("Cover 2", "COVER_2"), ("Cover 3", "COVER_3"), ("2-man", "2_MAN")] {
             let tot: f64 =
                 (0..ROUTE_GROUPS.len()).map(|g| cov_route.get(&(cov.to_string(), g)).map_or(0.0, |v| v[0])).sum();
             let mut rtot = 0.0;
-            for (_, keys) in ROUTE_GROUPS.iter() {
+            for (_, keys, _) in ROUTE_GROUPS.iter() {
                 for k in keys.iter() {
                     rtot += tc[*k][key]["n"].as_f64().unwrap_or(0.0);
                 }
             }
             println!("{cov}: route share real catch real ypt real");
-            for (g, (name, keys)) in ROUTE_GROUPS.iter().enumerate() {
+            for (g, (name, keys, _)) in ROUTE_GROUPS.iter().enumerate() {
                 let (mut n, mut c, mut y) = (0.0, 0.0, 0.0);
                 for k in keys.iter() {
                     let r = &tc[*k][key];
@@ -1477,7 +1490,7 @@ fn main() {
         row("sacks", g("sacks") / n, cp["sacks"].as_f64());
         row("interceptions", g("int") / n, cp["int"].as_f64());
         row("completion %", g("cmp") / g("att"), cq["completion_pct"].as_f64());
-        row("yards per attempt", g("pass_yards") / g("att"), cq["yards_per_attempt"].as_f64());
+        row("yards per attempt", ypa, cq["yards_per_attempt"].as_f64());
         row("yards per carry", g("rush_yards") / g("carries"), cq["yards_per_carry"].as_f64());
         row("pass rate", g("dropbacks") / g("plays"), cq["pass_rate"].as_f64());
         row("third down conv", g("third_conv") / g("third"), cq["third_down_conversion"].as_f64());
