@@ -1,6 +1,6 @@
 # The world log: how it works today
 
-Checked against main at 1bb5507 on 2026-10-28, with world reader lane R2; every game's rows, snaps and situation totals added by lane R1 on 2026-10-29.
+Checked against main at 1bb5507 on 2026-10-28, with world reader lane R2; every game's rows, snaps and situation totals added by lane R1 on 2026-10-29; the recruiting and college bugs before the rebuild (minor bugs 86, 88, 99-105, 118, 126, 130, 131, 150) on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 

@@ -2262,16 +2262,49 @@ pub(crate) fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool
     }
 }
 
-/// The players on each program's roster who take a place under its limit
-/// in `season` (`takes_a_place`).
+/// Each program's places taken under its limit in `season`, the season the
+/// portal's entrants play next (`takes_a_place`): the players who return
+/// and the recruits signed for it. A senior with no season left and a
+/// player in the portal himself are leaving, so their places are open to
+/// transfers, as a staff counts them (minor bug 131: with them counted, a full
+/// roster in December had no room until its seniors left in January, and
+/// the good transfers it would have taken went to the FCS).
 fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
-    w.programs
+    let mut n: Vec<usize> = w
+        .programs
         .iter()
         .map(|prog| {
             let whole = super::ncaa::whole_roster_limit(prog, season);
-            prog.roster.iter().filter(|&&i| takes_a_place(&w.people[i], whole, season)).count()
+            prog.roster
+                .iter()
+                .filter(|&&i| {
+                    let p = &w.people[i];
+                    takes_a_place(p, whole, season)
+                        && p.cal.portal.is_none()
+                        && p.cal.declare_plan != Some(true)
+                        && !super::college::no_season_left(p, prog.division, season - 1)
+                })
+                .count()
         })
-        .collect()
+        .collect();
+    for p in w.people.iter() {
+        // A signee not yet enrolled (a junior college mover still on his
+        // old roster too).
+        let Some(s) = p.cal.signed else { continue };
+        if p.college == Some(s.program) {
+            continue;
+        }
+        let Some(prog) = w.programs.get(s.program) else { continue };
+        let counted = match (super::ncaa::whole_roster_limit(prog, season), s.walk_on) {
+            (_, false) => true,
+            (true, true) => p.class_of > super::ncaa::HOUSE_START,
+            (false, true) => p.player.position.is_specialist(),
+        };
+        if counted {
+            n[s.program] += 1;
+        }
+    }
+    n
 }
 
 /// When the staff reads its roster for a signing stage (T5.2): what this
@@ -6656,7 +6689,9 @@ const FOLLOW: &str = "his old head coach wants him at his new school";
 pub(crate) fn follow_coach(w: &mut World, a: usize, b: usize, coach: usize) {
     let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
     let (div_a, div_b) = (w.programs[a].division, w.programs[b].division);
-    if div_b == Division::JUCO {
+    // Players follow a coach up or across, not down a level: a coach fired
+    // into an FCS job takes nobody from his FBS roster.
+    if div_b == Division::JUCO || div_b as usize > div_a as usize {
         return;
     }
     let perf_of = |p: &Person| p.last_performance.unwrap_or(p.player.overall());

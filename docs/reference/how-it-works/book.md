@@ -1,6 +1,6 @@
 # The world reader's book: how it works today
 
-Checked against main at R4's merge on 2026-10-28, with world reader lanes R4 and R6 (2026-10-29), R7 and R8 (2026-10-30).
+Checked against main at R4's merge on 2026-10-28, with world reader lanes R4 and R6 (2026-10-29), R7 and R8 (2026-10-30); the recruiting and college bugs before the rebuild (minor bugs 86, 88, 99-105, 118, 126, 130, 131, 150) on 2026-10-30.
 
 Paths are relative to `crates/afm-reader/src/` unless they start with `crates/`, `data/` or `.github/`.
 
@@ -27,6 +27,7 @@ The book is world reader lane R4: one SQLite file per world (`name.afmbook`) hol
 - What is `engine_call_values`? The coaches' what-beats-what table the engine compiles in (`crates/afm-engine/data/call_values.csv`): one row per concept or run and look with its mean yards (`world_in.rs`, `engine_tables`).
 - Why is there an index on `people.stage`? Most people panels read one stage, and college and pro players are about a tenth of the table, so the panels step makes `ix_people_stage` before it runs them (`panels.rs`, `write_all`). Each panel's time is kept in `panels.seconds`.
 - Are the real CSVs in the book? Each one under `CSV_MAX` bytes becomes its own table, `real_<name>`, one row per line (`build.rs`, `real_files`; `real_in.rs`, `read`).
+- Is a drafted player counted once? Yes: every drafted pro is in `alumni`, and one still playing is in `people` too, so the draft rate checks and panels count a `people` row only when its `player__id` is not in `alumni` (`defs_people.rs`, P25; `defs_list.rs`, `recruits!`, `drafted!`, N20). Before 2026-10-30 they counted him twice, so the draft rates read high.
 - How is a check marked? By its gap from real against its tolerance: near, off or far off; "no data" when the world has no value or the book lacks the log it needs; "no real" when no real figure exists (`marks.rs`, `mark`, `gap`; `checks.rs`, `run`).
 - Which checks exist? The lists are `defs_list.rs` and, for the people and recruiting pages, `defs_people.rs`, for the programs, high school and coaches pages `defs_programs.rs`, and for games, the NFL, money and world `defs_games.rs`, `defs_nfl.rs` and `defs_world.rs` (`CHECKS`, `METRICS`, `RULES`, `OUTLIERS`; `defs.rs` chains them), each one SQL over the book's tables, so any of them can be rerun by hand with `afm_read <book> sql <query>`.
 - How are known issues marked live? A fix counts for this world when the fix's commit is an ancestor of the world's commit, or, without git, when the world was written on or after the fix date (`issues.rs`, `has_fix`). The list is `crates/afm-reader/data/known_issues.json`.

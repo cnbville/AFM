@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; interviews and the staff meeting with the next update's lane 14 at 7487fc5 on 2026-10-30. The no-fire override checked against main at b2b4213 on 2026-10-30.
+Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; interviews and the staff meeting with the next update's lane 14 at 7487fc5 on 2026-10-30. The no-fire override checked against main at b2b4213 on 2026-10-30; the recruiting and college bugs before the rebuild (minor bugs 86, 88, 99-105, 118, 126, 130, 131, 150) on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
