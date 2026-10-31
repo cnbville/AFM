@@ -394,7 +394,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         fight: Vec::new(),
         fight_since: 0.0,
         screen: None,
-        open_reach: OPEN_REACH,
+        open_reach: SCRIMMAGE_REACH,
         press: 0.0,
         lane: None,
         bites: Vec::new(),
