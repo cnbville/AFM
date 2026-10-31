@@ -825,11 +825,21 @@ const RUN_EDGE: f64 = 0.035;
 const SHED_RUNNER: f64 = 0.5;
 
 /// How far a free defender in the open field can reach or lunge for the
-/// ball carrier, on scrimmage plays and returns alike. (2.2 before, and 1.6
-/// on returns: runners slipped past squared-up defenders untouched, so
-/// nine in ten runs past 20 yards went past 40 against two in ten real,
-/// and long touchdowns ran near twice real; proposed, not confirmed.)
+/// ball carrier on a return. (2.2 before, and 1.6 on returns: runners
+/// slipped past squared-up defenders untouched, so nine in ten runs past 20
+/// yards went past 40 against two in ten real, and long touchdowns ran near
+/// twice real; proposed, not confirmed.)
 pub const OPEN_REACH: f64 = 2.5;
+
+/// The same reach on scrimmage plays: arm's length and a lunge step. At
+/// 2.5 yards, a full dive, the nearest defender tackled a receiver at the
+/// catch from up to three yards away, so NFL yards after the catch ran 4.3
+/// a catch against the real 5.2 (nflverse 2021-2025), short at every
+/// depth, and yards a carry 3.9 against 4.5 (minor bug 162; 6,000
+/// `match_check` games: 4.8 and 4.4 at 2.0). Returns keep `OPEN_REACH`,
+/// which minor bug 139's return fixes were measured on (proposed, not
+/// confirmed).
+pub const SCRIMMAGE_REACH: f64 = 2.0;
 
 /// Rating points a road line loses off the snap at full crowd noise.
 /// Fitted with the other home-field causes to the real home margin
