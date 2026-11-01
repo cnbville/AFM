@@ -1505,7 +1505,7 @@ function readCard(p) {
 const fans = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "k" : n.toLocaleString());
 const PT = {
   Overview: (p) => {
-    const last = p.seasons[p.seasons.length - 1];
+    const last = p.seasons.filter((s) => s.level !== "NFL playoffs").pop();
     const fit = p.fit && p.fit.length > 1
       ? `<div class="panel"><h2>Where else he could play <small>your staff's read at each spot</small></h2>${p.fit.map((f) => `<div class="attr"><span>${esc(f.pos)}${f.now ? ' <span class="tag soft">Now</span>' : ""}</span>${range(f.read, null, { p: p.id, k: "at:" + f.pos })}</div>`).join("")}</div>`
       : "";

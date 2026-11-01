@@ -61,7 +61,7 @@ fn notable_pro(w: &World, i: usize) -> bool {
     let p = &w.people[i];
     let Some(c) = p.pro.as_ref() else { return false };
     let (id, year) = (p.player.id, w.year);
-    let starter = c.seasons.iter().rev().find(|s| s.year >= year - 1).is_some_and(|s| s.starts >= 8);
+    let starter = c.seasons.iter().rev().find(|s| s.year >= year - 1).is_some_and(|s| s.starts_all() >= 8);
     let first = c.draft.is_some_and(|(dy, r, _, _)| r == 1 && year - dy <= 3);
     starter || first || c.last_grade.unwrap_or(0.0) >= 78.0 || pro_bowler(w, id, 3)
 }

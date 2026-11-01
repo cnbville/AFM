@@ -1190,7 +1190,7 @@ fn rings(w: &mut World, d: Date) {
                 c.earnings < 4.0e6
                     && c.seasons
                         .iter()
-                        .any(|s| s.games > 0 && champs.iter().any(|ch| ch.0 == s.year && Some(ch.1) == s.team))
+                        .any(|s| s.games_all() > 0 && champs.iter().any(|ch| ch.0 == s.year && Some(ch.1) == s.team))
                     && key(a.class_of as u64, d.0 as u64 ^ a.name.len() as u64) < 0.08
             })
         });

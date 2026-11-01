@@ -603,6 +603,7 @@ fn year_start(w: &mut World) {
     }
     super::voters::year_start(w);
     w.hs_season = Some(hs_year::new_season(w));
+    super::marks::hs_new_season(w);
     let nfl = nfl_year::new_season(w);
     super::units::book_nfl(w);
     w.nfl_prev = w.nfl_season.replace(nfl);

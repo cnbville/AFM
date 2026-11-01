@@ -11,6 +11,7 @@
 //! Game results here are a stand-in until the match engine (section 3): each
 //! game is decided from the two teams' starters, with home field and luck.
 
+pub mod analytics;
 pub mod background;
 pub mod broadcast;
 pub mod charts;
@@ -40,6 +41,7 @@ pub mod hunt;
 pub mod legacy;
 pub mod live_seat;
 pub mod looks;
+pub mod marks;
 pub mod names;
 pub mod ncaa;
 pub mod new_teams;
@@ -757,6 +759,10 @@ pub struct World {
     /// The career stats record, record books and Hall of Fame (section 3,
     /// topic 8): always kept.
     pub stats: records::StatBook,
+    /// Deep data (update 3, lane L20): the record store at every level
+    /// (`marks.rs`). It only reads games and seasons.
+    #[serde(default)]
+    pub marks: marks::Marks,
     /// Each position's typical score in each coaching system (S3).
     pub(crate) system_norms: systems::SystemNorms,
     /// Recruiting and portal records for trials (dynasty item 11 checks).
@@ -1284,6 +1290,7 @@ impl World {
             game_log: game_log::GameLog::default(),
             wlog: None,
             stats: records::StatBook::default(),
+            marks: Default::default(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
             next_person: 1,
@@ -1765,6 +1772,7 @@ impl World {
         // The stories they are in keep their names, and so do your games.
         storylines::keep_names(self, &map);
         seat_names::keep(self, &map);
+        marks::keep_names(self, &map);
         let mut stays = map.iter();
         self.people.retain(|_| stays.next().is_some_and(|m| m.is_some()));
         // Hand back the room of everyone who left, keeping a third more for

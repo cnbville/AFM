@@ -1,0 +1,69 @@
+/* Lane styles: the Data section (update 3, lane L20, boards 43 and 46) in
+   Press Box: raised panels and hairlines, numbers in tabular figures, one
+   gold accent (the real record, a record chased, the era over 130). The
+   page carries .sl, so lane 1's colour tokens (and their light theme)
+   apply. Every class is dt- so the app's global names never restyle these. */
+
+.dt { font-variant-numeric: tabular-nums; padding-bottom: 48px; }
+.dt .seg.wrap { flex-wrap: wrap; }
+.dt-main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; margin-top: 12px; }
+.dt-main.full { grid-template-columns: minmax(0, 1fr); }
+.dt-body { min-width: 0; display: grid; gap: 12px; align-content: start; }
+.dt-side { display: grid; gap: 12px; position: sticky; top: 8px; }
+@media (max-width: 1100px) { .dt-main { grid-template-columns: minmax(0, 1fr); } .dt-side { position: static; } }
+/* The page beside (shift-click) is narrow at any window width: one column. */
+.beside-body .dt-main, .beside-body .dt-books { grid-template-columns: minmax(0, 1fr); }
+.beside-body .dt-side { position: static; }
+
+.dt-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.dt-book { gap: 6px; padding: 14px 16px; }
+.dt-book header, .dt-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dt-book h2, .dt-panel h2 { font-size: 13px; letter-spacing: .02em; margin: 0; color: var(--sl-warm); }
+.dt-book ol, .dt-plain { list-style: none; margin: 0; padding: 0; display: grid; }
+.dt-book li, .dt-plain li { display: grid; grid-template-columns: 22px 64px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--sl-line); }
+.dt-plain li { grid-template-columns: minmax(0, 1fr) auto; }
+.dt-book li:first-child, .dt-plain li:first-child { border-top: 0; }
+.dt-book li.live .dt-v { color: var(--sl-good); }
+.dt-rk { color: var(--sl-faint); font-size: 11px; text-align: right; }
+.dt-v { font-weight: 700; color: var(--fg1, inherit); white-space: nowrap; }
+.dt-who { min-width: 0; display: grid; gap: 1px; }
+.dt-who small, .dt-who .dt-game, .dt-ch small { color: var(--sl-text3); font-size: 11.5px; }
+.dt-game b.w { color: var(--sl-good); font-weight: 600; }
+.dt-game b.l { color: var(--sl-dim); font-weight: 600; }
+.dt-real { background: var(--sl-gold-soft); border-radius: 8px; padding-left: 4px !important; padding-right: 4px !important; }
+.dt-real .dt-rk, .dt-real .dt-v { color: var(--sl-gold); }
+.dt-more { border: 0; background: var(--sl-chip); color: var(--sl-text2); border-radius: 8px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+.dt-more:hover { background: var(--sl-hover); }
+.dt-era { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--sl-chip); color: var(--sl-text2); }
+.dt-era.hi { background: var(--sl-gold-bg); color: var(--sl-gold); }
+.dt-era.lo { color: var(--sl-dim); }
+.dt-h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sl-gold-label); margin: 8px 0 0; }
+
+.dt-panel { gap: 8px; padding: 14px 16px; }
+.dt-panel p { margin: 0; }
+.dt-ch { display: grid; gap: 3px; text-align: right; min-width: 120px; }
+.dt-bar { display: block; height: 4px; border-radius: 4px; background: var(--sl-track-dim); overflow: hidden; }
+.dt-bar > i { display: block; height: 100%; background: var(--sl-gold-bar); border-radius: 4px; }
+.dt-fell li { grid-template-columns: 74px minmax(0, 1fr); }
+.dt-fell .when { color: var(--sl-faint); font-size: 11.5px; }
+.dt-fell small { display: block; color: var(--sl-text3); font-size: 11.5px; }
+
+.dt-teamhead { display: flex; gap: 12px; align-items: center; }
+.dt-lead { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.dt-lead small { color: var(--sl-text3); }
+
+.dt-min { display: inline-flex; gap: 6px; align-items: center; color: var(--sl-text3); font-size: 12.5px; }
+.dt-min input { width: 70px; background: var(--sl-chip); border: 1px solid var(--sl-line); color: inherit; border-radius: 8px; padding: 4px 6px; }
+/* The shade sits over the zebra and hover colours (app.css sets those with
+   the shorthand at (0,2,3)), so it stays on every row. */
+.tbl.dt-at tbody tr td.dt-pc { background-image: linear-gradient(90deg, var(--sl-gold-fill) var(--p), transparent var(--p)); }
+.dt-at tr.on td { box-shadow: inset 0 1px 0 var(--sl-gold-ring), inset 0 -1px 0 var(--sl-gold-ring); }
+.dt-sort { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+.dt-sort.on { color: var(--sl-gold); }
+.dt-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dt-bars li { display: grid; grid-template-columns: 70px minmax(0, 1fr) 64px 26px; gap: 8px; align-items: center; font-size: 12.5px; }
+.dt-bars b { text-align: right; }
+.dt-bars small { color: var(--sl-faint); text-align: right; }
+.dt-ml { color: var(--sl-text2); }
+
+.dt-src { margin-top: 18px; color: var(--sl-faint); font-size: 12px; }

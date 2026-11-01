@@ -1337,6 +1337,26 @@ Cain's standing rule (2026-10-28): code that disagrees with real data is a bug, 
 - Hall: the seniors' bar 16, the coach's case NFL wins / 10 + 5 a title with a bar of 20; contributors are not in the world. The Hall check counts players from 2010 against 6.3 (from memory) and coaches against 0.33.
 - Holdouts: the rookie-deal bar (push over 0.55, was from 2020) from 2011, when that CBA made a rookie-deal holdout's fines unwaivable (from memory).
 
+### Lane L20: the Data section (deep data items 1-3, 7, 8, 15-25; boards 43 and 46)
+
+A sidebar section of its own between Your team and World at every seat, with Stat history, Player analytics, Leaderboards and History (moved in from World). Screens in `screens/data.js` and `.css`; commands in `lane_data/` (`stat_history`, `team_book`, `analytics`, `analytics_card`, `champions_more`, `data_sources`); the engine's record store in `world/marks.rs` and the analytics cards in `world/analytics.rs`. How it works, with every number: [records-and-data.md](reference/how-it-works/records-and-data.md).
+
+- **Your seat's sources** (item 3). Every Data page ends with a line saying what your numbers come from, and the analytics page tags its numbers charted or box score: the NFL's tracking at every seat, your division's charting at a college seat (FBS and FCS at an NFL seat), box scores at high school.
+- **Stat history** (items 15-22). Careers, single seasons, single games, rate records and each year's leader at every level (a college division or conference, the NFL, a state), each list with games, position, the era column and the game a single-game mark came from (opponent, score, date). The NFL's lists carry the real NFL record on top, marked. Beside them: who is chasing a record now, what fell this season and last (with the old holder), and your team's own record holders. The Team book tab shows any team's own career, season and game marks (item 17).
+- **Player analytics** (items 7 and 8). A position group's qualifiers ranked by percentile on its card, any season at any level, with the minimum on screen; a player's card shows each number with its percentile and the five past seasons closest to his, with where each man is now.
+- **History** (items 23-25). Champions gains Conference champions (by the conference won that season) and State champions (by state and class); Awards shows a year or every winner of one award. The old Record book and NFL records tabs open Stat history.
+- **Single-game records before L12** (item 16): the world's rebuild fills every level's books from its history.
+
+#### Claude's picks (proposed, not confirmed)
+
+- The rate records' college and high school minimums (15 attempts a game; careers 325 completions, 300 carries, 100 catches, 40 field goal tries, high school half). The NCAA's record book couldn't be read from this build's network; the NFL's are the league's own.
+- List depths: 25 in a division, the NFL and a state, 10 in a conference, 10 in a college program's or NFL club's own book, 3 in a high school's.
+- A record counts as fallen once a level has five seasons in its books; a high school's own falls aren't told (thousands of schools).
+- Chasing now: three games in and on pace for nine tenths of a season record, or within a quarter of a career record.
+- The NFL seat's college charting and every seat's NFL tracking; the analytics minimums (about two thirds of a starter's volume, NFL 1.35 times, cut to the share of a season played).
+- Seasons like his: the mean percentile gap over at least half the card, against each season's own field.
+- The era column's regulars (NFL 8+ games, high school 5+, both 15+ snaps a game).
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).
