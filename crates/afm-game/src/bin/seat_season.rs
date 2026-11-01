@@ -327,6 +327,7 @@ fn resident_gb() -> f64 {
 const SCREENS: &[&str] = &[
     "status",
     "home",
+    "dashboard",
     "inbox",
     "news",
     "calendar",

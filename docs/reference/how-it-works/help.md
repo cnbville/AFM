@@ -1,10 +1,10 @@
 # The Handbook and help: how it works today
-Checked against main at 037fd34 (with update 3 lanes 1, 6, 7 and 9) on 2026-10-29.
+Checked against main at e581227 (with update 3 lanes 1, 6, 7, 9 and 16) on 2026-11-01.
 
 The Handbook explains the game's systems in its own pages, with live examples from your save. The Help setting decides how much the game guides you: the guided first week, the first-time notes and the warnings.
 
 ## Quick answers
-- How many Handbook pages are there? 14, listed in `PAGES` (`crates/afm-game/src/lane_handbook.rs`) and written in `app/ui/screens/handbook-pages.js` (`HB.pages`).
+- How many Handbook pages are there? 14, listed in `PAGES` (`crates/afm-game/src/lane_handbook.rs`) and written in `app/ui/screens/handbook-pages.js` (`HB.pages`). Later lanes add their own from their screen files with `hbAdd`: Home (`screens/hero.js`, lane 16; Home's "?" opens it), New teams (`groundzero.js`), the hunt (`hunt.js`) and the talks (`talk.js`).
 - Which level comes first on a page? Yours: high school, college or the NFL; another league's club reads the NFL first (`lane_handbook.rs`, `order`).
 - Do the live examples show true ratings? No. Every player number is your staff's read, a range (`lane_handbook.rs`, `by_read`, `read_of`, through `reads::overall` and `reads::attributes`). The body page's strips use the level's starters' true forties, but only as an anonymous spread with no names (`lane_handbook.rs`, `field`).
 - What does the "?" in a screen's header do? Opens that screen's page in the side panel (`app/ui/screens/handbook.js`, `hb8Q`; the screen-to-page map is `HB.screens` in `handbook-pages.js`).

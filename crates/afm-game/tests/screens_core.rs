@@ -94,6 +94,24 @@ fn the_desk_files_answers_and_clears_its_mail() {
     assert!(p.get("potential_true").is_none() && p.get("ceiling").is_none(), "nothing hidden");
     let home = ok(&mut g, "dashboard", json!({}));
     assert!(!home["slides"].as_array().unwrap().is_empty(), "{home}");
+    // The Home hero's three slides come first (lane 16), the season's own after.
+    let kinds: Vec<&str> = home["slides"].as_array().unwrap().iter().filter_map(|s| s["kind"].as_str()).collect();
+    assert_eq!(kinds[..3], ["stadium", "story", "room"], "{kinds:?}");
+    let a = &home["slides"][0]["hero"];
+    assert!(a["road"].is_array() && a["team"]["name"].is_string() && a["captains"].is_array(), "{a}");
+    assert!(home["slides"][1]["hero"]["bars"].as_array().is_some_and(|b| !b.is_empty()), "{}", home["slides"][1]);
+    assert!(home["slides"][2]["hero"]["facts"].as_array().is_some_and(|f| !f.is_empty()), "{}", home["slides"][2]);
+    // Everyone in the team photo appears once.
+    let c = &home["slides"][2]["hero"];
+    let mut photo: Vec<u64> = ["back", "mid", "st", "caps"]
+        .iter()
+        .flat_map(|k| c[*k].as_array().into_iter().flatten().filter_map(|p| p["id"].as_u64()))
+        .collect();
+    let all = photo.len();
+    photo.sort_unstable();
+    photo.dedup();
+    assert_eq!(photo.len(), all, "a player twice in the team photo: {c}");
+    assert!(home["know"].as_array().is_some_and(|k| k.len() <= 3), "{}", home["know"]);
     for (cmd, args) in [
         ("peek", json!({ "kind": "player", "id": pid })),
         ("find", json!({ "q": "Te" })),
