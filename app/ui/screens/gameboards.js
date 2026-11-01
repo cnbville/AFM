@@ -619,7 +619,10 @@ function bdCapNfl(x, st) {
   let card = bdEmpty(`Nobody is under contract for ${x.year} yet.`);
   if (sel) {
     const topBar = sel.topAtPos > 0 ? Math.min(100, (100 * sel.hit) / sel.topAtPos) : 0;
-    const moves = sel.moves.map((m) => `<div class="bd-mv"><span>${esc(m.k)}${m.noTrade ? ' <small class="bad">no-trade clause</small>' : ""}</span><span class="bd-cond${m.saves < 0 ? " bad" : ""}">${bdMoney(m.saves)}</span><span class="bd-cond${m.now > 0 ? " bad" : ""}">${bdMoney(m.now)}</span><span class="bd-cond">${bdMoney(m.later)}</span></div>`).join("");
+    // Each move opens where you make it: a cut his row on the cap sheet, a
+    // trade the trade desk with him on your side.
+    const moveAt = (m) => (/^Trade/.test(m.k) ? linkTo("fo_trades", { give: [sel.id] }, esc(m.k)) : linkTo("fo_cap", { id: sel.id }, esc(m.k)));
+    const moves = sel.moves.map((m) => `<div class="bd-mv"><span>${moveAt(m)}${m.noTrade ? ' <small class="bad">no-trade clause</small>' : ""}</span><span class="bd-cond${m.saves < 0 ? " bad" : ""}">${bdMoney(m.saves)}</span><span class="bd-cond${m.now > 0 ? " bad" : ""}">${bdMoney(m.now)}</span><span class="bd-cond">${bdMoney(m.later)}</span></div>`).join("");
     card = `<div class="bd-card">
       <div class="bd-line2"><span class="st-label">${esc(sel.pos)} · age ${sel.age}${sel.squad ? " · practice squad" : ""}</span><span class="bd-dim">signed through ${sel.through}</span></div>
       <span class="bd-mtitle">${playerLink(sel.id, sel.name)}</span>
@@ -628,7 +631,7 @@ function bdCapNfl(x, st) {
       ${bdCells([{ k: "Salary", v: bdMoney(sel.salary) }, { k: "Bonus", v: bdMoney(sel.bonus), sub: `${sel.bonusShare}% of the hit` }, { k: "Guaranteed", v: bdMoney(sel.gtd), sub: "still to pay" }])}
       <div class="bd-kv"><span>Your staff's read</span>${range(sel.read, "your staff", { p: sel.id, k: "ovr" })}</div>
       <div class="bd-mvs"><div class="bd-mv bd-thd"><span>If you move him in ${x.year}</span><span>Saves</span><span>Dead now</span><span>Dead later</span></div>${moves}</div>
-      <div class="bd-links"><a class="link" data-go="player" data-id="${sel.id}" data-tab="Contract">His contract ›</a><a class="link" data-go="contracts">Contracts ›</a></div></div>`;
+      <div class="bd-links"><a class="link" data-go="player" data-id="${sel.id}" data-tab="Contract">His contract ›</a>${linkTo("fo_cap", { id: sel.id }, "Cap sheet ›")}</div></div>`;
   }
   const e = x.ending;
   const ending = `<div class="bd-card"><div class="bd-line2"><span class="st-label">Contracts ending after ${e.year}</span><span class="bd-dim">${e.count} ${e.count === 1 ? "player" : "players"}</span></div>

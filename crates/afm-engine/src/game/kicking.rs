@@ -231,8 +231,10 @@ pub fn kickoff(
     // A real NFL kickoff leg carries about 70 yards (before 2024 most went
     // five to nine yards deep from the 35); a college leg a few less, a high
     // school one far less (proposed, not confirmed: was 44 + 0.23 per point,
-    // which put almost no kick in the end zone at any level).
-    let max = leg(kicker, Attr::KickPower, 49.0, 0.23, cond, along) + rng.normal(0.0, 3.0);
+    // which put almost no kick in the end zone at any level, then 49, which
+    // left NFL touchbacks at 14% under the 2025 rule, real 22%, and 45%
+    // before 2024, real about 55%; minor bug 139).
+    let max = leg(kicker, Attr::KickPower, 55.0, 0.23, cond, along) + rng.normal(0.0, 3.0);
     // Where he aims: under the NFL's 2025 rule a kick into the end zone is a
     // touchback to the 35, so most kickers drop it in the landing zone and
     // make the return team bring it out (real 2025: 75% returned). A
@@ -245,7 +247,8 @@ pub fn kickoff(
         -1.0 - rng.range(0.0, 3.0)
     } else if rules.nfl_kickoff {
         let r = &k.ret[k.ret_on[0]];
-        let danger = 0.5 * (r.a(Attr::Speed) + r.a(Attr::Elusiveness)) - 80.0;
+        // Read for his weight, as the forty is (A3).
+        let danger = 0.5 * (r.a(Attr::Speed) + r.a(Attr::Elusiveness)) - super::sim::size_cost(r.weight, 200.0) - 80.0;
         let away = clamp(0.2 + 0.012 * danger, 0.08, 0.45);
         if from - max < -1.0 && rng.chance(away) { -2.0 - rng.range(0.0, 5.0) } else { 2.0 + rng.range(0.0, 8.0) }
     } else if from - max < -2.0 {
@@ -507,7 +510,10 @@ pub fn punt(
         .map(|&i| &k.ret[i])
         .map(|p| 0.4 * p.a(Attr::Press) + 0.3 * p.a(Attr::Strength) + 0.3 * p.a(Attr::Speed))
         .fold(0.0, f64::max);
-    let mut cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    // How close the gunners are sets the fair catches: 29% of NFL punts
+    // with 5.2, real 27.5% (nflverse 2021-2025; minor bug 139: 4.6 made
+    // 37%; proposed, not confirmed).
+    let mut cover_gap = clamp(5.2 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
     // Near the numbers the sideline helps the coverage.
     if directional {
         cover_gap = (cover_gap - 0.8).max(0.0);
@@ -717,8 +723,11 @@ fn run_return(
             if kickoff && rules.nfl_kickoff { from } else { catch.x + 30.0 + rng.range(0.0, 8.0) }
         } else if let Some(g) = gap {
             // A punt: the gunners are cover_gap away when it comes down,
-            // the rest of the unit a few yards behind them in lanes.
-            let behind = if n <= 2 { rng.range(0.0, 2.0) } else { 5.0 + rng.range(0.0, 8.0) };
+            // the rest of the unit 5 to 19 yards behind them in lanes, the
+            // linemen who blocked first trailing as a second wave (minor
+            // bug 139: one wave 5-13 back let 2% of returns go the
+            // distance, real 0.8%; proposed, not confirmed).
+            let behind = if n <= 2 { rng.range(0.0, 2.0) } else { 5.0 + rng.range(0.0, 14.0) };
             catch.x + g + behind
         } else {
             (cover_start - speed * run).max(catch.x + 5.0 + rng.range(0.0, 6.0))
@@ -729,7 +738,9 @@ fn run_return(
             mid() + rng.range(-3.0, 3.0)
         } else if gap.is_some() && (n == 1 || n == 2) {
             // Gunners close on the returner from either side.
-            catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)
+            // Inside the lines: a catch near the sideline put one up to
+            // 4.5 yards out of bounds, his jammer driving him farther.
+            (catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)).clamp(1.0, width() - 1.0)
         } else {
             lane + (catch.y - lane) * (1.0 - (x - catch.x).abs() / 40.0).clamp(0.0, 0.6)
         };
@@ -744,6 +755,14 @@ fn run_return(
         let p = &*super::sim::hampered(&k.ret[i], k.hurt[1].get(i).copied().flatten());
         let pos = if n == 0 {
             catch
+        } else if gap.is_some() && n <= 2 && agents.len() > n {
+            // A punt: each jammer has run down the field on his gunner and
+            // is on him when the ball comes down, a step in front of him or
+            // a step beaten (real vise play). They used to start with the
+            // wall, so the gunners came free and NFL punt returns went 5.5
+            // yards against the real 9.5 (minor bug 139).
+            let g = agents[n].pos;
+            v2(g.x + rng.range(-1.5, 1.0), (g.y + rng.range(-0.7, 0.7)).clamp(0.5, width() - 0.5))
         } else {
             // The wall forms between him and the coverage.
             let lane = 6.0 + ((n - 1) as f64) * (width() - 12.0) / (rules.code.players as f64 - 2.0);
@@ -862,6 +881,15 @@ fn run_return(
         let (nb, nc) = (blockers.len(), cover.len());
         for (j, &b) in blockers.iter().enumerate() {
             man[b] = cover.get(j * nc / nb.max(1)).copied();
+        }
+    } else if gap.is_some() {
+        // On a punt the two jammers stay on the gunners (the return team
+        // comes first, then the kicker and his two gunners).
+        let r = k.ret_on.len();
+        for j in 1..=2 {
+            if j < r && r + j < sim.agents.len() {
+                man[j] = Some(r + j);
+            }
         }
     }
     // How far in front of the returner each deep man holds: the safeties

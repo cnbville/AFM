@@ -1,0 +1,70 @@
+/* Lane styles: help on every screen (update 3, lane 6, H1-H7) in Press Box.
+   The hover cards reuse lane 3's .rr-card; the depth chart's "Why is he
+   here?" (board 37) sits on .sl panels. Every class is hp- so the app's
+   global names never restyle these. */
+
+/* ---------- hover cues ---------- */
+.hp-name { cursor: help; text-decoration: underline dotted transparent; text-underline-offset: 3px; transition: text-decoration-color .15s; }
+.hp-name:hover, .hp-name:focus-visible { text-decoration-color: currentColor; outline: none; }
+.hp-term { cursor: help; text-decoration: underline dotted; text-decoration-color: color-mix(in oklab, currentColor 45%, transparent); text-underline-offset: 3px; }
+.hp-term:hover, .hp-term:focus-visible { text-decoration-color: currentColor; outline: none; }
+[data-h3] { cursor: help; }
+[data-h3]:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- the cards ---------- */
+.rr-card.hp-card { width: 330px; }
+.hp-card .hp-big { font-size: 15px; white-space: normal; text-align: right; }
+.hp-card .hp-what { font-size: 13.5px; font-weight: 700; color: var(--fg); line-height: 1.4; }
+.hp-card .hp-above { padding: 7px 10px; border-radius: 10px; background: var(--sl-row); color: var(--fg); font-weight: 600; }
+.rr-card .hp-chg { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--sl-line); }
+.rr-card .hp-chg .rr-top b.up { color: var(--sl-gold); }
+.rr-card .hp-chg .rr-top b.down { color: var(--sl-bad); }
+.rr-card .hp-chg ul { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.45; }
+.rr-card .hp-chg .link { font-size: 12px; align-self: flex-start; }
+
+/* ---------- why-lines under letters and stories (H6) ---------- */
+.hp-why { margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: var(--fill-1); box-shadow: inset 3px 0 0 var(--gold); }
+.hp-why .st-label { display: block; margin-bottom: 4px; }
+.hp-why ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.hp-why.small { padding: 7px 10px; font-size: 12.5px; }
+.lt-paper .hp-why { background: rgba(29, 26, 22, .05); box-shadow: inset 3px 0 0 #b8892b; color: var(--ink); font-size: 13.5px; }
+.lt-paper .hp-why .st-label { color: var(--ink2); }
+
+/* ---------- the depth chart: who put him there (board 37) ---------- */
+.hp-by { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font-size: 10.5px; font-weight: 800; line-height: 1; flex: none; }
+.hp-by.y { background: #f1be48; color: #08090c; }
+.hp-by.c { background: #d4d7dd; color: #08090c; }
+.hp-by.a { background: #3a3e46; color: #e8eaee; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.sb-plate .hp-pby { position: absolute; top: -.55em; right: -.45em; width: 1.6em; height: 1.6em; border-radius: .45em; font-size: .85em; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
+.hp-dcfoot { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 10px 28px; padding: 12px 16px; border-radius: 16px; background: var(--sb-card); box-shadow: inset 0 0 0 1px var(--sb-line); }
+.hp-dcl { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.hp-legend { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: var(--sb-text2); }
+.hp-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.hp-changes { display: flex; flex-direction: column; gap: 5px; }
+.hp-change { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 12.5px; color: var(--sb-text2); }
+.hp-change small { color: var(--sb-dim); font-size: 11.5px; white-space: nowrap; }
+
+.hp-wh { gap: 10px; }
+.hp-wh-by { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; align-items: start; font-size: 12.5px; color: var(--sb-text2); }
+.hp-wh-by > span:last-child { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hp-wh-by b { color: var(--sb-text); font-weight: 700; }
+.hp-wh-by small { color: var(--sb-dim); font-size: 11.5px; line-height: 1.4; }
+.hp-wh ol { margin: 0; padding: 0; list-style: none; counter-reset: hpw; display: flex; flex-direction: column; gap: 8px; }
+.hp-wh ol li { counter-increment: hpw; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; font-size: 12.5px; line-height: 1.45; color: var(--sb-text3); }
+.hp-wh ol li::before { content: counter(hpw); display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--sb-seg-on); color: var(--sb-text); font-size: 11px; font-weight: 800; }
+.hp-wh ol li b { display: block; color: var(--sb-text); font-weight: 700; }
+.hp-alts { display: flex; flex-direction: column; }
+.hp-alt { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, 140px); gap: 4px 12px; align-items: center; padding: 7px 0; border-top: 1px solid var(--sb-line); }
+.hp-alt:first-child { border-top: 0; padding-top: 0; }
+.hp-alt > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hp-alt .link { font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+.hp-alt small { font-size: 11.5px; color: var(--sb-dim); line-height: 1.35; }
+.hp-alt small.hurt { color: var(--sb-bad); }
+.hp-reps { display: flex; flex-direction: column; gap: 6px; }
+.hp-rep { display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 10px; align-items: center; font-size: 12.5px; }
+.hp-rep > span { display: flex; flex-direction: column; min-width: 0; }
+.hp-rep small { color: var(--sb-dim); font-size: 11px; }
+.hp-rep i { position: relative; height: 6px; border-radius: 4px; background: var(--sb-track); overflow: hidden; }
+.hp-rep i u { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--sb-text3); }
+.hp-calls { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 1360px) { .hp-dcfoot { grid-template-columns: 1fr; } }

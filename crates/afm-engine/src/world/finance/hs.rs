@@ -40,7 +40,7 @@ pub const LINES: [Line; N] = [
     Line { name: "Buses and travel", income: false, spread: Spread::Season },
     Line { name: "Officials and game day", income: false, spread: Spread::Games },
     Line { name: "Field, lights and upkeep", income: false, spread: Spread::Even },
-    Line { name: "Booster purchases", income: false, spread: Spread::Day },
+    Line { name: "Booster purchases", income: false, spread: Spread::Season },
     Line { name: "Team meals", income: false, spread: Spread::Season },
 ];
 
@@ -164,13 +164,28 @@ fn budget(w: &World, h: usize) -> Book<N> {
     b.l[PLAYOFF] = (extra * crowd * 1.4 * ticket * 0.5) as f32;
     let fee = fee(w, h) as f64;
     b.l[PAY_TO_PLAY] = (fee * roster * 0.85) as f32;
-    b.l[BOOSTER] = ((2_500.0 + 45_000.0 * s.area_money * (0.3 + s.prestige)) * idx) as f32;
+    // One booster club for every school, the school desk's (bug 150; in 2026 dollars).
+    let club = crate::world::front_office::school::booster_base(w, h) * idx / hs_index(2026);
+    b.l[BOOSTER] = club as f32;
     b.l[STIPENDS] = stipends as f32;
     b.l[EQUIPMENT] = ((roster * 95.0 + 1_500.0) * idx * (0.7 + 0.6 * s.resources)) as f32;
     b.l[TRAVEL] = ((homes + extra) * (380.0 + 300.0 * s.area_money) * idx) as f32;
     b.l[GAME_DAY] = (homes * (700.0 + crowd * 0.35) * idx) as f32;
     b.l[STADIUM] = ((4_000.0 + 9_000.0 * s.resources + crowd * 2.0) * idx) as f32;
     b.l[MEALS] = ((10.0 + extra) * roster * 6.0 * idx * s.area_money.max(0.2)) as f32;
+    // JV and freshman games: four of each team's home games need a crew and
+    // its road games a bus (bug 150; proposed, not confirmed: four officials
+    // at about $60 each, the varsity's bus).
+    let (jv, fr) = crate::world::front_office::school::fields(w, h);
+    let teams = jv as u8 as f64 + fr as u8 as f64;
+    b.l[GAME_DAY] += (teams * 4.0 * 250.0 * idx) as f32;
+    b.l[TRAVEL] += (teams * 4.0 * (380.0 + 300.0 * s.area_money) * idx) as f32;
+    // The club spends what it raises, keeping about 30% back for the next
+    // project (the desk's own reserve); team meals come out of it first.
+    // Your own school books its buys itself.
+    if w.seat_school() != Some(h) {
+        b.l[PURCHASES_LINE] = (0.7 * club - b.l[MEALS] as f64).max(0.0) as f32;
+    }
     b
 }
 
@@ -187,6 +202,17 @@ pub(crate) fn open(w: &mut World) {
         .collect();
     w.finance.hs = schools;
     open_seat(w);
+}
+
+/// A school that opens after the books (SK68): its own book from today.
+pub(crate) fn add_school(w: &mut World, h: usize) {
+    if !w.finance.ready || w.finance.hs.len() != h {
+        return;
+    }
+    let fy = if w.today < w.dates.money_year { w.year - 1 } else { w.year };
+    let school =
+        School { now: Book::new(fy), budget: budget(w, h), last: Book::default(), fee: fee(w, h), crowd: crowd(w, h) };
+    w.finance.hs.push(school);
 }
 
 /// Your money at a new high school job: the district's equipment budget.
@@ -213,8 +239,14 @@ pub(crate) fn month(w: &mut World, m: u32) {
             0.0
         }
     };
-    for s in &mut w.finance.hs {
+    // Your own school books its booster buys itself, even when you took it
+    // after its budget opened in July.
+    let seat = w.seat_school();
+    for (h, s) in w.finance.hs.iter_mut().enumerate() {
         for (k, line) in LINES.iter().enumerate() {
+            if k == PURCHASES_LINE && seat == Some(h) {
+                continue;
+            }
             let share = match line.spread {
                 Spread::Games => homes(m) / 5.0,
                 // The school year: booster money and costs land August to November.

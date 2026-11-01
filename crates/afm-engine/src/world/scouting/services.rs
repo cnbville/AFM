@@ -381,10 +381,27 @@ fn lean(w: &World, desk: &Desk, i: usize, d: Date) -> f64 {
     let sd = 0.012 + 0.0015 * (20.0 - desk.skill as f64);
     let mut g = sd * (0.85 * key_normal(desk.key ^ 0x5E41, id) + 0.35 * key_normal(desk.key ^ d.0 as u64, id));
     let size = crate::body::combine_size(p.player.position);
+    // Minor bug 27: each lean reads what a desk can see. The big programs'
+    // offers (not the kicking camps' stars), a clip of a fast recorded time
+    // (not his hidden speed), his listed weight (not his grown frame).
+    let big = p
+        .cal
+        .offers
+        .iter()
+        .copied()
+        .chain(p.cal.early_offers.iter().map(|o| o.0))
+        .filter(|&j| w.programs[j].power_conference(d.year()))
+        .count();
+    let clip = w.times.of(p.player.id).iter().any(|t| {
+        use crate::world::times::{Event, Timed};
+        (t.event == Event::Forty && t.timed == Timed::Laser && t.secs <= 4.45)
+            || (t.event == Event::M100 && t.timed == Timed::Fat && t.secs <= 10.75)
+    });
+    let listed = super::file::listed(&p.player).1;
     g += match desk.lean {
-        Lean::BigPrograms if p.camp_stars >= 4 || p.cal.offers.len() + p.cal.early_offers.len() >= 15 => 0.006,
-        Lean::Viral if p.player.attributes.get(crate::attributes::Attr::Speed) >= 80.0 => 0.006,
-        Lean::Size => 0.004 * clamp((p.player.body.weight - size.2) / size.3.max(1.0), -1.5, 1.5),
+        Lean::BigPrograms if big >= 3 || p.cal.offers.len() + p.cal.early_offers.len() >= 15 => 0.006,
+        Lean::Viral if clip => 0.006,
+        Lean::Size => 0.004 * clamp((listed - size.2) / size.3.max(1.0), -1.5, 1.5),
         Lean::Production => {
             let games: u32 = p.hs_lines.iter().rev().take(1).map(|l| l.games as u32).sum();
             if games >= 10 { 0.004 } else { 0.0 }

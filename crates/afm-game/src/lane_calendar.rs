@@ -397,8 +397,35 @@ fn go(screen: &str, label: &str) -> Option<Value> {
 
 /// Where a line lives on your screens (CAL6).
 fn home_of(e: &Event, lv: Lv) -> Option<Value> {
+    // A decision opens its desk on him (minor bug 69).
+    if e.needs_decision
+        && let Some((screen, args)) = crate::views::decision_go(e)
+    {
+        let mut v = json!({ "screen": screen, "label": "Decide it" });
+        if let Some(o) = args.as_object() {
+            for (k, x) in o {
+                v[k] = x.clone();
+            }
+        }
+        return Some(v);
+    }
     let t = e.text.to_lowercase();
     let r = e.rule.to_lowercase();
+    // Whole words, so a name like Montague or Capers is no "tag" or "cap".
+    let has_word = |ws: &[&str]| t.split(|c: char| !c.is_alphanumeric()).any(|x| ws.contains(&x));
+    let tag = has_word(&["tag", "tags", "tagged"]);
+    // The league's own dates (never a line naming a player).
+    if lv == Lv::Nfl && matches!(e.kind, Kind::Date | Kind::Deadline | Kind::Window) {
+        if t.contains("trade deadline") {
+            return go("fo_trades", "Trades");
+        }
+        if t.contains("cutdown") || t.contains("cut-down") || t.contains("roster cut") {
+            return go("fo_moves", "Roster moves");
+        }
+        if tag || t.contains("fifth-year option") || t.contains("offer sheet") {
+            return go("fo_expiring", "Deals and tags");
+        }
+    }
     match e.kind {
         Kind::Offer | Kind::Visit | Kind::Commitment | Kind::Signing if lv == Lv::Nfl => go("contracts", "Contracts"),
         Kind::Offer | Kind::Visit | Kind::Commitment | Kind::Signing => go("recruiting", "Recruiting"),
@@ -411,7 +438,7 @@ fn home_of(e: &Event, lv: Lv) -> Option<Value> {
         _ if r.contains("press") || t.contains("press conference") || t.contains("presser") => go("people", "Media"),
         _ if r.starts_with("people") || r.contains("meeting") => go("people", "People"),
         _ if lv == Lv::Nfl
-            && (t.contains("tag") || t.contains("free agen") || t.contains("league year") || t.contains("cap")) =>
+            && (tag || t.contains("free agen") || t.contains("league year") || has_word(&["cap", "caps"])) =>
         {
             go("contracts", "Cap")
         }
@@ -895,6 +922,8 @@ fn marks(w: &World, t: TeamRef, lv: Lv, r0: Date, r1: Date, ys: &mut Years) -> V
                 }
                 out.push((y.portal_open, "Portal window opens".into()));
                 out.push((y.signing_day, "Signing day".into()));
+                // The sites' national showcase finals (speed update S6d).
+                out.push((afm_engine::world::times::showcase_dates(s).1, "Showcase finals".into()));
             }
             Lv::High => {
                 if let TeamRef::HighSchool(h) = t
@@ -907,6 +936,10 @@ fn marks(w: &World, t: TeamRef, lv: Lv, r0: Date, r1: Date, ys: &mut Years) -> V
                     out.push((e, "Early signing".into()));
                 }
                 out.push((y.signing_day, "Signing day".into()));
+                // The spring track season (speed update S6a).
+                let (open, _, state) = afm_engine::world::times::track_dates(s);
+                out.push((open, "Track season opens".into()));
+                out.push((state, "State track meet".into()));
             }
             Lv::Nfl => {
                 out.push((y.draft[0].date, "Draft".into()));

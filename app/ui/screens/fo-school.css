@@ -45,6 +45,8 @@
 .fs-feeder .sub { font-size: 13px; }
 .fs-names { font-size: 13px; line-height: 1.6; }
 .fs-names .st-label { margin-right: 6px; }
+.fs-give { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.items .item.fs-ath { grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; }
 
 /* The job market. */
 .fs-offers { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }

@@ -94,6 +94,7 @@ pub fn rename_save(g: &Game, args: &Value) -> Result<Value, String> {
     }
     std::fs::rename(&from, &to).map_err(|e| format!("Could not rename the save: {e}"))?;
     crate::lane_faces::on_rename(&from, &to);
+    crate::world_log::on_rename(&from, &to);
     Ok(json!({ "path": to.display().to_string() }))
 }
 
@@ -119,6 +120,7 @@ pub fn delete_save(g: &Game, args: &Value) -> Result<Value, String> {
     let p = save_in(g, args.get("path").and_then(Value::as_str).ok_or("Missing path.")?)?;
     std::fs::remove_file(&p).map_err(|e| format!("Could not delete the save: {e}"))?;
     crate::lane_faces::on_delete(&p);
+    crate::world_log::on_delete(&p);
     Ok(json!({ "deleted": true }))
 }
 
@@ -1095,6 +1097,8 @@ pub fn bug_pack(g: &Game, args: &Value) -> Result<Value, String> {
     });
     std::fs::write(dir.join("note.json"), serde_json::to_string_pretty(&note).unwrap_or_default())
         .map_err(|e| e.to_string())?;
+    // The Mac app's slow calls, when there were any (`app/src-tauri`, `slow_call`).
+    let _ = std::fs::copy(g.home.join("logs").join("slow-calls.log"), dir.join("slow-calls.log"));
     write(w, &dir.join("world.afmsave"))?;
     Ok(json!({ "folder": dir.display().to_string() }))
 }

@@ -262,7 +262,10 @@ fn coordinator_left(w: &mut World, t: TeamKey, c: usize, d: Date) {
     if !why.starts_with("left for another job") || !on(w, t) {
         return;
     }
-    // Two of the top three gone to other jobs in one cycle: a raid.
+    // Two of the top three gone to other jobs in one cycle: a raid. A
+    // stint closes on its carousel cycle (minor bug 128), so a December
+    // move and a February one count together.
+    let cycle = last_stint(w, c, t).map_or(year, |s| s.to);
     let e = employer(t);
     let gone = w
         .coaches
@@ -270,7 +273,7 @@ fn coordinator_left(w: &mut World, t: TeamKey, c: usize, d: Date) {
         .filter(|co| {
             co.history.last().is_some_and(|s| {
                 s.employer == e
-                    && s.to == year
+                    && s.to == cycle
                     && s.ended.starts_with("left for another job")
                     && matches!(s.role, Role::HeadCoach | Role::OffensiveCoordinator | Role::DefensiveCoordinator)
             })

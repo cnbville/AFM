@@ -1090,7 +1090,11 @@ fn parade(w: &mut World, t: TeamKey, d: Date) {
         TeamKey::Hs(_) => 0.2,
     };
     let base = match t {
-        TeamKey::Nfl(_) => 450_000.0,
+        // The estimates cities give: about a million in Boston, New York,
+        // Kansas City and Philadelphia, a few hundred thousand in Pittsburgh
+        // and Baltimore (parades.csv, 2002-2025, average about 853,000;
+        // minor bug 151: 450,000 gave 461,000).
+        TeamKey::Nfl(_) => 780_000.0,
         TeamKey::College(_) => 45_000.0,
         // A Grey Cup parade or rally draws tens of thousands.
         TeamKey::Other(_) => 60_000.0,

@@ -1,6 +1,6 @@
 # Injuries: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28.
+Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -13,7 +13,8 @@ There are four injury sources, and they do not talk to each other much:
 
 ## Quick answers
 
-- Does an engine game injury carry past the game? Yes, at every level unless he played on. In the NFL (and the other pro leagues) it sets `out_weeks` (`world/pro/games.rs`, `record`, `record_preseason`; `world/pro/other.rs`). In college and high school (JV games aside) he is out ceil(weeks × (1 − 0.12 × medical) × 7) days, at least 1, from the day after the game; medical = (the program's medical rating − 10) / 10 in college (a top staff 12% shorter, a poor one up to 11% longer), 0 in high school. Your players get a `Hurt` row ("game") and a trainers' note; everyone else goes in `training.others_hurt`, which `hurt_out` reads, so AI teams sit them too (`training/seat.rs`, `game_injuries`; `world/college.rs`, `play_day`; `world/hs_year.rs`).
+- Does an engine game injury carry past the game? Yes, at every level unless he played on. In the NFL (and the other pro leagues) it sets `out_days`, counted down day by day, with `out_weeks` the weeks still left (lane 4, B1: `world/pro/games.rs`, `record`, `record_preseason`; `world/pro/other.rs`; `ProCareer::hurt_for`). In college and high school (JV games aside) he is out ceil(weeks × (1 − 0.12 × medical) × 7) days, at least 1, from the day after the game; medical = (the program's medical rating − 10) / 10 in college (a top staff 12% shorter, a poor one up to 11% longer), 0 in high school. Your players get a `Hurt` row ("game") and a trainers' note; everyone else goes in `training.others_hurt`, which `hurt_out` reads, so AI teams sit them too (`training/seat.rs`, `game_injuries`; `world/college.rs`, `play_day`; `world/hs_year.rs`).
+- And an NFL season row's games missed? Counted game by game: each regular-season game his team plays while he is on its roster and still out hurt (`world/pro/games.rs`, `record`). Men on injured reserve don't count, as on real injury reports (nflverse's 1.2 games a player-season); the yearly roll's figure is cleared at camp (`world/pro/mod.rs`, `camp`; minor bug 96: the rows kept the roll, 0.56).
 - Then where do college and high school "games missed" come from? The yearly roll: minor 0-2 games, moderate 2-6, major half the season or more, written on the season row (`development.rs`, `develop_season`, `games_missed`). It does not take him out of engine games.
 - Does toughness make injuries rarer? No. Toughness only decides whether he plays on hurt (`game/sim.rs`, `injury_check`, `plays_on`).
 - Does fatigue raise injury odds? Yes: the chance × (1 + 0.8 × tired), tired 0-1 from his energy (`game/sim.rs`, `injury_check`). Fatigue also scales ratings (`game/sim.rs`, `Agent::new`).
@@ -32,9 +33,9 @@ There are four injury sources, and they do not talk to each other much:
 - Force: (carrier mass × speed + tackler mass × speed) × 0.5 × (1 + 0.2 × share × his big-hit tendency lean) (`game/sim.rs`, `hit_effects`).
 - Share: the carrier 1 + 0.4 × his contact tendency lean (min 0.2); the tackler 0.7 (`hit_effects`).
 - Chance: `injury_scale × 0.022 × share × (force / 1700)^1.6 × prone × turf`, prone = 0.55 + proneness / 18 (1 → 0.61, 10 → 1.11, 20 → 1.66), turf 1.12 or 1.0, `injury_scale` 1.0 (`game/sim.rs`, `injury_check`; `game/flow.rs`).
-- Type mix (weights): bruise 22, ankle sprain 13, high ankle 5, knee sprain 10, ACL 2.2, shoulder 9, concussion 8, ribs 5, hand 6, fracture 3, back 3, hamstring 6 (`injury_check`).
+- Type mix (weights): bruise 23.2, ankle sprain 9.5, high ankle 3.6, knee sprain 7.9, ACL 1.7, shoulder 4.6, concussion 10.7, ribs 5.0, hand 6.1, fracture 3.1, back 2.8, hamstring 7.4, foot 3.1, groin 3.4, calf 3.0, neck 1.8, hip 1.7, quad 1.5 (`injury_check`). Sized so the week-plus ones match nflverse's shares by body part (knee 17.2%, ankle 14.3%, hamstring 12.9%, concussion 11.1%, shoulder 5.6%, foot 4.4%, groin 4.3%, calf 3.8%); foot, groin, calf, neck, hip and quad got their own kinds with minor bug 145 (knees had been 24.7% and ankles 21.1%).
 - Length: `injury_weeks` gives lo + (hi − lo) × u² (most are short) × (1.3 − 0.03 × recovery) (recovery 10 → ×1.0, 20 → ×0.7, 1 → ×1.27) (`game/sim.rs`, `injury_weeks`, `injury_check`).
-- Ranges in weeks: bruise 0-1, ankle 0-3, high ankle 2-7, hamstring 1-5, knee 1-6, ACL 36-56, shoulder 0-8, concussion 0.5-3, ribs 0-4, hand 0-5, fracture 4-12, back 0-4 (`injury_weeks`).
+- Ranges in weeks: bruise 0-1, ankle 0-3, high ankle 2-7, hamstring 1-5, knee 1-6, ACL 36-56, shoulder 0-8, concussion 0.5-3, ribs 0-4, hand 0-5, fracture 4-12, back 0-4, foot 0.5-9.5, groin 0.5-5.5, calf 0.5-5.5, neck 0-10, hip 0-7, quad 0.5-6 (`injury_weeks`; the six new ranges and what each hampers are proposed, not confirmed).
 - Playing on: never after a concussion, ACL or fracture; otherwise chance clamp(0.15 + 0.035 × toughness − 0.12 × weeks, 0, 0.95), toughness as a 1-20 read against the level (`injury_check`; `game/roster.rs`, `trait20`).
 - Concussion protocol: caught 92% in the NFL, 80% in college, 60% in high school; one not caught plays on (`game/flow.rs`, `apply_injuries`).
 - Playing hurt: the ratings his injury limits drop by its share each snap he plays, scrimmage and kicks alike (a hamstring speed and burst, a hand catching) (`game/sim.rs`, `hampered`, `InjuryKind::hampers`; `game/scrimmage.rs`, `run_snap`; `game/kicking.rs`). The rest are untouched.
@@ -43,7 +44,7 @@ There are four injury sources, and they do not talk to each other much:
 
 ## After an NFL game
 
-- Each injury not played through: weeks = ceil(weeks × (1 − 0.12 × medical z)), at least 1, into `out_weeks` (`world/pro/games.rs`, `record`).
+- Each injury not played through: days = ceil(weeks × (1 − 0.12 × medical z) × 7), out that many days from the day after the game (lane 4, B1: `world/pro/games.rs`, `record`). The injury goes to the team he played for (`res.injuries` holds the team; it was read by snap side, so a kick or turnover snap's injuries landed on the wrong team, oddity 28). Preseason games the same without the medical staff. Practice injuries: ceil(weeks × 7) days.
 - Injured reserve when weeks ≥ the minimum: 6 before 2020, 4 from 2020 (`world/pro/games.rs`, `ir_minimum`).
 - Preseason games: 6 weeks or more puts a vested veteran (4+ accrued seasons) on reserve now; anyone else waits for the cutdown (`record_preseason`). At the cutdown a kept player still out 6+ weeks goes to reserve (`world/pro/mod.rs`, `cutdown`); one cut while hurt gets an injury settlement, his base pay for the weeks out, as dead money (`world/pro/squad.rs`, `settle_injury`). A camp injury of 6+ weeks costs a borderline player 2 points in the cut ranking (`world/pro/mod.rs`, `cut_scores`).
 - Players with `out_weeks > 0` don't dress, nor do your own club's players on the non-football injury list from report day (`world/pro/games.rs`, `actives`, `preseason_side`; `training/seat.rs`, `SeatTraining::hurt_out`).
@@ -88,9 +89,9 @@ There are four injury sources, and they do not talk to each other much:
 
 ## Recovery and lists (NFL)
 
-- `out_weeks` drops one a week: in season every Tuesday from the cutdown (`world/pro/mod.rs`, `heal_week`), in the offseason every Tuesday too (`offseason_heal`).
-- Back from reserve when healed if the club has returns left: none before 2012, 1 in 2012-16, 2 in 2017-19, unlimited 2020-21, 8 from 2022; else he sits out the season there (`world/pro/games.rs`, `ir_returns`; `world/pro/mod.rs`, `heal_week`). A full roster cuts its lowest-graded roster player to make room (health not checked).
-- At the new league year a healed reserve player rejoins the roster; one still hurt moves to the reserve/PUP list and comes back when healed without using a return (`world/pro/mod.rs`, the league-year step, `pup`; `offseason_heal`).
+- `out_days` drops one every day, all year, after the day's games, so the day plays the game its morning showed; a man who retired hurt heals too, so a loaded world heals as the original does (lane 4, B1: `world/pro/mod.rs`, `heal_day`, last in `nfl_year::day`), and `out_weeks` is the weeks still left, rounded up. The list of hurt pros is kept for the day and rebuilt from everyone each Tuesday and after a load; an older save's `out_weeks` turn into days the first morning. `heal_week` now counts only reserve and practice squad weeks.
+- Back from reserve the night he heals, in season, if the club has returns left: none before 2012, 1 in 2012-16, 2 in 2017-19, unlimited 2020-21, 8 from 2022; else he sits out the season there (`world/pro/games.rs`, `ir_returns`; `world/pro/mod.rs`, `heal_day`). A full roster cuts its lowest-graded roster player to make room (health not checked).
+- At the new league year a healed reserve player rejoins the roster; one still hurt moves to the reserve/PUP list and comes back the night he heals without using a return (`world/pro/mod.rs`, the league-year step, `pup`; `heal_day`).
 - A club over the roster limit with too few healthy players to dress moves its longest injury to reserve (`world/pro/mod.rs`, `fill_roster`).
 - Pros out 2+ weeks (other than yours, who train on your hurt week) train at a rehab ratio (strength 0.6, speed 0.4, conditioning 0.4, technique 0.1, contact 0, kicking 0.2, mental 0.5) at 70% attendance, load 150 units, and read as out for prep. An injury heals on Tuesday, after Monday's pass, so a pro with one week left practises and is read as full (`training/week.rs`, `monday`; `training/prep.rs`, `out_this_week`).
 - Second opinions (your team): a player out 4+ weeks, or one with a major injury near fall camp, may ask; supporting it moves the estimate −1, 0 or +2 weeks; asking the trainer to rush him cuts it to three quarters unless the trainer's judgement is 14 or more (`world/folk/life.rs`, `opinions_week`, `opinion_answer`).

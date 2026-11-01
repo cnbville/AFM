@@ -504,6 +504,9 @@ pub struct FileRead {
     pub medical: MedicalRead,
     /// Each reader's own read of each attribute: (centre, sd) or None.
     pub per_reader: Vec<Vec<Option<(f64, f64)>>>,
+    /// Every attribute's centre the overall is read from (an unseen one at
+    /// the wide prior), for reading him at another position.
+    pub centres: crate::attributes::Attributes,
 }
 
 /// The year a look's noise belongs to: a new football year, a new draw.
@@ -626,7 +629,10 @@ pub fn read(
     let discount = clamp((test_eye - 6.0) / 12.0, 0.0, 1.0);
     // Pre-draft training (topic 4): a hard worker at a testing camp runs up
     // to about 0.05 s faster in the 40 without being a faster player.
-    let training = if matches!(p.stage, crate::world::Stage::Declared) {
+    // F19: only the prospects who chose a testing camp this winter.
+    let training = if matches!(p.stage, crate::world::Stage::Declared)
+        && w.scouting.predraft.has(p.player.id, super::predraft::TESTING_CAMP)
+    {
         2.0 * clamp((p.player.personality.work_ethic - 6.0) / 12.0, 0.0, 1.0) * (0.5 + 0.5 * p.bg.money.min(1.0))
     } else {
         0.0
@@ -760,7 +766,7 @@ pub fn read(
     };
     let traits = trait_reads(w, i, readers, &looks);
     let medical = medical_read(w, i, readers, &looks, medical_rating);
-    FileRead { attrs, traits, now: (now, now_sd), ceiling, medical, per_reader }
+    FileRead { attrs, traits, now: (now, now_sd), ceiling, medical, per_reader, centres }
 }
 
 pub fn cat_index(c: Category) -> usize {
@@ -843,13 +849,11 @@ fn medical_read(w: &World, i: usize, readers: &[Reader], looks: &[Evidence], rat
         matches!(l.kind, Kind::School | Kind::Call | Kind::OldStaff | Kind::Background | Kind::Official | Kind::Combine)
     });
     let mut notes = Vec::new();
-    let (mut majors, mut moderates, mut minors) = (0u32, 0u32, 0u32);
+    let mut minors = 0u32;
     for h in &p.player.history {
         let what = if h.events.has(E::MajorInjury) {
-            majors += 1;
             Some("a major injury")
         } else if h.events.has(E::ModerateInjury) {
-            moderates += 1;
             Some("an injury")
         } else if h.events.has(E::MinorInjury) {
             minors += 1;
@@ -875,8 +879,7 @@ fn medical_read(w: &World, i: usize, readers: &[Reader], looks: &[Evidence], rat
     let lean = key_normal(0x3ED1 ^ (rating as u64) << 8 ^ readers.len() as u64, id);
     let prone = (p.player.injury_proneness - 10.0) / 5.0;
     let long = p.player.longevity / 2.0;
-    let truth = 0.45 * prone + 0.8 * majors as f64 + 0.25 * moderates as f64 - 0.2 * long + 0.3 * p.player.wear;
-    let concern = truth + sd * lean;
+    let concern = medical_truth(p) + sd * lean;
     if examined {
         if prone + 0.6 * lean >= 0.8 {
             let part = match p.player.position {
@@ -908,6 +911,25 @@ fn medical_read(w: &World, i: usize, readers: &[Reader], looks: &[Evidence], rat
         0
     };
     MedicalRead { grade, examined, concern, notes }
+}
+
+/// What a doctor would find: proneness, the injuries on record, his
+/// longevity and the wear already on him, on the medical grades' scale
+/// (0.6 a minor concern, 1.4 major, 2.4 a failed physical). Hidden: every
+/// read of it carries its doctors' misread.
+pub fn medical_truth(p: &crate::world::Person) -> f64 {
+    use crate::player::DevelopmentEvent as E;
+    let (mut majors, mut moderates) = (0u32, 0u32);
+    for h in &p.player.history {
+        if h.events.has(E::MajorInjury) {
+            majors += 1;
+        } else if h.events.has(E::ModerateInjury) {
+            moderates += 1;
+        }
+    }
+    let prone = (p.player.injury_proneness - 10.0) / 5.0;
+    let long = p.player.longevity / 2.0;
+    0.45 * prone + 0.8 * majors as f64 + 0.25 * moderates as f64 - 0.2 * long + 0.3 * p.player.wear
 }
 
 pub fn medical_words(g: u8) -> &'static str {

@@ -341,6 +341,12 @@ fn football_aid(d: Division) -> f64 {
     }
 }
 
+/// A Group of 5 school's gifts against its collective's booster money
+/// (bug 150): its collective raises about $2.2M, real G5 donor
+/// contributions run about $4-8M (Knight-Newhouse, from memory). Proposed,
+/// not confirmed.
+const G5_GIFT_RATIO: f64 = 2.6;
+
 /// The year's budget, set when the money year opens in July.
 pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     let prog = &w.programs[p];
@@ -369,7 +375,14 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     b.l[TICKETS] = (att * dept.price as f64 * 0.85) as f32;
     b.l[SEAT_DONATIONS] = (dept.season_tickets as f64 * dept.priority as f64) as f32;
     let nil_era = year >= 2021;
-    b.l[GIFTS] = (prog.collective.boosters() * if nil_era { 0.45 } else { 0.9 } * idx.min(1.2)) as f32;
+    // Below the power conferences the annual fund carries the giving, not
+    // the seat donation, and it didn't halve when the collectives came.
+    let ratio = match (t, nil_era) {
+        (1, _) => G5_GIFT_RATIO,
+        (_, true) => 0.45,
+        _ => 0.9,
+    };
+    b.l[GIFTS] = (prog.collective.boosters() * ratio * idx.min(1.2)) as f32;
     b.l[NCAA] = data::ncaa_distribution(prog.division, dept.hoops as f64, year) as f32;
     b.l[LICENSING] = (match t {
         0 => 4.0e6 + 34.0e6 * fans.powf(1.6),
@@ -440,7 +453,7 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     // little, most others half or more).
     let floor = match (t, prog.division) {
         (0, _) => 34.0e6,
-        (1, _) => 14.0e6,
+        (1, _) => 20.0e6,
         (2, _) => 7.0e6,
         (_, Division::D2) => 3.0e6,
         (_, Division::JUCO) => 0.7e6,

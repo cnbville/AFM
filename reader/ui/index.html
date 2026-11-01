@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AFM World Reader</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="reader.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side" aria-label="Worlds and pages">
+    <div class="brand"><b>AFM World Reader</b><span class="sub">A debug tool, never part of the game</span></div>
+    <section class="worlds" aria-label="Worlds">
+      <div class="lbl" style="padding: 0 12px">Worlds</div>
+      <div id="worlds" class="worlds"></div>
+      <a class="btn" href="#/library">Open a world or save</a>
+    </section>
+    <nav class="nav" id="nav" aria-label="Pages"></nav>
+    <div class="side-foot">
+      <button class="switch" id="hidden" type="button" aria-pressed="true"><i aria-hidden="true"></i><span><b>Hidden truths</b><br><span class="sub" id="hidden-sub">True potential and hidden ratings show, marked debug.</span></span></button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="top">
+        <span class="lbl" id="crumb">AFM World Reader</span>
+        <div class="acts">
+          <div class="searchbox">
+            <label for="q" style="position: absolute; left: -9999px">Search the world</label>
+            <input id="q" class="field" type="search" placeholder="Search a player, coach, school, club, conference or state" autocomplete="off">
+            <div id="results" class="results" hidden></div>
+          </div>
+          <button class="btn" id="filters-btn" type="button" aria-expanded="false">Filters</button>
+          <a class="btn" href="#/compare/worlds">Compare with…</a>
+          <button class="btn pri" id="copy" type="button">Copy for Claude</button>
+        </div>
+      </div>
+      <div id="filters" class="filters" hidden></div>
+      <div id="active" class="chips"></div>
+      <div id="page" class="wrap" style="gap: 24px"><p class="loading">Opening…</p></div>
+    </div>
+  </main>
+</div>
+<div id="hc" role="tooltip"></div>
+<div id="toast" role="status"></div>
+<script src="charts.js"></script>
+<script src="games.js"></script>
+<script src="reader.js"></script>
+</body>
+</html>

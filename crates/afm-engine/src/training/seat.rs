@@ -520,7 +520,7 @@ pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
         clean: five(bench * 0.88 * (1.0 + n(4, 0.04))),
         forty: (forty * 100.0).round() as u16,
         split: ((0.375 * forty - 0.15 + n(6, 0.015)) * 100.0).round() as u16,
-        shuttle: ((c.shuttle + n(7, 0.04)).clamp(3.8, 6.0) * 100.0).round() as u16,
+        shuttle: ((c.shuttle + crate::body::drill_knack(p).1 + n(7, 0.04)).clamp(3.8, 6.0) * 100.0).round() as u16,
         vertical: ((c.vertical + n(8, 0.8)).clamp(14.0, 46.0) * 2.0).round() as u8,
         weight: wt.round().clamp(0.0, 500.0) as u16,
     }
@@ -764,6 +764,21 @@ pub fn seat_team(w: &World, frames: &Frames) -> Option<SeatTeam> {
         })
         .collect();
     Some(SeatTeam { tier, level, frame, weeks, state, heat, roster, style, games })
+}
+
+/// Your team's frame for the football year of `y`, the same `seat_team`
+/// reads, without the roster (Continue's training block stops).
+pub fn seat_frame(w: &World, y: &crate::calendar::YearDates) -> Option<Frame> {
+    let seat = w.seat?;
+    match seat.level {
+        Cal::Nfl => seat.nfl_team.map(|_| Frame::pro(y, false)),
+        Cal::HighSchool => {
+            let s = w.high_schools.get(seat.program?)?.state;
+            (s < w.states.len()).then(|| super::week::state_frame(w, y, s).0)
+        }
+        Cal::College => Some(super::week::division_frame(y, w.programs.get(seat.program?)?.division)),
+        _ => None,
+    }
 }
 
 /// The books of a slot for checking a template (a mid-block week).

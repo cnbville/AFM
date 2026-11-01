@@ -192,7 +192,7 @@ fn start_words(w: &World, t: TeamKey) -> String {
 
 /// An NFL team's place in its division in a finished season.
 pub(crate) fn nfl_place(w: &World, t: usize, year: i32) -> Option<u8> {
-    let div = crate::world::franchise::era(t, year)?.div;
+    let div = crate::world::franchise::era_in(w, t, year)?.div;
     let mine = w.nfl_seasons.iter().find(|s| s.year == year && s.team == t)?;
     let pct = |s: &crate::world::nfl_year::NflTeamSeason| (s.wins as f64 + 0.5 * s.ties as f64, s.round);
     let me = pct(mine);
@@ -200,7 +200,7 @@ pub(crate) fn nfl_place(w: &World, t: usize, year: i32) -> Option<u8> {
         .nfl_seasons
         .iter()
         .filter(|s| s.year == year && s.team != t)
-        .filter(|s| crate::world::franchise::era(s.team, year).is_some_and(|e| e.div == div))
+        .filter(|s| crate::world::franchise::era_in(w, s.team, year).is_some_and(|e| e.div == div))
         .filter(|s| {
             let o = pct(s);
             o.0 > me.0 || (o.0 == me.0 && o.1 > me.1)
@@ -211,7 +211,7 @@ pub(crate) fn nfl_place(w: &World, t: usize, year: i32) -> Option<u8> {
 
 /// An NFL club's conference ("AFC", "NFC").
 fn afc_nfc(w: &World, t: usize) -> &'static str {
-    match crate::world::franchise::era(t, w.year).map(|e| super::div_name(e.div, w.year)) {
+    match crate::world::franchise::era_in(w, t, w.year).map(|e| super::div_name(e.div, w.year)) {
         Some(d) if d.starts_with("NFC") => "NFC",
         Some(_) => "AFC",
         None => "Conference",
@@ -222,7 +222,7 @@ fn afc_nfc(w: &World, t: usize) -> &'static str {
 fn title_name(w: &World, t: TeamKey) -> String {
     match t {
         TeamKey::College(p) => w.programs[p as usize].conference.clone(),
-        TeamKey::Nfl(n) => crate::world::franchise::era(n as usize, w.year)
+        TeamKey::Nfl(n) => crate::world::franchise::era_in(w, n as usize, w.year)
             .map(|e| super::div_name(e.div, w.year).to_string())
             .unwrap_or_else(|| "the division".into()),
         _ => "the district".into(),
@@ -316,8 +316,8 @@ fn beat_target(w: &World, team: TeamKey, you: usize) -> Option<(usize, String)> 
             }
             (TeamKey::Nfl(a), TeamKey::Nfl(b)) => {
                 let (ea, eb) = (
-                    crate::world::franchise::era(a as usize, w.year),
-                    crate::world::franchise::era(b as usize, w.year),
+                    crate::world::franchise::era_in(w, a as usize, w.year),
+                    crate::world::franchise::era_in(w, b as usize, w.year),
                 );
                 ea.zip(eb).is_some_and(|(x, y)| x.div == y.div)
             }
@@ -901,7 +901,8 @@ fn offers_for(w: &World, team: TeamKey) -> Vec<Offer> {
                 0.6,
             ));
             if w.states.get(c.you.home_state).is_some()
-                && crate::world::franchise::era(t, w.year).is_some_and(|e| w.states[c.you.home_state].code == e.state)
+                && crate::world::franchise::era_in(w, t, w.year)
+                    .is_some_and(|e| w.states[c.you.home_state].code == e.state)
             {
                 out.push(Offer::new(
                     Kind::Home,
@@ -1556,9 +1557,11 @@ fn closing(w: &World, a: &Ambition) -> Option<String> {
                 return Some(format!("{} retired first.", c.name));
             }
             if let TeamKey::Nfl(t) = a.team {
-                let div = crate::world::franchise::era(t as usize, w.year)?.div;
+                let div = crate::world::franchise::era_in(w, t as usize, w.year)?.div;
                 let his = match c.job.map(|j| (j.employer, j.role)) {
-                    Some((Employer::Nfl(o), Role::HeadCoach)) => crate::world::franchise::era(o, w.year).map(|e| e.div),
+                    Some((Employer::Nfl(o), Role::HeadCoach)) => {
+                        crate::world::franchise::era_in(w, o, w.year).map(|e| e.div)
+                    }
                     _ => None,
                 };
                 if his != Some(div) && c.job.is_some_and(|j| j.since < w.year || his.is_none()) {
@@ -1710,7 +1713,7 @@ pub fn town_of(w: &World, t: TeamKey) -> String {
         TeamKey::Hs(h) => w.high_schools[h as usize].town.clone(),
         TeamKey::College(p) => w.programs[p as usize].city.clone(),
         TeamKey::Nfl(n) => {
-            crate::world::franchise::era(n as usize, w.year).map_or_else(String::new, |e| e.city.to_string())
+            crate::world::franchise::era_in(w, n as usize, w.year).map_or_else(String::new, |e| e.city.to_string())
         }
         TeamKey::Other(_) => String::new(),
     }

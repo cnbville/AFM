@@ -253,11 +253,15 @@ pub struct Prep {
     pub four: FourMinute,
     #[serde(default)]
     pub cells: [u32; 7],
+    /// Your pregame talk (dialogue D4); None: your own coach profile's.
+    #[serde(default)]
+    pub talk: Option<super::talk::Pick>,
 }
 
 impl Prep {
     pub fn is_empty(&self) -> bool {
-        self.plan == PlanChange::default()
+        self.talk.is_none()
+            && self.plan == PlanChange::default()
             && self.study.is_none()
             && self.fourth == FourthChart::Staff
             && self.two == TwoChart::Staff
@@ -295,6 +299,14 @@ pub enum Input {
     Challenge(bool),
     /// Halftime: back out for the second half, with any change to the plan.
     Halftime(PlanChange),
+    /// Your halftime talk (dialogue D5); the halftime stop then asks again.
+    Talk(super::talk::Pick),
+    /// A word on the sideline to one of your players after his mistake
+    /// (dialogue D6); the snap then asks again.
+    Word {
+        id: u32,
+        pick: super::talk::Pick,
+    },
 }
 
 /// The kinds of points where you may decide.
@@ -365,6 +377,24 @@ pub struct Pending {
     pub fourth_wp: Option<[f64; 3]>,
     /// The kicker's make chance from here.
     pub fg_make: Option<f64>,
+    /// Your players waiting for a word after a costly mistake or a third
+    /// small one (dialogue D6), with the word your staff would give.
+    #[serde(default)]
+    pub words: Vec<WordOffer>,
+    /// At halftime: the talk you gave, once you gave it (dialogue D5).
+    #[serde(default)]
+    pub talked: Option<super::talk::Pick>,
+}
+
+/// A player waiting for a word (dialogue D6).
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+pub struct WordOffer {
+    pub id: u32,
+    pub mistake: super::talk::Mistake,
+    /// The play it came on.
+    pub play: u32,
+    /// The word your staff would give him.
+    pub staff: super::talk::Pick,
 }
 
 /// The game's link to you. Kept in the save with the game: your settings
@@ -405,6 +435,8 @@ pub struct StopCtx {
     pub goal_to_go: bool,
     /// Your team trails.
     pub trailing: bool,
+    /// One of your players is waiting for a word (dialogue D6).
+    pub word: bool,
 }
 
 impl Control {
@@ -432,6 +464,11 @@ impl Control {
             Ask::Onside => s.stop == StopMode::EverySnap || (s.situations.decisions && c.trailing && c.quarter >= 4),
             Ask::Snap | Ask::Defense => {
                 if s.stop == StopMode::EverySnap || self.take_next {
+                    return true;
+                }
+                // A player waiting for a word stops it when you take the
+                // decisions (dialogue D6).
+                if c.word && s.situations.decisions {
                     return true;
                 }
                 let t = &s.situations;
@@ -619,12 +656,13 @@ pub(crate) fn draw_eye(rng: &mut Rng) -> Eye {
 }
 
 /// The toss: the AI winner's habit. Since the NFL allowed deferring in
-/// 2008 most winners defer (about nine in ten); college and high school
+/// 2008 most winners defer (82%, the level's typical head coach; minor bug
+/// 140: read against 10, the NFL's deferred 90%); college and high school
 /// coaches defer a little less often (proposed, not confirmed).
 pub(crate) fn ai_toss(level: Level, year: i32, gm: f64, rng: &mut Rng) -> TossChoice {
     let defer = match level {
         Level::NFL if year < 2008 => 0.0,
-        Level::NFL => clamp(0.82 + 0.008 * (gm - 10.0), 0.6, 0.97),
+        Level::NFL => clamp(0.82 + 0.008 * (gm - super::rules::coach_norm(level)), 0.6, 0.97),
         Level::HS => 0.6,
         _ => 0.78,
     };

@@ -94,10 +94,17 @@ fn a_college_career_plays_through_its_first_games() {
     );
     ok(&mut g, "note_add", json!({ "id": id, "text": "Looks quicker than his film." }));
     assert_eq!(ok(&mut g, "player", json!({ "id": id }))["notes"].as_array().unwrap().len(), 1);
-    // Your depth chart: put the last quarterback first.
+    // Your depth chart: put the last dressed quarterback first (one who is
+    // hurt doesn't dress, whatever your order says).
     let depth = ok(&mut g, "depth", json!({}));
-    let qbs: Vec<u64> =
-        depth["positions"][0]["players"].as_array().unwrap().iter().map(|p| p["id"].as_u64().unwrap()).collect();
+    let listed = depth["positions"][0]["listed"].as_u64().unwrap() as usize;
+    let qbs: Vec<u64> = depth["positions"][0]["players"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .take(listed)
+        .map(|p| p["id"].as_u64().unwrap())
+        .collect();
     if qbs.len() > 1 {
         let mut order = qbs.clone();
         order.rotate_right(1);

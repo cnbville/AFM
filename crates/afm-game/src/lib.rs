@@ -19,13 +19,20 @@ pub mod lane_data;
 pub mod lane_draftroom;
 pub mod lane_evaluate;
 pub mod lane_faces;
+pub mod lane_film;
 pub mod lane_find;
 pub mod lane_frontoffice;
 pub mod lane_gameday;
 pub mod lane_gameplan;
+pub mod lane_groundzero;
+pub mod lane_handbook;
+pub mod lane_help;
+pub mod lane_hiring;
+pub mod lane_hunt;
 pub mod lane_legacy;
 pub mod lane_logos;
 pub mod lane_money;
+pub mod lane_paths;
 pub mod lane_people;
 pub mod lane_ratings;
 pub mod lane_schedule;
@@ -39,6 +46,7 @@ pub mod memory;
 pub mod reads;
 pub mod setup;
 pub mod views;
+pub mod world_log;
 
 use std::path::PathBuf;
 
@@ -77,6 +85,15 @@ impl Game {
     /// Runs one command. Unknown commands and bad arguments come back as
     /// errors in plain words.
     pub fn call(&mut self, cmd: &str, args: &Value) -> Reply {
+        let r = self.run(cmd, args);
+        // The guided week's tasks tick when their change is made (H12).
+        if r.is_ok() {
+            lane_handbook::after_call(self, cmd);
+        }
+        r
+    }
+
+    fn run(&mut self, cmd: &str, args: &Value) -> Reply {
         let num = |k: &str| args.get(k).and_then(Value::as_u64);
         let id = || num("id").map(|v| v as u32).ok_or_else(|| "Missing id.".to_string());
         match cmd {
@@ -110,6 +127,9 @@ impl Game {
                     ..d
                 }));
                 self.save_path = None;
+                if let Some(w) = self.world.as_mut() {
+                    world_log::on_open(&self.home, w, None);
+                }
                 lane_faces::on_open(self);
                 Ok(json!({ "built": true }))
             }
@@ -138,8 +158,14 @@ impl Game {
             }
             "open_world" | "load" => {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
-                self.world = Some(setup::read(path)?);
+                let w = setup::read(path)?;
+                // The last world goes first, with its log's writer.
+                self.world = None;
+                self.world = Some(w);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
+                if let Some(w) = self.world.as_mut() {
+                    world_log::on_open(&self.home, w, Some(std::path::Path::new(path)));
+                }
                 // "Previously" shows each time a save opens, even one saved
                 // the day it was last shown.
                 self.wm()?.storylines.previously_seen = None;
@@ -155,6 +181,7 @@ impl Game {
                     None => self.save_path.clone().ok_or("Name the save first.")?,
                 };
                 setup::write(self.w()?, &path)?;
+                world_log::on_save(self.wm()?, &path);
                 lane_faces::on_save(&self.home, self.save_path.as_deref(), &path);
                 self.save_path = Some(path.clone());
                 Ok(json!({ "saved": path.display().to_string() }))
@@ -169,6 +196,7 @@ impl Game {
             "start_career" => {
                 let w = self.wm()?;
                 setup::start(w, args)?;
+                lane_handbook::on_start(w, args);
                 lane_core::after_days(w);
                 Ok(views::status(w))
             }
@@ -236,7 +264,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 24] = [
+                const LANES: [Lane; 31] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -259,7 +287,14 @@ impl Game {
                     lane_evaluate::call,
                     lane_calendar::call,
                     lane_coaching::call,
+                    lane_hiring::call,
                     lane_logos::call,
+                    lane_help::call,
+                    lane_paths::call,
+                    lane_film::call,
+                    lane_handbook::call,
+                    lane_groundzero::call,
+                    lane_hunt::call,
                     lane_data::call,
                 ];
                 for lane in LANES {

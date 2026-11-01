@@ -35,7 +35,21 @@ fn the_game_plan_from_the_identity_to_game_day() {
     let dir = std::env::temp_dir().join(format!("afm-gameplan-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
     ok(&mut g, "build_world", json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
-    let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
+    // The best job whose two coordinators are in place: a head coach hired
+    // in late January can still be searching for his in February.
+    let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
+    let job = jobs["jobs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|j| j["ref"].clone())
+        .find(|r| {
+            let staff = ok(&mut g, "staff", r.clone());
+            ["Offensive coordinator", "Defensive coordinator"]
+                .iter()
+                .all(|role| staff["rows"].as_array().unwrap().iter().any(|x| x["role"] == *role))
+        })
+        .expect("a college job with both coordinators");
     ok(
         &mut g,
         "start_career",

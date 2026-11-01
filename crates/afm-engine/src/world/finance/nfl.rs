@@ -228,7 +228,7 @@ pub fn city(w: &World, t: usize, year: i32) -> (String, String) {
     if let Some(c) = w.finance.nfl.get(t).and_then(|c| c.city.clone()) {
         return c;
     }
-    franchise::era(t, year.min(franchise::PRESENT))
+    franchise::era_in(w, t, year.min(franchise::PRESENT))
         .map_or(("".into(), "".into()), |e| (e.city.to_string(), e.state.to_string()))
 }
 
@@ -257,7 +257,7 @@ pub fn roof(w: &World, t: usize, year: i32) -> Roof {
                 Roof::Open
             }
         }
-        _ => franchise::era(t, year).map_or(Roof::Open, |e| e.roof),
+        _ => franchise::era_in(w, t, year).map_or(Roof::Open, |e| e.roof),
     }
 }
 
@@ -282,7 +282,8 @@ pub(crate) fn open(w: &mut World) {
         let mut c = Club::default();
         let st = data::stint(t, year.min(franchise::PRESENT)).or_else(|| data::stint(t, franchise::PRESENT));
         if let Some(st) = st {
-            c.home = home_from(st, franchise::era(t, year.min(franchise::PRESENT)).map_or(Roof::Open, |e| e.roof));
+            c.home =
+                home_from(st, franchise::era_in(w, t, year.min(franchise::PRESENT)).map_or(Roof::Open, |e| e.roof));
         }
         let mut rng = crate::rng::Rng::new(w.options.seed ^ 0x0B00_C500 ^ t as u32);
         let age = rng.int(48, 76);
@@ -294,7 +295,7 @@ pub(crate) fn open(w: &mut World) {
         c.family = clamp(0.5 + rng.normal(0.0, 0.22), 0.0, 1.0) as f32;
         c.facility_year = year - rng.int(0, 22);
         c.facility = clamp(1.0 - 0.03 * (year - c.facility_year) as f64, 0.2, 1.0) as f32;
-        let brand = data::BRAND[t];
+        let brand = data::brand(t);
         c.price = (data::nfl_ticket(year) * (0.8 + 0.4 * brand)) as f32;
         c.season_tickets = (c.home.capacity as f64 * (0.62 + 0.25 * brand)) as u32;
         // The Packers' list runs past 100,000 names (about 140,000 in 2024).
@@ -310,7 +311,7 @@ pub(crate) fn open(w: &mut World) {
     // An older world file: the past years' public numbers are estimated.
     for t in 0..n {
         open_year(w, t, year);
-        if franchise::active(t, year) {
+        if franchise::active_in(w, t, year) {
             let v = value_of(w, t, year);
             w.finance.nfl[t].value = v as f32;
         }
@@ -321,13 +322,50 @@ pub(crate) fn open(w: &mut World) {
     }
 }
 
+/// A club the world added after 2026 (SK68): its owner group, a new
+/// stadium of 65,000 seats in its city opening with its first season (the
+/// stadiums opened since 2017 seat 62,000-71,000 and cost $1.5-5.5
+/// billion, about two in five of it public money) and empty books. The
+/// whole first season's tickets sell as season tickets (Carolina sold
+/// out its PSLs before it played; proposed, not confirmed).
+pub(crate) fn add_club(w: &mut World, t: usize, city: &str, state: &str, dome: bool, first: i32) {
+    let year = w.year;
+    let mut c = Club::default();
+    let mut rng = crate::rng::Rng::new(w.options.seed ^ 0x0B00_C500 ^ t as u32);
+    let age = rng.int(48, 76);
+    c.owner_name = crate::world::names::person_name(crate::world::ethnicity::Ethnicity::White, year - age, &mut rng);
+    c.owner_since = year;
+    let cost = 2.4e9 * 1.035f64.powi((first - 2026).max(0));
+    c.home = Home {
+        name: format!("{city} Stadium"),
+        capacity: 65_000,
+        opened: first,
+        renovated: first,
+        public: 0.4,
+        cost: cost as f32,
+        dome,
+    };
+    c.city = Some((city.to_string(), state.to_string()));
+    c.amenities = clamp(0.5 + rng.normal(0.0, 0.15), 0.05, 1.0) as f32;
+    c.family = clamp(0.5 + rng.normal(0.0, 0.22), 0.0, 1.0) as f32;
+    c.facility_year = first;
+    c.facility = 1.0;
+    let brand = data::brand(t);
+    c.price = (data::nfl_ticket(year) * (0.8 + 0.4 * brand)) as f32;
+    c.season_tickets = (c.home.capacity as f64 * 0.9) as u32;
+    c.renewal = 0.92;
+    w.finance.nfl.resize_with(t, Club::default);
+    w.finance.nfl.push(c);
+    open_year(w, t, year);
+}
+
 /// The local money factor: market, stadium, brand and fans.
 fn local_factor(w: &World, t: usize, year: i32) -> f64 {
     let (city, _) = city(w, t, year);
     let m = (metro(&city) / 4.0).powf(0.22);
     let c = &w.finance.nfl[t];
     let stad = 1.0 + 0.9 * c.home.premium(year);
-    let brand = 0.72 + 0.56 * data::BRAND[t];
+    let brand = 0.72 + 0.56 * data::brand(t);
     let fans = w.clubs.get(t).map_or(0.0, |cl| cl.office.fans);
     let lame = if c.moving.is_some() { 0.85 } else { 1.0 };
     m * stad * brand * (1.0 + 0.12 * fans) * lame / 1.32
@@ -343,12 +381,12 @@ pub fn spend_level(w: &World, t: usize) -> f64 {
 
 /// The year's budget, set when the league year opens.
 pub(crate) fn open_year(w: &mut World, t: usize, year: i32) {
-    if !franchise::active(t, year) {
+    if !franchise::active_in(w, t, year) {
         w.finance.nfl[t].budget = Book::new(year);
         w.finance.nfl[t].now = Book::new(year);
         return;
     }
-    let teams = franchise::active_teams(year).len().max(1) as f64;
+    let teams = franchise::active_teams_in(w, year).len().max(1) as f64;
     let total = data::league_revenue(year);
     let national = total * data::national_share(year) / teams;
     let local = total * (1.0 - data::national_share(year)) / teams * local_factor(w, t, year);
@@ -451,7 +489,7 @@ pub(crate) fn year_start(w: &mut World) {
     // evens out the same way over a season).
     let gates: Vec<f64> = (0..n).map(|t| w.finance.nfl[t].now.l[TICKETS] as f64).collect();
     let active: Vec<usize> =
-        (0..n).filter(|&t| w.finance.nfl[t].now.year == last && franchise::active(t, last)).collect();
+        (0..n).filter(|&t| w.finance.nfl[t].now.year == last && franchise::active_in(w, t, last)).collect();
     let pool: f64 = active.iter().map(|&t| gates[t] * data::VISITOR_SHARE).sum::<f64>() / active.len().max(1) as f64;
     let mut league = 0.0;
     for &t in &active {
@@ -495,7 +533,7 @@ pub(crate) fn year_start(w: &mut World) {
         if year <= franchise::PRESENT
             && let Some(st) = data::stint(t, year)
         {
-            let roof = franchise::era(t, year).map_or(Roof::Open, |e| e.roof);
+            let roof = franchise::era_in(w, t, year).map_or(Roof::Open, |e| e.roof);
             if w.finance.nfl[t].home.name != st.name || w.finance.nfl[t].home.opened != st.opened {
                 w.finance.nfl[t].home = home_from(st, roof);
             }
@@ -630,7 +668,7 @@ pub(crate) fn demand(w: &World, t: usize, opp: usize, d: Date, preseason: bool, 
     let year = w.year;
     let c = &w.finance.nfl[t];
     let fans = w.clubs.get(t).map_or(0.0, |cl| cl.office.fans);
-    let brand = data::BRAND[t];
+    let brand = data::brand(t);
     let (city, _) = city(w, t, year);
     let market = (metro(&city) / 4.0).ln().clamp(-1.2, 1.6);
     let opp_brand = data::BRAND.get(opp).copied().unwrap_or(0.5);
@@ -700,6 +738,19 @@ pub(crate) fn gate(w: &mut World, t: usize, opp: usize, d: Date, preseason: bool
         cap * x.max(0.35)
     };
     let blackout = rule && x < bar - 0.05;
+    // 2020's COVID season (minor bug 149): most stadiums stayed empty and
+    // the rest let in 5-25% of their seats, about 1.2 million fans all year
+    // against about 17 million in a usual one (real: 2020 attendance
+    // 1,206,538; league revenue fell from $15.3B to $12.2B). Which clubs
+    // opened and how far is a keyed draw (proposed, not confirmed: three in
+    // five stayed shut).
+    let (att, sold_out) = if year == 2020 && !preseason {
+        let r = draw(w, 0xC0F1D, t as u64, 2020);
+        let allowed = if r < 0.6 { 0.0 } else { 0.05 + 0.2 * (r - 0.6) / 0.4 };
+        (att.min(cap * allowed), false)
+    } else {
+        (att, sold_out)
+    };
     let g = Gate { date: d, opp: opp as u8, attendance: att as u32, sold_out, blackout, preseason, playoff };
     let price = c.price as f64
         * if preseason {
@@ -779,11 +830,11 @@ pub(crate) fn dated(w: &mut World, d: Date) {
 /// demand runs past the seats.
 fn renew(w: &mut World, t: usize) {
     let year = w.year;
-    if t >= w.finance.nfl.len() || !franchise::active(t, year) {
+    if t >= w.finance.nfl.len() || !franchise::active_in(w, t, year) {
         return;
     }
     let fans = w.clubs.get(t).map_or(0.0, |cl| cl.office.fans);
-    let brand = data::BRAND[t];
+    let brand = data::brand(t);
     let x = demand(w, t, t, w.today, false, false);
     let noise = 0.015 * draw_normal(w, 0x2E4E, t as u64, year);
     let c = &mut w.finance.nfl[t];
@@ -825,16 +876,25 @@ fn renew(w: &mut World, t: usize) {
 
 /// Forbes-style value: revenue times the era's multiple, more for a big
 /// brand and a new stadium.
+///
+/// The era's multiple is the league's average value over revenue (Forbes:
+/// about 7.9 in 2024), so the brand and stadium lean is read against the
+/// league's average lean (minor bug 149: the lean only ever added, which
+/// gave 8.9 times revenue and $6.45B a club in 2024 against $5.9B).
 pub fn value_of(w: &World, t: usize, year: i32) -> f64 {
+    let lean = |t: usize| (0.84 + 0.32 * data::brand(t)) * (1.0 + 0.2 * w.finance.nfl[t].home.premium(year));
+    let teams: Vec<usize> =
+        franchise::active_teams_in(w, year).into_iter().filter(|&x| x < w.finance.nfl.len()).collect();
+    let mean = if teams.is_empty() { 1.0 } else { teams.iter().map(|&x| lean(x)).sum::<f64>() / teams.len() as f64 };
     let c = &w.finance.nfl[t];
     let rev = c.years.last().map_or_else(|| Club::revenue(&c.budget), Club::revenue);
     let rev = if rev <= 0.0 { data::league_revenue(year) / 32.0 } else { rev };
-    rev * data::value_multiple(year) * (0.84 + 0.32 * data::BRAND[t]) * (1.0 + 0.2 * c.home.premium(year))
+    rev * data::value_multiple(year) * lean(t) / mean.max(0.1)
 }
 
 fn values(w: &mut World) {
     let year = w.year;
-    let teams = franchise::active_teams(year);
+    let teams = franchise::active_teams_in(w, year);
     let mut list: Vec<(f64, usize)> = Vec::new();
     for &t in &teams {
         if t >= w.finance.nfl.len() {
@@ -910,14 +970,17 @@ fn packers_report(w: &mut World) {
 /// to his family. The price comes from the value.
 fn sales(w: &mut World) {
     let year = w.year;
-    for t in franchise::active_teams(year) {
+    for t in franchise::active_teams_in(w, year) {
         if t >= w.finance.nfl.len() || w.finance.nfl[t].moving.is_some() {
             continue;
         }
         let tenure = year - w.finance.nfl[t].owner_since;
         let r = draw(w, 0x5A1E, t as u64, year);
-        let sale = r < 0.022 && tenure >= 4;
-        let heir = !sale && r < 0.034 && tenure >= 15;
+        // Real controlling sales: 12 in 2000-2025 (Jets 2000 to Commanders
+        // 2023), about one a year in 32 clubs x 0.015 (minor bug 149: 0.022
+        // gave 0.6 a year against about 0.4-0.5).
+        let sale = r < 0.015 && tenure >= 4;
+        let heir = !sale && r < 0.027 && tenure >= 15;
         if !sale && !heir {
             continue;
         }
@@ -970,7 +1033,7 @@ fn sales(w: &mut World) {
 /// a new stadium or a rebuild, a string of no's opens the road to moving.
 fn stadium_votes(w: &mut World) {
     let year = w.year;
-    for t in franchise::active_teams(year) {
+    for t in franchise::active_teams_in(w, year) {
         if t >= w.finance.nfl.len() {
             continue;
         }
@@ -1049,7 +1112,7 @@ fn owners_meeting(w: &mut World) {
     if year <= franchise::PRESENT {
         return;
     }
-    for t in franchise::active_teams(year) {
+    for t in franchise::active_teams_in(w, year) {
         if t >= w.finance.nfl.len() {
             continue;
         }
@@ -1123,7 +1186,7 @@ fn owners_meeting(w: &mut World) {
 /// so only the club's own players and the agents know them. A bad card
 /// pushes a proud owner to spend.
 fn report_cards(w: &mut World, year: i32) {
-    let teams = franchise::active_teams(year - 1);
+    let teams = franchise::active_teams_in(w, year - 1);
     let mut rows: Vec<(f64, usize, [u8; 11])> = Vec::new();
     for &t in &teams {
         if t >= w.finance.nfl.len() || t >= w.clubs.len() {

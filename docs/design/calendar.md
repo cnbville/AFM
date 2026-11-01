@@ -155,7 +155,7 @@ Decisions:
 
 **College:** a 20-hour week with one required day off. Practice Tuesday to Thursday around classes, travel Friday, game Saturday. Coaches recruit at high school games on Friday nights.
 
-**High school:** film Monday, practice Tuesday to Thursday, game Friday, JV and film Saturday.
+**High school:** film Monday, practice Tuesday to Thursday, JV and freshman games Thursday night, the varsity game Friday, film Saturday. (Corrected 2026-10-30: the first wording put JV on Saturday, but the game plays it Thursday, as most real schools do.)
 
 Decisions (Raichel: "yes yes"):
 1. **Each day has its own decisions:** the game plan on Tuesday, the practice plan and reps Wednesday to Friday, injury statuses Friday, inactives Sunday. Staff can handle any of them.

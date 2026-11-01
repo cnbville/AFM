@@ -1,0 +1,1915 @@
+# The line bank: more takeover lines (dialogue D2; format in src/world/folk/voice.rs).
+# Same parts and facts as takeover.txt.
+
+@key takeover.meeting.you_open
+I'm {coach}. I'm not here to change everything. I'm here to change what needs changing.
+There are {count} of you in here. I'm going to know every one of you by the end of the month. Not just your names.
+Let me start with this. I'm glad to be here. I asked for this job, and I want to be in this room.
+I don't care what you've heard about me. Judge me on what you see.
+You're going to get my best every day. That's my promise. I'm going to ask for yours.
+I'm going to be honest with you every day, even when it's hard to hear.
+Here's how this works. You work, I coach, we win. Everything else is noise.
+I know there's a lot of uncertainty right now. I'm going to clear it up as fast as I can.
+I'm not going to stand here and tell you what we're going to win. I'm going to tell you how we're going to work.
+I've watched the {last_record} season. I'm not going to talk about it today. Today's about what's next.
+Look at the guy next to you. He's the reason you're going to work this offseason.
+You're going to hear a lot of things about me. Some of it's even true.
+My job is to make you better. Your job is to let me.
+I'm not your friend. I'm going to be your coach. That's better, I promise you.
+I have one rule. Do right. Everything else comes from that.
+I'll be in this building before you get here and after you leave. I'll expect you to notice.
+I'll make you a deal. You give me effort, and I'll give you a chance.
+If you're not all in, that's okay. Just tell me now so neither of us wastes the time.
+I know how it feels to have a new coach walk in. I've been in your seat.
+I'm going to coach you hard because I believe in what you can be.
+This program has a history. I respect it. Now we write the next part.
+I'm going to ask a lot of you. I'll never ask for something I wouldn't do myself.
+I don't care who started last year. I care who's going to start for us.
+Your first test is tomorrow. Be on time. That's the whole test.
+We're going to be the toughest team on our schedule. That starts in the weight room.
+I'm not going to make promises today. I'm going to keep them later.
+Let me tell you what I believe. Discipline, effort, and the guy next to you.
+I'm here. I'm staying. And we're going to get this right.
+You'll see me at practice, in the hallways and in the cafeteria. If I see you doing the right thing, I'll tell you. ~ !nfl
+I'll be at your games in the spring and I'll know your parents by name. ~ hs
+I've coached in this conference before. I know what it takes to win here. ~ !hs
+The guys in this room are going to decide how good this team is. Not me, not the staff.
+I didn't come here to babysit. I came here to win football games. ~ !hs
+Some of you are seniors. I'm sorry I'm your third coach in four years. I'll make it count. ~ hs
+I know some of you have already been talking to other schools. That's your right. I'd like you to give us a week first. ~ college modern
+This is a business. I know that and so do you. But it's also a team, and I'm going to coach it like one. ~ nfl
+Some of you have Pro Bowls on your resume. Some of you just got here. On this field, it's the same standard. ~ nfl
+I'm going to call your agents if I have to. I'd rather call you first. ~ nfl
+Fellas, you get paid to play. I get paid to win. Let's both earn it. ~ nfl
+Y'all are going to hear me say this a lot. Do your job and trust the man next to you. ~ south
+In this part of the country, football's a way of life. I'm going to coach like it. ~ south
+I grew up in a town just like this one. I know what this team means to the people here. ~ midwest !nfl
+I'm not much for speeches. Let's go to work. ~ midwest
+I'm not going to sugarcoat it. We've got a lot of work to do. ~ northeast
+This town deserves a team that plays hard every snap. That's where we start. ~ !nfl
+Friday nights here are going to be different. I'll tell you why over the next few months. ~ hs
+I've sat where you're sitting, waiting to see what a new coach was about. Here's what I'm about.
+If your grades aren't where they need to be, I'll find out before you tell me. ~ !nfl
+I'm going to learn this town and this team. And I'm going to learn it fast.
+Phones down, eyes up. You only get one first meeting with a new head coach, and I only get one with you.
+Somebody get the door. What gets said in this room stays in this room.
+I'm {coach}. I've been looking forward to this room since the day I took the job.
+Before I say a word about football, lift your heads up. I want to see faces, not hats. Thank you.
+Whatever you've been reading and hearing, put it away. This is where it gets real.
+Everybody in here is asking two questions. Who is this, and what does it mean for me. Fair questions. Let's start.
+I'm going to stand right here, up close. I've never liked talking to a team from a distance.
+{count} players. {count} reasons I took this job, and every one of them is sitting in front of me.
+I've sat through a lot of first meetings. The first one always tells you something about a team. Let's see what this one says.
+I'll be straight with you from the first sentence. It's the only way I know how to do this.
+I don't need you to clap and I don't need you to nod. I need you to listen for a few minutes.
+Every coach who walks into a new building decides who to be. I decided before I walked in. You're looking at it.
+Right now we're strangers. Strangers can turn into a team faster than you'd think.
+Let me say it slowly so it sticks. I wanted this team. Not a team. This one.
+The building, the logo, the field. They were here before me and they'll be here after me. You're what I came for.
+Somebody warned me this room would be hard to read. Good. I like a room that doesn't give itself away.
+There's a lot of noise outside this building right now. In here, it's just us.
+I coach the way I'd want to be coached. Hard, fair and to your face.
+I'm not here to be the center of attention. My job is to get you ready and get out of the way.
+Football gives back exactly what you put into it. No more, no less. That goes for me too.
+Some of you have had a lot of coaches. I can't change that. I can try to be the one worth listening to.
+I'm going to learn your names first, then your game, then what makes you tick. In that order.
+Nobody walked into this room by accident. I respect what it took for every one of you to get here.
+Short version. I love this game, I love coaching it, and I'm going to love coaching you.
+Games get lost in the details. You'll hear me say that until you're sick of it.
+I've never been great at first impressions. I'm a lot better at the hundredth one.
+You don't have to like change. You just have to be ready for it, and so do I.
+If you want the truth, I'm a little nervous up here. That's how I know it matters.
+When people ask what kind of coach I am, I tell them to ask my players. A year from now, that's you.
+There's a whiteboard in my office with {count} names on it. Nothing else yet. Just names.
+There's a version of this team nobody has seen yet. I came here to find it.
+Whatever you call me in the locker room, call me Coach to my face. That's about all I ask today.
+I didn't bring a speech. I brought a notebook, and I'm going to fill it with what I learn about you.
+I believe in a few simple things. Show up. Tell the truth. Finish what you start.
+A football team is the most honest place there is. The film doesn't lie, and neither will I.
+A new head coach makes everybody in a building nervous. Players, staff, the people who wash the towels. I get it.
+You're going to see me everywhere. Meetings, the weight room, the training room, the parking lot.
+Every team has a personality. I'm here to find out what this one's is.
+If you remember one thing from today, make it this. I'll tell you the truth, even when it costs me.
+Everybody stand up for a second. Good. Now sit down. That's the last time today I'll waste your time.
+I had this whole talk written out. I'm not going to use it. Let me just talk to you.
+Most new coaches start with what they want. I'm going to start with what I owe you. Honesty, preparation and a plan.
+However you got to this team, you're here now. Today, that's the only thing I care about.
+When they offered me this job, my first question was about the players. Not the facilities, not the budget. You.
+My job fits on one line. Make every player in this room as good as he can be.
+I've got a lot to learn about {town}. I've got even more to learn about you.
+I don't need to be the most important person in this building. I need to be the most prepared.
+Today I do most of the talking. After today, it's your turn.
+Football is a game of collisions and a game of trust. I'm going to coach you on both.
+Whatever you think a head coach is supposed to look like, forget it. Watch what I do.
+I'm not going to tell you about my career. It doesn't matter in here. What matters is what this team does next.
+I like to know where I stand. I figure you do too. So I'll tell you exactly where I'm coming from.
+Every good team I've ever been around had one thing. They took care of each other when nobody was looking.
+I've been looking at this team from the outside for a while. Today I finally get to look at it from the inside.
+Nothing I say today matters as much as what I do tomorrow. Hold on to that.
+Standing in front of this team is a privilege. I'm not going to forget that, and I hope you never let me.
+Fair warning. I'm a pretty boring person. Football is the one place I come alive.
+There's a lot of football in this room. I can feel it. Let's find out how much.
+I didn't come here because it would be easy. I came because of the people in this room.
+You can tell a lot about a team by how it goes quiet when the coach walks in. That was a good quiet.
+Nobody's going to remember my words from today. They'll remember whether I meant them.
+I'll try to keep this short. Every coach says that. I'm actually going to do it.
+Some of you have been part of this team a lot longer than I've been in this town. I don't take that lightly.
+I'm going to get some of your names wrong this week. Correct me every time. I want them right.
+Some coaches want to be feared and some want to be liked. I want to be believed.
+I've been told I talk with my hands. Front row, consider yourselves warned.
+Let's get the awkward part over with. I'm the new coach. You didn't pick me. Here we are.
+The waiting is over. For you and for me.
+The first day is my favorite part of this job. Everybody's listening, and nobody has let anybody down yet.
+I like a team that looks me in the eye. Most of you already are. That's a good start.
+Before you leave, you'll have my cell number. Use it. Day or night.
+You'll know what I expect before you ever get in trouble for not doing it. You have my word on that.
+If I've got to get after you, I'll do it face to face. Never through somebody else, never in the papers.
+A lot of people are going to be watching what happens with this team. Let them watch.
+I'll tell you just enough about me so you know who's asking you to work. The rest you'll see.
+Every season starts with a room like this. Most teams waste it. Let's not.
+I'd like to thank the people who kept this place running while it waited for a coach. You know who you are.
+I still get butterflies on the first day. That should tell you how much this means to me.
+The {year} season hasn't been written yet. Every word of it is going to come out of this room.
+{series} against {rival}. That's a lot of history. I haven't added a single game to it yet.
+I've heard about {rivalry} from about five different people since I got here. I get it. It matters.
+Coach {old_last} coached this team before me. Whatever you feel about that, you're allowed to feel it.
+I drove around {town} before I came in today. I saw {team} flags on porches. That's not nothing.
+Somebody asked me what {last_record} means around here. I told them I'd rather find out what this team means around here.
+I counted. {count}. Everybody showed up, and that tells me something already.
+Right now, {team} is a name to me. By next week it'll be {count} people I know.
+People keep bringing up {rival}. I'll worry about {rival} when it's {rival} week.
+This is the {year} {team}. No team in the history of this place has been this exact group. That's worth something.
+{town} has been waiting to see what comes next for this team. So have I.
+Some of the paperwork around here still has Coach {old_last}'s name on it. That's fine. It'll catch up.
+They put the head coach in front of the whole team on day one so you can size me up. Go ahead.
+I'm keeping it simple today. There'll be plenty of complicated later.
+You'll hear me before you see me most mornings. I'm loud in the hallways. Sorry in advance.
+Coffee, film and early mornings. If you need me, that's where you'll find me.
+I'm a teacher first. Football just happens to be what I teach.
+Everything I know about this game, somebody taught me. Now it's my turn to pass it on.
+I'm going to ask you a lot of questions this week. There's no wrong answer except a fake one.
+What you see from me on day one is what you'll see in the last week of the season.
+I don't do surprises. You'll always know what's coming, when it's coming and why.
+Nobody in this room is a finished product. That includes the one doing the talking.
+I'll be demanding. I won't be mean. There's a difference, and you'll feel it.
+Everybody talks about culture. I'd rather show up every day and let you put a name on it later.
+I've pictured a room like this a thousand times. It's better in person.
+I want to hear from the quiet ones in here. The quiet ones usually have the most to say.
+Be skeptical of me. I'd worry about you if you weren't.
+This game tells the truth about people. You'll learn mine, and I'll learn yours.
+There's a lot about me you won't like at first. Give it a month.
+I'll tell you how I like to work, and I want to hear how you like to work. Then we'll meet in the middle. Mostly on my side.
+The first thing I asked for when I got here was the film. The second thing was a list of your names.
+This room is going to be loud this year one way or another. Let's make it the good kind of loud.
+A team is the only place I know where {count} different people want the same thing on the same day.
+We're going to spend more hours together than most families do. Let's act like it.
+I'm the new face in this building. New faces have to earn their way in. I know that.
+Football's a hard game and a simple one. Block, tackle, protect the ball, protect each other.
+I'll keep my promises small, and I'll keep every one of them.
+I'm not a big believer in luck. I believe in getting ready so luck doesn't matter.
+I don't care much about what people say a coach should be. I care what this team needs from me.
+You're the ones who'll be out there on the field. I'm just the one with the clipboard and the headset.
+I've spent my whole life around this game. I've never been more ready for a room than this one.
+Nobody's going to outwork me. That's the one thing I can promise on day one.
+I want to be the coach you call when something goes right, not just when something goes wrong.
+Listen up for a minute. I'll tell you a little about me, and then we'll get to you.
+Here's what I know about you so far. Not enough. Here's what you know about me. Even less. Let's fix both.
+You'll get the same coach after a loss that you get after a win. I don't change with the scoreboard.
+Find a seat. Front rows first. Nobody hides on day one.
+This is a new start for everybody in this building, me included. Nobody's got a head start on trust.
+Before anything else, know this. I see people first. Players second.
+Every one of you has a story about how you got here. I want to hear all of them. Not all today.
+After this meeting I'm sitting down with your leaders. Then the rest of you, one at a time, until I've met everybody.
+I'll be honest about what I don't know yet. This place, the people, the little things. I'll learn all of it.
+You're going to hear a lot of words from me this year. Hold me to every one.
+Some days I'll be the bad guy. That comes with the job. I'll never be a phony.
+When you walk out of here, I want you to feel like somebody's paying attention. Because somebody is.
+I'm good at a few things. Getting ready, teaching and telling the truth. I'm going to lean on all three.
+Football doesn't care how you feel. I do. Both of those things are going to be true at the same time.
+If something's bothering you, I'd rather hear it at my door than read it on the internet.
+Whatever's on your phone about me was written by somebody who's never been in this room.
+You're going to have bad days. So am I. What matters is what we do the day after.
+I'm not going to pretend I can fix anything this week. This week, I can listen.
+I'm not a yeller and I'm not a hugger. I'm somewhere in between, and you'll figure out where.
+Can everybody in the back hear me? Good. I'm only going to say this part once.
+I know it's hard to sit still for a new coach. Give me five minutes. That's all I need.
+A coach is only as good as the room. So I'm already counting on this one.
+I only know one way to build anything. Brick by brick, day by day, nobody skipping steps.
+I've got rules. Not many. You'll get them in writing so nobody can say they didn't know.
+The people who brought me here believe in this team. That's a big part of why I said yes.
+Most of you had plans that didn't include a coaching change. Plans change. What we're about doesn't have to.
+I'll walk in here in a good mood more days than not. You'd be surprised how much that matters over a long season.
+I'm told I'm a decent cook. Once things settle down, come hungry.
+A team takes on the personality of its hardest worker. For a while, I'd like that to be me. Then I'd like it to be you.
+When I say something, I want you to be able to repeat it word for word. So I'll keep it simple.
+You'll find out pretty quick that I'm stubborn. Use it. Stubborn people don't quit on you.
+Most of what makes a good team happens when the cameras are off. That's where I'm going to be looking.
+I like players who ask why. So ask. If I can't answer, I'll go find out.
+I respect anybody who's ever strapped on a helmet. That's every one of you. Let's start there.
+The people of {town} care about this team. I could tell before I unpacked a single box.
+The {team} schedule is already sitting on my desk. I'm not going to talk about it today.
+Whatever {last_record} was, it's done. I wasn't here for it, and I won't pretend I was.
+{rivalry} is going to come up a lot in {town}. Today I'd rather talk about the {count} of you.
+My first {team} meeting. {year}. Somebody write the date down.
+This was Coach {old_last}'s team. Starting today it's ours, and I want you to hear that word. Ours.
+The {team} name has been around a lot longer than any of us. We're borrowing it. Let's hand it back better.
+{series} against {rival}. You know which side of that number you want to add to.
+Every head coach in the history of the {team} stood up on a first day like this one. Now it's my turn.
+It's {year}. New staff, new start, and {count} players I can't wait to coach.
+In a few weeks, people in {town} are going to ask you what the new coach is like. I want you to have an answer.
+I'm {you}. To all of you, just Coach. Head coach of the {team}, starting right now.
+Some of you already looked me up. Whatever you found, the coach you're getting is the one standing here.
+Don't look at your neighbor. Look at me. I'll tell you when it's time to look at each other.
+I'm not much for titles. Head coach is a job, not a crown.
+You're going to meet my staff. They're good teachers. Steal everything you can from them.
+Trust gets built in small moments. Being on time. Doing what you said. I'm starting the count today.
+There's going to be a lot of new around here. New faces, new words, new routines. Give it a minute before you judge it.
+You'll never have to wonder whether I'm prepared. That's my end of the deal.
+I want to know what you love about this team. Write it down for me this week. One sentence is enough.
+My favorite sound in football is a quiet meeting room right before somebody says something true. Here goes.
+There's a lot I could say today. I'd rather say a few things you'll remember.
+I take this game seriously. I don't take myself seriously. You'll learn the difference.
+I believe in second chances. I don't believe in fifth ones.
+Everybody in this room gets treated with respect, and I expect it back.
+When you see me in the hallway, stop and talk. It doesn't have to be about football.
+The best teams I've seen had players who coached each other. That's what I'm hoping to find in here.
+A coaching change feels like the ground moved under you. It did. Let's find our feet together.
+Right now you all know more about this team than I do. That changes fast, but today I'm the student.
+There's no magic in what I do. Plan the work, work the plan, check the film. Over and over.
+I gave myself one rule for today. Listen more than I talk. Let's see how long I last up here.
+You'll hear me say we a lot. I mean it every time.
+Before this meeting I walked the whole building by myself. The locker room, the field, the weight room. I wanted to see where you work.
+Plenty of coaches want your attention. I want your effort. Attention's cheap.
+I write everything down. If I told you something, it's on paper somewhere. Hold me to it.
+I'd guess nobody slept great last night knowing a new coach was coming. Me neither.
+You're going to hear a lot of opinions about this team. Most of them from people who've never practiced a day with you.
+I'll learn faster if you help me. Tell me what I'm missing. I'd rather hear it than guess.
+Being new means I don't know where anything is yet. If you see me lost in a hallway, point me the right way.
+I'm the same person in this room as I am in front of a camera. You'll see that.
+No title makes a team listen. I know I've got to earn that part.
+I've been in buildings where nobody talked to each other. We're not going to be one of those.
+No slogan today. Slogans are for T-shirts.
+Here's what I've learned about first days. Nobody remembers the plan. Everybody remembers how the coach made them feel.
+Some of you are hurting about the way things ended. I'm not going to rush you past that.
+You'll find out I laugh a lot. Don't mistake that for easy.
+The game has changed a lot in my lifetime. What makes a team good hasn't changed at all.
+There's a phrase you'll hear from me a lot. Next play. Whatever just happened, good or bad. Next play.
+Some of my best ideas came from players who weren't afraid to open their mouths. Be one of those.
+People will tell you this is a business, or a game, or a job. To me it's a team. That's the word I'm going to use.
+Take care of your body. Sleep, eat, drink water. Everything I'm going to ask of you sits on top of that.
+I'm not big on long meetings. I'm big on the right ones. This is one of the right ones.
+Everybody in here matters. The ones who get the headlines and the ones who never will.
+I know you're judging me right now. Keep doing it. The day you stop, I'll know I've earned something.
+You've got questions. I'll take every one of them after this. Nothing's off limits.
+Something you'll learn fast. I don't hold grudges, and I don't forget effort.
+People are going to ask you about me at the store, online, everywhere. Tell them the truth. You'll know it soon enough.
+Every snap this team takes from here on has my name on it. I don't take that lightly.
+I'd rather be respected at the end of this than popular today.
+Here's my first ask. Treat the people who work in this building the way you'd want your grandmother treated.
+I'm not here to be your buddy and I'm not here to be your boss. I'm here to coach.
+Watch my feet, not my mouth. Where I go and what I do will tell you more than anything I say.
+There's a reason I wanted to meet all of you at once. A team should hear the same thing at the same time.
+Football has given me just about everything I have. I owe it my best. So do you, in your own way.
+I'll make mistakes with names and faces this week. I won't make them with how I treat you.
+Y'all are going to hear me say yes sir and no ma'am to people half my age. That's how I was raised. ~ south
+Where I grew up, Saturday was football and Sunday was church. You'll get a little of both from me. ~ south
+I talk slow. Y'all listen fast, and we'll get along just fine. ~ south
+Where I come from, your word and your handshake were the same thing. You'll get both from me before you leave. ~ south
+I'm a sweet tea and front porch kind of person until kickoff. Then I'm somebody else. ~ south
+Where I'm from, folks don't trust you until they've seen you work in the heat. I expect y'all feel the same way. ~ south
+Where I grew up, they turned the stadium lights on before the sun went down. I've been chasing that feeling ever since. ~ texas
+Back home, people cared about football more than the weather. I hope you care that much. I know I do. ~ texas
+I come from a place where the summers are brutal and nobody complains out loud. That's the kind of tough I like. ~ texas
+Where I grew up, a kid learned to tackle before he learned to drive. That's who's standing up here. ~ texas
+Back home we'd fill the stands for a scrimmage. So trust me, I know what a football town feels like. ~ texas
+Where I'm from, up before the sun was just normal. It's going to feel normal here too. ~ midwest
+Where I'm from, nobody brags. So I won't. I'll just show you. ~ midwest
+Where I grew up, the wind hurt in November and nobody ever called off practice. You'll see where I get it. ~ midwest
+Back home, fall Friday nights belonged to football. That's where I learned what this game means. ~ midwest
+Folks back home say what they mean and not a word more. I'm going to try to do the same with you. ~ midwest
+I'm going to be direct with you. Where I'm from, that's considered polite. ~ northeast
+I grew up playing in sleet and slush. Weather doesn't bother me, and it won't bother this team. ~ northeast
+People where I come from talk fast and mean every word. Keep up and we'll be fine. ~ northeast
+I grew up where the fields froze by Thanksgiving. You learn to love this game when it hurts to play it. ~ northeast
+Back home, nobody claps for showing up. You show up, then you prove it. That's me. ~ northeast
+People hear where I'm from and figure I'm laid back. I'm calm. Calm isn't the same as soft. ~ west
+Where I grew up, everything was far apart. The team was the one place everybody came together. ~ west
+Out west you learn to play anywhere, at any hour, in any heat. No excuses about where or when. ~ west
+Folks back west would tell you I never sit still. They're right, and you'll see it. ~ west
+Folks out west don't put on a show. I'm not much for one either. ~ west
+Real quick, before anything else. Thank you for being on time. That's the first thing I noticed about you.
+The first thing a coach owes a team is the truth about who's standing in front of it. So here I am.
+Couple of things you should know. I listen better than I talk, and I sleep less than I should.
+I'm not here to sell you anything. Most of you have had plenty of people selling you things.
+Years from now, some of you will tell people about this meeting. Let's give you something worth telling.
+I'm going to be one of the most honest people in your life. Some days you'll wish I wasn't.
+
+@key takeover.meeting.react_compete
+That's what I wanted to hear. Let's go.
+Good. I want to earn it.
+Fine by me. I've never been handed anything anyway. ~ humble
+Competition makes everybody better. I'm all for it. ~ leader
+That's going to light a fire under some guys. Good. ~ leader
+Every spot? Okay. I'll keep mine. ~ ego
+Cool. I'm not scared of anybody in that room. ~ competitor
+That's fair. Means nobody's safe, including the guys who think they are.
+I think a few guys are nervous now. That's probably the point.
+I'm ready, Coach. Show me the depth chart in a month. ~ competitor
+That's the right message. Some guys got comfortable.
+Okay. I'll make sure the young guys don't panic. ~ leader vet
+Alright. Let's see who wants it. ~ steady
+That's how it should be. I'd rather earn my spot than have it given to me. ~ pro
+I like it. But I've already earned mine. ~ ego
+The young guys are going to love that. The older guys, maybe less. ~ vet
+Wide open? I've been waiting for that. ~ young
+Okay, Coach. I hear you. ~ quiet
+Good. The guys at the back of the line just got a reason to care.
+Open is open. I'm not going to complain about a fair fight.
+You could hear chairs move when you said it. That's guys waking up.
+Watch how early everybody shows up tomorrow.
+I like it. Just tell us what you're grading, and we'll go get it.
+That's going to make the next few weeks a lot more interesting around here.
+A few guys are going to find the film room tonight who've never seen it before.
+Nobody's comfortable now. That's probably healthy for us.
+Starting over means I get to show you instead of telling you. I'll take that.
+You just made practice the most important part of everybody's week.
+Fair is fair. Just make sure the grading is the same for everybody, starters included.
+How are you going to decide it, Coach? Practice, film, both? Guys are going to ask me.
+The group chat is already going crazy. In a good way, mostly.
+That's a message the young guys needed. Maybe some of the older ones even more.
+I'd rather fight for a spot than get handed one. Handed stuff doesn't last.
+The guys who've been grinding with nobody watching just got a shot. Good for them.
+Means I can't coast. I don't want to coast anyway.
+Every rep counts now. You could feel the room change before you even finished.
+You didn't come in here to make friends with the starters. I respect that.
+If it's real, it's the best thing you could've said to this room.
+New staff, clean slate. Nobody gets to lean on what they did before.
+Some starters looked at the floor when you said it. The backups looked right at you.
+I'll be honest. My stomach dropped a little. Then I got fired up.
+So the first practice is a tryout. Got it.
+Everybody's equal for about a week. Then the work sorts it out.
+Okay. I'm going to go find the guy behind me on the depth chart and lift with him. Make us both better. ~ leader
+That's how you find out who loves it. Make them earn it again.
+One question, Coach. Do the guys who were hurt last year get a clean shot too? They'll want to know.
+Day one and the whole room is on notice. Bold.
+I needed that, honestly. I was getting a little too sure of myself.
+Good. I've been carrying a chip since I got here. Now I get to use it. ~ !firstround
+Somebody's going to have a breakout week just because you said that. Watch.
+Nobody's safe and nobody's buried. That's the part guys should hear.
+I hope it means special teams too. That's where you find the dogs.
+Tonight I'm watching my own film like I'm the guy trying to beat me.
+Open, huh. Okay. Some of these guys are about to find out what I've been doing in the offseason. ~ competitor
+Finally. Somebody's just going to let us go at it. ~ competitor
+Put the ball down and line us up. Today, if you want. ~ competitor
+Best thing I've heard all year. ~ competitor !ego
+I've been waiting for a door. You just kicked it open. ~ competitor young
+A real competition? That's all I ever wanted from a coach. ~ competitor humble
+Bring in whoever you want. I'll still be standing when it's done. ~ competitor ego
+Open? Sure. Open for second string, maybe. ~ ego
+You haven't seen me practice once and my job's open? Okay. Watch, then. ~ ego hot
+Funny. I didn't know my spot was ever closed. It's still mine. ~ ego
+I hear you. I just don't think anybody in that room is taking my reps. ~ ego
+Respectfully, the tape already says who the best player in that room is. ~ ego
+If you want to waste a few practices finding out what everybody already knows, that's on you. ~ ego hot
+Fine. I'll take somebody's job and keep mine. ~ hot competitor
+So everything I did before today doesn't count? That's what I heard in there. ~ hot
+That one rubbed some guys the wrong way. Me included, if I'm honest. ~ hot !quiet
+Kind of a slap in the face to the guys who already earned it. But okay. ~ hot !humble
+Doesn't change much for me. I show up and work either way. ~ humble
+I've got plenty to prove anyway. Now it's official. ~ humble
+I'm not the most talented guy in there. That's why this is good news for me. ~ humble
+I'll get the older guys to see it right. It's a challenge, not an insult. ~ leader
+I'm going to be first in line tomorrow. The young guys need to see the captains aren't scared of it. ~ leader
+Told the guys on the way out, stop counting reps and start earning them. ~ leader
+I'll handle the locker room. Some guys are going to sulk tonight. I won't let it last. ~ leader
+A couple of starters are going to need a talk. I've got it, Coach. ~ leader !young
+I'll keep it competitive and keep it clean. Nobody goes after a teammate's knees in practice. Not on my watch. ~ leader
+Understood. ~ quiet
+Fair. ~ quiet
+I'll be there early. ~ quiet
+Nothing to get worked up about. The tape will sort it out. ~ calm
+Every new staff wants to see it with their own eyes. That's normal. ~ calm
+Okay. Open doesn't scare me. Neither does closed. ~ calm
+Coach {old_last} had reasons for the depth chart. I hope you give those guys a real look before you move them. ~ loyal
+Some of these guys bled for their spots. Starting over stings for them. ~ loyal
+I'll compete. I just want it on record that the guys before you didn't hand anybody anything. ~ loyal
+That's fair. Every evaluation should start fresh. I'll be ready. ~ pro
+I treat every practice like a game anyway. Nothing changes for me. ~ pro
+Clear standard, clear competition. That's how a staff should run it. ~ pro
+I'll want to see my grades every week. If I'm behind, tell me why and I'll fix it. ~ pro
+Man, so I actually have to go to morning lifts now. Alright. ~ loose
+Guess I can't show up late to meetings anymore. ~ loose
+Shoot. Okay. I'll start taking it serious. ~ loose young
+Starting over is hard for me. I've done enough of it already. But I'll fight for it. ~ shaky
+I'm not going to lie, that got in my head a little. I'll be fine once we're on the field. ~ shaky
+Doesn't change my week. Same work, same time. ~ steady
+I know what I've got. I'll show it again. ~ steady
+I've been the young guy taking a job and the old guy keeping one. Both are just work. ~ vet
+My legs are older than half that room. My head isn't. I'll keep up. ~ vet
+Every year somebody younger and faster shows up. Saying it out loud doesn't change a thing for me. ~ vet calm
+Rookie hearing that? That's the best news I could get. ~ rookie
+I came in with nothing promised. Now nobody else has anything promised either. ~ undrafted
+Undrafted guys live for that sentence. I'm going to tape it inside my locker. ~ undrafted
+Practice squad heard that too, Coach. Don't forget about us. ~ psquad
+Practice squad guys don't usually get told a job's open. I'm going to act like it's mine. ~ psquad competitor
+Everybody's going to figure I get a pass because of where I got picked. I don't want one. ~ firstround !ego
+They didn't pick me where they picked me to sit. But fine. I'll compete. ~ firstround ego
+Walk-ons don't usually hear that from the head coach. I heard it. ~ walkon
+Nobody offered me a thing to come here. Hearing that from the head coach matters. ~ walkon !ego
+I came through the portal to compete. Now I get to. ~ transfer
+New coach, new chance. I've already done new once. I can do it again. ~ transfer calm
+I've been running the other team's plays on scout team. I'm ready to run ours. ~ redshirt
+This is my last year here. I don't have time to wait on anybody. Good. ~ hs senior
+I've put in my years here. If somebody's better, he can come take it. I don't think he is. ~ college senior ego
+So a sophomore can start if he's good enough? I'll be there. ~ hs sophomore
+So freshmen have a real shot? I'm telling everybody on JV. ~ hs freshman
+Junior year is when the recruiting film counts. Every snap matters now. ~ hs junior
+Some of the guys who play both ways are worried about losing one side. That's going to be the talk at lunch tomorrow. ~ hs
+A few of the JV guys were grinning on the way out. They know what that means. ~ hs young
+Somebody in that room was thinking about the portal. Now he's thinking about the depth chart. ~ college
+The scholarship guys looked over at the walk-ons when you said it. They noticed. ~ college
+A two-deep that starts over makes every practice loud. ~ college
+Fifty-three spots and every one of them up for grabs. Camp is going to be loud. ~ nfl
+A few guys with guaranteed money looked at each other on that one. ~ nfl
+Open competition, sure. My contract says something different, but okay. ~ nfl greedy ego
+If I'm competing for my job, I'm competing for my next deal too. That works for me. ~ nfl greedy !ego
+My collective money doesn't love the sound of that. I'll just have to win it. ~ college greedy nil
+Quarterback room too? Fine. I'll be first in and last out. ~ qb
+A quarterback battle in front of the whole team is hard on a room. I'll keep it clean. ~ qb leader
+Linemen need reps together to get good. Don't shuffle us forever, Coach. ~ ol
+Up front you win the job in one-on-ones. Bring it on. ~ dl
+Corners and safeties compete every snap anyway. That's just Tuesday for us. ~ db
+Receivers fight for the ball every day. Now we fight for snaps too. Cool. ~ wr
+Running backs share carries anyway. Just give the ball to the hot hand. ~ rb
+Tight ends have to win two jobs, blocking and catching. I'll take both. ~ te
+Linebackers win it in the meeting room first. I'll know the calls before anybody. ~ lb
+Kickers live in open competition. Bring another leg in. I'll outkick him. ~ kicker
+Nobody notices the snapper until a snap goes bad. Compete all you want. Mine won't. ~ snapper
+Special teams too? Good. That's where young guys earn their keep. ~ special
+Touches going to whoever's hot is all a skill guy can ask for. ~ skill
+Linemen fight for every inch on every snap. Fighting for a spot is just more of the same. ~ lineman
+Pass rush is a numbers game. More guys fighting for it means more guys getting home. ~ rusher
+The defense heard that loud and clear. Tomorrow is going to hit different. ~ defense
+If there's a new system coming, might as well learn it fighting for a spot. ~ offense
+Y'all just woke up the whole bench. ~ south
+Back home the best man played, period. I'm used to it. ~ texas
+Nobody back home would argue with fair. I won't either. ~ midwest
+Straight talk. I respect it. Somebody's about to get passed. ~ northeast
+Where I grew up, it was seven-on-seven every summer against the best guys around. I'm used to fighting for it. ~ west
+Half my followers already think I'm the starter. Guess I'd better make it true. ~ ego young
+That's the most nervous I've seen this team in a meeting. Good nervous.
+Practice tomorrow is going to feel like a playoff game.
+Guys who were slumped in the back row sat right up.
+It's going to be a long few weeks for anybody who took his spot for granted.
+That's going to change who sits where in the locker room, I'll tell you that.
+Nobody's going to want to miss a single rep now. Not even in walkthroughs.
+The scout team just became the most dangerous group in the building.
+Some of us were already looking over our shoulders. Now everybody is.
+That's a lot of pressure on the starters. Good. Pressure is how you find out.
+First week is going to be ugly and fast. I can't wait.
+So the first depth chart is basically blank. Somebody's name is about to go up there for the first time.
+
+@key takeover.meeting.react_honour
+That was a classy thing to say about the old staff, Coach.
+I appreciate that. A lot of us loved Coach {old_last}. ~ !nfl
+It helps, hearing you respect what came before.
+That was the right way to start. I think the guys appreciated it. ~ leader
+I'll be honest, I didn't expect that. It was good to hear. ~ loyal
+Respect goes both ways. You showed some today. ~ pro
+Good speech. Now let's see if the practices match it. ~ competitor
+Some of the guys are still hurting. That helped a little. ~ loyal
+That's cool and all, but I'm ready to move on. ~ ego
+I liked that you didn't trash anybody. Some coaches do. ~ vet
+That was nice. I'm more interested in what we do on the field. ~ competitor
+I think you won some guys over with that. ~ leader
+Okay. That sounded real. ~ quiet
+Honoring the past is fine. I just want to win now. ~ !loyal
+It means a lot to the seniors. They're the ones who lived it. ~ !nfl
+Thanks for that, Coach. It made it easier to sit there.
+That landed, Coach. You could see shoulders come down all over the room.
+Didn't expect that from a new coach. Most of them start by tearing something down.
+You didn't have to say it. That's why it meant something.
+Finish it. I like that word. Feels like there's unfinished business in here.
+Guys were worried you'd throw out everything we know. That helped.
+Respect for this place goes a long way in that locker room. You've got some now.
+Nice to hear somebody notice the work that went in before today.
+Honest question, Coach. What are you keeping, and what's changing? Guys are going to ask me.
+Glad you said it. Now show us what finishing looks like.
+It was the right tone. Nobody wants to feel like their work got erased.
+That makes it a lot easier to give you a fair shot.
+Felt more like a handoff than a takeover. That's how it should feel.
+I liked that you said finish. Means we're not starting from zero.
+Some guys walked in with their arms crossed and walked out with them down.
+Good. Too many coaches come in and act like nothing happened here before them.
+That's going to travel. By tonight everybody who cares about this team will have heard it.
+The guys who were closest to the old staff needed that more than anybody.
+It's a good start. Words are easy on day one, but it's a good start.
+That was respectful. I'll tell you what I think of the rest after a few practices.
+You said it like you meant it. That's the part that matters.
+I think you just bought yourself a lot of patience in that room.
+Okay. So we keep what works. I'm curious what you think doesn't.
+Nobody likes being a project. You made it sound like we're not one.
+Some guys have been carrying this place for a while. They felt seen in there.
+Honestly, it's a relief. I didn't want to relearn everything from scratch.
+Building on something is harder than blowing it up. I respect you picking the harder one.
+That's going to keep a few guys from looking around. Just so you know.
+It helped. Some of us didn't know what to feel walking in.
+You talked about this team like it already belonged to somebody. It does. Thanks for seeing that.
+Most of the room liked it. A couple of guys wanted to hear something new.
+You just told us our work counted. That'll get you a lot of early mornings.
+I'm going to remember that you started with respect.
+That's how you take over a room. Thank you.
+Good message. Now the hard part is showing us what finishing actually means on the field.
+That meant something, but I'll be honest. I'd rather hear what's going to be different. ~ competitor
+Respect the past, sure. I'm not playing for the past, though. ~ ego
+So same thing as before with a new name on the door? Okay. ~ ego !loyal
+I was kind of hoping for a new direction. I'll wait and see. ~ competitor !loyal
+Nice words. Doesn't move me much either way. I just want to know where I fit. ~ ego
+Finish what? I want to start something. ~ ego hot
+Fine. As long as finishing it doesn't mean doing it the same old way. ~ hot !loyal
+Kind words. I'll judge it by the first practice. ~ competitor calm
+Cool. I'm more worried about this year than anything we did before. ~ competitor young
+Coach {old_last} would want us to give you everything. So we will. ~ loyal
+I'm calling Coach {old_last} tonight. It's going to mean a lot to hear that. ~ loyal
+Some of us really loved the last staff. You didn't make us pick. Thank you. ~ loyal
+I've got a lot of people in this building I care about. You just made it easier to stay. ~ loyal
+That was the one thing I was scared you'd get wrong. You got it right. ~ loyal
+I'd run through a wall for the old staff. You might've just earned a little of that. ~ loyal !quiet
+I'll tell the guys who loved the old staff that you meant it. They'll listen to me. ~ leader
+I'm going to keep the older guys pointed in the right direction. That speech made it easy. ~ leader
+That's what I'll repeat to the young guys. We're finishing something, not starting over. ~ leader
+Good. I'll make sure the guys who doubted you hear it twice. ~ leader !young
+Thank you, Coach. ~ quiet
+Appreciated. ~ quiet
+That was good. ~ quiet
+Meant something. ~ quiet loyal
+Steady message. That's what this room needed. ~ calm
+No drama. I like it. ~ calm
+Smart way to come in. Keep the trust, fix what needs fixing. ~ pro
+Good leadership. You give credit first and you get credit later. ~ pro
+I respect it. It's the professional way to take over a team. ~ pro !loose
+Cool. Does that mean the old lifting schedule stays? That one was easier. ~ loose
+Nice. So the music in the weight room stays too, right? Asking for everybody. ~ loose
+I don't love change. That helped more than you know. ~ shaky
+I've had a lot of people come and go. It's good to hear somebody say they're building on something. ~ shaky
+Sounded right to me. I'm good either way. ~ steady
+Thanks for not trashing anybody. You didn't have to say what you said. ~ humble
+Guys who came before us laid a lot of it. Good to hear you know that. ~ humble
+Every new regime I've seen starts by tearing down. You started by giving credit. That's different. ~ nfl vet
+I've seen plenty of first meetings. That's one of the better ones. ~ vet
+Been around long enough to know a new coach always changes more than they say. But I liked the words. ~ vet !loyal
+I just got here, so I don't know the old way. Sounds like it was worth something though. ~ rookie
+I came here for what was already here. Good to hear it's not going anywhere. ~ transfer loyal
+I committed to what was here. Glad it's not going away. ~ college freshman
+I've put a lot of years into this place. Hearing you say that counted for something. ~ college senior
+We've been through a lot together as seniors. Good to know it counts. ~ hs senior
+The booster club is going to love hearing that. ~ hs
+The alumni guys who hang around the field house are going to love that. ~ hs
+Every teacher in this school is going to hear about that speech by second period. ~ hs
+That'll calm down a lot of the parents. They were nervous. ~ hs
+The donors are going to hear about that by tonight. In a good way. ~ college
+Some guys were a phone call away from the portal. That might have slowed them down. ~ college
+The collective guys like hearing their money built something that lasts. ~ college nil
+The front office doesn't always talk like that. Nice to hear it from the head coach. ~ nfl
+In this league everybody gets replaced. Nice to hear somebody give credit on the way in. ~ nfl
+Doesn't change my contract. But it was a nice thing to say. ~ nfl greedy
+Good for the old guys. I'm thinking about my deal for next year. ~ college greedy nil
+Linemen like stability. That helps us more than people would think. ~ ol
+If finishing it means some of the offense stays, I'm way ahead. ~ qb
+If the calls stay close to what we know, the defense can play fast from day one. ~ defense
+Kickers don't usually care about speeches. That one was fine by me. ~ kicker
+Y'all heard the room. Folks liked it. ~ south
+Where I'm from, you don't walk into somebody else's house and start moving the furniture. You didn't. ~ south
+Back home you respect what was there before you. That's what you did. ~ texas loyal
+That's a midwest way to do it. Quiet respect. Guys noticed. ~ midwest
+I'll be honest, I expected a sales pitch. That wasn't one. ~ northeast
+Respect. That was smooth. ~ west
+Respecting the people who were here costs you nothing. I'm glad you know that.
+I think some guys had their bags half packed in their heads. That made them think twice.
+Finishing something means it was worth finishing. Good to hear somebody new say that.
+What we had wasn't perfect. You didn't pretend it was, and you didn't pretend it was nothing.
+I felt it. A lot of guys did.
+So we don't have to start over just because the coach changed. Good.
+That'll make the first few weeks a lot smoother for everybody.
+Glad you didn't come in swinging. Nobody in there needed that.
+That was a grown-up way to do it, Coach.
+A few guys nodded at each other when you said it. That's a big deal in this room.
+Felt like you were talking with us, not at us.
+I'm not sure what you're keeping yet. But it felt good to hear you're keeping something.
+That's going to quiet down a lot of talk on the outside.
+Some of the guys who were here the longest were the first ones to nod.
+You can tell a lot about a coach by how they talk about the last one. That was good.
+It's easier to follow somebody who respects where you came from.
+I'd rather add a chapter than rip out the book. Sounds like you feel the same way.
+Some guys figured you'd clean house. Glad that's not the plan.
+You've got the room for a week with that. After that, it's on the practices. ~ vet
+Doesn't change much for me. I play for the guys next to me, not whoever's up front. ~ steady !loyal
+That was humble. Not many head coaches start there. ~ humble
+Sure, finish it. I just want to be the one holding the ball when it's finished. ~ competitor ego
+Can I tell the guys the traditions stay? The walk-out, the pregame stuff. They care about that. ~ leader
+I came here because of what was being built. Glad I don't have to explain that to a whole new staff. ~ loyal college !freshman
+The walk-ons who've been grinding here for years needed to hear that. ~ college
+Practice squad guys know what it feels like when a new regime walks in. That eased some nerves. ~ psquad
+Sounds like the vets still get to lead this room. Good. ~ nfl leader
+Some of the guys who stuck it out through the hard days heard that. They'll remember it.
+Back home folks say you dance with the one who brought you. Felt like that's what you meant. ~ south
+
+@key takeover.meeting.react_winnow
+That's what I've been waiting to hear.
+Let's go get it, then. No more waiting around.
+I like a coach who aims high. Just make sure we're ready. ~ pro
+That's a lot of pressure for day one. I'm in, though. ~ young
+You didn't come here to rebuild. Good. Neither did I. ~ competitor
+I hope you mean it. A lot of coaches say that. ~ vet
+Now the guys know what's expected. That helps. ~ leader
+Winning now is the only thing I care about. You're speaking my language. ~ competitor
+I've got one more shot at this. I'm glad you see it the same way. ~ senior
+I've got a few more years in me. I don't want to waste any of them. ~ nfl vet
+That's bold, Coach. I like bold. ~ ego
+Okay. No excuses, then. ~ steady
+It's a big goal. I've seen bigger come true. ~ calm
+That's either going to fire guys up or freak them out. ~ shaky
+I'm ready right now. Hand me the ball. ~ ego competitor
+Alright. Heard you. ~ quiet
+This year? Okay. Then nobody gets a day off, starting tomorrow.
+I'd rather be told to win now than told to be patient.
+That's a heavy word for day one. Good. Let's carry it.
+Guys walked out of there a little taller.
+If you believe it, I believe it.
+Now every rep has a reason. That's what I needed.
+People outside this building are going to laugh at that. Fine by me.
+You just put a target on our backs. Good.
+At least now we know where the bar is. No guessing.
+So there's no growing pains year. I'm good with that.
+What does a championship look like on a Tuesday in practice? Show us that and we'll believe it.
+I don't think anybody in that room expected you to say that.
+Then the work has to look like a championship team too. Starting tomorrow.
+I want to believe it. Give me a couple of practices and I will.
+That's the kind of thing you can't take back. I like that you said it anyway.
+Championship. Okay. Then we need to stop acting like a team that's happy to be close.
+Saying it is free. We'll find out what it costs in the first week.
+Some guys heard that and got excited. Some guys heard it and got scared. Both are useful.
+It changes how I look at every lift. Every one of them is for something now.
+Do you really think we've got the guys for it? Because if you do, that means something.
+That's a bar nobody in that room can hide under.
+Okay, so who's going to be the first one to slip up and make it look like talk? Not me.
+You raised the stakes on every practice. I hope the young guys know what that means.
+I'm going to write it on my wall. Championship. Then I'm going to look at it every morning.
+Feels like you're betting on us. I'll take that bet.
+Bold. Now everybody outside is going to grade us on it.
+You can't win it in the first week. You can lose it there, though.
+Nobody wants to be the reason it doesn't happen. That's a good kind of pressure.
+I liked it. It's also going to be the first thing every reporter asks about.
+Guys were talking about it in the hallway before the door closed behind us.
+Championship talk on day one. Somebody's going to put that on a poster.
+We're either going to live up to it or hear about it all year.
+If that's the standard, a lot of stuff guys got away with is done now. ~ !loyal
+Well, the room's awake. That's a start.
+I'm not used to a coach saying that out loud. I kind of like it.
+You didn't say someday. You said this year. Everybody caught that.
+I just hope you know how hard that's going to be in here. Then again, maybe that's the point.
+Means every mistake costs more now. I can live with that.
+I hope you meant it, because now the whole team is going to hold you to it.
+The young guys don't know what it takes yet. We're going to have to show them fast.
+Finally somebody with some fire. ~ hot
+I don't want to wait either. Let's go. ~ hot young
+Good. I've never cared about next year. ~ competitor
+Good. I don't play for second place, and I'm glad you don't coach for it. ~ competitor
+Hand me the hard games. I want them. ~ competitor ego
+Put me in a position to make plays and we'll get there. ~ ego
+Good. Build it around me and we'll talk about rings. ~ ego
+Champions need stars. I'm ready to be one. ~ ego young
+I'll make sure the room holds itself to that, starting with the first lift. ~ leader
+I'm going to be on the young guys about it every single day now. That's my job. ~ leader
+The leaders are going to have to carry that message. I'll start tonight. ~ leader
+If you mean it, I'll back you up in the locker room. If it's just talk, they'll know fast. ~ leader !young
+That scares me a little. Good scared. ~ humble
+I don't know if I'm good enough to be on a team like that. I'm going to find out. ~ humble young
+I just want to do my part. If my part is winning a title, okay. ~ humble
+That's a lot of eyes on us now. I'll try to keep it out of my head. ~ shaky
+I don't do great when everybody's watching. I'm going to have to learn. ~ shaky
+We'll take it a day at a time anyway. It's nice to know where we're aiming. ~ calm
+Big goal. Small steps. Same thing as always. ~ calm
+Big goals are fine. I want to see the daily plan that gets us there. ~ pro
+That means the details matter more now. Sleep, film, recovery. All of it. ~ pro
+I'll treat it like a business plan. What do we need to do this week to stay on track? ~ pro
+Championship? Okay. Do we still get days off? ~ loose
+Cool. Winning's more fun anyway. ~ loose
+I've always thought this group had it in us. Good to hear you think so too. ~ loyal
+We were building toward something before you got here. If you see it too, good. ~ loyal
+That's a lot for day one. I'll keep showing up, same as before. ~ steady
+Yes sir. ~ quiet hs
+Understood, Coach. ~ quiet
+Good. ~ quiet
+We'll see. ~ quiet !loyal
+I'm in. ~ quiet
+I've heard that speech before. Some coaches meant it. We'll find out which kind you are. ~ vet
+Every new coach promises a ring. The ones who deliver don't usually say it on day one. Prove me wrong. ~ vet !loyal
+I'm old enough to know time's short. I'll take win now every single time. ~ vet
+Rookie year and we're talking rings. Fine by me. ~ rookie
+I came through the portal for this exact speech. ~ transfer competitor
+Walked on because I wanted to win here. Glad you want it too. ~ walkon
+I've been waiting on the scout team long enough. A title team is a good team to break through on. ~ redshirt
+This is my last year. I don't want to spend it building for somebody else. ~ hs senior
+I don't have time for a rebuild. That's exactly what I needed to hear. ~ college senior
+My last shot at state. Good. Let's go get it. ~ hs senior competitor
+State title talk on day one. The booster club is going to lose their minds. ~ hs
+The whole town is going to know you said that by the time the grocery store opens. ~ hs
+Some of these guys have never played a playoff game. Now they're hearing about state. That's a big jump. ~ hs
+Twelve teams get in now. No reason it can't be us. ~ college
+Conference title, then the playoff. That's a real list. I'll take it. ~ college
+The donors are going to love that. Now we've got to back it up. ~ college
+Recruits are going to hear about that. Good. ~ college
+Win-now means the front office has to back it up too. I hope they heard it. ~ nfl
+Everybody in this league says ring. I want to know what we're doing in March to get one. ~ nfl
+The owner's going to like hearing that. So will the fans. We just have to win in January. ~ nfl
+Winning gets everybody paid. I'm in. ~ nfl greedy
+Winning makes the next contract easy. You've got my attention. ~ nfl greedy !ego
+Win a title and the collective money follows. Makes sense to me. ~ college greedy nil
+A championship team gets every NIL deal in town. I'm in. ~ greedy nil !nfl
+Win-now falls on the quarterback first. I know that. I want it. ~ qb
+If it's a championship year, some game is going to come down to my leg. I'll be ready. ~ kicker
+Championship defenses don't give up big plays. That's on us. ~ defense
+Championships get won up front. I'll let the line know. ~ lineman
+Then the offense has to finish drives. The red zone is where titles get won. ~ offense
+Big games need big plays on the outside. I'm good with that. ~ wr
+Coverage has to be perfect on a title team. I'll be in the film room. ~ cover
+Every championship team I ever watched could run the ball when it had to. Feed me. ~ rb
+Y'all heard it. No excuses now. ~ south
+Back home, that's the only standard. Win it all or it's a lost year. ~ texas
+Where I'm from, you don't say it unless you mean it. I'll take you at your word. ~ midwest
+Bold talk. I like bold talk if it comes with work behind it. ~ northeast
+Out west we don't make a lot of noise about it. But I want it as bad as you do. ~ west
+{rivalry} is part of a championship year too. Can't have one without the other. ~ !nfl
+If the standard's a title, {rival} is one more game we have to win. Simple as that.
+Last year was {last_record}. Doesn't matter now, I guess. ~ !loyal
+The {team} talking championship. People in {town} are going to love it or laugh at it.
+You said championship like it was a normal word. Maybe it should be around here.
+I texted my position group before I even got to the parking lot. Everybody's in. ~ leader
+That changes the summer. Nobody's taking weeks off now. ~ !nfl
+Win now means the best players on the field every snap, no politics. I'm good with that. ~ competitor
+I've seen guys get hurt trying to do too much when a coach talks like that. We have to be smart about it. ~ pro
+Easy to say in a meeting room. Harder in the fourth quarter on the road. ~ vet
+My first season and you're talking titles. I'll be honest, I like it. ~ college freshman
+Guys on the practice squad want rings too. Count us in. ~ psquad
+Undrafted guys don't usually get told they're on a title team. Feels good. ~ undrafted
+People have been asking me about rings since the day I got picked. Now it's everybody's question. ~ firstround
+That's a big promise to make to a room that doesn't know you yet. I respect the guts. ~ !quiet
+Then let's practice like it. Full speed, every period, no walking between drills.
+If you're going to say it to the papers too, then we're all in it together.
+
+@key takeover.meeting.react_purge
+That's going to be hard for some guys to hear.
+I get it. But I'm not sure everybody does. ~ leader
+That was a lot, Coach. I need a minute with it. ~ shaky
+I'm with you. I'll make sure the guys are too. ~ leader !loyal
+Some of us were proud of what we had. That hurt a little. ~ loyal
+You're right. It wasn't good enough. ~ competitor
+Starting over is fine with me. I've got nothing to protect. ~ young
+Okay. Out with the old. I just hope that doesn't mean me. ~ vet
+That's going to cost you a few guys, Coach. I'm just being honest. ~ !quiet
+I respect the honesty. I'll respect it more if it works. ~ pro
+I think you lost a couple of guys in that room. I'm not one of them. ~ steady
+Clean slate. I can live with that. ~ calm
+That was a gut punch. Maybe we needed one. ~ humble
+It's harsh. It's not wrong. ~ competitor
+I came here for the old staff. I'm going to have to think about that. ~ loyal transfer
+That got everybody's attention. Maybe more than you wanted.
+Nobody said a word walking out. That's not normal for this group.
+I'll find out who's in tonight. I already know some of the answers.
+Heavy. I'll be up late with that one.
+I'm in. I don't need tonight to figure that out.
+Scary thing to hear on day one. Maybe it should be.
+You could tell who was nervous. They wouldn't look up.
+The guys who love it won't blink. The guys who don't were already halfway out the door.
+Some guys are going to leave. Some are going to show up different tomorrow. Both are answers.
+I'll be there tomorrow. That's my answer.
+I don't love how it sounded. I understand why you said it.
+That's going to sort this team out fast.
+A lot of guys are going to call their people tonight.
+You don't have to tell me twice.
+I looked around when you said it. I could already guess who you meant.
+That's the kind of thing guys talk about at two in the morning.
+Some of the best guys in that room are the ones who looked the most scared. Don't read it wrong.
+Okay. Tonight I'm going to ask myself the question for real. I already think I know.
+I'll be honest, a few guys walking out looked relieved. Like they'd been waiting for permission.
+Nobody's going to sleep much tonight.
+Some guys are going to show up tomorrow just to prove you wrong. That's not the worst thing.
+It's day one and guys are already doing math on who's going to be left.
+Do you have names in mind, Coach? Because the room thinks you do.
+I hope you're ready for a few empty lockers.
+I didn't hear it as a threat. Some guys did.
+That was a test. I know my answer. I'm not sure about everybody.
+It was hard to hear. I'd rather hear it now than find out halfway through the season.
+That room is going to look different in a month. Everybody knows it now.
+You made it real for a lot of guys. Some of them needed real.
+I think the hardest workers took it as a compliment.
+Kind of wish you'd met us first. But I hear you.
+That was a lot to put on a room that doesn't know you yet. I'm still in.
+I'll be honest, I'm a little rattled. I'll be fine by tomorrow.
+Not everybody's built for it. You just told them that's okay to admit.
+Some guys respond to a push. Some guys break. You're going to find out which is which.
+If somebody doesn't want to be here, better to know now than in the middle of the season.
+Guys who think they're safe should probably be nervous too.
+I texted a couple of the guys who looked shook. They're in. Give them a few days.
+Some of my friends were sitting in that room. I don't know what they're going to do.
+I'm not going anywhere. Put that down in pen.
+It's going to get quiet around here for a few days. Then it'll get loud.
+Nobody's going to say it to your face, but a few guys are mad.
+The guys who've been here the longest took that the hardest.
+Fewer guys, better guys. I'm fine with it. ~ competitor
+Some guys in there needed to hear that. I'm one of the ones who didn't. ~ competitor ego
+If they don't want it, I don't want them next to me. ~ competitor hot
+Wasn't worried for a second. Nobody's showing me the door. ~ ego
+I'm the guy you build around. I know you know that. ~ ego
+Whoever's leaving, I hope they leave fast. I'm not babysitting anybody. ~ ego hot
+You come in day one and threaten us? Okay. We'll see who's still here when it gets hard. ~ hot
+I didn't like it. I'll be here anyway, but I didn't like it. ~ hot
+That made me mad. Mad works for me, though. I'll use it. ~ hot competitor
+I'll talk to the guys tonight. Some of them just need somebody to tell them they belong. ~ leader
+I'm going to go find the ones who looked shook. Better they hear it from me than from their phones. ~ leader
+I'll get everybody I can to show up tomorrow. The rest is up to them. ~ leader
+You want to know who's in? I'll have a pretty good list for you by the morning. ~ leader !young
+I'm going to keep this team together. That's on me now. ~ leader
+I asked myself on the way out if I want this. I do. ~ humble
+I'm just glad to be on a team. I'll do whatever it takes to stay on it. ~ humble
+I didn't think it was aimed at anybody in particular. I took it personally anyway. ~ humble
+That shook me up a little. I've had enough people tell me I might not be around. ~ shaky
+I need this team more than people know. I'm staying. ~ shaky
+I'm going to need to talk to somebody about that one. I'll be okay. ~ shaky young
+Doesn't rattle me. I know what I want. ~ steady
+I went home and thought about it. Didn't take long. ~ steady
+Fair question to ask a team. My answer's yes. ~ calm
+Nothing to panic about. People leave teams every year. ~ calm
+Hard message, clean delivery. I'll be in the building early. ~ pro
+I understand the strategy. Set the bar on day one and see who meets it. ~ pro
+I don't take it personally. It's a business decision whether you say it or not. ~ pro !hs
+Dang. Okay. Guess I'm actually setting an alarm now. ~ loose
+Wait, so like, people are getting cut? For real? ~ loose young
+Some of those guys came here because of Coach {old_last}. Don't run them off just for being loyal. ~ loyal
+That stung. The old staff's guys aren't the problem here. ~ loyal hot
+I'd have liked you to get to know us before you said it. Some of us gave a lot to this place. ~ loyal
+I'm staying because of the guys in that room, not because of anything you said. ~ loyal
+I want it. ~ quiet
+I'm staying. ~ quiet
+Understood. ~ quiet
+I'll be there. ~ quiet !loose
+Okay. I'm in. ~ quiet calm
+I know the look of a coach who means it. You meant it. ~ vet
+I'm too old to be scared by that. I'm also too old to waste time on guys who don't want it. ~ vet
+Heard it before from other coaches. Usually it means the roster's already half decided. ~ vet !loyal
+Been on the edge of a roster since the day I got here. This doesn't change much for me. ~ undrafted
+Practice squad guys hear that every week. Doesn't scare me. ~ psquad
+I'm a rookie. I came here to make the team. That hasn't changed. ~ rookie
+I already changed schools once. I'm not doing it again. I'm in. ~ transfer
+Some of the transfers are going to take that personally. They just got here. ~ transfer leader
+Walk-ons are always one bad week from gone. That didn't scare me. ~ walkon
+Am I one of the guys you were talking about? I need to know. ~ college freshman
+Last year of high school. I'm not quitting on it now. ~ hs senior
+A couple of guys might just go play basketball instead. Just being honest. ~ hs
+Some parents are going to be calling the principal by morning. ~ hs
+Some of these guys only play because their buddies do. You might lose a few in pairs. ~ hs
+Lose a few guys here and you lose a few two-way starters. Just so you know. ~ hs
+The athletic director is going to hear about this one. ~ hs
+The portal's going to hear from a few of them. You knew that when you said it. ~ college
+Some guys came here on promises from the old staff. You just told them those are gone. ~ college
+Compliance is going to get some phone calls tonight. ~ college
+A few guys are going to see what they're worth somewhere else. NIL makes that easy. ~ college nil
+I've got options if I want them. I want to be here. That should tell you something. ~ college nil !humble
+In this league, a coach saying that means cuts. Everybody knows it. ~ nfl
+Guys on the bubble heard that. They're going to be in the building every day now. ~ nfl
+The agents are going to be busy tonight. ~ nfl
+Cuts mean cap space. I see what you're doing. ~ nfl vet
+I'm not worried. My contract's the kind that keeps me here. But some guys should be. ~ nfl greedy ego
+The quarterback has to answer that first. I'm in. The rest will follow. ~ qb
+The line sticks together. If one of us leaves, it hurts all five. ~ ol
+Specialists are always one miss from gone. Nothing new for me. ~ special
+The young guys in the secondary took that hard. I'll talk to them. ~ db leader
+Y'all can count me in. I'll be the first one through the door tomorrow. ~ south
+Back home a coach says that, half the team runs extra the next day. I'm going to be one of them. ~ texas
+Where I'm from you don't quit something you started. I'm staying. ~ midwest
+I respect blunt. That was blunt. ~ northeast
+Wasn't my favorite vibe in there. I'm still in, though. ~ west young
+If you're trying to beat {rival}, you need guys who want it. I get that.
+The guys who were around for {last_record} took that one personally.
+You could hear a pin drop. Then you could hear everybody's phone buzz at once.
+I respect that you didn't sugarcoat it. I just hope it doesn't cost us the good ones. ~ !ego
+I've asked myself that question before. Today I got my answer.
+Tell me who you're worried about and I'll go talk to them. ~ leader
+I came into this league fighting for a spot. That speech felt like home. ~ nfl competitor !firstround
+A few of the young guys asked me in the hallway if they should be worried. I told them to just show up. ~ leader !young
+I'll be in the weight room before the sun's up tomorrow. That's all the answer I've got. ~ competitor
+Tomorrow's workout is going to be a very honest one.
+Fine. Just remember the guys who stay chose you back.
+
+@key takeover.meeting.react_plain
+Short and simple. I like that.
+That's all? Cool. Let's work.
+No promises, no hype. That's how I like it. ~ pro
+That was refreshing, honestly. ~ vet
+I didn't need a speech. I needed to know who you are. That was a start.
+Okay. I'll see you in the weight room. ~ competitor
+Fine by me. I don't like long meetings. ~ loose
+Good. Let's get to football. ~ competitor
+That's the right way to do it. Show us, don't tell us. ~ leader
+I'm not sure what to make of that yet. We'll see. ~ !leader
+It was quick. I like quick. ~ young
+I'll be there. ~ quiet
+Simple. Works for me. ~ calm
+Simple. I can respect that.
+That's all we needed. Show us the rest.
+Most guys were expecting more. They'll get it on the field, I guess.
+You didn't oversell it. That's rare.
+Not much to argue with. Not much to get fired up about either.
+So the first workout is the real meeting. Got it.
+Words don't tell us much anyway. It's going to come down to how practice feels.
+I'll tell the guys what I always tell them. Be on time and work.
+Clear. Nobody can say they didn't know when to show up.
+I liked that it was short. Guys zone out after ten minutes.
+Low-key. Guys don't know what to make of you yet. That's okay.
+A few guys wanted fireworks. I wanted information. I got it.
+I'd rather be told than sold. That's what you did.
+You told us when and where. That's really all a team needs on day one.
+Honestly, I don't know what you're about yet. I guess that's what tomorrow's for.
+Nothing fancy. I'm curious what the first practice looks like now.
+That was the shortest first meeting I've sat through. Not complaining.
+It's hard to get mad at a coach who just tells you the schedule.
+The room didn't know whether to clap. Nobody did. That's fine.
+Fair enough. We'll learn who you are by how you run a practice.
+You didn't promise anything, so nobody can hold anything against you. Smart.
+Guys were trying to read you the whole time. Nobody could.
+I've got the time written down. That's what I needed.
+That's going to make the first workout feel like a job interview. For both of us.
+Everybody walked out calm. That's not nothing after a coaching change.
+Some guys wanted a speech. I think they'll want the work more once it starts.
+Felt like a normal meeting. Maybe that's what we needed.
+I'll know more about you in an hour of practice than I would've in an hour of talking.
+Straight answers. Didn't hear any of the usual stuff.
+I like knowing what to expect. Now I do.
+I'm going to watch how you coach the first drill. That'll tell me everything.
+No hype means nobody's disappointed later. I get it.
+It was kind of flat. But I'd rather flat and honest than loud and fake.
+Okay. Now I know who's in charge and when to show up. Good.
+Didn't move the needle much. Didn't need to.
+Guys are going to fill in the blanks themselves. Hope the first practice fills them in right.
+Respect. You didn't pretend to know us yet.
+You talked to us like grown-ups. Guys noticed that.
+I was ready for a big speech. Kind of glad I didn't get one.
+I'll be there early. I want to see how you run things before anybody else does.
+That's it? I wanted to hear you get after us a little. ~ hot
+Kind of a nothing meeting, Coach. Hope practice has more to it. ~ hot !leader
+I'd have liked a little fire. We'll see if it shows up on the field. ~ hot competitor
+Wish you'd said something about the scheme. Guess I'll wait. ~ ego
+You didn't say anything about the guys who make the plays around here. I noticed. ~ ego
+Cool. I figure you'll tell me how big my role is when you see me practice. ~ ego young
+I'm more interested in the first practice than the first meeting anyway. ~ competitor
+Good. Less talking, more football. Tell me when the pads come on. ~ competitor
+That just means practice is where it starts. I'm ready. ~ competitor !loose
+I'll make sure everybody's there ten minutes early. First impressions go both ways. ~ leader
+I'm going to make sure the young guys don't read too much into the quiet. ~ leader
+I'll set the tone at the first workout. You'll see who the guys follow. ~ leader !young
+I'm still getting used to somebody new up there. Keeping it simple helped. ~ loyal
+I miss the old staff a little. A big speech would've made that worse. This didn't. ~ loyal
+I'll give you the same effort I gave Coach {old_last}. That's all I can promise today. ~ loyal
+Short meeting means more time to sleep. I'm a fan. ~ loose
+Cool. So we're done? Nice. ~ loose young
+Schedule, expectations, done. That's a good meeting. ~ pro
+You gave us the facts and let us do our jobs. That's how it should work. ~ pro
+I'll have my notebook ready. I want to learn the new terms early. ~ pro
+Nice and even. That's how I like a head coach. ~ calm
+No surprises. I'm good with that. ~ calm
+Steady start. Nothing wrong with steady. ~ calm steady
+I was nervous walking in. You made it easy. Thanks. ~ shaky
+I don't do well with big unknowns. Knowing when to show up helps more than you'd think. ~ shaky
+Didn't need more than that. I'll just work. ~ humble
+I'm not the guy who needs a pep talk. I just need to know where to be. ~ humble
+Same as always for me. Show up and work. ~ steady
+Understood. ~ quiet
+Early. Got it. ~ quiet
+Makes sense. ~ quiet
+Good meeting. ~ quiet calm
+That's how good meetings go. Say what you need to say and let the work do the rest. ~ vet
+I've been through enough of these. The quiet ones usually turn out better. ~ vet calm
+I'm a rookie. Honestly, I'm just glad I know where to go. ~ rookie
+Transfers hear a lot of promises. Nice to have somebody skip them. ~ transfer
+I've sat through a lot of recruiting pitches. That wasn't one. I liked it. ~ college !transfer
+Walk-ons have a lot to plan around. Knowing the schedule early helps. ~ walkon
+Scout team guys just want to know when to show up. You told us. ~ redshirt
+The underclassmen probably wanted a pep talk. They'll be fine. ~ hs senior
+I'll make sure the guys who weren't here get the time. Somebody's always missing. ~ hs leader
+My ride's going to want to know when practice ends. Can somebody put that in the group chat? ~ hs young
+The JV guys looked a little lost. I'll explain it to them. ~ hs leader
+Easy to explain at home. New coach, practice starts then, that's it. ~ hs
+College coaches who come by are going to watch practice, not meetings. So practice is what counts. ~ hs junior
+I've got enough noise from everybody with an opinion online. Quiet is good. ~ college nil
+No hype. Good. We get enough of that from everybody else in this league. ~ nfl
+Didn't say a word about roles or snaps. I'll be asking my agent what that means. ~ nfl greedy
+Didn't hear anything about who's getting paid or played. That's going to come up. ~ greedy !hs
+Quarterbacks need to know the install schedule more than anything. You gave us a start. ~ qb
+Linemen don't need speeches. We need reps. When are the pads on? ~ lineman
+Kickers just want to know when the field's free. Sounds like I'll find out. ~ kicker
+I'm going to get the offense together before then and walk through what we know. ~ offense leader
+Defense doesn't need talk. Line us up and we'll show you who we are. ~ defense
+Y'all heard it. Show up and work. ~ south
+Back home coaches say a lot more on day one. I kind of like this better. ~ texas
+That's a midwest meeting. Say it once, then go to work. ~ midwest
+Short and direct. My kind of meeting. ~ northeast
+Chill meeting. I'm good with chill. ~ west young
+I'll judge you by {rival} week. Until then, I'll just work.
+If the first workout is as straight as the meeting, we'll be fine.
+You said when practice starts. That's the only number anybody's going to remember.
+Nothing for the reporters to write about. That's probably the point.
+Quiet first day. I'd rather that than a loud first season.
+Everybody's going to show up curious. That's a good place to start.
+Guys will talk tonight, but there's not much to talk about. That's fine.
+It wasn't a speech. It was a plan. I'll take a plan.
+Okay. I'll see you at the first one. I won't be late.
+I'm glad you didn't try too hard. Guys can smell that.
+Honestly, that's what I wanted. Somebody normal.
+It leaves a lot for the first practice to say. Good thing it's soon.
+We'll find out tomorrow if the quiet was a good sign.
+Nobody's mad. Nobody's excited. That's a decent place to start from.
+I kind of want to see you run a drill now. That's the hook.
+Simple meeting, and I didn't leave with a single question about where to be.
+I like that you didn't make it about you.
+Okay. Now let's see what the whistle sounds like.
+I'll be honest, I expected you to say something about last year. Kind of glad you didn't.
+Short meetings make me trust a coach more. Weird, but true. ~ calm
+You'd make a decent poker player, Coach. Nobody could tell a thing. ~ loose
+No big promises. I've had my fill of those. ~ vet
+I'd rather earn your trust in practice than in a meeting room anyway. ~ competitor
+Practice squad guys don't get speeches anyway. This felt normal. ~ psquad
+Undrafted guys know the only meeting that matters is the one on the field. ~ undrafted
+Nice to just get a schedule for once instead of a bunch of hype. ~ firstround
+I'll be watching how you handle the first mistake somebody makes. That'll tell me more than any meeting. ~ pro
+
+@key takeover.holdover.pitch
+I know you're bringing your own people. I'm asking for a chance to show you I can be one of them.
+I've been here {years} years. I know where things are buried in this building, and I know who to call.
+I'll be honest. I didn't agree with everything the last staff did. I'd like to show you what I'd do.
+I've coached this group for a while. They trust me. That doesn't happen overnight.
+I'm not asking for a promise. I'm asking for a spring.
+I'll do whatever role you need. I just want to stay with these kids. ~ loyal
+I've been through coaching changes before. I'm good at helping the new guy get settled. ~ old
+I'm young and hungry. I'd like to learn from you. ~ young
+Keep me as {role} and I'll give you everything I've got. That's all I can say.
+You're going to want somebody who knows this roster. That's me.
+I've got film notes on every player in my room. Let me hand them to you and you decide.
+I'm the guy the players come to. You'll want that on your staff.
+I won't badmouth the last staff, and I won't badmouth you when you leave. That's who I am. ~ loyal
+Let me show you what I can do with this group. If it's not enough, I'll shake your hand and go.
+I'm not here to compete with your guys. I'm here to help them.
+I've coached this room for {years} years. Nobody knows this group better. ~ old
+I'd like to stay. My family loves it here, and I love these kids. ~ warm !nfl
+Coach, the players are going to be nervous. I can help keep them steady.
+I'd like to keep the job. I think the room needs somebody it knows right now.
+I'm a coach first, and I'm good at it. I'll prove it.
+If you want me gone, I understand. But give me a chance to change your mind.
+The last head coach and I didn't always see eye to eye. I think you and I might. ~ climber
+I want to be on a staff that wins. I think yours will. ~ climber
+I'm not going anywhere unless you tell me to. ~ loyal
+I've got a lot of respect for what you've done. I'd be honored to work for you.
+I want to stay on as {role}. I'm asking you straight, because that's how I'd want somebody to ask me.
+You don't owe me a thing, and I know it. I'd still like the job.
+Before you finish the staff list, put my name on it. Bottom of the page is fine.
+Most new staffs keep one or two of us. I'd like to be one of them.
+Hiring is your call. I just didn't want you to make it without hearing from me first.
+Thanks for seeing me. I asked for this because I didn't want to find out what you decided from a text.
+You'll get calls from a lot of guys you know. I'm asking you to take a long look at one you don't.
+Tell me what you run and I'll have it taught to my room before your own guys unpack.
+Your people know your scheme. I know these players. Put us in the same room and you're ahead of schedule.
+If you keep me, I'll tell you when I think you're wrong. Privately, once. Then I'll do it your way.
+Look at where my players were when they got to me and where they are now. That's my whole pitch.
+Judge me on my room's tape, not the scoreboard. That's all I'm asking.
+Keep me because I'm good, not because it's easy. If I'm not good, let me go.
+No campaign, no phone calls on my behalf. This is it. I'd like to stay.
+Needing to be here and wanting to be here are different things. I want to be here, and you'll feel it.
+Keep me, and the first day of practice looks like the tenth. Nobody wastes a week learning names.
+I'll sit in the back of the staff room and keep quiet until you ask. When you ask, I'll be ready.
+Good at the job and easy to work with. You don't always get both. I'm both.
+I'm not anybody's leftover. I'm a coach who wants to work for you.
+Clean house if you want. I'm only asking you to look in my room before you do.
+I'll take a smaller title if that's what it takes. I just want to be in the meetings.
+No sales pitch. Just what you'd be getting if you keep me.
+Practice scripts, walkthroughs, the details nobody sees. That's where I'm good, and I'd like to keep doing it here.
+Win or lose this fall, you'll get the same guy on the headset every week.
+I'll learn your terminology faster than anybody you could hire off the street.
+I'm a football coach. Not anybody's guy. I'd like to coach ball for you.
+When we beat {rival}, I want to be on that sideline. That's part of why I'm sitting here.
+We went {last_record}. I'm not here to explain it. I'm here to tell you what my room can be.
+{town} suits me, and so does coaching for {team}. I'd like to keep doing both.
+Give me {year}. If my room isn't better by the end of it, I'll clean out my own desk.
+{team} is where I want to coach. Not somewhere else. Here, as {role}.
+{coach}, I'll make this simple. I want to stay, and I think you'll be glad if I do.
+The series with {rival} is {series}. I'd like to help you move that number.
+Give me a shot at {rivalry} with this group. I think they've got something in them.
+Every staff loses something in a handoff. I'm how you don't lose it.
+I'd like to stay, and I'll say this up front. I will never undercut you with the players.
+No politics from me. I coach my room, I go home, I come back early.
+I can start tonight. Hand me the install and my part of it will be ready Monday.
+There's good work in that room nobody outside this building has seen yet. I'd like to see it through.
+This is a job request, not a favor. Hold me to the same bar as anybody you bring in.
+Most guys in my chair don't survive a change. I know the odds. I'd like to be the one who does.
+Nobody in this building wants to win more than I do. I'd like the chance to prove it for you.
+If the answer's no, tell me today. If it's maybe, tell me what I'd have to show you.
+I don't know you well yet. I know enough to want to work for you.
+I've studied your teams. I like how they play, and I think I'd fit it.
+I'll keep this short since you've got a hundred meetings today. I want to stay. I'll earn it.
+How we did it before doesn't matter to me. These players do.
+Good assistants make the head coach's day shorter. I'd like to make yours shorter.
+You'll find out fast who in this building is working and who's waiting to get paid out. I'm working.
+Let me keep my office and my room. Everything else, I'll do your way.
+It's your program now. I'd like to help build it.
+I hope you'll keep me. If you don't, I'll be rooting for you anyway. ~ !hot !cold
+Once, and then I'll stop selling. I'm a good coach, and I want to coach here.
+You need people you trust, and trust takes time. I'm asking for the time.
+Some guys in my spot are already packing boxes. I haven't packed a thing.
+I've been through your film already. I've got questions, which I think is a good sign.
+Keep me at {role} and that's one less hire to make and one less thing to worry about.
+I'd like to stay. I'm one of the few people in this building with nothing to protect.
+I'll be useful from the first meeting. Not in a year, not after the install. The first meeting.
+Looking for work doesn't scare me. That's not why I'm here. I believe in this group.
+Everything I hear about you says your staffs do it right. That's the kind of staff I want to be on.
+Short version, Coach. I want to stay, and I'll do it your way.
+Short and simple. Can I keep coaching these guys?
+This is a good job, and I'd like to keep doing it under you.
+I'll give you the same thing I gave the last staff. Every hour I have. ~ !cold
+I've watched a lot of good coaches get swept out in a change. I'd hate to be one more you didn't get to see work.
+There's no ego in this ask. Put me where you need me and I'll coach.
+Forget whether anybody else called. This is where I want to be.
+I'm not the loudest guy on any staff. I'm the one whose players know their assignments. ~ !hot
+I'm not going to kiss your ring. I'm going to coach my tail off. If that's enough, keep me. ~ hot
+People will tell you I'm hard to work with. I'm hard on players who don't do it right. That's different. ~ hot
+I'm not a yes man. If you want one, I'm the wrong guy. If you want a coach, I'm the right one. ~ hot
+I'm sure your phone's already full of names. Mine should be on that list, and I'll tell you why. ~ hot
+You don't know me and I don't know you. Let's fix that before either of us makes a mistake. ~ hot
+I'll be honest, this whole thing ticked me off. Not you. The way it went. I still want to coach here. ~ hot
+I've got a temper on the field. My guys know it's because I care whether they get it right. ~ hot
+I won't grovel. My room plays hard and plays mean. Keep me or don't. ~ hot
+I'd rather you let me go to my face than leave me hanging for a month. So, can I stay? ~ hot
+Damn right I want to stay. I'm not done with this group. ~ hot
+Take your time deciding. I'll keep working my room until you tell me different. ~ calm
+No speech. I want to stay, I think I'm good at it, and I'll respect whatever you decide. ~ calm
+Either way, I'm comfortable. But I'd prefer to stay, and I think it'd make your first year easier. ~ calm
+Changes happen. I don't take it personally. I'd just like to be part of what comes next. ~ calm
+Ask around the league about me, then decide. I'm fine with what they'll tell you. ~ calm nfl
+Call a few people around the conference about me. I'm comfortable with what they'll say. ~ calm college
+No nerves here. I just think you'd be smart to keep me, and I wanted to say it once. ~ calm
+I want to run my own staff someday. Learning how you build one would be worth more to me than a raise. ~ climber
+You're going places. I'd like to be on the bus when you do. ~ climber
+I want to be a head coach. I'd rather get there by winning for you than by jumping somewhere else. ~ climber
+I'll bring you ideas, not just a whistle. Ambitious guys make better staffs, if you'll have one. ~ climber
+I've got plans for my career, and I'll be honest about them. This year, they run through you. ~ climber
+Keep me and I'll make you look smart for it. One day you can tell people you gave me my shot. ~ climber
+I study head coaches. I'd like to study you from the inside. ~ climber
+Whoever's in the big office gets my loyalty. Starting today, that's you. ~ loyal
+When the news broke, I didn't make one call. I've been in this building every day since. ~ loyal
+Job hopping isn't me. Ask anybody who's worked with me. ~ loyal
+I'll be your guy in this building from day one. Not the old staff's. Yours. ~ loyal
+I stay where I'm planted. I'd like to stay planted here. ~ loyal
+My room is on time, in shape and in the playbook. I'd like to keep it that way under you. ~ strict
+Phones away, notebooks out, every meeting. If that's what you want, I'm your guy. ~ strict
+I won't lie to you, and I won't let my guys cut corners. That's my whole resume. ~ strict
+Discipline travels. Whatever you run, my guys will line up right and get off on time. ~ strict
+My players get a standard, and I hold myself to a higher one. I'd like to keep doing that here. ~ strict
+You want a room that does it right when nobody's watching? That's my room. I'd like to keep it. ~ strict
+I'll be honest, I love this group. That's the main reason I'm sitting here. ~ warm
+My guys come to my office about everything, not just football. I'd hate for that to stop now. ~ warm
+These guys matter to me after their last snap. I think you'll find that's worth keeping. ~ warm
+A couple of my guys asked me today if I'm staying. I didn't have an answer. I'd love to give them one. ~ warm
+Half my job is checking on young men at night, in the dorms and on the phone. I'm good at that half too. ~ warm college
+I'm not here to be your friend. I'm here because my room gets better. ~ cold
+Here's my tape and here's my grading sheet. That's my case. ~ cold
+I don't do small talk. I'd like to stay as {role}. What do you need from me to decide? ~ cold
+I'll keep this brief. Retain me as {role}. The numbers are in the folder. ~ cold
+People person? No. Football person, and a good one. ~ cold
+My players don't have to like me. They have to improve, and they do. ~ cold
+I'm not trying to climb anywhere. I just want to be a good {role} for you. ~ old
+I've got no agenda left. I just want my guys to be good. ~ old
+Your people won't have to worry about me stepping on their toes. I know my place in a building. ~ old
+I've coached a lot of football. I'd like to coach some more of it here, for you. ~ old
+Some head coaches like a gray head in the room. If you're one of them, here I am. ~ old
+Titles don't matter to me anymore. Give me a room and a whistle. ~ old
+I've done this long enough to know I'm still good at it. That's not always true at my age. ~ old
+I'll do the grunt work. Cut-ups, breakdowns, the late nights. Just keep me in the building. ~ young
+I won't pretend I've seen it all. But I've seen this roster up close, and that's what you need right now. ~ young
+Light on experience, sure. Not light on work. ~ young
+I've sat in those meeting rooms as a player. I know when guys tune out, and I know how to get them back. ~ expro
+I played in this league. When I tell a guy something's going to cost him his job, he believes me. ~ expro nfl
+Recruits know I played on Sundays. That opens doors you don't want to close. ~ expro college
+I've been the player wondering if the new staff wanted him. Now I'm the coach wondering. I'd like to be wanted here. ~ expro
+This league doesn't give a new staff time to settle in. Keeping me buys you some. ~ nfl
+OTAs are a bad time to start over with a new voice in that room. I can carry it through. ~ nfl
+You've got a 53 to build and not a lot of time. I already know who in my room makes it and who doesn't. ~ nfl
+Coaches in this league move around. I'm asking to be the one who doesn't, this time. ~ nfl
+The free agents we chase this spring will ask who's coaching their room. I'd like the answer to be me. ~ nfl
+The portal window's open and kids are looking for a reason to stay. I can be one of them. ~ college
+I don't need a title bump. I need to know I'm still recruiting for {team} next week. ~ college
+Signing day is coming whether we're ready or not. Keep me and you keep the relationships holding this class together. ~ college
+With NIL and the portal, kids leave for a lot of reasons. I'd like to make sure a staff change isn't one of them. ~ college nil
+Recruits are calling me asking if I'm staying. I'd love to tell them yes. ~ college
+I'm a teacher first. I'm not the flashiest recruiter on any staff, but my guys get better. ~ college
+Out of trouble and in class. That's half the job here, and it never shows up on tape. My guys do both. ~ college
+Where I'm from, you don't walk out halfway through a job. I'd like to finish this one. ~ south
+I was raised to ask for what I want, so I'm asking. I'd like to stay. ~ south
+I'm not much for selling myself. Put me to work and judge me in October. ~ midwest
+I'll be quick, because you're busy. I want the job, I'm good at it, and I won't waste your time. ~ northeast
+I'll tell you plain. I like it here, I like these players and I'd like to work for you. ~ texas
+Put me through the same interview as anybody else. I'll be ready for every question.
+This is the job I want. Not a stepping stone, not a landing spot. This one. ~ !climber
+No answer needed today. I just need to know I'm in the running.
+You know what you want. I can tell already. I'd like to coach in a building like that.
+I've been the new guy on a staff. I know what it's worth to have somebody already here who's on your side.
+
+@key takeover.holdover.detail
+My guys know the playbook inside out. That gives you a head start. ~ !hs
+My guys know the system inside out. You'll lose weeks if you start from scratch.
+I've got the best relationship on this staff with the [linemen|defensive backs|receivers]. They'll tell me things they won't tell anybody else.
+I know every kid's family. I know who's struggling at home and who needs a ride to practice. ~ hs
+I know which teachers will work with our kids and which ones won't. That saves you a lot of trouble. ~ hs
+I run the summer camp. Two hundred kids a year. Half of our roster came through it. ~ !nfl
+I've got the trust of the high school coaches in this county. That's not something you build in a year. ~ college
+I've got two commitments who are only coming because of me. I'd like to keep them coming. ~ college
+I've been recruiting the kids in this area for years. They know me. ~ college
+I've got a feel for which guys are thinking about the portal. I can help you keep them. ~ college modern
+I've coached half this roster since they were in middle school. ~ hs
+I know the rules in this league. I know which kids can play where and when. ~ hs
+I know the front office. I know which way to push and when to back off. ~ nfl
+I've worked with the veterans in this room for years. They listen to me. ~ nfl
+I know the players' contracts, their families and their agents. That's useful. ~ nfl
+I've been the guy who takes care of the young players when they get here. You'll want that. ~ nfl
+I've got a scouting notebook on every player in this conference. ~ !nfl
+I've got relationships with the trainers and the academic people. That matters more than people think. ~ !nfl
+I know the weight room schedule, the lunch money, the bus routes. All the stuff nobody wants to learn. ~ hs
+I've kept every kid in my room eligible for three years running. ~ !nfl
+I know who's ready and who's not. I'll tell you straight, even if it's my own guy.
+I've watched every rep this group has taken for {years} years. I can tell you things the tape can't.
+The kid we want most in this class has a grandmother who makes the call. I've eaten at her table more than once. ~ college
+Since the news broke, I've called every one of our commits. They're nervous, but they're still ours. ~ college
+Some high school coaches in this state are honest about their players and some oversell. I can tell you which is which. ~ college
+Which of our commits are solid and which ones are taking visits behind our backs? I can tell you. ~ college
+I work the 7-on-7 circuit and the travel teams. A lot of times that's where you find out who's real. ~ college
+The juco coaches know me. When one of their kids gets his grades right, I'm the first call. ~ college
+The counselors at the big schools around here call me when a kid's transcript has a problem. ~ college
+One phone call from me and every high school coach in the area shows up for a clinic. ~ college
+Half the kids in the portal are just shopping. I can tell you which ones actually fit here. ~ college
+Our top commit's high school coach and I go way back. That's not something your guy builds in a week. ~ college
+City schools and country schools mean different families and different conversations. I recruit both. ~ college
+In every one of these families, somebody really makes the decision. Sometimes the mom, sometimes an uncle, sometimes the kid. I know who. ~ college
+There's a list of sophomores in this state nobody's offered yet, and I've got it. A couple of them are going to be problems for everybody. ~ college
+The recruiting calendar is in my head. When we can call, when we can visit, what gets us in trouble. ~ college
+Some boosters want to help and some want a say in the depth chart. I know which is which. ~ college
+There are donors who show up in March and donors who only call after a loss. I know both kinds by name. ~ college
+When a player's NIL deal falls apart, I know who to call at the collective. ~ college nil
+Other schools are making NIL calls to our guys right now. I can tell you who's at risk. ~ college nil
+Revenue sharing changed the roster math here. I've been in those meetings, and I know where the money went. ~ college nil
+A few of my guys might be close on credits or need summer school. I know exactly who. You don't want to find that out in August. ~ college
+The academic people call me before a kid's grades become a problem. I know them all by first name. ~ college
+The compliance office trusts me. That matters more in your first year than you'd think. ~ college
+Some guys practice like stars and disappear on Saturdays. I can tell you who. ~ college
+A few of the kids in this class told me they're waiting to see who stays. I'd like one of the names they hear to be mine. ~ college
+I've sat in enough living rooms to know which families want a coach and which ones want a sales pitch. ~ college
+Recruiting against {rival} is its own thing. I know exactly what they tell families about us. ~ college
+Some of our guys were recruited for the last scheme. A few of them might fit yours better than you'd think. ~ college
+The coordinators in this conference all have habits. I know which ones script the first fifteen and which ones panic on third down. ~ college
+When other schools come after our players in the portal, I know what they'll offer and how to answer it. ~ college
+The families will want to hear from somebody they already know. I'll keep them calm. ~ college
+Next year's recruiting board is already built. Tear it up if you want, but it's a start. ~ college
+Nobody from my room goes in the portal if I can help it. I've already sat down with the ones who were thinking about it. ~ college
+December here is signing day, the portal and maybe a bowl, all at once. I know how to work all of it. ~ college
+I'll be on the road the day you need me to be. Planes, gyms, living rooms, whatever it takes. ~ college
+I won't go around you to the AD. Whatever I think, you hear it first. ~ college
+If you let me go, I won't take a single player with me. That's not how I do it. ~ college
+In Texas, high school football is a religion. I know the preachers. ~ college texas
+Every summer I work the big coaches' clinic in Texas. I shake every hand in that building. ~ college texas
+I can sit on a porch with a family for three hours and never look at my watch. That's how it's done where I'm from. ~ college south
+Midwest kids get missed. I know the towns, the coaches and the two-way players nobody films right. ~ college midwest
+The prep schools and the city programs in the Northeast are hard ground to learn. I've already learned it. ~ college northeast
+The West Coast jucos are my backyard. That's where the late bloomers hide. ~ college west
+Some of my vets are one bad camp from being done. You'll want to know who before free agency. ~ nfl
+I've sat with the cap people. Some contracts in my room don't make sense next year, and I can show you which. ~ nfl
+I've got notes on every free agent at my spots. I started them back in the fall. ~ nfl
+The scouts in this building aren't all equal. I know whose reports to trust. ~ nfl
+There's a guy on the practice squad you'll want on the 53. I can show you why on tape. ~ nfl
+Agents are already calling about some of our players. I know which ones, and I can help you get ahead of it. ~ nfl
+Some vets will push back on a new scheme. I can get them on board before OTAs. ~ nfl
+The owner's people like to hear things a certain way. That's a language you'll want to learn fast, and I speak it. ~ nfl
+Every staff in this division has tendencies. I know them, and I know what they did to us on third down. ~ nfl
+Our young guys are on rookie deals. I know which ones are worth an extension and which ones are camp bodies. ~ nfl
+The practice squad rules and the elevation games are free roster help if you use them right. I know them cold. ~ nfl
+I've seen guys get cut and come back better. I know which of our bubble guys have that in them. ~ nfl
+You won't get a call from the union about practice rules on my watch. I know the CBA cold. ~ nfl
+Some veterans want to be coached and some want to be left alone. I can tell you which. ~ nfl
+Agents come in two kinds, the reasonable ones and the ones who run to the media. I know ours. ~ nfl
+I won't go around you to the GM or the owner. Whatever I think, you hear it first. ~ nfl
+I keep the fine book for my room. The vets pay like everybody else. ~ nfl strict
+Young guys listen when I tell them what it takes to earn a second contract. I've been in that locker room. ~ expro nfl
+I've graded every snap my room played. It's yours if you want it.
+I know who runs the locker room and who just talks loud in it.
+If anybody has stuff off the field, you'll hear it from me before the media does.
+Every one of my guys has an offseason plan already. I can put them on your desk tomorrow.
+{rival} I know cold. Their staff, their tendencies, their calls on third and short.
+Losing hits this town a certain way. I can help you handle the noise.
+Some reporters here are fair and some will bait you after a loss. I know which are which.
+The equipment guys, the video guys, the people who keep this place running. They'll help you if I ask.
+I'd simplify my room's assignments for your first year. Fewer calls, faster players.
+I'd start the spring with fundamentals. Footwork, hands, eyes. Scheme can wait a week.
+I'd run your system the way you want it. My ideas stay in my office until you ask for them.
+I won't be in anybody's ear about the old staff. That part's over for me.
+Reporters won't get anything from me about this. Not on the record, not off it.
+I won't fight you on scheme. I'll fight for my players' reps, and that's it.
+That's not how we did it. You'll never hear those words out of me.
+I don't keep score on head coaches. I coach for whoever's in charge, and I do it all the way. ~ loyal
+If I ever can't be loyal to you, I'll tell you to your face and walk out. You won't hear it from somebody else.
+I worked for {old_last}, and I did it right. I'll do the same for you.
+Whatever my relationship was with {old_last}, it stays out of your building.
+I've already mapped your calls onto our personnel. I know where it fits and where it doesn't.
+Other teams attacked my room a certain way last year. I know what they saw and what we did about it.
+This building has its tricks. Which meeting room has the good projector, how to get video at midnight, who to ask for what.
+Practice here has a rhythm. The fields, the indoor schedule, the trainers' timing. It's a lot of little stuff, and I know all of it.
+The weather here hits practice in ways you won't expect. New staffs lose a month figuring that out.
+The strength staff and I are on the same page about my guys. Your install won't break anybody.
+Somebody in my room is always hurt and hiding it. I know who. You'd find out the hard way otherwise.
+Some guys need a hand on the shoulder and some need to be called out in front of the room. I know which is which.
+My room has a leadership group already. I can hand you the guys you'll want to lean on.
+I've got a list of guys in my room who'd fit your scheme better at another spot. A couple might surprise you.
+Some of my guys learn from the board, some from film and some only on the field. I know who's who.
+My room's install notes will be rewritten in your language within two weeks.
+If you want to bring in your own guy over me in a year, I'll help train him. I mean that.
+I'll take the jobs nobody wants. Scout team, the special teams cut-ups, the early meetings.
+You'll never have to wonder if I'm talking to other teams. If somebody calls, I'll tell you.
+I know which guys are about to break out. One of them is going to make your first year look good.
+I've been scouting the teams on our schedule since before any of this happened.
+Every player in my room has talked to me about the change. I know how they took it.
+Last year's practice plans are in my files, period by period. You can see what worked and what didn't.
+I can walk you through what this roster tried last year and what flopped. You don't have to repeat it.
+I know {town}. The barbershop, the diner, the radio guy. You'll want friends here when the first loss comes.
+If something in the locker room goes sideways, you'll hear about it from me first.
+A few players will test you the first week. I know who, and I know how.
+I'll keep my room out of the noise. Whatever gets said online, they'll hear the truth from me first.
+Don't worry about fitting me in. Bring in whoever you want around me. I'll make it work.
+Some guys were close to the last staff and might struggle. I'll help them through it.
+Ask me anything about anybody in that building. I'll give you a straight answer.
+Some players lean on each other. Break up the wrong pair and you'll lose both.
+My guys know the old playbook by heart. I'll teach them yours just as well.
+Right now I can give you a list of who's going to start in my room and who only thinks he is.
+Where this team broke down late in games wasn't always where people think. I can show you.
+I'll keep notes on every practice for you. You won't have to ask what happened in my periods.
+Give me a week with your coordinators and they'll know this roster.
+Every guy in my room is playing for something. Money, pride, a shot, somebody back home. That's how you reach them.
+The trainers and the doctors here trust me. When a guy's ready to come back, I know before the paperwork does.
+Coachability is the first thing you'll want to know and the last thing film shows you. I can tell you who has it.
+I've already drawn up a depth chart for my room the way I think you'd want it. It's in my bag.
+The youth leagues and the high school coaches in town know me. You'll do a lot of community stuff, and I can make it easy.
+Give me the scout team in practice. I'll make it look like the real thing every week.
+I'll get my guys to buy into you. Not by selling you. By coaching your stuff well.
+Some players read every word written about them. You'll want to know who they are.
+I'll stay in my lane. I'm not after anybody's job on this staff, yours included. ~ !climber
+Road trips here run smooth. The travel routine, the hotels, the meal times. I can keep it that way.
+Whoever sets the tone in the weight room sets it for the team. I know who that is, and I can get him on board.
+I track the sleep and nutrition numbers on every guy in my room. That's where injuries start.
+I'll own my mistakes from last year. There were a few, and I've already fixed them.
+The personnel people here and I usually see the same things on tape.
+I'll tell you the truth about my guys in the staff room, and I'll never say it in front of them.
+Give me the third-down cut-ups from last year. I'll show you where we won and lost on that down.
+My players will tell you I'm fair. That's the word I've worked hardest for. ~ !cold
+My room's rules are written down. Every rule, every consequence. You can read it tonight. ~ strict
+Nobody in my room is late. Not once. That's not luck. ~ strict
+I know who calls home every night and who hasn't talked to anybody back home in months. That's coaching too. ~ warm
+When one of my guys has a bad day, I know it before he walks in the door. ~ warm
+I don't know their birthdays. I know their footwork, their reads and their mistakes. That's what you need. ~ cold
+I keep it professional with my players. They know where they stand, and so will you. ~ cold
+My guys play angry. That's me. You'll want that in November. ~ hot
+I'll yell at my guys, but I'll never embarrass them in front of the team. There's a line, and I know where it is. ~ hot
+On the headset I don't panic. When it gets loud, I'm the one handing you the next call. ~ calm
+I'm the same at halftime down three scores as I am up three. The players feed off that. ~ calm
+I've got a notebook of things I want to try in your scheme. Some of it's wild. Some of it wins games. ~ climber
+Every offseason I study the best staffs in the country. You'd get all of that. ~ climber
+Schemes come and go. I know what lasts and what's a fad. ~ old
+I've seen a lot of young coaches come through. I can help your staff without them feeling it. ~ old
+I can run the tech side. Tablets, the GPS numbers, the cut-up software. The players like it coming from me. ~ young
+The players text me. I'm close enough to their age that they say things to me they won't say to you. ~ young
+I played at the highest level. That buys me a minute with guys who think they know everything. ~ expro
+Back home a man's word is all he's got. When I tell a player something, it happens. ~ south
+Which guys go home every weekend and which ones stay on campus tells you who's homesick. I keep track. ~ college
+There's a kid on our scout team who should be playing. Nobody's looked at him twice. I have.
+I'll give you an honest read on every coach still in this building, not just me.
+
+@key takeover.leader.close_to_old
+I'm not going to lie, Coach. Losing him was hard on me.
+Coach {old_last} believed in me when nobody else did. That's going to take some time. ~ !nfl
+I'm loyal. To him, and now to you, if you earn it. ~ loyal
+I still talk to him every week. That's not going to change.
+Some of the guys took it harder than me. I'm going to try to help them.
+He was like a second father to me. ~ !nfl
+He told us to play hard for whoever came next. I'm trying to do that.
+I don't hold it against you, Coach. It just still stings.
+You've got big shoes to fill. I'm not saying you can't.
+I came here for him, but I'm staying for my teammates. ~ !nfl
+I know it wasn't your call. I just need some time.
+He gave me a chance. I want to make him proud, even if it's with you.
+I'll play hard. I just won't pretend I'm not sad.
+I've been with him since my first day here. It's strange without him. ~ !nfl
+He made me a captain. I'd like to keep earning it. ~ leader
+I'm going to give you everything I've got. That's what he'd want.
+You'll find out I'm loyal. He's the one who taught me that. ~ loyal
+He was in my living room before anybody else knew my name. ~ college !walkon !transfer
+I signed here because of him. I'm still trying to get my head around him being gone. ~ college !walkon
+When I hit the portal, his was the first call. That's why I'm wearing this jersey. ~ college transfer
+Nobody would even call me back, and he let me walk on. I don't know how to explain what that meant. ~ college walkon
+He told my folks he'd take care of me. He kept his word. ~ college steady !walkon
+I had other places I could've gone. I picked him. ~ college !walkon
+I could've hit the portal. I stayed because of him, and now I've got to figure out what that means. ~ college !freshman
+He's coached me since I was a freshman. I don't really know this game without him. ~ hs !freshman
+Every week he checked my grades. Nobody else ever did that. ~ hs
+I've been in his weight room since I was fourteen. ~ hs !freshman
+Honestly, he's the reason I'm still in school. I'm not saying that to be dramatic. ~ hs shaky
+He's the one who told me I could play at the next level. Now I've got to believe it on my own. ~ hs
+He drafted me. He believed in me before I'd taken a snap in this league. I owe him. ~ nfl !undrafted
+When my name got called, he was on the other end of the phone. I'll never forget that call. ~ nfl !undrafted
+He spent a first-round pick on me. I wanted to make him look smart. I still do. ~ nfl firstround
+Nobody drafted me. He called anyway. I don't forget things like that. ~ nfl undrafted
+The numbers said cut me, and he kept me on the practice squad anyway. ~ psquad
+Film, sleep, the whole routine. He taught me how to be a pro, and that's all him. ~ nfl
+He went to bat for me in this building more than once. I know that much. ~ nfl
+I'm going to be honest. I'm not over it.
+It's going to be strange walking past his office.
+Before it got out, he called me. Told me to keep my head up.
+When I heard, my first thought was, who's going to tell me the truth now. Maybe that's you.
+Hard on me? Every day. He was right to be, and I'm going to miss that.
+I'm going to talk about him sometimes. Not to undercut you. Because he mattered.
+His number's still at the top of my phone. That's not changing.
+I'll do what you ask. I just might not smile about it for a few weeks.
+Some days I'll be fine and some days I won't. I'll tell you which.
+If you ever want to know what he did with us, ask me. Some of it worked.
+I'm going to try hard not to compare you to him. I might slip.
+Can I ask you something? Did you two talk at all? I'd feel better knowing you did.
+Tomorrow I'm going to be the first one in the building. That's how he taught me.
+Be patient with me. I'm not sulking. I'm just sad.
+I don't really want to talk about him. I just wanted you to know where my head's at. ~ quiet
+I'm mad. Not at you. At how fast all of it happened. ~ hot
+I'm going to be angry for a while. I'll keep it off the field. ~ hot
+It is what it is. I'll miss him, and I'll work for you. Both of those are true. ~ calm
+Everything I've got in this game, he helped me get. I hope I can make you proud too. ~ humble
+He saw what I could do before anybody. You'll see it too. ~ ego
+I don't switch sides fast. Give me time and you'll get the same from me. ~ loyal
+The only way I know to handle stuff like this is to compete. So put me to work. ~ competitor
+He was the steadiest thing in my life. I'm not going to pretend losing that is easy. ~ shaky
+My parents keep asking what you're like. I told them I'd find out. ~ steady
+He's the only head coach I've had here. I don't know what different looks like yet. ~ young !transfer
+I've lost coaches before. This one stings more than the others. ~ vet
+He trusted me with the whole offense. Checks, protections, all of it. Not every coach does that. ~ qb
+Not once did he yell at me after a miss. You don't know how rare that is. ~ kicker
+He knew every lineman's name, scout team included. That's who he was. ~ ol
+He believed I could carry the load. I'll carry it for you too. ~ rb
+He always said I had the best hands he'd seen. Someday I'd like to hear that from you. ~ wr
+He told me to be a nightmare every snap. I'm going to keep being one for you. ~ dl
+Even the snapper got a handshake every day. That's the kind of coach he was. ~ snapper
+Special teams were never an afterthought to him. We noticed. ~ special
+I'll handle it like a pro. Doesn't mean it doesn't hurt. ~ pro
+Honestly, I'm a mess about it. I'll get it together before practice. ~ loose
+Folks at my church prayed for him every Sunday. They'll start praying for you now. ~ south
+In Texas they'll ask me about him for years. I'll tell them the truth. He was a good one. ~ texas
+Where I'm from, you don't make a big deal out of feelings. But this one got me. ~ midwest
+Not going to sugarcoat it. I'm upset. I'll be fine. ~ northeast
+I'll play for you. I'm going to play for him too, a little. I hope that's alright.
+I've been staring at my phone all week, waiting for it to feel normal.
+You weren't the reason. I know that. It still feels like somebody took something from us.
+Faking it with you wouldn't be respect. Telling you where I'm at is.
+The worst part is the younger guys. They didn't get as much time with him as I did. ~ senior
+Tough is what he made me. I'll be tough about this too. Give me a week.
+I keep thinking about the last thing he said to the team. I want to live up to it.
+He coached me hard and cared about me harder. That's a lot to lose at once.
+Treat the guys the way he did and you won't have a problem with me.
+I don't know you, and I knew him. That's the whole thing right now.
+We had a little routine before games, him and me. I'll miss that the most.
+All I'll ask is that you be straight with me the way he was.
+I don't blame you for any of it. I just need you to know I'm grieving a little.
+Losing him is going to make me work harder, not less. That's a promise. ~ competitor
+I'll keep the guys from making this about you. Even on my bad days. ~ leader
+
+@key takeover.leader.ego
+I want the ball, Coach. That's all I need to say.
+I've got a lot of people watching me this year. I need to be featured.
+I'm not going to lie, I'm going to want to know your plans for me.
+I'm the reason we won the games we won last year.
+Respectfully, I've got more to lose than most guys in that room.
+I've got goals. I need you to know them.
+Just put me in a position to make plays and I'll make them.
+I'm not asking for much. Just the ball in the fourth quarter.
+I've been the best player here for a while. I'm hoping that's still how you see it.
+I've worked too hard to be a role player.
+What's the plan for me? I want to hear it from you.
+I'm going to the league. I need tape that shows it. ~ !nfl
+I need numbers this year. Real numbers. ~ !nfl
+My contract's up soon. I'd like to know how you see me. ~ nfl
+I'm the face of this team. I'd like that to stay true. ~ nfl
+I want to be the guy you build around.
+I'll lead if you let me lead. That means you trust me. ~ leader
+I've been watching your offenses. I could put up big numbers in what you do. ~ offense
+I've been watching your defenses. I could wreck some games in what you do. ~ defense
+Tell me straight. Am I your guy?
+I'm not one of the guys you have to figure out. I'm one of the guys you build around.
+When the depth chart goes up, I want my name on top. I already earned it once.
+I watched tape of your old team. Didn't see anybody like me on it.
+I'm not asking to be treated special. I'm asking to be treated like the best player on the team.
+Rotations aren't for me. Just so we're clear.
+Captain, starter, first team. I want all three. Is that a problem?
+Before anybody else comes in here, I wanted you to know who actually matters in that locker room.
+I've got a brand now. What we do this year affects it.
+Put me in front of the cameras. I can handle it, and it's good for the team.
+When the reporters ask who the leader is, I'd like to hear you say my name.
+I already know what I can do. What I don't know is what you're going to do with me.
+I'm not sitting behind anybody. I'll say that one time.
+You're new here. I'm not. I know what wins in this building.
+Don't coach me up. Turn me loose.
+Ask anybody in that locker room who the best player is. Then we can talk.
+Say I'm a starter and we're good. That's all I need out of this meeting.
+Top three in this conference at my spot. I'd like to be treated like it. ~ college
+If you bring somebody in to take my job, we're going to have a problem. ~ hot
+Bring in whoever you want. I'll beat them. You should already know that. ~ competitor
+I know I'm young. I'm also better than the guys in front of me, and that's going to come out. ~ young
+I've been in this league long enough to know what disrespect looks like. Don't make me see it. ~ nfl vet
+Starters get paid. I plan on getting paid. ~ nfl greedy
+I'm a lot to handle. I'm also worth it. Ask around. ~ loose
+I was a first-round pick. I didn't come here to sit and develop. ~ nfl firstround
+I transferred here to be the guy. If that's changing, I need to know before the window closes. ~ college transfer
+I walked on and took a job from a scholarship guy. I'm not giving it back. ~ college walkon
+Rookies start in this league if they're good enough. I'm good enough. ~ nfl rookie
+I'm not a practice squad player. I'm a player stuck on the practice squad. Move me up. ~ psquad
+Move me around and let me hunt. I want to be wherever the ball's going. ~ defense
+Linemen don't get headlines, and I don't care about that. I care about being first team. ~ ol
+I'm a receiver who can block. Don't make me a blocker who can catch. ~ te
+Line me up in the slot sometimes. Linebackers can't cover me and they know it. ~ te
+Goal line carries are mine. Don't bring in some big back to steal my touchdowns. ~ rb
+How many carries are we talking? Ballpark. I need to know if I'm the guy or a committee. ~ rb
+Targets, Coach. Eight, ten a game. That's when I'm at my best. ~ wr
+Put me outside and get me one-on-one. That's where I win. ~ wr
+Who's taking the first snap at the first practice? I want to hear you say it. ~ qb
+Am I calling protections or is it all coming from the sideline? I'm better with the keys. ~ qb
+If we're throwing it forty times, I'm happy. If we're handing it off thirty, I'm not. ~ qb
+I want to rush. Not two-gap, not read and react. Let me go get the quarterback. ~ dl
+I want to be the one they have to block twice. Line me up wherever that happens. ~ dl
+I want to call the defense. I've got the head for it, and the guys listen to me. ~ lb
+Put me on their best receiver every week. Don't hide me in a zone. ~ db
+Let me play off and bait the quarterback. I'll get you picks. ~ db
+I want every kick. Field goals, kickoffs, all of it. I don't need a second leg in camp splitting reps. ~ kicker
+I'm the best snapper you'll find. Don't go bringing in competition. ~ snapper
+My agent's going to call the GM about an extension. I wanted to look you in the eye first. ~ nfl greedy
+I'm playing for my second contract. Whatever you do with me, it needs to show up on tape. ~ nfl young
+If I'm not getting the snaps, my agent's going to start asking questions. ~ nfl greedy
+Play me like the guy and the money takes care of itself. I'd just like to hear you say it. ~ nfl
+I'm not taking a pay cut. I'm telling you now so it's not a surprise in March. ~ nfl greedy vet
+My NIL money depends on me being on the field. I'm just being honest about it. ~ college nil
+I've got brands calling. They want to know if I'm still the face of this team. ~ college nil
+The portal's open. I'm not saying I'm going. I'm saying I want to hear my role from you first. ~ college
+Schools are texting my people right now. Tell me why I'm staying. ~ college
+College coaches come to watch me. You want them seeing me play, not stand on the sideline. ~ hs
+My highlight tape got a lot of views. I need a better one this year. ~ hs
+I want to play both ways. I'm the best athlete in this building, and you know it. ~ hs
+This is my recruiting year. Whatever you do, don't waste it. ~ hs junior
+Some of these guys need a coach. I just need the ball. ~ skill
+What's my number in your offense? Not my jersey. How many touches a game? ~ skill
+I put up numbers no matter who's coaching. I'd just like to know you plan to use them. ~ offense
+Everybody knows who the face of this defense is. I'd like you to know it too. ~ defense
+I'm a big-game player. When it's {rivalry}, you want the ball in my hands. ~ offense
+{rival} game plans for me. Make sure you do too.
+System guys are replaceable. Build the system around me instead.
+I'll be honest. If I'm not the guy, I'm not going to be happy, and you'll know it.
+Hopefully you came in knowing who I am. If not, this'll be quick.
+I'm the best player you've got. You'll figure that out at the first practice, but I'd rather save you the time.
+Don't put me in a package. Put me on the field.
+Every snap I'm on the sideline is a snap we're worse. Do the math.
+Football's all I've got going. So when I ask where I stand, it's not ego. It's everything. ~ shaky
+No pressure. Just tell me where I fit in your plans and I'll take it from there. ~ calm
+I'll do my job either way. But I've earned a real role, and I want to know what it is. ~ pro
+I stayed when I could've left. I'd like that to mean something to you. ~ college loyal !freshman
+I'm not going to fight for a job at this point in my career. Either I'm starting or we need to talk. ~ nfl vet
+{coach}, I'm going to be the best player you coach this year. Might as well plan for it.
+
+@key takeover.leader.steady
+I've got your back, Coach. Let's get to work.
+I'll keep the room together. You focus on the football.
+The guys are good. They just want to know the plan.
+I'll do whatever role you need. I just want to win.
+Tell me what you want the young guys doing and I'll make sure they do it. ~ leader
+I'm not much of a talker. But I'll show up every day. ~ quiet
+I'll be the first one in the weight room. That's what I've always done.
+I've seen a lot. I'll help you get the guys bought in. ~ vet
+I'm ready to follow your lead.
+We've got some good guys in that room. They'll come around.
+I don't need much from you. Just tell me the truth.
+Change is hard. The guys will be fine once we get on the field.
+I'll keep an eye on the guys who are struggling with it. ~ leader
+Whatever you need, Coach. I'm here.
+The vets will follow you if they see you mean it. ~ vet
+First thing I'll do is get the seniors together tonight, so everybody hears your message the same way. ~ !nfl !freshman
+Give me the schedule for the first week and I'll have every guy on time. Every single one.
+If a guy's thinking about the portal, I'll talk to him before he talks to anybody else. ~ college
+I'll be honest with you even when it's not fun. That's how this works best.
+This week I'll sit with the young guys at lunch. They hear it different coming from a player.
+Some of the guys are going to test you. I'll get to them first.
+You want a culture? Tell me what it looks like and I'll live it before I preach it.
+The guys are going to watch how I treat you. I'm going to treat you right.
+I'll learn your terminology first so I can help everybody else with it.
+Until your staff's settled, I'll run player workouts. Just tell me what you want in them. ~ !hs
+I'll make sure the scout team guys feel like they matter. That's where a room goes bad first.
+Put me wherever you need me. Special teams, scout team, whatever. That's the example I want to set.
+If guys come to me complaining, I'll send them to your door. No back channels.
+I'll text the group tonight. Nothing fancy. Just that we're all showing up.
+I've been in this league a while. I'll show the young guys what a pro looks like during a change. ~ nfl vet
+I'll get the offense in the film room on our own. Just give me the install when it's ready. ~ qb
+The line will be first in every day. I'll see to it. ~ ol
+I'll keep the secondary talking. We'll learn your coverages together. ~ db
+I'll be the voice on defense until your guys are in place. ~ lb
+The d-line's a tight group. If I'm in, they're in. ~ dl
+The specialists will be the easiest part of your week. That's a promise. ~ special
+I don't say much. When I do, the guys listen. I'll say the right things. ~ quiet
+Nobody's panicking. I won't let them. ~ calm
+If somebody disrespects you in that locker room, he deals with me first. ~ hot
+I'm not special. I just show up. I'll keep showing up for you. ~ humble
+I'll be in the building at six. If anybody wants to know what to do, they can watch me. ~ pro
+The best way through a change is to compete. I'll make every practice a fight. ~ competitor
+When I'm in, I'm all in. And I'm in. ~ loyal
+My folks raised me to show up for whoever's in charge. So here I am. ~ steady
+Football's the steady thing in my life. I'll keep it steady for the other guys too. ~ shaky
+Some of the underclassmen think the program's falling apart. It's not. I'll tell them. ~ hs
+Some guys are worried about their NIL deals. I'll calm them down. That's not your problem today. ~ college nil
+I walked on. The scholarship guys still listen to me. That's how you know the room's right. ~ college walkon
+I've seen another program from the inside. I know what good looks like, and I'll help you build it. ~ college transfer
+The vets will want the rules in writing. Give them to me and I'll make sure they're followed. ~ nfl
+OTAs are voluntary. Not for this group. I'll make sure of it. ~ nfl
+I came in undrafted. The young guys look at me and see a chance. I'll keep them believing. ~ undrafted
+Whatever the standard is, say it once. I'll repeat it until they're sick of hearing it.
+The room's going to give you a clean start, because I'm going to give you one.
+Let me know who you want in the leadership group. I'll help you pick, or I'll stay out of it.
+We've got some guys who need a reason to believe. Give me one and I'll spread it.
+I'll call the guys who went home for break. Everybody will be back on time. ~ college
+If there's a fire in the locker room, I'll put it out before it gets to your office.
+I'll have the hard conversations with the guys so you don't have to start with them.
+Any time you want to talk to the room, I'll make sure every guy is in it. Phones down.
+You'll get my best every day. And I'll make sure the guys around me give you theirs.
+I'm not here to tell you how it used to be. I'm here to help it be whatever you want.
+I've talked to the other seniors already. We're with you. ~ senior
+The weight room's where it starts. I'll have it full by the end of the week.
+If I see something going wrong, I'll tell you. If I see something going right, I'll tell the guys.
+Lean on me. That's what I'm here for.
+You've got my word. Whatever you're building, I'll help carry it.
+I'm young, but the guys look to me. I'll use that for you. ~ young
+I've been through enough of these. I'll keep the vets from getting cynical. ~ vet
+I'm not the most buttoned-up guy, but the room follows me. I'll point them your way. ~ loose
+I'm a big personality. I'll use it for you, not against you. ~ ego
+Like folks say down South, the program's bigger than any one man. I'll make sure the guys hear that. ~ south
+Where I'm from, you show up for the new coach the same as the old one. That's how I was raised. ~ texas
+I'll keep it simple. Show up, work, don't complain. The guys will do the same. ~ midwest
+I'll be straight with the guys, and I'll be straight with you. That's how I do it. ~ northeast
+Teachers are going to ask me about you. I'll tell them we're good. ~ hs
+I'm only a junior, but the guys follow me. I'll get them right for you. ~ hs junior
+I'll keep guys on top of their classes. A coaching change is when grades slip. ~ college
+Nobody in this room talks to reporters about any of this. I'll make sure of it. ~ !hs
+I'll give you scout team looks like it's game day. The other practice squad guys will follow. ~ psquad
+Give us a plan, even a rough one. Guys do better with something to hold on to.
+Guys feed off how the leaders carry themselves. I'll carry it right.
+Defense will be ready for whatever you install. We'll make it ours. ~ defense
+{coach}, the first practice is going to set the tone. I'll make sure the guys come ready to go.
+Give the room one hard practice early. They'll respect it, and I'll make sure nobody quits on it.
+I'll learn every new guy's name the day he walks in. That's how a room starts to feel like a room.
+
+@key takeover.leader.waiting
+Show us something, Coach. Then we'll talk.
+I've heard a lot of coaches talk. I'll wait and see.
+I'm going to give you a fair shot. That's all I can promise right now.
+The guys are skeptical. I'm skeptical. That's just honest.
+Respect is earned. You'll get it if you earn it.
+I don't know you yet. That's not a knock, it's a fact.
+I'll know what you're about by the first game.
+I've seen coaches come and go. You're the third one for me. ~ senior
+Nothing personal, Coach. Trust takes time.
+I want to see how you handle the first loss. That'll tell me a lot.
+I'll follow if you lead. Let's see where you take us.
+Guys are going to test you. I'm not going to lie to you about that.
+I'm not against you. I'm just not with you yet.
+We'll see how the first week goes. ~ quiet
+I'm going to watch what you do more than what you say. ~ pro
+I've been around long enough to wait and see. ~ vet
+I'll be honest. I need to see it.
+You seem alright. That's as far as I'll go right now.
+I'm going to keep my head down and watch for a while.
+I've got questions. I'll save them until I see a practice.
+Don't take it personal if I'm quiet for a bit. That's me figuring you out.
+I'll show up. Everything past that, we'll see.
+First impressions are fine. I want to see the second and third.
+What's the plan for the first month? Not the speech. The actual plan.
+A lot of us are holding off on deciding anything until the depth chart's up.
+I'm not in the portal. I'm also not taking it off the table. Not yet. ~ college
+My NIL people are asking questions I can't answer yet. I'm waiting to see what this looks like. ~ college nil
+Everybody's parents are talking. I'm not saying anything till I see practice. ~ hs
+College coaches are asking me about the new staff. I told them I'd let them know. ~ hs !freshman
+In this league a new staff means a new roster. I'm waiting to see if I'm on yours. ~ nfl
+Okay, Coach. Thanks for having me in. ~ quiet
+Not much to say yet. I'll know more later. ~ quiet
+I'm not going to fake being excited. You'll get honest from me. ~ hot
+Don't expect me to clap for you just because you're new. ~ hot
+No rush. We'll figure each other out. ~ calm
+I'm easy. I'll do the work. Opinions come later. ~ calm
+How you use me will tell me everything. I'll wait on that. ~ ego
+My loyalty's with the guys in that room. You'll have it too once I see you're with them. ~ loyal
+I'll be on time and I'll know my stuff. That's professional. Trust is a separate conversation. ~ pro
+I'll compete for anybody. Whether I'll go to war for you, we'll find out. ~ competitor
+A lot of grown men have promised me things. I don't take promises anymore. I watch. ~ shaky
+I don't judge people fast. I'll keep working and see how it goes. ~ humble
+Honestly? I'm just here to play. You do your thing, I'll do mine, and we'll see. ~ loose
+I'll wait to see what this means for my contract before I get too excited. ~ nfl greedy
+Depends what this means for my money. I'll be honest about that. ~ college nil greedy
+I already left one program. I'm not in a hurry to trust a new one. ~ college transfer
+I don't really know how to feel about any of this yet. Ask me later. ~ young
+Let me see the playbook before I say anything. A quarterback's only as good as what he's asked to do. ~ qb
+Some coaches say they'll run the ball and then they don't. I'll see. ~ rb
+Every new coach says he's going to throw it around. We'll see in the fall. ~ wr
+Defense always gets the same speech. I'll wait for the scheme. ~ defense
+Linemen can tell what a coach is about in one practice. Give me one. ~ ol
+I'll know what you're about when I see what you ask the front to do. ~ dl
+I'll learn the calls. Whether I believe in them is a different question. ~ lb
+I'll wait till I see the coverages. Some schemes hang the back end out to dry. ~ db
+Kickers learn fast not to get attached to coaches. I'll just keep making kicks. ~ kicker
+Are you here for a while, or is this a stepping stone? Honest question.
+What happens to the guys the last staff brought in? That's what everybody's asking.
+I'm not going to say much. You'll know where I stand by how I practice.
+I'll give you what I gave the last guy. More than that, you earn.
+Nobody in that room is going to tell you what they really think yet. Me neither.
+I'm not hard to win over. I'm just not won over yet.
+Guys have been burned before. Give it time.
+I'm keeping my options open. That's not a threat, it's just where I'm at. ~ !hs
+Some guys liked how things were. Some didn't. Everybody's waiting to see.
+I've heard what people say about you. I'd rather find out for myself.
+Ask me again in a month.
+It's going to take more than one meeting.
+I respect the title. The rest of it, we'll see.
+My dad wants to meet you before he decides what he thinks. I'm kind of the same way. ~ hs steady
+Some guys are talking about transferring. I'm not. Not yet, anyway. ~ hs
+I committed to the last staff. I'm still figuring out what I committed to now. ~ college freshman !walkon !transfer
+If the portal's open, guys are going to look. Doesn't mean they'll leave. Means they'll look. ~ college
+My agent's asking what this means. I told him I'd let him know. ~ nfl
+Everybody told me to keep my mouth shut my first year. So I'm listening, and I'm keeping it shut. ~ nfl rookie
+I'm on the practice squad. I don't get to have opinions yet. I'll just see. ~ psquad
+Nobody's ever handed me anything. I don't hand out trust either. You earn it like I did. ~ undrafted
+Everybody wants something from a first-round guy. I'm waiting to see what you want. ~ nfl firstround
+Where I'm from, you don't judge a man by his handshake. So I'm going to watch. ~ south
+I'm not much for big first impressions. I'll know you better by the end of the year. ~ midwest
+Look, I'll be straight. I'm not buying anything yet. ~ northeast
+In Texas everybody's got an opinion on the new coach by lunch. I'm going to wait. ~ texas
+The guys asked me what I thought of you. I told them I'd let them know. ~ leader
+You seem like you mean it, {coach}. A lot of guys seem like that in the first meeting.
+I'll be at every workout. That doesn't mean I've made up my mind about anything.
+Let's see who you start. That'll tell all of us what you really think.
+What you do with the seniors will tell the rest of us a lot. ~ !nfl
+Keep your promises small, Coach. Then keep them. That's how you get me.
+
+@key takeover.oldcoach.greet
+Come on in. Watch the stack of papers. I'm grading. ~ !hot
+I figured you'd come by. Sit down if you want. ~ !warm
+Well. The new coach. Shut the door, would you? ~ !warm
+Hey. I was wondering when you'd show up. Come on in. ~ warm
+I've got about twenty minutes before my next class. What do you want to know? ~ !warm
+You're braver than I was. Coming down here on your first week. ~ warm
+Sit down, Coach. I'm not mad at you. It wasn't your doing. ~ calm
+I don't have a lot to say, but I'll answer what I can. ~ cold
+Come in. I'll tell you anything you need about those kids. They deserve that. ~ warm
+Hey. Pull up a desk. The chairs are terrible in here. ~ !cold
+You picked a heck of a group to inherit. Come in. ~ !hot
+I've been expecting you. Sit down. ~ calm
+I'm not going to pretend this isn't awkward. Come on in. ~ !hot
+I've got a few minutes. Not many. ~ hot
+I've coached in this building a long time. It's yours now. Sit down. ~ old
+Welcome to {town}. You'll like it here. Most days. ~ warm
+I'll say this once. Take care of those boys. ~ old
+Come in. I'll help where I can. I owe those kids that much.
+I wasn't sure you'd come down here. The last new coach didn't. ~ !cold
+I hear you're a good coach. Come in and prove you're a good listener. ~ !warm
+So you found me.
+Close the door behind you. The hallway carries.
+Grab a desk. They're built for teenagers, so good luck.
+I'm between classes. Talk to me while I wipe this board down.
+I've got lunch duty in fifteen minutes. Walk with me if you need longer.
+Well. Here we are.
+Hang on, let me finish this attendance. Okay. What's on your mind?
+Kids just cleared out. You've got me till the next bell.
+You'll hear about {rivalry} before you hear about anything else in {town}. Come in.
+Don't mind the papers. The grading never stops, even when the football does.
+I'm not hard to find. Same building, same hallway, just no whistle.
+Sit down. I'll tell you what I know, and you can decide what it's worth.
+Come in. Mind the cord, the projector's held together with tape.
+Have a seat. This is the only quiet hour I get all day, so enjoy it.
+Sorry, the room smells like dry-erase markers. Sit down.
+Kids left the place a mess. Let me clear you a desk.
+Bell's going to ring in a minute, so if this is long, come back after school.
+I'm going to keep grading while we talk, if that's alright.
+You look like a man who hasn't slept since he got the job.
+The first visit was always going to be the hardest one. For both of us. Come in.
+Happy about it? No. Ugly about it? Also no. Sit down. ~ !warm
+I'm still figuring out what to do with my afternoons. Come in.
+{rival} is going to come at you early. They can smell a new staff. Come in.
+Come on in. I'm not going anywhere. That's sort of the whole situation.
+Hey. Watch the trash can, the kids keep moving it.
+Coffee's in the lounge if you want some. I'm not walking down there. ~ !warm
+Come on in, {coach}. Take the good chair. It's the only one that doesn't wobble. ~ warm
+There he is. Shut the door so the hall noise stays out. You want a water? ~ warm
+I was going to come by your office, but I didn't want to crowd you. Glad you came down. ~ warm
+Welcome. I mean that. Those kids need somebody, and I'm glad it's somebody who'd walk down here. ~ warm
+Sit, sit. I've got a list of things about those boys you should know. Some good, some you need to hear anyway. ~ warm
+I've been rooting for you since they made the announcement. I'll keep rooting. ~ warm
+Twenty steps from your door, and you'd be surprised who won't make the walk. Sit down. ~ warm
+Anything you need, I'm right down the hall. That's the whole speech. Come in. ~ warm
+This is awkward for you too, I bet. It doesn't have to be. Come on in. ~ warm
+If the kids ask about me, tell them I'm doing fine. Because I am. Sit down. ~ warm
+Welcome to {team}, {coach}. Best job in {town}, and I'd know. ~ warm
+I left you a binder in the office. Phone numbers, parents to call, parents to avoid. Did you find it? ~ warm
+Those kids are going to love you if you let them. Come in, sit down. ~ warm
+The hard part's over for me. Yours is just starting. Come in, I'll help where I can. ~ warm
+Pull up a chair. I'd rather you hear things from me than from the parking lot after a game. ~ warm
+Come in, come in. The kids are excited about you, even if they won't say it out loud. ~ warm
+I already told the boys to give you everything they've got. They will. ~ warm
+Come here, let me shake your hand. Welcome to the building. ~ warm
+Little early in the day for a victory lap. ~ hot
+You need something, or is this a courtesy call? ~ hot
+Door's open. That doesn't mean you have to come in. ~ hot
+Twenty steps from your office. Took you long enough. ~ hot
+They didn't even renew the stipend. Did they tell you that, or are you hearing it from me? ~ hot
+Say what you came to say. I've got a stack of papers and not much patience. ~ hot
+Whatever the principal told you about me, I'd take with a grain of salt. ~ hot
+If this is about keys, I already turned them in. All of them. ~ hot
+Don't sit. This won't take long. ~ hot
+You've got my old office and my old team. What else do you need from me? ~ hot
+I'll be honest. I didn't want to see you this soon. ~ hot
+If you came to ask me to help out for free, the answer's no. ~ hot
+You want my advice? Don't trust the people who hired you. That's it. That's the advice. ~ hot
+The booster club already sent somebody down to see how I'm taking it. You the second one? ~ hot
+The kids keep asking me why. I don't have an answer. Do you? ~ hot
+If you're going to ask me to keep coming to games, don't. ~ hot
+Hell of a thing, having the new coach drop by my classroom. What do you want? ~ hot
+Yes? What is it? ~ cold
+You'll have to be brief. I've got a quiz to hand out. ~ cold
+I assume you have questions. I may or may not have answers. ~ cold
+I'm not on the staff anymore, so I'm not sure what I can do for you. ~ cold
+You know where the film is and where the equipment is. What else is there? ~ cold
+I'll stay away from your program. I'd appreciate it if you stayed out of my classroom. ~ cold
+Hello. Sit if you need to. ~ cold
+I've got a lesson to prep. You've got five minutes. ~ cold
+Now you know where my room is. ~ cold
+{year} isn't my problem anymore. What can I do for you? ~ cold
+I'm teaching now. Just teaching. What do you need? ~ cold
+I don't do small talk during my planning period. ~ cold
+If the boosters sent you, tell them I'm busy. ~ cold
+Funny. I used to walk this hallway to get to the field. Now I walk it to get to lunch duty. ~ old
+I keep hearing the band warm up and thinking it's Friday. Old habits. Come on in. ~ old
+Every afternoon around practice time I still look at the clock. Sit down. ~ old
+There's a team picture on that wall I can't bring myself to take down. Come in. ~ old
+Don't mind the boxes. I'm still sorting out what to keep and what to throw away.
+I've seen plenty of new coaches walk down this hall. Never figured I'd be the one in here when one did. ~ old
+You think you'll pick the day you stop. You don't. Come on in. ~ old
+I still wake up early on Saturdays to watch film. Then I remember. Sit down. ~ old
+The series with {rival} is {series}. I carried some of those games around for a long time. Sit down. ~ old
+I've got a drawer full of old game programs I can't throw out. Come in, I'll show you sometime. ~ old
+I spent a lot of fall nights under those lights. Now I'm in bed by ten. Sit down. ~ old
+These kids think I've always been a teacher. Funny, isn't it. Sit down. ~ old
+I'll tell you a secret. I miss the bus rides most. Come in. ~ old
+Ah. The new head coach. My afternoon just got more interesting. ~ calm
+Sit anywhere. The kids tell me none of the desks are comfortable, and they're right. ~ calm
+Welcome to the other end of the building. More bells, fewer whistles. ~ calm
+I'd write you a hall pass, but it looks like you found your way. ~ calm
+Come in. I'm told I'm supposed to be gracious about this. Let's see how I do. ~ calm
+The school board giveth, and the school board taketh away. Come on in. ~ calm
+You picked a good time. Third period just left and fourth hasn't found me yet.
+Don't look so worried. I've had tougher visitors. Mostly parents. ~ calm
+Twenty steps from your door to mine. I counted, so you don't have to. ~ calm
+The stipend's gone, the kids are still here and so am I. Sit down. ~ calm
+Well, {coach}. I'd say welcome, but you've got the nicer office now. ~ calm
+We went {last_record}. I'm sure you've already heard what everybody thinks of that. Sit down. ~ calm
+One day you're the program, the next you're the guy down the hall. Funny business. Come in. ~ calm
+Sit down. Fair warning, I've had three parents in here today asking about you. ~ calm
+Those boys are going to test you. They tested me too. Be good to them. ~ loyal
+I'll keep my mouth shut around the kids. They're yours now. Come in. ~ loyal
+I still want those kids to win. Whatever else is true, that's true. ~ loyal
+Whatever you need for that team, ask. It's still my school. ~ loyal
+Close the door. I run a quiet room, and I'd like to keep it that way. ~ strict
+Have a seat. One rule in here. No phones, coaches included. ~ strict
+Top drawer of the office desk, there's a list of every kid who still owes me running. Make them do it. ~ strict
+Come in. You'll find out fast those kids need a firm hand. I hope you've got one. ~ strict
+If any of those boys gives you lip, tell me. Some of them still sit in this room every day. ~ strict
+I've got irons in the fire, so this won't be awkward for long. Come in. ~ climber
+I'm putting some film together for a few jobs. Don't take it personally if I'm not around much. ~ climber
+Next time you see me, I might be on the other sideline. Come in. ~ climber
+Didn't think I'd be the old coach this soon. Come in, I guess. ~ young
+I got cut by better men than the school board. Come in. ~ expro !warm
+I've been on the wrong end of a roster move before. This one's just quieter. Sit down. ~ expro
+Well, bless your heart, you walked all the way down the hall. ~ south !warm
+Have a seat. I'd offer you sweet tea, but all I've got is the vending machine. ~ south !hot !cold
+Come on in. Where I'm from, the man you replace buys the first coffee. Here. ~ texas !hot !cold
+Oh, hi there. Come on in, don't mind the mess. ~ midwest !hot !cold
+Shut the door, the hall's a zoo this time of day. ~ northeast
+Yeah, come in. What do you need? ~ northeast !warm
+Well, if it isn't the new man. Pull up a chair. ~ south !cold
+Hey, come on in. Don't worry, I'm not going to make this weird. ~ west !hot !cold
+Watch your step, somebody forgot a backpack. Come in.
+Take the stool by the window. It's the best seat I've got.
+Come in. If the intercom goes off, ignore it. It's never for me anymore.

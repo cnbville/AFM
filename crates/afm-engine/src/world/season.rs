@@ -277,6 +277,21 @@ pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
         room[to.index()] += 1;
         made.push((i, to));
     }
+    if w.logging() {
+        for &(i, to) in &made {
+            let p = &w.people[i];
+            let from = p.player.position;
+            let by = if p.stage == Stage::College { "his college staff" } else { "his high school coach" };
+            w.log_why(super::wlog::Why::PositionMove {
+                id: p.player.id,
+                from,
+                to,
+                from_fit: crate::positions::overall_for(from, &p.player.attributes),
+                to_fit: crate::positions::overall_for(to, &p.player.attributes),
+                by,
+            });
+        }
+    }
     let persons = super::pick_mut(&mut w.people, made.iter().map(|m| m.0));
     persons.into_par_iter().zip(made.par_iter()).for_each(|(p, &(_, to))| {
         let from = p.player.position;
@@ -360,6 +375,15 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
         .collect()
 }
 
+/// The college trouble roll's base before his personality, background and
+/// the program's engagement staff. College players are a steadier group
+/// than high schoolers (more work ethic and professionalism, less temper),
+/// so the class model's 3% base came out at about 2.5% of college players
+/// a season (the book read 2.0%: the dismissed leave college); 3.6% gives
+/// the design's 3%, measured on a full world (minor bug 112; proposed, not
+/// confirmed: no national college rate is on file).
+const COLLEGE_TROUBLE: f64 = 0.036;
+
 /// The season's development step (one checkpoint a year, `development.rs`)
 /// for the people given, with their roles. High school players develop when
 /// their state's season starts, college and prep players at fall camp.
@@ -379,6 +403,16 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             && let Some(c) = p.college
         {
             w.recruiting_log.transfer_seasons.push((w.year, from, role, w.programs[c].division));
+            if let Some(log) = w.wlog.as_deref().filter(|_| w.recording) {
+                let why = super::wlog::Why::TransferSeason {
+                    id: p.player.id,
+                    program: c,
+                    division: w.programs[c].division,
+                    before: from,
+                    now: role,
+                };
+                super::wlog::why::put(log, (w.year, w.today), why);
+            }
         }
     }
     // What the players' tools support on average at each level and
@@ -400,6 +434,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     let focus = w.focus_by_person();
     let defer = !w.options.yearly_growth;
     let staff_of = |h: usize, g: Group| seat_staff.and_then(|(s, t)| if s == h { t[g as usize] } else { None });
+    // The world log (R2): each step's why, written as it runs.
+    let log = w.wlog.as_deref().filter(|_| w.recording);
+    let when = (w.year, w.today);
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
@@ -416,8 +453,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 let teach = s.coach.map_or(7.0, |c| coaches[c].teaching(group));
                 style = s.coach.map(|c| coaches[c].style());
                 // Bigger, richer staffs add position coaches beside the head
-                // coach; your own school's are people you can see.
-                let staff = staff_of(p.hs, group).unwrap_or(4.0 + 12.0 * s.resources);
+                // coach; your own school's are people you can see. An AI
+                // school's coordinator on the group's side is a real coach
+                // (C37): half the staff's part.
+                let base = 4.0 + 12.0 * s.resources;
+                let coord = if group == Group::Specialists {
+                    None
+                } else if group.offense() {
+                    s.oc
+                } else {
+                    s.dc
+                };
+                let staff = staff_of(p.hs, group)
+                    .unwrap_or_else(|| coord.map_or(base, |c| 0.5 * coaches[c].teaching(group) + 0.5 * base));
                 (Level::HS, 0.6 * teach + 0.4 * staff, (s.resources - 0.5) * 0.1, 0.012)
             }
             Stage::College => {
@@ -426,9 +474,22 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 p.college_staff.push((year as i32, prog.id, prog.head_coach, prog.position_coaches[group as usize]));
                 let hc = prog.head_coach.map_or(9.0, |c| coaches[c].teaching(group));
                 let coord = if group.offense() { prog.oc } else { prog.dc };
-                let co = coord.map_or(hc, |c| coaches[c].teaching(group));
-                // His position coach teaches him most days (note 5).
-                let pc = prog.position_coaches[group as usize].map_or(co, |c| coaches[c].teaching(group));
+                // The coordinator's share reads how he runs the unit (C60):
+                // his side's teaching and his scheme, the same for every
+                // group; with none, the head coach runs it.
+                let off = group.offense();
+                let unit = coord.or(prog.head_coach).map_or(9.0, |c| super::staff::side_quality(&coaches[c], off));
+                // His position coach teaches him most days (note 5); the
+                // coordinator coaches the group he came up in himself and
+                // shares that room's part, half each (C60).
+                let own = coord.filter(|&c| coaches[c].came_up == group && group != Group::Specialists);
+                let pc_t = prog.position_coaches[group as usize].map(|c| coaches[c].teaching(group));
+                let pc = match (pc_t, own) {
+                    (Some(t), Some(c)) => 0.5 * t + 0.5 * coaches[c].teaching(group),
+                    (Some(t), None) => t,
+                    (None, Some(c)) => coaches[c].teaching(group),
+                    (None, None) => coord.map_or(hc, |c| coaches[c].teaching(group)),
+                };
                 let hs = prog.head_coach.map(|c| coaches[c].style());
                 let cs = coord.map(|c| coaches[c].style());
                 style = match (hs, cs) {
@@ -438,9 +499,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 scheme = Some((prog.installed.offense(), prog.installed.front()));
                 (
                     division_level(prog.division),
-                    0.2 * hc + 0.35 * co + 0.3 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
+                    // C57: position coach 0.4, coordinator 0.25, head coach
+                    // 0.2, facilities 0.15.
+                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
                     (prog.facilities - 0.5) * 0.15,
-                    crate::career::PIPELINE.college_trouble.chance,
+                    COLLEGE_TROUBLE,
                 )
             }
             Stage::PrepSchool => (Level::HS, 12.0, 0.05, 0.01),
@@ -541,11 +604,24 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // Last year's growth that the calendar never reached lands first
         // (section 6b topic 12), so this row starts where he really is.
         crate::training::close_year(&mut p.player, ctx.focus);
-        develop_season(&mut p.player, &ctx, &mut p.rng);
+        let report = develop_season(&mut p.player, &ctx, &mut p.rng);
+        if let Some(log) = log {
+            let staff = match p.stage {
+                Stage::College => {
+                    let g = &programs[p.college.unwrap_or(0)];
+                    let coord = if group.offense() { g.oc } else { g.dc };
+                    [g.head_coach, coord, g.position_coaches[group as usize]]
+                }
+                Stage::HighSchool => [schools[p.hs].coach, None, None],
+                _ => [None; 3],
+            };
+            super::wlog::why::growth(log, when, p.player.id, &ctx, staff, &report);
+        }
         if let Some(gain) = p.cal.spring_gain_ahead.take() {
             crate::development::open_row_with_spring_step(&mut p.player, gain);
         }
         p.last_role = Some(role);
+        p.cal.nil_role = None;
         p.last_performance = p.player.history.last().and_then(|h| h.performance.get());
         p.sit_out = 0.0;
         // JUCO classes: transferable credits and grades build back, or don't.
@@ -590,6 +666,13 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             p.stage = Stage::Done;
         }
     });
+    // The year's college trouble rate, counted before the dismissed leave.
+    for (i, p) in w.people.iter().enumerate() {
+        if role_of[i].is_some() && p.player.history.last().is_some_and(|h| h.level.is_college()) {
+            w.log.college_rolled += 1;
+            w.log.college_trouble += p.cal.trouble as u32;
+        }
+    }
 }
 
 /// A team's strength from its starters as they play this season (form,
@@ -718,7 +801,7 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
             if s.age + 1 != p.player.age || !sets_level_scale(s.level) {
                 continue;
             }
-            if let Some(key) = level_group(s.level, s.age) {
+            if let Some(key) = level_group(s.level, class_age(p, s)) {
                 groups
                     .entry(key)
                     .or_default()
@@ -750,18 +833,20 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
         let i = match w.level_scales.iter().position(|h| h.group == key) {
             Some(i) => i,
             None => {
-                w.level_scales.push(ScaleHistory { group: key, start: Vec::new(), end: Vec::new() });
+                w.level_scales.push(ScaleHistory { group: key, start: Vec::new(), end: Vec::new(), align: None });
                 w.level_scales.len() - 1
             }
         };
         let h = &mut w.level_scales[i];
         h.push(a_start, a_end);
+        h.align = Some(align_end.clone());
         start.insert(key, (pooled_level_scale(&h.start), align_start));
         end.insert(key, (pooled_level_scale(&h.end), align_end));
     }
     w.people.par_iter_mut().for_each(|p| {
         let pos = p.player.position;
         let age_now = p.player.age;
+        let off = p.years_off_class();
         let Some(s) = p.player.history.last_mut() else { return };
         if s.age + 1 != age_now {
             return;
@@ -771,7 +856,9 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
             Level::SmallCollege => 5.0,
             _ => 0.0,
         };
-        let key = level_group(s.level, s.age);
+        // A high schooler is rated against his class, not his age (minor
+        // bug 52: a held-back senior is 18 like no on-time senior).
+        let key = level_group(s.level, if s.level == Level::HS { (s.age as i32 - off).max(0) as u32 } else { s.age });
         let level = s.level;
         let rate = |scales: &Scales, ovr: f64| {
             let g = key.and_then(|k| scales.get(&k));
@@ -781,6 +868,63 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
         s.level_rating = Some(rate(&start, s.overall_start));
         s.level_rating_end = Some(rate(&end, s.overall));
     });
+}
+
+/// A season's age as his class counts it: a high schooler held back a year
+/// is rated with his class (minor bug 52).
+fn class_age(p: &super::Person, s: &crate::player::SeasonRecord) -> u32 {
+    if s.level == Level::HS { (s.age as i32 - p.years_off_class()).max(0) as u32 } else { s.age }
+}
+
+/// His class in a season's words, for the badge: "Senior" for a high
+/// schooler in his last year, "FBS" for a college player (FCS and small
+/// colleges are put on the FBS scale).
+fn level_words(p: &super::Person, s: &crate::player::SeasonRecord) -> &'static str {
+    match s.level {
+        Level::HS => match class_age(p, s) {
+            ..=14 => "Freshman",
+            15 => "Sophomore",
+            16 => "Junior",
+            _ => "Senior",
+        },
+        _ => "FBS",
+    }
+}
+
+/// The level badge from a read of his overall (minor bugs 49-52): the read
+/// placed on the scale of the group his season `k` rated him in, the way
+/// the true ratings are placed (his position aligned, a small school's
+/// discount), and the words of that season ("Senior level 89", "FBS level
+/// 73"). None for a pro or a group with no scale yet.
+pub fn level_from_read(w: &World, i: usize, k: usize, centre: f64) -> Option<(u8, &'static str)> {
+    use crate::level_rating::{level_group, level_rating, pooled_level_scale};
+    let p = w.people.get(i)?;
+    let s = p.player.history.get(k)?;
+    if s.level == Level::NFL {
+        return None;
+    }
+    let key = level_group(s.level, class_age(p, s))?;
+    let h = w.level_scales.iter().find(|h| h.group == key)?;
+    let scale = pooled_level_scale(&h.end);
+    if scale.points.is_empty() {
+        return None;
+    }
+    let discount = match s.level {
+        Level::FCS => 1.0,
+        Level::SmallCollege => 5.0,
+        _ => 0.0,
+    };
+    let x = h.align.as_ref().map_or(centre - discount, |a| a.align(p.player.position, centre - discount));
+    Some((level_rating(x, s.level, Some(&scale)), level_words(p, s)))
+}
+
+/// The pool a season's badge is read against, for its marks.
+pub fn level_pool(level: Level) -> Option<crate::level_rating::Pool> {
+    match level {
+        Level::NFL => None,
+        Level::HS => Some(crate::level_rating::Pool::HS),
+        _ => Some(crate::level_rating::Pool::College),
+    }
 }
 
 /// About the snaps of a full college season as a starter on one side of the
@@ -846,8 +990,22 @@ pub(crate) fn your_calls(w: &World, who: Option<usize>, base: f64, adaptation: f
 /// A college team for the match engine: its players and its staff's calling.
 /// The systems are the ones the staff installed this spring (S3); a new
 /// playbook is known only as far as it shares the old one (S5).
+/// How a player comes into a game (dialogue D4): his mood, and how much
+/// he believes his head coach: your players their trust in you, everyone
+/// else by his coach's way with people (proposed, not confirmed).
+pub(crate) fn game_mind(p: &super::Person, seat: bool, relationships: f64) -> (f32, f32) {
+    let belief = if seat { p.trust } else { (0.5 + 0.015 * (relationships as f32 - 10.0)).clamp(0.25, 0.75) };
+    (p.mood, belief)
+}
+
+/// The head coach's way with people, for `game_mind`.
+pub(crate) fn coach_relationships(w: &World, c: Option<usize>) -> f64 {
+    c.map_or(10.0, |c| w.coaches[c].ability().relationships)
+}
+
 pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
     let inst = prog.installed;
+    let (seat, rel) = (w.seat_program(prog.id), coach_relationships(w, prog.head_coach));
     // What the playbook leans on (plays and tactics topic 4): families the
     // team runs a lot get the reps, the rest are known less well. Its own
     // tape says which; with none yet every family counts the same.
@@ -870,6 +1028,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             let side = if super::systems::offense(p.player.position) { inst.off_known } else { inst.def_known };
             let know = clamp(0.78 + 0.05 * seasons, 0.0, 0.95) * (0.8 + 0.2 * side);
             let mut g = GamePlayer::from_player(&p.player, know, experience);
+            (g.mood, g.belief) = game_mind(p, seat, rel);
             // Per family: reps by how much the playbook uses it, and the
             // understanding a sharp player builds faster (topic 4.2, 4.4;
             // proposed, not confirmed).
@@ -945,6 +1104,8 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             install,
             style: prog.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
+            motivation: hc.map_or(10.0, |a| a.motivation),
+            temper: prog.head_coach.map_or(10.0, |c| w.coaches[c].personality.temper),
         },
     );
     // The head coach's guidelines (update 2, G2).

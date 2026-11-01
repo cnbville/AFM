@@ -422,19 +422,25 @@ pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>
     let year = w.year;
     // Never a line this story already told, nor one his other stories told
     // this season (the same story come back included): a person hears a
-    // line once.
+    // line once. A story opened after the Super Bowl belongs to the next
+    // football year, so the lines of the weeks before count by their dates.
     let lead = s.lead();
+    let now = super::told_season(w.today);
     let others: Vec<String> = w
         .storylines
         .open
         .iter()
         .chain(&w.storylines.ended)
         .filter(|o| {
-            o.season == s.season
-                && o.id != s.id
-                && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
+            o.id != s.id && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
         })
-        .flat_map(|o| o.beats.iter().filter(|b| !b.text.is_empty()).map(|b| b.text.clone()))
+        .flat_map(|o| {
+            let same = o.season == s.season;
+            o.beats
+                .iter()
+                .filter(move |b| !b.text.is_empty() && (same || super::told_season(b.date) == now))
+                .map(|b| b.text.clone())
+        })
         .collect();
     let said: Vec<&str> = s
         .beats
@@ -728,9 +734,15 @@ pub(crate) fn voice_beat(w: &mut World, id: u32, attended: bool) {
 }
 
 /// A quote from a cast member in his own voice, with who said it:
-/// "\"We'll see,\" Smith said."
+/// "\"We'll see,\" Smith said." A story with no lead (a team's run, a
+/// class race, a portal exodus) quotes its decider, the head coach, in the
+/// lead's words, as beat writers quote him (minor bug 91).
 pub(crate) fn quote(w: &mut World, s: &Story, part: Part) -> Option<String> {
-    let m = s.cast.iter().find(|m| m.part == part)?;
+    let m = s
+        .cast
+        .iter()
+        .find(|m| m.part == part)
+        .or_else(|| (part == Part::Lead).then(|| s.cast.iter().find(|m| m.part == Part::Decider)).flatten())?;
     let fam = s.family().key();
     let (speaker, who) = match m.who {
         Who::Player(id) => {

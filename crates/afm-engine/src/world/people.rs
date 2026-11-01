@@ -186,7 +186,7 @@ pub(crate) fn staff_support(w: &mut World) {
         engage(&mut s.engagement, w.options.seed ^ 0xE16A_0000 ^ k as u32, year, budget, era);
     }
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let budget = super::finance::nfl::spend_level(w, t);
@@ -199,6 +199,38 @@ pub(crate) fn staff_support(w: &mut World) {
         }
         engage(&mut s.engagement, w.options.seed ^ 0xE16B_0000 ^ t as u32, year, budget, era);
     }
+}
+
+/// A new team's first heads (lane 10, SK68), hired the day it is founded
+/// rather than at the next camp: an expansion club's (`Some(t)`) or a
+/// college's starting football (`None`, with its program).
+pub(crate) fn first_hires(w: &mut World, club: Option<usize>, program: usize) {
+    let year = w.year;
+    let era = clamp((year - 1996) as f64 / 30.0, 0.0, 1.0);
+    let key = club.map_or(program as u32, |t| 0x8000 ^ t as u32);
+    let mut rng = Rng::new(w.options.seed ^ 0x5077_0E11 ^ key.wrapping_mul(7919) ^ year as u32);
+    let (budget, s) = match club {
+        Some(t) => (super::finance::nfl::spend_level(w, t), &mut w.clubs[t].support),
+        None => {
+            let prog = &w.programs[program];
+            let div = if prog.division == super::data::Division::FCS { 0.75 } else { 0.5 };
+            (clamp(0.25 + 0.75 * prog.facilities, 0.0, 1.0) * div, &mut w.programs[program].support)
+        }
+    };
+    let mut posts = vec![&mut s.strength, &mut s.medical, &mut s.analytics];
+    if club.is_none() {
+        posts.push(&mut s.academic);
+    }
+    for post in posts {
+        if post.rating == 0 {
+            *post = hire(&mut rng, year, budget, era);
+        }
+    }
+    let key = match club {
+        Some(t) => 0xE16B_0000 ^ t as u32,
+        None => 0xE16A_0000 ^ program as u32,
+    };
+    engage(&mut s.engagement, w.options.seed ^ key, year, budget, era);
 }
 
 /// The player engagement post (update 2, Q4): filled when empty, turning
@@ -473,6 +505,40 @@ pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
     Some((apy, market::market_price(w.year, pos, view, c.accrued, p.player.age)))
 }
 
+/// A pro's trust in his club, read at camp beside his trust in the head
+/// coach (minor bug 114: it began at 1 and only fell, so it averaged 0.99
+/// and drove nothing). A club he has just joined starts at three quarters
+/// (it chose him; starting at a half, like a new head coach, held out 55%
+/// more players a year than before), a tenth higher when it has just paid
+/// him; after that a fair role earns a little each year and a short one
+/// costs, as in college. Pay under his market wears it, the more for a
+/// greedy man, and so does each tag he plays under (real players resent
+/// the tag: Le'Veon Bell sat out 2018 rather than play a second one).
+/// Broken promises and shopping rumors still cost it on their days. Sizes
+/// proposed, not confirmed.
+fn club_trust(p: &mut Person, role: f64, pay: f64) {
+    let t = &p.player.personality.traits;
+    let (loyal, adapt, greed) = (t.z(Trait::Loyalty), t.z(Trait::Adaptability), t.z(Trait::Greed));
+    let Some(c) = p.pro.as_mut() else { return };
+    let mut x = if c.new_team {
+        clamp(0.75 + 0.08 * loyal + 0.08 * adapt, 0.5, 0.95)
+    } else {
+        c.trust + if role >= 0.0 { 0.06 } else { 0.18 * role }
+    };
+    if c.paid {
+        x += 0.1;
+    }
+    if pay < 0.0 {
+        x += 0.1 * pay * clamp(1.0 + 0.3 * greed, 0.4, 1.6);
+    }
+    let tagged =
+        c.contract.as_ref().is_some_and(|k| matches!(k.kind, money::Kind::Franchise | money::Kind::Transition));
+    if tagged {
+        x -= 0.08 * c.tags as f64;
+    }
+    c.trust = clamp(x, 0.0, 1.0);
+}
+
 /// NFL camp's mood read (topics 3 and 4): role against his own view, last
 /// season's record, his pay against his market (greed weights it), the
 /// room; then each club's captains and team mood. The year's support
@@ -482,7 +548,7 @@ pub(crate) fn pro_mood(w: &mut World) {
     let year = w.year;
     let mut read_ids = Vec::new();
     for t in 0..w.clubs.len() {
-        if !super::franchise::active(t, year) {
+        if !super::franchise::active_in(w, t, year) {
             continue;
         }
         let roster: Vec<usize> = w.clubs[t]
@@ -541,7 +607,9 @@ pub(crate) fn pro_mood(w: &mut World) {
                 life: 0.5 * (p.bg.stability - 10.0) / 10.0,
                 room,
             };
+            let role = parts.role;
             read(&mut w.people[i], coach, motivation, parts);
+            club_trust(&mut w.people[i], role, money);
         }
         read_ids.extend_from_slice(&roster);
         settle_room(w, Room::Club(t), &roster);

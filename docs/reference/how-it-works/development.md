@@ -1,6 +1,6 @@
 # Development: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28, and for minor bug 53 the same day.
+Checked against main at 6200524 with update 3 lanes 1 (bodies and the speed core), 3 and 4, and world reader lane R2 on 2026-10-29, and the playoff snaps (minor bug 53) on 2026-11-01.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -9,15 +9,19 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - When does a player develop? Once a year, one checkpoint covering the season and the offseason after it, then he is a year older (`development.rs`, `develop_season`). High school players at their state's season start (`world/hs_year.rs`, calls `season::develop`), college players at fall camp (`world/college.rs`, calls `season::develop`), pros at camp (`world/pro/mod.rs`, `camp`).
 - Does growth land all at once? No, by default. The checkpoint decides the year, then the growth of the attributes his position uses lands week by week through training (`SeasonContext.defer` = `!WorldOptions.yearly_growth`, default false; `training/mod.rs`, `land`, `close_year`).
 - What is potential? The position overall of his ceilings: `overall_for(position, ceilings)` (`player.rs`, `Player::potential`). Every one of the 67 attributes has its own hidden ceiling (`player.rs`, `Player.ceilings`).
+- Can I see why a step went the way it did? Yes, in the world log: the step keeps every term it drew (injury, form, the year's event and its size, the drive and its parts, veteran learning, growth rates, decline, fades) in `GrowthWhy`, taken by `take_why` right after `develop_season` on the same thread; it changes nothing (`development.rs`; `world/wlog/why.rs`, `growth`; [world-log.md](world-log.md)).
 - How far can potential move in a year? The yearly drift is capped at 5 overall points, one band (`development.rs`, `MAX_POTENTIAL_SHIFT`). Injuries, a stalled body, a breakout lift, veteran learning and outgrowing a ceiling are outside the cap (`develop_season`).
 - Until what age does potential move? Full plasticity to 17, 0.75 at 18-20, 0.5 at 21-23, 0.2 at 24-26, 0 from 27 (`development.rs`, `potential_plasticity`). After that ceilings only fall with ageing.
-- Does a skill his position doesn't use still grow? Yes. The growth loop runs over all 67 attributes toward their ceilings, whatever the position weight (`develop_season`, "Growth towards the ceiling"). Only the attributes his position uses are held back to land through training; the rest land at the checkpoint (`training/mod.rs`, `defers`).
+- Does a skill his position doesn't use still grow? Only if it is related (A6). A skill is clearly unrelated when neither his position nor any spot he really moves to uses it (`development.rs`, `unrelated`, `moves_to`: QB to WR, RB, S, TE; RB to WR, CB, S, LB; WR to CB, S, TE, RB; TE to WR, OT, EDGE, LB; OT to IOL, TE, DT; IOL to OT, DT; EDGE to LB, DT, TE; DT to EDGE, IOL, OT; LB to EDGE, S, RB, TE; CB to S, WR; S to CB, LB, WR; K and P to each other; LS to IOL, TE, LB). An unrelated skill gets no growth and no veteran learning, so a tackle's man coverage stays where it was at 14. The body and elusiveness (rated for his size, A2) always grow; in high school kicking and snapping always grow, since high school kickers and snappers play another spot. Related skills grow toward their ceilings; the ones his position uses land through training, the rest at the checkpoint (`training/mod.rs`, `defers`).
+- Do high school corners learn ball skills? Yes (A7): a high school corner plays offense or returns kicks, so each high school year his elusiveness and vision ceilings rise 2.5% and grow without high school's technique lag (`develop_season`, `carries`).
 - Do old-position skills fade? Yes, 1.5 points a year off rating and ceiling, for a non-physical skill his current position doesn't use (weight <= 0.01) but an old position held from age 18 used (weight >= 0.04) (`develop_season`, "Old skills fade"; `OLD_SKILL_FADE`).
 - Breakout odds? 3.5% a year to 23, 2% to 27, 1% after, times personality and role multipliers (`develop_season`, `breakout_chance`). No breakout in a year with no games or a major injury.
 - Slump odds? 6% a year, 16% after a hot year (`develop_season`, `slump_chance`). It costs 2-6 points on every non-physical attribute, half for K, P and LS.
 - Does coachability matter? Yes, it scales how far coaching moves him from average, good or bad: `coaching_boost = 1 + (coaching_mult - 1) * (0.6 + 0.04 * coachability)` (`develop_season`).
 - What is bloom? Years his growth windows shift: development age = age - bloom, drawn N(0, 1.1) clamped -2.5 to 3.0 (`player.rs`, `generate_prospect`; `develop_season`).
-- When does decline start? Per attribute: `decline_age + longevity + position offset` (physical offsets capped at +1.5) (`development.rs`, `declines` and "Ageing"). Speed, acceleration, agility and flexibility from 27, strength 31, most technique early 30s, the mental reads 34-36 (`attributes.rs`, `ATTRIBUTE_PROFILES`).
+- When does decline start? Per attribute: `decline_age + longevity + position offset`, physical offsets clamped to ±1.5 (F15: a back's speed from 25.5) (`development.rs`, `decline_onset`, `declines`). Speed, acceleration, agility and flexibility from 27, strength 31, most technique early 30s, the mental reads 34-36 (`attributes.rs`, `ATTRIBUTE_PROFILES`).
+- Does speed wait for his birthday? No (S4): before 21, speed and acceleration are lifted to at least (0.66 + 0.30 × grown) of their ceilings each checkpoint, grown = his height growth by the year's end (`speed_with_body`), so seniors have about 95-96% of their top speed by spring and late bloomers less.
+- Does a season wear him? Yes (F14): `season_wear` × his share of a starter's season (pro snaps share, else starter 1, rotation 0.5, none without games) × level (NFL 1, college 0.5, high school 0): backs 1.0, quarterbacks 0.6 if their legs (mean of speed, acceleration, agility) are 78+ else 0.15, kickers, punters and snappers 0, the rest 0.35. Added after the year's decline, in the world and the class sim alike.
 - Does playing time matter? Yes, for growth (`playing_time_growth`, or `snaps_growth` from a pro's real snaps) and for potential's direction (`playing_time_potential`, `snaps_potential`).
 - Does the level matter? Small-college players (`Level::SmallCollege`: D2, D3, NAIA and JUCO, `world/mod.rs`; "D2" below means all of them) grow game-learned skills slower: `level_growth` = 0.72 there, 1.0 elsewhere. High school slows technique (0.65), mental (0.7) and strength (0.6); college speeds technique and mental by 1.3 (`GrowthCtx::rate`).
 - Can bad coaching make a player worse? Yes. "Poor coaching" takes 1-3 points off each technical attribute his position uses (`develop_season`, "Teaching that costs ability").
@@ -36,13 +40,14 @@ All in `development.rs`, `develop_season(player, ctx, rng)`. The steps run in th
 7. Weight gain roll (below).
 8. Poor-coaching roll (below).
 9. Dynamic potential drift, then veteran learning, then the breakout lift.
-10. Growth toward the ceilings.
+10. Speed with the body (S4), a high school corner's ball skills (A7), then growth toward the ceilings (unrelated skills skipped, A6).
 11. Slump and poor-coaching losses land (`late_loss`), after growth, so growth can't hide them.
 12. Ageing decline.
 13. Old skills fade.
+13a. The weight room (A4, A14; see [body.md](body.md)) and the season's wear (F14).
 14. Tidy up: settled attributes halve their unreachable ceiling room; ratings and ceilings clamp 1-99; a rating above its ceiling lifts the ceiling.
 15. Tendencies' yearly change (`tendencies.rs`, `develop_year`; see [tendencies.md](tendencies.md)).
-16. Season row pushed (`SeasonRecord`), age + 1. If the overall fell, a `Breakout` event is removed.
+16. Season row pushed (`SeasonRecord`), age + 1, and `grow` (the part of a year the daily clock has already given his body, A16) one less, never below 0. If the overall fell, a `Breakout` event is removed.
 
 What it reads from the world: `SeasonContext` (`development.rs`): level, coaching (1-20), playing time, trouble, adjustment (first-year dip 0-1), situation (-1..1), payday, pro snaps share, style, scheme, tendency centres, morale, physical, medical, focus, defer.
 
@@ -118,12 +123,12 @@ What it reads from the world: `SeasonContext` (`development.rs`): level, coachin
 
 `develop_season`, "Ageing"; `declines`.
 
-- Onset per attribute: `decline_age + longevity + offset`; for physical attributes the offset is `min(position offset, 1.5)`, so the cap only limits late decline.
+- Onset per attribute: `decline_age + longevity + offset`; for physical attributes the offset is clamped to -1.5..1.5 (`decline_onset`).
 - Position offsets (`positions.rs`, `aging_offset`): QB +3.0, OT and IOL +1.5, K/P/LS +2.0, TE and DT +0.5, WR, EDGE and LB 0, CB and S -0.5, RB -2.5.
 - Loss each year past onset: `decline_rate * years_past * decline_resistance * logNormal(0.3) * wear_mult` (wear_mult on physical only), off both rating and ceiling. `years_past = age + 1 - onset`, so the loss grows each year.
 - `decline_resistance = 1.15 - 0.015 * WE` (10 → 1.0, 20 → 0.85).
 - `wear_mult = 1 + 0.06 * max(wear - 3, 0) * clamp(1 - 0.15 * longevity, 0.5, 1.5)`.
-- Wear in the world rises only from major injuries (+1.5). The class sim also adds wear per season played (`career.rs`, `add_wear`: RB 1.0, running QB 0.6, other QBs 0.15, specialists 0, everyone else 0.35 a starter season; half that in a rotation season, none as a backup).
+- Wear rises from major injuries (+1.5) and from every season played (`season_wear`, see Quick answers; F14), in the world and the class sim alike (the class sim's own `add_wear` is gone).
 - Settled attributes (age factor <= 0.01 or past onset) halve the room between rating and ceiling each year, except injury-sensitive ones in a rehab year (`develop_season`, "Tidy up").
 - `longevity` is N(0, 1.3) clamped -3 to 3.5 at creation (`generate_prospect`). Retirement also reads it (`world/pro/mod.rs`, `season_end`, with `career.rs`, `retire_age`).
 
@@ -178,13 +183,13 @@ What it reads from the world: `SeasonContext` (`development.rs`): level, coachin
 - `attributes.rs`: `ATTRIBUTE_PROFILES` (maturity at 14, growth rate, window, coachability, experience, decline age and rate, injury sensitivity per attribute).
 - `positions.rs`: `aging_offset`, `injury_risk` per position.
 - `player.rs`: `talent_from_z`, bloom and longevity draws in `generate_prospect`, `GameTraits::age_one_year`.
-- `career.rs`: `PIPELINE.college_trouble`, `first_year_adjustment`, `add_wear`.
+- `career.rs`: `PIPELINE.college_trouble`, `first_year_adjustment`.
+- `development.rs` (update 3, lane 1): `moves_to`, `unrelated`, `speed_with_body`, `season_wear`, the weight room and the corners' 2.5%.
 - `world/mod.rs`: `WorldOptions.yearly_growth` (trial tooling).
 
 ## Code against the docs
 
-- `docs/development-model.md` says RBs decline 1.5 years early and physical decline moves at most 1.5 years: the code caps only the later side, so RB physical decline starts 2.5 years early.
-- It says a major injury costs speed, acceleration, agility and jumping: the code also cuts balance and flexibility (`injury_sensitive`).
+- `docs/development-model.md` says a major injury costs speed, acceleration, agility and jumping: the code also cuts balance and flexibility (`injury_sensitive`).
 
 ## Related pages
 
