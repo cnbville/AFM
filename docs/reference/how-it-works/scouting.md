@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7 and 9 on 2026-10-29, and the hunt (next update lane 11) on 2026-10-30, and timed interview talks and college calls with the next update's lane 14 the same day; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30.
+Checked against main at 3cb32e3 with the Continue stops fix and update 3 lanes 7 and 9 on 2026-10-29, and the hunt (next update lane 11) on 2026-10-30, and timed interview talks and college calls with the next update's lane 14 the same day; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30. The minor bugs hotfix (minor bug 23 (camp times on the file)) checked over main e581227 on 2026-11-01.
 
 ## Quick answers
 
@@ -77,7 +77,7 @@ A file holds only looks: who, what kind, when (`world/scouting/mod.rs`, `SeatLoo
   - Calls to his coach, his old staff: motor, discipline, concentration (and competitiveness on a call) 8.5-9; football IQ 9-9.5.
   - Medical, background, social media, transcript: no attributes.
 - Measurements (`file.rs`, `measures`): speed 1.5, acceleration 2.0, jumping 2.0, agility 2.5, strength 2.5 at the combine; +1.0 pro day; +1.5 camp or showcase (no strength); +2.0 local day, workout, tryout. Combine, pro day and showcase are shared and written the same day (`mod.rs`, `Kind::instant`).
-- Test numbers shown are seeded per player, kind and year, so every club sees the same combine; pro day 40s run 0.05 s fast, a camp laser on grass 0.04 s slow (`file.rs`, `tests`).
+- Test numbers shown are seeded per player, kind and year, so every club sees the same combine; pro day 40s run 0.05 s fast (`file.rs`, `tests`). A camp or showcase row on the scouting file shows the laser forty stored that day (`world/times.rs`) and no other drills, and a timed high schooler's speed and acceleration ranges on the file are the read of those same times (`times::seen`, now ± its spread), so the forty and the speed range never disagree (`crates/afm-game/src/lane_scouting.rs`; minor bug 23).
 - School listings run tall and heavy: about an inch and 3-9 pounds (`file.rs`, `listed`).
 - A report is written 4-21 days after the look: 7 + 0.7 × (20 - work rate), ± a 3-day draw. Until then the look doesn't count (`file.rs`, `Reader::lag`, `read`). A file with no report written yet is not read at all: "Not seen", no ranges and no role, even with looks taken or filed ahead (a declared underclassman's film is filed a week ahead) (`readers.rs`, `read`).
 

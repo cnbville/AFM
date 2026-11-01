@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 13e, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at a6467e3 on 2026-10-30; lane 13b (one-on-one openings and reveals) merged with main at 3a99d4f on 2026-10-30. The players-only meeting (bug 153) checked at b2b4213 on 2026-10-30. The fan lane (fan voices) merged with main at 5527c36 on 2026-10-30. Lane 13f (the fans' lines) checked against main at 32b1083 on 2026-10-30; minor bug 155 (the portal meeting's opening) on 2026-10-30. The linebackers' and tight ends' race odds (the recruiting and college bugs before the rebuild) on 2026-10-31; minor bug 156 (the boss's season meetings) on 2026-10-31.
+Checked against main at 529f97e with update 3 lanes 5, 3, 13, 13c, 13d, 13e, 17, 7 and 6 on 2026-10-29, and the next update's lane 14 (dialogue talks) at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at a6467e3 on 2026-10-30; lane 13b (one-on-one openings and reveals) merged with main at 3a99d4f on 2026-10-30. The players-only meeting (bug 153) checked at b2b4213 on 2026-10-30. The fan lane (fan voices) merged with main at 5527c36 on 2026-10-30. Lane 13f (the fans' lines) checked against main at 32b1083 on 2026-10-30; minor bug 155 (the portal meeting's opening) on 2026-10-30. The linebackers' and tight ends' race odds (the recruiting and college bugs before the rebuild) on 2026-10-31; minor bug 156 (the boss's season meetings) on 2026-10-31. The minor bugs hotfix (minor bugs 31, 32, 34 and the repeated career notes) checked over main e581227 on 2026-11-01.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -52,6 +52,9 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 
 ## Mood and trust
 
+- **Your boss's trust in words**: one scale for the boss page, the Home card and the school desk: firmly behind you (0.75+), pleased with you (0.6+), watching how it goes (0.45+), losing patience (0.3+), wants a change. The boss page's sentence uses the boss's own pronoun (`world/folk/boss.rs`, `trust_short`, `trust_words`; minor bug 32).
+- **Off-field people's names**: a team's principal, athletic director, trainer, strength coach, communications, personnel, operations, academics and cap people are the cast's persons (`world/folk/cast.rs`, `get`) on every screen, the mail included (`crates/afm-game/src/lane_core/people.rs`, `staff_name`; minor bug 31: two principals). Compliance, the collective and the statistician have no cast person and keep a name drawn for the team and job.
+
 - **Two trusts**:
   - `Person::trust` (0-1) is trust in his head coach (you, for your players). It resets when the coach changes, to 0.5 + 0.08 x loyalty z + 0.08 x adaptability z, clamped 0.2-0.8 (`world/people.rs`, `read`).
   - `ProCareer::trust` (0-1) is a pro's trust in his club, read at each camp beside his trust in the head coach (`world/people.rs`, `club_trust`; minor bug 114). A club he has just joined starts at 0.75 + 0.08 x loyalty z + 0.08 x adaptability z, clamped 0.5-0.95 (a start at 0.5 lifted holdouts from 5.6 a year to 8.7 on the same world); after that +0.06 a year for a fair role, or 0.18 x role part if it is negative. +0.1 when the club has just paid him (a deal over 3% of the cap); pay under his market costs 0.1 x (pay / market - 1) x clamp(1 + 0.3 x greed z, 0.4, 1.6); playing under a franchise or transition tag costs 0.08 x tags. Broken promises (-0.3) and shopping rumors still cost it on their days (`world/pro/market.rs`, `check_promises`; `world/pro/trades.rs`, `shopping_rumor`). Sizes proposed, not confirmed. On a full world (seed 2026, 20 seasons) it averages 0.79 (main 0.99), and holdouts read 6.8 a year against 5.6 on main: 2.7 a year in 2020-2025, at real, but too many in 2014-2019 on main too (minor bug 160, since fixed in PR #181: rookie-deal stars hold out at the higher bar from 2011).
@@ -80,8 +83,8 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 ## The room (captains and team mood)
 
 - Run at each college camp and NFL camp (`world/people.rs`, `settle_room`).
-- **Standing** = 1 + 0.3 x years on the team (up to 5) + (overall - 60)/10 (if positive) + 1 for a QB.
-- **Captains**: 4 in college, 6 at an NFL club.
+- **Standing** = 1 + 0.3 x years on the team (up to 5) + (overall - 60)/10 (if positive; a kicker's, punter's or long snapper's counts a quarter, since a specialist's rating isn't a room's standing) + 1 for a QB.
+- **Captains**: 4 in college, 6 at an NFL club. A college room never votes a first-year player (no college season behind him) unless it has fewer than 8 players (minor bug 34: a freshman kicker was one of South Carolina's captains).
   - Under a strict head coach (discipline ≥ 14): leadership + 0.5 x professionalism + 2 x standing.
   - Otherwise: leadership + 0.3 x ego + 3 x standing.
   - Plus noise with sd 1.5.
