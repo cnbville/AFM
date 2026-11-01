@@ -566,7 +566,8 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
             let l = looks.iter().rev().find(|l| l.kind == k)?;
             // A camp or a showcase times the forty with lasers and the time
             // is stored that day (`world::times`): shown as run, never
-            // rebuilt from today's ratings (minor bug 23).
+            // rebuilt from today's ratings (minor bug 23). A look with no
+            // stored time keeps its row, with no forty.
             if matches!(k, Kind::Camp | Kind::Showcase) {
                 use afm_engine::world::times::{At, Event, Timed};
                 let t = w.times.of(id).iter().rev().find(|t| {
@@ -574,10 +575,10 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                         && t.timed == Timed::Laser
                         && t.date <= l.date
                         && matches!((k, t.at), (Kind::Camp, At::Camp(_)) | (Kind::Showcase, At::Regional | At::National))
-                })?;
+                });
                 return Some(json!({
-                    "where": k.name(), "date": date_text(t.date),
-                    "forty": t.secs as f64, "bench": null, "vertical": null, "broad": null, "cone": null, "shuttle": null,
+                    "where": k.name(), "date": date_text(t.map_or(l.date, |t| t.date)),
+                    "forty": t.map(|t| t.secs as f64), "bench": null, "vertical": null, "broad": null, "cone": null, "shuttle": null,
                 }));
             }
             let c = file::tests(&p.player, k, l.date.year());

@@ -671,12 +671,12 @@ pub const RULES: &[Rule] = &[
         areas: "S1 T11",
         title: r#"Every working coach's age counts from his birth date"#,
         checked: r#"SELECT COUNT(*) FROM coaches WHERE born IS NOT NULL AND (retired IS NULL OR retired = 0)"#,
-        failures: r#"WITH k AS (SELECT CASE WHEN today >= CAST(julianday((year + 1) || '-01-20') - 2440587.5 AS INTEGER) THEN year + 1 ELSE year END AS s FROM world),
+        failures: r#"WITH k AS (SELECT CASE WHEN today > CAST(julianday((year + 1) || '-01-20') - 2440587.5 AS INTEGER) THEN year + 1 ELSE year END AS s FROM world),
          c AS (SELECT _row, name, age, date(born * 86400, 'unixepoch') AS b FROM coaches WHERE born IS NOT NULL AND (retired IS NULL OR retired = 0)),
          x AS (SELECT c.*, k.s, k.s - CAST(strftime('%Y', c.b) AS INTEGER) - (strftime('%m-%d', c.b) > '08-31') AS want FROM c, k)
          SELECT 'coach', name || ' (' || _row || ')', NULL, 'age ' || age || ', born ' || b || ', so ' || want || ' in the ' || s || ' season' FROM x WHERE age != want"#,
         needs: W,
-        why: r#"Every age shown comes from the date (final build lane 1, A1). A coach's whole-year age is his age on 31 August of the season it counts in, and coaches age a year on 20 January, before the football year turns (`staff::coach_age_season`). Retired coaches stop ageing, so they are left out."#,
+        why: r#"Every age shown comes from the date (final build lane 1, A1). A coach's whole-year age is his age on 31 August of the season it counts in, and coaches age a year at the end of 20 January, before the football year turns (`staff::coach_age_season`). Retired coaches stop ageing, so they are left out."#,
     },
 ];
 

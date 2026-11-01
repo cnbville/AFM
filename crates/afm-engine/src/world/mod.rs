@@ -1546,8 +1546,14 @@ impl World {
         self.next_person += 1;
         // His whole-year age is his classmates': this season's until his
         // state's season starts and the year's development lands, the coming
-        // season's after it (minor bug 175).
-        let developed = self.hs_season.as_ref().and_then(|x| x.states.get(s)).is_some_and(|x| x.developed);
+        // season's after it (minor bug 175). Last year's finished season still
+        // reads developed until this year's dates are drawn, so the flag only
+        // counts for this year's season.
+        let developed = self
+            .hs_season
+            .as_ref()
+            .and_then(|x| x.states.get(s))
+            .is_some_and(|x| x.developed && x.start.year() == self.year);
         let season = if developed { self.year + 1 } else { self.year };
         let age = (season + 18 - class_of).clamp(14, 18) as u32;
         let seed = (key ^ (key >> 32)) as u32 ^ 0x5A7E;

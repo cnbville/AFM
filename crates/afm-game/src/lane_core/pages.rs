@@ -1178,8 +1178,17 @@ pub fn history(w: &World, args: &Value) -> Value {
                 .map(|(b, list)| json!({
                     "name": book_name(*b),
                     "rows": list.iter().take(10).enumerate().map(|(i, e)| json!({
-                        "rank": i + 1, "value": fmt_book(*b, e.value), "id": e.id, "name": e.name,
-                        "team": (e.id == 0 || e.program < w.programs.len()).then(|| views::team_brief(w, TeamRef::College(e.program))),
+                        // A streak is a team's: no player link, and a high
+                        // school's streak names its school.
+                        "rank": i + 1, "value": fmt_book(*b, e.value), "name": e.name,
+                        "id": if *b == Book::WinStreak { Value::Null } else { json!(e.id) },
+                        "team": if e.program < w.programs.len() {
+                            Some(views::team_brief(w, TeamRef::College(e.program)))
+                        } else if *b == Book::WinStreak && (e.id as usize) < w.high_schools.len() {
+                            Some(views::team_brief(w, TeamRef::HighSchool(e.id as usize)))
+                        } else {
+                            None
+                        },
                         "year": if e.from != e.year && e.from != 0 { format!("{}-{}", e.from, e.year) } else { e.year.to_string() },
                         "live": e.live,
                     })).collect::<Vec<_>>(),

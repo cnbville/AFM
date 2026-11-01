@@ -357,7 +357,11 @@ pub(crate) fn staff_everyone(w: &mut World) {
             }
             hire(w, c, Employer::College(p), role);
             let since = w.year - w.rng.int(0, 6);
-            w.coaches[c].job.as_mut().unwrap().since = since;
+            // A backdated start: the first season follows it (first 0
+            // reads since + 1).
+            let j = w.coaches[c].job.as_mut().unwrap();
+            j.since = since;
+            j.first = 0;
             if role == Role::HeadCoach {
                 w.programs[p].hc_changed = since;
                 // A contract signed when he was hired, or renewed since.
@@ -388,7 +392,9 @@ pub(crate) fn staff_everyone(w: &mut World) {
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
             let age = w.rng.int(24, 60) as u32;
             let c = new_hs_coordinator(w, s, role, age);
-            w.coaches[c].job.as_mut().unwrap().since = w.year - w.rng.int(0, 8);
+            let j = w.coaches[c].job.as_mut().unwrap();
+            j.since = w.year - w.rng.int(0, 8);
+            j.first = 0;
         }
     }
     // NFL staffs: a head coach and two coordinators per team that plays (11.12).
@@ -402,7 +408,9 @@ pub(crate) fn staff_everyone(w: &mut World) {
             let age = w.rng.int(lo, 64) as u32;
             let c = new_coach(w, CoachTier::Nfl, age, pool);
             hire(w, c, Employer::Nfl(t), role);
-            w.coaches[c].job.as_mut().unwrap().since = w.year - w.rng.int(0, 6);
+            let j = w.coaches[c].job.as_mut().unwrap();
+            j.since = w.year - w.rng.int(0, 6);
+            j.first = 0;
         }
     }
     fill_juniors(w);
@@ -2235,7 +2243,10 @@ impl Scope {
 /// already counts his age in the coming season (minor bug 167: 263 coaches
 /// hired in that window showed an age a year behind their birth date).
 pub(crate) fn coach_age_season(w: &World) -> i32 {
-    if w.today >= crate::calendar::Date::ymd(w.year + 1, 1, 20) { w.year + 1 } else { w.year }
+    // Coaches age at the end of January 20 (`age_coaches` runs after that
+    // day's carousel and staff moves), so a coach made that day still
+    // counts the old season, or the day's aging would add a second year.
+    if w.today > crate::calendar::Date::ymd(w.year + 1, 1, 20) { w.year + 1 } else { w.year }
 }
 
 /// Everyone ages a year once the carousels are done; assistants learn from
@@ -3367,7 +3378,9 @@ pub fn ensure_lane18(w: &mut World) {
             if have.is_none() {
                 let age = w.rng.int(24, 60) as u32;
                 let c = new_hs_coordinator(w, s, role, age);
-                w.coaches[c].job.as_mut().unwrap().since = w.year - w.rng.int(0, 8);
+                let j = w.coaches[c].job.as_mut().unwrap();
+                j.since = w.year - w.rng.int(0, 8);
+                j.first = 0;
             }
         }
     }

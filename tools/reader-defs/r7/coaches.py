@@ -582,9 +582,9 @@ dict(id="S7.record_adds_up", areas="S7 C4 T11", title="A head coach's college re
   needs=W, why="Wins credited to a head job come from the seasons he coached; jobs before the history began are left out. A coach fired during the season keeps that season's games while the season's row goes to the man who finished it, and a coach hired in December may coach the bowl or the rest of a playoff run (up to five games of the season before his first, whose row goes to the man who started it; minor bug 172), so those are left out."),
 dict(id="S1.age_from_birth", areas="S1 T11", title="Every working coach's age counts from his birth date",
   checked="SELECT COUNT(*) FROM coaches WHERE born IS NOT NULL AND (retired IS NULL OR retired = 0)",
-  failures="""WITH k AS (SELECT CASE WHEN today >= CAST(julianday((year + 1) || '-01-20') - 2440587.5 AS INTEGER) THEN year + 1 ELSE year END AS s FROM world),
+  failures="""WITH k AS (SELECT CASE WHEN today > CAST(julianday((year + 1) || '-01-20') - 2440587.5 AS INTEGER) THEN year + 1 ELSE year END AS s FROM world),
    c AS (SELECT _row, name, age, date(born * 86400, 'unixepoch') AS b FROM coaches WHERE born IS NOT NULL AND (retired IS NULL OR retired = 0)),
    x AS (SELECT c.*, k.s, k.s - CAST(strftime('%Y', c.b) AS INTEGER) - (strftime('%m-%d', c.b) > '08-31') AS want FROM c, k)
    SELECT 'coach', name || ' (' || _row || ')', NULL, 'age ' || age || ', born ' || b || ', so ' || want || ' in the ' || s || ' season' FROM x WHERE age != want""",
-  needs=W, why="Every age shown comes from the date (final build lane 1, A1). A coach's whole-year age is his age on 31 August of the season it counts in, and coaches age a year on 20 January, before the football year turns (`staff::coach_age_season`). Retired coaches stop ageing, so they are left out."),
+  needs=W, why="Every age shown comes from the date (final build lane 1, A1). A coach's whole-year age is his age on 31 August of the season it counts in, and coaches age a year at the end of 20 January, before the football year turns (`staff::coach_age_season`). Retired coaches stop ageing, so they are left out."),
 ]

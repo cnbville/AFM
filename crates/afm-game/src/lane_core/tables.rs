@@ -559,7 +559,7 @@ fn finder_value(w: &World, k: usize, field: &str) -> Value {
     match field {
         "name" => json!(p.name),
         "pos" => json!(p.player.position.name()),
-        "age" => json!(p.player.age),
+        "age" => json!(p.age_on(w.today)),
         "stars" => json!(p.stars),
         "class" => json!(p.class_of),
         "ht" => json!((body_now(&p.player).height * 10.0).round() / 10.0),
@@ -610,7 +610,7 @@ fn finder_passes(w: &World, k: usize, f: &Value) -> bool {
             views::team_of(w, p).is_some_and(|t| views::team_name(w, t).to_lowercase().contains(&text.to_lowercase()))
         }
         "town" => views::hometown(w, p).to_lowercase().starts_with(&text.to_lowercase()),
-        "age" => cmp(p.player.age as f64),
+        "age" => cmp(p.age_on(w.today) as f64),
         "stars" => cmp(p.stars as f64),
         "class" => cmp(p.class_of as f64),
         "ht" => cmp(body_now(&p.player).height),

@@ -1961,7 +1961,7 @@ const HIST = [["Champions", "champions"], ["Record book", "records"], ["NFL reco
 screens.history = async (a) => {
   if (a.tab) { const m = HIST.find((h) => h[1] === a.tab); if (m) a.tab = m[0]; }
   const H = keep("history", {});
-  if (a.division) { H.division = a.division; delete a.division; }
+  if (a.division) { H.division = a.division; H.book = "level"; delete a.division; }
   const tab = tabOf("htab", HIST.map((h) => h[0]), a);
   const key = HIST.find((h) => h[0] === tab)[1];
   const x = await api("history", { tab: key, division: H.division || undefined, book: H.book || undefined, conf: H.conf || undefined, state: H.state || undefined, year: H["y:" + key] ? Number(H["y:" + key]) : undefined });

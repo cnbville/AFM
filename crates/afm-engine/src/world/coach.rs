@@ -210,9 +210,17 @@ pub struct Job {
 }
 
 impl Job {
-    /// The first season he coaches in the job, for the screens.
+    /// The first season he coaches in the job, for the screens. Older saves
+    /// fall back on the label: other leagues label by the season they play
+    /// in, the rest by the season before an offseason hire.
     pub fn first_season(&self) -> i32 {
-        if self.first > 0 { self.first } else { self.since + 1 }
+        if self.first > 0 {
+            self.first
+        } else if matches!(self.employer, Employer::Other(_)) {
+            self.since
+        } else {
+            self.since + 1
+        }
     }
 }
 

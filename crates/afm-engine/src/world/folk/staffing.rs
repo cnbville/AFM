@@ -261,7 +261,17 @@ fn real_person(w: &World, c: usize, title: String, pay: f64) -> Drawn {
     let co = &w.coaches[c];
     let since = co.junior_now().map(|j| j.since).or(co.job.map(|j| j.since)).unwrap_or(w.year);
     let key = 0xC0AC_0000_0000 ^ c as u64;
-    Drawn { key, who: key, name: co.name.clone(), title, age: co.age, since, subject: None, pay, coach: Some(c) }
+    Drawn {
+        key,
+        who: key,
+        name: co.name.clone(),
+        title,
+        age: co.age_on(w.today),
+        since,
+        subject: None,
+        pay,
+        coach: Some(c),
+    }
 }
 
 /// The staff jobs the world doesn't keep as coaches, drawn for a team:
@@ -575,7 +585,7 @@ pub fn candidates(w: &World, role: Role, f: &Filter) -> Search {
         if f.came_up.is_some_and(|g| co.came_up as u8 != g) {
             continue;
         }
-        if f.age_min.is_some_and(|a| co.age < a) || f.age_max.is_some_and(|a| co.age > a) {
+        if f.age_min.is_some_and(|a| co.age_on(w.today) < a) || f.age_max.is_some_and(|a| co.age_on(w.today) > a) {
             continue;
         }
         if f.rep_min.is_some_and(|r| co.reputation < r) {
@@ -596,7 +606,7 @@ pub fn candidates(w: &World, role: Role, f: &Filter) -> Search {
             let k = match f.sort.as_str() {
                 "read" => mid(super::coach_look::read_job_in(w, &x, c, role)) + co.reputation / 100.0,
                 "potential" => super::coach_look::potential_rank(w, &x, c) + co.reputation / 100.0,
-                "age" => -(co.age as f64),
+                "age" => -(co.age_on(w.today) as f64),
                 "asks" => -super::hiring::ask(w, c, role),
                 _ => co.reputation + 2.0 * x.warmth(c) as f64,
             };
@@ -642,7 +652,7 @@ pub fn candidates(w: &World, role: Role, f: &Filter) -> Search {
             Candidate {
                 coach: c,
                 name: co.name.clone(),
-                age: co.age,
+                age: co.age_on(w.today),
                 now: now_words(w, c),
                 level: level_of(w, c),
                 rep: super::rep_words(co.reputation).to_string(),
