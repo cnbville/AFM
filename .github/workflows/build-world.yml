@@ -2,7 +2,11 @@ name: Build a world
 # Builds a full world on GitHub's machines and publishes it on the public
 # worlds page (github.com/cnbville/afm-worlds), where the game's library
 # downloads it in one click (Cain 2026-10-21). A 30-year world with its log
-# takes about five and a half hours. Needs the WORLDS_TOKEN secret: a token that may write to
+# takes about five and three quarter hours, at the edge of a job's six
+# (2026-11-01: 1984-2013 in 2 h 2 min, then about 18.5 minutes a season once
+# high school games go on the engine); without its log (log no) much less
+# (3 h 21 min on 2026-10-30's code), and its book then has no game pages.
+# Needs the WORLDS_TOKEN secret: a token that may write to
 # cnbville/afm-worlds. Every world gets a star mix check (`star_mix`: squad
 # and signing stars by group, newcomers and leavers, the dynasty check) in
 # the run's summary. With publish set to no it is a check world only, and
@@ -37,6 +41,9 @@ on:
       quick:
         description: "A quick stand-in world for the star mix check only (yes or no)"
         default: "no"
+      log:
+        description: "Write the world log beside it (no builds much faster; its book then has no game pages)"
+        default: "yes"
 jobs:
   # The world and star mix tools are compiled on a machine of their own, so
   # the world job's six hours go to the world (2026-11-01: a 30-year world
@@ -89,6 +96,8 @@ jobs:
         if: inputs.quick != 'yes' && (inputs.publish == 'no' || inputs.check != '')
       - name: Build the world
         if: inputs.check == '' && inputs.quick != 'yes'
+        env:
+          AFM_WORLD_LOG: ${{ inputs.log == 'no' && 'off' || 'on' }}
         run: |
           tools/afm_world "${{ inputs.seed }}" "${{ inputs.years }}" out
           ls -la out/ && du -sh out/* && df -h / /mnt
