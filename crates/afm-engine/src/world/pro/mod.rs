@@ -78,6 +78,26 @@ pub struct ProSeason {
     /// season line, so a Super Bowl team's passer threw for 21 games).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playoffs: Option<crate::game::stats::StatLine>,
+    /// Playoff games started (the playoff line keeps games, not starts).
+    #[serde(default)]
+    pub playoff_starts: u32,
+}
+
+impl ProSeason {
+    /// Offensive and defensive snaps, playoffs included (game experience).
+    pub fn snaps_all(&self) -> u32 {
+        self.snaps[0] + self.snaps[1] + self.playoffs.as_ref().map_or(0, |p| p.snaps_off + p.snaps_def)
+    }
+
+    /// Starts, playoffs included (who started for the team).
+    pub fn starts_all(&self) -> u32 {
+        self.starts + self.playoff_starts
+    }
+
+    /// Games dressed, playoffs included.
+    pub fn games_all(&self) -> u32 {
+        self.games + self.playoffs.as_ref().map_or(0, |p| p.games)
+    }
 }
 
 /// A pro's career.
@@ -452,7 +472,8 @@ pub(crate) fn order_depth(w: &mut World, t: usize) {
         if !pos.is_specialist() {
             v -= (age - 30.0).max(0.0) * 0.6;
         }
-        if pro.seasons.last().is_some_and(|s| s.team == Some(t) && s.starts >= 8) && age < 32.0 {
+        // Last season's starter here, his playoff starts counted.
+        if pro.seasons.last().is_some_and(|s| s.team == Some(t) && s.starts_all() >= 8) && age < 32.0 {
             v += if pos == Position::QB { 3.0 } else { 1.5 };
         }
         if pro.out_weeks > 0 || pro.hold == market::Hold::Out {
@@ -1684,11 +1705,14 @@ fn camp(w: &mut World, d: Date) {
         // Last season's real snaps, weighted by how strong the teams he
         // took them against were (topic 1.1; proposed, not confirmed: a
         // standard deviation of opponent strength is worth 10%). A season
-        // on the stand-in has none: his role decides.
+        // on the stand-in has none: his role decides. Playoff snaps count
+        // as reps; the strength is read from the regular season's.
         let snaps = p.pro.as_ref().and_then(|c| c.seasons.iter().find(|s| s.year == year - 1)).and_then(|s| {
-            let n = (s.snaps[0] + s.snaps[1]) as f64;
-            (s.stats.graded > 0 || n > 0.0).then(|| {
-                let hard = if n > 0.0 { s.opp / n } else { 0.0 };
+            let reg = (s.snaps[0] + s.snaps[1]) as f64;
+            let n = s.snaps_all() as f64;
+            let graded = s.stats.graded > 0 || s.playoffs.as_ref().is_some_and(|p| p.graded > 0);
+            (graded || n > 0.0).then(|| {
+                let hard = if reg > 0.0 { s.opp / reg } else { 0.0 };
                 n / games::NFL_SEASON_SNAPS as f64 * clamp(1.0 + 0.1 * hard, 0.8, 1.2)
             })
         });
@@ -1877,7 +1901,7 @@ pub(crate) fn cut_scores(w: &World, t: usize) -> Vec<(usize, f64)> {
         } else {
             0.0
         };
-        let starter = c.seasons.iter().any(|s| s.year == year - 1 && s.team == Some(t) && s.starts >= 8);
+        let starter = c.seasons.iter().any(|s| s.year == year - 1 && s.team == Some(t) && s.starts_all() >= 8);
         let youth = if pos.is_specialist() { 0.0 } else { 0.3 * (27.0 - p.player.age as f64) };
         let ovr = p.player.overall();
         let cost = if seasons >= 4 && ovr < crate::career::NFL_LEVELS.starter {
@@ -2390,8 +2414,13 @@ fn season_end(w: &mut World, d: Date) {
         // pay status, active, inactive or on reserve, accrue a season. Before,
         // only games dressed counted, so a backup who dressed for 1-5 games or
         // a starter hurt in week 3 accrued nothing (minor bug 147: 233 free
-        // agents a year against about 550).
-        let accrues = (held && (s.games >= 6 || s.games == 0 && !squad && s.ps_weeks == 0)) || s.full_pay_weeks >= 6;
+        // agents a year against about 550). A file from before the weeks were
+        // counted falls back on games; a man who dressed only in the playoffs
+        // signed too late for one.
+        let accrues = s.full_pay_weeks >= 6
+            || held
+                && (s.games >= 6
+                    || s.games == 0 && s.full_pay_weeks == 0 && s.playoffs.is_none() && !squad && s.ps_weeks == 0);
         // His season's row keeps the role he won, not only the one he had at
         // camp: half the games started make him a starter (minor bug 115: an
         // All-Pro who started the year behind someone read as a backup).

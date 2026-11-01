@@ -181,7 +181,12 @@ pub(crate) fn pro_row(
             "ps_weeks": s.ps_weeks, "ir_weeks": s.ir_weeks, "pay": s.pay.round(), "pro_bowl": s.pro_bowl, "all_pro": s.all_pro, "awards": s.awards,
             "grade": if l.graded > 0 { Some(r1(l.grade())) } else { None },
             "pass": [l.cmp, l.att, l.pass_yds.round(), l.pass_td, l.int], "rush": [l.rush, l.rush_yds.round(), l.rush_td],
-            "rec": [l.rec, l.rec_yds.round(), l.rec_td], "def": [l.tackles, r1(l.sacks), l.ints, l.pbus]})
+            "rec": [l.rec, l.rec_yds.round(), l.rec_td], "def": [l.tackles, r1(l.sacks), l.ints, l.pbus],
+            // The playoff games, their own line (null in most seasons).
+            "post": s.playoffs.as_ref().map(|l| json!({"g": l.games, "gs": s.playoff_starts, "snaps": [l.snaps_off, l.snaps_def, l.snaps_st],
+                "grade": if l.graded > 0 { Some(r1(l.grade())) } else { None },
+                "pass": [l.cmp, l.att, l.pass_yds.round(), l.pass_td, l.int], "rush": [l.rush, l.rush_yds.round(), l.rush_td],
+                "rec": [l.rec, l.rec_yds.round(), l.rec_td], "def": [l.tackles, r1(l.sacks), l.ints, l.pbus]}))})
     }).collect();
     json!({
         "id": id, "name": name, "pos": pos, "age": age, "overall": r1(overall), "potential": r1(potential), "active": active,
@@ -714,6 +719,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             rec::Scope::Division(d) => (d.name(), None, None),
             rec::Scope::Conference(d, c) => (d.name(), Some(c.as_str()), None),
             rec::Scope::State(s) => ("HS", None, Some(STATE_CENTERS[*s].0)),
+            rec::Scope::Nfl => ("NFL", None, None),
         };
         let list = &book.books[key];
         f.put(json!({

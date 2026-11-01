@@ -1687,7 +1687,7 @@ pub fn knowers(w: &World) -> Vec<Knower> {
                     continue;
                 }
                 let Some(now) = c.team else { continue };
-                let starts: u32 = c.seasons.iter().filter(|s| s.team == Some(t)).map(|s| s.starts).sum();
+                let starts: u32 = c.seasons.iter().filter(|s| s.team == Some(t)).map(|s| s.starts_all()).sum();
                 out.push(Knower {
                     name: p.name.clone(),
                     what: p.player.position.name().to_string(),

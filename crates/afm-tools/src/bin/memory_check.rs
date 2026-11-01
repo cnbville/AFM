@@ -92,6 +92,7 @@ fn main() {
     weigh("NFL market", &mut w, &|w| w.market = Default::default());
     weigh("NFL clubs", &mut w, &|w| w.clubs = Vec::new());
     weigh("NFL book", &mut w, &|w| w.nfl_book = Default::default());
+    weigh("record store", &mut w, &|w| w.marks = Default::default());
     weigh("calendar logs", &mut w, &|w| w.log_history = Vec::new());
     weigh("event history", &mut w, &|w| w.event_history = Vec::new());
     weigh("calendar", &mut w, &|w| w.calendar = Default::default());

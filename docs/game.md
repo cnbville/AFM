@@ -1022,6 +1022,31 @@ The game ships no logos (later extras, topic 2). Settings, Logos (`screens/logos
 - The jersey logo's size and place (a college's 0.42 units wide at most, its top just under the V's trim; the shield 0.26 tall, its top just over the collar's point), the light disc's colour (`#ece9e2`) and the hero watermark's strength (24%, 14% for dark logos).
 - Drawn heads kept under an old logo's key stay on disk until the save is deleted.
 
+### Lane 16: the Home hero (HH1-HH5)
+
+Home opens on three big slides before the season's own (`lane_core/hero.rs` builds them, `screens/hero.js` and `hero.css` draw them; `pages.rs` puts them first in `dashboard`). Every old slide stays after them: the next game, the last result, the loud news, the recruiting class and your team. The slides are a list the game builds, so more can join it.
+
+- **A, under the lights (HH1).** The stadium at night from the end-zone camera, drawn in SVG. The seats fill to last season's real crowd share (average home crowd over capacity), empty seats grey. End zones and midfield carry the team's colors, nickname (the school's name at high school) and crest. The captains stand in a row of nameplates below midfield, each with his drawn head, position, class and one line. The board at the far end says "Welcome, Coach <surname>" on day one. Cards: the headline and line, the road from here (the next seven dated things), the lower third (crest, stadium, place, record, seats, crowd with its bar, season tickets, boosters, sell-outs or waitlist), and what's asked of you (the boss's words, the expectation, the rival line).
+- **B, the program's story (HH2).** "You are the Nth head coach since 1996", three big numbers by level, the wins of every season on record as bars shaded by coach with gold tops for titles, this season's bar dashed, the next mark as a dashed line. "What you could be the first to do" lists up to five marks from the record book, and "On the wall" four legends with drawn heads (initials once retired). At high school the wall is "Leaving in June": the seniors who signed or committed.
+- **C, the room (HH3).** A team photo on three risers (offense back, defense middle, captains and specialists front) with an empty "You" spot in the middle of the front row, a real caption naming each row, and the facts: how many, who is unhappy, who is hurt, the seniors leaving or signees arriving, the mood.
+- **Switching (HH4).** Arrows and dots sit in a bar under the slide, always visible, with the slide's name. A picked slide is remembered by its kind, so Home opens on it next time. The 8-second timer stays and pauses while the pointer is over the slides.
+- **After day one (HH5).** A shows the next game when it is two weeks away or less, then the last result (the board shows the final), the record and the last home crowd. B's marks turn done or missed as this season goes. C shows this season's starters and record once the games begin, and its facts follow the room.
+- **Under the hero.** The go-to chips (the inbox with its unread count, History added), and "People to know first": three people with drawn heads and why (the unhappiest player, a captain, the most hurt).
+- **The Handbook.** A Home page (`hbAdd` in `hero.js`) explains the three slides and the switcher; Home's "?" opens it.
+
+#### Claude's picks (proposed, not confirmed)
+
+- Day one is the day the career starts. A's headline after it: a game within 14 days, else a result within 14 days, else "This season" or "Between seasons" with the program's story.
+- The board is drawn at high school and college only. The crowd comes from last season's home games on the season pages, else the books' last closed season. The fill is capped at 100%.
+- Captains: up to six plates below midfield. When a plate would cover a card, the row moves up, then drops its stat line. NFL crests use the city (DAL, KC; NYG and NYJ, LAR and LAC add the nickname).
+- The road lists your own dated things and the calendar's dated loud events.
+- The rival line: the first rivalry series at college, the stored rival at high school, the division standings by win share at the NFL.
+- The story headline picks, in order: a title streak, defending champions, a drought (no winning record in 3+ years, no ten-win season in 8+ years at college, no playoffs in 4+ years at the NFL), a winning streak.
+- Marks by level. College: a winning season, beat the rival, ten wins, a conference title, a first-round pick (when none for two years), a national title. High school: the title streak or a state title, an unbeaten season, the Nth title, the coach wins record, sending seniors up. NFL: back to the playoffs, a Super Bowl, one win better than the best season, your first draft class. A mark is done by one of your seasons or this one, missed once this season can't reach it.
+- The wall's order. College: Hall of Fame 100, each award 30, each All-America 12, each all-conference 2, each NFL award 20, ten at least. NFL: MVP 40, Super Bowl MVP 35, offensive or defensive player of the year 30, comeback 12, the rest 15. A thin wall fills with the program's highest draft picks.
+- People to know: the unhappiest player first, then a captain, the most hurt, more captains.
+- An assistant's career: B names the head coach you join ("You join X, the Nth head coach since 1996"), and C's empty spot shows your job.
+
 ### Moves where you look: minor bugs 62-81 and SC1-SC7
 
 From the screens audit (`/mnt/project-files/afm/screens-intuitive/findings.md`). One list of moves per player, coach and team, by your seat and who he is to you (`crates/afm-game/src/lane_core/moves.rs`, command `moves`), drawn the same way everywhere (`app/ui/screens/core.js`, the moves section):
@@ -1336,6 +1361,26 @@ Cain's standing rule (2026-10-28): code that disagrees with real data is a bug, 
 - 2020: three in five stadiums shut, the rest 5-25% full. Sales 1.5% a club a year, heirs 2.7%. Nicknames 0.04, the starting quarterback +6 in jersey sales, fines 0.019 a defender a week, parades 780,000.
 - Hall: the seniors' bar 16, the coach's case NFL wins / 10 + 5 a title with a bar of 20; contributors are not in the world. The Hall check counts players from 2010 against 6.3 (from memory) and coaches against 0.33.
 - Holdouts: the rookie-deal bar (push over 0.55, was from 2020) from 2011, when that CBA made a rookie-deal holdout's fines unwaivable (from memory).
+
+### Lane L20: the Data section (deep data items 1-3, 7, 8, 15-25; boards 43 and 46)
+
+A sidebar section of its own between Your team and World at every seat, with Stat history, Player analytics, Leaderboards and History (moved in from World). Screens in `screens/data.js` and `.css`; commands in `lane_data/` (`stat_history`, `team_book`, `analytics`, `analytics_card`, `champions_more`, `data_sources`); the engine's record store in `world/marks.rs` and the analytics cards in `world/analytics.rs`. How it works, with every number: [records-and-data.md](reference/how-it-works/records-and-data.md).
+
+- **Your seat's sources** (item 3). Every Data page ends with a line saying what your numbers come from, and the analytics page tags its numbers charted or box score: the NFL's tracking at every seat, your division's charting at a college seat (FBS and FCS at an NFL seat), box scores at high school.
+- **Stat history** (items 15-22). Careers, single seasons, single games, rate records and each year's leader at every level (a college division or conference, the NFL, a state), each list with games, position, the era column and the game a single-game mark came from (opponent, score, date). The NFL's lists carry the real NFL record on top, marked. Beside them: who is chasing a record now, what fell this season and last (with the old holder), and your team's own record holders. The Team book tab shows any team's own career, season and game marks (item 17).
+- **Player analytics** (items 7 and 8). A position group's qualifiers ranked by percentile on its card, any season at any level, with the minimum on screen; a player's card shows each number with its percentile and the five past seasons closest to his, with where each man is now.
+- **History** (items 23-25). Champions gains Conference champions (by the conference won that season) and State champions (by state and class); Awards shows a year or every winner of one award. The old Record book and NFL records tabs open Stat history.
+- **Single-game records before L12** (item 16): the world's rebuild fills every level's books from its history.
+
+#### Claude's picks (proposed, not confirmed)
+
+- The rate records' college and high school minimums (15 attempts a game; careers 325 completions, 300 carries, 100 catches, 40 field goal tries, high school half). The NCAA's record book couldn't be read from this build's network; the NFL's are the league's own.
+- List depths: 25 in a division, the NFL and a state, 10 in a conference, 10 in a college program's or NFL club's own book, 3 in a high school's.
+- A record counts as fallen once a level has five seasons in its books; a high school's own falls aren't told (thousands of schools).
+- Chasing now: three games in and on pace for nine tenths of a season record, or within a quarter of a career record.
+- The NFL seat's college charting and every seat's NFL tracking; the analytics minimums (about two thirds of a starter's volume, NFL 1.35 times, cut to the share of a season played).
+- Seasons like his: the mean percentile gap over at least half the card, against each season's own field.
+- The era column's regulars (NFL 8+ games, high school 5+, both 15+ snaps a game).
 
 ### Minor bugs hotfix (2026-11-01, one branch for the list's open bugs)
 

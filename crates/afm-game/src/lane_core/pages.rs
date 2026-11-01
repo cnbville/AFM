@@ -107,8 +107,9 @@ pub fn dashboard(w: &World) -> Value {
     let texts: Vec<&str> = recent.iter().map(|(_, e)| e.text.as_str()).collect();
     let linker = Linker::new(w, &texts, matches!(me, TeamRef::HighSchool(_)));
 
-    // 9a: the hero's slides.
-    let mut slides = Vec::new();
+    // 9a: the hero's slides: the three big ones first (lane 16, HH1-HH4),
+    // then the season's own.
+    let mut slides = super::hero::slides(w, me);
     if let Some(g) = views::next_game(w, me) {
         let opp = &g["opp"];
         let home = g["home"].as_bool().unwrap_or(false);
@@ -263,6 +264,7 @@ pub fn dashboard(w: &World) -> Value {
         "words": words,
         "around": around,
         "mail": mail_rows,
+        "know": super::hero::know(w, me),
     })
 }
 
@@ -558,6 +560,16 @@ pub(crate) fn seasons(w: &World, k: usize) -> Vec<Value> {
                 "line": if s.games > 0 { mail::stat_line(p.player.position, |k| line[k as usize] as f64) } else { "Did not play".to_string() },
                 "pro_bowl": s.pro_bowl, "all_pro": s.all_pro, "awards": s.awards,
             }));
+            // His playoff games on their own row, as the league keeps them.
+            if let Some(po) = s.playoffs.as_ref() {
+                let line = afm_engine::world::records::from_line(po);
+                v.push(json!({
+                    "year": s.year, "level": "NFL playoffs",
+                    "team": s.team.map(|t| views::team_brief(w, TeamRef::Nfl(t))),
+                    "pos": p.player.position.name(), "games": po.games, "starts": s.playoff_starts,
+                    "line": mail::stat_line(p.player.position, |k| line[k as usize] as f64),
+                }));
+            }
         }
     }
     // Seasons in the other leagues (the CFL, arena football, the spring
@@ -1039,6 +1051,7 @@ fn book_name(b: Book) -> String {
         Book::Career(i) => format!("Career {}", RECORD_STATS.get(i).map_or("record", |s| s.name())),
         Book::Streak(i) => STREAKS.get(i).map_or("Streak".to_string(), |s| s.to_string()),
         Book::WinStreak => "Consecutive wins".to_string(),
+        Book::Game(_) | Book::RateSeason(_) | Book::RateCareer(_) => crate::lane_data::title_case(&b.name()),
     }
 }
 
@@ -1162,6 +1175,7 @@ pub fn history(w: &World, args: &Value) -> Value {
         Scope::Division(_) => "level",
         Scope::Conference(..) => "conference",
         Scope::State(_) => "state",
+        Scope::Nfl => "nfl",
     };
     let body = match tab {
         "records" => {

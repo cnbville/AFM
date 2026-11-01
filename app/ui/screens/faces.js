@@ -66,18 +66,22 @@
   }
   function drawHead(id, key, spec) {
     if (broken || !spec) return Promise.resolve(null);
-    if (!drawing.has(id)) {
-      drawing.set(id, new Promise((done) => jobs.push({ id, key, spec, done })));
+    // the promise is kept here too: pump() can drop a face that has no slot
+    // on the page yet, and drawing.get(id) is then empty
+    let p = drawing.get(id);
+    if (!p) {
+      p = new Promise((done) => jobs.push({ id, key, spec, done }));
+      drawing.set(id, p);
       pump();
     }
-    return drawing.get(id);
+    return p;
   }
   // Where each asked face is: 2 on screen (or nearly), 1 on the page but out
   // of sight (scrolled away, a closed tab), absent when its page is gone.
   function places() {
     const at = new Map();
-    for (const el of document.querySelectorAll(".fc-slot[data-face-id], .fc-portrait[data-id]")) {
-      const id = Number(el.dataset.faceId || el.dataset.id);
+    for (const el of document.querySelectorAll(".fc-slot[data-face-id], .fc-portrait[data-id], .hr-face[data-face]")) {
+      const id = Number(el.dataset.faceId || el.dataset.id || el.dataset.face);
       if (at.get(id) === 2) continue;
       const r = el.getBoundingClientRect();
       const seen = (r.width || r.height) && r.bottom > -150 && r.top < innerHeight + 150 && r.right > 0 && r.left < innerWidth;
@@ -529,6 +533,34 @@
     if (!queued) { queued = true; requestAnimationFrame(scan); }
   }).observe(document.getElementById("app"), { childList: true, subtree: true });
 
+  // Pictures for any screen (the Home hero's plates, team photo and wall):
+  // put(id, src) for each face as it comes, from the cache, the save's
+  // folder, or drawn now; a face without one keeps its initials.
+  async function pics(ids, put) {
+    const need = [];
+    for (const id of ids) {
+      const f = cache.get(id);
+      if (f && (f.photo || f.drawn)) put(id, f.photo || f.drawn);
+      else if (f && f.spec) drawHead(f.id, f.key, f.spec).then((url) => url && put(id, url));
+      else if (!f) need.push(id);
+    }
+    for (let k = 0; k < need.length; k += 200) {
+      let x;
+      try { x = await api("faces", { ids: need.slice(k, k + 200) }); } catch (e) { return; }
+      for (const f of x.faces) {
+        cache.set(f.id, f);
+        if (f.photo || f.drawn) put(f.id, f.photo || f.drawn);
+        else if (f.spec) {
+          drawHead(f.id, f.key, f.spec).then((url) => {
+            if (!url) return;
+            cache.set(f.id, { ...f, drawn: url, spec: null });
+            put(f.id, url);
+          });
+        }
+      }
+    }
+  }
+
   // A head drawn live for a talk (dialogue D1): his face for a tell, kept for
   // the session, never stored. Null when heads are off or can't be drawn. It
   // takes its turn like any head: after a quiet moment, never beside another.
@@ -562,5 +594,5 @@
     return live.get(key);
   }
 
-  window.AFMFaces = { refresh, silhouette, dot, liveHead };
+  window.AFMFaces = { refresh, silhouette, dot, liveHead, pics };
 })();

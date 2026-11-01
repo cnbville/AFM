@@ -2200,7 +2200,7 @@ fn play_day(w: &mut World, d: Date) {
     let mut it = played.into_iter();
     for o in outcomes.iter().flatten() {
         if let Some((teams, z, line, neutral)) = it.next() {
-            pro_games::record(w, teams, &o.0, &o.1, z);
+            pro_games::record(w, teams, &o.0, &o.1, z, neutral);
             w.seat_line(Level::Nfl, teams, line, neutral);
         }
     }
@@ -2459,7 +2459,7 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     let mut score = None;
     let a_wins = match game.first().and_then(|g| g.as_ref()) {
         Some((r, sides)) => {
-            pro_games::record(w, [a, b], r, sides, [s.z[b], s.z[a]]);
+            pro_games::record(w, [a, b], r, sides, [s.z[b], s.z[a]], true);
             let mut head = serde_json::Map::new();
             head.insert("week".into(), (s.weeks.len() + 4).into());
             head.insert("kind".into(), "super bowl".into());
@@ -2584,7 +2584,7 @@ fn play_round_games(w: &mut World, d: Date) {
     for (((g, o), line), f) in today.iter().zip(&outcomes).zip(&lines).zip(&fixtures) {
         let gate = super::finance::nfl::gate(w, g.2, g.3, d, false, true);
         if let Some((r, sides)) = o {
-            pro_games::record(w, [g.2, g.3], r, sides, [s.z[g.3], s.z[g.2]]);
+            pro_games::record(w, [g.2, g.3], r, sides, [s.z[g.3], s.z[g.2]], false);
             let mut head = serde_json::Map::new();
             head.insert("week".into(), (s.weeks.len() + g.0 as usize).into());
             head.insert(

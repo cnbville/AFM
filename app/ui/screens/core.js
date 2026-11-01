@@ -1305,8 +1305,8 @@ async function coreAct(act, el, ev) {
       try { const r = await api("table_csv", { table: "finder", filters: F.filters }); toast("Saved " + r.path); } catch (e) { toast(e.message); }
       return true;
     }
-    case "hslide": { const H = keep("home", { i: 0 }); H.i = Number(d.i); homeSlide(); return true; }
-    case "hprev": case "hnext": { const H = keep("home", { i: 0 }); H.i += act === "hnext" ? 1 : -1; homeSlide(); return true; }
+    case "hslide": { const H = keep("home", { i: 0 }); H.i = Number(d.i); homeSlide(true); return true; }
+    case "hprev": case "hnext": { const H = keep("home", { i: 0 }); H.i += act === "hnext" ? 1 : -1; homeSlide(true); return true; }
     case "newskind": { const N = keep("newsfeed", {}); N.kind = d.v; N.chain = null; S.route.args = { kind: d.v }; refresh(el); return true; }
     case "hist": { const H = keep("history", {}); H[d.k] = d.v; refresh(el); return true; }
     case "ptab": { keep("ptab", {}).t = d.t; refresh(el); return true; }
@@ -1364,18 +1364,30 @@ function afterRender() {
 
 // ---------- Home (9a-9e) ----------
 let homeTimer = 0;
-function homeSlide() {
+// The slide you pick is remembered by its kind (lane 16, HH4), so Home
+// opens on it again even when the season's slides around it change.
+const HOME_PICK = "afm.home.slide";
+function homeSlide(picked) {
   const H = keep("home", { i: 0 });
   const slides = [...document.querySelectorAll(".hcar .hs")];
   if (!slides.length) return;
   H.i = ((H.i % slides.length) + slides.length) % slides.length;
   slides.forEach((s, i) => s.classList.toggle("on", i === H.i));
   document.querySelectorAll(".hcar .hdots button").forEach((b, i) => b.setAttribute("aria-current", String(i === H.i)));
+  const name = document.querySelector(".hcar .hbar-name");
+  if (name) name.textContent = slides[H.i].dataset.name || "";
+  if (picked) {
+    H.picked = slides[H.i].dataset.kind;
+    try { localStorage.setItem(HOME_PICK, H.picked); } catch (e) { /* kept for this session only */ }
+  }
 }
 function homeWire() {
   clearInterval(homeTimer);
   const car = document.querySelector(".hcar");
   if (!car) return;
+  if (typeof heroDraw === "function") heroDraw();
+  const know = document.querySelector(".hr-know");
+  if (know && typeof heroFaces === "function") heroFaces(know);
   homeSlide();
   let hold = false;
   car.addEventListener("mouseenter", () => (hold = true));
@@ -1406,13 +1418,25 @@ screens.home = async () => {
   if (!x.team) return S.status && S.status.you && screens.market ? screens.market() : `<div class="pad">${pageHead({ title: "Home" })}</div>`;
   setColors(x.team.colors);
   title("Home");
+  // The slide to open on: the one you picked last, by its kind.
+  const H = keep("home", { i: 0 });
+  if (!H.picked) try { H.picked = localStorage.getItem(HOME_PICK) || ""; } catch (e) { H.picked = ""; }
+  const at = H.picked ? x.slides.findIndex((s) => s.kind === H.picked) : -1;
+  if (at >= 0) H.i = at;
+  if (typeof HERO !== "undefined") HERO.data = x.slides;
+  const names = { stadium: "Under the lights", story: "The program's story", room: "The room", game: "Next game", result: "Last game", recruit: "Recruiting class", team: "Your team" };
   const slides = x.slides.map((s, i) => {
+    const on = i === ((H.i % x.slides.length) + x.slides.length) % x.slides.length;
+    const label = names[s.kind] || s.kicker.split(" · ")[0];
+    if (typeof HERO !== "undefined" && HERO.kinds.has(s.kind)) return heroFrame(s, i, on, label);
     const c = s.colors || x.team.colors;
     const goBtn = s.go ? linkTo(s.go.screen, s.go.args || {}, esc(s.go.label || SLIDE_GO[s.go.screen] || "Open"), "st-btn glass small") : "";
     const long = s.stat != null && String(s.stat).length > 6 ? " long" : "";
-    return `<div class="hs ${i === 0 ? "on" : ""}${long}" style="--c1:${c[0]};--c2:${c[1] || c[0]}"><div class="hs-art">${posterScene(s.kind === "team" ? "game" : s.kind, c)}</div><div class="hs-copy"><div class="st-label">${esc(s.kicker)}</div><h2>${rich(s.title)}</h2><div class="hs-sub">${rich(s.sub || "")}</div><div class="st-actions">${goBtn}</div></div>${s.stat != null ? `<div class="hs-stat"><b>${esc(s.stat)}</b><small>${esc(s.stat_label || "")}</small></div>` : ""}</div>`;
+    return `<div class="hs ${on ? "on" : ""}${long}" data-kind="${esc(s.kind)}" data-name="${esc(label)}" style="--c1:${c[0]};--c2:${c[1] || c[0]}"><div class="hs-art">${posterScene(s.kind === "team" ? "game" : s.kind, c)}</div><div class="hs-copy"><div class="st-label">${esc(s.kicker)}</div><h2>${rich(s.title)}</h2><div class="hs-sub">${rich(s.sub || "")}</div><div class="st-actions">${goBtn}</div></div>${s.stat != null ? `<div class="hs-stat"><b>${esc(s.stat)}</b><small>${esc(s.stat_label || "")}</small></div>` : ""}</div>`;
   }).join("");
-  const car = `<section class="hcar" aria-roledescription="carousel">${slides}<button class="hnav l" data-act="hprev" aria-label="Previous">${icon("back")}</button><button class="hnav r" data-act="hnext" aria-label="Next">${icon("fwd")}</button><div class="hdots">${x.slides.map((_, i) => `<button data-act="hslide" data-i="${i}" aria-label="Slide ${i + 1}"></button>`).join("")}</div></section>`;
+  // Arrows and dots always on show under the slides (HH4); the timer moves
+  // on every 8 seconds unless the pointer rests on the hero.
+  const car = `<section class="hcar" aria-roledescription="carousel"><div class="hstage">${slides}</div><div class="hbar"><span></span><div class="hctl"><button class="hnav" data-act="hprev" aria-label="Previous slide">${icon("back")}</button><div class="hdots">${x.slides.map((s, i) => `<button data-act="hslide" data-i="${i}" aria-label="Slide ${i + 1}" title="${esc(names[s.kind] || s.kicker.split(" · ")[0])}"></button>`).join("")}</div><button class="hnav" data-act="hnext" aria-label="Next slide">${icon("fwd")}</button></div><span class="hbar-name"></span></div></section>`;
   const stories = x.stories.length
     ? `<div class="posters">${x.stories.map((s) => `<article class="poster ${s.mine ? "mine" : ""}">${posterScene(s.scene, x.team.colors)}<div class="poster-cap"><div class="st-label">${esc(s.kicker)} · ${esc(s.date)}</div><p>${rich(s.text)}</p></div></article>`).join("")}</div>`
     : `<div class="empty">No stories about your team yet. They come with the season.</div>`;
@@ -1428,9 +1452,10 @@ screens.home = async () => {
   const bossCard = `<div class="boss">${face({ name: boss.name }, 44)}<div><b>${esc(boss.name)}</b><small>${esc(boss.role)}${boss.date ? " · " + esc(boss.date) : ""}</small>${boss.line ? `<p>"${esc(boss.line)}"</p>` : '<p class="muted">Nothing from him lately.</p>'}${boss.mail ? `<a class="link small" data-act="openmail" data-id="${boss.mail}">Read the letter</a>` : ""}</div></div>`;
   const mail = x.mail.length ? `<div class="mlist compact">${x.mail.map(mailRow).join("")}</div>` : '<div class="empty">Nothing in the inbox.</div>';
   return `${car}<div class="pad home">
-    ${gotoLine([["Inbox", "inbox"], ["Calendar", "calendar"], ["Squad", "roster"], ["Standings", "standings"], ["News", "news"], ["My players", "myplayers"]])}
+    ${gotoLine([[S.status.unread ? `Inbox · ${S.status.unread} unread` : "Inbox", "inbox"], ["Calendar", "calendar"], ["Squad", "roster"], ["Standings", "standings"], ["History", "history"], ["News", "news"], ["My players", "myplayers"]])}
     <div class="home-grid">
       <div class="col">
+        ${typeof heroKnow === "function" && x.know ? `<div class="panel"><h2>People to know first <small><a class="link" data-go="people" data-args='{"tab":"Room"}'>the room</a></small></h2>${heroKnow(x.know, x.team.colors)}</div>` : ""}
         <div class="panel"><h2>Storylines <small>your team, your rivals, your people</small></h2>${stories}</div>
         <div class="panel"><h2>Inbox <small>${S.status.unread || 0} unread · <a class="link" data-nav="inbox">open the inbox</a></small></h2>${mail}</div>
         <div class="panel"><h2>Around football <small>what concerns you</small></h2>${x.around.length ? `<div class="feed">${x.around.map((e) => `<div class="feed-row"><span class="feed-when">${esc(e.date)}</span><span class="feed-kind">${esc(e.kind)}</span><span>${rich(e.text)}</span></div>`).join("")}</div>` : '<div class="empty">Quiet around the league.</div>'}</div>
@@ -1505,7 +1530,7 @@ function readCard(p) {
 const fans = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "k" : n.toLocaleString());
 const PT = {
   Overview: (p) => {
-    const last = p.seasons[p.seasons.length - 1];
+    const last = p.seasons.filter((s) => s.level !== "NFL playoffs").pop();
     const fit = p.fit && p.fit.length > 1
       ? `<div class="panel"><h2>Where else he could play <small>your staff's read at each spot</small></h2>${p.fit.map((f) => `<div class="attr"><span>${esc(f.pos)}${f.now ? ' <span class="tag soft">Now</span>' : ""}</span>${range(f.read, null, { p: p.id, k: "at:" + f.pos })}</div>`).join("")}</div>`
       : "";

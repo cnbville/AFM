@@ -29,6 +29,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [world-log.md](world-log.md) | The world log beside each world and save: what it keeps, every why, snapshots, sizes, how to read it |
 | [hunt.md](hunt.md) | The hunt: your one target over seasons at each seat, heat, his say, the boss, look-backs, the AI's hunts and the generational prospect |
 | [book.md](book.md) | The world reader's book: one SQLite file per world, its tables, checks against real, odd things, known issues, knobs, coverage, `afm_read` |
+| [records-and-data.md](records-and-data.md) | Record books at every level, single games, team books, rate records, the era column, records that fell, chasing now, player analytics and seasons like his |
 
 Code that does something its comment or design says it shouldn't: [oddities.md](oddities.md).
 
