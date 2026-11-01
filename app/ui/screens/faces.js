@@ -66,18 +66,22 @@
   }
   function drawHead(id, key, spec) {
     if (broken || !spec) return Promise.resolve(null);
-    if (!drawing.has(id)) {
-      drawing.set(id, new Promise((done) => jobs.push({ id, key, spec, done })));
+    // the promise is kept here too: pump() can drop a face that has no slot
+    // on the page yet, and drawing.get(id) is then empty
+    let p = drawing.get(id);
+    if (!p) {
+      p = new Promise((done) => jobs.push({ id, key, spec, done }));
+      drawing.set(id, p);
       pump();
     }
-    return drawing.get(id);
+    return p;
   }
   // Where each asked face is: 2 on screen (or nearly), 1 on the page but out
   // of sight (scrolled away, a closed tab), absent when its page is gone.
   function places() {
     const at = new Map();
-    for (const el of document.querySelectorAll(".fc-slot[data-face-id], .fc-portrait[data-id]")) {
-      const id = Number(el.dataset.faceId || el.dataset.id);
+    for (const el of document.querySelectorAll(".fc-slot[data-face-id], .fc-portrait[data-id], .hr-face[data-face]")) {
+      const id = Number(el.dataset.faceId || el.dataset.id || el.dataset.face);
       if (at.get(id) === 2) continue;
       const r = el.getBoundingClientRect();
       const seen = (r.width || r.height) && r.bottom > -150 && r.top < innerHeight + 150 && r.right > 0 && r.left < innerWidth;

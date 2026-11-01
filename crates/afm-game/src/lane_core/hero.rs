@@ -1818,7 +1818,11 @@ fn starters(c: &Ctx) -> Vec<usize> {
             people
                 .iter()
                 .copied()
-                .filter(|&k| w.people[k].player.position == pos && w.people[k].last_role == Some(PlayingTime::Starter))
+                .filter(|&k| {
+                    w.people[k].player.position == pos
+                        && w.people[k].last_role == Some(PlayingTime::Starter)
+                        && !out.contains(&k)
+                })
                 .collect()
         };
         if here.len() < n {
@@ -1833,7 +1837,9 @@ fn starters(c: &Ctx) -> Vec<usize> {
                 if here.len() >= n {
                     break;
                 }
-                if !here.contains(&k) {
+                // one face per player: a kicker who punts, or a starter moved
+                // to another slot on the chart, sits in the photo once
+                if !here.contains(&k) && !out.contains(&k) {
                     here.push(k);
                 }
             }
