@@ -1077,15 +1077,33 @@ fn l12(w: &World, h: usize) -> Chase {
         ("Not yet".to_string(), 1)
     };
     let enroll = w.high_schools[h].enrollment;
+    // The runs count your years; the school's own titles before you are
+    // said apart, so two straight titles before you don't read as none
+    // (bug 37).
+    let mine_from = seasons.first().map_or(w.year + 1, |y| y.year);
+    let before: Vec<&crate::world::high_school::HsSeason> =
+        w.high_schools[h].seasons.iter().filter(|s| s.year < mine_from).collect();
+    let titles_before = before.iter().filter(|s| s.state_title).count() as u32;
+    let row_before = before.iter().rev().take_while(|s| s.state_title).count() as u32;
+    let last_title = before.iter().rev().find(|s| s.state_title).map(|s| s.year);
+    let mut line = format!(
+        "Under you: playoffs {} running; {}, {}.",
+        count(r.playoffs_row, "year"),
+        count(r.semis, "semifinal"),
+        count(r.finals, "final")
+    );
+    if row_before >= 2 {
+        line.push_str(&format!(
+            " Before you: {}, the last {row_before} in a row.",
+            count(titles_before, "state title")
+        ));
+    } else if let Some(y) = last_title {
+        line.push_str(&format!(" Before you: {}, the last in {y}.", count(titles_before, "state title")));
+    }
     Chase {
         code: "L12",
         name: "State title run".into(),
-        line: format!(
-            "Playoffs {} running; {}, {}.",
-            count(r.playoffs_row, "year"),
-            count(r.semis, "semifinal"),
-            count(r.finals, "final")
-        ),
+        line,
         word,
         tone,
         home: "Team › History".into(),

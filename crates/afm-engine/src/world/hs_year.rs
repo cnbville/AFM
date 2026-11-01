@@ -2305,9 +2305,10 @@ fn jumps(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
         }
         breakouts += 1;
         let r#where = if college { "spring practice" } else { "spring ball" };
-        p.note(format!(
-            "Broke out in {where} at {age}, as his coaches had hinted: +{gain:.1} overall by the spring game."
-        ));
+        p.note_again(
+            format!("Broke out in {where} at {age}, as his coaches had hinted: +{gain:.1} overall by the spring game."),
+            || format!("Broke out again in {where} at {age}, as his coaches had hinted: +{gain:.1} overall by the spring game."),
+        );
         if college && (p.stars >= 4 || gain >= 4.0) {
             let text = format!("{} breaks out in spring practice (+{gain:.1}).", p.name);
             let prog = p.college;

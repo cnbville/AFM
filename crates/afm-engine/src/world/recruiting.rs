@@ -6145,7 +6145,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         Decider::Handler => "the choice of a handler close to the family",
                         Decider::Himself => "someone else's choice",
                     };
-                    p.note(format!("{prog_name} was more {whose} than his own."));
+                    p.note_again(format!("{prog_name} was more {whose} than his own."), || {
+                        format!("{prog_name} was again more {whose} than his own.")
+                    });
                 }
                 let flipped = p.cal.commit.is_some_and(|c| c.0 != j);
                 p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped });
@@ -6591,7 +6593,9 @@ fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Dat
     if p.nil_income > 0.0 {
         p.nil_income = 0.0;
         let age = p.row_age();
-        p.note(format!("Lost his NIL deal when he entered the portal at {age}."));
+        p.note_again(format!("Lost his NIL deal when he entered the portal at {age}."), || {
+            format!("Lost his new NIL deal when he entered the portal again at {age}.")
+        });
     }
     if p.stars < 4 && p.last_role != Some(PlayingTime::Starter) {
         return None;
@@ -7564,7 +7568,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         }
         p.note(format!("Entered the portal at {age} {what} and moved from {from_name} to {to_name} ({}).", to.name()));
         if followed == Some(j) {
-            p.note("He followed his old head coach there.");
+            p.note_again("He followed his old head coach there.".to_string(), || {
+                "Again he followed his old head coach there.".to_string()
+            });
         }
         // His new collective's deal starts when he lands, on the place he
         // has there, and its July split keeps that place until he plays
