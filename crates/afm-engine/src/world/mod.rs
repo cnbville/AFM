@@ -218,6 +218,12 @@ pub struct Person {
     /// The kicking and snapping camps' own stars for a kicker, punter or
     /// long snapper (fix list 1.5): what staffs recruit specialists on.
     pub camp_stars: u8,
+    /// Talented enough to be recruited as a regular (a talent draw at
+    /// `ethnicity::SNAPPER_TOP` or above): his race odds were drawn at his
+    /// own position, never a snapper's, so the camps never make him a long
+    /// snapper (A25). False in older saves.
+    #[serde(default)]
+    pub(crate) regular_talent: bool,
     /// Hidden visibility to college recruiters, 0-1 (topic 4).
     pub(crate) visibility: f64,
     pub college_seasons: u32,
@@ -1905,6 +1911,7 @@ fn new_kid(
         brand: 0.0,
         stars: 0,
         camp_stars: 0,
+        regular_talent: ethnicity::regular_talent(z),
         visibility: 0.0,
         college_seasons: 0,
         redshirt_used: false,

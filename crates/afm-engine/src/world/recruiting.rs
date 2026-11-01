@@ -3414,6 +3414,7 @@ fn camp_rankings(
             p.player.position
         } else if snapper.get(&p.hs) == Some(&i)
             && p.stars == 0
+            && !p.regular_talent
             && p.player.body.weight <= crate::athlete::LS_MAX_WEIGHT
         {
             // A 300-pound center who snaps on Fridays projects as a
