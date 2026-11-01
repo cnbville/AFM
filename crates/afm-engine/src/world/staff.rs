@@ -50,7 +50,7 @@ fn new_coach_for(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool, want
             let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
             let pro = want.nfl.filter(|&x| x);
             let mut c = super::coach::generate_coach_as(id, name, ethnicity, tier, age, pro, &mut w.rng);
-            c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, w.year);
+            c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, coach_age_season(w));
             match super::former::made_up(w, &c, tier, played) {
                 Some(p) => super::former::apply(&mut c, p, w.year),
                 None => {
@@ -154,7 +154,8 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
     }
     // A new job comes with a new deal: the old one stays with the old job.
     w.folk.staff.deals.retain(|d| d.coach != coach);
-    w.coaches[coach].job = Some(Job { employer, role, since });
+    let first = first_season(w, employer, since);
+    w.coaches[coach].job = Some(Job { employer, role, since, first });
     super::folk::staffing::sign(w, coach);
     w.coaches[coach].wins = 0;
     w.coaches[coach].losses = 0;
@@ -2057,12 +2058,42 @@ pub(crate) fn cycle_year(w: &World) -> i32 {
 /// cycle, so a man who moves between the Super Bowl and fall camp closes
 /// his old job with the season he last coached, the same year his new job
 /// begins (`to` of the old equals `since` of the new), whatever the level.
-/// The other leagues play on their own calendars and keep the year.
+/// The other leagues play on their own calendars: their label is the last
+/// of the league's seasons to kick off by today, so a coach whose spring team
+/// folds at the next camp closes with the season he coached, and a man hired
+/// at that camp starts from it (minor bug 172: the calendar year gave such a
+/// coach two seasons' overlap with his next job, 2013-2015 and 2014-2017).
 fn season_label(w: &World, e: Employer) -> i32 {
     match e {
-        Employer::Other(_) => w.year,
+        Employer::Other(f) => {
+            let y = w.today.year();
+            let k = super::pro::other::league_of(f);
+            match super::pro::other::format(k, y) {
+                Some(x) if w.today >= x.start => y,
+                Some(_) => y - 1,
+                None if super::pro::other::format(k, y - 1).is_some() => y - 1,
+                None => w.year,
+            }
+        }
         _ => cycle_year(w),
     }
+}
+
+/// The first season a man hired today coaches (minor bug 33): the label's
+/// next season for an offseason hire, the label's own for one who joins
+/// while the season is under way (fall camp to the end of the regular
+/// season; for the other leagues, from kickoff to the end of their weeks).
+fn first_season(w: &World, e: Employer, since: i32) -> i32 {
+    let d = w.today;
+    let during = match e {
+        Employer::Other(f) => {
+            let k = super::pro::other::league_of(f);
+            super::pro::other::format(k, since).is_some_and(|x| d >= x.start && d <= x.start.add(7 * x.games as i32))
+        }
+        Employer::Nfl(_) => w.dates.season == since && d >= w.dates.fall_camp && d < w.dates.black_monday,
+        _ => w.dates.season == since && d >= w.dates.fall_camp && d <= w.dates.fbs_regular_end,
+    };
+    if during { since } else { since + 1 }
 }
 
 /// A head coach's contract length in seasons (proposed, not confirmed, from
@@ -2196,6 +2227,15 @@ impl Scope {
                 | (Scope::HighSchool, Employer::HighSchool(_))
         )
     }
+}
+
+/// The season coaches' whole-year ages count in today. Everyone ages a year
+/// on the high school carousel day (`age_coaches`, 20 January), before the
+/// football year turns after the Super Bowl, so a coach made between the two
+/// already counts his age in the coming season (minor bug 167: 263 coaches
+/// hired in that window showed an age a year behind their birth date).
+pub(crate) fn coach_age_season(w: &World) -> i32 {
+    if w.today >= crate::calendar::Date::ymd(w.year + 1, 1, 20) { w.year + 1 } else { w.year }
 }
 
 /// Everyone ages a year once the carousels are done; assistants learn from

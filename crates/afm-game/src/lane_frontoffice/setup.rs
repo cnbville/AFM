@@ -443,7 +443,7 @@ pub(crate) fn market_view(w: &World) -> Value {
     let Some(c) = &w.career else { return Value::Null };
     let m = &c.market;
     let job = market::your_job(w)
-        .map(|j| json!({ "team": employer_json(w, j.employer), "role": market::role_title(j.role), "since": j.since }));
+        .map(|j| json!({ "team": employer_json(w, j.employer), "role": market::role_title(j.role), "since": j.first_season() }));
     let i = &m.interest;
     // The searches' own test, so the page shows what they'd call you about.
     let fits = |e: Employer, r: Role| market::interest_fits(w, i, e, r);

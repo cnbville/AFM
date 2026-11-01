@@ -13,7 +13,7 @@ fn coach(up: Group, role: Option<Role>) -> crate::world::coach::Coach {
     let mut rng = Rng::new(7);
     let mut c = generate_coach(0, "Test Coach".into(), Ethnicity::White, CoachTier::Fbs, 34, &mut rng);
     c.came_up = up;
-    c.job = role.map(|r| Job { employer: Employer::College(0), role: r, since: 2020 });
+    c.job = role.map(|r| Job { employer: Employer::College(0), role: r, since: 2020, first: 2021 });
     c
 }
 
