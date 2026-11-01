@@ -734,6 +734,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         brand: 0.0,
         stars: 0,
         camp_stars: 0,
+        regular_talent: super::ethnicity::regular_talent(z),
         visibility: 0.0,
         college_seasons: 4,
         redshirt_used: false,

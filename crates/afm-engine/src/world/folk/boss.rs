@@ -153,14 +153,28 @@ pub fn trust(w: &World, team: Team) -> f32 {
     w.folk.mine.trust_of(b.key()).unwrap_or(0.5)
 }
 
-/// How he feels about you, in words (no meters).
-pub fn trust_words(t: f32) -> &'static str {
+/// How the people you answer to feel about you, in a few words: one scale
+/// for the boss page, the Home card and the school desk (bug 32).
+pub fn trust_short(t: f32) -> &'static str {
     match t {
-        x if x > 0.75 => "He backs you completely and says so in public.",
-        x if x > 0.6 => "He likes what he sees.",
-        x if x > 0.45 => "He's waiting to see.",
-        x if x > 0.3 => "He has doubts, and the people around him know it.",
-        _ => "He has lost faith in you. The board is asking him questions.",
+        t if t >= 0.75 => "Firmly behind you",
+        t if t >= 0.6 => "Pleased with you",
+        t if t >= 0.45 => "Watching how it goes",
+        t if t >= 0.3 => "Losing patience",
+        _ => "Wants a change",
+    }
+}
+
+/// How your boss feels about you, as a sentence on the same scale, with
+/// the boss's own pronoun.
+pub fn trust_words(t: f32, she: bool) -> String {
+    let (he, him) = if she { ("She", "her") } else { ("He", "him") };
+    match t {
+        t if t >= 0.75 => format!("{he} is firmly behind you and says so in public."),
+        t if t >= 0.6 => format!("{he} is pleased with you."),
+        t if t >= 0.45 => format!("{he} is watching how it goes."),
+        t if t >= 0.3 => format!("{he} is losing patience, and the people around {him} know it."),
+        _ => format!("{he} wants a change. The people above {him} are asking questions."),
     }
 }
 
@@ -454,7 +468,7 @@ fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut sup
         } else {
             line
         },
-        Some(trust_words(trust(w, team)).to_string()),
+        Some(trust_words(trust(w, team), b.she)),
     );
     add_ask_picks(w, s, team);
 }

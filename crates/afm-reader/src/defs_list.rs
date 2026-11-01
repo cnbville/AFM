@@ -976,9 +976,25 @@ pub const RULES: &[Rule] = &[
         checked: "SELECT COUNT(*) FROM people",
         failures: "SELECT 'person', name || ' (' || player__id || ')', class_of,
                    'age ' || player__age || ', class of ' || class_of || ' in ' || (SELECT year FROM world)
-                   FROM people WHERE ABS((SELECT year FROM world) - class_of + 18 - player__age) > 1",
+                   FROM people, (SELECT CASE WHEN today < CAST(julianday(year || '-10-01') - 2440587.5 AS INTEGER) THEN year ELSE year + 1 END AS lo,
+                   CASE WHEN today < CAST(julianday(year || '-07-01') - 2440587.5 AS INTEGER) THEN year ELSE year + 1 END AS hi FROM world) k
+                   WHERE player__age < k.lo - class_of + 17 OR player__age > k.hi - class_of + 19",
         needs: W,
-        why: "A class graduates high school at about 18; held-back boys are a year older.",
+        why: "A class graduates high school at about 18; held-back boys are a year older and a year-young boy a year younger. A player's whole-year age is the one his next season row will carry, so it moves on at his yearly development (a high schooler at his state's season start, a college player at fall camp, a pro at camp): from July to September some have moved on and some not.",
+    },
+    Rule {
+        id: "T11.age_from_birth",
+        areas: "T11 P2",
+        title: "A player's age counts from his birth date",
+        checked: "SELECT COUNT(*) FROM people WHERE born IS NOT NULL",
+        failures: "WITH k AS (SELECT CASE WHEN today < CAST(julianday(year || '-10-01') - 2440587.5 AS INTEGER) THEN year ELSE year + 1 END AS lo,
+                   CASE WHEN today < CAST(julianday(year || '-07-01') - 2440587.5 AS INTEGER) THEN year ELSE year + 1 END AS hi FROM world),
+                   x AS (SELECT name, player__id, player__age AS a, date(born * 86400, 'unixepoch') AS b FROM people WHERE born IS NOT NULL),
+                   y AS (SELECT x.*, CAST(strftime('%Y', b) AS INTEGER) - (strftime('%m', b) < '09') AS cy FROM x)
+                   SELECT 'person', name || ' (' || player__id || ')', NULL, 'age ' || a || ', born ' || b FROM y, k
+                   WHERE a < k.lo - cy - 1 OR a > k.hi - cy - 1",
+        needs: W,
+        why: "His whole-year age is his age on 31 August of the season his next row will carry (`born::birth_date`), so it moves on at his yearly development and nowhere else. A boy who missed a season's step reads a year young (minor bug 175: the AI coaches' August athletes joined after the rosters were set and never developed their first season).",
     },
     Rule {
         id: "T11.one_roster",

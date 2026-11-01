@@ -711,9 +711,10 @@ pub(crate) fn build(
     };
     let scaled = |real: u32| ((real as f64 * scale).round() as usize).max(2);
     let max_field = 1usize << rounds.min(10);
-    // Picks a bracket's field from its pool.
-    let pick = |pool: &[usize], q: Qualify, field: usize| -> Vec<usize> {
-        let field = field.min(pool.len()).min(max_field);
+    // Picks a field from its pool (for one bracket, `pick` below caps it at
+    // the rounds the state plays).
+    let pick_n = |pool: &[usize], q: Qualify, field: usize| -> Vec<usize> {
+        let field = field.min(pool.len());
         let mut sorted = pool.to_vec();
         by_rating(&mut sorted);
         let mut out = match q {
@@ -735,6 +736,7 @@ pub(crate) fn build(
         by_rating(&mut out);
         out
     };
+    let pick = |pool: &[usize], q: Qualify, field: usize| pick_n(pool, q, field.min(max_field));
     let labels = f.bracket_labels();
     let n = f.classes.len();
     let middle = labels.len() - n - f.private_classes.len();
@@ -768,13 +770,16 @@ pub(crate) fn build(
     };
     match &f.brackets {
         Brackets::Equity(_) => {
-            // Everyone who qualifies, placed by strength.
-            let total: usize = (0..labels.len()).map(|i| scaled(f.field_of(i))).sum();
-            let mut q = pick(&left, f.qualify_of(0), total.min(left.len()));
+            // Everyone who qualifies, placed by strength. The rounds cap each
+            // bracket, not the whole pool: capping the pool left California
+            // three of its fifteen brackets (minor bug 170).
+            let field = |i: usize| scaled(f.field_of(i)).min(max_field);
+            let total: usize = (0..labels.len()).map(field).sum();
+            let mut q = pick_n(&left, f.qualify_of(0), total.min(left.len()));
             by_rating(&mut q);
             let mut at = 0;
             for (i, label) in labels.iter().enumerate() {
-                let k = scaled(f.field_of(i)).min(q.len() - at);
+                let k = field(i).min(q.len() - at);
                 make(label, q[at..at + k].to_vec(), &mut out);
                 at += k;
             }
@@ -810,8 +815,11 @@ pub(crate) fn build(
             if pooled > 0 {
                 // Selected together, then split by enrollment.
                 let pool: Vec<usize> = pools[..pooled].concat();
-                let total: usize = (0..pooled).map(|i| scaled(f.field_of(i))).sum();
-                let mut q = pick(&pool, f.qualify_of(0), total);
+                // Each bracket's field is capped by the rounds, not the pool
+                // (Illinois and Michigan seeded eight brackets from one
+                // bracket's worth of teams; minor bug 170).
+                let total: usize = (0..pooled).map(|i| scaled(f.field_of(i)).min(max_field)).sum();
+                let mut q = pick_n(&pool, f.qualify_of(0), total);
                 q.sort_by(|&a, &b| w.high_schools[b].enrollment.cmp(&w.high_schools[a].enrollment).then(a.cmp(&b)));
                 for (i, label) in labels.iter().enumerate().take(pooled) {
                     let part: Vec<usize> = q[i * q.len() / pooled..(i + 1) * q.len() / pooled].to_vec();

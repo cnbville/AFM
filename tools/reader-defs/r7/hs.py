@@ -12,7 +12,7 @@ HS = """WITH hs AS MATERIALIZED (SELECT s._parent AS school, h.name || ' (' || h
 # (Select and Non-Select doubles the classes; non-public brackets, a private bracket and an Open Division add theirs.)
 def N(c):
     return f"(CASE WHEN COALESCE({c}, '') = '' THEN 0 ELSE length({c}) - length(replace({c}, ';', '')) + 1 END)"
-BRACKETS = """rb AS (SELECT state, (CASE WHEN brackets LIKE 'equity:%' THEN """ + N("substr(brackets, 8)") + """ WHEN brackets LIKE 'enrollment:%' THEN CAST(substr(brackets, 12) AS INTEGER) ELSE """ + N("classes") + """ END)
+BRACKETS = """rb AS (SELECT state, (CASE WHEN brackets LIKE 'equity:%' THEN """ + N("substr(brackets, 8)") + """ WHEN brackets LIKE 'enrollment:%' THEN MAX(CAST(substr(brackets, 12) AS INTEGER), """ + N("classes") + """) ELSE """ + N("classes") + """ END)
         * (CASE WHEN private_rule = 'select' THEN 2 ELSE 1 END) + """ + N("private_classes") + """
         + (CASE WHEN private_rule LIKE 'nonpublic:%' THEN """ + N("substr(private_rule, 11)") + """ WHEN private_rule LIKE 'private:%' THEN 1 ELSE 0 END)
         + (CASE WHEN COALESCE(open, '') <> '' THEN 1 ELSE 0 END) AS real
@@ -297,11 +297,13 @@ dict(id="C24.titles_count", areas="C24 T11", title="Each school's title count ma
    SELECT 'high school', h.name || ' (' || h._row || ')', NULL, h.state_titles || ' titles stored, ' || t.n || ' in its seasons'
    FROM high_schools h JOIN t ON t._parent = h._row WHERE h.state_titles < t.n""",
   needs=W, why="`state_titles` counts every title, the real ones before the world's seasons included, so it can only be at or above the seasons' count."),
-dict(id="C24.one_champion", areas="C24 T11", title="One champion per class each season",
+dict(id="C24.one_champion", areas="C24 T11", title="One champion per bracket each season",
   checked="SELECT COUNT(*) FROM hs_season__groups",
-  failures="""SELECT 'state', st.code, (SELECT MAX(year) FROM high_schools__seasons), COUNT(*) || ' classes, ' || (SELECT SUM(s.state_title) FROM high_schools__seasons s JOIN high_schools h ON h._row = s._parent
-        WHERE h.state = g.state AND s.year = (SELECT MAX(year) FROM high_schools__seasons)) || ' champions'
-   FROM hs_season__groups g JOIN states st ON st._row = g.state GROUP BY g.state
-   HAVING COUNT(*) <> (SELECT SUM(s.state_title) FROM high_schools__seasons s JOIN high_schools h ON h._row = s._parent WHERE h.state = g.state AND s.year = (SELECT MAX(year) FROM high_schools__seasons))""",
-  needs=W, why="Each class's bracket crowns one champion (`hs_playoffs.rs`)."),
+  failures="WITH " + BRACKETS + """,
+   g AS (SELECT state AS st, COUNT(*) AS classes FROM hs_season__groups GROUP BY state),
+   w AS (SELECT h.state AS st, SUM(s.state_title) AS n FROM high_schools__seasons s JOIN high_schools h ON h._row = s._parent WHERE s.year = (SELECT MAX(year) FROM high_schools__seasons) GROUP BY h.state)
+   SELECT 'state', st.code, (SELECT MAX(year) FROM high_schools__seasons), g.classes || ' classes, ' || COALESCE(rb.real, g.classes) || ' brackets, ' || COALESCE(w.n, 0) || ' champions'
+   FROM g JOIN states st ON st._row = g.st LEFT JOIN rb ON rb.state = st.code LEFT JOIN w ON w.st = g.st
+   WHERE COALESCE(w.n, 0) <> COALESCE(rb.real, g.classes)""",
+  needs=W, why="Each bracket of the state's real format crowns one champion (`hs_playoffs.rs`): its classes, doubled where Select and Non-Select split, plus private and non-public brackets and an Open Division (`hs_playoff_formats.csv`, as the C24 champions panel counts them). A state with no row counts its classes. Minor bug 170: the old rule counted classes only, so Arizona's Open Division or Louisiana's Select brackets read as extra champions. Where the 11-player divisions are formed by enrollment, the classes still count: Michigan's two 8-player divisions are brackets of their own."),
 ]

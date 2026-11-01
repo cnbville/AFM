@@ -917,7 +917,7 @@ fn stadium(c: &Ctx) -> Value {
         Some(team) => {
             let b = boss::boss(w, team);
             let rep: Vec<String> = b.reputation().iter().take(2).map(|x| x.to_lowercase()).collect();
-            let trust = pronouns(boss::trust_words(boss::trust(w, team)), b.she);
+            let trust = boss::trust_words(boss::trust(w, team), b.she);
             let years = if b.since > 0 { format!(" since {}", b.since) } else { String::new() };
             let rep = if rep.is_empty() { String::new() } else { format!(": {}", rep.join(", ")) };
             (b.name.clone(), format!("{}{years}{rep}. {trust}", b.title.to_lowercase()))
@@ -980,30 +980,6 @@ fn stadium(c: &Ctx) -> Value {
             },
         },
     })
-}
-
-/// A line written about a man, for a woman when she is one (whole words).
-fn pronouns(s: &str, she: bool) -> String {
-    if !she {
-        return s.to_string();
-    }
-    s.split(' ')
-        .map(|x| {
-            let (word, rest) = x.split_at(x.find(|ch: char| !ch.is_alphabetic() && ch != '\'').unwrap_or(x.len()));
-            let to = match word {
-                "he" => "she",
-                "He" => "She",
-                "he's" => "she's",
-                "He's" => "She's",
-                "his" | "him" => "her",
-                "His" => "Her",
-                "himself" => "herself",
-                _ => word,
-            };
-            format!("{to}{rest}")
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 /// "None in the 30 seasons on record." (a missing mark, said plainly).

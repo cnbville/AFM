@@ -574,15 +574,17 @@ dict(id="S7.no_overlap", areas="S7 T11", title="A coach's head jobs never overla
   needs=W, why="A coach holds one head job at a time; the one-season overlap of a move (he finishes one season and starts the next job that year) is allowed."),
 dict(id="S7.record_adds_up", areas="S7 C4 T11", title="A head coach's college record equals his program seasons",
   checked="SELECT COUNT(DISTINCT coach) FROM programs__seasons WHERE coach IS NOT NULL",
-  failures=JOBS + """, r AS (SELECT c, SUM(w) AS w, SUM(l) AS l FROM jobs WHERE role = 'Head coach' AND college IS NOT NULL AND a > (SELECT MIN(year) FROM programs__seasons) GROUP BY c),
+  failures=JOBS + """, r AS (SELECT c, SUM(w) AS w, SUM(l) AS l, SUM(MIN(5, COALESCE((SELECT ps.wins + ps.losses FROM programs__seasons ps WHERE ps._parent = jobs.college AND ps.year = jobs.a AND ps.coach IS NOT jobs.c), 0))) AS post FROM jobs WHERE role = 'Head coach' AND college IS NOT NULL AND a > (SELECT MIN(year) FROM programs__seasons) GROUP BY c),
    s AS (SELECT coach, SUM(wins) AS w, SUM(losses) AS l FROM programs__seasons WHERE coach IS NOT NULL GROUP BY coach)
    SELECT 'coach', co.name || ' (' || r.c || ')', NULL, 'jobs say ' || r.w || '-' || r.l || ', his seasons say ' || s.w || '-' || s.l FROM r JOIN s ON s.coach = r.c JOIN coaches co ON co._row = r.c
-   WHERE (r.w > s.w OR r.l > s.l) AND r.w + r.l > s.w + s.l + 1
+   WHERE (r.w > s.w OR r.l > s.l) AND r.w + r.l > s.w + s.l + MAX(1, r.post)
      AND r.c NOT IN (SELECT _parent FROM coaches__history WHERE ended LIKE '%during the season%')""",
-  needs=W, why="Wins credited to a head job come from the seasons he coached; jobs before the history began are left out. A coach fired during the season keeps that season's games while the season's row goes to the man who finished it, and a coach hired in December may coach the bowl, so those are left out."),
-dict(id="S1.age_from_birth", areas="S1 T11", title="Every coach's age counts from his birth date",
-  checked="SELECT COUNT(*) FROM coaches WHERE born IS NOT NULL",
-  failures="""SELECT 'coach', name || ' (' || _row || ')', NULL, 'age ' || age || ', born ' || date(born * 86400, 'unixepoch') FROM coaches
-   WHERE born IS NOT NULL AND ABS(age - (CAST(strftime('%Y', (SELECT MAX(year) FROM programs__seasons) + 1 || '-09-01') AS INTEGER) - CAST(strftime('%Y', date(born * 86400, 'unixepoch')) AS INTEGER))) > 1""",
-  needs=W, why="Every age shown comes from the date (final build lane 1, A1)."),
+  needs=W, why="Wins credited to a head job come from the seasons he coached; jobs before the history began are left out. A coach fired during the season keeps that season's games while the season's row goes to the man who finished it, and a coach hired in December may coach the bowl or the rest of a playoff run (up to five games of the season before his first, whose row goes to the man who started it; minor bug 172), so those are left out."),
+dict(id="S1.age_from_birth", areas="S1 T11", title="Every working coach's age counts from his birth date",
+  checked="SELECT COUNT(*) FROM coaches WHERE born IS NOT NULL AND (retired IS NULL OR retired = 0)",
+  failures="""WITH k AS (SELECT CASE WHEN today > CAST(julianday((year + 1) || '-01-20') - 2440587.5 AS INTEGER) THEN year + 1 ELSE year END AS s FROM world),
+   c AS (SELECT _row, name, age, date(born * 86400, 'unixepoch') AS b FROM coaches WHERE born IS NOT NULL AND (retired IS NULL OR retired = 0)),
+   x AS (SELECT c.*, k.s, k.s - CAST(strftime('%Y', c.b) AS INTEGER) - (strftime('%m-%d', c.b) > '08-31') AS want FROM c, k)
+   SELECT 'coach', name || ' (' || _row || ')', NULL, 'age ' || age || ', born ' || b || ', so ' || want || ' in the ' || s || ' season' FROM x WHERE age != want""",
+  needs=W, why="Every age shown comes from the date (final build lane 1, A1). A coach's whole-year age is his age on 31 August of the season it counts in, and coaches age a year at the end of 20 January, before the football year turns (`staff::coach_age_season`). Retired coaches stop ageing, so they are left out."),
 ]

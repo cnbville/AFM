@@ -451,7 +451,7 @@ fn agenda(w: &World) -> Value {
         "date": date_text(w.today),
         "hours": { "left": talks::hours_left(w), "week": talks::week_budget(w) },
         "mood": { "value": mood, "words": talks::mood_words(mood) },
-        "boss": { "link": b.link(), "title": b.title, "trust": bt, "words": boss::trust_words(bt) },
+        "boss": { "link": b.link(), "title": b.title, "trust": bt, "words": boss::trust_words(bt, b.she) },
         "expectation": w.folk.mine.expectation,
         "waiting": waiting.iter().map(|s| scene_brief(w, s)).collect::<Vec<_>>(),
         "recent": recent,
@@ -615,7 +615,8 @@ fn room(w: &World) -> Value {
                 "id": id,
                 "link": folk::player_link(w, i),
                 "pos": p.player.position.name(),
-                "age": p.player.age,
+                // The dated age, as the roster shows it (minor bug 39).
+                "age": p.age_on(w.today),
                 "mood": p.mood,
                 "moodWords": talks::mood_words(p.mood),
                 "trust": if Some(p.trust_in) == you { Some(p.trust) } else { None },
@@ -756,7 +757,7 @@ fn boss_page(w: &World) -> Value {
         .filter(|&r| r != cast::boss_role(team) && cast::has(w, team, r))
         .map(|r| {
             let c = cast::get(w, CastRef::new(team, r, 0));
-            json!({ "link": c.link(), "title": c.title, "trust": w.folk.mine.trust_of(c.key()).map(trust_words) })
+            json!({ "link": c.link(), "title": c.title, "trust": w.folk.mine.trust_of(c.key()).map(boss::trust_short) })
         })
         .collect();
     let can = !w.folk.scenes.iter().any(|s| s.kind == Kind::BossMeeting && s.c == 3 && s.date.days_to(w.today) < 30);
@@ -764,7 +765,7 @@ fn boss_page(w: &World) -> Value {
         "team": team_json(w, team),
         "boss": cast_json(w, &b),
         "trust": t,
-        "trustWords": boss::trust_words(t),
+        "trustWords": boss::trust_words(t, b.she),
         "expectation": w.folk.mine.expectation,
         "goals": goals,
         "asks": asks,
@@ -857,8 +858,8 @@ fn staff(w: &World) -> Value {
                 "link": folk::coach_link(w, c),
                 "role": cap(r.name()),
                 "roleKey": role_key(r),
-                "age": co.age,
-                "since": co.job.map(|j| j.since),
+                "age": co.age_on(w.today),
+                "since": co.job.map(|j| j.first_season()),
                 "salary": deal.map(|d| money(d.salary)),
                 "through": deal.map(|d| d.through),
                 "buyout": deal.map(|d| format!("{:.0}%", d.buyout * 100.0)),

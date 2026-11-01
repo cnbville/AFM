@@ -199,7 +199,29 @@ pub enum Employer {
 pub struct Job {
     pub employer: Employer,
     pub role: Role,
+    /// The carousel's season label he was hired in (`staff::season_label`):
+    /// the season before his first for an offseason hire. Tenure counts
+    /// from it.
     pub since: i32,
+    /// The first season he coaches in the job (minor bug 33: a coach hired
+    /// in February 2026 read "since 2025"); 0 in older saves.
+    #[serde(default)]
+    pub first: i32,
+}
+
+impl Job {
+    /// The first season he coaches in the job, for the screens. Older saves
+    /// fall back on the label: other leagues label by the season they play
+    /// in, the rest by the season before an offseason hire.
+    pub fn first_season(&self) -> i32 {
+        if self.first > 0 {
+            self.first
+        } else if matches!(self.employer, Employer::Other(_)) {
+            self.since
+        } else {
+            self.since + 1
+        }
+    }
 }
 
 /// A junior post (C36): the first rung below the coaching staff, held by

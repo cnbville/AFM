@@ -1071,7 +1071,7 @@ fn career(w: &World) -> Value {
             "{} · {} since {} · {}",
             views::employer_name(w, j.employer),
             market::role_title(j.role).to_lowercase(),
-            j.since,
+            j.first_season(),
             date_text(w.today)
         ),
         None => format!("Out of coaching · {}", date_text(w.today)),

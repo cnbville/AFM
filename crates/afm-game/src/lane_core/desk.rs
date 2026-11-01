@@ -391,7 +391,7 @@ pub fn my_players(w: &World) -> Value {
                 "id": id,
                 "name": p.name,
                 "pos": p.player.position.name(),
-                "age": p.player.age,
+                "age": p.age_on(w.today),
                 "level": level,
                 "class": views::class_text(w, p),
                 "team": team.map(|t| views::team_brief(w, t)),

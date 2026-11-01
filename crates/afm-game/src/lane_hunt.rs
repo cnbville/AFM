@@ -101,7 +101,7 @@ fn who(w: &World, k: usize) -> Value {
         "name": p.name,
         "pos": p.player.position.name(),
         "class": class_words(w, k),
-        "age": p.player.age,
+        "age": p.age_on(w.today),
         "stars": p.stars,
         "team": where_of(w, k),
         "staff": reads::overall(w, k).json(),
@@ -261,7 +261,7 @@ fn boss_json(w: &World) -> Value {
     let Some(t) = afm_engine::world::folk::Team::seat(w) else { return Value::Null };
     let b = afm_engine::world::folk::boss::boss(w, t);
     let trust = afm_engine::world::folk::boss::trust(w, t);
-    json!({ "name": b.name, "title": b.title, "words": afm_engine::world::folk::boss::trust_words(trust) })
+    json!({ "name": b.name, "title": b.title, "words": afm_engine::world::folk::boss::trust_words(trust, b.she) })
 }
 
 fn yours_json(w: &World, h: &Hunt) -> Value {

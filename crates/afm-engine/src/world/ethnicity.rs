@@ -244,7 +244,19 @@ const SNAPPER_TOP: f64 = 2.6;
 
 /// Whether a boy has a snapper's knack when he is made (see `SNAPPER_KNACK`).
 pub fn snapper_knack(long_snapping_ceiling: f64, talent: f64, talent_z: f64) -> bool {
-    talent_z < SNAPPER_TOP && long_snapping_ceiling / talent.max(1.0) * (0.1 * talent_z).exp() >= SNAPPER_KNACK
+    !regular_talent(talent_z) && long_snapping_ceiling / talent.max(1.0) * (0.1 * talent_z).exp() >= SNAPPER_KNACK
+}
+
+/// Whether a boy is talented enough to be recruited as a regular
+/// (`SNAPPER_TOP`): he draws his own position's odds, so the camps never
+/// make him a snapper either. Before, the camps made an unrated boy his
+/// school's snapper whatever his talent, and the most gifted snappers are
+/// the ones the NFL keeps: the test world's NFL long snappers read 4 of 33
+/// Black (real none), all four linebackers, edge rushers or safeties as
+/// boys. After, 0 of 29; FBS snappers 0.4% Black and FCS 1.8% (real 3 and
+/// 6; 1.5 and 4.1 before).
+pub fn regular_talent(talent_z: f64) -> bool {
+    talent_z >= SNAPPER_TOP
 }
 
 /// How much likelier a group is at a position than its share of the boys

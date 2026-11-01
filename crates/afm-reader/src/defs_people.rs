@@ -945,28 +945,33 @@ pub const RULES: &[Rule] = &[
         title: r#"No career note line repeats word for word"#,
         checked: r#"SELECT COUNT(*) FROM people WHERE stage IN ('College', 'Pro')"#,
         failures: r#"SELECT 'person', x.name || ' (' || x.player__id || ')', NULL, COUNT(*) || ' times: ' || j.value FROM people x, json_each(x.notes) j
-         WHERE x.stage IN ('College', 'Pro') GROUP BY x._row, j.value HAVING COUNT(*) > 1 AND j.value NOT LIKE 'Named %' AND j.value NOT LIKE 'Restructured %'"#,
+         WHERE x.stage IN ('College', 'Pro') GROUP BY x._row, j.value HAVING COUNT(*) > 1 AND j.value NOT LIKE 'Named %' AND j.value NOT LIKE 'Restructured %'
+         AND j.value NOT LIKE 'Signed %' AND j.value NOT LIKE 'Claimed off waivers %' AND j.value NOT LIKE 'Cut from the %'
+         AND j.value NOT LIKE 'Back on the NFL market %' AND j.value NOT LIKE 'Allocated by %' AND j.value NOT LIKE 'Moved to the %'
+         AND j.value NOT LIKE 'Released by %' AND j.value NOT LIKE 'Placed on %'"#,
         needs: W,
-        why: r#"A career note is a line of his story; the same line twice is a bug (repeated honours and restructures are real)."#,
+        why: r#"A career note is a line of his story; the same line twice is a bug. Repeated honours, restructures and moves between clubs and squads in one year (signed, cut, released, claimed, re-signed, placed on a list) are real, so those lines may repeat (minor bug 173)."#,
     },
     Rule {
         id: "P32.allpro_backup",
         areas: "P32 T11",
         title: r#"No All-Pro note on a backup season"#,
         checked: r#"SELECT COUNT(*) FROM people WHERE stage = 'Pro'"#,
-        failures: r#"SELECT 'person', x.name || ' (' || x.player__id || ')', NULL, 'All-Pro at ' || h.age || ' as a ' || h.playing_time FROM people x JOIN people__player__history h ON h._parent = x._row, json_each(x.notes) j
-         WHERE x.stage = 'Pro' AND h.level = 'NFL' AND h.playing_time IN ('Backup', 'PracticeSquad', 'Unsigned') AND j.value LIKE '%All-Pro at ' || h.age || '.%'"#,
+        failures: r#"SELECT 'person', x.name || ' (' || x.player__id || ')', s.year, 'All-Pro in ' || s.year || ' with ' || s.starts || ' starts in ' || s.games || ' games'
+         FROM people__pro__seasons s JOIN people x ON x._row = s._parent WHERE x.stage = 'Pro' AND s.all_pro > 0 AND s.starts * 2 < s.games"#,
         needs: W,
-        why: r#"Notes must agree with the numbers: a backup is never named All-Pro that season."#,
+        why: r#"Notes must agree with the numbers: a backup is never named All-Pro that season. The season's own line decides, not the camp depth chart on his season row: a camp backup who wins the job and starts most of the year can be All-Pro (minor bug 173)."#,
     },
     Rule {
         id: "C34.roster_cap",
         areas: "C34 T11",
         title: r#"No FBS roster over the cap"#,
         checked: r#"SELECT COUNT(*) FROM programs WHERE division = 'FBS'"#,
-        failures: r#"SELECT 'program', COALESCE(p.real_name, p.fictional_name), NULL, json_array_length(p.roster) || ' players on the roster' FROM programs p WHERE p.division = 'FBS' AND json_array_length(p.roster) > 105 + (SELECT year FROM world) / 10000"#,
+        failures: r#"SELECT 'program', COALESCE(p.real_name, p.fictional_name), NULL, n || ' players count against the limit, ' || json_array_length(p.roster) || ' on the roster' FROM (
+         SELECT p.*, (SELECT COUNT(*) FROM json_each(p.roster) j JOIN people x ON x._row = j.value WHERE NOT (x.walk_on = 1 AND x.class_of <= 2025)) AS n FROM programs p WHERE p.division = 'FBS') p
+         WHERE n > 105"#,
         needs: W,
-        why: r#"FBS rosters hold 85 scholarships plus walk-ons; the 2025 cap is 105 in all."#,
+        why: r#"The House settlement's limit (from 2025) is 105 in all. Its designated student-athletes, the walk-ons on a 2024-25 roster or promised a place in the 2025 class, never count against it at any school (`recruiting::takes_a_place`), so a roster can carry them above 105 (minor bug 171: six to eight FBS rosters read 106-109 with 14-21 of them)."#,
     },
 ];
 

@@ -85,14 +85,15 @@ check("N42.nfl_parade_crowd", WP, "N42", "NFL title parade crowd", "people",
   Fixed(853000.0, "parades.csv: 18 NFL parades 2002-2025 with a crowd estimate average about 853,000 (several rows from memory, to verify)", "2002-2025"), (0.3, 0.6, 0.0),
   "Average crowd at the world's NFL title parades.")
 rule("N42.sec_fines", "N42", "SEC storming fines follow the real schedule",
-  "SELECT COUNT(*) FROM stories__traditions__stormings s JOIN programs p ON p._row = s.team WHERE p.conference = 'SEC'",
+  f"SELECT COUNT(*) FROM stories__traditions__stormings s JOIN programs p ON p._row = s.team LEFT JOIN programs__history h ON h._parent = s.team AND {YR('s.date')} BETWEEN h._0 AND h._1 WHERE COALESCE(h._3, p.conference) = 'SEC'",
   f"""SELECT {YR('s.date')} AS year, {prog('p')} AS home, s.fine,
             (SELECT r.first || ' / ' || r.second || ' / ' || r.third_or_later FROM real_storming_fines r WHERE r.conference = 'SEC' AND {YR('s.date')} >= r.from_year AND (r.to_year = '' OR {YR('s.date')} <= r.to_year)) AS "real tiers"
        FROM stories__traditions__stormings s JOIN programs p ON p._row = s.team
-      WHERE p.conference = 'SEC' AND s.fine NOT IN (SELECT x FROM (SELECT r.first AS x FROM real_storming_fines r WHERE r.conference = 'SEC' AND {YR('s.date')} >= r.from_year AND (r.to_year = '' OR {YR('s.date')} <= r.to_year)
+       LEFT JOIN programs__history h ON h._parent = s.team AND {YR('s.date')} BETWEEN h._0 AND h._1
+      WHERE COALESCE(h._3, p.conference) = 'SEC' AND s.fine NOT IN (SELECT x FROM (SELECT r.first AS x FROM real_storming_fines r WHERE r.conference = 'SEC' AND {YR('s.date')} >= r.from_year AND (r.to_year = '' OR {YR('s.date')} <= r.to_year)
             UNION SELECT r.second FROM real_storming_fines r WHERE r.conference = 'SEC' AND {YR('s.date')} >= r.from_year AND (r.to_year = '' OR {YR('s.date')} <= r.to_year)
             UNION SELECT r.third_or_later FROM real_storming_fines r WHERE r.conference = 'SEC' AND {YR('s.date')} >= r.from_year AND (r.to_year = '' OR {YR('s.date')} <= r.to_year)))""",
-  "Every SEC fine is one of that year's real tiers (storming_fines.csv): first, second, third or later offence.")
+  "Every SEC fine is one of that year's real tiers (storming_fines.csv): first, second, third or later offence. A program counts in the SEC only in its SEC years (minor bug 174: Oklahoma's 2021 storming, a Big 12 year with no fine, read as an SEC fine of 0).")
 
 # ---------------------------------------------------------------- N43 media, fame, fans
 panel("N43.magazines", WP, "N43", "Preseason magazines", "table",

@@ -220,6 +220,12 @@ pub struct Person {
     /// The kicking and snapping camps' own stars for a kicker, punter or
     /// long snapper (fix list 1.5): what staffs recruit specialists on.
     pub camp_stars: u8,
+    /// Talented enough to be recruited as a regular (a talent draw at
+    /// `ethnicity::SNAPPER_TOP` or above): his race odds were drawn at his
+    /// own position, never a snapper's, so the camps never make him a long
+    /// snapper (A25). False in older saves.
+    #[serde(default)]
+    pub(crate) regular_talent: bool,
     /// Hidden visibility to college recruiters, 0-1 (topic 4).
     pub(crate) visibility: f64,
     pub college_seasons: u32,
@@ -1551,20 +1557,21 @@ impl World {
         let s = self.high_schools[hs].state;
         let id = self.next_person;
         self.next_person += 1;
-        let age = (self.year + 18 - class_of).clamp(14, 18) as u32;
+        // His whole-year age is his classmates': this season's until his
+        // state's season starts and the year's development lands, the coming
+        // season's after it (minor bug 175). Last year's finished season still
+        // reads developed until this year's dates are drawn, so the flag only
+        // counts for this year's season.
+        let developed = self
+            .hs_season
+            .as_ref()
+            .and_then(|x| x.states.get(s))
+            .is_some_and(|x| x.developed && x.start.year() == self.year);
+        let season = if developed { self.year + 1 } else { self.year };
+        let age = (season + 18 - class_of).clamp(14, 18) as u32;
         let seed = (key ^ (key >> 32)) as u32 ^ 0x5A7E;
-        let mut p = new_kid(
-            self.options.seed,
-            &self.states[s],
-            s,
-            &self.high_schools[hs],
-            hs,
-            seed,
-            id,
-            age,
-            self.year,
-            Some(z),
-        );
+        let mut p =
+            new_kid(self.options.seed, &self.states[s], s, &self.high_schools[hs], hs, seed, id, age, season, Some(z));
         p.name = name.to_string();
         p.ethnicity = ethnicity;
         p.class_of = class_of;
@@ -1581,6 +1588,13 @@ impl World {
         p.player.position = pos;
         let start = self.people.len();
         self.people.push(p);
+        // He is on the team from today, so his state's season start develops
+        // him with it: the AI's August 1 athletes came after the class day's
+        // rosters and missed their first season's step, a year behind their
+        // birth date ever after (minor bug 175).
+        if !self.high_schools[hs].roster.contains(&start) {
+            self.high_schools[hs].roster.push(start);
+        }
         self.draw_home_ties(start);
         start
     }
@@ -1905,6 +1919,7 @@ fn new_kid(
         brand: 0.0,
         stars: 0,
         camp_stars: 0,
+        regular_talent: ethnicity::regular_talent(z),
         visibility: 0.0,
         college_seasons: 0,
         redshirt_used: false,

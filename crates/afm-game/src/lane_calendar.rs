@@ -113,7 +113,8 @@ fn rel(n: i32) -> String {
 }
 
 fn money(x: f64) -> String {
-    format!("${:.1}M", x / 1e6)
+    let s = if x <= -0.05e6 { "-" } else { "" };
+    format!("{s}${:.1}M", x.abs() / 1e6)
 }
 
 /// The football year a day belongs to in the rule books (the day after one
