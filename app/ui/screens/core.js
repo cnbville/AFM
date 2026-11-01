@@ -1327,7 +1327,7 @@ document.addEventListener("change", (ev) => {
   if (t.dataset.act === "lsel") {
     const L = keep("leaders", {});
     L[t.dataset.k] = t.value;
-    if (t.dataset.k === "scope") { L.year = null; L.conf = null; L.state = null; }
+    if (t.dataset.k === "scope") { L.year = null; L.conf = null; L.state = null; L.cls = null; L.age = null; }
     refresh(t);
   }
   if (t.dataset.act === "hsel") { const H = keep("history", {}); H[t.dataset.k] = t.value; refresh(t); }
@@ -1901,7 +1901,7 @@ screens.leaders = async (a) => {
   if (a.sort) { S.keep["sort:leaders"] = { k: a.sort, dir: -1 }; delete a.sort; }
   for (const k of ["scope", "view", "year"]) if (a[k] != null) { L[k] = a[k]; delete a[k]; }
   const s = keep("sort:leaders", { k: null, dir: -1 });
-  const filters = [...(L.pos ? [{ field: "pos", value: L.pos }] : []), ...(L.conf ? [{ field: "conf", value: L.conf }] : []), ...(L.listed ? [{ field: "listed", value: true }] : [])];
+  const filters = [...(L.pos ? [{ field: "pos", value: L.pos }] : []), ...(L.conf ? [{ field: "conf", value: L.conf }] : []), ...(L.cls ? [{ field: "class", value: L.cls }] : []), ...(L.age ? [{ field: "age", op: "=", value: Number(L.age) }] : []), ...(L.listed ? [{ field: "listed", value: true }] : [])];
   const args = { scope: L.scope, year: L.year ? Number(L.year) : undefined, view: L.view, columns: L.columns || undefined, per: L.per, filters, state: L.state || undefined };
   const x = await api("leaders", { ...args, offset: 0, limit: 100, sort: s.k || undefined, dir: s.dir, sort2: s.k2 || undefined, dir2: s.dir2 });
   if (!x.years.length) x.years = [x.year];
@@ -1922,7 +1922,9 @@ screens.leaders = async (a) => {
   BIG.leaders.total = x.total;
   const sel = (k, list, cur, all) => `<select class="ssel" data-act="lsel" data-k="${k}">${all ? `<option value="">${all}</option>` : ""}${list.map(([v, t]) => `<option value="${esc(v)}" ${String(cur ?? "") === String(v) ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
   const college = !["nfl", "hs"].includes(x.scope);
-  const bar = `<div class="tbar">${sel("scope", SCOPES, x.scope)}${sel("year", x.years.map((y) => [y, y]), x.year)}${sel("pos", POS_GROUPS.map((p) => [p, p]), L.pos, "Every position")}${college && x.conferences.length ? sel("conf", x.conferences.map((c) => [c, c]), L.conf, "Every conference") : ""}${x.scope === "hs" ? sel("state", Object.entries(STATE_NAMES), L.state || (S.status && S.status.mine && S.status.mine.state) || "", "Your state") : ""}<span class="tspace"></span><div class="seg">${["total", "game", "snap"].map((p) => `<button data-act="lper" data-v="${p}" aria-pressed="${L.per === p}">${p === "total" ? "Totals" : p === "game" ? "Per game" : "Per 100 snaps"}</button>`).join("")}</div></div>
+  const [a0, a1] = x.scope === "nfl" ? [21, 41] : x.scope === "hs" ? [13, 19] : [17, 26];
+  const ages = Array.from({ length: a1 - a0 + 1 }, (_, k) => a0 + k);
+  const bar = `<div class="tbar">${sel("scope", SCOPES, x.scope)}${sel("year", x.years.map((y) => [y, y]), x.year)}${sel("pos", POS_GROUPS.map((p) => [p, p]), L.pos, "Every position")}${college && x.conferences.length ? sel("conf", x.conferences.map((c) => [c, c]), L.conf, "Every conference") : ""}${x.scope === "hs" ? sel("state", Object.entries(STATE_NAMES), L.state || (S.status && S.status.mine && S.status.mine.state) || "", "Your state") : ""}${x.scope !== "nfl" ? sel("cls", (x.scope === "hs" ? ["Fr", "So", "Jr", "Sr"] : ["Fr", "So", "Jr", "Sr", "Gr"]).map((c) => [c, c]), L.cls, "Every class") : ""}${sel("age", ages.map((n) => [n, `Age ${n}`]), L.age, "Every age")}<span class="tspace"></span><div class="seg">${["total", "game", "snap"].map((p) => `<button data-act="lper" data-v="${p}" aria-pressed="${L.per === p}">${p === "total" ? "Totals" : p === "game" ? "Per game" : "Per 100 snaps"}</button>`).join("")}</div></div>
     <div class="tbar"><div class="seg wrap">${x.views.map((v) => `<button data-act="lview" data-v="${esc(v.name)}" aria-pressed="${view === v.name && !L.columns}">${esc(v.name)}</button>`).join("")}</div><span class="tspace"></span><button class="tchip" data-act="lmine" aria-pressed="${!!L.listed}"><i class="chipdot listed"></i>On my list</button><button class="tbtn" data-act="lcols">Columns</button><button class="tbtn" data-act="lcsv">CSV</button></div>`;
   return `<div class="pad">${pageHead({ kicker: `${(SCOPES.find((z) => z[0] === x.scope) || ["", x.scope])[1]} · ${x.year} · ${L.per === "total" ? "season totals" : L.per === "game" ? "per game" : "per 100 snaps"}`, title: "Leaderboards", sub: "Rate stats need the usual minimums. Click any number to rank by it; shift-click a heading for a second sort." })}${bar}${html}</div>`;
 };
@@ -1962,7 +1964,7 @@ screens.history = async (a) => {
   if (a.division) { H.division = a.division; delete a.division; }
   const tab = tabOf("htab", HIST.map((h) => h[0]), a);
   const key = HIST.find((h) => h[0] === tab)[1];
-  const x = await api("history", { tab: key, division: H.division || undefined, year: H["y:" + key] ? Number(H["y:" + key]) : undefined });
+  const x = await api("history", { tab: key, division: H.division || undefined, book: H.book || undefined, conf: H.conf || undefined, state: H.state || undefined, year: H["y:" + key] ? Number(H["y:" + key]) : undefined });
   title("History", tab);
   const b = x.body;
   const yearSel = (cur) => `<select class="ssel" data-act="hsel" data-k="y:${key}">${x.years.map((y) => `<option ${y === cur ? "selected" : ""}>${y}</option>`).join("")}</select>`;
@@ -1970,12 +1972,16 @@ screens.history = async (a) => {
   if (key === "champions") {
     body = table("hchamps", [{ k: "year", t: "Year" }, { k: "level", t: "Level", l: true }, { k: "team", t: "Champion", l: true, f: (r) => teamChip(r.team, 20), v: (r) => r.team.name }, { k: "record", t: "Record", l: true }, { k: "coach", t: "Coach", l: true, f: (r) => (r.coach ? coachLink(r.coach.id, r.coach.name) : ""), v: (r) => (r.coach ? r.coach.name : "") }], b, { tools: false, empty: "No champions kept yet." });
   } else if (key === "records") {
-    body = `<div class="tbar"><select class="ssel" data-act="hsel" data-k="division">${["FBS", "FCS", "D2", "D3", "NAIA", "JUCO"].map((d) => `<option ${x.division === d ? "selected" : ""}>${d}</option>`).join("")}</select><span class="muted small">Season, career and streak records; a live record is still being added to.</span></div>
+    // A level's book, one of its conferences', or a state's high schools'.
+    const bookSel = `<select class="ssel" data-act="hsel" data-k="book">${[["level", "Level"], ["conference", "Conference"], ["state", "State (high school)"]].map(([v, t]) => `<option value="${v}" ${x.book === v ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+    const divSel = x.book === "state" ? "" : `<select class="ssel" data-act="hsel" data-k="division">${["FBS", "FCS", "D2", "D3", "NAIA", "JUCO"].map((d) => `<option ${x.division === d ? "selected" : ""}>${d}</option>`).join("")}</select>`;
+    const subSel = x.book === "conference" ? `<select class="ssel" data-act="hsel" data-k="conf">${(x.confs || []).map((c) => `<option ${x.conf === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>` : x.book === "state" ? `<select class="ssel" data-act="hsel" data-k="state">${(x.states || []).map((c) => `<option ${x.state === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>` : "";
+    body = `<div class="tbar">${bookSel}${divSel}${subSel}<span class="muted small">Season, career and streak records; a live record is still being added to.</span></div>
       <div class="books">${b.map((bk) => `<div class="panel book"><h2>${esc(bk.name)}</h2><ol>${bk.rows.map((r) => `<li class="${r.live ? "live" : ""}"><b>${esc(r.value)}</b><span>${r.id ? playerLink(r.id, r.name) : esc(r.name)}<small>${r.team ? esc(r.team.name) + " · " : ""}${esc(r.year)}${r.live ? " · active" : ""}</small></span></li>`).join("")}</ol></div>`).join("") || '<div class="empty">No records yet.</div>'}</div>`;
   } else if (key === "nfl_records") {
     body = table("hnfl", [{ k: "stat", t: "Record", l: true }, { k: "career", t: "Kind", l: true, f: (r) => (r.career ? "Career" : "Season") }, { k: "value", t: "Mark", l: true }, { k: "holder", t: "Held by", l: true }, { k: "year", t: "Year" }, { k: "world", t: "", l: true, f: (r) => (r.world ? '<span class="tag gold">Set in this world</span>' : '<span class="muted">Real record</span>') }], b, { tools: false });
   } else if (key === "hall") {
-    body = b.length ? `<div class="hof">${b.map((h) => `<div class="hof-card">${face({ name: h.name }, 56)}<div><div class="st-label">${esc(h.level)} · ${h.year}</div><b>${h.id ? playerLink(h.id, h.name) : esc(h.name)}</b>${h.pos ? ` <small class="muted">${esc(h.pos)}</small>` : ""}${h.coach ? ' <span class="tag soft">Coach</span>' : ""}<p class="sub">${esc(h.why || "")}</p>${(h.teams || []).length ? `<div class="chips">${h.teams.map((t) => teamChip(t, 16)).join("")}</div>` : ""}</div></div>`).join("")}</div>` : '<div class="empty">Nobody inducted yet.</div>';
+    body = b.length ? `<div class="hof">${b.map((h) => `<div class="hof-card">${face({ name: h.name }, 56)}<div><div class="st-label">${esc(h.level)} · ${h.year}</div><b>${h.id ? playerLink(h.id, h.name) : h.coachId != null ? coachLink(h.coachId, h.name) : esc(h.name)}</b>${h.pos ? ` <small class="muted">${esc(h.pos)}</small>` : ""}${h.coach ? ' <span class="tag soft">Coach</span>' : ""}<p class="sub">${esc(h.why || "")}</p>${(h.teams || []).length ? `<div class="chips">${h.teams.map((t) => teamChip(t, 16)).join("")}</div>` : ""}</div></div>`).join("")}</div>` : '<div class="empty">Nobody inducted yet.</div>';
   } else if (key === "awards") {
     body = `<div class="tbar">${yearSel(b.year)}</div>${table("hawards", [{ k: "award", t: "Award", l: true }, { k: "level", t: "Level", l: true }, { k: "name", t: "Winner", l: true, f: (r) => playerLink(r.id, r.name) }, { k: "pos", t: "Pos", l: true, f: (r) => esc(r.pos || "") }, { k: "team", t: "Team", l: true, f: (r) => (r.team ? teamChip(r.team, 18) : ""), v: (r) => (r.team ? r.team.name : "") }], b.rows, { tools: false, empty: "No awards that year." })}`;
   } else if (key === "carousel") {

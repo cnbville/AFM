@@ -279,7 +279,7 @@ pub(crate) fn row(w: &World, i: usize) -> Value {
         "school": school_of(w, p),
         "team": team_ref_of(w, p).map(|t| team_brief(w, t)),
         "class": class_words(w, p),
-        "age": p.player.age,
+        "age": p.age_on(w.today),
         "ht": ft_in(file::listed(&p.player).0),
         "wt": file::listed(&p.player).1.round(),
         "stars": p.stars,
@@ -431,6 +431,16 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         })
     });
     // Ratings by group.
+    // A high schooler someone timed electronically: his speed and burst
+    // are read from the stored times (the same ones the testing rows
+    // show), not from a separate draw (minor bug 23).
+    let timed = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
+        .then(|| afm_engine::world::times::seen(w, p))
+        .filter(|s| s.timed && seen);
+    let timed_range = |c: f64, sd: f64| {
+        let half = sd.max(1.0);
+        ((c - half).floor().clamp(1.0, 99.0) as u8, ((c + half).ceil().clamp(1.0, 99.0) as u8).max(1))
+    };
     let groups: Vec<Value> = CATS
         .iter()
         .map(|&cat| {
@@ -458,7 +468,11 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                     json!({
                         "key": a.key(),
                         "label": a.label(),
-                        "read": r.and_then(|r| r.range()),
+                        "read": match (a, timed) {
+                            (Attr::Speed, Some(t)) => Some(timed_range(t.now.0, t.sd)),
+                            (Attr::Acceleration, Some(t)) => Some(timed_range(t.now.1, t.sd)),
+                            _ => r.and_then(|r| r.range()),
+                        },
                         "chips": r.map_or(Vec::new(), |r| chips(r.chips)),
                         "readers": r.map_or(0, |r| r.readers),
                         "matters": file::matters(pos, a) > 0.4,
@@ -550,6 +564,22 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         .iter()
         .filter_map(|&k| {
             let l = looks.iter().rev().find(|l| l.kind == k)?;
+            // A camp or a showcase times the forty with lasers and the time
+            // is stored that day (`world::times`): shown as run, never
+            // rebuilt from today's ratings (minor bug 23).
+            if matches!(k, Kind::Camp | Kind::Showcase) {
+                use afm_engine::world::times::{At, Event, Timed};
+                let t = w.times.of(id).iter().rev().find(|t| {
+                    t.event == Event::Forty
+                        && t.timed == Timed::Laser
+                        && t.date <= l.date
+                        && matches!((k, t.at), (Kind::Camp, At::Camp(_)) | (Kind::Showcase, At::Regional | At::National))
+                })?;
+                return Some(json!({
+                    "where": k.name(), "date": date_text(t.date),
+                    "forty": t.secs as f64, "bench": null, "vertical": null, "broad": null, "cone": null, "shuttle": null,
+                }));
+            }
             let c = file::tests(&p.player, k, l.date.year());
             Some(json!({
                 "where": k.name(), "date": date_text(l.date),
@@ -613,7 +643,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         "name": p.name,
         "pos": pos.name(),
         "group": Group::of(pos).name(),
-        "age": p.player.age,
+        "age": p.age_on(w.today),
         "class": class_words(w, p),
         "school": school_of(w, p),
         "team": team_ref_of(w, p).map(|t| team_brief(w, t)),

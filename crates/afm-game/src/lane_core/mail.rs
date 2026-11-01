@@ -558,13 +558,15 @@ fn welcome(w: &World, me: TeamRef, mails: &mut Vec<Mail>, reveals: &mut Vec<Reve
     let pen = Pen { w, me, dear: dear.clone(), to, out: Vec::new() };
     let d = c.started;
     let team = views::team_name(w, me);
-    let mut m = pen.boss_letter("welcome", d, 8 * 60, format!("Welcome to {team}"));
+    // A pro club takes "the": everyone at the Carolina Panthers (minor bug 35).
+    let the = if matches!(me, TeamRef::Nfl(_) | TeamRef::Other(_)) { "the " } else { "" };
+    let mut m = pen.boss_letter("welcome", d, 8 * 60, format!("Welcome to {the}{team}"));
     let expect = expectation(w, me);
     let (rec, note) = views::season_record(w, me);
     m.body = vec![
         format!("{dear},"),
         format!(
-            "On behalf of everyone at {}, welcome. The contract is signed, the office is yours and the staff have been told you start today.",
+            "On behalf of everyone at {the}{}, welcome. The contract is signed, the office is yours and the staff have been told you start today.",
             links::team(w, me)
         ),
         format!(
