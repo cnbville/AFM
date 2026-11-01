@@ -1,20 +1,21 @@
 name: Build a world
 # Builds a full world on GitHub's machines and publishes it on the public
 # worlds page (github.com/cnbville/afm-worlds), where the game's library
-# downloads it in one click (Cain 2026-10-21). A 30-year world takes about
-# four hours. Needs the WORLDS_TOKEN secret: a token that may write to
+# downloads it in one click (Cain 2026-10-21). A 30-year world with its log
+# takes about five and a half hours. Needs the WORLDS_TOKEN secret: a token that may write to
 # cnbville/afm-worlds. Every world gets a star mix check (`star_mix`: squad
 # and signing stars by group, newcomers and leavers, the dynasty check) in
 # the run's summary. With publish set to no it is a check world only, and
 # with check set to a worlds page release it checks that world instead of
 # building one; quick builds a stand-in world (`star_mix build`, about an
 # hour for 8 years) for the check alone (lane 10 follow-up; Cain
-# 2026-10-27: world runs go on GitHub).
+# 2026-10-27: world runs go on GitHub). The tools are compiled first, on a
+# machine of their own.
 #
 # A published world's book is made by a second job on a fresh machine, from
 # the world and log on the worlds page: with its log, a 30-year world's
 # book takes about an hour and a half and tens of GB, on top of the world's
-# four hours, and a job may run six. A full disk kills the runner itself
+# five and a half hours, and a job may run six. A full disk kills the runner itself
 # (2026-10-30: two 30-year worlds lost theirs in the book step, "No space
 # left on device"), so the world and its log go up before anything else
 # runs, and each job first removes toolsets it never uses.
@@ -37,9 +38,35 @@ on:
         description: "A quick stand-in world for the star mix check only (yes or no)"
         default: "no"
 jobs:
-  world:
+  # The world and star mix tools are compiled on a machine of their own, so
+  # the world job's six hours go to the world (2026-11-01: a 30-year world
+  # with its log and high school games on the engine runs about five and a
+  # half hours, and compiling took another 17 minutes of the same job).
+  tools:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile the world and star mix tools
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+        run: |
+          cargo build --release --bin afm_world --bin star_mix
+          mkdir -p tools && cp target/release/afm_world target/release/star_mix tools/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: world-tools
+          path: tools/
+          retention-days: 3
+  world:
+    needs: tools
+    runs-on: ubuntu-latest
+    # GitHub's most for a job on its own machines.
+    timeout-minutes: 360
     outputs:
       tag: ${{ steps.publish.outputs.tag }}
     steps:
@@ -50,14 +77,20 @@ jobs:
       # own). The disks are printed here and after each big step.
       - name: Make room
         run: .github/scripts/make-room.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: world-tools
+          path: tools
+      - run: chmod +x tools/*
+      # Only a check world's book (below) compiles anything here.
       - uses: dtolnay/rust-toolchain@stable
+        if: inputs.quick != 'yes' && (inputs.publish == 'no' || inputs.check != '')
       - uses: Swatinem/rust-cache@v2
+        if: inputs.quick != 'yes' && (inputs.publish == 'no' || inputs.check != '')
       - name: Build the world
         if: inputs.check == '' && inputs.quick != 'yes'
-        env:
-          AFM_COMMIT: ${{ github.sha }}
         run: |
-          cargo run --release --bin afm_world -- "${{ inputs.seed }}" "${{ inputs.years }}" out
+          tools/afm_world "${{ inputs.seed }}" "${{ inputs.years }}" out
           ls -la out/ && du -sh out/* && df -h / /mnt
       - name: Download the world to check
         if: inputs.check != ''
@@ -122,9 +155,9 @@ jobs:
         continue-on-error: true
         run: |
           if [ "${{ inputs.quick }}" = yes ]; then
-            cargo run --release --bin star_mix -- build "${{ inputs.seed }}" "${{ inputs.years }}" | tee star_mix.txt
+            tools/star_mix build "${{ inputs.seed }}" "${{ inputs.years }}" | tee star_mix.txt
           else
-            cargo run --release --bin star_mix -- out/*.afmworld | tee star_mix.txt
+            tools/star_mix out/*.afmworld | tee star_mix.txt
           fi
           { echo '```'; cat star_mix.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
