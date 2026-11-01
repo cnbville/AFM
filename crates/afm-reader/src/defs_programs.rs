@@ -617,14 +617,20 @@ pub const RULES: &[Rule] = &[
     Rule {
         id: "C24.one_champion",
         areas: "C24 T11",
-        title: r#"One champion per class each season"#,
+        title: r#"One champion per bracket each season"#,
         checked: r#"SELECT COUNT(*) FROM hs_season__groups"#,
-        failures: r#"SELECT 'state', st.code, (SELECT MAX(year) FROM high_schools__seasons), COUNT(*) || ' classes, ' || (SELECT SUM(s.state_title) FROM high_schools__seasons s JOIN high_schools h ON h._row = s._parent
-         WHERE h.state = g.state AND s.year = (SELECT MAX(year) FROM high_schools__seasons)) || ' champions'
-         FROM hs_season__groups g JOIN states st ON st._row = g.state GROUP BY g.state
-         HAVING COUNT(*) <> (SELECT SUM(s.state_title) FROM high_schools__seasons s JOIN high_schools h ON h._row = s._parent WHERE h.state = g.state AND s.year = (SELECT MAX(year) FROM high_schools__seasons))"#,
+        failures: r#"WITH rb AS (SELECT state, (CASE WHEN brackets LIKE 'equity:%' THEN (CASE WHEN COALESCE(substr(brackets, 8), '') = '' THEN 0 ELSE length(substr(brackets, 8)) - length(replace(substr(brackets, 8), ';', '')) + 1 END) WHEN brackets LIKE 'enrollment:%' THEN MAX(CAST(substr(brackets, 12) AS INTEGER), (CASE WHEN COALESCE(classes, '') = '' THEN 0 ELSE length(classes) - length(replace(classes, ';', '')) + 1 END)) ELSE (CASE WHEN COALESCE(classes, '') = '' THEN 0 ELSE length(classes) - length(replace(classes, ';', '')) + 1 END) END)
+         * (CASE WHEN private_rule = 'select' THEN 2 ELSE 1 END) + (CASE WHEN COALESCE(private_classes, '') = '' THEN 0 ELSE length(private_classes) - length(replace(private_classes, ';', '')) + 1 END)
+         + (CASE WHEN private_rule LIKE 'nonpublic:%' THEN (CASE WHEN COALESCE(substr(private_rule, 11), '') = '' THEN 0 ELSE length(substr(private_rule, 11)) - length(replace(substr(private_rule, 11), ';', '')) + 1 END) WHEN private_rule LIKE 'private:%' THEN 1 ELSE 0 END)
+         + (CASE WHEN COALESCE(open, '') <> '' THEN 1 ELSE 0 END) AS real
+         FROM real_hs_playoff_formats),
+         g AS (SELECT state AS st, COUNT(*) AS classes FROM hs_season__groups GROUP BY state),
+         w AS (SELECT h.state AS st, SUM(s.state_title) AS n FROM high_schools__seasons s JOIN high_schools h ON h._row = s._parent WHERE s.year = (SELECT MAX(year) FROM high_schools__seasons) GROUP BY h.state)
+         SELECT 'state', st.code, (SELECT MAX(year) FROM high_schools__seasons), g.classes || ' classes, ' || COALESCE(rb.real, g.classes) || ' brackets, ' || COALESCE(w.n, 0) || ' champions'
+         FROM g JOIN states st ON st._row = g.st LEFT JOIN rb ON rb.state = st.code LEFT JOIN w ON w.st = g.st
+         WHERE COALESCE(w.n, 0) <> COALESCE(rb.real, g.classes)"#,
         needs: W,
-        why: r#"Each class's bracket crowns one champion (`hs_playoffs.rs`)."#,
+        why: r#"Each bracket of the state's real format crowns one champion (`hs_playoffs.rs`): its classes, doubled where Select and Non-Select split, plus private and non-public brackets and an Open Division (`hs_playoff_formats.csv`, as the C24 champions panel counts them). A state with no row counts its classes. Minor bug 170: the old rule counted classes only, so Arizona's Open Division or Louisiana's Select brackets read as extra champions. Where the 11-player divisions are formed by enrollment, the classes still count: Michigan's two 8-player divisions are brackets of their own."#,
     },
     Rule {
         id: "S7.no_overlap",
@@ -652,23 +658,25 @@ pub const RULES: &[Rule] = &[
          WHEN c.job__role = 'DefensiveCoordinator' THEN 'Defensive coordinator' WHEN c.job__role__PositionCoach IS NOT NULL THEN 'Position coach' END, c.job__since, (SELECT MAX(year) FROM programs__seasons), c.wins, c.losses, c.titles, 'current',
          CASE WHEN c.job__employer__College IS NOT NULL THEN p.division WHEN c.job__employer__HighSchool IS NOT NULL THEN 'HS' WHEN c.job__employer__Nfl IS NOT NULL THEN 'NFL' ELSE 'Other' END,
          c.job__employer__College, c.job__employer__HighSchool, c.job__employer__Nfl
-         FROM coaches c LEFT JOIN programs p ON p._row = c.job__employer__College WHERE c.job__role IS NOT NULL OR c.job__role__PositionCoach IS NOT NULL), r AS (SELECT c, SUM(w) AS w, SUM(l) AS l FROM jobs WHERE role = 'Head coach' AND college IS NOT NULL AND a > (SELECT MIN(year) FROM programs__seasons) GROUP BY c),
+         FROM coaches c LEFT JOIN programs p ON p._row = c.job__employer__College WHERE c.job__role IS NOT NULL OR c.job__role__PositionCoach IS NOT NULL), r AS (SELECT c, SUM(w) AS w, SUM(l) AS l, SUM(MIN(5, COALESCE((SELECT ps.wins + ps.losses FROM programs__seasons ps WHERE ps._parent = jobs.college AND ps.year = jobs.a AND ps.coach IS NOT jobs.c), 0))) AS post FROM jobs WHERE role = 'Head coach' AND college IS NOT NULL AND a > (SELECT MIN(year) FROM programs__seasons) GROUP BY c),
          s AS (SELECT coach, SUM(wins) AS w, SUM(losses) AS l FROM programs__seasons WHERE coach IS NOT NULL GROUP BY coach)
          SELECT 'coach', co.name || ' (' || r.c || ')', NULL, 'jobs say ' || r.w || '-' || r.l || ', his seasons say ' || s.w || '-' || s.l FROM r JOIN s ON s.coach = r.c JOIN coaches co ON co._row = r.c
-         WHERE (r.w > s.w OR r.l > s.l) AND r.w + r.l > s.w + s.l + 1
+         WHERE (r.w > s.w OR r.l > s.l) AND r.w + r.l > s.w + s.l + MAX(1, r.post)
          AND r.c NOT IN (SELECT _parent FROM coaches__history WHERE ended LIKE '%during the season%')"#,
         needs: W,
-        why: r#"Wins credited to a head job come from the seasons he coached; jobs before the history began are left out. A coach fired during the season keeps that season's games while the season's row goes to the man who finished it, and a coach hired in December may coach the bowl, so those are left out."#,
+        why: r#"Wins credited to a head job come from the seasons he coached; jobs before the history began are left out. A coach fired during the season keeps that season's games while the season's row goes to the man who finished it, and a coach hired in December may coach the bowl or the rest of a playoff run (up to five games of the season before his first, whose row goes to the man who started it; minor bug 172), so those are left out."#,
     },
     Rule {
         id: "S1.age_from_birth",
         areas: "S1 T11",
-        title: r#"Every coach's age counts from his birth date"#,
-        checked: r#"SELECT COUNT(*) FROM coaches WHERE born IS NOT NULL"#,
-        failures: r#"SELECT 'coach', name || ' (' || _row || ')', NULL, 'age ' || age || ', born ' || date(born * 86400, 'unixepoch') FROM coaches
-         WHERE born IS NOT NULL AND ABS(age - (CAST(strftime('%Y', (SELECT MAX(year) FROM programs__seasons) + 1 || '-09-01') AS INTEGER) - CAST(strftime('%Y', date(born * 86400, 'unixepoch')) AS INTEGER))) > 1"#,
+        title: r#"Every working coach's age counts from his birth date"#,
+        checked: r#"SELECT COUNT(*) FROM coaches WHERE born IS NOT NULL AND (retired IS NULL OR retired = 0)"#,
+        failures: r#"WITH k AS (SELECT CASE WHEN today >= CAST(julianday((year + 1) || '-01-20') - 2440587.5 AS INTEGER) THEN year + 1 ELSE year END AS s FROM world),
+         c AS (SELECT _row, name, age, date(born * 86400, 'unixepoch') AS b FROM coaches WHERE born IS NOT NULL AND (retired IS NULL OR retired = 0)),
+         x AS (SELECT c.*, k.s, k.s - CAST(strftime('%Y', c.b) AS INTEGER) - (strftime('%m-%d', c.b) > '08-31') AS want FROM c, k)
+         SELECT 'coach', name || ' (' || _row || ')', NULL, 'age ' || age || ', born ' || b || ', so ' || want || ' in the ' || s || ' season' FROM x WHERE age != want"#,
         needs: W,
-        why: r#"Every age shown comes from the date (final build lane 1, A1)."#,
+        why: r#"Every age shown comes from the date (final build lane 1, A1). A coach's whole-year age is his age on 31 August of the season it counts in, and coaches age a year on 20 January, before the football year turns (`staff::coach_age_season`). Retired coaches stop ageing, so they are left out."#,
     },
 ];
 
@@ -2017,7 +2025,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"State champions a year by state"#,
         kind: "bars",
         note: r#"Each state's champions in the world's last season against its real brackets a year (`hs_playoff_formats.csv`: its classes, doubled where Select and Non-Select split, plus private-association and non-public classes and an Open Division), biggest gaps first."#,
-        sql: r#"WITH rb AS (SELECT state, (CASE WHEN brackets LIKE 'equity:%' THEN (CASE WHEN COALESCE(substr(brackets, 8), '') = '' THEN 0 ELSE length(substr(brackets, 8)) - length(replace(substr(brackets, 8), ';', '')) + 1 END) WHEN brackets LIKE 'enrollment:%' THEN CAST(substr(brackets, 12) AS INTEGER) ELSE (CASE WHEN COALESCE(classes, '') = '' THEN 0 ELSE length(classes) - length(replace(classes, ';', '')) + 1 END) END)
+        sql: r#"WITH rb AS (SELECT state, (CASE WHEN brackets LIKE 'equity:%' THEN (CASE WHEN COALESCE(substr(brackets, 8), '') = '' THEN 0 ELSE length(substr(brackets, 8)) - length(replace(substr(brackets, 8), ';', '')) + 1 END) WHEN brackets LIKE 'enrollment:%' THEN MAX(CAST(substr(brackets, 12) AS INTEGER), (CASE WHEN COALESCE(classes, '') = '' THEN 0 ELSE length(classes) - length(replace(classes, ';', '')) + 1 END)) ELSE (CASE WHEN COALESCE(classes, '') = '' THEN 0 ELSE length(classes) - length(replace(classes, ';', '')) + 1 END) END)
          * (CASE WHEN private_rule = 'select' THEN 2 ELSE 1 END) + (CASE WHEN COALESCE(private_classes, '') = '' THEN 0 ELSE length(private_classes) - length(replace(private_classes, ';', '')) + 1 END)
          + (CASE WHEN private_rule LIKE 'nonpublic:%' THEN (CASE WHEN COALESCE(substr(private_rule, 11), '') = '' THEN 0 ELSE length(substr(private_rule, 11)) - length(replace(substr(private_rule, 11), ';', '')) + 1 END) WHEN private_rule LIKE 'private:%' THEN 1 ELSE 0 END)
          + (CASE WHEN COALESCE(open, '') <> '' THEN 1 ELSE 0 END) AS real
@@ -2025,7 +2033,7 @@ pub const PANELS: &[Panel] = &[
          WHERE s.year = (SELECT MAX(year) FROM high_schools__seasons) GROUP BY st.code)
          SELECT w.state AS label, w.n AS world, rb.real FROM w LEFT JOIN rb ON rb.state = w.state ORDER BY ABS(w.n - COALESCE(rb.real, w.n)) DESC, w.state"#,
         says: Some(
-            r#"WITH rb AS (SELECT state, (CASE WHEN brackets LIKE 'equity:%' THEN (CASE WHEN COALESCE(substr(brackets, 8), '') = '' THEN 0 ELSE length(substr(brackets, 8)) - length(replace(substr(brackets, 8), ';', '')) + 1 END) WHEN brackets LIKE 'enrollment:%' THEN CAST(substr(brackets, 12) AS INTEGER) ELSE (CASE WHEN COALESCE(classes, '') = '' THEN 0 ELSE length(classes) - length(replace(classes, ';', '')) + 1 END) END)
+            r#"WITH rb AS (SELECT state, (CASE WHEN brackets LIKE 'equity:%' THEN (CASE WHEN COALESCE(substr(brackets, 8), '') = '' THEN 0 ELSE length(substr(brackets, 8)) - length(replace(substr(brackets, 8), ';', '')) + 1 END) WHEN brackets LIKE 'enrollment:%' THEN MAX(CAST(substr(brackets, 12) AS INTEGER), (CASE WHEN COALESCE(classes, '') = '' THEN 0 ELSE length(classes) - length(replace(classes, ';', '')) + 1 END)) ELSE (CASE WHEN COALESCE(classes, '') = '' THEN 0 ELSE length(classes) - length(replace(classes, ';', '')) + 1 END) END)
          * (CASE WHEN private_rule = 'select' THEN 2 ELSE 1 END) + (CASE WHEN COALESCE(private_classes, '') = '' THEN 0 ELSE length(private_classes) - length(replace(private_classes, ';', '')) + 1 END)
          + (CASE WHEN private_rule LIKE 'nonpublic:%' THEN (CASE WHEN COALESCE(substr(private_rule, 11), '') = '' THEN 0 ELSE length(substr(private_rule, 11)) - length(replace(substr(private_rule, 11), ';', '')) + 1 END) WHEN private_rule LIKE 'private:%' THEN 1 ELSE 0 END)
          + (CASE WHEN COALESCE(open, '') <> '' THEN 1 ELSE 0 END) AS real
