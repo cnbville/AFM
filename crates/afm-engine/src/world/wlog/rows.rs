@@ -38,6 +38,9 @@ struct Static<'a> {
     class_of: i32,
     family: &'a crate::world::background::Family,
     childhood_team: Option<usize>,
+    /// Talented enough to be recruited as a regular: the camps never make
+    /// him a snapper (`Person::regular_talent`).
+    regular_talent: bool,
     looks: &'a crate::world::looks::Looks,
 }
 
@@ -54,6 +57,7 @@ impl<'a> Static<'a> {
             class_of: p.class_of,
             family: &p.family,
             childhood_team: p.childhood_team,
+            regular_talent: p.regular_talent,
             looks: &p.looks,
         }
     }
