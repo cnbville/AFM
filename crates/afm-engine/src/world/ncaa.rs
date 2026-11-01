@@ -138,6 +138,16 @@ pub fn whole_roster_limit(prog: &Program, season: i32) -> bool {
     season >= HOUSE_START && (prog.division == Division::FBS || (prog.division == Division::FCS && !opted_out))
 }
 
+/// Whether a scholarship player his coach cuts keeps his aid while he
+/// stays in school (minor bug 60). Athletic aid was a one-year award,
+/// renewed or not each year (multi-year awards allowed from 2012); from
+/// 2015-16 the power conferences' autonomy rule bars reducing or cancelling
+/// it for athletic reasons. Everywhere else it still ends with the school
+/// year, and Division III gives no athletic aid at all.
+pub fn aid_kept(prog: &Program, season: i32) -> bool {
+    season >= 2015 && prog.division == Division::FBS && prog.power_conference(season)
+}
+
 // --- NIL money (11.5, 11.7, 11.8) ---------------------------------------------------------
 
 /// The biggest NIL collectives raise about $20M a year: Ohio State's players
@@ -187,9 +197,13 @@ pub fn nil_budget(prog: &Program, year: i32) -> f64 {
 }
 
 /// The top of the real range for a starter at a major program (CBS via SI,
-/// 2024; `data/real-world/rates.json`): no NIL offer goes above it. Tight
-/// ends and specialists aren't in the data (proposed, not confirmed: tight
-/// ends at the receivers' top, specialists at twice their market rate).
+/// 2024; `data/real-world/rates.json`): the going rate's top, which most
+/// schools pay within. It is no rule: a rising program whose money ranks
+/// well above its standing buys the blue-chips it wants most past it
+/// (recruiting, `buying`), and you can promise any sum your budget holds
+/// (minor bug 61). Tight ends and specialists aren't in the data
+/// (proposed, not confirmed: tight ends at the receivers' top, specialists
+/// at twice their market rate).
 pub fn position_nil_max(pos: Position) -> f64 {
     match pos {
         Position::QB => 800_000.0,
@@ -469,7 +483,9 @@ fn ncaa_case(w: &mut World, j: usize) {
         let was_head = biggest.is_some_and(|b| b.head_coach == Some(c));
         w.coaches[c].show_cause = Some(year + years as i32);
         show_cause = Some((c, years, was_head));
-        if matches!(w.coaches[c].job, Some(job) if matches!(job.employer, Employer::College(_))) {
+        if matches!(w.coaches[c].job, Some(job) if matches!(job.employer, Employer::College(_)))
+            && !super::front_office::market::spared(w, c, "left under an NCAA show-cause order")
+        {
             super::staff::leave(w, c, "left under an NCAA show-cause order");
         }
     }
@@ -508,8 +524,9 @@ fn ncaa_case(w: &mut World, j: usize) {
         );
         w.programs[j].story.push((year, line));
         let text = format!(
-            "The NCAA penalizes {name} for a booster's payments to {} recruits (about ${:.0}K): {scholarships} scholarships over three seasons{ban_text}{coach_text}.",
+            "The NCAA penalizes {name} for a booster's payments to {} {} (about ${:.0}K): {scholarships} scholarships over three seasons{ban_text}{coach_text}.",
             paid.len(),
+            crate::world::folk::noun(paid.len(), "recruit"),
             money / 1e3
         );
         w.news.push(

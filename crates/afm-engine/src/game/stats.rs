@@ -148,6 +148,33 @@ pub struct PlayRecord {
     /// convert.
     #[serde(default)]
     pub fourth: Option<[f32; 4]>,
+    /// Timeouts left at the snap, home then away (None in games kept
+    /// before lane 9), for the win chance.
+    #[serde(default)]
+    pub timeouts: Option<[u8; 2]>,
+    /// The line chart (lane 9): your games' snaps only.
+    #[serde(default)]
+    pub line: Option<Box<super::chart::LineChart>>,
+    /// Where the ball sat at the snap (update 2, G6, the self-scout): 0 not
+    /// kept, 1 the left hash, 2 the right, 3 the middle, as the offense
+    /// looks downfield.
+    #[serde(default)]
+    pub hash: u8,
+    /// Snapped without a huddle (G1's tempo, for the Identity tab).
+    #[serde(default)]
+    pub hurry: bool,
+    /// The defense's package (G15): 0 not kept, 1 base, 2 nickel, 3 dime,
+    /// 4 goal line.
+    #[serde(default)]
+    pub dpers: u8,
+    /// A punt or a kickoff: the return team showed the look a fake or a
+    /// surprise onside kick waits for (G18).
+    #[serde(default)]
+    pub look: bool,
+    /// A field goal, extra point or punt with a bad snap (the world
+    /// reader's kicking counts).
+    #[serde(default)]
+    pub bad_snap: bool,
 }
 
 impl PlayRecord {
@@ -238,6 +265,13 @@ impl PlayRecord {
             officiating: None,
             throw_y: None,
             fourth: None,
+            timeouts: None,
+            line: None,
+            hash: 0,
+            hurry: false,
+            dpers: 0,
+            look: false,
+            bad_snap: false,
         }
     }
 
@@ -633,6 +667,10 @@ pub struct TeamStats {
     pub carries: u32,
     pub ints: u32,
     pub fumbles_lost: u32,
+    /// Game clock seconds with the ball, snap to snap (`drives.rs`):
+    /// `time_of_possession` counts only the seconds the ball was in play.
+    #[serde(default)]
+    pub clock_possession: f64,
 }
 
 /// The whole game: final score, team totals, every player's line, and the

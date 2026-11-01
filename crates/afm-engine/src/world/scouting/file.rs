@@ -71,6 +71,10 @@ pub struct Reader {
     pub say: f64,
     pub bias: Option<Bias>,
     pub home: u8,
+    /// An area scout's contacts (SK9): his region and how deep they run
+    /// (0-1): coaches, trainers and people around the programs who tell
+    /// him what they know.
+    pub contacts: Option<(u8, f64)>,
 }
 
 impl Reader {
@@ -89,6 +93,7 @@ impl Reader {
             say: 1.0,
             bias: None,
             home: 99,
+            contacts: None,
         }
     }
 
@@ -282,7 +287,8 @@ pub fn sees(kind: Kind, a: Attr) -> Option<f64> {
             Attr::FootballIq => Some(9.0),
             _ => None,
         },
-        Kind::Medical | Kind::Background | Kind::Social | Kind::Transcript => None,
+        // The numbers' reach depends on his snaps (`footage::numbers_see`).
+        Kind::Medical | Kind::Background | Kind::Social | Kind::Transcript | Kind::Numbers => None,
     }
 }
 
@@ -368,7 +374,7 @@ fn trait_sees(kind: Kind) -> (&'static [usize], f64) {
         Kind::Coach => (&[2, 3, 1], 3.4),
         Kind::Film | Kind::HsFilm | Kind::CollegeFilm | Kind::ProFilm | Kind::CrossCheck => (&[2, 3], 4.0),
         Kind::Transcript => (&[10], 4.0),
-        Kind::Combine | Kind::ProDay | Kind::Medical | Kind::Showcase => (&[], 9.0),
+        Kind::Combine | Kind::ProDay | Kind::Medical | Kind::Showcase | Kind::Numbers => (&[], 9.0),
     }
 }
 
@@ -475,6 +481,17 @@ pub struct Norms {
     pub conf_key: u64,
 }
 
+/// What a file's looks add to the tape (SK4, SK5): whether he has been
+/// seen against good players (an all-star week, the combine, a showcase),
+/// and whether all the staff has is his highlight reel.
+pub fn tape_flags(looks: &[Evidence]) -> (bool, bool) {
+    let seen_vs_good = looks.iter().any(|l| matches!(l.kind, Kind::AllStar | Kind::Combine | Kind::Showcase));
+    let reel_only = !looks.iter().any(|l| {
+        matches!(l.kind, Kind::Game | Kind::Practice | Kind::Call | Kind::Camp | Kind::Showcase | Kind::Workout)
+    }) && looks.iter().filter(|l| l.kind == Kind::HsFilm).count() < 3;
+    (seen_vs_good, reel_only)
+}
+
 /// The whole read of a file.
 #[derive(Clone, Debug)]
 pub struct FileRead {
@@ -487,6 +504,9 @@ pub struct FileRead {
     pub medical: MedicalRead,
     /// Each reader's own read of each attribute: (centre, sd) or None.
     pub per_reader: Vec<Vec<Option<(f64, f64)>>>,
+    /// Every attribute's centre the overall is read from (an unseen one at
+    /// the wide prior), for reading him at another position.
+    pub centres: crate::attributes::Attributes,
 }
 
 /// The year a look's noise belongs to: a new football year, a new draw.
@@ -536,6 +556,11 @@ pub fn read(
         .copied()
         .filter(|l| today.is_none_or(|t| l.date.add(readers[l.reader].lag(l.kind, p.player.id, l.date)) <= t))
         .collect();
+    // What his tape holds (SK1-SK6): how far film narrows him, the skills
+    // his role never tested, and the shared leans every staff reads.
+    let foot = super::footage::footage(w, i);
+    let film_f = super::footage::film_factor(&foot);
+    let (seen_vs_good, reel_only) = tape_flags(&looks);
     // Each reader's looks that see each attribute: count and best base sd.
     let n_r = readers.len();
     let mut count = vec![[0u8; ATTRIBUTE_COUNT]; n_r];
@@ -543,6 +568,7 @@ pub fn read(
     let mut chips = [0u8; ATTRIBUTE_COUNT];
     let mut meas: [Option<(f64, Kind)>; ATTRIBUTE_COUNT] = [None; ATTRIBUTE_COUNT];
     let mut year = [0u64; 64];
+    let (mut numbers, mut tape, mut all) = ([0u16; 64], [0u16; 64], [0u16; 64]);
     for l in &looks {
         if l.reader < 64 {
             year[l.reader] = year[l.reader].max(noise_year(l.date));
@@ -561,19 +587,52 @@ pub fn read(
             if readers[l.reader].link == Link::Event {
                 continue;
             }
-            if let Some(sd) = sees(l.kind, a) {
+            let seen = if l.kind == Kind::Numbers {
+                super::footage::numbers_see(&foot, a, pos).then(|| super::footage::analytics_sd(&foot))
+            } else if l.kind.tape() && !super::footage::role_seen(&foot, a, pos) {
+                None
+            } else {
+                sees(l.kind, a).map(|sd| if l.kind.tape() && l.kind != Kind::Game { sd * film_f } else { sd })
+            };
+            if let Some(sd) = seen {
                 count[l.reader][k] = count[l.reader][k].saturating_add(1);
                 best[l.reader][k] = best[l.reader][k].min(sd);
                 chips[k] |= l.kind.chip();
             }
         }
+        if l.reader < 64 {
+            if l.kind == Kind::Numbers {
+                numbers[l.reader] += 1;
+            } else if l.kind.tape() {
+                tape[l.reader] += 1;
+            }
+            all[l.reader] += 1;
+        }
     }
+    // Each reader's shared lean (SK2, SK4, SK5; SK6 for the numbers): by
+    // how much of his looks were tape.
+    let lean_of: Vec<f64> = readers
+        .iter()
+        .enumerate()
+        .map(|(r, rd)| {
+            if r >= 64 || all[r] == 0 || rd.link == Link::Event {
+                0.0
+            } else if numbers[r] == all[r] {
+                super::footage::analytics_tilt(&foot)
+            } else {
+                tape[r] as f64 / all[r] as f64 * super::footage::scout_tilt(&foot, rd.judge, seen_vs_good, reel_only)
+            }
+        })
+        .collect();
     // The staff's best test reader discounts hand times and testing camps.
     let test_eye = readers.iter().filter(|r| r.link != Link::Event).map(|r| r.athletic).fold(1.0f64, f64::max);
     let discount = clamp((test_eye - 6.0) / 12.0, 0.0, 1.0);
     // Pre-draft training (topic 4): a hard worker at a testing camp runs up
     // to about 0.05 s faster in the 40 without being a faster player.
-    let training = if matches!(p.stage, crate::world::Stage::Declared) {
+    // F19: only the prospects who chose a testing camp this winter.
+    let training = if matches!(p.stage, crate::world::Stage::Declared)
+        && w.scouting.predraft.has(p.player.id, super::predraft::TESTING_CAMP)
+    {
         2.0 * clamp((p.player.personality.work_ethic - 6.0) / 12.0, 0.0, 1.0) * (0.5 + 0.5 * p.bg.money.min(1.0))
     } else {
         0.0
@@ -607,6 +666,7 @@ pub fn read(
             let noise = key_normal(rd.key ^ 0x0153 ^ (k as u64) << 50 ^ yr << 40, id);
             let nn = n as f64;
             let mut v = sd * (LEAN * lean + NOISE * noise / nn.sqrt()) / MIX_SD;
+            v += lean_of[r] * if cat == Category::Physical { 0.5 } else { 1.0 };
             let tilt = 0.33 * sd;
             v += match rd.bias {
                 Some(Bias::Size) => tilt * norms.z_size,
@@ -706,7 +766,7 @@ pub fn read(
     };
     let traits = trait_reads(w, i, readers, &looks);
     let medical = medical_read(w, i, readers, &looks, medical_rating);
-    FileRead { attrs, traits, now: (now, now_sd), ceiling, medical, per_reader }
+    FileRead { attrs, traits, now: (now, now_sd), ceiling, medical, per_reader, centres }
 }
 
 pub fn cat_index(c: Category) -> usize {
@@ -727,6 +787,7 @@ pub fn cat_index(c: Category) -> usize {
 /// strong character read and network sees through more of the shading.
 fn trait_reads(w: &World, i: usize, readers: &[Reader], looks: &[Evidence]) -> Vec<TraitRead> {
     let p = &w.people[i];
+    let region = p.college.map(|c| crate::world::pro::scouts::region_of(w.programs[c].state));
     let id = p.player.id as u64;
     let mut out = vec![TraitRead::default(); TRAITS];
     for (t, out_t) in out.iter_mut().enumerate() {
@@ -741,10 +802,20 @@ fn trait_reads(w: &World, i: usize, readers: &[Reader], looks: &[Evidence]) -> V
                 continue;
             }
             let rd = &readers[l.reader];
-            let sd = base * sharp(rd.character);
+            // SK9: in his own region an area scout's people talk to him.
+            let known = match rd.contacts {
+                Some((r, c))
+                    if Some(r) == region
+                        && matches!(l.kind, Kind::Background | Kind::Call | Kind::School | Kind::OldStaff) =>
+                {
+                    c
+                }
+                _ => 0.0,
+            };
+            let sd = base * sharp(rd.character) * (1.0 - 0.35 * known);
             let lean = key_normal(rd.key ^ 0xC4A2 ^ (t as u64) << 48, id);
             let noise = key_normal(rd.key ^ 0xC4A3 ^ (t as u64) << 48 ^ (l.date.0 as u64) << 20, id);
-            let see_through = clamp((rd.character + rd.network - 16.0) / 24.0, 0.0, 0.8);
+            let see_through = clamp((rd.character + rd.network - 16.0) / 24.0 + 0.2 * known, 0.0, 0.85);
             let shade = kind_shade(l.kind).tilt() * (1.0 - see_through) * good;
             let v = sd * (LEAN * lean + NOISE * noise) / MIX_SD + shade;
             let var = sd * sd;
@@ -778,13 +849,11 @@ fn medical_read(w: &World, i: usize, readers: &[Reader], looks: &[Evidence], rat
         matches!(l.kind, Kind::School | Kind::Call | Kind::OldStaff | Kind::Background | Kind::Official | Kind::Combine)
     });
     let mut notes = Vec::new();
-    let (mut majors, mut moderates, mut minors) = (0u32, 0u32, 0u32);
+    let mut minors = 0u32;
     for h in &p.player.history {
         let what = if h.events.has(E::MajorInjury) {
-            majors += 1;
             Some("a major injury")
         } else if h.events.has(E::ModerateInjury) {
-            moderates += 1;
             Some("an injury")
         } else if h.events.has(E::MinorInjury) {
             minors += 1;
@@ -794,7 +863,11 @@ fn medical_read(w: &World, i: usize, readers: &[Reader], looks: &[Evidence], rat
         };
         if let Some(what) = what {
             let lasting = if h.events.has(E::LostBurst) { "; he never got all of his burst back" } else { "" };
-            let missed = if h.games_missed > 0 { format!(", missed {} games", h.games_missed) } else { String::new() };
+            let missed = if h.games_missed > 0 {
+                format!(", missed {} {}", h.games_missed, crate::world::folk::noun(h.games_missed, "game"))
+            } else {
+                String::new()
+            };
             notes.push(format!("At {}: {what}{missed}{lasting}.", h.age));
         }
     }
@@ -806,8 +879,7 @@ fn medical_read(w: &World, i: usize, readers: &[Reader], looks: &[Evidence], rat
     let lean = key_normal(0x3ED1 ^ (rating as u64) << 8 ^ readers.len() as u64, id);
     let prone = (p.player.injury_proneness - 10.0) / 5.0;
     let long = p.player.longevity / 2.0;
-    let truth = 0.45 * prone + 0.8 * majors as f64 + 0.25 * moderates as f64 - 0.2 * long + 0.3 * p.player.wear;
-    let concern = truth + sd * lean;
+    let concern = medical_truth(p) + sd * lean;
     if examined {
         if prone + 0.6 * lean >= 0.8 {
             let part = match p.player.position {
@@ -839,6 +911,25 @@ fn medical_read(w: &World, i: usize, readers: &[Reader], looks: &[Evidence], rat
         0
     };
     MedicalRead { grade, examined, concern, notes }
+}
+
+/// What a doctor would find: proneness, the injuries on record, his
+/// longevity and the wear already on him, on the medical grades' scale
+/// (0.6 a minor concern, 1.4 major, 2.4 a failed physical). Hidden: every
+/// read of it carries its doctors' misread.
+pub fn medical_truth(p: &crate::world::Person) -> f64 {
+    use crate::player::DevelopmentEvent as E;
+    let (mut majors, mut moderates) = (0u32, 0u32);
+    for h in &p.player.history {
+        if h.events.has(E::MajorInjury) {
+            majors += 1;
+        } else if h.events.has(E::ModerateInjury) {
+            moderates += 1;
+        }
+    }
+    let prone = (p.player.injury_proneness - 10.0) / 5.0;
+    let long = p.player.longevity / 2.0;
+    0.45 * prone + 0.8 * majors as f64 + 0.25 * moderates as f64 - 0.2 * long + 0.3 * p.player.wear
 }
 
 pub fn medical_words(g: u8) -> &'static str {

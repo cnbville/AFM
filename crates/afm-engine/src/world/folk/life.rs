@@ -216,6 +216,24 @@ fn chance(e: Event, age: u32, pro: bool) -> f64 {
     }
 }
 
+/// Whether his story allows the event (minor bug 116: weddings while
+/// married, a second youth camp, the same event twice at one age): a
+/// wedding only while single and a divorce only while married (his story
+/// keeps both), one youth camp of his own, and no event twice at one age.
+fn can_happen(notes: &[String], e: Event, line: &str) -> bool {
+    let wed = format!(" he {}.", Event::Wedding.words());
+    let split = format!(" he {}.", Event::Divorce.words());
+    let married =
+        notes.iter().rev().find(|n| n.ends_with(&wed) || n.ends_with(&split)).is_some_and(|n| n.ends_with(&wed));
+    let camp = format!(" he {}.", Event::Community.words());
+    match e {
+        Event::Wedding if married => false,
+        Event::Divorce if !married => false,
+        Event::Community if notes.iter().any(|n| n.ends_with(&camp)) => false,
+        _ => !notes.iter().any(|n| n == line),
+    }
+}
+
 /// Weekly: life happens to every pro, and to your own players at every level.
 fn players_week(w: &mut World, d: Date) {
     let in_season_nfl = d > w.dates.nfl_kickoff && d <= w.dates.super_bowl;
@@ -254,6 +272,10 @@ fn players_week(w: &mut World, d: Date) {
     }
     let year = w.year;
     for (i, e) in hits {
+        let line = format!("At {} he {}.", w.people[i].player.age, e.words());
+        if !can_happen(&w.people[i].notes, e, &line) {
+            continue;
+        }
         let id = w.people[i].player.id;
         let st = w.people[i].bg.stability;
         let swing = (1.0 + 0.05 * (10.0 - st) as f32).clamp(0.6, 1.5);
@@ -264,8 +286,7 @@ fn players_week(w: &mut World, d: Date) {
         } else if matches!(e, Event::Wedding | Event::Birth) {
             p.bg.stability = (p.bg.stability + 0.4).min(20.0);
         }
-        let age = p.player.age;
-        p.note(format!("At {age} he {}.", e.words()));
+        p.note(line);
         // A player who trusts you tells you (topic 6).
         let told = p.trust >= 0.55;
         w.folk.life.events.push(Happening { id, event: e, date: d, told });
@@ -292,9 +313,15 @@ fn players_week(w: &mut World, d: Date) {
         }
     }
     let today = w.today;
+    if w.logging() {
+        w.log_dropped("life events", w.folk.life.events.iter().filter(|e| e.date.days_to(today) >= 150));
+    }
     w.folk.life.events.retain(|e| e.date.days_to(today) < 150);
     if w.folk.life.events.len() > 1500 {
         let n = w.folk.life.events.len() - 1500;
+        if w.logging() {
+            w.log_dropped("life events", w.folk.life.events[..n].iter());
+        }
         w.folk.life.events.drain(..n);
     }
 }
@@ -366,6 +393,9 @@ fn coaches_week(w: &mut World, d: Date) {
         }
     }
     let today = w.today;
+    if w.logging() {
+        w.log_dropped("health", w.folk.life.health.iter().filter(|e| e.date.days_to(today) >= 400));
+    }
     w.folk.life.health.retain(|e| e.date.days_to(today) < 400);
 }
 
@@ -447,7 +477,7 @@ fn opinion_open(w: &mut World, s: &mut Scene) {
     let trainer = super::cast::get(w, super::cast::CastRef::new(team, super::cast::Role::Trainer, 0));
     s.who.push(Who::Cast(trainer.r.token()));
     let estimate = if weeks > 0 {
-        format!("The team's estimate is {weeks} weeks.")
+        format!("The team's estimate is {weeks} {}.", super::noun(weeks, "week"))
     } else {
         "The team's doctors want him to have the surgery now.".into()
     };
@@ -499,7 +529,7 @@ fn opinion_answer(w: &mut World, s: &mut Scene, code: u32) {
                 0
             };
             if let Some(c) = w.people[i].pro.as_mut() {
-                c.out_weeks = (c.out_weeks as i32 + change).max(1) as u32;
+                c.out_for((c.out_days as i32 + 7 * change).max(1) as u32);
             }
             s.outcome.push(match change {
                 -1 => format!(
@@ -523,7 +553,7 @@ fn opinion_answer(w: &mut World, s: &mut Scene, code: u32) {
                 s.outcome.push(format!("{} refused to rush {name}. The timeline holds.", trainer.name));
             } else {
                 if let Some(c) = w.people[i].pro.as_mut() {
-                    c.out_weeks = (c.out_weeks * 3 / 4).max(1);
+                    c.out_for((c.out_days * 3 / 4).max(1));
                 }
                 w.folk.rushed.push((id, w.today));
                 let comp = w.people[i].player.personality.competitiveness;
@@ -816,12 +846,16 @@ fn rushed_week(w: &mut World, d: Date) {
         }
         let weeks = 2 + (super::roll(w, 0x8E1B ^ d.0 as u64, id as u64) * 5.0) as u32;
         if let Some(c) = w.people[i].pro.as_mut() {
-            c.out_weeks = weeks;
+            c.out_for(7 * weeks);
+            w.hurt_pros.0.push(w.people[i].player.id);
         }
         w.folk.rushed.retain(|x| x.0 != id);
         let name = w.people[i].name.clone();
         let age = w.people[i].row_age();
-        w.people[i].note(format!("At {age} he was hurt again after coming back early ({weeks} weeks)."));
+        w.people[i].note(format!(
+            "At {age} he was hurt again after coming back early ({weeks} {}).",
+            super::noun(weeks, "week")
+        ));
         talks::mood_event(w, id, Reason::Talk, -0.06);
         let link = player_link(w, i);
         super::post_mine(
@@ -836,7 +870,7 @@ fn rushed_week(w: &mut World, d: Date) {
             w,
             "injury",
             "Trainer".into(),
-            format!("{link} re-injured the same area. Out {weeks} weeks."),
+            format!("{link} re-injured the same area. Out {weeks} {}.", super::noun(weeks, "week")),
             None,
         );
     }

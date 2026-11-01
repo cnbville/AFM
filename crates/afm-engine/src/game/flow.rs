@@ -24,6 +24,9 @@ use crate::positions::Position;
 use crate::rng::{Rng, clamp};
 use crate::spots::{self, Spot, best_order, fill_in};
 
+/// Who lines up where on a snap: the offense by role, the defense by slot.
+type Lineup = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>);
+
 /// Seconds from the end of a play until the ball is spotted (and the chains
 /// set) and the referee's ready signal starts a stopped clock again
 /// (proposed, not confirmed).
@@ -122,6 +125,10 @@ pub struct GameResult {
     /// play number, team, what happened).
     #[serde(default)]
     pub log: Vec<(u32, usize, String)>,
+    /// The talks (dialogue D4-D6): each side's pregame and halftime talk and
+    /// every sideline word.
+    #[serde(default)]
+    pub talks: super::talk::Record,
 }
 
 struct Side<'a> {
@@ -142,6 +149,47 @@ struct Side<'a> {
     /// Per player, the spots he knows (bits of `Spot`): his listed spots,
     /// and the spot he worked at in this week's practice (fix list 3.3).
     familiar: Vec<u32>,
+    /// Snaps played this game, and the most he may play (update 2, G17:
+    /// a snap limit back from injury; u16::MAX none).
+    snaps: Vec<u16>,
+    limit: Vec<u16>,
+    /// Kept to base downs this week (G14), and the line rotation's role
+    /// (G15: 1 the whole series, 2 every other series, 3 rush downs only).
+    base_only: Vec<bool>,
+    rot: Vec<u8>,
+    /// This snap is a passing down, and the other team's drives so far (the
+    /// defense's series).
+    passing: bool,
+    series: u16,
+    /// The plan's lines that have fired (G20, bits by kind) and the tricks
+    /// used (1 a fake punt, 2 a surprise onside kick).
+    fired: u8,
+    tricks: u8,
+    /// The quarterback's checks and the "if" lines this game (G19, G20):
+    /// your plan's, else what this staff reads from the other team's film.
+    checks: u8,
+    ifs: Vec<u8>,
+    /// The call sheets this game: your week's, else what this staff drafts
+    /// at kickoff (`world::plans::kickoff_card`).
+    card: super::sheet::Card,
+    /// Script calls used this game, offense then defense (G11): a script
+    /// call counts once it is run.
+    scripted: [usize; 2],
+    /// Each "every other series" man's turn (G15): they split the series
+    /// by their order on the board, the first playing the first series.
+    turn: Vec<u8>,
+    /// The scrimmage lineup is being picked (the week's plan sits men only
+    /// there, never on a kick unit), and this side is on defense (the line
+    /// rotation is a defense's).
+    scrimmage: bool,
+    defending: bool,
+    /// What the talks do to each player on the field (dialogue D4-D6),
+    /// fading snap by snap.
+    pulse: Vec<super::talk::Pulse>,
+    /// Small mistakes today (drops, missed tackles, small fouls, busts),
+    /// and the words each player has had.
+    small: Vec<u8>,
+    worded: Vec<u8>,
 }
 
 impl<'a> Side<'a> {
@@ -187,7 +235,65 @@ impl<'a> Side<'a> {
             benched: vec![false; n],
             frozen: false,
             familiar,
+            snaps: vec![0; n],
+            base_only: team.players.iter().map(|p| team.prep.base_only.contains(&p.id)).collect(),
+            rot: team
+                .players
+                .iter()
+                .map(|p| team.prep.rotation.iter().find(|r| r.0 == p.id).map_or(0, |r| r.1))
+                .collect(),
+            passing: false,
+            series: 0,
+            fired: 0,
+            tricks: 0,
+            checks: team.prep.checks,
+            ifs: team.prep.ifs.clone(),
+            card: super::sheet::Card::of(&team.prep),
+            scripted: [0, 0],
+            turn: team
+                .players
+                .iter()
+                .map(|p| {
+                    let order = team.prep.rotation.iter().filter(|r| r.1 == 2).position(|r| r.0 == p.id);
+                    order.map_or(0, |k| (k % 2) as u8)
+                })
+                .collect(),
+            scrimmage: false,
+            defending: false,
+            pulse: vec![super::talk::Pulse::default(); n],
+            small: vec![0; n],
+            worded: vec![0; n],
+            limit: team
+                .players
+                .iter()
+                .map(|p| team.prep.limits.iter().find(|l| l.0 == p.id).map_or(u16::MAX, |l| l.1))
+                .collect(),
         }
+    }
+
+    /// He has played his snap limit (G17): he stays on the sideline.
+    fn spent(&self, i: usize) -> bool {
+        self.snaps[i] >= self.limit[i]
+    }
+
+    /// He sits this snap by the week's plan: his snap limit; at scrimmage,
+    /// base downs only on a passing down, and on defense the line rotation
+    /// (G14, G15, G17). The series is the other team's drive, the first
+    /// one 1: an "every other series" man plays his turn's series.
+    fn held(&self, i: usize) -> bool {
+        if self.spent(i) {
+            return true;
+        }
+        if !self.scrimmage {
+            return false;
+        }
+        (self.base_only[i] && self.passing)
+            || (self.defending
+                && match self.rot[i] {
+                    2 => (self.series.max(1) - 1 + self.turn[i] as u16) % 2 == 1,
+                    3 => !self.passing,
+                    _ => false,
+                })
     }
 
     /// A kick unit's `n` men: the returner or the kicker first, then the
@@ -279,7 +385,7 @@ impl<'a> Side<'a> {
     /// one who plays it best.
     fn pick_fb(&self, used: &mut Vec<usize>) -> Option<usize> {
         let th = if self.frozen { 0.0 } else { self.threshold(Position::RB) };
-        let ok = |i: &usize| !self.out[*i] && !used.contains(i) && !self.benched[*i];
+        let ok = |i: &usize| !self.out[*i] && !used.contains(i) && !self.benched[*i] && !self.held(*i);
         let cands: Vec<usize> = self
             .depth
             .list(Position::RB)
@@ -361,15 +467,20 @@ impl<'a> Side<'a> {
         let Some(ids) = self.team.prep.package(b) else { return self.pick(pos, n, used) };
         let slots = crate::training::seat::Board::ALL.get(b as usize).map_or(&[][..], |x| x.slots());
         let mut out = Vec::new();
+        // Package depth (G15): the slot's second and third man when the
+        // first can't go.
+        let backs = self.team.prep.backups.iter().find(|(x, _)| *x == b).map_or(&[][..], |(_, v)| v.as_slice());
         for (k, &id) in ids.iter().enumerate() {
             if out.len() >= n || slots.get(k).is_none_or(|s| s.1 != pos) {
                 continue;
             }
-            if let Some(i) = self.team.players.iter().position(|p| p.id == id)
-                && !self.out[i]
-                && !self.benched[i]
-                && !used.contains(&i)
-            {
+            let first = [id, backs.get(2 * k).copied().unwrap_or(0), backs.get(2 * k + 1).copied().unwrap_or(0)];
+            let pick = first.into_iter().filter(|&id| id != 0).find_map(|id| {
+                self.team.players.iter().position(|p| p.id == id).filter(|&i| {
+                    !self.out[i] && !self.benched[i] && !self.held(i) && !used.contains(&i) && !out.contains(&i)
+                })
+            });
+            if let Some(i) = pick {
                 out.push(i);
                 used.push(i);
             }
@@ -380,13 +491,44 @@ impl<'a> Side<'a> {
         out
     }
 
+    /// The punt team's gunners (speed update S10): the two backups who play
+    /// fastest and get off a jam best, receivers, corners or safeties (the
+    /// burner among them), corners from the cover list when short.
+    fn gunners(&self, used: &mut Vec<usize>) -> Vec<usize> {
+        let score = |i: usize| {
+            let p = &self.team.players[i];
+            0.5 * super::roster::deep_speed(p) + 0.3 * p.a(Attr::Release) + 0.2 * p.a(Attr::Strength)
+        };
+        let mut pool: Vec<usize> = [Position::WR, Position::CB, Position::S]
+            .iter()
+            .flat_map(|&pos| self.depth.list(pos).iter().copied())
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i) && !self.starts(i))
+            .collect();
+        pool.sort_by(|&a, &b| score(b).total_cmp(&score(a)));
+        pool.dedup();
+        let mut out: Vec<usize> = pool.into_iter().take(2).collect();
+        used.extend(out.iter().copied());
+        if out.len() < 2 {
+            out.extend(self.cover_pick(Position::CB, 2 - out.len(), used));
+        }
+        out
+    }
+
+    /// How much the offense leans on its burner, while he can go (S10).
+    fn burner_lean(&self) -> f64 {
+        match self.depth.burner {
+            Some(b) if !self.out[b] && !self.benched[b] => self.depth.burner_lean,
+            _ => 0.0,
+        }
+    }
+
     fn cover_pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
         let list: Vec<usize> = self
             .depth
             .list(pos)
             .iter()
             .copied()
-            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i])
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i))
             .collect();
         let (starters, backups): (Vec<usize>, Vec<usize>) = list.iter().partition(|&&i| self.starts(i));
         let out: Vec<usize> = backups.into_iter().chain(starters).take(n).collect();
@@ -403,7 +545,7 @@ impl<'a> Side<'a> {
             .list(pos)
             .iter()
             .copied()
-            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i])
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i))
             .collect();
         let th = if self.frozen { 0.0 } else { self.threshold(pos) };
         let mut out = Vec::new();
@@ -412,7 +554,8 @@ impl<'a> Side<'a> {
             if out.len() == n {
                 break;
             }
-            if self.energy[i] < th {
+            // The rotation's whole-series men stay on (G15).
+            if self.energy[i] < th && self.rot[i] != 1 {
                 // The more worn he is, the bigger the drop a coach accepts to
                 // spell him, so a star back or rusher still comes out for a
                 // breather. It used to be a flat 9 points: a star never came
@@ -455,7 +598,12 @@ impl<'a> Side<'a> {
                     .filter(|&i| free(i) && f(i))
                     .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)))
             };
-            let any = best(&|i| !self.benched[i] && in_group(i))
+            // The week's plan holds until the group runs out: a man at his
+            // snap limit, kept to base downs or resting his series comes
+            // back only before anyone from outside the group.
+            let any = best(&|i| !self.benched[i] && !self.held(i) && in_group(i))
+                .or_else(|| self.depth.list(pos).iter().rev().copied().find(|&i| free(i) && !self.held(i)))
+                .or_else(|| best(&|i| !self.benched[i] && in_group(i)))
                 .or_else(|| self.depth.list(pos).iter().rev().copied().find(|&i| free(i)))
                 .or_else(|| best(&in_group))
                 .or_else(|| best(&|i| !self.benched[i]))
@@ -554,6 +702,10 @@ enum Next {
     Scrimmage,
 }
 
+/// A fake punt's two units on the field, by their scrimmage roles, and
+/// whether the return unit showed the look (G18).
+type FakeUnits = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>, bool);
+
 struct Game<'a> {
     s: &'a GameSetup<'a>,
     sides: [Side<'a>; 2],
@@ -628,6 +780,18 @@ struct Game<'a> {
     /// This snap must be played, not punted or kicked: the other leagues'
     /// fourth-down play in place of an onside kick (X7).
     must_go: bool,
+    /// The defense's call this snap came off its script (G11).
+    def_script: bool,
+    /// The return team showed the look on this punt (G18), for its record.
+    kick_look: bool,
+    /// A fake punt's two units on the field and the look (G18): the next
+    /// scrimmage snap is played with them.
+    fake: Option<FakeUnits>,
+    /// Players waiting for a sideline word (dialogue D6), the plays read
+    /// for mistakes so far, and this drive's offensive fouls (team, id).
+    due: Vec<super::talk::WordDue>,
+    scanned: usize,
+    drive_fouls: Vec<(usize, u32)>,
 }
 
 /// Play a game.
@@ -652,6 +816,44 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
     let mut prep = Rng::new(((setup.seed >> 17) as u32) ^ (setup.seed as u32).rotate_left(5) ^ 0x3C6E_F372);
     sides[0].mem.prepare(&as_, &setup.away.film, &hs, &mut prep);
     sides[1].mem.prepare(&hs, &setup.home.film, &as_, &mut prep);
+    // The quarterback's checks and the "if" lines (G19, G20): each staff
+    // reads them off the other team's film, the same way for every team;
+    // your week's plan sets yours.
+    for (k, side) in sides.iter_mut().enumerate() {
+        if !side.team.prep.planned {
+            let film = if k == 0 { &setup.away.film } else { &setup.home.film };
+            side.checks = staff_checks(film);
+            side.ifs = staff_ifs(film);
+        }
+    }
+    // The call sheets (update 2, G7-G13): a team whose week gave it none
+    // has its coordinators draft one now, from the other team's film and
+    // the tells in its own, the same draft as yours. Its own key, so the
+    // game's stream is the one it was.
+    for (k, side) in sides.iter_mut().enumerate() {
+        if side.team.prep.planned || !side.card.is_empty() || !super::sheet::drafts_at_kickoff(k, setup.rules.level) {
+            continue;
+        }
+        let (opp, own) = if k == 0 { (setup.away, setup.home) } else { (setup.home, setup.away) };
+        let qb_run = side
+            .depth
+            .list(Position::QB)
+            .iter()
+            .copied()
+            .find(|&i| !side.out[i])
+            .map_or(0.0, |i| qb_run(&side.team.players[i]));
+        let inp = crate::world::plans::DraftIn {
+            film: opp.film.clone(),
+            level: setup.rules.level,
+            two_from: setup.rules.two_point_from,
+            qb_run,
+            seed: ((setup.seed >> 29) as u32) ^ (setup.seed as u32).rotate_left(11) ^ 0x51EE_7000 ^ k as u32,
+            favs: Vec::new(),
+            tells: crate::world::plans::film_tells(&own.film),
+            designs: Vec::new(),
+        };
+        side.card = crate::world::plans::kickoff_card(side.team, &inp);
+    }
     let plans: Vec<calling::Plan> = (0..2)
         .map(|k| {
             let (me, them) = (&sides[k], &sides[1 - k]);
@@ -666,11 +868,33 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             let mut rushers = rated(them, Position::EDGE, 2, Spot::EDGE);
             rushers.extend(rated(them, Position::DT, 2, Spot::DT));
             let our_ol: Vec<f64> = rated(me, Position::OT, 2, Spot::LT).iter().map(|x| x.1).collect();
-            calling::make_plan(&me.team.staff, &their_cbs, &their_wrs, &our_cbs, qb_run, &rushers, &our_ol, &mut prep)
+            // Their receivers' and our corners' deep speed (S10a-S10d): their
+            // top three and their burner against our top two.
+            let deep = |side: &Side, i: usize| super::roster::deep_speed(&side.team.players[i]);
+            let mut their_deep: Vec<(usize, f64)> = their_wrs.iter().map(|&(i, _)| (i, deep(them, i))).collect();
+            if let Some(b) = them.depth.burner.filter(|b| !their_deep.iter().any(|x| x.0 == *b)) {
+                their_deep.push((b, deep(them, b)));
+            }
+            let our_deep: Vec<f64> = me.depth.list(Position::CB).iter().take(2).map(|&i| deep(me, i)).collect();
+            calling::make_plan(
+                &me.team.staff,
+                &their_cbs,
+                &their_wrs,
+                &our_cbs,
+                qb_run,
+                &rushers,
+                &our_ol,
+                (&their_deep, &our_deep),
+                &mut prep,
+            )
         })
         .collect();
     sides[0].mem.plan = plans[0];
     sides[1].mem.plan = plans[1];
+    // Your answers to their personnel groups this week (update 2, G16).
+    for side in sides.iter_mut() {
+        side.mem.plan.answers = side.team.prep.answers;
+    }
     // Moves against the other team's habits (tendencies topic 4.4), from
     // what each staff's film study reads of them. Own stream, so the plans
     // above keep their draws.
@@ -760,6 +984,12 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         toss_rng: Rng::new(live::toss_seed(setup.seed)),
         trying: false,
         must_go: false,
+        def_script: false,
+        kick_look: false,
+        fake: None,
+        due: Vec::new(),
+        scanned: 0,
+        drive_fouls: Vec::new(),
     };
     if let Some(c) = g.ctl.as_mut() {
         c.asked = 0;
@@ -773,6 +1003,12 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             g.apply_plan(team, plan);
         }
         g.tempo = tempo;
+    }
+    // The pregame talks (dialogue D4): yours, or each head coach's own.
+    let mine = g.ctl.as_ref().and_then(|c| c.prep.talk.map(|p| (c.team, p)));
+    for k in 0..2 {
+        let pick = mine.filter(|m| m.0 == k).map(|m| m.1);
+        g.room_talk(k, super::talk::Moment::Pregame, pick);
     }
     g.eye = live::draw_eye(&mut g.refs);
     g.challenges = [g.replay.challenges; 2];
@@ -820,6 +1056,8 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             }
         }
     }
+    // Red zone trips and the clock each side held the ball (counts only).
+    g.stats.count_drives();
     g.res.stats = g.stats;
     let mut ctl = g.ctl.take().unwrap_or_default();
     if !g.paused {
@@ -838,6 +1076,11 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
 impl<'a> Game<'a> {
     fn rules(&self) -> &Rules {
         &self.s.rules
+    }
+
+    /// Below the NFL: the college expected-points table (update 3, F30).
+    fn below_nfl(&self) -> bool {
+        self.rules().level != Level::NFL
     }
 
     /// Late in a half, when the clock waits for the snap after a stoppage:
@@ -911,6 +1154,7 @@ impl<'a> Game<'a> {
             def_concede: self.sides[1 - o].coach.read.concede,
             college: self.rules().level != Level::NFL,
             lean: self.rules().code.pass_lean,
+            weather: self.weather_lean(),
         }
     }
 
@@ -926,6 +1170,7 @@ impl<'a> Game<'a> {
             return;
         }
         self.reviewed = Some(tag);
+        self.plan_lines();
         let habits = garbage::habits(self.rules().level);
         let len = 4.0 * self.rules().quarter;
         let left = self.game_left();
@@ -957,6 +1202,260 @@ impl<'a> Game<'a> {
         }
     }
 
+    /// Your four-minute plan when this is your team's offense (G4).
+    fn four_minute_rule(&self, o: usize) -> Option<live::FourMinute> {
+        self.ctl.as_ref().filter(|c| c.team == o).map(|c| c.prep.four).filter(|f| *f != live::FourMinute::Staff)
+    }
+
+    /// Your timeout rule (G4): whether a timeout beats the play clock
+    /// instead of a delay of game. Keep two for the end spends only the
+    /// third, keep one the second too; use them freely spends any but in
+    /// the last two minutes of a half. The staff's call takes the five.
+    fn timeout_saves_delay(&self, o: usize) -> bool {
+        let Some(rule) = self.ctl.as_ref().filter(|c| c.team == o).map(|c| c.prep.timeouts) else { return false };
+        let t = self.sides[o].timeouts;
+        let late = self.half_left() <= 120.0;
+        match rule {
+            live::TimeoutRule::Staff => false,
+            live::TimeoutRule::KeepTwo => t >= 3 && !late,
+            live::TimeoutRule::KeepOne => t >= 2 && !late,
+            live::TimeoutRule::Free => t >= 1 && !late,
+        }
+    }
+
+    /// The return team's habits on a kick, with your plan's return rule
+    /// (G18): bring it out, or take the touchback and the fair catch.
+    fn return_mood(&self, kicking: usize, rec: usize, punt: bool) -> super::sim::Mood {
+        let mut m = self.mood(kicking);
+        let t = self.sides[rec].team.prep.teams;
+        let rule = if punt { t.pret } else { t.ret };
+        m.gamble[1] += match rule {
+            1 => 2.5,
+            2 => -4.0,
+            _ => 0.0,
+        };
+        m
+    }
+
+    /// The return team's look on this kick (G18), from the men on the
+    /// field: on a punt, set up for the return with nobody home (a returner
+    /// who wants the ball gets returns set up for him); on a kickoff, the
+    /// front line turning to run before the ball is kicked. Men short on
+    /// discipline for their level leave early more often (proposed, not
+    /// confirmed: about one punt in seven and one kickoff in fifteen from
+    /// an average unit). Drawn from its own key, so the game's stream stays
+    /// as it was; the play log keeps it for the film.
+    fn return_look(&self, rec: usize, punt: bool) -> bool {
+        use crate::tendencies::{MID, Tend};
+        let side = &self.sides[rec];
+        let ps = &side.team.players;
+        let (ret, front) = if punt {
+            let mut used = vec![side.depth.punt_returner];
+            let mut front = side.cover_pick(Position::LB, 3, &mut used);
+            front.extend(side.cover_pick(Position::DT, 2, &mut used));
+            front.extend(side.cover_pick(Position::EDGE, 2, &mut used));
+            (Some(side.depth.punt_returner), front)
+        } else {
+            let on = side.kick_unit(true, self.rules().code.players as usize);
+            (on.first().copied(), on.into_iter().skip(1).take(5).collect())
+        };
+        let ret = ret.filter(|&i| i < ps.len()).map_or(MID, |i| ps[i].tend.get(Tend::ReturnRisk));
+        let norm = super::rules::trait_norm(self.s.rules.level, Attr::Discipline);
+        let disc = if front.is_empty() {
+            norm
+        } else {
+            front.iter().map(|&i| ps[i].a(Attr::Discipline)).sum::<f64>() / front.len() as f64
+        };
+        let loose = clamp(1.0 + (norm - disc) / 20.0, 0.5, 1.6);
+        let p = if punt { clamp(0.15 * (ret / MID) * loose, 0.04, 0.35) } else { clamp(0.07 * loose, 0.02, 0.16) };
+        crate::world::season::key_uniform(self.s.seed ^ 0x4C00_C0DE, self.n as u64 * 2 + punt as u64) < p
+    }
+
+    /// Whether the kicking team's staff sees the look and makes the call:
+    /// its film study of the return team (the week's tape) sets how ready
+    /// it is (proposed, not confirmed: half to nineteen in twenty).
+    fn sees_look(&self, team: usize) -> bool {
+        let study = self.sides[team].team.staff.film_study;
+        crate::world::season::key_uniform(self.s.seed ^ 0x5EE5_100C, self.n as u64)
+            < clamp(0.45 + 0.025 * study, 0.5, 0.95)
+    }
+
+    /// A fake punt (G18): fourth and four or less between your own 25 and
+    /// their 40, not protecting a late lead; only when their return team
+    /// shows the look and your staff reads it (`return_look`), or called at
+    /// the first chance. Once a game.
+    fn fake_punt(&mut self, o: usize, look: bool) -> bool {
+        let rule = self.sides[o].team.prep.teams.fake;
+        if rule == 0 || self.sides[o].tricks & 1 != 0 || self.ot {
+            return false;
+        }
+        let yl = goal() - self.x;
+        let protecting = self.quarter >= 4 && self.diff(o) > 0;
+        if self.togo > 4.0 || !(40.0..=75.0).contains(&yl) || protecting {
+            return false;
+        }
+        let go = rule == 2 || (look && self.sees_look(o));
+        if go {
+            self.sides[o].tricks |= 1;
+            self.log(o, "Fake punt: their return team left the middle open.".to_string());
+        }
+        go
+    }
+
+    /// A surprise onside kick (G18): when their front line bails early and
+    /// your staff reads it (`return_look`); called, at the first kickoff
+    /// after the opening one. Once a game, never in overtime, and only
+    /// where the rules let it be kicked.
+    fn surprise_onside(&mut self, team: usize, look: bool) -> bool {
+        let rule = self.sides[team].team.prep.teams.onside;
+        if rule == 0 || self.sides[team].tricks & 2 != 0 || self.ot || !self.onside_allowed(team) {
+            return false;
+        }
+        if self.sides[team].coach.read.ease > 0.0 {
+            return false;
+        }
+        let kicked = self.stats.plays.iter().any(|r| r.kind == PlayType::Kickoff && r.offense == team);
+        rule == 2 && kicked || rule == 1 && look && self.sees_look(team)
+    }
+
+    /// The plan's "if they do this, we go to that" lines (update 2, G20),
+    /// checked at each new drive: a line fires once, when its trigger shows
+    /// in this game's snaps.
+    fn plan_lines(&mut self) {
+        for t in 0..2 {
+            if self.sides[t].ifs.is_empty() {
+                continue;
+            }
+            let them = 1 - t;
+            let ids: Vec<u32> = self.sides[them].team.players.iter().map(|p| p.id).collect();
+            let at = |id: u32| ids.iter().position(|&x| x == id);
+            let plays = &self.stats.plays;
+            let real = |r: &&PlayRecord| matches!(r.kind, PlayType::Run | PlayType::Pass) && !r.nullified;
+            let mut fire: Vec<(u8, live::PlanChange, String)> = Vec::new();
+            let ifs = self.sides[t].ifs.clone();
+            for &k in &ifs {
+                if k >= 6 || self.sides[t].fired & (1 << k) != 0 {
+                    continue;
+                }
+                let mut pc = live::PlanChange::default();
+                let why = match k {
+                    0 => {
+                        let pd: Vec<&PlayRecord> = plays
+                            .iter()
+                            .filter(|r| r.offense == t)
+                            .filter(real)
+                            .filter(|r| (r.down >= 3 && r.togo >= 4.0) || (r.down == 2 && r.togo >= 8.0))
+                            .collect();
+                        let b = pd.iter().filter(|r| r.blitz).count();
+                        if pd.len() < 8 || (b as f64) < 0.4 * pd.len() as f64 {
+                            continue;
+                        }
+                        pc.draws = Some(true);
+                        format!("they blitzed on {b} of {} passing downs", pd.len())
+                    }
+                    1 => {
+                        let n = plays.iter().filter(|r| r.offense == them && r.scramble).count();
+                        if n < 3 {
+                            continue;
+                        }
+                        pc.spy = Some(true);
+                        format!("their quarterback has scrambled {n} times")
+                    }
+                    2 => {
+                        let mut by: Vec<(u32, f64)> = Vec::new();
+                        for r in plays.iter().filter(|r| r.offense == them && r.complete && !r.nullified) {
+                            if let Some(id) = r.target {
+                                match by.iter_mut().find(|x| x.0 == id) {
+                                    Some(x) => x.1 += r.yards,
+                                    None => by.push((id, r.yards)),
+                                }
+                            }
+                        }
+                        let Some(&(id, y)) = by.iter().max_by(|a, b| a.1.total_cmp(&b.1)) else { continue };
+                        let Some(i) = at(id).filter(|_| y >= 60.0) else { continue };
+                        pc.bracket = Some(Some(i));
+                        format!("their top receiver has {y:.0} yards")
+                    }
+                    3 => {
+                        let runs: Vec<&PlayRecord> = plays
+                            .iter()
+                            .filter(|r| r.offense == them && r.kind == PlayType::Run && !r.nullified)
+                            .collect();
+                        let ypc = runs.iter().map(|r| r.yards).sum::<f64>() / runs.len().max(1) as f64;
+                        if runs.len() < 10 || ypc < 5.0 {
+                            continue;
+                        }
+                        format!("they are running for {ypc:.1} a carry")
+                    }
+                    4 => {
+                        let ours: Vec<&PlayRecord> = plays.iter().filter(|r| r.offense == t).filter(real).collect();
+                        let light = ours.iter().filter(|r| r.box_count > 0 && r.box_count <= 6).count();
+                        if ours.len() < 12 || (light as f64) < 0.6 * ours.len() as f64 {
+                            continue;
+                        }
+                        format!("they have shown six or fewer in the box on {light} of {} snaps", ours.len())
+                    }
+                    _ => {
+                        let mut by: Vec<(u32, u32)> = Vec::new();
+                        for r in plays.iter().filter(|r| r.offense == t && r.complete && r.yards >= 15.0) {
+                            if let Some(d) = r.defender {
+                                match by.iter_mut().find(|x| x.0 == d) {
+                                    Some(x) => x.1 += 1,
+                                    None => by.push((d, 1)),
+                                }
+                            }
+                        }
+                        let found = by.iter().filter(|x| x.1 >= 2).find_map(|x| {
+                            at(x.0).filter(|&i| self.sides[them].team.players[i].position == Position::CB)
+                        });
+                        let Some(i) = found else { continue };
+                        pc.target_cb = Some(Some(i));
+                        "one of their corners has given up two catches of 15 yards".to_string()
+                    }
+                };
+                fire.push((k, pc, why));
+            }
+            for (k, pc, why) in fire {
+                self.sides[t].fired |= 1 << k;
+                match k {
+                    3 => self.sides[t].mem.plan.box_up = true,
+                    4 => self.sides[t].mem.plan.run_more = 0.08,
+                    _ => {}
+                }
+                let then = crate::game::roster::IFS[k as usize].1.to_lowercase();
+                self.log(t, format!("The plan's line: {why}, so {then}."));
+                if pc != live::PlanChange::default() {
+                    self.apply_plan(t, pc);
+                }
+            }
+        }
+    }
+
+    /// Rain, snow or a wind of 15 miles an hour or more: the call sheets'
+    /// bad-weather versions (update 2, G13).
+    fn bad_weather(&self) -> bool {
+        self.s.cond.rain || self.s.cond.snow || self.s.cond.wind >= 15.0
+    }
+
+    /// How far the weather moves a call toward the run (minor bug 144).
+    /// Real offenses on 1st and 2nd down within 7 points throw 51.8% in
+    /// 0-4 mph, about the same to 14 mph, 49.7% at 15-19 (16.4 on average)
+    /// and 44.9% at 20+ (23.2), 47.4% in rain and 42.6% in snow (nflverse
+    /// 2021-2025, outdoor and open-roof games; snow 11 games). Proposed,
+    /// not confirmed.
+    fn weather_lean(&self) -> f64 {
+        let c = &self.s.cond;
+        let wind = 0.007 * (c.wind - 13.0).max(0.0);
+        let sky = if c.snow {
+            0.08
+        } else if c.rain {
+            0.04
+        } else {
+            0.0
+        };
+        wind.max(sky)
+    }
+
     fn wind_along(&self, team: usize) -> f64 {
         // Teams switch ends each quarter.
         let toward = if (self.quarter % 2 == 1) == (team == 0) { 1.0 } else { -1.0 };
@@ -965,7 +1464,8 @@ impl<'a> Game<'a> {
     }
 
     fn home_crowd(&self, team: usize) -> f64 {
-        if self.s.neutral || team == 0 { 0.0 } else { self.s.cond.crowd }
+        // A week practising with the speakers on gets a road team used to it.
+        if self.s.neutral || team == 0 { 0.0 } else { self.s.cond.crowd * self.sides[team].team.prep.noise }
     }
 
     fn add_points(&mut self, team: usize, pts: i32) {
@@ -981,10 +1481,16 @@ impl<'a> Game<'a> {
         r.togo = self.togo;
         r.yardline_100 = goal() - self.x;
         r.score = [self.stats.team[0].points, self.stats.team[1].points];
-        r.ep_before = ep_at(self.down.max(1), self.togo, goal() - self.x);
+        r.ep_before = ep_at(self.below_nfl(), self.down.max(1), self.togo, goal() - self.x);
         r.wp_before = wp_at(self.diff(self.poss), self.game_left(), goal() - self.x);
+        r.timeouts = Some([self.sides[0].timeouts, self.sides[1].timeouts]);
         r.after_turnover = self.after_turnover;
         r.garbage = [self.sides[0].coach.read.step, self.sides[1].coach.read.step];
+        r.hash = match super::sheet::hash_of(self.ball_y) {
+            0 => 3,
+            h => h,
+        };
+        r.hurry = self.no_huddle;
         r
     }
 
@@ -1054,14 +1560,40 @@ impl<'a> Game<'a> {
         }
         match self.quarter {
             2 => {
-                // Halftime (topic 9): one stop with no clock.
-                if let Some(Input::Halftime(pc)) = self.ask(Ask::Halftime, false) {
-                    self.apply_plan(self.ctl_team(), pc);
+                // Halftime (topic 9): one stop with no clock. Your talk
+                // (dialogue D5) comes first and the stop asks again.
+                let mut again = false;
+                let mut talked: Option<super::talk::Pick> = None;
+                loop {
+                    match self.ask(Ask::Halftime, again) {
+                        Some(Input::Talk(pick)) if talked.is_none() => {
+                            let k = self.ctl_team();
+                            let margin = self.diff(k);
+                            self.room_talk(k, super::talk::Moment::Halftime { margin }, Some(pick));
+                            talked = Some(pick);
+                        }
+                        Some(Input::Halftime(pc)) => {
+                            self.apply_plan(self.ctl_team(), pc);
+                            break;
+                        }
+                        Some(Input::Talk(_)) => {}
+                        _ => break,
+                    }
+                    again = true;
                 }
                 if self.probe == Some(Ask::Halftime) {
-                    let p = self.pending(Ask::Halftime);
+                    let mut p = self.pending(Ask::Halftime);
+                    p.talked = talked;
                     self.hold(p);
                     return;
+                }
+                // Every head coach who hasn't talked does now.
+                for k in 0..2 {
+                    if talked.is_some() && k == self.ctl_team() {
+                        continue;
+                    }
+                    let margin = self.diff(k);
+                    self.room_talk(k, super::talk::Moment::Halftime { margin }, None);
                 }
                 self.quarter = 3;
                 self.clock = self.rules().quarter;
@@ -1136,7 +1668,10 @@ impl<'a> Game<'a> {
     /// old sudden death and arena football's period. The others are
     /// series from a spot, or a shootout.
     fn ot_timed(&self) -> bool {
-        matches!(self.rules().overtime, Overtime::NflPeriod | Overtime::SuddenDeath | Overtime::Arena)
+        matches!(
+            self.rules().overtime,
+            Overtime::NflPeriod | Overtime::NflModified { .. } | Overtime::SuddenDeath | Overtime::Arena
+        )
     }
 
     /// A timed overtime's possessions start with a kickoff.
@@ -1144,10 +1679,16 @@ impl<'a> Game<'a> {
         self.ot_timed()
     }
 
-    /// The length of a timed overtime period: ten minutes in today's NFL,
-    /// fifteen under the old rule and in arena football.
+    /// The length of a timed overtime period: ten minutes in today's NFL
+    /// regular season, fifteen in its playoffs (update 3, F25), under the
+    /// old rules and in arena football.
     fn ot_period(&self) -> f64 {
-        if self.rules().overtime == Overtime::NflPeriod { 600.0 } else { 900.0 }
+        match self.rules().overtime {
+            _ if self.s.playoff => 900.0,
+            Overtime::NflPeriod => 600.0,
+            Overtime::NflModified { minutes } => minutes as f64 * 60.0,
+            _ => 900.0,
+        }
     }
 
     /// An overtime series from its spot: the opponent's 10 in high school
@@ -1244,6 +1785,15 @@ impl<'a> Game<'a> {
                     self.over = true;
                 }
             }
+            Overtime::NflModified { .. } => {
+                // A first-possession field goal gives the other side the
+                // ball; any other score, or any score after that, wins.
+                let first = self.ot_poss[0] + self.ot_poss[1] == 1;
+                let diff = self.diff(0);
+                if diff != 0 && (!first || diff.abs() != 3) {
+                    self.over = true;
+                }
+            }
             Overtime::Shootout { .. } => {}
             _ => {
                 // The CFL and the AAF end a regular-season game tied after
@@ -1268,6 +1818,15 @@ impl<'a> Game<'a> {
                     }
                     self.ot_round += 1;
                     let first = if self.ot_round % 2 == 1 { self.ot_first } else { 1 - self.ot_first };
+                    // College's two-point shootout by the era's rule (update
+                    // 3, F26): one try a side a round, from the try's line.
+                    if let Some((_, shootout)) = self.rules().college_ot()
+                        && self.ot_round >= shootout as u32
+                    {
+                        let from = self.rules().two_point_from;
+                        self.shootout(first, 1, from);
+                        return;
+                    }
                     self.ot_series(first);
                 } else {
                     self.ot_series(1 - team);
@@ -1299,6 +1858,14 @@ impl<'a> Game<'a> {
         // the rules (the NFL's 2024 kickoff: declared, and only when
         // trailing; in 2024 only in the fourth quarter).
         let mut onside = onside;
+        // A surprise onside kick in your plan (update 2, G18): only when the
+        // return team's front line bails early, or called once. Spent and
+        // logged once the kick really goes onside (your answer first).
+        let look = self.return_look(rec, false);
+        let surprise = !onside && !late && self.surprise_onside(team, look);
+        if surprise {
+            onside = true;
+        }
         if self.user_is(team) {
             match self.ask(Ask::Onside, false) {
                 Some(Input::Onside(b)) => onside = b && self.onside_allowed(team),
@@ -1314,6 +1881,10 @@ impl<'a> Game<'a> {
                 }
                 None => {}
             }
+        }
+        if surprise && onside {
+            self.sides[team].tricks |= 2;
+            self.log(team, "A surprise onside kick: their front line turned and ran early.".to_string());
         }
         // The other leagues' fourth-down play in place of an onside kick
         // (X7): the kicking team keeps the ball if it makes `togo` from its
@@ -1344,6 +1915,7 @@ impl<'a> Game<'a> {
         }
         let mut r = self.new_record(PlayType::Kickoff);
         r.offense = team;
+        r.look = look;
         let kt = KickTeams {
             kick: &self.sides[team].team.players,
             ret: &self.sides[rec].team.players,
@@ -1352,8 +1924,11 @@ impl<'a> Game<'a> {
             snapper: self.sides[team].depth.snapper,
             holder: self.sides[team].depth.holder,
             energy: [&self.sides[team].energy, &self.sides[rec].energy],
-            mood: self.mood(team),
+            hurt: [&self.sides[team].hurt, &self.sides[rec].hurt],
+            mood: self.return_mood(team, rec, false),
             kick_deep: self.sides[team].mem.plan.vs.kick_deep,
+            style: if self.rules().nfl_kickoff { 0 } else { self.sides[team].team.prep.teams.kick },
+            surprise,
         };
         let mut rules = self.s.rules;
         rules.kickoff_from = from;
@@ -1448,7 +2023,12 @@ impl<'a> Game<'a> {
             } else if onside {
                 "Onside kick recovered by the receiving team.".into()
             } else {
-                format!("Returned {:.0} yards by #{}.", kr.return_yards, kr.returner.unwrap_or(0))
+                format!(
+                    "Returned {:.0} {} by #{}.",
+                    kr.return_yards,
+                    crate::world::folk::noun(kr.return_yards.round_ties_even() as i64, "yard"),
+                    kr.returner.unwrap_or(0)
+                )
             };
         }
         self.down = 1;
@@ -1536,7 +2116,9 @@ impl<'a> Game<'a> {
         let diff = self.diff(team);
         let forced_two = self.ot
             && match self.rules().overtime {
-                Overtime::College => self.ot_round >= 2,
+                Overtime::College | Overtime::CollegeEra { .. } => {
+                    self.rules().college_ot().is_some_and(|(two, _)| self.ot_round >= two as u32)
+                }
                 Overtime::Cfl { two_from } => code.year >= two_from,
                 Overtime::Aaf => true,
                 _ => false,
@@ -1700,6 +2282,7 @@ impl<'a> Game<'a> {
         r.kick_distance = dist;
         r.kick_good = fg.made;
         r.blocked = fg.blocked;
+        r.bad_snap = fg.bad_snap;
         r.kick_pressure = pressure;
         r.why = fg.why.clone();
         r.on_field = [
@@ -1714,6 +2297,9 @@ impl<'a> Game<'a> {
 
     fn scrimmage(&mut self) {
         self.review();
+        // The plays since the last snap, read for mistakes that call for a
+        // word on the sideline (dialogue D6).
+        self.scan_mistakes();
         // The fourth-down play in place of an onside kick (X7) is this snap only.
         let must_go = std::mem::take(&mut self.must_go);
         self.mark = (false, false, false, String::new());
@@ -1726,6 +2312,7 @@ impl<'a> Game<'a> {
                 match self.ask(Ask::Snap, again) {
                     Some(Input::Timeout) => self.user_timeout(self.poss),
                     Some(Input::Plan(pc)) => self.apply_plan(self.poss, pc),
+                    Some(Input::Word { id, pick }) => self.your_word(self.poss, id, pick),
                     Some(Input::Tempo(t)) => {
                         self.tempo = t;
                         let name = match t {
@@ -1803,7 +2390,7 @@ impl<'a> Game<'a> {
         // Fourth down.
         if self.down == self.rules().downs() && !(self.ot && self.rules().overtime != Overtime::NflPeriod && false) {
             let make = self.fg_make_estimate(o, fg_dist);
-            let mut choice = calling::fourth_down(&staff, &sit, make, &mut self.rng);
+            let mut choice = calling::fourth_down(&staff, &sit, self.rules().level, make, &mut self.rng);
             if self.ot && !self.ot_timed() && choice == FourthDown::Punt {
                 choice = if make > 0.35 { FourthDown::FieldGoal } else { FourthDown::Go };
             }
@@ -1849,6 +2436,18 @@ impl<'a> Game<'a> {
             }
             match choice {
                 FourthDown::Punt => {
+                    // A fake punt in your plan (update 2, G18), when their
+                    // return team shows the look.
+                    let look = self.return_look(1 - o, true);
+                    if self.fake_punt(o, look) {
+                        let r = self.fake_punt_play(look);
+                        if self.paused {
+                            return;
+                        }
+                        self.stats.plays.push(r);
+                        return;
+                    }
+                    self.kick_look = look;
                     self.punt();
                     return;
                 }
@@ -1892,10 +2491,27 @@ impl<'a> Game<'a> {
     /// Your 4th-down chart on your own snaps (topic 2): from the true win
     /// chance of each choice. None leaves the staff's judgment.
     fn chart_fourth(&self, o: usize, make: f64, in_range: bool) -> Option<FourthDown> {
-        let chart = self.ctl.as_ref().filter(|c| c.team == o)?.prep.fourth;
+        let prep = &self.ctl.as_ref().filter(|c| c.team == o)?.prep;
+        let chart = prep.fourth;
         // College and high school overtime has no punts: the staff decides.
         if self.ot && !self.ot_timed() {
             return None;
+        }
+        // Your own cells on the chart (update 2, G4), outside the last five
+        // minutes, where the game's numbers take over.
+        let late = self.ot || (self.quarter >= 4 && self.game_left() <= 300.0);
+        let yl = goal() - self.x;
+        if !late && let Some(c) = live::chart_cell(&prep.cells, self.togo, yl) {
+            return Some(match c {
+                FourthDown::FieldGoal if !in_range => {
+                    if yl < 40.0 {
+                        FourthDown::Go
+                    } else {
+                        FourthDown::Punt
+                    }
+                }
+                c => c,
+            });
         }
         let edge = match chart {
             live::FourthChart::Staff => return None,
@@ -1957,15 +2573,7 @@ impl<'a> Game<'a> {
 
     fn fg_make_estimate(&self, team: usize, dist: f64) -> f64 {
         let side = &self.sides[team];
-        let p = &side.team.players[side.fg_kicker()];
-        let acc = super::kicking::fg_accuracy(p, dist);
-        let range = 38.0 + 0.3 * p.a(Attr::KickPower);
-        let sd = (2.95 + 0.012 * (dist - 30.0)) * (1.82f64 - 0.0105 * acc).max(0.55);
-        let half = (super::geom::field().posts / dist).atan().to_degrees();
-        let z = half / sd;
-        let p_line = 1.0 - 2.0 * (1.0 - phi(z));
-        let p_range = phi((range - dist) / 3.0);
-        p_line * p_range
+        fg_make(&side.team.players[side.fg_kicker()], dist)
     }
 
     fn should_kneel(&self) -> bool {
@@ -2039,7 +2647,7 @@ impl<'a> Game<'a> {
                 r.why = format!("{} Through the end zone: no single.", r.why);
                 self.x
             };
-            r.epa = -ep_at(1, 10.0, goal() - spot) - r.ep_before;
+            r.epa = -ep_at(self.below_nfl(), 1, 10.0, goal() - spot) - r.ep_before;
             self.stats.book(&r);
             self.stats.plays.push(r);
             self.change_possession(spot, false);
@@ -2049,7 +2657,7 @@ impl<'a> Game<'a> {
             r.turnover = true;
             let spot = self.rng.range(3.0, 20.0);
             r.why = format!("{} Off the net and returned to the {spot:.0}.", r.why);
-            r.epa = -ep_at(1, 10.0, goal() - spot) - r.ep_before;
+            r.epa = -ep_at(self.below_nfl(), 1, 10.0, goal() - spot) - r.ep_before;
             self.stats.book(&r);
             self.stats.plays.push(r);
             self.change_possession(spot, false);
@@ -2057,7 +2665,7 @@ impl<'a> Game<'a> {
             // The other team takes over at the spot of the kick (or the 20).
             let spot = (goal() - (self.x - 7.0)).max(20.0f64.min(goal() / 5.0));
             r.turnover = true;
-            r.epa = -ep_at(1, 10.0, goal() - spot) - r.ep_before;
+            r.epa = -ep_at(self.below_nfl(), 1, 10.0, goal() - spot) - r.ep_before;
             self.stats.book(&r);
             self.stats.plays.push(r);
             self.change_possession(spot, false);
@@ -2097,16 +2705,77 @@ impl<'a> Game<'a> {
         self.stats.team[self.poss].start_sum += self.x;
     }
 
-    fn punt(&mut self) {
+    /// The fake punt itself (G18, R25): the punt team stays in its punt
+    /// formation against the punt return team on the field, and the snap
+    /// goes straight to the up-back, who runs behind the pulling guard
+    /// (`scrimmage::return_jobs`). The men on the two units take the jobs
+    /// they fit: the punt team's two fastest are the gunners, its four
+    /// heaviest the guards and tackles, its best runner of the rest the
+    /// up-back; on the return team the returner waits deep, its two fastest
+    /// jam the gunners, its four heaviest line up on the guards and
+    /// tackles, the next two over the wings and the last two hold five
+    /// yards off the ball (proposed, not confirmed).
+    fn fake_punt_play(&mut self, look: bool) -> PlayRecord {
         let o = self.poss;
         let d = 1 - o;
-        let mut r = self.new_record(PlayType::Punt);
+        let (kick_on, ret_on, sn) = self.punt_units();
+        let (ps, qs) = (&self.sides[o].team.players, &self.sides[d].team.players);
+        let take = |pool: &mut Vec<usize>, n: usize, key: &dyn Fn(usize) -> f64| -> Vec<usize> {
+            pool.sort_by(|&a, &b| key(b).total_cmp(&key(a)));
+            pool.drain(..n.min(pool.len())).collect()
+        };
+        let punter = kick_on[0];
+        let mut pool: Vec<usize> = kick_on.iter().copied().filter(|&i| i != punter && i != sn).collect();
+        let gun = take(&mut pool, 2, &|i| ps[i].a(Attr::Speed));
+        let line = take(&mut pool, 4, &|i| ps[i].weight);
+        let runner = |i: usize| {
+            let p = &ps[i];
+            0.4 * p.a(Attr::BallCarrierVision) + 0.3 * p.a(Attr::BallSecurity) + 0.3 * p.a(Attr::Speed)
+        };
+        let up = take(&mut pool, 1, &runner);
+        let mut off: Vec<(ORole, usize)> = vec![(ORole::C, sn), (ORole::RB, punter)];
+        off.extend(line.iter().zip([ORole::LG, ORole::RG, ORole::LT, ORole::RT]).map(|(&i, r)| (r, i)));
+        off.extend(gun.iter().zip([ORole::X, ORole::Z]).map(|(&i, r)| (r, i)));
+        off.extend(up.iter().map(|&i| (ORole::QB, i)));
+        off.extend(pool.iter().zip([ORole::TE, ORole::TE2, ORole::Slot]).map(|(&i, r)| (r, i)));
+        let returner = ret_on[0];
+        let mut pool: Vec<usize> = ret_on.iter().copied().skip(1).collect();
+        let jam = take(&mut pool, 2, &|i| qs[i].a(Attr::Speed));
+        let big = take(&mut pool, 4, &|i| qs[i].weight);
+        let wings = take(&mut pool, 2, &|i| qs[i].weight);
+        let mut def: Vec<(DSlot, usize)> = vec![(DSlot::FS, returner)];
+        def.extend(jam.iter().zip([DSlot::CBL, DSlot::CBR]).map(|(&i, s)| (s, i)));
+        def.extend(big.iter().zip([DSlot::DTL, DSlot::DTR, DSlot::LE, DSlot::RE]).map(|(&i, s)| (s, i)));
+        def.extend(wings.iter().zip([DSlot::Sam, DSlot::Will]).map(|(&i, s)| (s, i)));
+        def.extend(pool.iter().zip([DSlot::Mike, DSlot::SS, DSlot::NCB]).map(|(&i, s)| (s, i)));
+        self.fake = Some((off, def, look));
+        let call = OffCall::new(
+            Formation::plain(Personnel::P12, Backfield::Shotgun, 1.0),
+            PlayKind::Run(RunConcept::QbPower),
+            if self.rng.chance(0.5) { 1.0 } else { -1.0 },
+            false,
+        );
+        let dcall = DefCall::new(DefPersonnel::Base, Coverage::Cover1, Pressure::Four);
+        let mut r = self.run_scrimmage_call(call, Some(dcall));
+        r.call = "punt formation, the snap straight to the up-back".into();
+        r.personnel = "punt".into();
+        r.call_why = if look { "a fake punt: the look was there" } else { "a fake punt, called" };
+        r.look = look;
+        r
+    }
+
+    /// The punt team (the punter first, the long snapper in the middle)
+    /// and the punt return team (the returner first) on this punt, and the
+    /// long snapper.
+    fn punt_units(&self) -> (Vec<usize>, Vec<usize>, usize) {
+        let o = self.poss;
+        let d = 1 - o;
         let side = &self.sides[o];
         let p = side.punter();
         let sn = side.snapper();
         let mut kick_on = vec![p];
         let mut used = vec![p, sn];
-        kick_on.extend(side.cover_pick(Position::CB, 2, &mut used));
+        kick_on.extend(side.gunners(&mut used));
         kick_on.extend(side.cover_pick(Position::LB, 3, &mut used));
         kick_on.extend(side.cover_pick(Position::TE, 2, &mut used));
         kick_on.extend(side.cover_pick(Position::IOL, 2, &mut used));
@@ -2134,6 +2803,18 @@ impl<'a> Game<'a> {
             Some(&r) => opp.with_package(6, &[r], ret_on),
             None => ret_on,
         };
+        (kick_on, ret_on, sn)
+    }
+
+    fn punt(&mut self) {
+        let o = self.poss;
+        let d = 1 - o;
+        let mut r = self.new_record(PlayType::Punt);
+        r.look = std::mem::take(&mut self.kick_look);
+        let (kick_on, ret_on, sn) = self.punt_units();
+        let p = kick_on[0];
+        let side = &self.sides[o];
+        let opp = &self.sides[d];
         let kt = KickTeams {
             kick: &side.team.players,
             ret: &opp.team.players,
@@ -2142,8 +2823,11 @@ impl<'a> Game<'a> {
             snapper: sn,
             holder: side.depth.holder,
             energy: [&side.energy, &opp.energy],
-            mood: self.mood(o),
+            hurt: [&side.hurt, &opp.hurt],
+            mood: self.return_mood(o, d, true),
             kick_deep: 0.0,
+            style: side.team.prep.teams.punt,
+            surprise: false,
         };
         let along = self.wind_along(o);
         let kr = kicking::punt(
@@ -2169,6 +2853,7 @@ impl<'a> Game<'a> {
         r.returner = kr.returner;
         r.return_yards = if kr.returned { kr.return_yards } else { 0.0 };
         r.blocked = kr.blocked;
+        r.bad_snap = kr.bad_snap;
         r.duration = kr.duration;
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
@@ -2217,7 +2902,7 @@ impl<'a> Game<'a> {
             return;
         }
         if kr.recovered_by_kicking {
-            r.epa = ep_at(1, 10.0, goal() - kr.spot) - r.ep_before;
+            r.epa = ep_at(self.below_nfl(), 1, 10.0, goal() - kr.spot) - r.ep_before;
             self.stats.book(&r);
             self.stats.plays.push(r);
             self.x = kr.spot.clamp(1.0, goal() - 1.0);
@@ -2251,7 +2936,7 @@ impl<'a> Game<'a> {
         if code.punt_touchback_35 && (kr.touchback || kr.out_of_bounds && spot < 35.0) {
             spot = 35.0;
         }
-        r.epa = -ep_at(1, 10.0, goal() - spot.clamp(1.0, goal() - 1.0)) - r.ep_before;
+        r.epa = -ep_at(self.below_nfl(), 1, 10.0, goal() - spot.clamp(1.0, goal() - 1.0)) - r.ep_before;
         self.stats.book(&r);
         self.stats.plays.push(r);
         self.ball_y = mid();
@@ -2260,7 +2945,35 @@ impl<'a> Game<'a> {
 
     /// Players on the field for a call.
     #[allow(clippy::type_complexity)]
-    fn lineup(&self, call: &OffCall, dcall: &DefCall) -> (Vec<(ORole, usize)>, Vec<(DSlot, usize)>) {
+    /// The burner's snaps (speed update S10): on a jet sweep he is the man
+    /// in motion, and on a deep shot he comes in at Z (else X), more often
+    /// the more the team leans on his speed. A keyed draw, so the game's
+    /// own stream is untouched.
+    fn speed_package(&self, call: &OffCall, off: &mut [(ORole, usize)]) {
+        let side = &self.sides[self.poss];
+        let Some(b) = side.depth.burner else { return };
+        if side.out[b] || side.benched[b] || side.held(b) || off.iter().any(|x| x.1 == b) {
+            return;
+        }
+        let lean = side.depth.burner_lean;
+        let (role, p) = match call.kind {
+            PlayKind::Run(RunConcept::JetSweep) => (call.formation.motion_man(), 0.5 + 0.4 * lean),
+            PlayKind::Pass(i) if pass_concept(i).depth == PassDepth::Deep => {
+                let r = [ORole::Z, ORole::X].into_iter().find(|r| off.iter().any(|x| x.0 == *r));
+                (r, 0.25 + 0.5 * lean)
+            }
+            _ => return,
+        };
+        let Some(role) = role else { return };
+        if crate::world::season::key_uniform(self.s.seed ^ 0x5BEE_D000, self.n as u64) >= p {
+            return;
+        }
+        if let Some(x) = off.iter_mut().find(|x| x.0 == role) {
+            x.1 = b;
+        }
+    }
+
+    fn lineup(&self, call: &OffCall, dcall: &DefCall) -> Lineup {
         let o = &self.sides[self.poss];
         let d = &self.sides[1 - self.poss];
         let mut used = Vec::new();
@@ -2286,8 +2999,14 @@ impl<'a> Game<'a> {
             }
         };
         // Your goal line offense (section 6b) inside the 3 with heavy personnel.
-        let gl =
-            (self.situation().yardline_100 <= 3.0 && call.formation.personnel.wide_receivers() <= 1).then_some(3u8);
+        let gl = if call.formation.personnel.wide_receivers() > 1 {
+            None
+        } else if self.situation().yardline_100 <= 3.0 {
+            Some(3u8)
+        } else {
+            // Your jumbo package outside the goal line (G15).
+            self.sides[self.poss].team.prep.package(9).map(|_| 9u8)
+        };
         add(o.pick_pref(Position::QB, 1, &mut used, gl), &[ORole::QB], &mut off);
         // Arena football's line is a center and two guards (8 a side).
         if self.rules().code.players > 8 {
@@ -2437,7 +3156,9 @@ impl<'a> Game<'a> {
     fn pre_snap_foul(&mut self, off: &[(ORole, usize)], def: &[(DSlot, usize)]) -> Option<Foul> {
         let o = self.poss;
         let crowd = self.home_crowd(o);
-        let crew = self.crew.pre_snap;
+        // The week's rules clinic (TR29) on each side.
+        let crew = self.crew.pre_snap * self.sides[o].team.prep.rules;
+        let def_crew = self.crew.pre_snap * self.sides[1 - o].team.prep.rules;
         for &(r, i) in off {
             if !(r.is_line() || r.is_receiver()) {
                 continue;
@@ -2449,8 +3170,9 @@ impl<'a> Game<'a> {
             // (1.28 a game against 1.06, cfbfastR 2023-24). Concentration
             // joins discipline, and decides how much the noise gets to him
             // (proposed, not confirmed).
-            let conc = p.trait20(Attr::Concentration, level);
-            let focus = 0.6 * p.trait20(Attr::Discipline, level) + 0.4 * conc;
+            let talk = self.sides[o].pulse[i].focus;
+            let conc = (p.trait20(Attr::Concentration, level) + talk).clamp(1.0, 20.0);
+            let focus = 0.6 * (p.trait20(Attr::Discipline, level) + talk).clamp(1.0, 20.0) + 0.4 * conc;
             let chance = 0.00162
                 * (1.6 - focus / 15.0).max(0.3)
                 * (1.0 + 0.32 * crowd * clamp(1.5 - 0.05 * conc, 0.5, 1.5))
@@ -2503,18 +3225,24 @@ impl<'a> Game<'a> {
             // (0.0019 before tendencies: guessers are the less disciplined
             // men and a hard count now targets them, so 0.00172 keeps the
             // league's offside where it was.)
-            let chance = 0.00172
-                * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3)
-                * jump
-                * hard
-                * guess
-                * crew;
+            let disc =
+                (p.trait20(Attr::Discipline, self.s.rules.level) + self.sides[1 - o].pulse[i].focus).clamp(1.0, 20.0);
+            let chance = 0.00172 * (1.6 - disc / 15.0).max(0.3) * jump * hard * guess * def_crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
             }
         }
         // Road delays: 34% more (0.34 a game against 0.26).
         if self.rng.chance(0.0050 * (1.3 - qp.a(Attr::FootballIq) / 120.0) * (1.0 + 0.52 * crowd) * crew) {
+            // Your timeout rule (update 2, G4): a timeout instead of five
+            // yards when the rule leaves one to spend.
+            if self.timeout_saves_delay(o) {
+                self.sides[o].timeouts -= 1;
+                self.running = false;
+                let left = self.sides[o].timeouts;
+                self.log(o, format!("Timeout to beat the play clock ({left} left)."));
+                return None;
+            }
             return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qp.id, at: self.x });
         }
         // Illegal formation stands for every 5-yard offensive alignment foul
@@ -2559,8 +3287,23 @@ impl<'a> Game<'a> {
             qb_run: qb_threat,
             level: self.s.rules.level,
             plan: self.sides[o].team.plan().0,
+            designs: calling::sheet_designs(&self.sides[o].team.prep),
+            burner: self.sides[o].burner_lean(),
         };
         let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
+        // Your four-minute plan (update 2, G4): run it out, or keep
+        // attacking.
+        let run = run.or_else(|| {
+            let four = self.ctl.as_ref().filter(|c| c.team == o)?.prep.four;
+            if !super::sheet::four_minute(&sit) || sit.hurry() || two_point {
+                return None;
+            }
+            match four {
+                live::FourMinute::RunItOut if !call.kind.is_run() && self.rng.chance(0.6) => Some(true),
+                live::FourMinute::KeepAttacking if call.kind.is_run() && self.rng.chance(0.35) => Some(false),
+                _ => None,
+            }
+        });
         if let Some(want) = run {
             for _ in 0..8 {
                 if call.kind.is_run() == want {
@@ -2569,11 +3312,24 @@ impl<'a> Game<'a> {
                 call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
             }
         }
-        // Your call sheet (section 6b): the coordinator calls the week's
-        // plays for the situation, run or pass as he read it.
-        let ran = self.stats.plays.iter().filter(|r| r.offense == o).count() as u32;
-        if let Some(c) = sheet_call(&self.sides[o].team.prep, &sit, &call, ran, &mut self.rng) {
-            call = c;
+        // Your call sheet (section 6b; update 2, G7-G13): the coordinator
+        // calls the week's plays for the situation, run or pass as he read
+        // it, the opening script in order, by the hash, the bad-weather
+        // version in bad weather.
+        if !self.sides[o].card.sheet.is_empty() {
+            let sctx = super::sheet::Ctx {
+                scripted: self.sides[o].scripted[0],
+                hash: super::sheet::hash_of(self.ball_y),
+                wet: self.bad_weather(),
+                two_point,
+                hurry: sit.hurry(),
+                forced: run.is_some(),
+            };
+            let side = &self.sides[o];
+            let again = |rng: &mut Rng| calling::call_offense(&staff_o, &side.mem, &sit, &ctx, rng);
+            if let Some((c, _)) = super::sheet::off_call(&side.card, &sit, &call, sctx, &mut self.rng, again) {
+                call = c;
+            }
         }
         if two_point && matches!(call.kind, PlayKind::Pass(_)) && self.rng.chance(0.3) {
             call.kind = PlayKind::Pass(0);
@@ -2615,6 +3371,7 @@ impl<'a> Game<'a> {
                 match self.ask(Ask::Defense, again) {
                     Some(Input::Timeout) => self.user_timeout(1 - o),
                     Some(Input::Plan(pc)) => self.apply_plan(1 - o, pc),
+                    Some(Input::Word { id, pick }) => self.your_word(1 - o, id, pick),
                     Some(Input::Tempo(_)) => {}
                     other => {
                         dinput = other;
@@ -2624,9 +3381,39 @@ impl<'a> Game<'a> {
                 again = true;
             }
         }
-        let dctx = calling::DefCtx { qb_run: qb_threat };
+        let mut dctx = calling::DefCtx { qb_run: qb_threat, ..Default::default() };
+        // Our call words in their hands (update 2, G5): someone who left
+        // with them reads the call like a tell.
+        let leak = self.sides[o].team.prep.leak[0];
+        if leak > 0.0 && self.rng.chance(leak) {
+            dctx.tip = if call.kind.is_run() { -1.0 } else { 1.0 };
+        }
         let mut dcall =
             calling::call_defense(&staff_d, &self.sides[1 - o].mem, &sit, &call.formation, &dctx, &mut self.rng);
+        // Your defensive call sheet (update 2, G8), inside the
+        // coordinator's own read of the snap.
+        self.def_script = false;
+        if !self.sides[1 - o].card.dsheet.is_empty() {
+            let dctx_sheet = super::sheet::DefCtx {
+                wet: self.bad_weather(),
+                two_point,
+                scripted: self.sides[1 - o].scripted[1],
+                tipped: dctx.tip != 0.0,
+            };
+            let side = &self.sides[1 - o];
+            let formation = call.formation;
+            let again = |rng: &mut Rng| calling::call_defense(&staff_d, &side.mem, &sit, &formation, &dctx, rng);
+            if let Some((c, scripted)) =
+                super::sheet::def_call(&side.card, &sit, &dcall, dctx_sheet, &mut self.rng, again)
+            {
+                dcall = c;
+                self.def_script = scripted;
+            }
+        }
+        let leak = self.sides[1 - o].team.prep.leak[1];
+        if leak > 0.0 && self.rng.chance(leak) {
+            dcall.disguise = false;
+        }
         if self.user_is(1 - o) {
             if self.probe == Some(Ask::Defense) {
                 let mut p = self.pending(Ask::Defense);
@@ -2644,6 +3431,7 @@ impl<'a> Game<'a> {
                 self.mark.2 |= !on_sheet;
                 self.mark.3 = dcall.describe();
                 dcall = dc;
+                self.def_script = false;
             }
         }
         self.run_scrimmage_call(call, Some(dcall))
@@ -2653,12 +3441,42 @@ impl<'a> Game<'a> {
         let o = self.poss;
         let d = 1 - o;
         let sit = self.situation();
+        // The scripts move on only when their call is run (an audible
+        // still used it; a foul before the snap did not).
+        let from_script = call.why == "the opening script";
+        let def_script = std::mem::take(&mut self.def_script);
+        // A fake punt brings its own two units (`fake_punt_play`).
+        let fake = self.fake.take();
         call.formation.personnel = call.formation.personnel.for_players(self.rules().code.players);
         let dcall =
             self.legal_defense(dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four)));
         self.sides[d].frozen = self.no_huddle;
-        let (off, def) = self.lineup(&call, &dcall);
+        // Who sits by the week's plan this snap (G14, G15).
+        let passing = (self.down >= 3 && self.togo >= 4.0) || (self.down == 2 && self.togo >= 8.0) || sit.hurry();
+        for k in 0..2 {
+            self.sides[k].passing = passing;
+            self.sides[k].series = self.stats.team[1 - k].drives as u16;
+            self.sides[k].scrimmage = true;
+            self.sides[k].defending = k == d;
+        }
+        let (off, def) = match &fake {
+            Some((off, def, _)) => (off.clone(), def.clone()),
+            None => {
+                let (mut off, def) = self.lineup(&call, &dcall);
+                self.speed_package(&call, &mut off);
+                (off, def)
+            }
+        };
+        for side in self.sides.iter_mut() {
+            side.scrimmage = false;
+        }
         self.sides[d].frozen = false;
+        for &(_, i) in &off {
+            self.sides[o].snaps[i] = self.sides[o].snaps[i].saturating_add(1);
+        }
+        for &(_, i) in &def {
+            self.sides[d].snaps[i] = self.sides[d].snaps[i].saturating_add(1);
+        }
         // Before the snap (plays and tactics topic 3): the quarterback reads
         // the numbers in the box and the shell, as far as his coach lets him
         // act on it (3.3): no freedom, a two-play "kill" call, or full
@@ -2691,15 +3509,34 @@ impl<'a> Game<'a> {
         let noise = 1.0 - 0.5 * self.home_crowd(o);
         let sees = clamp((iq - 40.0) / 50.0, 0.05, 0.95) * noise;
         let mut audible = false;
-        if !sit.hurry() && call.kind != PlayKind::Kneel {
+        if !sit.hurry() && call.kind != PlayKind::Kneel && fake.is_none() {
             let run_called = matches!(call.kind, PlayKind::Run(_));
             let pass_called = matches!(call.kind, PlayKind::Pass(c) if pass_concept(c).depth != PassDepth::Screen);
             // Run into a loaded box, or throw against a light one with two deep.
             // A defense is meant to be one up against the run (an extra
             // man the back must beat); two up is a loaded box.
-            let want = if run_called && numbers >= 2 && sit.togo > 2.0 {
+            // The quarterback's checks this week (update 2, G19): the first
+            // two are on unless switched off, the last two off unless on.
+            let checks = self.sides[o].checks;
+            let on = |b: u8| (checks >> b) & 1 == 1;
+            // Protecting a lead late, or with the game won, he stays with
+            // the run whatever the box (the clock is the point; minor bug
+            // 142: checks to a pass took NFL teams up 28+ to 33% passes in
+            // the fourth quarter, real 28%; proposed, not confirmed).
+            let keep_run = sit.quarter >= 4 && sit.score_diff > 0 && (sit.half_left <= 300.0 || sit.ease >= 0.5);
+            let want = if !on(0) && run_called && numbers >= 2 && sit.togo > 2.0 && !keep_run {
                 Some(true)
-            } else if pass_called && numbers <= -1 && (shows_two && !fooled) && sit.togo <= 6.0 {
+            } else if !on(1) && pass_called && numbers <= -1 && (shows_two && !fooled) && sit.togo <= 6.0 {
+                Some(false)
+            } else if on(2)
+                && run_called
+                && dcall.coverage == Coverage::Cover0
+                && !fooled
+                && sit.togo > 2.0
+                && !keep_run
+            {
+                Some(true)
+            } else if on(3) && pass_called && sit.down <= 2 && shows_two && !fooled && numbers <= 0 {
                 Some(false)
             } else {
                 None
@@ -2755,6 +3592,7 @@ impl<'a> Game<'a> {
             call.why
         };
         r.defense_call = dcall.describe();
+        r.dpers = 1 + dcall.personnel as u8;
         let mark = std::mem::take(&mut self.mark);
         r.yours = mark.0 as u8 | (mark.1 as u8) << 1;
         r.off_sheet = mark.2;
@@ -2768,6 +3606,12 @@ impl<'a> Game<'a> {
         {
             return self.no_play(r, f);
         }
+        if from_script {
+            self.sides[o].scripted[0] += 1;
+        }
+        if def_script {
+            self.sides[d].scripted[1] += 1;
+        }
         let labels: Vec<(u32, String)> = off
             .iter()
             .map(|&(rl, i)| (self.sides[o].team.players[i].id, scrimmage::orole_label(rl).to_string()))
@@ -2775,24 +3619,25 @@ impl<'a> Game<'a> {
             .collect();
         let label =
             |id: u32| labels.iter().find(|l| l.0 == id).map(|l| format!("{} #{}", l.1, id)).unwrap_or(format!("#{id}"));
-        let mut hurt_edge_o: Vec<f64> = self.sides[o].edge.clone();
-        for (i, h) in self.sides[o].hurt.iter().enumerate() {
-            if h.is_some() {
-                hurt_edge_o[i] -= 3.0;
+        // A man playing hurt loses what his injury limits (update 3, F7:
+        // `sim::hampered`, read in `run_snap`), not a flat cut.
+        // The words the staff gives before this snap (yours were given at
+        // the call), then the talks' lift rides on the momentum edge
+        // (dialogue D4-D6).
+        self.settle_words();
+        let mut hurt_edge_o: Vec<f64> =
+            self.sides[o].edge.iter().zip(&self.sides[o].pulse).map(|(e, p)| e + p.lift).collect();
+        let mut hurt_edge_d: Vec<f64> =
+            self.sides[d].edge.iter().zip(&self.sides[d].pulse).map(|(e, p)| e + p.lift).collect();
+        // A man at a spot he doesn't know plays below his rating there (3.3);
+        // the punt units' jobs are their own.
+        if fake.is_none() {
+            for &(rl, i) in &off {
+                hurt_edge_o[i] -= self.sides[o].unfamiliar(i, orole_spot(rl));
             }
-        }
-        let mut hurt_edge_d: Vec<f64> = self.sides[d].edge.clone();
-        for (i, h) in self.sides[d].hurt.iter().enumerate() {
-            if h.is_some() {
-                hurt_edge_d[i] -= 3.0;
+            for &(sl, i) in &def {
+                hurt_edge_d[i] -= self.sides[d].unfamiliar(i, dslot_spot(sl));
             }
-        }
-        // A man at a spot he doesn't know plays below his rating there (3.3).
-        for &(rl, i) in &off {
-            hurt_edge_o[i] -= self.sides[o].unfamiliar(i, orole_spot(rl));
-        }
-        for &(sl, i) in &def {
-            hurt_edge_d[i] -= self.sides[d].unfamiliar(i, dslot_spot(sl));
         }
         // An emergency (3.6): a man from another position group, when his
         // own group is out of bodies. Tight ends at fullback and corners at
@@ -2801,8 +3646,9 @@ impl<'a> Game<'a> {
         let stranger = |side: &Side, i: usize, sp: Spot| {
             !same_group(side.team.players[i].position, sp) && !side.depth.list(sp.position()).contains(&i)
         };
-        r.emergency = off.iter().any(|&(rl, i)| stranger(&self.sides[o], i, orole_spot(rl)))
-            || def.iter().any(|&(sl, i)| stranger(&self.sides[d], i, dslot_spot(sl)));
+        r.emergency = fake.is_none()
+            && (off.iter().any(|&(rl, i)| stranger(&self.sides[o], i, orole_spot(rl)))
+                || def.iter().any(|&(sl, i)| stranger(&self.sides[d], i, dslot_spot(sl))));
         let crowd = self.home_crowd(o);
         // What he knows of the coverage before the snap (topic 3): his own
         // read, a disguise that fooled him, and motion against man (the
@@ -2825,6 +3671,8 @@ impl<'a> Game<'a> {
             fooled,
             target_cb: self.sides[o].mem.plan.target_cb,
             bracket: self.sides[d].mem.plan.bracket,
+            burner: self.sides[d].mem.plan.burner,
+            fear: self.sides[d].mem.plan.fear,
             help_on: self.sides[o].mem.plan.help_on,
             chem: self.sides[o].team.line_chem,
             novelty: self.sides[o].team.novelty[fam as usize],
@@ -2844,6 +3692,7 @@ impl<'a> Game<'a> {
                 self.sides[d].team.plan().1 + if r.off_sheet && r.yours & 2 != 0 { 0.35 } else { 0.0 },
             ],
             double_moves: self.sides[o].mem.plan.vs.double_moves,
+            learn: [self.sides[o].team.prep.learn[0], self.sides[d].team.prep.learn[1]],
         };
         let snap = Snap {
             teams: [&self.sides[o].team.players, &self.sides[d].team.players],
@@ -2851,6 +3700,8 @@ impl<'a> Game<'a> {
             defense: &def,
             energy: [&self.sides[o].energy, &self.sides[d].energy],
             edge: [&hurt_edge_o, &hurt_edge_d],
+            pulse: [&self.sides[o].pulse, &self.sides[d].pulse],
+            hurt: [&self.sides[o].hurt, &self.sides[d].hurt],
             trust: [&self.sides[o].trust, &self.sides[d].trust],
             call,
             dcall,
@@ -2864,10 +3715,13 @@ impl<'a> Game<'a> {
             strictness: [self.sides[o].team.staff.strictness, self.sides[d].team.staff.strictness],
             injury_scale: 1.0,
             record: self.recording(),
+            // Your games keep the line chart (lane 9); no other game does.
+            chart: self.s.keep || self.ctl.is_some(),
             hurry: sit.hurry(),
             two_gap: self.sides[d].team.staff.front == Front::ThreeFour,
             tac,
             mood: self.mood(o),
+            fake_punt: fake.as_ref().map(|f| f.2),
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
         // The officials' ruling, and a review (topic 6).
@@ -2932,7 +3786,7 @@ impl<'a> Game<'a> {
             }
         }
         r.why = format!("{} on #{} before the snap.", f.kind.name(), f.player);
-        r.epa = ep_at(self.down, self.togo, goal() - self.x) - r.ep_before;
+        r.epa = ep_at(self.below_nfl(), self.down, self.togo, goal() - self.x) - r.ep_before;
         self.edge_hit(team, f.player, -1.0);
         self.stats.book(&r);
         // A running clock starts again on the ready signal once the penalty
@@ -2974,7 +3828,8 @@ impl<'a> Game<'a> {
     fn edge_hit(&mut self, team: usize, id: u32, amount: f64) {
         // Momentum (topic 4.1): small, and composure decides how much it bites.
         if let Some(i) = self.sides[team].team.players.iter().position(|p| p.id == id) {
-            let c = self.sides[team].team.players[i].composure(self.s.rules.level);
+            let c = (self.sides[team].team.players[i].composure(self.s.rules.level) + self.sides[team].pulse[i].poise)
+                .clamp(1.0, 20.0);
             let delta = if amount < 0.0 { amount * 1.5 * (1.25 - c / 20.0) } else { amount * 0.8 };
             let e = &mut self.sides[team].edge[i];
             *e = clamp(*e + delta, -3.0, 2.0);
@@ -2985,9 +3840,12 @@ impl<'a> Game<'a> {
         let level = self.s.rules.level;
         for s in self.sides.iter_mut() {
             for (i, e) in s.edge.iter_mut().enumerate() {
-                let c = s.team.players[i].composure(level);
+                let c = (s.team.players[i].composure(level) + s.pulse[i].poise).clamp(1.0, 20.0);
                 let k = if *e < 0.0 { (0.8 - 0.03 * c).max(0.2) } else { 0.7 };
                 *e *= k;
+            }
+            for p in s.pulse.iter_mut() {
+                p.fade();
             }
         }
     }
@@ -3036,6 +3894,7 @@ impl<'a> Game<'a> {
         r.fumbled = res.notes.fumbled;
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
+        r.line = res.notes.chart.clone();
         r.tend = res.notes.tend;
         r.busts = res.notes.busts.clone();
         r.injuries = res.notes.injuries.clone();
@@ -3096,7 +3955,8 @@ impl<'a> Game<'a> {
         let mut scored_td = res.touchdown;
         let mut turnover = res.turnover;
         let mut safety = res.safety;
-        let ep = |down: u8, togo: f64, x: f64| ep_at(down, togo, goal() - x.clamp(1.0, goal() - 1.0));
+        let college = self.below_nfl();
+        let ep = |down: u8, togo: f64, x: f64| ep_at(college, down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         if let (Some(of), Some(df)) = (off_foul.as_ref(), def_foul.as_ref()) {
             replay = true;
             new_x = los;
@@ -3352,8 +4212,9 @@ impl<'a> Game<'a> {
                 md.opp_run_res[rc as usize][1] += 1.0;
             }
             md.opp_plays += 1.0;
+            md.opp_game_plays += 1.0;
             if let PlayKind::Pass(i) = call.kind
-                && let Some(x) = md.opp_concepts.get_mut(i)
+                && let Some(x) = md.opp_concepts.get_mut(super::playbook::film_concept(i))
             {
                 *x += 1.0;
             }
@@ -3564,8 +4425,18 @@ impl<'a> Game<'a> {
                 return;
             }
             self.no_huddle = true;
-            13.0
-        } else if (self.quarter == 4 && self.diff(o) > 0)
+            // The hurry-up's snap to snap with the clock running (minor bug
+            // 142: 13 s made 64.6 NFL plays a team game, real 61.9, and
+            // 11.6 s between snaps in the last two minutes, real 18.1).
+            // College and high school keep 13 s: their plays a team game
+            // were already under real (FBS 64.8, real 66.6) and the chains
+            // stop their clock on first downs (proposed, not confirmed).
+            if self.rules().level == Level::NFL { 19.0 } else { 13.0 }
+        } else if self.four_minute_rule(o) == Some(live::FourMinute::RunItOut) && super::sheet::four_minute(&sit) {
+            39.5
+        } else if (self.quarter == 4
+            && self.diff(o) > 0
+            && !(self.four_minute_rule(o) == Some(live::FourMinute::KeepAttacking) && super::sheet::four_minute(&sit)))
             || self.sides[o].coach.read.ease > 0.0
             || (self.quarter == 2 && self.half_left() < 120.0 && self.x < 50.0 && self.diff(o) >= 0)
         {
@@ -3583,10 +4454,13 @@ impl<'a> Game<'a> {
             // on about a third of their snaps, everyone else now and then
             // (real NFL about 7% outside the two-minute drill); the averages
             // stay 33 and 37.5 seconds (proposed, not confirmed).
-            let (share, huddle) = match self.sides[o].team.staff.off_scheme {
+            let staff = &self.sides[o].team.staff;
+            let (share, huddle) = match staff.off_scheme {
                 OffScheme::AirRaid | OffScheme::SpreadOption => (0.35, 38.0),
                 _ => (0.06, 38.2),
             };
+            // The head coach's tempo (update 2, G2), by its firmness.
+            let share = staff.guide.pace.pull().map_or(share, |(p, k)| share + k * (p.share() - share));
             if self.rng.chance(share) {
                 self.no_huddle = true;
                 24.0 + self.rng.range(-2.0, 2.0)
@@ -3602,7 +4476,8 @@ impl<'a> Game<'a> {
     }
 
     fn value_after(&self, gain: f64, new_x: f64) -> f64 {
-        let ep = |down: u8, togo: f64, x: f64| ep_at(down, togo, goal() - x.clamp(1.0, goal() - 1.0));
+        let college = self.below_nfl();
+        let ep = |down: u8, togo: f64, x: f64| ep_at(college, down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         if gain >= self.togo {
             ep(1, 10.0f64.min(goal() - new_x), new_x)
         } else if self.down >= self.rules().downs() {
@@ -3613,7 +4488,8 @@ impl<'a> Game<'a> {
     }
 
     fn estimate_epa(&self, r: &PlayRecord, new_x: f64, first: bool, turnover: bool, td: bool) -> f64 {
-        let ep = |down: u8, togo: f64, x: f64| ep_at(down, togo, goal() - x.clamp(1.0, goal() - 1.0));
+        let college = self.below_nfl();
+        let ep = |down: u8, togo: f64, x: f64| ep_at(college, down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         let after = if td {
             6.95
         } else if turnover {
@@ -3757,7 +4633,13 @@ impl<'a> Game<'a> {
         if pen {
             for p in &r.penalties {
                 if p.4 {
-                    w.push_str(&format!(" Penalty: {} on {}, {:.0} yards.", p.0.name(), label(p.2), p.3));
+                    w.push_str(&format!(
+                        " Penalty: {} on {}, {:.0} {}.",
+                        p.0.name(),
+                        label(p.2),
+                        p.3,
+                        crate::world::folk::noun(p.3.round_ties_even() as i64, "yard")
+                    ));
                 }
             }
         }
@@ -3826,6 +4708,7 @@ impl<'a> Game<'a> {
             quarter: self.quarter,
             goal_to_go: yl <= 10.0 && self.togo >= yl - 0.01,
             trailing: self.ctl_team() < 2 && self.diff(self.ctl_team()) < 0,
+            word: self.ctl_team() < 2 && self.words_ready(self.ctl_team()).next().is_some(),
         }
     }
 
@@ -3865,7 +4748,7 @@ impl<'a> Game<'a> {
     pub(crate) fn view(&self) -> View {
         let len = 4.0 * self.rules().quarter;
         let o = self.poss;
-        let ep = tables::expected_points(self.down.max(1), self.togo, goal() - self.x);
+        let ep = ep_at(self.below_nfl(), self.down.max(1), self.togo, goal() - self.x);
         let lead = self.diff(0) as f64;
         let left = if self.ot { 300.0f64.min(self.clock) } else { self.game_left() };
         let wp_home = if self.over {
@@ -3916,7 +4799,19 @@ impl<'a> Game<'a> {
             ruling: None,
             fourth_wp: None,
             fg_make: None,
+            words: Vec::new(),
+            talked: None,
         };
+        let k = self.ctl_team();
+        if k < 2 && matches!(ask, Ask::Snap | Ask::Defense) {
+            let ready: Vec<super::talk::WordDue> = self.words_ready(k).copied().collect();
+            for w in ready {
+                if let Some(i) = self.sides[k].team.players.iter().position(|p| p.id == w.id) {
+                    let staff = self.staff_word(k, i, w.mistake, w.play);
+                    p.words.push(live::WordOffer { id: w.id, mistake: w.mistake, play: w.play, staff });
+                }
+            }
+        }
         let o = self.poss;
         if ask == Ask::Snap {
             let yl = goal() - self.x;
@@ -3974,6 +4869,8 @@ impl<'a> Game<'a> {
             qb_run: qb_threat,
             level: self.s.rules.level,
             plan: self.sides[o].team.plan().0,
+            designs: calling::sheet_designs(&self.sides[o].team.prep),
+            burner: self.sides[o].burner_lean(),
         };
         (ctx, qb_threat)
     }
@@ -4013,7 +4910,7 @@ impl<'a> Game<'a> {
     fn def_options(&self, sit: &Situation, call: &OffCall, staff_call: &DefCall, qb_run: f64) -> Vec<DefCall> {
         let d = 1 - self.poss;
         let staff = self.sides[d].team.staff;
-        let dctx = calling::DefCtx { qb_run };
+        let dctx = calling::DefCtx { qb_run, tip: 0.0 };
         let base = (self.s.seed as u32) ^ self.n.wrapping_mul(0x7FEB_352D) ^ 0x0DEF_0BEE;
         let mut seen: Vec<(DefCall, usize)> = vec![(*staff_call, 1)];
         for j in 0..40u32 {
@@ -4241,7 +5138,8 @@ impl<'a> Game<'a> {
     /// What a ruling is worth to the offense, in expected points.
     fn ruling_value(&self, r: &SnapResult) -> f64 {
         // The tables are in yards to the goal on any field.
-        let ep = |down: u8, togo: f64, x: f64| tables::expected_points(down, togo, goal() - x.clamp(1.0, goal() - 1.0));
+        let college = self.below_nfl();
+        let ep = |down: u8, togo: f64, x: f64| ep_at(college, down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         if r.touchdown && !r.turnover {
             return 6.95;
         }
@@ -4249,14 +5147,14 @@ impl<'a> Game<'a> {
             return -6.95;
         }
         if r.turnover {
-            return -tables::expected_points(1, 10.0, r.spot.clamp(1.0, goal() - 1.0));
+            return -ep_at(self.below_nfl(), 1, 10.0, r.spot.clamp(1.0, goal() - 1.0));
         }
         let spot = if r.result == scrimmage::Result::Incomplete { self.x } else { r.spot };
         let line = self.x + self.togo;
         if spot >= line {
             ep(1, 10.0f64.min(goal() - spot), spot)
         } else if self.down >= 4 {
-            -tables::expected_points(1, 10.0, spot.clamp(1.0, goal() - 1.0))
+            -ep_at(self.below_nfl(), 1, 10.0, spot.clamp(1.0, goal() - 1.0))
         } else {
             ep(self.down + 1, line - spot, spot)
         }
@@ -4376,9 +5274,12 @@ impl<'a> Game<'a> {
             && self.sides[against].timeouts > 0
             && !(nfl && late);
         // The replay assistant upstairs (stand-in for his eye: the head
-        // coach's game management): "throw it" or "don't".
+        // coach's game management, read against the level's own coaches,
+        // since the real rates are theirs; minor bug 140: read against 10,
+        // NFL staffs hit the cap, threw only on sure things and won 54%):
+        // "throw it" or "don't".
         let gm = self.sides[against].team.staff.game_management;
-        let acc = clamp(0.55 + 0.025 * gm, 0.55, 0.92);
+        let acc = clamp(0.80 + 0.025 * (gm - super::rules::coach_norm(self.rules().level)), 0.55, 0.92);
         let says = if wrong { self.refs.chance(acc) } else { self.refs.chance((1.0 - acc) * 0.6) };
         let swing = (self.ruling_value(&counter) - self.ruling_value(&ruled)).abs();
         let worth = swing >= 0.8 || self.refs.chance(swing / 0.8);
@@ -4518,8 +5419,8 @@ impl<'a> Game<'a> {
 /// first down as the NFL's second (two plays left to make ten), and another
 /// field's yards as their share of a 100-yard one. The American field
 /// passes straight through.
-pub(crate) fn ep_at(down: u8, togo: f64, yards_to_goal: f64) -> f64 {
-    tables::expected_points(nfl_down(down), togo, super::geom::to_100(yards_to_goal))
+pub(crate) fn ep_at(college: bool, down: u8, togo: f64, yards_to_goal: f64) -> f64 {
+    tables::expected_points_in(college, nfl_down(down), togo, super::geom::to_100(yards_to_goal))
 }
 
 /// Win probability from the real NFL table, on this game's field.
@@ -4593,6 +5494,9 @@ pub struct Venue {
     /// Keep the setup for replays (your games).
     #[serde(default)]
     pub keep: bool,
+    /// A playoff game: overtime is played out (update 3, F25).
+    #[serde(default)]
+    pub playoff: bool,
 }
 
 /// A quick game at a venue.
@@ -4610,6 +5514,9 @@ pub fn quick_game_in(
         None => (home, away),
     };
     let mut s = GameSetup::new(home, away, level, seed);
+    // The season's own rule book (update 3, F25).
+    s.rules = Rules::for_year(level, venue.year, venue.playoff);
+    s.playoff = venue.playoff;
     s.cond = venue.cond;
     s.neutral = venue.neutral;
     s.wear = venue.wear;
@@ -4700,6 +5607,12 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         toss_rng: Rng::new(live::toss_seed(seed)),
         trying: false,
         must_go: false,
+        def_script: false,
+        kick_look: false,
+        fake: None,
+        due: Vec::new(),
+        scanned: 0,
+        drive_fouls: Vec::new(),
     };
     g.stats.quarters.push([0, 0]);
     g
@@ -4837,43 +5750,253 @@ fn same_group(pos: Position, sp: Spot) -> bool {
         || pos == Position::WR && to == Position::CB
 }
 
-/// How much a quarterback threatens to run, 0-1 (topic 5.4): a spy and the
-/// option game key on it (proposed, not confirmed).
-fn qb_run(p: &GamePlayer) -> f64 {
-    clamp((0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - 68.0) / 20.0, 0.0, 1.0)
+/// A kicker's chance to make a field goal from a distance, as his staff
+/// reckons it (also the Plans page's 4th-down chart, update 2 G4).
+pub fn fg_make(p: &GamePlayer, dist: f64) -> f64 {
+    let acc = super::kicking::fg_accuracy(p, dist);
+    let range = 38.0 + 0.3 * p.a(Attr::KickPower);
+    let sd = (2.95 + 0.012 * (dist - 30.0)) * (1.82f64 - 0.0105 * acc).max(0.55);
+    let half = (super::geom::field().posts / dist).atan().to_degrees();
+    let z = half / sd;
+    let p_line = 1.0 - 2.0 * (1.0 - phi(z));
+    let p_range = phi((range - dist) / 3.0);
+    p_line * p_range
 }
 
-/// The call sheet's play for this snap (section 6b, read by game day):
-/// the situation's plays of the kind the coordinator chose, with how
-/// closely he sticks to the sheet. None leaves his own call.
-fn sheet_call(
-    prep: &super::roster::Prep,
-    sit: &Situation,
-    own: &OffCall,
-    plays: u32,
-    rng: &mut Rng,
-) -> Option<OffCall> {
-    if prep.sheet.is_empty() || !rng.chance(prep.stick) {
-        return None;
+/// How much a quarterback threatens to run, 0-1 (topic 5.4): a spy and the
+/// option game key on it (proposed, not confirmed).
+/// A quarterback's running threat (0 to 1) from his speed and elusiveness.
+/// Read for his weight, as the forty is (A3).
+pub fn qb_run(p: &GamePlayer) -> f64 {
+    let moves = 0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - super::sim::size_cost(p.weight, 222.0);
+    clamp((moves - 68.0) / 20.0, 0.0, 1.0)
+}
+
+// ------------------------------------------------------------ talks
+
+impl<'a> Game<'a> {
+    fn talk_cx(&self, k: usize, moment: super::talk::Moment) -> super::talk::Ctx<'a> {
+        let team: &'a GameTeam = self.sides[k].team;
+        super::talk::ctx(team, self.s.rules.level, self.s.playoff, &self.s.context[k], moment)
     }
-    let mut want = crate::training::seat::sheet_situation(sit.down, sit.togo, sit.yardline_100, sit.half_left);
-    if plays < 15 {
-        want.insert(0, 0);
+
+    /// A talk to one side's whole room (dialogue D4, D5): yours, or the
+    /// head coach's own read of his room. The halftime talk takes over from
+    /// what is left of the pregame one.
+    fn room_talk(&mut self, k: usize, moment: super::talk::Moment, pick: Option<super::talk::Pick>) {
+        let team: &'a GameTeam = self.sides[k].team;
+        let cx = self.talk_cx(k, moment);
+        let half = matches!(moment, super::talk::Moment::Halftime { .. });
+        let seed = self.s.seed ^ 0x7A1C_0000 ^ ((k as u64) << 40) ^ ((half as u64) << 44);
+        let pick = pick.unwrap_or_else(|| super::talk::coach_pick(team, &cx, seed));
+        let ls = super::talk::room(team, &pick, &cx);
+        for (i, l) in ls.iter().enumerate() {
+            self.sides[k].pulse[i] = super::talk::Pulse::of(l);
+        }
+        self.res.talks.rooms.push(super::talk::note(team, &ls, k, half));
+        if half {
+            self.res.talks.halftime[k] = Some(pick);
+        } else {
+            self.res.talks.pregame[k] = Some(pick);
+        }
     }
-    for k in want {
-        let Some((_, list)) = prep.sheet.iter().find(|(s, l)| *s == k && !l.is_empty()) else { continue };
-        let fit: Vec<&(Personnel, Backfield, Set, PlayKind)> =
-            list.iter().filter(|x| x.3.is_run() == own.kind.is_run()).collect();
-        let pool: Vec<&(Personnel, Backfield, Set, PlayKind)> =
-            if fit.is_empty() { list.iter().collect() } else { fit };
-        let &&(pers, back, set, kind) = rng.pick(&pool);
-        let mut f = own.formation;
-        f.personnel = pers;
-        f.backfield = back;
-        f.set = set;
-        let mut c = OffCall::new(f, kind, own.dir, own.tempo);
-        c.why = "on the call sheet";
-        return Some(c);
+
+    /// Whether a word can come now: he is off the field since his mistake
+    /// (an offensive player while his team defends, a defender while it has
+    /// the ball, a specialist any time).
+    fn word_ready(&self, w: &super::talk::WordDue) -> bool {
+        match w.unit {
+            0 => self.poss != w.team,
+            1 => self.poss == w.team,
+            _ => true,
+        }
     }
-    None
+
+    fn words_ready(&self, k: usize) -> impl Iterator<Item = &super::talk::WordDue> {
+        self.due.iter().filter(move |w| w.team == k && self.word_ready(w))
+    }
+
+    /// The word the staff gives him: the head coach's read, seeded by the
+    /// play it follows so it is the same whether you watch or not.
+    fn staff_word(&self, k: usize, i: usize, mistake: super::talk::Mistake, play: u32) -> super::talk::Pick {
+        let p = &self.sides[k].team.players[i];
+        let cx = self.talk_cx(k, super::talk::Moment::Sideline { mistake });
+        super::talk::coach_word(p, &cx, self.s.seed ^ 0x5D1E_0000 ^ ((p.id as u64) << 24) ^ play as u64)
+    }
+
+    fn give_word(&mut self, w: super::talk::WordDue, pick: super::talk::Pick, yours: bool) {
+        let k = w.team;
+        let Some(i) = self.sides[k].team.players.iter().position(|p| p.id == w.id) else { return };
+        let team: &'a GameTeam = self.sides[k].team;
+        let cx = self.talk_cx(k, super::talk::Moment::Sideline { mistake: w.mistake });
+        let pick = super::talk::Pick { subject: super::talk::Subject::One, who: w.id, ..pick };
+        let l = super::talk::land(&team.players[i], &pick, &cx, None);
+        self.sides[k].pulse[i].add(&l);
+        // A word that lands takes some of the sting out of the mistake; one
+        // that misses adds to it.
+        let e = &mut self.sides[k].edge[i];
+        if l.lift > 0.0 {
+            *e *= (1.0 - 0.35 * (l.lift as f64).min(1.5)).max(0.3);
+        } else {
+            *e = (*e + 0.5 * l.lift as f64).max(-3.0);
+        }
+        self.sides[k].worded[i] = self.sides[k].worded[i].saturating_add(1);
+        let trust = if yours { super::talk::word_trust(&l, &pick) } else { 0.0 };
+        self.res.talks.words.push(super::talk::WordNote {
+            side: k as u8,
+            id: w.id,
+            mistake: w.mistake,
+            pick,
+            yours,
+            trust,
+            play: w.play,
+            why: l.why,
+            lift: l.lift,
+        });
+    }
+
+    /// Your word to one of your players waiting for one.
+    fn your_word(&mut self, k: usize, id: u32, pick: super::talk::Pick) {
+        let Some(at) = self.due.iter().position(|w| w.team == k && w.id == id && self.word_ready(w)) else {
+            return;
+        };
+        let w = self.due.remove(at);
+        self.give_word(w, pick, true);
+    }
+
+    /// Before a snap: every word that can come now and wasn't given is the
+    /// staff's (each side's position coach, for AI teams and yours alike).
+    fn settle_words(&mut self) {
+        let ready: Vec<super::talk::WordDue> = self.due.iter().filter(|w| self.word_ready(w)).copied().collect();
+        if ready.is_empty() {
+            return;
+        }
+        self.due.retain(|w| !ready.contains(w));
+        for w in ready {
+            if let Some(i) = self.sides[w.team].team.players.iter().position(|p| p.id == w.id) {
+                let pick = self.staff_word(w.team, i, w.mistake, w.play);
+                self.give_word(w, pick, false);
+            }
+        }
+    }
+
+    /// The plays since the last snap, read for mistakes (Cain 2026-10-27):
+    /// costly ones (a turnover, a foul that kept their drive alive or
+    /// killed ours, a blown assignment on their score) and a third small
+    /// one in a game (drops, missed tackles, small fouls, busts). A player
+    /// gets at most two words a game.
+    fn scan_mistakes(&mut self) {
+        use super::talk::Mistake as M;
+        use crate::game::sim::FoulKind as F;
+        let (from, to) = (self.scanned, self.stats.plays.len());
+        self.scanned = to;
+        if from >= to {
+            return;
+        }
+        let team_of = |sides: &[Side; 2], id: u32| -> Option<(usize, usize)> {
+            (0..2).find_map(|t| sides[t].team.players.iter().position(|p| p.id == id).map(|i| (t, i)))
+        };
+        let mut costly: Vec<(u32, M, u32)> = Vec::new();
+        let mut small: Vec<u32> = Vec::new();
+        let mut fouls = std::mem::take(&mut self.drive_fouls);
+        for r in &self.stats.plays[from..to] {
+            let off = r.offense;
+            if fouls.first().is_some_and(|f| f.0 != off) {
+                fouls.clear();
+            }
+            if !r.nullified
+                && r.interception
+                && let Some(qb) = r.passer
+            {
+                costly.push((qb, M::Interception, r.n));
+            }
+            if !r.nullified
+                && r.fumble_lost
+                && let Some(f) = r.fumbled
+            {
+                costly.push((f, M::Fumble, r.n));
+            }
+            for &(kind, team, id, yards, accepted) in &r.penalties {
+                if !accepted {
+                    continue;
+                }
+                if team == off {
+                    match kind {
+                        F::FalseStart | F::DelayOfGame | F::IllegalFormation => small.push(id),
+                        _ => {
+                            fouls.push((team, id));
+                            small.push(id);
+                        }
+                    }
+                } else {
+                    let personal =
+                        matches!(kind, F::PassInterference | F::RoughingPasser | F::UnnecessaryRoughness | F::FaceMask);
+                    if personal || (r.down >= 3 && yards + 0.01 >= r.togo) {
+                        costly.push((id, M::ExtendedDrive, r.n));
+                    } else {
+                        small.push(id);
+                    }
+                }
+            }
+            for &b in &r.busts {
+                let on_off = r.on_field[0].contains(&b);
+                if (!on_off && r.touchdown && !r.nullified) || (on_off && r.defense_td) {
+                    costly.push((b, M::BlownScore, r.n));
+                } else {
+                    small.push(b);
+                }
+            }
+            if r.drop
+                && let Some(t) = r.target
+            {
+                small.push(t);
+            }
+            for &(tk, _) in &r.missed_tackles {
+                small.push(tk);
+            }
+            // The drive ends without points: its last offensive foul killed it.
+            let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+            let dead = r.kind == PlayType::Punt
+                || (r.kind == PlayType::FieldGoal && !r.kick_good)
+                || (scrimmage && r.down == 4 && !r.first_down && !r.touchdown && !r.turnover && !r.nullified);
+            if dead {
+                if let Some(&(_, id)) = fouls.iter().rev().find(|f| f.0 == off) {
+                    costly.push((id, M::KilledDrive, r.n));
+                }
+                fouls.clear();
+            } else if r.touchdown || r.turnover || (r.kind == PlayType::FieldGoal && r.kick_good) {
+                fouls.clear();
+            }
+        }
+        self.drive_fouls = fouls;
+        for (id, m, play) in costly {
+            self.word_due(team_of(&self.sides, id), m, play);
+        }
+        for id in small {
+            if let Some((t, i)) = team_of(&self.sides, id) {
+                let s = &mut self.sides[t].small[i];
+                *s = s.saturating_add(1);
+                if *s == 3 {
+                    let play = self.stats.plays[to - 1].n;
+                    self.word_due(Some((t, i)), M::Pattern, play);
+                }
+            }
+        }
+    }
+
+    fn word_due(&mut self, at: Option<(usize, usize)>, mistake: super::talk::Mistake, play: u32) {
+        let Some((t, i)) = at else { return };
+        let p = &self.sides[t].team.players[i];
+        let id = p.id;
+        let waiting = self.due.iter().any(|w| w.id == id);
+        if waiting || self.sides[t].worded[i] >= 2 {
+            return;
+        }
+        let unit = match p.position {
+            Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL => 0,
+            Position::EDGE | Position::DT | Position::LB | Position::CB | Position::S => 1,
+            Position::K | Position::P | Position::LS => 2,
+        };
+        self.due.push(super::talk::WordDue { team: t, id, mistake, play, unit });
+    }
 }

@@ -1,9 +1,28 @@
 name: Build a world
 # Builds a full world on GitHub's machines and publishes it on the public
 # worlds page (github.com/cnbville/afm-worlds), where the game's library
-# downloads it in one click (Cain 2026-10-21). A 30-year world takes about
-# three hours. Needs the WORLDS_TOKEN secret: a token that may write to
-# cnbville/afm-worlds.
+# downloads it in one click (Cain 2026-10-21). A 30-year world with its log
+# takes about five and three quarter hours, at the edge of a job's six
+# (2026-11-01: 1984-2013 in 2 h 2 min, then about 18.5 minutes a season once
+# high school games go on the engine); without its log (log no) much less
+# (3 h 21 min on 2026-10-30's code), and its book then has no game pages.
+# Needs the WORLDS_TOKEN secret: a token that may write to
+# cnbville/afm-worlds. Every world gets a star mix check (`star_mix`: squad
+# and signing stars by group, newcomers and leavers, the dynasty check) in
+# the run's summary. With publish set to no it is a check world only, and
+# with check set to a worlds page release it checks that world instead of
+# building one; quick builds a stand-in world (`star_mix build`, about an
+# hour for 8 years) for the check alone (lane 10 follow-up; Cain
+# 2026-10-27: world runs go on GitHub). The tools are compiled first, on a
+# machine of their own.
+#
+# A published world's book is made by a second job on a fresh machine, from
+# the world and log on the worlds page: with its log, a 30-year world's
+# book takes about an hour and a half and tens of GB, on top of the world's
+# five and a half hours, and a job may run six. A full disk kills the runner itself
+# (2026-10-30: two 30-year worlds lost theirs in the book step, "No space
+# left on device"), so the world and its log go up before anything else
+# runs, and each job first removes toolsets it never uses.
 on:
   workflow_dispatch:
     inputs:
@@ -13,24 +32,95 @@ on:
       years:
         description: "Years of history"
         default: "30"
+      publish:
+        description: "Publish it on the worlds page (no for a check world)"
+        default: "yes"
+      check:
+        description: "A worlds page release to check instead of building one (its tag)"
+        default: ""
+      quick:
+        description: "A quick stand-in world for the star mix check only (yes or no)"
+        default: "no"
+      log:
+        description: "Write the world log beside it (no builds much faster; its book then has no game pages)"
+        default: "yes"
 jobs:
-  world:
+  # The world and star mix tools are compiled on a machine of their own, so
+  # the world job's six hours go to the world (2026-11-01: a 30-year world
+  # with its log and high school games on the engine runs about five and a
+  # half hours, and compiling took another 17 minutes of the same job).
+  tools:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Build the world
+      - name: Compile the world and star mix tools
         env:
           AFM_COMMIT: ${{ github.sha }}
         run: |
-          mkdir -p out
-          cargo run --release --bin afm_world -- "${{ inputs.seed }}" "${{ inputs.years }}" out
-          ls -la out
-      # A release file may be at most 2 GB, so a bigger world goes up in parts
-      # (name.afmworld.001, .002, ...), which the game joins.
+          cargo build --release --bin afm_world --bin star_mix
+          mkdir -p tools && cp target/release/afm_world target/release/star_mix tools/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: world-tools
+          path: tools/
+          retention-days: 3
+  world:
+    needs: tools
+    runs-on: ubuntu-latest
+    # GitHub's most for a job on its own machines.
+    timeout-minutes: 360
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      # The toolsets this job never uses go first, and the world, its log and
+      # its book go on whichever disk has the most room (the old check took
+      # /mnt whenever mkdir worked there, even when /mnt is no disk of its
+      # own). The disks are printed here and after each big step.
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: world-tools
+          path: tools
+      - run: chmod +x tools/*
+      # Only a check world's book (below) compiles anything here.
+      - uses: dtolnay/rust-toolchain@stable
+        if: inputs.quick != 'yes' && (inputs.publish == 'no' || inputs.check != '')
+      - uses: Swatinem/rust-cache@v2
+        if: inputs.quick != 'yes' && (inputs.publish == 'no' || inputs.check != '')
+      - name: Build the world
+        if: inputs.check == '' && inputs.quick != 'yes'
+        env:
+          AFM_WORLD_LOG: ${{ inputs.log == 'no' && 'off' || 'on' }}
+        run: |
+          tools/afm_world "${{ inputs.seed }}" "${{ inputs.years }}" out
+          ls -la out/ && du -sh out/* && df -h / /mnt
+      - name: Download the world to check
+        if: inputs.check != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p out && cd out
+          gh release download "${{ inputs.check }}" --repo cnbville/afm-worlds --pattern '*.afmworld*'
+          f=$(ls | sed -n 's/\(.*\.afmworld\)\.[0-9]*$/\1/p' | head -1)
+          if [ -n "$f" ]; then cat "$f".* > "$f" && rm "$f".*; fi
+          ls -la
+      # The world goes up first, so a step that fails after it never costs
+      # the world. A release file may be at most 2 GB, so a bigger world goes
+      # up in parts (name.afmworld.001, .002, ...), which the game joins. The
+      # whole file stays for the star mix check. Then the world log (world
+      # reader lane R2) as a tar file in parts (name.afmlog.tar.001, ...),
+      # packed as the folder is removed so the disk holds it once; the game
+      # does not download it, the book job does.
       - name: Publish it on the worlds page
+        id: publish
+        if: inputs.publish != 'no' && inputs.check == '' && inputs.quick != 'yes'
         env:
           GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
         run: |
@@ -40,11 +130,111 @@ jobs:
             -f content="$(printf '# AFM downloads\n\nReady-built worlds and the newest AFM for Mac. The game downloads from here by itself.\n' | base64 | tr -d '\n')"
           cd out
           f=$(ls *.afmworld)
+          up="$f"
           if [ "$(stat -c %s "$f")" -gt 2000000000 ]; then
             split -b 1900M -d -a 3 --numeric-suffixes=1 "$f" "$f."
-            rm "$f"
+            up=$(ls "$f".[0-9][0-9][0-9])
           fi
           sha=$(echo "${{ github.sha }}" | cut -c1-7)
-          gh release create "${f%.afmworld}-$sha" ./*.afmworld* --repo cnbville/afm-worlds \
+          tag="${f%.afmworld}-$sha"
+          # shellcheck disable=SC2086
+          gh release create "$tag" $up --repo "$repo" \
             --title "Seed ${{ inputs.seed }}, ${{ inputs.years }} years of history (game $sha)" \
-            --notes "Built $(date -u +%Y-%m-%d) by the AFM game at commit ${{ github.sha }}."
+            --notes "Built $(date -u +%Y-%m-%d) by the AFM game at commit ${{ github.sha }}. The world reader's book is the .afmbook.zst file (unzstd it, joining parts first)."
+          rm -f "$f".[0-9][0-9][0-9]
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          for l in *.afmlog; do
+            [ -d "$l" ] || continue
+            tar --remove-files -cf - "$l" | split -b 1900M -d -a 3 --numeric-suffixes=1 - "$l.tar."
+            gh release upload "$tag" ./"$l".tar.* --repo "$repo"
+            rm -f "$l".tar.*
+          done
+          df -h / /mnt
+      # The world reader's book (lane R4, docs/world-reader.md) for a world
+      # that isn't published: a check world, or a worlds page release being
+      # checked. A published world's book is the book job's.
+      - name: Build the book
+        if: inputs.quick != 'yes' && (inputs.publish == 'no' || inputs.check != '')
+        continue-on-error: true
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+        run: .github/scripts/build-book.sh
+      # A check that fails never stops a world from being published.
+      - name: Star mix check
+        continue-on-error: true
+        run: |
+          if [ "${{ inputs.quick }}" = yes ]; then
+            tools/star_mix build "${{ inputs.seed }}" "${{ inputs.years }}" | tee star_mix.txt
+          else
+            tools/star_mix out/*.afmworld | tee star_mix.txt
+          fi
+          { echo '```'; cat star_mix.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: star-mix
+          path: star_mix.txt
+      # A checked world gets its book added to its own release.
+      - name: Add the book to the checked world
+        if: inputs.publish != 'no' && inputs.check != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+        run: |
+          cd out
+          for b in *.afmbook.zst; do
+            [ -f "$b" ] || continue
+            if [ "$(stat -c %s "$b")" -gt 2000000000 ]; then
+              split -b 1900M -d -a 3 --numeric-suffixes=1 "$b" "$b."
+              rm "$b"
+            fi
+            gh release upload "${{ inputs.check }}" ./"$b"* --repo cnbville/afm-worlds --clobber
+          done
+  # The published world's book, on a machine of its own: the world and its
+  # log come down from the worlds page, and the book goes up beside them
+  # (name.afmbook.zst, in parts over 2 GB). The game downloads neither the
+  # book nor the log. A book that fails never touches the world.
+  book:
+    needs: world
+    if: needs.world.outputs.tag != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # The log's tar parts are read one after another into tar and each is
+      # removed once read, so the disk holds the log about once.
+      - name: Download the world and its log
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.world.outputs.tag }}
+        run: |
+          cd out
+          gh release download "$TAG" --repo cnbville/afm-worlds --pattern '*.afmworld*' --pattern '*.afmlog.tar.*'
+          f=$(ls | sed -n 's/\(.*\.afmworld\)\.[0-9]*$/\1/p' | head -1)
+          if [ -n "$f" ]; then cat "$f".[0-9][0-9][0-9] > "$f" && rm "$f".[0-9][0-9][0-9]; fi
+          for l in $(ls | sed -n 's/\(.*\.afmlog\)\.tar\.[0-9]*$/\1/p' | sort -u); do
+            for p in "$l".tar.[0-9][0-9][0-9]; do cat "$p" && rm "$p"; done | tar -xf -
+          done
+          ls -la && du -sh ./* && df -h / /mnt
+      - name: Build the book
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+        run: .github/scripts/build-book.sh
+      - name: Publish the book
+        env:
+          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+          TAG: ${{ needs.world.outputs.tag }}
+        run: |
+          cd out
+          for b in *.afmbook.zst; do
+            [ -f "$b" ] || continue
+            if [ "$(stat -c %s "$b")" -gt 2000000000 ]; then
+              split -b 1900M -d -a 3 --numeric-suffixes=1 "$b" "$b."
+              rm "$b"
+            fi
+            gh release upload "$TAG" ./"$b"* --repo cnbville/afm-worlds
+          done

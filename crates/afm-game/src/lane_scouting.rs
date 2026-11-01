@@ -49,6 +49,17 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             follow(w, pid, &text("why"))?;
             scout_file(w, pid)
         })(),
+        "hs_pitch" => (|| {
+            let pid = id()?;
+            let w = game.wm()?;
+            Ok(json!({ "text": afm_engine::world::scouting::pitch::pitch(w, pid)? }))
+        })(),
+        "stake_name" => (|| {
+            let pid = id()?;
+            let w = game.wm()?;
+            let public = args.get("public").and_then(Value::as_bool).unwrap_or(false);
+            Ok(json!({ "text": afm_engine::world::scouting::stake::stake(w, pid, public)? }))
+        })(),
         "unfollow" => (|| {
             let pid = id()?;
             let w = game.wm()?;
@@ -180,7 +191,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 
 // --- Shared pieces -------------------------------------------------------------------------
 
-const REGION_NAMES: [&str; 8] = [
+pub(crate) const REGION_NAMES: [&str; 8] = [
     "Northeast",
     "Mid-Atlantic",
     "Deep South",
@@ -259,7 +270,7 @@ fn ft_in(inches: f64) -> String {
 
 /// A player's row for any list: id, name, position, school, class, the
 /// public's word.
-fn row(w: &World, i: usize) -> Value {
+pub(crate) fn row(w: &World, i: usize) -> Value {
     let p = &w.people[i];
     json!({
         "id": p.player.id,
@@ -353,7 +364,7 @@ fn is_followed(w: &World, id: u32) -> bool {
 
 /// A short read of a player for a list row: the now range, the role words
 /// and how many looks.
-fn brief_read(w: &World, staff: readers::Staff, id: u32) -> Value {
+pub(crate) fn brief_read(w: &World, staff: readers::Staff, id: u32) -> Value {
     let Some(i) = sc::place(w, id) else { return Value::Null };
     let p = &w.people[i];
     match readers::read(w, staff, id) {
@@ -564,10 +575,11 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
     let voices: Vec<Value> = voices
         .into_iter()
         .take(4)
-        .enumerate()
-        .map(|(k, (r, n))| {
+        .filter_map(|(r, n)| {
+            // Bug 18: each voice comes from his own read.
             let rd = &rds[r];
-            json!({ "who": rd.name, "job": rd.job, "looks": n, "says": lines::room_voice(k as u8 % 4, &p.name, pos.name(), rd.key, id as u64) })
+            let says = afm_engine::world::scouting::own::voice(w, i, f.as_ref()?, &rds, &looks, r, speak(p))?;
+            Some(json!({ "who": rd.name, "job": rd.job, "looks": n, "says": says }))
         })
         .collect();
     // Board flags.
@@ -589,7 +601,13 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
     let followers = Some(p.followers).filter(|&f| f > 0);
     let choices = w.scouting.predraft.choices.get(&id).map_or(Vec::new(), |&c| predraft::choice_words(c));
     let (lh, lw) = file::listed(&p.player);
+    // Measured is his body now (a boy still growing is smaller than the man
+    // he becomes).
+    let now = afm_engine::body::body_now(&p.player);
     let measured = looks.iter().any(|l| matches!(l.kind, Kind::Combine | Kind::ProDay | Kind::Camp | Kind::Showcase));
+    let film_now = sc::own::film_cost(w, p.player.id)
+        .ok()
+        .map(|(_, h, what)| json!({ "hours": h, "what": what, "left": sc::own::film_left(w), "week": sc::own::film_budget(w), "blocked": sc::own::film_blocked(w, p.player.id) }));
     Ok(json!({
         "id": id,
         "name": p.name,
@@ -601,11 +619,11 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         "team": team_ref_of(w, p).map(|t| team_brief(w, t)),
         "hometown": w.states.get(p.home_state).map(|s| s.code.to_string()),
         "high_school": w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
-        "ht": ft_in(if measured { p.player.body.height } else { lh }),
-        "wt": (if measured { p.player.body.weight } else { lw }).round(),
+        "ht": ft_in(if measured { now.height } else { lh }),
+        "wt": (if measured { now.weight } else { lw }).round(),
         "measured": measured,
-        "arm": measured.then_some(p.player.body.arm),
-        "hand": measured.then_some(p.player.body.hand),
+        "arm": measured.then_some(now.arm),
+        "hand": measured.then_some(now.hand),
         "stars": p.stars,
         "mine": matches!(staff, readers::Staff::Club(t) if p.pro.as_ref().is_some_and(|c| c.team == Some(t)))
             || matches!(staff, readers::Staff::Program(c) if p.college == Some(c) && p.stage == Stage::College)
@@ -640,24 +658,47 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         "brand": if p.brand > 0.0 { Some(p.brand.round()) } else { None },
         "followers_n": followers,
         "nil": if p.nil_income > 0.0 { Some(p.nil_income.round()) } else { None },
-        "can_ask": ask_kinds(w, p),
+        "can_ask": ask_kinds(w, p).into_iter().filter(|k| *k != "Watch his film now").collect::<Vec<_>>(),
     }))
+    .map(|mut v: Value| {
+        v["film_now"] = film_now.unwrap_or(Value::Null);
+        v
+    })
 }
 
 /// The looks you can ask your staff for on this player, by your seat.
-fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
+/// A free agent your club can make an offer to today.
+fn can_sign(w: &World, i: usize) -> bool {
+    afm_engine::world::front_office::nfl::negotiable(w, i)
+        == Some(afm_engine::world::front_office::nfl::TalkKind::FreeAgent)
+}
+
+pub(crate) fn ask_kinds(w: &World, p: &Person) -> Vec<&'static str> {
     let Some(s) = w.seat else { return Vec::new() };
-    match s.level {
+    let mut v = match s.level {
         CalLevel::Nfl if matches!(p.stage, Stage::College | Stage::Declared) => {
             vec!["See him again", "Cross-check", "Private workout", "Background check", "Medical recheck"]
         }
-        CalLevel::Nfl => vec!["Pro film", "Tryout"],
+        // A pro: film on anyone in the league, a tryout only for a man no
+        // club holds; your own players your staff reads every day.
+        CalLevel::Nfl if p.stage == Stage::Pro => match p.pro.as_ref() {
+            Some(c) if c.team.is_some() && c.team == s.nfl_team => Vec::new(),
+            Some(c) if c.team.is_none() && c.status == afm_engine::world::pro::Status::FreeAgent && !c.on_waivers => {
+                vec!["Pro film", "Tryout"]
+            }
+            _ => vec!["Pro film"],
+        },
         CalLevel::College if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) => {
             vec!["Evaluate in person", "Film study", "Call his coach", "Transcript", "Social media"]
         }
-        CalLevel::College => vec!["Film study", "Call his old staff", "Transcript"],
+        CalLevel::College if p.stage == Stage::College => vec!["Film study", "Call his old staff", "Transcript"],
         _ => Vec::new(),
+    };
+    // Bug 82: you watch his film yourself, today, on your own hours.
+    if sc::own::film_cost(w, p.player.id).is_ok() {
+        v.insert(0, "Watch his film now");
     }
+    v
 }
 
 fn ask(w: &mut World, id: u32, what: &str) -> Result<String, String> {
@@ -665,6 +706,7 @@ fn ask(w: &mut World, id: u32, what: &str) -> Result<String, String> {
     let name = p.name.clone();
     let d = w.today;
     let kind = match what {
+        "Watch his film now" => return sc::own::watch_film(w, id),
         "See him again" => Kind::School,
         "Cross-check" => Kind::CrossCheck,
         "Private workout" => Kind::Workout,
@@ -763,8 +805,8 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
                             ("National scout".to_string(), "Cross-checks".to_string())
                         }
                         afm_engine::world::pro::scouts::Role::Area => {
-                            let regions: Vec<&str> = (0..8u8)
-                                .filter(|r| (*r as usize) % areas == s.region as usize)
+                            let regions: Vec<&str> = afm_engine::world::pro::scouts::covers(s.region, areas)
+                                .into_iter()
                                 .map(|r| REGION_NAMES[r as usize])
                                 .collect();
                             ("Area scout".to_string(), regions.join(", "))
@@ -1120,7 +1162,7 @@ pub fn draft_board(w: &World) -> Reply {
     let grades = board::seat_grades(w);
     let order = board::ordered(w, &grades);
     let public = board::public_ranks(w);
-    let teams = afm_engine::world::franchise::active_teams(w.year).len().max(1);
+    let teams = afm_engine::world::franchise::active_teams_in(w, w.year).len().max(1);
     let b = &w.scouting.board;
     let taken: HashSet<u32> = w
         .scouting
@@ -1315,7 +1357,7 @@ pub fn war_room(w: &World) -> Reply {
     let order = board::ordered(w, &grades);
     let left: HashSet<u32> = run.pool.iter().map(|x| w.people[x.0].player.id).collect();
     let public: HashMap<u32, usize> = run.public_rank.iter().map(|(&i, &r)| (w.people[i].player.id, r)).collect();
-    let teams = afm_engine::world::franchise::active_teams(run.year).len().max(1);
+    let teams = afm_engine::world::franchise::active_teams_in(w, run.year).len().max(1);
     let b = &w.scouting.board;
     // Your board, still there, best first.
     let board_rows: Vec<Value> = order
@@ -1385,14 +1427,15 @@ pub fn war_room(w: &World) -> Reply {
         .take(3)
         .enumerate()
         .filter_map(|(k, &id)| {
+            // Bug 18: the director, the head coach and the analytics head
+            // each speak from their own read of him.
             let i = sc::place(w, id)?;
             let p = &w.people[i];
-            let who = match k {
-                0 => director_name(w, t).unwrap_or_else(|| "Your director".into()),
-                1 => w.nfl[t].head_coach.map_or("Your head coach".into(), |c| w.coaches[c].name.clone()),
-                _ => "Your analytics director".into(),
-            };
-            Some(json!({ "who": who, "says": lines::room_voice(k as u8, &p.name, p.player.position.name(), t as u64, id as u64), "id": id }))
+            let (rds, looks, f) = readers::read(w, readers::Staff::Club(t), id)?;
+            let job = ["Director of college scouting", "Head coach", "analytics"][k.min(2)];
+            let r = rds.iter().position(|x| x.job.contains(job))?;
+            let says = afm_engine::world::scouting::own::voice(w, i, &f, &rds, &looks, r, speak(p))?;
+            Some(json!({ "who": rds[r].name, "says": says, "id": id }))
         })
         .collect();
     let revealed = l.revealed.and_then(|(pk, id)| {
@@ -1583,7 +1626,7 @@ pub fn predraft_view(w: &World) -> Reply {
         ["Senior Bowl", date_text(jan.senior_bowl)],
         ["Combine", date_text(dates.combine_start)],
         ["Pro days", "March to mid-April"],
-        ["Top-30 visits deadline", date_text(dates.draft[0].date.add(-10))],
+        ["Top-30 visits deadline", date_text(dates.top30_deadline)],
         ["The draft", date_text(dates.draft[0].date)],
     ]);
     Ok(
@@ -1651,6 +1694,8 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
             let mut r = row(w, i);
             r["read"] = brief_read(w, staff, w.people[i].player.id);
             r["tried"] = json!(ps.tryouts.iter().any(|x| x.0 == w.people[i].player.id));
+            // He can sign with you today (minor bug 72).
+            r["can_sign"] = json!(can_sign(w, i));
             r
         })
         .collect();
@@ -1663,6 +1708,7 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
             let i = sc::place(w, id)?;
             let mut r = row(w, i);
             r["date"] = json!(date_text(d));
+            r["can_sign"] = json!(can_sign(w, i));
             Some(r)
         })
         .collect();
@@ -1690,7 +1736,7 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
         .take(20)
         .map(|s| json!({ "year": s.year, "id": s.player, "name": s.name, "team": s.team.map(|t| team_brief(w, TeamRef::Nfl(t))), "round": s.round }))
         .collect();
-    let clubs: Vec<Value> = afm_engine::world::franchise::active_teams(w.year)
+    let clubs: Vec<Value> = afm_engine::world::franchise::active_teams_in(w, w.year)
         .into_iter()
         .filter(|&c| c != t)
         .map(|c| team_brief(w, TeamRef::Nfl(c)))

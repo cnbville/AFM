@@ -11,8 +11,6 @@ use crate::rng::clamp;
 use crate::world::World;
 use crate::world::pro::{self, DeadWhy, Status, money, trades};
 
-use super::{Duty, Owner};
-
 /// A draft pick as a trade names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Pick {
@@ -40,8 +38,8 @@ pub enum Condition {
 impl Condition {
     pub fn words(self) -> String {
         match self {
-            Condition::Games(n) => format!("if he plays in {n} games"),
-            Condition::Starts(n) => format!("if he starts {n} games"),
+            Condition::Games(n) => format!("if he plays in {n} {}", crate::world::folk::noun(n, "game")),
+            Condition::Starts(n) => format!("if he starts {n} {}", crate::world::folk::noun(n, "game")),
             Condition::ProBowl => "if he makes the Pro Bowl".into(),
         }
     }
@@ -137,7 +135,7 @@ pub fn picks_of(w: &World, t: usize) -> Vec<Pick> {
         for round in 1..=rounds {
             for orig in 0..teams {
                 if w.market.picks.owner_of(y, round, orig) == t
-                    && crate::world::franchise::active(orig, y.min(w.year + 1))
+                    && crate::world::franchise::active_in(w, orig, y.min(w.year + 1))
                 {
                     v.push(Pick { year: y, round, orig, comp: false });
                 }
@@ -222,7 +220,7 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
         });
     }
     let o = p.other;
-    if o == me || !crate::world::franchise::active(o, w.year) {
+    if o == me || !crate::world::franchise::active_in(w, o, w.year) {
         return Err("Pick another club.".into());
     }
     if p.give.players.is_empty() && p.give.picks.is_empty() || p.get.players.is_empty() && p.get.picks.is_empty() {
@@ -268,14 +266,18 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
         let june1 = pro::after_june1(w, w.today);
         for (t, out, inn) in [(me, &p.give, &p.get), (o, &p.get, &p.give)] {
             let mut delta = 0.0;
+            // The seller keeps the pay it has handed out; the buyer takes the
+            // rest (bug 123).
+            let share = trades::paid_share(w, w.today);
             for id in &out.players {
                 let k = w.people[at[id]].pro.as_ref().unwrap().contract.as_ref().unwrap();
-                delta -= k.cap_hit(year);
+                let left = trades::left_to_pay(k, year, share);
+                delta -= left + k.year(year).map_or(0.0, |x| x.proration);
                 delta += trades::kept_bonus(k, year, june1).0;
             }
             for id in &inn.players {
                 let k = w.people[at[id]].pro.as_ref().unwrap().contract.as_ref().unwrap();
-                delta += k.cap_hit(year) - k.year(year).map_or(0.0, |x| x.proration);
+                delta += trades::left_to_pay(k, year, share);
             }
             // You answer to the cap; the other GM keeps his season's reserve.
             let room = if t == me { pro::cap_room(w, t, year) } else { pro::space(w, t, year) };
@@ -411,7 +413,6 @@ pub fn propose(w: &mut World, p: &Proposal) -> Result<Answer, String> {
         return Ok(a);
     }
     let me = super::club(w).unwrap();
-    w.front_office.set_owner(Duty::Trades, Owner::You);
     execute(w, me, p);
     Ok(a)
 }
@@ -419,7 +420,7 @@ pub fn propose(w: &mut World, p: &Proposal) -> Result<Answer, String> {
 /// Executes a trade between your club and another: players move with
 /// their contracts, the seller keeps each player's bonus on its cap, picks
 /// change hands, a conditional pick goes on the books.
-fn execute(w: &mut World, me: usize, p: &Proposal) {
+pub(crate) fn execute(w: &mut World, me: usize, p: &Proposal) {
     let d = w.today;
     let year = w.year;
     let june1 = pro::after_june1(w, d);
@@ -476,12 +477,15 @@ fn execute(w: &mut World, me: usize, p: &Proposal) {
         let id = w.people[i].player.id;
         w.clubs[from].add_dead(year, now, id, DeadWhy::Traded);
         w.clubs[from].add_dead(year + 1, later, id, DeadWhy::Traded);
+        trades::keep_paid(w, i, from, d);
         if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.as_mut() {
             for y in k.years.iter_mut().filter(|y| y.year >= year) {
                 y.proration = 0.0;
             }
         }
+        let hurt = trades::trade_hurt(w, i, from);
         pro::transfer(w, i, to, "traded");
+        crate::world::people::grudge(&mut w.people[i], from, hurt);
         let c = w.people[i].pro.as_mut().unwrap();
         c.wants_out = false;
         c.hold = pro::market::Hold::None;
@@ -554,7 +558,7 @@ pub fn shop(w: &mut World, id: u32) -> Result<Vec<(usize, Vec<Pick>, f64)>, Stri
     }
     let year = w.year;
     let mut out = Vec::new();
-    for o in crate::world::franchise::active_teams(year) {
+    for o in crate::world::franchise::active_teams_in(w, year) {
         if o == me {
             continue;
         }
@@ -563,7 +567,8 @@ pub fn shop(w: &mut World, id: u32) -> Result<Vec<(usize, Vec<Pick>, f64)>, Stri
             continue;
         }
         let k = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref());
-        if money::capped(year) && k.is_some_and(|k| k.cap_hit(year) > pro::space(w, o, year)) {
+        let share = trades::paid_share(w, w.today);
+        if money::capped(year) && k.is_some_and(|k| trades::left_to_pay(k, year, share) > pro::space(w, o, year)) {
             continue;
         }
         let theirs = picks_of(w, o);

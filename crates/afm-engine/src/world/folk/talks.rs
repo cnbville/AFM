@@ -358,6 +358,9 @@ pub enum Reason {
     Benched,
     TeamTalk,
     Room,
+    /// The way the staff run the week (update 2, lane 4: a third morning of
+    /// mat drills).
+    Practice,
 }
 
 impl Reason {
@@ -374,6 +377,7 @@ impl Reason {
             10 => Reason::Benched,
             11 => Reason::TeamTalk,
             12 => Reason::Room,
+            13 => Reason::Practice,
             _ => Reason::Talk,
         }
     }
@@ -397,6 +401,8 @@ impl Reason {
             (Reason::TeamTalk, false) => "didn't buy your team talk",
             (Reason::Room, true) => "the locker room",
             (Reason::Room, false) => "something that happened in the locker room",
+            (Reason::Practice, true) => "the way the staff run the week",
+            (Reason::Practice, false) => "the grind of the week: mat drills at dawn",
         }
     }
 }
@@ -611,25 +617,81 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     } else {
         "He sits down and waits for you to start."
     };
-    s.narrate(format!("{} {posture}", player_link(w, i)));
+    let asked = asked_to_leave(w, id);
+    if asked {
+        s.narrate("He asked for this meeting.");
+    }
+    s.narrate(format!("In comes {}. {posture}", player_link(w, i)));
     let spk = Speaker::player(w, i);
     let mut f = player_facts(w, i);
     f.set("subject", subject.name());
+    if let Some(r) = crate::world::recruiting::intent_reason(w, id) {
+        f.set("reason", r);
+    }
     let mut pen = scene::pen(w, s, 1);
-    let key = format!("talk.open.{}", subject.key());
     let tone = if mood < -0.2 {
-        "talk.open.sour"
+        "sour"
     } else if mood > 0.2 {
-        "talk.open.good"
+        "good"
     } else {
-        "talk.open.flat"
+        "flat"
     };
-    let line = pen.line(&[tone, &key], &spk, &f);
+    // He asked for this meeting to say he means to leave (minor bug 155): his
+    // own opening in his mood says why he came, never a mood part that
+    // assumes you called him in.
+    let keys = if asked {
+        vec![format!("talk.open.portal.{tone}")]
+    } else {
+        vec![format!("talk.open.{tone}"), format!("talk.open.{}", subject.key())]
+    };
+    let line = pen.line(&keys.iter().map(String::as_str).collect::<Vec<_>>(), &spk, &f);
     pen.put(w);
-    let line = if line.is_empty() { open_fallback(subject, mood) } else { line };
+    let line = match (line.is_empty(), asked) {
+        (false, _) => line,
+        (true, true) => {
+            "Coach, I wanted you to hear it from me first. I'm thinking about putting my name in the portal.".into()
+        }
+        (true, false) => open_fallback(subject, mood),
+    };
     let tell = read_tell(w, i, if trust < 0.4 { -1 } else { 0 });
     s.them(&name, line, tell);
     add_talk_picks(w, s, i, subject, &[]);
+}
+
+/// You turn a one-on-one to another subject (dialogue D1, the subject
+/// chips): he answers on that one now, and the talk goes on. It costs no
+/// exchange.
+pub fn change_subject(w: &mut World, id: u32, subject: Subject) -> Result<(), String> {
+    let k = w.folk.scenes.iter().position(|s| s.id == id).ok_or("No such talk.")?;
+    let mut s = w.folk.scenes[k].clone();
+    if s.done || s.kind != Kind::OneOnOne || !s.opened {
+        return Err("That talk isn't going on.".into());
+    }
+    if Subject::from_u64(s.b) == subject {
+        return Ok(());
+    }
+    let Some(i) = super::person(w, s.a as u32) else { return Err("He's gone.".into()) };
+    s.b = subject as u64;
+    s.c &= !1;
+    let about = subject.name().replace("his ", "your ");
+    s.you(&scene::your_name(w), format!("Let's talk about {about}."));
+    let spk = Speaker::player(w, i);
+    let mut f = player_facts(w, i);
+    f.set("subject", subject.name());
+    let mood = w.people[i].mood;
+    let mut pen = scene::pen(w, &s, 7);
+    let line = pen.line(&[&format!("talk.open.{}", subject.key())], &spk, &f);
+    pen.put(w);
+    let line = if line.is_empty() { open_fallback(subject, mood) } else { line };
+    let name = w.people[i].name.clone();
+    let tell = read_tell(w, i, 0);
+    s.them(&name, line, tell);
+    let used: Vec<Move> =
+        Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
+    s.picks.clear();
+    add_talk_picks(w, &mut s, i, subject, &used);
+    w.folk.scenes[k] = s;
+    Ok(())
 }
 
 fn open_fallback(subject: Subject, mood: f32) -> String {
@@ -652,8 +714,10 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     let p = &w.people[i];
     let starter = p.last_role == Some(PlayingTime::Starter);
     let nfl = p.stage == Stage::Pro;
+    // One pick per move and tone: the subject's own line wins over the
+    // general one (two picks on one code read as the same chip twice).
     let mut add = |m: Move, t: Tone, label: String, hint: &str| {
-        if !used.contains(&m) {
+        if !used.contains(&m) && !s.picks.iter().any(|p| p.code == code_of(m, t)) {
             s.picks.push(Pick {
                 label,
                 mv: m.name().into(),
@@ -1467,6 +1531,10 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
                 let d = 0.02 * (rel - 9.0) as f32 / 5.0;
                 w.people[i].trust = (w.people[i].trust + d * 0.5).clamp(0.0, 1.0);
                 mood_event(w, id, Reason::Talk, d);
+                // He came to say he's leaving: his position coach asks him to stay.
+                if asked_to_leave(w, id) {
+                    super::takeover::position_coach_word(w, i);
+                }
             }
             s.handed = Some("his position coach".into());
             s.outcome
@@ -1638,6 +1706,22 @@ pub(crate) fn day(w: &mut World, d: Date) {
         }
         ai_talks(w, d);
     }
+}
+
+/// One of your players asks to see you before he enters the portal: a
+/// one-on-one about his future on your calendar. What you say there moves
+/// his lean; he decides the day after (`recruiting::intents_day`).
+pub(crate) fn portal_ask(w: &mut World, i: usize, d: Date) {
+    let mut s = Scene::new(Kind::OneOnOne, d, format!("{} wants to talk about his future", w.people[i].name));
+    s.a = w.people[i].player.id as u64;
+    s.b = Subject::Future as u64;
+    s.place = "Your office".into();
+    scene::add(w, s);
+}
+
+/// Whether he asked for this talk because he means to enter the portal.
+fn asked_to_leave(w: &World, id: u32) -> bool {
+    w.portal_intents.iter().any(|t| t.is(id))
 }
 
 /// A loud parent calls when his son's role sours (high school and

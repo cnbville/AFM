@@ -11,20 +11,24 @@ use afm_engine::player::Level;
 use rayon::prelude::*;
 use serde_json::Value;
 
-/// The engine's routes pooled with the real route types they match.
-const ROUTE_GROUPS: [(&str, &[&str]); 12] = [
-    ("go / fade / seam", &["GO"]),
-    ("post", &["POST"]),
-    ("corner", &["CORNER"]),
-    ("wheel", &["WHEEL"]),
-    ("dig / in / cross", &["IN/DIG", "IN", "CROSS"]),
-    ("out (10+ air)", &["DEEP OUT"]),
-    ("out (under 10)", &["OUT", "QUICK OUT"]),
-    ("slant", &["SLANT"]),
-    ("hitch / curl / sit", &["HITCH", "HITCH/CURL"]),
-    ("drag", &["SHALLOW CROSS/DRAG"]),
-    ("flat / swing", &["FLAT", "SWING"]),
-    ("screen", &["SCREEN"]),
+/// The engine's routes pooled with the real route types they match: the
+/// route lists of 2021-2025 (both charting lists, for the coverage table)
+/// and of 2023-2025 alone (one list, NGS, for the route table).
+type RouteGroup = (&'static str, &'static [&'static str], &'static [&'static str]);
+const ROUTE_GROUPS: [RouteGroup; 12] = [
+    ("go / fade / seam", &["GO"], &["GO"]),
+    ("post", &["POST"], &["POST"]),
+    ("corner", &["CORNER"], &["CORNER"]),
+    ("wheel", &["WHEEL"], &["WHEEL"]),
+    ("dig / in / cross", &["IN/DIG", "IN", "CROSS"], &["IN/DIG"]),
+    ("out (10+ air)", &["DEEP OUT"], &["DEEP OUT"]),
+    // NGS charts the flat as a quick out (2.7 air yards).
+    ("flat / quick out / swing", &["OUT", "QUICK OUT", "FLAT", "SWING"], &["QUICK OUT", "SWING"]),
+    ("slant", &["SLANT"], &["SLANT"]),
+    ("hitch / curl / sit", &["HITCH", "HITCH/CURL"], &["HITCH/CURL"]),
+    ("drag", &["SHALLOW CROSS/DRAG"], &["SHALLOW CROSS/DRAG"]),
+    ("screen", &["SCREEN"], &["SCREEN"]),
+    ("angle", &["ANGLE", "TEXAS/ANGLE"], &["TEXAS/ANGLE"]),
 ];
 
 fn route_group(route: &str, air: f64) -> Option<usize> {
@@ -35,12 +39,12 @@ fn route_group(route: &str, air: f64) -> Option<usize> {
         "wheel" => 3,
         "dig" => 4,
         "out" | "comeback" if air >= 10.0 => 5,
-        "out" | "comeback" => 6,
+        "out" | "comeback" | "flat" | "swing" | "check-release" => 6,
         "slant" => 7,
         "hitch" | "curl" | "sit" => 8,
         "drag" => 9,
-        "flat" | "swing" | "check-release" => 10,
-        "screen" | "bubble" => 11,
+        "screen" | "bubble" => 10,
+        "angle" => 11,
         _ => return None,
     })
 }
@@ -207,27 +211,119 @@ fn main() {
             }
         }
     }
+    // AFM_BURNER=12 makes each team's second receiver that many points
+    // faster (speed and burst only), the speed update's S10 proof: does a
+    // burner raise his teammates' short catches and yards after the catch?
+    // Run it beside AFM_BURNER=0 on the same seed.
+    let mut burners: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    if let Some(add) = std::env::var("AFM_BURNER").ok().and_then(|v| v.parse::<f64>().ok()) {
+        use afm_engine::positions::Position;
+        for t in teams.iter_mut() {
+            let mut wrs: Vec<usize> = (0..t.players.len()).filter(|&i| t.players[i].position == Position::WR).collect();
+            wrs.sort_by(|&a, &b| {
+                t.players[b].overall_at(Position::WR).total_cmp(&t.players[a].overall_at(Position::WR))
+            });
+            if let Some(&i) = wrs.get(1) {
+                let p = &mut t.players[i];
+                for a in [afm_engine::attributes::Attr::Speed, afm_engine::attributes::Attr::Acceleration] {
+                    p.attrs.set(a, (p.attrs.get(a) + add).min(99.0));
+                }
+                burners.insert(p.id);
+            }
+        }
+    }
     // AFM_TRACE=1 prints every agent's state (use with one game).
     if std::env::var("AFM_TRACE").is_ok() {
         afm_engine::game::sim::TRACE.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    // College and NFL coordinators draft a call sheet at kickoff (the
+    // game's rule). AFM_SHEET=every has high school staffs draft too,
+    // AFM_SHEET=none plays with no sheets, AFM_SHEET=home with the home
+    // team's only; the home-side block below sets each against the others.
+    let sheet = std::env::var("AFM_SHEET").ok();
+    let mode = match sheet.as_deref() {
+        Some("none") => 0,
+        Some("home") => 2,
+        Some("every") => 1,
+        _ => 3,
+    };
+    afm_engine::game::sheet::KICKOFF.store(mode, std::sync::atomic::Ordering::Relaxed);
+    let mode_name = ["none", "every team", "home only", "college and NFL teams"][mode as usize];
+    // What a kickoff draft costs: one team's sheet from the other's film,
+    // on one core.
+    {
+        use afm_engine::world::plans::{DraftIn, film_tells, kickoff_card};
+        let rules = afm_engine::game::Rules::for_level(level);
+        let n = 64;
+        let t = std::time::Instant::now();
+        let mut boxes = 0;
+        let (mut plays, mut dboxes, mut dplays) = (0, 0, 0);
+        for k in 0..n {
+            let (h, a) = pair(k);
+            let inp = DraftIn {
+                film: teams[a].film.clone(),
+                level,
+                two_from: rules.two_point_from,
+                qb_run: 0.3,
+                seed: seed ^ k as u32,
+                favs: Vec::new(),
+                tells: film_tells(&teams[h].film),
+                designs: Vec::new(),
+            };
+            let card = kickoff_card(&teams[h], &inp);
+            boxes += card.sheet.len();
+            plays += card.sheet.iter().map(|b| b.1.len()).sum::<usize>();
+            dboxes += card.dsheet.len();
+            dplays += card.dsheet.iter().map(|b| b.1.len()).sum::<usize>();
+        }
+        let ms = t.elapsed().as_secs_f64() * 1000.0 / n as f64;
+        println!(
+            "kickoff sheet: {ms:.2} ms to draft on one core ({:.1} offense boxes a sheet, {:.1} plays a box; {:.1} defense boxes, {:.1} calls a box)",
+            boxes as f64 / n as f64,
+            plays as f64 / boxes.max(1) as f64,
+            dboxes as f64 / n as f64,
+            dplays as f64 / dboxes.max(1) as f64
+        );
+    }
+    // AFM_FAKE=1 gives every team the fake punt "if the look shows",
+    // AFM_FAKE=2 "called" (the first chance); the fakes are counted below.
+    if let Some(f) = std::env::var("AFM_FAKE").ok().and_then(|v| v.parse::<u8>().ok()) {
+        for t in teams.iter_mut() {
+            t.prep.teams.fake = f;
+        }
     }
     let t0 = std::time::Instant::now();
     let results: Vec<_> = (0..games)
         .into_par_iter()
         .map(|g| {
             let (h, a) = pair(g);
+            let home = &teams[h];
             // An average road trip: the crowd of an average FBS conference
             // or NFL game (a 50,000-70,000 stadium) and about 500 miles and
             // half a time zone of travel for the visitors.
-            let venue = Venue {
+            // AFM_YEAR sets the season's rules (else the default venue's);
+            // AFM_WIND a steady wind in mph and AFM_RAIN=1 rain, for the
+            // weather splits.
+            let env = |k: &str| std::env::var(k).ok().and_then(|v| v.parse::<f64>().ok());
+            let mut venue = Venue {
                 cond: Conditions { crowd: 0.65, ..Conditions::default() },
                 wear: [0.0, 0.012],
                 ..Venue::default()
             };
+            if let Some(y) = env("AFM_YEAR") {
+                venue.year = y as i32;
+            }
+            if env("AFM_RAIN").is_some() {
+                venue.cond.rain = true;
+            }
+            if let Some(w) = env("AFM_WIND") {
+                venue.cond.wind = w;
+                venue.cond.wind_along = ((g as f64 * 0.618_034) % 1.0) * 2.0 - 1.0;
+            }
             let seed = seed as u64 * 1_000_003 + g as u64;
             match book {
                 Some((b, y)) => afm_engine::game::quick_game_book(&teams[h], &teams[a], b, y, seed, venue, false),
-                None => quick_game_in(&teams[h], &teams[a], level, seed, Default::default(), venue),
+                None => quick_game_in(home, &teams[a], level, seed, Default::default(), venue),
             }
         })
         .collect();
@@ -345,6 +441,10 @@ fn main() {
     let mut m = std::collections::BTreeMap::<&str, f64>::new();
     let mut fg = [[0.0f64; 2]; 4];
     let mut ay = [[0.0f64; 6]; 4];
+    // The burner proof: [his teammates' catches under 10 air yards, their
+    // yards after those catches, his own targets, his catches, his yards,
+    // two-high snaps, coverage snaps].
+    let mut bp = [0.0f64; 7];
     let mut by_cov = [[0.0f64; 3]; 2];
     let pos_of: std::collections::HashMap<u32, afm_engine::positions::Position> =
         teams.iter().flat_map(|t| t.players.iter().map(|p| (p.id, p.position))).collect();
@@ -416,6 +516,57 @@ fn main() {
                     *m.entry("run_gap_q13").or_default() += a.clock - b.clock;
                 }
             }
+        }
+        // Fourth-quarter passes and runs by the offense's lead after three
+        // quarters, as the world log keys them (`garbage_time.json`).
+        if let Some(q4) =
+            s.plays.iter().find(|p| p.quarter >= 4).map(|p| [p.score[0] - p.score[1], p.score[1] - p.score[0]])
+        {
+            for p in s.plays.iter().filter(|p| p.quarter == 4) {
+                let pass = matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+                if !pass && p.kind != PlayType::Run {
+                    continue;
+                }
+                let (n, k) = match q4[p.offense.min(1)] {
+                    l if l >= 28 => ("q4_lead28", "q4_lead28_pass"),
+                    l if (1..=14).contains(&l) => ("q4_lead14", "q4_lead14_pass"),
+                    _ => continue,
+                };
+                *m.entry(n).or_default() += 1.0;
+                *m.entry(k).or_default() += pass as u8 as f64;
+            }
+        }
+        // Home and road offenses (the home side is team 0).
+        for p in s.plays.iter().filter(|p| !p.nullified) {
+            let home = p.offense == 0;
+            let key = |h: &'static str, r: &'static str| if home { h } else { r };
+            match p.kind {
+                PlayType::Pass => {
+                    *m.entry(key("ha_att_h", "ha_att_r")).or_default() += 1.0;
+                    *m.entry(key("ha_cmp_h", "ha_cmp_r")).or_default() += p.complete as u8 as f64;
+                    *m.entry(key("ha_pyds_h", "ha_pyds_r")).or_default() += if p.complete { p.yards } else { 0.0 };
+                }
+                PlayType::Sack => *m.entry(key("ha_sack_h", "ha_sack_r")).or_default() += 1.0,
+                PlayType::Run => {
+                    *m.entry(key("ha_car_h", "ha_car_r")).or_default() += 1.0;
+                    *m.entry(key("ha_ryds_h", "ha_ryds_r")).or_default() += p.yards;
+                }
+                _ => {}
+            }
+        }
+        // Fourth downs: the real go rate at the engine's own fourth downs,
+        // so a gap in tries can be told apart from a gap in the downs faced.
+        for p in s.plays.iter().filter(|p| p.down == 4 && !p.nullified) {
+            let go = matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+            if !go && !matches!(p.kind, PlayType::Punt | PlayType::FieldGoal) {
+                continue;
+            }
+            let o = p.offense.min(1);
+            let diff = p.score[o] - p.score[1 - o];
+            *m.entry("fourth_n").or_default() += 1.0;
+            *m.entry("fourth_n_go").or_default() += go as u8 as f64;
+            *m.entry("fourth_table").or_default() +=
+                afm_engine::game::tables::real_fourth_go_rate(p.togo, p.yardline_100, diff, level != Level::NFL);
         }
         // Drives: a new one starts when the offense changes.
         let mut last: Option<usize> = None;
@@ -542,6 +693,22 @@ fn main() {
             let e = &mut between[stopped as usize][tb];
             e[0] += gap;
             e[1] += 1.0;
+        }
+        if !burners.is_empty() {
+            for p in s.plays.iter().filter(|p| p.kind == PlayType::Pass && !p.nullified && !p.throw_away) {
+                let his = p.target.is_some_and(|t| burners.contains(&t));
+                if his {
+                    bp[2] += 1.0;
+                    bp[3] += p.complete as u8 as f64;
+                    bp[4] += if p.complete { p.yards } else { 0.0 };
+                } else if p.complete && p.air_yards < 10.0 {
+                    bp[0] += 1.0;
+                    bp[1] += p.yac;
+                }
+                let d = p.defense_call.to_lowercase();
+                bp[5] += ["cover 2", "tampa", "cover 4", "cover 6", "2-man"].iter().any(|c| d.contains(c)) as u8 as f64;
+                bp[6] += 1.0;
+            }
         }
         // Plays ending out of bounds in normal time (fix list S6.2), as
         // nflverse's out_of_bounds flag counts them.
@@ -728,6 +895,19 @@ fn main() {
                 PlayType::Punt => {
                     *m.entry("punt_gross").or_default() += p.kick_distance;
                     *m.entry("punt_in20").or_default() += p.inside20 as u8 as f64;
+                    if !p.blocked {
+                        *m.entry("punt_kicked").or_default() += 1.0;
+                        let k = if p.fair_catch {
+                            "punt_fc"
+                        } else if p.touchback {
+                            "punt_tb"
+                        } else if p.returner.is_some() {
+                            "punt_ret"
+                        } else {
+                            "punt_downed"
+                        };
+                        *m.entry(k).or_default() += 1.0;
+                    }
                 }
                 PlayType::Kickoff => {
                     *m.entry("kickoffs").or_default() += 1.0;
@@ -787,6 +967,94 @@ fn main() {
             m.iter().filter(|&&x| x > 0.0).count() as f64 / m.iter().filter(|&&x| x != 0.0).count().max(1) as f64;
         let target = if level == Level::NFL { 2.1 } else { 2.4 };
         println!("{:<28} {:>9.3} {:>9.3}  (se {:.2}, home wins {:.3})", "home margin", hm, target, se, wins);
+    }
+    {
+        let mode = mode_name;
+        // The home side against the road side, with sheets as `AFM_SHEET`
+        // sets them: the offense [points, pass yards, rush yards, snaps,
+        // EPA, runs, sacks taken, interceptions thrown] and the defense
+        // [points allowed, snaps, EPA allowed, man, blitz, dropbacks faced,
+        // pressures, sacks, interceptions].
+        let (mut o, mut d) = ([0.0f64; 8], [0.0f64; 9]);
+        for r in &results {
+            let s = &r.stats;
+            let (ht, at) = (&s.team[0], &s.team[1]);
+            o[0] += ht.points as f64;
+            o[1] += ht.pass_yards;
+            o[2] += ht.rush_yards;
+            o[6] += ht.sacks as f64;
+            o[7] += ht.ints as f64;
+            d[0] += at.points as f64;
+            d[5] += at.dropbacks as f64;
+            d[6] += at.pressures as f64;
+            d[7] += at.sacks as f64;
+            d[8] += at.ints as f64;
+            for p in s
+                .plays
+                .iter()
+                .filter(|p| matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble))
+            {
+                if p.offense == 0 {
+                    o[3] += 1.0;
+                    o[4] += p.epa;
+                    o[5] += (p.kind == PlayType::Run) as u8 as f64;
+                } else {
+                    d[1] += 1.0;
+                    d[2] += p.epa;
+                    d[3] += p.coverage_man as u8 as f64;
+                    d[4] += p.blitz as u8 as f64;
+                }
+            }
+        }
+        let gm = games as f64;
+        println!(
+            "home side, sheet {mode}: offense points {:.2}, pass yards {:.1}, rush yards {:.1}, run share {:.3}, EPA a snap {:.3}, sacks taken {:.2}, interceptions {:.3}",
+            o[0] / gm,
+            o[1] / gm,
+            o[2] / gm,
+            o[5] / o[3].max(1.0),
+            o[4] / o[3].max(1.0),
+            o[6] / gm,
+            o[7] / gm
+        );
+        println!(
+            "home side, sheet {mode}: defense points allowed {:.2}, man share {:.3}, blitz share {:.3}, pressure rate {:.3}, sacks {:.2}, interceptions {:.3}, EPA a snap allowed {:.3}",
+            d[0] / gm,
+            d[3] / d[1].max(1.0),
+            d[4] / d[1].max(1.0),
+            d[6] / d[5].max(1.0),
+            d[7] / gm,
+            d[8] / gm,
+            d[2] / d[1].max(1.0)
+        );
+        // Fake punts (AFM_FAKE): how many, with the return team's look or
+        // without it, and how many made the line to gain.
+        let mut fk = [[0.0f64; 3]; 2];
+        for r in &results {
+            for p in r.stats.plays.iter().filter(|p| p.call_why.starts_with("a fake punt") && p.kind == PlayType::Run) {
+                let k = p.look as usize;
+                fk[k][0] += 1.0;
+                fk[k][1] += (p.first_down || p.touchdown) as u8 as f64;
+                fk[k][2] += p.yards;
+            }
+        }
+        let f: Vec<u64> =
+            afm_engine::game::sheet::FOUND.iter().map(|x| x.load(std::sync::atomic::Ordering::Relaxed)).collect();
+        let share = |a: &[u64]| {
+            let n = a.iter().sum::<u64>().max(1) as f64;
+            a.iter().map(|&x| format!("{:.3}", x as f64 / n)).collect::<Vec<_>>().join(" / ")
+        };
+        println!("box calls: offense own / second thought / closest {}, defense {}", share(&f[..3]), share(&f[3..]));
+        for (k, name) in [(1, "with the look"), (0, "without it")] {
+            if fk[k][0] > 0.0 {
+                println!(
+                    "fake punts {name}: {:.0}, converted {:.3}, yards {:.2}",
+                    fk[k][0],
+                    fk[k][1] / fk[k][0],
+                    fk[k][2] / fk[k][0]
+                );
+            }
+        }
     }
     row("plays", g("plays") / n, f("plays"));
     {
@@ -909,7 +1177,23 @@ fn main() {
         );
     }
     row("third downs", g("third") / n, f("third"));
+    // Home against road offenses, real nflverse 2021-2025 regular season
+    // without neutral sites: the road offense loses most of its edge
+    // through the air (home completions 65.2%, road 63.8%; 7.15 and 6.95
+    // yards an attempt; sacks 6.63% and 6.87% of dropbacks; 4.52 and 4.48
+    // yards a carry).
+    for (home, real) in [(true, [0.6523, 7.151, 0.0663, 4.521]), (false, [0.6383, 6.951, 0.0687, 4.484])] {
+        let k = |h: &str, r: &str| g(if home { h } else { r });
+        let name = if home { "home" } else { "road" };
+        let (att, sacks, car) = (k("ha_att_h", "ha_att_r"), k("ha_sack_h", "ha_sack_r"), k("ha_car_h", "ha_car_r"));
+        row(&format!("{name} offense completion"), k("ha_cmp_h", "ha_cmp_r") / att, Some(real[0]));
+        row(&format!("{name} offense yards per att"), k("ha_pyds_h", "ha_pyds_r") / att, Some(real[1]));
+        row(&format!("{name} offense sack rate"), sacks / (att + sacks), Some(real[2]));
+        row(&format!("{name} offense yards per carry"), k("ha_ryds_h", "ha_ryds_r") / car, Some(real[3]));
+    }
     row("fourth down tries", g("fourth_go") / n, f("fourth_go"));
+    row("  fourth downs faced", g("fourth_n") / n, None);
+    row("  go share (real table)", g("fourth_n_go") / g("fourth_n"), Some(g("fourth_table") / g("fourth_n")));
     row("pass TD", g("pass_td") / n, f("pass_td"));
     row("  from inside the 5", g("ptd_5") / n, None);
     row("  from the 6 to the 20", g("ptd_20") / n, None);
@@ -923,6 +1207,18 @@ fn main() {
     row("punts", g("punts") / n, None);
     // Real drive numbers: NFL 2021-2024 averages (Pro Football Reference drive stats).
     row("pass rate 1st down neutral", g("neutral_pass") / g("neutral_plays").max(1.0), Some(0.50));
+    let gt: Value = serde_json::from_str(include_str!("../../../../data/real-world/garbage_time.json")).unwrap();
+    let gl = &gt[if level == Level::NFL { "nfl" } else { "fbs" }]["lead"];
+    row(
+        "Q4 pass rate, up 1-14 after Q3",
+        g("q4_lead14_pass") / g("q4_lead14").max(1.0),
+        gl["1-14"]["q4_pass_rate"].as_f64(),
+    );
+    row(
+        "Q4 pass rate, up 28+ after Q3",
+        g("q4_lead28_pass") / g("q4_lead28").max(1.0),
+        gl["28+"]["q4_pass_rate"].as_f64(),
+    );
     row("clock per run play (all)", g("run_gap") / g("run_gap_n").max(1.0), None);
     row("clock per run play (Q1/Q3)", g("run_gap_q13") / g("run_gap_q13_n").max(1.0), Some(38.0));
     // engine_targets.json (nflverse 2021-25, a trip is a drive with a play
@@ -964,7 +1260,10 @@ fn main() {
     println!("{:<28} {:>9} {:>9}", "rates", "engine", "NFL");
     row("completion %", g("cmp") / g("att"), rr["completion_pct"].as_f64());
     row("sack rate", g("sacks") / g("dropbacks"), rr["sack_rate"].as_f64());
-    row("yards per attempt", (g("pass_yards") + 0.0) / g("att"), rr["yards_per_attempt"].as_f64());
+    // Gross, before sacks, as real yards an attempt are (the team's pass
+    // yards are net of sacks).
+    let ypa = (g("ha_pyds_h") + g("ha_pyds_r")) / (g("ha_att_h") + g("ha_att_r")).max(1.0);
+    row("yards per attempt", ypa, rr["yards_per_attempt"].as_f64());
     row("int rate", g("int") / g("att"), rr["int_rate"].as_f64());
     row("yards per carry", g("rush_yards") / g("carries"), rr["yards_per_carry"].as_f64());
     row("pass rate", g("dropbacks") / g("plays"), rr["pass_rate"].as_f64());
@@ -984,6 +1283,17 @@ fn main() {
     row("XP %", g("xp_made") / g("xp_att"), rr["xp_pct"].as_f64());
     row("punt gross", g("punt_gross") / g("punts"), rr["punt_gross"].as_f64());
     row("punt inside 20", g("punt_in20") / g("punts"), rr["punt_inside20_rate"].as_f64());
+    // How unblocked punts end (nflverse 2021-2025 regular seasons, 10,469
+    // punts): fair caught, returned (muffs too), touchbacks, and downed or
+    // out of bounds (0.121 and 0.101).
+    for (k, name, real) in [
+        ("punt_fc", "  punts fair caught", 0.2745),
+        ("punt_ret", "  punts returned", 0.4302),
+        ("punt_tb", "  punts for a touchback", 0.0729),
+        ("punt_downed", "  punts downed or out", 0.2223),
+    ] {
+        row(name, g(k) / g("punt_kicked").max(1.0), Some(real));
+    }
     row("kickoff touchback", g("ko_tb") / g("kickoffs"), Some(0.22));
     // FTN 2021-25 (engine_targets.json, dropbacks by pressure): pressured on
     // 28.3% of dropbacks, 48.9% completed then; scrambles 4.9% of dropbacks.
@@ -1030,33 +1340,38 @@ fn main() {
         row("", by_cov[k][1] / by_cov[k][0].max(1.0), None);
         row("", by_cov[k][2] / by_cov[k][0].max(1.0), None);
     }
-    // Targets by route against NFL 2022-25 (data/real-world/engine_targets.json),
-    // with the real route types pooled into the engine's route groups.
-    let et: Value = serde_json::from_str(include_str!("../../../../data/real-world/engine_targets.json")).unwrap();
-    let tr = &et["targets_by_route"];
+    // Targets by route against NFL 2023-25 (data/real-world/nfl_route_depth.json,
+    // one route list), with the real route types pooled into the engine's
+    // route groups.
+    let rd: Value = serde_json::from_str(include_str!("../../../../data/real-world/nfl_route_depth.json")).unwrap();
+    let tr = &rd["by_route"];
     let rt: f64 = by_route.iter().map(|b| b[0]).sum();
-    let real_all: f64 = ROUTE_GROUPS.iter().flat_map(|g| g.1.iter()).map(|k| tr[*k]["n"].as_f64().unwrap_or(0.0)).sum();
-    println!("targets by route            share  real   catch  real    ypt   real    air    ttt");
-    for (k, (name, real_keys)) in ROUTE_GROUPS.iter().enumerate() {
-        let (mut n, mut c, mut y) = (0.0, 0.0, 0.0);
+    let real_all = rd["all"]["n"].as_f64().unwrap_or(1.0);
+    println!("targets by route                share  real  catch  real   ypt  real   air  real   ttt  real");
+    for (k, (name, _, real_keys)) in ROUTE_GROUPS.iter().enumerate() {
+        let mut v = [0.0; 5];
         for key in real_keys.iter() {
             let r = &tr[*key];
             let rn = r["n"].as_f64().unwrap_or(0.0);
-            n += rn;
-            c += rn * r["catch"].as_f64().unwrap_or(0.0);
-            y += rn * r["ypt"].as_f64().unwrap_or(0.0);
+            v[0] += rn;
+            for (j, f) in ["catch", "ypt", "air", "ttt"].iter().enumerate() {
+                v[j + 1] += rn * r[*f].as_f64().unwrap_or(0.0);
+            }
         }
         let b = by_route[k];
+        let n = v[0].max(1.0);
         println!(
-            "  {name:<24} {:>6.3} {:>6.3} {:>6.3} {:>6.3} {:>6.2} {:>6.2} {:>6.1} {:>6.2}",
+            "  {name:<28} {:.3} {:.3}  {:.3} {:.3} {:5.2} {:5.2} {:5.1} {:5.1}  {:.2}  {:.2}",
             b[0] / rt.max(1.0),
-            n / real_all.max(1.0),
+            v[0] / real_all,
             b[1] / b[0].max(1.0),
-            c / n.max(1.0),
+            v[1] / n,
             b[2] / b[0].max(1.0),
-            y / n.max(1.0),
+            v[2] / n,
             b[3] / b[0].max(1.0),
-            b[4] / b[0].max(1.0)
+            v[3] / n,
+            b[4] / b[0].max(1.0),
+            v[4] / n
         );
     }
     // Designed runs against nflverse 2021-25 (data/real-world/position_value.json).
@@ -1108,18 +1423,19 @@ fn main() {
         );
     }
     if std::env::var("AFM_COVROUTE").is_ok() {
+        let et: Value = serde_json::from_str(include_str!("../../../../data/real-world/engine_targets.json")).unwrap();
         let tc = &et["targets_by_route_and_coverage"];
         for (cov, key) in [("Cover 1", "COVER_1"), ("Cover 2", "COVER_2"), ("Cover 3", "COVER_3"), ("2-man", "2_MAN")] {
             let tot: f64 =
                 (0..ROUTE_GROUPS.len()).map(|g| cov_route.get(&(cov.to_string(), g)).map_or(0.0, |v| v[0])).sum();
             let mut rtot = 0.0;
-            for (_, keys) in ROUTE_GROUPS.iter() {
+            for (_, keys, _) in ROUTE_GROUPS.iter() {
                 for k in keys.iter() {
                     rtot += tc[*k][key]["n"].as_f64().unwrap_or(0.0);
                 }
             }
             println!("{cov}: route share real catch real ypt real");
-            for (g, (name, keys)) in ROUTE_GROUPS.iter().enumerate() {
+            for (g, (name, keys, _)) in ROUTE_GROUPS.iter().enumerate() {
                 let (mut n, mut c, mut y) = (0.0, 0.0, 0.0);
                 for k in keys.iter() {
                     let r = &tc[*k][key];
@@ -1174,7 +1490,7 @@ fn main() {
         row("sacks", g("sacks") / n, cp["sacks"].as_f64());
         row("interceptions", g("int") / n, cp["int"].as_f64());
         row("completion %", g("cmp") / g("att"), cq["completion_pct"].as_f64());
-        row("yards per attempt", g("pass_yards") / g("att"), cq["yards_per_attempt"].as_f64());
+        row("yards per attempt", ypa, cq["yards_per_attempt"].as_f64());
         row("yards per carry", g("rush_yards") / g("carries"), cq["yards_per_carry"].as_f64());
         row("pass rate", g("dropbacks") / g("plays"), cq["pass_rate"].as_f64());
         row("third down conv", g("third_conv") / g("third"), cq["third_down_conversion"].as_f64());
@@ -1210,5 +1526,16 @@ fn main() {
         let throws = (sd[1] + sd[3] + sd[5]).max(1) as f64;
         let batted = afm_engine::game::scrimmage::BATTED.load(std::sync::atomic::Ordering::Relaxed);
         println!("  batted at the line {:.1}% of throws", 100.0 * batted as f64 / throws);
+    }
+    if !burners.is_empty() {
+        println!(
+            "\nBurner proof (AFM_BURNER): per team game, teammates' catches under 10 air yards {:.2}, their yards after the catch {:.2} a catch; the burner {:.2} targets, {:.2} catches, {:.1} yards; two-high on {:.1}% of passes",
+            bp[0] / n,
+            bp[1] / bp[0].max(1.0),
+            bp[2] / n,
+            bp[3] / n,
+            bp[4] / n,
+            100.0 * bp[5] / bp[6].max(1.0)
+        );
     }
 }

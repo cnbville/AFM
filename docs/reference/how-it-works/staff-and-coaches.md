@@ -1,0 +1,263 @@
+# Staff and coaches: how it works today
+
+Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; interviews and the staff meeting with the next update's lane 14 at 7487fc5 on 2026-10-30. The no-fire override checked against main at b2b4213 on 2026-10-30. Where you fire checked at 3f875ea on 2026-10-30. The carousel fixes (minor bugs 124, 127, 128, 129 and 148) checked at 0a02648 with that change on 2026-10-31; the recruiting and college bugs before the rebuild (minor bugs 86, 88, 99-105, 118, 126, 130, 131, 150) on 2026-10-30 and 31.
+
+Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
+
+## Quick answers
+
+- Is there a job interview? Yes, for head jobs: a talk with the panel (principal and AD, AD and president, owner and GM) before the search decides, worth +1.35 to -0.9 in the hiring score, plus a little for Aura; missing it is -1.0. Your coordinators also argue a change at the staff meeting the morning after each game, and overruling one whose unit struggles again costs his trust (`world/folk/dialogue.rs`, `interview_answer`, `interview_bonus`, `case_from`, `check_case`). See [people.md](people.md), "Talks on game day and off it".
+- What scale are coach ratings on? 1-20 for every ability part, personality trait and reputation (`world/coach.rs`, `Ability`, `CoachPersonality`, `Coach`).
+- Which ratings are hidden? All of `Ability` (teaching per group, scheme, game management, motivation, discipline, recruiting, network, relationships), the learning ceiling, sportsmanship, home state, decline age and rate, systems knowledge. The world shows reputation (`world/coach.rs`, `Coach` field notes).
+- What does the game show of a coach? Reputation in words ("one of the best in the game" ≥ 17 ... "unproven" < 5) (`world/folk/mod.rs`, `rep_words`). Every coach's page has your read as ranges on the hidden 1-20 and his potential in words: a stranger is the whole scale, narrowing with your film, talk, interviews and honest words (`world/folk/coach_look.rs`; lane 18 below). Your own staff: ranges that narrow with seasons worked (`world/staff_read.rs`).
+- How good are coaches by level? Core ~ N(mean, sd): HS 8.0/2.6, small college 9.5/2.3, FCS 10.5/2.2, FBS 12.0/2.3, NFL 13.5/2.0; each part = core + its own noise (`level_ability`, `generate_coach`).
+- How does a coach affect development? Through one coaching number 1-20 per player: college = 0.2 HC + 0.25 coordinator's unit (his side's mean teaching and scheme) + 0.4 position coach (shared half and half with the coordinator in the group he came up in) + 0.15 × facilities term (`world/season.rs`, the stage match in the season step; C57, C60). Growth multiplier 0.75 + 0.025 × coaching, scaled by coachability (`development.rs`, `develop_season`).
+- Does a head coach's overall matter on game day? Game management adds (GM − 10) × 0.12 to team strength in the quick results; on the engine the play callers' skill comes from scheme and game management (`world/season.rs`, `college_results`, `coach_caller`).
+- Who calls plays? The coordinator, or the head coach with none; you if you choose to call a side (`world/season.rs`, `play_caller`).
+- What does recruiting read from coaches? Head coach recruiting and relationships, position coach recruiting, every staffer's ties to high schools, the HS coach's network for exposure, and each coach's eye for boards (`world/recruiting.rs`, `run_signing_stage`; `Coach::evaluation`).
+- What's a coach's "eye"? `evaluation` = 10 + 0.3 × (recruiting − 10) + 0.3 × (mean teaching − 10) + 3 × a fixed personal normal, 1-20; your own coach has his own number (`world/coach.rs`, `evaluation`).
+- How does reputation move? Each season 0.3 × (head_coach_value + 12 × vs-expectation − rep), half speed for assistants, minus 0.6 × locker-room trouble; titles +3 (conference/state) or +5 (national) × headroom × stage (`season_reputation`, `title_reputation`).
+- How are coaches hired? Ranked by `candidate_score` (reputation with recency bias + noisy reads of the parts the job needs), then each says yes or no by `weigh_offer`; the search calls up to 20 names (`world/staff.rs`, `fill_opening`). A step up the ladder counts by `promotion_worth` / 0.75 (ambition and age, as in your offers). Your own hires: lane 18 below.
+- When are coaches fired? College: the AD's review after the regular season (`college_review`); FBS in-season firings on Sundays late Sep - mid Nov (`in_season_firings`); NFL on Black Monday (`nfl_firing`); high school in late January (`hs_review`).
+- Is there a hiring bias? Yes, a hidden one against coaches of color in AI searches, biggest for head jobs (`world/ethnicity.rs`, `hiring_bias`; applied in `fill_opening`). Your own hires never carry it.
+- What's a coaching style? Five 1-20 dials (risk, freedom, physical, ball hunting, mould) from an AI coach's personality and ability, or set by you (`world/coach.rs`, `style`).
+- Did a coach play? Every coach carries what he played (`Coach::played`: position, college or NFL grade, college, last season), shown in words on his page; 92.7% of FBS coaches played college football (`world/former.rs`, `college_share`, `made_up`; C2).
+- What does playing do for a coach? His own position starts high in his teaching: an ex-pro 16-19 by how good a pro he was (journeyman to star), a former college player 13-15 (`Played::floor`, `apply`; C1, C2).
+- Where do new coaches come from? From the world's own former players who went into coaching, his old coaches hiring him first; a coach is made up only when nobody fits (`former::draw`, `to_coach`; `world/staff.rs`, `new_coach_for`; C11).
+- Name or standing? Standing (`reputation`) is what the trade thinks; name (`renown`) is what fans, boosters, recruits and small schools know. A college head search reads 0.1-0.6 name (more at a smaller job), a high school one half, assistants and the NFL none (`name_value`, `hiring_buzz_for`; `world/staff.rs`, `name_weight`; C10).
+- Do coaches get worse with age? Yes. Learning stops at 58; decline starts at a personal age ~N(59, 3.5) and speeds up 15% a year (`age_one_year`).
+
+## The coach
+
+- `Ability` (`world/coach.rs`): `teaching[8]` per group (QB, RB, receivers, OL, DL, LB, DB, specialists), `scheme`, `game_management`, `motivation`, `discipline`, `recruiting`, `network`, `relationships`.
+- Generation (`generate_coach`): half come up on offense; their side's teaching +1, the other −1. `came_up` is his best non-special group on his side. Network = core − 1 + N(0, 3). Ex-pros (HS 4%, NFL 35%, else 12%): network +3 to +6, teaching −0 to −1.5, ambition +2, reputation +1. A playing past then sets his own group's floor (below, "Former players and new coaches").
+- Personality: ambition, loyalty, temper, each N(10, 3.5) (`CoachPersonality`).
+- Learning ceiling = core + N(2, 2) − 0.05 per year over 30 (`learning_ceiling`). Your own coach's is 20 (`world/staff.rs`, `take_seat_as`).
+- Reputation starts at head_coach_value + N(0, 2) (+1 ex-pro) (`generate_coach`).
+- `head_coach_value` = 0.3 mean teaching + 0.2 scheme + 0.15 game management + 0.15 motivation + 0.1 discipline + 0.1 relationships (recruiting and network not in it) (`Ability::head_coach_value`).
+- Sportsmanship (how soon starters come out of a decided game): 10 + 3.5 × keyed normal (`world/staff.rs`, `new_coach`).
+- Your coach adds four ratings only you have as numbers: play calling, adaptation, evaluation, negotiating (`Yours`). An AI coach's calling comes from scheme and game management; his GM negotiates.
+
+## Ageing and learning
+
+- Each year (`age_one_year`, run in `world/staff.rs`, `age_coaches` after the high school carousel): every part grows by pace × learn × min(room to ceiling / 6, 1) + N(0, 0.15), learn = 0.45 under 35, 0.2 to 47, 0.05 to 57, 0 after.
+- Pace by job (`Coach::pace`; C59, C61): a position coach 1 in his group and 1/3 in the rest; a coordinator 1.5 in the group he came up in on his side, 1 in the rest of his side, 1/3 on the other side; a head coach 2/3 everywhere; out of work 1/3. A group he didn't come up in is × (0.6 + 0.8 × (adaptability − 1) / 19). Scheme: 1 for head coaches, coordinators, analysts and quality control, else 0.5; game management 1 for head coaches and coordinators, else 0.5; recruiting 1 at a college, else 1/3; the rest 1. A graduate assistant, analyst or quality-control coach grows like a position coach in his group.
+- Adaptability (C38): hidden, 1-20, 10 + 3.5 × a normal keyed by his name and id (`Coach::adaptability`).
+- Decline past `decline_from` (~N(59, 3.5), 52-68) at rate 0.08-0.35 × (1 + 0.15 × years past): recruiting ×1.2, motivation 1.0, game management 0.8, relationships 0.6, discipline 0.5, teaching 0.4. From 58 scheme loses 0.1-0.5 a year. Network never declines.
+- Under a better head coach an assistant picks up 6% of each gap in teaching, scheme and network a year, and 15% of the gap in each system's knowledge (`age_one_year`; `world/systems.rs`, `learn_from`). Network +0.08 each year in a job.
+- Visible teaching records fade ×0.85 a year; high school ties ×0.9 (dropped under 0.02) (`age_coaches`). Out-of-work coaches over 66 retire.
+
+## Roles and what each one does
+
+- Roles: head coach, offensive coordinator, defensive coordinator, a position coach per group (`Role`, `Group::coach_title`). College staffs keep all eleven as people; NFL teams keep HC, OC, DC; high schools keep the head coach and, at AI schools, an offensive and a defensive coordinator (`world/staff.rs`, `college_roles`, `nfl_roles`, `hs_staff_year`; C37).
+- Junior posts are real coaches (C36; `Coach::junior`, `Junior`, `Post`; `world/staff.rs`, `junior_slots`, `new_junior`, `junior_year`): graduate assistants (FBS and FCS 4, else 2; $25K, $15K below the FCS; two years, then an analyst post at home half the time if one is open), analysts (FBS 2 + budget / $25M up to 12, else 1; $75K / $35K) and NFL quality-control coaches (2; $100K). A junior is drawn a tier below the level, aged 22-26 (GA), 24-34 (analyst) or 24-31 (QC), with a learning ceiling 1.5 ± 1.5 higher and reputation 4 lower; one in six analysts or QC coaches moves on a year; a young man two years without a job and no coaching behind him leaves coaching. A junior has no `job`; his post is `junior`, and his head coach is his mentor.
+- High school coordinators (C37; `new_hs_coordinator`, `hs_staff_year`): a new head coach keeps each half the time; one in twelve steps away a year; an empty post goes to an out-of-work high school or small-college coach from the state on that side 60% of the time, else a new man. Your own school's staff stays your seat's people (the old coordinators leave when you take the job, `take_seat_as`). An AI school's head coach calls the side he came up on and his coordinator the other (`world/hs_year.rs`). A coordinator's reputation moves with the season at an assistant's pace.
+- Jobs the world still doesn't keep (NFL position coaches, an AI high school's position coaches) are drawn people with names, ages and pay, never stored (`world/folk/staffing.rs`, `drawn_staff`, `draw_person`); the staff screens list the real juniors and coordinators beside them with links.
+- Support heads (strength, medical, analytics, academic, player engagement) are one 1-20 rating each, drawn ~N(5.5 + 7 × budget + 2 × era, 2.8); about one in eight moves on a year (`world/people.rs`, `Support`, `staff_support`). Engagement cuts player trouble by up to 12%.
+
+### Development
+
+- High school: coaching = 0.6 × head coach teaching of his group + 0.4 × staff, staff = 4 + 12 × school resources, or half that and half the side's coordinator's teaching of the group at an AI school (C37), or your real assistants at your school; no coach → 7 (`world/season.rs`, season step `Stage::HighSchool`).
+- College (C57, C60): 0.2 × HC teaching + 0.25 × the coordinator's unit + 0.4 × position coach + 0.15 × (6 + 12 × facilities). The unit is the coordinator's `side_quality` (0.7 × mean teaching on his side + 0.3 × scheme), the same for every group of the side; in the group he came up in, the position coach's part is half the position coach and half the coordinator. Missing coaches fall back down the chain (no PC → coordinator → HC → 9) (`world/season.rs`).
+- Prep school 12; a mission or military year 2.
+- NFL: team coaching = 0.5 × HC head_coach_value + 0.25 × OC side quality + 0.25 × DC side quality, side quality = 0.7 × mean teaching on that side + 0.3 × scheme (no coordinator → 11) (`world/staff.rs`, `set_nfl_coaching`, `side_quality`; read in `world/pro/mod.rs`).
+- In `development.rs`, `develop_season`: growth × (1 + (0.75 + 0.025 × coaching − 1) × (0.6 + 0.04 × coachability)); ceiling drive gets +0.35 × (coaching − 10)/10 and a coachability × coaching term; coaching under 8 risks a "poor coaching" year (4% per point under 8, up to 20%) that costs technique. See [development.md](development.md).
+- Style and scheme pull habits: the head coach's style blended with the coordinator's (`tendencies::Style::blend` in the season step). See [tendencies.md](tendencies.md).
+- What development does not read: recruiting, network, motivation (motivation goes to player trust, below), reputation.
+
+### Games
+
+- Play caller skill (`world/season.rs`, `coach_caller`): base 0.6 scheme + 0.4 game management, × (0.7 + 0.3 × how well he knows the installed system). Reading 0.7 scheme + 0.3 GM, situational 0.7 GM + 0.3 scheme, creativity = scheme, each ± a fixed personal spread; nerve and aggressiveness from ambition.
+- `GameStaff` also carries the head coach's game management, discipline (strictness), sportsmanship and style; film study = 0.35 × (OC + DC scheme) + 7 × facilities (`game_team`).
+- Systems: each spring the coordinator (or HC) installs the system he knows ≥ 0.5 that suits his players best, his read noise 0.8 × (20 − scheme)/10; a switch costs a year of learning (`world/systems.rs`, `spring_install`, `draw`). The head coach's guideline adds to a system's worth: firm 6, a lean 1.6, his call 0.3 points a game; the coverage guideline up to 4 toward the family whose man share is nearest, fading over 0.35. A lean or firm guideline lets him install a system he knows under 0.5 (`world/guide.rs`, `install_bonus`, `install_wanted`). NFL staffs weigh the same pull in knowledge units, the bonus / 6 (`nfl_bonus`; `world/systems.rs`, `nfl_install`). Your high school installs what your lean or firm guideline asks for at summer camp, once a season from August 1, knowing a changed system only as far as it shares the old one's playbook (`wanted_install`; `world/hs_year.rs`, `camp_install`, `school_install`; `world/systems.rs`, `overlap`).
+- Guidelines (`world/guide.rs`, `head_guidelines`): an AI head coach sets one only where he leans clearly: the offense, front or coverage family he knows 0.8+ and 0.15 ahead of the next; pressure when his risk is 3+ from 10 (`habit_pressure`); a run share 0.05 above his best system's habit for a line or backs coach, 0.05 below for a quarterback or receivers coach, + 0.02 N, clamped 0.25-0.65; mixed tempo (no-huddle one in five) for an air raid or spread option man who knows it 0.85+. College and high school linebacker and secondary minds make a nickel front their base (4-2-5, 3-3-5) a quarter and about a third of the time, redrawn every four years. Wing-T never for the AI outside high school (`team_guidelines`).
+- Firmness from his coaching style's mould: 13.5+ firm, 7.5 or less his coordinators' call, else a lean (`firmness`). A head coach calling a side himself has no guideline there; when you call a side, yours there are firm; an assistant's team plays to its head coach's, less any side he calls himself, as at every other team (`team_guidelines`, `firm_side`). Each level keeps only what its football allows: the wing-T at high school, no nickel base in the pros (`fit_level`).
+- A coordinator asked off his systems calls them as well as he knows them: the defensive caller's fit is his knowledge blended toward the family the man guideline moves him to (more man: the man and pressure family; less: the zone family he knows best), by the share of snaps it moves (`man_fit`, `apply`).
+- Quick results (no engine): team strength + (HC game management − 10) × 0.12 (`college_results`).
+- NFL season: staff edge (coaching − 13) / 2.5 (`world/nfl_year.rs`).
+
+### Recruiting and scouting
+
+- Recruiting relationships: HC skill = 0.6 recruiting + 0.4 relationships; position coach recruiting; staff ties to his high school +0.03 × tie. Board noise from the position coach's and HC's eye (`world/recruiting.rs`, `run_signing_stage`). See [recruiting.md](recruiting.md).
+- High school coach's network/20 is 0.2 of a prospect's visibility; a strong local coach (relationships ≥ 13, reputation ≥ 11) keeps his stars from powerhouse pulls (×0.35) (`high_school_transfers`).
+- Ties: an impact player (all-conference, drafted, signed as a pro) adds 0.2 × weight × room to the HC's, coordinator's and position coach's ties to his high school; ties travel with the coach (`credit_impact`).
+- HC relationships sway rotation players to stay before the winter portal: lean × (1 − 0.03 × (relationships − 10)), 0.75-1.25 (`portal_open`).
+- Position changes: a staff's eye from the HC's head_coach_value (`world/season.rs`, `reconsider_positions`; `world/mod.rs`, `hs_eye`).
+- Your scouting department's reads are their own people and ratings: see [scouting.md](scouting.md).
+
+### The room
+
+- Motivation adds 0.03 × (motivation − 10)/10 to each player's trust a year (`world/people.rs`, `read`).
+- NIL jealousy among top earners takes up to 0.3 × jealousy off the head coach's reputation (`world/recruiting.rs`, `nil_payouts`).
+
+## Reputation and the visible record
+
+- `recent` holds the last six seasons' wins above expectation as a share of the season (`vs_expectation` = (wins − expected)/games) (`world/season.rs`, `TeamResult::vs_expectation`).
+- Season update, at the end of the regular season (`world/college.rs`, `record_regular_season`; `world/hs_year.rs`; `world/nfl_year.rs`): rep += speed × 0.3 × (head_coach_value + 12 × vs − rep) − speed × 0.6 × locker room; speed 1 head, 0.5 assistant. College locker room = incidents / roster × 8, 0-1. NFL coordinators are judged on 0.5 × vs + a unit term from their side quality.
+- Titles (`title_reputation`): +3 conference or state, +5 national, × headroom min((20 − rep)/8, 1) × (0.5 + 0.5 × stage).
+- Hiring buzz = reputation + 10 × last season + 4 × the one before + stat buzz (`hiring_buzz`). Hotness adds 3 × employer prestige, +4 national / +2 conference title in his last three seasons there, +100 × three-year prestige rise (−1 to +3); NFL: 6 × (win share − 0.5), +2 with a title (`world/staff.rs`, `hotness`).
+- Unit records: how each group's players grew against everyone at their level and age (position coach credit 1, coordinator 0.5, HC 0.25; a high school HC 1 for every group), and how many moved up. `growth_read` = growth / (seasons + 8) (`world/coach.rs`, `UnitRecord`; `world/staff.rs`, `credit_teaching`; `credit_impact`). High school coaches get 1 / 0.5 / 0.25 "moved up" for FBS / FCS / other signees (`run_signing_stage`).
+
+## The coaching ladder and the carousel
+
+- When: college carousel the Sunday after rivalry week; NFL firings on Black Monday, hires after the conference title games; high school carousel in late January, then everyone ages (`world/clock.rs`; `world/nfl_year.rs`; `world/staff.rs`, `Scope`).
+- Each run (`carousel`): NCAA enforcement first (a show-cause order ends a college job); then retirements, early exits and reviews; then every open seat is queued and filled best job first; every hire opens the job he left (`hire_all`, `fill_opening`).
+- Retirement: 60+, chance 0.04 + 0.03 per year over 60 (+ health scare). Under 60: health 0.08% + 0.025% per year over 40; burnout 0.8% × pressure² × tenure/10 × intensity × (1 + 0.5 per national title here, to 3). A 55-59 coach with 2+ national titles here walks away on top at 2% per title a year (`carousel`, `early_exit`).
+- College searches decide on their own day: FBS head 4-22 days (2-10 after the regular season), FCS head 10-35 (5-21 after), smaller 14-45, coordinator 7-30, position coach 10-40; all close by fall camp (`schedule_search`, `college_searches_day`).
+- Who's on the list (`candidate_pool`):
+  - College head job: head coaches at the same level or one below, coordinators at the same level; the 15 hottest first, 40 random draws; for FBS also the 3 hottest NFL coordinators; D2/JUCO head jobs also 6 top high school coaches (prestige > 0.7); every college job except an FBS head job also draws 3 high school coaches with buzz (a state title in his last two seasons and 90%+ wins) (`hs_buzz`).
+  - Coordinator: coordinators a level up, same or down on that side, head coaches a level down; 10 hottest first.
+  - Position coach: same group sideways or a level either way, coordinators a level down on that side, state high school coaches with a good record at that group, 12% chance of a new ex-pro.
+  - NFL: every NFL coordinator for a head job (same side for a coordinator job), out-of-work NFL coaches, the 8 (head) or 5 (coordinator) hottest FBS names, the 2 hottest other-league head coaches.
+  - College head and coordinator jobs also call the 5 hottest out-of-work coaches who, in the last three seasons, held a head job at that level or above or in the NFL (from his own side for a coordinator job), or a coordinator job there (either side for a head job, the same side for a coordinator job) (`out_of_work`; minor bug 124: a fired head coach is a name every search knows, as Rich Rodriguez, Mike Leach and Butch Davis were).
+  - Everyone: 8 random out-of-work coaches under 66 (a former FBS/FCS head coach won't take a high school job). Show-cause coaches are barred.
+- Score (`world/coach.rs`, `candidate_score`, `hiring_needs`): hiring buzz + needs.network × (read network − 10) × 1.2 + needs.teaching × (read teaching − 10) × 0.6 + needs.recruiting × (read recruiting − 10) × 0.6 + 2 × needs.network for an ex-pro + N(0, 1). Reads are ±2.5 noise.
+  - Needs: high school network 0.6 × (1 − prestige) + 0.05, teaching 0.3 + 0.6 × prestige; college network 0.25 × (1 − prestige), teaching 0.35 + 0.25 × prestige, recruiting 0.4 − 0.1 × prestige; NFL teaching 0.6 only.
+  - Then (`fill_opening`): teaching seen = true − 10 + noise (SD 3.5 − 0.15 × (hiring HC network − 10), 1.5-5) + 2.5 × growth read + 0.8 × ln(1 + moved up). Coordinators +0.5 × side mean, −1 if he came up on the other side; position coaches +0.8 × group, +0.6 came up there; head jobs −0.5 per year over 58, −0.8 per year over 54 for a first head job.
+  - NFL doubts a college-only man: −4 for a head job (−1.5 per national title, to 2), half for a coordinator. College doubts an NFL-only man −2. +1.5 from the hiring HC's own tree. The bias: rung weight (head 1, OC 0.7, DC 0.4, PC 0.15) × a head job's own weight (NFL 0.3, from 2003 the Rooney Rule's 0.15; college 0.7; minor bugs 127 and 148, proposed, not confirmed) × `hiring_bias` (4.2 easing to 3.32 by 2016, slowly after 2026, × (0.5 + prestige)).
+- Saying yes (`weigh_offer`): pull = prestige gain + rung (head 0.1, coordinator 0.05) + 0.12 first head job (more if ambitious) + 0.05 × ln(pay ratio) + NFL pull 0.04 × ambition − 0.02 × recruiter + 0.03 per national title (to 2) + −0.03 × young core left behind − 0.003 per year over 52 − 0.0015 per year settled + going home 0.03 / leaving home −0.02 + hot seat up to 0.03 − 0.15 per state title a high school head coach won there in his last three seasons (to two; minor bug 129). Needs pull > 0.03; then chance 0.35 + 0.04 (ambition − 10) − 0.03 (loyalty − 10) + 1.5 × pull, 5-95%, × 0.75 for a college head coach (minor bug 124). Unemployed coaches always say yes; a coach hired this cycle or still in the NFL playoffs won't move.
+- Nobody says yes: a head job goes to the better-regarded own coordinator; else a new long-time assistant (head 36-52, NFL head 40-55, position coach 25-36) with reputation −2 (−3 position coach) (`fill_opening`).
+- A new college head coach keeps each coordinator 40% and position coach 50% of the time (75% if promoted from the staff); a new NFL head coach keeps each coordinator 30% (`fill_opening`, `nfl_firing`).
+- Mentor: an assistant hired under a head coach joins his tree (`hire`).
+- The years on a job: a job's `since` and a finished job's `to` are both the carousel's season (`cycle_year`: last season until fall camp opens), at every level but the other leagues, which keep the calendar year. A move between the Super Bowl and fall camp closes the old job with the season he last coached, the year the new one begins, so a coach's jobs never overlap by more than the move's season (`season_label`, `hire`, `leave`; minor bug 128).
+- A program's season goes to the head coach of most of its games, as ESPN and the record books credit it: a coach fired during the season keeps it when he coached half or more of it, and his interim gets no season of his own (`world/college.rs`, `record_regular_season`, `fired_during`; minor bug 124). The interim still coaches the rest and his games count to his own job.
+- A coach of color hired from an NFL coordinator job to a head job earns his old team the diversity picks (`hire`).
+
+## Job security
+
+### College (the athletic director)
+
+- The AD has judgement and patience, each N(10, 3.5); 6% turnover a year, up to 18% when prestige slid over four years, +4% after ten years (`new_ad`, `ad_turnover`).
+- The read (`college_review`): −(1.5 × last vs + 0.7 × the one before, his seasons here only) + N(0, 0.06 − 0.003 × (judgement − 10)) − direction × (0.1 in years 1-3, else 0.04) + (0.3 + 0.5 × prestige) × (0.4 − two-year win %) from year 3. Direction = half roster strength against what he inherited (4 points full), half his classes against the three before him (25% full).
+- The bar: 0.06 + 0.012 × (patience − 10) − 0.04 × (prestige − 0.5), −0.03 for a new AD who didn't hire him.
+- P(fire) = (read − bar) × (2 + 4 × prestige), max 0.85; year 1 only 10% after a 0.35 collapse; year 2 half and only after 0.22; year 3 × 0.75. FBS × 0.7 (`FBS_FIRE`, minor bug 124), FCS × 0.5, lower levels × 0.35. Buyout factor clamp(1.2 − buyout / (0.2 × athletic budget + boosters), 0.15, 1). Never while still playing for a title.
+- Prove-it year: a loyal winner (5+ seasons, rarely left jobs, a title in his last eight seasons here or 70% over 50+ games) facing a firing gets an extension instead with chance 0.6 + 0.35 × excuse (draft losses, a young roster); a bad next year fires him (`earned_patience`, `excuse`).
+- Contracts: 6 years at FBS prestige > 0.6, 5 at > 0.35, 4 FBS/FCS, 3 D2/NAIA/D3, 2 JUCO; pay = salary × (0.8 + 0.4 × rep/20); buyout share 70% big FBS, 50% FBS, 30% FCS, 20% D2/NAIA, 10% D3/JUCO, a fifth of that through 1995, then ramping to full by 2015 (`contract_years`, `buyout_share`, `hire`). A good year with two or fewer left renews with a 15% raise; an expiring deal after a poor year isn't renewed.
+- In-season firing (FBS, from year 2): 5+ games, ≤ 30%, 0.15+ under expectation, already on a hot seat or prove-it; chance 0.35 × afford × era (0.4 before 2010) × (0.6 + 0.8 × prestige), half in year 2, × `FBS_FIRE` (`in_season_firings`).
+- A firing or departure reopens the head coach's verbal commitments (`world/recruiting.rs`, `decommit_after_firing`) and, from 2022, a coaching-change portal window. The players' portal lean takes the coaching-change push the day the head coach leaves, once a cycle (`world/college.rs`, `coach_gone`, from `leave`). One who leaves after the cycle's window opened (from six days after the FBS regular season until fall camp) opens a late window at his program five days after his successor is hired, 30 days long in 2022-24 and 15 from 2025 (`late_window_due`, `hire`; minor bug 88).
+- A college head coach who leaves his job for another college head job at his level or above asks his own players along (one who takes a job a level down, or a fired coach rehired, takes no one): those tied to him (0.4 or more) who'd start or rotate there lean toward the portal and the new school wants them, whatever its depth chart says (`fill_opening`, `world/recruiting.rs`, `follow_coach`; minor bug 86). See [recruiting.md](recruiting.md), "The transfer portal".
+
+### NFL (the owner)
+
+- Badness = 1.6 × (0.5 − last win share) + 0.6 × (0.5 − the one before) − 0.5 × vs-expectation; patience 1 − 0.03 × (owner − 10), 0.6-1.4. P = (badness − 0.1) × 3.2 × patience, max 0.9, × 0 / 0.3 / 0.7 / 1 for tenure 0/1/2/3+. A kept coach fires each coordinator with chance (0.42 − win share) × 1.5, max 0.35 (`nfl_firing`).
+
+### High school
+
+- Badness = −(1.5 × last + 0.7 × before) + stories; P = (badness − 0.06) × (2 + 4 × prestige), max 0.85, × 0.1 / 0.4 / 0.75 / 1 by tenure, then halved (`hs_review`). A coach whose team just won the state title is never read as failing (badness at most 0; minor bug 129). Your own seat is decided by your principal and AD's trust (`world/front_office/school.rs`, `verdict`).
+
+### Your own job
+
+- Your boss is a person with trust in you (0-1) and goals set each season (wins a little above the last three years, postseason, title, recruiting class rank, grades, clean program, beat the rival, crowds) (`world/folk/boss.rs`, `draft_goals`, `trust`). Meetings before the season, at midseason and after it (`day`).
+- Trust moves your college review by 0.1 × (0.5 − trust) + 0.015 × (goals missed − met), ±0.1 (`review_push`). It also moves a big booster's chance of leaving by up to +6 points (`booster_push`).
+- You retire only when you choose to: neither age, health nor "walking away on top" retires you (`carousel`).
+- The no-fire override (Settings, Testing; a test switch, Cain 2026-10-28): while it is on, the world still decides as always, but nothing ends your job. It covers the NFL owner's Black Monday (`nfl_firing`), the college AD's review, a deal left to run out and in-season firings (`college_review`, `in_season_firings`), a new head coach letting you go as an assistant (`fill_opening`, `nfl_firing`), your high school not renewing your stipend (`hs_review`), the other leagues' owners (`pro/other.rs`, `reviews`), an NCAA show-cause order (`ncaa.rs`) and a college giving your position-coach slot away (`folk/backchannel.rs`). Each time, `world/front_office/market.rs`, `spared` keeps the day, the place and the world's reason on `Career::spared` and posts it to your inbox. A college deal that ran out renews at the same pay. A team that stops existing (a school drops football, a franchise goes dark, a league team folds) still ends the job. The career is marked from the first day the override is on (`Career::no_fire_since`, `World::set_no_fire`), the mark stays when it goes off, and the save's header carries it (`save::WorldMeta::no_fire`, shown on Load game). The dice roll the same either way, so with the override off every seed plays the same.
+
+## Pay
+
+- Salary by employer and role, lo × (hi/lo)^prestige (`world/staff.rs`, `salary`): FBS head $0.6-12M, coordinator $0.25-2.5M, position coach $0.15-1.0M; FCS $0.15-0.7M / $80-250K / $50-120K; down to D3; high school $50-160K (teaching plus stipend); NFL head $5-14M, coordinator $1.2-4M, position $0.5-1.2M by owner, up to 2× in the 1990s.
+- Assistant deals (`world/folk/staffing.rs`, `deal_terms`, `sign`): pay × (0.8 + 0.4 × rep/20); P4 coordinators 3 years with 50% buyout, P4 position coaches 2 years 30%, other colleges 1 year, NFL 2-3 years. Renewed on signing day each year at +3%.
+
+## The staff market (your side)
+
+- The Hiring search (`world/folk/staffing.rs`, `candidates`; C21, C22, C26, C39): every coach who isn't retired, over 70, under a show-cause, on your staff or out of coaching with no past, for any job, no fit test and no cap, 50 to a page. Filters: level now, job now (head coach, coordinator, position coach, junior, out of work), came up as, age, reputation, known to you, out of work. Sorts read only what you see: reputation (+2 × warmth), your read's middle, your potential words' rank, age, his ask. A coordinator job shows scheme and calling beside teaching. NFL clubs can block a lateral move.
+- Your read of any coach: `coach_look.rs`, below ("Finding and hiring coaches").
+- An interview (C25) reads ratings onto his page: the scheme question reads scheme and the job's teaching, the difficult player relationships and discipline, recruiting recruiting and network, what he wants ambition. Each read is truth + 0.3 × (ambition − 10) + 0.2 × (relationships − 10) (not for ambition) + noise ×1.5: a smooth talker reads better than he is (`interview_facet`).
+- Offers: `world/folk/hiring.rs`, below.
+- Firing: you owe the rest of his deal (× buyout share, or 25%); the room reacts by his relationships and growth record (`fire`).
+- Where you fire: any day, not only at the takeover meetings. Staff, Contracts tab, Let go on his row; or his move list (right-click his name, Let him go). Either opens the firing talk, a scene in your office (`staffing::start_firing`; `app/ui/screens/people.js`, `ppfire`; `lane_people.rs`, `coach_moves`). It works on assistants, never the head coach; a high school's staff below the head coach is drawn names with no button (`staffing::drawn_staff`; coaching update C37 makes them coaches).
+- Your staff brings you proposals (start a young player, rest a starter) about one week in two (`proposals_week`).
+- Your own job hunt: searches score you with the same formula plus a bonus for someone on the staff who knows you (1 + 1.5 × strength), home state +0.5, alma mater +0.6, and Aura for head jobs (`world/front_office/market.rs`, `bonus`, `candidate`).
+- Taking over a job: two weeks of dated meetings; you keep or let go each holdover assistant; a college hire opens your players' coaching-change window (`world/folk/takeover.rs`, `begin`, `coach_change_window`, `holdover_answer`).
+- Your read of your own staff: a range per rating, about 6 wide at first, ~3 after three seasons, its centre settling toward the truth (`world/staff_read.rs`).
+
+## Your coach at the start (update 3, lane 2)
+
+- The eleven roads (`crates/afm-game/src/setup.rs`, `BACKGROUNDS`): each locks its strengths at fixed values (C6; "pos" is the position you played, "grp" the group you came up coaching, "groups" all eight teaching groups), and every other rating starts at the road's base (11-14). Total = locked + base × the other ratings: 245, 258, 271, 255, 234, 239, 261, 274, 276, 227, 230 (star, Pro Bowler, starter, journeyman, college player, never played, high school coach, college assistant, NFL assistant, scout, analytics) (`starting`).
+- A locked strength's road value is its floor; you can raise any rating to 20 with pool points; points past the total come off the highest ratings above their floors (`you_from`).
+- Your position or group (`position` argument; `group_of`) takes the "pos" or "grp" strength, sets the side you call plays on, and is the group you came up in (`You::came_up`, `world/seat.rs`; `take_seat_as`, `world/staff.rs`).
+- The roads screen's comparison figures: medians and 90th percentiles over the world's coaches in jobs, never one coach's numbers (`world/road_marks.rs`, `road_marks`): high school head coaches' best teaching group (median) and their other ratings (90th, rating by rating, averaged); top-68 FBS (by prestige) position coaches' own group, per group; top-68 coordinators' scheme; coordinators' mean of their ten other ratings at the top 68, FCS and the small colleges; NFL coordinators' and head coaches' scheme and play calling (0.6 scheme + 0.4 game management), head coaches' evaluation and the best director of college scouting's judge.
+- High school ties from your road (`setup.rs`, `road_ties`, called when a career starts): high school coach 30 schools in his own school's state (his area first, then prestige); college assistant 25 top-prestige schools in his college stops' states (else his home state); every playing road his own high school. Each area tie starts at 0.06 (`TIE_AREA`), the own school at 0.16 (`TIE_OWN`); an existing stronger tie is kept. They fade and grow like any coach's (`age_coaches`, `credit_impact`).
+- Your coach is kept outside any save when a career starts: `coaches/<name>.json` in the game folder, the setup page's own record (`save_coach_profile`, `coach_profiles`, `forget_coach_profile`).
+
+## Former players and new coaches (update 3, lane 5)
+
+- The world keeps former players whose lives stay in football (`world/former.rs`, `Formers`, `Former`): at the year-end book, before the people list drops anyone, everyone leaving football who played college ball may go into coaching (8% a year for a college player, 14% for an NFL veteran), a camp or 7v7 program (0.8% / 3%), training (1.2% / 3%), scouting (0.6% / 1.5%), the media (0.3% / 2.5%, a Pro Bowler or better ×2.5) or agency work (0.2% / 0.4%), each × exp(0.8 × his trait lean); skill positions are twice as likely to run camps and train (`life_base`, `intake`). Each carries his position, grade (college backup or starter, NFL journeyman, starter, Pro Bowler, star), his colleges and clubs with years, the coaches who coached him, his area, a hidden eye and straightness (1-20), his football IQ and leadership, and his old agent.
+- Turnover (`year_end`): about one in twelve leaves coaching a year, one in thirty the other lives; all are gone by 70.
+- New coaches (`former::draw`, `world/staff.rs`, `new_coach_for`): a former player in coaching within four years of the job's age, weighted ×4 when the hiring head coach coached him, ×2.5 from the job's state, ×2 at the group, ×6 for an ex-pro at an NFL job, ×2 for an FBS player at FBS or NFL, ×1.5 for a smaller college's player at a high school. The college head coach pool of the 1990 history keeps made-up coaches, so the hiring bias calibration stands. `to_coach` makes the coach at the job's level and adds his IQ to scheme and leadership to motivation (up to about a point and a half each).
+- Playing pasts of made-up coaches (`made_up`): whether he played by `college_share` (high school 60%, small college 90%, FCS 92%, FBS 93%, NFL 95%); an ex-pro (high school 4%, NFL 35%, else 12%) is a journeyman 50%, starter 30%, Pro Bowler 15%, star 5%; a college player at FBS, FCS or a smaller college by the job's level (FBS and NFL 57/20/23, FCS 25/45/30, small college 10/20/70, high school 15/20/65), a starter 55% of the time.
+- What a playing past does (`apply`): his group is the one he came up in, and his side's teaching follows it; his own group's teaching is at least the floor (star 19, Pro Bowler 18, NFL starter 17, journeyman 16, FBS or FCS starter 15, their backups or a smaller college's starter 14, else 13); his name starts from playing (star 17, Pro Bowler 14, starter 11, journeyman 8, FBS starter 5, other college 2.5-4), fading 1% a season since he last played.
+- Name (`season_reputation`, `title_reputation`, `name_value`): each season his name moves toward the bigger of his playing name or 0.75 (head coach) / 0.5 (assistant) of his standing; a title boosts both alike. Searches read name by `name_weight` through `hiring_buzz_for`. Your name comes from your road's agreed name value (`crates/afm-game/src/setup.rs`, `you_from`); the people you meet read it (`world/folk/facts.rs`, `your_name`, `read_by`, `fit`).
+- A five-star's high school coach (C17): you may hire him onto your college staff only while you recruit his five-star and only if you're warm with him (0.2); a recruit on your board who isn't a five-star bars his coach (`world/folk/backchannel.rs`, `hs_hire`; `world/folk/staffing.rs`, `candidates`, `offer`). From 2017 the IAWP rule bars off-field and strength jobs; every coaching job here is on-field. The AI does it on December 1: one five-star's coach in twenty-five, hired by the FBS program leading for the kid to coach his own group (`ai_hs_hires`). At a high school, the college leading for your five-star senior offers you an on-field job on November 15, an even chance (`hs_offer`).
+
+## Scouts and personnel staff as careers (update 2, lane 8)
+
+- NFL scouts move between clubs through a market: one in ten a year moves on, a sharp man at a thrifty club more often, the old retire; posts fill from the market, by a step up, or by hiring another club's man away; each man's eye grows with years and honest look-backs; an area scout builds contacts in his region (`world/pro/scouts.rs`, `staff`, `sign`, `grow`, `place_areas`). Your club runs the same rule through the May review (`world/scouting/own.rs`, `open_review`, `close_review`).
+- A third of GM openings go to another club's director of college scouting (`scouts::climb_to_gm`, called by `world/pro/office.rs`, `replace_gm`); a non-White director's old club gets the 2020 diversity picks.
+- College personnel staffs are keyed by program and post (`world/scouting/readers.rs`, `keyed_personnel`); once you hire or let go, your program's are yours (`own::personnel_market`, `hire_personnel`, `let_go_personnel`, a year on each July 1).
+- Scouts, personnel staff, the staffs drawn for the screens and support staff are drawn from seven backgrounds by era (`scouts::staff_ethnicity`, `staff_ethnicity_at`; `world/folk/staffing.rs`, `draw_person`; `world/people.rs`, `hire`; minor bug 19).
+- The numbers: [scouting.md](scouting.md), "The fresh look".
+
+## Finding and hiring coaches (update 3, lane 18)
+
+Your read of any coach (`world/folk/coach_look.rs`; C24, C35, C40, C41, C43, C58):
+
+- 17 facets: teaching per group, scheme, game management, calling, motivation, discipline, relationships, recruiting, network, adaptability; ambition too. Width = 20 / (1 + 0.9 × evidence): a stranger is the whole scale, about 10 hours of the right evidence make it 2 wide (`width`, `read_in`). The window keeps its width inside 1-20, so a wide read's place tells nothing. Centre = truth + the sources' bias + your lean (−1 to 1, fixed for you, him and the facet) × half width × 0.6.
+- Evidence (`evidence`): your network as the old Hiring widths (5.5 − 4 × warmth wide; half for a group he never coached); hours on film × what his job shows (his room 1, a coordinator's side 0.5, his own group 0.8, a high school head coach 0.6-0.9, a college head 0.3-0.6, a junior 0.2; calling and game management 0.9 for a play caller); hours talking × 0.15-1 (the man's facets most); an interview answer 3 units at the talker's centre (C25); an honest read 4 units (1.5 for a group he never coached), leaning by the source's agenda.
+- Film is 2 hours of your week, asking around 1 hour, an honest read half an hour and a favour you owe (`watch_film`, `ask_around`, `ask_for_read`, `network::owe`). Sources: his head coach (undersells a man he keeps), his athletic director (−0.6), an old staff-mate in your network (talks him up); honesty 0.35 + 0.45 × your warmth + up to 0.3.
+- A coordinator on your staff strong in a group sharpens your teaching read there, to half as wide at 18 (`staff_eye`; C58).
+- Potential (C35, `potential_in`): words from your read of his learning ceiling at half the evidence ("could be one of the best in the game" ≥ 16.5, "could run a power program's defense" ≥ 15, "could coordinate in the FBS" ≥ 13.5, "could coordinate in the FCS or a smaller FBS school" ≥ 12, "a solid position coach in the making" ≥ 10, else "limited room to grow"); "Too early to say" while it's more than 8 wide; "Has peaked" from 58 or at his ceiling; "Still learning fast" under 45 with room.
+
+Offers and talks (`world/folk/hiring.rs`; C28-C34, C44-C56):
+
+- His ask (`ask`): the job's pay × (0.85 + 0.35 × rep / 20) × 1.15 in a job (0.95 out of work), at least 5% over his pay unless it's a step up.
+- His weigh (`weigh`): the step in standing (employer prestige + 0.2 a rung: position coach 0, coordinator 1, head coach 2, a title +0.5, a junior −0.5, out of work −0.3) × `promotion_worth` per rung up (0.5 + 0.03 × (ambition − 10), 0.2-0.8, × 2 under 45 fading to × 1 at 60; C29, C44), 0.5 a rung down; calling +0.2 (−0.1 when you call it, +0.2 × belief with a promise); 0.6 × the raise on his pay; the ask (+0.1 to +0.2 at or over it, −1.5 × the share short); outside his group −0.35 (−0.4 coordinators) × (1 − (adaptability − 1) / 19) unless a step of 0.15 or more (C39); promises × belief (C46, C47; a title 0.03, a top recruit 0.08 ± ambition and teaching, his own assistant 0.05+); clauses by their odds; years 0.04 a year (more for the loyal and over 50); 0.4 × warmth; 0.3 × (your rep − 0.5); uprooting −(0.25 + 0.2 × loyalty), a junior −0.05, out of work +0.2. Yes over 0.05-0.15; a promotion he can't say no to over that + 0.9.
+- Lowballs (C45, C55): under his ask by a fuzzy 12-40% is a warning; the next offer has to close about a third of the gap (20-45%); missing it is a second warning and −0.05 warmth. Talks never end on one bad offer.
+- Patience (C52): 0.6 + 0.02 × (loyalty − 10) − 0.03 × (temper − 10), 0.25-1; a warning costs 0.15-0.2, a no 0.05 if you moved a third of the way to his number, else 0.12+. At 0 or after four rounds with no number he'd take, the talks close (for 45 days). After a no he names what it would take (`would_take`).
+- His school's counter (C32, C49-C51): college only, once in the talks; 70% for a man rated high (rep 12+ or a room growing well), 50% close to a promotion (the coordinator's job open or its holder 63+ or rep 14+), 8% else; a fifth of that in his first year. Pay up to 1.2 × the job's pay, never above; a title (co-coordinator, assistant head coach for a coordinator) against a promotion; the coordinator's job itself when it's open, and then he stays. A counter on your rung or higher takes 0.15 off your offer.
+- A move to another level or state takes 1-2 days to think it over unless he can't say no (C53).
+- Hired (`hire_now`): your buyout of his deal, his new deal at your terms, calling handed over if promised, the title, his assistant (`staff::bring_junior`), the recruit promise due next signing day, clauses read each season on May 1 (C54: top 25 in points, top 10 at the NFL; a bowl or the playoffs; a player from his room drafted; a 15% raise or a year added).
+- Broken promises (C48, C56): trust −0.2, his tie −0.15, his staff-mates −0.04; a quarter of that when you fought for it (an offer at his market NIL or more and an official visit). Belief = (kept + 2) / (made + 3); a recruit promise reads your last two classes at the group.
+
+Units and coaches to watch (`world/units.rs`; C27, C42):
+
+- One `UnitSeason` per team and year from the engine's totals: college (`ProgramSeason.totals`), high school (`HsSeason.unit`, new), NFL points (`World::nfl_units`, booked at the year's turn, 20 seasons). Ranked within its pool (a college division, a state's high schools, the NFL).
+- A coordinator's page lists his sides' points a game and rank for his last eight seasons (`coordinator_record`); a position coach's rooms show their growth in words and players moved up.
+- Coaches to watch: every team-stat at least 1.5 standard deviations better than its pool (points, points allowed, yards, yards allowed, sacks, sacks allowed, takeaways; the NFL points only), with the head coach, the coordinator on that side and the room's coach (`standouts`, `Charge`); and position coaches whose rooms grow well above the norm (`growth_standouts`).
+
+## Coaching styles
+
+- `Style` dials, 1-20 (`world/coach.rs`, `style`): risk = ambition; freedom = 21 − discipline + level norm + 1.5 × keyed normal; physical = 10.5 + 0.4 × (temper − 10) + 2.5 × normal; ball hunting = 10.5 + 3 × normal; mould = 10.5 − 0.25 × (relationships − 10) + 2.5 × normal. Freedom is read against the average discipline of head coaches at his level (`set_freedom_norms`). Your coach's style is the one you set (`style_set`).
+- What styles do to players' habits: see [tendencies.md](tendencies.md).
+
+## Overruled assistants and a famous name (update 3, lane 7)
+
+- An assistant whose recommendations you overrule loses trust, calls his area with less heart and weighs other jobs more (see [recruiting.md](recruiting.md), "Your offer chain"); his coach page's "Recruiting record" tab lists every call with how the kid turned out (`crates/afm-game/src/lane_core/pages.rs`, `rec_record`).
+- A head coach's playing name is worth up to 3 recruiting points for two seasons (`world/coach.rs`, `name_pull`; C8).
+- A small school's coach can be hired on his five-star's promise (C20; [people.md](people.md), "The network").
+
+## Where the knobs are
+
+- `world/coach.rs`: `level_ability`, `generate_coach` spreads, `head_coach_value` weights, `age_one_year` learn and decline weights, `season_reputation` (0.3, 12, 0.6), `title_reputation` (3, 5), `hiring_buzz` (10, 4), `hiring_needs`, `candidate_score`, `evaluation`, `style`.
+- `world/staff.rs`: `salary`, `hotness`, `weigh_offer` part sizes, `early_exit`, `nfl_firing`, `college_review`, `hs_review`, `in_season_firings`, `contract_years`, `buyout_share`, `athletic_budget`, `new_ad`, `ad_turnover`, `candidate_pool` list sizes (15, 10, 40, 3, 8, 5, 2, 20 calls), `schedule_search` lengths, keep shares in `fill_opening`.
+- `world/staff.rs`: `FBS_FIRE` (0.7), the head job weights in `fill_opening` (NFL 0.3 / 0.15 from 2003, college 0.7), the college head coach's 0.75 and the state title anchor's 0.15 in `weigh_offer`, the out-of-work call (5). Measure them with `cargo run --release -p afm-tools --bin carousel_check -- 30 2026 0.1` (with `AFM_ENGINE_FROM=2100 AFM_HS_YEARS=0`, about 45 minutes): the carousel's pace, run lengths, second FBS jobs, head coaches of color by era, overlapping jobs and the state champions' coaches against real.
+- `world/ethnicity.rs`: `hiring_bias`. `world/systems.rs`: `draw`, `learn_from`, `spring_install`.
+- `world/guide.rs`: `firmness` (13.5, 7.5), `leaning` (0.8, 0.15), the risk band, run lean and nickel shares in `head_guidelines`, `install_bonus` (6, 1.6, 0.3, 4 over 0.35), `wing_fit` (0.75).
+- `world/season.rs`: the coaching blend per stage, `coach_caller`. `development.rs`: `coaching_mult`, `coachability_lean`.
+- `world/former.rs`: `college_share`, `life_base`, `year_end` rates, `draw` weights, `Played::floor`, `Played::fame`, `made_up` shares. `world/staff.rs`: `name_weight`.
+- `world/folk/staffing.rs`: `deal_terms`, `candidates`, `offer`, `interview_read`. `world/folk/boss.rs`: `review_push`, `booster_push`, `draft_goals`.
+
+## Depth chart help (update 3, lane 6)
+
+- Who put a man first (H4): Y when the spot is yours and your own order is set (`seat_depth`); C when the head coach holds it (you don't control the spot) or a staff keeper does (the side's coordinator, else the group's position coach, else the head coach); A when no keeper exists or the keeper is you (`crates/afm-game/src/lane_help.rs`, `why_here`, `chart_keeper`).
+- His reasons: a better-read man out or limited, his read against the next healthy man, a key-attribute edge of 3+, a crossover, his practice grade words (`player.train.grade`), started last season; at most 3. Others: the next two men, the best other man at the position and the best crossover read at the spot, at most 4 (`why_here`, `read_at`).
+- Changes this week: your moves from `World::seat_depth_log` (date, position, first id; the last 40, written by `set_seat_depth`) in the last 7 days, and men up because the starter is out; six lines (`lane_squadboards/depth.rs`, `changes`).
+- The lineup note (H5): the evening before a game (20:30), one letter per side listing each spot you control and set where a healthy bench man's low end is above your starter's high end and his middle is 8+ higher. From the side's coordinator, else the position coach, never you. "Give these spots back" clears those orders (`lane_core/mail.rs`, `lineup_mail`, `act::DEPTH_BACK`; `lane_help.rs`, `weak_spots`, `note_writer`). None is sent when Help is Off (`lane_handbook.rs`, `warnings_on`).
+
+## Related pages
+
+- [development.md](development.md): how the coaching number turns into growth.
+- [play-calling.md](play-calling.md): what the caller's skills do on each snap.
+- [recruiting.md](recruiting.md): the recruiting side of coach ratings.
+- [scouting.md](scouting.md): scouting staffs and their reads.
+- [tendencies.md](tendencies.md): coaching styles and habits.
+- [people.md](people.md): trust, morale and the room.

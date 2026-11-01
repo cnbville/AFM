@@ -16,10 +16,16 @@
 //! Every size no real source publishes is Claude's pick (proposed, not
 //! confirmed), listed in `docs/world-model.md`.
 
+pub mod backchannel;
 pub mod boss;
 pub mod cast;
+pub mod coach_look;
 pub mod courts;
+pub mod dialogue;
 pub mod facts;
+pub mod fans;
+pub mod gametalk;
+pub mod hiring;
 pub mod letters;
 pub mod life;
 pub mod network;
@@ -30,6 +36,7 @@ pub mod staffing;
 pub mod takeover;
 pub mod talks;
 pub mod ties;
+pub mod tips;
 pub mod voice;
 
 use super::World;
@@ -153,7 +160,7 @@ impl Team {
         match self {
             Team::College(p) => Some(w.programs[p].state),
             Team::High(h) => Some(w.high_schools[h].state),
-            Team::Nfl(t) => super::franchise::era(t, w.year).and_then(|e| super::geo::state_index(e.state)),
+            Team::Nfl(t) => super::franchise::era_in(w, t, w.year).and_then(|e| super::geo::state_index(e.state)),
             Team::Other(_) => None,
         }
     }
@@ -163,7 +170,7 @@ impl Team {
         match self {
             Team::College(p) => w.programs[p].city.clone(),
             Team::High(h) => w.high_schools[h].town.clone(),
-            Team::Nfl(t) => super::franchise::era(t, w.year).map_or_else(String::new, |e| e.city.to_string()),
+            Team::Nfl(t) => super::franchise::era_in(w, t, w.year).map_or_else(String::new, |e| e.city.to_string()),
             Team::Other(f) => super::pro::other::city(f, w.year).to_string(),
         }
     }
@@ -284,16 +291,26 @@ pub struct Folk {
     /// Your people log: everything the meetings, talks and reports told you.
     pub log: Vec<Entry>,
     pub promises: Vec<talks::Promise>,
-    /// The line patterns each speaker has used with you (topic 5, part 5).
-    pub said: Vec<(u64, Vec<u32>)>,
+    /// The line versions each speaker has said to you and the day he said
+    /// each one; a version rests a full season (topic 5, part 5; D3). Saves
+    /// from before D3 kept `said` without days: it is dropped on load.
+    pub said_on: Vec<(u64, Vec<(u32, crate::calendar::Date)>)>,
     pub rules: rules::Rulebook,
     pub cases: Vec<rules::Violation>,
     pub goals: Vec<boss::Goal>,
     pub asks: Vec<boss::Ask>,
     pub network: network::Network,
+    /// Tips from people you know (SK35, C14).
+    pub tips: tips::Tips,
+    /// What people you know do for you besides tips (C15-C19).
+    pub backchannel: backchannel::Backchannel,
     pub ties: ties::Ties,
     pub hs_staffs: staffing::HsStaffs,
     pub staff: staffing::Staffs,
+    /// Your reads of coaches who aren't on your staff (C24, C41, C43).
+    pub looks: coach_look::Looks,
+    /// Hiring talks: offers, counters, warnings, promises (C31-C34, C45-C56).
+    pub hiring: hiring::Hiring,
     pub life: life::Lives,
     pub courts: courts::Courts,
     pub discipline: rules::LeagueBook,
@@ -318,11 +335,19 @@ pub struct Folk {
     pub(crate) hush: bool,
     /// Your lines to the position coaches, by player id.
     pub lines: Vec<(u32, talks::Line)>,
+    /// Lane 14's talks: high school calls, interviews, staff meetings,
+    /// players-only meetings.
+    pub dialogue: dialogue::State,
     /// Players out by your discipline, a family leave or a rest: (id,
     /// through, why).
     pub out: Vec<(u32, Date, String)>,
     /// Benched for the start of the next game.
     pub benched: Vec<(u32, Date)>,
+    /// Other teams' players sitting out by their own coach's rules (update
+    /// 3, F18): id, through.
+    pub ai_out: std::collections::BTreeMap<u32, Date>,
+    /// Other teams' rule breaks their staffs saw: id, (count, last season).
+    pub ai_priors: std::collections::BTreeMap<u32, (u8, i32)>,
     /// Players you brought back early from an injury (P3), and when.
     pub rushed: Vec<(u32, Date)>,
     /// Bulletin-board material you handed a rival: who and when.
@@ -357,6 +382,7 @@ pub fn after_load(w: &mut World) {
 pub(crate) fn day(w: &mut World, d: Date) {
     ensure_base(w);
     staffing::day(w, d);
+    hiring::day(w, d);
     ties::day(w, d);
     life::day(w, d);
     courts::day(w, d);
@@ -364,8 +390,13 @@ pub(crate) fn day(w: &mut World, d: Date) {
     talks::day(w, d);
     boss::day(w, d);
     network::day(w, d);
+    backchannel::day(w, d);
     press::day(w, d);
+    dialogue::players_only_day(w, d);
     if w.seat.is_some() {
+        dialogue::college_calls(w, d);
+        dialogue::settle_calls(w, d);
+        dialogue::staff_meeting_day(w, d);
         takeover::day(w, d);
         scene::day(w, d);
     }
@@ -392,6 +423,9 @@ pub(crate) fn note(w: &mut World, topic: &str, source: String, text: String, ang
     w.folk.log.push(Entry { date, topic: topic.to_string(), source, text, angle, check: None });
     if w.folk.log.len() > 600 {
         let cut = w.folk.log.len() - 600;
+        if w.logging() {
+            w.log_dropped("people log", w.folk.log[..cut].iter());
+        }
         w.folk.log.drain(..cut);
     }
 }
@@ -429,6 +463,23 @@ pub fn count_words(n: usize) -> String {
     const W: [&str; 13] =
         ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
     if n < W.len() { W[n].to_string() } else { n.to_string() }
+}
+
+/// A noun for a count: `noun(1, "game")` is "game", `noun(3, "game")`
+/// "games", `noun(2, "catch")` "catches", `noun(4, "story")` "stories".
+pub fn noun(n: impl TryInto<i64>, one: &str) -> String {
+    if n.try_into().is_ok_and(|n: i64| n == 1) {
+        return one.to_string();
+    }
+    let b = one.as_bytes();
+    let vowel = |c: u8| b"aeiou".contains(&c);
+    if one.ends_with('y') && b.len() > 1 && !vowel(b[b.len() - 2]) {
+        format!("{}ies", &one[..one.len() - 1])
+    } else if ["s", "x", "z", "ch", "sh"].iter().any(|e| one.ends_with(e)) {
+        format!("{one}es")
+    } else {
+        format!("{one}s")
+    }
 }
 
 /// A record in words: "9-4".

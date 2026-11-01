@@ -158,7 +158,7 @@ impl Response {
             Response::BenchStart => "benched for the start".into(),
             Response::BenchGame if level == Level::Nfl => "deactivated for a game".into(),
             Response::BenchGame => "sat out a game".into(),
-            Response::Suspend(n) => format!("suspended {n} games"),
+            Response::Suspend(n) => format!("suspended {n} game{}", if n == 1 { "" } else { "s" }),
             Response::Dismiss if level == Level::Nfl => "released".into(),
             Response::Dismiss => "dismissed from the team".into(),
             Response::Council => "handed to the leadership council".into(),
@@ -302,7 +302,7 @@ pub fn nfl_fine(year: i32, kind: RuleKind) -> f64 {
 
 /// Players sitting by your discipline: (player id, through date, why).
 pub fn sitting(w: &World, id: u32, d: Date) -> bool {
-    w.folk.out.iter().any(|x| x.0 == id && x.1 >= d)
+    w.folk.out.iter().any(|x| x.0 == id && x.1 >= d) || w.folk.ai_out.get(&id).is_some_and(|&x| x >= d)
 }
 
 /// The day after the n-th next game of your team (for a suspension).
@@ -331,6 +331,158 @@ fn risk(w: &World, i: usize, book: &Rulebook, room: f32, base: f32) -> f32 {
     base * f * (0.6 + 0.12 * book.load())
 }
 
+/// Whether a team's level is in its rules season (camp to the bowls, and
+/// spring practice, below the NFL).
+fn rules_season(w: &World, level: Level, d: Date) -> bool {
+    match level {
+        Level::Nfl => d >= w.dates.veterans_report && d <= w.dates.super_bowl,
+        _ => {
+            d >= w.dates.fall_camp.add(-30) && d <= w.dates.bowl_season.1
+                || (d >= w.dates.spring_practice.0 && d <= w.dates.spring_game)
+        }
+    }
+}
+
+/// Weekly break risk per player by level (proposed, not confirmed).
+fn rules_base(level: Level) -> f32 {
+    match level {
+        Level::Nfl => 0.0016,
+        Level::College => 0.0022,
+        _ => 0.0026,
+    }
+}
+
+/// Weekly (update 3, F18): every other team's players break their own head
+/// coach's rules (`ai_book`), at the risk yours run; his staff sees them
+/// as his discipline lets him, and he answers by his own standard: the
+/// fair line for the offense and the record, a notch harder for a strict
+/// coach and softer for a loose one, and a loose coach goes easier on a
+/// star (proposed, not confirmed).
+fn ai_week(w: &mut World, d: Date) {
+    let seat = Team::seat(w);
+    let mut teams: Vec<Team> = Vec::new();
+    if rules_season(w, Level::Nfl, d) {
+        teams.extend((0..w.clubs.len()).map(Team::Nfl));
+    }
+    if rules_season(w, Level::College, d) {
+        teams.extend((0..w.programs.len()).map(Team::College));
+        teams.extend((0..w.high_schools.len()).map(Team::High));
+    }
+    let year = w.year;
+    let mut acts: Vec<(Team, usize, RuleKind, Response)> = Vec::new();
+    for t in teams {
+        if Some(t) == seat {
+            continue;
+        }
+        let roster = t.roster(w);
+        if roster.is_empty() {
+            continue;
+        }
+        let level = t.level();
+        let coach = t.head_coach(w).filter(|&c| c < w.coaches.len());
+        let book = coach.map_or_else(|| standard(level), |c| ai_book(w, c, level));
+        let kinds: Vec<(RuleKind, u8)> = book.rules.iter().copied().filter(|x| x.0.at(level)).collect();
+        if kinds.is_empty() {
+            continue;
+        }
+        let disc = coach.map_or(10.0, |c| w.coaches[c].ability().discipline);
+        let see = (0.45 + 0.025 * disc as f32).clamp(0.4, 0.95);
+        let room = talks::team_mood(w, t);
+        let base = rules_base(level);
+        for i in roster {
+            let id = w.people[i].player.id;
+            if dismissed(w, id, d) {
+                continue;
+            }
+            if super::roll(w, 0xA17E ^ d.0 as u64, id as u64) as f32 >= risk(w, i, &book, room, base) {
+                continue;
+            }
+            if super::roll(w, 0xA180 ^ d.0 as u64, id as u64) as f32 > see {
+                continue;
+            }
+            let tot: f32 = kinds.iter().map(|x| x.1 as f32).sum();
+            let mut u = super::roll(w, 0xA17F ^ d.0 as u64, id as u64) as f32 * tot;
+            let mut kind = kinds[0].0;
+            for (k, s) in &kinds {
+                if u < *s as f32 {
+                    kind = *k;
+                    break;
+                }
+                u -= *s as f32;
+            }
+            let prior = w.folk.ai_priors.get(&id).filter(|x| x.1 >= year - 1).map_or(0, |x| x.0);
+            let shift = if disc >= 14.0 {
+                1
+            } else if disc <= 6.0 {
+                -1
+            } else {
+                0
+            };
+            let soft = (disc < 12.0 && is_star(w, i)) as i32;
+            let sev = (kind.weight() as i32 + prior.min(3) as i32 - 1 + shift - soft).clamp(0, 6);
+            let resp = match sev {
+                0 => Response::Talk,
+                1 if level == Level::Nfl => Response::Fine,
+                1 => Response::Running,
+                2 => Response::BenchStart,
+                3 => Response::BenchGame,
+                4 => Response::Suspend(1),
+                5 => Response::Suspend(2),
+                // Released only for conduct or drugs; otherwise the longest
+                // suspension.
+                _ if level == Level::Nfl && !matches!(kind, RuleKind::Conduct | RuleKind::DrugTests) => {
+                    Response::Suspend(3)
+                }
+                _ => Response::Dismiss,
+            };
+            acts.push((t, i, kind, resp));
+        }
+    }
+    for (t, i, kind, resp) in acts {
+        let id = w.people[i].player.id;
+        let level = t.level();
+        let e = w.folk.ai_priors.entry(id).or_insert((0, year));
+        e.0 = if e.1 >= year - 1 { e.0.saturating_add(1) } else { 1 };
+        e.1 = year;
+        let p = &mut w.people[i];
+        p.mood = (p.mood - 0.05 * resp.severity() as f32 / 3.0).max(-1.0);
+        match resp {
+            Response::Fine => {
+                let fine = nfl_fine(year, kind);
+                if let Some(c) = w.people[i].pro.as_mut() {
+                    c.earnings = (c.earnings - fine / 1.0e6).max(0.0);
+                }
+            }
+            Response::BenchGame | Response::Suspend(_) => {
+                let n = if let Response::Suspend(n) = resp { n } else { 1 };
+                if level == Level::Nfl {
+                    if let Some(c) = w.people[i].pro.as_mut() {
+                        c.suspended += n.min(4) as u32;
+                    }
+                } else {
+                    let until = after_games(w, t, n);
+                    w.folk.ai_out.insert(id, until);
+                }
+            }
+            Response::Dismiss => dismiss(w, i, level),
+            _ => {}
+        }
+        if (3..6).contains(&resp.severity()) {
+            let p = &mut w.people[i];
+            let age = p.row_age();
+            let mut words = resp.words(level);
+            if let Some(c) = words.get_mut(0..1) {
+                c.make_ascii_uppercase();
+            }
+            p.note(format!("{words} at {age} for a violation of team rules ({}).", kind.name().to_lowercase()));
+        }
+    }
+    // Old records fade: a break two seasons back no longer counts.
+    if d.weekday() == Weekday::Mon && w.folk.ai_priors.len() > 4096 {
+        w.folk.ai_priors.retain(|_, x| x.1 >= year - 1);
+    }
+}
+
 /// Weekly: your players break your rules, and your staff sees some of them.
 fn your_week(w: &mut World, d: Date) {
     let Some(team) = Team::seat(w) else { return };
@@ -338,23 +490,12 @@ fn your_week(w: &mut World, d: Date) {
     if !w.folk.rules.set && w.folk.rules.rules.is_empty() {
         w.folk.rules = Rulebook { council: std::mem::take(&mut w.folk.rules.council), ..standard(level) };
     }
-    let in_season = match level {
-        Level::Nfl => d >= w.dates.veterans_report && d <= w.dates.super_bowl,
-        _ => {
-            d >= w.dates.fall_camp.add(-30) && d <= w.dates.bowl_season.1
-                || (d >= w.dates.spring_practice.0 && d <= w.dates.spring_game)
-        }
-    };
-    if !in_season {
+    if !rules_season(w, level, d) {
         return;
     }
     // Weekly base per player (proposed, not confirmed): about one break a
     // month on a hundred-man college roster with a firm standard book.
-    let base = match level {
-        Level::Nfl => 0.0016,
-        Level::College => 0.0022,
-        _ => 0.0026,
-    };
+    let base = rules_base(level);
     let room = talks::team_mood(w, team);
     let book = w.folk.rules.clone();
     let roster = team.roster(w);
@@ -369,6 +510,9 @@ fn your_week(w: &mut World, d: Date) {
     }
     for i in roster {
         let id = w.people[i].player.id;
+        if dismissed(w, id, d) {
+            continue;
+        }
         let r = risk(w, i, &book, room, base);
         if super::roll(w, 0x7B1E ^ d.0 as u64, id as u64) as f32 >= r {
             continue;
@@ -748,8 +892,23 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
     s.end();
 }
 
+/// Days a dismissed college or high school player is off the team: the
+/// rest of the season, bowls and playoffs too, until his next school takes
+/// him (minor bug 116: dismissed players kept playing, and were dismissed
+/// again).
+const DISMISSED_DAYS: i32 = 200;
+
+/// Whether he is off his team for good this season (a dismissal, never the
+/// few weeks of a suspension).
+fn dismissed(w: &World, id: u32, d: Date) -> bool {
+    w.folk.ai_out.get(&id).is_some_and(|&x| d.days_to(x) > DISMISSED_DAYS / 2)
+}
+
 fn dismiss(w: &mut World, i: usize, level: Level) {
     let d = w.today;
+    if level != Level::Nfl {
+        w.folk.ai_out.insert(w.people[i].player.id, d.add(DISMISSED_DAYS));
+    }
     match level {
         Level::Nfl => {
             crate::world::pro::release(w, i, d, "released for a violation of team rules");
@@ -970,12 +1129,14 @@ fn hit_fine(year: i32, kind: u8) -> u32 {
 /// games. Rates from the real record (proposed where none is published):
 /// the NFL fined about 250 to 350 hits a season, suspended two to four
 /// players for repeat hits; FBS calls about 0.2 targeting ejections a game;
-/// high school ejections sit the next game under NFHS rules.
+/// high school ejections sit the next game under NFHS rules, at every school.
 fn league_week(w: &mut World, d: Date) {
     if d.weekday() != Weekday::Tue {
         return;
     }
-    let nfl_season = d > w.dates.nfl_kickoff && d <= w.dates.super_bowl.add(2);
+    // The Tuesday after a regular-season Sunday (the playoffs' few fines
+    // aside: every club's roster is read, playing or not).
+    let nfl_season = w.dates.nfl_weeks.iter().any(|&s| d > s && d <= s.add(6));
     let cfb_season = w.dates.cfb_weeks.first().is_some_and(|&k| d > k) && d <= w.dates.bowl_season.1.add(2);
     let year = w.year;
     let mut entries: Vec<Fine> = Vec::new();
@@ -1004,7 +1165,9 @@ fn league_week(w: &mut World, d: Date) {
                     continue;
                 }
                 let temper = p.player.personality.traits.z(Trait::Temper);
-                let r = 0.0055 * (1.0 + 0.6 * temper).max(0.3);
+                // About 16 a week from some 830 rostered defenders (minor bug
+                // 151: 0.0055 gave about 82 a season against 250-350).
+                let r = 0.019 * (1.0 + 0.6 * temper).max(0.3);
                 if super::roll(w, 0x41E0 ^ d.0 as u64, p.player.id as u64) >= r {
                     continue;
                 }
@@ -1088,7 +1251,28 @@ fn league_week(w: &mut World, d: Date) {
             counts.2 += 1;
         }
     }
-    // High school ejections (your team's): the next game out by rule.
+    // High school ejections: the next game out by rule, at every school
+    // (B2: only your own team's sat out before). Yours make the news and
+    // the record; an AI school's player sits his school's next game.
+    if d >= w.dates.hs_school_start && d <= w.dates.december_graduation {
+        let yours = match seat {
+            Some(Team::High(h)) => Some(h),
+            _ => None,
+        };
+        for h in 0..w.high_schools.len() {
+            if Some(h) == yours || super::roll(w, 0x4E5 ^ d.0 as u64, h as u64) >= 0.08 {
+                continue;
+            }
+            let r = &w.high_schools[h].roster;
+            if r.is_empty() {
+                continue;
+            }
+            let k = (super::roll(w, 0x4E6 ^ d.0 as u64, h as u64) * r.len() as f64) as usize;
+            let id = w.people[r[k.min(r.len() - 1)]].player.id;
+            let until = after_games(w, Team::High(h), 1);
+            w.folk.ai_out.insert(id, until);
+        }
+    }
     if let Some(Team::High(h)) = seat
         && d >= w.dates.hs_school_start
         && d <= w.dates.december_graduation
@@ -1172,7 +1356,11 @@ fn league_week(w: &mut World, d: Date) {
 pub(crate) fn day(w: &mut World, d: Date) {
     w.folk.out.retain(|x| x.1 >= d);
     w.folk.benched.retain(|x| x.1 >= d);
+    w.folk.ai_out.retain(|_, x| *x >= d);
     league_week(w, d);
+    if d.weekday() == Weekday::Mon {
+        ai_week(w, d);
+    }
     if w.seat.is_some() && d.weekday() == Weekday::Mon {
         your_week(w, d);
     }

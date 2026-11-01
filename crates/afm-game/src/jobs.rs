@@ -135,15 +135,34 @@ pub fn build_world_file_named(
     let names = if fictional { NameMode::Fictional } else { NameMode::Real };
     let opts =
         WorldOptions { seed, history_years: years, scale, names, fictional_league: fictional, ..Default::default() };
-    let w = World::new_stoppable(opts, |w, _| {
+    // The world log (world reader lane R2) goes beside the world file,
+    // written as the history plays.
+    let log_part = worlds.join(format!("{name}.{}.part", afm_engine::world::wlog::EXT));
+    let log = if crate::world_log::on() {
+        let log = afm_engine::world::wlog::WorldLog::create(&log_part, &opts, crate::world_log::commit(), "");
+        Some(log.map_err(|e| format!("Could not start the world log: {e}"))?)
+    } else {
+        None
+    };
+    let built = World::new_logged(opts, log, |w, _| {
         seasons += 1;
         each(seasons, w.year - 1)
-    })
-    .ok_or(STOPPED)?;
+    });
+    let Some(mut w) = built else {
+        let _ = std::fs::remove_dir_all(&log_part);
+        return Err(STOPPED.into());
+    };
     // Seasons done: 0 says the world is being written.
     each(0, 0);
+    if let Some(log) = w.detach_log() {
+        let to_log = crate::world_log::beside(&to);
+        log.close()
+            .and_then(|_| if to_log.exists() { std::fs::remove_dir_all(&to_log) } else { Ok(()) })
+            .and_then(|_| std::fs::rename(&log_part, &to_log))
+            .map_err(|e| format!("Could not write the world log: {e}"))?;
+    }
     let part = to.with_extension("afmworld.part");
-    let commit = option_env!("AFM_COMMIT").unwrap_or(env!("CARGO_PKG_VERSION"));
+    let commit = crate::world_log::commit();
     afm_engine::save::write_world(&w, &part, commit, &files::now_utc(), Some(crate::cards::card(&w)))
         .and_then(|_| std::fs::rename(&part, &to))
         .map_err(|e| format!("Could not write the world: {e}"))?;
@@ -229,11 +248,14 @@ fn world_assets(release: &Value) -> Vec<(String, u64, String)> {
 }
 
 /// The worlds on the worlds page, newest first, each marked when it is
-/// already in the library.
+/// already in the library. A world is published again under the same name
+/// when a newer game builds it, so only its newest build is listed, and it is
+/// marked `newer` when the library holds an older build it would replace.
 pub fn online(worlds: &Path) -> Result<Value, String> {
     let list: Value = get(&format!("https://api.github.com/repos/{WORLDS_REPO}/releases?per_page=30"))?
         .into_json()
         .map_err(|e| e.to_string())?;
+    let mut seen = std::collections::HashSet::new();
     let rows: Vec<Value> = list
         .as_array()
         .into_iter()
@@ -243,14 +265,36 @@ pub fn online(worlds: &Path) -> Result<Value, String> {
             let first = assets.first()?.0.clone();
             let name = first.strip_suffix(".001").unwrap_or(&first);
             let name = name.strip_suffix(".afmworld").unwrap_or(name).to_string();
+            if !seen.insert(name.clone()) {
+                return None;
+            }
             let mb = assets.iter().map(|a| a.1).sum::<u64>() as f64 / 1e6;
+            // A library copy this game can't read the header of is replaced too.
+            let local = worlds.join(format!("{name}.afmworld"));
+            let (tag, date) = (r["tag_name"].as_str().unwrap_or(""), r["published_at"].as_str().unwrap_or(""));
+            let have = local.exists();
+            let newer = have && files::read_meta(&local).map_or(true, |m| newer_build(&m, tag, date));
             Some(json!({
                 "tag": r["tag_name"], "title": r["name"], "notes": r["body"], "date": r["published_at"],
-                "name": name, "mb": mb.round(), "have": worlds.join(format!("{name}.afmworld")).exists(),
+                "name": name, "mb": mb.round(), "have": have && !newer, "newer": newer,
             }))
         })
         .collect();
     Ok(json!({ "repo": WORLDS_REPO, "worlds": rows }))
+}
+
+/// Whether a release (tag `name-<commit>`, published at `date`) is a newer
+/// build of the library's world with header `local`: another game's commit,
+/// published after the library's copy was written.
+fn newer_build(local: &Value, tag: &str, date: &str) -> bool {
+    let build = tag.rsplit_once('-').map_or("", |(_, b)| b);
+    let commit = local["commit"].as_str().unwrap_or("");
+    if !build.is_empty() && commit.starts_with(build) {
+        return false;
+    }
+    // "2026-10-23 20:55 UTC" against "2026-10-23T20:57:13Z", to the minute.
+    let written = local["written"].as_str().unwrap_or("").replacen(' ', "T", 1);
+    date.get(..16).unwrap_or(date) > written.get(..16).unwrap_or(&written)
 }
 
 /// Downloads one world from the worlds page into the library.
@@ -303,4 +347,23 @@ pub fn download(shared: &Shared, worlds: &Path, tag: &str) -> Result<(), String>
         finish(&shared, t, r);
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::newer_build;
+    use serde_json::json;
+
+    #[test]
+    fn a_newer_build_of_a_library_world() {
+        let old = json!({ "commit": "fbd9131abf232070464d2b6c1e109a24e74cfebc", "written": "2026-10-21 19:50 UTC" });
+        let new = json!({ "commit": "ec7d3d9f3bc3ac277fbb932f313b66fc75e81cba", "written": "2026-10-23 20:55 UTC" });
+        // The library holds the 21 October build; the 23 October one replaces it.
+        assert!(newer_build(&old, "world-2026-seed2026-ec7d3d9", "2026-10-23T20:57:13Z"));
+        // The same build is already there.
+        assert!(!newer_build(&new, "world-2026-seed2026-ec7d3d9", "2026-10-23T20:57:13Z"));
+        // A world built on this machine later than the release is kept.
+        let mine = json!({ "commit": "0.2.0", "written": "2026-10-24 09:00 UTC" });
+        assert!(!newer_build(&mine, "world-2026-seed2026-ec7d3d9", "2026-10-23T20:57:13Z"));
+    }
 }

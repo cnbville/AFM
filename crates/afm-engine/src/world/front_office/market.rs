@@ -212,7 +212,7 @@ pub(crate) fn state_of(w: &World, e: Employer) -> Option<usize> {
         Employer::College(p) => Some(w.programs[p].state),
         Employer::Nfl(t) => {
             w.nfl.get(t)?;
-            let code = crate::world::franchise::era(t, w.year)?.state;
+            let code = crate::world::franchise::era_in(w, t, w.year)?.state;
             w.states.iter().position(|s| *s.code == *code)
         }
         Employer::Other(_) => None,
@@ -394,7 +394,8 @@ pub(crate) fn bonus(w: &World, e: Employer, r: Role) -> f64 {
     if r == Role::HeadCoach {
         b += 0.08 * (c.you.aura() - 10.0);
     }
-    b
+    // How your interview went (lane 14, D11).
+    b + crate::world::folk::dialogue::interview_bonus(w, e, r)
 }
 
 /// Your own stream for a search's reads of you.
@@ -483,6 +484,10 @@ pub(crate) fn offer(w: &mut World, e: Employer, r: Role, prestige: f64) {
         (Employer::Other(_), Role::HeadCoach) => 3,
         (Employer::Other(_), _) => 2,
     };
+    // A head job that is volatile now pays for it (update 2, S10): a
+    // guaranteed year more, and a bigger buyout when you sign.
+    let hazard = if r == Role::HeadCoach { crate::world::storylines::credit::hazard(w, e) } else { None };
+    let years = years + hazard.map_or(0, |h| h.0);
     let Some(c) = w.career.as_ref() else { return };
     let hc = match e {
         Employer::College(p) => w.programs[p].head_coach,
@@ -514,6 +519,12 @@ pub(crate) fn offer(w: &mut World, e: Employer, r: Role, prestige: f64) {
         _ if y.recruiting >= 13.0 => "they want a coordinator who recruits".into(),
         _ => format!("they need an {} and your name came up", r.name()),
     });
+    if let Some((_, share)) = hazard {
+        why.push(format!(
+            "the job is volatile right now, so they add a guaranteed year and a buyout {:.0}% bigger",
+            share * 100.0
+        ));
+    }
     let family = family_words(w, e);
     let name = employer_name(w, e);
     let title = role_title(r);
@@ -652,8 +663,16 @@ pub fn apply(w: &mut World, e: Employer, r: Role) -> Result<String, String> {
     }
     let name = employer_name(w, e);
     log(w, format!("Applied: {}, {name}.", role_title(r)));
+    // A head job sits you down with the people who hire (lane 14, D11).
+    let sit = crate::world::folk::dialogue::interview_set(w, e, r, open.decides);
     if let Some(d) = open.decides {
-        return Ok(format!("Your name is in at {name}. The search decides around {}.", d.pretty()));
+        let talk = sit.map_or(String::new(), |t| format!(" They want to sit down with you on {}.", t.pretty()));
+        return Ok(format!("Your name is in at {name}. The search decides around {}.{talk}", d.pretty()));
+    }
+    if sit.is_some() {
+        return Ok(format!(
+            "{name} wants to sit down with you first. The interview is on your agenda today; they decide after it."
+        ));
     }
     let prestige = super::super::staff::prestige_of(w, e);
     super::super::staff::fill_now(w, e, r, prestige);
@@ -676,6 +695,8 @@ pub fn apply(w: &mut World, e: Employer, r: Role) -> Result<String, String> {
 /// moves there, the desks start over, a high school's staff is drawn and
 /// the family moves if the job is somewhere else.
 pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
+    // The season you coached at the old job stays on your record.
+    crate::world::season_page::keep_seat_season(w);
     w.seat = Some(match e {
         Employer::HighSchool(s) => Seat { level: Level::HighSchool, nfl_team: None, program: Some(s), other: None },
         Employer::College(p) => Seat { level: Level::College, nfl_team: None, program: Some(p), other: None },
@@ -687,11 +708,18 @@ pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
     w.front_office.log = log_kept;
     w.seat_depth.clear();
     w.seat_focus.clear();
+    // The game plan starts over at the new team (update 2): its own
+    // guidelines (a head coach sets his; an assistant's team plays to its
+    // head coach's), its words, depth and keys; the old team's games stay
+    // out of the self-scout.
+    w.plans = Default::default();
     let today = w.today;
     let staff = match (e, r) {
         (Employer::HighSchool(s), Role::HeadCoach) => w.hire_hs_staff(s),
         _ => Vec::new(),
     };
+    // The stories you walk into, and the premium's bigger buyout (update 2).
+    crate::world::storylines::credit::hired(w, e);
     if let Some(c) = w.career.as_mut() {
         c.role = (r != Role::HeadCoach).then_some(r);
         c.hs_staff = staff;
@@ -747,6 +775,8 @@ pub fn welcome(w: &mut World) {
 /// left it: until the next one you have no team.
 pub(crate) fn left(w: &mut World, why: &str) {
     let Some(seat) = w.seat else { return };
+    // The season you coached so far stays on your record.
+    crate::world::season_page::keep_seat_season(w);
     let today = w.today;
     let name = match seat.level {
         Level::Nfl => seat.nfl_team.map(|t| w.nfl_team_name(t)),
@@ -759,6 +789,7 @@ pub(crate) fn left(w: &mut World, why: &str) {
     w.prune_tapes();
     w.seat_depth.clear();
     w.seat_focus.clear();
+    w.plans = Default::default();
     if let Some(c) = w.career.as_mut() {
         c.role = None;
         c.hs_staff.clear();
@@ -773,6 +804,47 @@ pub(crate) fn left(w: &mut World, why: &str) {
             format!("You are out at {name} ({why}). Your job market page lists what's open and what you'd take."),
             true,
         );
+    }
+}
+
+/// The no-fire override (Settings): when the world is about to end your
+/// job (`why`, the reason it would give) and the override is on, the job
+/// stays, the day and reason are kept on your career and your inbox says
+/// what would have happened. True when the caller must skip the move.
+pub(crate) fn spared(w: &mut World, c: usize, why: &str) -> bool {
+    if !is_you(w, c) || !w.career.as_ref().is_some_and(|k| k.no_fire) {
+        return false;
+    }
+    let Some(job) = w.coaches[c].job else { return false };
+    let today = w.today;
+    let name = employer_name(w, job.employer);
+    if let Some(k) = w.career.as_mut() {
+        k.spared.push((today, name.clone(), why.to_string()));
+    }
+    log(w, format!("{name}: {why} (kept by the no-fire override)."));
+    post(
+        w,
+        today,
+        level_of(job.employer),
+        format!(
+            "No-fire override: without it you would be out at {name} today ({why}). You keep the job; turn the override off in Settings."
+        ),
+        true,
+    );
+    true
+}
+
+impl World {
+    /// Turns the no-fire override on or off (Settings). The first time it
+    /// goes on, the career is marked for good.
+    pub fn set_no_fire(&mut self, on: bool) {
+        let today = self.today;
+        if let Some(k) = self.career.as_mut() {
+            k.no_fire = on;
+            if on && k.no_fire_since.is_none() {
+                k.no_fire_since = Some(today);
+            }
+        }
     }
 }
 
@@ -932,7 +1004,7 @@ pub fn family_mood_words(m: f32) -> &'static str {
 // ---------------------------------------------------------------------------
 
 /// Where you were in the world's history, from your profile and your road.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Placement {
     /// Your college and the years you were there.
     pub college: Option<(usize, i32, i32)>,
@@ -1123,6 +1195,17 @@ impl World {
     /// career, kept as stints on your coach so searches read them as they
     /// read anyone's (an NFL owner's doubts about a man who never coached
     /// there, a head job's experience).
+    /// The college you played for (C11): set on your coach's playing past.
+    pub fn set_your_college(&mut self, college: Option<usize>) {
+        let Some(c) = self.career.as_ref().map(|c| c.coach) else { return };
+        if let Some(p) = self.coaches[c].played.as_mut() {
+            p.college = college;
+            if let Some(q) = college.and_then(|q| self.programs.get(q)) {
+                p.div = q.division as u8;
+            }
+        }
+    }
+
     pub fn add_resume(&mut self, stops: &[(Employer, Role, i32, i32)]) {
         let Some(me) = me(self) else { return };
         let c = &mut self.coaches[me];

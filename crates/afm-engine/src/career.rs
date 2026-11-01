@@ -28,6 +28,7 @@ use crate::rng::{Rng, Seed, clamp, round_half_up};
 use crate::scouting::{ScoutOptions, scout_player};
 
 /// The tuning knobs of the class pipeline.
+#[derive(Debug)]
 pub struct Pipeline {
     /// Real US freshman class size the shares below are expressed against.
     pub reference_class_size: f64,
@@ -81,11 +82,13 @@ pub struct Pipeline {
     pub running_qb_retire_offset: f64,
 }
 
+#[derive(Debug)]
 pub struct PortalEntryRates {
     pub backup: f64,
     pub rotation: f64,
     pub coaching_change: f64,
 }
+#[derive(Debug)]
 pub struct CollegeTrouble {
     pub chance: f64,
     pub dismissal_share: f64,
@@ -93,10 +96,12 @@ pub struct CollegeTrouble {
     pub serious_quit_share: f64,
     pub lesser_quit_share: f64,
 }
+#[derive(Debug)]
 pub struct RedFlags {
     pub suspended: f64,
     pub dismissed: f64,
 }
+#[derive(Debug)]
 pub struct StarFilmRank {
     pub max_for5: f64,
     pub max_for4: f64,
@@ -301,6 +306,9 @@ pub struct CareerRecord {
     pub running_qb: bool,
     /// Plain-language reasons for the notable things that happened to him, for trial cards.
     pub notes: Vec<String>,
+    /// The player as he was drafted (combine checks; not saved).
+    #[serde(skip)]
+    pub at_draft: Option<Box<Player>>,
 }
 
 impl CareerRecord {
@@ -330,6 +338,7 @@ impl CareerRecord {
             peak_age: player.age,
             running_qb: false,
             notes: Vec::new(),
+            at_draft: None,
             player,
         }
     }
@@ -678,7 +687,6 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
                     ..SeasonContext::new(level.level(), col.coaching[i], role)
                 };
                 develop_season(&mut r.player, &ctx, &mut prngs[i]);
-                add_wear(r, role, 0.5);
                 track_peak(r);
                 // A year without games doesn't use one of his four seasons.
                 if role != PlayingTime::Redshirt && trouble.is_none() {
@@ -903,6 +911,11 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
 
     // --- Draft and undrafted free agency ---------------------------------------
     let pros = run_draft(&mut records, &entrants, &mut teams, draft_slots, &mut rng);
+    for &i in &entrants {
+        if records[i].draft_pick.is_some() {
+            records[i].at_draft = Some(Box::new(records[i].player.clone()));
+        }
+    }
 
     // --- Pro careers ------------------------------------------------------------
     simulate_league_years(&mut records, &mut prngs, pros, &mut teams, &mut rng);
@@ -1228,7 +1241,7 @@ pub(crate) fn draft_order(teams: &[Team], rng: &mut Rng) -> Vec<usize> {
 }
 
 /// How much a team needs a position, in grade points.
-pub(crate) fn need(team: &Team, pos: Position) -> f64 {
+pub fn need(team: &Team, pos: Position) -> f64 {
     let Some((rating, age)) = team.weakest_starter(pos) else {
         return 0.0;
     };
@@ -1786,7 +1799,6 @@ fn simulate_league_years(
             }
             let perf = row.performance;
             track_peak(r);
-            add_wear(r, role, 1.0);
             if matches!(role, PlayingTime::Starter | PlayingTime::Rotation | PlayingTime::Backup) {
                 r.nfl_seasons += 1;
             }
@@ -1981,28 +1993,6 @@ fn situation_at(team: &Team, p: &Player, role: PlayingTime, league_strength: f64
         _ => 0.4,
     };
     clamp(reliance * (0.5 * cast + 0.5 * org), -1.0, 1.0)
-}
-
-/// Yearly wear: backs take the most hits, quarterbacks who run take more than pocket passers.
-fn add_wear(r: &mut CareerRecord, role: PlayingTime, scale: f64) {
-    let share = match role {
-        PlayingTime::Starter => 1.0,
-        PlayingTime::Rotation => 0.5,
-        _ => return,
-    };
-    let per_season = match r.player.position {
-        Position::RB => 1.0,
-        Position::QB => {
-            if r.running_qb {
-                0.6
-            } else {
-                0.15
-            }
-        }
-        Position::K | Position::P | Position::LS => 0.0,
-        _ => 0.35,
-    };
-    r.player.wear += per_season * share * scale;
 }
 
 fn is_running_qb(p: &Player) -> bool {

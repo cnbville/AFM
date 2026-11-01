@@ -309,6 +309,7 @@ fn entry_kind(k: EntryKind) -> &'static str {
         EntryKind::LosingSeason => "Hard year",
         EntryKind::Season => "Season",
         EntryKind::BigWin => "Big win",
+        EntryKind::Chapter => "Chapter",
     }
 }
 

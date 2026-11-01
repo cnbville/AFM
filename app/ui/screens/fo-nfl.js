@@ -7,7 +7,7 @@
 
 foNavHide("contracts", "nfl");
 foNavAdd("nfl", [
-  ["fo_office", "Overview", "office"],
+  ["fo_office", "Front office", "office"],
   ["fo_cap", "Cap sheet", "cap"],
   ["fo_expiring", "Deals and tags", "tag"],
   ["fo_market", "Free agency", "fa"],
@@ -24,7 +24,7 @@ const foM = (v) => (v == null ? "-" : Math.abs(v) < 500 ? "$0" : money(v));
 const foPct = (v) => Math.round((v || 0) * 100) + "%";
 // Where each desk screen leads (lane 9's "Go to" line under the head).
 GOTO.fo_office = () => [["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Free agency", "fo_market"], ["Trades", "fo_trades"], ["Roster moves", "fo_moves"], ["Staff", "staff"], ["Money mail", "inbox", { key: "Money" }]];
-GOTO.fo_cap = () => [["Front office", "fo_office"], ["Deals and tags", "fo_expiring"], ["Trades", "fo_trades"], ["Contracts", "contracts"], ["Squad", "roster"]];
+GOTO.fo_cap = () => [["Squad", "roster"], ["Free agency", "fo_market"], ["Trades", "fo_trades"], ["Draft board", "draftboard"]];
 GOTO.fo_expiring = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Free agency", "fo_market"], ["Squad", "roster"]];
 GOTO.fo_talk = (a) => [["Player page", "player", { id: a.id }], ["Deals and tags", "fo_expiring"], ["Free agency", "fo_market"], ["Cap sheet", "fo_cap"]];
 GOTO.fo_market = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Squad", "roster"], ["Depth chart", "depth"]];
@@ -40,11 +40,13 @@ function foHead(team, title, sub, extra = "") {
 function foBtn(fo, text, data = {}, cls = "glass") {
   return `<button class="st-btn small ${cls}" data-act="fo" data-fo="${fo}"${Object.entries(data).map(([k, v]) => ` data-${k}="${esc(v)}"`).join("")}>${esc(text)}</button>`;
 }
-function foOwner(key, owner) {
-  return `<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
+// Who runs a duty; with your staff, a move you make yourself still stands (SC6).
+function foOwner(key, owner, label) {
+  const note = owner === "staff" ? `<small class="muted fo-ownernote">${label ? esc(label) + ": y" : "Y"}our staff runs it; a move you make yourself stands.</small>` : label ? `<small class="muted fo-ownernote">${esc(label)}</small>` : "";
+  return `${note}<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
 }
 function foPick(p) {
-  return `<span class="fo-pick ${p.comp ? "comp" : ""}" title="${esc(p.text)} · ${p.points} points on your chart">${mark(p.from, 18)}<b>${p.year} R${p.round}</b>${p.own ? "" : `<small>${esc(p.from.name.split(" ").pop())}</small>`}${p.comp ? "<small>comp</small>" : ""}</span>`;
+  return `<span class="fo-pick ${p.comp ? "comp" : ""}" title="${esc(p.text)} · ${p.points} point${p.points === 1 ? "" : "s"} on your chart">${mark(p.from, 18)}<b>${p.year} R${p.round}</b>${p.own ? "" : `<small>${esc(p.from.name.split(" ").pop())}</small>`}${p.comp ? "<small>comp</small>" : ""}</span>`;
 }
 const foKindWords = { ReSign: "Re-signing", Extension: "Extension", FreeAgent: "Free agent", OfferSheet: "Offer sheet" };
 const foStateWords = { Open: "Talking", Standing: "Offer on the table", Agreed: "Agreed", Signed: "Signed", Broken: "Talks broken off", Gone: "Gone" };
@@ -90,9 +92,16 @@ screens.fo_office = async () => {
 };
 
 // ---------- Cap sheet ----------
-screens.fo_cap = async () => {
+screens.fo_cap = async (a) => {
   const x = await api("fo_cap");
   const yrs = x.years;
+  // A link from his contract, the Squad or the cap board marks his row (the
+  // arrow keys go on from it) and brings it into view.
+  const him = a && a.id != null ? x.rows.find((r) => r.id === a.id) : null;
+  if (him) {
+    him.cls = "kbd";
+    setTimeout(() => { const tr = document.querySelector('.tbl[data-table="fo_cap"] tr.kbd'); if (tr) tr.scrollIntoView({ block: "nearest" }); }, 30);
+  }
   const book = x.books.map((b) => {
     const used = Math.min(1, (b.committed + b.dead) / (b.cap + (b.carryover || 0)));
     const dead = b.dead / (b.cap + (b.carryover || 0));
@@ -102,22 +111,22 @@ screens.fo_cap = async () => {
   }).join("");
   const hit = (h) => (h == null ? '<span class="muted">-</span>' : h.void ? `<span class="fo-void" title="A void year: only the bonus spread lands here">${foM(h.hit)}</span>` : `<span title="Base ${foM(h.base)} · bonus ${foM(h.bonus)} · roster and workout ${foM(h.roster)}${h.gtd ? " · guaranteed " + foM(h.gtd) : ""}" class="${h.gtd >= h.base && h.base > 0 ? "fo-gtd" : ""}">${foM(h.hit)}</span>`);
   const cols = [
-    { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.no_trade ? ' <span class="st-pill" title="No-trade clause">NTC</span>' : ""}` },
+    { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name, "Contract")}${r.no_trade ? ' <span class="st-pill" title="No-trade clause">NTC</span>' : ""}` },
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
-    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     ...yrs.map((y, k) => ({ k: "y" + y, t: String(y), div: k === 0, v: (r) => (r.hits[k] ? r.hits[k].hit : -1), f: (r) => hit(r.hits[k]) })),
     { k: "kind", t: "Deal", l: true, div: true, f: (r) => `${esc(r.kind)}${r.ending ? ' <span class="st-pill gold">Ends</span>' : ""}` },
     { k: "apy", t: "A year", f: (r) => `<span title="${r.years_left} more years · ${foM(r.gtd_left)} still guaranteed">${foM(r.apy)}</span>` },
     { k: "gtd_left", t: "Gtd left", tip: "Pay still guaranteed from this league year on", f: (r) => (r.gtd_left ? foM(r.gtd_left) : '<span class="muted">-</span>') },
     { k: "dead", t: "Dead if cut", div: true, v: (r) => r.cut.dead, f: (r) => foM(r.cut.dead) },
     { k: "saves", t: "Saves", tip: "Cap room a release frees this year", v: (r) => r.cut.saves, f: (r) => `<span class="${r.cut.saves < 0 ? "neg" : "pos"}">${foM(r.cut.saves)}</span>` },
-    { k: "act", t: "", f: (r) => (r.where === "Practice squad" ? `<span class="muted">Squad</span>` : foBtn("capmove", "Moves", { id: r.id, name: r.name, voids: x.voids_ok ? 1 : 0, re: r.can_restructure ? 1 : 0, dead: r.cut.dead, saves: r.cut.saves, dj: r.cut.dead_june1, dj2: r.cut.dead_june1_next, sj: r.cut.saves_june1, june1: x.after_june1 ? 0 : 2 - x.june1_used })) },
+    { k: "act", t: "", f: (r) => (r.where === "Practice squad" ? `<span class="muted">Squad</span>` : foBtn("capmove", "Moves", { id: r.id, name: r.name, voids: x.voids_ok ? 1 : 0, re: r.can_restructure ? 1 : 0, last: r.last_year ? 1 : 0, dead: r.cut.dead, saves: r.cut.saves, dj: r.cut.dead_june1, dj2: r.cut.dead_june1_next, sj: r.cut.saves_june1, june1: x.after_june1 ? 0 : 2 - x.june1_used })) },
   ];
   const dead = x.dead.map((d) => `<tr><td class="l">${d.year}</td><td class="l">${playerLink(d.id, d.name)}</td><td class="l">${esc(d.why)}</td><td>${foM(d.amount)}</td></tr>`).join("") || `<tr><td class="l" colspan="4"><div class="empty">No dead money on the books.</div></td></tr>`;
   const picks = x.picks.map(foPick).join("") || '<span class="muted">No picks.</span>';
   return `<div class="film"><div class="pad fo">
-    ${foHead(x.team, "Cap sheet", `Every contract's cap number for five league years, with what a release costs and saves today. ${x.top51 ? "<b>The rule of 51 is on:</b> until the first game only the 51 biggest cap numbers count. " : ""}${x.after_june1 ? "After June 1 a release splits its dead money over two years by itself." : `Post-June 1 designations used: ${x.june1_used} of 2.`}`)}
+    ${foHead(x.team, "Cap sheet", `Every contract's cap number for five league years, with what a release costs and saves today. ${x.top51 ? "<b>The rule of 51 is on:</b> until the first game only the 51 biggest cap numbers count. " : ""}${x.after_june1 ? "After June 1 a release splits its dead money over two years by itself." : `Post-June 1 designations used: ${x.june1_used} of 2.`}`, foOwner("cap", x.owner))}
     <div class="fo-books">${book}</div>
     <div class="fo-legend"><span><i class="fo-gtd">Underlined</i> fully guaranteed</span><span><i class="fo-void">In italics</i> a void year: only the bonus spread</span><span><i class="neg">In red</i> a release costs room</span><span>Hover a cap number for its parts.</span></div>
     ${table("fo_cap", cols, x.rows, { sort: "y" + yrs[0], groups: [{ t: "", span: 4 }, { t: "Cap number by league year", span: yrs.length, div: true }, { t: "The deal", span: 3, div: true }, { t: `Released today${x.after_june1 ? " (split)" : ""}`, span: 3, div: true }] })}
@@ -144,7 +153,7 @@ screens.fo_expiring = async () => {
     return b.join(" ");
   };
   const what = (r) => {
-    if (r.sheet) return `<b>Offer sheet</b> from ${teamLink(r.sheet.team)}: ${r.sheet.years} yrs at ${foM(r.sheet.apy)} · until ${esc(r.sheet.until)}`;
+    if (r.sheet) return `<b>Offer sheet</b> from ${teamLink(r.sheet.team)}: ${r.sheet.years} ${r.sheet.years === 1 ? "yr" : "yrs"} at ${foM(r.sheet.apy)} · until ${esc(r.sheet.until)}`;
     if (r.tagged) return `<b>${esc(r.tagged)}</b>`;
     if (r.option) return `Fifth-year option: ${foM(r.option_price)}${r.option_choice == null ? " · <span class=\"gold\">undecided</span>" : r.option_choice ? " · picking it up" : " · declining"}`;
     if (r.extend) return `Through ${r.through}`;
@@ -158,14 +167,14 @@ screens.fo_expiring = async () => {
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
     { k: "accrued", t: "Seasons", tip: "Accrued seasons, last season's counted" },
-    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "market", t: "His market", div: true, tip: "Your cap manager's read of what he'd get a year", v: (r) => r.market[0], f: (r) => `${foM(r.market[0])}-${foM(r.market[1])}` },
     { k: "apy", t: "Now a year", f: (r) => foM(r.apy) },
     { k: "what", t: "Where it stands", l: true, div: true, wrap: true, v: (r) => r.order, f: (r) => `${what(r)} ${r.talk ? foTalkChip(r.talk) : ""}` },
     { k: "act", t: "", l: true, f: act },
   ];
   return `<div class="film"><div class="pad fo">
-    ${foHead(x.team, "Deals and tags", `Players whose deals end at the new league year (${esc(x.league_year)}), rookies with a fifth-year option, and stars due an extension. ${x.window ? `<b>The tag window is open until ${esc(x.deadline)}.</b>` : `The tag window runs ${esc(x.window_open)} to ${esc(x.deadline)}.`} ${x.one_tag ? "One tag a club a year." : "A franchise and a transition tag a club a year."} Undecided options are declined on ${esc(x.option_deadline)}. Cap room ${foM(x.room)}.`)}
+    ${foHead(x.team, "Deals and tags", `Players whose deals end at the new league year (${esc(x.league_year)}), rookies with a fifth-year option, and stars due an extension. ${x.window ? `<b>The tag window is open until ${esc(x.deadline)}.</b>` : `The tag window runs ${esc(x.window_open)} to ${esc(x.deadline)}.`} ${x.one_tag ? "One tag a club a year." : "A franchise and a transition tag a club a year."} Undecided options are declined on ${esc(x.option_deadline)}. Cap room ${foM(x.room)}.`, `${foOwner("contracts", x.owner, "Contracts")}${foOwner("tags", x.owner_tags, "Tags")}`)}
     ${table("fo_exp", cols, x.rows, { groupBy: (r) => r.group, empty: "Nobody's deal is running out, and no option or extension is due." })}
   </div></div>`;
 };
@@ -195,7 +204,7 @@ screens.fo_talk = async (a) => {
   return `<div class="hero small"><div class="art"></div><div class="st-outline">${esc(t.pos)}</div><div class="copy">
     <div class="st-label" style="color:rgba(255,255,255,.7)">${esc(foKindWords[t.kind] || "No talks possible")} · ${t.team ? teamLink(t.team) : "Free agent"}</div>
     <h1>${playerLink(t.id, t.name)}</h1>
-    <div class="meta"><span>Age <b>${t.age}</b></span><span>${t.accrued} accrued seasons</span><span>Rating ${range(t.ovr)}</span>${t.contract ? `<span>${esc(t.contract.kind)}, ${foM(t.contract.apy)} a year through ${t.contract.through}</span>` : ""}</div></div></div>
+    <div class="meta"><span>Age <b>${t.age}</b></span><span>${t.accrued} accrued seasons</span><span>Rating ${range(t.ovr, null, { p: t.id, k: "ovr" })}</span>${t.contract ? `<span>${esc(t.contract.kind)}, ${foM(t.contract.apy)} a year through ${t.contract.through}</span>` : ""}</div></div></div>
     <div class="pad fo"><p class="sub">${esc(t.kind_words)}</p>
     ${answer ? `<div class="fo-answer ${answer.verdict}"><div class="st-label">${esc({ Signed: "Deal", Agreed: "Agreed", Standing: "On the table", Counter: "Counter", Broken: "Talks ended" }[answer.verdict] || answer.verdict)} · ${esc(answer.gap)}</div><b>${esc(answer.text)}</b>${answer.claim ? `<div>${esc(answer.claim)}</div><small>${esc(answer.read || "")}</small>` : ""}</div>` : ""}
     <div class="grid2">
@@ -221,10 +230,10 @@ screens.fo_talk = async (a) => {
       <div style="display:grid;gap:18px">
         <div class="panel"><h2>What you know <small title="Your own rating: it reads agents' claims and sets how far you can push">${linkTo("you", {}, `Your negotiating ${t.negotiating}/20`)}</small></h2>
           <div class="kv"><dt>His market</dt><dd>${foM(t.market[0])} to ${foM(t.market[1])} a year <small class="sub">· your cap manager's read</small></dd>
-          ${ask ? `<dt>His agent asks</dt><dd><b>${ask.years} yrs, ${foM(ask.apy)} a year</b>, ${foPct(ask.gtd)} guaranteed${ask.start ? ", a starting job" : ""}</dd>` : ""}
+          ${ask ? `<dt>His agent asks</dt><dd><b>${ask.years} ${ask.years === 1 ? "yr" : "yrs"}, ${foM(ask.apy)} a year</b>, ${foPct(ask.gtd)} guaranteed${ask.start ? ", a starting job" : ""}</dd>` : ""}
           ${t.talk ? `<dt>The talks</dt><dd>${foTalkChip(t.talk)} <span class="fo-patience" title="How much patience his side has left"><i style="width:${Math.round(t.talk.patience * 100)}%"></i></span></dd>` : ""}
           <dt>What he wants</dt><dd>${t.wants ? esc(t.wants) : '<span class="muted">A visit, or a few rounds of talks, would tell you.</span>'}</dd></div></div>
-        <div class="panel"><h2>His agent</h2>${ag ? `<div class="kv"><dt>Agent</dt><dd><b>${esc(ag.name)}</b>, ${esc(ag.agency)}</dd><dt>Agency</dt><dd>${esc(ag.size)}, ${ag.clients} clients</dd><dt>With your club</dt><dd>${esc(ag.history)}</dd></div>` : '<div class="sub">He represents himself.</div>'}</div>
+        <div class="panel"><h2>His agent</h2>${ag ? `<div class="kv"><dt>Agent</dt><dd><b>${esc(ag.name)}</b>, ${esc(ag.agency)}</dd><dt>Agency</dt><dd>${esc(ag.size)}, ${ag.clients} client${ag.clients === 1 ? "" : "s"}</dd><dt>With your club</dt><dd>${esc(ag.history)}</dd></div>` : '<div class="sub">He represents himself.</div>'}</div>
         <div class="panel"><h2>The talks</h2><div class="fo-lines">${lines}</div></div>
       </div>
     </div>
@@ -254,12 +263,12 @@ screens.fo_market = async () => {
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
     { k: "accrued", t: "Seasons" },
-    { k: "ovr", t: "Rating", tip: "The league's public read", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", tip: "The league's public read", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "former", t: "Last club", l: true, div: true, v: (r) => (r.former ? r.former.name : ""), f: (r) => (r.former ? teamLink(r.former) : '<span class="muted">-</span>') },
     { k: "market", t: "His market", v: (r) => r.market[0], f: (r) => `${foM(r.market[0])}-${foM(r.market[1])}` },
     { k: "status", t: "Market", l: true, v: (r) => (r.agreed ? 1 : 0), f: status },
     { k: "talk", t: "Your talks", l: true, div: true, v: (r) => (r.talk ? 1 : 0), f: (r) => foTalkChip(r.talk) },
-    { k: "act", t: "", f: (r) => (r.kind ? foBtn("talk", r.talk ? "Talks" : "Make an offer", { id: r.id }, r.talk ? "glass" : "primary") : "") },
+    { k: "act", t: "", f: (r) => `${r.can_visit ? foBtn("visit", "Bring him in", { id: r.id }) + " " : ""}${r.kind ? foBtn("talk", r.talk ? "Talks" : "Make an offer", { id: r.id }, r.talk ? "glass" : "primary") : ""}` },
   ];
   const posSeg = `<div class="seg"><button data-act="fo" data-fo="mpos" data-v="" aria-pressed="${!f.pos}">All</button>${x.positions.map((p) => `<button data-act="fo" data-fo="mpos" data-v="${p}" aria-pressed="${f.pos === p}">${p}</button>`).join("")}</div>`;
   return `<div class="film"><div class="pad fo">
@@ -274,9 +283,19 @@ function foTrade() {
   return keep("fotrade", { team: null, give: [], givePicks: [], get: [], getPicks: [], cond: null, answer: null, shop: null });
 }
 const foPickKey = (p) => `${p.year}:${p.round}:${p.orig}:${p.comp ? 1 : 0}`;
-screens.fo_trades = async () => {
+screens.fo_trades = async (a = {}) => {
   const x = await api("fo_trades");
   const tr = foTrade();
+  // Opened on a club or a player (minor bug 71): "Trade for him", a club's
+  // menu, the cap board's "Trade now". Read once, so later picks stand.
+  if (a.team != null || a.get || a.give) {
+    const t = a.team != null ? Number(a.team) : tr.team;
+    if (t !== tr.team) Object.assign(tr, { get: [], getPicks: [], cond: null, answer: null });
+    tr.team = t;
+    for (const id of a.get || []) if (!tr.get.includes(Number(id))) tr.get.push(Number(id));
+    for (const id of a.give || []) if (!tr.give.includes(Number(id))) tr.give.push(Number(id));
+    delete a.team; delete a.get; delete a.give;
+  }
   if (tr.team == null && x.teams.length) tr.team = x.teams[0].ref.id;
   const other = tr.team != null ? await api("fo_trade_team", { team: tr.team }) : null;
   const pts = (list, sel, key) => list.filter((p) => sel.includes(key(p))).reduce((s, p) => s + (p.points || 0), 0);
@@ -285,19 +304,19 @@ screens.fo_trades = async () => {
   const givePts = giveP.reduce((s, r) => s + r.points, 0) + pts(x.picks, tr.givePicks, foPickKey);
   const getPts = getP.reduce((s, r) => s + r.points, 0) + (other ? pts(other.picks, tr.getPicks, foPickKey) : 0);
   const pickBox = (list, sel, side) => list.map((p) => `<label class="fo-pickbox ${sel.includes(foPickKey(p)) ? "on" : ""}"><input type="checkbox" data-fo-pick="${side}" data-k="${foPickKey(p)}" ${sel.includes(foPickKey(p)) ? "checked" : ""}>${foPick(p)}<small>${p.points}</small></label>`).join("") || '<span class="muted">No picks to trade.</span>';
-  const plist = (rows, sel, side) => `<div class="tbl fo-tradelist"><table><thead><tr><th></th><th class="l">Player</th><th class="l">Pos</th><th>Age</th><th>Rating</th><th>Cap hit</th><th title="His value over his contract, on your chart">Value</th></tr></thead><tbody>${rows.slice().sort((a, b) => sel.includes(b.id) - sel.includes(a.id) || mid(b.ovr) - mid(a.ovr)).map((r) => `<tr class="${sel.includes(r.id) ? "on" : ""}"><td><input type="checkbox" data-fo-pl="${side}" data-id="${r.id}" ${sel.includes(r.id) ? "checked" : ""} ${r.no_trade ? 'title="No-trade clause"' : ""}></td><td class="l">${playerLink(r.id, r.name)}${r.no_trade ? ' <span class="st-pill">NTC</span>' : ""}${r.block ? ' <span class="st-pill gold">Block</span>' : ""}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr)}</td><td>${foM(r.hit)}</td><td class="${r.points < 0 ? "neg" : ""}">${r.points}</td></tr>`).join("")}</tbody></table></div>`;
+  const plist = (rows, sel, side) => `<div class="tbl fo-tradelist"><table><thead><tr><th></th><th class="l">Player</th><th class="l">Pos</th><th>Age</th><th>Rating</th><th>Cap hit</th><th title="His value over his contract, on your chart">Value</th></tr></thead><tbody>${rows.slice().sort((a, b) => sel.includes(b.id) - sel.includes(a.id) || mid(b.ovr) - mid(a.ovr)).map((r) => `<tr class="${sel.includes(r.id) ? "on" : ""}"><td><input type="checkbox" data-fo-pl="${side}" data-id="${r.id}" ${sel.includes(r.id) ? "checked" : ""} ${r.no_trade ? 'title="No-trade clause"' : ""}></td><td class="l">${playerLink(r.id, r.name)}${r.no_trade ? ' <span class="st-pill">NTC</span>' : ""}${r.block ? ' <span class="st-pill gold">Block</span>' : ""}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td>${foM(r.hit)}</td><td class="${r.points < 0 ? "neg" : ""}">${r.points}</td></tr>`).join("")}</tbody></table></div>`;
   const calls = x.calls.filter((c) => !c.answered).map((c) => `<div class="fo-call">${mark(c.team, 40)}<div><b>${teamLink(c.team)} call about ${c.player ? playerLink(c.player.id, c.player.name) : "a player"}</b><small>They offer ${c.picks.map(foPick).join(" ")} · answer by ${esc(c.until)}</small></div><div class="st-actions">${foBtn("call", "Accept", { k: c.k, yes: 1 }, "primary")} ${foBtn("call", "Turn down", { k: c.k, yes: 0 })}</div></div>`).join("");
   const ans = tr.answer;
   const condOpts = tr.givePicks.length && tr.get.length ? `<div class="fo-cond"><label class="fo-check"><input type="checkbox" data-fo-cond="on" ${tr.cond ? "checked" : ""}> Make one of your picks conditional</label>${tr.cond ? `<select data-fo-cond="pick">${x.picks.filter((p) => tr.givePicks.includes(foPickKey(p)) && p.round > 1).map((p) => `<option value="${foPickKey(p)}" ${tr.cond.pick === foPickKey(p) ? "selected" : ""}>${esc(p.text)}</option>`).join("")}</select> moves up a round <select data-fo-cond="kind"><option value="games" ${tr.cond.kind === "games" ? "selected" : ""}>if he plays in</option><option value="starts" ${tr.cond.kind === "starts" ? "selected" : ""}>if he starts</option><option value="pro_bowl" ${tr.cond.kind === "pro_bowl" ? "selected" : ""}>if he makes the Pro Bowl</option></select>${tr.cond.kind !== "pro_bowl" ? `<input type="number" min="1" max="17" data-fo-cond="n" value="${tr.cond.n || 8}"> games` : ""} · <select data-fo-cond="player">${getP.map((r) => `<option value="${r.id}" ${tr.cond.player === r.id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}</div>` : "";
-  const shop = tr.shop ? `<div class="panel"><h2>Shopping ${esc(tr.shop.name)} <small>the best package of picks each club would give</small></h2>${tr.shop.offers.length ? tr.shop.offers.map((o) => `<div class="fo-call">${mark(o.team, 32)}<div><b>${teamLink(o.team)}</b><small>${o.picks.map(foPick).join(" ")} · ${o.points} points on your chart</small></div>${foBtn("shoptake", "Build this trade", { team: o.team.ref.id, id: tr.shop.id, picks: JSON.stringify(o.picks.map((p) => foPickKey(p))) })}</div>`).join("") : '<div class="empty">No club would give picks for him today.</div>'}</div>` : "";
+  const shop = tr.shop ? `<div class="panel"><h2>Shopping ${esc(tr.shop.name)} <small>the best package of picks each club would give</small></h2>${tr.shop.offers.length ? tr.shop.offers.map((o) => `<div class="fo-call">${mark(o.team, 32)}<div><b>${teamLink(o.team)}</b><small>${o.picks.map(foPick).join(" ")} · ${o.points} point${o.points === 1 ? "" : "s"} on your chart</small></div>${foBtn("shoptake", "Build this trade", { team: o.team.ref.id, id: tr.shop.id, picks: JSON.stringify(o.picks.map((p) => foPickKey(p))) })}</div>`).join("") : '<div class="empty">No club would give picks for him today.</div>'}</div>` : "";
   return `<div class="film"><div class="pad fo">
     ${foHead(x.team, "Trades", `${x.open ? `Trades are open until the deadline, ${esc(x.deadline)}.` : `Trades open with the league year (${esc(x.league_year)}) and close at the deadline (${esc(x.deadline)}).`} The other GM answers by his own read of the players, his chart and whether his club is chasing a title. Your chart: ${x.classic ? "the classic one" : "a surplus-value chart"}.`, foOwner("trades", x.owner))}
     ${calls ? `<div class="panel"><h2>Calls waiting</h2>${calls}</div>` : ""}
     <div class="panel fo-builder"><h2>Build a trade <small>with <select data-fo-team>${x.teams.map((t) => `<option value="${t.ref.id}" ${t.ref.id === tr.team ? "selected" : ""}>${esc(t.name)} · ${esc(t.mode)}</option>`).join("")}</select></small></h2>
       ${other ? `<div class="sub">${mark(other.team, 20)} ${teamLink(other.team)} · GM ${esc(other.team.gm)} · ${esc(other.team.mode)} · cap room ${foM(other.room)}</div>` : ""}
       <div class="fo-sides">
-        <div><div class="st-label">You give · ${Math.round(givePts)} points</div>${plist(x.roster, tr.give, "give")}<div class="fo-picks">${pickBox(x.picks, tr.givePicks, "give")}</div></div>
-        <div><div class="st-label">You get · ${Math.round(getPts)} points</div>${other ? plist(other.rows, tr.get, "get") + `<div class="fo-picks">${pickBox(other.picks, tr.getPicks, "get")}</div>` : ""}</div>
+        <div><div class="st-label">You give · ${Math.round(givePts)} point${Math.round(givePts) === 1 ? "" : "s"}</div>${plist(x.roster, tr.give, "give")}<div class="fo-picks">${pickBox(x.picks, tr.givePicks, "give")}</div></div>
+        <div><div class="st-label">You get · ${Math.round(getPts)} point${Math.round(getPts) === 1 ? "" : "s"}</div>${other ? plist(other.rows, tr.get, "get") + `<div class="fo-picks">${pickBox(other.picks, tr.getPicks, "get")}</div>` : ""}</div>
       </div>
       ${condOpts}
       <div class="st-actions">${foBtn("teval", "Ask their GM", {}, "glass")} ${foBtn("tpropose", "Make the trade", {}, "primary")} ${foBtn("tclear", "Clear", {})}</div>
@@ -331,20 +350,20 @@ screens.fo_moves = async () => {
       { k: "age", t: "Age" },
       { k: "class", t: "Exp", l: true, v: (r) => classRank(r.class) },
       { k: "round", t: "Drafted", v: (r) => r.round || 99, f: (r) => (r.round ? esc(r.draft || "R" + r.round) : '<span class="muted">Undrafted</span>') },
-      { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+      { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
       { k: "hit", t: "Cap hit", div: true, f: (r) => foM(r.hit) },
       { k: "dead", t: "Dead if cut", f: (r) => foM(r.dead) },
       { k: "staff", t: "Staff says", l: true, div: true, f: (r) => `<span class="st-pill ${r.staff === "keep" ? "good" : r.staff === "squad" ? "gold" : ""}">${{ keep: "53", squad: "Squad", release: "Cut" }[r.staff]}</span>` },
       { k: "plan", t: "Your call", l: true, v: (r) => r.plan || "", f: seg },
     ];
-    body = `<p class="sub">Cutdown day is ${esc(x.date)}${x.in >= 0 ? ` (in ${x.in} days)` : ""}. Your call stands; every player you leave to the staff goes where their ranking puts him. <b>${n("keep")} of ${x.limit}</b> on the 53 · <b>${n("squad")} of ${x.squad_limit}</b> on the squad · ${n("release")} cut.</p>
+    body = `<p class="sub">Cutdown day is ${esc(x.date)}${x.in >= 0 ? ` (in ${x.in} day${x.in === 1 ? "" : "s"})` : ""}. Your call stands; every player you leave to the staff goes where their ranking puts him. <b>${n("keep")} of ${x.limit}</b> on the 53 · <b>${n("squad")} of ${x.squad_limit}</b> on the squad · ${n("release")} cut.</p>
       <div class="filters">${foOwner("cutdown", x.owner)}</div>
       ${table("fo_cut", cols, x.rows, { groupBy: (r) => r.pos, empty: "Nobody under contract for the season yet." })}`;
   } else if (tab.t === "Practice squad") {
     const x = await api("fo_squad");
     team = x.team;
-    const sq = x.squad.map((r) => `<tr><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr)}</td><td>${r.elevations}</td><td>${x.protect ? `<label class="fo-check"><input type="checkbox" data-fo-protect="${r.id}" ${r.protected ? "checked" : ""}> Protect</label>` : ""}</td><td>${foBtn("signup", "Sign to the 53", { id: r.id })}</td></tr>`).join("") || `<tr><td class="l" colspan="7"><div class="empty">Nobody on the squad.</div></td></tr>`;
-    const st = x.street.map((r) => `<tr><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr)}</td><td class="l">${r.team ? teamLink(r.team) : '<span class="muted">Unsigned</span>'}</td><td>${x.open ? foBtn("signsquad", "Sign to the squad", { id: r.id }) : ""}</td></tr>`).join("");
+    const sq = x.squad.map((r) => `<tr><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td>${r.elevations}</td><td>${x.protect ? `<label class="fo-check"><input type="checkbox" data-fo-protect="${r.id}" ${r.protected ? "checked" : ""}> Protect</label>` : ""}</td><td>${foBtn("signup", "Sign to the 53", { id: r.id })}</td></tr>`).join("") || `<tr><td class="l" colspan="7"><div class="empty">Nobody on the squad.</div></td></tr>`;
+    const st = x.street.map((r) => `<tr><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${r.team ? teamLink(r.team) : '<span class="muted">Unsigned</span>'}</td><td>${x.open ? foBtn("signsquad", "Sign to the squad", { id: r.id }) : ""}</td></tr>`).join("");
     body = `<p class="sub">${x.squad.length} of ${x.limit} on the squad · roster ${x.roster} of ${x.roster_limit}. ${x.protect ? `Protect up to ${x.protect} a week: other clubs can sign the rest to their 53.` : ""} ${x.open ? "" : "Squads are formed at cutdown."}</p>
       <div class="filters">${foOwner("practice_squad", x.owner)}</div>
       <div class="grid2"><div class="panel"><h2>Your squad</h2><div class="tbl"><table><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>Age</th><th>Rating</th><th title="Game-day elevations this season">Elev.</th><th></th><th></th></tr></thead><tbody>${sq}</tbody></table></div></div>
@@ -356,7 +375,7 @@ screens.fo_moves = async () => {
       { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
       { k: "pos", t: "Pos", l: true },
       { k: "age", t: "Age" },
-      { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+      { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
       { k: "from", t: "Waived by", l: true, div: true, v: (r) => (r.from ? r.from.name : ""), f: (r) => (r.from ? teamLink(r.from) : "") },
       { k: "hit", t: "Cap hit", f: (r) => foM(r.hit) },
       { k: "through", t: "Through" },
@@ -371,12 +390,34 @@ screens.fo_moves = async () => {
 };
 
 // ---------- actions ----------
+// Restructure or release one of your players, from the cap sheet, his page
+// or a menu (minor bug 62): `cap` is the game's numbers for him today.
+async function foCapMove(kind, id, name, cap) {
+  const c = cap || {};
+  if (kind === "restructure") {
+    // A deal in its last year has only void years to spread a bonus over.
+    const v = await foChoose(`Restructure ${name}`, "His base salary above the minimum becomes a signing bonus spread over the years left: room now, more on later caps.", [
+      ...(c.last ? [] : [{ v: "0", t: "Over the years left", s: "No void years." }]),
+      ...(c.voids ? [{ v: "2", t: "Add two void years", s: "Spreads it further; the leftover lands on the cap when the deal voids." }] : []),
+    ]);
+    if (v != null) await foDo("fo_restructure", { id, voids: Number(v) });
+    return;
+  }
+  const split = c.june1 > 0 && (c.dj2 > 0 || c.dj !== c.dead);
+  const v = await foChoose(`Release ${name}`, "Every later year's bonus spread lands on the cap, with any guaranteed pay he's owed.", [
+    { v: "now", t: `Release now · ${foM(c.dead)} dead, ${c.saves >= 0 ? "saves" : "costs"} ${foM(Math.abs(c.saves || 0))}` },
+    ...(split ? [{ v: "june1", t: `Post-June 1 designation · ${foM(c.dj)} dead now, ${foM(c.dj2)} next year`, s: `Saves ${foM(c.sj)} this year once June 1 passes. ${c.june1} of 2 left this year.` }] : []),
+  ]);
+  if (v) await foDo("fo_release", { id, june1: v === "june1" });
+}
 function foRedraw() { render($(".view") && $(".view").scrollTop); }
 async function foDo(cmd, args, ok) {
   try {
     const r = await api(cmd, args);
     if (r && r.text) toast(r.text);
     else if (ok) toast(ok);
+    // The hover card's moves are stale after a move.
+    if (typeof peekForget === "function") peekForget();
     S.status = null;
     foRedraw();
     return r;
@@ -425,7 +466,7 @@ document.addEventListener("click", async (ev) => {
     case "sheet": await foDo("fo_sheet", { id, match: d.m === "1" }, d.m === "1" ? "You'll match." : "You'll let him go."); break;
     case "capmove": {
       const opts = [];
-      if (Number(d.re)) opts.push({ v: "re0", t: "Restructure over the years left", s: "His base above the minimum becomes a signing bonus spread over his deal: room now, more on later caps." });
+      if (Number(d.re) && !Number(d.last)) opts.push({ v: "re0", t: "Restructure over the years left", s: "His base above the minimum becomes a signing bonus spread over his deal: room now, more on later caps." });
       if (Number(d.re) && Number(d.voids)) opts.push({ v: "re2", t: "Restructure with two void years", s: "Spreads it further; what's left lands on the cap the year the deal voids." });
       opts.push({ v: "now", t: `Release him now · ${foM(Number(d.dead))} dead, ${Number(d.saves) >= 0 ? "saves" : "costs"} ${foM(Math.abs(Number(d.saves)))}`, s: "Every later year's bonus spread lands on this year's cap, with any guaranteed pay he's owed." });
       if (Number(d.june1) > 0 && (Number(d.dj2) > 0 || Number(d.dj) !== Number(d.dead))) opts.push({ v: "june1", t: `Release with a post-June 1 designation · ${foM(Number(d.dj))} dead now, ${foM(Number(d.dj2))} next year`, s: `Saves ${foM(Number(d.sj))} once June 1 passes. ${d.june1} of 2 left this year.` });

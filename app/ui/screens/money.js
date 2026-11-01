@@ -100,10 +100,12 @@ screens.money = async (a) => {
   const kicker = teamA(x.team) + (x.own ? ` · ${esc(x.today)}` : "");
   return `<div class="pad mn">${pageHead({ kicker, title: x.own ? "Finances" : `${esc(x.team.name)} finances`, sub, actions, goto: gotoFor("money", a, x) })}${list.length > 1 ? tabs("mntab", list, tab) : ""}<div class="tabbody">${body}</div></div>`;
 };
+// High school football keeps no league books: for your own school the
+// School office (the booster club's books) takes that place.
 GOTO.money = (a, x) => [
-  ["League money", "money_league", { level: x.seat === "college" ? "college" : "nfl" }],
+  x.seat === "hs" ? (x.own && screens.school ? ["School office", "school"] : null) : ["League money", "money_league", { level: x.seat === "college" ? "college" : "nfl" }],
   ["Team page", "team", a.kind ? { kind: a.kind, id: a.id } : {}],
-  x.seat === "nfl" && x.own ? ["Contracts", "contracts"] : null,
+  x.seat === "nfl" && x.own ? ["Cap sheet", "fo_cap"] : null,
   ["Schedule", "schedule", a.kind ? { kind: a.kind, id: a.id } : {}],
   ["Money mail", "inbox", { key: "Money" }],
 ];
@@ -117,7 +119,7 @@ function mnNfl(x, b, tab) {
     const chart = mnLine(years, [{ name: "Value", values: h.map((r) => r.value), color: MN_C[1] }, { name: "Revenue", values: h.map((r) => r.revenue), color: MN_C[0] }], { zero: true });
     const att = mnLine(years, [{ name: "Crowd a game", values: h.map((r) => r.attendance), color: MN_C[2] }, { name: "Seats", values: h.map((r) => r.capacity), color: MN_C[7] }], { fmt: (v) => mnN(Math.round(v)), h: 120 });
     const owner = `<div class="kv"><dt>Owner</dt><dd><b>${esc(b.owner.name)}</b>${b.owner.since ? ` <span class="muted">since ${b.owner.since}</span>` : ""}</dd>${b.owner.words ? `<dt>On money</dt><dd>${esc(b.owner.words)}</dd>` : ""}<dt>Market</dt><dd>${esc(p.city)}${p.state ? ", " + esc(p.state) : ""}</dd>${p.moving ? `<dt>Moving</dt><dd><span class="tag due">To ${esc(p.moving.city)}, ${esc(p.moving.state)} in ${p.moving.year}</span></dd>` : ""}${p.league_revenue ? `<dt>League revenue</dt><dd>${mn$(p.league_revenue)} <span class="muted">shared nationally, plus each club's own</span></dd>` : ""}</div>`;
-    const stadium = `<div class="kv"><dt>Stadium</dt><dd><b>${esc(st.name)}</b>${st.dome ? ' <span class="tag soft">Roof</span>' : ""}</dd><dt>Seats</dt><dd>${mnN(st.capacity)}</dd><dt>Opened</dt><dd>${st.opened}${st.renovated > st.opened ? ` · renovated ${st.renovated}` : ""} <span class="muted">(${st.age} years)</span></dd>${st.cost ? `<dt>Built for</dt><dd>${mn$(st.cost)}${st.public ? ` · ${mn$(st.public)} public money` : ""}</dd>` : ""}<dt>Ticket</dt><dd>${mn$(p.price)} on average</dd></div>`;
+    const stadium = `<div class="kv"><dt>Stadium</dt><dd><b>${esc(st.name)}</b>${st.dome ? ' <span class="tag soft">Roof</span>' : ""}</dd><dt>Seats</dt><dd>${mnN(st.capacity)}</dd><dt>Opened</dt><dd>${st.opened}${st.renovated > st.opened ? ` · renovated ${st.renovated}` : ""} <span class="muted">(${st.age} year${st.age === 1 ? "" : "s"})</span></dd>${st.cost ? `<dt>Built for</dt><dd>${mn$(st.cost)}${st.public ? ` · ${mn$(st.public)} public money` : ""}</dd>` : ""}<dt>Ticket</dt><dd>${mn$(p.price)} on average</dd></div>`;
     const proj = mnProjects(b.projects);
     return `${tiles}<div class="grid2" style="margin-top:18px"><div class="col"><section class="panel"><h2>Value and revenue <small>estimates, by season</small></h2>${chart}</section><section class="panel"><h2>The crowd <small>regular-season average</small></h2>${att}</section></div>
       <div class="col"><section class="panel"><h2>The owner</h2>${owner}</section><section class="panel"><h2>Home</h2>${stadium}</section>${proj}</div></div>`;
@@ -396,9 +398,9 @@ screens.league_team = async (a) => {
   const next = x.upcoming.length ? `<div class="items">${x.upcoming.map((g) => `<div class="item"><span class="when">${esc(g.date)}</span><span>${g.home ? "vs" : "at"} ${teamA(g.opp)}</span></div>`).join("")}</div>` : "";
   const seasons = x.seasons.length ? table("lgseasons", [{ k: "year", t: "Season" }, { k: "record", t: "Record", l: true }, { k: "note", t: "", l: true }], x.seasons, { tools: false }) : '<div class="empty">No season finished in this world yet.</div>';
   const rec = x.record ? `<span><b>${esc(x.record.text)}</b> in ${x.record.year} · ${x.record.pf}-${x.record.pa} points</span>` : "";
-  return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div><div class="st-outline">${esc(initials(t.name))}</div><div class="copy"><div class="st-label">${esc(x.league.name)}${x.division ? " · " + esc(x.division) : ""}</div><h1>${esc(t.name)}</h1>
+  return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(x.league.name)}${x.division ? " · " + esc(x.division) : ""}</div><h1>${esc(t.name)}</h1>
     <div class="meta">${rec}<span>${esc(x.city)}</span>${x.titles ? `<span>${x.titles} title${x.titles > 1 ? "s" : ""}</span>` : ""}${cfl ? `<span>${x.nationals} Canadians</span>` : ""}${x.playing ? "" : "<span>Not playing this year</span>"}</div>
-    <div class="st-actions">${linkTo("leagues", { league: x.league.k }, "The league", "st-btn glass")}</div></div></div>
+    <div class="st-actions">${linkTo("leagues", { league: x.league.k }, "The league", "st-btn glass")}${logoChange(t)}</div></div></div>
     <div class="pad">${gotoLine([["The league", "leagues", { league: x.league.k }], ["Champions", "leagues", { league: x.league.k, tab: "Champions" }]])}<div class="grid2"><div class="col"><section class="panel"><h2>Staff</h2>${staff}<p class="sub">Head coach pay in this league: about ${mn$(x.pay)} a year.</p></section><section class="panel"><h2>This season</h2>${games}${next ? `<h2 style="margin-top:14px">Next</h2>${next}` : ""}</section></div>
     <div class="col"><section class="panel"><h2>Seasons</h2>${seasons}</section></div></div>
     <section class="panel" style="margin-top:18px"><h2>Roster <small>${x.roster.length} players${cfl ? ` · ${x.nationals} Canadians` : ""}</small></h2>${roster}</section></div>`;

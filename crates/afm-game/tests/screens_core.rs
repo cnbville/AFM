@@ -21,17 +21,20 @@ fn the_desk_files_answers_and_clears_its_mail() {
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));
 
-    // The welcome letter is waiting, unread, with its big moment.
+    // The welcome letter is waiting, unread, with its big moment, beside
+    // your No. 2's first note of the guided week (lane 8, H12).
     let mail = ok(&mut g, "mail", json!({}));
-    assert_eq!(mail["unread"], 1, "{mail}");
-    let id = mail["rows"][0]["id"].as_str().unwrap().to_string();
+    assert_eq!(mail["unread"], 2, "{mail}");
+    let welcome =
+        mail["rows"].as_array().unwrap().iter().find(|r| r["head"] == "school").unwrap_or_else(|| panic!("{mail}"));
+    let id = welcome["id"].as_str().unwrap().to_string();
     assert_eq!(ok(&mut g, "status", json!({}))["reveals"], 1);
     let reveals = ok(&mut g, "reveals", json!({}));
     assert_eq!(reveals[0]["kind"], "hire", "{reveals}");
     assert_eq!(ok(&mut g, "status", json!({}))["reveals"], 0);
     let letter = ok(&mut g, "letter", json!({ "id": id }));
     assert_eq!(letter["head"], "school", "{letter}");
-    assert_eq!(ok(&mut g, "mail", json!({}))["unread"], 0);
+    assert_eq!(ok(&mut g, "mail", json!({}))["unread"], 1);
 
     // Saved mail survives the 30-day clearing; the rest goes.
     ok(&mut g, "mail_set", json!({ "id": id, "saved": true }));
@@ -112,5 +115,18 @@ fn the_desk_files_answers_and_clears_its_mail() {
     let path = csv["path"].as_str().unwrap();
     assert!(path.ends_with("my-table.csv"), "{path}");
     assert_eq!(std::fs::read_to_string(path).unwrap(), "a,b\n1,2\n");
+
+    // The no-fire override (Settings, Testing): off at the start, marks the
+    // career when turned on, keeps the mark when turned off, and the save's
+    // header carries it to Load game.
+    let nf = ok(&mut g, "no_fire", json!({}));
+    assert!(nf["career"] == true && nf["on"] == false && nf["since"].is_null(), "{nf}");
+    let nf = ok(&mut g, "no_fire_set", json!({ "on": true }));
+    assert!(nf["on"] == true && nf["since"].is_string(), "{nf}");
+    let nf = ok(&mut g, "no_fire_set", json!({ "on": false }));
+    assert!(nf["on"] == false && nf["since"].is_string() && nf["spared"].as_array().unwrap().is_empty(), "{nf}");
+    ok(&mut g, "save", json!({ "name": "no-fire test" }));
+    let lib = ok(&mut g, "library", json!({}));
+    assert!(lib["saves"].as_array().unwrap().iter().any(|s| s["meta"]["no_fire"].is_string()), "{lib}");
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -79,6 +79,10 @@ pub struct Mail {
     /// The team whose colours print the letterhead (the game crate's code).
     #[serde(default)]
     pub org_team: Option<u32>,
+    /// Why it happened, as your staff sees it (update 3, H6): the two or
+    /// three biggest reasons, linked text.
+    #[serde(default)]
+    pub why: Vec<String>,
 }
 
 /// One picked answer: its words, what it will do, and the act behind it.
@@ -128,6 +132,10 @@ pub struct Watch {
     pub since: Date,
     /// Players already matched and told.
     pub seen: Vec<u32>,
+    /// The players its last mail named, until you open the search (a
+    /// saved search of the find pages, update 2 lane 7).
+    #[serde(default)]
+    pub fresh: Vec<u32>,
 }
 
 /// Contacts you made from the inbox (congratulations, calls), for the

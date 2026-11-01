@@ -6,26 +6,29 @@
 //! hints, your plan and game rules, which snaps stop for you), your game
 //! played live snap by snap, and the game page of every game you kept.
 
-mod film;
-mod page;
+pub(crate) mod fans;
+pub(crate) mod film;
+pub(crate) mod page;
+pub(crate) mod talk;
 
 use std::collections::HashMap;
 
 use afm_engine::calendar::{Date, Level as CalLevel};
 use afm_engine::game::calling::FourthDown;
 use afm_engine::game::live::{
-    self, Ask, CallClock, FourthChart, Input, Pending, PlanChange, Settings, StopMode, Tempo, TossChoice, TwoChart,
-    View,
+    self, Ask, CallClock, Input, Pending, PlanChange, Settings, StopMode, Tempo, TossChoice, View,
 };
 use afm_engine::game::playbook::{
     Backfield, Coverage, DefCall, DefPersonnel, Formation, FrontLook, Motion, OffCall, PASS_CONCEPTS, Personnel,
     PlayKind, Pressure, RUN_CONCEPTS, Set, Stunt, call_family,
 };
-use afm_engine::game::stats::{PlayRecord, PlayType};
+use afm_engine::game::stats::{GameStats, PlayRecord, PlayType};
+use afm_engine::game::win_chance;
 use afm_engine::game::{GameResult, GameTeam};
 use afm_engine::world::World;
 use serde_json::{Value, json};
 
+use crate::lane_boards::flow::Wp;
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
@@ -42,6 +45,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             w.start_live()?;
             live_state(w)
         }),
+        "talk_room" => game.w().and_then(|w| talk::room(w, args)),
+        "talk_say" => game.wm().and_then(|w| talk::say(w, args)),
         "live" => game.wm().and_then(live_state),
         "live_answer" => game.wm().and_then(|w| answer(w, args)),
         "live_take" => game.wm().and_then(|w| {
@@ -60,6 +65,10 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let k = args.get("index").and_then(Value::as_u64).ok_or("Missing index.")? as usize;
             page::game_page(w, k)
         }),
+        "fans_game" => game.w().and_then(|w| {
+            let k = args.get("index").and_then(Value::as_u64).ok_or("Missing index.")? as usize;
+            fans::game(w, k)
+        }),
         _ => return None,
     };
     Some(r)
@@ -67,13 +76,38 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 
 // ------------------------------------------------------------ helpers
 
-fn team_ref(level: CalLevel, t: usize) -> TeamRef {
+pub(crate) fn team_ref(level: CalLevel, t: usize) -> TeamRef {
     match level {
         CalLevel::Nfl => TeamRef::Nfl(t),
         CalLevel::HighSchool => TeamRef::HighSchool(t),
         CalLevel::Other => TeamRef::Other(t),
         _ => TeamRef::College(t),
     }
+}
+
+/// Your staff's report on any team you play, from the tapes you hold of it
+/// (the schedule page's scouting link, update 2, lane 6): the same report
+/// as game week's for your next opponent.
+pub(crate) fn scout_report(w: &World, opp: usize) -> Option<Value> {
+    let (level, t) = w.seat_team()?;
+    let tapes = w.tapes_of(opp);
+    let names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
+    // Seeded by what is held: game week's seed for your next opponent, so
+    // both reports agree, and the newest tape's date for anyone else, so
+    // the figures hold from day to day until a new tape comes in.
+    let date = next_game(w)
+        .filter(|n| n.opp == opp)
+        .map(|n| n.date)
+        .or_else(|| tapes.first().map(|t| t.date))
+        .unwrap_or(w.today);
+    Some(film::report(
+        &tapes,
+        opp,
+        w.seat_film_study(),
+        w.options.seed ^ (date.0 as u32).rotate_left(9),
+        &names,
+        Vec::new(),
+    ))
 }
 
 /// Every player on both teams' books: id to (name, position).
@@ -88,7 +122,33 @@ pub(crate) fn names(w: &World, teams: &[TeamRef]) -> film::Names {
     m
 }
 
+/// Players on the tapes who have left the two rosters since (drafted,
+/// graduated, transferred, cut) keep their names on the film.
+pub(crate) fn add_tape_names(w: &World, m: &mut film::Names, tapes: &[&afm_engine::world::tape::Tape]) {
+    for t in tapes {
+        let ids = t
+            .protection
+            .iter()
+            .map(|x| x.1)
+            .chain(t.rush.iter().map(|x| x.1))
+            .chain(t.snaps.iter().flat_map(|x| [x.returner, x.passer, x.target, x.carrier, x.defender]).flatten());
+        for id in ids {
+            if m.contains_key(&id) {
+                continue;
+            }
+            if let Some(k) = views::person_index(w, id) {
+                let p = &w.people[k];
+                m.insert(id, (p.name.clone(), p.player.position.name().to_string()));
+            }
+        }
+    }
+}
+
 fn clock_text(secs: f64) -> String {
+    // College and high school overtime has no clock.
+    if secs >= 1.0e6 {
+        return String::new();
+    }
     let s = secs.max(0.0).round() as u32;
     format!("{}:{:02}", s / 60, s % 60)
 }
@@ -123,17 +183,19 @@ fn quarter_text(q: u8, ot: bool) -> String {
 
 /// Your next game: date, opponent, home or away, neutral site, the
 /// game's name and why it matters.
-struct Next {
-    date: Date,
-    opp: usize,
-    home: bool,
-    neutral: bool,
-    name: Option<String>,
-    why: Vec<String>,
-    kick: Option<String>,
+pub(crate) struct Next {
+    pub(crate) date: Date,
+    pub(crate) opp: usize,
+    pub(crate) home: bool,
+    pub(crate) neutral: bool,
+    pub(crate) name: Option<String>,
+    pub(crate) why: Vec<String>,
+    pub(crate) kick: Option<String>,
+    /// Kickoff, minutes after midnight (the pregame clock).
+    pub(crate) kick_min: Option<u32>,
 }
 
-fn next_game(w: &World) -> Option<Next> {
+pub(crate) fn next_game(w: &World) -> Option<Next> {
     let (level, t) = w.seat_team()?;
     // Today's game as the day builds it (playoff rounds included).
     if let Some(s) = w.live.as_ref().filter(|l| l.date == w.today) {
@@ -146,6 +208,7 @@ fn next_game(w: &World) -> Option<Next> {
             name: None,
             why: Vec::new(),
             kick: None,
+            kick_min: None,
         });
     }
     let today = w.today;
@@ -163,6 +226,7 @@ fn next_game(w: &World) -> Option<Next> {
                 name: f.name.map(str::to_string),
                 why: f.why.iter().map(|s| s.to_string()).collect(),
                 kick: Some(kick_text(f.kickoff.0 as u32 * 60 + f.kickoff.1 as u32)),
+                kick_min: Some(f.kickoff.0 as u32 * 60 + f.kickoff.1 as u32),
             }),
         CalLevel::Nfl => {
             w.nfl_fixtures(Some(t)).into_iter().find(|f| !f.played && f.when.is_some_and(|d| d >= today)).map(|f| {
@@ -174,6 +238,7 @@ fn next_game(w: &World) -> Option<Next> {
                     name: Some(format!("Week {}", f.week)),
                     why: Vec::new(),
                     kick: f.minute.map(|m| kick_text(m as u32)),
+                    kick_min: f.minute.map(|m| m as u32),
                 }
             })
         }
@@ -185,6 +250,7 @@ fn next_game(w: &World) -> Option<Next> {
             name: f.playoff.then(|| "Playoffs".to_string()),
             why: Vec::new(),
             kick: Some("7:00 pm".into()),
+            kick_min: Some(19 * 60),
         }),
         CalLevel::Other => {
             afm_engine::world::pro::other::seat_fixtures(w).into_iter().find(|f| f.0 >= today).map(|(date, h, a)| {
@@ -196,6 +262,7 @@ fn next_game(w: &World) -> Option<Next> {
                     name: None,
                     why: Vec::new(),
                     kick: None,
+                    kick_min: None,
                 }
             })
         }
@@ -213,6 +280,7 @@ fn next_game(w: &World) -> Option<Next> {
             name: Some("Playoffs".into()),
             why: Vec::new(),
             kick: None,
+            kick_min: None,
         })
     })
 }
@@ -229,19 +297,11 @@ fn kick_text(m: u32) -> String {
     format!("{h12}:{mi:02} {ap}")
 }
 
-/// Film time for a week (topic 1, people topic 5's time budget): an NFL
-/// head coach about 12 hours of opponent film, a college one the same, a
-/// high school coach who also teaches about 6; a tape takes 3. A short
-/// week has less (proposed, not confirmed).
-fn film_budget(w: &World, game: Date) -> (f64, f64) {
-    let base = match w.seat_team().map(|x| x.0) {
-        Some(CalLevel::HighSchool) => 6.0,
-        _ => 12.0,
-    };
-    let last = w.seat_games().iter().map(|g| g.date).filter(|d| *d < game).max();
-    let days = last.map_or(7, |d| d.days_to(game));
-    let k = (days as f64 / 7.0).clamp(0.5, 1.4);
-    ((base * k * 2.0).round() / 2.0, 3.0)
+/// Film time for a week (lane 9, SK60): one ledger for all your film,
+/// lane 7's weekly hours on the real calendar at the hours you work (game
+/// prep included in a game week); a tape takes 3 of them.
+fn film_budget(w: &World, _game: Date) -> (f64, f64) {
+    (afm_engine::world::scouting::film::time::budget(w) as f64, 3.0)
 }
 
 // ------------------------------------------------------------ the game day screen
@@ -286,17 +346,18 @@ fn hub(w: &World) -> Value {
         return json!({ "has_game": false, "why": why, "me": views::team_brief(w, me), "settings": settings, "rules": rules, "calling": calling });
     };
     let opp = team_ref(level, n.opp);
-    let names = names(w, &[me, opp]);
+    let mut names = names(w, &[me, opp]);
     let today = n.date == w.today;
     // The day's game as it will be played (game morning only).
     let setup = if today { w.seat_setup_today() } else { None };
     let tapes = w.tapes_of(n.opp);
+    add_tape_names(w, &mut names, &tapes);
     let side = |tp: &afm_engine::world::tape::Tape| tp.side_of(n.opp).unwrap_or(0);
     let studied = |tp: &afm_engine::world::tape::Tape| {
         w.gameday.studied.iter().any(|s| s.0 == n.date && s.1 == tp.date && [s.2, s.3] == tp.teams)
     };
     let (budget, per) = film_budget(w, n.date);
-    let used = tapes.iter().filter(|tp| studied(tp)).count() as f64 * per;
+    let used = afm_engine::world::scouting::film::time::used(w) as f64;
     let plan = &w.gameday.plan;
     let plan_now = plan.date == Some(n.date);
     let added = |tp: &afm_engine::world::tape::Tape, key: &str| {
@@ -450,6 +511,7 @@ fn hub(w: &World) -> Value {
         "finds": finds,
         "film": { "used": used, "budget": budget, "per_tape": per, "staff_eye": report["staff"] },
         "out_mine": out_of(me),
+        "prep_mine": crate::lane_training::prep_report(w),
         "calling": calling,
     })
 }
@@ -486,14 +548,16 @@ fn settings_json(s: &Settings) -> Value {
     })
 }
 
+/// The rules this game is played to: your standing rules, or this game's
+/// own when game day changed them.
 fn rules_json(w: &World) -> Value {
-    let r = &w.gameday.rules;
-    json!({
-        "fourth": match r.fourth { FourthChart::Staff => "staff", FourthChart::Numbers => "numbers", FourthChart::Aggressive => "aggressive", FourthChart::Conservative => "conservative" },
-        "two": match r.two { TwoChart::Staff => "staff", TwoChart::Chart => "chart", TwoChart::Kick => "kick" },
-        "tempo": tempo_name(r.tempo),
-        "level": w.seat_team().map(|x| x.0 == CalLevel::HighSchool),
-    })
+    let date = next_game(w).map_or(w.today, |n| n.date);
+    let r = w.gameday.rules_for(date);
+    let mut v = crate::lane_gameplan::rules::rules_json(&r);
+    v["level"] = json!(w.seat_team().map(|x| x.0 == CalLevel::HighSchool));
+    v["changed"] = json!(matches!(w.gameday.week_rules, Some((d, _)) if d == date));
+    v["standing"] = crate::lane_gameplan::rules::rules_json(&w.gameday.rules);
+    v
 }
 
 fn tempo_name(t: Tempo) -> &'static str {
@@ -667,26 +731,16 @@ fn set_settings(w: &mut World, a: &Value) -> Reply {
     Ok(json!({ "settings": settings_json(&now) }))
 }
 
+/// Game day changes the rules for this one game only (update 2, G4): the
+/// standing rules stay on the Plans page and come back the week after.
+/// A new 4th-down preset here keeps your own chart cells.
 fn set_rules(w: &mut World, a: &Value) -> Reply {
-    let r = &mut w.gameday.rules;
-    if let Some(v) = a.get("fourth").and_then(Value::as_str) {
-        r.fourth = match v {
-            "numbers" => FourthChart::Numbers,
-            "aggressive" => FourthChart::Aggressive,
-            "conservative" => FourthChart::Conservative,
-            _ => FourthChart::Staff,
-        };
+    let mut a = a.clone();
+    if let Some(o) = a.as_object_mut() {
+        o.insert("week".into(), json!(true));
+        o.entry("keep_cells").or_insert(json!(true));
     }
-    if let Some(v) = a.get("two").and_then(Value::as_str) {
-        r.two = match v {
-            "chart" => TwoChart::Chart,
-            "kick" => TwoChart::Kick,
-            _ => TwoChart::Staff,
-        };
-    }
-    if let Some(v) = a.get("tempo").and_then(Value::as_str) {
-        r.tempo = tempo_of(v);
-    }
+    crate::lane_gameplan::rules::set(w, &a)?;
     Ok(hub(w))
 }
 
@@ -748,10 +802,14 @@ fn study(w: &mut World, a: &Value) -> Reply {
         return Ok(hub(w));
     }
     let (budget, per) = film_budget(w, next.date);
-    let used = w.gameday.studied.iter().filter(|s| s.0 == next.date).count() as f64 * per;
+    let used = afm_engine::world::scouting::film::time::used(w) as f64;
+    if afm_engine::world::scouting::film::time::rested(w) {
+        return Err("You're home resting: no film until you're back.".into());
+    }
     if used + per > budget + 0.01 {
         return Err(format!("Your film time this week is spent: {used:.0} of {budget:.0} hours."));
     }
+    afm_engine::world::scouting::film::time::charge(w, per as f32, None);
     w.gameday.studied.push((next.date, d, h, aw));
     // Only this season's study is kept.
     let cut = w.today.add(-200);
@@ -759,7 +817,7 @@ fn study(w: &mut World, a: &Value) -> Reply {
     Ok(hub(w))
 }
 
-fn hint(w: &mut World, a: &Value) -> Reply {
+pub(crate) fn hint(w: &mut World, a: &Value) -> Reply {
     let (d, h, aw) = tape_key(a)?;
     let key = a.get("key").and_then(Value::as_str).ok_or("Missing key.")?.to_string();
     let add = a.get("add").and_then(Value::as_bool).unwrap_or(true);
@@ -771,7 +829,8 @@ fn hint(w: &mut World, a: &Value) -> Reply {
     let tape = w.gameday.tapes.iter().find(|x| x.date == d && x.teams == [h, aw]).ok_or("That tape is gone.")?;
     let opp = next_game(w).map(|n| n.opp).ok_or("No game.")?;
     let side = tape.side_of(opp).ok_or("That tape isn't of your next opponent.")?;
-    let names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
+    let mut names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
+    add_tape_names(w, &mut names, &[tape]);
     let found =
         film::hints(tape, side, &names).into_iter().find(|x| x.key == key).ok_or("That hint is not on this tape.")?;
     if found.effect == film::Effect::Note {
@@ -869,7 +928,39 @@ fn fourth_name(f: FourthDown) -> &'static str {
     }
 }
 
-fn view_json(v: &View, mine: usize, rules_q: f64) -> Value {
+/// The home side's win chance now, on the same model as the chart and the
+/// feed: before the snap, the try or the kickoff that comes next, and the
+/// final once it is over.
+fn live_wp(m: &Wp, s: &GameStats, step: &live::Step, over: bool) -> f64 {
+    let v = &step.view;
+    if over {
+        return match s.score[0].cmp(&s.score[1]) {
+            std::cmp::Ordering::Greater => 1.0,
+            std::cmp::Ordering::Less => 0.0,
+            _ => 0.5,
+        };
+    }
+    let o = v.poss.min(1);
+    let state = win_chance::State {
+        quarter: v.quarter,
+        clock: v.clock.max(0.0),
+        lead: (v.score[o] - v.score[1 - o]) as f64,
+        down: v.down.max(1),
+        togo: if v.togo > 0.0 { v.togo } else { 10.0 },
+        yl: (100.0 - v.x).clamp(0.5, 99.5),
+        timeouts: [v.timeouts[o], v.timeouts[1 - o]],
+        spread: 0.0,
+        answering: false,
+    };
+    let next = match step.pending.as_ref().map(|p| p.ask) {
+        Some(Ask::Pat) => win_chance::Next::Try { two: false },
+        Some(Ask::Onside | Ask::Toss | Ask::Halftime) => win_chance::Next::Kickoff,
+        _ => win_chance::Next::Snap,
+    };
+    win_chance::home_now(&m.p, &s.plays, next, o, state, m.home_spread)
+}
+
+fn view_json(v: &View, mine: usize, rules_q: f64, wp_home: f64) -> Value {
     let to_goal = 100.0 - v.x;
     json!({
         "quarter": v.quarter,
@@ -890,8 +981,8 @@ fn view_json(v: &View, mine: usize, rules_q: f64) -> Value {
         "timeouts": v.timeouts,
         "challenges": v.challenges,
         "running": v.running,
-        "wp_home": v.wp_home,
-        "wp_mine": if mine == 0 { v.wp_home } else { 1.0 - v.wp_home },
+        "wp_home": wp_home,
+        "wp_mine": if mine == 0 { wp_home } else { 1.0 - wp_home },
         "plays": v.plays,
         "tempo": tempo_name(v.tempo),
         "wind_home": v.wind_home,
@@ -906,6 +997,7 @@ fn pending_json(
     today: &[&PlayRecord],
     names: &film::Names,
     can_defer: bool,
+    wp_home: f64,
 ) -> Value {
     let ask = match p.ask {
         Ask::Snap => "snap",
@@ -949,7 +1041,7 @@ fn pending_json(
     };
     json!({
         "ask": ask,
-        "view": view_json(&p.view, mine, rules_q),
+        "view": view_json(&p.view, mine, rules_q, wp_home),
         "staff_fourth": p.staff_fourth.map(fourth_name),
         "staff_two": p.staff_two,
         "staff_onside": p.staff_onside,
@@ -968,7 +1060,7 @@ fn pending_json(
 
 /// A play for the feed: what happened, who called it and how it changed
 /// the game.
-fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usize, len: f64) -> Value {
+fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usize, wp: f64) -> Value {
     let name = |id: u32| names.get(&id).map_or(format!("No. {id}"), |x| x.0.clone());
     let downless = matches!(r.kind, PlayType::Kickoff | PlayType::ExtraPoint | PlayType::TwoPoint);
     let off = r.offense.min(1);
@@ -981,7 +1073,6 @@ fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usiz
         || r.officiating.as_ref().is_some_and(|o| o.reviewer != live::Reviewer::None)
         || !r.injuries.is_empty()
         || (r.down == 4 && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble));
-    let wp = page::wp_before(r, len);
     json!({
         "n": r.n,
         "q": quarter_text(r.quarter, r.quarter > 4),
@@ -1028,21 +1119,44 @@ fn live_state(w: &mut World) -> Reply {
     let refs = [team_ref(level, teams[0]), team_ref(level, teams[1])];
     let names = names(w, &refs);
     let r = &step.result;
-    let len = 4.0 * rules_q;
+    let m = Wp::new(w, level, teams, date, neutral);
+    let over = step.pending.is_none();
+    let bar = live_wp(&m, &r.stats, &step, over);
     let today: Vec<&PlayRecord> = r.stats.plays.iter().filter(|p| p.offense == mine).collect();
     let today_def: Vec<&PlayRecord> = r.stats.plays.iter().filter(|p| p.offense != mine && p.offense < 2).collect();
     let pending = step.pending.as_ref().map(|p| {
         let pool = if p.ask == Ask::Defense { &today_def } else { &today };
-        pending_json(p, mine, rules_q, pool, &names, can_defer)
+        pending_json(p, mine, rules_q, pool, &names, can_defer, bar)
     });
-    let feed: Vec<Value> = r.stats.plays.iter().map(|p| play_row(p, &names, &sides_names, mine, len)).collect();
+    let home = m.series(&r.stats.plays);
+    // The home crowd (people topic 9): its line after a play rides on that
+    // play's row; its signs go up before the kickoff.
+    let (signs, crowd) = fans::live(w, date, level, teams, &r.stats.plays, over.then_some(r.stats.score));
+    let feed: Vec<Value> = r
+        .stats
+        .plays
+        .iter()
+        .zip(&home)
+        .map(|(p, &h)| {
+            let mut row = play_row(p, &names, &sides_names, mine, h);
+            let said: Vec<&str> = crowd.iter().filter(|c| c.0 == p.n).map(|c| c.1.as_str()).collect();
+            if !said.is_empty() {
+                row["crowd"] = json!(said.join(" "));
+            }
+            row
+        })
+        .collect();
     let log: Vec<Value> =
         r.log.iter().map(|(n, t, what)| json!({ "n": n, "team": t, "text": page::with_names(what, &names) })).collect();
     let totals = page::totals(&r.stats, &sides_names);
-    let over = step.pending.is_none();
-    let after = if over { Some(page::after_game(w, r, mine, &names, &sides_names)) } else { None };
-    let halftime =
-        step.pending.as_ref().filter(|p| p.ask == Ask::Halftime).map(|_| page::halftime(r, mine, &names, &sides_names));
+    let after = if over { Some(page::after_game(w, r, mine, &names, &sides_names, &m)) } else { None };
+    let halftime = step.pending.as_ref().filter(|p| p.ask == Ask::Halftime).map(|p| {
+        let mut h = page::halftime(r, mine, &names, &sides_names);
+        h["talked"] = json!(p.talked.is_some());
+        h
+    });
+    let words = step.pending.as_ref().map_or(Vec::new(), |p| talk::words_json(w, &p.words, &names));
+    let talks = talk::record_json(w, &r.talks, Some(mine), &names);
     let roster: Vec<Value> = {
         let l = w.live.as_ref().unwrap();
         let them = if mine == 0 { &l.game.away } else { &l.game.home };
@@ -1070,19 +1184,23 @@ fn live_state(w: &mut World) -> Reply {
         "names": sides_names,
         "mine": mine,
         "neutral": neutral,
-        "view": view_json(&step.view, mine, rules_q),
+        "view": view_json(&step.view, mine, rules_q, bar),
         "pending": pending,
         "plays": feed,
         "log": log,
         "totals": totals,
-        "wp": page::wp_series(&r.stats, len),
+        "wp": page::wp_series(&r.stats, &m),
         "settings": settings_json(&settings),
         "take_next": take_next,
         "weather": weather_json(&cond, level_of(level), mine == 0 || neutral),
         "their_players": roster,
         "after": after,
         "halftime": halftime,
+        "words": words,
+        "talks": talks,
         "frames": r.frames.iter().map(|f| f.0).collect::<Vec<_>>(),
+        "signs": signs,
+        "crowd": crowd.iter().rev().take(4).map(|c| c.1.clone()).collect::<Vec<_>>(),
         "toss": r.toss.map(|(t, c)| json!({ "winner": sides_names[t], "choice": toss_name(c), "mine": t == mine })),
         "sheet": sheet(),
     }))
@@ -1296,6 +1414,13 @@ fn answer(w: &mut World, a: &Value) -> Reply {
             _ => TossChoice::Defer,
         }),
         "challenge" => Input::Challenge(a.get("throw").and_then(Value::as_bool).unwrap_or(false)),
+        "talk" => {
+            if p.ask != Ask::Halftime || p.talked.is_some() {
+                return Err("The talk is for halftime, once.".into());
+            }
+            talk::halftime_input(a)
+        }
+        "word" => talk::word_input(a)?,
         _ => Input::Staff,
     };
     // Settings may come with the answer (the stop mode changed on the

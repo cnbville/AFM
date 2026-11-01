@@ -34,7 +34,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    fn range(self) -> std::ops::Range<usize> {
+    pub fn range(self) -> std::ops::Range<usize> {
         match self {
             Kind::Offense => 0..5,
             Kind::Front => 5..7,
@@ -166,7 +166,7 @@ pub fn learn_from(own: &mut Systems, head: &Systems) {
 /// share of plays and rules the two have in common (proposed, not
 /// confirmed; the wide zone grew out of the West Coast, the spread option
 /// shares the zone runs).
-fn overlap(kind: Kind, a: usize, b: usize) -> f64 {
+pub fn overlap(kind: Kind, a: usize, b: usize) -> f64 {
     if a == b {
         return 1.0;
     }
@@ -199,10 +199,15 @@ fn overlap(kind: Kind, a: usize, b: usize) -> f64 {
 /// A player's score in what one system asks of his position (weighted
 /// attributes; body weight for a two-gap nose).
 fn score(p: &Player, pos: Position, slot: usize) -> f64 {
+    score_by(|x| p.attributes.get(x), p.body.weight, pos, slot)
+}
+
+/// `score` with the attributes as `a` gives them (the truth, or a staff's
+/// read) and his body weight.
+fn score_by(a: impl Fn(Attr) -> f64, weight: f64, pos: Position, slot: usize) -> f64 {
     use Position as P;
-    let a = |x: Attr| p.attributes.get(x);
     let mix = |w: &[(Attr, f64)]| w.iter().map(|&(x, v)| a(x) * v).sum::<f64>();
-    let heavy = clamp((p.body.weight - 250.0) / 1.2, 20.0, 99.0);
+    let heavy = clamp((weight - 250.0) / 1.2, 20.0, 99.0);
     match (pos, slot) {
         (P::QB, 0) => {
             mix(&[(ShortAccuracy, 0.3), (Decisions, 0.2), (Anticipation, 0.2), (QuickRelease, 0.15), (Footwork, 0.15)])
@@ -358,6 +363,69 @@ pub fn fits(p: &Player, pos: Position, norms: &SystemNorms) -> [f64; 11] {
     f
 }
 
+/// A player's fit to what a team runs as a staff reads it (the NFL search's
+/// "Scheme fit"): `fits` and `fit_to` with his attributes as `a` gives them
+/// (your scouts' file) and his listed weight. None when the file hasn't
+/// seen an attribute the systems ask about, or his position plays in none.
+pub fn read_fit(
+    w: &World,
+    pos: Position,
+    weight: f64,
+    a: impl Fn(Attr) -> Option<f64>,
+    inst: &Installed,
+) -> Option<f64> {
+    let k = kinds(pos);
+    if k.is_empty() {
+        return None;
+    }
+    let missing = std::cell::Cell::new(false);
+    let get = |x: Attr| {
+        a(x).unwrap_or_else(|| {
+            missing.set(true);
+            50.0
+        })
+    };
+    let norms = &w.system_norms[pos.index()];
+    let mut f = [0.0; 11];
+    for &kind in k {
+        let r = kind.range();
+        let mut buf = [0.0; 11];
+        let s = &mut buf[..r.len()];
+        for (i, slot) in r.clone().enumerate() {
+            s[i] = score_by(get, weight, pos, slot) - norms[slot];
+        }
+        let mean = s.iter().sum::<f64>() / s.len() as f64;
+        for (i, slot) in r.enumerate() {
+            f[slot] = clamp((s[i] - mean) / 10.0, -1.5, 1.5);
+        }
+    }
+    (!missing.get()).then(|| fit_to(&f, pos, inst))
+}
+
+/// The system a position plays in for a team, in words ("4-3", "Cover 3",
+/// "West Coast"): the front for the front seven, the coverage for the
+/// secondary, the offense for the offense. None for specialists.
+pub fn system_words(pos: Position, inst: &Installed) -> Option<&'static str> {
+    let k = kinds(pos);
+    if k.contains(&Kind::Offense) {
+        Some(inst.offense().name())
+    } else if k.contains(&Kind::Front) {
+        Some(match inst.front() {
+            Front::FourThree => "4-3",
+            Front::ThreeFour => "3-4",
+        })
+    } else if k.contains(&Kind::Shell) {
+        Some(match inst.shell() {
+            Shell::Cover3 => "Cover 3",
+            Shell::Quarters => "quarters",
+            Shell::ManPressure => "man and pressure",
+            Shell::Cover2 => "Cover 2",
+        })
+    } else {
+        None
+    }
+}
+
 /// His fit to what a program runs now (S6): the mean over the kinds his
 /// position plays in.
 pub fn fit_to(f: &[f64; 11], pos: Position, inst: &Installed) -> f64 {
@@ -416,6 +484,39 @@ const WEIGH: [(Position, usize, f64); 11] = [
 /// Points a game one unit of weighted lineup fit is worth (S11): the best
 /// and worst system for a typical roster end up 1-3 points apart.
 const FIT_POINTS: f64 = 2.5;
+
+/// What each system would be worth to any roster (people indexes), in
+/// points a game against the average of its kind (update 2, G3: your
+/// roster's fit on the Identity tab, at every level).
+pub fn roster_fit(w: &World, roster: &[usize]) -> [f64; 11] {
+    let mut by_pos: Vec<Vec<(f64, usize)>> = vec![Vec::new(); crate::positions::POSITION_COUNT];
+    for &i in roster {
+        let p = &w.people[i];
+        by_pos[p.player.position.index()].push((p.player.overall(), i));
+    }
+    let mut v = [0.0; 11];
+    let mut weight = [0.0; 3];
+    for (pos, n, wt) in WEIGH {
+        let list = &mut by_pos[pos.index()];
+        list.sort_by(|a, b| b.0.total_cmp(&a.0));
+        for &(_, i) in list.iter().take(n) {
+            let f = fits(&w.people[i].player, pos, &w.system_norms);
+            for &kind in kinds(pos) {
+                for slot in kind.range() {
+                    v[slot] += wt * f[slot];
+                }
+                weight[kind as usize] += wt;
+            }
+        }
+    }
+    for kind in [Kind::Offense, Kind::Front, Kind::Shell] {
+        let wt = weight[kind as usize].max(1.0);
+        for slot in kind.range() {
+            v[slot] *= FIT_POINTS * 4.0 / wt;
+        }
+    }
+    v
+}
 
 /// What each system would be worth to this roster, in points a game
 /// against the average of its kind (S3).
@@ -491,6 +592,9 @@ pub(crate) fn spring_install(w: &mut World) {
         // Before a roster is there to judge, a staff runs what it knows.
         let value = if prog.roster.len() >= 30 { roster_value(w, prog) } else { [0.0; 11] };
         let mut inst = prog.installed;
+        // The head coach's guidelines (update 2, G2) weigh in: a firm one
+        // all but decides the system, a lean tips a close call.
+        let guide = super::guide::program_guidelines(w, prog);
         // A year on: last spring's new playbook is known by now.
         let mut known: [f64; 2] = [1.0, 1.0];
         for (kind, caller) in [(Kind::Offense, prog.oc), (Kind::Front, prog.dc), (Kind::Shell, prog.dc)]
@@ -507,8 +611,13 @@ pub(crate) fn spring_install(w: &mut World) {
                 // Running a system he knows less well costs him on Saturdays.
                 value[slot] - 2.0 * (1.0 - coach.systems.know[slot])
                     + read_sd * key_normal(seed ^ (prog.id as u64) << 4, (c as u64) << 8 | slot as u64)
+                    + super::guide::install_bonus(&guide, kind, i)
             };
-            let options: Vec<usize> = (0..r.len()).filter(|&i| coach.systems.know[r.start + i] >= 0.5).collect();
+            // What he knows well enough to run, and what the head coach
+            // asks for (he runs it as well as he knows it).
+            let options: Vec<usize> = (0..r.len())
+                .filter(|&i| coach.systems.know[r.start + i] >= 0.5 || super::guide::install_wanted(&guide, kind, i))
+                .collect();
             let best = options.iter().copied().max_by(|&a, &b| est(a).total_cmp(&est(b)));
             let Some(best) = best else { continue };
             let new_caller = inst.by[kind as usize] != Some(c);
@@ -563,13 +672,21 @@ pub(crate) fn spring_install(w: &mut World) {
 /// the system he knows best; a new caller's playbook is known as far as it
 /// shares the old one (S5). Proposed, not confirmed: NFL staffs don't weigh
 /// the roster's fit as college staffs do in spring.
-pub(crate) fn nfl_install(w: &World, mut inst: Installed, oc: Option<usize>, dc: Option<usize>) -> Installed {
+pub(crate) fn nfl_install(
+    w: &World,
+    mut inst: Installed,
+    oc: Option<usize>,
+    dc: Option<usize>,
+    guide: &crate::game::guide::Guidelines,
+) -> Installed {
     let mut known: [f64; 2] = [1.0, 1.0];
     for (kind, caller) in [(Kind::Offense, oc), (Kind::Front, dc), (Kind::Shell, dc)] {
         let Some(c) = caller else { continue };
         let r = kind.range();
         let know = &w.coaches[c].systems.know;
-        let Some(best) = r.clone().max_by(|&a, &b| know[a].total_cmp(&know[b])) else { continue };
+        // The head coach's guidelines (update 2, G2) weigh in.
+        let val = |s: usize| know[s] + super::guide::nfl_bonus(guide, kind, s - r.start);
+        let Some(best) = r.clone().max_by(|&a, &b| val(a).total_cmp(&val(b))) else { continue };
         let pick = best - r.start;
         let cur = inst.slot(kind) - r.start;
         let side = if kind == Kind::Offense { 0 } else { 1 };

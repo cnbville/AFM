@@ -17,10 +17,16 @@ use crate::{Game, Reply};
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     Some(match cmd {
-        "start_career_seat" => game.wm().and_then(|w| {
-            start(w, args)?;
-            Ok(crate::views::status(w))
-        }),
+        "start_career_seat" => {
+            let home = game.home.clone();
+            game.wm().and_then(|w| {
+                start(w, args)?;
+                crate::lane_handbook::on_start(w, args);
+                // Your coach is kept outside any save (update 3, SA1).
+                crate::setup::save_coach_profile(&home, args);
+                Ok(crate::views::status(w))
+            })
+        }
         "people_you_know" => game.w().map(|w| preview(w, args)),
         "assistant_jobs" => game.w().map(|w| assistant_jobs(w, args)),
         "market" => game.w().map(market_view),
@@ -202,6 +208,11 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
             Some("other") => Level::Other,
             _ => Level::College,
         }),
+        // A team that doesn't exist yet (next update, lane 10, SK68).
+        "ground" => Start::Head(
+            crate::lane_groundzero::make_team(w, args.get("job").unwrap_or(&Value::Null))?
+                .ok_or("Pick a team to build.")?,
+        ),
         _ => Start::Head(job()?),
     };
     let (placement, resume) = placement(w, args);
@@ -209,6 +220,16 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
     let seed = crate::setup::career_seed(args);
     w.start_with(&you, start, seed, known);
     w.add_resume(&resume);
+    // Your past stays with the career (your old teammates and players come
+    // from it, C13), and the college you played for with your coach (C11).
+    let college = placement.college.filter(|_| placement.played).map(|c| c.0);
+    if let Some(c) = w.career.as_mut() {
+        c.past = Some(placement.clone());
+    }
+    w.set_your_college(college);
+    // The high schools your road knows (C9).
+    let stops: Vec<Employer> = placement.stops.iter().map(|s| s.0).collect();
+    crate::setup::road_ties(w, args, placement.high_school.map(|h| h.0), &stops);
     market::welcome(w);
     // Out of work: you let it be known you want jobs at the level you
     // looked at (college staffs from FCS up), and a high school job near
@@ -231,6 +252,13 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// Your high school and your stops' employers from the setup's answers
+/// (the ties your road brings, C9).
+pub(crate) fn own_school_and_stops(w: &World, args: &Value) -> (Option<usize>, Vec<Employer>) {
+    let (p, _) = placement(w, args);
+    (p.high_school.map(|h| h.0), p.stops.iter().map(|s| s.0).collect())
 }
 
 /// The setup's preview: who in the world knows you from what you wrote.

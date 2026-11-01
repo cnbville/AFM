@@ -106,6 +106,14 @@ pub fn nfl_pay_index(year: i32) -> f64 {
 /// A franchise's national pull (Forbes revenue ranks and TV ratings over
 /// the decades), 0-1, in `league::NFL_TEAM_NAMES` order. Proposed, not
 /// confirmed.
+/// A franchise's national pull: the real clubs' from `BRAND`; a club the
+/// world added after 2026 starts with the pull of the league's newest real
+/// clubs (Houston, Jacksonville, Carolina: 0.45-0.70, SK68; proposed, not
+/// confirmed) and grows with its fans.
+pub fn brand(t: usize) -> f64 {
+    BRAND.get(t).copied().unwrap_or(0.45)
+}
+
 pub const BRAND: [f64; 32] = [
     0.50, 0.60, 0.65, 0.55, 0.55, 0.80, 0.45, 0.60, 1.00, 0.70, 0.55, 0.85, 0.70, 0.60, 0.45, 0.70, 0.70, 0.50, 0.70,
     0.65, 0.65, 0.85, 0.60, 0.85, 0.70, 0.80, 0.80, 0.80, 0.70, 0.55, 0.55, 0.75,
@@ -230,6 +238,47 @@ pub static STADIUMS: &[Stint] = &[
     s(31, 2012, 2021, "FedExField", 79_000, 1997, 0.25, 250.0),
     s(31, 2022, FAR, "Northwest Stadium", 62_000, 1997, 0.25, 250.0),
 ];
+
+/// Seasons a franchise's home field was artificial turf (real through
+/// 2026, update 3, F24): team, first and last season. Every other season
+/// was natural grass, Arizona's and Las Vegas's roll-out trays included.
+/// The new Highmark Stadium (2026) is grass.
+pub static TURF: &[(usize, i32, i32)] = &[
+    (0, OLD, 1987),   // Busch Memorial Stadium
+    (1, 1992, FAR),   // Georgia Dome, Mercedes-Benz Stadium
+    (2, 2003, 2015),  // M&T Bank Stadium's Sportexe years
+    (3, OLD, 2025),   // Rich and Highmark Stadium
+    (4, 2021, FAR),   // Bank of America Stadium
+    (5, OLD, 1987),   // Soldier Field
+    (6, OLD, 1999),   // Riverfront Stadium
+    (6, 2004, FAR),   // Paul Brown Stadium from 2004
+    (8, OLD, FAR),    // Texas Stadium, AT&T Stadium
+    (10, OLD, FAR),   // the Silverdome, Ford Field
+    (12, 2015, FAR),  // NRG Stadium from 2015
+    (13, 1984, FAR),  // RCA Dome, Lucas Oil Stadium
+    (15, OLD, 1993),  // Arrowhead's AstroTurf years
+    (17, 2020, FAR),  // SoFi Stadium
+    (18, 1995, 2015), // the Edward Jones Dome
+    (18, 2020, FAR),  // SoFi Stadium
+    (20, OLD, FAR),   // the Metrodome, TCF Bank, U.S. Bank Stadium
+    (21, OLD, 1990),  // Foxboro Stadium
+    (21, 2006, FAR),  // Gillette Stadium from 2006
+    (22, OLD, FAR),   // the Superdome
+    (23, OLD, 1999),  // Giants Stadium
+    (23, 2003, FAR),  // Giants Stadium, MetLife Stadium
+    (24, 1984, 1999), // Giants Stadium
+    (24, 2003, FAR),  // Giants Stadium, MetLife Stadium
+    (25, OLD, 2002),  // Veterans Stadium
+    (26, OLD, 2000),  // Three Rivers Stadium
+    (28, OLD, FAR),   // the Kingdome, Husky Stadium, Lumen Field
+    (30, OLD, 1996),  // the Astrodome
+    (30, 2023, FAR),  // Nissan Stadium from 2023
+];
+
+/// Whether a franchise's home field was artificial turf that season.
+pub fn turf(team: usize, year: i32) -> bool {
+    TURF.iter().any(|&(t, from, to)| t == team && from <= year && year <= to)
+}
 
 /// The stadium a franchise played in that season (real through 2026).
 pub fn stint(team: usize, year: i32) -> Option<&'static Stint> {
@@ -425,15 +474,18 @@ pub fn ncaa_distribution(division: super::super::data::Division, hoops: f64, yea
 }
 
 /// Guarantee game prices (real: about $300,000-700,000 for an FCS team in
-/// the 2020s, $1-2M for a Group of 5 team; a fifth of that in 1990).
-pub fn guarantee(visitor_tier: u8, year: i32) -> f64 {
+/// the 2020s, $1-2M for a Group of 5 team; a fifth of that in 1990). A
+/// Group of 5 host pays about two thirds of what a Power 4 host pays
+/// (update 2, lane 6; proposed, not confirmed).
+pub fn guarantee(host_tier: u8, visitor_tier: u8, year: i32) -> f64 {
     let now = match visitor_tier {
         0 => 1.6e6,
         1 => 1.2e6,
         2 => 0.5e6,
         _ => 0.12e6,
     };
-    now * interp(&[(1984, 0.15), (1995, 0.3), (2005, 0.5), (2015, 0.75), (2024, 1.0)], year, 0.03)
+    let host = if host_tier == 0 { 1.0 } else { 0.68 };
+    now * host * interp(&[(1984, 0.15), (1995, 0.3), (2005, 0.5), (2015, 0.75), (2024, 1.0)], year, 0.03)
 }
 
 /// The House settlement's revenue sharing cap ($20.5M in 2025-26, 4% a
@@ -645,6 +697,7 @@ mod tests {
         assert!((nfl_ticket(2000) - 49.4).abs() < 0.01);
         let sec = conference_payout("SEC", crate::world::data::Division::FBS, 2024);
         assert!((sec - 52.0e6).abs() < 1.0);
-        assert!(guarantee(2, 2024) > guarantee(2, 1990));
+        assert!(guarantee(0, 2, 2024) > guarantee(0, 2, 1990));
+        assert!(guarantee(0, 2, 2024) > guarantee(1, 2, 2024));
     }
 }

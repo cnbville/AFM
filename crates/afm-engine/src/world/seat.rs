@@ -29,6 +29,18 @@ pub struct SeatGame {
     /// Your drawings on the film (film-room tool 1), saved with the clip.
     #[serde(default)]
     pub marks: Vec<FilmMark>,
+    /// The players in it who have since left football, and so the world:
+    /// their names for its pages (`seat_names::keep`).
+    #[serde(default)]
+    pub gone: Vec<super::seat_names::Gone>,
+    /// What the home side was expected to win by before the game: the
+    /// closing line where the books hung one, 0 at a neutral site without
+    /// one. None for a home game with no line (and games kept before).
+    #[serde(default)]
+    pub spread: Option<f32>,
+    /// The game's talks (dialogue D4-D6).
+    #[serde(default)]
+    pub talks: crate::game::talk::Record,
 }
 
 /// A drawing on a paused frame of the film: a line, an arrow, a circle or
@@ -75,12 +87,17 @@ impl World {
         teams: [usize; 2],
         stats: &GameStats,
         replay: Option<&crate::game::ReplaySetup>,
+        talks: &crate::game::talk::Record,
     ) {
         if !self.seat_plays(level, teams) {
             return;
         }
         // The day booked your game: a live game of it is over.
         self.live_booked(level, teams);
+        // Your words land on your players' trust, and your talks go in the
+        // log (dialogue D4-D6).
+        let mine = self.seat_team().map_or(0, |(_, t)| if teams[0] == t { 0 } else { 1 });
+        super::folk::gametalk::after_game(self, talks, mine);
         let names = match level {
             crate::calendar::Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
             crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
@@ -96,10 +113,34 @@ impl World {
             stats: stats.clone(),
             replay,
             marks: Vec::new(),
+            gone: Vec::new(),
+            spread: None,
+            talks: talks.clone(),
         });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;
             self.seat_games.drain(..cut);
+        }
+    }
+
+    /// The pregame line of the game just kept, when it is yours: `line` is
+    /// the home side's spread (negative when favoured), and a neutral site
+    /// without a line is even.
+    pub(crate) fn seat_line(
+        &mut self,
+        level: crate::calendar::Level,
+        teams: [usize; 2],
+        line: Option<[f32; 2]>,
+        neutral: bool,
+    ) {
+        let today = self.today;
+        if let Some(g) = self.seat_games.last_mut()
+            && g.level == level
+            && g.teams == teams
+            && g.date == today
+            && g.spread.is_none()
+        {
+            g.spread = line.map(|l| -l[0]).or(neutral.then_some(0.0));
         }
     }
 
@@ -124,16 +165,28 @@ impl World {
             Cal::Other => (super::pro::other::seat_side(self, seat.other?)?, crate::player::Level::NFL),
             _ => {
                 let prog = self.programs.get(seat.program?)?;
-                (super::season::game_team(self, prog)?, super::division_level(prog.division))
+                let mut team = super::season::game_team(self, prog)?;
+                crate::training::seat::sit_hurt(self, &mut team);
+                (team, super::division_level(prog.division))
             }
         })
     }
 
     /// Your depth chart order at a position (player ids, best first).
     pub fn set_seat_depth(&mut self, pos: Position, ids: Vec<u32>) {
+        let had = self.seat_depth.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.first().copied());
+        let first = ids.first().copied();
         self.seat_depth.retain(|(p, _)| *p != pos);
         if !ids.is_empty() {
             self.seat_depth.push((pos, ids));
+        }
+        // The change log the depth chart's "Changes this week" reads.
+        if had != Some(first) && !(had.is_none() && first.is_none()) {
+            self.seat_depth_log.push((self.today, pos, first.unwrap_or(0)));
+            let n = self.seat_depth_log.len();
+            if n > 40 {
+                self.seat_depth_log.drain(..n - 40);
+            }
         }
     }
 
@@ -162,17 +215,14 @@ impl World {
             })
     }
 
-    /// What waits for you on the morning of `d`, before the day plays: your
-    /// team's game, or a dated day at your level when you decide things
-    /// (the tag deadline, free agency, the draft, cutdown, signing day).
+    /// What waits for you on the morning of `d`, before the day plays: a
+    /// meeting, your team's game, or a dated day at your level when you
+    /// decide things (`your_days_on`: the combine, the tag window, free
+    /// agency, the draft, cutdown, signing day, a new training block).
     /// Continue stops that morning, and the next Continue plays the day.
     pub fn morning_stop(&self, d: Date) -> Option<String> {
         use crate::calendar::Level;
         let s = self.seat?;
-        // A dated meeting waiting for you (people, takeover item 1).
-        if let Some(m) = super::folk::scene::due(self, d) {
-            return Some(m);
-        }
         let game = match s.level {
             Level::College => s.program.and_then(|p| {
                 let f = self
@@ -204,63 +254,300 @@ impl World {
             }),
             _ => None,
         };
-        if game.is_some() {
-            return game;
+        // Every reason the morning holds, your game first: a meeting no
+        // longer hides the day's dates (the tag window behind February's
+        // takeover meetings).
+        let mut lines: Vec<String> = game.into_iter().collect();
+        // A dated meeting waiting for you (people, takeover item 1).
+        lines.extend(super::folk::scene::due(self, d));
+        let frame = crate::training::seat::seat_frame(self, &self.dates);
+        lines.extend(self.your_days_on(d, frame.as_ref()).into_iter().map(|x| x.1));
+        (!lines.is_empty()).then(|| lines.join(" · "))
+    }
+
+    /// The days at your level you act on from `from` to `to`, by date, with
+    /// a short name each (the Continue bar's "next").
+    pub fn your_days(&self, from: Date, to: Date) -> Vec<(Date, String)> {
+        let frame = crate::training::seat::seat_frame(self, &self.dates);
+        let mut v = Vec::new();
+        let mut d = from;
+        while d <= to {
+            v.extend(self.your_days_on(d, frame.as_ref()).into_iter().map(|x| (d, x.0)));
+            d = d.add(1);
         }
+        v
+    }
+
+    /// A dated day at your level when you decide things, as its short name
+    /// and its morning line: every real date that opens or closes something
+    /// you can do at your seat. A condition is read only on its own day.
+    fn your_days_on(&self, d: Date, frame: Option<&crate::training::rules::Frame>) -> Vec<(String, String)> {
+        use crate::calendar::Level;
+        let Some(s) = self.seat else { return Vec::new() };
         let y = &self.dates;
-        let days: Vec<(Date, &str)> = match s.level {
-            Level::Nfl => [
-                (self.year >= 1993)
-                    .then_some((y.tag_window_open, "The tag window opens today: re-sign, tag or tender your expiring players.")),
-                Some((y.tag_deadline.date, "The franchise tag deadline is today.")),
-                y.tampering_open.map(|m| {
-                    (m.date, "The negotiating window opens at noon: agree terms with other clubs' free agents.")
-                }),
-                Some((y.league_year.date, "The new league year opens today, and free agency with it.")),
-                Some((y.draft[0].date, "The draft opens tonight.")),
-                Some((y.cutdown.date, "Cutdown day: rosters go to 53 today.")),
-                Some((y.trade_deadline.date, "The trade deadline is today.")),
+        let mut v: Vec<(String, String)> = Vec::new();
+        let mut add = |on: bool, name: &str, line: String| {
+            if on {
+                v.push((name.to_string(), line));
+            }
+        };
+        // A new training block for your team opens: its weeks' work is
+        // yours to set. The season stops on your games instead, and the
+        // weeks the players are on their own hold nothing.
+        if let Some(f) = frame {
+            use crate::training::rules::{Block, Tier};
+            let b = f.block(d);
+            let staff_runs = match f.tier {
+                Tier::Pro => matches!(b, Block::Phase1 | Block::Phase2 | Block::Otas | Block::Camp),
+                _ => matches!(b, Block::Winter | Block::Spring | Block::Summer | Block::Camp),
+            };
+            if staff_runs && b != f.block(d.add(-1)) {
+                let label = b.label(f.tier);
+                // "Summer workouts" and "OTAs and minicamp" are many.
+                let (open, its) =
+                    if label.ends_with('s') || label.contains(" and ") { ("open", "their") } else { ("opens", "its") };
+                add(true, label, format!("{label} {open} today: set {its} weeks' work on Training."));
+            }
+        }
+        match s.level {
+            Level::Nfl => {
+                // All-star week: the rosters are named and your scouting
+                // trips to see the seniors practise run to the end of
+                // January (`scouting::own::trip_day`).
+                let all_star = super::clock::all_star_roster_day(y);
+                add(
+                    d == all_star && d.month() == 1,
+                    "All-star week",
+                    "The all-star games name their rosters: a trip to see the seniors practise is open to the end of January.".into(),
+                );
+                add(
+                    self.year >= 1993 && d == y.tag_window_open,
+                    "The tag window opens",
+                    "The tag window opens today: re-sign, tag or tender your expiring players.".into(),
+                );
+                // Your combine interviews are open only these days
+                // (`scouting::own::rooms`).
+                add(
+                    d == y.combine_start,
+                    "The combine opens",
+                    format!(
+                        "The combine opens in Indianapolis today: interview the prospects on your list by {}.",
+                        y.combine_end.pretty()
+                    ),
+                );
+                add(d == y.tag_deadline.date, "The tag deadline", "The franchise tag deadline is today.".into());
+                if let Some(m) = y.tampering_open {
+                    add(
+                        d == m.date,
+                        "The negotiating window opens",
+                        "The negotiating window opens at noon: agree terms with other clubs' free agents.".into(),
+                    );
+                }
+                add(
+                    d == y.league_year.date,
+                    "Free agency opens",
+                    "The new league year opens today, and free agency with it.".into(),
+                );
+                // The last day to sign another club's tendered restricted
+                // free agent to an offer sheet (`front_office::nfl`, offer
+                // sheets), when one is still out there.
+                add(
+                    d == y.rfa_deadline && self.offer_sheet_open(),
+                    "The offer sheet deadline",
+                    "The offer sheet deadline is today: the last day to sign another club's restricted free agent."
+                        .into(),
+                );
+                // Prospects on your visit list who haven't been in.
+                if d == y.top30_deadline {
+                    let n = self.visits_owed();
+                    add(
+                        n > 0,
+                        "Top-30 visits close",
+                        format!(
+                            "Top-30 visits close today: {n} {} on your visit list {} been in.",
+                            super::folk::noun(n, "prospect"),
+                            if n == 1 { "hasn't" } else { "haven't" }
+                        ),
+                    );
+                }
+                add(d == y.draft[0].date, "The draft", "The draft opens tonight.".into());
+                // From June 1 every release spreads its dead money over two
+                // years (`front_office::nfl::release`): a day for whoever
+                // runs the cap.
+                add(
+                    d == y.june_1
+                        && self.rules.salary_cap.is_some()
+                        && s.nfl_team.is_some_and(|t| fo::yours(self, t, fo::Duty::Cap)),
+                    "June 1",
+                    "June 1: from today a release spreads his dead money over two years.".into(),
+                );
+                add(d == y.cutdown.date, "Cutdown day", "Cutdown day: rosters go to 53 today.".into());
+                add(d == y.trade_deadline.date, "The trade deadline", "The trade deadline is today.".into());
                 // Your own front office's days (lane 10), only when they
                 // hold a choice for you.
-                self.fo_holds(fo::Duty::Contracts, |k, i| {
-                    k.signed == self.year
-                        && matches!(k.kind, pro::money::Kind::Franchise | pro::money::Kind::Transition)
-                        && self.people[i].pro.as_ref().is_some_and(|c| c.status == pro::Status::Roster)
+                add(
+                    d == y.tag_long_term_deadline.date
+                        && self.fo_holds(fo::Duty::Contracts, |k, i| {
+                            k.signed == self.year
+                                && matches!(k.kind, pro::money::Kind::Franchise | pro::money::Kind::Transition)
+                                && self.people[i].pro.as_ref().is_some_and(|c| c.status == pro::Status::Roster)
+                        }),
+                    "The tagged players' deadline",
+                    "The last day for a long-term deal with your tagged player: after 4pm ET he plays the year on the tag.".into(),
+                );
+                add(
+                    d == y.fifth_year_option
+                        && self.year >= 2014
+                        && self.fo_holds(fo::Duty::Contracts, |k, i| {
+                            k.kind == pro::money::Kind::Rookie
+                                && k.option.is_none()
+                                && self.people[i]
+                                    .pro
+                                    .as_ref()
+                                    .and_then(|c| c.draft)
+                                    .is_some_and(|d| d.1 == 1 && d.0 == self.year - 3)
+                        }),
+                    "The fifth-year option deadline",
+                    "The fifth-year option deadline is today: pick up or decline your first-rounder's option.".into(),
+                );
+                add(
+                    d == y.waiver_claims.date && self.fo_holds(fo::Duty::Waivers, |_, _| true),
+                    "Waiver claims",
+                    "Waiver claims are due at noon: the players cut yesterday are on the wire.".into(),
+                );
+                add(
+                    d == y.practice_squads && self.fo_holds(fo::Duty::PracticeSquad, |_, _| true),
+                    "Practice squads form",
+                    "Practice squads form today: sign your squad from the players who cleared waivers.".into(),
+                );
+            }
+            Level::College => {
+                if let Some(e) = y.early_signing {
+                    add(d == e, "The early signing period", "The early signing period opens today.".into());
+                }
+                // A signing day after the Super Bowl falls in the next
+                // football year (part C 1).
+                let late = self.prev_dates.as_ref().is_some_and(|p| p.signing_day == d && d > p.super_bowl);
+                add(d == y.signing_day || late, "National signing day", "National signing day.".into());
+                add(d == y.portal_open, "The portal opens", "The transfer portal opens today.".into());
+                // Juniors' official visits open (2018 on): yours to set.
+                add(
+                    d == y.official_visits_from
+                        && self.rules.junior_officials
+                        && s.program.is_some_and(|c| fo::yours_program(self, c, fo::Duty::Visits)),
+                    "Junior official visits open",
+                    "Juniors may take official visits from today to June 30: set them on your recruiting desk.".into(),
+                );
+                // The NFL's advisory committee takes names to December 10
+                // (`scouting::own::request_advisory`), and your
+                // underclassmen decide by the declaration deadline after
+                // your stay-or-go talks.
+                let advisory = d == Date::ymd(y.season, 12, 10);
+                let read = if advisory || d == y.declare_deadline { self.underclassmen_with_a_read() } else { 0 };
+                let men = if read == 1 { "underclassman" } else { "underclassmen" };
+                add(
+                    advisory && read > 0,
+                    "Advisory requests close",
+                    format!(
+                        "The NFL's advisory committee takes names until tonight: you have {read} {men} with an NFL read."
+                    ),
+                );
+                add(
+                    d == y.declare_deadline && read > 0,
+                    "The declaration deadline",
+                    format!(
+                        "The deadline to declare for the draft is today: talk to your {read} {men} with an NFL read before {} {}.",
+                        if read == 1 { "he" } else { "they" },
+                        if read == 1 { "decides" } else { "decide" }
+                    ),
+                );
+            }
+            Level::HighSchool => {
+                // Your seniors with offers sign: the last calls to colleges
+                // and the ceremony.
+                let signing = y.early_signing == Some(d) || d == y.signing_day;
+                let n = if signing { self.seniors_to_sign() } else { 0 };
+                let names =
+                    |what: &str| format!("{what}: {n} {} with offers still to sign.", super::folk::noun(n, "senior"));
+                add(
+                    y.early_signing == Some(d) && n > 0,
+                    "The early signing period",
+                    names("The early signing period opens today"),
+                );
+                add(d == y.signing_day && n > 0, "National signing day", names("National signing day"));
+            }
+            _ => {}
+        }
+        v
+    }
+
+    /// Whether another club's tendered restricted free agent can still
+    /// take your offer sheet, and offer sheets are yours.
+    fn offer_sheet_open(&self) -> bool {
+        let Some(t) = self.seat.and_then(|s| s.nfl_team) else { return false };
+        fo::yours(self, t, fo::Duty::Tags)
+            && self.clubs.iter().enumerate().filter(|&(o, _)| o != t).any(|(o, club)| {
+                club.roster.iter().any(|&i| {
+                    self.people[i].pro.as_ref().is_some_and(|c| {
+                        c.team == Some(o)
+                            && c.rfa.is_some()
+                            && c.contract.as_ref().is_some_and(|k| k.kind == pro::money::Kind::Tender)
+                    })
                 })
-                .then_some((
-                    y.tag_long_term_deadline.date,
-                    "The last day for a long-term deal with your tagged player: after 4pm ET he plays the year on the tag.",
-                )),
-                (self.year >= 2014
-                    && self.fo_holds(fo::Duty::Contracts, |k, i| {
-                        k.kind == pro::money::Kind::Rookie
-                            && k.option.is_none()
-                            && self.people[i]
-                                .pro
-                                .as_ref()
-                                .and_then(|c| c.draft)
-                                .is_some_and(|d| d.1 == 1 && d.0 == self.year - 3)
-                    }))
-                .then_some((y.fifth_year_option, "The fifth-year option deadline is today: pick up or decline your first-rounder's option.")),
-                (self.fo_holds(fo::Duty::Waivers, |_, _| true))
-                    .then_some((y.waiver_claims.date, "Waiver claims are due at noon: the players cut yesterday are on the wire.")),
-                (self.fo_holds(fo::Duty::PracticeSquad, |_, _| true))
-                    .then_some((y.practice_squads, "Practice squads form today: sign your squad from the players who cleared waivers.")),
-            ]
+            })
+    }
+
+    /// The declared prospects on your top-30 visit list who haven't been in
+    /// this spring.
+    fn visits_owed(&self) -> usize {
+        use super::scouting::predraft;
+        let Some(t) = self.seat.and_then(|s| s.nfl_team) else { return 0 };
+        let year = self.today.year();
+        predraft::seat_list(self, t, predraft::LIST_VISIT)
             .into_iter()
-            .flatten()
-            .collect(),
-            Level::College => [
-                y.early_signing.map(|e| (e, "The early signing period opens today.")),
-                Some((y.signing_day, "National signing day.")),
-                Some((y.portal_open, "The transfer portal opens today.")),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            _ => Vec::new(),
-        };
-        days.into_iter().find(|x| x.0 == d).map(|x| x.1.to_string())
+            .filter(|&id| {
+                super::scouting::place(self, id).is_some_and(|i| self.people[i].stage == super::Stage::Declared)
+                    && !self
+                        .scouting
+                        .own
+                        .interviews
+                        .iter()
+                        .any(|x| x.id == id && x.room == "Top-30 visit" && x.date.year() == year)
+            })
+            .count()
+    }
+
+    /// Your underclassmen with an NFL read (your college program).
+    fn underclassmen_with_a_read(&self) -> usize {
+        let Some(c) = self.seat.and_then(|s| s.program) else { return 0 };
+        self.programs.get(c).map_or(0, |p| {
+            p.roster
+                .iter()
+                .filter(|&&i| {
+                    let q = &self.people[i];
+                    q.stage == super::Stage::College && q.college == Some(c) && q.cal.draft_read.is_some()
+                })
+                .count()
+        })
+    }
+
+    /// Your high school's seniors who hold an offer and haven't signed.
+    fn seniors_to_sign(&self) -> usize {
+        let Some(h) = self.seat.and_then(|s| s.program) else { return 0 };
+        let seniors = if self.today < self.dates.hs_school_start { self.year } else { self.year + 1 };
+        self.high_schools.get(h).map_or(0, |school| {
+            school
+                .roster
+                .iter()
+                .filter(|&&i| {
+                    let p = &self.people[i];
+                    p.stage == super::Stage::HighSchool
+                        && p.class_of == seniors
+                        && !p.cal.offers.is_empty()
+                        && p.cal.signed.is_none()
+                })
+                .count()
+        })
     }
 
     /// A coach's record in his current job, with this season's games that
@@ -408,7 +695,13 @@ pub struct NflFixture {
 impl World {
     /// This college season's record for a program.
     pub fn college_record(&self, prog: usize) -> Record {
-        self.college.as_ref().and_then(|cs| cs.results.get(prog)).map_or(Record::default(), |r| Record {
+        self.college_record_in(prog, false)
+    }
+
+    /// A program's record this season, or last (`prev`).
+    pub fn college_record_in(&self, prog: usize, prev: bool) -> Record {
+        let cs = if prev { self.college_prev.as_ref() } else { self.college.as_ref() };
+        cs.and_then(|cs| cs.results.get(prog)).map_or(Record::default(), |r| Record {
             wins: r.wins,
             losses: r.losses,
             conf_wins: r.conf_wins,
@@ -418,7 +711,13 @@ impl World {
 
     /// This college season's games for a program (all programs if None).
     pub fn college_fixtures(&self, prog: Option<usize>) -> Vec<Fixture> {
-        let Some(cs) = self.college.as_ref() else { return Vec::new() };
+        self.college_fixtures_in(prog, false)
+    }
+
+    /// This season's games, or last season's (`prev`).
+    pub fn college_fixtures_in(&self, prog: Option<usize>, prev: bool) -> Vec<Fixture> {
+        let cs = if prev { self.college_prev.as_ref() } else { self.college.as_ref() };
+        let Some(cs) = cs else { return Vec::new() };
         cs.games
             .iter()
             .filter(|g| prog.is_none_or(|p| g.home == p || g.away == p))
@@ -472,7 +771,13 @@ impl World {
 
     /// This NFL season's games for a club (all if None).
     pub fn nfl_fixtures(&self, t: Option<usize>) -> Vec<NflFixture> {
-        let Some(s) = self.nfl_season.as_ref() else { return Vec::new() };
+        self.nfl_fixtures_in(t, false)
+    }
+
+    /// This NFL season's games, or last season's (`prev`).
+    pub fn nfl_fixtures_in(&self, t: Option<usize>, prev: bool) -> Vec<NflFixture> {
+        let s = if prev { self.nfl_prev.as_ref() } else { self.nfl_season.as_ref() };
+        let Some(s) = s else { return Vec::new() };
         let mut out = Vec::new();
         for (k, week) in s.weeks.iter().enumerate() {
             for (g, &(h, a)) in week.iter().enumerate() {
@@ -552,6 +857,19 @@ pub struct You {
     /// read from your road and your people ratings.
     #[serde(default)]
     pub aura: f64,
+    /// The position you played or the group you came up coaching (coaching
+    /// C5): the group your road's strength went to. None on a road with
+    /// neither, and in a file from before it: the group you teach best.
+    #[serde(default)]
+    pub came_up: Option<super::coach::Group>,
+    /// Your name (C10), 1-20: the road's agreed value. `reputation` is
+    /// your standing. 0 in a file from before the split.
+    #[serde(default)]
+    pub renown: f64,
+    /// How good a player you were (C11, `former::Played::grade`) on a
+    /// playing road; None if you never played in college.
+    #[serde(default)]
+    pub played: Option<u8>,
 }
 
 impl You {
@@ -689,7 +1007,15 @@ impl World {
             role: (role != Role::HeadCoach && employer.is_some()).then_some(role),
             market: Default::default(),
             known,
+            past: None,
             family: Default::default(),
+            staff_book: Default::default(),
+            kept_reads: Vec::new(),
+            kept_through: 0,
+            help: Default::default(),
+            no_fire: false,
+            no_fire_since: None,
+            spared: Vec::new(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -750,9 +1076,88 @@ pub struct Career {
     /// The people from the world's history who know you.
     #[serde(default)]
     pub known: Vec<super::front_office::market::Known>,
+    /// Where you were in the world's history (your high school, college,
+    /// stops): your old teammates and players come from it (C13).
+    #[serde(default)]
+    pub past: Option<super::front_office::market::Placement>,
     /// Your family's life where you live.
     #[serde(default)]
     pub family: super::front_office::market::FamilyLife,
+    /// What each season showed of your staff's work (update 2, Q3).
+    #[serde(default)]
+    pub staff_book: super::staff_read::Book,
+    /// Your staff's read of each player it follows, once a season (update
+    /// 2, lane 9A: the career arc). Kept from the day your staff follows
+    /// him; never rebuilt for the seasons before.
+    #[serde(default)]
+    pub kept_reads: Vec<KeptReads>,
+    /// The last season whose reads were kept (0: none yet; a save from
+    /// before the kept reads starts keeping at the next season's end).
+    #[serde(default)]
+    pub kept_through: i16,
+    /// Your in-game help: the Help setting, the guided week, the calendar
+    /// moments explained and the Handbook pages read (update 3, lane 8).
+    #[serde(default)]
+    pub help: super::help::Help,
+    /// The no-fire override (Settings, a test switch): while it is on,
+    /// nothing in the world ends your job; each time it would have, the
+    /// day and the reason go in `spared` and your inbox.
+    #[serde(default)]
+    pub no_fire: bool,
+    /// The day the override was first turned on: a career that ever used
+    /// it stays marked, even after it is turned off.
+    #[serde(default)]
+    pub no_fire_since: Option<Date>,
+    /// Each time the override kept you in a job: the day, where, and the
+    /// world's reason ("fired", "not retained when his contract ran out").
+    #[serde(default)]
+    pub spared: Vec<(Date, String, String)>,
+}
+
+/// One player's kept reads, oldest season first.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptReads {
+    pub id: u32,
+    pub rows: Vec<KeptRead>,
+}
+
+/// Your staff's read of a player as one season ended: his overall and the
+/// four ratings that matter most at his position, each with the rating's
+/// `Attr::index`, low and high on 1-99 (0 and 0 when nobody saw it); the
+/// middle of each of his position's eight skill families (0: not seen);
+/// his weight then in pounds. About 30 bytes a player a season.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptRead {
+    pub season: i16,
+    /// His position then (`Position::index`).
+    pub pos: u8,
+    pub ovr: [u8; 2],
+    pub keys: [[u8; 3]; 4],
+    pub fams: [u8; 8],
+    pub wt: u16,
+}
+
+impl Career {
+    /// The kept reads of one player, oldest first.
+    pub fn kept_of(&self, id: u32) -> &[KeptRead] {
+        self.kept_reads.iter().find(|k| k.id == id).map_or(&[], |k| k.rows.as_slice())
+    }
+
+    /// Keeps a season's read; a second read of the same season replaces
+    /// the first.
+    pub fn keep_read(&mut self, id: u32, row: KeptRead) {
+        let at = match self.kept_reads.iter().position(|k| k.id == id) {
+            Some(i) => i,
+            None => {
+                self.kept_reads.push(KeptReads { id, rows: Vec::new() });
+                self.kept_reads.len() - 1
+            }
+        };
+        let rows = &mut self.kept_reads[at].rows;
+        rows.retain(|r| r.season != row.season);
+        rows.push(row);
+        rows.sort_by_key(|r| r.season);
+    }
 }
 
 /// A high school assistant (people topic 10): most teach at the school and
@@ -951,7 +1356,19 @@ impl World {
     pub fn after_load(&mut self) {
         let room = self.people.len() + self.people.len() / 3;
         self.people.shrink_to(room);
-        self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
+        // Each level's teams index its own list: a high school seat's
+        // schools number far past the colleges, so one bound for all
+        // dropped every high school game you kept at each load.
+        let (colleges, nfl, schools) = (self.programs.len(), self.nfl.len(), self.high_schools.len());
+        self.seat_games.retain(|g| {
+            let n = match g.level {
+                crate::calendar::Level::Nfl => nfl,
+                crate::calendar::Level::HighSchool => schools,
+                crate::calendar::Level::Other => usize::MAX,
+                _ => colleges,
+            };
+            g.teams.iter().all(|&t| t < n)
+        });
         super::scouting::after_load(self);
         self.fill_final_build_fields();
         // Faces (F3, F4): looks numbers and the Asian groups for an older file.
@@ -959,6 +1376,7 @@ impl World {
         // Your designed plays become concepts again (section 6b).
         self.training.register_designs();
         super::folk::after_load(self);
+        super::storylines::after_load(self);
         // A world file from before the poll and award voters gets them now.
         super::voters::ensure(self);
         // Long snappers made before the final build at a lineman's weight

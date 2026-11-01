@@ -65,10 +65,36 @@ pub struct GamePlayer {
     /// staff adds when it orders the depth chart (section 6b topic 8).
     #[serde(default)]
     pub impression: f64,
+    /// His week's prep (update 2, lane 4, TR38): his mental errors on game
+    /// day against a prepared player's (busts, wrong fits, late reads; 1
+    /// changes nothing).
+    #[serde(default = "no_prep")]
+    pub prep: f32,
+    /// His mood today, -1 to 1 (people topic 3): a talk lands on how he
+    /// came in (dialogue D4). 0 changes nothing.
+    #[serde(default)]
+    pub mood: f32,
+    /// How much he believes his head coach, 0-1 (your players' trust in
+    /// you): how much of a talk reaches him (dialogue D4).
+    #[serde(default = "half")]
+    pub belief: f32,
+}
+
+fn half() -> f32 {
+    0.5
 }
 
 fn typical_chem() -> f32 {
     TYPICAL_CHEM
+}
+
+fn no_prep() -> f32 {
+    1.0
+}
+
+/// A player's game-day prep factor from his latest week's word.
+fn prep_of(p: &Player) -> f32 {
+    crate::training::prep::game_factor(crate::training::prep::latest(&p.train)) as f32
 }
 
 /// The chemistry where nothing changes.
@@ -104,6 +130,9 @@ impl GamePlayer {
             chem: TYPICAL_CHEM,
             links: crate::links::measure(p.position, &b, &p.attributes, p.game.recovery),
             impression: crate::training::impression(&p.train),
+            prep: prep_of(p),
+            mood: 0.0,
+            belief: 0.5,
         }
     }
 
@@ -118,6 +147,7 @@ impl GamePlayer {
         self.spot_r = Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight));
         self.tend = p.tend;
         self.impression = crate::training::impression(&p.train);
+        self.prep = prep_of(p);
         self.links = crate::links::measure(p.position, &b, &p.attributes, p.game.recovery);
         if self.position != p.position {
             self.position = p.position;
@@ -156,7 +186,7 @@ impl GamePlayer {
     /// His real 40 time from speed, burst and weight (same fit as the combine).
     pub fn forty(&self) -> f64 {
         5.56 - 0.0124 * (0.75 * self.a(Attr::Speed) + 0.25 * self.a(Attr::Acceleration))
-            + 0.0033 * (self.weight - 220.0)
+            + crate::body::forty_weight(self.weight)
     }
 
     /// Top speed, yards per second. A 4.35 forty gives about 10.7 (21.9 mph),
@@ -349,6 +379,21 @@ pub struct Staff {
     /// The head coach's style (tendencies): what he wants from his players'
     /// habits and the instructions he gives.
     pub style: crate::tendencies::Style,
+    /// The head coach's guidelines (update 2, G1-G2): how he wants the team
+    /// to play, each with a firmness. They lean the play callers.
+    #[serde(default)]
+    pub guide: super::guide::Guidelines,
+    /// The head coach's motivation, 1-20 (dialogue D4): how his talks carry
+    /// and how well he reads his room.
+    #[serde(default = "ten")]
+    pub motivation: f64,
+    /// The head coach's temper, 1-20: a hot one leans to the fiery talk.
+    #[serde(default = "ten")]
+    pub temper: f64,
+}
+
+fn ten() -> f64 {
+    10.0
 }
 
 impl Staff {
@@ -368,6 +413,9 @@ impl Staff {
             nickel: 0.88,
             year: 2026,
             film_study: 10.0,
+            guide: Default::default(),
+            motivation: 10.0,
+            temper: 10.0,
         }
     }
 }
@@ -400,10 +448,19 @@ pub struct GameTeam {
     /// the call sheet. Empty for AI teams.
     #[serde(default)]
     pub prep: Prep,
+    /// The day as the world sees it for this team (dialogue D4): the
+    /// stakes, the rival, the paper, the week, the captains. The default is
+    /// a plain game.
+    #[serde(default)]
+    pub day: super::talk::Day,
 }
 
 /// A call sheet play: the formation's personnel, backfield and set, and the play.
 pub type SheetCall = (Personnel, Backfield, Set, PlayKind);
+
+/// A defensive call sheet play (update 2, G8): the coverage and the
+/// pressure; the front follows the offense's set as the coordinator reads it.
+pub type DefSheetCall = (super::playbook::Coverage, super::playbook::Pressure);
 
 /// What your practice week sends into the game (section 6b): kickoff
 /// energy from the late week's load, your packages (board, player ids in
@@ -415,11 +472,186 @@ pub struct Prep {
     pub packages: Vec<(u8, Vec<u32>)>,
     pub sheet: Vec<(u8, Vec<SheetCall>)>,
     pub stick: f64,
+    /// How much a road crowd gets to the offense against an average
+    /// staff's week (TR28: the speakers at practice; 1 changes nothing).
+    #[serde(default = "one")]
+    pub noise: f64,
+    /// Pre-snap fouls against an average staff's week (TR29: the officials'
+    /// rules clinic; 1 changes nothing).
+    #[serde(default = "one")]
+    pub rules: f64,
+    /// The defensive call sheet by situation, first choice first (update
+    /// 2, G8), and how closely the defensive coordinator sticks to it.
+    #[serde(default)]
+    pub dsheet: Vec<(u8, Vec<DefSheetCall>)>,
+    #[serde(default)]
+    pub dstick: f64,
+    /// The bad-weather version of both sheets (G13): called in rain, snow
+    /// or a strong wind.
+    #[serde(default)]
+    pub wet: Vec<(u8, Vec<SheetCall>)>,
+    #[serde(default)]
+    pub dwet: Vec<(u8, Vec<DefSheetCall>)>,
+    /// New call words this week (G5), offense then defense: the extra
+    /// chance a snap that a player busts while the words are new.
+    #[serde(default)]
+    pub learn: [f64; 2],
+    /// The share of our offensive and defensive calls this week's opponent
+    /// can read from people who left with our call words (G5).
+    #[serde(default)]
+    pub leak: [f64; 2],
+    /// Snap limits this week (G17): player id and his most snaps.
+    #[serde(default)]
+    pub limits: Vec<(u32, u16)>,
+    /// Instructions given for this opponent (G19), kept so a refresh takes
+    /// them back before giving the new ones.
+    #[serde(default)]
+    pub orders: Vec<(u32, crate::tendencies::Instruction)>,
+    /// Our answer to each of their personnel groups this week (G16): 11,
+    /// 12, 10 and 21 personnel.
+    #[serde(default)]
+    pub answers: [super::calling::Answer; 4],
+    /// Special teams this week (G18).
+    #[serde(default)]
+    pub teams: Teams,
+    /// The quarterback's checks this week (G19), bits of `CHECKS`: set
+    /// means the check is switched from the staff's usual.
+    #[serde(default)]
+    pub checks: u8,
+    /// The "if they do this, we go to that" lines armed this week (G20),
+    /// by kind (`IFS`).
+    #[serde(default)]
+    pub ifs: Vec<u8>,
+    /// Package depth (G15): per board, the second and third man for each
+    /// slot in slot order (0 none).
+    #[serde(default)]
+    pub backups: Vec<(u8, Vec<u32>)>,
+    /// The defensive line rotation (G15): player id and his role (1 the
+    /// whole series, 2 every other series, 3 rush downs only).
+    #[serde(default)]
+    pub rotation: Vec<(u32, u8)>,
+    /// Players kept to base downs this week (G14): off the field on third
+    /// down, passing downs and the two-minute drill.
+    #[serde(default)]
+    pub base_only: Vec<u32>,
+    /// Grasp added this week by an extra film session or walkthrough
+    /// (G14): player id and the knowledge added (taken back on a refresh).
+    #[serde(default)]
+    pub boosts: Vec<(u32, f32)>,
+    /// The staff's own install before this week's prep weighs on it, kept
+    /// so a refresh sets the install again instead of compounding it.
+    #[serde(default)]
+    pub install_base: Option<f64>,
+    /// The know each boost really added, by family (taken back exactly).
+    #[serde(default)]
+    pub boost_added: Vec<(u32, Vec<f32>)>,
+    /// The quarterback's checks and the "if" lines were set by your plan
+    /// (`checks`, `ifs`). Otherwise the staff reads them from the
+    /// opponent's film at kickoff, the same way for every team.
+    #[serde(default)]
+    pub planned: bool,
+}
+
+/// The quarterback's checks at the line this week (G19), in the order of
+/// `Prep::checks`' bits. The first two are on unless switched off, the
+/// last two off unless switched on.
+pub const CHECKS: [&str; 4] = [
+    "Out of a run into a loaded box",
+    "Out of a throw, to the run, against a light box with two deep",
+    "Hot throw against Cover 0",
+    "To the run against two high on early downs",
+];
+
+/// The staff's own checks for an opponent (G19), as bits of `CHECKS`: the
+/// hot throw when their film shows Cover 0 on one snap in twelve or more,
+/// the run against two high when half their coverages or more are two
+/// deep. Every staff reads its opponent this way.
+pub fn staff_checks(film: &Film) -> u8 {
+    use super::playbook::Coverage;
+    let all: f32 = film.cov.iter().sum::<f32>().max(1.0);
+    let zero = film.cov[Coverage::Cover0 as usize] / all;
+    let two: f32 = Coverage::ALL.iter().filter(|c| c.high() == 2).map(|c| film.cov[*c as usize]).sum::<f32>() / all;
+    (if zero >= 0.08 { 4 } else { 0 }) | (if two >= 0.5 { 8 } else { 0 })
+}
+
+/// The staff's own "if they do this" lines for an opponent (G20): the ones
+/// their film says could come up.
+pub fn staff_ifs(film: &Film) -> Vec<u8> {
+    let snaps = film.def_snaps.max(1.0);
+    let mut v = vec![2, 5];
+    if film.blitz / snaps >= 0.25 {
+        v.insert(0, 0);
+    }
+    let runs: f32 = film.look.iter().map(|x| x[0]).sum();
+    let plays: f32 = film.look.iter().map(|x| x[0] + x[1]).sum();
+    if plays > 0.0 && runs / plays >= 0.45 {
+        v.push(3);
+    }
+    v
+}
+
+/// The "if they do this, we go to that" lines (G20), by kind: the trigger
+/// and the move.
+pub const IFS: [(&str, &str); 6] = [
+    ("They blitz on 40% of passing downs", "Screens and draws behind it"),
+    ("Their quarterback scrambles three times", "Spy him on passing downs"),
+    ("Their top receiver passes 60 yards", "Bracket him"),
+    ("They run for 5 a carry after 10 carries", "A safety down in the box"),
+    ("They play six or fewer in the box on 60% of snaps", "Run it more"),
+    ("A corner gives up two catches of 15 yards", "Attack him"),
+];
+
+/// Special teams for the week (G18). 0 is the staff's usual each time.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Teams {
+    /// Kickoffs: 1 deep, 2 squib, 3 pooch.
+    pub kick: u8,
+    /// Punts: 1 directional, 2 coffin corner in their end.
+    pub punt: u8,
+    /// Kickoff returns: 1 bring it out, 2 take the touchback.
+    pub ret: u8,
+    /// Punt returns: 1 set up the return, 2 safe (fair catch).
+    pub pret: u8,
+    /// A fake punt and an onside kick: 1 only if the look shows, 2 called
+    /// at the first chance (once).
+    pub fake: u8,
+    pub onside: u8,
+}
+
+fn one() -> f64 {
+    1.0
 }
 
 impl Default for Prep {
     fn default() -> Prep {
-        Prep { fresh: 1.0, packages: Vec::new(), sheet: Vec::new(), stick: 0.0 }
+        Prep {
+            fresh: 1.0,
+            packages: Vec::new(),
+            sheet: Vec::new(),
+            stick: 0.0,
+            noise: 1.0,
+            rules: 1.0,
+            dsheet: Vec::new(),
+            dstick: 0.0,
+            wet: Vec::new(),
+            dwet: Vec::new(),
+            learn: [0.0; 2],
+            leak: [0.0; 2],
+            limits: Vec::new(),
+            orders: Vec::new(),
+            answers: Default::default(),
+            teams: Teams::default(),
+            checks: 0,
+            ifs: Vec::new(),
+            backups: Vec::new(),
+            rotation: Vec::new(),
+            base_only: Vec::new(),
+            boosts: Vec::new(),
+            install_base: None,
+            boost_added: Vec::new(),
+            planned: false,
+        }
     }
 }
 
@@ -446,6 +678,7 @@ impl GameTeam {
             week: 1.0,
             order: Vec::new(),
             prep: Prep::default(),
+            day: Default::default(),
         }
     }
 
@@ -559,6 +792,13 @@ pub struct Depth {
     pub holder: usize,
     pub kick_returners: Vec<usize>,
     pub punt_returner: usize,
+    /// The raw burner (speed update S10): a backup receiver or back whose
+    /// speed wins even though his overall says backup, and how much the
+    /// team leans on him (0-1), the more the less speed it has.
+    #[serde(default)]
+    pub burner: Option<usize>,
+    #[serde(default)]
+    pub burner_lean: f64,
 }
 
 impl Depth {
@@ -625,7 +865,42 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         }
         d.at[pos.index()] = list;
     }
+    (d.burner, d.burner_lean) = burner(&team.players, &d);
     d
+}
+
+/// How fast he plays deep or with the ball in space: the receivers'
+/// burst-and-speed mix (speed update S2b, `body::play_speed`), for anyone
+/// who runs routes or returns kicks.
+pub fn deep_speed(p: &GamePlayer) -> f64 {
+    0.4 * p.a(Attr::Acceleration) + 0.6 * p.a(Attr::Speed)
+}
+
+/// The team's raw burner (S10): the fastest backup receiver or back, when
+/// he is faster than every starting receiver and clearly faster than
+/// their average. The team leans on him by how much faster: 0 at 2 points
+/// over, all in at 12 (proposed, not confirmed).
+fn burner(ps: &[GamePlayer], d: &Depth) -> (Option<usize>, f64) {
+    let starting: Vec<usize> = d.list(Position::WR).iter().take(starters(Position::WR)).copied().collect();
+    if starting.is_empty() {
+        return (None, 0.0);
+    }
+    let speeds: Vec<f64> = starting.iter().map(|&i| deep_speed(&ps[i])).collect();
+    let mean = speeds.iter().sum::<f64>() / speeds.len() as f64;
+    let top = speeds.iter().copied().fold(f64::MIN, f64::max);
+    let fastest = d
+        .list(Position::WR)
+        .iter()
+        .skip(starters(Position::WR))
+        .chain(d.list(Position::RB).iter().skip(starters(Position::RB)))
+        .copied()
+        .filter(|i| !starting.contains(i))
+        .map(|i| (i, deep_speed(&ps[i])))
+        .max_by(|a, b| a.1.total_cmp(&b.1));
+    match fastest {
+        Some((i, v)) if v > top + 1.0 && v > mean + 4.0 => (Some(i), clamp((v - mean - 2.0) / 10.0, 0.0, 1.0)),
+        _ => (None, 0.0),
+    }
 }
 
 /// The depth chart as the staff orders it.
@@ -774,8 +1049,9 @@ fn staff_depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         .copied()
         .find(|&i| ps[i].position == Position::P && Some(i) != kicker && i != d.snapper)
         .unwrap_or_else(|| d.list(Position::QB)[1.min(d.list(Position::QB).len() - 1)]);
+    // How fast he plays, not his top speed alone (S10, S2b).
     let returner = |p: &GamePlayer| {
-        0.4 * p.a(Attr::Speed)
+        0.4 * deep_speed(p)
             + 0.25 * p.a(Attr::Elusiveness)
             + 0.2 * p.a(Attr::BallCarrierVision)
             + 0.15 * p.a(Attr::BallTracking)

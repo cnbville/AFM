@@ -186,7 +186,7 @@ pub fn read(
     year: i32,
 ) -> (Choice, [f64; 3]) {
     let make = league_make(yardline + 17.0, level, year);
-    let (_, go, punt, fg) = crate::game::calling::fourth_ev(yardline, togo, make);
+    let (_, go, punt, fg) = crate::game::calling::fourth_ev(yardline, togo, make, false);
     let late = quarter >= 4 && game_left < 300.0;
     let best = if late && lead < -3 {
         Choice::Go
@@ -483,9 +483,13 @@ fn season_day(w: &mut World, d: Date, t: usize) {
     let year = w.year;
     let seed = w.options.seed;
     let me = TeamKey::Nfl(t as u16);
-    // A flex: the same opponent on a new day or window.
-    for g in &games {
-        let Some(old) = story.games.iter().find(|x| x.1 as usize == g.1) else { continue };
+    // A flex: the same opponent on a new day or window. A division rival
+    // comes twice, so each game pairs with the stored game of the same
+    // meeting (the first with the first), never the first one found
+    // (minor bug B4: that one read as a flex every day).
+    for (k, g) in games.iter().enumerate() {
+        let nth = games[..k].iter().filter(|x| x.1 == g.1).count();
+        let Some(old) = story.games.iter().filter(|x| x.1 as usize == g.1).nth(nth) else { continue };
         if old.0 == g.0 && old.2 == g.3.name() {
             continue;
         }

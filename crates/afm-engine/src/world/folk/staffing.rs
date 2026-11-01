@@ -59,6 +59,9 @@ pub struct Staffs {
     pub owed: Vec<(i32, f64)>,
     /// The year contracts were last renewed.
     pub renewed: i32,
+    /// Deals carried over from another job were repriced once (older saves
+    /// kept a coach's deal when he moved).
+    pub repriced: bool,
 }
 
 impl Staffs {
@@ -82,6 +85,9 @@ pub struct HsStaffs {
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct Drawn {
     pub key: u64,
+    /// The person in the job: its key with the holder's term (a new hire
+    /// is a new person).
+    pub who: u64,
     pub name: String,
     pub title: String,
     pub age: u32,
@@ -90,6 +96,9 @@ pub struct Drawn {
     pub subject: Option<String>,
     /// Pay a year, dollars.
     pub pay: f64,
+    /// A real coach in the job (C36, C37): a graduate assistant, analyst,
+    /// quality-control coach or high school coordinator.
+    pub coach: Option<usize>,
 }
 
 /// What an assistant job pays now (the built pay table; NFL position
@@ -117,9 +126,27 @@ fn deal_terms(w: &World, c: usize, e: Employer, r: Role) -> (i32, f32) {
     }
 }
 
+/// A newly hired assistant's deal at his job's pay, from today (the world's
+/// own moves; a hire you make carries the deal you offered).
+pub(crate) fn sign(w: &mut World, c: usize) {
+    let Some(job) = w.coaches[c].job else { return };
+    if job.role == Role::HeadCoach || matches!(job.employer, Employer::HighSchool(_)) || w.folk.staff.deal(c).is_some()
+    {
+        return;
+    }
+    let base = pay(w, job.employer, job.role);
+    let salary = (base * (0.8 + 0.4 * w.coaches[c].reputation / 20.0)).round();
+    let (years, buyout) = deal_terms(w, c, job.employer, job.role);
+    w.folk.staff.deals.push(Deal { coach: c, salary, through: w.year + years - 1, buyout });
+}
+
 /// Fills a deal for every assistant who lacks one (old worlds, new hires).
 pub fn ensure(w: &mut World) {
     let year = w.year;
+    if !w.folk.staff.repriced {
+        w.folk.staff.repriced = true;
+        reprice(w);
+    }
     let mut have: std::collections::HashSet<usize> = w.folk.staff.deals.iter().map(|d| d.coach).collect();
     let mut add: Vec<Deal> = Vec::new();
     for c in 0..w.coaches.len() {
@@ -160,12 +187,38 @@ pub fn ensure(w: &mut World) {
     });
 }
 
+/// Older saves kept an assistant's deal when he moved, so a coach who went
+/// from a small school to a big one kept his old pay. A deal far from what
+/// his job pays (under half or over twice) is signed again at his job's pay.
+fn reprice(w: &mut World) {
+    let year = w.year;
+    for k in 0..w.folk.staff.deals.len() {
+        let c = w.folk.staff.deals[k].coach;
+        let Some(job) = w.coaches.get(c).and_then(|co| co.job) else { continue };
+        if job.role == Role::HeadCoach || matches!(job.employer, Employer::HighSchool(_)) {
+            continue;
+        }
+        let base = pay(w, job.employer, job.role);
+        let have = w.folk.staff.deals[k].salary;
+        if base <= 0.0 || (0.5..=2.0).contains(&(have / base)) {
+            continue;
+        }
+        let rep = w.coaches[c].reputation;
+        let (years, buyout) = deal_terms(w, c, job.employer, job.role);
+        let cycles = (year - job.since).max(0) / years + 1;
+        let d = &mut w.folk.staff.deals[k];
+        d.salary = (base * (0.8 + 0.4 * rep / 20.0)).round();
+        d.through = (job.since + years * cycles - 1).max(year);
+        d.buyout = buyout;
+    }
+}
+
 /// The term of a drawn job (a change bumps it, drawing a new person).
 fn term(w: &World, key: u64) -> u16 {
     w.folk.staff.terms.iter().find(|x| x.0 == key).map_or(0, |x| x.1)
 }
 
-const NFL_ROOMS: [(&str, u8); 11] = [
+pub(crate) const NFL_ROOMS: [(&str, u8); 12] = [
     ("Quarterbacks coach", 0),
     ("Running backs coach", 1),
     ("Wide receivers coach", 2),
@@ -177,19 +230,38 @@ const NFL_ROOMS: [(&str, u8); 11] = [
     ("Special teams coordinator", 7),
     ("Assistant head coach", 9),
     ("Offensive quality control", 9),
+    ("Defensive quality control", 9),
 ];
 
-fn draw_person(w: &World, key: u64, title: &str, pay: f64, subject: Option<String>) -> Drawn {
+pub(crate) fn draw_person(w: &World, key: u64, title: &str, pay: f64, subject: Option<String>) -> Drawn {
     let t = term(w, key);
     let k = key ^ (t as u64) << 48;
     let u = |n: u64| super::roll(w, k, n);
-    let black = u(1) < 0.33;
-    let eth = if black { crate::world::ethnicity::Ethnicity::Black } else { crate::world::ethnicity::Ethnicity::White };
+    // Minor bug 19: staffs of every background, by era, as the scouts.
+    let eth = crate::world::pro::scouts::staff_ethnicity_at(u(1), w.year);
     let age = 27 + (u(2) * 33.0) as u32;
     let mut rng = crate::rng::Rng::new((k ^ k >> 32) as u32 ^ 0x57AF);
     let name = crate::world::names::person_name(eth, w.year - age as i32, &mut rng);
     let since = w.year - (u(3) * 6.0) as i32;
-    Drawn { key, name, title: title.to_string(), age, since, subject, pay: (pay * (0.85 + 0.3 * u(4))).round() }
+    Drawn {
+        key,
+        who: k,
+        name,
+        title: title.to_string(),
+        age,
+        since,
+        subject,
+        pay: (pay * (0.85 + 0.3 * u(4))).round(),
+        coach: None,
+    }
+}
+
+/// A real coach in a support job (C36, C37), in the drawn rows' shape.
+fn real_person(w: &World, c: usize, title: String, pay: f64) -> Drawn {
+    let co = &w.coaches[c];
+    let since = co.junior_now().map(|j| j.since).or(co.job.map(|j| j.since)).unwrap_or(w.year);
+    let key = 0xC0AC_0000_0000 ^ c as u64;
+    Drawn { key, who: key, name: co.name.clone(), title, age: co.age, since, subject: None, pay, coach: Some(c) }
 }
 
 /// The staff jobs the world doesn't keep as coaches, drawn for a team:
@@ -201,9 +273,20 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
     match team {
         Team::Nfl(t) => {
             let base = pay(w, Employer::Nfl(t), Role::PositionCoach(Group::QB));
-            for (k, (title, _)) in NFL_ROOMS.iter().enumerate() {
+            for (k, (title, _)) in NFL_ROOMS.iter().enumerate().take(10) {
                 let key = team.key() << 16 ^ 0xA55 ^ k as u64;
                 v.push(draw_person(w, key, title, base * if k >= 9 { 0.6 } else { 1.0 }, None));
+            }
+            // Quality control is real people (C36).
+            for c in crate::world::staff::juniors_of(w, Employer::Nfl(t)) {
+                let side = if w.coaches[c].junior_now().is_some_and(|j| j.group.offense()) {
+                    "Offensive"
+                } else {
+                    "Defensive"
+                };
+                let pay =
+                    crate::world::staff::junior_pay(w, Employer::Nfl(t), crate::world::coach::Post::QualityControl);
+                v.push(real_person(w, c, format!("{side} quality control"), pay));
             }
         }
         // An other-league club keeps a lean room: the position coaches and a
@@ -215,24 +298,31 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
                 v.push(draw_person(w, key, title, base, None));
             }
         }
+        // Analysts and graduate assistants are real people (C36).
         Team::College(p) => {
-            let prog = &w.programs[p];
-            let rich = crate::world::staff::program_budget(prog);
-            let fbs = prog.division == Division::FBS;
-            let analysts = if fbs { (2.0 + rich / 25.0e6).min(12.0) as usize } else { 1 };
-            let gas = if fbs || prog.division == Division::FCS { 4 } else { 2 };
-            for k in 0..analysts {
-                let key = team.key() << 16 ^ 0xA7A ^ k as u64;
-                let title = if w.year >= 2024 && w.today >= crate::calendar::Date::ymd(2024, 6, 1) && k < 4 && fbs {
-                    "On-field analyst"
-                } else {
-                    "Analyst"
+            use crate::world::coach::Post;
+            let e = Employer::College(p);
+            let fbs = w.programs[p].division == Division::FBS;
+            let on_field = w.today >= crate::calendar::Date::ymd(2024, 6, 1) && fbs;
+            let mut list = crate::world::staff::juniors_of(w, e);
+            list.sort_by_key(|&c| w.coaches[c].junior_now().map(|j| (j.post as u8, j.since)));
+            let mut analysts = 0;
+            for c in list {
+                let Some(j) = w.coaches[c].junior_now() else { continue };
+                let title = match j.post {
+                    Post::Analyst => {
+                        analysts += 1;
+                        if on_field && analysts <= 4 { "On-field analyst" } else { "Analyst" }
+                    }
+                    Post::GradAssistant => "Graduate assistant",
+                    Post::QualityControl => "Quality control",
                 };
-                v.push(draw_person(w, key, title, if fbs { 75_000.0 } else { 35_000.0 }, None));
-            }
-            for k in 0..gas {
-                let key = team.key() << 16 ^ 0x6A0 ^ k as u64;
-                v.push(draw_person(w, key, "Graduate assistant", 25_000.0, None));
+                v.push(real_person(
+                    w,
+                    c,
+                    format!("{title}, {}", j.group.name()),
+                    crate::world::staff::junior_pay(w, e, j.post),
+                ));
             }
         }
         Team::High(h) => {
@@ -243,15 +333,18 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
             let n = (2 + s.enrollment / 400).clamp(3, 15) as usize;
             let term = w.folk.hs_staffs.terms.iter().find(|x| x.0 == h as u32).map_or(0, |x| x.1);
             const SUBJ: [&str; 6] = ["physical education", "history", "health", "math", "science", "special education"];
-            for k in 0..n {
+            // The coordinators are real coaches (C37).
+            let stipend = 2_500.0 + 3_500.0 * s.resources;
+            for (c, title) in [(s.oc, "Offensive coordinator"), (s.dc, "Defensive coordinator")] {
+                if let Some(c) = c {
+                    v.push(real_person(w, c, title.to_string(), (stipend * 1.3).round()));
+                }
+            }
+            for k in 2..n {
                 let key = team.key() << 16 ^ 0x45 ^ (k as u64) ^ (term as u64) << 8;
-                let title = match k {
-                    0 => "Offensive coordinator".to_string(),
-                    1 => "Defensive coordinator".to_string(),
-                    _ => Group::ALL[(k + 1) % 7].coach_title().to_string(),
-                };
+                let title = Group::ALL[(k + 1) % 7].coach_title().to_string();
                 let subj = SUBJ[(super::roll(w, key, 9) * SUBJ.len() as f64) as usize % SUBJ.len()].to_string();
-                v.push(draw_person(w, key, &title, 2_500.0 + 3_500.0 * s.resources, Some(subj)));
+                v.push(draw_person(w, key, &title, stipend, Some(subj)));
             }
         }
     }
@@ -328,121 +421,245 @@ pub struct Candidate {
     pub name: String,
     pub age: u32,
     pub now: String,
+    /// His level now: "nfl", a division ("fbs"), "hs", "other" or "none".
+    pub level: &'static str,
     pub rep: String,
     pub came_up: String,
     /// Known through your network: warm, or a stranger.
     pub known: String,
-    /// Your read of his teaching, a range 1-20 (sharper for people you know
-    /// and those you've interviewed).
-    pub read: (f32, f32),
+    /// Your read of the teaching the job needs, 1-20 (C24, C40, C41): the
+    /// whole scale for a stranger, sharper with the time you put in.
+    pub read: (u8, u8),
+    /// For a coordinator job, your reads of his scheme and his play
+    /// calling (C26).
+    pub scheme: Option<(u8, u8)>,
+    pub calling: Option<(u8, u8)>,
+    /// Your read of his potential, in words (C35).
+    pub potential: String,
+    /// Hours you've put into him (film and talk).
+    pub hours: f32,
+    /// His ask for this job (C31).
     pub asks: f64,
     /// Can his team block the move (NFL lateral)?
     pub blocked: bool,
+    /// The job is outside the group he came up in (C39).
+    pub outside: bool,
 }
 
-/// Candidates for a role on your staff (topic 11): your network first, then
-/// coaches out of work, then assistants elsewhere one rung down or level.
-pub fn candidates(w: &World, role: Role) -> Vec<Candidate> {
-    let Some(team) = Team::seat(w) else { return Vec::new() };
+/// What the Hiring search keeps (C21): every field is optional.
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct Filter {
+    /// "nfl", "fbs", "fcs", "d2", "d3", "naia", "juco", "hs", "other",
+    /// "none" (out of work); empty for all.
+    pub level: String,
+    /// "hc", "coord", "pc", "junior" (a graduate assistant, analyst or
+    /// quality-control coach), "none"; empty for all.
+    pub job: String,
+    /// The group he came up in, by its index; none for all.
+    pub came_up: Option<u8>,
+    pub age_min: Option<u32>,
+    pub age_max: Option<u32>,
+    pub rep_min: Option<f64>,
+    /// Only coaches in your network or that you've put time into.
+    pub known: bool,
+    /// Only coaches out of work.
+    pub free: bool,
+    /// "rep" (the default), "read", "potential", "age", "asks".
+    pub sort: String,
+    pub page: usize,
+}
+
+/// A page of the Hiring search.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct Search {
+    pub list: Vec<Candidate>,
+    pub total: usize,
+    pub page: usize,
+    pub pages: usize,
+}
+
+pub const PAGE: usize = 50;
+
+fn job_rung(r: Role) -> u8 {
+    match r {
+        Role::PositionCoach(_) => 0,
+        Role::OffensiveCoordinator | Role::DefensiveCoordinator => 1,
+        Role::HeadCoach => 2,
+    }
+}
+
+/// A coach's level now, from his job or his junior post.
+pub fn level_of(w: &World, c: usize) -> &'static str {
+    let co = &w.coaches[c];
+    let e = co.job.map(|j| j.employer).or(co.junior_now().map(|j| j.employer));
+    match e {
+        Some(Employer::Nfl(_)) => "nfl",
+        Some(Employer::Other(_)) => "other",
+        Some(Employer::HighSchool(_)) => "hs",
+        Some(Employer::College(p)) => match w.programs[p].division {
+            Division::FBS => "fbs",
+            Division::FCS => "fcs",
+            Division::D2 => "d2",
+            Division::D3 => "d3",
+            Division::NAIA => "naia",
+            Division::JUCO => "juco",
+        },
+        None => "none",
+    }
+}
+
+/// What he does now, in words.
+pub fn now_words(w: &World, c: usize) -> String {
+    let co = &w.coaches[c];
+    match (co.job, co.junior_now()) {
+        (Some(j), _) => {
+            format!("{}, {}", super::takeover::cap_first(j.role.name()), Team::from_employer(j.employer).name(w))
+        }
+        (None, Some(j)) => format!(
+            "{} ({}), {}",
+            super::takeover::cap_first(j.post.name()),
+            j.group.name(),
+            Team::from_employer(j.employer).name(w)
+        ),
+        (None, None) => co.history.last().map_or("Out of coaching".into(), |s| {
+            format!("Out of work (last: {}, {})", s.role.name(), Team::from_employer(s.employer).name(w))
+        }),
+    }
+}
+
+/// Every coach who could take a job on your staff (C21, C23): no cap, no
+/// fit test (a man outside his group decides for himself, C39), filtered
+/// and paged. Your reads come from `coach_look` (a stranger's is the whole
+/// scale), so a sort by your read or his potential only sorts what you
+/// know.
+pub fn candidates(w: &World, role: Role, f: &Filter) -> Search {
+    let empty = Search { list: Vec::new(), total: 0, page: 0, pages: 0 };
+    let Some(team) = Team::seat(w) else { return empty };
     let emp = team.employer();
     let you = w.career.as_ref().map(|c| c.coach);
-    let want_group = match role {
-        Role::PositionCoach(g) => Some(g),
-        _ => None,
-    };
-    let base = pay(w, emp, role);
-    let mut v: Vec<(f64, Candidate)> = Vec::new();
+    let x = super::coach_look::Ctx::new(w);
+    let coord = matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator);
+    let mut keep: Vec<usize> = Vec::new();
     for (c, co) in w.coaches.iter().enumerate() {
         if co.retired || Some(c) == you || co.age > 70 || co.show_cause.is_some_and(|y| y >= w.year) {
             continue;
         }
-        let here = co.job.map(|j| Team::from_employer(j.employer)) == Some(team);
-        if here {
+        if co.job.is_some_and(|j| Team::from_employer(j.employer) == team) {
             continue;
         }
-        let fits = match role {
-            Role::OffensiveCoordinator => {
-                co.came_up.offense() || co.job.is_some_and(|j| j.role == Role::OffensiveCoordinator)
-            }
-            Role::DefensiveCoordinator => {
-                !co.came_up.offense() || co.job.is_some_and(|j| j.role == Role::DefensiveCoordinator)
-            }
-            Role::PositionCoach(g) => co.came_up == g || co.job.is_some_and(|j| j.role == Role::PositionCoach(g)),
-            Role::HeadCoach => false,
+        // A junior at your own school is on your staff already.
+        if co.junior_now().is_some_and(|j| j.employer == emp) {
+            continue;
+        }
+        // A man out of work with no coaching behind him isn't on the market.
+        if co.job.is_none() && co.junior_now().is_none() && co.history.is_empty() {
+            continue;
+        }
+        if !f.level.is_empty() && f.level != "all" && level_of(w, c) != f.level {
+            continue;
+        }
+        let job = match (co.job.map(|j| j.role), co.junior_now()) {
+            (Some(Role::HeadCoach), _) => "hc",
+            (Some(Role::OffensiveCoordinator | Role::DefensiveCoordinator), _) => "coord",
+            (Some(Role::PositionCoach(_)), _) => "pc",
+            (None, Some(_)) => "junior",
+            (None, None) => "none",
         };
-        if !fits {
+        if !f.job.is_empty() && f.job != "all" && job != f.job {
             continue;
         }
-        let warm = super::network::warmth(w, c);
-        let free = co.job.is_none();
-        let step = co.job.map_or(0.0, |j| match (j.role, role) {
-            (Role::PositionCoach(_), Role::OffensiveCoordinator | Role::DefensiveCoordinator) => 1.0,
-            (a, b) if a == b => 0.0,
-            (Role::HeadCoach, _) => -2.0,
-            (Role::OffensiveCoordinator | Role::DefensiveCoordinator, Role::PositionCoach(_)) => -1.0,
-            _ => 0.0,
-        });
-        if step < -0.5 && !free {
+        if f.free && job != "none" {
             continue;
         }
-        let score = co.reputation + 4.0 * warm as f64 + if free { 1.0 } else { 0.0 } + step;
-        if score < 6.0 && warm < 0.3 {
+        if f.came_up.is_some_and(|g| co.came_up as u8 != g) {
             continue;
         }
-        let same_level = co.job.is_some_and(|j| std::mem::discriminant(&j.employer) == std::mem::discriminant(&emp));
-        let blocked = matches!(emp, Employer::Nfl(_)) && same_level && step <= 0.0 && !free;
-        let teach = match want_group {
-            Some(g) => co.ability().teaching[g as usize],
-            None => {
-                let off = role == Role::OffensiveCoordinator;
-                Group::ALL
-                    .iter()
-                    .filter(|g| g.offense() == off && **g != Group::Specialists)
-                    .map(|g| co.ability().teaching[*g as usize])
-                    .sum::<f64>()
-                    / 3.0
+        if f.age_min.is_some_and(|a| co.age < a) || f.age_max.is_some_and(|a| co.age > a) {
+            continue;
+        }
+        if f.rep_min.is_some_and(|r| co.reputation < r) {
+            continue;
+        }
+        if f.known && !x.known(c) {
+            continue;
+        }
+        keep.push(c);
+    }
+    let total = keep.len();
+    // Sort keys read only what you see.
+    let mid = |r: (u8, u8)| (r.0 as f64 + r.1 as f64) / 2.0;
+    let mut keyed: Vec<(f64, usize)> = keep
+        .into_iter()
+        .map(|c| {
+            let co = &w.coaches[c];
+            let k = match f.sort.as_str() {
+                "read" => mid(super::coach_look::read_job_in(w, &x, c, role)) + co.reputation / 100.0,
+                "potential" => super::coach_look::potential_rank(w, &x, c) + co.reputation / 100.0,
+                "age" => -(co.age as f64),
+                "asks" => -super::hiring::ask(w, c, role),
+                _ => co.reputation + 2.0 * x.warmth(c) as f64,
+            };
+            (k, c)
+        })
+        .collect();
+    keyed.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let pages = total.div_ceil(PAGE);
+    let page = f.page.min(pages.saturating_sub(1));
+    let list = keyed
+        .into_iter()
+        .skip(page * PAGE)
+        .take(PAGE)
+        .map(|(_, c)| {
+            let co = &w.coaches[c];
+            let warm = x.warmth(c);
+            let free = co.job.is_none();
+            let same_level =
+                co.job.is_some_and(|j| std::mem::discriminant(&j.employer) == std::mem::discriminant(&emp));
+            let lateral = co.job.is_some_and(|j| job_rung(j.role) >= job_rung(role));
+            let blocked = matches!(emp, Employer::Nfl(_)) && same_level && lateral && !free;
+            let mut known = if warm >= 0.6 {
+                "A close contact".to_string()
+            } else if warm >= 0.3 {
+                "Someone you know".to_string()
+            } else if x.known(c) {
+                "You've looked at him".to_string()
+            } else {
+                "A stranger: you know his name and his record".to_string()
+            };
+            if let Ok(Some(id)) = super::backchannel::hs_hire(w, c)
+                && let Some(i) = super::person(w, id)
+            {
+                known.push_str(&format!("; he coaches {}, a five-star you're recruiting", w.people[i].name));
             }
-        } as f32;
-        let interviewed = w.folk.staff.interviewed.iter().find(|x| x.0 == c).map(|x| x.2);
-        let width = (5.5 - 4.0 * warm - if interviewed.is_some() { 1.5 } else { 0.0 }).max(1.2);
-        let bias =
-            super::roll_n(w, 0x5EAD, c as u64) as f32 * width * 0.4 + interviewed.map_or(0.0, |r| (r - teach) * 0.3);
-        let mid = (teach + bias).clamp(1.0, 20.0);
-        let read = ((mid - width / 2.0).max(1.0), (mid + width / 2.0).min(20.0));
-        let now = match co.job {
-            Some(j) => {
-                format!("{}, {}", super::takeover::cap_first(j.role.name()), Team::from_employer(j.employer).name(w))
-            }
-            None => co.history.last().map_or("Out of coaching".into(), |s| {
-                format!("Out of work (last: {}, {})", s.role.name(), Team::from_employer(s.employer).name(w))
-            }),
-        };
-        let asks = (base * (0.85 + 0.35 * co.reputation / 20.0) * if co.job.is_some() { 1.15 } else { 0.95 }).round();
-        let known = if warm >= 0.6 {
-            "A close contact".to_string()
-        } else if warm >= 0.3 {
-            "Someone you know".to_string()
-        } else {
-            "A stranger: you know his name and his record".to_string()
-        };
-        v.push((
-            score,
+            let look = super::coach_look::invested(w, c);
+            let outside = match role {
+                Role::PositionCoach(g) => co.came_up != g,
+                Role::OffensiveCoordinator => !co.came_up.offense(),
+                Role::DefensiveCoordinator => co.came_up.offense(),
+                Role::HeadCoach => false,
+            };
             Candidate {
                 coach: c,
                 name: co.name.clone(),
                 age: co.age,
-                now,
+                now: now_words(w, c),
+                level: level_of(w, c),
                 rep: super::rep_words(co.reputation).to_string(),
                 came_up: co.came_up.name().to_string(),
                 known,
-                read,
-                asks,
+                read: super::coach_look::read_job_in(w, &x, c, role),
+                scheme: coord.then(|| super::coach_look::read_in(w, &x, c, 8)),
+                calling: coord.then(|| super::coach_look::read_in(w, &x, c, 10)),
+                potential: super::coach_look::potential_in(w, &x, c).0,
+                hours: look.map_or(0.0, |l| l.film + l.talk),
+                asks: super::hiring::ask(w, c, role),
                 blocked,
-            },
-        ));
-    }
-    v.sort_by(|a, b| b.0.total_cmp(&a.0));
-    v.into_iter().take(24).map(|x| x.1).collect()
+                outside,
+            }
+        })
+        .collect();
+    Search { list, total, page, pages }
 }
 
 /// The open jobs on your staff.
@@ -529,6 +746,46 @@ fn interview_read(w: &World, c: usize, role: Role) -> f32 {
     };
     let talker = 0.3 * (co.personality.ambition - 10.0) + 0.2 * (a.relationships - 10.0);
     (real + talker + super::roll_n(w, 0x1E7 ^ c as u64, 1) * 1.5).clamp(1.0, 20.0) as f32
+}
+
+/// What an answer reads for one facet of his page (C25): a smooth talker
+/// still reads better than he is, except on what he wants.
+fn interview_facet(w: &World, c: usize, f: usize) -> f32 {
+    let co = &w.coaches[c];
+    let a = co.ability();
+    let talker = if f == super::coach_look::AMBITION {
+        0.0
+    } else {
+        0.3 * (co.personality.ambition - 10.0) + 0.2 * (a.relationships - 10.0)
+    };
+    let real = super::coach_look::truth(w, c, f);
+    (real + talker + super::roll_n(w, 0x1E7F ^ c as u64, f as u64) * 1.5).clamp(1.0, 20.0) as f32
+}
+
+/// The facets each interview question reads (C25).
+fn interview_facets(code: u32, role: Role) -> Vec<usize> {
+    match code {
+        60 => {
+            let mut v = vec![8];
+            match role {
+                Role::PositionCoach(g) => v.push(g as usize),
+                Role::OffensiveCoordinator | Role::DefensiveCoordinator => {
+                    let off = role == Role::OffensiveCoordinator;
+                    v.extend(
+                        Group::ALL
+                            .iter()
+                            .filter(|g| g.offense() == off && **g != Group::Specialists)
+                            .map(|g| *g as usize),
+                    );
+                }
+                Role::HeadCoach => {}
+            }
+            v
+        }
+        61 => vec![13, 12],
+        62 => vec![14, 15],
+        _ => vec![super::coach_look::AMBITION],
+    }
 }
 
 fn interview_open(w: &mut World, s: &mut Scene) {
@@ -630,7 +887,12 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
     );
     let k = Pick::default();
     let _ = k;
-    // Each answer sharpens your read of him a little.
+    // Each answer reads its own ratings onto his page (C25).
+    for f in interview_facets(code, role) {
+        let r = interview_facet(w, c, f);
+        super::coach_look::heard(w, c, f, r);
+    }
+    // And sharpens your staff screen's read of him a little.
     match w.folk.staff.interviewed.iter_mut().find(|x| x.0 == c) {
         Some(x) => {
             x.1 = w.today;
@@ -642,7 +904,7 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
         w.folk.staff.interviewed.remove(0);
     }
     if s.step >= 2 {
-        s.outcome.push(format!("You interviewed {name}. Your read of him is sharper; the staff screen shows it."));
+        s.outcome.push(format!("You interviewed {name}. Your read of him is sharper: his page shows it."));
         s.end();
     } else {
         let used = s.lines.iter().filter(|l| l.by == 1).count();
@@ -659,96 +921,6 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
         }
         s.pick(69, "Thank him and wrap it up", "End", "calm", "");
     }
-}
-
-/// Offers a job (topic 11). He decides by money against what he makes, the
-/// step up, play calling, ties and your name; his team may counter; an NFL
-/// club can block a lateral move. Returns his answer in words.
-pub fn offer(w: &mut World, c: usize, role: Role, salary: f64, years: i32) -> Result<String, String> {
-    let team = Team::seat(w).ok_or("You have no team.")?;
-    if !openings(w).contains(&role) {
-        return Err("That job isn't open on your staff. Let someone go first.".into());
-    }
-    let co = w.coaches.get(c).ok_or("No such coach.")?.clone();
-    let emp = team.employer();
-    let now = w.folk.staff.deal(c).map_or(co.job.map_or(0.0, |j| pay(w, j.employer, j.role)), |d| d.salary);
-    let same_level = co.job.is_some_and(|j| std::mem::discriminant(&j.employer) == std::mem::discriminant(&emp));
-    let step = co.job.map_or(1.0, |j| match (j.role, role) {
-        (Role::PositionCoach(_), Role::OffensiveCoordinator | Role::DefensiveCoordinator) => 1.0,
-        (a, b) if a == b => 0.0,
-        _ => -0.5,
-    });
-    if matches!(emp, Employer::Nfl(_)) && same_level && step <= 0.0 && co.job.is_some() {
-        let blocks = super::roll(w, 0xB10C, c as u64 ^ w.today.0 as u64) < 0.7;
-        if blocks {
-            return Ok(format!(
-                "{}'s club denied permission: a lateral move under contract can be blocked. He stays where he is.",
-                co.name
-            ));
-        }
-    }
-    if let Employer::HighSchool(_) = emp {
-        let opening = super::roll(w, 0x7EAC, c as u64 ^ w.year as u64) < 0.55;
-        if !opening {
-            return Ok(format!(
-                "The principal has no teaching opening in {}'s subject this year. The board won't approve a coaching-only hire.",
-                co.name
-            ));
-        }
-    }
-    let money = if now > 0.0 { (salary / now - 1.0).clamp(-0.5, 1.0) } else { 0.6 };
-    let warm = super::network::warmth(w, c) as f64;
-    let rep = facts::your_rep(w) / 20.0;
-    let loyal = (co.personality.loyalty - 10.0) / 10.0;
-    let years_v = 0.04 * (years - 1) as f64 * (1.0 + loyal.max(0.0));
-    let score = 0.8 * money + 0.5 * step + 0.4 * warm + 0.3 * (rep - 0.5) + years_v
-        - if co.job.is_some() { 0.25 + 0.2 * loyal } else { -0.2 };
-    let u = super::roll(w, 0x0FFE, c as u64 ^ w.today.0 as u64);
-    // His team counters for a man it wants to keep.
-    let counter = co.job.is_some() && co.reputation >= 11.0 && u < 0.4;
-    let yes = score + if counter { -0.2 } else { 0.0 } > 0.05 + 0.1 * u;
-    if !yes {
-        let why = if counter {
-            "his school matched it with a raise and a better title"
-        } else if money < 0.0 {
-            "the money isn't there"
-        } else if step < 0.0 {
-            "it's a step down for him"
-        } else {
-            "he wants to stay where his family is settled"
-        };
-        talks::spend(w, 0.0);
-        return Ok(format!("{} turned you down: {why}.", co.name));
-    }
-    // Hired.
-    if co.job.is_some() {
-        if let Some(d) = w.folk.staff.deal(c).copied()
-            && d.buyout > 0.0
-            && d.through > w.year
-        {
-            let owed = d.salary * (d.through - w.year) as f64 * d.buyout as f64;
-            match w.folk.staff.owed.iter_mut().find(|x| x.0 == w.year) {
-                Some(x) => x.1 += owed,
-                None => w.folk.staff.owed.push((w.year, owed)),
-            }
-        }
-        crate::world::staff::leave(w, c, "left for another job");
-    }
-    crate::world::staff::hire(w, c, emp, role);
-    w.folk.staff.deals.retain(|d| d.coach != c);
-    let buy = if years >= 2 && matches!(emp, Employer::College(_)) { 0.4 } else { 0.0 };
-    w.folk.staff.deals.push(Deal { coach: c, salary, through: w.year + years.max(1) - 1, buyout: buy });
-    w.folk.mine.set_trust(coach_key(c), 0.6 + 0.2 * warm as f32);
-    super::network::touch(w, c, 0.15);
-    let text = format!(
-        "{} is your new {}: {} years at ${} a year.",
-        co.name,
-        role.name(),
-        years.max(1),
-        facts::thousands((salary / 1000.0) as u32) + ",000"
-    );
-    super::post_mine(w, w.today, Loudness::Small, false, "people: staff", &text);
-    Ok(text)
 }
 
 /// Gives an assistant a raise (keeps a promise of one).

@@ -24,7 +24,7 @@ fn team_code(t: Team) -> u32 {
         Team::Nfl(i) => i as u32,
         Team::College(i) => 100_000 + i as u32,
         Team::High(i) => 1_000_000 + i as u32,
-        Team::Other(i) => 2_000_000 + i as u32,
+        Team::Other(i) => 10_000_000 + i as u32,
     }
 }
 
@@ -205,6 +205,7 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
         loud: if s.stops { 2 } else { 1 },
         ids: player.into_iter().collect(),
         org_team: Some(team_code(team)),
+        why: Vec::new(),
     });
     c.desk.mails.sort_by_key(|m| (m.date, m.minute));
 }

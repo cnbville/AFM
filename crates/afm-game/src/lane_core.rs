@@ -13,6 +13,7 @@
 pub mod desk;
 pub mod links;
 pub mod mail;
+pub mod moves;
 pub mod pages;
 pub mod people;
 pub mod tables;
@@ -29,6 +30,8 @@ pub fn after_days(w: &mut World) {
     let before = w.career.as_ref().and_then(|c| c.desk.through);
     mail::after_days(w);
     crate::lane_stories::after_days(w);
+    crate::lane_squadboards::after_days(w);
+    crate::lane_handbook::after_days(w);
     if let Some(b) = before {
         let mut d = b.add(1);
         let mut monday = false;
@@ -39,6 +42,7 @@ pub fn after_days(w: &mut World) {
         if monday {
             desk::watch_mail(w);
         }
+        crate::lane_find::after_days(w, b);
     }
 }
 
@@ -84,6 +88,28 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             )
         })(),
         "watch_set" => desk::watch_set(w, args),
+        // The moves that fit a player, a coach or a team (minor bugs 62-64).
+        "moves" => (|| {
+            let kind = args.get("kind").and_then(Value::as_str).unwrap_or("player");
+            Ok(json!(match kind {
+                "coach" => moves::coach(w, id_arg(args)? as usize),
+                "nfl" | "college" | "hs" | "other" | "team" =>
+                    moves::team(w, crate::views::TeamRef::from_args(w, args)?),
+                _ => moves::player(w, id_arg(args)? as u32),
+            }))
+        })(),
+        // Injured reserve on your club (minor bug 73) and redshirts on your
+        // college team (minor bug 77): your call.
+        "ir_place" => id_arg(args)
+            .and_then(|id| afm_engine::world::front_office::reserve::place(w, id as u32))
+            .map(|t| json!({ "text": t })),
+        "ir_back" => id_arg(args)
+            .and_then(|id| afm_engine::world::front_office::reserve::activate(w, id as u32))
+            .map(|t| json!({ "text": t })),
+        "redshirt_set" => (|| {
+            let on = args.get("on").and_then(Value::as_bool).unwrap_or(true);
+            afm_engine::world::front_office::redshirt::set(w, id_arg(args)? as u32, on).map(|t| json!({ "text": t }))
+        })(),
         "reveals" => Ok(desk::take_reveals(w)),
         // The big tables.
         "leaders" => Ok(tables::leaders(w, args)),
@@ -108,7 +134,33 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "career_page" => Ok(pages::career_page(w)),
         "team_page" => crate::views::TeamRef::from_args(w, args).map(|t| pages::team_page(w, t)),
         "linked" => Ok(pages::linked(w, args)),
+        // The no-fire override (Settings, a test switch).
+        "no_fire" => Ok(no_fire(w)),
+        "no_fire_set" => {
+            w.set_no_fire(args.get("on").and_then(Value::as_bool).unwrap_or(false));
+            Ok(no_fire(w))
+        }
         _ => return None,
     };
     Some(r)
+}
+
+/// The no-fire override as Settings shows it: on or off, the day it was
+/// first turned on (the career's mark) and each time it kept you in a job,
+/// newest first.
+fn no_fire(w: &World) -> Value {
+    let k = w.career.as_ref();
+    let spared: Vec<Value> = k.map_or(Vec::new(), |k| {
+        k.spared
+            .iter()
+            .rev()
+            .map(|(d, at, why)| json!({ "date": crate::views::date_text(*d), "at": at, "why": why }))
+            .collect()
+    });
+    json!({
+        "career": k.is_some(),
+        "on": k.is_some_and(|k| k.no_fire),
+        "since": k.and_then(|k| k.no_fire_since).map(crate::views::date_text),
+        "spared": spared,
+    })
 }

@@ -32,16 +32,23 @@ pub(crate) fn day(w: &mut World, d: Date) {
     hold(w, d);
 }
 
-/// Who is eligible: college players three years out of high school who
-/// lost their eligibility this year (dismissed, or academically ineligible
-/// for the fall) and are still in the world.
+/// Who enters: college players three years out of high school who lost
+/// their eligibility this year (dismissed, or academically ineligible for
+/// the fall), are still in the world and would go in the first four rounds
+/// of a regular draft (last draft's bar for rounds 3-4). Real players who
+/// lose their eligibility mostly transfer down a level or sit the year and
+/// enter the next draft; the supplemental route was for the few clubs
+/// would spend a real pick on (minor bug 134: every such player of 55 or
+/// more entered, 21-40 a year, and 12-36 were taken, against about one a
+/// year in 2010-2019).
 pub fn eligible(w: &World) -> Vec<usize> {
+    let bar = w.draft_bars.map_or(70.0, |b| b.1);
     (0..w.people.len())
         .filter(|&i| {
             let p = &w.people[i];
             let lost = p.cal.fall_ineligible
                 || p.player.history.last().is_some_and(|s| s.events.has(crate::player::DevelopmentEvent::Dismissed));
-            p.stage == Stage::College && lost && w.year - p.class_of >= 3 && p.player.overall() >= 55.0
+            p.stage == Stage::College && lost && w.year - p.class_of >= 3 && p.player.overall() >= bar
         })
         .collect()
 }
@@ -52,7 +59,7 @@ fn hold(w: &mut World, d: Date) {
     if cands.is_empty() {
         return;
     }
-    let teams = crate::world::franchise::active_teams(year + 1);
+    let teams = crate::world::franchise::active_teams_in(w, year + 1);
     let seat = w.seat.and_then(|s| s.nfl_team);
     for i in cands {
         let p = &w.people[i];

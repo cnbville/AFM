@@ -326,7 +326,7 @@ pub fn media_name(seed: u32, id: u32, born: u16, ethnicity: Ethnicity) -> String
 
 fn fbs_count_by_state(w: &World) -> [f64; 51] {
     let mut n = [0.0; 51];
-    for p in w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(w.year)) {
+    for p in w.programs.iter().filter(|p| p.division == Division::FBS && p.fields_games(w.year)) {
         n[p.state.min(50)] += 1.0;
     }
     n
@@ -436,7 +436,7 @@ fn renew_coaches(w: &World, v: &mut Voters, rng: &mut Rng) {
     let heads: Vec<(usize, u32, &str)> = w
         .programs
         .iter()
-        .filter(|p| p.division == Division::FBS && p.plays(year) && !p.roster.is_empty())
+        .filter(|p| p.division == Division::FBS && p.fields_games(year) && !p.roster.is_empty())
         .filter_map(|p| p.head_coach.map(|c| (p.id, c as u32, p.conference.as_str())))
         .collect();
     if heads.is_empty() {
@@ -485,12 +485,12 @@ fn renew_coaches(w: &World, v: &mut Voters, rng: &mut Rng) {
     v.coaches = keep;
 }
 
-fn power_conf(conf: &str, year: i32) -> bool {
+pub(crate) fn power_conf(conf: &str, year: i32) -> bool {
     match conf {
         "SEC" | "Big Ten" | "Big 12" | "ACC" => true,
         "Pac-12" | "Pac-10" => year <= 2023,
         "Big East" => year <= 2013,
-        "Big Eight" | "Southwest" => true,
+        "Big Eight" | "SWC" | "Southwest" => true,
         _ => false,
     }
 }
@@ -498,8 +498,7 @@ fn power_conf(conf: &str, year: i32) -> bool {
 /// A Group of Five (before 2014, non-BCS) program: not in a power
 /// conference and not Notre Dame.
 pub(crate) fn group_of_five(w: &World, prog: usize) -> bool {
-    let p = &w.programs[prog];
-    p.real_name != "Notre Dame" && !power_conf(&p.conference, w.year)
+    !w.programs[prog].power_conference(w.year)
 }
 
 /// A new committee member of a background.
@@ -523,7 +522,7 @@ fn new_member(w: &World, v: &Voters, role: MemberRole, rng: &mut Rng) -> Member 
             let fbs: Vec<&super::program::Program> = w
                 .programs
                 .iter()
-                .filter(|p| p.division == Division::FBS && p.plays(year) && !taken_school(p.id))
+                .filter(|p| p.division == Division::FBS && p.fields_games(year) && !taken_school(p.id))
                 .collect();
             let missing_power: Vec<&&super::program::Program> = fbs
                 .iter()

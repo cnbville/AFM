@@ -5,7 +5,7 @@
 //! the installs, the week's game plan and call sheet, your designed plays
 //! and your packages. Everything here is your team's only (memory gate).
 
-use super::plan::{Day, Kind, Period, SLOTS, Slot, Template, Week, fit, neutral, styled, week_from};
+use super::plan::{Kind, Period, SLOTS, Slot, Template, Week, fit, neutral, styled, week_from};
 use super::rules::{BLOCKS, Block, Book, Breach, Counts, Frame, Tier, block_limits, check_week, weekly_base};
 use super::week::{Frames, block_of_week, books};
 use super::work::{Role, absorb_factor, ratio, share, week_load, week_work};
@@ -133,6 +133,9 @@ pub struct SheetPlay {
     pub backfield: Backfield,
     pub set: Set,
     pub play: SheetKind,
+    /// The hash it is called from (update 2, G10): 0 either, 1 left, 2 right.
+    #[serde(default)]
+    pub hash: u8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -144,8 +147,9 @@ pub enum SheetKind {
     Design(u16),
 }
 
-/// The call sheet's situations.
-pub const SHEET: [&str; 10] = [
+/// The call sheet's situations (`game::sheet` has their keys; update 2,
+/// G9 added the five after the two-minute drill).
+pub const SHEET: [&str; 15] = [
     "Opening script",
     "First and 10",
     "Second and long",
@@ -156,6 +160,11 @@ pub const SHEET: [&str; 10] = [
     "Red zone",
     "Goal line",
     "Two-minute",
+    "Second and medium",
+    "Backed up",
+    "Four-minute",
+    "Shot plays",
+    "Two-point",
 ];
 
 /// The week's game plan (calendar topic 6, plays and tactics topic 5):
@@ -196,10 +205,13 @@ pub enum Board {
     PuntReturn,
     PuntCover,
     FieldGoal,
+    /// Three tight ends (13 personnel) outside the goal line (update 2,
+    /// G15).
+    Jumbo,
 }
 
 impl Board {
-    pub const ALL: [Board; 9] = [
+    pub const ALL: [Board; 10] = [
         Board::Nickel,
         Board::Dime,
         Board::GoalLineD,
@@ -209,6 +221,7 @@ impl Board {
         Board::PuntReturn,
         Board::PuntCover,
         Board::FieldGoal,
+        Board::Jumbo,
     ];
     pub fn name(self) -> &'static str {
         [
@@ -221,6 +234,7 @@ impl Board {
             "punt_return",
             "punt_cover",
             "field_goal",
+            "jumbo",
         ][self as usize]
     }
     pub fn label(self) -> &'static str {
@@ -234,6 +248,7 @@ impl Board {
             "Punt return",
             "Punt coverage",
             "Field goal and extra point",
+            "Jumbo",
         ][self as usize]
     }
     pub fn parse(s: &str) -> Option<Board> {
@@ -281,6 +296,18 @@ impl Board {
                 ("CB", CB),
                 ("CB", CB),
                 ("SS", S),
+            ],
+            Board::Jumbo => &[
+                ("QB", QB),
+                ("LT", OT),
+                ("LG", IOL),
+                ("C", IOL),
+                ("RG", IOL),
+                ("RT", OT),
+                ("TE", TE),
+                ("TE", TE),
+                ("TE", TE),
+                ("RB", RB),
             ],
             Board::GoalLineO => &[
                 ("QB", QB),
@@ -374,6 +401,10 @@ pub struct SeatTraining {
     pub this_week: Option<(Date, Week)>,
     pub plans: Vec<Plan>,
     pub hurt: Vec<Hurt>,
+    /// Every other college and high school player out hurt (update 3, A1
+    /// and F13): id, back on (the day he can play again), what it is.
+    #[serde(default)]
+    pub others_hurt: std::collections::BTreeMap<u32, (Date, Option<InjuryKind>)>,
     pub notes: Vec<Note>,
     pub log: Vec<WeekLog>,
     pub reports: Vec<Report>,
@@ -410,6 +441,205 @@ pub struct SeatTraining {
     /// Your players' time on their own since it began (topic 9).
     #[serde(default)]
     pub away: Vec<Away>,
+    /// When each of your players arrived (TR8: new arrivals).
+    #[serde(default)]
+    pub arrived: Vec<(u32, Date)>,
+    /// Routes on air beyond an average staff's (TR20): the quarterback's
+    /// timing with his receivers, in chemistry (`chemistry::apply`).
+    #[serde(default)]
+    pub air: f32,
+    /// Outings and the leadership council beyond an average staff's since
+    /// camp (TR32, TR33): friendships form a little more or less easily.
+    #[serde(default)]
+    pub bonds: f32,
+    /// The strength staff's testing days, the last three (TR5).
+    #[serde(default)]
+    pub tests: Vec<TestDay>,
+    /// Your NFL club's practice risk from your own week, set by your week
+    /// and read by the clubs' practice injuries (0 when there's none).
+    #[serde(skip)]
+    pub my_risk: f32,
+}
+
+/// A testing day's results (TR5).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestDay {
+    pub date: Date,
+    pub rows: Vec<TestRow>,
+    /// Your staff's baseline in its first week, not a testing day.
+    #[serde(default)]
+    pub baseline: bool,
+}
+
+/// One player's numbers: bench, squat and clean in pounds, his reps at 225
+/// (the NFL's bench), the 40 and its 10-yard split and the short shuttle in
+/// hundredths of a second, the vertical in half inches, his weight.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestRow {
+    pub id: u32,
+    pub bench: u16,
+    pub reps: u8,
+    pub squat: u16,
+    pub clean: u16,
+    pub forty: u16,
+    pub split: u16,
+    pub shuttle: u16,
+    pub vertical: u8,
+    pub weight: u16,
+}
+
+/// A player's testing numbers today: the combine's expected results for his
+/// ratings and body with a test day's noise (keyed), the lifts from his
+/// bench max (his strength at 220 lb scaled by his weight to the two-thirds
+/// power; squat about 1.45 times it, the power clean about 0.88; proposed,
+/// not confirmed: strength staffs' usual ratios).
+pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
+    let c = crate::body::Drills::of(p).expected();
+    let wt = crate::body::body_now(p).weight;
+    let n = |k: u64, sd: f64| crate::world::season::key_normal(key ^ k, p.id as u64) * sd;
+    let reps = (c.bench + n(1, 1.5)).round().clamp(0.0, 50.0);
+    // His max: the combine's reps are fitted at draft weights, so read his
+    // strength at 220 lb and scale it by his weight to the two-thirds power
+    // (the way strength goes with size; a 160 lb receiver doesn't press
+    // what the fit gives a 200 lb one).
+    let at_220 = crate::body::Drills { weight: 220.0, ..crate::body::Drills::of(p) }.expected().bench + n(1, 1.5);
+    let strength = p.attributes.get(Attr::Strength);
+    let one = if at_220 >= 1.0 {
+        225.0 * (1.0 + at_220 / 30.0) * (wt.max(100.0) / 220.0).powf(0.67)
+    } else {
+        (wt * clamp(0.55 + 0.011 * (strength - 25.0), 0.45, 1.6)).min(220.0)
+    };
+    let five = |x: f64| ((x / 5.0).round() * 5.0).clamp(0.0, 900.0) as u16;
+    let bench = one * (1.0 + n(2, 0.02));
+    let forty = (c.forty + n(5, 0.03)).clamp(4.2, 6.5);
+    TestRow {
+        id: p.id,
+        bench: five(bench),
+        reps: reps as u8,
+        squat: five(bench * 1.45 * (1.0 + n(3, 0.04))),
+        clean: five(bench * 0.88 * (1.0 + n(4, 0.04))),
+        forty: (forty * 100.0).round() as u16,
+        split: ((0.375 * forty - 0.15 + n(6, 0.015)) * 100.0).round() as u16,
+        shuttle: ((c.shuttle + crate::body::drill_knack(p).1 + n(7, 0.04)).clamp(3.8, 6.0) * 100.0).round() as u16,
+        vertical: ((c.vertical + n(8, 0.8)).clamp(14.0, 46.0) * 2.0).round() as u8,
+        weight: wt.round().clamp(0.0, 500.0) as u16,
+    }
+}
+
+/// A practice day's weather and where the team went (TR15).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DayWeather {
+    /// Degrees Fahrenheit at practice time.
+    pub temp: i16,
+    /// "outside", "inside" (moved to the indoor field), "delayed" (a
+    /// lightning hold took half an hour) or "lost" (the field work lost).
+    pub place: &'static str,
+    /// What moved it: "rain", "snow", "cold", "wind", "lightning",
+    /// "severe weather", or "" for a normal day.
+    pub why: &'static str,
+}
+
+/// Whether your team has an indoor field (proposed, not confirmed: every
+/// NFL club; FBS programs past a modest facilities grade, FCS programs
+/// with good ones, the best-funded high schools).
+pub fn indoor_field(w: &World, st: &SeatTeam) -> bool {
+    let Some(seat) = w.seat else { return false };
+    match st.tier {
+        Tier::Pro => true,
+        Tier::College => seat.program.and_then(|p| w.programs.get(p)).is_some_and(|p| {
+            p.facilities
+                > match p.division {
+                    crate::world::data::Division::FBS => 0.35,
+                    crate::world::data::Division::FCS => 0.7,
+                    _ => 0.9,
+                }
+        }),
+        Tier::High => seat.program.and_then(|h| w.high_schools.get(h)).is_some_and(|h| h.resources > 0.85),
+    }
+}
+
+/// Your team's town for its practice weather: state index, code and town.
+fn practice_town(w: &World, st: &SeatTeam) -> Option<(usize, String, String)> {
+    let seat = w.seat?;
+    match st.tier {
+        Tier::Pro => {
+            let (town, code) = crate::world::finance::nfl::city(w, seat.nfl_team?, w.year);
+            let code = if code.is_empty() { "NY".to_string() } else { code };
+            Some((crate::world::geo::state_index(&code)?, code, town))
+        }
+        Tier::College => {
+            let p = w.programs.get(seat.program?)?;
+            Some((p.state, w.states[p.state].code.clone(), p.city.clone()))
+        }
+        Tier::High => {
+            let h = w.high_schools.get(seat.program?)?;
+            Some((h.state, w.states[h.state].code.clone(), h.town.clone()))
+        }
+    }
+}
+
+/// The week's practice weather for your team (TR15; proposed, not
+/// confirmed): severe weather and lightning send a team with an indoor
+/// field inside and cost one without it the day's field work or half an
+/// hour; snow, bitter cold and high wind send it inside when it can; rain
+/// does about half the time. Days with no field work have none.
+pub fn practice_weather(w: &World, st: &SeatTeam, monday: Date, wk: &Week) -> [Option<DayWeather>; 7] {
+    let Some((state, code, town)) = practice_town(w, st) else { return [None; 7] };
+    let inside = indoor_field(w, st);
+    let seed = w.options.seed as u64;
+    std::array::from_fn(|k| {
+        let day = &wk.days[k];
+        if day.game || !day.periods.iter().any(|p| p.kind.on_field() && !p.own()) {
+            return None;
+        }
+        let d = monday.add(k as i32);
+        let hour = match st.tier {
+            Tier::Pro => 11,
+            _ if st.frame.block(d) == Block::Camp => 9,
+            _ => 15,
+        };
+        let wx = crate::calendar::weather::weather_in(seed, state, &code, &town, d, hour);
+        let temp = wx.temperature.round() as i16;
+        let (place, why) = if wx.severe.is_some() {
+            (if inside { "inside" } else { "lost" }, "severe weather")
+        } else if wx.lightning {
+            (if inside { "inside" } else { "delayed" }, "lightning")
+        } else if wx.snow {
+            (if inside { "inside" } else { "outside" }, "snow")
+        } else if wx.temperature < 20.0 {
+            (if inside { "inside" } else { "outside" }, "cold")
+        } else if wx.wind > 30.0 {
+            (if inside { "inside" } else { "outside" }, "wind")
+        } else if wx.rain {
+            let moved = inside && crate::world::season::key_uniform(seed ^ 0x2A1, d.0 as u64) < 0.5;
+            (if moved { "inside" } else { "outside" }, "rain")
+        } else {
+            ("outside", "")
+        };
+        Some(DayWeather { temp, place, why })
+    })
+}
+
+/// What the weather takes from a week: a lost day's field work, half an
+/// hour of a delayed one's.
+pub fn weather_cuts(wk: &mut Week, wx: &[Option<DayWeather>; 7]) {
+    for (d, x) in wk.days.iter_mut().zip(wx.iter()) {
+        match x.map(|x| x.place) {
+            Some("lost") => d.periods.retain(|p| !p.kind.on_field() || p.own()),
+            Some("delayed") => {
+                let mut cut = 30u8;
+                while cut > 0 {
+                    let Some(p) = d.periods.iter_mut().filter(|p| p.kind.on_field() && p.min > 5).max_by_key(|p| p.min)
+                    else {
+                        break;
+                    };
+                    p.min -= 5;
+                    cut -= 5;
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 impl SeatTraining {
@@ -435,6 +665,23 @@ impl SeatTraining {
 
     pub fn hurt_on(&self, id: u32, d: Date) -> Option<&Hurt> {
         self.hurt.iter().find(|h| h.id == id && h.until > d)
+    }
+
+    /// Out of a game on day `d`: hurt in practice (or on the non-football
+    /// list) and not back yet. Only your team's players are kept here.
+    pub fn hurt_out(&self, id: u32, d: Date) -> bool {
+        self.hurt.iter().any(|h| h.id == id && h.from <= d && h.until > d)
+            || self.others_hurt.get(&id).is_some_and(|x| x.0 > d)
+    }
+
+    /// Another team's player out hurt on day `d`: what it is and when he is back.
+    pub fn other_hurt(&self, id: u32, d: Date) -> Option<(Date, Option<InjuryKind>)> {
+        self.others_hurt.get(&id).copied().filter(|x| x.0 > d)
+    }
+
+    /// Arrived in the last two weeks (a save from before reads nobody as new).
+    pub fn is_new(&self, id: u32, d: Date) -> bool {
+        !self.arrived.is_empty() && self.arrived.iter().find(|a| a.0 == id).is_none_or(|a| a.1 > d.add(-14))
     }
 
     pub fn install_level(&self, key: InstallKey) -> f32 {
@@ -519,6 +766,21 @@ pub fn seat_team(w: &World, frames: &Frames) -> Option<SeatTeam> {
     Some(SeatTeam { tier, level, frame, weeks, state, heat, roster, style, games })
 }
 
+/// Your team's frame for the football year of `y`, the same `seat_team`
+/// reads, without the roster (Continue's training block stops).
+pub fn seat_frame(w: &World, y: &crate::calendar::YearDates) -> Option<Frame> {
+    let seat = w.seat?;
+    match seat.level {
+        Cal::Nfl => seat.nfl_team.map(|_| Frame::pro(y, false)),
+        Cal::HighSchool => {
+            let s = w.high_schools.get(seat.program?)?.state;
+            (s < w.states.len()).then(|| super::week::state_frame(w, y, s).0)
+        }
+        Cal::College => Some(super::week::division_frame(y, w.programs.get(seat.program?)?.division)),
+        _ => None,
+    }
+}
+
 /// The books of a slot for checking a template (a mid-block week).
 pub fn slot_books(st: &SeatTeam, slot: Slot) -> [Book; 7] {
     let b = match slot {
@@ -533,7 +795,10 @@ pub fn slot_books(st: &SeatTeam, slot: Slot) -> [Book; 7] {
         Slot::Otas => Block::Otas,
         Slot::Own => Block::Quiet,
     };
-    std::array::from_fn(|_| super::rules::book(st.tier, b, st.frame.season, 30, st.state, st.heat))
+    std::array::from_fn(|_| Book {
+        big: st.frame.big,
+        ..super::rules::book(st.tier, b, st.frame.season, 30, st.state, st.heat)
+    })
 }
 
 /// The week planned from Monday `monday`: its block and slot, the books,
@@ -541,6 +806,9 @@ pub fn slot_books(st: &SeatTeam, slot: Slot) -> [Book; 7] {
 /// staff's default, kept inside the rules), the neutral week, and what the
 /// staff had to change.
 pub struct PlannedWeek {
+    pub monday: Date,
+    /// The practice days' weather and where the team went (TR15).
+    pub weather: [Option<DayWeather>; 7],
     pub block: Block,
     pub slot: Slot,
     pub books: [Book; 7],
@@ -565,12 +833,25 @@ pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
     let (mut wk, yours) = match &t.this_week {
         Some((m, wk)) if *m == monday => (wk.clone(), true),
         _ => {
-            (week_from(slot, monday, &games, &tpl(slot), &tpl(Slot::Bye)), t.templates.iter().any(|(s, _)| *s == slot))
+            let mut wk = week_from(slot, monday, &games, &tpl(slot), &tpl(Slot::Bye));
+            super::plan::extras(&st.frame, monday, &mut wk);
+            (wk, t.templates.iter().any(|(s, _)| *s == slot))
         }
     };
     let before = wk.clone();
     if !pushed {
         fit(&mut wk, &bk);
+    }
+    // A state's heat rule cuts a hot day's practice to an hour (update 3,
+    // F9); a week run past the rules ignores it.
+    let mut heat_cut = (0u8, [0.0; 7]);
+    if !pushed
+        && st.tier == Tier::High
+        && st.heat
+        && let Some(h) = w.seat_school()
+    {
+        let (hot, hi) = super::week::hot_days(w.options.seed as u64, w.high_schools[h].state, st.state, monday);
+        heat_cut = (super::week::heat_cut(&mut wk, hot), hi);
     }
     // What is left of the block's counts (spring's 15 practices, the NFL's
     // 14 padded practices in season).
@@ -605,13 +886,22 @@ pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
         for (k, (a, b)) in before.days.iter().zip(wk.days.iter()).enumerate() {
             if a != b {
                 let day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][k];
-                fitted.push(format!("{day}: toned down to stay within the rules ({}).", bk[k].rule));
+                if heat_cut.0 & (1 << k) != 0 {
+                    fitted.push(format!(
+                        "{day}: heat index {:.0} F at 3pm, so the state's heat rule cuts practice to an hour, moved to the evening.",
+                        heat_cut.1[k]
+                    ));
+                } else {
+                    fitted.push(format!("{day}: toned down to stay within the rules ({}).", bk[k].rule));
+                }
             }
         }
     }
     let nk =
         super::week::staff_week(st.tier, &st.frame, monday, &games, bowl, st.state, st.heat, &|s| neutral(st.tier, s));
-    PlannedWeek { block, slot, books: bk, week: wk, neutral: nk, fitted, games, yours, pushed }
+    let weather = practice_weather(w, st, monday, &wk);
+    weather_cuts(&mut wk, &weather);
+    PlannedWeek { monday, weather, block, slot, books: bk, week: wk, neutral: nk, fitted, games, yours, pushed }
 }
 
 /// Saves a template for a slot after checking it against the slot's rules
@@ -623,7 +913,7 @@ pub fn save_template(w: &mut World, slot: Slot, t: Template) -> Result<(), Vec<B
     let bk = slot_books(&st, slot);
     let mut probe = Week { days: t.clone() };
     if slot == Slot::Game {
-        probe.days[6] = Day { game: true, ..Default::default() };
+        probe.days[6].game = true;
     }
     let breaches = check_week(&bk, &probe);
     if !breaches.is_empty() {
@@ -702,7 +992,8 @@ pub fn own_week(base: &Week, plan: &Plan, hurt: bool, does_extra: bool) -> Week 
     let mut wk = base.clone();
     if hurt {
         for d in wk.days.iter_mut() {
-            d.periods.retain(|p| matches!(p.kind, Kind::Meeting | Kind::Film | Kind::Recovery | Kind::WeightRoom));
+            // The classroom and the weight room he can do; no field, no mats.
+            d.periods.retain(|p| !p.kind.on_field() && !matches!(p.kind, Kind::MatDrills | Kind::Testing));
             if !d.periods.is_empty() {
                 d.periods.push(Period::new(Kind::Recovery, 45, super::plan::Gear::None, super::plan::Contact::Air));
             }
@@ -734,6 +1025,142 @@ pub fn own_week(base: &Week, plan: &Plan, hurt: bool, does_extra: bool) -> Week 
     wk
 }
 
+/// What a week's non-contact periods do beyond growth and prep (proposed,
+/// not confirmed): a third morning of mat drills costs mood (TR6); routes
+/// on air warm the quarterback's timing with his receivers (TR20); outings
+/// and the leadership council lift the room and help friendships form
+/// (TR32, TR33); study hall moves a flagged player's grades (TR14: under
+/// the level's eligibility line or in his first semester, `study_flag`).
+fn team_effects(w: &mut World, st: &SeatTeam, pw: &PlannedWeek) {
+    let on_air = |p: &Period| p.kind == Kind::OnAir;
+    let air = minutes(&pw.week, on_air) - minutes(&pw.neutral, on_air);
+    let social = |p: &Period| matches!(p.kind, Kind::TeamBuilding | Kind::Council);
+    let tb = minutes(&pw.week, social) - minutes(&pw.neutral, social);
+    let mats = pw.week.days.iter().filter(|x| x.periods.iter().any(|p| p.kind == Kind::MatDrills)).count();
+    let halls = |wk: &Week| wk.days.iter().flat_map(|x| &x.periods).filter(|p| p.kind == Kind::StudyHall).count();
+    let hall = halls(&pw.week) as f64 - halls(&pw.neutral) as f64;
+    let t = &mut w.training;
+    t.air = (t.air * 0.97 + (0.001 * air / 30.0) as f32).clamp(-0.05, 0.1);
+    t.bonds = (t.bonds + (0.01 * tb / 60.0) as f32).clamp(-0.15, 0.25);
+    let room = clamp(0.004 * tb / 60.0, -0.01, 0.015) as f32;
+    let grind = if mats > 2 { -0.02 * (mats - 2) as f32 } else { 0.0 };
+    for &i in &st.roster {
+        let id = w.people[i].player.id;
+        if grind < 0.0 {
+            crate::world::folk::talks::mood_event(w, id, crate::world::folk::talks::Reason::Practice, grind);
+        }
+        let p = &mut w.people[i];
+        p.mood = (p.mood + room).clamp(-1.0, 1.0);
+        if hall != 0.0 && study_flag(st.tier, p.bg.gpa, p.college_seasons) {
+            p.bg.gpa = clamp(p.bg.gpa + 0.003 * hall, 0.0, 4.0);
+        }
+    }
+}
+
+/// The level's real academic eligibility line (update 3, F12): a high
+/// schooler's 2.0; in college the NCAA's, the freshman's 2.3 core average,
+/// then progress toward a degree at 90%, 95% and 100% of a 2.0 (1.8, 1.9,
+/// 2.0). Study hall and the practice screen flag the players under it,
+/// and every college player in his first season.
+pub fn eligibility_line(tier: Tier, college_seasons: u32) -> f64 {
+    match (tier, college_seasons) {
+        (Tier::High, _) => 2.0,
+        (_, 0) => 2.3,
+        (_, 1) => 1.8,
+        (_, 2) => 1.9,
+        _ => 2.0,
+    }
+}
+
+/// Whether study hall flags him (update 3, F12; TR14).
+pub fn study_flag(tier: Tier, gpa: f64, college_seasons: u32) -> bool {
+    tier != Tier::Pro
+        && (gpa < eligibility_line(tier, college_seasons) || (tier == Tier::College && college_seasons == 0))
+}
+
+/// A week's minutes in the periods `f` picks.
+fn minutes(wk: &Week, f: impl Fn(&Period) -> bool) -> f64 {
+    wk.days.iter().flat_map(|x| &x.periods).filter(|p| f(p)).map(|p| p.min as f64).sum()
+}
+
+/// Mobility against the neutral week (TR23; proposed, not confirmed):
+/// looser soft tissue, up to a tenth fewer hamstrings, a tenth more when
+/// it's cut.
+fn limber(pw: &PlannedWeek) -> f64 {
+    limber_of(&pw.week, &pw.neutral)
+}
+
+/// Your team's week seed (the same in the Monday pass and the screens).
+fn seat_seed(w: &World, d: Date) -> u64 {
+    w.options.seed as u64 ^ (d.0 as u64) << 20 ^ 0x5EA7
+}
+
+/// Whether he really does the extra work he says he'll do this week.
+fn does_extra(p: &crate::world::Person, seed: u64) -> bool {
+    let t = &p.player.personality;
+    crate::world::season::key_uniform(seed ^ 0xE7, p.player.id as u64)
+        < clamp(0.35 + 0.04 * t.work_ethic + 0.1 * t.traits.z(crate::player::Trait::Professionalism), 0.1, 0.98)
+}
+
+/// A player's prep this week on your team (TR36): the AI's read, from his
+/// own week (his rest days, his rehab, his extra film) against your
+/// staff's neutral week. The screens read the week ahead with it before
+/// Monday's pass, and the pass records the same word.
+pub fn player_prep(w: &World, st: &SeatTeam, pw: &PlannedWeek, i: usize, role: Role) -> super::prep::Prep {
+    prep_detail(w, st, pw, i, role, None).0
+}
+
+/// A player's prep with its parts: the minutes of his own week and his
+/// role's minutes in the neutral week (a screen's "x of y"). `out`: whether
+/// he was out hurt at the week's pass, for a page after it (None: as the
+/// pass reads him now).
+pub fn prep_detail(
+    w: &World,
+    st: &SeatTeam,
+    pw: &PlannedWeek,
+    i: usize,
+    role: Role,
+    out: Option<bool>,
+) -> (super::prep::Prep, super::prep::Parts, super::prep::Parts) {
+    use super::prep::{Parts, Prep, Status, against, out_this_week, parts, read};
+    let d = pw.monday;
+    let p = &w.people[i];
+    let id = p.player.id;
+    let plan = w.training.plan_of(id);
+    let injury = w.training.hurt_on(id, d);
+    let out = out.unwrap_or_else(|| p.pro.as_ref().is_some_and(|c| out_this_week(c.out_weeks)));
+    let hurt = injury.is_some() || out;
+    let key = super::prep::key(w.options.seed as u64, d);
+    let practice = pw.week.days.iter().any(|x| x.periods.iter().any(|q| q.kind.on_field()));
+    let status = if hurt {
+        if injury.is_some_and(|h| h.until <= d.add(3)) { Status::Limited } else { Status::Out }
+    } else if pw.books.iter().any(|b| b.voluntary) && !super::week::attends(&p.player, key) {
+        Status::Absent
+    } else if st.tier == Tier::High && super::offseason::sport_ratio(&p.player, pw.block, d).is_some() {
+        Status::Away
+    } else if w.training.is_new(id, d) {
+        Status::New
+    } else if plan.rest > 0 && practice {
+        Status::Rested
+    } else {
+        Status::Full
+    };
+    if pw.books.iter().all(|b| !b.coaches) {
+        return (Prep::none(status), Parts::default(), Parts::default());
+    }
+    let camp = pw.block == Block::Camp;
+    let mine = own_week(&pw.week, &plan, status == Status::Out, does_extra(p, seat_seed(w, d)));
+    let x = parts(&mine, role, camp);
+    let n = parts(&pw.neutral, role, camp);
+    let r = against(&x, &n, &parts(&pw.neutral, Role::Starter, camp));
+    let years = match st.tier {
+        Tier::High => p.player.age.saturating_sub(14),
+        Tier::College => p.college_seasons,
+        Tier::Pro => p.pro.as_ref().map_or(0, |c| c.seasons.len() as u32),
+    };
+    (read(&p.player, &r, x.game, x.test, x.days, status, st.tier, st.frame.season, years, key), x, n)
+}
+
 /// Words for how a family is coming along, from your staff's read.
 fn family_words(f: Family, up: bool) -> &'static str {
     match (f, up) {
@@ -759,6 +1186,7 @@ fn family_words(f: Family, up: bool) -> &'static str {
 /// and the block report when a block ends. Returns your players (the
 /// world's pass skips them).
 pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
+    w.training.my_risk = 0.0;
     let Some(st) = seat_team(w, frames) else { return Vec::new() };
     if w.design_ids_stale() {
         w.training.register_designs();
@@ -766,7 +1194,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     let pw = planned(w, &st, d);
     let roles = roles(w, &st);
     let focus = w.focus_by_person();
-    let seed = w.options.seed as u64 ^ (d.0 as u64) << 20 ^ 0x5EA7;
+    let seed = seat_seed(w, d);
     let camp = pw.block == Block::Camp;
     let base = weekly_base(&st.frame, &st.weeks, pw.block);
     let mut moved: Vec<(u32, f32)> = std::mem::take(&mut w.training.moved);
@@ -782,22 +1210,53 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         c.add_week(&pw.week);
     }
     let own_time = pw.books.iter().all(|b| !b.coaches);
+    // Who arrived when (TR8): a player new in the last two weeks reads as
+    // new; a save from before this keeps everyone as he was.
+    let ids: Vec<u32> = st.roster.iter().map(|&i| w.people[i].player.id).collect();
+    let first = w.training.arrived.is_empty();
+    w.training.arrived.retain(|a| ids.contains(&a.0));
+    for id in ids {
+        if !w.training.arrived.iter().any(|a| a.0 == id) {
+            w.training.arrived.push((id, if first { d.add(-365) } else { d }));
+        }
+    }
     let mut away: Vec<(usize, f64)> = Vec::new();
-    let full_week: f64 = week_load(&pw.week, Role::Starter, camp).1;
-    let neutral_full: f64 = week_load(&pw.neutral, Role::Starter, camp).1;
+    let (_, full_week, field_week) = week_load(&pw.week, Role::Starter, camp);
+    let (_, neutral_full, neutral_field) = week_load(&pw.neutral, Role::Starter, camp);
+    // Your NFL club's practice risk is your own week's (the clubs' rule:
+    // padded and full-speed work against an average staff's), with the
+    // mobility work's looser soft tissue.
+    w.training.my_risk = if st.tier == Tier::Pro && !own_time && neutral_field > 0.0 {
+        let risk = ((full_week + 10.0) / (neutral_full + 10.0)).sqrt()
+            * ((field_week + 30.0) / (neutral_field + 30.0)).powf(0.3);
+        (clamp(risk, 0.5, 2.0) * (0.77 + 0.23 * limber(&pw))) as f32
+    } else {
+        0.0
+    };
+    // Nutrition sessions feed the body plans (TR31; proposed, not
+    // confirmed: a session a week the neutral week lacks moves a body plan
+    // about a seventh faster).
+    let nut = |wk: &Week| minutes(wk, |p| p.kind == Kind::Nutrition);
+    let fuel = clamp(1.0 + 0.15 * (nut(&pw.week) - nut(&pw.neutral)) / (nut(&pw.neutral) + 30.0), 0.9, 1.15);
+    let mut absent_ids: Vec<u32> = Vec::new();
     for &i in &st.roster {
         let id = w.people[i].player.id;
         let role = *roles.get(&i).unwrap_or(&Role::Young);
         let plan = w.training.plan_of(id);
-        let hurt = w.training.hurt_on(id, d).is_some() || w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks > 0);
+        let hurt = w.training.hurt_on(id, d).is_some()
+            || w.people[i].pro.as_ref().is_some_and(|c| super::prep::out_this_week(c.out_weeks));
+        // The week's prep (TR36): read before anything moves him.
+        let pr = player_prep(w, &st, &pw, i, role);
+        let absent = pr.status == super::prep::Status::Absent;
         let p = &w.people[i];
         let absorb = absorb_factor(&p.player);
         // Extra work he says he'll do: whether he really does it.
-        let t = &p.player.personality;
-        let does = crate::world::season::key_uniform(seed ^ 0xE7, id as u64)
-            < clamp(0.35 + 0.04 * t.work_ethic + 0.1 * t.traits.z(crate::player::Trait::Professionalism), 0.1, 0.98);
+        let does = does_extra(p, seed);
         let mine = own_week(&pw.week, &plan, hurt, does);
-        let r = if own_time {
+        let r = if absent {
+            // Not at a voluntary week: his own work, as on his own time.
+            [super::offseason::own_effort(&p.player, p.pro.as_ref().is_some_and(|c| c.paid), false); FAMILIES]
+        } else if own_time {
             // His time on his own (topic 9): what he really does.
             let paid = p.pro.as_ref().is_some_and(|c| c.paid);
             let last_year = p
@@ -836,9 +1295,23 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             r[Family::Strength as usize] *= s;
             r[Family::Speed as usize] *= sp;
         }
-        let load = week_load(&mine, role, camp).0;
+        // Not at a voluntary week, he doesn't take the team week's load
+        // (update 3, F10): his own work's, as on his own time.
+        let load = if absent { 150.0 } else { week_load(&mine, role, camp).0 };
+        if absent {
+            absent_ids.push(id);
+        }
         let p = &mut w.people[i];
         p.player.train.add_load(load);
+        let prev = super::prep::latest(&p.player.train);
+        super::prep::record(&mut p.player, pr.word, pr.mental);
+        if pr.status == super::prep::Status::Out {
+            super::prep::mark_out(&mut p.player.train);
+        }
+        if (1..=2).contains(&pr.word) && (1..=2).contains(&prev) {
+            let word = super::prep::WORDS[pr.word as usize].to_lowercase();
+            notes.push((id, "position", format!("has been {word} two weeks running: {}", pr.why())));
+        }
         let spike = p.player.train.spike();
         if spike > 1.45 && !hurt {
             notes.push((
@@ -850,6 +1323,8 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         if p.player.train.pending() {
             let b = cover(&mut p.player.train, &base);
             let mut s = share(&b, &r, 1.0);
+            // A run of poor prep slows the season's growth (TR40).
+            super::prep::slow(&p.player.train, &mut s);
             let due = p.player.train.due.map(|v| v as f64 / 2000.0);
             p.player.train.due = [0; FAMILIES];
             for f in 0..FAMILIES {
@@ -896,7 +1371,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             let v = p.player.tend.get(tend);
             let gap = target as f64 - v;
             let step = gap.signum() * gap.abs().min(per_week * obey);
-            p.player.tend.set(tend, v + step);
+            p.player.tend.coach(tend, v + step);
             if (v + step - target as f64).abs() < 0.5 && gap.abs() >= 0.5 {
                 notes.push((id, "position", format!("has the habit where we want it ({})", tend.label())));
             }
@@ -906,8 +1381,9 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             let p = &mut w.people[i];
             let now = crate::body::body_now(&p.player).weight;
             let gap = target as f64 - now;
-            let rate =
-                if gap > 0.0 { 1.5 } else { 1.2 } * clamp(0.7 + 0.03 * p.player.personality.work_ethic, 0.7, 1.3);
+            let rate = if gap > 0.0 { 1.5 } else { 1.2 }
+                * clamp(0.7 + 0.03 * p.player.personality.work_ethic, 0.7, 1.3)
+                * fuel;
             let step = gap.signum() * gap.abs().min(rate);
             if step.abs() > 0.05 {
                 body_change(&mut p.player, step);
@@ -940,7 +1416,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     // Practice injuries (college and high school; the NFL's come from its
     // practice day with your plan's risk).
     if st.tier != Tier::Pro && !own_time {
-        injuries += practice_injuries(w, &st, d, &pw, full_week, neutral_full, &roles);
+        injuries += practice_injuries(w, &st, d, &pw, full_week, neutral_full, &roles, &absent_ids);
     }
     // Practice battles on the engine (choice 3).
     let mut log = WeekLog {
@@ -957,6 +1433,21 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     if !own_time {
         super::practice::seat_battles(w, &st, &pw, &roles, seed, &mut log);
     }
+    if !own_time {
+        team_effects(w, &st, &pw);
+        // The strength staff's testing day (TR5), and a new staff's
+        // baseline in its first week.
+        let testing = super::plan::testing_day(&st.frame, d);
+        if testing.is_some() || w.training.tests.is_empty() {
+            let key = seed ^ 0x7E57;
+            let rows: Vec<TestRow> = st.roster.iter().map(|&i| test_row(&w.people[i].player, key)).collect();
+            let day = d.add(testing.unwrap_or(0) as i32);
+            w.training.tests.push(TestDay { date: day, rows, baseline: testing.is_none() });
+            if w.training.tests.len() > 3 {
+                w.training.tests.remove(0);
+            }
+        }
+    }
     // Installs: this week's team and situation periods put in the plan's
     // families and your designs (plays and tactics topic 4).
     install_week(w, &pw);
@@ -967,7 +1458,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     offseason_week(w, &st, d, &away, seed);
     report_day(w, &st, d, seed);
     if st.tier == Tier::High && !own_time {
-        log.injuries += heat_week(w, &st, d, &pw, seed);
+        log.injuries += heat_week(w, &st, d, &pw, seed, &absent_ids);
     }
     if pw.pushed {
         practice_case(w, &st, d, &pw, log.injuries > 0, seed);
@@ -987,6 +1478,58 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     w.training.this_week = w.training.this_week.take().filter(|(m, _)| *m > d);
     let _ = SLOTS;
     st.roster
+}
+
+/// Game injuries that outlast the game (update 3, A1): a college or high
+/// school player hurt in a game, who didn't play through it, misses the
+/// games until he heals, as an NFL player does. The medical staff's head
+/// brings him back sooner (up to 12%, the NFL's figure; high schools have
+/// none). Yours go on your trainers' list with a note, everyone else's on
+/// the world's. `injuries` are the game's, by its team (0 home); `seat`
+/// is the side that is your team.
+pub(crate) fn game_injuries(
+    w: &mut World,
+    date: Date,
+    injuries: &[(usize, crate::game::sim::Injury)],
+    medical: [f64; 2],
+    seat: Option<usize>,
+) {
+    if w.training.others_hurt.len() > 20_000 {
+        w.training.others_hurt.retain(|_, x| x.0 > date);
+    }
+    for (team, inj) in injuries {
+        if inj.plays_on || *team > 1 {
+            continue;
+        }
+        let days = (inj.weeks * (1.0 - 0.12 * medical[*team]) * 7.0).ceil().max(1.0) as i32;
+        let back = date.add(1 + days);
+        if seat == Some(*team) {
+            if w.training.hurt.iter().any(|h| h.id == inj.id && h.until >= back) {
+                continue;
+            }
+            w.training.hurt.retain(|h| h.id != inj.id || h.until <= date);
+            w.training.hurt.push(Hurt {
+                id: inj.id,
+                kind: Some(inj.kind),
+                from: date,
+                until: back,
+                how: "game".into(),
+            });
+            let name = crate::world::folk::person(w, inj.id).map_or(String::new(), |i| w.people[i].name.clone());
+            let long = if days >= 14 { format!("about {} weeks", (days + 3) / 7) } else { format!("{days} days") };
+            w.training.note(
+                date,
+                inj.id,
+                "trainers",
+                format!("[[p:{}|{name}]] was hurt in the game ({}): out {long}.", inj.id, inj.kind.name()),
+            );
+        } else {
+            let e = w.training.others_hurt.entry(inj.id).or_insert((back, Some(inj.kind)));
+            if back > e.0 {
+                *e = (back, Some(inj.kind));
+            }
+        }
+    }
 }
 
 /// Your players' time on their own (topic 9): each week's real effort is
@@ -1087,7 +1630,7 @@ fn report_day(w: &mut World, st: &SeatTeam, d: Date, seed: u64) {
 /// without, it goes ahead and each player risks heat illness (proposed,
 /// not confirmed: about 1 in 300 a hot practice, from the NCAA and NFHS
 /// exertional heat illness counts, which peak in the first August weeks).
-fn heat_week(w: &mut World, st: &SeatTeam, d: Date, pw: &PlannedWeek, seed: u64) -> u32 {
+fn heat_week(w: &mut World, st: &SeatTeam, d: Date, pw: &PlannedWeek, seed: u64, absent: &[u32]) -> u32 {
     let Some(h) = w.seat_school() else { return 0 };
     let state = w.high_schools[h].state;
     let code = st.state;
@@ -1110,7 +1653,8 @@ fn heat_week(w: &mut World, st: &SeatTeam, d: Date, pw: &PlannedWeek, seed: u64)
         for &i in &st.roster {
             let p = &w.people[i];
             let id = p.player.id;
-            if w.training.hurt_on(id, date).is_some() {
+            // Not there (update 3, F11): a player absent from the week.
+            if w.training.hurt_on(id, date).is_some() || absent.contains(&id) {
                 continue;
             }
             let heavy = if p.player.body.weight >= 260.0 { 1.8 } else { 1.0 };
@@ -1358,26 +1902,9 @@ pub fn injury_chance(
     1.0 - (1.0 - practice_rate(tier, block) * contact * prone * exposure * soft_tissue(spike).sqrt()).powf(practices)
 }
 
-/// Practice injuries on your team (topic 7): every rep carries risk from
-/// its contact, gear and tempo, his load against his usual, and his body.
-/// The neutral week lands on the NCAA's practice rates (proposed, not
-/// confirmed: camp about 9.7 time-loss injuries per 1000 practices, the
-/// season about 3, spring about 6; high school about a third of college).
-fn practice_injuries(
-    w: &mut World,
-    st: &SeatTeam,
-    d: Date,
-    pw: &PlannedWeek,
-    full: f64,
-    neutral_full: f64,
-    roles: &HashMap<usize, Role>,
-) -> u32 {
-    let practices = pw.week.days.iter().filter(|x| x.periods.iter().any(|p| p.kind.on_field())).count() as f64;
-    if practices == 0.0 {
-        return 0;
-    }
-    let contact = ((full + 10.0) / (neutral_full + 10.0)).powf(0.7);
-    let med = 1.0;
+/// The practice injury mix (topic 7): hamstrings up with a load spike and
+/// tight hips (`soft`), concussions and shoulders up with contact.
+pub fn practice_kind(rng: &mut Rng, contact: f64, soft: f64) -> InjuryKind {
     const MIX: [(InjuryKind, f64); 12] = [
         (InjuryKind::Hamstring, 22.0),
         (InjuryKind::AnkleSprain, 15.0),
@@ -1392,35 +1919,71 @@ fn practice_injuries(
         (InjuryKind::Ribs, 2.0),
         (InjuryKind::Fracture, 2.0),
     ];
+    let mix: Vec<(InjuryKind, f64)> = MIX
+        .iter()
+        .map(|&(k, wgt)| {
+            let m = match k {
+                InjuryKind::Hamstring => soft,
+                InjuryKind::Concussion | InjuryKind::Shoulder => contact,
+                _ => 1.0,
+            };
+            (k, wgt * m)
+        })
+        .collect();
+    rng.weighted(&mix)
+}
+
+/// The week's mobility work against the neutral week's (TR21): looser
+/// hips mean fewer soft-tissue injuries.
+pub fn limber_of(week: &Week, neutral: &Week) -> f64 {
+    let mob = |wk: &Week| minutes(wk, |p| p.kind == Kind::Mobility);
+    let (m, n) = (mob(week), mob(neutral));
+    clamp(1.0 - 0.1 * (m - n) / (n + 15.0), 0.9, 1.1)
+}
+
+/// Practice injuries on your team (topic 7): every rep carries risk from
+/// its contact, gear and tempo, his load against his usual, and his body.
+/// The neutral week lands on the NCAA's practice rates (proposed, not
+/// confirmed: camp about 9.7 time-loss injuries per 1000 practices, the
+/// season about 3, spring about 6; high school about a third of college).
+#[allow(clippy::too_many_arguments)]
+fn practice_injuries(
+    w: &mut World,
+    st: &SeatTeam,
+    d: Date,
+    pw: &PlannedWeek,
+    full: f64,
+    neutral_full: f64,
+    roles: &HashMap<usize, Role>,
+    absent: &[u32],
+) -> u32 {
+    let practices = pw.week.days.iter().filter(|x| x.periods.iter().any(|p| p.kind.on_field())).count() as f64;
+    if practices == 0.0 {
+        return 0;
+    }
+    let contact = ((full + 10.0) / (neutral_full + 10.0)).powf(0.7);
+    let limber = limber(pw);
+    let med = 1.0;
     let seed = w.options.seed ^ d.0 as u32 ^ 0x1A7D;
     let mut n = 0;
     for &i in &st.roster {
         let p = &w.people[i];
         let id = p.player.id;
-        if w.training.hurt_on(id, d).is_some() {
+        // Not there (update 3, F11): a player absent from the week.
+        if w.training.hurt_on(id, d).is_some() || absent.contains(&id) {
             continue;
         }
         let role = *roles.get(&i).unwrap_or(&Role::Young);
         let exposure = if role == Role::Specialist { 0.25 } else { 1.0 };
         let spike = p.player.train.spike();
-        let soft = soft_tissue(spike);
-        let chance = injury_chance(st.tier, pw.block, practices, contact, p.player.injury_proneness, exposure, spike);
+        let soft = soft_tissue(spike) * limber;
+        let chance = injury_chance(st.tier, pw.block, practices, contact, p.player.injury_proneness, exposure, spike)
+            * (0.77 + 0.23 * limber);
         let mut rng = Rng::new(seed ^ id.wrapping_mul(0x9E37_79B1));
         if !rng.chance(chance / med) {
             continue;
         }
-        let mix: Vec<(InjuryKind, f64)> = MIX
-            .iter()
-            .map(|&(k, wgt)| {
-                let m = match k {
-                    InjuryKind::Hamstring => soft,
-                    InjuryKind::Concussion | InjuryKind::Shoulder => contact,
-                    _ => 1.0,
-                };
-                (k, wgt * m)
-            })
-            .collect();
-        let kind = rng.weighted(&mix);
+        let kind = practice_kind(&mut rng, contact, soft);
         let weeks = crate::game::sim::injury_weeks(kind, &mut rng) * (1.3 - 0.03 * p.player.game.recovery);
         let days = (weeks * 7.0).round().max(1.0) as i32;
         let day = rng.int(0, 5);
@@ -1509,7 +2072,13 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     let hurt: u32 = logs.iter().map(|l| l.injuries).sum();
     lines.push((
         "Head coach".to_string(),
-        format!("{} weeks, {practices} practices, {} practice injuries.", logs.len(), hurt),
+        format!(
+            "{} {}, {practices} {}, {hurt} {}.",
+            logs.len(),
+            crate::world::folk::noun(logs.len(), "week"),
+            crate::world::folk::noun(practices, "practice"),
+            crate::world::folk::noun(hurt, "practice injury")
+        ),
     ));
     let mut moved = w.training.moved.clone();
     moved.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -1532,7 +2101,8 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     lines.push((
         "Trainers".to_string(),
         format!(
-            "{flags} players with a load spike; {} on the injury report.",
+            "{flags} {} with a load spike; {} on the injury report.",
+            crate::world::folk::noun(flags, "player"),
             w.training.hurt.iter().filter(|h| h.until > d).count()
         ),
     ));
@@ -1561,24 +2131,40 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     w.training.grades.clear();
 }
 
-/// Your team's game team takes the week: players hurt in practice sit,
-/// the late week's load sets kickoff energy, your packages and call sheet
-/// go with it, and the install follows the week's prep.
+/// Your players hurt in practice (or on the non-football list) sit today's
+/// game: taken off a game team built for the day. The college team kept
+/// for the season keeps them; its game day takes them off.
+pub(crate) fn sit_hurt(w: &World, team: &mut crate::game::GameTeam) {
+    let (t, d) = (&w.training, w.today);
+    team.players.retain(|p| !t.hurt_out(p.id, d));
+}
+
+/// Your team's game team takes the week: the late week's load sets kickoff
+/// energy, your packages and call sheet go with it, and the install
+/// follows the week's prep. Safe to run again on the same team (the
+/// college team kept for the season is refreshed after every change): it
+/// sets from the staff's own install, never from the last result.
 pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
     let t = &w.training;
-    let d = w.today;
-    team.players.retain(|p| t.hurt_on(p.id, d).is_none_or(|h| h.from > d));
+    let base_install = *team.prep.install_base.get_or_insert(team.staff.install);
+    team.staff.install = base_install;
     let prep = &mut team.prep;
     prep.packages = t.packages.iter().map(|(b, ids)| (*b as u8, ids.clone())).collect();
+    // Each box splits by hash (update 2, G10): the key carries it.
     prep.sheet = t
         .plan
         .sheet
         .iter()
-        .map(|(sit, plays)| {
+        .flat_map(|(sit, plays)| {
+            let mut hs: Vec<u8> = plays.iter().map(|p| p.hash.min(2)).collect();
+            hs.sort_unstable();
+            hs.dedup();
+            hs.into_iter().map(move |h| (*sit, h, plays.iter().filter(move |p| p.hash.min(2) == h)))
+        })
+        .map(|(sit, h, plays)| {
             (
-                *sit,
+                crate::game::sheet::key(sit, h),
                 plays
-                    .iter()
                     .filter_map(|sp| {
                         let kind = match sp.play {
                             SheetKind::Run(r) => PlayKind::Run(r),
@@ -1603,7 +2189,7 @@ pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
         let gd = l.week.days.iter().position(|x| x.game).unwrap_or(6);
         let late = super::work::late_load(&l.week, gd, Role::Starter);
         let tier = match w.seat.map(|s| s.level) {
-            Some(Cal::Nfl) => Tier::Pro,
+            Some(Cal::Nfl | Cal::Other) => Tier::Pro,
             Some(Cal::HighSchool) => Tier::High,
             _ => Tier::College,
         };
@@ -1621,9 +2207,37 @@ pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
         let mine = super::work::prep_minutes(&l.week);
         let theirs = super::work::prep_minutes(&neutral_wk);
         if theirs > 0.0 {
-            team.staff.install = clamp(team.staff.install * (mine / theirs).sqrt().clamp(0.75, 1.15), 0.3, 1.0);
+            team.staff.install = clamp(base_install * (mine / theirs).sqrt().clamp(0.75, 1.15), 0.3, 1.0);
         }
+        let (noise, rules) = week_habits(&l.week, &neutral_wk);
+        prep.noise = noise;
+        prep.rules = rules;
     }
+    // Your guidelines and the deeper game plan (update 2, lane 5).
+    crate::world::guide::seat_apply(w, team);
+    crate::world::plans::prepare(w, team);
+}
+
+/// What a week's crowd-noise periods and rules clinic send into the game
+/// against an average staff's week (TR28, TR29; proposed, not confirmed):
+/// each loud day short of the usual lets a road crowd get to the offense
+/// 7.5% more, each extra one 7.5% less (0.9 to 1.15); the officials' clinic
+/// takes up to a tenth off the pre-snap fouls, and skipping it adds a
+/// little.
+pub fn week_habits(wk: &Week, neutral: &Week) -> (f64, f64) {
+    let loud = |w: &Week| w.days.iter().filter(|d| d.periods.iter().any(|p| p.noise)).count() as f64;
+    let clinic = |w: &Week| {
+        w.days
+            .iter()
+            .flat_map(|d| &d.periods)
+            .filter(|p| p.kind == Kind::RulesClinic)
+            .map(|p| p.min as f64)
+            .sum::<f64>()
+    };
+    let noise = clamp(1.0 + 0.075 * (loud(neutral) - loud(wk)), 0.9, 1.15);
+    let (a, b) = (clinic(wk), clinic(neutral));
+    let rules = clamp(1.0 - 0.1 * (a - b) / (b + 10.0), 0.9, 1.08);
+    (noise, rules)
 }
 
 impl World {
@@ -1709,27 +2323,4 @@ pub fn counts_text(st: &SeatTeam, block: Block, c: &Counts) -> Vec<String> {
     add(c.padded, lim.padded, "padded practices");
     add(c.scrimmages, lim.scrimmages, "scrimmages");
     out
-}
-
-/// The call sheet's situations for a snap, best first (`SHEET`).
-pub fn sheet_situation(down: u8, togo: f64, yardline_100: f64, half_left: f64) -> Vec<u8> {
-    let mut v = Vec::new();
-    if half_left <= 120.0 {
-        v.push(9);
-    }
-    if yardline_100 <= 3.0 {
-        v.push(8);
-    }
-    if yardline_100 <= 20.0 {
-        v.push(7);
-    }
-    v.push(match down {
-        1 => 1,
-        2 if togo >= 7.0 => 2,
-        2 => 3,
-        _ if togo <= 2.0 => 4,
-        _ if togo <= 6.0 => 5,
-        _ => 6,
-    });
-    v
 }

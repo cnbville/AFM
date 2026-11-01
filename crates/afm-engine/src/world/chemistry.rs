@@ -102,7 +102,38 @@ pub(crate) fn apply(w: &World, team: &mut GameTeam, unit: Unit) {
             set.push((k, chem_of(others.iter().sum::<f64>() / others.len() as f64)));
         }
     }
+    // Your own routes on air beyond an average staff's (update 2, lane 4,
+    // TR20): the quarterback and his targets, a little warmer or colder.
+    let air =
+        qbs.first().and_then(|&k| person(&team.players[k])).filter(|q| yours(w, q)).map_or(0.0, |_| w.training.air);
     for (k, c) in set {
-        team.players[k].chem = c;
+        let pos = team.players[k].position;
+        let air = if matches!(pos, Position::QB | Position::WR | Position::TE | Position::RB) { air } else { 0.0 };
+        team.players[k].chem = (c + air).clamp(0.0, 1.0);
     }
+}
+
+/// Whether a player is on your team.
+fn yours(w: &World, p: &Person) -> bool {
+    let Some(s) = w.seat else { return false };
+    match s.level {
+        crate::calendar::Level::Nfl => p.pro.as_ref().and_then(|c| c.team).is_some_and(|t| s.nfl_team == Some(t)),
+        crate::calendar::Level::HighSchool => p.stage == Stage::HighSchool && s.program == Some(p.hs),
+        _ => p.stage == Stage::College && p.college.is_some() && p.college == s.program,
+    }
+}
+
+/// How well two of your players know each other (0-1), from the seasons
+/// they've spent on the same team: the locker room board's chemistry
+/// (lane 9, read through `charts::pair_chemistry`). None in another
+/// league: its clubs' seasons together aren't kept, and its games use no
+/// chemistry.
+pub(crate) fn pair(w: &World, a: usize, b: usize) -> Option<f32> {
+    let unit = match w.seat.map(|s| s.level) {
+        Some(crate::calendar::Level::Nfl) => Unit::Nfl,
+        Some(crate::calendar::Level::HighSchool) => Unit::HighSchool,
+        Some(crate::calendar::Level::College) => Unit::College,
+        _ => return None,
+    };
+    Some(chem_of(seasons_together(w, &w.people[a], &w.people[b], unit)))
 }

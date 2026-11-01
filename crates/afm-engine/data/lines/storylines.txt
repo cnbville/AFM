@@ -1,0 +1,197 @@
+# The line bank: what the people in a story say about it (update 2, S3;
+# format in src/world/folk/voice.rs). Keys: story.quote.<family>.<part>.<up|down>,
+# story.quote.<family>.<part>, story.quote.any.<part>. Parts: lead, rival.
+# The tone is the story's: up for good news for his team, down for bad.
+# Facts: {team} {rival} {rival_last} {lead} {lead_last} {other} {coach} {n}
+# {record} {since}. Said without quote marks; the reader adds "Smith said."
+
+# ---------------------------------------------------------------- anyone
+
+@key story.quote.any.lead
+I'm not going to get into all that. I'm focused on this week.
+Honestly, I don't read any of it. My [mom|family] sends me the screenshots anyway. ~ player young
+It is what it is. We'll handle it in house.
+I've been around long enough to know this stuff passes. ~ vet
+I hear the noise. I'd be lying if I said I didn't.
+We'll see how it plays out. That's all I can tell you.
+I'm not worried about it. I'm worried about [Saturday|Friday|Sunday]. ~ coach
+Ask me again in a couple weeks.
+All I can control is how I work. That's it. ~ player
+People are going to say what they're going to say. ~ calm
+You want a headline. I don't have one for you. ~ hot
+I'd rather talk about the game, if that's alright. ~ quiet
+Look, I get why people are asking. I'd ask too.
+None of that changes what we do tomorrow morning. ~ coach
+I know what I'm about. The people in this building know too. ~ ego
+I just try to keep my head down and do my job. ~ humble
+Man, that's above my pay grade. ~ player loose
+It's part of it. You sign up for all of it, the good and the bad. ~ nfl
+@key story.quote.any.rival
+I just come in every day and compete. That's all I know how to do. ~ player
+I'm not going to talk about anybody else. I'll talk about me.
+Whatever happens, happens. I'll be ready.
+It's not my call. I just want to be ready if it is.
+I've waited for this. I'm not going to waste it. ~ player young
+I respect him. I still want what he has. ~ player competitor
+No comment. ~ quiet
+
+# ---------------------------------------------------------------- position battles
+
+@key story.quote.battle.lead
+It's my job until somebody takes it. Nobody's taken it. ~ player ego
+We push each other. That's what you want in a room. ~ player
+I'm not looking over my shoulder. I'm looking at the film. ~ player
+Competition is good for everybody. I mean that. ~ player humble
+I know what I can do. The coaches know too. ~ player
+I'm going to keep working like I don't have the job. ~ player humble
+The best guy plays. That's how it should be. ~ coach
+We'll name a starter when we're ready, and not a day before. ~ coach
+Both of them have earned the right to compete for it. ~ coach
+I'm not going to make that decision in a press conference. ~ coach hot
+@key story.quote.battle.rival
+I didn't come here to sit. ~ player ego
+I'm just trying to take advantage of every rep I get. ~ player
+He's a great player. I'm a great player too. We'll see. ~ player competitor
+Whatever they decide, I'll be ready. ~ player humble
+I've been waiting a long time for a shot like this. ~ player
+
+# ---------------------------------------------------------------- job security
+
+@key story.quote.seat.lead
+I don't worry about my job. I worry about my players. ~ coach
+I've got a contract and I've got a job to do. I'm doing it. ~ coach
+Nobody in this building is quitting, starting with me. ~ coach
+I knew what this job was when I took it. ~ coach
+We have to win. I know that better than anybody. ~ coach
+I'm not reading it, I'm not listening to it, and I'm not talking about it. ~ coach hot
+I understand the frustration. I feel it too. ~ coach calm
+I've been doing this a long time. You keep your head down and coach. ~ coach old
+The people who matter know what we're building here. ~ coach
+@key story.quote.seat.lead.down
+We're not good enough right now. That starts with me. ~ coach
+I'll take every bit of the blame. That's my job. ~ coach
+Nobody's more disappointed than the people in that locker room. ~ coach
+
+# ---------------------------------------------------------------- coaches wanted
+
+@key story.quote.wanted.lead
+I'm the coach here. I'm focused on our players. ~ coach
+I don't comment on other jobs. Never have. ~ coach
+I love it here. My family loves it here. ~ coach loyal
+You don't get to this point without people noticing. I'm grateful for that. ~ coach
+Right now my only job is this team. ~ coach
+I'm not going to get into hypotheticals. ~ coach cold
+Every coach gets calls. What matters is what you do with them. ~ coach climber
+I'm flattered. That's all I'll say about it. ~ coach
+
+# ---------------------------------------------------------------- recruiting sagas
+
+@key story.quote.recruiting.lead
+I'm just taking my time with it. It's a big decision. ~ player
+My family's going to help me make the right call. ~ player
+Every school has something different. I'm still figuring out what matters most. ~ player
+I want to go somewhere I can play early and win. ~ player ego
+Coach has been real with me from day one. That means a lot. ~ player
+I'll know when I know. ~ player quiet
+It's crazy, honestly. I'm just trying to enjoy it. ~ player young
+I don't want to be the guy who flips around. When I commit, I'm committed. ~ player loyal
+NIL matters, I'm not going to lie. But it's not everything. ~ player nil
+Honestly, I want to make my mom proud. ~ player humble
+
+# ---------------------------------------------------------------- leaving
+
+@key story.quote.leaving.lead
+It's a business. Everybody knows that. ~ player nfl
+I love this team. I also have to take care of my family. ~ player
+I'm going to make the best decision for me. ~ player
+My agent handles that. I play football. ~ player nfl
+I'll always love this place. Whatever happens. ~ player loyal
+I've earned this. I'm not apologizing for wanting it. ~ player ego
+It's not personal. I hope everybody understands that. ~ player calm
+I just want what's fair. ~ player greedy
+I haven't decided anything. When I do, you'll know. ~ player
+
+# ---------------------------------------------------------------- comebacks
+
+@key story.quote.comeback.lead
+Every day was a fight to get back here. I'm not taking any of it for granted. ~ player
+I feel like myself again. That's all I wanted. ~ player
+People counted me out. I didn't. ~ player ego
+I'm grateful for the trainers, my family, my teammates. They carried me. ~ player humble
+I'm not all the way back yet. I'm close. ~ player
+There were nights I didn't think I'd play again. ~ player vet
+You learn a lot about yourself when it's taken away. ~ player
+
+# ---------------------------------------------------------------- streaks and chases
+
+@key story.quote.streak.lead
+I don't think about the numbers. If I do my job, the numbers come. ~ player
+It would mean a lot. I won't lie to you. ~ player
+It's a team thing. Nobody does that alone. ~ player humble
+I'll think about it when I'm done playing. ~ player vet
+Honestly? Yeah, I know exactly how close it is. ~ player loose
+It's about the wins, not the number. ~ coach
+I've been blessed with good players and good assistants. That's what that number is. ~ coach
+@key story.quote.streak.lead.down
+We have to find a way to win a game. That's it. That's all that matters right now. ~ coach
+
+# ---------------------------------------------------------------- rivalries
+
+@key story.quote.rivalry.lead
+You don't have to tell anybody in this building what this week means. ~ coach
+It's just another game. You know I don't believe that, and neither do you. ~ coach loose
+We know what they've done to us. We know. ~ player
+I've been waiting for this one since last year. ~ player
+Respect them. Want to beat them. Both things can be true. ~ calm
+I grew up hearing about this game. ~ player
+This is the one the fans remember. We all know it. ~ coach old
+
+# ---------------------------------------------------------------- rise and fall
+
+@key story.quote.rise.lead
+I just do what the coaches ask. It's working. ~ player humble
+I always knew I could do this. Now everybody else knows. ~ player ego
+I'm not satisfied. Not even close. ~ player competitor
+It's crazy how fast it's happened. ~ player young
+I'm the same guy I was in August. ~ player
+@key story.quote.rise.lead.down
+I know I haven't played the way I want. I'm working on it every day. ~ player
+People are going to talk. I'm going to work. ~ player
+
+# ---------------------------------------------------------------- draft arcs
+
+@key story.quote.draft.lead
+Wherever I go, they're getting somebody who will work. ~ player
+I can't control where I go. I can control how I play when I get there. ~ player
+I've dreamed about this since I was a kid. ~ player
+Whoever passes on me, I'll remember. ~ player ego
+I just want a shot. Give me a shot. ~ player humble
+
+# ---------------------------------------------------------------- off the field
+
+@key story.quote.offfield.lead
+I made a mistake. I'm going to own it. ~ player
+I can't talk about it right now. I'm sorry. ~ player
+I've let my teammates down, and I'll make it right. ~ player
+My lawyer told me not to say anything. So I'm not going to. ~ player
+I'm working through it with the people who matter. ~ player calm
+I'm not who people are saying I am. ~ player ego
+
+# ---------------------------------------------------------------- endings
+
+@key story.quote.ending.lead
+It's been the ride of my life. ~ player
+I'm going to miss the guys. Not the games. The guys. ~ player vet
+I gave this place everything I had. ~ player
+I'm not going to cry. Ask me again Saturday night. ~ player loose
+I've been doing this for a long time. It's time. ~ coach old
+The players made all of this. I just got to watch. ~ coach
+
+# ---------------------------------------------------------------- the coach's own arcs
+
+@key story.quote.you.lead
+I'm here to win games. That's the job. ~ coach
+We're building something. It doesn't happen in a week. ~ coach
+I'm grateful for the opportunity. Now we go to work. ~ coach
+I don't spend time on rumors. ~ coach cold
+My focus is this team. That's not a line, it's the truth. ~ coach

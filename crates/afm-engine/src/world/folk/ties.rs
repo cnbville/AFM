@@ -151,7 +151,18 @@ fn draw(w: &mut World) {
     let mut on_team: HashMap<u32, usize> = HashMap::new();
     let mut new: Vec<Tie> = Vec::new();
     let mut deepen: Vec<usize> = Vec::new();
-    for (r, roster) in rosters(w).iter().enumerate() {
+    let all = rosters(w);
+    // Your outings and leadership council since last camp (TR32, TR33):
+    // friendships on your roster form a little more often (proposed, not
+    // confirmed: up to a quarter more, or a sixth fewer when you cut them).
+    let mine = match Team::seat(w) {
+        Some(Team::College(p)) => Some(p),
+        Some(Team::Nfl(c)) => Some(w.programs.len() + c),
+        Some(Team::High(_)) => Some(all.len() - 1),
+        _ => None,
+    };
+    let lift = (1.0 + w.training.bonds as f64).clamp(0.85, 1.25);
+    for (r, roster) in all.iter().enumerate() {
         let live: Vec<usize> =
             roster.iter().copied().filter(|&i| w.people.get(i).is_some_and(|p| p.stage != Stage::Done)).collect();
         for &i in &live {
@@ -193,7 +204,7 @@ fn draw(w: &mut World) {
                 let social_q = (1.0 + 0.35 * tq.z(Trait::Leadership) + 0.25 * tq.z(Trait::Loyalty)
                     - 0.25 * tq.z(Trait::Ego))
                 .clamp(0.3, 1.8);
-                let chance = near * social * social_q;
+                let chance = near * social * social_q * if Some(r) == mine { lift } else { 1.0 };
                 let u = crate::world::season::key_uniform(seed ^ id as u64, k as u64 ^ (jd as u64) << 20);
                 if u >= chance {
                     continue;
@@ -201,7 +212,12 @@ fn draw(w: &mut World) {
                 match idx.get(&(id.min(jd), id.max(jd))) {
                     Some(&e) => deepen.push(e),
                     None => {
-                        if count.get(&jd).copied().unwrap_or(0) >= 6 {
+                        // His own cap holds while he makes friends too (at a
+                        // high school, where everyone shares the school, a
+                        // sociable boy drew 25 or more in one camp).
+                        if count.get(&jd).copied().unwrap_or(0) >= 6
+                            || count.get(&id).copied().unwrap_or(0) >= cap.min(6)
+                        {
                             continue;
                         }
                         new.push(Tie {
@@ -220,7 +236,8 @@ fn draw(w: &mut World) {
             }
         }
         // Mentors: the best veteran mind at a position takes the youngest.
-        let mut by_pos: HashMap<crate::positions::Position, Vec<usize>> = HashMap::new();
+        // By position in a fixed order, so a world and its save draw alike.
+        let mut by_pos: std::collections::BTreeMap<crate::positions::Position, Vec<usize>> = Default::default();
         for &i in &live {
             by_pos.entry(w.people[i].player.position).or_default().push(i);
         }
@@ -238,10 +255,15 @@ fn draw(w: &mut World) {
                 });
             let young =
                 group.iter().copied().filter(|&i| w.people[i].player.age <= 21).min_by_key(|&i| w.people[i].player.age);
-            if let (Some(v), Some(y)) = (vet, young) {
+            // A 21-year-old can be both the veteran and the youngest: no
+            // man mentors himself.
+            if let (Some(v), Some(y)) = (vet, young)
+                && v != y
+            {
                 let lead = w.people[v].player.personality.traits.get(Trait::Leadership);
                 let (a, b) = (w.people[v].player.id, w.people[y].player.id);
-                if lead >= 13.0 && !w.folk.ties.of_id(b).any(|t| t.kind == Kind::Mentor && t.b == b) {
+                let taught = |t: &Tie| t.kind == Kind::Mentor && t.b == b;
+                if lead >= 13.0 && !w.folk.ties.of_id(b).any(taught) && !new.iter().any(taught) {
                     new.push(Tie { a, b, kind: Kind::Mentor, strength: 50, since: year as i16, together: true });
                 }
             }
@@ -400,6 +422,7 @@ pub fn friends_on(w: &World, id: u32, t: usize) -> usize {
 pub(crate) fn day(w: &mut World, d: Date) {
     if d == w.dates.fall_camp && w.folk.ties.drawn < w.year {
         draw(w);
+        w.training.bonds = 0.0;
         mentor_year(w);
     }
     if d.weekday() == Weekday::Mon && w.seat.is_some() {

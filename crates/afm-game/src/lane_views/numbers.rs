@@ -13,7 +13,7 @@
 //! school (NCAA and NFHS rules): any number 0-99, but the five interior
 //! linemen of the offense must wear 50-79, so linemen do.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use afm_engine::calendar::Level as CalLevel;
 use afm_engine::positions::Position;
@@ -69,8 +69,19 @@ pub fn defense(pos: Position) -> usize {
 
 /// A team's numbers in the film: the ones it wears on its roster pages
 /// now, and for anyone it no longer lists, one by the rules below from
-/// the numbers left.
-pub fn for_team(w: &World, cal: CalLevel, team: usize, players: &[(u32, Position)], year: i32) -> HashMap<u32, u8> {
+/// the numbers left. A man who played on the other side of the ball in
+/// this game (`crossed`: a corner at receiver, an emergency) and shares
+/// his number with a man there wears one nobody in the game wears, as a
+/// real team hands him another jersey: two men who share a number are
+/// never on the field for one snap.
+pub fn for_team(
+    w: &World,
+    cal: CalLevel,
+    team: usize,
+    players: &[(u32, Position)],
+    year: i32,
+    crossed: &HashSet<u32>,
+) -> HashMap<u32, u8> {
     let key = match cal {
         // Another league's club keeps no numbers between seasons: each
         // man picks his own, the pro way.
@@ -92,14 +103,79 @@ pub fn for_team(w: &World, cal: CalLevel, team: usize, players: &[(u32, Position
         }
     }
     let rest: Vec<(u32, Position)> = players.iter().filter(|(id, _)| !out.contains_key(id)).copied().collect();
-    out.extend(assign_with(&rest, cal == CalLevel::Nfl, year, taken));
+    let nfl = cal == CalLevel::Nfl;
+    out.extend(assign_with(&rest, nfl, year, taken));
+    own_numbers(&mut out, players, nfl, year, taken, crossed);
     out
+}
+
+/// A man in `crossed` whose number a man on the other side of the ball
+/// wears in this game takes one free on both sides (`for_team`); `taken`
+/// holds the retired numbers.
+fn own_numbers(
+    out: &mut HashMap<u32, u8>,
+    players: &[(u32, Position)],
+    nfl: bool,
+    year: i32,
+    mut taken: [[bool; 100]; 2],
+    crossed: &HashSet<u32>,
+) {
+    for &(id, pos) in players {
+        taken[defense(pos)][out[&id] as usize] = true;
+    }
+    for &(id, pos) in players.iter().filter(|(id, _)| crossed.contains(id)) {
+        let side = defense(pos);
+        if !taken[1 - side][out[&id] as usize] {
+            continue;
+        }
+        let free = |n: u8| !taken[0][n as usize] && !taken[1][n as usize];
+        if let Some(n) =
+            options(id, pos, nfl, year).into_iter().find(|&n| free(n)).or_else(|| (1..100u8).find(|&n| free(n)))
+        {
+            taken[side][n as usize] = true;
+            out.insert(id, n);
+        }
+    }
 }
 
 /// Numbers for one team's players (id and position), stars first so the
 /// best players keep the numbers they would pick.
 pub fn assign(players: &[(u32, Position)], nfl: bool, year: i32) -> Vec<(u32, u8)> {
     assign_with(players, nfl, year, [[false; 100]; 2])
+}
+
+/// The numbers a man would wear, in the order he would pick them: his
+/// favourite range first (by the real shares), then the others.
+fn options(id: u32, pos: Position, nfl: bool, year: i32) -> Vec<u8> {
+    let rs = ranges(pos, nfl, year);
+    let zero_ok = !nfl || year >= 2023;
+    let total: u32 = rs.iter().map(|r| r.2).sum();
+    let mut pick = (mix(id as u64 ^ 0x4A45_5253) % total as u64) as u32;
+    let fav = rs
+        .iter()
+        .position(|r| {
+            if pick < r.2 {
+                true
+            } else {
+                pick -= r.2;
+                false
+            }
+        })
+        .unwrap_or(0);
+    let order = std::iter::once(&rs[fav]).chain(rs.iter().enumerate().filter(|(k, _)| *k != fav).map(|(_, r)| r));
+    let mut options: Vec<u8> = Vec::new();
+    for &(lo, hi, _) in order {
+        let span = (hi - lo) as u64 + 1;
+        let start = mix(id as u64 ^ 0x4E55_4D42) % span;
+        for k in 0..span {
+            let n = lo + ((start + k) % span) as u8;
+            if n == 0 && !zero_ok {
+                continue;
+            }
+            options.push(n);
+        }
+    }
+    options
 }
 
 /// `assign` around the numbers already worn on each side of the ball. A
@@ -109,35 +185,7 @@ fn assign_with(players: &[(u32, Position)], nfl: bool, year: i32, mut taken: [[b
     let mut out = Vec::with_capacity(players.len());
     for &(id, pos) in players {
         let side = defense(pos);
-        let rs = ranges(pos, nfl, year);
-        let zero_ok = !nfl || year >= 2023;
-        // His favourite range first (by the real shares), then the others.
-        let total: u32 = rs.iter().map(|r| r.2).sum();
-        let mut pick = (mix(id as u64 ^ 0x4A45_5253) % total as u64) as u32;
-        let fav = rs
-            .iter()
-            .position(|r| {
-                if pick < r.2 {
-                    true
-                } else {
-                    pick -= r.2;
-                    false
-                }
-            })
-            .unwrap_or(0);
-        let order = std::iter::once(&rs[fav]).chain(rs.iter().enumerate().filter(|(k, _)| *k != fav).map(|(_, r)| r));
-        let mut options: Vec<u8> = Vec::new();
-        for &(lo, hi, _) in order {
-            let span = (hi - lo) as u64 + 1;
-            let start = mix(id as u64 ^ 0x4E55_4D42) % span;
-            for k in 0..span {
-                let n = lo + ((start + k) % span) as u8;
-                if n == 0 && !zero_ok {
-                    continue;
-                }
-                options.push(n);
-            }
-        }
+        let options = options(id, pos, nfl, year);
         let free = |n: u8, t: &[[bool; 100]; 2]| !t[0][n as usize] && !t[1][n as usize];
         let ours = |n: u8, t: &[[bool; 100]; 2]| !t[side][n as usize];
         let n = options
@@ -179,6 +227,38 @@ mod tests {
             }
         }
         assert_eq!(got, assign(&players, true, 2026), "the same numbers every time");
+    }
+
+    #[test]
+    fn a_man_who_crosses_the_ball_wears_a_number_of_his_own() {
+        // A college game's dressed men, with a corner who shares his number
+        // with a receiver (a roster bigger than its numbers doubles up).
+        let mut players = Vec::new();
+        for (k, pos) in Position::ALL.iter().enumerate() {
+            for j in 0..5 {
+                players.push((3000 + (k * 10 + j) as u32, *pos));
+            }
+        }
+        let mut out: HashMap<u32, u8> = assign(&players, false, 2026).into_iter().collect();
+        let first = |pos: Position| players.iter().find(|x| x.1 == pos).unwrap().0;
+        let (corner, receiver) = (first(Position::CB), first(Position::WR));
+        out.insert(corner, out[&receiver]);
+        let shares =
+            |out: &HashMap<u32, u8>, id: u32| players.iter().filter(|(o, _)| *o != id && out[o] == out[&id]).count();
+        assert_eq!(shares(&out, corner), 1);
+        // He plays receiver in this game: he gets a number nobody wears.
+        let before = out.clone();
+        let crossed: HashSet<u32> = [corner].into_iter().collect();
+        own_numbers(&mut out, &players, false, 2026, [[false; 100]; 2], &crossed);
+        assert_eq!(shares(&out, corner), 0, "the corner at receiver still shares #{}", out[&corner]);
+        assert!(players.iter().all(|(id, _)| *id == corner || out[id] == before[id]), "only he changes");
+        // A man who crossed but shares with nobody keeps his number.
+        let mut again = before.clone();
+        let unworn = (1..100u8).find(|n| !before.values().any(|m| m == n)).unwrap();
+        again.insert(corner, unworn);
+        let kept = again.clone();
+        own_numbers(&mut again, &players, false, 2026, [[false; 100]; 2], &crossed);
+        assert_eq!(again, kept);
     }
 
     #[test]

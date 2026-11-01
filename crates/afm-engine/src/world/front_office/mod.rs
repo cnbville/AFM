@@ -12,10 +12,14 @@
 //! seat. New randomness is keyed by the career's seed (`key`), so it moves
 //! no other draw.
 
+pub mod chain;
 pub mod college;
 pub mod deals;
 pub mod market;
 pub mod nfl;
+pub mod race;
+pub mod redshirt;
+pub mod reserve;
 pub mod roster;
 pub mod school;
 
@@ -59,10 +63,12 @@ pub enum Duty {
     Nil,
     /// High school: who plays varsity, JV and freshman ball.
     Squads,
+    /// NFL: injured reserve, on and off (minor bug 73).
+    InjuredReserve,
 }
 
 impl Duty {
-    pub const ALL: [Duty; 13] = [
+    pub const ALL: [Duty; 14] = [
         Duty::Contracts,
         Duty::Tags,
         Duty::FreeAgency,
@@ -76,6 +82,7 @@ impl Duty {
         Duty::Portal,
         Duty::Nil,
         Duty::Squads,
+        Duty::InjuredReserve,
     ];
 
     pub fn name(self) -> &'static str {
@@ -93,6 +100,7 @@ impl Duty {
             Duty::Portal => "Transfer portal",
             Duty::Nil => "NIL",
             Duty::Squads => "Squads",
+            Duty::InjuredReserve => "Injured reserve",
         }
     }
 
@@ -111,6 +119,7 @@ impl Duty {
             Duty::Portal => "portal",
             Duty::Nil => "nil",
             Duty::Squads => "squads",
+            Duty::InjuredReserve => "injured_reserve",
         }
     }
 
@@ -161,6 +170,9 @@ impl Duty {
             Duty::Squads => {
                 "Your staff puts the best varsity players up and the young ones on JV and the freshman team."
             }
+            Duty::InjuredReserve => {
+                "Your medical staff puts a player out past the list's minimum on injured reserve and brings him back healed while returns last."
+            }
         }
     }
 }
@@ -192,6 +204,10 @@ pub struct FrontOffice {
     pub school: school::SchoolDesk,
     /// Your moves, newest last (the last 400).
     pub log: Vec<Move>,
+    /// Each recruit's race, week by week, as your office followed it.
+    pub race: race::RaceLog,
+    /// The offer chain at your college (SK25-SK31).
+    pub chain: chain::Chain,
 }
 
 impl Default for FrontOffice {
@@ -206,6 +222,8 @@ impl Default for FrontOffice {
             college: Default::default(),
             school: Default::default(),
             log: Vec::new(),
+            race: Default::default(),
+            chain: Default::default(),
         }
     }
 }
@@ -229,6 +247,13 @@ impl FrontOffice {
 /// then leaves your club to you.
 pub(crate) fn yours(w: &World, t: usize, d: Duty) -> bool {
     w.career.is_some() && w.seat_club(t) && w.seat_head() && w.front_office.owner(d) == Owner::You
+}
+
+/// Whether NFL club `t` is your club as its head man, whoever holds each
+/// duty: a move you make yourself stands while your staff keeps the rest
+/// (SC6).
+pub(crate) fn seat_head_club(w: &World, t: usize) -> bool {
+    w.career.is_some() && w.seat_club(t) && w.seat_head()
 }
 
 /// Whether college program `p` is yours and the duty is yours.
@@ -335,6 +360,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     college::day(w, d);
     school::day(w, d);
     market::day(w, d);
+    race::day(w, d);
 }
 
 /// Money in words: "$12.4M", "$850K".

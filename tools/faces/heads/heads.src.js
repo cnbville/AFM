@@ -6,7 +6,8 @@
 // a face is drawn. Built from tools/faces/heads/heads.src.js by tools/faces/heads/build.py (do not edit heads.js by hand).
 //
 // AFMHeads.draw(spec) -> Promise of a WebP data URL (480 x 576, transparent background). `spec` is what the game's
-// `face`/`faces` commands send (genes, looks, expression, team colours); AFMHeads.drawRecipe takes a head recipe directly.
+// `face`/`faces` commands send (genes, looks, expression, team colours); a talk adds the expression's strength and a view
+// ({yaw, down} in degrees, dialogue D1). AFMHeads.drawRecipe takes a head recipe directly.
 "use strict";
 (() => {
   const BASE = "screens/heads/";
@@ -108,7 +109,8 @@
       if (Math.abs(v) > 1e-3) g["gnm/gnm-" + nm] = v;
     }
     let fu = 0; const fm = S.groups[her].fat_mean; for (let k = 0; k < c.length; k++) fu += (c[k] - fm[k]) * S.fat_a[k];
-    const ex = EXPR[spec.expression] || EXPR.slight_smile; g["gnm/gnm-expr_" + ex[0]] = ex[1];
+    // a talk's tell (dialogue D1) draws the expression stronger or fainter than the team photo's
+    const ex = EXPR[spec.expression] || EXPR.slight_smile; g["gnm/gnm-expr_" + ex[0]] = ex[1] * (spec.strength ?? 1);
     // traits from the seed (newplayer_v4.py's draws)
     const browtail = her === "east_asian" ? -.012 : 0;
     const brow = [nr() * .012 - .004, 1 + .25 * nr(), 1 + .12 * nr(), Math.max(.8, 1.05 + .2 * nr()), .015 * nr(), .08 * nr() + browtail * 2, Math.min(1.3, Math.max(.5, .95 + .18 * nr())), .01 * nr()];
@@ -142,6 +144,11 @@
         freck: gn.freckles || 0, moles: gn.moles || 0, scars: gn.acne_scars || 0, acne: 0, pfb: bk ? 0 : gn.razor_bumps || 0, dpn: gn.dpn || 0, lip2: gn.two_tone_lips || 0,
         bf: lk.body_fat || 15, fu_s: fu },
       jersey: spec.colors || ["#3a3f4b", "#9aa3b2"],
+      // a logo from a pack you installed (lane 15): a college's at the V-neck, the NFL shield at the collar; the page hands in
+      // the decoded picture
+      logo: spec.logo && spec.logo.img ? spec.logo : null,
+      // a talk's tell (dialogue D1): the head turned (degrees to his left) and the eyes dropped
+      view: spec.view || null,
     };
   }
 
@@ -362,8 +369,9 @@
     const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
     const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
-    // ---- the jersey (lib_jersey.js): one cloth mesh made over shoulder pads, refitted to his body; his team's colours, no
-    // logo and no number (real logos stay out of the game)
+    // ---- the jersey (lib_jersey.js): one cloth mesh made over shoulder pads, refitted to his body; his team's colours and no
+    // number. The game ships no logos: one shows only from a pack you installed, painted on the cloth's own coordinates so it
+    // follows the fit (the V's point is at x 0, y 5.56 on the front)
     const b64 = (s, Cc) => new Cc(Uint8Array.from(atob(s), (c) => c.charCodeAt(0)).buffer);
     const dec = (o, k, Cc) => o["_" + k] || (o["_" + k] = b64(o[k], Cc));
     function libFit(b, P, N) {
@@ -378,15 +386,18 @@
       }
       return out;
     }
-    const JU = { uBody: { value: new THREE.Color() }, uC1: { value: new THREE.Color() }, uC2: { value: new THREE.Color() }, uC3: { value: new THREE.Color() }, uW: { value: new THREE.Vector3() }, uVB: { value: LJ.vb } };
+    const JU = { uBody: { value: new THREE.Color() }, uC1: { value: new THREE.Color() }, uC2: { value: new THREE.Color() }, uC3: { value: new THREE.Color() }, uW: { value: new THREE.Vector3() }, uVB: { value: LJ.vb },
+      uLogo: { value: null }, uLogoOn: { value: 0 }, uLogoC: { value: new THREE.Vector2() }, uLogoS: { value: 1 } };
     const jMat = new THREE.MeshStandardMaterial({ roughness: .78, metalness: 0 });
     jMat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, JU);
       sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute vec3 aJR;attribute float aJD;varying vec3 vJR;varying float vJD;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvJR=aJR;vJD=aJD;");
-      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vJR;varying float vJD;uniform vec3 uBody,uC1,uC2,uC3,uW;uniform float uVB;")
+      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vJR;varying float vJD;uniform vec3 uBody,uC1,uC2,uC3,uW;uniform float uVB;uniform sampler2D uLogo;uniform float uLogoOn,uLogoS;uniform vec2 uLogoC;")
         .replace("#include <color_fragment>", `#include <color_fragment>
          vec3 p=vJR;float ax=abs(p.x);vec3 col=vJD<uW.x?uC1:vJD<uW.y?uC2:vJD<uW.z?uC3:uBody;
          float sd=abs(-.95*ax+6.55-p.y);col*=1.-.25*step(sd,.035)*step(.5,ax);
+         vec2 lq=(p.xy-uLogoC)/uLogoS+.5;
+         if(uLogoOn>.5&&p.z>.3&&lq.x>0.&&lq.x<1.&&lq.y>0.&&lq.y<1.){vec4 L=texture2D(uLogo,lq);col=mix(col,pow(L.rgb,vec3(2.2)),L.a);}
          diffuseColor.rgb=col;`);
     };
     const jerseyMesh = new THREE.Mesh(new THREE.BufferGeometry(), jMat); jerseyMesh.receiveShadow = true; jerseyMesh.castShadow = true; S.add(jerseyMesh);
@@ -400,6 +411,23 @@
       g.setAttribute("aJR", new THREE.BufferAttribute(Rr, 3)); g.setAttribute("aJD", new THREE.BufferAttribute(D, 1)); g.setIndex(new THREE.BufferAttribute(dec(LJ, "t", Uint16Array), 1)); g.computeVertexNormals(); return g;
     }
     const lin = (c) => new THREE.Color(c).convertSRGBToLinear();
+    // the logo as a square texture, the picture fitted inside it
+    const logoCv = document.createElement("canvas"); logoCv.width = logoCv.height = 256;
+    const logoTex = new THREE.CanvasTexture(logoCv); let logoOf = null;
+    function setLogo(L) {
+      JU.uLogoOn.value = L ? 1 : 0;
+      if (!L) return;
+      const im = L.img, iw = im.naturalWidth || im.width || 1, ih = im.naturalHeight || im.height || 1, k = 240 / Math.max(iw, ih);
+      if (logoOf !== L.img) {
+        const x = logoCv.getContext("2d");
+        x.clearRect(0, 0, 256, 256); x.drawImage(im, (256 - iw * k) / 2, (256 - ih * k) / 2, iw * k, ih * k);
+        logoTex.needsUpdate = true; logoOf = L.img;
+      }
+      JU.uLogo.value = logoTex;
+      // placed by its top edge: the shield's over the collar's point, a college's logo just under the V's trim
+      const size = L.at === "collar" ? .26 : .42, hgt = size * ih * k / 256, top = L.at === "collar" ? 5.58 : 5.52;
+      JU.uLogoC.value.set(0, top - size / 2 + (size - hgt) / 2); JU.uLogoS.value = size;
+    }
 
     // ---- one head
     const out = document.createElement("canvas"); out.width = W0; out.height = H0;
@@ -414,6 +442,13 @@
       cam.position.set(0, tgt.y + .25, tgt.z + 8 / .77); cam.lookAt(tgt); cam.updateMatrixWorld();
       const cy = ey + .35, aim = new THREE.Vector3(0, cy - .6, .5);
       for (const [l, pw] of POW) { const q = l.userData.pos; l.position.set(q[0], cy + q[1], q[2]); l.target.position.copy(aim); const d2 = l.position.distanceToSquared(aim); l.intensity = pw / d2 * LK; }
+      // a turned head: the camera and the lights go round him together, so the light on his face stays the approved one
+      if (p.view && (p.view.yaw || p.view.down)) {
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-(p.view.down || 0) * Math.PI / 180, -(p.view.yaw || 0) * Math.PI / 180, 0, "YXZ"));
+        const turn = (v) => v.sub(tgt).applyQuaternion(q).add(tgt);
+        turn(cam.position); cam.lookAt(tgt); cam.updateMatrixWorld();
+        for (const [l] of POW) turn(l.position);
+      }
       key.shadow.camera.updateProjectionMatrix();
       // hair and beard
       // hair colour as Blender's hair shader showed it: lighter hair reads richer and a little darker than its flat colour
@@ -454,7 +489,7 @@
       UE.uIris.value.copy(lin(p.eye));
       // jersey
       const [c1, c2] = p.jersey; jerseyMesh.geometry.dispose(); jerseyMesh.geometry = jGeo(SUB, N);
-      JU.uBody.value.copy(lin(c1)); JU.uC1.value.copy(lin(c2)); JU.uC2.value.copy(lin(c1)); JU.uC3.value.copy(lin(c1)); JU.uW.value.set(.06, .16, .16); U.uNoJ.value = 1;
+      JU.uBody.value.copy(lin(c1)); JU.uC1.value.copy(lin(c2)); JU.uC2.value.copy(lin(c1)); JU.uC3.value.copy(lin(c1)); JU.uW.value.set(.06, .16, .16); U.uNoJ.value = 1; setLogo(p.logo);
       const t1 = performance.now();
       R.render(S, cam);
       const g2 = out.getContext("2d"); g2.clearRect(0, 0, W0, H0); g2.imageSmoothingQuality = "high"; g2.drawImage(R.domElement, 0, 0, W0, H0);

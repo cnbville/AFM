@@ -42,7 +42,7 @@ fn puts_the_all_america_teams_at_90_plus_the_consensus_at_95_and_saves_99_for_a_
 #[test]
 fn a_strong_year_shows_more_90s_against_five_seasons_than_against_itself() {
     let mut rng = Rng::new("level-rating-pooled");
-    let mut h = ScaleHistory { group: LevelGroup::College, start: Vec::new(), end: Vec::new() };
+    let mut h = ScaleHistory { group: LevelGroup::College, start: Vec::new(), end: Vec::new(), align: None };
     for _ in 0..SCALE_SEASONS + 2 {
         let typical: Vec<f64> = (0..11_000).map(|_| rng.normal(56.0, 9.0)).collect();
         let a = season_anchors(&typical, Pool::College, 1.0);

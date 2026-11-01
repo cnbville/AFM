@@ -99,6 +99,28 @@ stats!(
     ReturnTd,
     GradeSum,
     Graded,
+    // The world reader (R1): the game line's kicking, pass rush and
+    // time to throw numbers the book dropped before. New stats go last,
+    // so older world files read their rows unchanged.
+    XpAtt,
+    FgAttU30,
+    FgAtt30s,
+    FgAtt40s,
+    FgAtt50,
+    FgMadeU30,
+    FgMade30s,
+    FgMade40s,
+    Kickoffs,
+    KickoffTb,
+    PuntYds,
+    PuntIn20,
+    PuntTb,
+    QbHits,
+    Hurries,
+    SpeedWins,
+    PowerWins,
+    FinesseWins,
+    TttSum,
 );
 
 pub const STAT_COUNT: usize = Stat::ALL.len();
@@ -212,6 +234,23 @@ pub fn from_line(l: &StatLine) -> [f32; STAT_COUNT] {
     set(ReturnTd, (l.kr_td + l.pr_td) as f64);
     set(GradeSum, l.grade_sum);
     set(Graded, l.graded as f64);
+    set(XpAtt, l.xp_att as f64);
+    for (k, (a, m)) in [(FgAttU30, FgMadeU30), (FgAtt30s, FgMade30s), (FgAtt40s, FgMade40s)].into_iter().enumerate() {
+        set(a, l.fg_att[k] as f64);
+        set(m, l.fg_made[k] as f64);
+    }
+    set(FgAtt50, l.fg_att[3] as f64);
+    set(Kickoffs, l.kickoffs as f64);
+    set(KickoffTb, l.ko_tb as f64);
+    set(PuntYds, l.punt_yds);
+    set(PuntIn20, l.punt_in20 as f64);
+    set(PuntTb, l.punt_tb as f64);
+    set(QbHits, l.qb_hits as f64);
+    set(Hurries, l.hurries as f64);
+    set(SpeedWins, l.speed_wins as f64);
+    set(PowerWins, l.power_wins as f64);
+    set(FinesseWins, l.finesse_wins as f64);
+    set(TttSum, l.ttt);
     s
 }
 
@@ -294,8 +333,15 @@ impl serde::Serialize for StatSet {
 }
 
 impl<'de> serde::Deserialize<'de> for StatSet {
+    /// A world file written before a stat was added has shorter rows: the
+    /// missing stats read as zero.
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        <[f32; STAT_COUNT] as serde_big_array::BigArray<'de, f32>>::deserialize(d).map(StatSet::from)
+        let v: Vec<f32> = serde::Deserialize::deserialize(d)?;
+        let mut a = [0f32; STAT_COUNT];
+        for (x, y) in a.iter_mut().zip(v) {
+            *x = y;
+        }
+        Ok(StatSet::from(a))
     }
 }
 
@@ -558,7 +604,8 @@ pub struct UnitBuzz {
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct StatBook {
-    /// Every player season, oldest first.
+    /// Every player season, oldest first. Its own part in a save (`save.rs`).
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub seasons: Vec<SeasonRecord>,
     /// Player id to his seasons (indexes into `seasons`), oldest first.
     pub by_player: HashMap<u32, Vec<u32>>,
@@ -1199,26 +1246,40 @@ fn hall_of_fame(w: &mut World, year: i32) {
             });
         }
     }
-    // Coaches: retired three seasons, 100 games and a .600 record as a
-    // college head coach.
+    // Coaches, on the Hall's own rule: ten seasons and 100 games as a
+    // college head coach with a .600 record (.595 from the 2027 ballot),
+    // three seasons after retiring or at once from 70; a coach still
+    // working is eligible at 75 (update 2, lane 2).
     let inducted_coaches: Vec<String> = w.stats.hall.iter().filter(|e| e.coach).map(|e| e.name.clone()).collect();
     let mut coaches: Vec<(f64, usize, Division, Vec<usize>, String)> = Vec::new();
+    let line = if year + 1 >= 2027 { 0.595 } else { 0.6 };
     for (c, coach) in w.coaches.iter().enumerate() {
-        if !coach.retired || inducted_coaches.contains(&coach.name) {
+        if inducted_coaches.contains(&coach.name) {
+            continue;
+        }
+        let active = !coach.retired && coach.job.is_some();
+        if active && coach.age < 75 {
             continue;
         }
         let mut wins = 0;
         let mut losses = 0;
         let mut last = 0;
         let mut titles = 0;
+        let mut seasons = 0;
         let mut programs = Vec::new();
         let mut top = Division::JUCO;
-        for s in &coach.history {
-            if let (super::coach::Employer::College(p), super::coach::Role::HeadCoach) = (s.employer, s.role) {
-                wins += s.wins;
-                losses += s.losses;
-                titles += s.titles;
-                last = last.max(s.to);
+        let mut stints: Vec<(super::coach::Employer, super::coach::Role, i32, i32, u32, u32, u32)> =
+            coach.history.iter().map(|s| (s.employer, s.role, s.from, s.to, s.wins, s.losses, s.titles)).collect();
+        if active && let Some(j) = coach.job {
+            stints.push((j.employer, j.role, j.since, year + 1, coach.wins, coach.losses, coach.titles));
+        }
+        for (e, r, from, to, sw, sl, st) in stints {
+            if let (super::coach::Employer::College(p), super::coach::Role::HeadCoach) = (e, r) {
+                wins += sw;
+                losses += sl;
+                titles += st;
+                seasons += (to - from).max(1);
+                last = last.max(to);
                 if !programs.contains(&p) {
                     programs.push(p);
                 }
@@ -1226,7 +1287,8 @@ fn hall_of_fame(w: &mut World, year: i32) {
             }
         }
         let games = wins + losses;
-        if games < 100 || (wins as f64) < 0.6 * games as f64 || last > year - 3 || last < year - 50 {
+        let waited = active || last <= year - 3 || coach.age >= 70;
+        if seasons < 10 || games < 100 || (wins as f64) < line * games as f64 || !waited || last < year - 50 {
             continue;
         }
         let score = wins as f64 / games as f64 * 10.0 + titles as f64 + games as f64 / 100.0;

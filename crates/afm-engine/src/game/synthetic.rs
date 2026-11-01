@@ -149,7 +149,7 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
 /// Depth spots, game players and a staff for a team's players.
 fn finish_team(
     name: &str,
-    _level: Level,
+    level: Level,
     mut raw: Vec<(crate::player::Player, f64, f64)>,
     rng: &mut Rng,
     seed: u32,
@@ -162,18 +162,25 @@ fn finish_team(
     let players: Vec<GamePlayer> = raw.iter().map(|(p, know, exp)| GamePlayer::from_player(p, *know, *exp)).collect();
     // The staff sizes its weekly plan to its players (T6.2).
     let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
+    // Play callers like the level's own: the world's coordinators read and
+    // adapt at about a point under its head coaches (a 15-season world at a
+    // quarter's scale, seed 2026: NFL 14.4, FBS 14.1, FCS 12.0, high school
+    // 9.9, before their system fit), and at 10 the test staffs trusted the
+    // coaches' table of what beats what half as much (minor bug 135).
+    let norm = super::rules::coach_norm(level) - 1.0;
     let staff = Staff {
         offense: Caller::new(
-            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
-            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            clamp(rng.normal(norm, 2.5), 1.0, 20.0),
+            clamp(rng.normal(norm, 2.5), 1.0, 20.0),
             clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         ),
         defense: Caller::new(
-            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
-            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            clamp(rng.normal(norm, 2.5), 1.0, 20.0),
+            clamp(rng.normal(norm, 2.5), 1.0, 20.0),
             clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         ),
-        game_management: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+        // Head coaches like the level's own (minor bug 140).
+        game_management: clamp(rng.normal(super::rules::coach_norm(level), 2.5), 1.0, 20.0),
         strictness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         off_scheme: scheme,
         front: if rng.chance(0.35) { Front::ThreeFour } else { Front::FourThree },
@@ -186,7 +193,21 @@ fn finish_team(
         film_study: 10.0,
         install: absorb(aware).clamp(0.35, 1.0),
         style: Default::default(),
+        guide: Default::default(),
+        // Own streams, so the draws above keep their values.
+        motivation: clamp(Rng::new(seed ^ 0x40C1_7A11).normal(10.0, 3.0), 1.0, 20.0),
+        temper: clamp(Rng::new(seed ^ 0x7E3B_0D21).normal(10.0, 3.5), 1.0, 20.0),
     };
+    // The head coach's guidelines (update 2, G2), from their own stream so
+    // the draws above keep their values.
+    let mut staff = staff;
+    staff.guide = super::guide::draw(
+        &mut Rng::new(seed ^ 0x6A1D_E5E7),
+        level != Level::NFL,
+        staff.off_scheme,
+        staff.shell,
+        staff.defense.aggressiveness,
+    );
     GameTeam::new(name.to_string(), players, staff)
 }
 

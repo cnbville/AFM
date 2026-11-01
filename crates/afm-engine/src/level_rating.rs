@@ -72,6 +72,24 @@ fn anchors(pool: Pool) -> Anchors {
     }
 }
 
+/// The anchors of a pool in words, bottom first, for the badge's hover
+/// (minor bug 56): "Bottom 1%" 55, "The middle" 72, "No. 700" 85 and so on,
+/// read from `anchors`, never typed twice.
+pub fn marks(pool: Pool) -> Vec<(String, f64)> {
+    let a = anchors(pool);
+    let mut v: Vec<(String, f64)> = a
+        .quantile
+        .iter()
+        .map(|&(q, r)| (if q >= 0.5 { "The middle".to_string() } else { format!("Bottom {:.0}%", q * 100.0) }, r))
+        .collect();
+    v.extend(a.rank.iter().map(|&(rank, r)| (format!("No. {}", thousands(rank as u64)), r)));
+    v
+}
+
+fn thousands(n: u64) -> String {
+    if n >= 1000 { format!("{},{:03}", n / 1000, n % 1000) } else { n.to_string() }
+}
+
 /// One group's anchors over its last `SCALE_SEASONS` seasons, oldest first,
 /// at the start and at the end of each season.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -79,6 +97,10 @@ pub struct ScaleHistory {
     pub group: LevelGroup,
     pub start: Vec<SeasonAnchors>,
     pub end: Vec<SeasonAnchors>,
+    /// The newest season's end-of-year position aligner, so a staff's read
+    /// can be placed on the same scale (minor bug 49). Empty on an older file.
+    #[serde(default)]
+    pub align: Option<PositionAligner>,
 }
 
 impl ScaleHistory {

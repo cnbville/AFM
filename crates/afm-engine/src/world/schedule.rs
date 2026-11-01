@@ -133,6 +133,11 @@ pub struct Game {
     /// The crowd (later extras topic 1), once played.
     #[serde(default)]
     pub attendance: u32,
+    /// What the game paid once played (update 2, lane 6): 0 nothing, 1 the
+    /// host's guarantee to the visitor, 2 a neutral site's payout to each
+    /// side, with the dollars. Last season's page reads it as booked.
+    #[serde(default)]
+    pub paid: Option<(u8, f32)>,
 }
 
 impl Game {
@@ -157,6 +162,7 @@ impl Game {
             played: None,
             line: None,
             attendance: 0,
+            paid: None,
         }
     }
     pub fn involves(&self, p: usize) -> bool {
@@ -278,6 +284,57 @@ impl Builder<'_> {
         self.count[b] += 1;
         self.home[home] += 1;
         self.games.push(g);
+    }
+    /// A week for a contract whose two sides have none open in common: the
+    /// games in the way that week (not a rivalry, which keeps its date, nor
+    /// a neutral site) move to weeks their own sides have open, latest
+    /// first. A week that needs one move is tried before one that needs two.
+    fn make_room(&mut self, a: usize, c: usize) -> Option<usize> {
+        let last_of = |p: usize| last_week(self.w.programs[p].division, self.y);
+        let lim = last_of(a).min(last_of(c));
+        for need in 1..=2 {
+            for wk in 1..=lim {
+                let sides: Vec<usize> = [a, c].into_iter().filter(|&p| !self.free(p, wk)).collect();
+                if sides.len() != need {
+                    continue;
+                }
+                let date = self.y.cfb_weeks[wk];
+                // (game, side, its opponent, the week it moves to)
+                let mut plan: Vec<(usize, usize, usize, usize)> = Vec::new();
+                for &side in &sides {
+                    let Some(k) = self.games.iter().position(|g| {
+                        g.date == date && (g.home == side || g.away == side) && g.rivalry.is_none() && g.site.is_none()
+                    }) else {
+                        break;
+                    };
+                    let other = if self.games[k].home == side { self.games[k].away } else { self.games[k].home };
+                    let to_lim = last_of(side).min(last_of(other));
+                    let Some(to) = (1..=to_lim).rev().find(|&x| x != wk && self.free(side, x) && self.free(other, x))
+                    else {
+                        break;
+                    };
+                    plan.push((k, side, other, to));
+                }
+                if plan.len() != need {
+                    continue;
+                }
+                for (k, side, other, to) in plan {
+                    self.busy[side][wk] = false;
+                    self.busy[other][wk] = false;
+                    self.busy[side][to] = true;
+                    self.busy[other][to] = true;
+                    let to_date = self.y.cfb_weeks[to];
+                    let home = self.games[k].home;
+                    let code = self.w.states[self.w.programs[home].state].code.clone();
+                    let kick = kickoff(&code, self.key(home as u64 ^ 0x4B1C, to_date.0 as u64), false);
+                    let g = &mut self.games[k];
+                    g.date = to_date;
+                    g.kickoff = kick;
+                }
+                return Some(wk);
+            }
+        }
+        None
     }
     /// Who hosts: the side with fewer home games so far; a coin flip on a tie.
     fn host_first(&self, a: usize, b: usize) -> bool {
@@ -439,7 +496,7 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
     for (k, r) in RIVALRIES.iter().enumerate() {
         let (Some(&a), Some(&c)) = (by_name.get(r.a), by_name.get(r.b)) else { continue };
         let (pa, pc) = (&w.programs[a], &w.programs[c]);
-        if pa.division != pc.division || !pa.plays(season) || !pc.plays(season) {
+        if pa.division != pc.division || !pa.fields_games(season) || !pc.fields_games(season) {
             continue;
         }
         // Only in its real years: starts, pauses and ends (part B 28).
@@ -485,16 +542,16 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         let last = last_week(w.programs[a].division, y);
         b.place(a, c, true, Some(k), last);
     }
-
+    // --- Conference games -------------------------------------------------------------
+    // The leagues set their schedules first, around the rivalries: a
+    // league schedule is never short for a member's contracts (update 2,
+    // lane 6, R7; the contracts going first left about one FBS team in
+    // twelve one or two league games short).
     for division in Division::ALL {
         let last = last_week(division, y);
-        let target = games_target(division, season);
-        let members: Vec<usize> =
-            w.programs.iter().filter(|p| p.division == division && p.plays(season)).map(|p| p.id).collect();
-        // --- Conference games ---------------------------------------------------------
         let mut confs: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
-        for &i in &members {
-            confs.entry(w.programs[i].conference.as_str()).or_default().push(i);
+        for p in w.programs.iter().filter(|p| p.division == division && p.fields_games(season)) {
+            confs.entry(p.conference.as_str()).or_default().push(p.id);
         }
         for (name, list) in confs.iter() {
             if independent(name) || list.len() < 2 {
@@ -513,30 +570,96 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
                 b.place(a, c, true, None, last);
             }
         }
+    }
+    // A contract or booking goes in only with room left: a season never
+    // runs past its games (a school that changed conferences since signing
+    // plays its new league's schedule and drops what doesn't fit).
+    let room = |b: &Builder, x: usize| -> bool { b.count[x] < games_target(w.programs[x].division, season) };
+    // Non-conference games you booked years ahead (update 2, L10); a
+    // neutral-site one is a contract below.
+    for (home, away) in super::legacy::college::booked_games(w, season) {
+        if home >= np || away >= np || b.opp[home].contains(&away) {
+            continue;
+        }
+        if !w.programs[home].fields_games(season) || !w.programs[away].fields_games(season) {
+            continue;
+        }
+        if !room(&b, home) || !room(&b, away) {
+            continue;
+        }
+        let last = last_week(w.programs[home].division, y).min(last_week(w.programs[away].division, y));
+        let order = b.week_order(home, away, false, last);
+        let wk = order.into_iter().find(|&wk| b.free(home, wk) && b.free(away, wk)).or_else(|| b.make_room(home, away));
+        if let Some(wk) = wk {
+            b.add(home, away, Some(wk), y.cfb_weeks[wk], true, false, None);
+        }
+    }
+    // The world's non-conference contracts (update 2, lane 6): signed years
+    // ago, played now. A neutral-site kickoff game opens the season; the
+    // rest go where both have the date.
+    let mut deals: Vec<&super::deals::Deal> = super::deals::for_season(w, season).collect();
+    deals.sort_by_key(|d| (d.kind != super::deals::DealKind::Neutral, d.home, d.away));
+    for d in deals {
+        let (home, away) = (d.home, d.away);
+        if home >= np || away >= np || b.opp[home].contains(&away) {
+            continue;
+        }
+        let (ph, pa) = (&w.programs[home], &w.programs[away]);
+        if !ph.fields_games(season) || !pa.fields_games(season) {
+            continue;
+        }
+        if !room(&b, home) || !room(&b, away) {
+            continue;
+        }
+        let last = last_week(ph.division, y).min(last_week(pa.division, y));
+        let order = match d.site {
+            Some(_) => vec![1, 0, 2],
+            None => b.week_order(home, away, false, last),
+        };
+        // A contract is played: with no week free for both, a league game in
+        // the way moves to a week its own sides have open.
+        let wk = order
+            .into_iter()
+            .find(|&wk| wk < nw && b.free(home, wk) && b.free(away, wk))
+            .or_else(|| b.make_room(home, away));
+        if let Some(wk) = wk {
+            b.add(home, away, Some(wk), y.cfb_weeks[wk], true, false, None);
+            if let Some(s) = d.site.and_then(|k| super::deals::SITES.get(k as usize)) {
+                let g = b.games.last_mut().unwrap();
+                g.site = Some(Site { state: geo::state_index(s.state).unwrap_or(0), town: s.town, indoor: s.indoor });
+            }
+        }
+    }
+
+    for division in Division::ALL {
+        let last = last_week(division, y);
+        let target = games_target(division, season);
+        let members: Vec<usize> =
+            w.programs.iter().filter(|p| p.division == division && p.fields_games(season)).map(|p| p.id).collect();
         // --- FBS buy games: most FBS teams host one FCS opponent ------------------------
         if division == Division::FBS {
-            let fcs: Vec<usize> =
-                w.programs.iter().filter(|p| p.division == Division::FCS && p.plays(season)).map(|p| p.id).collect();
+            let fcs: Vec<usize> = w
+                .programs
+                .iter()
+                .filter(|p| p.division == Division::FCS && p.fields_games(season))
+                .map(|p| p.id)
+                .collect();
             let fcs_target = games_target(Division::FCS, season);
-            // Each FCS team's conference games still to come, so a buy game
-            // never pushes it past 12 games (one FBS opponent each, rarely two).
-            let mut conf_size: HashMap<&str, u32> = HashMap::new();
-            for &j in &fcs {
-                *conf_size.entry(w.programs[j].conference.as_str()).or_default() += 1;
-            }
-            let fcs_conf = |j: usize| {
-                let c = w.programs[j].conference.as_str();
-                if independent(c) { 0 } else { (conf_size[c].saturating_sub(1)).min(8) }
-            };
+            // The FCS schools' league games are already in, so a buy game
+            // never pushes one past 12 games (one FBS opponent each, rarely two).
             let mut bought = vec![0u32; np];
             for &i in &members {
                 if b.count[i] >= target || b.key(i as u64 ^ 0xFC5, season as u64) >= 0.85 {
                     continue;
                 }
+                // Already hosting an FCS school under contract.
+                if b.opp[i].iter().any(|&j| w.programs[j].division == Division::FCS) {
+                    continue;
+                }
                 let mut cands: Vec<(f64, usize)> = fcs
                     .iter()
                     .copied()
-                    .filter(|&j| bought[j] == 0 && b.count[j] + fcs_conf(j) < fcs_target + 1)
+                    .filter(|&j| bought[j] == 0 && b.count[j] < fcs_target + 1)
                     .map(|j| {
                         let miles = geo::miles(w.programs[i].state, w.programs[j].state);
                         (miles + 900.0 * b.key(i as u64 * 31 + j as u64, season as u64), j)
@@ -615,23 +738,52 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
     games
 }
 
-/// Rivalry-week games played on Thanksgiving or the day after, by years
-/// (part B 31; from memory, to verify): Texas and Texas A&M on Thanksgiving
-/// through 2011, the Egg Bowl on Thanksgiving from 2013, and the Black
-/// Friday games.
-const HOLIDAY_GAMES: &[(&str, &str, i32, i32, bool)] = &[
-    ("Texas", "Texas A&M", 1984, 2011, true),
-    ("Ole Miss", "Mississippi State", 2013, 2023, true),
-    ("Nebraska", "Iowa", 2011, 2025, false),
-    ("Iowa", "Nebraska", 2011, 2025, false),
-    ("Missouri", "Arkansas", 2014, 2025, false),
-    ("LSU", "Arkansas", 1992, 2013, false),
-    ("Washington", "Washington State", 2012, 2016, false),
-    ("Oregon", "Oregon State", 2008, 2022, false),
-    ("Toledo", "Bowling Green", 2005, 2025, false),
-    ("UCF", "South Florida", 2013, 2025, false),
-    ("Virginia", "Virginia Tech", 2012, 2018, false),
-    ("Pittsburgh", "West Virginia", 2000, 2011, false),
+/// Each pair's spans of years: first, last, Thanksgiving (true) or the day after.
+type Spans = &'static [(i32, i32, bool)];
+
+/// Rivalry-week games played on Thanksgiving (true) or the day after
+/// (false), by years (part B 31; minor bug 46): the real 2001-2025
+/// schedules (`data/real-world/memory_checks.json`, `college_holiday_games`
+/// `by_pair`), earlier years from memory, and from 2026 each pair keeps its
+/// 2025 day. Years not listed stay on Saturday or the MAC's weeknights.
+const HOLIDAY_GAMES: &[(&str, &str, Spans)] = &[
+    ("Texas", "Texas A&M", &[(1984, 2000, true), (2001, 2007, false), (2008, 2011, true), (2025, 9999, false)]),
+    (
+        "Ole Miss",
+        "Mississippi State",
+        &[
+            (2001, 2003, true),
+            (2007, 2008, false),
+            (2013, 2013, true),
+            (2017, 2019, true),
+            (2021, 2023, true),
+            (2024, 9999, false),
+        ],
+    ),
+    ("Nebraska", "Iowa", &[(2011, 9999, false)]),
+    ("Missouri", "Arkansas", &[(2014, 2019, false), (2021, 2023, false)]),
+    ("LSU", "Arkansas", &[(1992, 2008, false), (2011, 2013, false)]),
+    (
+        "Washington",
+        "Washington State",
+        &[(2012, 2013, false), (2015, 2016, false), (2018, 2019, false), (2021, 2021, false)],
+    ),
+    (
+        "Oregon",
+        "Oregon State",
+        &[
+            (2006, 2006, false),
+            (2013, 2013, false),
+            (2015, 2015, false),
+            (2018, 2018, false),
+            (2020, 2020, false),
+            (2023, 2023, false),
+        ],
+    ),
+    ("Toledo", "Bowling Green", &[(2001, 2001, false), (2007, 2009, false)]),
+    ("UCF", "South Florida", &[(2013, 2014, false), (2015, 2015, true), (2017, 2021, false)]),
+    ("Virginia", "Virginia Tech", &[(2014, 2014, false), (2017, 2019, false)]),
+    ("Pittsburgh", "West Virginia", &[(2000, 2000, false), (2004, 2005, true), (2008, 2011, false)]),
 ];
 
 /// College games off Saturday (part B 31). Proposed, not confirmed, sized
@@ -687,8 +839,9 @@ fn weeknights(games: &mut [Game], w: &World, season: i32, y: &YearDates, seed: u
                 let (h, a) = (w.programs[g.home].real_name.as_str(), w.programs[g.away].real_name.as_str());
                 let hit = HOLIDAY_GAMES
                     .iter()
-                    .find(|x| ((x.0 == h && x.1 == a) || (x.0 == a && x.1 == h)) && (x.2..=x.3).contains(&season));
-                if let Some(&(_, _, _, _, thanksgiving)) = hit {
+                    .filter(|x| (x.0 == h && x.1 == a) || (x.0 == a && x.1 == h))
+                    .find_map(|x| x.2.iter().find(|r| (r.0..=r.1).contains(&season)).map(|r| r.2));
+                if let Some(thanksgiving) = hit {
                     let day = if thanksgiving { y.thanksgiving } else { y.thanksgiving.add(1) };
                     let ko = if thanksgiving { night(w, g.home) } else { (12, 0) };
                     moves.push((k, day, ko));
@@ -766,7 +919,7 @@ mod tests {
         let games = build(&w, 2026, &y);
         // Programs that dropped football keep their old division but play no one.
         let fbs: Vec<usize> =
-            w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(2026)).map(|p| p.id).collect();
+            w.programs.iter().filter(|p| p.division == Division::FBS && p.fields_games(2026)).map(|p| p.id).collect();
         let mut counts: Vec<u32> = fbs.iter().map(|&p| games.iter().filter(|g| g.involves(p)).count() as u32).collect();
         counts.sort();
         let avg = counts.iter().sum::<u32>() as f64 / counts.len() as f64;

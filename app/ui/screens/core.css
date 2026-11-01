@@ -121,6 +121,15 @@
 .kvline span:first-child { color: var(--fg3); }
 .kvline .rg { grid-template-columns: 80px 44px; }
 .pk-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.peek.has-moves { pointer-events: auto; }
+.pk-moves { display: flex; flex-wrap: wrap; gap: 6px; }
+/* The ⋯ at the end of a player row (SC4) and the move bar under ticked rows (SC5). */
+.rowmore { border: 0; background: none; color: var(--fg3); font: inherit; font-size: 16px; line-height: 1; padding: 2px 8px; border-radius: 8px; cursor: pointer; }
+.rowmore:hover, .rowmore:focus-visible { color: var(--fg); background: var(--hair); }
+.movebar { position: sticky; bottom: 10px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; padding: 10px 14px; border-radius: 14px;
+  background: var(--chrome); backdrop-filter: blur(var(--blur-lg, 24px)) saturate(1.7); -webkit-backdrop-filter: blur(var(--blur-lg, 24px)) saturate(1.7);
+  box-shadow: var(--shadow-sheet, 0 12px 40px rgba(0,0,0,.35)), inset 0 0 0 1px var(--hair); }
+.movebar b { font-size: 13px; margin-right: 4px; }
 
 /* ---------- the page beside (L6) ---------- */
 .beside { position: fixed; top: var(--topbar); right: 0; bottom: 0; width: min(560px, 46vw); z-index: 6; display: grid; grid-template-rows: auto 1fr;
@@ -209,7 +218,7 @@ html.has-beside .view { padding-right: min(560px, 46vw); }
 html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); transition: filter .35s var(--ease), transform .35s var(--ease); }
 .letter-room { position: fixed; inset: 0; z-index: 84; display: grid; grid-template-columns: minmax(0, 1fr) 320px; background: rgba(6, 7, 10, .55); animation: lt-fade .25s ease both; }
 .lt-stage { position: relative; overflow-y: auto; padding: 48px 24px 80px; perspective: 1600px; display: grid; justify-items: center; align-content: start; }
-.lt-stack { position: absolute; top: 58px; left: 50%; width: min(720px, calc(100% - 60px)); transform: translateX(-50%); height: 70vh; pointer-events: none; }
+.lt-stack { position: absolute; top: 58px; left: 50%; width: min(720px, calc(100% - 60px)); transform: translateX(-50%); height: 70vh; pointer-events: none; animation: lt-stack-in .6s var(--ease) both; }
 .lt-stack i { position: absolute; inset: 0; border-radius: 6px; background: #ece5d8; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
 .lt-stack i:nth-child(1) { transform: translate(-10px, 14px) rotate(-1.6deg); opacity: .55; }
 .lt-stack i:nth-child(2) { transform: translate(8px, 9px) rotate(1.1deg); opacity: .7; }
@@ -218,6 +227,8 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 .lt-sheet.rise { animation: lt-rise .6s var(--ease) both; }
 .lt-sheet.turn { animation: lt-turn .42s var(--ease) both; }
 @keyframes lt-fade { from { opacity: 0; } }
+/* The stack fades in on the sheet's own curve, so it never shows as a blank page alone (minor bug 1). */
+@keyframes lt-stack-in { from { opacity: 0; } 60% { opacity: 1; } }
 @keyframes lt-rise { from { transform: translateY(70px) rotateX(18deg) scale(.96); opacity: 0; box-shadow: none; } 60% { opacity: 1; } to { transform: none; } }
 @keyframes lt-turn { from { transform: translateX(26px) rotateY(-7deg); opacity: 0; } to { transform: none; opacity: 1; } }
 .lt-paper { --ink: #1d1a16; --ink2: #5d554b; position: relative; color: var(--ink); background: #fbf8f2; background-image: linear-gradient(180deg, rgba(255,255,255,.6), transparent 30%), radial-gradient(120% 80% at 50% 0%, #fffdf8, #f3ede2); border-radius: 4px; padding: 44px 56px 48px; box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 2px 0 rgba(0,0,0,.06); font-size: 14.5px; line-height: 1.6; display: grid; gap: 14px; }
@@ -422,6 +433,26 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 .cert-reported { color: var(--fg2); box-shadow: inset 0 0 0 1px var(--hair); }
 .cert-confirmed { color: var(--good); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--good) 60%, transparent); }
 .cert-opinion { color: var(--fg3); font-style: italic; }
+/* The fans on the News page (people topic 9). */
+.fn-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin: 4px 0 14px; font-size: 13px; }
+.fn-mood { font-size: 15px; }
+.fn-high, .fn-good { color: var(--good); }
+.fn-low { color: var(--gold); }
+.fn-angry { color: var(--live); }
+.fn-town { margin-bottom: 18px; }
+.fn-voices { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.fn-voice, .fn-call, .fn-post { display: grid; gap: 4px; }
+.fn-voice p, .fn-call p, .fn-post p { margin: 0; font-size: 14px; line-height: 1.45; }
+.fn-voice { padding: 10px 12px; border-radius: 14px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--hair); }
+.fn-who { color: var(--fg3); font-size: 12px; }
+.fn-host { color: var(--fg3); font-size: 12px; font-style: italic; }
+.fn-show, .fn-thread { display: grid; gap: 10px; padding: 10px 0; border-top: 1px solid var(--hair); }
+.fn-show:first-of-type, .fn-thread:first-of-type { border-top: 0; }
+.fn-show-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.fn-call { padding-left: 12px; box-shadow: inset 2px 0 0 var(--hair); }
+.fn-post { grid-template-columns: 150px minmax(0, 1fr); gap: 10px; font-size: 13.5px; }
+.fn-by { color: var(--fg2); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 700px) { .fn-post { grid-template-columns: 1fr; gap: 2px; } }
 .chainbar { display: flex; gap: 12px; align-items: center; padding: 8px 14px; border-radius: 12px; background: color-mix(in oklab, var(--accent) 14%, transparent); font-size: 13px; }
 
 /* ---------- the calendar ---------- */
@@ -473,6 +504,7 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 .setrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--hair); }
 .setrow b { display: block; font-size: 13.5px; }
 .setrow small { color: var(--fg3); font-size: 12px; }
+.setrow > .seg { flex-shrink: 0; }
 .setrow input[type="range"] { width: 200px; accent-color: var(--accent); }
 .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 22px; }
 .keys > div { display: flex; gap: 12px; align-items: center; font-size: 13px; }
@@ -500,7 +532,7 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 }
 
 /* ---------- reduced motion ---------- */
-html.calm .lt-sheet.rise, html.calm .lt-sheet.turn, html.calm .letter-room, html.calm .reveal-room, html.calm .rv-copy > *, html.calm .hs .hs-copy > *,
+html.calm .lt-sheet.rise, html.calm .lt-sheet.turn, html.calm .lt-stack, html.calm .letter-room, html.calm .reveal-room, html.calm .rv-copy > *, html.calm .hs .hs-copy > *,
 html.calm .beside, html.calm .notes-sheet, html.calm .peek, html.calm .popmenu, html.calm .find-box, html.calm .hol-sun, html.calm .holiday-room { animation: none !important; }
 html.calm .hs, html.calm .frame, html.calm .poster { transition: none !important; }
 html.calm.reading .frame { transform: none; }

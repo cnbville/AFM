@@ -151,6 +151,82 @@ pub enum TwoChart {
     Kick,
 }
 
+/// Your timeout rule (update 2, G4): how many to keep for the end of each
+/// half. Your staff spends the rest to beat the play clock instead of
+/// taking a delay of game.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TimeoutRule {
+    #[default]
+    Staff,
+    KeepTwo,
+    KeepOne,
+    Free,
+}
+
+/// Your four-minute plan (update 2, G4): ahead late, run it out (runs and
+/// the play clock), keep attacking (your usual mix and tempo), or the
+/// staff's call.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FourMinute {
+    #[default]
+    Staff,
+    RunItOut,
+    KeepAttacking,
+}
+
+/// The 4th-down chart's rows (to go) and columns (field position), for
+/// your own cells (update 2, G4).
+pub const CHART_ROWS: [&str; 7] =
+    ["4th & 1", "4th & 2", "4th & 3", "4th & 4-5", "4th & 6-7", "4th & 8-10", "4th & 11+"];
+pub const CHART_COLS: [&str; 9] =
+    ["Own 1-20", "Own 21-30", "Own 31-40", "Own 41-50", "Opp 49-40", "Opp 39-30", "Opp 29-20", "Opp 19-10", "Opp 9-1"];
+
+/// A snap's cell on the chart: (row, column).
+pub fn chart_at(togo: f64, yardline_100: f64) -> (usize, usize) {
+    let row = match togo {
+        t if t <= 1.0 => 0,
+        t if t <= 2.0 => 1,
+        t if t <= 3.0 => 2,
+        t if t <= 5.0 => 3,
+        t if t <= 7.0 => 4,
+        t if t <= 10.0 => 5,
+        _ => 6,
+    };
+    let y = yardline_100;
+    let col = if y >= 80.0 {
+        0
+    } else if y >= 70.0 {
+        1
+    } else if y >= 60.0 {
+        2
+    } else if y >= 50.0 {
+        3
+    } else if y >= 40.0 {
+        4
+    } else if y >= 30.0 {
+        5
+    } else if y >= 20.0 {
+        6
+    } else if y >= 10.0 {
+        7
+    } else {
+        8
+    };
+    (row, col)
+}
+
+/// Your own call in a cell, if you set one: two bits a column, 1 go, 2
+/// field goal, 3 punt.
+pub fn chart_cell(cells: &[u32; 7], togo: f64, yardline_100: f64) -> Option<super::calling::FourthDown> {
+    let (r, c) = chart_at(togo, yardline_100);
+    match (cells[r] >> (2 * c)) & 3 {
+        1 => Some(super::calling::FourthDown::Go),
+        2 => Some(super::calling::FourthDown::FieldGoal),
+        3 => Some(super::calling::FourthDown::Punt),
+        _ => None,
+    }
+}
+
 /// The classic two-point chart (`TwoChart::Chart`), by the margin after
 /// the touchdown.
 pub fn chart_says_two(diff_after_td: i32) -> bool {
@@ -169,15 +245,30 @@ pub struct Prep {
     pub fourth: FourthChart,
     pub two: TwoChart,
     pub tempo: Tempo,
+    /// Your standing rules beyond the charts (update 2, G4): timeouts, the
+    /// four-minute plan and your own cells on the 4th-down chart.
+    #[serde(default)]
+    pub timeouts: TimeoutRule,
+    #[serde(default)]
+    pub four: FourMinute,
+    #[serde(default)]
+    pub cells: [u32; 7],
+    /// Your pregame talk (dialogue D4); None: your own coach profile's.
+    #[serde(default)]
+    pub talk: Option<super::talk::Pick>,
 }
 
 impl Prep {
     pub fn is_empty(&self) -> bool {
-        self.plan == PlanChange::default()
+        self.talk.is_none()
+            && self.plan == PlanChange::default()
             && self.study.is_none()
             && self.fourth == FourthChart::Staff
             && self.two == TwoChart::Staff
             && self.tempo == Tempo::Normal
+            && self.timeouts == TimeoutRule::Staff
+            && self.four == FourMinute::Staff
+            && self.cells == [0; 7]
     }
 }
 
@@ -208,6 +299,14 @@ pub enum Input {
     Challenge(bool),
     /// Halftime: back out for the second half, with any change to the plan.
     Halftime(PlanChange),
+    /// Your halftime talk (dialogue D5); the halftime stop then asks again.
+    Talk(super::talk::Pick),
+    /// A word on the sideline to one of your players after his mistake
+    /// (dialogue D6); the snap then asks again.
+    Word {
+        id: u32,
+        pick: super::talk::Pick,
+    },
 }
 
 /// The kinds of points where you may decide.
@@ -278,6 +377,24 @@ pub struct Pending {
     pub fourth_wp: Option<[f64; 3]>,
     /// The kicker's make chance from here.
     pub fg_make: Option<f64>,
+    /// Your players waiting for a word after a costly mistake or a third
+    /// small one (dialogue D6), with the word your staff would give.
+    #[serde(default)]
+    pub words: Vec<WordOffer>,
+    /// At halftime: the talk you gave, once you gave it (dialogue D5).
+    #[serde(default)]
+    pub talked: Option<super::talk::Pick>,
+}
+
+/// A player waiting for a word (dialogue D6).
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+pub struct WordOffer {
+    pub id: u32,
+    pub mistake: super::talk::Mistake,
+    /// The play it came on.
+    pub play: u32,
+    /// The word your staff would give him.
+    pub staff: super::talk::Pick,
 }
 
 /// The game's link to you. Kept in the save with the game: your settings
@@ -318,6 +435,8 @@ pub struct StopCtx {
     pub goal_to_go: bool,
     /// Your team trails.
     pub trailing: bool,
+    /// One of your players is waiting for a word (dialogue D6).
+    pub word: bool,
 }
 
 impl Control {
@@ -345,6 +464,11 @@ impl Control {
             Ask::Onside => s.stop == StopMode::EverySnap || (s.situations.decisions && c.trailing && c.quarter >= 4),
             Ask::Snap | Ask::Defense => {
                 if s.stop == StopMode::EverySnap || self.take_next {
+                    return true;
+                }
+                // A player waiting for a word stops it when you take the
+                // decisions (dialogue D6).
+                if c.word && s.situations.decisions {
                     return true;
                 }
                 let t = &s.situations;
@@ -532,12 +656,13 @@ pub(crate) fn draw_eye(rng: &mut Rng) -> Eye {
 }
 
 /// The toss: the AI winner's habit. Since the NFL allowed deferring in
-/// 2008 most winners defer (about nine in ten); college and high school
+/// 2008 most winners defer (82%, the level's typical head coach; minor bug
+/// 140: read against 10, the NFL's deferred 90%); college and high school
 /// coaches defer a little less often (proposed, not confirmed).
 pub(crate) fn ai_toss(level: Level, year: i32, gm: f64, rng: &mut Rng) -> TossChoice {
     let defer = match level {
         Level::NFL if year < 2008 => 0.0,
-        Level::NFL => clamp(0.82 + 0.008 * (gm - 10.0), 0.6, 0.97),
+        Level::NFL => clamp(0.82 + 0.008 * (gm - super::rules::coach_norm(level)), 0.6, 0.97),
         Level::HS => 0.6,
         _ => 0.78,
     };

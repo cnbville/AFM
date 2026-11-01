@@ -6,13 +6,15 @@
 use std::collections::HashMap;
 
 use afm_engine::game::GameResult;
-use afm_engine::game::live::{self, Reviewer};
+use afm_engine::game::drives::{Drive, drives};
+use afm_engine::game::live::Reviewer;
 use afm_engine::game::stats::{GameStats, PlayRecord, PlayType};
 use afm_engine::world::World;
 use serde_json::{Value, json};
 
 use super::film::Names;
 use super::{clock_text, down_text, quarter_text, spot, success, team_ref};
+use crate::lane_boards::flow::Wp;
 use crate::views;
 
 fn scrimmage(r: &PlayRecord) -> bool {
@@ -44,28 +46,13 @@ pub fn with_names(text: &str, names: &Names) -> String {
     out
 }
 
-/// Seconds left in the game at a play.
-fn left(r: &PlayRecord, qlen: f64) -> f64 {
-    if r.quarter > 4 { r.clock.min(300.0) } else { (4 - r.quarter.min(4)) as f64 * qlen + r.clock }
-}
-
-/// The home team's win chance before a play (the game day screens'
-/// smooth model, `live::win_prob`).
-pub fn wp_before(r: &PlayRecord, len: f64) -> f64 {
-    let lead = (r.score[0] - r.score[1]) as f64;
-    let ep = match r.kind {
-        PlayType::Kickoff => 0.0,
-        PlayType::ExtraPoint | PlayType::TwoPoint => 0.9,
-        _ => r.ep_before,
-    };
-    let home_ep = if r.offense == 0 { ep } else { -ep };
-    live::win_prob(lead, home_ep, left(r, len / 4.0), len)
-}
-
-/// The home team's win chance through the game: before each play, then
-/// the final.
-pub fn wp_series(s: &GameStats, len: f64) -> Vec<(u32, f64)> {
-    let mut v: Vec<(u32, f64)> = s.plays.iter().filter(|r| r.offense < 2).map(|r| (r.n, wp_before(r, len))).collect();
+/// The home team's win chance through the game (the game boards' model,
+/// `lane_boards::flow::Wp`: the level's numbers and the line): before
+/// each play, then the final.
+pub fn wp_series(s: &GameStats, m: &Wp) -> Vec<(u32, f64)> {
+    let home = m.series(&s.plays);
+    let mut v: Vec<(u32, f64)> =
+        s.plays.iter().zip(home).filter(|(r, _)| r.offense < 2).map(|(r, h)| (r.n, h)).collect();
     let fin = match s.score[0].cmp(&s.score[1]) {
         std::cmp::Ordering::Greater => 1.0,
         std::cmp::Ordering::Less => 0.0,
@@ -185,132 +172,10 @@ fn advanced(s: &GameStats, names: &[String; 2]) -> Value {
     json!(sides)
 }
 
-/// A drive: who had it, where it started (yards from its own goal line),
-/// the plays, yards, time and how it ended.
-struct Drive {
-    team: usize,
-    q: u8,
-    clock: f64,
-    start: f64,
-    end: f64,
-    plays: u32,
-    secs: f64,
-    result: &'static str,
-    points: i32,
-    first: u32,
-    last: u32,
-}
-
-fn drives(s: &GameStats) -> Vec<Drive> {
-    let mut out: Vec<Drive> = Vec::new();
-    let mut cur: Option<Drive> = None;
-    let qlen = s.plays.iter().map(|r| r.clock).fold(0.0, f64::max).max(720.0);
-    let at = |r: &PlayRecord| left(r, qlen);
-    let close = |d: &mut Option<Drive>, out: &mut Vec<Drive>| {
-        if let Some(x) = d.take() {
-            out.push(x);
-        }
-    };
-    for r in s.plays.iter().filter(|r| r.offense < 2) {
-        let snap = matches!(
-            r.kind,
-            PlayType::Run
-                | PlayType::Pass
-                | PlayType::Sack
-                | PlayType::Scramble
-                | PlayType::Punt
-                | PlayType::FieldGoal
-                | PlayType::Kneel
-                | PlayType::Spike
-                | PlayType::NoPlay
-        );
-        if !snap {
-            continue;
-        }
-        if cur.as_ref().is_some_and(|d| d.team != r.offense || (r.quarter == 3 && d.q <= 2)) {
-            let d = cur.as_mut().unwrap();
-            if d.result.is_empty() {
-                d.result = if d.q <= 2 && r.quarter >= 3 { "End of half" } else { "Downs" };
-            }
-            close(&mut cur, &mut out);
-        }
-        let d = cur.get_or_insert(Drive {
-            team: r.offense,
-            q: r.quarter,
-            clock: r.clock,
-            start: 100.0 - r.yardline_100,
-            end: 100.0 - r.yardline_100,
-            plays: 0,
-            secs: 0.0,
-            result: "",
-            points: 0,
-            first: r.n,
-            last: r.n,
-        });
-        if !d.result.is_empty() {
-            // The drive already ended (a score or a kick) but the same team
-            // has the ball again: a new drive.
-            let team = d.team;
-            close(&mut cur, &mut out);
-            cur = Some(Drive {
-                team,
-                q: r.quarter,
-                clock: r.clock,
-                start: 100.0 - r.yardline_100,
-                end: 100.0 - r.yardline_100,
-                plays: 0,
-                secs: 0.0,
-                result: "",
-                points: 0,
-                first: r.n,
-                last: r.n,
-            });
-        }
-        let d = cur.as_mut().unwrap();
-        if r.kind != PlayType::NoPlay {
-            d.plays += 1;
-        }
-        d.last = r.n;
-        d.end = 100.0 - r.yardline_100 + if scrimmage(r) && !r.turnover { r.yards } else { 0.0 };
-        let start_left = left(&PlayRecord { quarter: d.q, clock: d.clock, ..r.clone() }, qlen);
-        d.secs = (start_left - at(r) + r.duration.max(0.0)).max(0.0);
-        if r.touchdown && !r.defense_td {
-            d.result = "Touchdown";
-            d.points = 6;
-        } else if r.defense_td {
-            d.result = if r.interception { "Pick six" } else { "Returned for a TD" };
-            d.points = -6;
-        } else if r.kind == PlayType::FieldGoal {
-            d.result = if r.kick_good {
-                "Field goal"
-            } else if r.blocked {
-                "Blocked FG"
-            } else {
-                "Missed FG"
-            };
-            d.points = if r.kick_good { 3 } else { 0 };
-        } else if r.kind == PlayType::Punt {
-            d.result = "Punt";
-        } else if r.safety {
-            d.result = "Safety";
-            d.points = -2;
-        } else if r.interception {
-            d.result = "Interception";
-        } else if r.fumble_lost {
-            d.result = "Fumble";
-        } else if r.turnover {
-            d.result = "Downs";
-        } else if r.kind == PlayType::Kneel && r.quarter >= 4 {
-            d.result = "End of game";
-        }
-    }
-    if let Some(mut d) = cur.take() {
-        if d.result.is_empty() {
-            d.result = "End of game";
-        }
-        out.push(d);
-    }
-    out
+/// Every drive of a game as the drive chart shows it (the game flow
+/// board reads them too).
+pub(crate) fn drives_json(s: &GameStats, names: &[String; 2]) -> Vec<Value> {
+    drives(s).iter().map(|d| drive_json(d, names)).collect()
 }
 
 fn drive_json(d: &Drive, names: &[String; 2]) -> Value {
@@ -461,8 +326,8 @@ fn look(r: &PlayRecord) -> String {
 }
 
 /// The win-probability change of each play (home), by play number.
-fn swings(s: &GameStats, len: f64) -> HashMap<u32, (f64, f64)> {
-    let series = wp_series(s, len);
+fn swings(s: &GameStats, m: &Wp) -> HashMap<u32, (f64, f64)> {
+    let series = wp_series(s, m);
     let mut m = HashMap::new();
     for w in series.windows(2) {
         m.insert(w[0].0, (w[0].1, w[1].1 - w[0].1));
@@ -470,8 +335,8 @@ fn swings(s: &GameStats, len: f64) -> HashMap<u32, (f64, f64)> {
     m
 }
 
-fn key_plays(s: &GameStats, names: &Names, sides: &[String; 2], len: f64, mine: Option<usize>, n: usize) -> Vec<Value> {
-    let sw = swings(s, len);
+fn key_plays(s: &GameStats, names: &Names, sides: &[String; 2], m: &Wp, mine: Option<usize>, n: usize) -> Vec<Value> {
+    let sw = swings(s, m);
     let mut v: Vec<(&PlayRecord, f64, f64)> = s
         .plays
         .iter()
@@ -658,14 +523,10 @@ pub fn game_page(w: &World, k: usize) -> Result<Value, String> {
     let g = w.seat_games().get(k).ok_or("That game is not kept.")?;
     let s = &g.stats;
     let refs = [team_ref(g.level, g.teams[0]), team_ref(g.level, g.teams[1])];
-    let names = super::names(w, &refs);
+    let names = crate::lane_boards::game_names(w, g, &refs);
     let mine = w.seat_team().and_then(|(_, t)| g.teams.iter().position(|&x| x == t));
-    let qlen = match g.level {
-        afm_engine::calendar::Level::HighSchool => 720.0,
-        _ => 900.0,
-    };
-    let len = 4.0 * qlen;
-    let sw = swings(s, len);
+    let m = Wp::of_game(w, g);
+    let sw = swings(s, &m);
     let snaps: Vec<Value> = s
         .plays
         .iter()
@@ -687,8 +548,9 @@ pub fn game_page(w: &World, k: usize) -> Result<Value, String> {
         _ => "College",
     });
     v["mine"] = json!(mine);
-    v["wp"] = json!(wp_series(s, len));
-    v["key_plays"] = json!(key_plays(s, &names, &g.names, len, mine, 14));
+    v["talks"] = super::talk::record_json(w, &g.talks, mine, &names);
+    v["wp"] = json!(wp_series(s, &m));
+    v["key_plays"] = json!(key_plays(s, &names, &g.names, &m, mine, 14));
     v["advanced"] = advanced(s, &g.names);
     v["drives"] = json!(dr.iter().map(|d| drive_json(d, &g.names)).collect::<Vec<_>>());
     v["scoring"] = json!(scoring_summary(s, &names, &dr));
@@ -994,7 +856,7 @@ fn passes(s: &GameStats, names: &Names) -> Vec<Value> {
                 "complete": r.complete,
                 "td": r.touchdown && !r.defense_td,
                 "int": r.interception,
-                "text": format!("{} to {}: {}", name(r.passer), name(r.target), if r.interception { "intercepted".to_string() } else if r.complete { format!("{:.0} yards", r.yards) } else { "incomplete".to_string() }),
+                "text": format!("{} to {}: {}", name(r.passer), name(r.target), if r.interception { "intercepted".to_string() } else if r.complete { format!("{:.0} {}", r.yards, if r.yards.round_ties_even() == 1.0 { "yard" } else { "yards" }) } else { "incomplete".to_string() }),
             }))
         })
         .collect()
@@ -1188,7 +1050,7 @@ pub fn halftime(r: &GameResult, mine: usize, names: &Names, sides: &[String; 2])
     {
         adjust.push(json!({
                 "who": "Your defensive coordinator",
-                "text": format!("Bracket {} ({}): {n} targets, {y:.0} of their {their_yds:.0} receiving yards.", name(id), pos(id)),
+                "text": format!("Bracket {} ({}): {n} target{}, {y:.0} of their {their_yds:.0} receiving yards.", name(id), pos(id), if n == 1 { "" } else { "s" }),
                 "change": { "bracket": id },
             }));
     }
@@ -1236,11 +1098,12 @@ pub fn halftime(r: &GameResult, mine: usize, names: &Names, sides: &[String; 2])
         .filter(|(side, _)| *side == mine)
         .map(|(_, i)| {
             format!(
-                "{} ({}): {}, about {:.0} weeks{}",
+                "{} ({}): {}, about {:.0} week{}{}",
                 name(i.id),
                 pos(i.id),
                 i.kind.name(),
                 i.weeks,
+                if i.weeks.round_ties_even() == 1.0 { "" } else { "s" },
                 if i.plays_on { ", playing through it" } else { ", out for the game" }
             )
         })
@@ -1260,15 +1123,22 @@ pub fn halftime(r: &GameResult, mine: usize, names: &Names, sides: &[String; 2])
 /// The final whistle (topic 11): the result, your calls against your
 /// staff's, the plays that decided it, game balls, injuries and the
 /// officials.
-pub fn after_game(w: &World, r: &GameResult, mine: usize, names: &Names, sides: &[String; 2]) -> Value {
+pub fn after_game(w: &World, r: &GameResult, mine: usize, names: &Names, sides: &[String; 2], m: &Wp) -> Value {
     let s = &r.stats;
-    let len = 4.0 * s.plays.iter().map(|p| p.clock).fold(0.0, f64::max).max(720.0);
     let name = |id: u32| names.get(&id).map_or(format!("No. {id}"), |x| x.0.clone());
     let hurt: Vec<String> = r
         .injuries
         .iter()
         .filter(|(side, _)| *side == mine)
-        .map(|(_, i)| format!("{}: {}, about {:.0} weeks", name(i.id), i.kind.name(), i.weeks))
+        .map(|(_, i)| {
+            format!(
+                "{}: {}, about {:.0} week{}",
+                name(i.id),
+                i.kind.name(),
+                i.weeks,
+                if i.weeks.round_ties_even() == 1.0 { "" } else { "s" }
+            )
+        })
         .collect();
     let won = s.score[mine] > s.score[1 - mine];
     let tied = s.score[0] == s.score[1];
@@ -1278,7 +1148,7 @@ pub fn after_game(w: &World, r: &GameResult, mine: usize, names: &Names, sides: 
         "tied": tied,
         "score": s.score,
         "calls": calls(s, mine),
-        "key_plays": key_plays(s, names, sides, len, Some(mine), 6),
+        "key_plays": key_plays(s, names, sides, m, Some(mine), 6),
         "stars": stars(s, names, sides),
         "hurt": hurt,
         "officials": officiating(s, sides, names),

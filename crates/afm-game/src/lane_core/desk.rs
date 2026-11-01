@@ -191,6 +191,7 @@ pub fn open(w: &mut World, id: u64) -> Result<Value, String> {
         "to": m.to,
         "subject": m.subject,
         "body": m.body,
+        "why": m.why,
         "table": m.table,
         "attach": m.attach,
         "sign": m.sign,
@@ -332,10 +333,7 @@ pub fn note_edit(w: &mut World, args: &Value) -> Result<Value, String> {
 pub fn list_add(w: &mut World, id: u32, how: u8) {
     let Some(k) = views::person_index(w, id) else { return };
     let p = &w.people[k];
-    let team = views::team_of(w, p);
-    let own = team.is_some_and(|t| views::is_mine(w, t));
-    let eye = team.filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
-    let read = match reads::overall(&p.player, own, eye, views::reader_key(w)) {
+    let read = match reads::overall(w, k) {
         reads::Read::Range(lo, hi) => (lo, hi),
         reads::Read::NotSeen => (0, 0),
     };
@@ -368,7 +366,6 @@ pub fn has_note(w: &World, id: u32) -> bool {
 /// note on (scouting topic 18), with where he is now against where he was.
 pub fn my_players(w: &World) -> Value {
     let Some(c) = &w.career else { return json!({ "rows": [] }) };
-    let reader = views::reader_key(w);
     let mut ids: Vec<(u32, Option<&Listed>)> = c.desk.listed.iter().map(|l| (l.id, Some(l))).collect();
     for (id, l) in &c.notes {
         if !l.is_empty() && !ids.iter().any(|x| x.0 == *id) && !c.desk.unlisted.contains(id) {
@@ -381,9 +378,7 @@ pub fn my_players(w: &World) -> Value {
             let k = views::person_index(w, id)?;
             let p = &w.people[k];
             let team = views::team_of(w, p);
-            let own = team.is_some_and(|t| views::is_mine(w, t));
-            let eye = team.filter(|_| own).map_or(10.0, |t| views::eye_for(w, t, p.player.position));
-            let now = reads::overall(&p.player, own, eye, reader);
+            let now = reads::overall(w, k);
             let level = match p.stage {
                 Stage::HighSchool | Stage::PrepSchool => "High school",
                 Stage::College => "College",
@@ -415,9 +410,25 @@ pub fn my_players(w: &World) -> Value {
 
 // ---- Watches: saved searches that tell you about new matches ----
 
+/// The player finder's watches (the find pages' saved searches are listed
+/// on their own pages, `lane_find::saved`), each with its place in the
+/// desk's list.
 pub fn watches(w: &World) -> Value {
     let Some(c) = &w.career else { return json!([]) };
-    json!(c.desk.watches.iter().enumerate().map(|(k, x)| json!({ "k": k, "name": x.name, "query": serde_json::from_str::<Value>(&x.query).unwrap_or(Value::Null), "since": views::date_text(x.since), "seen": x.seen.len() })).collect::<Vec<_>>())
+    json!(
+        c.desk
+            .watches
+            .iter()
+            .enumerate()
+            .filter_map(|(k, x)| {
+                let query = serde_json::from_str::<Value>(&x.query).unwrap_or(Value::Null);
+                if query.get("find").is_some() {
+                    return None;
+                }
+                Some(json!({ "k": k, "name": x.name, "query": query, "since": views::date_text(x.since), "seen": x.seen.len() }))
+            })
+            .collect::<Vec<_>>()
+    )
 }
 
 pub fn watch_set(w: &mut World, args: &Value) -> Result<Value, String> {
@@ -434,7 +445,13 @@ pub fn watch_set(w: &mut World, args: &Value) -> Result<Value, String> {
     // What it finds today is already known: it tells you about new ones.
     let seen: Vec<u32> = super::tables::finder_ids(w, &query, 2000);
     let c = w.career.as_mut().ok_or("No career.")?;
-    c.desk.watches.push(afm_engine::world::desk::Watch { name, query: query.to_string(), since: today, seen });
+    c.desk.watches.push(afm_engine::world::desk::Watch {
+        name,
+        query: query.to_string(),
+        since: today,
+        seen,
+        fresh: Vec::new(),
+    });
     Ok(watches(w))
 }
 
@@ -449,6 +466,11 @@ pub fn watch_mail(w: &mut World) {
     let mut found: Vec<(usize, Vec<u32>)> = Vec::new();
     for (k, x) in c.desk.watches.iter().enumerate() {
         let q: Value = serde_json::from_str(&x.query).unwrap_or(Value::Null);
+        // The find pages' saved searches tell you on their own days
+        // (`lane_find::after_days`).
+        if q.get("find").is_some() {
+            continue;
+        }
         let new: Vec<u32> =
             super::tables::finder_ids(w, &q, 2000).into_iter().filter(|id| !x.seen.contains(id)).take(25).collect();
         if !new.is_empty() {

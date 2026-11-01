@@ -441,7 +441,7 @@ fn styled_first(first: &str, ethnicity: Ethnicity, rng: &mut Rng) -> String {
 }
 
 /// True for a first name with at least 2,000 US boys since 1940.
-fn is_common_first(name: &str) -> bool {
+pub fn is_common_first(name: &str) -> bool {
     COMMON_FIRST.contains(name)
 }
 

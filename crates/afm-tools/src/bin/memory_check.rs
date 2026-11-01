@@ -19,6 +19,14 @@ fn main() {
     // AFM_ENGINE_FROM=year plays the history's games on the stand-in before
     // that year: quick checks only, the people stores are the same size.
     let engine_from = std::env::var("AFM_ENGINE_FROM").ok().and_then(|v| v.parse().ok());
+    // AFM_SHEET=none: no staff drafts a call sheet at kickoff, to time what
+    // the drafts cost the history (every staff drafts one in the game).
+    // AFM_SHEET=every: high school staffs too (the game: college and NFL).
+    match std::env::var("AFM_SHEET").as_deref() {
+        Ok("none") => afm_engine::game::sheet::KICKOFF.store(0, std::sync::atomic::Ordering::Relaxed),
+        Ok("every") => afm_engine::game::sheet::KICKOFF.store(1, std::sync::atomic::Ordering::Relaxed),
+        _ => {}
+    }
     println!(
         "sizes: person {} B, player {} B, attributes {} B, season record {} B",
         std::mem::size_of::<afm_engine::world::Person>(),
@@ -52,7 +60,7 @@ fn main() {
     );
     // The same seed must give the same world whatever the stores' layout:
     // a hash of what the years produced (compare it across builds).
-    println!("fingerprint {:016x}", fingerprint(&w));
+    println!("fingerprint {:016x}", afm_tools::fingerprint(&w));
     // Parts first (inside the stores), then whole stores.
     let mut rows: Vec<(String, f64)> = Vec::new();
     let mut weigh = |name: &str, w: &mut World, f: &dyn Fn(&mut World)| {
@@ -112,27 +120,4 @@ fn year_line(w: &World, secs: f64) {
         per(hs.plays as f64),
         per(hs.yards),
     );
-}
-
-/// A hash of what the world's years produced: every person's season rows,
-/// ratings, stage and school, every alumnus, coach and news line.
-fn fingerprint(w: &World) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    for p in &w.people {
-        p.name.hash(&mut h);
-        format!("{:?}", p.player.history).hash(&mut h);
-        format!("{:?}{:?}{:?}{}", p.stage, p.college, p.player.position, p.hs).hash(&mut h);
-        format!("{:?}", p.player.attributes).hash(&mut h);
-    }
-    for a in &w.alumni {
-        a.name.hash(&mut h);
-    }
-    for c in &w.coaches {
-        format!("{}{:?}", c.name, c.history.len()).hash(&mut h);
-    }
-    for n in &w.news {
-        n.text.hash(&mut h);
-    }
-    h.finish()
 }

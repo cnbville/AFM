@@ -589,16 +589,42 @@ impl OtherSeason {
         }
         match pos {
             P::QB => format!(
-                "{}/{} passing, {:.0} yards, {} TD, {} INT",
-                self.cmp, self.att, self.pass_yds, self.pass_td, self.int
+                "{}/{} passing, {:.0} {}, {} TD, {} INT",
+                self.cmp,
+                self.att,
+                self.pass_yds,
+                crate::world::folk::noun(self.pass_yds.round_ties_even() as i64, "yard"),
+                self.pass_td,
+                self.int
             ),
-            P::RB => format!("{} carries, {:.0} yards, {} TD", self.rush, self.rush_yds, self.rush_td),
-            P::WR | P::TE => format!("{} catches, {:.0} yards, {} TD", self.rec, self.rec_yds, self.rec_td),
-            P::OT | P::IOL => format!("{} starts on the line", self.starts),
-            P::EDGE | P::DT | P::LB => format!("{} tackles, {:.1} sacks", self.tackles, self.sacks),
-            P::CB | P::S => format!("{} tackles, {} INT", self.tackles, self.ints),
+            P::RB => format!(
+                "{} {}, {:.0} {}, {} TD",
+                self.rush,
+                crate::world::folk::noun(self.rush, "carry"),
+                self.rush_yds,
+                crate::world::folk::noun(self.rush_yds.round_ties_even() as i64, "yard"),
+                self.rush_td
+            ),
+            P::WR | P::TE => format!(
+                "{} {}, {:.0} {}, {} TD",
+                self.rec,
+                crate::world::folk::noun(self.rec, "catch"),
+                self.rec_yds,
+                crate::world::folk::noun(self.rec_yds.round_ties_even() as i64, "yard"),
+                self.rec_td
+            ),
+            P::OT | P::IOL => format!("{} {} on the line", self.starts, crate::world::folk::noun(self.starts, "start")),
+            P::EDGE | P::DT | P::LB => format!(
+                "{} {}, {:.1} sacks",
+                self.tackles,
+                crate::world::folk::noun(self.tackles, "tackle"),
+                self.sacks
+            ),
+            P::CB | P::S => {
+                format!("{} {}, {} INT", self.tackles, crate::world::folk::noun(self.tackles, "tackle"), self.ints)
+            }
             P::K => format!("{}/{} field goals", self.fg, self.fg_att),
-            P::P | P::LS => format!("{} games on special teams", self.games),
+            P::P | P::LS => format!("{} {} on special teams", self.games, crate::world::folk::noun(self.games, "game")),
         }
     }
 }
@@ -1265,6 +1291,11 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
     } else {
         t.order = mine;
     }
+    // Your club takes your week and your plan, as at every level.
+    if yours {
+        crate::training::seat::sit_hurt(w, &mut t);
+        crate::training::seat::prepare(w, &mut t);
+    }
     Some(Side { team: t, who })
 }
 
@@ -1364,8 +1395,14 @@ pub(crate) fn seat_setup(w: &World) -> Option<crate::world::live_seat::SeatSetup
     let g = pairs.iter().position(|&(h, a)| h as usize == fr || a as usize == fr)?;
     let (h, a) = pairs[g];
     let (k, year) = (live.league, live.year);
-    let sh = side(w, k, h as usize, year)?;
-    let sa = side(w, k, a as usize, year)?;
+    let mut sh = side(w, k, h as usize, year)?;
+    let mut sa = side(w, k, a as usize, year)?;
+    // The day each team brings (dialogue D4): your own week on yours.
+    {
+        use crate::world::folk::{Team, gametalk::day_for};
+        sh.team.day = day_for(w, Team::Other(h as usize), Team::Other(a as usize), 0.0, false, &sh.team);
+        sa.team.day = day_for(w, Team::Other(a as usize), Team::Other(h as usize), 0.0, false, &sa.team);
+    }
     let round =
         if wk < live.weeks.len() && f.stop_after.is_none_or(|s| wk < s as usize) { 0 } else { live.round.max(1) };
     // The title game's neutral site, as `play_week` reads it after seeding.
@@ -1488,6 +1525,35 @@ pub(crate) fn ratio_starters_from(
     changed.into_iter().map(|li| (lists[li].0, lists[li].1.iter().map(|x| x.1).collect())).collect()
 }
 
+/// The world reader's game log: an other-league game's row, its snaps and
+/// its situation totals (teams are franchise numbers). Only watches.
+fn log_game(
+    w: &mut World,
+    (k, year, wk, round, neutral, d): (u8, i32, usize, u8, bool, Date),
+    teams: [usize; 2],
+    r: &GameResult,
+    sides: [&GameTeam; 2],
+) {
+    let league = league_name(k, year);
+    let mut head = serde_json::Map::new();
+    head.insert("level".into(), "other".into());
+    head.insert("league".into(), league.into());
+    head.insert("season".into(), year.into());
+    head.insert("date".into(), d.to_string().into());
+    head.insert("week".into(), (wk + 1).into());
+    head.insert("kind".into(), if round > 0 { "playoff" } else { "regular" }.into());
+    head.insert("round".into(), round.into());
+    head.insert("teams".into(), serde_json::json!(teams));
+    head.insert("names".into(), serde_json::json!(teams.map(|t| name(t, year))));
+    head.insert("neutral".into(), neutral.into());
+    let row = crate::world::wlog::games::game_row(head, crate::world::wlog::games::game_body(r, Some(sides)));
+    let plays = crate::world::wlog::games::plays(&r.stats);
+    let situ = crate::world::game_log::game_situations(&r.stats, true);
+    let Some(l) = w.wlog.as_mut() else { return };
+    l.add_situations(year, "other", league, teams, situ);
+    l.game("games-other", "plays-other", &row, Some(plays));
+}
+
 /// A week of games (or a playoff round): each on the engine under the
 /// league's rule book, all cores; the lines go on each player's page.
 fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
@@ -1580,7 +1646,11 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             let (Some(Some(sh)), Some(Some(sa))) = (sides.get(&h), sides.get(&a)) else { continue };
             record(w, k, [h, a], &r, [&sh.who, &sa.who]);
             let teams = [h as usize, a as usize];
-            w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref());
+            if w.logging() {
+                log_game(w, (k, year, wk, round, neutral, d), teams, &r, [&sh.team, &sa.team]);
+            }
+            w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref(), &r.talks);
+            w.seat_line(crate::calendar::Level::Other, teams, None, neutral);
             crate::world::stories::other_game(w, teams, &r.stats, round > 0);
             if let Some(o) = w.tape_watch(crate::calendar::Level::Other) {
                 w.keep_tape(&o, crate::calendar::Level::Other, teams, &r.stats, &r.film);
@@ -1724,13 +1794,15 @@ fn record(w: &mut World, k: u8, teams: [u16; 2], r: &GameResult, who: [&HashMap<
             c.sharpness = (c.sharpness + 0.34).min(1.0);
         }
     }
-    for (_, inj) in &r.injuries {
-        if inj.plays_on || inj.side > 1 {
+    // By team, day by day from the day after the game (B1).
+    for &(team, ref inj) in &r.injuries {
+        if inj.plays_on || team > 1 {
             continue;
         }
-        let Some(&i) = who[inj.side].get(&inj.id) else { continue };
+        let Some(&i) = who[team].get(&inj.id) else { continue };
         if let Some(c) = w.people[i].pro.as_mut() {
-            c.out_weeks = c.out_weeks.max(inj.weeks.ceil().max(1.0) as u32);
+            c.hurt_for(1 + (inj.weeks * 7.0).ceil().max(1.0) as u32);
+            w.hurt_pros.0.push(w.people[i].player.id);
         }
     }
 }
@@ -1866,7 +1938,10 @@ fn reviews(w: &mut World, k: u8, teams: &[usize]) {
         } else {
             0.0
         };
-        if p > 0.0 && key_uniform(w.options.seed as u64 ^ 0xF1E5 ^ (w.year as u64) << 8, hc as u64) < p {
+        if p > 0.0
+            && key_uniform(w.options.seed as u64 ^ 0xF1E5 ^ (w.year as u64) << 8, hc as u64) < p
+            && !crate::world::front_office::market::spared(w, hc, "fired")
+        {
             crate::world::staff::leave(w, hc, "fired");
             if w.recording {
                 let text =
@@ -1878,6 +1953,7 @@ fn reviews(w: &mut World, k: u8, teams: &[usize]) {
                     if role == Role::OffensiveCoordinator { w.others.teams[fr].oc } else { w.others.teams[fr].dc };
                 if let Some(a) = slot
                     && key_uniform(0x0C5 ^ w.year as u64, a as u64) < 0.5
+                    && !crate::world::front_office::market::spared(w, a, "let go by the new staff")
                 {
                     crate::world::staff::leave(w, a, "let go by the new staff");
                 }

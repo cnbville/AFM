@@ -18,7 +18,7 @@ use afm_engine::game::playbook::{
 use afm_engine::positions::Position;
 use afm_engine::tendencies::Tend;
 use afm_engine::training::offseason;
-use afm_engine::training::plan::{Contact, Day, Gear, Kind, Period, SITUATIONS, Slot, Tempo, Week, Who};
+use afm_engine::training::plan::{Contact, Day, Gear, Kind, Period, Slot, Tempo, Week, Who, available};
 use afm_engine::training::rules::{Block, Tier, block_limits};
 use afm_engine::training::seat::{self as ts, Board, InstallKey, SHEET, SavedDesign, SeatTeam, SheetKind, SheetPlay};
 use afm_engine::training::week::block_of_week;
@@ -26,6 +26,8 @@ use afm_engine::training::work::Role;
 use afm_engine::training::{FAMILIES, Family};
 use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
+
+mod week;
 
 use crate::reads;
 use crate::views::{
@@ -118,6 +120,12 @@ fn team_of(w: &World) -> Result<(TeamRef, SeatTeam), String> {
     Ok((t, st))
 }
 
+/// When a day's football starts on the training week's clock (the
+/// calendar's day panel, update 3 lane 2).
+pub(crate) fn day_start(tier: Tier, block: Block, d: Date) -> u32 {
+    week::day_clock(tier, block, d, &Day::default(), None)["day"].as_u64().unwrap_or(540) as u32
+}
+
 /// Your job runs the practice schedule only as the head coach (an
 /// assistant plans his own players and proposes the rest).
 fn mine_head(w: &World) -> Result<(), String> {
@@ -155,18 +163,47 @@ fn monday_of(d: Date) -> Date {
 
 const WEEKDAYS: [&str; 7] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
+/// A kickoff's minutes after midnight from its text ("7:30 pm").
+fn kick_minutes(t: &str) -> Option<u32> {
+    let (hm, ap) = t.trim().split_once(' ')?;
+    let (h, m) = hm.split_once(':')?;
+    let (h, m): (u32, u32) = (h.parse().ok()?, m.parse().ok()?);
+    let h = match (h, ap) {
+        (12, "am") => 0,
+        (12, _) => 12,
+        (h, "pm") => h + 12,
+        (h, _) => h,
+    };
+    Some(h * 60 + m)
+}
+
+/// The other team in a game, at your team's level.
+fn opp_ref(t: TeamRef, opp: usize) -> TeamRef {
+    match t {
+        TeamRef::College(_) => TeamRef::College(opp),
+        TeamRef::Nfl(_) => TeamRef::Nfl(opp),
+        TeamRef::HighSchool(_) => TeamRef::HighSchool(opp),
+        TeamRef::Other(_) => TeamRef::Other(opp),
+    }
+}
+
 fn period_json(p: &Period) -> Value {
     json!({
         "kind": p.kind.name(),
         "label": p.kind.label(),
+        "name": p.name(),
         "group": p.kind.group(),
+        "family": p.kind.shown_family(p.contact),
         "min": p.min,
         "gear": p.gear.name(),
         "contact": p.contact.name(),
         "tempo": p.tempo.name(),
         "who": p.who.name(),
         "what": p.what,
+        "noise": p.noise,
         "field": p.kind.on_field(),
+        "counted": p.counted(),
+        "own": p.own(),
     })
 }
 
@@ -197,7 +234,8 @@ fn parse_period(v: &Value) -> Result<Period, String> {
     if let Some(w) = Who::parse(s("who")) {
         p.who = w;
     }
-    p.what = v.get("what").and_then(Value::as_u64).unwrap_or(0).min(SITUATIONS.len() as u64 - 1) as u8;
+    p.what = v.get("what").and_then(Value::as_u64).unwrap_or(0).min(kind.whats().len().max(1) as u64 - 1) as u8;
+    p.noise = v.get("noise").and_then(Value::as_bool).unwrap_or(false) && kind.on_field();
     Ok(p)
 }
 
@@ -220,37 +258,34 @@ fn slot_arg(args: &Value) -> Result<Slot, String> {
     Slot::parse(args.get("slot").and_then(Value::as_str).unwrap_or("")).ok_or_else(|| "No such week.".to_string())
 }
 
-fn options() -> Value {
-    let kinds = [
-        Kind::WarmUp,
-        Kind::Individual,
-        Kind::InsideRun,
-        Kind::SevenOnSeven,
-        Kind::OneOnOnes,
-        Kind::Team,
-        Kind::Scrimmage,
-        Kind::Situations,
-        Kind::SpecialTeams,
-        Kind::Walkthrough,
-        Kind::Young,
-        Kind::Conditioning,
-        Kind::Speed,
-        Kind::WeightRoom,
-        Kind::Meeting,
-        Kind::Film,
-        Kind::Recovery,
-    ];
+fn options(st: &SeatTeam) -> Value {
+    let kinds: Vec<Kind> =
+        Kind::ALL.iter().copied().filter(|&k| available(k, st.tier, st.frame.season, st.frame.big)).collect();
     json!({
-        "kinds": kinds.iter().map(|k| json!({ "kind": k.name(), "label": k.label(), "group": k.group(), "grows": kind_grows(*k) })).collect::<Vec<_>>(),
+        "kinds": kinds.iter().map(|&k| json!({
+            "kind": k.name(),
+            "label": k.label(),
+            "group": k.group(),
+            "grows": kind_grows(k),
+            "field": k.on_field(),
+            "counted": k.counted(),
+            "film": k.film(),
+            "strength": k.strength_staff(),
+            "slot": week::slot_of(k),
+            "whats": k.whats(),
+            "by": (0..k.whats().len().max(1)).map(|w| week::runs(k, w as u8)).collect::<Vec<_>>(),
+            "family": k.shown_family(Contact::Air),
+            "family_full": k.shown_family(Contact::Live),
+        })).collect::<Vec<_>>(),
         "gears": Gear::ALL.iter().map(|g| json!({ "v": g.name(), "t": g.label() })).collect::<Vec<_>>(),
         "contacts": ([Contact::Air, Contact::Bags, Contact::Control, Contact::Thud, Contact::Live]).iter().map(|c| json!({ "v": c.name(), "t": c.label() })).collect::<Vec<_>>(),
         "tempos": [["walk", "Walkthrough pace"], ["normal", "Normal"], ["fast", "Fast (no huddle)"]],
         "whos": [["all", "Everyone, each at his station"], ["ones", "The two-deep (scout team for the rest)"], ["young", "The young players"]],
-        "situations": SITUATIONS,
+        "grows": week::SHOWN.iter().map(|f| json!([f, week::grows(f)])).collect::<Vec<_>>(),
     })
 }
 
-/// What a kind of period grows, in words (topic 1).
+/// What a kind of period grows, in words (topic 1; update 2's new kinds).
 fn kind_grows(k: Kind) -> &'static str {
     match k {
         Kind::WarmUp => "loosens up; a little movement and fitness",
@@ -267,9 +302,27 @@ fn kind_grows(k: Kind) -> &'static str {
         Kind::Conditioning => "stamina; tired legs if overdone in season",
         Kind::Speed => "speed and agility work",
         Kind::WeightRoom => "strength and the body",
-        Kind::Meeting => "the scheme and the plan",
+        Kind::Meeting => "the scheme and the plan: the team, each unit, each room",
         Kind::Film => "reading the opponent and yourself",
         Kind::Recovery => "treatment and rest: nothing counts",
+        Kind::MatDrills => "conditioning and toughness at dawn; past two mornings a week it costs mood",
+        Kind::Testing => "the strength staff's numbers: lifts, the 40, the shuttle, the vertical",
+        Kind::Install => "the week's new calls on the board before they're repped",
+        Kind::StudyHall => "grades for the flagged players: not counted",
+        Kind::OnAir => "quarterback and receiver timing, routes without a defense",
+        Kind::BallSecurity => "holding on to the ball: the gauntlet, the JUGS machine",
+        Kind::KickStations => "snap, hold and kick; punts in the wind",
+        Kind::Mobility => "hips, ankles and the back: a little less soft-tissue risk",
+        Kind::Vision => "reaction and tracking with light boards and strobe glasses",
+        Kind::VrReps => "mental reps in a headset, no wear",
+        Kind::MentalSkills => "composure and routines with the sports psychologist",
+        Kind::RulesClinic => "this year's points of emphasis: fewer penalties",
+        Kind::PlanTest => "a quiz on the plan: your staff sees who knows it",
+        Kind::Nutrition => "the body plan with the dietitian: weight targets move faster",
+        Kind::Council => "elected players with the head coach: bonds and captains",
+        Kind::TeamBuilding => "dinners and outings: bonds, leadership and mood",
+        Kind::Signals => "the calls and checks, in noise: fewer busts",
+        Kind::HomeStudy => "the plan on his own: the hard workers take more from it",
     }
 }
 
@@ -332,7 +385,7 @@ fn grade_words(g: u8) -> &'static str {
     }
 }
 
-fn practice_status(w: &World, id: u32, i: usize) -> (&'static str, String) {
+pub(crate) fn practice_status(w: &World, id: u32, i: usize) -> (&'static str, String) {
     let d = w.today;
     if let Some(h) = w.training.hurt_on(id, d) {
         let what = h.kind.map_or(h.how.clone(), |k| k.name().to_string());
@@ -368,7 +421,7 @@ fn teaching_words(t: f64) -> &'static str {
 /// Who teaches a player (topic 6): his position coach, else the
 /// coordinator, else the head coach; at a high school the head coach or
 /// the assistant on his group.
-fn teacher(w: &World, t: TeamRef, i: usize) -> Value {
+pub(crate) fn teacher(w: &World, t: TeamRef, i: usize) -> Value {
     let p = &w.people[i];
     let g = afm_engine::world::coach::Group::of(p.player.position);
     let (coach, title) = match t {
@@ -455,6 +508,35 @@ fn practice(w: &World) -> Reply {
         Some((b, s, c)) if b == block && s == st.frame.season => c,
         _ => Default::default(),
     };
+    // Your next game and the games ahead (TR10), each game day's kickoff.
+    let next = crate::lane_gameday::next_game(w);
+    let ahead: Vec<(Date, String)> = crate::views::schedule_rows(w, t).into_iter().map(|(d, s, _)| (d, s)).collect();
+    let this_game = next.as_ref().filter(|g| g.date >= monday && g.date < monday.add(7));
+    let kick_of = |d: Date| -> u32 {
+        let parsed = this_game.filter(|g| g.date == d).and_then(|g| g.kick.as_deref()).and_then(kick_minutes);
+        parsed.unwrap_or(match st.tier {
+            Tier::Pro => 780,
+            Tier::College => 930,
+            Tier::High => 1140,
+        })
+    };
+    // Required days off (TR13): the week's last rest days, as many as the
+    // rule asks; any others are the staff's own choice.
+    let main = pw.books.iter().find(|b| b.coaches).unwrap_or(&pw.books[0]);
+    let mut required = [false; 7];
+    let mut need = main.days_off as usize;
+    for k in (0..7).rev() {
+        if need > 0 && pw.week.days[k].rest() {
+            required[k] = true;
+            need -= 1;
+        }
+    }
+    let org = match st.tier {
+        Tier::College => "NCAA",
+        Tier::Pro => "CBA",
+        Tier::High => "The state",
+    };
+    let in_season = matches!(block, Block::Season | Block::Postseason | Block::Camp);
     let days: Vec<Value> = pw
         .week
         .days
@@ -464,6 +546,33 @@ fn practice(w: &World) -> Reply {
             let bk = &pw.books[k];
             let date = monday.add(k as i32);
             let mut v = day_json(d);
+            let kick = d.game.then(|| kick_of(date));
+            v["clock"] = week::day_clock(st.tier, block, date, d, kick);
+            v["weather"] = json!(pw.weather[k].map(|x| json!({ "temp": x.temp, "place": x.place, "why": x.why })));
+            v["off"] =
+                json!(if d.rest() && bk.coaches { Some(if required[k] { "req" } else { "chosen" }) } else { None });
+            v["off_why"] = json!(format!(
+                "{org}: {} a week{}",
+                match main.days_off {
+                    1 => "one",
+                    2 => "two",
+                    _ => "days off",
+                },
+                match (st.tier, block) {
+                    (Tier::College, Block::Spring) => " in spring practice",
+                    (Tier::College, _) if in_season => " in season",
+                    (Tier::College, _) => " out of season",
+                    _ => "",
+                }
+            ));
+            v["game_text"] = json!(this_game.filter(|g| g.date == date).map(|g| {
+                format!(
+                    "{} {}",
+                    if g.home || g.neutral { "vs" } else { "at" },
+                    crate::views::team_name(w, opp_ref(t, g.opp))
+                )
+            }));
+            v["kick"] = json!(kick.map(week::clock_text));
             v["date"] = json!(date_text(date));
             v["weekday"] = json!(WEEKDAYS[k]);
             v["today"] = json!(date == w.today);
@@ -506,6 +615,8 @@ fn practice(w: &World) -> Reply {
     // Players and their plans.
     let roles = ts::roles(w, &st);
     let by_id: HashMap<u32, f32> = w.training.moved.iter().copied().collect();
+    let live = w.today == monday;
+    let mut preps: Vec<(usize, u8, afm_engine::training::prep::Prep)> = Vec::new();
     let mut players: Vec<(usize, Value)> = st
         .roster
         .iter()
@@ -533,10 +644,115 @@ fn practice(w: &World) -> Reply {
             v["may_plan"] = json!(w.may_plan(id));
             v["sport"] =
                 json!((st.tier == Tier::High).then(|| offseason::other_sport(&p.player).map(|s| s.name())).flatten());
+            let hurt_why = w.training.hurt_on(id, monday).and_then(|h| h.kind).map(|k| k.name().to_lowercase());
+            let sport = (st.tier == Tier::High)
+                .then(|| offseason::sport_ratio(&p.player, pw.block, monday).map(|x| x.0.name().to_lowercase()))
+                .flatten();
+            let why = hurt_why.or(sport);
+            let (prep, word, pr) = week::prep_json(w, &st, &pw, i, role, live, why.as_deref().unwrap_or(""));
+            v["prep"] = prep;
+            preps.push((i, word, pr));
             (pos.index(), v)
         })
         .collect();
     players.sort_by_key(|x| x.0);
+    // Prep and effort across the roster (TR11, TR43).
+    use afm_engine::training::prep::Status as PS;
+    let mut words = [0u32; 6];
+    let (mut missed, mut days_in, mut scores) = (0u32, 0u32, Vec::new());
+    let count = |f: &dyn Fn(PS) -> bool| preps.iter().filter(|x| f(x.2.status)).count();
+    for (_, word, pr) in &preps {
+        words[*word as usize] += 1;
+        if matches!(pr.status, PS::Full | PS::New | PS::Limited | PS::Rested) && pr.days > 0 {
+            missed += pr.missed as u32;
+            days_in += pr.days as u32;
+            scores.push(pr.score);
+        }
+    }
+    let extra = st.roster.iter().filter(|&&i| w.training.plan_of(w.people[i].player.id).extra > 0).count();
+    let effort = json!({
+        "words": words,
+        "attend": if days_in > 0 { Some((100.0 * (1.0 - missed as f64 / days_in as f64)).round()) } else { None },
+        "missed": missed,
+        "absent": count(&|s| s == PS::Absent),
+        "limited": count(&|s| matches!(s, PS::Limited | PS::Rested)),
+        "out": count(&|s| s == PS::Out),
+        "away": count(&|s| s == PS::Away),
+        "new": count(&|s| s == PS::New),
+        "extra": extra,
+        "word": (!scores.is_empty()).then(|| week::effort_word(scores.iter().sum::<f64>() / scores.len() as f64)),
+        "voluntary": pw.books.iter().any(|b| b.voluntary),
+        "none": preps.iter().all(|x| x.1 == 0),
+    });
+    // Your staff's reasons for this week (T1).
+    let limited = preps
+        .iter()
+        .filter(|x| x.2.status == PS::Limited && x.2.game && roles.get(&x.0) == Some(&Role::Starter))
+        .map(|x| &w.people[x.0])
+        .max_by(|a, b| a.player.overall().total_cmp(&b.player.overall()))
+        .map(|p| {
+            format!("{} is limited, so he gets the install in the walkthrough and on film instead of reps.", p.name)
+        });
+    let first_year = afm_engine::world::staff_read::your_start(w).year() >= st.frame.season;
+    let next_week_game = ahead.iter().any(|g| g.0 >= monday.add(7) && g.0 < monday.add(14));
+    let reasons = week::reasons(
+        w,
+        &st,
+        &pw,
+        offseason::staff_reasons(&style, st.tier),
+        this_game.map(|g| (g.date, crate::views::team_name(w, opp_ref(t, g.opp)), g.home || g.neutral)),
+        next_week_game,
+        limited,
+        first_year,
+    );
+    // The opener, for an offseason week's game prep card.
+    let opener = ahead.iter().find(|g| g.0 >= w.today).map(|g| format!("next game {} {}", date_text(g.0), g.1));
+    // Across the league (TR42): the next opponent's rusty starters, and
+    // the voluntary sessions' absences in the news.
+    let opp_roster: Option<(String, Vec<usize>)> = this_game.map(|g| {
+        let r = opp_ref(t, g.opp);
+        (crate::views::team_name(w, r), roster_people(w, r))
+    });
+    let news: Vec<(String, String)> = w
+        .calendar
+        .events
+        .range(w.today.add(-14)..=w.today)
+        .rev()
+        .flat_map(|(_, es)| es.iter())
+        .filter(|e| e.text.contains("voluntary") && e.text.contains("is not at"))
+        .map(|e| (e.nfl_team.map_or("The news".to_string(), |c| w.nfl_team_name(c)), e.text.clone()))
+        .collect();
+    let league = week::league(w, opp_roster.as_ref().map(|(n, r)| (n.as_str(), r.as_slice())), news);
+    // The page's title and sub line.
+    let weeks_in = {
+        let mut a = monday;
+        while a.add(-7) >= st.frame.start && block_of_week(&st.frame, a.add(-7)) == block {
+            a = a.add(-7);
+        }
+        let mut b = monday;
+        while b.add(7) < st.frame.end && block_of_week(&st.frame, b.add(7)) == block {
+            b = b.add(7);
+        }
+        (a.days_to(monday) / 7 + 1, a.days_to(b) / 7 + 1)
+    };
+    let title = match this_game {
+        Some(g) => format!(
+            "Game week: {} {}",
+            if g.home || g.neutral { "vs" } else { "at" },
+            crate::views::team_name(w, opp_ref(t, g.opp))
+        ),
+        None if block == Block::Season => "Bye week".to_string(),
+        None => block.label(st.tier).to_string(),
+    };
+    let sub = format!(
+        "{} · {}{} · {} – {}{}",
+        crate::views::team_name(w, t),
+        block.label(st.tier),
+        if weeks_in.1 > 1 { format!(", week {} of {}", weeks_in.0, weeks_in.1) } else { String::new() },
+        date_text(monday).rsplit_once(' ').map_or_else(|| date_text(monday), |x| x.0.to_string()),
+        date_text(monday.add(6)),
+        this_game.and_then(|g| g.kick.clone()).map_or(String::new(), |k| format!(" · kickoff {k}"))
+    );
     let notes: Vec<Value> = w
         .training
         .notes
@@ -620,7 +836,8 @@ fn practice(w: &World) -> Reply {
     if let Some((cb, from)) = cur {
         blocks.push(json!({ "block": cb.name(), "label": cb.label(st.tier), "from": date_text(from), "to": date_text(st.frame.end), "now": monday >= from, "own": cb.own() }));
     }
-    Ok(json!({
+    let cards = week::cards(&pw, st.tier, &ts::counts_text(&st, block, &counts), opener);
+    let mut out = json!({
         "team": team_brief(w, t),
         "tier": tier_name(st.tier),
         "head": w.seat_head(),
@@ -641,7 +858,7 @@ fn practice(w: &World) -> Reply {
         "load": { "full": full_load.round(), "staff_full": n_full.round(), "field": field.round(), "staff_field": n_field.round() },
         "prep": { "mine": prep.round(), "staff": n_prep.round() },
         "fresh": fresh.map(|f| (f * 100.0).round()),
-        "reasons": offseason::staff_reasons(&style, st.tier),
+        "reasons": reasons,
         "players": players.into_iter().map(|x| x.1).collect::<Vec<_>>(),
         "notes": notes,
         "log": log,
@@ -650,10 +867,83 @@ fn practice(w: &World) -> Reply {
         "cases": cases,
         "templates": templates,
         "blocks": blocks,
-        "options": options(),
+        "options": options(&st),
         "habits": Tend::ALL.iter().enumerate().map(|(k, t)| json!({ "k": k, "label": t.label() })).collect::<Vec<_>>(),
         "positions": Position::ALL.iter().map(|p| p.name()).collect::<Vec<_>>(),
-    }))
+    });
+    // The week's frame, prep and staff (update 2, lane 4).
+    let more = json!({
+        "title": title,
+        "sub": sub,
+        "rule": main.rule,
+        "live": live,
+        "year": week::year(&st, monday, w.today, &ahead),
+        "cards": cards,
+        "effort": effort,
+        "staff": week::staff(w, st.tier),
+        "families": week::families(&pw),
+        "groups": week::lift_groups(w, &st, &pw, &roles),
+        "body": week::body_targets(w, &st),
+        "numbers": week::numbers(w, &st, monday, w.today),
+        "where": week::wheres(w, &st, &pw),
+        "league": league,
+    });
+    if let (Some(a), Value::Object(b)) = (out.as_object_mut(), more) {
+        a.extend(b);
+    }
+    Ok(out)
+}
+
+/// Your two-deep's prep for the game day report (TR43): how many of each
+/// word this week, and the ones your staff worries about, the poorest
+/// first, with what your staff says.
+pub(crate) fn prep_report(w: &World) -> Value {
+    let Ok((_, st)) = team_of(w) else { return Value::Null };
+    let monday = monday_of(w.today);
+    let pw = ts::planned(w, &st, monday);
+    if pw.books.iter().all(|b| !b.coaches) {
+        return Value::Null;
+    }
+    let roles = ts::roles(w, &st);
+    let live = w.today == monday;
+    let mut words = [0u32; 6];
+    let mut rows: Vec<(u8, u32, Value)> = Vec::new();
+    for &i in &st.roster {
+        let role = *roles.get(&i).unwrap_or(&Role::Young);
+        if role == Role::Young {
+            continue;
+        }
+        let p = &w.people[i];
+        let why = w.training.hurt_on(p.player.id, monday).and_then(|h| h.kind).map(|k| k.name().to_lowercase());
+        let (v, word, _) = week::prep_json(w, &st, &pw, i, role, live, why.as_deref().unwrap_or(""));
+        // A player out hurt doesn't play this game: the injury report has him.
+        if v["status"] == "out" {
+            continue;
+        }
+        words[word as usize] += 1;
+        if (1..=3).contains(&word) {
+            rows.push((
+                word,
+                (100.0 - p.player.overall()).max(0.0) as u32,
+                json!({
+                    "id": p.player.id,
+                    "name": p.name,
+                    "pos": p.player.position.name(),
+                    "role": role.label(),
+                    "word": word,
+                    "word_text": v["word_text"],
+                    "five": v["five"],
+                    "rust": v["rust"],
+                    "says": v["says"],
+                }),
+            ));
+        }
+    }
+    rows.sort_by_key(|r| (r.0, r.1));
+    json!({
+        "words": words,
+        "rows": rows.into_iter().take(10).map(|r| r.2).collect::<Vec<_>>(),
+    })
 }
 
 fn save_week(w: &mut World, args: &Value) -> Result<(), String> {
@@ -772,13 +1062,13 @@ fn dev(w: &World, id: u32) -> Reply {
     let roles = ts::roles(w, &st);
     let role = *roles.get(&i).unwrap_or(&Role::Young);
     let focus = w.focus_of(id).or(w.staff_focus(id));
-    let attrs = reads::attributes(&p.player, true, eye, reader);
+    let attrs = reads::attributes(w, i);
     let read_of = |a: Attr| attrs.iter().find(|x| x.0 == a).map(|x| x.1.json());
     // The skills that matter most at his position, with your staff's read.
     let mut key: Vec<(f64, Attr)> =
         Attr::ALL.iter().map(|&a| (afm_engine::positions::weight(pos, a), a)).filter(|x| x.0 > 0.02).collect();
     key.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let key: Vec<Value> = key.iter().take(8).map(|&(_, a)| json!({ "label": a.label(), "read": read_of(a), "family": afm_engine::training::family_of(a).label(), "focus": Some(a) == focus })).collect();
+    let key: Vec<Value> = key.iter().take(8).map(|&(_, a)| json!({ "key": a.key(), "label": a.label(), "read": read_of(a), "family": afm_engine::training::family_of(a).label(), "focus": Some(a) == focus })).collect();
     // How far into the year's work each family is (the calendar, not his growth).
     let landed: f64 =
         if tr.pending() { Family::ALL.iter().map(|&f| tr.landed(f)).sum::<f64>() / FAMILIES as f64 } else { 1.0 };
@@ -798,8 +1088,9 @@ fn dev(w: &World, id: u32) -> Reply {
         let v = p.player.tend.get(tend);
         json!({ "label": tend.label(), "target": target, "read": reads::range(v * 99.0 / 20.0, 6.0, reader, id, 200 + tend.index()).json(), "target_read": (target as f64 * 99.0 / 20.0).round() })
     });
-    // The listed body, as every other screen shows it; the body plan moves it.
-    let body = &p.player.body;
+    // His body now, as every other screen shows it and the body plan reads
+    // it (a boy still growing is smaller than the man he becomes).
+    let body = afm_engine::body::body_now(&p.player);
     let sport = (st.tier == Tier::High).then(|| offseason::other_sport(&p.player)).flatten();
     let mut log_lines: Vec<Value> = Vec::new();
     for l in w.training.log.iter().rev().take(6) {
@@ -929,7 +1220,7 @@ fn backfield_name(b: Backfield) -> &'static str {
     }
 }
 
-fn personnel_of(s: &str) -> Personnel {
+pub(crate) fn personnel_of(s: &str) -> Personnel {
     match s {
         "12" => Personnel::P12,
         "21" => Personnel::P21,
@@ -940,7 +1231,7 @@ fn personnel_of(s: &str) -> Personnel {
     }
 }
 
-fn backfield_of(s: &str) -> Backfield {
+pub(crate) fn backfield_of(s: &str) -> Backfield {
     match s {
         "under center" => Backfield::UnderCenter,
         "pistol" => Backfield::Pistol,
@@ -948,7 +1239,7 @@ fn backfield_of(s: &str) -> Backfield {
     }
 }
 
-fn set_of(s: &str) -> Set {
+pub(crate) fn set_of(s: &str) -> Set {
     match s {
         "trips" => Set::Trips,
         "bunch" => Set::Bunch,
@@ -1116,6 +1407,7 @@ fn sheet_set(w: &mut World, args: &Value) -> Result<(), String> {
             backfield: backfield_of(&s("backfield")),
             set: set_of(&s("set")),
             play,
+            hash: v.get("hash").and_then(Value::as_u64).unwrap_or(0).min(2) as u8,
         });
     }
     let sheet = &mut w.training.plan.sheet;
@@ -1477,6 +1769,8 @@ fn design_delete(w: &mut World, args: &Value) -> Result<(), String> {
             i.key = InstallKey::Design(x - 1);
         }
     }
+    // The drafted sheet follows too (update 2, G7).
+    afm_engine::world::plans::design_removed(w, k as u16);
     w.training.register_designs();
     w.refresh_seat_team();
     Ok(())
@@ -1484,7 +1778,7 @@ fn design_delete(w: &mut World, args: &Value) -> Result<(), String> {
 
 // ---------- the squad (six views) ----------
 
-fn squad(w: &World) -> Reply {
+pub(crate) fn squad(w: &World) -> Reply {
     let (t, st) = team_of(w)?;
     let reader = reader_key(w);
     let roles = ts::roles(w, &st);
@@ -1502,13 +1796,14 @@ fn squad(w: &World) -> Reply {
             let tr = &p.player.train;
             let (lvl, trend) = load_words(tr.load[0], tr.load[1]);
             let (status, why) = practice_status(w, id, i);
-            let attrs = reads::attributes(&p.player, true, eye, reader);
+            let attrs = reads::attributes(w, i);
             let mut key: Vec<(f64, Attr)> = Attr::ALL.iter().map(|&a| (afm_engine::positions::weight(pos, a), a)).filter(|x| x.0 > 0.02).collect();
             key.sort_by(|a, b| b.0.total_cmp(&a.0));
             v["keys"] = json!(key.iter().take(4).map(|&(_, a)| json!({ "label": a.label(), "read": attrs.iter().find(|x| x.0 == a).map(|x| x.1.json()) })).collect::<Vec<_>>());
             for (k, (_, a)) in key.iter().take(4).enumerate() {
                 v[format!("k{k}")] = attrs.iter().find(|x| x.0 == *a).map_or(Value::Null, |x| x.1.json());
                 v[format!("k{k}_label")] = json!(a.label());
+                v[format!("k{k}_key")] = json!(a.key());
             }
             v["role"] = json!(role.label());
             v["depth"] = json!(order.iter().find(|(x, _)| *x == pos).and_then(|(_, ids)| ids.iter().position(|&x| x == id)).map(|k| k + 1));
@@ -1537,6 +1832,18 @@ fn squad(w: &World) -> Reply {
                 v["apy"] = json!(k.map(|k| k.apy()));
                 v["through"] = json!(k.map(|k| k.last_year()));
                 v["accrued"] = json!(c.accrued);
+                // A new deal from the Contract view (bug 70): only for your club's players.
+                v["deal"] = json!(match afm_engine::world::front_office::nfl::negotiable(w, i) {
+                    Some(afm_engine::world::front_office::nfl::TalkKind::Extension) => Some("Offer an extension"),
+                    Some(afm_engine::world::front_office::nfl::TalkKind::ReSign) => Some("Re-sign him"),
+                    _ => None,
+                });
+            }
+            // Redshirt him or play him, from the Eligibility view (bug 77).
+            if p.stage == Stage::College
+                && let Ok(r) = afm_engine::world::front_office::redshirt::read(w, id)
+            {
+                v["rs"] = json!({ "on": r.redshirt, "games": r.games, "four": r.four, "can": r.can.is_ok(), "why": r.can.err() });
             }
             v["years_left"] = json!(match p.stage {
                 Stage::College => Some((4 - p.college_seasons as i32).max(0)),
@@ -1629,6 +1936,18 @@ fn package_spots(b: Board) -> Vec<(f64, f64)> {
             (2.0, 12.0),
             (6.0, 0.0),
         ],
+        Board::Jumbo => vec![
+            (-5.0, 0.0),
+            (0.0, -4.4),
+            (0.0, -2.2),
+            (0.0, 0.0),
+            (0.0, 2.2),
+            (0.0, 4.4),
+            (0.0, -7.6),
+            (0.0, 7.6),
+            (-1.0, 10.0),
+            (-7.0, 0.0),
+        ],
         Board::GoalLineO => vec![
             (-2.0, 0.0),
             (0.0, -4.4),
@@ -1713,10 +2032,9 @@ fn package_spots(b: Board) -> Vec<(f64, f64)> {
 /// A slot's read for the board: his staff-read overall at the slot's
 /// position (another position's player pays the cross-training cost the
 /// engine charges).
-fn slot_read(w: &World, t: TeamRef, i: usize, pos: Position, reader: u64) -> f64 {
+fn slot_read(w: &World, _t: TeamRef, i: usize, pos: Position, _reader: u64) -> f64 {
     let p = &w.people[i];
-    let eye = eye_for(w, t, p.player.position);
-    let r = reads::overall(&p.player, true, eye, reader);
+    let r = reads::overall(w, i);
     let mid = match r {
         reads::Read::Range(lo, hi) => (lo as f64 + hi as f64) / 2.0,
         reads::Read::NotSeen => 40.0,
@@ -1724,22 +2042,26 @@ fn slot_read(w: &World, t: TeamRef, i: usize, pos: Position, reader: u64) -> f64
     if p.player.position == pos { mid } else { mid - 8.0 }
 }
 
-fn boards(w: &World, args: &Value) -> Reply {
+pub(crate) fn boards(w: &World, args: &Value) -> Reply {
+    boards_with(w, args, w.seat_game_depth().unwrap_or_default())
+}
+
+/// The same with your staff's depth order in hand (a board that has built
+/// your game team already).
+pub(crate) fn boards_with(w: &World, args: &Value, staff_order: Vec<(Position, Vec<u32>)>) -> Reply {
     let (t, st) = team_of(w)?;
     let reader = reader_key(w);
     let roster: Vec<usize> = st.roster.clone();
     let roles = ts::roles(w, &st);
-    let staff_order = w.seat_game_depth().unwrap_or_default();
     let by_id: HashMap<u32, usize> = roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
     let who = |i: usize| {
         let p = &w.people[i];
-        let eye = eye_for(w, t, p.player.position);
         let (status, _) = practice_status(w, p.player.id, i);
         json!({
             "id": p.player.id, "name": p.name, "pos": p.player.position.name(),
-            "class": class_text(w, p), "ovr": reads::overall(&p.player, true, eye, reader).json(),
+            "class": class_text(w, p), "ovr": reads::overall(w, i).json(),
             "practice": status, "role": roles.get(&i).map(|r| r.label()),
-            "ht": crate::views::ft_in(p.player.body.height), "wt": p.player.body.weight.round(),
+            "ht": crate::views::ft_in(afm_engine::body::body_now(&p.player).height), "wt": afm_engine::body::body_now(&p.player).weight.round(),
         })
     };
     // A base board: the depth order at each slot's position, yours where
@@ -1936,7 +2258,7 @@ fn proposal(
         .collect()
 }
 
-fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, String> {
+pub(crate) fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, String> {
     let key = args.get("board").and_then(Value::as_str).ok_or("Missing board.")?;
     let ids: Vec<Option<u32>> = args
         .get("ids")

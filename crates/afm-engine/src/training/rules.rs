@@ -117,6 +117,10 @@ pub struct Frame {
     pub otas: Date,
     pub minicamp_end: Date,
     pub report: Date,
+    /// An FBS program or an NFL club: the staff and money for the newer
+    /// tools (VR, vision boards, a sports psychologist; `plan::available`).
+    #[serde(default)]
+    pub big: bool,
 }
 
 impl Frame {
@@ -140,6 +144,7 @@ impl Frame {
             otas: y.start,
             minicamp_end: y.start,
             report: y.fall_camp,
+            big: false,
         }
     }
 
@@ -162,6 +167,7 @@ impl Frame {
             otas: y.otas.0,
             minicamp_end: y.minicamp.1,
             report: y.veterans_report,
+            big: true,
         }
     }
 
@@ -185,6 +191,7 @@ impl Frame {
             otas: y.start,
             minicamp_end: y.start,
             report: first_game.add(-21),
+            big: false,
         }
     }
 
@@ -396,6 +403,9 @@ pub struct Book {
     pub voluntary: bool,
     /// The rule's source, for the screens.
     pub rule: &'static str,
+    /// The team's frame is an FBS program or an NFL club (`Frame::big`).
+    #[serde(default)]
+    pub big: bool,
 }
 
 /// High school contact rules by state: Texas (UIL, 2017: 90 minutes a week
@@ -448,6 +458,7 @@ pub fn book(tier: Tier, b: Block, season: i32, day: i32, state: &str, heat_rule:
         two_a_days: true,
         voluntary: false,
         rule: "",
+        big: tier == Tier::Pro,
     };
     match tier {
         Tier::College => {
@@ -705,7 +716,7 @@ pub fn check_day(k: &Book, d: &Day, wd: u8) -> Vec<Breach> {
     if d.periods.is_empty() {
         return out;
     }
-    if !k.coaches && d.periods.iter().any(|p| p.kind != Kind::Recovery) {
+    if !k.coaches && d.periods.iter().any(|p| p.kind != Kind::Recovery && !p.players_own()) {
         add(format!("Nothing may be required in this block ({}).", k.rule));
         return out;
     }
@@ -728,7 +739,7 @@ pub fn check_day(k: &Book, d: &Day, wd: u8) -> Vec<Breach> {
         add(format!("{full} minutes of full contact, {m} allowed in one practice."));
     }
     for p in &d.periods {
-        if !k.field && p.kind.on_field() && !matches!(p.kind, Kind::Conditioning | Kind::Speed) {
+        if !k.field && p.kind.on_field() && !p.kind.strength_staff() && !p.own() {
             add(format!("{}: no on-field football in this block ({}).", p.kind.label(), k.rule));
         }
         if !k.team && p.kind.offense_against_defense() {
@@ -846,7 +857,7 @@ impl Counts {
 
     pub fn add_week(&mut self, w: &Week) {
         for d in &w.days {
-            if d.rest() || !d.periods.iter().any(|p| p.kind.practice()) {
+            if d.rest() || !d.periods.iter().any(|p| p.practice()) {
                 continue;
             }
             self.practices += 1 + d.second as u16;

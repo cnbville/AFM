@@ -55,7 +55,7 @@ Topic order: 0 what exists, 1 the practice day, 2 the week, 3 the year and its r
 ## Topic 2. The week
 
 ### How real football works
-Built and confirmed in calendar topic 6: the NFL's Monday film and lift, Tuesday off, Wednesday base install, Thursday third down and red zone, Friday situations and two-minute, Saturday walkthrough and travel; college's 20 countable hours with one day off, Tuesday to Thursday practice around classes; high school film Monday, practice Tuesday to Thursday, game Friday, JV and film Saturday. Plus:
+Built and confirmed in calendar topic 6: the NFL's Monday film and lift, Tuesday off, Wednesday base install, Thursday third down and red zone, Friday situations and two-minute, Saturday walkthrough and travel; college's 20 countable hours with one day off, Tuesday to Thursday practice around classes; high school film Monday, practice Tuesday to Thursday, JV and freshman games Thursday, the varsity game Friday, film Saturday. Plus:
 - **NFL padded practices:** 14 in the regular season, 11 of them in the first 11 weeks and 3 in the last six, at most two in one week once (in the first 11 weeks), and three hours on the field on a padded day (CBA Article 24). Playoff teams may hold one a week. Most teams pad once a week early and rarely late. The bye gives players four days off (CBA).
 - **College players who didn't travel or play** often get a short developmental practice on Sunday or Monday while the starters recover ("the young guys' practice"), inside the 20 hours.
 - **Short weeks** (Thursday night) mean Monday is a walkthrough and there is almost no padded work; long weeks after Thursday add rest.

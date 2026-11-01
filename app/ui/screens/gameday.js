@@ -92,7 +92,7 @@
     let action = "";
     if (live && !live.over) action = `<button class="st-btn primary" data-go="live">Back to the game · ${esc(live.quarter)} ${esc(live.clock)}</button>`;
     else if (live && live.over) action = `<button class="st-btn primary" data-go="live">The final whistle</button>`;
-    else if (h.can_kick_off) action = `<button class="st-btn primary" data-act="gd-kick">Kick off</button><button class="st-btn glass" data-act="gd-delegate" title="Your staff coaches the whole game with your plan and rules; you see the result">Let the staff coach it</button>`;
+    else if (h.can_kick_off) action = `<button class="st-btn primary" data-go="talk" title="The locker room before kickoff: your talk, or a captain's">Pregame talk</button><button class="st-btn glass" data-act="gd-kick" title="Kick off now; without your talk, your staff reads the room for you">Kick off</button><button class="st-btn glass" data-act="gd-delegate" title="Your staff coaches the whole game with your plan and rules; you see the result">Let the staff coach it</button>`;
     const wx = h.weather;
     const why = [h.name, ...(h.why || [])].filter(Boolean);
     const hero = `<div class="st-room gd-room"><i></i><i></i><i></i>
@@ -111,9 +111,11 @@
     const tabs = ["Report", "Film room", "Game plan", "Calling"];
     if (!tabs.includes(tab.t)) tab.t = "Report";
     let body = "";
-    if (tab.t === "Report") body = reportTab(h);
+    // The deeper game plan (update 2, lane 5, screens/gameplan.js) draws
+    // the week's plan and the teams like us; without it the older tabs.
+    if (tab.t === "Report") body = reportTab(h) + (typeof window.dpLikeUs === "function" ? await window.dpLikeUs(h) : "");
     else if (tab.t === "Film room") body = filmTab(h);
-    else if (tab.t === "Game plan") body = planTab(h);
+    else if (tab.t === "Game plan") body = typeof window.dpWeekTab === "function" ? await window.dpWeekTab(h, { matchups: matchupsForm(h), fallback: planTab(h) }) : planTab(h);
     else body = `${settingsPanel(h.settings)}${callingPanel(h.calling)}`;
     const go = goLine([
       ["Their squad", teamArgs(h.opp, "roster")],
@@ -137,11 +139,20 @@
       .map((s) => `<div class="panel warm"><h2>${esc(s.title)} <small>${esc(s.unit)}</small></h2><div class="gd-lines">${s.lines.map(line).join("")}</div></div>`)
       .join("");
     const mine = h.out_mine.length ? `<div class="panel warm"><h2>Your injury report <small>${h.out_mine.length}</small></h2><div class="gd-lines">${h.out_mine.map((l) => `<div class="gd-line"><span>${linkFirst(l.text, l.id)}</span></div>`).join("")}</div></div>` : "";
+    // Your two-deep's prep this week (update 2, TR43): the words, and the
+    // ones your staff worries about.
+    const pm = h.prep_mine;
+    const prep = pm && typeof twWord === "function"
+      ? `<div class="panel warm gd-prep"><h2>Your players' prep <small>the two-deep this week · <a class="link" data-go="training">Training</a></small></h2>
+        <div class="gd-prepwords">${[5, 4, 3, 2, 1].map((w) => `<span>${twWord(w)} <b class="${w <= 2 && pm.words[w] ? "amber" : ""}">${pm.words[w]}</b></span>`).join("")}</div>
+        ${pm.rows.length ? `<div class="gd-lines">${pm.rows.map((r) => `<div class="gd-line gd-prepline"><span>${playerLink(r.id, r.name)} <span class="muted">${esc(r.pos)} · ${esc(r.role)}</span> ${twWord(r.word)} ${twTrend(r.five)}${r.rust || r.says ? `<br><small class="${r.word <= 2 || r.rust ? "amber" : "muted"}">${r.rust ? `Rust ${esc(r.rust)}. ` : ""}${esc(r.says || "")}</small>` : ""}</span></div>`).join("")}</div>` : '<div class="sub">Everyone in the two-deep is prepared or sharp.</div>'}
+        <div class="sub gd-prepnote">Poor prep shows only through the battles today: more busts and late reads, not a worse player.</div></div>`
+      : "";
     return `<div class="gd-staff"><div><div class="st-label">Your staff's report on ${esc(h.opp.name)}</div>
         <div class="sub">${r.games ? `From ${r.games} game${r.games === 1 ? "" : "s"} of film, ${r.snaps} snaps tagged by ${esc(r.staff)}.${r.thin ? " Early in the season the report is thin: read every line as a small sample." : ""}` : `No film of ${esc(h.opp.name)} this season yet: they haven't played. The report fills in from their games, tagged by ${esc(r.staff)}.`}</div></div>
         <a class="link gd-side-link" data-act="gd-tab" data-t="Film room">Study their tapes yourself →</a></div>
       ${finds}
-      <div class="gd-report">${sections || '<div class="panel warm"><div class="empty">No film of them yet this season. The report fills in once they play.</div></div>'}${mine}</div>`;
+      <div class="gd-report">${sections || '<div class="panel warm"><div class="empty">No film of them yet this season. The report fills in once they play.</div></div>'}${mine}${prep}</div>`;
   }
   // A line whose subject is a player: his name (the text's start) links.
   function linkFirst(text, id) {
@@ -193,34 +204,40 @@
 
   function pickSelect(name, cur, options, staffWords) {
     const opt = (v, t) => `<option value="${v}" ${String(cur) === String(v) ? "selected" : ""}>${esc(t)}</option>`;
-    return `<select class="gd-select" data-act="gd-plan" data-k="${name}">${opt("staff", staffWords)}${opt("none", "Nobody: play it straight")}${options.map((o) => opt(o.id, `${o.name} (${o.pos})${o.seen ? ` · on tape ${o.seen} snaps` : ""}`)).join("")}</select>`;
+    return `<select class="gd-select" data-act="gd-plan" data-k="${name}">${opt("staff", staffWords)}${opt("none", "Nobody: play it straight")}${options.map((o) => opt(o.id, `${o.name} (${o.pos})${o.seen ? ` · on tape ${o.seen} snap${o.seen === 1 ? "" : "s"}` : ""}`)).join("")}</select>`;
   }
   function triSeg(name, cur, words) {
     const v = cur == null ? "staff" : cur ? "yes" : "no";
     return `<div class="seg">${[["staff", "Staff decides"], ["yes", words[0]], ["no", words[1]]].map(([k, t]) => `<button data-act="gd-plan" data-k="${name}" data-v="${k}" aria-pressed="${v === k}">${t}</button>`).join("")}</div>`;
   }
-  function planTab(h) {
+  // The week's matchups against this opponent: whose corner to throw at,
+  // the bracket, the spy, the kicks and the draws.
+  function matchupsForm(h) {
     const p = h.plan;
     const o = p.options;
-    const r = h.rules;
-    const seg = (k, cur, opts) => `<div class="seg">${opts.map(([v, t]) => `<button data-act="gd-rule" data-k="${k}" data-v="${v}" aria-pressed="${cur === v}">${t}</button>`).join("")}</div>`;
-    const fourth = { staff: "Your staff decides each one by its own lean and the game.", numbers: "Go for it whenever the model says going wins more often than punting or kicking.", aggressive: "Go for it unless kicking is clearly better (two points of win chance).", conservative: "Kick unless going is clearly better (four points of win chance)." };
-    const two = { staff: "Your staff decides by its chart and its trust in the kicker.", chart: "Dick Vermeil's chart in the 4th quarter: go for two when the margin after the touchdown says so (down 2, 5, 9, 10, 13, 17 or 18; up 1, 4, 5, 12, 15 or 19).", kick: "Always kick the extra point." };
-    return `<div class="grid2"><div class="panel warm"><h2>Matchups <small>the week's plan against ${esc(h.opp.name)}</small></h2>
-        <div class="gd-form">
-          <label>Throw at their corner<small>your offensive coordinator looks his way first</small></label>${pickSelect("target_cb", p.target_cb, o.corners, "Staff decides")}
+    return `<div class="gd-form">
+          <label>Throw at their corner<small>your play caller looks his way first</small></label>${pickSelect("target_cb", p.target_cb, o.corners, "Staff decides")}
           <label>Bracket their receiver<small>two men on him, someone short elsewhere</small></label>${pickSelect("bracket", p.bracket, o.receivers, "Staff decides")}
           <label>Spy their quarterback<small>a linebacker mirrors him instead of rushing or dropping</small></label>${triSeg("spy", p.spy, ["Spy him", "No spy"])}
           <label>Kick away from their returner<small>shorter, safer kicks: field position for the return</small></label>${triSeg("kick_away", p.kick_away, ["Kick away", "Kick deep to him"])}
           <label>Draws and screens<small>more of them against edge rushers who win upfield</small></label>${triSeg("draws", p.draws, ["More of them", "As usual"])}
         </div>
-        <div class="sub">${p.hints ? `${p.hints} hint${p.hints === 1 ? "" : "s"} from your film study in the plan: your players key those habits from the snaps that show them. ` : ""}The plan holds whether you call the game or your staff does.</div></div>
+        <div class="sub">${p.hints ? `${p.hints} hint${p.hints === 1 ? "" : "s"} from your film study in the plan: your players key those habits from the snaps that show them. ` : ""}The plan holds whether you call the game or your staff does.</div>`;
+  }
+  function planTab(h) {
+    const r = h.rules;
+    const seg = (k, cur, opts) => `<div class="seg">${opts.map(([v, t]) => `<button data-act="gd-rule" data-k="${k}" data-v="${v}" aria-pressed="${cur === v}">${t}</button>`).join("")}</div>`;
+    const fourth = { staff: "Your staff decides each one by its own lean and the game.", numbers: "Go for it whenever the model says going wins more often than punting or kicking.", aggressive: "Go for it unless kicking is clearly better (two points of win chance).", conservative: "Kick unless going is clearly better (four points of win chance)." };
+    const two = { staff: "Your staff decides by its chart and its trust in the kicker.", chart: "Dick Vermeil's chart in the 4th quarter: go for two when the margin after the touchdown says so (down 2, 5, 9, 10, 13, 17 or 18; up 1, 4, 5, 12, 15 or 19).", kick: "Always kick the extra point." };
+    return `<div class="grid2"><div class="panel warm"><h2>Matchups <small>the week's plan against ${esc(h.opp.name)}</small></h2>${matchupsForm(h)}</div>
       <div class="panel warm"><h2>Your game rules <small>they decide when no snap stops for you</small></h2>
         <div class="gd-form stack">
           <label>4th downs<small>${esc(fourth[r.fourth])}</small></label>${seg("fourth", r.fourth, [["staff", "Staff"], ["numbers", "The numbers"], ["aggressive", "Aggressive"], ["conservative", "Conservative"]])}
           <label>Two-point tries<small>${esc(two[r.two])}</small></label>${seg("two", r.two, [["staff", "Staff"], ["chart", "The chart"], ["kick", "Always kick"]])}
           <label>Tempo<small>${r.tempo === "hurry" ? "No-huddle: more snaps, less time for their defense to substitute and disguise." : r.tempo === "milk" ? "Use the play clock: fewer snaps, the game shorter." : "Huddle and snap as the play caller likes."}</small></label>${seg("tempo", r.tempo, [["normal", "Normal"], ["hurry", "No-huddle"], ["milk", "Milk the clock"]])}
-        </div></div></div>`;
+          <label>Timeouts<small>${r.timeouts === "keep_two" ? "Keep two for the end of each half." : r.timeouts === "keep_one" ? "Keep one for the end of each half." : r.timeouts === "free" ? "Use them when the snap needs it." : "Your staff spends them as the game goes."}</small></label>${seg("timeouts", r.timeouts, [["staff", "Staff"], ["keep_two", "Keep two"], ["keep_one", "Keep one"], ["free", "Freely"]])}
+          <label>Four-minute plan<small>${r.four === "run" ? "Ahead by one score late: run it out." : r.four === "attack" ? "Keep attacking with the lead." : "Your staff decides with the lead and the clock."}</small></label>${seg("four", r.four, [["staff", "Staff"], ["run", "Run it out"], ["attack", "Keep attacking"]])}
+        </div>${r.changed ? `<div class="sub">Changed for this game only: the standing rules on the Playbook come back after it. <a class="link" data-act="gd-rulereset">Back to the standing rules</a></div>` : ""}</div></div>`;
   }
 
   function settingsPanel(s) {
@@ -263,6 +280,7 @@
       case "gd-study": gdDo("gameday_study", tapeKey(d)); break;
       case "gd-hint": gdDo("gameday_hint", { ...tapeKey(d), key: d.key, add: d.add === "1" }); break;
       case "gd-rule": gdDo("gameday_rules", { [d.k]: d.v }); break;
+      case "gd-rulereset": gdDo("gameday_rules", { reset: true }); break;
       case "gd-set": gdDo("gameday_settings", { [d.k]: d.v }); break;
       case "gd-plan": if (d.v) gdDo("gameday_plan", { [d.k]: d.v === "yes" ? true : d.v === "no" ? false : "staff" }); break;
       case "gd-kick": kickoff(); break;
@@ -384,6 +402,7 @@
     const cls = [p.key ? "key" : "", p.td ? "td" : "", p.turnover ? "to" : "", p.ours ? "ours" : "theirs", fresh ? "fresh" : ""].join(" ");
     const extra = [
       p.officiating ? `<div class="lv-ref">${esc(p.officiating)}</div>` : "",
+      p.crowd ? `<div class="lv-crowd">${rich(p.crowd)}</div>` : "",
       ...(p.injuries || []).map((i) => `<div class="lv-hurt">${esc(i)}</div>`),
       yours && p.staff_call ? `<div class="lv-cmp">Your call: ${esc(p.ours ? p.call : p.defense)}${p.off_sheet ? " (off the sheet)" : ""} · your staff's: ${esc(p.staff_call)}</div>` : "",
       !yours && st.view && p.ours && p.call ? `<div class="lv-cmp">${esc(p.call)}${p.why ? " · " + esc(p.why) : ""}</div>` : "",
@@ -489,7 +508,8 @@
         ${fourth && choose && choose !== "go" ? `<div class="lv-row"><button class="st-btn primary" data-act="lv-fourth-go">${choose === "punt" ? "Send the punt team" : "Send the kicking team"} <kbd>↵</kbd></button></div>` : ""}`;
       foot = sideline();
     }
-    return `<div class="panel warm lv-decide">${clock}${head}${ruling && p.ask !== "challenge" ? ruling : ""}${body}
+    const word = typeof tkWordCard === "function" ? tkWordCard(st) : "";
+    return `<div class="panel warm lv-decide">${clock}${word}${head}${ruling && p.ask !== "challenge" ? ruling : ""}${body}
       <div class="lv-row lv-keys"><button class="st-btn small glass" data-act="lv-staff" title="Your staff's call on this snap"><kbd>↵</kbd> Go with the staff</button>
       <button class="st-btn small glass" data-act="lv-watch" title="Your staff calls the snaps and you watch, stepping in at any one"><kbd>W</kbd> Watch</button>
       <button class="st-btn small glass" data-act="lv-sim" title="Your staff coaches the rest of the game at once"><kbd>E</kbd> Staff to the end</button></div>${foot}</div>`;
@@ -497,7 +517,7 @@
 
   function halftimePanel(st) {
     const h = st.halftime;
-    const unit = (u, who) => `<div class="lv-half-u"><div class="st-label">${who}</div><div class="lv-half-n"><b>${u.yards}</b><small>yards on ${u.plays} plays</small></div>
+    const unit = (u, who) => `<div class="lv-half-u"><div class="st-label">${who}</div><div class="lv-half-n"><b>${u.yards}</b><small>${u.yards === 1 ? "yard" : "yards"} on ${u.plays} play${u.plays === 1 ? "" : "s"}</small></div>
       <div class="sub">Runs ${u.run.n} at ${u.run.ypc.toFixed(1)} a carry (${sign(u.run.epa)} EPA) · dropbacks ${u.pass.n} (${sign(u.pass.epa)} EPA, ${u.pass.sacks} sacked) · success ${u.success.toFixed(0)}%</div></div>`;
     const adj = (h.adjust || [])
       .map((a, i) => `<label class="lv-adj"><input type="checkbox" class="lv-adj-on" data-i="${i}" checked><span><b>${esc(a.who)}</b>${esc(a.text)}</span></label>`)
@@ -508,6 +528,7 @@
       ${h.fails.length ? `<div><div class="st-label">What doesn't</div>${h.fails.map((x) => `<div class="lv-advice">${esc(upper(x))}</div>`).join("")}</div>` : ""}
       ${adj ? `<div><div class="st-label">Your coordinators' adjustments</div>${adj}</div>` : `<div class="lv-advice">Your coordinators want no change: the plan holds.</div>`}
       ${h.hurt.length ? `<div><div class="st-label">The trainers</div>${h.hurt.map((x) => `<div class="lv-hurt">${esc(x)}</div>`).join("")}</div>` : ""}
+      ${typeof tkHalfBlock === "function" ? tkHalfBlock(st) : ""}
       <div class="lv-row"><button class="st-btn primary" data-act="lv-half">Start the second half <kbd>↵</kbd></button></div></div>`;
   }
 
@@ -534,6 +555,15 @@
       <div class="ask-actions"><button class="st-btn glass" data-act="lv-sheet-x">Cancel</button><button class="st-btn primary" data-act="lv-sheet-go">Call it</button></div></div></div>`;
   }
 
+  // The home crowd (people topic 9): its signs, and its latest roar or
+  // groan; every line also rides on its play in the feed.
+  function standsPanel(st, last) {
+    const signs = st.signs || [];
+    const crowd = (st.crowd || []).slice(0, last ? 1 : 2);
+    if (!signs.length && !crowd.length) return "";
+    return `<div class="panel warm lv-stands"><h2>The stands <small>${esc(st.names[0])}'s home crowd</small></h2>${crowd.map((c) => `<div class="lv-crowd big">${rich(c)}</div>`).join("")}${signs.length ? `<div class="lv-signs">${signs.map((x) => `<span class="lv-sign">${esc(x)}</span>`).join("")}</div>` : ""}</div>`;
+  }
+
   function liveScreen(st) {
     const p = st.pending;
     const watching = LV.watch ? `<div class="lv-watching"><span class="st-pill live">Watching</span> Your staff calls it at ${LV.watch.pace === "every" ? "every-snap" : "key-play"} pace. <a class="link" data-act="lv-pace">${LV.watch.pace === "every" ? "Key plays only" : "Every snap"}</a> · <button class="st-btn small primary" data-act="lv-stepin">Step in <kbd>Esc</kbd></button></div>` : "";
@@ -545,7 +575,7 @@
           <button class="st-btn small glass" data-act="lv-take" title="The next snap stops for you whatever the situation" aria-pressed="${st.take_next}"><kbd>N</kbd> ${st.take_next ? "Next snap is yours" : "Take the next snap"}</button></span></div>
         ${watching}
         <div class="lv-grid">${p ? decision(st) : ""}
-          <div class="lv-right"><div class="panel warm"><h2>The game <small>newest first · names link</small></h2>${feed(st)}</div>${teamLine(st)}</div></div>
+          <div class="lv-right"><div class="panel warm"><h2>The game <small>newest first · names link</small></h2>${feed(st)}</div>${standsPanel(st, false)}${teamLine(st)}</div></div>
       </div>${LV.sheet ? sheetPanel(st) : ""}`;
   }
 
@@ -568,6 +598,7 @@
             <div class="panel warm"><h2>Game balls</h2>${balls || '<div class="empty">Nobody stood out.</div>'}</div>
             ${a.hurt.length ? `<div class="panel warm"><h2>The trainers <small>scans tomorrow</small></h2>${a.hurt.map((x) => `<div class="lv-hurt">${esc(x)}</div>`).join("")}</div>` : ""}
             <div class="panel warm"><h2>The officials</h2><div class="sub">${off.close ? `${off.close} close call${off.close === 1 ? "" : "s"}: ${off.wrong} wrong on the field, ${off.fixed} fixed by replay.` : "No close calls."}</div></div>
+            ${standsPanel(st, true)}
           </div></div></div>`;
   }
 
@@ -669,6 +700,12 @@
     "lv-timeout": () => send({ kind: "timeout" }),
     "lv-tempo": (d) => send({ kind: "tempo", tempo: d.v }),
     "lv-wordb": (d) => send({ kind: "plan", [d.k]: d.v === "1" }),
+    // A word on the sideline to a player after his mistake (lane 14, D6).
+    "tk-word": (d) => {
+      const w = (LV.state.words || []).find((x) => x.id === Number(d.id));
+      const o = w && w.options[Number(d.i)];
+      if (o) send({ kind: "word", id: w.id, move: o.pick.move, tone: o.pick.tone });
+    },
     "lv-half": () => {
       const st = LV.state;
       const input = { kind: "halftime" };
@@ -802,16 +839,33 @@
   // ======================================================================
   // Tabs other lanes add (the Watch tab): name -> async (game, args) => html.
   window.gamePageTabs = window.gamePageTabs || {};
+  // The fans (people topic 9): the town after the game, and the home crowd
+  // play by play with its signs, drawn as the tab opens.
+  window.gamePageTabs.Fans = async (g) => {
+    const f = await api("fans_game", { index: g.index });
+    const town = f.town.length
+      ? `<div class="fn-voices">${f.town.map((v) => `<div class="fn-voice"><p>${rich(v.text)}</p><div class="fn-who">${esc(v.who)}${v.place ? `, ${esc(v.place)}` : ""}</div></div>`).join("")}</div>`
+      : '<div class="empty">The town had nothing to say.</div>';
+    const signs = f.signs.length ? `<div class="lv-signs">${f.signs.map((x) => `<span class="lv-sign">${esc(x)}</span>`).join("")}</div>` : "";
+    const crowd = f.crowd.length
+      ? `<ul class="lv-feed">${f.crowd.map((c) => `<li><span class="lv-fq">${esc(c.q || "")} ${esc(c.clock || "")}</span><div>${c.play ? `<div class="lv-ftext">${linkNames(c.play, c.who)}</div>` : ""}<div class="lv-crowd">${rich(c.text)}</div></div><span></span></li>`).join("")}</ul>`
+      : '<div class="empty">A quiet crowd.</div>';
+    return `<div class="grid2"><div class="panel warm"><h2>Around town <small>${esc(f.team.name)}'s fans after the game · going in ${esc(f.mood_before.toLowerCase())}, now ${esc(f.mood_after.toLowerCase())}</small></h2>${town}</div>
+      <div class="panel warm"><h2>The stands <small>${esc(f.crowd_team.name)}'s home crowd · its signs, then the plays that moved it</small></h2>${signs}${crowd}</div></div>`;
+  };
   const GP_TABS = ["Key plays", "Box score", "Advanced", "Drive chart", "Play by play", "Snaps", "Charts", "Officials"];
 
   screens.game = async (a) => {
     const g = await api("game_page", { index: a.index });
     lightBoth(g.home, g.away);
-    const tab = keep("gptab", { t: "Key plays" });
-    const extra = Object.keys(window.gamePageTabs);
-    const tabs = [...GP_TABS, ...extra];
+    // Lanes may put their tabs first (window.gamePageFirst); the first tab
+    // is the default.
+    const first = (window.gamePageFirst || []).filter((t) => window.gamePageTabs[t]);
+    const extra = Object.keys(window.gamePageTabs).filter((t) => !first.includes(t));
+    const tabs = [...first, ...GP_TABS, ...extra];
+    const tab = keep("gptab", { t: tabs[0] });
     if (a.tab) tab.t = a.tab;
-    if (!tabs.includes(tab.t)) tab.t = "Key plays";
+    if (!tabs.includes(tab.t)) tab.t = tabs[0];
     const [h, w] = g.sides;
     const mineHome = g.mine !== 1;
     const marks = g.key_plays.filter((p) => Math.abs(p.swing) >= 0.08).map((p) => ({ n: p.n, wp: p.wp_home + p.swing, good: (p.swing > 0) === mineHome, title: `${p.q} ${p.clock}: ${p.text}` }));
@@ -829,7 +883,7 @@
       </div>
       ${g.line && (g.line.words || g.line.crowd) ? `<div class="gp-line">${g.line.words ? `<span><span class="st-label">The line</span> ${esc(g.line.words)}${g.line.against ? ` · <b>${esc(g.line.against)}</b>` : ""}</span>` : ""}${g.line.crowd ? `<span><span class="st-label">Crowd</span> ${Number(g.line.crowd).toLocaleString()}</span>` : ""}</div>` : ""}
       <div class="gp-under"><div class="tbl gp-qs"><table><thead><tr><th class="l"></th>${qs}<th>T</th></tr></thead><tbody><tr><td class="l">${esc(w.name)}</td>${qline(1)}<td><b>${w.score}</b></td></tr><tr><td class="l">${esc(h.name)}</td>${qline(0)}<td><b>${h.score}</b></td></tr></tbody></table></div>
-        <div class="gp-wpbox"><div class="st-label">${esc(g.mine != null ? sideTeam(g.mine).name : h.name)} win chance · the big swings marked</div>${wpChart(g.wp, mineHome, { h: 110, marks, halves: half })}</div></div>
+        ${(window.gamePageOwnWp || []).includes(tab.t) ? "" : `<div class="gp-wpbox"><div class="st-label">${esc(g.mine != null ? sideTeam(g.mine).name : h.name)} win chance · the big swings marked</div>${wpChart(g.wp, mineHome, { h: 110, marks, halves: half })}</div>`}</div>
       ${g.stars.length ? `<div class="gp-stars"><span class="st-label">Game balls</span>${g.stars.slice(0, 4).map((s) => `<span>${playerLink(s.id, s.name)} <small>${esc(s.pos || "")} · ${esc(s.line)}</small></span>`).join("")}</div>` : ""}
     </div></div>`;
     let body;
@@ -936,7 +990,7 @@
           const c = colorsOf(homeSide ? g.home : g.away)[0];
           return `<div class="gp-drive" data-act="gp-drive" data-i="${i}"><span class="gp-dq">${esc(d.q)} ${esc(d.clock)}</span><span class="gp-dteam">${esc(initials(d.name))}</span>
             <span class="gp-dtrack"><i style="left:${lo}%;width:${Math.max(0.8, hi - lo)}%;background:${c}"></i><b style="left:${homeSide ? hi : lo}%">${homeSide ? "▶" : "◀"}</b></span>
-            <span class="gp-dres ${d.points > 0 ? "score" : d.points < 0 ? "bad" : ""}">${esc(d.result)}</span><span class="gp-dn">${d.plays} pl · ${d.yards} yds · ${esc(d.time)}</span></div>`;
+            <span class="gp-dres ${d.points > 0 ? "score" : d.points < 0 ? "bad" : ""}">${esc(d.result)}</span><span class="gp-dn">${d.plays} pl · ${d.yards} ${d.yards === 1 ? "yd" : "yds"} · ${esc(d.time)}</span></div>`;
         })
         .join("");
       return `<div class="panel warm"><h2>Every drive <small>${esc(g.home.name)} drives left to right · click a drive for its plays</small></h2><div class="gp-drives">${bars}</div></div>`;

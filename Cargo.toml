@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/afm-engine", "crates/afm-tools", "crates/afm-game"]
+members = ["crates/afm-engine", "crates/afm-tools", "crates/afm-game", "crates/afm-reader", "crates/afm-reader-app"]
 
 [workspace.package]
 version = "0.2.0"
@@ -19,6 +19,9 @@ opt-level = 3
 
 [profile.test]
 opt-level = 3
+# Full debug info ran CI out of memory compiling the engine tests (13.7 GB);
+# line tables still give backtraces their file and line.
+debug = "line-tables-only"
 
 [profile.release]
 lto = "thin"

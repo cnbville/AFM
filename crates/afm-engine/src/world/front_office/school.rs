@@ -233,6 +233,10 @@ pub struct SchoolDesk {
     pub year: i32,
     /// Your squad choices this season, by player id.
     pub moves: Vec<(u32, Squad)>,
+    /// The players you moved yourself while your staff has the squads: it
+    /// leaves them where you put them (SC6).
+    #[serde(default)]
+    pub mine: Vec<u32>,
     pub principal: SchoolPerson,
     pub ad: SchoolPerson,
     pub superintendent: SchoolPerson,
@@ -399,7 +403,8 @@ fn wants(rng: &mut Rng, base: [f64; 4]) -> [f32; 4] {
 /// Your first trust with the school's people: your name, a local man
 /// (grew up in the town, went to the school) and your presence.
 fn first_trust(w: &World, h: usize, rng: &mut Rng) -> f32 {
-    let rep = w.career.as_ref().and_then(|c| w.coaches.get(c.coach)).map_or(8.0, |c| c.reputation);
+    // A small school's people read your name as much as your standing (C10).
+    let rep = crate::world::folk::facts::read_by(w, crate::world::folk::Team::High(h));
     let you = w.career.as_ref().map(|c| &c.you);
     let school = &w.high_schools[h];
     let local = you.is_some_and(|y| {
@@ -932,10 +937,8 @@ pub(crate) fn squad_roles(w: &World, roles: &mut [(usize, PlayingTime)]) {
 /// state associations and leagues bar them), and only freshmen play on
 /// the freshman team.
 pub fn set_squad(w: &mut World, id: u32, to: Squad) -> Result<String, String> {
+    // A move you make stands while your staff keeps the rest (SC6).
     let h = your_school(w).ok_or("You don't coach a high school.")?;
-    if w.front_office.owner(Duty::Squads) == Owner::Staff {
-        return Err("Your staff has the squads. Take them back first.".into());
-    }
     let i =
         super::index_of(w, id).filter(|i| w.high_schools[h].roster.contains(i)).ok_or("He isn't on your roster.")?;
     let p = &w.people[i];
@@ -953,6 +956,9 @@ pub fn set_squad(w: &mut World, id: u32, to: Squad) -> Result<String, String> {
     let desk = &mut w.front_office.school;
     desk.moves.retain(|m| m.0 != id);
     desk.moves.push((id, to));
+    if !desk.mine.contains(&id) {
+        desk.mine.push(id);
+    }
     desk.set_on = Some(today);
     desk.suggestions.retain(|s| s.id != id);
     super::note(w, format!("Moved {name} to {}.", to.name().to_lowercase()), Some(id));
@@ -963,6 +969,7 @@ pub fn set_squad(w: &mut World, id: u32, to: Squad) -> Result<String, String> {
 pub fn reset_squads(w: &mut World) {
     let desk = &mut w.front_office.school;
     desk.moves.clear();
+    desk.mine.clear();
     desk.set_on = None;
 }
 
@@ -1007,8 +1014,9 @@ fn top_lines(stats: &crate::game::stats::GameStats, side: usize) -> Vec<(u32, St
         out.push((
             id,
             format!(
-                "{} carries, {:.0} yds{}",
+                "{} {}, {:.0} yds{}",
                 l.rush,
+                crate::world::folk::noun(l.rush, "carry"),
                 l.rush_yds,
                 if l.rush_td > 0 { format!(", {} TD", l.rush_td) } else { String::new() }
             ),
@@ -1018,15 +1026,16 @@ fn top_lines(stats: &crate::game::stats::GameStats, side: usize) -> Vec<(u32, St
         out.push((
             id,
             format!(
-                "{} catches, {:.0} yds{}",
+                "{} {}, {:.0} yds{}",
                 l.rec,
+                crate::world::folk::noun(l.rec, "catch"),
                 l.rec_yds,
                 if l.rec_td > 0 { format!(", {} TD", l.rec_td) } else { String::new() }
             ),
         ));
     }
     if let Some((id, l)) = best(&|l| (l.tackles + l.assists) as f64 + 2.0 * l.sacks + 3.0 * l.ints as f64) {
-        let mut t = format!("{} tackles", l.tackles + l.assists);
+        let mut t = format!("{} {}", l.tackles + l.assists, crate::world::folk::noun(l.tackles + l.assists, "tackle"));
         if l.sacks > 0.0 {
             t += &format!(", {} sack{}", l.sacks, if l.sacks == 1.0 { "" } else { "s" });
         }
@@ -1094,6 +1103,7 @@ fn sub_games(w: &mut World, h: usize, week: usize, friday: Date, d: Date) {
             rain: wx.rain,
             snow: wx.snow,
             crowd: 0.08,
+            turf: crate::world::hs_year::hs_turf(w, if home { h } else { opp }),
             ..Default::default()
         };
         let r = crate::game::play_game(&setup);
@@ -1187,7 +1197,9 @@ fn ready_to_move_up(w: &mut World, h: usize, d: Date) {
                 if v.len() >= need { "last man" } else { "players" },
                 pos.name()
             );
-            ups.push((staff_read(w, i), pos, l.id, to, why));
+            if w.front_office.owner(Duty::Squads) == Owner::You || !w.front_office.school.mine.contains(&l.id) {
+                ups.push((staff_read(w, i), pos, l.id, to, why));
+            }
         }
     }
     // The best one at each spot: one place opens, one player is named.
@@ -1238,6 +1250,10 @@ fn call_ups(w: &mut World, d: Date) {
     let mut jv: Vec<(f64, usize)> = sq
         .iter()
         .filter(|x| x.1 == Squad::Jv && grade(w, w.people[x.0].class_of) >= 10)
+        .filter(|x| {
+            w.front_office.owner(Duty::Squads) == Owner::You
+                || !w.front_office.school.mine.contains(&w.people[x.0].player.id)
+        })
         .map(|x| (staff_read(w, x.0), x.0))
         .collect();
     if jv.is_empty() {
@@ -1448,13 +1464,21 @@ pub fn goal_now(w: &World, h: usize, g: &Goal) -> (u32, bool) {
 /// A goal in words.
 pub fn goal_text(g: &Goal) -> String {
     match g.kind {
-        GoalKind::Wins => format!("Win at least {} games", g.target),
+        GoalKind::Wins => format!("Win at least {} {}", g.target, crate::world::folk::noun(g.target, "game")),
         GoalKind::Playoffs if g.target == 0 => "Make the playoffs".into(),
         GoalKind::Playoffs if g.target >= 4 => "Win the state title".into(),
-        GoalKind::Playoffs => format!("Win {} playoff games", g.target),
-        GoalKind::Grades => format!("No more than {} players ruled ineligible for grades", g.target),
+        GoalKind::Playoffs => format!("Win {} {}", g.target, crate::world::folk::noun(g.target, "playoff game")),
+        GoalKind::Grades => format!(
+            "No more than {} {} ruled ineligible for grades",
+            g.target,
+            crate::world::folk::noun(g.target, "player")
+        ),
         GoalKind::Numbers => format!("Keep at least {} players out for football", g.target),
-        GoalKind::Behavior => format!("No more than {} players suspended or in trouble", g.target),
+        GoalKind::Behavior => format!(
+            "No more than {} {} suspended or in trouble",
+            g.target,
+            crate::world::folk::noun(g.target, "player")
+        ),
     }
 }
 
@@ -1768,11 +1792,14 @@ pub fn feeders(w: &World, h: usize) -> Vec<Feeder> {
         } else if k == 0 {
             format!("{} {}", s.town, if junior_high { "Junior High" } else { "Middle School" })
         } else {
-            format!(
-                "{} {}",
-                MIDDLE_NAMES[(r.int(0, 9) as usize + k) % 10],
-                if junior_high { "Junior High" } else { "Middle School" }
-            )
+            // Each feeder its own name (its plan is kept by name): the same
+            // draw, stepped past a name the school's earlier feeders took.
+            let kind = if junior_high { "Junior High" } else { "Middle School" };
+            let mut j = (r.int(0, 9) as usize + k) % 10;
+            while out.iter().any(|f: &Feeder| f.name == format!("{} {kind}", MIDDLE_NAMES[j])) {
+                j = (j + 1) % 10;
+            }
+            format!("{} {kind}", MIDDLE_NAMES[j])
         };
         let age = r.int(26, 60) as u32;
         let drawn = draw_name(w, &mut r, age);
@@ -1822,11 +1849,16 @@ pub fn feeders(w: &World, h: usize) -> Vec<Feeder> {
 /// Where a player came up: a feeder (its index), or None for one who
 /// moved in or transferred.
 pub fn feeder_of(w: &World, h: usize, i: usize) -> Option<usize> {
+    feeder_in(&feeders(w, h), w, h, i)
+}
+
+/// `feeder_of` with the school's feeders already drawn (a whole roster
+/// at once).
+pub fn feeder_in(f: &[Feeder], w: &World, h: usize, i: usize) -> Option<usize> {
     let p = &w.people[i];
     if p.transfers > 0 || p.hs != h {
         return None;
     }
-    let f = feeders(w, h);
     let u = key(w, SALT ^ 0xFE, p.player.id as u64);
     if u > 0.93 {
         return None;
@@ -1892,6 +1924,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         desk.lines.clear();
         desk.suggestions.clear();
         desk.moves.clear();
+        desk.mine.clear();
         desk.set_on = None;
         desk.regular_wins = None;
         desk.in_playoffs = false;

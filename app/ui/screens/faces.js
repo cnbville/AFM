@@ -37,8 +37,13 @@
 
   // ---------- drawn heads ----------
   // The drawing code and its data (about 20 MB) load the first time a head is
-  // drawn; heads are drawn one at a time, newest asks first, so a long list
-  // never holds up the screen. A computer without WebGL keeps the silhouettes.
+  // drawn. A head holds the page's only thread while it is drawn (a fifth of a
+  // second to seconds), so heads give way to you (the app froze on clicks
+  // while a list's hundred heads drew, 2026-10-30): one at a time, newest ask
+  // first, only a face on screen, never while a screen loads or just after a
+  // click, a key or a scroll, with a pause as long as the last head took. A
+  // face whose page you left is dropped, and asked again when it shows again.
+  // A computer without WebGL keeps the silhouettes.
   let headsP = null, broken = false;
   const loadScript = (src) => new Promise((res, rej) => {
     const el = document.createElement("script");
@@ -53,22 +58,68 @@
     return headsP;
   }
   const drawing = new Map(); // id -> promise of the drawn picture
+  let jobs = []; // heads asked for, newest last: {id, key, spec, done}
+  let running = false, timer = 0, lastInput = 0;
+  const QUIET = 800; // ms after your last click, key or scroll
+  for (const ev of ["pointerdown", "keydown", "wheel", "scroll", "touchstart"]) {
+    document.addEventListener(ev, () => { lastInput = performance.now(); }, { capture: true, passive: true });
+  }
   function drawHead(id, key, spec) {
     if (broken || !spec) return Promise.resolve(null);
     if (!drawing.has(id)) {
-      drawing.set(id, heads()
-        .then((H) => H.queue(spec))
-        .then(async (r) => {
-          await api("face_drawn_store", { id, key: key || "", data: r.url }).catch(() => {});
-          return r.url;
-        })
-        .catch((e) => {
-          broken = true;
-          console.warn("drawn heads off for this session:", e);
-          return null;
-        }));
+      drawing.set(id, new Promise((done) => jobs.push({ id, key, spec, done })));
+      pump();
     }
     return drawing.get(id);
+  }
+  // Where each asked face is: 2 on screen (or nearly), 1 on the page but out
+  // of sight (scrolled away, a closed tab), absent when its page is gone.
+  function places() {
+    const at = new Map();
+    for (const el of document.querySelectorAll(".fc-slot[data-face-id], .fc-portrait[data-id]")) {
+      const id = Number(el.dataset.faceId || el.dataset.id);
+      if (at.get(id) === 2) continue;
+      const r = el.getBoundingClientRect();
+      const seen = (r.width || r.height) && r.bottom > -150 && r.top < innerHeight + 150 && r.right > 0 && r.left < innerWidth;
+      at.set(id, seen ? 2 : 1);
+    }
+    return at;
+  }
+  function pump() {
+    clearTimeout(timer);
+    timer = 0;
+    if (running || broken || !jobs.length) return;
+    const wait = Math.max(QUIET - (performance.now() - lastInput), apiBusy > 0 || document.hidden ? 250 : 0);
+    if (wait > 0) { timer = setTimeout(pump, wait); return; }
+    const at = places();
+    for (const j of jobs) if (!at.has(j.id)) { drawing.delete(j.id); j.done(null); }
+    jobs = jobs.filter((j) => at.has(j.id));
+    let i = jobs.length - 1;
+    while (i >= 0 && at.get(jobs[i].id) !== 2) i--;
+    if (i < 0) { if (jobs.length) timer = setTimeout(pump, 500); return; }
+    const j = jobs.splice(i, 1)[0];
+    running = true;
+    const t0 = performance.now();
+    heads()
+      .then(async (H) => {
+        // a logo from an installed pack on the jersey (lane 15)
+        if (j.spec.logo && !j.spec.logo.img && typeof logoImageById === "function") j.spec.logo.img = await logoImageById(j.spec.logo.id);
+        return H.draw(j.spec);
+      })
+      .then(async (r) => {
+        await api("face_drawn_store", { id: j.id, key: j.key || "", data: r.url }).catch(() => {});
+        j.done(r.url);
+      })
+      .catch((e) => {
+        broken = true;
+        console.warn("drawn heads off for this session:", e);
+        for (const x of [j, ...jobs]) x.done(null);
+        jobs = [];
+      })
+      .finally(() => {
+        running = false;
+        timer = setTimeout(pump, Math.min(1500, Math.max(60, performance.now() - t0)));
+      });
   }
 
   // ---------- the player page ----------
@@ -116,7 +167,7 @@
       <details class="fc-looks"><summary>Looks</summary><div>${[f.looks.hair, f.looks.beard, ...f.looks.marks.map((m) => m[0].toUpperCase() + m.slice(1)), `${f.looks.build[0].toUpperCase()}${f.looks.build.slice(1)} build, ${f.looks.skin}, ${f.looks.eyes}`].map((t) => `<span>${esc(t)}</span>`).join("")}</div></details>`;
     box._face = f;
     if (!src && f.drawn_on && f.spec) {
-      drawHead(f.id, f.photo ? f.photo.key : "", f.spec).then((url) => {
+      drawHead(f.id, f.drawn_key != null ? f.drawn_key : f.photo ? f.photo.key : "", f.spec).then((url) => {
         if (url && box.isConnected) fill(box, { ...f, drawn: url, spec: null });
       });
     }
@@ -139,8 +190,10 @@
       span.className = "fc-slot";
       span.dataset.faceId = id;
       const f = cache.get(id);
-      if (f) span.innerHTML = dot(f);
-      else if (!waiting.has(id)) need.push(id);
+      if (f) {
+        span.innerHTML = dot(f);
+        if (f.spec) askHead(f);
+      } else if (!waiting.has(id)) need.push(id);
       a.parentNode.insertBefore(span, a);
     }
     if (need.length) load(need);
@@ -154,18 +207,20 @@
         for (const f of x.faces) {
           cache.set(f.id, f);
           document.querySelectorAll(`.fc-slot[data-face-id="${f.id}"]`).forEach((s) => (s.innerHTML = dot(f)));
-          if (f.spec) {
-            drawHead(f.id, f.key, f.spec).then((url) => {
-              if (!url) return;
-              const g = { ...f, drawn: url, spec: null };
-              cache.set(f.id, g);
-              document.querySelectorAll(`.fc-slot[data-face-id="${f.id}"]`).forEach((s) => (s.innerHTML = dot(g)));
-            });
-          }
+          if (f.spec) askHead(f);
         }
       } catch (e) { /* the list still works without faces */ }
       part.forEach((i) => waiting.delete(i));
     }
+  }
+  // A list face still to draw (again, when its page was left before its turn).
+  function askHead(f) {
+    drawHead(f.id, f.key, f.spec).then((url) => {
+      if (!url) return;
+      const g = { ...f, drawn: url, spec: null };
+      cache.set(f.id, g);
+      document.querySelectorAll(`.fc-slot[data-face-id="${f.id}"]`).forEach((s) => (s.innerHTML = dot(g)));
+    });
   }
 
   // ---------- picking and cropping a photo ----------
@@ -337,7 +392,7 @@
         if (!(await sure("Undo this import?", "Every photo it set is removed, and any photo it replaced comes back.", "Undo import"))) return;
         const x = await api("faces_import_undo", { batch: Number(el.dataset.batch) });
         cache.clear();
-        toast(`${x.undone} photos undone.`);
+        toast(`${x.undone} photo${x.undone === 1 ? "" : "s"} undone.`);
         render();
       } else if (act === "export") await exportPrompts();
       else if (act === "reveal") await api("reveal", { path: el.dataset.path });
@@ -372,7 +427,7 @@
   async function importApply() {
     const rows = IMP.rows.filter((r) => r.on && r.pick);
     if (!rows.length) { toast("Nothing picked to import."); return; }
-    showBusy(`Cropping and keeping ${rows.length} photos…`);
+    showBusy(`Cropping and keeping ${rows.length} photo${rows.length === 1 ? "" : "s"}…`);
     let batch = null, kept = 0, bad = [];
     try {
       for (let k = 0; k < rows.length; k += 8) {
@@ -389,7 +444,7 @@
     IMP.rows.forEach((r) => URL.revokeObjectURL(r.url));
     IMP.rows = null;
     cache.clear();
-    toast(`${kept} photos imported${bad.length ? `; ${bad.length} could not be read` : ""}. Undo from this page.`);
+    toast(`${kept} photo${kept === 1 ? "" : "s"} imported${bad.length ? `; ${bad.length} could not be read` : ""}. Undo from this page.`);
     render();
   }
   async function exportPrompts() {
@@ -412,13 +467,13 @@
             : `<span class="muted">${esc(r.why || "No match")}</span>`;
         return `<tr><td><input type="checkbox" data-imp-on="${i}" ${r.on ? "checked" : ""} ${r.pick ? "" : "disabled"}></td><td><img class="fc-thumb" src="${r.url}" alt=""></td><td class="l">${esc(r.file.name)}</td><td class="l">${who}</td><td class="l"><span class="st-pill ${r.how === "none" ? "" : r.how === "ambiguous" ? "gold" : "good"}">${HOW[r.how] || r.how}</span></td></tr>`;
       }).join("");
-      review = `<div class="panel"><h2>Review <small>${IMP.rows.length} pictures · ${n} to import</small></h2>
+      review = `<div class="panel"><h2>Review <small>${IMP.rows.length} picture${IMP.rows.length === 1 ? "" : "s"} · ${n} to import</small></h2>
         <p class="sub">Each picture is cropped to his face automatically (4:5). Untick any you don't want; pick the player where a name is shared.</p>
         <div class="tbl"><table><thead><tr><th></th><th></th><th class="l">File</th><th class="l">Player</th><th class="l">Matched</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <div style="display:flex;gap:10px"><button class="st-btn small primary" data-fact="import-go">Import ${n} photos</button><button class="st-btn small glass" data-fact="import-cancel">Cancel</button></div></div>`;
+        <div style="display:flex;gap:10px"><button class="st-btn small primary" data-fact="import-go">Import ${n} photo${n === 1 ? "" : "s"}</button><button class="st-btn small glass" data-fact="import-cancel">Cancel</button></div></div>`;
     }
     const past = b.batches.length
-      ? b.batches.map((x) => `<div class="item"><span class="when">${esc(x.date || "")}</span><span>Import ${x.batch}: ${x.count} photos</span><button class="st-btn small glass" data-fact="undo" data-batch="${x.batch}">Undo</button></div>`).join("")
+      ? b.batches.map((x) => `<div class="item"><span class="when">${esc(x.date || "")}</span><span>Import ${x.batch}: ${x.count} photo${x.count === 1 ? "" : "s"}</span><button class="st-btn small glass" data-fact="undo" data-batch="${x.batch}">Undo</button></div>`).join("")
       : '<div class="empty">No imports yet.</div>';
     return `<div class="film"><div class="pad"><div class="h1">Faces and photos</div>
       <p class="sub">Give players your own pictures: one at a time with "Change photo" on his page, or many at once from a folder. Files are matched by name: <b>41234.jpg</b> (his id), <b>Jalen Smith - Alabama.png</b> (name and team), <b>Jalen Smith 2027.jpg</b> (name and class or draft year), or just his name when only one active player has it. Photos are copied into this save's own folder and never leave your computer.</p>
@@ -444,7 +499,7 @@
       IMP.rows[Number(t.dataset.impOn)].on = t.checked;
       const n = IMP.rows.filter((r) => r.on && r.pick).length;
       const btn = document.querySelector("[data-fact=import-go]");
-      if (btn) btn.textContent = `Import ${n} photos`;
+      if (btn) btn.textContent = `Import ${n} photo${n === 1 ? "" : "s"}`;
     }
   });
 
@@ -474,5 +529,38 @@
     if (!queued) { queued = true; requestAnimationFrame(scan); }
   }).observe(document.getElementById("app"), { childList: true, subtree: true });
 
-  window.AFMFaces = { refresh, silhouette, dot };
+  // A head drawn live for a talk (dialogue D1): his face for a tell, kept for
+  // the session, never stored. Null when heads are off or can't be drawn. It
+  // takes its turn like any head: after a quiet moment, never beside another.
+  const live = new Map();
+  const turn = () => new Promise((go) => {
+    const t = () => (running || apiBusy > 0 || performance.now() - lastInput < QUIET ? setTimeout(t, 120) : go());
+    t();
+  });
+  function liveHead(key, spec) {
+    if (broken || !spec) return Promise.resolve(null);
+    if (!live.has(key)) {
+      live.set(key, heads()
+        .then(async (H) => {
+          if (spec.logo && !spec.logo.img && typeof logoImageById === "function") spec.logo.img = await logoImageById(spec.logo.id);
+          await turn();
+          running = true;
+          try {
+            return await H.draw(spec);
+          } finally {
+            running = false;
+            pump();
+          }
+        })
+        .then((r) => r.url)
+        .catch((e) => {
+          broken = true;
+          console.warn("drawn heads off for this session:", e);
+          return null;
+        }));
+    }
+    return live.get(key);
+  }
+
+  window.AFMFaces = { refresh, silhouette, dot, liveHead };
 })();

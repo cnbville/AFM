@@ -6,6 +6,7 @@
 
 use std::path::Path;
 
+use afm_engine::body::body_now;
 use afm_engine::positions::Position;
 use afm_engine::world::hs_year::HsStat;
 use afm_engine::world::records::{STAT_COUNT, Stat};
@@ -501,8 +502,8 @@ fn finder_value(w: &World, k: usize, field: &str) -> Value {
         "age" => json!(p.player.age),
         "stars" => json!(p.stars),
         "class" => json!(p.class_of),
-        "ht" => json!((p.player.body.height * 10.0).round() / 10.0),
-        "wt" => json!(p.player.body.weight.round()),
+        "ht" => json!((body_now(&p.player).height * 10.0).round() / 10.0),
+        "wt" => json!(body_now(&p.player).weight.round()),
         "state" => json!(w.states.get(p.home_state).map(|s| s.code.as_str()).unwrap_or("")),
         "level" => json!(level_word(p.stage)),
         _ => Value::Null,
@@ -552,8 +553,8 @@ fn finder_passes(w: &World, k: usize, f: &Value) -> bool {
         "age" => cmp(p.player.age as f64),
         "stars" => cmp(p.stars as f64),
         "class" => cmp(p.class_of as f64),
-        "ht" => cmp(p.player.body.height),
-        "wt" => cmp(p.player.body.weight),
+        "ht" => cmp(body_now(&p.player).height),
+        "wt" => cmp(body_now(&p.player).weight),
         _ => true,
     }
 }
@@ -614,8 +615,8 @@ pub fn finder(w: &World, args: &Value) -> Value {
                 "stars": p.stars,
                 "class": p.class_of,
                 "level": level_word(p.stage),
-                "ht": views::ft_in(p.player.body.height),
-                "wt": p.player.body.weight.round(),
+                "ht": views::ft_in(body_now(&p.player).height),
+                "wt": body_now(&p.player).weight.round(),
                 "state": w.states.get(p.home_state).map(|s| s.code.clone()),
                 "team": team.map(|t| views::team_brief(w, t)),
                 "where": views::where_now(w, p),

@@ -24,11 +24,19 @@ pub struct KickTeams<'a> {
     pub snapper: usize,
     pub holder: usize,
     pub energy: [&'a [f64]; 2],
+    /// Who plays hurt, and with what (update 3, F7).
+    pub hurt: [&'a [Option<super::sim::InjuryKind>]; 2],
     /// What the game does to habits (kicking team, return team).
     pub mood: super::sim::Mood,
     /// How much the kicking team's plan kicks to a returner who brings
     /// everything out (tendencies topic 4.4), 0-1.
     pub kick_deep: f64,
+    /// The kicking team's plan for the kick (update 2, G18): kickoffs 1
+    /// deep, 2 squib, 3 pooch; punts 1 directional, 2 coffin corner; 0 the
+    /// staff's usual.
+    pub style: u8,
+    /// A surprise onside kick: the return team's front line left early.
+    pub surprise: bool,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -210,6 +218,9 @@ pub fn kickoff(
         // A short kick and a scramble for it; the hands team waits for it.
         let acc = kicker.a(Attr::KickoffTechnique);
         let p = clamp(0.08 + 0.0025 * (acc - 50.0) + if rules.nfl_kickoff { -0.02 } else { 0.03 }, 0.03, 0.25);
+        // A true surprise is recovered about half the time (real NFL
+        // 2009-2023, unexpected onside kicks).
+        let p = if k.surprise { clamp(0.5 + 0.003 * (acc - 60.0), 0.35, 0.65) } else { p };
         res.distance = 11.0 + rng.range(0.0, 3.0);
         let spot = from - res.distance;
         res.spot = spot;
@@ -220,8 +231,10 @@ pub fn kickoff(
     // A real NFL kickoff leg carries about 70 yards (before 2024 most went
     // five to nine yards deep from the 35); a college leg a few less, a high
     // school one far less (proposed, not confirmed: was 44 + 0.23 per point,
-    // which put almost no kick in the end zone at any level).
-    let max = leg(kicker, Attr::KickPower, 49.0, 0.23, cond, along) + rng.normal(0.0, 3.0);
+    // which put almost no kick in the end zone at any level, then 49, which
+    // left NFL touchbacks at 14% under the 2025 rule, real 22%, and 45%
+    // before 2024, real about 55%; minor bug 139).
+    let max = leg(kicker, Attr::KickPower, 55.0, 0.23, cond, along) + rng.normal(0.0, 3.0);
     // Where he aims: under the NFL's 2025 rule a kick into the end zone is a
     // touchback to the 35, so most kickers drop it in the landing zone and
     // make the return team bring it out (real 2025: 75% returned). A
@@ -234,7 +247,8 @@ pub fn kickoff(
         -1.0 - rng.range(0.0, 3.0)
     } else if rules.nfl_kickoff {
         let r = &k.ret[k.ret_on[0]];
-        let danger = 0.5 * (r.a(Attr::Speed) + r.a(Attr::Elusiveness)) - 80.0;
+        // Read for his weight, as the forty is (A3).
+        let danger = 0.5 * (r.a(Attr::Speed) + r.a(Attr::Elusiveness)) - super::sim::size_cost(r.weight, 200.0) - 80.0;
         let away = clamp(0.2 + 0.012 * danger, 0.08, 0.45);
         if from - max < -1.0 && rng.chance(away) { -2.0 - rng.range(0.0, 5.0) } else { 2.0 + rng.range(0.0, 8.0) }
     } else if from - max < -2.0 {
@@ -246,6 +260,18 @@ pub fn kickoff(
     // arrive (proposed, not confirmed).
     let tech = kicker.a(Attr::KickoffTechnique);
     let spread = clamp(1.0 - 0.01 * (tech - 60.0), 0.6, 1.4);
+    // Your plan's kickoff (update 2, G18): a squib skips along the ground
+    // to the up-backs about the 25 (a ground ball: no fair catch, fielded
+    // after its bounces with the coverage on top of it); under the NFL's
+    // landing-zone rule it is a line drive that bounces in the zone (short
+    // of it the ball goes to the 40). A pooch hangs high to about the 12
+    // (a fair catch or a short return). Proposed, not confirmed.
+    let aim = match k.style {
+        2 if rules.nfl_kickoff => (from - max).max(12.0 + rng.range(0.0, 6.0)),
+        2 => (from - max).max(24.0 + rng.range(0.0, 8.0)),
+        3 => (from - max).max(10.0 + rng.range(0.0, 7.0)),
+        _ => aim,
+    };
     let land_x = (from - max).max(aim) + rng.normal(0.0, 2.5 * spread);
     let land_y = clamp(mid() + rng.normal(0.0, 7.0), 2.0, width() - 2.0);
     let hang = clamp(
@@ -253,6 +279,11 @@ pub fn kickoff(
         2.8,
         4.8,
     );
+    let hang = match k.style {
+        2 => 1.8 + rng.range(0.0, 0.4),
+        3 => hang + 0.5,
+        _ => hang,
+    };
     res.distance = from - land_x;
     res.hang = hang;
     // Out of bounds: rare, the ball goes to the 40.
@@ -288,6 +319,9 @@ pub fn kickoff(
     let level = rules.level;
     let risk = rp.tend_now(Tend::ReturnRisk, k.mood.gamble[1], k.mood.stakes[1], k.energy[1][returner], level);
     let ordered = rp.orders.kneel_depth().filter(|_| rp.follows(k.mood.strict[1], level, rng));
+    // Following the order, he weighs the kick at its returner risk too
+    // (update 3, F17: `Instruction::sets`), not his own.
+    let risk = if ordered.is_some() { rp.orders.sets(Tend::ReturnRisk).unwrap_or(risk) } else { risk };
     // The order only adds kneels: deeper than his depth he takes the knee
     // whatever he thinks of his chances.
     let kneel = land_x < 0.0 && !rules.code.arena_kickoff && {
@@ -307,6 +341,53 @@ pub fn kickoff(
         res.touchback = true;
         res.spot = tb_value;
         res.duration = hang;
+        return res;
+    }
+    // A squib is a ground ball: it skips on a few yards and an up-back
+    // fields it on the bounce, about 3.5 to 4 seconds after the kick, with
+    // the coverage running all that time (under the NFL's rule they go
+    // when it hits in the zone). Nobody fair-catches a bouncing ball.
+    if k.style == 2 && land_x > 0.0 {
+        let field_x = (land_x - rng.range(2.0, 6.0)).max(1.0);
+        let fielded = 3.5 + rng.range(0.0, 0.5);
+        let mut ret_on = k.ret_on.clone();
+        if ret_on.len() > 2 {
+            // The up-back in front of the deep men fields it.
+            let up = ret_on.remove(2);
+            ret_on.insert(0, up);
+        }
+        let up = KickTeams {
+            kick: k.kick,
+            ret: k.ret,
+            kick_on: k.kick_on.clone(),
+            ret_on,
+            snapper: k.snapper,
+            holder: k.holder,
+            energy: k.energy,
+            hurt: k.hurt,
+            mood: k.mood,
+            kick_deep: k.kick_deep,
+            style: k.style,
+            surprise: k.surprise,
+        };
+        let catch = v2(field_x, land_y);
+        let start_cover = if rules.nfl_kickoff { hang } else { 0.0 };
+        run_return(
+            &up,
+            catch,
+            fielded,
+            start_cover,
+            from,
+            rules,
+            cond,
+            crew,
+            injury_scale,
+            record,
+            rng,
+            &mut res,
+            true,
+            None,
+        );
         return res;
     }
     // College: a fair catch inside the 25 is a touchback.
@@ -365,7 +446,11 @@ pub fn punt(
     let max = leg(punter, Attr::PuntPower, 17.0, 0.215, cond, along) + 14.0 + rng.normal(0.0, 4.5);
     // Placement: from midfield he aims inside the 10 rather than the end zone.
     let dist_goal = from + 15.0;
+    // Your plan's punt (update 2, G18): the coffin corner from their 45 in,
+    // aimed at the corner by the sideline; farther out it is a punt like
+    // any other.
     let pin = from < 62.0;
+    let coffin = k.style == 2 && from <= 45.0;
     let acc = punter.a(Attr::PuntPlacement);
     let aim_land = if pin { 8.0 + rng.normal(0.0, 6.0 - 0.04 * acc) } else { from - max };
     let land_x = aim_land.max(from - max);
@@ -379,12 +464,18 @@ pub fn punt(
     // Pinning, he aims at the numbers on one side, away from the middle of
     // the field where the return has room; placement sets how close he
     // comes (proposed, not confirmed).
-    let mut land_y = if pin {
+    // A directional punt goes to the numbers away from the middle on every
+    // punt, a little shorter and lower (proposed, not confirmed).
+    let directional = k.style == 1 && !pin;
+    let mut land_y = if pin || directional {
         let side = if rng.chance(0.5) { -1.0 } else { 1.0 };
-        mid() + side * 14.0 + rng.normal(0.0, clamp(5.0 - 0.05 * (acc - 60.0), 3.0, 7.0))
+        let out = if coffin { 19.0 } else { 14.0 };
+        mid() + side * out + rng.normal(0.0, clamp(5.0 - 0.05 * (acc - 60.0), 3.0, 7.0))
     } else {
         mid() + rng.normal(0.0, 8.0)
     };
+    let land_x = if directional { land_x + 2.5 } else { land_x };
+    let hang = if directional { hang - 0.15 } else { hang };
     land_y = clamp(land_y, -1.0, width() + 1.0);
     res.distance = from - land_x;
     res.hang = hang;
@@ -419,7 +510,14 @@ pub fn punt(
         .map(|&i| &k.ret[i])
         .map(|p| 0.4 * p.a(Attr::Press) + 0.3 * p.a(Attr::Strength) + 0.3 * p.a(Attr::Speed))
         .fold(0.0, f64::max);
-    let mut cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    // How close the gunners are sets the fair catches: 29% of NFL punts
+    // with 5.2, real 27.5% (nflverse 2021-2025; minor bug 139: 4.6 made
+    // 37%; proposed, not confirmed).
+    let mut cover_gap = clamp(5.2 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    // Near the numbers the sideline helps the coverage.
+    if directional {
+        cover_gap = (cover_gap - 0.8).max(0.0);
+    }
     // No fair catch (the CFL, the XFL of 2001): the cover men must give the
     // returner his halo until he touches the ball; one who gets there
     // first draws "no yards", 15 yards on the kicking team (5 in the XFL).
@@ -445,6 +543,9 @@ pub fn punt(
     let risk = returner.tend_now(Tend::ReturnRisk, k.mood.gamble[1], k.mood.stakes[1], k.energy[1][r_i], level);
     let safe = returner.orders.has(|o| matches!(o, Instruction::FairCatchInsideTen))
         && returner.follows(k.mood.strict[1], level, rng);
+    // Following the order, the rest of his calls read its returner risk
+    // (update 3, F17).
+    let risk = if safe { returner.orders.sets(Tend::ReturnRisk).unwrap_or(risk) } else { risk };
     let lean = (risk - MID_T) / 9.5;
     // Inside his 10, a returner lets it go: it bounces.
     if land_x < 10.0 {
@@ -613,7 +714,7 @@ fn run_return(
     let run = (hang - start_cover).max(0.0);
     let cover_start = if kickoff && rules.nfl_kickoff { rules.code.cover_line } else { from - 1.0 };
     for (n, &i) in k.kick_on.iter().enumerate() {
-        let p = &k.kick[i];
+        let p = &*super::sim::hampered(&k.kick[i], k.hurt[0].get(i).copied().flatten());
         let lane = 4.0 + (n as f64) * (width() - 8.0) / (rules.code.players as f64 - 1.0);
         let speed = p.top_speed() * 0.9;
         let x = if n == 0 {
@@ -622,8 +723,11 @@ fn run_return(
             if kickoff && rules.nfl_kickoff { from } else { catch.x + 30.0 + rng.range(0.0, 8.0) }
         } else if let Some(g) = gap {
             // A punt: the gunners are cover_gap away when it comes down,
-            // the rest of the unit a few yards behind them in lanes.
-            let behind = if n <= 2 { rng.range(0.0, 2.0) } else { 5.0 + rng.range(0.0, 8.0) };
+            // the rest of the unit 5 to 19 yards behind them in lanes, the
+            // linemen who blocked first trailing as a second wave (minor
+            // bug 139: one wave 5-13 back let 2% of returns go the
+            // distance, real 0.8%; proposed, not confirmed).
+            let behind = if n <= 2 { rng.range(0.0, 2.0) } else { 5.0 + rng.range(0.0, 14.0) };
             catch.x + g + behind
         } else {
             (cover_start - speed * run).max(catch.x + 5.0 + rng.range(0.0, 6.0))
@@ -634,7 +738,9 @@ fn run_return(
             mid() + rng.range(-3.0, 3.0)
         } else if gap.is_some() && (n == 1 || n == 2) {
             // Gunners close on the returner from either side.
-            catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)
+            // Inside the lines: a catch near the sideline put one up to
+            // 4.5 yards out of bounds, his jammer driving him farther.
+            (catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)).clamp(1.0, width() - 1.0)
         } else {
             lane + (catch.y - lane) * (1.0 - (x - catch.x).abs() / 40.0).clamp(0.0, 0.6)
         };
@@ -646,9 +752,17 @@ fn run_return(
         agents.push(a);
     }
     for (n, &i) in k.ret_on.iter().enumerate() {
-        let p = &k.ret[i];
+        let p = &*super::sim::hampered(&k.ret[i], k.hurt[1].get(i).copied().flatten());
         let pos = if n == 0 {
             catch
+        } else if gap.is_some() && n <= 2 && agents.len() > n {
+            // A punt: each jammer has run down the field on his gunner and
+            // is on him when the ball comes down, a step in front of him or
+            // a step beaten (real vise play). They used to start with the
+            // wall, so the gunners came free and NFL punt returns went 5.5
+            // yards against the real 9.5 (minor bug 139).
+            let g = agents[n].pos;
+            v2(g.x + rng.range(-1.5, 1.0), (g.y + rng.range(-0.7, 0.7)).clamp(0.5, width() - 0.5))
         } else {
             // The wall forms between him and the coverage.
             let lane = 6.0 + ((n - 1) as f64) * (width() - 12.0) / (rules.code.players as f64 - 2.0);
@@ -767,6 +881,15 @@ fn run_return(
         let (nb, nc) = (blockers.len(), cover.len());
         for (j, &b) in blockers.iter().enumerate() {
             man[b] = cover.get(j * nc / nb.max(1)).copied();
+        }
+    } else if gap.is_some() {
+        // On a punt the two jammers stay on the gunners (the return team
+        // comes first, then the kicker and his two gunners).
+        let r = k.ret_on.len();
+        for j in 1..=2 {
+            if j < r && r + j < sim.agents.len() {
+                man[j] = Some(r + j);
+            }
         }
     }
     // How far in front of the returner each deep man holds: the safeties

@@ -14,6 +14,10 @@ Raw research data for section 2 (the world). The first pass came from an outside
 | `talent_by_state.csv` | 51 (50 + DC) | **Re-researched 2026-10-11.** Computed from public recruiting, roster and draft datasets. Method below. |
 | `colleges.csv` | 426 (426) | **Re-researched 2026-10-11.** Real data, a source URL per figure. Gaps listed below. |
 | `tendency_spreads.json` | 16 stats | **New 2026-10-19.** The real spread (p5-p95) of each player tendency's tied stat among NFL regulars, 2016-2025. Script and method below. |
+| `index.json` | 667 figures | **New 2026-10-28 (world reader R3).** The one index of real figures: key, value or file, source, years, holes, status, inventory areas; what is still from memory, and the sources the cloud can't reach. Built by `scripts/build_index.py` from `index_sources.json`. |
+| `nfl_history.json`, `nfl_careers.json` | 1996-2026 | **New 2026-10-28.** The NFL year by year: scoring, play rates, kicking, fourth downs, penalties, weather, parity, champions, lines, coaches, trades, schedule facts; careers by round, ages, birth months, combine, contracts, season lines. |
+| `college_history.json`, `college_plays.json`, `college_players.json`, `college_people.json` | 2001-2026 | **New 2026-10-28.** College scores and titles at every level, AP poll, attendance, rivalries, game days; FBS play by play 2014-2025; FBS player lines 2004-2025; recruiting, portal, returning production, coaches. |
+| `memory_checks.json` | 3 checks | **New 2026-10-28.** Data for three figures the code wrote from memory: NFL jersey numbers by era, the trade deadline week, college Thanksgiving and Black Friday games. |
 
 ## Notes and gaps per file
 
@@ -81,6 +85,7 @@ Gaps (exact):
 
 **Research area 1 files** (added 2026-10-14, explained in `docs/research/engine-and-tactics.md`):
 - `engine_targets.json` (`scripts/engine_targets.py`): NFL 2021-25 runs by box count, pressure and rushers, coverage and route results, play-action, RPO, motion, snap shares, carry and target shares, red zone, returns, player spread by position, contracts by position, home edge 1999-2025, and the 2025 scheme mix. From nflverse pbp, participation (NGS), FTN charting, snap counts, contracts and nfldata games.csv.
+- `nfl_route_depth.json` (`scripts/route_depth.py`): NFL 2023-25 targets by route (one route list, NGS) and by the target's position: share, air yards, the four depth bands (behind the line, 0-9, 10-19, 20+), catch rate, yards a target and time to throw. From nflverse pbp and participation. `match_check` compares its route table with it (minor bug 135).
 - `coach_effect_offense.json`, `coach_effect_defense.json` (`scripts/coach_effect.py`): how much head coaches move EPA per play once the QB is held fixed, 2006-2025.
 - `college_scores.json` (`scripts/college_scores.py`): points, margins, blowouts and home edge for FBS, FCS, D2 and D3 from the sportsdataverse `cfb_schedules` release.
 - Gaps: no open play-by-play for D2, D3, NAIA, JUCO or high school; no NAIA or JUCO scores; no high school scheme survey.
@@ -103,6 +108,8 @@ Gaps (exact):
 - Gap: no open play-by-play for high school. High school checks will use MaxPreps scoring and blowout rates when researched.
 
 **college_altitude.csv** (added 2026-10-17, trial 4 topic 3): the home field's altitude in feet for every college in `colleges.csv` and `colleges_lower.csv` whose town sits about 2,000 feet up or more (Wyoming 7,220, Air Force 6,620, Colorado 5,330 down to UNLV 2,000), plus neutral-site towns by name. Town elevations rounded, Claude's reading of the towns' published elevations (USGS and town pages), approximate. Every college not listed is taken as 500 feet. Visitors from lower ground tire faster there.
+
+**nfl_fourth_go_habit.csv** (added 2026-10-30, minor bug 142): the real NFL fourth-down go rate in `nfl_fourth_go.csv`'s buckets (yards to go, yards from the end zone, score), counted without the fourth quarter's last 2:30 down four or more, where the engine's coaches go anyway (0.18 of the real 1.46 tries a team game came there). nflverse play-by-play, regular seasons 2021-2025; the `fourth_go_habit` table of `scripts/nfl_situations.py`.
 
 **college_pass_rate.csv** and **college_fourth_go.csv** (added 2026-10-17, trial 4 topic 5): how often real FBS teams pass by down, distance, score and clock, and go for it on fourth down by distance, field position and score, in the same buckets as the NFL tables. FBS-vs-FBS regular seasons 2023-2024 from cfbfastR play-by-play; sacks count as passes, kneels and spikes are left out. Overall pass rate 49.9%. College play calling uses these instead of the NFL tables. Built by `scripts/college_situations.py`.
 
@@ -129,3 +136,25 @@ Gaps (exact):
 - Made by `scripts/tendency_spreads.py` from nflverse release files (play-by-play 2016-2025, Next Gen Stats passing and rushing, PFR advanced defense, players). Regular seasons only, per player season among regulars (QBs 250+ dropbacks or 200+ attempts, backs 100+ carries, defenders 10+ games or 40+ tackles or targets) unless a stat says team season.
 - Each tendency's tied stat: scramble rate, tight-window share and intended air yards (NGS), time to throw (NGS), time to the line (NGS rushing), carries to the end gap and carries ending out of bounds (backs), end-zone kickoffs brought out (team, 2016-2023 rules only: from 2024 the touchback moved and the choice changed), punt fair-catch rate (team), offside and encroachment flags per 17 games (DL and OLB), forced fumbles per 100 tackles, tackles for loss per 17 (LB and S), missed tackle rate, interceptions and yards per target (CB and S), batted passes per 17 (DL).
 - Gaps: the play-by-play names no called gap, so "outside" is where the run ended up, not where it was called; end-zone kicks brought out is a floor (some touchbacks flew out of the end zone); reaching the ball out and keeping contain have no public stat.
+
+### World reader R3: open history data and the index (added 2026-10-28)
+
+Every figure here is listed in `index.json`. To rebuild: edit `index_sources.json` (each file's source, years, holes and inventory areas; the figures written in code; the memory checks; the holes; the sources the cloud can't reach), then run `python3 scripts/build_index.py`. It also reads the Debug Lab's real values (`tools/dashboard/build_data.py`) and every "from memory" note in `crates/`, `tools/`, `app/` and `docs/` (with file and line, and the data that checks it where there is some). Inventory area codes (C, G, N, P, S, T) are those of `afm/world-reader/spec.md` in the project folder.
+
+Downloads (all open, no key). nflverse: `https://github.com/nflverse/nflverse-data/releases/download/<tag>/<file>` (tags `pbp` play_by_play_YEAR.parquet, `rosters` roster_YEAR.csv, `stats_player` stats_player_reg_YEAR.csv, `draft_picks`, `combine`, `players`, `trades`, `contracts` historical_contracts.csv.gz) and `https://raw.githubusercontent.com/nflverse/nfldata/master/data/` (games.csv, standings.csv, win_totals.csv, draft_values.csv). FiveThirtyEight: `https://raw.githubusercontent.com/fivethirtyeight/nfl-elo-game/master/data/nfl_games.csv`. sportsdataverse: `https://github.com/sportsdataverse/sportsdataverse-data/releases/download/<tag>/<file>` (tags `cfb_schedules` cfb_schedules_YEAR.parquet 2001+, `cfbfastR_cfb_pbp` play_by_play_YEAR.parquet 2014+, `espn_cfb_player_box` player_box_YEAR.parquet 2004+, `espn_cfb_linescores`, `cfb_poll_analytics`, `cfb_team_talent`, `cfb_recruits`, `cfb_team_portal`, `cfb_returning_production`, `cfb_team_info`, `espn_cfb_coach_tendencies`) and `https://raw.githubusercontent.com/sportsdataverse/cfbfastR-data/main/` (`rosters/csv/cfb_rosters_YEAR.csv`). Each script's docstring names the files it reads and its arguments; outputs go to stdout or to OUTDIR.
+
+| Script | Writes | Reads |
+|---|---|---|
+| `scripts/nfl_history.py DIR` | `nfl_history.json` | nflverse pbp 1999-2025, games, standings, win totals, trades; FiveThirtyEight 1996-1998 |
+| `scripts/nfl_careers.py DIR OUTDIR` | `nfl_careers.json`, `nfl_draft_by_college.csv` | draft picks, players, rosters 1999-2025, combine, contracts, season stats |
+| `scripts/college_history.py DIR RIV OUTDIR` | `college_history.json`, `college_ap_polls.csv`, `college_attendance.csv`, `college_rivalry_games.csv` | cfb_schedules 2001-2025, ESPN linescores, polls, talent, team info; `rivalries.csv` (RIV) |
+| `scripts/college_plays.py DIR SCHED` | `college_plays.json` | cfbfastR pbp 2014-2025, cfb_schedules |
+| `scripts/college_players.py DIR` | `college_players.json` | ESPN player boxes 2004-2025, team info, cfbfastR rosters |
+| `scripts/college_people.py DIR OUTDIR` | `college_people.json`, `college_recruiting_classes.csv` | recruits 2002-2026, rosters, portal, returning production, ESPN coach tendencies (head coaches), cfb_schedules |
+| `scripts/memory_checks.py NFL SCHED` | `memory_checks.json` | nflverse rosters and trades, nfldata games, cfb_schedules |
+| `scripts/build_index.py` | `index.json` | `index_sources.json`, every file here, the Debug Lab, the code's memory notes |
+
+Holes (each also in `index.json` under `holes`, with the inventory areas it leaves open): nothing at all on high school scoring, records, streaks or coaches; no college play by play before 2014 or below FCS; no FCS, D2 or D3 player lines; college tackles and sacks only 2024-2025 (ESPN's earlier boxes carry defense for under half the games); no NFL play by play before 1999 and no attendance; win totals 2003-2020 only; no free agent, tag or waiver counts; no awards or votes; no participation (snap counts, personnel) at college; no injuries by day. The sources that would fill them are blocked from the cloud (sports-reference, the CFBD API, MaxPreps, NFHS, NCAA.org, OverTheCap, Spotrac, Wikipedia and others; the list with what each gives is `index.json` `unreachable_sources`).
+
+Checks that differ from the code (results-changing, so not changed here): Christmas Day NFL games 1999 (1, code 0) and 2004 (2, code 0) in `world/nfl_year.rs`; the college holiday games in `world/schedule.rs` (71 of 134 pair-years agree: Texas v Texas A&M was Black Friday 2001-2007, the Egg Bowl was a Saturday 2014-2016 and 2020, Oregon v Oregon State and Toledo v Bowling Green were rarely Black Friday); NFL number 0 came in 2023, not 2024 (`stories/numbers.rs`). The trade deadline weeks in `calendar/anchors.rs` agree.
+
