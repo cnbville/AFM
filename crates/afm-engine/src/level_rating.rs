@@ -74,15 +74,18 @@ fn anchors(pool: Pool) -> Anchors {
 
 /// The anchors of a pool in words, bottom first, for the badge's hover
 /// (minor bug 56): "Bottom 1%" 55, "The middle" 72, "No. 700" 85 and so on,
-/// read from `anchors`, never typed twice.
+/// read from `anchors`, never typed twice. Each is the number a card shows
+/// there: the honour anchors sit at 89.5 and 94.5 and show as 90 and 95.
 pub fn marks(pool: Pool) -> Vec<(String, f64)> {
     let a = anchors(pool);
     let mut v: Vec<(String, f64)> = a
         .quantile
         .iter()
-        .map(|&(q, r)| (if q >= 0.5 { "The middle".to_string() } else { format!("Bottom {:.0}%", q * 100.0) }, r))
+        .map(|&(q, r)| {
+            (if q >= 0.5 { "The middle".to_string() } else { format!("Bottom {:.0}%", q * 100.0) }, round_half_up(r))
+        })
         .collect();
-    v.extend(a.rank.iter().map(|&(rank, r)| (format!("No. {}", thousands(rank as u64)), r)));
+    v.extend(a.rank.iter().map(|&(rank, r)| (format!("No. {}", thousands(rank as u64)), round_half_up(r))));
     v
 }
 

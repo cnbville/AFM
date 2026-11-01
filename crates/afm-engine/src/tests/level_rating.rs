@@ -105,3 +105,14 @@ fn a_draft_board_puts_the_best_punter_in_the_fourth_round_not_the_top_20() {
     // Everyone else keeps his place.
     assert_eq!(draft.align(Position::QB, 60.0), plain.align(Position::QB, 60.0));
 }
+
+#[test]
+fn the_badge_marks_show_the_honour_counts_as_a_card_shows_them() {
+    use crate::level_rating::marks;
+    let college = marks(Pool::College);
+    assert!(college.contains(&("No. 80".to_string(), 90.0)), "{college:?}");
+    assert!(college.contains(&("No. 28".to_string(), 95.0)), "{college:?}");
+    let hs = marks(Pool::HS);
+    assert!(hs.contains(&("No. 100".to_string(), 90.0)), "{hs:?}");
+    assert!(hs.contains(&("No. 32".to_string(), 95.0)), "{hs:?}");
+}
