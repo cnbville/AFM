@@ -393,7 +393,10 @@ impl Route {
             Route::Go => (&[(45.0, 1.5)], false),
             Route::Fade => (&[(3.0, 1.0), (40.0, 4.0)], false),
             Route::Seam => (&[(45.0, -1.0)], false),
-            Route::Slant => (&[(2.0, 0.0), (9.0, -7.0), (14.0, -14.0)], false),
+            // The slant breaks at about thirty degrees off the line: real
+            // NFL slants are caught 6.2 yards past it (NGS 2023-2025, nflverse
+            // participation), the old forty-five-degree slant at 12.
+            Route::Slant => (&[(2.0, 0.0), (6.2, -7.0), (9.2, -14.0)], false),
             Route::Out(_) => (&[(0.0, 0.0), (0.0, 10.0), (4.0, 11.0)], false),
             Route::In(_) => (&[(0.0, 0.0), (0.0, -20.0)], false),
             Route::Curl(_) => (&[(0.0, 0.0), (-2.0, -1.5)], true),
@@ -843,6 +846,42 @@ pub fn register_concept(c: PassConcept) -> usize {
 
 pub fn concept(name: &str) -> usize {
     PASS_CONCEPTS.iter().position(|c| c.name == name).unwrap_or(0)
+}
+
+/// The library concept a play is filed under on the other side's film
+/// (update 3, F28). A library play is itself; a designed play is read as
+/// the library concept it looks most like: the same route by the same
+/// man counts most, the same route by anyone half, then the drop, play
+/// action, depth and protection.
+pub fn film_concept(i: usize) -> usize {
+    if i < PASS_CONCEPTS.len() {
+        return i;
+    }
+    let d = pass_concept(i);
+    let kind = std::mem::discriminant::<Route>;
+    let score = |c: &PassConcept| -> f64 {
+        let mut s = 0.0;
+        for &(o, r) in d.routes.iter().filter(|x| !x.1.blocks()) {
+            if c.routes.iter().any(|&(co, cr)| co == o && kind(&cr) == kind(&r)) {
+                s += 2.0;
+            } else if c.routes.iter().any(|&(_, cr)| kind(&cr) == kind(&r)) {
+                s += 1.0;
+            }
+        }
+        s += (c.drop == d.drop) as u8 as f64
+            + 2.0 * (c.play_action == d.play_action) as u8 as f64
+            + (c.depth == d.depth) as u8 as f64
+            + 0.5 * (c.protection == d.protection) as u8 as f64;
+        s
+    };
+    let mut best = (0, f64::NEG_INFINITY);
+    for (k, c) in PASS_CONCEPTS.iter().enumerate().filter(|(_, c)| !is_rpo_half(c)) {
+        let s = score(c);
+        if s > best.1 {
+            best = (k, s);
+        }
+    }
+    best.0
 }
 
 /// A route for a role in a concept; unlisted roles block or check-release.

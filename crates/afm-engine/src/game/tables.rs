@@ -7,6 +7,11 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 const EP_CSV: &str = include_str!("../../../../data/real-world/nfl_expected_points.csv");
+// College expected points (update 3, F30): cfbfastR's `ep_before`, FBS-vs-FBS
+// 2023-24, in the NFL table's buckets (`college_expected_points.py`). Every
+// level below the NFL reads it; high school has no real table (proposed,
+// not confirmed).
+const COLLEGE_EP_CSV: &str = include_str!("../../../../data/real-world/college_expected_points.csv");
 const PASS_CSV: &str = include_str!("../../../../data/real-world/nfl_pass_rate.csv");
 const GO_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go.csv");
 // College calling (trial 4 topic 5): FBS-vs-FBS cfbfastR play-by-play,
@@ -15,6 +20,9 @@ const GO_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go.csv
 // (no real table; proposed, not confirmed).
 const COLLEGE_PASS_CSV: &str = include_str!("../../../../data/real-world/college_pass_rate.csv");
 const COLLEGE_GO_CSV: &str = include_str!("../../../../data/real-world/college_fourth_go.csv");
+/// The NFL's go rates outside the fourth quarter's last 2:30 when down four
+/// or more (`nfl_fourth_go_habit.csv`), where every coach goes anyway.
+const GO_HABIT_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go_habit.csv");
 const WP_CSV: &str = include_str!("../../../../data/real-world/nfl_win_prob.csv");
 
 fn rows(csv: &str) -> impl Iterator<Item = Vec<&str>> {
@@ -72,10 +80,13 @@ struct Ep {
     by_field: HashMap<(i32, i32), (f64, f64)>,
 }
 
-static EP: LazyLock<Ep> = LazyLock::new(|| {
+static EP: LazyLock<Ep> = LazyLock::new(|| ep_table(EP_CSV));
+static COLLEGE_EP: LazyLock<Ep> = LazyLock::new(|| ep_table(COLLEGE_EP_CSV));
+
+fn ep_table(csv: &str) -> Ep {
     let mut cells = HashMap::new();
     let mut by_field: HashMap<(i32, i32), (f64, f64)> = HashMap::new();
-    for r in rows(EP_CSV) {
+    for r in rows(csv) {
         let (d, t, y): (i32, i32, i32) = (r[0].parse().unwrap(), r[1].parse().unwrap(), r[2].parse().unwrap());
         let (ep, n): (f64, f64) = (r[3].parse().unwrap(), r[4].parse().unwrap());
         cells.insert((d, t, y), ep);
@@ -84,20 +95,27 @@ static EP: LazyLock<Ep> = LazyLock::new(|| {
         e.1 += n;
     }
     Ep { cells, by_field }
-});
+}
 
 /// Expected points for the offense before a snap: down, yards to go, and
-/// yards from the opponent's goal line.
+/// yards from the opponent's goal line, from the NFL table.
 pub fn expected_points(down: u8, togo: f64, yardline_100: f64) -> f64 {
+    expected_points_in(false, down, togo, yardline_100)
+}
+
+/// Expected points from the level's own table: the NFL's, or the college
+/// one below the NFL.
+pub fn expected_points_in(college: bool, down: u8, togo: f64, yardline_100: f64) -> f64 {
+    let ep: &Ep = if college { &COLLEGE_EP } else { &EP };
     let d = down.clamp(1, 4) as i32;
     let y = ((yardline_100.clamp(1.0, 99.0) as i32) / 5) * 5;
     let t = ep_togo_bucket(togo);
-    if let Some(&e) = EP.cells.get(&(d, t, y)) {
+    if let Some(&e) = ep.cells.get(&(d, t, y)) {
         return e;
     }
     // Rare cells: average over distances at that spot, else the nearest spot.
     for dy in [0, 5, -5, 10, -10, 15, -15] {
-        if let Some(&(s, n)) = EP.by_field.get(&(d, y + dy)) {
+        if let Some(&(s, n)) = ep.by_field.get(&(d, y + dy)) {
             return s / n - 0.08 * (togo - 10.0).max(-9.0) * if d >= 3 { 1.5 } else { 1.0 };
         }
     }
@@ -162,6 +180,7 @@ fn go_table(csv: &str) -> HashMap<(i32, i32, i32), f64> {
 
 static GO: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| go_table(GO_CSV));
 static COLLEGE_GO: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| go_table(COLLEGE_GO_CSV));
+static GO_HABIT: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| go_table(GO_HABIT_CSV));
 
 /// How often real teams go for it on fourth down here (NFL, or college
 /// below the NFL).
@@ -176,6 +195,24 @@ pub fn real_fourth_go_rate(togo: f64, yardline_100: f64, score_diff: i32, colleg
         }
     }
     0.1
+}
+
+/// The coaches' habit on fourth down: the real go rate here, in the NFL
+/// leaving out the late tries `calling::fourth_down` makes on its own
+/// (college keeps its whole table: no college play by play on file to cut).
+pub fn real_fourth_go_habit(togo: f64, yardline_100: f64, score_diff: i32, college: bool) -> f64 {
+    if college {
+        return real_fourth_go_rate(togo, yardline_100, score_diff, true);
+    }
+    let t = togo_bucket(togo);
+    let y = ((yardline_100.clamp(1.0, 99.0) as i32) / 10).min(9) * 10;
+    let s = score_bucket(score_diff);
+    for ss in [s, 0, -1, 7] {
+        if let Some(&r) = GO_HABIT.get(&(t, y, ss)) {
+            return r;
+        }
+    }
+    real_fourth_go_rate(togo, yardline_100, score_diff, false)
 }
 
 static WP: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| {

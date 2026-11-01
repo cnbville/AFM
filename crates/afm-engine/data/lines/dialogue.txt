@@ -1,0 +1,442 @@
+# The line bank: talks off the game day (dialogue D7-D13, lane 14; format
+# in src/world/folk/voice.rs). Home visits (the family member who decides,
+# tagged himself, parent, grandparent or handler), a college staff's call to
+# the high school coach, your job interviews, the weekly staff meeting, the
+# combine room's follow-up, and agents in contract talks (tagged straight
+# or slick by honesty, hot or calm by temper, big or small by agency).
+# Facts: {name} the player's first name (his full name in agent talks),
+# {first} and {second} what a family weighs most, {money} a number,
+# {club} a club's name.
+
+# ---------------------------------------------------------------------------
+# D7: the home visit. The family opens on what they care about most.
+
+@key homevisit.ask.playing
+Coach, I'll be honest. We want to know when he plays. ~ !himself
+Everybody tells us he'll play early. What makes you different? ~ !himself
+How many are ahead of him at his spot, really? ~ !himself
+He didn't work this hard to stand on a sideline for three years. ~ !himself
+Where does he fit on your depth chart next fall? ~ !himself
+I raised him to earn it, but I want to know there's something to earn. ~ grandparent
+We've seen the roster. Tell us why he plays over those boys. ~ !himself
+His coach back home says he's ready now. Do you agree? ~ handler
+Coach, I want to play. Not in two years. Now. ~ himself
+Who's in front of me? Straight up. ~ himself
+I'm not coming anywhere to redshirt, coach. ~ himself
+Where do I fit when I get there? ~ himself
+
+@key homevisit.ask.nil
+Let's not dance around it. What does the collective do for him? ~ !himself
+Money isn't everything, but it isn't nothing either. ~ !himself
+Other schools have put numbers in front of us. ~ !himself
+We need to talk about what he'd make. ~ !himself
+I've got to think about this family, coach. What's the deal? ~ parent
+His trainer has talked to a few collectives. What's yours saying? ~ handler
+I've seen what these boys get paid now. Where does he stand? ~ grandparent
+What's the number, coach? ~ himself
+My family could use the help. I'm not going to pretend otherwise. ~ himself
+Everybody's talking NIL. What's real at your place? ~ himself
+Other schools came with numbers. You got one? ~ himself
+
+@key homevisit.ask.school
+Football ends. What does he walk out with? ~ !himself
+I want him in class. I want him to graduate. ~ !himself
+Tell me about the degree, not the stadium. ~ !himself
+What happens if he gets hurt and never plays again? ~ !himself
+His grades matter in this house. ~ parent
+Nobody in this family has finished college. He's going to. ~ !himself
+I want to know who's checking on his classes. ~ !himself
+What happens to me if football doesn't work out? ~ himself
+I want a real degree, coach. Not just eligibility. ~ himself
+What do your guys major in? ~ himself
+My mom wants to hear about school first. ~ himself
+
+@key homevisit.ask.distance
+How far is it, really? ~ !himself
+I want to be at his games. Every one of them. ~ !himself
+He's never been away from home this long. ~ !himself
+Who takes care of him when he's that far away? ~ !himself
+We'd have to fly to see him play. That matters to us. ~ !himself
+I'm not getting any younger. I want to see him play. ~ grandparent
+I don't want to be far from my family, coach. ~ himself
+My little brother comes to every game. Can he still? ~ himself
+How long is the drive from here? ~ himself
+I've never lived anywhere else. ~ himself
+
+@key homevisit.ask.family
+Who looks after him when you're not there? ~ !himself
+I'm trusting you with my son. Why should I? ~ parent
+I've raised him by myself. I need to know who you are. ~ parent
+Will you still be there in three years? ~ !himself
+Tell me about the man, not the program. ~ !himself
+I want to know he'll be somebody's son there, not a number. ~ !himself
+He's all I have. Talk to me like you know that. ~ grandparent
+His trainer asked me to ask who his real coach will be. ~ handler
+Coach, are you going to be there my whole time? ~ himself
+I need somebody I can call when it gets hard. ~ himself
+Who do I go to when things go wrong? ~ himself
+
+@key homevisit.ask.development
+Can you get him to the league? That's the question. ~ !himself
+Show us who you've sent to the draft. ~ !himself
+What does his position coach know that others don't? ~ !himself
+He wants to play on Sundays. Can you get him there? ~ !himself
+Who's going to coach him every day? ~ !himself
+I've followed your draft picks. Tell me how. ~ handler
+I want to play in the league, coach. Tell me how you get me there. ~ himself
+Who's the last guy at my spot you sent to the draft? ~ himself
+How do you develop players like me? ~ himself
+What does my first year look like in the weight room? ~ himself
+
+@key homevisit.ask.winning
+Does he play for a championship there? ~ !himself
+We want him on a winner. ~ !himself
+He's used to winning. Will he keep winning? ~ !himself
+I want to see him on TV, in big games. ~ !himself
+What have you won lately? ~ !himself
+His trainer says he needs the big stage. ~ handler
+I want to win a ring, coach. ~ himself
+I want to play in the big games. ~ himself
+Are you going to win while I'm there? ~ himself
+I didn't come this far to lose. ~ himself
+
+@key homevisit.tell
+Honestly? {first}. Then {second}. ~ !himself
+For this family it comes down to {first}, and {second} after that. ~ !himself
+{first} first. {second} close behind. ~ !himself
+I'll tell you straight: {first}. And {second}. ~ !himself
+If you get {first} right, we can talk about {second}. ~ !himself
+It's {first} for me, coach, and then {second}. ~ himself
+{first}. Then {second}. That's it. ~ himself
+Coach, for me it's {first}. {second} too. ~ himself
+
+@key homevisit.react.good
+That's what we needed to hear. ~ !himself
+Now you're talking to us. ~ !himself
+Nobody else said it like that. ~ !himself
+I believe you. I didn't expect to. ~ !himself
+Okay. Okay, that means something. ~ !himself
+That's what I was hoping you'd say, coach. ~ himself
+For real? That's what I want. ~ himself
+Nobody else told me that. ~ himself
+
+@key homevisit.react.flat
+Okay. We'll think about it. ~ !himself
+I hear you. ~ !himself
+That's nice. That's not really what we were asking. ~ !himself
+Everybody says something like that. ~ !himself
+Mm-hm. ~ !himself
+Okay, coach. ~ himself
+Yeah, I hear you. ~ himself
+Cool. What else? ~ himself
+
+@key homevisit.react.bad
+Coach, the last three schools said the same thing. ~ !himself
+That's not what I asked you. ~ !himself
+With respect, I don't believe that. ~ !himself
+We've seen your numbers. That isn't true. ~ !himself
+I think we're done with that part. ~ !himself
+That's not what I care about, coach. ~ himself
+Nah. That's not it. ~ himself
+Everybody says that. ~ himself
+
+# ---------------------------------------------------------------------------
+# D9: a college staff calls the high school coach about a player.
+
+@key hscall.ask.football
+Coach, what's {name} really like on the field?
+I've seen the film on {name}. What don't I see on it?
+Is {name} as good as his tape?
+Tell me about {name}. What kind of player is he?
+How does {name} practice? Film doesn't show me that.
+Would you trust {name} in a big game?
+What's {name}'s ceiling, in your mind?
+Who's {name} going to be in two years?
+
+@key hscall.ask.grades
+Coach, I need to ask about {name}'s grades.
+Is {name} going to qualify? Be honest with me.
+Our compliance people are asking about {name}'s transcript.
+How's {name} doing in the classroom?
+I can't take a kid who won't get in. Where's {name} with his core classes?
+We've heard some things about {name}'s grades. Anything to it?
+Will {name} make it through a college semester?
+
+@key hscall.ask.character
+Coach, I have to ask. Is there anything on {name} I should know?
+We've heard some talk about {name} off the field.
+What kind of kid is {name} when nobody's watching?
+Has {name} been in any trouble?
+Would you let {name} babysit your kids?
+My head coach wants to know about {name}'s character before we go further.
+Somebody told me {name} had a problem last year. True?
+
+# ---------------------------------------------------------------------------
+# D11: your job interview.
+
+@key interview.ask.plan
+Tell us what year one looks like.
+What's your plan for this place?
+How long until we're winning?
+Walk us through your first season.
+If we hire you, what changes first?
+Where is this team in three years under you?
+We've had plans before. Why is yours different?
+What does winning look like here, in your mind? ~ !nfl
+Our fans want to know when. What do I tell them? ~ owner
+The school board will ask me what you'll build. ~ principal
+Our donors want to hear a vision. ~ president
+What would you do with this roster in March? ~ gm
+
+@key interview.ask.staff
+Who are you bringing with you?
+Tell us about your staff.
+Will you keep anyone from the current staff?
+Who's your coordinator? Do you have names?
+What do you look for in an assistant?
+Some of our coaches have been here a long time. What happens to them?
+We'd want a say in a couple of hires. ~ meddler
+How do you pay for the staff you want? ~ tight
+Who's calling your plays? ~ nfl
+Can you find teachers who coach? ~ hs
+
+@key interview.ask.past
+Tell us about a time it went wrong.
+Your last stop didn't end the way you wanted. Talk to us about that.
+What's the hardest thing you've done in coaching?
+What would your old players say about you?
+What's on your record we should ask about?
+Tell us about a player you made.
+What have you learned that you didn't know five years ago?
+Why did you leave your last job?
+We called around about you. Want to guess what we heard? ~ blunt
+
+@key interview.react.good
+That's what we were hoping to hear.
+Okay. I like that.
+That's the answer.
+We've heard a lot of answers. That one's different.
+Good. That's good.
+That fits this place.
+You've thought about this.
+I can sell that to our people.
+
+@key interview.react.flat
+Okay.
+Alright. Let's keep going.
+Fair enough.
+We'll take that into account.
+Hm. Okay.
+That's one way to look at it.
+I see.
+
+@key interview.react.bad
+That's not really what we're looking for.
+Hm. We see it differently.
+That worries me a little, to be honest.
+We had a coach who said that. It didn't go well.
+I don't think that works here.
+That's not this place.
+Okay. Let's move on.
+
+# ---------------------------------------------------------------------------
+# D12: the weekly staff meeting. A coordinator argues his case.
+
+@key staffmeet.case.pressure
+We sat back all game. I want to bring more pressure this week.
+They had all day to throw. I want to send more.
+I need you to let me blitz. We can't win waiting on them.
+We have to get after the quarterback. More pressure, more often.
+Our four aren't getting there alone. Let me bring five.
+Give me the green light to pressure them. We can't keep playing soft.
+We're making their quarterback comfortable. I want to change that.
+
+@key staffmeet.case.zone
+They're beating our man coverage deep. I want more zone.
+We gave up too many big ones. I want to keep everything in front.
+We have to stop the explosive plays. More zone, more help over the top.
+Our corners are on islands and losing. Let me play more zone.
+I'd rather give up five yards than fifty. Zone them up.
+We're getting picked apart in man. We have to change.
+
+@key staffmeet.case.run
+The run game is working. I want to lean on it.
+We averaged over five a carry and threw it anyway. Let's run it more.
+Our line is winning up front. I want to pound it.
+We're leaving yards on the field. Run the ball.
+Let me run it. The tape says we can.
+Our backs are the best thing we have right now.
+
+@key staffmeet.case.pass
+We're banging our heads against the wall running. I want to throw it more.
+They're stacking the box. We have to throw it.
+Three yards a carry won't win. Let me open it up.
+Our receivers are open. Let's use them.
+We're too predictable on early downs. More passes.
+The run game isn't there. I want to put it in the quarterback's hands.
+
+@key staffmeet.reply.yes
+Thank you. You won't regret it.
+Good. I'll have it in by Tuesday.
+That's all I needed.
+Alright. My guys will be ready.
+Appreciate the trust. We'll get it right.
+I'll own it either way.
+
+@key staffmeet.reply.half
+Okay. Some of it is better than none.
+I can work with half.
+Alright. We'll do what we can with it.
+Fine. Let's see how it goes.
+I'll take it. I'd rather have all of it.
+Okay. We'll try it your way and mine.
+
+@key staffmeet.reply.no
+Your call, coach.
+Okay. But I said it.
+Understood. I don't agree, but understood.
+Fine. We'll stay with it.
+It's your team.
+Alright. I hope I'm wrong.
+
+# ---------------------------------------------------------------------------
+# D8: the combine room. You press him on an answer.
+
+@key combine.press.steady
+Because I didn't do my job. That's on me, and I fixed it.
+I looked at it a lot. I know what I did wrong. I can show you.
+It was a bad read. I see it now. It won't happen again.
+Fair question. I was late on it. Here's what I changed.
+I own that one. I watch that tape every week.
+I'm not going to make excuses. I got beat.
+
+@key combine.press.bristles
+I already told you. I don't know what else you want.
+You can watch that tape all you want. I know who I am.
+Coach, with respect, that's one play.
+That's not who I am, and I don't like being asked twice.
+Everybody got beat on that play. Ask them.
+Look, I answered that.
+
+@key combine.press.shaken
+I... I'm not sure. I thought I was right.
+I don't really know, honestly.
+Maybe I was nervous. I don't know.
+Can I start over? I didn't say that right.
+I was trying to do too much, I think.
+I'm not sure what happened there.
+
+# ---------------------------------------------------------------------------
+# D10: agents in contract talks. The numbers are the market's; the words
+# are his.
+
+@key agent.yes
+That works for {name}. He'll give everyone until the next market day, but you're where he wants to be.
+We like this. {name} will sit tight until the next market day, but you're at the front of the line.
+This gets it done for us, pending the market day. You're where {name} wants to be.
+Now we're talking. {name} won't sign before the market day, but this is the one to beat. ~ !slick
+Love it. I'm telling everyone else they have until the next market day. Don't worry about it. ~ slick
+Good. That's good. He's yours unless something crazy happens by the market day. ~ calm
+Finally. That's a real offer. He'll wait for the market day, but you're there. ~ hot
+
+@key agent.range
+That's in range. {name} will weigh it against what else comes in.
+We're in the neighborhood. He'll weigh it with the rest.
+That's a real number. {name} will look at it next to the others.
+Close enough to talk. He'll compare it. ~ calm
+It's in the ballpark. I've got other calls to make first. ~ slick
+That's fair. I'll be honest, it's in range, and there are others. ~ straight
+Okay, we can work with that. I'll put it on the pile. ~ big
+It's in range. Let me talk to {name} tonight. ~ small
+
+@key agent.apart
+We're still apart on this. Here's where {name} is.
+We're not there yet. Here's our number.
+There's a gap. Here's where {name} lands.
+Not quite. Let me show you where we are. ~ calm
+We're apart, and I'm being nice saying that. ~ hot
+Look, I like you guys. We're still apart. ~ slick
+I'll be straight: we're apart. Here's what closes it. ~ straight
+
+@key agent.far
+We're a long way apart on this. Here's where {name} is.
+That isn't close. Here's our number.
+We're far off. You know what he's worth.
+I don't know how to say this nicely. We're not close. ~ straight
+Come on. You can't be serious. Here's the number. ~ hot
+Let's not waste each other's time. We're far apart. ~ calm
+Interesting opening. We're miles apart, though. ~ slick
+My client has options. This isn't close to them. ~ big
+
+@key agent.near
+We're close. Get us to {money} and {name} signs.
+Almost there. {money} and it's done.
+One more step. {money} gets it signed.
+Get to {money} and I'll have him in your building tomorrow. ~ slick
+{money}. That's it. That's all we need. ~ calm
+I'll be honest with you, {money} closes it. ~ straight
+Don't nickel and dime us now. {money} and we're done. ~ hot
+
+@key agent.short
+That's short of what {name} is worth. Here's our number.
+That's light. Here's where we need to be.
+You know that's short. Here's the number.
+We're short, but not by a mile. Look at our number. ~ calm
+That's low, and you know it. ~ hot
+Short. Here's the honest number. ~ straight
+We'll need more than that. Take a look at this. ~ slick
+
+@key agent.insult
+Respectfully, that isn't a serious offer for {name}.
+I'm not taking that to him.
+That's not a real offer.
+I'll pretend I didn't see that. ~ calm
+Is this a joke? Because he won't laugh. ~ hot
+I can't show him that. I'd be embarrassed. ~ straight
+We both know that's not where this ends. ~ slick
+My client has been in this league too long for that. ~ big
+
+@key agent.done
+We're done for now. {name} will look elsewhere.
+That's it for now. He's moving on.
+We're finished talking. {name} has other places to be.
+I gave you every chance. We're out. ~ hot
+I'm sorry it went this way. We're going to look around. ~ calm
+We'll go another direction. No hard feelings. ~ straight
+Let's call it here. There are a lot of teams. ~ slick
+
+@key agent.claim.real
+The {club} are at about {money} a year.
+I'll tell you what's on the table: the {club}, around {money}.
+The {club} called this morning. {money} a year.
+You should know the {club} are at {money}. I'm not making that up. ~ straight
+The {club}. {money}. That's real. ~ calm
+The {club} are at {money}, and they're pushing. ~ hot
+I've got the {club} at {money}, give or take. ~ slick
+
+@key agent.claim.bluff
+Two other clubs are above you, near {money} a year.
+There's interest north of {money}. I can't say where.
+A couple of teams are in that {money} range. Trust me.
+People are calling. Let's just say {money} and up. ~ slick
+I've got a lot of interest. A lot. Around {money}. ~ slick
+There's... there's interest around {money}. Two teams. Maybe three. ~ straight
+Other teams are at {money}. I can't get into who. ~ calm
+You think you're the only call I'm getting? {money}, at least. ~ hot
+
+@key agent.claim.market
+On the open market {name} gets {money} a year, easily.
+If he hits the market, {money} a year. Minimum.
+Somebody pays him {money} the day he's free.
+Let him walk and watch somebody give him {money}. ~ hot
+The market says {money}. You know it does. ~ slick
+I really think the market goes to {money}. I do. ~ straight
+He's a {money} player out there. ~ calm
+
+@key agent.claim.stay
+He knows what the market pays, and he'd like to stay. Meet us near our number.
+He wants to be here. Help us make that easy.
+He likes it there. Get close to our number and we'll get it done.
+I'll be straight: he wants to stay. Don't make it hard. ~ straight
+He wants to stay. Let's not get cute. ~ hot
+He's happy there. Let's find a number. ~ calm

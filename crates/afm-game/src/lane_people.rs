@@ -24,13 +24,14 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 27] = [
+const COMMANDS: [&str; 28] = [
     "people_agenda",
     "people_expect",
     "people_scene",
     "people_answer",
     "people_hand",
     "people_talk",
+    "people_subject",
     "people_team_talk",
     "people_line",
     "people_player",
@@ -82,6 +83,13 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             folk::scene::hand(w, id)?;
             scene(w, id)
         })(),
+        "people_subject" => (|| {
+            let id = num(args, "id")? as u32;
+            let key = args.get("subject").and_then(Value::as_str).unwrap_or("role");
+            let sub = Subject::ALL.iter().copied().find(|s| s.key() == key).ok_or("Unknown subject.")?;
+            talks::change_subject(w, id, sub)?;
+            scene(w, id)
+        })(),
         "people_talk" => (|| {
             let id = num(args, "id")? as u32;
             let subject = args.get("subject").and_then(Value::as_str).unwrap_or("role");
@@ -120,7 +128,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_boss" => Ok(boss_page(w)),
         "people_boss_meeting" => boss::request_meeting(w).map(|sid| json!({ "scene": sid })),
         "people_staff" => Ok(staff(w)),
-        "people_candidates" => role_arg(args).map(|r| candidates(w, r)),
+        "people_candidates" => role_arg(args).map(|r| crate::lane_hiring::search(w, r, args)),
         "people_interview" => (|| {
             let c = num(args, "coach")? as usize;
             let r = role_arg(args)?;
@@ -129,9 +137,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_offer" => (|| {
             let c = num(args, "coach")? as usize;
             let r = role_arg(args)?;
-            let salary = args.get("salary").and_then(Value::as_f64).ok_or("Missing salary.")?;
-            let years = args.get("years").and_then(Value::as_i64).unwrap_or(2) as i32;
-            let text = staffing::offer(w, c, r, salary, years)?;
+            let text = folk::hiring::offer(w, c, r, crate::lane_hiring::terms(args)?)?;
             Ok(json!({ "text": text, "staff": staff(w) }))
         })(),
         "people_fire" => {
@@ -164,14 +170,14 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     })
 }
 
-fn num(args: &Value, k: &str) -> Result<u64, String> {
+pub(crate) fn num(args: &Value, k: &str) -> Result<u64, String> {
     args.get(k)
         .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
         .ok_or_else(|| format!("Missing {k}."))
 }
 
 /// A staff role from `{role}`: "oc", "dc" or a position group's name.
-fn role_arg(args: &Value) -> Result<Role, String> {
+pub(crate) fn role_arg(args: &Value) -> Result<Role, String> {
     let r = args.get("role").and_then(Value::as_str).ok_or("Missing role.")?;
     Ok(match r {
         "oc" => Role::OffensiveCoordinator,
@@ -182,7 +188,7 @@ fn role_arg(args: &Value) -> Result<Role, String> {
     })
 }
 
-fn group_key(g: Group) -> &'static str {
+pub(crate) fn group_key(g: Group) -> &'static str {
     match g {
         Group::QB => "qb",
         Group::RB => "rb",
@@ -195,7 +201,7 @@ fn group_key(g: Group) -> &'static str {
     }
 }
 
-fn role_key(r: Role) -> String {
+pub(crate) fn role_key(r: Role) -> String {
     match r {
         Role::OffensiveCoordinator => "oc".into(),
         Role::DefensiveCoordinator => "dc".into(),
@@ -222,7 +228,7 @@ pub(crate) fn plain(text: &str) -> String {
     out
 }
 
-fn cap(s: &str) -> String {
+pub(crate) fn cap(s: &str) -> String {
     let mut c = s.chars();
     c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
 }
@@ -240,7 +246,7 @@ fn level_key(l: Level) -> &'static str {
     }
 }
 
-fn money(d: f64) -> String {
+pub(crate) fn money(d: f64) -> String {
     if d >= 1.0e6 {
         format!("${:.2}M", d / 1.0e6)
     } else if d >= 1.0e3 {
@@ -342,6 +348,29 @@ fn scene(w: &mut World, id: u32) -> Reply {
         })
         .collect();
     v["picks"] = json!(picks);
+    // Face to face (lane 14, D1): his face for the last thing he said, the
+    // subject chips of a one-on-one and a timed room's clock.
+    if matches!(s.kind, Kind::OneOnOne | Kind::CombineTalk) && matches!(s.who.first(), Some(Who::Player(_))) {
+        let last = s.lines.iter().rev().find(|l| l.by == 2);
+        let mood = match s.who.first() {
+            Some(Who::Player(id)) => folk::person(w, *id).map_or(0.0, |i| w.people[i].mood),
+            _ => 0.0,
+        };
+        v["face"] = face_cue(last.and_then(|l| l.tell.as_deref()), mood);
+        v["room"] = json!(if s.kind == Kind::CombineTalk {
+            if s.place.contains("Indianapolis") { "combine" } else { "office" }
+        } else {
+            Team::seat(w).map_or("college", |t| level_key(t.level()))
+        });
+    }
+    if s.kind == Kind::OneOnOne {
+        v["subject"] = json!(Subject::from_u64(s.b).key());
+        v["subjects"] =
+            json!(Subject::ALL.iter().map(|x| json!({ "key": x.key(), "name": cap(x.name()) })).collect::<Vec<_>>());
+    }
+    if s.kind == Kind::CombineTalk {
+        v["clock"] = json!({ "left": s.c.max(0), "of": s.f[0] as i64 });
+    }
     v["docs"] = json!(s.docs);
     v["step"] = json!(s.step);
     v["hours"] = json!(talks::hours_left(w));
@@ -356,6 +385,32 @@ fn scene(w: &mut World, id: u32) -> Reply {
         .next();
     v["next"] = next.unwrap_or(Value::Null);
     Ok(v)
+}
+
+/// His face for a tell your read caught (dialogue D1): the drawn head's
+/// expression and how strongly, which way he turns (degrees, to his left)
+/// and how far he drops his eyes, with the words. A line with no tell reads
+/// from his mood.
+fn face_cue(tell: Option<&str>, mood: f32) -> Value {
+    let (expr, strength, yaw, down, words) = match tell.unwrap_or("") {
+        t if t.starts_with("He nods like he already knew it") => ("smirk", 0.8, 0, -3, "A half smile, chin up"),
+        t if t.starts_with("He looks you in the eye") => ("game_face", 0.8, 0, 0, "Eyes on yours"),
+        t if t.starts_with("His shoulders drop") => ("slight_smile", 1.0, 4, 5, "Softer"),
+        t if t.starts_with("His jaw works") => ("game_face", 1.3, 14, 2, "Jaw set, looking off"),
+        t if t.starts_with("He mentions his agent") => ("smirk", 0.5, -10, 0, "Glances away"),
+        t if t.starts_with("He says his dad") => ("tight_smile", 1.0, 8, 0, "A tight smile"),
+        t if t.starts_with("Short answers") => ("game_face", 1.0, 24, 4, "Looking at the door"),
+        t if t.starts_with("He gives you nothing") => ("game_face", 0.6, 0, 0, "Nothing on his face"),
+        t if t.starts_with("He shifts in his chair") => ("tight_smile", 0.6, -8, 3, "Shifting"),
+        t if t.starts_with("He held your eyes") => ("game_face", 0.9, 0, 0, "Steady eyes"),
+        t if t.starts_with("His jaw set") => ("game_face", 1.5, 6, -4, "Jaw set, leaning back"),
+        t if t.starts_with("He looked at the table") => ("game_face", 0.5, 4, 14, "Eyes on the table"),
+        _ if mood < -0.35 => ("game_face", 1.1, 10, 6, "Closed off"),
+        _ if mood < -0.1 => ("tight_smile", 0.8, 6, 2, "Guarded"),
+        _ if mood > 0.35 => ("smile", 0.9, 0, 0, "At ease"),
+        _ => ("slight_smile", 0.9, 0, 0, "Waiting"),
+    };
+    json!({ "expression": expr, "strength": strength, "yaw": yaw, "down": down, "words": words })
 }
 
 /// The people hub: what waits for you, your week's hours, the room, your
@@ -820,7 +875,17 @@ fn staff(w: &World) -> Value {
         staffing::openings(w).into_iter().map(|r| json!({ "key": role_key(r), "name": cap(r.name()) })).collect();
     let support: Vec<Value> = staffing::drawn_staff(w, team)
         .into_iter()
-        .map(|d| json!({ "name": d.name, "title": d.title, "age": d.age, "since": d.since, "subject": d.subject, "pay": money(d.pay) }))
+        .map(|d| {
+            json!({
+                "name": d.name,
+                "link": d.coach.map(|c| folk::coach_link(w, c)),
+                "title": d.title,
+                "age": d.age,
+                "since": d.since,
+                "subject": d.subject,
+                "pay": money(d.pay),
+            })
+        })
         .collect();
     let owed: f64 = w.folk.staff.owed.iter().filter(|x| x.0 >= year).map(|x| x.1).sum();
     json!({
@@ -835,28 +900,34 @@ fn staff(w: &World) -> Value {
     })
 }
 
-fn candidates(w: &World, r: Role) -> Value {
-    let rows: Vec<Value> = staffing::candidates(w, r)
-        .into_iter()
-        .take(40)
-        .map(|c| {
-            json!({
-                "coach": c.coach,
-                "link": folk::coach_link(w, c.coach),
-                "age": c.age,
-                "now": c.now,
-                "rep": c.rep,
-                "cameUp": c.came_up,
-                "known": c.known,
-                "read": [c.read.0.round(), c.read.1.round()],
-                "asks": money(c.asks),
-                "asksValue": c.asks,
-                "blocked": c.blocked,
-                "interviewed": w.folk.staff.interviewed.iter().any(|x| x.0 == c.coach),
-            })
-        })
-        .collect();
-    json!({ "role": role_key(r), "roleName": cap(r.name()), "rows": rows })
+/// The moves that fit a coach for your seat (minor bug 62): a raise or
+/// letting him go for one of your assistants; an interview or the job for
+/// a coach outside your staff at one of your openings (the offer is
+/// lane 18's dialog).
+pub(crate) fn coach_moves(w: &World, c: usize) -> Vec<Value> {
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    if w.career.as_ref().is_some_and(|x| x.coach == c) {
+        return Vec::new();
+    }
+    if let Some((_, r)) = facts::assistants(w, team).into_iter().find(|x| x.0 == c) {
+        return vec![
+            json!({ "k": "raise", "t": "Give him a raise", "coach": c, "role": role_key(r) }),
+            json!({ "k": "fire", "t": "Let him go", "coach": c }),
+        ];
+    }
+    let Some(co) = w.coaches.get(c) else { return Vec::new() };
+    if co.retired || co.age > 70 || co.show_cause.is_some_and(|y| y >= w.year) {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for r in staffing::openings(w) {
+        let role = cap(r.name());
+        out.push(
+            json!({ "k": "interview", "t": format!("Interview him for {role}"), "coach": c, "role": role_key(r) }),
+        );
+        out.push(json!({ "k": "hire", "t": format!("Offer him {role}"), "coach": c, "role": role_key(r) }));
+    }
+    out
 }
 
 /// Your coaching network: every contact with how you know him, how warm,
@@ -893,7 +964,9 @@ fn contacts(w: &World) -> Value {
                 }
                 _ => return None,
             };
-            let record = (c.record.0 > 0).then(|| format!("{} of {} tips held up", c.record.1, c.record.0));
+            let record = (c.record.0 > 0).then(|| {
+                format!("{} of {} {} held up", c.record.1, c.record.0, afm_engine::world::folk::noun(c.record.0, "tip"))
+            });
             Some(json!({
                 "coach": coach,
                 "link": link,

@@ -14,6 +14,7 @@ use afm_engine::game::live::{
 };
 use afm_engine::game::tables::real_fourth_go_rate;
 use afm_engine::game::{GamePlayer, PlayType, Rules};
+use afm_engine::player::Level;
 use afm_engine::positions::Position;
 use afm_engine::world::World;
 use afm_engine::world::live_seat::GameRules;
@@ -87,8 +88,8 @@ fn cell_numbers(s: &Seat, r: usize, c: usize) -> (f64, f64, f64, f64, f64) {
     let (togo, yl) = (ROW_TOGO[r], COL_YL[c]);
     let dist = yl + 17.0;
     let make = if dist > 68.0 { 0.0 } else { kicker(s).map_or(0.0, |k| fg_make(k, dist)) };
-    let (conv, go, punt, fg) = fourth_ev(yl, togo.min(yl), make);
     let rules = Rules::for_level(plans::level_of(s.level));
+    let (conv, go, punt, fg) = fourth_ev(yl, togo.min(yl), make, rules.level != Level::NFL);
     let len = 4.0 * rules.quarter;
     let wp = |ev: f64| win_prob(0.0, ev, len / 2.0, len);
     (conv, wp(go), wp(punt), if make > 0.0 { wp(fg) } else { 0.0 }, make)
@@ -220,7 +221,7 @@ pub(super) fn view(w: &World) -> Reply {
         }
     }
     let season = vec![
-        json!({ "k": "4th downs converted", "v": format!("{conv} of {tries}"), "sub": format!("{tries} tries, {punts} punts, {fgs} field goals") }),
+        json!({ "k": "4th downs converted", "v": format!("{conv} of {tries}"), "sub": format!("{tries} {}, {punts} {}, {fgs} {}", afm_engine::world::folk::noun(tries, "try"), afm_engine::world::folk::noun(punts, "punt"), afm_engine::world::folk::noun(fgs, "field goal")) }),
         json!({ "k": "Two-point tries", "v": format!("{two_m} of {two_t}"), "sub": if r.two == TwoChart::Chart { "by the chart".to_string() } else if r.two == TwoChart::Kick { "you kick every time".to_string() } else { "your staff's call".to_string() } }),
         json!({ "k": "Halves ended with two timeouts", "v": format!("{with_two} of {halves}"), "sub": match r.timeouts { TimeoutRule::KeepTwo => "your rule: keep two", TimeoutRule::KeepOne => "your rule: keep one", TimeoutRule::Free => "your rule: use them freely", TimeoutRule::Staff => "your staff's call" } }),
         json!({ "k": "Four-minute leads kept", "v": format!("{kept} of {leads}"), "sub": "ahead by 1-8 with the ball, four minutes left" }),

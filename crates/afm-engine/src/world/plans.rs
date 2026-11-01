@@ -401,6 +401,7 @@ fn sit(down: u8, togo: f64, yl: f64, college: bool) -> Situation {
         def_concede: false,
         college,
         lean: 0.0,
+        weather: 0.0,
     }
 }
 
@@ -766,8 +767,9 @@ pub fn can_study(w: &World) -> Result<(), String> {
     }
     if n.date.0 - w.today.0 <= 8 {
         return Err(format!(
-            "Your staff studies its own film in a bye week: the next game is in {} days and the week belongs to the opponent.",
-            n.date.0 - w.today.0
+            "Your staff studies its own film in a bye week: the next game is in {} {} and the week belongs to the opponent.",
+            n.date.0 - w.today.0,
+            crate::world::folk::noun(n.date.0 - w.today.0, "day")
         ));
     }
     Ok(())
@@ -1011,7 +1013,15 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
     mem.study(film);
     let te = team.players.iter().filter(|p| p.position == crate::positions::Position::TE).count();
     let fb = team.players.iter().filter(|p| p.position == crate::positions::Position::RB).count() >= 2;
-    let ctx = OffCtx { has_fb: fb, te_count: te.min(3), qb_run: inp.qb_run, level: inp.level, plan: team.plan().0 };
+    let ctx = OffCtx {
+        has_fb: fb,
+        te_count: te.min(3),
+        qb_run: inp.qb_run,
+        level: inp.level,
+        plan: team.plan().0,
+        designs: [None; 8],
+        burner: 0.0,
+    };
     let staff = team.staff;
     let two_from = inp.two_from;
     let favs = &inp.favs;
@@ -1131,17 +1141,16 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
             marks,
         });
     }
-    // The bad-weather sheet (G13): the downs and the red zone, runs up and
-    // no deep shots.
+    // The bad-weather sheet (G13): the downs and the red zone, his own
+    // plays only. Real offenses run more in the weather (`Game::
+    // weather_lean`) but throw as deep: air yards an attempt 7.68 dry, 7.80
+    // in rain, 7.51 in 15+ mph wind (nflverse 2021-2025; minor bug 144:
+    // without deep shots completions rose in the wind, real fall 3 points).
     let wet: Vec<Entry> = off
         .iter()
         .filter(|e| matches!(sheet::split(e.k).0, 1..=7 | 10) && e.marks & BREAKER == 0)
         .filter(|e| match e.play {
-            Play::Off(p) => match p.play {
-                SheetKind::Pass(i) => pass_concept(i as usize).depth != PassDepth::Deep,
-                SheetKind::Run(_) => true,
-                SheetKind::Design(_) => false,
-            },
+            Play::Off(p) => !matches!(p.play, SheetKind::Design(_)),
             _ => false,
         })
         .map(|e| {
@@ -1149,6 +1158,11 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
             e.marks |= WET;
             e.why = match e.play {
                 Play::Off(p) if is_run(&p) => "in the weather: run it and keep the ball safe".into(),
+                Play::Off(SheetPlay { play: SheetKind::Pass(i), .. })
+                    if pass_concept(i as usize).depth == PassDepth::Deep =>
+                {
+                    "a shot he still trusts in the weather".into()
+                }
                 _ => "a short, sure throw for a wet ball".into(),
             };
             e
@@ -2061,17 +2075,27 @@ fn check_keys(w: &mut World) {
             }
             1 => {
                 let n = plays.iter().filter(|r| r.offense == side && (r.interception || r.fumble_lost)).count();
-                (n as f32 <= k.bar, format!("{n} turnovers"))
+                (n as f32 <= k.bar, format!("{n} {}", crate::world::folk::noun(n, "turnover")))
             }
             2 => {
                 let r: Vec<_> = plays.iter().filter(theirs).collect();
                 let ypc = r.iter().map(|x| x.yards).sum::<f64>() / r.len().max(1) as f64;
-                (ypc < k.bar as f64, format!("{ypc:.1} a carry on {} carries", r.len()))
+                (
+                    ypc < k.bar as f64,
+                    format!("{ypc:.1} a carry on {} {}", r.len(), crate::world::folk::noun(r.len(), "carry")),
+                )
             }
             3 => {
                 let b: Vec<_> = plays.iter().filter(ours).filter(|r| r.blitz).collect();
                 let y = b.iter().map(|x| x.yards).sum::<f64>() / b.len().max(1) as f64;
-                (y >= k.bar as f64, format!("{y:.1} a play on {} snaps against the blitz", b.len()))
+                (
+                    y >= k.bar as f64,
+                    format!(
+                        "{y:.1} a play on {} {} against the blitz",
+                        b.len(),
+                        crate::world::folk::noun(b.len(), "snap")
+                    ),
+                )
             }
             _ => {
                 let th: Vec<_> = plays.iter().filter(ours).filter(|r| r.down == 3).collect();

@@ -112,7 +112,7 @@ fn nfl_books(w: &World, t: usize, own: bool) -> Value {
             .nfl
             .iter()
             .enumerate()
-            .filter(|(k, x)| *k != t && afm_engine::world::franchise::active(*k, year) && f(x) > me)
+            .filter(|(k, x)| *k != t && afm_engine::world::franchise::active_in(w, *k, year) && f(x) > me)
             .count()
     };
     let (city, state) = nfl::city(w, t, year);
@@ -408,7 +408,7 @@ fn league(w: &World, args: &Value) -> Value {
         .nfl
         .iter()
         .enumerate()
-        .filter(|(t, c)| afm_engine::world::franchise::active(*t, year) && !c.years.is_empty())
+        .filter(|(t, c)| afm_engine::world::franchise::active_in(w, *t, year) && !c.years.is_empty())
         .map(|(t, c)| {
             let b = c.years.last().unwrap();
             let s = c.seasons.last();

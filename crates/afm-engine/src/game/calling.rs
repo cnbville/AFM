@@ -117,7 +117,7 @@ impl Film {
         self.look[call.formation.look()][pass as usize] += 1.0;
         match call.kind {
             PlayKind::Pass(i) => {
-                if let Some(x) = self.concepts.get_mut(i) {
+                if let Some(x) = self.concepts.get_mut(film_concept(i)) {
                     *x += 1.0;
                 }
             }
@@ -167,6 +167,13 @@ pub struct Plan {
     pub box_up: bool,
     #[serde(default)]
     pub run_more: f64,
+    /// Their deep threat (speed update S10a-S10d): the receiver whose speed
+    /// our corners can't run with as the film shows it (an offense player
+    /// index), and how much the staff fears him, 0-1.
+    #[serde(default)]
+    pub burner: Option<usize>,
+    #[serde(default)]
+    pub fear: f64,
 }
 
 /// Your defense's answer to one of their personnel groups (update 2,
@@ -233,6 +240,10 @@ pub struct Memory {
     pub opp_run_epa: f64,
     pub opp_runs: f64,
     pub opp_quick: f64,
+    /// The other offense's plays in this game alone, without the prep
+    /// snaps in `opp_plays` (update 3, F32-F33).
+    #[serde(default)]
+    pub opp_game_plays: f64,
     /// Pass concepts the other offense has run, in `PASS_CONCEPTS` order.
     pub opp_concepts: [f64; PASS_CONCEPTS.len()],
     /// The other offense's runs and passes by look, film and this game
@@ -269,6 +280,7 @@ impl Default for Memory {
             opp_run_epa: 0.0,
             opp_runs: 0.0,
             opp_quick: 0.0,
+            opp_game_plays: 0.0,
             opp_concepts: [0.0; PASS_CONCEPTS.len()],
             opp_look: vec![[0.0; 2]; LOOK_COUNT],
             own_look: vec![[0.0; 2]; LOOK_COUNT],
@@ -411,6 +423,9 @@ pub struct Situation {
     pub college: bool,
     /// The league's lean toward passing (the other leagues' books, X7).
     pub lean: f64,
+    /// How far the weather moves the call toward the run (minor bug 144).
+    #[serde(default)]
+    pub weather: f64,
 }
 
 impl Situation {
@@ -453,6 +468,31 @@ pub struct OffCtx {
     pub level: Level,
     /// This week's game plan as a share of the playbook (calendar T6.2).
     pub plan: f64,
+    /// Designed plays on this week's sheet (update 3, F27): playbook
+    /// number and the look it was drawn from.
+    #[serde(default)]
+    pub designs: [Option<(u16, Personnel, Backfield, Set)>; 8],
+    /// How much the offense leans on its raw burner (speed update S10),
+    /// 0-1; 0 without one who can go.
+    #[serde(default)]
+    pub burner: f64,
+}
+
+/// The designed plays on a team's sheets, dry and wet, first eight.
+pub fn sheet_designs(prep: &super::roster::Prep) -> [Option<(u16, Personnel, Backfield, Set)>; 8] {
+    let mut out: [Option<(u16, Personnel, Backfield, Set)>; 8] = [None; 8];
+    let mut n = 0;
+    for &(p, b, set, kind) in prep.sheet.iter().chain(&prep.wet).flat_map(|x| &x.1) {
+        if let PlayKind::Pass(i) = kind
+            && i >= PASS_CONCEPTS.len()
+            && n < out.len()
+            && !out[..n].iter().flatten().any(|d| d.0 as usize == i)
+        {
+            out[n] = Some((i as u16, p, b, set));
+            n += 1;
+        }
+    }
+    out
 }
 
 fn weigh<T: Copy>(rng: &mut Rng, items: &[(T, f64)]) -> T {
@@ -506,6 +546,8 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
     }
     // A line in your plan (G20): run it more.
     p_pass -= mem.plan.run_more;
+    // Bad weather: more runs, the same throws (`Game::weather_lean`).
+    p_pass -= sit.weather;
     if sit.hurry() {
         p_pass = p_pass.max(0.85);
     }
@@ -578,9 +620,14 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
             why = "breaking our pass tendency from this look";
         }
     }
-    formation.motion = pick_motion(scheme, &formation, pass, year, ctx.level, rng);
+    formation.motion = pick_motion(scheme, &formation, pass, year, ctx, rng);
     let mut call = if pass {
         let concept = pick_concept(staff, mem, sit, &formation, ctx, rng);
+        // A designed play runs from the set it was drawn in.
+        if let Some(&(_, _, b, set)) = ctx.designs.iter().flatten().find(|d| d.0 as usize == concept) {
+            formation.backfield = b;
+            formation.set = set;
+        }
         // Empty needs a quick answer or a full progression; it can't use
         // six- or seven-man protection.
         if formation.set == Set::Empty && pass_concept(concept).protection != Protection::Standard {
@@ -589,7 +636,22 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
         if pass_concept(concept).play_action && formation.backfield == Backfield::Shotgun && rng.chance(0.4) {
             formation.backfield = Backfield::Pistol;
         }
-        OffCall::new(formation, PlayKind::Pass(concept), strength, hurry)
+        let mut call = OffCall::new(formation, PlayKind::Pass(concept), strength, hurry);
+        // An RPO comes off the pass side of the sheet too: real ones
+        // replace runs and quick throws alike, and the real pass rates
+        // count their throws as passes and their handoffs as runs. Drawn
+        // from runs alone, their throws came on top of the real rate (FBS
+        // teams up 28+ passed 32% in the fourth quarter, real 28%; minor
+        // bug 142, proposed, not confirmed).
+        let pc = pass_concept(concept);
+        if !pc.play_action
+            && pc.depth != PassDepth::Screen
+            && let Some(i) = pick_rpo(staff, sit, &formation, RunConcept::InsideZone, ctx, short, rng)
+        {
+            call.kind = PlayKind::Rpo(RunConcept::InsideZone, i);
+            why = "a quick throw with a run tagged on for the defender in conflict";
+        }
+        call
     } else {
         if formation.set == Set::Empty {
             formation.set = Set::Trips;
@@ -604,7 +666,7 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
         };
         let mut call = OffCall::new(formation, PlayKind::Run(rc), dir, hurry);
         // An RPO (topic 1): the same run with a quick throw attached.
-        if let Some(i) = pick_rpo(staff, sit, &call, ctx, short, rng) {
+        if let Some(i) = pick_rpo(staff, sit, &call.formation, rc, ctx, short, rng) {
             call.kind = PlayKind::Rpo(rc, i);
             why = "a run with a throw tagged on for the defender in conflict";
         }
@@ -782,16 +844,18 @@ fn pick_set(scheme: OffScheme, p: Personnel, pass: bool, short: bool, year: i32,
 /// Motion (topic 3.1): about a quarter of snaps before 2015, more than half
 /// by the 2020s (NFL Next Gen Stats); jet motion is about a third of it.
 /// High school teams motion less (proposed, not confirmed).
-fn pick_motion(scheme: OffScheme, f: &Formation, pass: bool, year: i32, level: Level, rng: &mut Rng) -> Motion {
+fn pick_motion(scheme: OffScheme, f: &Formation, pass: bool, year: i32, ctx: &OffCtx, rng: &mut Rng) -> Motion {
     if f.set == Set::Empty {
         return Motion::None;
     }
-    let rate = (0.22 + 0.33 * era(year, 2014, 9.0)) * if level == Level::HS { 0.6 } else { 1.0 };
+    let rate = (0.22 + 0.33 * era(year, 2014, 9.0)) * if ctx.level == Level::HS { 0.6 } else { 1.0 };
     if !rng.chance(rate) {
         return Motion::None;
     }
+    // A team with a burner runs more jet motion to get him the ball (S10).
     let jet =
-        if matches!(scheme, OffScheme::WideZone | OffScheme::WingT | OffScheme::SpreadOption) { 1.5 } else { 1.0 };
+        if matches!(scheme, OffScheme::WideZone | OffScheme::WingT | OffScheme::SpreadOption) { 1.5 } else { 1.0 }
+            * (1.0 + ctx.burner);
     weigh(
         rng,
         &[
@@ -931,12 +995,20 @@ fn pick_run(
 /// The pass half of an RPO (topic 1): real college spread offenses tag a
 /// throw on a large share of their runs since the 2010s; NFL teams far
 /// fewer (their linemen may not be past one yard downfield).
-fn pick_rpo(staff: &Staff, sit: &Situation, call: &OffCall, ctx: &OffCtx, short: bool, rng: &mut Rng) -> Option<usize> {
-    let PlayKind::Run(rc) = call.kind else { return None };
+fn pick_rpo(
+    staff: &Staff,
+    sit: &Situation,
+    formation: &Formation,
+    rc: RunConcept,
+    ctx: &OffCtx,
+    short: bool,
+    rng: &mut Rng,
+) -> Option<usize> {
     if short
         || sit.hurry()
         || !matches!(rc, RunConcept::InsideZone | RunConcept::Duo | RunConcept::Power | RunConcept::Counter)
-        || call.formation.personnel.wide_receivers() < 2
+        || formation.personnel.wide_receivers() < 2
+        || formation.set == Set::Empty
     {
         return None;
     }
@@ -993,13 +1065,22 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
     let mean = ev.iter().sum::<f64>() / ev.len() as f64;
     let tr = trust(c.reading);
     let sit_skill = clamp((c.situational - 4.0) / 14.0, 0.0, 1.0);
+    // Designed plays on this week's sheet (update 3, F27), drawn for this
+    // personnel, are weighed like the library concept each looks like,
+    // without the scheme's favorite lean.
+    let designs =
+        ctx.designs.iter().flatten().filter(|d| d.1 == f.personnel).map(|d| (d.0 as usize, pass_concept(d.0 as usize)));
     let w: Vec<(usize, f64)> = PASS_CONCEPTS
         .iter()
         .enumerate()
+        .chain(designs)
         .map(|(i, pc)| {
             if is_rpo_half(pc) {
                 return (i, 0.0);
             }
+            let like = film_concept(i);
+            let own = like == i;
+            let name = PASS_CONCEPTS[like].name;
             let mut w = 1.0;
             match pc.depth {
                 // Screens are a staple, called on about 9% of real NFL
@@ -1029,7 +1110,7 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
             if pc.play_action {
                 // Play action needs a run game to sell, and a set back.
                 w *= if sit.down == 1 || short { 1.4 } else { 0.5 };
-                if f.backfield == Backfield::Shotgun && pc.name == "play-action boot" {
+                if f.backfield == Backfield::Shotgun && name == "play-action boot" {
                     w *= 0.5;
                 }
             }
@@ -1037,10 +1118,10 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
                 if pc.depth == PassDepth::Deep {
                     w *= 0.3;
                 }
-                if matches!(pc.name, "fades" | "flood" | "slant-flat" | "snag" | "spacing") {
+                if matches!(name, "fades" | "flood" | "slant-flat" | "snag" | "spacing") {
                     w *= 2.0;
                 }
-            } else if pc.name == "fades" {
+            } else if name == "fades" {
                 w *= 0.15;
             }
             if goal && pc.depth == PassDepth::Screen {
@@ -1050,7 +1131,7 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
                 if pc.play_action || pc.depth == PassDepth::Screen {
                     w *= 0.3;
                 }
-                if matches!(pc.name, "flood" | "curl-flat" | "smash" | "speed outs") {
+                if matches!(name, "flood" | "curl-flat" | "smash" | "speed outs") {
                     w *= 1.8;
                 }
             }
@@ -1077,12 +1158,12 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
                 }
                 OffScheme::WingT => &["play-action boot", "play-action shot", "flood"],
             };
-            if fav.contains(&pc.name) {
+            if own && fav.contains(&name) {
                 w *= 2.2;
             }
             // What beats what (topic 2): the caller leans toward the
             // concepts that gain the most against the looks he expects.
-            w *= (tr * (ev[i] - mean)).exp();
+            w *= (tr * (ev[like] - mean)).exp();
             // Third and fourth down (topic 6.2): a caller who knows the
             // situation calls routes that reach the sticks.
             if sit.down >= 3 && !short {
@@ -1095,16 +1176,20 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
             }
             let agg = c.aggressiveness + 4.0 * c.nerve * sit.pressure();
             w *= 1.0 + 0.03 * (agg - 10.0) * if pc.depth == PassDepth::Deep { 1.0 } else { -0.3 };
+            // A few more shots with a burner to throw them to (S10).
+            if pc.depth == PassDepth::Deep {
+                w *= 1.0 + 0.3 * ctx.burner;
+            }
             // Up big, a little less going deep (real NFL: 11.7% of throws
             // travel 20+ yards up 28+, 13.6% in close games).
-            if pc.depth == PassDepth::Deep || pc.name == "play-action shot" {
+            if pc.depth == PassDepth::Deep || name == "play-action shot" {
                 w *= 1.0 - 0.3 * sit.ease;
             }
             // A small book carries fewer concepts (topic 4.6), and the week's
             // plan sets how far past his favorites the caller reaches (T6.2):
             // a small plan is predictable, a big one varied.
             let book = staff.playbook * ctx.plan / super::roster::INSTALL;
-            if !fav.contains(&pc.name) {
+            if !(own && fav.contains(&name)) {
                 w *= book.clamp(0.2, 1.4);
             }
             (i, w.max(0.01))
@@ -1167,7 +1252,14 @@ fn values() -> &'static Values {
         let get = |row: Option<&Vec<f64>>, k: Option<usize>| {
             row.and_then(|r| k.and_then(|k| r.get(k).copied())).unwrap_or(0.0)
         };
-        let pass = PASS_CONCEPTS
+        // Centered like the runs (minor bug 135): a concept is chosen
+        // against a look by how much better it does there than its own
+        // average, so a sharp caller calls what beats the look, not the
+        // concepts that gain the most everywhere. Uncentered, the deep
+        // concepts' extra yards drew the world's play callers (about 14 of
+        // 20, who trust the table twice as much as a 10) to 19% of NFL
+        // throws at 20+ air yards (real 11.5%).
+        let pass: Vec<[f64; LOOK_COLS]> = PASS_CONCEPTS
             .iter()
             .map(|p| {
                 let row = rows.get(p.name);
@@ -1178,6 +1270,9 @@ fn values() -> &'static Values {
                 v
             })
             .collect();
+        let means: Vec<f64> = pass.iter().map(|v| v.iter().sum::<f64>() / LOOK_COLS as f64).collect();
+        let all = means.iter().sum::<f64>() / means.len().max(1) as f64;
+        let pass = pass.iter().zip(&means).map(|(v, m)| v.map(|x| x - (m - all))).collect();
         let run = RUN_CONCEPTS
             .iter()
             .map(|r| {
@@ -1371,13 +1466,16 @@ pub fn call_defense(
     let base = shell_mix(staff.shell);
     let sharp = c.adaptation / 20.0;
     let opp_pass = (mem.opp_pass + 2.0) / (mem.opp_plays + 4.0);
-    let deep_hurting = if mem.opp_plays > 6.0 { (mem.opp_deep_epa / mem.opp_plays.max(1.0)).max(0.0) } else { 0.0 };
+    // Deep hurt reads this game's plays only: prep snaps carry no deep
+    // results (update 3, F33).
+    let deep_hurting = if mem.opp_game_plays > 6.0 { (mem.opp_deep_epa / mem.opp_game_plays).max(0.0) } else { 0.0 };
     let run_hurting = if mem.opp_runs > 5.0 { (mem.opp_run_epa / mem.opp_runs).max(0.0) } else { 0.0 };
     // What the defense believes the offense will do from this look (topic
     // 7.2): a run tell brings the safety down, a pass tell keeps two high.
     let (p_run, sure) = mem.belief(off.look());
     let read = (c.reading + c.adaptation) / 40.0;
-    let lean_run = if ctx.tip != 0.0 { -0.5 * ctx.tip * read.max(0.6) } else { (p_run - 0.5) * sure * read };
+    // `belief` is already centred on their usual run share (update 3, F31).
+    let lean_run = if ctx.tip != 0.0 { -0.5 * ctx.tip * read.max(0.6) } else { p_run * sure * read };
     // What each coverage gives up against the passes this coordinator
     // expects (topic 2): a sharp one leans away from the coverages they
     // beat.
@@ -1414,6 +1512,11 @@ pub fn call_defense(
             }
             if sit.hurry() && cov.high() == 2 {
                 w *= 1.6;
+            }
+            // Two deep safeties against a burner (S10d), as teams played
+            // Tyreek Hill's Dolphins in 2023.
+            if cov.high() == 2 {
+                w *= 1.0 + 0.8 * mem.plan.fear;
             }
             if personnel == DefPersonnel::GoalLine && !cov.is_man() {
                 w *= 0.3;
@@ -1466,7 +1569,17 @@ pub fn call_defense(
     if sit.hurry() {
         blitz -= 0.1;
     }
-    blitz += sharp * (mem.opp_quick / mem.opp_plays.max(1.0) - 0.3).min(0.0) * 0.5;
+    // Their quick throws over this game's plays, from a four-play prior at
+    // the 30% mark so the first snaps read nothing (update 3, F32). Layered
+    // (B3): the ball out quick beats the rush, so a coordinator blitzes a
+    // quick-throwing offense less and one that holds the ball more; how far
+    // he backs off is his own nature (a Brian Flores barely does), and the
+    // snaps he backs off lean to simulated pressure and disguise, so the
+    // quarterback still has to read whether it's zone or a blitz.
+    let quick = (mem.opp_quick + 0.3 * 4.0) / (mem.opp_game_plays + 4.0);
+    let restraint = clamp((19.0 - c.aggressiveness) / 10.0, 0.1, 1.0);
+    let back_off = sharp * (quick - 0.3).max(0.0) * 0.5 * restraint;
+    blitz += sharp * (0.3 - quick).max(0.0) * 0.5 - back_off;
     // The head coach's pressure rate (update 2, G2).
     if let Some(r) = answer.rush {
         blitz += 0.7 * (r as f64 - super::guide::habit_pressure(c.aggressiveness));
@@ -1488,12 +1601,16 @@ pub fn call_defense(
                 (Pressure::FireZone, if zone && coverage.high() == 1 { 1.0 + 0.1 * c.skill } else { 0.0 }),
             ],
         )
+    } else if back_off > 0.0 && zone && rng.chance(back_off * if c.skill > 9.0 { 1.5 } else { 0.6 }) {
+        // A backed-off blitz still shows pressure: four rush from where the
+        // quarterback doesn't expect them, zone behind (B3).
+        Pressure::Simulated
     } else {
         Pressure::Four
     };
     let pressure =
         if personnel == DefPersonnel::Dime && pressure == Pressure::DoubleA { Pressure::DbBlitz } else { pressure };
-    let disguise = rng.chance(clamp(0.05 + 0.025 * c.skill, 0.05, 0.6) * (1.0 - ease));
+    let disguise = rng.chance(clamp(0.05 + 0.025 * c.skill + 1.5 * back_off, 0.05, 0.7) * (1.0 - ease));
     let front = pick_front(staff, mem, sit, off, lean_run, rng);
     // Stunts (topic 1): on four-man rushes, more on passing downs; real
     // NFL lines run one on roughly a fifth of dropbacks (proposed, not
@@ -1598,19 +1715,37 @@ pub fn make_plan(
     their_qb_run: f64,
     their_rushers: &[(usize, f64)],
     our_blockers: &[f64],
+    speeds: (&[(usize, f64)], &[f64]),
     rng: &mut Rng,
 ) -> Plan {
     let err = 0.8 * (20.0 - own.film_study).max(1.0);
     let seen = |v: f64, rng: &mut Rng| v + rng.normal(0.0, err);
+    // How fast their receivers play deep and how fast our corners do
+    // (S10a-S10d). Speed shows on film plainer than the rest: half the
+    // error, read before the rest of the plan.
+    let (their_deep, our_deep) = speeds;
+    let deep_seen: Vec<(usize, f64)> = their_deep.iter().map(|&(i, v)| (i, v + rng.normal(0.0, 0.5 * err))).collect();
+    let our_deep = if our_deep.is_empty() { 0.0 } else { our_deep.iter().sum::<f64>() / our_deep.len() as f64 };
+    let edge = |i: usize| deep_seen.iter().find(|x| x.0 == i).map_or(0.0, |x| (x.1 - our_deep).max(0.0));
+    // The man our corners can't run with: from 2 points faster than their
+    // average, all-out fear at 10 (proposed, not confirmed).
+    let (burner, fear) = deep_seen
+        .iter()
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|&(i, v)| (i, clamp((v - our_deep - 2.0) / 8.0, 0.0, 1.0)))
+        .filter(|x| x.1 > 0.0)
+        .map_or((None, 0.0), |(i, f)| (Some(i), f));
     // Attack the weakest corner when he is clearly the weak one.
     let target_cb = {
         let mut cbs: Vec<(usize, f64)> = their_cbs.iter().map(|&(i, v)| (i, seen(v, rng))).collect();
         cbs.sort_by(|a, b| a.1.total_cmp(&b.1));
         if cbs.len() >= 2 && cbs[1].1 - cbs[0].1 > 4.0 { Some(cbs[0].0) } else { None }
     };
-    // Bracket their best receiver when no corner of ours can match him.
+    // Bracket their best receiver when no corner of ours can match him,
+    // read partly by deep speed (S10c): a Jameson Williams can draw it
+    // over an Amon-Ra St. Brown.
     let bracket = {
-        let best = their_wrs.iter().map(|&(i, v)| (i, seen(v, rng))).max_by(|a, b| a.1.total_cmp(&b.1));
+        let best = their_wrs.iter().map(|&(i, v)| (i, seen(v, rng) + 0.6 * edge(i))).max_by(|a, b| a.1.total_cmp(&b.1));
         let our = our_cbs.iter().copied().fold(0.0, f64::max);
         best.filter(|b| b.1 - our > 5.0).map(|b| b.0)
     };
@@ -1633,6 +1768,8 @@ pub fn make_plan(
         answers: Default::default(),
         box_up: false,
         run_more: 0.0,
+        burner,
+        fear,
     }
 }
 
@@ -1646,13 +1783,14 @@ pub enum FourthDown {
 /// Fourth down (topic 4.2): expected points of going, punting and kicking
 /// from the real EP table, then the head coach's own lean. Sharp and
 /// aggressive coaches follow the numbers; weaker ones stay too cautious.
-pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) -> FourthDown {
+pub fn fourth_down(staff: &Staff, sit: &Situation, level: Level, fg_make: f64, rng: &mut Rng) -> FourthDown {
     let y = sit.yardline_100;
     let togo = sit.togo;
     // Real NFL fourth-down conversion by distance (about 70% on 4th and 1,
     // 50% on 4th and 5, 33% on 4th and 10).
     let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
-    let ep = tables::expected_points;
+    // The level's own expected-points table (update 3, F30).
+    let ep = |d: u8, t: f64, y: f64| tables::expected_points_in(sit.college, d, t, y);
     let after_score = 0.95;
     let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };
     let go_fail = -ep(1, 10.0, 100.0 - y);
@@ -1686,11 +1824,21 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     let noise = rng.normal(0.0, 0.5 * (1.3 - gm / 20.0));
     let best_kick =
         if ev_fg > ev_punt && fg_make > 0.3 { (FourthDown::FieldGoal, ev_fg) } else { (FourthDown::Punt, ev_punt) };
-    // Real coaches still mostly kick: the real go rate as a habit.
-    let habit = tables::real_fourth_go_rate(togo, y, sit.score_diff, sit.college);
-    let by_numbers = ev_go_adj + noise > best_kick.1 + margin;
-    let follow = clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45);
-    let go = if rng.chance(follow) { by_numbers } else { rng.chance(habit) };
+    // Real coaches still mostly kick: the real go rate as a habit. In the
+    // NFL it is the rate outside the late window the last line fills itself
+    // (nflverse 2021-2025: 0.18 of the real 1.46 tries a team game came in
+    // the fourth quarter's last 2:30 down four or more; counted twice, they
+    // helped NFL teams to 1.90 tries a game, minor bug 142).
+    let habit = tables::real_fourth_go_habit(togo, y, sit.score_diff, sit.college);
+    // How far he trusts the numbers over the habit. The real rates are every
+    // kind of coach together, so the level's typical coach keeps the habit;
+    // a sharper, bolder one moves toward what the numbers say, a weaker or
+    // more cautious one away from it (every coach used to follow them on
+    // top of the habit, minor bug 142; proposed, not confirmed).
+    let share = |gm: f64, agg: f64| clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45);
+    let follow = share(gm, agg) - share(super::rules::coach_norm(level), 10.0);
+    let says = if ev_go_adj + noise > best_kick.1 + margin { 1.0 } else { 0.0 };
+    let go = rng.chance(clamp(habit + follow * (says - habit), 0.0, 1.0));
     if go || (late && sit.score_diff < -3 && sit.game_left < 150.0 && !sit.concede) {
         FourthDown::Go
     } else {
@@ -1702,14 +1850,15 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
 /// topic 6): the chance to convert and the expected points of going,
 /// punting and kicking, from the same real tables `fourth_down` uses.
 pub fn fourth_values(sit: &Situation, fg_make: f64) -> (f64, f64, f64, f64) {
-    fourth_ev(sit.yardline_100, sit.togo, fg_make)
+    fourth_ev(sit.yardline_100, sit.togo, fg_make, sit.college)
 }
 
 /// `fourth_values` from the spot alone (yards to the goal, yards to go):
-/// also what the morning-after bots read your calls with (lane 8).
-pub fn fourth_ev(y: f64, togo: f64, fg_make: f64) -> (f64, f64, f64, f64) {
+/// also what the morning-after bots read your calls with (lane 8). Below
+/// the NFL it reads the college table.
+pub fn fourth_ev(y: f64, togo: f64, fg_make: f64, college: bool) -> (f64, f64, f64, f64) {
     let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
-    let ep = tables::expected_points;
+    let ep = |d: u8, t: f64, y: f64| tables::expected_points_in(college, d, t, y);
     let after_score = 0.95;
     let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };
     let go_fail = -ep(1, 10.0, 100.0 - y);

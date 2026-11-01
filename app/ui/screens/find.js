@@ -367,7 +367,7 @@ function frHead(x, seat, kicker, title, sub, dist, cells, note) {
   return `<div class="fr-head"><div><div class="fr-k">${kicker}</div><h1 class="fr-h1">${esc(title)}</h1><div class="fr-sub">${sub}</div>
       <div class="fr-count"><b class="fr-num">${esc(x.count_text)}</b><span>${x.count === 1 ? what.replace("match", "matches").replace("prospects", "prospect").replace("recruits", "recruit") : what} · of ${esc(x.known_text)} ${knows}</span></div>
       <div class="fr-rule">Every filter reads what your ${seat === "nfl" ? "scouts" : "staff"} and the public know, never a true rating. ${seat === "nfl" ? "A prospect" : "A kid"} your ${seat === "nfl" ? "scouts haven't" : "staff hasn't"} seen reads "Not seen": include those or leave them out.</div></div>
-    <div class="fr-panel"><div class="fr-ph"><span class="fr-k">${seat === "nfl" ? "By your board" : "By the composite"}</span><span class="fr-mute">of the ${esc(x.count_text)} matches</span></div>
+    <div class="fr-panel"><div class="fr-ph"><span class="fr-k">${seat === "nfl" ? "By your board" : "By the composite"}</span><span class="fr-mute">of the ${esc(x.count_text)} ${x.count === 1 ? "match" : "matches"}</span></div>
       <div class="fr-dist">${dist.map(([k, n]) => `<div><span class="fr-k">${esc(k)}</span><b class="fr-num">${frN(n)}</b><div class="fr-bar"><i style="width:${Math.max(3, (n / max) * 100)}%"></i></div></div>`).join("")}</div>
       <div class="fr-cells">${cells.map(([k, v]) => `<div><span class="fr-k">${esc(k)}</span><span class="fr-v">${v}</span></div>`).join("")}</div>
       <div class="fr-mini">${note}</div></div></div>`;
@@ -438,22 +438,23 @@ screens.find_prospects = async () => {
 };
 
 // ---------- the high school coach: Colleges calling (FR15) ----------
-screens.colleges_calling = async () => {
+screens.colleges_calling = async (a = {}) => {
   const x = await api("colleges_calling");
   if (S.status && S.status.mine) setColors(S.status.mine.colors);
   const k = keep("fr-hs", { level: "all", stage: "all", kid: "" });
   const hs = keep("sc-hs", { pid: null });
+  // "Call a college" from his page or a menu opens the box on him, once.
+  if (a.call != null) {
+    hs.pid = Number(a.call);
+    delete a.call;
+    setTimeout(() => { const r = document.querySelector(".fr-callrow"); if (r) r.scrollIntoView({ block: "center" }); const s = $("#sc-prog"); if (s) s.focus(); }, 0);
+  }
   const by = (p) => {
     const s = p.by.map((b) => (b.stars ? `${b.stars}★` : "not ranked"));
     // A signed kid's class is closed: no "yet" for him.
     return s.every((t) => t === "not ranked") ? frMute(p.signed ? "Not ranked by any service" : "Not ranked anywhere yet") :`<span class="fr-num" title="${esc(p.by.map((b) => b.name).join(" · "))}">${esc(s.join(" · "))}</span>`;
   };
   const heat = (h) => (h === "Hot" ? frWord("Hot", "hi") : h === "Quiet" ? frMute("Quiet") : esc(h));
-  const players = x.players.length
-    ? `<div class="fr-tbl"><table><thead><tr><th>Player</th><th>Pos</th><th>Class</th><th>By service <small class="fr-mute">${esc(x.services.map((s) => s.name).join(" · "))}</small></th><th>Composite</th><th class="r">Offers</th><th>Interest</th><th>Your read</th><th></th></tr></thead><tbody>
-      ${x.players.map((p) => `<tr class="${hs.pid === p.id ? "on" : ""}"><td>${playerLink(p.id, p.name)}</td><td>${esc(p.pos)}</td><td>${esc(p.cls)}<div class="fr-l2">class of ${p.class_of}</div></td><td>${by(p)}</td><td>${p.comp ? `${frStars(p.stars)} <span class="fr-l2 fr-num">${esc(p.comp.replace(/^0/, ""))}</span>` : frStars(p.stars)}</td><td class="r">${frOffers(p)}</td><td>${p.signed ? `${p.walk_on ? "Walk-on" : "Signed"}: ${teamLink(p.signed)}` : p.committed ? `${p.walk_on ? "Walk-on commit" : "Committed"}: ${teamLink(p.committed)}` : heat(p.heat)}${p.offers ? `<div class="fr-l2">${linkTo("recruit_race", { id: p.id }, "The race")}</div>` : ""}</td><td>${p.read && p.read.now ? range(p.read.now, null, { p: p.id, k: "ovr" }) : frMute("Not seen")}</td><td>${p.signed ? "" : `<button class="fr-btn" data-act="sc-promote" data-id="${p.id}" data-name="${esc(p.name)}">Call a college</button>`}</td></tr>`).join("")}
-      </tbody></table></div>`
-    : '<div class="fr-panel fr-empty">No players on your roster.</div>';
   const pick = x.players.find((p) => p.id === hs.pid);
   const progs = [];
   for (const l of x.lines) if (!progs.some((t) => t.ref.id === l.team.ref.id)) progs.push(l.team);
@@ -464,6 +465,13 @@ screens.colleges_calling = async () => {
       <label class="fr-k" for="sc-strength">What you say</label><select class="fr-sel" id="sc-strength">${x.strengths.map((s, i) => `<option value="${i}">${esc(s)}</option>`).join("")}</select>
       <button class="fr-btn fr-main" data-act="sc-promotego" data-id="${pick.id}">Make the call</button><button class="fr-btn" data-act="sc-promote" data-id="">Cancel</button></div></div>`
     : "";
+  // The call box opens under the row you called from, so it stays in view.
+  const callRow = (p) => (callBox && p.id === hs.pid ? `<tr class="fr-callrow"><td colspan="9">${callBox}</td></tr>` : "");
+  const players = x.players.length
+    ? `<div class="fr-tbl"><table><thead><tr><th>Player</th><th>Pos</th><th>Class</th><th>By service <small class="fr-mute">${esc(x.services.map((s) => s.name).join(" · "))}</small></th><th>Composite</th><th class="r">Offers</th><th>Interest</th><th>Your read</th><th></th></tr></thead><tbody>
+      ${x.players.map((p) => `<tr class="${hs.pid === p.id ? "on" : ""}"><td>${playerLink(p.id, p.name)}</td><td>${esc(p.pos)}</td><td>${esc(p.cls)}<div class="fr-l2">class of ${p.class_of}</div></td><td>${by(p)}</td><td>${p.comp ? `${frStars(p.stars)} <span class="fr-l2 fr-num">${esc(p.comp.replace(/^0/, ""))}</span>` : frStars(p.stars)}</td><td class="r">${frOffers(p)}</td><td>${p.signed ? `${p.walk_on ? "Walk-on" : "Signed"}: ${teamLink(p.signed)}` : p.committed ? `${p.walk_on ? "Walk-on commit" : "Committed"}: ${teamLink(p.committed)}` : heat(p.heat)}${p.offers ? `<div class="fr-l2">${linkTo("recruit_race", { id: p.id }, "The race")}</div>` : ""}</td><td>${p.read && p.read.now ? range(p.read.now, null, { p: p.id, k: "ovr" }) : frMute("Not seen")}</td><td>${p.signed ? "" : `<button class="fr-btn" data-act="sc-promote" data-id="${p.id}" data-name="${esc(p.name)}">Call a college</button>`}</td></tr>${callRow(p)}`).join("")}
+      </tbody></table></div>`
+    : '<div class="fr-panel fr-empty">No players on your roster.</div>';
   const kids = [...new Map(x.lines.flatMap((l) => l.about).map((p) => [p.id, p])).values()];
   const lines = x.lines.filter((l) => (k.level === "all" || (k.level === "small" ? !["FBS", "FCS"].includes(l.level) : l.level.toLowerCase() === k.level)) && (k.stage === "all" || l.stage_key === k.stage) && (!k.kid || l.about.some((p) => String(p.id) === String(k.kid))));
   const view = k.view === "map" ? "map" : "table";
@@ -479,14 +487,14 @@ screens.colleges_calling = async () => {
   const cells = [
     ["Offers", `${frN(s.offers)} <small>to ${frPlural(s.offered, "player")}</small>`],
     ["Camp invites", frN(s.camps)],
-    ["Your credibility", `${esc(s.credit_word)} <small>· ${s.calls_settled ? `${s.calls_right} of ${s.calls_settled} calls right in 5 years` : "no call settled yet"}</small>`],
+    ["Your credibility", `${esc(s.credit_word)} <small>· ${s.calls_settled ? `${s.calls_right} of ${s.calls_settled} call${s.calls_settled === 1 ? "" : "s"} right in 5 years` : "no call settled yet"}</small>`],
     ["Services' next update", esc(x.next_update)],
   ];
   const head = `<div class="fr-head"><div><div class="fr-k">${teamLink(x.team)} · Recruiting</div><h1 class="fr-h1">Colleges calling</h1><div class="fr-sub">${esc(x.team.name)} · head coach · ${esc(S.status && S.status.today ? S.status.today : "")} · ${esc(x.period)}</div>
       <div class="fr-count"><b class="fr-num">${frN(x.lines.length)}</b><span>${x.lines.length === 1 ? "college" : "colleges"} calling about ${frPlural(Number(x.count), "of your players", "of your players")}</span></div>
       <div class="fr-rule">As a high school coach you don't search for recruits: colleges come to you. This is every college staff in touch about your players, what they want and how much they trust your word.</div></div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">This year</span></div><div class="fr-cells">${cells.map(([k2, v]) => `<div><span class="fr-k">${esc(k2)}</span><span class="fr-v">${v}</span></div>`).join("")}</div><div class="fr-mini">College staffs weigh what you tell them by how your past calls turned out.</div></div></div>`;
-  return `<div class="pad fr">${head}${gotoFor("hsside")}<div class="fr-sect"><h2>Your players being recruited</h2><span class="fr-mute">Stars by service: ${esc(x.services.map((q) => q.name).join(" · "))}</span></div>${callBox}${players}${calls}<div class="fr-foot">${yourCalls}</div></div>`;
+  return `<div class="pad fr">${head}${gotoFor("hsside")}<div class="fr-sect"><h2>Your players being recruited</h2><span class="fr-mute">Stars by service: ${esc(x.services.map((q) => q.name).join(" · "))}</span></div>${players}${calls}<div class="fr-foot">${yourCalls}</div></div>`;
 };
 screens.hsside = screens.colleges_calling;
 

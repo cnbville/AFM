@@ -25,6 +25,14 @@ pub fn set_same_schemes(on: bool) {
     SAME_SCHEMES.store(on, Ordering::Relaxed);
 }
 
+/// Every switch and whether it is on (the world log's meta, R2).
+pub fn switches() -> [(&'static str, bool); 2] {
+    [
+        ("position_values", POSITION_VALUES.load(Ordering::Relaxed)),
+        ("same_schemes", SAME_SCHEMES.load(Ordering::Relaxed)),
+    ]
+}
+
 /// Share of the quarterback's value per rating point the engine pays now
 /// (`docs/match-engine.md`) against the middle of the proposed band.
 pub fn shrink(pos: Position) -> f64 {

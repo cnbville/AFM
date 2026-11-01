@@ -96,7 +96,7 @@ pub const FREE_AGENT_TIER: u8 = 9;
 
 /// The picks in the coming draft (at least seven rounds).
 fn picks_in(w: &World) -> usize {
-    let teams = franchise::active_teams(w.year).len().max(1);
+    let teams = franchise::active_teams_in(w, w.year).len().max(1);
     board::coming_slots(w).len().max(teams * 7)
 }
 
@@ -120,7 +120,7 @@ fn draft_side(w: &World, year: i32) -> Draft {
     }
     let grades = board::seat_grades(w);
     let order = board::ordered(w, &grades);
-    let teams = franchise::active_teams(w.year).len().max(1);
+    let teams = franchise::active_teams_in(w, w.year).len().max(1);
     let picks = picks_in(w);
     let b = &w.scouting.board;
     // A grade you set holds; otherwise the board's place gives the round,
@@ -294,7 +294,8 @@ pub fn find(w: &World, t: usize, args: &Value) -> Reply {
             None => 5,
         };
         dist[k] += 1;
-        if let Some(a) = p.cal.all_star.as_ref() {
+        // "declined" is the engine's mark for a turned-down invite: he isn't there.
+        if let Some(a) = p.cal.all_star.as_ref().filter(|a| **a != "declined") {
             seen_week += 1;
             if *a == "Senior Bowl" {
                 senior_bowl += 1;
@@ -497,7 +498,11 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
         "tests": tests.as_ref().map(fields::tests_json),
         "combine": p.cal.combine_invite,
         "all_star": p.cal.all_star.as_ref().map(|a| a.to_string()),
-        "starts": if starts > 0 { format!("{seasons} years, {starts} as a starter") } else { format!("{seasons} years") },
+        "starts": if starts > 0 {
+            format!("{seasons} {}, {starts} as a starter", afm_engine::world::folk::noun(seasons, "year"))
+        } else {
+            format!("{seasons} {}", afm_engine::world::folk::noun(seasons, "year"))
+        },
         "line": fields::stat_line(ctx, i),
         "habit": habit,
         "injuries": injuries,

@@ -378,7 +378,7 @@ const WOMEN_HISPANIC: [&str; 12] = [
 
 /// A name: a man's from the world's name pools, a woman's from a short
 /// list by era and heritage with a surname from the same pools.
-fn person_name(eth: Ethnicity, born: i32, she: bool, rng: &mut Rng) -> String {
+pub(crate) fn person_name(eth: Ethnicity, born: i32, she: bool, rng: &mut Rng) -> String {
     let full = crate::world::names::person_name(eth, born, rng);
     if !she {
         return full;

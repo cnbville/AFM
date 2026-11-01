@@ -60,8 +60,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let p = &w.people[i];
     let pos = p.player.position;
     let (ovr, own, eye) = any_read(w, i);
-    let reader = views::reader_key(w);
-    let attrs = reads::attributes(&p.player, own, eye, reader);
+    let attrs = reads::attributes(w, i);
     let pool = norms::pool_of(w, i);
     let level_mark = |rated: Rated| pool.and_then(|pl| crate::lane_ratings::marks_cached(w, pl, pos, rated));
     let team = views::team_of(w, p);
@@ -94,8 +93,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         }
         _ => Value::Null,
     };
-    let level = views::level_of(w, p);
-    let outlook = reads::potential_words(&p.player, eye, level, reader, w.year);
+    let outlook = reads::potential_words(w, i);
     let games = super::my_games(w).iter().filter(|(g, side)| own && g.stats.players[*side].contains_key(&id)).count();
     let tape = if own {
         format!(
@@ -124,14 +122,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         }
         _ => Vec::new(),
     };
-    let mate_reads: Vec<Vec<(Attr, Read)>> = mates
-        .iter()
-        .map(|&k| {
-            let q = &w.people[k];
-            let e = team.map_or(10.0, |t| views::eye_for(w, t, q.player.position));
-            reads::attributes(&q.player, true, e, reader)
-        })
-        .collect();
+    let mate_reads: Vec<Vec<(Attr, Read)>> = mates.iter().map(|&k| reads::attributes(w, k)).collect();
     let fam_json: Vec<Value> = fams
         .iter()
         .enumerate()
@@ -238,7 +229,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let measured = matches!(p.stage, Stage::College | Stage::Declared | Stage::Pro | Stage::Done);
     let forty = super::body::best_forty(w, i);
     let recruited = if p.stars > 0 {
-        format!("{} stars, class of {}", p.stars, p.class_of)
+        format!("{} {}, class of {}", p.stars, afm_engine::world::folk::noun(p.stars, "star"), p.class_of)
     } else if p.walk_on {
         format!("Walk-on, class of {}", p.class_of)
     } else {

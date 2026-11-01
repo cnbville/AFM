@@ -6,7 +6,8 @@
 // a face is drawn. Built from tools/faces/heads/heads.src.js by tools/faces/heads/build.py (do not edit heads.js by hand).
 //
 // AFMHeads.draw(spec) -> Promise of a WebP data URL (480 x 576, transparent background). `spec` is what the game's
-// `face`/`faces` commands send (genes, looks, expression, team colours); AFMHeads.drawRecipe takes a head recipe directly.
+// `face`/`faces` commands send (genes, looks, expression, team colours); a talk adds the expression's strength and a view
+// ({yaw, down} in degrees, dialogue D1). AFMHeads.drawRecipe takes a head recipe directly.
 "use strict";
 (() => {
   const BASE = "screens/heads/";
@@ -108,7 +109,8 @@
       if (Math.abs(v) > 1e-3) g["gnm/gnm-" + nm] = v;
     }
     let fu = 0; const fm = S.groups[her].fat_mean; for (let k = 0; k < c.length; k++) fu += (c[k] - fm[k]) * S.fat_a[k];
-    const ex = EXPR[spec.expression] || EXPR.slight_smile; g["gnm/gnm-expr_" + ex[0]] = ex[1];
+    // a talk's tell (dialogue D1) draws the expression stronger or fainter than the team photo's
+    const ex = EXPR[spec.expression] || EXPR.slight_smile; g["gnm/gnm-expr_" + ex[0]] = ex[1] * (spec.strength ?? 1);
     // traits from the seed (newplayer_v4.py's draws)
     const browtail = her === "east_asian" ? -.012 : 0;
     const brow = [nr() * .012 - .004, 1 + .25 * nr(), 1 + .12 * nr(), Math.max(.8, 1.05 + .2 * nr()), .015 * nr(), .08 * nr() + browtail * 2, Math.min(1.3, Math.max(.5, .95 + .18 * nr())), .01 * nr()];
@@ -145,6 +147,8 @@
       // a logo from a pack you installed (lane 15): a college's at the V-neck, the NFL shield at the collar; the page hands in
       // the decoded picture
       logo: spec.logo && spec.logo.img ? spec.logo : null,
+      // a talk's tell (dialogue D1): the head turned (degrees to his left) and the eyes dropped
+      view: spec.view || null,
     };
   }
 
@@ -438,6 +442,13 @@
       cam.position.set(0, tgt.y + .25, tgt.z + 8 / .77); cam.lookAt(tgt); cam.updateMatrixWorld();
       const cy = ey + .35, aim = new THREE.Vector3(0, cy - .6, .5);
       for (const [l, pw] of POW) { const q = l.userData.pos; l.position.set(q[0], cy + q[1], q[2]); l.target.position.copy(aim); const d2 = l.position.distanceToSquared(aim); l.intensity = pw / d2 * LK; }
+      // a turned head: the camera and the lights go round him together, so the light on his face stays the approved one
+      if (p.view && (p.view.yaw || p.view.down)) {
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-(p.view.down || 0) * Math.PI / 180, -(p.view.yaw || 0) * Math.PI / 180, 0, "YXZ"));
+        const turn = (v) => v.sub(tgt).applyQuaternion(q).add(tgt);
+        turn(cam.position); cam.lookAt(tgt); cam.updateMatrixWorld();
+        for (const [l] of POW) turn(l.position);
+      }
       key.shadow.camera.updateProjectionMatrix();
       // hair and beard
       // hair colour as Blender's hair shader showed it: lighter hair reads richer and a little darker than its flat colour

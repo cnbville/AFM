@@ -172,6 +172,10 @@ fn your_club_in_another_league_plays_its_season() {
         let before = w.seat_games.len();
         let dry = today.as_ref().map(|s| crate::game::play_game(&s.params.setup(&s.home, &s.away)));
         o::day(&mut w, d);
+        // Injuries heal a day at a time after the day's games, as the
+        // world's clock runs it (`nfl_year::day`; this world has no NFL).
+        let y = w.dates.clone();
+        crate::world::pro::heal_day(&mut w, d, &y);
         if let (Some(s), Some(r)) = (today, dry) {
             assert_eq!(w.seat_games.len(), before + 1, "{d:?}: your game is kept");
             let g = w.seat_games.last().unwrap();

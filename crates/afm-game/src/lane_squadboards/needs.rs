@@ -125,7 +125,6 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         TeamRef::Nfl(_) => 2,
         _ => 1,
     };
-    let reader = views::reader_key(w);
     let five = w.changes.rules(f0).five_in_five;
     let limit: i32 = if five { 5 } else { 4 };
     // Who counts: your roster and, at a college, your commits.
@@ -143,7 +142,7 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
     for (i, commit) in people {
         let p = &w.people[i];
         let pos = p.player.position;
-        let read = if commit { reads::overall(&p.player, false, 10.0, reader) } else { own_read(w, t, i) };
+        let read = if commit { reads::overall(w, i) } else { own_read(w, t, i) };
         let Some(m0) = mid(read) else { continue };
         let age = p.player.age;
         // Each fall's level for his growth, and whether he plays then.

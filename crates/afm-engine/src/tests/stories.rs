@@ -15,7 +15,7 @@ use crate::world::{World, WorldOptions};
 fn nfl_world() -> (World, usize) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     let t = (0..w.clubs.len())
-        .filter(|&t| crate::world::franchise::active(t, w.year))
+        .filter(|&t| crate::world::franchise::active_in(&w, t, w.year))
         .max_by_key(|&t| w.clubs[t].roster.len())
         .unwrap();
     let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];
@@ -61,6 +61,7 @@ fn answered_letter(date: Date, yes: u8, no: u8, target: u32, pick: u8) -> Mail {
         loud: 2,
         ids: Vec::new(),
         org_team: None,
+        why: Vec::new(),
     }
 }
 
@@ -103,11 +104,12 @@ fn each_era_lets_a_position_wear_its_own_numbers() {
     // Linebackers got 40-49 in 2015.
     assert!(!nfl(Position::LB, 2014).iter().any(|n| (40..=49).contains(n)));
     assert!(nfl(Position::LB, 2016).iter().any(|n| (40..=49).contains(n)));
-    // 2021 opened single digits to backs, receivers and defenders; 2024 allowed 0.
+    // 2021 opened single digits to backs, receivers and defenders; 2023 allowed 0
+    // (minor bug 47: 23 players wore it that year).
     assert!(!nfl(Position::RB, 2020).iter().any(|&n| n < 10));
     assert!(nfl(Position::RB, 2021).iter().any(|&n| (1..=9).contains(&n)));
-    assert!(!nfl(Position::CB, 2023).contains(&0));
-    assert!(nfl(Position::CB, 2024).contains(&0));
+    assert!(!nfl(Position::CB, 2022).contains(&0));
+    assert!(nfl(Position::CB, 2023).contains(&0));
     // Interior linemen stay ineligible at every level: 50-79.
     for level in [Level::HighSchool, Level::College, Level::Nfl] {
         assert!(numbers::allowed(Position::IOL, level, 2026).iter().all(|n| (50..=79).contains(n)));
@@ -229,4 +231,25 @@ fn an_old_world_file_loads_with_empty_stories() {
     let (w, _) = nfl_world();
     let back: st::Stories = rmp_serde::from_slice(&rmp_serde::to_vec_named(&w.stories).unwrap()).unwrap();
     assert_eq!(back.story.entries.len(), w.stories.story.entries.len());
+}
+
+#[test]
+fn a_count_of_one_takes_the_singular() {
+    use crate::world::folk::noun;
+    assert_eq!(noun(1, "interception"), "interception");
+    assert_eq!(noun(0, "interception"), "interceptions");
+    assert_eq!(noun(3_usize, "catch"), "catches");
+    assert_eq!(noun(2_u32, "carry"), "carries");
+    assert_eq!(noun(2, "day"), "days");
+    assert_eq!(noun(1_i64, "practice injury"), "practice injury");
+    assert_eq!(noun(5, "practice injury"), "practice injuries");
+}
+
+#[test]
+fn a_bank_line_counting_one_takes_the_singular() {
+    let t = "renamed a drink {days} days after, {years} years on, {pts} points, {n} is";
+    let one = lines::Fill::new().set("days", "1").set("years", "1").set("pts", "1").set("n", "1");
+    assert_eq!(lines::fill_for_test(t, &one).unwrap(), "renamed a drink 1 day after, 1 year on, 1 point, 1 is");
+    let many = lines::Fill::new().set("days", "11").set("years", "3").set("pts", "21").set("n", "2");
+    assert_eq!(lines::fill_for_test(t, &many).unwrap(), "renamed a drink 11 days after, 3 years on, 21 points, 2 is");
 }

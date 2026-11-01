@@ -386,9 +386,20 @@ fn leaders(w: &World, k: usize, team: usize) -> Value {
             } else if l.targets > 0 && l.rec_yds > 0.0 {
                 format!("{} rec, {:.0} yds", l.rec, l.rec_yds)
             } else if l.sacks > 0.0 || l.ints > 0 {
-                format!("{} tackles, {:.1} sacks, {} INT", l.tackles + l.assists, l.sacks, l.ints)
+                format!(
+                    "{} {}, {:.1} sacks, {} INT",
+                    l.tackles + l.assists,
+                    afm_engine::world::folk::noun(l.tackles + l.assists, "tackle"),
+                    l.sacks,
+                    l.ints
+                )
             } else if l.tackles + l.assists > 0 {
-                format!("{} tackles, {:.1} TFL", l.tackles + l.assists, l.tfl)
+                format!(
+                    "{} {}, {:.1} TFL",
+                    l.tackles + l.assists,
+                    afm_engine::world::folk::noun(l.tackles + l.assists, "tackle"),
+                    l.tfl
+                )
             } else {
                 format!("{} snaps", l.snaps_off + l.snaps_def + l.snaps_st)
             };

@@ -14,7 +14,7 @@ use super::{head, is_snap, lvl, pct, season_games, seat};
 use crate::Reply;
 use crate::lane_training::{boards_with, practice_status};
 use crate::reads;
-use crate::views::{class_text, eye_for, person_index, reader_key};
+use crate::views::{class_text, person_index};
 
 const PACKAGES: [(Board, &str); 5] = [
     (Board::Nickel, "Defense"),
@@ -34,7 +34,6 @@ fn picks_of(w: &World, b: Board) -> Vec<u32> {
 
 pub(crate) fn view(w: &World, a: &Value) -> Reply {
     let s = seat(w)?;
-    let reader = reader_key(w);
     // One build of your game team serves the whole board (the depth order
     // the engine dresses, the packages' fill).
     let depth = plans::depth_order(&s.team, s.level);
@@ -69,14 +68,13 @@ pub(crate) fn view(w: &World, a: &Value) -> Reply {
     let who = |id: u32| -> Option<Value> {
         let i = person_index(w, id)?;
         let p = &w.people[i];
-        let eye = eye_for(w, s.tr, p.player.position);
         let (practice, note) = practice_status(w, id, i);
         let wk = &w.plans.week;
         let this = plans::next_game(w).is_some_and(|n| wk.game == Some(n.date));
         let limit = if this { wk.limits.iter().find(|l| l.0 == id).map(|l| l.1) } else { None };
         Some(json!({
             "id": id, "name": p.name, "pos": p.player.position.name(), "class": class_text(w, p),
-            "read": reads::overall(&p.player, true, eye, reader).json(), "practice": practice, "note": note,
+            "read": reads::overall(w, i).json(), "practice": practice, "note": note,
             "limit": limit,
         }))
     };

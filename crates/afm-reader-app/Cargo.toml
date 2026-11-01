@@ -1,0 +1,15 @@
+[package]
+name = "afm-reader-app"
+description = "The AFM World Reader's commands (lane R5): the library, search, filters, the year slider, pages and compare over a world's book, for the reader's Mac app and its browser server. A debug tool: it sees hidden truths."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+afm-engine = { workspace = true, features = ["debug"] }
+afm-reader = { path = "../afm-reader" }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde_json = "1"
+tiny_http = "0.12"
+ureq = { version = "2", features = ["json", "native-certs"] }
+zstd = "0.13"

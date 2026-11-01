@@ -77,7 +77,16 @@ function rrPlayerHtml(x) {
     <div class="rr-marks"><span><small>Typical backup</small><b>${m.backup}</b></span><span><small>Typical starter</small><b>${m.starter}</b></span><span><small>Elite from</small><b>${m.elite}</b></span></div>
     <p>${esc(x.line)}</p>
     ${x.combine ? `<p class="rr-comb"><span class="st-label">At the combine</span>${esc(x.combine)}</p>` : ""}
-    <p class="rr-pool">${esc(x.pool)}, ${esc(x.count)}.${x.widened ? ` ${esc(x.widened)}` : ""}</p>`;
+    <p class="rr-pool">${esc(x.pool)}, ${esc(x.count)}.${x.widened ? ` ${esc(x.widened)}` : ""}</p>
+    ${x.change ? rrChangeHtml(x.change, x.dev ? x.pid : null) : ""}`;
+}
+// H2 (lane 6): how the read moved since the last season's end, and why.
+function rrChangeHtml(c, pid) {
+  const cls = /^Up/.test(c.word) ? "up" : /^Down/.test(c.word) ? "down" : "";
+  return `<div class="hp-chg"><div class="rr-top"><span class="st-label">Since the end of ${esc(c.season)}</span><b class="${cls}">${esc(c.word)}</b></div>
+    <p>${esc(c.line)}</p>
+    ${c.why && c.why.length ? `<ul>${c.why.map((t) => `<li>${rich(t)}</li>`).join("")}</ul>` : ""}
+    ${pid != null ? playerLink(pid, "His Development tab", "Development") : ""}</div>`;
 }
 function rrStaffHtml(x) {
   const m = x.marks;
@@ -97,7 +106,7 @@ function rrShow(t, x) {
   const lo = t.dataset.lo, hi = t.dataset.hi;
   el.innerHTML = x.error
     ? `<div class="rr-top"><span class="st-label">Your read</span><b>${esc(lo)}-${esc(hi)}</b></div><p>${esc(x.error)}</p>`
-    : t.dataset.rr.startsWith("s:") ? rrStaffHtml(x) : rrPlayerHtml(x);
+    : t.dataset.rr.startsWith("s:") ? rrStaffHtml(x) : rrPlayerHtml({ ...x, pid: Number(t.dataset.rr.slice(2)) });
   document.body.appendChild(el);
   // A range laid out in its table's columns has no box of its own: its bar does.
   let r = t.getBoundingClientRect();
@@ -240,7 +249,8 @@ function rrChart(rec, pick) {
     const dots = s.players.map((p, j) => {
       const cx = x0 + ((j * 37) % 100) / 100 * (x1 - x0);
       if (p.id === pick) gold.push([cx, y(p.r)]);
-      return `<circle cx="${cx.toFixed(1)}" cy="${y(p.r).toFixed(1)}" r="3.2" class="${p.id === pick ? "pick" : p.r < -0.5 ? "low" : ""}"><title>${esc(p.name || "")}: ${rrSigned(p.r)}</title></circle>`;
+      const c = `<circle cx="${cx.toFixed(1)}" cy="${y(p.r).toFixed(1)}" r="3.2" class="${p.id === pick ? "pick" : p.r < -0.5 ? "low" : ""}"><title>${esc(p.name || "")}: ${rrSigned(p.r)}</title></circle>`;
+      return p.id != null ? `<a data-go="player" data-id="${p.id}">${c}</a>` : c;
     }).join("");
     return `${dots}<line x1="${x0}" x2="${x1}" y1="${y(s.mean)}" y2="${y(s.mean)}" class="mean"/><text x="${x1}" y="${y(s.mean) - 5}" text-anchor="end" class="mv">${rrSigned(s.mean)}</text><text x="${(x0 + x1) / 2}" y="${H - 4}" text-anchor="middle" class="yr">${s.year}</text>`;
   }).join("");

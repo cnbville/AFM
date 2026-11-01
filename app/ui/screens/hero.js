@@ -418,3 +418,33 @@ function heroKnow(list, colors) {
   if (!list || !list.length) return '<div class="empty">Nobody stands out yet.</div>';
   return `<div class="hr-know">${list.map((k) => `<div class="hr-kn ${k.tone === 2 ? "amber" : k.tone === 1 ? "hurt" : ""}">${hface(k, "hr-kf", colors[0])}<span>${playerLink(k.id, k.name)} <small>${esc(k.pos)}</small></span><span class="hr-kw">${esc(k.why)}</span></div>`).join("")}</div>`;
 }
+
+// The Handbook's page for Home (lane 8's hbAdd). hero.js loads before the
+// Handbook's scripts, so the page is added once every script has run.
+window.addEventListener("DOMContentLoaded", () => {
+  if (typeof hbAdd !== "function") return;
+  hbAdd({
+    id: "home", group: "Running the team", title: "Home",
+    lede: "Home opens on three big slides about your team: your stadium on a game night, the program's story and the room you coach. Your next game, the last result and the season's news follow them.",
+    how: [
+      ["Under the lights", "Your stadium at night, filled to last season's real home crowd: grey seats are seats nobody bought. Your captains stand at midfield, and the cards show the road ahead, your boss's words and your rival."],
+      ["The program's story", "Every season on record as a bar, shaded by head coach, with titles in gold. The marks list what nobody here has done for a long time; each turns done or missed as your seasons go."],
+      ["The room", "Last season's starters in a team photo, this season's once the games begin, with an empty spot for you. Beside it: who is unhappy, who is hurt and the room's mood."],
+      ["Switching", "The arrows and dots under the slides move between them, and Home opens on the one you picked last. Left alone they turn every eight seconds, and stop while your pointer is over them."],
+    ],
+    lv: {
+      hs: "The board at the far end shows your record. The wall lists the seniors leaving for college in June, and the rival line is the school you play for a trophy.",
+      college: "The rival line is your biggest rivalry series. The wall holds the program's award winners and, when there are few, its highest draft picks.",
+      nfl: "No board at the far end. The rival line is your division's standings, and the wall holds the club's award winners.",
+    },
+    where: [["Home", "home"], ["History", "history"], ["Squad", "roster"], ["People, the room", "people", { tab: "Room" }]],
+    rel: ["calendar", "people", "draft"],
+  });
+  hbScreen("home", "home", [
+    ["Under the lights", "Your stadium, your captains, the road from here and what's asked of you."],
+    ["The program's story", "Your seasons on record and the marks you could be the first to reach."],
+    ["The room", "The starters' photo and how the room feels."],
+    ["People to know first", "Three people to meet first, and why: the unhappiest player, a captain, the most hurt.", "People to know first"],
+    ["Continue", "Plays days until something needs you."],
+  ]);
+});

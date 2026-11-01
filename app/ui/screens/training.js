@@ -17,6 +17,8 @@ const trRedraw = () => render(trScroll());
 // the draft week): nothing changed on the server.
 const trLocal = () => { TR.reuse = true; return render(trScroll()); };
 const trCap = (s) => String(s || "").replace(/^./, (c) => c.toUpperCase());
+// A level's name in a page's kicker: "High school", "College", "NFL".
+const trTier = (t) => ({ hs: "High school", college: "College", nfl: "NFL" })[t] || trCap(t);
 const trMine = (a) => !a || !a.kind || (S.status && S.status.mine && S.status.mine.ref.kind === a.kind && S.status.mine.ref.id === Number(a.id));
 const trLast = (n) => { const w = String(n || "").split(" ").filter((x) => !/^(Jr\.?|Sr\.?|II|III|IV|V)$/.test(x)); return w[w.length - 1] || n; };
 const trPlural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
@@ -46,14 +48,22 @@ Object.assign(I, {
   plans: '<path d="M5 3h10l4 4v14H5z M15 3v4h4"/><circle cx="9" cy="12" r="1.6"/><path d="M13 11l3 3M16 11l-3 3M9 17c2 0 4-1 6-3"/>',
   design: '<path d="M4 20l4-1 11-11-3-3L5 16z M14 6l3 3"/>',
 });
-navAdd({ go: "plans", label: "Plans", icon: "plans", sec: "team", after: "training", seats: ["college", "nfl", "hs"] });
+navAdd({ go: "plans", label: "Playbook", icon: "plans", sec: "team", after: "training", seats: ["college", "nfl", "hs"] });
 navAdd({ go: "designer", label: "Play designer", icon: "design", sec: "team", after: "plans", seats: ["college", "nfl", "hs"] });
-Object.assign(CRUMBS, { plans: "Plans", designer: "Play designer", roster: "Squad", depth: "Depth chart", training: "Training" });
-GOTO.training = () => [["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Plans", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]];
+Object.assign(CRUMBS, { plans: "Playbook", designer: "Play designer", roster: "Squad", depth: "Depth chart", training: "Training" });
+GOTO.training = () => [["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Playbook", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]];
 GOTO.plans = () => [["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"], ["Schedule", "schedule"]];
-GOTO.designer = () => [["Plans", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"], ["Depth chart", "depth"]];
-GOTO.depth = () => [["Squad", "roster"], ["Training", "training"], ["Plans", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]];
-GOTO.roster = (a) => (trMine(a) ? [["Depth chart", "depth"], ["Training", "training"], ["Plans", "plans"], ["Staff", "staff"], ["Leaderboards", "leaders"]] : [["Schedule", "schedule", teamArgs(a)], ["Staff", "staff", teamArgs(a)], ["Team page", "team", teamArgs(a)], ["Leaderboards", "leaders"]]);
+GOTO.designer = () => [["Playbook", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"], ["Depth chart", "depth"]];
+GOTO.depth = () => [["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]];
+// Your Squad's one line in every view (screens topic 17): the Fitness view
+// is its Health, and the money desk is the cap sheet at the NFL, the
+// recruiting board in college. Another league's club has no training.
+GOTO.roster = (a) => {
+  if (!trMine(a)) return [["Schedule", "schedule", teamArgs(a)], ["Staff", "staff", teamArgs(a)], ["Team page", "team", teamArgs(a)], ["Leaderboards", "leaders"]];
+  const seat = seatKind();
+  const onHealth = S.route.screen === "roster" && (S.keep.sqview || {}).v === "Fitness";
+  return [["Depth chart", "depth"], seat !== "other" ? ["Training", "training"] : null, onHealth ? null : ["Health", "roster", { view: "Fitness" }], seat === "nfl" ? ["Cap sheet", "fo_cap"] : seat === "college" ? ["Recruiting board", "recruit_board"] : null, ["Compare", "compare"]];
+};
 // These screens draw their own Go-to lines.
 for (const s of ["training", "depth", "roster"]) {
   const i = GOTO_AFTER.indexOf(s);
@@ -603,7 +613,7 @@ function twGroups(x, days) {
 }
 function twBody(x) {
   return `${twPh("Body targets by group", "from the dietitian and strength staff")}<table class="tw-small"><tr><th>Group</th><th>Now</th><th>Target</th><th></th></tr>${x.body.map((b) => `<tr><td>${esc(b.group)} <span class="muted">· ${b.count}</span></td><td>${esc(b.now)}</td><td class="muted">${esc(b.target)}</td><td class="${b.warn ? "amber" : "muted"}">${esc(b.status)}</td></tr>`).join("")}</table>
-    <div class="tw-mini">${x.body.reduce((a, b) => a + b.planned, 0)} players have a body target you set; the rest grow into their frames.</div>`;
+    <div class="tw-mini">${trPlural(x.body.reduce((a, b) => a + b.planned, 0), "player")} ${x.body.reduce((a, b) => a + b.planned, 0) === 1 ? "has" : "have"} a body target you set; the rest grow into their frames.</div>`;
 }
 // The strength coach's numbers (TR5, T3).
 function twNumbers(x) {
@@ -611,7 +621,7 @@ function twNumbers(x) {
   const coach = x.staff.str ? x.staff.str.name : "the strength staff";
   if (!n.rows.length) return `<div class="panel tw-panel"><div class="empty">No testing yet this year.${n.next ? ` The next testing day is ${esc(n.next)}.` : ""}</div></div>`;
   const cols = [
-    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "Development") },
     { k: "pos", t: "Pos", l: true },
     { k: "bench", t: n.pro ? "225 bench" : "Bench", v: (r) => parseFloat(r.bench) || 0, f: (r) => esc(r.bench) },
     { k: "squat", t: "Squat", hide: n.pro, v: (r) => parseFloat(r.squat) || 0, f: (r) => esc(r.squat) },
@@ -628,7 +638,7 @@ function twNumbers(x) {
 // Who's where (TR7, TR8, TR9, TR14).
 function twWhere(x) {
   const w = x.where;
-  const pl = (p) => `${playerLink(p.id, p.name)} <span class="muted">${esc(p.pos)}</span>`;
+  const pl = (p) => `${playerLink(p.id, p.name, "Development")} <span class="muted">${esc(p.pos)}</span>`;
   const box = (t, sub, rows, empty) => `<div class="panel tw-panel">${twPh(t, sub)}${rows.length ? `<table class="tw-small">${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "muted" : ""}">${c}</td>`).join("")}</tr>`).join("")}</table>` : `<div class="tw-mini">${esc(empty)}</div>`}</div>`;
   // Many at other sports (a high school's spring): one row a sport, as a
   // coach would say it ("24 on the baseball team").
@@ -639,11 +649,11 @@ function twWhere(x) {
   const away = (many
     ? Object.entries(sports).map(([k, xs]) => [`<b>${xs.length} ${esc({ basketball: "on the basketball team", baseball: "on the baseball team", track: "at track", wrestling: "wrestling" }[k] || `at ${k}`)}</b><div class="tw-l2">${names(xs)}</div>`, esc(xs[0].what.split(":").slice(1).join(":").trim() || xs[0].what)])
     : w.away.map((a) => [pl(a.p), esc(a.what)])
-  ).concat(x.players.filter((r) => r.prep && (r.prep.status === "away" || r.prep.status === "absent") && !w.away.some((a) => a.p.id === r.id)).map((r) => [`${playerLink(r.id, r.name)} <span class="muted">${esc(r.pos)}</span>`, esc(r.prep.status_text)]));
+  ).concat(x.players.filter((r) => r.prep && (r.prep.status === "away" || r.prep.status === "absent") && !w.away.some((a) => a.p.id === r.id)).map((r) => [`${playerLink(r.id, r.name, "Development")} <span class="muted">${esc(r.pos)}</span>`, esc(r.prep.status_text)]));
   return `<div class="grid2 tw-g2">${box("Rehab group, with the trainers' step", `${w.rehab.length}`, w.rehab.map((r) => [pl(r.p), `${esc(r.what)}${r.since ? ` · since ${esc(r.since)}` : ""}`, esc(r.step), esc(r.back)]), "Nobody in rehab this week.")}
     ${box("New arrivals", "the last four weeks", w.arrivals.map((a) => [pl(a.p), esc(a.how), esc(a.at)]), "Nobody new in the last four weeks.")}
     ${box("At another sport, or away", w.away.length ? `${w.away.length} at other sports` : "", away, w.tier === "nfl" ? "Nobody away: NFL players play no other sport." : "Nobody away this week.")}
-    ${box("Study hall", w.tier === "nfl" ? "" : `${w.flagged} flagged · under a ${w.line.toFixed(1)} GPA${w.tier === "college" ? ", or first semester" : ""}`, w.study.map((s) => [pl(s.p), `<span class="${s.risk ? "amber" : ""}">${esc(s.why)}</span>`]), w.tier === "nfl" ? "No study hall at this level." : "Nobody flagged.")}</div>`;
+    ${box("Study hall", w.tier === "nfl" ? "" : `${w.flagged} flagged · ${esc(w.line)}`, w.study.map((s) => [pl(s.p), `<span class="${s.risk ? "amber" : ""}">${esc(s.why)}</span>`]), w.tier === "nfl" ? "No study hall at this level." : "Nobody flagged.")}</div>`;
 }
 function twHow() {
   return `${twPh("How prep plays out", "")}
@@ -734,7 +744,7 @@ function yearTab(x) {
     <div class="panel warm"><h2>Each day's rule this week</h2><div class="items">${x.days.map((d) => `<div class="item"><span class="when">${esc(d.weekday.slice(0, 3))}</span><span>${esc(d.rule || "No rule")}${d.allowed.coaches ? ` <small class="muted">· up to ${esc(d.allowed.gear)}, ${esc(d.allowed.contact)}${d.allowed.day_min ? `, ${d.allowed.day_min} min` : ""}</small>` : ""}</span></div>`).join("")}</div></div></div>`;
 }
 function reportsTab(x) {
-  const log = x.log.map((l) => `<div class="panel warm"><h2>Week of ${esc(l.monday)} <small>${esc(l.block || "")} · ${l.practices} practices · ${l.minutes} min on the field · ${l.snaps} team snaps${l.injuries ? ` · ${l.injuries} hurt` : ""}</small></h2>
+  const log = x.log.map((l) => `<div class="panel warm"><h2>Week of ${esc(l.monday)} <small>${esc(l.block || "")} · ${trPlural(l.practices, "practice")} · ${l.minutes} min on the field · ${l.snaps} team snaps${l.injuries ? ` · ${l.injuries} hurt` : ""}</small></h2>
     <div class="grid2"><div><div class="st-label">Best practice grades</div><div class="items">${l.best.map((b) => `<div class="item"><span class="when">${b.grade}</span><span>${rich(b.link)}</span></div>`).join("") || '<div class="empty">No grades.</div>'}</div></div>
     <div><div class="st-label">Battles</div><div class="items">${l.battles.map((b) => `<div class="item story"><span>${rich(b.a)} <b>${b.aw}-${b.bw}</b> ${rich(b.b)}</span></div>`).join("") || '<div class="empty">No battles this week.</div>'}</div></div></div></div>`).join("");
   const reports = x.reports.map((r) => `<div class="panel warm"><h2>${esc(r.block)} report <small>${esc(r.date)}</small></h2><div class="items">${r.lines.map(([a, b]) => `<div class="item"><span class="when">${esc(a)}</span><span>${rich(b)}</span></div>`).join("")}</div></div>`).join("");
@@ -757,12 +767,12 @@ screens.training = async (a) => {
   const list = ["This week", "Players", "Templates", "The year", "Reports"];
   const tab = tabOf("trtab", list, a);
   title("Training", tab);
-  const body = tab === "This week" ? weekTab(x) : tab === "Players" ? playersTab(x) : tab === "Templates" ? templatesTab(x) : tab === "The year" ? yearTab(x) : reportsTab(x);
+  const body = tab === "This week" ? weekTab(x) : tab === "Players" ? playersTab(x) : tab === "Templates" ? templatesTab(x) : tab === "The year" ? (await yrBoard(a)) + yearTab(x) : reportsTab(x);
   const head = pageHead({
-    kicker: `${esc(trCap(x.tier))} · ${esc(x.block_label)} · week of ${esc(x.monday)}`,
+    kicker: `${esc(trTier(x.tier))} · ${esc(x.block_label)} · week of ${esc(x.monday)}`,
     title: "Training",
     sub: x.own ? "The players are on their own: the rules keep your staff away." : `${esc(x.slot_label)}. ${x.yours ? "You set this week." : "Your staff's week."}`,
-    goto: trGoto([["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Plans", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]]),
+    goto: trGoto([["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Playbook", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]]),
   });
   return `<div class="film"><div class="pad tr-pad">${head}${tabs("trtab", list.map((t) => (t === "Reports" && x.cases.length ? { name: t, badge: x.cases.length } : t)), tab)}<div class="tabbody">${body}</div></div></div>`;
 };
@@ -818,7 +828,7 @@ function planTabHtml(x) {
   const lean = Math.round(x.lean * 100);
   const stick = Math.round(x.stick * 100);
   return `<div class="grid2"><div class="panel warm"><h2>The season's lean <small>what your play caller reaches for</small></h2>
-      <div class="gd-form stack"><label>Run or pass<small>${lean === 0 ? "As the play caller likes" : lean > 0 ? `${lean} points more passing` : `${-lean} points more running`}</small></label>
+      <div class="gd-form stack"><label>Run or pass<small>${lean === 0 ? "As the play caller likes" : lean > 0 ? `${trPlural(lean, "point")} more passing` : `${trPlural(-lean, "point")} more running`}</small></label>
       <input type="range" class="tr-range" min="-20" max="20" step="1" value="${lean}" data-act="tr-lean" ${x.head ? "" : "disabled"}>
       <label>Stick to the call sheet<small>${stick}% of snaps from the card when a play fits the situation; the rest your play caller's own read</small></label>
       <input type="range" class="tr-range" min="0" max="100" step="5" value="${stick}" data-act="tr-stick"></div></div>
@@ -835,11 +845,11 @@ function planGlance(x) {
   const going = x.designs.filter((d) => d.installing).length;
   const p = x.pace;
   const tiles = `<div class="st-tiles tr-tiles">
-    <div><b>${x.on_sheet}</b><small>plays on the call sheet${x.on_sheet ? `, in ${sits} of ${x.sheet.length} situations` : ": your play caller calls from his own read"}</small></div>
+    <div><b>${x.on_sheet}</b><small>${x.on_sheet === 1 ? "play" : "plays"} on the call sheet${x.on_sheet ? `, in ${sits} of ${x.sheet.length} situations` : ": your play caller calls from his own read"}</small></div>
     <div><b>${going}<i> / ${x.designs.length}</i></b><small>of your own plays going in</small></div>
     <div><b>${sharp}<i> / ${x.families.length}</i></b><small>offensive families past the base playbook</small></div>
     <div><b>${p.team_minutes}</b><small>team minutes this week</small></div>
-    <div><b>${p.reps_each || 0}</b><small>${p.keys ? `reps this week for each of the ${p.keys} things on the card` : "reps a week for each new thing"}</small></div></div>`;
+    <div><b>${p.reps_each || 0}</b><small>${p.keys ? `reps this week for each of the ${p.keys} ${p.keys === 1 ? "thing" : "things"} on the card` : "reps a week for each new thing"}</small></div></div>`;
   const how = p.keys
     ? `At this week's pace a new play is known in about ${p.to_know} ${p.to_know === 1 ? "week" : "weeks"}. More team periods or fewer things on the card make it quicker; a play your players don't know yet stays off the field.`
     : "Put plays on the call sheet to give the team periods something to rep. Until then your players rep the base playbook.";
@@ -856,7 +866,7 @@ function sheetTabHtml(x) {
     <div><div class="panel warm"><h2>${esc(sit.name)} <small>${sit.plays.length ? "your play caller reaches for these first, top to bottom" : "empty: your play caller calls his own"}</small></h2>
       <div class="tbl"><table><thead><tr><th class="l">#</th><th class="l">Play</th><th class="l">Personnel · backfield · set</th><th>Install</th><th></th></tr></thead><tbody>${list || '<tr><td class="l" colspan="5"><div class="empty">No plays on the card for this situation.</div></td></tr>'}</tbody></table></div>
       <div class="tr-addrow">${trSel("tr-add", x.personnels.map((p) => [p, p + " personnel"]), add.personnel, 'data-f="personnel"')}${trSel("tr-add", x.backfields.map((b) => [b, trCap(b)]), add.backfield, 'data-f="backfield"')}${trSel("tr-add", x.sets.map((s) => [s, trCap(s)]), add.set, 'data-f="set"')}${trSel("tr-add", [["pass", "Pass"], ["run", "Run"], ...(x.designs.length ? [["design", "Your design"]] : [])], add.kind, 'data-f="kind"')}${trSel("tr-add", playOpts, add.play, 'data-f="play"')}<button class="st-btn small primary" data-act="tr-sadd" ${sit.plays.length >= 12 ? "disabled" : ""}>Add to the card</button></div>
-      <p class="sub">${x.on_sheet} plays on the card. Plays from the playbook are known; reps on the card sharpen them. A play you drew stays off the card in games until your players know it about a third of the way.</p></div></div></div>`;
+      <p class="sub">${trPlural(x.on_sheet, "play")} on the card. Plays from the playbook are known; reps on the card sharpen them. A play you drew stays off the card in games until your players know it about a third of the way.</p></div></div></div>`;
 }
 function bookTabHtml(x) {
   const fam = x.families.map((f) => `<div class="panel warm tr-fam"><h2>${esc(trCap(f.family))} <small>${f.reps} reps</small></h2>${trInstall(f.install, f.words)}
@@ -883,7 +893,7 @@ screens.plans = async (a) => {
   title("Plans", tab);
   TR.plans = x;
   const body = tab === "Game plan" ? planTabHtml(x) : tab === "Call sheet" ? sheetTabHtml(x) : tab === "Playbook" ? bookTabHtml(x) : installTabHtml(x);
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · ${esc(x.coordinator ? "play caller " + x.coordinator : "your staff")}`, title: "Plans", sub: "The season's lean, the call sheet, the playbook and what goes in each week.", goto: trGoto([["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"]]) })}${tabs("trplan", list, tab)}<div class="tabbody">${body}</div></div></div>`;
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${esc(x.coordinator ? "play caller " + x.coordinator : "your staff")}`, title: "Plans", sub: "The season's lean, the call sheet, the playbook and what goes in each week.", goto: trGoto([["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"]]) })}${tabs("trplan", list, tab)}<div class="tabbody">${body}</div></div></div>`;
 };
 
 // ======================================================================
@@ -936,9 +946,9 @@ screens.designer = async (a) => {
   const sel = (k, opts, cur) => trSel("tr-dset", opts, cur, `data-f="${k}"`);
   const issues = g.issues.length ? `<div class="panel tr-breach"><h2>Not legal at your level</h2><div class="items">${g.issues.map((i) => `<div class="item story"><span>${esc(i)}</span></div>`).join("")}</div></div>` : `<p class="tr-ok">Legal at your level.</p>`;
   const saved = des.k != null ? x.designs.find((q) => q.k === des.k) : null;
-  const review = saved && saved.review.length ? `<div class="panel warm"><h2>${esc(x.coordinator || "Your coordinator")}'s review</h2><div class="items">${saved.review.map((r) => `<div class="item story"><span>${esc(r)}</span></div>`).join("")}</div>${saved.read && saved.read.snaps ? `<p class="sub">Called ${saved.read.snaps} times: ${saved.read.yards} yards a play, ${saved.read.completions} completions.</p>` : ""}</div>` : "";
+  const review = saved && saved.review.length ? `<div class="panel warm"><h2>${esc(x.coordinator || "Your coordinator")}'s review</h2><div class="items">${saved.review.map((r) => `<div class="item story"><span>${esc(r)}</span></div>`).join("")}</div>${saved.read && saved.read.snaps ? `<p class="sub">Called ${trPlural(saved.read.snaps, "time")}: ${saved.read.yards} yards a play, ${trPlural(saved.read.completions, "completion")}.</p>` : ""}</div>` : "";
   const list = x.designs.map((q) => `<button class="tr-dl ${des.k === q.k ? "on" : ""}" data-act="tr-dopen" data-k="${q.k}">${fieldSvg(q.geometry, { small: true })}<span><b>${esc(q.design.name)}</b><small>${esc(q.design.personnel)} · ${esc(q.design.set)} · ${esc(q.words)}</small></span></button>`).join("");
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · plays and tactics`, title: "Play designer", sub: "Draw a pass play from a formation and routes. It goes into your playbook, your players learn it in team periods, and your play caller can call it once it's on the card.", goto: trGoto([["Plans", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"]]) })}
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · plays and tactics`, title: "Play designer", sub: "Draw a pass play from a formation and routes. It goes into your playbook, your players learn it in team periods, and your play caller can call it once it's on the card.", goto: trGoto([["Playbook", "plans", { tab: "Playbook" }], ["Call sheet", "plans", { tab: "Call sheet" }], ["Training", "training"]]) })}
     <div class="tr-des"><aside class="tr-dlist"><button class="st-btn small primary" data-act="tr-dnew">New play</button>${list || '<div class="empty">No plays yet.</div>'}</aside>
     <div class="tr-dboard"><div class="panel warm tr-dfield">${fieldSvg(g.geometry, { click: true, sel: des.role })}<p class="sub">Click a player to pick his row. Numbers are the quarterback's reads in order.</p></div>${issues}
     <div class="panel warm"><h2>Routes and reads <small>a player with no route runs his job in the protection</small></h2><div class="tbl"><table><thead><tr><th class="l">Player</th><th class="l">Route</th><th class="l">Depth</th><th>Read</th></tr></thead><tbody>${roleRows}</tbody></table></div></div>${review}</div>
@@ -957,10 +967,44 @@ screens.designer = async (a) => {
 };
 
 // ======================================================================
-// The squad: six views (screens topic 6)
+// The squad: six views (screens topic 6), and Draft at a college
 // ======================================================================
 const rosterBase = screens.roster;
-const SQUAD_VIEWS = ["General", "Ratings", "Development", "Fitness", "Depth", "Contract"];
+// A player's unit to his board on the depth chart.
+const SQ_BOARD = { OFF: "Offense", DEF: "Defense", ST: "Special teams" };
+// Draft is the college seat's own view (minor bug 74): the full version
+// of Draft outlook, with the Evaluation desk's moves on each row.
+const SQUAD_VIEWS = ["General", "Ratings", "Development", "Fitness", "Depth", "Contract", "Draft"];
+const SQUAD_SAY = [[0, "Stay a year"], [1, "Your call"], [2, "You're ready"]];
+// The Draft view's rows: the draft outlook's word on each player (his
+// status, the NFL scouts, the advisory committee, his invites) and, for a
+// draft-eligible underclassman, the Evaluation desk's advisory list and
+// stay-or-go talk.
+async function squadDraft(x) {
+  const [o, e] = await Promise.all([api("dr_outlook"), api("eval_home")]);
+  const out = new Map(o.rows.map((r) => [r.id, r]));
+  const adv = (e.college && e.college.advisory) || { juniors: [], committee: false, sent: 0 };
+  const jr = new Map(adv.juniors.map((j) => [j.id, j]));
+  x.draft = { committee: adv.committee, limit: adv.limit, sent: adv.sent, deadline: o.deadline };
+  x.rows = x.rows.map((r) => {
+    const d = out.get(r.id) || {}, j = jr.get(r.id);
+    return { ...r, d_status: d.status || "", d_group: d.group ?? 9, outlook: d.outlook || "", scouts: d.scouts || null, public: d.public || null, advisory: d.advisory || (j && j.grade) || null, invites: d.invites || [], junior: !!j, sent: !!(j && j.sent), talk: j ? j.talk : null };
+  });
+  // Declared, drafted and undrafted players have left the roster: the
+  // outlook still lists them, after the squad.
+  x.squadCount = x.rows.length;
+  const have = new Set(x.rows.map((r) => r.id));
+  const unit = (p) => (/^(K|P|LS)$/.test(p) ? "ST" : /^(QB|RB|WR|TE|OT|IOL)$/.test(p) ? "OFF" : "DEF");
+  for (const d of o.rows) {
+    if (have.has(d.id)) continue;
+    x.rows.push({ id: d.id, name: d.name, pos: d.pos, class: d.class || "", group: unit(d.pos), ovr: d.read, d_status: d.status || "", d_group: d.group ?? 9, outlook: d.outlook || "", scouts: d.scouts || null, public: d.public || null, advisory: d.advisory || null, invites: d.invites || [], junior: false, sent: false, talk: null });
+  }
+}
+function squadCalls(r, x) {
+  if (!r.junior) return "";
+  const send = x.draft.committee ? `<button class="st-btn small glass" data-act="tr-sqadv" data-id="${r.id}" data-on="${r.sent ? 0 : 1}" aria-pressed="${r.sent}" title="${r.sent ? "On your advisory list: click to take him off" : "Ask the NFL's advisory committee for his round"}">${r.sent ? "Sent to the committee" : "Send to the committee"}</button>` : "";
+  return `<span class="tr-calls">${send}<span class="seg tr-say" title="Your stay-or-go talk">${SQUAD_SAY.map(([v, t]) => `<button data-act="tr-sqtalk" data-id="${r.id}" data-say="${v}" aria-pressed="${r.talk === v}">${t}</button>`).join("")}</span></span>`;
+}
 function squadCols(view, x) {
   const name = { k: "name", t: "Name", l: true, f: (r) => `${playerLink(r.id, r.name, view === "Development" ? "Development" : "")}${r.notes ? ` <span class="st-pill" title="Your notes">✎ ${r.notes}</span>` : ""}` };
   const pos = { k: "pos", t: "Pos", l: true };
@@ -972,32 +1016,67 @@ function squadCols(view, x) {
     General: [name, pos, cls, { k: "age", t: "Age" }, { k: "ht", t: "Ht", v: (r) => inches(r.ht) }, { k: "wt", t: "Wt" }, { k: "home", t: "Hometown", l: true, wrap: true }, { k: "stars", t: "★", tip: "Recruiting stars", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }, ovr, { k: "mood", t: "Mood", l: true }, { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') }, { k: "born", t: "Born", l: true, hide: true }],
     Ratings: [name, pos, cls, ovr, key(0), key(1), key(2), key(3)],
     Development: [name, pos, cls, { k: "age", t: "Age" }, ovr, { k: "growth", t: "Growth", l: true, f: (r) => trGrowth(r.growth) }, { k: "grade_words", t: "Practice", l: true, v: (r) => r.grade }, { k: "focus", t: "Main focus", l: true, f: (r) => (r.focus ? `${esc(r.focus)}${r.focus_by === "staff" ? ' <small class="muted">staff</small>' : ""}` : '<span class="muted">Balanced</span>') }, { k: "teacher", t: "Taught by", l: true, v: (r) => r.teacher.name || "", f: (r) => (r.teacher.name ? `${r.teacher.you ? "You" : coachLink(r.teacher.id, r.teacher.name)} <small class="muted">${esc(r.teacher.words)}</small>` : '<span class="muted">-</span>') }, { k: "habit", t: "Habit", l: true, hide: true }, { k: "moving", t: "Learning", l: true, hide: true }, { k: "body_target", t: "Body target", hide: true }],
-    Fitness: [name, pos, cls, { k: "practice", t: "Practice", l: true, f: trStatus }, { k: "load", t: "Load", l: true, f: trLoad, v: (r) => ["light", "moderate", "heavy", "very heavy"].indexOf(r.load) }, { k: "load_trend", t: "Trend", l: true }, { k: "missed", t: "Games missed", tip: "Last season" }, { k: "status", t: "Status", l: true }, { k: "wt", t: "Wt" }, { k: "sport", t: "Other sport", l: true, hide: x.tier !== "high school" }],
-    Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? (r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
+    Fitness: [name, pos, cls, { k: "practice", t: "Practice", l: true, f: trStatus }, { k: "load", t: "Load", l: true, f: trLoad, v: (r) => ["light", "moderate", "heavy", "very heavy"].indexOf(r.load) }, { k: "load_trend", t: "Trend", l: true }, { k: "missed", t: "Games missed", tip: "Last season" }, { k: "status", t: "Status", l: true }, { k: "wt", t: "Wt" }, { k: "sport", t: "Other sport", l: true, hide: x.tier !== "hs" }],
+    Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day: opens his spot on the depth chart", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? linkTo("depth", { tab: SQ_BOARD[r.group] || "Offense", pid: r.id }, r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
     Contract: pro
-      ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr]
-      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "offers", t: "College offers", hide: x.tier !== "high school" }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
+      ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr, { k: "deal", t: "New deal", l: true, tip: "Talk terms before he reaches the market", v: (r) => (r.deal ? 1 : 0), f: (r) => (r.deal ? moveBtn({ k: "deal", t: r.deal }, { id: r.id, name: r.name }, "st-btn small glass") : '<span class="muted">-</span>') }]
+      : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "hs" ? "Years left" : "Seasons left", tip: x.tier === "hs" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "hs", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "rs", t: "This season", l: true, hide: x.tier === "hs", tip: "Redshirt him or play him. From 2018 a redshirt may play four games and keep his year.", v: (r) => (r.rs ? r.rs.games : -1), f: sqRedshirt }, { k: "offers", t: "College offers", hide: x.tier !== "hs", f: (r) => (r.offers ? linkTo("player", { id: r.id, tab: "Recruiting" }, String(r.offers)) : '<span class="muted">0</span>') }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
+    Draft: x.draft
+      ? [name, pos, cls,
+          { k: "d_status", t: "Draft status", l: true, v: (r) => r.d_group, f: (r) => (r.d_status ? esc(r.d_status) : '<span class="muted">Not eligible yet</span>') },
+          { k: "outlook", t: "Outlook", l: true, tip: "Where he'd go, in the committee's or the scouts' words", f: (r) => (r.outlook ? `<b class="${/Round 1/.test(r.outlook) ? "gold" : ""}">${esc(r.outlook)}</b>` : '<span class="muted">-</span>') },
+          { k: "scouts", t: "NFL scouts", l: true, tip: "What the NFL scouts who came through say", f: (r) => (r.scouts ? esc(r.scouts) : '<span class="muted">-</span>') },
+          { k: "advisory", t: "Advisory", l: true, tip: "The NFL's advisory committee grade, sent to your school", f: (r) => (r.advisory ? `<b>${esc(r.advisory)}</b>` : '<span class="muted">-</span>') },
+          { k: "invites", t: "Invites", l: true, wrap: true, tip: "All-star games and the combine", v: (r) => r.invites.join(", "), f: (r) => (r.invites.length ? r.invites.map((i) => `<span class="tag ${/^Turned/.test(i) ? "soft" : "gold"}">${esc(i)}</span>`).join(" ") : '<span class="muted">-</span>') },
+          { k: "public", t: "Public", tip: "His rank on the public consensus board", hide: true, v: (r) => r.public || 999, f: (r) => (r.public ? `No. ${r.public}` : '<span class="muted">-</span>') },
+          ovr,
+          { k: "calls", t: "Your calls", l: true, tip: "The advisory committee and your stay-or-go talk, for a draft-eligible underclassman", v: (r) => (r.junior ? 1 : 0), f: (r) => squadCalls(r, x) }]
+      : [],
   };
-  return views[view];
+  return x.squads ? [...views[view], trTeamCol(x.squads)] : views[view];
+}
+// A high school player's team (varsity, JV or freshman) and the switch to
+// move him, from the squads' own answer (SC1).
+function trTeamCol(sq) {
+  const by = new Map();
+  for (const t of sq.teams) for (const r of t.players) if (!by.has(r.id)) by.set(r.id, { r, t });
+  const yours = sq.owner === "you";
+  return { k: "team", t: "Team", l: true, div: true, v: (r) => (by.has(r.id) ? by.get(r.id).t.name : ""), f: (r) => (by.has(r.id) ? `${esc(by.get(r.id).t.name)} ${fsMoveCell(by.get(r.id).r, yours)}` : '<span class="muted">-</span>') };
+}
+// The Eligibility view's redshirt call (bug 77): his games so far, and the button.
+function sqRedshirt(r) {
+  const s = r.rs;
+  if (!s) return '<span class="muted">-</span>';
+  const games = s.four ? `${s.games} of 4 games` : trPlural(s.games, "game");
+  const now = s.on ? "Redshirting" : "Playing";
+  const btn = s.can ? " " + moveBtn({ k: "redshirt", t: s.on ? "Play him" : "Redshirt him", on: !s.on, games: s.games, four: s.four }, { id: r.id, name: r.name }, "st-btn small glass") : "";
+  return `${now} <small class="muted" ${s.why ? `title="${esc(s.why)}"` : ""}>${games}</small>${btn}`;
 }
 screens.roster = async (a) => {
   if (!trMine(a)) return rosterBase(a);
   const x = await api("squad");
+  if (x.tier === "hs") x.squads = await api("school_squads").catch(() => null);
   setColors(x.team.colors);
-  const viewNames = SQUAD_VIEWS.map((v) => (v === "Contract" && x.tier !== "nfl" ? "Eligibility" : v));
+  const views = SQUAD_VIEWS.filter((v) => v !== "Draft" || x.tier === "college");
+  const viewNames = views.map((v) => (v === "Contract" && x.tier !== "nfl" ? "Eligibility" : v));
   const k = keep("sqview", { v: "General" });
-  if (a.view && SQUAD_VIEWS.includes(a.view)) k.v = a.view;
-  const view = SQUAD_VIEWS.includes(k.v) ? k.v : "General";
-  title("Squad", viewNames[SQUAD_VIEWS.indexOf(view)]);
+  if (a.view && views.includes(a.view)) k.v = a.view;
+  const view = views.includes(k.v) ? k.v : "General";
+  title("Squad", viewNames[views.indexOf(view)]);
+  if (view === "Draft") await squadDraft(x);
   const f = keep("sqf", { unit: "ALL" });
   const rows = x.rows.filter((r) => f.unit === "ALL" || r.group === f.unit);
   const count = (u) => x.rows.filter((r) => r.group === u).length;
   const seg = `<div class="seg">${[["ALL", "All", x.rows.length], ["OFF", "Offense", count("OFF")], ["DEF", "Defense", count("DEF")], ["ST", "Special teams", count("ST")]].map(([v, t, n]) => `<button data-act="tr-squnit" data-v="${v}" aria-pressed="${f.unit === v}">${t}<small>${n}</small></button>`).join("")}</div>`;
-  const vseg = `<div class="seg tr-views">${SQUAD_VIEWS.map((v, i) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="${v === view}">${viewNames[i]}</button>`).join("")}</div>`;
+  const vseg = `<div class="seg tr-views">${views.map((v, i) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="${v === view}">${viewNames[i]}</button>`).join("")}</div>`;
   const out = x.rows.filter((r) => r.practice === "out").length;
   const hurt = x.rows.filter((r) => r.spike).length;
-  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trCap(x.tier))} · ${x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: trGoto([["Depth chart", "depth"], ["Training", "training"], ["Plans", "plans"], ["Staff", "staff"], ["Leaderboards", "leaders"]]) })}
-    <div class="filters">${vseg}${seg}</div>
+  const dr = x.draft;
+  const draftNote = dr
+    ? `<p class="sub">${dr.committee ? `The NFL's advisory committee answers your underclassmen's names with a round${dr.limit ? `: ${dr.limit} names a school since 2014 (${dr.sent} sent), more only for a likely first-rounder` : ""}. Requests close December 10.` : "The advisory committee doesn't exist yet (it began in 1994): your juniors go on their own and their agents' word."} Your talk sways a junior by how far he trusts you. Declare by ${esc(dr.deadline)}.</p>`
+    : "";
+  return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${x.squadCount ?? x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
+    <div class="filters">${vseg}${seg}</div>${draftNote}
     ${table("squad:" + view, squadCols(view, x), rows, { groupBy: (r) => r.pos })}</div></div>`;
 };
 
@@ -1033,23 +1112,25 @@ screens.depth = async (a) => {
   const names = [...x.boards.map((b) => b.label), "By position"];
   const tab = tabOf("trboard", names, a);
   title("Depth chart", tab);
-  const head = pageHead({ kicker: `${esc(trCap(x.tier))} · game day`, title: "Depth chart", sub: "Drag a player onto a spot, or click a spot and then a player. Your position coaches' picks show under each spot; where you set an order, the engine plays yours.", goto: trGoto([["Squad", "roster"], ["Training", "training"], ["Plans", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
+  const head = pageHead({ kicker: `${esc(trTier(x.tier))} · game day`, title: "Depth chart", sub: "Drag a player onto a spot, or click a spot and then a player. Your position coaches' picks show under each spot; where you set an order, the engine plays yours.", goto: trGoto([["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
   const tabsHtml = tabs("trboard", names.map((n) => { const b = x.boards.find((q) => q.label === n); return b && b.yours ? { name: n, badge: "●" } : n; }), tab);
   if (tab === "By position") {
     const inner = await depthBase(a);
     return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}</div>${inner.replace('<div class="film">', "<div>")}</div>`;
   }
   const b = x.boards.find((q) => q.label === tab) || x.boards[0];
+  // His spot picked, when the Squad's depth spot opened this board (pid).
+  if (a.pid != null) { const at = b.slots.findIndex((s) => s.player && s.player.id === a.pid); if (at >= 0) TR.pick = { board: b.key, k: at }; }
   const sel = TR.pick && TR.pick.board === b.key ? TR.pick.k : null;
   const fr = bdFrame(b.slots);
   const want = sel != null ? b.slots[sel] : null;
   const onBoard = new Set(b.slots.filter((s) => s.player).map((s) => s.player.id));
   // The pool: everyone, the slot's position first when a slot is picked.
   const pool = x.players.slice().sort((p, q) => (want ? (q.pos === want.pos) - (p.pos === want.pos) : 0) || mid(q.ovr) - mid(p.ovr));
-  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name)}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
+  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name, "Development")}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
   const props = b.slots.some((s) => s.proposal && (!s.player || s.proposal.id !== s.player.id));
   const locked = b.slots.some((s) => !s.controls);
-  const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name)} over ${playerLink(s.player.id, s.player.name)} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");
+  const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name, "Development")} over ${playerLink(s.player.id, s.player.name, "Development")} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");
   return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}
     <div class="tr-boardwrap"><div class="panel warm tr-boardp"><h2>${esc(b.label)} <small>${b.yours ? "your order" : b.kind === "package" ? "your position coaches' picks: set it to make it yours" : "your staff's order"}${locked ? " · some spots are the head coach's" : ""}</small></h2>
       <div class="tr-board ${b.kind}" data-board="${esc(b.key)}" style="aspect-ratio:${(60 / fr.span).toFixed(3)};--yd:${((5 / fr.span) * 100).toFixed(2)}%"><div class="tr-los" style="top:${((-fr.top / fr.span) * 100).toFixed(2)}%"></div>${b.slots.map((s, k) => slotCard(s, k, b, sel === k, fr)).join("")}</div>
@@ -1245,6 +1326,8 @@ document.addEventListener("click", async (ev) => {
     }
     case "tr-squnit": keep("sqf", {}).unit = d.v; trRedraw(); break;
     case "tr-sqview": keep("sqview", {}).v = d.v; S.route.args = { ...S.route.args, view: d.v }; trRedraw(); break;
+    case "tr-sqadv": if (await trDo("eval_advisory", { id: Number(d.id), on: d.on === "1" }, (r) => r.said)) trRedraw(); break;
+    case "tr-sqtalk": if (await trDo("eval_talk", { id: Number(d.id), say: Number(d.say) }, (r) => r.said)) trRedraw(); break;
     case "tr-pp": {
       if (ev.target.closest("[data-go]")) break;
       if (!TR.pick) { toast("Pick a spot on the board first, or drag him onto one."); break; }

@@ -202,6 +202,10 @@ const sbDepthBase = screens.depth;
 screens.depth = async (a) => {
   a = a || {};
   if (a.kind && typeof trMine === "function" && !trMine(a)) return sbDepthBase(a);
+  // A depth spot on the Squad opens his unit's base board with his spot
+  // picked (pid), once: a redraw keeps whatever spot you pick after it.
+  const pid = a.pid;
+  delete a.pid;
   const k = keep("trboard", { t: "Offense" });
   // A flat board asked for by name (another page's link, an old keep)
   // opens on its stadium tab with its formation.
@@ -222,6 +226,7 @@ screens.depth = async (a) => {
     k.t = cur;
     return html.replace(/<div class="tabsline" role="tablist">[\s\S]*?<\/div>/, sbDcTabs(cur, null));
   }
+  if (pid != null) delete keep("sbform", {})[cur];
   const form = keep("sbform", {})[cur] || SB_TAB_KEY[cur];
   let x;
   try {
@@ -235,9 +240,15 @@ screens.depth = async (a) => {
     // The flat drag-and-drop board of this formation, under the stadium's tabs.
     const label = SB_FORM_LABEL[x.form] || "Offense";
     k.t = label;
-    const html = await sbDepthBase({ ...a, tab: label });
+    const html = await sbDepthBase({ ...a, tab: label, pid });
     k.t = cur;
     return html.replace(/<div class="tabsline" role="tablist">[\s\S]*?<\/div>/, sbDcTabs(cur, x));
+  }
+  if (pid != null) {
+    // The spot he starts at, else the first where he is in the depth.
+    const starts = x.slots.findIndex((s) => s.picks[0] && s.picks[0].id === pid);
+    const at = starts >= 0 ? starts : x.slots.findIndex((s) => s.picks.some((m) => m && m.id === pid));
+    if (at >= 0) keep("sbdc:" + x.form, { k: 0 }).k = at;
   }
   return sbDepthPage(x, cur);
 };
@@ -248,7 +259,7 @@ function sbPlate(s, k, sel, pos) {
   const tag = p && p.health === "out" ? '<span class="sb-tag bad">OUT</span>' : p && p.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
   return `<button class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"}" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-k="${k}" aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}">
     <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span>${rd(p).replace('class="sb-prr"', 'class="sb-pr"')}</span>
-    <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}</button>`;
+    <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</button>`;
 }
 function sbUnits(units) {
   return `<div class="sb-units">${units.map((u, i) => `<div class="sb-unit ${i === units.length - 1 ? "all" : ""}"><div class="sb-unit-h"><span class="sb-lbl">${esc(u.name)}</span><small>${u.rank ? `${esc(u.rank_words)} ${esc(u.among)}` : esc(u.among || "")}</small></div><div class="sb-unit-v"><span class="sb-grade">${esc(u.grade)}</span><b>${u.value != null ? u.value : "–"}</b></div><span class="sb-ubar"><i style="width:${u.pct != null ? u.pct : 0}%"></i></span></div>`).join("")}</div>`;
@@ -286,7 +297,7 @@ function sbDepthPage(x, cur) {
   const actions = x.yours ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}">Give it back to the staff</button>` : "";
   const stage = `<div class="sb-stage" role="group" aria-label="${esc(x.form_label)} on the field">${sbField(x.level, LOS, YD, def ? null : LOS - 10 * YD)}${plates}</div>`;
   return `<div class="film sb"><div class="pad sb-pad">${head}${sbDcTabs(cur, x)}
-    <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${sbUnits(x.units)}</div>
+    <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${hpDcFoot(x)}${sbUnits(x.units)}</div>
     <aside class="sb-side">${s ? sbSpotPanel(x, s, sel) : '<div class="sb-empty">No spots on this formation.</div>'}</aside></div></div></div>`;
 }
 function sbSpotPanel(x, s, k) {
@@ -300,17 +311,42 @@ function sbSpotPanel(x, s, k) {
     const up = i > 0 && s.controls && x.slots[k] ? `<button class="sb-up" data-act="sbup" data-k="${k}" data-n="${i + 1}" title="Move ${esc(m.name)} up" aria-label="Move ${esc(m.name)} up">↑</button>` : "";
     const hurt = m.health !== "full" ? ` <span class="sb-tag ${m.health === "out" ? "bad" : "warn"}" title="${esc(m.health_why || "")}">${m.health === "out" ? "Out" : "Limited"}</span>` : "";
     const ready = i === 0 ? "Starter" : m.ready;
-    return `<div class="sb-dr ${i === 0 ? "first" : ""}"><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name)}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
+    return `<div class="sb-dr ${i === 0 ? "first" : ""}"><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
   }).join("");
   const coach = d && d.coach ? `<div class="sb-coach"><span class="sb-ci">${esc(String(d.coach.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span><div><div class="sb-cn">${d.coach.you ? "You" : coachLink(d.coach.id, d.coach.name || "")}, ${esc(d.coach.title)}</div><p>${esc(d.note)}</p></div></div>` : "";
   return `<span class="sb-bignum" aria-hidden="true">${p.num != null ? p.num : ""}</span>
     <div class="sb-ph"><span class="sb-lbl gold">${esc(s.pos_full)} · Starter</span><span class="sb-first">${esc(p.first)}</span><span class="sb-last">${esc(p.last)}</span><span class="sb-meta">${p.num != null ? "#" + p.num + " · " : ""}${esc(p.class_full)} · ${esc(p.size)} · ${esc(p.home)}</span></div>
     <div class="sb-hero">${sbRing(p.read)}<div><div class="sb-lbl">Staff read</div>${range(p.read, "his position coach", { p: p.id, k: "ovr" })}${d && d.band ? `<div class="sb-bw">${esc(d.band.word)}</div><small class="sb-dim">${esc(d.band.line)}</small>` : ""}</div></div>
     <div class="sb-cells"><div><span class="sb-lbl">Snaps last game</span><b>${snaps}</b></div><div><span class="sb-lbl">Grade last game</span><b>${d && d.grade != null ? d.grade : "–"}</b></div></div>
+    ${hpWhyHere(x, s, k)}
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(s.pos)}</span>${keys}</div>
     <div class="sb-sec"><span class="sb-lbl">Depth at ${esc(s.slot)}</span>${depth}</div>
     ${coach}
-    <div class="st-actions">${linkTo("player", { id: p.id }, "Player page", "st-btn small")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
+    <div class="st-actions">${linkTo("player", { id: p.id, tab: "Development" }, "Player page ›")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
+}
+
+// ---------- H4 (lane 6): who put him there, and why (board 37) ----------
+const HP_BY = { Y: "You", C: "Coordinator", A: "Auto chart" };
+function hpDcFoot(x) {
+  const legend = `<div class="hp-legend">${Object.entries(HP_BY).map(([k, t]) => `<span><span class="hp-by ${k.toLowerCase()}">${k}</span>${t}</span>`).join("")}</div>`;
+  const ch = (x.changes || []).map((c) => `<div class="hp-change"><span class="hp-by ${esc(String(c.who).toLowerCase())}">${esc(c.who)}</span><span>${rich(c.text)}</span><small>${esc(c.date)}</small></div>`).join("");
+  return `<div class="hp-dcfoot"><div class="hp-dcl"><span class="sb-lbl">Who set each spot</span>${legend}</div><div class="hp-dcl"><span class="sb-lbl">Changes this week</span>${ch ? `<div class="hp-changes">${ch}</div>` : '<span class="sb-dim">No changes this week.</span>'}</div></div>`;
+}
+function hpWhyHere(x, s, k) {
+  const w = s.why;
+  if (!w) return "";
+  const why = (w.why || []).map((r) => `<li><span><b>${esc(r.t)}</b>${rich(r.s)}</span></li>`).join("");
+  const alts = (w.alts || []).map((m) => `<div class="hp-alt"><div>${playerLink(m.id, m.name)}<small>${esc(m.pos)} · ${esc(m.class)}</small><small class="${m.hurt ? "hurt" : ""}">${esc(m.note)}</small></div>${range(m.read, null, { p: m.id, k: "ovr" })}</div>`).join("");
+  const reps = (w.practice || []).filter((r) => r.grade).map((r) => `<div class="hp-rep"><span>${playerLink(r.id, r.name)}<small>${esc(r.words)}</small></span><i><u style="width:${Math.max(0, Math.min(100, r.grade))}%"></u></i></div>`).join("");
+  const second = s.picks[1];
+  const calls = (s.controls && second ? `<button class="st-btn small glass" data-act="sbup" data-k="${k}" data-n="2">Move ${esc(second.last)} up</button>` : "")
+    + (w.by === "Y" ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}">Give it back to the staff</button>` : "");
+  return `<div class="sb-sec hp-wh"><span class="sb-lbl">Why is he here?</span>
+    <div class="hp-wh-by"><span class="hp-by ${esc(String(w.by).toLowerCase())}">${esc(w.by)}</span><span><b>${esc(w.by_name)}</b><small>${esc(w.when)}</small></span></div>
+    ${why ? `<ol>${why}</ol>` : ""}
+    ${alts ? `<span class="sb-lbl">${esc(w.else_title)}</span><div class="hp-alts">${alts}</div>` : ""}
+    ${reps ? `<span class="sb-lbl">Practice grades</span><div class="hp-reps">${reps}</div>` : ""}
+    ${calls ? `<div class="hp-calls">${calls}</div>` : ""}</div>`;
 }
 
 // ---------- V2: the needs map in the stadium ----------
@@ -415,7 +451,7 @@ screens.roster = async (a) => {
     kicker: `${esc(x.level_name)} · ${sbPlural(x.rows.length, "player")}`,
     title: `<span class="sb-crest">${mark(x.team, 40)}</span>${esc(x.team.name)}`,
     sub: `Your staff reads them every day. Snaps and grades from ${esc(x.season_words)}'s games.`,
-    goto: gotoLine([["Depth chart", "depth"], ["Needs map", "needs"], ["Training", "training"], ["Staff", "staff"]]),
+    goto: gotoFor("roster", a),
   });
   return `<div class="film sb"><div class="pad sb-pad">${pageH}<div class="filters">${vseg}</div>
     <div class="sb-roster">${railHtml}<div class="sb-rt" role="table">${head}${body}</div><aside class="sb-side">${pick ? sbRosterPanel(pick, x) : ""}</aside></div></div></div>`;
@@ -438,6 +474,14 @@ function sbSpark(last6) {
   const tip = last6.map((g) => (g == null ? "didn't play" : g)).join(", ");
   return `<svg class="sb-spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Last six grades: ${tip}"><title>${tip}</title><line x1="0" x2="${W}" y1="${ys(60).toFixed(1)}" y2="${ys(60).toFixed(1)}" class="sb-avg"/><path d="${path}" class="sb-sl"/>${dots}</svg>`;
 }
+// His money cell opens its story: a high schooler's offers his Recruiting
+// tab, an NFL cap hit his row on the cap sheet.
+function sbMoney(r) {
+  const m = r.money || {};
+  if (!m.value) return "";
+  const v = esc(m.value);
+  return m.label === "Offers" ? linkTo("player", { id: r.id, tab: "Recruiting" }, v) : m.label === "Cap" ? linkTo("fo_cap", { id: r.id }, v) : v;
+}
 function sbRosterRow(r, on) {
   const hurt = r.health !== "full" ? ` <span class="sb-tag ${r.health === "out" ? "bad" : "warn"}" title="${esc(r.health_why || r.status || "")}">${r.health === "out" ? "Out" : "Limited"}</span>` : "";
   const m = r.money || {};
@@ -449,7 +493,7 @@ function sbRosterRow(r, on) {
     <span>${sbSpark(r.last6 || [])}</span>
     <span class="sb-sn">${r.snaps_pct != null ? `<span class="sb-sb"><i style="width:${r.snaps_pct}%"></i></span><b>${r.snaps_pct}%</b>` : '<span class="sb-dim">–</span>'}</span>
     <span class="${r.unhappy ? "sb-warn" : ""}">${esc(r.mood)}</span>
-    <span title="${esc(m.note || "")}">${m.value ? esc(m.value) : '<span class="sb-dim">–</span>'}</span></div>`;
+    <span title="${esc(m.note || "")}">${sbMoney(r) || '<span class="sb-dim">–</span>'}</span></div>`;
 }
 function sbRosterPanel(r, x) {
   const [first, ...rest] = String(r.name).split(" ");
@@ -460,7 +504,7 @@ function sbRosterPanel(r, x) {
     <div class="sb-ph"><span class="sb-lbl gold">${esc(r.pos)} · ${esc(r.class_full || r.class)}${r.num != null ? " · #" + r.num : ""}</span><span class="sb-first">${esc(first)}</span><span class="sb-last">${esc(rest.join(" "))}</span><span class="sb-meta">${esc(r.ht)}, ${r.wt} lb · ${esc(r.home)}</span></div>
     <div class="sb-card"><span class="sb-lbl">Staff read</span><div class="sb-hero2"><b>${r.ovr ? sbMid(r.ovr) : "–"}</b>${range(r.ovr, "his position coach", { p: r.id, k: "ovr" })}</div>${sbBand(r.ovr, null, sbFloor(x.rows.map((q) => (q.ovr ? q.ovr[0] : null))))}</div>
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(r.pos)}</span>${keys}</div>
-    <div class="sb-cells"><div><span class="sb-lbl">Snaps</span><b>${r.snaps_pct != null ? r.snaps_pct + "%" : "–"}</b></div><div><span class="sb-lbl">${esc(m.label || "Money")}</span><b>${esc(m.value || "–")}</b></div><div><span class="sb-lbl">Health</span><b class="${r.health !== "full" ? "sb-warn" : ""}">${r.health === "out" ? "Out" : r.health === "limited" ? "Limited" : "Full"}</b></div><div><span class="sb-lbl">Morale</span><b class="${r.unhappy ? "sb-warn" : ""}">${esc(r.mood)}</b></div></div>
+    <div class="sb-cells"><div><span class="sb-lbl">Snaps</span><b>${r.snaps_pct != null ? r.snaps_pct + "%" : "–"}</b></div><div><span class="sb-lbl">${esc(m.label || "Money")}</span><b>${sbMoney(r) || "–"}</b></div><div><span class="sb-lbl">Health</span><b class="${r.health !== "full" ? "sb-warn" : ""}">${r.health === "out" ? "Out" : r.health === "limited" ? "Limited" : "Full"}</b></div><div><span class="sb-lbl">Morale</span><b class="${r.unhappy ? "sb-warn" : ""}">${esc(r.mood)}</b></div></div>
     ${line}
-    <div class="st-actions">${linkTo("player", { id: r.id }, "Player page", "st-btn small")}${linkTo("player", { id: r.id, tab: "People" }, "Talk", "st-btn small glass")}</div>`;
+    <div class="st-actions">${linkTo("player", { id: r.id }, "Player page ›")}${linkTo("player", { id: r.id, tab: "People" }, "Talk", "st-btn small glass")}</div>`;
 }

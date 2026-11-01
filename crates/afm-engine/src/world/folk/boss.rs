@@ -49,7 +49,7 @@ pub enum GoalKind {
 impl GoalKind {
     pub fn words(self, level: Level) -> String {
         match self {
-            GoalKind::Wins(n) => format!("win at least {n} games"),
+            GoalKind::Wins(n) => format!("win at least {n} {}", super::noun(n, "game")),
             GoalKind::Postseason => match level {
                 Level::College => "go to a bowl".into(),
                 _ => "make the playoffs".into(),
@@ -827,17 +827,21 @@ pub(crate) fn day(w: &mut World, d: Date) {
         ),
         _ => (w.dates.hs_school_start.add(-12), w.dates.hs_school_start.add(45), w.dates.december_graduation.add(-5)),
     };
-    let which = if d == pre {
+    // Each meeting goes on the calendar the day before, so its morning
+    // stops for you; set on the day itself, the end of that day would hand
+    // it to your staff before you saw it.
+    let when = d.add(1);
+    let which = if when == pre {
         Some((0, "The season's goals"))
-    } else if d == mid {
+    } else if when == mid {
         Some((1, "The midseason check-in"))
-    } else if d == post {
+    } else if when == post {
         Some((2, "The season review"))
     } else {
         None
     };
     if let Some((c, title)) = which {
-        let mut s = Scene::new(Kind::BossMeeting, d, title);
+        let mut s = Scene::new(Kind::BossMeeting, when, title);
         s.c = c;
         s.b = if c == 2 { w.year as u64 } else { 0 };
         if c == 2 && team.level() == Level::Nfl {

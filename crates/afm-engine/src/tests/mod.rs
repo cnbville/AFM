@@ -1,23 +1,35 @@
 //! Engine tests, ported from the TypeScript model. Calibration of a whole
 //! national class lives in afm-tools (it needs the debug summary).
 
+mod bodies;
+mod carousel;
 mod coaching_people;
 mod compact;
 mod development;
 mod faces;
+mod fans;
 mod foundations;
 mod front_office;
 mod game_stats;
 mod gameplan;
+mod hiring;
 mod hs_playoffs;
+mod hunt;
 mod kick_units;
+mod lane7;
+mod lane9;
 mod leagues;
 mod legacy;
 mod level_rating;
+mod lines;
 mod links;
 mod live_game;
+mod new_teams;
+mod no_fire;
 mod polls;
+mod portal_talks;
 mod ratings;
+mod save;
 mod schedule;
 mod scouting;
 mod stories;
@@ -25,9 +37,11 @@ mod storylines;
 mod tactics;
 mod tendencies;
 mod training;
+mod update3;
 mod views;
 mod win_chance;
 mod world;
+mod world_log;
 
 use crate::development::{SeasonContext, develop_season};
 use crate::player::{Level, Player, PlayingTime, ProspectOptions, generate_prospect};

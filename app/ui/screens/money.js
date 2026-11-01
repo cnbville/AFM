@@ -100,10 +100,12 @@ screens.money = async (a) => {
   const kicker = teamA(x.team) + (x.own ? ` · ${esc(x.today)}` : "");
   return `<div class="pad mn">${pageHead({ kicker, title: x.own ? "Finances" : `${esc(x.team.name)} finances`, sub, actions, goto: gotoFor("money", a, x) })}${list.length > 1 ? tabs("mntab", list, tab) : ""}<div class="tabbody">${body}</div></div>`;
 };
+// High school football keeps no league books: for your own school the
+// School office (the booster club's books) takes that place.
 GOTO.money = (a, x) => [
-  ["League money", "money_league", { level: x.seat === "college" ? "college" : "nfl" }],
+  x.seat === "hs" ? (x.own && screens.school ? ["School office", "school"] : null) : ["League money", "money_league", { level: x.seat === "college" ? "college" : "nfl" }],
   ["Team page", "team", a.kind ? { kind: a.kind, id: a.id } : {}],
-  x.seat === "nfl" && x.own ? ["Contracts", "contracts"] : null,
+  x.seat === "nfl" && x.own ? ["Cap sheet", "fo_cap"] : null,
   ["Schedule", "schedule", a.kind ? { kind: a.kind, id: a.id } : {}],
   ["Money mail", "inbox", { key: "Money" }],
 ];
@@ -117,7 +119,7 @@ function mnNfl(x, b, tab) {
     const chart = mnLine(years, [{ name: "Value", values: h.map((r) => r.value), color: MN_C[1] }, { name: "Revenue", values: h.map((r) => r.revenue), color: MN_C[0] }], { zero: true });
     const att = mnLine(years, [{ name: "Crowd a game", values: h.map((r) => r.attendance), color: MN_C[2] }, { name: "Seats", values: h.map((r) => r.capacity), color: MN_C[7] }], { fmt: (v) => mnN(Math.round(v)), h: 120 });
     const owner = `<div class="kv"><dt>Owner</dt><dd><b>${esc(b.owner.name)}</b>${b.owner.since ? ` <span class="muted">since ${b.owner.since}</span>` : ""}</dd>${b.owner.words ? `<dt>On money</dt><dd>${esc(b.owner.words)}</dd>` : ""}<dt>Market</dt><dd>${esc(p.city)}${p.state ? ", " + esc(p.state) : ""}</dd>${p.moving ? `<dt>Moving</dt><dd><span class="tag due">To ${esc(p.moving.city)}, ${esc(p.moving.state)} in ${p.moving.year}</span></dd>` : ""}${p.league_revenue ? `<dt>League revenue</dt><dd>${mn$(p.league_revenue)} <span class="muted">shared nationally, plus each club's own</span></dd>` : ""}</div>`;
-    const stadium = `<div class="kv"><dt>Stadium</dt><dd><b>${esc(st.name)}</b>${st.dome ? ' <span class="tag soft">Roof</span>' : ""}</dd><dt>Seats</dt><dd>${mnN(st.capacity)}</dd><dt>Opened</dt><dd>${st.opened}${st.renovated > st.opened ? ` · renovated ${st.renovated}` : ""} <span class="muted">(${st.age} years)</span></dd>${st.cost ? `<dt>Built for</dt><dd>${mn$(st.cost)}${st.public ? ` · ${mn$(st.public)} public money` : ""}</dd>` : ""}<dt>Ticket</dt><dd>${mn$(p.price)} on average</dd></div>`;
+    const stadium = `<div class="kv"><dt>Stadium</dt><dd><b>${esc(st.name)}</b>${st.dome ? ' <span class="tag soft">Roof</span>' : ""}</dd><dt>Seats</dt><dd>${mnN(st.capacity)}</dd><dt>Opened</dt><dd>${st.opened}${st.renovated > st.opened ? ` · renovated ${st.renovated}` : ""} <span class="muted">(${st.age} year${st.age === 1 ? "" : "s"})</span></dd>${st.cost ? `<dt>Built for</dt><dd>${mn$(st.cost)}${st.public ? ` · ${mn$(st.public)} public money` : ""}</dd>` : ""}<dt>Ticket</dt><dd>${mn$(p.price)} on average</dd></div>`;
     const proj = mnProjects(b.projects);
     return `${tiles}<div class="grid2" style="margin-top:18px"><div class="col"><section class="panel"><h2>Value and revenue <small>estimates, by season</small></h2>${chart}</section><section class="panel"><h2>The crowd <small>regular-season average</small></h2>${att}</section></div>
       <div class="col"><section class="panel"><h2>The owner</h2>${owner}</section><section class="panel"><h2>Home</h2>${stadium}</section>${proj}</div></div>`;

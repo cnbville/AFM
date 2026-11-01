@@ -8,7 +8,7 @@ use crate::calendar::Date;
 use crate::world::World;
 use crate::world::pro::{self, Status, money, squad};
 
-use super::{Duty, Owner};
+use super::Duty;
 
 /// What your cut plan does with a player.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -35,7 +35,8 @@ pub struct RosterDesk {
 /// Your cut to 53 on cutdown day, when the cutdown is yours: your plan
 /// first, then the staff's ranking for every place you left open.
 pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option<(Vec<usize>, Vec<usize>, Vec<usize>)> {
-    if !super::yours(w, t, Duty::Cutdown) {
+    // Your plan stands whoever holds the cutdown; the staff fills the rest (SC6).
+    if !super::yours(w, t, Duty::Cutdown) && !(super::seat_head_club(w, t) && !w.front_office.roster.plan.is_empty()) {
         return None;
     }
     let plan = &w.front_office.roster.plan;
@@ -43,7 +44,7 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
     let ps = w.rules.nfl_practice_squad as usize;
     let of = |i: usize| plan.iter().find(|x| x.0 == w.people[i].player.id).map(|x| x.1);
     // The staff's own cut, for the places you left open.
-    let (staff53, staff_ps, _) = pro::cut_split(w, keep);
+    let (staff53, staff_ps, _) = pro::cut_split(w, t, keep);
     let mut chosen: Vec<usize> = keep.iter().map(|x| x.0).filter(|&i| of(i) == Some(Cut::Keep)).take(limit).collect();
     for &i in staff53.iter().chain(keep.iter().map(|x| &x.0)) {
         if chosen.len() >= limit {
@@ -110,13 +111,13 @@ pub fn set_plan(w: &mut World, id: u32, cut: Option<Cut>) -> Result<(), String> 
         plan.retain(|x| x.0 != id);
         return Err(format!("You already keep {} players: release one first.", keeps - 1));
     }
-    w.front_office.set_owner(Duty::Cutdown, Owner::You);
     Ok(())
 }
 
 /// The squad players you protect this week, when the squad is yours.
 pub(crate) fn protected(w: &World, t: usize) -> Option<Vec<u32>> {
-    super::yours(w, t, Duty::PracticeSquad).then(|| w.front_office.roster.protect.clone())
+    let mine = &w.front_office.roster.protect;
+    (super::yours(w, t, Duty::PracticeSquad) || super::seat_head_club(w, t) && !mine.is_empty()).then(|| mine.clone())
 }
 
 /// Protects (or stops protecting) a squad player: four a week from 2020.
@@ -134,7 +135,6 @@ pub fn set_protect(w: &mut World, id: u32, on: bool) -> Result<(), String> {
         }
         r.push(id);
     }
-    w.front_office.set_owner(Duty::PracticeSquad, Owner::You);
     Ok(())
 }
 
@@ -264,7 +264,6 @@ pub fn claim(w: &mut World, id: u32, drop: Option<u32>, on: bool) -> Result<(), 
     if on {
         w.front_office.roster.claims.push((id, drop));
     }
-    w.front_office.set_owner(Duty::Waivers, Owner::You);
     Ok(())
 }
 
@@ -315,7 +314,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
 /// score) and the cut it would make: (ranking, the 53, the squad).
 pub fn staff_cut(w: &World, t: usize) -> (Vec<(usize, f64)>, Vec<usize>, Vec<usize>) {
     let keep = pro::cut_scores(w, t);
-    let (a, b, _) = pro::cut_split(w, &keep);
+    let (a, b, _) = pro::cut_split(w, t, &keep);
     (keep, a, b)
 }
 

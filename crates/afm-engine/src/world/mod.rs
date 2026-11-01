@@ -32,20 +32,23 @@ pub mod front_office;
 pub mod game_log;
 pub mod geo;
 pub mod guide;
+pub mod help;
 pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
+pub mod hunt;
 pub mod legacy;
 pub mod live_seat;
 pub mod looks;
 pub mod names;
 pub mod ncaa;
+pub mod new_teams;
 pub mod news;
 pub(crate) mod nfl_year;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
 pub use recruiting::DraftRun;
-pub use season::{key_normal, key_uniform};
+pub use season::{key_normal, key_uniform, level_from_read, level_pool};
 
 /// Last season's draft order once the season has ended (for the coming draft).
 pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
@@ -71,8 +74,11 @@ pub mod stories;
 pub mod storylines;
 pub mod systems;
 pub mod tape;
+pub mod times;
 pub mod trends;
+pub mod units;
 pub mod voters;
+pub mod wlog;
 
 use rayon::prelude::*;
 
@@ -310,6 +316,9 @@ pub struct Signed {
     pub walk_on: bool,
     pub date: crate::calendar::Date,
     pub early_enrollee: bool,
+    /// He signed somewhere other than where he was committed.
+    #[serde(default)]
+    pub flipped: bool,
 }
 
 /// A portal entrant's dates (T3): the day he entered and the day his
@@ -407,6 +416,30 @@ pub struct PersonCal {
     /// A big NIL deal came this year (fix list 4.5): read by the season's
     /// development step, then cleared.
     pub payday: bool,
+    /// A transfer's place at his new school until he plays a season there:
+    /// the role and the edge over its starters (points) his collective
+    /// paid him on when he landed, which its July split keeps (minor bug
+    /// 100). Cleared at fall camp.
+    #[serde(default)]
+    pub nil_role: Option<(PlayingTime, f32)>,
+    /// Cut from a college team (minor bug 60): it holds while he is still
+    /// at that program (`Person::cut_here`), until the next window moves him.
+    #[serde(default)]
+    pub cut: Option<CollegeCut>,
+    /// What each head coach's living-room talk did for him (lane 14, D7):
+    /// program, lean. It weighs in his choice like the rest of the
+    /// relationship.
+    #[serde(default)]
+    pub home_talks: Vec<(usize, f32)>,
+}
+
+/// A college cut (minor bug 60): the program, the day, and whether his
+/// scholarship stays with him while he stays in school (`ncaa::aid_kept`).
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CollegeCut {
+    pub program: u16,
+    pub date: crate::calendar::Date,
+    pub aid_kept: bool,
 }
 
 /// A recruiting action on a day the NCAA periods allow (T5.3, T5.4).
@@ -442,6 +475,11 @@ impl PersonCal {
 }
 
 impl Person {
+    /// His cut, while he is still at the program that cut him: off its
+    /// roster, out of its games and waiting for the next transfer window.
+    pub fn cut_here(&self) -> Option<CollegeCut> {
+        self.cal.cut.filter(|c| self.stage == Stage::College && self.college == Some(c.program as usize))
+    }
     pub fn note(&mut self, s: impl Into<String>) {
         // Exact room, for the note and the list (memory: notes are kept
         // for every person, and a formatted line carries spare room).
@@ -449,6 +487,13 @@ impl Person {
         s.shrink_to_fit();
         self.notes.reserve_exact(1);
         self.notes.push(s);
+    }
+    /// A note that can come twice at one age (a second spring notice, a
+    /// second trip to the portal): the second time it reads as again, so
+    /// his story never repeats a line word for word (minor bug 116).
+    pub fn note_again(&mut self, first: String, again: impl FnOnce() -> String) {
+        let s = if self.notes.contains(&first) { again() } else { first };
+        self.note(s);
     }
     /// His family's football ties (a brother's program, a bloodline): the
     /// public record a recruiting search reads.
@@ -605,7 +650,7 @@ impl Alumnus {
             class_of: p.class_of,
             born: p.born,
             visibility: p.visibility,
-            steered: p.notes.iter().any(|n| n.contains("more than his own")),
+            steered: p.notes.iter().any(|n| n.ends_with(" than his own.") || n.contains("more than his own")),
             background_summary,
             notes: p.notes.clone(),
             nfl_team: None,
@@ -662,8 +707,12 @@ pub struct World {
     pub high_schools: Vec<HighSchool>,
     pub programs: Vec<Program>,
     pub coaches: Vec<Coach>,
+    /// People, alumni and news are their own parts in a save (`save.rs`).
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub people: Vec<Person>,
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub alumni: Vec<Alumnus>,
+    #[serde(serialize_with = "crate::save::in_parts")]
     pub news: Vec<NewsItem>,
     /// Star counts per signing class (index = stars), for calibration.
     pub signing_classes: Vec<(i32, [u32; 6])>,
@@ -692,10 +741,19 @@ pub struct World {
     /// tapes, so a new career has film of its first opponents (tape.rs).
     #[serde(skip)]
     pub(crate) world_tapes: bool,
+    /// Pros out injured by player id, for the nightly heal (B1), and the
+    /// day it last ran; rebuilt from everyone each Tuesday and after a load.
+    /// Ids, not places in `people`, since the people list is purged.
+    #[serde(skip)]
+    pub(crate) hurt_pros: (Vec<u32>, Option<crate::calendar::Date>),
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
     pub game_log: game_log::GameLog,
+    /// The world log (world reader lane R2): on disk, never saved in the
+    /// world file. None unless a build or the game attaches one.
+    #[serde(skip)]
+    pub(crate) wlog: Option<Box<wlog::WorldLog>>,
     /// The career stats record, record books and Hall of Fame (section 3,
     /// topic 8): always kept.
     pub stats: records::StatBook,
@@ -724,6 +782,18 @@ pub struct World {
     pub market: pro::market::Market,
     /// A head-coach-change transfer window waiting to open (T3): opens, closes.
     pub(crate) coach_window: Option<(crate::calendar::Date, crate::calendar::Date)>,
+    /// Programs whose head coach left after this cycle's coaching-change
+    /// window opened (minor bug 88): each gets its own window five days
+    /// after its new hire, with the dates once he is hired.
+    #[serde(default)]
+    pub(crate) late_windows: Vec<(usize, Option<(crate::calendar::Date, crate::calendar::Date)>)>,
+    /// While a late window opens: the programs whose players it draws.
+    #[serde(skip)]
+    pub(crate) window_programs: Vec<usize>,
+    /// Players whose head coach left for another college head job and wants
+    /// them there (minor bug 86): player id, his new program, the pull.
+    #[serde(default)]
+    pub(crate) coach_follows: Vec<(u32, usize, f32)>,
     /// Counters for trials: this football year's, and every earlier one.
     pub log: CalendarLog,
     pub log_history: Vec<CalendarLog>,
@@ -732,6 +802,10 @@ pub struct World {
     /// Portal entrants still deciding (person indices; resolved before the
     /// year-end book compacts the people list).
     pub(crate) portal_pending: Vec<usize>,
+    /// Your players who asked to see you before they enter the portal
+    /// (`recruiting::Intent`).
+    #[serde(default)]
+    pub(crate) portal_intents: Vec<recruiting::Intent>,
     /// Verbal commitments decided at a commitment wave and waiting for the
     /// recruit's own announcement day (T5.2): day, person index, player id,
     /// program, and whether it is a walk-on place.
@@ -767,6 +841,10 @@ pub struct World {
     /// Your depth chart where you set one (section 8, topic 6).
     #[serde(default)]
     pub seat_depth: Vec<(crate::positions::Position, Vec<u32>)>,
+    /// When you set or gave back an order, newest last (update 3, H4): the
+    /// day, the position and the first man (0: given back to the staff).
+    #[serde(default)]
+    pub seat_depth_log: Vec<(crate::calendar::Date, crate::positions::Position, u32)>,
     /// Your players' plan focus (section 6b topic 5): player id and
     /// attribute index.
     #[serde(default)]
@@ -779,6 +857,9 @@ pub struct World {
     /// contracts and your network (`folk`).
     #[serde(default)]
     pub folk: folk::Folk,
+    /// Every high schooler's recorded times (speed update S6e).
+    #[serde(default)]
+    pub times: times::Times,
     /// Your game being played live today (section 9): the day books it
     /// when it runs.
     #[serde(default)]
@@ -855,6 +936,19 @@ pub struct World {
     pub(crate) nfl_prev: Option<nfl_year::NflSeason>,
     #[serde(default)]
     pub(crate) kept_schedules: Vec<season_page::KeptSeason>,
+    /// The NFL clubs the world added after 2026 and its owners' votes (SK68).
+    #[serde(default)]
+    pub expansion: franchise::Expansion,
+    /// College programs and high schools that started after 2026 (SK68).
+    #[serde(default)]
+    pub new_teams: new_teams::NewTeams,
+    /// The hunts (SK67): yours, the AI's and the generational prospects.
+    #[serde(default)]
+    pub hunt: hunt::Hunts,
+    /// Each NFL team's regular-season points by year (C27): (season, team,
+    /// games, points for, points against); the last twenty seasons.
+    #[serde(default)]
+    pub nfl_units: Vec<(i32, u8, u8, u16, u16)>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -960,6 +1054,13 @@ pub struct CalendarLog {
     pub returned: u32,
     #[serde(default)]
     pub moved_up_far: u32,
+    /// College players through the year's development step, and those in
+    /// off-field trouble there, suspended or dismissed (minor bug 112:
+    /// today's rosters have lost the dismissed, so the rate read low).
+    #[serde(default)]
+    pub college_rolled: u32,
+    #[serde(default)]
+    pub college_trouble: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team, college
@@ -1019,12 +1120,30 @@ impl World {
 
     /// `new_watched`, where `each` says whether to go on: false stops the
     /// build after that season and gives nothing (the game's Stop button).
-    pub fn new_stoppable(options: WorldOptions, mut each: impl FnMut(&World, f64) -> bool) -> Option<World> {
+    pub fn new_stoppable(options: WorldOptions, each: impl FnMut(&World, f64) -> bool) -> Option<World> {
+        World::new_logged(options, None, each)
+    }
+
+    /// `new_stoppable`, writing the world log into `log` as the history is
+    /// played (world reader lane R2). The log stays attached to the world.
+    pub fn new_logged(
+        options: WorldOptions,
+        log: Option<wlog::WorldLog>,
+        mut each: impl FnMut(&World, f64) -> bool,
+    ) -> Option<World> {
         let mut w = World::empty(options);
+        if let Some(log) = log {
+            w.attach_log(log);
+        }
         // Older high school classes already in school when the clock starts.
         for age in [17, 16, 15] {
             w.add_class_aged(age);
         }
+        // Pipelines and staff ties are the world's own state, not records:
+        // they grow through the spin-up, so the first recorded classes are
+        // recruited with them (minor bug 131: a short world's draft classes
+        // were all recruited blind, and too many went to FCS).
+        program::seed_pipelines(&mut w);
         for _ in 0..SPIN_UP_YEARS {
             let t = std::time::Instant::now();
             w.advance_year();
@@ -1032,11 +1151,7 @@ impl World {
                 return None;
             }
         }
-        w.recording = true;
-        for p in w.programs.iter_mut() {
-            p.prestige_start = p.prestige;
-        }
-        program::seed_pipelines(&mut w);
+        w.start_recording();
         for k in 0..w.options.history_years {
             let t = std::time::Instant::now();
             w.world_tapes = k + 1 == w.options.history_years;
@@ -1047,6 +1162,15 @@ impl World {
             }
         }
         Some(w)
+    }
+
+    /// The spin-up is over: recorded history starts.
+    pub(crate) fn start_recording(&mut self) {
+        self.recording = true;
+        for p in self.programs.iter_mut() {
+            p.prestige_start = p.prestige;
+        }
+        program::seed_pipelines(self);
     }
 
     /// The world with programs, schools and staffs but no players or history yet.
@@ -1073,6 +1197,19 @@ impl World {
             let mut p = program::program_from_row(id, &start, seed, &mut rng);
             p.base = probe.base.clone();
             p.set_history(dropped);
+            programs.push(p);
+        }
+        // Colleges without a team that may start one after 2026 (SK68) wait
+        // in the list like a dropped program, on their own stream: real
+        // ones, then small colleges in growing towns.
+        let mut cand_rng = Rng::new(seed ^ 0x0CA4_D1D0);
+        let generated = new_teams::college::generated(seed);
+        for row in data::CANDIDATE_COLLEGES.iter().chain(generated.iter()) {
+            if programs.iter().any(|p| p.real_name == row.name) {
+                continue;
+            }
+            let mut p = program::program_from_row(programs.len(), row, seed, &mut cand_rng);
+            p.set_history(true);
             programs.push(p);
         }
         let mut high_schools = Vec::new();
@@ -1117,7 +1254,7 @@ impl World {
                 }
             };
         }
-        let overflow = overflow_by_state(&programs);
+        let overflow = overflow_by_state(&programs, year);
         let nfl = crate::league::make_league(&mut rng);
         let changes = crate::calendar::ChangeState::default();
         let dates = crate::calendar::YearDates::new(year);
@@ -1142,7 +1279,10 @@ impl World {
             rng,
             recording: false,
             world_tapes: false,
+            hurt_pros: (Vec::new(), None),
+            times: times::Times::default(),
             game_log: game_log::GameLog::default(),
+            wlog: None,
             stats: records::StatBook::default(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
@@ -1160,10 +1300,14 @@ impl World {
             nfl_season: None,
             market: Default::default(),
             coach_window: None,
+            late_windows: Vec::new(),
+            window_programs: Vec::new(),
+            coach_follows: Vec::new(),
             log: CalendarLog { year, ..CalendarLog::default() },
             log_history: Vec::new(),
             event_history: Vec::new(),
             portal_pending: Vec::new(),
+            portal_intents: Vec::new(),
             announcements: Vec::new(),
             portal_market: None,
             nfl_champions: Vec::new(),
@@ -1178,6 +1322,7 @@ impl World {
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
             seat_games: Vec::new(),
             seat_depth: Vec::new(),
+            seat_depth_log: Vec::new(),
             seat_focus: Vec::new(),
             training: Default::default(),
             career: None,
@@ -1199,6 +1344,10 @@ impl World {
             prev_polls: Vec::new(),
             nfl_prev: None,
             kept_schedules: Vec::new(),
+            expansion: Default::default(),
+            new_teams: Default::default(),
+            hunt: Default::default(),
+            nfl_units: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -1211,7 +1360,7 @@ impl World {
             }
         }
         for p in w.programs.iter_mut() {
-            program::rebuild_footprint(p, &w.overflow);
+            program::rebuild_footprint(p, &w.overflow, year);
         }
         w
     }
@@ -1339,10 +1488,21 @@ impl World {
                 continue;
             }
             // Bigger schools field bigger rosters.
-            let mut best = schools[self.rng.int(0, schools.len() as i32 - 1) as usize];
+            let first = schools[self.rng.int(0, schools.len() as i32 - 1) as usize];
             let other = schools[self.rng.int(0, schools.len() as i32 - 1) as usize];
+            let mut best = first;
             if self.high_schools[other].enrollment > self.high_schools[best].enrollment && self.rng.chance(0.5) {
                 best = other;
+            }
+            // A boarding academy has no neighbourhood: it recruits its classes (bug 126).
+            if recruiting::boarding(&self.high_schools[best]) {
+                best = if best == first { other } else { first };
+            }
+            if recruiting::boarding(&self.high_schools[best])
+                && let Some(k) = schools.iter().position(|&h| h == best)
+            {
+                // Both draws were the academy: his neighbour school in the list.
+                best = schools[(k + 1) % schools.len()];
             }
             kids.push((s, best, self.rng.next_u32()));
         }
@@ -1419,7 +1579,8 @@ impl World {
     }
 
     /// Each new boy's pull to stay in his state and the team he grew up
-    /// cheering for (fix list 2.2, 2.3), on keyed draws. Proposed, not
+    /// cheering for (fix list 2.2, 2.3), on keyed draws and his family
+    /// (minor bug 89). Proposed, not
     /// confirmed: a quarter feel no pull, half a little (0.02-0.08), a
     /// quarter a lot (0.10-0.25). Four in five grew up with a team in their
     /// own state, picked by fan base and tradition; the rest with a national
@@ -1450,9 +1611,29 @@ impl World {
             }
             list.last().map(|x| x.0)
         };
+        // Who feels the pull comes from his family as much as from chance
+        // (minor bug 89): a settled home, and a parent or grandparent making
+        // the choice, keep a boy closer. Read against his own class, so each
+        // band keeps its share; a boy added alone draws by chance (proposed,
+        // not confirmed: family 0.6 of the draw's spread).
+        let rooted = |p: &Person| {
+            p.bg.home_stability
+                + if matches!(p.family.decider, background::Decider::Parent | background::Decider::Grandparent) {
+                    0.15
+                } else {
+                    0.0
+                }
+        };
+        let n = self.people.len() - start;
+        let mean = self.people[start..].iter().map(rooted).sum::<f64>() / n.max(1) as f64;
+        let sd =
+            (self.people[start..].iter().map(|p| (rooted(p) - mean).powi(2)).sum::<f64>() / n.max(1) as f64).sqrt();
+        let fam: f64 = if n >= 50 && sd > 1e-6 { 0.6 } else { 0.0 };
         for person in &mut self.people[start..] {
             let id = person.player.id as u64;
-            let u = season::key_uniform(seed ^ 0x57A1, id);
+            let z = (1.0 - fam * fam).sqrt() * finance::probit(season::key_uniform(seed ^ 0x57A1, id))
+                + if fam > 0.0 { fam * (rooted(person) - mean) / sd } else { 0.0 };
+            let u = crate::athlete::phi(z);
             // Sized against the real home-state shares (fix list 2.8: FBS
             // median 37%, p10 15%, p90 65%); a first pass at 0-0.25 gave a
             // median of 20% (proposed, not confirmed).
@@ -1513,7 +1694,9 @@ impl World {
             match p.stage {
                 Stage::HighSchool => self.high_schools[p.hs].roster.push(i),
                 Stage::College => {
-                    if let Some(c) = p.college {
+                    if let Some(c) = p.college
+                        && p.cut_here().is_none()
+                    {
                         self.programs[c].roster.push(i);
                     }
                 }
@@ -1617,11 +1800,14 @@ pub(crate) fn pick_mut<T>(v: &mut [T], idx: impl IntoIterator<Item = usize>) -> 
     out
 }
 
-fn overflow_by_state(programs: &[Program]) -> [f64; 51] {
+pub(crate) fn overflow_by_state(programs: &[Program], year: i32) -> [f64; 51] {
     let mut out = [0.0; 51];
     for row in data::STATES.iter() {
         let Some(s) = geo::state_index(&row.code) else { continue };
-        let p4 = programs.iter().filter(|p| p.state == s && p.power_four()).count() as f64;
+        // The power programs of that season (the Southwest Conference and
+        // the Pac-12 in their day; minor bug 104: today's four names only
+        // left Texas without its SWC schools for the whole history).
+        let p4 = programs.iter().filter(|p| p.state == s && p.plays(year) && p.power_conference(year)).count() as f64;
         // A Power 4 program signs about half of its class from its own state.
         out[s] = (row.fbs_signees_per_year - 14.0 * p4).max(0.0);
     }
@@ -1682,7 +1868,15 @@ fn new_kid(
     let family = generate_family(&bg, Some(structure), &mut rng);
     apply_background(&mut player, &mut bg, &family, &mut rng);
     people::sync_new(&mut player, &bg, &family);
-    let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+    // Drawn with the odds of the position his body fits now, before any
+    // coach moves him, or a snapper's if he has the knack (A25).
+    let knack = ethnicity::snapper_knack(
+        player.ceilings.get(crate::attributes::Attr::LongSnapping),
+        player.original_potential,
+        z,
+    );
+    let fits = if knack { crate::positions::Position::LS } else { player.position };
+    let ethnicity = ethnicity::player_ethnicity(s, z, Some(fits), &mut rng);
     // Grades drift through high school: effort pushes them up.
     let gpa_trend =
         rng.normal(0.0, 0.07) + 0.012 * (player.personality.work_ethic - 10.0) + 0.04 * (bg.home_stability - 0.5);

@@ -518,7 +518,9 @@ fn mark(w: &mut World, id: u32, th: &str, moment: &str) -> u8 {
 /// stage, the more people watching to name it).
 fn level_chance(level: Level, big: bool) -> f64 {
     let base = match level {
-        Level::Nfl => 0.28,
+        // A few new names stick league-wide a year, mostly stars after
+        // big moments (minor bug 151: 0.28 coined 29.6 a year).
+        Level::Nfl => 0.04,
         Level::College => 0.2,
         _ => 0.15,
     };
@@ -871,8 +873,9 @@ fn named_play(w: &mut World, ctx: &GameCtx, s: &GameStats, who: &std::collection
         f = f.set("opp_mascot", m);
     }
     let Some(name) = make_name(w, &format!("nick.play.{kind}"), &f) else { return };
+    let yds = if kind == "kick" { p.kick_distance.max(p.yards) } else { p.yards.abs().max(p.return_yards) };
     let what = format!(
-        "{} {} {:.0} yards with {} left to beat {} {}-{}",
+        "{} {} {:.0} {} with {} left to beat {} {}-{}",
         w.people[mi].name,
         match kind {
             "kick" => "kicked it from",
@@ -881,7 +884,8 @@ fn named_play(w: &mut World, ctx: &GameCtx, s: &GameStats, who: &std::collection
             "run" => "ran it in from",
             _ => "caught it from",
         },
-        if kind == "kick" { p.kick_distance.max(p.yards) } else { p.yards.abs().max(p.return_yards) },
+        yds,
+        crate::world::folk::noun(yds.round_ties_even() as i64, "yard"),
         clock_words(p.clock),
         super::team_in_text(w, opp),
         sh.max(sa),
@@ -926,7 +930,7 @@ fn clock_words(sec: f64) -> String {
     if sec <= 0.5 {
         "no time".into()
     } else if sec < 60.0 {
-        format!("{sec:.0} seconds")
+        format!("{sec:.0} {}", crate::world::folk::noun(sec.round_ties_even() as i64, "second"))
     } else {
         format!("{}:{:02}", (sec / 60.0) as u32, (sec % 60.0) as u32)
     }

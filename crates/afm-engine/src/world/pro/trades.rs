@@ -11,7 +11,7 @@
 
 use super::market::{consensus, post, worth};
 use super::office::Mode;
-use super::{Status, money, space};
+use super::{Status, cap_room, money};
 use crate::calendar::{Date, Kind, Loudness};
 use crate::league::depth_slots;
 use crate::positions::Position;
@@ -82,7 +82,7 @@ impl PickBook {
 /// supplemental draft choice): the pick it holds in that round, its own or
 /// one it acquired.
 pub(crate) fn forfeit_pick(w: &mut World, team: usize, year: i32, round: u32) {
-    let teams = super::super::franchise::active_teams(year);
+    let teams = super::super::franchise::active_teams_in(w, year);
     let orig = teams.iter().copied().find(|&o| w.market.picks.owner_of(year, round, o) == team).unwrap_or(team);
     w.market.picks.forfeited.push((year, round, orig));
 }
@@ -109,8 +109,9 @@ pub(crate) fn board_owners(w: &World, year: i32, board: &mut Vec<(usize, u32)>, 
     if !comp.is_empty() {
         let mut full: Vec<(usize, u32)> = Vec::new();
         let rounds = super::super::franchise::draft_rounds(year);
+        let new = super::super::franchise::first_draft_in(w, year);
         for round in 1..=rounds {
-            for t in super::super::franchise::round_order(year, round, base) {
+            for t in super::super::franchise::round_order(year, round, base, &new) {
                 full.push((t, round));
             }
             let mut extra: Vec<&&CompPick> = comp.iter().filter(|c| c.round == round).collect();
@@ -217,7 +218,7 @@ pub(crate) fn chart_at(table: &[(f64, f64)], pick: f64) -> f64 {
 /// order is set once the season ends), later years at mid-round, cut by
 /// his urgency (a contender wants now).
 pub(crate) fn pick_value(w: &World, t: usize, year: i32, round: u32, orig: usize) -> f64 {
-    let teams = super::super::franchise::active_teams(w.year).len().max(1) as f64;
+    let teams = super::super::franchise::active_teams_in(w, w.year).len().max(1) as f64;
     let o = &w.clubs[t].office;
     let slot = if year == w.year && w.today < w.dates.draft[0].date {
         super::super::nfl_year::draft_order(w)
@@ -298,7 +299,7 @@ pub(crate) enum Window {
 pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
     let year = w.year;
     let june1 = super::after_june1(w, d);
-    let teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, year)).collect();
+    let teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active_in(w, t, year)).collect();
     if w.market.fleece.len() < w.nfl.len() {
         w.market.fleece = vec![vec![0.0; w.nfl.len()]; w.nfl.len()];
     }
@@ -320,9 +321,13 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
         holes.sort_by(|a, b| b.1.total_cmp(&a.1));
         let Some(&(pos, _)) = holes.first() else { continue };
         let roll = key_uniform(w.options.seed as u64 ^ 0x7EAD ^ d.0 as u64, buyer as u64);
+        // In season the calls build toward the deadline (minor bug 87: real
+        // 2021-2025 has 2 player trades in September and 9 in October,
+        // trades.csv; the world made 7 and 5).
+        let weeks = w.dates.nfl_kickoff.days_to(d).max(0) as f64 / 7.0;
         let calls = match window {
             Window::Offseason => 0.45,
-            Window::Season => 0.1,
+            Window::Season => 0.1 * (weeks / 5.0).clamp(0.15, 1.2),
             Window::Deadline => 0.45,
         } * if w.clubs[buyer].office.mode == Mode::Contend { 1.5 } else { 1.0 };
         if roll > calls {
@@ -367,6 +372,7 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
                     continue;
                 }
                 reached = reached.max(1);
+                let own = player_points(w, seller, i);
                 let surplus_seller = {
                     let sm = w.clubs[seller].office.mode;
                     let starters = depth_slots(pos).starters;
@@ -375,24 +381,35 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
                         || rank >= starters
                         || c.wants_out
                         || crate::world::front_office::deals::on_block(w, seller, i)
+                        // A veteran who costs the seller more than he is worth
+                        // to it: real clubs shop him before cutting him (bug 87).
+                        || own < 0.0 && w.people[i].player.age >= 27
                 };
                 if !surplus_seller {
                     continue;
                 }
                 reached = reached.max(2);
                 let vb = player_points(w, buyer, i);
-                let vs = player_points(w, seller, i) * if c.wants_out { 0.85 } else { 1.0 };
+                let vs = own * if c.wants_out { 0.85 } else { 1.0 };
                 let ask = vs.max(30.0) * (1.05 + (w.market.fleece[buyer][seller] / 5000.0).clamp(0.0, 0.3));
                 if vb < ask {
                     continue;
                 }
-                let cost = k.cap_hit(year) - k.year(year).map_or(0.0, |x| x.proration);
-                if space(w, buyer, year) < cost {
+                // The buyer takes only the pay still to come (bug 123), under
+                // the league's cap: before the first game the top 51, without
+                // the reserve the staffs hold back for signings (minor bug 87:
+                // every club sat below that reserve in camp, so no player was
+                // traded from the draft to September; real 30 a year,
+                // trades.csv 2021-2025).
+                let left = left_to_pay(k, year, paid_share(w, d));
+                if cap_room(w, buyer, year) < left {
                     continue;
                 }
                 // The seller must stay under the cap too (real): the bonus it
-                // keeps lands on its cap as his cap number comes off.
-                if space(w, seller, year) + k.cap_hit(year) < kept_bonus(k, year, june1).0 {
+                // keeps and the pay it has handed out stay on its cap as his
+                // cap number comes off.
+                let paid = k.cap_hit(year) - k.year(year).map_or(0.0, |x| x.proration) - left;
+                if cap_room(w, seller, year) + k.cap_hit(year) < kept_bonus(k, year, june1).0 + paid {
                     continue;
                 }
                 reached = reached.max(3);
@@ -440,6 +457,151 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
         execute(w, d, buyer, seller, i, package, window);
         moved.push(i);
     }
+    if window == Window::Offseason && d >= w.dates.cutdown.date.add(-7) {
+        depth_trades(w, d, &teams, &mut moved);
+    }
+}
+
+/// Cutdown week (minor bug 87): a club about to cut a player
+/// another club would keep calls around first, so it gets something for
+/// him, as real clubs do in August (about 19 player trades a year in
+/// August against 7 in the rest of the offseason after the draft, nflverse
+/// 2021-2025). Each club offers its best man past its usual count at his
+/// spot; the buyer is the club he helps most, grading 2+ above its worst
+/// man there among its usual count (or filling an empty place), when he
+/// is worth as much to it as the man he pushes out, and fits its cap with
+/// that man's pay gone: a better player for the same money (a fringe player's surplus is about nothing anywhere,
+/// so the seller's price alone found no buyer). The price is the seller's
+/// value of him, so a fringe player goes for the buyer's cheapest late
+/// pick. Talks fail as in any window; each club buys one a window.
+fn depth_trades(w: &mut World, d: Date, teams: &[usize], moved: &mut Vec<usize>) {
+    use crate::world::front_office::{Duty, yours};
+    let year = w.year;
+    let mut bought: Vec<usize> = Vec::new();
+    for &seller in teams {
+        if yours(w, seller, Duty::Trades) {
+            continue;
+        }
+        // (gain over the buyer's worst man, player, buyer, ask)
+        let mut best: Option<(f64, usize, usize, f64)> = None;
+        for pos in Position::ALL.iter().copied().filter(|p| !p.is_specialist()) {
+            let slots = depth_slots(pos).roster;
+            for &i in w.clubs[seller].depth[pos.index()].iter().skip(slots) {
+                let c = w.people[i].pro.as_ref().unwrap();
+                let Some(k) = c.contract.as_ref().filter(|k| !k.no_trade && k.team == seller) else { continue };
+                if moved.contains(&i)
+                    || w.clubs[seller].office.owner.pet == Some(i)
+                    || c.status != Status::Roster
+                    || c.out_weeks > 0
+                    || c.teams.len() > 1 && c.new_team
+                {
+                    continue;
+                }
+                let ask = player_points(w, seller, i).max(0.5);
+                let left = left_to_pay(k, year, paid_share(w, d));
+                for &buyer in teams {
+                    if buyer == seller || bought.contains(&buyer) || yours(w, buyer, Duty::Trades) {
+                        continue;
+                    }
+                    let list = &w.clubs[buyer].depth[pos.index()];
+                    let (worst, out) = if list.len() < slots {
+                        (60.0, None)
+                    } else {
+                        list.iter()
+                            .take(slots)
+                            .map(|&j| (super::grade(w, buyer, j), Some(j)))
+                            .fold((f64::MAX, None), |a, b| if b.0 < a.0 { b } else { a })
+                    };
+                    let gain = super::grade(w, buyer, i) - worst;
+                    // The man he pushes out is cut at cutdown, so his pay
+                    // still to come that isn't guaranteed is room too.
+                    let freed = out.and_then(|j| w.people[j].pro.as_ref()).and_then(|c| c.contract.as_ref()).map_or(
+                        0.0,
+                        |kj| {
+                            let g = kj.year(year).map_or(0.0, |y| y.guaranteed);
+                            (left_to_pay(kj, year, paid_share(w, d)) - g).max(0.0)
+                        },
+                    );
+                    if gain < 2.0 || best.is_some_and(|b| gain <= b.0) || cap_room(w, buyer, year) + freed < left {
+                        continue;
+                    }
+                    if player_points(w, buyer, i) >= out.map_or(0.0, |j| player_points(w, buyer, j)) {
+                        best = Some((gain, i, buyer, ask));
+                    }
+                }
+            }
+        }
+        let Some((_, i, buyer, ask)) = best else { continue };
+        if key_uniform(w.options.seed as u64 ^ 0xDE97 ^ d.0 as u64, i as u64) < 0.35 {
+            continue;
+        }
+        let Some(package) = package(w, buyer, seller, ask) else { continue };
+        execute(w, d, buyer, seller, i, package, Window::Offseason);
+        moved.push(i);
+        bought.push(buyer);
+    }
+}
+
+/// The share of a league year's pay a club has handed out by day `d`
+/// (minor bug 123): base salary and per-game bonuses are paid in weekly
+/// checks over the regular season, one a week with the bye (18 from 2021,
+/// 17 from 1990, 16 before), so after week 9 of 18 half is paid.
+pub(crate) fn paid_share(w: &World, d: Date) -> f64 {
+    let weeks = &w.dates.nfl_weeks;
+    if weeks.is_empty() {
+        return 0.0;
+    }
+    weeks.iter().filter(|&&s| s < d).count() as f64 / weeks.len() as f64
+}
+
+/// What a buyer still owes on a traded player's league year (minor bug
+/// 123): the checks to come, the offseason bonuses while the season has
+/// not started, and his likely incentives. Before, the buyer took the
+/// whole year's base on its cap and in cash.
+pub(crate) fn left_to_pay(k: &money::Contract, year: i32, share: f64) -> f64 {
+    k.year(year).filter(|y| !y.void).map_or(0.0, |y| {
+        let bonuses = if share > 0.0 { 0.0 } else { y.roster_bonus + y.workout };
+        (y.base + y.per_game) * (1.0 - share) + bonuses + y.ltbe
+    })
+}
+
+/// The seller keeps what it has paid a player it trades (minor bug 123):
+/// the weekly checks of this league year so far and, once the season is
+/// on, the roster and workout bonuses paid in the offseason stay on its cap
+/// and in its cash; the bonus money paid out this year is its cash too.
+/// His deal carries only the rest to the buyer.
+pub(crate) fn keep_paid(w: &mut World, i: usize, seller: usize, d: Date) {
+    let year = w.year;
+    let share = paid_share(w, d);
+    let id = w.people[i].player.id;
+    let Some(c) = w.people[i].pro.as_mut() else { return };
+    let Some(y) = c.contract.as_mut().and_then(|k| k.years.iter_mut().find(|y| y.year == year && !y.void)) else {
+        return;
+    };
+    let in_season = share > 0.0;
+    let bonuses = if in_season { y.roster_bonus + y.workout } else { 0.0 };
+    let paid = (y.base + y.per_game) * share + bonuses;
+    let cash = paid + y.bonus_paid;
+    y.base *= 1.0 - share;
+    y.per_game *= 1.0 - share;
+    y.guaranteed *= 1.0 - share;
+    y.injury *= 1.0 - share;
+    if in_season {
+        y.roster_bonus = 0.0;
+        y.workout = 0.0;
+    }
+    y.bonus_paid = 0.0;
+    c.earnings += cash;
+    if let Some(s) = c.seasons.last_mut().filter(|s| s.year == year) {
+        s.pay += cash;
+    }
+    w.clubs[seller].add_dead(year, paid, id, super::DeadWhy::PaidBeforeTrade);
+    if cash > 0.0 {
+        match w.clubs[seller].cash.last_mut() {
+            Some(x) if x.0 == year => x.1 += cash,
+            _ => w.clubs[seller].cash.push((year, cash)),
+        }
+    }
 }
 
 /// The bonus a seller keeps when it trades a player: his proration from
@@ -468,7 +630,7 @@ pub(crate) fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Optio
         for round in 1..=7u32 {
             for orig in 0..teams {
                 if w.market.picks.owner_of(y, round, orig) != buyer
-                    || !super::super::franchise::active(orig, y.min(year + 1))
+                    || !super::super::franchise::active_in(w, orig, y.min(year + 1))
                 {
                     continue;
                 }
@@ -498,6 +660,17 @@ pub(crate) fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Optio
     }
 }
 
+/// How much being traded away stings (update 3, F6; section 6 topic 2):
+/// a veteran of two or more years there who didn't ask out, less than a
+/// cut since he keeps his deal (proposed, not confirmed: three quarters of
+/// a cut's hurt). Read before the move.
+pub(crate) fn trade_hurt(w: &World, i: usize, from: usize) -> f64 {
+    w.people[i].pro.as_ref().map_or(0.0, |c| {
+        let years = c.seasons.iter().filter(|s| s.team == Some(from)).count() as f64;
+        if c.wants_out || years < 2.0 { 0.0 } else { 0.75 * (years / 4.0).min(1.0) }
+    })
+}
+
 fn execute(
     w: &mut World,
     d: Date,
@@ -516,6 +689,7 @@ fn execute(
     let id = w.people[i].player.id;
     w.clubs[seller].add_dead(year, now, id, super::DeadWhy::Traded);
     w.clubs[seller].add_dead(year + 1, later, id, super::DeadWhy::Traded);
+    keep_paid(w, i, seller, d);
     if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.as_mut() {
         for y in k.years.iter_mut().filter(|y| y.year >= year) {
             y.proration = 0.0;
@@ -534,7 +708,9 @@ fn execute(
     w.market.fleece[buyer][seller] += (got - consensus_given).max(0.0);
     // Named with the team he played for (trial 7 finding 17).
     let who = super::describe(w, i);
+    let hurt = trade_hurt(w, i, seller);
     super::transfer(w, i, buyer, "traded");
+    crate::world::people::grudge(&mut w.people[i], seller, hurt);
     let to = w.nfl[buyer].name;
     let from = w.nfl[seller].name;
     let what: Vec<String> = picks.iter().map(|&(y, r, _)| format!("a {y} round {r} pick")).collect();
@@ -566,10 +742,15 @@ pub(crate) fn shopping_rumor(w: &mut World, i: usize, seller: usize, d: Date) {
     let loyal = super::market::goals(w, i).loyalty;
     let name = w.nfl[seller].name;
     let p = &mut w.people[i];
+    let age = p.row_age();
+    let line = format!("Learned at {age} that the {name} had been shopping him.");
+    // He hears it once a year (minor bug 116: the same leak twice).
+    if p.notes.contains(&line) {
+        return;
+    }
     let c = p.pro.as_mut().unwrap();
     c.trust = clamp(c.trust - 0.1 - 0.2 * loyal, 0.0, 1.0);
-    let age = p.row_age();
-    p.note(format!("Learned at {age} that the {name} had been shopping him."));
+    p.note(line);
     let who = super::describe(w, i);
     post(
         w,
@@ -714,9 +895,13 @@ pub(crate) fn award_comp_picks(w: &mut World, d: Date) {
     for &(t, r, v) in &awards {
         w.market.picks.comp.push(CompPick { year, team: t, owner: t, round: r, value: v, kind: CompKind::FreeAgency });
     }
-    // Supplemental picks to 32, in draft order.
+    // Supplemental picks to 32, in draft order, skipping a club the
+    // formula already gave four: no club gets more than four a year (CBA;
+    // minor bug 147: 6 club-years with five).
     if let Some(order) = super::super::nfl_year::draft_order(w) {
-        for (k, &t) in order.iter().take(32usize.saturating_sub(earned)).enumerate() {
+        let full: Vec<usize> = (0..teams).filter(|&t| awards.iter().filter(|a| a.0 == t).count() >= 4).collect();
+        let open: Vec<usize> = order.iter().copied().filter(|t| !full.contains(t)).collect();
+        for (k, &t) in open.iter().take(32usize.saturating_sub(earned)).enumerate() {
             w.market.picks.comp.push(CompPick {
                 year,
                 team: t,

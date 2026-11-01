@@ -13,10 +13,10 @@
 
 use super::scene::{self, Kind, Pick, Scene, Who};
 use super::talks;
-use super::{Team, coach_link};
+use super::{Team, coach_link, player_link};
 use crate::calendar::{Date, Level, Loudness, Weekday};
-use crate::world::World;
 use crate::world::coach::{Employer, Role};
+use crate::world::{Stage, World};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Contact {
@@ -75,7 +75,7 @@ pub enum Whom {
 }
 
 impl Whom {
-    fn of(x: &Contact) -> Whom {
+    pub(crate) fn of(x: &Contact) -> Whom {
         match x.other {
             Some(o) => Whom::Other(o),
             None => Whom::Coach(x.coach),
@@ -90,6 +90,9 @@ pub struct Favour {
     pub words: String,
     /// You asked it of him (true), or he of you.
     pub asked: bool,
+    /// Someone besides a coach (an athletic director, C43).
+    #[serde(default)]
+    pub other: Option<Other>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -172,6 +175,23 @@ fn add(w: &mut World, who: Whom, warmth: f32, how: String, start: bool) {
             }
         }
     }
+}
+
+/// You owe someone a favour (C43): on the ledger, and he can call it in.
+pub fn owe(w: &mut World, who: Whom, words: String) {
+    let today = w.today;
+    if !w.folk.network.contacts.iter().any(|x| Whom::of(x) == who) {
+        add(w, who, 0.05, "a call about a coach".into(), false);
+    }
+    if let Some(x) = w.folk.network.contacts.iter_mut().find(|x| Whom::of(x) == who) {
+        x.balance = (x.balance - 1).max(-5);
+    }
+    let (coach, other) = match who {
+        Whom::Coach(c) => (c, None),
+        Whom::Other(o) => (NOBODY, Some(o)),
+    };
+    w.folk.network.ledger.push(Favour { date: today, coach, words, asked: true, other });
+    trim_ledger(w);
 }
 
 /// Moves a tie (a hire, a firing, a favour).
@@ -623,7 +643,7 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
             Why::Grapevine => "what he was hearing",
             _ => "a look at your player",
         };
-        w.folk.network.ledger.push(Favour { date: today, coach: c, words: words.into(), asked: true });
+        w.folk.network.ledger.push(Favour { date: today, coach: c, words: words.into(), asked: true, other: None });
         w.folk.network.contacts[k].balance -= 1;
     }
     let x = &mut w.folk.network.contacts[k];
@@ -817,8 +837,9 @@ fn trip_answer(w: &mut World, s: &mut Scene, code: u32) {
     }
     let names: Vec<String> = met.iter().take(4).map(|&c| coach_link(w, c)).collect();
     s.outcome.push(format!(
-        "You met {} coaches{}{}.",
+        "You met {} {}{}{}.",
         met.len(),
+        super::noun(met.len(), "coach"),
         if names.is_empty() { String::new() } else { format!(", among them {}", names.join(", ")) },
         if code == 91 { ", and gave a talk the room is still talking about" } else { "" }
     ));
@@ -1011,26 +1032,67 @@ fn asks_week(w: &mut World, d: Date) {
         .find(|&c| super::roll(w, 0xA5E ^ d.0 as u64, c as u64) < 0.04);
     let Some(c) = pick else { return };
     let what = (super::roll(w, 0xA5F ^ d.0 as u64, c as u64) * 3.0) as u64;
+    let seat = Team::seat(w);
+    // SK73: your own staff don't call with a kid or a clinic (a kid your
+    // assistant likes is his recruit and reaches you on the board; the
+    // clinic is your own). The job for a relative stays.
+    if what != 0 && super::facts::team_of_coach(w, c).is_some_and(|t| Some(t) == seat) {
+        return;
+    }
+    let mut kid = None;
+    if what == 2 {
+        // SK74: no kid call at a high school; SK69: only a kid worth it.
+        if matches!(seat, Some(Team::High(_))) {
+            return;
+        }
+        let Some(k) = super::tips::ask_kid(w, c) else { return };
+        kid = Some(k);
+    }
     let mut s = Scene::new(Kind::ReachOut, d, format!("{} calls with a favour", w.coaches[c].name));
     s.a = c as u64;
     s.b = what;
+    if let Some((id, cl, why)) = kid {
+        s.c = id as i64;
+        s.f[0] = cl as f32;
+        s.place = why.unwrap_or_default();
+    }
     s.stops = false;
-    s.team = Team::seat(w);
-    s.place = "On the phone".into();
+    s.team = seat;
     scene::add(w, s);
 }
 
 fn ask_open(w: &mut World, s: &mut Scene) {
+    if s.b == 3 {
+        return super::backchannel::c20_open(w, s);
+    }
     let c = s.a as usize;
     s.who.push(Who::Coach(c));
     let name = w.coaches[c].name.clone();
     let line = match s.b {
         0 => {
             "My nephew wants to get into coaching. Any chance you have a graduate assistant spot, or even a volunteer job?"
+                .to_string()
         }
-        1 => "I'm running our clinic in the spring. Would you come talk for an hour? It'd mean a lot to my guys.",
-        _ => "I've got a kid I think can play for you. Would you look at his film?",
+        1 => "I'm running our clinic in the spring. Would you come talk for an hour? It'd mean a lot to my guys.".to_string(),
+        _ => match crate::world::scouting::place(w, s.c as u32) {
+            Some(i) => {
+                let p = &w.people[i];
+                let at = match p.stage {
+                    Stage::College | Stage::Declared => p.college.map_or(String::new(), |c| format!(" at {}", w.program_name(c))),
+                    _ => format!(" at {}", w.school_name(p.hs)),
+                };
+                let why = if s.place.is_empty() { String::new() } else { format!(" {}", s.place) };
+                format!(
+                    "I've got a kid, {}, a {}{at}. {}.{why} Would you look at his film?",
+                    player_link(w, i),
+                    p.player.position.name(),
+                    super::tips::CLAIMS[(s.f[0] as usize).min(2)]
+                )
+            }
+            None => "I've got a kid I think can play for you. Would you look at his film?".to_string(),
+        },
     };
+    s.place = "On the phone".into();
     s.narrate(format!("{} calls.", coach_link(w, c)));
     s.them(&name, line, None);
     s.pick(85, "\"Of course. Send it over.\"", "Promise", "warm", "Costs some of your week; he owes you one.");
@@ -1038,6 +1100,9 @@ fn ask_open(w: &mut World, s: &mut Scene) {
 }
 
 fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
+    if s.b == 3 {
+        return super::backchannel::c20_answer(w, s, code);
+    }
     let c = s.a as usize;
     let k = w.folk.network.contacts.iter().position(|x| x.coach_id() == Some(c));
     if code == 85 {
@@ -1046,22 +1111,26 @@ fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
             w.folk.network.contacts[k].balance = (w.folk.network.contacts[k].balance + 1).min(5);
             w.folk.network.contacts[k].warmth = (w.folk.network.contacts[k].warmth + 0.08).min(1.0);
         }
+        let kid = (s.b == 2).then(|| crate::world::scouting::place(w, s.c as u32)).flatten();
         let words = match s.b {
-            0 => "a spot for his nephew",
-            1 => "a clinic talk",
-            _ => "a look at his player",
+            0 => "a spot for his nephew".to_string(),
+            1 => "a clinic talk".to_string(),
+            _ => kid.map_or("a look at his player".to_string(), |i| format!("a look at {}", player_link(w, i))),
         };
-        w.folk.network.ledger.push(Favour { date: w.today, coach: c, words: words.into(), asked: false });
+        w.folk.network.ledger.push(Favour { date: w.today, coach: c, words, asked: false, other: None });
         if s.b == 1 {
             w.folk.network.clinics += 1;
         }
         trim_ledger(w);
         s.outcome.push(format!("You said yes to {}. He owes you one.", w.coaches[c].name));
-        // C14: the kid is a real kid, and his tape comes in.
-        if s.b == 2
-            && let Some(t) = super::tips::from_ask(w, c)
-        {
-            s.outcome.push(t);
+        // C14: the kid is a real kid, and his tape comes to your staff
+        // (SK72); he goes on My players on the caller's word (SK71).
+        if let Some(i) = kid {
+            let id = w.people[i].player.id;
+            if let Some(t) = super::tips::from_ask(w, c, id, s.f[0] as u8) {
+                s.outcome.push(t);
+            }
+            follow_on_word(w, i, c);
         }
     } else {
         if let Some(k) = k {
@@ -1070,6 +1139,29 @@ fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
         s.outcome.push("You said no.".into());
     }
     s.end();
+}
+
+/// SK71: he goes on My players with the caller's word as the reason.
+fn follow_on_word(w: &mut World, i: usize, c: usize) {
+    let p = &w.people[i];
+    let (id, stars) = (p.player.id, p.stars);
+    let public = if stars > 0 { format!("{stars}-star") } else { "Unranked".to_string() };
+    let why = format!("{}'s word", w.coaches[c].name);
+    let d = w.today;
+    w.scouting.dept.my_players.retain(|f| f.id != id);
+    w.scouting.dept.my_players.push(crate::world::scouting::dept::Followed {
+        id,
+        since: d,
+        why,
+        first_read: "Not seen".into(),
+        public_then: public,
+    });
+    if let Some(car) = w.career.as_mut() {
+        car.desk.unlisted.retain(|&u| u != id);
+        if !car.desk.is_listed(id) {
+            car.desk.listed.push(crate::world::desk::Listed { id, since: d, read: (0, 0), stars, how: 3 });
+        }
+    }
 }
 
 pub(crate) fn open(w: &mut World, s: &mut Scene) {

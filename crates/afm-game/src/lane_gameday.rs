@@ -6,8 +6,10 @@
 //! hints, your plan and game rules, which snaps stop for you), your game
 //! played live snap by snap, and the game page of every game you kept.
 
+pub(crate) mod fans;
 pub(crate) mod film;
 pub(crate) mod page;
+pub(crate) mod talk;
 
 use std::collections::HashMap;
 
@@ -43,6 +45,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             w.start_live()?;
             live_state(w)
         }),
+        "talk_room" => game.w().and_then(|w| talk::room(w, args)),
+        "talk_say" => game.wm().and_then(|w| talk::say(w, args)),
         "live" => game.wm().and_then(live_state),
         "live_answer" => game.wm().and_then(|w| answer(w, args)),
         "live_take" => game.wm().and_then(|w| {
@@ -61,6 +65,10 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let k = args.get("index").and_then(Value::as_u64).ok_or("Missing index.")? as usize;
             page::game_page(w, k)
         }),
+        "fans_game" => game.w().and_then(|w| {
+            let k = args.get("index").and_then(Value::as_u64).ok_or("Missing index.")? as usize;
+            fans::game(w, k)
+        }),
         _ => return None,
     };
     Some(r)
@@ -68,7 +76,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 
 // ------------------------------------------------------------ helpers
 
-fn team_ref(level: CalLevel, t: usize) -> TeamRef {
+pub(crate) fn team_ref(level: CalLevel, t: usize) -> TeamRef {
     match level {
         CalLevel::Nfl => TeamRef::Nfl(t),
         CalLevel::HighSchool => TeamRef::HighSchool(t),
@@ -116,7 +124,7 @@ pub(crate) fn names(w: &World, teams: &[TeamRef]) -> film::Names {
 
 /// Players on the tapes who have left the two rosters since (drafted,
 /// graduated, transferred, cut) keep their names on the film.
-fn add_tape_names(w: &World, m: &mut film::Names, tapes: &[&afm_engine::world::tape::Tape]) {
+pub(crate) fn add_tape_names(w: &World, m: &mut film::Names, tapes: &[&afm_engine::world::tape::Tape]) {
     for t in tapes {
         let ids = t
             .protection
@@ -183,6 +191,8 @@ pub(crate) struct Next {
     pub(crate) name: Option<String>,
     pub(crate) why: Vec<String>,
     pub(crate) kick: Option<String>,
+    /// Kickoff, minutes after midnight (the pregame clock).
+    pub(crate) kick_min: Option<u32>,
 }
 
 pub(crate) fn next_game(w: &World) -> Option<Next> {
@@ -198,6 +208,7 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
             name: None,
             why: Vec::new(),
             kick: None,
+            kick_min: None,
         });
     }
     let today = w.today;
@@ -215,6 +226,7 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
                 name: f.name.map(str::to_string),
                 why: f.why.iter().map(|s| s.to_string()).collect(),
                 kick: Some(kick_text(f.kickoff.0 as u32 * 60 + f.kickoff.1 as u32)),
+                kick_min: Some(f.kickoff.0 as u32 * 60 + f.kickoff.1 as u32),
             }),
         CalLevel::Nfl => {
             w.nfl_fixtures(Some(t)).into_iter().find(|f| !f.played && f.when.is_some_and(|d| d >= today)).map(|f| {
@@ -226,6 +238,7 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
                     name: Some(format!("Week {}", f.week)),
                     why: Vec::new(),
                     kick: f.minute.map(|m| kick_text(m as u32)),
+                    kick_min: f.minute.map(|m| m as u32),
                 }
             })
         }
@@ -237,6 +250,7 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
             name: f.playoff.then(|| "Playoffs".to_string()),
             why: Vec::new(),
             kick: Some("7:00 pm".into()),
+            kick_min: Some(19 * 60),
         }),
         CalLevel::Other => {
             afm_engine::world::pro::other::seat_fixtures(w).into_iter().find(|f| f.0 >= today).map(|(date, h, a)| {
@@ -248,6 +262,7 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
                     name: None,
                     why: Vec::new(),
                     kick: None,
+                    kick_min: None,
                 }
             })
         }
@@ -265,6 +280,7 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
             name: Some("Playoffs".into()),
             why: Vec::new(),
             kick: None,
+            kick_min: None,
         })
     })
 }
@@ -281,19 +297,11 @@ fn kick_text(m: u32) -> String {
     format!("{h12}:{mi:02} {ap}")
 }
 
-/// Film time for a week (topic 1, people topic 5's time budget): an NFL
-/// head coach about 12 hours of opponent film, a college one the same, a
-/// high school coach who also teaches about 6; a tape takes 3. A short
-/// week has less (proposed, not confirmed).
-fn film_budget(w: &World, game: Date) -> (f64, f64) {
-    let base = match w.seat_team().map(|x| x.0) {
-        Some(CalLevel::HighSchool) => 6.0,
-        _ => 12.0,
-    };
-    let last = w.seat_games().iter().map(|g| g.date).filter(|d| *d < game).max();
-    let days = last.map_or(7, |d| d.days_to(game));
-    let k = (days as f64 / 7.0).clamp(0.5, 1.4);
-    ((base * k * 2.0).round() / 2.0, 3.0)
+/// Film time for a week (lane 9, SK60): one ledger for all your film,
+/// lane 7's weekly hours on the real calendar at the hours you work (game
+/// prep included in a game week); a tape takes 3 of them.
+fn film_budget(w: &World, _game: Date) -> (f64, f64) {
+    (afm_engine::world::scouting::film::time::budget(w) as f64, 3.0)
 }
 
 // ------------------------------------------------------------ the game day screen
@@ -349,7 +357,7 @@ fn hub(w: &World) -> Value {
         w.gameday.studied.iter().any(|s| s.0 == n.date && s.1 == tp.date && [s.2, s.3] == tp.teams)
     };
     let (budget, per) = film_budget(w, n.date);
-    let used = tapes.iter().filter(|tp| studied(tp)).count() as f64 * per;
+    let used = afm_engine::world::scouting::film::time::used(w) as f64;
     let plan = &w.gameday.plan;
     let plan_now = plan.date == Some(n.date);
     let added = |tp: &afm_engine::world::tape::Tape, key: &str| {
@@ -794,10 +802,14 @@ fn study(w: &mut World, a: &Value) -> Reply {
         return Ok(hub(w));
     }
     let (budget, per) = film_budget(w, next.date);
-    let used = w.gameday.studied.iter().filter(|s| s.0 == next.date).count() as f64 * per;
+    let used = afm_engine::world::scouting::film::time::used(w) as f64;
+    if afm_engine::world::scouting::film::time::rested(w) {
+        return Err("You're home resting: no film until you're back.".into());
+    }
     if used + per > budget + 0.01 {
         return Err(format!("Your film time this week is spent: {used:.0} of {budget:.0} hours."));
     }
+    afm_engine::world::scouting::film::time::charge(w, per as f32, None);
     w.gameday.studied.push((next.date, d, h, aw));
     // Only this season's study is kept.
     let cut = w.today.add(-200);
@@ -805,7 +817,7 @@ fn study(w: &mut World, a: &Value) -> Reply {
     Ok(hub(w))
 }
 
-fn hint(w: &mut World, a: &Value) -> Reply {
+pub(crate) fn hint(w: &mut World, a: &Value) -> Reply {
     let (d, h, aw) = tape_key(a)?;
     let key = a.get("key").and_then(Value::as_str).ok_or("Missing key.")?.to_string();
     let add = a.get("add").and_then(Value::as_bool).unwrap_or(true);
@@ -1117,14 +1129,34 @@ fn live_state(w: &mut World) -> Reply {
         pending_json(p, mine, rules_q, pool, &names, can_defer, bar)
     });
     let home = m.series(&r.stats.plays);
-    let feed: Vec<Value> =
-        r.stats.plays.iter().zip(&home).map(|(p, &h)| play_row(p, &names, &sides_names, mine, h)).collect();
+    // The home crowd (people topic 9): its line after a play rides on that
+    // play's row; its signs go up before the kickoff.
+    let (signs, crowd) = fans::live(w, date, level, teams, &r.stats.plays, over.then_some(r.stats.score));
+    let feed: Vec<Value> = r
+        .stats
+        .plays
+        .iter()
+        .zip(&home)
+        .map(|(p, &h)| {
+            let mut row = play_row(p, &names, &sides_names, mine, h);
+            let said: Vec<&str> = crowd.iter().filter(|c| c.0 == p.n).map(|c| c.1.as_str()).collect();
+            if !said.is_empty() {
+                row["crowd"] = json!(said.join(" "));
+            }
+            row
+        })
+        .collect();
     let log: Vec<Value> =
         r.log.iter().map(|(n, t, what)| json!({ "n": n, "team": t, "text": page::with_names(what, &names) })).collect();
     let totals = page::totals(&r.stats, &sides_names);
     let after = if over { Some(page::after_game(w, r, mine, &names, &sides_names, &m)) } else { None };
-    let halftime =
-        step.pending.as_ref().filter(|p| p.ask == Ask::Halftime).map(|_| page::halftime(r, mine, &names, &sides_names));
+    let halftime = step.pending.as_ref().filter(|p| p.ask == Ask::Halftime).map(|p| {
+        let mut h = page::halftime(r, mine, &names, &sides_names);
+        h["talked"] = json!(p.talked.is_some());
+        h
+    });
+    let words = step.pending.as_ref().map_or(Vec::new(), |p| talk::words_json(w, &p.words, &names));
+    let talks = talk::record_json(w, &r.talks, Some(mine), &names);
     let roster: Vec<Value> = {
         let l = w.live.as_ref().unwrap();
         let them = if mine == 0 { &l.game.away } else { &l.game.home };
@@ -1164,7 +1196,11 @@ fn live_state(w: &mut World) -> Reply {
         "their_players": roster,
         "after": after,
         "halftime": halftime,
+        "words": words,
+        "talks": talks,
         "frames": r.frames.iter().map(|f| f.0).collect::<Vec<_>>(),
+        "signs": signs,
+        "crowd": crowd.iter().rev().take(4).map(|c| c.1.clone()).collect::<Vec<_>>(),
         "toss": r.toss.map(|(t, c)| json!({ "winner": sides_names[t], "choice": toss_name(c), "mine": t == mine })),
         "sheet": sheet(),
     }))
@@ -1378,6 +1414,13 @@ fn answer(w: &mut World, a: &Value) -> Reply {
             _ => TossChoice::Defer,
         }),
         "challenge" => Input::Challenge(a.get("throw").and_then(Value::as_bool).unwrap_or(false)),
+        "talk" => {
+            if p.ask != Ask::Halftime || p.talked.is_some() {
+                return Err("The talk is for halftime, once.".into());
+            }
+            talk::halftime_input(a)
+        }
+        "word" => talk::word_input(a)?,
         _ => Input::Staff,
     };
     // Settings may come with the answer (the stop mode changed on the

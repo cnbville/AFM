@@ -244,8 +244,9 @@ impl<'a> Ctx<'a> {
                 (pr.state, geo::campus(pr.state, &pr.city))
             }
             Seat::Nfl(t) => {
-                let st =
-                    afm_engine::world::franchise::era(t, w.year).and_then(|e| geo::state_index(e.state)).unwrap_or(0);
+                let st = afm_engine::world::franchise::era_in(w, t, w.year)
+                    .and_then(|e| geo::state_index(e.state))
+                    .unwrap_or(0);
                 (st, geo::place(st, ""))
             }
         };
@@ -1009,25 +1010,51 @@ pub fn stat_line(ctx: &Ctx, i: usize) -> Option<String> {
     let n = |s: HsStat| g(s).round() as i64;
     let text = match pos {
         P::QB => format!(
-            "{}/{} · {} yds · {} TD · {} INT",
+            "{}/{} · {} {} · {} TD · {} INT",
             n(HsStat::Cmp),
             n(HsStat::Att),
             n(HsStat::PassYds),
+            if n(HsStat::PassYds) == 1 { "yd" } else { "yds" },
             n(HsStat::PassTd),
             n(HsStat::Int)
         ),
         P::RB => {
             let ypc = g(HsStat::RushYds) / g(HsStat::Rush).max(1.0);
-            format!("{} yds · {:.1} a carry · {} TD", n(HsStat::RushYds), ypc, n(HsStat::RushTd))
+            format!(
+                "{} {} · {:.1} a carry · {} TD",
+                n(HsStat::RushYds),
+                if n(HsStat::RushYds) == 1 { "yd" } else { "yds" },
+                ypc,
+                n(HsStat::RushTd)
+            )
         }
-        P::WR | P::TE => format!("{} catches · {} yds · {} TD", n(HsStat::Rec), n(HsStat::RecYds), n(HsStat::RecTd)),
-        P::OT | P::IOL => format!("{} games started up front", l.games),
+        P::WR | P::TE => format!(
+            "{} {} · {} {} · {} TD",
+            n(HsStat::Rec),
+            afm_engine::world::folk::noun(n(HsStat::Rec), "catch"),
+            n(HsStat::RecYds),
+            if n(HsStat::RecYds) == 1 { "yd" } else { "yds" },
+            n(HsStat::RecTd)
+        ),
+        P::OT | P::IOL => format!("{} {} started up front", l.games, afm_engine::world::folk::noun(l.games, "game")),
         P::EDGE | P::DT | P::LB => {
-            format!("{} tackles · {:.1} TFL · {:.1} sacks", n(HsStat::Tackles), g(HsStat::Tfl), g(HsStat::Sacks))
+            format!(
+                "{} {} · {:.1} TFL · {:.1} sacks",
+                n(HsStat::Tackles),
+                afm_engine::world::folk::noun(n(HsStat::Tackles), "tackle"),
+                g(HsStat::Tfl),
+                g(HsStat::Sacks)
+            )
         }
-        P::CB | P::S => format!("{} tackles · {} INT · {} PBU", n(HsStat::Tackles), n(HsStat::Ints), n(HsStat::Pbus)),
+        P::CB | P::S => format!(
+            "{} {} · {} INT · {} PBU",
+            n(HsStat::Tackles),
+            afm_engine::world::folk::noun(n(HsStat::Tackles), "tackle"),
+            n(HsStat::Ints),
+            n(HsStat::Pbus)
+        ),
         P::K => format!("{}/{} FG · {} PAT", n(HsStat::FgMade), n(HsStat::FgAtt), n(HsStat::XpMade)),
-        P::P | P::LS => format!("{} games", l.games),
+        P::P | P::LS => format!("{} {}", l.games, afm_engine::world::folk::noun(l.games, "game")),
     };
     Some(format!("{}: {text}", l.year))
 }

@@ -106,6 +106,14 @@ pub fn nfl_pay_index(year: i32) -> f64 {
 /// A franchise's national pull (Forbes revenue ranks and TV ratings over
 /// the decades), 0-1, in `league::NFL_TEAM_NAMES` order. Proposed, not
 /// confirmed.
+/// A franchise's national pull: the real clubs' from `BRAND`; a club the
+/// world added after 2026 starts with the pull of the league's newest real
+/// clubs (Houston, Jacksonville, Carolina: 0.45-0.70, SK68; proposed, not
+/// confirmed) and grows with its fans.
+pub fn brand(t: usize) -> f64 {
+    BRAND.get(t).copied().unwrap_or(0.45)
+}
+
 pub const BRAND: [f64; 32] = [
     0.50, 0.60, 0.65, 0.55, 0.55, 0.80, 0.45, 0.60, 1.00, 0.70, 0.55, 0.85, 0.70, 0.60, 0.45, 0.70, 0.70, 0.50, 0.70,
     0.65, 0.65, 0.85, 0.60, 0.85, 0.70, 0.80, 0.80, 0.80, 0.70, 0.55, 0.55, 0.75,
@@ -230,6 +238,47 @@ pub static STADIUMS: &[Stint] = &[
     s(31, 2012, 2021, "FedExField", 79_000, 1997, 0.25, 250.0),
     s(31, 2022, FAR, "Northwest Stadium", 62_000, 1997, 0.25, 250.0),
 ];
+
+/// Seasons a franchise's home field was artificial turf (real through
+/// 2026, update 3, F24): team, first and last season. Every other season
+/// was natural grass, Arizona's and Las Vegas's roll-out trays included.
+/// The new Highmark Stadium (2026) is grass.
+pub static TURF: &[(usize, i32, i32)] = &[
+    (0, OLD, 1987),   // Busch Memorial Stadium
+    (1, 1992, FAR),   // Georgia Dome, Mercedes-Benz Stadium
+    (2, 2003, 2015),  // M&T Bank Stadium's Sportexe years
+    (3, OLD, 2025),   // Rich and Highmark Stadium
+    (4, 2021, FAR),   // Bank of America Stadium
+    (5, OLD, 1987),   // Soldier Field
+    (6, OLD, 1999),   // Riverfront Stadium
+    (6, 2004, FAR),   // Paul Brown Stadium from 2004
+    (8, OLD, FAR),    // Texas Stadium, AT&T Stadium
+    (10, OLD, FAR),   // the Silverdome, Ford Field
+    (12, 2015, FAR),  // NRG Stadium from 2015
+    (13, 1984, FAR),  // RCA Dome, Lucas Oil Stadium
+    (15, OLD, 1993),  // Arrowhead's AstroTurf years
+    (17, 2020, FAR),  // SoFi Stadium
+    (18, 1995, 2015), // the Edward Jones Dome
+    (18, 2020, FAR),  // SoFi Stadium
+    (20, OLD, FAR),   // the Metrodome, TCF Bank, U.S. Bank Stadium
+    (21, OLD, 1990),  // Foxboro Stadium
+    (21, 2006, FAR),  // Gillette Stadium from 2006
+    (22, OLD, FAR),   // the Superdome
+    (23, OLD, 1999),  // Giants Stadium
+    (23, 2003, FAR),  // Giants Stadium, MetLife Stadium
+    (24, 1984, 1999), // Giants Stadium
+    (24, 2003, FAR),  // Giants Stadium, MetLife Stadium
+    (25, OLD, 2002),  // Veterans Stadium
+    (26, OLD, 2000),  // Three Rivers Stadium
+    (28, OLD, FAR),   // the Kingdome, Husky Stadium, Lumen Field
+    (30, OLD, 1996),  // the Astrodome
+    (30, 2023, FAR),  // Nissan Stadium from 2023
+];
+
+/// Whether a franchise's home field was artificial turf that season.
+pub fn turf(team: usize, year: i32) -> bool {
+    TURF.iter().any(|&(t, from, to)| t == team && from <= year && year <= to)
+}
 
 /// The stadium a franchise played in that season (real through 2026).
 pub fn stint(team: usize, year: i32) -> Option<&'static Stint> {

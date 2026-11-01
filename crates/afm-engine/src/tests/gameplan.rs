@@ -24,6 +24,7 @@ fn sit(down: u8, togo: f64, yl: f64) -> Situation {
         def_concede: false,
         college: false,
         lean: 0.0,
+        weather: 0.0,
     }
 }
 

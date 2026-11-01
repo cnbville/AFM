@@ -1,16 +1,24 @@
 //! One snap from scrimmage: alignment, assignments, then the tracked play
 //! (topics 1-3). The offense goes toward +x from `los`.
 
-use super::geom::{DT, V2, end_line, goal, mid, v2, width};
+use super::geom::{DT, V2, back_line, end_line, goal, mid, v2, width};
 
 /// Extra bust chance per road offensive player per snap at full crowd
 /// noise (trial 4 topic 3).
-const NOISE_BUSTS: f64 = 0.03;
+const NOISE_BUSTS: f64 = 0.06;
 /// Awareness a road offensive player loses to full crowd noise. With
-/// `NOISE_BUSTS` and the silent count it is fitted so an average FBS
-/// conference crowd (0.65) is worth the real 2.4 points (2023-24 cfbfastR:
-/// road passing loses 0.05 EPA a play); proposed, not confirmed.
+/// `NOISE_BUSTS`, the silent count and `SILENT_RELEASE` it is fitted so a
+/// 0.65 crowd is worth the real home margin: 2.3 NFL points over 6,000
+/// games (se 0.21; real 2.1, nflverse 2021-2025; 2020 without fans +0.1)
+/// and 2.8 FBS (se 0.25; real 2.4 in conference games, CFBD 2014-2025).
+/// Real road offenses lose it through the air: completions 63.8% against
+/// 65.2% at home, runs about even (minor bug 143: the engine had drifted
+/// to 0.8 and 1.2 points); proposed, not confirmed.
 const NOISE_LOAD: f64 = 11.0;
+/// Seconds a road receiver leaves late at full crowd noise: on a silent
+/// count he watches the ball, not the cadence. (0.3 until every receiver
+/// had a release (minor bug 135), which left the NFL edge at 1.5 points.)
+const SILENT_RELEASE: f64 = 0.38;
 use super::playbook::*;
 use super::roster::GamePlayer;
 use super::rules::Rules;
@@ -87,6 +95,10 @@ pub struct Snap<'a> {
     /// per player index, per team.
     pub energy: [&'a [f64]; 2],
     pub edge: [&'a [f64]; 2],
+    /// The day's talks on each player (dialogue D4-D6).
+    pub pulse: [&'a [super::talk::Pulse]; 2],
+    /// Who plays hurt, and with what (update 3, F7: `sim::hampered`).
+    pub hurt: [&'a [Option<super::sim::InjuryKind>]; 2],
     /// How much each player's coach lets him freelance, 0-1 (topic 3.1).
     pub trust: [&'a [f64]; 2],
     pub call: OffCall,
@@ -139,6 +151,12 @@ pub struct Tactics {
     /// the receiver the defense brackets (an offense player index), topic 5.4.
     pub target_cb: Option<usize>,
     pub bracket: Option<usize>,
+    /// The deep threat the defense fears (an offense player index) and how
+    /// much, 0-1 (speed update S10a-S10b).
+    #[serde(default)]
+    pub burner: Option<usize>,
+    #[serde(default)]
+    pub fear: f64,
     /// The pass rusher the offense slides its protection to, chips and
     /// doubles (A8; a defense player index).
     #[serde(default)]
@@ -173,6 +191,8 @@ impl Default for Tactics {
             fooled: false,
             target_cb: None,
             bracket: None,
+            burner: None,
+            fear: 0.0,
             help_on: None,
             chem: 0.6,
             novelty: 0.0,
@@ -305,9 +325,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let mut role_of: Vec<Option<ORole>> = Vec::new();
     let mut slot_of: Vec<Option<DSlot>> = Vec::new();
     for &(r, p) in s.offense {
-        let gp = &s.teams[0][p];
+        let gp = super::sim::hampered(&s.teams[0][p], s.hurt[0][p]);
         let pos = if s.fake_punt.is_some() { punt_spot(&f, r, los, by, s.rules.level) } else { align(&f, r, los, by) };
-        agents.push(Agent::new(0, p, gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]));
+        let mut a = Agent::new(0, p, &gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]);
+        if let Some(t) = s.pulse[0].get(p) {
+            (a.focus20, a.poise20, a.heat) = (t.focus, t.poise, t.heat);
+        }
+        agents.push(a);
         role_of.push(Some(r));
         slot_of.push(None);
     }
@@ -331,14 +355,19 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     // A focused player loses less of it (concentration, against the level).
     let load = NOISE_LOAD * s.cond.crowd;
     for a in agents.iter_mut() {
-        let focus = clamp(1.6 - 0.06 * s.teams[0][a.p].trait20(Attr::Concentration, s.rules.level), 0.4, 1.6);
+        let conc = (s.teams[0][a.p].trait20(Attr::Concentration, s.rules.level) + a.focus20).clamp(1.0, 20.0);
+        let focus = clamp(1.6 - 0.06 * conc, 0.4, 1.6);
         a.r[Attr::FootballIq.index()] = (a.r[Attr::FootballIq.index()] - load * focus).max(1.0);
     }
     let def_spots =
         if s.fake_punt.is_some() { return_spots(s, &agents, &role_of) } else { align_defense(s, &agents, &role_of) };
     for (k, &(d, p)) in s.defense.iter().enumerate() {
-        let gp = &s.teams[1][p];
-        agents.push(Agent::new(1, p, gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]));
+        let gp = super::sim::hampered(&s.teams[1][p], s.hurt[1][p]);
+        let mut a = Agent::new(1, p, &gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]);
+        if let Some(t) = s.pulse[1].get(p) {
+            (a.focus20, a.poise20, a.heat) = (t.focus, t.poise, t.heat);
+        }
+        agents.push(a);
         role_of.push(None);
         slot_of.push(Some(d));
     }
@@ -365,7 +394,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         fight: Vec::new(),
         fight_since: 0.0,
         screen: None,
-        open_reach: OPEN_REACH,
+        open_reach: SCRIMMAGE_REACH,
         press: 0.0,
         lane: None,
         bites: Vec::new(),
@@ -494,8 +523,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let fam = if slot.is_line() { Family::Front } else { cov_fam };
         // Measured against a starter who knows his job well (0.9).
         let slow = 0.12 * (0.9 - sim.player(i).know[fam as usize] as f64);
-        // A week of poor prep reads late, a sharp one a touch early (TR38).
-        let prep = 0.1 * (sim.player(i).prep as f64 - 1.0);
+        // A week of poor prep reads late, a sharp one a touch early (TR38):
+        // up to a tenth of a second for Unprepared, a beat (update 3, F34).
+        let prep = 0.3 * (sim.player(i).prep as f64 - 1.0);
         let freeze = if jet && slot.is_lb() { 0.10 * bite } else { 0.0 };
         sim.agents[i].read_at = (base + extra + tend + slow + prep + freeze + 0.12 * tac.novelty).max(0.12);
     }
@@ -615,7 +645,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let gp = sim.player(i);
             let pr = gp.a(Attr::PlayRecognition);
             let know = gp.know[Family::Front as usize] as f64;
-            let disc = gp.trait20(Attr::Discipline, s.rules.level);
+            let disc = sim.trait20(i, Attr::Discipline);
             let prep = gp.prep as f64;
             let p = 0.035
                 + 0.002 * (65.0 - pr).max(-15.0)
@@ -656,6 +686,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 }
                 let route = route_for(c, r);
                 sim.agents[i].job = route_job(&sim.agents[i], route, los, by, s.hurry);
+                let late = silent_late(&sim, s, i);
+                if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
+                    *release_delay += late;
+                }
             }
             let side = if f.strength > 0.0 { 1.0 } else { -1.0 };
             let (dx, dy) = match (c.drop, f.backfield) {
@@ -740,7 +774,19 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 && ps.reads.len() > 1
                 && !matches!(c.drop, Drop::Screen | Drop::Bubble)
             {
-                let rate = |sim: &Sim, r: usize| sim.player(r).spot_r[crate::spots::Spot::WR.index()];
+                // Each man is rated at his own spot: read at the receiver's
+                // spot, tight ends and backs never looked best and receivers
+                // drew 73% of NFL targets, real 59% (minor bug 137).
+                let rate = |sim: &Sim, r: usize| {
+                    use crate::spots::Spot;
+                    let spot = match sim.agents[r].label {
+                        "TE" => Spot::TE,
+                        "RB" => Spot::RB,
+                        "FB" => Spot::FB,
+                        _ => Spot::WR,
+                    };
+                    sim.player(r).spot_r[spot.index()]
+                };
                 let mut by: Vec<(usize, f64)> = ps.reads.iter().enumerate().map(|(k, &r)| (k, rate(&sim, r))).collect();
                 by.sort_by(|a, b| b.1.total_cmp(&a.1));
                 let gap = by[0].1 - by[1].1;
@@ -978,6 +1024,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 && tg == i
                 && t >= sim.agents[i].ball_react
             {
+                // A ball sailing out of bounds he chases only to the line:
+                // his feet stay in, and he reaches for what he can.
+                let to = feet_in(to);
                 let d = sim.agents[i].pos.dist(to);
                 let left = (arrive - t).max(DT);
                 let speed = (d / left).min(sim.agents[i].vmax);
@@ -992,7 +1041,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             }
             let job = sim.agents[i].job.clone();
             match job {
-                Job::Passer => {}
+                // Once the ball is out he pulls up: he used to coast at his
+                // release speed through the whole flight, out of the stadium
+                // from a rollout near the sideline.
+                Job::Passer => {
+                    if pass.as_ref().is_some_and(|p| p.thrown.is_some()) {
+                        sim.steer(i, V2::default());
+                    }
+                }
                 Job::Carrier => {}
                 Job::Fake { to } => {
                     if handoff_done {
@@ -1701,18 +1757,25 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
     let rt = find(ORole::RT).unwrap_or(v2(los, by - 2.8));
     let (strong_t, weak_t) = if st > 0.0 { (lt, rt) } else { (rt, lt) };
     let te_strong = [ORole::TE, ORole::TE2, ORole::TE3].iter().filter_map(|r| find(*r)).find(|p| (p.y - by) * st > 0.0);
-    // Receivers by side, outside in.
-    let mut left: Vec<V2> = Vec::new();
-    let mut right: Vec<V2> = Vec::new();
+    // Receivers by side, outside in, and whether he is the deep threat the
+    // defense fears (S10a).
+    let fear = s.tac.fear;
+    let mut left: Vec<(V2, bool)> = Vec::new();
+    let mut right: Vec<(V2, bool)> = Vec::new();
+    let mut burner_y: Option<f64> = None;
     for (i, r) in roles.iter().enumerate() {
         if let Some(r) = r
             && matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3)
         {
-            if agents[i].pos.y > by { left.push(agents[i].pos) } else { right.push(agents[i].pos) }
+            let feared = fear > 0.0 && s.tac.burner == Some(agents[i].p);
+            if feared {
+                burner_y = Some(agents[i].pos.y);
+            }
+            if agents[i].pos.y > by { left.push((agents[i].pos, feared)) } else { right.push((agents[i].pos, feared)) }
         }
     }
-    left.sort_by(|a, b| b.y.total_cmp(&a.y));
-    right.sort_by(|a, b| a.y.total_cmp(&b.y));
+    left.sort_by(|a, b| b.0.y.total_cmp(&a.0.y));
+    right.sort_by(|a, b| a.0.y.total_cmp(&b.0.y));
     // Press in man; a Cover 2 corner rolls up to about 5 yards (a cloud
     // corner: he jams, then takes the flat); other zones play off. (Cover 2
     // corners pressed at the line and squatted every short throw: quick outs
@@ -1725,12 +1788,33 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
     } else {
         6.5
     };
-    let wide = |list: &Vec<V2>, k: usize, side: f64| -> V2 {
+    // Against a known burner the corner gives him room (S10a): real corners
+    // play an elite deep threat 8 to 10 yards off; in press man he bails to
+    // a soft press; a Cover 2 corner still squats with help over him.
+    let cloud = matches!(s.dcall.coverage, Coverage::Cover2 | Coverage::Tampa2);
+    let room = |feared: bool| -> f64 {
+        if !feared {
+            cush
+        } else if press {
+            cush + 6.0 * (fear - 0.5).max(0.0)
+        } else if cloud {
+            cush
+        } else {
+            cush + 3.0 * fear
+        }
+    };
+    let wide = |list: &Vec<(V2, bool)>, k: usize, side: f64| -> V2 {
         match list.get(k) {
-            Some(p) => v2(los + cush, p.y - 0.8 * side),
+            Some(&(p, feared)) => v2(los + room(feared), p.y - 0.8 * side),
             None => v2(los + 6.0, by + side * (7.0 + 4.0 * k as f64)),
         }
     };
+    let slot_room = |feared: bool| if feared { 3.0 * fear } else { 0.0 };
+    // The deep safety leans to the burner's side before the snap (S10b),
+    // which takes help from the middle, and the safeties play deeper (up to
+    // 1.5 yards in two-high, 2 in single-high), which leaves room underneath
+    // for his teammates (proposed, not confirmed).
+    let lean = burner_y.map_or(0.0, |y| clamp((y - by) * 0.3 * fear, -5.0, 5.0));
     let two_high = s.dcall.coverage.high() == 2 || s.dcall.disguise;
     let three_four =
         s.defense.iter().any(|(d, _)| *d == DSlot::NT) && s.defense.iter().filter(|(d, _)| d.is_line()).count() == 3;
@@ -1782,27 +1866,31 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                 DSlot::NCB => {
                     let (list, side) = if st > 0.0 { (&left, 1.0) } else { (&right, -1.0) };
                     match list.get(1) {
-                        Some(p) => v2(los + 4.0, p.y - 0.8 * side),
+                        Some(&(p, feared)) => v2(los + 4.0 + slot_room(feared), p.y - 0.8 * side),
                         None => v2(los + 5.0, by + side * 5.5),
                     }
                 }
                 DSlot::DCB => {
                     let (list, side) = if st > 0.0 { (&right, -1.0) } else { (&left, 1.0) };
                     match list.get(1) {
-                        Some(p) => v2(los + 4.0, p.y - 0.8 * side),
+                        Some(&(p, feared)) => v2(los + 4.0 + slot_room(feared), p.y - 0.8 * side),
                         None => v2(los + 6.0, by + side * 5.5),
                     }
                 }
                 DSlot::FS => {
                     if two_high {
-                        v2(los + 12.5, mid() - 9.0 * st)
+                        let y = mid() - 9.0 * st;
+                        let near = burner_y.is_some_and(|b| (b - by) * (y - mid()) > 0.0);
+                        v2(los + 12.5 + 1.5 * fear + if near { fear } else { 0.0 }, y + 0.5 * lean)
                     } else {
-                        v2(los + 13.0, by)
+                        v2(los + 13.0 + 2.0 * fear, by + lean)
                     }
                 }
                 DSlot::SS => {
                     if two_high {
-                        v2(los + 12.5, mid() + 9.0 * st)
+                        let y = mid() + 9.0 * st;
+                        let near = burner_y.is_some_and(|b| (b - by) * (y - mid()) > 0.0);
+                        v2(los + 12.5 + 1.5 * fear + if near { fear } else { 0.0 }, y + 0.5 * lean)
                     } else {
                         v2(los + 7.5, by + st * 4.5)
                     }
@@ -1876,6 +1964,9 @@ fn route_job(a: &Agent, route: Route, los: f64, by: f64, hurry: bool) -> Job {
     let delay = match route {
         Route::CheckRelease => 1.0,
         Route::Screen => 0.9,
+        Route::Bubble | Route::Tunnel => 0.0,
+        // A man in motion has his running start.
+        _ if matches!(a.label, "WR" | "TE") && a.vel.len() < 1.5 => footwork(a),
         _ => 0.0,
     };
     Job::Route { pts, next: 0, settle, name: route.name(), release_delay: delay }
@@ -2616,6 +2707,14 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
             }
             return;
         }
+        // A receiver's release: footwork off the line, not a sprint (a jam
+        // keeps him at it longer). On a silent count he first waits for the
+        // ball to move.
+        if matches!(sim.agents[i].label, "WR" | "TE") && t >= silent_late(sim, s, i) {
+            let p = sim.agents[i].pos;
+            sim.go_to(i, p + v2(2.0, 0.0), RELEASE_PACE);
+            return;
+        }
         // A back checks for blitzers before he releases.
         if let Some(r) = blitz_threat(sim, i, qb) {
             sim.agents[i].job = Job::PassBlock { target: Some(r) };
@@ -2635,9 +2734,12 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let q = sim.agents[qb].pos;
         let me = sim.agents[i].pos;
         let mut best = (f64::NEG_INFINITY, me);
+        // Open grass stays inside the end line: near the goal line a
+        // receiver who drifted past it ran on out of the stadium.
+        let deep = (s.los + 25.0).min(end_line() - 1.5);
         for k in 0..8 {
             let cand = v2(
-                clamp(me.x + 3.0 * ((k % 3) as f64 - 1.0), s.los + 2.0, s.los + 25.0),
+                clamp(me.x + 3.0 * ((k % 3) as f64 - 1.0), (s.los + 2.0).min(deep), deep),
                 clamp(me.y + 4.0 * ((k / 3) as f64 - 1.0) + (q.y - me.y) * 0.2, 2.0, width() - 2.0),
             );
             let space = (sim.agents.len() / 2..sim.agents.len())
@@ -2667,7 +2769,9 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
             *n += 1;
         }
         let bust = sim.agents[i].bust;
-        let target = if bust { v2(target.x + 3.0, target.y + 4.0) } else { target };
+        // A bust runs a few yards off, but inside the lines like any route.
+        let target =
+            if bust { v2((target.x + 3.0).min(end_line() - 1.0), (target.y + 4.0).min(width() - 2.5)) } else { target };
         let dir = (target - sim.agents[i].pos).norm();
         sim.steer(i, dir.scale(speed));
     } else if settle {
@@ -2682,6 +2786,10 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let away = near.map(|d| (me - sim.agents[d].pos).norm().scale(room)).unwrap_or_default();
         let q = sim.agents[qb].pos;
         let spot = me + v2(0.0, away.y) + (q - me).norm().scale(0.3);
+        // He sits down with the room a route keeps at the sideline: the spot
+        // is worked out from him each tick, and with his man inside him he
+        // used to drift on through the sideline on a long play.
+        let spot = v2(spot.x.min(end_line() - 1.5), clamp(spot.y, 2.5, width() - 2.5));
         sim.go_to(i, spot, 0.3);
     } else {
         let v = sim.agents[i].vel;
@@ -2701,6 +2809,41 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let vm = route_pace(&sim.agents[i]);
         sim.steer(i, dir.scale(vm));
     }
+}
+
+/// The nearest spot to `p` with his feet inside the lines: a man who plays
+/// a ball that sails out of bounds runs to the sideline or end line, not
+/// into the bench: a receiver ran 6.4 yards past the sideline after an
+/// overthrow. 3.6% of NFL throws in `match_check` land past a line, and
+/// about 1,400 of them were caught in 4,000 games before and after (toe-taps
+/// within his reach of the line): completions (66.0%) and yards an attempt
+/// (7.04) held.
+fn feet_in(p: V2) -> V2 {
+    v2(clamp(p.x, back_line() + 0.3, end_line() - 0.3), clamp(p.y, 0.3, width() - 0.3))
+}
+
+/// A wide receiver's or tight end's release off the line (minor bug 135):
+/// the stance, the release move and the first steps of the stem take about
+/// half a second, less for a good Release, at a quarter of his speed. With
+/// it, flatter slants and deep balls judged a little worse, NFL throws of
+/// 20+ air yards fell from 15.5% to 13.6% of targets (real 11.5%), those of
+/// 0-9 rose from 36.2% to 46.6% (real 50.1%) and 10-19 fell from 32.0% to
+/// 23.7% (real 20.7%, nflverse 2021-2025; 6,000 `match_check` games):
+/// receivers had left the line at a sprint and ran every route deeper at
+/// the real time to throw (proposed, not confirmed).
+const RELEASE: f64 = 0.5;
+const RELEASE_PACE: f64 = 0.25;
+
+/// How late a road receiver leaves on the silent count, less so a focused
+/// one.
+fn silent_late(sim: &Sim, s: &Snap, i: usize) -> f64 {
+    let conc = s.teams[0][sim.agents[i].p].trait20(Attr::Concentration, s.rules.level);
+    SILENT_RELEASE * s.cond.crowd * clamp(1.0 - 0.05 * (conc - 10.0), 0.5, 1.5)
+}
+
+/// How long his release takes.
+fn footwork(a: &Agent) -> f64 {
+    RELEASE * clamp(1.3 - 0.006 * a.a(Attr::Release), 0.7, 1.3)
 }
 
 /// How fast a receiver runs his route before the ball is in the air: under
@@ -3098,8 +3241,9 @@ fn quarterback(
     // fitted with it.
     let shown = (1.0 - 0.2 * (s.tac.pre_read - PRE_READ)) * if s.tac.fooled { 1.15 } else { 1.0 };
     // A man who holds for the big play stays on each read a little longer.
-    // A week of poor prep throws off his timing (TR38).
-    let prep = 1.0 + 0.3 * (sim.player(qb).prep as f64 - 1.0);
+    // A week of poor prep throws off his timing (TR38): each read runs as
+    // much longer as his busts rise, up to a third (update 3, F34).
+    let prep = sim.player(qb).prep as f64;
     let per_read =
         clamp(0.62 - 0.0045 * (iq - 50.0), 0.3, 0.95) * shown * (1.0 + 0.6 * sim.lean(qb, Tend::Hold)) * prep;
     // He stays on a read until that route has made its break.
@@ -3639,7 +3783,12 @@ fn throw(
     if moving {
         sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::ThrowOnMove);
     }
-    let wind = s.cond.wind * (0.004 + 0.0004 * dist);
+    // Wind, a little more on the long ones: from 5 to 18 mph 2.1 points of
+    // completions and 7.3% of the yards an attempt, real 2.0 and 6.9% from
+    // 5-9 mph to 15+ (nflverse 2021-2025). Minor bug 144: 0.004 + 0.0004 a
+    // yard with the old bad-weather sheet's short throws cost 13% of the
+    // yards and raised completions (proposed, not confirmed).
+    let wind = s.cond.wind * (0.010 + 0.0001 * dist);
     sd *= 1.0 + wind;
     if s.cond.rain || s.cond.snow {
         sd *= 1.1;
@@ -3655,8 +3804,9 @@ fn throw(
     // the line from 12 yards downfield: real NFL completion is 54.5% at
     // 10-19 air yards and 36% at 20+, the engine ran 60% and 46%; a long
     // throw across the field is not a deep ball), and deep balls need the
-    // arm too: a weak arm has to put more air under it.
-    let judge = 1.0 + 0.022 * (down - 12.0).max(0.0);
+    // arm too: a weak arm has to put more air under it. (Minor bug 135:
+    // 0.022 a yard left 20+ throws complete 39%; 0.035 gives 37.4%.)
+    let judge = 1.0 + 0.035 * (down - 12.0).max(0.0);
     let deep = judge * if dist > 25.0 { 1.1 * clamp(1.0 + 0.01 * (75.0 - power), 0.8, 1.4) } else { 1.0 };
     let e1 = sd * deep * gauss(sim.rng);
     let e2 = sd * gauss(sim.rng);
@@ -3899,9 +4049,9 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let (q, r) = (&sim.agents[qb], &sim.agents[d]);
     // Dynamic Links: Pocket frame shrugs off the arm tackle; Length wraps
     // him up from farther.
-    let esc = 0.4 * q.a(Attr::Elusiveness)
-        + 0.3 * q.a(Attr::Agility)
-        + 0.3 * q.a(Attr::Strength)
+    // His moves read his weight (A3); strength stays his own.
+    let esc = 0.4 * q.a(Attr::Elusiveness) + 0.3 * q.a(Attr::Agility) + 0.3 * q.a(Attr::Strength)
+        - 0.7 * super::sim::size_cost(q.mass, 222.0)
         + if grabbing { sim.link(qb, &[Link::PocketFrame]) } else { 0.0 };
     let tk =
         0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility) + sim.link(d, &[Link::Length]);
@@ -3959,6 +4109,13 @@ fn defend(
     let t = sim.t;
     let job = sim.agents[i].job.clone();
     let carrier = sim.carrier();
+    // The man returning an interception runs with it (the ball carrier's
+    // step moves him). He used to chase himself here first, braking to a
+    // stop every tick: 2 pick sixes in 999 NFL games, real 0.05 a team
+    // game (minor bug 132).
+    if carrier == Some(i) {
+        return;
+    }
     let pass_play = pass.is_some();
     let knows = t >= sim.agents[i].read_at;
     if let Some(spot) = bitten(sim, i) {
@@ -4010,7 +4167,7 @@ fn defend(
         // safety reading the quarterback comes downhill at once).
         let d = sim.agents[i].pos.dist(to);
         if d < 25.0 {
-            sim.go_to(i, to, 1.0);
+            sim.go_to(i, feet_in(to), 1.0);
             return;
         }
     }
@@ -4279,7 +4436,8 @@ fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>,
     // His man sees him bite and goes over the top.
     let goal = sim.goal;
     if let Job::Route { pts, next, settle, .. } = &mut sim.agents[w].job {
-        *pts = vec![v2(wp.x + 30.0 * goal, wp.y)];
+        // Over the top, but no deeper than any route: the end line.
+        *pts = vec![v2((wp.x + 30.0 * goal).clamp(back_line() + 1.0, end_line() - 1.0), wp.y)];
         *next = 0;
         *settle = false;
     }

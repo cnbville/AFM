@@ -1123,7 +1123,7 @@ pub(super) fn numbers(w: &World, st: &SeatTeam, monday: Date, today: Date) -> Va
             let now = afm_engine::body::body_now(&p.player).weight.round();
             let target = w.training.plan_of(r.id).body.map(|(t, _)| t as f64);
             let hurt = w.training.hurt_on(r.id, day.date).is_some();
-            let bench = if pro { format!("{} reps", r.reps) } else { format!("{} lb", r.bench) };
+            let bench = if pro { format!("{} {}", r.reps, if r.reps == 1 { "rep" } else { "reps" }) } else { format!("{} lb", r.bench) };
             Some((
                 p.player.position.index(),
                 json!({
@@ -1264,9 +1264,9 @@ pub(super) fn wheres(w: &World, st: &SeatTeam, pw: &PlannedWeek) -> Value {
     } else {
         Vec::new()
     };
-    // Study hall (TR14): under a 2.3, or in his first semester; a high
-    // school's eligibility line at 2.0 (proposed, not confirmed).
-    let line = if st.tier == Tier::High { 2.0 } else { 2.3 };
+    // Study hall (TR14): under the level's eligibility line, or in his
+    // first semester, the same players study hall works on (update 3, F12).
+    use afm_engine::training::seat::{eligibility_line, study_flag};
     let mut study: Vec<(f64, Value)> = if st.tier == Tier::Pro {
         Vec::new()
     } else {
@@ -1274,10 +1274,10 @@ pub(super) fn wheres(w: &World, st: &SeatTeam, pw: &PlannedWeek) -> Value {
             .iter()
             .filter_map(|&i| {
                 let p = &w.people[i];
-                let first = st.tier == Tier::College && p.college_seasons == 0;
                 let gpa = file::gpa(p);
+                let line = eligibility_line(st.tier, p.college_seasons);
                 let low = gpa < line;
-                (first || low).then(|| {
+                study_flag(st.tier, gpa, p.college_seasons).then(|| {
                     (
                         gpa,
                         json!({
@@ -1298,7 +1298,10 @@ pub(super) fn wheres(w: &World, st: &SeatTeam, pw: &PlannedWeek) -> Value {
         "away": away,
         "study": study.into_iter().map(|s| s.1).take(10).collect::<Vec<_>>(),
         "flagged": flagged,
-        "line": line,
+        "line": match st.tier {
+            Tier::High => format!("under a {:.1} GPA", eligibility_line(Tier::High, 0)),
+            _ => "under the NCAA line (2.3 as a freshman, then 1.8, 1.9, 2.0), or first semester".to_string(),
+        },
         "tier": match st.tier { Tier::High => "hs", Tier::College => "college", Tier::Pro => "nfl" },
     })
 }

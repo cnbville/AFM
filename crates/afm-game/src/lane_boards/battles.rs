@@ -282,11 +282,9 @@ fn on_your_team(w: &World, i: usize) -> bool {
 fn ratings(w: &World, id: u32, ours: bool, keys: &[Attr], tape_games: usize) -> (Vec<Value>, String) {
     let Some(i) = views::person_index(w, id) else { return (Vec::new(), String::new()) };
     let p = &w.people[i].player;
-    let reader = views::reader_key(w);
     let gone = ours && !on_your_team(w, i);
     if ours && !gone {
-        let eye = views::team_of(w, &w.people[i]).map_or(10.0, |t| views::eye_for(w, t, p.position));
-        let all = reads::attributes(p, true, eye, reader);
+        let all = reads::attributes(w, i);
         let v = keys
             .iter()
             .map(|&a| {
@@ -311,6 +309,7 @@ fn ratings(w: &World, id: u32, ours: bool, keys: &[Attr], tape_games: usize) -> 
             format!("from your file, {} {}{left}", looks.len(), if looks.len() == 1 { "look" } else { "looks" }),
         );
     }
+    let reader = views::reader_key(w);
     let half = (10.0 - 1.2 * tape_games.saturating_sub(1) as f64).max(4.0);
     let v = keys
         .iter()
@@ -561,17 +560,11 @@ impl Ctx<'_> {
         })
     }
 
-    fn overall(&self, id: u32, ours: bool) -> Value {
+    fn overall(&self, id: u32, _ours: bool) -> Value {
         let Some(i) = self.who.person(id) else { return Value::Null };
-        let p = &self.w.people[i].player;
-        // Practice reads only a man still on your team.
-        let own = ours && on_your_team(self.w, i);
-        let eye = if own {
-            views::team_of(self.w, &self.w.people[i]).map_or(10.0, |t| views::eye_for(self.w, t, p.position))
-        } else {
-            10.0
-        };
-        reads::overall(p, own, eye, views::reader_key(self.w)).json()
+        // His file's read: practice for your own men, tape and looks for
+        // anyone else (minor bug 54).
+        reads::overall(self.w, i).json()
     }
 
     /// Hurt in this game.
@@ -646,10 +639,10 @@ impl Ctx<'_> {
                     };
                     v.push(json!({ "k": "Blitzes picked up", "v": format!("{picked}/{}", blitz.len()), "sub": blitz_sub, "bad": blitz.len() >= 3 && picked * 2 < blitz.len() }));
                     v.push(json!({ "k": "Stunts handled", "v": format!("{stunt_ok}/{}", stunts.len()), "sub": stunt_sub, "bad": stunts.len() >= 3 && stunt_ok * 2 < stunts.len() }));
-                    v.push(json!({ "k": "Lost reps", "v": lost, "sub": format!("{}% of {} reps", pct(lost, reps.len()), reps.len()), "bad": pct(lost, reps.len()) > 12.0 }));
+                    v.push(json!({ "k": "Lost reps", "v": lost, "sub": format!("{}% of {} {}", pct(lost, reps.len()), reps.len(), afm_engine::world::folk::noun(reps.len(), "rep")), "bad": pct(lost, reps.len()) > 12.0 }));
                 } else {
                     v.push(json!({ "k": "Blitzes", "v": blitz.len(), "sub": format!("{}% of their dropbacks", pct(blitz.len(), n)), "bad": false }));
-                    v.push(json!({ "k": "Won reps", "v": won, "sub": format!("{}% of {} reps", pct(won, reps.len()), reps.len()), "bad": false }));
+                    v.push(json!({ "k": "Won reps", "v": won, "sub": format!("{}% of {} {}", pct(won, reps.len()), reps.len(), afm_engine::world::folk::noun(reps.len(), "rep")), "bad": false }));
                 }
                 v
             }
@@ -668,7 +661,7 @@ impl Ctx<'_> {
                     json!({ "k": "Stuffed runs", "v": stuffed, "sub": format!("{}% of {n}{}", pct(stuffed, n), lst.map_or(String::new(), |x| format!(" · {} {x}%", self.lname))), "bad": lst.is_some_and(|x| pct(stuffed, n) > x + 6.0) }),
                     json!({ "k": "Runs of 10+", "v": ten, "sub": format!("{}%{}", pct(ten, n), l10.map_or(String::new(), |x| format!(" · {} {x}%", self.lname))), "bad": false }),
                     json!({ "k": "Yards a run", "v": format!("{:.1}", yds), "sub": lv(ly, ""), "bad": ly.is_some_and(|x| yds < x - 1.0) }),
-                    json!({ "k": "Lost reps", "v": lost, "sub": format!("{}% of {} reps", pct(lost, reps.len()), reps.len()), "bad": pct(lost, reps.len()) > 15.0 }),
+                    json!({ "k": "Lost reps", "v": lost, "sub": format!("{}% of {} {}", pct(lost, reps.len()), reps.len(), afm_engine::world::folk::noun(reps.len(), "rep")), "bad": pct(lost, reps.len()) > 15.0 }),
                     json!({ "k": "Won reps", "v": won, "sub": format!("{}% driven or sealed", pct(won, reps.len())), "bad": false }),
                 ]
             }
@@ -909,7 +902,11 @@ impl Ctx<'_> {
                         b.0.to_lowercase(),
                         (100.0 * rate(&b.1)).round()
                     ),
-                    _ => format!("{} snaps, most of them on one call.", snaps.len()),
+                    _ => format!(
+                        "{} {}, most of them on one call.",
+                        snaps.len(),
+                        afm_engine::world::folk::noun(snaps.len(), "snap")
+                    ),
                 }
             }
             Mode::Run if !groups.is_empty() => {
@@ -917,7 +914,11 @@ impl Ctx<'_> {
                 let many: Vec<&(&str, Vec<usize>)> = groups.iter().filter(|g| g.1.len() >= 3).collect();
                 match many.iter().max_by(|a, b| ypc(&a.1).total_cmp(&ypc(&b.1))) {
                     Some(b) => format!("{} worked best: {:.1} yards a run on {}.", b.0, ypc(&b.1), b.1.len()),
-                    None => format!("{} runs, no scheme called three times.", snaps.len()),
+                    None => format!(
+                        "{} {}, no scheme called three times.",
+                        snaps.len(),
+                        afm_engine::world::folk::noun(snaps.len(), "run")
+                    ),
                 }
             }
             _ => String::new(),
@@ -1056,22 +1057,33 @@ impl Ctx<'_> {
         } else if m == Mode::Rush {
             match lost {
                 0 if won * 3 >= reps => {
-                    format!("{me} owned {him} today: {won} wins in {reps} reps. Keep him on that side.")
+                    format!(
+                        "{me} owned {him} today: {won} {} in {reps} {}. Keep him on that side.",
+                        afm_engine::world::folk::noun(won, "win"),
+                        afm_engine::world::folk::noun(reps, "rep")
+                    )
                 }
                 0 => format!("{me} never lost to {him}, but he didn't win enough either: {won} of {reps}."),
-                _ => format!("{him} stoned {me} {lost} times. We need a second move when the first one stalls."),
+                _ => format!(
+                    "{him} stoned {me} {lost} {}. We need a second move when the first one stalls.",
+                    afm_engine::world::folk::noun(lost, "time")
+                ),
             }
         } else if lost == 0 {
             format!("{me} didn't lose a rep to {him} in {reps}. That's the standard.")
         } else if let Some(x) = worst {
             format!(
-                "{him} beat {me} {} of {} times with the {}. We'll drill the answer to it this week.",
+                "{him} beat {me} {} of {} {} with the {}. We'll drill the answer to it this week.",
                 x.1,
                 x.2,
+                afm_engine::world::folk::noun(x.2, "time"),
                 x.0.to_lowercase()
             )
         } else {
-            format!("{me} lost {lost} of {reps} reps to {him}. Too many; we'll look at the film together.")
+            format!(
+                "{me} lost {lost} of {reps} {} to {him}. Too many; we'll look at the film together.",
+                afm_engine::world::folk::noun(reps, "rep")
+            )
         };
         json!({ "text": text, "name": name, "role": role, "id": id })
     }

@@ -81,7 +81,7 @@ screens.warroom = async () => {
   const V = [["all", "Everyone"], ["needs", "Needs only"], ["hide", "Hide drafted"], ["likely", at ? `Likely at ${at}` : "Likely there"]];
   const views = `<span class="dr-seg">${V.map(([v, n]) => `<button data-act="drview" data-v="${v}" aria-pressed="${k.view === v}">${n}</button>`).join("")}</span>`;
   const gn = dr.gone_note;
-  const note = at && dr.away ? `~${gn.likely_go} of our ${gn.left} left likely go; ~${gn.off_board} picks go off our board` : at ? "You're on the clock: everyone left is yours to take" : "No more picks this draft";
+  const note = at && dr.away ? `~${gn.likely_go} of our ${gn.left} left likely go; ~${gn.off_board} ${gn.off_board === 1 ? "pick goes" : "picks go"} off our board` : at ? "You're on the clock: everyone left is yours to take" : "No more picks this draft";
   const strip = dr.strip.map((s) => `<div class="dr-sc ${s.on_clock ? "otc" : ""} ${s.guess && s.guess.id === sel.id ? "on" : ""}">
       <button class="dr-sc-main" ${s.guess ? `data-act="drsel" data-id="${s.guess.id}"` : "disabled"} aria-label="Pick ${s.pick}">
         <span class="dr-sc-h"><b>${s.pick} · ${drShort(s.team)}</b></span>
@@ -223,6 +223,12 @@ function drPicks(dr) {
 
 // ---------- the draft outlook (college and high school seats) ----------
 screens.draftoutlook = async () => {
+  // A college head coach's outlook is the Squad's Draft view, which adds
+  // the advisory list and the stay-or-go talk to every row (SC1, bug 74).
+  if (seatKind() === "college" && foIsHead() && screens.roster) {
+    S.route = { screen: "roster", args: { view: "Draft" } };
+    return screens.roster({ view: "Draft" });
+  }
   const x = await api("dr_outlook");
   setColors(x.team.colors);
   title("Draft outlook", `${x.draft_year} NFL Draft`);
@@ -248,7 +254,7 @@ screens.draftoutlook = async () => {
   const sub = hs
     ? `Your former players in college and the pros. Declare by ${esc(x.deadline)}; the draft opens ${esc(x.draft_day)}.`
     : `Your players three years out of high school or more. Declare by ${esc(x.deadline)}; the draft opens ${esc(x.draft_day)}.${x.bars ? ` Last year it took about ${x.bars[0]} to go in rounds 1-2 and ${x.bars[1]} in rounds 3-4.` : ""}`;
-  return `<div class="pad dr"><div class="dr-head"><div class="dr-id">${mark(x.team, 44)}<div><span class="dr-lbl">${esc(x.team.name)} · ${x.draft_year} NFL Draft</span><h1>Draft outlook</h1></div></div></div>
+  return `<div class="pad dr"><div class="dr-head"><div class="dr-id">${mark(x.team, 44)}<div><span class="dr-lbl">${esc(x.team.name)} · ${x.draft_year} NFL Draft</span><h1>Draft outlook</h1></div></div></div>${gotoFor("draftoutlook")}
     <p class="dr-sub">${sub}</p>${cells}
     ${secs || `<div class="dr-card"><p class="dr-dim">${hs ? "None of your former players is in the draft picture yet." : "None of your players is three years out of high school yet."}</p></div>`}</div>`;
 };

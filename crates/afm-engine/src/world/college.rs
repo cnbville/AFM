@@ -381,6 +381,8 @@ pub(crate) fn start(w: &mut World) {
             out.insert(p.player.id, "academically ineligible");
         } else if p.cal.trouble {
             out.insert(p.player.id, "suspended");
+        } else if p.cut_here().is_some() {
+            out.insert(p.player.id, "cut from the team");
         }
     }
     let c = w.college.as_mut().unwrap();
@@ -429,6 +431,24 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         0.1,
         1.0,
     );
+    // The field (update 3, F24): turf indoors, else the home field's own
+    // surface; a neutral site keeps its own draw.
+    let turf = indoor
+        || match g.site {
+            Some(s) => {
+                let key =
+                    s.town.bytes().fold(0xCBF2_9CE4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01B3));
+                super::season::field_turf(seed, key, &super::season::TURF_FBS, w.year, 0.5)
+            }
+            None => {
+                let shares = if home.division == super::data::Division::FBS {
+                    &super::season::TURF_FBS
+                } else {
+                    &super::season::TURF_SMALL_COLLEGE
+                };
+                super::season::field_turf(seed, g.home as u64, shares, w.year, home.facilities)
+            }
+        };
     let cond = Conditions {
         temperature: wx.temperature,
         wind: wx.wind,
@@ -437,6 +457,7 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         snow: wx.snow,
         altitude,
         crowd,
+        turf,
         ..Conditions::default()
     };
     let neutral = g.site.is_some();
@@ -454,7 +475,9 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)
     });
-    let venue = Venue { cond, neutral, wear, cold_unused, kickoff: local as f32, indoor, keep: false, year: w.year };
+    let playoff = matches!(g.kind, GameKind::Playoff(_));
+    let venue =
+        Venue { cond, neutral, wear, cold_unused, kickoff: local as f32, indoor, keep: false, year: w.year, playoff };
     let mut played = Played {
         temperature: wx.temperature,
         wind: wx.wind,
@@ -663,22 +686,32 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             let strip = |t: &GameTeam, me: usize| {
                 let mut t = t.clone();
                 // Your players hurt in practice sit too.
+                // And players sitting by a team rule (update 3, F18) or hurt
+                // in a game (A1).
                 t.players.retain(|p| {
-                    !cs.out.contains_key(&p.id) && !capped.contains(&p.id) && !w.training.hurt_out(p.id, date)
+                    !cs.out.contains_key(&p.id)
+                        && !capped.contains(&p.id)
+                        && !w.training.hurt_out(p.id, date)
+                        && !super::folk::rules::sitting(w, p.id, date)
                 });
                 t.week = week(me);
                 t
             };
+            let context = [(g.home, g.away), (g.away, g.home)]
+                .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
             let teams = if cs.on_engine {
                 match (cs.teams.get(g.home).and_then(|t| t.as_ref()), cs.teams.get(g.away).and_then(|t| t.as_ref())) {
-                    (Some(a), Some(b)) => Some((strip(a, g.home), strip(b, g.away))),
+                    (Some(a), Some(b)) => {
+                        let (mut a, mut b) = (strip(a, g.home), strip(b, g.away));
+                        a.day = game_day(w, g, g.home, &context[0], &a);
+                        b.day = game_day(w, g, g.away, &context[1], &b);
+                        Some((a, b))
+                    }
                     _ => None,
                 }
             } else {
                 None
             };
-            let context = [(g.home, g.away), (g.away, g.home)]
-                .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
             Job { k, venue, played, neutral: g.site.is_some(), teams, context }
         })
         .collect();
@@ -713,8 +746,41 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     let recording_log = w.options.keep_game_log && w.recording;
     let year = cs.year;
     let watch = w.tape_watch(CalLevel::College);
+    // The world reader's game log: each game's body, its snaps (packed) and
+    // its situation totals, worked out on all cores (they are the log's
+    // bulk).
+    let logging = w.logging();
+    let mut to_log = if logging {
+        outcomes
+            .par_iter()
+            .zip(jobs.par_iter())
+            .map(|(r, j)| {
+                r.as_ref().map(|r| {
+                    let g = &cs.games[j.k];
+                    let mut name = serde_json::Map::new();
+                    name.insert("level".into(), "college".into());
+                    name.insert("season".into(), cs.year.into());
+                    name.insert("date".into(), g.date.to_string().into());
+                    name.insert("teams".into(), serde_json::json!([g.home, g.away]));
+                    let snaps = super::wlog::games::snaps_record(&name, super::wlog::games::plays(&r.stats));
+                    let teams = j.teams.as_ref().map(|(a, b)| [a, b]);
+                    (
+                        super::wlog::games::game_body(r, teams),
+                        super::wlog::pack(&snaps),
+                        super::game_log::game_situations(&r.stats, true),
+                    )
+                })
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+    .into_iter();
+    let first_date = cs.games.iter().map(|g| g.date).min().unwrap_or(date);
+    let mut logged: Vec<(usize, serde_json::Value, Option<Vec<u8>>)> = Vec::new();
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
+        let log_part = to_log.next().flatten();
         let mut played = j.played;
         let (home, away, division, kind, conference) = {
             let g = &w.college.as_ref().unwrap().games[k];
@@ -740,7 +806,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         };
         played.home_won = home_won;
         if let Some(r) = &r {
-            w.keep_seat_game(CalLevel::College, [home, away], &r.stats, r.replay.as_deref());
+            w.keep_seat_game(CalLevel::College, [home, away], &r.stats, r.replay.as_deref(), &r.talks);
             let line = w.college.as_ref().unwrap().games[k].line;
             w.seat_line(CalLevel::College, [home, away], line, j.neutral);
             if let Some(o) = &watch {
@@ -751,6 +817,11 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             if div == w.programs[away].division {
                 super::charts::add_game(w, year, super::charts::college_key(div), &r.stats);
             }
+            // Injuries outlast the game (update 3, A1).
+            let seat = super::folk::Team::seat(w);
+            let side = [home, away].iter().position(|&t| seat == Some(super::folk::Team::College(t)));
+            let med = [home, away].map(|t| super::people::Support::z(w.programs[t].support.medical.rating));
+            crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
         }
         let cs = w.college.as_mut().unwrap();
         // Records.
@@ -855,6 +926,51 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             }
         }
         cs.games[k].played = Some(played);
+        if logging {
+            let g = &cs.games[k];
+            let (kind, round) = super::wlog::games::college_kind(g.kind);
+            let (hd, ad) = (w.programs[home].division, w.programs[away].division);
+            let mut head = serde_json::Map::new();
+            head.insert("level".into(), "college".into());
+            head.insert("season".into(), year.into());
+            head.insert("date".into(), g.date.to_string().into());
+            head.insert("week".into(), ((g.date.0 - first_date.0).max(0) / 7 + 1).into());
+            head.insert("kind".into(), kind.into());
+            head.insert("round".into(), serde_json::json!(round));
+            head.insert("name".into(), serde_json::json!(g.name));
+            head.insert("teams".into(), serde_json::json!([home, away]));
+            head.insert("divisions".into(), serde_json::json!([hd.name(), ad.name()]));
+            head.insert("cross".into(), (hd != ad).into());
+            head.insert("conference_game".into(), g.conference.into());
+            head.insert(
+                "rivalry".into(),
+                serde_json::json!(g.rivalry.map(|r| crate::calendar::data::RIVALRIES[r].name)),
+            );
+            head.insert("site".into(), serde_json::json!(g.site));
+            head.insert("neutral".into(), j.neutral.into());
+            head.insert("kickoff".into(), format!("{:02}:{:02} ET", g.kickoff.0, g.kickoff.1).into());
+            head.insert("line".into(), serde_json::json!(g.line));
+            head.insert("weather".into(), serde_json::json!(played));
+            head.insert("conditions".into(), serde_json::json!(j.venue.cond));
+            head.insert("tags".into(), serde_json::json!(g.tags.iter().map(|t| t.name()).collect::<Vec<_>>()));
+            head.insert("loud".into(), g.loud.name().into());
+            head.insert("why".into(), serde_json::json!(g.why));
+            head.insert("huge_for".into(), serde_json::json!(g.huge_for));
+            head.insert("senior_day".into(), g.senior_day.into());
+            head.insert("homecoming".into(), g.homecoming.into());
+            let (row, plays) = match (&r, log_part) {
+                (Some(_), Some((body, plays, situ))) => {
+                    let group = if hd == ad { hd.name() } else { "cross-division" };
+                    if let Some(l) = w.wlog.as_mut() {
+                        l.add_situations(year, "college", group, [home, away], situ);
+                    }
+                    (super::wlog::games::game_row(head, body), plays)
+                }
+                _ => (super::wlog::games::standin_row(head, home_won, Some(played.score)), None),
+            };
+            logged.push((k, row, plays));
+        }
+        let cs = w.college.as_mut().unwrap();
         crown_title_game(cs, k);
         if played.delay > 0 {
             w.log.lightning_delays += 1;
@@ -888,6 +1004,24 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     }
     // The gate, the guarantees and the lines settled (later extras topic 1, C8).
     super::finance::college::played(w, &idx);
+    // The game log's rows, with the crowd and the gate now known.
+    for (k, mut row, plays) in logged {
+        let g = &w.college.as_ref().unwrap().games[k];
+        if let Some(m) = row.as_object_mut() {
+            if g.attendance > 0 {
+                m.insert("attendance".into(), g.attendance.into());
+            }
+            if let Some((what, dollars)) = g.paid {
+                m.insert("paid".into(), serde_json::json!({ "kind": what, "dollars": dollars }));
+            }
+        }
+        if let Some(l) = w.wlog.as_deref() {
+            l.put("games-college", &row);
+            if let Some(plays) = plays {
+                l.put_packed("plays-college", plays);
+            }
+        }
+    }
     advance_brackets(w);
 }
 
@@ -1098,7 +1232,7 @@ pub(crate) fn ranking(w: &World, division: Division) -> Vec<(usize, f64)> {
     let members: Vec<usize> = w
         .programs
         .iter()
-        .filter(|p| p.division == division && !p.roster.is_empty() && p.plays(w.year))
+        .filter(|p| p.division == division && !p.roster.is_empty() && p.fields_games(w.year))
         .map(|p| p.id)
         .collect();
     let set: HashSet<usize> = members.iter().copied().collect();
@@ -1247,6 +1381,21 @@ type StakeUpdate = (usize, Vec<Tag>, Loudness, [bool; 2], Vec<&'static str>);
 /// A news line the stakes post: the school, the text and the coach it names.
 type StakeNote = (usize, String, u32, String);
 
+/// The day a team brings into a college game (dialogue D4): the stakes
+/// from the game's tags and kind, the rivalry, its captains.
+fn game_day(
+    w: &World,
+    g: &Game,
+    me: usize,
+    ctx: &crate::game::garbage::Context,
+    dressed: &GameTeam,
+) -> crate::game::talk::Day {
+    let (stakes, rival) = super::folk::gametalk::college_stakes(g, ctx);
+    let opp = g.opponent(me);
+    use super::folk::Team;
+    super::folk::gametalk::day_for(w, Team::College(me), Team::College(opp), stakes, rival, dressed)
+}
+
 fn stakes_for_day(w: &mut World, idx: &[usize]) {
     let (updates, notes) = stakes_of(w, idx);
     let cs = w.college.as_mut().unwrap();
@@ -1277,7 +1426,7 @@ fn stakes_of(w: &World, idx: &[usize]) -> (Vec<StakeUpdate>, Vec<StakeNote>) {
     // conference, and the regular-season games it has left.
     let mut conf_best: HashMap<&str, u32> = HashMap::new();
     for (t, prog) in w.programs.iter().enumerate() {
-        if prog.division == Division::FBS && !prog.roster.is_empty() && prog.plays(w.year) {
+        if prog.division == Division::FBS && !prog.roster.is_empty() && prog.fields_games(w.year) {
             let e = conf_best.entry(prog.conference.as_str()).or_insert(u32::MAX);
             *e = (*e).min(cs.results[t].conf_losses);
         }
@@ -1582,7 +1731,7 @@ pub(crate) fn regular_season_end(w: &mut World, division: Division) {
     let rank: HashMap<usize, usize> =
         ranking(w, division).into_iter().enumerate().map(|(k, (t, _))| (t, k + 1)).collect();
     let mut confs: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    for p in w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty() && p.plays(w.year)) {
+    for p in w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty() && p.fields_games(w.year)) {
         if !p.conference.contains("Independent") {
             confs.entry(p.conference.clone()).or_default().push(p.id);
         }
@@ -2259,7 +2408,9 @@ pub(crate) fn bowl_practices(w: &mut World, date: Date) {
         })
         .collect();
     let practice: HashMap<usize, u32> = teams.into_iter().collect();
-    let gains: f64 = w
+    // Summed in people order: a parallel float sum depends on how the
+    // work was split, and a saved world must play on identically.
+    let gains: Vec<f64> = w
         .people
         .par_iter_mut()
         .filter(|p| p.stage == Stage::College && p.college.is_some_and(|c| practice.contains_key(&c)))
@@ -2267,8 +2418,8 @@ pub(crate) fn bowl_practices(w: &mut World, date: Date) {
             let c = p.college.unwrap();
             crate::development::extra_practices(&mut p.player, practice[&c], coaching[&c], &mut p.rng)
         })
-        .sum();
-    w.log.bowl_practice_gain += gains;
+        .collect();
+    w.log.bowl_practice_gain += gains.iter().sum::<f64>();
 }
 
 // --- Awards and honors (A25) ---------------------------------------------------------------
@@ -2752,6 +2903,18 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
 
 // --- The season's end ----------------------------------------------------------------------
 
+/// The head coach a program fired during `season`, if any.
+fn fired_during(w: &World, p: usize, season: i32) -> Option<usize> {
+    w.coaches.iter().position(|c| {
+        c.history.last().is_some_and(|s| {
+            s.employer == super::coach::Employer::College(p)
+                && s.role == super::coach::Role::HeadCoach
+                && s.to == season
+                && s.ended.starts_with("fired during the season")
+        })
+    })
+}
+
 /// The regular season's book at the Sunday after rivalry week (section 4:
 /// coaches are judged and fired before the title games). Pushes each
 /// program's season (updated as its postseason ends) and moves reputations.
@@ -2773,6 +2936,12 @@ pub(crate) fn record_regular_season(w: &mut World) {
         if t.games() == 0 {
             continue;
         }
+        // The season is credited the way the record books do it (minor
+        // bug 124): to the coach of most of its games, so a coach fired in
+        // November keeps it and his interim, on the sideline at the end,
+        // doesn't get a season of his own.
+        let (cw, cl) = credited[p];
+        let fired = (cw + cl > 0 && 2 * (cw + cl) >= t.games()).then(|| fired_during(w, p, year)).flatten();
         let prog = &mut w.programs[p];
         // The coach on the sideline: an interim after an in-season firing.
         let head = prog.sideline.or(prog.head_coach);
@@ -2782,13 +2951,12 @@ pub(crate) fn record_regular_season(w: &mut World) {
             losses: t.losses,
             conference_title: t.conference_title,
             national_title: false,
-            coach: head,
+            coach: fired.or(head),
             strength: t.strength,
             totals: t.totals,
         });
         let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
         let staff = staff_of(prog, head);
-        let (cw, cl) = credited[p];
         for (c, is_head) in staff {
             if is_head {
                 super::staff::credit_head(w, c, p, t.wins.saturating_sub(cw), t.losses.saturating_sub(cl), 0);
@@ -3326,8 +3494,6 @@ pub(crate) enum LeanCheck {
     FallCamp,
     /// Midseason: the snaps he has had.
     MidSeason,
-    /// The Sunday after rivalry week: a coaching change at his school.
-    CoachingChanges,
     /// Selection day: a bowl (and its practices) or none.
     Bowls,
     /// Early signing day: a blue-chip signed at his position.
@@ -3337,6 +3503,29 @@ pub(crate) enum LeanCheck {
 pub(crate) fn lean_push(p: &mut super::Person, date: Date, why: &'static str, factor: f64) {
     p.cal.lean *= factor;
     p.cal.lean_events.push((date, why, factor));
+}
+
+/// The lean event a head coach's departure leaves on his players.
+pub(crate) const COACH_GONE: &str = "his head coach is gone";
+
+/// His head coach is gone (T3): the day a college head coach leaves, for
+/// any reason (fired, retired, another job, the NFL), each of his players
+/// leans harder toward the portal, once a cycle (the events clear at fall
+/// camp). It hung on the Sunday after rivalry week, so a coach who left
+/// for another job after it, as most do, never moved his players (minor
+/// bug 88).
+pub(crate) fn coach_gone(w: &mut World, prog: usize) {
+    let factor = crate::career::PIPELINE.portal_entry.coaching_change;
+    let today = w.today;
+    for p in w.people.iter_mut() {
+        if p.stage == Stage::College
+            && p.college == Some(prog)
+            && p.cal.lean > 0.0
+            && !p.cal.lean_events.iter().any(|e| e.1 == COACH_GONE)
+        {
+            lean_push(p, today, COACH_GONE, factor);
+        }
+    }
 }
 
 /// Reads and moves each college player's lean toward leaving (T3). The base
@@ -3480,19 +3669,6 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                     .school_link(c, &w.programs[c].real_name);
                 w.calendar.post(e);
                 w.log.whispers += 1;
-            }
-        }
-        LeanCheck::CoachingChanges => {
-            let changed: Vec<bool> = w.programs.iter().map(|p| p.hc_changed == year).collect();
-            let factor = PIPELINE.portal_entry.coaching_change;
-            for p in w.people.iter_mut() {
-                if p.stage == Stage::College
-                    && p.cal.lean > 0.0
-                    && let Some(c) = p.college
-                    && changed[c]
-                {
-                    lean_push(p, date, "his head coach is gone", factor);
-                }
             }
         }
         LeanCheck::Bowls => {
@@ -3736,23 +3912,33 @@ pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSe
     };
     let strip = |t: &GameTeam, me: usize| {
         let mut t = t.clone();
-        t.players
-            .retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id) && !w.training.hurt_out(p.id, date));
+        t.players.retain(|p| {
+            !cs.out.contains_key(&p.id)
+                && !capped.contains(&p.id)
+                && !w.training.hurt_out(p.id, date)
+                && !super::folk::rules::sitting(w, p.id, date)
+        });
         t.week = week(me);
         t
     };
-    let home = strip(cs.teams.get(g.home)?.as_ref()?, g.home);
-    let away = strip(cs.teams.get(g.away)?.as_ref()?, g.away);
+    let mut home = strip(cs.teams.get(g.home)?.as_ref()?, g.home);
+    let mut away = strip(cs.teams.get(g.away)?.as_ref()?, g.away);
     if home.players.len() < 30 || away.players.len() < 30 {
         return None;
     }
     let context = [(g.home, g.away), (g.away, g.home)]
         .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
+    home.day = game_day(w, g, g.home, &context[0], &home);
+    away.day = game_day(w, g, g.away, &context[1], &away);
     let level = division_level(w.programs[g.home].division.min(w.programs[g.away].division));
     let seed = (w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8))
         .wrapping_mul(1_000_003)
         .wrapping_add(k as u64);
     let mut setup = crate::game::GameSetup::new(&home, &away, level, seed);
+    // The season's book, and a playoff game's overtime (update 3, F25).
+    setup.rules = crate::game::Rules::for_year(level, venue.year, venue.playoff);
+    setup.playoff = venue.playoff;
+    setup.year = venue.year;
     setup.cond = venue.cond;
     setup.neutral = venue.neutral;
     setup.wear = venue.wear;

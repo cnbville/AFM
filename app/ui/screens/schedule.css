@@ -145,19 +145,9 @@
 /* ---------- the year (V13, board 13 v2) ---------- */
 .sch-yearlink { margin-left: 6px; border-color: var(--hair); color: var(--fg2); }
 .yr { --yr-w: var(--fg2); padding-bottom: 48px; display: flex; flex-direction: column; gap: 16px; }
+/* As the top of Training's "The year" tab, under Training's own head. */
+.yr.yr-in { padding-bottom: 0; }
 .yr-panel { background: var(--raised); border-radius: 16px; padding: 16px 20px; box-shadow: inset 0 0 0 1px var(--hair); min-width: 0; }
-.yr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px 24px; flex-wrap: wrap; }
-.yr-id { display: flex; align-items: flex-end; gap: 14px 16px; flex-wrap: wrap; min-width: 0; }
-.yr-id > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.yr-h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
-.yr-tabs { display: flex; gap: 20px; margin-left: 18px; align-self: flex-end; }
-.yr-tabs > * { padding: 8px 0; font-weight: 700; font-size: 13.5px; color: var(--sl-dim); border-bottom: 2px solid transparent; }
-.yr-tabs > .on { color: var(--fg); border-bottom-color: var(--sl-gold); }
-.yr-hcells { display: flex; align-items: stretch; border-radius: 14px; background: var(--sl-card); box-shadow: inset 0 0 0 1px var(--sl-line); }
-.yr-hc { display: flex; flex-direction: column; gap: 2px; padding: 8px 16px; min-width: 0; }
-.yr-hc + .yr-hc { box-shadow: inset 1px 0 0 var(--sl-line); }
-.yr-hc .st-label { font-size: 10px; margin: 0; }
-.yr-hc b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .yr-ph-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
 .yr-ph-head > div:first-child { display: flex; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
 .yr-ph-head b { font-size: 16px; font-weight: 800; }

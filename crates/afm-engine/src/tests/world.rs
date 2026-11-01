@@ -534,7 +534,7 @@ fn a_player_hurt_in_camp_goes_on_reserve_or_is_settled_with() {
         .filter(|&i| w.people[i].pro.as_ref().unwrap().status == Status::Roster)
         .collect();
     for &i in &roster {
-        w.people[i].pro.as_mut().unwrap().out_weeks = 8;
+        w.people[i].pro.as_mut().unwrap().out_for(56);
     }
     let d = w.today;
     pro::cutdown(&mut w, d);

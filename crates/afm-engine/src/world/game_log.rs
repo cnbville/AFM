@@ -1,7 +1,8 @@
 //! Trial tooling: every college game's team totals and each player's season
 //! totals, kept only when `WorldOptions::keep_game_log` is on. It only
 //! watches the games, so a world with it on plays out exactly the same.
-//! The game's own career stats record (section 3) is still to be designed.
+//! The situation keys here also feed the world reader's game log on disk
+//! (`wlog/games.rs`), which keeps every game at every level.
 
 use std::collections::HashMap;
 
@@ -40,6 +41,19 @@ pub struct GameSummary {
     pub emergency_snaps: u32,
     /// A game between programs of different divisions (an FBS buy game).
     pub cross: bool,
+    /// What kind of game (regular, conference title, bowl, playoff, title,
+    /// preseason...), its date, week and a neutral site (world reader R1).
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub date: String,
+    #[serde(default)]
+    pub week: u32,
+    #[serde(default)]
+    pub neutral: bool,
+    /// Points by quarter (overtime periods after the fourth), home then away.
+    #[serde(default)]
+    pub quarters: Vec<[i32; 2]>,
 }
 
 /// A player's season at one program: the headline counting stats.
@@ -75,6 +89,20 @@ pub struct PlayerSeason {
     pub fg_att: u32,
     pub grade_sum: f32,
     pub graded: u32,
+    /// Field goals by distance (under 30, 30s, 40s, 50+) and extra points,
+    /// kicks blocked, and his penalties (world reader R1).
+    #[serde(default)]
+    pub fg_att_band: [u32; 4],
+    #[serde(default)]
+    pub fg_made_band: [u32; 4],
+    #[serde(default)]
+    pub xp_att: u32,
+    #[serde(default)]
+    pub xp_made: u32,
+    #[serde(default)]
+    pub penalties: u32,
+    #[serde(default)]
+    pub penalty_yds: f32,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -101,6 +129,10 @@ pub struct GameLog {
     /// NFL games on the engine (section 5): the same box score, team
     /// indices into `World::nfl`; `division` is unused.
     pub nfl_games: Vec<GameSummary>,
+    /// (season, "NFL" or "HS", key): the NFL's and high school's situation
+    /// totals, the same keys as `situations`.
+    #[serde(default)]
+    pub level_situations: HashMap<(i32, String, String), Situ>,
 }
 
 fn togo_bucket(t: f64) -> &'static str {
@@ -140,12 +172,111 @@ fn kind_name(k: PlayType) -> &'static str {
     }
 }
 
+/// Score margin buckets of the real NFL tables (`nfl_situations.json`):
+/// -15 is 15 or more behind, -8 is 8 to 14 behind, -1 is 1 to 7 behind,
+/// 0 tied, 7 is 1 to 7 ahead, 14 is 8 to 14 ahead, 15 is 15 or more.
+fn real_score_bucket(m: i32) -> i32 {
+    match m {
+        m if m <= -15 => -15,
+        m if m <= -8 => -8,
+        m if m <= -1 => -1,
+        0 => 0,
+        m if m <= 7 => 7,
+        m if m <= 14 => 14,
+        _ => 15,
+    }
+}
+
+/// Yards to go buckets of the real NFL tables: 1, 2-3, 4-6, 7-10, 11+.
+fn real_togo_bucket(t: f64) -> u32 {
+    match t {
+        t if t <= 1.0 => 1,
+        t if t <= 3.0 => 3,
+        t if t <= 6.0 => 6,
+        t if t <= 10.0 => 10,
+        _ => 15,
+    }
+}
+
+/// The real tables' time of game: the last two minutes of a half, the
+/// fourth quarter's last seven minutes, or normal.
+fn real_time(p: &PlayRecord) -> &'static str {
+    if matches!(p.quarter, 2 | 4) && p.clock <= 120.0 {
+        "two_minute"
+    } else if p.quarter == 4 && p.clock <= 420.0 {
+        "late"
+    } else {
+        "normal"
+    }
+}
+
+/// `garbage_time.json`'s buckets for the score after three quarters.
+fn q4_bucket(lead: i32) -> &'static str {
+    match lead {
+        l if l >= 28 => "lead 28+",
+        l if l >= 21 => "lead 21-27",
+        l if l >= 15 => "lead 15-20",
+        l if l >= 1 => "lead 1-14",
+        0 => "tied",
+        l if l >= -14 => "trail 1-14",
+        l if l >= -20 => "trail 15-20",
+        l if l >= -27 => "trail 21-27",
+        _ => "trail 28+",
+    }
+}
+
+/// Where a designed run crossed the line, as the real play by play names
+/// it (left or right, then end, tackle or guard; middle): from how far
+/// across from the snap the carrier crossed, the offense's left positive
+/// (`TendNotes::cross`). Gap widths about the line's real splits: inside a
+/// yard is the middle, inside 2.5 the guard, inside 4 the tackle
+/// (proposed, not confirmed).
+fn run_gap(p: &PlayRecord) -> Option<(&'static str, &'static str)> {
+    let (y, _) = p.tend.cross?;
+    let side = if y > 0.0 { "left" } else { "right" };
+    Some(match y.abs() {
+        a if a < 1.0 => ("middle", "middle"),
+        a if a < 2.5 => (side, "guard"),
+        a if a < 4.0 => (side, "tackle"),
+        _ => (side, "end"),
+    })
+}
+
+/// The call's look, read off the call text ("11 gun trips jet motion,
+/// inside zone left"): the backfield, the motion, and whether it was a
+/// run-pass option.
+fn call_look(call: &str) -> (&'static str, &'static str, bool) {
+    let backfield = if call.contains(" gun ") {
+        "gun"
+    } else if call.contains(" pistol ") {
+        "pistol"
+    } else if call.contains(" under center ") {
+        "under center"
+    } else {
+        "other"
+    };
+    let motion = ["jet motion, ", "orbit motion, ", "motion across, ", "shift, "]
+        .into_iter()
+        .find(|m| call.contains(m))
+        .map_or("none", |m| m.trim_end_matches(", "));
+    (backfield, motion, call.contains(" with "))
+}
+
+/// Context one play's keys need from the whole game.
+#[derive(Clone, Copy, Default)]
+struct PlayCtx {
+    /// Each side's lead (home, away) after three quarters, once the fourth
+    /// has started.
+    q4_lead: Option<[i32; 2]>,
+}
+
 /// Every situation key one play counts under (league-wide).
-fn play_keys(p: &PlayRecord) -> Vec<String> {
+fn play_keys(p: &PlayRecord, ctx: PlayCtx) -> Vec<String> {
     let kind = kind_name(p.kind);
     let mut keys = vec![format!("kind|{kind}")];
     let scrimmage = matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
     let field = field_bucket(p.yardline_100);
+    let margin = p.score[p.offense.min(1)] - p.score[1 - p.offense.min(1)];
     if (1..=4).contains(&p.down) && !matches!(p.kind, PlayType::Kickoff | PlayType::ExtraPoint | PlayType::TwoPoint) {
         keys.push(format!("dd|{}|{}|{kind}", p.down, togo_bucket(p.togo)));
         keys.push(format!("field|{field}|{kind}"));
@@ -158,9 +289,16 @@ fn play_keys(p: &PlayRecord) -> Vec<String> {
     {
         let decision = if scrimmage { "go" } else { kind };
         keys.push(format!("fourth|{field}|{}|{decision}", togo_bucket(p.togo)));
+        // The real table's own buckets: to go, the yard line by tens and
+        // the score.
+        keys.push(format!(
+            "real fourth|{}|{}|{}|{decision}",
+            real_togo_bucket(p.togo),
+            ((p.yardline_100 / 10.0).floor() * 10.0).clamp(0.0, 90.0) as u32,
+            real_score_bucket(margin)
+        ));
     }
     if scrimmage {
-        let margin = p.score[p.offense] - p.score[1 - p.offense];
         let state = match margin {
             m if m <= -17 => "down 17+",
             m if m <= -9 => "down 9-16",
@@ -175,15 +313,47 @@ fn play_keys(p: &PlayRecord) -> Vec<String> {
         if p.quarter >= 4 && p.clock <= 120.0 {
             keys.push(format!("two minute|{state}|{kind}"));
         }
+        if (1..=4).contains(&p.down) {
+            keys.push(format!(
+                "real pass rate|{}|{}|{}|{}|{kind}",
+                p.down,
+                real_togo_bucket(p.togo),
+                real_score_bucket(margin),
+                real_time(p)
+            ));
+        }
+        if p.quarter == 4
+            && let Some(lead) = ctx.q4_lead
+        {
+            keys.push(format!("q4|{}|{kind}", q4_bucket(lead[p.offense.min(1)])));
+        }
         keys.push(format!("call|{kind}|{}", p.call));
         keys.push(format!("defense|{}|{kind}", p.defense_call));
         keys.push(format!("personnel|{}|{kind}", p.personnel));
         keys.push(format!("box|{}|{kind}", p.box_count));
         keys.push(format!("blitz|{}|{kind}", p.blitz));
         keys.push(format!("coverage|{}|{kind}", if p.coverage_man { "man" } else { "zone" }));
+        let (backfield, motion, rpo) = call_look(&p.call);
+        keys.push(format!("backfield|{backfield}|{kind}"));
+        keys.push(format!("motion|{motion}|{kind}"));
+        if rpo {
+            keys.push(format!("rpo|{kind}"));
+        }
+        keys.push(format!("tempo|{}|{kind}", if p.hurry { "no huddle" } else { "huddle" }));
+        let g = p.garbage[p.offense.min(1)];
+        let gd = p.garbage[1 - p.offense.min(1)];
+        keys.push(format!("garbage|{g}|{gd}|{kind}"));
         if p.after_turnover {
             keys.push(format!("after turnover|{kind}"));
         }
+        if p.out_of_bounds {
+            keys.push(format!("out of bounds|{kind}"));
+        }
+    }
+    if p.kind == PlayType::Run
+        && let Some((side, gap)) = run_gap(p)
+    {
+        keys.push(format!("run gap|{side}|{gap}"));
     }
     if kind == "pass" {
         keys.push(format!("play action|{}", p.play_action));
@@ -205,6 +375,18 @@ fn play_keys(p: &PlayRecord) -> Vec<String> {
                 _ => "20+",
             };
             keys.push(format!("depth|{air}"));
+            // The real table's air-yards buckets (-5, 0, 10, 20).
+            let real = match p.air_yards {
+                a if a < 0.0 => -5,
+                a if a < 10.0 => 0,
+                a if a < 20.0 => 10,
+                _ => 20,
+            };
+            keys.push(format!("real air yards|{real}"));
+        }
+        if p.target.is_some() && !p.route.is_empty() {
+            keys.push(format!("route|{}", p.route));
+            keys.push(format!("route coverage|{}|{}", p.route, if p.coverage_man { "man" } else { "zone" }));
         }
         if p.drop {
             keys.push("drop".to_string());
@@ -220,8 +402,38 @@ fn play_keys(p: &PlayRecord) -> Vec<String> {
     if matches!(p.kind, PlayType::Kickoff | PlayType::Punt) && p.return_yards != 0.0 {
         keys.push(format!("return|{kind}"));
     }
-    for (foul, _, _, _, accepted) in &p.penalties {
-        keys.push(format!("penalty|{foul:?}|{}", if *accepted { "accepted" } else { "declined" }));
+    if matches!(p.kind, PlayType::FieldGoal | PlayType::ExtraPoint | PlayType::Punt | PlayType::Kickoff) {
+        for (on, what) in [
+            (p.blocked, "blocked"),
+            (p.tend.muffed, "muffed"),
+            (p.bad_snap, "bad snap"),
+            (p.fair_catch, "fair catch"),
+            (p.touchback, "touchback"),
+            (p.inside20, "inside 20"),
+        ] {
+            if on {
+                keys.push(format!("kick result|{kind}|{what}"));
+            }
+        }
+    }
+    for (foul, team, _, _, accepted) in &p.penalties {
+        let state = if *accepted { "accepted" } else { "declined" };
+        keys.push(format!("penalty|{foul:?}|{state}"));
+        keys.push(format!("penalty site|{foul:?}|{}", if *team == 0 { "home" } else { "away" }));
+    }
+    if let Some(o) = &p.officiating {
+        keys.push(format!(
+            "officiating|{:?}|{}|{}|{}",
+            o.call,
+            if o.wrong { "wrong" } else { "right" },
+            match o.reviewer {
+                crate::game::live::Reviewer::None => "not reviewed",
+                crate::game::live::Reviewer::Booth => "booth",
+                crate::game::live::Reviewer::Assist => "assist",
+                crate::game::live::Reviewer::Challenge(_) => "challenge",
+            },
+            if o.overturned { "overturned" } else { "stood" }
+        ));
     }
     if !p.injuries.is_empty() {
         keys.push(format!("injury|{kind}"));
@@ -259,7 +471,7 @@ fn play_values(p: &PlayRecord) -> Situ {
     ]
 }
 
-fn bump(m: &mut Situ, v: &Situ) {
+pub fn bump(m: &mut Situ, v: &Situ) {
     for k in 0..8 {
         m[k] += v[k];
     }
@@ -268,41 +480,69 @@ fn bump(m: &mut Situ, v: &Situ) {
 /// One game's situation totals, built outside the log's lock.
 pub type SituPart = (HashMap<String, Situ>, HashMap<(usize, String), Situ>);
 
-/// Sums one game's plays by situation (league keys, and FBS team keys).
-pub fn situations(division: Division, teams: [usize; 2], g: &GameStats) -> SituPart {
+/// One game's situation totals: the league keys, and each side's own short
+/// list (home, away), "o|" keys with the ball and "d|" keys defending.
+pub struct GameSitu {
+    pub league: HashMap<String, Situ>,
+    pub team: [HashMap<String, Situ>; 2],
+}
+
+/// Sums one game's plays by situation, at any level; each side's own keys
+/// only when `teams` (no one keeps them for high schools).
+pub fn game_situations(g: &GameStats, teams: bool) -> GameSitu {
     let mut league: HashMap<String, Situ> = HashMap::new();
-    let mut team: HashMap<(usize, String), Situ> = HashMap::new();
+    let mut team: [HashMap<String, Situ>; 2] = Default::default();
+    let mut ctx = PlayCtx::default();
     for p in &g.plays {
+        if ctx.q4_lead.is_none() && p.quarter >= 4 {
+            ctx.q4_lead = Some([p.score[0] - p.score[1], p.score[1] - p.score[0]]);
+        }
         let v = play_values(p);
-        for k in play_keys(p) {
+        for k in play_keys(p, ctx) {
             bump(league.entry(k).or_default(), &v);
         }
-        if division == Division::FBS {
-            // A team's own profile: a short list of keys, both sides of the ball.
-            let kind = kind_name(p.kind);
-            let mut tk = vec![format!("kind|{kind}")];
-            if p.down == 3 {
-                tk.push(format!("third|{}|{kind}", togo_bucket(p.togo)));
-            }
-            if p.down == 4 {
-                let decision = if matches!(p.kind, PlayType::Punt | PlayType::FieldGoal) { kind } else { "go" };
-                tk.push(format!("fourth|{decision}"));
-            }
-            if p.yardline_100 <= 20.0 {
-                tk.push(format!("red zone|{kind}"));
-            }
-            if kind == "pass" {
-                tk.push(format!("pressured|{}", p.pressured));
-                tk.push(format!("blitz|{}", p.blitz));
-            }
-            for (side, tag) in [(p.offense, "o"), (1 - p.offense, "d")] {
-                for k in &tk {
-                    bump(team.entry((teams[side], format!("{tag}|{k}"))).or_default(), &v);
-                }
+        if !teams {
+            continue;
+        }
+        // A team's own profile: a short list of keys, both sides of the ball.
+        let kind = kind_name(p.kind);
+        let mut tk = vec![format!("kind|{kind}")];
+        if p.down == 3 {
+            tk.push(format!("third|{}|{kind}", togo_bucket(p.togo)));
+        }
+        if p.down == 4 {
+            let decision = if matches!(p.kind, PlayType::Punt | PlayType::FieldGoal) { kind } else { "go" };
+            tk.push(format!("fourth|{decision}"));
+        }
+        if p.yardline_100 <= 20.0 {
+            tk.push(format!("red zone|{kind}"));
+        }
+        if kind == "pass" {
+            tk.push(format!("pressured|{}", p.pressured));
+            tk.push(format!("blitz|{}", p.blitz));
+        }
+        let o = p.offense.min(1);
+        for (side, tag) in [(o, "o"), (1 - o, "d")] {
+            for k in &tk {
+                bump(team[side].entry(format!("{tag}|{k}")).or_default(), &v);
             }
         }
     }
-    (league, team)
+    GameSitu { league, team }
+}
+
+/// Sums one game's plays by situation (league keys, and FBS team keys).
+pub fn situations(division: Division, teams: [usize; 2], g: &GameStats) -> SituPart {
+    let GameSitu { league, team } = game_situations(g, division == Division::FBS);
+    let mut by_team: HashMap<(usize, String), Situ> = HashMap::new();
+    if division == Division::FBS {
+        for (side, m) in team.into_iter().enumerate() {
+            for (k, v) in m {
+                by_team.insert((teams[side], k), v);
+            }
+        }
+    }
+    (league, by_team)
 }
 
 impl GameLog {
@@ -343,6 +583,14 @@ impl GameLog {
                 s.fg_att += l.fg_att.iter().sum::<u32>();
                 s.grade_sum += l.grade_sum as f32;
                 s.graded += l.graded;
+                for b in 0..4 {
+                    s.fg_att_band[b] += l.fg_att[b];
+                    s.fg_made_band[b] += l.fg_made[b];
+                }
+                s.xp_att += l.xp_att;
+                s.xp_made += l.xp_made;
+                s.penalties += l.penalties;
+                s.penalty_yds += l.penalty_yds as f32;
             }
         }
         let (league, team) = part;
@@ -356,8 +604,16 @@ impl GameLog {
         self.games.push(summary);
     }
 
+    /// A level's situation totals (the NFL's, high school's).
+    pub fn add_level(&mut self, year: i32, level: &str, g: &GameStats) {
+        for (k, v) in game_situations(g, false).league {
+            bump(self.level_situations.entry((year, level.to_string(), k)).or_default(), &v);
+        }
+    }
+
     /// An NFL game's box score (the players' seasons live on their pro careers).
     pub fn add_nfl(&mut self, year: i32, teams: [usize; 2], g: &GameStats) {
+        self.add_level(year, "NFL", g);
         let mut kr = [(0, 0.0); 2];
         let mut pr = [(0, 0.0); 2];
         for side in 0..2 {
@@ -411,5 +667,10 @@ fn summarize(
         loud: "",
         emergency_snaps: g.plays.iter().filter(|p| p.emergency).count() as u32,
         cross: false,
+        kind: String::new(),
+        date: String::new(),
+        week: 0,
+        neutral: false,
+        quarters: g.quarters.clone(),
     }
 }

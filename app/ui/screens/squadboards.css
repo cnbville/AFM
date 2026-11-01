@@ -222,7 +222,7 @@
 .sb-ci { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--sb-seg-on); display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; }
 .sb-cn { font-size: 11.5px; font-weight: 700; color: var(--sb-dim); }
 .sb-coach p { margin: 2px 0 0; font-size: 12.5px; line-height: 1.42; color: var(--sb-text2); }
-.sb-side .st-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.sb-side .st-actions { display: flex; gap: 8px 14px; flex-wrap: wrap; align-items: center; margin-top: auto; }
 
 /* V2: chips, legend, year cards, the panel. */
 .sb-chip { position: absolute; z-index: 2; transform: translate(-50%, -100%) scale(var(--k, 1)); transform-origin: 50% 100%; font-size: 1.15cqw; width: 6.6em; height: 4.6em; box-sizing: border-box; padding: .55em .65em .6em; border: 0; border-radius: 1.1em; background: rgba(10, 11, 15, .86); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), 0 10px 20px rgba(0, 0, 0, .45); color: #f4f5f7; text-align: left; cursor: pointer; display: flex; flex-direction: column; }
@@ -428,6 +428,12 @@ i.v-strength { background: var(--sb-strength); }
 .sb-me { fill: var(--sb-gold); stroke: var(--sb-panel); stroke-width: 2; }
 .sb-mel { fill: var(--sb-gold); }
 .sb-melt { fill: var(--sb-on-gold); font-size: 11.5px; font-weight: 800; }
+.sb-pt { cursor: pointer; }
+.sb-pt:hover .sb-dot { opacity: 1; }
+.sb-hov { pointer-events: none; }
+.sb-hdot { fill: none; stroke: var(--sb-text); stroke-width: 1.6; }
+.sb-hlab { fill: var(--sb-panel); stroke: var(--sb-line); }
+.sb-hlabt { fill: var(--sb-text); font-size: 11.5px; font-weight: 700; }
 .sb-axl { fill: var(--sb-faint); font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-anchor: end; }
 .sb-axl.l { text-anchor: start; }
 .sb-bh, .sb-br { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) 48px; column-gap: 10px; align-items: center; padding: 0 4px; }
