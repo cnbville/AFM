@@ -24,13 +24,16 @@ fn rises_with_overall_and_stays_on_the_1_99_scale() {
 }
 
 #[test]
-fn puts_about_a_hundred_players_at_90_plus_and_saves_99_for_a_clear_no_1() {
+fn puts_the_all_america_teams_at_90_plus_the_consensus_at_95_and_saves_99_for_a_clear_no_1() {
     let (pool, scale) = setup();
     let rate = |x: f64| level_rating(x, Level::FBS, Some(&scale));
     let mut sorted = pool.clone();
     sorted.sort_by(|a, b| b.total_cmp(a));
+    // AP's three All-America teams, about 80; the consensus All-Americans, about 28.
     let ninety_plus = pool.iter().filter(|&&x| rate(x) >= 90).count();
-    assert!(ninety_plus > 80 && ninety_plus < 130, "{ninety_plus}");
+    assert!(ninety_plus > 65 && ninety_plus < 100, "{ninety_plus}");
+    let ninety_five_plus = pool.iter().filter(|&&x| rate(x) >= 95).count();
+    assert!(ninety_five_plus > 20 && ninety_five_plus < 37, "{ninety_five_plus}");
     assert!(rate(sorted[1]) < 98);
     assert!(rate(sorted[1] + 1.0) < 99);
     assert_eq!(rate(sorted[1] + 6.0), 99);
@@ -53,7 +56,7 @@ fn a_strong_year_shows_more_90s_against_five_seasons_than_against_itself() {
     let pooled = pooled_level_scale(&h.end);
     let count = |s: &LevelScale| strong.iter().filter(|&&x| level_rating(x, Level::FBS, Some(s)) >= 90).count();
     let (n_alone, n_pooled) = (count(&alone), count(&pooled));
-    assert!(n_alone > 80 && n_alone < 130, "{n_alone}");
+    assert!(n_alone > 65 && n_alone < 100, "{n_alone}");
     assert!(n_pooled > n_alone + 15, "{n_pooled} pooled, {n_alone} alone");
     // An empty season is left out of the pool, not read as a zero.
     assert!(pooled_level_scale(&h.start).points.len() >= 4);
@@ -101,4 +104,15 @@ fn a_draft_board_puts_the_best_punter_in_the_fourth_round_not_the_top_20() {
     assert!((35..=60).contains(&capped), "a kicker read at 120 grades at {capped}");
     // Everyone else keeps his place.
     assert_eq!(draft.align(Position::QB, 60.0), plain.align(Position::QB, 60.0));
+}
+
+#[test]
+fn the_badge_marks_show_the_honour_counts_as_a_card_shows_them() {
+    use crate::level_rating::marks;
+    let college = marks(Pool::College);
+    assert!(college.contains(&("No. 80".to_string(), 90.0)), "{college:?}");
+    assert!(college.contains(&("No. 28".to_string(), 95.0)), "{college:?}");
+    let hs = marks(Pool::HS);
+    assert!(hs.contains(&("No. 100".to_string(), 90.0)), "{hs:?}");
+    assert!(hs.contains(&("No. 32".to_string(), 95.0)), "{hs:?}");
 }

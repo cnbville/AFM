@@ -5,21 +5,28 @@
 //!
 //! - High school: compared with every high schooler of the same age, like a
 //!   national recruiting ranking.
-//! - College: compared with every FBS player of any age, like EA Sports College
-//!   Football. FCS and small-college players are put on the same FBS scale
-//!   after the same discount NFL scouts give their tape.
+//! - College: compared with every FBS player of any age. FCS and
+//!   small-college players are put on the same FBS scale after the same
+//!   discount NFL scouts give their tape.
 //!
 //! Positions mature at different ages: at 17 the best quarterbacks and
 //! linemen rate lower than the best running backs and corners, though they are
 //! just as far ahead of their peers. So a player is first placed against his
-//! own position (see `PositionAligner`) and then ranked nationally, the way EA
-//! Sports College Football's top 100 spans every position.
+//! own position (see `PositionAligner`) and then ranked nationally, the way an
+//! All-America team or a national recruiting top 100 spans every position.
 //!
-//! The scale is anchored to national ranks, using how rare top ratings are in
-//! EA College Football (about 11,000 players a season): 90+ is roughly the top
-//! 100 (an All-American; for high schoolers, an All-American Bowl player), 95+
-//! the top 8, and only a player about 5 points clear of the No. 2 reaches 99.
-//! EA rated nobody 99 at launch in College Football 25 or 26, and one player in 27.
+//! The top of the scale follows real honours, not a video game (Cain,
+//! 2026-10-24):
+//! - College, per season: 95+ is about the consensus All-Americans (the NCAA
+//!   counts about 26-30 a year), 90+ about AP's three All-America teams
+//!   (about 80 players).
+//! - High school, per class: 95+ is about the 5-stars (about 32 a class on
+//!   the 247Sports Composite), 90+ about the All-American Bowl's roster
+//!   (about 100 seniors).
+//! - Only a player about 5 points clear of the No. 2 reaches 99.
+//!
+//! The honour anchors sit at 89.5 and 94.5, where a shown rating rounds up
+//! to 90 and 95, so the counts are of the numbers a card shows.
 //!
 //! In the world the anchors are pooled over the last five seasons
 //! (`SCALE_SEASONS`, `pooled_level_scale`), so a loaded year shows more
@@ -56,26 +63,29 @@ fn anchors(pool: Pool) -> Anchors {
     match pool {
         Pool::College => Anchors {
             quantile: [(0.01, 55.0), (0.5, 72.0)],
-            rank: [(700.0, 85.0), (100.0, 90.0), (8.0, 95.0), (2.0, 96.5)],
+            rank: [(700.0, 85.0), (80.0, 89.5), (28.0, 94.5), (2.0, 96.5)],
         },
         Pool::HS => Anchors {
             quantile: [(0.01, 5.0), (0.5, 50.0)],
-            rank: [(2000.0, 80.0), (100.0, 90.0), (8.0, 95.0), (2.0, 96.5)],
+            rank: [(2000.0, 80.0), (100.0, 89.5), (32.0, 94.5), (2.0, 96.5)],
         },
     }
 }
 
 /// The anchors of a pool in words, bottom first, for the badge's hover
 /// (minor bug 56): "Bottom 1%" 55, "The middle" 72, "No. 700" 85 and so on,
-/// read from `anchors`, never typed twice.
+/// read from `anchors`, never typed twice. Each is the number a card shows
+/// there: the honour anchors sit at 89.5 and 94.5 and show as 90 and 95.
 pub fn marks(pool: Pool) -> Vec<(String, f64)> {
     let a = anchors(pool);
     let mut v: Vec<(String, f64)> = a
         .quantile
         .iter()
-        .map(|&(q, r)| (if q >= 0.5 { "The middle".to_string() } else { format!("Bottom {:.0}%", q * 100.0) }, r))
+        .map(|&(q, r)| {
+            (if q >= 0.5 { "The middle".to_string() } else { format!("Bottom {:.0}%", q * 100.0) }, round_half_up(r))
+        })
         .collect();
-    v.extend(a.rank.iter().map(|&(rank, r)| (format!("No. {}", thousands(rank as u64)), r)));
+    v.extend(a.rank.iter().map(|&(rank, r)| (format!("No. {}", thousands(rank as u64)), round_half_up(r))));
     v
 }
 
