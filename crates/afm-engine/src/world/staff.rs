@@ -1412,12 +1412,18 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             // coordinators, least on position coaches (trial 4 topic 9: FBS
             // 2022-23, assistants 53% of color, defensive coordinators over
             // 20% Black, offensive coordinators 7-9%, head coaches 14 of 133;
-            // the rung weights are proposed, not confirmed).
+            // the rung weights are proposed, not confirmed). An offensive
+            // coordinator's search weighs it above a head job's: his pool is
+            // the position coaches, half of color, a head job's the
+            // coordinators (minor bug 161: at 0.7 and 0.4, FBS offensive
+            // coordinators read 11.5-18.9% Black and defensive 21-28%; at 1.2
+            // and 0.55, three 30-year worlds at scale 0.1 read 4.5-13.4% and
+            // 20.6-23.0%, and two worlds' 2016-25 hires 6.2-8.3% and 20-21%).
             if !is_hs {
                 let rung = match o.role {
                     Role::HeadCoach => 1.0,
-                    Role::OffensiveCoordinator => 0.7,
-                    Role::DefensiveCoordinator => 0.4,
+                    Role::OffensiveCoordinator => 1.2,
+                    Role::DefensiveCoordinator => 0.55,
                     Role::PositionCoach(_) => 0.15,
                 };
                 // A head job has its own weight (minor bugs 127 and 148),
