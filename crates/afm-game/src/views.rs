@@ -2009,7 +2009,7 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
             } else {
                 format!("{}-{}", s.wins, s.losses)
             };
-            let ended = afm_engine::world::pronoun::coach(w, c).say(&s.ended);
+            let ended = afm_engine::world::pronoun::coach(w, c).say(s.ended);
             json!({ "where": name, "role": s.role.name(), "from": s.from, "to": s.to, "record": record, "ended": ended })
         })
         .collect();
