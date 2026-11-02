@@ -1,6 +1,6 @@
 # Records and the Data section: how it works today
 
-Checked against main at 1bb5507 with update 3 lane L20 and its review fixes on 2026-10-28; the Stats tab's years without games (minor bugs hotfix, batch 2) over main d9f48c4 on 2026-11-02.
+Checked against main at 1bb5507 with update 3 lane L20 and its review fixes on 2026-10-28; the Stats tab's years without games (minor bugs hotfix, batch 2) over main d9f48c4 on 2026-11-02; the class filter and CPOE by level (minor bug 178) over main 2d0c6a8 on 2026-11-02.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Proposed, not confirmed" numbers are Claude's; the code says which.
 
@@ -52,6 +52,9 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Who sees the charted card: every seat for the NFL (league-wide tracking), a college seat for its own division, an NFL seat for FBS and FCS; high school is box scores everywhere. The NFL seat's college charting and every seat's NFL tracking are proposed, not confirmed (`crates/afm-game/src/lane_data/mod.rs`, `charted`, `sources`).
 - A season qualifies on its group's volume: dropbacks, carries, routes, pass-block snaps, pass rushes, defensive snaps, coverage snaps, field goal tries, punts; the default is about two thirds of a starter's (NFL 1.35 times), cut to the share of the season played while it runs (`world/analytics.rs`, `default_min`; `crates/afm-game/src/lane_data/analytics.rs`, `min_for`).
 - Percentiles are among that season's qualifiers at the level (a division, the NFL, a state), turned so 100 is always the best (`crates/afm-game/src/lane_data/analytics.rs`, `percentiles`).
+- Can I see only freshmen or seniors? Yes: the table filters by class, redshirt and age (Cain, 2026-11-02). College class is Fr to Sr by seasons of eligibility used before that season, plus that one; a year at school that didn't count (no games, or four or fewer from 2018) makes him a redshirt from then on, and under the five-year model (Division I from 2026) every year counts. High school goes by grade from his class; the NFL by year in the league (rookie to 5th and more). Age is on 31 August of the season, from his birth date (from his class when the world has none). A player the world no longer knows (dropped from people and alumni) has no class, so a filter leaves him out (`crates/afm-game/src/lane_data/analytics.rs`, `Filter`, `class_in`, `age_in`, `passes`).
+- Does the filter change the percentiles? No: they stay among every qualifier, so a freshman's shade says where he stands in the whole field; the table says how many of the qualifiers match (`table`, `qualified`).
+- How is CPOE worked out? Completions less expected completions, over attempts (throwaways count in attempts only). Each throw's expected completion comes from its level's own model, fitted on the engine's throws by `xcomp_fit`: a depth band (behind the line, 0-4, 5-9, 10-14, 15-19, 20-29, 30-39, 40+ air yards), a separation band (under half a yard, an interception counting as none; half a yard to one; one to one and a half; more) and pressure. So a level's CPOE centres on zero, as real models fitted on their own league do. Before minor bug 178 one hand-set model for every level put every passer 12 to 24 points under zero (`game/stats.rs`, `XCOMP`, `xcomp_features`, `expected_completion_at`; `GameStats::level`; `crates/afm-tools/src/bin/xcomp_fit.rs`).
 - Grade is the game's own 0-100 grade from the charting, as the game pages show it (`world/analytics.rs`, `Cm::value`; `game/stats.rs`, `StatLine::grade`).
 - A card opens on the table's season, division or state, and its group follows the position he was listed at that season (`crates/afm-game/src/lane_data/analytics.rs`, `card`, `season_pos`, `now_in`).
 - The NFL keeps each regular season's charted card values for every player in `w.marks.pro_rows`, so past seasons outlive the players (`world/marks.rs`, `ProRow`, `nfl_close`).
@@ -69,6 +72,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - `world/records.rs`: `DIVISION_TOP`, `CONFERENCE_TOP`, `RECORD_STATS`.
 - `world/marks.rs`: `Tier::team_top`, `RATES`, `season_qualifies`, `career_qualifies`, `norms_of` (regular's bar), `Marks::established` (five seasons), `chasing` (three games, nine tenths, a quarter), `season_games`.
 - `world/analytics.rs`: `charted`, `boxed`, `volume`, `box_volume`, `default_min`.
+- `game/stats.rs`: `XCOMP` (refit with `cargo run --release --bin xcomp_fit -- 600` after engine changes that move completions).
 - `crates/afm-game/src/lane_data/books.rs`: `REAL_NFL`, `REAL_CMP` (the real NFL records shown on top, through the 2025 season).
 
 ## Related pages

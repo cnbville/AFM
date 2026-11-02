@@ -942,7 +942,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         sides,
         rng,
         crew,
-        stats: GameStats::default(),
+        stats: GameStats { level: Some(setup.rules.level), ..Default::default() },
         res: GameResult::default(),
         quarter: 1,
         clock: setup.rules.quarter,
@@ -5564,7 +5564,7 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         sides: [Side::new(off, 99.0, 3), Side::new(def, 99.0, 3)],
         rng: Rng::new(seed as u32),
         crew: Crew { holding: 1.0, pass_interference: 1.0, pre_snap: 0.0, personal: 1.0 },
-        stats: GameStats::default(),
+        stats: GameStats { level: Some(setup.rules.level), ..Default::default() },
         res: GameResult::default(),
         quarter: 1,
         clock: 900.0,
@@ -5686,7 +5686,7 @@ pub fn practice_snaps(off: &GameTeam, def: &GameTeam, level: Level, snaps: &[Pra
     let setup = GameSetup::new(off, def, level, seed);
     let mut g = bare_game(&setup, off, def, 35.0, seed);
     let fresh: [Vec<f64>; 2] = [g.sides[0].energy.clone(), g.sides[1].energy.clone()];
-    let mut stats = GameStats::default();
+    let mut stats = GameStats { level: Some(level), ..Default::default() };
     for (k, s) in snaps.iter().enumerate() {
         for (side, e) in g.sides.iter_mut().zip(fresh.iter()) {
             side.energy.clone_from(e);

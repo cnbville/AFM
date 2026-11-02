@@ -214,6 +214,38 @@ fn a_college_career_plays_through_its_first_games() {
     assert!(qbs["charted"] == true && qbs["total"].as_u64().unwrap() > 0, "your division's charted passers: {qbs}");
     let pct = qbs["rows"][0]["pct"].as_array().unwrap();
     assert!(pct.iter().all(|p| p.is_null() || (0..=100).contains(&p.as_i64().unwrap())));
+    // The class filter (Cain, 2026-11-02): each qualifier is in one class,
+    // redshirted or not, so the classes add up to the whole at most (a
+    // player the world no longer knows has no class), and age narrows.
+    let all = qbs["total"].as_u64().unwrap();
+    assert_eq!(qbs["qualified"].as_u64(), Some(all), "{qbs}");
+    let mut by_class = 0;
+    for class in ["Fr", "So", "Jr", "Sr"] {
+        let c = ok(&mut g, "analytics", json!({ "level": "college", "group": "QB", "min": 0, "class": class }));
+        assert_eq!((c["class"].as_str(), c["filtered"].as_bool()), (Some(class), Some(true)), "{c}");
+        assert_eq!(c["qualified"].as_u64(), Some(all));
+        let rs = ok(
+            &mut g,
+            "analytics",
+            json!({ "level": "college", "group": "QB", "min": 0, "class": class, "rs": "yes" }),
+        );
+        let not =
+            ok(&mut g, "analytics", json!({ "level": "college", "group": "QB", "min": 0, "class": class, "rs": "no" }));
+        let n = c["total"].as_u64().unwrap();
+        assert_eq!(rs["total"].as_u64().unwrap() + not["total"].as_u64().unwrap(), n, "{class}: redshirted or not");
+        by_class += n;
+    }
+    assert!(by_class <= all && by_class * 10 >= all * 9, "the classes hold {by_class} of {all} passers");
+    let young = ok(&mut g, "analytics", json!({ "level": "college", "group": "QB", "min": 0, "age_max": 19 }));
+    assert!(young["total"].as_u64().unwrap() < all, "nobody older than 19 left out: {young}");
+    for level in ["nfl", "hs"] {
+        let c = ok(
+            &mut g,
+            "analytics",
+            json!({ "level": level, "group": "QB", "min": 0, "class": if level == "nfl" { "1" } else { "Sr" } }),
+        );
+        assert!(c["classes"].as_array().is_some_and(|x| x.len() >= 4) && c["filtered"] == true, "{level}: {c}");
+    }
     let card = ok(&mut g, "analytics_card", json!({ "id": qbs["rows"][0]["id"] }));
     assert!(card["metrics"].as_array().is_some_and(|m| !m.is_empty()), "{card}");
     ok(&mut g, "analytics_card", json!({ "id": id }));
