@@ -226,6 +226,12 @@ pub(crate) fn fill(w: &World, s: &Story) -> Fill {
             f = f.set("pos", pos_word(&s.word));
         }
     }
+    // An ambition said out loud is asked about in its own terms.
+    if s.kind == K::YourAmbition.id()
+        && let Some(a) = crate::world::legacy::ambitions::of_story(w, s)
+    {
+        f = f.set("goal", crate::world::legacy::ambitions::goal(w, a));
+    }
     f = f.set("season", s.season.to_string()).set("year", w.year.to_string());
     let q = question_with(s, &f);
     f.set("question", q)
@@ -311,6 +317,9 @@ fn asked(s: &Story, f: &Fill) -> &'static str {
     let q = s.def().question;
     if f.get("team").is_none() && q.contains("leave {team} for {other}") {
         return "Will {lead} take the {other_short} job?";
+    }
+    if f.get("goal").is_some() && s.kind == K::YourAmbition.id() {
+        return "Can {lead} {goal}?";
     }
     q
 }

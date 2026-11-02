@@ -56,9 +56,9 @@ pub fn choose(w: &mut World, id: u32, code: u32) -> Result<Vec<String>, String> 
         return Err("That story is over.".into());
     }
     let opt = moves::menu(w, &s, false).into_iter().find(|o| o.mv.code() == code).ok_or("That isn't on the table.")?;
-    let mut out = moves::make(w, id, opt.mv, &opt.label);
+    let out = moves::make_told(w, id, opt.mv, &opt.label);
     if out.is_empty() {
-        out.push(format!("{}.", opt.mv.name()));
+        return Err("Nothing came of it: that story is over.".into());
     }
     Ok(out)
 }

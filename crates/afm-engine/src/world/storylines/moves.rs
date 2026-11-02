@@ -159,8 +159,9 @@ impl Move {
 pub fn chips(w: &World, s: &Story, mv: Move) -> Vec<(String, u8)> {
     let f = super::tell::fill(w, s);
     let first = |k: &str| f.get(k).map(|n| n.split_whitespace().last().unwrap_or(n).to_string());
-    let lead = first("lead");
-    let rival = first("rival");
+    // Trust and mood move only for players (`make`), so only they get a chip.
+    let lead = s.lead_player().and_then(|_| first("lead"));
+    let rival = s.rival_player().and_then(|_| first("rival"));
     let fam = s.family();
     let mut v: Vec<(String, u8)> = Vec::new();
     match mv {
@@ -297,7 +298,7 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
     let k = kind(s);
     let fam = s.family();
     let college_recruit = s.level == Level::Recruiting || fam == Family::Recruiting;
-    let mut v: Vec<(Move, String, &'static str)> = Vec::new();
+    let mut v: Vec<Line> = Vec::new();
     match (sit(w, s), fam) {
         (_, Family::Recruiting) | (Sit::Recruit, _) => {
             let your_player = s.lead_player().is_some_and(|id| {
@@ -374,6 +375,30 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
                     ));
                 }
             }
+            Some(K::OwnerLeash) => {
+                v.push((
+                    Deny,
+                    "\"Football decisions are made in this building, and I make them.\"".into(),
+                    "Firm. If the owner overrules you later, people remember it.",
+                ));
+                v.push((
+                    Own,
+                    "\"It's the owner's team. My job is to win games.\"".into(),
+                    "Humble; the owner likes it, the writers call it a leash.",
+                ));
+                v.push((
+                    Quiet,
+                    "\"Ownership and I talk every week. That stays between us.\"".into(),
+                    "The standard answer.",
+                ));
+                if !press {
+                    v.push((
+                        Private,
+                        format!("Ask {} for a meeting, just the two of you.", g("boss", "the owner")),
+                        "Straight talk in private; it lands by how the owner reads you.",
+                    ));
+                }
+            }
             _ => {
                 v.push((
                     Own,
@@ -394,7 +419,7 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
                     v.push((
                         Private,
                         format!("Ask {} for a meeting, just the two of you.", g("boss", "the boss")),
-                        "Straight talk in private; it lands by how he reads you.",
+                        "Straight talk in private; it lands by how the boss reads you.",
                     ));
                 }
             }
@@ -476,13 +501,199 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
                     ));
                 }
             }
-            _ => {
+            Some(K::YourAmbition) => ambition_menu(w, s, &g("goal", "get it done"), &mut v),
+            Some(K::YourMilestone) => {
                 v.push((
                     Praise,
-                    "\"That's on the players and the staff. They earned it.\"".into(),
+                    "\"Wins belong to the players and the staff. They earned every one.\"".into(),
                     "The room hears you give them the credit.",
                 ));
                 v.push((Quiet, "\"I don't think about that during the season.\"".into(), "Nothing either way."));
+            }
+            Some(K::SchemeNamed) => {
+                v.push((
+                    Praise,
+                    "\"It's not my system. It's what these players do with it.\"".into(),
+                    "The room hears the credit is theirs.",
+                ));
+                v.push((
+                    Promise,
+                    "\"By the time they catch up, we'll have moved on.\"".into(),
+                    "Bold. If defenses catch up, it's quoted back at you.",
+                ));
+                v.push((Quiet, "\"We just call what works.\"".into(), "Nothing for the writers."));
+            }
+            Some(K::PositionU) => {
+                v.push((
+                    Promise,
+                    format!("\"We're {}. Come see for yourself.\"", g("word", "the place")),
+                    "Recruits hear it; so does every school that wants the name.",
+                ));
+                v.push((
+                    Praise,
+                    "\"Look who's playing on Sundays. The players made that name.\"".into(),
+                    "The credit goes to them; recruits notice.",
+                ));
+                v.push((Quiet, "\"Other people can hand out the names.\"".into(), "Nothing either way."));
+            }
+            Some(K::DraftVerdict) => {
+                v.push((
+                    Praise,
+                    "\"We love this class. Every one of them was on our board for a reason.\"".into(),
+                    "The rookies hear you believe in them.",
+                ));
+                v.push((
+                    Promise,
+                    "\"Grade it in three years. These guys are going to play.\"".into(),
+                    "Bold. If the class misses, it's quoted back at you.",
+                ));
+                v.push((Quiet, "\"Draft grades in April don't mean much.\"".into(), "The standard answer."));
+            }
+            Some(K::BondVote) => {
+                v.push((
+                    Praise,
+                    "\"This town has always shown up for these kids.\"".into(),
+                    "Warm; the voters hear it.",
+                ));
+                v.push((
+                    Promise,
+                    "\"Pass it, and we'll fill it every Friday night.\"".into(),
+                    "Bold. If it fails, it's a long winter.",
+                ));
+                v.push((Quiet, "\"That's for the voters to decide.\"".into(), "The right line for a school employee."));
+            }
+            Some(K::CoordinatorHeadJob) => {
+                v.push((Quiet, "\"I'm focused on this staff and this week.\"".into(), "The standard answer."));
+                v.push((
+                    Praise,
+                    "\"Any credit I get belongs to these players and this staff.\"".into(),
+                    "The room hears it.",
+                ));
+                v.push((
+                    Open,
+                    "\"Sure, I want my own program someday. Not today.\"".into(),
+                    "Honest; your head coach hears it too.",
+                ));
+            }
+            Some(K::HsCoachJump) => {
+                v.push((
+                    Promise,
+                    "\"Football is football. I'll prove it here.\"".into(),
+                    "Bold; the doubters will keep score.",
+                ));
+                v.push((
+                    Own,
+                    "\"I've got a lot to learn at this level, and I know it.\"".into(),
+                    "Humble; lowers what people expect.",
+                ));
+                v.push((Quiet, "\"I'm just here to coach ball.\"".into(), "Nothing either way."));
+            }
+            Some(K::QuickExit) => {
+                v.push((
+                    Own,
+                    "\"I owe those people more than the way I left. That's on me.\"".into(),
+                    "Honest; their fans won't forget either way.",
+                ));
+                v.push((
+                    Praise,
+                    "\"They have good people there. They'll be fine.\"".into(),
+                    "Gracious; nothing for their wall.",
+                ));
+                v.push((Quiet, "\"I'm focused on where I am now.\"".into(), "Their fans hear it as a shrug."));
+            }
+            Some(K::BulletinBoard) => {
+                v.push((
+                    Promise,
+                    format!("\"I meant it. We'll see on {}.\"", g("gameday", "game day")),
+                    "Doubles down: win and it's legend, lose and it's a punchline.",
+                ));
+                v.push((
+                    Own,
+                    "\"I said too much. Our players don't need that from me.\"".into(),
+                    "Takes the heat off the week; your players may wish you hadn't.",
+                ));
+                v.push((
+                    Praise,
+                    "\"They're a good football team. It'll be a great game.\"".into(),
+                    "Walks it back with class.",
+                ));
+                v.push((Quiet, "\"We worry about ourselves this week.\"".into(), "Nothing either way."));
+            }
+            Some(K::PublicFeud) => {
+                v.push((
+                    Own,
+                    format!("\"I have to do better by {rival}. That's on me.\""),
+                    "The room hears you take it on.",
+                ));
+                v.push((
+                    Warn,
+                    "\"Nobody is bigger than this team. Nobody.\"".into(),
+                    "A line in public; he takes it personally.",
+                ));
+                v.push((Quiet, "\"We keep that in house.\"".into(), "The writers dig."));
+                if !press {
+                    v.push((
+                        Private,
+                        format!("Call {rival} in, just the two of you."),
+                        "Your relationships decide whether it heals.",
+                    ));
+                }
+            }
+            Some(K::RoomRift) => {
+                v.push((
+                    Own,
+                    "\"If there's a crack in that room, it's on me to fix.\"".into(),
+                    "The room hears you take it on.",
+                ));
+                v.push((
+                    Warn,
+                    "\"Anybody who isn't all in can find the door.\"".into(),
+                    "A line in public; egos take it personally.",
+                ));
+                v.push((Quiet, "\"We keep that in house.\"".into(), "The writers dig."));
+                if !press {
+                    v.push((
+                        Private,
+                        "Call the leaders of the team in.".into(),
+                        "Your relationships decide whether it heals.",
+                    ));
+                }
+            }
+            Some(K::Rebuild) => {
+                v.push((
+                    Own,
+                    "\"It's a process. We'll build it the right way.\"".into(),
+                    "Lowers what people expect of year one.",
+                ));
+                v.push((Promise, "\"Not as long as people think.\"".into(), "Bold. The bar goes up."));
+                v.push((Quiet, "\"I'm not putting a clock on it.\"".into(), "Nothing either way."));
+            }
+            Some(K::Graveyard) => {
+                v.push((
+                    Promise,
+                    "\"I'm not here to be the next one gone.\"".into(),
+                    "Bold; the town has heard it before.",
+                ));
+                v.push((
+                    Own,
+                    "\"Nobody has made it work here in a while. I knew that when I took it.\"".into(),
+                    "Honest; lowers the bar a little.",
+                ));
+                v.push((Quiet, "\"I'm worried about this season, not the last five.\"".into(), "Nothing either way."));
+            }
+            Some(K::CoachFarewell) => {
+                v.push((Praise, "\"This was never about me. It's about these players.\"".into(), "The room hears it."));
+                v.push((
+                    Promise,
+                    "\"We're going to send this group out the right way.\"".into(),
+                    "The room loves it; the last game decides it.",
+                ));
+                v.push((Quiet, "\"I'll have time for all that after the season.\"".into(), "Nothing either way."));
+            }
+            // Anything else about you: answers that fit any question.
+            _ => {
+                v.push((Praise, "\"It's about the players, not me.\"".into(), "The room hears you put them first."));
+                v.push((Quiet, "\"I'll let the work answer that.\"".into(), "Nothing either way."));
             }
         },
         (Sit::Player, Family::Battle) => {
@@ -573,6 +784,19 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
                 }
             }
         },
+        (Sit::Player, Family::Leaving) if matches!(k, Some(K::StarTraded)) => {
+            v.push((
+                Praise,
+                format!("\"{lead} gave this team everything. We wish him well.\""),
+                "Classy; your room and his hear it.",
+            ));
+            v.push((
+                Promise,
+                "\"Judge it in two years. We like what we got.\"".into(),
+                "Bold. If the trade goes bad, it's quoted back at you.",
+            ));
+            v.push((Quiet, "\"Trades take time to grade.\"".into(), "The standard answer."));
+        }
         (Sit::Player, Family::Leaving) => {
             v.push((Back, format!("\"{lead} is a big part of what we do.\""), "Warm; he and his agent hear it."));
             v.push((
@@ -675,6 +899,11 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
                 ));
             }
         }
+        (Sit::Team, _)
+            if matches!(k, Some(K::ChoppingBlock | K::NcaaCase | K::FacilityPush | K::Realignment | K::QbNeed)) =>
+        {
+            team_menu(k, &mut v)
+        }
         (Sit::Team, _) if s.def().tone < 0 => {
             v.push((
                 Own,
@@ -697,11 +926,20 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
             }
         }
         (Sit::Team, _) => {
-            v.push((
-                Praise,
-                "\"That's on the players. They earned it.\"".into(),
-                "The room hears you give them the credit.",
-            ));
+            // Credit for what's done; belief in them for what's ahead.
+            if s.def().tone > 0 {
+                v.push((
+                    Praise,
+                    "\"That's on the players. They earned it.\"".into(),
+                    "The room hears you give them the credit.",
+                ));
+            } else {
+                v.push((
+                    Praise,
+                    "\"I like this group. They'll be ready for it.\"".into(),
+                    "The room hears you believe in them.",
+                ));
+            }
             v.push((
                 Challenge,
                 "\"We haven't done anything yet.\"".into(),
@@ -731,6 +969,165 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
         .partition(|(_, label, _)| !said.iter().any(|t| t.ends_with(label.as_str())));
     let left = if fresh.is_empty() { stale.into_iter().filter(|(m, ..)| *m == Quiet).take(1).collect() } else { fresh };
     left.into_iter().take(4).map(|(mv, label, hint)| Opt { mv, label, hint: hint.to_string() }).collect()
+}
+
+type Line = (Move, String, &'static str);
+
+/// The answers on an ambition you said out loud, in its own terms: the
+/// goal from your introduction, and what kind of goal it is.
+fn ambition_menu(w: &World, s: &Story, goal: &str, v: &mut Vec<Line>) {
+    use crate::world::legacy::ambitions::{Kind as A, of_story};
+    use Move::*;
+    let kind = of_story(w, s).map(|a| a.kind);
+    match kind {
+        Some(A::Reach) => {
+            v.push((
+                Open,
+                "\"Everybody in this business wants to climb. I'll earn it here first.\"".into(),
+                "Honest; your boss hears it too.",
+            ));
+            v.push((
+                Praise,
+                "\"If I ever move up, it'll be because these players won.\"".into(),
+                "The room hears the credit is theirs.",
+            ));
+            v.push((Quiet, "\"The only job I'm thinking about is this one.\"".into(), "The standard answer."));
+        }
+        Some(A::Years) => {
+            v.push((
+                Promise,
+                "\"I meant it. This is home, and I'm staying.\"".into(),
+                "Fans love it. Leave, and it's quoted back at you.",
+            ));
+            v.push((Praise, "\"This place took a chance on me. I don't forget that.\"".into(), "The town hears it."));
+            v.push((Quiet, "\"I'm worried about this season. That's all.\"".into(), "Nothing either way."));
+        }
+        Some(A::Wins) => {
+            v.push((
+                Promise,
+                format!("\"I meant it. I'm going to {goal}.\""),
+                "Bold. Every season short of it gets counted.",
+            ));
+            v.push((
+                Praise,
+                "\"Wins belong to the players. I just keep count.\"".into(),
+                "The room hears the credit is theirs.",
+            ));
+            v.push((Quiet, "\"I don't count them during the season.\"".into(), "Nothing either way."));
+        }
+        Some(A::Son) => {
+            v.push((
+                Promise,
+                "\"He'll earn everything he gets, the same as everybody.\"".into(),
+                "Said out loud: the room will watch every rep he gets.",
+            ));
+            v.push((
+                Praise,
+                "\"He's one of my players, no more and no less.\"".into(),
+                "The room hears there are no favorites.",
+            ));
+            v.push((Quiet, "\"At home it's family. Here he's a player.\"".into(), "Nothing for the writers."));
+        }
+        _ => {
+            let players = matches!(
+                kind,
+                Some(A::Placement | A::FutureNfl | A::Drafted | A::Heisman | A::LatePick | A::ProBowlers)
+            );
+            let town = matches!(kind, Some(A::Building | A::Crowds));
+            v.push((
+                Promise,
+                format!("\"I meant every word. We're going to {goal}.\""),
+                "Said again, louder. Kept, it's legend; fall short and it's quoted back at you.",
+            ));
+            v.push((
+                Own,
+                "\"I said it, so judge me on it. That's fair.\"".into(),
+                "Honest; takes the edge off, and the boss respects it.",
+            ));
+            let praise = if players {
+                "\"The talent is in this building. My job is to bring it out.\""
+            } else if town {
+                "\"I said it for this town. These people have earned it.\""
+            } else {
+                "\"I said it for these players. They're the ones who'll do it.\""
+            };
+            v.push((Praise, praise.into(), "The room hears it's theirs to do."));
+            v.push((Quiet, "\"I said what I said. Now we go to work.\"".into(), "Nothing new for the writers."));
+        }
+    }
+}
+
+/// Team stories the stock lines don't answer: a program on the chopping
+/// block, an NCAA case, a building, a new conference, a quarterback to draft.
+fn team_menu(k: Option<K>, v: &mut Vec<Line>) {
+    use Move::*;
+    match k {
+        Some(K::ChoppingBlock) => {
+            v.push((Praise, "\"These kids deserve a program. Come watch them play.\"".into(), "The town hears it."));
+            v.push((
+                Promise,
+                "\"As long as I'm here, these kids will have a team.\"".into(),
+                "Bold. It isn't your call, and everyone knows it.",
+            ));
+            v.push((
+                Quiet,
+                "\"That's the school's decision. We'll keep coaching.\"".into(),
+                "The right line for a school employee.",
+            ));
+        }
+        Some(K::NcaaCase) => {
+            v.push((
+                Quiet,
+                "\"We're cooperating fully. I can't say more than that.\"".into(),
+                "The standard line, and the one the lawyers want.",
+            ));
+            v.push((
+                Deny,
+                "\"We did nothing wrong, and we'll show that.\"".into(),
+                "Only as good as what the NCAA finds.",
+            ));
+            v.push((
+                Own,
+                "\"Where we fell short, it's on us, and we'll fix it.\"".into(),
+                "Honest; the committee may read it as an admission.",
+            ));
+        }
+        Some(K::FacilityPush) => {
+            v.push((
+                Promise,
+                "\"These players deserve it. We'll get it done.\"".into(),
+                "The boosters hear it; so does the bill.",
+            ));
+            v.push((
+                Praise,
+                "\"Our people have always come through for this program.\"".into(),
+                "Warm; the donors hear it.",
+            ));
+            v.push((Quiet, "\"That's for the people upstairs.\"".into(), "Nothing either way."));
+        }
+        Some(K::Realignment) => {
+            v.push((
+                Promise,
+                "\"We'll be ready. We wouldn't be going if we weren't.\"".into(),
+                "Bold. The new league will test it.",
+            ));
+            v.push((Own, "\"It's a step up, and we know it.\"".into(), "Honest; lowers what people expect."));
+            v.push((Quiet, "\"One week at a time.\"".into(), "The standard line."));
+        }
+        _ => {
+            v.push((Quiet, "\"We'll take the best player on our board.\"".into(), "The oldest line in the draft."));
+            v.push((
+                Promise,
+                "\"We'll find our quarterback. Count on it.\"".into(),
+                "Fans love it. If he misses, it's quoted back at you.",
+            ));
+            v.push((
+                Praise,
+                "\"We like the quarterbacks in this building.\"".into(),
+                "Loyal; your quarterbacks hear it.",
+            ));
+        }
+    }
 }
 
 /// Your rating for a move, centred: -0.9 at 1, 1 at 20.
@@ -1346,26 +1743,38 @@ pub(crate) fn answer(w: &mut World, sc: &mut Scene, code: u32, picked: &Pick) {
     } else {
         sc.narrate(picked.label.clone());
     }
-    let out = make(w, id, mv, &picked.label);
-    let tell = w.storylines.get(id).map(|s| how_it_lands(s, mv));
-    if let Some(t) = tell {
-        sc.narrate(t);
-    }
-    sc.outcome.extend(out);
+    sc.outcome.extend(make_told(w, id, mv, &picked.label));
     if sc.outcome.is_empty() {
-        sc.outcome.push(format!("{}.", mv.name()));
+        sc.outcome.push("By the time you said it, nobody was asking.".into());
     }
     sc.end();
 }
 
-/// A line on how the move went down, from the story's state after it.
-fn how_it_lands(s: &Story, mv: Move) -> String {
+/// Makes a move and says how it went: how this answer landed first, then
+/// what it did.
+pub(crate) fn make_told(w: &mut World, id: u32, mv: Move, said: &str) -> Vec<String> {
+    let before = w.storylines.get(id).map(|s| (s.handled, s.moves));
+    let mut out = make(w, id, mv, said);
+    if let (Some((h0, m0)), Some(s)) = (before, w.storylines.get(id))
+        && s.moves > m0
+    {
+        out.insert(0, how_it_lands(s.handled - h0, mv));
+    }
+    out
+}
+
+/// A line on how one answer went down, read off what it did to your record
+/// on the story (`make`'s quality, less a walked-back word), so the line
+/// and the answer agree. The cut-offs are Claude's picks (proposed, not
+/// confirmed): a well-fitting answer from a coach good at it lands, a
+/// poor fit doesn't, and most are split.
+fn how_it_lands(q: f32, mv: Move) -> String {
     match mv {
         Move::Quiet => "The writers fill the space themselves.".into(),
         Move::Private => "Nothing reaches the papers. Inside the building, people noticed.".into(),
         Move::Leak => "By morning a writer has it, without your name on it.".into(),
-        _ if s.handled > 0.25 => "It lands the way you meant it.".into(),
-        _ if s.handled < -0.25 => "It doesn't land well. The clips the next morning say so.".into(),
+        _ if q >= 0.14 => "It lands the way you meant it.".into(),
+        _ if q <= -0.04 => "It doesn't land well. The clips the next morning say so.".into(),
         _ => "The clips the next morning are split.".into(),
     }
 }

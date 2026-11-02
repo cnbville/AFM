@@ -2661,18 +2661,18 @@ Remembered as the year {lead_last} reached {milestone} wins.
 # ---------------------------------------------------------------- the systems to chase (update 2, lane 2)
 [sl.your_ambition.spark]
 {lead} said it out loud: {word}. {question}
-{lead} put it on the record at his introduction: {word}. {question}
+{lead} put it on the record at the introductory press conference: {word}. {question}
 [sl.your_ambition.report]
 {writer} of {outlet} says {lead_last} still talks about it in private: {word}.
-{writer} of {outlet} keeps a count of how close {lead_last} is to what he promised.
+{writer} of {outlet} keeps a count of how close {lead_last} is to the promise.
 [sl.your_ambition.end.reached]
-{lead} did what he said he would: {word}.
+{lead} said it, and did it: {word}.
 [sl.your_ambition.end.fell_short]
 The chance is gone. {lead} said {word}, and it won't happen now.
 [sl.your_ambition.chapter]
-What he came to do
+The promise
 [sl.your_ambition.legacy]
-Remembered as the year {lead_last} chased what he promised.
+Remembered as the year {lead_last} chased the promise: {word}.
 
 [sl.scheme_named.spark]
 The papers have a name for what {team} runs: {word}. {question}

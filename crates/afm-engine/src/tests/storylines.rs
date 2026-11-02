@@ -293,3 +293,95 @@ fn the_job_read_names_what_a_job_hands_you() {
     assert!(read.stories.iter().any(|s| s.id == id), "the battle comes with the job");
     assert!(!read.word.is_empty());
 }
+
+/// The lines "how it went" opens with: how that one answer landed.
+const LANDED: [&str; 6] = [
+    "It lands the way you meant it.",
+    "It doesn't land well. The clips the next morning say so.",
+    "The clips the next morning are split.",
+    "The writers fill the space themselves.",
+    "Nothing reaches the papers. Inside the building, people noticed.",
+    "By morning a writer has it, without your name on it.",
+];
+
+/// Ambitions said out loud are each asked in their own terms, with answers
+/// about that goal, and how it went says how the answer landed, never just
+/// the move's name (minor bug 178: every ambition asked "Can he do what he
+/// said he came to do?" and offered "They earned it", then "Praise.").
+#[test]
+fn an_ambition_is_asked_and_answered_in_its_own_terms() {
+    use crate::world::legacy::{self, ambitions};
+    let (mut w, _) = nfl_world();
+    legacy::hire_check(&mut w);
+    let offers = w.legacy.picker.as_ref().map(|p| p.offers.clone()).unwrap_or_default();
+    assert!(offers.len() >= 3, "a new job offers ambitions: {}", offers.len());
+    for &id in offers.iter().take(3) {
+        ambitions::pick(&mut w, id, true).unwrap();
+        ambitions::loud(&mut w, id, true).unwrap();
+    }
+    ambitions::keep(&mut w, false).unwrap();
+    let ids: Vec<u32> = w.legacy.ambitions.iter().filter_map(|a| a.story).collect();
+    assert_eq!(ids.len(), 3, "each ambition said out loud is a story");
+    let mut asked = BTreeSet::new();
+    for &id in &ids {
+        let s = w.storylines.get(id).unwrap().clone();
+        let goal = ambitions::goal(&w, ambitions::of_story(&w, &s).expect("the story knows its ambition"));
+        let q = view::question(&w, &s);
+        assert!(q.contains(&goal) && !q.contains('{'), "{q} / {goal}");
+        asked.insert(q);
+        let opts = view::choices(&mut w, id);
+        assert!(opts.len() >= 3, "{} answers", opts.len());
+        for o in &opts {
+            assert!(!o.label.contains("earned it") && !o.label.contains("during the season"), "{}", o.label);
+        }
+    }
+    assert_eq!(asked.len(), 3, "each ambition asks its own question: {asked:?}");
+    let opts = view::choices(&mut w, ids[0]);
+    let out = view::choose(&mut w, ids[0], opts[0].code).unwrap();
+    assert!(LANDED.contains(&out[0].as_str()), "how it went opens with how it landed: {out:?}");
+    assert!(out.iter().all(|l| l.len() > 12), "no bare move names: {out:?}");
+}
+
+/// Every story about you that the stock answers don't fit gets its own:
+/// no "They earned it" to "Has he lost the locker room?" (bug 178).
+#[test]
+fn stories_about_you_are_answered_in_their_own_terms() {
+    let (mut w, t) = nfl_world();
+    let team = TeamKey::Nfl(t as u16);
+    let you = w.career.as_ref().unwrap().coach as u32;
+    let player = w.people[w.clubs[t].roster[0]].player.id;
+    let kinds = [
+        K::RoomRift,
+        K::PublicFeud,
+        K::Rebuild,
+        K::Graveyard,
+        K::BulletinBoard,
+        K::OwnerLeash,
+        K::SchemeNamed,
+        K::DraftVerdict,
+        K::CoachFarewell,
+        K::QuickExit,
+    ];
+    let mut opened = 0;
+    for (n, kind) in kinds.into_iter().enumerate() {
+        let mut spot = Spot::new(kind, sl::subj(you as u64, 900 + n as u64)).team(team).lead(Who::Coach(you)).public();
+        if kind == K::PublicFeud {
+            spot = spot.rival(Who::Player(player));
+        }
+        let Some(id) = sl::notice(&mut w, spot) else { continue };
+        opened += 1;
+        let opts = view::choices(&mut w, id);
+        assert!(opts.len() >= 3, "{kind:?}: {} answers", opts.len());
+        for o in &opts {
+            assert!(!o.label.contains("earned it") && !o.label.contains('{'), "{kind:?}: {}", o.label);
+            assert!(
+                !o.chips.iter().any(|c| c.0.contains("trust +") && c.0.contains("Coach")),
+                "{kind:?}: {:?}",
+                o.chips
+            );
+        }
+        let end = kind.def().endings[0].0;
+        sl::close(&mut w, id, end, None);
+    }
+    assert!(opened >= 8, "{opened} of {} opened in the NFL", kinds.len());
+}
