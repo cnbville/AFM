@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day; the scrimmage tackle reach (minor bug 162) at 1f8d959 on 2026-10-31; long runs (minor bug 163) at bff75e7 the same day; the scramble drill kept inside the end line and every man kept inside the lines (the recruiting and college bugs before the rebuild) the same day.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day; the scrimmage tackle reach (minor bug 162) at 1f8d959 on 2026-10-31; long runs (minor bug 163) at bff75e7 the same day; the scramble drill kept inside the end line and every man kept inside the lines (the recruiting and college bugs before the rebuild) the same day. The minor bugs hotfix (minor bug 36 (shared sacks and tackles for loss)) checked over main e581227 on 2026-11-01.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -131,7 +131,7 @@ What it reads: who gets there (the blocks above), the QB's elusiveness, agility 
 - Escape chance = sigmoid(-2.4 + (escape - tackle) / 12 - 1 if unseen + 1.2 if the rusher is still engaged) (`sack_check`).
   - escape = 0.4 Elusiveness + 0.3 Agility + 0.3 Strength (+ Pocket frame against an engaged rusher); tackle = 0.6 Tackling + 0.2 Strength + 0.2 Agility + Length.
 - Strip sack = (0.06 seen, 0.16 unseen) × (1.3 - Ball Security / 120) × (1.2 from the blind side, 0.8 otherwise); the blind side is his left as a righty, his right as a lefty (`sack_check`).
-- A second rusher within 1.1 yards shares the sack. QB injury check at share 0.8 seen, 1.3 unseen, force = rusher mass × speed (`sack_check`).
+- A second rusher within 1.1 yards shares the sack: half a sack (and half a tackle for loss) to each of the two, never more than two, as the NCAA and the NFL keep it. A tackle for loss on a run is one to a lone tackler and half to each man in on it (`game/stats.rs`; minor bug 36: thirds and sixths showed in the record books). QB injury check at share 0.8 seen, 1.3 unseen, force = rusher mass × speed (`sack_check`).
 
 ## The quarterback: reads, decisions, the throw
 

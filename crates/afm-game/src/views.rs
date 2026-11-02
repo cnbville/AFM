@@ -1868,7 +1868,7 @@ pub(crate) fn job_record(w: &World, c: usize) -> String {
     let Some(j) = w.coaches[c].job.filter(|j| j.role == Role::HeadCoach) else { return "-".into() };
     let (wn, l) = w.stint_record(c);
     let kept_from = w.options.start_year - w.options.history_years as i32;
-    if j.since < kept_from { format!("{wn}-{l} (since {kept_from})") } else { format!("{wn}-{l}") }
+    if j.first_season() < kept_from { format!("{wn}-{l} (since {kept_from})") } else { format!("{wn}-{l}") }
 }
 
 pub(crate) fn coach_row(w: &World, c: usize, role: &str) -> Value {
@@ -1883,7 +1883,7 @@ pub(crate) fn coach_row(w: &World, c: usize, role: &str) -> Value {
         "played": played_words(w, c),
         "came_up": came_up(w, c),
         "record": job_record(w, c),
-        "since": co.job.map(|j| j.since),
+        "since": co.job.map(|j| j.first_season()),
         "ex_pro": co.ex_pro,
         "you": w.career.as_ref().is_some_and(|k| k.coach == c),
     })
@@ -1981,7 +1981,7 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
         let team = employer_brief(w, j.employer);
         let name = employer_name(w, j.employer);
         let record = (j.role == Role::HeadCoach).then(|| job_record(w, c));
-        json!({ "team": team["ref"], "name": name, "role": j.role.name(), "since": j.since, "record": record })
+        json!({ "team": team["ref"], "name": name, "role": j.role.name(), "since": j.first_season(), "record": record })
     });
     // A graduate assistant, analyst or quality-control coach (C36).
     let job = job.or_else(|| {

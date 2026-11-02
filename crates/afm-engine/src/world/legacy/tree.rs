@@ -182,6 +182,7 @@ pub fn tree(w: &World) -> Option<Tree> {
             employer: s.employer,
             role: s.role,
             since: s.from,
+            first: 0,
         }));
         let at = place.map_or(String::new(), |j| crate::world::front_office::market::employer_name(w, j.employer));
         let line = if titles > 0 {

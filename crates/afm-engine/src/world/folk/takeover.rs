@@ -1230,7 +1230,7 @@ fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
     ));
     for (c, role) in staff.iter().filter(|x| matches!(x.1, crate::world::coach::Role::PositionCoach(_))) {
         let co = &w.coaches[*c];
-        let since = co.job.map_or(w.year, |j| j.since);
+        let since = co.job.map_or(w.year, |j| j.first_season());
         let tree = if old.is_some_and(|o| co.mentor == Some(o)) { "the old coach's" } else { "his own" };
         let word = staff_word(w, *c);
         doc.rows.push(DocRow {

@@ -365,12 +365,15 @@ pub(crate) fn day(w: &mut World, d: Date) {
 
 /// Money in words: "$12.4M", "$850K".
 pub fn dollars(x: f64) -> String {
-    if x.abs() >= 1e6 {
-        format!("${:.1}M", x / 1e6)
-    } else if x.abs() >= 1e3 {
-        format!("${:.0}K", x / 1e3)
+    // The sign goes before the dollar sign: -$14.2M, not $-14.2M (minor bug 38).
+    let s = if x < 0.0 && x.abs() >= 0.5 { "-" } else { "" };
+    let x = x.abs();
+    if x >= 1e6 {
+        format!("{s}${:.1}M", x / 1e6)
+    } else if x >= 1e3 {
+        format!("{s}${:.0}K", x / 1e3)
     } else {
-        format!("${x:.0}")
+        format!("{s}${x:.0}")
     }
 }
 

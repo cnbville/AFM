@@ -118,6 +118,39 @@ struct Line {
     team: Option<TeamRef>,
     games: u8,
     s: [f32; STAT_COUNT],
+    /// His age that season (on 31 August, the world's season age) and his
+    /// class (Fr, So, Jr, Sr, Gr; none in the NFL): the leaderboards'
+    /// age and class filters (minor bug 42).
+    age: u8,
+    class: &'static str,
+}
+
+/// The season's age: on 31 August of the season, as the world counts it.
+fn season_age(p: &afm_engine::world::Person, year: i32) -> u8 {
+    p.age_on(afm_engine::calendar::Date::ymd(year, 8, 31)).min(255) as u8
+}
+
+/// A high schooler's class in a season (his class of is the spring he
+/// graduates).
+fn hs_class(class_of: i32, year: i32) -> &'static str {
+    match class_of - year {
+        ..=1 => "Sr",
+        2 => "Jr",
+        3 => "So",
+        _ => "Fr",
+    }
+}
+
+/// A college player's class in a season, by years since he left high
+/// school (Gr: a fifth year or more).
+fn college_class(class_of: i32, year: i32) -> &'static str {
+    match year - class_of {
+        ..=0 => "Fr",
+        1 => "So",
+        2 => "Jr",
+        3 => "Sr",
+        _ => "Gr",
+    }
 }
 
 fn value(l: &Line, key: &str) -> f64 {
@@ -224,7 +257,6 @@ const HS_STATS: [HsStat; 21] = [
 /// The seasons a scope has: college divisions, the NFL, a state's high
 /// schools. Returns the lines and whether they are the NFL's.
 fn lines(w: &World, scope: &str, year: i32, state: Option<usize>) -> Vec<Line> {
-    let name = |id: u32| views::person_index(w, id).map(|k| w.people[k].name.clone());
     match scope {
         "nfl" => w
             .people
@@ -239,6 +271,8 @@ fn lines(w: &World, scope: &str, year: i32, state: Option<usize>) -> Vec<Line> {
                     team: s.team.map(TeamRef::Nfl),
                     games: s.games.min(255) as u8,
                     s: afm_engine::world::records::from_line(&s.stats),
+                    age: season_age(p, year),
+                    class: "",
                 })
             })
             .collect(),
@@ -262,6 +296,8 @@ fn lines(w: &World, scope: &str, year: i32, state: Option<usize>) -> Vec<Line> {
                         team: Some(TeamRef::HighSchool(school)),
                         games: l.games,
                         s,
+                        age: season_age(p, year),
+                        class: hs_class(p.class_of, year),
                     })
                 })
             })
@@ -278,17 +314,37 @@ fn lines(w: &World, scope: &str, year: i32, state: Option<usize>) -> Vec<Line> {
                 .year(year)
                 .iter()
                 .filter(|r| div.is_none_or(|d| r.division == d))
-                .map(|r| Line {
-                    id: r.id,
-                    name: name(r.id).unwrap_or_else(|| "A former player".into()),
-                    pos: r.pos,
-                    team: Some(TeamRef::College(r.program as usize)),
-                    games: r.games,
-                    s: r.s.to_array(),
+                .map(|r| {
+                    let who = views::person_index(w, r.id).map(|k| &w.people[k]);
+                    Line {
+                        id: r.id,
+                        name: who.map_or_else(|| "A former player".into(), |p| p.name.clone()),
+                        pos: r.pos,
+                        team: Some(TeamRef::College(r.program as usize)),
+                        games: r.games,
+                        s: r.s.to_array(),
+                        age: who.map_or(0, |p| season_age(p, year)),
+                        class: who.map_or("", |p| college_class(p.class_of, year)),
+                    }
                 })
                 .collect()
         }
     }
+}
+
+/// The first season with lines in a scope (the NFL's and high school's;
+/// a college scope reads the stat book's years).
+fn first_year(w: &World, scope: &str) -> i32 {
+    let first = match scope {
+        "nfl" => w
+            .people
+            .iter()
+            .filter_map(|p| p.pro.as_ref()?.seasons.iter().filter(|s| s.games > 0).map(|s| s.year).min())
+            .min(),
+        "hs" => w.people.iter().filter_map(|p| p.hs_lines.iter().map(|l| l.year as i32).min()).min(),
+        _ => None,
+    };
+    first.unwrap_or(w.options.start_year - 3)
 }
 
 /// The latest season with lines in a scope.
@@ -353,6 +409,8 @@ fn passes(w: &World, l: &Line, f: &Value, per: &str) -> bool {
         "noted" => desk::has_note(w, l.id),
         "mine" => l.team.is_some_and(|t| views::is_mine(w, t)),
         "name" => l.name.to_lowercase().contains(&text.to_lowercase()),
+        "age" => cmp(l.age as f64),
+        "class" => text.is_empty() || l.class.eq_ignore_ascii_case(text),
         k => cmp(shown(l, k, per)),
     }
 }
@@ -364,8 +422,10 @@ fn passes(w: &World, l: &Line, f: &Value, per: &str) -> bool {
 pub fn leaders(w: &World, args: &Value) -> Value {
     let (rows, total, cols, year, scope) =
         leader_rows(w, args, args.get("limit").and_then(Value::as_u64).unwrap_or(100) as usize);
+    // Every kept season (minor bug 43): every pro season line and every
+    // high school line from the engine's seasons stays in the world.
     let years: Vec<i32> = match scope.as_str() {
-        "nfl" | "hs" => (w.options.start_year - 3..=last_year(w, &scope)).rev().collect(),
+        "nfl" | "hs" => (first_year(w, &scope).min(last_year(w, &scope))..=last_year(w, &scope)).rev().collect(),
         _ => w.stats.year_index.iter().map(|x| x.0).rev().collect(),
     };
     json!({
@@ -499,7 +559,7 @@ fn finder_value(w: &World, k: usize, field: &str) -> Value {
     match field {
         "name" => json!(p.name),
         "pos" => json!(p.player.position.name()),
-        "age" => json!(p.player.age),
+        "age" => json!(p.age_on(w.today)),
         "stars" => json!(p.stars),
         "class" => json!(p.class_of),
         "ht" => json!((body_now(&p.player).height * 10.0).round() / 10.0),
@@ -550,7 +610,7 @@ fn finder_passes(w: &World, k: usize, f: &Value) -> bool {
             views::team_of(w, p).is_some_and(|t| views::team_name(w, t).to_lowercase().contains(&text.to_lowercase()))
         }
         "town" => views::hometown(w, p).to_lowercase().starts_with(&text.to_lowercase()),
-        "age" => cmp(p.player.age as f64),
+        "age" => cmp(p.age_on(w.today) as f64),
         "stars" => cmp(p.stars as f64),
         "class" => cmp(p.class_of as f64),
         "ht" => cmp(body_now(&p.player).height),
@@ -611,7 +671,7 @@ pub fn finder(w: &World, args: &Value) -> Value {
                 "id": p.player.id,
                 "name": p.name,
                 "pos": p.player.position.name(),
-                "age": p.player.age,
+                "age": p.age_on(w.today),
                 "stars": p.stars,
                 "class": p.class_of,
                 "level": level_word(p.stage),

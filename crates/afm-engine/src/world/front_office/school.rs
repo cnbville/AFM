@@ -1500,13 +1500,7 @@ pub fn goal_progress(g: &Goal, now: u32) -> String {
 
 /// Trust in words: no meter, the way a coach reads his bosses.
 pub fn trust_words(t: f32) -> &'static str {
-    match t {
-        t if t >= 0.75 => "Firmly behind you",
-        t if t >= 0.6 => "Pleased with you",
-        t if t >= 0.45 => "Watching how it goes",
-        t if t >= 0.3 => "Losing patience",
-        _ => "Wants a change",
-    }
+    crate::world::folk::boss::trust_short(t)
 }
 
 /// The season is judged after your last game (your state's finals): the

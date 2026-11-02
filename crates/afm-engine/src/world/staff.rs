@@ -50,7 +50,7 @@ fn new_coach_for(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool, want
             let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
             let pro = want.nfl.filter(|&x| x);
             let mut c = super::coach::generate_coach_as(id, name, ethnicity, tier, age, pro, &mut w.rng);
-            c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, w.year);
+            c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, coach_age_season(w));
             match super::former::made_up(w, &c, tier, played) {
                 Some(p) => super::former::apply(&mut c, p, w.year),
                 None => {
@@ -154,7 +154,8 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
     }
     // A new job comes with a new deal: the old one stays with the old job.
     w.folk.staff.deals.retain(|d| d.coach != coach);
-    w.coaches[coach].job = Some(Job { employer, role, since });
+    let first = first_season(w, employer, since);
+    w.coaches[coach].job = Some(Job { employer, role, since, first });
     super::folk::staffing::sign(w, coach);
     w.coaches[coach].wins = 0;
     w.coaches[coach].losses = 0;
@@ -356,7 +357,11 @@ pub(crate) fn staff_everyone(w: &mut World) {
             }
             hire(w, c, Employer::College(p), role);
             let since = w.year - w.rng.int(0, 6);
-            w.coaches[c].job.as_mut().unwrap().since = since;
+            // A backdated start: the first season follows it (first 0
+            // reads since + 1).
+            let j = w.coaches[c].job.as_mut().unwrap();
+            j.since = since;
+            j.first = 0;
             if role == Role::HeadCoach {
                 w.programs[p].hc_changed = since;
                 // A contract signed when he was hired, or renewed since.
@@ -387,7 +392,9 @@ pub(crate) fn staff_everyone(w: &mut World) {
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
             let age = w.rng.int(24, 60) as u32;
             let c = new_hs_coordinator(w, s, role, age);
-            w.coaches[c].job.as_mut().unwrap().since = w.year - w.rng.int(0, 8);
+            let j = w.coaches[c].job.as_mut().unwrap();
+            j.since = w.year - w.rng.int(0, 8);
+            j.first = 0;
         }
     }
     // NFL staffs: a head coach and two coordinators per team that plays (11.12).
@@ -401,7 +408,9 @@ pub(crate) fn staff_everyone(w: &mut World) {
             let age = w.rng.int(lo, 64) as u32;
             let c = new_coach(w, CoachTier::Nfl, age, pool);
             hire(w, c, Employer::Nfl(t), role);
-            w.coaches[c].job.as_mut().unwrap().since = w.year - w.rng.int(0, 6);
+            let j = w.coaches[c].job.as_mut().unwrap();
+            j.since = w.year - w.rng.int(0, 6);
+            j.first = 0;
         }
     }
     fill_juniors(w);
@@ -1403,12 +1412,18 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             // coordinators, least on position coaches (trial 4 topic 9: FBS
             // 2022-23, assistants 53% of color, defensive coordinators over
             // 20% Black, offensive coordinators 7-9%, head coaches 14 of 133;
-            // the rung weights are proposed, not confirmed).
+            // the rung weights are proposed, not confirmed). An offensive
+            // coordinator's search weighs it above a head job's: his pool is
+            // the position coaches, half of color, a head job's the
+            // coordinators (minor bug 161: at 0.7 and 0.4, FBS offensive
+            // coordinators read 11.5-18.9% Black and defensive 21-28%; at 1.2
+            // and 0.55, three 30-year worlds at scale 0.1 read 4.5-13.4% and
+            // 20.6-23.0%, and two worlds' 2016-25 hires 6.2-8.3% and 20-21%).
             if !is_hs {
                 let rung = match o.role {
                     Role::HeadCoach => 1.0,
-                    Role::OffensiveCoordinator => 0.7,
-                    Role::DefensiveCoordinator => 0.4,
+                    Role::OffensiveCoordinator => 1.2,
+                    Role::DefensiveCoordinator => 0.55,
                     Role::PositionCoach(_) => 0.15,
                 };
                 // A head job has its own weight (minor bugs 127 and 148),
@@ -2057,12 +2072,42 @@ pub(crate) fn cycle_year(w: &World) -> i32 {
 /// cycle, so a man who moves between the Super Bowl and fall camp closes
 /// his old job with the season he last coached, the same year his new job
 /// begins (`to` of the old equals `since` of the new), whatever the level.
-/// The other leagues play on their own calendars and keep the year.
+/// The other leagues play on their own calendars: their label is the last
+/// of the league's seasons to kick off by today, so a coach whose spring team
+/// folds at the next camp closes with the season he coached, and a man hired
+/// at that camp starts from it (minor bug 172: the calendar year gave such a
+/// coach two seasons' overlap with his next job, 2013-2015 and 2014-2017).
 fn season_label(w: &World, e: Employer) -> i32 {
     match e {
-        Employer::Other(_) => w.year,
+        Employer::Other(f) => {
+            let y = w.today.year();
+            let k = super::pro::other::league_of(f);
+            match super::pro::other::format(k, y) {
+                Some(x) if w.today >= x.start => y,
+                Some(_) => y - 1,
+                None if super::pro::other::format(k, y - 1).is_some() => y - 1,
+                None => w.year,
+            }
+        }
         _ => cycle_year(w),
     }
+}
+
+/// The first season a man hired today coaches (minor bug 33): the label's
+/// next season for an offseason hire, the label's own for one who joins
+/// while the season is under way (fall camp to the end of the regular
+/// season; for the other leagues, from kickoff to the end of their weeks).
+fn first_season(w: &World, e: Employer, since: i32) -> i32 {
+    let d = w.today;
+    let during = match e {
+        Employer::Other(f) => {
+            let k = super::pro::other::league_of(f);
+            super::pro::other::format(k, since).is_some_and(|x| d >= x.start && d <= x.start.add(7 * x.games as i32))
+        }
+        Employer::Nfl(_) => w.dates.season == since && d >= w.dates.fall_camp && d < w.dates.black_monday,
+        _ => w.dates.season == since && d >= w.dates.fall_camp && d <= w.dates.fbs_regular_end,
+    };
+    if during { since } else { since + 1 }
 }
 
 /// A head coach's contract length in seasons (proposed, not confirmed, from
@@ -2196,6 +2241,18 @@ impl Scope {
                 | (Scope::HighSchool, Employer::HighSchool(_))
         )
     }
+}
+
+/// The season coaches' whole-year ages count in today. Everyone ages a year
+/// on the high school carousel day (`age_coaches`, 20 January), before the
+/// football year turns after the Super Bowl, so a coach made between the two
+/// already counts his age in the coming season (minor bug 167: 263 coaches
+/// hired in that window showed an age a year behind their birth date).
+pub(crate) fn coach_age_season(w: &World) -> i32 {
+    // Coaches age at the end of January 20 (`age_coaches` runs after that
+    // day's carousel and staff moves), so a coach made that day still
+    // counts the old season, or the day's aging would add a second year.
+    if w.today > crate::calendar::Date::ymd(w.year + 1, 1, 20) { w.year + 1 } else { w.year }
 }
 
 /// Everyone ages a year once the carousels are done; assistants learn from
@@ -3327,7 +3384,9 @@ pub fn ensure_lane18(w: &mut World) {
             if have.is_none() {
                 let age = w.rng.int(24, 60) as u32;
                 let c = new_hs_coordinator(w, s, role, age);
-                w.coaches[c].job.as_mut().unwrap().since = w.year - w.rng.int(0, 8);
+                let j = w.coaches[c].job.as_mut().unwrap();
+                j.since = w.year - w.rng.int(0, 8);
+                j.first = 0;
             }
         }
     }

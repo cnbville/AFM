@@ -474,7 +474,10 @@ fn ai_week(w: &mut World, d: Date) {
             if let Some(c) = words.get_mut(0..1) {
                 c.make_ascii_uppercase();
             }
-            p.note(format!("{words} at {age} for a violation of team rules ({}).", kind.name().to_lowercase()));
+            let kind = kind.name().to_lowercase();
+            p.note_again(format!("{words} at {age} for a violation of team rules ({kind})."), || {
+                format!("{words} again at {age} for a violation of team rules ({kind}).")
+            });
         }
     }
     // Old records fade: a break two seasons back no longer counts.

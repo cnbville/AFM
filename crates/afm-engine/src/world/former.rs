@@ -593,7 +593,15 @@ pub(crate) fn apply(c: &mut Coach, p: Played, year: i32) {
 pub(crate) fn to_coach(w: &mut World, k: usize, tier: CoachTier) -> usize {
     let id = w.coaches.len();
     let f = w.formers.list[k].clone();
-    let age = f.age(w.year);
+    // His whole-year age as every coach counts it: his age on 31 August of
+    // the season coaches' ages are in (`born::birth_date`), not the year's
+    // difference, which made autumn birthdays a year old (minor bug 167).
+    let season = super::staff::coach_age_season(w);
+    let age = if f.born == crate::calendar::born::UNKNOWN {
+        f.age(season)
+    } else {
+        crate::calendar::born::age_on(f.born, crate::calendar::Date::ymd(season, 8, 31))
+    };
     let mut c = crate::world::coach::generate_coach_as(
         id,
         f.name.clone(),

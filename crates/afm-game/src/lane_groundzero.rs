@@ -189,7 +189,7 @@ fn my_new_school(w: &World) -> Option<usize> {
 
 fn person(w: &World, i: usize) -> Value {
     let p = &w.people[i];
-    json!({ "id": p.player.id, "name": p.name, "pos": format!("{:?}", p.player.position), "age": p.player.age })
+    json!({ "id": p.player.id, "name": p.name, "pos": format!("{:?}", p.player.position), "age": p.age_on(w.today) })
 }
 
 /// Your new team's year: where it stands, and the tools of its level.

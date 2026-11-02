@@ -123,9 +123,9 @@ fn world_part(w: &World) -> Value {
         if let Some(&(_, _, id, _)) = nat.iter().find(|x| &x.1 == top)
             && let Some(c) = w.programs[id].head_coach.and_then(|c| w.coaches.get(c))
             && let Some(j) = c.job
-            && w.year - j.since >= 5
+            && w.year - j.first_season() >= 4
         {
-            line.push_str(&format!(" Its head coach since {} is {}-{}.", j.since, c.wins, c.losses));
+            line.push_str(&format!(" Its head coach since {} is {}-{}.", j.first_season(), c.wins, c.losses));
         }
         story.push(("Dynasty".into(), line));
     }

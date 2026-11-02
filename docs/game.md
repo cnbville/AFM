@@ -1382,6 +1382,16 @@ A sidebar section of its own between Your team and World at every seat, with Sta
 - Seasons like his: the mean percentile gap over at least half the card, against each season's own field.
 - The era column's regulars (NFL 8+ games, high school 5+, both 15+ snaps a game).
 
+### Minor bugs hotfix (2026-11-01, one branch for the list's open bugs)
+
+- **People on screens**: every screen names a team's principal, athletic director and off-field staff from the same cast person (minor bug 31); the boss's trust reads on one five-step scale on the boss page, the Home card and the school desk, with the boss's own pronoun (32); a coach is "head coach since" his first season in the job (33); ages come from the date of birth on today's date everywhere (39); "everyone at the Carolina Panthers" (35); money below zero reads "-$14.2M" (38).
+- **The room**: a college room doesn't vote a first-year player captain, and a specialist's rating counts a quarter toward standing (34).
+- **History**: the record book has a level, conference or state (high school) book (40); yards and counts show whole, sacks and tackles for loss in halves, and shared sacks and tackles for loss are halves as the NCAA and NFL keep them (36); Hall of Fame members link to their pages, players and coaches (41).
+- **Leaderboards**: age and class filters (42), and the NFL's and high school's years go back to the first kept season (43).
+- **High school chase**: the state title run line says the school's titles before you apart from your own years (37).
+- **Scouting file**: a camp or showcase row shows the laser forty stored that day, and a timed high schooler's speed and burst ranges are the read of those same times (23).
+- **Career notes**: a line that would repeat word for word (a second lost NIL deal, a second spring breakout, a second suspension, following a coach again) reads "again".
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

@@ -800,7 +800,7 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
                 })
             });
             Ok(json!({
-                "kind": "player", "id": id, "name": p.name, "pos": p.player.position.name(), "age": p.player.age,
+                "kind": "player", "id": id, "name": p.name, "pos": p.player.position.name(), "age": p.age_on(w.today),
                 "class": views::class_text(w, p), "team": team.map(|t| views::team_brief(w, t)), "where": views::where_now(w, p),
                 "ht": views::ft_in(shown_body(w, p, own).0), "wt": shown_body(w, p, own).1.round(), "stars": p.stars,
                 "read": reads::overall(w, k).json(), "yours": reads::mine(w, k).json(),
@@ -1005,7 +1005,7 @@ pub fn find(w: &World, q: &str) -> Value {
         let Scope::Division(d) = scope else { continue };
         for e in list.iter().take(3) {
             if hit(&e.name) || book_name(*book).to_lowercase().contains(&ql) {
-                records.push(json!({ "kind": "history", "name": format!("{} · {}", e.name, book_name(*book)), "sub": format!("{} record · {} in {}", d.name(), fmt_value(e.value), e.year), "args": { "tab": "records", "division": d.name() } }));
+                records.push(json!({ "kind": "history", "name": format!("{} · {}", e.name, book_name(*book)), "sub": format!("{} record · {} in {}", d.name(), fmt_book(*book, e.value), e.year), "args": { "tab": "records", "division": d.name() } }));
                 break;
             }
         }
@@ -1055,8 +1055,26 @@ fn book_name(b: Book) -> String {
     }
 }
 
+/// A record's number as the books print it: yards and counts whole, sacks
+/// and tackles for loss in halves (bug 36: "4695.9 yards").
 fn fmt_value(v: f64) -> String {
-    if (v - v.round()).abs() < 0.05 { format!("{:.0}", v) } else { format!("{v:.1}") }
+    format!("{v:.0}")
+}
+
+fn fmt_halves(v: f64) -> String {
+    let h = (v * 2.0).round() / 2.0;
+    if h.fract() == 0.0 { format!("{h:.0}") } else { format!("{h:.1}") }
+}
+
+fn fmt_book(b: Book, v: f64) -> String {
+    let stat = match b {
+        Book::Season(i) | Book::Career(i) => RECORD_STATS.get(i).copied(),
+        _ => None,
+    };
+    match stat {
+        Some(afm_engine::world::records::Stat::Sacks | afm_engine::world::records::Stat::Tfl) => fmt_halves(v),
+        _ => fmt_value(v),
+    }
 }
 
 // ---- Compare (S8) ----
@@ -1097,13 +1115,75 @@ pub fn history(w: &World, args: &Value) -> Value {
         .and_then(afm_engine::world::data::Division::parse)
         .unwrap_or(mine_div);
     let years: Vec<i32> = (w.options.start_year - w.options.history_years as i32..=w.year).rev().collect();
+    // Which record book (minor bug 40): a level's, one of its conferences'
+    // or a state's high schools'. The conferences and states that keep one.
+    let mut confs: Vec<String> = w
+        .stats
+        .books
+        .keys()
+        .filter_map(|(s, _)| match s {
+            Scope::Conference(d, c) if *d == div => Some(c.clone()),
+            _ => None,
+        })
+        .collect();
+    confs.sort();
+    confs.dedup();
+    let mut states: Vec<String> = w
+        .stats
+        .books
+        .keys()
+        .filter_map(|(s, _)| match s {
+            Scope::State(k) => w.states.get(*k).map(|x| x.code.clone()),
+            _ => None,
+        })
+        .collect();
+    states.sort();
+    states.dedup();
+    let my_conf = match views::mine(w) {
+        Some(TeamRef::College(p)) if w.programs[p].division == div => Some(w.programs[p].conference.clone()),
+        _ => None,
+    };
+    let my_state = match views::mine(w) {
+        Some(TeamRef::College(p)) => w.states.get(w.programs[p].state).map(|s| s.code.clone()),
+        Some(TeamRef::HighSchool(h)) => w.states.get(w.high_schools[h].state).map(|s| s.code.clone()),
+        _ => None,
+    };
+    let kind = args.get("book").and_then(Value::as_str).unwrap_or("level");
+    let conf = args
+        .get("conf")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .filter(|c| confs.contains(c))
+        .or(my_conf.filter(|c| confs.contains(c)))
+        .or_else(|| confs.first().cloned());
+    let state = args
+        .get("state")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .filter(|c| states.contains(c))
+        .or(my_state.filter(|c| states.contains(c)))
+        .or_else(|| states.first().cloned());
+    let scope = match kind {
+        "conference" if conf.is_some() => Scope::Conference(div, conf.clone().unwrap_or_default()),
+        "state" if state.is_some() => state
+            .as_deref()
+            .and_then(|c| w.states.iter().position(|s| s.code == c))
+            .map_or(Scope::Division(div), Scope::State),
+        _ => Scope::Division(div),
+    };
+    let kind = match scope {
+        Scope::Division(_) => "level",
+        Scope::Conference(..) => "conference",
+        Scope::State(_) => "state",
+        Scope::Nfl => "nfl",
+    };
     let body = match tab {
         "records" => {
             let mut books: Vec<(Book, &Vec<afm_engine::world::records::RecordEntry>)> = w
                 .stats
                 .books
                 .iter()
-                .filter(|((s, _), _)| *s == Scope::Division(div))
+                .filter(|((s, _), _)| *s == scope)
                 .map(|((_, b), l)| (*b, l))
                 .collect();
             books.sort_by_key(|x| x.0);
@@ -1112,8 +1192,17 @@ pub fn history(w: &World, args: &Value) -> Value {
                 .map(|(b, list)| json!({
                     "name": book_name(*b),
                     "rows": list.iter().take(10).enumerate().map(|(i, e)| json!({
-                        "rank": i + 1, "value": fmt_value(e.value), "id": e.id, "name": e.name,
-                        "team": (e.id == 0 || e.program < w.programs.len()).then(|| views::team_brief(w, TeamRef::College(e.program))),
+                        // A streak is a team's: no player link, and a high
+                        // school's streak names its school.
+                        "rank": i + 1, "value": fmt_book(*b, e.value), "name": e.name,
+                        "id": if *b == Book::WinStreak { Value::Null } else { json!(e.id) },
+                        "team": if e.program < w.programs.len() {
+                            Some(views::team_brief(w, TeamRef::College(e.program)))
+                        } else if *b == Book::WinStreak && (e.id as usize) < w.high_schools.len() {
+                            Some(views::team_brief(w, TeamRef::HighSchool(e.id as usize)))
+                        } else {
+                            None
+                        },
                         "year": if e.from != e.year && e.from != 0 { format!("{}-{}", e.from, e.year) } else { e.year.to_string() },
                         "live": e.live,
                     })).collect::<Vec<_>>(),
@@ -1124,7 +1213,7 @@ pub fn history(w: &World, args: &Value) -> Value {
             .nfl_book
             .records
             .iter()
-            .map(|r| json!({ "stat": r.stat.to_string(), "career": r.career, "value": fmt_value(r.value), "holder": r.holder, "year": r.year, "world": r.world }))
+            .map(|r| json!({ "stat": r.stat.to_string(), "career": r.career, "value": if r.stat.contains("sack") { fmt_halves(r.value) } else { fmt_value(r.value) }, "holder": r.holder, "year": r.year, "world": r.world }))
             .collect::<Vec<_>>()),
         "hall" => {
             let mut v: Vec<Value> = w
@@ -1132,10 +1221,12 @@ pub fn history(w: &World, args: &Value) -> Value {
                 .hall
                 .iter()
                 .rev()
-                .map(|h| json!({ "year": h.year, "name": h.name, "coach": h.coach, "level": format!("College Football Hall of Fame · {}", h.division.name()), "teams": h.programs.iter().map(|&p| views::team_brief(w, TeamRef::College(p))).collect::<Vec<_>>(), "why": h.why }))
+                // Each member links to his page (minor bug 41): a player by id,
+                // a coach by his index.
+                .map(|h| json!({ "year": h.year, "name": h.name, "coach": h.coach, "id": h.who.filter(|_| !h.coach), "coachId": h.who.filter(|_| h.coach), "level": format!("College Football Hall of Fame · {}", h.division.name()), "teams": h.programs.iter().map(|&p| views::team_brief(w, TeamRef::College(p))).collect::<Vec<_>>(), "why": h.why }))
                 .collect();
             v.extend(w.nfl_book.hall.iter().rev().map(|h| json!({ "year": h.0, "id": h.1, "name": h.2, "pos": h.3.name(), "level": "Pro Football Hall of Fame", "why": h.4 })));
-            v.extend(w.nfl_book.hall_coaches.iter().rev().map(|h| json!({ "year": h.0, "name": h.2, "coach": true, "level": "Pro Football Hall of Fame", "why": h.3 })));
+            v.extend(w.nfl_book.hall_coaches.iter().rev().map(|h| json!({ "year": h.0, "name": h.2, "coach": true, "coachId": h.1, "level": "Pro Football Hall of Fame", "why": h.3 })));
             v.sort_by_key(|x| std::cmp::Reverse(x["year"].as_i64().unwrap_or(0)));
             json!(v)
         }
@@ -1202,7 +1293,7 @@ pub fn history(w: &World, args: &Value) -> Value {
             json!(rows)
         }
     };
-    json!({ "tab": tab, "division": div.name(), "years": years, "body": body })
+    json!({ "tab": tab, "division": div.name(), "years": years, "body": body, "book": kind, "conf": conf, "state": state, "confs": confs, "states": states })
 }
 
 // ---- Playoff brackets ----

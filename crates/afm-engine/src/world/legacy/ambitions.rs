@@ -368,7 +368,7 @@ fn beat_target(w: &World, team: TeamKey, you: usize) -> Option<(usize, String)> 
     let (r, ..) = crate::world::folk::facts::rival(w, crate::world::storylines::folk_team(team))?;
     let rt = crate::world::storylines::team_key(r);
     let c = crate::world::storylines::detect::head(w, rt)?;
-    let since = w.coaches[c].job.map_or(w.year, |j| j.since);
+    let since = w.coaches[c].job.map_or(w.year, |j| j.first_season());
     let name = super::tname(w, rt);
     let name = name.strip_prefix("the ").unwrap_or(&name);
     Some((c, format!("The {name} coach since {since}, and the man the fans want beaten.")))

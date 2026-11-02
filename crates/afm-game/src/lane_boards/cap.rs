@@ -149,7 +149,7 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
             "name": p.name,
             "pos": pos.name(),
             "group": group(pos),
-            "age": p.player.age,
+            "age": p.age_on(w.today),
             "hit": hit.round(),
             "pct": (1000.0 * hit / cap).round() / 10.0,
             "left": left,
@@ -265,7 +265,7 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
             "sum": ending.iter().map(|x| x.0).sum::<f64>().round(),
             "top": ending.iter().take(4).map(|&(h, i)| {
                 let p = &w.people[i];
-                json!({ "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "age": p.player.age, "hit": h.round(), "read": read_of(w, i, TeamRef::Nfl(t)) })
+                json!({ "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "age": p.age_on(w.today), "hit": h.round(), "read": read_of(w, i, TeamRef::Nfl(t)) })
             }).collect::<Vec<_>>(),
         },
     }))

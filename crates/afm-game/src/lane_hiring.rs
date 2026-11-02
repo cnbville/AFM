@@ -122,7 +122,7 @@ pub(crate) fn search(w: &World, r: Role, args: &Value) -> Value {
             json!({
                 "coach": c.coach,
                 "link": folk::coach_link(w, c.coach),
-                "age": c.age,
+                "age": w.coaches[c.coach].age_on(w.today),
                 "now": c.now,
                 "level": c.level,
                 "rep": c.rep,
@@ -294,7 +294,7 @@ pub(crate) fn page(w: &World, c: usize) -> Value {
         "coach": c,
         "name": co.name,
         "link": folk::coach_link(w, c),
-        "age": co.age,
+        "age": co.age_on(w.today),
         "now": staffing::now_words(w, c),
         "level": level,
         "cameUp": cap(co.came_up.name()),

@@ -1220,16 +1220,17 @@ SELECT h.year, h.nfl_games AS world, (SELECT COUNT(DISTINCT team) FROM engine_fr
         id: "N42.sec_fines",
         areas: "N42",
         title: r#"SEC storming fines follow the real schedule"#,
-        checked: r#"SELECT COUNT(*) FROM stories__traditions__stormings s JOIN programs p ON p._row = s.team WHERE p.conference = 'SEC'"#,
+        checked: r#"SELECT COUNT(*) FROM stories__traditions__stormings s JOIN programs p ON p._row = s.team LEFT JOIN programs__history h ON h._parent = s.team AND CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) BETWEEN h._0 AND h._1 WHERE COALESCE(h._3, p.conference) = 'SEC'"#,
         failures: r#"SELECT 'program' AS what, home AS id, year AS year, home || ' fined ' || fine || ', real tiers ' || "real tiers" AS says FROM (
 SELECT CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) AS year, COALESCE(p.real_name, p.fictional_name) AS home, s.fine,
             (SELECT r.first || ' / ' || r.second || ' / ' || r.third_or_later FROM real_storming_fines r WHERE r.conference = 'SEC' AND CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) >= r.from_year AND (r.to_year = '' OR CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) <= r.to_year)) AS "real tiers"
        FROM stories__traditions__stormings s JOIN programs p ON p._row = s.team
-      WHERE p.conference = 'SEC' AND s.fine NOT IN (SELECT x FROM (SELECT r.first AS x FROM real_storming_fines r WHERE r.conference = 'SEC' AND CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) >= r.from_year AND (r.to_year = '' OR CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) <= r.to_year)
+       LEFT JOIN programs__history h ON h._parent = s.team AND CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) BETWEEN h._0 AND h._1
+      WHERE COALESCE(h._3, p.conference) = 'SEC' AND s.fine NOT IN (SELECT x FROM (SELECT r.first AS x FROM real_storming_fines r WHERE r.conference = 'SEC' AND CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) >= r.from_year AND (r.to_year = '' OR CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) <= r.to_year)
             UNION SELECT r.second FROM real_storming_fines r WHERE r.conference = 'SEC' AND CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) >= r.from_year AND (r.to_year = '' OR CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) <= r.to_year)
             UNION SELECT r.third_or_later FROM real_storming_fines r WHERE r.conference = 'SEC' AND CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) >= r.from_year AND (r.to_year = '' OR CAST(strftime('%Y', date(s.date * 86400, 'unixepoch')) AS INTEGER) <= r.to_year))))"#,
         needs: W,
-        why: r#"Every SEC fine is one of that year's real tiers (storming_fines.csv): first, second, third or later offence."#,
+        why: r#"Every SEC fine is one of that year's real tiers (storming_fines.csv): first, second, third or later offence. A program counts in the SEC only in its SEC years (minor bug 174: Oklahoma's 2021 storming, a Big 12 year with no fine, read as an SEC fine of 0)."#,
     },
     Rule {
         id: "N43.hard_knocks_once",

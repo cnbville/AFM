@@ -292,7 +292,7 @@ function scFileMed(f) {
   const m = f.medical;
   const a = f.academics;
   const tests = f.tests.length
-    ? tbl(["Where", "Date", "40", "Bench", "Vertical", "Broad", "3-cone", "Shuttle"], f.tests.map((t) => [esc(t.where), t.date, t.forty ? t.forty.toFixed(2) : "-", t.bench, t.vertical ? t.vertical.toFixed(1) : "-", t.broad, t.cone ? t.cone.toFixed(2) : "-", t.shuttle ? t.shuttle.toFixed(2) : "-"]))
+    ? tbl(["Where", "Date", "40", "Bench", "Vertical", "Broad", "3-cone", "Shuttle"], f.tests.map((t) => [esc(t.where), t.date, t.forty ? t.forty.toFixed(2) : "-", t.bench ?? "-", t.vertical ? t.vertical.toFixed(1) : "-", t.broad ?? "-", t.cone ? t.cone.toFixed(2) : "-", t.shuttle ? t.shuttle.toFixed(2) : "-"]))
     : scEmpty("He hasn't tested in front of your staff: no combine, pro day or camp in the file.");
   return `<div class="grid2"><div style="display:grid;gap:18px"><div class="panel warm"><h2>Medical <small>${m && m.examined ? "examined by your doctors" : "records and film only"}</small></h2>
       ${m ? `<div class="sc-medbig"><b class="st-wide">${esc(m.words)}</b><span class="sub">of: cleared, minor concern, major concern, failed</span></div>${(m.notes || []).length ? `<div class="items">${m.notes.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}${m.examined ? "" : '<div class="sc-flagline"><span class="st-pill">No exam</span><span class="st-pill">No imaging</span><span class="sub">A recheck or the combine puts your own doctors’ hands on him.</span></div>'}` : scEmpty("No medical read yet.")}</div>

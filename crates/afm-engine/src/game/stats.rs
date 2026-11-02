@@ -954,8 +954,10 @@ impl GameStats {
             _ => {}
         }
         // Pressure, sacks, hits.
-        let share = 1.0 / r.sackers.len().max(1) as f64;
-        for &id in &r.sackers {
+        // A shared sack is half a sack to each of two men, as the NCAA and
+        // the NFL keep it; no more than two share one (bug 36).
+        let share = if r.sackers.len() > 1 { 0.5 } else { 1.0 };
+        for &id in r.sackers.iter().take(2) {
             let l = self.line(d, id);
             l.sacks += share;
             l.tfl += share;
@@ -1052,8 +1054,10 @@ impl GameStats {
             if matches!(r.kind, PlayType::Punt | PlayType::Kickoff) {
                 l.st_tackles += 1;
             }
+            // A solo tackle for loss is one; an assisted one is half to
+            // each man in on it (the NCAA's and the NFL's count).
             if scrimmage && r.yards < 0.0 && r.kind != PlayType::Sack {
-                l.tfl += 1.0 / n as f64;
+                l.tfl += if n > 1 { 0.5 } else { 1.0 };
             }
             if scrimmage && !r.success() {
                 l.stops += 1;

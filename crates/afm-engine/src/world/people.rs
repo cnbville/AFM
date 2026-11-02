@@ -642,12 +642,17 @@ fn settle_room(w: &mut World, room: Room, roster: &[usize]) {
                 p.pro.as_ref().map_or(0.0, |c| c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64)
             }
         };
-        let star = (p.player.overall() - 60.0) / 10.0;
+        // A kicker's or snapper's rating isn't a room's standing: the
+        // specialists rarely lead one (bug 34).
+        let spec = if p.player.position.is_specialist() { 0.25 } else { 1.0 };
+        let star = spec * (p.player.overall() - 60.0) / 10.0;
         let qb = if p.player.position == Position::QB { 1.0 } else { 0.0 };
         1.0 + 0.3 * years.min(5.0) + star.max(0.0) + qb
     };
     let mut votes: Vec<(usize, f64)> = roster
         .iter()
+        // A college team doesn't make a first-year player a captain.
+        .filter(|&&i| !matches!(room, Room::College(_)) || w.people[i].college_seasons > 0 || roster.len() < 8)
         .map(|&i| {
             let p = &w.people[i];
             let t = &p.player.personality.traits;

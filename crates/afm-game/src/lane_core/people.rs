@@ -8,6 +8,7 @@
 use afm_engine::rng::Rng;
 use afm_engine::world::World;
 use afm_engine::world::ethnicity::{CoachPool, coach_ethnicity};
+use afm_engine::world::folk::{Team, cast};
 use afm_engine::world::names::person_name;
 
 use crate::views::TeamRef;
@@ -74,6 +75,15 @@ fn team_seed(t: TeamRef) -> u32 {
 /// The name of the person holding an off-field job at a team. The world
 /// seed keeps it the same for a career; another world gets other people.
 pub fn staff_name(w: &World, t: TeamRef, job: Job) -> String {
+    // A job the people around a team hold (`folk::cast`: their pages, the
+    // meeting room, the school desk) is that person, so every screen names
+    // the same one (bug 31: two principals).
+    if let Some((team, role)) = cast_of(t, job)
+        && w.folk.base != 0
+        && cast::has(w, team, role)
+    {
+        return cast::get(w, cast::CastRef::new(team, role, 0)).name;
+    }
     // A college's athletic director is a person in the world already.
     if job == Job::AthleticDirector
         && let TeamRef::College(p) = t
@@ -87,6 +97,33 @@ pub fn staff_name(w: &World, t: TeamRef, job: Job) -> String {
     let eth = coach_ethnicity(pool, w.year, &mut rng);
     let age = 28 + (rng.next() * 30.0) as i32;
     person_name(eth, w.year - age, &mut rng)
+}
+
+/// The cast person who holds an off-field job, where one does.
+fn cast_of(t: TeamRef, job: Job) -> Option<(Team, cast::Role)> {
+    use cast::Role;
+    let team = match t {
+        TeamRef::Nfl(i) => Team::Nfl(i),
+        TeamRef::College(i) => Team::College(i),
+        TeamRef::HighSchool(i) => Team::High(i),
+        TeamRef::Other(i) => Team::Other(i),
+    };
+    let hs = matches!(t, TeamRef::HighSchool(_));
+    let role = match job {
+        Job::ChiefOfStaff => Role::ChiefOfStaff,
+        Job::Communications => Role::Comms,
+        Job::Trainer => Role::Trainer,
+        Job::Strength => Role::Strength,
+        Job::Personnel => Role::Personnel,
+        Job::Operations => Role::Ops,
+        Job::Academics => Role::Academic,
+        Job::CapManager => Role::CapManager,
+        Job::Principal => Role::Principal,
+        Job::AthleticDirector if hs => Role::SchoolAd,
+        Job::AthleticDirector => Role::AthleticDirector,
+        Job::Compliance | Job::Collective | Job::Statistician => return None,
+    };
+    Some((team, role))
 }
 
 /// A person outside any team (a commissioner, a league office's vice

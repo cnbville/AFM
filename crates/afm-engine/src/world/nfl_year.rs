@@ -481,10 +481,14 @@ fn old_formula(s: &NflSeason, season: i32, games: u32, seed: u64) -> Vec<(usize,
         [(|s, a, b| s.conf[a] != s.conf[b], true), (|s, a, b| s.conf[a] == s.conf[b], false), (|_, _, _| true, false)];
     for (allowed, capped) in phases {
         let mut q: Vec<i32> = need.iter().map(|&x| if capped { x.min(4) } else { x }).collect();
-        let before = q.clone();
+        let start = edges.len();
         quota_match(&mut q, &mut met, &mut edges, |a, b| allowed(s, a, b), &cost);
-        for t in 0..n {
-            need[t] -= before[t] - q[t];
+        // Count the games it made, not the quota it gave up on: a club
+        // left with no partner has its quota zeroed, and counting that as
+        // played left 1999-2001's 31 clubs four games short (minor bug 168).
+        for &(a, b) in &edges[start..] {
+            need[a] -= 1;
+            need[b] -= 1;
         }
     }
     // The pairing can leave two clubs short with no opponent left they
@@ -1525,16 +1529,24 @@ fn holiday_hosts(w: &mut World, season: i32) {
     if hosts(&s.weeks[tk], det) && hosts(&s.weeks[tk], dal) {
         return;
     }
+    // A swap keeps every bye in the era's window (minor bug 169: swapping
+    // week 4 with a Thanksgiving week that had byes gave 2021-2025 clubs a
+    // week-4 bye, and 2009-2015 byes landed past their window).
+    let clubs = s.active.iter().filter(|&&a| a).count();
+    let (lo, hi) = bye_window(season, s.weeks.len(), clubs % 2 == 1);
+    let byes = |k: usize| s.weeks[k].len() * 2 < clubs;
+    let fits = |j: usize| (!byes(tk) || (lo..=hi).contains(&j)) && (!byes(j) || (lo..=hi).contains(&tk));
     let pick = (3..=13usize)
-        .filter(|&j| j != tk && j < s.weeks.len())
+        .filter(|&j| j != tk && j < s.weeks.len() && fits(j))
         .find(|&j| hosts(&s.weeks[j], det) && hosts(&s.weeks[j], dal))
-        .or_else(|| (3..=13usize).filter(|&j| j != tk && j < s.weeks.len()).find(|&j| hosts(&s.weeks[j], det)));
+        .or_else(|| {
+            (3..=13usize).filter(|&j| j != tk && j < s.weeks.len() && fits(j)).find(|&j| hosts(&s.weeks[j], det))
+        });
     if let Some(j) = pick
         && (3..=13).contains(&tk)
     {
         s.weeks.swap(tk, j);
     }
-    let _ = season;
 }
 
 /// International games a season (the real counts to 2025, from memory, to
@@ -2937,6 +2949,60 @@ mod tests {
 
     fn games_on(w: &World, d: Date) -> Vec<&Slot> {
         w.nfl_season.as_ref().unwrap().slots.iter().flatten().filter(|x| x.at.date == d).collect()
+    }
+
+    /// 1999-2001's 31 clubs play the real 248 regular-season games: 16 for
+    /// every club, never two in a week (minor bugs 146 and 168: 257 games
+    /// a season with the playoffs against the real 259).
+    #[test]
+    fn thirty_one_clubs_play_every_game() {
+        for season in 1999..=2001 {
+            for seed in [2026, 2027, 2028, 1, 11, 21] {
+                let w = formula_season_seeded(season, seed);
+                let s = w.nfl_season.as_ref().unwrap();
+                let clubs = s.active.iter().filter(|&&a| a).count();
+                assert_eq!(clubs, 31, "season {season}");
+                let mut games = vec![0u32; s.active.len()];
+                for week in &s.weeks {
+                    let mut seen = vec![false; s.active.len()];
+                    for &(a, b) in week {
+                        assert!(!seen[a] && !seen[b], "season {season}, seed {seed}: a club plays twice in a week");
+                        seen[a] = true;
+                        seen[b] = true;
+                        games[a] += 1;
+                        games[b] += 1;
+                    }
+                }
+                let total: u32 = s.weeks.iter().map(|x| x.len() as u32).sum();
+                let short: Vec<(usize, u32)> =
+                    (0..games.len()).filter(|&t| s.active[t] && games[t] != 16).map(|t| (t, games[t])).collect();
+                assert!(short.is_empty(), "season {season}, seed {seed}: {short:?}");
+                assert_eq!(total, 248, "season {season}, seed {seed}");
+            }
+        }
+    }
+
+    /// Every bye falls in its era's window (`bye_window`): 2025 gave two
+    /// clubs a week-4 bye in the rebuilt world (minor bug 169).
+    #[test]
+    fn byes_fall_in_the_era_window() {
+        let mut bad = Vec::new();
+        for season in (2002..=2025).rev() {
+            for seed in [2026, 2027, 1, 11, 21] {
+                let w = formula_season_seeded(season, seed);
+                let s = w.nfl_season.as_ref().unwrap();
+                let n_weeks = s.weeks.len();
+                let (lo, hi) = bye_window(season, n_weeks, false);
+                for t in (0..s.active.len()).filter(|&t| s.active[t]) {
+                    let off: Vec<usize> =
+                        (0..n_weeks).filter(|&k| !s.weeks[k].iter().any(|g| g.0 == t || g.1 == t)).collect();
+                    if off.iter().any(|&k| k < lo || k > hi) {
+                        bad.push((season, seed, t, off.iter().map(|k| k + 1).collect::<Vec<_>>()));
+                    }
+                }
+            }
+        }
+        assert!(bad.is_empty(), "byes outside the window (season, seed, club, weeks): {bad:?}");
     }
 
     /// The Bills' Toronto game is a Bills home game, and it counts abroad.
