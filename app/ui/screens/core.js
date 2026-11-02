@@ -1125,7 +1125,11 @@ async function coreAct(act, el, ev) {
     case "tab": {
       const k = keep(d.key, { t: d.t });
       k.t = d.t;
+      // The page keeps the tab you pick. The page beside does too: opened
+      // on a tab of its own (a name that opens his Development tab), it
+      // drew that tab again on every click (Cain, 2026-11-02).
       if (!el.closest(".beside")) S.route.args = { ...S.route.args, tab: d.t };
+      else if (S.beside) S.beside.args = { ...S.beside.args, tab: d.t };
       refresh(el);
       return true;
     }

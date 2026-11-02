@@ -184,11 +184,14 @@
 
   // ---------- small faces in lists ----------
   function decorate(view) {
-    const links = [...view.querySelectorAll(".tbl td a.link.name[data-go=player]:not([data-fc])")];
+    // Marked data-face-dot, never data-fc: that is the recruiting desks'
+    // click (fo-college.js), which swallowed every click on a name in a
+    // table (Cain, 2026-11-02).
+    const links = [...view.querySelectorAll(".tbl td a.link.name[data-go=player]:not([data-face-dot])")];
     if (!links.length) return;
     const need = [];
     for (const a of links) {
-      a.dataset.fc = "1";
+      a.dataset.faceDot = "1";
       const id = Number(a.dataset.id);
       const span = document.createElement("span");
       span.className = "fc-slot";

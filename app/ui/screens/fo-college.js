@@ -689,7 +689,8 @@ document.addEventListener(
   "click",
   async (ev) => {
     const el = ev.target.closest("[data-fc]");
-    if (!el) return;
+    // A link to a page is app.js's to open, whatever else marks it.
+    if (!el || el.matches("a[data-go]")) return;
     ev.stopPropagation();
     ev.preventDefault();
     const d = el.dataset;
