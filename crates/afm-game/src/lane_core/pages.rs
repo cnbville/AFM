@@ -542,14 +542,55 @@ pub(crate) fn seasons(w: &World, k: usize) -> Vec<Value> {
             "pos": l.pos.name(), "games": l.games, "line": mail::stat_line(l.pos, g),
         }));
     }
-    for r in w.stats.career(id) {
-        v.push(json!({
-            "year": r.year, "level": r.division.name(),
-            "team": views::team_brief(w, TeamRef::College(r.program as usize)),
-            "pos": r.pos.name(), "games": r.games, "line": mail::stat_line(r.pos, |s| r.get(s)),
-            "all_america": w.stats.honors.get(&id).is_some_and(|h| h.all_america.iter().any(|a| a.0 == r.year as i32)),
-        }));
+    let book = w.stats.career(id);
+    let mut college: Vec<(i32, Value)> = book
+        .iter()
+        .map(|r| {
+            (r.year as i32, json!({
+                "year": r.year, "level": r.division.name(),
+                "team": views::team_brief(w, TeamRef::College(r.program as usize)),
+                "pos": r.pos.name(), "games": r.games, "line": mail::stat_line(r.pos, |s| r.get(s)),
+                "all_america": w.stats.honors.get(&id).is_some_and(|h| h.all_america.iter().any(|a| a.0 == r.year as i32)),
+            }))
+        })
+        .collect();
+    // A college year without games has no line in the stat book: a redshirt
+    // year, or a season lost to injury. It still shows, so his years in
+    // school add up to his class (Cain, 2026-11-02: an RS Sr with three
+    // seasons). Only for a year the book kept lines for at his level: a
+    // world's history played on the stand-in has none for anyone.
+    let rows: Vec<_> =
+        p.player.history.iter().filter(|h| matches!(h.level, Level::FBS | Level::FCS | Level::SmallCollege)).collect();
+    // Both books end with his last finished season; his coaches' book
+    // starts with the world's first season, so his rows line up from the end.
+    let skip = rows.len().checked_sub(p.college_staff.len());
+    for (i, &(year, prog, _, _)) in p.college_staff.iter().enumerate() {
+        if book.iter().any(|r| r.year as i32 == year) || prog >= w.programs.len() {
+            continue;
+        }
+        let division = w.programs[prog].division;
+        if !w.stats.year(year).iter().any(|r| r.division == division) {
+            continue;
+        }
+        let h = skip.map(|s| rows[s + i]);
+        let line = match h {
+            Some(h) if h.playing_time == afm_engine::player::PlayingTime::Redshirt => {
+                "Redshirt year: practiced, no games"
+            }
+            Some(h) if h.games_missed > 0 => "Did not play: hurt",
+            _ => "Did not play",
+        };
+        college.push((
+            year,
+            json!({
+                "year": year, "level": division.name(),
+                "team": views::team_brief(w, TeamRef::College(prog)),
+                "pos": h.map_or(p.player.position, |h| h.position).name(), "games": 0, "line": line,
+            }),
+        ));
     }
+    college.sort_by_key(|c| c.0);
+    v.extend(college.into_iter().map(|c| c.1));
     if let Some(c) = &p.pro {
         for s in &c.seasons {
             let line = afm_engine::world::records::from_line(&s.stats);

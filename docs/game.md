@@ -1392,6 +1392,13 @@ A sidebar section of its own between Your team and World at every seat, with Sta
 - **Scouting file**: a camp or showcase row shows the laser forty stored that day, and a timed high schooler's speed and burst ranges are the read of those same times (23).
 - **Career notes**: a line that would repeat word for word (a second lost NIL deal, a second spring breakout, a second suspension, following a coach again) reads "again".
 
+### Minor bugs hotfix, batch 2 (2026-11-02, Cain's reports from play)
+
+- **A name in a table opens his page again**: the small faces in tables marked each name `data-fc`, the mark the recruiting desks' click handler listens for (`fo-college.js`), and that handler ate the click, so a name opened nothing and only right-click's "Open beside" worked. Faces now mark names `data-face-dot` (`faces.js`, `decorate`), and the desks' handler leaves a page link to app.js. Broken since the drawn heads (F14, 2026-10-24); a click elsewhere on the row still worked.
+- **The page beside keeps the tab you pick**: a page opened beside on a tab of its own (a depth chart name opens his Development tab) drew that tab again on every tab click. A tab click there now moves the page beside's own tab (`core.js`, the `tab` click); the Squad beside keeps its view the same way (`training.js`, `tr-sqview`).
+- **Depth chart, By position**: one "Depth chart" heading, and the table inside the page's padding (`training.js`, `screens.depth`).
+- **A college year without games shows on the Stats tab**: a redshirt year reads "Redshirt year: practiced, no games", a year lost to injury "Did not play: hurt", any other year without games "Did not play", so a player's years in school add up to his class (an RS Sr shows four college years). Only a year the stat book kept lines for at his level shows this way: a history played on the stand-in keeps none (`lane_core/pages.rs`, `seasons`).
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).
