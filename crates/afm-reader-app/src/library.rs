@@ -223,10 +223,11 @@ pub fn online(home: &Path) -> Result<Value, String> {
     let list: Value = get(&format!("https://api.github.com/repos/{WORLDS_REPO}/releases?per_page=40"))?
         .into_json()
         .map_err(|e| e.to_string())?;
+    // Newest published first: GitHub's own order follows the tags' one commit.
+    let mut list: Vec<&Value> = list.as_array().into_iter().flatten().collect();
+    list.sort_by(|a, b| b["published_at"].as_str().unwrap_or("").cmp(a["published_at"].as_str().unwrap_or("")));
     let rows: Vec<Value> = list
-        .as_array()
         .into_iter()
-        .flatten()
         .filter_map(|r| {
             let assets = book_assets(r);
             let (base, _) = book_base(&assets.first()?.0);
