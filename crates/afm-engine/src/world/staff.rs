@@ -1885,7 +1885,10 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             "not retained when his contract ran out" => {
                 format!("{name} lets head coach {coach_name}'s contract run out after {seasons}.")
             }
-            _ => format!("{name} fires head coach {coach_name} after his prove-it season ({seasons} in all)."),
+            _ => format!(
+                "{name} fires head coach {coach_name} after {} prove-it season ({seasons} in all).",
+                crate::world::pronoun::coach(w, c).his()
+            ),
         };
         college_news(w, p, &[c], NewsKind::CoachFired, text);
         super::recruiting::decommit_after_firing(w, p);
@@ -1992,8 +1995,9 @@ fn fire_in_season(w: &mut World, p: usize, c: usize) {
         &named,
         NewsKind::CoachFired,
         format!(
-            "{name} fires head coach {coach_name} {} games into his {} season ({}-{}). {interim} is the interim head coach.{money}",
+            "{name} fires head coach {coach_name} {} games into {} {} season ({}-{}). {interim} is the interim head coach.{money}",
             t.games(),
+            crate::world::pronoun::coach(w, c).his(),
             ordinal(tenure.max(1) as u32),
             t.wins,
             t.losses
@@ -3144,7 +3148,8 @@ pub(crate) fn take_job(w: &mut World, e: Employer, r: Role) {
     if let Some(j) = old {
         market::passed_on(w, j.employer, j.role);
         let o = Opening { employer: j.employer, role: j.role, prestige: employer_prestige(w, j.employer) };
-        departure_news(w, me, j, Opening { employer: e, role: r, prestige: 0.0 }, "his own choice");
+        let why = crate::world::pronoun::coach(w, me).say("his own choice");
+        departure_news(w, me, j, Opening { employer: e, role: r, prestige: 0.0 }, &why);
         match j.employer {
             Employer::College(p) => {
                 if j.role == Role::HeadCoach {

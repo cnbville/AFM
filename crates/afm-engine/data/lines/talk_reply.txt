@@ -6893,7 +6893,7 @@ That means more than any speech would.
 Thanks for doing that for me.
 I'm going to be worthy of that.
 You're good to me, Coach.
-Thank you, Coach. You're a good man.
+Thank you, Coach. You're a good {coach_man}.
 I'm going to honor that.
 That's what makes this place different.
 That's the kind of coach you are. Thank you.
@@ -6976,7 +6976,7 @@ Thank you. I'll handle it professionally. ~ pro
 I appreciate the trust. I'll respect it. ~ pro
 That's a smart move for both of us. Thank you. ~ pro
 Understood, and appreciated. ~ pro
-Coach, you're the man. ~ loose
+Coach, you're the best. ~ loose
 Okay, now you're spoiling me. ~ loose
 Look at you, taking care of me. I love it. ~ loose
 I don't deserve this, but I'm not giving it back. ~ loose

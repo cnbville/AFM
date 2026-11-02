@@ -881,8 +881,9 @@ pub(crate) fn crowds_why(w: &World, t: usize) -> String {
 pub(crate) fn contract_why(w: &World) -> String {
     let trust = super::boss_trust(w);
     format!(
-        "The owner today: {}. Owners give a coach a say once he has earned their trust.",
-        leash_words(trust).to_lowercase()
+        "The owner today: {}. Owners give a coach a say once {} has earned their trust.",
+        leash_words(trust).to_lowercase(),
+        crate::world::pronoun::you(w).he()
     )
 }
 

@@ -364,6 +364,8 @@ fn stories_about_you_are_answered_in_their_own_terms() {
     ];
     let mut opened = 0;
     for (n, kind) in kinds.into_iter().enumerate() {
+        // A lead holds three stories at a time: clear yours between kinds.
+        w.storylines.open.retain(|x| x.lead() != Some(Who::Coach(you)));
         let mut spot = Spot::new(kind, sl::subj(you as u64, 900 + n as u64)).team(team).lead(Who::Coach(you)).public();
         if kind == K::PublicFeud {
             spot = spot.rival(Who::Player(player));
@@ -380,8 +382,49 @@ fn stories_about_you_are_answered_in_their_own_terms() {
                 o.chips
             );
         }
-        let end = kind.def().endings[0].0;
-        sl::close(&mut w, id, end, None);
     }
     assert!(opened >= 8, "{opened} of {} opened in the NFL", kinds.len());
+}
+
+/// Your coach is he or she as you set it up (bug 178's follow-up, Cain's
+/// yes 2026-11-02): the stories, the fans and the records about you say it,
+/// and every other coach stays he.
+#[test]
+fn a_coach_set_up_as_she_is_she_in_the_worlds_words() {
+    use crate::world::folk::voice::{self, Facts};
+    use crate::world::pronoun::{self, Pro};
+    let (mut w, t) = nfl_world();
+    assert_eq!(pronoun::you(&w).he(), "he", "a career from before the choice reads as he");
+    w.career.as_mut().unwrap().you.she = true;
+    let you = w.career.as_ref().unwrap().coach;
+    assert_eq!((pronoun::you(&w).he(), pronoun::coach(&w, you).his()), ("she", "her"));
+    let other = (0..w.coaches.len()).find(|&c| c != you).unwrap();
+    assert_eq!(pronoun::coach(&w, other).he(), "he");
+    // A story with you as its lead fills {he} {his} {He} {man} with hers.
+    let spot =
+        Spot::new(K::RoomRift, sl::subj(you as u64, 990)).team(TeamKey::Nfl(t as u16)).lead(Who::Coach(you as u32));
+    let id = sl::notice(&mut w, spot.public()).expect("the story opens");
+    let s = w.storylines.get(id).unwrap().clone();
+    let f = crate::world::storylines::tell::fill(&w, &s);
+    assert_eq!(
+        [f.get("he"), f.get("his"), f.get("He"), f.get("man")],
+        [Some("she"), Some("her"), Some("She"), Some("woman")]
+    );
+    // A line naming the head coach's pronouns says hers, with its capital
+    // where it opens a sentence; a line said to you with no coach named
+    // speaks of you.
+    let mut rng = crate::rng::Rng::new(7);
+    let mut facts = Facts::new();
+    facts.set("coach", "Coach Hale");
+    facts.coach(pronoun::coach(&w, you));
+    let line = voice::fill("{coach} did {coach_his} job. {coach_he} knows it.", &facts, &mut rng, Pro::HE);
+    assert_eq!(line, "Coach Hale did her job. She knows it.");
+    assert_eq!(voice::fill("Give {coach_him} time.", &Facts::new(), &mut rng, pronoun::you(&w)), "Give her time.");
+    // The world's stored reasons stay its keys; what you read is in your words.
+    assert_eq!(Pro::SHE.say("not retained when his contract ran out"), "not retained when her contract ran out");
+    assert_eq!(Pro::HE.say("retired for his health"), "retired for his health");
+    assert_eq!(pronoun::to_you("fired after his prove-it year"), "fired after your prove-it year");
+    // Your coach speaks as she: no line written for a man.
+    let sp = voice::Speaker::coach(&w, you);
+    assert!(sp.tags.contains(&"she"));
 }

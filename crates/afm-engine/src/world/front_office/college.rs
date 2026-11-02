@@ -2164,6 +2164,7 @@ mod tests {
             born: crate::calendar::born::unknown(),
             aura: 0.0,
             came_up: None,
+            she: false,
         }
     }
 

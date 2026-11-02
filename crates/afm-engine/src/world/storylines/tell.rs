@@ -111,6 +111,18 @@ const MONTHS: [&str; 12] = [
     "December",
 ];
 
+/// The lead's he or she: your own coach as you set it up, a boss as drawn,
+/// everyone else he.
+pub(crate) fn lead_pro(w: &World, s: &Story) -> crate::world::pronoun::Pro {
+    match s.lead() {
+        Some(Who::Coach(c)) => crate::world::pronoun::coach(w, c as usize),
+        Some(Who::Boss(t)) => {
+            crate::world::pronoun::Pro { she: crate::world::folk::boss::boss(w, super::folk_team(t)).she }
+        }
+        _ => crate::world::pronoun::Pro::HE,
+    }
+}
+
 /// Every value a story's lines may name.
 pub(crate) fn fill(w: &World, s: &Story) -> Fill {
     let mut f = Fill::new();
@@ -175,6 +187,17 @@ pub(crate) fn fill(w: &World, s: &Story) -> Fill {
             }
         }
     }
+    // The lead's he or she: {he} {him} {his} {He} {His} {himself} {man}. Your
+    // own coach as you set it up, a boss as drawn, everyone else he.
+    let pro = lead_pro(w, s);
+    f = f
+        .set("he", pro.he())
+        .set("him", pro.him())
+        .set("his", pro.his())
+        .set("He", pro.he_cap())
+        .set("His", pro.his_cap())
+        .set("himself", pro.himself())
+        .set("man", pro.man());
     if let Some(t) = s.team {
         let b = crate::world::folk::boss::boss(w, super::folk_team(t));
         f = f.set("boss", b.name.clone()).set("boss_title", b.title.to_lowercase());
@@ -775,6 +798,11 @@ pub(crate) fn quote(w: &mut World, s: &Story, part: Part) -> Option<String> {
         if let Some(v) = f.get(k) {
             facts.set(k, v.to_string());
         }
+    }
+    // He or she for the lead and the team's head coach ({lead_he}, {coach_he}).
+    facts.lead(lead_pro(w, s));
+    if let Some(c) = s.team.and_then(|t| head_coach(w, t)) {
+        facts.coach(crate::world::pronoun::coach(w, c));
     }
     let part_key = match part {
         Part::Lead => "lead",

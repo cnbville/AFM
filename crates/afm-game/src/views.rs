@@ -2009,7 +2009,8 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
             } else {
                 format!("{}-{}", s.wins, s.losses)
             };
-            json!({ "where": name, "role": s.role.name(), "from": s.from, "to": s.to, "record": record, "ended": s.ended })
+            let ended = afm_engine::world::pronoun::coach(w, c).say(&s.ended);
+            json!({ "where": name, "role": s.role.name(), "from": s.from, "to": s.to, "record": record, "ended": ended })
         })
         .collect();
     let mentor = co.mentor.and_then(|m| w.coaches.get(m)).map(|m| json!({ "id": m.id, "name": m.name }));
@@ -2019,6 +2020,7 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
         "came_up": came_up(w, c), "ex_pro": co.ex_pro, "job": job, "history": history,
         "mentor": mentor, "titles": co.career_titles,
         "you": w.career.as_ref().is_some_and(|k| k.coach == c),
+        "she": afm_engine::world::pronoun::coach(w, c).she,
         "ats": ats_text(w, c),
     }))
 }

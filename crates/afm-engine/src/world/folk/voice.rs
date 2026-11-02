@@ -32,6 +32,7 @@ use crate::calendar::Date;
 use crate::player::Trait;
 use crate::rng::Rng;
 use crate::world::World;
+use crate::world::pronoun::Pro;
 
 const BANKS: &[&str] = &[
     include_str!("../../../data/lines/takeover.txt"),
@@ -137,7 +138,11 @@ impl Bank {
                 let mut rest = text;
                 while let Some(a) = rest.find('{') {
                     let Some(z) = rest[a..].find('}') else { break };
-                    facts.push(rest[a + 1..a + z].to_string());
+                    // A pronoun is always there: he unless the facts or the
+                    // pen say she.
+                    if !is_pronoun(&rest[a + 1..a + z]) {
+                        facts.push(rest[a + 1..a + z].to_string());
+                    }
                     rest = &rest[a + z + 1..];
                 }
                 // The id is the version's own (its part and its words), so a
@@ -459,6 +464,10 @@ impl Speaker {
     pub fn coach(w: &World, c: usize) -> Speaker {
         let co = &w.coaches[c];
         let mut tags: Vec<&'static str> = vec!["coach"];
+        // Your own coach speaks as you set it up: no "my wife" from her.
+        if crate::world::pronoun::coach(w, c).she {
+            tags.push("she");
+        }
         let pe = co.personality;
         if pe.temper >= 14.0 {
             tags.push("hot");
@@ -627,6 +636,23 @@ impl Facts {
     pub fn get(&self, k: &str) -> Option<&str> {
         self.0.iter().find(|x| x.0 == k).map(|x| x.1.as_str())
     }
+    /// The coach's pronouns, {coach_he} {coach_him} {coach_his}
+    /// {coach_himself} {coach_man}: whoever {coach} names.
+    pub fn coach(&mut self, pro: Pro) -> &mut Facts {
+        self.pronouns("coach", pro)
+    }
+    /// A story lead's, {lead_he} and the rest.
+    pub fn lead(&mut self, pro: Pro) -> &mut Facts {
+        self.pronouns("lead", pro)
+    }
+    fn pronouns(&mut self, who: &'static str, pro: Pro) -> &mut Facts {
+        let coach = who == "coach";
+        self.set(if coach { "coach_he" } else { "lead_he" }, pro.he());
+        self.set(if coach { "coach_him" } else { "lead_him" }, pro.him());
+        self.set(if coach { "coach_his" } else { "lead_his" }, pro.his());
+        self.set(if coach { "coach_himself" } else { "lead_himself" }, pro.himself());
+        self.set(if coach { "coach_man" } else { "lead_man" }, pro.man())
+    }
 }
 
 /// Writes lines: the bank, a seeded stream and the speakers' memories.
@@ -636,6 +662,9 @@ pub struct Pen {
     pub rng: Rng,
     today: Date,
     said: Vec<(u64, Vec<(u32, Date)>)>,
+    /// Your words: what {coach_he} and the like say when the facts don't
+    /// name the coach (a line said to you speaks of you).
+    you: Pro,
 }
 
 /// How long a version rests before the same speaker says it to you again:
@@ -648,17 +677,18 @@ impl Pen {
             rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000),
             today: w.today,
             said: std::mem::take(&mut w.folk.said_on),
+            you: crate::world::pronoun::you(w),
         }
     }
 
     /// A pen with no memories (tests, and lines nobody hears twice).
     pub fn loose(seed: u64) -> Pen {
-        Pen { rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000), today: Date(0), said: Vec::new() }
+        Pen { rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000), today: Date(0), said: Vec::new(), you: Pro::HE }
     }
 
     /// A pen with its own memories on its own day (the repeat proof).
     pub fn on(seed: u64, today: Date, said: Vec<(u64, Vec<(u32, Date)>)>) -> Pen {
-        Pen { rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000), today, said }
+        Pen { rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000), today, said, you: Pro::HE }
     }
 
     /// Moves the pen's day on (the repeat proof writes a season with one pen).
@@ -736,7 +766,7 @@ impl Pen {
             fresh[self.rng.weighted(&weights)]
         };
         self.remember(who.key, f.id);
-        Some(fill(&f.text, facts, &mut self.rng))
+        Some(fill(&f.text, facts, &mut self.rng, self.you))
     }
 
     /// A whole line from several parts; a part starting with `?` is
@@ -803,7 +833,7 @@ impl Chorus {
         };
         self.n += 1;
         self.used.insert((who.key, f.id), self.n);
-        Some(fill(&f.text, facts, &mut self.rng))
+        Some(fill(&f.text, facts, &mut self.rng, Pro::HE))
     }
 
     /// A whole line from several parts, as `Pen::line` (`?` marks a part
@@ -826,8 +856,33 @@ impl Chorus {
     }
 }
 
+/// The pronoun facts a line may name about the coach ({coach_he}) or a
+/// story's lead ({lead_he}). Always there: set by the caller (`Facts::coach`,
+/// `Facts::lead`), else your own for the coach on a pen's line, else he.
+const PRONOUNS: [&str; 5] = ["he", "him", "his", "himself", "man"];
+
+fn is_pronoun(k: &str) -> bool {
+    k.strip_prefix("coach_").or_else(|| k.strip_prefix("lead_")).is_some_and(|w| PRONOUNS.contains(&w))
+}
+
+fn pronoun(k: &str, coach: Pro) -> Option<&'static str> {
+    let (pro, w) = match (k.strip_prefix("coach_"), k.strip_prefix("lead_")) {
+        (Some(w), _) => (coach, w),
+        (_, Some(w)) => (Pro::HE, w),
+        _ => return None,
+    };
+    Some(match w {
+        "he" => pro.he(),
+        "him" => pro.him(),
+        "his" => pro.his(),
+        "himself" => pro.himself(),
+        "man" => pro.man(),
+        _ => return None,
+    })
+}
+
 /// Fills a version: its choices and its facts.
-fn fill(text: &str, facts: &Facts, rng: &mut Rng) -> String {
+pub(crate) fn fill(text: &str, facts: &Facts, rng: &mut Rng, you: Pro) -> String {
     let mut out = String::with_capacity(text.len() + 32);
     let mut rest = text;
     loop {
@@ -848,7 +903,17 @@ fn fill(text: &str, facts: &Facts, rng: &mut Rng) -> String {
             let opts: Vec<&str> = inner.split('|').collect();
             out.push_str(opts[rng.int(0, opts.len() as i32 - 1) as usize]);
         } else {
-            out.push_str(facts.get(inner).unwrap_or(""));
+            let v = facts.get(inner).or_else(|| pronoun(inner, you)).unwrap_or("");
+            // A pronoun that opens a sentence takes its capital here, for a
+            // part said on its own.
+            let opens = out.trim_end().is_empty() || out.trim_end().ends_with(['.', '!', '?', '"']);
+            match v.chars().next() {
+                Some(c) if is_pronoun(inner) && opens => {
+                    out.extend(c.to_uppercase());
+                    out.push_str(&v[c.len_utf8()..]);
+                }
+                _ => out.push_str(v),
+            }
         }
         rest = &rest[a + z + 1..];
     }

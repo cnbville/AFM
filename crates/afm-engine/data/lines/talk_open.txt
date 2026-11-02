@@ -1043,7 +1043,7 @@ Coach, what's the word? ~ loose
 Hey, I wasn't late, right? Okay good. ~ loose
 Coach, this better be good news. I'm kidding. Mostly. ~ loose
 Coach. Your favorite player is here. ~ ego loose
-The man himself. What's up, Coach? ~ ego
+The {coach_man} {coach_himself}. What's up, Coach? ~ ego
 I figured you'd want to talk to me eventually. Kidding. What's up? ~ ego
 Coach, I've been balling. You see it. What's up? ~ ego young
 You called the right guy in, Coach. What's up? ~ ego
@@ -1157,7 +1157,7 @@ Coach! Perfect day, isn't it?
 Afternoon, Coach. Couldn't ask for a better one.
 There he is! The man with the big desk.
 Knock knock. You called for me?
-Look at this, the head man's office. I'm honored. What's up?
+Look at this, the head coach's office. I'm honored. What's up?
 Present and accounted for, Coach.
 Reporting as ordered, sir. In a fine mood, too.
 Man, I'm feeling light today. What can I do for you?
@@ -1463,7 +1463,7 @@ I know, I know. You're not used to seeing me this cheerful.
 Hold on, let me catch my breath. I jogged here because I felt like it.
 Whew. Good day. What's up?
 Funny thing, I was just thinking about how much I like it here.
-{coach}! Just the man I wanted to see.
+{coach}! Just the {coach_man} I wanted to see.
 Afternoon, {coach}. I'm doing very well, thanks.
 Good to see you, {coach}. Honestly, things are great.
 Feeling good. Your floor, Coach.
@@ -1816,7 +1816,7 @@ Took care of my body, took care of my mind. Ready to listen. ~ pro
 Ready when you are. I'm squared away and in good spirits. ~ pro
 If you're handing out good moods, I already got mine. ~ loose
 Do I get a snack for showing up? No? Still happy. ~ loose
-My man! Look at you, Coach! ~ loose
+Ayy! Look at you, Coach! ~ loose
 Tell me you called me in just to hang out. ~ loose
 You know you're lucky to have me, right? Just checking. ~ ego
 Feeling like the guy today. You see it too, right? ~ ego
@@ -2381,7 +2381,7 @@ Do you want to go first, or should I?
 Let me know how long you need me.
 I've got all afternoon if it takes all afternoon.
 Took me a minute to find you. You weren't in the usual spot.
-Somebody said the head man wanted me. Here I am.
+Somebody said the head coach wanted me. Here I am.
 Not sure if I should be worried or not, honestly.
 Tell me what you need from me, Coach.
 Lot of people outside your door. Should I wait my turn?

@@ -317,7 +317,7 @@ Nobody wants this job until they get it. Then nobody wants to leave. Welcome.
 I bet everybody's told you how special this place is. Let me be the one who tells you it's also a little crazy. ~ blunt
 The guys at the coffee shop gave your press conference a B-plus. That's high for them. ~ college
 You picked a fine time to come aboard, Coach. Everybody's still in a forgiving mood.
-I like to meet the new coach before the town decides who he is.
+I like to meet the new coach before the town decides who {coach_he} is.
 The building's been quiet for a few weeks. It'll be loud again now that you're here. ~ kin
 I've watched a lot of men walk into this building on their first day. You walk like you mean it. ~ kin old
 My people have been in {town} for five generations. I've never seen this town want a coach to succeed this much.
@@ -330,7 +330,7 @@ I only have one question today, and it's not about football. How are you holding
 I'm told you prefer handshakes to speeches. Same here.
 Every time this place hires a coach, I buy a new hat. This is my new hat.
 The chamber of commerce wants a picture of you with a ribbon and a big pair of scissors. I told them I'd ask. ~ !nfl
-I hope you're a patient man, Coach. This town isn't. ~ blunt
+I hope you're a patient {coach_man}, Coach. This town isn't. ~ blunt
 Good to meet the new boss of the {team}. Well, the second boss. Don't tell the family I said that. ~ kin
 You'll be fine here. I can tell already. ~ warm
 Here's the thing about {town}. Win and you never pay for a meal. Lose and you'd better cook at home.
@@ -614,7 +614,7 @@ I dated somebody from {rival} once. It lasted about one {rivalry}. ~ !nfl
 My first fight was over {rival}. Third grade. I won.
 When they let me, I watch practice from way back. I just like the sound of the pads.
 You'll meet the old players soon. Some still come to every game. They'll shake your hand and tell you about their knees.
-Where'd you grow up, Coach? I like to know where a man learned his football.
+Where'd you grow up, Coach? I like to know where a coach learned {coach_his} football.
 You a fisherman? Doesn't matter if you're any good. Most of it's sitting.
 You a morning person? Better be. This town eats breakfast at five-thirty. ~ !nfl
 You follow baseball at all? I need somebody to talk to in the summer.
@@ -764,7 +764,7 @@ Friday night against {rival} fills the stands. Win it and the town will follow y
 You'll get a lot of advice in this town. Mine fits on a napkin. Beat {rival}.
 I can live with a lot of losses. One to {rival} isn't on that list.
 I've got the week of {rivalry} blocked off on my calendar for as long as I'm breathing. ~ old
-When people ask me about the new coach, I want to give them one sentence. He beats {rival}.
+When people ask me about the new coach, I want to give them one sentence. {coach_he} beats {rival}.
 Spare me the talk about process. I want the {rival} game. ~ blunt
 Every dollar I give, I give thinking about {rival}. ~ tight
 Their people are already talking about your hire. Give me something to say back. ~ hot

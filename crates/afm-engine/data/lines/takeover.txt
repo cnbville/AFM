@@ -18,7 +18,7 @@ Three things matter to me. You go to class. You get better every day. You don't 
 Some of you came here to play for Coach {old_last}. I understand that. All I'm asking is the same fair shot you gave him. ~ !nfl
 I know what {rivalry} means in {town}. We'll get to that. Today is about the people in this room. ~ !nfl
 I'm going to make mistakes this year. When I do, you'll hear me own them. I'll expect the same from you.
-Gentlemen, I'm {coach}. Some of you have worn this jersey since seventh grade, and I'm the new guy. I know I've got to earn it. ~ hs
+Gentlemen, I'm {coach}. Some of you have worn this jersey since seventh grade, and I'm the new one here. I know I've got to earn it. ~ hs
 I'll be at your track meets and your basketball games this spring. I want to know you as more than football players. ~ hs
 Grades come first. If you can't stay eligible, you can't help us on Friday night, and you can't help yourself. ~ hs
 I've sat in a lot of living rooms recruiting young men like you. Nobody in here got a scholarship by accident. ~ college
