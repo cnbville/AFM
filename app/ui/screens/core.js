@@ -630,14 +630,16 @@ document.addEventListener("mouseout", (ev) => {
 function openBeside(screen, args) {
   peekHide();
   S.beside = { screen, args: args || {} };
-  drawBeside();
+  drawBeside(true);
 }
 function closeBeside() {
   S.beside = null;
   document.querySelectorAll(".beside").forEach((b) => b.remove());
   document.documentElement.classList.remove("has-beside");
 }
-async function drawBeside(fresh) {
+// fresh: a new page, from its top; from: the tab or segment clicked inside
+// it, which keeps its place on screen (app.js, keepAnchor).
+async function drawBeside(fresh, from) {
   const b = S.beside;
   if (!b || !screens[b.screen]) return;
   let el = document.querySelector(".beside");
@@ -650,6 +652,7 @@ async function drawBeside(fresh) {
   }
   const body = el.querySelector(".beside-body");
   const top = fresh ? 0 : body.scrollTop;
+  const anchor = fresh ? null : anchorOf(from, body);
   const keepTitle = S.title;
   S.besideDrawing = true;
   try {
@@ -658,6 +661,7 @@ async function drawBeside(fresh) {
     el.querySelector(".beside-title").textContent = S.title || CRUMBS[b.screen] || b.screen;
     body.innerHTML = html;
     body.scrollTop = top;
+    keepAnchor(body, anchor);
     bigWire();
   } catch (e) { body.innerHTML = `<div class="empty">${esc(e.message || e)}</div>`; }
   finally { S.besideDrawing = false; S.title = keepTitle; }

@@ -1399,6 +1399,11 @@ A sidebar section of its own between Your team and World at every seat, with Sta
 - **Depth chart, By position**: one "Depth chart" heading, and the table inside the page's padding (`training.js`, `screens.depth`).
 - **A college year without games shows on the Stats tab**: a redshirt year reads "Redshirt year: practiced, no games", a year lost to injury "Did not play: hurt", any other year without games "Did not play", so a player's years in school add up to his class (an RS Sr shows four college years). Only a year the stat book kept lines for at his level shows this way: a history played on the stand-in keeps none (`lane_core/pages.rs`, `seasons`).
 
+### Minor bugs hotfix, batch 3 (2026-11-02, the sidebar's scroll)
+
+- **A tab you pick stays where it was on screen**: picking a tab (or a segment such as Seasons and Game logs) in the page beside or on the main screen scrolls the page so the tab sits exactly where you clicked it, and a tab shorter than the window gets room below it instead of pulling the page up (`app.js`, `anchorOf`, `keepAnchor`, used by `refresh` and `drawBeside`). A short tab like Stats used to pull the sidebar up, and the next tab kept that spot.
+- **The page beside keeps its scroll when the screen behind it draws again** (a click there, Continue): it went back to its top every time (`app.js`, `render`). A page newly opened beside still starts at its top (`openBeside`).
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

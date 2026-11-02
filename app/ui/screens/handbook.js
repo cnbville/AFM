@@ -190,8 +190,8 @@ async function hb8Week() {
     if (HB8.week === null) hb8Week().then(hb8Seen); else hb8Seen();
   };
   const beside0 = drawBeside;
-  drawBeside = async function (fresh) {
-    await beside0(fresh);
+  drawBeside = async function (fresh, from) {
+    await beside0(fresh, from);
     const el = document.querySelector(".beside");
     if (el) el.classList.toggle("hb8-side", !!S.beside && S.beside.screen === "handbook");
     hb8Pins();

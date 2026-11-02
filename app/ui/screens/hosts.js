@@ -88,7 +88,7 @@ CORE_MORE.hosttab = (el) => {
   const d = el.dataset;
   keep("host:" + d.host, {}).on = d.on;
   if (el.closest(".beside")) {
-    if (S.beside) { S.beside = { screen: d.host, args: { on: d.on } }; drawBeside(true); }
+    if (S.beside) { S.beside = { screen: d.host, args: { on: d.on } }; drawBeside(false, el); }
     return;
   }
   S.route.screen = d.host;
