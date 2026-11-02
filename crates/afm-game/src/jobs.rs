@@ -256,10 +256,8 @@ pub fn online(worlds: &Path) -> Result<Value, String> {
         .into_json()
         .map_err(|e| e.to_string())?;
     let mut seen = std::collections::HashSet::new();
-    let rows: Vec<Value> = list
-        .as_array()
+    let rows: Vec<Value> = newest_first(&list)
         .into_iter()
-        .flatten()
         .filter_map(|r| {
             let assets = world_assets(r);
             let first = assets.first()?.0.clone();
@@ -281,6 +279,17 @@ pub fn online(worlds: &Path) -> Result<Value, String> {
         })
         .collect();
     Ok(json!({ "repo": WORLDS_REPO, "worlds": rows }))
+}
+
+/// The worlds page's releases, newest published first. GitHub lists them by
+/// the date of the commit each tag points at, and every world's tag points at
+/// the worlds page's one commit, so its own order is no order at all
+/// (2026-11-02: seed 11 came 7th of 9, and the 21 October seed 2026 build
+/// was kept as the newest).
+pub fn newest_first(list: &Value) -> Vec<&Value> {
+    let mut v: Vec<&Value> = list.as_array().into_iter().flatten().collect();
+    v.sort_by(|a, b| b["published_at"].as_str().unwrap_or("").cmp(a["published_at"].as_str().unwrap_or("")));
+    v
 }
 
 /// Whether a release (tag `name-<commit>`, published at `date`) is a newer
@@ -351,8 +360,23 @@ pub fn download(shared: &Shared, worlds: &Path, tag: &str) -> Result<(), String>
 
 #[cfg(test)]
 mod tests {
-    use super::newer_build;
+    use super::{newer_build, newest_first};
     use serde_json::json;
+
+    #[test]
+    fn the_worlds_page_lists_newest_first() {
+        let list = json!([
+            { "tag_name": "world-2026-seed2026-fbd9131", "published_at": "2026-10-21T19:51:58Z" },
+            { "tag_name": "world-2026-seed11-e581227", "published_at": "2026-11-01T19:27:02Z" },
+            { "tag_name": "draft", "published_at": null },
+            { "tag_name": "world-2026-seed2026-0d6b38c", "published_at": "2026-11-01T10:42:19Z" },
+        ]);
+        let tags: Vec<&str> = newest_first(&list).iter().map(|r| r["tag_name"].as_str().unwrap()).collect();
+        assert_eq!(
+            tags,
+            ["world-2026-seed11-e581227", "world-2026-seed2026-0d6b38c", "world-2026-seed2026-fbd9131", "draft"]
+        );
+    }
 
     #[test]
     fn a_newer_build_of_a_library_world() {
