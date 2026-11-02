@@ -1115,7 +1115,11 @@ screens.depth = async (a) => {
   const head = pageHead({ kicker: `${esc(trTier(x.tier))} · game day`, title: "Depth chart", sub: "Drag a player onto a spot, or click a spot and then a player. Your position coaches' picks show under each spot; where you set an order, the engine plays yours.", goto: trGoto([["Squad", "roster"], ["Training", "training"], ["Playbook", "plans"], ["Game day", "gameday"], ["Schedule", "schedule"]]) });
   const tabsHtml = tabs("trboard", names.map((n) => { const b = x.boards.find((q) => q.label === n); return b && b.yours ? { name: n, badge: "●" } : n; }), tab);
   if (tab === "By position") {
+    // The position table inside this page's own padding, under its head:
+    // without its second "Depth chart" heading, flush to the window's edge.
     const inner = await depthBase(a);
+    const open = /^<div class="film"><div class="pad">\s*<div class="h1">Depth chart<\/div>/;
+    if (open.test(inner)) return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}${inner.replace(open, "").replace(/<\/div><\/div>\s*$/, "")}</div></div>`;
     return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}</div>${inner.replace('<div class="film">', "<div>")}</div>`;
   }
   const b = x.boards.find((q) => q.label === tab) || x.boards[0];
@@ -1325,7 +1329,12 @@ document.addEventListener("click", async (ev) => {
       break;
     }
     case "tr-squnit": keep("sqf", {}).unit = d.v; trRedraw(); break;
-    case "tr-sqview": keep("sqview", {}).v = d.v; S.route.args = { ...S.route.args, view: d.v }; trRedraw(); break;
+    case "tr-sqview":
+      keep("sqview", {}).v = d.v;
+      // The Squad beside the screen keeps its own view, as a tab does (core.js).
+      if (el.closest(".beside")) { if (S.beside) S.beside.args = { ...S.beside.args, view: d.v }; drawBeside(); }
+      else { S.route.args = { ...S.route.args, view: d.v }; trRedraw(); }
+      break;
     case "tr-sqadv": if (await trDo("eval_advisory", { id: Number(d.id), on: d.on === "1" }, (r) => r.said)) trRedraw(); break;
     case "tr-sqtalk": if (await trDo("eval_talk", { id: Number(d.id), say: Number(d.say) }, (r) => r.said)) trRedraw(); break;
     case "tr-pp": {
