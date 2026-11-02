@@ -659,7 +659,8 @@ async function render(scroll) {
     app.dataset.page = "";
     const keepY = scroll ?? null;
     app.innerHTML = frame(html, crumbHtml());
-    if (S.beside) drawBeside(true);
+    // The page beside stays where you scrolled it while the screen draws again.
+    if (S.beside) drawBeside();
     if (typeof afterRender === "function") afterRender();
     fitBoxes();
     if (keepY) $(".view").scrollTop = keepY;
@@ -670,10 +671,33 @@ async function render(scroll) {
   }
 }
 // Draws the screen again where it is (a tab, a filter): a control inside
-// the page beside redraws that page only.
+// the page beside redraws that page only. A tab or segment you click stays
+// where it was on screen (anchorOf, keepAnchor).
 function refresh(el) {
-  if (el && el.closest && el.closest(".beside")) return drawBeside();
-  return render($(".view") ? $(".view").scrollTop : 0);
+  if (el && el.closest && el.closest(".beside")) return drawBeside(false, el);
+  const v = $(".view");
+  const a = anchorOf(el, v);
+  return render(v ? v.scrollTop : 0).then(() => keepAnchor($(".view"), a));
+}
+// A tab or a segment button you clicked, and where it sat in its scrolling
+// box. After the page draws again the box scrolls so the same button sits
+// in the same place, and a short tab gets room below it, so picking a tab
+// never throws you back up the page (Cain, 2026-11-02: the page beside
+// jumped up on each tab).
+function anchorOf(el, box) {
+  if (!el || !el.dataset || !box || !el.closest || !el.closest('[role=tablist], .tabsline, .seg, .sb-seg')) return null;
+  const d = el.dataset;
+  const sel = ["act", "key", "t", "v", "host", "on"].filter((k) => d[k] != null).map((k) => `[data-${k}="${CSS.escape(d[k])}"]`).join("");
+  return sel ? { sel, y: el.getBoundingClientRect().top - box.getBoundingClientRect().top } : null;
+}
+function keepAnchor(box, a) {
+  if (!box || !a) return;
+  const el = box.querySelector(a.sel);
+  if (!el) return;
+  const want = Math.max(0, Math.round(box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - a.y));
+  const short = want + box.clientHeight - box.scrollHeight;
+  if (short > 0) box.insertAdjacentHTML("beforeend", `<div class="anchor-room" style="height:${Math.ceil(short)}px" aria-hidden="true"></div>`);
+  box.scrollTop = want;
 }
 
 // A long table scrolls in its own box that ends at the window's bottom
