@@ -91,6 +91,21 @@ pub fn friends(w: &World, id: u32) -> Vec<u32> {
     v.into_iter().map(|x| x.0).collect()
 }
 
+/// You ask one player to look out for another (a talk's Hand): their
+/// friendship grows, or a new one starts.
+pub(crate) fn bond(w: &mut World, a: u32, b: u32, by: u8) {
+    let year = w.year as i16;
+    let ties = &mut w.folk.ties;
+    let same = |t: &Tie| t.kind == Kind::Friend && (t.a == a && t.b == b || t.a == b && t.b == a);
+    if let Some(t) = ties.list.iter_mut().find(|t| same(t)) {
+        t.strength = t.strength.saturating_add(by).min(100);
+        t.together = true;
+    } else {
+        ties.list.push(Tie { a, b, kind: Kind::Friend, strength: 25 + by, since: year, together: true });
+        ties.changed();
+    }
+}
+
 /// Every tie of a player, in words for his page: (other id, words).
 pub fn of(w: &World, id: u32) -> Vec<(u32, String)> {
     w.folk
@@ -402,7 +417,16 @@ fn portal_pull(w: &mut World, d: Date) {
         if p.stage != Stage::College || p.cal.lean <= 0.0 {
             continue;
         }
-        let f = 1.0 + 0.25 * s / 100.0 * (1.0 + 0.04 * (p.player.personality.traits.get(Trait::Loyalty) - 10.0));
+        // A starter weighs what he has here against following a friend
+        // (Cain 2026-11-03: a WR1 at a D1 school doesn't throw that away);
+        // a backup has less to lose.
+        let role = match p.last_role {
+            Some(crate::player::PlayingTime::Starter) => 0.4,
+            Some(crate::player::PlayingTime::Rotation) => 0.7,
+            _ => 1.0,
+        };
+        let f = 1.0
+            + 0.25 * role * s / 100.0 * (1.0 + 0.04 * (p.player.personality.traits.get(Trait::Loyalty) - 10.0));
         p.cal.lean *= f;
         p.cal.lean_events.push((d, "a close friend entered the portal", f));
     }
