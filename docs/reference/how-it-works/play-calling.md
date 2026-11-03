@@ -244,7 +244,7 @@ Every team's staff carries its head coach's guidelines (`game/roster.rs`, `Staff
 | Quarter | 15:00 | 15:00 | 12:00 |
 | Hash, yards from the middle | 3.083 | 6.667 | 8.889 (6.667 in Texas and Massachusetts) |
 | Feet in bounds | 2 | 1 | 1 |
-| Kickoff from / touchback | 35 / 35, the 2025 kickoff (history: the 30 to 2010; touchback 20 to 2015, 25 to 2023, 30 in 2024) | 35 / 25 (the 30 to 2006; touchback 20 to 2011) | 40 / 20 |
+| Kickoff from / touchback | 35 / 35, the 2025 kickoff (history: the 30 to 2010; touchback 20 to 2015, 25 to 2023, 30 in 2024) | 35 / 25 (the 30 in 2007-2011; touchback 20 to 2011; a fair catch inside the 25 a touchback from 2018) | 40 / 20 |
 | Extra point kick from | 15 (the 2 to 2014) | 3 | 3 |
 | Two-point try from | 2 | 3 | 3 |
 | Two-minute warning | yes | the two-minute timeout in each half from 2024 (none before) | no |
@@ -282,4 +282,6 @@ Every team's staff carries its head coach's guidelines (`game/roster.rs`, `Staff
 
 - **The week's instructions** (minor bug 238, B54): all ten agreed ones for one opponent, the kneel depth at 4 yards (`world/plans.rs`, `ORDERS`; new ones at the end, so a saved week keeps its orders).
 - **The kicker's range on the week's plan** (minor bug 234, B50): from your staff's read of his leg and accuracy, not the truth (`crates/afm-game/src/lane_gameplan/week.rs`).
-- **Helmet radio** (minor bug 206, B22): the coach-to-player radio is the NFL's always, college's from 2024, never high school's; the game day settings say so (`crates/afm-game/src/lane_gameday.rs`, `helmet_radio`).
+- **Helmet radio** (minor bug 206, B22): the coach-to-player radio is the NFL's always, college's from 2024, never high school's; of the other leagues the AAF, the XFL of 2020 and 2023, the USFL and the UFL; the game day settings say so, and stay neutral for the rest (`crates/afm-game/src/lane_gameday.rs`, `helmet_radio`).
+- **College kickoffs by era** (minor bug 230, B46; Cain's yes 2026-11-03): from the 35, the 30 in 2007-2011, the 35 again from 2012 (`game/rules.rs`, `Rules::for_year`). Match engine results change for those college seasons.
+- **The kickoff fair-catch touchback** (minor bug 231, B47; Cain's yes 2026-11-03): a fair catch inside the 25 is a touchback in college from 2018 and in the NFL in 2023 only (`Rules::fair_catch_touchback`; `game/kicking.rs`). Before, it fired in college from 2012 and the NFL from 2016 to 2023. Match engine results change for those seasons.

@@ -37,6 +37,17 @@ fn rule_books_follow_history() {
     );
     assert_eq!(Rules::for_year(Level::FBS, 2022, false).first_down_stop, FirstDownStop::Always);
     assert_eq!(Rules::for_year(Level::FBS, 2023, false).first_down_stop, FirstDownStop::LastTwoMinutes);
+    // College kicks off from the 30 only in 2007-2011 (minor bug B46); a
+    // fair catch inside the 25 is a touchback in college from 2018 and in
+    // the NFL in 2023 only (B47).
+    let kick = |l: Level, y: i32| Rules::for_year(l, y, false).kickoff_from;
+    assert_eq!(
+        [kick(Level::FBS, 2006), kick(Level::FBS, 2007), kick(Level::FBS, 2011), kick(Level::FBS, 2012)],
+        [35.0, 30.0, 30.0, 35.0]
+    );
+    let fc = |l: Level, y: i32| Rules::for_year(l, y, false).fair_catch_touchback;
+    assert!(!fc(Level::FBS, 2017) && fc(Level::FBS, 2018) && Rules::for_level(Level::FBS).fair_catch_touchback);
+    assert!(!fc(Level::NFL, 2022) && fc(Level::NFL, 2023) && !fc(Level::NFL, 2024) && !fc(Level::HS, 2023));
 }
 
 /// Below the NFL fourth downs and EPA read the real college table (F30).

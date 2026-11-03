@@ -92,7 +92,23 @@ pub(crate) fn actives(w: &World, t: usize) -> Vec<(usize, bool)> {
     }
     out.truncate(limit);
     super::squad::elevate(w, t, &mut out);
+    eight_linemen(w, &mut out);
     out
+}
+
+/// From 2020 a club dresses its full number (48) only when eight of them
+/// are offensive linemen, otherwise one fewer (minor bug B29): the last
+/// backup who isn't a lineman sits. The emergency third quarterback of 2023
+/// on, who dresses outside the count, isn't played here.
+fn eight_linemen(w: &World, out: &mut Vec<(usize, bool)>) {
+    let limit = w.rules.nfl_actives as usize;
+    let line = |i: usize| matches!(w.people[i].player.position, Position::IOL | Position::OT);
+    if w.year < 2020 || out.len() < limit || out.iter().filter(|x| line(x.0)).count() >= 8 {
+        return;
+    }
+    if let Some(k) = out.iter().rposition(|x| !x.1 && !line(x.0)) {
+        out.remove(k);
+    }
 }
 
 /// A pro's snaps over his career so far, both sides of the ball, his

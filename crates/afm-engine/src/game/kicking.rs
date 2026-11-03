@@ -390,8 +390,9 @@ pub fn kickoff(
         );
         return res;
     }
-    // College: a fair catch inside the 25 is a touchback.
-    if !rules.nfl_kickoff && rules.kickoff_touchback >= 25.0 && land_x < 25.0 && land_x > -1.0 && rng.chance(0.3) {
+    // A fair catch inside the 25 is a touchback: college from 2018, the NFL
+    // in 2023 (minor bug B47).
+    if rules.fair_catch_touchback && land_x < 25.0 && land_x > -1.0 && rng.chance(0.3) {
         res.fair_catch = true;
         res.spot = 25.0;
         res.duration = hang;
