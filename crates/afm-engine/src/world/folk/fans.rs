@@ -627,6 +627,9 @@ impl<'a> Year<'a> {
         if let Some((c, l)) = self.coach_names(t) {
             f.set("coach", c).set("coach_last", l);
         }
+        if let Some(c) = t.head_coach(w) {
+            f.coach(crate::world::pronoun::coach(w, c));
+        }
         f
     }
 
@@ -1233,6 +1236,9 @@ impl<'a> Year<'a> {
         if let Some((c, l)) = self.coach_names(home) {
             f.set("coach", c).set("coach_last", l);
         }
+        if let Some(c) = home.head_coach(self.w) {
+            f.coach(crate::world::pronoun::coach(self.w, c));
+        }
         if super::facts::rival(self.w, home).is_some_and(|r| r.0 == away) {
             f.set("rival", "yes");
         }
@@ -1256,6 +1262,9 @@ impl<'a> Year<'a> {
         let mut base = Facts::new();
         base.set("team", self.said(home)).set("them", self.said(away)).set("mascot", self.mascot(home));
         base.set("mood", mood.key()).set("at", "home");
+        if let Some(c) = home.head_coach(w) {
+            base.coach(crate::world::pronoun::coach(w, c));
+        }
         if super::facts::rival(w, home).is_some_and(|r| r.0 == away) {
             base.set("rival", "yes");
         }

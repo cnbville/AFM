@@ -12,7 +12,9 @@
 #
 # Facts every fan line can use: {team} how the fans say their own team
 # (the Bills, Alabama, Lincoln), {mascot}, {town}, {year}, {color} (some
-# colleges), {coach} (Coach Hale) and {coach_last} (Hale), mood=high, good,
+# colleges), {coach} (Coach Hale) and {coach_last} (Hale) with the head
+# coach's pronouns {coach_he} {coach_him} {coach_his} {coach_himself}
+# {coach_man} (your own coach is he or she as you set it up), mood=high, good,
 # mixed, low or angry, {record} once a game is played, {streak} (three
 # straight) with run=won or lost from three in a row.
 # After a game: {them}, {score} (ours first), result=win, loss or tie,
@@ -200,8 +202,8 @@ Hallways are going to be loud all week. ~ hs student young
 Even the teachers were going nuts in the stands. ~ hs student young
 Some of those boys I've known since peewee. Proud of every one. ~ hs local old
 The paper better put that on the front page, not just the sports page. ~ hs !modern
-Shook Coach's hand on the way to the car and told him that was a good one. ~ hs booster
-{coach} doesn't smile much, but I caught him smiling. ~ hs
+Shook Coach's hand on the way to the car and told {coach_him} that was a good one. ~ hs booster
+{coach} doesn't smile much, but I caught {coach_him} smiling. ~ hs
 My grandson wants to play for {coach} someday after watching that. ~ hs old
 My daughter cheers, and she said the sideline was electric. ~ hs parent
 By next week everybody at school will know who {star} is. ~ hs
@@ -274,8 +276,8 @@ Booster club's buying the team breakfast. ~ hs booster place=town
 College recruiters ought to be calling {star}. ~ hs
 Somebody give {star} a scholarship already. ~ hs homer
 {star} is a good kid, and he's a heck of a player. Folks around here are proud of him. ~ hs south local
-Proud of {coach}. He's done a lot with those kids. ~ hs
-Somebody tell {coach} the town's buying his supper this week. ~ hs
+Proud of {coach}. {coach_he}'s done a lot with those kids. ~ hs
+Somebody tell {coach} the town's buying {coach_his} supper this week. ~ hs
 Those kids handled it like pros, and they're still in high school. ~ hs calm
 Harvest is coming in and we're winning. Good fall around here. ~ hs midwest
 Good game. Don't let it go to their heads. ~ hs northeast calm
@@ -610,7 +612,7 @@ Every time we needed something, {star} was there.
 {star} took over. That's what stars do.
 {coach_last} had a plan and they stuck to it. ~ calm
 Credit {coach_last}. They looked prepared.
-Say what you want about {coach_last}, his team showed up. ~ mood=mixed
+Say what you want about {coach_last}, {coach_his} team showed up. ~ mood=mixed
 {coach_last} pushed all the right buttons. ~ homer
 {goat} had a rough one, but the team picked him up. ~ calm
 We won, so I'll go easy on {goat}. This time. ~ hot
@@ -720,7 +722,7 @@ Everybody wants to celebrate, and I get it, but if I'm the coaching staff I'm wo
 We've been waiting a long time for a game like that, and I hope these kids understand how much it means to this town. ~ place=radio hs
 I took my grandson along, and on the way out he asked if it's always this loud. I told him only when we win. ~ place=radio old at=home
 People forget how hard it is to win on the road in this league. You go in there, the whole building's against you, and you still come out with it. ~ place=radio at=away nfl
-I've been hard on {coach_last} on this show, I'll own that, but he deserves credit for having them ready. ~ place=radio
+I've been hard on {coach_last} on this show, I'll own that, but {coach_he} deserves credit for having them ready. ~ place=radio
 I'll say it on the air: {qb} is the guy. I don't want to hear any more talk about the backup. ~ place=radio homer
 It wasn't pretty, I know, but go look at the good teams around the country. They all win games like that. ~ place=radio margin=close calm
 My concern, even after a win, is depth. We can't keep leaning on the same few guys every week and expect them to hold up. ~ place=radio doomer
@@ -1081,7 +1083,7 @@ Proud of em anyway. ~ hs place=board homer
 I just want to say to those kids, keep your heads up, this whole town is behind you, win or lose. ~ hs place=radio homer
 Saw a couple of the boys at the gas station. Heads down. Broke my heart. ~ hs place=town
 That's the kind of loss that makes a kid quit football or love it more. Hope it's the second. ~ hs calm
-{coach} will have them ready. He always does. ~ hs homer
+{coach} will have them ready. {coach_he} always does. ~ hs homer
 Maybe it's time {coach} hands the play sheet to somebody else. ~ hs hot
 Put the kids in a position to win, Coach. That's all we ask. ~ hs hot
 JV kids watching from the fence looked about as sick as I felt. ~ hs
@@ -1447,7 +1449,7 @@ Just a bunch of teenagers who had a bad night. That's all it was. ~ hs calm
 If you're going to yell at a sixteen-year-old from the bleachers, stay home. ~ hs she calm
 That one's going in the yearbook whether we like it or not. ~ hs student
 My nephew's in the band and even he looked embarrassed. ~ hs
-{coach} looked like he wanted to crawl under the bleachers. ~ hs
+{coach} looked like {coach_he} wanted to crawl under the bleachers. ~ hs
 Lose one at home and the whole week's off. Ask anybody at the café. ~ hs at=home
 You lose to {them} and the {mascot} shirts stay in the drawer a while. ~ hs rival=yes
 Still be a full house next time. That's this town. ~ hs homer
@@ -1682,7 +1684,7 @@ Whole town's going to argue about whether that's good or bad. ~ hs
 Booster club can't decide whether to buy the pizza. ~ hs booster
 Ties don't count in my house. We call it a loss. ~ hs parent
 Student section stood there not knowing what to chant. ~ hs student
-{coach} looked like he'd lost one. ~ hs
+{coach} looked like {coach_he}'d lost one. ~ hs
 Back in my day we had ties all the time. Still hated them. ~ hs old
 Ask ten people in {town} about that tie and you'll get ten answers. ~ hs place=town
 Long drive home for a tie. ~ hs at=away
@@ -1692,7 +1694,7 @@ A tie might matter in January. Don't ask me how. ~ nfl calm
 Paid full price for half a result. ~ nfl ticket at=home
 Somebody check the rule book. Can we just play another quarter? ~ nfl hot
 Felt like the clock just ran out on everybody. ~ nfl doomer
-{coach_last} played for the tie. Don't tell me he didn't. ~ nfl hot
+{coach_last} played for the tie. Don't tell me {coach_he} didn't. ~ nfl hot
 Sat through all of that for no winner. I want those hours back. ~ nfl
 Overtime rules in this league make no sense to me. ~ nfl
 Five quarters of football and I need a nap. ~ nfl
@@ -2667,13 +2669,13 @@ I like what {coach} is building.
 {coach} got outcoached today. Simple as that. ~ result=loss
 You've got to give {coach} credit for that one. ~ result=win
 {coach_last} knows ball. I'll leave it at that. ~ homer
-I'm not sure {coach_last} knows what he's doing. ~ doomer
-{coach} needs to look at himself in the mirror. ~ result=loss hot
+I'm not sure {coach_last} knows what {coach_he}'s doing. ~ doomer
+{coach} needs to look at {coach_himself} in the mirror. ~ result=loss hot
 Best coach we've had in my lifetime. ~ result=win homer
 {coach_last} has to win the big ones. ~ result=loss
-{coach_last} is the right man. Give him time. ~ calm
+{coach_last} is the right coach. Give {coach_him} time. ~ calm
 In {coach_last} we trust. ~ place=board homer
-Say what you want about {coach}, his teams play hard.
+Say what you want about {coach}, {coach_his} teams play hard.
 {coach} had a plan and stuck to it. ~ result=win
 You could see the halftime adjustments right away. Credit {coach_last}. ~ result=win
 {coach} looked lost on the sideline. ~ result=loss hot
@@ -2682,22 +2684,22 @@ Nobody is going to outwork {coach}. Nobody. ~ homer
 Great coaches win games like that. Maybe that's what we've got. ~ result=win margin=close
 That's a well-coached football team. Hard to argue otherwise. ~ result=win
 Good teams don't come out flat. That falls on the coaching staff. ~ result=loss
-{coach} didn't have them ready, and I think he knows it. ~ result=loss calm
+{coach} didn't have them ready, and I think {coach_he} knows it. ~ result=loss calm
 {coach} got everything out of this group and then some. ~ upset=won
 Somebody explain {coach_last}'s thinking to me, because I can't. ~ result=loss
 When {coach} gets this thing rolling, look out. ~ homer
 A coach is supposed to make his players better. I'm not seeing it. ~ doomer
 Heck of a job by {coach} and that whole staff. ~ result=win
-{coach} is a good man. I'm just not sure he's a good coach. ~ result=loss
+{coach} is a good person. I'm just not sure {coach_he}'s a good coach. ~ result=loss
 I've had my doubts about {coach_last}. Fewer after that one. ~ result=win
 You don't lose to {them} with a good coach. You just don't. ~ upset=lost hot
-Beating {them} is the job. {coach} did his job. ~ rival=yes result=win
-Hard to fire a man after a win like that. Believe me, I tried. ~ result=win margin=big doomer
-If {coach} can't win this one, which ones can he win? ~ upset=lost
+Beating {them} is the job. {coach} did {coach_his} job. ~ rival=yes result=win
+Hard to fire a coach after a win like that. Believe me, I tried. ~ result=win margin=big doomer
+If {coach} can't win this one, which ones can {coach_he} win? ~ upset=lost
 Not every loss is on the coach. This one is. ~ result=loss
 The players love {coach}. You can see it on the sideline. ~ homer
-I'll give {coach} this much. He never panicked. ~ margin=close calm
-{coach} needs a better staff around him, and fast. ~ result=loss
+I'll give {coach} this much. {coach_he} never panicked. ~ margin=close calm
+{coach} needs a better staff around {coach_him}, and fast. ~ result=loss
 That's what happens when a coach believes in his guys. ~ result=win
 The other sideline was a step ahead of us all game. ~ result=loss
 Every week {coach} finds a new way to surprise me. Not always a good way.
@@ -2710,16 +2712,16 @@ They looked like they'd never seen {them} on film. That's coaching. ~ result=los
 How many more of these before somebody upstairs says something? ~ result=loss doomer
 {coach} keeps telling us we're close. Close to what? ~ result=loss
 Don't let one game change your mind about {coach}. It's one game. ~ calm
-Win or lose, {coach} carries himself right. I respect that. ~ homer
-{coach} won't say it, but he coached circles around {them}. ~ result=win margin=big
+Win or lose, {coach} carries {coach_himself} right. I respect that. ~ homer
+{coach} won't say it, but {coach_he} coached circles around {them}. ~ result=win margin=big
 If that was the best game plan {coach} had, we're in trouble. ~ result=loss margin=big
 A coach who wins on the road is a coach worth keeping. ~ at=away result=win
-Losing at home like that falls on the head man. ~ at=home result=loss
-Give {coach} his due. Plenty of people were ready to bury him. ~ result=win mood=low
+Losing at home like that falls on the head coach. ~ at=home result=loss
+Give {coach} {coach_his} due. Plenty of people were ready to bury {coach_him}. ~ result=win mood=low
 {coach} handled the clock right at the end. That's not nothing. ~ margin=close result=win
 I'd run through a wall for a coach like {coach_last}. ~ homer young
 Our coach got beat by their coach. It's that simple sometimes. ~ result=loss calm
-Hate to say it, but {coach} might be in over his head. ~ result=loss doomer
+Hate to say it, but {coach} might be in over {coach_his} head. ~ result=loss doomer
 Every coach loses some. The good ones don't lose like that. ~ result=loss margin=big
 That's a {coach} kind of win right there. Tough and smart. ~ result=win margin=close
 Lot of folks owe {coach_last} an apology after that one. ~ result=win upset=won
@@ -2744,32 +2746,32 @@ Those boys quit in the second half. That tells you about the coaching. ~ hs doom
 It's high school ball. Let {coach} coach and let the kids play. ~ hs calm
 When I played here, the coach would have run us till dark after that. ~ hs alum old !she result=loss
 {coach_last} did more with this bunch than anybody in town expected. ~ hs upset=won
-Every boy on that team knows {coach} is in his corner. ~ hs homer old
-Coach doesn't play favorites. I'll say that for him. ~ hs parent calm
+Every boy on that team knows {coach} is in {coach_his} corner. ~ hs homer old
+Coach doesn't play favorites. I'll say that for {coach_him}. ~ hs parent calm
 I'm tired of hearing excuses. Coach them up. ~ hs result=loss hot
 {coach} had the kids loose in warmups. You could tell it was going to be a good night. ~ hs result=win
 This town has a long memory, {coach}. Remember that. ~ hs result=loss rival=yes
 That's a coaching win. Those kids were outsized all night. ~ hs upset=won
 Coach needs to get after them in practice this week. ~ hs result=loss
 Big-time job by {coach}. I mean that. ~ hs student result=win
-{coach} talked to every one of those kids after the game. Win or lose, he does that. ~ hs she
+{coach} talked to every one of those kids after the game. Win or lose, {coach_he} does that. ~ hs she
 The kids look scared out there. Kids play scared when the coach coaches scared. ~ hs result=loss
 I'd let my son play for {coach} any day of the week. ~ hs she homer
-Around here the football coach is the most watched man in town. {coach_last} handled it. ~ hs result=win calm
+Around here the football coach is the most watched person in town. {coach_last} handled it. ~ hs result=win calm
 Bet somebody from the school board was in the stands. Bet {coach} knows it, too. ~ hs result=loss doomer
 Coaches like {coach_last} don't stay at a school like ours for long. Enjoy it. ~ hs result=win homer
 We've had coaches who could win and coaches who could teach. {coach} might be both. ~ hs old homer
 There's more to coaching than drawing up plays, and {coach} doesn't have it. ~ hs result=loss hot
 Can't blame Coach for that one. Those kids were ready, they just got beat. ~ hs result=loss calm
 {coach} had those boys hitting from the opening kickoff. ~ hs result=win defense=good
-Lord knows {coach_last} has his flaws, but he cares about those kids. ~ hs south
+Lord knows {coach_last} has {coach_his} flaws, but {coach_he} cares about those kids. ~ hs south
 They pay a high school coach a stipend and a pat on the back. Some years you get what you pay for. ~ hs result=loss doomer
 Coach went to bat for those kids on that sideline. Every call. ~ hs result=win
 Back in my day you didn't question the coach. Times change. ~ hs old
-{coach} ought to get a raise out of this one. He earned it. ~ college upset=won
-Keep winning like this and every program with an opening will want {coach_last}. Pay him now. ~ college result=win booster
+{coach} ought to get a raise out of this one. {coach_he} earned it. ~ college upset=won
+Keep winning like this and every program with an opening will want {coach_last}. Pay {coach_him} now. ~ college result=win booster
 The athletic director needs to sit down with {coach} this week. ~ college result=loss hot
-{coach} can recruit. I'm starting to wonder if he can coach. ~ college result=loss doomer
+{coach} can recruit. I'm starting to wonder if {coach_he} can coach. ~ college result=loss doomer
 Recruiting stars don't win football games. Coaching does. ~ college result=loss
 Lock {coach_last} up. Whatever it costs, pay it. ~ college booster result=win
 The boosters did not write those checks for this. ~ college booster result=loss margin=big
@@ -2777,13 +2779,13 @@ I've had season tickets through a lot of coaches. {coach_last} might be the best
 When I was in school we'd have run a coach out of town for that. ~ college alum old result=loss
 If recruits were in the building for that one, {coach} put on a show for them. ~ college result=win margin=big at=home
 Hope every recruit in the state was watching what {coach} built. ~ college result=win upset=won
-{coach} gets this place. He gets what it means to the people here. ~ college alum homer
+{coach} gets this place. {coach_he} gets what it means to the people here. ~ college alum homer
 Better hit the portal hard, {coach_last}. This roster isn't good enough. ~ college nil result=loss
 Between NIL and the portal, {coach} has no excuses left. ~ college nil result=loss hot
 The collective didn't sign up for this, {coach_last}. ~ college nil booster result=loss
 Bowl game or not, {coach_last} has this program pointed the right way. ~ college homer
-If the student section wants to chant {coach_last}'s name, let them. He earned that one. ~ college student result=win at=home
-That postgame press conference was {coach} at his best. Honest and fired up. ~ college result=win
+If the student section wants to chant {coach_last}'s name, let them. {coach_he} earned that one. ~ college student result=win at=home
+That postgame press conference was {coach} at {coach_his} best. Honest and fired up. ~ college result=win
 Our coach got outrecruited and outcoached. Hard to do both. ~ college result=loss margin=big
 I'll defend {coach} at the tailgate all day. Somebody has to. ~ college homer
 Somebody tell the athletic director the seat is getting warm. ~ college result=loss doomer
@@ -2793,17 +2795,17 @@ Whatever {coach} says in that locker room, it works. ~ college result=win margin
 A coach at a place like this can't lose to {them}. Not ever. ~ college upset=lost
 Win like that and the donations come in. {coach_last} knows the business. ~ college booster result=win
 I've given money to this program a long time. I want a coach who can beat {them}. ~ college booster old result=loss rival=yes
-{coach} looked like he'd rather be anywhere else in that press conference. ~ college result=loss
+{coach} looked like {coach_he}'d rather be anywhere else in that press conference. ~ college result=loss
 Back when I was a student, a coach like {coach_last} would have had a statue by now. ~ college alum old result=win
-If {coach} can win with these kids, imagine him with a top-ten recruiting class. ~ college homer result=win
+If {coach} can win with these kids, imagine {coach_him} with a top-ten recruiting class. ~ college homer result=win
 Our staff out-schemed a better team. Love to see it. ~ college upset=won
 The alumni will be calling the AD about {coach}. I'm one of them. ~ college alum result=loss hot
-That's a coach who gets his players ready for big games. Put it in the recruiting video. ~ college result=win rival=yes
+That's a coach who gets {coach_his} players ready for big games. Put it in the recruiting video. ~ college result=win rival=yes
 {coach} won't last at a place like this coaching that scared. ~ college result=loss hot
 Everybody I know on campus loves {coach}. After that one, even the skeptics. ~ college student result=win
 Everyone in the conference knows what {coach} is doing here. ~ college result=win
 I'm not ready to call for {coach_last}'s job. Ask me at the end of the year. ~ college calm result=loss
-{coach} needs to win the games he's supposed to win. That's the whole job. ~ college upset=lost
+{coach} needs to win the games {coach_he}'s supposed to win. That's the whole job. ~ college upset=lost
 All my years of season tickets, and that's the worst-coached game I've seen. ~ college ticket result=loss margin=big
 Not a recruiting class in the country fixes coaching like that. ~ college result=loss doomer
 The owner has to be asking hard questions about {coach_last} right now. ~ nfl result=loss
@@ -2812,18 +2814,18 @@ A players' coach is great until you start losing. ~ nfl result=loss doomer
 In this league you get three years, maybe. The clock is running on {coach_last}. ~ nfl result=loss
 You pay a head coach to win games like that one. ~ nfl result=loss margin=close
 I pay good money for these seats. {coach_last} owes me better than that. ~ nfl ticket result=loss hot
-{coach_last} stood there staring at his play sheet like it was a dinner menu. ~ nfl result=loss
-The GM gave this man a roster. Now coach it. ~ nfl result=loss hot
-Coach of the year. I'm not kidding. Look what he did with that roster. ~ nfl upset=won homer
+{coach_last} stood there staring at {coach_his} play sheet like it was a dinner menu. ~ nfl result=loss
+The GM gave this staff a roster. Now coach it. ~ nfl result=loss hot
+Coach of the year. I'm not kidding. Look what {coach_he} did with that roster. ~ nfl upset=won homer
 Grown men don't need a pep talk. They need a plan, and {coach_last} didn't have one. ~ nfl result=loss
 Every coach in this league is one bad year from the door. {coach_last} included. ~ nfl calm
-Give {coach_last} whatever he wants. Players, staff, a new office. ~ nfl result=win homer
+Give {coach_last} whatever {coach_he} wants. Players, staff, a new office. ~ nfl result=win homer
 I've seen a lot of coaches come and go. {coach_last} might stick. ~ nfl old result=win
 Pros don't come out flat unless the coach lets them. ~ nfl result=loss margin=big
 The owner should call {coach_last} first thing and say thank you. ~ nfl result=win upset=won
 I've watched {coach_last} at the podium after every loss. Same answers every time. ~ nfl result=loss doomer
 Win in this league with that roster? That's coaching. ~ nfl result=win
-They hired {coach_last} to win games like this. He won it. ~ nfl rival=yes result=win
+They hired {coach_last} to win games like this. {coach_he} won it. ~ nfl rival=yes result=win
 Coaches get fired for losses like that. I'm just saying. ~ nfl result=loss upset=lost
 No head coach in this league should get outcoached like that at home. ~ nfl at=home result=loss
 Our coach won the chess match. Not even close. ~ nfl result=win margin=big
@@ -2841,28 +2843,28 @@ Gameday coaching won that one. Plain as day. ~ nfl result=win margin=close
 The owner is watching. So is everybody else. {coach_last}'s got to fix this. ~ nfl run=lost
 Another one. Hard to argue with {coach_last} right now. ~ nfl run=won homer
 That's {streak} now, and {coach_last} still has no answers. ~ nfl run=lost hot
-Fire him. ~ place=board hot result=loss
+Fire {coach_him}. ~ place=board hot result=loss
 Coach of the year. Book it. ~ place=board homer result=win
 Outcoached. Again. ~ place=board result=loss
 {coach_last} cooked them. ~ place=board young modern result=win
 Not a fan of {coach_last}. Never was. ~ place=board doomer
 Coaching staff deserves a game ball. ~ place=board result=win
 Clueless on the sideline. ~ place=board hot result=loss
-Pay the man. ~ place=board result=win margin=big
+Pay {coach_him}. ~ place=board result=win margin=big
 Seat is warm. ~ place=board result=loss
 Love what {coach_last} is doing. ~ place=board homer
 Zero adjustments at the half. Zero. ~ place=board result=loss
-Give him time, people. ~ place=board calm
+Give {coach_him} time, people. ~ place=board calm
 Best game {coach_last} has coached here. ~ place=board result=win upset=won
 Unacceptable from the top down. ~ place=board result=loss margin=big
 Coached up and fired up. ~ place=board result=win
 Same old {coach_last}. ~ place=board doomer result=loss
-Has he lost the locker room? Asking for real. ~ place=board result=loss run=lost
+Has {coach_he} lost the locker room? Asking for real. ~ place=board result=loss run=lost
 Clinic. Pure clinic. ~ place=board result=win margin=big
 Not on the coach. On the players. ~ place=board result=loss homer
 Halftime adjustments were elite. ~ place=board result=win
-He's gotta go. ~ place=board young hot result=loss
-Our guy is the real deal. ~ place=board homer result=win
+{coach_he}'s gotta go. ~ place=board young hot result=loss
+Our coach is the real deal. ~ place=board homer result=win
 Coaching malpractice. ~ place=board hot result=loss
 Tie feels like a loss. Coaching. ~ place=board result=tie
 The scheme was fine. The coach wasn't. ~ place=board result=loss
@@ -2871,20 +2873,20 @@ I'm out on {coach_last}. ~ place=board result=loss run=lost
 Respect to the staff. Earned it. ~ place=board result=win at=away
 Beat {them}. {coach_last} had them ready. ~ place=board rival=yes result=win
 Embarrassing. Coach included. ~ place=board result=loss upset=lost
-Here's my problem with {coach}. He won't change. He's got one way of doing things and it's not working, and every week he stands there and tells us it's about execution. ~ place=radio result=loss
-I've heard a lot of people bash {coach}, and I just want to say that man coached his tail off. ~ place=radio result=win homer
+Here's my problem with {coach}. {coach_he} won't change. {coach_he}'s got one way of doing things and it's not working, and every week {coach_he} stands there and tells us it's about execution. ~ place=radio result=loss
+I've heard a lot of people bash {coach}, and I just want to say {coach_he} coached {coach_his} tail off. ~ place=radio result=win homer
 What I saw, from the opening drive to the last whistle, was a coaching staff that had no idea what was coming. ~ place=radio result=loss
 I'm going to be the calm voice here. {coach} lost a game. Coaches lose games. Let's all take a breath. ~ place=radio calm result=loss
-What {coach} did with this team, with the roster he has, I think people around here are taking it for granted. ~ place=radio homer result=win
+What {coach} did with this team, with the roster {coach_he} has, I think people around here are taking it for granted. ~ place=radio homer result=win
 That sideline looked like a fire drill. I have never seen {coach} that rattled. ~ place=radio result=loss hot
 Everybody wants to fire somebody. I want to give {coach} credit, because that was a beautifully coached football game. ~ place=radio result=win
 My question is simple. What does {coach} do all week? Because I didn't see a plan. ~ place=radio result=loss hot
 I want to see {coach} get this team ready for {next}. That's the test. Not this one. ~ place=radio result=win doomer
 You've got to win some of these coin-flip games, and {coach} keeps losing them. ~ place=radio margin=close result=loss
-I'll say this about {coach_last}. He doesn't hide. He stands up there and owns it. ~ place=radio calm
+I'll say this about {coach_last}. {coach_he} doesn't hide. {coach_he} stands up there and owns it. ~ place=radio calm
 When a team gets beat like that, I don't care who's playing quarterback. That's the head coach. ~ place=radio result=loss margin=big
 I've watched football here my whole life, and I haven't seen a team this well prepared in a long time. ~ place=radio old result=win
-I taped the postgame show just to hear {coach_last} explain that. He didn't. ~ pre2000 result=loss
+I taped the postgame show just to hear {coach_last} explain that. {coach_he} didn't. ~ pre2000 result=loss
 I'm writing a letter to the paper about {coach}. First one I've ever written. ~ pre2000 old result=loss hot
 The radio postgame guys are going to tear into {coach}. For once I'm with them. ~ pre2000 result=loss place=town
 My pager's been going off all game with people asking what {coach_last} was thinking. ~ pre2000 nfl result=loss
@@ -2898,61 +2900,61 @@ Every podcast in town is going to be about {coach_last} this week. Deservedly. ~
 They don't coach high school football in Texas like that and keep the job. ~ texas hs result=loss
 {coach} knows what football means around here. Everybody in this state does. ~ texas homer
 The preacher is going to have a hard time keeping folks' minds off {coach_last}. ~ south result=loss
-Lot of prayers going up for {coach}. He's going to need some of them. ~ south result=loss doomer
+Lot of prayers going up for {coach}. {coach_he}'s going to need some of them. ~ south result=loss doomer
 Coaches who last in this part of the country win ugly. {coach_last} won ugly. ~ midwest result=win margin=close
 Tough, smart, no nonsense. {coach} coaches like this part of the country lives. ~ midwest homer
 Great game plan. Really. Can't wait to see the encore. ~ northeast result=loss hot
 Not for nothing, but getting outcoached by {them} is a new low. ~ northeast result=loss upset=lost
 Half the people in this town moved here from somewhere else. {coach} is giving them a reason to stay. ~ west result=win homer
 Told the guys at the hardware store {coach} had something cooking. ~ place=town result=win homer !she
-Ran into {coach} at the gas station once. Nice man. Can't coach a lick. ~ place=town result=loss doomer
-If I see {coach} at the grocery store I'm buying his groceries. ~ place=town result=win
+Ran into {coach} at the gas station once. Nice as can be. Can't coach a lick. ~ place=town result=loss doomer
+If I see {coach} at the grocery store I'm buying {coach_his} groceries. ~ place=town result=win
 Folks are going to be talking about {coach_last} at work all week. Not nicely. ~ place=town result=loss
-Shook {coach}'s hand on the way out. I'll shake it again if he does that every week. ~ place=town hs result=win at=home
+Shook {coach}'s hand on the way out. I'll shake it again if {coach_he} does that every week. ~ place=town hs result=win at=home
 Everybody in town has an opinion about {coach_last}. Mine isn't printable. ~ place=town result=loss hot
-I keep telling my husband {coach} is the right man. He keeps telling me to wait and see. ~ she homer
+I keep telling my husband {coach} is the answer. He keeps telling me to wait and see. ~ she homer
 My wife thinks {coach} is too nice to those players. She might be right. ~ !she result=loss
 I don't know a thing about schemes, but I know when a coach has his team ready. ~ she result=win
 These young guys want everything now. Give {coach} time to build it. ~ old calm
 Every few years somebody tells me we've got a genius. I'll believe it about {coach} when I see it. ~ old doomer
 Never seen a coach so stubborn in my life. ~ old result=loss hot
 {coach} is the first coach I can remember who makes it fun to watch. ~ young homer result=win
-Honestly {coach_last} is a vibe. Love that guy. ~ young modern result=win
+Honestly {coach_last} is a vibe. Love {coach_him}. ~ young modern result=win
 I like {coach}, but liking a guy doesn't win games. ~ calm result=loss
 Coaching won us this game. Coaching will win us more. ~ homer result=win
-That's the coach I've been waiting for. He finally showed up. ~ result=win mood=low
+That's the coach I've been waiting for. {coach_he} finally showed up. ~ result=win mood=low
 Fans were down on {coach} coming in. That should quiet things for a week. ~ mood=angry result=win
 People were happy coming in and now they're asking about the coach. That's how fast it turns. ~ mood=high result=loss
-Win {streak} and suddenly everybody likes the coach. I liked him all along. ~ run=won homer
-Lose {streak} and every coach looks bad. Let's see what he does with it. ~ run=lost calm
+Win {streak} and suddenly everybody likes the coach. I liked {coach_him} all along. ~ run=won homer
+Lose {streak} and every coach looks bad. Let's see what {coach_he} does with it. ~ run=lost calm
 At {record}, {coach} has the group headed the right way. Trust me. ~ homer result=win
 {coach} has us at {record}. Draw your own conclusions. ~ doomer result=loss
-Saw {coach} walking to his car after. Head down. He knows. ~ place=town hs result=loss at=home
+Saw {coach} walking to {coach_his} car after. Head down. {coach_he} knows. ~ place=town hs result=loss at=home
 Folks at the coffee shop were toasting {coach} before I even sat down. ~ place=town result=win
-I'll say it to anybody in this town. {coach} is the right man for this job. ~ place=town homer
+I'll say it to anybody in this town. {coach} is the right person for this job. ~ place=town homer
 My neighbor's been saying {coach} has to go. I told him to come talk to me after that one. ~ place=town result=win
 Didn't hear a single person defend {coach} on the way out. Not one. ~ place=town result=loss hot
 Line at the barber shop was all {coach} talk. Most of it was kind. ~ place=town result=win calm
 Whole town is going to want to shake {coach}'s hand after a win like that. ~ place=town result=win rival=yes
-If you see {coach} around town, tell him thank you. I mean it. ~ place=town result=win upset=won
+If you see {coach} around town, tell {coach_him} thank you. I mean it. ~ place=town result=win upset=won
 Somebody at the bank asked if I still believe in {coach}. I told him ask me later. ~ place=town result=loss calm
-Here's what I keep coming back to. {coach} had time to get ready for {them}, and his team looked like it met them for the first time. That's preparation, and preparation is the head coach. ~ place=radio result=loss
-I'll defend {coach} on this one. He put his players in position, he made the right calls late, and they just didn't finish. You can't blame the coach for every missed play. ~ place=radio result=loss calm homer
+Here's what I keep coming back to. {coach} had time to get ready for {them}, and {coach_his} team looked like it met them for the first time. That's preparation, and preparation is the head coach. ~ place=radio result=loss
+I'll defend {coach} on this one. {coach_he} put {coach_his} players in position, {coach_he} made the right calls late, and they just didn't finish. You can't blame the coach for every missed play. ~ place=radio result=loss calm homer
 People are going to want to talk about the players, but I want to talk about {coach}, because that was as good a coaching job as I've seen here in a long time. ~ place=radio result=win
 I don't want to hear about building anymore. At some point you have to win the games in front of you, and {coach} isn't doing it. ~ place=radio result=loss doomer
-My worry with {coach} is that he coaches not to lose. Big moments, he gets careful. Good teams don't get careful. ~ place=radio margin=close
+My worry with {coach} is that {coach_he} coaches not to lose. Big moments, {coach_he} gets careful. Good teams don't get careful. ~ place=radio margin=close
 What {coach} did on that sideline, managing the clock, the timeouts, the fourth downs, that's how a head coach is supposed to run a game. ~ place=radio result=win margin=close
 A head coach in this league makes maybe six big decisions a game. {coach_last} got most of them right. ~ nfl result=win
 I'd take {coach_last} over half the coaches in this league, and I'm not exaggerating. ~ nfl homer
 {coach_last} talks a good game at the podium. I'd like to see one on the field. ~ nfl result=loss doomer
 You find out what a coach is made of in a game like that. ~ margin=close
-Hand {coach_last} an extension before he gets to the parking lot. ~ nfl result=win margin=big
-{coach_last} coached like a man who wanted that one more than anybody in the building. ~ nfl result=win rival=yes
-{coach_last} will tell us he has to look at the film. We all saw it live. It was bad. ~ nfl result=loss
+Hand {coach_last} an extension before {coach_he} gets to the parking lot. ~ nfl result=win margin=big
+{coach_last} coached like {coach_he} wanted that one more than anybody in the building. ~ nfl result=win rival=yes
+{coach_last} will tell us {coach_he} has to look at the film. We all saw it live. It was bad. ~ nfl result=loss
 Coach-speak all week, and then that. Say less and win more, {coach_last}. ~ nfl result=loss hot
-Our coach treats every game like it's the playoffs. I love that about him. ~ nfl homer
-When the head coach looks like he's guessing, the players start guessing too. ~ nfl result=loss
-I don't need {coach_last} to be my friend. I need him to win the division. ~ nfl calm
+Our coach treats every game like it's the playoffs. I love that about {coach_him}. ~ nfl homer
+When the head coach looks like {coach_he}'s guessing, the players start guessing too. ~ nfl result=loss
+I don't need {coach_last} to be my friend. I need {coach_him} to win the division. ~ nfl calm
 Good coaches win the games they should. Great ones steal a few. That was a steal. ~ upset=won
 {coach_last} gets more out of a roster than most coaches in this league. That's a real skill. ~ nfl homer
 The coach and the front office had better be on the same page, because it doesn't look like it from here. ~ nfl result=loss doomer
@@ -2961,21 +2963,21 @@ The fans can yell all they want. {coach} still has to make the call. ~ calm
 My dad held these seats before me. He'd have liked {coach_last}. ~ nfl ticket old result=win
 Their sideline coached to win. Ours coached to keep it close. ~ nfl result=loss margin=close
 Grown men get coached hard or they get comfortable. {coach_last} lets them get comfortable. ~ nfl doomer
-If {coach_last} doesn't call his guys out after that, I will. ~ nfl result=loss hot
-{coach_last} looked like he'd seen a ghost on that sideline. ~ nfl result=loss upset=lost
+If {coach_last} doesn't call {coach_his} guys out after that, I will. ~ nfl result=loss hot
+{coach_last} looked like {coach_he}'d seen a ghost on that sideline. ~ nfl result=loss upset=lost
 Winning on the road in this league is hard. {coach_last} made it look routine. ~ nfl at=away result=win
 I want to see {coach_last} angry. Not polite angry. Throw-the-clipboard angry. ~ nfl result=loss hot
 Some coaches win with talent. {coach_last} won that one with brains. ~ nfl result=win upset=won
 {coach_last} has this whole town believing. Don't take that for granted. ~ nfl mood=high
-When the fans are this mad, the coach has to give them something. He gave them nothing. ~ nfl mood=angry result=loss
+When the fans are this mad, the coach has to give them something. {coach_he} gave them nothing. ~ nfl mood=angry result=loss
 I've stopped yelling at the TV about {coach_last}. Now I just sigh. ~ nfl doomer old
 Love that {coach_last} never looks satisfied, even after one like that. ~ nfl result=win margin=big
-A head coach has one job on game day: don't lose it for us. This one he lost for us. ~ nfl result=loss hot
+A head coach has one job on game day: don't lose it for us. This one {coach_he} lost for us. ~ nfl result=loss hot
 Every coach in this league has a plan. {coach_last}'s plan just ran into a better one. ~ nfl result=loss calm
 Fourth quarter, game on the line, I want our coach making the call. That's new for me. ~ nfl result=win margin=close
 Pros don't play hard for a coach they don't trust. They played hard for {coach_last}. ~ nfl result=win
 Ask me again after we play {next}, but right now I like {coach_last} a lot. ~ nfl result=win
-The coach doesn't throw the ball or make the tackle. I know that. He still has to own this one. ~ nfl result=loss calm
+The coach doesn't throw the ball or make the tackle. I know that. {coach_he} still has to own this one. ~ nfl result=loss calm
 The guy across the aisle has wanted {coach_last} gone for a while. He was awful quiet today. ~ nfl ticket result=win
 Our coach blinked. Theirs didn't. ~ nfl result=loss margin=close
 A tie in this league is a coaching failure on both sides. Ours more. ~ nfl result=tie
@@ -2983,10 +2985,10 @@ Keep winning like that and other teams will come after {coach_last}'s coordinato
 Extend {coach_last}. Owner better be watching. ~ place=board nfl result=win
 Fire the whole staff. Start over. ~ place=board nfl hot result=loss
 GM picked this coach. GM owns this. ~ place=board nfl result=loss
-If the owner is listening, here's my two cents. Keep {coach}. He got his team ready, made the calls when it counted, and never flinched. You don't find that every year. ~ place=radio nfl result=win
+If the owner is listening, here's my two cents. Keep {coach}. {coach_he} got {coach_his} team ready, made the calls when it counted, and never flinched. You don't find that every year. ~ place=radio nfl result=win
 I've had season tickets a long time, and I know what it feels like when a coach starts losing the stadium. That's what it felt like to me. Not angry. Just done. ~ place=radio nfl ticket result=loss
 Every week we hear we have to coach better and play better. At some point {coach} has to stop saying it and start doing it. ~ place=radio nfl result=loss doomer
-I want to give {coach} a little credit, because I've been hard on him. The fourth-quarter decisions were right, and the team responded. Fair is fair. ~ place=radio nfl result=win margin=close
+I want to give {coach} a little credit, because I've been hard on {coach_him}. The fourth-quarter decisions were right, and the team responded. Fair is fair. ~ place=radio nfl result=win margin=close
 Guys at work are going to say {coach_last} is a genius. I said it first. ~ place=town nfl result=win homer
 Walked out next to my neighbor. He said one word, {coach_last}, and shook his head. ~ place=town nfl result=loss
 The whole fantasy league is texting me about {coach_last}'s decisions. Apparently I play with twelve head coaches. ~ nfl modern result=loss
@@ -3107,14 +3109,14 @@ I've seen the JV run a better two-minute drill. ~ hs hot
 When the student section knows the play before the snap, you've got a problem. ~ hs student
 Let {qb} throw it. That boy can play. ~ hs homer
 Save the trick plays for the backyard. Not for a close game. ~ hs margin=close
-Somebody besides Coach needs to call the plays. He's got too much on his plate. ~ hs calm
+Somebody besides Coach needs to call the plays. {coach_he}'s got too much on {coach_his} plate. ~ hs calm
 These are kids. You can't ask them to run a pro offense. ~ hs old
 Our kids are faster on the edge. Get outside. ~ hs
 Coach, run something other than dive right. Please. ~ hs young
 Thirty years in these bleachers and we're still running the same sweep on third down. ~ hs old local
-When Coach goes for two, I'm with him. Make it or miss it. ~ hs homer
+When Coach goes for two, I'm with {coach_him}. Make it or miss it. ~ hs homer
 Kids were looking at the sideline for the play forever. Delay of game waiting to happen. ~ hs
-Out here you throw it around. Somebody tell the coach what state he lives in. ~ hs texas
+Out here you throw it around. Somebody tell the coach what state {coach_he} lives in. ~ hs texas
 Ran it right at their best player all night. Why? ~ hs result=loss
 When it's that close you can't sit on the ball. Let them play. ~ hs margin=close result=loss
 I'll get yelled at for saying it, but Coach should give somebody else the play sheet. ~ hs booster
@@ -3637,7 +3639,7 @@ I've seen better calls in an intramural game. ~ college student young
 The alumni will be writing letters about that crew. I'll write the first one. ~ college alum
 Conference officials have been out to get us for years. This proves it. ~ college doomer
 Booth upstairs must have been at the concession stand. ~ college modern
-Our coach should get a fine for what he wanted to say to that crew. ~ college
+Our coach should get a fine for what {coach_he} wanted to say to that crew. ~ college
 The stadium was booing so loud I couldn't hear my own thoughts. ~ college at=home
 With every camera angle in the world, they still got it wrong. ~ college modern
 A crew like that shouldn't be working a game this size. ~ college rival=yes
@@ -3702,7 +3704,7 @@ My phone blew up the second they made that call. Everybody saw it. ~ modern
 Somebody filmed it from the stands, and that video settles it. ~ modern hs
 The replay on the big screen made it worse. Everybody could see they blew it. ~ college modern at=home
 If they had replay back when I was in school, half the calls against this program would have been fixed. ~ college old alum modern
-Coach was hot on the sideline, and for once I don't blame him. ~ college
+Coach was hot on the sideline, and for once I don't blame {coach_him}. ~ college
 Booth review in this league is supposed to stop this. It didn't. ~ nfl !pre2000
 Somebody at the league office is going to watch that and wince. Good. ~ nfl hot
 Never saw a call so bad that both sidelines looked confused. ~ young
@@ -3898,7 +3900,7 @@ Long wait before {next}. Let's not come out rusty. ~ college time=bye doomer
 First game of the year is {next}. Same seats, same tailgate spot, same crew. ~ college ticket time=before
 Opening against {next}. Every year I tell myself not to overreact to the first game. ~ college time=before calm
 Season starts with {next}. I've been on the message board all summer. ~ college time=before
-Head coach better have something up his sleeve for {next}. ~ college hot
+Head coach better have something up {coach_his} sleeve for {next}. ~ college hot
 Win this one against {next} and the whole country learns {star}'s name. ~ college homer
 Win against {next} and recruiting takes care of itself. ~ college booster
 NIL guys get paid to show up in games like {next}. Let's see it. ~ college nil hot
@@ -4008,7 +4010,7 @@ Watched highlights of {next} online. They can fly. ~ social
 All the podcast guys are picking {next}. Good. Let them. ~ modern homer !hs
 Go {mascot}. Beat {next}. ~ place=board
 Every {mascot} fan in {town} needs to be loud for {next}.
-I trust {coach_last} to have a plan for {next}. He always seems to. ~ homer calm
+I trust {coach_last} to have a plan for {next}. {coach_he} always seems to. ~ homer calm
 {coach} will have them ready for {next}. Count on it. ~ college homer
 Put {next} away early and let {coach_last} empty the bench. ~ hot
 
@@ -4184,7 +4186,7 @@ Half the people out here moved from somewhere else. Even they know to hate {them
 My buddy paged me the score in the fourth quarter. I almost drove off the road. ~ pre2000 result=win
 Called my brother long distance just to rub it in. Worth every cent. ~ pre2000 result=win
 Texted the score to everybody I know who roots for {them}. ~ social result=win
-Beat them like that and {coach_last} can coach here as long as he wants. ~ result=win margin=big
+Beat them like that and {coach_last} can coach here as long as {coach_he} wants. ~ result=win margin=big
 {coach_last} had to win that one. That's the job here. ~ result=loss hot
 This is {town}. We don't lose to {them}. Except we just did. ~ result=loss doomer
 Every {mascot} fan in the state is smiling right now. ~ result=win
@@ -4516,79 +4518,79 @@ In this league you're never as good or as bad as your record. {record} included.
 
 @key fans.hotseat
 It's time for a change.
-I like {coach_last} as a man. But it's time.
-How many more years do we give him?
+I like {coach_last} as a person. But it's time.
+How many more years do we give {coach_him}?
 You can't keep losing like this and keep your job.
 Fire {coach_last}. ~ hot
 Somebody upstairs has to make a call. ~ !hs
 The school board needs to hear from us. ~ hs
-Patience. Give the man one more year. ~ calm
+Patience. Give {coach_him} one more year. ~ calm
 {coach_last} has lost the room. You can see it on the field. ~ hot
-The players have quit on him. That's the only explanation. ~ doomer
-I don't think he's a bad man. I think he's in over his head. ~ calm
-He's had his chance. Time's up.
+The players have quit on {coach_him}. That's the only explanation. ~ doomer
+I don't think {coach_he}'s a bad person. I think {coach_he}'s in over {coach_his} head. ~ calm
+{coach_he}'s had {coach_his} chance. Time's up.
 What has {coach_last} done to deserve another season? Name one thing. ~ hot
 Point to one player this staff has made better. I'll wait. ~ hot young
-Defend him all you want. The results are the results. ~ doomer
+Defend {coach_him} all you want. The results are the results. ~ doomer
 Everybody wants to fire the coach after a loss. Nobody wants to find the next one. ~ calm
-Firing {coach_last} doesn't fix anything. The problems run deeper than one man. ~ calm
-He isn't the problem. Look at what he has to work with. ~ homer
-Change takes time. Give him a real chance to finish what he started. ~ homer calm
-If we fire him, who do we get? Somebody worse? ~ calm
+Firing {coach_last} doesn't fix anything. The problems run deeper than one coach. ~ calm
+{coach_he} isn't the problem. Look at what {coach_he} has to work with. ~ homer
+Change takes time. Give {coach_him} a real chance to finish what {coach_he} started. ~ homer calm
+If we fire {coach_him}, who do we get? Somebody worse? ~ calm
 Coaches need time to build something. Rushing it never works. ~ calm old
 The next guy has to be a proven winner. No more projects. ~ hot
 I want a young coach with fresh ideas. Somebody hungry. ~ young
 Bring in somebody who knows this place. One of our own. ~ old
 We need a coach who develops players, not one who just complains about them.
 Get me a coach who'll go for it on fourth down. ~ young hot
-Get somebody with some fire. He stands on that sideline like he's waiting for a bus. ~ hot
-He looked lost out there. Completely lost. ~ result=loss
-One win doesn't save his job. ~ result=win
-A win like that buys him a week. That's all it buys. ~ result=win
+Get somebody with some fire. {coach_he} stands on that sideline like {coach_he}'s waiting for a bus. ~ hot
+{coach_he} looked lost out there. Completely lost. ~ result=loss
+One win doesn't save {coach_his} job. ~ result=win
+A win like that buys {coach_him} a week. That's all it buys. ~ result=win
 Even when we win, I don't trust this staff. ~ result=win doomer
 Lose like that and you should be cleaning out your office by morning. ~ result=loss margin=big hot
-Lost {streak}. How is he still employed? ~ run=lost hot
+Lost {streak}. How is {coach_he} still employed? ~ run=lost hot
 I'm tired of hearing that we're close. Close to what? ~ result=loss margin=close
 {record}. That's on {coach_last}. Nobody else.
 {record}. If that's not a firing offense, what is? ~ hot
 All offseason to fix it, and nothing's fixed. ~ result=loss
-The season hasn't even started and I'm already done with him. ~ time=before
+The season hasn't even started and I'm already done with {coach_him}. ~ time=before
 New season, same coach, same problems. Mark my words. ~ time=before doomer
-Whoever hired him should go with him.
-I've defended this man. I can't do it anymore. ~ old
+Whoever hired {coach_him} should go with {coach_him}.
+I've defended {coach_him}. I can't do it anymore. ~ old
 Same mistakes every week. That's coaching. ~ result=loss
 You can't coach scared and win football games. ~ result=loss margin=close
 Our players are better than this. The coaching isn't. ~ result=loss
 Embarrassed in front of everybody. Somebody has to answer for that. ~ result=loss margin=big at=home
 Getting blown out on the road is how coaches get fired. ~ result=loss margin=big at=away
-Lost to a team we should have beaten. Fire him. ~ upset=lost hot
-That's the game that ends his tenure, if anybody upstairs has a spine. ~ upset=lost !hs
+Lost to a team we should have beaten. Fire {coach_him}. ~ upset=lost hot
+That's the game that ends {coach_his} tenure, if anybody upstairs has a spine. ~ upset=lost !hs
 Our defense gets carved up every week and nothing changes. ~ defense=bad
-He's a good man. Good men lose football games too. ~ calm
-I don't want him fired. I want him to fire his coordinators. ~ calm
-Make him hire a real defensive coordinator, or make him leave. ~ hot
+{coach_he}'s a good person. Good people lose football games too. ~ calm
+I don't want {coach_him} fired. I want {coach_him} to fire {coach_his} coordinators. ~ calm
+Make {coach_him} hire a real defensive coordinator, or make {coach_him} leave. ~ hot
 Seen enough. More than enough. ~ doomer
-I'll give him this, he's loyal to his guys. Too loyal. ~ calm
-The man won't change. You can't wait on somebody who won't change. ~ doomer
+I'll give {coach_him} this, {coach_he}'s loyal to {coach_his} guys. Too loyal. ~ calm
+{coach_he} won't change. You can't wait on somebody who won't change. ~ doomer
 A coaching change isn't a magic fix. Ask anybody who's been through one. ~ calm old
 Clean house. Every assistant, everybody. Start over. ~ hot
 I want a coach the other team is afraid of. Right now nobody's afraid of us. ~ hot
 Hire a coordinator who's never been a head coach. Somebody with something to prove. ~ young
-Nice man. Always says hello. This just isn't working. ~ she
+Nice as can be. Always says hello. This just isn't working. ~ she
 Patience is a virtue. It's also how you lose for five more years. ~ doomer
 Firing coaches every few years doesn't work either. Look around. ~ calm homer
 Somebody needs to go to the next school board meeting. I'll drive. ~ hs hot
 The principal needs to hear from the parents. All of us. ~ hs parent
 Already called the AD. Twice. ~ hs parent she
-I'd bet the superintendent golfs with him. That's the only explanation. ~ hs hot
+I'd bet the superintendent golfs with {coach_him}. That's the only explanation. ~ hs hot
 School board members get elected. Remember that come election time. ~ hs local
-Maybe he's a fine teacher. He's no head coach. ~ hs
+Maybe {coach_he}'s a fine teacher. {coach_he}'s no head coach. ~ hs
 These kids deserve a coach who knows what he's doing. ~ hs parent
 Give the job to somebody from the middle school staff. They know these kids. ~ hs local
 The JV coach could do better. Promote him and see. ~ hs alum
 Find a coach who played here. Somebody who cares about this town. ~ hs alum old
-Everybody knows everybody around here. That's why nobody will fire him. ~ hs doomer
-The booster club won't write another check with him on the sideline. ~ hs booster
+Everybody knows everybody around here. That's why nobody will fire {coach_him}. ~ hs doomer
+The booster club won't write another check with {coach_him} on the sideline. ~ hs booster
 We raise all this money at the concession stand and this is what we get? ~ hs booster she
 In Texas you don't keep a coach who can't win. Period. ~ hs texas hot
 The district should be calling coordinators at the big schools. ~ hs texas
@@ -4596,42 +4598,42 @@ The district should be calling coordinators at the big schools. ~ hs texas
 Parents are talking. That's never good for a coach. ~ hs parent
 The superintendent needs to make a call before kids stop coming out for football. ~ hs
 Our AD is too scared to fire anybody. Always has been. ~ hs doomer
-A high school coach wears a lot of hats. Maybe take a couple of them off him. ~ hs calm
+A high school coach wears a lot of hats. Maybe take a couple of them off {coach_him}. ~ hs calm
 Kids want to play for a winner. Right now they're looking at the school down the road. ~ hs parent doomer
 I hope the principal and the AD were at that game. They needed to see it. ~ hs result=loss at=home
 These boys only get four years. They can't wait on a coach to figure it out. ~ hs parent she
 The school board meeting is going to be packed. Mark it down. ~ hs result=loss margin=big
 I've lived here my whole life. I've never seen the town this down on a coach. ~ hs old local
 Get a man in here who can coach these kids up and keep them in town. ~ hs booster
-He's been good to these kids off the field. That counts for something. ~ hs calm she
+{coach_he}'s been good to these kids off the field. That counts for something. ~ hs calm she
 Winning isn't everything in high school, but this is something else. ~ hs calm
 Bring back the kind of coach who made this town proud. ~ hs old alum
 Somewhere in this state there's a young coordinator who'd kill for this job. Go find him. ~ hs local hot
 The parents' group chat is on fire about this coach. ~ hs parent social she
 Every booster I talk to is done. They just won't say it in public. ~ hs booster
-I was on the committee that hired him. I was wrong. ~ hs booster old
-Whoever replaces him has to be a teacher here too. That's how it works in this town. ~ hs local calm
-Students are making jokes about him in the hallway. That's when you know. ~ hs student young
+I was on the committee that hired {coach_him}. I was wrong. ~ hs booster old
+Whoever replaces {coach_him} has to be a teacher here too. That's how it works in this town. ~ hs local calm
+Students are making jokes about {coach_him} in the hallway. That's when you know. ~ hs student young
 You don't lose like that to a team like that. Somebody at the district office better be watching. ~ hs upset=lost
 Lose {streak} and you're asking for it. The school board will be asking too. ~ hs run=lost
 One win won't quiet the parents. Not this year. ~ hs result=win parent
 The superintendent better be at the next game. Let him see it for himself. ~ hs hot
 Pay the buyout. Whatever it costs, pay it. ~ college hot
 The buyout is cheaper than another season of this. ~ college
-The big boosters are done with him. I'd bet my house on it. ~ college
-I'm a booster, and I'm not giving another dime until he's gone. ~ college booster
-If the AD won't fire him, fire the AD. ~ college hot
+The big boosters are done with {coach_him}. I'd bet my house on it. ~ college
+I'm a booster, and I'm not giving another dime until {coach_he}'s gone. ~ college booster
+If the AD won't fire {coach_him}, fire the AD. ~ college hot
 The president needs to step in. The AD won't do it. ~ college alum
 Find the hottest coordinator in the country and back up the truck. ~ college booster
 Go get a coach from a smaller school who's winning. They're hungry. ~ college
 Nobody wants to commit to a dead man walking. Decide now. ~ college doomer
 You can't recruit with a lame duck. Make the call. ~ college
-Every week he stays, the next recruiting class gets worse. ~ college doomer
-Season ticket holders should stay home until he's gone. Empty seats get noticed. ~ college ticket hot
+Every week {coach_he} stays, the next recruiting class gets worse. ~ college doomer
+Season ticket holders should stay home until {coach_he}'s gone. Empty seats get noticed. ~ college ticket hot
 I stopped giving to the athletic fund. They'll notice. ~ college alum old
-Half the roster will be in the portal if he stays. ~ college nil doomer
-The collective won't raise a dime with him on the sideline. ~ college nil booster
-Talk to anybody in the student section. They want him gone. ~ college student
+Half the roster will be in the portal if {coach_he} stays. ~ college nil doomer
+The collective won't raise a dime with {coach_him} on the sideline. ~ college nil booster
+Talk to anybody in the student section. They want {coach_him} gone. ~ college student
 Our recruiting class won't hold together with this kind of uncertainty. ~ college
 Whatever we're paying {coach_last}, it's too much. ~ college hot
 A program like this doesn't lose like that. Not to them. ~ college upset=lost
@@ -4644,36 +4646,36 @@ I don't care if he's never been a head coach. Get somebody who can build a staff
 Hire somebody who can recruit this state. That's all it takes here. ~ college south
 Watch for the vote of confidence from the AD. That's when you know it's over. ~ college hot
 Somebody tell the president what the fans are saying. It won't be pretty. ~ college ticket
-Don't fire him in the middle of the year. Do it right after. ~ college calm !time=before !time=after
+Don't fire {coach_him} in the middle of the year. Do it right after. ~ college calm !time=before !time=after
 An interim coach can't be any worse than this. ~ college hot
 I'll write a check toward the buyout myself. I mean it. ~ college booster
 The money people are meeting. I hear things. ~ college booster
 The fan base is split down the middle. That alone tells you it's time. ~ college
 Our rivals are laughing at us. Every single one of them. ~ college alum
-He can't recruit, he can't develop, and he can't win on the field. What's left? ~ college hot
+{coach_he} can't recruit, {coach_he} can't develop, and {coach_he} can't win on the field. What's left? ~ college hot
 I've seen better game management from a video game. ~ college young modern
-Let him finish the year. Then talk. ~ college calm !time=before !time=after
+Let {coach_him} finish the year. Then talk. ~ college calm !time=before !time=after
 In the NIL era, a coach who can't sell this place can't win here. ~ college nil
 When the students stop staying for the fourth quarter, a coach is in trouble. ~ college student
-Recruits are hearing from other schools that he won't be here. That's how it works. ~ college
+Recruits are hearing from other schools that {coach_he} won't be here. That's how it works. ~ college
 The owner has to make the call. He won't, but he has to. ~ nfl doomer
 Fire the GM while you're at it. Clean the whole building out. ~ nfl hot
 Get a young offensive mind in here. That's how the league works now. ~ nfl modern
 Hire a coordinator who's been calling plays for a winner. ~ nfl
 I want a defensive guy. Somebody who'll make this team tough again. ~ nfl old
-I've had these seats for decades. I'm not renewing until he's gone. ~ nfl ticket old
+I've had these seats for decades. I'm not renewing until {coach_he}'s gone. ~ nfl ticket old
 When renewal time comes, I'm voting with my wallet. ~ nfl ticket
 Every press conference, same excuses. I can't listen anymore. ~ nfl
 Somebody's going to fly a banner over the stadium. I'll chip in. ~ nfl hot
 Bring the paper bags back. We've earned it. ~ nfl old
 The owner sits up in that box every week. Sees the same thing we see. ~ nfl result=loss at=home
 Coach and GM, one package. Both of them go. ~ nfl
-Fire him, and let the GM pick the next one? No thanks. ~ nfl doomer
+Fire {coach_him}, and let the GM pick the next one? No thanks. ~ nfl doomer
 The owner cares more about the luxury boxes than the wins. ~ nfl doomer
 This league is about quarterbacks and coaches. We've got the wrong coach. ~ nfl
-In this league you don't get forever. He's running out of time. ~ nfl
+In this league you don't get forever. {coach_he}'s running out of time. ~ nfl
 Go get one of the hot coordinators before somebody else does. ~ nfl
-The players aren't playing for him. You see it in the fourth quarter. ~ nfl result=loss
+The players aren't playing for {coach_him}. You see it in the fourth quarter. ~ nfl result=loss
 Not one more season ticket from me until something changes. ~ nfl ticket hot
 Owners don't fire coaches when the stadium's full. Stay home. ~ nfl ticket
 Somebody tell the owner what they're saying in the parking lots. ~ nfl local
@@ -4681,8 +4683,8 @@ Get a college coach. Somebody who'll bring some energy. ~ nfl young
 Not a college coach. They never work up here. ~ nfl old
 Don't hire the same kind of guy again. Go the other direction. ~ nfl calm
 A new coach with this GM? Same result in two years. ~ nfl doomer
-Give him one more year with a real quarterback. Then judge him. ~ nfl calm
-He's not the problem. The GM gave him nothing. ~ nfl homer
+Give {coach_him} one more year with a real quarterback. Then judge {coach_him}. ~ nfl calm
+{coach_he}'s not the problem. The GM gave {coach_him} nothing. ~ nfl homer
 I'd rather lose with a young guy learning than lose with this. ~ nfl
 The fans have spoken. The owner just has to listen. ~ nfl local
 Can't wait for the season to end so the owner can make a change. ~ nfl !time=before !time=after
@@ -4692,55 +4694,55 @@ Front office, coaching staff, all of it. Tear it down. ~ nfl hot
 Don't fire anybody in the middle of the season. It never works in this league. ~ nfl calm !time=before !time=after
 I've sat through a lot of bad football. This is the first time I've left early. ~ nfl ticket result=loss at=home
 Whoever the owner is listening to, he needs to stop. ~ nfl doomer
-Fire him. Next question. ~ place=board hot
+Fire {coach_him}. Next question. ~ place=board hot
 Hot seat thread. Is it time? ~ place=board
-Not saying fire him. Saying it's close. ~ place=board calm
-I'm out. Done defending him. ~ place=board
-Who's on the list to replace him? Go. ~ place=board
-Defending him in here gets you yelled at, but I'll do it. He's fine. ~ place=board homer
+Not saying fire {coach_him}. Saying it's close. ~ place=board calm
+I'm out. Done defending {coach_him}. ~ place=board
+Who's on the list to replace {coach_him}? Go. ~ place=board
+Defending {coach_him} in here gets you yelled at, but I'll do it. {coach_he}'s fine. ~ place=board homer
 It's not even close anymore. ~ place=board doomer
 Pack your bags, {coach_last}. ~ place=board hot young
 Same thing every week. ~ place=board doomer
-Give the man some time. Yikes, this board. ~ place=board homer calm
+Give {coach_him} some time. Yikes, this board. ~ place=board homer calm
 Wake me up when there's a new coach. ~ place=board young
 Seat's not hot. It's on fire. ~ place=board
 Petition thread. Sign below. ~ place=board social hot
 The fire-him hashtag is all over my feed. ~ place=board social young
-If this were my business he'd have been gone already. ~ place=board
+If this were my business {coach_he}'d have been gone already. ~ place=board
 Coaching search thread. Dream candidates only. ~ place=board
 Imagine defending this. ~ place=board young
 Change is coming. I can feel it. ~ place=board
 Anyone else just numb at this point? ~ place=board mood=angry
-Not calling for his head. Calling for a plan. ~ place=board calm
-I've been listening to people call for his job for weeks, and I've been on his side. I'm not anymore. Not after what we just saw. ~ place=radio result=loss
+Not calling for {coach_his} head. Calling for a plan. ~ place=board calm
+I've been listening to people call for {coach_his} job for weeks, and I've been on {coach_his} side. I'm not anymore. Not after what we just saw. ~ place=radio result=loss
 Let me say something nobody wants to hear. Firing the coach is the easy part. Finding a better one is the hard part, and nobody in this town ever thinks about that. ~ place=radio calm
 I've been a fan my whole life, and I've never once called for a coach to be fired. I'm calling for it now. ~ place=radio old
 You know what bothers me the most? It's not the losing. It's that nothing changes. Same plays, same mistakes, same answers after every game. ~ place=radio hot
-I'm not saying he's a bad coach. I'm saying he's not the right coach for here, and that's a different thing. ~ place=radio calm
+I'm not saying {coach_he}'s a bad coach. I'm saying {coach_he}'s not the right coach for here, and that's a different thing. ~ place=radio calm
 Whoever's making this decision needs to make it soon, because every week we wait, it gets worse for everybody. ~ place=radio
-Here's my question. If we fire him, who are we getting? Because I don't see anybody lining up for this job. ~ place=radio doomer
+Here's my question. If we fire {coach_him}, who are we getting? Because I don't see anybody lining up for this job. ~ place=radio doomer
 If I lost like that at my job, I'd be packing my desk. Why is football different? ~ place=radio hot
-I feel for the man, I do. But there's a lot of people in this town who care about this team too. ~ place=radio calm she
-I'll keep defending him, because I've watched what he's building, and I think people are going to look silly when it comes together. ~ place=radio homer
+I feel for {coach_him}, I do. But there's a lot of people in this town who care about this team too. ~ place=radio calm she
+I'll keep defending {coach_him}, because I've watched what {coach_he}'s building, and I think people are going to look silly when it comes together. ~ place=radio homer
 I don't want to hear about one more year. One more year is how we got here. ~ place=radio hot
-Even after a win like that, I'm not changing my mind. This isn't the guy. ~ place=radio result=win doomer
-Some folks want him gone. I say, look at where this team was when he got here. ~ place=radio homer
+Even after a win like that, I'm not changing my mind. This isn't the answer. ~ place=radio result=win doomer
+Some folks want {coach_him} gone. I say, look at where this team was when {coach_he} got here. ~ place=radio homer
 Honestly, it's not personal. I'd say the same thing about anybody with these results. ~ place=radio calm
 Down here you lose like this and they run you out of town. Politely. ~ south
-Up here we don't wait around. Fire him and move on. ~ northeast hot
+Up here we don't wait around. Fire {coach_him} and move on. ~ northeast hot
 Midwest patience only goes so far, and we're past it. ~ midwest
 Out here nobody even notices we have a team. Hire somebody who'll change that. ~ west
 Somebody start a fire-him website. I'll pay for it. ~ pre2010
-The paper's been on him every morning. It's getting ugly. ~ pre2000 old !hs
-My group chat took a vote. Fire him, unanimous. ~ social young
-{coach_last} is a good man in the wrong job. ~ calm
+The paper's been on {coach_him} every morning. It's getting ugly. ~ pre2000 old !hs
+My group chat took a vote. Fire {coach_him}, unanimous. ~ social young
+{coach_last} is a good person in the wrong job. ~ calm
 {coach_last} out. That's the post. ~ place=board hot
 {coach_last} needs one more year, and I'll argue with anybody who says otherwise. ~ homer hot
-{coach_last} can coach. He just can't coach here. ~ calm
+{coach_last} can coach. {coach_he} just can't coach here. ~ calm
 {town} deserves better than this. ~ hot
-Every {mascot} fan I know wants him gone. Every single one. ~ hot
+Every {mascot} fan I know wants {coach_him} gone. Every single one. ~ hot
 {year} has to be the last year for {coach_last}. Has to be. ~ doomer
-If {coach} can't fix it by now, he never will. ~ hs
+If {coach} can't fix it by now, {coach_he} never will. ~ hs
 {coach} needs to take a long look in the mirror. ~ college
 
 @key fans.recruiting
@@ -4913,7 +4915,7 @@ Our coaches outworked everybody on {player}. You could see it. ~ college move=co
 Our staff beat some big names for {player}, I'd bet. ~ college move=commit
 Did {player} take an official visit here? Somebody earned their paycheck. ~ college move=commit
 Kids like {player} didn't use to pick us. Times are changing. ~ college move=commit homer
-Big get for {coach_last}. People who doubted his recruiting can sit down. ~ college move=commit hot
+Big get for {coach_last}. People who doubted {coach_his} recruiting can sit down. ~ college move=commit hot
 {player} picking us tells you the buzz is real. ~ college move=commit mood=high
 Even in a down year we can still land a kid like {player}. ~ college move=commit mood=low
 I'd like to see {player} on the field before I start the parade. ~ college move=commit calm
@@ -5165,7 +5167,7 @@ I hope {other} know what they're getting. ~ draft=after college
 Now {player} finally gets paid for playing football. ~ draft=after college !nil
 Saw {player}'s name crawl across the bottom of the screen and yelled. ~ draft=after college
 {player} belongs on the wall with the other pros from here. ~ draft=after college
-{coach_last} will put {player} in every recruiting pitch he makes. ~ draft=after college
+{coach_last} will put {player} in every recruiting pitch {coach_he} makes. ~ draft=after college
 I'll be honest, I didn't think {player} would get drafted. Glad I was wrong. ~ draft=after college doomer
 {player} was always going to play on Sundays. You could see it. ~ draft=after college homer
 One of ours in the league. Never gets old. ~ draft=after college
@@ -5679,7 +5681,7 @@ Folks who say it's just a game have never lived here.
 One good player at the right spot changes everything.
 Big plays are fun. Long drives win.
 The scoreboard doesn't care how you looked doing it.
-Half the people I know think our coach is a genius. The other half want him gone.
+Half the people I know think our coach is a genius. The other half want {coach_him} gone.
 I've worn the same lucky hat for longer than I'd like to admit.
 A team that tackles well never looks bad for long.
 You can always find a reason to be hopeful if you look hard enough.
@@ -5709,9 +5711,9 @@ Show me a team with good linebackers and I'll show you a team that wins ugly.
 Watching film of us is like rereading a book when you already know the ending.
 Nothing makes {town} happier than this team winning.
 You can't walk a block in {town} without somebody asking about the team.
-{coach} has my trust. Until he doesn't.
+{coach} has my trust. Until {coach_he} doesn't.
 I'd love to sit down with {coach} for an hour. I've got questions.
-If {coach_last} wants advice, he knows where to find me.
+If {coach_last} wants advice, {coach_he} knows where to find me.
 {mascot} fans are the best anywhere. Nobody's changing my mind.
 Born rooting for the {mascot}. Going to die rooting for them.
 Every time somebody tells me to relax about this team, I get less relaxed.
@@ -5787,7 +5789,7 @@ Last year is over. I'm done talking about it. ~ time=before
 Who's going to be the guy this year? Every team needs one. ~ time=before
 This team owes me nothing. I still want everything. ~ time=before
 Heard they might finally put turf in. About time we stopped playing in a mud pit. ~ hs time=before
-Ran into {coach} at the hardware store. All he wanted to talk about was the offensive line. ~ hs time=before
+Ran into {coach} at the hardware store. All {coach_he} wanted to talk about was the offensive line. ~ hs time=before
 Somebody has to replace all those seniors. I keep running through the names. ~ hs time=before
 Our coaches would paint the field themselves if they had to. ~ hs
 Summer 7-on-7 doesn't tell you much. No pass rush. ~ hs time=before !pre2000
@@ -5808,7 +5810,7 @@ I'll be in the stands for the first scrimmage, same as always. ~ hs time=before 
 If we can find a kicker on the soccer team, I'll be happy. ~ hs
 Our coaches don't get a summer. Never have. ~ hs
 The summer passing league is the best free entertainment around. ~ hs !pre2000
-When {coach} says the kids are working, I believe him. ~ hs
+When {coach} says the kids are working, I believe {coach_him}. ~ hs
 Somebody needs to fix the press box roof before the opener. ~ hs time=before
 If they ever change the uniforms, keep the old colors. That's all I ask. ~ hs alum
 Football and summer jobs. These kids are busier than I ever was. ~ hs time=before old
@@ -5987,19 +5989,19 @@ Give {coach_last} a chance. That's all I'm asking.
 Don't know much about {coach_last}. Guess we'll find out.
 I wanted somebody bigger, honestly. ~ doomer
 {coach_last} is going to turn this around. ~ homer
-Met {coach_last} at the hardware store. Seems like a good man. ~ hs
+Met {coach_last} at the hardware store. Seems like good people. ~ hs
 
 # ---------------------------------------------------------------------------
 # The town after a game.
 Liked what {coach_last} said at the press conference. Now go do it. ~ !hs
 Every new coach says the right things. Let's see. ~ doomer
 {coach_last} talked about toughness for twenty minutes. I'm in. ~ old
-Heard {coach_last} is a details guy. We need that.
+Heard {coach_last} is all about the details. We need that.
 I want to see how {coach_last} handles a bad loss. That tells you everything. ~ calm
 The players seem to like {coach_last}. That's a start.
-Give the man a couple years. Nobody turns a program around overnight. ~ calm
+Give {coach_him} a couple years. Nobody turns a program around overnight. ~ calm
 New coach, same players. Don't expect miracles. ~ doomer
-{coach_last} has the look of a guy who knows what he's doing. ~ homer
+{coach_last} has the look of somebody who knows what {coach_he}'s doing. ~ homer
 Bring some fire, {coach_last}. We've been flat too long. ~ mood=low
 Big shoes to fill. Don't envy {coach_last} one bit. ~ mood=high
 The last guy left a mess. {coach_last} has work to do. ~ mood=low
@@ -6008,24 +6010,24 @@ I'll miss the old coach, but it was time. ~ calm
 Whatever {coach_last} runs, I just want it to work.
 Word is {coach_last} wants to run the ball. My kind of football. ~ old
 Word is {coach_last} wants to throw it all over the yard. About time. ~ young
-Let's see who {coach_last} hires for his staff. That's the real test.
-The coordinators matter as much as the head man. I hope he picked good ones.
-He says he'll outwork everybody. I believe him. ~ homer
+Let's see who {coach_last} hires for {coach_his} staff. That's the real test.
+The coordinators matter as much as the head coach. I hope {coach_he} picked good ones.
+{coach_he} says {coach_he}'ll outwork everybody. I believe {coach_him}. ~ homer
 Seen a lot of coaches come through here. This one feels different. ~ old homer
 Coaches come and go. The ones who last are the ones who win early. ~ old doomer
 First impressions matter. {coach_last} made a good one.
 Shook {coach_last}'s hand at the meet and greet. Firm handshake. Good sign.
-I don't care where he came from. Can he win here?
-The new guy has a lot of energy. I'll give him that.
+I don't care where {coach_he} came from. Can {coach_he} win here?
+The new coach has a lot of energy. I'll give {coach_him} that.
 I hear practice looks different already. More hitting, more yelling.
 Every new coach gets a honeymoon. Enjoy it while it lasts. ~ doomer
-He's going to bring in his own guys. Some of our players won't like that.
+{coach_he}'s going to bring in {coach_his} own guys. Some of our players won't like that.
 The way {coach_last} talks about discipline, a few guys are in for a shock. ~ hot
 Want a coach who doesn't get outcoached. That's all. ~ hot
 Every time we hire somebody, I get my hopes up. Here we go again. ~ doomer
 I like that {coach_last} didn't promise anything. Just work. ~ calm
 Here's hoping the older players buy in with the new staff.
-{coach_last}? I had to look him up.
+{coach_last}? I had to look {coach_him} up.
 Haven't been this excited about a coach in a long time. ~ homer mood=good
 Nobody I talk to knows much about {coach_last}. That's either good or bad.
 Keep the good parts of what we had, {coach_last}. Don't fix what isn't broken. ~ mood=high
@@ -6036,7 +6038,7 @@ The defense needs a whole new attitude. Bring it, {coach_last}. ~ hot
 I'll judge {coach_last} after a full season. Not after a press conference. ~ calm !hs
 Somebody tell {coach_last} the fans here expect to win. ~ mood=high
 Best day we've had around here in a while was the day they hired {coach_last}. ~ mood=low homer
-He kept talking about family. Fine by me, as long as the family wins.
+{coach_he} kept talking about family. Fine by me, as long as the family wins.
 {coach_last} has to win the locker room first. Then the games.
 I'll ride with {coach_last}. Got a good feeling. ~ homer
 Fresh start for everybody, the fans included. ~ calm
@@ -6044,52 +6046,52 @@ Hard to judge a coach this early. I'm trying. ~ calm
 I like a coach who looks like he hasn't slept. {coach_last} looks like that. ~ hot
 The school board finally picked somebody. Took them long enough. ~ hs
 Somebody said {coach_last} is going to teach history too. Good. A coach should be in the building. ~ hs
-The new coach came by the diner and introduced himself to everybody. ~ hs old
+The new coach came by the diner and introduced {coach_himself} to everybody. ~ hs old
 {coach_last} showed up at the youth league practice. That's how you win a town. ~ hs
 I hear the first thing {coach_last} did was clean out the weight room. ~ hs
 Principal says {coach_last} was the best one they talked to. We'll see. ~ hs
-Kids seem to like him. That's what matters at this level. ~ hs parent
+Kids seem to like {coach_him}. That's what matters at this level. ~ hs parent
 As long as {coach_last} treats these kids right, I'm happy. ~ hs parent
-Wants the whole team lifting before school. I like this guy already. ~ hs
+Wants the whole team lifting before school. I like {coach_him} already. ~ hs
 Booster club had a dinner to welcome {coach_last}. Good turnout. ~ hs booster
 I just want {coach_last} to stay a while. Kids need somebody who sticks. ~ hs
-New coach in a town like this, everybody's going to know his business. ~ hs
+New coach in a town like this, everybody's going to know {coach_his} business. ~ hs
 This town cares a lot. {coach_last} is going to find that out real fast. ~ hs
 Don't use us as a stepping stone, {coach_last}. ~ hs doomer
-New coach better get the middle school running his stuff. That's how the good programs do it. ~ hs
-My nephew met {coach_last} at a youth clinic and won't stop talking about him. ~ hs she
+New coach better get the middle school running {coach_his} stuff. That's how the good programs do it. ~ hs
+My nephew met {coach_last} at a youth clinic and won't stop talking about {coach_him}. ~ hs she
 Students already made a poster of {coach_last} for the opener. ~ hs student
 The old coach gave this town a lot of good years. Nobody expects {coach_last} to be him. ~ hs mood=high old
 In Texas a new head coach has about two years to win the district or start packing. ~ hs texas
 Saw {coach_last} at church. Good sign. ~ hs south
 Can't wait to hear {coach_last} at the first pep rally. ~ hs student
-The parents are going to test him. Hope he's ready for that. ~ hs parent calm
+The parents are going to test {coach_him}. Hope {coach_he}'s ready for that. ~ hs parent calm
 Any coach who calls the old players and invites them back is all right with me. ~ hs alum
 The AD finally got one right. ~ college homer
 The boosters wanted a big name. They got {coach_last}. We'll see. ~ college doomer
 If {coach_last} can recruit this state, we'll be fine. ~ college
 Can {coach_last} keep the current recruits from leaving? That's the first test. ~ college
 Half the roster's going to hit the portal. That's how it works with a new coach now. ~ college nil doomer
-Before he wins a game, {coach_last} has to win the portal. ~ college nil
+Before {coach_he} wins a game, {coach_last} has to win the portal. ~ college nil
 Bet they bring {coach_last} out at a basketball game. Place will go nuts. ~ college student
-Introductory press conference was good. He said all the right things about the state. ~ college
+Introductory press conference was good. {coach_he} said all the right things about the state. ~ college
 Keeping a few of the old staff would be smart. Continuity matters. ~ college calm
 Student section is ready for {coach_last}. Give us something to yell about. ~ college student
 Gave more this year because of the hire. ~ college booster homer
 Renewed my tickets the day they announced {coach_last}. ~ college ticket homer
 Haven't renewed yet. Want to see what {coach_last} does first. ~ college ticket doomer
 Alumni are split on this one. I'm on the good side. ~ college alum homer
-Hear {coach_last} runs his practices like boot camp. Good. ~ college
-He's going to recruit. You can tell he's a closer. ~ college homer
+Hear {coach_last} runs {coach_his} practices like boot camp. Good. ~ college
+{coach_he}'s going to recruit. You can tell {coach_he}'s a closer. ~ college homer
 Somebody make sure {coach_last} understands what the rivalry game means here. ~ college
-Getting a coach who wants to be here matters. {coach_last} seems like he does. ~ college
+Getting a coach who wants to be here matters. {coach_last} seems like {coach_he} does. ~ college
 Win the first home game, {coach_last}, and this place is yours for a while. ~ college
 Read every word the paper wrote about {coach_last}. Twice. ~ college pre2000
-Followed {coach_last} the minute they announced him. ~ college social young
+Followed {coach_last} the minute they announced {coach_him}. ~ college social young
 The collective better be on {coach_last}'s side from day one. ~ college nil booster
-He walked into that press conference like he owned the place. I like that. ~ college alum
+{coach_he} walked into that press conference like {coach_he} owned the place. I like that. ~ college alum
 The fan base has waited a long time for a hire like this. ~ college mood=good
-Already bought a new {color} hat for his first game. ~ college
+Already bought a new {color} hat for {coach_his} first game. ~ college
 Owner finally made a hire. Hope he got it right this time. ~ nfl doomer
 GM and coach better be on the same page. That's where it falls apart. ~ nfl
 I'm told {coach_last} is a players' coach. We'll see if that's good or bad. ~ nfl
@@ -6097,22 +6099,22 @@ We need a quarterback guy. Fingers crossed {coach_last} is one. ~ nfl
 Praying {coach_last} picked a defensive coordinator who blitzes. ~ nfl hot
 The hire got me to renew. Don't let me down, {coach_last}. ~ nfl ticket
 Press conference was fine. Every press conference is fine. ~ nfl doomer
-He'd better hold the stars accountable. Nobody's bigger than the team. ~ nfl
+{coach_he}'d better hold the stars accountable. Nobody's bigger than the team. ~ nfl
 The owner always hires whoever everybody's talking about. Maybe this time it works. ~ nfl doomer
-This town will eat {coach_last} alive if he starts slow. ~ nfl northeast
-Hope {coach_last} is ready for a long winter of people second-guessing him. ~ nfl midwest
+This town will eat {coach_last} alive if {coach_he} starts slow. ~ nfl northeast
+Hope {coach_last} is ready for a long winter of people second-guessing {coach_him}. ~ nfl midwest
 Would love for {coach_last} to get the transplants caring about this team. ~ nfl west
 Hope {coach_last} makes training camp miserable. Soft teams lose. ~ nfl
-The front office better let {coach_last} run his team. ~ nfl
+The front office better let {coach_last} run {coach_his} team. ~ nfl
 Coaches get fired every year in this league. {coach_last} knows the deal. ~ nfl calm
 Seen a lot of head coaches since I got my seats. Maybe {coach_last} is the one who sticks. ~ nfl ticket old
-Fantasy guys want to know if {coach_last} likes to throw. I want to know if he likes to win. ~ nfl !pre2000
-Pray for {coach_last}. He's going to need it. ~ south
+Fantasy guys want to know if {coach_last} likes to throw. I want to know if {coach_he} likes to win. ~ nfl !pre2000
+Pray for {coach_last}. {coach_he}'s going to need it. ~ south
 Texas fans don't wait around. {coach_last} better win now. ~ texas
 Welcome, Coach. ~ place=board homer
 Love the hire. ~ place=board homer
 Meh hire. ~ place=board doomer
-Give him time. ~ place=board calm
+Give {coach_him} time. ~ place=board calm
 Who? ~ place=board
 Staff thread when? ~ place=board
 Love the staff. ~ place=board
@@ -6124,16 +6126,16 @@ Presser was fire. ~ place=board young modern
 Press conference was solid. ~ place=board calm !hs
 Already better than the last guy. ~ place=board hot mood=angry
 Recruiting is about to pick up. ~ place=board college homer
-I listened to the whole press conference, and what stood out to me is he never once talked about himself. It was all players. ~ place=radio !hs
+I listened to the whole press conference, and what stood out to me is {coach_he} never once talked about {coach_himself}. It was all players. ~ place=radio !hs
 I'll be honest, I wanted somebody else. But I've done some reading on {coach_last} and I'm coming around. ~ place=radio
-People need to slow down. Folks are acting like {coach_last} is going to win it all before he's proven a thing. ~ place=radio calm
+People need to slow down. Folks are acting like {coach_last} is going to win it all before {coach_he}'s proven a thing. ~ place=radio calm
 Here's the thing about coaching changes. The first year is about culture. Wins come later, so let's not lose our minds early. ~ place=radio calm
-What I like about {coach_last} is he's going to hold people accountable. Too many guys around here got comfortable. ~ place=radio hot mood=low
-My worry with {coach_last} is the staff. A head coach is only as good as the guys under him, and I don't know these names. ~ place=radio doomer
+What I like about {coach_last} is {coach_he}'s going to hold people accountable. Too many guys around here got comfortable. ~ place=radio hot mood=low
+My worry with {coach_last} is the staff. A head coach is only as good as the people under {coach_him}, and I don't know these names. ~ place=radio doomer
 I've followed this team my whole life and I can't remember people this fired up about a hire. ~ place=radio old homer mood=good
 I'm willing to be patient with {coach_last}, but I want to see a plan. Show me a tougher, better coached team and I'll wait on the wins. ~ place=radio calm
-Everybody's grading this hire like it's finished. It isn't. Grade him after he's had a couple of recruiting classes. ~ place=radio college
-My husband already likes {coach_last} more than he likes me. Fine by me if he wins. ~ she
+Everybody's grading this hire like it's finished. It isn't. Grade {coach_him} after {coach_he}'s had a couple of recruiting classes. ~ place=radio college
+My husband already likes {coach_last} more than he likes me. Fine by me, as long as we win. ~ she
 I went to the welcome night and {coach_last} talked to every single person in that line. That's how you win people over in a place like this. ~ place=radio hs
 
 @key fans.town.who
@@ -7948,7 +7950,7 @@ Somebody check on {goat}, he's a kid ~ college calm
 
 @key fans.board.title.coach
 {coach_last} thread
-Is {coach_last} the guy?
+Is {coach_last} the answer?
 {coach_last} press conference ~ !hs
 Coaching thoughts
 Grading {coach_last}
@@ -7965,7 +7967,7 @@ Did {coach_last} get outcoached? ~ result=loss
 {coach_last} out-schemed ~ result=loss hot
 Team looked unprepared. Why? ~ result=loss
 What's {coach_last} doing? ~ hot result=loss
-Is {coach_last} in over his head? ~ doomer
+Is {coach_last} in over {coach_his} head? ~ doomer
 Credit to {coach_last} ~ result=win
 {coach_last} has this team believing ~ homer result=win
 Team looked ready. Credit the staff. ~ result=win calm
@@ -7984,7 +7986,7 @@ Can {coach_last} recruit? ~ college
 {coach_last} and the front office: on the same page? ~ nfl
 {coach_last} challenge flags thread ~ nfl modern
 {coach_last} quotes from the paper ~ pre2000
-{coach_last} earned his paycheck ~ !hs result=win
+{coach_last} earned {coach_his} paycheck ~ !hs result=win
 {coach_last} won the chess match ~ college result=win
 
 @key fans.board.title.calls
@@ -8246,8 +8248,8 @@ How much longer?
 Who replaces {coach_last}?
 Coaching search wish list
 Petition to fire {coach_last} ~ hot
-Can {coach_last} save his job? ~ calm
-{coach_last} is a good man, but... ~ calm
+Can {coach_last} save {coach_his} job? ~ calm
+{coach_last} is a good person, but... ~ calm
 Not ready to quit on {coach_last} ~ homer
 Defend {coach_last} here (if you can) ~ doomer
 Rock bottom for {coach_last}? ~ doomer
@@ -8270,7 +8272,7 @@ Time for new leadership on our sideline ~ hs social
 Who's building the Fire {coach_last} website? ~ pre2010 young
 Fire {coach_last} billboard fund? ~ social hot
 Twenty years watching and this is the worst ~ old doomer
-Fire {coach_last}, and the AD with him ~ college hot
+Fire {coach_last}, and the AD with {coach_him} ~ college hot
 
 @key fans.board.title.recruiting
 Recruiting thread

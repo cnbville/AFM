@@ -155,7 +155,10 @@ fn no_fire(w: &World) -> Value {
         k.spared
             .iter()
             .rev()
-            .map(|(d, at, why)| json!({ "date": crate::views::date_text(*d), "at": at, "why": why }))
+            .map(|(d, at, why)| {
+                let why = afm_engine::world::pronoun::to_you(why);
+                json!({ "date": crate::views::date_text(*d), "at": at, "why": why })
+            })
             .collect()
     });
     json!({

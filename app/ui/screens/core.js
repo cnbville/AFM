@@ -1716,13 +1716,16 @@ screens.coach = async (a) => {
   title(c.name, c.job ? c.job.role : "Coach");
   // Your read of him: your staff's season by season (update 2, board 18);
   // anyone else's from what you've put in (lane 18, C24).
-  const names = ["Profile", ...(c.you ? [] : ["Ratings"]), ...(c.record ? ["Recruiting record"] : []), "Jobs", "Coaching tree", "Players he developed", "Notes"];
+  // Your own coach is he or she as you set it up; every other coach is he.
+  const [he, him] = c.she ? ["she", "her"] : ["he", "him"];
+  const developed = `Players ${he} developed`;
+  const names = ["Profile", ...(c.you ? [] : ["Ratings"]), ...(c.record ? ["Recruiting record"] : []), "Jobs", "Coaching tree", developed, "Notes"];
   const tab = tabOf("ctab", names, a);
   let body = "";
   if (tab === "Ratings") {
     body = c.your_staff ? await rrCoachTab(a.id) : typeof hrReadTab === "function" ? await hrReadTab(a.id) : "";
   } else if (tab === "Profile") {
-    body = `<div class="grid2"><div class="panel"><h2>Who he is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
+    body = `<div class="grid2"><div class="panel"><h2>Who ${he} is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
       <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${c.contract.buyout > 0 ? money(c.contract.buyout) : "None"}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
   } else if (tab === "Recruiting record") {
     // His calls on recruits for you (lane 7, SK30): whom he wanted, whom he
@@ -1733,9 +1736,9 @@ screens.coach = async (a) => {
   } else if (tab === "Jobs") {
     body = table("cjobs", [{ k: "where", t: "Where", l: true }, { k: "role", t: "Role", l: true }, { k: "from", t: "From" }, { k: "to", t: "To" }, { k: "record", t: "Record", l: true }, { k: "ended", t: "How it ended", l: true }], c.history, { tools: false });
   } else if (tab === "Coaching tree") {
-    body = `<div class="panel"><h2>Coaches who learned under him <small>${c.tree.length}</small></h2>${treeHtml(c.tree, "Nobody has come up under him yet.")}</div>`;
-  } else if (tab === "Players he developed") {
-    body = c.developed.length ? table("cdev", [{ k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) }, { k: "pos", t: "Pos", l: true }, { k: "year", t: "Drafted" }, { k: "round", t: "Rd" }, { k: "pick", t: "Pick" }, { k: "team", t: "By", l: true, f: (r) => teamChip(r.team, 18), v: (r) => r.team.name }], c.developed, { tools: false }) : '<div class="empty">No player he coached has been drafted yet.</div>';
+    body = `<div class="panel"><h2>Coaches who learned under ${him} <small>${c.tree.length}</small></h2>${treeHtml(c.tree, `Nobody has come up under ${him} yet.`)}</div>`;
+  } else if (tab === developed) {
+    body = c.developed.length ? table("cdev", [{ k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) }, { k: "pos", t: "Pos", l: true }, { k: "year", t: "Drafted" }, { k: "round", t: "Rd" }, { k: "pick", t: "Pick" }, { k: "team", t: "By", l: true, f: (r) => teamChip(r.team, 18), v: (r) => r.team.name }], c.developed, { tools: false }) : `<div class="empty">No player ${he} coached has been drafted yet.</div>`;
   } else {
     body = `<div class="panel"><h2>Your notes on ${esc(c.name)}</h2>${(c.notes || []).length ? `<div class="items">${c.notes.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span>${esc(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">No notes yet.</div>'}<button class="st-btn small primary" data-act="cnote" data-id="${c.id ?? a.id}" data-name="${esc(c.name)}">Add a note</button></div>`;
   }

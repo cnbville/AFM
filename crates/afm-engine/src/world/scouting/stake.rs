@@ -103,7 +103,8 @@ pub fn stake(w: &mut World, id: u32, public: bool) -> Result<String, String> {
             e = e.team(t);
         }
         w.calendar.post(e);
-        w.people[i].note(format!("{you} staked his name on him in public."));
+        let your = crate::world::pronoun::you(w).his();
+        w.people[i].note(format!("{you} staked {your} name on him in public."));
     }
     Ok(if public {
         format!("You said it out loud: {name_out} is your guy. Three years will tell.")
@@ -205,7 +206,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
             let line = if hit {
                 format!("{you} called it on {name} three years ago, and it came true: {words}.")
             } else {
-                format!("{you} staked his name on {name} three years ago. It hasn't aged well: {words}.")
+                let your = crate::world::pronoun::you(w).his();
+                format!("{you} staked {your} name on {name} three years ago. It hasn't aged well: {words}.")
             };
             let level = if w.seat.is_some_and(|s| s.level == Level::Nfl) { Level::Nfl } else { Level::College };
             w.calendar.post(Event::new(d, level, Kind::News, Loudness::Small, line).person(id, &name));

@@ -2896,7 +2896,7 @@ Starting quarterback named yet, yes or no? ~ cold
 How many first-team reps did each quarterback get before {opp}? ~ cold
 Isn't the indecision at quarterback costing you? ~ hot
 Why can't you just pick a quarterback? ~ hot
-Is this competition a cover for a coach who can't make up his mind? ~ hot
+Is this competition a cover for a coach who can't make up {coach_his} mind? ~ hot
 I've talked to people close to both quarterbacks. They think it's settled. Is it? ~ ego
 I said a while back this quarterback race would go to the wire. Looks like I was right? ~ ego
 When's the quarterback call, today, tomorrow, or later? ~ impatient

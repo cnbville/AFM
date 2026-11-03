@@ -990,6 +990,9 @@ pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
         // Read from your road and your people ratings when the career starts.
         aura: 0.0,
         came_up: group.map(|g| afm_engine::world::coach::Group::ALL[g]),
+        // He or she: what every line in the world says about you.
+        she: matches!(args.get("she"), Some(Value::Bool(true)))
+            || args.get("she").and_then(Value::as_str) == Some("she"),
         teaching,
     };
     Ok(you)
