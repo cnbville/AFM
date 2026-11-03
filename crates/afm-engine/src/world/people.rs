@@ -433,7 +433,7 @@ pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
             };
             read(&mut w.people[i], coach, motivation, parts);
         }
-        settle_room(w, Room::College(k), &roster);
+        settle_room(w, Room::College(k), &roster, &role_of);
     }
     let mut read_ids: Vec<usize> = role_of.keys().copied().collect();
     read_ids.sort_unstable();
@@ -568,6 +568,7 @@ pub(crate) fn pro_mood(w: &mut World) {
         let coach = w.nfl[t].head_coach;
         let motivation = coach.map_or(10.0, |c| w.coaches[c].ability().motivation);
         let room = w.clubs[t].team_mood as f64;
+        let mut roles = std::collections::HashMap::new();
         for &i in &roster {
             let p = &w.people[i];
             let c = p.pro.as_ref().unwrap();
@@ -586,6 +587,7 @@ pub(crate) fn pro_mood(w: &mut World) {
                     }
                 }
             };
+            roles.insert(i, role);
             let (apy, worth) = pay_and_worth(w, i).unwrap_or((0.0, 0.0));
             let money = if worth <= 0.0 { 0.0 } else { clamp(apy / worth - 1.0, -1.0, 0.5) };
             let amb = p.player.personality.traits.z(Trait::Ambition);
@@ -612,11 +614,15 @@ pub(crate) fn pro_mood(w: &mut World) {
             club_trust(&mut w.people[i], role, money);
         }
         read_ids.extend_from_slice(&roster);
-        settle_room(w, Room::Club(t), &roster);
+        settle_room(w, Room::Club(t), &roster, &roles);
     }
     read_ids.sort_unstable();
     super::folk::talks::reapply(w, &read_ids);
 }
+
+/// What a starter's and a rotation player's role add to his standing in
+/// the room (minor bug 184; proposed, not confirmed).
+const ROLE_STANDING: (f64, f64) = (2.5, 1.25);
 
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 enum Room {
@@ -629,13 +635,26 @@ enum Room {
 /// (ego wins some early votes, Grijalva 2015), or picked by a strict head
 /// coach on leadership and professionalism. Team mood is the moods
 /// weighted by standing; leaders in a good mood damp a sour one.
-fn settle_room(w: &mut World, room: Room, roster: &[usize]) {
+///
+/// His role this season is part of his standing (minor bug 184): a room
+/// votes the men it watches play, and a strict coach picks among the men
+/// he plays. Real captains are starters (Ohio State's, Alabama's and
+/// Michigan's 2025 captains all were). Without it a three-year backup with
+/// 22 snaps was one of South Carolina's captains on leadership alone, and
+/// 47% of FBS captains were backups or redshirts. A starter +2.5 and a
+/// rotation player +1.25 (proposed, not confirmed): seed 1 played on to
+/// fall camp 2026 votes 92% starters, 5% rotation players and 2.7%
+/// backups or redshirts.
+fn settle_room(w: &mut World, room: Room, roster: &[usize], roles: &std::collections::HashMap<usize, PlayingTime>) {
     let (coach, n) = match room {
         Room::College(k) => (w.programs[k].head_coach, 4),
         Room::Club(t) => (w.nfl[t].head_coach, 6),
     };
     let strict = coach.is_some_and(|c| w.coaches[c].ability().discipline >= 14.0);
-    let standing = |p: &Person| -> f64 {
+    // His standing before his role this season: years, star status, the
+    // quarterback spot.
+    let base = |i: usize| -> f64 {
+        let p = &w.people[i];
         let years = match room {
             Room::College(_) => p.college_seasons as f64,
             Room::Club(t) => {
@@ -649,6 +668,12 @@ fn settle_room(w: &mut World, room: Room, roster: &[usize]) {
         let qb = if p.player.position == Position::QB { 1.0 } else { 0.0 };
         1.0 + 0.3 * years.min(5.0) + star.max(0.0) + qb
     };
+    let role = |i: usize| match roles.get(&i) {
+        Some(PlayingTime::Starter) => ROLE_STANDING.0,
+        Some(PlayingTime::Rotation) => ROLE_STANDING.1,
+        _ => 0.0,
+    };
+    let standing = |i: usize| base(i) + role(i);
     let mut votes: Vec<(usize, f64)> = roster
         .iter()
         // A college team doesn't make a first-year player a captain.
@@ -657,10 +682,12 @@ fn settle_room(w: &mut World, room: Room, roster: &[usize]) {
             let p = &w.people[i];
             let t = &p.player.personality.traits;
             let lead = t.get(Trait::Leadership);
+            // A coach who picks his own captains picks among the men he
+            // plays, as surely as a room does.
             let v = if strict {
-                lead + 0.5 * t.get(Trait::Professionalism) + 2.0 * standing(p)
+                lead + 0.5 * t.get(Trait::Professionalism) + 2.0 * base(i) + 3.0 * role(i)
             } else {
-                lead + 0.3 * t.get(Trait::Ego) + 3.0 * standing(p)
+                lead + 0.3 * t.get(Trait::Ego) + 3.0 * standing(i)
             };
             (i, v + 1.5 * key_normal(w.options.seed as u64 ^ 0xCA97 ^ (w.year as u64) << 20, i as u64))
         })
@@ -670,7 +697,7 @@ fn settle_room(w: &mut World, room: Room, roster: &[usize]) {
     let (mut sum, mut wsum) = (0.0, 0.0);
     for &i in roster {
         let p = &w.people[i];
-        let wt = standing(p) * if captains.contains(&i) { 2.0 } else { 1.0 };
+        let wt = standing(i) * if captains.contains(&i) { 2.0 } else { 1.0 };
         sum += wt * p.mood as f64;
         wsum += wt;
     }

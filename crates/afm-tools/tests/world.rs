@@ -248,6 +248,14 @@ fn people_live() {
     let fbs: Vec<_> = w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(w.year)).collect();
     assert!(fbs.iter().all(|p| p.support.academic.rating > 0));
     assert!(fbs.iter().filter(|p| p.captains.len() >= 3).count() * 10 >= fbs.len() * 9);
+    // Rooms vote the men they watch play (minor bug 184): 97% of FBS
+    // captains start or rotate on seed 1, 53% before the fix.
+    let roles: Vec<_> = fbs.iter().flat_map(|p| p.captains.iter().filter_map(|&i| w.people[i].last_role)).collect();
+    let playing = roles
+        .iter()
+        .filter(|r| matches!(r, afm_engine::player::PlayingTime::Starter | afm_engine::player::PlayingTime::Rotation))
+        .count();
+    assert!(playing * 10 >= roles.len() * 8, "{playing} of {} FBS captains start or rotate", roles.len());
     // Traits average near 10 with a real spread.
     let traits: Vec<f64> =
         w.people.iter().take(50_000).map(|p| p.player.personality.traits.get(Trait::Professionalism)).collect();
