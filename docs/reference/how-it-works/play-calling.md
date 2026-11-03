@@ -1,6 +1,6 @@
 # Play calling: how it works today
 
-Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; the call table rebuilt and centered (minor bug 135) at 3f875ea on 2026-10-31.
+Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; the call table rebuilt and centered (minor bug 135) at 3f875ea on 2026-10-31; college's clock by era (minor bugs 179 and 180) over main 67bea84 on 2026-11-02.
 
 Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach skills are 1-20. A list of weights means one option is drawn in proportion to its weight. "Long" means 2nd down or later with 8+ to go. U is a uniform 0-1 draw, N(m, sd) a normal one, N alone N(0, 1).
 
@@ -23,7 +23,7 @@ Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach
 - Does the designer grade my play? No: it checks legality, your coordinator comments at his reading skill, and the play gains what its geometry gains (`game/designer.rs`, `legal`, `review`).
 - Do new ideas fool defenses? In college only: a family new to the division, or one the team runs far more than its division, makes defenders read up to 0.12 s later. NFL and high school teams keep 0 (`world/trends.rs`, `team_novelty`; `game/scrimmage.rs`, `run_snap`).
 - Does my game plan's run-pass lean do anything? The training plan's old lean does not: it is saved, but no engine code reads it (`training/seat.rs`, `GamePlan`, `prepare`). The identity's run share guideline does (`game/calling.rs`, `call_offense`).
-- Do the rules change by era? Yes: every NFL and college game plays its year's book for the kickoff spot, the touchback, the extra point and overtime, playoffs included (`game/rules.rs`, `Rules::for_year`; `game/flow.rs`, `quick_game_in`; see the rule books below). High school plays today's book. The other leagues' games use their own book for the season (`game/flow.rs`, `quick_game_book`; `game/books.rs`, `Rules::for_book`).
+- Do the rules change by era? Yes: every NFL and college game plays its year's book for the kickoff spot, the touchback, the extra point and overtime, playoffs included; college also for the clock: the two-minute timeout from 2024 and the clock stopped on every first down to 2022 (`game/rules.rs`, `Rules::for_year`; `game/flow.rs`, `quick_game_in`; see the rule books below). High school plays today's book. The other leagues' games use their own book for the season (`game/flow.rs`, `quick_game_book`; `game/books.rs`, `Rules::for_book`).
 
 ## Who calls and how good he is
 
@@ -247,8 +247,8 @@ Every team's staff carries its head coach's guidelines (`game/roster.rs`, `Staff
 | Kickoff from / touchback | 35 / 35, the 2025 kickoff (history: the 30 to 2010; touchback 20 to 2015, 25 to 2023, 30 in 2024) | 35 / 25 (the 30 to 2006; touchback 20 to 2011) | 40 / 20 |
 | Extra point kick from | 15 (the 2 to 2014) | 3 | 3 |
 | Two-point try from | 2 | 3 | 3 |
-| Two-minute warning | yes | no | no |
-| Clock stops on a first down | never | last 2:00 of a half | always |
+| Two-minute warning | yes | the two-minute timeout in each half from 2024 (none before) | no |
+| Clock stops on a first down | never | last 2:00 of a half (every first down to 2022) | always |
 | Overtime | one 10:00 period, both get the ball, ties allowed (playoffs 15:00, no ties). History: sudden death to 2011 (playoffs to 2009); then a first-possession field goal doesn't end it, 15:00 (10:00 in the regular season 2017-24) | series from the 25 every round, two-point tries from the 2nd, the two-point shootout from the 3rd (to 2018 tries from the 3rd, no shootout; 2019-20 the shootout from the 5th) | Kansas plan, series from the 10 |
 | Running clock (mercy) | none | none | 35+ points from Q3 |
 | Down when he falls untouched | no | yes | yes |

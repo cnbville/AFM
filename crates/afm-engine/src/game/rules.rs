@@ -150,7 +150,9 @@ impl Rules {
                 touchback: 20.0,
                 xp_from: 3.0,
                 two_point_from: 3.0,
-                two_minute_warning: false,
+                // The two-minute timeout in each half since 2024 (NCAA,
+                // approved 19 April 2024).
+                two_minute_warning: true,
                 first_down_stop: FirstDownStop::LastTwoMinutes,
                 overtime: Overtime::College,
                 mercy: None,
@@ -198,6 +200,11 @@ impl Rules {
                 // at the 20 to 2011, then the 25.
                 r.kickoff_from = if year <= 2006 { 30.0 } else { 35.0 };
                 r.kickoff_touchback = if year <= 2011 { 20.0 } else { 25.0 };
+                // The two-minute timeout from 2024; the clock stopped on
+                // every first down to 2022, only in each half's last two
+                // minutes from 2023 (NCAA rule changes, April 2024 and 2023).
+                r.two_minute_warning = year >= 2024;
+                r.first_down_stop = if year <= 2022 { FirstDownStop::Always } else { FirstDownStop::LastTwoMinutes };
                 r.overtime = match year {
                     ..=2018 => Overtime::CollegeEra { two_from: 3, shootout_from: 99 },
                     2019..=2020 => Overtime::CollegeEra { two_from: 3, shootout_from: 5 },
