@@ -206,7 +206,7 @@ function newSetup() {
   const open = S.status && !S.status.you && PG.loaded ? PG.loaded : null;
   return {
     step: 1, reached: 1, world: open, loaded: open,
-    first: "", last: "", born: `${y - 42}-06-15`, eth: "white",
+    first: "", last: "", pro: "he", born: `${y - 42}-06-15`, eth: "white",
     hometown: "", state: "TX", high_school: "", alma_mater: "", college_years: "", degree: "",
     status: "Married", spouse: "", roots: "", children: [],
     height: "6 ft 1", build: "Athletic", hair: "Short, dark", facial_hair: "Clean-shaven", photo: null,
@@ -421,7 +421,7 @@ async function refreshKnown() {
 // made, kept by the game outside any save when his career starts. A new
 // career can take him again as he is (straight to the job) or with
 // something changed (the steps open filled in with him).
-const COACH_KEEP = ["first", "last", "born", "eth", "hometown", "state", "high_school", "alma_mater", "college_years", "degree", "status", "spouse", "roots", "children", "height", "build", "hair", "facial_hair", "photo", "bg", "pos", "ratings", "ratingsFor", "style", "calls", "stops", "rdLevel"];
+const COACH_KEEP = ["first", "last", "pro", "born", "eth", "hometown", "state", "high_school", "alma_mater", "college_years", "degree", "status", "spouse", "roots", "children", "height", "build", "hair", "facial_hair", "photo", "bg", "pos", "ratings", "ratingsFor", "style", "calls", "stops", "rdLevel"];
 function coachRecord(st) {
   const r = {};
   for (const k of COACH_KEEP) if (st[k] !== undefined && st[k] !== null) r[k] = st[k];
@@ -439,7 +439,7 @@ async function coachUse(st, file, asHe) {
 async function coachesPanel(st) {
   const x = (PG.coaches ??= await api("coach_profiles").catch(() => ({ coaches: [] })));
   if (!x.coaches.length) return "";
-  const rows = x.coaches.map((c) => `<div class="pg-known pg-coach ${st.from === c.file ? "on" : ""}"><div><b>${esc(c.name)}</b><span class="pg-acts"><button class="pg-btn s p" data-pg="coach-use" data-file="${esc(c.file)}">Use him as he is</button><button class="pg-btn s" data-pg="coach-edit" data-file="${esc(c.file)}">Change something</button><button class="pg-btn s" data-pg="coach-forget" data-file="${esc(c.file)}" aria-label="Forget ${esc(c.name)}">Forget</button></span></div><small>${esc(c.road)} · kept ${esc(savedText(c.saved))}</small></div>`).join("");
+  const rows = x.coaches.map((c) => `<div class="pg-known pg-coach ${st.from === c.file ? "on" : ""}"><div><b>${esc(c.name)}</b><span class="pg-acts"><button class="pg-btn s p" data-pg="coach-use" data-file="${esc(c.file)}">${c.coach && c.coach.pro === "she" ? "Use her as she is" : "Use him as he is"}</button><button class="pg-btn s" data-pg="coach-edit" data-file="${esc(c.file)}">Change something</button><button class="pg-btn s" data-pg="coach-forget" data-file="${esc(c.file)}" aria-label="Forget ${esc(c.name)}">Forget</button></span></div><small>${esc(c.road)} · kept ${esc(savedText(c.saved))}</small></div>`).join("");
   return `<div class="pg-panel"><div class="pg-ph"><span>Your coaches</span><small>kept by the game outside any save · or make a new one below</small></div><div class="pg-knownlist">${rows}</div></div>`;
 }
 async function stepYou(st) {
@@ -461,6 +461,7 @@ async function stepYou(st) {
         ${f("last", "Last name", inp("last", "Last name"), !st.last.trim() && st.tried ? "bad" : "")}
         ${f("born", "Date of birth", `<input id="pg-born" data-f="born" type="date" value="${esc(st.born)}" min="1945-01-01" max="2001-12-31">`, "", age != null ? `<span id="pg-age">${age} years old</span>` : '<span id="pg-age"></span>')}
         ${f("eth", "Heritage", sel("eth", HERITAGE))}
+        ${f("pro", "He or she", sel("pro", [["he", "He"], ["she", "She"]]), "", "how the world talks about you")}
       </div></div>
       <div class="pg-panel"><div class="pg-ph"><span>Where you're from</span><small>people from your home area and your school know your name</small></div><div class="pg-grid">
         ${f("hometown", "Hometown", inp("hometown", "Your hometown", "pg-towns"))}
@@ -1178,7 +1179,7 @@ function readPhoto(file) {
 function aiPrompt(st) {
   const age = ageOn(st.born, PG.opts && PG.opts.today) || 42;
   const her = (HERITAGE.find((h) => h[0] === st.eth) || [, ""])[1].toLowerCase();
-  return `Professional head-and-shoulders portrait photograph of a ${age}-year-old ${her} American football head coach, ${st.height.replace(" ft ", "'")}" tall, ${st.build.toLowerCase()} build, ${st.hair.toLowerCase()} hair, ${st.facial_hair.toLowerCase()}. He wears a plain team quarter-zip and stands on a practice field on media day. Soft natural daylight, 85 mm lens, f/2.8, realistic skin texture, a calm, confident expression with a slight smile. No logos, no text, no watermark. Portrait 4:5.`;
+  return `Professional head-and-shoulders portrait photograph of a ${age}-year-old ${her} American football head coach, ${st.height.replace(" ft ", "'")}" tall, ${st.build.toLowerCase()} build, ${st.hair.toLowerCase()} hair, ${st.facial_hair.toLowerCase()}. ${st.pro === "she" ? "She" : "He"} wears a plain team quarter-zip and stands on a practice field on media day. Soft natural daylight, 85 mm lens, f/2.8, realistic skin texture, a calm, confident expression with a slight smile. No logos, no text, no watermark. Portrait 4:5.`;
 }
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* the old way below */ }
@@ -1194,7 +1195,7 @@ function startArgs(st) {
   const style = {};
   for (const s of STYLE_SETS) style[s.key] = STYLE_VALUES[st.style[s.key]];
   return {
-    name: fullName(st), age: ageOn(st.born, o.today) || 42, home_state: st.state, ethnicity: st.eth, background: st.bg,
+    name: fullName(st), she: st.pro === "she", age: ageOn(st.born, o.today) || 42, home_state: st.state, ethnicity: st.eth, background: st.bg,
     position: rdPick(st, o.backgrounds.find((b) => b.key === st.bg) || o.backgrounds[0]),
     ratings: st.ratings, style, job: st.job, calls: callsOf(st), coach: coachRecord(st),
     profile: {
@@ -1334,7 +1335,9 @@ document.addEventListener("click", async (ev) => {
     }
     case "coach-use": case "coach-edit": if (st) await coachUse(st, d.file, d.pg === "coach-use"); break;
     case "coach-forget": {
-      if (!(await sure("Forget this coach?", "His file goes from the game folder. Careers that started with him keep him.", "Forget him"))) break;
+      const her = (((PG.coaches && PG.coaches.coaches) || []).find((x) => x.file === d.file) || {}).coach?.pro === "she";
+      const [his, him] = her ? ["Her", "her"] : ["His", "him"];
+      if (!(await sure("Forget this coach?", `${his} file goes from the game folder. Careers that started with ${him} keep ${him}.`, `Forget ${him}`))) break;
       try { PG.coaches = await api("coach_profile_forget", { file: d.file }); render(); } catch (e) { toast(e.message); }
       break;
     }

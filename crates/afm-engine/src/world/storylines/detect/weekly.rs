@@ -1752,7 +1752,14 @@ fn pair_stories(w: &mut World, g: &Coming, side: usize) {
                 .other(o)
                 .lead(Who::Coach(c as u32))
                 .due(due)
-                .fact(format!("{} returns to face {oname}, his old team.", cname(w, c)), 3.0)
+                .fact(
+                    format!(
+                        "{} returns to face {oname}, {} old team.",
+                        cname(w, c),
+                        crate::world::pronoun::coach(w, c).his()
+                    ),
+                    3.0,
+                )
                 .public();
             tell(w, s);
         }

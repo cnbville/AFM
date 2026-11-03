@@ -4,7 +4,10 @@
 # story.quote.<family>.<part>, then story.quote.any.<part>. The speaker is a
 # player (tag player) or a coach (tag coach); a version with neither must fit
 # both. Up is good news for his team, down is bad. Facts: {team} {rival}
-# {rival_last} {lead} {lead_last} {other} {coach} {n} {record} {since}. In a
+# {rival_last} {lead} {lead_last} {other} {coach} {n} {record} {since}, and
+# the head coach's and the lead's pronouns {coach_he} {coach_him} {coach_his}
+# {coach_himself} {coach_man}, {lead_he} and so on (your own coach is he or
+# she as you set it up; tag !she keeps a line from her). In a
 # lead's quote the rival is {rival_last}; in a rival's quote the lead is
 # {lead_last}. Said without quote marks; the reader adds "Smith said."
 
@@ -262,7 +265,7 @@ The young guys watch how I handle stuff like this. I try to give them something 
 Everybody at school has been asking me about it. I just tell them I don't know. ~ player hs young
 I've got a test tomorrow. Honestly that's what's on my mind. ~ player hs young
 I just want to play ball with my boys. That's what I care about. ~ player hs young
-Coach keeps us grounded. He doesn't let any of us get a big head. ~ player hs young
+Coach keeps us grounded. {coach_he} doesn't let any of us get a big head. ~ player hs young
 I'm still in high school, man. I'm trying to enjoy it. ~ player hs young
 People in town stop me at the gas station now. It's weird. ~ player hs young
 My family's on me about school first. They're right. ~ player hs young
@@ -1746,7 +1749,7 @@ I've been fired before. You survive. ~ coach old
 We're going to keep fighting. ~ coach
 He's our guy. We believe in him. ~ player
 We play for him. That's not changing. ~ player loyal
-I don't know about all that. He's my coach. ~ player
+I don't know about all that. {coach_he}'s my coach. ~ player
 The players believe in Coach. That's what matters. ~ player leader
 It's on us. Not him. We're the ones playing. ~ player leader
 It's not on the coaches. We've got to make plays. ~ player
@@ -1851,7 +1854,7 @@ I sit in the same chair every morning and watch the same tape. That's my answer.
 The only number I care about is the one on the scoreboard. ~ coach
 I'd rather be talked about than ignored. At least people care. ~ coach
 I wouldn't trade this job for an easier one. ~ coach
-I've never been a guy who looks over his shoulder, and I'm too old to learn now. ~ coach old
+I've never been a guy who looks over his shoulder, and I'm too old to learn now. ~ coach old !she
 Everybody wants a timeline. I don't have one. I have a practice schedule. ~ coach
 I'm a teacher. Teachers don't stop teaching because people are talking. ~ coach
 Ask me about our players. That's a much better conversation. ~ coach warm
@@ -2088,7 +2091,7 @@ I've been booed before. You don't get used to it, but you get through it. ~ coac
 The quiet in the building after a loss like that tells you everybody cares. ~ coach
 I'm still the one standing up here. That means I'm still the one who has to fix it. ~ coach
 I'll say this once. I'm not resigning. ~ coach hot
-I'm a grown man. I can take the criticism. Our players shouldn't have to. ~ coach
+I'm a grown man. I can take the criticism. Our players shouldn't have to. ~ coach !she
 People think we don't hear it. We hear every word. ~ coach
 It's not personal when people want me gone. It's football. ~ coach calm
 I'm not mad at anybody for wanting better. I want better. ~ coach
@@ -2334,7 +2337,7 @@ This staff has made me better. I'm not in a rush to leave it. ~ coach
 Every coach wants a chance to do more someday. I'm no different. ~ coach climber
 I've got a team to get ready. {other} can do whatever {other} is going to do. ~ coach cold
 If the people here want me, I'm here. That's been true since day one. ~ coach loyal
-I'm a grown man. When there's a decision to make, I'll make it, and I'll say it out loud. ~ coach
+I'm a grown man. When there's a decision to make, I'll make it, and I'll say it out loud. ~ coach !she
 I'm not going to play the coy game with you. I like my job and I like where I am. ~ coach
 I don't want to be the guy who's always halfway out the door. ~ coach
 The players come first. If I start thinking about me, I'm cheating them. ~ coach warm
@@ -2370,7 +2373,7 @@ I've got friends in that building at {other}. I'm not going to talk about them t
 I know what I'd be getting into at {other}. I know what I have here. ~ coach
 I'd never leave a staff in the middle of something. That's a promise. ~ coach loyal
 I can't control where my name ends up. I can control where my feet are. Right now they're here. ~ coach
-I don't want to be one of those guys who leaves and wishes he hadn't. ~ coach
+I don't want to be one of those guys who leaves and wishes he hadn't. ~ coach !she
 Good jobs come open every year. Good fits don't. ~ coach
 I'm a little old school. When you shake a man's hand and take a job, you mean it. ~ coach old
 Coaching at {other} would be special for a lot of people. Right now I'm coaching here. ~ coach
@@ -2952,7 +2955,7 @@ We can't keep everybody. That's the business. ~ coach nfl
 It's the world we live in now. ~ coach nil
 I wish him nothing but the best. ~ coach calm
 I talked to my position coach before I told anybody else. ~ player college
-Coach and I sat down for a long time. He knows where my head is. ~ player college
+Coach and I sat down for a long time. {coach_he} knows where my head is. ~ player college
 The people in that building have been good to me. That doesn't change. ~ player college
 Whatever I do, my teammates will hear it from me first. ~ player college leader
 This was never about one person or one thing. ~ player college
@@ -2975,7 +2978,7 @@ I want to be in the NFL. Every decision I make runs through that. ~ player colle
 I've got people in my corner who've seen this a hundred times. I listened to them. ~ player college
 I'm not running from anything. ~ player college hot
 If you know me, you know this wasn't easy. ~ player college
-Coach told me he'd back me whatever I decide. That means a lot. ~ player college
+Coach told me {coach_he}'d back me whatever I decide. That means a lot. ~ player college
 I'm going to keep my head down and keep training. ~ player college
 I don't owe anybody an explanation, but I'm going to give one anyway. ~ player college ego
 I've seen guys make this call for the wrong reasons. I'm making it for the right ones. ~ player college pro
@@ -3615,7 +3618,7 @@ It's not about redemption. It's about football. ~ player
 People think it's a feel-good story. It's not done yet. ~ player
 I want my last memories of this game to be good ones. ~ player vet
 People have been asking me if I'm the same guy since {since}. Watch and see. ~ player
-Ask {coach}. He'll tell you what the work looked like. ~ player
+Ask {coach}. {coach_he}'ll tell you what the work looked like. ~ player
 I'm not going to sit here and tell you I'm a new man. I'm a better one. ~ player
 My first tackle back, I got up and looked for the next one. ~ player defense
 The crowd gave me a hand when I ran on. I had to look at the ground for a second. ~ player
@@ -4655,7 +4658,7 @@ I can feel defenses changing how they play me. That's respect. ~ player offense
 Teams are starting to throw away from me. I'll go find the ball anyway. ~ player db
 It's nice to have people believe what I've always believed. ~ player
 I want to be great. Not good. Great. ~ player competitor
-Coach keeps telling me I haven't scratched the surface. I believe him. ~ player
+Coach keeps telling me I haven't scratched the surface. I believe {coach_him}. ~ player
 {coach} told me what I could be. I'm just trying to live up to it. ~ player
 I'm enjoying every second. You never know how long it lasts. ~ player
 This is what I came here to do. ~ player
@@ -5832,7 +5835,7 @@ I'm going to miss the band and the student section going crazy. ~ player hs youn
 The pregame meal with the guys, the bus, all of it. That's what I'll miss. ~ player hs young
 I'm taking a picture of the scoreboard no matter what it says. ~ player hs young
 This town gave me a place to be somebody. I'll never forget it. ~ player hs young
-Coach told me to enjoy every second. I'm going to listen to him for once. ~ player hs young loose
+Coach told me to enjoy every second. I'm going to listen to {coach_him} for once. ~ player hs young loose
 I'm going to walk around the field after and just look at it for a while. ~ player hs young
 College or not, this is the best football I'll ever play, because it's with these guys. ~ player hs young
 Under the lights with my boys one more time. That's all I want. ~ player hs young
@@ -5840,7 +5843,7 @@ I want the younger guys to remember how we did things. ~ player hs young
 High school goes fast. Football goes faster. ~ player hs young
 I hope they give my number to a kid who'll love it like I did. ~ player hs young
 Whenever I'm back home, I'll be in those stands. ~ player hs young
-Coach has been a big part of my life. I'm going to tell him that before it's over. ~ player hs young
+Coach has been a big part of my life. I'm going to tell {coach_him} that before it's over. ~ player hs young
 I want to remember the smell of the grass and the noise. All of it. ~ player hs young
 I'm going to leave everything on that field. It's my last chance to do it at home. ~ player hs young
 Ask me after. If I think about it right now, I'll lose it. ~ player hs young

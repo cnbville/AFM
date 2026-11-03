@@ -870,6 +870,11 @@ pub struct You {
     /// playing road; None if you never played in college.
     #[serde(default)]
     pub played: Option<u8>,
+    /// She (true) or he (false), from the setup page: what every line in the
+    /// world that talks about you says (`world/pronoun.rs`). He in a file
+    /// from before the choice.
+    #[serde(default)]
+    pub she: bool,
 }
 
 impl You {

@@ -827,7 +827,8 @@ pub(crate) fn spared(w: &mut World, c: usize, why: &str) -> bool {
         today,
         level_of(job.employer),
         format!(
-            "No-fire override: without it you would be out at {name} today ({why}). You keep the job; turn the override off in Settings."
+            "No-fire override: without it you would be out at {name} today ({}). You keep the job; turn the override off in Settings.",
+            crate::world::pronoun::to_you(why)
         ),
         true,
     );

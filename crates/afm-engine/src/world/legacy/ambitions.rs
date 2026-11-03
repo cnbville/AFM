@@ -1129,12 +1129,52 @@ fn start(w: &mut World, id: u32) {
         .lead(crate::world::storylines::Who::Coach(you as u32))
         .with(crate::world::storylines::Who::Boss(team), crate::world::storylines::Part::Boss)
         .word(a.title.clone())
-        .fact(format!("{} at his introduction: \"{quote}\"", crate::world::storylines::detect::cname(w, you)), 45.0)
+        .fact(
+            format!(
+                "{} at the introductory press conference: \"{quote}\"",
+                crate::world::storylines::detect::cname(w, you)
+            ),
+            45.0,
+        )
         .public();
         let id = crate::world::storylines::detect::tell(w, spot);
         if let Some(a) = w.legacy.ambitions.iter_mut().find(|x| x.id == a.id) {
             a.story = id;
         }
+    }
+}
+
+/// The ambition a story about it was opened for (its subject carries the
+/// ambition's id).
+pub fn of_story<'a>(w: &'a World, s: &crate::world::storylines::Story) -> Option<&'a Ambition> {
+    let id = (s.subject & 0xFFFF_FFFF) as u32;
+    w.legacy.ambitions.iter().find(|a| a.id == id)
+}
+
+/// The ambition as the papers ask about it: "Can {lead} win a state
+/// title in 5A?", "Can {lead} get 50 players drafted?". Read off the
+/// title, so each ambition asks its own question.
+pub fn goal(w: &World, a: &Ambition) -> String {
+    let short = crate::world::stories::short_name(w, a.team);
+    let mut t = a.title.clone();
+    if let Some(c) = t.get(..1) {
+        t = c.to_lowercase() + &t[1..];
+    }
+    match a.kind {
+        Kind::WinItAll if !t.starts_with("win ") => format!("win {t}"),
+        Kind::Turnaround => format!("take {short} {t}"),
+        Kind::TenWins => format!("put together {t}"),
+        Kind::Reach => match a.team {
+            TeamKey::Hs(_) => "make it onto a college staff".into(),
+            TeamKey::Nfl(_) => format!("earn the final say at {short}"),
+            _ => format!("land {t}"),
+        },
+        Kind::Drafted => format!("get {t}"),
+        Kind::Years if t.starts_with(|c: char| c.is_ascii_digit()) => format!("last {t}"),
+        Kind::Wins => format!("get to {t}"),
+        Kind::Building => format!("get {t} built"),
+        Kind::Son => format!("coach {} without playing favorites", a.title.strip_prefix("Coach ").unwrap_or("a son")),
+        _ => t,
     }
 }
 

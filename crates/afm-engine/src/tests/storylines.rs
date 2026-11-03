@@ -293,3 +293,138 @@ fn the_job_read_names_what_a_job_hands_you() {
     assert!(read.stories.iter().any(|s| s.id == id), "the battle comes with the job");
     assert!(!read.word.is_empty());
 }
+
+/// The lines "how it went" opens with: how that one answer landed.
+const LANDED: [&str; 6] = [
+    "It lands the way you meant it.",
+    "It doesn't land well. The clips the next morning say so.",
+    "The clips the next morning are split.",
+    "The writers fill the space themselves.",
+    "Nothing reaches the papers. Inside the building, people noticed.",
+    "By morning a writer has it, without your name on it.",
+];
+
+/// Ambitions said out loud are each asked in their own terms, with answers
+/// about that goal, and how it went says how the answer landed, never just
+/// the move's name (minor bug 178: every ambition asked "Can he do what he
+/// said he came to do?" and offered "They earned it", then "Praise.").
+#[test]
+fn an_ambition_is_asked_and_answered_in_its_own_terms() {
+    use crate::world::legacy::{self, ambitions};
+    let (mut w, _) = nfl_world();
+    legacy::hire_check(&mut w);
+    let offers = w.legacy.picker.as_ref().map(|p| p.offers.clone()).unwrap_or_default();
+    assert!(offers.len() >= 3, "a new job offers ambitions: {}", offers.len());
+    for &id in offers.iter().take(3) {
+        ambitions::pick(&mut w, id, true).unwrap();
+        ambitions::loud(&mut w, id, true).unwrap();
+    }
+    ambitions::keep(&mut w, false).unwrap();
+    let ids: Vec<u32> = w.legacy.ambitions.iter().filter_map(|a| a.story).collect();
+    assert_eq!(ids.len(), 3, "each ambition said out loud is a story");
+    let mut asked = BTreeSet::new();
+    for &id in &ids {
+        let s = w.storylines.get(id).unwrap().clone();
+        let goal = ambitions::goal(&w, ambitions::of_story(&w, &s).expect("the story knows its ambition"));
+        let q = view::question(&w, &s);
+        assert!(q.contains(&goal) && !q.contains('{'), "{q} / {goal}");
+        asked.insert(q);
+        let opts = view::choices(&mut w, id);
+        assert!(opts.len() >= 3, "{} answers", opts.len());
+        for o in &opts {
+            assert!(!o.label.contains("earned it") && !o.label.contains("during the season"), "{}", o.label);
+        }
+    }
+    assert_eq!(asked.len(), 3, "each ambition asks its own question: {asked:?}");
+    let opts = view::choices(&mut w, ids[0]);
+    let out = view::choose(&mut w, ids[0], opts[0].code).unwrap();
+    assert!(LANDED.contains(&out[0].as_str()), "how it went opens with how it landed: {out:?}");
+    assert!(out.iter().all(|l| l.len() > 12), "no bare move names: {out:?}");
+}
+
+/// Every story about you that the stock answers don't fit gets its own:
+/// no "They earned it" to "Has he lost the locker room?" (bug 178).
+#[test]
+fn stories_about_you_are_answered_in_their_own_terms() {
+    let (mut w, t) = nfl_world();
+    let team = TeamKey::Nfl(t as u16);
+    let you = w.career.as_ref().unwrap().coach as u32;
+    let player = w.people[w.clubs[t].roster[0]].player.id;
+    let kinds = [
+        K::RoomRift,
+        K::PublicFeud,
+        K::Rebuild,
+        K::Graveyard,
+        K::BulletinBoard,
+        K::OwnerLeash,
+        K::SchemeNamed,
+        K::DraftVerdict,
+        K::CoachFarewell,
+        K::QuickExit,
+    ];
+    let mut opened = 0;
+    for (n, kind) in kinds.into_iter().enumerate() {
+        // A lead holds three stories at a time: clear yours between kinds.
+        w.storylines.open.retain(|x| x.lead() != Some(Who::Coach(you)));
+        let mut spot = Spot::new(kind, sl::subj(you as u64, 900 + n as u64)).team(team).lead(Who::Coach(you)).public();
+        if kind == K::PublicFeud {
+            spot = spot.rival(Who::Player(player));
+        }
+        let Some(id) = sl::notice(&mut w, spot) else { continue };
+        opened += 1;
+        let opts = view::choices(&mut w, id);
+        assert!(opts.len() >= 3, "{kind:?}: {} answers", opts.len());
+        for o in &opts {
+            assert!(!o.label.contains("earned it") && !o.label.contains('{'), "{kind:?}: {}", o.label);
+            assert!(
+                !o.chips.iter().any(|c| c.0.contains("trust +") && c.0.contains("Coach")),
+                "{kind:?}: {:?}",
+                o.chips
+            );
+        }
+    }
+    assert!(opened >= 8, "{opened} of {} opened in the NFL", kinds.len());
+}
+
+/// Your coach is he or she as you set it up (bug 178's follow-up, Cain's
+/// yes 2026-11-02): the stories, the fans and the records about you say it,
+/// and every other coach stays he.
+#[test]
+fn a_coach_set_up_as_she_is_she_in_the_worlds_words() {
+    use crate::world::folk::voice::{self, Facts};
+    use crate::world::pronoun::{self, Pro};
+    let (mut w, t) = nfl_world();
+    assert_eq!(pronoun::you(&w).he(), "he", "a career from before the choice reads as he");
+    w.career.as_mut().unwrap().you.she = true;
+    let you = w.career.as_ref().unwrap().coach;
+    assert_eq!((pronoun::you(&w).he(), pronoun::coach(&w, you).his()), ("she", "her"));
+    let other = (0..w.coaches.len()).find(|&c| c != you).unwrap();
+    assert_eq!(pronoun::coach(&w, other).he(), "he");
+    // A story with you as its lead fills {he} {his} {He} {man} with hers.
+    let spot =
+        Spot::new(K::RoomRift, sl::subj(you as u64, 990)).team(TeamKey::Nfl(t as u16)).lead(Who::Coach(you as u32));
+    let id = sl::notice(&mut w, spot.public()).expect("the story opens");
+    let s = w.storylines.get(id).unwrap().clone();
+    let f = crate::world::storylines::tell::fill(&w, &s);
+    assert_eq!(
+        [f.get("he"), f.get("his"), f.get("He"), f.get("man")],
+        [Some("she"), Some("her"), Some("She"), Some("woman")]
+    );
+    // A line naming the head coach's pronouns says hers, with its capital
+    // where it opens a sentence; a line said to you with no coach named
+    // speaks of you.
+    let mut rng = crate::rng::Rng::new(7);
+    let mut facts = Facts::new();
+    facts.set("coach", "Coach Hale");
+    facts.coach(pronoun::coach(&w, you));
+    let line = voice::fill("{coach} did {coach_his} job. {coach_he} knows it.", &facts, &mut rng, Pro::HE);
+    assert_eq!(line, "Coach Hale did her job. She knows it.");
+    assert_eq!(voice::fill("Give {coach_him} time.", &Facts::new(), &mut rng, pronoun::you(&w)), "Give her time.");
+    // The world's stored reasons stay its keys; what you read is in your words.
+    assert_eq!(Pro::SHE.say("not retained when his contract ran out"), "not retained when her contract ran out");
+    assert_eq!(Pro::HE.say("retired for his health"), "retired for his health");
+    assert_eq!(pronoun::to_you("fired after his prove-it year"), "fired after your prove-it year");
+    // Your coach speaks as she: no line written for a man.
+    let sp = voice::Speaker::coach(&w, you);
+    assert!(sp.tags.contains(&"she"));
+}

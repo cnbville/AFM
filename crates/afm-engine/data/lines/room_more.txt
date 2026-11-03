@@ -1132,7 +1132,7 @@ Bless you, Coach. I mean that. ~ south
 Thank the Lord. And thank you, Coach. ~ south
 Much obliged, Coach. Truly. ~ south
 Appreciate you, Coach. That's mighty fair. ~ texas
-You're a good man, Coach. Seriously. ~ northeast
+You're a good {coach_man}, Coach. Seriously. ~ northeast
 Oh, thank goodness. Thank you, Coach. ~ midwest
 Well, that's awful nice of you. ~ midwest
 Oh, that's chill. Thank you. ~ west young loose
@@ -2094,7 +2094,7 @@ I'm trying to be more involved with {name}. This call is part of that. ~ absent
 I'm not going to dance around it, Coach. Our {name} is hurting. ~ south
 Mornin', Coach. I'd like a word about {name}, if you don't mind. ~ south
 I've been fretting over {name} all week. I just had to call. ~ south
-You seem like a good man, Coach, so I'm coming to you about {name}. ~ south
+You seem like a good {coach_man}, Coach, so I'm coming to you about {name}. ~ south
 I'll come right out with it. It's {name}, bless him. ~ south
 Lord knows I didn't want to make this call. It's about {name}. ~ south
 I wouldn't call if it could wait, Coach. It's {name}. ~ south

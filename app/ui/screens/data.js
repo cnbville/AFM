@@ -128,7 +128,7 @@ screens.analytics = async (a) => {
   for (const k of ["level", "division", "state", "group", "year"]) if (a[k] != null) { K[k] = a[k]; delete a[k]; }
   if (a.card != null) { K.card = Number(a.card); delete a.card; }
   const level = dtLevel(K);
-  const args = { level, division: K.division || undefined, state: K.state || undefined, group: K.group || undefined, year: K.year ? Number(K.year) : undefined, min: K.min !== "" && K.min != null ? Number(K.min) : undefined, sort: K.sort != null ? Number(K.sort) : undefined, dir: K.dir || -1 };
+  const args = { level, division: K.division || undefined, state: K.state || undefined, group: K.group || undefined, year: K.year ? Number(K.year) : undefined, min: K.min !== "" && K.min != null ? Number(K.min) : undefined, sort: K.sort != null ? Number(K.sort) : undefined, dir: K.dir || -1, class: K.class || undefined, rs: K.rs || undefined, age_min: K.age_min ? Number(K.age_min) : undefined, age_max: K.age_max ? Number(K.age_max) : undefined };
   const x = await api("analytics", args);
   title("Player analytics", `${x.group} · ${x.year}`);
   const bar = `<div class="tbar">${dtSeg("dalevel", DT_LEVELS, x.level)}
@@ -137,13 +137,20 @@ screens.analytics = async (a) => {
     ${dtSel("a:year", x.years, x.year)}
     <label class="dt-min">At least <input type="number" min="0" step="1" value="${x.min}" data-act="damin"> ${esc(x.volume)}</label>
     <span class="tspace"></span><span class="tag ${x.charted ? "gold" : "soft"}">${x.charted ? "Charted" : "Box score"}</span></div>
-    <div class="tbar">${dtSeg("dagroup", x.groups.map((g) => [g, g]), x.group)}</div>`;
+    <div class="tbar">${dtSeg("dagroup", x.groups.map((g) => [g, g]), x.group)}</div>
+    <div class="tbar dt-filter">${dtSel("f:class", x.classes, x.class, x.level === "nfl" ? "Any year in the league" : "Every class")}
+    ${x.level === "college" ? dtSel("f:rs", [["yes", "Redshirted"], ["no", "Never redshirted"]], x.rs, "Redshirt or not") : ""}
+    <label class="dt-min">Age <input type="number" min="13" max="45" step="1" value="${x.age_min ?? ""}" placeholder="any" data-act="daage" data-k="age_min"> to <input type="number" min="13" max="45" step="1" value="${x.age_max ?? ""}" placeholder="any" data-act="daage" data-k="age_max"></label>
+    ${x.filtered ? `<button class="tbtn" data-act="daclear">Clear</button>` : ""}</div>`;
   const head = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th><th title="Games">G</th><th title="${esc(x.volume)}">Vol</th>${x.columns.map((c, i) => `<th><button class="dt-sort ${x.sort === i ? "on" : ""}" data-act="dasort" data-v="${i}" title="${esc(c.long)} · ${c.better === "high" ? "higher is better" : "lower is better"}">${esc(c.label)}</button></th>`).join("")}<th></th></tr>`;
   const body = x.rows.map((r) => `<tr class="${K.card === r.id ? "on" : ""}"><td>${r.rank}</td><td class="l">${dtWho(r)}</td><td class="l">${esc(r.pos)}</td><td class="l">${r.team ? teamChip(r.team, 16) : ""}</td><td>${r.games}</td><td>${r.vol}</td>${r.cells.map((v, i) => `<td class="dt-pc" style="--p:${r.pct[i] ?? 0}%" title="${r.pct[i] != null ? r.pct[i] + "th percentile" : ""}">${v == null ? "" : esc(v)}</td>`).join("")}<td><button class="tbtn" data-act="dacard" data-id="${r.id}">Card</button></td></tr>`).join("");
-  const table = `<div class="tbl dt-at"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${7 + x.columns.length}" class="muted">Nobody qualifies yet. Lower the minimum to see more.</td></tr>`}</tbody></table></div>`;
+  const none = x.filtered && x.qualified ? "Nobody who qualifies matches the filter." : "Nobody qualifies yet. Lower the minimum to see more.";
+  const table = `<div class="tbl dt-at"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${7 + x.columns.length}" class="muted">${none}</td></tr>`}</tbody></table></div>`;
   // The card reads the table's own season and division.
   const card = K.card != null ? await dtCard(K.card, x.level, x.year, x.division, x.state) : "";
-  const sub = `${x.total} qualify of ${x.pool} who played. Each number's shade is his percentile among the qualifiers; sorting goes by percentile, best first.`;
+  const sub = x.filtered
+    ? `${x.total} of the ${x.qualified} who qualify match the filter (${x.pool} played). Each number's shade is still his percentile among every qualifier; sorting goes by percentile, best first.`
+    : `${x.total} qualify of ${x.pool} who played. Each number's shade is his percentile among the qualifiers; sorting goes by percentile, best first.`;
   return `<div class="pad sl dt">${pageHead({ kicker: `Data · ${esc(x.division || (x.state ? STATE_NAMES[x.state] || x.state : x.level === "nfl" ? "NFL" : ""))} · ${x.year}`, title: "Player analytics", sub, goto: gotoLine([["Stat history", "stathist"], ["Leaderboards", "leaders"]]) })}${bar}<div class="dt-main ${card ? "" : "full"}"><div class="dt-body">${table}</div>${card ? `<aside class="dt-side">${card}</aside>` : ""}</div>${dtSource(x.source)}</div>`;
 };
 GOTO.analytics = () => [["Stat history", "stathist"], ["Leaderboards", "leaders"]];
@@ -218,7 +225,8 @@ Object.assign(CORE_MORE, {
   dtlevel: (el) => { const K = keep("stathist", {}); K.level = el.dataset.v; K.conference = null; K.stat = null; refresh(el); },
   dtstat: (el) => { const K = keep("stathist", {}); K.stat = el.dataset.v === "" ? null : Number(el.dataset.v); refresh(el); },
   // A new level or group starts on the default sort, best first.
-  dalevel: (el) => { const K = keep("analytics", {}); K.level = el.dataset.v; K.year = null; K.min = null; K.sort = null; K.dir = -1; K.card = null; refresh(el); },
+  dalevel: (el) => { const K = keep("analytics", {}); K.level = el.dataset.v; K.year = null; K.min = null; K.sort = null; K.dir = -1; K.card = null; K.class = null; K.rs = null; refresh(el); },
+  daclear: (el) => { const K = keep("analytics", {}); K.class = null; K.rs = null; K.age_min = null; K.age_max = null; refresh(el); },
   dagroup: (el) => { const K = keep("analytics", {}); K.group = el.dataset.v; K.min = null; K.sort = null; K.dir = -1; K.card = null; refresh(el); },
   dasort: (el) => { const K = keep("analytics", {}); const v = Number(el.dataset.v); if (K.sort === v) K.dir = (K.dir || -1) * -1; else { K.sort = v; K.dir = -1; } refresh(el); },
   dacard: (el) => { const K = keep("analytics", {}); K.card = el.dataset.id === "" || K.card === Number(el.dataset.id) ? null : Number(el.dataset.id); refresh(el); },
@@ -228,9 +236,13 @@ document.addEventListener("change", (ev) => {
   const t = ev.target;
   if (!t.dataset) return;
   if (t.dataset.act === "damin") { keep("analytics", {}).min = t.value; refresh(t); return; }
+  if (t.dataset.act === "daage") { keep("analytics", {})[t.dataset.k] = t.value || null; refresh(t); return; }
   if (t.dataset.act !== "dsel") return;
   const k = t.dataset.k;
-  if (k.startsWith("a:")) {
+  if (k.startsWith("f:")) {
+    // The class filter keeps the season, the minimum and the open card.
+    keep("analytics", {})[k.slice(2)] = t.value || null;
+  } else if (k.startsWith("a:")) {
     const K = keep("analytics", {});
     K[k.slice(2)] = t.value || null;
     if (k !== "a:year") { K.year = null; K.card = null; }

@@ -56,9 +56,9 @@ pub fn choose(w: &mut World, id: u32, code: u32) -> Result<Vec<String>, String> 
         return Err("That story is over.".into());
     }
     let opt = moves::menu(w, &s, false).into_iter().find(|o| o.mv.code() == code).ok_or("That isn't on the table.")?;
-    let mut out = moves::make(w, id, opt.mv, &opt.label);
+    let out = moves::make_told(w, id, opt.mv, &opt.label);
     if out.is_empty() {
-        out.push(format!("{}.", opt.mv.name()));
+        return Err("Nothing came of it: that story is over.".into());
     }
     Ok(out)
 }
@@ -147,17 +147,19 @@ pub fn split(w: &World, s: &Story) -> Split {
     let pct = |x: f32| (x * 100.0).round().clamp(0.0, 100.0) as u8;
     let team = s.team.map(|t| crate::world::stories::short_name(w, t));
     let other = s.other.map(|t| crate::world::stories::short_name(w, t));
+    let pro = super::tell::lead_pro(w, s);
     let (a, b, k, audience) = match s.family() {
         Family::Battle => {
             (lead.clone().unwrap_or("The starter".into()), rival.unwrap_or("A change".into()), 0, "locker room")
         }
-        Family::Seat => ("He stays".into(), "He goes".into(), 1, "fans"),
-        Family::Wanted | Family::Leaving => ("He stays".into(), "He goes".into(), 1, "fans"),
+        Family::Seat | Family::Wanted | Family::Leaving => {
+            (format!("{} stays", pro.he_cap()), format!("{} goes", pro.he_cap()), 1, "fans")
+        }
         Family::Recruiting => {
             (team.clone().unwrap_or("Here".into()), other.unwrap_or("Elsewhere".into()), 2, "insiders' picks")
         }
         Family::Rivalry => (team.clone().unwrap_or("Yes".into()), other.unwrap_or("No".into()), 1, "fans"),
-        Family::OffField => ("Stand by him".into(), "Act now".into(), 1, "fans"),
+        Family::OffField => (format!("Stand by {}", pro.him()), "Act now".into(), 1, "fans"),
         Family::Draft => ("Goes high".into(), "Slides".into(), 2, "mock drafts"),
         Family::Program | Family::You => ("Yes".into(), "Not yet".into(), 1, "fans"),
         _ => ("Yes".into(), "No".into(), 1, "fans"),
@@ -194,9 +196,11 @@ pub fn next(w: &World, s: &Story) -> (&'static str, Option<Date>) {
     if !s.phase.open() {
         return ("", None);
     }
+    let she = super::tell::lead_pro(w, s).she;
     let what = match s.family() {
         _ if s.kind == super::K::StaffRaid.id() => "the hires",
         Family::Battle => "the depth chart",
+        Family::Seat if she => "the decision on her future",
         Family::Seat => "the decision on his future",
         Family::Wanted => "the other job's decision",
         Family::Recruiting => "his decision",
@@ -205,6 +209,7 @@ pub fn next(w: &World, s: &Story) -> (&'static str, Option<Date>) {
         Family::Streak | Family::Rivalry => "the next game",
         Family::Rise => "the next few games",
         Family::Draft => "the draft",
+        Family::OffField if she => "the decision on her status",
         Family::OffField => "the decision on his status",
         Family::Program => "the next decision",
         Family::Ending => "the last one",

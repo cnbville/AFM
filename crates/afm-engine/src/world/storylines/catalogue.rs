@@ -2107,7 +2107,7 @@ pub static CATALOGUE: [Def; 117] = [
         0,
         true,
         60,
-        "Can {lead} do what he said he came to do?",
+        "Can {lead} deliver what was promised?",
         &[("reached", 1.0), ("fell_short", -0.6)],
         &[R::Motivation],
         0.0,

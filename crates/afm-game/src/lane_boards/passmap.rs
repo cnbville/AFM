@@ -6,7 +6,8 @@
 //! throws are kept, so their page says so.
 
 use afm_engine::calendar::Level as CalLevel;
-use afm_engine::game::stats::{PlayRecord, PlayType, expected_completion};
+use afm_engine::game::stats::{PlayRecord, PlayType, expected_completion_at};
+use afm_engine::player::Level as GameLevel;
 use afm_engine::world::World;
 use afm_engine::world::charts::depth_bin;
 use serde_json::{Value, json};
@@ -75,7 +76,8 @@ pub fn board(w: &World, id: u32) -> Reply {
                 away.push(season);
                 continue;
             }
-            throws.push(of_play(r, season, views::date_text(g.date), g.names[1 - side].clone(), Some(k)));
+            let lv = game_level(w, g.level, g.teams[side]);
+            throws.push(of_play(r, lv, season, views::date_text(g.date), g.names[1 - side].clone(), Some(k)));
         }
     }
     // Your coming opponents' film: always read, as it may be newer than
@@ -113,7 +115,12 @@ pub fn board(w: &World, id: u32) -> Reply {
                     pressured: s.pressured,
                     ttt: th.ttt as f64 / 10.0,
                     epa: s.epa as f64,
-                    xcmp: expected_completion(air, sep, s.pressured),
+                    xcmp: expected_completion_at(
+                        game_level(w, t.level, t.teams[s.off.min(1) as usize]),
+                        air,
+                        sep,
+                        s.pressured,
+                    ),
                     target: s.target,
                 });
             }
@@ -223,7 +230,18 @@ pub fn board(w: &World, id: u32) -> Reply {
     }))
 }
 
-fn of_play(r: &PlayRecord, season: i32, date: String, opp: String, game: Option<usize>) -> Throw {
+/// The match engine's level of a game, for its expected completions.
+fn game_level(w: &World, l: CalLevel, team: usize) -> GameLevel {
+    match l {
+        CalLevel::College => {
+            w.programs.get(team).map_or(GameLevel::FBS, |p| afm_engine::world::division_level(p.division))
+        }
+        CalLevel::HighSchool => GameLevel::HS,
+        _ => GameLevel::NFL,
+    }
+}
+
+fn of_play(r: &PlayRecord, lv: GameLevel, season: i32, date: String, opp: String, game: Option<usize>) -> Throw {
     let (from_y, to_y) = r.throw_y.map_or((26.65, 26.65), |(a, b)| (a as f64, b as f64));
     Throw {
         season,
@@ -247,7 +265,7 @@ fn of_play(r: &PlayRecord, season: i32, date: String, opp: String, game: Option<
         pressured: r.pressured,
         ttt: r.time_to_throw,
         epa: r.epa,
-        xcmp: expected_completion(r.air_yards, r.separation, r.pressured),
+        xcmp: expected_completion_at(lv, r.air_yards, r.separation, r.pressured),
         target: r.target,
     }
 }

@@ -18,6 +18,8 @@
 #   {record_mark} {to_go} {scope} {rank} {last_record} {since_year} {years} {stars_was}
 #   {stars_now} {gone} {starters} {games} {unit} {rank_of} {count} {milestone} {trophy}
 #   {conf} {holder} {pos} {award}.
+# The lead's own words: {he} {him} {his} {He} {His} {himself} {man} (your coach is
+#   she or he as you set it up; write them for any pronoun that means the lead).
 # A line naming a value the story doesn't have is skipped, so every key keeps lines
 # that need only {team} or {lead}.
 
@@ -71,7 +73,7 @@ Somebody on the other side could not resist. "Not our problem," he said, "but we
 A post this week said more than any press release: a single line, then nothing.
 It showed up on social media first, the way most things do now.
 [sl.any.post.paper]
-He told the local paper more than he meant to, and the quote ran on the front of the sports section.
+{He} told the local paper more than {he} meant to, and the quote ran on the front of the sports section.
 [sl.any.quote.boss]
 {boss}, the {boss_title}, kept it short: "We're not going to get into that today."
 {boss} was asked about it twice and answered once. "We'll handle it the right way."
@@ -192,13 +194,13 @@ The first caller wanted a change. So did the second. The host had to go to the f
 Talk radio has decided. Talk radio doesn't make the call, but the people who do listen to it.
 [sl.seat.fans.for]
 The fans are more patient than the papers. Most of them still want to see it through.
-"Give the man a full season," said the top post on the board, and the replies mostly agreed.
+"Give the {man} a full season," said the top post on the board, and the replies mostly agreed.
 [sl.seat.fans.against]
 The empty seats said it before the boards did. The fans are done waiting.
 "Fire" was the most used word on the fans' board this week, and it was not close.
 [sl.seat.jab]
-A rival's fans flew a banner over the stadium. It thanked {lead_last} for his service.{not_hs}
-Somebody hung a bedsheet on the fence by the field. It thanked {lead_last} for his service.{at_hs}
+A rival's fans flew a banner over the stadium. It thanked {lead_last} for {his} service.{not_hs}
+Somebody hung a bedsheet on the fence by the field. It thanked {lead_last} for {his} service.{at_hs}
 [sl.seat.quote.boss]
 {boss}, the {boss_title}, said it plainly: "Our coach has my full support."
 {boss} would not put a timeline on anything. "We evaluate everything at the end of the season," the {boss_title} said.
@@ -236,7 +238,7 @@ The hot seat
 [sl.seat.legacy]
 Remembered as the fall the seat at {team} got hot.
 [sl.seat.callback.memento]
-The newspaper with the headline that said he was done, framed, with the date circled.
+The newspaper with the headline that said {he} was done, framed, with the date circled.
 
 # ---------------------------------------------------------------- coaches wanted
 [sl.wanted.report]
@@ -249,42 +251,42 @@ A source says {other} asked permission to talk to {lead}. {team} has not said wh
 One person close to the search says {lead} is the name at the top of the list.
 A source says the money is not the question. The question is whether {lead} wants to leave.
 [sl.wanted.column]
-This is what success buys a coach: everyone with an opening wants him, and his own school has to decide what he is worth.
+This is what success buys a coach: everyone with an opening wants {him}, and {his} own school has to decide what {he} is worth.
 The national view: {other} would be a step up, and {lead} knows it. So does {team}.
 [sl.wanted.radio]
-The callers are split between "pay him" and "let him go." Nobody called in to say they weren't worried.
+The callers are split between "pay {him}" and "let {him} go." Nobody called in to say they weren't worried.
 Talk radio spent an hour on whether {team} can keep {lead}. Most callers think not.
 [sl.wanted.fans.for]
-The fans want him to stay, and they are saying so. "Pay the man," read the post with the most likes.
+The fans want {him} to stay, and they are saying so. "Pay the {man}," read the post with the most likes.
 [sl.wanted.fans.against]
-Some fans have already moved on. "If he wants to go, go," said one post, and the replies agreed more than they should have.
+Some fans have already moved on. "If {he} wants to go, go," said one post, and the replies agreed more than they should have.
 [sl.wanted.jab]
-The other school's fans are already counting him as theirs, which is its own kind of jab.
+The other school's fans are already counting {him} as theirs, which is its own kind of jab.
 [sl.wanted.post]
-He posted a photo of his players at practice: "Home." Nobody knew what to make of it.
+{He} posted a photo of {his} players at practice: "Home." Nobody knew what to make of it.
 [sl.wanted.post.paper]
-He told the local paper he was happy where he was. Coaches say that until the day they aren't.
+{He} told the local paper {he} was happy where {he} was. Coaches say that until the day they aren't.
 [sl.wanted.peak]
 The decision is close. {question}
 {other} wants an answer this week. {question}
 [sl.wanted.memo.up]
-Between us, he's listening, and the other side is serious. Be ready to lose him, or to pay to keep him.
-Our read is that he'll take it if the offer is what we're hearing.
+Between us, {he}'s listening, and the other side is serious. Be ready to lose {him}, or to pay to keep {him}.
+Our read is that {he}'ll take it if the offer is what we're hearing.
 [sl.wanted.memo.down]
-He's flattered, not leaving. The interest is real, but so is how much he likes it here.
-Our read: it's his agent's leverage more than a real move.{not_hs}
-Our read: he's listening, but his family is settled here.{at_hs}
+{He}'s flattered, not leaving. The interest is real, but so is how much {he} likes it here.
+Our read: it's {his} agent's leverage more than a real move.{not_hs}
+Our read: {he}'s listening, but {his} family is settled here.{at_hs}
 [sl.wanted.memo.even]
-Honestly, he hasn't decided. The money and the family will decide it, in that order.
+Honestly, {he} hasn't decided. The money and the family will decide it, in that order.
 It's a coin flip. The other side's next offer tips it.
 [sl.wanted.memo.gap]
-The public thinks he's staying. He isn't sure. If he goes, it'll look like a shock from the outside.
+The public thinks {he}'s staying. {He} isn't sure. If {he} goes, it'll look like a shock from the outside.
 [sl.wanted.quote.ask]
 Coach, have you been contacted about other jobs?
 Coach, can you say you'll be here next season?
 Coach, what would it take for you to leave?
 [sl.wanted.quote.spin]
-That was talk. Coaches get calls. He stayed, and so will this staff.
+That was talk. Coaches get calls. {He} stayed, and so will this staff.
 Rumors follow anybody who wins. Pay them no mind.
 [sl.wanted.quote.spin_straight]
 Other teams will come for your staff if you win. They always have here, and it's part of the job.
@@ -682,7 +684,7 @@ Opposing fans have a new chant. It is not kind.
 [sl.offfield.post]
 {lead} posted a short apology, then deleted it, then posted it again.
 [sl.offfield.post.paper]
-{lead} told the paper he was sorry and would not say anything else.
+{lead} told the paper {he} was sorry and would not say anything else.
 [sl.offfield.peak]
 A decision is coming this week. {question}
 [sl.offfield.memo.up]
@@ -764,9 +766,9 @@ Remembered as a turning point for {team}.
 # ---------------------------------------------------------------- endings
 [sl.ending.report]
 {writer} of {outlet} says the goodbye is already planned, down to who speaks first.
-The people around {lead} say he has made his peace with it.
+The people around {lead} say {he} has made {his} peace with it.
 [sl.ending.leak]
-A source says {lead} told the team before he told anyone else.
+A source says {lead} told the team before {he} told anyone else.
 [sl.ending.column]
 Every ending is a story about everything before it. {lead}'s is a long one.
 [sl.ending.radio]
@@ -778,15 +780,15 @@ Some fans think it's time, and say so. Most of them say it quietly.
 [sl.ending.jab]
 Even the other side tipped its cap.
 [sl.ending.post]
-{lead} posted an old photo from his first day. The caption just said "Thank you."
+{lead} posted an old photo from {his} first day. The caption just said "Thank you."
 [sl.ending.post.paper]
-{lead} told the paper he would miss the locker room most. "Not the games," he said. "The guys."
+{lead} told the paper {he} would miss the locker room most. "Not the games," {he} said. "The guys."
 [sl.ending.peak]
 The last one is close. {question}
 [sl.ending.memo.up]
-He's going out the right way. Give him the moment.
+{He}'s going out the right way. Give {him} the moment.
 [sl.ending.memo.down]
-It won't be the ending he wants. Be there for him when it isn't.
+It won't be the ending {he} wants. Be there for {him} when it isn't.
 [sl.ending.memo.even]
 It could be a great day or a hard one. Plan for both.
 [sl.ending.memo.gap]
@@ -821,7 +823,7 @@ The national view: {lead} has a story worth watching, and this is the chapter th
 [sl.you.radio]
 Callers spent an hour on {lead}. About half of them were kind.
 [sl.you.fans.for]
-The fans are behind {lead}. His name got a cheer at the last home game.
+The fans are behind {lead}. {His} name got a cheer at the last home game.
 [sl.you.fans.against]
 The fans are restless. {lead}'s name drew boos when it was read at the last home game.
 [sl.you.jab]
@@ -1054,13 +1056,13 @@ The questions about {lead} are coming from inside the building now. {question}
 A loss this week could end it. {question}
 [sl.hot_seat.end.fired]
 {team} fired {lead}. The {boss_title} announced it in a short statement.
-It is over for {lead_last} at {team}. He was fired.
+It is over for {lead_last} at {team}. {He} was fired.
 [sl.hot_seat.end.saved]
-{lead} survived. {team} is keeping him, and the {boss_title} said so.
+{lead} survived. {team} is keeping {him}, and the {boss_title} said so.
 [sl.hot_seat.end.extended]
 The seat turned into an extension. {team} gave {lead_last} more years.
 [sl.hot_seat.end.resigned]
-{lead} resigned before {team} could decide for him.
+{lead} resigned before {team} could decide for {him}.
 [sl.hot_seat.chapter]
 The seat
 [sl.hot_seat.chapter.fired]
@@ -1070,7 +1072,7 @@ Surviving the seat
 [sl.hot_seat.legacy.fired]
 Remembered as the fall {team} let {lead_last} go.
 [sl.hot_seat.legacy.saved]
-Remembered as the fall {lead_last} saved his job.
+Remembered as the fall {lead_last} saved {his} job.
 [sl.hot_seat.legacy]
 Remembered as the fall the seat at {team} got hot.
 
@@ -1188,7 +1190,7 @@ Remembered as the season the fans turned on {lead_last}.
 {writer} of {outlet} says the two sides have exchanged numbers and are not far apart.
 {lead_last}'s contract runs through {through}. {team} would like to change that before anyone else calls.
 [sl.extension_talks.fans.for]
-The fans want it done. "Lock him up," was the post of the week.
+The fans want it done. "Lock {him} up," was the post of the week.
 [sl.extension_talks.fans.against]
 Some fans want to see more before {team} commits more years.
 [sl.extension_talks.memo.up]
@@ -1202,7 +1204,7 @@ The deal is close. {question}
 [sl.extension_talks.end.left]
 The extension never came. {lead_last} left {team}.
 [sl.extension_talks.end.stalled]
-The talks stalled. {lead_last} is coaching on the contract he has.
+The talks stalled. {lead_last} is coaching on the contract {he} has.
 [sl.extension_talks.chapter]
 The extension
 [sl.extension_talks.legacy]
@@ -1217,7 +1219,7 @@ Remembered as the year {team} decided what {lead_last} was worth.
 [sl.nfl_wants_coach.peak]
 {other} wants an answer. {question}
 [sl.nfl_wants_coach.end.left]
-{lead} is going to the NFL. He leaves {team} for {other}.
+{lead} is going to the NFL. {He} leaves {team} for {other}.
 [sl.nfl_wants_coach.end.stayed]
 {lead} stays at {team}. The NFL will have to wait.
 [sl.nfl_wants_coach.chapter]
@@ -1226,7 +1228,7 @@ The NFL calls
 Remembered as the winter the NFL called {lead_last}.
 
 [sl.big_job_wants_coach.spark]
-{other} wants {lead}. {team} wants to keep him. {question}
+{other} wants {lead}. {team} wants to keep {him}. {question}
 [sl.big_job_wants_coach.report]
 {writer} of {outlet} says {other} has made {lead} its top target.
 [sl.big_job_wants_coach.peak]
@@ -1263,7 +1265,7 @@ Remembered as the winter {team}'s staff was picked apart.
 [sl.coordinator_head_job.peak]
 {other} is close to a decision. {question}
 [sl.coordinator_head_job.end.got_job]
-{lead} got his first head coaching job. He is going to {other}.
+{lead} got {his} first head coaching job. {He} is going to {other}.
 [sl.coordinator_head_job.end.stayed]
 {lead_last} stays a coordinator for another year.
 [sl.coordinator_head_job.chapter]
@@ -1272,13 +1274,13 @@ Remembered as the winter {team}'s staff was picked apart.
 Remembered as the year {lead_last} went for a head job.
 
 [sl.old_school_calls.spark]
-{other} called {lead}. He used to work there. {question}
+{other} called {lead}. {He} used to work there. {question}
 [sl.old_school_calls.report]
 {writer} of {outlet} says {other} sees {lead_last} as a homecoming.
 [sl.old_school_calls.peak]
-{other} wants him back. {question}
+{other} wants {him} back. {question}
 [sl.old_school_calls.end.went_back]
-{lead} goes home. He is going back to {other}.
+{lead} goes home. {He} is going back to {other}.
 [sl.old_school_calls.end.stayed]
 {lead} turned down the old school and stays at {team}.
 [sl.old_school_calls.chapter]
@@ -1287,13 +1289,13 @@ The old school calls
 Remembered as the winter {other} called {lead_last} home.
 
 [sl.hs_coach_jump.spark]
-{lead} built a winner at {other}. Now he is going to {team}. {question}
+{lead} built a winner at {other}. Now {he} is going to {team}. {question}
 [sl.hs_coach_jump.report]
-{lead_last} has spent the fall learning a new level. The recruits from his old area have noticed.
+{lead_last} has spent the fall learning a new level. The recruits from {his} old area have noticed.
 [sl.hs_coach_jump.end.made_it]
 {lead} made it at {team}. The high school coach belongs.
 [sl.hs_coach_jump.end.came_back]
-{lead_last} is going back to high school football. He says he missed it.
+{lead_last} is going back to high school football. {He} says {he} missed it.
 [sl.hs_coach_jump.chapter]
 The jump
 [sl.hs_coach_jump.legacy]
@@ -2007,13 +2009,13 @@ The {conf} race
 Remembered as the year {team} chased {conf}.
 
 [sl.bulletin_board.spark]
-{lead} said what he thought of {other}. It is on their locker room wall now. {question}
+{lead} said what {he} thought of {other}. It is on their locker room wall now. {question}
 [sl.bulletin_board.report]
 {other}'s coach was asked about {lead_last}'s comments and smiled. "We read everything," he said.
 [sl.bulletin_board.end.backed_it]
 {lead} backed it up.
 [sl.bulletin_board.end.ate_it]
-{lead} had to eat his words.
+{lead} had to eat {his} words.
 [sl.bulletin_board.chapter]
 The quote
 [sl.bulletin_board.legacy]
@@ -2534,13 +2536,13 @@ The last season
 Remembered as {lead_last}'s last season.
 
 [sl.coach_farewell.spark]
-{lead} says this season will be his last. {question}
+{lead} says this season will be {his} last. {question}
 [sl.coach_farewell.report]
-Former players have been calling {lead_last} all week. He has called most of them back.
+Former players have been calling {lead_last} all week. {He} has called most of them back.
 [sl.coach_farewell.end.went_out]
-{lead} has coached his last game.
+{lead} has coached {his} last game.
 [sl.coach_farewell.end.stayed_on]
-{lead} changed his mind. He is coaching another year.
+{lead} changed {his} mind. {He} is coaching another year.
 [sl.coach_farewell.chapter]
 The farewell
 [sl.coach_farewell.legacy]
@@ -2591,9 +2593,9 @@ The first year
 Remembered as {lead_last}'s first year at {team}.
 
 [sl.big_one.spark]
-{lead} wins a lot of games. He has not won the biggest one. {question}
+{lead} wins a lot of games. {He} has not won the biggest one. {question}
 [sl.big_one.report]
-{writer} of {outlet} says {lead_last} has stopped answering questions about his record in big games.
+{writer} of {outlet} says {lead_last} has stopped answering questions about {his} record in big games.
 [sl.big_one.end.won_it]
 {lead} won the big one.
 [sl.big_one.end.again]
@@ -2604,13 +2606,13 @@ The big one
 Remembered as the year {lead_last} went for the big one.
 
 [sl.old_team.spark]
-{lead} faces his old team, {other}, this week. {question}
+{lead} faces {his} old team, {other}, this week. {question}
 [sl.old_team.report]
-{lead_last} still knows half the {other} roster. He recruited some of them.
+{lead_last} still knows half the {other} roster. {He} recruited some of them.
 [sl.old_team.end.won]
-{lead} beat his old team.
+{lead} beat {his} old team.
 [sl.old_team.end.lost]
-{lead}'s old team beat him.
+{lead}'s old team beat {him}.
 [sl.old_team.chapter]
 The old team
 [sl.old_team.legacy]
@@ -2661,18 +2663,18 @@ Remembered as the year {lead_last} reached {milestone} wins.
 # ---------------------------------------------------------------- the systems to chase (update 2, lane 2)
 [sl.your_ambition.spark]
 {lead} said it out loud: {word}. {question}
-{lead} put it on the record at his introduction: {word}. {question}
+{lead} put it on the record at the introductory press conference: {word}. {question}
 [sl.your_ambition.report]
 {writer} of {outlet} says {lead_last} still talks about it in private: {word}.
-{writer} of {outlet} keeps a count of how close {lead_last} is to what he promised.
+{writer} of {outlet} keeps a count of how close {lead_last} is to the promise.
 [sl.your_ambition.end.reached]
-{lead} did what he said he would: {word}.
+{lead} said it, and did it: {word}.
 [sl.your_ambition.end.fell_short]
 The chance is gone. {lead} said {word}, and it won't happen now.
 [sl.your_ambition.chapter]
-What he came to do
+The promise
 [sl.your_ambition.legacy]
-Remembered as the year {lead_last} chased what he promised.
+Remembered as the year {lead_last} chased the promise: {word}.
 
 [sl.scheme_named.spark]
 The papers have a name for what {team} runs: {word}. {question}
@@ -2733,7 +2735,7 @@ The owner wants a say. {question}
 [sl.owner_leash.end.trusted]
 The owner stepped back. Football is {lead_last}'s to run.
 [sl.owner_leash.end.overruled]
-The owner got his way, and everyone in the building knows it.
+The owner got the final say, and everyone in the building knows it.
 [sl.owner_leash.chapter]
 The leash
 [sl.owner_leash.legacy]
