@@ -50,7 +50,7 @@ pub const COLS: &[Col] = &[
     c("RushLong", "Lng", "Longest run", 0),
     c("Yaco", "YAC", "Yards after contact", 0),
     c("ForcedMissed", "MTF", "Missed tackles forced", 0),
-    c("ExplosiveRuns", "Exp", "Runs of 15+ yards", 0),
+    c("ExplosiveRuns", "Exp", "Runs of 10+ yards", 0),
     c("FumblesLost", "FL", "Fumbles lost", 0),
     c("Targets", "Tgt", "Targets", 0),
     c("Rec", "Rec", "Receptions", 0),

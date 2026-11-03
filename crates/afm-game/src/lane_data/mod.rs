@@ -19,7 +19,10 @@
 //!   7 and 8, `analytics.rs`);
 //! - `champions_more` (`tab` "conferences", "states" or "award"): conference
 //!   champions by year, state champions by state and class, and every
-//!   winner of one award (items 23-25, `champs.rs`).
+//!   winner of one award (items 23-25, `champs.rs`);
+//! - `stat_glossary`: every stat in plain words, and the table headers
+//!   that name each, for the hover on a stat's name (Cain, 2026-11-03;
+//!   `glossary.rs`).
 //!
 //! Everything is read from the stat book, the record store
 //! (`world::marks`), the players' seasons and the teams' seasons: the
@@ -30,6 +33,7 @@ mod analytics;
 mod books;
 pub(crate) use books::title_case;
 mod champs;
+pub(crate) mod glossary;
 
 use afm_engine::calendar::Level as CalLevel;
 use afm_engine::world::World;
@@ -41,6 +45,10 @@ use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
+    // The glossary needs no world: it answers on any screen.
+    if cmd == "stat_glossary" {
+        return Some(Ok(glossary::all()));
+    }
     let f: fn(&World, &Value) -> Value = match cmd {
         "data_sources" => |w, _| sources(w),
         "stat_history" => books::stat_history,

@@ -234,7 +234,8 @@ function table(key, cols, rows, opts = {}) {
   const text = (c) => typeof cellValue(c, rows[0] || {}) === "string";
   const arrow = (c) => (s.k === c.k ? ((text(c) ? s.dir > 0 : s.dir < 0) ? "sorted-desc" : "sorted-asc") : s.k2 === c.k ? "sorted-2" : "");
   const pick = opts.select ? `<th class="pickcol" title="Pick up to five to compare"></th>` : "";
-  const head = pick + shown.map((c) => `<th data-sort="${key}|${c.k}" class="${c.l ? "l" : ""} ${c.div ? "div" : ""} ${arrow(c)}" title="${esc((c.tip || c.t) + " · click to sort, shift-click for a second sort")}">${esc(c.t)}</th>`).join("");
+  // A column that names a stat (h8) explains itself on hover (help.js).
+  const head = pick + shown.map((c) => `<th data-sort="${key}|${c.k}" class="${c.l ? "l" : ""} ${c.div ? "div" : ""} ${arrow(c)}" ${c.h8 ? `data-h8="${esc(c.h8)}"` : `title="${esc((c.tip || c.t) + " · click to sort, shift-click for a second sort")}"`}>${esc(c.t)}</th>`).join("");
   let body = "";
   let lastGroup = null;
   for (const r of list) {
@@ -441,7 +442,7 @@ const BIG = {};
 function bigTable(cfg) {
   BIG[cfg.key] = { ...cfg, cache: new Map(), total: null, pending: new Set() };
   const s = keep("sort:" + cfg.key, { k: cfg.sort || null, dir: -1 });
-  const head = cfg.cols.map((c) => `<th ${c.nosort ? "" : `data-sort="${cfg.key}|${c.k}"`} class="${c.l ? "l" : ""} ${s.k === c.k ? (s.dir < 0 ? "sorted-desc" : "sorted-asc") : s.k2 === c.k ? "sorted-2" : ""}" title="${esc(c.tip || c.t)}">${esc(c.t)}</th>`).join("");
+  const head = cfg.cols.map((c) => `<th ${c.nosort ? "" : `data-sort="${cfg.key}|${c.k}"`} class="${c.l ? "l" : ""} ${s.k === c.k ? (s.dir < 0 ? "sorted-desc" : "sorted-asc") : s.k2 === c.k ? "sorted-2" : ""}" ${c.h8 ? `data-h8="${esc(c.h8)}"` : `title="${esc(c.tip || c.t)}"`}>${esc(c.t)}</th>`).join("");
   return `<div class="tbl warm box big" data-big="${esc(cfg.key)}"><table><thead><tr>${head}</tr></thead><tbody><tr><td class="l" colspan="${cfg.cols.length}"><div class="empty">Loading…</div></td></tr></tbody></table></div><div class="bigfoot muted small" data-bigfoot="${esc(cfg.key)}"></div>`;
 }
 async function bigFill(key) {
@@ -1951,7 +1952,7 @@ screens.leaders = async (a) => {
     { k: "name", t: "Player", l: true, chips: true, f: (r) => playerLink(r.id, r.name) },
     { k: "pos", t: "Pos", l: true },
     { k: "team", t: "Team", l: true, f: (r) => (r.team ? teamChip(r.team, 18) : "") },
-    ...x.columns.map((c) => ({ k: c.key, t: c.label, tip: c.long + " · click a number to rank by it", stat: c.key, f: (r) => fmtCell(r.cells[c.key], c.fmt) })),
+    ...x.columns.map((c) => ({ k: c.key, t: c.label, tip: c.long + " · click a number to rank by it", stat: c.key, h8: c.key, f: (r) => fmtCell(r.cells[c.key], c.fmt) })),
   ];
   const html = bigTable({ key: "leaders", cmd: "leaders", args, cols, empty: "Nobody qualifies yet." });
   BIG.leaders.cache.set(0, x.rows);
