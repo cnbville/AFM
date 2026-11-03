@@ -1404,6 +1404,11 @@ A sidebar section of its own between Your team and World at every seat, with Sta
 - **A tab you pick stays where it was on screen**: picking a tab (or a segment such as Seasons and Game logs) in the page beside or on the main screen scrolls the page so the tab sits exactly where you clicked it, and a tab shorter than the window gets room below it instead of pulling the page up (`app.js`, `anchorOf`, `keepAnchor`, used by `refresh` and `drawBeside`). A short tab like Stats used to pull the sidebar up, and the next tab kept that spot.
 - **The page beside keeps its scroll when the screen behind it draws again** (a click there, Continue): it went back to its top every time (`app.js`, `render`). A page newly opened beside still starts at its top (`openBeside`).
 
+### Minor bugs hotfix, batch 4 (2026-11-02, college's clock by era)
+
+- **College's two-minute timeout from 2024** (minor bug 179): the NCAA approved a two-minute timeout in each half on 19 April 2024, and college played without one. College's book now stops the clock at 2:00 of the second and fourth quarters from 2024, as the NFL's warning does (`game/rules.rs`, `Rules::for_level`, `for_year`); the win chance chart reads it the same way (`game/win_chance.rs`, `Params::for_year`, read by `lane_boards/flow.rs`). FBS, FCS and small colleges alike. This changes engine results: on 4,000 FBS `match_check` games (same seeds, today's book) plays a team game 64.1 to 65.3, points 20.4 to 20.9, pass attempts 30.7 to 31.5 (real 66.6, 27.0 and 31.0, cfbfastR 2021-25, a mix of both clock rules; FBS scoring was already short); the NFL's 2,000 games are unchanged to the last digit.
+- **College's first-down clock before 2023** (minor bug 180): to 2022 the clock stopped on every college first down to set the chains, and only in each half's last two minutes from 2023; the history played today's rule. A college game before 2023 now stops it on every first down (`Rules::for_year`). This changes the history's games: on 4,000 FBS games with 2022's book (`AFM_YEAR=2022`) plays 64.1 to 66.5 a team game and points 20.4 to 21.3; today's games are as before.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

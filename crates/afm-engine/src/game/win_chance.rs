@@ -35,7 +35,8 @@ pub struct Params {
     pub sigma: f64,
     /// Seconds the clock runs between snaps when a team milks it.
     pub play_clock: f64,
-    /// The two-minute warning stops the clock (the NFL).
+    /// The two-minute warning stops the clock (the NFL; college's
+    /// two-minute timeout from 2024).
     pub warning: bool,
     /// Field goal makes by distance (under 30, 30-39, 40-49, 50 and over)
     /// and the longest kick a coach tries.
@@ -84,7 +85,7 @@ impl Params {
                 quarter: 900.0,
                 sigma: 16.0,
                 play_clock: 40.0,
-                warning: false,
+                warning: true,
                 fg: [0.921, 0.807, 0.652, 0.506],
                 fg_max: 57.0,
                 try_pts: 0.97,
@@ -98,7 +99,7 @@ impl Params {
                 quarter: 900.0,
                 sigma: 16.5,
                 play_clock: 40.0,
-                warning: false,
+                warning: true,
                 fg: [0.88, 0.76, 0.6, 0.45],
                 fg_max: 55.0,
                 try_pts: 0.95,
@@ -122,6 +123,16 @@ impl Params {
                 no_line: false,
             },
         }
+    }
+
+    /// A level's numbers in a season: college's two-minute timeout came
+    /// in 2024 (`Rules::for_year`). Year 0 reads as today's.
+    pub fn for_year(level: Level, year: i32) -> Params {
+        let mut p = Params::for_level(level);
+        if matches!(level, Level::FBS | Level::FCS | Level::SmallCollege) && year != 0 {
+            p.warning = year >= 2024;
+        }
+        p
     }
 
     /// The same level for a game with no line (high school's always).

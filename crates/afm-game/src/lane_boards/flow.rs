@@ -56,7 +56,8 @@ impl Wp {
         let neutral = neutral || g.as_ref().is_some_and(|g| g.neutral);
         // The page's line is the home side's spread (negative when favoured).
         let line = g.and_then(|g| g.line).map(|l| -l[0] as f64);
-        let p = if line.is_some() { Params::for_level(lv) } else { Params::for_level(lv).without_line() };
+        let p = Params::for_year(lv, date.year());
+        let p = if line.is_some() { p } else { p.without_line() };
         let home_spread = line.unwrap_or_else(|| if neutral { 0.0 } else { home_field(lv) });
         Wp { p, home_spread }
     }
@@ -70,7 +71,8 @@ impl Wp {
                 // there is a neutral site, not a line.
                 let lv = super::game_level(w, g.level, g.teams);
                 let booked = !matches!(g.level, CalLevel::HighSchool | CalLevel::Other);
-                let p = if booked { Params::for_level(lv) } else { Params::for_level(lv).without_line() };
+                let p = Params::for_year(lv, g.date.year());
+                let p = if booked { p } else { p.without_line() };
                 Wp { p, home_spread: x as f64 }
             }
             None => Wp::new(w, g.level, g.teams, g.date, false),

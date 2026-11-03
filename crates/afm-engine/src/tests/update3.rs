@@ -6,7 +6,7 @@ use crate::calendar::Date;
 use crate::game::designer::{Design, save};
 use crate::game::flow::quick_game;
 use crate::game::playbook::*;
-use crate::game::rules::Overtime;
+use crate::game::rules::{FirstDownStop, Overtime};
 use crate::game::sim::{Injury, InjuryKind};
 use crate::game::synthetic::synthetic_team;
 use crate::game::{OffScheme, Rules, tables};
@@ -29,6 +29,14 @@ fn rule_books_follow_history() {
     assert_eq!(Rules::for_year(Level::FBS, 2019, false).college_ot(), Some((3, 5)));
     assert_eq!(Rules::for_year(Level::FBS, 2024, false).college_ot(), Some((2, 3)));
     assert_eq!(Rules::for_year(Level::NFL, 0, false).overtime, Rules::for_level(Level::NFL).overtime);
+    // College's two-minute timeout from 2024; the clock stopped on every
+    // first down to 2022.
+    assert!(!Rules::for_year(Level::FBS, 2023, false).two_minute_warning);
+    assert!(
+        Rules::for_year(Level::FCS, 2024, false).two_minute_warning && Rules::for_level(Level::FBS).two_minute_warning
+    );
+    assert_eq!(Rules::for_year(Level::FBS, 2022, false).first_down_stop, FirstDownStop::Always);
+    assert_eq!(Rules::for_year(Level::FBS, 2023, false).first_down_stop, FirstDownStop::LastTwoMinutes);
 }
 
 /// Below the NFL fourth downs and EPA read the real college table (F30).
