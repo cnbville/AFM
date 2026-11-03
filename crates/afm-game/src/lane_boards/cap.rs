@@ -317,8 +317,7 @@ fn college(w: &World, j: usize) -> Reply {
             continue;
         }
         to_roster += deal;
-        let five = w.changes.rules(w.year).five_in_five;
-        let left = (if five { 5u32 } else { 4 }).saturating_sub(p.college_seasons);
+        let left = afm_engine::world::eligibility::seasons_left(p, prog.division, w.year);
         blocks.push(json!({
             "id": id,
             "name": p.name,
@@ -340,19 +339,24 @@ fn college(w: &World, j: usize) -> Reply {
     // counts heads there, so no limit is shown), or no athletic aid at all
     // (Division III). A yearly signing cap only where the rules set one.
     use afm_engine::world::data::Division;
+    // FCS outside the House limit: 63 scholarships (70 before 1994) shared
+    // among at most 85 players on aid (B6).
+    let fcs_shared = prog.division == Division::FCS && !whole;
     let aid = match prog.division {
         Division::D3 => "none",
         Division::D2 | Division::NAIA => "equivalency",
+        Division::FCS if fcs_shared => "equivalency",
         _ => "heads",
     };
     let equiv = match prog.division {
         Division::D2 => Some(36),
         Division::NAIA => Some(24),
+        Division::FCS if fcs_shared => Some(if season < 1994 { 70 } else { 63 }),
         _ => None,
     };
     let yearly = if whole { None } else { ncaa::scholarship_rules(prog.division, season, true).1 };
     let signees = yearly.map(|_| signees);
-    let limit = (aid == "heads").then_some(cap_now);
+    let limit = (aid == "heads" || fcs_shared).then_some(cap_now);
     Ok(json!({
         "level": "college",
         "team": views::team_brief(w, TeamRef::College(j)),

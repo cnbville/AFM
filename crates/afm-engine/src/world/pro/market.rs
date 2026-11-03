@@ -361,9 +361,9 @@ pub(crate) fn set_ladders(w: &mut World) {
 
 /// What a veteran of this grade costs a year on the open market at his age,
 /// never past the position's record deal.
-pub(crate) fn market_price(year: i32, pos: Position, view: f64, accrued: u32, age: u32) -> f64 {
+pub(crate) fn market_price(year: i32, pos: Position, view: f64, credited: u32, age: u32) -> f64 {
     let price = money::price_cap(year) * money::market_share(pos, view).min(money::top5_share(pos) * 1.08);
-    (price * decline(pos, age)).max(money::minimum(year, accrued))
+    (price * decline(pos, age)).max(money::minimum(year, credited))
 }
 
 /// Past his position's prime a team pays for the decline it expects over
@@ -440,9 +440,9 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
     if age >= end {
         view -= 1.0 * (age - end + 1) as f64;
     }
-    let accrued = c.map_or(0, |c| c.accrued);
+    let credited = c.map_or(0, |c| c.credited);
     let rel = market_grade(w, pos, view);
-    let mut apy = market_price(year, pos, rel, accrued, age);
+    let mut apy = market_price(year, pos, rel, credited, age);
     // Where he would play here.
     let slots = depth_slots(pos);
     let better =
@@ -457,9 +457,9 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
         // backup for that fifth (minor bug 95: 80-rated quarterbacks went
         // unsigned at 27-33 and retired; the share is real, its use here
         // proposed, not confirmed).
-        apy = apy.min((apy * 0.2).max(money::minimum(year, accrued) * 2.0));
+        apy = apy.min((apy * 0.2).max(money::minimum(year, credited) * 2.0));
     } else if better >= slots.starters + slots.rotation {
-        apy = apy.min(money::minimum(year, accrued) * 2.0);
+        apy = apy.min(money::minimum(year, credited) * 2.0);
     }
     apy *= match o.mode {
         Mode::Contend if better < slots.starters => 1.08,
@@ -478,7 +478,7 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
     if o.fans < -0.3 && rel >= 82.0 {
         apy *= 1.0 + 0.1 * o.owner.pr;
     }
-    (view, apy.max(money::minimum(year, accrued)))
+    (view, apy.max(money::minimum(year, credited)))
 }
 
 // --- The ideal package and offers ------------------------------------------------------------------
@@ -538,12 +538,12 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
     let g = goals(w, i);
     let c = p.pro.as_ref();
     let view = market_grade(w, p.player.position, consensus(w, i));
-    let accrued = c.map_or(0, |c| c.accrued);
+    let credited = c.map_or(0, |c| c.credited);
     let agent = c.and_then(|c| c.agent).map_or(8.0, |a| w.market.agents[a].skill);
     // His money goal and his agent move the ask, never past the record
     // deal at his position (moved for his age as the price is).
     let pos = p.player.position;
-    let apy = (market_price(year, pos, view, accrued, p.player.age)
+    let apy = (market_price(year, pos, view, credited, p.player.age)
         * (1.0 + 0.2 * (g.money - 0.5))
         * (1.0 + 0.004 * (agent - 10.0)))
         .min(money::record_apy(year, pos) * decline(pos, p.player.age));
@@ -559,7 +559,7 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
     let years = money::usual_years(p.player.position, view, p.player.age) as f64 + 1.5 * (g.security - 0.5);
     let slots = depth_slots(p.player.position);
     Ideal {
-        apy: apy.max(money::minimum(year, accrued)),
+        apy: apy.max(money::minimum(year, credited)),
         gtd: clamp(base + 0.2 * (g.security - 0.5), 0.0, 0.8),
         years: clamp(years.round(), 1.0, 5.0) as u32,
         start: g.role > 0.45 && view >= 70.0 && slots.starters > 0,
@@ -686,8 +686,8 @@ pub(crate) fn make_offer(
     let eager = need >= 2.5 || o.mode == Mode::Contend && need >= 1.0;
     let climb = clamp(0.88 + 0.015 * days as f64, 0.88, 1.03);
     let apy = if eager { walk.min(ideal.apy * 1.03) } else { walk.min(ideal.apy * climb) };
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-    let apy = apy.max(money::minimum(year, accrued));
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let apy = apy.max(money::minimum(year, credited));
     // Year one's cap hit (the bonus spreads it) has to fit in the year the
     // new money starts (next year for an extension).
     if space(w, t, cap_year) - committed < apy * 0.75 {
@@ -982,8 +982,8 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
 /// offer on the table, or about 4% a week with none (proposed, not confirmed).
 fn decay(w: &mut World, i: usize, d: Date, best: Option<f64>) {
     let year = w.year;
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-    let min = money::minimum(year, accrued);
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let min = money::minimum(year, credited);
     let c = w.people[i].pro.as_mut().unwrap();
     let Some(id) = c.ideal.as_mut() else { return };
     let weeks = id.opened.days_to(d).max(0) as f64 / 7.0;
@@ -1169,6 +1169,7 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
         let p = &w.people[i];
         let c = p.pro.as_ref().unwrap();
         let accrued = c.accrued;
+        let credited = c.credited;
         let pos = p.player.position;
         let (view, walk) = worth(w, t, i);
         let view = market_grade(w, pos, view);
@@ -1265,7 +1266,7 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
             ));
             w.market.year_mut(year).tenders += 1;
         } else if accrued < 3 && view >= 62.0 {
-            let price = money::minimum(year, accrued);
+            let price = money::minimum(year, credited);
             let deal = money::build(t, money::Kind::Tender, year, &money::Terms::flat(1, price));
             super::settle_ended(w, i);
             w.people[i].pro.as_mut().unwrap().contract = Some(deal);
@@ -1562,7 +1563,27 @@ pub(crate) fn option_price(w: &World, i: usize) -> f64 {
     let bowls = p.pro.as_ref().map_or(0, |c| c.seasons.iter().filter(|s| s.pro_bowl).count());
     let top5 = money::price_cap(year + 1) * money::top5_share(pos);
     if year >= 2021 {
+        // The 2020 CBA's four levels (minor bug B27): two Pro Bowls pay
+        // the franchise tag, one the transition tag; the playing-time
+        // level (75% of the snaps in two of his first three seasons, 75%
+        // over the three, or 50% in each) the average of the 3rd to 20th
+        // salaries; otherwise the 3rd to 25th. Every Pro Bowl counts here
+        // (the CBA counts original-ballot ones).
+        let played = p.pro.as_ref().is_some_and(|c| {
+            let from = c.draft.map_or(year - 2, |d| d.0);
+            let per = 64.0 * w.rules.nfl_games as f64;
+            let shares: Vec<f64> = c
+                .seasons
+                .iter()
+                .filter(|s| s.year >= from)
+                .take(3)
+                .map(|s| s.snaps[0].max(s.snaps[1]) as f64 / per)
+                .collect();
+            shares.iter().filter(|&&x| x >= 0.75).count() >= 2
+                || (shares.len() == 3 && (shares.iter().sum::<f64>() / 3.0 >= 0.75 || shares.iter().all(|&x| x >= 0.5)))
+        });
         match bowls {
+            0 if played => top5 * 0.54,
             0 => top5 * 0.5,
             1 => top5 * 0.72,
             _ => top5 * 0.85,
@@ -1772,7 +1793,7 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
             let Some(k) = c.contract.as_ref() else { continue };
             let seasons = c.seasons.iter().filter(|s| s.games > 0).count();
             let view = market_grade(w, w.people[i].player.position, consensus(w, i));
-            let market = market_price(year, w.people[i].player.position, view, c.accrued, w.people[i].player.age);
+            let market = market_price(year, w.people[i].player.position, view, c.credited, w.people[i].player.age);
             let under = market / k.apy().max(1.0);
             // Stars only, far under their market (real: a handful a year,
             // Aiyuk and Lamb in 2024).
@@ -2179,9 +2200,9 @@ pub(crate) fn futures(w: &mut World, d: Date, teams: &[usize]) {
 }
 
 fn future_deal(w: &mut World, i: usize, t: usize, year: i32) {
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
     let deal =
-        money::build(t, money::Kind::Future, year + 1, &money::Terms::flat(1, money::minimum(year + 1, accrued)));
+        money::build(t, money::Kind::Future, year + 1, &money::Terms::flat(1, money::minimum(year + 1, credited)));
     let name = w.nfl[t].name;
     let p = &mut w.people[i];
     let c = p.pro.as_mut().unwrap();
@@ -2201,11 +2222,14 @@ fn future_deal(w: &mut World, i: usize, t: usize, year: i32) {
 
 // --- Waivers -------------------------------------------------------------------------------------------------------
 
-/// Whether a released player goes on waivers (real): under four accrued
-/// seasons always; veterans only after the trade deadline.
+/// Whether a released player goes on waivers (real, NFL Football
+/// Operations' waiver overview): a vested veteran has four or more
+/// seasons of pension credit (credited seasons) and skips waivers until
+/// the trade deadline; from then to the end of the regular season every
+/// player goes through them. Under four credited seasons always.
 pub(crate) fn waivable(w: &World, i: usize, d: Date) -> bool {
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-    accrued < 4 || (d > w.dates.trade_deadline.date && d <= w.dates.super_bowl)
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    credited < 4 || (d > w.dates.trade_deadline.date && d < w.dates.black_monday)
 }
 
 /// The waiver claims (each day at 4pm, real): teams in waiver order (last

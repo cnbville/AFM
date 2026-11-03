@@ -568,6 +568,30 @@ pub fn offer(w: &mut World, c: usize, role: Role, mut t: Terms) -> Result<String
         t.promises &= !PROMISE_RECRUIT;
     }
     let today = w.today;
+    // The Rooney Rule in your own search (minor bug B34): from 2020 an NFL
+    // club interviews at least one outside candidate of color for a
+    // coordinator job before it hires (since 2003 for a head coach, whom
+    // the owner hires).
+    if matches!(team, Team::Nfl(_))
+        && matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator)
+        && w.year >= 2020
+    {
+        let code = super::staffing::role_code(role);
+        let outside = |k: usize| {
+            w.coaches[k].ethnicity != crate::world::ethnicity::Ethnicity::White
+                && w.coaches[k].job.is_none_or(|j| Team::from_employer(j.employer) != team)
+        };
+        let met = outside(c)
+            || w.folk.scenes.iter().any(|x| {
+                x.kind == super::scene::Kind::Interview
+                    && x.b == code
+                    && x.date.days_to(today) <= 120
+                    && outside(x.a as usize)
+            });
+        if !met {
+            return Err("The Rooney Rule: interview at least one outside candidate of color for a coordinator job before you offer it (NFL, since 2020).".into());
+        }
+    }
     {
         let tk = talk_mut(w, c, role);
         if tk.thinking.is_some() {

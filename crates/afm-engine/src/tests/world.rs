@@ -17,9 +17,19 @@ fn real_data_loads() {
     // Division III, the NAIA and the junior colleges (NJCAA and CCCAA) in 2026.
     assert_eq!((count(Division::D3), count(Division::NAIA), count(Division::JUCO)), (244, 96, 113));
     assert_eq!(STATES.len(), 51);
-    // 46 states plus DC allow high school NIL (On3, May 2026).
-    assert_eq!(STATES.iter().filter(|s| hs_nil(&s.code)).count(), 47);
-    assert!(!hs_nil("AL") && hs_nil("CA"));
+    // On3 (May 2026) counted 46 states plus DC; South Carolina barred it
+    // in June 2025 (minor bug B20), so 45 states plus DC.
+    assert_eq!(STATES.iter().filter(|s| hs_nil(&s.code)).count(), 46);
+    assert!(!hs_nil("AL") && hs_nil("CA") && !hs_nil("SC"));
+    // B19: no state before California's 2021, and every allowing state
+    // has its first season.
+    assert_eq!(crate::world::data::hs_nil_from("CA"), Some(2021));
+    assert!(
+        STATES
+            .iter()
+            .filter(|s| hs_nil(&s.code))
+            .all(|s| crate::world::data::hs_nil_from(&s.code).is_some_and(|y| y >= 2021))
+    );
     let ca = STATES.iter().find(|s| s.code == "CA").unwrap();
     assert_eq!(ca.powerhouses.len(), 5);
 }

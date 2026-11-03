@@ -108,13 +108,57 @@ pub struct Followed {
     pub public_then: String,
 }
 
-/// The NCAA's evaluation-day limits for the whole staff (FBS): 42 days
-/// from September to November (Bylaw 13.17, through 2022-23), about 33
-/// under the football recruiting model adopted in 2023; 168 in the spring
-/// evaluation period. Below the FBS the same by rule (proposed, not
-/// confirmed: the real FCS limits are close).
-pub fn eval_limits(season: i32) -> (u16, u16) {
-    (if season >= 2023 { 33 } else { 42 }, 168)
+/// The NCAA's evaluation-day limits for the whole staff, fall and spring
+/// (minor bug B3): 42 fall days from September to November and 168 in the
+/// spring (Bylaw 13.17; 56 in the fall of 2021), then from August 1, 2023
+/// (Proposal 2023-14) 33 fall days and 140 recruiting-person days from
+/// April 15. The service academies get 54 and 216, then 42 and 180. FCS
+/// shares the FBS numbers; Division II and below use them too (proposed,
+/// not confirmed).
+pub fn eval_limits(season: i32, academy: bool) -> (u16, u16) {
+    match (season, academy) {
+        (2023.., false) => (33, 140),
+        (2023.., true) => (42, 180),
+        (2021, false) => (56, 168),
+        (_, false) => (42, 168),
+        (_, true) => (54, 216),
+    }
+}
+
+/// The coaches who may recruit off campus, the head coach included (minor
+/// bug B5): at FBS the head coach and nine assistants, ten from January 9,
+/// 2018 when the tenth assistant came; at FCS eleven, then thirteen from
+/// July 1, 2023 (Proposal 2022-28; the date proposed, not confirmed). From
+/// June 25, 2024 any staff member may coach, but the recruiters stay at 11
+/// and 13, and the service academies get four more (the date proposed, not
+/// confirmed). None below Division I here.
+pub fn off_campus_recruiters(prog: &crate::world::program::Program, d: Date) -> Option<u32> {
+    use crate::world::data::Division;
+    let base = match prog.division {
+        Division::FBS => {
+            if d >= Date::ymd(2018, 1, 9) {
+                11
+            } else {
+                10
+            }
+        }
+        Division::FCS => {
+            if d >= Date::ymd(2023, 7, 1) {
+                13
+            } else {
+                11
+            }
+        }
+        _ => return None,
+    };
+    let academy = service_academy(prog) && d >= Date::ymd(2024, 6, 25);
+    Some(base + if academy { 4 } else { 0 })
+}
+
+/// Army, Navy and Air Force: the NCAA gives the service academies more
+/// evaluation days.
+pub fn service_academy(prog: &crate::world::program::Program) -> bool {
+    matches!(prog.real_name.as_str(), "Army" | "Navy" | "Air Force")
 }
 
 /// Adds a look for your seat (deduplicated by day, kind and person).
@@ -475,10 +519,9 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
         // the staff's limit; your assignments first, then the coordinator's
         // asks, then the top of the board nobody has seen in person.
         let fall = period == Period::Evaluation && matches!(d.parts().1, 9..=11);
-        let spring = period == Period::Contact && d.parts().1 == 4
-            || (d.parts().1 == 5 && period == Period::Quiet && d.parts().2 <= 23);
+        let spring = matches!(d.parts().1, 4 | 5) && matches!(period, Period::Contact | Period::Evaluation);
         if (fall && (wd == Weekday::Thu || wd == Weekday::Fri)) || (spring && wd == Weekday::Thu) {
-            let (lim_fall, lim_spring) = eval_limits(season);
+            let (lim_fall, lim_spring) = eval_limits(season, service_academy(&w.programs[prog]));
             let (_, used_f, used_s) = w.scouting.dept.eval_days;
             let left = if fall { lim_fall.saturating_sub(used_f) } else { lim_spring.saturating_sub(used_s) };
             // How many days a week the staff spends (the fall's days spread

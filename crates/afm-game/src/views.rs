@@ -550,6 +550,15 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
     if p.cal.academic_sit {
         return "Academically ineligible".into();
     }
+    // Ruled out for grades for his team's next game (minor bug B23); the
+    // season's count stays on his School tab.
+    if p.stage == Stage::HighSchool
+        && p.cal.hs_grade_out > 0
+        && let Some(i) = person_index(w, p.player.id)
+        && w.hs_grade_out_now(i)
+    {
+        return "Out for grades".into();
+    }
     // A high school transfer's sit, once drawn, is his season's role.
     if p.sit_out > 0.0
         || p.cal.sitting_transfer
@@ -1783,7 +1792,9 @@ pub fn standings(w: &World, args: &Value) -> Value {
                 let mut teams: Vec<(usize, (u32, u32, u32))> =
                     (0..cf.len()).filter(|&t| cf[t] * 4 + dv[t] % 4 == d || dv[t] == d).map(|t| (t, w.nfl_record(t))).collect();
                 teams.dedup_by_key(|x| x.0);
-                teams.sort_by_key(|x| std::cmp::Reverse(x.1.0 * 2 + x.1.2));
+                // The NFL's tiebreakers, as the league orders them (B30).
+                let order = w.nfl_order(&teams.iter().map(|x| x.0).collect::<Vec<_>>());
+                teams.sort_by_key(|x| order.iter().position(|&t| t == x.0));
                 json!({ "name": names[d], "teams": teams.iter().map(|(t, r)| json!({ "team": team_brief(w, TeamRef::Nfl(*t)), "w": r.0, "l": r.1, "t": r.2 })).collect::<Vec<_>>() })
             })
             .collect();

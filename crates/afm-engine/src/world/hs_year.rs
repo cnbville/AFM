@@ -229,8 +229,12 @@ pub(crate) struct HsSeasonState {
     /// This season's games run on the match engine (section 8, choice 2).
     pub on_engine: bool,
     /// The weeks each player misses for grades, as bits (regular weeks then
-    /// playoff rounds), by person.
+    /// playoff rounds), by person; a part-season transfer's sit weeks too.
     grade_weeks: HashMap<usize, u32>,
+    /// Of those, the weeks a transfer sits (minor bug B21), so the status
+    /// line tells the two apart.
+    #[serde(default)]
+    sat_weeks: HashMap<usize, u32>,
     /// The season's lines so far, by person.
     book: HashMap<usize, HsAcc>,
     /// Each school's district this season (U-d), by school id.
@@ -495,6 +499,7 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         rated: false,
         on_engine: hs_on_engine(w, year),
         grade_weeks: HashMap::new(),
+        sat_weeks: HashMap::new(),
         book: HashMap::new(),
         district,
         played: Vec::new(),
@@ -844,6 +849,17 @@ fn start_state(w: &mut World, s: usize) {
     // Your JV and freshman players get their own squad's game reps (lane 10).
     super::front_office::school::squad_roles(w, &mut roles);
     super::clock::timed("hs mood", || super::people::hs_camp_mood(w, &schools, &roles));
+    // A transfer whose state sits part of a season (minor bug B21), read
+    // before the year's development clears his sit.
+    let part: HashMap<usize, f64> = schools
+        .iter()
+        .flat_map(|&h| w.high_schools[h].roster.iter().copied())
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.sit_out > 0.0 && p.sit_out < 1.0 && season::transfer_sits(w.options.seed as u64, w.year as u64, p)
+        })
+        .map(|i| (i, w.people[i].sit_out))
+        .collect();
     super::clock::timed("hs develop", || season::develop(w, &roles));
     let people = &w.people;
     let mut res: Vec<(usize, TeamResult)> = Vec::with_capacity(schools.len());
@@ -866,6 +882,7 @@ fn start_state(w: &mut World, s: usize) {
     let seed = w.options.seed as u64 ^ (w.year as u64) << 28 ^ 0x6772;
     let mut out: HashMap<usize, Vec<f64>> = HashMap::new();
     let mut grade_weeks: HashMap<usize, u32> = HashMap::new();
+    let mut sat_weeks: HashMap<usize, u32> = HashMap::new();
     let mut missed_players = 0;
     for &h in &schools {
         let starters = w.high_schools[h]
@@ -879,12 +896,36 @@ fn start_state(w: &mut World, s: usize) {
             .max(1);
         for &i in &w.high_schools[h].roster.clone() {
             let p = &w.people[i];
+            // A transfer whose state sits part of a season misses its first
+            // games (minor bug B21): half of them where the rule says half.
+            let sat = match part.get(&i) {
+                Some(&share) => {
+                    let n = ((share * st.weeks.len() as f64).ceil() as usize).min(st.weeks.len());
+                    (1u32 << n) - 1
+                }
+                None => 0,
+            };
+            if sat != 0 {
+                let n = sat.count_ones();
+                let age = p.player.age - 1;
+                let starter = p.last_role == Some(PlayingTime::Starter) && !p.player.position.is_specialist();
+                if starter {
+                    let v = out.entry(h).or_insert_with(|| vec![0.0; n_weeks]);
+                    for x in v.iter_mut().take(n as usize) {
+                        *x += 8.0 / starters as f64;
+                    }
+                }
+                *grade_weeks.entry(i).or_insert(0) |= sat;
+                sat_weeks.insert(i, sat);
+                w.people[i].note(format!("At {age} he sat the first {n} games of the season as a transfer."));
+            }
+            let p = &w.people[i];
             let miss = grade_outs(p, check, n_weeks, st.weeks.len(), seed);
             if miss == 0 {
                 continue;
             }
             missed_players += 1;
-            grade_weeks.insert(i, miss);
+            *grade_weeks.entry(i).or_insert(0) |= miss;
             let games = miss.count_ones();
             let starter = p.last_role == Some(PlayingTime::Starter) && !p.player.position.is_specialist();
             if starter {
@@ -918,6 +959,7 @@ fn start_state(w: &mut World, s: usize) {
     }
     hs.out.extend(out);
     hs.grade_weeks.extend(grade_weeks);
+    hs.sat_weeks.extend(sat_weeks);
     hs.states[s].developed = true;
 }
 
@@ -2718,6 +2760,23 @@ impl World {
     /// The day this year's new class joins the high school rosters.
     pub fn hs_class_day(&self) -> Option<Date> {
         self.hs_season.as_ref().map(|hs| hs.class_day)
+    }
+
+    /// Whether a high schooler is ruled out for grades for his team's next
+    /// game (minor bug B23): a grade bit on the first week or round of his
+    /// state's season still to come.
+    pub fn hs_grade_out_now(&self, i: usize) -> bool {
+        let Some(hs) = self.hs_season.as_ref() else { return false };
+        let Some(&mask) = hs.grade_weeks.get(&i) else { return false };
+        // The transfer's sit weeks are his sit, not his grades.
+        let mask = mask & !hs.sat_weeks.get(&i).copied().unwrap_or(0);
+        let Some(h) = self.people.get(i).map(|p| p.hs) else { return false };
+        let Some(st) = self.high_schools.get(h).and_then(|x| hs.states.get(x.state)) else { return false };
+        if st.done {
+            return false;
+        }
+        let today = self.today;
+        st.weeks.iter().chain(st.rounds.iter()).position(|&d| d >= today).is_some_and(|k| k < 32 && mask >> k & 1 == 1)
     }
 
     /// A school's state season this year: its regular-season Fridays, its

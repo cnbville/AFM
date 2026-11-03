@@ -17,7 +17,7 @@ use rayon::prelude::*;
 
 use super::Status;
 use super::leagues::{LEAGUES, USFL_2022};
-use crate::calendar::{Date, Kind, Loudness};
+use crate::calendar::{Date, Kind, Loudness, Weekday};
 use crate::game::books::Book;
 use crate::game::roster::{Caller, OffScheme, Staff as GameStaff};
 use crate::game::{GamePlayer, GameResult, GameTeam, Venue};
@@ -220,15 +220,28 @@ pub const TEAMS: &[TeamDef] = &[
     t(XFL23, 115, "Houston Roughnecks", 2023, 2023, 1),
     t(XFL23, 116, "Orlando Guardians", 2023, 2023, 1),
     t(XFL23, 117, "San Antonio Brahmas", 2023, 2023, 1),
-    // The UFL from 2024.
-    t(UFL24, 118, "Birmingham Stallions", 2024, NOW, 0),
-    t(UFL24, 119, "Houston Roughnecks", 2024, NOW, 0),
-    t(UFL24, 120, "Memphis Showboats", 2024, NOW, 0),
-    t(UFL24, 121, "Michigan Panthers", 2024, NOW, 0),
-    t(UFL24, 122, "Arlington Renegades", 2024, NOW, 1),
-    t(UFL24, 123, "DC Defenders", 2024, NOW, 1),
-    t(UFL24, 124, "San Antonio Brahmas", 2024, NOW, 1),
-    t(UFL24, 125, "St. Louis Battlehawks", 2024, NOW, 1),
+    // The UFL from 2024: two conferences in 2024-25; from 2026 one table
+    // of eight, Columbus, Louisville and Orlando in for Michigan, Memphis
+    // and San Antonio, Arlington the Dallas Renegades and Houston the
+    // Gamblers (minor bug B44; the league owns its clubs, so each new club
+    // takes a leaving one's place: which takes which is proposed, not
+    // confirmed).
+    t(UFL24, 118, "Birmingham Stallions", 2024, 2025, 0),
+    t(UFL24, 118, "Birmingham Stallions", 2026, NOW, 0),
+    t(UFL24, 119, "Houston Roughnecks", 2024, 2025, 0),
+    t(UFL24, 119, "Houston Gamblers", 2026, NOW, 0),
+    t(UFL24, 120, "Memphis Showboats", 2024, 2025, 0),
+    t(UFL24, 120, "Louisville Kings", 2026, NOW, 0),
+    t(UFL24, 121, "Michigan Panthers", 2024, 2025, 0),
+    t(UFL24, 121, "Columbus Aviators", 2026, NOW, 0),
+    t(UFL24, 122, "Arlington Renegades", 2024, 2025, 1),
+    t(UFL24, 122, "Dallas Renegades", 2026, NOW, 0),
+    t(UFL24, 123, "DC Defenders", 2024, 2025, 1),
+    t(UFL24, 123, "DC Defenders", 2026, NOW, 0),
+    t(UFL24, 124, "San Antonio Brahmas", 2024, 2025, 1),
+    t(UFL24, 124, "Orlando Storm", 2026, NOW, 0),
+    t(UFL24, 125, "St. Louis Battlehawks", 2024, 2025, 1),
+    t(UFL24, 125, "St. Louis Battlehawks", 2026, NOW, 0),
     // The USFL of 2022-23.
     t(USFL22, 126, "Michigan Panthers", 2022, 2023, 0),
     t(USFL22, 127, "New Jersey Generals", 2022, 2023, 0),
@@ -387,7 +400,7 @@ pub fn format(k: u8, year: i32) -> Option<Format> {
     Some(match k {
         CFL if year == 2020 => return None,
         CFL if year == 2021 => f(14, d(8, 5), None, Playoff::Cfl, 46, "Grey Cup"),
-        CFL => f(18, d(6, 12), None, Playoff::Cfl, 46, "Grey Cup"),
+        CFL => f(18, cfl_opener(year), None, Playoff::Cfl, 46, "Grey Cup"),
         AFL1 => {
             let games = if year <= 2000 { 14 } else { 16 };
             let start = if year <= 2000 { d(4, 25) } else { d(2, 27) };
@@ -414,10 +427,69 @@ pub fn format(k: u8, year: i32) -> Option<Format> {
         AAF => f(10, d(2, 9), Some(8), Playoff::None, 46, "AAF Championship"),
         XFL20 => f(10, d(2, 8), Some(5), Playoff::None, 46, "XFL Championship"),
         XFL23 => f(10, d(2, 18), None, Playoff::PerDiv, 46, "XFL Championship"),
-        UFL24 => f(10, d(3, 29), None, Playoff::PerDiv, 46, "UFL Championship"),
+        // The UFL opened Sat Mar 30 2024, then on the last Friday of March
+        // (Mar 28 2025, Mar 27 2026); one table from 2026, the top four to
+        // the semi-finals (minor bug B44).
+        UFL24 if year <= 2024 => f(10, d(3, 30), None, Playoff::PerDiv, 46, "UFL Championship"),
+        UFL24 if year == 2025 => {
+            f(10, Date::last_weekday(year, 3, Weekday::Fri), None, Playoff::PerDiv, 46, "UFL Championship")
+        }
+        UFL24 => f(10, Date::last_weekday(year, 3, Weekday::Fri), None, Playoff::Top(4), 46, "UFL Championship"),
         USFL22 => f(10, d(4, 16), None, Playoff::PerDiv, 46, "USFL Championship"),
         _ => return None,
     })
+}
+
+/// The CFL's opening night (minor bug B43, real): a Thursday in June,
+/// late June in the 2010s (Jun 27 2013 to Jun 13 2019, Jun 9 2022; before
+/// 2013 the last week of June, proposed, not confirmed), then
+/// the first Thursday on or after June 4 (Jun 8 2023, Jun 6 2024, Jun 5
+/// 2025, Jun 4 2026). From 2027 the league opens on Victoria Day weekend,
+/// the Thursday before the Monday on or before May 24.
+pub fn cfl_opener(year: i32) -> Date {
+    let thursday_on_or_after = |m: u32, day: u32| {
+        let mut x = Date::ymd(year, m, day);
+        while x.weekday() != Weekday::Thu {
+            x = x.add(1);
+        }
+        x
+    };
+    match year {
+        ..=2012 => thursday_on_or_after(6, 24),
+        2013..=2016 => thursday_on_or_after(6, 23),
+        2017 => Date::ymd(2017, 6, 22),
+        2018 => Date::ymd(2018, 6, 14),
+        2019 => Date::ymd(2019, 6, 13),
+        2022 => Date::ymd(2022, 6, 9),
+        2023..=2026 => thursday_on_or_after(6, 4),
+        _ => {
+            let mut victoria = Date::ymd(year, 5, 24);
+            while victoria.weekday() != Weekday::Mon {
+                victoria = victoria.add(-1);
+            }
+            victoria.add(-4)
+        }
+    }
+}
+
+/// A league's season on the calendar (minor bug B40): the first game, the
+/// midpoint of the regular season and the week after its last game, the
+/// title game included (the drawn schedule's weeks, the playoffs' rounds
+/// after).
+pub fn season_span(k: u8, year: i32) -> Option<(Date, Date, Date)> {
+    let f = format(k, year)?;
+    // The weeks the drawn schedule takes: a nine-team CFL needs 21 for its
+    // 18 games, with a club resting each week (review of minor bug B40).
+    let weeks = schedule(&teams_in(k, year), f.games, 0).len() as i32;
+    let reg = f.stop_after.map_or(weeks, |s| (s as i32).min(weeks));
+    let rounds = match f.playoff {
+        _ if f.stop_after.is_some() => 0,
+        Playoff::None => 0,
+        Playoff::Cfl => 3,
+        Playoff::PerDiv => 2,
+        Playoff::Top(n) => (n.max(2) as f64).log2().ceil() as i32,
+    };
+    Some((f.start, f.start.add(7 * (reg / 2)), f.start.add(7 * (reg + rounds))))
 }
 
 /// A team's line in the standings.
@@ -741,18 +813,31 @@ pub(crate) fn day(w: &mut World, d: Date) {
             continue;
         }
         let f = format(k, year).unwrap();
-        if k == CFL && d == Date::ymd(year, 5, 1) {
+        let camp = f.start.add(-21);
+        // The CFL draft in early May, before camp once the season moves to
+        // May (review of minor bug B43; proposed, not confirmed).
+        // A save from before the day moved holds it late, to May 1.
+        if k == CFL
+            && d >= draft_day(year, camp)
+            && d <= Date::ymd(year, 5, 1)
+            && !w.others.draft.iter().any(|p| p.year == year)
+        {
             draft(w, d);
         }
-        let camp = f.start.add(-21);
-        if d == camp {
+        // Camp opens on its day, or late (up to the regular season's end)
+        // when a save's dates moved past it (review of B43/B44: the 2026
+        // openers moved); the weeks then catch up one a day.
+        let begun = w.others.live.iter().any(|l| l.league == k && l.year == year)
+            || w.others.seasons.iter().any(|s| s.league == k && s.year == year);
+        if d >= camp && d < f.start.add(7 * f.games as i32) && !begun {
             open(w, d, k, &f);
         }
         let Some(li) = w.others.live.iter().position(|l| l.league == k && l.year == year && !l.done) else {
             continue;
         };
+        // A week is played on its day, or caught up when it is past.
         let wk = w.others.live[li].week as i32;
-        if d == f.start.add(7 * wk) {
+        if d >= f.start.add(7 * wk) {
             play_week(w, d, li, &f);
         }
     }
@@ -1046,11 +1131,23 @@ fn national_school(key: u64) -> u8 {
     if u < 0.3 { (U_SPORTS.len() - 1) as u8 } else { ((u - 0.3) / 0.7 * (U_SPORTS.len() - 1) as f64) as u8 }
 }
 
-/// The CFL's ratio (Claude's reading of the collective agreements): 20
-/// Canadians on a 42-man roster to 2013, 21 of 46 from 2014, and seven of
-/// them starting.
+/// The CFL's ratio (the collective agreements): 20 Nationals on the roster
+/// to 2013, 21 from 2014; seven of them starting, eight from 2023, when
+/// one of the eight may be a nationalized American (`nationalized`; minor
+/// bug B45, the 2022 agreement). Quarterbacks are their own group.
 pub fn ratio(year: i32) -> (usize, usize) {
-    (if year >= 2014 { 21 } else { 20 }, 7)
+    (if year >= 2014 { 21 } else { 20 }, if year >= 2023 { 8 } else { 7 })
+}
+
+/// A nationalized American (the 2022 agreement, from 2023): three straight
+/// CFL seasons with this club, or five in the league, before this one.
+fn nationalized(seasons: &[OtherSeason], fr: usize, year: i32) -> bool {
+    if year < 2023 {
+        return false;
+    }
+    let cfl: HashSet<i32> = seasons.iter().filter(|s| s.league == CFL && s.year < year).map(|s| s.year).collect();
+    let here = |y: i32| seasons.iter().any(|s| s.league == CFL && s.team as usize == fr && s.year == y);
+    cfl.len() >= 5 || (1..=3).all(|b| here(year - b))
 }
 
 /// Where a generated Canadian grew up: a town in his school's province.
@@ -1098,6 +1195,12 @@ pub fn national_home(id: u32, school: u8) -> String {
     let (code, towns) = PROV[prov];
     let t = towns[(key_uniform(0x70E1, id as u64) * towns.len() as f64) as usize % towns.len()];
     format!("{t}, {code}")
+}
+
+/// The CFL draft's day: May 1, or a week before camp when camp opens
+/// earlier (proposed, not confirmed).
+pub fn draft_day(year: i32, camp: Date) -> Date {
+    Date::ymd(year, 5, 1).min(camp.add(-7))
 }
 
 /// The CFL draft (early May): Canadians from U Sports programs and
@@ -1219,6 +1322,7 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
     let mut who = HashMap::new();
     let mut players = Vec::new();
     let mut nationals: HashSet<u32> = HashSet::new();
+    let mut natzd: HashSet<u32> = HashSet::new();
     // A spring league's teams meet in a three-week camp, most of them new
     // to each other and to the playbook: they know less of it than a club
     // whose players come back (proposed, not confirmed: 0.9 of the CFL's
@@ -1255,6 +1359,8 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
         who.insert(p.player.id, i as usize);
         if k == CFL && w.others.national(p.player.id) {
             nationals.insert(p.player.id);
+        } else if k == CFL && p.player.position != Position::QB && nationalized(&c.other, fr, year) {
+            natzd.insert(p.player.id);
         }
         players.push(GamePlayer::from_player(&p.player, know, experience));
     }
@@ -1285,7 +1391,7 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
     let yours = w.seat.is_some_and(|s| s.level == crate::calendar::Level::Other && s.other == Some(fr));
     let mine = if yours { w.seat_order() } else { Vec::new() };
     if k == CFL {
-        let fixed = ratio_starters_from(&t.players, &nationals, ratio(year).1, &mine);
+        let fixed = ratio_starters_from(&t.players, &nationals, &natzd, ratio(year).1, &mine);
         let set: Vec<Position> = fixed.iter().map(|x| x.0).collect();
         t.order = mine.into_iter().filter(|(p, _)| !set.contains(p)).chain(fixed).collect();
     } else {
@@ -1460,7 +1566,7 @@ pub(crate) fn cfl_starts(pos: Position) -> usize {
 /// own depth chart for every spot it changes.
 #[cfg(test)]
 pub(crate) fn ratio_starters(ps: &[GamePlayer], nationals: &HashSet<u32>, need: usize) -> Vec<(Position, Vec<u32>)> {
-    ratio_starters_from(ps, nationals, need, &[])
+    ratio_starters_from(ps, nationals, &HashSet::new(), need, &[])
 }
 
 /// `ratio_starters` from a coach's own order where he set one (your
@@ -1469,6 +1575,7 @@ pub(crate) fn ratio_starters(ps: &[GamePlayer], nationals: &HashSet<u32>, need: 
 pub(crate) fn ratio_starters_from(
     ps: &[GamePlayer],
     nationals: &HashSet<u32>,
+    natzd: &HashSet<u32>,
     need: usize,
     order: &[(Position, Vec<u32>)],
 ) -> Vec<(Position, Vec<u32>)> {
@@ -1496,21 +1603,35 @@ pub(crate) fn ratio_starters_from(
             (pos, v)
         })
         .collect();
-    let starting = |lists: &[(Position, Vec<(f64, u32)>)]| {
+    // Canadians starting, and whether a nationalized American starts (one
+    // counts toward the starters).
+    // Quarterbacks are their own group: a Canadian one doesn't count.
+    let count = |lists: &[(Position, Vec<(f64, u32)>)], set: &HashSet<u32>| {
         lists
             .iter()
-            .map(|(pos, v)| v.iter().take(starts(*pos)).filter(|x| nationals.contains(&x.1)).count())
+            .filter(|(pos, _)| *pos != Position::QB)
+            .map(|(pos, v)| v.iter().take(starts(*pos)).filter(|x| set.contains(&x.1)).count())
             .sum::<usize>()
     };
+    let starting = |lists: &[(Position, Vec<(f64, u32)>)]| count(lists, nationals) + count(lists, natzd).min(1);
     let mut changed: HashSet<usize> = HashSet::new();
     while starting(&lists) < need {
-        // The cheapest swap: the best Canadian on the bench for the weakest
-        // import starting at his spot.
+        // The cheapest swap: the best Canadian on the bench (or a
+        // nationalized American while none starts) for the weakest import
+        // starting at his spot.
+        let nz = count(&lists, natzd);
+        let open = nz == 0;
+        let counts = |id: u32| nationals.contains(&id) || (open && natzd.contains(&id));
+        // Only one nationalized American counts: while he is the only one
+        // starting he stays; a second one is an import here (review of B45).
+        let keep = |id: u32| nationals.contains(&id) || (nz == 1 && natzd.contains(&id));
         let mut best: Option<(f64, usize, usize, usize)> = None;
-        for (li, (pos, v)) in lists.iter().enumerate() {
+        for (li, (pos, v)) in lists.iter().enumerate().filter(|(_, (pos, _))| *pos != Position::QB) {
             let n = starts(*pos).min(v.len());
-            let Some(out) = (0..n).rev().find(|&j| !nationals.contains(&v[j].1)) else { continue };
-            let Some(inn) = (n..v.len()).find(|&j| nationals.contains(&v[j].1)) else { continue };
+            let Some(out) = (0..n).rev().find(|&j| !keep(v[j].1)) else {
+                continue;
+            };
+            let Some(inn) = (n..v.len()).find(|&j| counts(v[j].1)) else { continue };
             let cost = v[out].0 - v[inn].0;
             if best.is_none_or(|b| cost < b.0) {
                 best = Some((cost, li, out, inn));
@@ -2254,6 +2375,7 @@ pub fn division_name(k: u8, year: i32, div: u8) -> &'static str {
         (XFL01 | XFL20 | AAF, _) => "Western Division",
         (XFL23 | USFL22, 0) => "North Division",
         (XFL23 | USFL22, _) => "South Division",
+        (UFL24, _) if year >= 2026 => "",
         (UFL24, 0) if year >= 2024 => "USFL Conference",
         (UFL24, _) => "XFL Conference",
         _ => "",

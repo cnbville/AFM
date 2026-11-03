@@ -201,6 +201,9 @@ function sbDcTabs(cur, x) {
 const sbDepthBase = screens.depth;
 screens.depth = async (a) => {
   a = a || {};
+  // The other leagues' seat has no training boards: the plain depth chart
+  // (review of minor bug B41).
+  if (seatKind() === "other" && (!a.kind || a.kind === "other")) return depthBase(a);
   if (a.kind && typeof trMine === "function" && !trMine(a)) return sbDepthBase(a);
   // A depth spot on the Squad opens his unit's base board with his spot
   // picked (pid), once: a redraw keeps whatever spot you pick after it.
@@ -413,6 +416,8 @@ GOTO.needs = () => [["Depth chart", "depth"], ["Squad", "roster"]];
 const sbRosterBase = screens.roster;
 screens.roster = async (a) => {
   a = a || {};
+  // The other leagues' seat: the plain roster (review of minor bug B41).
+  if (seatKind() === "other" && trMine(a)) return rosterBase(a);
   const mine = typeof trMine === "function" ? trMine(a) : !a.kind;
   const k = keep("sqview", { v: "Overview" });
   if (a.view) k.v = a.view;
@@ -433,7 +438,7 @@ screens.roster = async (a) => {
   title("Squad", "Overview");
   const rail = keep("sbrail", { g: "ALL" });
   const groups = x.groups.filter((g) => g.count > 0);
-  const vseg = `<div class="seg tr-views"><button data-act="tr-sqview" data-v="Overview" aria-pressed="true">Overview</button>${["General", "Ratings", "Development", "Fitness", "Depth", "Contract"].map((v) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="false">${v === "Contract" && x.level !== "nfl" ? "Eligibility" : v}</button>`).join("")}</div>`;
+  const vseg = `<div class="seg tr-views"><button data-act="tr-sqview" data-v="Overview" aria-pressed="true">Overview</button>${["General", "Ratings", "Development", "Fitness", "Depth", "Contract", ...(seatKind() === "college" ? ["Draft"] : [])].map((v) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="false">${v === "Contract" && seatKind() !== "nfl" ? "Eligibility" : v}</button>`).join("")}</div>`;
   const railHtml = `<nav class="sb-rail" aria-label="Position groups"><button data-act="sbrail" data-v="ALL" aria-pressed="${rail.g === "ALL"}"><span>All</span><small>${x.rows.length}</small></button>${groups.map((g) => `<button data-act="sbrail" data-v="${g.key}" aria-pressed="${rail.g === g.key}"><span>${esc(g.key)}</span><small>${g.count}</small></button>`).join("")}</nav>`;
   const shown = groups.filter((g) => rail.g === "ALL" || g.key === rail.g);
   const selId = keep("sbrow", { id: null });

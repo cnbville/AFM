@@ -18,7 +18,7 @@ screens.calendar = async (a) => {
   const tabBtn = (n, attrs) => `<button class="cb-tab" ${attrs} aria-selected="${n === view}">${n}</button>`;
   const head = `<div class="cb-head">
     <div class="cb-title">${kicker}<div><div class="st-label">${esc(x.head ? x.head.label : "")}</div><h1>${esc(x.title)}</h1></div>
-      <nav class="cb-tabs" role="tablist">${tabBtn("Month", 'data-act="cbview" data-v="Month"')}${x.level === "other" ? "" : tabBtn("Week", 'data-go="training"')}${tabBtn("The year", 'data-go="year"')}${tabBtn("List", 'data-act="cbview" data-v="List"')}</nav></div>
+      <nav class="cb-tabs" role="tablist">${tabBtn("Month", 'data-act="cbview" data-v="Month"')}${x.level === "other" ? "" : tabBtn("Week", 'data-go="training"') + tabBtn("The year", 'data-go="year"')}${tabBtn("List", 'data-act="cbview" data-v="List"')}</nav></div>
     <div class="cb-nav"><button class="cb-btn" data-act="cbmonth" data-v="${x.prev}" aria-label="Previous month">‹</button><button class="cb-btn" data-act="cbmonth" data-v="">Today</button><button class="cb-btn" data-act="cbmonth" data-v="${x.next}" aria-label="Next month">›</button><b>${esc(x.today_text)}</b></div>
   </div>`;
   const body = view === "List" ? cbList(x) : cbMonth(x);

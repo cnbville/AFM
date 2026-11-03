@@ -903,11 +903,29 @@ pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<Strin
             if p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official) || planned(kind) > 0 {
                 return Some("One official visit to a school, by NCAA rule.".into());
             }
-            if taken(Visit::Official) + planned(kind) >= 5 {
+            if let Some(cap) = rec::official_cap(d)
+                && taken(Visit::Official) + planned(kind) >= cap
+            {
                 return Some("He has used his five official visits.".into());
             }
             if (9..=11).contains(&d.month()) && !home_saturdays(w, j).contains(&d.add(1)) {
                 return Some("In the fall an official visit is built around a home game.".into());
+            }
+            if w.programs[j].division == Division::FBS
+                && let Some((cap, start)) = rec::school_official_cap(d)
+            {
+                let set = w
+                    .front_office
+                    .college
+                    .visits
+                    .iter()
+                    .filter(|x| x.kind == VisitKind::Official && x.state == VisitState::Set && x.date >= start)
+                    .count();
+                if rec::officials_hosted(w, start)[j] + set >= cap {
+                    return Some(format!(
+                        "Your school has hosted its {cap} official visitors this cycle, the FBS limit."
+                    ));
+                }
             }
         }
         VisitKind::Unofficial => {
@@ -1013,8 +1031,11 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
                     name(committed_elsewhere.unwrap().0)
                 ));
             }
+            // His official visits left: the NCAA's five to June 2023; since
+            // then no limit, but his weekends hold about five.
             let used = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count();
-            let left = 5usize.saturating_sub(used);
+            let capped = rec::official_cap(d).is_some();
+            let left = rec::OFFICIAL_VISITS.saturating_sub(used).max(usize::from(!capped));
             let unvisited_ahead =
                 ahead.iter().filter(|&&x| !p.cal.visits.iter().any(|v| v.0 == x && v.2 == Visit::Official)).count();
             if unvisited_ahead < left || (unvisited_ahead == left && draw < 0.4) {
@@ -1023,7 +1044,13 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
                 let keep: Vec<String> = ahead.iter().take(2).map(|&x| name(x)).collect();
                 Err(format!(
                     "{first} said no: he's keeping his {} for {}.",
-                    if left == 1 { "last official visit".to_string() } else { format!("{left} official visits") },
+                    if !capped {
+                        "free weekends".to_string()
+                    } else if left == 1 {
+                        "last official visit".to_string()
+                    } else {
+                        format!("{left} official visits")
+                    },
                     keep.join(" and ")
                 ))
             }
@@ -1122,11 +1149,13 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
         } else if !recruiting_period(&w.dates, d).unofficial_visits() {
             Some("A dead period closed it.".to_string())
         } else if kind == VisitKind::Official && p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official) {
-            // One official visit to a school, and five in all (the rules
-            // re-checked on the day: your staff may have booked one; SC6).
+            // One official visit to a school, and five in all to June 2023
+            // (the rules re-checked on the day: your staff may have booked
+            // one; SC6).
             Some("He already took his official visit to you.".to_string())
         } else if kind == VisitKind::Official
-            && p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count() >= rec::OFFICIAL_VISITS
+            && rec::official_cap(d)
+                .is_some_and(|cap| p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count() >= cap)
         {
             Some("He used all his official visits.".to_string())
         } else {
@@ -1356,7 +1385,7 @@ fn offer_at(w: &mut World, j: usize, id: u32, by: Source, why: Option<String>) -
     }
     let gpa = rec::eligibility_gpa(w.people[i].bg.gpa, w.people[i].cal.test_score, w.people[i].class_of);
     let warn = if rec::ncaa_tier(w.programs[j].division, gpa) == rec::Eligibility::NonQualifier {
-        " His transcript is under the NCAA line today: he can't sign unless it comes up."
+        " His transcript is under the academic line today: he can't sign unless it comes up."
     } else {
         ""
     };
@@ -1911,6 +1940,14 @@ pub fn outlook(w: &World, j: usize) -> ClassOutlook {
     rec::class_outlook(w, j)
 }
 
+/// The NCAA's limit on official visits a recruit may take on day `d`:
+/// five to June 30, 2023, none since (minor bug B1).
+pub fn official_cap(d: crate::calendar::Date) -> Option<usize> {
+    rec::official_cap(d)
+}
+
+pub use rec::{four_year_transfers, multi_transfers_free, transfer_sits};
+
 pub fn next_class(w: &World) -> i32 {
     rec::next_class(w)
 }
@@ -1985,7 +2022,8 @@ pub fn usual_offer(w: &World, j: usize, id: u32) -> f64 {
     super::index_of(w, id).map_or(0.0, |i| rec::usual_nil_offer(w, j, i))
 }
 
-/// Whether his transcript meets the NCAA's line for your division today.
+/// Whether his transcript meets your division's academic line today (the
+/// NCAA's, or the NAIA's own; none in Division III or at junior colleges).
 pub fn qualifies(w: &World, j: usize, i: usize) -> &'static str {
     let p = &w.people[i];
     let gpa = rec::eligibility_gpa(p.bg.gpa, p.cal.test_score, p.class_of);
@@ -2014,12 +2052,34 @@ pub fn windows(w: &World) -> Vec<(Date, Date, &'static str)> {
             v.push((open, close, name));
         }
     }
-    if let Some((open, close)) = w.coach_window {
+    // The carousel's window is only for players whose head coach changed:
+    // shown when yours did (review of minor bug B12).
+    let changed = w
+        .seat
+        .filter(|s| s.level == Level::College)
+        .and_then(|s| s.program)
+        .is_some_and(|p| w.programs[p].hc_changed == crate::world::staff::cycle_year(w));
+    if let Some((open, close)) = w.coach_window
+        && changed
+    {
+        v.push((open, close, "Coaching change window"));
+    }
+    // Your own hire's window for your players (minor bug B15).
+    if let Some((_, open, close)) = w.folk.window
+        && !v.iter().any(|x| x.0 == open && x.1 == close)
+    {
         v.push((open, close, "Coaching change window"));
     }
     v.retain(|x| x.1 >= w.today.add(-30));
     v.sort_by_key(|x| x.0);
     v
+}
+
+/// The next transfer window still to close, the open one first: (opens,
+/// closes, name). Every screen that names the portal's next window reads
+/// it here (minor bugs B12-B15).
+pub fn next_window(w: &World) -> Option<(Date, Date, &'static str)> {
+    windows(w).into_iter().find(|x| x.1 >= w.today)
 }
 
 /// The recruiting year's dates ahead (your level's calendar): commitment

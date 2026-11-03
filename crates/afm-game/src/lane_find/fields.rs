@@ -562,7 +562,7 @@ pub fn catalog(seat: Seat, w: &World) -> Vec<Group> {
                 Field::new("offer_conf", "Has an offer from the conference", FKind::Text),
                 Field::new("offer_from", "Has an offer from", FKind::Text),
                 Field::new("leader", "Who leads", FKind::Text),
-                Field::new("officials", "Officials used (of 5)", FKind::Num),
+                Field::new("officials", "Officials used", FKind::Num),
                 Field::new("visits_you", "Visits to you", FKind::Num),
                 Field::new("top_out", "Top schools announced", FKind::Flag),
                 Field::new("insider", "Insider pick", FKind::Text),
@@ -1439,7 +1439,7 @@ pub fn firm(ctx: &Ctx, i: usize) -> usize {
     if best_other > theirs - hold { 1 } else { 2 }
 }
 
-/// Official visits he has taken (FR7, of the five allowed): a visit only
+/// Official visits he has taken (FR7; five allowed to June 2023): a visit only
 /// booked doesn't count yet.
 pub fn officials_used(ctx: &Ctx, i: usize) -> usize {
     let today = ctx.w.today;

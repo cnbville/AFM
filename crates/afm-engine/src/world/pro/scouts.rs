@@ -1955,11 +1955,17 @@ pub struct Offer {
     pub guarantee: f64,
 }
 
-/// The bonus pool per club for undrafted rookies (real: about $75,000 in
-/// 2011, rising with the rookie pool, about $92,000 in 2016). Before 2011
-/// there was no pool; clubs spent about the same (proposed, not confirmed).
+/// The bonus pool per club for undrafted rookies: about $75,000 in 2011
+/// under the 2011 CBA, rising with the cap (about $92,000 in 2016); under
+/// the 2020 CBA $206,144 in 2025 (minor bug B26), the years around it
+/// moving with the cap (proposed, not confirmed). Before 2011 there was no
+/// pool; clubs spent about the same (proposed, not confirmed).
 pub fn udfa_pool(year: i32) -> f64 {
-    75_000.0 * money::price_cap(year) / money::price_cap(2011)
+    if year >= 2020 {
+        206_144.0 * money::price_cap(year) / money::price_cap(2025)
+    } else {
+        75_000.0 * money::price_cap(year) / money::price_cap(2011)
+    }
 }
 
 /// The rush (topic 12): each club calls the best players left on its own

@@ -1160,14 +1160,24 @@ impl World {
             return Err(format!("{} is {hc}'s call. Your job controls {}.", pos.name(), self.your_controls()));
         }
         // His order, then yours: how much worse your starters grade to him.
+        // He goes by his own eye, not the truth (minor bug B49): each
+        // player's level with his error at this group, the same all season
+        // (proposed, not confirmed: 1 point for the best teacher, 2.5 for
+        // an average one, 3.85 for the worst).
         let n = crate::game::roster::starters(pos).max(1);
-        let read = |id: u32| super::index_of(self, id).map_or(0.0, |i| self.people[i].player.overall());
+        let hc = self.your_boss();
+        let eye = hc.map_or(10.0, |h| self.coaches[h].ability().teaching[Group::of(pos) as usize]);
+        let sd = 1.0 + 0.15 * (20.0 - eye).max(0.0);
+        let salt = SALT ^ 0xD1 ^ ((self.year as u64) << 20) ^ ((hc.unwrap_or(0) as u64) << 40);
+        let read = |id: u32| {
+            super::index_of(self, id)
+                .map_or(0.0, |i| self.people[i].player.overall() + sd * super::key_n(self, salt, id as u64))
+        };
         let mut his: Vec<u32> = ids.clone();
         his.sort_by(|a, b| read(*b).total_cmp(&read(*a)));
         let mine: f64 = ids.iter().take(n).map(|&i| read(i)).sum::<f64>() / n as f64;
         let best: f64 = his.iter().take(n).map(|&i| read(i)).sum::<f64>() / n as f64;
         let gap = best - mine;
-        let hc = self.your_boss();
         let temper = hc.map_or(10.0, |h| self.coaches[h].personality.temper);
         // Proposed, not confirmed: he lets 3 points go, and a hot-tempered
         // head coach overrules more readily.

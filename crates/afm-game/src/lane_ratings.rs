@@ -480,8 +480,12 @@ fn quality(w: &World) -> Value {
             let rows: Vec<Value> = all.iter().filter(|m| m.dept == d).map(|m| row_json(w, m)).collect();
             let n = rows.len();
             let foot = match (d, team) {
+                // Minor bug B5: from June 25, 2024 any staff member may
+                // coach; before it FBS counted ten assistants from 2018.
                 (Dept::Coaches, Team::College(p))
-                    if w.programs[p].division == afm_engine::world::data::Division::FBS && w.year >= 2018 =>
+                    if w.programs[p].division == afm_engine::world::data::Division::FBS
+                        && w.year >= 2018
+                        && w.today < afm_engine::calendar::Date::ymd(2024, 6, 25) =>
                 {
                     "the NCAA allows 10 assistants".to_string()
                 }

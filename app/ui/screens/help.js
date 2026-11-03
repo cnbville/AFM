@@ -68,7 +68,7 @@ const H7_TERMS = [
   ["Unofficial visit", ["unofficial visit", "unofficial visits"], "A campus visit the family pays for."],
   ["Signing day", ["signing day", "national signing day", "early signing period"], "When recruits sign binding letters with a school: the early period in December, the traditional day in February."],
   ["Contact period", ["contact period", "dead period", "quiet period", "evaluation period"], "The recruiting calendar's windows: contact allows visits and meetings off campus, quiet only on campus, dead none, evaluation watching without talking."],
-  ["Scholarship limit", ["scholarship limit", "85 scholarships"], "The cap on players on athletic aid: 85 at FBS until the House settlement's roster limit, 63 equivalencies at FCS."],
+  ["Scholarship limit", ["scholarship limit", "85 scholarships"], "The cap on players on athletic aid: 85 at FBS until the House settlement's roster limit; at FCS 63 scholarships shared among at most 85 players; 36 shared out in Division II and 24 in the NAIA; none in Division III."],
   ["Hot seat", ["hot seat"], "A coach whose job is in danger."],
   ["Buyout", ["buyout", "buyouts"], "What a school or club owes to end a coach's contract early, or what a coach owes to leave one."],
   ["Combine", ["combine", "the combine"], "The NFL's invitation-only testing week in February: the forty, the bench, the jumps, the agility drills, the medicals and interviews."],

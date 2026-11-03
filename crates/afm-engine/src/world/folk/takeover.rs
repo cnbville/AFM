@@ -143,7 +143,8 @@ fn coach_change_window(w: &mut World, p: usize, d0: Date) {
     }
     if let Some(days) = days {
         let open = d0.add(5);
-        let close = open.add(days);
+        // The window's days counted with its first (minor bug B15).
+        let close = open.add(days - 1);
         w.folk.window = Some((p, open, close));
         super::post_mine(
             w,

@@ -151,7 +151,7 @@ struct TaskDef {
     keys: u16,
 }
 
-const TASKS: [TaskDef; 13] = [
+const TASKS: [TaskDef; 17] = [
     TaskDef {
         key: "depth",
         title: "The depth chart",
@@ -272,6 +272,49 @@ const TASKS: [TaskDef; 13] = [
         page: "contracts",
         keys: mail::PLAYERS,
     },
+    // Another league's club (minor bug B41): its roster, its league and,
+    // in the CFL, the ratio; no NFL cutdown, practice squad or training
+    // week there.
+    TaskDef {
+        key: "lgroster",
+        title: "The roster",
+        go: "roster",
+        button: "Open the squad",
+        look: &["roster"],
+        cmds: &[],
+        page: "contracts",
+        keys: mail::PLAYERS,
+    },
+    TaskDef {
+        key: "league",
+        title: "Your league",
+        go: "leagues",
+        button: "Open your league",
+        look: &["leagues", "leagues_mine"],
+        cmds: &[],
+        page: "calendar",
+        keys: mail::LEAGUE,
+    },
+    TaskDef {
+        key: "lgstaff",
+        title: "Your staff",
+        go: "staff",
+        button: "Open the staff",
+        look: &["staff"],
+        cmds: &[],
+        page: "people",
+        keys: mail::STAFF,
+    },
+    TaskDef {
+        key: "ratio",
+        title: "The ratio",
+        go: "depth",
+        button: "Open the depth chart",
+        look: &[],
+        cmds: &["set_depth", "dp_depth_set"],
+        page: "ratings",
+        keys: mail::PLAYERS,
+    },
     TaskDef {
         key: "schedule",
         title: "The schedule",
@@ -291,13 +334,17 @@ fn def(key: &str) -> Option<&'static TaskDef> {
 /// The week's six tasks, one a day: the depth chart, the game plan and the
 /// training week, then the level's own (H12).
 fn plan(_w: &World, t: TeamRef, start: Date) -> Vec<Task> {
+    let cfl = matches!(t, TeamRef::Other(f) if afm_engine::world::pro::other::league_of(f) == afm_engine::world::pro::other::CFL);
+    // Another league's club has no training week or NFL cutdown in the
+    // game: its roster takes the third day (minor bug B41).
+    let third = if matches!(t, TeamRef::Other(_)) { "lgroster" } else { "training" };
     let own: [&str; 3] = match t {
         TeamRef::HighSchool(_) => ["twoway", "limits", "friday"],
         TeamRef::College(_) => ["board", "contact", "portal"],
         TeamRef::Nfl(_) => ["cut", "cap", "squad"],
-        TeamRef::Other(_) => ["cut", "schedule", "squad"],
+        TeamRef::Other(_) => ["schedule", "league", if cfl { "ratio" } else { "lgstaff" }],
     };
-    ["depth", "plan", "training"]
+    ["depth", "plan", third]
         .into_iter()
         .chain(own)
         .enumerate()
@@ -502,16 +549,24 @@ fn task_text(w: &World, t: TeamRef, key: &str) -> (String, String) {
             )
         }
         "portal" => {
-            let (a, b) = if today <= ys.portal_close {
-                (ys.portal_open, ys.portal_close)
-            } else {
-                (next_ys.portal_open, next_ys.portal_close)
-            };
+            // The next window to close, your coaching change's own first
+            // when it is open (minor bug B15).
+            let (a, b, name) =
+                afm_engine::world::front_office::college::next_window(w).unwrap_or(if today <= ys.portal_close {
+                    (ys.portal_open, ys.portal_close, "Winter window")
+                } else {
+                    (next_ys.portal_open, next_ys.portal_close, "Winter window")
+                });
             let open = today >= a && today <= b;
-            let line = if open {
-                format!("The window is open until {}.", date_text(b))
+            let what = if name == "Coaching change window" {
+                "Your coaching change's transfer window"
             } else {
-                format!("The next window opens {} and runs to {}.", date_text(a), date_text(b))
+                "The transfer window"
+            };
+            let line = if open {
+                format!("{what} is open until {}.", date_text(b))
+            } else {
+                format!("{what} opens {} and runs to {}.", date_text(a), date_text(b))
             };
             (
                 format!("{line} See who might leave and who you could add."),
@@ -541,14 +596,50 @@ fn task_text(w: &World, t: TeamRef, key: &str) -> (String, String) {
         }
         "squad" => (
             format!(
-                "Up to {} players can sit on the practice squad: they practise with you and any club can sign them to its roster.",
-                w.rules.nfl_practice_squad
+                "Up to {} players can sit on the practice squad{}: they practise with you and any club can sign them to its roster.",
+                w.rules.nfl_practice_squad,
+                if w.year >= 2017 { ", plus one place for an International Player Pathway player" } else { "" }
             ),
             "The best young players there get poached.".into(),
         ),
         "schedule" => (
             "Look over the season: your league's schedule is short and every game counts.".into(),
             "Travel and rest weeks shape the year.".into(),
+        ),
+        "lgroster" => {
+            let (have, carry, league) = match t {
+                TeamRef::Other(f) => {
+                    let k = afm_engine::world::pro::other::league_of(f);
+                    let carry = afm_engine::world::pro::other::format(k, w.year).map_or(46, |x| x.roster);
+                    (views::roster_people(w, t).len(), carry, afm_engine::world::pro::other::league_short(k))
+                }
+                _ => (views::roster_people(w, t).len(), 46, ""),
+            };
+            (
+                format!(
+                    "You have {have} on the roster; the {league} carries {carry}. Your staff fills open places from the street."
+                ),
+                "Injuries and the ratio both draw on the bench.".into(),
+            )
+        }
+        "lgstaff" => (
+            "Meet the coordinators and position coaches the club kept; they install the playbook before the opener."
+                .into(),
+            "A short season leaves little time to fix a staff.".into(),
+        ),
+        "league" => (
+            "Your league's page holds the standings, the rules where they differ from the NFL's and the title history."
+                .into(),
+            "The playoff line decides the season.".into(),
+        ),
+        "ratio" => (
+            format!(
+                "The CFL's ratio: at least {} Nationals on the roster and {} of them starting{}. Quarterbacks don't count. When your chart falls short, your staff starts the Canadians who cost least.",
+                afm_engine::world::pro::other::ratio(w.year).0,
+                if afm_engine::world::pro::other::ratio(w.year).1 == 8 { "eight" } else { "seven" },
+                if w.year >= 2023 { ", one of whom may be a nationalized American" } else { "" }
+            ),
+            "Every starting spot is a ratio choice.".into(),
         ),
         _ => (String::new(), String::new()),
     }
@@ -1014,8 +1105,20 @@ fn page(g: &mut Game, args: &Value) -> Reply {
     due.sort();
     due.dedup();
     let head = me.map(|t| json!({ "team": views::team_brief(w, t), "label": format!("{} · {}", views::team_name(w, t), date_text(today)) }));
+    // The player the "Player page" links open (minor bug B53): your
+    // quarterback your staff rates highest, else your best-read player.
+    let player = me.and_then(|t| {
+        let r = views::roster_people(w, t);
+        let best = |qb: bool| {
+            r.iter().copied().filter(|&k| !qb || w.people[k].player.position == Position::QB).max_by(|&a, &b| {
+                crate::reads::centre(w, a).unwrap_or(0.0).total_cmp(&crate::reads::centre(w, b).unwrap_or(0.0))
+            })
+        };
+        best(true).or_else(|| best(false)).map(|k| w.people[k].player.id)
+    });
     Ok(json!({
         "page": id,
+        "player": player,
         "level": lv,
         "order": me.map_or(["college", "hs", "nfl"], order),
         "head": head,

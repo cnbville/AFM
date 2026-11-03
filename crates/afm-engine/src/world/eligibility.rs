@@ -124,6 +124,15 @@ pub fn seasons_allowed(season: i32, division: Division) -> u32 {
     if five_in_five(season, division) { 5 } else { 4 }
 }
 
+/// Seasons he has left to play at `division` from `season` on, this one
+/// included: the division's allowance less the seasons he has used, within
+/// his five-year clock. Every screen reads it here (minor bug B9), so five
+/// seasons show only where the engine gives them (Division I from 2026).
+pub fn seasons_left(p: &Person, division: Division, season: i32) -> u32 {
+    let clock = (clock_last(p) - season + 1).max(0) as u32;
+    seasons_allowed(season, division).saturating_sub(p.college_seasons).min(clock)
+}
+
 /// The last season his five-year clock allows: five seasons from the fall
 /// after his class, plus the years it stopped and the years added.
 pub fn clock_last(p: &Person) -> i32 {

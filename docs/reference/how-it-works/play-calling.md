@@ -1,6 +1,6 @@
 # Play calling: how it works today
 
-Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; the call table rebuilt and centered (minor bug 135) at 3f875ea on 2026-10-31; college's clock by era (minor bugs 179 and 180) over main 67bea84 on 2026-11-02.
+Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; the call table rebuilt and centered (minor bug 135) at 3f875ea on 2026-10-31; college's clock by era (minor bugs 179 and 180) over main 67bea84 on 2026-11-02. The minor bugs hotfix batch 6 (minor bugs 185-240, the tutorial catalogue's B items) checked over main 1a99583 on 2026-11-03.
 
 Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach skills are 1-20. A list of weights means one option is drawn in proportion to its weight. "Long" means 2nd down or later with 8+ to go. U is a uniform 0-1 draw, N(m, sd) a normal one, N alone N(0, 1).
 
@@ -222,7 +222,7 @@ Every team's staff carries its head coach's guidelines (`game/roster.rs`, `Staff
 ## The play designer (`game/designer.rs`)
 
 - A design is a formation (motion included), each player's route, the reads in order, the protection, the drop and play action (`Design`).
-- Legal, the same at every level (the level argument is ignored): 7 on the line (within 1 yard of the ball, the QB excluded), 4 backs at most, no route for a lineman or a man covered up between the end men, every read runs a route, every route's man is in the personnel (`legal`).
+- Legal (`legal`): 7 on the line (within 1 yard of the ball, the QB excluded), 4 backs at most, no route for a man covered up between the end men, every read runs a route, every route's man is in the personnel. A lineman (50-79) may report eligible and run a route only in the NFL; in college and high school his number keeps him ineligible (minor bug 236, B52: this page used to say the level was ignored).
 - On saving, your offensive play caller reviews it and sees each flaw with chance clamp(reading / 20, 0.05, 0.95): two routes ending within 3 yards of each other; no route ending within 6 yards with fewer than 7 blockers, unless a screen; one route, unless a screen; no reads. With none seen he says "Looks good to me." (`review`; `crates/afm-game/src/lane_training.rs`, `design_save`).
 - It becomes a concept: a screen or bubble drop is a screen; a deepest route of 7 yards or less is quick, 16 or less medium, else deep. It is numbered after the library (`to_concept`, `save`; `game/playbook.rs`, `register_concept`).
 - Practice read: 2 snaps for each day with a team period, from the 35, against the team's own scout looks in turn (base Cover 3; nickel Cover 1 with an LB blitz; nickel Cover 4; base Cover 2; nickel Cover 3 match with simulated pressure). Average yards and completions add up over the weeks (`training/practice.rs`, `design_reads`; `practice`).
@@ -244,7 +244,7 @@ Every team's staff carries its head coach's guidelines (`game/roster.rs`, `Staff
 | Quarter | 15:00 | 15:00 | 12:00 |
 | Hash, yards from the middle | 3.083 | 6.667 | 8.889 (6.667 in Texas and Massachusetts) |
 | Feet in bounds | 2 | 1 | 1 |
-| Kickoff from / touchback | 35 / 35, the 2025 kickoff (history: the 30 to 2010; touchback 20 to 2015, 25 to 2023, 30 in 2024) | 35 / 25 (the 30 to 2006; touchback 20 to 2011) | 40 / 20 |
+| Kickoff from / touchback | 35 / 35, the 2025 kickoff (history: the 30 to 2010; touchback 20 to 2015, 25 to 2023, 30 in 2024) | 35 / 25 (the 30 in 2007-2011; touchback 20 to 2011; a fair catch inside the 25 a touchback from 2018) | 40 / 20 |
 | Extra point kick from | 15 (the 2 to 2014) | 3 | 3 |
 | Two-point try from | 2 | 3 | 3 |
 | Two-minute warning | yes | the two-minute timeout in each half from 2024 (none before) | no |
@@ -277,3 +277,11 @@ Every team's staff carries its head coach's guidelines (`game/roster.rs`, `Staff
 - [training.md](training.md): the practice week, installs, the call sheet's practice and each player's prep word.
 - [ratings.md](ratings.md): the 67 attributes and the 1-20 reads.
 - The design with Raichel's wording: `docs/design/plays-and-tactics.md`; game day: `docs/design/game-day.md`.
+
+## Minor bugs batch 6 (2026-11-03)
+
+- **The week's instructions** (minor bug 238, B54): all ten agreed ones for one opponent, the kneel depth at 4 yards (`world/plans.rs`, `ORDERS`; new ones at the end, so a saved week keeps its orders).
+- **The kicker's range on the week's plan** (minor bug 234, B50): from your staff's read of his leg and accuracy, not the truth (`crates/afm-game/src/lane_gameplan/week.rs`).
+- **Helmet radio** (minor bug 206, B22): the coach-to-player radio is the NFL's always, college's from 2024, never high school's; of the other leagues the AAF, the XFL of 2020 and 2023, the USFL and the UFL; the game day settings say so, and stay neutral for the rest (`crates/afm-game/src/lane_gameday.rs`, `helmet_radio`).
+- **College kickoffs by era** (minor bug 230, B46; Cain's yes 2026-11-03): from the 35, the 30 in 2007-2011, the 35 again from 2012 (`game/rules.rs`, `Rules::for_year`). Match engine results change for those college seasons.
+- **The kickoff fair-catch touchback** (minor bug 231, B47; Cain's yes 2026-11-03): a fair catch inside the 25 is a touchback in college from 2018 and in the NFL in 2023 only (`Rules::fair_catch_touchback`; `game/kicking.rs`). Before, it fired in college from 2012 and the NFL from 2016 to 2023. Match engine results change for those seasons.

@@ -856,10 +856,8 @@ fn nfl_page(w: &World, s: &NflSeason, t: usize) -> SeasonPage {
     let d = s.div.get(t).copied().unwrap_or(0);
     let mut members: Vec<usize> =
         (0..n).filter(|&x| s.div[x] == d && s.active.get(x).copied().unwrap_or(true)).collect();
-    // The league's own order: record, then division wins (the world's
-    // tiebreak when it picks division winners).
-    let key = |x: usize| if x < s.wins.len() { super::nfl_year::record_key(s, x) } else { 0.0 };
-    members.sort_by(|&x, &y| key(y).total_cmp(&key(x)).then(x.cmp(&y)));
+    // The league's own order: record, then the NFL's tiebreakers.
+    super::nfl_year::standings_order(s, &mut members);
     let at = members.iter().position(|&x| x == t).unwrap_or(0) as u32 + 1;
     let league_name = super::legacy::div_name(d as u8, year).to_string();
     let out = s.out_round.get(t).copied().unwrap_or(0);

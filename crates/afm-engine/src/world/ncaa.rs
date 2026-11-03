@@ -176,11 +176,19 @@ pub fn nil_market(year: i32) -> f64 {
 /// full cap and give football about 75% (the Texas model, $15.37M). The
 /// Group of 5 uses the American's floor, $10M over three years. FCS and below
 /// share nothing (proposed, not confirmed: no published figures).
-pub fn revenue_share(prog: &Program, year: i32) -> f64 {
-    if year < HOUSE_START {
-        return 0.0;
+/// The House settlement's yearly cap on what a school shares with its
+/// athletes: $20.5M in 2025-26, then the College Sports Commission's
+/// $21.58M for 2026-27, growing 4% a year (minor bug B17).
+pub fn revenue_cap(season: i32) -> Option<f64> {
+    match season {
+        ..HOUSE_START => None,
+        HOUSE_START => Some(20.5e6),
+        _ => Some(21.58e6 * 1.04f64.powi(season - HOUSE_START - 1)),
     }
-    let cap = 20.5e6 * 1.04f64.powi(year - HOUSE_START);
+}
+
+pub fn revenue_share(prog: &Program, year: i32) -> f64 {
+    let Some(cap) = revenue_cap(year) else { return 0.0 };
     let paid = match prog.division {
         Division::FBS if prog.power_four() => cap,
         Division::FBS => 10.0e6 / 3.0,

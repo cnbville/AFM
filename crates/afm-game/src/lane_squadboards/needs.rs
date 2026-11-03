@@ -125,8 +125,11 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         TeamRef::Nfl(_) => 2,
         _ => 1,
     };
-    let five = w.changes.rules(f0).five_in_five;
-    let limit: i32 = if five { 5 } else { 4 };
+    // Seasons each player has left at this team's division (minor bug B9).
+    let division = match t {
+        TeamRef::College(j) => Some(w.programs[j].division),
+        _ => None,
+    };
     // Who counts: your roster and, at a college, your commits.
     let mut people: Vec<(usize, bool)> = views::roster_people(w, t).into_iter().map(|i| (i, false)).collect();
     if let TeamRef::College(_) = t {
@@ -168,7 +171,8 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
                 }
             }
             Stage::College => {
-                let left = (limit - p.college_seasons as i32).min(p.class_of + 5 - f0).max(0);
+                let div = division.unwrap_or_else(|| afm_engine::world::eligibility::division_of(p, &w.programs));
+                let left = afm_engine::world::eligibility::seasons_left(p, div, f0) as i32;
                 for (n, h) in here.iter_mut().enumerate() {
                     *h = left > n as i32;
                 }
@@ -314,7 +318,13 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         {
             fix.push(match t {
                 TeamRef::College(_) => {
-                    format!("Talk with {}: he's unhappy, and the portal opens in December.", name_of(j))
+                    // The real next window (minor bug B12).
+                    let when = match afm_engine::world::front_office::college::next_window(w) {
+                        Some((a, b, _)) if a <= w.today => format!("the portal is open until {}", views::date_text(b)),
+                        Some((a, _, _)) => format!("the portal opens {}", views::date_text(a)),
+                        None => "he can leave through the portal".to_string(),
+                    };
+                    format!("Talk with {}: he's unhappy, and {when}.", name_of(j))
                 }
                 _ => format!("Talk with {}: he's unhappy.", name_of(j)),
             });

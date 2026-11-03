@@ -19,14 +19,6 @@ use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::{Rng, clamp};
 use crate::scouting::{ScoutOptions, scout_player};
 
-// --- Data hooks -------------------------------------------------------------------
-
-/// Whether a state lets high school players earn NIL money. Filled by the
-/// per-state research pass (follow-up answer 5).
-pub(crate) fn hs_nil_allowed(code: &str) -> bool {
-    super::data::hs_nil(code)
-}
-
 // --- High school transfers ----------------------------------------------------------
 
 /// Powerhouses pull standouts (topic 2): exposure, coaching, a better shot at
@@ -2017,9 +2009,18 @@ pub(crate) enum Eligibility {
     NonQualifier,
 }
 
+/// Whether a recruit's transcript meets his division's academic line.
+/// Division I asks 2.3 (2.0 for an academic redshirt) and Division II 2.2.
+/// Division III has no initial-eligibility rule: the school's own admission
+/// decides (`admissions_bar`). The NAIA runs its own eligibility center: a
+/// 2.3 high school GPA, or two of a 2.0 GPA, an 18 ACT and the top half of
+/// his class (minor bug B8). Here 2.0 qualifies, as most who reach it meet
+/// the test or the class rank (proposed, not confirmed); under it he can
+/// still enroll but sits his first year. Junior colleges take anyone.
 pub(crate) fn ncaa_tier(d: Division, gpa: f64) -> Eligibility {
     let full = match d {
-        Division::JUCO => return Eligibility::Qualifier,
+        Division::JUCO | Division::D3 => return Eligibility::Qualifier,
+        Division::NAIA => return if gpa >= 2.0 { Eligibility::Qualifier } else { Eligibility::AcademicRedshirt },
         Division::D2 => 2.2,
         _ => 2.3,
     };
@@ -2348,13 +2349,12 @@ fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
 }
 
 /// When the staff reads its roster for a signing stage (T5.2): what this
-/// season still adds to everyone's count, whether the winter portal is still
-/// ahead, and the most seasons a player gets.
+/// season still adds to everyone's count and whether the winter portal is
+/// still ahead. The seasons a player gets come from his division and the
+/// season (`eligibility::seasons_allowed`, minor bug B9).
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 struct RosterRead {
     stage: SignStage,
-    /// Seasons a player gets (five under the five-in-five change).
-    limit: u32,
 }
 
 impl RosterRead {
@@ -2440,12 +2440,21 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         d,
         seasons,
         sign_year,
-        read.limit,
+        super::eligibility::seasons_allowed(sign_year, d),
         bars,
         if declared { p.cal.declare_plan } else { Some(false) },
         read.portal_ahead(),
     );
-    let after = leaving(p, d, seasons + 1, sign_year + 1, read.limit, bars, None, true);
+    let after = leaving(
+        p,
+        d,
+        seasons + 1,
+        sign_year + 1,
+        super::eligibility::seasons_allowed(sign_year + 1, d),
+        bars,
+        None,
+        true,
+    );
     (next, 1.0 - (1.0 - next) * (1.0 - after))
 }
 
@@ -2905,8 +2914,81 @@ const FEEL_SD: f64 = 0.07;
 const RECRUITED_PER_SPOT: usize = 3;
 const RECRUITED_EXTRA: usize = 3;
 
-/// Official visits a recruit can take (the NCAA's limit of five).
+/// Official visits a recruit takes: the NCAA's limit of five to June 30,
+/// 2023; since July 1, 2023 there is no limit, one a school, and the
+/// weekends of his June and his fall hold about five (proposed, not
+/// confirmed), so a recruit still saves them for the schools he likes best.
 pub(crate) const OFFICIAL_VISITS: usize = 5;
+
+/// The NCAA's cap on a recruit's official visits on a date: five to June
+/// 30, 2023, none since (unlimited, one a school, from July 1, 2023).
+pub fn official_cap(d: Date) -> Option<usize> {
+    (d < Date::ymd(2023, 7, 1)).then_some(OFFICIAL_VISITS)
+}
+
+/// Whether any transfer who is academically eligible plays at once: the
+/// NCAA's vote of April 17, 2024 freed every transfer for the 2024 season
+/// on, those who had already moved included (minor bug B11). A move from
+/// September on counts toward the next season.
+pub fn multi_transfers_free(day: Date) -> bool {
+    let season = if day.month() >= 9 { day.year() + 1 } else { day.year() };
+    season >= 2024
+}
+
+/// A college player's earlier transfers between four-year schools: the
+/// schools on his path before the one he is at now, junior colleges left
+/// out (minor bug B11: high school moves don't count).
+pub fn four_year_transfers(w: &World, p: &Person) -> u32 {
+    let n = p.path.len().saturating_sub(1);
+    p.path[..n].iter().filter(|&&c| w.programs.get(c).is_some_and(|x| x.division != Division::JUCO)).count() as u32
+}
+
+/// Whether a transfer sits out his first season at his new school. Before
+/// the one-time exception (2021) a transfer into FBS sat a year, unless he
+/// came from a junior college or, from 2006 (the graduate transfer
+/// exception), had graduated. From 2021 a first undergraduate transfer
+/// plays at once, but a second one into Division I still sat until April
+/// 17, 2024 (minor bug B11).
+pub fn transfer_sits(day: Date, one_time: bool, to: Division, from: Division, graduated: bool, before: u32) -> bool {
+    let grad_free = graduated && day.year() >= 2006;
+    if from == Division::JUCO || grad_free {
+        return false;
+    }
+    if !one_time {
+        return to == Division::FBS;
+    }
+    before >= 1 && matches!(to, Division::FBS | Division::FCS) && !multi_transfers_free(day)
+}
+
+/// The FBS's limit on official visitors a school hosts in a cycle, and the
+/// cycle's first day (minor bug B2): 56 a year from August 1 to July 31,
+/// from April 2020 (Proposal 2019-36) April 1 to March 31, 70 from April
+/// 2023; waived from April 2024 and dropped for 2026-27 (Proposal 2026-4).
+/// FCS schools have no school limit here (proposed, not confirmed).
+pub fn school_official_cap(d: Date) -> Option<(usize, Date)> {
+    if d >= Date::ymd(2024, 4, 1) {
+        return None;
+    }
+    let y = d.year();
+    if d >= Date::ymd(2020, 4, 1) {
+        let start = if d.month() >= 4 { Date::ymd(y, 4, 1) } else { Date::ymd(y - 1, 4, 1) };
+        return Some((if start >= Date::ymd(2023, 4, 1) { 70 } else { 56 }, start));
+    }
+    Some((56, if d.month() >= 8 { Date::ymd(y, 8, 1) } else { Date::ymd(y - 1, 8, 1) }))
+}
+
+/// Official visitors each program has hosted since `start`.
+pub(crate) fn officials_hosted(w: &World, start: Date) -> Vec<usize> {
+    let mut n = vec![0usize; w.programs.len()];
+    for p in &w.people {
+        for v in &p.cal.visits {
+            if v.2 == super::Visit::Official && v.1 >= start && v.0 < n.len() {
+                n[v.0] += 1;
+            }
+        }
+    }
+    n
+}
 
 /// A redshirt's portal rate before his stars (11.17), on the same scale as
 /// the backup's 0.18 and the rotation player's 0.07 in `PIPELINE`. These
@@ -3860,6 +3942,14 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     // Your program's visits are the ones you set (lane 10): nobody comes on his own.
     let vj = fo::college::visits_program(w);
     let planned = fo::college::planned_officials(w);
+    // The FBS school limit on official visitors, where one applied (B2).
+    let school_cap = if official_day { school_official_cap(d) } else { None };
+    let mut hosted = school_cap.map(|(_, start)| officials_hosted(w, start));
+    let capped: Vec<bool> = if school_cap.is_some() {
+        w.programs.iter().map(|p| p.division == Division::FBS).collect()
+    } else {
+        Vec::new()
+    };
     let mut posts = Vec::new();
     let mut homes = Vec::new();
     let (mut off, mut unoff, mut drops) = (0u32, 0u32, 0u32);
@@ -3906,8 +3996,9 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
                     && !yours_set(j)
                     && !p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official)
                     && (!fall_officials || home_tomorrow.contains(&j))
+                    && !school_cap.is_some_and(|(cap, _)| capped[j] && hosted.as_ref().is_some_and(|h| h[j] >= cap))
             });
-            if taken < OFFICIAL_VISITS
+            if official_cap(d).is_none_or(|cap| taken < cap)
                 && let Some(&j) = next
                 && key_uniform(seed ^ 1, id) < 0.12
             {
@@ -3963,6 +4054,9 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
             match v {
                 Visit::Official => {
                     off += 1;
+                    if let Some(h) = hosted.as_mut() {
+                        h[j] += 1;
+                    }
                     if stars >= 4 {
                         posts.push((
                             j,
@@ -4744,7 +4838,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let seat_prog = super::scouting::readers::seat_staff(w)
         .and_then(|s| if let super::scouting::readers::Staff::Program(p) = s { Some(p) } else { None });
     let own_mins = w.scouting.own.minimums.clone();
-    let read = RosterRead { stage, limit: if w.changes.rules(sign_year).five_in_five { 5 } else { 4 } };
+    let read = RosterRead { stage };
     let mut signed_by: Vec<Vec<usize>> = vec![Vec::new(); programs.len()];
     for (i, p) in w.people.iter().enumerate() {
         if let Some(s) = p.cal.signed
@@ -6124,7 +6218,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     }
                     if division == Division::JUCO && gpa < 2.0 {
                         p.note(format!(
-                            "His core GPA ({gpa:.2}) was under the NCAA's 2.0 floor, so four-year schools couldn't take him."
+                            "His core GPA ({gpa:.2}) was under the NCAA's 2.0 floor, so Division I and II schools couldn't take him."
                         ));
                     }
                     if special {
@@ -7541,12 +7635,15 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         } else {
             Step::Down
         };
-        // Before the one-time exception (2021) a transfer into FBS sat a
-        // year, unless he came from a junior college or, from 2006 (the
-        // graduate transfer exception), had graduated.
-        let grad_free = w.people[i].cal.graduated && w.year >= 2006;
-        let sits =
-            !one_time && to == Division::FBS && from != Division::JUCO && !grad_free && why != Why::ProgramDropped;
+        let sits = why != Why::ProgramDropped
+            && transfer_sits(
+                today,
+                one_time,
+                to,
+                from,
+                w.people[i].cal.graduated,
+                four_year_transfers(w, &w.people[i]),
+            );
         let (stars, starter, name) =
             (w.people[i].stars, w.people[i].last_role == Some(PlayingTime::Starter), w.people[i].name.clone());
         landings.push((i, j));
@@ -7959,7 +8056,7 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
         _ if w.today.month() >= 12 || w.today.month() <= 2 => SignStage::Final,
         _ => SignStage::Summer(0),
     };
-    let read = RosterRead { stage, limit: if w.changes.rules(sign_year).five_in_five { 5 } else { 4 } };
+    let read = RosterRead { stage };
     let prog = &w.programs[j];
     let signed: Vec<usize> = w
         .people

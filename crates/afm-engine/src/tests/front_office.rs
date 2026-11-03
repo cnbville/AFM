@@ -84,7 +84,7 @@ fn your_offer_is_weighed_by_the_markets_own_score() {
     make_expiring(&mut w, t, i, 5);
     let id = w.people[i].player.id;
     assert_eq!(nfl::negotiable(&w, i), Some(nfl::TalkKind::ReSign));
-    let min = money::minimum(w.year, w.people[i].pro.as_ref().unwrap().accrued);
+    let min = money::minimum(w.year, w.people[i].pro.as_ref().unwrap().credited);
     let low = nfl::Proposal {
         years: 2,
         apy: min,

@@ -280,6 +280,45 @@ pub(crate) fn poach(w: &mut World, d: Date) -> bool {
 /// held only young players, so a street veteran always beat them for an
 /// open place on the 53 and almost no squad player was signed up, where
 /// real clubs keep veterans on the squad for exactly that.
+/// A club's practice squad places: the era's (16 from 2020) and, from 2017,
+/// one more while an International Player Pathway player holds it (from
+/// 2024 the 17th, only his; minor bug B25).
+pub fn squad_size(w: &World, t: usize) -> usize {
+    let base = w.rules.nfl_practice_squad as usize;
+    let ipp = base > 0
+        && w.year >= 2017
+        && w.clubs.get(t).is_some_and(|c| {
+            c.roster
+                .iter()
+                .any(|&i| w.people[i].pro.as_ref().is_some_and(|p| p.ipp && p.status == Status::PracticeSquad))
+        });
+    base + usize::from(ipp)
+}
+
+/// Whether a player goes in the International Player Pathway's own place
+/// on a practice squad (from 2017, outside the era's ordinary places): a
+/// pathway player still in it, with no accrued season and under three on a
+/// squad (the flag stays on him for life).
+pub(crate) fn ipp_place(w: &World, i: usize) -> bool {
+    w.year >= 2017
+        && w.rules.nfl_practice_squad > 0
+        && w.people[i].pro.as_ref().is_some_and(|c| c.ipp && c.accrued == 0 && c.ps_seasons < 3)
+}
+
+/// Whether a practice squad list has room for one more: the era's ordinary
+/// places, and the one IPP place kept for an IPP player (review of minor
+/// bug B25: at cutdown the IPP player isn't on the squad yet, so
+/// `squad_size` didn't count his place and he took an ordinary one).
+pub(crate) fn cut_room(w: &World, list: &[usize], i: usize) -> bool {
+    let base = w.rules.nfl_practice_squad as usize;
+    let ipp_in = list.iter().any(|&x| ipp_place(w, x));
+    let ordinary = list.len() - usize::from(ipp_in);
+    if ipp_place(w, i) && !ipp_in {
+        return true;
+    }
+    ordinary < base
+}
+
 pub(crate) fn veteran_places(year: i32) -> (usize, u32) {
     match year {
         ..2014 => (0, 0),
@@ -414,6 +453,7 @@ pub(crate) fn refill_squads(w: &mut World, d: Date) -> bool {
             continue;
         }
         let mut on = squad_by_position(w, t);
+        let size = squad_size(w, t);
         while super::count(w, t, Status::PracticeSquad) < size {
             // Its open places by position first, then any spot but a
             // quarterback's or a specialist's (minor bug 122).
@@ -461,8 +501,8 @@ pub(crate) fn refill_squads(w: &mut World, d: Date) -> bool {
 /// through the next season, as most are (proposed, not confirmed).
 fn sign_up(w: &mut World, t: usize, i: usize, pay: f64) {
     let year = w.year;
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-    let terms = money::Terms::flat(2, money::minimum(year, accrued).max(pay));
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let terms = money::Terms::flat(2, money::minimum(year, credited).max(pay));
     let deal = money::build(t, money::Kind::Veteran, year, &terms);
     let name = w.nfl[t].name;
     let p = &mut w.people[i];

@@ -97,7 +97,10 @@ pub(crate) fn portal_windows(season: i32, rule: TransferRule) -> Vec<(Date, Date
             };
             vec![(open, close, PortalWindow::Winter), (spring.0, spring.1, PortalWindow::Spring)]
         }
-        TransferRule::January => vec![(Date::ymd(s + 1, 1, 2), Date::ymd(s + 1, 1, 16), PortalWindow::Winter)],
+        TransferRule::January => {
+            let (open, close) = crate::calendar::anchors::january_window(s);
+            vec![(open, close, PortalWindow::Winter)]
+        }
     }
 }
 
@@ -255,6 +258,7 @@ pub(crate) fn advance_day(w: &mut World) {
         recruiting::enroll(w, false);
     }
     if d == hs_transfer_day(&y) {
+        hs_nil_states(w);
         timed("hs transfers", || recruiting::high_school_transfers(w));
         w.rebuild_rosters();
     }
@@ -366,7 +370,8 @@ pub(crate) fn advance_day(w: &mut World) {
             _ => None,
         };
         if let Some(days) = days {
-            w.coach_window = Some((d.add(5), d.add(5 + days)));
+            // Counted with its first day (minor bug B15).
+            w.coach_window = Some((d.add(5), d.add(4 + days)));
         }
         timed("draft reads", || recruiting::draft_reads(w));
     }
@@ -701,6 +706,28 @@ fn signing_day_and_book(w: &mut World, season: i32) {
     w.compact();
     w.rebuild_rosters();
     w.year = keep;
+}
+
+/// The states whose high school players may earn NIL money from this
+/// season on, by the real year each allowed it (minor bug B19): none
+/// before California in 2021. The news goes out in its first season.
+fn hs_nil_states(w: &mut World) {
+    let season = w.year;
+    for s in 0..w.states.len() {
+        if w.states[s].hs_nil {
+            continue;
+        }
+        let Some(from) = super::data::hs_nil_from(&w.states[s].code) else { continue };
+        if from > season {
+            continue;
+        }
+        w.states[s].hs_nil = true;
+        if from == season {
+            let text = format!("{} lets high school athletes earn NIL money.", w.states[s].code);
+            w.log.rule_changes.push(text.clone());
+            w.calendar.post(Event::new(w.today, Level::HighSchool, Kind::RuleChange, Loudness::Medium, text));
+        }
+    }
 }
 
 /// College off-field changes from the agreed list (T11): rolled each summer

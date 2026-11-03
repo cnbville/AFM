@@ -327,7 +327,7 @@ fn hub(w: &World) -> Value {
         return json!({ "has_game": false, "why": "You have no team." });
     };
     let me = team_ref(level, t);
-    let settings = settings_json(&w.gameday.settings);
+    let settings = settings_json(w, &w.gameday.settings);
     let rules = rules_json(w);
     let mut calling = calling_record(w);
     let Some(n) = next_game(w) else {
@@ -533,8 +533,27 @@ fn hint_json(h: &film::Hint, n: &film::Names, added: bool, src: &Value) -> Value
     })
 }
 
-fn settings_json(s: &Settings) -> Value {
+/// Whether your sideline talks to the field by helmet radio (minor bug
+/// B22): the NFL's, and college's from 2024; high schools signal it in
+/// (the NFHS bars in-helmet audio). Of the other leagues, the AAF, the
+/// XFL of 2020 and 2023, the USFL and the UFL had them; for the rest the
+/// screen stays neutral (None).
+fn helmet_radio(w: &World) -> Option<bool> {
+    use afm_engine::world::pro::other;
+    match w.seat_team() {
+        Some((CalLevel::Nfl, _)) => Some(true),
+        Some((CalLevel::College, _)) => Some(w.year >= 2024),
+        Some((CalLevel::Other, f)) => {
+            matches!(other::league_of(f), other::AAF | other::XFL20 | other::XFL23 | other::USFL22 | other::UFL24)
+                .then_some(true)
+        }
+        _ => Some(false),
+    }
+}
+
+fn settings_json(w: &World, s: &Settings) -> Value {
     json!({
+        "radio": helmet_radio(w),
         "stop": match s.stop { StopMode::Situations => "situations", StopMode::EverySnap => "every", StopMode::Off => "off" },
         "situations": {
             "third_down": s.situations.third_down,
@@ -728,7 +747,7 @@ fn set_settings(w: &mut World, a: &Value) -> Reply {
     if let Some(l) = w.live.as_mut() {
         l.game.ctl.settings = now;
     }
-    Ok(json!({ "settings": settings_json(&now) }))
+    Ok(json!({ "settings": settings_json(w, &now) }))
 }
 
 /// Game day changes the rules for this one game only (update 2, G4): the
@@ -1190,7 +1209,7 @@ fn live_state(w: &mut World) -> Reply {
         "log": log,
         "totals": totals,
         "wp": page::wp_series(&r.stats, &m),
-        "settings": settings_json(&settings),
+        "settings": settings_json(w, &settings),
         "take_next": take_next,
         "weather": weather_json(&cond, level_of(level), mine == 0 || neutral),
         "their_players": roster,

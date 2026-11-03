@@ -56,6 +56,10 @@ pub struct NflBook {
     /// Coaches inducted (minor bug 152): (year, coach index, name, why).
     #[serde(default)]
     pub hall_coaches: Vec<(i32, usize, String, String)>,
+    /// The coaches' awards (minor bug B31): (season, award, coach index,
+    /// name, team).
+    #[serde(default)]
+    pub coach_awards: Vec<(i32, String, usize, String, usize)>,
     /// Career totals by player id, for the career records.
     pub careers: HashMap<u32, StatLine>,
 }
@@ -345,6 +349,13 @@ pub(crate) fn season_honors(w: &mut World, d: Date) {
     let opoy = pick(&|c| offense(c.pos), &|c, r| r * if c.pos == Position::QB { 0.9 } else { 1.0 });
     let dpoy =
         pick(&|c| defense(c.pos), &|c, r| r * if matches!(c.pos, Position::EDGE | Position::DT) { 1.1 } else { 1.0 });
+    // Protector of the Year (from the 2025 season, minor bug B31): the
+    // best offensive lineman, a little for winning.
+    let protector = if year >= 2025 {
+        pick(&|c| matches!(c.pos, Position::OT | Position::IOL), &|c, r| r * (0.95 + 0.1 * win_share(c.team)))
+    } else {
+        None
+    };
     let oroy = pick(&|c| c.rookie && offense(c.pos), &|_, r| r);
     let droy = pick(&|c| c.rookie && defense(c.pos), &|_, r| r);
     // Comeback: a good season after one lost to injury or a slump.
@@ -363,6 +374,7 @@ pub(crate) fn season_honors(w: &mut World, d: Date) {
         (oroy, "Offensive Rookie of the Year"),
         (droy, "Defensive Rookie of the Year"),
         (comeback, "Comeback Player of the Year"),
+        (protector, "Protector of the Year"),
     ] {
         let Some(k) = k else { continue };
         let c = &cands[k];
@@ -403,7 +415,73 @@ pub(crate) fn season_honors(w: &mut World, d: Date) {
             Event::new(d, Level::Nfl, Kind::News, loud, text).team(t).person(id, &name).club_link(t, w.nfl[t].name),
         );
     }
+    coach_awards(w, d);
     season_records(w, d);
+}
+
+/// The AP's Coach of the Year (since 1957) and Assistant Coach of the Year
+/// (since 2014), minor bug B31. The head coach whose club beat its
+/// expected wins by the most, a little for winning; the coordinator whose
+/// unit stood furthest from the league's points a game, with his club's
+/// own beat of its expectations (proposed, not confirmed weights).
+fn coach_awards(w: &mut World, d: Date) {
+    let year = w.year;
+    let Some(s) = w.nfl_season.as_ref() else { return };
+    let n = s.wins.len().min(w.nfl.len());
+    if n == 0 {
+        return;
+    }
+    let games = |t: usize| (s.wins[t] + s.losses[t] + s.ties[t]).max(1) as f64;
+    let beat =
+        |t: usize| (s.wins[t] as f64 + 0.5 * s.ties[t] as f64 - s.expect.get(t).copied().unwrap_or(0.0)) / games(t);
+    let share = |t: usize| (s.wins[t] as f64 + 0.5 * s.ties[t] as f64) / games(t);
+    // Points for and against a game, from the scores on the slots.
+    let (mut pf, mut pa) = (vec![0.0; n], vec![0.0; n]);
+    for (k, week) in s.weeks.iter().enumerate() {
+        for (g, &(h, a)) in week.iter().enumerate() {
+            let Some([x, y]) = s.slots.get(k).and_then(|v| v.get(g)).and_then(|x| x.score) else { continue };
+            if h < n && a < n {
+                pf[h] += x as f64;
+                pa[h] += y as f64;
+                pf[a] += y as f64;
+                pa[a] += x as f64;
+            }
+        }
+    }
+    let active: Vec<usize> = (0..n).filter(|&t| s.active.get(t).copied().unwrap_or(true)).collect();
+    let league = active.iter().map(|&t| pf[t] / games(t)).sum::<f64>() / active.len().max(1) as f64;
+    let mut picks: Vec<(&str, usize, usize)> = Vec::new();
+    if let Some(t) = active
+        .iter()
+        .copied()
+        .filter(|&t| w.nfl[t].head_coach.is_some())
+        .max_by(|&a, &b| (beat(a) + 0.3 * share(a)).total_cmp(&(beat(b) + 0.3 * share(b))))
+    {
+        picks.push(("Coach of the Year", w.nfl[t].head_coach.unwrap(), t));
+    }
+    if year >= 2014 {
+        let mut best: Option<(f64, usize, usize)> = None;
+        for &t in &active {
+            let units = [(w.nfl[t].oc, pf[t] / games(t) - league), (w.nfl[t].dc, league - pa[t] / games(t))];
+            for (c, edge) in units {
+                let Some(c) = c else { continue };
+                let v = edge / 10.0 + beat(t);
+                if best.is_none_or(|b| v > b.0) {
+                    best = Some((v, c, t));
+                }
+            }
+        }
+        if let Some((_, c, t)) = best {
+            picks.push(("Assistant Coach of the Year", c, t));
+        }
+    }
+    for (award, c, t) in picks {
+        let name = w.coaches[c].name.clone();
+        w.nfl_book.coach_awards.push((year, award.to_string(), c, name.clone(), t));
+        let text = format!("{name} of the {} is the AP's {award}.", w.nfl[t].name);
+        w.calendar
+            .post(Event::new(d, Level::Nfl, Kind::News, Loudness::Medium, text).team(t).club_link(t, w.nfl[t].name));
+    }
 }
 
 /// The record book after the regular season: season marks, then career
@@ -519,25 +597,34 @@ pub(crate) fn hall_case(w: &mut World, i: usize) {
     });
 }
 
-/// The Hall of Fame class (the Saturday before the Super Bowl): players
-/// retired five full seasons or more, the best cases first, at most five a
-/// year, and only a strong case gets in (eligible for 20 years). Then the
+/// The Hall of Fame class, named the Saturday before the Super Bowl and
+/// from 2022 at NFL Honors, the Thursday (minor bug B37): players retired
+/// five full seasons or more, the best cases first, at most five a year,
+/// and only a strong case gets in (eligible for 20 years). Then the
 /// seniors and a coach (minor bug 152: classes of 4.1 against real 6.3
-/// players a year since 2010 and a coach every three years).
+/// players a year since 2010 and a coach every three years). From the
+/// class of 2027 there is no separate seniors category: one pool of 28
+/// selectors (25 voting), classes of three to seven.
 pub(crate) fn hall_vote(w: &mut World, d: Date) {
     let year = w.year;
+    let class_year = year + 1;
+    let one_pool = class_year >= 2027;
     let mut open: Vec<usize> = (0..w.nfl_book.candidates.len())
         .filter(|&k| {
             let c = &w.nfl_book.candidates[k];
-            year - c.retired >= 6 && year - c.retired <= 25
+            year - c.retired >= 6 && (one_pool || year - c.retired <= 25)
         })
         .collect();
     open.sort_by(|&a, &b| w.nfl_book.candidates[b].score.total_cmp(&w.nfl_book.candidates[a].score));
+    // One coach finalist a class, by the Hall's own wait (`legacy::hall`).
+    let coach = crate::world::legacy::hall::pro_hall(w);
+    let most = if one_pool { 7 - usize::from(coach.is_some()) } else { 5 };
     let mut class = Vec::new();
-    for k in open.into_iter().take(5) {
+    for k in open.into_iter().take(most) {
         let c = &w.nfl_book.candidates[k];
-        // The bar: a first-ballot case is clear; a weaker one waits.
-        let waited = (year - c.retired - 6) as f64;
+        // The bar: a first-ballot case is clear; a weaker one waits (a
+        // senior's long wait counts the same in one pool).
+        let waited = ((year - c.retired - 6) as f64).min(19.0);
         if c.score + 0.6 * waited >= 20.0 {
             class.push(k);
         }
@@ -545,8 +632,10 @@ pub(crate) fn hall_vote(w: &mut World, d: Date) {
     // Seniors: a strong case the modern window let lapse, retired more than
     // 25 seasons. The seniors committee sends two a year, one from 2015 and
     // three from 2023 (the real rules, from memory); the bar of 16 is
-    // proposed, not confirmed.
-    let seats = if year >= 2023 {
+    // proposed, not confirmed. None from 2027.
+    let seats = if one_pool {
+        0
+    } else if year >= 2023 {
         3
     } else if year >= 2015 {
         1
@@ -559,7 +648,6 @@ pub(crate) fn hall_vote(w: &mut World, d: Date) {
     seniors.sort_by(|&a, &b| w.nfl_book.candidates[b].score.total_cmp(&w.nfl_book.candidates[a].score));
     let seniors: Vec<usize> = seniors.into_iter().take(seats).collect();
     class.extend(&seniors);
-    let coach = hall_coach(w, year);
     let mut names = Vec::new();
     let mut linked = Vec::new();
     class.sort_unstable_by(|a, b| b.cmp(a));
@@ -571,10 +659,8 @@ pub(crate) fn hall_vote(w: &mut World, d: Date) {
         let why = if senior { format!("Senior: {}", c.why) } else { c.why };
         w.nfl_book.hall.push((year, c.id, c.name, c.pos, why));
     }
-    if let Some((k, why)) = coach {
-        let name = w.coaches[k].name.clone();
-        names.push(format!("{name} (coach)"));
-        w.nfl_book.hall_coaches.push((year, k, name, why));
+    if let Some(k) = coach {
+        names.push(format!("{} (coach)", w.coaches[k].name));
     }
     if !names.is_empty() {
         let text = format!("Pro Football Hall of Fame class: {}.", names.join(", "));
@@ -585,30 +671,4 @@ pub(crate) fn hall_vote(w: &mut World, d: Date) {
         w.calendar.post(e);
     }
     let _ = Status::Roster;
-}
-
-/// The coach's seat: a retired NFL head coach five full seasons gone, his
-/// case his NFL wins / 10 and 5 a Super Bowl title, the best one a year at
-/// 20 or more (Parcells 27, Cowher 21, Dungy 19 on the same sum; the bar
-/// is proposed, not confirmed). Contributors (owners and executives) are
-/// not people in the world.
-fn hall_coach(w: &World, year: i32) -> Option<(usize, String)> {
-    use crate::world::coach::{Employer, Role};
-    let mut best: Option<(usize, f64, String)> = None;
-    for (k, c) in w.coaches.iter().enumerate() {
-        if !c.retired || w.nfl_book.hall_coaches.iter().any(|x| x.1 == k) {
-            continue;
-        }
-        let nfl = || c.history.iter().filter(|s| matches!(s.employer, Employer::Nfl(_)) && s.role == Role::HeadCoach);
-        let (wins, losses, titles) = nfl().fold((0, 0, 0), |a, s| (a.0 + s.wins, a.1 + s.losses, a.2 + s.titles));
-        let last = c.history.iter().map(|s| s.to).max().unwrap_or(year);
-        let score = wins as f64 / 10.0 + 5.0 * titles as f64;
-        if wins == 0 || year - last < 6 || score < 20.0 || best.as_ref().is_some_and(|b| b.1 >= score) {
-            continue;
-        }
-        let why =
-            format!("{wins}-{losses} as an NFL head coach, {}", crate::world::news::count(titles, "Super Bowl title"));
-        best = Some((k, score, why));
-    }
-    best.map(|b| (b.0, b.2))
 }

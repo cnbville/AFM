@@ -158,7 +158,7 @@ pub(crate) fn cap_moves(w: &World, i: usize) -> Option<Value> {
     let last = k.last_year() <= year;
     Some(json!({
         "re": money::capped(year)
-            && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0)
+            && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.credited) + 100_000.0)
             && (!last || nfl::void_years_allowed(year)),
         "last": last,
         "voids": nfl::void_years_allowed(year),
@@ -230,7 +230,7 @@ fn office(w: &World) -> Reply {
         });
         out["roster"] = json!({
             "on": roster::count(w, t, Status::Roster), "limit": roster::roster_limit(w),
-            "squad": roster::count(w, t, Status::PracticeSquad), "squad_limit": w.rules.nfl_practice_squad,
+            "squad": roster::count(w, t, Status::PracticeSquad), "squad_limit": afm_engine::world::pro::squad::squad_size(w, t),
             "reserve": roster::count(w, t, Status::Reserve),
         });
         out["expiring"] = json!(nfl::expiring_count(w, t));
@@ -312,7 +312,7 @@ fn cap_sheet(w: &World) -> Reply {
         v["last_year"] = json!(last);
         v["can_restructure"] = json!(
             money::capped(year)
-                && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0)
+                && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.credited) + 100_000.0)
                 && c.status != Status::PracticeSquad
                 && (!last || nfl::void_years_allowed(year))
         );
@@ -468,7 +468,7 @@ fn expiring(w: &World) -> Reply {
             });
         }
         if ending && accrued < 3 {
-            v["erfa"] = json!(money::minimum(year, c.accrued).round());
+            v["erfa"] = json!(money::minimum(year, c.credited).round());
         }
         v["tagged"] = json!(tagged_now.then(|| kind_words(k.kind)));
         v["option"] = json!(option);
@@ -560,7 +560,7 @@ fn talk(w: &World, id: u32) -> Reply {
     let visited = w.front_office.nfl.visits.iter().any(|v| v.0 == id);
     // The season just played counts from the Super Bowl on.
     let accrued = c.accrued;
-    let minimum = money::minimum(year, accrued);
+    let minimum = money::minimum(year, c.credited);
     let mut v = prow(w, i);
     v["contract"] = json!(contract);
     v["agent"] = json!(agent);
@@ -992,7 +992,7 @@ fn cutdown(w: &World) -> Reply {
     rows.sort_by_key(|v| (v["pos_order"].as_u64(), v["rank"].as_u64()));
     Ok(json!({
         "team": views::team_brief(w, TeamRef::Nfl(t)),
-        "rows": rows, "limit": w.rules.nfl_roster, "squad_limit": w.rules.nfl_practice_squad,
+        "rows": rows, "limit": w.rules.nfl_roster, "squad_limit": afm_engine::world::pro::squad::squad_size(w, t),
         "date": views::date_text(w.dates.cutdown.date), "in": w.today.days_to(w.dates.cutdown.date),
         "owner": if w.front_office.owner(Duty::Cutdown) == Owner::You { "you" } else { "staff" },
     }))
@@ -1031,7 +1031,7 @@ fn practice_squad(w: &World) -> Reply {
         "team": views::team_brief(w, TeamRef::Nfl(t)),
         "squad": squad,
         "street": street.iter().map(|&(i, _)| prow(w, i)).collect::<Vec<_>>(),
-        "limit": w.rules.nfl_practice_squad,
+        "limit": afm_engine::world::pro::squad::squad_size(w, t),
         "protect": if year >= 2020 { 4 } else { 0 },
         "open": w.today >= w.dates.cutdown.date && w.today <= w.dates.super_bowl,
         "roster": roster::count(w, t, Status::Roster), "roster_limit": roster::roster_limit(w),

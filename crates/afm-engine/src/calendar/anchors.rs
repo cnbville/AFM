@@ -563,8 +563,7 @@ impl YearDates {
         // isn't drafted (the NCAA's enforcement letter of Nov 21, 2023,
         // quoted by Georgia compliance), so `declare_withdraw` is the
         // deadline plus three days (checked in the final build: right).
-        let portal_open = Date::ymd(s + 1, 1, 2);
-        let portal_close = Date::ymd(s + 1, 1, 16);
+        let (portal_open, portal_close) = january_window(s);
         let declare_deadline = if s + 1 == 2026 { Date::ymd(2026, 1, 14) } else { Date::ymd(s + 1, 1, 15) };
         // February signing is the first Wednesday of February.
         let early_signing = early_signing(s);
@@ -614,9 +613,21 @@ impl YearDates {
             hof_game,
             hof_enshrinement: hof_game.add(2),
             preseason: [kickoff.add(-28), kickoff.add(-21), kickoff.add(-14)],
-            cutdown: Moment::at(kickoff.add(-9), 16, 0),
-            waiver_claims: Moment::at(kickoff.add(-8), 12, 0),
-            practice_squads: kickoff.add(-8),
+            // Cutdown is the Tuesday nine days before the opener at 4 p.m.,
+            // claims at noon the next day; in 2026 it came early, Sunday
+            // August 30 at 6 p.m., claims Monday at 1 p.m. (the league's
+            // dates; minor bug B35).
+            cutdown: if s == 2026 {
+                Moment::at(Date::ymd(2026, 8, 30), 18, 0)
+            } else {
+                Moment::at(kickoff.add(-9), 16, 0)
+            },
+            waiver_claims: if s == 2026 {
+                Moment::at(Date::ymd(2026, 8, 31), 13, 0)
+            } else {
+                Moment::at(kickoff.add(-8), 12, 0)
+            },
+            practice_squads: if s == 2026 { Date::ymd(2026, 8, 31) } else { kickoff.add(-8) },
             nfl_kickoff: kickoff,
             nfl_weeks,
             thanksgiving: tg,
@@ -705,6 +716,21 @@ impl YearDates {
     pub fn cfb_week(&self, d: Date) -> Option<usize> {
         self.cfb_weeks.iter().position(|&w| w == d)
     }
+}
+
+/// The January transfer window after `season` (minor bug B16): January 2
+/// to 16 for the 2025 season (adopted October 2025), then ten days from
+/// the first business day after January 1 (January 4-13, 2027: the FBS
+/// Oversight Committee, August 28, 2026, and the NCAA's window table).
+pub fn january_window(season: i32) -> (Date, Date) {
+    if season < 2026 {
+        return (Date::ymd(season + 1, 1, 2), Date::ymd(season + 1, 1, 16));
+    }
+    let mut open = Date::ymd(season + 1, 1, 2);
+    while matches!(open.weekday(), Weekday::Sat | Weekday::Sun) {
+        open = open.add(1);
+    }
+    (open, open.add(9))
 }
 
 #[cfg(test)]

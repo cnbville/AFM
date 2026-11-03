@@ -62,6 +62,10 @@ pub struct Rules {
     pub kickoff_from: f64,
     pub kickoff_touchback: f64,
     pub nfl_kickoff: bool,
+    /// A fair catch of a kickoff inside the 25 is a touchback (minor bug
+    /// B47): college from 2018, the NFL in 2023 only.
+    #[serde(default)]
+    pub fair_catch_touchback: bool,
     /// Touchback spot on punts and other kicks.
     pub touchback: f64,
     /// Line of scrimmage for an extra point kick and a two-point try (yards from goal).
@@ -106,6 +110,7 @@ impl Rules {
                 kickoff_from: 35.0,
                 kickoff_touchback: 35.0,
                 nfl_kickoff: true,
+                fair_catch_touchback: false,
                 touchback: 20.0,
                 xp_from: 15.0,
                 two_point_from: 2.0,
@@ -126,6 +131,7 @@ impl Rules {
                 kickoff_from: 40.0,
                 kickoff_touchback: 20.0,
                 nfl_kickoff: false,
+                fair_catch_touchback: false,
                 touchback: 20.0,
                 xp_from: 3.0,
                 two_point_from: 3.0,
@@ -147,6 +153,7 @@ impl Rules {
                 kickoff_from: 35.0,
                 kickoff_touchback: 25.0,
                 nfl_kickoff: false,
+                fair_catch_touchback: true,
                 touchback: 20.0,
                 xp_from: 3.0,
                 two_point_from: 3.0,
@@ -185,6 +192,7 @@ impl Rules {
                     _ => 35.0,
                 };
                 r.nfl_kickoff = year >= 2024;
+                r.fair_catch_touchback = year == 2023;
                 // The extra point from the 2 to 2014, the 15 from 2015.
                 r.xp_from = if year <= 2014 { 2.0 } else { 15.0 };
                 r.overtime = match (playoff, year) {
@@ -196,10 +204,16 @@ impl Rules {
             }
             Level::HS => {}
             _ => {
-                // Kickoffs from the 30 to 2006, then the 35; the touchback
-                // at the 20 to 2011, then the 25.
-                r.kickoff_from = if year <= 2006 { 30.0 } else { 35.0 };
+                // Kickoffs from the 35, the 30 in 2007-2011, the 35 again
+                // from 2012 with the touchback at the 25 (the 20 before);
+                // a fair catch inside the 25 a touchback from 2018 (minor
+                // bugs B46, B47).
+                r.kickoff_from = match year {
+                    2007..=2011 => 30.0,
+                    _ => 35.0,
+                };
                 r.kickoff_touchback = if year <= 2011 { 20.0 } else { 25.0 };
+                r.fair_catch_touchback = year >= 2018;
                 // The two-minute timeout from 2024; the clock stopped on
                 // every first down to 2022, only in each half's last two
                 // minutes from 2023 (NCAA rule changes, April 2024 and 2023).

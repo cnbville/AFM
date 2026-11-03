@@ -218,8 +218,11 @@ pub struct KeysCheck {
     pub keys: Vec<(String, bool, String)>,
 }
 
-/// Instructions you can give for one opponent (G19).
-pub const ORDERS: [(Instruction, &str); 7] = [
+/// Instructions you can give for one opponent (G19): all ten agreed ones
+/// (minor bug B54; the kneel depth is the one your staff's careful
+/// returners get, 4 yards). New ones go at the end: a saved week keeps
+/// its orders by place.
+pub const ORDERS: [(Instruction, &str); 10] = [
     (Instruction::Slide, "QB"),
     (Instruction::ProtectBall, "QB"),
     (Instruction::TakeShots, "QB"),
@@ -227,6 +230,9 @@ pub const ORDERS: [(Instruction, &str); 7] = [
     (Instruction::KeepContain, "pass rushers"),
     (Instruction::StayHome, "coverage"),
     (Instruction::WrapUp, "tacklers"),
+    (Instruction::KneelDeeperThan(4.0), "kick returners"),
+    (Instruction::FairCatchInsideTen, "punt returners"),
+    (Instruction::NoSnapGuessing, "pass rushers"),
 ];
 
 /// Your next game: its date, the opponent, home or away.

@@ -41,7 +41,6 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
     }
     let plan = &w.front_office.roster.plan;
     let limit = w.rules.nfl_roster as usize;
-    let ps = w.rules.nfl_practice_squad as usize;
     let of = |i: usize| plan.iter().find(|x| x.0 == w.people[i].player.id).map(|x| x.1);
     // The staff's own cut, for the places you left open.
     let (staff53, staff_ps, _) = pro::cut_split(w, t, keep);
@@ -57,25 +56,29 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
     let (places, most) = squad::veteran_places(w.year);
     let mut vets = 0;
     let mut squad_list: Vec<usize> = Vec::new();
-    let eligible = |i: usize, vets: usize| {
+    // The one IPP player in his own place passes without the tests and
+    // takes no veteran place, as in the staff's cut (`cut_split`).
+    let own = |l: &[usize], i: usize| squad::ipp_place(w, i) && !l.iter().any(|&x| squad::ipp_place(w, x));
+    let young = |i: usize| squad::squad_eligible(w.people[i].pro.as_ref().unwrap(), w.people[i].player.age);
+    let eligible = |l: &[usize], i: usize, vets: usize| {
         let c = w.people[i].pro.as_ref().unwrap();
-        squad::squad_eligible(c, w.people[i].player.age) || (vets < places && c.accrued <= most)
+        own(l, i) || young(i) || (vets < places && c.accrued <= most)
     };
     for &(i, _) in keep {
-        if chosen.contains(&i) || of(i) != Some(Cut::Squad) || squad_list.len() >= ps {
+        if chosen.contains(&i) || of(i) != Some(Cut::Squad) || !squad::cut_room(w, &squad_list, i) {
             continue;
         }
-        if eligible(i, vets) {
-            vets += usize::from(!squad::squad_eligible(w.people[i].pro.as_ref().unwrap(), w.people[i].player.age));
+        if eligible(&squad_list, i, vets) {
+            vets += usize::from(!own(&squad_list, i) && !young(i));
             squad_list.push(i);
         }
     }
     for &i in &staff_ps {
-        if squad_list.len() >= ps {
-            break;
+        if !squad::cut_room(w, &squad_list, i) {
+            continue;
         }
-        if !chosen.contains(&i) && of(i).is_none() && !squad_list.contains(&i) && eligible(i, vets) {
-            vets += usize::from(!squad::squad_eligible(w.people[i].pro.as_ref().unwrap(), w.people[i].player.age));
+        if !chosen.contains(&i) && of(i).is_none() && !squad_list.contains(&i) && eligible(&squad_list, i, vets) {
+            vets += usize::from(!own(&squad_list, i) && !young(i));
             squad_list.push(i);
         }
     }
@@ -144,7 +147,7 @@ pub fn sign_to_squad(w: &mut World, id: u32) -> Result<String, String> {
     let i = super::index_of(w, id).ok_or("No such player.")?;
     let year = w.year;
     let d = w.today;
-    let size = w.rules.nfl_practice_squad as usize;
+    let size = squad::squad_size(w, t);
     if size == 0 {
         return Err("There are no practice squads in this era.".into());
     }
@@ -199,8 +202,7 @@ pub fn sign_up(w: &mut World, id: u32) -> Result<String, String> {
     if pro::count(w, t, Status::Roster) >= limit {
         return Err(format!("Your roster is at {limit}: release someone first."));
     }
-    let accrued = c.accrued;
-    let apy = money::minimum(year, accrued);
+    let apy = money::minimum(year, c.credited);
     if money::cap_books(year) && pro::cap_room(w, t, year) < apy {
         return Err("No cap room for the minimum.".into());
     }

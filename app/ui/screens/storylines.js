@@ -322,7 +322,7 @@ screens.jobpick = async (a) => {
   const x = await api("storylines_jobs");
   title("Pick your next job");
   if (x.none) return `<div class="pad">${slEmpty("No career yet.")}</div>`;
-  if (!x.jobs.length) return `<div class="pad sl"><header class="sl-head"><div class="sl-head-copy"><span class="st-label">${esc(x.ctx)}</span><h1 class="sl-h1">Pick your next job</h1></div></header>${slEmpty("No offer and no head job you'd take is open right now. Openings come with the carousel: firings from late October, Black Monday in January, high school boards after the season.")}${gotoFor("jobpick")}</div>`;
+  if (!x.jobs.length) return `<div class="pad sl"><header class="sl-head"><div class="sl-head-copy"><span class="st-label">${esc(x.ctx)}</span><h1 class="sl-h1">Pick your next job</h1></div></header>${slEmpty("No offer and no head job you'd take is open right now. Openings come with the carousel: college firings from mid-September, most after the regular season, Black Monday in January, high school boards after the season.")}${gotoFor("jobpick")}</div>`;
   const P = keep("sljob", { k: 0 });
   if (a.index != null) P.k = Math.max(0, x.jobs.findIndex((j) => j.k === a.index));
   const ji = Math.min(P.k, x.jobs.length - 1);

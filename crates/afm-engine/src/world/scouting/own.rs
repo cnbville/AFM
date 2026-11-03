@@ -690,12 +690,12 @@ pub fn trip_day(w: &World, id: u32, kind: TripKind) -> Result<Date, String> {
             }
             Ok(today.add(1))
         }
-        (Staff::Program(_), TripKind::Game | TripKind::Practice) => {
+        (Staff::Program(pj), TripKind::Game | TripKind::Practice) => {
             if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
                 return Err("Your evaluation days are for high school recruits.".into());
             }
             let season = w.dates.season;
-            let (lf, ls) = super::dept::eval_limits(season);
+            let (lf, ls) = super::dept::eval_limits(season, super::dept::service_academy(&w.programs[pj]));
             let (_, uf, us) = w.scouting.dept.eval_days;
             let wanted = if kind == TripKind::Game { Weekday::Fri } else { Weekday::Thu };
             for k in 1..=21 {
@@ -705,8 +705,7 @@ pub fn trip_day(w: &World, id: u32, kind: TripKind) -> Result<Date, String> {
                 }
                 let period = crate::calendar::recruiting_period(&w.dates, d);
                 let fall = period == Period::Evaluation && matches!(d.parts().1, 9..=11);
-                let spring = (period == Period::Contact && d.parts().1 == 4)
-                    || (d.parts().1 == 5 && period == Period::Quiet && d.parts().2 <= 23);
+                let spring = matches!(d.parts().1, 4 | 5) && matches!(period, Period::Contact | Period::Evaluation);
                 if fall && uf < lf {
                     return Ok(d);
                 }

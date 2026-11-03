@@ -42,25 +42,50 @@ pub fn ufa_seasons(year: i32) -> u32 {
     if year == 2010 { 6 } else { 4 }
 }
 
-/// The league minimum by accrued seasons, as the 2025 scale's shares of the
-/// cap (real 2025: $840K with none, $960K, $1.03M, $1.1M, $1.17M for 4-6,
-/// $1.255M for 7 or more), applied to every year.
-pub fn minimum(year: i32, accrued: u32) -> f64 {
-    let share = match accrued {
-        0 => 0.00301,
-        1 => 0.00344,
-        2 => 0.00369,
-        3 => 0.00394,
-        4..=6 => 0.00419,
-        _ => 0.0045,
+/// The league minimum by credited seasons (three games on full pay status
+/// each; none, 1, 2, 3, 4-6, 7 or more), from the CBAs' own scales (minor
+/// bug B24; credited, not accrued, from the batch's second review): the 2011 CBA's $375K, $450K,
+/// $525K, $600K, $685K, $810K (7-9) and $910K (10 or more) in 2011, $15K a
+/// year more to 2019; the
+/// 2020 CBA's $610K to $1.05M in 2020, then 2025's $840K, $960K, $1.03M,
+/// $1.1M, $1.17M and $1.255M less or more $45K a year from 2021 to 2030
+/// ($885K with none in 2026). Before 2011 and after 2030 the nearest
+/// scale moves with the cap.
+pub fn minimum(year: i32, credited: u32) -> f64 {
+    const Y2011: [f64; 7] = [375e3, 450e3, 525e3, 600e3, 685e3, 810e3, 910e3];
+    const Y2020: [f64; 6] = [610e3, 675e3, 750e3, 825e3, 910e3, 1_050e3];
+    const Y2025: [f64; 6] = [840e3, 960e3, 1_030e3, 1_100e3, 1_170e3, 1_255e3];
+    let k = match credited {
+        0..=3 => credited as usize,
+        4..=6 => 4,
+        _ => 5,
     };
-    (price_cap(year) * share / 5_000.0).round() * 5_000.0
+    // The 2011 scale's own tier for ten seasons or more (review of B24).
+    let k11 = if credited >= 10 { 6 } else { k };
+    let scaled = |base: f64, from: i32| (base * price_cap(year) / price_cap(from) / 5_000.0).round() * 5_000.0;
+    match year {
+        ..=2010 => scaled(Y2011[k11], 2011),
+        2011..=2019 => Y2011[k11] + 15e3 * (year - 2011) as f64,
+        2020 => Y2020[k],
+        2021..=2030 => Y2025[k] + 45e3 * (year - 2025) as f64,
+        _ => scaled(Y2025[k] + 45e3 * 5.0, 2030),
+    }
 }
 
-/// A practice squad salary a week, about a third of the rookie minimum's
-/// weekly pay (real 2025: $14,000 a week against $49,400).
+/// A practice squad player's weekly minimum with two or fewer accrued
+/// seasons (minor bug B24): the 2011 CBA's $5,700 to $8,000 (2019), the
+/// 2020 CBA's $8,400 (2020) to $16,750 (2030), $13,750 in 2026. Before
+/// 2011 and after 2030 it moves with the cap.
 pub fn practice_squad_week(year: i32) -> f64 {
-    minimum(year, 0) / 17.0 * 0.28
+    const WEEK: [f64; 20] = [
+        5_700.0, 5_700.0, 6_000.0, 6_300.0, 6_600.0, 6_900.0, 7_200.0, 7_600.0, 8_000.0, 8_400.0, 9_200.0, 11_500.0,
+        12_000.0, 12_500.0, 13_000.0, 13_750.0, 14_500.0, 15_250.0, 16_000.0, 16_750.0,
+    ];
+    match year {
+        ..=2010 => (WEEK[0] * price_cap(year) / price_cap(2011) / 50.0).round() * 50.0,
+        2011..=2030 => WEEK[(year - 2011) as usize],
+        _ => (WEEK[19] * price_cap(year) / price_cap(2030) / 50.0).round() * 50.0,
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

@@ -312,8 +312,8 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let mut road: Vec<(i32, u32, u8)> = Vec::new();
     let tier_now = tier_of(level_now);
     let college_left = |p: &afm_engine::world::Person| -> i32 {
-        let limit = if w.changes.rules(w.year).five_in_five { 5 } else { 4 };
-        (limit - p.college_seasons as i32).min(p.class_of + 5 - w.year).max(0)
+        use afm_engine::world::eligibility;
+        eligibility::seasons_left(p, eligibility::division_of(p, &w.programs), w.year) as i32
     };
     for n in 1..=8 {
         let season = w.year + n;

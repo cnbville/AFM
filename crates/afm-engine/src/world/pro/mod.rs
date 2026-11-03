@@ -106,8 +106,9 @@ pub struct ProCareer {
     pub team: Option<usize>,
     pub status: Status,
     pub contract: Option<money::Contract>,
-    /// Accrued seasons (six games on full pay status) and credited
-    /// seasons (three), for free agency and the minimum.
+    /// Accrued seasons (six games on full pay status), for free agency,
+    /// and credited seasons (three), for the minimum, waivers and the
+    /// pension.
     pub accrued: u32,
     pub credited: u32,
     /// Draft year, round, pick and team; None for an undrafted player.
@@ -1025,8 +1026,8 @@ fn fill_holes(w: &mut World, d: Date, full: bool) {
                     break;
                 }
                 let i = street_or_new(w, pos);
-                let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-                sign(w, i, t, d, money::minimum(year, accrued), 1, money::Kind::Minimum);
+                let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+                sign(w, i, t, d, money::minimum(year, credited), 1, money::Kind::Minimum);
             }
         }
     }
@@ -1122,8 +1123,8 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
             };
             let pos = Position::ALL.into_iter().max_by_key(|&p| (thin(p), std::cmp::Reverse(p.index()))).unwrap();
             let i = street_or_new(w, pos);
-            let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-            let price = money::minimum(year, accrued);
+            let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+            let price = money::minimum(year, credited);
             if money::cap_books(year) && space(w, t, year) < price {
                 market::clear_room(w, t, d, false, price, false);
                 if space(w, t, year) < price && healthy >= dress {
@@ -1297,8 +1298,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d.weekday() == crate::calendar::Weekday::Tue {
         super::clock::timed("pro trouble", || super::people::pro_trouble_week(w, d));
     }
-    // The Hall of Fame class is named the Saturday before the Super Bowl.
-    if d == y.super_bowl.add(-1) {
+    // The Hall of Fame class is named the Saturday before the Super Bowl,
+    // from 2022 at NFL Honors on the Thursday (minor bug B37).
+    let hall_day = if y.season + 1 >= 2022 { y.nfl_honors } else { y.super_bowl.add(-1) };
+    if d == hall_day {
         honors::hall_vote(w, d);
     }
     if d == y.super_bowl {
@@ -1486,10 +1489,10 @@ fn set_carryover(w: &mut World) {
 pub(crate) fn ask(w: &World, i: usize, year: i32, d: Date) -> (f64, u32) {
     let p = &w.people[i];
     let c = p.pro.as_ref();
-    let accrued = c.map_or(0, |c| c.accrued);
+    let credited = c.map_or(0, |c| c.credited);
     let g = p.player.overall();
     let weeks = (w.dates.league_year.date.days_to(d).max(0) / 7) as u32 + c.map_or(0, |c| c.weeks_unsigned);
-    let min = money::minimum(year, accrued);
+    let min = money::minimum(year, credited);
     let rel = market::market_grade(w, p.player.position, g);
     let price = money::price_cap(year)
         * money::market_share(p.player.position, rel)
@@ -1974,9 +1977,16 @@ pub(crate) fn cut_split(w: &World, t: usize, keep: &[(usize, f64)]) -> (Vec<usiz
     let mut squad: Vec<usize> = Vec::new();
     let mut vets = 0;
     let mut on = [0usize; crate::positions::POSITION_COUNT];
+    // One healthy IPP player not kept on the 53 takes his own place (B25);
+    // any other goes through the tests below, in an ordinary place.
+    if let Some(&(i, _)) = keep.iter().find(|&&(i, _)| {
+        !chosen.contains(&i) && squad::ipp_place(w, i) && w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks == 0)
+    }) {
+        squad.push(i);
+    }
     for strict in [true, false] {
         for &(i, v) in keep {
-            if chosen.contains(&i) || squad.contains(&i) || squad.len() >= ps {
+            if chosen.contains(&i) || squad.contains(&i) || !squad::cut_room(w, &squad, i) {
                 continue;
             }
             let c = w.people[i].pro.as_ref().unwrap();
@@ -2169,7 +2179,7 @@ fn heal_week(w: &mut World) {
             && let Some(t) = team
             && crate::world::front_office::seat_head_club(w, t)
             && !crate::world::front_office::reserve::you_decide(w, i)
-            && (pup || w.clubs[t].ir_used < games::ir_returns(year))
+            && (pup || w.clubs[t].ir_used < games::ir_returns_on(w))
         {
             let d = w.today;
             back_from_reserve(w, i, t, pup, d);
@@ -2186,7 +2196,6 @@ fn heal_week(w: &mut World) {
 /// reserve/PUP list he is back on the roster without using one. A save from
 /// before keeps its weeks as days.
 pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
-    let year = w.year;
     let in_season = d >= y.cutdown.date && d <= y.super_bowl;
     if d.weekday() == crate::calendar::Weekday::Tue || w.hurt_pros.1 != Some(d.add(-1)) {
         let all =
@@ -2223,7 +2232,7 @@ pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
         if out {
             continue;
         }
-        let returns = pup || (in_season && w.clubs[t].ir_used < games::ir_returns(year));
+        let returns = pup || (in_season && w.clubs[t].ir_used < games::ir_returns_on(w));
         // Your club's healed player waits for your word (minor bug 73), off
         // the PUP list too; nothing moves him without you.
         if crate::world::front_office::reserve::you_decide(w, i) {
@@ -2417,10 +2426,11 @@ fn season_end(w: &mut World, d: Date) {
         // agents a year against about 550). A file from before the weeks were
         // counted falls back on games; a man who dressed only in the playoffs
         // signed too late for one.
-        let accrues = s.full_pay_weeks >= 6
-            || held
-                && (s.games >= 6
-                    || s.games == 0 && s.full_pay_weeks == 0 && s.playoffs.is_none() && !squad && s.ps_weeks == 0);
+        let old_file = s.games == 0 && s.full_pay_weeks == 0 && s.playoffs.is_none() && !squad && s.ps_weeks == 0;
+        let accrues = s.full_pay_weeks >= 6 || held && (s.games >= 6 || old_file);
+        // A credited season (the pension's and the minimum's) needs three
+        // games on full pay status (review of minor bug B36).
+        let credits = s.full_pay_weeks >= 3 || held && (s.games >= 3 || old_file);
         // His season's row keeps the role he won, not only the one he had at
         // camp: half the games started make him a starter (minor bug 115: an
         // All-Pro who started the year behind someone read as a backup).
@@ -2428,6 +2438,8 @@ fn season_end(w: &mut World, d: Date) {
         c.earnings += pay;
         if accrues {
             c.accrued += 1;
+        }
+        if credits {
             c.credited += 1;
         }
         if started

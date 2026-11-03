@@ -31,6 +31,12 @@ function mn$(v, { sign = false } = {}) {
   if (a >= 1e4) return `${s}$${Math.round(a / 1e3)}K`;
   return `${s}$${Math.round(a).toLocaleString()}`;
 }
+// The CFL's ratio by year (the collective agreements; minor bug B45).
+function cflRatio(year) {
+  const y = Number(year) || 2026;
+  if (y >= 2023) return "The ratio: at least 21 Nationals on the roster and eight starting, one of whom may be a nationalized American (three straight seasons with his club or five in the league). Quarterbacks are their own group and don't count.";
+  return `The ratio: at least ${y >= 2014 ? 21 : 20} Nationals on the roster, seven of them starting. Quarterbacks don't count.`;
+}
 const mnN = (v) => (v == null ? "" : Number(v).toLocaleString());
 const mnPct = (v) => (v == null ? "" : `${Math.round(v * 100)}%`);
 const mnOrd = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
@@ -360,7 +366,7 @@ screens.leagues = async (a) => {
   } else if (tab === "Rules") {
     const f = x.format;
     const fmt = f ? `<div class="kv">${[["Season", `${f.games} games from ${esc(f.start)}`], ["Playoffs", esc(f.playoffs)], ["Title game", esc(f.title)], ["Roster", `${f.roster} players`]].map(([k, v]) => `<div class="kvline"><span>${k}</span><b>${v}</b></div>`).join("")}</div>` : "";
-    body = `<div class="grid2"><section class="panel"><h2>How the game differs <small>${x.year || ""} rule book</small></h2><ul class="lg-rules">${x.rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></section><section class="panel"><h2>The season</h2>${fmt}${x.league.k === 0 ? '<p class="sub">The ratio: at least 21 Canadians on a 46-man roster (20 of 42 before 2014), seven of them starting.</p>' : ""}</section></div>`;
+    body = `<div class="grid2"><section class="panel"><h2>How the game differs <small>${x.year || ""} rule book</small></h2><ul class="lg-rules">${x.rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></section><section class="panel"><h2>The season</h2>${fmt}${x.league.k === 0 ? `<p class="sub">${cflRatio(x.year)}</p>` : ""}</section></div>`;
   } else {
     const cols = [
       { k: "pick", t: "Pick" },

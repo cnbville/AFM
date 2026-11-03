@@ -84,6 +84,10 @@ pub(crate) struct NflSeason {
     /// schedule page reads its run, the Super Bowl included.
     #[serde(default)]
     pub playoffs: Vec<PlayedRound>,
+    /// Every regular-season result: (home, away, 1 home won, -1 away won,
+    /// 0 tied), for the tiebreakers (minor bug B30).
+    #[serde(default)]
+    pub results: Vec<(u8, u8, i8)>,
 }
 
 /// A playoff game once played: its round (1 wild card .. 4 the Super
@@ -295,7 +299,11 @@ fn places(s: &NflSeason) -> Vec<usize> {
     let mut place = vec![0; n];
     for d in 0..8 {
         let mut members: Vec<usize> = (0..n).filter(|&t| s.div[t] == d).collect();
-        members.sort_by(|&a, &b| record_key(s, b).total_cmp(&record_key(s, a)).then(a.cmp(&b)));
+        if has_results(s) {
+            tie_order(s, &mut members, false);
+        } else {
+            members.sort_by(|&a, &b| record_key(s, b).total_cmp(&record_key(s, a)).then(a.cmp(&b)));
+        }
         for (k, &t) in members.iter().enumerate() {
             place[t] = k;
         }
@@ -315,6 +323,219 @@ fn strength_places(w: &World, div: &[usize]) -> Vec<usize> {
         }
     }
     place
+}
+
+/// Wins (a tie a half) and games for `t` against the opponents `vs` keeps.
+fn record_vs(s: &NflSeason, t: usize, vs: impl Fn(usize) -> bool) -> (f64, f64) {
+    let (mut won, mut games) = (0.0, 0.0);
+    for &(h, a, o) in &s.results {
+        let (h, a) = (h as usize, a as usize);
+        let (opp, sign) = if h == t {
+            (a, 1)
+        } else if a == t {
+            (h, -1)
+        } else {
+            continue;
+        };
+        if !vs(opp) {
+            continue;
+        }
+        games += 1.0;
+        won += match o * sign {
+            1 => 1.0,
+            0 => 0.5,
+            _ => 0.0,
+        };
+    }
+    (won, games)
+}
+
+fn pct_of((won, games): (f64, f64)) -> f64 {
+    if games > 0.0 { won / games } else { 0.5 }
+}
+
+fn win_pct(s: &NflSeason, t: usize) -> f64 {
+    let g = (s.wins[t] + s.losses[t] + s.ties[t]) as f64;
+    if g > 0.0 { (s.wins[t] as f64 + 0.5 * s.ties[t] as f64) / g } else { 0.0 }
+}
+
+/// The NFL's tiebreaking procedures (minor bug B30, nfl.com): clubs on the
+/// same record are ordered by head-to-head, then (in a division) division
+/// record, common games, conference record, strength of victory and of
+/// schedule; for wild cards only the best club of each division is
+/// compared at a time, head-to-head counts only as a sweep among three or
+/// more, and conference record comes before common games (at least four).
+/// A three-club tie is ordered by the steps at once, not club by club
+/// with restarts (proposed, not confirmed); the hidden strength stands in
+/// for the coin toss.
+pub(crate) fn tie_order(s: &NflSeason, teams: &mut [usize], wild: bool) {
+    teams.sort_by(|&a, &b| win_pct(s, b).total_cmp(&win_pct(s, a)).then(a.cmp(&b)));
+    let mut k = 0;
+    while k < teams.len() {
+        let mut e = k + 1;
+        while e < teams.len() && (win_pct(s, teams[e]) - win_pct(s, teams[k])).abs() < 1e-9 {
+            e += 1;
+        }
+        if e - k > 1 {
+            let group: Vec<usize> = teams[k..e].to_vec();
+            let ordered = if wild { wild_order(s, group) } else { by_keys(s, &group, false) };
+            teams[k..e].copy_from_slice(&ordered);
+        }
+        k = e;
+    }
+}
+
+/// A tied group sorted by its tiebreak steps.
+fn by_keys(s: &NflSeason, group: &[usize], wild: bool) -> Vec<usize> {
+    let mut keys: Vec<(usize, Vec<f64>)> = group.iter().map(|&t| (t, tie_keys(s, t, group, wild))).collect();
+    keys.sort_by(|x, y| {
+        for (p, q) in x.1.iter().zip(&y.1) {
+            let c = q.total_cmp(p);
+            if c != std::cmp::Ordering::Equal {
+                return c;
+            }
+        }
+        x.0.cmp(&y.0)
+    });
+    keys.into_iter().map(|x| x.0).collect()
+}
+
+/// The wild-card order of a tied group, one seed at a time: the division
+/// tiebreak leaves only the best club of each division, the wild-card steps
+/// pick one of those, and the rest start over (review of minor bug B30).
+fn wild_order(s: &NflSeason, mut left: Vec<usize>) -> Vec<usize> {
+    let mut out = Vec::with_capacity(left.len());
+    while !left.is_empty() {
+        let mut tops: Vec<usize> = Vec::new();
+        let mut seen: Vec<usize> = Vec::new();
+        for &t in &left {
+            if seen.contains(&s.div[t]) {
+                continue;
+            }
+            seen.push(s.div[t]);
+            let mut mine: Vec<usize> = left.iter().copied().filter(|&x| s.div[x] == s.div[t]).collect();
+            tie_order_division_only(s, &mut mine);
+            tops.push(mine[0]);
+        }
+        let best = by_keys(s, &tops, true)[0];
+        out.push(best);
+        left.retain(|&x| x != best);
+    }
+    out
+}
+
+/// One club's tiebreak steps within its tied group, higher better.
+fn tie_keys(s: &NflSeason, t: usize, group: &[usize], wild: bool) -> Vec<f64> {
+    let others: Vec<usize> = group.iter().copied().filter(|&x| x != t).collect();
+    let in_others = |x: usize| others.contains(&x);
+    let h2h = record_vs(s, t, in_others);
+    let h2h = if wild && group.len() > 2 {
+        // A sweep counts only if he played each of the others.
+        let each = others.iter().all(|&o| record_vs(s, t, |x| x == o).1 > 0.0);
+        if each && h2h.0 == h2h.1 {
+            1.0
+        } else if each && h2h.0 == 0.0 {
+            0.0
+        } else {
+            0.5
+        }
+    } else {
+        pct_of(h2h)
+    };
+    let opps = |x: usize| -> Vec<usize> {
+        let mut v: Vec<usize> = s
+            .results
+            .iter()
+            .filter_map(|&(h, a, _)| {
+                if h as usize == x {
+                    Some(a as usize)
+                } else if a as usize == x {
+                    Some(h as usize)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    };
+    let common: Vec<usize> = {
+        let mut c = opps(t);
+        for &o in &others {
+            let theirs = opps(o);
+            c.retain(|x| theirs.contains(x));
+        }
+        c
+    };
+    let common = record_vs(s, t, |x| common.contains(&x));
+    let common = if wild && common.1 < 4.0 { 0.5 } else { pct_of(common) };
+    let div = pct_of(record_vs(s, t, |x| s.div[x] == s.div[t]));
+    let conf = pct_of(record_vs(s, t, |x| s.conf[x] == s.conf[t]));
+    // Strength of victory and of schedule: the combined records of the
+    // clubs he beat and of all he played.
+    let combined = |beaten: bool| {
+        let (mut won, mut games) = (0.0, 0.0);
+        for &(h, a, o) in &s.results {
+            let (h, a) = (h as usize, a as usize);
+            let (opp, sign) = if h == t {
+                (a, 1)
+            } else if a == t {
+                (h, -1)
+            } else {
+                continue;
+            };
+            if beaten && o * sign != 1 {
+                continue;
+            }
+            won += s.wins[opp] as f64 + 0.5 * s.ties[opp] as f64;
+            games += (s.wins[opp] + s.losses[opp] + s.ties[opp]) as f64;
+        }
+        if games > 0.0 { won / games } else { 0.0 }
+    };
+    let coin = s.z.get(t).copied().unwrap_or(0.0);
+    if wild {
+        // The group holds one club a division (`wild_order`).
+        vec![h2h, conf, common, combined(true), combined(false), coin]
+    } else {
+        vec![h2h, div, common, conf, combined(true), combined(false), coin]
+    }
+}
+
+/// The division order of clubs on one record (no wild-card step inside).
+fn tie_order_division_only(s: &NflSeason, teams: &mut [usize]) {
+    if teams.len() > 1 {
+        let group = teams.to_vec();
+        teams.sort_by(|&a, &b| {
+            let (x, y) = (tie_keys(s, a, &group, false), tie_keys(s, b, &group, false));
+            for (p, q) in x.iter().zip(&y) {
+                let c = q.total_cmp(p);
+                if c != std::cmp::Ordering::Equal {
+                    return c;
+                }
+            }
+            a.cmp(&b)
+        });
+    }
+}
+
+/// Standings order for clubs of one division: the tiebreakers when the
+/// season's results are kept, else record and division wins.
+pub(crate) fn standings_order(s: &NflSeason, teams: &mut [usize]) {
+    if has_results(s) && teams.iter().all(|&t| t < s.wins.len()) {
+        tie_order(s, teams, false);
+    } else {
+        let key = |x: usize| if x < s.wins.len() { record_key(s, x) } else { 0.0 };
+        teams.sort_by(|&a, &b| key(b).total_cmp(&key(a)).then(a.cmp(&b)));
+    }
+}
+
+/// Whether the season's results are kept (seasons played on this build),
+/// every game of them: older saves, or a season begun on an older build,
+/// fall back to the record and division wins.
+fn has_results(s: &NflSeason) -> bool {
+    let played: u32 = (0..s.wins.len()).map(|t| s.wins[t] + s.losses[t] + s.ties[t]).sum();
+    !s.results.is_empty() && s.results.len() as u32 * 2 == played
 }
 
 pub(crate) fn record_key(s: &NflSeason, t: usize) -> f64 {
@@ -2180,6 +2401,17 @@ fn play_day(w: &mut World, d: Date) {
             None => (key_uniform(seed, key), p, key_uniform(seed ^ 0x7E, key) < TIE),
         };
         let same_div = s.div[h] == s.div[a];
+        s.results.push((
+            h as u8,
+            a as u8,
+            if tie {
+                0
+            } else if u < p {
+                1
+            } else {
+                -1
+            },
+        ));
         if tie {
             s.ties[h] += 1;
             s.ties[a] += 1;
@@ -2408,14 +2640,23 @@ fn black_monday(w: &mut World, d: Date) {
     for c in 0..2 {
         let mut winners: Vec<usize> = (0..4)
             .filter_map(|dv| {
-                (0..n)
-                    .filter(|&t| s.div[t] == c * 4 + dv)
-                    .max_by(|&a, &b| record_key(&s, a).total_cmp(&record_key(&s, b)))
+                let mut m: Vec<usize> = (0..n).filter(|&t| s.div[t] == c * 4 + dv).collect();
+                if has_results(&s) {
+                    tie_order(&s, &mut m, false);
+                    m.first().copied()
+                } else {
+                    m.into_iter().max_by(|&a, &b| record_key(&s, a).total_cmp(&record_key(&s, b)))
+                }
             })
             .collect();
-        winners.sort_by(|&a, &b| record_key(&s, b).total_cmp(&record_key(&s, a)));
         let mut rest: Vec<usize> = (0..n).filter(|&t| s.conf[t] == c && !winners.contains(&t)).collect();
-        rest.sort_by(|&a, &b| record_key(&s, b).total_cmp(&record_key(&s, a)));
+        if has_results(&s) {
+            tie_order(&s, &mut winners, true);
+            tie_order(&s, &mut rest, true);
+        } else {
+            winners.sort_by(|&a, &b| record_key(&s, b).total_cmp(&record_key(&s, a)));
+            rest.sort_by(|&a, &b| record_key(&s, b).total_cmp(&record_key(&s, a)));
+        }
         let field: Vec<usize> = winners.into_iter().chain(rest).take(per_conf).collect();
         for (k, &t) in field.iter().enumerate() {
             seed[t] = Some(k + 1);
@@ -2874,6 +3115,37 @@ pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Minor bug B30: clubs on the same record go by head-to-head first,
+    /// whatever their index, and a three-club wild card tie keeps them all.
+    #[test]
+    fn ties_break_head_to_head() {
+        let mut s = NflSeason {
+            conf: vec![0; 4],
+            div: vec![0, 0, 1, 2],
+            active: vec![true; 4],
+            wins: vec![1; 4],
+            losses: vec![1; 4],
+            ties: vec![0; 4],
+            div_wins: vec![0; 4],
+            z: vec![0.0; 4],
+            ..Default::default()
+        };
+        // 1 beat 0, 0 beat 3, 3 beat 2 and 2 beat 1: everyone is 1-1.
+        s.results = vec![(1, 0, 1), (0, 3, 1), (3, 2, 1), (2, 1, 1)];
+        let mut v = vec![0, 1];
+        tie_order(&s, &mut v, false);
+        assert_eq!(v, vec![1, 0], "head-to-head");
+        let mut v = vec![0, 1];
+        standings_order(&s, &mut v);
+        assert_eq!(v, vec![1, 0], "the standings screen's order");
+        // A wild card tie of three: nobody swept the other two, so
+        // head-to-head is a wash and every club stays in the order.
+        let mut v = vec![3, 2, 1];
+        tie_order(&s, &mut v, true);
+        v.sort_unstable();
+        assert_eq!(v, vec![1, 2, 3]);
+    }
 
     /// The real 2026 schedule (T2.2): 272 games over 18 weeks, 17 for every
     /// team, all inside the season, Detroit and Dallas home on Thanksgiving,

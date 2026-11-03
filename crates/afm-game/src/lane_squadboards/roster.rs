@@ -66,11 +66,8 @@ fn years(w: &World, i: usize) -> Value {
             json!({ "n": 4, "done": grade, "words": class_full(w, p), "left": format!("Class of {}", p.class_of) })
         }
         Stage::College => {
-            let five = w.changes.rules(w.year).five_in_five;
-            let limit = if five { 5 } else { 4 };
-            let used = p.college_seasons as i32;
-            let clock = (p.class_of + 5 - w.year).max(0);
-            let left = (limit - used).min(clock).max(0);
+            use afm_engine::world::eligibility;
+            let left = eligibility::seasons_left(p, eligibility::division_of(p, &w.programs), w.year) as i32;
             let done = (w.year - p.class_of + 1).clamp(1, 5);
             let words = match left {
                 0 => "Last season".to_string(),

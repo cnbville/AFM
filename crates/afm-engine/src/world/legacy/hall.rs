@@ -260,8 +260,6 @@ pub(crate) fn world_day(w: &mut World, d: Date) {
         state_halls(w);
     } else if d == Date::ymd(w.year, 6, 28) {
         national_hall(w);
-    } else if d == w.dates.super_bowl.add(-3) {
-        pro_hall(w);
     }
 }
 
@@ -362,14 +360,18 @@ fn pro_score(wins: u32, losses: u32, titles: u32) -> f64 {
 
 const PRO_BAR: f64 = 9.0;
 
-fn pro_hall(w: &mut World) {
+/// The Pro Football Hall's coach seat, voted with its class
+/// (`pro::honors::hall_vote`): one Hall, one coach finalist a class (minor
+/// bug B32). Returns the coach elected.
+pub(crate) fn pro_hall(w: &mut World) -> Option<usize> {
     let class = w.year + 1;
     // The wait: five seasons, one from the 2025 class on (the Hall's 2024
     // change).
     let wait = if class >= 2025 { 1 } else { 5 };
     let mut best: Option<(f64, usize, String)> = None;
     for (c, coach) in w.coaches.iter().enumerate() {
-        if !coach.retired || inducted(w, c, "PRO") {
+        // The NFL's own book may hold him already (an older save's seat).
+        if !coach.retired || inducted(w, c, "PRO") || w.nfl_book.hall_coaches.iter().any(|x| x.1 == c) {
             continue;
         }
         let (n, wins, losses, titles, last) = nfl_record(w, coach);
@@ -390,6 +392,7 @@ fn pro_hall(w: &mut World) {
         && s >= PRO_BAR
     {
         let name = w.coaches[c].name.clone();
+        w.nfl_book.hall_coaches.push((w.year, c, name.clone(), line.clone()));
         w.legacy.pro_hall.push(Inducted { coach: c as u32, name: name.clone(), hall: "PRO".into(), year: class, line });
         let text = format!("The Pro Football Hall of Fame elects {name} in its class of {class}, as a coach.");
         let e = crate::calendar::Event::new(
@@ -402,7 +405,9 @@ fn pro_hall(w: &mut World) {
         .link(crate::calendar::Link::Coach(c as u32), &name);
         w.calendar.post(e);
         yours_in(w, c, "the Pro Football Hall of Fame");
+        return Some(c);
     }
+    None
 }
 
 /// Your induction: the last chapter.

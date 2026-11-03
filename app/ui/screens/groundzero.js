@@ -68,7 +68,7 @@ function gzCollege(x) {
   const n = (v, t) => `<div class="gz-stat"><b>${v}</b><span>${esc(t)}</span></div>`;
   return `<div class="gz-main"><section class="gz-panel"><div class="gz-ph"><b>The squad</b><span>${x.building ? "the build year: practices, no games" : x.first > S.status.season ? "before the build year" : "playing"}</span></div>
     <div class="gz-stats">${n(x.squad, "on the squad")}${n(x.coming, "signed and on the way")}${n(x.committed, "committed for next year")}</div>
-    <p class="gz-note">Walk-on tryouts and junior college finds come ${esc(x.tryouts)}, before summer school: the best seniors nobody signed, nearest first. Portal players can come in the spring window. The first class signs with nothing on the field.</p></section>
+    <p class="gz-note">Walk-on tryouts and junior college finds come ${esc(x.tryouts)}, before summer school: the best seniors nobody signed, nearest first. ${x.portal ? `Portal players can come in the next transfer window, from ${esc(x.portal)}.` : ""} The first class signs with nothing on the field.</p></section>
     <div class="gz-side"><section class="gz-panel"><div class="gz-ph"><b>Where to work</b></div><div class="gz-kv"><span>Players</span><span><a class="link" data-go="recruiting">Recruiting</a> and <a class="link" data-go="find_prospects">find prospects</a></span><span>Staff</span><span><a class="link" data-go="staff">Hire your staff</a></span></div></section></div></div>`;
 }
 

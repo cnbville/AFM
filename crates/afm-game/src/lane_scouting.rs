@@ -966,7 +966,8 @@ pub fn department(w: &World) -> Value {
         .into_iter()
         .map(|(k, i)| json!({ "key": k, "words": i.words(), "on": d.instructions.contains(&i) }))
         .collect();
-    let (fall, spring) = dept::eval_limits(season);
+    let academy = matches!(staff, readers::Staff::Program(j) if dept::service_academy(&w.programs[j]));
+    let (fall, spring) = dept::eval_limits(season, academy);
     let days: Vec<Value> = d
         .days_log
         .iter()
@@ -1012,7 +1013,11 @@ pub fn department(w: &World) -> Value {
         "people": people,
         "instructions": instructions,
         "assign_targets": assign_targets(w, staff),
-        "eval": { "fall": [d.eval_days.1, fall], "spring": [d.eval_days.2, spring], "season": d.eval_days.0 },
+        "eval": { "fall": [d.eval_days.1, fall], "spring": [d.eval_days.2, spring], "season": d.eval_days.0,
+            "recruiters": match staff {
+                readers::Staff::Program(j) => dept::off_campus_recruiters(&w.programs[j], w.today),
+                _ => None,
+            } },
         "days": days,
         "asks": asks,
         "most_seen": most_seen,
@@ -1836,7 +1841,7 @@ pub fn recruit_scouting(w: &World, args: &Value) -> Reply {
     })
     .collect();
     let d = &w.scouting.dept;
-    let (fall, spring) = dept::eval_limits(season);
+    let (fall, spring) = dept::eval_limits(season, dept::service_academy(&w.programs[prog]));
     Ok(json!({
         "list": what,
         "rows": rows,

@@ -92,7 +92,23 @@ pub(crate) fn actives(w: &World, t: usize) -> Vec<(usize, bool)> {
     }
     out.truncate(limit);
     super::squad::elevate(w, t, &mut out);
+    eight_linemen(w, &mut out);
     out
+}
+
+/// From 2020 a club dresses its full number (48) only when eight of them
+/// are offensive linemen, otherwise one fewer (minor bug B29): the last
+/// backup who isn't a lineman sits. The emergency third quarterback of 2023
+/// on, who dresses outside the count, isn't played here.
+fn eight_linemen(w: &World, out: &mut Vec<(usize, bool)>) {
+    let limit = w.rules.nfl_actives as usize;
+    let line = |i: usize| matches!(w.people[i].player.position, Position::IOL | Position::OT);
+    if w.year < 2020 || out.len() < limit || out.iter().filter(|x| line(x.0)).count() >= 8 {
+        return;
+    }
+    if let Some(k) = out.iter().rposition(|x| !x.1 && !line(x.0)) {
+        out.remove(k);
+    }
 }
 
 /// A pro's snaps over his career so far, both sides of the ball, his
@@ -778,12 +794,17 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
     }
 }
 
-/// The shortest absence a team puts on injured reserve: before 2012 the
-/// list ended a season, so only long injuries went on it; from 2020 a
-/// player can come back after a few games (proposed, not confirmed: 6
-/// weeks, then 4).
+/// The shortest stay on injured reserve (minor bug B28): before 2012 the
+/// list ended a season, so only long injuries went on it (about six weeks,
+/// proposed, not confirmed); 2012-2019 a player designated to return sat
+/// eight games; three in 2020-21, four from 2022.
 pub(crate) fn ir_minimum(year: i32) -> u32 {
-    if year >= 2020 { 4 } else { 6 }
+    match year {
+        ..=2011 => 6,
+        2012..=2019 => 8,
+        2020 | 2021 => 3,
+        _ => 4,
+    }
 }
 
 /// How many players a team may bring back from injured reserve in a
@@ -797,4 +818,11 @@ pub fn ir_returns(year: i32) -> u32 {
         2020 | 2021 => 99,
         _ => 8,
     }
+}
+
+/// The returns a club may use by today: from 2024 a playoff club gets two
+/// more in the postseason, ten in all (minor bug B28).
+pub fn ir_returns_on(w: &World) -> u32 {
+    let n = ir_returns(w.year);
+    if w.year >= 2024 && w.today >= w.dates.wild_card { n + 2 } else { n }
 }

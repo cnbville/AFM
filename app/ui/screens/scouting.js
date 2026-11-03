@@ -341,7 +341,7 @@ screens.scouting = async () => {
   const hero = `<div class="sc-room st-room"><i></i><i></i><i></i><div class="sc-room-in">
     <div><span class="st-label">${esc(me ? me.name : "")} · ${nfl ? "college scouting and pro personnel" : "your staff on the road"} · ${d.season}</span><h1 class="st-wide sc-room-h">Scouting</h1>
       <div class="sc-room-facts"><span><b>${d.people.length}</b> people read players for you</span><span><b>${looks}</b> looks this football year</span><span><b>${d.my_players.length}</b> in My players</span>${d.asks.length ? `<span><b>${d.asks.length}</b> asks waiting</span>` : ""}</div></div>
-    ${evalDays ? `<div class="sc-room-card st-glass">${evalDays}<small class="sc-dim">One coach out for one day is one day. Only the head coach and 10 assistants go off campus.</small></div>` : `<div class="sc-room-card st-glass"><span class="st-label">Your desk</span><b class="st-cond sc-big">${d.public.draft_year || d.season}</b><span>${d.public.consensus_date ? `Consensus board of ${esc(d.public.consensus_date)}` : "The public's boards come out in the fall"}</span></div>`}
+    ${evalDays ? `<div class="sc-room-card st-glass">${evalDays}<small class="sc-dim">One coach out for one day is one day.${d.eval.recruiters ? ` Only ${d.eval.recruiters} coaches, the head coach included, may recruit off campus.` : ""}</small></div>` : `<div class="sc-room-card st-glass"><span class="st-label">Your desk</span><b class="st-cond sc-big">${d.public.draft_year || d.season}</b><span>${d.public.consensus_date ? `Consensus board of ${esc(d.public.consensus_date)}` : "The public's boards come out in the fall"}</span></div>`}
   </div></div>`;
   let body = "";
   if (tab.t === "Staff") {

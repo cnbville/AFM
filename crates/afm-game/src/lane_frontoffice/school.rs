@@ -479,16 +479,22 @@ fn player(w: &World, id: u32) -> Result<Value, String> {
         "ok": !p.cal.academic_sit && out == 0,
         "note": format!("GPA {gpa:.2}. {}.", check_words(hs_calendar(&st.code).grades)),
     })];
-    // A transfer's sit is drawn at his state's season start (the whole
-    // season or none); the draw then lives in his role, which the games read.
+    // A transfer's sit is drawn at his state's season start: a whole-year
+    // rule lives in his role; a part-season rule sits his first games
+    // (minor bug B21). The games read both.
     let sat = p.last_role == Some(afm_engine::player::PlayingTime::Redshirt) && !p.cal.academic_sit;
     if p.sit_out > 0.0 || p.cal.sitting_transfer || sat {
         eligibility.push(json!({
             "what": "Transfer",
-            "words": if p.sit_out > 0.0 {
-                "May have to sit out the varsity season under the state's transfer rule"
+            "words": if p.sit_out >= 1.0 {
+                "May have to sit out the varsity season under the state's transfer rule".to_string()
+            } else if p.sit_out > 0.0 {
+                format!(
+                    "May have to sit the first {}% of the varsity season under the state's transfer rule",
+                    (p.sit_out * 100.0).round()
+                )
             } else {
-                "Sitting out the season"
+                "Sitting out the season".to_string()
             },
             "ok": false,
             "note": "The state's rule for a transfer without a family move.",

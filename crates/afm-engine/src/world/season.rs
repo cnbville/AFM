@@ -302,8 +302,14 @@ pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
     });
 }
 
-/// Depth charts at a set of high schools. A transfer sitting out under his
-/// state's rule plays no varsity games.
+/// Depth charts at a set of high schools. A transfer sitting a whole year
+/// under his state's rule plays no varsity games; one whose state sits
+/// part of a season misses its first games instead (`hs_year`, minor bug
+/// B21). The draw lets some through (waivers and hardship).
+pub(crate) fn transfer_sits(seed: u64, year: u64, p: &super::Person) -> bool {
+    p.sit_out > 0.0 && key_normal(seed ^ year ^ 7, p.player.id as u64).abs() < 1.6
+}
+
 pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)> {
     let year = w.year as u64;
     let seed = w.options.seed as u64;
@@ -324,7 +330,7 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
             let mut chart = depth_chart(&mut entries, None, &|_| false, &|_| false);
             for (i, role) in chart.iter_mut() {
                 let p = &people[*i];
-                if p.sit_out > 0.0 && key_normal(seed ^ year ^ 7, p.player.id as u64).abs() < 1.6 * p.sit_out {
+                if p.sit_out >= 1.0 && transfer_sits(seed, year, p) {
                     *role = PlayingTime::Redshirt;
                 }
             }

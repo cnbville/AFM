@@ -1,6 +1,6 @@
 # The Handbook and help: how it works today
 Checked against main at e581227 (with update 3 lanes 1, 6, 7, 9 and 16) on 2026-11-01.
-
+ The minor bugs hotfix batch 6 (minor bugs 185-240, the tutorial catalogue's B items) checked over main 1a99583 on 2026-11-03.
 The Handbook explains the game's systems in its own pages, with live examples from your save. The Help setting decides how much the game guides you: the guided first week, the first-time notes and the warnings.
 
 ## Quick answers
@@ -14,7 +14,7 @@ The Handbook explains the game's systems in its own pages, with live examples fr
 - What does setup offer? Full on the first career on this computer, Hints only after that (`handbook.js`, the `startArgs` wrapper, `prefs.careers`).
 - When does a guided week start? On the first day at a new team, if Help is Full (`lane_handbook.rs`, `after_days`). Turning Full on in Settings within six days of starting a job starts one from that day (`set_level`).
 - Who sends the week's memos? Your No. 2: the coordinator with the higher reputation; the head coach if you're an assistant; at high school the coordinator who's been there longest; else a club's chief of staff (`lane_handbook.rs`, `number_two`).
-- How many tasks? Six, one a day: depth chart, game plan, training week, then three for your level (`lane_handbook.rs`, `plan`, `TASKS`).
+- How many tasks? Six, one a day: depth chart, game plan, training week (your roster at another league's club), then three for your level (`lane_handbook.rs`, `plan`, `TASKS`).
 - How does a task tick? A look task when you open its screen (`l8_seen`); a do task when its command succeeds (`set_depth` or `dp_depth_set`, `plans_set` or `dp_rules_set`, `practice_week` or `practice_template`), or by "Mark done" (`lane_handbook.rs`, `after_call`, `tick`).
 - When does the Getting started card go? When all six tasks are done, or Help is no longer Full (`lane_handbook.rs`, `started`).
 - Which moments get a first-time note? College: early signing, signing day, the portal window, selection day, the declare deadline. NFL: the combine, the draft, the trade deadline, the playoffs. High school: early signing, the state playoffs (`lane_handbook.rs`, `moments`).
@@ -31,7 +31,7 @@ The Handbook explains the game's systems in its own pages, with live examples fr
 
 ## The guided week
 - The memos are dated on each task's day at 7:05, from your No. 2, with the task, why now and two links: the screen and its Handbook page. A done task's memo isn't sent (`lane_handbook.rs`, `week_mail`).
-- The level's three tasks: high school two-way players, practice limits and Friday night; college the recruiting board, the contact calendar and the portal; the NFL the 53-man cut, the cap and the practice squad; another league the cut, the schedule and the squad (`lane_handbook.rs`, `plan`).
+- The level's three tasks: high school two-way players, practice limits and Friday night; college the recruiting board, the contact calendar and the portal; the NFL the 53-man cut, the cap and the practice squad; another league the schedule, the league and the CFL's ratio or (elsewhere) the staff (`lane_handbook.rs`, `plan`; minor bug 225, B41). The Handbook's "Player page" links open your quarterback your staff rates highest at the named tab (`page`'s `player`; minor bug 237, B53).
 - The asks use your save: starters back, your state's contact and practice rules, the next game, your class count, the recruiting period, the portal window, the cutdown date, your cap room, the practice squad's size (`lane_handbook.rs`, `task_text`).
 
 ## First-time notes
