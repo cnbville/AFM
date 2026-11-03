@@ -212,7 +212,12 @@ pub fn stat_history(w: &World, args: &Value) -> Value {
                     break;
                 }
                 let real = if tier == Tier::Nfl { real(kind, j) } else { Value::Null };
-                lists.push(list_json(b, depth(j), title_case(&b.name()), json!({ "stat": j, "real": real })));
+                lists.push(list_json(
+                    b,
+                    depth(j),
+                    title_case(&b.name()),
+                    json!({ "stat": j, "real": real, "h8": RECORD_STATS[j].key() }),
+                ));
             }
             if tab == "career" && !conference {
                 for (k, s) in afm_engine::world::records::STREAKS.iter().enumerate() {
@@ -239,7 +244,7 @@ pub fn stat_history(w: &World, args: &Value) -> Value {
                         b,
                         10,
                         name,
-                        json!({ "stat": k, "min": rate_min(k, tier, career), "real": real }),
+                        json!({ "stat": k, "min": rate_min(k, tier, career), "real": real, "h8": super::glossary::rate_key(k, tier == Tier::College) }),
                     ));
                 }
             }
@@ -265,6 +270,7 @@ pub fn stat_history(w: &World, args: &Value) -> Value {
         "conferences": conferences(w, &scope),
         "states": w.states.iter().map(|s| s.code.as_str()).collect::<Vec<_>>(),
         "stats": RECORD_STATS.iter().map(|s| title_case(s.name())).collect::<Vec<_>>(),
+        "stat_keys": RECORD_STATS.iter().map(|s| s.key()).collect::<Vec<_>>(),
         "tab": tab,
         "lists": lists,
         "leaders": leaders,
@@ -409,7 +415,7 @@ fn leaders(w: &World, tier: Tier, scope: &Scope, j: usize) -> Value {
                 .collect()
         }
     };
-    json!({ "stat": j, "name": title_case(RECORD_STATS[j].name()), "rows": rows })
+    json!({ "stat": j, "name": title_case(RECORD_STATS[j].name()), "h8": RECORD_STATS[j].key(), "rows": rows })
 }
 
 fn chasing(w: &World, tier: Tier, scope: &Scope) -> Vec<Value> {
@@ -542,6 +548,7 @@ fn team_book_json(w: &World, t: TeamRef, focus: Option<usize>) -> Value {
                 "kind": KINDS[kind as usize],
                 "stat": j,
                 "name": format!("{word} {}", RECORD_STATS[j].name()),
+                "h8": RECORD_STATS[j].key(),
                 "rows": rows,
             }));
         }
@@ -566,7 +573,7 @@ fn own_top(w: &World, t: TeamRef) -> Value {
             let first = |k: u8| marks::team_list(book, k, j).first().map(|m| mark_json(w, tier, 0, m));
             let (c, s, g) = (first(CAREER), first(SEASON), first(GAME));
             (c.is_some() || s.is_some() || g.is_some()).then(|| {
-                json!({ "stat": j, "name": title_case(RECORD_STATS[j].name()), "career": c, "season": s, "game": g })
+                json!({ "stat": j, "name": title_case(RECORD_STATS[j].name()), "h8": RECORD_STATS[j].key(), "career": c, "season": s, "game": g })
             })
         })
         .collect();
@@ -580,6 +587,7 @@ pub fn team_book(w: &World, args: &Value) -> Value {
     let mut v = team_book_json(w, t, focus);
     if let Value::Object(m) = &mut v {
         m.insert("stats".into(), json!(RECORD_STATS.iter().map(|s| title_case(s.name())).collect::<Vec<_>>()));
+        m.insert("stat_keys".into(), json!(RECORD_STATS.iter().map(|s| s.key()).collect::<Vec<_>>()));
     }
     v
 }

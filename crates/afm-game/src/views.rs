@@ -2325,7 +2325,7 @@ pub fn game(w: &World, k: usize) -> Result<Value, String> {
                 receiving.push(json!({ "name": name(id), "id": id, "rec": l.rec, "tgt": l.targets, "yds": l.rec_yds.round(), "td": l.rec_td }));
             }
             if l.tackles + l.assists > 0 || l.sacks > 0.0 || l.tfl > 0.0 || l.ints > 0 || l.pbus > 0 {
-                defense.push(json!({ "name": name(id), "id": id, "tkl": l.tackles + l.assists, "tfl": l.tfl, "sk": l.sacks, "int": l.ints, "pd": l.pbus }));
+                defense.push(json!({ "name": name(id), "id": id, "tkl": l.tackles + l.assists, "tfl": l.tfl, "sk": l.sacks, "int": l.ints, "pd": l.pbus + l.ints }));
             }
         }
         fn by(v: &mut [Value], k: &str) {

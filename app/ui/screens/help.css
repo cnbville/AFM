@@ -1,4 +1,4 @@
-/* Lane styles: help on every screen (update 3, lane 6, H1-H7) in Press Box.
+/* Lane styles: help on every screen (update 3, lane 6, H1-H7; H8 the stat hovers) in Press Box.
    The hover cards reuse lane 3's .rr-card; the depth chart's "Why is he
    here?" (board 37) sits on .sl panels. Every class is hp- so the app's
    global names never restyle these. */
@@ -9,6 +9,11 @@
 .hp-term { cursor: help; text-decoration: underline dotted; text-decoration-color: color-mix(in oklab, currentColor 45%, transparent); text-underline-offset: 3px; }
 .hp-term:hover, .hp-term:focus-visible { text-decoration-color: currentColor; outline: none; }
 [data-h3] { cursor: help; }
+/* H8: a stat's name, dotted on hover; a header that sorts keeps its pointer. */
+[data-h8] { text-decoration: underline dotted transparent; text-underline-offset: 3px; transition: text-decoration-color .15s; }
+[data-h8]:hover, [data-h8]:focus-visible { text-decoration-color: currentColor; outline: none; }
+[data-h8]:not([data-sort]):not(button) { cursor: help; }
+[data-h8] .dt-sort { text-decoration: inherit; }
 [data-h3]:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 6px; }
 
 /* ---------- the cards ---------- */

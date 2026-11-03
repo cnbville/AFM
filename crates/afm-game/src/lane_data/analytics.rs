@@ -250,11 +250,34 @@ fn name(w: &World, id: u32) -> String {
     marks::name_of(w, id).unwrap_or_else(|| "a former player".into())
 }
 
-fn columns(card: &[Cm]) -> Vec<Value> {
+/// Each column's label, its glossary entry (the hover on its name) and
+/// the middle value among the season's qualifiers, which the hover shows
+/// beside the plain words.
+fn columns(card: &[Cm], rows: &[Row], qual: &[bool]) -> Vec<Value> {
+    let mids = middles(rows, qual, card);
     card.iter()
-        .map(|cm| {
+        .zip(mids)
+        .map(|(cm, mid)| {
             let (short, long, _, better) = cm.about();
-            json!({ "label": short, "long": long, "better": if better { "high" } else { "low" } })
+            json!({
+                "label": short, "long": long, "better": if better { "high" } else { "low" },
+                "key": super::glossary::cm_key(*cm), "mid": mid.map(|v| fmt_cell(*cm, v)),
+            })
+        })
+        .collect()
+}
+
+/// Each metric's middle value (the median) among the qualifiers.
+fn middles(rows: &[Row], qual: &[bool], card: &[Cm]) -> Vec<Option<f64>> {
+    (0..card.len())
+        .map(|k| {
+            let mut v: Vec<f64> = rows.iter().zip(qual).filter(|(_, q)| **q).filter_map(|(r, _)| r.vals[k]).collect();
+            if v.is_empty() {
+                return None;
+            }
+            v.sort_by(f64::total_cmp);
+            let n = v.len();
+            Some(if n % 2 == 1 { v[n / 2] } else { (v[n / 2 - 1] + v[n / 2]) / 2.0 })
         })
         .collect()
 }
@@ -498,7 +521,7 @@ pub fn table(w: &World, args: &Value) -> Value {
         })
         .collect();
     let mut m = base(w, p, group, year, &ys, min, word, ch);
-    m.insert("columns".into(), json!(columns(card)));
+    m.insert("columns".into(), json!(columns(card, &rows, &qual)));
     m.insert("sort".into(), json!(sort));
     m.insert("total".into(), json!(order.len()));
     m.insert("qualified".into(), json!(qualified));
@@ -661,6 +684,7 @@ pub fn card(w: &World, args: &Value) -> Value {
         return json!({ "error": "No line that season." });
     };
     let r = &rows[me];
+    let mids = middles(&rows, &qual, card);
     let metrics: Vec<Value> = card
         .iter()
         .enumerate()
@@ -668,6 +692,7 @@ pub fn card(w: &World, args: &Value) -> Value {
             let (short, long, _, better) = cm.about();
             json!({
                 "label": short, "long": long, "better": if better { "high" } else { "low" },
+                "key": super::glossary::cm_key(*cm), "mid": mids[k].map(|v| fmt_cell(*cm, v)),
                 "value": r.vals[k].map(|v| fmt_cell(*cm, v)),
                 "pct": pcts[me][k].map(|x| x.round() as i64),
             })

@@ -1,6 +1,6 @@
 # Records and the Data section: how it works today
 
-Checked against main at 1bb5507 with update 3 lane L20 and its review fixes on 2026-10-28; the Stats tab's years without games (minor bugs hotfix, batch 2) over main d9f48c4 on 2026-11-02; the class filter and CPOE by level (minor bug 178) over main 2d0c6a8 on 2026-11-02.
+Checked against main at 1bb5507 with update 3 lane L20 and its review fixes on 2026-10-28; the Stats tab's years without games (minor bugs hotfix, batch 2) over main d9f48c4 on 2026-11-02; the class filter and CPOE by level (minor bug 178) over main 2d0c6a8 on 2026-11-02; the stat hovers (H8) and minor bugs 181-182 over main 78f1bff on 2026-11-03.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Proposed, not confirmed" numbers are Claude's; the code says which.
 
@@ -23,6 +23,9 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - What does "chasing now" show? This season's paces at least three games in that reach nine tenths of the season record, and careers of men still playing at that level within a quarter of the career record (proposed, not confirmed; `world/marks.rs`, `chasing`, `active_in`). A level's career lists drop the "still being played" mark at each close for men who left (`refresh_live_lists`).
 - Where do a departed player's names come from? The people still in the world, then the store's own names (kept before `World::compact` drops anyone a team book or analytics row still needs), then the stat book's honors (`world/marks.rs`, `name_of`, `keep_names`).
 - Does any of this change the games? No. The store only reads games and seasons; nothing in the simulation reads it (`world/marks.rs`, module notes).
+- What does hovering a stat's name show? Its plain-words card (Cain, 2026-11-03): what it is, how the game works it out and which way is better; on Player analytics also the middle value among the season's qualifiers. One entry per stat in `crates/afm-game/src/lane_data/glossary.rs` (`TERMS`, about 125), sent once by `stat_glossary`. A page that knows the stat marks it by key (Player analytics' columns and card, Leaderboards' columns, Stat history's lists, chips and leader column); any other table header is found by its text under the table's first header, and a game's team totals by the row's first cell (`HEADS`; `app/ui/screens/help.js`, H8, `hpStatHeads`, `hpStatHtml`). It follows the Hover cards setting.
+- What counts as an explosive run? 10 yards or more, the common analytics cutoff, on the game line, Leaderboards' "Exp" and Player analytics' "10+%"; the labels said 15 until minor bug 181 (`game/stats.rs`, `explosive_runs`).
+- What is PD in a box score? Passes defended: interceptions plus passes broken up, as the NFL and NCAA count them; it was passes broken up only until minor bug 182 (`crates/afm-game/src/views.rs`, the game page's defense rows).
 
 ## The level books
 
@@ -74,6 +77,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - `world/analytics.rs`: `charted`, `boxed`, `volume`, `box_volume`, `default_min`.
 - `game/stats.rs`: `XCOMP` (refit with `cargo run --release --bin xcomp_fit -- 600` after engine changes that move completions).
 - `crates/afm-game/src/lane_data/books.rs`: `REAL_NFL`, `REAL_CMP` (the real NFL records shown on top, through the 2025 season).
+- `crates/afm-game/src/lane_data/glossary.rs`: `TERMS` (each stat's plain words, how, which way is better), `HEADS` (table headers by group), `cm_key`, `rate_key`; a test checks every analytics number, leaderboard column and record book has an entry.
 
 ## Related pages
 

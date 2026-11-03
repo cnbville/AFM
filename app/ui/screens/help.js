@@ -8,6 +8,10 @@
  *       (help_level): the screens mark it with data-h3="<player id>".
  *   H7  football terms in any text explain themselves (the glossary below):
  *       the first time a term shows in a page it gets a dotted line.
+ *   H8  a stat's name explains itself in plain words (Cain, 2026-11-03):
+ *       a page that knows the stat marks it data-h8="<key>"; any other
+ *       table header is found by its text under the table's first header
+ *       (stat_glossary: "Yds" under "Rushing" is rushing yards).
  *
  * H2 lives on the range's own card (ratings.js), H4 on the depth chart
  * (squadboards.js), H6 in letters and the news (core.js). The cards follow
@@ -92,8 +96,8 @@ const H7_CAPS = new Set(["nil", "rpo", "rpos", "rfa", "otas"]);
 const H7_RE = new RegExp(`(^|[^A-Za-z0-9-])(${[...H7_ALIAS.keys()].sort((a, b) => b.length - a.length).map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![A-Za-z0-9-])`, "i");
 
 // ---------- the scan: marking names and terms in a page ----------
-const HP = { cache: new Map(), timer: 0, hideTimer: 0, watch: 0, el: null, on: null, labels: null, seen: new WeakMap(), queued: new Set(), scanning: false };
-const HP_SKIP = "a,button,input,textarea,select,option,script,style,svg,code,[data-rr],[data-h1],[data-h3],[data-h7],.rr-card,.hp-card,[contenteditable],.st-label,.h1,h1,h2,.sb-last,.sb-first";
+const HP = { cache: new Map(), timer: 0, hideTimer: 0, watch: 0, el: null, on: null, labels: null, stats: null, seen: new WeakMap(), queued: new Set(), scanning: false };
+const HP_SKIP = "a,button,input,textarea,select,option,script,style,svg,code,[data-rr],[data-h1],[data-h3],[data-h7],[data-h8],.rr-card,.hp-card,[contenteditable],.st-label,.h1,h1,h2,.sb-last,.sb-first";
 async function hpLabels() {
   if (HP.labels) return HP.labels;
   try {
@@ -103,6 +107,48 @@ async function hpLabels() {
     HP.labels = new Map();
   }
   return HP.labels;
+}
+// H8: every stat in plain words, and the table headers that name each.
+async function hpStats() {
+  if (HP.stats) return HP.stats;
+  try {
+    const v = await api("stat_glossary", {});
+    HP.stats = { terms: new Map(v.terms.map((t) => [t.key, t])), heads: new Map(v.heads.map(([g, h, k]) => [`${g}|${h}`, k])), rows: new Set(v.heads.map(([g]) => g).filter(Boolean)) };
+  } catch (e) {
+    HP.stats = { terms: new Map(), heads: new Map(), rows: new Set() };
+  }
+  return HP.stats;
+}
+// A header's stat: by its text under the table's first header, else in
+// any table. The first header itself names the group, not a stat; a row's
+// first cell names one only in tables kept by group (a game's team totals).
+function hpStatHeads(root) {
+  const H = HP.stats;
+  if (!H || !H.heads.size) return;
+  const mark = (el, key) => {
+    el.dataset.h8 = key;
+    el.classList.add("hp-stat");
+    el.removeAttribute("title");
+    if (!el.hasAttribute("tabindex")) el.tabIndex = 0;
+  };
+  for (const table of root.querySelectorAll("table")) {
+    const ths = table.querySelectorAll("thead th, tr:first-child > th");
+    if (!ths.length) continue;
+    const group = ths[0].textContent.trim().toLowerCase();
+    ths.forEach((th, i) => {
+      if (!i || th.dataset.h8 || th.querySelector("[data-h8]")) return;
+      const text = th.textContent.trim();
+      const key = H.heads.get(`${group}|${text}`) || H.heads.get(`|${text}`);
+      if (key && H.terms.has(key)) mark(th, key);
+    });
+    if (!H.rows.has(group) || group === "split") continue;
+    for (const tr of table.querySelectorAll("tbody tr")) {
+      const td = tr.firstElementChild;
+      if (!td || td.dataset.h8) continue;
+      const key = H.heads.get(`${group}|${td.textContent.trim()}`);
+      if (key && H.terms.has(key)) mark(td, key);
+    }
+  }
 }
 // The roots help reads: the screen, the page beside it and an open letter.
 const HP_ROOTS = ".view, .beside-body, .lt-paper, .letter-room";
@@ -114,6 +160,7 @@ function hpScan(root) {
   const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: (n) => (n.nodeValue.trim().length < 2 || !n.parentElement || n.parentElement.closest(HP_SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
   });
+  hpStatHeads(root);
   const nodes = [];
   for (let n = walk.nextNode(); n && nodes.length < 6000; n = walk.nextNode()) nodes.push(n);
   for (const n of nodes) {
@@ -152,7 +199,7 @@ function hpQueue(root) {
   if (HP.scanning) return;
   HP.scanning = true;
   setTimeout(async () => {
-    await hpLabels();
+    await Promise.all([hpLabels(), hpStats()]);
     const roots = [...HP.queued];
     HP.queued.clear();
     HP.scanning = false;
@@ -201,6 +248,17 @@ function hpTermHtml(term) {
   const t = H7_TERMS.find((x) => x[0] === term);
   return `<div class="rr-top"><span class="st-label">Football term</span><b class="hp-big">${esc(term)}</b></div><p>${esc(t ? t[2] : "")}</p>`;
 }
+function hpStatHtml(el) {
+  const s = HP.stats && HP.stats.terms.get(el.dataset.h8);
+  if (!s) return "";
+  const way = s.better > 0 ? "Higher is better." : s.better < 0 ? "Lower is better." : "Neither higher nor lower is better by itself.";
+  const sort = el.matches("[data-sort]") || el.querySelector(".dt-sort") ? " Click the name to sort by it." : "";
+  const mid = el.dataset.h8mid ? `<p class="rr-pool">The middle of the ${esc(el.dataset.h8n || "")} who qualify this season: <b>${esc(el.dataset.h8mid)}</b>.</p>` : "";
+  return `<div class="rr-top"><span class="st-label">Stat</span><b class="hp-big">${esc(s.name)}</b></div>
+    <p class="hp-what">${esc(s.plain)}</p>
+    ${s.how ? `<p class="rr-comb"><span class="st-label">How it's worked out</span>${esc(s.how)}</p>` : ""}
+    <p class="rr-pool">${way}${sort}</p>${mid}`;
+}
 function hpPlace(t, el) {
   let r = t.getBoundingClientRect();
   const w = el.offsetWidth, h = el.offsetHeight;
@@ -235,6 +293,11 @@ function hpOpen(t, delay) {
   HP.timer = setTimeout(async () => {
     const d = t.dataset;
     if (d.h7) return hpShow(t, hpTermHtml(d.h7));
+    if (d.h8) {
+      await hpStats();
+      const html = hpStatHtml(t);
+      return html ? hpShow(t, html) : null;
+    }
     const ck = d.h1 ? `a|${d.h1}` : `l|${S.status ? S.status.today : ""}|${d.h3}`;
     let x = HP.cache.get(ck);
     if (!x) {
@@ -249,7 +312,7 @@ function hpOpen(t, delay) {
     hpShow(t, x.error ? `<p>${esc(x.error)}</p>` : d.h1 ? hpAttrHtml(x) : hpLevelHtml(x));
   }, delay);
 }
-const HP_SEL = "[data-h1],[data-h3],[data-h7]";
+const HP_SEL = "[data-h1],[data-h3],[data-h7],[data-h8]";
 document.addEventListener("mouseover", (ev) => {
   const t = ev.target.closest && ev.target.closest(HP_SEL);
   if (!t || t === HP.on) return;

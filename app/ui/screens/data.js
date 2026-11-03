@@ -60,7 +60,7 @@ screens.stathist = async (a) => {
     <span class="tspace"></span>${x.since ? `<span class="muted small">Books since ${x.since}</span>` : ""}</div>`;
   let main = "";
   if (key === "leaders") main = dtLeaders(x);
-  else if (key === "team") main = x.team_book ? dtTeamBook(x.team_book, x.stats, K, x.level) :`<div class="empty">Pick a team from its team page, or take a seat at this level, to see a team's own book.</div>`;
+  else if (key === "team") main = x.team_book ? dtTeamBook(x.team_book, x.stats, K, x.level, x.stat_keys) :`<div class="empty">Pick a team from its team page, or take a seat at this level, to see a team's own book.</div>`;
   else main = `<div class="dt-books">${x.lists.map((l) => dtList(l, K)).join("") || '<div class="empty">Nothing in these books yet.</div>'}</div>`;
   const side = `<aside class="dt-side">${dtChasing(x.chasing)}${dtFell(x.fell)}${x.own ? dtOwn(x.own) : ""}</aside>`;
   const goto = gotoLine([["Leaderboards", "leaders"], ["Player analytics", "analytics"], ["History", "history"]]);
@@ -81,25 +81,25 @@ function dtRow(r) {
 function dtList(l, K) {
   const real = l.real ? `<li class="dt-real"><span class="dt-rk">★</span><b class="dt-v">${esc(l.real.value)}</b><span class="dt-who">${esc(l.real.holder)}<small>${esc(l.real.year)} · <span class="tag gold">Real NFL record</span></small></span></li>` : "";
   const more = l.stat != null && l.kind !== "streak" && l.kind.indexOf("rate") < 0 ? `<button class="dt-more" data-act="dtstat" data-v="${String(K.stat) === String(l.stat) ? "" : l.stat}">${String(K.stat) === String(l.stat) ? "Top 10" : "Top 25"}</button>` : "";
-  return `<section class="dt-book panel"><header><h2>${esc(l.name)}</h2>${more}</header>${l.min ? `<p class="muted small">${esc(l.min)}</p>` : ""}<ol>${real}${l.rows.map(dtRow).join("") || '<li class="muted">Nobody yet.</li>'}</ol></section>`;
+  return `<section class="dt-book panel"><header><h2${l.h8 ? ` data-h8="${esc(l.h8)}"` : ""}>${esc(l.name)}</h2>${more}</header>${l.min ? `<p class="muted small">${esc(l.min)}</p>` : ""}<ol>${real}${l.rows.map(dtRow).join("") || '<li class="muted">Nobody yet.</li>'}</ol></section>`;
 }
 
 function dtLeaders(x) {
   const L = x.leaders;
-  const chips = `<div class="seg wrap">${x.stats.map((n, i) => (x.level === "hs" && i === 12 ? "" : `<button data-act="dtstat" data-v="${i}" aria-pressed="${L.stat === i}">${esc(n)}</button>`)).join("")}</div>`;
+  const chips = `<div class="seg wrap">${x.stats.map((n, i) => (x.level === "hs" && i === 12 ? "" : `<button data-act="dtstat" data-v="${i}" aria-pressed="${L.stat === i}" data-h8="${esc((x.stat_keys || [])[i] || "")}">${esc(n)}</button>`)).join("")}</div>`;
   const cell = (e) => (e ? `<div class="dt-lead"><b class="dt-v">${esc(e.value)}</b> ${dtWho(e)} <small>${e.team ? teamA(e.team) : ""}${e.pos ? " · " + esc(e.pos) : ""}</small>${dtEra(e.era)}</div>` : "");
   const rows = L.rows.map((r) => `<tr><td>${r.year}</td><td class="l">${cell(r.first)}</td><td class="l">${cell(r.second)}</td></tr>`).join("");
-  return `${chips}<div class="tbl"><table><thead><tr><th>Season</th><th class="l">${esc(L.name)}: the leader</th><th class="l">Runner-up</th></tr></thead><tbody>${rows || '<tr><td colspan="3" class="muted">No seasons in the books yet.</td></tr>'}</tbody></table></div>`;
+  return `${chips}<div class="tbl"><table><thead><tr><th>Season</th><th class="l"${L.h8 ? ` data-h8="${esc(L.h8)}"` : ""}>${esc(L.name)}: the leader</th><th class="l">Runner-up</th></tr></thead><tbody>${rows || '<tr><td colspan="3" class="muted">No seasons in the books yet.</td></tr>'}</tbody></table></div>`;
 }
 
-function dtTeamBook(b, stats, K, level) {
+function dtTeamBook(b, stats, K, level, keys = []) {
   const groups = [["career", "Career"], ["season", "Season"], ["game", "Single game"]];
   // High school books keep no return touchdowns (stat 12), as on Each year's leader.
-  const chips = `<div class="seg wrap"><button data-act="dtstat" data-v="" aria-pressed="${K.stat == null}">Every stat</button>${stats.map((n, i) => (level === "hs" && i === 12 ? "" : `<button data-act="dtstat" data-v="${i}" aria-pressed="${String(K.stat) === String(i)}">${esc(n)}</button>`)).join("")}</div>`;
+  const chips = `<div class="seg wrap"><button data-act="dtstat" data-v="" aria-pressed="${K.stat == null}">Every stat</button>${stats.map((n, i) => (level === "hs" && i === 12 ? "" : `<button data-act="dtstat" data-v="${i}" aria-pressed="${String(K.stat) === String(i)}" data-h8="${esc(keys[i] || "")}">${esc(n)}</button>`)).join("")}</div>`;
   const body = groups.map(([k, n]) => {
     const lists = b.lists.filter((l) => l.kind === k && l.rows.length);
     if (!lists.length) return "";
-    return `<h3 class="dt-h3">${n}</h3><div class="dt-books">${lists.map((l) => `<section class="dt-book panel"><header><h2>${esc(l.name.charAt(0).toUpperCase() + l.name.slice(1))}</h2></header><ol>${l.rows.map(dtRow).join("")}</ol></section>`).join("")}</div>`;
+    return `<h3 class="dt-h3">${n}</h3><div class="dt-books">${lists.map((l) => `<section class="dt-book panel"><header><h2${l.h8 ? ` data-h8="${esc(l.h8)}"` : ""}>${esc(l.name.charAt(0).toUpperCase() + l.name.slice(1))}</h2></header><ol>${l.rows.map(dtRow).join("")}</ol></section>`).join("")}</div>`;
   }).join("");
   return `<div class="dt-teamhead">${mark(b.team, 40)}<div><div class="st-label">Team book · the best ${b.top} in each${b.since ? ` · since ${b.since}` : ""}</div><b>${teamA(b.team)}</b></div></div>${chips}${body || '<div class="empty">Nothing in this team\'s book yet.</div>'}`;
 }
@@ -117,7 +117,7 @@ function dtFell(list) {
 function dtOwn(o) {
   const rows = o.rows.slice(0, 13).map((r) => {
     const c = r.career || r.season;
-    return c ? `<li><span class="dt-who"><small>${esc(r.name)}</small>${dtWho(c)}</span><b class="dt-v">${esc(c.value)}</b></li>` : "";
+    return c ? `<li><span class="dt-who"><small${r.h8 ? ` data-h8="${esc(r.h8)}"` : ""}>${esc(r.name)}</small>${dtWho(c)}</span><b class="dt-v">${esc(c.value)}</b></li>` : "";
   }).join("");
   return `<section class="panel dt-panel"><h2>${teamA(o.team)}'s records</h2>${rows ? `<ol class="dt-plain">${rows}</ol>` : '<p class="muted small">Nothing in the team\'s book yet.</p>'}<p>${linkTo("stathist", { tab: "team", kind: o.team.ref.kind, id: o.team.ref.id }, "The whole book", "gochip")}</p></section>`;
 }
@@ -142,7 +142,10 @@ screens.analytics = async (a) => {
     ${x.level === "college" ? dtSel("f:rs", [["yes", "Redshirted"], ["no", "Never redshirted"]], x.rs, "Redshirt or not") : ""}
     <label class="dt-min">Age <input type="number" min="13" max="45" step="1" value="${x.age_min ?? ""}" placeholder="any" data-act="daage" data-k="age_min"> to <input type="number" min="13" max="45" step="1" value="${x.age_max ?? ""}" placeholder="any" data-act="daage" data-k="age_max"></label>
     ${x.filtered ? `<button class="tbtn" data-act="daclear">Clear</button>` : ""}</div>`;
-  const head = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th><th title="Games">G</th><th title="${esc(x.volume)}">Vol</th>${x.columns.map((c, i) => `<th><button class="dt-sort ${x.sort === i ? "on" : ""}" data-act="dasort" data-v="${i}" title="${esc(c.long)} · ${c.better === "high" ? "higher is better" : "lower is better"}">${esc(c.label)}</button></th>`).join("")}<th></th></tr>`;
+  // Each stat's name explains itself on hover (H8, help.js), with the
+  // middle value among every qualifier this season.
+  const h8 = (key, mid, n) => `data-h8="${esc(key)}"${mid != null ? ` data-h8mid="${esc(mid)}" data-h8n="${n}"` : ""}`;
+  const head = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th><th data-h8="Games">G</th><th data-h8="Vol">Vol</th>${x.columns.map((c, i) => `<th ${h8(c.key, c.mid, x.qualified)}><button class="dt-sort ${x.sort === i ? "on" : ""}" data-act="dasort" data-v="${i}">${esc(c.label)}</button></th>`).join("")}<th></th></tr>`;
   const body = x.rows.map((r) => `<tr class="${K.card === r.id ? "on" : ""}"><td>${r.rank}</td><td class="l">${dtWho(r)}</td><td class="l">${esc(r.pos)}</td><td class="l">${r.team ? teamChip(r.team, 16) : ""}</td><td>${r.games}</td><td>${r.vol}</td>${r.cells.map((v, i) => `<td class="dt-pc" style="--p:${r.pct[i] ?? 0}%" title="${r.pct[i] != null ? r.pct[i] + "th percentile" : ""}">${v == null ? "" : esc(v)}</td>`).join("")}<td><button class="tbtn" data-act="dacard" data-id="${r.id}">Card</button></td></tr>`).join("");
   const none = x.filtered && x.qualified ? "Nobody who qualifies matches the filter." : "Nobody qualifies yet. Lower the minimum to see more.";
   const table = `<div class="tbl dt-at"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${7 + x.columns.length}" class="muted">${none}</td></tr>`}</tbody></table></div>`;
@@ -160,7 +163,7 @@ async function dtCard(id, level, year, division, state) {
   try { c = await api("analytics_card", { id, level, year: year != null ? Number(year) : undefined, division: division || undefined, state: level === "hs" ? state || undefined : undefined }); } catch (e) { return ""; }
   if (c.error) return `<section class="panel dt-panel"><p class="muted">${esc(c.error)}</p></section>`;
   if (c.empty) return `<section class="panel dt-panel"><h2>${playerLink(c.id, c.name)}</h2><p class="muted">${esc(c.empty)}</p></section>`;
-  const bars = c.metrics.map((m) => `<li><span class="dt-ml" title="${esc(m.long)}">${esc(m.label)}</span><i class="dt-bar"><i style="width:${m.pct ?? 0}%"></i></i><b>${m.value == null ? "–" : esc(m.value)}</b><small>${m.pct == null ? "" : m.pct}</small></li>`).join("");
+  const bars = c.metrics.map((m) => `<li><span class="dt-ml" tabindex="0" data-h8="${esc(m.key)}"${m.mid != null ? ` data-h8mid="${esc(m.mid)}" data-h8n="${c.field}"` : ""}>${esc(m.label)}</span><i class="dt-bar"><i style="width:${m.pct ?? 0}%"></i></i><b>${m.value == null ? "–" : esc(m.value)}</b><small>${m.pct == null ? "" : m.pct}</small></li>`).join("");
   const like = c.like.map((l) => `<li><span class="dt-who">${dtWho(l)}<small>${l.year} · ${l.team ? teamA(l.team) : ""} · ${esc(l.now)}</small></span><b class="dt-v" title="How close the two seasons read, 100 the same">${l.close}</b></li>`).join("");
   return `<section class="panel dt-panel dt-card"><header><div><div class="st-label">${esc(c.group)} card · ${c.year}${c.charted ? " · charted" : " · box score"}</div><h2>${playerLink(c.id, c.name)}</h2><small>${c.team ? teamA(c.team) : ""} · ${c.games} games · ${c.vol} ${esc(c.volume)}${c.qualified ? "" : " · below the minimum"}</small></div><button class="tbtn" data-act="dacard" data-id="">Close</button></header>
     <ul class="dt-bars">${bars}</ul><p class="muted small">Percentile among ${c.field} qualifiers that season.</p>

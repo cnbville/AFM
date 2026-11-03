@@ -146,7 +146,7 @@ impl Cm {
             Ypc => ("Y/C", "Yards a carry", One, true),
             YacoC => ("YACo/C", "Yards after contact a carry", Two, true),
             Mtf => ("MTF/T", "Missed tackles forced a touch", Two, true),
-            Explosive => ("15+%", "Runs of 15 yards or more", Pct, true),
+            Explosive => ("10+%", "Runs of 10 yards or more", Pct, true),
             Success => ("Success", "Run success rate", Pct, true),
             FumRate => ("Fum/T", "Fumbles lost a 100 touches", Two, false),
             RushYdsG => ("Yds/G", "Rushing yards a game", One, true),
