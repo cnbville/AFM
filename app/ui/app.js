@@ -658,7 +658,13 @@ async function render(scroll) {
     r.title = S.title || CRUMBS[r.screen] || r.screen;
     app.dataset.page = "";
     const keepY = scroll ?? null;
+    // The menu on the left keeps where you scrolled it: every click draws
+    // the frame again, and it used to jump back to its top (Cain,
+    // 2026-11-02 and 11-03).
+    const navs = $(".side .navs");
+    const navY = navs ? navs.scrollTop : 0;
     app.innerHTML = frame(html, crumbHtml());
+    keepNav(navY);
     // The page beside stays where you scrolled it while the screen draws again.
     if (S.beside) drawBeside();
     if (typeof afterRender === "function") afterRender();
@@ -669,6 +675,24 @@ async function render(scroll) {
     toast(e.message || String(e));
     if (!app.innerHTML) app.innerHTML = frame(`<div class="pad"><div class="h1">Something went wrong</div><p class="sub">${esc(e.message || e)}</p></div>`);
   }
+}
+// The menu drawn again at the scroll it had. Only when a link took you to
+// another screen whose item is out of view is it nudged just enough to
+// show it; a click within the screen never moves it.
+let navScreen = null;
+function keepNav(y) {
+  const navs = $(".side .navs");
+  if (!navs) return;
+  navs.scrollTop = y;
+  const moved = navScreen !== S.route.screen;
+  navScreen = S.route.screen;
+  const on = moved && navs.querySelector(".nav[aria-current=true]");
+  if (!on) return;
+  const box = navs.getBoundingClientRect(), it = on.getBoundingClientRect();
+  // The list fades out over its last 22 px (app.css), so an item there
+  // counts as hidden.
+  if (it.top < box.top) navs.scrollTop -= box.top - it.top + 4;
+  else if (it.bottom > box.bottom - 22) navs.scrollTop += it.bottom - (box.bottom - 22) + 4;
 }
 // Draws the screen again where it is (a tab, a filter): a control inside
 // the page beside redraws that page only. A tab or segment you click stays
