@@ -625,10 +625,61 @@ pub fn fg_band(d: f64) -> usize {
     }
 }
 
-/// Expected completion for a throw, from depth, separation and pressure
-/// (Claude's fit to real completion by air yards; see decisions.md).
-pub fn expected_completion(air: f64, sep: f64, pressured: bool) -> f64 {
-    let z = 1.35 - 0.055 * air + 0.55 * (sep - 1.5) - if pressured { 0.45 } else { 0.0 };
+/// The expected-completion model behind CPOE at each level (HS, FBS, FCS,
+/// small college, NFL, in `Level` order), one weight per `xcomp_features`
+/// term. Real CPOE models are fitted on their own league's throws, so a
+/// league's CPOE centres at zero; these are fitted on the engine's own
+/// throws by `xcomp_fit` (minor bug 178: the old single model expected far
+/// more completions than the engine throws, so every passer's CPOE sat 12
+/// to 24 points under zero).
+///
+/// Fitted 2026-11-02 on 600 synthetic games a level (seed 1).
+pub const XCOMP: [[f64; XCOMP_TERMS]; 5] = [
+    // High school: 24,194 throws, 57.3% complete.
+    [0.6938, -0.0972, -0.3344, -0.7976, -1.0035, -1.4168, -1.9763, -3.5045, -0.5044, 0.3048, 0.4330, 0.0074],
+    // FBS: 36,703 throws, 61.1%.
+    [1.0817, -0.2152, -0.3802, -1.0123, -1.0841, -1.4535, -2.2255, -3.8488, -0.9328, 0.1137, 0.3486, -0.0836],
+    // FCS: 35,188 throws, 60.7%.
+    [0.9368, -0.1246, -0.2812, -0.9278, -0.9860, -1.4153, -2.2129, -3.7244, -0.7866, 0.2299, 0.3569, -0.0405],
+    // Small colleges: 34,926 throws, 59.8%.
+    [0.9071, -0.1290, -0.3313, -0.8682, -1.0582, -1.5959, -2.2006, -4.1050, -0.6390, 0.2126, 0.4145, -0.0757],
+    // NFL: 41,915 throws, 66.2%.
+    [1.4897, -0.3277, -0.4742, -1.1900, -1.1916, -1.4014, -2.1236, -3.9125, -1.4473, -0.2607, -0.0098, 0.0091],
+];
+
+/// How many terms the expected-completion model reads.
+pub const XCOMP_TERMS: usize = 12;
+
+/// What the expected-completion model reads of a throw (throwaways left
+/// out): a constant (a throw behind the line to an open man, clean), the
+/// depth band of the throw's air yards (0-4, 5-9, 10-14, 15-19, 20-29,
+/// 30-39, 40 and more), the receiver's separation as a tight window (under
+/// half a yard; an interception counts as none), a close one (half a yard
+/// to one) or a contested one (one to a yard and a half), and pressure.
+pub fn xcomp_features(air: f64, sep: f64, pressured: bool) -> [f64; XCOMP_TERMS] {
+    let on = |b: bool| b as u8 as f64;
+    let depth = |lo: f64, hi: f64| on(air >= lo && air < hi);
+    let near = |lo: f64, hi: f64| on(sep >= lo && sep < hi);
+    [
+        1.0,
+        depth(0.0, 5.0),
+        depth(5.0, 10.0),
+        depth(10.0, 15.0),
+        depth(15.0, 20.0),
+        depth(20.0, 30.0),
+        depth(30.0, 40.0),
+        on(air >= 40.0),
+        near(f64::MIN, 0.5),
+        near(0.5, 1.0),
+        near(1.0, 1.5),
+        on(pressured),
+    ]
+}
+
+/// Expected completion for a throw at a level, from depth, separation and
+/// pressure.
+pub fn expected_completion_at(level: crate::player::Level, air: f64, sep: f64, pressured: bool) -> f64 {
+    let z: f64 = XCOMP[level as usize].iter().zip(xcomp_features(air, sep, pressured)).map(|(b, x)| b * x).sum();
     1.0 / (1.0 + (-z).exp())
 }
 
@@ -690,6 +741,10 @@ pub struct GameStats {
     /// second half ended: what the morning-after grades read.
     #[serde(default)]
     pub timeouts_left: [[u8; 2]; 2],
+    /// The level the game is played at, for its expected completions (none:
+    /// the NFL's model).
+    #[serde(skip)]
+    pub level: Option<crate::player::Level>,
 }
 
 impl GameStats {
@@ -700,6 +755,7 @@ impl GameStats {
     /// Book a play into the player lines and team totals. Every number
     /// here comes off the play record.
     pub fn book(&mut self, r: &PlayRecord) {
+        let level = self.level.unwrap_or(crate::player::Level::NFL);
         let o = r.offense;
         let d = 1 - o;
         // A role can fall to either team (an interception return: the
@@ -795,7 +851,7 @@ impl GameStats {
                             l.pass_success += r.success() as u32;
                             l.air_yds_att += r.air_yards;
                             if !r.throw_away {
-                                l.x_cmp += expected_completion(r.air_yards, r.separation, r.pressured);
+                                l.x_cmp += expected_completion_at(level, r.air_yards, r.separation, r.pressured);
                             } else {
                                 l.throw_aways += 1;
                                 l.x_cmp += 0.0;

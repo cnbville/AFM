@@ -18,6 +18,7 @@ struct Totals {
     points: f64,
     att: f64,
     cmp: f64,
+    x_cmp: f64,
     pass_yds: f64,
     int: f64,
     sacks: f64,
@@ -45,6 +46,7 @@ fn play(level: Level, games: usize, seed: u32) -> Totals {
         points: 0.0,
         att: 0.0,
         cmp: 0.0,
+        x_cmp: 0.0,
         pass_yds: 0.0,
         int: 0.0,
         sacks: 0.0,
@@ -66,6 +68,7 @@ fn play(level: Level, games: usize, seed: u32) -> Totals {
             for l in r.stats.players[side].values() {
                 t.att += l.att as f64;
                 t.cmp += l.cmp as f64;
+                t.x_cmp += l.x_cmp;
                 t.pass_yds += l.pass_yds;
                 t.int += l.int as f64;
                 t.carries += l.rush as f64;
@@ -93,6 +96,9 @@ fn nfl_games_look_like_the_nfl() {
     // docs/match-engine.md, "Trial 8 fixes").
     within("points per team game", t.points / t.team_games, 20.0, 30.0, 22.5);
     within("completion %", t.cmp / t.att, 0.59, 0.71, 0.645);
+    // CPOE centres on zero, as each level's expected completions are fitted
+    // on its own throws (minor bug 178; another seed than the fit's).
+    within("CPOE, points", 100.0 * (t.cmp - t.x_cmp) / t.att, -2.5, 2.5, 0.0);
     // Upper edge raised from 8.2 after the physics fixes (2026-10-14), when
     // NFL passing ran 8.2-8.6 a throw; since the attribute retune it runs
     // about 7.0-7.3.
@@ -123,6 +129,7 @@ fn fbs_games_look_like_fbs() {
     within("points per team game", t.points / t.team_games, 18.0, 36.0, 27.0);
     // Known gap: a few points under the real 60.6%.
     within("completion %", t.cmp / t.att, 0.52, 0.67, 0.606);
+    within("CPOE, points", 100.0 * (t.cmp - t.x_cmp) / t.att, -2.5, 2.5, 0.0);
     within("yards per attempt", t.pass_yds / t.att, 6.2, 8.6, 7.29);
     // These test rosters are slower than the world's (starting backs 4.78
     // in the forty, the world's 4.57) and run about 1.2 yards a carry below

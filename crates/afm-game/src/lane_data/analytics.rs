@@ -303,6 +303,144 @@ fn min_for(w: &World, p: Place, group: usize, year: i32, ch: bool, args: &Value,
     if played > 0.0 { (full * (played / total).min(1.0)).round() } else { full }
 }
 
+/// What the class filter reads of a player: his high school class, birth
+/// date, college years and pro career, from the people still in the world
+/// or the ones who left it.
+struct Bio<'a> {
+    class_of: i32,
+    born: afm_engine::calendar::Date,
+    staff: &'a [(i32, usize, Option<usize>, Option<usize>)],
+    pro: Option<&'a afm_engine::world::pro::ProCareer>,
+}
+
+/// The table's filter by class (Cain, 2026-11-02): his class that season
+/// (college Fr to Sr, by seasons played; high school by grade; the NFL by
+/// year in the league, 5 for a fifth year or more), redshirted or not, and
+/// his age on 31 August of the season, as the world counts it.
+#[derive(Default)]
+struct Filter {
+    class: Option<u8>,
+    redshirt: Option<bool>,
+    age: (Option<u32>, Option<u32>),
+}
+
+impl Filter {
+    fn of(args: &Value, tier: Tier) -> Filter {
+        let class = match args.get("class") {
+            Some(Value::String(c)) => match (tier, c.as_str()) {
+                (Tier::Nfl, _) => c.trim_end_matches('+').parse::<u8>().ok().filter(|&n| (1..=5).contains(&n)),
+                (_, "Fr") => Some(1),
+                (_, "So") => Some(2),
+                (_, "Jr") => Some(3),
+                (_, "Sr") => Some(4),
+                _ => None,
+            },
+            Some(Value::Number(n)) => n.as_u64().map(|n| n.clamp(1, 5) as u8),
+            _ => None,
+        };
+        let redshirt = match args.get("rs").and_then(Value::as_str) {
+            Some("yes") if tier == Tier::College => Some(true),
+            Some("no") if tier == Tier::College => Some(false),
+            _ => None,
+        };
+        let age = |k: &str| args.get(k).and_then(Value::as_u64).map(|a| a as u32);
+        Filter { class, redshirt, age: (age("age_min"), age("age_max")) }
+    }
+
+    fn on(&self) -> bool {
+        self.class.is_some() || self.redshirt.is_some() || self.age.0.is_some() || self.age.1.is_some()
+    }
+}
+
+/// His class in a season, as a roster lists it: (class, redshirted).
+/// College: Fr to Sr by seasons of eligibility used before this one, plus
+/// this one; a year at school that didn't count (a redshirt: no games, or
+/// four or fewer from 2018) makes him a redshirt from then on. Under the
+/// five-year model (Division I from 2026) every year counts. High school by
+/// grade; the NFL by year in the league.
+fn class_in(w: &World, tier: Tier, id: u32, b: &Bio, year: i32) -> (u8, bool) {
+    match tier {
+        Tier::College => {
+            let book = w.stats.career(id);
+            let mut years: BTreeSet<i32> = b.staff.iter().map(|s| s.0).filter(|&y| y < year).collect();
+            years.extend(book.iter().map(|r| r.year as i32).filter(|&y| y < year));
+            let (mut used, mut rs) = (0u32, false);
+            for y in years {
+                let games: u32 = book.iter().filter(|r| r.year as i32 == y).map(|r| r.games as u32).sum();
+                let division = book.iter().find(|r| r.year as i32 == y).map(|r| r.division).or_else(|| {
+                    b.staff.iter().find(|s| s.0 == y).and_then(|s| w.programs.get(s.1)).map(|p| p.division)
+                });
+                let five = division.is_some_and(|d| afm_engine::world::eligibility::five_in_five(y, d));
+                if !five && !rs && (games == 0 || y >= 2018 && games <= 4) {
+                    rs = true;
+                } else {
+                    used += 1;
+                }
+            }
+            ((used + 1).min(4) as u8, rs)
+        }
+        Tier::Hs => {
+            let c = match b.class_of - year {
+                ..=1 => 4,
+                2 => 3,
+                3 => 2,
+                _ => 1,
+            };
+            (c, false)
+        }
+        Tier::Nfl => {
+            let before = b
+                .pro
+                .map_or(0, |c| c.seasons.iter().filter(|s| s.year < year && (s.games > 0 || s.team.is_some())).count());
+            ((before + 1).min(5) as u8, false)
+        }
+    }
+}
+
+/// His age on 31 August of a season (from his high school class when the
+/// world has no birth date for him).
+fn age_in(b: &Bio, year: i32) -> u32 {
+    if b.born == afm_engine::calendar::born::UNKNOWN {
+        (year - b.class_of + 18).max(0) as u32
+    } else {
+        afm_engine::calendar::born::age_on(b.born, afm_engine::calendar::Date::ymd(year, 8, 31))
+    }
+}
+
+/// Which of the rows pass the filter (a player the world no longer knows
+/// passes only when nothing is asked of him).
+fn passes(w: &World, tier: Tier, rows: &[Row], f: &Filter) -> Vec<bool> {
+    if !f.on() {
+        return vec![true; rows.len()];
+    }
+    // The ones who left football, by id, built only when a row needs them.
+    let mut gone: Option<std::collections::HashMap<u32, usize>> = None;
+    rows.iter()
+        .map(|r| {
+            let b = match views::person_index(w, r.id) {
+                Some(k) => {
+                    let x = &w.people[k];
+                    Bio { class_of: x.class_of, born: x.born, staff: &x.college_staff, pro: x.pro.as_deref() }
+                }
+                None => {
+                    let map = gone.get_or_insert_with(|| {
+                        w.alumni.iter().enumerate().filter_map(|(k, a)| a.player.as_ref().map(|p| (p.id, k))).collect()
+                    });
+                    let Some(&k) = map.get(&r.id) else { return false };
+                    let a = &w.alumni[k];
+                    Bio { class_of: a.class_of, born: a.born, staff: &a.college_staff, pro: a.pro.as_deref() }
+                }
+            };
+            let (class, rs) = class_in(w, tier, r.id, &b, r.year);
+            let age = age_in(&b, r.year);
+            f.class.is_none_or(|c| c == class)
+                && f.redshirt.is_none_or(|x| x == rs)
+                && f.age.0.is_none_or(|a| age >= a)
+                && f.age.1.is_none_or(|a| age <= a)
+        })
+        .collect()
+}
+
 pub fn table(w: &World, args: &Value) -> Value {
     let p = place_of(w, args);
     let group = group_arg(args);
@@ -320,10 +458,15 @@ pub fn table(w: &World, args: &Value) -> Value {
     let min = min_for(w, p, group, year, ch, args, &now);
     let rows = pool(w, p, year, group, &now);
     let qual: Vec<bool> = rows.iter().map(|r| r.vol >= min).collect();
+    // Percentiles stay among every qualifier: a freshman's shade says
+    // where he stands in the whole field, not among freshmen.
     let pcts = percentiles(&rows, &qual, card);
+    let filter = Filter::of(args, p.tier);
+    let pass = passes(w, p.tier, &rows, &filter);
     let sort = args.get("sort").and_then(Value::as_u64).map(|k| k as usize).filter(|&k| k < card.len()).unwrap_or(0);
     let dir = args.get("dir").and_then(Value::as_i64).unwrap_or(-1);
-    let mut order: Vec<usize> = (0..rows.len()).filter(|&i| qual[i]).collect();
+    let qualified = qual.iter().filter(|&&q| q).count();
+    let mut order: Vec<usize> = (0..rows.len()).filter(|&i| qual[i] && pass[i]).collect();
     // Sorted by percentile, so "best first" is the same for every metric.
     order.sort_by(|&a, &b| {
         // A card with no numbers (the box score line's blockers and
@@ -358,7 +501,22 @@ pub fn table(w: &World, args: &Value) -> Value {
     m.insert("columns".into(), json!(columns(card)));
     m.insert("sort".into(), json!(sort));
     m.insert("total".into(), json!(order.len()));
+    m.insert("qualified".into(), json!(qualified));
     m.insert("pool".into(), json!(rows.len()));
+    // The filter's choices at this level, and what is picked.
+    let classes: Vec<(&str, &str)> = match p.tier {
+        Tier::Nfl => {
+            vec![("1", "Rookie"), ("2", "2nd year"), ("3", "3rd year"), ("4", "4th year"), ("5", "5th year +")]
+        }
+        _ => vec![("Fr", "Freshman"), ("So", "Sophomore"), ("Jr", "Junior"), ("Sr", "Senior")],
+    };
+    let picked = filter.class.and_then(|c| classes.get(c as usize - 1)).map(|c| c.0);
+    m.insert("classes".into(), json!(classes.iter().map(|c| [c.0, c.1]).collect::<Vec<_>>()));
+    m.insert("class".into(), json!(picked));
+    m.insert("rs".into(), json!(filter.redshirt.map(|r| if r { "yes" } else { "no" })));
+    m.insert("age_min".into(), json!(filter.age.0));
+    m.insert("age_max".into(), json!(filter.age.1));
+    m.insert("filtered".into(), json!(filter.on()));
     m.insert("rows".into(), json!(out));
     Value::Object(m)
 }
