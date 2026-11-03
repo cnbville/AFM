@@ -173,10 +173,10 @@ fn value(l: &Line, key: &str) -> f64 {
 /// In the NFL the minimums count the club's games, as Pro Football
 /// Reference does (14 attempts, 6.25 rushes, 1.875 catches, one field goal
 /// try and 2.5 punts a team game; minor bug B38); `team_games` is that
-/// count, None elsewhere, where his own games count.
-fn qualifies(l: &Line, key: &str, team_games: Option<f64>) -> bool {
+/// count when it is known. Elsewhere, or when the season's table is gone,
+/// his own games count.
+fn qualifies(l: &Line, key: &str, nfl: bool, team_games: Option<f64>) -> bool {
     let g = |s: Stat| l.s[s as usize] as f64;
-    let nfl = team_games.is_some();
     let games = team_games.unwrap_or(l.games.max(1) as f64).max(1.0);
     match key {
         "Pct" | "Ypa" => g(Stat::Att) >= if nfl { 14.0 } else { 15.0 } * games,
@@ -189,8 +189,8 @@ fn qualifies(l: &Line, key: &str, team_games: Option<f64>) -> bool {
 }
 
 /// The NFL's team games in a season: the most any club played, from the
-/// finished seasons' book or this season's table.
-fn nfl_team_games(w: &World, year: i32) -> f64 {
+/// finished seasons' book or this season's table (None when neither has it).
+fn nfl_team_games(w: &World, year: i32) -> Option<f64> {
     let done = w.nfl_seasons.iter().filter(|s| s.year == year).map(|s| s.wins + s.losses + s.ties).max();
     let now = (w.nfl_season_year() == Some(year)).then(|| {
         (0..w.nfl.len())
@@ -201,7 +201,7 @@ fn nfl_team_games(w: &World, year: i32) -> f64 {
             .max()
             .unwrap_or(0)
     });
-    done.or(now).unwrap_or(0) as f64
+    done.or(now).filter(|&g| g > 0).map(|g| g as f64)
 }
 
 fn shown(l: &Line, key: &str, per: &str) -> f64 {
@@ -515,10 +515,11 @@ fn leader_rows(w: &World, args: &Value, limit: usize) -> (Vec<Value>, usize, Vec
     let dir2 = args.get("dir2").and_then(Value::as_i64).unwrap_or(-1);
     let per = args.get("per").and_then(Value::as_str).unwrap_or("total").to_string();
     let filters: Vec<Value> = args.get("filters").and_then(Value::as_array).cloned().unwrap_or_default();
-    let team_games = (scope == "nfl").then(|| nfl_team_games(w, year));
+    let nfl = scope == "nfl";
+    let team_games = if nfl { nfl_team_games(w, year) } else { None };
     let mut all: Vec<Line> = lines(w, &scope, year, state)
         .into_iter()
-        .filter(|l| qualifies(l, &sort, team_games))
+        .filter(|l| qualifies(l, &sort, nfl, team_games))
         .filter(|l| value(l, &sort) != 0.0 || is_rate(&sort))
         .filter(|l| filters.iter().all(|f| passes(w, l, f, &per)))
         .collect();

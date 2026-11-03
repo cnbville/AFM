@@ -370,7 +370,8 @@ pub(crate) fn pro_hall(w: &mut World) -> Option<usize> {
     let wait = if class >= 2025 { 1 } else { 5 };
     let mut best: Option<(f64, usize, String)> = None;
     for (c, coach) in w.coaches.iter().enumerate() {
-        if !coach.retired || inducted(w, c, "PRO") {
+        // The NFL's own book may hold him already (an older save's seat).
+        if !coach.retired || inducted(w, c, "PRO") || w.nfl_book.hall_coaches.iter().any(|x| x.1 == c) {
             continue;
         }
         let (n, wins, losses, titles, last) = nfl_record(w, coach);

@@ -550,10 +550,14 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
     if p.cal.academic_sit {
         return "Academically ineligible".into();
     }
-    // Ruled out for grades this season, as his School tab says (minor bug B23).
-    if p.stage == Stage::HighSchool && p.cal.hs_grade_out > 0 {
-        let n = p.cal.hs_grade_out;
-        return format!("Out for grades ({n} {})", if n == 1 { "game" } else { "games" });
+    // Ruled out for grades for his team's next game (minor bug B23); the
+    // season's count stays on his School tab.
+    if p.stage == Stage::HighSchool
+        && p.cal.hs_grade_out > 0
+        && let Some(i) = person_index(w, p.player.id)
+        && w.hs_grade_out_now(i)
+    {
+        return "Out for grades".into();
     }
     // A high school transfer's sit, once drawn, is his season's role.
     if p.sit_out > 0.0

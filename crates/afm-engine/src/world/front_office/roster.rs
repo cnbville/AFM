@@ -41,7 +41,6 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
     }
     let plan = &w.front_office.roster.plan;
     let limit = w.rules.nfl_roster as usize;
-    let ps = squad::squad_size(w, t);
     let of = |i: usize| plan.iter().find(|x| x.0 == w.people[i].player.id).map(|x| x.1);
     // The staff's own cut, for the places you left open.
     let (staff53, staff_ps, _) = pro::cut_split(w, t, keep);
@@ -59,10 +58,12 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
     let mut squad_list: Vec<usize> = Vec::new();
     let eligible = |i: usize, vets: usize| {
         let c = w.people[i].pro.as_ref().unwrap();
-        squad::squad_eligible(c, w.people[i].player.age) || (vets < places && c.accrued <= most)
+        squad::ipp_place(w, i)
+            || squad::squad_eligible(c, w.people[i].player.age)
+            || (vets < places && c.accrued <= most)
     };
     for &(i, _) in keep {
-        if chosen.contains(&i) || of(i) != Some(Cut::Squad) || squad_list.len() >= ps {
+        if chosen.contains(&i) || of(i) != Some(Cut::Squad) || !squad::cut_room(w, &squad_list, i) {
             continue;
         }
         if eligible(i, vets) {
@@ -71,8 +72,8 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
         }
     }
     for &i in &staff_ps {
-        if squad_list.len() >= ps {
-            break;
+        if !squad::cut_room(w, &squad_list, i) {
+            continue;
         }
         if !chosen.contains(&i) && of(i).is_none() && !squad_list.contains(&i) && eligible(i, vets) {
             vets += usize::from(!squad::squad_eligible(w.people[i].pro.as_ref().unwrap(), w.people[i].player.age));

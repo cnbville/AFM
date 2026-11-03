@@ -22,7 +22,7 @@ pub(crate) fn you_decide(w: &World, i: usize) -> bool {
 pub(crate) fn recommend(w: &mut World, i: usize, weeks: u32) {
     let year = w.year;
     let min = games::ir_minimum(year);
-    let returns = games::ir_returns(year);
+    let returns = games::ir_returns_on(w);
     let name = w.people[i].name.clone();
     let pos = w.people[i].player.position.name();
     let vested = w.people[i].pro.as_ref().is_some_and(|c| c.accrued >= 4);

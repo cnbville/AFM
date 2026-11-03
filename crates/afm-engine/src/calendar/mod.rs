@@ -102,6 +102,8 @@ pub fn recruiting_period(y: &YearDates, d: Date) -> Period {
             (2, _) | (3, _) => Period::Quiet,
             (4, 1..=14) => Period::Quiet,
             (4, _) | (5, _) => spring_period(s, d),
+            // The Memorial Day dead days can run into June.
+            (6, 1..=2) if s >= 2024 => spring_period(s, d),
             (6, 1..=21) => Period::Quiet,
             (6, _) | (7, _) => Period::Dead,
             (8, _) => Period::Quiet,

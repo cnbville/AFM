@@ -1949,7 +1949,7 @@ pub(crate) fn cut_scores(w: &World, t: usize) -> Vec<(usize, f64)> {
 pub(crate) fn cut_split(w: &World, t: usize, keep: &[(usize, f64)]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     let year = w.year;
     let limit = w.rules.nfl_roster as usize;
-    let ps = squad::squad_size(w, t);
+    let ps = w.rules.nfl_practice_squad as usize;
     // Each position's share of the limit first, then the best of the rest.
     let mut chosen: Vec<usize> = Vec::new();
     for pos in Position::ALL {
@@ -1976,9 +1976,15 @@ pub(crate) fn cut_split(w: &World, t: usize, keep: &[(usize, f64)]) -> (Vec<usiz
     let mut squad: Vec<usize> = Vec::new();
     let mut vets = 0;
     let mut on = [0usize; crate::positions::POSITION_COUNT];
+    // An IPP player not kept on the 53 takes his own place (B25).
+    for &(i, _) in keep {
+        if !chosen.contains(&i) && squad::ipp_place(w, i) && squad::cut_room(w, &squad, i) {
+            squad.push(i);
+        }
+    }
     for strict in [true, false] {
         for &(i, v) in keep {
-            if chosen.contains(&i) || squad.contains(&i) || squad.len() >= ps {
+            if chosen.contains(&i) || squad.contains(&i) || !squad::cut_room(w, &squad, i) {
                 continue;
             }
             let c = w.people[i].pro.as_ref().unwrap();
@@ -2418,10 +2424,11 @@ fn season_end(w: &mut World, d: Date) {
         // agents a year against about 550). A file from before the weeks were
         // counted falls back on games; a man who dressed only in the playoffs
         // signed too late for one.
-        let accrues = s.full_pay_weeks >= 6
-            || held
-                && (s.games >= 6
-                    || s.games == 0 && s.full_pay_weeks == 0 && s.playoffs.is_none() && !squad && s.ps_weeks == 0);
+        let old_file = s.games == 0 && s.full_pay_weeks == 0 && s.playoffs.is_none() && !squad && s.ps_weeks == 0;
+        let accrues = s.full_pay_weeks >= 6 || held && (s.games >= 6 || old_file);
+        // A credited season (the pension's and the minimum's) needs three
+        // games on full pay status (review of minor bug B36).
+        let credits = s.full_pay_weeks >= 3 || held && (s.games >= 3 || old_file);
         // His season's row keeps the role he won, not only the one he had at
         // camp: half the games started make him a starter (minor bug 115: an
         // All-Pro who started the year behind someone read as a backup).
@@ -2429,6 +2436,8 @@ fn season_end(w: &mut World, d: Date) {
         c.earnings += pay;
         if accrues {
             c.accrued += 1;
+        }
+        if credits {
             c.credited += 1;
         }
         if started

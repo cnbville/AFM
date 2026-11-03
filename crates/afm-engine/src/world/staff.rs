@@ -230,7 +230,7 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
             use crate::calendar::rules::TransferRule;
             let days = if w.changes.rules(cycle_year(w)).transfer == TransferRule::Windows { 30 } else { 15 };
             let open = w.today.add(5);
-            w.late_windows[k].1 = Some((open, open.add(days)));
+            w.late_windows[k].1 = Some((open, open.add(days - 1)));
         }
     }
     // Your seat follows your job; anyone else's hire may be news to you.

@@ -130,14 +130,29 @@ pub fn eval_limits(season: i32, academy: bool) -> (u16, u16) {
 /// 2018 when the tenth assistant came; at FCS eleven, then thirteen from
 /// July 1, 2023 (Proposal 2022-28; the date proposed, not confirmed). From
 /// June 25, 2024 any staff member may coach, but the recruiters stay at 11
-/// and 13. None below Division I here.
-pub fn off_campus_recruiters(division: crate::world::data::Division, d: Date) -> Option<u32> {
+/// and 13, and the service academies get four more (the date proposed, not
+/// confirmed). None below Division I here.
+pub fn off_campus_recruiters(prog: &crate::world::program::Program, d: Date) -> Option<u32> {
     use crate::world::data::Division;
-    match division {
-        Division::FBS => Some(if d >= Date::ymd(2018, 1, 9) { 11 } else { 10 }),
-        Division::FCS => Some(if d >= Date::ymd(2023, 7, 1) { 13 } else { 11 }),
-        _ => None,
-    }
+    let base = match prog.division {
+        Division::FBS => {
+            if d >= Date::ymd(2018, 1, 9) {
+                11
+            } else {
+                10
+            }
+        }
+        Division::FCS => {
+            if d >= Date::ymd(2023, 7, 1) {
+                13
+            } else {
+                11
+            }
+        }
+        _ => return None,
+    };
+    let academy = service_academy(prog) && d >= Date::ymd(2024, 6, 25);
+    Some(base + if academy { 4 } else { 0 })
 }
 
 /// Army, Navy and Air Force: the NCAA gives the service academies more

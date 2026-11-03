@@ -1507,8 +1507,14 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             continue;
         }
         let t = d.portal.iter().find(|t| t.id == p.player.id && !t.settled);
-        let sits =
-            desk::transfer_sits(w.today, one_time, mine_div, w.programs[c].division, p.cal.graduated, p.transfers);
+        let sits = desk::transfer_sits(
+            w.today,
+            one_time,
+            mine_div,
+            w.programs[c].division,
+            p.cal.graduated,
+            desk::four_year_transfers(w, p),
+        );
         let read = views::person_index(w, p.player.id).map_or(reads::Read::NotSeen, |k| reads::overall(w, k));
         let key = p.last_performance.unwrap_or(p.player.overall()) * 0.0
             + stars_of(p) as f64 * 10.0

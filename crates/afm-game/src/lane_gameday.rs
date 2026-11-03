@@ -535,12 +535,19 @@ fn hint_json(h: &film::Hint, n: &film::Names, added: bool, src: &Value) -> Value
 
 /// Whether your sideline talks to the field by helmet radio (minor bug
 /// B22): the NFL's, and college's from 2024; high schools signal it in
-/// (the NFHS bars in-helmet audio).
-fn helmet_radio(w: &World) -> bool {
+/// (the NFHS bars in-helmet audio). Of the other leagues, the AAF, the
+/// XFL of 2020 and 2023, the USFL and the UFL had them; for the rest the
+/// screen stays neutral (None).
+fn helmet_radio(w: &World) -> Option<bool> {
+    use afm_engine::world::pro::other;
     match w.seat_team() {
-        Some((CalLevel::Nfl, _)) => true,
-        Some((CalLevel::College, _)) => w.year >= 2024,
-        _ => false,
+        Some((CalLevel::Nfl, _)) => Some(true),
+        Some((CalLevel::College, _)) => Some(w.year >= 2024),
+        Some((CalLevel::Other, f)) => {
+            matches!(other::league_of(f), other::AAF | other::XFL20 | other::XFL23 | other::USFL22 | other::UFL24)
+                .then_some(true)
+        }
+        _ => Some(false),
     }
 }
 

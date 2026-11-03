@@ -378,23 +378,50 @@ pub(crate) fn tie_order(s: &NflSeason, teams: &mut [usize], wild: bool) {
         }
         if e - k > 1 {
             let group: Vec<usize> = teams[k..e].to_vec();
-            let keys: Vec<(usize, Vec<f64>)> = group.iter().map(|&t| (t, tie_keys(s, t, &group, wild))).collect();
-            let mut sorted = keys.clone();
-            sorted.sort_by(|x, y| {
-                for (p, q) in x.1.iter().zip(&y.1) {
-                    let c = q.total_cmp(p);
-                    if c != std::cmp::Ordering::Equal {
-                        return c;
-                    }
-                }
-                x.0.cmp(&y.0)
-            });
-            for (n, (t, _)) in sorted.into_iter().enumerate() {
-                teams[k + n] = t;
-            }
+            let ordered = if wild { wild_order(s, group) } else { by_keys(s, &group, false) };
+            teams[k..e].copy_from_slice(&ordered);
         }
         k = e;
     }
+}
+
+/// A tied group sorted by its tiebreak steps.
+fn by_keys(s: &NflSeason, group: &[usize], wild: bool) -> Vec<usize> {
+    let mut keys: Vec<(usize, Vec<f64>)> = group.iter().map(|&t| (t, tie_keys(s, t, group, wild))).collect();
+    keys.sort_by(|x, y| {
+        for (p, q) in x.1.iter().zip(&y.1) {
+            let c = q.total_cmp(p);
+            if c != std::cmp::Ordering::Equal {
+                return c;
+            }
+        }
+        x.0.cmp(&y.0)
+    });
+    keys.into_iter().map(|x| x.0).collect()
+}
+
+/// The wild-card order of a tied group, one seed at a time: the division
+/// tiebreak leaves only the best club of each division, the wild-card steps
+/// pick one of those, and the rest start over (review of minor bug B30).
+fn wild_order(s: &NflSeason, mut left: Vec<usize>) -> Vec<usize> {
+    let mut out = Vec::with_capacity(left.len());
+    while !left.is_empty() {
+        let mut tops: Vec<usize> = Vec::new();
+        let mut seen: Vec<usize> = Vec::new();
+        for &t in &left {
+            if seen.contains(&s.div[t]) {
+                continue;
+            }
+            seen.push(s.div[t]);
+            let mut mine: Vec<usize> = left.iter().copied().filter(|&x| s.div[x] == s.div[t]).collect();
+            tie_order_division_only(s, &mut mine);
+            tops.push(mine[0]);
+        }
+        let best = by_keys(s, &tops, true)[0];
+        out.push(best);
+        left.retain(|&x| x != best);
+    }
+    out
 }
 
 /// One club's tiebreak steps within its tied group, higher better.
@@ -468,12 +495,8 @@ fn tie_keys(s: &NflSeason, t: usize, group: &[usize], wild: bool) -> Vec<f64> {
     };
     let coin = s.z.get(t).copied().unwrap_or(0.0);
     if wild {
-        // Only the best club of each division is compared at a time: the
-        // others in his division ahead of him in the group come first.
-        let mut mine: Vec<usize> = group.iter().copied().filter(|&x| s.div[x] == s.div[t]).collect();
-        tie_order_division_only(s, &mut mine);
-        let behind = mine.iter().position(|&x| x == t).unwrap_or(0) as f64;
-        vec![-behind, h2h, conf, common, combined(true), combined(false), coin]
+        // The group holds one club a division (`wild_order`).
+        vec![h2h, conf, common, combined(true), combined(false), coin]
     } else {
         vec![h2h, div, common, conf, combined(true), combined(false), coin]
     }
@@ -507,10 +530,12 @@ pub(crate) fn standings_order(s: &NflSeason, teams: &mut [usize]) {
     }
 }
 
-/// Whether the season's results are kept (seasons played on this build):
-/// older saves fall back to the record and division wins.
+/// Whether the season's results are kept (seasons played on this build),
+/// every game of them: older saves, or a season begun on an older build,
+/// fall back to the record and division wins.
 fn has_results(s: &NflSeason) -> bool {
-    !s.results.is_empty()
+    let played: u32 = (0..s.wins.len()).map(|t| s.wins[t] + s.losses[t] + s.ties[t]).sum();
+    !s.results.is_empty() && s.results.len() as u32 * 2 == played
 }
 
 pub(crate) fn record_key(s: &NflSeason, t: usize) -> f64 {

@@ -248,7 +248,7 @@
         <label>Which snaps stop for you<small>${s.stop === "every" ? "Every snap stops: calling plays yourself is how you play and learn. After each one you see your call beside your play caller's." : s.stop === "off" ? "None: your staff calls the game with your plan and rules, and you watch." : "The situations you pick stop; any other snap you can take over with N."}</small></label>
         ${seg("stop", s.stop, [["situations", "Your situations"], ["every", "Every snap"], ["off", "None"]])}
         <label>Situations<small>with "Your situations"</small></label><div class="gd-checks">${sits}</div>
-        <label>Time for a call<small>${s.clock === "realism" ? (s.radio ? "Realism: 25 seconds, the time between the play clock starting and the radio cutting out; then your play caller's call goes in." : "Realism: 25 seconds, the time to signal it in from the sideline (no helmet radios at this level); then your play caller's call goes in.") : "Learning: the game waits as long as you want."}</small></label>
+        <label>Time for a call<small>${s.clock === "realism" ? (s.radio === true ? "Realism: 25 seconds, the time between the play clock starting and the radio cutting out; then your play caller's call goes in." : s.radio === false ? "Realism: 25 seconds, the time to signal it in from the sideline (no helmet radios at this level); then your play caller's call goes in." : "Realism: 25 seconds, the time to get the call in; then your play caller's call goes in.") : "Learning: the game waits as long as you want."}</small></label>
         ${seg("clock", s.clock, [["realism", "Realism · 25 s"], ["learning", "Learning · no clock"]])}
       </div></div>`;
   }
@@ -658,7 +658,7 @@
           if (b) b.style.width = `${(100 * left) / 25000}%`;
           if (left <= 0) {
             clearTimer();
-            toast(st.settings.radio ? "The radio cut out: your play caller's call went in." : "Time to signal it in ran out: your play caller's call went in.");
+            toast(st.settings.radio === true ? "The radio cut out: your play caller's call went in." : st.settings.radio === false ? "Time to signal it in ran out: your play caller's call went in." : "Time to get the call in ran out: your play caller's call went in.");
             send({ kind: "staff" });
           }
         }, 200);

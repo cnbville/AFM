@@ -1015,7 +1015,7 @@ pub fn department(w: &World) -> Value {
         "assign_targets": assign_targets(w, staff),
         "eval": { "fall": [d.eval_days.1, fall], "spring": [d.eval_days.2, spring], "season": d.eval_days.0,
             "recruiters": match staff {
-                readers::Staff::Program(j) => dept::off_campus_recruiters(w.programs[j].division, w.today),
+                readers::Staff::Program(j) => dept::off_campus_recruiters(&w.programs[j], w.today),
                 _ => None,
             } },
         "days": days,

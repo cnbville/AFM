@@ -2349,13 +2349,12 @@ fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
 }
 
 /// When the staff reads its roster for a signing stage (T5.2): what this
-/// season still adds to everyone's count, whether the winter portal is still
-/// ahead, and the most seasons a player gets.
+/// season still adds to everyone's count and whether the winter portal is
+/// still ahead. The seasons a player gets come from his division and the
+/// season (`eligibility::seasons_allowed`, minor bug B9).
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 struct RosterRead {
     stage: SignStage,
-    /// Seasons a player gets (five under the five-in-five change).
-    limit: u32,
 }
 
 impl RosterRead {
@@ -2441,12 +2440,21 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         d,
         seasons,
         sign_year,
-        read.limit,
+        super::eligibility::seasons_allowed(sign_year, d),
         bars,
         if declared { p.cal.declare_plan } else { Some(false) },
         read.portal_ahead(),
     );
-    let after = leaving(p, d, seasons + 1, sign_year + 1, read.limit, bars, None, true);
+    let after = leaving(
+        p,
+        d,
+        seasons + 1,
+        sign_year + 1,
+        super::eligibility::seasons_allowed(sign_year + 1, d),
+        bars,
+        None,
+        true,
+    );
     (next, 1.0 - (1.0 - next) * (1.0 - after))
 }
 
@@ -2918,10 +2926,21 @@ pub fn official_cap(d: Date) -> Option<usize> {
     (d < Date::ymd(2023, 7, 1)).then_some(OFFICIAL_VISITS)
 }
 
-/// The day any transfer who is academically eligible plays at once: the
-/// NCAA's vote of April 17, 2024 (minor bug B11).
+/// Whether any transfer who is academically eligible plays at once: the
+/// NCAA's vote of April 17, 2024 freed every transfer for the 2024 season
+/// on, those who had already moved included (minor bug B11). A move from
+/// September on counts toward the next season.
 pub fn multi_transfers_free(day: Date) -> bool {
-    day >= Date::ymd(2024, 4, 17)
+    let season = if day.month() >= 9 { day.year() + 1 } else { day.year() };
+    season >= 2024
+}
+
+/// A college player's earlier transfers between four-year schools: the
+/// schools on his path before the one he is at now, junior colleges left
+/// out (minor bug B11: high school moves don't count).
+pub fn four_year_transfers(w: &World, p: &Person) -> u32 {
+    let n = p.path.len().saturating_sub(1);
+    p.path[..n].iter().filter(|&&c| w.programs.get(c).is_some_and(|x| x.division != Division::JUCO)).count() as u32
 }
 
 /// Whether a transfer sits out his first season at his new school. Before
@@ -4819,7 +4838,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let seat_prog = super::scouting::readers::seat_staff(w)
         .and_then(|s| if let super::scouting::readers::Staff::Program(p) = s { Some(p) } else { None });
     let own_mins = w.scouting.own.minimums.clone();
-    let read = RosterRead { stage, limit: if w.changes.rules(sign_year).five_in_five { 5 } else { 4 } };
+    let read = RosterRead { stage };
     let mut signed_by: Vec<Vec<usize>> = vec![Vec::new(); programs.len()];
     for (i, p) in w.people.iter().enumerate() {
         if let Some(s) = p.cal.signed
@@ -7617,7 +7636,14 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
             Step::Down
         };
         let sits = why != Why::ProgramDropped
-            && transfer_sits(today, one_time, to, from, w.people[i].cal.graduated, w.people[i].transfers);
+            && transfer_sits(
+                today,
+                one_time,
+                to,
+                from,
+                w.people[i].cal.graduated,
+                four_year_transfers(w, &w.people[i]),
+            );
         let (stars, starter, name) =
             (w.people[i].stars, w.people[i].last_role == Some(PlayingTime::Starter), w.people[i].name.clone());
         landings.push((i, j));
@@ -8030,7 +8056,7 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
         _ if w.today.month() >= 12 || w.today.month() <= 2 => SignStage::Final,
         _ => SignStage::Summer(0),
     };
-    let read = RosterRead { stage, limit: if w.changes.rules(sign_year).five_in_five { 5 } else { 4 } };
+    let read = RosterRead { stage };
     let prog = &w.programs[j];
     let signed: Vec<usize> = w
         .people

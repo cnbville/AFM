@@ -201,6 +201,9 @@ function sbDcTabs(cur, x) {
 const sbDepthBase = screens.depth;
 screens.depth = async (a) => {
   a = a || {};
+  // The other leagues' seat has no training boards: the plain depth chart
+  // (review of minor bug B41).
+  if (seatKind() === "other" && (!a.kind || a.kind === "other")) return depthBase(a);
   if (a.kind && typeof trMine === "function" && !trMine(a)) return sbDepthBase(a);
   // A depth spot on the Squad opens his unit's base board with his spot
   // picked (pid), once: a redraw keeps whatever spot you pick after it.
@@ -413,6 +416,8 @@ GOTO.needs = () => [["Depth chart", "depth"], ["Squad", "roster"]];
 const sbRosterBase = screens.roster;
 screens.roster = async (a) => {
   a = a || {};
+  // The other leagues' seat: the plain roster (review of minor bug B41).
+  if (seatKind() === "other" && !a.kind) return rosterBase(a);
   const mine = typeof trMine === "function" ? trMine(a) : !a.kind;
   const k = keep("sqview", { v: "Overview" });
   if (a.view) k.v = a.view;

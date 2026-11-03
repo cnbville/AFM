@@ -1946,7 +1946,7 @@ pub fn official_cap(d: crate::calendar::Date) -> Option<usize> {
     rec::official_cap(d)
 }
 
-pub use rec::{multi_transfers_free, transfer_sits};
+pub use rec::{four_year_transfers, multi_transfers_free, transfer_sits};
 
 pub fn next_class(w: &World) -> i32 {
     rec::next_class(w)
@@ -2052,7 +2052,16 @@ pub fn windows(w: &World) -> Vec<(Date, Date, &'static str)> {
             v.push((open, close, name));
         }
     }
-    if let Some((open, close)) = w.coach_window {
+    // The carousel's window is only for players whose head coach changed:
+    // shown when yours did (review of minor bug B12).
+    let changed = w
+        .seat
+        .filter(|s| s.level == Level::College)
+        .and_then(|s| s.program)
+        .is_some_and(|p| w.programs[p].hc_changed == crate::world::staff::cycle_year(w));
+    if let Some((open, close)) = w.coach_window
+        && changed
+    {
         v.push((open, close, "Coaching change window"));
     }
     // Your own hire's window for your players (minor bug B15).

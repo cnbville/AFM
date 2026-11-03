@@ -295,6 +295,26 @@ pub fn squad_size(w: &World, t: usize) -> usize {
     base + usize::from(ipp)
 }
 
+/// Whether a player goes in the International Player Pathway's own place
+/// on a practice squad (from 2017, outside the era's ordinary places).
+pub(crate) fn ipp_place(w: &World, i: usize) -> bool {
+    w.year >= 2017 && w.rules.nfl_practice_squad > 0 && w.people[i].pro.as_ref().is_some_and(|c| c.ipp)
+}
+
+/// Whether a practice squad list has room for one more: the era's ordinary
+/// places, and the one IPP place kept for an IPP player (review of minor
+/// bug B25: at cutdown the IPP player isn't on the squad yet, so
+/// `squad_size` didn't count his place and he took an ordinary one).
+pub(crate) fn cut_room(w: &World, list: &[usize], i: usize) -> bool {
+    let base = w.rules.nfl_practice_squad as usize;
+    let ipp_in = list.iter().any(|&x| ipp_place(w, x));
+    let ordinary = list.len() - usize::from(ipp_in);
+    if ipp_place(w, i) && !ipp_in {
+        return true;
+    }
+    ordinary < base
+}
+
 pub(crate) fn veteran_places(year: i32) -> (usize, u32) {
     match year {
         ..2014 => (0, 0),

@@ -2228,7 +2228,7 @@ fn future_deal(w: &mut World, i: usize, t: usize, year: i32) {
 /// player goes through them. Under four credited seasons always.
 pub(crate) fn waivable(w: &World, i: usize, d: Date) -> bool {
     let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
-    credited < 4 || (d > w.dates.trade_deadline.date && d < w.dates.wild_card)
+    credited < 4 || (d > w.dates.trade_deadline.date && d < w.dates.black_monday)
 }
 
 /// The waiver claims (each day at 4pm, real): teams in waiver order (last

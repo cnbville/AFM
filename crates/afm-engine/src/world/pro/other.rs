@@ -474,10 +474,14 @@ pub fn cfl_opener(year: i32) -> Date {
 
 /// A league's season on the calendar (minor bug B40): the first game, the
 /// midpoint of the regular season and the week after its last game, the
-/// title game included (one game a week, the playoffs' rounds after).
+/// title game included (the drawn schedule's weeks, the playoffs' rounds
+/// after).
 pub fn season_span(k: u8, year: i32) -> Option<(Date, Date, Date)> {
     let f = format(k, year)?;
-    let reg = f.stop_after.map_or(f.games, |s| s.min(f.games)) as i32;
+    // The weeks the drawn schedule takes: a nine-team CFL needs 21 for its
+    // 18 games, with a club resting each week (review of minor bug B40).
+    let weeks = schedule(&teams_in(k, year), f.games, 0).len() as i32;
+    let reg = f.stop_after.map_or(weeks, |s| (s as i32).min(weeks));
     let rounds = match f.playoff {
         _ if f.stop_after.is_some() => 0,
         Playoff::None => 0,
@@ -809,18 +813,25 @@ pub(crate) fn day(w: &mut World, d: Date) {
             continue;
         }
         let f = format(k, year).unwrap();
-        if k == CFL && d == Date::ymd(year, 5, 1) {
+        let camp = f.start.add(-21);
+        // The CFL draft in early May, before camp once the season moves to
+        // May (review of minor bug B43; proposed, not confirmed).
+        if k == CFL && d == draft_day(year, camp) {
             draft(w, d);
         }
-        let camp = f.start.add(-21);
-        if d == camp {
+        // Camp opens on its day, or late when a save's dates moved past it
+        // (review of B43/B44: the 2026 openers moved).
+        let begun = w.others.live.iter().any(|l| l.league == k && l.year == year)
+            || w.others.seasons.iter().any(|s| s.league == k && s.year == year);
+        if d >= camp && d <= f.start && !begun {
             open(w, d, k, &f);
         }
         let Some(li) = w.others.live.iter().position(|l| l.league == k && l.year == year && !l.done) else {
             continue;
         };
+        // A week is played on its day, or caught up when it is past.
         let wk = w.others.live[li].week as i32;
-        if d == f.start.add(7 * wk) {
+        if d >= f.start.add(7 * wk) {
             play_week(w, d, li, &f);
         }
     }
@@ -1178,6 +1189,12 @@ pub fn national_home(id: u32, school: u8) -> String {
     let (code, towns) = PROV[prov];
     let t = towns[(key_uniform(0x70E1, id as u64) * towns.len() as f64) as usize % towns.len()];
     format!("{t}, {code}")
+}
+
+/// The CFL draft's day: May 1, or a week before camp when camp opens
+/// earlier (proposed, not confirmed).
+pub fn draft_day(year: i32, camp: Date) -> Date {
+    Date::ymd(year, 5, 1).min(camp.add(-7))
 }
 
 /// The CFL draft (early May): Canadians from U Sports programs and
@@ -1596,12 +1613,16 @@ pub(crate) fn ratio_starters_from(
         // The cheapest swap: the best Canadian on the bench (or a
         // nationalized American while none starts) for the weakest import
         // starting at his spot.
-        let open = count(&lists, natzd) == 0;
+        let nz = count(&lists, natzd);
+        let open = nz == 0;
         let counts = |id: u32| nationals.contains(&id) || (open && natzd.contains(&id));
+        // Only one nationalized American counts: while he is the only one
+        // starting he stays; a second one is an import here (review of B45).
+        let keep = |id: u32| nationals.contains(&id) || (nz == 1 && natzd.contains(&id));
         let mut best: Option<(f64, usize, usize, usize)> = None;
         for (li, (pos, v)) in lists.iter().enumerate().filter(|(_, (pos, _))| *pos != Position::QB) {
             let n = starts(*pos).min(v.len());
-            let Some(out) = (0..n).rev().find(|&j| !nationals.contains(&v[j].1) && !natzd.contains(&v[j].1)) else {
+            let Some(out) = (0..n).rev().find(|&j| !keep(v[j].1)) else {
                 continue;
             };
             let Some(inn) = (n..v.len()).find(|&j| counts(v[j].1)) else { continue };
