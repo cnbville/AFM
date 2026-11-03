@@ -417,7 +417,7 @@ const sbRosterBase = screens.roster;
 screens.roster = async (a) => {
   a = a || {};
   // The other leagues' seat: the plain roster (review of minor bug B41).
-  if (seatKind() === "other" && !a.kind) return rosterBase(a);
+  if (seatKind() === "other" && trMine(a)) return rosterBase(a);
   const mine = typeof trMine === "function" ? trMine(a) : !a.kind;
   const k = keep("sqview", { v: "Overview" });
   if (a.view) k.v = a.view;

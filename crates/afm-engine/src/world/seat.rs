@@ -1427,21 +1427,37 @@ impl World {
     }
 
     /// Dates and rules fixed in minor bugs batch 6 reach a saved year: the
-    /// January window (B16) always, the 2026 cutdown (B35) while both the old
-    /// and the new cutdown are still ahead, and the practice squad size with
-    /// its IPP place (B25).
+    /// January window (B16) always; the 2026 cutdown (B35) while the old
+    /// cutdown and the new one's trade window (two days before it) are both
+    /// still ahead; and the practice squad size with its IPP place (B25).
     fn batch6_dates_after_load(&mut self) {
         let weeks = |y: i32| self.changes.rules(y).nfl_weeks as usize;
         let s = self.dates.season;
         let fresh = crate::calendar::YearDates::with_weeks(s, weeks(s), weeks(s - 1));
         self.dates.portal_open = fresh.portal_open;
         self.dates.portal_close = fresh.portal_close;
-        if self.today < self.dates.cutdown.date && self.today < fresh.cutdown.date {
+        if self.today < self.dates.cutdown.date && self.today <= fresh.cutdown.date.add(-2) {
             self.dates.cutdown = fresh.cutdown;
             self.dates.waiver_claims = fresh.waiver_claims;
             self.dates.practice_squads = fresh.practice_squads;
         }
-        self.rules.nfl_practice_squad = self.changes.rules(self.year).nfl_practice_squad;
+        // The size the year started with: a squad vote at this year's March
+        // meeting reaches the rules at the next year's start (`clock`), so a
+        // load must not bring it in early.
+        let voted: i32 = self
+            .changes
+            .applied
+            .iter()
+            .filter(|a| {
+                a.change == crate::calendar::Change::RosterSize
+                    && a.season == self.year
+                    && a.detail.starts_with("practice squad")
+            })
+            .map(|a| if a.detail.contains("grows") { 1 } else { -1 })
+            .sum();
+        let mut at_start = self.changes.clone();
+        at_start.squad_delta -= voted;
+        self.rules.nfl_practice_squad = at_start.rules(self.year).nfl_practice_squad;
     }
 
     /// What a world file from before the final build lacks (lane 1): birth

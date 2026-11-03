@@ -398,12 +398,12 @@ fn gap_words(s: f64) -> &'static str {
 /// his seasons, a bonus that fits the guarantee, the room it needs.
 fn check(w: &World, t: usize, i: usize, p: &Proposal, kind: TalkKind) -> Result<(), String> {
     let year = w.year;
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
     if p.years == 0 || p.years > 7 {
         return Err("A deal runs one to seven years.".into());
     }
-    if p.apy < money::minimum(year, accrued) {
-        return Err(format!("The minimum for his seasons is {}.", super::dollars(money::minimum(year, accrued))));
+    if p.apy < money::minimum(year, credited) {
+        return Err(format!("The minimum for his seasons is {}.", super::dollars(money::minimum(year, credited))));
     }
     if !(0.0..=1.0).contains(&p.gtd) || p.bonus > p.gtd + 1e-9 {
         return Err("The signing bonus is part of the guarantee: it can't be larger.".into());
@@ -1075,7 +1075,7 @@ pub fn tender(w: &mut World, id: u32, level: &str) -> Result<String, String> {
         if accrued >= 3 {
             return Err("With three seasons he's restricted, not exclusive-rights.".into());
         }
-        let p = money::minimum(year, c.accrued);
+        let p = money::minimum(year, c.credited);
         (p, None, "an exclusive-rights tender")
     } else {
         let tend = match level {
@@ -1236,8 +1236,8 @@ pub fn restructure(w: &mut World, id: u32, voids: u32) -> Result<String, String>
     if !money::capped(year) {
         return Err("There's no cap this year to restructure for.".into());
     }
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-    let keep = money::minimum(year, accrued);
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let keep = money::minimum(year, credited);
     let voids = if void_years_allowed(year) { voids.min(4) } else { 0 };
     let c = w.people[i].pro.as_mut().ok_or("No such pro.")?;
     if c.team != Some(t) {
@@ -1349,9 +1349,9 @@ pub fn wants_words(w: &World, i: usize) -> String {
 pub fn market_read(w: &World, i: usize) -> (f64, f64) {
     let p = &w.people[i];
     let view = market::market_grade(w, p.player.position, market::consensus(w, i));
-    let accrued = p.pro.as_ref().map_or(0, |c| c.accrued);
-    let price = market::market_price(w.year, p.player.position, view, accrued, p.player.age)
-        .max(money::minimum(w.year, accrued));
+    let credited = p.pro.as_ref().map_or(0, |c| c.credited);
+    let price = market::market_price(w.year, p.player.position, view, credited, p.player.age)
+        .max(money::minimum(w.year, credited));
     let width = clamp(0.22 - 0.01 * (negotiating(w) - 10.0), 0.08, 0.35);
     let off = super::key_n(w, 0xCAB0, p.player.id as u64) * width * 0.3;
     let mid = price * (1.0 + off);

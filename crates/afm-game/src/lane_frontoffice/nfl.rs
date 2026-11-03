@@ -158,7 +158,7 @@ pub(crate) fn cap_moves(w: &World, i: usize) -> Option<Value> {
     let last = k.last_year() <= year;
     Some(json!({
         "re": money::capped(year)
-            && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0)
+            && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.credited) + 100_000.0)
             && (!last || nfl::void_years_allowed(year)),
         "last": last,
         "voids": nfl::void_years_allowed(year),
@@ -312,7 +312,7 @@ fn cap_sheet(w: &World) -> Reply {
         v["last_year"] = json!(last);
         v["can_restructure"] = json!(
             money::capped(year)
-                && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.accrued) + 100_000.0)
+                && k.year(year).is_some_and(|x| x.base > money::minimum(year, c.credited) + 100_000.0)
                 && c.status != Status::PracticeSquad
                 && (!last || nfl::void_years_allowed(year))
         );
@@ -468,7 +468,7 @@ fn expiring(w: &World) -> Reply {
             });
         }
         if ending && accrued < 3 {
-            v["erfa"] = json!(money::minimum(year, c.accrued).round());
+            v["erfa"] = json!(money::minimum(year, c.credited).round());
         }
         v["tagged"] = json!(tagged_now.then(|| kind_words(k.kind)));
         v["option"] = json!(option);
@@ -560,7 +560,7 @@ fn talk(w: &World, id: u32) -> Reply {
     let visited = w.front_office.nfl.visits.iter().any(|v| v.0 == id);
     // The season just played counts from the Super Bowl on.
     let accrued = c.accrued;
-    let minimum = money::minimum(year, accrued);
+    let minimum = money::minimum(year, c.credited);
     let mut v = prow(w, i);
     v["contract"] = json!(contract);
     v["agent"] = json!(agent);

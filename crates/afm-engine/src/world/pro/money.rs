@@ -42,25 +42,26 @@ pub fn ufa_seasons(year: i32) -> u32 {
     if year == 2010 { 6 } else { 4 }
 }
 
-/// The league minimum by accrued seasons (none, 1, 2, 3, 4-6, 7 or more),
-/// from the CBAs' own scales (minor bug B24): the 2011 CBA's $375K, $450K,
+/// The league minimum by credited seasons (three games on full pay status
+/// each; none, 1, 2, 3, 4-6, 7 or more), from the CBAs' own scales (minor
+/// bug B24; credited, not accrued, from the batch's second review): the 2011 CBA's $375K, $450K,
 /// $525K, $600K, $685K, $810K (7-9) and $910K (10 or more) in 2011, $15K a
 /// year more to 2019; the
 /// 2020 CBA's $610K to $1.05M in 2020, then 2025's $840K, $960K, $1.03M,
 /// $1.1M, $1.17M and $1.255M less or more $45K a year from 2021 to 2030
 /// ($885K with none in 2026). Before 2011 and after 2030 the nearest
 /// scale moves with the cap.
-pub fn minimum(year: i32, accrued: u32) -> f64 {
+pub fn minimum(year: i32, credited: u32) -> f64 {
     const Y2011: [f64; 7] = [375e3, 450e3, 525e3, 600e3, 685e3, 810e3, 910e3];
     const Y2020: [f64; 6] = [610e3, 675e3, 750e3, 825e3, 910e3, 1_050e3];
     const Y2025: [f64; 6] = [840e3, 960e3, 1_030e3, 1_100e3, 1_170e3, 1_255e3];
-    let k = match accrued {
-        0..=3 => accrued as usize,
+    let k = match credited {
+        0..=3 => credited as usize,
         4..=6 => 4,
         _ => 5,
     };
     // The 2011 scale's own tier for ten seasons or more (review of B24).
-    let k11 = if accrued >= 10 { 6 } else { k };
+    let k11 = if credited >= 10 { 6 } else { k };
     let scaled = |base: f64, from: i32| (base * price_cap(year) / price_cap(from) / 5_000.0).round() * 5_000.0;
     match year {
         ..=2010 => scaled(Y2011[k11], 2011),

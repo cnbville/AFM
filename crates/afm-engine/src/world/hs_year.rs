@@ -229,8 +229,12 @@ pub(crate) struct HsSeasonState {
     /// This season's games run on the match engine (section 8, choice 2).
     pub on_engine: bool,
     /// The weeks each player misses for grades, as bits (regular weeks then
-    /// playoff rounds), by person.
+    /// playoff rounds), by person; a part-season transfer's sit weeks too.
     grade_weeks: HashMap<usize, u32>,
+    /// Of those, the weeks a transfer sits (minor bug B21), so the status
+    /// line tells the two apart.
+    #[serde(default)]
+    sat_weeks: HashMap<usize, u32>,
     /// The season's lines so far, by person.
     book: HashMap<usize, HsAcc>,
     /// Each school's district this season (U-d), by school id.
@@ -495,6 +499,7 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         rated: false,
         on_engine: hs_on_engine(w, year),
         grade_weeks: HashMap::new(),
+        sat_weeks: HashMap::new(),
         book: HashMap::new(),
         district,
         played: Vec::new(),
@@ -877,6 +882,7 @@ fn start_state(w: &mut World, s: usize) {
     let seed = w.options.seed as u64 ^ (w.year as u64) << 28 ^ 0x6772;
     let mut out: HashMap<usize, Vec<f64>> = HashMap::new();
     let mut grade_weeks: HashMap<usize, u32> = HashMap::new();
+    let mut sat_weeks: HashMap<usize, u32> = HashMap::new();
     let mut missed_players = 0;
     for &h in &schools {
         let starters = w.high_schools[h]
@@ -910,6 +916,7 @@ fn start_state(w: &mut World, s: usize) {
                     }
                 }
                 *grade_weeks.entry(i).or_insert(0) |= sat;
+                sat_weeks.insert(i, sat);
                 w.people[i].note(format!("At {age} he sat the first {n} games of the season as a transfer."));
             }
             let p = &w.people[i];
@@ -952,6 +959,7 @@ fn start_state(w: &mut World, s: usize) {
     }
     hs.out.extend(out);
     hs.grade_weeks.extend(grade_weeks);
+    hs.sat_weeks.extend(sat_weeks);
     hs.states[s].developed = true;
 }
 
@@ -2760,6 +2768,8 @@ impl World {
     pub fn hs_grade_out_now(&self, i: usize) -> bool {
         let Some(hs) = self.hs_season.as_ref() else { return false };
         let Some(&mask) = hs.grade_weeks.get(&i) else { return false };
+        // The transfer's sit weeks are his sit, not his grades.
+        let mask = mask & !hs.sat_weeks.get(&i).copied().unwrap_or(0);
         let Some(h) = self.people.get(i).map(|p| p.hs) else { return false };
         let Some(st) = self.high_schools.get(h).and_then(|x| hs.states.get(x.state)) else { return false };
         if st.done {

@@ -106,8 +106,9 @@ pub struct ProCareer {
     pub team: Option<usize>,
     pub status: Status,
     pub contract: Option<money::Contract>,
-    /// Accrued seasons (six games on full pay status) and credited
-    /// seasons (three), for free agency and the minimum.
+    /// Accrued seasons (six games on full pay status), for free agency,
+    /// and credited seasons (three), for the minimum, waivers and the
+    /// pension.
     pub accrued: u32,
     pub credited: u32,
     /// Draft year, round, pick and team; None for an undrafted player.
@@ -1025,8 +1026,8 @@ fn fill_holes(w: &mut World, d: Date, full: bool) {
                     break;
                 }
                 let i = street_or_new(w, pos);
-                let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-                sign(w, i, t, d, money::minimum(year, accrued), 1, money::Kind::Minimum);
+                let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+                sign(w, i, t, d, money::minimum(year, credited), 1, money::Kind::Minimum);
             }
         }
     }
@@ -1122,8 +1123,8 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
             };
             let pos = Position::ALL.into_iter().max_by_key(|&p| (thin(p), std::cmp::Reverse(p.index()))).unwrap();
             let i = street_or_new(w, pos);
-            let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-            let price = money::minimum(year, accrued);
+            let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+            let price = money::minimum(year, credited);
             if money::cap_books(year) && space(w, t, year) < price {
                 market::clear_room(w, t, d, false, price, false);
                 if space(w, t, year) < price && healthy >= dress {
@@ -1488,10 +1489,10 @@ fn set_carryover(w: &mut World) {
 pub(crate) fn ask(w: &World, i: usize, year: i32, d: Date) -> (f64, u32) {
     let p = &w.people[i];
     let c = p.pro.as_ref();
-    let accrued = c.map_or(0, |c| c.accrued);
+    let credited = c.map_or(0, |c| c.credited);
     let g = p.player.overall();
     let weeks = (w.dates.league_year.date.days_to(d).max(0) / 7) as u32 + c.map_or(0, |c| c.weeks_unsigned);
-    let min = money::minimum(year, accrued);
+    let min = money::minimum(year, credited);
     let rel = market::market_grade(w, p.player.position, g);
     let price = money::price_cap(year)
         * money::market_share(p.player.position, rel)
@@ -1976,11 +1977,12 @@ pub(crate) fn cut_split(w: &World, t: usize, keep: &[(usize, f64)]) -> (Vec<usiz
     let mut squad: Vec<usize> = Vec::new();
     let mut vets = 0;
     let mut on = [0usize; crate::positions::POSITION_COUNT];
-    // An IPP player not kept on the 53 takes his own place (B25).
-    for &(i, _) in keep {
-        if !chosen.contains(&i) && squad::ipp_place(w, i) && squad::cut_room(w, &squad, i) {
-            squad.push(i);
-        }
+    // One healthy IPP player not kept on the 53 takes his own place (B25);
+    // any other goes through the tests below, in an ordinary place.
+    if let Some(&(i, _)) = keep.iter().find(|&&(i, _)| {
+        !chosen.contains(&i) && squad::ipp_place(w, i) && w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks == 0)
+    }) {
+        squad.push(i);
     }
     for strict in [true, false] {
         for &(i, v) in keep {

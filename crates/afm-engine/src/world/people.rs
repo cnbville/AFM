@@ -502,7 +502,7 @@ pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
     }
     let pos = p.player.position;
     let view = market::market_grade(w, pos, market::consensus(w, i));
-    Some((apy, market::market_price(w.year, pos, view, c.accrued, p.player.age)))
+    Some((apy, market::market_price(w.year, pos, view, c.credited, p.player.age)))
 }
 
 /// A pro's trust in his club, read at camp beside his trust in the head

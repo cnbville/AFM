@@ -816,14 +816,20 @@ pub(crate) fn day(w: &mut World, d: Date) {
         let camp = f.start.add(-21);
         // The CFL draft in early May, before camp once the season moves to
         // May (review of minor bug B43; proposed, not confirmed).
-        if k == CFL && d == draft_day(year, camp) {
+        // A save from before the day moved holds it late, to May 1.
+        if k == CFL
+            && d >= draft_day(year, camp)
+            && d <= Date::ymd(year, 5, 1)
+            && !w.others.draft.iter().any(|p| p.year == year)
+        {
             draft(w, d);
         }
-        // Camp opens on its day, or late when a save's dates moved past it
-        // (review of B43/B44: the 2026 openers moved).
+        // Camp opens on its day, or late (up to the regular season's end)
+        // when a save's dates moved past it (review of B43/B44: the 2026
+        // openers moved); the weeks then catch up one a day.
         let begun = w.others.live.iter().any(|l| l.league == k && l.year == year)
             || w.others.seasons.iter().any(|s| s.league == k && s.year == year);
-        if d >= camp && d <= f.start && !begun {
+        if d >= camp && d < f.start.add(7 * f.games as i32) && !begun {
             open(w, d, k, &f);
         }
         let Some(li) = w.others.live.iter().position(|l| l.league == k && l.year == year && !l.done) else {

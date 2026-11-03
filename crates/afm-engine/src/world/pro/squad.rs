@@ -296,9 +296,13 @@ pub fn squad_size(w: &World, t: usize) -> usize {
 }
 
 /// Whether a player goes in the International Player Pathway's own place
-/// on a practice squad (from 2017, outside the era's ordinary places).
+/// on a practice squad (from 2017, outside the era's ordinary places): a
+/// pathway player still in it, with no accrued season and under three on a
+/// squad (the flag stays on him for life).
 pub(crate) fn ipp_place(w: &World, i: usize) -> bool {
-    w.year >= 2017 && w.rules.nfl_practice_squad > 0 && w.people[i].pro.as_ref().is_some_and(|c| c.ipp)
+    w.year >= 2017
+        && w.rules.nfl_practice_squad > 0
+        && w.people[i].pro.as_ref().is_some_and(|c| c.ipp && c.accrued == 0 && c.ps_seasons < 3)
 }
 
 /// Whether a practice squad list has room for one more: the era's ordinary
@@ -497,8 +501,8 @@ pub(crate) fn refill_squads(w: &mut World, d: Date) -> bool {
 /// through the next season, as most are (proposed, not confirmed).
 fn sign_up(w: &mut World, t: usize, i: usize, pay: f64) {
     let year = w.year;
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-    let terms = money::Terms::flat(2, money::minimum(year, accrued).max(pay));
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let terms = money::Terms::flat(2, money::minimum(year, credited).max(pay));
     let deal = money::build(t, money::Kind::Veteran, year, &terms);
     let name = w.nfl[t].name;
     let p = &mut w.people[i];
