@@ -122,8 +122,10 @@ function pageHead({ kicker = "", title: t = "", sub = "", actions = "", goto = "
   return `<header class="phead"><div class="phead-copy">${kicker ? `<div class="st-label">${kicker}</div>` : ""}<div class="h1">${t}</div>${sub ? `<p class="sub">${sub}</p>` : ""}</div>${actions ? `<div class="phead-act">${actions}</div>` : ""}</header>${goto}`;
 }
 const teamArgs = (a) => (a && a.kind ? { kind: a.kind, id: a.id } : {});
-GOTO.roster = (a) => [["Depth chart", "depth"], ["Training", "training"], ["Schedule", "schedule", teamArgs(a)], ["Staff", "staff", teamArgs(a)], ["Team page", "team", teamArgs(a)], ["Leaderboards", "leaders"]];
-GOTO.depth = () => [["Squad", "roster"], ["Training", "training"], ["Schedule", "schedule"]];
+// Another league's club has no training week in the game (minor bug B42).
+const goTraining = () => (seatKind() === "other" ? null : ["Training", "training"]);
+GOTO.roster = (a) => [["Depth chart", "depth"], goTraining(), ["Schedule", "schedule", teamArgs(a)], ["Staff", "staff", teamArgs(a)], ["Team page", "team", teamArgs(a)], ["Leaderboards", "leaders"]];
+GOTO.depth = () => [["Squad", "roster"], goTraining(), ["Schedule", "schedule"]];
 GOTO.training = () => [["Squad", "roster"], ["Depth chart", "depth"], ["Staff", "staff"]];
 GOTO.recruiting = () => [["My players", "myplayers"], ["Player finder", "finder"], ["Recruiting mail", "inbox", { key: "Recruiting" }]];
 GOTO.contracts = () => [["Squad", "roster"], ["Money mail", "inbox", { key: "Money" }]];
@@ -132,7 +134,7 @@ GOTO.contracts = () => [["Squad", "roster"], ["Money mail", "inbox", { key: "Mon
 GOTO.schedule = (a, x) => {
   const opp = x && x.next_opp;
   const next = opp ? (x.mine ? [`Next opponent: ${opp.name}`, "gameday"] : [`Next opponent: ${opp.name}`, "team", { kind: opp.ref.kind, id: opp.ref.id }]) : null;
-  return [["Standings", "standings"], ["Calendar", "calendar"], next, x && x.mine && x.level !== undefined ? ["The year", "year"] : null];
+  return [["Standings", "standings"], ["Calendar", "calendar"], next, x && x.mine && x.level !== undefined && seatKind() !== "other" ? ["The year", "year"] : null];
 };
 GOTO.games = () => [["Schedule", "schedule"], ["Standings", "standings"], ["Leaderboards", "leaders"]];
 GOTO.staff = (a) => [["Team page", "team", teamArgs(a)], ["Your profile", "you"]];
@@ -1099,7 +1101,7 @@ function nextReveal() {
 
 // ---------- holiday mode on screen ----------
 async function holiday() {
-  const { f: box } = dialog(`<b>Go on holiday</b><p class="sub">Your staff runs the team while you're away and makes every call for you, meetings and choices included. The game comes back early only for a huge moment: the draft, cutdown day, the deadlines, the playoffs and title games, or one of your own team's biggest games.</p>
+  const { f: box } = dialog(`<b>Go on holiday</b><p class="sub">Your staff runs the team while you're away and makes every call for you, meetings and choices included. The game comes back early only for a huge moment: the draft, the NFL's cutdown day and trade deadline, the playoffs and title games, or one of your own team's biggest games. Signing days and the tag deadline don't bring you back.</p>
     <div class="seg hseg">${[[7, "A week"], [14, "Two weeks"], [30, "A month"], [90, "Three months"]].map(([d, t], i) => `<button type="button" data-days="${d}" aria-pressed="${i === 0}">${t}</button>`).join("")}</div>`, "Go on holiday", async (b) => {
     const pressed = b.querySelector('.hseg [aria-pressed="true"]');
     const days = Number(pressed ? pressed.dataset.days : 7);
@@ -2020,7 +2022,7 @@ screens.history = async (a) => {
   } else if (key === "hall") {
     body = b.length ? `<div class="hof">${b.map((h) => `<div class="hof-card">${face({ name: h.name }, 56)}<div><div class="st-label">${esc(h.level)} · ${h.year}</div><b>${h.id ? playerLink(h.id, h.name) : h.coachId != null ? coachLink(h.coachId, h.name) : esc(h.name)}</b>${h.pos ? ` <small class="muted">${esc(h.pos)}</small>` : ""}${h.coach ? ' <span class="tag soft">Coach</span>' : ""}<p class="sub">${esc(h.why || "")}</p>${(h.teams || []).length ? `<div class="chips">${h.teams.map((t) => teamChip(t, 16)).join("")}</div>` : ""}</div></div>`).join("")}</div>` : '<div class="empty">Nobody inducted yet.</div>';
   } else if (key === "awards") {
-    body = `<div class="tbar">${yearSel(b.year)}</div>${table("hawards", [{ k: "award", t: "Award", l: true }, { k: "level", t: "Level", l: true }, { k: "name", t: "Winner", l: true, f: (r) => playerLink(r.id, r.name) }, { k: "pos", t: "Pos", l: true, f: (r) => esc(r.pos || "") }, { k: "team", t: "Team", l: true, f: (r) => (r.team ? teamChip(r.team, 18) : ""), v: (r) => (r.team ? r.team.name : "") }], b.rows, { tools: false, empty: "No awards that year." })}`;
+    body = `<div class="tbar">${yearSel(b.year)}</div>${table("hawards", [{ k: "award", t: "Award", l: true }, { k: "level", t: "Level", l: true }, { k: "name", t: "Winner", l: true, f: (r) => (r.coach ? coachLink(r.coachId, r.name) : playerLink(r.id, r.name)) }, { k: "pos", t: "Pos", l: true, f: (r) => esc(r.coach ? "Coach" : r.pos || "") }, { k: "team", t: "Team", l: true, f: (r) => (r.team ? teamChip(r.team, 18) : ""), v: (r) => (r.team ? r.team.name : "") }], b.rows, { tools: false, empty: "No awards that year." })}`;
   } else if (key === "carousel") {
     body = `<div class="tbar">${yearSel(b.year)}</div>${b.rows.length ? `<div class="items">${b.rows.map((r) => `<div class="item"><span class="when">${esc(r.date || "")}</span><span><span class="tag ${r.kind === "Fired" ? "due" : "soft"}">${esc(r.kind)}</span> ${rich(r.text)}</span></div>`).join("")}</div>` : '<div class="empty">No coaching moves that year yet.</div>'}`;
   } else {

@@ -280,6 +280,21 @@ pub(crate) fn poach(w: &mut World, d: Date) -> bool {
 /// held only young players, so a street veteran always beat them for an
 /// open place on the 53 and almost no squad player was signed up, where
 /// real clubs keep veterans on the squad for exactly that.
+/// A club's practice squad places: the era's (16 from 2020) and, from 2017,
+/// one more while an International Player Pathway player holds it (from
+/// 2024 the 17th, only his; minor bug B25).
+pub fn squad_size(w: &World, t: usize) -> usize {
+    let base = w.rules.nfl_practice_squad as usize;
+    let ipp = base > 0
+        && w.year >= 2017
+        && w.clubs.get(t).is_some_and(|c| {
+            c.roster
+                .iter()
+                .any(|&i| w.people[i].pro.as_ref().is_some_and(|p| p.ipp && p.status == Status::PracticeSquad))
+        });
+    base + usize::from(ipp)
+}
+
 pub(crate) fn veteran_places(year: i32) -> (usize, u32) {
     match year {
         ..2014 => (0, 0),
@@ -414,6 +429,7 @@ pub(crate) fn refill_squads(w: &mut World, d: Date) -> bool {
             continue;
         }
         let mut on = squad_by_position(w, t);
+        let size = squad_size(w, t);
         while super::count(w, t, Status::PracticeSquad) < size {
             // Its open places by position first, then any spot but a
             // quarterback's or a specialist's (minor bug 122).

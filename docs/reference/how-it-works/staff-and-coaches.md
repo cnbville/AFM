@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; interviews and the staff meeting with the next update's lane 14 at 7487fc5 on 2026-10-30. The no-fire override checked against main at b2b4213 on 2026-10-30. Where you fire checked at 3f875ea on 2026-10-30. The carousel fixes (minor bugs 124, 127, 128, 129 and 148) checked at 0a02648 with that change on 2026-10-31; the recruiting and college bugs before the rebuild (minor bugs 86, 88, 99-105, 118, 126, 130, 131, 150) on 2026-10-30 and 31. The minor bugs hotfix (minor bugs S1, S7 and 33 (coach ages, job seasons) and 161 (coordinator rung weights)) checked over main e581227 on 2026-11-01.
+Checked against main at 037fd34 with update 3 lanes 18, 7, 6 and 8 on 2026-10-29; interviews and the staff meeting with the next update's lane 14 at 7487fc5 on 2026-10-30. The no-fire override checked against main at b2b4213 on 2026-10-30. Where you fire checked at 3f875ea on 2026-10-30. The carousel fixes (minor bugs 124, 127, 128, 129 and 148) checked at 0a02648 with that change on 2026-10-31; the recruiting and college bugs before the rebuild (minor bugs 86, 88, 99-105, 118, 126, 130, 131, 150) on 2026-10-30 and 31. The minor bugs hotfix (minor bugs S1, S7 and 33 (coach ages, job seasons) and 161 (coordinator rung weights)) checked over main e581227 on 2026-11-01. The minor bugs hotfix batch 6 (minor bugs 185-240, the tutorial catalogue's B items) checked over main 1a99583 on 2026-11-03.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -262,3 +262,8 @@ Units and coaches to watch (`world/units.rs`; C27, C42):
 - [scouting.md](scouting.md): scouting staffs and their reads.
 - [tendencies.md](tendencies.md): coaching styles and habits.
 - [people.md](people.md): trust, morale and the room.
+
+## Minor bugs batch 6 (2026-11-03)
+
+- **Your depth order as an assistant** (minor bug 233, B49): the head coach weighs it by his own eye, not the truth: each player's level plus an error of sd 1 + 0.15 × (20 − his teaching at that group), fixed for the season (proposed, not confirmed) (`world/front_office/market.rs`, `propose_depth`). He lets a 3-point gap go; the chance to overrule is clamp((gap − 3) / 6, 0, 0.9) × clamp(0.7 + 0.04 × (temper − 10), 0.4, 1.1): 63% at a 9-point gap at an average temper.
+- **The Rooney Rule** (minor bug 218, B34): see [nfl.md](nfl.md), "Minor bugs batch 6".

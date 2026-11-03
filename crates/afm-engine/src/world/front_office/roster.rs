@@ -41,7 +41,7 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
     }
     let plan = &w.front_office.roster.plan;
     let limit = w.rules.nfl_roster as usize;
-    let ps = w.rules.nfl_practice_squad as usize;
+    let ps = squad::squad_size(w, t);
     let of = |i: usize| plan.iter().find(|x| x.0 == w.people[i].player.id).map(|x| x.1);
     // The staff's own cut, for the places you left open.
     let (staff53, staff_ps, _) = pro::cut_split(w, t, keep);
@@ -144,7 +144,7 @@ pub fn sign_to_squad(w: &mut World, id: u32) -> Result<String, String> {
     let i = super::index_of(w, id).ok_or("No such player.")?;
     let year = w.year;
     let d = w.today;
-    let size = w.rules.nfl_practice_squad as usize;
+    let size = squad::squad_size(w, t);
     if size == 0 {
         return Err("There are no practice squads in this era.".into());
     }

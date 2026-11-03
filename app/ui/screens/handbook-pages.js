@@ -47,7 +47,7 @@ hbAdd({
     college: "Level ratings put every college player on one scale set by FBS seasons; FCS and smaller colleges read a little lower for the competition. Recruits arrive with wide ranges that narrow once your coaches work with them.",
     nfl: "No level rating: a pro is his rating, on the same 1-99 scale. Bodies are mostly done; reads and technique still grow into the late twenties.",
   },
-  where: [["Squad", "roster"], ["Player page, Ratings tab", "player"], ["Depth chart", "depth"], ["Compare players", "compare"]],
+  where: [["Squad", "roster"], ["Player page, Attributes tab", "player", { tab: "Attributes" }], ["Depth chart", "depth"], ["Compare players", "compare"]],
   rel: ["body", "scouting", "development"],
 });
 hbAdd({
@@ -64,7 +64,7 @@ hbAdd({
     college: "Spring testing and pro days give the times on file; pro day forties run fast, and NFL clubs discount them. Receivers and backs arrive near their grown weight; linemen fill out until about 22, and a late-growing tackle can add 60 lb. More weight at the same speed rating means a slower forty.",
     nfl: "The combine forty is the number everyone quotes. After about 28, speed fades a little each year, and backs and corners feel it first.",
   },
-  where: [["Player page, Body tab", "player"], ["The speed hover on any player", "roster"], ["Recruiting board, measurables", "recruit_board"], ["Draft board, combine numbers", "draftboard"]],
+  where: [["Player page, Body and testing tab", "player", { tab: "Body and testing" }], ["The speed hover on any player", "roster"], ["Recruiting board, measurables", "recruit_board"], ["Draft board, combine numbers", "draftboard"]],
   rel: ["ratings", "scouting", "development"],
 });
 hbAdd({
@@ -81,7 +81,7 @@ hbAdd({
     college: "Your position coaches and recruiting staff read recruits from film, camps, visits and their high school coaches. Your own players read narrow once your coaches work with them.",
     nfl: "Your scouts and the combine read the draft class; pro scouts read other clubs' players from film. Every club gets the same combine numbers and reads them its own way.",
   },
-  where: [["Player page, Ratings tab", "player"], ["Film room", "film"], ["Scouting department", "scouting"], ["Recruiting board", "recruit_board"], ["Draft board", "draftboard"]],
+  where: [["Player page, Reports tab", "player", { tab: "Reports" }], ["Film room", "film"], ["Scouting department", "scouting"], ["Recruiting board", "recruit_board"], ["Draft board", "draftboard"]],
   rel: ["ratings", "development", "recruiting"],
 });
 hbAdd({
@@ -98,7 +98,7 @@ hbAdd({
     college: "College coaching speeds technique and the mental game. A redshirt year still grows him, but a starter grows more. Small-college players learn game skills a little slower.",
     nfl: "Most players are near their ceilings. Technique and reads can still grow into the late twenties while speed starts to fade.",
   },
-  where: [["Player page, Development tab", "player"], ["Training", "training"], ["Squad", "roster"]],
+  where: [["Player page, Development tab", "player", { tab: "Development" }], ["Training", "training"], ["Squad", "roster"]],
   rel: ["ratings", "training", "people"],
 });
 hbAdd({
@@ -115,7 +115,7 @@ hbAdd({
     college: "Habits still move, but less each year. A new staff's style can reshape a young player.",
     nfl: "Habits are mostly set, so instructions are your main tool. How often he obeys rests on his discipline, his coachability and his trust in you.",
   },
-  where: [["Player page, Overview", "player"], ["Plans, instructions", "plans"]],
+  where: [["Player page, Tendencies tab", "player", { tab: "Tendencies" }], ["Plans, instructions", "plans"]],
   rel: ["gameplan", "people", "development"],
 });
 hbAdd({
@@ -132,7 +132,7 @@ hbAdd({
     college: "Staffs prize them, and spot them before the recruiting sites do: a physical gift can earn a lightly rated player a big offer.",
     nfl: "Common at the top of the NFL. Once he has tested, clubs grade the gift into his draft value.",
   },
-  where: [["Player page, Body tab", "player"], ["Recruiting board", "recruit_board"], ["Draft board", "draftboard"]],
+  where: [["Player page, Overview (and More, Dynamic Links)", "player", { tab: "Overview" }], ["Recruiting board", "recruit_board"], ["Draft board", "draftboard"]],
   rel: ["body", "scouting", "draft"],
 });
 
@@ -159,7 +159,7 @@ hbAdd({
   lede: "College players can leave through the transfer portal and earn money from their name, image and likeness. Both decide who stays on your roster.",
   how: [
     ["Why players enter", "Playing time, being buried on the depth chart, mood and a coaching change all push a player toward the portal. Happy players who play rarely leave."],
-    ["The windows", "Players enter in the portal windows after the season and in the spring, or when their head coach leaves."],
+    ["The windows", "Players enter only in the transfer windows, or when their head coach leaves. Since the 2025 season there is one window, in January (January 2-16 in 2026, then ten days from the first business day of the year), and a head coach's change gives his players 15 days from five days after the new hire. From 2022 to 2024 there were two windows, in December and in the spring; before 2022 a player could enter any time."],
     ["Recruiting the portal", "A transfer picks a school by his own wants, like a recruit: playing time, money, the level and the people he knows."],
     ["NIL", "From July 2021 players earn from brand deals and the school's collective. Stars with a big following earn the most."],
   ],
@@ -238,7 +238,7 @@ hbAdd({
     college: "In season, 20 countable hours a week, at most 4 a day, with a day off; out of season 8 hours, up to 2 of them film.",
     nfl: "The CBA sets each phase: strength only in phase one, no live contact in OTAs, 14 padded practices across the season.",
   },
-  where: [["Training", "training"], ["Plans", "plans"], ["Player page, Development tab", "player"]],
+  where: [["Training", "training"], ["Plans", "plans"], ["Player page, Development tab", "player", { tab: "Development" }]],
   rel: ["development", "gameplan", "calendar"],
 });
 hbAdd({

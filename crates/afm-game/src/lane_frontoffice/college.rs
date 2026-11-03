@@ -744,8 +744,36 @@ fn class_plan(w: &World, j: usize, rows: &[(usize, &desk::Target)]) -> Value {
         by_pos.push(json!({ "pos": pos.name(), "need": need, "committed": c, "signed": s, "offers": off, "open": need.saturating_sub(c + s) }));
     }
     let (rank, of) = class_rank(w, j, o.sign_year);
+    // Each body's own rules (minor bug B7): the yearly signee cap only where
+    // one exists, the body's name, and how its aid is counted.
+    use afm_engine::world::data::Division;
+    let div = w.programs[j].division;
+    let yearly =
+        if o.whole_roster { None } else { ncaa::scholarship_rules(div, o.sign_year, true).1.map(|_| o.signees) };
+    let body = match div {
+        Division::NAIA => "NAIA",
+        Division::JUCO => "NJCAA",
+        _ => "NCAA",
+    };
+    let aid = match div {
+        Division::D3 => "none",
+        Division::D2 | Division::NAIA => "shared",
+        Division::FCS if !o.whole_roster => "shared",
+        _ => "heads",
+    };
+    let equiv = match div {
+        Division::D2 => Some(36),
+        Division::NAIA => Some(24),
+        Division::FCS if !o.whole_roster => Some(if o.sign_year < 1994 { 70 } else { 63 }),
+        _ => None,
+    };
     json!({
         "year": o.sign_year,
+        "yearly": yearly,
+        "body": body,
+        "aid": aid,
+        "equiv": equiv,
+        "aid_max": (div == Division::FCS && !o.whole_roster).then_some(o.limit),
         "rank": rank,
         "rank_of": of,
         "slots": o.slots,
@@ -1245,6 +1273,8 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
     });
     v["schools_n"] = json!(desk::race_at(w, i).len());
     v["officials_used"] = json!(p.cal.visits.iter().filter(|e| e.2 == Visit::Official).count());
+    // The NCAA's five to June 2023; no limit since (B1).
+    v["official_cap"] = json!(desk::official_cap(w.today));
     v["miles"] = json!(geo::miles(p.home_state, w.programs[j].state).round());
     v["followers"] = json!(p.followers);
     v["camera"] = json!(afm_engine::world::fame::aura_read(
@@ -1317,6 +1347,7 @@ fn visit_choice(w: &World, _j: usize, args: &Value) -> Reply {
         "id": id,
         "name": p.name,
         "officials_used": p.cal.visits.iter().filter(|e| e.2 == Visit::Official).count(),
+        "official_cap": desk::official_cap(w.today),
         "options": visit_options(w, i, id),
     }))
 }
@@ -1423,6 +1454,7 @@ fn visits(w: &World, j: usize) -> Reply {
         "officials": officials,
         "duties": duties(w, j),
         "junior_officials": w.changes.rules(y.season).junior_officials,
+        "official_cap": desk::official_cap(w.today),
         "targets": targets,
     }))
 }
@@ -1430,8 +1462,8 @@ fn visits(w: &World, j: usize) -> Reply {
 // --- The portal -------------------------------------------------------------------------
 
 fn eligibility_left(w: &World, p: &Person) -> u32 {
-    let limit: u32 = if w.changes.rules(w.year).five_in_five { 5 } else { 4 };
-    limit.saturating_sub(p.college_seasons)
+    use afm_engine::world::eligibility;
+    eligibility::seasons_left(p, eligibility::division_of(p, &w.programs), w.year)
 }
 
 /// The seasons a transfer could play from next season on: the season in
@@ -1439,13 +1471,14 @@ fn eligibility_left(w: &World, p: &Person) -> u32 {
 /// the five-year clock from high school runs out too. The windows from
 /// December to January follow the season just played; the spring and
 /// graduate windows come after the football year turned.
-fn seasons_ahead(w: &World, p: &Person) -> u32 {
+fn seasons_ahead(w: &World, p: &Person, div: afm_engine::world::data::Division) -> u32 {
     let m = w.today.month();
     let next = if m == 12 || m <= 1 { w.year + 1 } else { w.year };
-    let limit: u32 = if w.changes.rules(next).five_in_five { 5 } else { 4 };
+    // At the division he would play for: yours (minor bug B9).
+    let allowed = afm_engine::world::eligibility::seasons_allowed(next, div);
     let used = p.college_seasons + p.cal.count_pending as u32;
-    let clock = (p.class_of + 5 - next).max(0) as u32;
-    limit.saturating_sub(used).min(clock)
+    let clock = (afm_engine::world::eligibility::clock_last(p) - next + 1).max(0) as u32;
+    allowed.saturating_sub(used).min(clock)
 }
 
 fn portal(w: &World, j: usize, args: &Value) -> Reply {
@@ -1474,10 +1507,8 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             continue;
         }
         let t = d.portal.iter().find(|t| t.id == p.player.id && !t.settled);
-        let sits = !one_time
-            && mine_div == afm_engine::world::data::Division::FBS
-            && w.programs[c].division != afm_engine::world::data::Division::JUCO
-            && !p.cal.graduated;
+        let sits =
+            desk::transfer_sits(w.today, one_time, mine_div, w.programs[c].division, p.cal.graduated, p.transfers);
         let read = views::person_index(w, p.player.id).map_or(reads::Read::NotSeen, |k| reads::overall(w, k));
         let key = p.last_performance.unwrap_or(p.player.overall()) * 0.0
             + stars_of(p) as f64 * 10.0
@@ -1487,7 +1518,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             json!({
                 "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p),
                 "from": brief(w, c), "division": w.programs[c].division.name(), "cls": views::class_text(w, p),
-                "left": seasons_ahead(w, p), "role": p.last_role.map(views::role_words), "read": read.json(),
+                "left": seasons_ahead(w, p, mine_div), "role": p.last_role.map(views::role_words), "read": read.json(),
                 "why": e.why, "entered": short_date(e.entered), "decide": short_date(e.decide_by),
                 "days": today.days_to(e.decide_by).max(0), "held": e.held,
                 "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil),
@@ -1599,8 +1630,10 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
         TransferRule::Windows => "Two windows a year, winter and spring; a coaching change opens its own.",
         TransferRule::January => "One window in January, and a coaching change's own.",
     };
-    let sit_text = if one_time {
-        "Undergraduate transfers play at once (the one-time exception, 2021)."
+    let sit_text = if one_time && desk::multi_transfers_free(w.today) {
+        "Any transfer who is academically eligible plays at once (since April 2024)."
+    } else if one_time {
+        "A first undergraduate transfer plays at once (the one-time exception, 2021); a second one sits a season."
     } else {
         "A transfer into FBS sits out a season unless he graduated or comes from a junior college."
     };

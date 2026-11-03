@@ -142,12 +142,12 @@ pub fn named(w: &World, key: &str) -> String {
 pub fn boss(w: &World, t: TeamRef) -> (String, &'static str) {
     match t {
         TeamRef::College(_) => (staff_name(w, t, Job::AthleticDirector), "Director of athletics"),
-        TeamRef::Nfl(i) => {
-            let gm = w.clubs.get(i).map_or_else(|| staff_name(w, t, Job::CapManager), |c| c.office.gm.name.clone());
-            (gm, "General manager")
-        }
+        // The owner hires and fires an NFL head coach, and you hold the
+        // general manager's desk yourself: one boss on every screen, the
+        // one in your meetings (minor bug B33).
+        TeamRef::Nfl(i) => (afm_engine::world::folk::boss::boss(w, Team::Nfl(i)).name, "Owner"),
         TeamRef::HighSchool(_) => (staff_name(w, t, Job::Principal), "Principal"),
-        TeamRef::Other(_) => (staff_name(w, t, Job::CapManager), "General manager"),
+        TeamRef::Other(i) => (afm_engine::world::folk::boss::boss(w, Team::Other(i)).name, "Owner"),
     }
 }
 

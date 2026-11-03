@@ -61,6 +61,28 @@ impl Period {
 /// dead May 24-27, quiet May 28-Jun 21, dead Jun 22-Jul 31; the fall
 /// evaluation period, contact from late November, dead around both signing
 /// days and over the holidays).
+/// The spring from April 15 (minor bug B4). Through 2023 an evaluation
+/// period to May 31 (168 evaluation days). From the spring of 2024 (the
+/// recruiting model of Proposal 2023-14, from August 1, 2023) a contact
+/// period to the Saturday before Memorial Day, then dead from the Sunday
+/// before it to the Wednesday after, then quiet.
+fn spring_period(s: i32, d: Date) -> Period {
+    if s < 2024 {
+        return Period::Evaluation;
+    }
+    let mut memorial = Date::nth_weekday(s, 5, Weekday::Mon, 4);
+    if memorial.add(7).month() == 5 {
+        memorial = memorial.add(7);
+    }
+    if d < memorial.add(-1) {
+        Period::Contact
+    } else if d <= memorial.add(2) {
+        Period::Dead
+    } else {
+        Period::Quiet
+    }
+}
+
 pub fn recruiting_period(y: &YearDates, d: Date) -> Period {
     let (yr, m, day) = d.parts();
     let s = y.season;
@@ -79,9 +101,7 @@ pub fn recruiting_period(y: &YearDates, d: Date) -> Period {
         match (m, day) {
             (2, _) | (3, _) => Period::Quiet,
             (4, 1..=14) => Period::Quiet,
-            (4, _) => Period::Contact,
-            (5, 24..=27) => Period::Dead,
-            (5, _) => Period::Quiet,
+            (4, _) | (5, _) => spring_period(s, d),
             (6, 1..=21) => Period::Quiet,
             (6, _) | (7, _) => Period::Dead,
             (8, _) => Period::Quiet,
@@ -111,6 +131,21 @@ mod tests {
         assert_eq!(recruiting_period(&y, Date::ymd(2026, 3, 10)), Period::Quiet);
         assert_eq!(recruiting_period(&y, Date::ymd(2026, 4, 20)), Period::Contact);
         assert_eq!(recruiting_period(&y, Date::ymd(2026, 5, 25)), Period::Dead);
+        // B4: contact to the Saturday before Memorial Day, dead Sunday to
+        // Wednesday around it (2026: May 23; May 24-27), and the dead days
+        // move with it (2025: May 25-28); before 2024 an evaluation period
+        // to May 31.
+        assert_eq!(recruiting_period(&y, Date::ymd(2026, 5, 23)), Period::Contact);
+        assert_eq!(recruiting_period(&y, Date::ymd(2026, 5, 24)), Period::Dead);
+        assert_eq!(recruiting_period(&y, Date::ymd(2026, 5, 27)), Period::Dead);
+        assert_eq!(recruiting_period(&y, Date::ymd(2026, 5, 28)), Period::Quiet);
+        let y25 = YearDates::new(2025);
+        assert_eq!(recruiting_period(&y25, Date::ymd(2025, 5, 24)), Period::Contact);
+        assert_eq!(recruiting_period(&y25, Date::ymd(2025, 5, 28)), Period::Dead);
+        let y22 = YearDates::new(2022);
+        assert_eq!(recruiting_period(&y22, Date::ymd(2022, 4, 20)), Period::Evaluation);
+        assert_eq!(recruiting_period(&y22, Date::ymd(2022, 5, 26)), Period::Evaluation);
+        assert_eq!(recruiting_period(&y22, Date::ymd(2022, 6, 1)), Period::Quiet);
         assert_eq!(recruiting_period(&y, Date::ymd(2026, 6, 10)), Period::Quiet);
         assert_eq!(recruiting_period(&y, Date::ymd(2026, 7, 4)), Period::Dead);
         assert_eq!(recruiting_period(&y, Date::ymd(2026, 10, 2)), Period::Evaluation);

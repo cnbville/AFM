@@ -494,7 +494,7 @@ pub fn guarantee(host_tier: u8, visitor_tier: u8, year: i32) -> f64 {
 /// about $2-3M a year, others less).
 pub const HOUSE_START: i32 = 2025;
 pub fn share_cap(year: i32) -> f64 {
-    if year < HOUSE_START { 0.0 } else { 20.5e6 * 1.04f64.powi(year - HOUSE_START) }
+    crate::world::ncaa::revenue_cap(year).unwrap_or(0.0)
 }
 
 // --- High school ---------------------------------------------------------------------------

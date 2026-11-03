@@ -1284,6 +1284,10 @@ pub fn history(w: &World, args: &Value) -> Value {
             for a in w.nfl_book.awards.iter().filter(|a| a.0 == year) {
                 v.push(json!({ "award": a.1, "id": a.2, "name": a.3, "team": views::team_brief(w, TeamRef::Nfl(a.4)), "level": "NFL" }));
             }
+            // The coaches' awards (minor bug B31), linked by coach index.
+            for a in w.nfl_book.coach_awards.iter().filter(|a| a.0 == year) {
+                v.push(json!({ "award": a.1, "coach": true, "coachId": a.2, "name": a.3, "team": views::team_brief(w, TeamRef::Nfl(a.4)), "level": "NFL" }));
+            }
             v.sort_by(|a, b| a["level"].as_str().cmp(&b["level"].as_str()).then(a["award"].as_str().cmp(&b["award"].as_str())));
             json!({ "year": year, "rows": v })
         }

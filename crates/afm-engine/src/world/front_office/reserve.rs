@@ -1,8 +1,9 @@
 //! Injured reserve for your club (minor bug 73). A real club decides it:
 //! the list frees a 53-man spot but sits the player at least the league's
-//! minimum (`ir_minimum`: six weeks before 2020, four from 2020), and each
-//! return uses one of the season's designations (`ir_returns`: eight from
-//! 2022, none before 2012). Every other club's staff decides by the
+//! minimum (`ir_minimum`: eight games for a return 2012-2019, three in
+//! 2020-21, four from 2022), and each return uses one of the season's
+//! designations (`ir_returns`: eight from 2022, ten with the playoffs from
+//! 2024, none before 2012). Every other club's staff decides by the
 //! engine's rule (`pro::games`); yours recommends and you decide, unless
 //! you hand the duty to your staff.
 
@@ -130,10 +131,9 @@ pub fn activate_words(w: &World, id: u32) -> Result<String, String> {
             if c.out_weeks == 1 { "" } else { "s" }
         ));
     }
-    let year = w.year;
-    let left = games::ir_returns(year).saturating_sub(w.clubs[t].ir_used);
+    let left = games::ir_returns_on(w).saturating_sub(w.clubs[t].ir_used);
     if !c.pup && left == 0 {
-        return Err(match games::ir_returns(year) {
+        return Err(match games::ir_returns_on(w) {
             0 => "Before 2012 injured reserve ends a player's season.".to_string(),
             n => format!("You've used all {n} returns from injured reserve this season."),
         });
@@ -170,7 +170,7 @@ pub fn activate(w: &mut World, id: u32) -> Result<String, String> {
 pub(crate) fn healed(w: &mut World, i: usize) {
     let t = w.people[i].pro.as_ref().and_then(|c| c.team).unwrap_or(0);
     let pup = w.people[i].pro.as_ref().is_some_and(|c| c.pup);
-    let left = games::ir_returns(w.year).saturating_sub(w.clubs[t].ir_used);
+    let left = games::ir_returns_on(w).saturating_sub(w.clubs[t].ir_used);
     let name = w.people[i].name.clone();
     let pos = w.people[i].player.position.name();
     let full = pro::count(w, t, Status::Roster) >= super::roster::roster_limit(w);

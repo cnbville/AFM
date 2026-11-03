@@ -879,12 +879,36 @@ fn start_state(w: &mut World, s: usize) {
             .max(1);
         for &i in &w.high_schools[h].roster.clone() {
             let p = &w.people[i];
+            // A transfer whose state sits part of a season misses its first
+            // games (minor bug B21): half of them where the rule says half.
+            let sat =
+                if p.sit_out > 0.0 && p.sit_out < 1.0 && season::transfer_sits(w.options.seed as u64, w.year as u64, p)
+                {
+                    let n = ((p.sit_out * st.weeks.len() as f64).ceil() as usize).min(st.weeks.len());
+                    (1u32 << n) - 1
+                } else {
+                    0
+                };
+            if sat != 0 {
+                let n = sat.count_ones();
+                let age = p.player.age - 1;
+                let starter = p.last_role == Some(PlayingTime::Starter) && !p.player.position.is_specialist();
+                if starter {
+                    let v = out.entry(h).or_insert_with(|| vec![0.0; n_weeks]);
+                    for x in v.iter_mut().take(n as usize) {
+                        *x += 8.0 / starters as f64;
+                    }
+                }
+                *grade_weeks.entry(i).or_insert(0) |= sat;
+                w.people[i].note(format!("At {age} he sat the first {n} games of the season as a transfer."));
+            }
+            let p = &w.people[i];
             let miss = grade_outs(p, check, n_weeks, st.weeks.len(), seed);
             if miss == 0 {
                 continue;
             }
             missed_players += 1;
-            grade_weeks.insert(i, miss);
+            *grade_weeks.entry(i).or_insert(0) |= miss;
             let games = miss.count_ones();
             let starter = p.last_role == Some(PlayingTime::Starter) && !p.player.position.is_specialist();
             if starter {

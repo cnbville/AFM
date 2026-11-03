@@ -31,7 +31,8 @@ pub enum TransferRule {
     /// Windows (seasons 2022-2024): a winter window after the season and a
     /// spring window, one free transfer.
     Windows,
-    /// One January window, Jan 2-16 (from the 2025 season's offseason).
+    /// One January window: Jan 2-16 after the 2025 season, then ten days
+    /// from the first business day after Jan 1 (`anchors::january_window`).
     January,
 }
 
@@ -207,18 +208,17 @@ impl RuleBook {
             },
             nfl_offseason: if season >= 2011 { 90 } else { 80 },
             // Practice squad spots: none before the 1989 developmental
-            // squad, 5 to 2003, 8 from 2004, 10 from 2014, 16
-            // in the COVID years 2020-2021 (the new CBA's 12 was raised) and
-            // kept from 2022 (from memory, to verify); 17 from 2025 as first
-            // built.
+            // squad, 5 to 2003, 8 from 2004, 10 from 2014, 16 in the COVID
+            // years 2020-2021 (the new CBA's 12 was raised) and kept from
+            // 2022. From 2017 an International Player Pathway player holds
+            // one more place of his own (from 2024 the 17th, his alone;
+            // minor bug B25): `pro::squad::squad_size`.
             nfl_practice_squad: match season {
                 ..=1988 => 0,
                 1989..=2003 => 5,
                 2004..=2013 => 8,
                 2014..=2019 => 10,
-                2020..=2021 => 16,
-                2022..=2024 => 16,
-                _ => 17,
+                _ => 16,
             },
             nfl_padded_practices: if season >= 2011 { 14 } else { 99 },
             salary_cap: cap,
@@ -245,7 +245,7 @@ impl RuleBook {
             },
             one_time_transfer: season >= 2021,
             nil: season >= 2021,
-            revenue_sharing: if season >= 2025 { Some(20.5e6 * 1.04f64.powi(season - 2025)) } else { None },
+            revenue_sharing: crate::world::ncaa::revenue_cap(season),
             early_signing: season + 1 >= 2018,
             junior_officials: season >= 2018,
             // The four-game redshirt (2018) ends with redshirts themselves

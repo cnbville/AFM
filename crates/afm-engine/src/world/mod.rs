@@ -1249,7 +1249,8 @@ impl World {
         for (idx, row, ids) in states {
             let info = &mut infos[idx];
             info.transfer = high_school::transfer_rule(&row.transfer_rule);
-            info.hs_nil = recruiting::hs_nil_allowed(&row.code);
+            // Switched on in its first NIL season (`clock`, minor bug B19).
+            info.hs_nil = false;
             info.class_share = row.programs as f64 / total_programs;
             info.culture = culture_shift(row.fbs_signees_per_year / total_signees, info.class_share);
             info.schools = ids;

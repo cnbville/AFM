@@ -754,6 +754,16 @@ impl World {
     }
 
     /// This NFL season's record (wins, losses, ties) for a club.
+    /// Clubs in standings order: record, then the NFL's tiebreakers within
+    /// a division (minor bug B30).
+    pub fn nfl_order(&self, teams: &[usize]) -> Vec<usize> {
+        let mut v = teams.to_vec();
+        if let Some(s) = self.nfl_season.as_ref() {
+            super::nfl_year::standings_order(s, &mut v);
+        }
+        v
+    }
+
     pub fn nfl_record(&self, t: usize) -> (u32, u32, u32) {
         self.nfl_season.as_ref().map_or((0, 0, 0), |s| {
             (

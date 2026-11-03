@@ -1,8 +1,10 @@
 //! Press conferences and the reporters (people topic 9; final build lane 6).
 //! Your availabilities follow each level's habits: the introductory press
-//! conference, a Monday availability and a postgame podium in college and
-//! the NFL (the NFL's media policy: the head coach talks, and a coach who
-//! skips is fined), the local paper's call in high school. Reporters ask
+//! conference, a Monday availability and a postgame podium in college, three
+//! availabilities a week (Monday, Wednesday, Friday) and the postgame podium
+//! in the NFL (the NFL's media policy: the head coach talks at least three
+//! days each practice week and after every game, and a coach who skips is
+//! fined), the local paper's call in high school. Reporters ask
 //! from the facts of the week: last game, the quarterback battle, injuries,
 //! the rival, the hot seat, a player in trouble. You answer with the moves
 //! and tones of a talk: deflect, praise, take the blame, criticize a player
@@ -240,7 +242,14 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
             if team.level() == Level::College { ", the band's fight song still echoing from the lobby" } else { "" }
         ),
         (_, 2) => "Fifteen minutes after the final whistle. The cameras are already on.".to_string(),
-        _ => "The Monday availability: the regulars, coffee, the same seats as always.".to_string(),
+        _ => format!(
+            "The {} availability: the regulars, coffee, the same seats as always.",
+            match s.date.weekday() {
+                Weekday::Wed => "Wednesday",
+                Weekday::Fri => "Friday",
+                _ => "Monday",
+            }
+        ),
     };
     s.narrate(room);
     if qs.is_empty() {
@@ -434,7 +443,7 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
                 "\"Day to day.\"",
                 "Deflect",
                 "calm",
-                if team.level() == Level::Nfl {
+                if matches!(team, Team::Nfl(_)) {
                     "The NFL fines clubs for injury reports that don't hold."
                 } else {
                     "Gives nothing away."
@@ -668,7 +677,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             }
         }
         (Q::Injury, 1) => {
-            if team.level() == Level::Nfl && super::roll(w, 0x1A7, w.today.0 as u64) < 0.08 {
+            if matches!(team, Team::Nfl(_)) && super::roll(w, 0x1A7, w.today.0 as u64) < 0.08 {
                 let text = "The league fined the club $25,000 for an inaccurate injury report.".to_string();
                 super::post_mine(w, w.today.add(9), Loudness::Small, false, "league: injury report", &text);
                 s.outcome.push(text);
@@ -766,7 +775,9 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
         w.folk.mine.nudge(r.key(), -0.04);
     }
     s.handed = Some("the communications office".into());
-    if team.level() == Level::Nfl && s.kind == Kind::Press {
+    // The NFL's media policy and its fines; another league has neither
+    // (minor bug B40).
+    if matches!(team, Team::Nfl(_)) && s.kind == Kind::Press {
         let text = "The league fined you $25,000 for skipping your media obligations.".to_string();
         super::post_mine(w, w.today.add(3), Loudness::Small, false, "league: media policy", &text);
         s.outcome.push(text);
@@ -788,7 +799,11 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     let level = team.level();
     let games = facts::team_games(w, team);
-    let in_season = games.first().is_some_and(|g| d >= g.0.add(-6)) && games.last().is_some_and(|g| d <= g.0.add(1));
+    // The NFL's policy runs from training camp (veterans report).
+    let nfl = matches!(team, Team::Nfl(_));
+    let camp = nfl.then_some(w.dates.veterans_report);
+    let in_season = games.first().is_some_and(|g| d >= camp.map_or(g.0.add(-6), |c| c.min(g.0.add(-6))))
+        && games.last().is_some_and(|g| d <= g.0.add(1));
     if !in_season {
         return;
     }
@@ -801,18 +816,27 @@ pub(crate) fn day(w: &mut World, d: Date) {
         s.place = "The interview room under the stands".into();
         scene::add(w, s);
     }
-    // Monday availability (college and NFL); the local paper's call on
-    // Thursday at a high school.
+    // The NFL's media policy asks the head coach for at least three days
+    // in each practice week, camp through the season (minor bug B39): the
+    // Monday after the game, then Wednesday and Friday, the practice days
+    // (a game on one of them moves nothing; that day's podium is enough).
+    // College and the other leagues keep a Monday availability; the local
+    // paper calls a high school coach on Thursday.
     let weekly = match level {
         Level::HighSchool => d.weekday() == Weekday::Thu,
+        _ if nfl => {
+            matches!(d.weekday(), Weekday::Mon | Weekday::Wed | Weekday::Fri) && !games.iter().any(|g| g.0 == d)
+        }
         _ => d.weekday() == Weekday::Mon,
     };
     if weekly {
-        let mut s = Scene::new(
-            Kind::Press,
-            d,
-            if level == Level::HighSchool { "The local paper calls" } else { "Monday press availability" },
-        );
+        let title = match (level, d.weekday()) {
+            (Level::HighSchool, _) => "The local paper calls",
+            (_, Weekday::Wed) => "Wednesday press availability",
+            (_, Weekday::Fri) => "Friday press availability",
+            _ => "Monday press availability",
+        };
+        let mut s = Scene::new(Kind::Press, d, title);
         s.c = 1;
         s.stops = false;
         s.team = Some(team);

@@ -262,7 +262,10 @@ pub fn money_words(w: &World, team: Team) -> Vec<(String, String)> {
             if w.year >= 2025 && prog.division == Division::FBS && prog.power_four() {
                 v.push((
                     "Revenue sharing".into(),
-                    "about $20.5 million a year paid to players directly (House settlement)".into(),
+                    format!(
+                        "about ${:.1} million a year paid to players directly (House settlement)",
+                        crate::world::ncaa::revenue_cap(w.year).unwrap_or(0.0) / 1e6
+                    ),
                 ));
             }
             let b = prog.collective.boosters();

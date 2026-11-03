@@ -1562,7 +1562,27 @@ pub(crate) fn option_price(w: &World, i: usize) -> f64 {
     let bowls = p.pro.as_ref().map_or(0, |c| c.seasons.iter().filter(|s| s.pro_bowl).count());
     let top5 = money::price_cap(year + 1) * money::top5_share(pos);
     if year >= 2021 {
+        // The 2020 CBA's four levels (minor bug B27): two Pro Bowls pay
+        // the franchise tag, one the transition tag; the playing-time
+        // level (75% of the snaps in two of his first three seasons, 75%
+        // over the three, or 50% in each) the average of the 3rd to 20th
+        // salaries; otherwise the 3rd to 25th. Every Pro Bowl counts here
+        // (the CBA counts original-ballot ones).
+        let played = p.pro.as_ref().is_some_and(|c| {
+            let from = c.draft.map_or(year - 2, |d| d.0);
+            let per = 64.0 * w.rules.nfl_games as f64;
+            let shares: Vec<f64> = c
+                .seasons
+                .iter()
+                .filter(|s| s.year >= from)
+                .take(3)
+                .map(|s| s.snaps[0].max(s.snaps[1]) as f64 / per)
+                .collect();
+            shares.iter().filter(|&&x| x >= 0.75).count() >= 2
+                || (shares.len() == 3 && (shares.iter().sum::<f64>() / 3.0 >= 0.75 || shares.iter().all(|&x| x >= 0.5)))
+        });
         match bowls {
+            0 if played => top5 * 0.54,
             0 => top5 * 0.5,
             1 => top5 * 0.72,
             _ => top5 * 0.85,
@@ -2201,11 +2221,14 @@ fn future_deal(w: &mut World, i: usize, t: usize, year: i32) {
 
 // --- Waivers -------------------------------------------------------------------------------------------------------
 
-/// Whether a released player goes on waivers (real): under four accrued
-/// seasons always; veterans only after the trade deadline.
+/// Whether a released player goes on waivers (real, NFL Football
+/// Operations' waiver overview): a vested veteran has four or more
+/// seasons of pension credit (credited seasons) and skips waivers until
+/// the trade deadline; from then to the end of the regular season every
+/// player goes through them. Under four credited seasons always.
 pub(crate) fn waivable(w: &World, i: usize, d: Date) -> bool {
-    let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
-    accrued < 4 || (d > w.dates.trade_deadline.date && d <= w.dates.super_bowl)
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    credited < 4 || (d > w.dates.trade_deadline.date && d < w.dates.wild_card)
 }
 
 /// The waiver claims (each day at 4pm, real): teams in waiver order (last

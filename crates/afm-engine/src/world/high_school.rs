@@ -102,7 +102,8 @@ impl HighSchool {
 }
 
 /// How a state's transfer rule treats a transfer without a family move: the
-/// share of a varsity season he sits. Read from the rule's summary in the data.
+/// share of a varsity season he sits (1.0 a whole year; less, its first
+/// games). Read from the rule's summary in the data.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TransferRule {
     pub sit_out: f64,

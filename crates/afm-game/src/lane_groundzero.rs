@@ -282,6 +282,8 @@ fn page(w: &World) -> Result<Value, String> {
                 "building": w.new_teams.build_year(p, year),
                 "squad": squad, "coming": coming, "committed": committed,
                 "tryouts": date_text(w.dates.summer_enrollment),
+                // The next transfer window (minor bug B14).
+                "portal": afm_engine::world::front_office::college::next_window(w).map(|x| date_text(x.0)),
                 "steps": [
                     { "when": format!("{}", n.announced), "what": if n.restart { "The school brings football back" } else { "The school starts football" }, "done": true },
                     { "when": date_text(w.dates.summer_enrollment), "what": "Walk-on tryouts and junior college finds", "done": year > n.build || w.today > w.dates.summer_enrollment },

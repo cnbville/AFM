@@ -161,7 +161,7 @@ Final build lane 10 (`world/front_office/market.rs`, `world/seat.rs` `start_with
 - Booster money from five events in the year and seven priced projects: a typical club's year, small effects on resources so money can't overpower development.
 - Teacher pay from the NEA's state averages; the campus athletic coordinator only at big public Texas schools.
 - Assistant seats only at college (coordinators and position coaches) and the NFL (coordinators): the staffs the world keeps; high school assistants stay staff, not a seat.
-- The head coach lets a 3-point gap go; past it his chance to overrule rises to 90% at a 9-point gap, more with a temper: assistants get their way on close calls, not on obvious ones.
+- The head coach lets a 3-point gap go; past it his chance to overrule rises to 90% at a 9-point gap, times his temper (0.7 at an average one, so 63%; up to 1.1): assistants get their way on close calls, not on obvious ones. He reads the gap by his own eye, not the truth (minor bug 233, B49).
 - Offers wait three days (five at a high school) and you can hold three at once: real windows, and the AI's searches don't stall on you.
 - A free start lets it be known you want jobs at the level you picked (a high school job near home): the market screen changes it any day.
 - Aura from your road and people ratings rather than a slider: it stays hidden, as every presence is.
@@ -1417,6 +1417,18 @@ A sidebar section of its own between Your team and World at every seat, with Sta
 ### Minor bugs hotfix, batch 5 (2026-11-03, the menu's scroll)
 
 - **The menu on the left keeps its scroll** (Cain 2026-11-02 and 11-03, "every click still snapbacks"): every click draws the whole frame again, the menu with it, and on a short window, where the menu scrolls, it jumped back to its top each time (batch 3 fixed the page beside, not this menu). The menu is now drawn again at the scroll it had (`app.js`, `render`, `keepNav`). Only when a link takes you to another screen whose item is out of view does it move, just enough to show that item; a click within the screen never moves it. Checked in a 560-pixel window: the menu scrolled to 960 of 1,043 stays at 960 through four menu clicks and a tab click, where main went back to 0 on the first.
+
+### Minor bugs hotfix, batch 6 (2026-11-03, the tutorial catalogue's B items)
+
+Minor bugs 185-240 are B1-B56 of the tutorial catalogue (`afm/player-immersion/tutorial/catalogue.md`, section 5): code against real rules, fixed without asking under Cain's rule. The items marked "to confirm" were checked against their sources first (`afm/minor-bugs/batch6-research.md`). How each works is on its how-it-works page (recruiting, scouting, nfl, people, staff-and-coaches, play-calling, records-and-data, help), "Minor bugs batch 6".
+
+- **College** (B1-B17): a recruit's five officials only to June 2023; the FBS school's cap of official visitors by cycle; evaluation days, the spring periods and off-campus recruiters by era; FCS outside House on equivalency; the Class plan's lines per body and aid; NAIA and D3 off Division I's academic bar; one seasons-left rule; the redshirt line by era; who sits after a transfer; the January window by year and the coaching-change window's first day; the revenue-sharing cap ($20.5M in 2025, $21.58M in 2026, +4%).
+- **High school** (B19-B23): NIL by each state's year (South Carolina none); part-season transfer sits; helmet radio only where it's allowed; "Out for grades" on the status line.
+- **NFL** (B24-B28, B30-B39): the CBA's minimum and squad pay tables; 16 on the squad plus an IPP place; the undrafted pool; the option's playing-time level; IR minimums by era and two playoff returns from 2024; the NFL's tiebreakers for divisions and seeds; Coach, Assistant Coach and Protector of the Year; one Hall with its coach seat, one pool from 2027 and the vote at the NFL Honors; the owner as your boss; the Rooney Rule on coordinator offers; the 2026 cutdown at 6 pm Aug 30; vested veterans by credited seasons, on waivers only to the regular season's end; the Leaderboards' minimums per team game; three press days a week.
+- **Other leagues** (B40-B45): the owner meetings on the league's own season and no NFL press fines; the other seat's first week without NFL tasks or Training links; the CFL's opener by year; the UFL's 2026 clubs and single table; the CFL ratio with eight National starters and the nationalized American from 2023.
+- **Screens** (B49-B56): your depth order and the kicker's range judged by reads, not the truth; the college Draft view on the Squad Overview (and Contract named right at the NFL); the Handbook's player links open your quarterback at the tab they name; all ten instructions in the week's plan; college firings from mid-September; the holiday's huge moments named as they are.
+- **Left for later**: B18 (the NIL Go review) needs a design and waits for the NIL update. B29, B46 and B47 change match engine results and wait on Cain's answer. B48 was fixed in batch 4. B57-B60 are new screens and are left out.
+- **World results**: nothing in the match engine changes. World runs change wherever these rules act: recruits' visits, eligibility and transfers, high school sits, NFL pay, squads, IR, waivers, standings, awards and the Hall, other leagues' teams, openers and CFL lineups. Old saves load (new fields default).
 
 ## Not built yet (section 8's design, for the next builds)
 

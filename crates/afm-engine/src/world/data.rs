@@ -441,3 +441,18 @@ pub fn hs_nil(code: &str) -> bool {
     let state = t.col("state");
     t.rows.iter().any(|r| r[state] == code && r.get(col).is_some_and(|v| v.trim().eq_ignore_ascii_case("yes")))
 }
+
+/// The first football season a state's high school players could earn NIL
+/// money (minor bug B19): California first, in 2021; the year each
+/// association or legislature allowed it, from the `hs_nil_from` column
+/// (a ruling after August counts from the next season). None where it is
+/// still barred.
+pub fn hs_nil_from(code: &str) -> Option<i32> {
+    if !hs_nil(code) {
+        return None;
+    }
+    let t = Table::parse(HS_STATES_CSV);
+    let col = t.header.iter().position(|h| h == "hs_nil_from")?;
+    let state = t.col("state");
+    t.rows.iter().find(|r| r[state] == code).and_then(|r| r.get(col)).and_then(|v| v.trim().parse().ok())
+}

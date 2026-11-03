@@ -5,6 +5,7 @@
 //! game and last game's keys checked, and the game rules from your
 //! identity with this game's changes.
 
+use afm_engine::attributes::Attr;
 use afm_engine::game::Film;
 use afm_engine::game::calling::Answer;
 use afm_engine::game::flow::fg_make;
@@ -58,6 +59,7 @@ fn order_positions(k: usize) -> &'static [Position] {
         "ball carriers" => &[Position::RB, Position::WR, Position::TE],
         "pass rushers" => &[Position::EDGE, Position::DT],
         "coverage" => &[Position::CB, Position::S, Position::LB],
+        "kick returners" | "punt returners" => &[Position::RB, Position::WR, Position::CB, Position::S],
         _ => &[Position::LB, Position::S, Position::CB, Position::EDGE, Position::DT],
     }
 }
@@ -71,6 +73,9 @@ fn order_name(k: usize) -> &'static str {
         "Keep contain",
         "Stay home",
         "Wrap up, no big hits",
+        "Kneel if deeper than 4 yards",
+        "Fair catch inside the 10",
+        "No snap guessing",
     ][k]
 }
 
@@ -202,12 +207,24 @@ pub(super) fn view(w: &World) -> Reply {
         .collect();
     // Special teams.
     let t = if this { wk.teams } else { Default::default() };
-    let kicker = s
-        .team
-        .players
-        .iter()
-        .filter(|p| p.position == Position::K)
-        .max_by(|a, b| fg_make(a, 40.0).total_cmp(&fg_make(b, 40.0)));
+    // The range your staff gives him from practice: his leg and accuracy
+    // as your staff reads them, not the truth (minor bug B50).
+    let read_kicker = |p: &afm_engine::game::GamePlayer| {
+        let mut q = p.clone();
+        if let Some(i) = person_index(w, p.id) {
+            for (a, r) in crate::reads::attributes(w, i) {
+                if matches!(a, Attr::KickPower | Attr::ShortKickAccuracy | Attr::LongKickAccuracy)
+                    && let crate::reads::Read::Range(lo, hi) = r
+                {
+                    q.attrs.set(a, (lo as f64 + hi as f64) / 2.0);
+                }
+            }
+        }
+        q
+    };
+    let kickers: Vec<afm_engine::game::GamePlayer> =
+        s.team.players.iter().filter(|p| p.position == Position::K).map(read_kicker).collect();
+    let kicker = kickers.iter().max_by(|a, b| fg_make(a, 40.0).total_cmp(&fg_make(b, 40.0)));
     let range = kicker.map(|k| (20..=65).rev().find(|&d| fg_make(k, d as f64) >= 0.5).unwrap_or(20));
     // Their return teams on the tapes your staff keeps (G18): the punts and
     // kickoffs they fielded, and how often they showed the look a fake or

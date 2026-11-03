@@ -1846,7 +1846,11 @@ pub(crate) fn squad(w: &World) -> Reply {
                 v["rs"] = json!({ "on": r.redshirt, "games": r.games, "four": r.four, "can": r.can.is_ok(), "why": r.can.err() });
             }
             v["years_left"] = json!(match p.stage {
-                Stage::College => Some((4 - p.college_seasons as i32).max(0)),
+                Stage::College => Some(afm_engine::world::eligibility::seasons_left(
+                    p,
+                    afm_engine::world::eligibility::division_of(p, &w.programs),
+                    w.year,
+                ) as i32),
                 Stage::HighSchool | Stage::PrepSchool => Some((p.class_of - w.year).max(0)),
                 _ => None,
             });
@@ -1857,7 +1861,13 @@ pub(crate) fn squad(w: &World) -> Reply {
         .collect();
     rows.sort_by_key(|x| x.0);
     Ok(
-        json!({ "team": team_brief(w, t), "tier": tier_name(st.tier), "rows": rows.into_iter().map(|x| x.1).collect::<Vec<_>>() }),
+        json!({ "team": team_brief(w, t), "tier": tier_name(st.tier), "rows": rows.into_iter().map(|x| x.1).collect::<Vec<_>>(),
+            // The redshirt rule this season at your division (minor bug B10).
+            "rs_rule": match t {
+                TeamRef::College(j) if afm_engine::world::eligibility::five_in_five(w.year, w.programs[j].division) => "five",
+                _ if w.rules.four_game_redshirt => "four",
+                _ => "one",
+            } }),
     )
 }
 

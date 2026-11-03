@@ -147,7 +147,7 @@ screens.recruit_board = async (a) => {
   const openPos = c.by_pos.filter((p) => p.open > 0);
   const heroLine = `${esc(fcCap(x.calendar.period))} · ${esc(x.calendar.rule)}`;
   const sub = `${commits ? `${fcCap(fcCount(commits))} in${c.signed ? ` (${c.signed} signed)` : ""}` : "No commitments yet"}, ${fcPlural(left, "place")} to fill${live.length ? `, ${fcPlural(live.length, "offer")} out` : ""}.${homes ? ` Home weekends left: ${homes}.` : ""}`;
-  const panel = `<h2>The class so far <small>${esc(x.division)} · ${c.whole_roster ? `${c.limit}-man roster` : `${c.limit} signees a year`}${sg ? ` · ${esc(sg.name.toLowerCase())} ${esc(sg.date)}` : ""}</small></h2>
+  const panel = `<h2>The class so far <small>${esc(x.division)} · ${c.whole_roster ? `${c.limit}-man roster` : c.yearly ? `${c.yearly} signees a year` : "no signing limit"}${sg ? ` · ${esc(sg.name.toLowerCase())} ${esc(sg.date)}` : ""}</small></h2>
     ${fcTiles([
       [String(commits), commits === 1 ? "Commit" : "Commits"],
       [c.rank ? ordinal(c.rank) : "-", c.rank ? `Public rank of ${c.rank_of}` : "Not ranked yet"],
@@ -294,7 +294,7 @@ function fcFile(f, ctx, compact) {
     </div>`;
   const right = `<div class="fc-right">${actions}${visits}</div>`;
   const family = `<div class="panel fc-family"><h2>Family and transcript <small>what your staff has learned</small></h2>
-      <dl class="kv"><dt>Who decides</dt><dd>${esc(f.decides)}</dd><dt>Home</dt><dd>${esc(f.town)}, ${Math.round(f.miles)} miles from campus</dd><dt>Transcript</dt><dd>${esc(f.gpa)} core GPA${f.test ? ` · test ${esc(f.test)}` : ""}</dd><dt>NCAA</dt><dd>${esc(f.qualifies)}</dd><dt>Visits taken</dt><dd>${fcPlural(f.officials_used, "official visit")} of five</dd></dl></div>`;
+      <dl class="kv"><dt>Who decides</dt><dd>${esc(f.decides)}</dd><dt>Home</dt><dd>${esc(f.town)}, ${Math.round(f.miles)} miles from campus</dd><dt>Transcript</dt><dd>${esc(f.gpa)} core GPA${f.test ? ` · test ${esc(f.test)}` : ""}</dd><dt>Eligibility</dt><dd>${esc(f.qualifies)}</dd><dt>Visits taken</dt><dd>${fcPlural(f.officials_used, "official visit")}${f.official_cap ? ` of ${f.official_cap}` : ""}</dd></dl></div>`;
   const early = f.early && f.early.length
     ? `<div class="panel"><h2>His offers in order <small>the first ones stay with a recruit</small></h2><div class="items">${f.early.map((o) => `<div class="item"><span class="when">${esc(o.date)}</span><span>${teamLink(o.team)}</span></div>`).join("")}</div></div>`
     : "";
@@ -402,7 +402,10 @@ function fcPlan(x) {
   const rows = c.by_pos.map((p) => `<tr><td class="l"><a class="link" data-fc="planpos" data-v="${p.pos}">${p.pos}</a></td><td>${p.need}</td><td>${p.committed}</td><td>${p.signed}</td><td>${p.offers}</td><td><b>${p.open ? p.open : '<span class="muted">0</span>'}</b></td></tr>`).join("");
   const limit = c.whole_roster
     ? `From 2025 the House settlement caps the whole roster at ${c.limit}, with no signee limit: your roster has room for ${c.room} more.`
-    : `${c.signees} of the NCAA's ${c.limit} signees a year counted so far; your 85 scholarships leave room for ${c.room}.`;
+    : `${c.yearly ? `The ${c.body} allows ${c.yearly} signees a year; ${c.signed} signed so far. ` : `The ${c.body} sets no yearly signing limit. `}${
+        c.aid === "none" ? `Division III gives no athletic aid; your roster has room for ${c.room} more.`
+        : c.aid === "shared" ? `${c.equiv} scholarships are shared out${c.aid_max ? ` among at most ${c.aid_max} players on aid` : ""}; your roster has room for ${c.room} more.`
+        : `Your ${c.limit} scholarships leave room for ${c.room}.`}`;
   const duties = x.duties.list
     .map((d) => `<div class="fc-dutyrow"><div><b>${esc(d.name)}</b><small class="sub">${d.yours ? "You run it. Your staff steps in only when you hand it over." : esc(d.staff)}</small></div>
       <div class="seg"><button data-fc="duty" data-duty="${d.key}" data-owner="you" aria-pressed="${d.yours}">You</button><button data-fc="duty" data-duty="${d.key}" data-owner="staff" aria-pressed="${!d.yours}">Your staff</button></div></div>`)
@@ -455,7 +458,7 @@ async function fcInvite(x) {
   const who = `<select class="fc-select" data-fcinv="id" aria-label="Who">${x.targets.map((t) => `<option value="${t.id}" ${t.id === k.id ? "selected" : ""}>${t.rank}. ${esc(t.name)} · ${esc(t.pos)}${t.stars ? " · " + "★".repeat(t.stars) : ""}${t.offered ? " · offered" : ""}</option>`).join("")}</select>`;
   const kinds = `<select class="fc-select" data-fcinv="kind" aria-label="Kind of visit">${o.options.map((v) => {
     const ok = !v.set && v.days.length;
-    const left = v.key === "official" ? ` (${Math.max(0, 5 - o.officials_used)} of 5 left)` : "";
+    const left = v.key === "official" && o.official_cap ? ` (${Math.max(0, o.official_cap - o.officials_used)} of ${o.official_cap} left)` : "";
     return `<option value="${v.key}" ${v.key === k.kind ? "selected" : ""} ${ok ? "" : "disabled"}>${esc(v.name + left)}${v.set ? ` · set for ${esc(v.set.date)}` : ok ? "" : ` · ${esc(v.why || "not now")}`}</option>`;
   }).join("")}</select>`;
   const when = kind
@@ -499,7 +502,7 @@ screens.visits_desk = async () => {
   const homes = x.homes.length
     ? x.homes.map((h) => `<div class="item"><span class="when">${esc(h.date)}</span><span><span class="teamcell">${mark(h.opp, 20)}<span>vs ${teamLink(h.opp)}</span></span>${h.officials ? ` <small class="sub">· ${fcPlural(h.officials, "official visit")} set</small>` : ' <small class="sub">· no officials yet</small>'}</span></div>`).join("")
     : '<div class="empty">No home games left this season.</div>';
-  const rules = `<dl class="kv fc-rules"><dt>Official visits</dt><dd>Paid by you, 48 hours on campus. Five per recruit and one per school; seniors from September 1${x.junior_officials ? ", juniors April 1 to June 30" : ""}. Never in a dead period.</dd>
+  const rules = `<dl class="kv fc-rules"><dt>Official visits</dt><dd>Paid by you, 48 hours on campus. ${x.official_cap ? "Five per recruit and one per school" : "One per school, with no limit on how many a recruit takes (since July 1, 2023)"}; seniors from September 1${x.junior_officials ? ", juniors April 1 to June 30" : ""}. Never in a dead period.</dd>
     <dt>Unofficial visits</dt><dd>Paid by the family, any number, outside dead periods.</dd>
     <dt>Home visits</dt><dd>The head coach in his family's living room: seniors only, in a contact period, once a cycle.</dd>
     <dt>Drop-ins</dt><dd>Watching him practise at his school in an evaluation period: no talking off campus.</dd></dl>`;

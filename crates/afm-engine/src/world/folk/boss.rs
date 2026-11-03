@@ -244,8 +244,12 @@ fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
 
 /// The season the goals are for: the next one before kickoff.
 fn goal_season(w: &World, team: Team) -> i32 {
-    let kickoff = match team.level() {
-        Level::Nfl => w.dates.nfl_kickoff,
+    let kickoff = match team {
+        // Another league's opener (the CFL's June, a spring league's
+        // March; minor bug B40).
+        Team::Other(f) => crate::world::pro::other::season_span(crate::world::pro::other::league_of(f), w.year)
+            .map_or(w.dates.nfl_kickoff, |x| x.0),
+        _ if team.level() == Level::Nfl => w.dates.nfl_kickoff,
         _ => w.dates.fall_camp,
     };
     if w.today <= kickoff.add(30) { w.year } else { w.year + 1 }
@@ -828,18 +832,29 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if since.days_to(d) < 20 {
         return;
     }
-    let (pre, mid, post) = match team.level() {
-        Level::Nfl => (
-            w.dates.minicamp.1.add(2),
-            w.dates.nfl_weeks.get(8).copied().unwrap_or(w.dates.nfl_kickoff.add(60)),
-            w.dates.black_monday.add(2),
-        ),
-        Level::College => (
-            w.dates.fall_camp.add(-10),
-            w.dates.cfb_weeks.get(6).copied().unwrap_or(w.dates.fall_camp.add(70)).add(2),
-            w.dates.bowl_season.1.add(4),
-        ),
-        _ => (w.dates.hs_school_start.add(-12), w.dates.hs_school_start.add(45), w.dates.december_graduation.add(-5)),
+    // Another league meets on its own season (minor bug B40): goals three
+    // weeks before the opener, as camp opens, the midpoint, and the review
+    // after the title game.
+    let (pre, mid, post) = if let Team::Other(f) = team {
+        let k = crate::world::pro::other::league_of(f);
+        let Some((start, half, end)) = crate::world::pro::other::season_span(k, w.year) else { return };
+        (start.add(-21), half.add(2), end.add(4))
+    } else {
+        match team.level() {
+            Level::Nfl => (
+                w.dates.minicamp.1.add(2),
+                w.dates.nfl_weeks.get(8).copied().unwrap_or(w.dates.nfl_kickoff.add(60)),
+                w.dates.black_monday.add(2),
+            ),
+            Level::College => (
+                w.dates.fall_camp.add(-10),
+                w.dates.cfb_weeks.get(6).copied().unwrap_or(w.dates.fall_camp.add(70)).add(2),
+                w.dates.bowl_season.1.add(4),
+            ),
+            _ => {
+                (w.dates.hs_school_start.add(-12), w.dates.hs_school_start.add(45), w.dates.december_graduation.add(-5))
+            }
+        }
     };
     // Each meeting goes on the calendar the day before, so its morning
     // stops for you; set on the day itself, the end of that day would hand
@@ -858,7 +873,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         let mut s = Scene::new(Kind::BossMeeting, when, title);
         s.c = c;
         s.b = if c == 2 { w.year as u64 } else { 0 };
-        if c == 2 && team.level() == Level::Nfl {
+        if c == 2 && matches!(team, Team::Nfl(_)) {
             s.b = (w.year - 1).max(0) as u64;
         }
         s.team = Some(team);

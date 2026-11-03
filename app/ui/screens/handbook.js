@@ -15,7 +15,13 @@ CRUMBS.handbook = "Handbook";
 const HB8 = { week: null, q: "" };
 const HB8_LEVELS = { hs: "High school", college: "College", nfl: "NFL" };
 const hb8Rel = (id) => { const p = hbPage(id); return p ? `<button class="hb8-chip" data-go="handbook" data-args='${esc(JSON.stringify({ page: id }))}'>${esc(p.title)}</button>` : ""; };
-const hb8Where = (w) => `<a class="hb8-where" data-go="${esc(w[1])}" data-args='${esc(JSON.stringify(w[2] || {}))}'><span>${esc(w[0])}</span><i>›</i></a>`;
+// A "Player page" link opens one of your players at the named tab (minor
+// bug B53); with no team it leads nowhere and is left out.
+const hb8Where = (w, pid) => {
+  if (w[1] === "player" && pid == null) return "";
+  const args = w[1] === "player" ? { id: pid, ...(w[2] || {}) } : w[2] || {};
+  return `<a class="hb8-where" data-go="${esc(w[1])}" data-args='${esc(JSON.stringify(args))}'><span>${esc(w[0])}</span><i>›</i></a>`;
+};
 // The levels, the one you coach first.
 const hb8Order = (x) => (x && x.order) || ["college", "hs", "nfl"];
 
@@ -67,7 +73,7 @@ screens.handbook = async (a) => {
   const soon = (x.soon || []).length ? `<section class="hb8-sec"><div class="st-label">Coming up</div>${x.soon.map((u) => `<div class="hb8-soon"><b>${esc(u.d)}</b><div><span>${esc(u.t)}</span><small>${esc(u.s)}</small></div></div>`).join("")}</section>` : "";
   const right = `<aside class="hb8-panel hb8-right">
     ${side}
-    <section class="hb8-sec"><div class="st-label">Where you see it</div>${p.where.map(hb8Where).join("")}</section>
+    <section class="hb8-sec"><div class="st-label">Where you see it</div>${p.where.map((w) => hb8Where(w, x.player)).join("")}</section>
     <section class="hb8-sec"><div class="st-label">Related pages</div><div class="hb8-chips">${p.rel.map(hb8Rel).join("")}</div></section>
     ${soon}
     <div class="hb8-qnote"><i class="hb8-qb">?</i><span>The ? in any screen's header opens that screen's page in the side panel, so you never leave the screen.</span></div>

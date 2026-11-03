@@ -1297,8 +1297,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d.weekday() == crate::calendar::Weekday::Tue {
         super::clock::timed("pro trouble", || super::people::pro_trouble_week(w, d));
     }
-    // The Hall of Fame class is named the Saturday before the Super Bowl.
-    if d == y.super_bowl.add(-1) {
+    // The Hall of Fame class is named the Saturday before the Super Bowl,
+    // from 2022 at NFL Honors on the Thursday (minor bug B37).
+    let hall_day = if y.season + 1 >= 2022 { y.nfl_honors } else { y.super_bowl.add(-1) };
+    if d == hall_day {
         honors::hall_vote(w, d);
     }
     if d == y.super_bowl {
@@ -1947,7 +1949,7 @@ pub(crate) fn cut_scores(w: &World, t: usize) -> Vec<(usize, f64)> {
 pub(crate) fn cut_split(w: &World, t: usize, keep: &[(usize, f64)]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     let year = w.year;
     let limit = w.rules.nfl_roster as usize;
-    let ps = w.rules.nfl_practice_squad as usize;
+    let ps = squad::squad_size(w, t);
     // Each position's share of the limit first, then the best of the rest.
     let mut chosen: Vec<usize> = Vec::new();
     for pos in Position::ALL {
@@ -2169,7 +2171,7 @@ fn heal_week(w: &mut World) {
             && let Some(t) = team
             && crate::world::front_office::seat_head_club(w, t)
             && !crate::world::front_office::reserve::you_decide(w, i)
-            && (pup || w.clubs[t].ir_used < games::ir_returns(year))
+            && (pup || w.clubs[t].ir_used < games::ir_returns_on(w))
         {
             let d = w.today;
             back_from_reserve(w, i, t, pup, d);
@@ -2186,7 +2188,6 @@ fn heal_week(w: &mut World) {
 /// reserve/PUP list he is back on the roster without using one. A save from
 /// before keeps its weeks as days.
 pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
-    let year = w.year;
     let in_season = d >= y.cutdown.date && d <= y.super_bowl;
     if d.weekday() == crate::calendar::Weekday::Tue || w.hurt_pros.1 != Some(d.add(-1)) {
         let all =
@@ -2223,7 +2224,7 @@ pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
         if out {
             continue;
         }
-        let returns = pup || (in_season && w.clubs[t].ir_used < games::ir_returns(year));
+        let returns = pup || (in_season && w.clubs[t].ir_used < games::ir_returns_on(w));
         // Your club's healed player waits for your word (minor bug 73), off
         // the PUP list too; nothing moves him without you.
         if crate::world::front_office::reserve::you_decide(w, i) {
