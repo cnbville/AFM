@@ -15,7 +15,7 @@ use afm_engine::world::analytics::{self as an, Cm, Fmt};
 use afm_engine::world::data::Division;
 use afm_engine::world::marks::{self, NowLine, Tier};
 use afm_engine::world::records::{STAT_COUNT, Stat};
-use afm_engine::world::{Stage, World};
+use afm_engine::world::{Stage, World, tally};
 use serde_json::{Value, json};
 
 use super::{charted, division_arg, state_arg, team_json, tier_arg, tier_key};
@@ -57,11 +57,57 @@ fn group_arg(args: &Value) -> usize {
     }
 }
 
-fn card_of(w: &World, p: Place, group: usize) -> (&'static [Cm], Stat, &'static str, bool) {
+/// The group's card at a place: the charted one as deep as your seat's
+/// charting goes there (Data overhaul item 2), or the box score one.
+fn card_of(w: &World, p: Place, group: usize) -> (Vec<Cm>, Stat, &'static str, bool) {
     let ch = charted(w, p.tier, p.division);
-    let card = if ch { an::charted(group) } else { an::boxed(group) };
+    let card = match super::charting(w, p.tier, p.division) {
+        Some(c) => an::charted(group).iter().copied().filter(|&cm| an::depth(cm) <= c.depth).collect(),
+        None => an::boxed(group).to_vec(),
+    };
     let (vol, word) = if ch { an::volume(group) } else { an::box_volume(group) };
     (card, vol, word, ch)
+}
+
+/// The season in progress as your seat's charting has it: a charted
+/// level's numbers stop at the last game charted, so the games of the
+/// last `days` days come off each man's line (the box score card is whole
+/// at once). The NFL's tracking is a day behind; your own staff's charting
+/// follows your analytics head (item 2).
+fn charted_now(w: &World, p: Place, now: Vec<NowLine>) -> (Vec<NowLine>, Option<afm_engine::calendar::Date>) {
+    let Some(c) = super::charting(w, p.tier, p.division) else { return (now, None) };
+    let level = if p.tier == Tier::Nfl { tally::Level::Nfl } else { tally::Level::College };
+    let since = afm_engine::calendar::Date(w.today.0 - (c.days as i32 - 1));
+    let recent = w.tally_games_since(level, since);
+    if recent.is_empty() {
+        return (now, None);
+    }
+    let mut off: std::collections::HashMap<u32, ([f32; STAT_COUNT], u32)> = Default::default();
+    for g in &recent {
+        for l in &g.lines {
+            let e = off.entry(l.id).or_insert(([0.0; STAT_COUNT], 0));
+            for (a, b) in e.0.iter_mut().zip(l.all()) {
+                *a += b;
+            }
+            let all = l.all();
+            e.1 += (all[Stat::SnapsOff as usize] + all[Stat::SnapsDef as usize] + all[Stat::SnapsSt as usize] > 0.0)
+                as u32;
+        }
+    }
+    let now = now
+        .into_iter()
+        .map(|mut l| {
+            if let Some((o, g)) = off.get(&l.id) {
+                for (a, b) in l.all.iter_mut().zip(o) {
+                    *a -= b;
+                }
+                l.games = l.games.saturating_sub(*g);
+            }
+            l
+        })
+        .filter(|l| l.games > 0)
+        .collect();
+    (now, Some(since))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -125,7 +171,7 @@ fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Ro
                 continue;
             }
             let get = |s: Stat| l.all[s as usize] as f64;
-            out.push(row_from(l.id, l.team, l.pos, l.games, year, &get, card, vol));
+            out.push(row_from(l.id, l.team, l.pos, l.games, year, &get, &card, vol));
         }
         return out;
     }
@@ -133,7 +179,7 @@ fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Ro
         Tier::College => {
             for r in w.stats.year(year).iter().filter(|r| Some(r.division) == p.division && in_group(r.pos)) {
                 let get = |s: Stat| r.get(s);
-                out.push(row_from(r.id, r.program as usize, r.pos, r.games as u32, year, &get, card, vol));
+                out.push(row_from(r.id, r.program as usize, r.pos, r.games as u32, year, &get, &card, vol));
             }
         }
         Tier::Nfl => {
@@ -141,8 +187,14 @@ fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Ro
                 w.marks.pro_rows.iter().filter(|r| r.year as i32 == year && in_group(r.pos)).collect();
             if !kept.is_empty() && ch {
                 for r in kept {
-                    let vals = (0..card.len())
-                        .map(|k| r.vals.get(k).copied().filter(|v| v.is_finite()).map(|v| v as f64))
+                    // Kept in the full charted card's order.
+                    let full = an::charted(group);
+                    let vals = card
+                        .iter()
+                        .map(|cm| {
+                            let k = full.iter().position(|x| x == cm)?;
+                            r.vals.get(k).copied().filter(|v| v.is_finite()).map(|v| v as f64)
+                        })
                         .collect();
                     out.push(Row {
                         id: r.id,
@@ -163,7 +215,7 @@ fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Ro
                     let (Some(team), true) = (s.team, s.games > 0 && in_group(x.player.position)) else { continue };
                     let all = afm_engine::world::records::from_line(&s.stats);
                     let get = |k: Stat| all[k as usize] as f64;
-                    out.push(row_from(x.player.id, team, x.player.position, s.games, year, &get, card, vol));
+                    out.push(row_from(x.player.id, team, x.player.position, s.games, year, &get, &card, vol));
                 }
             }
         }
@@ -195,7 +247,7 @@ fn hs_pools(w: &World, p: Place, group: usize, only: Option<i32>) -> std::collec
                 l.games as u32,
                 year,
                 &get,
-                card,
+                &card,
                 vol,
             ));
         }
@@ -306,6 +358,10 @@ fn base(
     m.insert("charted".into(), json!(ch));
     m.insert("divisions".into(), json!(Division::ALL.iter().map(|d| d.name()).collect::<Vec<_>>()));
     m.insert("source".into(), super::sources(w)["line"].clone());
+    m.insert(
+        "charting".into(),
+        super::charting(w, p.tier, p.division).as_ref().map_or(Value::Null, super::charting_json),
+    );
     m
 }
 
@@ -468,8 +524,9 @@ pub fn table(w: &World, args: &Value) -> Value {
     let p = place_of(w, args);
     let group = group_arg(args);
     let (card, _, word, ch) = card_of(w, p, group);
-    // The season in progress, built once for the whole table.
-    let now = marks::season_now(w, p.tier, p.state);
+    // The season in progress, built once for the whole table, as far as
+    // your charting has it.
+    let (now, before) = charted_now(w, p, marks::season_now(w, p.tier, p.state));
     let ys = years(w, p, &now);
     let year = args
         .get("year")
@@ -483,7 +540,7 @@ pub fn table(w: &World, args: &Value) -> Value {
     let qual: Vec<bool> = rows.iter().map(|r| r.vol >= min).collect();
     // Percentiles stay among every qualifier: a freshman's shade says
     // where he stands in the whole field, not among freshmen.
-    let pcts = percentiles(&rows, &qual, card);
+    let pcts = percentiles(&rows, &qual, &card);
     let filter = Filter::of(args, p.tier);
     let pass = passes(w, p.tier, &rows, &filter);
     let sort = args.get("sort").and_then(Value::as_u64).map(|k| k as usize).filter(|&k| k < card.len()).unwrap_or(0);
@@ -515,13 +572,16 @@ pub fn table(w: &World, args: &Value) -> Value {
                 "team": team_json(w, p.tier, r.team),
                 "games": r.games,
                 "vol": r.vol.round() as i64,
-                "cells": r.vals.iter().zip(card).map(|(v, cm)| v.map(|v| fmt_cell(*cm, v))).collect::<Vec<_>>(),
+                "cells": r.vals.iter().zip(&card).map(|(v, cm)| v.map(|v| fmt_cell(*cm, v))).collect::<Vec<_>>(),
                 "pct": pcts[i].iter().map(|x| x.map(|x| x.round() as i64)).collect::<Vec<_>>(),
             })
         })
         .collect();
     let mut m = base(w, p, group, year, &ys, min, word, ch);
-    m.insert("columns".into(), json!(columns(card, &rows, &qual)));
+    if year == w.year {
+        m.insert("charted_before".into(), json!(before.map(|d| d.to_string())));
+    }
+    m.insert("columns".into(), json!(columns(&card, &rows, &qual)));
     m.insert("sort".into(), json!(sort));
     m.insert("total".into(), json!(order.len()));
     m.insert("qualified".into(), json!(qualified));
@@ -630,8 +690,9 @@ pub fn card(w: &World, args: &Value) -> Value {
         state: (tier == Tier::Hs)
             .then(|| if args.get("state").is_some() { state_arg(w, args) } else { w.high_schools[x.hs].state }),
     };
-    // The season in progress, built once for the whole card.
-    let now = marks::season_now(w, tier, p.state);
+    // The season in progress, built once for the whole card, as far as
+    // your charting has it.
+    let (now, _before) = charted_now(w, p, marks::season_now(w, tier, p.state));
     // His seasons at the level, newest first.
     let mut mine: Vec<i32> = match tier {
         Tier::College => {
@@ -679,12 +740,12 @@ pub fn card(w: &World, args: &Value) -> Value {
     let min = min_for(w, p, group, year, ch, &Value::Null, &now);
     let rows = pool(w, p, year, group, &now);
     let qual: Vec<bool> = rows.iter().map(|r| r.vol >= min).collect();
-    let pcts = percentiles(&rows, &qual, card);
+    let pcts = percentiles(&rows, &qual, &card);
     let Some(me) = rows.iter().position(|r| r.id == id) else {
         return json!({ "error": "No line that season." });
     };
     let r = &rows[me];
-    let mids = middles(&rows, &qual, card);
+    let mids = middles(&rows, &qual, &card);
     let metrics: Vec<Value> = card
         .iter()
         .enumerate()
@@ -710,7 +771,7 @@ pub fn card(w: &World, args: &Value) -> Value {
             continue;
         }
         let q: Vec<bool> = rs.iter().map(|r| r.vol >= an::default_min(group, ch, tier == Tier::Nfl)).collect();
-        let ps = percentiles(&rs, &q, card);
+        let ps = percentiles(&rs, &q, &card);
         for (i, o) in rs.iter().enumerate() {
             if !q[i] || o.id == id {
                 continue;

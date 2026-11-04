@@ -209,6 +209,8 @@ struct HsPlayed {
     /// the trial game log).
     log: Option<Vec<u8>>,
     situ: Option<super::game_log::GameSitu>,
+    /// The Data section's tallies (lane NB1): the game's facts and boxes.
+    data: Option<super::tally::games::Part>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1529,6 +1531,7 @@ fn engine_games(
     let seat = w.seat_school();
     let logging = w.logging();
     let trial_log = w.options.keep_game_log && w.recording;
+    let tallying = w.tallying();
     let world: &World = w;
     // Your game, played live on the game day screens (section 9).
     let live = world.live_result(Level::HighSchool);
@@ -1601,6 +1604,33 @@ fn engine_games(
             });
             let log = log.flatten();
             let situ = (logging || trial_log).then(|| super::game_log::game_situations(&r.stats, false));
+            let data = tallying.then(|| {
+                let kind = if final_game {
+                    "state final"
+                } else if setup.playoff {
+                    "playoff"
+                } else {
+                    "regular"
+                };
+                let facts = super::tally::games::Facts {
+                    level: super::tally::Level::Hs,
+                    season: world.year,
+                    date: day,
+                    kind,
+                    teams: [h as u32, a as u32],
+                    group: code.to_string(),
+                    neutral: final_game,
+                    conference: false,
+                    weather: super::tally::games::Weather {
+                        temp: setup.cond.temperature as f32,
+                        wind: setup.cond.wind as f32,
+                        rain: setup.cond.rain,
+                        snow: setup.cond.snow,
+                        indoor: false,
+                    },
+                };
+                super::tally::games::part(facts, &r.stats, false, &|_, _| None)
+            });
             let injuries = std::mem::take(&mut r.injuries);
             Ok(HsPlayed {
                 injuries,
@@ -1612,6 +1642,7 @@ fn engine_games(
                 neutral: final_game,
                 log,
                 situ,
+                data,
             })
         })
         .collect();
@@ -1674,6 +1705,9 @@ fn engine_games(
         crate::training::seat::game_injuries(w, day, &g.injuries, [0.0; 2], side);
         // The record store's game marks (update 3, lane L20).
         super::marks::hs_game(w, [h, a], g.score, &g.lines, g.neutral);
+        if let Some(p) = g.data {
+            w.tally_game(p);
+        }
         if let Some((full, film, replay, talks)) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref(), talks);
             w.seat_line(Level::HighSchool, [h, a], None, g.neutral);

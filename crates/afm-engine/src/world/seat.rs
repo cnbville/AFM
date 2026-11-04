@@ -1371,6 +1371,10 @@ impl World {
     /// no seat, no career and no kept games, which load as empty, and its
     /// people list gets the same room rule as a running world.
     pub fn after_load(&mut self) {
+        // A file from before the tallies (lane NB1) counts from this season.
+        if self.tallies.season == 0 {
+            self.tallies.season = self.year;
+        }
         let room = self.people.len() + self.people.len() / 3;
         self.people.shrink_to(room);
         // Each level's teams index its own list: a high school seat's

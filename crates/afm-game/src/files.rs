@@ -94,6 +94,8 @@ pub fn import_world(path: &Path, worlds: &Path) -> Result<PathBuf, String> {
     {
         eprintln!("world log: not imported ({e})");
     }
+    // Its tallies (lane NB1): the folder beside it, or the worlds page's tar.
+    crate::tallies::import(&path.with_file_name(whole), &to);
     Ok(to)
 }
 

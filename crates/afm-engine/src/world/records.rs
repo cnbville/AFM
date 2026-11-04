@@ -121,11 +121,45 @@ stats!(
     PowerWins,
     FinesseWins,
     TttSum,
+    // Lane NB1 (minor bug 183): a scramble's EPA, which EPA a dropback counts.
+    ScrambleEpa,
 );
 
 pub const STAT_COUNT: usize = Stat::ALL.len();
 
 impl Stat {
+    /// Whether the stat has fractions (yards, EPA, half sacks, sums), so a
+    /// tally file keeps it in hundredths; every other is a count. A new
+    /// stat with fractions goes here too.
+    pub fn fraction(self) -> bool {
+        use Stat::*;
+        matches!(
+            self,
+            PassYds
+                | AirYds
+                | XCmp
+                | PassEpa
+                | RushYds
+                | RushLong
+                | Yaco
+                | RecYds
+                | RecLong
+                | Yac
+                | SepSum
+                | SacksAllowed
+                | Sacks
+                | Tfl
+                | YdsAllowed
+                | FgLong
+                | PuntNet
+                | ReturnYds
+                | GradeSum
+                | PuntYds
+                | TttSum
+                | ScrambleEpa
+        )
+    }
+
     /// How a record book names it.
     pub fn name(self) -> &'static str {
         match self {
@@ -251,6 +285,7 @@ pub fn from_line(l: &StatLine) -> [f32; STAT_COUNT] {
     set(PowerWins, l.power_wins as f64);
     set(FinesseWins, l.finesse_wins as f64);
     set(TttSum, l.ttt);
+    set(ScrambleEpa, l.scramble_epa);
     s
 }
 

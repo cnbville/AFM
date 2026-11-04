@@ -776,11 +776,50 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         Vec::new()
     }
     .into_iter();
+    // The Data section's tallies (lane NB1), worked out on all cores.
+    let mut to_tally = if w.tallying() {
+        outcomes
+            .par_iter()
+            .zip(jobs.par_iter())
+            .map(|(r, j)| {
+                let r = r.as_ref()?;
+                let g = &cs.games[j.k];
+                let (hd, ad) = (w.programs[g.home].division, w.programs[g.away].division);
+                let group = if hd == ad { hd.name().to_string() } else { format!("{}/{}", hd.name(), ad.name()) };
+                let pos: [HashMap<u32, crate::positions::Position>; 2] = match &j.teams {
+                    Some((a, b)) => [a, b].map(|t| t.players.iter().map(|p| (p.id, p.position)).collect()),
+                    None => Default::default(),
+                };
+                let facts = super::tally::games::Facts {
+                    level: super::tally::Level::College,
+                    season: cs.year,
+                    date: g.date,
+                    kind: super::wlog::games::college_kind(g.kind).0,
+                    teams: [g.home as u32, g.away as u32],
+                    group,
+                    neutral: j.neutral,
+                    conference: g.conference,
+                    weather: super::tally::games::Weather {
+                        temp: j.played.temperature as f32,
+                        wind: j.played.wind as f32,
+                        rain: j.played.rain,
+                        snow: j.played.snow,
+                        indoor: j.played.indoor,
+                    },
+                };
+                Some(super::tally::games::part(facts, &r.stats, true, &|s, id| pos[s].get(&id).copied()))
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+    .into_iter();
     let first_date = cs.games.iter().map(|g| g.date).min().unwrap_or(date);
     let mut logged: Vec<(usize, serde_json::Value, Option<Vec<u8>>)> = Vec::new();
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
         let log_part = to_log.next().flatten();
+        let tally_part = to_tally.next().flatten();
         let mut played = j.played;
         let (home, away, division, kind, conference) = {
             let g = &w.college.as_ref().unwrap().games[k];
@@ -993,6 +1032,9 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             if let Some(r) = r.as_ref() {
                 super::marks::college_game(w, year, [home, away], &r.stats, j.neutral);
             }
+        }
+        if let Some(p) = tally_part {
+            w.tally_game(p);
         }
         let _ = division;
         result_event(w, k);

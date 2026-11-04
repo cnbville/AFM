@@ -36,6 +36,7 @@ mod scouting;
 mod stories;
 mod storylines;
 mod tactics;
+mod tallies;
 mod tendencies;
 mod training;
 mod update3;
