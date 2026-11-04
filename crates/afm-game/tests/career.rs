@@ -210,7 +210,17 @@ fn a_college_career_plays_through_its_first_games() {
     assert!(row["game"]["score"].is_string() && row["game"]["opp"].is_object(), "a single game opens its game: {row}");
     let book = ok(&mut g, "stat_history", json!({ "tab": "team" }));
     assert!(book["team_book"]["lists"].as_array().is_some_and(|l| !l.is_empty()), "your team's book");
-    let qbs = ok(&mut g, "analytics", json!({ "level": "college", "group": "QB", "min": 0 }));
+    // Film charting comes in days after a game, so a career that stops on
+    // the season's first weekend waits for it.
+    let passers = |g: &mut Game| ok(g, "analytics", json!({ "level": "college", "group": "QB", "min": 0 }));
+    let mut qbs = passers(&mut g);
+    for _ in 0..7 {
+        if qbs["total"].as_u64().unwrap_or(0) > 0 {
+            break;
+        }
+        ok(&mut g, "continue", json!({ "max_days": 1 }));
+        qbs = passers(&mut g);
+    }
     assert!(qbs["charted"] == true && qbs["total"].as_u64().unwrap() > 0, "your division's charted passers: {qbs}");
     let pct = qbs["rows"][0]["pct"].as_array().unwrap();
     assert!(pct.iter().all(|p| p.is_null() || (0..=100).contains(&p.as_i64().unwrap())));
@@ -322,6 +332,11 @@ fn a_college_career_plays_through_its_first_games() {
         for view in ["table", "tiers", "power"] {
             let l = ok(&mut g, "team_leaders", json!({ "level": level, "view": view }));
             assert_eq!(l["level"], level, "{l}");
+            // The NFL and high school may not have kicked off yet, and a
+            // new world's career has no counted season before this one.
+            if level != "college" && l["n"] == 0 {
+                continue;
+            }
             match view {
                 "table" => assert!(l["rows"].as_array().is_some_and(|r| !r.is_empty()), "{level}: {l}"),
                 "tiers" => assert!(l["points"].as_array().is_some_and(|r| r.len() > 2), "{level}: {l}"),
