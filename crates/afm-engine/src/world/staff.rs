@@ -1432,6 +1432,12 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                 let rung = match o.role {
                     Role::HeadCoach => 1.0,
                     Role::OffensiveCoordinator => 1.4,
+                    // The NFL's defensive coordinators are its head coaches'
+                    // road (9 of 21 Black head coaches of the Rooney Rule era
+                    // came from one; Penn/ASU): at 0.8 the league read 1-7
+                    // of color a season in 2005-18 and 1.9-4.1 head coaches
+                    // of color, at 0.55 7-15 and 6.0 and 5.9 (real about 6).
+                    Role::DefensiveCoordinator if matches!(o.employer, Employer::Nfl(_)) => 0.55,
                     Role::DefensiveCoordinator => 0.8,
                     Role::PositionCoach(Group::QB) => 1.5,
                     Role::PositionCoach(Group::OL) => 2.0,
