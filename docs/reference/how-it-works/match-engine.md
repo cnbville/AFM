@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day; the scrimmage tackle reach (minor bug 162) at 1f8d959 on 2026-10-31; long runs (minor bug 163) at bff75e7 the same day; the scramble drill kept inside the end line and every man kept inside the lines (the recruiting and college bugs before the rebuild) the same day. The minor bugs hotfix (minor bug 36 (shared sacks and tackles for loss)) checked over main e581227 on 2026-11-01; expected completions by level (minor bug 178) over main 2d0c6a8 on 2026-11-02; college's two-minute timeout from 2024 and its first-down clock to 2022 (minor bugs 179 and 180) over main e7ca4ee on 2026-11-03. The minor bugs hotfix batch 6 (minor bugs 213, 230 and 231: actives, college kickoffs, the fair-catch touchback) checked over main 1a99583 on 2026-11-03.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28; drives, the clock held and the world log added by world reader lane R1 the same day; game day talks with the next update's lane 14 at 7487fc5 on 2026-10-30; update 3 lane 4 (speed in recruiting and on the field) merged with main at b2b4213 on 2026-10-30; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30; NFL throw depth and passing volume (minor bugs 135 and 93) at 3f875ea the same day; the scrimmage tackle reach (minor bug 162) at 1f8d959 on 2026-10-31; long runs (minor bug 163) at bff75e7 the same day; the scramble drill kept inside the end line and every man kept inside the lines (the recruiting and college bugs before the rebuild) the same day. The minor bugs hotfix (minor bug 36 (shared sacks and tackles for loss)) checked over main e581227 on 2026-11-01; expected completions by level (minor bug 178) over main 2d0c6a8 on 2026-11-02; college's two-minute timeout from 2024 and its first-down clock to 2022 (minor bugs 179 and 180) over main e7ca4ee on 2026-11-03. The minor bugs hotfix batch 6 (minor bugs 213, 230 and 231: actives, college kickoffs, the fair-catch touchback) checked over main 1a99583 on 2026-11-03. The run game (minor bugs 164 and 136: blocks that fade, linemen and linebackers making the stop, box safeties, the fall forward) checked over main 4c6c5e0 on 2026-11-04.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -85,22 +85,24 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 
 What it reads: run blocking, strength, hands, balance, burst and mass against shedding, hands, anchor, strength, recognition and mass. What it does not read: arm length in inches (only the Length link), height, Speed, the blocker's Agility or Football IQ.
 
-- Start: get-off = 0.6 Acceleration + 0.4 Anticipation + 12 × lean(Snap timing) + Get-off + Length (defender); run set = 0.5 Run Blocking + 0.3 Acceleration + 0.2 Strength + Get-off + Length (blocker); w0 = -0.1 + 0.006 × (get-off + silent count - set) + front fit + N(0, 0.18) (`game/sim.rs`, `engage`).
+- Start: get-off = 0.6 Acceleration + 0.4 Anticipation + 12 × lean(Snap timing) + Get-off + Length (defender); run set = 0.5 Run Blocking + 0.3 Acceleration + 0.2 Strength + Get-off + Length (blocker); w0 = -0.4 (-0.1 before minor bug 164) + 0.006 × (get-off + silent count - set) + front fit + N(0, 0.18) (`game/sim.rs`, `engage`).
   - Silent count: a road line in its first second gives the defender 36 × crowd × focus (minor bug 143: 24), focus = clamp(1 - 0.05 × (Concentration20 - 10), 0.5, 1.5) (`engage`, `SILENT_COUNT`).
   - Front fit (DE/DT only): a two-gap DT (a 3-4 front) +0.05 against gap runs, -0.02 against zone; a one-gap lineman -0.02 against gap runs, +0.03 against zone (`front_fit`). Duo counts as zone here (`game/scrimmage.rs`, `run_snap`).
 - Each tick: edge = shed power - block power; w += 0.035 × edge × 0.1 + 0.6 × √0.1 × N(0, 1) (`update_blocks`, `RUN_EDGE`).
   - Block power = 0.45 Run Blocking + 0.2 Strength + 0.15 Hand Use + 0.1 Balance + 0.1 Acceleration + 0.08 × (weight - 300) + Low center/Anchor (`block_base`, `block_gift`).
   - Shed power = 0.4 Block Shedding + 0.2 Hand Use + 0.15 Anchor + 0.1 Strength + 0.15 Play Recognition + 0.08 × (weight - 280) (`shed_power`).
   - Before his read time a run defender drifts 0.12 a second toward losing (`update_blocks`).
-  - The runner within 2.2 yards and w > 0: +2 × 0.5 × max(0.5 + w, 0.2) a second, the shed to make the play (`update_blocks`, `SHED_RUNNER`).
+  - The runner within 2.2 yards and the block not sealed (w > -1): +2 × 1.0 × max(0.5 + w, 1.0) a second, the shed to make the play (`update_blocks`, `SHED_RUNNER`; before minor bug 164 only with w > 0, at 2 × 0.5 × max(0.5 + w, 0.2)).
+  - A defender 1.5+ yards past the line (a linebacker someone climbed to) feels the runner from 3.5 yards and gets 2 × 1.0 × max(0.5 + w, 0.2) more (`SHED_SECOND`, `SHED_SECOND_RANGE`).
   - The runner 1.5+ yards past him: he lets go with chance 0.18 × clamp(1 + 0.04 × (Motor20 - 10) - 0.006 × (blocker Hand Use - 60), 0.5, 1.6) a tick.
   - A corner, nickel or safety who has read the run, with the runner past the line and more than 3 yards to his side: he works off the block with chance 0.6 a tick and pursues (`SPACE_BLOCK_GAP`, `SPACE_BLOCK_LEAVE`; minor bug 163).
 - Double teams: edge -= 0.6 × the helper's block power - 20 - 0.3 × (anchor - 60); anchor = 0.6 Anchor + 0.2 Strength + 0.2 Balance + 0.08 × (weight - 300) + Anchor/Big man (`update_blocks`, `anchor`).
   - Combos: 2 on inside zone, zone read, duo and draw; 1 on outside zone, power, counter and iso (`game/scrimmage.rs`, `run_blocking`).
   - The helper climbs to his linebacker when w < -0.15 after 0.35 s, after 1.0 s, or when the linebacker is within 2 yards of the line or 2.5 of him (`run_snap`).
 - w ≥ 1 is a shed. w ≤ -1 is a sealed block held at -1, or a pancake with chance 0.05 × finish a tick, finish = clamp(1 + 0.04 × (Physicality20 - 10) + 0.006 × (Strength - 60) - 0.008 × (defender Balance - 60), 0.4, 1.8) (`update_blocks`).
-- The pair moves toward the carrier at 1.6 × w yd/s (`update_blocks`).
-- Blocks in space (climbs, pulls, screens, returns): a set, square blocker misses with clamp(0.06 + 0.004 × (slip - skill), 0.02, 0.25), any other with clamp(0.17 + 0.006 × (slip - skill) + 0.05 × (speed across - 2)₊, 0.05, 0.55); skill = 0.5 Blocking in Space + 0.5 Agility + Big man; slip = 0.5 Agility + 0.5 Block Shedding + Sudden. A DL moving under 3 yd/s, or anyone under 2, is always hit (`game/sim.rs`, `lands_block`).
+- The pair moves toward the carrier at 1.6 × w yd/s (`update_blocks`). The push fades with the block's age: driven back (w < 0) to nothing over 2 s, at most 1.6 yards (`RUN_PUSH_BACK`); driving his blocker back (w > 0), the push along the field over 1 s, while the slide toward the carrier goes on (`RUN_PUSH_UP`). Before minor bug 164 it never faded (a man pushed 11 yards).
+- Blocks in space (climbs, pulls, screens, returns): a set, square blocker misses with clamp(0.06 + 0.004 × (slip - skill), 0.02, 0.25), any other with clamp(0.17 + 0.006 × (slip - skill) + 0.05 × (speed across - 2)₊, 0.05, 0.55); skill = 0.5 Blocking in Space + 0.5 Agility + Big man; slip = 0.5 Agility + 0.5 Block Shedding + Sudden. A DL moving under 3 yd/s, or anyone under 2 within 1.5 yards of the line (anywhere before minor bug 164), is always hit (`game/sim.rs`, `lands_block`, `PHONE_BOOTH`).
+- Receivers' stalk blocks: the nearest man within 9 yards who isn't a DE or DT and stands 1.5+ yards off the line (`game/scrimmage.rs`, `run_blocking`; minor bug 164).
 
 ## Pass rush and pressure
 
@@ -242,6 +244,7 @@ What it reads: Ball Carrier Vision, his speed and cut, the Patience, Bounce and 
 
 ## Pursuit, elusiveness, broken tackles and tackling
 
+- Run fits (`game/scrimmage.rs`, `defend`): a linebacker with the runner still behind the line fills to 2 yards past it on the runner's side (half a yard before minor bug 164) and leaves his fill when within 1.8 + 1.5 × lean(Downhill) yards; then he takes his angle but holds 1.5 yards past the line. A back rolled into the box (inside 7 yards and 7.5 to the side of the ball, the box count) fits at 4.5 yards and attacks once the runner is 1.5 past the line (minor bug 136); every other deep back fits at 8.5 and attacks at 3.5 (the post's numbers; the others had 6.5 and 2.5). At his floor a fitting man stops coming forward and lets the runner come (`game/sim.rs`, `pursue_cap`).
 - Pursuit angle: iq = 0.5 PR + 0.5 Pursuit; he leads the intercept by clamp(0.92 + 0.004 × (iq - 60), 0.75, 1.05), the last man in front (3+ yards ahead of the runner and 4+ away) by at least 1.4 + 0.003 × (iq - 50) (`LAST_MAN_LEAD`, 1.1 before minor bug 163) (`game/sim.rs`, `pursue_cap`).
   - In front within 5 yards he breaks down: forward clamp(1.5 + 0.04 × (feet - 50), 0.8, 3.5) yd/s, feet = 0.5 Agility + 0.3 Tackling + 0.2 Pursuit; facing within 4 yards, speed × clamp(0.55 + 0.004 × feet, 0.6, 0.95).
   - Motor20 under 9, 4+ yards behind and 8+ away: effort 0.8 + 0.02 × Motor20.
@@ -259,8 +262,8 @@ What it reads: Ball Carrier Vision, his speed and cut, the Patience, Bounce and 
   - each tackler f = 1 + 0.03 × (Tackling + Battering ram - 60) + 0.012 × (Strength - 60) + 0.01 × (Comp20 - 10) - 0.12 × lean(Strip) + (mass - 215) / 300.
   - Down with chance 1 - e^(-Σ 3.1 × max(f, 0.3) / max(resist, 0.4) × 0.1) a tick.
 - Broken tackle: one tackler only, after 0.15 s, 0.026 × max(1 + (rb - tk) / 60, 0.05) a tick; rb = 0.5 Strength + 0.5 Elusiveness + 0.08 × (mass - 215) + Battering ram/Low center; tk = 0.6 Tackling + 0.4 Strength + 0.08 × (mass - 215) + Battering ram/Length (`fight_tick`).
-- The pile moves at (m × (2.2 + 0.03 × (Strength - 60)) - 0.35 × hold) / (m + 0.6 × hold), hold = Σ tackler mass × f; a runner in a pile adds 30 work a second (`fight_tick`).
-- Down: he falls up to 1.5 yards with the pile's momentum plus up to 0.9 yards of body forward (`tackled`).
+- The pile moves at (m × (3.0 + 0.03 × (Strength - 60)) - 0.35 × hold) / (m + 0.6 × hold) (2.2 before minor bug 164), hold = Σ tackler mass × f; a runner in a pile adds 30 work a second (`fight_tick`).
+- Down: he falls 0.3 s of the pile's momentum, up to 1.5 yards, plus up to 1.05 yards of body forward (`tackled`; 0.25 s and 0.9 before minor bug 164).
 - Pushed out: within 6 yards of the sideline, chance min((6 - distance) / 4.5, 1) × (0.5 + 0.5 × the pile's push outward) (`tackled`).
 - Reaching for the line: within 0.05-1.6 yards of the line to gain or the goal line, with chance clamp(0.25 + 0.55 × lean(Reach), 0, 0.97); it gets there if inside 0.75 + 0.03 × (arm - 32) yards (`reach`).
 
@@ -381,7 +384,7 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 ## Where the knobs are
 
 - `game/geom.rs`: `DT` 0.1.
-- `game/sim.rs`: `OPEN_REACH` 2.5, `SCRIMMAGE_REACH` 2.0, `SPACE_BLOCK_GAP` 3.0, `SPACE_BLOCK_LEAVE` 0.6, `LAST_MAN_LEAD` 1.4, `RUN_EDGE` 0.035, `SHED_RUNNER` 0.5, `SILENT_COUNT` 36, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1 and break 0.026 in `fight_tick`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
+- `game/sim.rs`: `OPEN_REACH` 2.5, `SCRIMMAGE_REACH` 2.0, `SPACE_BLOCK_GAP` 3.0, `SPACE_BLOCK_LEAVE` 0.6, `LAST_MAN_LEAD` 1.4, `RUN_EDGE` 0.035, `SHED_RUNNER` 1.0, `SHED_SECOND` 1.0, `SHED_SECOND_RANGE` 3.5, `RUN_PUSH_BACK` 2.0, `RUN_PUSH_UP` 1.0, `PHONE_BOOTH` 1.5, `SILENT_COUNT` 36, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1, break 0.026 and the pile 3.0 in `fight_tick`; the fall 0.3 and body 1.05 in `tackled`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
 - `game/scrimmage.rs`: `RELEASE` 0.5, `RELEASE_PACE` 0.25, `NOISE_BUSTS` 0.06, `NOISE_LOAD` 11, `SILENT_RELEASE` 0.38, `CHIP_TIME` 0.6, `CHIP_W` 0.25, `READ_NEED` 0.3, `READ_START` 0.1, `PRE_READ` 0.45, `FEED_BASE` 0.1, `FEED_PER_POINT` 0.02, `FEED_MAX` 0.55, `BAT` 0.17, `HANDS_LEVEL` 0.5; `aim_sd`; drop times and mesh times in `run_snap`; the prep terms (0.1 on the read in `run_snap`, 0.3 on each read in `quarterback`).
 - `training/prep.rs`: `game_factor`. `training/seat.rs`: `week_habits` (crowd noise 0.075 a day, 0.9-1.15; rules clinic 0.9-1.08).
 - `game/roster.rs`: `forty`, `top_speed`, `sprint_tau`, `accel`, `cut`, `drain`, `RECOVER_ON_FIELD` 0.012, `RECOVER_ON_BENCH` 0.05, `TYPICAL_CHEM` 0.45, `CROSS_LIST` 3, `INSTALL` 0.75, `wanted`.
@@ -391,7 +394,7 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 - `game/playbook.rs`: run `press` and `aim`.
 - `links.rs`: `FULL` 5. `attributes.rs`: each attribute's `fatigue` share.
 - `game/win_chance.rs`: the margin spread per level and field goal makes in `Params::for_level`; the touchdown and kick curves, the punt net 42 and the short clock (6 s a snap, 16 s running) in `drive`; the 25-yard envelope in `chance`.
-- Tuning tools: `crates/afm-tools/src/bin/match_check.rs`, `play_trace.rs`.
+- Tuning tools: `crates/afm-tools/src/bin/match_check.rs` (`AFM_RUNDIAG=1` adds the run diagnostic: first tacklers and where they hit, the yards, sheds and blocks held to the whistle, the box by situation and by tackler, the backs' spread), `play_trace.rs`, `play_on.rs` (a world played on; it prints the NFL's points, yards an attempt and a carry, and the backs' spread by year).
 
 ## Related pages
 
