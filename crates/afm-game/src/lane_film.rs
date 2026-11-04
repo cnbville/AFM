@@ -385,8 +385,13 @@ fn brief(w: &World, id: u32, ask: Option<&str>) -> Reply {
     let p = &w.people[i];
     let ours = session::is_ours(w, id);
     let qs = session::questions(w, id);
-    let mut cuts: Vec<Value> =
-        tape::Cut::ALL.iter().map(|c| json!({ "key": c.key(), "label": c.words(p.player.position) })).collect();
+    // Each cut-up with the question it is made for, when one fits (picking
+    // the cut picks the question).
+    let pos = p.player.position;
+    let mut cuts: Vec<Value> = tape::Cut::ALL
+        .iter()
+        .map(|&c| json!({ "key": c.key(), "label": c.words(pos), "ask": fm::words::cut_ask(pos, c) }))
+        .collect();
     if ours {
         cuts.insert(0, json!({ "key": "ours", "label": tape::Cut::Ours.words(p.player.position) }));
     }

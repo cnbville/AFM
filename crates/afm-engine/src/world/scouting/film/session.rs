@@ -355,6 +355,14 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
     };
     let cut = if ours && cut == Cut::Ours { Cut::Ours } else { cut };
     let n = if mode == Mode::Quick { 12 } else { 6 };
+    let qs = questions(w, id);
+    // No question picked: the one the cut-up is made for, else the default.
+    let fits = words::cut_ask(w.people[i].player.position, cut);
+    let ask = match ask.or(fits) {
+        Some(k) => qs.iter().find(|q| q.key == k).cloned().or_else(|| qs.first().cloned()),
+        None => qs.first().cloned(),
+    };
+    let qa: Vec<u8> = ask.as_ref().map(|q| q.attrs.clone()).unwrap_or_default();
     // From the stands (SK32): his snaps of tonight's game, in order.
     let picks = if mode == Mode::Live {
         (0..tape.snaps.len())
@@ -362,11 +370,11 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
             .take(10)
             .collect()
     } else {
-        tape::cut(&tape, cut, n)
+        tape::cut_on(&tape, cut, n, &qa)
     };
     // Watch it quick takes whatever cut-up his tape has.
     let (cut, picks) = if picks.is_empty() && mode == Mode::Quick {
-        Cut::ALL.iter().map(|&c| (c, tape::cut(&tape, c, n))).find(|x| !x.1.is_empty()).unwrap_or((cut, picks))
+        Cut::ALL.iter().map(|&c| (c, tape::cut_on(&tape, c, n, &qa))).find(|x| !x.1.is_empty()).unwrap_or((cut, picks))
     } else {
         (cut, picks)
     };
@@ -376,11 +384,6 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
     let all = tape::cut(&tape, cut, 99).len();
     let p = &w.people[i];
     let (name, pos) = (p.name.clone(), p.player.position);
-    let qs = questions(w, id);
-    let ask = match ask {
-        Some(k) => qs.iter().find(|q| q.key == k).cloned().or_else(|| qs.first().cloned()),
-        None => qs.first().cloned(),
-    };
     let mut snaps: Vec<Snap> = picks.iter().map(|&k| tape.snaps[k].clone()).collect();
     // The tape stops on about one snap in three, the ones that bear on the
     // question (SK48).
@@ -389,7 +392,6 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
             s.call = None;
         }
     } else {
-        let qa: Vec<u8> = ask.as_ref().map(|q| q.attrs.clone()).unwrap_or_default();
         let bears = |s: &Snap| s.cues.iter().any(|c| qa.contains(&(c.0.index() as u8)));
         let want = snaps.len().div_ceil(3).max(1);
         let mut order: Vec<usize> = (0..snaps.len()).filter(|&k| snaps[k].call.is_some()).collect();
