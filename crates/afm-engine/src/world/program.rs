@@ -643,35 +643,121 @@ pub fn prestige_of(p: &Program, coach_rep: f64, conference: f64) -> f64 {
 }
 
 /// Rebuilds the footprint: the home region plus wider reach for bigger
-/// brands, plus pipelines, plus overflow regions: Group of 5 and FCS staffs
-/// recruit talent-rich states where the big schools can't take everyone
-/// (the MAC in Florida and Georgia, note 4).
+/// brands, plus pipelines, plus overflow regions: every FBS and FCS staff
+/// recruits talent-rich states where the big schools can't take everyone
+/// (the MAC in Florida and Georgia, note 4; the Big Ten in Florida, Georgia
+/// and Texas).
 pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51], year: i32) {
-    // A national brand recruits everywhere; a small school knows its own area.
-    // Reach follows how big a name it is at its own level.
-    let level_reach = match p.division {
+    let rel = p.prestige_rel;
+    // How far past its region a level recruits (minor bug 246): the
+    // country for FBS's national names, a little at FCS, junior colleges as
+    // before, almost nothing below.
+    let national_reach = match p.division {
+        Division::FBS => clamp((rel - NATIONAL_FROM) / (1.0 - NATIONAL_FROM), 0.0, 1.0).powi(2),
+        Division::FCS => 0.3 * clamp((rel - NATIONAL_FROM) / (1.0 - NATIONAL_FROM), 0.0, 1.0).powi(2),
+        Division::JUCO => 0.36 * rel.powi(3),
+        Division::D2 | Division::NAIA => 0.01 * rel.powi(3),
+        Division::D3 => 0.005 * rel.powi(3),
+    };
+    let overflow_reach = match p.division {
+        Division::FBS if p.power_conference(year) => SPILL_POWER,
+        Division::FBS => SPILL_FBS,
+        Division::FCS => SPILL_FCS,
+        _ => 0.0,
+    };
+    let miles = campus_miles(p);
+    let local = region(p);
+    for s in 0..51 {
+        let national = 0.35 * national_reach * (NATIONAL_FLOOR + (1.0 - NATIONAL_FLOOR) * overflow[s]);
+        let spill = overflow_reach * overflow[s] * (1.0 - miles[s] / SPILL_MILES).max(0.0);
+        p.footprint[s] = clamp(local[s].max(national).max(spill) + 0.6 * p.pipeline[s], 0.0, 1.0);
+    }
+}
+
+/// A national brand recruits everywhere; a small school knows its own area.
+/// Reach follows how big a name it is at its own level.
+fn level_reach(d: Division) -> f64 {
+    match d {
         Division::FBS => 1.0,
         Division::FCS => 0.55,
         Division::D2 => 0.3,
         Division::NAIA => 0.3,
         Division::D3 => 0.25,
         Division::JUCO => 0.6,
-    };
-    let overflow_reach = match p.division {
-        Division::FBS if !p.power_conference(year) => 0.45,
-        Division::FCS => 0.3,
-        _ => 0.0,
-    };
-    let rel = p.prestige_rel;
-    let reach_miles = 150.0 + 1100.0 * level_reach * rel * rel + 250.0 * p.fans;
-    for s in 0..51 {
-        let d = geo::miles(p.state, s);
-        let local = (1.0 - d / reach_miles).max(0.0);
-        let national = 0.35 * level_reach * rel.powi(3);
-        let spill = overflow_reach * overflow[s] * (1.0 - d / 2200.0).max(0.0);
-        p.footprint[s] = clamp(local.max(national).max(spill) + 0.6 * p.pipeline[s], 0.0, 1.0);
     }
 }
+
+/// Miles from a program's campus to each state (minor bug 246): its own
+/// state's 60, any other state's center from the campus itself. From the
+/// home state's center before, North Dakota State in Fargo, on the
+/// Minnesota line, read Minnesota as 300 miles off (it is 125 to its
+/// center), and the Twin Cities sat outside its region.
+fn campus_miles(p: &Program) -> [f64; 51] {
+    let here = geo::campus(p.state, &p.city);
+    std::array::from_fn(|s| {
+        if s == p.state {
+            geo::miles(s, s)
+        } else {
+            let (_, lat, lon) = geo::STATE_CENTERS[s];
+            geo::miles_between(here, (lat, lon))
+        }
+    })
+}
+
+/// A program's own region in each state, 0-1: 1 − miles / its reach, where
+/// the reach is 150 miles plus `HOME_REACH_MILES` × the level's reach ×
+/// prestige² plus `FAN_REACH_MILES` × fans. The footprint's local part,
+/// before the national and overflow reach and the pipelines.
+pub fn region(p: &Program) -> [f64; 51] {
+    let rel = p.prestige_rel;
+    let reach = 150.0 + HOME_REACH_MILES * level_reach(p.division) * rel * rel + FAN_REACH_MILES * p.fans;
+    let miles = campus_miles(p);
+    std::array::from_fn(|s| (1.0 - miles[s] / reach).max(0.0))
+}
+
+/// How far a staff's home region runs, in miles past the first 150, for the
+/// biggest name at its level (`HOME_REACH_MILES`, times the level's reach and
+/// its prestige squared) and for the biggest fan base (`FAN_REACH_MILES`).
+/// Minor bug 246: at 1,100 and 250 a strong program's home region ran about
+/// 1,100 miles, so Iowa's reached Georgia, Alabama and Texas, and 42% of its
+/// roster came from 500-1,000 miles (real 9%; the whole FBS 20%). Real staffs
+/// work a region of a few hundred miles and go farther only to the
+/// talent-rich states (the overflow spill and the national reach below).
+/// Proposed, not confirmed.
+pub const HOME_REACH_MILES: f64 = 700.0;
+pub const FAN_REACH_MILES: f64 = 150.0;
+/// A national reach outside the region follows the talent (minor bug 246):
+/// its full size where a state has the most talent its own big schools
+/// can't sign (Texas, Florida, Georgia, California), and this share of it in
+/// a state with none to spare (Iowa, Kansas, Kentucky). Before, it was the
+/// same in every state, so the big names drew as much from Iowa as from
+/// Florida. Proposed, not confirmed.
+pub const NATIONAL_FLOOR: f64 = 0.25;
+/// Where a national reach starts (minor bug 246): a name at or below this
+/// share of its level's leader recruits its region and the overflow states
+/// only, and the reach grows with the square of how far it sits above it
+/// (Georgia at 0.98 of the leader 0.91, Iowa at 0.84 0.42, Utah at 0.64
+/// 0.04). Before, it grew with the cube of the share, so Iowa's reach was
+/// 0.59 of Georgia's, its board held hundreds of Texans and Floridians, and
+/// 19% of its roster came from 1,000 miles or more (real 11%). Division II,
+/// the NAIA and Division III keep a trace of one (a hundredth, half that):
+/// with the level's reach squared, a Division III staff still read about 2%
+/// of every far state's recruits, and 17% of its signees came from 1,000
+/// miles or more against 9% from 500-1,000. Proposed, not confirmed.
+pub const NATIONAL_FROM: f64 = 0.55;
+/// The overflow spill: how much of the talent-rich states' extra players a
+/// staff reads, fading to nothing at `SPILL_MILES` (minor bug 246). The Group
+/// of 5 lives on it (the MAC in Florida and Georgia). A power program gets
+/// some (Minnesota and Nebraska in Florida and Texas) but recruits its region
+/// first; at the Group of 5's size Iowa read Texas at 0.31 and Georgia at
+/// 0.24, against 0.2-0.6 for Ohio, Missouri and Illinois. FCS staffs spill
+/// less: at 0.3 over 2,200 miles North Dakota State signed 44% of its roster
+/// from 1,000 miles or more (real 14%) and Montana State 45% (real 19%).
+/// Proposed, not confirmed.
+pub const SPILL_FBS: f64 = 0.45;
+pub const SPILL_POWER: f64 = 0.2;
+pub const SPILL_FCS: f64 = 0.2;
+pub const SPILL_MILES: f64 = 1800.0;
 
 /// A signee made an impact: all-conference or better, or drafted, or signed
 /// by a pro team (note 4). Only impact grows a pipeline: to his state, his

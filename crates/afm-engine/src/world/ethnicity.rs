@@ -228,6 +228,84 @@ const LEAN_RAMP: (f64, f64) = (0.5, 1.4);
 /// 1.4 at FCS, 1.9 at FBS and 2.9 in the NFL).
 const ODDS_AT: [f64; 3] = [1.0, 2.0, 3.0];
 
+/// The talent draws over which a state's Black lean grows from its value
+/// at FCS talent to its value at FBS talent (`STATE_LEAN`; FCS players'
+/// median draw is about 1.4, FBS players' about 2.0).
+const STATE_TOP_RAMP: (f64, f64) = (1.4, 2.4);
+
+/// Each state's own lean (minor bug 245), in log odds at full talent on top
+/// of the nation's: Black at FCS talent, the Black lean's growth by FBS
+/// talent, and Hispanic. Real rosters show it and one national lean can't:
+/// FBS players from Mississippi are 86% Black and from Wisconsin 8%
+/// (2025 rosters, race from names), against 43% and 9% of the states'
+/// children, so a state's best players are not its children's mix times
+/// one factor. Who plays, where, and how far a state's schools take them
+/// differs by state, and the reasons (where families live and which
+/// schools play strong football, private academies, other sports) are
+/// outside the game, so the table carries them. In the Northeast and the
+/// industrial Midwest the lean grows with the level: Pennsylvania's FBS
+/// players are 40% Black and its FCS players 26%. Fitted by least squares
+/// on a full-scale world's rosters (seed 64, after minor bug 246's reach
+/// and talent fixes; a first fit on seed 63), every boy's draw reweighted:
+/// real FBS and FCS players by home state (FBS scaled to the NCAA's 48.9%
+/// Black), each position at FBS, FCS and the NFL (the position tables moved
+/// at most about 0.15 in log odds a step), the levels' mixes (Division III
+/// pulled toward 25%, minor bug 241), small states pulled toward their
+/// Census division. Proposed, not confirmed.
+const STATE_LEAN: [(&str, f64, f64, f64); 51] = [
+    ("AL", 2.17, -1.42, -0.28),
+    ("AK", -0.37, 0.32, 0.22),
+    ("AZ", 0.26, -0.45, 0.02),
+    ("AR", 1.87, -0.35, -0.32),
+    ("CA", 0.19, 0.41, 0.38),
+    ("CO", -0.42, -0.94, -0.14),
+    ("CT", -2.26, 0.74, 0.12),
+    ("DE", 0.52, -0.16, 0.07),
+    ("DC", 0.37, -0.22, 0.09),
+    ("FL", 0.72, -0.08, 0.22),
+    ("GA", 0.61, -0.28, 0.11),
+    ("HI", -0.35, 0.40, 0.23),
+    ("ID", 0.49, -0.31, -0.08),
+    ("IL", -3.73, 2.79, -0.44),
+    ("IN", -2.91, 2.99, -0.43),
+    ("IA", -2.06, 0.45, -0.20),
+    ("KS", -1.15, 0.84, -0.22),
+    ("KY", 1.73, -1.32, -0.27),
+    ("LA", 1.77, -0.45, -0.31),
+    ("ME", -2.02, 0.75, 0.09),
+    ("MD", 0.58, -0.01, 0.07),
+    ("MA", -2.03, 0.92, 0.06),
+    ("MI", -2.58, 3.07, -0.43),
+    ("MN", -2.09, 0.72, -0.22),
+    ("MS", 3.30, -0.84, -0.28),
+    ("MO", -0.66, 1.12, -0.22),
+    ("MT", -0.08, -0.59, -0.04),
+    ("NE", -1.65, 0.58, -0.23),
+    ("NV", 0.24, -0.40, -0.10),
+    ("NH", -2.05, 0.74, 0.09),
+    ("NJ", -2.70, 3.22, 0.38),
+    ("NM", 0.26, -0.42, 0.03),
+    ("NY", -2.76, 3.18, 0.12),
+    ("NC", 0.45, -0.27, 0.06),
+    ("ND", -1.51, 0.68, -0.22),
+    ("OH", -3.05, 3.07, -0.43),
+    ("OK", 1.75, -0.39, -0.31),
+    ("OR", -0.72, 0.16, 0.14),
+    ("PA", -3.02, 3.12, 0.16),
+    ("RI", -1.92, 0.81, 0.07),
+    ("SC", 0.87, -0.15, 0.08),
+    ("SD", -1.85, 0.52, -0.22),
+    ("TN", 1.62, -1.61, -0.28),
+    ("TX", 0.92, -0.70, -0.31),
+    ("UT", 0.52, -0.31, -0.01),
+    ("VT", -2.04, 0.73, 0.09),
+    ("VA", 0.23, -0.22, 0.09),
+    ("WA", -0.62, 0.42, 0.14),
+    ("WV", 0.97, 0.04, 0.10),
+    ("WI", -4.16, 2.15, -0.42),
+    ("WY", 0.20, -0.45, -0.04),
+];
+
 /// A boy with a long snapper's knack draws with the snapper's odds (A25):
 /// nobody's body is built as a snapper; the camps find the best snappers
 /// among the other positions as seniors (`recruiting.rs`, from his long
@@ -279,45 +357,48 @@ pub fn regular_talent(talent_z: f64) -> bool {
 /// The tight ends' is the fit × 0.88 for the same reason: the test
 /// world's FBS tight ends read 21.5% Black and 74.7% white (real 18 and
 /// 80), its NFL tight ends 26.4% Black (real 23), and a 12-year world's
-/// FBS tight ends 18.8% Black, up from 15.1%.
+/// FBS tight ends 18.8% Black, up from 15.1%. Refitted with the states'
+/// own leans (`STATE_LEAN`, minor bugs 245 and 166): the white and Black
+/// columns moved at most about 0.15 in log odds a step (two steps), and
+/// FCS spots were fitted at the same time as FBS and the NFL.
 const ODDS_LOW: [[f64; 4]; 11] = [
-    [1.40, 0.268, 0.740, 0.740],
-    [0.626, 1.65, 0.377, 0.580],
-    [0.919, 0.698, 0.488, 0.530],
-    [1.64, 0.193, 0.136, 0.630],
-    [1.26, 0.369, 1.76, 1.53],
-    [0.479, 0.685, 0.324, 1.84],
-    [0.923, 0.492, 0.343, 1.11],
-    [0.238, 1.55, 0.308, 0.580],
-    [6.66, 0.0086, 9.04, 1.42],
-    [2.02, 0.0091, 0.333, 0.110],
-    [6.06, 0.0079, 0.682, 0.580],
+    [1.56, 0.251, 0.740, 0.740],
+    [0.682, 1.48, 0.377, 0.580],
+    [1.09, 0.586, 0.488, 0.530],
+    [1.78, 0.181, 0.136, 0.630],
+    [1.49, 0.357, 1.76, 1.53],
+    [0.550, 0.575, 0.324, 1.84],
+    [1.02, 0.454, 0.343, 1.11],
+    [0.301, 1.17, 0.308, 0.580],
+    [6.51, 0.00866, 9.04, 1.42],
+    [2.05, 0.00910, 0.333, 0.110],
+    [5.94, 0.00804, 0.682, 0.580],
 ];
 const ODDS_MID: [[f64; 4]; 11] = [
-    [1.96, 0.202, 0.684, 0.740],
-    [0.517, 1.74, 0.408, 0.580],
-    [0.644, 0.878, 0.491, 0.530],
-    [1.85, 0.156, 0.135, 0.630],
-    [1.46, 0.325, 1.61, 1.53],
-    [0.367, 0.631, 0.330, 1.84],
-    [0.887, 0.480, 0.330, 1.11],
-    [0.289, 1.22, 0.288, 0.580],
-    [6.32, 0.0086, 9.92, 1.42],
-    [2.03, 0.0090, 0.395, 0.110],
-    [6.04, 0.0078, 0.698, 0.580],
+    [2.22, 0.180, 0.684, 0.740],
+    [0.446, 2.02, 0.408, 0.580],
+    [0.574, 0.990, 0.491, 0.530],
+    [2.09, 0.140, 0.135, 0.630],
+    [1.52, 0.319, 1.61, 1.53],
+    [0.326, 0.712, 0.330, 1.84],
+    [0.810, 0.531, 0.330, 1.11],
+    [0.254, 1.41, 0.288, 0.580],
+    [6.08, 0.00869, 9.92, 1.42],
+    [2.02, 0.00907, 0.395, 0.110],
+    [5.78, 0.00811, 0.698, 0.580],
 ];
 const ODDS_HIGH: [[f64; 4]; 11] = [
-    [2.05, 0.202, 0.638, 0.740],
-    [0.763, 1.03, 0.438, 0.580],
-    [0.553, 0.885, 0.499, 0.530],
-    [1.85, 0.139, 0.133, 0.630],
-    [1.98, 0.226, 1.60, 1.53],
-    [0.358, 0.416, 0.342, 1.84],
-    [0.872, 0.445, 0.324, 1.11],
-    [0.369, 0.879, 0.279, 0.580],
-    [7.52, 0.0084, 8.96, 1.42],
-    [2.08, 0.0088, 0.465, 0.110],
-    [5.74, 0.0080, 0.716, 0.580],
+    [2.39, 0.173, 0.638, 0.740],
+    [0.694, 1.14, 0.438, 0.580],
+    [0.511, 0.950, 0.499, 0.530],
+    [2.13, 0.121, 0.133, 0.630],
+    [2.42, 0.183, 1.60, 1.53],
+    [0.320, 0.449, 0.342, 1.84],
+    [0.887, 0.432, 0.324, 1.11],
+    [0.335, 0.965, 0.279, 0.580],
+    [7.40, 0.00842, 8.96, 1.42],
+    [2.09, 0.00878, 0.465, 0.110],
+    [5.70, 0.00804, 0.716, 0.580],
 ];
 
 /// Where a talent draw sits on a ramp, 0 to 1.
@@ -375,15 +456,31 @@ fn shares(state: usize) -> [f64; ETHNICITY_COUNT] {
 pub fn player_ethnicity(state: usize, talent_z: f64, position: Option<Position>, rng: &mut Rng) -> Ethnicity {
     let s = shares(state);
     let up = ramp(talent_z, LEAN_RAMP);
+    let (black, hispanic) = state_lean(state, talent_z);
     let entries: Vec<(Ethnicity, f64)> = Ethnicity::ALL
         .iter()
         .enumerate()
         .map(|(k, &e)| {
             let odds = position.map_or(1.0, |p| position_odds(p, e, talent_z));
-            (e, s[k] * participation(e) * (level_lean(e) * up).exp() * odds)
+            let home = match e {
+                Ethnicity::Black => black,
+                Ethnicity::Hispanic => hispanic,
+                _ => 0.0,
+            };
+            (e, s[k] * participation(e) * ((level_lean(e) + home) * up).exp() * odds)
         })
         .collect();
     rng.weighted(&entries)
+}
+
+/// His home state's own lean for Black and Hispanic boys (minor bug 245),
+/// added to the nation's (`level_lean`) and grown over the same ramp: the
+/// Black lean at FCS talent plus its growth up to FBS talent
+/// (`STATE_TOP_RAMP`), and the Hispanic lean.
+fn state_lean(state: usize, talent_z: f64) -> (f64, f64) {
+    let code = geo::STATE_CENTERS[state.min(50)].0;
+    let (_, black, top, hispanic) = STATE_LEAN.iter().find(|r| r.0 == code).copied().unwrap_or(("", 0.0, 0.0, 0.0));
+    (black + top * ramp(talent_z, STATE_TOP_RAMP), hispanic)
 }
 
 /// Where a new coach comes from. Coaches are mostly former players, so the
@@ -584,6 +681,21 @@ mod tests {
         assert!(share("TX", 2000, Ethnicity::Hispanic) > tx_h + 0.05);
     }
 
+    /// Minor bug 245: every state has its own lean, inside a few log odds
+    /// (Wisconsin's, the largest, about cancels the nation's at FCS talent).
+    #[test]
+    fn every_state_has_its_own_lean() {
+        for (code, ..) in geo::STATE_CENTERS.iter() {
+            let row = STATE_LEAN.iter().find(|r| r.0 == *code);
+            let Some(&(_, black, top, hispanic)) = row else { panic!("{code} has no lean") };
+            assert!(
+                black.abs() <= 5.0 && top.abs() <= 5.0 && hispanic.abs() <= 5.0,
+                "{code}: {black} {top} {hispanic}"
+            );
+        }
+        assert_eq!(STATE_LEAN.len(), 51);
+    }
+
     /// The split keeps every seed's White, Black, Hispanic and Polynesian
     /// players: the old five-group draw, with Asian as one, picks the same.
     #[test]
@@ -596,7 +708,13 @@ mod tests {
                 let mut b = a.clone();
                 let new = player_ethnicity(state, z, None, &mut a);
                 let up = ramp(z, LEAN_RAMP);
-                let w = |k: usize, e: Ethnicity| s[k] * participation(e) * (level_lean(e) * up).exp();
+                let (black, hispanic) = state_lean(state, z);
+                let home = |e: Ethnicity| match e {
+                    Ethnicity::Black => black,
+                    Ethnicity::Hispanic => hispanic,
+                    _ => 0.0,
+                };
+                let w = |k: usize, e: Ethnicity| s[k] * participation(e) * ((level_lean(e) + home(e)) * up).exp();
                 let old: Vec<(usize, f64)> = vec![
                     (0, w(0, Ethnicity::White)),
                     (1, w(1, Ethnicity::Black)),

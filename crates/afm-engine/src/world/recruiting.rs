@@ -3218,6 +3218,16 @@ const STAR_EVAL: f64 = 0.5;
 /// confirmed). A head coach is on the hot seat (a sign) from a third of the
 /// pressure the staff feels (`pressure`, from results under expectation).
 const BURNER_EVAL: f64 = 1.0;
+/// How much of its national and overflow reach a staff reads for a recruit
+/// outside its region, by his stars (0 to 5; minor bug 246): unrated and
+/// 1-star kids a tenth, 2-stars 0.3, 3-stars 0.7, blue chips all. Real
+/// staffs find far recruits through the services' lists; before, a staff
+/// read every recruit in a far state alike, so 29 of North Dakota State's
+/// 52 players from 500 miles or more were unrated Californians, Texans and
+/// Arizonans (real: Minnesota, the Dakotas, Wisconsin and Iowa), and Iowa
+/// had 48% from 500 miles or more (real 20%): a thin region filled its
+/// board from far states. Proposed, not confirmed.
+const FAR_READ: [f64; 6] = [0.1, 0.1, 0.3, 0.7, 1.0, 1.0];
 const HOT_SEAT: f64 = 0.34;
 
 /// What a recruit or transfer sees of a roster beyond the school's grades
@@ -4912,6 +4922,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     *e = e.max(t);
                 }
             }
+            // Its own region, where it reads every recruit (minor bug 246).
+            let region = super::program::region(prog);
             let mut seen: Vec<(usize, f64, bool, Position)> = Vec::new();
             for c in &cands {
                 // A JUCO player moves up to a four-year school or nowhere.
@@ -4927,14 +4939,24 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 {
                     continue;
                 }
-                // A blue-chip is seen by everyone; others only inside a footprint.
-                let bonus = if c.stars >= 4 { 1.0 } else { 0.15 * c.stars as f64 };
+                // Outside its region a staff reads rated recruits (minor bug
+                // 246): the services' stars are how a name 1,000 miles off
+                // reaches it ([`FAR_READ`]); its region and its pipeline to
+                // his state count in full.
+                let near = (region[c.state] + 0.6 * prog.pipeline[c.state]).min(1.0);
+                let reach = near.max(FAR_READ[c.stars.min(5) as usize] * prog.footprint[c.state]);
+                // A blue-chip is seen by everyone; others only inside a
+                // footprint (minor bug 246: a 3-star's 0.45 counted in every
+                // state, so about half of all FBS staffs had every 3-star in
+                // the country on their boards, and Iowa's filled from
+                // Georgia, Florida and Alabama).
+                let bonus = if c.stars >= 4 { 1.0 } else { 0.15 * c.stars as f64 * reach };
                 // Pipelines to his school and his area, and the staff's ties, open doors.
                 let hs_pipe = prog.hs_pipeline.get(&c.hs).map_or(0.0, |v| v.0);
                 let area_pipe = prog.area_pipeline.get(&c.area).map_or(0.0, |v| v.0);
                 let tie = ties.get(&c.hs).copied().unwrap_or(0.0);
                 let local = hs_pipe.max(0.6 * area_pipe).max(0.7 * tie);
-                let see = (prog.footprint[c.state] + 1.2 * local) * c.vis * 1.6 + bonus;
+                let see = (reach + 1.2 * local) * c.vis * 1.6 + bonus;
                 // A staff knows every rated recruit in its own state (fix list 2.4).
                 let home = c.state == prog.state && c.stars >= 2;
                 // S7: a desperate school reads the track lists in its own
@@ -7360,15 +7382,20 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     ask_first(w, ask);
 }
 
-/// Entrants whose day has come decide (T3, T9): each shops among programs
-/// that want him (11.16), best first; his first choice can fall through
-/// while he waits. No school: his old one may take him back (portal regret),
-/// or he leaves football. `force` decides everyone still waiting.
 /// How a portal entrant weighs playing on two levels down or more: he goes
 /// with chance (love of the game / 20) to this power, about 0.3 on average
 /// (minor bug 99, proposed, not confirmed).
 const STEP_DOWN_POW: f64 = 2.0;
 
+/// The footprint a Division II, NAIA or Division III staff reads an entrant
+/// from in the portal (minor bug 246): his home inside about four fifths of
+/// its region. Proposed, not confirmed.
+const SMALL_PORTAL_REACH: f64 = 0.2;
+
+/// Entrants whose day has come decide (T3, T9): each shops among programs
+/// that want him (11.16), best first; his first choice can fall through
+/// while he waits. No school: his old one may take him back (portal regret),
+/// or he leaves football. `force` decides everyone still waiting.
 pub(crate) fn portal_day(w: &mut World, force: bool) {
     let norms = w.system_norms;
     let today = w.today;
@@ -7541,6 +7568,20 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 let deep = if room { 3 } else { 2 };
                 let wanted = ahead < deep * slots || (mk.open[j][k] > 0 && perf > mk.backups_best[j][k]);
                 if (!wanted && bond == 0.0) || j == c || mk.adds[j] >= 10 || counted[j] + today_adds[j] >= limit {
+                    return None;
+                }
+                // A Division II, NAIA or Division III staff works the portal
+                // in its own region (minor bug 246): an entrant from inside its
+                // footprint, one playing in its state, or one it has ties to.
+                // Every program that had a place for him called before, so a
+                // transfer down drew offers from the whole country and 19% of
+                // Division III's transfers came from 1,000 miles or more.
+                // Proposed, not confirmed.
+                let small = matches!(d, Division::D2 | Division::NAIA | Division::D3);
+                let prog = &wr.programs[j];
+                let near =
+                    prog.footprint[wr.people[i].home_state] >= SMALL_PORTAL_REACH || prog.state == wr.programs[c].state;
+                if small && !near && bond == 0.0 {
                     return None;
                 }
                 // A dismissed player starts over a level down or at JUCO; a

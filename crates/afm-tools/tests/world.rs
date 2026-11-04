@@ -915,3 +915,62 @@ fn each_position_has_its_real_race_mix() {
     }
     assert!(off.is_empty(), "positions off their real mix: {off:?}");
 }
+
+/// Minor bugs 245, 246 and 241: each place's college players carry its
+/// own mix, so a Deep South roster and an upper Midwest roster differ the
+/// way real ones do, without recruiting ever reading race. Real (2025
+/// rosters, race from names): FBS and FCS players from Mississippi 86-89%
+/// Black, from Iowa, Wisconsin and Minnesota 8-28%; FBS and FCS rosters in
+/// Mississippi, Alabama, Louisiana, Georgia and South Carolina 66% Black
+/// against 18-30% in Iowa, Wisconsin, Minnesota, Nebraska and the Dakotas;
+/// FBS teams' Black shares spread with a standard deviation of 13.7 points;
+/// Division III 17-25% Black. The margins are wide: one test world (two
+/// full-scale worlds read Mississippi 76-78, Wisconsin 6-9, the regions'
+/// gap 29-32, the spread 11.6-11.9 and Division III 29-33).
+#[test]
+fn each_place_sends_its_own_mix() {
+    use afm_engine::world::ethnicity::Ethnicity;
+    use afm_engine::world::geo;
+    let w = &*WORLD;
+    let code = |s: usize| geo::STATE_CENTERS[s].0;
+    let (south, north) = (["MS", "AL", "LA", "GA", "SC"], ["IA", "WI", "MN", "NE", "ND", "SD"]);
+    let mut home = std::collections::HashMap::<&str, (u32, u32)>::new();
+    let mut region = [(0u32, 0u32); 2];
+    let mut d3 = (0u32, 0u32);
+    let mut teams = Vec::new();
+    for p in &w.programs {
+        let black = p.roster.iter().filter(|&&i| w.people[i].ethnicity == Ethnicity::Black).count() as u32;
+        let n = p.roster.len() as u32;
+        if p.division == Division::D3 {
+            d3 = (d3.0 + n, d3.1 + black);
+        }
+        if !matches!(p.division, Division::FBS | Division::FCS) {
+            continue;
+        }
+        if p.division == Division::FBS && n >= 40 {
+            teams.push(100.0 * black as f64 / n as f64);
+        }
+        for (k, list) in [south.as_slice(), north.as_slice()].into_iter().enumerate() {
+            if list.contains(&code(p.state)) {
+                region[k] = (region[k].0 + n, region[k].1 + black);
+            }
+        }
+        for &i in &p.roster {
+            let q = &w.people[i];
+            let e = home.entry(code(q.home_state)).or_default();
+            *e = (e.0 + 1, e.1 + u32::from(q.ethnicity == Ethnicity::Black));
+        }
+    }
+    let pct = |(n, b): (u32, u32)| 100.0 * b as f64 / n.max(1) as f64;
+    let from = |c: &str| pct(home.get(c).copied().unwrap_or_default());
+    assert!(from("MS") > 65.0, "players from Mississippi {:.0}% Black", from("MS"));
+    for c in ["IA", "WI", "MN"] {
+        assert!(from(c) < 30.0, "players from {c} {:.0}% Black", from(c));
+    }
+    let (s, n) = (pct(region[0]), pct(region[1]));
+    assert!(s - n > 20.0, "Deep South rosters {s:.0}% Black, upper Midwest {n:.0}%");
+    let mean = teams.iter().sum::<f64>() / teams.len() as f64;
+    let sd = (teams.iter().map(|t| (t - mean).powi(2)).sum::<f64>() / teams.len() as f64).sqrt();
+    assert!(sd > 9.0, "FBS teams' Black shares spread {sd:.1} points");
+    assert!(pct(d3) < 36.0, "Division III {:.0}% Black", pct(d3));
+}
