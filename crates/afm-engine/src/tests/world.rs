@@ -571,3 +571,46 @@ fn a_player_hurt_in_camp_goes_on_reserve_or_is_settled_with() {
         roster.len()
     );
 }
+
+/// Minor bug 246: a staff reads its own region first. Iowa, a power program
+/// at 0.84 of its level's leader, reads Illinois far more than Texas and
+/// reads Texas less than Georgia does; a Division III staff in Minnesota
+/// barely reads Texas at all.
+#[test]
+fn recruiting_reach_reads_the_region_first() {
+    use crate::world::geo;
+    use crate::world::program::{Program, program_from_row, rebuild_footprint};
+    let mut programs: Vec<Program> =
+        COLLEGES.iter().enumerate().map(|(i, r)| program_from_row(i, r, 1, &mut Rng::new(1))).collect();
+    let overflow = crate::world::overflow_by_state(&programs, 2025);
+    let at = |c: &str| geo::state_index(c).expect("state");
+    let mut read = |find: &dyn Fn(&Program) -> bool, rel: f64, fans: f64| {
+        let p = programs.iter_mut().find(|p| find(p)).expect("program");
+        p.prestige_rel = rel;
+        p.fans = fans;
+        p.pipeline = [0.0; 51];
+        rebuild_footprint(p, &overflow, 2025);
+        p.footprint
+    };
+    let iowa = read(&|p| p.real_name == "Iowa", 0.84, 0.7);
+    let georgia = read(&|p| p.real_name == "Georgia", 0.98, 0.9);
+    let d3 = read(&|p| p.division == Division::D3 && p.state == at("MN"), 0.9, 0.3);
+    let (il, tx) = (at("IL"), at("TX"));
+    assert!(iowa[il] > 0.4 && iowa[tx] < 0.2, "Iowa reads Illinois {:.2}, Texas {:.2}", iowa[il], iowa[tx]);
+    assert!(georgia[tx] > iowa[tx] + 0.1, "Georgia reads Texas {:.2}, Iowa {:.2}", georgia[tx], iowa[tx]);
+    assert!(d3[tx] < 0.01, "a Minnesota Division III staff reads Texas {:.3}", d3[tx]);
+}
+
+/// Minor bug 246: every state's talent has its fit to the real rosters, a
+/// nudge of at most about half a standard deviation, up in the upper
+/// Midwest and down in Mississippi.
+#[test]
+fn every_state_has_a_talent_fit() {
+    use crate::world::TALENT_FIT;
+    for s in STATES.iter() {
+        let fit = TALENT_FIT.iter().find(|r| r.0 == s.code).unwrap_or_else(|| panic!("{} has no fit", s.code));
+        assert!(fit.1.abs() <= 0.6, "{}: {}", s.code, fit.1);
+    }
+    let of = |c: &str| TALENT_FIT.iter().find(|r| r.0 == c).map(|r| r.1).unwrap();
+    assert!(of("IA") > 0.0 && of("MN") > 0.0 && of("MS") < 0.0);
+}

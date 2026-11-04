@@ -1383,6 +1383,17 @@ impl World {
         if self.tallies.season == 0 {
             self.tallies.season = self.year;
         }
+        // A file from before minor bug 246 recruits with the new footprints
+        // and grows its next classes from the states' new talent from the
+        // day it loads.
+        if self.mix_rev < super::MIX_REV {
+            let (overflow, year) = (self.overflow, self.year);
+            for p in self.programs.iter_mut() {
+                super::program::rebuild_footprint(p, &overflow, year);
+            }
+            super::refit_cultures(&mut self.states);
+            self.mix_rev = super::MIX_REV;
+        }
         let room = self.people.len() + self.people.len() / 3;
         self.people.shrink_to(room);
         // Each level's teams index its own list: a high school seat's
