@@ -451,6 +451,23 @@ fn still_json(s: &tape::Still) -> Value {
         "ring": s.ring.map(|r| [r.0, r.1]),
         "dots": s.dots.iter().map(|d| json!([d.x, d.y, d.k, d.l])).collect::<Vec<_>>(),
         "lines": s.lines.iter().map(|l| json!({ "k": l.k, "pts": l.pts.iter().map(|p| [p.0, p.1]).collect::<Vec<_>>() })).collect::<Vec<_>>(),
+        "board": s.board.as_ref().map(board_json),
+    })
+}
+
+/// A true-scale still: spots in tenths of a yard, `d` down the field from
+/// the line of scrimmage, `a` across from the offense's left sideline.
+fn board_json(b: &tape::Board) -> Value {
+    json!({
+        "men": b.men.iter().map(|m| json!([m.0, m.1, m.2, m.3.name()])).collect::<Vec<_>>(),
+        "keys": b.keys.iter().map(|k| json!([k.0, k.1, k.2])).collect::<Vec<_>>(),
+        "paths": b.paths.iter().map(|p| json!({ "k": p.0, "pts": p.1.iter().map(|q| [q.0, q.1]).collect::<Vec<_>>() })).collect::<Vec<_>>(),
+        "ball": [b.ball.0, b.ball.1],
+        "ring": b.ring.map(|r| [r.0, r.1]),
+        "togo": b.togo,
+        "goal": b.goal,
+        "hash": b.hash,
+        "win": [b.win.0, b.win.1],
     })
 }
 

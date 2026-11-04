@@ -155,8 +155,9 @@ fn stills(s: &Kept, on_off: bool) -> Vec<Still> {
     };
     let up = |yd: i32| (los as i32 - yd * 2).clamp(2, 98) as u8;
     let snap_cap = format!("{}: {}", if on_off { "Their offense" } else { "Their defense" }, s.look);
-    let mut moment = Still { caption: String::new(), dots: dots.clone(), lines: Vec::new(), ring: None, los };
-    let mut end = Still { caption: String::new(), dots: dots.clone(), lines: Vec::new(), ring: None, los };
+    let mut moment =
+        Still { caption: String::new(), dots: dots.clone(), lines: Vec::new(), ring: None, los, board: None };
+    let mut end = Still { caption: String::new(), dots: dots.clone(), lines: Vec::new(), ring: None, los, board: None };
     let qb = dots.iter().find(|d| d.l == "QB").map_or((50, los + 12), |d| (d.x, d.y));
     if s.kind == 0 {
         let rb = dots.iter().find(|d| d.l == "RB").map_or(qb, |d| (d.x, d.y));
@@ -197,7 +198,7 @@ fn stills(s: &Kept, on_off: bool) -> Vec<Still> {
         }
         end.ring = Some((to_x, up(if s.complete { s.yards as i32 } else { air })));
     }
-    vec![Still { caption: snap_cap, dots, lines: Vec::new(), ring: None, los }, moment, end]
+    vec![Still { caption: snap_cap, dots, lines: Vec::new(), ring: None, los, board: None }, moment, end]
 }
 
 /// A cut-up of one kept tape on the team at `side`: the snaps behind each
