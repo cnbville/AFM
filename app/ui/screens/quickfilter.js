@@ -182,9 +182,15 @@ function qfBar(scope, groups, rows, shown) {
     <div class="qf-line qf-posline" role="group" aria-label="Positions"><span class="qf-lbl">Positions</span>${chips}${st.pos.length ? '<button class="qf-link" data-act="qf-allpos">Every position</button>' : ""}</div>
   </div>`;
 }
-// The empty table or board's word when the bar leaves nobody.
-function qfNone(scope) {
-  return `<div class="qf-none"><b>Nobody matches the quick filter.</b> <button class="qf-link" data-act="qf-clear" data-scope="${esc(scope)}">Clear it</button></div>`;
+// The empty table or board's word when the bar leaves nobody: a read
+// nobody on your staff has made yet says so (another team's players before
+// any film or scouting are all "Not seen").
+function qfEmpty(rows, st, fields) {
+  const blind = qfLive(st, fields).find(({ f }) => f.kind === "read" && rows.length && rows.every((r) => !qfRead(r, f)));
+  return blind ? `Nobody matches: your staff has no ${blind.f.label.toLowerCase()} read of anyone here yet.` : "Nobody matches the quick filter.";
+}
+function qfNone(scope, rows, st, fields) {
+  return `<div class="qf-none"><b>${esc(qfEmpty(rows || [], st || qfState(scope), fields || new Map()))}</b> <button class="qf-link" data-act="qf-clear" data-scope="${esc(scope)}">Clear it</button></div>`;
 }
 
 // ---------- the bar's controls ----------

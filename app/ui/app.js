@@ -464,7 +464,7 @@ screens.roster = async (a) => {
       groupBy: (r) => r.pos,
       // The quick filter's columns sit in the Player group, after his class.
       groups: [{ t: "Player", span: 4 + allCols.length - cols.length }, { t: "Body · measured", span: 4, div: true }, { t: "Opinion", who: x.mine ? "your position coaches" : "public", span: 3, div: true }],
-      empty: qfOn(qs, qfields) ? "Nobody matches the quick filter." : undefined,
+      empty: qfOn(qs, qfields) ? qfEmpty(base, qs, qfields) : undefined,
     })}
   </div></div>`;
 };

@@ -30,7 +30,7 @@ Checked against main at e9344bb on 2026-11-04 (the quick filter lane).
 
 - The count reads "12 of 104 players": the players the bar leaves out of those the screen's own filters show (the unit, class and injured filters, the Overview's rail) (`qfBar`).
 - A rule turns gold once it filters, and the panel takes a thin gold edge; Clear empties the search, the rules and the positions. Escape empties the box you are typing in (`app/ui/screens/quickfilter.css`; `quickfilter.js`, the keydown listener).
-- With nobody left, the table says "Nobody matches the quick filter." and the Overview offers to clear it (`qfNone`).
+- With nobody left, the table says "Nobody matches the quick filter." and the Overview offers to clear it. When a rule reads an attribute nobody on your staff has read on anyone in view (another team's players before any film or scouting), it says so: "your staff has no speed read of anyone here yet" (`qfEmpty`, `qfNone`).
 - The table's own "+ Filter" and saved views still work on top: they filter the table's columns (`app/ui/screens/core.js`, `applyFilters`).
 
 ## Where the knobs are

@@ -457,7 +457,7 @@ screens.roster = async (a) => {
     const mix = g.mix.map((m) => `${m.n} ${esc(m.class)}`).join(" · ");
     const of = qon ? `${rows.length} of ${g.count} match · ` : "";
     return `<div class="sb-band"><span class="sb-bn">${esc(g.name)}</span><small>${of}${sbPlural(g.count, "player")} · starters ${u.value != null ? u.value : "–"}${u.rank ? ` · ${esc(u.rank_words)} ${esc(u.among)}` : ""}</small><small class="sb-mix">${mix}</small></div>${rows.map((r) => sbRosterRow(r, pick && r.id === pick.id, qon ? qfHits(r, qs, qfields) : "")).join("")}`;
-  }).join("") || (qon ? qfNone("mine") : "");
+  }).join("") || (qon ? qfNone("mine", inRail, qs, qfields) : "");
   const pageH = pageHead({
     kicker: `${esc(x.level_name)} · ${sbPlural(x.rows.length, "player")}`,
     title: `<span class="sb-crest">${mark(x.team, 40)}</span>${esc(x.team.name)}`,

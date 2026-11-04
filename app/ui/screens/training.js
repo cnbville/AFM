@@ -1080,7 +1080,7 @@ screens.roster = async (a) => {
     : "";
   return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${x.squadCount ?? x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
     <div class="filters">${vseg}${seg}</div>${qfBar("mine", x.qf, base, rows.length)}${draftNote}
-    ${table("squad:" + view, qfCols(squadCols(view, x), qs, qfields, "squad:" + view), rows, { groupBy: (r) => r.pos, empty: qfOn(qs, qfields) ? "Nobody matches the quick filter." : undefined })}</div></div>`;
+    ${table("squad:" + view, qfCols(squadCols(view, x), qs, qfields, "squad:" + view), rows, { groupBy: (r) => r.pos, empty: qfOn(qs, qfields) ? qfEmpty(base, qs, qfields) : undefined })}</div></div>`;
 };
 
 // ======================================================================
