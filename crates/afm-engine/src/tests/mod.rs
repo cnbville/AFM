@@ -5,6 +5,7 @@ mod bodies;
 mod carousel;
 mod coaching_people;
 mod compact;
+mod decide;
 mod depth;
 mod development;
 mod faces;

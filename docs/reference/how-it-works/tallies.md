@@ -1,13 +1,13 @@
 # The Data section's tallies: how it works today
 
-Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04.
+Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04. Lane NB8 (Data overhaul items 24-27: the calls file, the analysts' model, garbage time, concepts against coverages, the advanced box extras and the teams' charting delay) over main e9344bb on 2026-11-04.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `.github/`. "Proposed, not confirmed" marks Claude's own picks in this lane, which Cain hasn't answered.
 
 ## Quick answers
 
 - What are the tallies? Counts the world keeps as its games are played, for the Data section's pages, so they don't need the world log (about 40 GB for a 30-year world) (`world/tally/mod.rs`, module notes).
-- Which kinds? Five, each its own file per season: `players`, `teams`, `games`, `classes`, `people` (`world/tally/mod.rs`, `KINDS`).
+- Which kinds? Six, each its own file per season: `players`, `teams`, `games`, `classes`, `people`, `calls` (lane NB8) (`world/tally/mod.rs`, `KINDS`).
 - Where do they live? In a folder beside the world file or save, `name.afmdata`, one file per kind and season: `name.afmdata/<kind>/<season>.tally` (`world/tally/mod.rs`, `EXT`, `path`; `crates/afm-game/src/tallies.rs`, `beside`).
 - And the season being played? In the world itself (`World::tallies`), so a save carries it (`world/mod.rs`).
 - When is a season written? When the football year closes, the day after the Super Bowl, after the world log's year end. The open store then starts over, so memory stays flat (`world/clock.rs`, `rollover`; `world/tally/mod.rs`, `tally_close`).
@@ -44,14 +44,37 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Each cell keeps plays, yards (a kick's distance on kicks), EPA, successes, first downs, touchdowns, turnovers and one extra count by kind: completions on passes, sacks, missed tackles on runs, kicks made, touchbacks (`teams.rs`, `Situ`, `values`).
 - Keys start `o|` (with the ball) or `d|` (without it), then the split: play kind, down, down and distance, field zone, quarter, two minute, score, red zone, goal to go, third and fourth down, personnel, backfield, motion, RPO, tempo, men in the box, defensive package, the defense's call, explosive; on dropbacks also blitz by down, pressured, play action, coverage and throw depth (`teams.rs`, `keys`).
 - Plays wiped by a penalty and no-plays are left out of the cells (`teams.rs`, `game`).
+- Lane NB8 keys: `garbage|kind` for snaps in garbage time (`tally/decide.rs`, `garbage`); on runs and dropbacks `cc|concept|coverage`, the play's concept against the coverage the defense played, and `cov3|coverage` on 3rd downs (`decide.rs`, `concept_of`, `coverage_of`; `teams.rs`, `keys`).
+- Garbage time: in college and high school Bill Connelly's margins (more than 38 points in the 2nd quarter, 28 in the 3rd, 22 in the 4th, never the 1st or overtime); in the NFL the offense's win chance under 10% or over 90% (rbsdm.com's filter) (`decide.rs`, `garbage`).
+- The concept is read from the call's words: a run's scheme (the longest run concept name the run part ends with, "other run" if none), a pass's concept (the part after "with" in an RPO; a library or designed play's name; "other pass" if none). The coverage is the defense call's first part ("Cover 3", "2-man", "Tampa 2") (`decide.rs`, `concept_of`, `coverage_of`; `game/playbook.rs`, `designed_named`).
+- The charting delay (lane NB8): the open season keeps each team's latest game on its own (`Season::last`), so a page can leave it out while your staff is still charting it (`Season::charted_by`). It is cleared before the season's file is written (`tally_close`).
 
 ## The games file
 
 - Every engine game at every level: level, season, date, kind (regular, conference title, bowl, playoff, Super Bowl, state final and so on), the two teams, group (division or the NFL's conferences), neutral site, conference game, the score by quarter, overtime, weather and both team boxes (`world/tally/games.rs`, `GameRow`, `Facts`).
-- College and NFL games also carry each side's advanced numbers (runs and run EPA and success, stuffs, line yards, dropbacks and pass EPA and success, havoc made, drives, trips inside the 40 and their TDs and field goals, three and outs, average start), the home side's win chance before every scrimmage snap (0-100) and every player's line (`Adv`, `adv`, `wp_chart`, `Line`).
+- College and NFL games also carry each side's advanced numbers (runs and run EPA and success, stuffs, line yards, dropbacks and pass EPA and success, havoc made, drives, trips inside the 40 and their TDs and field goals, three and outs, average start; lane NB8 adds explosive plays (runs of 10+, dropbacks of 20+), the EPA of the successful snaps and red zone trips with their TDs and field goals), the home side's win chance before every scrimmage snap (0-100) and every player's line (`Adv`, `adv`, `wp_chart`, `Line`).
+- The win chance is the game boards' model with the game's closing line where the books hung one, the home field otherwise (1.7 points in the NFL, 2.5 elsewhere, none at a neutral site) (lane NB8; `games.rs`, `wp_chart`; `decide.rs`, `Model::new`). Before NB8 it was each play's own `wp_before`.
 - A line keeps the stat book's numbers: counts whole, rates and EPA to the hundredth (`games.rs`, `quantize`; `world/records.rs`, `Stat::fraction`).
 - During the season the games are packed into the store as they come (zstd level 3, frames of about 256 KB), so the open season stays small (`world/tally/file.rs`, `LEVEL_OPEN`, `FRAME_RAW`; `games.rs`, `Open::add`).
 - Games since a date at a level can be read back while the season runs (`World::tally_games_since`), which the charting delay uses.
+
+## The calls file (lane NB8)
+
+- One row a team a season at every level: its 4th downs and tries weighed against the analysts' model, its timeouts and its challenges (`world/tally/calls.rs`, `Season`, `Sums`, `game`).
+- Sums: 4th downs, those weighed, went for it, converted, the times the model said go and went then, choices that agreed with the model, win chance lost; tries, two-point tries and those made, the times the model said two and went then, tries that agreed, win chance lost on tries; timeouts used and in the last two minutes of a half, timeouts left at the end of losses by 8 or less; challenges thrown and won; wrong rulings against it that a challenge would have overturned and the booth didn't review (`Sums`).
+- A grid of every 4th down by yards to go (1, 2, 3, 4-5, 6-10, 11+) and spot (own 1-19, 20-39, 40-49, their 50-35, 34-20, 19-1): how many, how many it went for, how many the model said go (`GRID_ROWS`, `GRID_ZONES`, `grid_key`).
+- College and NFL teams also keep each 4th down, try and challenge as a row: the game's key, date, opponent, site, quarter and clock, the lead, yards to go and the spot, what it did, the model's win chance going, punting and kicking (0-100, -1 where it is no choice) and the chance to convert, the play, what happened, who carried, caught or kicked, and the final score (`Fourth`, `Try`, `Chal`). High school keeps the sums and grid only.
+- 4th downs: runs, dropbacks, punts and field goals on 4th down; kneels and spikes are left out, and so is college and high school overtime, which starts from a spot with no clock (`calls.rs`, `game`; `decide.rs`, `Model::untimed`).
+- The model agrees when the choice is within 1 point of win chance of its best; it says go when going beats the next choice by 1 point or more (proposed, not confirmed; `calls.rs`, `CLEAR`, `judge`, `judge_try`).
+- Rows and sums agree: each 4th down is weighed at the precision its row keeps (0.1 of a point), and `sums_of` gives the sums back from the rows, which the pages use to leave out games not charted yet (`calls.rs`, `kept`, `sums_of`).
+
+## The analysts' model (lane NB8)
+
+- Every 4th down is weighed as nfl4th weighs the NFL's: the win chance after going (converting at the level's rate from that distance and gaining the level's average yards on a conversion, else the other side's ball at the spot), punting (the other side's ball where the level's punts from that spot leave it) and kicking (made at the level's rate from that distance, else the other side's ball at the spot of the kick, at least its own 20) (`tally/decide.rs`, `Model::fourth_at`, `hand_over`, `after_td`, `fg_make`).
+- The win chance is the game boards' model (`game/win_chance.rs`, `chance`) with the level's numbers for the season and the game's line. Each choice takes six seconds off the clock (proposed, not confirmed; `PLAY_SECS`).
+- Tries: the win chance kicking the extra point and going for two, each made at the level's rate, then a kickoff (`Model::try_after`).
+- Its tables are fitted on the match engine's own plays: 3rd and 4th down conversion and the gain on a conversion by yards to go (open field and goal to go, garbage time and overtime left out), where a punt leaves the other side by the punt's spot, field goals by distance, extra points and two-point tries, at each level (`crates/afm-tools/src/bin/decide_fit.rs`; `decide.rs`, `CONV`, `CONV_GOAL`, `GAIN`, `PUNT`, `FG`, `XP`, `TWO`). Rerun the fit after engine changes that move them.
+- Post-game win expectancy: a logistic fit of winning on the difference of the two sides' five factors (success rate, explosiveness, field position, points a trip inside the 40, turnovers) plus the home field, fitted on the same engine games (`decide.rs`, `pgwe`, `pgwe_features`, `five`, `PGWE`). A neutral site drops the home field.
 
 ## The classes file
 
@@ -101,6 +124,8 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - `world/tally/players.rs`: `SPLITS`, `PASS`, `RUSH`, `RECV`, `DEF`, `RECENT_DAYS`.
 - `world/tally/depth.rs`: `Dc` and the grids; `world/tally/expect.rs`: the expected rush and YAC models.
 - `world/tally/people.rs`: `STATS`, `UP`.
+- `world/tally/decide.rs`: the analysts' tables (`CONV`, `CONV_GOAL`, `GAIN`, `PUNT`, `FG`, `XP`, `TWO`, `PGWE`, refitted by `decide_fit`), `PLAY_SECS`, the garbage time lines (`garbage`).
+- `world/tally/calls.rs`: `CLEAR` (1 point of win chance), the grid's rows and zones.
 - `world/analytics.rs`: `charting` (depth and delay by rating), `depth` (which numbers need which depth).
 
 ## Related pages

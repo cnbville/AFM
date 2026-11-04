@@ -34,6 +34,12 @@ pub struct Facts {
     /// Each side ranked in the latest college poll at kickoff (home,
     /// away), for the players' split against ranked teams.
     pub ranked: [bool; 2],
+    /// What the home side was expected to win by (the closing line turned
+    /// round), where the books hung one (lane NB8: the analysts' model).
+    pub spread: Option<f32>,
+    /// The level the game was played at, for the analysts' model (a
+    /// college game across divisions reads the higher one).
+    pub lv: Option<crate::player::Level>,
 }
 
 /// The weather a game was played in.
@@ -77,6 +83,16 @@ pub struct Adv {
     pub three_outs: u32,
     /// Drive starts, summed in yards from its own goal.
     pub start_sum: f32,
+    /// Lane NB8 (the advanced box): explosive plays (runs of 10 yards or
+    /// more, dropbacks of 20 or more), the EPA of the successful plays
+    /// (explosiveness, Bill Connelly's IsoPPP, is that over the successes)
+    /// and the drives that reached the opponent's 20, with their
+    /// touchdowns and field goals.
+    pub explosive: u32,
+    pub success_epa: f32,
+    pub rz_trips: u32,
+    pub rz_td: u32,
+    pub rz_fg: u32,
 }
 
 /// One player's game.
@@ -184,6 +200,9 @@ pub struct Part {
     pub players: Vec<players::Game>,
     /// Each side's situation counts (college and the NFL).
     pub sides: Option<[teams::Game; 2]>,
+    /// Each side's 4th downs, tries, timeouts and challenges (every level;
+    /// rows only in college and the NFL).
+    pub calls: [super::calls::Game; 2],
 }
 
 fn scrimmage(p: &PlayRecord) -> bool {
@@ -234,6 +253,10 @@ pub fn adv(g: &GameStats) -> [Adv; 2] {
                 x.pass_success += p.success() as u32;
             }
         }
+        if p.success() {
+            x.success_epa += p.epa as f32;
+        }
+        x.explosive += ((p.kind == PlayType::Run && p.yards >= 10.0) || p.yards >= 20.0) as u32;
         let tfl = p.kind == PlayType::Run && p.yards < 0.0 && !p.tacklers.is_empty();
         if tfl || !p.sackers.is_empty() || p.interception || p.forced_fumble.is_some() || p.pbu.is_some() {
             a[1 - o].havoc += 1;
@@ -257,6 +280,11 @@ pub fn adv(g: &GameStats) -> [Adv; 2] {
         if d.plays <= 3 && d.result == "Punt" {
             x.three_outs += 1;
         }
+        if d.red_zone {
+            x.rz_trips += 1;
+            x.rz_td += (d.result == "Touchdown") as u32;
+            x.rz_fg += (d.result == "Field goal") as u32;
+        }
     }
     a
 }
@@ -266,15 +294,16 @@ pub fn line_yards(y: f64) -> f64 {
     if y < 0.0 { 1.2 * y } else { y.min(4.0) + 0.5 * (y.min(10.0) - 4.0).max(0.0) }
 }
 
-/// The home side's win chance before each scrimmage snap.
-fn wp_chart(g: &GameStats) -> Vec<u8> {
+/// The home side's win chance before each scrimmage snap, from the game
+/// page's model (`game::win_chance`, with the line where the books hung
+/// one; lane NB8: it read the engine's own quick read before).
+fn wp_chart(g: &GameStats, m: &super::decide::Model) -> Vec<u8> {
+    let home = crate::game::win_chance::home_series(&m.p, &g.plays, m.spread);
     g.plays
         .iter()
-        .filter(|p| scrimmage(p))
-        .map(|p| {
-            let home = if p.offense == 0 { p.wp_before } else { 1.0 - p.wp_before };
-            (home.clamp(0.0, 1.0) * 100.0).round() as u8
-        })
+        .zip(home)
+        .filter(|(p, _)| scrimmage(p))
+        .map(|(_, h)| (h.clamp(0.0, 1.0) * 100.0).round() as u8)
         .collect()
 }
 
@@ -301,8 +330,10 @@ pub fn part(f: Facts, g: &GameStats, deep: bool, pos: &dyn Fn(usize, u32) -> Opt
     };
     let mut people = Vec::new();
     let mut sides = None;
+    let lv = super::calls::model_level(f.level, f.lv);
+    let model = super::decide::Model::new(lv, f.season, f.spread.map(|x| x as f64), f.neutral);
     if deep {
-        row.wp = wp_chart(g);
+        row.wp = wp_chart(g, &model);
         let start = starters(g);
         for side in 0..2 {
             for (&id, l) in &g.players[side] {
@@ -314,8 +345,10 @@ pub fn part(f: Facts, g: &GameStats, deep: bool, pos: &dyn Fn(usize, u32) -> Opt
         let extra =
             [0, 1].map(|s| players::game_codes(f.level, s, f.neutral, &f.weather, f.ranked[1 - s], f.teams[1 - s]));
         people = players::game(g, &start, pos, &extra);
-        sides = Some([teams::game(g, 0), teams::game(g, 1)]);
+        sides = Some([teams::game(g, 0, lv), teams::game(g, 1, lv)]);
     }
+    let about = super::calls::About { date: f.date.0, teams: f.teams, neutral: f.neutral, season: f.season };
+    let calls = super::calls::game(g, &model, about, deep);
     Part {
         level: f.level,
         date: f.date,
@@ -325,6 +358,7 @@ pub fn part(f: Facts, g: &GameStats, deep: bool, pos: &dyn Fn(usize, u32) -> Opt
         row: encode(&row),
         players: people,
         sides,
+        calls,
     }
 }
 

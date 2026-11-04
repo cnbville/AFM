@@ -15,6 +15,9 @@
 //! - `classes`: every draft class and Division I recruiting class with what
 //!   became of each member so far (`classes.rs`).
 //! - `people`: each coach's unit results with their ranks (`people.rs`).
+//! - `calls`: each team's 4th downs and tries against the analysts' model,
+//!   its timeouts and challenges (lane NB8, `calls.rs`; the models in
+//!   `decide.rs`).
 //!
 //! The season being played is in the world, so a save carries it. When the
 //! season closes (the day after the Super Bowl, `clock.rs`, `rollover`)
@@ -27,7 +30,9 @@
 //! (`tests/tallies.rs` plays a world with them on and off). History counts
 //! from the first recorded season, as the record books do.
 
+pub mod calls;
 pub mod classes;
+pub mod decide;
 pub mod depth;
 pub mod expect;
 pub mod file;
@@ -43,7 +48,7 @@ use super::World;
 /// The folder beside a world or save: `name.afmdata`.
 pub const EXT: &str = "afmdata";
 /// The kinds, each its own folder of season files.
-pub const KINDS: [&str; 5] = ["players", "teams", "games", "classes", "people"];
+pub const KINDS: [&str; 6] = ["players", "teams", "games", "classes", "people", "calls"];
 
 /// The level a tally belongs to (its code in files).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -72,6 +77,8 @@ pub struct Tallies {
     pub teams: teams::Open,
     #[serde(default)]
     pub classes: classes::Store,
+    #[serde(default)]
+    pub calls: calls::Open,
     /// Seasons closed, oldest first.
     #[serde(default)]
     pub closed: Vec<i32>,
@@ -145,14 +152,18 @@ impl World {
         }
         let t = &mut self.tallies;
         let key = t.games.add(part.level, part.date, &part.row);
+        let [c0, c1] = part.calls;
+        t.calls.add(part.level, part.teams[0], key, c0);
+        t.calls.add(part.level, part.teams[1], key, c1);
         for g in part.players {
             let team = part.teams[g.side as usize & 1];
             t.players.add(part.level, part.date, team, key, g);
         }
         if let Some(sides) = part.sides {
             let [a, b] = sides;
-            t.teams.add(part.level, part.teams[0], a, [&part.adv[0], &part.adv[1]], part.score);
-            t.teams.add(part.level, part.teams[1], b, [&part.adv[1], &part.adv[0]], [part.score[1], part.score[0]]);
+            let d = part.date.0;
+            t.teams.add(part.level, part.teams[0], d, a, [&part.adv[0], &part.adv[1]], part.score);
+            t.teams.add(part.level, part.teams[1], d, b, [&part.adv[1], &part.adv[0]], [part.score[1], part.score[0]]);
         }
     }
 
@@ -219,6 +230,11 @@ impl World {
             f.push(k, &file::encode(s));
         }
         files.push(("players", f.file_bytes("players", season)));
+        // The latest games kept for the charting delay are the open
+        // season's only.
+        for s in self.tallies.teams.seasons.values_mut() {
+            s.last = None;
+        }
         let teams = self.tallies.teams.rows();
         let mut f = file::Frames::new(file::LEVEL_CLOSE);
         for (k, s) in &teams {
@@ -243,11 +259,17 @@ impl World {
             f.push(*k, &file::encode(m));
         }
         files.push(("classes", f.file_bytes("classes", season)));
+        let mut f = file::Frames::new(file::LEVEL_CLOSE);
+        for (k, s) in self.tallies.calls.rows() {
+            f.push(k, &file::encode(s));
+        }
+        files.push(("calls", f.file_bytes("calls", season)));
         let g = std::mem::take(&mut self.tallies.games);
         files.push(("games", g.frames.file_bytes("games", season)));
         let t = &mut self.tallies;
         t.players = Default::default();
         t.teams = Default::default();
+        t.calls = Default::default();
         for (kind, bytes) in files {
             let written = t.dir.as_ref().map(|d| file::write(&path(d, kind, season), &bytes));
             match written {
@@ -443,6 +465,57 @@ impl World {
                 f(&u)
             }
         });
+    }
+
+    /// A team's season of calls.
+    pub fn tally_call(&self, level: Level, season: i32, team: u32) -> Option<calls::Season> {
+        let k = calls::key(level, team);
+        if season == self.tallies.season {
+            return self.tallies.calls.seasons.get(&k).cloned();
+        }
+        let mut out = None;
+        let _ = self.tally_get("calls", season, &[k], |_, r| out = file::decode(r));
+        out
+    }
+
+    /// Every team's season of calls.
+    pub fn tally_calls(&self, season: i32, mut f: impl FnMut(&calls::Season)) {
+        if season == self.tallies.season {
+            for (_, s) in self.tallies.calls.rows() {
+                f(s);
+            }
+            return;
+        }
+        let _ = self.tally_each("calls", season, |_, r| {
+            if let Some(s) = file::decode::<calls::Season>(r) {
+                f(&s)
+            }
+        });
+    }
+
+    /// Every team's season of calls read as any lighter view of
+    /// `calls::Season` (the sums and grid without the rows).
+    pub fn tally_calls_as<T: serde::de::DeserializeOwned>(&self, season: i32, mut f: impl FnMut(u64, T)) {
+        if season == self.tallies.season {
+            for (k, s) in self.tallies.calls.rows() {
+                if let Some(t) = file::decode::<T>(&file::encode(s)) {
+                    f(k, t)
+                }
+            }
+            return;
+        }
+        let _ = self.tally_each("calls", season, |k, r| {
+            if let Some(s) = file::decode::<T>(r) {
+                f(k, s)
+            }
+        });
+    }
+
+    /// One game's record by its key.
+    pub fn tally_game_row(&self, season: i32, key: u64) -> Option<games::GameRow> {
+        let mut out = None;
+        self.tally_games(season, Some(&[key]), |_, g| out = Some(g));
+        out
     }
 
     /// The classes as they stand.

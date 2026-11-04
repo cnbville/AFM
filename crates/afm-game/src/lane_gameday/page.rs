@@ -10,6 +10,7 @@ use afm_engine::game::drives::{Drive, drives};
 use afm_engine::game::live::Reviewer;
 use afm_engine::game::stats::{GameStats, PlayRecord, PlayType};
 use afm_engine::world::World;
+use afm_engine::world::tally::{self, calls, decide};
 use serde_json::{Value, json};
 
 use super::film::Names;
@@ -145,7 +146,9 @@ fn advanced(s: &GameStats, names: &[String; 2]) -> Value {
             let ryds: f64 = runs.iter().map(|r| r.yards).sum::<f64>() / runs.len().max(1) as f64;
             let bc: f64 = runs.iter().map(|r| r.before_contact).sum::<f64>() / runs.len().max(1) as f64;
             let cmp = passes.iter().filter(|r| r.complete).count() as f64 / passes.len().max(1) as f64;
-            let starts: Vec<f64> = drives(s).iter().filter(|d| d.team == k).map(|d| 100.0 - d.start).collect();
+            // A drive's start is in yards from its own goal (minor bug 259:
+            // this read 100 less it, the opponent's side).
+            let starts: Vec<f64> = drives(s).iter().filter(|d| d.team == k).map(|d| d.start).collect();
             let start = starts.iter().sum::<f64>() / starts.len().max(1) as f64;
             json!({
                 "name": names[k],
@@ -565,7 +568,19 @@ pub fn game_page(w: &World, k: usize) -> Result<Value, String> {
     v["passes"] = json!(passes(s, &names));
     v["gaps"] = json!([gaps(s, 0), gaps(s, 1)]);
     v["halves"] = halves(s, &g.names);
-    v["fourths"] = json!(fourths(s, &g.names));
+    // The analysts' model (lane NB8): every 4th down and try weighed as
+    // the Decisions page weighs them, the five factors and what the box
+    // says the result should have been.
+    let lv = crate::lane_boards::game_level(w, g.level, g.teams);
+    let model = decide::Model { p: m.p, level: lv, spread: m.home_spread };
+    v["fourths"] = json!(fourths(s, &g.names, &model));
+    v["tries"] = json!(tries(s, &g.names, &model));
+    let adv = tally::games::adv(s);
+    v["five"] = json!([
+        crate::lane_data::tgame::adv_box(&adv[0], &adv[1], &s.team[0]),
+        crate::lane_data::tgame::adv_box(&adv[1], &adv[0], &s.team[1])
+    ]);
+    v["pgwe"] = json!(crate::lane_data::tgame::win_expectancy(lv, &adv, &s.team, m.home_spread == 0.0));
     v["index"] = json!(k);
     Ok(v)
 }
@@ -922,43 +937,45 @@ fn halves(s: &GameStats, names: &[String; 2]) -> Value {
     )
 }
 
-/// Every 4th down against the model (screens topic 10): what each team
-/// did, the true win chance of each choice and what the choice cost.
-fn fourths(s: &GameStats, names: &[String; 2]) -> Vec<Value> {
+/// Every 4th down against the analysts' model (screens topic 10; lane
+/// NB8: the model fitted on the engine's plays, `tally::decide`, the one
+/// the Decisions page reads): what each team did, the win chance of each
+/// choice and what the choice cost.
+fn fourths(s: &GameStats, names: &[String; 2], m: &decide::Model) -> Vec<Value> {
     s.plays
         .iter()
-        .filter(|r| r.offense < 2)
+        .filter(|r| r.offense < 2 && r.down == 4 && !r.nullified)
         .filter_map(|r| {
-            let f = r.fourth?;
-            let (did, chosen) = match r.kind {
-                PlayType::Punt => ("Punted".to_string(), f[1]),
-                PlayType::FieldGoal => (
-                    format!(
-                        "Kicked the field goal: {}",
-                        if r.kick_good {
-                            "good"
-                        } else if r.blocked {
-                            "blocked"
-                        } else {
-                            "no good"
-                        }
-                    ),
-                    f[2],
+            let did = match r.kind {
+                PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble => 0u8,
+                PlayType::Punt => 1,
+                PlayType::FieldGoal => 2,
+                _ => return None,
+            };
+            let f = m.fourth(r)?;
+            let j = calls::judge(&f, did);
+            let text = match did {
+                1 => "Punted".to_string(),
+                2 => format!(
+                    "Kicked the field goal: {}",
+                    if r.kick_good {
+                        "good"
+                    } else if r.blocked {
+                        "blocked"
+                    } else {
+                        "no good"
+                    }
                 ),
-                PlayType::Kneel => ("Knelt".to_string(), f[0]),
-                _ => (
-                    format!("Went for it: {}", if r.first_down || r.touchdown { "converted" } else { "stopped" }),
-                    f[0],
+                _ => format!(
+                    "Went for it: {}",
+                    if r.first_down || (r.touchdown && !r.defense_td) { "converted" } else { "stopped" }
                 ),
             };
-            let opts = [("go", f[0]), ("punt", f[1]), ("kick", f[2])];
-            let best =
-                opts.iter().copied().filter(|x| x.1 > 0.0).max_by(|a, b| a.1.total_cmp(&b.1)).unwrap_or(("go", f[0]));
-            let cost = (best.1 - chosen).max(0.0);
-            let verdict = if cost < 0.01 {
-                format!("Agreed: {} was best", best.0)
+            let best = ["go", "punt", "kick"][j.best as usize];
+            let verdict = if j.agreed {
+                format!("Agreed: {best} was best")
             } else {
-                format!("Cost {:.1} points of win chance: {} was best", 100.0 * cost, best.0)
+                format!("Cost {:.1} points of win chance: {best} was best", 100.0 * j.lost)
             };
             Some(json!({
                 "n": r.n,
@@ -966,13 +983,43 @@ fn fourths(s: &GameStats, names: &[String; 2]) -> Vec<Value> {
                 "clock": clock_text(r.clock),
                 "team": names[r.offense],
                 "dd": format!("{} at {}", down_text(4, r.togo, r.yardline_100), spot(r.yardline_100)),
-                "did": did,
-                "go": f[0],
-                "punt": f[1],
-                "fg": if f[2] > 0.0 { json!(f[2]) } else { Value::Null },
-                "convert": f[3],
-                "cost": cost,
+                "did": text,
+                "go": f.go,
+                "punt": f.punt,
+                "fg": f.kick,
+                "convert": f.conv,
+                "cost": j.lost,
+                "agreed": j.agreed,
                 "verdict": verdict,
+            }))
+        })
+        .collect()
+}
+
+/// Every try after a touchdown against the same model: kick or go for two.
+fn tries(s: &GameStats, names: &[String; 2], m: &decide::Model) -> Vec<Value> {
+    s.plays
+        .iter()
+        .filter(|r| {
+            r.offense < 2 && !r.nullified && matches!(r.kind, PlayType::ExtraPoint | PlayType::TwoPoint)
+        })
+        .filter_map(|r| {
+            let [kick, two] = m.try_after(r)?;
+            let went = r.kind == PlayType::TwoPoint;
+            let good = if went { r.touchdown && !r.turnover } else { r.kick_good };
+            let (said_two, agreed, lost) = calls::judge_try(kick, two, went);
+            let best = if said_two { "two" } else { "the kick" };
+            Some(json!({
+                "n": r.n,
+                "q": quarter_text(r.quarter, r.quarter > 4),
+                "clock": clock_text(r.clock),
+                "team": names[r.offense],
+                "did": format!("{}: {}", if went { "Went for two" } else { "Kicked" }, if good { "good" } else { "no good" }),
+                "kick": kick,
+                "two": two,
+                "cost": lost,
+                "agreed": agreed,
+                "verdict": if agreed { format!("Agreed: {best}") } else { format!("Cost {:.1} points of win chance: {best} was best", 100.0 * lost) },
             }))
         })
         .collect()

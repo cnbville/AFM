@@ -17,6 +17,12 @@
 //! `coverage|man or zone`, `depth|band`, `throw away`; and
 //! `defense|the defense's call`, `penalty|kind|accepted` (the side that
 //! committed it). The level's own numbers are the sum of its teams'.
+//!
+//! Lane NB8 (situations, concepts against coverages): `garbage|kind` for
+//! snaps in garbage time (`decide::garbage`); on scrimmage snaps
+//! `cc|concept|coverage` (the play's concept against the coverage the
+//! defense played, `decide::concept_of`, `coverage_of`) and
+//! `cov3|coverage` on 3rd downs.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -116,8 +122,9 @@ fn look(call: &str) -> (&'static str, &'static str, bool) {
     (backfield, motion, call.contains(" with "))
 }
 
-/// The keys one snap counts under, for both sides.
-pub fn keys(p: &PlayRecord) -> Vec<String> {
+/// The keys one snap counts under, for both sides (`level`: the game's,
+/// for garbage time).
+pub fn keys(p: &PlayRecord, level: crate::player::Level) -> Vec<String> {
     let kind = kind_name(p.kind);
     let mut k = vec![format!("kind|{kind}")];
     let scrimmage = matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
@@ -154,6 +161,9 @@ pub fn keys(p: &PlayRecord) -> Vec<String> {
         if p.down == 4 && (scrimmage || matches!(p.kind, PlayType::Punt | PlayType::FieldGoal)) {
             k.push(format!("fourth|{}", if scrimmage { "go" } else { kind }));
         }
+        if super::decide::garbage(level, p) {
+            k.push(format!("garbage|{kind}"));
+        }
     }
     if scrimmage {
         if !p.personnel.is_empty() {
@@ -176,6 +186,12 @@ pub fn keys(p: &PlayRecord) -> Vec<String> {
         }
         if (p.kind == PlayType::Run && p.yards >= 10.0) || p.yards >= 20.0 {
             k.push(format!("explosive|{kind}"));
+        }
+        if let (Some(c), Some(v)) = (super::decide::concept_of(p), super::decide::coverage_of(p)) {
+            k.push(format!("cc|{c}|{v}"));
+            if p.down == 3 {
+                k.push(format!("cov3|{v}"));
+            }
         }
     }
     if dropback {
@@ -210,7 +226,7 @@ fn bump(m: &mut HashMap<String, Situ>, k: String, v: &Situ) {
 }
 
 /// A side's game: its snaps with the ball (`o|`) and without (`d|`).
-pub fn game(g: &GameStats, side: usize) -> Game {
+pub fn game(g: &GameStats, side: usize, level: crate::player::Level) -> Game {
     let mut out = Game::default();
     for p in &g.plays {
         for &(kind, team, _, yds, accepted) in &p.penalties {
@@ -225,7 +241,7 @@ pub fn game(g: &GameStats, side: usize) -> Game {
         }
         let tag = if p.offense.min(1) == side { "o" } else { "d" };
         let v = values(p);
-        for k in keys(p) {
+        for k in keys(p, level) {
             bump(&mut out.cells, format!("{tag}|{k}"), &v);
         }
     }
@@ -249,11 +265,52 @@ pub struct Season {
     /// The season's sum of the games' advanced numbers, each side.
     pub adv: super::games::Adv,
     pub adv_against: super::games::Adv,
+    /// The open season only: the team's latest game on its own, so a page
+    /// can leave it out while your staff is still charting it (Data item
+    /// 2's delay; lane NB8). Never written to the season's file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last: Option<Box<Last>>,
+}
+
+/// A team's latest game, as `Season` adds it.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Last {
+    pub date: i32,
+    pub score: [i32; 2],
+    pub cells: BTreeMap<String, Situ>,
+    pub adv: super::games::Adv,
+    pub adv_against: super::games::Adv,
 }
 
 impl Season {
     pub fn get(&self, key: &str) -> Situ {
         self.cells.get(key).copied().unwrap_or_default()
+    }
+
+    /// The season without its latest game when that game was played on or
+    /// after `since` (your staff hasn't charted it yet).
+    pub fn charted_by(&self, since: i32) -> Season {
+        let mut s = self.clone();
+        let Some(l) = s.last.take() else { return s };
+        if l.date < since {
+            return s;
+        }
+        s.games = s.games.saturating_sub(1);
+        s.wins = s.wins.saturating_sub((l.score[0] > l.score[1]) as u32);
+        s.losses = s.losses.saturating_sub((l.score[0] < l.score[1]) as u32);
+        s.points_for = s.points_for.saturating_sub(l.score[0].max(0) as u32);
+        s.points_against = s.points_against.saturating_sub(l.score[1].max(0) as u32);
+        for (k, v) in &l.cells {
+            if let Some(e) = s.cells.get_mut(k) {
+                for i in 0..8 {
+                    e[i] -= v[i];
+                }
+            }
+        }
+        sub_adv(&mut s.adv, &l.adv);
+        sub_adv(&mut s.adv_against, &l.adv_against);
+        s
     }
 }
 
@@ -283,12 +340,45 @@ pub fn add_adv(a: &mut super::games::Adv, b: &super::games::Adv) {
     a.trip_fg += b.trip_fg;
     a.three_outs += b.three_outs;
     a.start_sum += b.start_sum;
+    a.explosive += b.explosive;
+    a.success_epa += b.success_epa;
+    a.rz_trips += b.rz_trips;
+    a.rz_td += b.rz_td;
+    a.rz_fg += b.rz_fg;
+}
+
+/// `a` less `b`, field by field.
+pub fn sub_adv(a: &mut super::games::Adv, b: &super::games::Adv) {
+    for (x, y) in [
+        (&mut a.runs, b.runs),
+        (&mut a.run_success, b.run_success),
+        (&mut a.stuffed, b.stuffed),
+        (&mut a.dropbacks, b.dropbacks),
+        (&mut a.pass_success, b.pass_success),
+        (&mut a.havoc, b.havoc),
+        (&mut a.drives, b.drives),
+        (&mut a.trips40, b.trips40),
+        (&mut a.trip_td, b.trip_td),
+        (&mut a.trip_fg, b.trip_fg),
+        (&mut a.three_outs, b.three_outs),
+        (&mut a.explosive, b.explosive),
+        (&mut a.rz_trips, b.rz_trips),
+        (&mut a.rz_td, b.rz_td),
+        (&mut a.rz_fg, b.rz_fg),
+    ] {
+        *x = x.saturating_sub(y);
+    }
+    a.run_epa -= b.run_epa;
+    a.line_yards -= b.line_yards;
+    a.pass_epa -= b.pass_epa;
+    a.start_sum -= b.start_sum;
+    a.success_epa -= b.success_epa;
 }
 
 impl Open {
-    /// A side's game: its counts, its and the other side's advanced numbers
-    /// and the score (its, theirs).
-    pub fn add(&mut self, level: Level, team: u32, g: Game, adv: [&super::games::Adv; 2], score: [i32; 2]) {
+    /// A side's game on `date`: its counts, its and the other side's
+    /// advanced numbers and the score (its, theirs).
+    pub fn add(&mut self, level: Level, team: u32, date: i32, g: Game, adv: [&super::games::Adv; 2], score: [i32; 2]) {
         let s = self.seasons.entry(key(level, team)).or_insert_with(|| Season {
             level: level as u8,
             team,
@@ -299,12 +389,15 @@ impl Open {
         s.losses += (score[0] < score[1]) as u32;
         s.points_for += score[0].max(0) as u32;
         s.points_against += score[1].max(0) as u32;
+        let mut last = Last { date, score, adv: *adv[0], adv_against: *adv[1], ..Default::default() };
         for (k, v) in g.cells {
-            let e = s.cells.entry(k).or_insert([0.0; 8]);
+            let e = s.cells.entry(k.clone()).or_insert([0.0; 8]);
             for i in 0..8 {
                 e[i] += v[i];
             }
+            last.cells.insert(k, v);
         }
+        s.last = Some(Box::new(last));
         for (k, (n, y)) in g.penalties {
             let e = s.penalties.entry(k).or_default();
             e.0 += n;

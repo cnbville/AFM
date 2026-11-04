@@ -969,8 +969,12 @@
       const halves = g.halves || [];
       const hrow = (t, f) => `<tr><td class="l">${t}</td>${halves.map((x) => `<td>${f(x[1])}</td><td>${f(x[0])}</td>`).join("")}</tr>`;
       const fourth = (g.fourths || [])
-        .map((x) => `<tr><td class="l">${esc(x.q)} ${esc(x.clock)}</td><td class="l">${esc(x.team)}</td><td class="l">${esc(x.dd)}</td><td class="l"><b>${esc(x.did)}</b></td><td>${pct(x.go)}</td><td>${pct(x.punt)}</td><td>${x.fg ? pct(x.fg) : "-"}</td><td class="l ${x.cost > 0.015 ? "down" : ""}">${esc(x.verdict)}</td></tr>`)
+        .map((x) => `<tr><td class="l">${esc(x.q)} ${esc(x.clock)}</td><td class="l">${esc(x.team)}</td><td class="l">${esc(x.dd)}</td><td class="l"><b>${esc(x.did)}</b></td><td>${pct(x.go)}</td><td>${pct(x.punt)}</td><td>${x.fg ? pct(x.fg) : "-"}</td><td class="l ${x.agreed === false ? "down" : ""}">${esc(x.verdict)}</td></tr>`)
         .join("");
+      const tries = (g.tries || [])
+        .map((x) => `<tr><td class="l">${esc(x.q)} ${esc(x.clock)}</td><td class="l">${esc(x.team)}</td><td class="l"><b>${esc(x.did)}</b></td><td>${pct(x.kick)}</td><td>${pct(x.two)}</td><td class="l ${x.agreed === false ? "down" : ""}">${esc(x.verdict)}</td></tr>`)
+        .join("");
+      const five = window.nb8Five ? nb8Five(g.five, g.pgwe, A[1].name, A[0].name) : "";
       return `<div class="panel warm"><h2>Team numbers <small>from every snap: success is 40% of the distance on 1st down, 60% on 2nd, all of it on 3rd and 4th</small></h2><div class="tbl"><table><thead><tr><th class="l"></th><th>${esc(A[1].name)}</th><th>${esc(A[0].name)}</th></tr></thead><tbody>
         ${r("Plays", (x) => x.plays)}${r("EPA a play", (x) => sign(x.epa_play))}${r("Total EPA", (x) => sign(x.epa, 1))}${r("Success rate", (x) => x.success.toFixed(0) + "%")}${r("Explosive plays", (x) => x.explosive, "Runs of 10+ and passes of 20+")}
         ${r("Run EPA a play", (x) => sign(x.run_epa))}${r("Dropback EPA a play", (x) => sign(x.pass_epa))}${r("Early-down pass rate", (x) => x.early_pass.toFixed(0) + "%")}${r("Red zone TDs / trips", (x) => x.rz)}${r("Pressure rate allowed", (x) => x.pressure.toFixed(0) + "%")}
@@ -978,7 +982,9 @@
         </tbody></table></div></div>
         ${halves.length ? `<div class="panel warm"><h2>By half</h2><div class="tbl"><table><thead><tr><th class="l"></th>${halves.map((x, i) => `<th>${i === 0 ? "1st" : i === 1 ? "2nd" : "OT"} · ${esc(initials(A[1].name))}</th><th>${esc(initials(A[0].name))}</th>`).join("")}</tr></thead><tbody>
           ${hrow("EPA a play", (x) => sign(x.epa_play))}${hrow("Success rate", (x) => x.success.toFixed(0) + "%")}${hrow("Explosive plays", (x) => x.explosive)}${hrow("Pressure rate allowed", (x) => x.pressure.toFixed(0) + "%")}</tbody></table></div></div>` : ""}
-        <div class="panel warm"><h2>Every 4th down against the model <small>the true win chance of going, punting and kicking at the snap</small></h2>${fourth ? `<div class="tbl"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Situation</th><th class="l">Did</th><th>Go</th><th>Punt</th><th>Kick</th><th class="l">The model</th></tr></thead><tbody>${fourth}</tbody></table></div>` : '<div class="empty">No 4th-down decisions in this game.</div>'}</div>`;
+        ${five}
+        <div class="panel warm"><h2>Every 4th down against the model <small>the analysts' win chance of going, punting and kicking at the snap, fitted on every snap the engine plays</small></h2>${fourth ? `<div class="tbl"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Situation</th><th class="l">Did</th><th data-h8="WpGo">Go</th><th data-h8="WpPunt">Punt</th><th data-h8="WpKick">Kick</th><th class="l">The model</th></tr></thead><tbody>${fourth}</tbody></table></div>` : '<div class="empty">No 4th-down decisions in this game.</div>'}</div>
+        ${tries ? `<div class="panel warm"><h2>Every try after a touchdown <small>the win chance kicking and going for two</small></h2><div class="tbl"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Did</th><th>Kick</th><th>Two</th><th class="l">The model</th></tr></thead><tbody>${tries}</tbody></table></div></div>` : ""}`;
     },
     "Drive chart": (g) => {
       const bars = g.drives

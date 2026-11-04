@@ -466,7 +466,16 @@ pub(crate) fn log_game(
 /// The Data section's tallies for an NFL game (lane NB1): `kind` is
 /// regular, wild card, divisional, conference title or super bowl. Only
 /// watches.
-pub(crate) fn tally_game(w: &mut World, f: &Fixture, r: &GameResult, sides: &[Side; 2], kind: &'static str) {
+/// `line`: the closing line (the home side's spread and the total), for
+/// the analysts' model (lane NB8).
+pub(crate) fn tally_game(
+    w: &mut World,
+    f: &Fixture,
+    r: &GameResult,
+    sides: &[Side; 2],
+    kind: &'static str,
+    line: Option<[f32; 2]>,
+) {
     use crate::world::tally::{Level, games};
     if !w.tallying() {
         return;
@@ -492,6 +501,8 @@ pub(crate) fn tally_game(w: &mut World, f: &Fixture, r: &GameResult, sides: &[Si
             indoor: v.indoor,
         },
         ranked: [false, false],
+        spread: line.map(|l| -l[0]),
+        lv: Some(crate::player::Level::NFL),
     };
     let part = games::part(facts, &r.stats, true, &|s, id| pos[s].get(&id).copied());
     w.tally_game(part);

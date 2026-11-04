@@ -1629,6 +1629,8 @@ fn engine_games(
                         indoor: false,
                     },
                     ranked: [false, false],
+                    spread: None,
+                    lv: Some(crate::player::Level::HS),
                 };
                 super::tally::games::part(facts, &r.stats, false, &|_, _| None)
             });

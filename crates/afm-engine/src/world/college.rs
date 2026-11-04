@@ -807,6 +807,8 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                         indoor: j.played.indoor,
                     },
                     ranked: [g.home, g.away].map(|t| ap_ranked(cs, g.date, t)),
+                    spread: g.line.map(|l| -l[0]),
+                    lv: Some(super::division_level(hd.min(ad))),
                 };
                 Some(super::tally::games::part(facts, &r.stats, true, &|s, id| pos[s].get(&id).copied()))
             })

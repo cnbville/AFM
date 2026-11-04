@@ -27,7 +27,14 @@
 //!   winner of one award (items 23-25, `champs.rs`);
 //! - `stat_glossary`: every stat in plain words, and the table headers
 //!   that name each, for the hover on a stat's name (Cain, 2026-11-03;
-//!   `glossary.rs`).
+//!   `glossary.rs`);
+//! - `situations`, `decisions` and `concepts` (`level`, `division`,
+//!   `year`, `team` and each page's own): situations, every 4th down and
+//!   try against the analysts' model with each head coach's record, and
+//!   concepts against coverages (lane NB8, items 25-27; `situ.rs`);
+//! - `tally_game` (`year`, `key`): any game's page from the tallies, the
+//!   box for anyone and the advanced box, win chance and decisions where
+//!   your staff charts it (lane NB8, item 24; `tgame.rs`).
 //!
 //! Everything is read from the stat book, the record store
 //! (`world::marks`), the players' seasons and the teams' seasons: the
@@ -40,6 +47,8 @@ pub(crate) use books::title_case;
 mod champs;
 mod deep;
 pub(crate) mod glossary;
+pub(crate) mod situ;
+pub(crate) mod tgame;
 
 use afm_engine::calendar::Level as CalLevel;
 use afm_engine::world::World;
@@ -63,6 +72,10 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "analytics_card" => analytics::card,
         "player_data" => deep::player_data,
         "champions_more" => champs::more,
+        "situations" => situ::situations,
+        "decisions" => situ::decisions,
+        "concepts" => situ::concepts,
+        "tally_game" => tgame::tally_game,
         _ => return None,
     };
     let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };

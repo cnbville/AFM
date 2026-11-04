@@ -1,0 +1,61 @@
+/* Lane NB8 (boards 47 and 49): Situations, Decisions, Concepts against
+   coverages and any game's page from the books. On the Data section's .sl
+   tokens; every class is sx-. */
+
+.sx-body { display: grid; gap: 12px; margin-top: 12px; }
+.sx-tiles { margin: 0 0 4px; }
+.sx-tiles b.sx-tw { font-size: 20px; line-height: 1.15; }
+.sx-tiles.small b { font-size: 24px; }
+.sx-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; align-items: start; }
+.beside-body .sx-two { grid-template-columns: minmax(0, 1fr); }
+
+/* A team's number over the level's, tinted against it. */
+.sx-tbl td.sx-cell { line-height: 1.15; }
+.sx-tbl td.sx-cell b { display: block; font-weight: 600; }
+.sx-tbl td.sx-cell small { display: block; font-size: 10.5px; color: var(--sl-text3); }
+.sx-tbl td.sx-cell.up b { color: var(--sl-good); }
+.sx-tbl td.sx-cell.down b { color: var(--sl-bad); }
+.sx tr.sx-off td { background: rgba(240, 163, 94, .06); }
+.sx tr.sx-mine td { background: var(--sl-chip); }
+.sx tr.sx-med td { color: var(--sl-text3); font-style: italic; }
+.sx td.up { color: var(--sl-good); }
+.sx td.down { color: var(--sl-bad); }
+.sx-wp { white-space: nowrap; color: var(--sl-text3); }
+
+/* The model's call by down and spot. */
+.sx-call { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; background: var(--sl-chip); }
+.sx-call.go { color: var(--sl-good); }
+.sx-call.kick { color: var(--sl-gold); }
+.sx-call.punt { color: var(--sl-text3); }
+.sx-grid { display: grid; grid-template-columns: 78px repeat(var(--cols), minmax(0, 1fr)); gap: 3px; font-variant-numeric: tabular-nums; }
+.sx-gz { font-size: 10.5px; color: var(--sl-text3); text-align: center; padding-bottom: 2px; }
+.sx-gr { font-size: 11.5px; color: var(--sl-text2, var(--sl-text3)); align-self: center; }
+.sx-gc { display: grid; gap: 1px; text-align: center; padding: 6px 2px; border-radius: 6px; background: var(--sl-chip); }
+.sx-gc b { font-size: 12px; letter-spacing: .04em; }
+.sx-gc small { font-size: 10px; color: var(--sl-text3); }
+.sx-gc em { font-style: normal; font-size: 10.5px; color: var(--sl-text3); }
+.sx-gc em i { font-style: normal; opacity: .6; margin-left: 2px; font-size: 9.5px; }
+.sx-gc.go { background: color-mix(in srgb, var(--sl-good) 18%, transparent); }
+.sx-gc.go b { color: var(--sl-good); }
+.sx-gc.kick { background: color-mix(in srgb, var(--sl-gold) 14%, transparent); }
+.sx-gc.kick b { color: var(--sl-gold); }
+
+/* Concepts against coverages: each cell shaded against the grid's mean. */
+.sx-cctbl td.sx-cc { position: relative; line-height: 1.1; background: linear-gradient(color-mix(in srgb, var(--sl-good) var(--g, 0%), transparent), color-mix(in srgb, var(--sl-good) var(--g, 0%), transparent)), linear-gradient(color-mix(in srgb, var(--sl-bad) var(--b, 0%), transparent), color-mix(in srgb, var(--sl-bad) var(--b, 0%), transparent)); }
+.sx-cctbl td.sx-cc b { display: block; font-weight: 600; }
+.sx-cctbl td.sx-cc small { display: block; font-size: 10px; color: var(--sl-text3); }
+.sx-cctbl td.sx-cc.thin { opacity: .45; }
+.sx-cctbl td.sx-cc.none { color: var(--sl-text3); }
+.sx-cctbl tr.sx-seen td { color: var(--sl-text3); font-size: 11px; }
+
+/* Any game's page. */
+.sx-hero { display: grid; gap: 10px; padding: 18px 20px; border-radius: 14px; background: var(--sl-chip); margin: 8px 0 12px; }
+.sx-score { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.sx-score > span { display: flex; align-items: center; gap: 12px; }
+.sx-score b { font-size: 40px; font-weight: 800; font-stretch: 68%; }
+.sx-score > span.won b { color: var(--sl-warm); }
+.sx-qs { max-width: 520px; }
+.sx-wpc { width: 100%; height: 120px; display: block; }
+.sx-wpc .mid { stroke: var(--sl-line); stroke-width: 1; stroke-dasharray: 4 4; }
+.sx-wpc .ln { fill: none; stroke: var(--sl-warm); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sx-pg td { border-top: 1px solid var(--sl-line); }
