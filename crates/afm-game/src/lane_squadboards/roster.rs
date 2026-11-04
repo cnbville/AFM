@@ -16,7 +16,7 @@ use crate::views::{self, TeamRef};
 
 /// The season a date falls in: a game in January belongs to the fall
 /// before.
-fn season_of(d: afm_engine::calendar::Date) -> i32 {
+pub(crate) fn season_of(d: afm_engine::calendar::Date) -> i32 {
     if d.month() <= 6 { d.year() - 1 } else { d.year() }
 }
 
@@ -192,6 +192,8 @@ pub(crate) fn view(w: &World) -> Reply {
         "last6_dates": last6.iter().map(|(g, side)| json!({ "date": views::date_text(g.date), "opp": g.names[1 - side] })).collect::<Vec<_>>(),
         "groups": groups,
         "rows": rows,
+        // The quick filter's fields (`quick_filter.rs`).
+        "qf": squad["qf"],
     }))
 }
 

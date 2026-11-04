@@ -1784,6 +1784,8 @@ pub(crate) fn squad(w: &World) -> Reply {
     let roles = ts::roles(w, &st);
     let by_id: HashMap<u32, f32> = w.training.moved.iter().copied().collect();
     let order = w.seat_game_depth().unwrap_or_default();
+    // The quick filter's production: this season in your games.
+    let prod = crate::quick_filter::Production::of(w);
     let mut rows: Vec<(usize, Value)> = roster_people(w, t)
         .into_iter()
         .map(|i| {
@@ -1797,6 +1799,9 @@ pub(crate) fn squad(w: &World) -> Reply {
             let (lvl, trend) = load_words(tr.load[0], tr.load[1]);
             let (status, why) = practice_status(w, id, i);
             let attrs = reads::attributes(w, i);
+            // Every attribute's read and his season, for the quick filter.
+            v["attrs"] = crate::quick_filter::attrs_json(&attrs);
+            v["prod"] = prod.as_ref().map_or(Value::Null, |x| x.of_player(id));
             let mut key: Vec<(f64, Attr)> = Attr::ALL.iter().map(|&a| (afm_engine::positions::weight(pos, a), a)).filter(|x| x.0 > 0.02).collect();
             key.sort_by(|a, b| b.0.total_cmp(&a.0));
             v["keys"] = json!(key.iter().take(4).map(|&(_, a)| json!({ "label": a.label(), "read": attrs.iter().find(|x| x.0 == a).map(|x| x.1.json()) })).collect::<Vec<_>>());
@@ -1862,6 +1867,7 @@ pub(crate) fn squad(w: &World) -> Reply {
     rows.sort_by_key(|x| x.0);
     Ok(
         json!({ "team": team_brief(w, t), "tier": tier_name(st.tier), "rows": rows.into_iter().map(|x| x.1).collect::<Vec<_>>(),
+            "qf": crate::quick_filter::catalog(prod.as_ref().map(|x| x.words.as_str())),
             // The redshirt rule this season at your division (minor bug B10).
             "rs_rule": match t {
                 TeamRef::College(j) if afm_engine::world::eligibility::five_in_five(w.year, w.programs[j].division) => "five",
