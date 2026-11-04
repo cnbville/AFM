@@ -777,6 +777,11 @@ pub struct World {
     /// (`tally/`). Only reads games and seasons.
     #[serde(default)]
     pub tallies: tally::Tallies,
+    /// The version of the recruiting footprints and the states' talent
+    /// ([`MIX_REV`]): a file saved before minor bug 246 reads 0 and rebuilds
+    /// both when it loads.
+    #[serde(default)]
+    pub(crate) mix_rev: u8,
     /// Each position's typical score in each coaching system (S3).
     pub(crate) system_norms: systems::SystemNorms,
     /// Recruiting and portal records for trials (dynasty item 11 checks).
@@ -1277,7 +1282,7 @@ impl World {
             // Switched on in its first NIL season (`clock`, minor bug B19).
             info.hs_nil = false;
             info.class_share = row.programs as f64 / total_programs;
-            info.culture = culture_shift(row.fbs_signees_per_year / total_signees, info.class_share);
+            info.culture = state_culture(row, total_signees, info.class_share);
             info.schools = ids;
         }
         let year = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
@@ -1325,6 +1330,7 @@ impl World {
             stats: records::StatBook::default(),
             marks: Default::default(),
             tallies: tally::Tallies::new(),
+            mix_rev: MIX_REV,
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
             next_person: 1,
@@ -1866,6 +1872,99 @@ pub(crate) fn overflow_by_state(programs: &[Program], year: i32) -> [f64; 51] {
         *v = (*v / top).sqrt();
     }
     out
+}
+
+/// The version of the recruiting footprints and the states' talent: a file
+/// saved before minor bug 246 rebuilds both when it loads
+/// (`World::after_load`).
+pub(crate) const MIX_REV: u8 = 1;
+
+/// Each state's talent beside what its recruiting-service signees say
+/// (minor bug 246): the shift that gives each state its real share of
+/// Division I players, FBS and FCS, by home state on the 2025 rosters
+/// (cfbfastR). Signees from the services count the South's rated recruits
+/// and miss the upper Midwest's, so Iowa, Wisconsin and Minnesota grew 47-61%
+/// of their real share of Division I players and Mississippi 171%, and Iowa
+/// and Wisconsin had too few good local players to keep (Iowa's real roster
+/// is 40% Iowans). The real NFL draft agrees with the rosters: Iowa's
+/// Division I players are drafted as often as Mississippi's. Fitted in two
+/// steps on full-scale worlds (seeds 62 and 63): each step adds the log of
+/// real share over world share, over 2 (the top of a class moves about 1.4
+/// times the shift, so a step goes most of the way), shrunk toward 0 for a
+/// state with few players (its real count over the count plus 40), capped
+/// at 0.5 either way, and centred so the country's talent stays the same.
+/// After the first step Iowa grew 0.80 of its real share, Minnesota 0.81,
+/// Mississippi 1.27 and Texas 1.05. Proposed, not confirmed.
+pub(crate) const TALENT_FIT: [(&str, f64); 51] = [
+    ("AK", 0.123),
+    ("AL", -0.122),
+    ("AR", -0.080),
+    ("AZ", 0.059),
+    ("CA", -0.108),
+    ("CO", 0.109),
+    ("CT", 0.291),
+    ("DC", 0.259),
+    ("DE", 0.076),
+    ("FL", -0.044),
+    ("GA", -0.011),
+    ("HI", 0.014),
+    ("IA", 0.307),
+    ("ID", -0.035),
+    ("IL", 0.124),
+    ("IN", -0.039),
+    ("KS", 0.032),
+    ("KY", -0.026),
+    ("LA", -0.077),
+    ("MA", 0.156),
+    ("MD", 0.177),
+    ("ME", -0.054),
+    ("MI", -0.142),
+    ("MN", 0.411),
+    ("MO", 0.009),
+    ("MS", -0.374),
+    ("MT", 0.455),
+    ("NC", 0.079),
+    ("ND", 0.232),
+    ("NE", 0.134),
+    ("NH", 0.044),
+    ("NJ", 0.190),
+    ("NM", -0.180),
+    ("NV", -0.197),
+    ("NY", 0.129),
+    ("OH", -0.029),
+    ("OK", -0.204),
+    ("OR", -0.070),
+    ("PA", 0.074),
+    ("RI", 0.239),
+    ("SC", -0.005),
+    ("SD", 0.345),
+    ("TN", -0.041),
+    ("TX", -0.156),
+    ("UT", 0.093),
+    ("VA", 0.225),
+    ("VT", -0.148),
+    ("WA", 0.119),
+    ("WI", 0.141),
+    ("WV", -0.025),
+    ("WY", -0.259),
+];
+
+/// A state's talent shift: its recruiting-service signees over its share of
+/// the class, then the fit to the real rosters ([`TALENT_FIT`]).
+pub(crate) fn state_culture(row: &data::StateRow, total_signees: f64, class_share: f64) -> f64 {
+    let fit = TALENT_FIT.iter().find(|r| r.0 == row.code).map_or(0.0, |r| r.1);
+    culture_shift(row.fbs_signees_per_year / total_signees, class_share) + fit
+}
+
+/// Every state's talent shift again, as a new world sets it: a file from
+/// before minor bug 246 grows its next classes from the fit.
+pub(crate) fn refit_cultures(states: &mut [StateInfo]) {
+    let total_signees: f64 = data::STATES.iter().map(|s| s.fbs_signees_per_year).sum();
+    for row in data::STATES.iter() {
+        if let Some(info) = geo::state_index(&row.code).and_then(|i| states.get_mut(i)) {
+            info.culture = state_culture(row, total_signees, info.class_share);
+        }
+    }
 }
 
 /// The culture shift that makes a state's share of FBS signees match the data,
