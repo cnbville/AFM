@@ -128,7 +128,9 @@ fn group(w: &World, s: &TeamSeason) -> String {
 /// The season's rows, from its teams.
 pub fn rows(w: &World, season: i32, teams: &[(u64, &TeamSeason)]) -> Vec<UnitRow> {
     let charge = Charge::new(w, season);
-    let mut pools: HashMap<String, Vec<(usize, [Vec<f32>; 3])>> = HashMap::new();
+    // Each group's teams: (row, [offense, defense, margins]).
+    type Pool = Vec<(usize, [Vec<f32>; 3])>;
+    let mut pools: HashMap<String, Pool> = HashMap::new();
     for (k, (_, s)) in teams.iter().enumerate() {
         let o = unit_stats(s, "o");
         let d = unit_stats(s, "d");
