@@ -3,6 +3,9 @@
 //! heap after the history and after each future season, then weighs each
 //! of the world's stores by dropping it, biggest first.
 //! Usage: memory_check [seed] [history_years] [future_years] [scale]
+//! The Data section's tallies are written to a folder as in the game
+//! (`AFM_TALLY_DIR`, a temporary folder by default) and each season's line
+//! gives the folder's size (lane NB1).
 
 use std::time::Instant;
 
@@ -37,7 +40,15 @@ fn main() {
     let t = Instant::now();
     let opts =
         WorldOptions { seed, history_years: years, keep_game_log: false, scale, engine_from, ..Default::default() };
-    let mut w = World::new_watched(opts, year_line);
+    let dir = std::env::var("AFM_TALLY_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::env::temp_dir().join(format!("afm-memory-{}.afmdata", std::process::id())));
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut w = World::new_recorded(opts, None, Some(&dir), |w, s| {
+        year_line(w, s);
+        true
+    })
+    .expect("never stopped");
     println!(
         "history of {years} years built in {:.0}s: heap {:.2} GB, resident {}",
         t.elapsed().as_secs_f64(),
@@ -46,8 +57,25 @@ fn main() {
     );
     for _ in 0..future {
         let s = Instant::now();
-        w.advance_year();
+        // Day by day, to weigh the tallies' open season at its biggest (the
+        // day before it closes) once a week.
+        let (year, mut most, mut day) = (w.year, (0usize, 0.0f64), 0u32);
+        while w.year == year {
+            w.advance_day();
+            day += 1;
+            if day % 7 == 0 && w.year == year {
+                let b = w.tallies.open_bytes();
+                if b > most.0 {
+                    most = (b, afm_tools::heap_gb());
+                }
+            }
+        }
         year_line(&w, s.elapsed().as_secs_f64());
+        println!(
+            "  tallies' open season at its biggest: {:.1} MB packed, heap then {:.2} GB",
+            most.0 as f64 / 1e6,
+            most.1
+        );
     }
     println!(
         "people {}, alumni {}, coaches {}, high schools {}, programs {}, news {}",
@@ -96,6 +124,7 @@ fn main() {
     weigh("calendar logs", &mut w, &|w| w.log_history = Vec::new());
     weigh("event history", &mut w, &|w| w.event_history = Vec::new());
     weigh("calendar", &mut w, &|w| w.calendar = Default::default());
+    weigh("tallies (the open season)", &mut w, &|w| w.tallies = Default::default());
     let rest = afm_tools::heap_gb();
     rows.sort_by(|a, b| b.1.total_cmp(&a.1));
     println!("\n| store | GB |\n|---|---|");
@@ -104,6 +133,20 @@ fn main() {
     }
     println!("| everything else | {rest:.3} |");
     println!("\nall in {:.0}s", t.elapsed().as_secs_f64());
+    if std::env::var("AFM_TALLY_DIR").is_err() {
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// Bytes in a folder and the folders under it.
+fn folder_bytes(dir: &std::path::Path) -> u64 {
+    let Ok(rd) = std::fs::read_dir(dir) else { return 0 };
+    rd.flatten()
+        .map(|e| match e.file_type() {
+            Ok(t) if t.is_dir() => folder_bytes(&e.path()),
+            _ => e.metadata().map_or(0, |m| m.len()),
+        })
+        .sum()
 }
 
 /// One season's line: its time, memory, and its high school games on the
@@ -111,8 +154,9 @@ fn main() {
 fn year_line(w: &World, secs: f64) {
     let (games, hs) = w.log_history.last().map_or((0, Default::default()), |l| (l.hs_engine_games, l.hs_totals));
     let per = |x: f64| if hs.games > 0 { x / hs.games as f64 } else { 0.0 };
+    let tallies = w.tally_dir().map_or(0, folder_bytes) as f64 / 1e6;
     println!(
-        "season {}: {secs:.0}s, heap {:.2} GB, resident {}, people {}, HS engine games {games} (a team game: {:.1} points, {:.1} plays, {:.0} yards)",
+        "season {}: {secs:.0}s, heap {:.2} GB, resident {}, people {}, HS engine games {games} (a team game: {:.1} points, {:.1} plays, {:.0} yards), tallies folder {tallies:.1} MB",
         w.year - 1,
         afm_tools::heap_gb(),
         afm_tools::memory_text(),

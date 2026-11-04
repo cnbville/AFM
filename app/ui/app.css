@@ -144,6 +144,10 @@ a { color: inherit; }
 /* Heroes stay dark in both themes: their glass buttons stay light. */
 :is(.hcar, .hero, .phero) .st-btn.glass { color: #fff; background: rgba(255, 255, 255, 0.14); }
 :is(.hcar, .hero, .phero) .st-btn.glass:hover { background: rgba(255, 255, 255, 0.24); }
+/* A glass control inside a glass box (minor bug 249): the box already
+   blurs what is behind it, and WebKit (the Mac app) paints a second
+   backdrop filter nested in the first as a white slab under light text. */
+.st-glass :is(.st-btn.glass, .st-icon-btn, .st-tabs) { -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* ---------- the dense table (screens topic 3) ---------- */
 .tbl { overflow: auto; border-radius: 18px; }

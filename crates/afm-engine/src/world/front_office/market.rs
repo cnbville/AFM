@@ -734,6 +734,8 @@ pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
     super::super::finance::hs::open_seat(w);
     w.prune_tapes();
     move_family(w, e);
+    // A college job comes with the program's recruiting file (minor bug 248).
+    crate::world::scouting::dept::inherit(w);
     let name = employer_name(w, e);
     post(w, today, level_of(e), format!("You start as {} at {name}.", r.name()), false);
 }

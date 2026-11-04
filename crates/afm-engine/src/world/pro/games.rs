@@ -463,6 +463,39 @@ pub(crate) fn log_game(
     l.game("games-nfl", "plays-nfl", &row, Some(plays));
 }
 
+/// The Data section's tallies for an NFL game (lane NB1): `kind` is
+/// regular, wild card, divisional, conference title or super bowl. Only
+/// watches.
+pub(crate) fn tally_game(w: &mut World, f: &Fixture, r: &GameResult, sides: &[Side; 2], kind: &'static str) {
+    use crate::world::tally::{Level, games};
+    if !w.tallying() {
+        return;
+    }
+    let season = w.nfl_season.as_ref().map_or(w.year, |s| s.year);
+    let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
+    let pos: [std::collections::HashMap<u32, crate::positions::Position>; 2] =
+        [0, 1].map(|s| sides[s].team.players.iter().map(|p| (p.id, p.position)).collect());
+    let facts = games::Facts {
+        level: Level::Nfl,
+        season,
+        date: f.at.date,
+        kind,
+        teams: [f.home as u32, f.away as u32],
+        group: "NFL".into(),
+        neutral: f.neutral,
+        conference: false,
+        weather: games::Weather {
+            temp: v.cond.temperature as f32,
+            wind: v.cond.wind as f32,
+            rain: v.cond.rain,
+            snow: v.cond.snow,
+            indoor: v.indoor,
+        },
+    };
+    let part = games::part(facts, &r.stats, true, &|s, id| pos[s].get(&id).copied());
+    w.tally_game(part);
+}
+
 /// The day a club brings into a game (dialogue D4): a division game is the
 /// rivalry; the playoffs the engine reads itself.
 fn nfl_day(w: &World, t: usize, opp: usize, dressed: &crate::game::GameTeam) -> crate::game::talk::Day {
