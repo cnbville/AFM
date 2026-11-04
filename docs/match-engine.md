@@ -692,6 +692,67 @@ Tried and dropped (1,000 games each): a wider or surer arm grab from a blocked m
 
 Still off: linebackers make 21% of first tackles (real 28%) and their stops come 0.9 yards short, so backs make too many (36%, real 29%); runs of 10-39 yards are still short (7.0% against 10.0%), which is most of the 0.18 yards a carry still missing; short yardage gains too much against 7 and 8 in the box; light boxes gain too little (5 in the box 4.17, real 5.75), so light against stacked is -0.71 against -1.26.
 
+## Passing, the sideline and the pocket (minor bugs 137, 138 and 141, 2026-11-04)
+
+Three passing gaps from the trial 10 book. NFL wide receivers drew 68.7% of targets in `match_check` (real 59.3%), tight ends 12.8% (real 21.9%), backs 18.5% (real 18.1%). Quarterbacks threw the ball away on 0.4% of attempts (real about 3%: FTN charting 2022-24 has 3.5% of dropbacks), FBS teams took 2.20 sacks a game (real 2.00, cfbfastR 2022-24) and college sacks per pressure ran 0.21 against the NFL's 0.15. NFL plays ended out of bounds 5.9% of the time (real 10.7%: completions 16.2% against 20.7%, designed runs 0.8% against 5.5%). Real NFL numbers are nflverse play-by-play and participation 2021-25 unless a line says otherwise.
+
+What was wrong:
+
+- **Tight ends ran the wrong routes.** They ran a route on 20% of pass snaps but drew 13% of targets (0.13 targets a route, wide receivers 0.22) and were the first read 5% of the time. The library gave them sits, flats and blocks: they ran no posts (real NFL targets on posts: 19% to tight ends), 2% of corners (real 26%) and no wheels (real 27%).
+- **NFL teams went four wide like a college spread.** 19% of NFL dropbacks came from 10 personnel (real 1.0%, nflverse participation 2023-24), so a tight end wasn't even on the field.
+- **Nobody gave up on a play.** Past his clock a passer forced the ball to anyone within a step of his man (window -1.2 or more). The throwaway chance was 0.3 of the formula, and a rusher who could reach him within the whole throwing motion stopped it, so almost every throwaway try in the pocket failed.
+- **No scramble drill.** A passer who didn't run stayed in the pocket: there was no way to break out with his eyes downfield, so nothing ended outside the pocket but scrambles and sacks.
+- **Tacklers pushed runners out only from 6 yards of the sideline.**
+
+What changed (`game/playbook.rs`, `game/calling.rs`, `game/scrimmage.rs`, `game/sim.rs`; every number proposed, not confirmed):
+
+- **Tight end routes.** Eight concepts give the tight end a real route: slant-flat (slant), flood (the 11-yard out, read first), Y-cross (read first), the play-action shot (read second), the play-action dig (a 10-yard post), fades (slant), drive (the drag, read first) and shallow cross (the 10-yard dig, read second).
+- **The NFL's 10 personnel.** NFL play callers weigh 10 personnel at a tenth of college's and stay in 11 when they hurry (95%, was 70%) (`pick_personnel`).
+- **Giving up.** With his best man still covered (window below 0) when he would force it, he gives up with chance clamp(0.8 + 0.015 × (sense - 75), 0.05, 0.95), sense the mean of Decisions and Football IQ on the passer's scale (`GIVE_UP`). From then he throws it away as soon as he can, or runs if a lane opens (three times as readily).
+- **The flick.** A throwaway is stopped only by a rusher who reaches him within half the throwing motion, and the chance a tenth of a second is the full 0.06 + 0.003 × pro(Decisions) + 0.12 outside the pocket (was 0.3 × that).
+- **The scramble drill.** With a lane, nothing open or pressure above 0.5, and 1.6+ seconds gone, a passer breaks out of the pocket at 0.15 a tenth of a second × clamp(1 - 0.5 × lean(Scramble), 0.3, 1.7) (a runner mostly takes off instead), toward the side with no free rusher, never within 5 yards of the sideline (`EXTEND`). Out there he takes whoever comes open, throws it away legally, or after 1.2 s runs three times as readily (`EXTEND_RUN`).
+- **Pushed out.** A tackler within 8 yards of the sideline can drive the runner out (`PUSH_OUT`, was 6).
+- The coaches' call table is rebuilt for the new routes (2,000 snaps a cell).
+
+2,000 `match_check` games at each level, main and after:
+
+| | main | after | real |
+|---|---|---|---|
+| NFL targets to WR / TE / RB | 68.7 / 12.8 / 18.5% | 65.6 / 17.2 / 17.2% | 59.3 / 21.9 / 18.1% |
+| NFL pass snaps in 10 personnel | 18.9% | about 3% | 1.0% |
+| NFL plays ending out of bounds | 5.9% | 6.6% | 10.7% |
+| completions / designed runs out of bounds | 16.2 / 0.8% | 18.2 / 1.0% | 20.7 / 5.5% |
+| NFL throwaways an attempt | 0.4% | 2.3% | about 3% |
+| NFL intentional grounding a team game | 0.003 | 0.024 | 0.070 |
+| NFL scramble rate | 5.0% | 4.8% | 4.9% |
+| NFL sacks a team game | 1.87 | 1.90 | 2.41 |
+| NFL sacks per pressure | 0.150 | 0.153 | 0.139 |
+| NFL completion % | 66.0% | 65.0% | 64.5% |
+| NFL yards an attempt | 7.17 | 7.14 | 7.05 |
+| NFL interceptions a team game | 0.85 | 0.81 | 0.76 |
+| NFL plays a team game | 62.4 | 63.4 | 61.9 |
+| NFL points a team game | 23.7 | 24.4 | 22.5 |
+| FBS sacks a team game | 2.20 | 2.01 | 2.00 |
+| FBS sacks per pressure | 0.207 | 0.190 | |
+| FBS throwaways an attempt | 0.4% | 2.8% | |
+| FBS targets to TE | 12.6% | 15.1% | |
+| FBS completion % / yards an attempt | 61.3% / 7.28 | 59.9% / 7.12 | 60.6% / 7.29 |
+| FBS points a team game | 22.4 | 22.4 | 27.0 |
+| High school sacks a team game | 2.31 | 2.21 | |
+| High school throwaways an attempt | 0.8% | 2.8% | |
+
+Why: a throwaway is an incomplete attempt, so completion % and yards an attempt fall by about its share, which put the NFL's completion % at real. FBS sacks fell to real because the passer who used to hold it until the rush got home now gives up first or breaks out of the pocket. NFL points rose 0.7: more plays stop the clock (36.0%, was 33.9%), so the NFL runs a play more a team game (stopped-clock time between snaps was already short: 12.6 s against real 15.2), and the rebuilt call table moves callers toward the concepts that gain more now (shallow cross with the tight end's dig went from 5.9 to 9.5 yards a snap in the table; yards an attempt 7.08 before the table, 7.14 after). Scrambles first fell to 4.4% with the give-up alone (the passer threw it away when he used to run); letting a passer who has given up run when a lane opens put them back at 4.8%.
+
+Tried and dropped (400-1,000 games each): pursuers taking an inside-out angle to herd the runner to the sideline (points 27.8 to 38.3); runners stepping out more readily near the sideline (fewer yards a carry and explosive runs); pushing out from 10 yards (completions out 22.4%, past real 20.7%).
+
+Still off:
+
+- **Designed runs end out of bounds 1.0% (real 5.5%).** Wide runs are 27% of runs and only 2.4% of them end out (real end runs about 20%): the carrier's path turns upfield and ends 15+ yards from the sideline about two times in three. Fixing it means bending the run path to the sideline, which reworks the run game tuned in minor bugs 164 and 136.
+- **Tight ends draw 17% of targets (real 22%).** Their targets go 9 air yards deep (real 6.4), so most of the targets still missing are short ones. NFL 12 personnel is 12.8% of pass snaps (real 17.6%) and 21 is 8.2% (real 4.9%).
+- **NFL sacks 1.90 a team game (real 2.41)**, from before this lane: the ball comes out too soon (time to throw 2.49 s against 2.71, thrown after 3.94 s 2.5% against 10%), the gap minor bug 135 left for the trial.
+- **NFL time between snaps on a stopped clock is short** (12.6 s against 15.2, late in halves 6.0 against 8.4), so the NFL runs 63.4 plays a team game (real 61.9), from before this lane; it is minor bug 254.
+- In the last diagnostic build the NFL's throwaways came in the pocket about 1.9% of dropbacks against real 1.4 and outside it about 0.5% against 2.1 (FTN charting): the scramble drill gets few passers out before the play is dead.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.

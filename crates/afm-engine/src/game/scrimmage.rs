@@ -293,6 +293,12 @@ struct Pass {
     /// at the catch point, inches off the ground (D1).
     jump_ball: bool,
     ball_h: f64,
+    /// Nothing open late and his man covered: he has given up on the play
+    /// and throws it away as soon as he can get it off (minor bug 138).
+    give_up: bool,
+    /// Out of the pocket with his eyes still downfield (the scramble
+    /// drill): the side he broke to and when (minor bug 138).
+    extend: Option<(f64, f64)>,
 }
 
 /// Debug counts of how throws were chosen: on reads 1-4+, any open man
@@ -754,6 +760,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 jump_r: None,
                 jump_ball: false,
                 ball_h: 0.0,
+                give_up: false,
+                extend: None,
             });
             if c.drop == Drop::Screen {
                 sim.screen = pass.as_ref().and_then(|ps| ps.reads.first().copied());
@@ -1108,6 +1116,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     jump_r: None,
                                     jump_ball: false,
                                     ball_h: 0.0,
+                                    give_up: false,
+                                    extend: None,
                                 });
                                 sim.agents[qb].job = Job::Passer;
                                 continue;
@@ -3219,6 +3229,11 @@ fn quarterback(
         // The back screen: he drifts back and away to draw the rush past
         // the back, as real quarterbacks are coached to.
         sim.go_to(qb, me + v2(-1.0, 0.0), 0.35);
+    } else if let Some((side, _)) = ps.extend {
+        // Out of the pocket: on the move to his side, a step upfield,
+        // eyes downfield, short of the sideline.
+        let to = me + v2(0.6, 3.0 * side);
+        sim.go_to(qb, v2(to.x, clamp(to.y, 5.0, width() - 5.0)), 0.9);
     } else if pressure > 0.2 {
         let step = threat.norm().scale(1.0 + 0.01 * feel) + v2(0.6, 0.0);
         sim.go_to(qb, me + step.scale(2.0), 0.6 + 0.004 * feel);
@@ -3285,7 +3300,9 @@ fn quarterback(
     // sooner for a poised passer who trusts his pocket; the world's FBS
     // rosters then take a sack on about 6% of dropbacks, real 6.0%).
     let urgent = soon < 0.85 - 0.004 * (poise - 60.0) && !screen;
-    let over = ps.read >= ps.reads.len() || late || urgent;
+    // Off schedule out of the pocket, the progression is gone: he takes
+    // whoever comes open.
+    let over = ps.read >= ps.reads.len() || late || urgent || ps.extend.is_some();
     // A good quarterback holds the safety with his eyes before coming back.
     // (Eye manipulation: nothing for most, up to a full pull for the best.)
     let manip = clamp((sim.agents[qb].a(Attr::EyeManipulation) - 60.0) / 30.0, 0.0, 1.0);
@@ -3414,7 +3431,21 @@ fn quarterback(
                 ps.why = if force { 6 } else { 5 };
             }
         }
-        best = ck;
+        // Force it or throw it away (minor bug 138): with nobody open and
+        // his best man still covered, judgment decides. Real NFL passers
+        // throw away 3.5% of dropbacks (FTN charting 2022-24) and force a
+        // ball a defender should pick on 4.2% of throws; the engine's
+        // forced it to anyone a step behind his man and threw away 0.4%.
+        // At sense 75 (decisions and football IQ on the passer's scale)
+        // he gives up 80% of the time, 15 points less 57%, 15 more 95%
+        // (proposed, not confirmed).
+        if force && !ps.give_up && ck.is_none_or(|c| c.1 < 0.0) {
+            let sense = 0.5 * pro(sim.agents[qb].a(Attr::Decisions)) + 0.5 * pro(aw);
+            if sim.rng.chance(clamp(GIVE_UP + 0.015 * (sense - 75.0), 0.05, 0.95)) {
+                ps.give_up = true;
+            }
+        }
+        best = if ps.give_up { None } else { ck };
     }
     // Getting it off (topic 1): the throwing motion takes a beat, quicker for
     // a clean, compact release. A free rusher who will be on him before the
@@ -3507,29 +3538,63 @@ fn quarterback(
                 && (a.pos.y - me.y) * side > -0.5
         })
     };
-    let lane = nearest > 1.2 && (!free_near(1.0) || !free_near(-1.0));
+    let (free_l, free_r) = (free_near(1.0), free_near(-1.0));
+    let lane = nearest > 1.2 && (!free_l || !free_r);
     // Scrambles (tendencies): how readily he leaves the pocket; his speed
-    // decides what it gains.
+    // decides what it gains. Out of the pocket a while with nothing come
+    // open, or given up on the pass with a lane in front of him, he tucks it
+    // and runs three times as readily.
     let leaves = (1.0 + 1.2 * sim.lean(qb, Tend::Scramble)).max(0.1);
+    let extended = ps.give_up || ps.extend.is_some_and(|(_, at)| t - at > EXTEND_RUN);
     let want_run = (over || pressure > 0.5)
         && lane
         && t > 2.0
-        && sim.rng.chance(clamp(0.03 + 0.004 * (speed - 50.0), 0.01, 0.2) * leaves);
+        && sim.rng.chance(clamp(0.03 + 0.004 * (speed - 50.0), 0.01, 0.2) * leaves * if extended { 3.0 } else { 1.0 });
     if want_run || (pressure > 1.0 && lane && speed > 75.0 && sim.rng.chance((0.25 * leaves).min(0.9))) {
         qb_why(8, s.dcall.coverage);
         ps.scramble = true;
         return None;
     }
+    // The scramble drill (minor bug 138): with the same lane, a passer who
+    // doesn't run breaks out of the pocket with his eyes still downfield,
+    // to throw on the move, throw it away legally or run later. Real NFL
+    // passers end 17% of dropbacks out of the pocket and throw away 12% of
+    // those (FTN charting 2022-24); here a pocket passer leaves at 0.15 a
+    // tenth of a second, a runner (who mostly takes off instead) at as
+    // little as 0.045 (proposed, not confirmed).
+    let lean = sim.lean(qb, Tend::Scramble);
+    if ps.extend.is_none()
+        && (over || pressure > 0.5)
+        && lane
+        && t > 1.6
+        && sim.rng.chance(EXTEND * clamp(1.0 - 0.5 * lean, 0.3, 1.7))
+    {
+        let side = if !free_l && (free_r || sim.rng.chance(0.5)) { 1.0 } else { -1.0 };
+        ps.extend = Some((side, t));
+        return None;
+    }
     // Throwing it away takes a rusher on top of him (or a play long dead)
-    // and the sense to give up on it; many hold on and take the sack.
+    // and the sense to give up on it; many hold on and take the sack. It is
+    // a flick, not a throw: half the motion gets it away (minor bug 138:
+    // at the full motion a rusher in his face stopped nearly every one, and
+    // the chance a tenth of a second was 0.3 of today's).
     let outside = (me.y - s.ball_y).abs() > 4.0;
+    let flicked = (0..sim.agents.len()).any(|d| {
+        let a = &sim.agents[d];
+        if a.side != 1 || !a.up(t) || a.engaged.is_some() || !matches!(a.job, Job::Rush { .. }) {
+            return false;
+        }
+        let rel = me - a.pos;
+        let dist = rel.len();
+        let closing = a.vel.dot(rel.norm()).max(0.0);
+        dist < 3.5 && dist - reach < closing * release * 0.5
+    });
     let imminent = nearest < 2.2 && pressure > 0.4 || urgent;
-    let away = (over || pressure > 0.6)
-        && (outside || !blocked_throw)
-        && (imminent || t > clock + 0.5)
-        && sim
-            .rng
-            .chance(0.3 * (0.06 + 0.003 * pro(sim.agents[qb].a(Attr::Decisions)) + if outside { 0.12 } else { 0.0 }));
+    let away = ps.give_up && (outside || !flicked)
+        || (over || pressure > 0.6)
+            && (outside || !flicked)
+            && (imminent || t > clock + 0.5)
+            && sim.rng.chance(0.06 + 0.003 * pro(sim.agents[qb].a(Attr::Decisions)) + if outside { 0.12 } else { 0.0 });
     if away {
         qb_why(7, s.dcall.coverage);
         // Throw it away (outside the pocket it is legal past the line).
@@ -3976,6 +4041,14 @@ fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
 const FEED_BASE: f64 = 0.1;
 const FEED_PER_POINT: f64 = 0.02;
 const FEED_MAX: f64 = 0.55;
+/// The base chance he throws it away rather than force it to a covered man
+/// (minor bug 138).
+const GIVE_UP: f64 = 0.8;
+/// The chance a tenth of a second a pocket passer with a lane breaks out
+/// with his eyes downfield, and how long before he tucks it and runs more
+/// readily (minor bug 138).
+const EXTEND: f64 = 0.15;
+const EXTEND_RUN: f64 = 1.2;
 
 /// The base chance a lineman square in the lane bats the ball.
 const BAT: f64 = 0.17;
