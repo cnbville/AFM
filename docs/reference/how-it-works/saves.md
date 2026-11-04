@@ -1,6 +1,6 @@
 # Saves and world files: how it works today
 
-Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main 68355bb on 2026-11-04 (lane NB1).
+Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1).
 
 ## Quick answers
 

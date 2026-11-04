@@ -1,6 +1,6 @@
 # Records and the Data section: how it works today
 
-Checked against main at 1bb5507 with update 3 lane L20 and its review fixes on 2026-10-28; the Stats tab's years without games (minor bugs hotfix, batch 2) over main d9f48c4 on 2026-11-02; the class filter and CPOE by level (minor bug 178) over main 2d0c6a8 on 2026-11-02; the stat hovers (H8) and minor bugs 181-182 over main 78f1bff on 2026-11-03. The minor bugs hotfix batch 6 (minor bugs 185-240, the tutorial catalogue's B items) checked over main 1a99583 on 2026-11-03. Lane NB1 (charting depth and delay, scramble EPA, minor bug 183) over main 68355bb on 2026-11-04.
+Checked against main at 1bb5507 with update 3 lane L20 and its review fixes on 2026-10-28; the Stats tab's years without games (minor bugs hotfix, batch 2) over main d9f48c4 on 2026-11-02; the class filter and CPOE by level (minor bug 178) over main 2d0c6a8 on 2026-11-02; the stat hovers (H8) and minor bugs 181-182 over main 78f1bff on 2026-11-03. The minor bugs hotfix batch 6 (minor bugs 185-240, the tutorial catalogue's B items) checked over main 1a99583 on 2026-11-03. Lane NB1 (charting depth and delay, scramble EPA, minor bug 183) over main a0dfde3 on 2026-11-04.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Proposed, not confirmed" numbers are Claude's; the code says which.
 

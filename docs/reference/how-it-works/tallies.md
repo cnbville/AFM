@@ -1,6 +1,6 @@
 # The Data section's tallies: how it works today
 
-Checked against main at 68355bb with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04.
+Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `.github/`. "Proposed, not confirmed" marks Claude's own picks in this lane, which Cain hasn't answered.
 
@@ -67,7 +67,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Saving links the live folder beside the save; renaming or deleting a save moves or deletes its folder (`tallies.rs`, `on_save`, `on_rename`, `on_delete`).
 - Building a world in the game writes the history's seasons straight into `name.afmdata.part` beside the world file, renamed when the build ends (`crates/afm-game/src/jobs.rs`, `build_world_file_named`; `World::new_recorded`).
 - Importing a world brings the folder beside it, or its tar file (`name.afmdata.tar`, or in parts `.tar.001`, `.002`, ...), into the library (`crates/afm-game/src/files.rs`, `import_world`; `tallies.rs`, `import`, `untar_parts`). Only `<kind>/<season>.tally` files are taken from a tar.
-- The worlds page carries the folder as one tar file, split past 2 GB, and the download fetches it with the world (`.github/workflows/build-world.yml`, publish step; `crates/afm-game/src/jobs.rs`, `data_assets`). Publishing it as a tar is proposed, not confirmed.
+- The worlds page carries the folder as a tar file in parts of 1.9 GB (`name.afmdata.tar.001`, ...), packed as the folder is removed, and the download fetches it with the world (`.github/workflows/build-world.yml`, publish step; `crates/afm-game/src/jobs.rs`, `data_assets`). Publishing it as a tar is proposed, not confirmed.
 
 ## Charting depth and delay (item 2)
 
@@ -79,7 +79,10 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 ## Sizes
 
-- Measured with `memory_check` on a 0.1 world; see `docs/game.md`, "Lane NB1".
+- Measured with `memory_check` on a 0.1 world (seed 2026, 6 years of history and one more season, 4-core Linux), 2026-11-04. A closed season is about 22.5 MB on disk: players 6.1 MB (35,695 rows), teams 6.2 MB (576), games 9.5 MB (9,772: 2,603 college, 285 NFL, 6,884 high school), classes 0.6 MB and growing about 0.1 MB a season (the store holds every class), people 0.12 MB (1,728 unit rows).
+- In the games file a college game is about 2.6 KB packed (lines and the win chance), an NFL game 2.2 KB, a high school game 0.3 KB (facts and boxes).
+- The open season at its biggest (the end of the football year) packs to 63 MB before compression; just after the close the tallies weigh 5 MB of heap. Memory stays flat from season to season: closed seasons live only on disk.
+- At full size (not measured): college and NFL counts barely change with scale, high school games are about ten times as many and college player rows somewhat more, so a season comes to roughly 45-50 MB and a 30-year world's folder to about 1.4 GB; the open season adds roughly 0.15 GB of heap at the football year's end, after the summer's high (Claude's estimate from the 0.1 numbers).
 
 ## Where the knobs are
 
