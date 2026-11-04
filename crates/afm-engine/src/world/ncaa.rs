@@ -12,6 +12,7 @@ use super::news::{Channel, NewsItem, NewsKind};
 use super::program::Program;
 use super::season::key_uniform;
 use super::{Stage, World};
+use crate::calendar::Date;
 use crate::positions::Position;
 use crate::rng::clamp;
 
@@ -202,6 +203,49 @@ pub fn revenue_share(prog: &Program, year: i32) -> f64 {
 /// market as it stood that year, plus revenue sharing. None before July 2021.
 pub fn nil_budget(prog: &Program, year: i32) -> f64 {
     nil_market(year) * prog.collective.boosters() + revenue_share(prog, year)
+}
+
+/// Two pots from July 1, 2025, the House settlement's first day (B18): the
+/// school pays its revenue share itself, under the cap, and the collective
+/// is a third party whose deals go through NIL Go. Before, a program's NIL
+/// money was the collective's alone.
+pub fn two_pots(d: Date) -> bool {
+    d >= Date::ymd(HOUSE_START, 7, 1)
+}
+
+/// NIL Go, the College Sports Commission's clearinghouse run by Deloitte,
+/// opened June 11, 2025.
+pub fn nil_go_open(d: Date) -> bool {
+    d >= Date::ymd(HOUSE_START, 6, 11)
+}
+
+/// Whether NIL Go reviews a third-party deal (a collective's or a
+/// booster's; B18). From its opening every deal of $600 or more; from
+/// April 2026 a deal up to $2,500 skips review while his year's deals stay
+/// at $15,000 or less; from July 1, 2026 deals of $600 to $15,000 are
+/// reviewed only once his deals pass $50,000 in the year. `year_total` is
+/// his third-party money for the year with this deal.
+pub fn nil_go_reviews(d: Date, deal: f64, year_total: f64) -> bool {
+    if !nil_go_open(d) || deal < 600.0 {
+        false
+    } else if d >= Date::ymd(2026, 7, 1) {
+        deal > 15_000.0 || year_total > 50_000.0
+    } else if d >= Date::ymd(2026, 4, 1) {
+        deal > 2_500.0 || year_total > 15_000.0
+    } else {
+        true
+    }
+}
+
+/// The school's own revenue share inside a program's NIL money on a day
+/// (B18): nothing before July 1, 2025. An old save without the stored
+/// figure reads the year's share.
+pub fn school_pot(prog: &Program, d: Date) -> f64 {
+    if !two_pots(d) {
+        return 0.0;
+    }
+    let s = if prog.collective.school > 0.0 { prog.collective.school } else { revenue_share(prog, d.year()) };
+    s.clamp(0.0, prog.collective.budget.max(0.0))
 }
 
 /// The top of the real range for a starter at a major program (CBS via SI,

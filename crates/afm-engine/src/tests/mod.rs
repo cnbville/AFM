@@ -16,6 +16,7 @@ mod gameplan;
 mod hiring;
 mod hs_playoffs;
 mod hunt;
+mod nil;
 mod kick_units;
 mod lane7;
 mod lane9;
