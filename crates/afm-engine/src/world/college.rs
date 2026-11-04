@@ -806,6 +806,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                         snow: j.played.snow,
                         indoor: j.played.indoor,
                     },
+                    ranked: [g.home, g.away].map(|t| ap_ranked(cs, g.date, t)),
                 };
                 Some(super::tally::games::part(facts, &r.stats, true, &|s, id| pos[s].get(&id).copied()))
             })
@@ -4008,6 +4009,17 @@ pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSe
         away,
         params,
     })
+}
+
+/// Whether a program was in the AP top 25 at kickoff: the latest AP poll
+/// out before the game's day (the preseason one first). The players'
+/// split against ranked teams reads it, as the real ones do.
+fn ap_ranked(cs: &CollegeSeason, date: Date, team: usize) -> bool {
+    cs.polls
+        .iter()
+        .filter(|p| matches!(p.kind, PollKind::Ap | PollKind::ApPreseason) && p.date < date)
+        .max_by_key(|p| p.date)
+        .is_some_and(|p| p.top.contains(&team))
 }
 
 #[cfg(test)]

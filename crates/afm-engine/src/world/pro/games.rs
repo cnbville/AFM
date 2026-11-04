@@ -491,6 +491,7 @@ pub(crate) fn tally_game(w: &mut World, f: &Fixture, r: &GameResult, sides: &[Si
             snow: v.cond.snow,
             indoor: v.indoor,
         },
+        ranked: [false, false],
     };
     let part = games::part(facts, &r.stats, true, &|s, id| pos[s].get(&id).copied());
     w.tally_game(part);

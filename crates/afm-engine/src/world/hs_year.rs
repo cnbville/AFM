@@ -1628,6 +1628,7 @@ fn engine_games(
                         snow: setup.cond.snow,
                         indoor: false,
                     },
+                    ranked: [false, false],
                 };
                 super::tally::games::part(facts, &r.stats, false, &|_, _| None)
             });

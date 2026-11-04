@@ -1955,6 +1955,7 @@ impl<'a> Game<'a> {
         r.returner = kr.returner;
         r.return_yards = kr.return_yards;
         r.duration = kr.duration;
+        r.hang = kr.hang as f32;
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
         r.injuries = kr.notes.injuries.clone();
@@ -2855,6 +2856,7 @@ impl<'a> Game<'a> {
         r.blocked = kr.blocked;
         r.bad_snap = kr.bad_snap;
         r.duration = kr.duration;
+        r.hang = kr.hang as f32;
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
         r.injuries = kr.notes.injuries.clone();
@@ -3734,6 +3736,8 @@ impl<'a> Game<'a> {
             off.iter().map(|&(_, i)| self.sides[o].team.players[i].id).collect(),
             def.iter().map(|&(_, i)| self.sides[d].team.players[i].id).collect(),
         ];
+        // Where each lined up, for the Data section (lane NB4).
+        r.roles = [off.iter().map(|&(rl, _)| rl as u8).collect(), def.iter().map(|&(s, _)| s as u8).collect()];
         r.box_count = res.box_count;
         r.play_action = res.play_action;
         // Fatigue (topic 6).
@@ -3890,6 +3894,8 @@ impl<'a> Game<'a> {
         };
         r.hits = res.notes.hits.clone();
         r.pressures = res.notes.pressures.iter().map(|p| p.0).collect();
+        r.pressure_at = res.notes.pressures.first().map_or(0.0, |p| p.1 as f32);
+        r.contact = res.notes.contact.iter().map(|&(id, t)| (id, t as f32)).collect();
         r.forced_fumble = res.notes.forced_fumble;
         r.fumbled = res.notes.fumbled;
         r.blocks = res.notes.blocks.clone();
