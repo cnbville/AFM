@@ -58,7 +58,29 @@ fn a_session_watched_snap_by_snap_becomes_your_report() {
     assert!(s.ask.is_some(), "a question to settle");
     for st in &s.snaps[0].stills {
         assert!(!st.dots.is_empty(), "each still draws the men");
+        // On a true-scale field, the key men by name (new bugs, Cain
+        // 2026-11-04: the stills were too rough to read).
+        let b = st.board.as_ref().expect("a true-scale still");
+        assert_eq!(b.men.len(), 22, "everyone on the field");
+        assert_eq!(b.men.iter().filter(|m| m.2 == 2).count(), 1, "him once");
+        assert!(b.keys.iter().any(|k| k.1 == 1 && !k.2.is_empty()), "him by name: {:?}", b.keys);
+        assert!(b.men.iter().all(|m| (b.win.0..=b.win.1).contains(&m.0)), "everyone in the frame: {:?}", b.win);
+        assert!((3.0..10.0).contains(&b.hash), "the NFL's hashes: {}", b.hash);
     }
+    // The right way up: at the snap the ball is on the line or in the
+    // quarterback's hands behind it, the backs are behind the line and
+    // nobody on defense is.
+    let b = s.snaps[0].stills[0].board.as_ref().unwrap();
+    if !s.snaps[0].special {
+        assert!((-80..=10).contains(&b.ball.0), "the ball at the snap: {:?}", b.ball);
+        let back: Vec<u8> = b.men.iter().filter(|m| m.0 < -5).map(|m| m.2.min(1)).collect();
+        assert!(
+            !back.is_empty() && back.iter().all(|&k| k == back[0]),
+            "only the offense behind the line: {:?}",
+            b.men
+        );
+    }
+    assert!(s.snaps[0].stills[1].board.as_ref().unwrap().ring.is_some(), "a ring on him at the moment");
     assert_eq!(s.snaps[0].stills.len(), 3, "three stills a snap");
     // About one snap in three stops for a call.
     let calls = s.snaps.iter().filter(|x| x.call.is_some()).count();
