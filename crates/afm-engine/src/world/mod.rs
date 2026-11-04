@@ -59,6 +59,7 @@ pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
 pub mod people;
 pub mod plans;
 pub(crate) mod polls;
+pub mod power;
 pub mod pro;
 pub mod program;
 pub mod pronoun;

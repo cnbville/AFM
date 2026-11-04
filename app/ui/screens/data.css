@@ -98,3 +98,31 @@
 .pdt-gap { display: grid; justify-items: center; gap: 2px; text-align: center; }
 .pdt-gap i { display: block; width: 70%; border-radius: 6px 6px 2px 2px; background: var(--sl-gold-bar); }
 .pdt-gap small { font-size: 10.5px; color: var(--sl-text3); }
+
+/* Team data (lane NB7, items 16-23; boards 44 and 53). */
+.td-body { display: grid; gap: 12px; margin-top: 12px; }
+.td-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-items: start; }
+.td-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; align-items: start; }
+.beside-body .td-grid, .beside-body .td-grid2 { grid-template-columns: minmax(0, 1fr); }
+.td .phead .h1 { display: flex; align-items: center; gap: 10px; }
+.dt-rk2 { font-size: 10.5px; color: var(--sl-faint); margin-left: 4px; }
+.dt-rk2.top { color: var(--sl-good); }
+.dt-rk2.low { color: var(--sl-dim); }
+.td-up { color: var(--sl-good); }
+.td-dn { color: var(--sl-text2); }
+.td-snap { display: inline-block; min-width: 26px; padding: 0 3px; border-radius: 4px; background: linear-gradient(90deg, var(--sl-gold-soft) var(--p), transparent var(--p)); }
+tr.td-hl td { background: var(--sl-gold-soft); }
+.tl-wrap { padding: 16px; }
+.tl-chart { position: relative; height: min(70vh, 640px); border: 1px solid var(--sl-line); border-radius: 10px; overflow: hidden; }
+.tl-mx, .tl-my { position: absolute; background: var(--sl-line); }
+.tl-mx { top: 0; bottom: 0; width: 1px; }
+.tl-my { left: 0; right: 0; height: 1px; }
+.tl-q { position: absolute; font-size: 11px; color: var(--sl-faint); text-transform: uppercase; letter-spacing: .06em; }
+.tl-q.q1 { right: 10px; top: 8px; }
+.tl-q.q2 { left: 10px; top: 8px; }
+.tl-q.q3 { right: 10px; bottom: 8px; }
+.tl-q.q4 { left: 10px; bottom: 8px; }
+.tl-dot { position: absolute; transform: translate(-50%, -50%); line-height: 0; }
+.tl-dot a { cursor: pointer; }
+.tl-dot.mine { z-index: 2; outline: 2px solid var(--sl-gold); border-radius: 50%; }
+.tl-axes { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--sl-text3); }
