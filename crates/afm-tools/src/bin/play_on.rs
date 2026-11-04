@@ -83,6 +83,75 @@ fn main() {
 
 /// The league's last two market years, dead money and the Hall's last classes.
 fn summary(w: &afm_engine::world::World) {
+    // NFL backs' yards a carry, 120+ carries (minor bug 136): the spread
+    // across backs and season to season (real 2021-24: sd 0.573, 0.29).
+    let mut by: std::collections::BTreeMap<i32, Vec<(u32, f64)>> = Default::default();
+    for p in w.people.iter().filter(|p| p.player.position == afm_engine::positions::Position::RB) {
+        let Some(c) = p.pro.as_ref() else { continue };
+        let mut seen: std::collections::BTreeMap<i32, (u32, f64)> = Default::default();
+        for s in &c.seasons {
+            let e = seen.entry(s.year).or_default();
+            e.0 += s.stats.rush;
+            e.1 += s.stats.rush_yds;
+        }
+        for (y, (n, yds)) in seen {
+            if n >= 120 {
+                by.entry(y).or_default().push((p.player.id, yds / n as f64));
+            }
+        }
+    }
+    for (y, v) in by.iter().rev().take(12) {
+        let m = v.iter().map(|x| x.1).sum::<f64>() / v.len() as f64;
+        let sd = (v.iter().map(|x| (x.1 - m).powi(2)).sum::<f64>() / (v.len() as f64 - 1.0).max(1.0)).sqrt();
+        let (mut a, mut b) = (Vec::new(), Vec::new());
+        if let Some(nx) = by.get(&(y + 1)) {
+            for (id, x) in v {
+                if let Some((_, z)) = nx.iter().find(|q| q.0 == *id) {
+                    a.push(*x);
+                    b.push(*z);
+                }
+            }
+        }
+        let corr = if a.len() > 3 {
+            let (ma, mb) = (a.iter().sum::<f64>() / a.len() as f64, b.iter().sum::<f64>() / b.len() as f64);
+            let c: f64 = a.iter().zip(&b).map(|(x, z)| (x - ma) * (z - mb)).sum();
+            let va: f64 = a.iter().map(|x| (x - ma).powi(2)).sum();
+            let vb: f64 = b.iter().map(|z| (z - mb).powi(2)).sum();
+            c / (va * vb).sqrt()
+        } else {
+            f64::NAN
+        };
+        eprintln!(
+            "RB YPC {y}: {} backs 120+ carries, mean {m:.2} sd {sd:.3}, next season corr {corr:.2} ({} pairs)",
+            v.len(),
+            a.len()
+        );
+    }
+    // The NFL's points a team game and yards an attempt and a carry by year.
+    let mut lg: std::collections::BTreeMap<i32, [f64; 6]> = Default::default();
+    for x in &w.nfl_units {
+        let e = lg.entry(x.0).or_default();
+        e[0] += x.2 as f64;
+        e[1] += x.3 as f64;
+    }
+    for p in w.people.iter() {
+        let Some(c) = p.pro.as_ref() else { continue };
+        for s in &c.seasons {
+            let e = lg.entry(s.year).or_default();
+            e[2] += s.stats.att as f64;
+            e[3] += s.stats.pass_yds as f64;
+            e[4] += s.stats.rush as f64;
+            e[5] += s.stats.rush_yds as f64;
+        }
+    }
+    for (y, e) in lg.iter().rev().take(4) {
+        eprintln!(
+            "NFL {y}: points a team game {:.1}, yards an attempt {:.2}, yards a carry {:.2}",
+            e[1] / e[0].max(1.0),
+            e[3] / e[2].max(1.0),
+            e[5] / e[4].max(1.0)
+        );
+    }
     for m in w.market.years.iter().rev().take(2) {
         eprintln!(
             "MARKET {} trades {} draft {} season {} deadline {} funnel {:?} ufa {} resigned {} comp {} formula {} supp {} dead {:?}",

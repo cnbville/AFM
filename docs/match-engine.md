@@ -647,6 +647,51 @@ Tried and dropped (each over 4,000 games): the runner's pace with the ball (0.90
 
 Still off (minor bug 164): the short end. 30.5% of designed runs gain nothing against 18.2% real and 22.9% gain 1-3 yards against 37.1%, while 4-9 yards run 39.5% against 34.2%. When a lineman makes the first tackle the run has gained 1.0 yard (real 2.44), a linebacker 1.7 (real 3.35), and linebackers make 26% of first tackles against 37% (backs 44% against 30%). With the short end short, runs of 10-19 yards (5.4% against 8.2%) and 20-39 (1.2% against 1.8%) stay short too.
 
+## The run game: stuffs, first tackles and the box (minor bugs 164 and 136, 2026-11-04)
+
+NFL designed runs were stuffed 30% of the time (real 17.6%), linemen and linebackers made their stops a yard or two too short, an eighth man in the box barely mattered, and backs' yards a carry spread too wide (0.79-0.84 against 0.57). Real numbers are nflverse play-by-play and participation 2021-24, backs' designed runs, regular season, the first tackler grouped by the role PFF lists (interior and edge are the line, off-ball linebackers the linebackers): line 43.1% of first tackles at 2.50 yards, linebackers 27.8% at 3.69, backs 29.1% at 6.96. `match_check`'s rows used the roster position before, which put 3-4 edge rushers with the linebackers (line 33.0%, linebackers 37.1%), while the engine's EDGE is a lineman.
+
+What the run diagnostic (`AFM_RUNDIAG=1`) showed on main: 48% of backs' runs met their first tackler behind the line; linemen hit at a yard behind it and linebackers at the line, so the yards came in two humps (nothing, and 5-7 yards to a safety) with a hole at 2-4; receivers took defensive ends in their stalk blocks; linebackers were blocked to the whistle 1.5 times a run; a won block drove its man back for as long as it lasted; and a safety rolled into the box fitted at 6.5 yards like any safety, so the extra man made no stops.
+
+What changed (`game/sim.rs`, `game/scrimmage.rs`; every number proposed, not confirmed):
+
+- **Blocks fade.** A man driven back goes back for 2 seconds at most (`RUN_PUSH_BACK`, at most 1.6 yards), and a defender driving his blocker into the backfield does it for 1 second, still sliding toward the runner (`RUN_PUSH_UP`).
+- **Linemen make the stop as the runner goes by.** Any block not sealed pulls the defender toward the runner within 2.2 yards at a full 2 a second at least (`SHED_RUNNER` 1.0, with leverage only and at 0.2-1.5 before); a second-level man feels him from 3.5 yards and pulls harder (`SHED_SECOND`). The blocker starts a little further ahead (w0 -0.4, was -0.1) so the runs still go.
+- **Linebackers fill past the line.** They fill to 2 yards past it (was half a yard), hold 1.5 past it once they leave the fill instead of chasing the back into the backfield, and stop at their floor and let him come. The phone booth (always hit) is now only within 1.5 yards of the line, so a waiting linebacker can slip a climbing blocker (`PHONE_BOOTH`). Receivers no longer stalk down linemen.
+- **The box counts.** A back inside 7 yards and 7.5 to the side of the ball (the box count) fits at 4.5 and attacks once the runner is 1.5 past the line; the other deep backs fit at 8.5 and attack at 3.5, the post's numbers (were 6.5 and 2.5).
+- **The fall forward.** The pile moves at 3.0 (was 2.2), the runner falls 0.3 s of its momentum (was 0.25) and his body reaches up to 1.05 yards (was 0.9).
+
+6,000 `match_check nfl` games (seed 11), main and after:
+
+| NFL | main | after | real |
+|---|---|---|---|
+| backs' designed runs stuffed (0 or less) | 29.9% | 16.7% | 17.6% |
+| runs of 1-3 / 4-9 / 10-19 / 20-39 / 40+ yards | 24.1 / 36.4 / 5.5 / 1.3 / 0.6% | 35.3 / 37.9 / 6.0 / 1.0 / 0.4% | 37.1 / 34.2 / 8.2 / 1.8 / 0.5% |
+| first tackle: line, share at yards | 29.5% at 0.81 | 42.4% at 2.08 | 43.1% at 2.50 |
+| first tackle: linebackers | 28.8% at 1.50 | 21.3% at 2.80 | 27.8% at 3.69 |
+| first tackle: backs | 41.7% at 6.67 | 36.3% at 6.51 | 29.1% at 6.96 |
+| yards a carry (backs' designed runs) | 4.13 (3.83) | 4.38 (4.11) | 4.50 (4.29) |
+| run EPA | -0.168 | -0.085 | -0.050 |
+| neutral downs, 6 / 7 / 8 / 9 in the box | 4.11 / 3.99 / 3.85 / 3.36 | 4.39 / 4.29 / 3.95 / 3.76 | 4.75 / 4.64 / 4.27 / 3.76 |
+| 2 or less to go, 6 / 7 / 8 / 9 in the box | 4.23 / 3.88 / 3.37 / 1.33 | 4.32 / 4.08 / 3.42 / 1.73 | 4.18 / 3.45 / 2.79 / 1.13 |
+| all runs, 6 or fewer against 8 or more | -0.56 | -0.71 | -1.26 |
+| team seasons' yards a carry, sd | 0.77 | 0.59 | 0.45 |
+| backs' 204-carry blocks, sd | 0.84 | 0.67 | 0.57 |
+| yards after the catch | 4.81 | 5.09 | 5.20 |
+| yards an attempt | 7.03 | 7.18 | 7.05 |
+| third downs | 38.7% | 41.7% | 39.8% |
+| points a team game | 22.9 | 23.9 | 22.5 |
+
+Why the points rose: main matched real points only because its runs lost 0.17 EPA a carry; with runs near real (-0.085), the passing side's small excess shows (yards an attempt and third downs). The fall forward also gives receivers about a quarter yard after the catch (bug 162 had them a yard short).
+
+The world: the released seed-1 world played one season on the engine (`play_on ... 365 ... engine`), main and after: NFL backs with 120+ carries 37 and 49 (real about 40 a season), their yards a carry 3.97 and 4.19 (real 4.32), spread 0.79 and 0.56 (real 0.57); the league's yards a carry 4.14 and 4.36, yards an attempt 7.25 and 7.33.
+
+FBS (2,000 games): yards a carry 4.46 to 4.79 (real 5.12), run EPA -0.142 to -0.059, points 20.9 to 22.4 (real 27.0), yards an attempt 7.06 to 7.28 (real 7.29), third downs 35.2% to 38.8% (real 40.3%). High school (2,000 games): yards a carry 5.16 to 5.74, points 16.8 to 17.9 (no real target).
+
+Tried and dropped (1,000 games each): a wider or surer arm grab from a blocked man (no change: the runner rarely passes within its reach); a head start for every second-level block (more early sheds everywhere, linebackers 22%); a slide of the whole fight toward the runner's track (more stuffs by linemen); leading the linebacker's fill by the runner's sideways speed (fewer yards, no more linebacker stops); a safety in the box chasing straight at the runner (stuffs by backs 15%, real 11%).
+
+Still off: linebackers make 21% of first tackles (real 28%) and their stops come 0.9 yards short, so backs make too many (36%, real 29%); runs of 10-39 yards are still short (7.0% against 10.0%), which is most of the 0.18 yards a carry still missing; short yardage gains too much against 7 and 8 in the box; light boxes gain too little (5 in the box 4.17, real 5.75), so light against stacked is -0.71 against -1.26.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.
