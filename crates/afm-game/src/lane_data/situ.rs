@@ -566,7 +566,7 @@ fn fourth_json(w: &World, sc: &Scope, seat: &HashMap<(i32, u32), usize>, f: &cal
         "did": did_word(f.did),
         "wp": f.wp,
         "conv": f.conv,
-        "best": j.map(|j| best_word(j.best)),
+        "best": j.map(|j| if j.even { "even" } else { best_word(j.best) }),
         "agreed": j.map(|j| j.agreed),
         "lost": j.map(|j| 100.0 * j.lost),
         "result": res_word(f),
@@ -587,7 +587,15 @@ fn try_json(w: &World, sc: &Scope, seat: &HashMap<(i32, u32), usize>, t: &calls:
         "did": if t.two { "Went for two" } else { "Kicked" },
         "good": t.good,
         "wp": t.wp,
-        "best": j.map(|(two, _, _)| if two { "two" } else { "kick" }),
+        "best": j.map(|(two, _, _)| {
+            if (t.wp[0] - t.wp[1]).abs() < 100.0 * calls::CLEAR as f32 {
+                "even"
+            } else if two {
+                "two"
+            } else {
+                "kick"
+            }
+        }),
         "agreed": j.map(|x| x.1),
         "lost": j.map(|x| 100.0 * x.2),
         "fin": t.fin,
@@ -789,10 +797,11 @@ pub fn decisions(w: &World, args: &Value) -> Value {
         m.insert("team_grid".into(), json!(cells(&c.grid)));
         m.insert("sums".into(), sums_json(&c.sum));
         let mut fourths: Vec<&calls::Fourth> = c.fourths.iter().collect();
-        fourths.sort_by_key(|f| (f.date, std::cmp::Reverse(f.q), std::cmp::Reverse(f.clock)));
+        // In game order (the screen turns it round, newest first).
+        fourths.sort_by_key(|f| (f.date, f.q, std::cmp::Reverse(f.clock)));
         m.insert("fourths".into(), json!(fourths.iter().map(|f| fourth_json(w, &sc, &seat, f)).collect::<Vec<_>>()));
         let mut tries: Vec<&calls::Try> = c.tries.iter().collect();
-        tries.sort_by_key(|t| (t.date, std::cmp::Reverse(t.q), std::cmp::Reverse(t.clock)));
+        tries.sort_by_key(|t| (t.date, t.q, std::cmp::Reverse(t.clock)));
         m.insert("tries".into(), json!(tries.iter().map(|t| try_json(w, &sc, &seat, t)).collect::<Vec<_>>()));
         let calls_words = ["a catch", "a fumble", "the goal line", "a spot", "an interception"];
         m.insert(

@@ -96,7 +96,7 @@ function sxSituations(x, tab) {
       <section class="panel dt-panel"><h2>Inside the 20</h2>${key}${sxTable(x.red_zone, x, "Snaps")}</section>`;
   }
   if (tab === "Two-minute") return `<section class="panel dt-panel"><h2>The two-minute drill <small>the last two minutes of each half, against the rest</small></h2>${key}${sxTable(x.two_minute, x, "When")}</section>`;
-  return `<section class="panel dt-panel"><h2>The score and <span data-h8="Garbage">garbage time</span></h2>${key}${sxTable(x.score, x, "Score at the snap")}<p class="muted small">${esc(x.garbage_note)}</p></section>`;
+  return `<section class="panel dt-panel"><h2><span>The score and <span data-h8="Garbage">garbage time</span></span><small>the margin before each snap</small></h2>${key}${sxTable(x.score, x, "Score at the snap")}<p class="muted small">${esc(x.garbage_note)}</p></section>`;
 }
 
 // ---------- Decisions (item 26, board 47) ----------
@@ -109,7 +109,7 @@ function sxDecisions(x) {
       <div><small data-h8="WpLost">Win chance left</small><b>${sxNum(S.lost * 100, 0)}</b><small>points, about ${sxNum(S.lost, 1)} wins · median ${sxNum((M.lost || 0) * 100, 0)}</small></div>
       <div><small data-h8="TwoPt">Two-point tries</small><b>${S.twos_made} of ${S.twos}</b><small>the model wanted ${S.said_two}</small></div>
     </div>` : "";
-  const word = { go: "Go", punt: "Punt", kick: "FG" };
+  const word = { go: "Go", punt: "Punt", kick: "FG", even: "Even" };
   const wpc = (v) => (v == null || v < 0 ? "–" : sxNum(v, 0));
   const fourths = (x.fourths || []).slice().reverse().map((f) => `<tr class="${f.agreed === false ? "sx-off" : ""}">
       <td class="l">${sxGame(f.link, `${esc(f.at)} ${f.opp ? esc(f.opp.name) : "?"}`)}<small class="muted"> ${esc(f.date)}</small></td><td class="l">${esc(f.clock)}</td>
@@ -132,7 +132,7 @@ function sxDecisions(x) {
   }).join("");
   const med = `<tr class="sx-med"><td class="l">Median</td><td></td><td></td><td></td><td>${sxPct(M.go_rate)}</td><td>${sxPct(M.agreed)}</td><td>${sxNum(M.lost_game, 1)}</td><td></td><td></td></tr>`;
   const coachT = coaches ? `<section class="panel dt-panel"><h2>Head coaches on 4th down this season <small>most often with the model first</small></h2><div class="tbl"><table><thead><tr><th class="l">Coach</th><th class="l">Team</th><th>4th downs</th><th>Went</th><th data-h8="GoRate">Went when "go"</th><th data-h8="Agree">Agrees</th><th data-h8="WpLost">Win chance lost a game</th><th data-h8="TwoPt">Two-point</th><th data-h8="ChalWon">Challenges won</th></tr></thead><tbody>${med}${coaches}</tbody></table></div></section>` : "";
-  const tries = (x.tries || []).slice().reverse().map((t) => `<tr class="${t.agreed === false ? "sx-off" : ""}"><td class="l">${sxGame(t.link, `${esc(t.at)} ${t.opp ? esc(t.opp.name) : "?"}`)}<small class="muted"> ${esc(t.date)}</small></td><td class="l">${esc(t.clock)}</td><td>${t.lead > 0 ? "+" + t.lead : t.lead}</td><td class="l"><b>${esc(t.did)}</b> ${t.good ? "good" : "no good"}</td><td>${wpc(t.wp[0])} · ${wpc(t.wp[1])}</td><td class="l">${t.best === "two" ? "Go for two" : t.best ? "Kick" : "–"}</td><td>${t.lost == null ? "–" : t.lost < 0.05 ? "0" : "−" + sxNum(t.lost, 1)}</td></tr>`).join("");
+  const tries = (x.tries || []).slice().reverse().map((t) => `<tr class="${t.agreed === false ? "sx-off" : ""}"><td class="l">${sxGame(t.link, `${esc(t.at)} ${t.opp ? esc(t.opp.name) : "?"}`)}<small class="muted"> ${esc(t.date)}</small></td><td class="l">${esc(t.clock)}</td><td>${t.lead > 0 ? "+" + t.lead : t.lead}</td><td class="l"><b>${esc(t.did)}</b> ${t.good ? "good" : "no good"}</td><td>${wpc(t.wp[0])} · ${wpc(t.wp[1])}</td><td class="l">${t.best === "even" ? '<span class="sx-call even">Even</span>' : t.best === "two" ? "Go for two" : t.best ? "Kick" : "–"}</td><td>${t.lost == null ? "–" : t.lost < 0.05 ? "0" : "−" + sxNum(t.lost, 1)}</td></tr>`).join("");
   const triesT = x.team && tries ? `<section class="panel dt-panel"><h2>Tries after touchdowns <small>kick or go for two, against the model</small></h2><div class="tbl"><table><thead><tr><th class="l">Game</th><th class="l">Clock</th><th>Score</th><th class="l">Did</th><th data-h8="WinChance">Win chance kick · two</th><th class="l">Model</th><th data-h8="WpLost">Cost</th></tr></thead><tbody>${tries}</tbody></table></div></section>` : "";
   const clock = S ? `<section class="panel dt-panel"><h2>Timeouts and challenges</h2><div class="st-tiles sx-tiles small">
       <div><small>Timeouts used</small><b>${S.timeouts}</b><small>${sxNum(S.timeouts / Math.max(1, S.games), 1)} a game · median ${sxNum(M.timeouts, 1)} · ${S.to_late} in the last 2 minutes of a half</small></div>
@@ -168,7 +168,7 @@ function sxConcepts(x) {
     return `${sep}<tr><td class="l">${esc(r.concept)}</td>${r.cells.map(cell).join("")}${cell(r.all)}</tr>`;
   }).join("");
   const seen = `<tr class="sx-seen"><td class="l" data-h8="CovSeen">Seen</td>${x.seen.map((s) => `<td>${sxPct(s)}</td>`).join("")}<td>100%</td></tr>`;
-  const grid = `<section class="panel dt-panel"><h2><span data-h8="Concept">Concepts</span> against <span data-h8="Coverage">coverages</span> <small>${x.view === "league" ? "every team's offense" : x.view === "offense" ? "the plays it ran against what it saw" : "the plays run at it against the coverage it played"} · ${Math.round(x.snaps)} snaps · the small number is snaps, faint under 20</small></h2>
+  const grid = `<section class="panel dt-panel"><h2><span><span data-h8="Concept">Concepts</span> against <span data-h8="Coverage">coverages</span></span><small>${x.view === "league" ? "every team's offense" : x.view === "offense" ? "the plays it ran against what it saw" : "the plays run at it against the coverage it played"} · ${Math.round(x.snaps)} snaps · the small number is snaps, faint under 20</small></h2>
     <div class="tbl sx-cctbl"><table><thead><tr><th class="l">Concept</th>${x.coverages.map((c) => `<th>${esc(c)}</th>`).join("")}<th>All</th></tr></thead><tbody>${seen}${rows}</tbody></table></div></section>`;
   const T = x.tiles || {};
   const tiles = x.team ? `<div class="st-tiles sx-tiles">
@@ -177,7 +177,7 @@ function sxConcepts(x) {
       <div><small>Costing ${x.mine ? "you" : "them"} most</small><b class="sx-tw">${T.costly ? esc(T.costly.concept) : "–"}</b><small>${T.costly ? `vs ${esc(T.costly.coverage)}: ${sxSign(T.costly.epa, 1)} EPA on ${Math.round(T.costly.n)} snaps` : ""}</small></div>
       <div><small>${esc(x.level === "college" ? x.division : x.level === "nfl" ? "The NFL" : "The level")} is copying</small><b class="sx-tw">${x.copying ? esc(x.copying.concept) : "–"}</b><small>${x.copying ? `up ${sxNum(x.copying.up, 1)} points of snaps on last season` : ""}</small></div>
     </div>` : x.copying ? `<p class="muted small">${esc(x.level === "nfl" ? "The NFL" : "The level")} is copying <b>${esc(x.copying.concept)}</b>: up ${sxNum(x.copying.up, 1)} points of snaps on last season.</p>` : "";
-  const next = x.next ? `<section class="panel dt-panel"><h2>Next: ${teamA(x.next.team)} <small>${esc(x.next.date)} · the coverages its defense plays, and the level's best answer to each</small></h2><div class="tbl"><table><thead><tr><th class="l" data-h8="Coverage">Coverage</th><th>All downs</th><th>3rd down</th><th class="l">Best answer</th></tr></thead><tbody>${x.next.rows.map((r) => `<tr><td class="l">${esc(r.coverage)}</td><td>${sxPct(r.all)}</td><td>${sxPct(r.third)}</td><td class="l">${r.best ? `${esc(r.best.concept)} <small class="muted">${f(r.best.v)}</small>` : "–"}</td></tr>`).join("")}</tbody></table></div></section>` : "";
+  const next = x.next ? `<section class="panel dt-panel"><h2><span>Next: ${teamA(x.next.team)}</span><small>${esc(x.next.date)} · the coverages its defense plays, and the level's best answer to each</small></h2><div class="tbl"><table><thead><tr><th class="l" data-h8="Coverage">Coverage</th><th>All downs</th><th>3rd down</th><th class="l">Best answer</th></tr></thead><tbody>${x.next.rows.map((r) => `<tr><td class="l">${esc(r.coverage)}</td><td>${sxPct(r.all)}</td><td>${sxPct(r.third)}</td><td class="l">${r.best ? `${esc(r.best.concept)} <small class="muted">${f(r.best.v)}</small>` : "–"}</td></tr>`).join("")}</tbody></table></div></section>` : "";
   const yours = (x.yours || []).length ? `<section class="panel dt-panel"><h2>${x.mine ? "Your" : "Their"} calls against what ${x.mine ? "you" : "they"} saw <small>the concept called most against each coverage, against the level's numbers</small></h2><div class="tbl"><table><thead><tr><th class="l">Coverage</th><th>Snaps</th><th class="l">Called most</th><th>${x.mine ? "Yours" : "Theirs"}</th><th>Level's</th><th class="l">Best answer</th></tr></thead><tbody>${x.yours.map((r) => `<tr><td class="l">${esc(r.coverage)}</td><td>${Math.round(r.seen)}</td><td class="l">${esc(r.called)} <small class="muted">×${Math.round(r.called_n)}</small></td><td>${f(r.yours)}</td><td>${r.level == null ? "–" : f(r.level)}</td><td class="l">${r.best ? `${esc(r.best.concept)} <small class="muted">${f(r.best.v)}</small>` : "–"}</td></tr>`).join("")}</tbody></table></div></section>` : "";
   return `${bar}${tiles}${grid}<div class="sx-two">${next}${yours}</div>`;
 }
@@ -206,7 +206,7 @@ function nb8Five(F, pg, awayName, homeName) {
   const pgw = pg ? `<tr class="sx-pg"><td class="l" data-h8="Pgwe">Post-game win expectancy</td><td><b>${sxPct(pg[1])}</b></td><td><b>${sxPct(pg[0])}</b></td></tr>` : "";
   return `<div class="panel warm"><h2>The five factors <small>success, explosiveness, field position, finishing drives and turnovers, and what the box says the result should have been</small></h2><div class="tbl"><table><thead><tr><th class="l"></th><th>${esc(awayName)}</th><th>${esc(homeName)}</th></tr></thead><tbody>
     ${r("Success rate (EPA above zero)", "TmSucc", pct("success"))}${r("Explosiveness", "Explosiveness", (a) => sxNum(a.explosiveness, 2))}${r("Explosive plays", "ExplosivePlays", (a) => `${a.explosive} <small class="muted">${sxPct(a.explosive_rate)}</small>`)}
-    ${r("Field position", "FieldPos", (a) => `own ${Math.round(a.start)}`)}${r("Points a trip inside the 40", "PtsTrip", (a) => `${sxNum(a.pts40, 2)} <small class="muted">${a.trips40} trips</small>`)}${r("Red zone TDs / trips", "RzTrips", (a) => a.rz)}
+    ${r("Field position", "FieldPos", (a) => `own ${Math.round(a.start)}`)}${r("Points a trip inside the 40", "PtsTrip", (a) => `${sxNum(a.pts40, 2)} <small class="muted">${a.trips40} ${a.trips40 === 1 ? "trip" : "trips"}</small>`)}${r("Red zone TDs / trips", "RzTrips", (a) => a.rz)}
     ${r("Turnovers", "Turnovers", (a) => a.turnovers)}${r("Havoc rate", "Havoc", pct("havoc"))}${r("Line yards a carry", "LineYds", (a) => sxNum(a.line_yards, 2))}${r("Stuff rate", "Stuffed", pct("stuffed"))}${r("Three-and-outs", "ThreeOuts", (a) => a.three_outs)}
     ${pgw}</tbody></table></div></div>`;
 }
@@ -242,14 +242,14 @@ screens.tgame = async (a) => {
     const body = t("Passing", ["Cmp", "Att", "Yds", "TD", "Int", "Sk"], P.passing) + t("Rushing", ["Car", "Yds", "TD"], P.rushing) + t("Receiving", ["Tgt", "Rec", "Yds", "TD"], P.receiving) + t("Defense", ["Tkl", "TFL", "Sk", "Int", "PBU"], P.defense) + t("Kicking", ["FG", "FGA", "XP", "Long"], P.kicking);
     return `<section class="panel dt-panel"><h2>${esc(name)}</h2>${body || '<div class="empty">No player lines kept at this level.</div>'}</section>`;
   };
-  let adv = "";
+  let five = "", chart = "", adv = "";
   if (g.charted) {
-    const chart = g.wp && g.wp.length > 1 ? `<section class="panel dt-panel"><h2 data-h8="WinChance">${g.home ? esc(g.home.name) : "Home"} win chance <small>before every snap</small></h2>${sxWpChart(g.wp)}</section>` : "";
+    chart = g.wp && g.wp.length > 1 ? `<section class="panel dt-panel"><h2 data-h8="WinChance">${g.home ? esc(g.home.name) : "Home"} win chance <small>before every snap</small></h2>${sxWpChart(g.wp)}</section>` : "";
     const word = ["go", "punt", "kick"];
     const fr = (g.fourths || []).map((f) => {
       const side = f.side === 0 ? g.home : g.away;
       const did = ["Went", "Punted", "Kicked"][f.did];
-      const best = f.best == null ? "–" : `<span class="sx-call ${word[f.best]}">${word[f.best] === "kick" ? "FG" : word[f.best][0].toUpperCase() + word[f.best].slice(1)}</span>`;
+      const best = f.best == null ? "–" : f.even ? '<span class="sx-call even">Even</span>' : `<span class="sx-call ${word[f.best]}">${word[f.best] === "kick" ? "FG" : word[f.best][0].toUpperCase() + word[f.best].slice(1)}</span>`;
       const yl = f.yl, own = 100 - yl;
       const spot = own < 50 ? `own ${own}` : own > 50 ? `opp ${yl}` : "50";
       const wp = (v) => (v == null || v < 0 ? "–" : sxNum(v, 0));
@@ -257,13 +257,16 @@ screens.tgame = async (a) => {
     }).join("");
     const tr = (g.tries || []).map((t) => {
       const side = t.side === 0 ? g.home : g.away;
-      return `<tr><td class="l">${esc(t.clock)}</td><td class="l">${side ? esc(side.name) : ""}</td><td class="l"><b>${t.two ? "Went for two" : "Kicked"}</b> ${t.good ? "good" : "no good"}</td><td>${t.wp[0] < 0 ? "–" : sxNum(t.wp[0], 0)} · ${t.wp[1] < 0 ? "–" : sxNum(t.wp[1], 0)}</td><td class="l">${t.best_two == null ? "–" : t.best_two ? "Go for two" : "Kick"}</td><td>${t.lost == null ? "–" : t.lost < 0.05 ? "0" : "−" + sxNum(t.lost, 1)}</td></tr>`;
+      return `<tr><td class="l">${esc(t.clock)}</td><td class="l">${side ? esc(side.name) : ""}</td><td class="l"><b>${t.two ? "Went for two" : "Kicked"}</b> ${t.good ? "good" : "no good"}</td><td>${t.wp[0] < 0 ? "–" : sxNum(t.wp[0], 0)} · ${t.wp[1] < 0 ? "–" : sxNum(t.wp[1], 0)}</td><td class="l">${t.best_two == null ? "–" : t.even ? '<span class="sx-call even">Even</span>' : t.best_two ? "Go for two" : "Kick"}</td><td>${t.lost == null ? "–" : t.lost < 0.05 ? "0" : "−" + sxNum(t.lost, 1)}</td></tr>`;
     }).join("");
-    adv = `<div class="sx-two">${nb8Five(g.advanced, g.pgwe, g.away ? g.away.name : "Away", g.home ? g.home.name : "Home")}${chart}</div>
-      <section class="panel dt-panel"><h2>Every 4th down against the model <small>win chance going, punting and kicking at the snap</small></h2>${fr ? `<div class="tbl"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Down and spot</th><th class="l">Did</th><th class="l">Model</th><th data-h8="WinChance">Go · punt · kick</th><th data-h8="WpLost">Cost</th></tr></thead><tbody>${fr}</tbody></table></div>` : '<div class="empty">No 4th-down decisions in this game.</div>'}</section>
+    five = nb8Five(g.advanced, g.pgwe, g.away ? g.away.name : "Away", g.home ? g.home.name : "Home");
+    adv = `<section class="panel dt-panel"><h2>Every 4th down against the model <small>win chance going, punting and kicking at the snap</small></h2>${fr ? `<div class="tbl"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Down and spot</th><th class="l">Did</th><th class="l">Model</th><th data-h8="WinChance">Go · punt · kick</th><th data-h8="WpLost">Cost</th></tr></thead><tbody>${fr}</tbody></table></div>` : '<div class="empty">No 4th-down decisions in this game.</div>'}</section>
       ${tr ? `<section class="panel dt-panel"><h2>Tries after touchdowns</h2><div class="tbl"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Did</th><th data-h8="WinChance">Kick · two</th><th class="l">Model</th><th data-h8="WpLost">Cost</th></tr></thead><tbody>${tr}</tbody></table></div></section>` : ""}`;
   }
   const goto = gotoLine([["Situations", "situations"], ["Leaderboards", "leaders"], ["Stat history", "stathist"]]);
-  return `<div class="pad sl dt sx">${goto}${hero}<div class="sx-two">${teamT}<div>${pl(1, g.away ? g.away.name : "Away")}${pl(0, g.home ? g.home.name : "Home")}</div></div>${adv}${sxSrc(g.source)}</div>`;
+  // The box and the five factors side by side, then the win chance, the
+  // decisions and both sides' lines.
+  const top = five ? `<div class="sx-two">${teamT}${five}</div>` : teamT;
+  return `<div class="pad sl dt sx">${goto}${hero}${top}${chart}${adv}<div class="sx-two">${pl(1, g.away ? g.away.name : "Away")}${pl(0, g.home ? g.home.name : "Home")}</div>${sxSrc(g.source)}</div>`;
 };
 GOTO.tgame = () => [["Situations", "situations"], ["Leaderboards", "leaders"], ["Stat history", "stathist"]];

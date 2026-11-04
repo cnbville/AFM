@@ -104,7 +104,15 @@ fn player_lines(w: &World, g: &games::GameRow, side: u8) -> Value {
             .filter(|l| l.get(stat) > 0.0)
             .map(|l| {
                 let all = l.all();
-                let cells: Vec<String> = cols.iter().map(|&c| super::fmt_num(all[c as usize] as f64)).collect();
+                // Whole yards, as a box score prints them (half tackles stay).
+                let yards = |c: Stat| matches!(c, Stat::PassYds | Stat::RushYds | Stat::RecYds | Stat::FgLong);
+                let cells: Vec<String> = cols
+                    .iter()
+                    .map(|&c| {
+                        let v = all[c as usize] as f64;
+                        super::fmt_num(if yards(c) { v.round() } else { v })
+                    })
+                    .collect();
                 (l.get(stat), json!({ "who": name(l.id), "pos": l.pos.map(|p| format!("{p:?}")), "cells": cells }))
             })
             .collect();
@@ -147,7 +155,7 @@ pub fn tally_game(w: &World, args: &Value) -> Value {
     m.insert("key".into(), json!(key));
     m.insert("level".into(), json!(super::tier_key(tier)));
     m.insert("group".into(), json!(g.group));
-    m.insert("date".into(), json!(g.date().to_string()));
+    m.insert("date".into(), json!(crate::views::date_text(g.date())));
     m.insert("kind".into(), json!(g.kind));
     m.insert("neutral".into(), json!(g.neutral));
     m.insert("conference".into(), json!(g.conference));
@@ -229,6 +237,7 @@ pub fn tally_game(w: &World, args: &Value) -> Value {
                     "wp": f.wp,
                     "conv": f.conv,
                     "best": j.map(|j| j.best),
+                    "even": j.map(|j| j.even),
                     "lost": j.map(|j| 100.0 * j.lost),
                     "res": f.res,
                     "yds": f.yds,
@@ -247,6 +256,7 @@ pub fn tally_game(w: &World, args: &Value) -> Value {
                     "good": t.good,
                     "wp": t.wp,
                     "best_two": j.map(|x| x.0),
+                    "even": j.map(|_| (t.wp[0] - t.wp[1]).abs() < 100.0 * calls::CLEAR as f32),
                     "lost": j.map(|x| 100.0 * x.2),
                 }),
             ));

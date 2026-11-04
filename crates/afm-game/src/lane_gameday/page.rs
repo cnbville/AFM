@@ -972,7 +972,9 @@ fn fourths(s: &GameStats, names: &[String; 2], m: &decide::Model) -> Vec<Value> 
                 ),
             };
             let best = ["go", "punt", "kick"][j.best as usize];
-            let verdict = if j.agreed {
+            let verdict = if j.even {
+                "Any choice: the model had them within a point".to_string()
+            } else if j.agreed {
                 format!("Agreed: {best} was best")
             } else {
                 format!("Cost {:.1} points of win chance: {best} was best", 100.0 * j.lost)
@@ -1019,7 +1021,7 @@ fn tries(s: &GameStats, names: &[String; 2], m: &decide::Model) -> Vec<Value> {
                 "two": two,
                 "cost": lost,
                 "agreed": agreed,
-                "verdict": if agreed { format!("Agreed: {best}") } else { format!("Cost {:.1} points of win chance: {best} was best", 100.0 * lost) },
+                "verdict": if (kick - two).abs() < calls::CLEAR { "Any choice: the model had them within a point".to_string() } else if agreed { format!("Agreed: {best}") } else { format!("Cost {:.1} points of win chance: {best} was best", 100.0 * lost) },
             }))
         })
         .collect()

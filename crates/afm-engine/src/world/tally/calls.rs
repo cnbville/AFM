@@ -79,12 +79,15 @@ impl Fourth {
 /// The model's verdict on one 4th down: its best choice (0 go, 1 punt, 2
 /// kick), whether going was the clear call, whether the coach's choice
 /// was within `CLEAR` of the best and the win chance (0-1) it gave up.
+/// `even`: every choice there was within `CLEAR` of the best (a game
+/// already decided, or a toss-up), so the model has no call.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Judge {
     pub best: u8,
     pub said_go: bool,
     pub agreed: bool,
     pub lost: f64,
+    pub even: bool,
 }
 
 pub fn judge(w: &Weigh, did: u8) -> Judge {
@@ -96,11 +99,13 @@ pub fn judge(w: &Weigh, did: u8) -> Judge {
         .filter_map(|(_, v)| *v)
         .fold(f64::MIN, f64::max);
     let chosen = w.of(did).unwrap_or(w.go);
+    let lowest = [Some(w.go), w.punt, w.kick].iter().filter_map(|v| *v).fold(f64::MAX, f64::min);
     Judge {
         best: b,
         said_go: b == 0 && best >= next + CLEAR,
         agreed: chosen >= best - CLEAR,
         lost: (best - chosen).max(0.0),
+        even: best - lowest < CLEAR,
     }
 }
 
