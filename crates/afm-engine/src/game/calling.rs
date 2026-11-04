@@ -735,8 +735,16 @@ fn pick_personnel(
 ) -> Personnel {
     let has_fb = ctx.has_fb;
     let heavy = 1.0 + if pass { -2.0 * tell } else { 2.0 * tell };
+    // The NFL rarely goes to four receivers: 10 personnel is 1.0% of real
+    // dropbacks, against 72% in 11 and 18% in 12 (nflverse participation
+    // 2023-24); college and high school spread teams live in it. NFL
+    // callers weigh it at a tenth and stay in 11 when they hurry (minor bug
+    // 137: 19% of NFL dropbacks came from 10 personnel; proposed, not
+    // confirmed).
+    let nfl = ctx.level == Level::NFL;
+    let p10 = if nfl { 0.1 } else { 1.0 };
     let personnel = if hurry {
-        if rng.chance(0.7) { Personnel::P11 } else { Personnel::P10 }
+        if rng.chance(if nfl { 0.95 } else { 0.7 }) { Personnel::P11 } else { Personnel::P10 }
     } else if short {
         weigh(
             rng,
@@ -750,7 +758,7 @@ fn pick_personnel(
     } else {
         let h = heavy.max(0.2);
         match scheme {
-            OffScheme::AirRaid => weigh(rng, &[(Personnel::P10, 4.0 / h), (Personnel::P11, 6.0)]),
+            OffScheme::AirRaid => weigh(rng, &[(Personnel::P10, p10 * 4.0 / h), (Personnel::P11, 6.0)]),
             OffScheme::WestCoast => weigh(
                 rng,
                 &[
@@ -776,7 +784,7 @@ fn pick_personnel(
                     (Personnel::P22, if has_fb { 0.8 * h } else { 0.0 }),
                 ],
             ),
-            OffScheme::SpreadOption => weigh(rng, &[(Personnel::P11, 6.0), (Personnel::P10, 3.0 / h)]),
+            OffScheme::SpreadOption => weigh(rng, &[(Personnel::P11, 6.0), (Personnel::P10, p10 * 3.0 / h)]),
             OffScheme::WingT => weigh(
                 rng,
                 &[
