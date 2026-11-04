@@ -292,6 +292,45 @@ fn a_college_career_plays_through_its_first_games() {
         assert!(ok(&mut g, "champions_more", json!({ "tab": tab }))["rows"].is_array());
     }
     ok(&mut g, "team_book", json!({ "kind": "nfl", "id": 0 }));
+    // Lane NB7: your team's Data page, its stats by season, every level's
+    // team leaderboards, tiers and power ratings.
+    let td = ok(&mut g, "team_data", json!({}));
+    assert!(td["years"].as_array().is_some_and(|y| !y.is_empty()) && td["error"].is_null(), "{td}");
+    // The newest season with games counted (the one being played may not
+    // have started).
+    let years: Vec<i64> = td["years"].as_array().unwrap().iter().filter_map(|y| y.as_i64()).collect();
+    let played = years
+        .iter()
+        .copied()
+        .find(|y| ok(&mut g, "team_data", json!({ "year": y }))["sides"].is_array())
+        .unwrap_or_else(|| panic!("no season of your team's counted: {years:?}"));
+    let tab = |g: &mut Game, tab: &str| ok(g, "team_data", json!({ "year": played, "tab": tab }));
+    let td = tab(&mut g, "analytics");
+    assert!(td["sides"][0]["rows"].as_array().is_some_and(|r| !r.is_empty()), "your team's numbers: {td}");
+    let td = tab(&mut g, "tendencies");
+    assert!(td["tendencies"]["calls"].as_array().is_some_and(|r| !r.is_empty()), "your calls by situation: {td}");
+    let td = tab(&mut g, "games");
+    assert!(td["games_list"]["rows"].as_array().is_some_and(|r| !r.is_empty()), "your games: {td}");
+    let td = tab(&mut g, "power");
+    assert!(td["power"]["now"].is_object() || td["power"]["closing"].is_object(), "your power rating: {td}");
+    assert!(tab(&mut g, "roster")["back"].is_object());
+    for unit in 0..3 {
+        let s = ok(&mut g, "team_seasons", json!({ "unit": unit }));
+        assert!(s["rows"].as_array().is_some_and(|r| !r.is_empty()), "{unit}: {s}");
+    }
+    for level in ["college", "nfl", "hs"] {
+        for view in ["table", "tiers", "power"] {
+            let l = ok(&mut g, "team_leaders", json!({ "level": level, "view": view }));
+            assert_eq!(l["level"], level, "{l}");
+            match view {
+                "table" => assert!(l["rows"].as_array().is_some_and(|r| !r.is_empty()), "{level}: {l}"),
+                "tiers" => assert!(l["points"].as_array().is_some_and(|r| r.len() > 2), "{level}: {l}"),
+                _ => assert!(l["power"]["rows"].as_array().is_some_and(|r| !r.is_empty()), "{level}: {l}"),
+            }
+        }
+    }
+    ok(&mut g, "team_data", json!({ "kind": "nfl", "id": 0 }));
+    ok(&mut g, "team_data", json!({ "kind": "hs", "id": 0 }));
     // Save and load: the loaded career plays on.
     let saved = ok(&mut g, "save", json!({ "name": "test career" }));
     let path = saved["saved"].as_str().unwrap().to_string();

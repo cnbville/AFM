@@ -1,13 +1,13 @@
 # The Data section's tallies: how it works today
 
-Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04.
+Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04. Lane NB7's squads file and the expected pass model over main 57b7009 on 2026-11-04.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `.github/`. "Proposed, not confirmed" marks Claude's own picks in this lane, which Cain hasn't answered.
 
 ## Quick answers
 
 - What are the tallies? Counts the world keeps as its games are played, for the Data section's pages, so they don't need the world log (about 40 GB for a 30-year world) (`world/tally/mod.rs`, module notes).
-- Which kinds? Five, each its own file per season: `players`, `teams`, `games`, `classes`, `people` (`world/tally/mod.rs`, `KINDS`).
+- Which kinds? Six, each its own file per season: `players`, `teams`, `games`, `classes`, `people`, `squads` (`world/tally/mod.rs`, `KINDS`).
 - Where do they live? In a folder beside the world file or save, `name.afmdata`, one file per kind and season: `name.afmdata/<kind>/<season>.tally` (`world/tally/mod.rs`, `EXT`, `path`; `crates/afm-game/src/tallies.rs`, `beside`).
 - And the season being played? In the world itself (`World::tallies`), so a save carries it (`world/mod.rs`).
 - When is a season written? When the football year closes, the day after the Super Bowl, after the world log's year end. The open store then starts over, so memory stays flat (`world/clock.rs`, `rollover`; `world/tally/mod.rs`, `tally_close`).
@@ -44,6 +44,19 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Each cell keeps plays, yards (a kick's distance on kicks), EPA, successes, first downs, touchdowns, turnovers and one extra count by kind: completions on passes, sacks, missed tackles on runs, kicks made, touchbacks (`teams.rs`, `Situ`, `values`).
 - Keys start `o|` (with the ball) or `d|` (without it), then the split: play kind, down, down and distance, field zone, quarter, two minute, score, red zone, goal to go, third and fourth down, personnel, backfield, motion, RPO, tempo, men in the box, defensive package, the defense's call, explosive; on dropbacks also blitz by down, pressured, play action, coverage and throw depth (`teams.rs`, `keys`).
 - Plays wiped by a penalty and no-plays are left out of the cells (`teams.rs`, `game`).
+
+## The squads file (lane NB7)
+
+- One small row a team a season at every level, high school too, so the team pages, leaderboards and the power rating read many seasons without the teams file's heavy cells (`world/tally/squads.rs`, `Season`).
+- It keeps games, wins, losses and points; both boxes summed (`BOX`: the team's and its opponents', every box number); the advanced numbers for and against; the fumbles and passes defensed that expected turnovers read (`LUCK`); its kicks and returns (`ST`: punts with gross and net yards and inside the 20, kickoffs and touchbacks, kick and punt returns, field goals and extra points, kicks blocked); and every man who started a game, with his starts on offense and defense (`starters_by_unit`).
+- College and the NFL also keep the offense's snaps, dropbacks and expected dropbacks in 21 situations (`TEND`: every snap, nflfastR's neutral early downs, down and distance bands, red zone, goal to go, the score, the last two minutes of a half, each quarter and overtime), for pass rate over expected (`tend_codes`; `world/tally/expect.rs`, `expected_pass`).
+- Set when the season closes: the closing power rating from the season's scores (offense, defense, games; `world/power.rs`, `closing`) and what the roster brought: at college the recruiting stars of the men who took a snap on offense or defense, on the whole, offense and defense, how many, and the share rated four or five stars; at high school its regular starters (half its games or more) and the seniors among them (`world/tally/mod.rs`, `close_talent`; `squads.rs`, `TALENT_COLLEGE`, `TALENT_HS`, `regular`).
+- Read with `World::tally_squad` (one team) and `World::tally_squads` (a season).
+
+## The expected pass model (lane NB7)
+
+- The chance a snap is a dropback, by the level's own play calling in that situation, as nflfastR's expected pass rate: logistic regression on the down, the log of the yards to go, two yards or less, the yards to the goal, inside the ten, the margin in touchdowns and the margin times the share of the game gone, the last two minutes of a half, the win chance and three yards or less on third or fourth down (proposed, not confirmed: the features; `world/tally/expect.rs`, `xpass_features`, `XPASS`).
+- Fitted on the engine's own snaps at each level (high school, FBS, FCS, small colleges, NFL) with `xpass_fit -- 600 7` on 2026-11-04: every down-and-distance band within 2.5 points of the engine's own rate, the lead and deficit bands within 3.5 (`crates/afm-tools/src/bin/xpass_fit.rs`). Rerun after engine changes that move play calling.
 
 ## The games file
 
@@ -93,6 +106,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Measured with `memory_check` on a 0.1 world (seed 2026, 6 years of history and one more season, 4-core Linux), 2026-11-04, after lane NB4's depth counts. A closed season is about 30.5 MB on disk: players 14.5 MB (the depth counts add about 8.4 MB to the 6.1 MB before them), teams 6.2 MB, games 9.4 MB (2,603 college, 285 NFL, about 6,850 high school), classes 0.6 MB and growing about 0.1 MB a season (the store holds every class), people 0.12 MB.
 - In the games file a college game is about 2.6 KB packed (lines and the win chance), an NFL game 2.2 KB, a high school game 0.3 KB (facts and boxes).
 - The open season at its biggest (the end of the football year) packs to 85 MB before compression (63 MB before the depth counts); just after the close the tallies weigh 5 MB of heap. Memory stays flat from season to season: closed seasons live only on disk. The whole world's heap was 0.91 GB after the future season and its peak resident 1.67 GB.
+- The squads file (lane NB7, not measured): a college or NFL row is about 2.5 KB before compression (the boxes, the 21 situations and some 30 starters), a high school row about 1.5 KB; at 0.1 that is roughly 1.5 MB a season before compression and well under 1 MB on disk (Claude's estimate from the row's fields).
 - At full size (not measured): college and NFL counts barely change with scale, high school games are about ten times as many and college player rows somewhat more, so a season comes to roughly 55-65 MB and a 30-year world's folder to about 1.8 GB; the open season adds roughly 0.2 GB of heap at the football year's end, after the summer's high (Claude's estimate from the 0.1 numbers).
 
 ## Where the knobs are
@@ -101,6 +115,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - `world/tally/players.rs`: `SPLITS`, `PASS`, `RUSH`, `RECV`, `DEF`, `RECENT_DAYS`.
 - `world/tally/depth.rs`: `Dc` and the grids; `world/tally/expect.rs`: the expected rush and YAC models.
 - `world/tally/people.rs`: `STATS`, `UP`.
+- `world/tally/squads.rs`: `BOX`, `LUCK`, `ST`, `TEND`, `TALENT_COLLEGE`, `TALENT_HS`, `regular` (half its games); `world/tally/expect.rs`: `XPASS`.
 - `world/analytics.rs`: `charting` (depth and delay by rating), `depth` (which numbers need which depth).
 
 ## Related pages

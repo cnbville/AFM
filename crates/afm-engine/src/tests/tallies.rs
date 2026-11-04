@@ -1,6 +1,6 @@
 //! The Data section's running tallies (lane NB1) only watch: a world
 //! counting them plays exactly as one that doesn't, every person on every
-//! day, and each season's five files read back and add up to the stat book.
+//! day, and each season's six files read back and add up to the stat book.
 
 use crate::world::records::Stat;
 use crate::world::tally::{self, Level, file, players};
@@ -177,6 +177,36 @@ fn the_tallies_only_watch_and_add_up() {
         assert!(t.games > 0 && t.wins + t.losses <= t.games);
     });
     assert!(teams > 30, "{teams} teams");
+    // Squads (lane NB7): every level, each row's box adds up to its score,
+    // college and the NFL read their calls against the expected pass rate,
+    // and every row carries its closing rating, starters and (college and
+    // high school) its talent.
+    let mut squads = [0usize; 3];
+    b.tally_squads(s, |t| {
+        squads[t.level as usize] += 1;
+        assert_eq!(t.box_of(0, "points"), t.points_for as f64, "squad {} {}", t.level, t.team);
+        assert_eq!(t.box_of(1, "points"), t.points_against as f64);
+        assert_eq!(t.box_of(0, "games"), t.games as f64);
+        assert_eq!(t.luck.len(), tally::squads::LUCK.len());
+        assert!(t.luck_of("fumbles_lost") <= t.luck_of("fumbles") && t.luck_of("picks") <= t.luck_of("pd"));
+        assert_eq!(t.rating.len(), 3, "squad {} {} not rated", t.level, t.team);
+        assert!(!t.regulars(0).is_empty() && !t.regulars(1).is_empty());
+        let [snaps, db, xdb] = t.tend_of(0);
+        if t.level == Level::Hs as u8 {
+            assert!(t.tend.is_empty());
+            assert_eq!(t.talent.len(), tally::squads::TALENT_HS.len());
+            assert!(t.talent_of("seniors_off").unwrap() <= t.talent_of("starters_off").unwrap());
+        } else {
+            assert!(snaps > 100.0 && db <= snaps && xdb > 0.1 * snaps && xdb < 0.9 * snaps, "{snaps} {db} {xdb}");
+            let early = t.tend_of(1);
+            assert!(early[0] > 0.0 && early[0] < snaps);
+            if t.level == Level::College as u8 {
+                assert_eq!(t.talent.len(), tally::squads::TALENT_COLLEGE.len());
+            }
+        }
+    });
+    assert!(squads.iter().all(|&n| n > 0), "squads by level {squads:?}");
+    assert_eq!(b.tally_squad(Level::Nfl, s, 3).map(|t| (t.level, t.team)), Some((Level::Nfl as u8, 3)));
     // People: coordinators and head coaches with their ranks.
     let mut units = 0;
     b.tally_units(s, |u| {

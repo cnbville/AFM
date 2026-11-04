@@ -13,7 +13,7 @@ use crate::positions::Position;
 use crate::world::records::{STAT_COUNT, Stat, from_line};
 
 use super::file::{Frames, encode};
-use super::{Level, players, teams};
+use super::{Level, players, squads, teams};
 
 /// What the world knows about a game before it is played.
 #[derive(Clone, Debug, Default)]
@@ -184,6 +184,8 @@ pub struct Part {
     pub players: Vec<players::Game>,
     /// Each side's situation counts (college and the NFL).
     pub sides: Option<[teams::Game; 2]>,
+    /// Each side's squad counts, every level (lane NB7).
+    pub squads: [squads::Game; 2],
 }
 
 fn scrimmage(p: &PlayRecord) -> bool {
@@ -316,6 +318,7 @@ pub fn part(f: Facts, g: &GameStats, deep: bool, pos: &dyn Fn(usize, u32) -> Opt
         people = players::game(g, &start, pos, &extra);
         sides = Some([teams::game(g, 0), teams::game(g, 1)]);
     }
+    let squads = [squads::game(g, 0, deep), squads::game(g, 1, deep)];
     Part {
         level: f.level,
         date: f.date,
@@ -325,6 +328,7 @@ pub fn part(f: Facts, g: &GameStats, deep: bool, pos: &dyn Fn(usize, u32) -> Opt
         row: encode(&row),
         players: people,
         sides,
+        squads,
     }
 }
 
