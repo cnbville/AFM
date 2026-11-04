@@ -1059,6 +1059,8 @@ impl World {
         self.prune_tapes();
         // Your first two weeks: the meetings of a new job (takeover).
         super::folk::takeover::begin(self);
+        // The program's recruiting file stays with it (minor bug 248).
+        super::scouting::dept::inherit(self);
         id
     }
 }

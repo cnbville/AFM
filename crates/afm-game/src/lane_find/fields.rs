@@ -418,6 +418,12 @@ const TRAIT_KEYS: [usize; 4] = [0, 1, 9, 7];
 pub fn catalog(seat: Seat, w: &World) -> Vec<Group> {
     let college = matches!(seat, Seat::College(_));
     let mut g: Vec<Group> = Vec::new();
+    // Position, with its groups (minor bug 250: the menu had no position).
+    g.push(Group {
+        name: "Position",
+        id: "FS1",
+        fields: vec![Field::new("pos", "Position", FKind::Text).opts(&POS_CHOICES)],
+    });
     let mut reads = vec![
         Field::new("now", "Overall read", FKind::Num).staff(),
         Field::new("proj", if college { "Could play" } else { "Could be" }, FKind::Word)
@@ -807,6 +813,10 @@ pub fn value(ctx: &Ctx, i: usize, k: &str) -> Val {
         "camp" => Val::N(camp(ctx, i) as f64),
         "followers" => Val::N(p.followers as f64),
         "nil" => nil_value(ctx, i).map_or(Val::None, Val::N),
+        "pos" => {
+            let q = p.player.position;
+            Val::T(std::iter::once(q.name()).chain(pos_groups(q).iter().copied()).collect::<Vec<_>>().join("\n"))
+        }
         "state" => Val::T(w.states.get(p.home_state).map_or(String::new(), |s| s.code.clone())),
         "region" => Val::N(region(w.states.get(p.home_state).map_or("", |s| s.code.as_str())) as f64),
         "miles" => Val::N(ctx.miles(i).round()),
@@ -1600,4 +1610,52 @@ pub fn movement(ctx: &Ctx, i: usize) -> Option<i64> {
 /// A position from its short name ("QB", "EDGE").
 pub fn position(name: &str) -> Option<Position> {
     Position::ALL.into_iter().find(|p| p.name() == name)
+}
+
+/// The position filter's choices: each spot, then the groups a staff talks
+/// in (minor bug 250).
+pub const POS_CHOICES: [&str; 20] = [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "OT",
+    "IOL",
+    "EDGE",
+    "DT",
+    "LB",
+    "CB",
+    "S",
+    "K",
+    "P",
+    "LS",
+    "OL",
+    "DL",
+    "DB",
+    "Specialists",
+    "Offense",
+    "Defense",
+];
+
+/// The groups a spot belongs to: the line, the back end, the specialists
+/// and the side of the ball.
+fn pos_groups(p: Position) -> &'static [&'static str] {
+    match p {
+        Position::OT | Position::IOL => &["OL", "Offense"],
+        Position::EDGE | Position::DT => &["DL", "Defense"],
+        Position::CB | Position::S => &["DB", "Defense"],
+        Position::LB => &["Defense"],
+        Position::K | Position::P | Position::LS => &["Specialists"],
+        _ => &["Offense"],
+    }
+}
+
+/// The spots a choice of the position menu takes in: one spot, or a group
+/// (OL, DL, DB, Specialists, Offense, Defense); None when it names neither.
+pub fn positions(name: &str) -> Option<Vec<Position>> {
+    if let Some(p) = position(name) {
+        return Some(vec![p]);
+    }
+    let v: Vec<Position> = Position::ALL.into_iter().filter(|&p| pos_groups(p).contains(&name)).collect();
+    (!v.is_empty()).then_some(v)
 }

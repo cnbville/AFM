@@ -182,7 +182,19 @@ fn college_job(w: &World, prog: usize, c: usize) -> String {
     } else if let Some(g) = p.position_coaches.iter().position(|x| *x == Some(c)) {
         format!("{} coach", Group::ALL[g].name())
     } else {
-        "Assistant coach".into()
+        // Someone who has left: the program's file keeps his reports
+        // (minor bug 248).
+        use crate::world::coach::{Employer, Role};
+        let k = &w.coaches[c];
+        if k.job.as_ref().is_some_and(|j| j.employer == Employer::College(prog)) {
+            "Assistant coach".into()
+        } else if k.history.iter().any(|s| s.employer == Employer::College(prog) && s.role == Role::HeadCoach) {
+            "Former head coach".into()
+        } else if k.history.iter().any(|s| s.employer == Employer::College(prog)) {
+            "Former assistant".into()
+        } else {
+            "Assistant coach".into()
+        }
     }
 }
 
