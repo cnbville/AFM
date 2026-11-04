@@ -92,9 +92,13 @@ pub fn staff_name(w: &World, t: TeamRef, job: Job) -> String {
         return ad.name.clone();
     }
     let mut rng = Rng::new(w.options.seed.rotate_left(7) ^ team_seed(t).wrapping_mul(0x2545_F491) ^ job.salt());
-    let pool =
-        if matches!(t, TeamRef::HighSchool(_)) { CoachPool::HighSchool } else { CoachPool::CollegeAssistant1990 };
-    let eth = coach_ethnicity(pool, w.year, &mut rng);
+    let pool = match t {
+        TeamRef::HighSchool(h) => CoachPool::HighSchool(w.high_schools[h].state),
+        _ => CoachPool::CollegeAssistant1990,
+    };
+    // The high school pool reads his generation; 43 is the middle of the
+    // ages drawn below, so a college's draws stay as they were.
+    let eth = coach_ethnicity(pool, w.year, 43, &mut rng);
     let age = 28 + (rng.next() * 30.0) as i32;
     person_name(eth, w.year - age, &mut rng)
 }
@@ -131,7 +135,7 @@ fn cast_of(t: TeamRef, job: Job) -> Option<(Team, cast::Role)> {
 pub fn named(w: &World, key: &str) -> String {
     let h = key.bytes().fold(0x811C_9DC5u32, |h, b| (h ^ b as u32).wrapping_mul(0x0100_0193));
     let mut rng = Rng::new(w.options.seed.rotate_left(11) ^ h);
-    let eth = coach_ethnicity(CoachPool::CollegeAssistant1990, w.year, &mut rng);
+    let eth = coach_ethnicity(CoachPool::CollegeAssistant1990, w.year, 55, &mut rng);
     let age = 45 + (rng.next() * 20.0) as i32;
     person_name(eth, w.year - age, &mut rng)
 }

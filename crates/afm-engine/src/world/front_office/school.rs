@@ -385,8 +385,9 @@ pub(crate) fn offer_pay(w: &World, h: usize) -> f64 {
     }
 }
 
-fn draw_name(w: &World, rng: &mut Rng, age: u32) -> String {
-    let eth = crate::world::ethnicity::coach_ethnicity(crate::world::ethnicity::CoachPool::HighSchool, w.year, rng);
+fn draw_name(w: &World, rng: &mut Rng, h: usize, age: u32) -> String {
+    let pool = crate::world::ethnicity::CoachPool::HighSchool(w.high_schools[h].state);
+    let eth = crate::world::ethnicity::coach_ethnicity(pool, w.year, age, rng);
     crate::world::names::person_name(eth, w.year - age as i32, rng)
 }
 
@@ -433,7 +434,7 @@ pub(crate) fn open(w: &mut World, h: usize) {
     let mut r = rng_for(w, h, 1);
     let principal = {
         let age = r.int(38, 62) as u32;
-        let name = draw_name(w, &mut r, age);
+        let name = draw_name(w, &mut r, h, age);
         let doctor = r.chance(0.3);
         let since = year - r.int(0, 9);
         let before = r.pick(&BEFORE);
@@ -452,7 +453,7 @@ pub(crate) fn open(w: &mut World, h: usize) {
     };
     let ad = {
         let age = r.int(34, 63) as u32;
-        let name = draw_name(w, &mut r, age);
+        let name = draw_name(w, &mut r, h, age);
         let since = year - r.int(0, 12);
         let (title, about) = if code == "TX" {
             (
@@ -482,7 +483,7 @@ pub(crate) fn open(w: &mut World, h: usize) {
     };
     let superintendent = {
         let age = r.int(45, 66) as u32;
-        let name = draw_name(w, &mut r, age);
+        let name = draw_name(w, &mut r, h, age);
         let since = year - r.int(0, 8);
         SchoolPerson {
             name: format!("Dr. {name}"),
@@ -511,12 +512,12 @@ pub(crate) fn open(w: &mut World, h: usize) {
     let child = (!parents.is_empty()).then(|| parents[r.int(0, parents.len() as i32 - 1) as usize]);
     let president = {
         let age = r.int(40, 58) as u32;
-        let first = draw_name(w, &mut r, age);
+        let first = draw_name(w, &mut r, h, age);
         let first = first.split_whitespace().next().unwrap_or("Mike").to_string();
         let last = child
             .and_then(|id| super::index_of(w, id))
             .and_then(|i| w.people[i].name.split_whitespace().last().map(str::to_string))
-            .unwrap_or_else(|| draw_name(w, &mut r, age).split_whitespace().last().unwrap_or("Miller").to_string());
+            .unwrap_or_else(|| draw_name(w, &mut r, h, age).split_whitespace().last().unwrap_or("Miller").to_string());
         let job = r.pick(&JOBS);
         SchoolPerson {
             name: format!("{first} {last}"),
@@ -1796,7 +1797,7 @@ pub fn feeders(w: &World, h: usize) -> Vec<Feeder> {
             format!("{} {kind}", MIDDLE_NAMES[j])
         };
         let age = r.int(26, 60) as u32;
-        let drawn = draw_name(w, &mut r, age);
+        let drawn = draw_name(w, &mut r, h, age);
         // Its coach is the person the meeting room knows (`folk::cast`).
         let (coach, tok) = if k < cast::slots(w, Team::High(h), Role::Feeder) as usize {
             let c = cast::get(w, CastRef::new(Team::High(h), Role::Feeder, k as u8));
@@ -1821,7 +1822,7 @@ pub fn feeders(w: &World, h: usize) -> Vec<Feeder> {
     let mascot = &w.front_office.school.mascot;
     let mascot = if mascot.is_empty() { "Panthers" } else { mascot.as_str() };
     let age = r.int(30, 55) as u32;
-    let _ = draw_name(w, &mut r, age);
+    let _ = draw_name(w, &mut r, h, age);
     // The youth league's president runs it (`folk::cast`).
     let youth = cast::get(w, CastRef::new(Team::High(h), Role::Youth, 0));
     let (wn, l) = {

@@ -247,9 +247,232 @@ fn who(w: &World) {
     }
     println!("  now (level role: Black, of color, n):");
     for ((l, r), (b, k, n)) in &now {
-        if l == "FBS" || l == "NFL" || l == "FCS" {
-            println!("    {l} {r}: {:.1}%, {:.1}%, {n}", pct(*b, *n), pct(*k, *n));
+        println!("    {l} {r}: {:.1}%, {:.1}%, {n}", pct(*b, *n), pct(*k, *n));
+    }
+    nfl_by_season(w);
+    staff_hires(w);
+    high_schools(w);
+}
+
+/// Bug 244: NFL head coaches of color in each season (of 32), against real
+/// counted by name (from memory, as in `afm/race-check/released-worlds.md`).
+fn nfl_by_season(w: &World) {
+    let real: BTreeMap<i32, usize> = [
+        (2005, 6),
+        (2006, 7),
+        (2007, 6),
+        (2009, 6),
+        (2011, 8),
+        (2013, 4),
+        (2015, 6),
+        (2016, 6),
+        (2017, 8),
+        (2018, 8),
+        (2019, 4),
+        (2021, 5),
+        (2022, 6),
+        (2023, 6),
+        (2024, 9),
+        (2025, 7),
+    ]
+    .into_iter()
+    .collect();
+    let mut by: BTreeMap<i32, usize> = BTreeMap::new();
+    for s in &w.nfl_seasons {
+        if let Some(c) = s.coach {
+            *by.entry(s.year).or_default() += usize::from(w.coaches[c].ethnicity != Ethnicity::White);
         }
+    }
+    println!("\n244 NFL head coaches of color each season (world / real)");
+    let row: Vec<String> = by
+        .iter()
+        .filter(|(y, _)| **y >= 2000)
+        .map(|(y, k)| match real.get(y) {
+            Some(r) => format!("{y} {k}/{r}"),
+            None => format!("{y} {k}"),
+        })
+        .collect();
+    println!("  {}", row.join(", "));
+    let avg = |a: i32, b: i32| {
+        let v: Vec<usize> = by.range(a..=b).map(|(_, k)| *k).collect();
+        v.iter().sum::<usize>() as f64 / v.len().max(1) as f64
+    };
+    println!("  2005-2018 average {:.1} (real 6), 2019-2025 {:.1} (real 6.1)", avg(2005, 2018), avg(2019, 2025));
+    // The head coaches' pool: NFL coordinators of color in each season (of 64).
+    let mut coords: BTreeMap<i32, (usize, usize)> = BTreeMap::new();
+    for co in &w.coaches {
+        let color = co.ethnicity != Ethnicity::White;
+        let jobs = co
+            .history
+            .iter()
+            .map(|h| (h.employer, h.role, h.from, h.to))
+            .chain(co.job.map(|j| (j.employer, j.role, j.since, w.year)));
+        for (e, r, from, to) in jobs {
+            if matches!(e, Employer::Nfl(_)) && matches!(r, Role::OffensiveCoordinator | Role::DefensiveCoordinator) {
+                for y in (from + 1).max(2000)..=to {
+                    let k = coords.entry(y).or_default();
+                    k.0 += usize::from(color && r == Role::OffensiveCoordinator);
+                    k.1 += usize::from(color && r == Role::DefensiveCoordinator);
+                }
+            }
+        }
+    }
+    let row: Vec<String> = coords.iter().map(|(y, (o, d))| format!("{y} {o}+{d}")).collect();
+    println!("  NFL coordinators of color each season (OC+DC): {}", row.join(", "));
+}
+
+/// Bugs 161 and 243: who took each FBS staff job, by ten seasons (the
+/// coaches' histories hold every stint; a stint's first season is the hire).
+fn staff_hires(w: &World) {
+    let mut hires: BTreeMap<(i32, &str), (usize, usize, usize)> = BTreeMap::new();
+    for co in &w.coaches {
+        let jobs = co
+            .history
+            .iter()
+            .map(|h| (h.employer, h.role, h.from))
+            .chain(co.job.map(|j| (j.employer, j.role, j.since)));
+        for (e, r, from) in jobs {
+            let Employer::College(p) = e else { continue };
+            if division(w, p, from) != Some(Division::FBS) {
+                continue;
+            }
+            let role = match r {
+                Role::HeadCoach => "HC",
+                Role::OffensiveCoordinator => "OC",
+                Role::DefensiveCoordinator => "DC",
+                Role::PositionCoach(_) => "PC",
+            };
+            let k = hires.entry((from / 10 * 10, role)).or_default();
+            k.0 += usize::from(co.ethnicity == Ethnicity::Black);
+            k.1 += usize::from(co.ethnicity != Ethnicity::White);
+            k.2 += 1;
+        }
+    }
+    // NFL head and coordinator hires by five seasons (real head coach hires
+    // of color: about 7% in 1996-2002, about 18% in 2003-2012).
+    let mut nfl: BTreeMap<(i32, &str), (usize, usize)> = BTreeMap::new();
+    for co in &w.coaches {
+        let jobs = co
+            .history
+            .iter()
+            .map(|h| (h.employer, h.role, h.from))
+            .chain(co.job.map(|j| (j.employer, j.role, j.since)));
+        for (e, r, from) in jobs {
+            if !matches!(e, Employer::Nfl(_)) || from < 1996 {
+                continue;
+            }
+            let role = match r {
+                Role::HeadCoach => "HC",
+                Role::OffensiveCoordinator => "OC",
+                Role::DefensiveCoordinator => "DC",
+                Role::PositionCoach(_) => "PC",
+            };
+            let k = nfl.entry((from / 5 * 5, role)).or_default();
+            k.0 += usize::from(co.ethnicity != Ethnicity::White);
+            k.1 += 1;
+        }
+    }
+    println!("\n244 NFL hires of color by five seasons (of color, n)");
+    for ((d, r), (k, n)) in &nfl {
+        println!("    {d} {r}: {:.0}%, {n}", pct(*k, *n));
+    }
+    // FBS position coaches now, by group, and where this decade's came from.
+    let mut by_group: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    let mut from: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    for co in &w.coaches {
+        let Some(j) = co.job else { continue };
+        let (Employer::College(p), Role::PositionCoach(g)) = (j.employer, j.role) else { continue };
+        if w.programs[p].division != Division::FBS {
+            continue;
+        }
+        let k = by_group.entry(format!("{g:?}")).or_default();
+        k.0 += usize::from(co.ethnicity == Ethnicity::Black);
+        k.1 += 1;
+        if j.since >= 2016 {
+            let prev = co.history.iter().rev().find(|h| h.to <= j.since);
+            let src = match prev.map(|h| h.employer) {
+                None => "new to coaching",
+                Some(Employer::HighSchool(_)) => "high school",
+                Some(Employer::College(q)) if w.programs[q].division == Division::FBS => "FBS",
+                Some(Employer::College(_)) => "smaller college",
+                Some(_) => "pro",
+            };
+            let k = from.entry(src).or_default();
+            k.0 += usize::from(co.ethnicity == Ethnicity::Black);
+            k.1 += 1;
+        }
+    }
+    let row: Vec<String> = by_group.iter().map(|(g, (b, n))| format!("{g} {:.0}% of {n}", pct(*b, *n))).collect();
+    println!("  FBS position coaches Black by group: {}", row.join(", "));
+    let row: Vec<String> = from.iter().map(|(g, (b, n))| format!("{g} {n} ({:.0}% Black)", pct(*b, *n))).collect();
+    println!("  FBS position coaches hired since 2016 came from: {}", row.join(", "));
+    println!(
+        "\n161/243 FBS hires by ten seasons (Black, of color, n); real 2022: OC 7-9% Black, DC just over 20%, PC 44% Black and 53% of color"
+    );
+    for ((d, r), (b, k, n)) in &hires {
+        if *d >= 1990 {
+            println!("    {d}s {r}: {:.1}%, {:.1}%, {n}", pct(*b, *n), pct(*k, *n));
+        }
+    }
+}
+
+/// Bug 242: high school head coaches by state (Texas 6A 2018: 18% Black,
+/// 11% Hispanic, 71% white, Dave Campbell's Texas Football).
+fn high_schools(w: &World) {
+    let state = |code: &str| afm_engine::world::geo::state_index(code);
+    let mut rows: Vec<(String, Vec<usize>)> = Vec::new();
+    let heads =
+        |hs: &mut dyn Iterator<Item = usize>| -> Vec<usize> { hs.filter_map(|h| w.high_schools[h].coach).collect() };
+    rows.push(("all".into(), heads(&mut (0..w.high_schools.len()))));
+    for code in ["TX", "CA", "FL", "GA", "OH", "PA", "AL", "LA", "MS", "IL", "MI", "NY", "AZ", "NM", "UT", "MN"] {
+        let Some(s) = state(code) else { continue };
+        let mut list: Vec<usize> = (0..w.high_schools.len()).filter(|&h| w.high_schools[h].state == s).collect();
+        rows.push((code.into(), heads(&mut list.iter().copied())));
+        if code == "TX" {
+            // Texas's biggest fifth by enrollment (6A is about the biggest 250 of 1,200).
+            list.sort_by_key(|&h| std::cmp::Reverse(w.high_schools[h].enrollment));
+            let top = list.len().div_ceil(5);
+            rows.push(("TX big fifth".into(), heads(&mut list.into_iter().take(top))));
+        }
+    }
+    // Where the head coaches come from: the world's own former players
+    // (college, and pros), and the made-up men who never played in college.
+    let all: Vec<usize> = w.high_schools.iter().filter_map(|h| h.coach).collect();
+    let former: Vec<usize> =
+        all.iter().copied().filter(|&c| w.coaches[c].played.is_some_and(|p| p.former.is_some())).collect();
+    let pros: Vec<usize> = all.iter().copied().filter(|&c| w.coaches[c].played.is_some_and(|p| p.nfl())).collect();
+    let mut came: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    for &c in &all {
+        let co = &w.coaches[c];
+        let src = match co.history.last().map(|h| (h.employer, h.role)) {
+            None => "first job",
+            Some((Employer::HighSchool(_), Role::HeadCoach)) => "high school head",
+            Some((Employer::HighSchool(_), _)) => "high school coordinator",
+            Some((Employer::College(_), _)) => "college",
+            Some(_) => "pro",
+        };
+        let k = came.entry(src).or_default();
+        k.0 += usize::from(co.ethnicity == Ethnicity::Black);
+        k.1 += 1;
+    }
+    let row: Vec<String> = came.iter().map(|(g, (b, n))| format!("{g} {n} ({:.0}% Black)", pct(*b, *n))).collect();
+    println!("  high school head coaches' last job: {}", row.join(", "));
+    rows.push(("former players".into(), former));
+    rows.push(("ex-pros".into(), pros));
+    let coords: Vec<usize> = w.high_schools.iter().flat_map(|h| [h.oc, h.dc]).flatten().collect();
+    rows.push(("all coordinators".into(), coords));
+    println!("\n242 high school head coaches by state (white, Black, Hispanic, other; n)");
+    for (name, cs) in rows {
+        let n = cs.len();
+        let of = |e: Ethnicity| cs.iter().filter(|&&c| w.coaches[c].ethnicity == e).count();
+        let (wh, b, h) = (of(Ethnicity::White), of(Ethnicity::Black), of(Ethnicity::Hispanic));
+        println!(
+            "    {name}: {:.0}%, {:.0}%, {:.0}%, {:.0}%; {n}",
+            pct(wh, n),
+            pct(b, n),
+            pct(h, n),
+            pct(n - wh - b - h, n)
+        );
     }
 }
 

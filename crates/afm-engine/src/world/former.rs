@@ -430,14 +430,17 @@ pub(crate) fn year_end(w: &mut World) {
 }
 
 /// What a new coach should be (`new_coach`): the level, his age, the
-/// job's state, the head coach hiring him, the group he'll coach, and
-/// whether the search wants a former pro.
+/// job's state, the head coach hiring him, the group he'll coach, whether
+/// the search wants a former pro, and his group when the job's pool has
+/// already drawn it (a high school's coaches are the state's teachers,
+/// minor bug 242).
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct Want {
     pub state: Option<usize>,
     pub hc: Option<usize>,
     pub group: Option<Group>,
     pub nfl: Option<bool>,
+    pub ethnicity: Option<Ethnicity>,
 }
 
 /// A former player in coaching who fits the job (C11), weighted: his old
@@ -448,7 +451,7 @@ pub(crate) fn draw(w: &mut World, tier: CoachTier, age: u32, want: Want) -> Opti
     let mut total = 0.0;
     let mut pool: Vec<(usize, f64)> = Vec::new();
     for (k, f) in w.formers.list.iter().enumerate() {
-        if f.life != Life::Coaching || f.coach.is_some() {
+        if f.life != Life::Coaching || f.coach.is_some() || want.ethnicity.is_some_and(|e| e != f.ethnicity) {
             continue;
         }
         let a = f.age(year);

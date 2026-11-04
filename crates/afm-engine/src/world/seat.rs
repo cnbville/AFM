@@ -1196,6 +1196,10 @@ pub struct HsAssistant {
     /// Hidden teaching ability, 1-20 on every coach's scale.
     pub teaching: f64,
     pub since: i32,
+    /// The group his name was drawn from (minor bug 242: a head job he takes
+    /// keeps it); None in older saves.
+    #[serde(default)]
+    pub ethnicity: Option<super::ethnicity::Ethnicity>,
 }
 
 impl You {
@@ -1242,6 +1246,7 @@ impl World {
         let n = (2 + school.enrollment / 400).clamp(3, 15) as usize;
         let mean = 4.0 + 12.0 * school.resources;
         let rich = school.resources;
+        let state = school.state;
         let year = self.year;
         let mut rng = crate::rng::Rng::new(self.options.seed ^ 0x45AF_F000 ^ h as u32);
         // Coordinators first, then the groups a staff fills in order.
@@ -1265,8 +1270,10 @@ impl World {
         order[..n]
             .iter()
             .map(|&(coordinator, group)| {
-                let eth = super::ethnicity::coach_ethnicity(super::ethnicity::CoachPool::HighSchool, year, &mut rng);
+                // His age first: the state's pool reads his generation (minor bug 242).
                 let age = 24 + (rng.next() * 34.0) as u32;
+                let pool = super::ethnicity::CoachPool::HighSchool(state);
+                let eth = super::ethnicity::coach_ethnicity(pool, year, age, &mut rng);
                 let name = super::names::person_name(eth, year - age as i32, &mut rng);
                 // Some states allow walk-on coaches who don't teach.
                 let subject = (rng.next() > 0.15).then(|| SUBJECTS[(rng.next() * 10.0) as usize % 10].to_string());
@@ -1281,6 +1288,7 @@ impl World {
                     stipend: (2500.0 + 5500.0 * rich + 1500.0 * lead + rng.normal(0.0, 800.0)).max(1000.0) as u32,
                     teaching: crate::rng::clamp(mean + lead + rng.normal(0.0, 2.5), 1.0, 20.0),
                     since: year - (rng.next() * 8.0) as i32,
+                    ethnicity: Some(eth),
                 }
             })
             .collect()
