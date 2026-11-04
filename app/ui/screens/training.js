@@ -981,7 +981,7 @@ const SQUAD_SAY = [[0, "Stay a year"], [1, "Your call"], [2, "You're ready"]];
 // draft-eligible underclassman, the Evaluation desk's advisory list and
 // stay-or-go talk.
 async function squadDraft(x) {
-  const [o, e] = await Promise.all([api("dr_outlook"), api("eval_home")]);
+  const [o, e] = await Promise.all([qfGet("dr_outlook"), qfGet("eval_home")]);
   const out = new Map(o.rows.map((r) => [r.id, r]));
   const adv = (e.college && e.college.advisory) || { juniors: [], committee: false, sent: 0 };
   const jr = new Map(adv.juniors.map((j) => [j.id, j]));
@@ -1054,8 +1054,8 @@ function sqRedshirt(r) {
 }
 screens.roster = async (a) => {
   if (!trMine(a)) return rosterBase(a);
-  const x = await api("squad");
-  if (x.tier === "hs") x.squads = await api("school_squads").catch(() => null);
+  const x = await qfGet("squad");
+  if (x.tier === "hs") x.squads = await qfGet("school_squads").catch(() => null);
   setColors(x.team.colors);
   const views = SQUAD_VIEWS.filter((v) => v !== "Draft" || x.tier === "college");
   const viewNames = views.map((v) => (v === "Contract" && x.tier !== "nfl" ? "Eligibility" : v));
@@ -1065,7 +1065,10 @@ screens.roster = async (a) => {
   title("Squad", viewNames[views.indexOf(view)]);
   if (view === "Draft") await squadDraft(x);
   const f = keep("sqf", { unit: "ALL" });
-  const rows = x.rows.filter((r) => f.unit === "ALL" || r.group === f.unit);
+  const base = x.rows.filter((r) => f.unit === "ALL" || r.group === f.unit);
+  // The quick filter (Cain, 2026-11-04): search, any attribute or stat, positions.
+  const qs = qfState("mine"), qfields = qfFields(x.qf);
+  const rows = qfApply(base, qs, qfields);
   const count = (u) => x.rows.filter((r) => r.group === u).length;
   const seg = `<div class="seg">${[["ALL", "All", x.rows.length], ["OFF", "Offense", count("OFF")], ["DEF", "Defense", count("DEF")], ["ST", "Special teams", count("ST")]].map(([v, t, n]) => `<button data-act="tr-squnit" data-v="${v}" aria-pressed="${f.unit === v}">${t}<small>${n}</small></button>`).join("")}</div>`;
   const vseg = `<div class="seg tr-views">${views.map((v, i) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="${v === view}">${viewNames[i]}</button>`).join("")}</div>`;
@@ -1076,8 +1079,8 @@ screens.roster = async (a) => {
     ? `<p class="sub">${dr.committee ? `The NFL's advisory committee answers your underclassmen's names with a round${dr.limit ? `: ${dr.limit} names a school since 2014 (${dr.sent} sent), more only for a likely first-rounder` : ""}. Requests close December 10.` : "The advisory committee doesn't exist yet (it began in 1994): your juniors go on their own and their agents' word."} Your talk sways a junior by how far he trusts you. Declare by ${esc(dr.deadline)}.</p>`
     : "";
   return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${x.squadCount ?? x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
-    <div class="filters">${vseg}${seg}</div>${draftNote}
-    ${table("squad:" + view, squadCols(view, x), rows, { groupBy: (r) => r.pos })}</div></div>`;
+    <div class="filters">${vseg}${seg}</div>${qfBar("mine", x.qf, base, rows.length)}${draftNote}
+    ${table("squad:" + view, qfCols(squadCols(view, x), qs, qfields, "squad:" + view), rows, { groupBy: (r) => r.pos, empty: qfOn(qs, qfields) ? "Nobody matches the quick filter." : undefined })}</div></div>`;
 };
 
 // ======================================================================

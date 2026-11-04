@@ -440,25 +440,32 @@ screens.roster = async (a) => {
   const groups = x.groups.filter((g) => g.count > 0);
   const vseg = `<div class="seg tr-views"><button data-act="tr-sqview" data-v="Overview" aria-pressed="true">Overview</button>${["General", "Ratings", "Development", "Fitness", "Depth", "Contract", ...(seatKind() === "college" ? ["Draft"] : [])].map((v) => `<button data-act="tr-sqview" data-v="${v}" aria-pressed="false">${v === "Contract" && seatKind() !== "nfl" ? "Eligibility" : v}</button>`).join("")}</div>`;
   const railHtml = `<nav class="sb-rail" aria-label="Position groups"><button data-act="sbrail" data-v="ALL" aria-pressed="${rail.g === "ALL"}"><span>All</span><small>${x.rows.length}</small></button>${groups.map((g) => `<button data-act="sbrail" data-v="${g.key}" aria-pressed="${rail.g === g.key}"><span>${esc(g.key)}</span><small>${g.count}</small></button>`).join("")}</nav>`;
-  const shown = groups.filter((g) => rail.g === "ALL" || g.key === rail.g);
+  // The quick filter (Cain, 2026-11-04): the bar's rows, in the rail's groups.
+  const qs = qfState("mine"), qfields = qfFields(x.qf), qon = qfOn(qs, qfields);
+  const inRail = x.rows.filter((r) => groups.some((g) => (rail.g === "ALL" || g.key === rail.g) && g.key === r.rail));
+  const all = qfApply(x.rows, qs, qfields);
+  const shown = groups.filter((g) => (rail.g === "ALL" || g.key === rail.g) && (!qon || all.some((r) => r.rail === g.key)));
   const selId = keep("sbrow", { id: null });
-  const all = x.rows;
-  const pick = all.find((r) => r.id === selId.id) || all.find((r) => shown.some((g) => g.key === r.rail)) || all[0];
+  const pick = qon
+    ? all.find((r) => r.id === selId.id && shown.some((g) => g.key === r.rail)) || all.find((r) => shown.some((g) => g.key === r.rail))
+    : all.find((r) => r.id === selId.id) || all.find((r) => shown.some((g) => g.key === r.rail)) || all[0];
   const money = x.level === "nfl" ? "Cap" : x.level === "college" ? "NIL" : "Offers";
   const head = `<div class="sb-rh"><span>#</span><span>Player</span><span>Year</span><span>Staff rating</span><span title="His grades in your last six games; a ring is a game he didn't play">Last 6</span><span title="His share of his unit's snaps in ${esc(x.season_words)}">Snaps</span><span>Morale</span><span>${money}</span></div>`;
   const body = shown.map((g) => {
     const rows = all.filter((r) => r.rail === g.key).sort((p, q) => (p.depth || 99) - (q.depth || 99) || sbMid(q.ovr) - sbMid(p.ovr));
     const u = g.unit;
     const mix = g.mix.map((m) => `${m.n} ${esc(m.class)}`).join(" · ");
-    return `<div class="sb-band"><span class="sb-bn">${esc(g.name)}</span><small>${sbPlural(g.count, "player")} · starters ${u.value != null ? u.value : "–"}${u.rank ? ` · ${esc(u.rank_words)} ${esc(u.among)}` : ""}</small><small class="sb-mix">${mix}</small></div>${rows.map((r) => sbRosterRow(r, pick && r.id === pick.id)).join("")}`;
-  }).join("");
+    const of = qon ? `${rows.length} of ${g.count} match · ` : "";
+    return `<div class="sb-band"><span class="sb-bn">${esc(g.name)}</span><small>${of}${sbPlural(g.count, "player")} · starters ${u.value != null ? u.value : "–"}${u.rank ? ` · ${esc(u.rank_words)} ${esc(u.among)}` : ""}</small><small class="sb-mix">${mix}</small></div>${rows.map((r) => sbRosterRow(r, pick && r.id === pick.id, qon ? qfHits(r, qs, qfields) : "")).join("")}`;
+  }).join("") || (qon ? qfNone("mine") : "");
   const pageH = pageHead({
     kicker: `${esc(x.level_name)} · ${sbPlural(x.rows.length, "player")}`,
     title: `<span class="sb-crest">${mark(x.team, 40)}</span>${esc(x.team.name)}`,
     sub: `Your staff reads them every day. Snaps and grades from ${esc(x.season_words)}'s games.`,
     goto: gotoFor("roster", a),
   });
-  return `<div class="film sb"><div class="pad sb-pad">${pageH}<div class="filters">${vseg}</div>
+  const matched = all.filter((r) => inRail.includes(r)).length;
+  return `<div class="film sb"><div class="pad sb-pad">${pageH}<div class="filters">${vseg}</div>${qfBar("mine", x.qf, inRail, matched)}
     <div class="sb-roster">${railHtml}<div class="sb-rt" role="table">${head}${body}</div><aside class="sb-side">${pick ? sbRosterPanel(pick, x) : ""}</aside></div></div></div>`;
 };
 function sbPips(y) {
@@ -487,12 +494,12 @@ function sbMoney(r) {
   const v = esc(m.value);
   return m.label === "Offers" ? linkTo("player", { id: r.id, tab: "Recruiting" }, v) : m.label === "Cap" ? linkTo("fo_cap", { id: r.id }, v) : v;
 }
-function sbRosterRow(r, on) {
+function sbRosterRow(r, on, hits) {
   const hurt = r.health !== "full" ? ` <span class="sb-tag ${r.health === "out" ? "bad" : "warn"}" title="${esc(r.health_why || r.status || "")}">${r.health === "out" ? "Out" : "Limited"}</span>` : "";
   const m = r.money || {};
   return `<div class="sb-rr ${on ? "on" : ""}" data-act="sbrow" data-id="${r.id}" role="row">
     <span class="sb-num">${r.num != null ? r.num : ""}</span>
-    <span class="sb-who">${playerLink(r.id, r.name)}${hurt}<small>${esc(r.pos)} · ${esc(r.ht)}, ${r.wt} · ${esc(r.home)}</small></span>
+    <span class="sb-who">${playerLink(r.id, r.name)}${hurt}<small>${hits || ""}${esc(r.pos)} · ${esc(r.ht)}, ${r.wt} · ${esc(r.home)}</small></span>
     <span class="sb-yr">${sbPips(r.years)}</span>
     <span class="sb-rd"><b>${r.ovr ? sbMid(r.ovr) : "–"}</b>${range(r.ovr, null, { p: r.id, k: "ovr" })}</span>
     <span>${sbSpark(r.last6 || [])}</span>

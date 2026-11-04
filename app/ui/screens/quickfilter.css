@@ -1,0 +1,76 @@
+/* The squad's quick filter (quickfilter.js): a raised Press Box panel under
+   the view tabs, hairline divided. Quiet until a rule holds: then the
+   panel takes a thin gold edge, as a picked row does, and the count turns
+   gold. Every colour is a token on .qf, swapped for the light theme. */
+
+.qf {
+  --qf-gold: #f1be48;
+  --qf-gold-bg: rgba(241, 190, 72, .12);
+  --qf-gold-ring: rgba(241, 190, 72, .5);
+  --qf-panel: var(--sb-panel, var(--raised));
+  --qf-field: rgba(255, 255, 255, .04);
+  --qf-line: rgba(255, 255, 255, .07);
+  --qf-bad: #f0a35e;
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 12px 0 14px; padding: 10px 12px;
+  background: var(--qf-panel); border-radius: 16px;
+  box-shadow: inset 0 0 0 1px var(--qf-line);
+}
+:root[data-theme="light"] .qf {
+  --qf-gold: #a67c00;
+  --qf-gold-bg: rgba(166, 124, 0, .09);
+  --qf-gold-ring: rgba(166, 124, 0, .45);
+  --qf-panel: var(--raised);
+  --qf-field: rgba(0, 0, 0, .03);
+  --qf-line: rgba(0, 0, 0, .08);
+  --qf-bad: #b4541a;
+}
+.qf.on { box-shadow: inset 0 0 0 1px var(--qf-line), inset 3px 0 0 var(--qf-gold); }
+.qf-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; min-width: 0; }
+.qf-posline { padding-top: 8px; border-top: 1px solid var(--qf-line); gap: 6px; }
+
+.qf input, .qf select { font: inherit; font-size: 13px; color: var(--fg); background: var(--qf-field); border: 1px solid var(--qf-line); border-radius: 10px; height: 32px; padding: 0 10px; outline: none; }
+.qf input:focus, .qf select:focus { border-color: var(--qf-gold-ring); box-shadow: 0 0 0 3px var(--qf-gold-bg); }
+.qf select option, .qf select optgroup { background: var(--raised); color: var(--fg); }
+.qf input[aria-invalid="true"] { border-color: var(--qf-bad); }
+
+.qf-find { position: relative; display: inline-flex; align-items: center; flex: 0 1 280px; min-width: 180px; }
+.qf-find svg { position: absolute; left: 10px; width: 15px; height: 15px; color: var(--fg3); pointer-events: none; }
+.qf-find input { width: 100%; padding-left: 32px; }
+.qf-find input::-webkit-search-cancel-button { cursor: pointer; }
+
+.qf-rules { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.qf-rule { display: inline-flex; align-items: center; gap: 4px; }
+.qf-rule select[data-qf="k"] { max-width: 210px; }
+.qf-rule select[data-qf="op"] { width: 52px; padding: 0 6px; text-align: center; font-weight: 700; }
+.qf-rule input { width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+.qf-rule.on select[data-qf="k"] { color: var(--qf-gold); border-color: var(--qf-gold-ring); background: var(--qf-gold-bg); font-weight: 700; }
+.qf-and { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--fg3); margin: 0 2px 0 4px; }
+.qf-x { border: 0; background: none; color: var(--fg3); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; }
+.qf-x:hover { color: var(--fg); }
+.qf .qf-add { height: 32px; }
+
+.qf-count { font-size: 12.5px; color: var(--fg3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qf-count b { color: var(--qf-gold); font-size: 14px; }
+
+.qf-lbl { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fg3); margin-right: 4px; }
+.qf-pg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--qf-line); }
+.qf-pg:last-of-type { border-right: 0; }
+.qf-chip { display: inline-flex; align-items: baseline; gap: 5px; height: 26px; padding: 0 9px; border: 1px solid var(--qf-line); border-radius: 8px; background: transparent; color: var(--fg2); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; line-height: 24px; }
+.qf-chip small { font-size: 10.5px; font-weight: 500; color: var(--fg3); font-variant-numeric: tabular-nums; }
+.qf-chip:hover { background: var(--fill-1); color: var(--fg); }
+.qf-chip[aria-pressed="true"] { color: var(--qf-gold); border-color: var(--qf-gold-ring); background: var(--qf-gold-bg); }
+.qf-chip[aria-pressed="true"] small { color: inherit; opacity: .8; }
+.qf-link { border: 0; background: none; padding: 0 4px; color: var(--fg2); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--qf-line); cursor: pointer; }
+.qf-link:hover { color: var(--fg); }
+
+/* A rule's read under each name on the Overview, and the empty board. */
+.qf-hit { display: inline-block; margin-right: 8px; padding: 1px 6px; border-radius: 5px; background: var(--sb-gold-bg, rgba(241, 190, 72, .12)); color: var(--sb-text2, var(--fg2)); font-weight: 600; }
+.qf-hit b { color: var(--sb-gold, #f1be48); font-variant-numeric: tabular-nums; }
+.qf-none { padding: 28px 12px; text-align: center; font-size: 13px; color: var(--fg3); }
+.qf-none b { color: var(--fg2); font-weight: 600; }
+
+@media (max-width: 760px) {
+  .qf-find { flex-basis: 100%; }
+  .qf-rule select[data-qf="k"] { max-width: 160px; }
+}
