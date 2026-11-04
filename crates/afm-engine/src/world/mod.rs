@@ -76,6 +76,7 @@ pub mod staff_read;
 pub mod stories;
 pub mod storylines;
 pub mod systems;
+pub mod tally;
 pub mod tape;
 pub mod times;
 pub mod trends;
@@ -770,6 +771,11 @@ pub struct World {
     /// (`marks.rs`). It only reads games and seasons.
     #[serde(default)]
     pub marks: marks::Marks,
+    /// The Data section's running tallies (lane NB1): the season being
+    /// played; closed seasons go to the folder beside the world or save
+    /// (`tally/`). Only reads games and seasons.
+    #[serde(default)]
+    pub tallies: tally::Tallies,
     /// Each position's typical score in each coaching system (S3).
     pub(crate) system_norms: systems::SystemNorms,
     /// Recruiting and portal records for trials (dynasty item 11 checks).
@@ -1142,11 +1148,28 @@ impl World {
     pub fn new_logged(
         options: WorldOptions,
         log: Option<wlog::WorldLog>,
+        each: impl FnMut(&World, f64) -> bool,
+    ) -> Option<World> {
+        World::new_recorded(options, log, None, each)
+    }
+
+    /// `new_logged`, writing each closed season's tallies into `tallies`
+    /// (the folder beside the world file, lane NB1) as the history is
+    /// played, instead of holding them in memory.
+    pub fn new_recorded(
+        options: WorldOptions,
+        log: Option<wlog::WorldLog>,
+        tallies: Option<&std::path::Path>,
         mut each: impl FnMut(&World, f64) -> bool,
     ) -> Option<World> {
         let mut w = World::empty(options);
         if let Some(log) = log {
             w.attach_log(log);
+        }
+        if let Some(dir) = tallies
+            && let Err(e) = w.attach_tallies(dir)
+        {
+            eprintln!("tallies: kept in memory ({e})");
         }
         // Older high school classes already in school when the clock starts.
         for age in [17, 16, 15] {
@@ -1180,6 +1203,7 @@ impl World {
     /// The spin-up is over: recorded history starts.
     pub(crate) fn start_recording(&mut self) {
         self.recording = true;
+        self.tallies.season = self.year;
         for p in self.programs.iter_mut() {
             p.prestige_start = p.prestige;
         }
@@ -1299,6 +1323,7 @@ impl World {
             wlog: None,
             stats: records::StatBook::default(),
             marks: Default::default(),
+            tallies: tally::Tallies::new(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
             next_person: 1,

@@ -339,6 +339,10 @@ pub struct StatLine {
     pub rush_epa: f64,
     pub scrambles: u32,
     pub scramble_yds: f64,
+    /// A scramble's EPA (also in `rush_epa`), which EPA a dropback counts
+    /// (minor bug 183, as nflfastR does).
+    #[serde(default)]
+    pub scramble_epa: f64,
     pub fumbles: u32,
     pub fumbles_lost: u32,
     // receiving
@@ -472,6 +476,7 @@ impl StatLine {
             rush_epa,
             scrambles,
             scramble_yds,
+            scramble_epa,
             fumbles,
             fumbles_lost,
             targets,
@@ -683,8 +688,10 @@ pub fn expected_completion_at(level: crate::player::Level, air: f64, sep: f64, p
     1.0 / (1.0 + (-z).exp())
 }
 
-/// A team's game (8.3, team and unit).
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+/// A team's game (8.3, team and unit). A field a later file lacks reads as
+/// zero (the tallies keep these).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct TeamStats {
     pub points: i32,
     pub plays: u32,
@@ -916,6 +923,7 @@ impl GameStats {
                     let l = self.line(o, c);
                     l.scrambles += 1;
                     l.scramble_yds += r.yards;
+                    l.scramble_epa += r.epa;
                     l.rush += 1;
                     l.rush_yds += r.yards;
                     l.rush_td += r.touchdown as u32;

@@ -124,7 +124,7 @@ pub const TERMS: &[Term] = &[
         "EpaDb",
         "EPA a dropback",
         "Expected points added. Every snap starts with a value: how many points teams usually go on to score from that down, distance and spot. EPA is how much a play raised or lowered it. This is his average over every dropback. Above zero means his dropbacks moved his team closer to points.",
-        "EPA on his throws and sacks ÷ dropbacks (scrambles included).",
+        "EPA on his throws, sacks and scrambles ÷ dropbacks.",
         1,
     ),
     t(

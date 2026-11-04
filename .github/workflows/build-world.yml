@@ -114,7 +114,8 @@ jobs:
       # The world goes up first, so a step that fails after it never costs
       # the world. A release file may be at most 2 GB, so a bigger world goes
       # up in parts (name.afmworld.001, .002, ...), which the game joins. The
-      # whole file stays for the star mix check. Then the world log (world
+      # whole file stays for the star mix check. Then its tallies (lane NB1,
+      # name.afmdata.tar, which the game downloads too), then the world log (world
       # reader lane R2) as a tar file in parts (name.afmlog.tar.001, ...),
       # packed as the folder is removed so the disk holds it once; the game
       # does not download it, the book job does.
@@ -143,6 +144,19 @@ jobs:
             --notes "Built $(date -u +%Y-%m-%d) by the AFM game at commit ${{ github.sha }}. The world reader's book is the .afmbook.zst file (unzstd it, joining parts first)."
           rm -f "$f".[0-9][0-9][0-9]
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # The Data section's tallies (lane NB1) as one tar file
+          # (name.afmdata.tar, in parts over 2 GB), which the game downloads
+          # and unpacks beside the world.
+          for d in *.afmdata; do
+            [ -d "$d" ] || continue
+            tar -cf "$d.tar" "$d"
+            if [ "$(stat -c %s "$d.tar")" -gt 2000000000 ]; then
+              split -b 1900M -d -a 3 --numeric-suffixes=1 "$d.tar" "$d.tar."
+              rm "$d.tar"
+            fi
+            gh release upload "$tag" ./"$d".tar* --repo "$repo"
+            rm -f "$d".tar*
+          done
           for l in *.afmlog; do
             [ -d "$l" ] || continue
             tar --remove-files -cf - "$l" | split -b 1900M -d -a 3 --numeric-suffixes=1 - "$l.tar."

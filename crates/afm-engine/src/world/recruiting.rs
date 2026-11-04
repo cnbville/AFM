@@ -1849,6 +1849,12 @@ pub(crate) fn draft_end(
     let udfa = offers.len();
     w.market.year_mut(draft_year).udfa_signed += udfa as u32;
     let by_offer: std::collections::HashMap<usize, super::pro::scouts::Offer> = offers.iter().copied().collect();
+    // The draft classes' tally (lane NB1).
+    if w.tallying() {
+        let rows: Vec<(usize, u32, u32, usize)> =
+            picked.iter().map(|(i, pk, t, _)| (*i, *pk, board[*pk as usize - 1].1, *t)).collect();
+        w.tally_draft(draft_year, &rows);
+    }
     // Each signee, with his pick, team and why (None for an undrafted signing).
     type Drafted = Option<(u32, usize, String)>;
     let mut signed: Vec<(usize, Drafted, Option<super::pro::scouts::Offer>)> =

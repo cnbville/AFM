@@ -199,7 +199,9 @@ impl Cm {
         let g = |k: Stat| get(k);
         let per_game = |n: f64| r(n, games);
         match self {
-            EpaDb => r(g(S::PassEpa), g(S::Dropbacks)),
+            // A scramble is a dropback, so its EPA counts (minor bug 183, as
+            // nflfastR counts it).
+            EpaDb => r(g(S::PassEpa) + g(S::ScrambleEpa), g(S::Dropbacks)),
             Cpoe => pct(g(S::Cmp) - g(S::XCmp), g(S::Att)),
             Adot => r(g(S::AirYds), g(S::Att)),
             Ypa => r(g(S::PassYds), g(S::Att)),
@@ -304,6 +306,53 @@ pub fn charted(group: usize) -> &'static [Cm] {
         8 | 9 => &[YdsCov, TgtCov, BallsPlayed, Ints, Pbus, Miss, Stop, TklG, Grade],
         10 => &[FgPct, FgMade, Fg50, FgLong, XpMade],
         _ => &[NetPunt, Punts],
+    }
+}
+
+/// How deep charting must go for a number (Data overhaul item 2): 1 the
+/// play by play (EPA, success, explosive plays and what a box score gives),
+/// 2 film charting (pressures, coverage, expected completions, missed
+/// tackles, grades), 3 tracking-style detail (separation and the trench
+/// win rates, ESPN's from the NFL's tracking). Proposed, not confirmed.
+pub fn depth(cm: Cm) -> u8 {
+    use Cm::*;
+    match cm {
+        Sep | RbWin | PrWin => 3,
+        Cpoe | Adot | Btt | Twp | PressRate | PressSack | YacoC | Mtf | Yprr | TgtRoute | Drop | YacR | Pressure
+        | SackPerRush | PressAllowed | SackAllowed | Stop | Miss | YdsCov | TgtCov | BallsPlayed | Grade => 2,
+        _ => 1,
+    }
+}
+
+/// What an analytics head of a 1-20 rating gets a staff that charts its own
+/// level (Data overhaul item 2): how deep the charting goes (`depth`) and
+/// how many days after a game its charting arrives. A rating of 15 or more
+/// charts to tracking-style detail, 8 or more the film; 17 or more has it
+/// the next morning, 12 two days, 7 three, less four. Proposed, not
+/// confirmed. The NFL's league tracking is 3 deep and a day late for
+/// every seat.
+pub fn charting(rating: u8) -> (u8, u8) {
+    let r = if rating == 0 { 10 } else { rating };
+    let depth = match r {
+        15.. => 3,
+        8.. => 2,
+        _ => 1,
+    };
+    let days = match r {
+        17.. => 1,
+        12.. => 2,
+        7.. => 3,
+        _ => 4,
+    };
+    (depth, days)
+}
+
+/// What each depth is called.
+pub fn depth_name(d: u8) -> &'static str {
+    match d {
+        3 => "tracking-style charting",
+        2 => "film charting",
+        _ => "play-by-play charting",
     }
 }
 
