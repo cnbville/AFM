@@ -848,6 +848,10 @@ const RUN_PUSH_UP: f64 = 1.0;
 /// whistle 1.5 times a run; minor bug 164; proposed, not confirmed).
 const PHONE_BOOTH: f64 = 1.5;
 
+/// How far from the sideline a tackler can drive the runner out of bounds
+/// rather than take him down in bounds (minor bug 141, was 6).
+const PUSH_OUT: f64 = 8.0;
+
 /// How far a free defender in the open field can reach or lunge for the
 /// ball carrier on a return. (2.2 before, and 1.6 on returns: runners
 /// slipped past squared-up defenders untouched, so nine in ten runs past 20
@@ -2375,17 +2379,19 @@ impl<'a> Sim<'a> {
         if y <= 0.0 || y >= width() {
             self.out_of_bounds = true;
         } else {
-            // Caught within six yards of the sideline, the tackler often
+            // Caught within eight yards of the sideline, the tackler often
             // drives him out rather than take him down in bounds, surely
-            // inside a yard and a half, more when the pile is going that
-            // way (fix list S6.2: with the wider step-out above, NFL
+            // inside three and a half yards, more when the pile is going
+            // that way (fix list S6.2: with the wider step-out above, NFL
             // plays out of bounds 1.6% to 5.3%, real 10.7%; completions
-            // 4.2% to 13.9%, real 20.7%; proposed, not confirmed).
+            // 4.2% to 13.9%, real 20.7%. Minor bug 141: six yards left
+            // completions at 16.2%, eight puts them at 19%; proposed, not
+            // confirmed).
             let edge = y.min(width() - y);
-            if edge < 6.0 {
+            if edge < PUSH_OUT {
                 let out = if y < mid() { -1.0 } else { 1.0 };
                 let push = if fall.len() > 0.05 { (fall.y * out / fall.len()).max(0.0) } else { 0.0 };
-                let chance = ((6.0 - edge) / 4.5).min(1.0) * (0.5 + 0.5 * push);
+                let chance = ((PUSH_OUT - edge) / 4.5).min(1.0) * (0.5 + 0.5 * push);
                 if self.rng.chance(chance) {
                     self.out_of_bounds = true;
                 }
