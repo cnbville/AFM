@@ -149,3 +149,108 @@ pub fn depth_row(air: f64) -> usize {
         3
     }
 }
+
+/// How many terms the expected pass model reads.
+pub const XPASS_TERMS: usize = 13;
+
+/// What the expected pass model reads of a scrimmage snap before it is
+/// called, as nflfastR's expected pass rate reads the down, the distance,
+/// the field, the score, the clock and the win chance: a constant (first
+/// down), second, third and fourth down, the log of the yards to go, two
+/// yards or less to go, the yards to the goal line (in hundreds), inside
+/// the ten, the score margin in touchdowns (to three either way), the
+/// margin times the share of the game gone, the last two minutes of a
+/// half, the offense's win chance less a half, and three yards or less on
+/// third or fourth down. Proposed, not confirmed: the features.
+#[allow(clippy::too_many_arguments)]
+pub fn xpass_features(
+    level: Level,
+    down: u8,
+    togo: f64,
+    to_goal: f64,
+    margin: i32,
+    quarter: u8,
+    clock: f64,
+    wp: f64,
+) -> [f64; XPASS_TERMS] {
+    let on = |b: bool| b as u8 as f64;
+    let qlen = if level == Level::HS { 720.0 } else { 900.0 };
+    let gone =
+        if quarter >= 5 { 1.0 } else { ((quarter.max(1) - 1) as f64 + (1.0 - clock / qlen).clamp(0.0, 1.0)) / 4.0 };
+    let m = (margin as f64 / 7.0).clamp(-3.0, 3.0);
+    [
+        1.0,
+        on(down == 2),
+        on(down == 3),
+        on(down == 4),
+        togo.max(1.0).ln(),
+        on(togo <= 2.0),
+        to_goal / 100.0,
+        on(to_goal <= 10.0),
+        m,
+        m * gone,
+        on(matches!(quarter, 2 | 4) && clock <= 120.0),
+        wp - 0.5,
+        on(down >= 3 && togo <= 3.0),
+    ]
+}
+
+/// The expected pass model's weights by level (HS, FBS, FCS, small
+/// colleges, NFL), from `xpass_fit -- 600 7` (2026-11-04: every
+/// down-and-distance band within 2.5 points of the engine's own rate, the
+/// lead and deficit bands within 3.5).
+pub const XPASS: [[f64; XPASS_TERMS]; 5] = [
+    // High school.
+    [-1.1706, 0.3384, 1.0278, 0.8856, 0.3139, -0.2694, -0.1362, -0.1049, 0.0083, 0.0076, 1.4311, -1.0447, -0.7041],
+    // FBS.
+    [-0.7080, 0.2187, 1.0177, 0.8778, 0.2240, -0.1689, -0.1812, -0.1159, 0.2825, -0.3085, 1.5727, -1.1415, -0.9416],
+    // FCS.
+    [-0.8451, 0.2309, 0.9695, 0.8758, 0.2705, -0.1289, -0.1806, -0.0796, 0.2799, -0.2731, 1.5928, -1.2583, -0.8914],
+    // Small colleges.
+    [-0.7758, 0.2207, 1.0175, 0.8850, 0.2413, -0.1762, -0.1856, -0.1060, 0.2747, -0.2894, 1.6115, -1.1565, -0.9433],
+    // NFL.
+    [-0.7825, 0.4133, 1.5341, 1.1530, 0.3634, -0.1882, -0.1536, 0.0140, 0.3327, -0.6988, 1.3153, -0.3214, -0.7655],
+];
+
+/// The chance a snap is a dropback (a throw, a sack or a scramble) by the
+/// level's own play calling in that situation.
+pub fn pass_chance(level: Level, x: &[f64; XPASS_TERMS]) -> f64 {
+    let z: f64 = XPASS[row(level)].iter().zip(x).map(|(b, x)| b * x).sum();
+    1.0 / (1.0 + (-z).exp())
+}
+
+/// A scrimmage snap's expected pass rate, from the situation it was called
+/// in (the offense's view).
+pub fn expected_pass(level: Level, p: &crate::game::stats::PlayRecord) -> f64 {
+    pass_chance(level, &pass_features_of(level, p))
+}
+
+/// A snap's expected pass features.
+pub fn pass_features_of(level: Level, p: &crate::game::stats::PlayRecord) -> [f64; XPASS_TERMS] {
+    let o = p.offense.min(1);
+    xpass_features(level, p.down, p.togo, p.yardline_100, p.score[o] - p.score[1 - o], p.quarter, p.clock, p.wp_before)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The expected pass rate reads the situation as play callers do:
+    /// third and long throws, third and short runs more, and a team far
+    /// behind late throws more than one far ahead.
+    #[test]
+    fn the_expected_pass_rate_reads_the_situation() {
+        for level in [Level::HS, Level::FBS, Level::NFL] {
+            let x = |down, togo, margin, quarter, clock, wp| {
+                pass_chance(level, &xpass_features(level, down, togo, 60.0, margin, quarter, clock, wp))
+            };
+            let first = x(1, 10.0, 0, 1, 600.0, 0.5);
+            let long = x(3, 9.0, 0, 1, 600.0, 0.5);
+            let short = x(3, 1.0, 0, 1, 600.0, 0.5);
+            assert!(long > first + 0.15 && short < long - 0.2, "{level:?}: {first} {long} {short}");
+            assert!((0.3..0.7).contains(&first), "{level:?}: first and ten {first}");
+            let (behind, ahead) = (x(1, 10.0, -17, 4, 300.0, 0.05), x(1, 10.0, 17, 4, 300.0, 0.95));
+            assert!(behind > ahead + 0.15, "{level:?}: behind {behind} ahead {ahead}");
+        }
+    }
+}

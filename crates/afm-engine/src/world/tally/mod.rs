@@ -3,7 +3,7 @@
 //! instead of from the world reader's game log (a 30-year world's log is
 //! about 40 GB, far too big to ship).
 //!
-//! Five kinds, one file each per season, so later data lanes can each grow
+//! Six kinds, one file each per season, so later data lanes can each grow
 //! their own (`KINDS`):
 //! - `players`: each college and NFL player's season: games, starts, snaps,
 //!   the games he played and his numbers split by situation (`players.rs`).
@@ -15,6 +15,10 @@
 //! - `classes`: every draft class and Division I recruiting class with what
 //!   became of each member so far (`classes.rs`).
 //! - `people`: each coach's unit results with their ranks (`people.rs`).
+//! - `squads`: one small row per team a season at every level, high school
+//!   too: box totals, expected pass rate by situation, turnover luck,
+//!   starters, the closing power rating and the roster's talent
+//!   (`squads.rs`, lane NB7).
 //! - `calls`: each team's 4th downs and tries against the analysts' model,
 //!   its timeouts and challenges (lane NB8, `calls.rs`; the models in
 //!   `decide.rs`).
@@ -39,6 +43,7 @@ pub mod file;
 pub mod games;
 pub mod people;
 pub mod players;
+pub mod squads;
 pub mod teams;
 
 use std::path::{Path, PathBuf};
@@ -48,7 +53,7 @@ use super::World;
 /// The folder beside a world or save: `name.afmdata`.
 pub const EXT: &str = "afmdata";
 /// The kinds, each its own folder of season files.
-pub const KINDS: [&str; 6] = ["players", "teams", "games", "classes", "people", "calls"];
+pub const KINDS: [&str; 7] = ["players", "teams", "games", "classes", "people", "squads", "calls"];
 
 /// The level a tally belongs to (its code in files).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -75,6 +80,9 @@ pub struct Tallies {
     pub players: players::Open,
     #[serde(default)]
     pub teams: teams::Open,
+    /// Every team's squad row (lane NB7).
+    #[serde(default)]
+    pub squads: squads::Open,
     #[serde(default)]
     pub classes: classes::Store,
     #[serde(default)]
@@ -165,6 +173,9 @@ impl World {
             t.teams.add(part.level, part.teams[0], d, a, [&part.adv[0], &part.adv[1]], part.score);
             t.teams.add(part.level, part.teams[1], d, b, [&part.adv[1], &part.adv[0]], [part.score[1], part.score[0]]);
         }
+        let [a, b] = part.squads;
+        t.squads.add(part.level, part.teams[0], a, [&part.adv[0], &part.adv[1]], part.score);
+        t.squads.add(part.level, part.teams[1], b, [&part.adv[1], &part.adv[0]], [part.score[1], part.score[0]]);
     }
 
     /// The draft's picks: (person index, overall pick, round, club).
@@ -235,6 +246,17 @@ impl World {
         for s in self.tallies.teams.seasons.values_mut() {
             s.last = None;
         }
+        // Lane NB7: each team's closing rating and what its roster brought.
+        let ratings = super::power::closing(&super::power::games_of_frames(&self.tallies.games.frames));
+        let talent = self.close_talent(season);
+        for s in self.tallies.squads.seasons.values_mut() {
+            if let Some(r) = ratings.get(&(s.level, s.team)) {
+                s.rating = vec![r.off as f32, r.def as f32, r.games as f32];
+            }
+            if let Some(t) = talent.get(&(s.level, s.team)) {
+                s.talent = t.clone();
+            }
+        }
         let teams = self.tallies.teams.rows();
         let mut f = file::Frames::new(file::LEVEL_CLOSE);
         for (k, s) in &teams {
@@ -246,6 +268,11 @@ impl World {
             f.push(people::key(&r), &file::encode(&r));
         }
         files.push(("people", f.file_bytes("people", season)));
+        let mut f = file::Frames::new(file::LEVEL_CLOSE);
+        for (k, s) in self.tallies.squads.rows() {
+            f.push(k, &file::encode(s));
+        }
+        files.push(("squads", f.file_bytes("squads", season)));
         let mut f = file::Frames::new(file::LEVEL_CLOSE);
         let c = &self.tallies.classes;
         let mut members: Vec<(u64, classes::Member)> = c
@@ -270,6 +297,7 @@ impl World {
         t.players = Default::default();
         t.teams = Default::default();
         t.calls = Default::default();
+        t.squads = Default::default();
         for (kind, bytes) in files {
             let written = t.dir.as_ref().map(|d| file::write(&path(d, kind, season), &bytes));
             match written {
@@ -285,6 +313,57 @@ impl World {
             t.closed.push(season);
         }
         t.season = season + 1;
+    }
+
+    /// What each college and high school roster brought this season (lane
+    /// NB7): at college the recruiting stars of the men who played, at high
+    /// school its regular starters and the seniors among them. Only reads.
+    fn close_talent(&self, season: i32) -> std::collections::HashMap<(u8, u32), Vec<f32>> {
+        let by_id: std::collections::HashMap<u32, usize> =
+            self.people.iter().enumerate().map(|(k, p)| (p.player.id, k)).collect();
+        let mut out = std::collections::HashMap::new();
+        // College: (sum of stars, men) all, offense, defense, and the
+        // four and five star men, of those who took a snap on offense or
+        // defense.
+        let mut acc: std::collections::HashMap<u32, [f32; 7]> = std::collections::HashMap::new();
+        for (_, p) in self.tallies.players.rows() {
+            if p.level != Level::College as u8 || p.snaps[0] + p.snaps[1] == 0 {
+                continue;
+            }
+            let Some(&k) = by_id.get(&p.id) else { continue };
+            let stars = self.people[k].stars as f32;
+            let e = acc.entry(p.team).or_default();
+            e[0] += stars;
+            e[3] += 1.0;
+            let unit = if p.snaps[0] >= p.snaps[1] { 0 } else { 1 };
+            e[1 + unit] += stars;
+            e[4 + unit] += 1.0;
+            e[6] += (stars >= 4.0) as u8 as f32;
+        }
+        for (t, e) in acc {
+            let avg = |s: f32, n: f32| if n > 0.0 { s / n } else { 0.0 };
+            out.insert(
+                (Level::College as u8, t),
+                vec![avg(e[0], e[3]), avg(e[1], e[4]), avg(e[2], e[5]), e[3], e[4], e[5], avg(e[6], e[3])],
+            );
+        }
+        // High school: regular starters and the seniors among them.
+        for s in self.tallies.squads.seasons.values().filter(|s| s.level == Level::Hs as u8) {
+            let mut v = [0f32; 4];
+            for &(id, o, d) in &s.starters {
+                let senior = by_id.get(&id).is_some_and(|&k| self.people[k].class_of == season + 1);
+                for (unit, starts) in [(0, o), (1, d)] {
+                    if squads::regular(starts, s.games) {
+                        v[unit] += 1.0;
+                        if senior {
+                            v[2 + unit] += 1.0;
+                        }
+                    }
+                }
+            }
+            out.insert((Level::Hs as u8, s.team), v.to_vec());
+        }
+        out
     }
 
     /// The seasons with tallies, oldest first (the open one last).
@@ -387,6 +466,32 @@ impl World {
         }
         let _ = self.tally_each("teams", season, |_, r| {
             if let Some(s) = file::decode::<teams::Season>(r) {
+                f(&s)
+            }
+        });
+    }
+
+    /// A team's squad row (lane NB7).
+    pub fn tally_squad(&self, level: Level, season: i32, team: u32) -> Option<squads::Season> {
+        let k = squads::key(level, team);
+        if season == self.tallies.season {
+            return self.tallies.squads.seasons.get(&k).cloned();
+        }
+        let mut out = None;
+        let _ = self.tally_get("squads", season, &[k], |_, r| out = file::decode(r));
+        out
+    }
+
+    /// Every team's squad row in a season (`f` sees each, by key).
+    pub fn tally_squads(&self, season: i32, mut f: impl FnMut(&squads::Season)) {
+        if season == self.tallies.season {
+            for (_, s) in self.tallies.squads.rows() {
+                f(s);
+            }
+            return;
+        }
+        let _ = self.tally_each("squads", season, |_, r| {
+            if let Some(s) = file::decode::<squads::Season>(r) {
                 f(&s)
             }
         });

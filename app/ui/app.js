@@ -424,7 +424,7 @@ const CRUMBS = { home: "Home", inbox: "Inbox", news: "News", calendar: "Calendar
 const CLASSES = ["Fr", "So", "Jr", "Sr"];
 const STATE_NAMES = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming" };
 screens.roster = async (a) => {
-  const x = await api("roster", a.kind ? { kind: a.kind, id: a.id } : {});
+  const x = await qfGet("roster", a.kind ? { kind: a.kind, id: a.id } : {});
   setColors(x.team.colors);
   const f = keep("roster:" + (a.kind ? a.kind + a.id : "mine"), { unit: "ALL", cls: "ALL", injured: false });
   const count = (fn) => x.rows.filter(fn).length;
@@ -432,7 +432,10 @@ screens.roster = async (a) => {
   // NFL players by years in the league: rookies, young, prime, veterans.
   const band = (r) => (pro ? ((y) => (y === 0 ? "R" : y <= 3 ? "1-3" : y <= 6 ? "4-6" : "7+"))(classRank(r.class) || 0) : r.class.replace("RS ", ""));
   const bands = pro ? [["R", "Rookies"], ["1-3", "1-3 yrs"], ["4-6", "4-6 yrs"], ["7+", "7+ yrs"]] : CLASSES.map((c) => [c, c]);
-  let rows = x.rows.filter((r) => (f.unit === "ALL" || r.group === f.unit) && (f.cls === "ALL" || band(r) === f.cls) && (!f.injured || /Injur/.test(r.status)));
+  const base = x.rows.filter((r) => (f.unit === "ALL" || r.group === f.unit) && (f.cls === "ALL" || band(r) === f.cls) && (!f.injured || /Injur/.test(r.status)));
+  // The quick filter (Cain, 2026-11-04): search, any attribute or stat, positions.
+  const scope = qfScope(a), qs = qfState(scope), qfields = qfFields(x.qf);
+  const rows = qfApply(base, qs, qfields);
   const cols = [
     { k: "name", t: "Name", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.notes ? ' <span class="st-pill" title="Your notes">✎ ' + r.notes + "</span>" : ""}` },
     { k: "pos", t: "Pos", l: true },
@@ -447,6 +450,7 @@ screens.roster = async (a) => {
     { k: "mood", t: "Mood", l: true },
     { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') },
   ];
+  const allCols = qfCols(cols, qs, qfields, "roster");
   const seg = (k, opts) => `<div class="seg">${opts.map(([v, t, n]) => `<button data-act="rf" data-f="${k}" data-v="${v}" aria-pressed="${f[k] === v}">${t}${n != null ? `<small>${n}</small>` : ""}</button>`).join("")}</div>`;
   return `<div class="film"><div class="pad">
     <div style="display:flex;align-items:center;gap:14px">${mark(x.team, 48)}<div><div class="h1">${esc(x.team.name)}</div><div class="sub">${x.rows.length} players · ${x.mine ? "your staff reads them every day" : "only what is public: measurables and stars"}</div></div></div>
@@ -455,9 +459,12 @@ screens.roster = async (a) => {
       ${seg("cls", [["ALL", pro ? "Everyone" : "All classes"], ...bands.map(([v, t]) => [v, t, count((r) => band(r) === v)])])}
       <div class="seg"><button data-act="rinj" aria-pressed="${f.injured}">Injured only</button></div>
     </div>
-    ${table("roster", cols, rows, {
+    ${qfBar(scope, x.qf, base, rows.length)}
+    ${table("roster", allCols, rows, {
       groupBy: (r) => r.pos,
-      groups: [{ t: "Player", span: 4 }, { t: "Body · measured", span: 4, div: true }, { t: "Opinion", who: x.mine ? "your position coaches" : "public", span: 3, div: true }],
+      // The quick filter's columns sit in the Player group, after his class.
+      groups: [{ t: "Player", span: 4 + allCols.length - cols.length }, { t: "Body · measured", span: 4, div: true }, { t: "Opinion", who: x.mine ? "your position coaches" : "public", span: 3, div: true }],
+      empty: qfOn(qs, qfields) ? qfEmpty(base, qs, qfields) : undefined,
     })}
   </div></div>`;
 };

@@ -43,6 +43,7 @@ pub mod lane_storylines;
 pub mod lane_training;
 pub mod lane_views;
 pub mod memory;
+pub mod quick_filter;
 pub mod reads;
 pub mod setup;
 pub mod tallies;

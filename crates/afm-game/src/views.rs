@@ -1583,10 +1583,17 @@ pub fn roster(w: &World, t: TeamRef) -> Value {
     let reader = reader_key(w);
     let mut rows: Vec<(usize, Value)> = roster_people(w, t)
         .into_iter()
-        .map(|k| (w.people[k].player.position.index(), row(w, k, t, own, reader)))
+        .map(|k| {
+            let mut v = row(w, k, t, own, reader);
+            // Every attribute's read, for the quick filter: what your staff
+            // has of another team's players (their bodies wide, their skills
+            // only once scouted), as on their pages.
+            v["attrs"] = crate::quick_filter::attrs_json(&reads::attributes(w, k));
+            (w.people[k].player.position.index(), v)
+        })
         .collect();
     rows.sort_by_key(|x| x.0);
-    json!({ "team": team_brief(w, t), "mine": own, "rows": rows.into_iter().map(|r| r.1).collect::<Vec<_>>() })
+    json!({ "team": team_brief(w, t), "mine": own, "rows": rows.into_iter().map(|r| r.1).collect::<Vec<_>>(), "qf": crate::quick_filter::catalog(None) })
 }
 
 pub fn schedule(w: &World, t: TeamRef) -> Value {

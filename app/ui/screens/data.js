@@ -420,3 +420,264 @@ document.addEventListener("change", (ev) => {
   keep("pdata:" + t.dataset.pid, {}).year = t.value;
   refresh(t);
 });
+
+// ---------- Team data (lane NB7, items 16-23; boards 44 and 53) ----------
+// A team's Data page (its analytics with ranks, tendencies, games with the
+// unit grades and snap shares, what came back, and its power rating and
+// odds), its stats by season, and every team ranked, the tiers chart and
+// the power ratings. Every number names itself on hover (data-h8).
+Object.assign(I, {
+  teamdata: '<path d="M4 20V9M10 20V4M16 20v-7M22 20H2"/>',
+  teamlead: '<path d="M7 20V10M12 20V4M17 20v-6"/><circle cx="12" cy="3" r="1"/>',
+});
+navAdd({ go: "teamlead", label: "Team leaderboards", icon: "teamlead", sec: "data", after: "leaders" });
+navAdd({ go: "teamdata", label: "Team data", icon: "teamdata", sec: "data", after: "analytics" });
+Object.assign(CRUMBS, { teamdata: "Team data", teamseasons: "Stats by season", teamlead: "Team leaderboards" });
+{
+  const core = GOTO.team;
+  GOTO.team = (a, t) => {
+    const list = core(a, t);
+    const ta = t.ref ? { kind: t.ref.kind, id: t.ref.id } : {};
+    if (t.ref && t.ref.kind !== "other") list.splice(2, 0, ["Team data", "teamdata", ta], ["Stats by season", "teamseasons", ta]);
+    return list;
+  };
+}
+const TD_TABS = ["Analytics", "Tendencies", "Games", "Roster", "Power"];
+const tdH8 = (k) => (k ? ` data-h8="${esc(k)}"` : "");
+const tdRank = (c, n) => (c && c.rank ? `<small class="dt-rk2 ${c.rank <= Math.max(1, Math.round(n / 10)) ? "top" : c.rank > n - Math.max(1, Math.round(n / 10)) ? "low" : ""}">${c.rank}</small>` : "");
+const tdArgs = (a) => (a && a.kind ? { kind: a.kind, id: Number(a.id) } : {});
+function tdTable(heads, rows, keys = []) {
+  return `<div class="tbl"><table><thead><tr>${heads.map((h, i) => `<th class="${i === 0 ? "l" : ""}"${tdH8(keys[i])}>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((v, i) => `<td class="${i === 0 ? "l" : ""}">${v ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+const tdPanel = (h, body, h8) => (body ? `<section class="panel dt-panel"><h2${tdH8(h8)}>${esc(h)}</h2>${body}</section>` : "");
+
+screens.teamdata = async (a) => {
+  const K = keep("teamdata:" + (a.kind || "mine") + ":" + (a.id ?? ""), {});
+  if (a.year) { K.year = Number(a.year); delete a.year; }
+  const tab = tabOf("tdtab", TD_TABS, a);
+  const x = await api("team_data", { ...tdArgs(a), year: K.year || undefined, tab: tab.toLowerCase() });
+  if (x.error && !x.team) return `<div class="pad"><div class="empty">${esc(x.error)}</div></div>`;
+  title("Team data", x.team.name);
+  setColors(x.team.colors);
+  const ta = x.team.ref;
+  const years = x.years.length > 1 ? `<select class="ssel" data-act="tdyear" data-k="teamdata:${esc((a.kind || "mine") + ":" + (a.id ?? ""))}">${x.years.map((y) => `<option value="${y}" ${y === x.year ? "selected" : ""}>${y}</option>`).join("")}</select>` : "";
+  const bar = `<div class="tbar">${years}<span class="tspace"></span><span class="muted small">${x.record ? `${esc(x.record)} · ` : ""}ranked among ${esc(x.group)} (${x.n})</span></div>`;
+  let body = "";
+  if (x.error) body = `<div class="empty">${esc(x.error)}</div>`;
+  else if (tab === "Analytics") body = tdAnalytics(x);
+  else if (tab === "Tendencies") body = tdTendencies(x);
+  else if (tab === "Games") body = tdGames(x);
+  else if (tab === "Roster") body = tdRoster(x);
+  else body = tdPower(x);
+  const src = x.depth == null
+    ? "Box scores only for your seat at this level: the charted numbers don't show."
+    : `${x.charting[0].toUpperCase() + x.charting.slice(1)} for your seat at this level.${x.depth < 2 ? " Film charting adds pressure, coverage, the calls and the grades." : ""}`;
+  const goto = gotoLine([["Team page", "team", ta], ["Stats by season", "teamseasons", ta], ["Team leaderboards", "teamlead", { level: x.level }]]);
+  return `<div class="pad sl dt td">${pageHead({ kicker: `Data · ${x.mine ? "self-scout" : esc(x.group)}`, title: `${mark(x.team, 30)} ${esc(x.team.name)}`, sub: `The ${x.year} season`, goto })}${bar}${tabs("tdtab", TD_TABS, tab)}<div class="td-body">${body}</div>${dtSource(src)}</div>`;
+};
+GOTO.teamdata = (a) => [["Team page", "team", tdArgs(a)], ["Stats by season", "teamseasons", tdArgs(a)], ["Team leaderboards", "teamlead"]];
+
+function tdAnalytics(x) {
+  if (!x.sides) return `<div class="empty">No games counted for this team that season.</div>`;
+  return x.sides.map((s) => {
+    if (!s.rows.length) return "";
+    const two = s.heads.length === 2;
+    const heads = two ? [s.name, "Offense", "", "Defense", "", "Level"] : [s.name, "Team", "", "Level"];
+    const rows = s.rows.map((r) => {
+      const cells = r.cells.map((c) => (c ? [`<b>${esc(c.text)}</b>`, tdRank(c, x.n)] : ["–", ""])).flat();
+      const avg = r.cells.map((c) => (c && c.avg ? esc(c.avg) : "")).join(two ? " / " : "");
+      return [`<span${tdH8(r.key)} tabindex="0">${esc(r.label)}</span>`, ...cells, `<small class="muted">${avg}</small>`];
+    });
+    return tdPanel(s.name, tdTable(heads, rows));
+  }).join("") + `<p class="muted small">The small number is the rank among ${esc(x.group)}; a defense ranks by what it kept the other side to. Level is the group's average${x.sides[0].heads.length === 2 ? ", offense / defense" : ""}.</p>`;
+}
+
+function tdTendencies(x) {
+  const t = x.tendencies;
+  if (!t) return `<div class="empty">${x.level === "hs" ? "High school is box scores: no play-by-play to read the calls from." : "Your seat doesn't chart this level: the calls by situation don't show."}</div>`;
+  const calls = tdTable(["Situation", "Snaps", "Pass", "Expected", "Over", "Level"], t.calls.map((r) => [esc(r.label), r.snaps, esc(r.pass), esc(r.expected), `<b class="${parseFloat(r.over) > 0 ? "td-up" : "td-dn"}">${esc(r.over)}</b>`, esc(r.level || "")]), ["", "TendSnaps", "TendPass", "TendXPass", "TendOver", "TendLevel"]);
+  let html = tdPanel("Run or pass by situation", calls, "TmProe");
+  if (t.offense) {
+    const o = t.offense;
+    const share = (rows, first, key) => tdTable([first, "Snaps", "Share", "Pass", "EPA a play"], rows.map((r) => [esc(r.label), r.snaps, esc(r.share), esc(r.pass), esc(r.epa)]), [key, "PkgSnaps", "Share", "PkgPass", "EpaPlay"]);
+    const rates = `<ul class="dt-plain">${o.rates.map((r) => `<li><span${tdH8(r.key)} tabindex="0">${esc(r.label)}</span><b>${esc(r.v || "–")}</b></li>`).join("")}</ul>`;
+    html += `<div class="td-grid">${tdPanel("Personnel", share(o.personnel, "Personnel", "Personnel"), "Personnel")}${tdPanel("Backfield", share(o.backfield, "Backfield", "Backfield"), "Backfield")}${tdPanel("How it gets there", rates)}</div>`;
+  }
+  if (t.defense) {
+    const d = t.defense;
+    const list = (rows, k) => `<ul class="dt-plain">${rows.map((r) => `<li><span>${esc(r.label)}</span><b>${esc(r[k] || "–")}</b></li>`).join("")}</ul>`;
+    const pk = tdTable(["Package", "Snaps", "Share", "Pass", "EPA a play"], d.packages.map((r) => [esc(r.label), r.snaps, esc(r.share), esc(r.pass), esc(r.epa)]), ["Package", "PkgSnaps", "Share", "PkgPass", "EpaPlay"]);
+    const bx = tdTable(["Box", "Share", "Runs", "Y/C"], d.boxes.map((r) => [esc(r.label), esc(r.share), r.runs, esc(r.ypc || "")]), ["BoxCount", "Share", "PkgRun", "Ypc"]);
+    const rates = `<ul class="dt-plain"><li><span data-h8="ManRate" tabindex="0">Man coverage</span><b>${esc(d.man || "–")}</b></li>${d.rates.map((r) => `<li><span${tdH8(r.key)} tabindex="0">${esc(r.label)}</span><b>${esc(r.v || "–")}</b></li>`).join("")}</ul>`;
+    html += `<h3 class="dt-h3">Its defense</h3><div class="td-grid">${tdPanel("Coverage shells", list(d.shells, "share"), "Shell")}${tdPanel("Coverages", list(d.coverages.slice(0, 8), "share"), "CoverCall")}${tdPanel("Blitz by down", list(d.blitz, "v"), "TeamBlitz")}${tdPanel("Its calls", rates)}${tdPanel("Packages", pk, "Package")}${tdPanel("Box counts", bx, "BoxCount")}</div>`;
+  } else if (x.depth != null && x.depth < 2) {
+    html += `<p class="muted small">Film charting adds personnel, the backfield, motion, play action and the defense's coverages, blitzes and boxes.</p>`;
+  }
+  return html;
+}
+
+function tdGames(x) {
+  const g = x.games_list;
+  if (!g || !g.rows.length) return `<div class="empty">No games counted for this team that season.</div>`;
+  const heads = ["Date", "Opponent", "Result", "Yards", ...(g.rows[0].epa ? ["EPA a play"] : []), ...(g.graded ? ["Offense grade", "Defense grade"] : [])];
+  const keys = ["", "", "", "TmYdsG", ...(g.rows[0].epa ? ["TmEpa"] : []), ...(g.graded ? ["UnitGrade", "UnitGrade"] : [])];
+  const rows = g.rows.map((r) => [esc(r.date), `${r.home ? "" : r.neutral ? "vs " : "at "}${r.opp ? teamA(r.opp) : "?"}${r.kind && r.kind !== "regular" ? ` <span class="tag soft">${esc(r.kind)}</span>` : ""}`, esc(r.result), `${r.yards[0]}-${r.yards[1]}`, ...(r.epa ? [`${esc(r.epa[0])} / ${esc(r.epa[1])}`] : []), ...(g.graded ? [esc(r.grades[0] || ""), esc(r.grades[1] || "")] : [])]);
+  let html = tdPanel("Game by game", tdTable(heads, rows, keys));
+  if (g.snaps) {
+    const n = g.rows.length;
+    const unit = (list) => tdTable(["Player", "Pos", "Snaps", ...g.rows.map((_, i) => String(i + 1))], list.map((m) => [m.id != null ? playerLink(m.id, m.name) : esc(m.name), esc(m.pos || ""), m.snaps, ...m.games.map((v) => (v == null ? '<span class="muted">–</span>' : `<span class="td-snap" style="--p:${v}%">${v}</span>`))]), ["", "", "Snaps", ...Array(n).fill("SnapShare")]);
+    html += `<div class="td-grid2">${tdPanel("Snap shares · offense", unit(g.snaps.offense), "SnapShare")}${tdPanel("Snap shares · defense", unit(g.snaps.defense), "SnapShare")}</div><p class="muted small">Each column is a game in the order above: the share of the unit's snaps he played.</p>`;
+  }
+  return html;
+}
+
+function tdRoster(x) {
+  const b = x.back || {};
+  let html = "";
+  if (b.production) {
+    const p = b.production;
+    html += tdPanel("Returning production", `<p class="bigline"><b>${esc(p.overall)}</b> overall · offense ${esc(p.offense)} · defense ${esc(p.defense)}</p><ul class="dt-plain">${p.stats.map((s) => `<li><span>${esc(s.label)}</span><b>${esc(s.share)}</b></li>`).join("")}</ul>`, "RetProd");
+  }
+  if (b.starters) {
+    const s = b.starters;
+    html += tdPanel("Starters back", `<ul class="dt-plain"><li><span>Offense</span><b>${s.offense[0]} of ${s.offense[1]}</b></li><li><span>Defense</span><b>${s.defense[0]} of ${s.defense[1]}</b></li><li><span data-h8="StartsBack" tabindex="0">Starts back</span><b>${esc(s.starts[0])} / ${esc(s.starts[1])}</b></li></ul>`, "StartersBack");
+  }
+  if (b.snaps) html += tdPanel("Snaps back", `<ul class="dt-plain"><li><span>Offense</span><b>${esc(b.snaps[0])}</b></li><li><span>Defense</span><b>${esc(b.snaps[1])}</b></li></ul>`, "SnapsBack");
+  const t = b.talent;
+  if (t && t.stars != null) {
+    html += tdPanel("Roster talent", `<p class="bigline"><b>${esc(t.stars)}★</b> average${t.rank ? ` · ${t.rank[0]} of ${t.rank[1]}` : ""}</p><ul class="dt-plain"><li><span>Offense</span><b>${esc(t.offense)}★</b></li><li><span>Defense</span><b>${esc(t.defense)}★</b></li><li><span data-h8="BlueChips" tabindex="0">Blue-chip share</span><b>${esc(t.blue_chips || "–")}</b></li><li><span>Men</span><b>${t.men}</b></li></ul>`, "TeamStars");
+  } else if (t && t.seniors) {
+    html += tdPanel("Its regulars", `<ul class="dt-plain"><li><span>Offense</span><b>${t.starters[0]} starters, ${t.seniors[0]} seniors</b></li><li><span>Defense</span><b>${t.starters[1]} starters, ${t.seniors[1]} seniors</b></li></ul>`, "Seniors");
+  } else if (b.seniors_now != null) {
+    html += tdPanel("Seniors", `<p class="bigline"><b>${b.seniors_now}</b> seniors on the roster</p>`, "Seniors");
+  }
+  return html ? `<div class="td-grid">${html}</div>` : `<div class="empty">No season before this one is counted yet.</div>`;
+}
+
+function tdPower(x) {
+  const p = x.power;
+  if (!p) return `<div class="empty">No rating for this team that season.</div>`;
+  if (p.closing) return tdPanel("Closing power rating", `<p class="bigline"><b>${esc(p.closing.overall)}</b> · ${p.rank[0]} of ${p.rank[1]}</p><ul class="dt-plain"><li><span data-h8="PowerOff" tabindex="0">Offense</span><b>${esc(p.closing.off)}</b></li><li><span data-h8="PowerDef" tabindex="0">Defense</span><b>${esc(p.closing.def)}</b></li></ul>`, "PowerRtg");
+  const o = p.odds;
+  const odds = o ? `<ul class="dt-plain"><li><span data-h8="ExpWins" tabindex="0">Expected wins</span><b>${esc(o.wins)}-${esc(o.losses)}</b></li>${x.level === "college" ? `<li><span data-h8="BowlOdds" tabindex="0">Bowl eligible</span><b>${esc(o.bowl)}</b></li>` : ""}${x.level !== "hs" ? `<li><span data-h8="LeagueOdds" tabindex="0">Wins its ${x.level === "nfl" ? "division" : "conference"}</span><b>${esc(o.league)}</b></li><li><span data-h8="PlayoffOdds" tabindex="0">Playoff</span><b>${esc(o.playoff)}</b></li><li><span data-h8="ByeOdds" tabindex="0">First-round bye</span><b>${esc(o.bye)}</b></li>` : `<li><span data-h8="WinningOdds" tabindex="0">Winning record</span><b>${esc(o.winning)}</b></li>`}</ul>` : "";
+  const now = `<p class="bigline"><b>${esc(p.now.overall)}</b> · ${p.rank[0]} of ${p.rank[1]} · from ${p.games} game${p.games === 1 ? "" : "s"}</p><ul class="dt-plain"><li><span data-h8="PowerOff" tabindex="0">Offense</span><b>${esc(p.now.off)}</b></li><li><span data-h8="PowerDef" tabindex="0">Defense</span><b>${esc(p.now.def)}</b></li>${p.preseason ? `<li><span data-h8="Projection" tabindex="0">Preseason projection</span><b>${esc(p.preseason.overall)}</b></li>` : ""}<li><span>Home field</span><b>${esc(p.home)} points</b></li></ul>`;
+  const coming = p.coming.length ? tdTable(["Date", "Opponent", "Margin", "Win chance"], p.coming.map((g) => [esc(g.date), `${g.home ? "" : g.neutral ? "vs " : "at "}${g.opp ? teamA(g.opp) : "?"}`, esc(g.margin), `<b>${esc(g.chance)}</b>`]), ["", "", "", "WinChance"]) : `<div class="empty">No games left to play.</div>`;
+  return `<div class="td-grid">${tdPanel("Power rating", now, "PowerRtg")}${tdPanel("Odds", odds, "ExpWins")}</div>${tdPanel("Coming games", coming, "WinChance")}<p class="muted small">Ratings from scores alone, the schedule and home field taken out; results land within ${esc(p.sigma)} points of the ratings about two times in three.</p>`;
+}
+
+// Stats by season (item 18, board 44).
+screens.teamseasons = async (a) => {
+  const K = keep("teamseasons", { unit: 1, per: "game" });
+  const x = await api("team_seasons", { ...tdArgs(a), unit: K.unit });
+  if (x.error) return `<div class="pad"><div class="empty">${esc(x.error)}</div></div>`;
+  title("Stats by season", x.team.name);
+  setColors(x.team.colors);
+  const ta = x.team.ref;
+  const now = x.rows[0] && x.rows[0].coordinator;
+  const cols = [
+    { k: "year", t: "Year", f: (r) => linkTo("teamdata", { ...ta, year: r.year }, String(r.year)) },
+    { k: "record", t: "Record", l: true },
+    { k: "head", t: "Head coach", l: true, f: (r) => (r.head ? coachLink(r.head.id, r.head.name) : ""), v: (r) => (r.head ? r.head.name : "") },
+    ...(x.role ? [{ k: "coord", t: x.role[0].toUpperCase() + x.role.slice(1), l: true, f: (r) => (r.coordinator ? coachLink(r.coordinator.id, r.coordinator.name) : ""), v: (r) => (r.coordinator ? r.coordinator.name : "") }] : []),
+    ...x.cols.map((c, i) => ({
+      k: "c" + i, t: c.label, h8: c.key,
+      v: (r) => (r.cells[i] ? parseFloat(r.cells[i].text) : null),
+      f: (r) => { const c2 = r.cells[i]; if (!c2) return "–"; const v = K.per === "total" && c2.total ? c2.total : c2.text; return `${esc(v)} ${c2.rank ? `<small class="dt-rk2" title="Rank among ${esc(r.group)} (${r.n})">${c2.rank}</small>` : ""}`; },
+      csv: (r) => (r.cells[i] ? (K.per === "total" && r.cells[i].total) || r.cells[i].text : ""),
+    })),
+    ...(x.talent ? [{ k: "talent", t: x.talent, h8: x.level === "college" ? "TeamStars" : "Seniors", f: (r) => esc(r.talent ?? "") }] : []),
+    { k: "back", t: "Starters back", h8: "StartersBack", f: (r) => (r.back ? `${r.back[0]} of ${r.back[1]}` : ""), v: (r) => (r.back ? r.back[0] : null) },
+  ];
+  const rows = x.rows.map((r) => ({ ...r, cls: now && r.coordinator && r.coordinator.id === now.id ? "td-hl" : "" }));
+  const bar = `<div class="tbar">${dtSeg("tsunit", x.units.map((u, i) => [i, u]), x.unit)}${dtSeg("tsper", [["game", "Per game"], ["total", "Totals"]], K.per)}<span class="tspace"></span>${now ? `<span class="muted small">Highlighted: ${esc(now.name)}'s seasons</span>` : ""}</div>`;
+  const goto = gotoLine([["Team data", "teamdata", ta], ["Team page", "team", ta], ["Team leaderboards", "teamlead", { level: x.level }]]);
+  return `<div class="pad sl dt td">${pageHead({ kicker: "Data", title: `${mark(x.team, 30)} ${esc(x.team.name)} › Stats by season`, sub: "Each number with its rank at the level that season. A year opens that season's team data.", goto })}${bar}${x.rows.length ? table("teamseasons", cols, rows, { sort: null }) : '<div class="empty">No seasons counted yet.</div>'}</div>`;
+};
+GOTO.teamseasons = (a) => [["Team data", "teamdata", tdArgs(a)], ["Team page", "team", tdArgs(a)], ["Team leaderboards", "teamlead"]];
+
+// Team leaderboards, the tiers chart and the power ratings (items 19, 20, 23).
+const TL_TABS = ["Leaderboard", "Tiers", "Power"];
+screens.teamlead = async (a) => {
+  const K = keep("teamlead", {});
+  for (const k of ["level", "division", "state"]) if (a[k] != null) { K[k] = a[k]; delete a[k]; }
+  const tab = tabOf("tltab", TL_TABS, a);
+  const view = { Leaderboard: "table", Tiers: "tiers", Power: "power" }[tab];
+  const x = await api("team_leaders", { level: dtLevel(K), view, year: K.year || undefined, division: K.division || undefined, state: K.state || undefined, stat: K.stat || undefined, side: K.side || 0 });
+  title("Team leaderboards", tab);
+  const years = `<select class="ssel" data-act="tlsel" data-k="year">${x.years.map((y) => `<option value="${y}" ${y === x.year ? "selected" : ""}>${y}</option>`).join("")}</select>`;
+  const where = x.level === "college" ? `<select class="ssel" data-act="tlsel" data-k="division">${x.divisions.map((d) => `<option ${d === x.division ? "selected" : ""}>${esc(d)}</option>`).join("")}</select>` : x.level === "hs" ? `<select class="ssel" data-act="tlsel" data-k="state">${x.states.map((c) => `<option value="${esc(c)}" ${c === x.state ? "selected" : ""}>${esc(STATE_NAMES[c] || c)}</option>`).join("")}</select>` : "";
+  let tools = "";
+  let body = "";
+  if (view === "table") {
+    const st = x.stats.find((s) => s.key === x.stat) || x.stats[0];
+    tools = `<select class="ssel" data-act="tlsel" data-k="stat">${x.stats.map((s) => `<option value="${esc(s.key)}" ${s.key === x.stat ? "selected" : ""}>${esc(s.label)}</option>`).join("")}</select>${st && st.sides ? dtSeg("tlside", [[0, "Offense"], [1, "Defense"]], x.side) : ""}`;
+    const cols = [
+      { k: "rank", t: "#" },
+      { k: "team", t: "Team", l: true, f: (r) => teamChip(r.team, 18), v: (r) => (r.team ? r.team.name : "") },
+      { k: "record", t: "Record", l: true },
+      { k: "value", t: st ? st.label : "", h8: x.stat, v: (r) => parseFloat(r.value), f: (r) => `<b>${esc(r.value)}</b>` },
+      ...x.cols.map((c, i) => ({ k: "c" + i, t: c.label, h8: c.key, v: (r) => parseFloat(r.cells[i]), f: (r) => esc(r.cells[i] ?? "–") })),
+    ];
+    body = x.rows.length ? table("teamlead", cols, x.rows.map((r) => ({ ...r, mine: r.team && r.team.mine })), { sort: null }) : '<div class="empty">No teams counted that season.</div>';
+  } else if (view === "tiers") {
+    body = tlTiers(x);
+  } else {
+    body = tlPower(x);
+  }
+  const bar = `<div class="tbar">${dtSeg("tllevel", DT_LEVELS, x.level)}${where}${years}${tools}<span class="tspace"></span><span class="muted small">${x.n} teams</span></div>`;
+  return `<div class="pad sl dt td">${pageHead({ kicker: "Data", title: "Team leaderboards", sub: "Every team at a level, any season. A team opens its page; Team data on its page has the rest.", goto: gotoLine([["Leaderboards", "leaders"], ["Player analytics", "analytics"], ["Team data", "teamdata"]]) })}${bar}${tabs("tltab", TL_TABS, tab)}<div class="td-body">${body}</div></div>`;
+};
+GOTO.teamlead = () => [["Leaderboards", "leaders"], ["Player analytics", "analytics"], ["Team data", "teamdata"]];
+
+// The tiers chart: offense across, defense up (allowing less is higher),
+// each team its own logo.
+function tlTiers(x) {
+  const pts = x.points || [];
+  if (pts.length < 2) return '<div class="empty">Too few teams counted that season.</div>';
+  const os = pts.map((p) => p.o), ds = pts.map((p) => p.d);
+  const pad = (lo, hi) => { const m = (hi - lo) * 0.08 || 0.05; return [lo - m, hi + m]; };
+  const [ox0, ox1] = pad(Math.min(...os), Math.max(...os));
+  const [dy0, dy1] = pad(Math.min(...ds), Math.max(...ds));
+  const mo = os.reduce((a, b) => a + b, 0) / os.length, md = ds.reduce((a, b) => a + b, 0) / ds.length;
+  const X = (v) => (100 * (v - ox0)) / (ox1 - ox0);
+  const Y = (v) => (100 * (v - dy0)) / (dy1 - dy0);
+  const f = (v) => (x.axis.fmt === "signed" ? (v >= 0 ? "+" : "") + v.toFixed(2) : v.toFixed(1));
+  const size = pts.length > 80 ? 16 : 22;
+  const dots = pts.map((p) => `<span class="tl-dot ${p.team && p.team.mine ? "mine" : ""}" style="left:${X(p.o)}%;top:${Y(p.d)}%" title="${esc((p.team ? p.team.name : "") + " · " + p.record + " · offense " + f(p.o) + ", defense " + f(p.d))}">${p.team ? `<a data-go="teamdata" data-kind="${p.team.ref.kind}" data-id="${p.team.ref.id}">${mark(p.team, size)}</a>` : ""}</span>`).join("");
+  const lab = x.axis.label;
+  return `<div class="panel tl-wrap"><div class="tl-chart" role="img" aria-label="${esc(lab)}: offense against defense"><i class="tl-mx" style="left:${X(mo)}%"></i><i class="tl-my" style="top:${Y(md)}%"></i><span class="tl-q q1">Good offense, good defense</span><span class="tl-q q2">Good defense</span><span class="tl-q q3">Good offense</span><span class="tl-q q4">Struggling</span>${dots}</div><div class="tl-axes"><span data-h8="${esc(x.axis.key)}" tabindex="0">Offense: ${esc(lab)} →</span><span>Defense: ${esc(lab)} allowed, less is higher ↑</span></div></div>`;
+}
+
+function tlPower(x) {
+  const p = x.power;
+  if (!p || !p.rows.length) return '<div class="empty">No ratings yet.</div>';
+  if (p.closing) return table("tlpower", [{ k: "rank", t: "#" }, { k: "team", t: "Team", l: true, f: (r) => teamChip(r.team, 18), v: (r) => (r.team ? r.team.name : "") }, { k: "now", t: "Power", h8: "PowerRtg", v: (r) => r.now.v, f: (r) => `<b>${esc(r.now.overall)}</b>` }, { k: "off", t: "Off", h8: "PowerOff", v: (r) => parseFloat(r.now.off), f: (r) => esc(r.now.off) }, { k: "def", t: "Def", h8: "PowerDef", v: (r) => parseFloat(r.now.def), f: (r) => esc(r.now.def) }], p.rows, { sort: null }) + '<p class="muted small">Closing ratings: the season\'s scores alone.</p>';
+  const pc = (k) => (r) => parseFloat((r.odds || {})[k]);
+  const odd = (k, t, h8) => ({ k, t, h8, v: pc(k), f: (r) => esc(r.odds ? r.odds[k] : "") });
+  const cols = [
+    { k: "rank", t: "#" },
+    { k: "team", t: "Team", l: true, f: (r) => teamChip(r.team, 18), v: (r) => (r.team ? r.team.name : "") },
+    { k: "record", t: "Record", l: true, f: (r) => esc(r.record || "0-0") },
+    { k: "now", t: "Power", h8: "PowerRtg", v: (r) => r.now.v, f: (r) => `<b>${esc(r.now.overall)}</b>` },
+    { k: "off", t: "Off", h8: "PowerOff", v: (r) => parseFloat(r.now.off), f: (r) => esc(r.now.off) },
+    { k: "def", t: "Def", h8: "PowerDef", v: (r) => parseFloat(r.now.def), f: (r) => esc(r.now.def) },
+    { k: "pre", t: "Preseason", h8: "Projection", v: (r) => (r.preseason ? r.preseason.v : null), f: (r) => esc(r.preseason ? r.preseason.overall : "") },
+    { k: "wins", t: "Exp. wins", h8: "ExpWins", v: pc("wins"), f: (r) => esc(r.odds ? `${r.odds.wins}-${r.odds.losses}` : "") },
+    ...(x.level === "college" ? [odd("bowl", "Bowl", "BowlOdds")] : []),
+    ...(x.level !== "hs" ? [odd("league", x.level === "nfl" ? "Division" : "League", "LeagueOdds"), odd("playoff", "Playoff", "PlayoffOdds"), odd("bye", "Bye", "ByeOdds")] : [odd("winning", "Winning", "WinningOdds")]),
+  ];
+  return table("tlpower", cols, p.rows.map((r) => ({ ...r, mine: r.team && r.team.mine })), { sort: null }) + `<p class="muted small">Ratings from scores, the schedule and home field (${esc(p.home)} points); early in a season the preseason projection counts as three games. The odds play the rest of the season out 2,000 times.</p>`;
+}
+
+Object.assign(CORE_MORE, {
+  tsunit: (el) => { keep("teamseasons", {}).unit = Number(el.dataset.v); refresh(el); },
+  tsper: (el) => { keep("teamseasons", {}).per = el.dataset.v; refresh(el); },
+  tllevel: (el) => { const K = keep("teamlead", {}); K.level = el.dataset.v; K.year = null; K.stat = null; refresh(el); },
+  tlside: (el) => { keep("teamlead", {}).side = Number(el.dataset.v); refresh(el); },
+});
+document.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (!t.dataset) return;
+  if (t.dataset.act === "tdyear") { keep(t.dataset.k, {}).year = Number(t.value); refresh(t); }
+  if (t.dataset.act === "tlsel") { const K = keep("teamlead", {}); K[t.dataset.k] = t.dataset.k === "year" ? Number(t.value) : t.value; if (t.dataset.k === "stat") K.side = 0; refresh(t); }
+});

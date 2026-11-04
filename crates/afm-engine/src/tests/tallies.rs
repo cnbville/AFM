@@ -179,6 +179,40 @@ fn the_tallies_only_watch_and_add_up() {
         assert!(t.last.is_none(), "team {} {} kept its last game", t.level, t.team);
     });
     assert!(teams > 30, "{teams} teams");
+    // Squads (lane NB7): every level, each row's box adds up to its score,
+    // college and the NFL read their calls against the expected pass rate,
+    // and every row carries its closing rating, starters and (college and
+    // high school) its talent.
+    let mut squads = [0usize; 3];
+    b.tally_squads(s, |t| {
+        squads[t.level as usize] += 1;
+        assert_eq!(t.box_of(0, "points"), t.points_for as f64, "squad {} {}", t.level, t.team);
+        assert_eq!(t.box_of(1, "points"), t.points_against as f64);
+        assert_eq!(t.box_of(0, "games"), t.games as f64);
+        assert_eq!(t.luck.len(), tally::squads::LUCK.len());
+        assert!(t.luck_of("fumbles_lost") <= t.luck_of("fumbles") && t.luck_of("picks") <= t.luck_of("pd"));
+        assert_eq!(t.rating.len(), 3, "squad {} {} not rated", t.level, t.team);
+        assert!(!t.regulars(0).is_empty() && !t.regulars(1).is_empty());
+        let [snaps, db, xdb] = t.tend_of(0);
+        if t.level == Level::Hs as u8 {
+            assert!(t.tend.is_empty());
+            assert_eq!(t.talent.len(), tally::squads::TALENT_HS.len());
+            assert!(t.talent_of("seniors_off").unwrap() <= t.talent_of("starters_off").unwrap());
+        } else {
+            // A small world has teams with a single game: about 70 snaps.
+            assert!(
+                snaps > 40.0 * t.games as f32 && db <= snaps && xdb > 0.1 * snaps && xdb < 0.9 * snaps,
+                "{snaps} {db} {xdb}"
+            );
+            let early = t.tend_of(1);
+            assert!(early[0] > 0.0 && early[0] < snaps);
+            if t.level == Level::College as u8 {
+                assert_eq!(t.talent.len(), tally::squads::TALENT_COLLEGE.len());
+            }
+        }
+    });
+    assert!(squads.iter().all(|&n| n > 0), "squads by level {squads:?}");
+    assert_eq!(b.tally_squad(Level::Nfl, s, 3).map(|t| (t.level, t.team)), Some((Level::Nfl as u8, 3)));
     // Calls (lane NB8): each team's 4th downs match its situation counts,
     // and college and NFL rows give back the sums; concepts against
     // coverages and garbage time are counted.

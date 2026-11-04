@@ -50,6 +50,46 @@ pub struct Still {
     pub ring: Option<(u8, u8)>,
     /// The line of scrimmage, down the frame.
     pub los: u8,
+    /// The still on a true-scale field (new bugs, Cain 2026-11-04: the old
+    /// stills were too rough to read). Stills from before it have only the
+    /// dots above.
+    #[serde(default)]
+    pub board: Option<Board>,
+}
+
+/// A path on a true-scale still: what (see `Board::paths`) and its
+/// points.
+pub type Path = (u8, Vec<(i16, i16)>);
+
+/// A still at true scale. Every spot is in tenths of a yard: `d` down the
+/// field from the line of scrimmage (the offense's way), `a` across from the
+/// offense's left sideline.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Board {
+    /// Everyone on the field: (d, a, side, position); side 0 the other
+    /// team, 1 his, 2 him.
+    pub men: Vec<(i16, i16, u8, Position)>,
+    /// The men the still names: (index into `men`, who, name); who is 1
+    /// him, 2 the man he faced, 3 the man with the ball (the carrier, the
+    /// target, the man who picked it off), 4 the quarterback.
+    pub keys: Vec<(u8, u8, String)>,
+    /// Paths: (what, points); what is 0 his, 1 the man he faced, 2 the ball
+    /// in the air, 3 the man with the ball, 4 him to the man he faced at
+    /// the snap.
+    pub paths: Vec<Path>,
+    /// The ball.
+    pub ball: (i16, i16),
+    /// A ring on him (the moment).
+    pub ring: Option<(i16, i16)>,
+    /// Yards from the line of scrimmage to the first-down line and to the
+    /// goal line.
+    pub togo: f32,
+    pub goal: f32,
+    /// Each hash's distance from the middle of the field (the level's).
+    pub hash: f32,
+    /// The stretch of field the still shows, `d` from and to: the same on a
+    /// snap's three stills, so the men move and the field stays put.
+    pub win: (i16, i16),
 }
 
 /// What his job was on a snap.
@@ -358,12 +398,13 @@ fn tape_of(w: &World, id: u32, live: Option<crate::calendar::Date>) -> Result<Ta
         s.year = season;
         let res = play_game(&s);
         let side = if home { 0 } else { 1 };
+        let look = Look { hash: s.rules.hash as f32, name: &|id| name_of(w, id) };
         let label = match live {
             Some(d) => format!("{} {} {}", d.pretty(), if home { "vs" } else { "at" }, name),
             None => format!("{} {} {}", week_word(k), if home { "vs" } else { "at" }, name),
         };
         tape.games.push(Game { label, strength: strength(opp) });
-        collect(&mut tape, k as u8, p, side, [h, a], &res, p.stage);
+        collect(&mut tape, k as u8, p, side, [h, a], &res, p.stage, &look);
     }
     if tape.snaps.is_empty() {
         return Err("He didn't get on the field in the film there is.".into());
@@ -389,12 +430,13 @@ pub fn our_tape(w: &World, id: u32) -> Result<Tape, String> {
             continue;
         };
         let res = rs.play(true);
+        let look = Look { hash: rs.rules.hash as f32, name: &|id| name_of(w, id) };
         let opp = 1 - side;
         let label = format!("{} {} {}", g.date.pretty(), if side == 0 { "vs" } else { "at" }, g.names[opp]);
         let st = strength(if opp == 0 { &rs.home } else { &rs.away });
         let gi = tape.games.len() as u8;
         tape.games.push(Game { label, strength: st });
-        collect(&mut tape, gi, p, side, [&rs.home, &rs.away], &res, p.stage);
+        collect(&mut tape, gi, p, side, [&rs.home, &rs.away], &res, p.stage, &look);
     }
     if tape.snaps.is_empty() {
         // Before your first kept game: the practice tape is his own tape.
@@ -405,7 +447,25 @@ pub fn our_tape(w: &World, id: u32) -> Result<Tape, String> {
 
 // --- Reading the snaps --------------------------------------------------------------------
 
+/// What a still needs beyond the snap: the level's hashes and the men's
+/// names.
+struct Look<'a> {
+    hash: f32,
+    name: &'a dyn Fn(u32) -> Option<String>,
+}
+
+/// "X. Virgo": a man's name on a still.
+fn name_of(w: &World, id: u32) -> Option<String> {
+    let i = super::super::place(w, id)?;
+    let n = &w.people[i].name;
+    Some(match n.split_once(' ') {
+        Some((first, last)) if !first.is_empty() => format!("{}. {last}", first.chars().next().unwrap_or(' ')),
+        _ => n.clone(),
+    })
+}
+
 /// Every snap of his in one game.
+#[allow(clippy::too_many_arguments)]
 fn collect(
     tape: &mut Tape,
     game: u8,
@@ -414,6 +474,7 @@ fn collect(
     teams: [&GameTeam; 2],
     res: &crate::game::GameResult,
     stage: Stage,
+    look: &Look,
 ) {
     let me = p.player.id;
     let pos_of = |id: u32| -> Option<(usize, Position)> {
@@ -444,7 +505,7 @@ fn collect(
             continue;
         }
         let Some(mi) = fr[0].players.iter().position(|x| x.0 == me) else { continue };
-        let snap = read_snap(r, fr, mi, me, side, &pos_of, p, mark, game);
+        let snap = read_snap(r, fr, mi, me, side, &pos_of, p, mark, game, look);
         tape.snaps.push(snap);
     }
 }
@@ -460,6 +521,7 @@ fn read_snap(
     p: &crate::world::Person,
     mark: f64,
     game: u8,
+    look: &Look,
 ) -> Snap {
     let off = r.offense == side;
     let pos = p.player.position;
@@ -469,8 +531,7 @@ fn read_snap(
     // The man he faced: whom he blocked or was blocked by at the moment,
     // the man he covered or who covered him, else the nearest of theirs.
     let key = facing(r, fr, mi, m, me, role, side, pos_of);
-    let dir = direction(fr, r.offense, side, pos_of);
-    let los_x = fr[0].ball.x;
+    let (los_x, dir, goal) = frame_of(r, fr, pos_of);
     let reach = |k: usize| -> f64 {
         let f = &fr[k.min(fr.len() - 1)];
         let mut d = (f.players[mi].1 as f64 - los_x) * dir;
@@ -567,6 +628,10 @@ fn read_snap(
     if let Some(l) = ball_line(m, end).or_else(|| ball_line(0, end)) {
         s2.lines.push(l);
     }
+    let boards = boards(r, fr, mi, key, m, side, (los_x, dir, goal), pos_of, look);
+    for (st, b) in [&mut s0, &mut s1, &mut s2].into_iter().zip(boards) {
+        st.board = Some(b);
+    }
     // His top speed on the snap.
     let mut speed = 0.0f32;
     for w2 in fr.windows(2) {
@@ -624,6 +689,128 @@ fn read_snap(
         others,
     }
     .charted()
+}
+
+/// The snap's three stills at true scale (the snap, the moment, the end):
+/// everyone where the tracking has him, the key men by name, his path and
+/// the man he faced, the ball's flight and the man who ends up with it.
+#[allow(clippy::too_many_arguments)]
+fn boards(
+    r: &PlayRecord,
+    fr: &[Frame],
+    mi: usize,
+    key: Option<usize>,
+    m: usize,
+    side: usize,
+    (los_x, dir, goal): (f64, f64, f64),
+    pos_of: &dyn Fn(u32) -> Option<(usize, Position)>,
+    look: &Look,
+) -> [Board; 3] {
+    let end = fr.len() - 1;
+    let at = |x: f64, y: f64| -> (i16, i16) {
+        let d = (x - los_x) * dir;
+        let a = if dir > 0.0 { 53.33 - y } else { y };
+        ((d * 10.0).round() as i16, (a * 10.0).round() as i16)
+    };
+    let man_at = |k: usize, who: usize| at(fr[k].players[who].1 as f64, fr[k].players[who].2 as f64);
+    let ball_at = |k: usize| at(fr[k].ball.x, fr[k].ball.y);
+    let qb = fr[0].players.iter().position(|&(id, _, _)| pos_of(id) == Some((r.offense, Position::QB)));
+    // The man with the ball: whoever picked it off, the target of a pass,
+    // the carrier of a run.
+    let pass = matches!(r.kind, PlayType::Pass);
+    let ball_id = r.interceptor.or(if pass { r.target } else { None }).or(r.carrier);
+    let bi = ball_id.and_then(|id| fr[0].players.iter().position(|x| x.0 == id));
+    let mut keys: Vec<(u8, u8, String)> = Vec::new();
+    for (i, who) in [(Some(mi), 1u8), (key, 2), (bi, 3), (qb, 4)] {
+        let Some(i) = i else { continue };
+        if keys.iter().any(|x| x.0 as usize == i) {
+            continue;
+        }
+        keys.push((i as u8, who, (look.name)(fr[0].players[i].0).unwrap_or_default()));
+    }
+    let men = |k: usize| -> Vec<(i16, i16, u8, Position)> {
+        fr[k]
+            .players
+            .iter()
+            .enumerate()
+            .map(|(i, &(id, _, _))| {
+                let (s, p) = pos_of(id).unwrap_or((usize::MAX, Position::LB));
+                let (d, a) = man_at(k, i);
+                (d, a, if i == mi { 2 } else { u8::from(s == side) }, p)
+            })
+            .collect()
+    };
+    let track = |who: usize, a: usize, b: usize| -> Vec<(i16, i16)> {
+        let step = (b.saturating_sub(a) / 14).max(1);
+        let mut pts: Vec<(i16, i16)> = (a..b).step_by(step).map(|j| man_at(j, who)).collect();
+        pts.push(man_at(b, who));
+        pts
+    };
+    let release = fr.iter().position(|f| f.ball_mode == BallMode::Air);
+    let arrive = release.and_then(|s| fr[s..].iter().position(|f| f.ball_mode != BallMode::Air).map(|k| s + k));
+    let flight = |a: usize, b: usize| -> Option<Vec<(i16, i16)>> {
+        let s = release?;
+        let e = arrive.unwrap_or(end).min(b);
+        (e > s.max(a)).then(|| vec![ball_at(s), ball_at(e)])
+    };
+    // When the man with the ball got it, for his run after.
+    let got = bi.filter(|&b| b != mi && Some(b) != key).and_then(|b| fr.iter().position(|f| f.holder as usize == b));
+    let mut paths: [Vec<Path>; 3] = Default::default();
+    if let Some(ki) = key {
+        paths[0].push((4, vec![man_at(0, mi), man_at(0, ki)]));
+    }
+    for (n, (a, b)) in [(1usize, (0usize, m)), (2, (m, end))] {
+        if b > a {
+            paths[n].push((0, track(mi, a, b)));
+            if let Some(ki) = key {
+                paths[n].push((1, track(ki, a, b)));
+            }
+        }
+        if let (Some(bi), Some(g)) = (bi, got)
+            && g.max(a) < b
+        {
+            paths[n].push((3, track(bi, g.max(a), b)));
+        }
+    }
+    if let Some(f) = flight(0, m) {
+        paths[1].push((2, f));
+    }
+    if let Some(f) = flight(m, end).or_else(|| flight(0, end)) {
+        paths[2].push((2, f));
+    }
+    // The stretch of field: everyone and every path on the still, a few
+    // yards round them; one stretch for all three unless the play runs
+    // more than 60 yards, then each still its own.
+    let frames = [0, m, end];
+    let reach: Vec<(i16, i16)> = (0..3)
+        .map(|n| {
+            let ds = (0..fr[frames[n]].players.len())
+                .map(|i| man_at(frames[n], i).0)
+                .chain(paths[n].iter().flat_map(|p| p.1.iter().map(|q| q.0)))
+                .chain([ball_at(frames[n]).0]);
+            ds.fold((i16::MAX, i16::MIN), |(lo, hi), d| (lo.min(d), hi.max(d)))
+        })
+        .collect();
+    let all = reach.iter().fold((i16::MAX, i16::MIN), |(lo, hi), x| (lo.min(x.0), hi.max(x.1)));
+    let goal = goal as f32;
+    let kick = matches!(r.kind, PlayType::Kickoff | PlayType::Punt);
+    let fit = |(lo, hi): (i16, i16)| -> (i16, i16) {
+        let back = (-(100.0 - goal) * 10.0 - 100.0) as i16;
+        let front = (goal * 10.0 + 100.0) as i16;
+        ((lo - 30).max(back), (hi + 40).min(front))
+    };
+    let shared = all.1 - all.0 <= 600;
+    std::array::from_fn(|n| Board {
+        men: men(frames[n]),
+        keys: keys.clone(),
+        paths: std::mem::take(&mut paths[n]),
+        ball: ball_at(frames[n]),
+        ring: (n == 1).then(|| man_at(m, mi)),
+        togo: if kick { 0.0 } else { r.togo as f32 },
+        goal,
+        hash: look.hash,
+        win: fit(if shared { all } else { reach[n] }),
+    })
 }
 
 impl Snap {
@@ -805,19 +992,33 @@ fn moment(fr: &[Frame], role: Role) -> usize {
 }
 
 /// Which way the offense goes (+1 toward x = 100).
-fn direction(fr: &[Frame], offense: usize, _side: usize, pos_of: &dyn Fn(u32) -> Option<(usize, Position)>) -> f64 {
+/// Where a snap's line of scrimmage is along its frames, which way the
+/// offense goes, and how far it is from the line to the goal it attacks.
+/// The engine draws a snap from the offense's own goal line, the offense
+/// going up the field, and a kick return from the return team's, from the
+/// catch. The ball's first spot is no guide: in the shotgun the quarterback
+/// already has it five yards back (new bugs, Cain 2026-11-04: half the
+/// stills were drawn upside down, the line at the quarterback).
+fn frame_of(r: &PlayRecord, fr: &[Frame], pos_of: &dyn Fn(u32) -> Option<(usize, Position)>) -> (f64, f64, f64) {
+    // The offense lines up behind the defense, the kicking team behind
+    // the return team.
     let f = &fr[0];
-    let (mut s, mut n) = (0.0, 0.0);
+    let (mut o, mut no, mut d, mut nd) = (0.0, 0.0, 0.0, 0.0);
     for &(id, x, _) in &f.players {
-        if pos_of(id).is_some_and(|q| q.0 == offense) {
-            s += x as f64;
-            n += 1.0;
+        match pos_of(id) {
+            Some((s, _)) if s == r.offense => (o, no) = (o + x as f64, no + 1.0),
+            Some(_) => (d, nd) = (d + x as f64, nd + 1.0),
+            None => {}
         }
     }
-    if n == 0.0 {
-        return 1.0;
+    let dir = if no == 0.0 || nd == 0.0 || o / no <= d / nd { 1.0 } else { -1.0 };
+    if matches!(r.kind, PlayType::Kickoff | PlayType::Punt) {
+        // From the catch back to where it was kicked from.
+        let los = (f.ball.x - dir * r.kick_distance).clamp(0.0, 100.0);
+        return (los, dir, if dir < 0.0 { los } else { 100.0 - los });
     }
-    if s / n <= f.ball.x { 1.0 } else { -1.0 }
+    let los = if dir > 0.0 { 100.0 - r.yardline_100 } else { r.yardline_100 };
+    (los, dir, r.yardline_100)
 }
 
 #[allow(clippy::too_many_arguments)]
