@@ -395,10 +395,11 @@ fn staff_hires(w: &World) {
         if j.since >= 2016 {
             let prev = co.history.iter().rev().find(|h| h.to <= j.since);
             let src = match prev.map(|h| h.employer) {
-                None => "new to coaching",
+                None => "off-field or new",
                 Some(Employer::HighSchool(_)) => "high school",
                 Some(Employer::College(q)) if w.programs[q].division == Division::FBS => "FBS",
-                Some(Employer::College(_)) => "smaller college",
+                Some(Employer::College(q)) if w.programs[q].division == Division::FCS => "FCS",
+                Some(Employer::College(_)) => "D2 and below",
                 Some(_) => "pro",
             };
             let k = from.entry(src).or_default();
@@ -644,11 +645,39 @@ fn formers(w: &World) {
         let k = by.entry(format!("all {div}")).or_default();
         k.0 += usize::from(f.ethnicity == Ethnicity::Black);
         k.1 += 1;
+        let seasons: i32 = f.colleges.iter().map(|c| (c.2 - c.1 + 1) as i32).sum();
+        let k = by.entry(format!("by college seasons {}", seasons.min(5))).or_default();
+        k.0 += usize::from(f.ethnicity == Ethnicity::Black);
+        k.1 += 1;
+        let k = by.entry(format!("by grade {} {div}", f.played.grade)).or_default();
+        k.0 += usize::from(f.ethnicity == Ethnicity::Black);
+        k.1 += 1;
+        let k = by.entry(format!("by year left {}", f.since / 5 * 5)).or_default();
+        k.0 += usize::from(f.ethnicity == Ethnicity::Black);
+        k.1 += 1;
         if f.life == Life::Coaching {
             let k = by.entry(format!("coaching, played {:?}", f.played.group())).or_default();
             k.0 += usize::from(f.ethnicity == Ethnicity::Black);
             k.1 += 1;
         }
+    }
+    // The players they come from: college rosters now, and the players who
+    // left football this year (the next intake), by division.
+    for p in &w.people {
+        let Some(c) = p.college else { continue };
+        let div = match w.programs[c].division {
+            Division::FBS => "FBS",
+            Division::FCS => "FCS",
+            _ => "smaller",
+        };
+        let key = match p.stage {
+            afm_engine::world::Stage::College => format!("on a {div} roster now"),
+            afm_engine::world::Stage::Done if !p.college_staff.is_empty() => format!("left football this year, {div}"),
+            _ => continue,
+        };
+        let k = by.entry(key).or_default();
+        k.0 += usize::from(p.ethnicity == Ethnicity::Black);
+        k.1 += 1;
     }
     println!("\nformer players kept (Black share, n)");
     for (k, (b, n)) in &by {

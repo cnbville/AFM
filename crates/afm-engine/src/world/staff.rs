@@ -1417,6 +1417,11 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             if hiring_hc.is_some() && w.coaches[c].mentor == hiring_hc {
                 s += 1.5;
             }
+            if matches!(o.role, Role::PositionCoach(_))
+                && w.coaches[c].junior_now().is_some_and(|j| j.employer == o.employer)
+            {
+                s += super::ethnicity::tune("jr_own", 0.0);
+            }
             // The committee bias falls hardest on head jobs and offensive
             // coordinators, least on position coaches (trial 4 topic 9: FBS
             // 2022-23, assistants 53% of color, defensive coordinators over
@@ -2498,7 +2503,17 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                             && ((coach.came_up.offense() == g.offense() && u.growth_read() > 0.15) || u.moved_up >= 1.5)
                     })
                     .collect();
-                sample(w, &hs, super::ethnicity::tune("hs_pc", 4.0) as usize, &mut pool);
+                let tune = super::ethnicity::tune;
+                let (k_hs, k_co) = if div == Division::FBS {
+                    if w.rng.chance(tune("fbs_hs", 1.0)) {
+                        (tune("hs_pc", 4.0) as usize, tune("hs_pcc", 2.0) as usize)
+                    } else {
+                        (0, 0)
+                    }
+                } else {
+                    (4, 2)
+                };
+                sample(w, &hs, k_hs, &mut pool);
                 // High school coordinators on that side (C37), and the
                 // juniors who work with that room: the program's own first
                 // (C36).
@@ -2508,7 +2523,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     .filter_map(|&h| if g.offense() { w.high_schools[h].oc } else { w.high_schools[h].dc })
                     .filter(|&c| !moved.contains(&c) && w.coaches[c].units[g as usize].growth_read() > 0.1)
                     .collect();
-                sample(w, &hs_coords, super::ethnicity::tune("hs_pcc", 2.0) as usize, &mut pool);
+                sample(w, &hs_coords, k_co, &mut pool);
                 let (own, other) = w
                     .coaches
                     .iter()
@@ -2522,7 +2537,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     .partition::<Vec<(usize, Employer)>, _>(|(_, e)| *e == Employer::College(p));
                 pool.extend(own.into_iter().map(|x| x.0));
                 let other: Vec<usize> = other.into_iter().map(|x| x.0).collect();
-                sample(w, &other, 3, &mut pool);
+                sample(w, &other, super::ethnicity::tune("jr_other", 3.0) as usize, &mut pool);
                 if w.rng.chance(0.12) {
                     let tier = tier_of(div);
                     let age = w.rng.int(27, 38) as u32;
