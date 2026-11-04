@@ -331,7 +331,7 @@ function frReport(x) {
     ${r.caught.length ? frCard("What your eye caught", r.caught.map((c) => `<div class="fm-tile">${esc(c)}</div>`).join("")) : ""}
     ${r.hints.length ? frCard("Into the game plan", `<p class="fm-dim">${r.hints.length} hint${r.hints.length === 1 ? "" : "s"} went into your plan. See game day.</p>`) : ""}
     ${kept}
-    <div class="fm-seg"><button class="st-btn small glass" data-go="film">Back to the film room</button>${r.id != null ? `<button class="st-btn small glass" data-go="scout" data-id="${r.id}">His file</button>` : ""}</div></div>`;
+    <div class="fm-seg">${r.id != null ? `${frBtn("fragain", { id: r.id, cut: r.cut, ask: r.ask_key || "" }, "▶ Watch again", "primary")}<button class="st-btn small glass" data-go="film" data-id="${r.id}">Other cut-ups</button>` : ""}<button class="st-btn small glass" data-go="film">Back to the film room</button>${r.id != null ? `<button class="st-btn small glass" data-go="scout" data-id="${r.id}">His file</button>` : ""}</div></div>`;
 }
 
 // ---------- being there ----------
@@ -423,6 +423,11 @@ Object.assign(CORE_MORE, {
     const id = Number(el.dataset.id);
     const k = keep("frq:" + id, {});
     frDo(el, "film_open", { id, mode: el.dataset.mode, cut: k.cut, ask: k.q }, () => go("film", el.dataset.mode === "quick" ? { report: "last" } : { id }));
+  },
+  // From his report: the same cut-up again, straight in (Cain 2026-11-04).
+  fragain: (el) => {
+    const id = Number(el.dataset.id);
+    frDo(el, "film_open", { id, mode: "full", cut: el.dataset.cut, ask: el.dataset.ask || undefined }, () => go("film", { id }));
   },
   fropp: (el) => frDo(el, "film_opp", { date: Number(el.dataset.date), home: Number(el.dataset.home), away: Number(el.dataset.away), mode: el.dataset.mode }, (r) => go("film", r.open ? {} : { report: "last" })),
   frplay: (el) => frDo(el, "film_snap", {}),

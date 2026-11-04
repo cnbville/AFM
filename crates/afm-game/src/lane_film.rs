@@ -678,6 +678,7 @@ fn report(w: &World, k: usize) -> Reply {
             "cut": r.cut.key(),
             "mode": r.mode.key(),
             "ask": r.ask.as_ref().map(|q| q.text.clone()),
+            "ask_key": r.ask.as_ref().map(|q| q.key.clone()),
             "verdict": r.verdict.map(|v| ["Yes", "No", "Not sure"][v.min(2) as usize]),
             "settled": r.settled,
             "calls": [r.calls.0, r.calls.1],
