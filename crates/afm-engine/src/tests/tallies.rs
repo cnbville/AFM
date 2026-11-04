@@ -199,7 +199,7 @@ fn the_tallies_only_watch_and_add_up() {
         } else {
             // A small world has teams with a single game: about 70 snaps.
             assert!(
-                snaps > 40.0 * t.games as f64 && db <= snaps && xdb > 0.1 * snaps && xdb < 0.9 * snaps,
+                snaps > 40.0 * t.games as f32 && db <= snaps && xdb > 0.1 * snaps && xdb < 0.9 * snaps,
                 "{snaps} {db} {xdb}"
             );
             let early = t.tend_of(1);
