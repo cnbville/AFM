@@ -112,7 +112,18 @@ fn the_tallies_only_watch_and_add_up() {
         let tg = downs(&p.splits.recv, 0);
         if r.get(Stat::Targets) >= 10.0 {
             assert_eq!(tg, r.get(Stat::Targets), "player {} targets by down", r.id);
+            // Lane NB4: his depth counts' targets are the book's.
+            assert_eq!(
+                tally::depth::get(&p.depth, tally::depth::Dc::Tgt as u16),
+                r.get(Stat::Targets),
+                "player {}",
+                r.id
+            );
         }
+        // His facet grades add up to the book's grade.
+        let plays: f64 = (0..10).map(|f| tally::depth::get(&p.depth, tally::depth::FACET + 2 * f + 1)).sum();
+        assert_eq!(plays, r.get(Stat::Graded), "player {} graded plays by facet", r.id);
+        assert_eq!(p.game_snaps.len(), p.played.len(), "player {} snaps a game", r.id);
         // His game lines in the games file add up to his season.
         if r.get(Stat::Rush) >= 20.0 && checked <= 3 {
             let mut yds = 0.0;

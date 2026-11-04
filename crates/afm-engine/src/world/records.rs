@@ -472,7 +472,8 @@ impl Metric {
             ForcedMissedPerTouch => rate(g(S::ForcedMissed), g(S::Rush) + g(S::Rec), 60.0),
             ExplosiveRunRate => rate(g(S::ExplosiveRuns), g(S::Rush), 60.0),
             YardsPerRouteRun => rate(g(S::RecYds), g(S::Routes), 150.0),
-            SeparationPerTarget => rate(g(S::SepSum), g(S::Targets), 30.0),
+            // Summed on catches, so a catch's (lane NB4 fix).
+            SeparationPerTarget => rate(g(S::SepSum), g(S::Rec), 30.0),
             DropRate => rate(g(S::Drops), g(S::Targets), 30.0),
             PressureAllowedRate => rate(g(S::PressuresAllowed), g(S::PbSnaps), 150.0),
             RunBlockWinRate => rate(g(S::RbWins), g(S::RbSnaps), 150.0),

@@ -1,6 +1,6 @@
 # The Data section's tallies: how it works today
 
-Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04.
+Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `.github/`. "Proposed, not confirmed" marks Claude's own picks in this lane, which Cain hasn't answered.
 
@@ -24,8 +24,19 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - One row a player and level a season: college and NFL. Team (his last that season), position, games, starts, snaps on offense and defense, the game keys he played (into that season's games file) and his numbers split by situation (`world/tally/players.rs`, `Season`, `Open::add`).
 - Splits: down (1st to 4th), distance (short 1-3, medium 4-7, long 8+), field zone (backed up inside his own 20, open field, red zone, goal to go), quarter (1-4, overtime), the two-minute drill, and the score (ahead 9+, within 8, behind 9+) (`players.rs`, `SPLITS`, `codes`).
 - For each split: passing (dropbacks, attempts, completions, yards, TDs, picks, sacks, EPA, successes, first downs, scramble EPA), rushing (carries, yards, TDs, EPA, successes, first downs), receiving (targets, catches, yards, TDs, EPA, first downs) and defense (tackles, missed tackles, pressures, sacks, targets, completions and yards allowed, breakups, picks) (`PASS`, `RUSH`, `RECV`, `DEF`).
+- Game splits (lane NB4): home, road, neutral site, rain or snow, wind 15+ mph, cold (40 F or below), indoors; college against a ranked or unranked team (the AP poll before kickoff); the NFL by opponent club (code 100 plus the club). The weather lines are proposed, not confirmed (`players.rs`, `SPLITS`, `game_codes`; `world/college.rs`, `ap_ranked`).
+- His snaps on offense and defense in each game of `played` (`game_snaps`), which the opponent-adjusted numbers weigh games by.
 - A start: on the field for his side's first snap with the ball (offense) or first snap without it (defense) (proposed, not confirmed; `world/tally/games.rs`, `starters`).
 - High school players get no rows: their games are counted with facts and boxes only (proposed, not confirmed).
+
+## The depth counts (lane NB4)
+
+- Each player's season also keeps his depth counts: about 180 scalar counts and five grids, sparse by code, counted off every snap of his engine games at college and in the NFL (`world/tally/depth.rs`, `Dc`, `game`; `players.rs`, `Season::depth`).
+- Scalars: passing on dropbacks (attempts, completions, yards, sacks, EPA, successes, scrambles, air yards, time to throw, tight windows, expected completions, throwaways, big-time and turnover-worthy throws), deep throws (20+ air yards), play action, the blitz and pressure; designed runs (yards before and after contact, expected yards, stuffs, runs of 10+ and 15+, missed tackles, eight-man boxes, fumbles, runs beating their expected yards); targets (catches, air yards, YAC and expected YAC, separation, contested, drops, routes, the team's targets and air yards in his games); blocking (pass and run snaps and wins, pressures, sacks, hits and hurries allowed, penalties, blown assignments); the pass rush and run defense (rushes, wins by speed, power or finesse, pressures, sacks, hits, hurries, get-off, time to pressure, unblocked, blitzes, run stops); coverage (targets, completions, yards, TDs, picks, breakups, separation, EPA, YAC, air yards, forced incompletions); tackles, misses, stops and box snaps; kicks, punts and returns (hang times, touchbacks, inside the 20, fair catches, returns, longest).
+- Grids: throws by role (passer, target, man covering) x 4 depth rows x 3 thirds of the field x (attempts, completions, yards, EPA); runs by gap (5); targets by route (20); pressures by the blocker beaten (8 spots); facet grades (10 facets, sum and plays); snaps at each offensive and defensive spot; field goals by distance band (`THROW`, `GAP`, `ROUTE`, `PMAP`, `FACET`, `ALIGN_O`, `ALIGN_D`, `FG`).
+- What the play record keeps for them: each man's spot on the snap, a kick's hang time, the time of the first pressure and each rusher's first contact with a blocker (`game/stats.rs`, `PlayRecord::roles`, `hang`, `pressure_at`, `contact`; `game/sim.rs`, `Notes::contact`). Counting only: no new draws.
+- The charting delay: the open season keeps the last four days' games' depth counts (`Open::recent`), so a page can leave out the games your charting hasn't reached yet (`World::tally_depth_since`).
+- Codes are kept by number, append only: a new count goes at the end of `Dc`.
 
 ## The teams file
 
@@ -79,15 +90,16 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 ## Sizes
 
-- Measured with `memory_check` on a 0.1 world (seed 2026, 6 years of history and one more season, 4-core Linux), 2026-11-04. A closed season is about 22.5 MB on disk: players 6.1 MB (35,695 rows), teams 6.2 MB (576), games 9.5 MB (9,772: 2,603 college, 285 NFL, 6,884 high school), classes 0.6 MB and growing about 0.1 MB a season (the store holds every class), people 0.12 MB (1,728 unit rows).
+- Measured with `memory_check` on a 0.1 world (seed 2026, 6 years of history and one more season, 4-core Linux), 2026-11-04, after lane NB4's depth counts. A closed season is about 30.5 MB on disk: players 14.5 MB (the depth counts add about 8.4 MB to the 6.1 MB before them), teams 6.2 MB, games 9.4 MB (2,603 college, 285 NFL, about 6,850 high school), classes 0.6 MB and growing about 0.1 MB a season (the store holds every class), people 0.12 MB.
 - In the games file a college game is about 2.6 KB packed (lines and the win chance), an NFL game 2.2 KB, a high school game 0.3 KB (facts and boxes).
-- The open season at its biggest (the end of the football year) packs to 63 MB before compression; just after the close the tallies weigh 5 MB of heap. Memory stays flat from season to season: closed seasons live only on disk.
-- At full size (not measured): college and NFL counts barely change with scale, high school games are about ten times as many and college player rows somewhat more, so a season comes to roughly 45-50 MB and a 30-year world's folder to about 1.4 GB; the open season adds roughly 0.15 GB of heap at the football year's end, after the summer's high (Claude's estimate from the 0.1 numbers).
+- The open season at its biggest (the end of the football year) packs to 85 MB before compression (63 MB before the depth counts); just after the close the tallies weigh 5 MB of heap. Memory stays flat from season to season: closed seasons live only on disk. The whole world's heap was 0.91 GB after the future season and its peak resident 1.67 GB.
+- At full size (not measured): college and NFL counts barely change with scale, high school games are about ten times as many and college player rows somewhat more, so a season comes to roughly 55-65 MB and a 30-year world's folder to about 1.8 GB; the open season adds roughly 0.2 GB of heap at the football year's end, after the summer's high (Claude's estimate from the 0.1 numbers).
 
 ## Where the knobs are
 
 - `world/tally/file.rs`: `FRAME_RAW` (256 KB), `LEVEL_OPEN` (3), `LEVEL_CLOSE` (9).
-- `world/tally/players.rs`: `SPLITS`, `PASS`, `RUSH`, `RECV`, `DEF`.
+- `world/tally/players.rs`: `SPLITS`, `PASS`, `RUSH`, `RECV`, `DEF`, `RECENT_DAYS`.
+- `world/tally/depth.rs`: `Dc` and the grids; `world/tally/expect.rs`: the expected rush and YAC models.
 - `world/tally/people.rs`: `STATS`, `UP`.
 - `world/analytics.rs`: `charting` (depth and delay by rating), `depth` (which numbers need which depth).
 

@@ -28,6 +28,8 @@
 //! from the first recorded season, as the record books do.
 
 pub mod classes;
+pub mod depth;
+pub mod expect;
 pub mod file;
 pub mod games;
 pub mod people;
@@ -145,7 +147,7 @@ impl World {
         let key = t.games.add(part.level, part.date, &part.row);
         for g in part.players {
             let team = part.teams[g.side as usize & 1];
-            t.players.add(part.level, team, key, g);
+            t.players.add(part.level, part.date, team, key, g);
         }
         if let Some(sides) = part.sides {
             let [a, b] = sides;
@@ -388,9 +390,44 @@ impl World {
         };
     }
 
+    /// A season's games read as any lighter view of `games::GameRow` (its
+    /// named fields; the rest are skipped, not built).
+    pub fn tally_games_as<T: serde::de::DeserializeOwned>(&self, season: i32, mut f: impl FnMut(u64, T)) {
+        let mut each = |k: u64, r: &[u8]| {
+            if let Some(g) = file::decode::<T>(r) {
+                f(k, g)
+            }
+        };
+        if season == self.tallies.season {
+            self.tallies.games.frames.each(&mut each);
+            return;
+        }
+        let _ = self.tally_each("games", season, &mut each);
+    }
+
+    /// A closed season's players read as any lighter view of
+    /// `players::Season` (the open season is `tallies.players`).
+    pub fn tally_players_as<T: serde::de::DeserializeOwned>(&self, season: i32, mut f: impl FnMut(u64, T)) {
+        let _ = self.tally_each("players", season, |k, r| {
+            if let Some(s) = file::decode::<T>(r) {
+                f(k, s)
+            }
+        });
+    }
+
     /// The open season's college or NFL games played on or after `since`.
     pub fn tally_games_since(&self, level: Level, since: crate::calendar::Date) -> Vec<games::GameRow> {
         self.tallies.games.since(level, since)
+    }
+
+    /// Each player's depth counts from this season's games on or after
+    /// `since` (the charting delay leaves them out).
+    pub fn tally_depth_since(
+        &self,
+        level: Level,
+        since: crate::calendar::Date,
+    ) -> std::collections::HashMap<u32, depth::Depth> {
+        self.tallies.players.recent_since(level, since)
     }
 
     /// A season's coach unit rows (the open season's worked out now).

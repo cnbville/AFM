@@ -12,11 +12,16 @@
 //!   15-22, `books.rs`);
 //! - `team_book` (`kind`, `id`): a team's own career, season and game marks
 //!   (item 17);
-//! - `analytics` (`level`, `year`, `division`, `state`, `group`, `min`,
-//!   `sort`, `dir`) and `analytics_card` (`id`, `level`, `year`, `division`,
-//!   `state`): the percentile
-//!   table and a player's card with the past seasons closest to his (items
-//!   7 and 8, `analytics.rs`);
+//! - `analytics` (`level`, `year`, `division`, `state`, `group`, `view`,
+//!   `mode`, `min`, `sort`, `dir` and the filters) and `analytics_card`
+//!   (`id`, `level`, `year`, `division`, `state`, `group`, `view`): the
+//!   percentile table by position card view, raw, era index or
+//!   opponent-adjusted, and a player's card with the past seasons closest
+//!   to his (items 3-14 and 28, `analytics.rs`);
+//! - `player_data` (`id`, `level`, `year`): a player's Data tab: facet
+//!   grades, splits, his games, the throw map by zone, route map, run
+//!   paths, pressure map and where he lined up (items 11, 15, 28, minor bug
+//!   44; `deep.rs`);
 //! - `champions_more` (`tab` "conferences", "states" or "award"): conference
 //!   champions by year, state champions by state and class, and every
 //!   winner of one award (items 23-25, `champs.rs`);
@@ -33,6 +38,7 @@ mod analytics;
 mod books;
 pub(crate) use books::title_case;
 mod champs;
+mod deep;
 pub(crate) mod glossary;
 
 use afm_engine::calendar::Level as CalLevel;
@@ -55,6 +61,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "team_book" => books::team_book,
         "analytics" => analytics::table,
         "analytics_card" => analytics::card,
+        "player_data" => deep::player_data,
         "champions_more" => champs::more,
         _ => return None,
     };
