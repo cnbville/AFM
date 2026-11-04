@@ -21,6 +21,28 @@ const fn ask(key: &'static str, text: &'static str, attrs: &'static [Attr]) -> A
     Ask { key, text, attrs }
 }
 
+/// The question a cut-up is made for, when one fits it (new bugs, Cain
+/// 2026-11-04): a corner's press-and-man cut asks whether he can play press.
+pub fn cut_ask(pos: Position, cut: super::tape::Cut) -> Option<&'static str> {
+    use Position::*;
+    if cut != super::tape::Cut::Pressure {
+        return None;
+    }
+    Some(match pos {
+        CB => "cb_press",
+        WR => "wr_press",
+        QB => "qb_pocket",
+        RB => "rb_protect",
+        OT => "ot_speed",
+        IOL => "iol_pass",
+        S => "s_man",
+        LB => "lb_cover",
+        EDGE => "edge_speed",
+        DT => "dt_push",
+        _ => return None,
+    })
+}
+
 /// The questions a position's tape can answer, the first the usual one.
 pub fn asks(pos: Position) -> &'static [Ask] {
     use Attr::*;

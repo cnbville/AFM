@@ -1315,11 +1315,15 @@ fn main() {
     row("throw aways per att", g("throw_aways") / g("att"), None);
     row("yards before contact", g("ybc") / g("carries"), None);
     row("missed tackles per run", g("missed_tackles") / g("carries"), None);
-    // Real: nflverse play-by-play 2023-24, backs' designed runs, the first
-    // tackler's position (solo, then shared tackle), touchdowns left out.
+    // Real: nflverse play-by-play 2021-24, backs' designed runs, the first
+    // tackler (solo, then shared tackle), touchdowns left out, grouped by
+    // the role PFF lists for him (interior and edge are the line, off-ball
+    // linebackers the linebackers). The roster position put the 3-4 edge
+    // rushers with the linebackers (line 0.330, linebackers 0.371), but
+    // the engine's EDGE is a lineman (bug 164).
     let ft: f64 = first_tackle.iter().map(|r| r[0]).sum();
     for (k, (name, share, yds)) in
-        [("line", 0.330, 2.44), ("linebackers", 0.371, 3.35), ("backs", 0.296, 6.86)].into_iter().enumerate()
+        [("line", 0.431, 2.50), ("linebackers", 0.278, 3.69), ("backs", 0.291, 6.96)].into_iter().enumerate()
     {
         row(&format!("first tackle on runs: {name}"), first_tackle[k][0] / ft, Some(share));
         row("  gain when they make it", first_tackle[k][1] / first_tackle[k][0].max(1.0), Some(yds));
@@ -1527,6 +1531,10 @@ fn main() {
         let batted = afm_engine::game::scrimmage::BATTED.load(std::sync::atomic::Ordering::Relaxed);
         println!("  batted at the line {:.1}% of throws", 100.0 * batted as f64 / throws);
     }
+    if std::env::var("AFM_RUNDIAG").is_ok() {
+        let pairs: Vec<(usize, usize)> = (0..games).map(pair).collect();
+        run_diag(&results, &pos_of, &pairs);
+    }
     if !burners.is_empty() {
         println!(
             "\nBurner proof (AFM_BURNER): per team game, teammates' catches under 10 air yards {:.2}, their yards after the catch {:.2} a catch; the burner {:.2} targets, {:.2} catches, {:.1} yards; two-high on {:.1}% of passes",
@@ -1537,5 +1545,275 @@ fn main() {
             bp[4] / n,
             100.0 * bp[5] / bp[6].max(1.0)
         );
+    }
+}
+
+/// AFM_RUNDIAG=1: where backs' designed runs are stopped and by whom
+/// (minor bug 164).
+fn run_diag(
+    results: &[afm_engine::game::GameResult],
+    pos_of: &std::collections::HashMap<u32, afm_engine::positions::Position>,
+    pairs: &[(usize, usize)],
+) {
+    // Each team's backs' designed runs in 17-game seasons: [runs, yards, games].
+    let mut team_season = std::collections::HashMap::<usize, [f64; 3]>::new();
+    let mut team_ypc: Vec<f64> = Vec::new();
+    use afm_engine::positions::Position as P;
+    // [runs, yards, before contact, contact behind the line, stuffs]
+    let mut g = [[0.0f64; 6]; 4];
+    let mut why = std::collections::BTreeMap::<String, f64>::new();
+    let mut sheds = [0.0f64; 3];
+    let mut held_to_end = std::collections::BTreeMap::<&str, f64>::new();
+    // [neutral, to go 2 or less, inside the 5, other, all] x box 5..9 x [runs, yards, stuffs]
+    let mut box_sit = [[[0.0f64; 3]; 5]; 5];
+    // Each back's carries in blocks of 204 (a real 120+ carry season's mean):
+    // the spread of yards a carry across blocks, all and within one back.
+    let mut per_back = std::collections::HashMap::<u32, (f64, f64)>::new();
+    let mut blocks: Vec<(u32, f64)> = Vec::new();
+    let mut shed_by = std::collections::BTreeMap::<String, f64>::new();
+    let mut contact_at = std::collections::BTreeMap::<String, [f64; 10]>::new();
+    // Box 5..9 x first tackler group x [runs, yards, before contact]
+    let mut box_tk = [[[0.0f64; 3]; 4]; 5];
+    let mut n = 0.0;
+    let mut hist = [0.0f64; 16];
+    for (gi, r) in results.iter().enumerate() {
+        let (h, a) = pairs[gi];
+        for side in [h, a] {
+            let e = team_season.entry(side).or_default();
+            e[2] += 1.0;
+            if e[2] > 17.0 {
+                team_ypc.push(e[1] / e[0].max(1.0));
+                *e = [0.0, 0.0, 1.0];
+            }
+        }
+        for p in r.stats.plays.iter().filter(|p| !p.nullified) {
+            if p.kind != PlayType::Run || p.call.contains("kneel") || p.call.contains("sneak") {
+                continue;
+            }
+            if !matches!(p.carrier.and_then(|c| pos_of.get(&c)), Some(P::RB)) {
+                continue;
+            }
+            n += 1.0;
+            let team = if p.offense == 0 { h } else { a };
+            let e = team_season.entry(team).or_default();
+            e[0] += 1.0;
+            e[1] += p.yards;
+            let bx = (p.box_count as usize).clamp(5, 9) - 5;
+            let diff = (p.score[0] - p.score[1]).abs();
+            let neutral = p.down <= 2
+                && p.togo >= 5.0
+                && (20.0..=80.0).contains(&p.yardline_100)
+                && (diff <= 16 && p.quarter < 4 || diff <= 8);
+            let sit = if neutral {
+                0
+            } else if p.togo <= 2.0 {
+                1
+            } else if p.yardline_100 <= 5.0 {
+                2
+            } else {
+                3
+            };
+            for k in [sit, 4] {
+                box_sit[k][bx][0] += 1.0;
+                box_sit[k][bx][1] += p.yards;
+                box_sit[k][bx][2] += (p.yards < 0.5) as u8 as f64;
+            }
+            if let Some(c) = p.carrier {
+                let e = per_back.entry(c).or_default();
+                e.0 += 1.0;
+                e.1 += p.yards;
+                if e.0 >= 204.0 {
+                    blocks.push((c, e.1 / e.0));
+                    *e = (0.0, 0.0);
+                }
+            }
+            let k = match p.tacklers.first().and_then(|t| pos_of.get(t)) {
+                Some(P::EDGE | P::DT) => 0,
+                Some(P::LB) => 1,
+                Some(P::CB | P::S) => 2,
+                _ => 3,
+            };
+            box_tk[bx][k][0] += 1.0;
+            box_tk[bx][k][1] += p.yards;
+            box_tk[bx][k][2] += p.before_contact;
+            let e = &mut g[k];
+            e[0] += 1.0;
+            e[1] += p.yards;
+            e[2] += p.before_contact;
+            e[3] += (p.before_contact < 0.0) as u8 as f64;
+            e[4] += (p.yards < 0.5) as u8 as f64;
+            e[5] += p.missed_tackles.len() as f64;
+            let b = ((p.yards + 3.5).floor().max(0.0) as usize).min(15);
+            hist[b] += 1.0;
+            if p.yards < 0.5 {
+                let w = if p.why.contains("came free") {
+                    "came free"
+                } else if p.why.contains(" shed ") {
+                    "shed"
+                } else {
+                    "other"
+                };
+                let lab =
+                    p.tacklers.first().and_then(|t| pos_of.get(t)).map(|x| format!("{x:?}")).unwrap_or("-".into());
+                *why.entry(format!("{w} {lab}")).or_default() += 1.0;
+            }
+            for bl in p.blocks.iter().filter(|b| !b.2) {
+                if !bl.3 {
+                    let tb = if bl.4 < 1.2 {
+                        0
+                    } else if bl.4 < 2.5 {
+                        1
+                    } else {
+                        2
+                    };
+                    sheds[tb] += 1.0;
+                    let grp = |id: u32| match pos_of.get(&id) {
+                        Some(P::EDGE | P::DT) => "DL",
+                        Some(P::LB) => "LB",
+                        Some(P::CB | P::S) => "DB",
+                        Some(P::OT | P::IOL) => "OL",
+                        Some(P::TE) => "TE",
+                        Some(P::WR) => "WR",
+                        _ => "RB",
+                    };
+                    *shed_by
+                        .entry(format!("{}>{} {}", grp(bl.1), grp(bl.0), ["<1.2", "1.2-2.5", "2.5+"][tb]))
+                        .or_default() += 1.0;
+                }
+            }
+            for bl in p.blocks.iter().filter(|b| !b.2 && b.3) {
+                let g = match pos_of.get(&bl.1) {
+                    Some(P::EDGE | P::DT) => "DL",
+                    Some(P::LB) => "LB",
+                    Some(P::CB | P::S) => "DB",
+                    _ => "other",
+                };
+                *held_to_end.entry(g).or_default() += 1.0;
+            }
+            let lab = p.tacklers.first().and_then(|t| pos_of.get(t)).map(|x| format!("{x:?}")).unwrap_or("-".into());
+            let bcb = ((p.before_contact + 3.0).floor().clamp(0.0, 9.0)) as usize;
+            contact_at.entry(lab).or_insert([0.0; 10])[bcb] += 1.0;
+        }
+    }
+    println!("\nRun diagnostic (backs' designed runs, {n:.0})");
+    for (bx, row) in box_tk.iter().enumerate() {
+        let tot: f64 = row.iter().map(|e| e[0]).sum::<f64>().max(1.0);
+        let cells: Vec<String> = row
+            .iter()
+            .map(|e| format!("{:.2}@{:.1}/{:.1}", e[0] / tot, e[1] / e[0].max(1.0), e[2] / e[0].max(1.0)))
+            .collect();
+        println!(
+            "  box {} tackler share@ypc/before contact: line {} lb {} db {} none {}",
+            bx + 5,
+            cells[0],
+            cells[1],
+            cells[2],
+            cells[3]
+        );
+    }
+    for (k, name) in ["line", "linebackers", "backs", "none/other"].iter().enumerate() {
+        let e = g[k];
+        println!(
+            "  {name:<12} share {:.3} ypc {:.2} before contact {:.2} contact behind the line {:.3} stuffed {:.3} missed {:.2}",
+            e[0] / n,
+            e[1] / e[0].max(1.0),
+            e[2] / e[0].max(1.0),
+            e[3] / e[0].max(1.0),
+            e[4] / e[0].max(1.0),
+            e[5] / e[0].max(1.0)
+        );
+    }
+    let tot: f64 = g.iter().map(|e| e[0]).sum();
+    println!(
+        "  all: ypc {:.2} before contact {:.2} contact behind {:.3}",
+        g.iter().map(|e| e[1]).sum::<f64>() / tot,
+        g.iter().map(|e| e[2]).sum::<f64>() / tot,
+        g.iter().map(|e| e[3]).sum::<f64>() / tot
+    );
+    println!(
+        "  run sheds a run: under 1.2 s {:.2}, 1.2-2.5 s {:.2}, later {:.2}",
+        sheds[0] / n,
+        sheds[1] / n,
+        sheds[2] / n
+    );
+    let h: Vec<String> = hist.iter().enumerate().map(|(i, v)| format!("{}:{:.3}", i as i32 - 3, v / n)).collect();
+    println!("  yards (floor, -3..12+): {}", h.join(" "));
+    for (k, v) in &held_to_end {
+        println!("  blocked to the whistle or pancaked: {k} {:.2} a run", v / n);
+    }
+    for (k, v) in shed_by.iter().filter(|x| *x.1 / n > 0.02) {
+        println!("  shed {k:<16} {:.3} a run", v / n);
+    }
+    for (k, v) in &contact_at {
+        let h: Vec<String> = v.iter().map(|x| format!("{:.3}", x / n)).collect();
+        println!("  first contact (yards -3..6+) by first tackler {k:<5} {}", h.join(" "));
+    }
+    // Real (RB designed runs 2021-25, engine_targets.json runs_by_box):
+    // neutral 5-9 in the box 5.12 4.85 4.68 4.39 3.89; all 5.27 4.61 4.18 3.69 2.30;
+    // to go 2 or less 3.27 a carry, inside the 5 1.09.
+    for (k, name) in ["neutral", "to go <=2", "inside 5", "other", "all"].iter().enumerate() {
+        let tot: f64 = box_sit[k].iter().map(|b| b[0]).sum();
+        let y: f64 = box_sit[k].iter().map(|b| b[1]).sum();
+        let cells: Vec<String> = box_sit[k]
+            .iter()
+            .enumerate()
+            .map(|(b, v)| {
+                format!("{}:{:.2}/{:.2}/{:.2}", b + 5, v[1] / v[0].max(1.0), v[2] / v[0].max(1.0), v[0] / tot.max(1.0))
+            })
+            .collect();
+        println!(
+            "  box {name:<10} n {:.3} ypc {:.2} | box: ypc/stuffed/share {}",
+            tot / n,
+            y / tot.max(1.0),
+            cells.join(" ")
+        );
+    }
+    let sd = |v: &[f64]| {
+        let m = v.iter().sum::<f64>() / v.len().max(1) as f64;
+        (v.iter().map(|x| (x - m) * (x - m)).sum::<f64>() / (v.len().max(2) - 1) as f64).sqrt()
+    };
+    let all: Vec<f64> = blocks.iter().map(|b| b.1).collect();
+    let mut within = 0.0;
+    let mut wn = 0.0;
+    let mut ids: Vec<u32> = blocks.iter().map(|b| b.0).collect();
+    ids.sort();
+    ids.dedup();
+    for id in &ids {
+        let v: Vec<f64> = blocks.iter().filter(|b| b.0 == *id).map(|b| b.1).collect();
+        if v.len() >= 2 {
+            within += sd(&v).powi(2) * (v.len() - 1) as f64;
+            wn += (v.len() - 1) as f64;
+        }
+    }
+    // Consecutive blocks of one back (real season to season 0.29, 120+ carries).
+    let (mut xs, mut ys) = (Vec::new(), Vec::new());
+    for id in &ids {
+        let v: Vec<f64> = blocks.iter().filter(|b| b.0 == *id).map(|b| b.1).collect();
+        for w in v.windows(2) {
+            xs.push(w[0]);
+            ys.push(w[1]);
+        }
+    }
+    let corr = {
+        let mx = xs.iter().sum::<f64>() / xs.len().max(1) as f64;
+        let my = ys.iter().sum::<f64>() / ys.len().max(1) as f64;
+        let c: f64 = xs.iter().zip(&ys).map(|(x, y)| (x - mx) * (y - my)).sum();
+        let vx: f64 = xs.iter().map(|x| (x - mx) * (x - mx)).sum();
+        let vy: f64 = ys.iter().map(|y| (y - my) * (y - my)).sum();
+        c / (vx * vy).sqrt().max(1e-9)
+    };
+    println!("  team seasons (17 games): {} , backs' ypc sd {:.3} (real 0.448)", team_ypc.len(), sd(&team_ypc));
+    println!("  backs' consecutive blocks: {} pairs, correlation {corr:.3} (real season to season 0.29)", xs.len());
+    println!(
+        "  backs' 204-carry blocks: {} from {} backs, ypc sd {:.3} (real 120+ carry seasons 0.573), within one back {:.3} (real noise about 0.42)",
+        all.len(),
+        ids.len(),
+        sd(&all),
+        (within / wn.max(1.0)).sqrt()
+    );
+    let mut w: Vec<_> = why.into_iter().collect();
+    w.sort_by(|a, b| b.1.total_cmp(&a.1));
+    for (k, v) in w.iter().take(12) {
+        println!("  stuff: {k:<16} {:.3} of runs", v / n);
     }
 }

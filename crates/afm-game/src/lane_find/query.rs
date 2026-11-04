@@ -208,7 +208,9 @@ impl Query {
                 || w.programs
                     .iter()
                     .any(|p| norm(&p.conference) == *want || norm(&w.conference_name(&p.conference)) == *want);
-            t.exact = known
+            // A position is a whole name: "S" never reads as "Specialists".
+            t.exact = t.field.k == "pos"
+                || known
                 || pool
                     .iter()
                     .any(|&i| matches!(value(ctx, i, &t.field.k), Val::T(s) if s.lines().any(|l| norm(l) == *want)));

@@ -820,9 +820,33 @@ pub struct Sim<'a> {
 /// spread like real FBS (offense and defense sd about 0.64, cfbfastR
 /// 2022-24); 0.05 made run defense about 10% too decisive.
 const RUN_EDGE: f64 = 0.035;
-/// The extra pull a defender with leverage gets when the runner comes at
-/// him (fitted with `RUN_EDGE`; 1.0 before).
-const SHED_RUNNER: f64 = 0.5;
+/// The extra pull a run defender on a block gets when the runner comes at
+/// him (fitted with `RUN_EDGE`; 1.0, then 0.5 with leverage only). Minor bug
+/// 164: any block not sealed, at least a full 2 a second, so a lineman on a
+/// block makes the stop as the runner goes by him (real 43% of first
+/// tackles at 2.5 yards, PFF roles, nflverse 2021-24; the engine's 30% at
+/// 0.8); proposed, not confirmed.
+const SHED_RUNNER: f64 = 1.0;
+/// The same pull for a second-level defender (1.5+ yards past the line, a
+/// linebacker a blocker climbed to): he sees the runner coming from 3.5
+/// yards and gets this much more (minor bug 164, linebackers 21% of first
+/// tackles against 28% real; proposed, not confirmed).
+const SHED_SECOND: f64 = 1.0;
+const SHED_SECOND_RANGE: f64 = 3.5;
+/// A run block's push fades: a man driven back goes back for 2 seconds at
+/// most (1.6 yards when the block is won outright), and a defender driving
+/// his blocker into the backfield does it for 1 second, while the fight
+/// still slides toward the runner. It drove on at 1.6 × w yards a second
+/// for as long as it lasted, so a tackle was pushed 11 yards downfield in a
+/// trace (minor bug 164; real drive blocks move a man 1-3 yards; proposed,
+/// not confirmed).
+const RUN_PUSH_BACK: f64 = 2.0;
+const RUN_PUSH_UP: f64 = 1.0;
+/// Within this far of the line a man barely moving is in the phone booth
+/// and is always hit; past it a linebacker who waits can still slip a
+/// climbing blocker (it was anywhere, so linebackers were blocked to the
+/// whistle 1.5 times a run; minor bug 164; proposed, not confirmed).
+const PHONE_BOOTH: f64 = 1.5;
 
 /// How far a free defender in the open field can reach or lunge for the
 /// ball carrier on a return. (2.2 before, and 1.6 on returns: runners
@@ -1172,7 +1196,7 @@ impl<'a> Sim<'a> {
         }
         // Anyone barely moving yet is in the phone booth too: there is no
         // room or speed to slip the block.
-        if speed < 2.0 {
+        if speed < 2.0 && (self.agents[d].pos.x - self.los) * self.goal < PHONE_BOOTH {
             return true;
         }
         let (ba, da) = (&self.agents[b], &self.agents[d]);
@@ -1253,8 +1277,11 @@ impl<'a> Sim<'a> {
         // blocker a little ahead, -0.1, with the defenders' read timed
         // against the level (scrimmage.rs), gives 5.24 and 4.32 on the
         // world's rosters, about 5.05 and 4.45 in the world (proposed, not
-        // confirmed).
-        let w0 = if pass { -0.42 } else { -0.1 }
+        // confirmed). Minor bug 164: with blocked linemen making the stop as
+        // the runner goes by (`SHED_RUNNER`), the blocker starts further
+        // ahead, -0.4: 4.38 a carry on the test rosters (real 4.50), 16.7%
+        // of backs' runs stuffed (real 17.6%; proposed, not confirmed).
+        let w0 = if pass { -0.42 } else { -0.4 }
             + 0.006 * (get_off + silent - set)
             + self.front_fit(de.label, pass)
             + 0.18 * gauss(self.rng);
@@ -1515,19 +1542,21 @@ impl<'a> Sim<'a> {
                 self.release(k);
                 continue;
             }
-            // The runner coming at him: a defender with leverage on the
-            // block fights off it to make the play (shed and tackle).
+            // The runner coming at him: a defender on a block that isn't
+            // sealed fights off it to make the play (shed and tackle), the
+            // harder the more leverage he has. A second-level man sees him
+            // coming from farther and fights harder.
+            let second = (self.agents[d].pos.x - self.los) * self.goal > 1.5;
             if !e.pass
                 && !reading
                 && let Some(c) = carrier
-                && self.agents[c].pos.dist(self.agents[d].pos) < 2.2
-                && e.w > 0.0
+                && self.agents[c].pos.dist(self.agents[d].pos) < if second { SHED_SECOND_RANGE } else { 2.2 }
+                && e.w > -1.0
             {
-                // (Any leverage at all, and twice as hard as it was: real
-                // runners meet first contact about a yard and a half past
-                // the line, the engine's at three and a half; proposed, not
-                // confirmed.)
-                mu += 2.0 * SHED_RUNNER * (0.5 + e.w).max(0.2);
+                if second {
+                    mu += 2.0 * SHED_SECOND * (0.5 + e.w).max(0.2);
+                }
+                mu += 2.0 * SHED_RUNNER * (0.5 + e.w).max(1.0);
             }
             if TRACE.load(std::sync::atomic::Ordering::Relaxed) && (t - e.start) < DT * 1.5 {
                 println!(
@@ -1641,7 +1670,18 @@ impl<'a> Sim<'a> {
             } else {
                 1.6 * w
             };
-            let v = dir.scale(drive.max(-2.0));
+            let v = if e.pass {
+                dir.scale(drive.max(-2.0))
+            } else {
+                // The surge fades (`RUN_PUSH_BACK`, `RUN_PUSH_UP`): the push
+                // along the field stops, the slide toward the runner goes on.
+                let fade = |tt: f64| clamp(1.0 - (t - e.start) / tt, 0.0, 1.0);
+                if w < 0.0 {
+                    dir.scale((drive * fade(RUN_PUSH_BACK)).max(-2.0))
+                } else {
+                    v2(dir.x * drive * fade(RUN_PUSH_UP), dir.y * drive)
+                }
+            };
             let lateral = if e.pass && e.mv == Move::Speed { dir.perp().scale(0.0) } else { V2::default() };
             let mid = (bp + dp).scale(0.5);
             let off = (dp - bp).norm();
@@ -1917,6 +1957,12 @@ impl<'a> Sim<'a> {
             // (dynasty item 1: tackling now decides only the finish).
             let feet = 0.5 * a.a(Attr::Agility) + 0.3 * a.a(Attr::Tackling) + 0.2 * a.a(Attr::Pursuit);
             let fwd = clamp(1.5 + 0.04 * (feet - 50.0), 0.8, 3.5);
+            // An alley or gap fit holds his depth: at his floor he squares
+            // up there and lets the runner come to him (minor bug 164).
+            let fwd = match floor {
+                Some(f) if (a.pos.x - f) * self.goal <= 0.0 => 0.0,
+                _ => fwd,
+            };
             let run_x = (cv.x * self.goal).max(0.5);
             let t_meet = ahead / (run_x + fwd);
             let y_aim = clamp(cp.y + cv.y * t_meet, 0.5, width() - 0.5);
@@ -2204,8 +2250,10 @@ impl<'a> Sim<'a> {
             self.tackled(c);
             return;
         }
-        // The pile moves: legs churning against the weight on him.
-        let drive = (r.mass * (2.2 + 0.03 * (r.a(Attr::Strength) - 60.0)) - 0.35 * hold) / (r.mass + 0.6 * hold);
+        // The pile moves: legs churning against the weight on him (2.2
+        // before minor bug 164: a lineman's stop gained 0.8 yards, real 2.5;
+        // proposed, not confirmed).
+        let drive = (r.mass * (3.0 + 0.03 * (r.a(Attr::Strength) - 60.0)) - 0.35 * hold) / (r.mass + 0.6 * hold);
         let v = self.agents[c].vel.x * self.goal;
         let nv = (0.6 * v + 0.4 * drive * 2.0).clamp(-1.5, 4.0);
         self.agents[c].vel = v2(nv * self.goal, self.agents[c].vel.y * 0.5);
@@ -2273,23 +2321,26 @@ impl<'a> Sim<'a> {
             self.progress = x;
         }
         // Taken down, the pile goes where its weight is going: he falls
-        // about a quarter of a second of it, up to a yard and a half.
+        // about 0.3 of a second of it, up to a yard and a half (a quarter
+        // second before minor bug 164).
         let mut mv = self.agents[c].vel.scale(self.agents[c].mass);
         let mut mass = self.agents[c].mass;
         for &i in &self.fight {
             mv = mv + self.agents[i].vel.scale(self.agents[i].mass);
             mass += self.agents[i].mass;
         }
-        let fall = mv.scale(0.25 / mass);
+        let fall = mv.scale(0.3 / mass);
         let fall = if fall.len() > 1.5 { fall.norm().scale(1.5) } else { fall };
         // Falling forward: going down with his weight going forward, the
         // ball lands ahead of his hips, by the fall and the reach of his
         // body, up to most of a yard more (the spot was his hips: backs
         // gained 1.2 yards a carry after contact, real 2.0, PFR 2021-25;
-        // proposed, not confirmed). Driven back, the spot is where he got.
+        // proposed, not confirmed; 0.9 of a yard, then 1.05 with minor bug
+        // 164, where a lineman's stop gained 0.8 yards against 2.5 real).
+        // Driven back, the spot is where he got.
         let fwd = fall.x * self.goal;
         if fwd > 0.0 {
-            let body = 0.9 * (fwd / 0.6).min(1.0);
+            let body = 1.05 * (fwd / 0.6).min(1.0);
             let spot = x + (fwd + body) * self.goal;
             if (spot - self.progress) * self.goal > 0.0 {
                 self.progress = spot;

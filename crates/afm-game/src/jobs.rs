@@ -144,12 +144,19 @@ pub fn build_world_file_named(
     } else {
         None
     };
-    let built = World::new_logged(opts, log, |w, _| {
+    // The Data section's tallies (lane NB1) go beside it too, a season at
+    // a time.
+    let data_part = worlds.join(format!("{name}.{}.part", afm_engine::world::tally::EXT));
+    if data_part.exists() {
+        let _ = std::fs::remove_dir_all(&data_part);
+    }
+    let built = World::new_recorded(opts, log, Some(&data_part), |w, _| {
         seasons += 1;
         each(seasons, w.year - 1)
     });
     let Some(mut w) = built else {
         let _ = std::fs::remove_dir_all(&log_part);
+        let _ = std::fs::remove_dir_all(&data_part);
         return Err(STOPPED.into());
     };
     // Seasons done: 0 says the world is being written.
@@ -161,6 +168,12 @@ pub fn build_world_file_named(
             .and_then(|_| std::fs::rename(&log_part, &to_log))
             .map_err(|e| format!("Could not write the world log: {e}"))?;
     }
+    w.detach_tallies();
+    let to_data = crate::tallies::beside(&to);
+    if to_data.exists() {
+        std::fs::remove_dir_all(&to_data).map_err(|e| format!("Could not replace the tallies: {e}"))?;
+    }
+    std::fs::rename(&data_part, &to_data).map_err(|e| format!("Could not write the tallies: {e}"))?;
     let part = to.with_extension("afmworld.part");
     let commit = crate::world_log::commit();
     afm_engine::save::write_world(&w, &part, commit, &files::now_utc(), Some(crate::cards::card(&w)))
@@ -247,6 +260,25 @@ fn world_assets(release: &Value) -> Vec<(String, u64, String)> {
     a
 }
 
+/// A release's tallies (lane NB1): `name.afmdata.tar`, or its parts in order.
+fn data_assets(release: &Value) -> Vec<(String, u64, String)> {
+    let mut a: Vec<(String, u64, String)> = release["assets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|x| {
+            let name = x["name"].as_str()?;
+            let part = name.rsplit_once(".afmdata.tar").is_some_and(|(_, rest)| {
+                rest.is_empty() || (rest.len() == 4 && rest[1..].bytes().all(|b| b.is_ascii_digit()))
+            });
+            let url = x["browser_download_url"].as_str()?;
+            part.then(|| (name.to_string(), x["size"].as_u64().unwrap_or(0), url.to_string()))
+        })
+        .collect();
+    a.sort();
+    a
+}
+
 /// The worlds on the worlds page, newest first, each marked when it is
 /// already in the library. A world is published again under the same name
 /// when a newer game builds it, so only its newest build is listed, and it is
@@ -266,7 +298,7 @@ pub fn online(worlds: &Path) -> Result<Value, String> {
             if !seen.insert(name.clone()) {
                 return None;
             }
-            let mb = assets.iter().map(|a| a.1).sum::<u64>() as f64 / 1e6;
+            let mb = assets.iter().chain(&data_assets(r)).map(|a| a.1).sum::<u64>() as f64 / 1e6;
             // A library copy this game can't read the header of is replaced too.
             let local = worlds.join(format!("{name}.afmworld"));
             let (tag, date) = (r["tag_name"].as_str().unwrap_or(""), r["published_at"].as_str().unwrap_or(""));
@@ -311,8 +343,10 @@ pub fn download(shared: &Shared, worlds: &Path, tag: &str) -> Result<(), String>
     let release: Value = get(&format!("https://api.github.com/repos/{WORLDS_REPO}/releases/tags/{tag}"))?
         .into_json()
         .map_err(|e| e.to_string())?;
-    let assets = world_assets(&release);
+    let mut assets = world_assets(&release);
     let first = assets.first().ok_or("That release has no world file.")?.0.clone();
+    // Its tallies come along and are unpacked beside it (lane NB1).
+    assets.extend(data_assets(&release));
     start(shared, "download", &first, "Starting the download…")?;
     let total: u64 = assets.iter().map(|a| a.1).sum::<u64>().max(1);
     let (shared, worlds) = (shared.clone(), worlds.to_path_buf());

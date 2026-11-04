@@ -2667,8 +2667,12 @@ fn run_blocking(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], rc: RunCon
             }
             Some(ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3) => {
                 let me = sim.agents[i].pos;
+                // A receiver stalks a man off the line, never a down
+                // lineman: he took the nearest man, a defensive end too, and
+                // lost (minor bug 164).
                 let t = (off_n..n)
                     .filter(|&d| !taken[d] && sim.agents[d].pos.dist(me) < 9.0)
+                    .filter(|&d| !matches!(sim.agents[d].label, "DE" | "DT") && sim.agents[d].pos.x >= sim.los + 1.5)
                     .min_by(|&a, &c| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[c].pos.dist(me)));
                 if let Some(d) = t {
                     taken[d] = true;
@@ -4269,15 +4273,26 @@ fn defend(
                 }
                 if deep {
                     // The last line fits the alley: he comes down to about
-                    // seven yards and squares up, and only attacks once the
-                    // runner is through the line.
+                    // eight and a half yards and squares up, and only
+                    // attacks once the runner is through the line.
                     // He comes down under control, taking his angle to the
                     // runner, and runs all out once the runner is through.
                     let pr = sim.agents[i].a(Attr::PlayRecognition);
-                    // A safety with a deep zone is the last line: he fits
-                    // deeper (about nine yards) so nothing gets over him.
+                    // A safety with a deep zone is the last line.
                     let post = matches!(job, Job::Zone { deep: true, .. });
-                    let (wait, fill) = if post { (3.5, 8.5) } else { (2.5, 6.5) };
+                    // A back rolled down into the box (inside 7 yards and 7.5
+                    // to the side of the ball, the box count) is an extra run
+                    // fitter: he fits at 4.5 yards and attacks once the
+                    // runner is 1.5 past the line. He fitted at 6.5 like any
+                    // safety, so an eighth man in the box changed little
+                    // (minor bug 136: 8-man boxes on neutral downs 3.85 a
+                    // carry against 4.11 with 6, real 4.27 against 4.75).
+                    // The others fit at 8.5 and attack at 3.5, like the post:
+                    // at 6.5 and 2.5 they made 42% of first tackles, at 6.7
+                    // yards (real 29%, at 7.0; PFF roles, nflverse 2021-24;
+                    // proposed, not confirmed).
+                    let boxed = !post && back && (me.y - s.ball_y).abs() < 7.5 && (me.x - s.los) * sim.goal < 7.0;
+                    let (wait, fill) = if boxed { (1.5, 4.5) } else { (3.5, 8.5) };
                     // A misfit safety is late to the alley.
                     let (wait, fill) = if sim.agents[i].misfit { (wait + 2.0, fill + 2.0) } else { (wait, fill) };
                     let through = (cp.x - s.los) * sim.goal > wait - 0.02 * (pr - 50.0);
@@ -4305,8 +4320,12 @@ fn defend(
                     // nearly on him, from farther if he flies downhill (he
                     // went from four yards, and with backs at the real pace
                     // linebackers made 9.6 tackles for loss a season, real
-                    // 5.3; proposed, not confirmed).
-                    let mut aim = v2(s.los + sim.goal * 0.5, me.y + clamp(cp.y - me.y, -2.5, 2.5));
+                    // 5.3; proposed, not confirmed). He fills to 2 yards past
+                    // the line, where the runner meets him after the line
+                    // has moved: filling to half a yard he met the back at
+                    // the line, so linebackers' stops gained 1.5 yards, real
+                    // 3.7 (minor bug 164; proposed, not confirmed).
+                    let mut aim = v2(s.los + sim.goal * 2.0, me.y + clamp(cp.y - me.y, -2.5, 2.5));
                     // A misfit: he flows a gap too far, or the false way on
                     // misdirection, and the runner cuts back behind him.
                     if sim.agents[i].misfit && t < sim.agents[i].read_at + 0.8 {
@@ -4314,6 +4333,12 @@ fn defend(
                         aim.y += 2.5 * dir;
                     }
                     sim.go_to(i, aim, 1.0);
+                } else if sim.agents[i].label == "LB" && (s.los - cp.x) * sim.goal > 0.0 {
+                    // Nearly on him with the runner still behind the line:
+                    // he takes his angle but holds 1.5 yards past the line
+                    // and lets the runner come (he chased him into the
+                    // backfield; minor bug 164).
+                    sim.pursue_cap(i, c, 1.0, Some(s.los + sim.goal * 1.5));
                 } else {
                     sim.pursue(i, c);
                 }

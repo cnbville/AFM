@@ -156,6 +156,43 @@ pub(crate) fn charted(w: &World, tier: Tier, division: Option<Division>) -> bool
     }
 }
 
+/// How your seat's charting of a level goes (Data overhaul item 2): how deep
+/// it reads (`analytics::depth`), how many days after a game it arrives, and
+/// whose it is. The NFL's league tracking is the same for every seat; a
+/// level your staff charts follows your analytics head (`analytics::charting`).
+/// None where the level is box scores for you.
+pub(crate) struct Charting {
+    pub depth: u8,
+    pub days: u8,
+    /// Your analytics head, when it is your own staff's charting.
+    pub head: Option<String>,
+}
+
+pub(crate) fn charting(w: &World, tier: Tier, division: Option<Division>) -> Option<Charting> {
+    if !charted(w, tier, division) {
+        return None;
+    }
+    if tier == Tier::Nfl {
+        return Some(Charting { depth: 3, days: 1, head: None });
+    }
+    let staffer = match views::mine(w) {
+        Some(TeamRef::College(p)) => w.programs.get(p).map(|x| &x.support.analytics),
+        Some(TeamRef::Nfl(t)) => w.clubs.get(t).map(|c| &c.support.analytics),
+        _ => None,
+    };
+    let (depth, days) = afm_engine::world::analytics::charting(staffer.map_or(0, |s| s.rating));
+    Some(Charting { depth, days, head: staffer.map(|s| s.name.clone()).filter(|n| !n.is_empty()) })
+}
+
+pub(crate) fn charting_json(c: &Charting) -> Value {
+    json!({
+        "depth": c.depth,
+        "kind": afm_engine::world::analytics::depth_name(c.depth),
+        "days": c.days,
+        "head": c.head,
+    })
+}
+
 /// What your seat's numbers come from, in a line for every Data page.
 pub(crate) fn sources(w: &World) -> Value {
     let (seat, line) = match views::mine(w) {
@@ -182,7 +219,24 @@ pub(crate) fn sources(w: &World) -> Value {
         .map(|d| d.name())
         .chain(std::iter::once("NFL"))
         .collect();
-    json!({ "seat": seat, "line": line, "charted": charted })
+    // Your own staff's charting: how deep and how soon (item 2).
+    let own = Division::ALL.iter().find_map(|&d| charting(w, Tier::College, Some(d)));
+    let mut line = line;
+    if let Some(c) = &own {
+        let who = c.head.as_ref().map_or("Your analytics staff".to_string(), |n| format!("Your analytics head, {n},"));
+        let when = if c.days == 1 { "the morning after".to_string() } else { format!("{} days after", c.days) };
+        line.push_str(&format!(
+            " {who} gives you {} {when} each game.",
+            afm_engine::world::analytics::depth_name(c.depth)
+        ));
+    }
+    json!({
+        "seat": seat,
+        "line": line,
+        "charted": charted,
+        "charting": own.as_ref().map(charting_json),
+        "league": charting_json(&Charting { depth: 3, days: 1, head: None }),
+    })
 }
 
 /// A number as the books write it: whole, or with one decimal (half sacks,

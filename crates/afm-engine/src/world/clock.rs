@@ -650,6 +650,8 @@ const SMALL_EVENT_YEARS: i32 = 5;
 fn rollover(w: &mut World) {
     // The world log takes the year before the calendar drops it.
     super::wlog::year_end(w);
+    // The Data section's tallies close the season (lane NB1).
+    w.tally_close();
     if w.options.keep_game_log {
         // News that belongs to last season (its signing day fell after the
         // Super Bowl) joins that season's record.
