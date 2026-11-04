@@ -184,3 +184,38 @@ fn one_cut_up_at_a_time_and_the_same_snap_counts_once() {
         );
     }
 }
+
+/// A man's tape is his side of the ball (new bugs, Cain 2026-11-04): a
+/// corner the coach also plays on offense is a corner on film, never a
+/// ball carrier, and the press-and-man cut-up asks the press question.
+#[test]
+fn his_tape_is_his_side_of_the_ball() {
+    use crate::positions::Position;
+    use tape::Role;
+    let w = nfl_world();
+    let mut checked = 0;
+    for id in pros(&w) {
+        let Ok(t) = tape::player_tape(&w, id) else { continue };
+        let pos = w.people.iter().find(|p| p.player.id == id).unwrap().player.position;
+        let off =
+            matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL);
+        for s in t.snaps.iter().filter(|s| !s.special) {
+            let wrong = if off {
+                matches!(s.role, Role::Cover | Role::Zone | Role::Rusher | Role::RunStop)
+            } else {
+                matches!(
+                    s.role,
+                    Role::Passer | Role::Target | Role::Route | Role::PassPro | Role::RunBlock | Role::Carrier
+                )
+            };
+            assert!(!wrong, "a {} on the other side: {} ({})", pos.name(), s.job, s.sit);
+        }
+        checked += 1;
+        if checked >= 6 {
+            break;
+        }
+    }
+    assert!(checked > 0, "some tape to check");
+    assert_eq!(fm::words::cut_ask(Position::CB, tape::Cut::Pressure), Some("cb_press"));
+    assert_eq!(fm::words::cut_ask(Position::CB, tape::Cut::ThirdDowns), None);
+}

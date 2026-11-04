@@ -425,8 +425,18 @@ fn collect(
         None
     };
     let mark = words::level_mark(stage);
+    // His tape is his side of the ball (new bugs, Cain 2026-11-04): a high
+    // school corner his coach also plays at back is a corner on his film;
+    // his carries are no answer to how he covers. Kicks stay.
+    let pos = p.player.position;
+    let offense =
+        matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL);
     for r in &res.stats.plays {
         if r.nullified || matches!(r.kind, PlayType::Kneel | PlayType::Spike | PlayType::NoPlay) {
+            continue;
+        }
+        let kick = matches!(r.kind, PlayType::Punt | PlayType::Kickoff | PlayType::FieldGoal | PlayType::ExtraPoint);
+        if !kick && !pos.is_specialist() && (r.offense == side) != offense {
             continue;
         }
         let Some((_, fr)) = res.frames.iter().find(|x| x.0 == r.n) else { continue };
@@ -578,7 +588,17 @@ fn read_snap(
     });
     let surprise = surprise_of(r, me, role, p, salt);
     let special = matches!(r.kind, PlayType::Punt | PlayType::Kickoff | PlayType::FieldGoal | PlayType::ExtraPoint);
-    let pressure = if off { r.blitz } else { r.coverage_man || r.pressured };
+    // Each cut-up pulls what its name says (`Cut::words`; new bugs, Cain
+    // 2026-11-04): a corner, a receiver, a safety or a backer against man
+    // coverage, the line, the backs and the quarterback against the blitz,
+    // the rush on passing plays.
+    let pass = matches!(r.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+    let pressure = match pos {
+        Position::CB | Position::WR | Position::S | Position::LB => pass && r.coverage_man,
+        Position::EDGE | Position::DT => pass,
+        Position::QB | Position::OT | Position::IOL | Position::RB | Position::TE => r.blitz,
+        _ => r.blitz || r.pressured,
+    };
     let others: Vec<u32> = fr[0].players.iter().map(|x| x.0).filter(|&x| x != me).collect();
     let cues = cues_of(&p.player, role, r, mark);
     Snap {
@@ -1417,6 +1437,13 @@ fn stat_of(r: &PlayRecord, me: u32, role: Role) -> Stat {
 /// The snaps of a cut-up (SK45), in game order, at most `n`; the snaps
 /// that jump out ride along (SK51).
 pub fn cut(tape: &Tape, c: Cut, n: usize) -> Vec<usize> {
+    cut_on(tape, c, n, &[])
+}
+
+/// A cut-up pulled for a question (SK47): of his busy snaps, the ones that
+/// show the question's attributes come first (a zone question pulls his
+/// zone snaps), then the rest.
+pub fn cut_on(tape: &Tape, c: Cut, n: usize, ask: &[u8]) -> Vec<usize> {
     let snaps = &tape.snaps;
     let game_score = |g: u8| -> f64 {
         let v: Vec<f64> = snaps.iter().filter(|s| s.game == g && s.grade != 0).map(|s| s.grade as f64).collect();
@@ -1440,6 +1467,8 @@ pub fn cut(tape: &Tape, c: Cut, n: usize) -> Vec<usize> {
     };
     // The snaps where he's in the play first, spread across the games.
     let mut busy: Vec<usize> = pick.iter().copied().filter(|&k| snaps[k].role != Role::Away).collect();
+    let bears = |k: usize| snaps[k].cues.iter().any(|x| ask.contains(&(x.0.index() as u8)));
+    busy.sort_by_key(|&k| !bears(k));
     let mut idle: Vec<usize> = pick.iter().copied().filter(|&k| snaps[k].role == Role::Away).collect();
     busy.truncate(n.saturating_sub(1).max(1));
     idle.truncate(n.saturating_sub(busy.len()).min(2));

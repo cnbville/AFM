@@ -128,7 +128,7 @@ function frBrief(b) {
   if (!pickQ.cut || !b.cuts.some((c) => c.key === pickQ.cut)) pickQ.cut = b.cuts[0].key;
   const q = b.questions.find((x) => x.key === pickQ.q) || b.questions[0];
   const qs = b.questions.map((x) => `<button class="st-btn small ${x.key === (q && q.key) ? "on" : "glass"}" data-act="frpickq" data-id="${b.id}" data-q="${esc(x.key)}">${esc(x.text)}</button>`).join("");
-  const cuts = b.cuts.map((c) => `<button class="st-btn small ${c.key === pickQ.cut ? "on" : "glass"}" data-act="frpickcut" data-id="${b.id}" data-cut="${c.key}">${esc(c.label)}</button>`).join("");
+  const cuts = b.cuts.map((c) => `<button class="st-btn small ${c.key === pickQ.cut ? "on" : "glass"}" data-act="frpickcut" data-id="${b.id}" data-cut="${c.key}"${c.ask ? ` data-ask="${esc(c.ask)}"` : ""}>${esc(c.label)}</button>`).join("");
   const mins = 6 * b.snap_min;
   return `<div class="pad sl fm">
     <header class="fm-head"><div><div class="st-label">Film room · his tape</div><h1 class="fm-h1">${esc(b.name)}</h1><p class="fm-sub">${esc(b.meta)}</p></div>
@@ -314,7 +314,14 @@ Object.assign(CORE_MORE, {
   frskip: (el) => frDo(el, "film_queue_skip", { k: Number(el.dataset.k) }),
   frqmove: (el) => frDo(el, "film_queue_move", { k: Number(el.dataset.k), up: el.dataset.up === "1" }),
   frpickq: (el) => { keep("frq:" + el.dataset.id, {}).q = el.dataset.q; refresh(el); },
-  frpickcut: (el) => { keep("frq:" + el.dataset.id, {}).cut = el.dataset.cut; refresh(el); },
+  // A cut-up made for a question asks it: "Against press and man" asks
+  // whether he can play press.
+  frpickcut: (el) => {
+    const k = keep("frq:" + el.dataset.id, {});
+    k.cut = el.dataset.cut;
+    if (el.dataset.ask) k.q = el.dataset.ask;
+    refresh(el);
+  },
   fropen: (el) => {
     const id = Number(el.dataset.id);
     const k = keep("frq:" + id, {});

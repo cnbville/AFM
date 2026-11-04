@@ -69,7 +69,16 @@ fn a_college_coach_finds_reads_and_offers_any_coach() {
     // A stranger reads as the whole scale (his teaching down to half as
     // wide where a coordinator of yours is strong, C58); film narrows it.
     let hs = ok(&mut g, "hiring_search", json!({ "role": "dl", "level": "hs" }));
-    let c = hs["rows"][0]["coach"].as_u64().unwrap();
+    // A man under 58: from 58 anyone can see he has peaked (learning stops
+    // there, `coach_look::peaked`), whatever the read.
+    let c = hs["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["age"].as_u64().is_some_and(|a| a < 57))
+        .expect("a high school line coach under 57")["coach"]
+        .as_u64()
+        .unwrap();
     let p = ok(&mut g, "hiring_coach", json!({ "coach": c }));
     for f in p["facets"].as_array().unwrap() {
         if f["group"] == "Teaching" {
