@@ -139,9 +139,9 @@ fn summary(w: &afm_engine::world::World) {
         for s in &c.seasons {
             let e = lg.entry(s.year).or_default();
             e[2] += s.stats.att as f64;
-            e[3] += s.stats.pass_yds as f64;
+            e[3] += s.stats.pass_yds;
             e[4] += s.stats.rush as f64;
-            e[5] += s.stats.rush_yds as f64;
+            e[5] += s.stats.rush_yds;
         }
     }
     for (y, e) in lg.iter().rev().take(4) {
