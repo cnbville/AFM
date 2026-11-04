@@ -34,7 +34,7 @@ const frCell = (label, big, cap) => `<div class="fm-cell"><div class="st-label">
 const frBar = (pct, cls = "") => `<div class="fm-bar"><i class="${cls}" style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>`;
 const frH = (h) => (h >= 10 ? `${Math.round(h)} h` : `${(Math.round(h * 10) / 10).toFixed(1)} h`);
 const frWho = (id, name) => (id != null ? `<a class="link name" data-go="scout" data-id="${id}">${esc(name)}</a>` : esc(name));
-let frAngle = "side";
+let frAngle = "end";
 
 screens.film = async (a = {}) => {
   if (a.visit) return frVisit();
@@ -150,7 +150,104 @@ function frReads(r, speed) {
   return frCard(`Two reads <span class="fm-r"><i class="fm-key s"></i>Your staff <i class="fm-key y"></i>You</span>`, `${rows.join("")}${speed ? `<div class="fm-cell"><div class="st-label">Game speed</div><span>${esc(speed)}</span></div>` : ""}<p class="fm-dim">Your read starts as a first impression. It narrows only with what your own eye catches.</p>`);
 }
 
-// ---------- a still ----------
+// ---------- a still on a true-scale field ----------
+// The board's spots are tenths of a yard: d down the field from the line
+// of scrimmage (the offense's way), a across from the offense's left
+// sideline. End zone: the offense going up the frame; sideline: going right.
+// One SVG unit is one yard both ways, so nothing is stretched.
+const FR_W = 160 / 3; // the field's width, yards
+const FR_WHO = ["", "him", "faced", "ball", "qb"];
+function frBoard(b, small) {
+  const end = frAngle !== "side";
+  const P = (d, a) => (end ? [a, -d] : [d, a]);
+  const f = (v) => Math.round(v * 100) / 100;
+  const lo = b.win[0] / 10, hi = b.win[1] / 10, mid = (lo + hi) / 2, span = hi - lo;
+  // A 4:3 frame on the play: the whole width of the field, and as much
+  // of its length as the play needs.
+  let vb;
+  if (end) {
+    const H = Math.max(span, (FR_W + 4) * 0.75), W = H / 0.75;
+    vb = [FR_W / 2 - W / 2, -(mid + H / 2), W, H];
+  } else {
+    const W = Math.max(span, (FR_W + 4) / 0.75), H = W * 0.75;
+    vb = [mid - W / 2, FR_W / 2 - H / 2, W, H];
+  }
+  const dlo = lo - (end ? vb[3] : vb[2]), dhi = hi + (end ? vb[3] : vb[2]);
+  const own = -(100 - b.goal);
+  const seg = (d1, a1, d2, a2) => { const [x1, y1] = P(d1, a1), [x2, y2] = P(d2, a2); return `M${f(x1)} ${f(y1)}L${f(x2)} ${f(y2)}`; };
+  const box = (d1, d2, cls) => { const [x1, y1] = P(d1, 0), [x2, y2] = P(d2, FR_W); return `<rect class="${cls}" x="${f(Math.min(x1, x2))}" y="${f(Math.min(y1, y2))}" width="${f(Math.abs(x2 - x1))}" height="${f(Math.abs(y2 - y1))}"/>`; };
+  let out = `<rect class="sur" x="${f(vb[0])}" y="${f(vb[1])}" width="${f(vb[2])}" height="${f(vb[3])}"/>`;
+  out += box(own - 10, b.goal + 10, "turf") + box(b.goal, b.goal + 10, "ez") + box(own - 10, own, "ez");
+  // Yard lines every five, the numbers every ten, a tick every yard at the
+  // sidelines and the level's hashes.
+  let lines = "", ticks = "", nums = "";
+  const mh = FR_W / 2;
+  for (let Y = 0; Y <= 100; Y++) {
+    const d = own + Y;
+    if (d < dlo || d > dhi) continue;
+    if (Y % 5 === 0) lines += seg(d, 0, d, FR_W);
+    else if (!small) ticks += seg(d, 0, d, 0.67) + seg(d, FR_W - 0.67, d, FR_W) + seg(d, mh - b.hash - 0.67, d, mh - b.hash) + seg(d, mh + b.hash, d, mh + b.hash + 0.67);
+    if (!small && Y % 10 === 0 && Y > 0 && Y < 100) {
+      for (const a of [10, FR_W - 10]) { const [x, y] = P(d, a); nums += `<text class="num" x="${f(x)}" y="${f(y)}">${Math.min(Y, 100 - Y)}</text>`; }
+    }
+  }
+  out += `<path class="yl" d="${lines}"/><path class="gl" d="${seg(own, 0, own, FR_W)}${seg(b.goal, 0, b.goal, FR_W)}"/>${ticks ? `<path class="tick" d="${ticks}"/>` : ""}${nums}`;
+  out += box(own - 10, b.goal + 10, "edge");
+  out += `<path class="los" d="${seg(0, 0, 0, FR_W)}"/>`;
+  if (b.togo > 0 && b.togo < b.goal - 0.05) out += `<path class="fd" d="${seg(b.togo, 0, b.togo, FR_W)}"/>`;
+  // The paths, each with its arrow; him to the man he faced at the snap.
+  for (const p of b.paths) {
+    const pts = p.pts.map((q) => P(q[0] / 10, q[1] / 10));
+    if (pts.length < 2) continue;
+    out += `<polyline class="pa k${p.k}" points="${pts.map((q) => `${f(q[0])},${f(q[1])}`).join(" ")}"/>`;
+    if (p.k === 4) continue;
+    const [x2, y2] = pts[pts.length - 1];
+    let k = pts.length - 2;
+    while (k > 0 && Math.hypot(x2 - pts[k][0], y2 - pts[k][1]) < 0.5) k--;
+    const [x1, y1] = pts[k], len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 0.2) continue;
+    const ux = (x2 - x1) / len, uy = (y2 - y1) / len, L = small ? 1.6 : 1.1, Wd = small ? 0.9 : 0.6;
+    out += `<path class="ar k${p.k}" d="M${f(x2 + ux * 0.4)} ${f(y2 + uy * 0.4)}L${f(x2 - ux * L - uy * Wd)} ${f(y2 - uy * L + ux * Wd)}L${f(x2 - ux * L + uy * Wd)} ${f(y2 - uy * L - ux * Wd)}Z"/>`;
+  }
+  if (b.ring) { const [x, y] = P(b.ring[0] / 10, b.ring[1] / 10); out += `<circle class="ring" cx="${f(x)}" cy="${f(y)}" r="${small ? 2.6 : 1.9}"/>`; }
+  // The men: theirs, his, then the named men, him on top.
+  const who = new Map(b.keys.map((k) => [k[0], k]));
+  const order = b.men.map((m, i) => i).sort((i, j) => (who.has(i) ? 2 + (b.men[i][2] === 2) : 0) + (b.men[i][2] ? 1 : 0) - ((who.has(j) ? 2 + (b.men[j][2] === 2) : 0) + (b.men[j][2] ? 1 : 0)));
+  const r = small ? 1.25 : 0.95;
+  for (const i of order) {
+    const m = b.men[i], [x, y] = P(m[0] / 10, m[1] / 10), k = who.get(i);
+    out += `<g class="man s${m[2]}${k ? ` w${FR_WHO[k[1]]}` : ""}"><circle cx="${f(x)}" cy="${f(y)}" r="${r}"/>`;
+    if (!small) out += `<text class="ps l${Math.min(4, m[3].length)}" x="${f(x)}" y="${f(y)}">${esc(m[3])}</text>`;
+    out += `</g>`;
+  }
+  if (!small) {
+    for (const k of b.keys) {
+      const m = b.men[k[0]];
+      if (!m || !k[2]) continue;
+      const [x, y] = P(m[0] / 10, m[1] / 10);
+      out += `<text class="nm w${FR_WHO[k[1]]}" x="${f(x + 1.35)}" y="${f(y)}">${esc(k[2])}</text>`;
+    }
+  }
+  { const [x, y] = P(b.ball[0] / 10, b.ball[1] / 10); out += `<ellipse class="ball" cx="${f(x)}" cy="${f(y)}" rx="${small ? 0.8 : 0.5}" ry="${small ? 0.55 : 0.34}"/>`; }
+  return `<svg class="fm-board${small ? " small" : ""}" viewBox="${vb.map(f).join(" ")}" preserveAspectRatio="xMidYMid meet">${out}</svg>`;
+}
+const FR_STEPS = ["The snap", "The moment", "The end"];
+// Which still is big: the last one played, unless you picked one.
+let frPick = null, frPickAt = "";
+function frStills(sn, at) {
+  if (!sn.stills.some((st) => st && st.board)) return `<div class="fm-stills">${sn.stills.map((st, k) => frStill(st, FR_STEPS[k])).join("")}</div>`;
+  if (at !== frPickAt) { frPick = null; frPickAt = at; }
+  const played = sn.stills.filter((st) => st && !st.veiled).length;
+  const show = Math.min(frPick != null ? frPick : played - 1, played - 1);
+  const big = sn.stills[show];
+  const strip = sn.stills.map((st, k) => (!st || st.veiled
+    ? `<div class="fm-thumb veiled"><span class="st-label">${FR_STEPS[k]}</span><div class="fm-board small veiled"><span>Not played yet</span></div></div>`
+    : `<button class="fm-thumb${k === show ? " on" : ""}" data-act="frshow" data-k="${k}"><span class="st-label">${FR_STEPS[k]}</span>${st.board ? frBoard(st.board, true) : ""}</button>`)).join("");
+  const key = `<div class="fm-legend"><span><i class="kd s2"></i>Him</span><span><i class="kd s1"></i>His side</span><span><i class="kd s0"></i>Theirs</span><span><i class="kl k0"></i>His path</span><span><i class="kl k1"></i>The man he faced</span><span><i class="kl k2"></i>The ball</span><span><i class="kl los"></i>Line of scrimmage</span><span><i class="kl fd"></i>First down</span></div>`;
+  return `<div class="fm-view"><div class="fm-bigstill"><div class="st-label">${FR_STEPS[show]}</div>${frBoard(big.board, false)}<p class="fm-capbig">${esc(big.caption)}</p>${key}</div><div class="fm-strip">${strip}</div></div>`;
+}
+
+// ---------- a still from before the true-scale field ----------
 function frProj(x, y) {
   if (frAngle !== "end") return [x, y];
   // From the end zone: behind the offense, the far side narrower.
@@ -172,7 +269,7 @@ function frSession(s) {
   title(s.name, "Film room");
   const sn = s.snap;
   const pips = s.pips.map((p) => `<i class="pip p${p}"></i>`).join("");
-  const stills = sn.stills.map((st, k) => frStill(st, ["The snap", "The moment", "The end"][k])).join("");
+  const stills = frStills(sn, `${s.name}:${s.cut}:${s.at}:${s.step}`);
   let action = "";
   if (s.step === 0) {
     action = `<div class="fm-seg">${frBtn("frplay", {}, `▶ Play the snap${s.mode === "full" ? ` · ${s.snap_min} min` : ""}`, "primary")}<span class="fm-dim">${s.mode === "live" ? "From the stands: no replays tonight." : "The tape stops before the moment on about one snap in three."}</span></div>`;
@@ -205,8 +302,8 @@ function frSession(s) {
     <div class="fm-cols"><div class="fm-main">
       <section class="fm-card fm-tape">
         <div class="fm-tape-top"><div><div class="st-label">${esc(s.cut)} · snap ${s.at + 1} of ${s.n}${s.mode === "live" ? " · from the stands" : ""}</div><b class="fm-sit">${name} · ${esc(sn.game)} · ${esc(sn.sit)}</b>${sn.job ? `<small class="fm-dim">His job: ${esc(sn.job)}</small>` : ""}</div>
-          <div class="fm-tape-r"><div class="fm-pips">${pips}</div><div class="fm-seg">${frBtn("frangle", { a: "side" }, "Sideline", frAngle === "side" ? "on" : "glass")}${frBtn("frangle", { a: "end" }, "End zone", frAngle === "end" ? "on" : "glass")}</div></div></div>
-        <div class="fm-stills">${stills}</div>
+          <div class="fm-tape-r"><div class="fm-pips">${pips}</div><div class="fm-seg">${frBtn("frangle", { a: "end" }, "End zone", frAngle !== "side" ? "on" : "glass")}${frBtn("frangle", { a: "side" }, "Sideline", frAngle === "side" ? "on" : "glass")}</div></div></div>
+        ${stills}
         <div class="fm-act">${action}</div>
         <div class="fm-seg end">${frBtn("frclose", {}, "Leave the film room")}<span class="fm-dim">What you watched still counts.</span></div>
       </section>
@@ -219,7 +316,7 @@ function frReport(x) {
   const r = x.report;
   if (!r) return frHome({});
   title(r.name, "Film report");
-  const kept = r.snaps.length ? frCard("The look-back · the snaps it rests on", r.snaps.map((sn) => `<div class="fm-kept"><b>${esc(sn.sit)}</b> <span class="fm-dim">${esc(sn.job)} · ${esc(sn.result)}</span><div class="fm-stills small">${sn.stills.map((st, k) => frStill(st, ["The snap", "The moment", "The end"][k])).join("")}</div></div>`).join("")) : "";
+  const kept = r.snaps.length ? frCard("The look-back · the snaps it rests on", r.snaps.map((sn) => `<div class="fm-kept"><b>${esc(sn.sit)}</b> <span class="fm-dim">${esc(sn.job)} · ${esc(sn.result)}</span><div class="fm-stills small">${sn.stills.map((st, k) => (st && st.board ? `<div class="fm-still"><div class="st-label">${FR_STEPS[k]}</div>${frBoard(st.board, true)}<small>${esc(st.caption)}</small></div>` : frStill(st, FR_STEPS[k]))).join("")}</div></div>`).join("")) : "";
   return `<div class="pad sl fm">
     <header class="fm-head"><div><div class="st-label">Film report · ${esc(r.date)}</div><h1 class="fm-h1">${r.id != null ? frWho(r.id, r.name) : esc(r.name)}</h1><p class="fm-sub">${esc(r.ask || "")}</p></div></header>
     ${x.said ? `<p class="fm-note">${esc(x.said)}</p>` : ""}
@@ -337,6 +434,7 @@ Object.assign(CORE_MORE, {
   frverdict: (el) => frDo(el, "film_verdict", { answer: Number(el.dataset.answer) }, () => go("film", { report: "last" }, false)),
   frclose: (el) => frDo(el, "film_leave", {}, (r) => go("film", r && r.saved ? { report: "last" } : {}, false)),
   frangle: (el) => { frAngle = el.dataset.a; refresh(el); },
+  frshow: (el) => { frPick = Number(el.dataset.k); refresh(el); },
   frstands: (el) => frDo(el, "there_stands", { id: Number(el.dataset.id) }, () => go("film", {})),
   frvisit: (el) => frDo(el, "there_visit", { id: Number(el.dataset.id) }, () => go("film", { visit: 1 })),
   frchoose: (el) => frDo(el, "there_choose", { key: el.dataset.key }),

@@ -25,6 +25,11 @@
 //! - `champions_more` (`tab` "conferences", "states" or "award"): conference
 //!   champions by year, state champions by state and class, and every
 //!   winner of one award (items 23-25, `champs.rs`);
+//! - `team_data` (`kind`, `id`, `year`), `team_seasons` (`kind`, `id`,
+//!   `unit`) and `team_leaders` (`level`, `year`, `division`, `state`,
+//!   `stat`, `side`, `view`): a team's Data tab, its stats by season and
+//!   every team ranked, the tiers chart and the power ratings with the odds
+//!   (lane NB7, items 16-23, `teams.rs`);
 //! - `stat_glossary`: every stat in plain words, and the table headers
 //!   that name each, for the hover on a stat's name (Cain, 2026-11-03;
 //!   `glossary.rs`).
@@ -40,6 +45,7 @@ pub(crate) use books::title_case;
 mod champs;
 mod deep;
 pub(crate) mod glossary;
+mod teams;
 
 use afm_engine::calendar::Level as CalLevel;
 use afm_engine::world::World;
@@ -63,6 +69,9 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "analytics_card" => analytics::card,
         "player_data" => deep::player_data,
         "champions_more" => champs::more,
+        "team_data" => teams::team_data,
+        "team_seasons" => teams::team_seasons,
+        "team_leaders" => teams::team_leaders,
         _ => return None,
     };
     let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };
