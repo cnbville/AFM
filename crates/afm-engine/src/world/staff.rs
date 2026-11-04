@@ -1381,7 +1381,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                     s += 0.8 * seen(g, rng);
                     let u = coach.units[g as usize];
                     if coach.came_up == g {
-                        s += 0.6;
+                        s += super::ethnicity::tune("cu", 0.6);
                     } else if coach.came_up.offense() != g.offense() && u.growth_read() < 0.3 && u.moved_up < 2.0 {
                         s -= 1.5;
                     }
@@ -2498,7 +2498,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                             && ((coach.came_up.offense() == g.offense() && u.growth_read() > 0.15) || u.moved_up >= 1.5)
                     })
                     .collect();
-                sample(w, &hs, 4, &mut pool);
+                sample(w, &hs, super::ethnicity::tune("hs_pc", 4.0) as usize, &mut pool);
                 // High school coordinators on that side (C37), and the
                 // juniors who work with that room: the program's own first
                 // (C36).
@@ -2508,7 +2508,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     .filter_map(|&h| if g.offense() { w.high_schools[h].oc } else { w.high_schools[h].dc })
                     .filter(|&c| !moved.contains(&c) && w.coaches[c].units[g as usize].growth_read() > 0.1)
                     .collect();
-                sample(w, &hs_coords, 2, &mut pool);
+                sample(w, &hs_coords, super::ethnicity::tune("hs_pcc", 2.0) as usize, &mut pool);
                 let (own, other) = w
                     .coaches
                     .iter()
@@ -2689,6 +2689,12 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
         Employer::HighSchool(s) => Some(w.high_schools[s].state),
         _ => None,
     };
+    // A public school's coaches teach there: a man who has only coached in
+    // college holds no teaching certificate (minor bug 242).
+    let public = match o.employer {
+        Employer::HighSchool(s) => !w.high_schools[s].private && super::ethnicity::tune("hs_cert", 1.0) > 0.5,
+        _ => false,
+    };
     let free: Vec<usize> = w
         .coaches
         .iter()
@@ -2698,7 +2704,8 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                 || (!c.history.iter().any(|s| {
                     s.role == Role::HeadCoach
                         && matches!(s.employer, Employer::College(p) if matches!(w.programs[p].division, Division::FBS | Division::FCS))
-                }) && c.history.last().and_then(|s| employer_state(w, s.employer)) == hs_state)
+                }) && c.history.last().and_then(|s| employer_state(w, s.employer)) == hs_state
+                    && (!public || c.history.iter().any(|s| matches!(s.employer, Employer::HighSchool(_)))))
         })
         .map(|c| c.id)
         .filter(|c| !moved.contains(c))

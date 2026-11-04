@@ -45,6 +45,9 @@ fn main() {
         w.advance_year();
     }
     println!("world: seed {seed}, {years} years, scale {scale}, +{future}, built in {:.0}s", t.elapsed().as_secs_f64());
+    if let Ok(path) = std::env::var("AFM_COACH_CSV") {
+        coach_csv(&w, &path);
+    }
     fbs_turnover(&w);
     who(&w);
     overlaps(&w);
@@ -576,4 +579,48 @@ fn champions(w: &World) {
     for (h, c, t, p) in rows.iter().take(8) {
         println!("    {} ({p:.2}): {t} titles, {c} changes", w.high_schools[*h].name);
     }
+}
+
+/// Every coach in a job, one row each, for reading offline (`AFM_COACH_CSV`).
+fn coach_csv(w: &World, path: &str) {
+    use std::fmt::Write as _;
+    let mut out =
+        String::from("level,role,group,eth,came_up,played,former,ex_pro,age,since,prev,prev_role,state,private\n");
+    for co in &w.coaches {
+        let Some(j) = co.job else { continue };
+        let (level, state, private) = match j.employer {
+            Employer::College(p) => (format!("{:?}", w.programs[p].division), w.programs[p].state as i64, false),
+            Employer::Nfl(_) => ("NFL".into(), -1, false),
+            Employer::HighSchool(h) => ("HS".into(), w.high_schools[h].state as i64, w.high_schools[h].private),
+            Employer::Other(_) => ("Other".into(), -1, false),
+        };
+        let (role, group) = match j.role {
+            Role::HeadCoach => ("HC", String::new()),
+            Role::OffensiveCoordinator => ("OC", String::new()),
+            Role::DefensiveCoordinator => ("DC", String::new()),
+            Role::PositionCoach(g) => ("PC", format!("{g:?}")),
+        };
+        let played = co.played.map(|p| format!("{:?}", p.group())).unwrap_or_default();
+        let former = co.played.is_some_and(|p| p.former.is_some());
+        let prev = co.history.last();
+        let prev_kind = match prev.map(|h| h.employer) {
+            None => "none".to_string(),
+            Some(Employer::College(q)) => format!("{:?}", w.programs[q].division),
+            Some(Employer::HighSchool(_)) => "HS".into(),
+            Some(Employer::Nfl(_)) => "NFL".into(),
+            Some(Employer::Other(_)) => "Other".into(),
+        };
+        let prev_role = prev.map_or("", |h| match h.role {
+            Role::HeadCoach => "HC",
+            Role::OffensiveCoordinator => "OC",
+            Role::DefensiveCoordinator => "DC",
+            Role::PositionCoach(_) => "PC",
+        });
+        let _ = writeln!(
+            out,
+            "{level},{role},{group},{:?},{:?},{played},{former},{},{},{},{prev_kind},{prev_role},{state},{private}",
+            co.ethnicity, co.came_up, co.ex_pro, co.age, j.since
+        );
+    }
+    std::fs::write(path, out).expect("coach csv");
 }

@@ -458,7 +458,7 @@ pub fn generate_coach_as(
         .max_by(|a, b| teaching[*a as usize].total_cmp(&teaching[*b as usize]))
         .unwrap_or(Group::ALL[0]);
     let drawn = rng.chance(match tier {
-        CoachTier::HighSchool => 0.04,
+        CoachTier::HighSchool => super::ethnicity::tune("hs_drawn", 0.04),
         CoachTier::Nfl => 0.35,
         _ => 0.12,
     });
