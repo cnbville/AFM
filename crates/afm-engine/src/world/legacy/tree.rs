@@ -461,10 +461,14 @@ pub(crate) fn assistant_pick(w: &World, school: usize) -> Option<usize> {
 pub(crate) fn promote_assistant(w: &mut World, i: usize) -> Option<usize> {
     let a = w.career.as_mut()?.hs_staff.get(i).cloned()?;
     let me = super::you(w)?.0;
-    let c = crate::world::staff::new_hs_coach(w, a.age);
+    let state = w.seat_school().map_or(0, |h| w.high_schools[h].state);
+    let c = crate::world::staff::new_hs_coach(w, state, a.age);
     let co = &mut w.coaches[c];
     co.name = a.name.clone();
     co.born = a.born;
+    if let Some(e) = a.ethnicity {
+        co.ethnicity = e;
+    }
     co.mentor = Some(me);
     let g = a.group as usize % co.ability.teaching.len();
     co.ability.teaching[g] = a.teaching;

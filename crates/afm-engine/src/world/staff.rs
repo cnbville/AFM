@@ -40,13 +40,22 @@ fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize
 /// records hold a man of his age, are made up with a playing past drawn
 /// from the real shares.
 fn new_coach_for(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool, want: Want) -> usize {
+    // A high school's pool is the state's teachers (minor bug 242): his
+    // group comes first, and a former player who fits is one of that group.
+    let want = match pool {
+        CoachPool::HighSchool(_) => Want { ethnicity: Some(coach_ethnicity(pool, w.year, age, &mut w.rng)), ..want },
+        _ => want,
+    };
     let played = want.nfl == Some(true) || w.rng.chance(super::former::college_share(tier));
     let found = if played { super::former::draw(w, tier, age, want) } else { None };
     let id = match found {
         Some(k) => super::former::to_coach(w, k, tier),
         None => {
             let id = w.coaches.len();
-            let ethnicity = coach_ethnicity(pool, w.year, &mut w.rng);
+            let ethnicity = match want.ethnicity {
+                Some(e) => e,
+                None => coach_ethnicity(pool, w.year, age, &mut w.rng),
+            };
             let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
             let pro = want.nfl.filter(|&x| x);
             let mut c = super::coach::generate_coach_as(id, name, ethnicity, tier, age, pro, &mut w.rng);
@@ -89,10 +98,10 @@ pub(crate) fn name_weight(w: &World, e: Employer, role: Role) -> f64 {
     }
 }
 
-/// A new high school coach of the world's (update 2, lane 2: your
-/// assistant who takes a head job).
-pub(crate) fn new_hs_coach(w: &mut World, age: u32) -> usize {
-    new_coach(w, CoachTier::HighSchool, age, CoachPool::HighSchool)
+/// A new high school coach of the world's in a state (update 2, lane 2:
+/// your assistant who takes a head job).
+pub(crate) fn new_hs_coach(w: &mut World, state: usize, age: u32) -> usize {
+    new_coach(w, CoachTier::HighSchool, age, CoachPool::HighSchool(state))
 }
 
 /// The state a job is in (an NFL team has none here).
@@ -379,7 +388,7 @@ pub(crate) fn staff_everyone(w: &mut World) {
     ensure_ads(w);
     for s in 0..w.high_schools.len() {
         let age = w.rng.int(28, 62) as u32;
-        let c = new_coach(w, CoachTier::HighSchool, age, CoachPool::HighSchool);
+        let c = new_coach(w, CoachTier::HighSchool, age, CoachPool::HighSchool(w.high_schools[s].state));
         // Powerhouses already have strong staffs.
         if w.high_schools[s].prestige > 0.75 {
             for t in w.coaches[c].ability.teaching.iter_mut() {
@@ -402,7 +411,7 @@ pub(crate) fn staff_everyone(w: &mut World) {
     for t in super::franchise::active_teams_in(w, year) {
         for role in nfl_roles() {
             let (lo, pool) = match role {
-                Role::HeadCoach => (38, CoachPool::CollegeHead1990),
+                Role::HeadCoach => (38, CoachPool::NflHeadStart),
                 _ => (32, CoachPool::CollegeAssistant1990),
             };
             let age = w.rng.int(lo, 64) as u32;
@@ -1408,23 +1417,32 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             if hiring_hc.is_some() && w.coaches[c].mentor == hiring_hc {
                 s += 1.5;
             }
-            // The committee bias falls hardest on head jobs and offensive
-            // coordinators, least on position coaches (trial 4 topic 9: FBS
-            // 2022-23, assistants 53% of color, defensive coordinators over
-            // 20% Black, offensive coordinators 7-9%, head coaches 14 of 133;
-            // the rung weights are proposed, not confirmed). An offensive
-            // coordinator's search weighs it above a head job's: his pool is
-            // the position coaches, half of color, a head job's the
-            // coordinators (minor bug 161: at 0.7 and 0.4, FBS offensive
-            // coordinators read 11.5-18.9% Black and defensive 21-28%; at 1.2
-            // and 0.55, three 30-year worlds at scale 0.1 read 4.5-13.4% and
-            // 20.6-23.0%, and two worlds' 2016-25 hires 6.2-8.3% and 20-21%).
+            // The committee bias falls hardest on head jobs, offensive
+            // coordinators and the quarterback and line rooms, least on the
+            // other position coaches (minor bugs 161 and 243). Real FBS staffs
+            // around 2015 (FootballScoop): offensive line coaches 2.3% Black,
+            // defensive backs 55%, defensive line 48%, linebackers 21%,
+            // running backs and receivers over half of color, offensive
+            // coordinators 10 of 142; in 2022 position coaches 44% Black,
+            // offensive coordinators 7-9%, defensive over 20% (trial 4 topic
+            // 9). An offensive coordinator's search weighs it above a head
+            // job's: his pool is the position coaches, a head job's the
+            // coordinators. The rung weights are proposed, not confirmed.
             if !is_hs {
                 let rung = match o.role {
                     Role::HeadCoach => 1.0,
-                    Role::OffensiveCoordinator => 1.2,
-                    Role::DefensiveCoordinator => 0.55,
-                    Role::PositionCoach(_) => 0.15,
+                    Role::OffensiveCoordinator => 1.4,
+                    // The NFL's defensive coordinators are its head coaches'
+                    // road (9 of 21 Black head coaches of the Rooney Rule era
+                    // came from one; Penn/ASU): at 0.8 the league read 1-7
+                    // of color a season in 2005-18 and 1.9-4.1 head coaches
+                    // of color, at 0.55 7-15 and 6.0 and 5.9 (real about 6).
+                    Role::DefensiveCoordinator if matches!(o.employer, Employer::Nfl(_)) => 0.55,
+                    Role::DefensiveCoordinator => 0.8,
+                    Role::PositionCoach(Group::QB) => 1.5,
+                    Role::PositionCoach(Group::OL) => 2.0,
+                    Role::PositionCoach(Group::Specialists) => 0.5,
+                    Role::PositionCoach(_) => 0.0,
                 };
                 // A head job has its own weight (minor bugs 127 and 148),
                 // set against the real head coaches: in the NFL about 3 of 31
@@ -1433,9 +1451,9 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                 // 2024); at FBS about 12% Black since the 2010s (16 of 134 in
                 // 2024, CBS Sports). The weights are proposed, not confirmed.
                 let head = match (o.employer, o.role) {
-                    (Employer::Nfl(_), Role::HeadCoach) if year >= 2003 => 0.15,
+                    (Employer::Nfl(_), Role::HeadCoach) if year >= 2003 => 0.05,
                     (Employer::Nfl(_), Role::HeadCoach) => 0.3,
-                    (_, Role::HeadCoach) => 0.7,
+                    (_, Role::HeadCoach) => 0.85,
                     _ => 1.0,
                 };
                 s -= rung * head * hiring_bias(w.coaches[c].ethnicity, year, needs_prestige);
@@ -1529,8 +1547,8 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             };
             let age = w.rng.int(lo, hi) as u32;
             // The same committee bias decides which long-time assistant gets a head job.
-            let pool = if is_hs {
-                CoachPool::HighSchool
+            let pool = if let Employer::HighSchool(h) = o.employer {
+                CoachPool::HighSchool(w.high_schools[h].state)
             } else if o.role == Role::HeadCoach
                 && w.rng.chance(1.0 - (-hiring_bias(Ethnicity::Black, year, needs_prestige) / 3.0).exp())
             {
@@ -1548,7 +1566,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                     Role::PositionCoach(g) => Some(g),
                     _ => None,
                 };
-                let want = Want { state: employer_state(w, o.employer), hc: hiring_hc, group, nfl: None };
+                let want = Want { state: employer_state(w, o.employer), hc: hiring_hc, group, ..Want::default() };
                 new_coach_for(w, tier, age, pool, want)
             };
             let drop = if matches!(o.role, Role::PositionCoach(_)) { 3.0 } else { 2.0 };
@@ -2485,7 +2503,14 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                             && ((coach.came_up.offense() == g.offense() && u.growth_read() > 0.15) || u.moved_up >= 1.5)
                     })
                     .collect();
-                sample(w, &hs, 4, &mut pool);
+                // Rarely straight to FBS (minor bug 243): of 570 FBS on-field
+                // job changes in 2021-22, 12 came from high schools (2.1%;
+                // 247Sports via FootballScoop), where one search in five
+                // looking at a single high school head coach reads 3-4%
+                // (proposed, not confirmed). A smaller college looks wider.
+                let (k_hs, k_co) =
+                    if div == Division::FBS { if w.rng.chance(0.2) { (1, 0) } else { (0, 0) } } else { (4, 2) };
+                sample(w, &hs, k_hs, &mut pool);
                 // High school coordinators on that side (C37), and the
                 // juniors who work with that room: the program's own first
                 // (C36).
@@ -2495,7 +2520,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     .filter_map(|&h| if g.offense() { w.high_schools[h].oc } else { w.high_schools[h].dc })
                     .filter(|&c| !moved.contains(&c) && w.coaches[c].units[g as usize].growth_read() > 0.1)
                     .collect();
-                sample(w, &hs_coords, 2, &mut pool);
+                sample(w, &hs_coords, k_co, &mut pool);
                 let (own, other) = w
                     .coaches
                     .iter()
@@ -2515,8 +2540,13 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     let age = w.rng.int(27, 38) as u32;
                     // A former pro of the world's own (C11): one this head
                     // coach coached first, else one from the state.
-                    let want =
-                        Want { state: Some(state), hc: w.programs[p].head_coach, group: Some(g), nfl: Some(true) };
+                    let want = Want {
+                        state: Some(state),
+                        hc: w.programs[p].head_coach,
+                        group: Some(g),
+                        nfl: Some(true),
+                        ethnicity: None,
+                    };
                     let c = new_coach_for(w, tier, age, CoachPool::Entering, want);
                     let coach = &mut w.coaches[c];
                     coach.ability.network = clamp(coach.ability.network + w.rng.range(3.0, 6.0), 1.0, 20.0);
@@ -2552,8 +2582,13 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                 .filter(|c| !moved.contains(c))
                 .collect();
             sample(w, &coords, 8, &mut pool);
-            // An ex-pro looking for his first job: knowledge and network, less teaching (1.5).
-            if w.rng.chance(0.25) {
+            // An ex-pro looking for his first job: knowledge and network, less
+            // teaching (1.5). Rare (minor bug 242): about 130 former NFL
+            // players were high school head coaches in 2026 of some 14,000
+            // (USA Today; ESPN counted 169 in 2021), under 1%. At one search
+            // in four, 43% of the world's head coaches were ex-pros. One
+            // search in a hundred, proposed, not confirmed.
+            if w.rng.chance(0.01) {
                 let age = w.rng.int(30, 45) as u32;
                 let want = Want { state: Some(state), nfl: Some(true), ..Want::default() };
                 let c = new_coach_for(w, CoachTier::HighSchool, age, CoachPool::Entering, want);
@@ -2658,18 +2693,31 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
             sample(w, &college, 10, &mut pool);
         }
     }
-    // Unemployed coaches still looking. A former college head coach doesn't take a high school job.
-    let hs_job = matches!(o.employer, Employer::HighSchool(_));
+    // Unemployed coaches still looking. A former college head coach doesn't
+    // take a high school job, and a high school hires a man who last worked
+    // in its state: its coaches teach there, on the state's certificate
+    // (minor bug 242).
+    let hs_state = match o.employer {
+        Employer::HighSchool(s) => Some(w.high_schools[s].state),
+        _ => None,
+    };
+    // A public school's coaches teach there: a man who has only coached in
+    // college holds no teaching certificate (minor bug 242).
+    let public = match o.employer {
+        Employer::HighSchool(s) => !w.high_schools[s].private,
+        _ => false,
+    };
     let free: Vec<usize> = w
         .coaches
         .iter()
         .filter(|c| c.job.is_none() && !c.retired && c.age < 66 && !c.history.is_empty())
         .filter(|c| {
-            !hs_job
-                || !c.history.iter().any(|s| {
+            hs_state.is_none()
+                || (!c.history.iter().any(|s| {
                     s.role == Role::HeadCoach
                         && matches!(s.employer, Employer::College(p) if matches!(w.programs[p].division, Division::FBS | Division::FCS))
-                })
+                }) && c.history.last().and_then(|s| employer_state(w, s.employer)) == hs_state
+                    && (!public || c.history.iter().any(|s| matches!(s.employer, Employer::HighSchool(_)))))
         })
         .map(|c| c.id)
         .filter(|c| !moved.contains(c))
@@ -3243,7 +3291,7 @@ fn new_junior(w: &mut World, e: Employer, post: super::coach::Post, group: Optio
         Post::QualityControl => (24, 31),
     };
     let age = w.rng.int(lo, hi) as u32;
-    let want = Want { state, hc, group, nfl: None };
+    let want = Want { state, hc, group, ..Want::default() };
     let c = new_coach_for(w, tier, age, CoachPool::Entering, want);
     let seed = w.options.seed as u64;
     let co = &mut w.coaches[c];
@@ -3351,8 +3399,8 @@ fn junior_year(w: &mut World) {
 fn new_hs_coordinator(w: &mut World, s: usize, role: Role, age: u32) -> usize {
     let state = w.high_schools[s].state;
     let off = role == Role::OffensiveCoordinator;
-    let want = Want { state: Some(state), hc: w.high_schools[s].coach, group: None, nfl: None };
-    let c = new_coach_for(w, CoachTier::HighSchool, age, CoachPool::HighSchool, want);
+    let want = Want { state: Some(state), hc: w.high_schools[s].coach, ..Want::default() };
+    let c = new_coach_for(w, CoachTier::HighSchool, age, CoachPool::HighSchool(state), want);
     // He came up on his side of the ball.
     if w.coaches[c].came_up.offense() != off {
         let co = &mut w.coaches[c];
@@ -3440,6 +3488,9 @@ pub(crate) fn hs_staff_year(w: &mut World) {
             continue;
         }
         let state = w.high_schools[s].state;
+        // A public school's coordinators teach there (minor bug 242): a man
+        // who has only coached in college holds no teaching certificate.
+        let public = !w.high_schools[s].private;
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
             let empty = match role {
                 Role::OffensiveCoordinator => w.high_schools[s].oc.is_none(),
@@ -3453,6 +3504,9 @@ pub(crate) fn hs_staff_year(w: &mut World) {
                 list.iter()
                     .enumerate()
                     .filter(|&(_, &c)| w.coaches[c].job.is_none() && w.coaches[c].came_up.offense() == off)
+                    .filter(|&(_, &c)| {
+                        !public || w.coaches[c].history.iter().any(|h| matches!(h.employer, Employer::HighSchool(_)))
+                    })
                     .max_by(|a, b| {
                         let k = |c: usize| {
                             w.coaches[c].reputation

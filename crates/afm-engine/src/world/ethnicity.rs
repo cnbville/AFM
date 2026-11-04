@@ -390,8 +390,10 @@ pub fn player_ethnicity(state: usize, talent_z: f64, position: Option<Position>,
 /// pool entering coaching is diverse; who gets hired is where the gap opens
 /// (see `hiring_bias`). `head_job_start` covers the head coaches already in
 /// place when the world begins (1990): about 3% of major-college head coaches
-/// were Black then. Shares are proposed, not confirmed.
-pub fn coach_ethnicity(kind: CoachPool, year: i32, rng: &mut Rng) -> Ethnicity {
+/// were Black then. `age` is the new coach's age this year (the high school
+/// pool reads the state he grew up in when he was born). Shares are
+/// proposed, not confirmed.
+pub fn coach_ethnicity(kind: CoachPool, year: i32, age: u32, rng: &mut Rng) -> Ethnicity {
     // Young coaches entering the college ranks (trial 4 topic 9, traced
     // 2026-10-17): FBS assistants below coordinator were 34% Black and 5%
     // other minorities in 2012, 44% and 9% in 2022 (NCAA demographics, via
@@ -404,12 +406,81 @@ pub fn coach_ethnicity(kind: CoachPool, year: i32, rng: &mut Rng) -> Ethnicity {
     };
     let w: [f64; 5] = match kind {
         CoachPool::Entering => entering(year),
-        CoachPool::HighSchool => [0.78, 0.16, 0.04, 0.01, 0.01],
+        CoachPool::HighSchool(state) => return hs_coach_ethnicity(state, year - age as i32, rng),
         CoachPool::CollegeHead1990 => [0.96, 0.03, 0.005, 0.004, 0.001],
+        // The NFL's head coaches when the world starts (minor bug 244): 3
+        // of 30 were Black in 1996 (Dennis Green, Ray Rhodes, Tony Dungy),
+        // far more than the college ranks' 3% the college pool holds.
+        CoachPool::NflHeadStart => [0.9, 0.1, 0.0, 0.0, 0.0],
         // The staffs already in place when the world starts (proposed, not confirmed).
         CoachPool::CollegeAssistant1990 => [0.8, 0.17, 0.015, 0.01, 0.005],
     };
     rng.weighted(&with_asian_split(w))
+}
+
+/// A high school coach's group (minor bug 242). High school coaches are
+/// the state's own men, almost all of them teachers at the school, so the
+/// pool is the state's people of his generation, not the college players':
+/// the state's shares (`STATE_SHARES`) moved back to the year he was born
+/// (`born_share`), times how often men of each group teach and coach
+/// football against white men (`hs_lean`). Set against Texas 6A in 2018,
+/// 18% Black, 11% Hispanic and 71% white among 253 head coaches (Dave
+/// Campbell's Texas Football; 6A is the big city and suburban schools,
+/// where Texas's Black families live, so the state as a whole sits lower),
+/// and Georgia's 424 GHSA head coaches in 2021, 29.5% of color (23% in
+/// 2010; AJC). Black men are about 2% of American teachers, so the lean
+/// sits under 1 although Black boys play far more than white boys.
+fn hs_coach_ethnicity(state: usize, born: i32, rng: &mut Rng) -> Ethnicity {
+    let s = shares(state);
+    let entries: Vec<(Ethnicity, f64)> =
+        Ethnicity::ALL.iter().enumerate().map(|(k, &e)| (e, s[k] * born_share(e, born))).collect();
+    // What the other groups' past shares leave was white then.
+    let white = 1.0 - entries.iter().skip(1).map(|x| x.1).sum::<f64>();
+    let entries: Vec<(Ethnicity, f64)> = entries
+        .into_iter()
+        .map(|(e, x)| if e == Ethnicity::White { (e, white.max(0.02)) } else { (e, x * hs_lean(e)) })
+        .collect();
+    rng.weighted(&entries)
+}
+
+/// How often men of each group teach and coach high school football,
+/// against white men (minor bug 242; proposed, not confirmed: set on Texas
+/// 6A in 2018 and Georgia in 2021, see `hs_coach_ethnicity`).
+fn hs_lean(e: Ethnicity) -> f64 {
+    match e {
+        Ethnicity::White => 1.0,
+        Ethnicity::Black => 0.8,
+        Ethnicity::Hispanic => 0.6,
+        Ethnicity::Polynesian => 1.5,
+        Ethnicity::EastAsian | Ethnicity::SoutheastAsian | Ethnicity::SouthAsian => 0.3,
+    }
+}
+
+/// A group's share of births in `born` against its share of children today
+/// (`STATE_SHARES`), from the national births (NCHS, as Claude knows them:
+/// Hispanic about 4.5% of births in 1960, 6.5% in 1970, 11% in 1980, 15%
+/// in 1990, 20% in 2000 and 24% since 2010; Asian about 2% in 1980, 3.5%
+/// in 1990, 5% in 2000 and 6.5% since 2010). Black and Polynesian shares
+/// have held. Proposed, not confirmed.
+fn born_share(e: Ethnicity, born: i32) -> f64 {
+    const HISPANIC: [(i32, f64); 6] =
+        [(1960, 0.18), (1970, 0.27), (1980, 0.45), (1990, 0.62), (2000, 0.83), (2010, 1.0)];
+    const ASIAN: [(i32, f64); 6] = [(1960, 0.15), (1970, 0.2), (1980, 0.3), (1990, 0.55), (2000, 0.8), (2010, 1.0)];
+    let table: &[(i32, f64)] = match e {
+        Ethnicity::Hispanic => &HISPANIC,
+        e if e.is_asian() => &ASIAN,
+        _ => return 1.0,
+    };
+    let (first, last) = (table[0], table[table.len() - 1]);
+    if born <= first.0 {
+        return first.1;
+    }
+    if born >= last.0 {
+        return last.1;
+    }
+    let k = table.iter().position(|x| x.0 > born).unwrap_or(table.len() - 1);
+    let (a, b) = (table[k - 1], table[k]);
+    a.1 + (b.1 - a.1) * (born - a.0) as f64 / (b.0 - a.0) as f64
 }
 
 /// Weights over White, Black, Hispanic, Polynesian and Asian, with the Asian
@@ -431,8 +502,11 @@ pub fn with_asian_split(w: [f64; 5]) -> [(Ethnicity, f64); ETHNICITY_COUNT] {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CoachPool {
     Entering,
-    HighSchool,
+    /// A high school's coaches, from its state (the state's index; minor bug 242).
+    HighSchool(usize),
     CollegeHead1990,
+    /// The NFL's head coaches when the world starts (minor bug 244).
+    NflHeadStart,
     CollegeAssistant1990,
 }
 
@@ -482,6 +556,32 @@ mod tests {
         assert!(rb > any + 0.15 && cb > any + 0.15, "backs {rb:.2}, corners {cb:.2}, all {any:.2}");
         assert!(qb < any - 0.15 && te < any - 0.15, "quarterbacks {qb:.2}, tight ends {te:.2}, all {any:.2}");
         assert!(k < 0.05, "kickers {k:.2}");
+    }
+
+    /// Minor bug 242: a high school coach comes from his state's own
+    /// people. A Texas coach of 2018's age (born about 1975) is about 11%
+    /// Black and 12% Hispanic, a Georgia coach about 30% Black, a Vermont
+    /// coach almost always white; a Texan born in 2000 is likelier Hispanic
+    /// than one born in 1975.
+    #[test]
+    fn high_school_coaches_follow_their_state() {
+        let at = |code: &str| geo::STATE_CENTERS.iter().position(|c| c.0 == code).expect("state");
+        let share = |code: &str, born: i32, e: Ethnicity| {
+            let mut rng = Rng::new(7);
+            let n = 40_000;
+            let pool = CoachPool::HighSchool(at(code));
+            (0..n).filter(|_| coach_ethnicity(pool, 2018, (2018 - born) as u32, &mut rng) == e).count() as f64
+                / n as f64
+        };
+        let (tx_b, tx_h) = (share("TX", 1975, Ethnicity::Black), share("TX", 1975, Ethnicity::Hispanic));
+        assert!(
+            (0.08..0.14).contains(&tx_b) && (0.09..0.16).contains(&tx_h),
+            "Texas {tx_b:.3} Black, {tx_h:.3} Hispanic"
+        );
+        let ga = share("GA", 1978, Ethnicity::Black);
+        assert!((0.26..0.34).contains(&ga), "Georgia {ga:.3} Black");
+        assert!(share("VT", 1975, Ethnicity::White) > 0.95);
+        assert!(share("TX", 2000, Ethnicity::Hispanic) > tx_h + 0.05);
     }
 
     /// The split keeps every seed's White, Black, Hispanic and Polynesian

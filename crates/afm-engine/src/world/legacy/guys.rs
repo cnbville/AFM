@@ -905,6 +905,11 @@ pub(crate) fn answer(w: &mut World, target: u32) {
         TeamKey::Hs(_) => {
             let born = crate::calendar::Date::ymd(g.born, 6, 1);
             let age = (w.year - g.born).max(18) as u32;
+            let ethnicity = w
+                .formers
+                .get(g.id)
+                .map(|f| f.ethnicity)
+                .or_else(|| w.people.iter().find(|p| p.player.id == g.id).map(|p| p.ethnicity));
             if let Some(c) = w.career.as_mut() {
                 c.hs_staff.push(crate::world::seat::HsAssistant {
                     name: g.name.clone(),
@@ -916,6 +921,7 @@ pub(crate) fn answer(w: &mut World, target: u32) {
                     stipend: 1_500,
                     teaching: (8.0 + 6.0 * g.bond.max(0.0) as f64).min(14.0),
                     since: w.year,
+                    ethnicity,
                 });
             }
             w.legacy.guys[k].back = 1;
