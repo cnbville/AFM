@@ -48,6 +48,7 @@ fn main() {
     if let Ok(path) = std::env::var("AFM_COACH_CSV") {
         coach_csv(&w, &path);
     }
+    formers(&w);
     fbs_turnover(&w);
     who(&w);
     overlaps(&w);
@@ -623,4 +624,34 @@ fn coach_csv(w: &World, path: &str) {
         );
     }
     std::fs::write(path, out).expect("coach csv");
+}
+
+/// The world's former players by life and level (who is there to become a coach).
+fn formers(w: &World) {
+    use afm_engine::world::former::Life;
+    let mut by: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    for f in &w.formers.list {
+        let div = match f.played.div {
+            0 => "FBS",
+            1 => "FCS",
+            _ => "smaller",
+        };
+        let pro = if f.played.nfl() { " pro" } else { "" };
+        let key = format!("{:?} {} {div}{pro}", f.life, if f.coach.is_some() { "hired" } else { "free" });
+        let k = by.entry(key).or_default();
+        k.0 += usize::from(f.ethnicity == Ethnicity::Black);
+        k.1 += 1;
+        let k = by.entry(format!("all {div}")).or_default();
+        k.0 += usize::from(f.ethnicity == Ethnicity::Black);
+        k.1 += 1;
+        if f.life == Life::Coaching {
+            let k = by.entry(format!("coaching, played {:?}", f.played.group())).or_default();
+            k.0 += usize::from(f.ethnicity == Ethnicity::Black);
+            k.1 += 1;
+        }
+    }
+    println!("\nformer players kept (Black share, n)");
+    for (k, (b, n)) in &by {
+        println!("    {k}: {:.0}%, {n}", pct(*b, *n));
+    }
 }

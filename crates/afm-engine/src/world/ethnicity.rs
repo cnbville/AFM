@@ -401,7 +401,7 @@ pub fn coach_ethnicity(kind: CoachPool, year: i32, age: u32, rng: &mut Rng) -> E
     // (proposed, not confirmed); of them 82% Black, 8% Hispanic, 6%
     // Polynesian, 4% Asian.
     let entering = |year: i32| {
-        let color = 0.27 + 0.23 * ((year - 1990) as f64 / 25.0).clamp(0.0, 1.0);
+        let color = 0.27 + (tune("ent", 0.5) - 0.27) * ((year - 1990) as f64 / 25.0).clamp(0.0, 1.0);
         [1.0 - color, 0.82 * color, 0.08 * color, 0.06 * color, 0.04 * color]
     };
     let w: [f64; 5] = match kind {

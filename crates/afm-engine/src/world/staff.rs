@@ -3476,6 +3476,9 @@ pub(crate) fn hs_staff_year(w: &mut World) {
             continue;
         }
         let state = w.high_schools[s].state;
+        // A public school's coordinators teach there (minor bug 242): a man
+        // who has only coached in college holds no teaching certificate.
+        let public = !w.high_schools[s].private && super::ethnicity::tune("hs_cert", 1.0) > 0.5;
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
             let empty = match role {
                 Role::OffensiveCoordinator => w.high_schools[s].oc.is_none(),
@@ -3489,6 +3492,9 @@ pub(crate) fn hs_staff_year(w: &mut World) {
                 list.iter()
                     .enumerate()
                     .filter(|&(_, &c)| w.coaches[c].job.is_none() && w.coaches[c].came_up.offense() == off)
+                    .filter(|&(_, &c)| {
+                        !public || w.coaches[c].history.iter().any(|h| matches!(h.employer, Employer::HighSchool(_)))
+                    })
                     .max_by(|a, b| {
                         let k = |c: usize| {
                             w.coaches[c].reputation
