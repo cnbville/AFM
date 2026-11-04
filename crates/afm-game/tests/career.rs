@@ -246,6 +246,45 @@ fn a_college_career_plays_through_its_first_games() {
         );
         assert!(c["classes"].as_array().is_some_and(|x| x.len() >= 4) && c["filtered"] == true, "{level}: {c}");
     }
+    // Lane NB4: every view of the passers' card in each reading, the
+    // returners, the new filters (each narrows the qualifiers) and the
+    // player's Data tab.
+    let views = qbs["views"].as_array().map_or(0, |v| v.len());
+    assert!(views >= 5, "the passers' views: {qbs}");
+    for view in 0..views {
+        for mode in ["raw", "era", "adj"] {
+            let v = ok(
+                &mut g,
+                "analytics",
+                json!({ "level": "college", "group": "QB", "min": 0, "view": view, "mode": mode }),
+            );
+            assert_eq!((v["view"].as_u64(), v["mode"].as_str()), (Some(view as u64), Some(mode)), "{v}");
+            assert!(v["columns"].as_array().is_some_and(|c| !c.is_empty() && c.len() <= 12), "{v}");
+            assert!(v["columns"][0]["avg"].is_string() || v["qualified"] == 0, "the level average: {v}");
+        }
+    }
+    let ret = ok(&mut g, "analytics", json!({ "level": "college", "group": "RET", "min": 0 }));
+    assert_eq!(ret["group"], "RET", "{ret}");
+    let team = qbs["teams"][0][0].clone();
+    let conf = qbs["conferences"][0].clone();
+    for f in [
+        json!({ "team": team }),
+        json!({ "conference": conf }),
+        json!({ "eligible": "yes" }),
+        json!({ "transfer": "no" }),
+        json!({ "stars": 3 }),
+        json!({ "spot": 0 }),
+        json!({ "home": "TX" }),
+    ] {
+        let mut args = json!({ "level": "college", "group": "QB", "min": 0 });
+        for (k, v) in f.as_object().unwrap() {
+            args[k] = v.clone();
+        }
+        let x = ok(&mut g, "analytics", args);
+        assert!(x["filtered"] == true && x["total"].as_u64().unwrap() <= all, "{f}: {x}");
+    }
+    let pd = ok(&mut g, "player_data", json!({ "id": qbs["rows"][0]["id"] }));
+    assert!(pd["years"].is_array() && pd["error"].is_null(), "{pd}");
     let card = ok(&mut g, "analytics_card", json!({ "id": qbs["rows"][0]["id"] }));
     assert!(card["metrics"].as_array().is_some_and(|m| !m.is_empty()), "{card}");
     ok(&mut g, "analytics_card", json!({ "id": id }));

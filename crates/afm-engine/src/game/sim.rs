@@ -622,6 +622,10 @@ pub fn hampered(gp: &GamePlayer, hurt: Option<InjuryKind>) -> std::borrow::Cow<'
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Notes {
     pub pressures: Vec<(u32, f64)>,
+    /// Each pass rusher's first contact with a blocker (id, seconds after
+    /// the snap): what the Data section reads as his get-off.
+    #[serde(default)]
+    pub contact: Vec<(u32, f64)>,
     pub hits: Vec<u32>,
     pub sackers: Vec<u32>,
     pub tacklers: Vec<u32>,
@@ -1290,6 +1294,12 @@ impl<'a> Sim<'a> {
             + self.front_fit(de.label, pass)
             + 0.18 * gauss(self.rng);
         let k = self.eng.len();
+        if pass {
+            let id = self.agents[d].id;
+            if !self.notes.contact.iter().any(|c| c.0 == id) {
+                self.notes.contact.push((id, self.t));
+            }
+        }
         self.eng.push(Engagement {
             blocker: b,
             defender: d,

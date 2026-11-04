@@ -1450,6 +1450,20 @@ Minor bugs 185-240 are B1-B56 of the tutorial catalogue (`afm/player-immersion/t
 - **Sizes and memory** (`memory_check` on a 0.1 world, seed 2026, 6 years of history and one more season): a closed season is about 22.5 MB on disk (games 9.5, teams 6.2, players 6.1, classes 0.6, people 0.1); the open season at the football year's end packs to 63 MB, and closed seasons never stay in memory. At full size (not measured) a season should be roughly 45-50 MB, mostly ten times as many high school games, so a 30-year world's folder is about 1.4 GB on the worlds page, and the open season adds roughly 0.15 GB of heap in January and February, after the summer's high (`docs/reference/how-it-works/tallies.md`, "Sizes").
 - **Proposed, not confirmed**: a start is being on the field for the first snap; high school games keep facts and boxes only, with no player rows; the other leagues are not counted; classes keep Division I signees from high school only; the depth and delay steps by rating (15 tracking-style, 8 film; 17 the morning after, 12 two days, 7 three, else four); every seat gets the NFL's tracking at full depth the morning after; the classes file is the whole store each season; the worlds page carries the folder as a tar file.
 
+### Lane NB4: Data 2, players (2026-11-04, Data overhaul items 3-15 and 28, minor bug 44)
+
+- **Position cards** (items 4-10): each group's charted card has views: QB accuracy and depth, pressure and blitz, play action and scrambles; RB running (with rush yards over expected), against the box, receiving and usage, blocking; WR and TE routes and separation (with YAC over expected), where he lines up, blocking; OL pass protection (PBE, win rate), discipline and spots; DL and EDGE pass rush (PRP, get-off, time to pressure), rush moves, run defense; LB, CB and S coverage, blitz, run support, where he lines up; K and P depth cards; returners as their own group.
+- **Facet grades** (item 11): the game's per-play grades split into ten facets that add up to the overall grade.
+- **Era +** (item 12) and **opponent-adjusted** (item 13) readings on the table, raw beside each.
+- **Filters and saved views** (item 14): team, conference, exact spot, draft eligible, transfers, stars, home state; saved views come back each visit.
+- **Level averages and the Glossary** (item 3): every column's hover gives the level average this season; a Glossary page in Data lists every stat.
+- **The player page's Data tab** (items 15 and 28, minor bug 44): splits (situations, home and road, weather, ranked or playoff opponents, by club), his games, the throw map by zone, run paths, the route map, the pressure map and where he lined up.
+- **Expected yards**: rush yards over expected and YAC over expected come from models fitted on the engine's own plays at each level (`xyards_fit`).
+- **World results**: none. The new counts only watch (`tests/tallies.rs`). Separation at the catch point is now divided by catches (it was divided by targets).
+- **Size**: a closed season's tallies grow from about 22.5 MB to 30.5 MB on a 0.1 world (the players file from 6.1 to 14.5 MB); a 30-year world's tally folder comes to roughly 1.8 GB at full size (Claude's estimate). Memory stays flat: closed seasons live on disk.
+- How it works: `docs/reference/how-it-works/records-and-data.md` ("The position cards and the player's Data tab") and `tallies.md` ("The depth counts").
+- **Proposed, not confirmed**: the features of the expected rush and YAC models; get-off as the time to a rusher's first contact; the safety rolled into the box; a pre-snap foul's facet; the weather splits' lines (15 mph, 40 F); the era index's scale (100 and 10 a standard deviation); the opponent-adjusted mapping and method; the exact spots' groups; the views' lists.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

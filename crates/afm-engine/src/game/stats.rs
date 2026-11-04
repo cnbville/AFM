@@ -175,6 +175,22 @@ pub struct PlayRecord {
     /// reader's kicking counts).
     #[serde(default)]
     pub bad_snap: bool,
+    /// Each man's spot on the snap, in `on_field` order: the offense's
+    /// `ORole` and the defense's `DSlot`, as numbers (Data overhaul, lane
+    /// NB4: where he lined up). Empty on kicks and on plays kept before.
+    #[serde(default)]
+    pub roles: [Vec<u8>; 2],
+    /// A punt's or a kickoff's hang time in seconds (0: not kept).
+    #[serde(default)]
+    pub hang: f32,
+    /// Seconds from the snap to the first pressure (0: none, or not kept):
+    /// Next Gen Stats' time to pressure.
+    #[serde(default)]
+    pub pressure_at: f32,
+    /// Each pass rusher's first contact with a blocker, in seconds after
+    /// the snap: the get-off the Data section shows.
+    #[serde(default)]
+    pub contact: Vec<(u32, f32)>,
 }
 
 impl PlayRecord {
@@ -272,6 +288,10 @@ impl PlayRecord {
             dpers: 0,
             look: false,
             bad_snap: false,
+            roles: [Vec::new(), Vec::new()],
+            hang: 0.0,
+            pressure_at: 0.0,
+            contact: Vec::new(),
         }
     }
 
@@ -428,6 +448,39 @@ pub struct StatLine {
     pub grade_sum: f64,
     pub graded: u32,
     pub top_speed: f64,
+    /// The game's per-play grades by facet (Data overhaul item 11): the
+    /// sum and the plays graded for each of `FACETS`, in turn. Only a
+    /// game's line keeps it; season lines leave it empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub facets: Option<Box<[f32; 20]>>,
+}
+
+/// The facets a play's grade falls under, PFF's (Data overhaul item 11).
+pub const FACETS: [&str; 10] = [
+    "passing",
+    "running",
+    "receiving",
+    "pass blocking",
+    "run blocking",
+    "pass rush",
+    "run defense",
+    "coverage",
+    "tackling",
+    "special teams",
+];
+
+/// Facet numbers (`FACETS`).
+pub mod facet {
+    pub const PASS: usize = 0;
+    pub const RUSH: usize = 1;
+    pub const RECV: usize = 2;
+    pub const PASS_BLOCK: usize = 3;
+    pub const RUN_BLOCK: usize = 4;
+    pub const PASS_RUSH: usize = 5;
+    pub const RUN_DEF: usize = 6;
+    pub const COVERAGE: usize = 7;
+    pub const TACKLING: usize = 8;
+    pub const SPECIAL: usize = 9;
 }
 
 impl StatLine {
@@ -770,9 +823,49 @@ impl GameStats {
         // player's line goes to the team he is on; `rule` is for a man
         // not on the field.
         let side = |id: u32, rule: usize| r.side_of(id).unwrap_or(rule);
-        let grade = |s: &mut StatLine, g: f64| {
+        // Every grade also falls under one facet (item 11); the overall
+        // grade is their sum, as before.
+        use facet::*;
+        let grade = |s: &mut StatLine, f: usize, g: f64| {
             s.grade_sum += g;
             s.graded += 1;
+            let x = s.facets.get_or_insert_with(Default::default);
+            x[2 * f] += g as f32;
+            x[2 * f + 1] += 1.0;
+        };
+        let dropback = matches!(r.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+        let kick = matches!(r.kind, PlayType::Punt | PlayType::Kickoff | PlayType::FieldGoal | PlayType::ExtraPoint);
+        // A penalty falls under the job he had on the snap: the passer's
+        // passing, a blocker's blocking, a runner's running, a target's
+        // catching; on defense the rush, coverage or the run. A foul before
+        // the snap goes to blocking or the rush (most are linemen's);
+        // proposed, not confirmed.
+        let foul_facet = |id: u32, team: usize| -> usize {
+            if kick {
+                SPECIAL
+            } else if team == o {
+                if r.passer == Some(id) {
+                    PASS
+                } else if let Some(b) = r.blocks.iter().find(|b| b.0 == id) {
+                    if b.2 { PASS_BLOCK } else { RUN_BLOCK }
+                } else if r.carrier == Some(id) && r.kind == PlayType::Run {
+                    RUSH
+                } else if dropback && r.target == Some(id) {
+                    RECV
+                } else if dropback || r.kind == PlayType::NoPlay {
+                    PASS_BLOCK
+                } else {
+                    RUN_BLOCK
+                }
+            } else if r.kind == PlayType::NoPlay
+                || dropback && (r.pressures.contains(&id) || r.blocks.iter().any(|b| b.1 == id && b.2))
+            {
+                PASS_RUSH
+            } else if dropback {
+                COVERAGE
+            } else {
+                RUN_DEF
+            }
         };
         let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
         for &id in &r.on_field[0] {
@@ -796,7 +889,9 @@ impl GameStats {
                 let l = self.line(team, id);
                 l.penalties += 1;
                 l.penalty_yds += yds;
-                grade(l, -0.8);
+                let f = foul_facet(id, team);
+                let l = self.line(team, id);
+                grade(l, f, -0.8);
                 self.team[team].penalties += 1;
                 self.team[team].penalty_yds += yds;
                 let _ = kind;
@@ -848,7 +943,7 @@ impl GameStats {
                             l.sacked += 1;
                             l.sack_yds += -r.yards;
                             l.pass_epa += r.epa;
-                            grade(l, -0.4);
+                            grade(l, PASS, -0.4);
                         }
                         PlayType::Scramble => {}
                         _ => {
@@ -900,7 +995,7 @@ impl GameStats {
                             } else {
                                 -0.25
                             };
-                            grade(l, g);
+                            grade(l, PASS, g);
                         }
                     }
                     let ts = &mut self.team[o];
@@ -956,9 +1051,9 @@ impl GameStats {
                         l.sep_sum += r.separation;
                         l.rec_first += r.first_down as u32;
                         l.rec_epa += r.epa;
-                        grade(l, 0.3 + (r.yac / 10.0).min(1.0) + if r.separation < 1.0 { 0.4 } else { 0.0 });
+                        grade(l, RECV, 0.3 + (r.yac / 10.0).min(1.0) + if r.separation < 1.0 { 0.4 } else { 0.0 });
                     } else if r.drop {
-                        grade(l, -1.2);
+                        grade(l, RECV, -1.2);
                     }
                 }
                 if let Some(cb) = r.defender {
@@ -969,20 +1064,20 @@ impl GameStats {
                         l.cmp_allowed += 1;
                         l.yds_allowed += r.yards;
                         l.td_allowed += r.touchdown as u32;
-                        grade(l, -0.4 - (r.yards / 25.0).min(1.0));
+                        grade(l, COVERAGE, -0.4 - (r.yards / 25.0).min(1.0));
                     } else {
-                        grade(l, 0.3);
+                        grade(l, COVERAGE, 0.3);
                     }
                 }
                 if let Some(p) = r.pbu {
                     let l = self.line(d, p);
                     l.pbus += 1;
-                    grade(l, 1.0);
+                    grade(l, COVERAGE, 1.0);
                 }
                 if let Some(p) = r.interceptor {
                     let l = self.line(d, p);
                     l.ints += 1;
-                    grade(l, 2.0);
+                    grade(l, COVERAGE, 2.0);
                 }
                 for &id in &r.on_field[1] {
                     if !r.pressures.contains(&id)
@@ -1009,7 +1104,7 @@ impl GameStats {
                     l.rush_epa += r.epa;
                     let g = (r.epa * 0.5).clamp(-0.8, 1.5)
                         + 0.25 * r.missed_tackles.iter().filter(|m| m.1 == c).count() as f64;
-                    grade(l, g);
+                    grade(l, RUSH, g);
                 }
                 let ts = &mut self.team[o];
                 ts.rush_yards += r.yards;
@@ -1025,13 +1120,13 @@ impl GameStats {
             let l = self.line(d, id);
             l.sacks += share;
             l.tfl += share;
-            grade(l, 1.6);
+            grade(l, PASS_RUSH, 1.6);
         }
         for &id in &r.hits {
             if !r.sackers.contains(&id) {
                 let l = self.line(d, id);
                 l.qb_hits += 1;
-                grade(l, 0.6);
+                grade(l, PASS_RUSH, 0.6);
             }
         }
         let mut seen = Vec::new();
@@ -1044,7 +1139,7 @@ impl GameStats {
             l.pressures += 1;
             if !r.sackers.contains(&id) && !r.hits.contains(&id) {
                 l.hurries += 1;
-                grade(l, 0.5);
+                grade(l, PASS_RUSH, 0.5);
             }
             l.ttp_sum += r.time_to_throw;
         }
@@ -1067,6 +1162,7 @@ impl GameStats {
                     }
                     grade(
                         l,
+                        PASS_BLOCK,
                         if gave_sack {
                             -1.5
                         } else if gave_pressure {
@@ -1080,7 +1176,7 @@ impl GameStats {
                 } else {
                     l.rb_snaps += 1;
                     l.rb_wins += won as u32;
-                    grade(l, if won { 0.25 } else { -0.35 });
+                    grade(l, RUN_BLOCK, if won { 0.25 } else { -0.35 });
                 }
             }
             let l = self.line(side(def, d), def);
@@ -1091,9 +1187,9 @@ impl GameStats {
                 if pass && secs < 2.5 {
                     l.rush_wins += 1;
                 }
-                grade(l, 0.3);
+                grade(l, if pass { PASS_RUSH } else { RUN_DEF }, 0.3);
             } else {
-                grade(l, -0.1);
+                grade(l, if pass { PASS_RUSH } else { RUN_DEF }, -0.1);
             }
         }
         for &(id, mv, _) in &r.rush_wins {
@@ -1123,32 +1219,50 @@ impl GameStats {
             if scrimmage && r.yards < 0.0 && r.kind != PlayType::Sack {
                 l.tfl += if n > 1 { 0.5 } else { 1.0 };
             }
+            // A stop is the run defense's or the coverage's; any other
+            // tackle is tackling, and a tackle on a kick special teams.
+            let stop_facet = if kick {
+                SPECIAL
+            } else if r.kind == PlayType::Pass {
+                COVERAGE
+            } else {
+                RUN_DEF
+            };
             if scrimmage && !r.success() {
                 l.stops += 1;
-                grade(l, 0.4);
+                grade(l, stop_facet, 0.4);
             } else {
-                grade(l, 0.1);
+                grade(l, if stop_facet == SPECIAL { SPECIAL } else { TACKLING }, 0.1);
             }
         }
         for &(tk, runner) in &r.missed_tackles {
             let team = side(tk, o);
             let l = self.line(team, tk);
             l.missed += 1;
-            grade(l, -0.7);
+            grade(l, if kick { SPECIAL } else { TACKLING }, -0.7);
             let rteam = 1 - team;
             self.line(rteam, runner).forced_missed += 1;
         }
         if let Some(f) = r.forced_fumble {
             let l = self.line(side(f, d), f);
             l.forced_fumbles += 1;
-            grade(l, 1.5);
+            grade(l, if kick { SPECIAL } else { TACKLING }, 1.5);
         }
         if let Some(f) = r.fumbled {
             let team = side(f, d);
             let l = self.line(team, f);
             l.fumbles += 1;
             l.fumbles_lost += r.fumble_lost as u32;
-            grade(l, -1.5);
+            let job = if kick {
+                SPECIAL
+            } else if r.passer == Some(f) && r.kind != PlayType::Scramble {
+                PASS
+            } else if r.kind == PlayType::Pass {
+                RECV
+            } else {
+                RUSH
+            };
+            grade(l, job, -1.5);
             if r.fumble_lost {
                 self.team[team].fumbles_lost += 1;
                 self.team[team].turnovers += 1;
@@ -1185,7 +1299,7 @@ impl GameStats {
                         l.clutch_att += 1;
                         l.clutch_made += r.kick_good as u32;
                     }
-                    grade(l, if r.kick_good { 0.4 + 0.03 * (r.kick_distance - 40.0).max(0.0) } else { -1.0 });
+                    grade(l, SPECIAL, if r.kick_good { 0.4 + 0.03 * (r.kick_distance - 40.0).max(0.0) } else { -1.0 });
                 }
                 self.team[o].fg_att += 1;
                 self.team[o].fg_made += r.kick_good as u32;

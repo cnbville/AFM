@@ -12,6 +12,7 @@
 Object.assign(I, {
   stathist: '<path d="M4 20V5M4 20h16"/><path d="M8 16l3-4 3 2 5-7"/><circle cx="19" cy="7" r="1"/>',
   analytics: '<circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/>',
+  glossary: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11M9 8h6"/>',
 });
 if (!NAV_SECS.some(([k]) => k === "data")) NAV_SECS.splice(NAV_SECS.findIndex(([k]) => k === "world"), 0, ["data", "Data"]);
 navAdd({ go: "stathist", label: "Stat history", icon: "stathist", sec: "data" });
@@ -25,7 +26,8 @@ navAdd({ go: "analytics", label: "Player analytics", icon: "analytics", sec: "da
   const at = NAV.findIndex((n) => n.go === "analytics");
   NAV.splice(at + 1, 0, { go: "leaders", label: "Leaderboards", icon: "leader", sec: "data" }, { go: "history", label: "History", icon: "history", sec: "data" });
 }
-Object.assign(CRUMBS, { stathist: "Stat history", analytics: "Player analytics" });
+navAdd({ go: "glossary", label: "Glossary", icon: "glossary", sec: "data", after: "history" });
+Object.assign(CRUMBS, { stathist: "Stat history", analytics: "Player analytics", glossary: "Glossary" });
 
 const DT_LEVELS = [["college", "College"], ["nfl", "NFL"], ["hs", "High school"]];
 const dtSeg = (act, list, cur) => `<div class="seg">${list.map(([v, t]) => `<button data-act="${act}" data-v="${esc(v)}" aria-pressed="${String(cur) === String(v)}">${esc(t)}</button>`).join("")}</div>`;
@@ -128,7 +130,8 @@ screens.analytics = async (a) => {
   for (const k of ["level", "division", "state", "group", "year"]) if (a[k] != null) { K[k] = a[k]; delete a[k]; }
   if (a.card != null) { K.card = Number(a.card); delete a.card; }
   const level = dtLevel(K);
-  const args = { level, division: K.division || undefined, state: K.state || undefined, group: K.group || undefined, year: K.year ? Number(K.year) : undefined, min: K.min !== "" && K.min != null ? Number(K.min) : undefined, sort: K.sort != null ? Number(K.sort) : undefined, dir: K.dir || -1, class: K.class || undefined, rs: K.rs || undefined, age_min: K.age_min ? Number(K.age_min) : undefined, age_max: K.age_max ? Number(K.age_max) : undefined };
+  const args = { level, division: K.division || undefined, state: K.state || undefined, group: K.group || undefined, year: K.year ? Number(K.year) : undefined, min: K.min !== "" && K.min != null ? Number(K.min) : undefined, sort: K.sort != null ? Number(K.sort) : undefined, dir: K.dir || -1, class: K.class || undefined, rs: K.rs || undefined, age_min: K.age_min ? Number(K.age_min) : undefined, age_max: K.age_max ? Number(K.age_max) : undefined,
+    view: K.view ? Number(K.view) : undefined, mode: K.mode || undefined, team: K.team != null && K.team !== "" ? Number(K.team) : undefined, conference: K.conference || undefined, spot: K.spot != null && K.spot !== "" ? Number(K.spot) : undefined, eligible: K.eligible || undefined, transfer: K.transfer || undefined, stars: K.stars ? Number(K.stars) : undefined, home: K.home || undefined };
   const x = await api("analytics", args);
   title("Player analytics", `${x.group} · ${x.year}`);
   const bar = `<div class="tbar">${dtSeg("dalevel", DT_LEVELS, x.level)}
@@ -141,34 +144,80 @@ screens.analytics = async (a) => {
     <div class="tbar dt-filter">${dtSel("f:class", x.classes, x.class, x.level === "nfl" ? "Any year in the league" : "Every class")}
     ${x.level === "college" ? dtSel("f:rs", [["yes", "Redshirted"], ["no", "Never redshirted"]], x.rs, "Redshirt or not") : ""}
     <label class="dt-min">Age <input type="number" min="13" max="45" step="1" value="${x.age_min ?? ""}" placeholder="any" data-act="daage" data-k="age_min"> to <input type="number" min="13" max="45" step="1" value="${x.age_max ?? ""}" placeholder="any" data-act="daage" data-k="age_max"></label>
-    ${x.filtered ? `<button class="tbtn" data-act="daclear">Clear</button>` : ""}</div>`;
+    ${x.teams.length ? dtSel("f:team", x.teams, x.team, x.level === "nfl" ? "Every club" : "Every team") : ""}
+    ${x.conferences.length ? dtSel("f:conference", x.conferences, x.conference, "Every conference") : ""}
+    ${x.spots.length ? dtSel("f:spot", x.spots, x.spot, "Every spot") : ""}
+    ${x.level === "college" ? dtSel("f:eligible", [["yes", "Draft eligible"], ["no", "Not yet eligible"]], x.eligible, "Eligible or not") + dtSel("f:transfer", [["yes", "Transfers"], ["no", "Never transferred"]], x.transfer, "Transfer or not") + dtSel("f:stars", [5, 4, 3, 2, 1, 0].map((n) => [n, n ? `${n} star${n > 1 ? "s" : ""}` : "Unrated"]), x.stars, "Any stars") : ""}
+    ${x.level !== "hs" ? dtSel("f:home", Object.keys(STATE_NAMES).map((c) => [c, "From " + STATE_NAMES[c]]), x.home, "Any home state") : ""}
+    ${x.filtered ? `<button class="tbtn" data-act="daclear">Clear</button>` : ""}</div>
+    ${dtViewsBar(x)}`;
   // Each stat's name explains itself on hover (H8, help.js), with the
   // middle value among every qualifier this season.
-  const h8 = (key, mid, n) => `data-h8="${esc(key)}"${mid != null ? ` data-h8mid="${esc(mid)}" data-h8n="${n}"` : ""}`;
-  const head = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th><th data-h8="Games">G</th><th data-h8="Vol">Vol</th>${x.columns.map((c, i) => `<th ${h8(c.key, c.mid, x.qualified)}><button class="dt-sort ${x.sort === i ? "on" : ""}" data-act="dasort" data-v="${i}">${esc(c.label)}</button></th>`).join("")}<th></th></tr>`;
-  const body = x.rows.map((r) => `<tr class="${K.card === r.id ? "on" : ""}"><td>${r.rank}</td><td class="l">${dtWho(r)}</td><td class="l">${esc(r.pos)}</td><td class="l">${r.team ? teamChip(r.team, 16) : ""}</td><td>${r.games}</td><td>${r.vol}</td>${r.cells.map((v, i) => `<td class="dt-pc" style="--p:${r.pct[i] ?? 0}%" title="${r.pct[i] != null ? r.pct[i] + "th percentile" : ""}">${v == null ? "" : esc(v)}</td>`).join("")}<td><button class="tbtn" data-act="dacard" data-id="${r.id}">Card</button></td></tr>`).join("");
+  const h8 = (c, n) => `data-h8="${esc(c.key)}"${c.avg != null ? ` data-h8avg="${esc(c.avg)}"` : ""}${c.mid != null ? ` data-h8mid="${esc(c.mid)}" data-h8n="${n}"` : ""}`;
+  // Era + and opponent-adjusted columns carry a mark; their cells keep the
+  // raw number beside.
+  const marked = (c) => (x.mode === "era" && c.era) || (x.mode === "adj" && c.adj);
+  const head = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th><th data-h8="Games">G</th><th data-h8="Vol">Vol</th>${x.columns.map((c, i) => `<th ${h8(c, x.qualified)}><button class="dt-sort ${x.sort === i ? "on" : ""}" data-act="dasort" data-v="${i}">${esc(c.label)}${marked(c) ? `<sup class="dt-mk" data-h8="${x.mode === "era" ? "EraIndex" : "OppAdj"}">${x.mode === "era" ? "+" : "adj"}</sup>` : ""}</button></th>`).join("")}<th></th></tr>`;
+  const cellOf = (r, i) => {
+    const v = r.cells[i];
+    if (v == null) return "";
+    const raw = r.raw && marked(x.columns[i]) && r.raw[i] != null ? `<small class="dt-raw">${esc(r.raw[i])}</small>` : "";
+    return esc(v) + raw;
+  };
+  const body = x.rows.map((r) => `<tr class="${K.card === r.id ? "on" : ""}"><td>${r.rank}</td><td class="l">${dtWho(r)}</td><td class="l">${esc(r.pos)}</td><td class="l">${r.team ? teamChip(r.team, 16) : ""}</td><td>${r.games}</td><td>${r.vol}</td>${r.cells.map((v, i) => `<td class="dt-pc" style="--p:${r.pct[i] ?? 0}%" title="${r.pct[i] != null ? r.pct[i] + "th percentile" : ""}">${cellOf(r, i)}</td>`).join("")}<td><button class="tbtn" data-act="dacard" data-id="${r.id}">Card</button></td></tr>`).join("");
   const none = x.filtered && x.qualified ? "Nobody who qualifies matches the filter." : "Nobody qualifies yet. Lower the minimum to see more.";
   const table = `<div class="tbl dt-at"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${7 + x.columns.length}" class="muted">${none}</td></tr>`}</tbody></table></div>`;
   // The card reads the table's own season and division.
-  const card = K.card != null ? await dtCard(K.card, x.level, x.year, x.division, x.state) : "";
+  const card = K.card != null ? await dtCard(K.card, x.level, x.year, x.division, x.state, x.group === "RET" ? "RET" : undefined, x.view) : "";
   const sub = x.filtered
     ? `${x.total} of the ${x.qualified} who qualify match the filter (${x.pool} played). Each number's shade is still his percentile among every qualifier; sorting goes by percentile, best first.`
     : `${x.total} qualify of ${x.pool} who played. Each number's shade is his percentile among the qualifiers; sorting goes by percentile, best first.`;
-  return `<div class="pad sl dt">${pageHead({ kicker: `Data · ${esc(x.division || (x.state ? STATE_NAMES[x.state] || x.state : x.level === "nfl" ? "NFL" : ""))} · ${x.year}`, title: "Player analytics", sub, goto: gotoLine([["Stat history", "stathist"], ["Leaderboards", "leaders"]]) })}${bar}<div class="dt-main ${card ? "" : "full"}"><div class="dt-body">${table}</div>${card ? `<aside class="dt-side">${card}</aside>` : ""}</div>${dtSource(x.source)}</div>`;
+  const deepNote = x.deep_from != null && x.year < x.deep_from && x.columns.length && x.view > 0 ? `<p class="muted small">The depth numbers on this card begin with the ${x.deep_from} season.</p>` : "";
+  return `<div class="pad sl dt">${pageHead({ kicker: `Data · ${esc(x.division || (x.state ? STATE_NAMES[x.state] || x.state : x.level === "nfl" ? "NFL" : ""))} · ${x.year}`, title: "Player analytics", sub, goto: gotoLine([["Stat history", "stathist"], ["Leaderboards", "leaders"]]) })}${bar}<div class="dt-main ${card ? "" : "full"}"><div class="dt-body">${deepNote}${table}</div>${card ? `<aside class="dt-side">${card}</aside>` : ""}</div>${dtSource(x.source)}</div>`;
 };
+// The card's views (items 4-11 and 28), the reading (Raw, Era +,
+// Opponent-adjusted: items 12 and 13) and your saved views (item 14),
+// which come back each visit.
+function dtViewsBar(x) {
+  const views = x.views.length > 1 ? dtSeg("daview", x.views.map((v, i) => [i, v]), x.view) : "";
+  const modes = [["raw", "Raw"], ["era", "Era +"]].concat(x.level !== "hs" ? [["adj", "Opponent-adjusted"]] : []);
+  const saved = prefs.dataViews || [];
+  const pick = saved.length ? `<select class="ssel" data-act="dsel" data-k="v:load"><option value="">Saved views</option>${saved.map((v, i) => `<option value="${i}">${esc(v.name)}</option>`).join("")}</select><button class="tbtn" data-act="daviewdel" title="Forget the saved view picked last">Forget</button>` : "";
+  return `<div class="tbar dt-views">${views}<span class="tspace"></span>${dtSeg("dareading", modes, x.mode)}${pick}<button class="tbtn" data-act="daviewsave">Save view</button></div>`;
+}
+const DT_VIEW_KEYS = ["level", "division", "state", "group", "view", "mode", "min", "class", "rs", "age_min", "age_max", "team", "conference", "spot", "eligible", "transfer", "stars", "home"];
 GOTO.analytics = () => [["Stat history", "stathist"], ["Leaderboards", "leaders"]];
 
-async function dtCard(id, level, year, division, state) {
+async function dtCard(id, level, year, division, state, group, view) {
   let c;
-  try { c = await api("analytics_card", { id, level, year: year != null ? Number(year) : undefined, division: division || undefined, state: level === "hs" ? state || undefined : undefined }); } catch (e) { return ""; }
+  try { c = await api("analytics_card", { id, level, year: year != null ? Number(year) : undefined, division: division || undefined, state: level === "hs" ? state || undefined : undefined, group, view: view || undefined }); } catch (e) { return ""; }
   if (c.error) return `<section class="panel dt-panel"><p class="muted">${esc(c.error)}</p></section>`;
   if (c.empty) return `<section class="panel dt-panel"><h2>${playerLink(c.id, c.name)}</h2><p class="muted">${esc(c.empty)}</p></section>`;
   const bars = c.metrics.map((m) => `<li><span class="dt-ml" tabindex="0" data-h8="${esc(m.key)}"${m.mid != null ? ` data-h8mid="${esc(m.mid)}" data-h8n="${c.field}"` : ""}>${esc(m.label)}</span><i class="dt-bar"><i style="width:${m.pct ?? 0}%"></i></i><b>${m.value == null ? "–" : esc(m.value)}</b><small>${m.pct == null ? "" : m.pct}</small></li>`).join("");
   const like = c.like.map((l) => `<li><span class="dt-who">${dtWho(l)}<small>${l.year} · ${l.team ? teamA(l.team) : ""} · ${esc(l.now)}</small></span><b class="dt-v" title="How close the two seasons read, 100 the same">${l.close}</b></li>`).join("");
   return `<section class="panel dt-panel dt-card"><header><div><div class="st-label">${esc(c.group)} card · ${c.year}${c.charted ? " · charted" : " · box score"}</div><h2>${playerLink(c.id, c.name)}</h2><small>${c.team ? teamA(c.team) : ""} · ${c.games} games · ${c.vol} ${esc(c.volume)}${c.qualified ? "" : " · below the minimum"}</small></div><button class="tbtn" data-act="dacard" data-id="">Close</button></header>
     <ul class="dt-bars">${bars}</ul><p class="muted small">Percentile among ${c.field} qualifiers that season.</p>
-    <h3 class="dt-h3">Seasons like his</h3>${like ? `<ol class="dt-plain">${like}</ol>` : '<p class="muted small">No past season reads close yet.</p>'}</section>`;
+    ${c.view ? "" : `<h3 class="dt-h3">Seasons like his</h3>${like ? `<ol class="dt-plain">${like}</ol>` : '<p class="muted small">No past season reads close yet.</p>'}`}
+    <p>${linkTo("player", { id: c.id, tab: "Data" }, "His Data tab", "gochip")}</p></section>`;
 }
+
+// ---------- Glossary (item 3): every stat in plain words ----------
+screens.glossary = async () => {
+  title("Glossary", "Data");
+  const H = await hpStats();
+  const terms = [...H.terms.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const way = (b) => (b > 0 ? "Higher is better" : b < 0 ? "Lower is better" : "Neither way is better by itself");
+  const rows = terms.map((t) => `<li class="dt-term" data-q="${esc((t.name + " " + t.plain + " " + t.key).toLowerCase())}"><b>${esc(t.name)}</b><p>${esc(t.plain)}</p>${t.how ? `<p class="muted small">${esc(t.how)}</p>` : ""}<small>${way(t.better)}</small></li>`).join("");
+  const sub = `${terms.length} stats, each in plain words with how the game works it out. Hover a stat's name anywhere in the game for the same words.`;
+  return `<div class="pad sl dt">${pageHead({ kicker: "Data", title: "Glossary", sub, goto: gotoLine([["Player analytics", "analytics"], ["Stat history", "stathist"]]) })}<div class="tbar"><input class="ssel dt-gq" type="search" placeholder="Find a stat" data-act="dtgq"></div><ol class="dt-gloss">${rows}</ol></div>`;
+};
+GOTO.glossary = () => [["Player analytics", "analytics"], ["Stat history", "stathist"]];
+document.addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (!t.dataset || t.dataset.act !== "dtgq") return;
+  const q = t.value.trim().toLowerCase();
+  for (const li of document.querySelectorAll(".dt-gloss .dt-term")) li.hidden = !!q && !li.dataset.q.includes(q);
+});
 
 // ---------- History: the new tabs (items 23-25) ----------
 // Record books and NFL records live on Stat history now; Champions gains
@@ -229,8 +278,31 @@ Object.assign(CORE_MORE, {
   dtstat: (el) => { const K = keep("stathist", {}); K.stat = el.dataset.v === "" ? null : Number(el.dataset.v); refresh(el); },
   // A new level or group starts on the default sort, best first.
   dalevel: (el) => { const K = keep("analytics", {}); K.level = el.dataset.v; K.year = null; K.min = null; K.sort = null; K.dir = -1; K.card = null; K.class = null; K.rs = null; refresh(el); },
-  daclear: (el) => { const K = keep("analytics", {}); K.class = null; K.rs = null; K.age_min = null; K.age_max = null; refresh(el); },
-  dagroup: (el) => { const K = keep("analytics", {}); K.group = el.dataset.v; K.min = null; K.sort = null; K.dir = -1; K.card = null; refresh(el); },
+  daclear: (el) => { const K = keep("analytics", {}); for (const k of ["class", "rs", "age_min", "age_max", "team", "conference", "spot", "eligible", "transfer", "stars", "home"]) K[k] = null; refresh(el); },
+  dagroup: (el) => { const K = keep("analytics", {}); K.group = el.dataset.v; K.min = null; K.sort = null; K.dir = -1; K.card = null; K.view = null; K.spot = null; refresh(el); },
+  daview: (el) => { const K = keep("analytics", {}); K.view = Number(el.dataset.v) || null; K.sort = null; K.dir = -1; refresh(el); },
+  dareading: (el) => { keep("analytics", {}).mode = el.dataset.v === "raw" ? null : el.dataset.v; refresh(el); },
+  daviewsave: (el) => {
+    const K = keep("analytics", {});
+    const name = (window.prompt("Name this view", [K.group || "QB", K.level || ""].filter(Boolean).join(" · ")) || "").trim();
+    if (!name) return;
+    const v = { name };
+    for (const k of DT_VIEW_KEYS) if (K[k] != null && K[k] !== "") v[k] = K[k];
+    prefs.dataViews = [...(prefs.dataViews || []).filter((x) => x.name !== name), v].slice(-20);
+    savePrefs();
+    refresh(el);
+  },
+  daviewdel: (el) => {
+    const K = keep("analytics", {});
+    const list = prefs.dataViews || [];
+    const i = list.findIndex((v) => v.name === K.loaded);
+    if (i < 0) return;
+    list.splice(i, 1);
+    prefs.dataViews = list;
+    K.loaded = null;
+    savePrefs();
+    refresh(el);
+  },
   dasort: (el) => { const K = keep("analytics", {}); const v = Number(el.dataset.v); if (K.sort === v) K.dir = (K.dir || -1) * -1; else { K.sort = v; K.dir = -1; } refresh(el); },
   dacard: (el) => { const K = keep("analytics", {}); K.card = el.dataset.id === "" || K.card === Number(el.dataset.id) ? null : Number(el.dataset.id); refresh(el); },
   damode: (el) => { keep("history", {}).amode = el.dataset.v; refresh(el); },
@@ -242,7 +314,14 @@ document.addEventListener("change", (ev) => {
   if (t.dataset.act === "daage") { keep("analytics", {})[t.dataset.k] = t.value || null; refresh(t); return; }
   if (t.dataset.act !== "dsel") return;
   const k = t.dataset.k;
-  if (k.startsWith("f:")) {
+  if (k === "v:load") {
+    // A saved view: its level, group, card view, reading and filters.
+    const v = (prefs.dataViews || [])[Number(t.value)];
+    if (!v) return;
+    const K = keep("analytics", {});
+    for (const key of DT_VIEW_KEYS) K[key] = v[key] ?? null;
+    K.loaded = v.name; K.year = null; K.sort = null; K.dir = -1; K.card = null;
+  } else if (k.startsWith("f:")) {
     // The class filter keeps the season, the minimum and the open card.
     keep("analytics", {})[k.slice(2)] = t.value || null;
   } else if (k.startsWith("a:")) {
@@ -263,5 +342,81 @@ document.addEventListener("change", (ev) => {
     K[k] = t.value || null;
     if (k === "division") K.conference = null;
   }
+  refresh(t);
+});
+
+// ---------- The player page's Data tab (items 11, 15, 28; minor bug 44) ----------
+// Facet grades, where he lined up, the throw map by zone, the route map,
+// run paths, the pressure map, his splits and his games, one season at a
+// time, as deep as your charting goes at his level.
+PLAYER_TABS.push({
+  name: "Data",
+  after: "Stats",
+  show: (p) => p.stage !== "HighSchool",
+  draw: async (p) => {
+    const P = keep("pdata:" + p.id, {});
+    let d;
+    try { d = await api("player_data", { id: p.id, level: P.level || undefined, year: P.year ? Number(P.year) : undefined }); } catch (e) { return `<div class="empty">${esc(e.message || "No data.")}</div>`; }
+    if (d.error) return `<div class="empty">${esc(d.error)}</div>`;
+    const lv = (k) => ({ college: "College", nfl: "NFL" }[k] || k);
+    const levels = d.other ? dtSeg("pdlevel", [[d.level, lv(d.level)], [d.other, lv(d.other)]].sort((a, b) => (a[0] === "college" ? -1 : 1)), d.level) : "";
+    const years = d.years.length > 1 ? `<select class="ssel" data-act="pdyear" data-pid="${p.id}">${d.years.map((y) => `<option value="${y}" ${y === d.year ? "selected" : ""}>${y}</option>`).join("")}</select>` : "";
+    const bar = `<div class="tbar" data-pid="${p.id}">${levels}${years}<span class="tspace"></span>${d.team ? teamChip(d.team, 18) : ""}${d.games != null ? `<span class="muted small">${d.games} games · ${d.starts} starts</span>` : ""}</div>`;
+    if (d.empty) return `<div class="dt pdt">${bar}<div class="empty">${esc(d.empty)}</div></div>`;
+    const panel = (h, body, h8) => (body ? `<section class="panel dt-panel"><h2${h8 ? ` data-h8="${esc(h8)}"` : ""}>${esc(h)}</h2>${body}</section>` : "");
+    const facets = (d.facets || []).length ? `<ul class="dt-bars pdt-bars">${d.facets.map((f) => `<li><span class="dt-ml">${esc(f.facet[0].toUpperCase() + f.facet.slice(1))}</span><i class="dt-bar"><i style="width:${Math.max(0, Math.min(100, f.value))}%"></i></i><b>${esc(f.grade)}</b><small>${f.plays}</small></li>`).join("")}</ul><p class="muted small">Grades 0-100 from the charting of every play; the small number is the plays behind each.</p>` : "";
+    const snaps = (d.alignment || []).reduce((a, s) => a + s.snaps, 0);
+    const align = snaps ? `<ul class="dt-bars pdt-bars">${d.alignment.map((s) => `<li><span class="dt-ml">${esc(s.spot)}</span><i class="dt-bar"><i style="width:${(100 * s.snaps) / snaps}%"></i></i><b>${s.snaps}</b><small>${Math.round((100 * s.snaps) / snaps)}%</small></li>`).join("")}</ul>` : "";
+    const throws = d.throws ? pdtThrows(d.throws) : "";
+    const routes = (d.routes || []).length ? pdtTable(["Route", "Tgt", "Rec", "Catch%", "Yds", "Y/T", "EPA/T", "Sep"], d.routes.map((r) => [r.route, r.tgt, r.rec, r.catch, r.yds, r.ypt, r.epa, r.sep])) : "";
+    const runs = d.runs ? pdtRuns(d.runs) : "";
+    const prs = (d.pressure || []).some((s) => s.prs) ? pdtPressure(d.pressure) : "";
+    const splits = (d.splits || []).map((t) => panel(`Splits · ${t.title}`, pdtTable(["Split", ...t.heads], t.rows.map((r) => [r.split, ...r.cells])))).join("");
+    const log = d.log && d.log.rows.length ? pdtTable(["Date", "Opponent", "Result", ...d.log.heads], d.log.rows.map((g) => [g.date, `${g.at ? g.at + " " : ""}${g.opp ? teamA(g.opp) : "?"}${g.kind && g.kind !== "regular" ? ` <span class="tag soft">${esc(g.kind)}</span>` : ""}`, g.result, ...g.cells]), [1]) : "";
+    const ch = d.charting ? `<p class="dt-src">${esc(d.charting.kind[0].toUpperCase() + d.charting.kind.slice(1))}${d.charting.days > 1 ? `, ${d.charting.days} days behind` : ""}.</p>` : `<p class="dt-src">Box scores only at this level for your seat: the charted maps don't show.</p>`;
+    return `<div class="dt pdt">${bar}<div class="pdt-grid">${panel("Facet grades", facets, "GrPass")}${panel("Where he lined up", align)}${panel(`Throw map · as the ${d.throws ? d.throws.role : ""}`, throws)}${panel("Run paths", runs)}${panel("Route map", routes)}${panel("Pressure map", prs)}</div>${splits}${panel("Game by game", log)}${ch}</div>`;
+  },
+});
+
+// A plain table of rows (cells already strings, the `html` columns as HTML).
+function pdtTable(heads, rows, html = []) {
+  const cell = (v, i) => (v == null ? "" : html.includes(i) ? v : esc(String(v)));
+  return `<div class="tbl"><table><thead><tr>${heads.map((h, i) => `<th class="${i === 0 || html.includes(i) ? "l" : ""}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((v, i) => `<td class="${i === 0 || html.includes(i) ? "l" : ""}">${cell(v, i)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+// The throw map: depth rows (deep at the top) by thirds, shaded by EPA a throw.
+function pdtThrows(t) {
+  const rows = [...t.rows].reverse().map((r) => `<div class="pdt-zrow"><span class="pdt-zl">${esc(r.depth)}</span>${r.cells.map((c) => {
+    const e = Math.max(-0.6, Math.min(0.6, c.epa_v || 0));
+    const tone = c.att ? (e >= 0 ? `--z:${Math.round((e / 0.6) * 60)}%` : `--n:${Math.round((-e / 0.6) * 60)}%`) : "";
+    return `<div class="pdt-z ${c.att ? "" : "none"} ${e >= 0 ? "up" : "dn"}" style="${tone}"><b>${c.att ? esc(c.cmp || "") : "–"}</b><small>${c.att} att · ${c.yds} yds</small><small>${c.epa ? esc(c.epa) + " EPA" : ""}</small></div>`;
+  }).join("")}</div>`).join("");
+  return `<div class="pdt-zone"><div class="pdt-zrow pdt-zh"><span></span>${t.thirds.map((x) => `<span>${esc(x)}</span>`).join("")}</div>${rows}<div class="pdt-los">Line of scrimmage</div></div>`;
+}
+
+// Run paths: his carries by gap, left to right from the offense's side.
+function pdtRuns(rows) {
+  const most = Math.max(1, ...rows.map((r) => r.car));
+  return `<div class="pdt-gaps">${rows.map((r) => `<div class="pdt-gap"><i style="height:${Math.round((70 * r.car) / most) + 4}px"></i><b>${r.car}</b><small>${esc(r.gap)}</small><small>${r.ypc ? esc(r.ypc) + " Y/C" : ""}</small><small>${r.epa ? esc(r.epa) + " EPA" : ""}</small><small>${r.succ ? esc(r.succ) + " succ" : ""}</small></div>`).join("")}</div>`;
+}
+
+// The pressure map: his pressures by the blocker he beat, across the line.
+function pdtPressure(rows) {
+  const most = Math.max(1, ...rows.map((r) => r.prs));
+  return `<div class="pdt-gaps pdt-prs">${rows.map((r) => `<div class="pdt-gap"><i style="height:${Math.round((70 * r.prs) / most) + 4}px"></i><b>${r.prs}</b><small>${esc(r.spot)}</small><small>${r.sacks !== "0" ? esc(r.sacks) + " sacks" : ""}</small><small>${r.ttp ? esc(r.ttp) + " s" : ""}</small></div>`).join("")}</div>`;
+}
+
+Object.assign(CORE_MORE, {
+  pdlevel: (el) => {
+    const id = (el.closest("[data-pid]") || {}).dataset?.pid || (S.route && S.route.args && S.route.args.id);
+    const P = keep("pdata:" + id, {});
+    P.level = el.dataset.v; P.year = null;
+    refresh(el);
+  },
+});
+document.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (!t.dataset || t.dataset.act !== "pdyear") return;
+  keep("pdata:" + t.dataset.pid, {}).year = t.value;
   refresh(t);
 });

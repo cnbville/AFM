@@ -253,7 +253,10 @@ function hpStatHtml(el) {
   if (!s) return "";
   const way = s.better > 0 ? "Higher is better." : s.better < 0 ? "Lower is better." : "Neither higher nor lower is better by itself.";
   const sort = el.matches("[data-sort]") || el.querySelector(".dt-sort") ? " Click the name to sort by it." : "";
-  const mid = el.dataset.h8mid ? `<p class="rr-pool">The middle of the ${esc(el.dataset.h8n || "")} who qualify this season: <b>${esc(el.dataset.h8mid)}</b>.</p>` : "";
+  // The level's average this season (Data overhaul item 3) and the middle
+  // of the qualifiers.
+  const avg = el.dataset.h8avg ? `<p class="rr-pool">Level average this season: <b>${esc(el.dataset.h8avg)}</b>.</p>` : "";
+  const mid = avg + (el.dataset.h8mid ? `<p class="rr-pool">The middle of the ${esc(el.dataset.h8n || "")} who qualify this season: <b>${esc(el.dataset.h8mid)}</b>.</p>` : "");
   return `<div class="rr-top"><span class="st-label">Stat</span><b class="hp-big">${esc(s.name)}</b></div>
     <p class="hp-what">${esc(s.plain)}</p>
     ${s.how ? `<p class="rr-comb"><span class="st-label">How it's worked out</span>${esc(s.how)}</p>` : ""}

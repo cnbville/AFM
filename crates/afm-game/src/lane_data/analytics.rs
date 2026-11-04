@@ -18,6 +18,7 @@ use afm_engine::world::records::{STAT_COUNT, Stat};
 use afm_engine::world::{Stage, World, tally};
 use serde_json::{Value, json};
 
+use super::deep::{self, One, Src};
 use super::{charted, division_arg, state_arg, team_json, tier_arg, tier_key};
 use crate::views;
 
@@ -57,12 +58,20 @@ fn group_arg(args: &Value) -> usize {
     }
 }
 
-/// The group's card at a place: the charted one as deep as your seat's
-/// charting goes there (Data overhaul item 2), or the box score one.
-fn card_of(w: &World, p: Place, group: usize) -> (Vec<Cm>, Stat, &'static str, bool) {
+/// The view of a group's charted card the page asks for (items 4-11 and
+/// 28; 0 the overview).
+fn view_arg(args: &Value, group: usize) -> usize {
+    args.get("view").and_then(Value::as_u64).map(|v| v as usize).filter(|&v| v < an::views(group).len()).unwrap_or(0)
+}
+
+/// The group's card at a place: the charted one (the view asked for) as
+/// deep as your seat's charting goes there (Data overhaul item 2), or the
+/// box score one.
+fn card_of(w: &World, p: Place, group: usize, view: usize) -> (Vec<Cm>, Stat, &'static str, bool) {
     let ch = charted(w, p.tier, p.division);
+    let views = an::views(group);
     let card = match super::charting(w, p.tier, p.division) {
-        Some(c) => an::charted(group).iter().copied().filter(|&cm| an::depth(cm) <= c.depth).collect(),
+        Some(c) => views[view.min(views.len() - 1)].1.iter().copied().filter(|&cm| an::depth(cm) <= c.depth).collect(),
         None => an::boxed(group).to_vec(),
     };
     let (vol, word) = if ch { an::volume(group) } else { an::box_volume(group) };
@@ -120,9 +129,34 @@ fn row_from(
     all: &dyn Fn(Stat) -> f64,
     card: &[Cm],
     vol: Stat,
+    one: Option<&One>,
 ) -> Row {
-    let vals = card.iter().map(|cm| cm.value(all, games as f64)).collect();
+    let vals = card
+        .iter()
+        .map(|cm| if cm.deep() { one.and_then(|o| cm.value_d(&|c| o.get(c))) } else { cm.value(all, games as f64) })
+        .collect();
     Row { id, team, pos, games, year, vol: all(vol), vals }
+}
+
+/// His NFL season's whole line, from the people in the world or the ones
+/// who left it (`gone`: the second, by id, built when first needed).
+fn pro_all(
+    w: &World,
+    id: u32,
+    year: i32,
+    gone: &mut Option<std::collections::HashMap<u32, usize>>,
+) -> Option<[f32; STAT_COUNT]> {
+    let career = match views::person_index(w, id) {
+        Some(k) => w.people[k].pro.as_deref(),
+        None => {
+            let map = gone.get_or_insert_with(|| {
+                w.alumni.iter().enumerate().filter_map(|(k, a)| a.player.as_ref().map(|p| (p.id, k))).collect()
+            });
+            map.get(&id).and_then(|&k| w.alumni[k].pro.as_deref())
+        }
+    }?;
+    let s = career.seasons.iter().find(|s| s.year == year && s.games > 0)?;
+    Some(afm_engine::world::records::from_line(&s.stats))
 }
 
 /// The seasons a level keeps, newest first, and the one in progress
@@ -161,9 +195,19 @@ fn years(w: &World, p: Place, now: &[NowLine]) -> Vec<i32> {
 
 /// A season's pool at a place for a group (`now`: the season in progress,
 /// read only for this year).
-fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Row> {
-    let (card, vol, _, ch) = card_of(w, p, group);
-    let in_group = |pos: Position| an::group_of(pos) == Some(group);
+fn pool(w: &World, p: Place, year: i32, group: usize, view: usize, now: &[NowLine], src: &Src) -> Vec<Row> {
+    let mut out = pool_all(w, p, year, group, view, now, src);
+    // Returners: any man with a return.
+    if group == an::RET {
+        out.retain(|r| r.vol > 0.0);
+    }
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+fn pool_all(w: &World, p: Place, year: i32, group: usize, view: usize, now: &[NowLine], src: &Src) -> Vec<Row> {
+    let (card, vol, _, ch) = card_of(w, p, group, view);
+    let in_group = |pos: Position| group == an::RET || an::group_of(pos) == Some(group);
     let mut out = Vec::new();
     if year == w.year && !now.is_empty() {
         for l in now.iter().filter(|l| in_group(l.pos)) {
@@ -171,7 +215,8 @@ fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Ro
                 continue;
             }
             let get = |s: Stat| l.all[s as usize] as f64;
-            out.push(row_from(l.id, l.team, l.pos, l.games, year, &get, &card, vol));
+            let one = src.one(l.id);
+            out.push(row_from(l.id, l.team, l.pos, l.games, year, &get, &card, vol, one.as_ref()));
         }
         return out;
     }
@@ -179,21 +224,42 @@ fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Ro
         Tier::College => {
             for r in w.stats.year(year).iter().filter(|r| Some(r.division) == p.division && in_group(r.pos)) {
                 let get = |s: Stat| r.get(s);
-                out.push(row_from(r.id, r.program as usize, r.pos, r.games as u32, year, &get, &card, vol));
+                let one = src.one(r.id);
+                out.push(row_from(
+                    r.id,
+                    r.program as usize,
+                    r.pos,
+                    r.games as u32,
+                    year,
+                    &get,
+                    &card,
+                    vol,
+                    one.as_ref(),
+                ));
             }
         }
         Tier::Nfl => {
             let kept: Vec<&marks::ProRow> =
                 w.marks.pro_rows.iter().filter(|r| r.year as i32 == year && in_group(r.pos)).collect();
-            if !kept.is_empty() && ch {
+            if !kept.is_empty() && ch && group != an::RET {
+                let mut gone = None;
                 for r in kept {
-                    // Kept in the full charted card's order.
+                    // Kept in the full charted card's order; a view's other
+                    // numbers from his season's line and the depth counts.
                     let full = an::charted(group);
+                    let one = src.one(r.id);
+                    let mut line: Option<Option<[f32; STAT_COUNT]>> = None;
                     let vals = card
                         .iter()
                         .map(|cm| {
-                            let k = full.iter().position(|x| x == cm)?;
-                            r.vals.get(k).copied().filter(|v| v.is_finite()).map(|v| v as f64)
+                            if cm.deep() {
+                                return one.as_ref().and_then(|o| cm.value_d(&|c| o.get(c)));
+                            }
+                            if let Some(k) = full.iter().position(|x| x == cm) {
+                                return r.vals.get(k).copied().filter(|v| v.is_finite()).map(|v| v as f64);
+                            }
+                            let all = line.get_or_insert_with(|| pro_all(w, r.id, year, &mut gone)).as_ref()?;
+                            cm.value(&|k: Stat| all[k as usize] as f64, r.games as f64)
                         })
                         .collect();
                     out.push(Row {
@@ -215,24 +281,41 @@ fn pool(w: &World, p: Place, year: i32, group: usize, now: &[NowLine]) -> Vec<Ro
                     let (Some(team), true) = (s.team, s.games > 0 && in_group(x.player.position)) else { continue };
                     let all = afm_engine::world::records::from_line(&s.stats);
                     let get = |k: Stat| all[k as usize] as f64;
-                    out.push(row_from(x.player.id, team, x.player.position, s.games, year, &get, &card, vol));
+                    let one = src.one(x.player.id);
+                    out.push(row_from(
+                        x.player.id,
+                        team,
+                        x.player.position,
+                        s.games,
+                        year,
+                        &get,
+                        &card,
+                        vol,
+                        one.as_ref(),
+                    ));
                 }
             }
         }
-        Tier::Hs => out = hs_pools(w, p, group, Some(year)).remove(&year).unwrap_or_default(),
+        Tier::Hs => out = hs_pools(w, p, group, view, Some(year)).remove(&year).unwrap_or_default(),
     }
     out
 }
 
 /// A state's high school seasons for a group, by year, in one pass over
 /// the players (`only`: one season).
-fn hs_pools(w: &World, p: Place, group: usize, only: Option<i32>) -> std::collections::BTreeMap<i32, Vec<Row>> {
-    let (card, vol, _, _) = card_of(w, p, group);
+fn hs_pools(
+    w: &World,
+    p: Place,
+    group: usize,
+    view: usize,
+    only: Option<i32>,
+) -> std::collections::BTreeMap<i32, Vec<Row>> {
+    let (card, vol, _, _) = card_of(w, p, group, view);
     let mut out: std::collections::BTreeMap<i32, Vec<Row>> = Default::default();
     for x in &w.people {
         for l in &x.hs_lines {
             let year = l.year as i32;
-            if only.is_some_and(|o| o != year) || an::group_of(l.pos) != Some(group) {
+            if only.is_some_and(|o| o != year) || (group != an::RET && an::group_of(l.pos) != Some(group)) {
                 continue;
             }
             if w.high_schools.get(l.school as usize).map(|h| h.state) != p.state {
@@ -249,7 +332,13 @@ fn hs_pools(w: &World, p: Place, group: usize, only: Option<i32>) -> std::collec
                 &get,
                 &card,
                 vol,
+                None,
             ));
+        }
+    }
+    if group == an::RET {
+        for rows in out.values_mut() {
+            rows.retain(|r| r.vol > 0.0);
         }
     }
     out
@@ -258,16 +347,17 @@ fn hs_pools(w: &World, p: Place, group: usize, only: Option<i32>) -> std::collec
 /// Every past season's pool at a place (the season in progress left out).
 fn past_pools(w: &World, p: Place, group: usize, ys: &[i32]) -> Vec<(i32, Vec<Row>)> {
     if p.tier == Tier::Hs {
-        return hs_pools(w, p, group, None).into_iter().filter(|(y, _)| *y != w.year).collect();
+        return hs_pools(w, p, group, 0, None).into_iter().filter(|(y, _)| *y != w.year).collect();
     }
-    ys.iter().filter(|&&y| y != w.year).map(|&y| (y, pool(w, p, y, group, &[]))).collect()
+    ys.iter().filter(|&&y| y != w.year).map(|&y| (y, pool(w, p, y, group, 0, &[], &Src::None))).collect()
 }
 
 /// Each metric's percentile (0-100, 100 the best) among the qualifiers.
 fn percentiles(rows: &[Row], qual: &[bool], card: &[Cm]) -> Vec<Vec<Option<f64>>> {
     let mut out = vec![vec![None; card.len()]; rows.len()];
     for (k, cm) in card.iter().enumerate() {
-        let better = cm.about().3;
+        // A number that only says how he plays shades high as more.
+        let better = cm.about().3 || cm.neutral();
         let mut peers: Vec<f64> = rows.iter().zip(qual).filter(|(_, q)| **q).filter_map(|(r, _)| r.vals[k]).collect();
         peers.sort_by(f64::total_cmp);
         let n = peers.len();
@@ -302,21 +392,170 @@ fn name(w: &World, id: u32) -> String {
     marks::name_of(w, id).unwrap_or_else(|| "a former player".into())
 }
 
-/// Each column's label, its glossary entry (the hover on its name) and
-/// the middle value among the season's qualifiers, which the hover shows
-/// beside the plain words.
+/// Which way a number is better, for the page: "high", "low", or "none"
+/// for one that only says how he plays.
+fn better_word(cm: Cm) -> &'static str {
+    if cm.neutral() {
+        "none"
+    } else if cm.about().3 {
+        "high"
+    } else {
+        "low"
+    }
+}
+
+/// Each column's label, its glossary entry (the hover on its name), the
+/// middle value and the level average among the season's qualifiers
+/// (item 3), which the hover shows beside the plain words, and whether
+/// it has an era index and an opponent-adjusted reading.
 fn columns(card: &[Cm], rows: &[Row], qual: &[bool]) -> Vec<Value> {
     let mids = middles(rows, qual, card);
+    let avgs = means(rows, qual, card);
     card.iter()
         .zip(mids)
-        .map(|(cm, mid)| {
-            let (short, long, _, better) = cm.about();
+        .zip(avgs)
+        .map(|((cm, mid), avg)| {
+            let (short, long, f, _) = cm.about();
             json!({
-                "label": short, "long": long, "better": if better { "high" } else { "low" },
+                "label": short, "long": long, "better": better_word(*cm),
                 "key": super::glossary::cm_key(*cm), "mid": mid.map(|v| fmt_cell(*cm, v)),
+                "avg": avg.map(|v| fmt_cell(*cm, v)),
+                "era": f != Fmt::Whole, "adj": an::opp_adjust(*cm).is_some(),
             })
         })
         .collect()
+}
+
+/// Each metric's average (the level average, item 3) among the qualifiers.
+fn means(rows: &[Row], qual: &[bool], card: &[Cm]) -> Vec<Option<f64>> {
+    (0..card.len())
+        .map(|k| {
+            let v: Vec<f64> = rows.iter().zip(qual).filter(|(_, q)| **q).filter_map(|(r, _)| r.vals[k]).collect();
+            (!v.is_empty()).then(|| v.iter().sum::<f64>() / v.len() as f64)
+        })
+        .collect()
+}
+
+/// The era index (item 12): 100 the qualifiers' average that season and
+/// 10 a standard deviation, higher better (a number that only says how he
+/// plays reads higher as more), as Pro Football Reference's "+" stats
+/// read. Counts stay as they are. Proposed, not confirmed: the scale.
+fn era_vals(rows: &[Row], qual: &[bool], card: &[Cm]) -> Vec<Vec<Option<f64>>> {
+    let mut out: Vec<Vec<Option<f64>>> = rows.iter().map(|r| r.vals.clone()).collect();
+    for (k, cm) in card.iter().enumerate() {
+        let (_, _, f, better) = cm.about();
+        if f == Fmt::Whole {
+            continue;
+        }
+        let v: Vec<f64> = rows.iter().zip(qual).filter(|(_, q)| **q).filter_map(|(r, _)| r.vals[k]).collect();
+        let n = v.len() as f64;
+        let mean = v.iter().sum::<f64>() / n.max(1.0);
+        let sd = (v.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0)).sqrt();
+        let sign = if better || cm.neutral() { 1.0 } else { -1.0 };
+        for (i, r) in rows.iter().enumerate() {
+            out[i][k] = if v.len() < 2 {
+                None
+            } else {
+                r.vals[k].map(|x| if sd > 0.0 { 100.0 + 10.0 * sign * (x - mean) / sd } else { 100.0 })
+            };
+        }
+    }
+    out
+}
+
+/// The opponent-adjusted numbers (item 13, `an::opp_adjust`): each man's
+/// opponents read from the season's games, the level's rate the average
+/// his field faced, so the field's average stays put. Seasons since the
+/// tallies began, college and the NFL.
+#[allow(clippy::too_many_arguments)]
+fn adj_vals(
+    w: &World,
+    p: Place,
+    year: i32,
+    group: usize,
+    rows: &[Row],
+    qual: &[bool],
+    card: &[Cm],
+    src: &Src,
+) -> Vec<Vec<Option<f64>>> {
+    let mut out: Vec<Vec<Option<f64>>> = rows.iter().map(|r| r.vals.clone()).collect();
+    let sched = deep::sched(w, p.tier, year);
+    let offense = an::offense_group(group);
+    for (k, cm) in card.iter().enumerate() {
+        let Some((rate, how)) = an::opp_adjust(*cm) else { continue };
+        let faced: Vec<Option<f64>> = rows
+            .iter()
+            .map(|r| sched.as_ref().and_then(|s| src.one(r.id).and_then(|o| s.faced(&o, offense, rate))))
+            .collect();
+        let lv: Vec<f64> = faced.iter().zip(qual).filter(|(_, q)| **q).filter_map(|(f, _)| *f).collect();
+        let lvl = (!lv.is_empty()).then(|| lv.iter().sum::<f64>() / lv.len() as f64);
+        for (i, r) in rows.iter().enumerate() {
+            out[i][k] = match (r.vals[k], faced[i], lvl) {
+                (Some(v), Some(f), Some(l)) => match how {
+                    None => (f > 0.0).then(|| v * l / f),
+                    Some(m) => Some(v - m * (f - l)),
+                },
+                _ => None,
+            };
+        }
+    }
+    out
+}
+
+/// The page's reading: "raw", "era" or "adj".
+fn mode_arg(args: &Value) -> &'static str {
+    match args.get("mode").and_then(Value::as_str) {
+        Some("era") => "era",
+        Some("adj") => "adj",
+        _ => "raw",
+    }
+}
+
+/// A season's depth counts for a table at a place (the division's men at
+/// college; `before`: this season's games your charting hasn't reached).
+fn table_src<'a>(w: &'a World, p: Place, year: i32, before: Option<afm_engine::calendar::Date>) -> Src<'a> {
+    let since = if year == w.tally_open_season() { before } else { None };
+    let div = p.division;
+    let scope = div.map_or("nfl", |d| d.name());
+    deep::src(w, p.tier, year, since, scope, &|s| {
+        div.is_none_or(|d| (s.team as usize) < w.programs.len() && super::season_place(w, s.team as usize, year).0 == d)
+    })
+}
+
+/// The exact spots a group's filter offers (item 14): (code, name), a
+/// defensive spot's code 100 on.
+fn spots_for(group: usize) -> Vec<(usize, &'static str)> {
+    let o = an::SPOTS_O.iter().enumerate().map(|(k, n)| (k, *n));
+    let d = an::SPOTS_D.iter().enumerate().map(|(k, n)| (100 + k, *n));
+    match group {
+        an::RET => o.skip(1).chain(d).collect(),
+        g if an::offense_group(g) => o.collect(),
+        _ => d.collect(),
+    }
+}
+
+/// The spot a man played most that season, as `spots_for` codes.
+fn spot_code(one: &One, group: usize) -> Option<usize> {
+    let d = |c: u16| one.get(c);
+    spots_for(group)
+        .into_iter()
+        .map(|(c, _)| (c, if c >= 100 { an::spot_snaps(&d, false, c - 100) } else { an::spot_snaps(&d, true, c) }))
+        .filter(|x| x.1 > 0.0)
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|x| x.0)
+}
+
+/// A team's conference that season: a college program's, or the NFL's
+/// AFC or NFC.
+fn conference_of(w: &World, tier: Tier, team: usize, year: i32) -> Option<String> {
+    match tier {
+        Tier::College => (team < w.programs.len())
+            .then(|| super::season_place(w, team, year).1.to_string())
+            .filter(|c| !c.is_empty()),
+        Tier::Nfl => afm_engine::world::franchise::era_in(w, team, year)
+            .map(|e| if e.div < 4 { "AFC".to_string() } else { "NFC".to_string() }),
+        Tier::Hs => None,
+    }
 }
 
 /// Each metric's middle value (the median) among the qualifiers.
@@ -390,6 +629,8 @@ struct Bio<'a> {
     born: afm_engine::calendar::Date,
     staff: &'a [(i32, usize, Option<usize>, Option<usize>)],
     pro: Option<&'a afm_engine::world::pro::ProCareer>,
+    stars: u8,
+    home: usize,
 }
 
 /// The table's filter by class (Cain, 2026-11-02): his class that season
@@ -401,6 +642,16 @@ struct Filter {
     class: Option<u8>,
     redshirt: Option<bool>,
     age: (Option<u32>, Option<u32>),
+    // Item 14: his team or conference that season, the spot he played most,
+    // draft eligible next spring, a transfer, his recruiting stars, his
+    // home state.
+    team: Option<usize>,
+    conference: Option<String>,
+    spot: Option<usize>,
+    eligible: Option<bool>,
+    transfer: Option<bool>,
+    stars: Option<u8>,
+    home: Option<usize>,
 }
 
 impl Filter {
@@ -423,11 +674,55 @@ impl Filter {
             _ => None,
         };
         let age = |k: &str| args.get(k).and_then(Value::as_u64).map(|a| a as u32);
-        Filter { class, redshirt, age: (age("age_min"), age("age_max")) }
+        let yes_no = |k: &str| match args.get(k).and_then(Value::as_str) {
+            Some("yes") if tier == Tier::College => Some(true),
+            Some("no") if tier == Tier::College => Some(false),
+            _ => None,
+        };
+        let num = |k: &str| match args.get(k) {
+            Some(Value::Number(n)) => n.as_u64(),
+            Some(Value::String(s)) => s.parse().ok(),
+            _ => None,
+        };
+        Filter {
+            class,
+            redshirt,
+            age: (age("age_min"), age("age_max")),
+            team: num("team").map(|t| t as usize),
+            conference: args.get("conference").and_then(Value::as_str).filter(|c| !c.is_empty()).map(String::from),
+            spot: num("spot").map(|t| t as usize),
+            eligible: yes_no("eligible"),
+            transfer: yes_no("transfer"),
+            stars: num("stars").filter(|&s| s <= 5).map(|s| s as u8),
+            home: None,
+        }
     }
 
     fn on(&self) -> bool {
-        self.class.is_some() || self.redshirt.is_some() || self.age.0.is_some() || self.age.1.is_some()
+        self.class.is_some()
+            || self.redshirt.is_some()
+            || self.age.0.is_some()
+            || self.age.1.is_some()
+            || self.team.is_some()
+            || self.conference.is_some()
+            || self.spot.is_some()
+            || self.eligible.is_some()
+            || self.transfer.is_some()
+            || self.stars.is_some()
+            || self.home.is_some()
+    }
+
+    /// Whether anything asks about the man himself (his class, age, stars,
+    /// home), which needs his file.
+    fn bio(&self) -> bool {
+        self.class.is_some()
+            || self.redshirt.is_some()
+            || self.age.0.is_some()
+            || self.age.1.is_some()
+            || self.eligible.is_some()
+            || self.transfer.is_some()
+            || self.stars.is_some()
+            || self.home.is_some()
     }
 }
 
@@ -488,7 +783,7 @@ fn age_in(b: &Bio, year: i32) -> u32 {
 
 /// Which of the rows pass the filter (a player the world no longer knows
 /// passes only when nothing is asked of him).
-fn passes(w: &World, tier: Tier, rows: &[Row], f: &Filter) -> Vec<bool> {
+fn passes(w: &World, tier: Tier, rows: &[Row], f: &Filter, spot: &dyn Fn(u32) -> Option<usize>) -> Vec<bool> {
     if !f.on() {
         return vec![true; rows.len()];
     }
@@ -496,10 +791,26 @@ fn passes(w: &World, tier: Tier, rows: &[Row], f: &Filter) -> Vec<bool> {
     let mut gone: Option<std::collections::HashMap<u32, usize>> = None;
     rows.iter()
         .map(|r| {
+            if f.team.is_some_and(|t| t != r.team)
+                || f.conference.as_ref().is_some_and(|c| conference_of(w, tier, r.team, r.year).as_ref() != Some(c))
+                || f.spot.is_some_and(|s| spot(r.id) != Some(s))
+            {
+                return false;
+            }
+            if !f.bio() {
+                return true;
+            }
             let b = match views::person_index(w, r.id) {
                 Some(k) => {
                     let x = &w.people[k];
-                    Bio { class_of: x.class_of, born: x.born, staff: &x.college_staff, pro: x.pro.as_deref() }
+                    Bio {
+                        class_of: x.class_of,
+                        born: x.born,
+                        staff: &x.college_staff,
+                        pro: x.pro.as_deref(),
+                        stars: x.stars,
+                        home: x.home_state,
+                    }
                 }
                 None => {
                     let map = gone.get_or_insert_with(|| {
@@ -507,15 +818,32 @@ fn passes(w: &World, tier: Tier, rows: &[Row], f: &Filter) -> Vec<bool> {
                     });
                     let Some(&k) = map.get(&r.id) else { return false };
                     let a = &w.alumni[k];
-                    Bio { class_of: a.class_of, born: a.born, staff: &a.college_staff, pro: a.pro.as_deref() }
+                    Bio {
+                        class_of: a.class_of,
+                        born: a.born,
+                        staff: &a.college_staff,
+                        pro: a.pro.as_deref(),
+                        stars: a.stars,
+                        home: a.home_state,
+                    }
                 }
             };
             let (class, rs) = class_in(w, tier, r.id, &b, r.year);
             let age = age_in(&b, r.year);
+            // Draft eligible next spring: three years out of high school
+            // (the NFL's rule). A transfer: more than one school by then.
+            let eligible = r.year + 1 - b.class_of >= 3;
+            let mut schools: Vec<usize> = b.staff.iter().filter(|s| s.0 <= r.year).map(|s| s.1).collect();
+            schools.sort_unstable();
+            schools.dedup();
             f.class.is_none_or(|c| c == class)
                 && f.redshirt.is_none_or(|x| x == rs)
                 && f.age.0.is_none_or(|a| age >= a)
                 && f.age.1.is_none_or(|a| age <= a)
+                && f.eligible.is_none_or(|x| x == eligible)
+                && f.transfer.is_none_or(|x| x == (schools.len() > 1))
+                && f.stars.is_none_or(|x| x == b.stars)
+                && f.home.is_none_or(|x| x == b.home)
         })
         .collect()
 }
@@ -523,7 +851,8 @@ fn passes(w: &World, tier: Tier, rows: &[Row], f: &Filter) -> Vec<bool> {
 pub fn table(w: &World, args: &Value) -> Value {
     let p = place_of(w, args);
     let group = group_arg(args);
-    let (card, _, word, ch) = card_of(w, p, group);
+    let view = view_arg(args, group);
+    let (card, _, word, ch) = card_of(w, p, group, view);
     // The season in progress, built once for the whole table, as far as
     // your charting has it.
     let (now, before) = charted_now(w, p, marks::season_now(w, p.tier, p.state));
@@ -535,14 +864,26 @@ pub fn table(w: &World, args: &Value) -> Value {
         .filter(|y| ys.contains(y))
         .or(ys.first().copied())
         .unwrap_or(w.year);
+    let mode = mode_arg(args);
+    let mut filter = Filter::of(args, p.tier);
+    filter.home = match args.get("home").and_then(Value::as_str) {
+        Some(c) if !c.is_empty() => w.states.iter().position(|s| s.code.eq_ignore_ascii_case(c)),
+        _ => None,
+    };
+    // The depth counts, when the card, the reading or the filter needs them.
+    let src = if card.iter().any(|c| c.deep()) || mode == "adj" || filter.spot.is_some() {
+        table_src(w, p, year, before)
+    } else {
+        Src::None
+    };
     let min = min_for(w, p, group, year, ch, args, &now);
-    let rows = pool(w, p, year, group, &now);
+    let rows = pool(w, p, year, group, view, &now, &src);
     let qual: Vec<bool> = rows.iter().map(|r| r.vol >= min).collect();
     // Percentiles stay among every qualifier: a freshman's shade says
     // where he stands in the whole field, not among freshmen.
     let pcts = percentiles(&rows, &qual, &card);
-    let filter = Filter::of(args, p.tier);
-    let pass = passes(w, p.tier, &rows, &filter);
+    let spot = |id: u32| src.one(id).and_then(|o| spot_code(&o, group));
+    let pass = passes(w, p.tier, &rows, &filter, &spot);
     let sort = args.get("sort").and_then(Value::as_u64).map(|k| k as usize).filter(|&k| k < card.len()).unwrap_or(0);
     let dir = args.get("dir").and_then(Value::as_i64).unwrap_or(-1);
     let qualified = qual.iter().filter(|&&q| q).count();
@@ -556,6 +897,21 @@ pub fn table(w: &World, args: &Value) -> Value {
         let o = y.total_cmp(&x).then(rows[a].id.cmp(&rows[b].id));
         if dir > 0 { o.reverse() } else { o }
     });
+    // The era index and the opponent-adjusted numbers (items 12 and 13),
+    // shown beside the raw ones.
+    let shown = match mode {
+        "era" => era_vals(&rows, &qual, &card),
+        "adj" => adj_vals(w, p, year, group, &rows, &qual, &card, &src),
+        _ => Vec::new(),
+    };
+    let cell = |i: usize, k: usize| -> Option<String> {
+        let cm = card[k];
+        match mode {
+            "era" if cm.about().2 != Fmt::Whole => shown[i][k].map(|v| format!("{v:.0}")),
+            "adj" if an::opp_adjust(cm).is_some() => shown[i][k].map(|v| fmt_cell(cm, v)),
+            _ => rows[i].vals[k].map(|v| fmt_cell(cm, v)),
+        }
+    };
     let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(150).min(500) as usize;
     let out: Vec<Value> = order
         .iter()
@@ -563,7 +919,7 @@ pub fn table(w: &World, args: &Value) -> Value {
         .enumerate()
         .map(|(n, &i)| {
             let r = &rows[i];
-            json!({
+            let mut row = json!({
                 "rank": n + 1,
                 "id": r.id,
                 "name": name(w, r.id),
@@ -572,9 +928,14 @@ pub fn table(w: &World, args: &Value) -> Value {
                 "team": team_json(w, p.tier, r.team),
                 "games": r.games,
                 "vol": r.vol.round() as i64,
-                "cells": r.vals.iter().zip(&card).map(|(v, cm)| v.map(|v| fmt_cell(*cm, v))).collect::<Vec<_>>(),
+                "cells": (0..card.len()).map(|k| cell(i, k)).collect::<Vec<_>>(),
                 "pct": pcts[i].iter().map(|x| x.map(|x| x.round() as i64)).collect::<Vec<_>>(),
-            })
+            });
+            if mode != "raw" {
+                row["raw"] =
+                    json!(r.vals.iter().zip(&card).map(|(v, cm)| v.map(|v| fmt_cell(*cm, v))).collect::<Vec<_>>());
+            }
+            row
         })
         .collect();
     let mut m = base(w, p, group, year, &ys, min, word, ch);
@@ -586,6 +947,14 @@ pub fn table(w: &World, args: &Value) -> Value {
     m.insert("total".into(), json!(order.len()));
     m.insert("qualified".into(), json!(qualified));
     m.insert("pool".into(), json!(rows.len()));
+    // The card's views (items 4-11 and 28) and the reading (12, 13).
+    m.insert(
+        "views".into(),
+        json!(if ch { an::views(group).iter().map(|v| v.0).collect::<Vec<_>>() } else { Vec::new() }),
+    );
+    m.insert("view".into(), json!(view));
+    m.insert("mode".into(), json!(mode));
+    m.insert("deep_from".into(), json!(w.tally_seasons().first()));
     // The filter's choices at this level, and what is picked.
     let classes: Vec<(&str, &str)> = match p.tier {
         Tier::Nfl => {
@@ -599,6 +968,39 @@ pub fn table(w: &World, args: &Value) -> Value {
     m.insert("rs".into(), json!(filter.redshirt.map(|r| if r { "yes" } else { "no" })));
     m.insert("age_min".into(), json!(filter.age.0));
     m.insert("age_max".into(), json!(filter.age.1));
+    // Item 14's choices: the teams and conferences in the pool, the spots,
+    // the home states.
+    let mut teams: Vec<usize> = rows.iter().zip(&qual).filter(|(_, q)| **q).map(|(r, _)| r.team).collect();
+    teams.sort_unstable();
+    teams.dedup();
+    let mut team_list: Vec<(usize, String)> = teams
+        .iter()
+        .map(|&t| {
+            let n = team_json(w, p.tier, t).get("name").and_then(Value::as_str).unwrap_or("").to_string();
+            (t, n)
+        })
+        .collect();
+    team_list.sort_by(|a, b| a.1.cmp(&b.1));
+    let mut confs: Vec<String> = teams.iter().filter_map(|&t| conference_of(w, p.tier, t, year)).collect();
+    confs.sort();
+    confs.dedup();
+    m.insert("teams".into(), json!(team_list.iter().map(|t| json!([t.0, t.1])).collect::<Vec<_>>()));
+    m.insert("conferences".into(), json!(confs));
+    m.insert(
+        "spots".into(),
+        json!(if src.is_some() || ch {
+            spots_for(group).iter().map(|s| json!([s.0, s.1])).collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        }),
+    );
+    m.insert("team".into(), json!(filter.team));
+    m.insert("conference".into(), json!(filter.conference));
+    m.insert("spot".into(), json!(filter.spot));
+    m.insert("eligible".into(), json!(filter.eligible.map(|r| if r { "yes" } else { "no" })));
+    m.insert("transfer".into(), json!(filter.transfer.map(|r| if r { "yes" } else { "no" })));
+    m.insert("stars".into(), json!(filter.stars));
+    m.insert("home".into(), json!(filter.home.and_then(|h| w.states.get(h)).map(|s| s.code.as_str())));
     m.insert("filtered".into(), json!(filter.on()));
     m.insert("rows".into(), json!(out));
     Value::Object(m)
@@ -724,7 +1126,7 @@ pub fn card(w: &World, args: &Value) -> Value {
         let Some(group) = an::group_of(x.player.position) else {
             return json!({ "error": "No card for long snappers." });
         };
-        let (_, _, word, ch) = card_of(w, p, group);
+        let (_, _, word, ch) = card_of(w, p, group, 0);
         let mut m = base(w, p, group, w.year, &mine, 0.0, word, ch);
         m.insert("id".into(), json!(id));
         m.insert("name".into(), json!(x.name));
@@ -733,12 +1135,17 @@ pub fn card(w: &World, args: &Value) -> Value {
     };
     // The season's group: a pool keeps a season by the position he was
     // listed at that season, which can differ from his position now.
-    let Some(group) = an::group_of(season_pos(w, k, p, year, &now)) else {
+    // The table's group when it is the returners', else his season's.
+    let asked = (group_arg(args) == an::RET && args.get("group").is_some()).then_some(an::RET);
+    let Some(group) = asked.or_else(|| an::group_of(season_pos(w, k, p, year, &now))) else {
         return json!({ "error": "No card for long snappers." });
     };
-    let (card, _, word, ch) = card_of(w, p, group);
+    let view = view_arg(args, group);
+    let (card, _, word, ch) = card_of(w, p, group, view);
     let min = min_for(w, p, group, year, ch, &Value::Null, &now);
-    let rows = pool(w, p, year, group, &now);
+    let (_, before) = charted_now(w, p, Vec::new());
+    let src = if card.iter().any(|c| c.deep()) { table_src(w, p, year, before) } else { Src::None };
+    let rows = pool(w, p, year, group, view, &now, &src);
     let qual: Vec<bool> = rows.iter().map(|r| r.vol >= min).collect();
     let pcts = percentiles(&rows, &qual, &card);
     let Some(me) = rows.iter().position(|r| r.id == id) else {
@@ -750,9 +1157,9 @@ pub fn card(w: &World, args: &Value) -> Value {
         .iter()
         .enumerate()
         .map(|(k, cm)| {
-            let (short, long, _, better) = cm.about();
+            let (short, long, _, _) = cm.about();
             json!({
-                "label": short, "long": long, "better": if better { "high" } else { "low" },
+                "label": short, "long": long, "better": better_word(*cm),
                 "key": super::glossary::cm_key(*cm), "mid": mids[k].map(|v| fmt_cell(*cm, v)),
                 "value": r.vals[k].map(|v| fmt_cell(*cm, v)),
                 "pct": pcts[me][k].map(|x| x.round() as i64),
@@ -763,10 +1170,15 @@ pub fn card(w: &World, args: &Value) -> Value {
     // against its own field (proposed, not confirmed: the closeness is the
     // mean gap in percentiles over the numbers both seasons have, at least
     // half the card).
+    // Read on the overview card's stat book numbers (the depth counts
+    // begin with the tallies, so older seasons have none).
     let my_pct = &pcts[me];
+    let book: Vec<bool> = card.iter().map(|c| !c.deep()).collect();
+    let book_n = book.iter().filter(|b| **b).count();
     let mut like: Vec<(f64, u32, i32, usize, u32)> = Vec::new();
     let ys = years(w, p, &now);
-    for (y, rs) in past_pools(w, p, group, &ys) {
+    let past = if view == 0 { past_pools(w, p, group, &ys) } else { Vec::new() };
+    for (y, rs) in past {
         if y == year {
             continue;
         }
@@ -776,9 +1188,14 @@ pub fn card(w: &World, args: &Value) -> Value {
             if !q[i] || o.id == id {
                 continue;
             }
-            let pairs: Vec<f64> =
-                my_pct.iter().zip(&ps[i]).filter_map(|(a, b)| Some((a.as_ref()? - b.as_ref()?).abs())).collect();
-            if pairs.len() * 2 < card.len().max(1) {
+            let pairs: Vec<f64> = my_pct
+                .iter()
+                .zip(&ps[i])
+                .zip(&book)
+                .filter(|(_, b)| **b)
+                .filter_map(|((a, b), _)| Some((a.as_ref()? - b.as_ref()?).abs()))
+                .collect();
+            if pairs.is_empty() || pairs.len() * 2 < book_n.max(1) {
                 continue;
             }
             let gap = pairs.iter().sum::<f64>() / pairs.len() as f64;
@@ -817,5 +1234,10 @@ pub fn card(w: &World, args: &Value) -> Value {
     m.insert("seasons".into(), json!(mine));
     m.insert("metrics".into(), json!(metrics));
     m.insert("like".into(), json!(like));
+    m.insert(
+        "views".into(),
+        json!(if ch { an::views(group).iter().map(|v| v.0).collect::<Vec<_>>() } else { Vec::new() }),
+    );
+    m.insert("view".into(), json!(view));
     Value::Object(m)
 }

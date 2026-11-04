@@ -31,6 +31,9 @@ pub struct Facts {
     pub neutral: bool,
     pub conference: bool,
     pub weather: Weather,
+    /// Each side ranked in the latest college poll at kickoff (home,
+    /// away), for the players' split against ranked teams.
+    pub ranked: [bool; 2],
 }
 
 /// The weather a game was played in.
@@ -307,7 +310,10 @@ pub fn part(f: Facts, g: &GameStats, deep: bool, pos: &dyn Fn(usize, u32) -> Opt
                 row.lines.push(Line::new(id, side as u8, start[side].contains(&id), p, &from_line(l)));
             }
         }
-        people = players::game(g, &start, pos);
+        // The game's own splits for each side: site, weather, opponent.
+        let extra =
+            [0, 1].map(|s| players::game_codes(f.level, s, f.neutral, &f.weather, f.ranked[1 - s], f.teams[1 - s]));
+        people = players::game(g, &start, pos, &extra);
         sides = Some([teams::game(g, 0), teams::game(g, 1)]);
     }
     Part {
