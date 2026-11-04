@@ -97,6 +97,10 @@ pub struct Dept {
     /// Each coach's recruiting area (college): coach index, states.
     #[serde(default)]
     pub areas: Vec<(usize, Vec<u8>)>,
+    /// The program and the first day of the job whose recruiting file you
+    /// took over (`inherit`), so it is taken over once.
+    #[serde(default)]
+    pub inherited: Option<(u32, Date)>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -480,19 +484,7 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
         let staff = readers::personnel(w, prog);
         let hudl = w.year >= 2008;
         if wd == Weekday::Mon && !staff.is_empty() {
-            let slice = (board.len() / 4).max(1);
-            let k = (d.0 / 7) as usize % 4;
-            for (j, &i) in board.iter().enumerate().skip(k * slice).take(slice) {
-                let id = w.people[i].player.id;
-                let who = PERSONNEL + (j % staff.len()) as u32;
-                let small = w.high_schools.get(w.people[i].hs).is_some_and(|h| h.classification <= 2);
-                // Before Hudl a small school's tape was what a coach mailed.
-                if !hudl && small && !readers::chance(Staff::Program(prog), 0x7A9E ^ d.0 as u64, id, 0.35) {
-                    continue;
-                }
-                let kind = if w.people[i].stage == Stage::College { Kind::CollegeFilm } else { Kind::HsFilm };
-                add(w, id, who, kind, d);
-            }
+            film_slice(w, prog, d, &board, staff.len(), hudl);
         }
         if wd == Weekday::Tue && matches!(period, Period::Contact | Period::Evaluation | Period::Quiet) {
             // The area recruiter calls his kids' coaches, teachers and counselor.
@@ -645,6 +637,169 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                 add(w, id, PERSONNEL, Kind::Social, d);
             }
         }
+    }
+}
+
+/// One Monday's film study by the personnel staff: a quarter of the board
+/// each week, shared out among the `n` staffers.
+fn film_slice(w: &mut World, prog: usize, d: Date, board: &[usize], n: usize, hudl: bool) {
+    let slice = (board.len() / 4).max(1);
+    let k = (d.0 / 7) as usize % 4;
+    for (j, &i) in board.iter().enumerate().skip(k * slice).take(slice) {
+        let id = w.people[i].player.id;
+        let who = PERSONNEL + (j % n) as u32;
+        let small = w.high_schools.get(w.people[i].hs).is_some_and(|h| h.classification <= 2);
+        // Before Hudl a small school's tape was what a coach mailed.
+        if !hudl && small && !readers::chance(Staff::Program(prog), 0x7A9E ^ d.0 as u64, id, 0.35) {
+            continue;
+        }
+        let kind = if w.people[i].stage == Stage::College { Kind::CollegeFilm } else { Kind::HsFilm };
+        add(w, id, who, kind, d);
+    }
+}
+
+/// The first day of your present job (the career's first day for the job
+/// you started in).
+pub fn job_start(w: &World) -> Option<Date> {
+    let c = w.career.as_ref()?;
+    Some(c.market.job_since.unwrap_or(c.started))
+}
+
+/// A new staff takes over the program's recruiting file (minor bug 248,
+/// Cain 2026-11-04: an inherited signee showed no staff read at all). The
+/// file belongs to the program, and the personnel staff who keep it stay
+/// through a coaching change, so you walk into what the department had:
+/// eight weeks of its Monday film study on the board; film on every
+/// recruit the program offered, had commit or signed, from his first
+/// contact and (signed) his signing day; the visits he took, with the head
+/// coach of the day; for a committed or signed recruit the fall evaluation
+/// in person by his position coach and, as a senior, his transcript and
+/// social media. Looks are dated before your first day, so reports are
+/// written; your own read still starts with your own looks. Once per job
+/// (a save from before takes it over at load).
+pub(crate) fn inherit(w: &mut World) {
+    let Some(Staff::Program(prog)) = readers::seat_staff(w) else { return };
+    let Some(since) = job_start(w) else { return };
+    let key = Some((prog as u32, since));
+    if w.scouting.dept.inherited == key {
+        return;
+    }
+    let same = w.scouting.dept.inherited.is_some_and(|(p, _)| p == prog as u32);
+    w.scouting.dept.inherited = key;
+    // A promotion at the same program keeps the file you already worked
+    // in; a save loaded long after the job began keeps what it has.
+    let worked = same && w.scouting.dept.looks.values().any(|v| v.iter().any(|l| l.date >= since.add(-60)));
+    if worked || since.days_to(w.today) > 60 {
+        return;
+    }
+    if !w.programs[prog].plays(w.year) && !w.programs[prog].plays(w.year + 1) {
+        return;
+    }
+    let you = readers::you(w);
+    let n = readers::personnel(w, prog).len();
+    let board = watch(w, prog);
+    if n > 0 {
+        let mut d = since.add(-1).on_or_before(Weekday::Mon);
+        for _ in 0..8 {
+            film_slice(w, prog, d, &board, n, d.year() >= 2008);
+            d = d.add(-7);
+        }
+    }
+    let staffer = |k: usize| PERSONNEL + if n == 0 { 0 } else { (k % n) as u32 };
+    use crate::world::coach::{Employer, Role};
+    // The carousel's season label: a day before fall camp belongs to the
+    // season before (`staff::cycle_year`).
+    let label = |d: Date| if d.month() < 8 { d.year() - 1 } else { d.year() };
+    // A coach's first season in his job (older saves: the one after his
+    // hiring label).
+    let first = |j: &crate::world::coach::Job| if j.first > 0 { j.first } else { j.since + 1 };
+    // Who had the program's head job on a day, other than you: the sitting
+    // head coach from his first season, or one whose stint covered it.
+    let head_on = |w: &World, d: Date| -> u32 {
+        let season = label(d);
+        let e = Employer::College(prog);
+        w.coaches
+            .iter()
+            .enumerate()
+            .find(|(c, k)| {
+                Some(*c) != you
+                    && (k
+                        .job
+                        .as_ref()
+                        .is_some_and(|j| j.employer == e && j.role == Role::HeadCoach && first(j) <= season)
+                        || k.history.iter().any(|s| {
+                            s.employer == e && s.role == Role::HeadCoach && s.from <= season && season <= s.to
+                        }))
+            })
+            .map_or(staffer(0), |(c, _)| COACH + c as u32)
+    };
+    // His position coach if he was on the staff then, else the head coach.
+    let evaluator_on = |w: &World, i: usize, d: Date| -> u32 {
+        let g = crate::world::coach::Group::of(w.people[i].player.position) as usize;
+        match w.programs[prog].position_coaches[g] {
+            Some(c)
+                if Some(c) != you
+                    && w.coaches[c]
+                        .job
+                        .as_ref()
+                        .is_some_and(|j| j.employer == Employer::College(prog) && first(j) <= label(d)) =>
+            {
+                COACH + c as u32
+            }
+            _ => head_on(w, d),
+        }
+    };
+    let last_fall = |d: Date| if d >= Date::ymd(d.year(), 10, 15) { d.year() } else { d.year() - 1 };
+    let mut adds: Vec<(u32, u32, Kind, Date)> = Vec::new();
+    for (i, q) in w.people.iter().enumerate() {
+        let c = &q.cal;
+        let signed = c.signed.is_some_and(|s| s.program == prog);
+        let committed = c.commit.is_some_and(|x| x.0 == prog);
+        let early = c.early_offers.iter().filter(|o| o.0 == prog).map(|o| o.1).min();
+        let visits: Vec<(Date, crate::world::Visit)> =
+            c.visits.iter().filter(|v| v.0 == prog && v.1 < since).map(|v| (v.1, v.2)).collect();
+        let ours = signed || committed || early.is_some() || c.offers.contains(&prog) || !visits.is_empty();
+        let recruit = matches!(q.stage, Stage::HighSchool | Stage::PrepSchool)
+            || (q.stage == Stage::College && q.college != Some(prog) && (signed || committed));
+        if !ours || !recruit {
+            continue;
+        }
+        let id = q.player.id;
+        let film = if q.stage == Stage::College { Kind::CollegeFilm } else { Kind::HsFilm };
+        // Film from his first contact with the program.
+        let first = [early, visits.iter().map(|v| v.0).min(), c.commit.filter(|x| x.0 == prog).map(|x| x.1)]
+            .into_iter()
+            .flatten()
+            .min()
+            .unwrap_or(since);
+        adds.push((id, staffer(0), film, first.min(since.add(-45))));
+        if let Some(s) = c.signed.filter(|s| s.program == prog && s.date < since) {
+            adds.push((id, staffer(1), film, s.date));
+        }
+        for (d, v) in visits {
+            let kind = match v {
+                crate::world::Visit::Official => Kind::Official,
+                crate::world::Visit::Unofficial => Kind::Unofficial,
+                crate::world::Visit::DropIn => Kind::Practice,
+                crate::world::Visit::Home => Kind::HomeVisit,
+            };
+            adds.push((id, head_on(w, d), kind, d));
+        }
+        if (signed || committed) && q.stage != Stage::College {
+            let fall = last_fall(since).min(q.class_of - 1);
+            if fall >= q.class_of - 2 {
+                let d = Date::nth_weekday(fall, 10, Weekday::Fri, 2);
+                adds.push((id, evaluator_on(w, i, d), Kind::Game, d));
+            }
+            if q.class_of - 1 <= last_fall(since) {
+                let d = Date::ymd(q.class_of - 1, 10, 1);
+                adds.push((id, readers::ACADEMIC, Kind::Transcript, d));
+                adds.push((id, staffer(0), Kind::Social, d));
+            }
+        }
+    }
+    for (id, who, kind, d) in adds {
+        add(w, id, who, kind, d);
     }
 }
 

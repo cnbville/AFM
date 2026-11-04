@@ -261,9 +261,10 @@ function frEditor(x, st) {
   const val = (id, v) => {
     if (f.kind === "word") return `<select class="fr-sel" id="${id}">${f.opts.map((o, i) => `<option value="${i}"${String(v) === String(i) ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
     if (f.kind === "flag") return `<select class="fr-sel" id="${id}"><option value="yes">yes</option><option value="no"${v === "no" ? " selected" : ""}>no</option></select>`;
+    if (f.opts && f.opts.length) return `<select class="fr-sel" id="${id}">${f.opts.map((o) => `<option${String(v) === o ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
     return `<input class="fr-in" id="${id}" value="${esc(v ?? "")}" placeholder="${f.kind === "text" ? "a name or code" : "a number"}" ${f.kind === "num" ? 'inputmode="decimal"' : ""}>`;
   };
-  const hint = f.kind === "word" ? `Worst to best: ${f.opts.join(", ")}.` : f.lower ? "Lower is better." : f.kind === "text" ? "A whole name finds only that name (Michigan, not Michigan State); part of one finds names whose words start with it." : "";
+  const hint = f.k === "pos" ? FR_POS_HINT : f.kind === "word" ? `Worst to best: ${f.opts.join(", ")}.` : f.lower ? "Lower is better." : f.kind === "text" ? "A whole name finds only that name (Michigan, not Michigan State); part of one finds names whose words start with it." : "";
   return `<div class="fr-edit"><span class="fr-k">${esc(f.label)}</span>
     <select class="fr-sel" id="fr-op" data-act="fr-op">${ops.map((o) => `<option value="${o}"${o === op ? " selected" : ""}>${FR_OPS[o]}</option>`).join("")}</select>
     ${val("fr-v", e.v)}${op === "between" ? ` <span class="fr-mute">and</span> ${val("fr-v2", e.v2)}` : ""}
@@ -271,18 +272,45 @@ function frEditor(x, st) {
     <button class="fr-btn fr-main" data-act="fr-addgo">Add filter</button><button class="fr-btn" data-act="fr-editx">Cancel</button>
     ${hint ? `<span class="fr-mute fr-small">${esc(hint)}</span>` : ""}${f.staff ? '<span class="fr-mute fr-small">Reads your staff\'s files: "Not seen" applies.</span>' : ""}</div>`;
 }
+const FR_POS_HINT = "OL is OT and IOL, DL is EDGE and DT, DB is CB and S; Specialists are K, P and LS.";
+// The filter menu, with a box to find a filter by typing (Cain 2026-11-04).
 function frCatalog(x, st) {
   if (!st.cat) return "";
-  return `<div class="fr-cat">${x.catalog.map((g) => `<div class="fr-catg"><h4>${esc(g.name)}</h4><ul>${g.fields.map((f) => `<li><button data-act="fr-pick" data-k="${esc(f.k)}" title="${esc(f.label)}">${esc(f.label)}</button></li>`).join("")}</ul></div>`).join("")}</div>`;
+  const q = (st.catq || "").trim().toLowerCase();
+  const hit = (g, f) => !q || f.label.toLowerCase().includes(q) || g.name.toLowerCase().includes(q);
+  let any = false;
+  const groups = x.catalog.map((g) => {
+    const n = g.fields.filter((f) => hit(g, f)).length;
+    if (n) any = true;
+    return `<div class="fr-catg" data-g="${esc(g.name.toLowerCase())}"${n ? "" : " hidden"}><h4>${esc(g.name)}</h4><ul>${g.fields.map((f) => `<li data-l="${esc(f.label.toLowerCase())}"${hit(g, f) ? "" : " hidden"}><button data-act="fr-pick" data-k="${esc(f.k)}" title="${esc(f.label)}">${esc(f.label)}</button></li>`).join("")}</ul></div>`;
+  }).join("");
+  return `<div class="fr-catwrap"><input class="fr-in fr-catq" data-act="fr-catq" placeholder="Type to find a filter" aria-label="Find a filter" value="${esc(st.catq || "")}" autocomplete="off" spellcheck="false"><div class="fr-cat">${groups}<p class="fr-mute fr-catnone"${any ? " hidden" : ""}>No filter by that name.</p></div></div>`;
+}
+// Shows the menu's filters whose name (or group's name) holds what you typed.
+function frCatFilter(box, typed) {
+  if (!box) return;
+  const q = typed.trim().toLowerCase();
+  let any = false;
+  box.querySelectorAll(".fr-catg").forEach((g) => {
+    const whole = q && g.dataset.g.includes(q);
+    let n = 0;
+    g.querySelectorAll("li").forEach((li) => { const on = !q || whole || li.dataset.l.includes(q); li.hidden = !on; if (on) n++; });
+    g.hidden = !n;
+    if (n) any = true;
+  });
+  const none = box.querySelector(".fr-catnone");
+  if (none) none.hidden = any;
 }
 function frSeg(act, list, cur, label) {
   return `<div class="fr-seg" role="group" aria-label="${esc(label)}">${list.map(([v, t]) => `<button data-act="${act}" data-v="${esc(v)}" aria-pressed="${String(v) === String(cur)}">${esc(t)}</button>`).join("")}</div>`;
 }
 function frBuilder(x, st, seat) {
   const POS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"];
+  const GROUPS = ["OL", "DL", "DB", "Specialists", "Offense", "Defense"];
   const classes = x.classes.map((c) => [c, seat === "nfl" ? `${c} draft` : `Class of ${c}`]);
   const levels = seat === "nfl" ? [["all", "Every level"], ["fbs", "FBS"], ["fcs", "FCS"], ["small", "Division II and below"]] : [["hs", "High school"], ["juco", "Junior college"], ["portal", "Portal"]];
-  const pos = `<select class="fr-sel" data-act="fr-f" data-f="pos" aria-label="Position"><option value="ALL">Every position</option>${POS.map((p) => `<option${st.pos === p ? " selected" : ""}>${p}</option>`).join("")}</select>`;
+  const opt = (p) => `<option${st.pos === p ? " selected" : ""}>${p}</option>`;
+  const pos = `<select class="fr-sel" data-act="fr-f" data-f="pos" aria-label="Position" title="${FR_POS_HINT}"><option value="ALL">Every position</option><optgroup label="Positions">${POS.map(opt).join("")}</optgroup><optgroup label="Groups">${GROUPS.map(opt).join("")}</optgroup></select>`;
   const place = seat === "nfl"
     ? `<select class="fr-sel" data-act="fr-f" data-f="place" aria-label="Conference"><option value="">Every conference</option>${x.confs.map((c) => `<option value="${esc(c.k)}"${st.place === c.k ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`
     : `<select class="fr-sel" data-act="fr-f" data-f="place" aria-label="State"><option value="">Every state</option>${x.states.map((s) => `<option value="${s}"${st.place === s ? " selected" : ""}>${esc(STATE_NAMES[s] || s)}${s === x.home ? " (yours)" : ""}</option>`).join("")}</select>`;
@@ -360,7 +388,7 @@ function frResults(x, st, views) {
   const body = st.view === "chart" ? frChart(x, st) : st.view === "compare" ? frCompare(x) : frTable(x, st, views);
   return bar + body;
 }
-function frHead(x, seat, kicker, title, sub, dist, cells, note) {
+function frFindHead(x, seat, kicker, title, sub, dist, cells, note) {
   const max = Math.max(1, ...dist.map((d) => d[1]));
   const what = seat === "nfl" ? "prospects match" : "recruits match";
   const knows = seat === "nfl" ? "your scouts know" : "your staff knows";
@@ -403,7 +431,7 @@ screens.recruit_find = async (a) => {
     ["Committed elsewhere", `${frN(x.sums.elsewhere)} <small>still shown</small>`],
   ];
   const note = `The services rank a class from its sophomore year. The younger classes move each winter, spring, summer and fall (next: ${esc(x.next_update)}, the ${esc(x.next_update_word)} update); the signing class moves with each commitment wave. Specialists carry the kicking camps' stars.`;
-  const head = frHead(x, "college", `${teamLink(x.team)} · Recruiting`, "Find recruits", sub, x.dist, cells, note);
+  const head = frFindHead(x, "college", `${teamLink(x.team)} · Recruiting`, "Find recruits", sub, x.dist, cells, note);
   const foot = `<div class="fr-foot"><div class="fr-panel"><div class="fr-ph"><span class="fr-k">The services</span></div><ul class="fr-list">${x.services.map((s) => `<li><span>${esc(s.name)}</span><span>stars by service, in the Services view</span></li>`).join("")}${x.services.length > 1 ? "<li><span>Composite</span><span>their average, from 2012</span></li>" : ""}</ul></div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">The insiders</span></div>${x.insiders.length ? `<ul class="fr-list">${x.insiders.map((d) => `<li><span><a class="link" data-act="fr-insider" data-desk="${d.k}">${esc(d.name)}</a> <small class="fr-mute">${esc(d.desk)}</small></span><span>${d.pct != null ? `${d.pct}% right last year` : "no record yet"} · ${d.open} open</span></li>`).join("")}</ul>` : '<div class="fr-empty">No insiders log picks before 2011.</div>'}</div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">Your area recruiters</span></div>${x.recruiters.length ? `<ul class="fr-list">${x.recruiters.map((c) => `<li><span>${coachLink(c.id, c.name)}</span><span>${esc(c.states.slice(0, 6).join(", "))}${c.states.length > 6 ? ` +${c.states.length - 6}` : ""}</span></li>`).join("")}</ul>` : '<div class="fr-empty">No areas set.</div>'}</div></div>`;
@@ -430,7 +458,7 @@ screens.find_prospects = async () => {
   const note = x.combine_done
     ? "Testing shows the combine's numbers, or his pro day's once it is done; school numbers are marked self."
     : `Combine numbers arrive ${esc(x.combine.join("-"))} and pro days run through April; until then testing shows school numbers, marked self.`;
-  const head = frHead(x, "nfl", `${teamLink(x.team)} · Scouting`, "Find prospects", sub, x.dist, cells, note);
+  const head = frFindHead(x, "nfl", `${teamLink(x.team)} · Scouting`, "Find prospects", sub, x.dist, cells, note);
   const foot = `<div class="fr-foot"><div class="fr-panel"><div class="fr-ph"><span class="fr-k">The desks' records</span></div><ul class="fr-list">${x.desks.map((d) => `<li><span>${esc(d.name)}</span><span>${d.top100 ? `top 100: ${d.top100.pct} of 100 went in the first 100 picks a year, ${esc(d.top100.years)}` : "no draft scored yet"}${d.mocks ? ` · mocks ${d.mocks.exact} exact, ${d.mocks.near} within three in ${d.mocks.drafts}` : ""}</span></li>`).join("")}<li><span>Consensus</span><span>the desks' weekly top 50, then their grades</span></li></ul></div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">Your board</span></div><p class="fr-mute">Your board's order and grades come from your scouts' files; ${linkTo("draftboard", {}, "the draft board")} sets them. "You vs the desks" marks a prospect at least 12 places (or a third of your rank) from the consensus.</p></div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">The year</span></div><ul class="fr-list"><li><span>Senior Bowl</span><span>${esc(x.senior_bowl)}</span></li><li><span>The combine</span><span>${esc(x.combine.join("-"))}</span></li><li><span>The draft</span><span>${esc(x.draft_date)}</span></li></ul></div></div>`;
@@ -565,8 +593,16 @@ document.addEventListener("click", async (ev) => {
     case "fr-sort": frGo((st) => { if (st.sort === d.k) st.dir = st.dir === -1 ? 1 : -1; else { st.sort = d.k; st.dir = 1; } st.page = 0; }); break;
     case "fr-flip": frGo((st) => { st.dir = st.dir === -1 ? 1 : -1; st.page = 0; }); break;
     case "fr-page": frGo((st) => { st.page = Math.max(0, st.page + Number(d.d)); }); break;
-    case "fr-cat": frGo((st) => { st.cat = !st.cat; }); break;
-    case "fr-pick": frGo((st) => { st.edit = { k: d.k, op: null, v: "", v2: "", or: false }; st.cat = false; }); break;
+    case "fr-cat": {
+      const st = frState();
+      st.cat = !st.cat;
+      st.catq = "";
+      await render($(".view") ? $(".view").scrollTop : 0);
+      const box = $(".fr-catq");
+      if (box) box.focus();
+      break;
+    }
+    case "fr-pick": frGo((st) => { st.edit = { k: d.k, op: null, v: "", v2: "", or: false }; st.cat = false; st.catq = ""; }); break;
     case "fr-editx": frGo((st) => { st.edit = null; }); break;
     case "fr-join": frGo((st) => { if (st.edit) { frKeepTyped(st.edit); st.edit.or = d.v === "or"; } }); break;
     case "fr-addgo": {
@@ -631,6 +667,26 @@ document.addEventListener("click", async (ev) => {
     }
   }
 }, true);
+// Typing in the filter menu's box narrows the menu as you type; Enter
+// picks the first filter left, Escape closes the menu.
+document.addEventListener("input", (ev) => {
+  const el = ev.target.closest('[data-act="fr-catq"]');
+  if (!el) return;
+  frState().catq = el.value;
+  frCatFilter(el.closest(".fr-catwrap"), el.value);
+});
+document.addEventListener("keydown", (ev) => {
+  const el = ev.target.closest && ev.target.closest('[data-act="fr-catq"]');
+  if (!el) return;
+  if (ev.key === "Enter") {
+    ev.preventDefault();
+    const first = el.closest(".fr-catwrap").querySelector('.fr-catg:not([hidden]) li:not([hidden]) button');
+    if (first) first.click();
+  } else if (ev.key === "Escape") {
+    ev.preventDefault();
+    frGo((st) => { st.cat = false; st.catq = ""; });
+  }
+});
 document.addEventListener("change", (ev) => {
   const el = ev.target.closest("[data-act]");
   if (!el || !String(el.dataset.act).startsWith("fr-")) return;
