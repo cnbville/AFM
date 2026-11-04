@@ -401,17 +401,17 @@ pub fn coach_ethnicity(kind: CoachPool, year: i32, age: u32, rng: &mut Rng) -> E
     // (proposed, not confirmed); of them 82% Black, 8% Hispanic, 6%
     // Polynesian, 4% Asian.
     let entering = |year: i32| {
-        let color = 0.27 + (tune("ent", 0.5) - 0.27) * ((year - 1990) as f64 / 25.0).clamp(0.0, 1.0);
+        let color = 0.27 + 0.23 * ((year - 1990) as f64 / 25.0).clamp(0.0, 1.0);
         [1.0 - color, 0.82 * color, 0.08 * color, 0.06 * color, 0.04 * color]
     };
     let w: [f64; 5] = match kind {
         CoachPool::Entering => entering(year),
         CoachPool::HighSchool(state) => return hs_coach_ethnicity(state, year - age as i32, rng),
         CoachPool::CollegeHead1990 => [0.96, 0.03, 0.005, 0.004, 0.001],
-        CoachPool::NflHeadStart => {
-            let c = tune("nfl_start", 0.10);
-            [1.0 - c, c, 0.0, 0.0, 0.0]
-        }
+        // The NFL's head coaches when the world starts (minor bug 244): 3
+        // of 30 were Black in 1996 (Dennis Green, Ray Rhodes, Tony Dungy),
+        // far more than the college ranks' 3% the college pool holds.
+        CoachPool::NflHeadStart => [0.9, 0.1, 0.0, 0.0, 0.0],
         // The staffs already in place when the world starts (proposed, not confirmed).
         CoachPool::CollegeAssistant1990 => [0.8, 0.17, 0.015, 0.01, 0.005],
     };
@@ -449,8 +449,8 @@ fn hs_coach_ethnicity(state: usize, born: i32, rng: &mut Rng) -> Ethnicity {
 fn hs_lean(e: Ethnicity) -> f64 {
     match e {
         Ethnicity::White => 1.0,
-        Ethnicity::Black => tune("hs_black", 0.8),
-        Ethnicity::Hispanic => tune("hs_hisp", 0.6),
+        Ethnicity::Black => 0.8,
+        Ethnicity::Hispanic => 0.6,
         Ethnicity::Polynesian => 1.5,
         Ethnicity::EastAsian | Ethnicity::SoutheastAsian | Ethnicity::SouthAsian => 0.3,
     }
@@ -527,26 +527,6 @@ pub fn hiring_bias(e: Ethnicity, year: i32, prestige: f64) -> f64 {
     let eased = 4.2 - 0.08 * (year.clamp(2005, 2016) - 2005) as f64;
     let base = (eased - 0.05 * (year - 2026).max(0) as f64).max(0.3);
     base * (0.5 + prestige.clamp(0.0, 1.0))
-}
-
-/// Temporary tuning knobs (AFM_TUNE=k=v,...), removed before merge.
-pub(crate) fn tune(k: &str, d: f64) -> f64 {
-    use std::sync::OnceLock;
-    static T: OnceLock<Vec<(String, f64)>> = OnceLock::new();
-    let t = T.get_or_init(|| {
-        std::env::var("AFM_TUNE")
-            .ok()
-            .map(|v| {
-                v.split(',')
-                    .filter_map(|kv| {
-                        let (a, b) = kv.split_once('=')?;
-                        Some((a.to_string(), b.parse().ok()?))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
-    });
-    t.iter().find(|x| x.0 == k).map_or(d, |x| x.1)
 }
 
 #[cfg(test)]

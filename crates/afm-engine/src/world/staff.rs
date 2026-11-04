@@ -1381,7 +1381,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                     s += 0.8 * seen(g, rng);
                     let u = coach.units[g as usize];
                     if coach.came_up == g {
-                        s += super::ethnicity::tune("cu", 0.6);
+                        s += 0.6;
                     } else if coach.came_up.offense() != g.offense() && u.growth_read() < 0.3 && u.moved_up < 2.0 {
                         s -= 1.5;
                     }
@@ -1417,32 +1417,26 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             if hiring_hc.is_some() && w.coaches[c].mentor == hiring_hc {
                 s += 1.5;
             }
-            if matches!(o.role, Role::PositionCoach(_))
-                && w.coaches[c].junior_now().is_some_and(|j| j.employer == o.employer)
-            {
-                s += super::ethnicity::tune("jr_own", 0.0);
-            }
-            // The committee bias falls hardest on head jobs and offensive
-            // coordinators, least on position coaches (trial 4 topic 9: FBS
-            // 2022-23, assistants 53% of color, defensive coordinators over
-            // 20% Black, offensive coordinators 7-9%, head coaches 14 of 133;
-            // the rung weights are proposed, not confirmed). An offensive
-            // coordinator's search weighs it above a head job's: his pool is
-            // the position coaches, half of color, a head job's the
-            // coordinators (minor bug 161: at 0.7 and 0.4, FBS offensive
-            // coordinators read 11.5-18.9% Black and defensive 21-28%; at 1.2
-            // and 0.55, three 30-year worlds at scale 0.1 read 4.5-13.4% and
-            // 20.6-23.0%, and two worlds' 2016-25 hires 6.2-8.3% and 20-21%).
+            // The committee bias falls hardest on head jobs, offensive
+            // coordinators and the quarterback and line rooms, least on the
+            // other position coaches (minor bugs 161 and 243). Real FBS staffs
+            // around 2015 (FootballScoop): offensive line coaches 2.3% Black,
+            // defensive backs 55%, defensive line 48%, linebackers 21%,
+            // running backs and receivers over half of color, offensive
+            // coordinators 10 of 142; in 2022 position coaches 44% Black,
+            // offensive coordinators 7-9%, defensive over 20% (trial 4 topic
+            // 9). An offensive coordinator's search weighs it above a head
+            // job's: his pool is the position coaches, a head job's the
+            // coordinators. The rung weights are proposed, not confirmed.
             if !is_hs {
-                let tune = super::ethnicity::tune;
                 let rung = match o.role {
                     Role::HeadCoach => 1.0,
-                    Role::OffensiveCoordinator => tune("oc", 1.2),
-                    Role::DefensiveCoordinator => tune("dc", 0.55),
-                    Role::PositionCoach(g) => {
-                        const K: [&str; 8] = ["pc0", "pc1", "pc2", "pc3", "pc4", "pc5", "pc6", "pc7"];
-                        tune(K[g as usize], tune("pc", 0.15))
-                    }
+                    Role::OffensiveCoordinator => 1.4,
+                    Role::DefensiveCoordinator => 0.8,
+                    Role::PositionCoach(Group::QB) => 1.5,
+                    Role::PositionCoach(Group::OL) => 2.0,
+                    Role::PositionCoach(Group::Specialists) => 0.5,
+                    Role::PositionCoach(_) => 0.0,
                 };
                 // A head job has its own weight (minor bugs 127 and 148),
                 // set against the real head coaches: in the NFL about 3 of 31
@@ -1451,9 +1445,9 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                 // 2024); at FBS about 12% Black since the 2010s (16 of 134 in
                 // 2024, CBS Sports). The weights are proposed, not confirmed.
                 let head = match (o.employer, o.role) {
-                    (Employer::Nfl(_), Role::HeadCoach) if year >= 2003 => tune("nfl_post", 0.15),
-                    (Employer::Nfl(_), Role::HeadCoach) => tune("nfl_pre", 0.3),
-                    (_, Role::HeadCoach) => tune("col_head", 0.7),
+                    (Employer::Nfl(_), Role::HeadCoach) if year >= 2003 => 0.05,
+                    (Employer::Nfl(_), Role::HeadCoach) => 0.3,
+                    (_, Role::HeadCoach) => 0.85,
                     _ => 1.0,
                 };
                 s -= rung * head * hiring_bias(w.coaches[c].ethnicity, year, needs_prestige);
@@ -2503,16 +2497,13 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                             && ((coach.came_up.offense() == g.offense() && u.growth_read() > 0.15) || u.moved_up >= 1.5)
                     })
                     .collect();
-                let tune = super::ethnicity::tune;
-                let (k_hs, k_co) = if div == Division::FBS {
-                    if w.rng.chance(tune("fbs_hs", 1.0)) {
-                        (tune("hs_pc", 4.0) as usize, tune("hs_pcc", 2.0) as usize)
-                    } else {
-                        (0, 0)
-                    }
-                } else {
-                    (4, 2)
-                };
+                // Rarely straight to FBS (minor bug 243): of 570 FBS on-field
+                // job changes in 2021-22, 12 came from high schools (2.1%;
+                // 247Sports via FootballScoop), where one search in five
+                // looking at a single high school head coach reads 3-4%
+                // (proposed, not confirmed). A smaller college looks wider.
+                let (k_hs, k_co) =
+                    if div == Division::FBS { if w.rng.chance(0.2) { (1, 0) } else { (0, 0) } } else { (4, 2) };
                 sample(w, &hs, k_hs, &mut pool);
                 // High school coordinators on that side (C37), and the
                 // juniors who work with that room: the program's own first
@@ -2537,7 +2528,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     .partition::<Vec<(usize, Employer)>, _>(|(_, e)| *e == Employer::College(p));
                 pool.extend(own.into_iter().map(|x| x.0));
                 let other: Vec<usize> = other.into_iter().map(|x| x.0).collect();
-                sample(w, &other, super::ethnicity::tune("jr_other", 3.0) as usize, &mut pool);
+                sample(w, &other, 3, &mut pool);
                 if w.rng.chance(0.12) {
                     let tier = tier_of(div);
                     let age = w.rng.int(27, 38) as u32;
@@ -2590,8 +2581,8 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
             // players were high school head coaches in 2026 of some 14,000
             // (USA Today; ESPN counted 169 in 2021), under 1%. At one search
             // in four, 43% of the world's head coaches were ex-pros. One
-            // search in forty, proposed, not confirmed.
-            if w.rng.chance(super::ethnicity::tune("hs_pro", 0.025)) {
+            // search in a hundred, proposed, not confirmed.
+            if w.rng.chance(0.01) {
                 let age = w.rng.int(30, 45) as u32;
                 let want = Want { state: Some(state), nfl: Some(true), ..Want::default() };
                 let c = new_coach_for(w, CoachTier::HighSchool, age, CoachPool::Entering, want);
@@ -2707,7 +2698,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
     // A public school's coaches teach there: a man who has only coached in
     // college holds no teaching certificate (minor bug 242).
     let public = match o.employer {
-        Employer::HighSchool(s) => !w.high_schools[s].private && super::ethnicity::tune("hs_cert", 1.0) > 0.5,
+        Employer::HighSchool(s) => !w.high_schools[s].private,
         _ => false,
     };
     let free: Vec<usize> = w
@@ -3493,7 +3484,7 @@ pub(crate) fn hs_staff_year(w: &mut World) {
         let state = w.high_schools[s].state;
         // A public school's coordinators teach there (minor bug 242): a man
         // who has only coached in college holds no teaching certificate.
-        let public = !w.high_schools[s].private && super::ethnicity::tune("hs_cert", 1.0) > 0.5;
+        let public = !w.high_schools[s].private;
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
             let empty = match role {
                 Role::OffensiveCoordinator => w.high_schools[s].oc.is_none(),

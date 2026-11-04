@@ -458,7 +458,9 @@ pub fn generate_coach_as(
         .max_by(|a, b| teaching[*a as usize].total_cmp(&teaching[*b as usize]))
         .unwrap_or(Group::ALL[0]);
     let drawn = rng.chance(match tier {
-        CoachTier::HighSchool => super::ethnicity::tune("hs_drawn", 0.04),
+        // About 130 of some 14,000 high school head coaches played in the
+        // NFL (USA Today 2026; minor bug 242): 1% (proposed, not confirmed).
+        CoachTier::HighSchool => 0.01,
         CoachTier::Nfl => 0.35,
         _ => 0.12,
     });
