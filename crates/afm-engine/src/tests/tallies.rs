@@ -197,7 +197,11 @@ fn the_tallies_only_watch_and_add_up() {
             assert_eq!(t.talent.len(), tally::squads::TALENT_HS.len());
             assert!(t.talent_of("seniors_off").unwrap() <= t.talent_of("starters_off").unwrap());
         } else {
-            assert!(snaps > 100.0 && db <= snaps && xdb > 0.1 * snaps && xdb < 0.9 * snaps, "{snaps} {db} {xdb}");
+            // A small world has teams with a single game: about 70 snaps.
+            assert!(
+                snaps > 40.0 * t.games as f64 && db <= snaps && xdb > 0.1 * snaps && xdb < 0.9 * snaps,
+                "{snaps} {db} {xdb}"
+            );
             let early = t.tend_of(1);
             assert!(early[0] > 0.0 && early[0] < snaps);
             if t.level == Level::College as u8 {
