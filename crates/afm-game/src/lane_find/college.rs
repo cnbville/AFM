@@ -95,7 +95,7 @@ pub fn search<'a>(w: &'a World, j: usize, spec: &Spec) -> Found<'a> {
     let class = spec.class.filter(|c| (sign..=sign + 2).contains(c)).unwrap_or(sign);
     let staff_of = Staff::Program(j);
     let board: HashSet<u32> = w.front_office.college.board.iter().map(|t| t.id).collect();
-    let pos = spec.pos.as_deref().and_then(fields::position);
+    let pos = spec.pos.as_deref().and_then(fields::positions);
     let mut pool: Vec<usize> = Vec::new();
     for (i, p) in w.people.iter().enumerate() {
         let ok = match spec.level.as_str() {
@@ -122,7 +122,7 @@ pub fn search<'a>(w: &'a World, j: usize, spec: &Spec) -> Found<'a> {
     let code = |i: usize| w.states.get(w.people[i].home_state).map_or("", |s| s.code.as_str());
     pool.retain(|&i| {
         let p = &w.people[i];
-        pos.is_none_or(|x| p.player.position == x)
+        pos.as_ref().is_none_or(|x| x.contains(&p.player.position))
             && spec.state.as_deref().is_none_or(|s| s == code(i))
             && (spec.q.is_empty()
                 || p.name.to_lowercase().contains(&spec.q)

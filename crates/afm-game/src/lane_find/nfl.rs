@@ -209,10 +209,10 @@ pub fn search<'a>(w: &'a World, t: usize, spec: &Spec) -> Found<'a> {
         }
     }
     let known = pool.len();
-    let pos = spec.pos.as_deref().and_then(fields::position);
+    let pos = spec.pos.as_deref().and_then(fields::positions);
     pool.retain(|&i| {
         let p = &w.people[i];
-        pos.is_none_or(|x| p.player.position == x)
+        pos.as_ref().is_none_or(|x| x.contains(&p.player.position))
             && level_ok(w, p, &spec.level)
             && spec.conf.as_deref().is_none_or(|c| p.college.is_some_and(|k| w.programs[k].conference == c))
             && (spec.q.is_empty()

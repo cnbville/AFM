@@ -221,3 +221,20 @@ fn a_saved_search_tells_each_player_once() {
     assert_eq!(mails(w), 1, "a player already told is never told again");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// The position menu takes a spot or a group (minor bug 250).
+#[test]
+fn position_choices() {
+    use afm_engine::positions::Position as P;
+    assert_eq!(fields::positions("S"), Some(vec![P::S]));
+    assert_eq!(fields::positions("OL"), Some(vec![P::OT, P::IOL]));
+    assert_eq!(fields::positions("DL"), Some(vec![P::EDGE, P::DT]));
+    assert_eq!(fields::positions("DB"), Some(vec![P::CB, P::S]));
+    assert_eq!(fields::positions("Specialists"), Some(vec![P::K, P::P, P::LS]));
+    assert_eq!(fields::positions("Defense").map(|v| v.len()), Some(5));
+    assert_eq!(fields::positions("Offense").map(|v| v.len()), Some(6));
+    assert_eq!(fields::positions("ALL"), None);
+    for c in fields::POS_CHOICES {
+        assert!(fields::positions(c).is_some(), "{c}");
+    }
+}

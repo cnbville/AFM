@@ -404,6 +404,8 @@ pub(crate) fn after_load(w: &mut crate::world::World) {
         public::staff_desks(w);
     }
     services::catch_up(w);
+    // A save from before minor bug 248 takes over its program's file.
+    dept::inherit(w);
 }
 
 /// After the draft and the rush: the public's mocks scored, your class kept
