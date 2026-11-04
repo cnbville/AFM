@@ -90,10 +90,10 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 ## Sizes
 
-- Measured with `memory_check` on a 0.1 world (seed 2026, 6 years of history and one more season, 4-core Linux), 2026-11-04. A closed season is about 22.5 MB on disk: players 6.1 MB (35,695 rows), teams 6.2 MB (576), games 9.5 MB (9,772: 2,603 college, 285 NFL, 6,884 high school), classes 0.6 MB and growing about 0.1 MB a season (the store holds every class), people 0.12 MB (1,728 unit rows).
+- Measured with `memory_check` on a 0.1 world (seed 2026, 6 years of history and one more season, 4-core Linux), 2026-11-04, after lane NB4's depth counts. A closed season is about 30.5 MB on disk: players 14.5 MB (the depth counts add about 8.4 MB to the 6.1 MB before them), teams 6.2 MB, games 9.4 MB (2,603 college, 285 NFL, about 6,850 high school), classes 0.6 MB and growing about 0.1 MB a season (the store holds every class), people 0.12 MB.
 - In the games file a college game is about 2.6 KB packed (lines and the win chance), an NFL game 2.2 KB, a high school game 0.3 KB (facts and boxes).
-- The open season at its biggest (the end of the football year) packs to 63 MB before compression; just after the close the tallies weigh 5 MB of heap. Memory stays flat from season to season: closed seasons live only on disk.
-- At full size (not measured): college and NFL counts barely change with scale, high school games are about ten times as many and college player rows somewhat more, so a season comes to roughly 45-50 MB and a 30-year world's folder to about 1.4 GB; the open season adds roughly 0.15 GB of heap at the football year's end, after the summer's high (Claude's estimate from the 0.1 numbers).
+- The open season at its biggest (the end of the football year) packs to 85 MB before compression (63 MB before the depth counts); just after the close the tallies weigh 5 MB of heap. Memory stays flat from season to season: closed seasons live only on disk. The whole world's heap was 0.91 GB after the future season and its peak resident 1.67 GB.
+- At full size (not measured): college and NFL counts barely change with scale, high school games are about ten times as many and college player rows somewhat more, so a season comes to roughly 55-65 MB and a 30-year world's folder to about 1.8 GB; the open season adds roughly 0.2 GB of heap at the football year's end, after the summer's high (Claude's estimate from the 0.1 numbers).
 
 ## Where the knobs are
 

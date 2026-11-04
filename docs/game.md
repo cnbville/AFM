@@ -1460,6 +1460,7 @@ Minor bugs 185-240 are B1-B56 of the tutorial catalogue (`afm/player-immersion/t
 - **The player page's Data tab** (items 15 and 28, minor bug 44): splits (situations, home and road, weather, ranked or playoff opponents, by club), his games, the throw map by zone, run paths, the route map, the pressure map and where he lined up.
 - **Expected yards**: rush yards over expected and YAC over expected come from models fitted on the engine's own plays at each level (`xyards_fit`).
 - **World results**: none. The new counts only watch (`tests/tallies.rs`). Separation at the catch point is now divided by catches (it was divided by targets).
+- **Size**: a closed season's tallies grow from about 22.5 MB to 30.5 MB on a 0.1 world (the players file from 6.1 to 14.5 MB); a 30-year world's tally folder comes to roughly 1.8 GB at full size (Claude's estimate). Memory stays flat: closed seasons live on disk.
 - How it works: `docs/reference/how-it-works/records-and-data.md` ("The position cards and the player's Data tab") and `tallies.md` ("The depth counts").
 - **Proposed, not confirmed**: the features of the expected rush and YAC models; get-off as the time to a rusher's first contact; the safety rolled into the box; a pre-snap foul's facet; the weather splits' lines (15 mph, 40 F); the era index's scale (100 and 10 a standard deviation); the opponent-adjusted mapping and method; the exact spots' groups; the views' lists.
 
