@@ -199,7 +199,9 @@ pub fn hs_nil_open(w: &World, p: &Person) -> bool {
     let Some(state) = w.states.get(s) else { return false };
     let rule = super::data::hs_nil_rule(&state.code);
     if state.hs_nil {
-        return p.age_on(w.today) >= rule.min_age;
+        // A state's own minimum age (none open to all has one today); a
+        // later vote opening a limited state makes a new rule.
+        return rule.scope != HsNilScope::All || p.age_on(w.today) >= rule.min_age;
     }
     match rule.scope {
         HsNilScope::SignedInState => {
@@ -419,6 +421,38 @@ pub(crate) fn hs_nil_day(w: &mut World) {
         p.brand = m as f32;
     }
     post_hs_news(w, &news);
+}
+
+/// A world file from before N3 (NIL update): Arkansas (from 2021),
+/// Missouri and Texas were open to every high schooler then, so their flags
+/// come off unless a later state vote opened them (`college_changes`,
+/// recorded in the changes), and its high schoolers get their deals as
+/// February's book would have set them. Only such a file has a flag to take
+/// off, so a newer save is left exactly as it was, and the same old file
+/// always fills the same way.
+pub(crate) fn hs_nil_after_load(w: &mut World) {
+    let mut old = false;
+    for s in 0..w.states.len() {
+        let code = w.states[s].code.clone();
+        let voted = w.changes.applied.iter().any(|c| c.change == crate::calendar::Change::HsNil && c.detail == code);
+        if w.states[s].hs_nil && !voted && super::data::hs_nil_rule(&code).scope != HsNilScope::All {
+            w.states[s].hs_nil = false;
+            old = true;
+        }
+    }
+    if !old {
+        return;
+    }
+    let school = |p: &Person| matches!(p.stage, Stage::HighSchool | Stage::PrepSchool);
+    use rayon::prelude::*;
+    let money: Vec<(usize, f64)> = (0..w.people.len())
+        .into_par_iter()
+        .filter(|&i| school(&w.people[i]))
+        .map(|i| (i, brand_money(w, i, fame(w, i))))
+        .collect();
+    for (i, m) in money {
+        w.people[i].brand = m as f32;
+    }
 }
 
 /// Followers and brand money set straight to what fame and Aura hold now,

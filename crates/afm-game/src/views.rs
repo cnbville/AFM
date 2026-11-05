@@ -2267,7 +2267,6 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     }))
 }
 
-/// A date of birth as the player page writes it: "14 March 2009".
 /// A high schooler's NIL line (NIL update N3): what his deals bring a year,
 /// who pays, and his school's state rule in a sentence with its note. The
 /// money is public, as the associations that collect deal reports publish
@@ -2282,9 +2281,24 @@ pub(crate) fn hs_nil_json(w: &World, p: &Person) -> Option<Value> {
     let state = w.states.get(school.state)?;
     let name = state_name(&state.code);
     let rule = hs_nil_rule(&state.code);
+    // A state the data bars or limits can open later by a state vote (from
+    // 2027, `college_changes`): then its year is the vote's, and its note.
+    let voted = w
+        .changes
+        .applied
+        .iter()
+        .find(|c| c.change == afm_engine::calendar::Change::HsNil && c.detail == state.code)
+        .map(|c| c.season);
+    let note = match voted {
+        Some(y) if rule.scope != HsNilScope::All => format!("Opened to every high schooler by a state vote in {y}."),
+        _ => rule.note.clone(),
+    };
+    let since = if rule.scope == HsNilScope::All { rule.from } else { voted };
     let text = if state.hs_nil {
-        match rule.from {
-            _ if rule.min_age > 0 => format!("{name} allows it from age {}", rule.min_age),
+        match since {
+            _ if rule.min_age > 0 && rule.scope == HsNilScope::All => {
+                format!("{name} allows it from age {}", rule.min_age)
+            }
             Some(y) if y <= w.year => format!("{name} allows it, since {y}"),
             _ => format!("{name} allows it"),
         }
@@ -2305,13 +2319,14 @@ pub(crate) fn hs_nil_json(w: &World, p: &Person) -> Option<Value> {
     Some(json!({
         "state": name,
         "rule": text,
-        "note": rule.note,
+        "note": note,
         "open": fame::hs_nil_open(w, p),
         "money": (shown > 0.0).then_some(shown),
         "kinds": fame::hs_nil_kinds(money),
     }))
 }
 
+/// A date of birth as the player page writes it: "14 March 2009".
 pub(crate) fn born_text(d: Date) -> Option<String> {
     const MONTHS: [&str; 12] = [
         "January",

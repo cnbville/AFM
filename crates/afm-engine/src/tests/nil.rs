@@ -269,3 +269,29 @@ fn the_year_book_pays_high_schoolers_in_open_states_only() {
     let earning = hs.iter().filter(|&&i| w.people[i].brand > 0.0).count();
     assert!(earning * 20 < hs.len(), "{earning} of {}", hs.len());
 }
+
+#[test]
+fn an_old_world_file_takes_the_limited_states_off_and_fills_the_deals() {
+    use crate::world::fame;
+    let (mut w, i) = hs_star("CA");
+    open_states(&mut w);
+    // The old data had Arkansas open to all from 2021 and Missouri from 2023.
+    let ar = crate::world::geo::state_index("AR").unwrap();
+    let mo = crate::world::geo::state_index("MO").unwrap();
+    w.states[ar].hs_nil = true;
+    w.states[mo].hs_nil = true;
+    // Missouri opened by a later state vote stays open.
+    w.changes.applied.push(crate::calendar::rules::AppliedChange {
+        change: crate::calendar::Change::HsNil,
+        season: 2027,
+        detail: "MO".to_string(),
+    });
+    fame::hs_nil_after_load(&mut w);
+    assert!(!w.states[ar].hs_nil && w.states[mo].hs_nil);
+    let expected = fame::hs_nil_money(&w, i, fame::fame(&w, i)) as f32;
+    assert_eq!(w.people[i].brand, expected, "his deals as February's book sets them");
+    // A newer save is left exactly as it was.
+    w.people[i].brand = 1234.0;
+    fame::hs_nil_after_load(&mut w);
+    assert_eq!(w.people[i].brand, 1234.0);
+}

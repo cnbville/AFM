@@ -1529,5 +1529,6 @@ impl World {
         if fresh {
             super::fame::fill(self);
         }
+        super::fame::hs_nil_after_load(self);
     }
 }
