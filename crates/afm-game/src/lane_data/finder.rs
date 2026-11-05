@@ -156,6 +156,9 @@ fn value(s: &FStat, all: &dyn Fn(Stat) -> f64, games: f64) -> Option<f64> {
 fn text(s: &FStat, v: f64) -> String {
     match s.src {
         Src::Cm(cm) => ay::fmt_cell(cm, v),
+        // The engine tracks yards to the inch; the books show whole yards
+        // (half sacks and tackles for loss keep their half).
+        _ if s.key.contains("Yds") || s.key.contains("Long") => fmt_num(v.round()),
         _ => fmt_num(v),
     }
 }

@@ -112,6 +112,7 @@ fn players(w: &World, args: &Value) -> Value {
         o.remove("state");
     }
     let mut out = Vec::new();
+    let mut shared: Option<i32> = None;
     let mut card: Vec<Cm> = Vec::new();
     let mut key0 = None;
     for &id in &ids {
@@ -148,10 +149,17 @@ fn players(w: &World, args: &Value) -> Value {
         let chosen = match line {
             "career" => None,
             _ => {
-                let target = at.unwrap_or(match line {
-                    "age" => seq.first().and_then(|&(s, _)| step(s).2).map_or(20, |a| a as i32),
-                    "year" => seq.last().map_or(w.year, |&(s, _)| f.seasons[s].year),
-                    _ => 1,
+                // Unless asked, everyone lines up on the first player's
+                // latest season: his age, his year or his class then.
+                let target = *shared.get_or_insert_with(|| {
+                    at.unwrap_or_else(|| {
+                        let last = seq.last().map(|&(s, _)| step(s));
+                        match line {
+                            "age" => last.and_then(|x| x.2).map_or(20, |a| a as i32),
+                            "year" => last.map_or(w.year, |x| x.0),
+                            _ => last.and_then(|x| x.1).map_or(1, |c| c.0 as i32),
+                        }
+                    })
                 });
                 seq.iter().copied().find(|&(s, _)| {
                     let (y, class, age) = step(s);
@@ -222,7 +230,7 @@ fn players(w: &World, args: &Value) -> Value {
         "level": tier_key(p0.tier),
         "group": afm_engine::world::analytics::GROUPS[group],
         "line": line,
-        "at": at,
+        "at": shared,
         "volume": f0.map(|f| f.volume),
         "charted": f0.is_some_and(|f| f.charted),
         "metrics": card.iter().map(|c| careers::metric_json(*c)).collect::<Vec<_>>(),

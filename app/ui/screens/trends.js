@@ -26,10 +26,10 @@ const trWho = (r) => (r.linked ? playerLink(r.id, r.name) : esc(r.name));
 // middle half a quiet band, a crosshair and a tooltip on every season.
 const TR_TIPS = {};
 let trSeq = 0;
-function trChart({ xs, series, band, fmt, xfmt = String, tips, label, h = 190 }) {
+function trChart({ xs, series, band, fmt, xfmt = String, tips, label, h = 200, w = 560 }) {
   const vals = [...series.flatMap((s) => s.pts.map((p) => p[1])), ...(band || []).flatMap((b) => [b[1], b[2]])].filter((v) => v != null && Number.isFinite(v));
   if (!vals.length || !xs.length) return '<div class="empty small">Nothing counted yet.</div>';
-  const W = 640, H = h, L = 54, R = 64, T = 10, B = 24;
+  const W = w, H = h, L = 58, R = 70, T = 10, B = 26;
   let lo = Math.min(...vals), hi = Math.max(...vals);
   const pad = (hi - lo) * 0.1 || Math.abs(hi) * 0.05 || 1;
   lo -= pad; hi += pad;
@@ -70,7 +70,7 @@ function trChart({ xs, series, band, fmt, xfmt = String, tips, label, h = 190 })
     const a = i === 0 ? L : (X(xs[i - 1]) + X(x)) / 2, b = i === xs.length - 1 ? W - R : (X(x) + X(xs[i + 1])) / 2;
     return `<rect class="tr-hit" data-c="${id}" data-i="${i}" data-x="${X(x).toFixed(1)}" x="${a.toFixed(1)}" y="${T}" width="${Math.max(1, b - a).toFixed(1)}" height="${H - T - B}"/>`;
   }).join("");
-  return `<div class="tr-chart" id="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label || "")}">${grid}${area}${xl}<line class="tr-cross" x1="0" x2="0" y1="${T}" y2="${H - B}" visibility="hidden"/>${lines}${hits}</svg><div class="tr-tip" hidden></div></div>`;
+  return `<div class="tr-chart${w > 600 ? " wide" : ""}" id="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label || "")}">${grid}${area}${xl}<line class="tr-cross" x1="0" x2="0" y1="${T}" y2="${H - B}" visibility="hidden"/>${lines}${hits}</svg><div class="tr-tip" hidden></div></div>`;
 }
 function trLegend(items) {
   return `<div class="tr-legend">${items.map((i) => `<span${trH8(i.h8)}><i class="tr-sw ${i.cls}"></i>${esc(i.name)}</span>`).join("")}</div>`;
@@ -84,7 +84,7 @@ document.addEventListener("mouseover", (ev) => {
   const html = (TR_TIPS[t.dataset.c] || [])[Number(t.dataset.i)];
   if (!html) { tip.hidden = true; return; }
   const svg = box.querySelector("svg");
-  const vb = svg.viewBox.baseVal.width || 640;
+  const vb = svg.viewBox.baseVal.width || 560;
   const x = Number(t.dataset.x);
   cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
   tip.innerHTML = html;
@@ -216,7 +216,7 @@ async function trCurve(id, P) {
     return `<b>Age ${age}</b>${s.map((q) => `<span>${q.year}${q.class ? ` · ${esc(q.class)}` : ""} <b>${esc(q.text[k] || "–")}</b>${q.pct[k] != null ? ` · ${q.pct[k]}th pct` : ""}</span>`).join("")}${c && c.text[k] ? `<span>Usual ${esc(c.text[k])}</span><small>${c.n} seasons</small>` : ""}`;
   });
   const metricSel = `<select class="ssel" data-act="trmetric" data-pid="${id}">${x.metrics.map((q, i) => `<option value="${i}" ${i === k ? "selected" : ""}>${esc(q.label)}</option>`).join("")}</select>`;
-  const chart = trChart({ xs: ages, series: [{ name: x.name, cls: "tr-s1", pts: mine }, { name: "Usual", cls: "tr-ref", pts: usual, dash: true, dots: false }], fmt, xfmt: (a) => `${a}`, tips, label: `${x.name}: ${m.label} by age against the usual curve` });
+  const chart = trChart({ xs: ages, series: [{ name: x.name, cls: "tr-s1", pts: mine }, { name: "Usual", cls: "tr-ref", pts: usual, dash: true, dots: false }], fmt, xfmt: (a) => `${a}`, tips, label: `${x.name}: ${m.label} by age against the usual curve`, w: 900, h: 250 });
   const legend = trLegend([{ name: x.name, cls: "tr-s1" }, { name: `Usual ${x.group} at each age`, cls: "tr-ref", h8: "TrCurve" }]);
   const heads = ["Season", "Age", "Class", "Team", x.volume, ...x.metrics.map((q) => q.label)];
   const rows = x.seasons.slice().reverse().map((s) => `<tr><td class="l">${s.year}</td><td>${s.age ?? ""}</td><td class="l">${esc(s.class || "")}</td><td class="l">${s.team ? teamA(s.team) : ""}</td><td>${s.vol}${s.qualified ? "" : ' <small class="muted" title="Below the minimum that season">·</small>'}</td>${s.text.map((t, i) => `<td>${esc(t || "–")}${s.pct[i] != null ? ` <small class="dt-rk2" title="Percentile among ${s.field} qualifiers">${s.pct[i]}</small>` : ""}</td>`).join("")}</tr>`).join("");
@@ -241,7 +241,7 @@ async function trComps(id, P, t) {
 }
 
 // The player page's Trends tab: his curve and his comps.
-PLAYER_TABS.push({ name: "Trends", after: "Data", draw: async (p) => `<div class="dt tr">${await trCurve(p.id, keep("trp:" + p.id, {}))}</div>` });
+PLAYER_TABS.push({ name: "Trends", after: "Data", draw: async (p) => `<div class="sl dt tr">${await trCurve(p.id, keep("trp:" + p.id, {}))}</div>` });
 
 // ---------- Compare (item 30, board 54) ----------
 const CMP_TABS = ["Players", "Teams"];
@@ -285,7 +285,7 @@ async function cmpPlayers(K) {
     const w = c.pct != null ? c.pct : 0;
     return `<span class="tr-bar"><i class="${cmpColor(i)}" style="width:${w}%"></i><b>${esc(c.text || "–")}</b><small>${c.pct != null ? c.pct : ""}</small></span>`;
   }).join("")}</span></li>`).join("");
-  const seasonLine = P.map((p, i) => `<span class="tr-chip"><i class="tr-sw ${cmpColor(i)}"></i>${esc(p.name)}: ${p.season ? `${p.season.year}${p.season.class ? ` ${esc(p.season.class)}` : ""}${p.season.age != null ? `, age ${p.season.age}` : ""}, ${p.season.games} games${p.season.team ? ` · ${teamA(p.season.team)}` : ""}` : x.line === "career" ? esc(p.label || "No seasons") : "no season there"}</span>`).join("");
+  const seasonLine = P.map((p, i) => `<span class="tr-chip"><i class="tr-sw ${cmpColor(i)}"></i>${esc(p.name)}: ${p.season ? `${p.season.year}${p.season.class ? ` ${esc(p.season.class)}` : ""}${p.season.age != null ? `, age ${p.season.age}` : ""}, ${p.season.games} game${p.season.games === 1 ? "" : "s"}${p.season.team ? ` · ${teamA(p.season.team)}` : ""}` : x.line === "career" ? esc(p.label || "No seasons") : "no season there"}</span>`).join("");
   const barsPanel = `<section class="panel dt-panel"><h2>${x.line === "career" ? "Careers at the level" : "Side by side"}</h2><div class="tr-line2">${seasonLine}</div>${legend}<ul class="tr-cmp">${rows}</ul><p class="muted small">${x.line === "career" ? "Career numbers at the level; percentiles are for single seasons, so a career shows its numbers only." : "Bars are percentiles among that season's qualifiers in each player's own division."}</p></section>`;
   // Every season lined up by class or age.
   const by = x.line === "age" ? "age" : "class";
