@@ -367,11 +367,26 @@ pub fn compare_find(w: &World, args: &Value) -> Value {
         return json!({ "items": items });
     }
     let has = |id: u32| !w.stats.career(id).is_empty();
+    // The season being played counts too: a first-year starter has lines
+    // before the stat book files his season at the close.
+    let mut playing: Option<Vec<u32>> = None;
     for x in w.people.iter().filter(|x| hit(&x.name)) {
         let id = x.player.id;
         let pro = x.pro.as_ref().is_some_and(|c| c.seasons.iter().any(|s| s.games > 0));
         if !has(id) && !pro && x.hs_lines.is_empty() {
-            continue;
+            let now = playing.get_or_insert_with(|| {
+                let mut ids: Vec<u32> = [Tier::College, Tier::Hs]
+                    .into_iter()
+                    .flat_map(|t| marks::season_now(w, t, None))
+                    .filter(|l| l.games > 0)
+                    .map(|l| l.id)
+                    .collect();
+                ids.sort_unstable();
+                ids
+            });
+            if now.binary_search(&id).is_err() {
+                continue;
+            }
         }
         items.push(json!({ "id": id, "name": x.name, "sub": format!("{} · {}", x.player.position.name(), ay::now_text(w, id)) }));
         if items.len() >= 12 {
