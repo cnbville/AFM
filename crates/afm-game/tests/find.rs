@@ -109,7 +109,7 @@ fn a_college_staff_searches_a_class() {
     assert_eq!(saved.len(), 1);
     let k = saved[0]["k"].as_u64().unwrap();
     // A services update and a camp pass: a mail may come; the run must hold.
-    ok(&mut g, "continue", json!({ "max_days": 60 }));
+    ok(&mut g, "continue", json!({}));
     let again = ok(&mut g, "find_recruits", json!({ "saved": k }));
     assert_eq!(again["saved"][0]["new"], json!(0), "opening a saved search clears what was new");
     ok(&mut g, "find_forget", json!({ "k": k }));

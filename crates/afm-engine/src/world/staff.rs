@@ -537,8 +537,16 @@ fn college_news(w: &mut World, p: usize, coaches: &[usize], kind: NewsKind, text
 /// it is about and the coaches it names.
 fn story(w: &World, kind: NewsKind, p: Option<usize>, t: Option<usize>, coaches: &[usize], text: String) -> NewsItem {
     use crate::calendar::Link;
-    let mut item =
-        NewsItem { date: None, year: w.year, kind, channel: Channel::News, program: p, text, refs: Vec::new() };
+    let mut item = NewsItem {
+        date: None,
+        at: None,
+        year: w.year,
+        kind,
+        channel: Channel::News,
+        program: p,
+        text,
+        refs: Vec::new(),
+    };
     for &c in coaches {
         item = item.link(Link::Coach(c as u32), &w.coaches[c].name);
     }

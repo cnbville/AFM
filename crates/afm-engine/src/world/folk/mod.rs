@@ -379,26 +379,59 @@ pub fn after_load(w: &mut World) {
 
 /// One day on the clock: the world's people (weekly and yearly steps) and
 /// your own agenda.
-pub(crate) fn day(w: &mut World, d: Date) {
-    ensure_base(w);
-    staffing::day(w, d);
-    hiring::day(w, d);
-    ties::day(w, d);
-    life::day(w, d);
-    courts::day(w, d);
-    rules::day(w, d);
-    talks::day(w, d);
-    boss::day(w, d);
-    network::day(w, d);
-    backchannel::day(w, d);
-    press::day(w, d);
-    dialogue::players_only_day(w, d);
-    if w.seat.is_some() {
-        dialogue::college_calls(w, d);
-        dialogue::settle_calls(w, d);
-        dialogue::staff_meeting_day(w, d);
-        takeover::day(w, d);
-        scene::day(w, d);
+/// The people's steps of day `d` at day minute `t` (the six-part day):
+/// staffs, hiring, the boss, team rules and court rulings in office hours;
+/// talks and players-only meetings after practice; ties, lives, the
+/// network and recruiting calls in the evening; new court cases overnight;
+/// staff meetings early; your meetings at their own hours. Proposed, not
+/// confirmed where real life sets no hour (topic 4 item 3: the sender's
+/// own day).
+pub(crate) fn step(w: &mut World, d: Date, t: u16) {
+    use super::clock::hour;
+    match t {
+        hour::PLAN => {
+            ensure_base(w);
+            if w.seat.is_some() {
+                dialogue::staff_meeting_day(w, d);
+            }
+        }
+        hour::OFFICE => {
+            ensure_base(w);
+            staffing::day(w, d);
+            hiring::day(w, d);
+            courts::day(w, d);
+            rules::day(w, d);
+            boss::day(w, d);
+            if w.seat.is_some() {
+                takeover::day(w, d);
+                scene::day(w, d);
+            }
+        }
+        hour::AFTERNOON => {
+            ensure_base(w);
+            press::day(w, d);
+        }
+        hour::PRACTICE => {
+            ensure_base(w);
+            talks::day(w, d);
+            dialogue::players_only_day(w, d);
+        }
+        hour::EVENING => {
+            ensure_base(w);
+            ties::day(w, d);
+            life::day(w, d);
+            network::day(w, d);
+            backchannel::day(w, d);
+            if w.seat.is_some() {
+                dialogue::college_calls(w, d);
+                dialogue::settle_calls(w, d);
+            }
+        }
+        hour::OVERNIGHT => {
+            ensure_base(w);
+            courts::opens(w);
+        }
+        _ => {}
     }
 }
 

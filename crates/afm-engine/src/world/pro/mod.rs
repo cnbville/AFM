@@ -1148,170 +1148,192 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
 /// windows, extension talks, holdouts, camp, cutdown and waivers, the
 /// weekly street in season, promises checked in week 1, the other leagues,
 /// futures deals and the season's end.
-pub(crate) fn day(w: &mut World, d: Date) {
+/// The pros' steps of day `d` at day minute `t` (the six-part day). Office
+/// hours hold the league's paperwork, the books and the camp; 11 AM the
+/// day's moves on the wire; 1 PM the trade calls; 4 PM the deadlines (the
+/// tags, the league year, the fifth-year options, cutdown and every day's
+/// waiver claims, real 4 PM Eastern); 5 PM the free agents' agreed deals;
+/// 9 PM the Hall of Fame class at NFL Honors; and the night of the Super
+/// Bowl the season's end. Practice injuries come after each practice day
+/// (`training::days`).
+pub(crate) fn step(w: &mut World, d: Date, t: u16) {
+    use super::clock::hour;
     if w.clubs.is_empty() {
         return;
     }
-    if w.market.agents.is_empty() {
-        market::staff_agents(w);
-    }
     let y = w.dates.clone();
     let mut changed = false;
-    super::clock::timed("pro leagues", || leagues::day(w, d));
-    // The books closed in January: from the day after the Super Bowl each
-    // club knows the room it carries into the new league year.
-    if d == y.start {
-        set_carryover(w);
-    }
-    if d == y.tag_window_open {
-        // The year's pay ladders: the veterans by position after last season.
-        market::set_ladders(w);
-        // Cap cuts and restructures start right after the season, so teams
-        // can talk with their own free agents (real: February into March).
-        set_carryover(w);
-        market::cap_moves(w, d, true);
-        market::resign_talks(w, d, false);
-        changed = true;
-    }
-    if d == y.tag_deadline.date {
-        market::resign_talks(w, d, true);
-        market::tags_and_tenders(w, d);
-        changed = true;
-    }
-    if d == y.league_year.date.add(-1) {
-        set_carryover(w);
-        market::cap_moves(w, d, true);
-        changed = true;
-    }
-    if d == y.league_year.date {
-        league_year(w, d);
-        changed = true;
-    }
-    // The market: every day from the tampering window to two weeks into
-    // the league year, then twice a week until camp.
-    let opened = y.tampering_open.map_or(y.league_year.date, |m| m.date);
-    if d >= opened && d < y.veterans_report {
-        let days = y.league_year.date.days_to(d);
-        if days <= 14 || matches!(d.weekday(), crate::calendar::Weekday::Tue | crate::calendar::Weekday::Fri) {
-            super::clock::timed("pro market", || market::market_day(w, d));
-            super::clock::timed("pro sheets", || market::offer_sheets(w, d));
+    match t {
+        hour::OFFICE => {
+            if w.market.agents.is_empty() {
+                market::staff_agents(w);
+            }
+            super::clock::timed("pro leagues", || leagues::day(w, d));
+            // The books closed in January: from the day after the Super Bowl each
+            // club knows the room it carries into the new league year.
+            if d == y.start {
+                set_carryover(w);
+            }
+            if d == y.tag_window_open {
+                // The year's pay ladders: the veterans by position after last season.
+                market::set_ladders(w);
+                // Cap cuts and restructures start right after the season, so teams
+                // can talk with their own free agents (real: February into March).
+                set_carryover(w);
+                market::cap_moves(w, d, true);
+                market::resign_talks(w, d, false);
+                changed = true;
+            }
+            if d == y.league_year.date.add(-1) {
+                set_carryover(w);
+                market::cap_moves(w, d, true);
+                changed = true;
+            }
+            if d == y.comp_picks {
+                trades::award_comp_picks(w, d);
+            }
+            if d == y.june_1
+                || d == y.tag_long_term_deadline.date
+                || d == y.veterans_report.add(-1)
+                || d == y.nfl_kickoff.add(-3)
+            {
+                market::extension_talks(w, d, d != y.june_1);
+                changed = true;
+            }
+            if d == y.veterans_report {
+                market::holdouts(w, d, true);
+                fill_holes(w, d, true);
+                camp(w, d);
+                changed = true;
+            } else if d > y.veterans_report && d <= y.super_bowl && d.weekday() == crate::calendar::Weekday::Tue {
+                market::holdouts(w, d, false);
+            }
+            if d == y.nfl_kickoff {
+                // From the first game every contract counts against the cap.
+                market::cap_moves(w, d, false);
+                market::check_promises(w);
+                opening_day_cap(w);
+            }
+            // In season, each Tuesday: injured players to reserve.
+            if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
+                super::clock::timed("pro heal", || heal_week(w));
+            }
+            // The league's rulings on their days, and a week served each
+            // Tuesday (section 6).
+            super::people::pro_rulings_day(w, d);
+            if d.weekday() == crate::calendar::Weekday::Tue {
+                super::clock::timed("pro trouble", || super::people::pro_trouble_week(w, d));
+            }
+        }
+        hour::WIRE => {
+            if d > y.league_year.date
+                && d < y.veterans_report
+                && (d.days_to(y.league_year.date) % 7 == 0 || d.weekday() == crate::calendar::Weekday::Tue)
+            {
+                changed |= super::clock::timed("pro street", || street_signings(w, d, false));
+            }
+            // In season, each Tuesday: the street's calls, the unsigned
+            // veteran's week (topic 1.3). Free agents work out that morning.
+            if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
+                changed |= super::clock::timed("pro poach", || squad::poach(w, d));
+                changed |= super::clock::timed("pro street", || street_signings(w, d, true));
+                changed |= super::clock::timed("pro fill", || fill_roster(w, d));
+                changed |= super::clock::timed("pro squads", || squad::refill_squads(w, d));
+                super::clock::timed("pro unsigned", || unsigned_week(w, d));
+            }
+        }
+        hour::AFTERNOON => {
+            // Two calls in March, as real clubs trade through the month after the
+            // new league year, and camp's in mid-August, not July (minor bug 87:
+            // real 14 player trades in March, 1 in July and 19 in August,
+            // trades.csv 2021-2025; one March window made 7).
+            if d == y.league_year.date.add(3)
+                || d == y.league_year.date.add(10)
+                || d == y.draft[0].date.add(-2)
+                || d == y.veterans_report.add(21)
+                || d == y.cutdown.date.add(-2)
+            {
+                trades::trade_window(w, d, trades::Window::Offseason);
+                changed = true;
+            }
+            if d >= y.nfl_kickoff.add(5)
+                && d < y.trade_deadline.date.add(-4)
+                && d.weekday() == crate::calendar::Weekday::Tue
+            {
+                trades::trade_window(w, d, trades::Window::Season);
+                changed = true;
+            }
+            if d == y.trade_deadline.date.add(-4) || d == y.trade_deadline.date {
+                trades::trade_window(w, d, trades::Window::Deadline);
+                changed = true;
+            }
+        }
+        hour::DEADLINE => {
+            if d == y.tag_deadline.date {
+                market::resign_talks(w, d, true);
+                market::tags_and_tenders(w, d);
+                changed = true;
+            }
+            if d == y.league_year.date {
+                league_year(w, d);
+                changed = true;
+            }
+            if d == y.fifth_year_option {
+                market::fifth_year_options(w, d);
+            }
+            if d == y.cutdown.date {
+                cutdown(w, d);
+                fill_holes(w, d, false);
+                fill_roster(w, d);
+                changed = true;
+            }
+            // Waiver claims each day a player is on the wire.
+            super::clock::timed("pro claims", || market::claims(w, d));
+        }
+        hour::MARKET => {
+            // The market: every day from the tampering window to two weeks into
+            // the league year, then twice a week until camp.
+            let opened = y.tampering_open.map_or(y.league_year.date, |m| m.date);
+            if d >= opened && d < y.veterans_report {
+                let days = y.league_year.date.days_to(d);
+                if days <= 14 || matches!(d.weekday(), crate::calendar::Weekday::Tue | crate::calendar::Weekday::Fri) {
+                    super::clock::timed("pro market", || market::market_day(w, d));
+                    super::clock::timed("pro sheets", || market::offer_sheets(w, d));
+                    changed = true;
+                }
+            }
+        }
+        hour::SHOW => {
+            // The Hall of Fame class is named the Saturday before the Super Bowl,
+            // from 2022 at NFL Honors on the Thursday (minor bug B37).
+            let hall_day = if y.season + 1 >= 2022 { y.nfl_honors } else { y.super_bowl.add(-1) };
+            if d == hall_day {
+                honors::hall_vote(w, d);
+            }
+        }
+        hour::OVERNIGHT => {
+            // Off-field trouble lands overnight (section 6).
+            super::clock::timed("pro trouble", || super::people::pro_arrests_day(w, d));
+        }
+        hour::NIGHT => {
+            // The preseason's games, at night.
+            let weeks = preseason_dates(w);
+            if let Some(k) = weeks.iter().position(|&x| x == d) {
+                preseason_week(w, d, k, weeks.len());
+            }
+        }
+        hour::LATE_NIGHT if d == y.super_bowl => {
+            // Futures deals for the playoff teams, the spending floor, the season's end.
+            let teams: Vec<usize> = w
+                .nfl_season
+                .as_ref()
+                .map_or(Vec::new(), |s| (0..s.seed.len()).filter(|&t| s.seed[t].is_some()).collect());
+            market::futures(w, d, &teams);
+            market::cash_floor(w, d);
+            season_end(w, d);
             changed = true;
         }
-    }
-    if d == y.comp_picks {
-        trades::award_comp_picks(w, d);
-    }
-    if d == y.fifth_year_option {
-        market::fifth_year_options(w, d);
-    }
-    // Two calls in March, as real clubs trade through the month after the
-    // new league year, and camp's in mid-August, not July (minor bug 87:
-    // real 14 player trades in March, 1 in July and 19 in August,
-    // trades.csv 2021-2025; one March window made 7).
-    if d == y.league_year.date.add(3)
-        || d == y.league_year.date.add(10)
-        || d == y.draft[0].date.add(-2)
-        || d == y.veterans_report.add(21)
-        || d == y.cutdown.date.add(-2)
-    {
-        trades::trade_window(w, d, trades::Window::Offseason);
-        changed = true;
-    }
-    if d >= y.nfl_kickoff.add(5) && d < y.trade_deadline.date.add(-4) && d.weekday() == crate::calendar::Weekday::Tue {
-        trades::trade_window(w, d, trades::Window::Season);
-        changed = true;
-    }
-    if d == y.trade_deadline.date.add(-4) || d == y.trade_deadline.date {
-        trades::trade_window(w, d, trades::Window::Deadline);
-        changed = true;
-    }
-    if d == y.june_1
-        || d == y.tag_long_term_deadline.date
-        || d == y.veterans_report.add(-1)
-        || d == y.nfl_kickoff.add(-3)
-    {
-        market::extension_talks(w, d, d != y.june_1);
-        changed = true;
-    }
-    if d > y.league_year.date
-        && d < y.veterans_report
-        && (d.days_to(y.league_year.date) % 7 == 0 || d.weekday() == crate::calendar::Weekday::Tue)
-    {
-        changed |= super::clock::timed("pro street", || street_signings(w, d, false));
-    }
-    if d == y.veterans_report {
-        market::holdouts(w, d, true);
-        fill_holes(w, d, true);
-        camp(w, d);
-        changed = true;
-    } else if d > y.veterans_report && d <= y.super_bowl && d.weekday() == crate::calendar::Weekday::Tue {
-        market::holdouts(w, d, false);
-    }
-    let weeks = preseason_dates(w);
-    if let Some(k) = weeks.iter().position(|&x| x == d) {
-        preseason_week(w, d, k, weeks.len());
-    }
-    if d == y.cutdown.date {
-        cutdown(w, d);
-        fill_holes(w, d, false);
-        fill_roster(w, d);
-        changed = true;
-    }
-    // Waiver claims each day a player is on the wire.
-    super::clock::timed("pro claims", || market::claims(w, d));
-    if d == y.nfl_kickoff {
-        // From the first game every contract counts against the cap.
-        market::cap_moves(w, d, false);
-        market::check_promises(w);
-        // Cap use on opening day: each active team's payroll over its cap.
-        let year = w.year;
-        let cap = money::price_cap(year);
-        let teams = super::franchise::active_teams_in(w, year);
-        let spread = |mut v: Vec<f64>| {
-            v.sort_by(|a, b| a.total_cmp(b));
-            if v.is_empty() { [0.0; 3] } else { [v[0], v[v.len() / 2], v[v.len() - 1]] }
-        };
-        let carry = |t: usize| if money::capped(year) { w.clubs[t].carryover } else { 0.0 };
-        let used = spread(teams.iter().map(|&t| payroll(w, t, year) / (cap + carry(t))).collect());
-        let dead = spread(teams.iter().map(|&t| w.clubs[t].dead_in(year) / cap).collect());
-        let carried = spread(teams.iter().map(|&t| carry(t) / cap).collect());
-        let m = w.market.year_mut(year);
-        m.cap_use = used;
-        m.dead = dead;
-        m.carryover = carried;
-    }
-    // Practice, camp through the season: injuries on the practice field.
-    if d >= y.veterans_report && d <= y.super_bowl && d.weekday() == crate::calendar::Weekday::Tue {
-        super::clock::timed("pro practice", || games::practice_injuries(w, d));
-    }
-    // In season, each Tuesday: injured players to reserve, the street's
-    // calls, the unsigned veteran's week (topic 1.3).
-    if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
-        super::clock::timed("pro heal", || heal_week(w));
-        changed |= super::clock::timed("pro poach", || squad::poach(w, d));
-        changed |= super::clock::timed("pro street", || street_signings(w, d, true));
-        changed |= super::clock::timed("pro fill", || fill_roster(w, d));
-        changed |= super::clock::timed("pro squads", || squad::refill_squads(w, d));
-        super::clock::timed("pro unsigned", || unsigned_week(w, d));
-    }
-    // Off-field trouble and the league's rulings, every Tuesday (section 6).
-    if d.weekday() == crate::calendar::Weekday::Tue {
-        super::clock::timed("pro trouble", || super::people::pro_trouble_week(w, d));
-    }
-    // The Hall of Fame class is named the Saturday before the Super Bowl,
-    // from 2022 at NFL Honors on the Thursday (minor bug B37).
-    let hall_day = if y.season + 1 >= 2022 { y.nfl_honors } else { y.super_bowl.add(-1) };
-    if d == hall_day {
-        honors::hall_vote(w, d);
-    }
-    if d == y.super_bowl {
-        // Futures deals for the playoff teams, the spending floor, the season's end.
-        let teams: Vec<usize> =
-            w.nfl_season.as_ref().map_or(Vec::new(), |s| (0..s.seed.len()).filter(|&t| s.seed[t].is_some()).collect());
-        market::futures(w, d, &teams);
-        market::cash_floor(w, d);
-        season_end(w, d);
-        changed = true;
+        _ => {}
     }
     if changed {
         super::clock::timed("pro depth", || {
@@ -1321,6 +1343,25 @@ pub(crate) fn day(w: &mut World, d: Date) {
             mirror(w);
         });
     }
+}
+
+/// Cap use on opening day: each active team's payroll over its cap.
+fn opening_day_cap(w: &mut World) {
+    let year = w.year;
+    let cap = money::price_cap(year);
+    let teams = super::franchise::active_teams_in(w, year);
+    let spread = |mut v: Vec<f64>| {
+        v.sort_by(|a, b| a.total_cmp(b));
+        if v.is_empty() { [0.0; 3] } else { [v[0], v[v.len() / 2], v[v.len() - 1]] }
+    };
+    let carry = |t: usize| if money::capped(year) { w.clubs[t].carryover } else { 0.0 };
+    let used = spread(teams.iter().map(|&t| payroll(w, t, year) / (cap + carry(t))).collect());
+    let dead = spread(teams.iter().map(|&t| w.clubs[t].dead_in(year) / cap).collect());
+    let carried = spread(teams.iter().map(|&t| carry(t) / cap).collect());
+    let m = w.market.year_mut(year);
+    m.cap_use = used;
+    m.dead = dead;
+    m.carryover = carried;
 }
 
 /// The new league year (March): expiring deals end and their players hit
@@ -1764,7 +1805,7 @@ fn camp(w: &mut World, d: Date) {
 
 /// The preseason's game days by era: four weeks before 2021 (the Hall of
 /// Fame game aside), none in 2020, three from 2021.
-fn preseason_dates(w: &World) -> Vec<Date> {
+pub(crate) fn preseason_dates(w: &World) -> Vec<Date> {
     let y = &w.dates;
     match w.year {
         2020 => Vec::new(),

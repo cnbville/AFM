@@ -268,16 +268,16 @@ fn wlt(r: [u32; 3]) -> String {
     if r[2] > 0 { format!("{}-{}-{}", r[0], r[1], r[2]) } else { format!("{}-{}", r[0], r[1]) }
 }
 
-fn kick_text(k: (u16, u16), level: CalLevel) -> String {
+/// A kickoff on your local clock (the six-part day: no ET on screen). A
+/// high school's kickoff is its own town's time already.
+fn kick_text(w: &World, d: Date, k: (u16, u16), level: CalLevel) -> String {
     let (h, m) = k;
-    let (h12, ap) = match h {
-        0 => (12, "AM"),
-        1..=11 => (h, "AM"),
-        12 => (12, "PM"),
-        _ => (h - 12, "PM"),
+    let minute = if level == CalLevel::HighSchool {
+        h * 60 + m
+    } else {
+        w.local(afm_engine::calendar::Moment::at(d, h, m)).minute
     };
-    let zone = if level == CalLevel::HighSchool { "" } else { " ET" };
-    format!("{h12}:{m:02} {ap}{zone}")
+    afm_engine::calendar::zone::clock(minute)
 }
 
 fn day_name(d: Weekday) -> &'static str {
@@ -496,7 +496,7 @@ fn row_json(
         "i": k,
         "date": views::date_text(g.date),
         "day": wd,
-        "kick": if out { g.kick.map(|x| kick_text(x, level)) } else { None },
+        "kick": if out { g.kick.map(|x| kick_text(w, g.date, x, level)) } else { None },
         "tv": if out && !g.tv.is_empty() { Some(g.tv.clone()) } else { None },
         "at": if g.neutral { "vs (n)" } else if g.home { "vs" } else { "at" },
         "home": g.home,

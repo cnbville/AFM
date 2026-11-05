@@ -135,6 +135,12 @@ pub struct Moment {
 }
 
 impl Moment {
+    /// A line posted with no time of its own (`Event::new`): the calendar
+    /// gives it the moment of the clock's step that posts it.
+    pub const UNSET: u16 = u16::MAX;
+    /// A line for the whole day, with no hour (a window opening, a dated
+    /// day): the calendar shows "All day".
+    pub const ALL_DAY: u16 = 24 * 60;
     pub fn at(date: Date, hour: u16, minute: u16) -> Moment {
         Moment { date, minute: hour * 60 + minute }
     }
@@ -143,8 +149,15 @@ impl Moment {
         let days = total.div_euclid(24 * 60);
         Moment { date: self.date.add(days), minute: total.rem_euclid(24 * 60) as u16 }
     }
+    /// Whether the line has an hour (not all day).
+    pub fn timed(self) -> bool {
+        self.minute < Moment::ALL_DAY
+    }
     /// "4:00pm ET".
     pub fn clock(self) -> String {
+        if !self.timed() {
+            return "all day".to_string();
+        }
         let h = self.minute / 60;
         let m = self.minute % 60;
         let (h12, ap) = match h {

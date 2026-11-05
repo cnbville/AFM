@@ -14,11 +14,13 @@ pub mod date;
 pub mod events;
 pub mod rules;
 pub mod weather;
+pub mod zone;
 
 pub use anchors::{CfbPostseason, YearDates};
 pub use date::{Date, Moment, Weekday};
 pub use events::{Calendar, Event, Kind, Level, Link, Loudness, Pending, Ref};
 pub use rules::{Change, ChangeState, RuleBook};
+pub use zone::Zone;
 
 /// The NCAA's FBS recruiting periods (topic 5): what college coaches may do
 /// with a recruit on a given day.

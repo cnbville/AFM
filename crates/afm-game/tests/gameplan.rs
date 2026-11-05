@@ -15,12 +15,12 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 
 /// Continue until a game is no more than a week ahead.
 fn to_game_week(g: &mut Game) {
-    for _ in 0..120 {
+    for _ in 0..400 {
         let hub = ok(g, "gameday", json!({}));
         if hub["has_game"] == json!(true) && hub["in"].as_i64().is_some_and(|d| d <= 6) {
             return;
         }
-        ok(g, "continue", json!({ "max_days": 7 }));
+        ok(g, "day", json!({}));
     }
     panic!("no game week came");
 }
@@ -151,7 +151,7 @@ fn the_game_plan_from_the_identity_to_game_day() {
     // the standing ones.
     let before = ok(&mut g, "gameday", json!({}))["date"].clone();
     for _ in 0..20 {
-        ok(&mut g, "continue", json!({ "max_days": 3 }));
+        ok(&mut g, "day", json!({}));
         let hub = ok(&mut g, "gameday", json!({}));
         if hub["date"] != before {
             assert_eq!(hub["rules"]["fourth"], "aggressive", "back on the standing rules: {}", hub["rules"]);

@@ -840,10 +840,11 @@ fn games_for(kind: Trouble, year: i32, guilty: bool, roll: f64) -> u32 {
 /// (gambling), age (it falls through the twenties) and his room and head
 /// coach. A case gets its ruling weeks later; suspended players count
 /// their games down in season.
-pub(crate) fn pro_trouble_week(w: &mut World, d: Date) {
+pub(crate) fn pro_arrests_day(w: &mut World, d: Date) {
     let year = w.year;
-    let in_season = d > w.dates.nfl_kickoff && d <= w.dates.super_bowl;
-    let base = if year < 2014 { 0.03 } else { 0.022 } / 52.0;
+    // The year's rate a day at a time (the six-part day: trouble lands on
+    // the night it happens, not in Tuesday's batch).
+    let base = if year < 2014 { 0.03 } else { 0.022 } / 365.25;
     let seed = w.options.seed as u64 ^ 0x7E0B_1E00 ^ (d.0 as u64) << 24;
     let mut new: Vec<(usize, Trouble)> = Vec::new();
     for i in 0..w.people.len() {
@@ -910,6 +911,10 @@ pub(crate) fn pro_trouble_week(w: &mut World, d: Date) {
             market::post(w, d, team, Some(i), Loudness::Medium, Kind::News, format!("{who}: {}.", kind.words()));
         }
     }
+}
+
+/// The league's rulings due today, in office hours.
+pub(crate) fn pro_rulings_day(w: &mut World, d: Date) {
     // The rulings due today.
     let due: Vec<Case> = {
         let (now, later): (Vec<Case>, Vec<Case>) =
@@ -920,6 +925,12 @@ pub(crate) fn pro_trouble_week(w: &mut World, d: Date) {
     for case in due {
         rule(w, d, &case);
     }
+}
+
+/// A week of games served: suspensions and the exempt list count down each
+/// Tuesday.
+pub(crate) fn pro_trouble_week(w: &mut World, d: Date) {
+    let in_season = d > w.dates.nfl_kickoff && d <= w.dates.super_bowl;
     if in_season {
         for p in w.people.iter_mut() {
             if let Some(c) = p.pro.as_mut() {

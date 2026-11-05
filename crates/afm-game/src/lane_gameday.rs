@@ -212,6 +212,8 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
         });
     }
     let today = w.today;
+    // Kickoffs on your local clock (the six-part day).
+    let local = |d: Date, m: u32| w.local(afm_engine::calendar::Moment { date: d, minute: m as u16 }).minute as u32;
     match level {
         CalLevel::College => w
             .college_fixtures(Some(t))
@@ -225,8 +227,8 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
                 neutral: f.neutral,
                 name: f.name.map(str::to_string),
                 why: f.why.iter().map(|s| s.to_string()).collect(),
-                kick: Some(kick_text(f.kickoff.0 as u32 * 60 + f.kickoff.1 as u32)),
-                kick_min: Some(f.kickoff.0 as u32 * 60 + f.kickoff.1 as u32),
+                kick: Some(kick_text(local(f.date, f.kickoff.0 as u32 * 60 + f.kickoff.1 as u32))),
+                kick_min: Some(local(f.date, f.kickoff.0 as u32 * 60 + f.kickoff.1 as u32)),
             }),
         CalLevel::Nfl => {
             w.nfl_fixtures(Some(t)).into_iter().find(|f| !f.played && f.when.is_some_and(|d| d >= today)).map(|f| {
@@ -237,8 +239,8 @@ pub(crate) fn next_game(w: &World) -> Option<Next> {
                     neutral: false,
                     name: Some(format!("Week {}", f.week)),
                     why: Vec::new(),
-                    kick: f.minute.map(|m| kick_text(m as u32)),
-                    kick_min: f.minute.map(|m| m as u32),
+                    kick: f.minute.map(|m| kick_text(local(f.when.unwrap_or(today), m as u32))),
+                    kick_min: f.minute.map(|m| local(f.when.unwrap_or(today), m as u32)),
                 }
             })
         }
@@ -319,7 +321,12 @@ fn now(w: &World) -> Value {
         StopMode::EverySnap => "every",
         StopMode::Off => "off",
     };
-    json!({ "today": today, "live": live.unwrap_or("none"), "stop": stop })
+    // The clock stands at your kickoff (the six-part day: the game plays in
+    // its kickoff's section; the sections before it are game morning).
+    let at_kick = w.live_moment_now().is_some_and(|m| m.what == "Kickoff")
+        || w.seat_kickoff(w.today).is_some_and(|k| k <= w.now());
+    json!({ "today": today, "live": live.unwrap_or("none"), "stop": stop, "at_kick": at_kick,
+        "kick": w.seat_kickoff(w.today).map(|k| w.clock_of(k)) })
 }
 
 fn hub(w: &World) -> Value {

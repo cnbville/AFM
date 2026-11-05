@@ -155,7 +155,7 @@ fn main() {
             line("war room open", &t);
             for _ in 0..400 {
                 let room = g.call("draft_live", &json!({})).expect("draft_live");
-                if !room["live"].as_bool().unwrap_or(false) {
+                if !room["live"].as_bool().unwrap_or(false) || room["waiting"] == json!(true) {
                     break;
                 }
                 if room["rush"].as_bool().unwrap_or(false) {

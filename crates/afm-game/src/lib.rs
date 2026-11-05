@@ -208,28 +208,30 @@ impl Game {
             "status" => Ok(views::status(self.w()?)),
             "card" => Ok(cards::card(self.w()?)),
             "continue" => {
-                let max = num("max_days").unwrap_or(400) as u32;
                 let w = self.wm()?;
-                let from = w.today;
-                let stopped = w.continue_until_needed(max);
+                let (from, games) = (w.now(), w.seat_games().len());
+                w.continue_until_needed();
                 lane_core::after_days(w);
                 memory::hand_back();
-                Ok(views::stopped(w, from, stopped))
+                Ok(views::stopped(w, from, games))
             }
             "day" => {
+                // A whole day (the debug tools): the rest of today, then to
+                // your next stop.
                 let w = self.wm()?;
-                let from = w.today;
-                w.advance_day();
+                let (from, games) = (w.now(), w.seat_games().len());
+                w.next_day();
                 lane_core::after_days(w);
-                Ok(views::stopped(w, from, from))
+                Ok(views::stopped(w, from, games))
             }
             "holiday" => {
                 let days = num("days").unwrap_or(7) as i32;
                 let w = self.wm()?;
-                let from = w.today;
-                let stopped = w.holiday_to(from.add(days));
+                let (from, games) = (w.now(), w.seat_games().len());
+                let today = w.today;
+                w.holiday_to(today.add(days));
                 lane_core::after_days(w);
-                Ok(views::stopped(w, from, stopped))
+                Ok(views::stopped(w, from, games))
             }
             "home" => Ok(views::home(self.w()?)),
             "inbox" => Ok(views::inbox(self.w()?, num("days").unwrap_or(60) as i32)),

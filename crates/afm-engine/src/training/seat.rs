@@ -11,7 +11,7 @@ use super::week::{Frames, block_of_week, books};
 use super::work::{Role, absorb_factor, ratio, share, week_load, week_work};
 use super::{FAMILIES, Family, cover, family_of, land};
 use crate::attributes::Attr;
-use crate::calendar::{Date, Level as Cal};
+use crate::calendar::{Date, Level as Cal, Moment};
 use crate::game::playbook::{Backfield, Personnel, PlayKind, RunConcept, Set};
 use crate::game::sim::InjuryKind;
 use crate::positions::Position;
@@ -459,6 +459,20 @@ pub struct SeatTraining {
     /// and read by the clubs' practice injuries (0 when there's none).
     #[serde(skip)]
     pub my_risk: f32,
+    /// Your practice injuries rolled with the week's plan, waiting for
+    /// their practice to end (the six-part day, topic 4 item 2): when, the
+    /// injury and the trainers' note.
+    #[serde(default)]
+    pub pending: Vec<(Moment, Hurt, String)>,
+    /// Every other college and high school team's practice injuries,
+    /// waiting the same way: when, who, back on, what.
+    #[serde(default)]
+    pub others_pending: Vec<(Moment, u32, Date, InjuryKind)>,
+    /// When your practice starts, minutes after local midnight (topic 6:
+    /// you set your own hour inside your level's rules; None keeps your
+    /// staff's).
+    #[serde(default)]
+    pub practice_at: Option<u16>,
 }
 
 /// A testing day's results (TR5).
@@ -688,7 +702,7 @@ impl SeatTraining {
         self.installs.iter().find(|i| i.key == key).map_or(0.0, |i| i.level)
     }
 
-    fn note(&mut self, date: Date, id: u32, dept: &str, text: String) {
+    pub(crate) fn note(&mut self, date: Date, id: u32, dept: &str, text: String) {
         self.notes.push(Note { date, id, dept: dept.to_string(), text });
         if self.notes.len() > 400 {
             self.notes.drain(..self.notes.len() - 400);
@@ -1737,6 +1751,7 @@ fn practice_case(w: &mut World, st: &SeatTeam, d: Date, pw: &PlannedWeek, hurt: 
     w.training.note(d, 0, "coordinator", format!("Found out: {how}. {}", upper_first(&pen)));
     w.news.push(crate::world::news::NewsItem {
         date: Some(d),
+        at: None,
         year: w.year,
         kind: crate::world::news::NewsKind::PracticeCase,
         channel: crate::world::news::Channel::News,
@@ -1805,6 +1820,7 @@ fn camp_news(w: &mut World, st: &SeatTeam, d: Date, log: &WeekLog, roles: &HashM
         w.news.push(
             crate::world::news::NewsItem {
                 date: Some(d),
+                at: None,
                 year: w.year,
                 kind: crate::world::news::NewsKind::Camp,
                 channel: crate::world::news::Channel::News,
@@ -1988,24 +2004,16 @@ fn practice_injuries(
         let days = (weeks * 7.0).round().max(1.0) as i32;
         let day = rng.int(0, 5);
         let name = p.name.clone();
-        w.training.hurt.push(Hurt {
-            id,
-            kind: Some(kind),
-            from: d.add(day),
-            until: d.add(day + days),
-            how: "practice".into(),
-        });
-        w.training.note(
-            d.add(day),
-            id,
-            "trainers",
-            format!(
-                "{name} hurt in practice: {}, out about {} day{}.",
-                kind.name(),
-                days,
-                if days == 1 { "" } else { "s" }
-            ),
+        // It shows when that day's practice ends (the six-part day).
+        let at = super::days::seat_practice_end(w, d.add(day));
+        let hurt = Hurt { id, kind: Some(kind), from: d.add(day), until: d.add(day + days), how: "practice".into() };
+        let note = format!(
+            "{name} hurt in practice: {}, out about {} day{}.",
+            kind.name(),
+            days,
+            if days == 1 { "" } else { "s" }
         );
+        w.training.pending.push((at, hurt, note));
         n += 1;
     }
     w.training.hurt.retain(|h| h.until > d.add(-60));

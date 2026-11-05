@@ -72,6 +72,7 @@ pub(crate) mod season;
 pub mod season_page;
 pub mod seat;
 pub mod seat_names;
+pub mod sections;
 pub mod staff;
 pub mod staff_read;
 pub mod stories;
@@ -791,6 +792,13 @@ pub struct World {
     /// the day after one Super Bowl to the next) and last year's (for days
     /// that fall after its Super Bowl, like a 1990s signing day).
     pub today: crate::calendar::Date,
+    /// How far `today` has played (the six-part day): its day minutes
+    /// (after 5:00 AM Eastern, `calendar::zone`) whose steps are done. 0
+    /// is a day not begun; k means every step before minute k has run, so
+    /// a stop at day minute m stands at m + 1. A world saved before reads
+    /// 0, the morning before the day plays, as it was.
+    #[serde(default)]
+    pub played: u16,
     pub dates: crate::calendar::YearDates,
     pub(crate) prev_dates: Option<crate::calendar::YearDates>,
     /// Every system's events, with their loudness (T8).
@@ -905,6 +913,10 @@ pub struct World {
     /// draft, the pre-draft season, pro scouting, look-backs, followers.
     #[serde(default)]
     pub scouting: scouting::Scouting,
+    /// The draft between its nights, without your war room (the six-part
+    /// day: each night makes its own rounds' picks).
+    #[serde(default)]
+    pub draft_run: Option<recruiting::DraftRun>,
     /// Former players whose lives stay in football (coaching update C11,
     /// C13): coaches come from them, and your old teammates are among them.
     #[serde(default)]
@@ -1335,6 +1347,7 @@ impl World {
             recruiting_log: RecruitingLog::default(),
             next_person: 1,
             today: dates.start,
+            played: 0,
             rules: changes.rules(year),
             dates,
             prev_dates: None,
@@ -1378,6 +1391,7 @@ impl World {
             charts: Default::default(),
             finance: finance::Finance::default(),
             scouting: Default::default(),
+            draft_run: None,
             formers: Default::default(),
             front_office: Default::default(),
             stories: stories::Stories::default(),
@@ -1424,15 +1438,27 @@ impl World {
         clock::advance_day(self);
     }
 
-    /// Continue (T10): skips quiet days and stops on the first day with an
-    /// event that needs a decision, or a big or huge moment (T8). Returns
-    /// that day.
-    pub fn continue_until_needed(&mut self, max_days: u32) -> crate::calendar::Date {
-        clock::continue_until_needed(self, max_days)
+    /// A whole day: the rest of today, then on to your next stop (an open
+    /// war room holds the clock).
+    pub fn next_day(&mut self) {
+        clock::next_day(self);
     }
 
-    /// Holiday mode (T10): staff run things until `until`; it always stops
-    /// for a huge moment. Returns the day it stopped on.
+    /// Continue (the six-part day): plays to your next section's first
+    /// minute, or a live moment inside it, and stands there. Returns the
+    /// world day it stopped on.
+    pub fn continue_until_needed(&mut self) -> crate::calendar::Date {
+        clock::continue_until_needed(self)
+    }
+
+    /// Plays on to world day `d` through day minute `m` (proofs and tools).
+    pub fn run_to(&mut self, d: crate::calendar::Date, m: u16) {
+        clock::run_to(self, d, m);
+    }
+
+    /// Holiday mode (T10): staff run things until `until`, passing the
+    /// sections; it stops early for a huge moment. Returns the day it
+    /// stopped on.
     pub fn holiday_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
         clock::holiday_to(self, until)
     }

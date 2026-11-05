@@ -1,0 +1,89 @@
+/* The section stop's card (the six-part day, topic 5; layout B, agreed
+   2026-11-05): it drops in under the top bar, over the screen you are on. */
+.ds-card { position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 14px; padding: 18px 22px 14px; border-radius: 24px;
+  background: var(--raised); box-shadow: inset 0 0 0 1px var(--hair), var(--shadow-card); }
+.ds-card::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(60% 140% at 0% 0%, color-mix(in oklab, var(--accent) 26%, transparent), transparent 62%),
+              radial-gradient(40% 120% at 100% 0%, color-mix(in oklab, var(--accent-2) 12%, transparent), transparent 70%); }
+.ds-card a.link { color: var(--fg); font-weight: 650; border-bottom: 1px solid color-mix(in oklab, var(--fg) 26%, transparent); }
+.ds-card a.link:hover { border-bottom-color: var(--fg); }
+
+/* the head: the stop, the date, the six sections of the day */
+.ds-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 24px; }
+.ds-clock { display: grid; gap: 6px; }
+.ds-clock .st-label { display: flex; gap: 10px; align-items: center; }
+.ds-clock .st-label i { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in oklab, var(--accent) 55%, #fff); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 45%, transparent); }
+.ds-clock h2 { display: flex; align-items: baseline; gap: 14px; font-size: 34px; line-height: .95; font-stretch: 122%; font-weight: 800; letter-spacing: -.015em; }
+.ds-clock h2 small { font-size: 15px; font-stretch: 100%; font-weight: 600; letter-spacing: 0; color: var(--fg2); }
+.ds-close { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--fill-1); color: var(--fg2); }
+.ds-close:hover { background: var(--fill-2); color: var(--fg); }
+.ds-close svg { width: 14px; height: 14px; }
+
+.ds-day { width: 520px; display: grid; gap: 5px; }
+.ds-dtop { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.ds-dtop .st-label { font-size: 10px; }
+.ds-rail { display: grid; grid-template-columns: 3fr 5fr 3fr 3fr 3fr 7fr; gap: 3px; }
+.ds-rail span { position: relative; height: 6px; border-radius: 4px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.ds-rail span.past { background: var(--fill-3); box-shadow: none; }
+.ds-rail span.now { background: var(--fg); box-shadow: 0 0 0 3px color-mix(in oklab, var(--fg) 14%, transparent); }
+.ds-rail span em { position: absolute; top: -4px; width: 2px; height: 14px; border-radius: 2px; background: var(--gold); }
+.ds-hours { display: grid; grid-template-columns: 3fr 5fr 3fr 3fr 3fr 7fr; gap: 3px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; color: var(--fg3); font-variant-numeric: tabular-nums; }
+.ds-hours b { font-weight: 700; color: var(--fg); }
+.ds-hours span { white-space: nowrap; }
+.ds-mark { display: flex; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--fg2); }
+.ds-mark i { width: 2px; height: 11px; border-radius: 2px; background: var(--gold); align-self: center; }
+
+/* since the last stop: every new thing, in clock order */
+.ds-since { display: grid; gap: 4px; }
+.ds-sh { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 8px 4px; border-bottom: 1px solid var(--hair); }
+.ds-sh b { font-size: 15px; font-weight: 700; }
+.ds-sh small { color: var(--fg3); font-size: 12px; }
+.ds-rows { display: grid; gap: 1px; }
+.ds-row { display: grid; grid-template-columns: 66px 82px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 7px 8px; border-radius: 10px; font-size: 13.5px; line-height: 1.42; }
+.ds-row:hover { background: var(--fill-1); }
+.ds-row .ds-t { color: var(--fg2); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ds-row .ds-k { color: var(--fg3); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; white-space: nowrap; }
+.ds-row .ds-x { color: var(--fg2); }
+.ds-row.mine { box-shadow: inset 3px 0 0 color-mix(in oklab, var(--accent) 55%, #fff); background: color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, #fff) 11%, transparent); }
+.ds-row.mine .ds-x, .ds-row.dl .ds-x { color: var(--fg); }
+.ds-row.mine .ds-k { color: var(--fg); }
+.ds-row.dl .ds-k { color: var(--gold); }
+.ds-row .ds-go { font-size: 12.5px; font-weight: 600; color: var(--fg2); white-space: nowrap; }
+.ds-row .ds-go:hover { color: var(--fg); }
+
+/* under it: one line for what you are doing now, one for what is due before the next stop */
+.ds-under { display: grid; gap: 2px; padding-top: 6px; border-top: 1px solid var(--hair); }
+.ds-line { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 8px 8px; border-radius: 10px; font-size: 14px; line-height: 1.42; }
+.ds-line > .st-label { font-size: 10.5px; color: var(--fg3); }
+.ds-line p { margin: 0; color: var(--fg); }
+.ds-line.now { background: var(--fill-1); }
+.ds-line.now p { font-weight: 600; }
+.ds-due { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline; }
+.ds-due .ds-d b { font-variant-numeric: tabular-nums; margin-right: 8px; }
+.ds-due .ds-none { color: var(--fg2); }
+.ds-due .ds-next { color: var(--fg2); }
+.ds-due .ds-next b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.ds-due .tag { margin-right: 6px; vertical-align: 1px; }
+.ds-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--fg3); }
+.ds-links .gochip { font-size: 12px; padding: 3px 10px; }
+.ds-links .ds-hint { margin-left: auto; }
+
+
+/* the drop under the top bar */
+.ds-scrim { position: absolute; inset: var(--topbar) 0 0 0; z-index: 4; background: rgba(4, 5, 8, .34); animation: st-fade .25s both; }
+:root[data-theme="light"] .ds-scrim { background: rgba(20, 20, 26, .18); }
+.ds-drop { position: absolute; top: calc(var(--topbar) + 10px); right: 18px; z-index: 5; width: 720px; animation: st-drop .5s var(--ease-pop) both; }
+.ds-drop .ds-card { background: var(--raised); box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-float); padding-right: 22px; }
+.ds-drop .ds-notch { position: absolute; top: -7px; right: 150px; width: 14px; height: 14px; transform: rotate(45deg); border-radius: 3px 0 0 0; background: var(--raised); box-shadow: -1px -1px 0 var(--edge); }
+.ds-drop .ds-head { grid-template-columns: 1fr; gap: 12px; padding-right: 34px; }
+.ds-drop .ds-day { width: 100%; }
+.ds-drop .ds-line, .ds-drop .ds-row { grid-template-columns: 66px 82px minmax(0, 1fr) auto; }
+
+.ds-row .ds-go { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--fg2); }
+.ds-more { padding: 4px 8px 0; color: var(--fg3); font-size: 12px; }
+@media (max-width: 860px) {
+  .ds-drop { left: 12px; right: 12px; width: auto; }
+  .ds-drop .ds-row { grid-template-columns: 58px minmax(0, 1fr); }
+  .ds-drop .ds-row .ds-k, .ds-drop .ds-row .ds-go { display: none; }
+  .ds-drop .ds-line { grid-template-columns: 1fr; gap: 4px; }
+}

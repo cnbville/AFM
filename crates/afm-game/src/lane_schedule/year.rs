@@ -679,7 +679,7 @@ pub(super) fn year(w: &World) -> Reply {
             let opp = views::team_name(w, super::same_level(t, g.opp));
             let at = if g.home || g.neutral { "" } else { "at " };
             match g.kick {
-                Some(k) => format!("{at}{opp} · {}", kick_text(k, level)),
+                Some(k) => format!("{at}{opp} · {}", kick_text(w, d, k, level)),
                 None => format!("{at}{opp}"),
             }
         })
@@ -734,7 +734,7 @@ pub(super) fn year(w: &World) -> Reply {
                 s.push(n.clone());
             }
             if let Some(k) = g.kick.filter(|_| out) {
-                s.push(kick_text(k, level));
+                s.push(kick_text(w, g.date, k, level));
             }
             if !g.tv.is_empty() && out {
                 s.push(g.tv.clone());

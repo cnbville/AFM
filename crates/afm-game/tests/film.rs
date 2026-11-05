@@ -32,9 +32,9 @@ fn a_kept_game_plays_back_as_film() {
     }
     let mut tries = 0;
     while ok(&mut g, "games", json!({}))["games"].as_array().unwrap().is_empty() {
-        ok(&mut g, "continue", json!({ "max_days": 400 }));
+        ok(&mut g, "day", json!({}));
         tries += 1;
-        assert!(tries < 40, "no game was kept");
+        assert!(tries < 400, "no game was kept");
     }
     let keep = std::env::var("AFM_FILM_SAVE").ok();
     if let Some(p) = &keep {

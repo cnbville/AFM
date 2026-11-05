@@ -751,11 +751,15 @@ pub(crate) fn record(
 /// non-vested player), a season one as a game's (injured reserve past its
 /// minimum). Proposed, not confirmed: about 1.0 week-plus injuries a team
 /// a camp week and 0.35 a season week.
-pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
+///
+/// The six-part day: each practice day draws its own share of the week's
+/// risk (`share`), for the clubs practicing then (`clubs`), right after
+/// their practice (`training::days`).
+pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date, clubs: &[usize], share: f64) {
     use crate::game::sim::{InjuryKind as K, injury_weeks};
     let year = w.year;
     let camp = d < w.dates.cutdown.date;
-    let base = if camp { 0.0155 } else { 0.009 };
+    let base = if camp { 0.0155 } else { 0.009 } * share;
     const MIX: [(K, f64); 12] = [
         (K::Hamstring, 22.0),
         (K::AnkleSprain, 15.0),
@@ -771,7 +775,7 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
         (K::Fracture, 2.0),
     ];
     let seed = w.options.seed as u64 ^ 0x9AC7 ^ (d.0 as u64) << 20;
-    for t in franchise::active_teams_in(w, year) {
+    for &t in clubs {
         let med = crate::world::people::Support::z(w.clubs[t].support.medical.rating);
         let name = w.nfl[t].name;
         let roster = w.clubs[t].roster.clone();

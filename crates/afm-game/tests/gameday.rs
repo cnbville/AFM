@@ -15,10 +15,11 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
     }
 }
 
-/// Continue to the morning of your next game.
+/// A day at a time to the morning of your next game (each day's first
+/// stop names what the day holds).
 fn to_game_morning(g: &mut Game) {
-    for _ in 0..80 {
-        let r = ok(g, "continue", json!({ "max_days": 300 }));
+    for _ in 0..400 {
+        let r = ok(g, "day", json!({}));
         if r["morning"] == json!(true) && r["why"][0]["text"].as_str().is_some_and(|t| t.starts_with("Game day")) {
             return;
         }

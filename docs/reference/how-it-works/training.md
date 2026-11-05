@@ -1,6 +1,6 @@
 # Training: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Nearly every size in the training week and in prep is marked in code as Claude's (proposed, not confirmed); `docs/world-model.md`, "Training: the week's frame and prep", lists them.
 
@@ -17,6 +17,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Does coach quality change what a practice teaches? No. Coach quality enters through the yearly step's coaching boost, stored in the year's growth (`development.rs`, `develop_season`; `training/mod.rs`, `GrowthYear.coach`). Practice work reads only minutes, kind (and a meeting's sub-kind), contact, tempo and reps (`training/work.rs`, `per_minute`, `period_work`).
 - Does a player's plan focus work for AI teams? No. Only your seat sets a focus; AI players land with no focus (`training/week.rs`, `monday`, `settle(.., None, ..)`; `world/seat.rs`, `focus_by_person`).
 - Is the staff's suggested focus applied when you set none? No. Growth reads only a focus you set. The screens label the staff's pick as the focus "by staff" (`crates/afm-game/src/lane_training.rs`, `plan_json`), but `focus_by_person` returns only your picks (`world/seat.rs`).
+- When does a team practise? At its staff's hour on its own clock: NFL 11:15 AM in season and 9:15 AM in camp, 2 hours 15 on the field; college 3:45 PM, or 8:45 AM for one program in five, 2:45; high school 3:30 PM, or 7:30 AM before August 15, 3 hours. You set your own start on the training week inside your level's rules (`training/days.rs`, `staff_start`, `practice_start`, `start_limits`). See [clock.md](clock.md).
 - Do practice reps move the depth chart? Yes, a little: the practice grade adds up to ±3 rating points in the staff's depth order (`training/mod.rs`, `impression`; `game/roster.rs`, `staff_depth_chart`).
 - Do AI teams practise on the engine? College and NFL teams run a sample of snaps each week (camp 24, spring 16, season 8, OTAs 6); high schools other than yours get a fitted model instead (`training/practice.rs`, `ai_cap`, `world_battles`, `school_grades`).
 - Do practices injure AI college and high school players? No. Practice injuries run for your college or high school team only, and for every NFL club; your own NFL club's practice risk comes from your week (`training/seat.rs`, `week`, `practice_injuries`, `my_risk`; `world/pro/games.rs`, `practice_injuries`). See [injuries.md](injuries.md).

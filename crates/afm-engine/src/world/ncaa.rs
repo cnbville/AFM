@@ -584,6 +584,7 @@ fn ncaa_case(w: &mut World, j: usize) {
         w.news.push(
             NewsItem {
                 date: None,
+                at: None,
                 year,
                 kind: NewsKind::NcaaPenalty,
                 channel: Channel::News,

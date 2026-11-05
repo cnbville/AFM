@@ -1138,23 +1138,24 @@
     if (S.status && S.status.mine) {
       let now = null;
       try { now = await api("gameday_now"); } catch (e) { now = null; }
-      // Game day: Continue goes to kickoff, unless no snap stops for you.
-      if (now && now.today && now.live === "none" && now.stop !== "off") return kickoff();
+      // Game day: at the kickoff stop (the six-part day: the game plays in
+      // its kickoff's section) Continue kicks off, unless no snap stops for
+      // you. The sections before it are game morning.
+      if (now && now.today && now.at_kick && now.live === "none" && now.stop !== "off") return kickoff();
       if (now && now.live === "live") {
         if (S.route.screen !== "live") return go("live");
         if (!(await sure("Hand the rest of your game to your staff?", "Continue plays the day: your staff calls every snap left with your plan and rules.", "Hand it over"))) return;
       }
     }
     await baseCont();
-    // A morning stop on game day: the game day screen opens.
-    const why = S.lastWhy || "";
-    if (/^Game day/.test(why) && S.route.screen === "home") go("gameday");
+    // The kickoff stop: the game day screen opens.
+    if (S.lastLive === "Kickoff" && S.route.screen !== "gameday") go("gameday");
   };
-  // The morning's reason, kept from the last Continue.
+  // The live moment the last Continue stopped at.
   const baseApi = api;
   api = async function (cmd, args) {
     const r = await baseApi(cmd, args);
-    if (cmd === "continue" && r) S.lastWhy = r.morning && r.why && r.why[0] ? r.why[0].text : "";
+    if (cmd === "continue" && r) S.lastLive = r.card ? r.card.live : null;
     return r;
   };
 })();

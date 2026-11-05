@@ -45,6 +45,12 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             save_week(w, args)?;
             practice(w)
         })(),
+        "practice_hour" => (|| {
+            let w = game.wm()?;
+            mine_head(w)?;
+            set_practice_hour(w, args)?;
+            practice(w)
+        })(),
         "practice_week_reset" => (|| {
             let w = game.wm()?;
             mine_head(w)?;
@@ -118,6 +124,47 @@ fn team_of(w: &World) -> Result<(TeamRef, SeatTeam), String> {
     let t = mine(w).ok_or("You have no team.")?;
     let st = w.training_team().ok_or("You have no team.")?;
     Ok((t, st))
+}
+
+/// Your practice hour (the six-part day, topic 6): when practice starts,
+/// your staff's hour and the starts your level's rules allow.
+fn practice_hour(w: &World, tier: Tier, d: Date) -> Value {
+    use afm_engine::training::days;
+    let Some((_, t)) = w.seat_team() else { return Value::Null };
+    let at = days::practice_start(w, tier, t, d);
+    let staff = days::staff_start(w, tier, t, d);
+    let (from, to) = days::start_limits(tier, d);
+    let len = days::practice_length(tier);
+    let options: Vec<Value> =
+        (from..=to).step_by(15).map(|m| json!({ "at": m, "text": week::clock_text(m as u32) })).collect();
+    json!({
+        "at": at,
+        "staff": staff,
+        "staff_text": week::clock_text(staff as u32),
+        "mine": w.training.practice_at.is_some(),
+        "text": week::clock_text(at as u32),
+        "ends": week::clock_text((at + len) as u32),
+        "options": options,
+    })
+}
+
+fn set_practice_hour(w: &mut World, args: &Value) -> Result<(), String> {
+    let st = w.training_team().ok_or("You have no team.")?;
+    match args.get("at").and_then(Value::as_u64) {
+        None => w.training.practice_at = None,
+        Some(m) => {
+            let (from, to) = afm_engine::training::days::start_limits(st.tier, w.today);
+            if m < from as u64 || m > to as u64 {
+                return Err(format!(
+                    "Your level's rules allow a start from {} to {}.",
+                    week::clock_text(from as u32),
+                    week::clock_text(to as u32)
+                ));
+            }
+            w.training.practice_at = Some(m as u16);
+        }
+    }
+    Ok(())
 }
 
 /// When a day's football starts on the training week's clock (the
@@ -548,6 +595,14 @@ fn practice(w: &World) -> Reply {
             let mut v = day_json(d);
             let kick = d.game.then(|| kick_of(date));
             v["clock"] = week::day_clock(st.tier, block, date, d, kick);
+            // Your own practice hour (topic 6): the day's football starts
+            // an hour before the field.
+            if w.training.practice_at.is_some()
+                && let Some((_, team)) = w.seat_team()
+            {
+                let at = afm_engine::training::days::practice_start(w, st.tier, team, date);
+                v["clock"]["day"] = json!(at.saturating_sub(60));
+            }
             v["weather"] = json!(pw.weather[k].map(|x| json!({ "temp": x.temp, "place": x.place, "why": x.why })));
             v["off"] =
                 json!(if d.rest() && bk.coaches { Some(if required[k] { "req" } else { "chosen" }) } else { None });
@@ -887,6 +942,7 @@ fn practice(w: &World) -> Reply {
         "numbers": week::numbers(w, &st, monday, w.today),
         "where": week::wheres(w, &st, &pw),
         "league": league,
+        "practice_hour": practice_hour(w, st.tier, monday),
     });
     if let (Some(a), Value::Object(b)) = (out.as_object_mut(), more) {
         a.extend(b);

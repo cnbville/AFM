@@ -64,7 +64,7 @@ screens.warroom = async () => {
   const nav = `<div class="dr-nav">${linkTo("draftboard", {}, "Draft board", "st-btn small glass")}${linkTo("predraft", {}, "Pre-draft", "st-btn small glass")}</div>`;
   const head = `<div class="dr-head"><div class="dr-id">${mark(w.team, 44)}<div><span class="dr-lbl">${esc(w.team.name)} · ${w.year} Draft · Round ${w.round}</span><h1>Draft room</h1></div></div>${nav}</div>
     <div class="dr-stats">
-      ${stat("On the clock", w.rush ? "Done" : `Pick ${w.next} · ${drShort(otc)}`, w.on_clock ? "gold" : "")}
+      ${stat("On the clock", w.rush ? "Done" : w.waiting ? "Between nights" : `Pick ${w.next} · ${drShort(otc)}`, w.on_clock ? "gold" : "")}
       ${stat("Time left", `<span id="sc-clock">${scClockText()}</span>`)}
       ${stat("Our pick", at ? at : "–", "gold")}
       ${stat("Picks away", at ? dr.away : "–")}
@@ -72,7 +72,10 @@ screens.warroom = async () => {
       <div class="dr-stat dr-ctl"><span class="dr-lbl">Clock</span><span class="dr-seg"><button data-act="sc-clock" data-v="pause" aria-pressed="${!!SC.clock.paused}">${SC.clock.paused ? "Run" : "Pause"}</button><button data-act="sc-clock" data-v="10" aria-pressed="${SC.clock.speed === 10}">×10</button><button data-act="sc-clock" data-v="60" aria-pressed="${SC.clock.speed === 60}">×60</button></span></div>
     </div>`;
   // What you can do now.
-  const acts = w.rush
+  const night = ["Round 1", "Rounds 2 and 3", "Rounds 4 to 7"][w.night] || "The night";
+  const acts = w.waiting
+    ? `<div class="dr-acts dr-done"><b>${night} ${w.night === 0 ? "is" : "are"} in.</b><span class="dr-dim">${w.next_night ? `The draft goes on ${esc(w.next_night)}. Continue plays the day; the room opens again then.` : "The draft goes on at the next night."}</span></div>`
+    : w.rush
     ? `<div class="dr-acts dr-done"><b>Every pick is in.</b><span class="dr-dim">${w.picks_made} players taken. The phones start now: the undrafted rush.</span><button class="st-btn primary" data-act="sc-rush">Open the undrafted rush</button></div>`
     : w.on_clock
       ? `<div class="dr-acts"><span class="dr-lbl gold">You're on the clock</span>${sel && !sel.gone ? `<button class="st-btn primary" data-act="sc-draft" data-id="${sel.id}" data-name="${esc(sel.name)}">Draft ${esc(sel.name)}</button>` : ""}<button class="st-btn glass" data-act="sc-auto">Let the staff pick${w.staff_pick ? ": " + esc(w.staff_pick.name) : ""}</button><span id="sc-timeup" hidden><button class="st-btn glass" data-act="sc-timeout">Let the clock run out</button></span><span class="dr-final"><span class="dr-lbl">Final say</span><b>You, head coach</b></span></div>`

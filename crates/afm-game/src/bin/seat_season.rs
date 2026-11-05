@@ -64,7 +64,8 @@ fn draft(run: &mut Run, g: &mut Game) {
         let Some(room) = run.call(g, "draft_live", json!({})) else { return };
         // The draft room (update 2, lane 9C) at every step.
         run.call(g, "dr_room", json!({}));
-        if !room["live"].as_bool().unwrap_or(false) {
+        // Between the draft's nights the room waits while the clock runs on.
+        if !room["live"].as_bool().unwrap_or(false) || room["waiting"] == json!(true) {
             return;
         }
         if room["rush"].as_bool().unwrap_or(false) {
@@ -1233,10 +1234,19 @@ fn main() {
         let mut saved_once = false;
         let mut lived = false;
         let mut held = std::collections::BTreeSet::new();
-        while g.world.as_ref().map(|w| begin.days_to(w.today)).unwrap_or(days) < days && stops < 600 {
+        // The six-part day's speed gate: each world day's Continue time and
+        // stops (a quiet day is one with exactly six stops).
+        let mut by_day: std::collections::BTreeMap<i32, (f64, usize)> = std::collections::BTreeMap::new();
+        while g.world.as_ref().map(|w| begin.days_to(w.today)).unwrap_or(days) < days
+            && stops < days as usize * 10 + 100
+        {
             let tc = Instant::now();
             let from = g.world.as_ref().map(|w| w.today.pretty()).unwrap_or_default();
-            let r = run.call(&mut g, "continue", json!({ "max_days": 60 }));
+            let day0 = g.world.as_ref().map(|w| w.today.0).unwrap_or_default();
+            let r = run.call(&mut g, "continue", json!({}));
+            let e = by_day.entry(day0).or_default();
+            e.0 += tc.elapsed().as_secs_f64();
+            e.1 += 1;
             if tc.elapsed().as_secs_f64() > longest {
                 longest = tc.elapsed().as_secs_f64();
                 let to = g.world.as_ref().map(|w| w.today.pretty()).unwrap_or_default();
@@ -1351,6 +1361,17 @@ fn main() {
             jobs["level"].as_str().unwrap_or(level),
             run.calls
         );
+        let mut quiet: Vec<f64> = by_day.values().filter(|x| x.1 == 6).map(|x| x.0).collect();
+        quiet.sort_by(f64::total_cmp);
+        if !quiet.is_empty() {
+            println!(
+                "quiet days (six stops): {}, median {:.3}s, 90th {:.3}s, max {:.3}s for the six",
+                quiet.len(),
+                quiet[quiet.len() / 2],
+                quiet[quiet.len() * 9 / 10],
+                quiet[quiet.len() - 1]
+            );
+        }
         println!("errors: {}", run.errors.len());
         for e in run.errors.iter().take(40) {
             println!("  ERR {e}");

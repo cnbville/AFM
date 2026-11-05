@@ -1284,7 +1284,7 @@ pub(crate) fn redate_moves(w: &mut World) {
     for (year, mut e, text) in moved {
         e.text = text;
         e.rule = MOVE_RULE;
-        e.when = crate::calendar::Moment { date: Date::ymd(year, 7, 1), minute: 9 * 60 };
+        e.when = crate::calendar::Moment { date: Date::ymd(year, 7, 1), minute: crate::calendar::Moment::ALL_DAY };
         w.calendar.post(e);
     }
     for e in w.calendar.history.iter_mut() {
@@ -1294,7 +1294,7 @@ pub(crate) fn redate_moves(w: &mut World) {
             let y = e.when.date.year();
             e.text = text;
             e.rule = MOVE_RULE;
-            e.when = crate::calendar::Moment { date: Date::ymd(y, 7, 1), minute: 9 * 60 };
+            e.when = crate::calendar::Moment { date: Date::ymd(y, 7, 1), minute: crate::calendar::Moment::ALL_DAY };
         }
     }
 }

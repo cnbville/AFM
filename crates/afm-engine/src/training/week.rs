@@ -653,7 +653,7 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     // already or absent from a voluntary week.
     let hurt_seed = w.options.seed ^ d.0 as u32 ^ 0x1A7E;
     let others_hurt = &w.training.others_hurt;
-    let new_hurt: Vec<(u32, Date, crate::game::sim::InjuryKind)> = w
+    let new_hurt: Vec<(crate::calendar::Moment, u32, Date, crate::game::sim::InjuryKind)> = w
         .people
         .par_iter()
         .enumerate()
@@ -661,9 +661,9 @@ pub(crate) fn monday(w: &mut World, d: Date) {
             if skip[i] {
                 return None;
             }
-            let (tw, tier) = match p.stage {
-                Stage::HighSchool | Stage::PrepSchool => (worked.get(&school_key[p.hs])?, Tier::High),
-                Stage::College => (worked.get(&prog_key[p.college?])?, Tier::College),
+            let (tw, tier, team) = match p.stage {
+                Stage::HighSchool | Stage::PrepSchool => (worked.get(&school_key[p.hs])?, Tier::High, p.hs),
+                Stage::College => (worked.get(&prog_key[p.college?])?, Tier::College, p.college?),
                 _ => return None,
             };
             if tw.own || tw.practices == 0.0 || others_hurt.get(&p.player.id).is_some_and(|x| x.0 > d) {
@@ -693,15 +693,12 @@ pub(crate) fn monday(w: &mut World, d: Date) {
             let weeks = crate::game::sim::injury_weeks(kind, &mut rng) * (1.3 - 0.03 * p.player.game.recovery);
             let days = (weeks * 7.0).round().max(1.0) as i32;
             let day = rng.int(0, 5);
-            Some((id, d.add(day + days), kind))
+            // It shows when that day's practice ends (the six-part day).
+            let at = super::days::practice_end(w, tier, team, d.add(day));
+            Some((at, id, d.add(day + days), kind))
         })
         .collect();
-    for (id, back, kind) in new_hurt {
-        let e = w.training.others_hurt.entry(id).or_insert((back, Some(kind)));
-        if back > e.0 {
-            *e = (back, Some(kind));
-        }
-    }
+    w.training.others_pending.extend(new_hurt);
     // The week's growth reaches the college teams kept for the season.
     refresh_college_teams(w);
 }

@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main.
 
 ## Quick answers
 
@@ -111,6 +111,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 `world/scouting/live.rs`:
 
 - Opens on draft day when your seat is at an NFL club that holds a pick; AI picks run to your turn (`start`, `advance`).
+- The draft runs three days (the six-part day): round 1 the first night, rounds 2 and 3 the second, 4 to 7 the last day (`world/recruiting.rs`, `night_of`). Each night's picks join their clubs that night, each at its own minute (`draft_night`, `commit_picks`, `pick_stamps`). After a night's last pick your war room waits for the next night while the clock runs on (`LiveDraft.waiting`, `holds`, `open_night`). See [clock.md](clock.md).
 - Pick clock (minutes): 15 in round 1, 10 in round 2 and 5 after until 2007; then 10, 7, 5 for rounds 3-6, 4 in round 7; round 1 is 8 from 2026 (`clock_minutes`). If time runs out the next club in the round jumps in and you pick after it (`timeout`).
 - Your staff's pick: the top of your board order (your moves first, then your director's grades) that the club would take and isn't on your do-not-draft list (`staff_choice`; `world/scouting/board.rs`, `ordered`).
 - Offers while you're on the clock: clubs in the next 12 whose eagerness is 2.5+, each calling with chance 0.55 + 0.1 × min(eagerness, 3), so 80-85% (the code comment says about half), at most three, priced on their chart (`offers`).

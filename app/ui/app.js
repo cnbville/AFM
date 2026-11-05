@@ -377,7 +377,7 @@ function frame(content, crumb) {
         <button class="st-icon-btn" data-act="fwd" title="Forward (⌘])" ${S.fwd.length ? "" : "disabled"}>${icon("fwd")}</button>
         <nav class="crumb" aria-label="Where you are">${crumb || ""}</nav>
         <div class="search"><span class="sicon">${icon("search")}</span><input id="q" placeholder="Search anything" autocomplete="off" spellcheck="false"><kbd>⌘K</kbd></div>
-        <div class="datebox"><b>${esc(st.today || "")}</b><small>${next ? esc(`${next.text.slice(0, 60)}${next.text.length > 60 ? "…" : ""} · ${next.in === 0 ? "today" : next.in === 1 ? "tomorrow" : "in " + next.in + " d"}`) : ""}</small></div>
+        <div class="datebox"><b>${esc(st.clock || st.today || "")}</b><small>${next ? esc(`${next.text.slice(0, 60)}${next.text.length > 60 ? "…" : ""} · ${next.in === 0 ? "today" : next.in === 1 ? "tomorrow" : "in " + next.in + " d"}`) : ""}</small></div>
         <button class="st-btn primary continue ${S.busy ? "busy" : ""}" data-act="continue" title="Continue (space)">${S.busy ? "Playing…" : "Continue"}</button>
         ${S.busy ? '<div class="progress"><i></i></div>' : ""}
       </header>
@@ -678,6 +678,7 @@ async function render(scroll) {
     if (S.beside) drawBeside();
     if (typeof afterRender === "function") afterRender();
     fitBoxes();
+    if (S.stopCard && typeof dsDraw === "function") dsDraw();
     if (keepY) $(".view").scrollTop = keepY;
   } catch (e) {
     console.error(e);
@@ -761,23 +762,20 @@ async function cont() {
   document.documentElement.classList.add("running");
   const from = S.route;
   try {
-    const r = await api("continue", { max_days: 400 });
+    const r = await api("continue", {});
     S.status = r.status;
     S.busy = false;
     document.documentElement.classList.remove("running");
     if (typeof peekForget === "function") peekForget();
     // A screen picked while the days played: you stay there.
     const moved = S.route !== from;
-    const whys = r.why.map((w) => w.text);
-    const why = whys.slice(0, 3).join(" · ") + (whys.length > 3 ? ` · and ${whys.length - 3} more in your inbox` : "");
+    // The six-part day: the stop's card drops in over the screen you are
+    // on (screens/daystop.js).
+    if (r.card) S.stopCard = r.card;
     if (r.game) {
-      toast(`Final: ${r.game.text}`);
       if (moved) render();
       else go("game", { index: r.game.index });
     } else {
-      // A morning stop is today, before it plays; any other stop is the
-      // day just played, and you are on the morning after it.
-      toast(r.morning ? `${r.today}, morning${why ? ": " + why : ""}` : `${r.days} day${r.days === 1 ? "" : "s"} played, to ${r.today}. On ${r.stopped_on}${why ? ": " + why : ""}`, r.why.find((w) => w.go));
       // A live day (signing day, the draft, cutdown day) opens its room.
       // A room with its own screen (the war room) opens that screen.
       if (r.studio && !moved && (screens[r.studio.screen] || screens.studio)) go(screens[r.studio.screen] ? r.studio.screen : "studio", r.studio);
@@ -788,8 +786,7 @@ async function cont() {
         if (S.route.screen === "home") render(); else go("home", {}, { root: true });
         slStop(r.story);
       }
-      else if (moved || S.route.screen === "home") render();
-      else go("home", {}, { root: true });
+      else render();
     }
     if (typeof showReveals === "function") showReveals(r.status && r.status.reveals);
   } catch (e) {

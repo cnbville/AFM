@@ -45,12 +45,13 @@ fn start(g: &mut Game, path: &str, level: &str, bg: &str) {
 /// first meetings and every big signing of the spring, every two or three
 /// days in this small world, so the count leaves room for the world's draw.
 fn play_to(g: &mut Game, n: usize) -> u64 {
-    for _ in 0..150 {
+    for _ in 0..600 {
         let games = ok(g, "games", json!({}))["games"].as_array().unwrap().clone();
         if games.len() >= n {
             return games.iter().map(|x| x["index"].as_u64().unwrap()).max().unwrap();
         }
-        ok(g, "continue", json!({ "max_days": 30 }));
+        // A day at a time (Continue stops six times a day).
+        ok(g, "day", json!({}));
         draft_through(g);
     }
     panic!("never kept {n} games");
@@ -59,7 +60,8 @@ fn play_to(g: &mut Game, n: usize) -> u64 {
 fn draft_through(g: &mut Game) {
     for _ in 0..200 {
         let room = ok(g, "draft_live", json!({}));
-        if !room["live"].as_bool().unwrap_or(false) {
+        // Between the draft's nights the room waits while the days run.
+        if !room["live"].as_bool().unwrap_or(false) || room["waiting"] == json!(true) {
             return;
         }
         if room["rush"].as_bool().unwrap_or(false) {

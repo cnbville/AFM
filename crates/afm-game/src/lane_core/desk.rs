@@ -78,11 +78,18 @@ fn clears_in(today: Date, m: &Mail) -> Option<i32> {
     (left <= 10).then_some(left.max(0))
 }
 
-fn row(today: Date, m: &Mail) -> Value {
+/// A letter's stamp: letters are written on your local clock (the six-part
+/// day: the hour comes from your day and the sender's).
+fn stamp(_w: &World, m: &Mail) -> (Date, String) {
+    (m.date, clock(m.minute))
+}
+
+fn row(w: &World, m: &Mail) -> Value {
+    let (day, time) = stamp(w, m);
     json!({
         "id": m.id.to_string(),
-        "day": day_heading(today, m.date),
-        "time": clock(m.minute),
+        "day": day_heading(w.today, day),
+        "time": time,
         "head": head_name(m.head),
         "from": m.from,
         "org": m.org,
@@ -93,7 +100,7 @@ fn row(today: Date, m: &Mail) -> Value {
         "answers": m.answers.len(),
         "answered": m.answered,
         "answer_by": m.answer_by.filter(|_| m.answered.is_none() && !m.answers.is_empty()).map(views::date_text),
-        "clears_in": clears_in(today, m),
+        "clears_in": clears_in(w.today, m),
         "keys": keys_of(m.keys),
         "loud": m.loud,
     })
@@ -107,7 +114,6 @@ pub fn list(w: &World, args: &Value) -> Value {
     let bit = KEYWORDS.iter().position(|k| *k == key).map(|i| 1u16 << i);
     let q = args.get("q").and_then(Value::as_str).unwrap_or("").trim();
     let saved = args.get("saved").and_then(Value::as_bool).unwrap_or(false);
-    let today = w.today;
     let mails = &c.desk.mails;
     let mut counts = vec![0u32; KEYWORDS.len()];
     for m in mails {
@@ -128,7 +134,7 @@ pub fn list(w: &World, args: &Value) -> Value {
         .filter(|m| bit.is_none_or(|b| m.keys & b != 0))
         .filter(|m| !saved || m.saved)
         .filter(|m| matches(m, q))
-        .map(|m| row(today, m))
+        .map(|m| row(w, m))
         .collect();
     json!({
         "rows": rows,
@@ -179,9 +185,9 @@ pub fn open(w: &mut World, id: u64) -> Result<Value, String> {
         .unwrap_or_default();
     Ok(json!({
         "id": m.id.to_string(),
-        "date": views::date_text(m.date),
-        "pretty": m.date.pretty(),
-        "time": clock(m.minute),
+        "date": views::date_text(stamp(w, &m).0),
+        "pretty": stamp(w, &m).0.pretty(),
+        "time": stamp(w, &m).1,
         "head": head_name(m.head),
         "org": m.org,
         "org_line": m.org_line,

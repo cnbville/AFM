@@ -258,6 +258,10 @@ pub struct Reaction {
     pub money: f64,
     pub mood: Mood,
     pub text: String,
+    /// When his answer reaches you, Eastern: the next section (the six-part
+    /// day; None for an answer from before it, already in).
+    #[serde(default)]
+    pub due: Option<crate::calendar::Moment>,
 }
 
 // --- What the shared recruiting code reads ---------------------------------------------
@@ -1836,10 +1840,15 @@ fn place_words(rank: usize) -> &'static str {
     }
 }
 
-fn remember(w: &mut World, r: Reaction) -> String {
+/// Keeps his answer for the next section (the six-part day: he gets back
+/// to you soon, not at once and not the next day). Returns when.
+fn remember(w: &mut World, mut r: Reaction) -> String {
+    let (d, m) = w.next_section_stop();
+    let due = crate::calendar::zone::moment(d, m);
+    r.due = Some(due);
+    let text = format!("He'll get back to you by {}.", w.clock_of(due));
     let desk = &mut w.front_office.college;
     desk.reactions.retain(|x| !(x.id == r.id && x.kind == r.kind));
-    let text = r.text.clone();
     desk.reactions.push(r);
     // A long career keeps the latest few hundred.
     if desk.reactions.len() > 400 {
@@ -1850,7 +1859,18 @@ fn remember(w: &mut World, r: Reaction) -> String {
 
 /// A player's latest answer to your money of a kind.
 pub fn reaction(w: &World, id: u32, kind: MoneyKind) -> Option<&Reaction> {
-    w.front_office.college.reactions.iter().rev().find(|r| r.id == id && r.kind == kind)
+    w.front_office
+        .college
+        .reactions
+        .iter()
+        .rev()
+        .find(|r| r.id == id && r.kind == kind && r.due.is_none_or(|m| w.has_come(m)))
+}
+
+/// The answers that reached you between two moments (the section stop's
+/// list).
+pub fn answers_between(w: &World, from: crate::calendar::Moment, to: crate::calendar::Moment) -> Vec<&Reaction> {
+    w.front_office.college.reactions.iter().filter(|r| r.due.is_some_and(|m| m > from && m <= to)).collect()
 }
 
 /// A recruit's first answer to your promise (N1): the money he would weigh
@@ -1957,6 +1977,7 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<f64>, after: O
         money: after.unwrap_or(usual),
         mood,
         text: v.join(" "),
+        due: None,
     }
 }
 
@@ -2011,6 +2032,7 @@ fn portal_reaction(w: &World, i: usize, j: usize, after: Option<f64>) -> Reactio
         money: after.unwrap_or(usual),
         mood,
         text: v.join(" "),
+        due: None,
     }
 }
 
@@ -2048,7 +2070,7 @@ fn deal_reaction(w: &World, i: usize, j: usize, amount: f64) -> Reaction {
     if last >= 5_000.0 && total < 0.8 * last {
         v.push(format!("It's a cut from the {} he made this year.", dollars(last)));
     }
-    Reaction { id, kind: MoneyKind::Deal, date: w.today, money: amount, mood, text: v.join(" ") }
+    Reaction { id, kind: MoneyKind::Deal, date: w.today, money: amount, mood, text: v.join(" "), due: None }
 }
 
 // --- The portal -----------------------------------------------------------------------------

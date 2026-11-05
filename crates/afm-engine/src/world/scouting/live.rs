@@ -50,6 +50,34 @@ pub struct LiveDraft {
     pub rush: bool,
     /// Your last pick, for the reveal: (pick, player id).
     pub revealed: Option<(u32, u32)>,
+    /// The draft night under way (0 to 2: round 1, rounds 2 and 3, rounds
+    /// 4 to 7).
+    #[serde(default)]
+    pub night: usize,
+    /// The night's picks are in: the room waits for the next night while
+    /// the clock runs on.
+    #[serde(default)]
+    pub waiting: bool,
+}
+
+/// Whether your war room holds the clock: open, on a night under way.
+pub fn holds(w: &World) -> bool {
+    w.scouting.live.as_ref().is_some_and(|l| !l.waiting)
+}
+
+/// The next night opens: the AI picks run to your turn again.
+pub(crate) fn open_night(w: &mut World, k: usize) {
+    if let Some(l) = w.scouting.live.as_mut() {
+        l.night = l.night.max(k);
+        l.waiting = false;
+    }
+    advance(w, Until::Yours);
+}
+
+/// When the next night opens, while the room waits.
+pub fn next_night(w: &World) -> Option<crate::calendar::Moment> {
+    let l = w.scouting.live.as_ref().filter(|l| l.waiting)?;
+    w.dates.draft.get(l.night + 1).copied()
 }
 
 /// One pick on the record: pick, round, club, player id, name, position,
@@ -104,6 +132,8 @@ pub(crate) fn start(w: &mut World, run: &mut DraftRun) -> bool {
         used: 0,
         rush: false,
         revealed: None,
+        night: 0,
+        waiting: false,
     };
     w.scouting.live = Some(live);
     w.scouting.board.for_year(w.year);
@@ -145,7 +175,12 @@ pub enum Until {
 
 /// Whether your club is on the clock now.
 pub fn on_clock(l: &LiveDraft) -> bool {
-    !l.rush && !l.run.done() && l.run.board[l.run.next as usize - 1].0 == l.team
+    !l.rush && !l.waiting && !l.run.done() && l.run.board[l.run.next as usize - 1].0 == l.team
+}
+
+/// Whether the next pick belongs to a later night than the one under way.
+fn night_over(l: &LiveDraft) -> bool {
+    !l.run.done() && recruiting::night_of(l.run.board[l.run.next as usize - 1].1) > l.night
 }
 
 /// The AI picks until `until` or your turn. A club that trades into a pick
@@ -156,6 +191,17 @@ pub fn advance(w: &mut World, until: Until) {
     loop {
         if l.run.done() {
             l.rush = true;
+            break;
+        }
+        // The night's last pick is in: its picks go on the books, and the
+        // room waits for the next night (the six-part day).
+        if l.waiting {
+            break;
+        }
+        if night_over(&l) {
+            recruiting::commit_picks(w, &mut l.run);
+            l.waiting = true;
+            l.offers.clear();
             break;
         }
         if on_clock(&l) {
@@ -174,6 +220,9 @@ pub fn advance(w: &mut World, until: Until) {
         if until == Until::Next {
             if l.run.done() {
                 l.rush = true;
+            } else if night_over(&l) {
+                recruiting::commit_picks(w, &mut l.run);
+                l.waiting = true;
             } else if on_clock(&l) && l.offers.is_empty() {
                 l.offers = offers(w, &l);
             }
@@ -535,7 +584,9 @@ pub fn trade_up(w: &mut World, their_slot: usize) -> Result<(), String> {
 pub fn rush(w: &mut World) -> Result<DraftRecord, String> {
     let mut l = w.scouting.live.take().ok_or("The draft isn't live.")?;
     if !l.rush {
-        // Anything left is picked by your staff first.
+        // Anything left is picked by your staff first, every night left.
+        l.night = 2;
+        l.waiting = false;
         w.scouting.live = Some(l);
         while w.scouting.live.as_ref().is_some_and(|l| !l.rush) {
             advance(w, Until::Yours);
@@ -599,8 +650,9 @@ pub fn default_pfa(w: &World, l: &LiveDraft) -> Vec<(u32, u32, u32)> {
     let grades = grades(w, l);
     let order = super::board::ordered(w, &grades);
     let room = w.rules.nfl_offseason as usize;
-    let have =
-        w.clubs.get(l.team).map_or(0, |c| c.roster.len()) + l.run.picked.iter().filter(|x| x.2 == l.team).count();
+    // The picks on the books are on the roster already.
+    let have = w.clubs.get(l.team).map_or(0, |c| c.roster.len())
+        + l.run.picked.iter().filter(|x| x.2 == l.team && x.1 > l.run.committed).count();
     let n = room.saturating_sub(have).clamp(4, 20);
     let pool = crate::world::pro::scouts::udfa_pool(l.run.year);
     let min_pay = crate::world::pro::money::minimum(l.run.year, 0);
@@ -622,11 +674,27 @@ pub fn default_pfa(w: &World, l: &LiveDraft) -> Vec<(u32, u32, u32)> {
         .collect()
 }
 
-/// The war room closes on its own (Continue pressed elsewhere, a day played
-/// from the debug tools): your staff makes every pick left and the rush
-/// runs on your list.
+/// The war room closes on its own (a day played from the debug tools):
+/// your staff makes the night's picks left, and after the last night the
+/// rush runs on your list.
 pub(crate) fn finish(w: &mut World) {
-    if w.scouting.live.is_some() {
-        let _ = rush(w);
+    // The night under way: your staff makes its picks left. After the last
+    // night the rush runs on your list.
+    while let Some(l) = w.scouting.live.as_ref() {
+        if l.waiting {
+            return;
+        }
+        if l.rush {
+            let _ = rush(w);
+            return;
+        }
+        if on_clock(l) {
+            if auto_pick(w).is_err() {
+                let _ = rush(w);
+                return;
+            }
+        } else {
+            advance(w, Until::Yours);
+        }
     }
 }

@@ -505,9 +505,17 @@ pub fn after_days(w: &mut World) {
     if first_time {
         welcome(w, me, &mut mails, &mut reveals);
     }
-    if start <= last {
-        compose(w, me, start, last, &mut mails, &mut reveals);
+    // The six-part day: today so far is written too, and a letter is
+    // filed only once its stamp has come; the rest waits for a later stop.
+    if start <= today {
+        compose(w, me, start, today, &mut mails, &mut reveals);
     }
+    let (mails, held): (Vec<Mail>, Vec<Mail>) = mails.into_iter().partition(|m| {
+        w.has_come(w.seat_zone().to_eastern(afm_engine::calendar::Moment { date: m.date, minute: m.minute }))
+    });
+    // A day is done once nothing written from it waits: a letter waits at
+    // most a day past what it answers.
+    let done = held.iter().map(|m| m.date.add(-2)).min().map_or(last, |d| d.min(last));
     let Some(c) = w.career.as_mut() else { return };
     let desk = &mut c.desk;
     for m in mails {
@@ -523,8 +531,8 @@ pub fn after_days(w: &mut World) {
             desk.reveals.push(r);
         }
     }
-    if start <= last || first_time {
-        desk.through = Some(last.max(desk.through.unwrap_or(last)));
+    if start <= done || first_time {
+        desk.through = Some(done.max(desk.through.unwrap_or(done)));
     }
     desk.clear_old(today);
 }

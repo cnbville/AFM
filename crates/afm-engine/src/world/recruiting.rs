@@ -1404,13 +1404,71 @@ pub(crate) fn all_star_game(w: &mut World, game: &'static str) {
 /// (section 7, topic 11): the AI picks run up to your club's turn and the
 /// draft waits for you (`world::scouting::live`). Without one it runs whole,
 /// pick by pick on the same steps.
-pub(crate) fn draft(w: &mut World) {
-    let mut run = draft_begin(w);
-    if super::scouting::live::start(w, &mut run) {
+/// The night a round is drafted on (T1.5): round 1 on the first, rounds 2
+/// and 3 on the second, 4 to 7 on the last day.
+pub(crate) fn night_of(round: u32) -> usize {
+    match round {
+        1 => 0,
+        2 | 3 => 1,
+        _ => 2,
+    }
+}
+
+/// The draft's steps on world day `d`: each night's opening minute (the
+/// six-part day: the three days run on their own days).
+pub(crate) fn draft_steps(w: &World, d: Date) -> Vec<u16> {
+    let under_way = w.draft_run.is_some() || w.scouting.live.as_ref().is_some_and(|l| l.waiting);
+    let mut v: Vec<u16> = w
+        .dates
+        .draft
+        .iter()
+        .enumerate()
+        .filter(|&(k, _)| k == 0 || under_way)
+        .filter_map(|(_, &m)| crate::calendar::zone::day_minute(d, m))
+        .collect();
+    v.dedup();
+    v
+}
+
+/// A draft night opens at its minute: the first sets the draft up (or opens
+/// your war room), and each makes its own rounds' picks.
+pub(crate) fn draft_at(w: &mut World, d: Date, t: u16) {
+    for k in 0..3 {
+        if crate::calendar::zone::day_minute(d, w.dates.draft[k]) == Some(t) && (k == 0 || draft_under_way(w)) {
+            super::clock::timed("draft", || draft_night(w, k));
+        }
+    }
+}
+
+fn draft_under_way(w: &World) -> bool {
+    w.draft_run.is_some() || w.scouting.live.as_ref().is_some_and(|l| l.waiting)
+}
+
+/// Night `k` of the draft: its rounds' picks, on the books that night; the
+/// undrafted rush after the last.
+fn draft_night(w: &mut World, k: usize) {
+    if k == 0 && !draft_under_way(w) && w.scouting.live.is_none() {
+        let mut run = draft_begin(w);
+        if super::scouting::live::start(w, &mut run) {
+            return;
+        }
+        w.draft_run = Some(run);
+    }
+    // Your war room opens again for its next night.
+    if w.scouting.live.as_ref().is_some_and(|l| l.waiting) {
+        super::scouting::live::open_night(w, k);
         return;
     }
-    while draft_step(w, &mut run, None, None) {}
-    draft_end(w, run, None);
+    let Some(mut run) = w.draft_run.take() else { return };
+    while !run.done() && night_of(run.board[run.next as usize - 1].1) <= k {
+        draft_step(w, &mut run, None, None);
+    }
+    commit_picks(w, &mut run);
+    if run.done() {
+        draft_end(w, run, None);
+    } else {
+        w.draft_run = Some(run);
+    }
 }
 
 /// The minute each pick on the board is made (T1.5): round 1 on the first
@@ -1426,11 +1484,7 @@ pub(crate) fn draft(w: &mut World) {
 /// into the next one or past midnight is squeezed to fit (the older drafts).
 pub(crate) fn pick_stamps(year: i32, board: &[(usize, u32)], scale: f64, starts: [Moment; 3]) -> Vec<Moment> {
     let stands_for = 1.0 / scale.clamp(0.01, 1.0);
-    let day = |r: u32| match r {
-        1 => 0,
-        2 | 3 => 1,
-        _ => 2,
-    };
+    let day = night_of;
     let mut at = [10.0f64, 0.0, 0.0];
     let mut mins = Vec::with_capacity(board.len());
     let mut last = 0;
@@ -1479,6 +1533,10 @@ pub struct DraftRun {
     /// The clubs' hunts (SK67): (club, the man's place in the people list).
     #[serde(default)]
     pub hunts: Vec<(usize, usize)>,
+    /// The last pick on the books (each night's picks join their clubs
+    /// that night).
+    #[serde(default)]
+    pub committed: u32,
 }
 
 impl DraftRun {
@@ -1766,13 +1824,14 @@ pub(crate) fn apply_swap(run: &mut DraftRun, pick: u32, sw: &super::pro::scouts:
 /// and in the news, and the departments turning over.
 pub(crate) fn draft_end(
     w: &mut World,
-    run: DraftRun,
+    mut run: DraftRun,
     seat_rush: Option<(usize, Vec<(usize, super::pro::scouts::Offer)>)>,
 ) -> Vec<(usize, super::pro::scouts::Offer)> {
+    // The last night's picks go on the books first.
+    commit_picks(w, &mut run);
     let draft_year = run.year;
-    let season = draft_year - 1;
     let y = w.dates.clone();
-    let DraftRun { board, pool, boards: club_boards, picked, swaps, slides, .. } = run;
+    let DraftRun { board, pool, boards: club_boards, picked, slides, .. } = run;
     let slots = board.len();
     // What it took to go in rounds 1-2 and 3-4 this year, as overall ratings:
     // staffs read their own underclassmen against it (fix list 1.2).
@@ -1786,10 +1845,161 @@ pub(crate) fn draft_end(
     for (i, rank, pick) in slides {
         super::pro::scouts::note_slide(w, i, rank, pick);
     }
+    // The undrafted rush (topic 12): each club calls the best left on its
+    // own board with its bonus pool; each player picks his path.
+    let left: Vec<usize> = pool.iter().map(|x| x.0).collect();
+    let offers: Vec<(usize, super::pro::scouts::Offer)> = if w.clubs.is_empty() {
+        let n = ((slots as f64 * PIPELINE.udfa_ratio).round() as usize).min(left.len());
+        let cap = super::pro::money::price_cap(draft_year);
+        (0..n)
+            .map(|k| {
+                let wanted = 1.0 - k as f64 / n.max(1) as f64;
+                let bonus = cap * 0.0009 * wanted * wanted + cap * 0.00002;
+                let t = super::pro::undrafted_team(w, left[k]);
+                (left[k], super::pro::scouts::Offer { team: t, bonus, guarantee: 0.0 })
+            })
+            .collect()
+    } else {
+        let limit = w.rules.nfl_offseason as usize;
+        let mut room: Vec<usize> = (0..w.nfl.len())
+            .map(|t| {
+                if t < w.clubs.len() && super::franchise::active_in(w, t, draft_year) {
+                    // The picks are on the roster already.
+                    limit.saturating_sub(w.clubs[t].roster.len())
+                } else {
+                    0
+                }
+            })
+            .collect();
+        super::pro::scouts::rush(w, &club_boards, &left, &mut room, seat_rush.as_ref())
+    };
+    let udfa = offers.len();
+    w.market.year_mut(draft_year).udfa_signed += udfa as u32;
+    let by_offer: std::collections::HashMap<usize, super::pro::scouts::Offer> = offers.iter().copied().collect();
+    // The draft classes' tally (lane NB1).
+    if w.tallying() {
+        let rows: Vec<(usize, u32, u32, usize)> =
+            picked.iter().map(|(i, pk, t, _)| (*i, *pk, board[*pk as usize - 1].1, *t)).collect();
+        w.tally_draft(draft_year, &rows);
+    }
+    // Those nobody signed: a rookie minicamp tryout or two first (topic 12),
+    // then the end of the road for most.
+    let unsigned: Vec<usize> = pool.iter().map(|x| x.0).filter(|i| !by_offer.contains_key(i)).collect();
+    let tried = super::scouting::pro::minicamp_tryouts(w, &unsigned, &club_boards);
+    let mut events: Vec<Event> = Vec::new();
+    for &(i, _) in pool.iter() {
+        match by_offer.get(&i) {
+            Some(&o) => book_signing(w, i, None, Some(o), &board, draft_year, y.udfa_rush, &mut events),
+            None if tried.contains_key(&i) => {}
+            None => {
+                let p = &mut w.people[i];
+                p.stage = Stage::Done;
+                p.note("Went undrafted and unsigned, and his football career ended.");
+            }
+        }
+    }
+    for e in events {
+        w.calendar.post(e);
+    }
+    let udfa_text = format!("The undrafted free agent rush: {udfa} players sign within hours of the last pick.");
+    w.calendar
+        .post(Event::new(y.udfa_rush.date, CalLevel::Nfl, Kind::Signing, Loudness::Medium, udfa_text).at(y.udfa_rush));
+    super::scouting::after_draft(w, &board, &tried);
+    super::pro::after_draft(w);
+    super::pro::scouts::after_rush(w);
+    super::franchise::clear_dark(w);
+    offers
+}
+
+/// One signing on the books: a pick (`how`: pick, club, why) or an
+/// undrafted free agent (`offer`), at its minute `when`.
+#[allow(clippy::too_many_arguments)]
+fn book_signing(
+    w: &mut World,
+    i: usize,
+    how: Option<(u32, usize, String)>,
+    offer: Option<super::pro::scouts::Offer>,
+    board: &[(usize, u32)],
+    draft_year: i32,
+    when: Moment,
+    events: &mut Vec<Event>,
+) {
+    let season = draft_year - 1;
+    let c = w.people[i].college.unwrap();
+    let school = w.program_name(c).to_string();
+    let pick = how.as_ref().map(|h| h.0);
+    let round = pick.map(|pk| board[pk as usize - 1].1);
+    if let Some(r) = round {
+        w.programs[c].draft_picks.push((draft_year, r));
+    }
+    let weight = match round {
+        Some(1) => 1.0,
+        Some(2 | 3) => 0.8,
+        Some(_) => 0.5,
+        None => 0.25,
+    };
+    credit_impact(w, i, c, weight, season);
+    let team_name = how.as_ref().map(|h| w.nfl[h.1].name);
+    let team_id = how.as_ref().map(|h| h.1);
+    // An undrafted player signs where the rush took him.
+    let udfa_team = offer.map(|o| o.team);
+    let udfa_name = udfa_team.map_or("", |t| w.nfl[t].name);
+    let p = &mut w.people[i];
+    p.stage = Stage::Pro;
+    let age = p.row_age();
+    match (how, round, team_name) {
+        (Some((pk, _, why)), Some(r), Some(team)) => {
+            p.note(format!("Drafted by the {team} in round {r} (pick {pk}) out of {school} at {age}: {why}."));
+            let loud = match pk {
+                1 => Loudness::Huge,
+                2..=10 => Loudness::Big,
+                _ if r == 1 => Loudness::Medium,
+                _ => Loudness::Small,
+            };
+            let text = format!("Pick {pk}: the {team} take {} ({}, {school}).", p.name, p.player.position);
+            let mut e = Event::new(when.date, CalLevel::Nfl, Kind::DraftPick, loud, text)
+                .at(when)
+                .program(c)
+                .person(p.player.id, &p.name)
+                .school_link(c, &school);
+            if pk == 1 {
+                e = e.memorable();
+            }
+            if let Some(t) = team_id {
+                e = e.team(t).club_link(t, team);
+            }
+            events.push(e);
+        }
+        _ => p.note(format!("Signed with the {udfa_name} as an undrafted free agent out of {school} at {age}.")),
+    }
+    if w.recording {
+        let mut a = Alumnus::from_person(p, draft_year, pick, false);
+        a.nfl_team = team_name;
+        w.alumni.push(a);
+    }
+    match (team_id, pick, round, udfa_team) {
+        (Some(t), Some(pk), Some(r), _) => super::pro::join_drafted(w, i, t, draft_year, pk, r),
+        (_, _, _, Some(t)) => {
+            let o = offer.unwrap();
+            let terms = super::pro::money::undrafted_offer(draft_year, o.bonus, o.guarantee);
+            super::pro::join_undrafted(w, i, t, draft_year, &terms)
+        }
+        _ => {}
+    }
+}
+
+/// The picks made since the last ones on the books (the six-part day: each
+/// night's picks join their clubs that night and come out at their own
+/// minutes): the trades on the clock, then each pick.
+pub(crate) fn commit_picks(w: &mut World, run: &mut DraftRun) {
+    let draft_year = run.year;
+    let y = w.dates.clone();
+    let from = run.committed;
     // Every pick's minute, from the board's own rounds (T1.5).
-    let stamps = pick_stamps(draft_year, &board, w.options.scale, y.draft);
+    let stamps = pick_stamps(draft_year, &run.board, w.options.scale, y.draft);
     // The trades on the clock, on the books and in the news, each at its
     // pick's minute: the deal is announced as the buyer goes on the clock.
+    let swaps: Vec<_> = run.swaps.iter().filter(|s| s.2 > from).cloned().collect();
     for (buyer, seller, pick, what, future) in swaps {
         let night = stamps.get(pick as usize - 1).map_or(y.draft[0], |m| m.add_minutes(-2));
         if let Some(r) = future {
@@ -1819,139 +2029,16 @@ pub(crate) fn draft_end(
                 .club_link(seller, w.nfl[seller].name),
         );
     }
-    // The undrafted rush (topic 12): each club calls the best left on its
-    // own board with its bonus pool; each player picks his path.
-    let left: Vec<usize> = pool.iter().map(|x| x.0).collect();
-    let offers: Vec<(usize, super::pro::scouts::Offer)> = if w.clubs.is_empty() {
-        let n = ((slots as f64 * PIPELINE.udfa_ratio).round() as usize).min(left.len());
-        let cap = super::pro::money::price_cap(draft_year);
-        (0..n)
-            .map(|k| {
-                let wanted = 1.0 - k as f64 / n.max(1) as f64;
-                let bonus = cap * 0.0009 * wanted * wanted + cap * 0.00002;
-                let t = super::pro::undrafted_team(w, left[k]);
-                (left[k], super::pro::scouts::Offer { team: t, bonus, guarantee: 0.0 })
-            })
-            .collect()
-    } else {
-        let limit = w.rules.nfl_offseason as usize;
-        let mut room: Vec<usize> = (0..w.nfl.len())
-            .map(|t| {
-                if t < w.clubs.len() && super::franchise::active_in(w, t, draft_year) {
-                    limit.saturating_sub(w.clubs[t].roster.len() + picked.iter().filter(|x| x.2 == t).count())
-                } else {
-                    0
-                }
-            })
-            .collect();
-        super::pro::scouts::rush(w, &club_boards, &left, &mut room, seat_rush.as_ref())
-    };
-    let udfa = offers.len();
-    w.market.year_mut(draft_year).udfa_signed += udfa as u32;
-    let by_offer: std::collections::HashMap<usize, super::pro::scouts::Offer> = offers.iter().copied().collect();
-    // The draft classes' tally (lane NB1).
-    if w.tallying() {
-        let rows: Vec<(usize, u32, u32, usize)> =
-            picked.iter().map(|(i, pk, t, _)| (*i, *pk, board[*pk as usize - 1].1, *t)).collect();
-        w.tally_draft(draft_year, &rows);
-    }
-    // Each signee, with his pick, team and why (None for an undrafted signing).
-    type Drafted = Option<(u32, usize, String)>;
-    let mut signed: Vec<(usize, Drafted, Option<super::pro::scouts::Offer>)> =
-        picked.into_iter().map(|(i, pk, t, why)| (i, Some((pk, t, why)), None)).collect();
-    // Those nobody signed: a rookie minicamp tryout or two first (topic 12),
-    // then the end of the road for most.
-    let unsigned: Vec<usize> = pool.iter().map(|x| x.0).filter(|i| !by_offer.contains_key(i)).collect();
-    let tried = super::scouting::pro::minicamp_tryouts(w, &unsigned, &club_boards);
-    for &(i, _) in pool.iter() {
-        match by_offer.get(&i) {
-            Some(&o) => signed.push((i, None, Some(o))),
-            None if tried.contains_key(&i) => {}
-            None => {
-                let p = &mut w.people[i];
-                p.stage = Stage::Done;
-                p.note("Went undrafted and unsigned, and his football career ended.");
-            }
-        }
-    }
-    // The picks on their minutes, then the undrafted rush.
-    let pick_time = |pick: u32| -> Moment { stamps.get(pick as usize - 1).copied().unwrap_or(y.draft[2]) };
     let mut events: Vec<Event> = Vec::new();
-    for (i, how, offer) in signed {
-        let c = w.people[i].college.unwrap();
-        let school = w.program_name(c).to_string();
-        let pick = how.as_ref().map(|h| h.0);
-        let round = pick.map(|pk| board[pk as usize - 1].1);
-        if let Some(r) = round {
-            w.programs[c].draft_picks.push((draft_year, r));
-        }
-        let weight = match round {
-            Some(1) => 1.0,
-            Some(2 | 3) => 0.8,
-            Some(_) => 0.5,
-            None => 0.25,
-        };
-        credit_impact(w, i, c, weight, season);
-        let team_name = how.as_ref().map(|h| w.nfl[h.1].name);
-        let team_id = how.as_ref().map(|h| h.1);
-        // An undrafted player signs where the rush took him.
-        let udfa_team = offer.map(|o| o.team);
-        let udfa_name = udfa_team.map_or("", |t| w.nfl[t].name);
-        let p = &mut w.people[i];
-        p.stage = Stage::Pro;
-        let age = p.row_age();
-        let when = pick.map_or(y.udfa_rush, pick_time);
-        match (how, round, team_name) {
-            (Some((pk, _, why)), Some(r), Some(team)) => {
-                p.note(format!("Drafted by the {team} in round {r} (pick {pk}) out of {school} at {age}: {why}."));
-                let loud = match pk {
-                    1 => Loudness::Huge,
-                    2..=10 => Loudness::Big,
-                    _ if r == 1 => Loudness::Medium,
-                    _ => Loudness::Small,
-                };
-                let text = format!("Pick {pk}: the {team} take {} ({}, {school}).", p.name, p.player.position);
-                let mut e = Event::new(when.date, CalLevel::Nfl, Kind::DraftPick, loud, text)
-                    .at(when)
-                    .program(c)
-                    .person(p.player.id, &p.name)
-                    .school_link(c, &school);
-                if pk == 1 {
-                    e = e.memorable();
-                }
-                if let Some(t) = team_id {
-                    e = e.team(t).club_link(t, team);
-                }
-                events.push(e);
-            }
-            _ => p.note(format!("Signed with the {udfa_name} as an undrafted free agent out of {school} at {age}.")),
-        }
-        if w.recording {
-            let mut a = Alumnus::from_person(p, draft_year, pick, false);
-            a.nfl_team = team_name;
-            w.alumni.push(a);
-        }
-        match (team_id, pick, round, udfa_team) {
-            (Some(t), Some(pk), Some(r), _) => super::pro::join_drafted(w, i, t, draft_year, pk, r),
-            (_, _, _, Some(t)) => {
-                let o = offer.unwrap();
-                let terms = super::pro::money::undrafted_offer(draft_year, o.bonus, o.guarantee);
-                super::pro::join_undrafted(w, i, t, draft_year, &terms)
-            }
-            _ => {}
-        }
+    let picks: Vec<(usize, u32, usize, String)> = run.picked.iter().filter(|x| x.1 > from).cloned().collect();
+    for (i, pk, t, why) in picks {
+        let when = stamps.get(pk as usize - 1).copied().unwrap_or(y.draft[2]);
+        book_signing(w, i, Some((pk, t, why)), None, &run.board, draft_year, when, &mut events);
     }
     for e in events {
         w.calendar.post(e);
     }
-    let udfa_text = format!("The undrafted free agent rush: {udfa} players sign within hours of the last pick.");
-    w.calendar
-        .post(Event::new(y.udfa_rush.date, CalLevel::Nfl, Kind::Signing, Loudness::Medium, udfa_text).at(y.udfa_rush));
-    super::scouting::after_draft(w, &board, &tried);
-    super::pro::after_draft(w);
-    super::pro::scouts::after_rush(w);
-    super::franchise::clear_dark(w);
-    offers
+    run.committed = run.next.saturating_sub(1).max(from);
 }
 
 /// "12th on the public boards", or "unranked" for a player outside them.

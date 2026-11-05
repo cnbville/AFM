@@ -52,7 +52,7 @@ fn an_nfl_war_room_runs_the_draft() {
     // The first morning (the day after the Super Bowl, before it runs)
     // already reads this April's order.
     let first_morning = ok(&mut g, "draft_board", json!({}))["picks"].clone();
-    ok(&mut g, "continue", json!({ "max_days": 1 }));
+    ok(&mut g, "continue", json!({}));
     assert_eq!(ok(&mut g, "draft_board", json!({}))["picks"], first_morning, "the first morning's draft order");
     // The department and the public's word.
     let dept = ok(&mut g, "scouting", json!({}));
@@ -93,7 +93,12 @@ fn an_nfl_war_room_runs_the_draft() {
     // To draft day: Continue stops when the war room opens.
     let mut steps = 0;
     while !ok(&mut g, "draft_live", json!({}))["live"].as_bool().unwrap() && steps < 300 {
-        ok(&mut g, "continue", json!({ "max_days": 60 }));
+        ok(&mut g, "day", json!({}));
+        steps += 1;
+    }
+    // Your first pick may come on a later night: Continue on to it.
+    while ok(&mut g, "draft_live", json!({}))["waiting"] == json!(true) && steps < 340 {
+        ok(&mut g, "continue", json!({}));
         steps += 1;
     }
     let room = ok(&mut g, "draft_live", json!({}));
@@ -101,7 +106,7 @@ fn an_nfl_war_room_runs_the_draft() {
     println!("to the draft in {:.0}s", t.elapsed().as_secs_f64());
     // Continue doesn't move past an open war room, and sends you to it.
     let before = ok(&mut g, "status", json!({}));
-    let r = ok(&mut g, "continue", json!({ "max_days": 5 }));
+    let r = ok(&mut g, "continue", json!({}));
     assert_eq!(r["studio"]["screen"], json!("warroom"));
     assert_eq!(ok(&mut g, "status", json!({}))["date"], before["date"]);
     // The pre-draft page and the public's boards are there.
@@ -127,8 +132,12 @@ fn an_nfl_war_room_runs_the_draft() {
     let mut room = ok(&mut g, "draft_go", json!({ "until": "yours" }));
     let mut traded = false;
     let mut guard = 0;
-    while room["live"].as_bool().unwrap() && !room["rush"].as_bool().unwrap() && guard < 40 {
-        if room["on_clock"].as_bool().unwrap() {
+    while room["live"].as_bool().unwrap() && !room["rush"].as_bool().unwrap() && guard < 120 {
+        if room["waiting"] == json!(true) {
+            // Between the draft's nights: the clock runs on to the next.
+            ok(&mut g, "continue", json!({}));
+            room = ok(&mut g, "draft_live", json!({}));
+        } else if room["on_clock"].as_bool().unwrap() {
             if !traded && !room["offers"].as_array().unwrap().is_empty() {
                 room = ok(&mut g, "draft_accept", json!({ "offer": 0 }));
                 traded = true;
@@ -147,7 +156,7 @@ fn an_nfl_war_room_runs_the_draft() {
     assert_eq!(rec["all"].as_array().unwrap().len(), slots, "{}", rec["all"]);
     assert!(!ok(&mut g, "draft_live", json!({}))["live"].as_bool().unwrap());
     // The world carries on after the draft.
-    ok(&mut g, "continue", json!({ "max_days": 30 }));
+    ok(&mut g, "day", json!({}));
     ok(&mut g, "pro_scouting", json!({}));
     ok(&mut g, "lookback", json!({}));
     // Save and load keep the department.

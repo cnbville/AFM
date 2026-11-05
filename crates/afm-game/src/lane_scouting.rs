@@ -1497,6 +1497,10 @@ pub fn war_room(w: &World) -> Reply {
         "round": round,
         "on_clock": on_clock,
         "rush": l.rush,
+        // The night's picks are in: the room waits for the next night.
+        "waiting": l.waiting,
+        "night": l.night,
+        "next_night": live::next_night(w).map(|m| w.when_text(m)),
         "clock_minutes": clock,
         "on_the_clock": run.board.get(next.saturating_sub(1)).map(|s| team_brief(w, TeamRef::Nfl(s.0))),
         "board": board_rows,
