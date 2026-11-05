@@ -333,7 +333,7 @@ fn check_promises(w: &mut World, d: Date) {
     }
 }
 
-fn kept(w: &World, p: &Promise) -> bool {
+pub(crate) fn kept(w: &World, p: &Promise) -> bool {
     match (p.to, p.kind) {
         (PromiseTo::Player(id), kind) => {
             let Some(i) = super::person(w, id) else { return true };
@@ -591,27 +591,27 @@ pub fn concern(w: &World, i: usize) -> (Subject, String) {
     }
 }
 
-/// The close friend who left the team lately and still weighs on him: a
-/// cut, trade or transfer in the last four weeks that dipped his mood
-/// (`ties::your_week`), by the friend's id.
+/// The close friend who left your team lately and still weighs on him: a
+/// cut, trade, transfer or graduation in the last four weeks, from a tie
+/// strong enough to dip his mood by 0.05 or more (`ties::your_week`), and
+/// not back on the roster since. The strongest such tie, by the friend's id.
 pub fn friend_gone(w: &World, id: u32) -> Option<u32> {
     let today = w.today;
-    let hit = w.folk.moods.iter().find(|x| x.0 == id).is_some_and(|x| {
-        x.1.iter().any(|&(d, why, v)| why == Reason::FriendLeft as u8 && d.days_to(today) <= 28 && v <= -5)
-    });
-    if !hit {
+    let gone = &w.folk.ties.gone;
+    if !gone.iter().any(|g| g.0 == id) {
         return None;
     }
     let roster = Team::seat(w).map(|t| t.roster(w)).unwrap_or_default();
-    w.folk
-        .ties
-        .of_id(id)
-        .filter(|t| t.kind != super::ties::Kind::Mentor && !t.together)
-        .map(|t| (if t.a == id { t.b } else { t.a }, t.strength))
-        .filter(|&(o, _)| super::person(w, o).is_some_and(|j| !roster.contains(&j)))
-        .max_by_key(|x| x.1)
-        .map(|x| x.0)
+    gone.iter()
+        .filter(|g| g.0 == id && g.2 >= FRIEND_HIT && g.3.days_to(today) <= 28)
+        .filter(|g| super::person(w, g.1).is_some_and(|j| !roster.contains(&j)))
+        .max_by_key(|g| (g.2, g.3))
+        .map(|g| g.1)
 }
+
+/// The tie strength whose leaving dips his mood by 0.05 or more (0.12 x
+/// strength / 70, `ties::your_week`).
+const FRIEND_HIT: u8 = 27;
 
 /// His closest friend still on your roster.
 fn friend_here(w: &World, id: u32) -> Option<usize> {
@@ -1022,7 +1022,9 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
                 Move::Promise,
                 Tone::Warm,
                 if starter {
-                    format!("\"{gone} leaving changes nothing for you. You're my starter, and that's not going anywhere.\"")
+                    format!(
+                        "\"{gone} leaving changes nothing for you. You're my starter, and that's not going anywhere.\""
+                    )
                 } else {
                     format!("\"{gone} leaving changes nothing for you. Your place here is safe.\"")
                 },
@@ -1360,9 +1362,16 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
     } else {
         // On his friend leaving he answers about that (a promise still gets
-        // its own "I'll hold you to it").
+        // its own "I'll hold you to it"); asked to lean on a teammate, he
+        // answers about that.
         let line = if subject == Subject::Friend && m != Move::Promise {
-            pen.line(&[&format!("talk.reply.friend.{outcome}"), &format!("?talk.close.{outcome}")], &spk, &f)
+            let own = if m == Move::Hand { format!("talk.reply.friend.hand.{outcome}") } else { String::new() };
+            let line = if own.is_empty() { String::new() } else { pen.line(&[&own], &spk, &f) };
+            if line.is_empty() {
+                pen.line(&[&format!("talk.reply.friend.{outcome}"), &format!("?talk.close.{outcome}")], &spk, &f)
+            } else {
+                line
+            }
         } else {
             String::new()
         };
@@ -1455,6 +1464,7 @@ fn reveal_fallback(s: Subject, words: &str) -> String {
         Subject::Future => "Honestly? I don't know if this is the place for me anymore.".into(),
         Subject::Role => "I just feel like I've earned a shot and I'm not getting it.".into(),
         Subject::Money => "Everybody around me is getting paid. I'm doing the work.".into(),
+        Subject::Friend => "Honestly? I miss him. It's been harder than I let on.".into(),
         _ => format!("Truth is, {words}."),
     }
 }

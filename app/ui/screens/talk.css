@@ -186,6 +186,18 @@
 .tk-fbar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .12); margin: 6px 0 8px; }
 .tk-fbar i { display: block; height: 100%; border-radius: 2px; background: rgba(238, 240, 244, .7); }
 .tk-fbar.bad i { background: var(--sl-bad, #f0a35e); }
+/* A one-on-one's bars move with each line: the change since he came in is
+   tinted, and a mark stands where he came in. */
+.tk-fbar.mv { position: relative; height: 4px; }
+.tk-fbar.mv i { position: absolute; left: 0; top: 0; transition: width .35s; }
+.tk-fbar.mv s { position: absolute; top: 0; height: 100%; border-radius: 2px; text-decoration: none; transition: left .35s, width .35s; }
+.tk-fbar.mv s.up { background: var(--sl-good, #6fd19b); }
+.tk-fbar.mv s.down { background: var(--sl-bad, #f0a35e); opacity: .85; }
+.tk-fbar.mv u { position: absolute; top: -3px; width: 2px; height: 10px; margin-left: -1px; border-radius: 1px; background: #eef0f4; }
+.tk-fdelta { margin-left: 6px; font-size: 10px; }
+.tk-fdelta.up { color: var(--sl-good, #6fd19b); }
+.tk-fdelta.down { color: var(--sl-bad, #f0a35e); }
+.tk-fso p.tk-fwent { font-size: 12px; font-weight: 600; color: rgba(241, 190, 72, .85); margin: 0 0 4px; }
 .tk-f2f .tk-warn { color: var(--sl-bad, #f0a35e) !important; }
 
 .tk-fsub { grid-column: 1 / -1; grid-row: 3; align-self: end; justify-self: center; width: min(900px, 100%); text-align: center; }

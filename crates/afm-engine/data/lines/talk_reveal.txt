@@ -3645,7 +3645,7 @@ Just school, Coach. And my ride situation. ~ hs young
 I'm good. My parents have been on me about grades, that's all. ~ hs young
 I'm just stressed about tests. ~ hs young
 I'm good, Coach. I've just got a lot of homework. ~ hs young
-Yes sir, I'm alright. ~ south
+Yes {coach_sir}, I'm alright. ~ south
 I'm fine, Coach. Ain't nothing to it. ~ south
 I'm doing alright, I reckon. ~ south
 I'm good. Don't you worry about me. ~ south
@@ -3657,3 +3657,58 @@ It's nothing, Coach. Seriously. ~ northeast
 Forget about it. I'm good. ~ northeast
 It's all good. Just trying to stay balanced. ~ west
 I'm good. Just processing some stuff. ~ west
+# His friend who just left the team (new bugs, Cain 2026-11-03): what he
+# tells you when he opens up about it. Fact: gone (the friend's first name).
+# Never says why or where the friend went.
+@key talk.reveal.friend
+Honestly? {gone} was the guy I talked to about everything. Now I don't have that.
+It's {gone}, Coach. I didn't think it'd hit me like this.
+I keep looking for {gone} in the locker room. It's weird.
+{gone} kept me level. Without him I'm all over the place.
+I feel like I lost my person here.
+I didn't really get to say goodbye to {gone}.
+It's not football. It's that {gone}'s not here anymore.
+Every day something happens and I want to tell {gone} about it.
+I'm happy for {gone}, I think. But it's lonely without him.
+Some days I feel like the only one left from my group.
+I don't really have anybody to sit with now. That sounds dumb, but it's true.
+I put on a face in the building. It's been rough since {gone} left.
+I haven't been sleeping right since {gone} left.
+{gone} was the first one I'd call after a bad practice. Now I just sit there.
+I didn't know how much I leaned on {gone} until he was gone.
+It's hard to get up for practice when the guy you came up with isn't there.
+I keep telling myself it's just football. It doesn't feel like just football.
+I'm mad, honestly. Not at anybody. Just mad it happened.
+It feels like the building got bigger and quieter at the same time.
+I know guys leave. I just didn't think {gone} would.
+I'm trying to be there for the other guys, but I miss {gone} too.
+{gone} knew what I was going through without me saying it. Nobody else does.
+I've been keeping to myself since {gone} left. I know it shows.
+Everything reminds me of {gone}. The weight room, the bus, all of it.
+I feel bad saying it, but I'm a little lost without him.
+We had a plan, me and {gone}. Now I don't know what the plan is.
+I don't want anybody to think I'm soft. But it's been hard.
+I'm not going anywhere, Coach. It just stings.
+Part of me wonders if I should be somewhere else too. ~ college
+Everybody back home keeps asking me about {gone}, and I don't know what to say. ~ college
+I've been looking at my phone a lot. Seeing where everybody's going. ~ college
+My mom says it's normal to miss him. It still feels weird. ~ hs
+I've known {gone} forever. School's going to be different without him. ~ hs
+I don't know who I'm going to hang out with now. ~ hs young
+Part of me wonders if I'm next. ~ nfl
+In this league you learn not to get attached. I got attached to {gone}. ~ nfl
+I've seen guys come and go for years. This one got to me. ~ nfl vet
+{gone} showed me how to be a pro. Now I've got to do it without him. ~ nfl young
+It's my family that's taking it hard too. {gone} was over at our place all the time. ~ nfl vet
+I don't really talk about stuff like this. But I miss him. ~ quiet
+It's {gone}. That's all. I just miss him. ~ quiet
+I said some things in the locker room I shouldn't have when {gone} left. I was hot. ~ hot
+I was angry about it. Still am, a little. ~ hot
+When somebody's mine, they're mine. {gone} was mine. ~ loyal
+I'd do anything for my guys. I couldn't do anything for {gone}. ~ loyal
+I'm trying to hold the room together. Nobody's asking how I'm doing. ~ leader
+I'm good on the field. It's off it that's been tough without {gone}. ~ ego
+I didn't want to make a fuss about it. But yeah, I miss him. ~ humble
+I've been in my head a lot since {gone} left. ~ shaky
+It shook me more than I thought it would. ~ shaky
+{gone} used to push me every day. I need somebody to push me. ~ competitor

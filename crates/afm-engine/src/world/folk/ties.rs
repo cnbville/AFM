@@ -51,6 +51,10 @@ pub struct Ties {
     pub list: Vec<Tie>,
     /// The year the last fall's ties were drawn.
     pub drawn: i32,
+    /// Your players' close friends who left your roster lately: (who stayed,
+    /// who left, the tie's strength, the day), kept four weeks (a talk's
+    /// friend subject, `talks::friend_gone`).
+    pub gone: Vec<(u32, u32, u8, Date)>,
     /// (player id, tie) sorted, built on first use after a change (never
     /// saved): free agency asks about friends for every offer.
     #[serde(skip)]
@@ -355,7 +359,7 @@ fn mentor_year(w: &mut World) {
 fn your_week(w: &mut World, d: Date) {
     let Some(team) = Team::seat(w) else { return };
     let roster: Vec<u32> = team.roster(w).iter().map(|&i| w.people[i].player.id).collect();
-    let mut gone: Vec<(u32, u8)> = Vec::new();
+    let mut gone: Vec<(u32, u32, u8)> = Vec::new();
     for t in w.folk.ties.list.iter_mut() {
         if t.kind == Kind::Mentor {
             continue;
@@ -364,13 +368,16 @@ fn your_week(w: &mut World, d: Date) {
         let inb = roster.contains(&t.b);
         if t.together && ina != inb {
             t.together = false;
-            let stay = if ina { t.a } else { t.b };
-            gone.push((stay, t.strength));
+            let (stay, left) = if ina { (t.a, t.b) } else { (t.b, t.a) };
+            gone.push((stay, left, t.strength));
         } else if ina && inb {
             t.together = true;
         }
     }
-    for (id, s) in gone {
+    // Who left whom, for the talk about it: four weeks.
+    w.folk.ties.gone.retain(|g| g.3.days_to(d) <= 28);
+    for &(id, left, s) in &gone {
+        w.folk.ties.gone.push((id, left, s, d));
         talks::mood_event(w, id, Reason::FriendLeft, -0.12 * s as f32 / 70.0);
     }
     if d.day() <= 7 {
@@ -425,8 +432,7 @@ fn portal_pull(w: &mut World, d: Date) {
             Some(crate::player::PlayingTime::Rotation) => 0.7,
             _ => 1.0,
         };
-        let f = 1.0
-            + 0.25 * role * s / 100.0 * (1.0 + 0.04 * (p.player.personality.traits.get(Trait::Loyalty) - 10.0));
+        let f = 1.0 + 0.25 * role * s / 100.0 * (1.0 + 0.04 * (p.player.personality.traits.get(Trait::Loyalty) - 10.0));
         p.cal.lean *= f;
         p.cal.lean_events.push((d, "a close friend entered the portal", f));
     }
