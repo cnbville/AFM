@@ -2013,58 +2013,38 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
 
 /// Each varsity player's game reps for his next step (minor bug 247): his
 /// offensive and defensive snaps as a share of a full varsity starter's
-/// season (`season::HS_STARTER_SNAPS`), with your JV and freshman games'
-/// added (shorter games on a running clock, so a full JV season reads
-/// about like a rotation player's). A school's season counts when its
-/// games were on the engine (yours always are); a school that couldn't
-/// field a team some weeks plays those on the stand-in, so its players'
-/// varsity snaps are read against the games it played on the engine, and
-/// with fewer than half there his role decides. A transfer who sat the
-/// year and the kicking spots leave it to his depth chart role.
+/// season (`season::HS_STARTER_SNAPS`). Only varsity snaps count: other
+/// schools' JV and freshman games aren't played, so your school's aren't
+/// read either and it develops as any other (lane 10; a varsity-level
+/// player you put on JV reads a JV starter's role that season,
+/// `front_office::school::squad_roles`). A school's season counts when its
+/// games were on the engine (yours always are). In such a season every
+/// game is played there; a forfeit is a game nobody played, so it counts
+/// as none (`engine_games`). A transfer who sat the year, a suspension that
+/// kept him out of every game and the kicking spots leave it to his depth
+/// chart role, and so does a school that played no game.
 fn keep_reps(w: &mut World, s: usize, filed: &[(usize, HsLine)]) {
     let year = w.year;
     let Some(hs) = w.hs_season.as_ref() else { return };
     let engine = hs.on_engine;
     let seat = w.seat_school();
-    let mut on_engine: HashMap<usize, u32> = HashMap::new();
-    for (_, l) in filed {
-        let e = on_engine.entry(l.school as usize).or_default();
-        *e = (*e).max(l.games as u32);
-    }
-    let scale = |h: usize| {
-        let e = on_engine.get(&h).copied().unwrap_or(0);
-        let all = hs.results.get(h).map_or(0, |r| r.games()).max(e);
-        (e > 0 && 2 * e >= all).then(|| all as f64 / e as f64)
-    };
-    let mut snaps: HashMap<usize, f64> = filed
-        .iter()
-        .map(|(i, l)| {
-            let k = scale(l.school as usize).unwrap_or(1.0);
-            (*i, k * (l.get(HsStat::SnapsOff) + l.get(HsStat::SnapsDef)))
-        })
-        .collect();
-    if seat.is_some_and(|h| w.high_schools[h].state == s) {
-        for l in &w.front_office.school.lines {
-            if let Some(i) = super::front_office::index_of(w, l.id) {
-                let n = l.s[HsStat::SnapsOff as usize] + l.s[HsStat::SnapsDef as usize];
-                *snaps.entry(i).or_default() += n.max(0) as f64;
-            }
-        }
-    }
+    let played: HashSet<usize> = filed.iter().map(|(_, l)| l.school as usize).collect();
+    let lines: HashMap<usize, (f64, u32)> =
+        filed.iter().map(|(i, l)| (*i, (l.get(HsStat::SnapsOff) + l.get(HsStat::SnapsDef), l.games as u32))).collect();
     let mut kept: Vec<(usize, Option<super::Reps>)> = Vec::new();
     for &h in &w.states[s].schools {
-        let counted = (engine || seat == Some(h)) && scale(h).is_some();
+        let counted = (engine || seat == Some(h)) && played.contains(&h);
         for &i in &w.high_schools[h].roster {
             let p = &w.people[i];
             if p.stage != Stage::HighSchool {
                 continue;
             }
-            let n = snaps.get(&i).copied();
-            let sat = p.last_role == Some(PlayingTime::Redshirt) && n.is_none();
+            let (n, games) = lines.get(&i).copied().unwrap_or((0.0, 0));
+            let sat = season::sat_season(p.last_role, games, p.cal.trouble, 0);
             let reps = (counted && !sat && !p.player.position.is_specialist()).then(|| super::Reps {
                 year,
                 college: false,
-                share: (n.unwrap_or(0.0) / season::HS_STARTER_SNAPS as f64) as f32,
+                share: (n / season::HS_STARTER_SNAPS as f64) as f32,
             });
             kept.push((i, reps));
         }

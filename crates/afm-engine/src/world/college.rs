@@ -3214,7 +3214,7 @@ pub(crate) fn finish(w: &mut World) {
     // Snaps become game experience.
     let on_engine = w.college.as_ref().unwrap().on_engine;
     let snaps = std::mem::take(&mut w.college.as_mut().unwrap().snaps);
-    let scale = engine_share(w, &snaps);
+    let scale = engine_share(w, &snaps, year);
     for p in w.people.iter_mut() {
         if !matches!(p.stage, Stage::College | Stage::Declared) {
             continue;
@@ -3232,11 +3232,15 @@ pub(crate) fn finish(w: &mut World) {
         p.last_snaps = n;
         p.college_snaps += n;
         // His game reps for next year's step (minor bug 247): real snaps
-        // only. A planned redshirt or sit-out year (four games or fewer)
-        // and the kicking spots leave it to his depth chart role.
+        // only, read against the team he played for this season (a January
+        // transfer has moved by now). A planned redshirt or sit-out year
+        // (four games or fewer), a suspension that kept him out of every
+        // game and the kicking spots leave it to his depth chart role, and
+        // so does a player who had no college step this season (an early
+        // enrollee arrives in January), so his first camp reads his role.
         let games = snaps.get(&p.player.id).map_or(0, |s| s.1);
-        let sat = p.last_role == Some(PlayingTime::Redshirt) && games <= 4;
-        let k = p.college.and_then(|c| scale.get(c).copied().flatten()).filter(|_| on_engine);
+        let sat = season::sat_season(p.last_role, games, p.cal.trouble, 4);
+        let k = played_for(p, year).and_then(|c| scale.get(c).copied().flatten()).filter(|_| on_engine);
         p.reps = k.filter(|_| !sat && !p.player.position.is_specialist()).map(|k| super::Reps {
             year,
             college: true,
@@ -3273,18 +3277,25 @@ pub(crate) fn finish(w: &mut World) {
     w.college.as_mut().unwrap().finished = true;
 }
 
+/// The program he played for in `year`'s season: the one his camp step
+/// was at. A transfer who lands in the January window has moved before
+/// the season is finished (minor bug 247).
+fn played_for(p: &super::Person, year: i32) -> Option<usize> {
+    p.college_staff.last().filter(|s| s.0 == year).map(|s| s.1)
+}
+
 /// Each team's games over the ones it played on the engine (minor bug
 /// 247): a team short of 30 players plays its games on the stand-in, and
 /// so do its opponents that day, so a player's snaps are read against the
 /// engine games he could take them in (the most any of its players
 /// played). None for a team with fewer than half its games on the engine:
 /// then his depth chart role decides.
-fn engine_share(w: &World, snaps: &HashMap<u32, (u32, u32)>) -> Vec<Option<f64>> {
+fn engine_share(w: &World, snaps: &HashMap<u32, (u32, u32)>, year: i32) -> Vec<Option<f64>> {
     let cs = w.college.as_ref().unwrap();
     let mut engine = vec![0u32; w.programs.len()];
     for p in w.people.iter().filter(|p| matches!(p.stage, Stage::College | Stage::Declared)) {
         if let Some(&(_, g)) = snaps.get(&p.player.id)
-            && let Some(e) = p.college.and_then(|c| engine.get_mut(c))
+            && let Some(e) = played_for(p, year).and_then(|c| engine.get_mut(c))
         {
             *e = (*e).max(g);
         }

@@ -316,6 +316,15 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
     let people = &w.people;
     let seat = w.seat_school();
     let order = if seat.is_some() { w.seat_order() } else { Vec::new() };
+    // Your order is your varsity chart: a player you moved to JV or the
+    // freshman team isn't on it and keeps the staff's place, which
+    // `squad_roles` reads as his squad's (lane 10).
+    let off: std::collections::HashSet<usize> = if order.is_empty() {
+        Default::default()
+    } else {
+        use super::front_office::school::{Squad, squads};
+        squads(w).into_iter().filter(|x| x.1 != Squad::Varsity).map(|x| x.0).collect()
+    };
     schools
         .par_iter()
         .map(|&h| {
@@ -331,7 +340,9 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
                 .collect();
             let mut chart = depth_chart(&mut entries, None, &|_| false, &|_| false);
             if seat == Some(h) {
-                your_order(&mut chart, &entries, &order, &|i| people[i].player.id);
+                let varsity: Vec<(usize, Position, f64)> =
+                    entries.iter().copied().filter(|e| !off.contains(&e.0)).collect();
+                your_order(&mut chart, &varsity, &order, &|i| people[i].player.id);
             }
             for (i, role) in chart.iter_mut() {
                 let p = &people[*i];
@@ -399,9 +410,9 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
 /// (`game::roster::depth_chart`); positions you left alone keep the
 /// staff's. A player listed at another position takes that spot's role
 /// when it is better than his own. A player you list in the two-deep
-/// plays, so the staff doesn't make him a camp redshirt (proposed, not
-/// confirmed); one you list deeper keeps the staff's call, which you can
-/// change on the redshirt screen.
+/// (`two_deep`) plays, so the staff doesn't make him a camp redshirt
+/// (proposed, not confirmed); one you list deeper keeps the staff's call,
+/// which you can change on the redshirt screen.
 pub(crate) fn your_order(
     chart: &mut [(usize, PlayingTime)],
     entries: &[(usize, Position, f64)],
@@ -463,7 +474,7 @@ pub(crate) fn your_order(
             }
             let e = best.entry(i).or_insert((2, false));
             e.0 = e.0.min(r);
-            e.1 |= k < yours && r < 2;
+            e.1 |= k < yours && k < two_deep(pos);
         }
     }
     for (i, role) in chart.iter_mut() {
@@ -490,6 +501,15 @@ pub(crate) fn your_order(
 /// over 10 regular-season games and a playoff game (proposed, not
 /// confirmed). An every-down starter on the engine plays about this many.
 pub(crate) const HS_STARTER_SNAPS: u32 = 550;
+
+/// Whether a season leaves his next step to his depth chart role (minor
+/// bug 247): a redshirt or sit-out year with `redshirt_games` games or
+/// fewer (college four, the redshirt rule; high school none, a transfer's
+/// sit), or trouble that kept him out of every game. A season-long
+/// suspension isn't a bench player's year (proposed, not confirmed).
+pub(crate) fn sat_season(last_role: Option<PlayingTime>, games: u32, trouble: bool, redshirt_games: u32) -> bool {
+    (last_role == Some(PlayingTime::Redshirt) && games <= redshirt_games) || (trouble && games == 0)
+}
 
 /// What a step reads of his last season's reps (minor bug 247): the share,
 /// when they were taken last season at the level he plays now, he plays

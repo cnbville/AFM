@@ -86,6 +86,9 @@ fn main() {
     // id -> his rows, one a season.
     let mut seen: HashMap<u32, Vec<Row>> = HashMap::new();
     let mut hs_years: HashSet<i32> = HashSet::new();
+    // Per division: programs a season, and those whose players took no
+    // snap (every game on the stand-in: a team short of 30 players).
+    let mut dark: BTreeMap<String, (u32, u32)> = BTreeMap::new();
     let w = World::new_logged(opts, None, |w, _| {
         let season = w.year - 1;
         eprintln!("season {season} done, {:.0}s", t.elapsed().as_secs_f64());
@@ -93,6 +96,21 @@ fn main() {
         let hs_engine = w.people.iter().any(|p| p.hs_lines.last().is_some_and(|l| l.year as i32 == season));
         if hs_engine {
             hs_years.insert(season);
+        }
+        if college_engine && season >= w.year - 1 - years as i32 {
+            let mut most = vec![0u32; w.programs.len()];
+            for p in &w.people {
+                if matches!(p.stage, Stage::College | Stage::Declared)
+                    && let Some(c) = p.college
+                {
+                    most[c] = most[c].max(p.last_snaps);
+                }
+            }
+            for (c, prog) in w.programs.iter().enumerate() {
+                let e = dark.entry(format!("{:?}", prog.division)).or_default();
+                e.0 += 1;
+                e.1 += (most[c] == 0) as u32;
+            }
         }
         for p in &w.people {
             let Some(last) = p.player.history.last() else { continue };
@@ -289,6 +307,10 @@ fn main() {
         let parts: Vec<String> = by.iter().map(|(k, v)| format!("year {k}: {:+.2} (n {})", mean(v), v.len())).collect();
         let every: Vec<f64> = by.values().flatten().copied().collect();
         println!("{name:<12} all {:+.3} (n {})  {}", mean(&every), every.len(), parts.join(", "));
+    }
+    println!("\n== College teams whose players took no snap (all games on the stand-in) ==");
+    for (d, (n, none)) in &dark {
+        println!("{d:<6} {none} of {n} team seasons ({:.1}%)", 100.0 * *none as f64 / (*n).max(1) as f64);
     }
     println!("\nhigh school seasons on the engine: {:?}", {
         let mut v: Vec<i32> = hs_years.into_iter().collect();

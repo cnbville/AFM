@@ -8,7 +8,7 @@ use crate::development::develop_season;
 use crate::player::{Level, Player, PlayingTime};
 use crate::positions::Position;
 use crate::rng::Rng;
-use crate::world::season::{depth_chart, reps_read, your_order};
+use crate::world::season::{depth_chart, reps_read, sat_season, your_order};
 use crate::world::{Reps, Stage};
 
 fn role_of(chart: &[(usize, PlayingTime)], i: usize) -> PlayingTime {
@@ -19,7 +19,7 @@ fn role_of(chart: &[(usize, PlayingTime)], i: usize) -> PlayingTime {
 fn your_depth_chart_sets_the_roles_on_your_team() {
     use PlayingTime::*;
     // Quarterbacks: a senior, a junior and a true freshman the staff means
-    // to redshirt. Receivers: six, the last a redshirt too. Corners: three.
+    // to redshirt. Receivers: seven, the last a redshirt too. Corners: three.
     let mut entries = vec![
         (0, Position::QB, 70.0),
         (1, Position::QB, 65.0),
@@ -30,6 +30,7 @@ fn your_depth_chart_sets_the_roles_on_your_team() {
         (6, Position::WR, 66.0),
         (7, Position::WR, 64.0),
         (8, Position::WR, 55.0),
+        (12, Position::WR, 62.0),
         (9, Position::CB, 71.0),
         (10, Position::CB, 69.0),
         (11, Position::CB, 60.0),
@@ -42,11 +43,11 @@ fn your_depth_chart_sets_the_roles_on_your_team() {
     assert_eq!((role_of(&staff, 0), role_of(&staff, 1)), (Starter, Rotation));
     let id = |i: usize| 100 + i as u32;
     // You start the freshman, list the fifth receiver as your top corner,
-    // and order the receivers with the redshirt last.
+    // and order the receivers with the redshirt seventh, past the two-deep.
     let order = vec![
         (Position::QB, vec![id(2)]),
         (Position::CB, vec![id(7)]),
-        (Position::WR, vec![id(3), id(4), id(5), id(6), id(7), id(8)]),
+        (Position::WR, vec![id(3), id(4), id(5), id(6), id(7), id(12), id(8)]),
     ];
     your_order(&mut chart, &entries, &order, &id);
     // The freshman starts and isn't redshirted; the senior drops to second.
@@ -58,12 +59,42 @@ fn your_depth_chart_sets_the_roles_on_your_team() {
     assert_eq!(role_of(&chart, 9), Starter);
     assert_eq!(role_of(&chart, 10), Rotation);
     assert_eq!(role_of(&chart, 11), Backup);
-    // A redshirt you list past the two-deep keeps the staff's call.
+    // A redshirt you list past the two-deep keeps the staff's call; one you
+    // list inside it plays.
     assert_eq!(role_of(&chart, 8), Redshirt);
+    let mut inside = staff.clone();
+    your_order(&mut inside, &entries, &[(Position::WR, vec![id(3), id(4), id(5), id(6), id(8)])], &id);
+    assert_eq!(role_of(&inside, 8), Backup);
     // No order: the staff's chart stands.
     let mut same = staff.clone();
     your_order(&mut same, &entries, &[], &id);
     assert_eq!(same, staff);
+    // At your high school you moved the staff's top receiver to JV: your
+    // varsity order leaves him off and ranks the varsity players alone, so
+    // he keeps the staff's place (his JV starter's role) and the next two
+    // start on varsity.
+    let varsity: Vec<_> = entries.iter().copied().filter(|e| e.0 != 3).collect();
+    let mut jv = staff.clone();
+    your_order(&mut jv, &varsity, &[(Position::WR, vec![id(5), id(4)])], &id);
+    assert_eq!(role_of(&jv, 3), Starter);
+    assert_eq!((role_of(&jv, 5), role_of(&jv, 4)), (Starter, Starter));
+}
+
+#[test]
+fn a_season_off_leaves_the_step_to_the_role() {
+    use PlayingTime::*;
+    // College: a planned redshirt keeps the year with four games or fewer.
+    assert!(sat_season(Some(Redshirt), 4, false, 4));
+    assert!(!sat_season(Some(Redshirt), 5, false, 4));
+    // A suspension that kept him out of every game, not one that came after
+    // he had played.
+    assert!(sat_season(Some(Backup), 0, true, 4));
+    assert!(!sat_season(Some(Backup), 3, true, 4));
+    // A bench player who never got in reads his zero snaps.
+    assert!(!sat_season(Some(Backup), 0, false, 4));
+    // High school: a transfer's sit year is no games at all.
+    assert!(sat_season(Some(Redshirt), 0, false, 0));
+    assert!(!sat_season(Some(Redshirt), 1, false, 0));
 }
 
 #[test]
