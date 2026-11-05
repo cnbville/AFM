@@ -90,13 +90,12 @@ fn your_money_is_the_schools_revenue_share() {
     assert!(set_deal(&mut w, id, 12.5e6).is_err(), "more than the school's pot");
     set_deal(&mut w, id, 1.0e6).unwrap();
     // With NIL at your staff his usual share is what the deal replaces.
-    let replaced = if w.front_office.owner(crate::world::front_office::Duty::Nil)
-        == crate::world::front_office::Owner::You
-    {
-        0.0
-    } else {
-        usual
-    };
+    let replaced =
+        if w.front_office.owner(crate::world::front_office::Duty::Nil) == crate::world::front_office::Owner::You {
+            0.0
+        } else {
+            usual
+        };
     let left = budget(&w, j).left;
     assert!((left - (b.left - 1.0e6 + replaced)).abs() < 1.0, "a deal comes out of the revenue share: {left}");
 }

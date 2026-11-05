@@ -1683,7 +1683,11 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
     let value = |i: usize| rec::nil_value(&w.people[i], prog.division, &medians);
     let total: f64 = roster.iter().map(|&i| value(i)).sum();
     let two = ncaa::two_pots(w.today);
-    let s = if two && prog.collective.budget > 0.0 { ncaa::school_pot(prog, w.today) / prog.collective.budget } else { 0.0 };
+    let s = if two && prog.collective.budget > 0.0 {
+        ncaa::school_pot(prog, w.today) / prog.collective.budget
+    } else {
+        0.0
+    };
     roster
         .iter()
         .map(|&i| {
@@ -1884,11 +1888,17 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<f64>, after: O
         && let Some(x) = after
         && mine_after - x >= 1_000.0
     {
-        v.push(format!("With the collective's own {}, he'd weigh {} a year from you.", dollars(mine_after - x), dollars(mine_after)));
+        v.push(format!(
+            "With the collective's own {}, he'd weigh {} a year from you.",
+            dollars(mine_after - x),
+            dollars(mine_after)
+        ));
     }
     v.push(match (mood, best) {
         (Mood::Thrilled, _) => format!("{who} called it the best money on the table by a distance."),
-        (Mood::Pleased, Some(b)) if mine_after > b.1 => format!("It tops {}'s money (about {}).", name(b.0), dollars(b.1)),
+        (Mood::Pleased, Some(b)) if mine_after > b.1 => {
+            format!("It tops {}'s money (about {}).", name(b.0), dollars(b.1))
+        }
         (Mood::Pleased, _) => format!("It's more than {who_l} expected from you."),
         (Mood::Fine, Some(b)) => format!("It's in line with {}'s money (about {}).", name(b.0), dollars(b.1)),
         (Mood::Fine, None) => format!("It's about what {who_l} expected from you."),
@@ -1907,7 +1917,11 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<f64>, after: O
         v.push(format!("Money isn't what decides it for him: {top} is."));
     }
     if let Some(s) = p.cal.signed {
-        v.push(if s.program == j { "He has signed with you.".into() } else { format!("He has signed with {}.", name(s.program)) });
+        v.push(if s.program == j {
+            "He has signed with you.".into()
+        } else {
+            format!("He has signed with {}.", name(s.program))
+        });
     } else {
         if offered_here(w, p.player.id) {
             let rank = |m: f64| {
@@ -1928,7 +1942,9 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<f64>, after: O
             v.push("Without a scholarship offer from you, it's only a number to him.".into());
         }
         v.push(match p.cal.commit {
-            Some(c) if c.0 == j && mine_after + 1.0 >= mine_before => "He's committed to you, and it firms him up.".into(),
+            Some(c) if c.0 == j && mine_after + 1.0 >= mine_before => {
+                "He's committed to you, and it firms him up.".into()
+            }
             Some(c) if c.0 == j => "He's committed to you, but he noticed the cut.".into(),
             Some(c) => format!("He's committed to {}, but he'll think it over before signing day.", name(c.0)),
             None => "He'll decide in his own time.".into(),
@@ -1988,7 +2004,14 @@ fn portal_reaction(w: &World, i: usize, j: usize, after: Option<f64>) -> Reactio
     if let Some(e) = p.cal.portal {
         v.push(format!("He decides by {}.", e.decide_by.pretty()));
     }
-    Reaction { id: p.player.id, kind: MoneyKind::Portal, date: w.today, money: after.unwrap_or(usual), mood, text: v.join(" ") }
+    Reaction {
+        id: p.player.id,
+        kind: MoneyKind::Portal,
+        date: w.today,
+        money: after.unwrap_or(usual),
+        mood,
+        text: v.join(" "),
+    }
 }
 
 /// A roster player's first answer to the deal you set (N1): his year's

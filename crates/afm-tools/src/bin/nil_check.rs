@@ -101,8 +101,7 @@ fn payday(w: &World) {
             deals.len(),
             100.0 * under
         );
-        let tops: Vec<String> =
-            totals.iter().take(3).map(|t| format!("{} {}", w.program_name(t.1), m(t.0))).collect();
+        let tops: Vec<String> = totals.iter().take(3).map(|t| format!("{} {}", w.program_name(t.1), m(t.0))).collect();
         println!("  top programs: {}", tops.join(", "));
         let top: Vec<String> = deals
             .iter()

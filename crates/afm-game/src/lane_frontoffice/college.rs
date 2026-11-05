@@ -122,7 +122,11 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
         "nil_set" => desk::set_deal(w, id_arg(args)?, money_arg(args, "amount").ok_or("Missing amount.")?)?,
         "nil_usual" => {
             let n = desk::set_usual_deals(w)?;
-            let what = if ncaa::two_pots(w.today) { "the school's usual revenue-share split" } else { "the collective's usual split" };
+            let what = if ncaa::two_pots(w.today) {
+                "the school's usual revenue-share split"
+            } else {
+                "the collective's usual split"
+            };
             format!("{n} {} set at {what}. Adjust any of them.", afm_engine::world::folk::noun(n, "deal"))
         }
         "nil_clear" => {
