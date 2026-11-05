@@ -86,14 +86,14 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_subject" => (|| {
             let id = num(args, "id")? as u32;
             let key = args.get("subject").and_then(Value::as_str).unwrap_or("role");
-            let sub = Subject::ALL.iter().copied().find(|s| s.key() == key).ok_or("Unknown subject.")?;
+            let sub = Subject::from_key(key).ok_or("Unknown subject.")?;
             talks::change_subject(w, id, sub)?;
             scene(w, id)
         })(),
         "people_talk" => (|| {
             let id = num(args, "id")? as u32;
             let subject = args.get("subject").and_then(Value::as_str).unwrap_or("role");
-            let sub = Subject::ALL.iter().copied().find(|s| s.key() == subject).unwrap_or(Subject::Role);
+            let sub = Subject::from_key(subject).unwrap_or(Subject::Role);
             let sid = talks::start_talk(w, id, sub)?;
             Ok(json!({ "scene": sid }))
         })(),
@@ -365,8 +365,27 @@ fn scene(w: &mut World, id: u32) -> Reply {
     }
     if s.kind == Kind::OneOnOne {
         v["subject"] = json!(Subject::from_u64(s.b).key());
-        v["subjects"] =
-            json!(Subject::ALL.iter().map(|x| json!({ "key": x.key(), "name": cap(x.name()) })).collect::<Vec<_>>());
+        // His friend's leaving is a chip only while it weighs on him.
+        v["subjects"] = json!(
+            talks::subjects_for(w, s.a as u32)
+                .into_iter()
+                .map(|(key, name)| json!({ "key": key, "name": name }))
+                .collect::<Vec<_>>()
+        );
+        // The bars move with each line (new bugs, Cain 2026-11-03): where he
+        // came in, and where he is now. His mood lands when the talk ends, so
+        // until then it is where he came in plus the talk so far.
+        if s.c & 2 != 0
+            && let Some(i) = folk::person(w, s.a as u32)
+        {
+            let p = &w.people[i];
+            let you = w.career.as_ref().map(|c| c.coach as u32);
+            let mood = if s.done { p.mood } else { (p.mood + s.f[1]).clamp(-1.0, 1.0) };
+            v["bars"] = json!({
+                "trust": (Some(p.trust_in) == you).then(|| json!({ "from": s.f[2], "now": p.trust, "words": trust_words(p.trust) })),
+                "mood": { "from": s.f[3], "now": mood, "words": talks::mood_words(mood) },
+            });
+        }
     }
     if s.kind == Kind::CombineTalk {
         v["clock"] = json!({ "left": s.c.max(0), "of": s.f[0] as i64 });
@@ -593,7 +612,7 @@ fn player(w: &World, id: u32) -> Reply {
         // (what your position coach would tell you).
         "staffSays": if mine { Some(cap(&worry)) } else { None },
         "ear": ear,
-        "subjects": Subject::ALL.iter().map(|s| json!({ "key": s.key(), "name": cap(s.name()) })).collect::<Vec<_>>(),
+        "subjects": talks::subjects_for(w, id).into_iter().map(|(key, name)| json!({ "key": key, "name": name })).collect::<Vec<_>>(),
         "hours": talks::hours_left(w),
     }))
 }

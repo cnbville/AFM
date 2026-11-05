@@ -637,7 +637,8 @@ impl Facts {
         self.0.iter().find(|x| x.0 == k).map(|x| x.1.as_str())
     }
     /// The coach's pronouns, {coach_he} {coach_him} {coach_his}
-    /// {coach_himself} {coach_man}: whoever {coach} names.
+    /// {coach_himself} {coach_man} and {coach_sir} (sir or ma'am to his
+    /// face): whoever {coach} names.
     pub fn coach(&mut self, pro: Pro) -> &mut Facts {
         self.pronouns("coach", pro)
     }
@@ -651,7 +652,8 @@ impl Facts {
         self.set(if coach { "coach_him" } else { "lead_him" }, pro.him());
         self.set(if coach { "coach_his" } else { "lead_his" }, pro.his());
         self.set(if coach { "coach_himself" } else { "lead_himself" }, pro.himself());
-        self.set(if coach { "coach_man" } else { "lead_man" }, pro.man())
+        self.set(if coach { "coach_man" } else { "lead_man" }, pro.man());
+        self.set(if coach { "coach_sir" } else { "lead_sir" }, pro.sir())
     }
 }
 
@@ -859,7 +861,7 @@ impl Chorus {
 /// The pronoun facts a line may name about the coach ({coach_he}) or a
 /// story's lead ({lead_he}). Always there: set by the caller (`Facts::coach`,
 /// `Facts::lead`), else your own for the coach on a pen's line, else he.
-const PRONOUNS: [&str; 5] = ["he", "him", "his", "himself", "man"];
+const PRONOUNS: [&str; 6] = ["he", "him", "his", "himself", "man", "sir"];
 
 fn is_pronoun(k: &str) -> bool {
     k.strip_prefix("coach_").or_else(|| k.strip_prefix("lead_")).is_some_and(|w| PRONOUNS.contains(&w))
@@ -877,6 +879,7 @@ fn pronoun(k: &str, coach: Pro) -> Option<&'static str> {
         "his" => pro.his(),
         "himself" => pro.himself(),
         "man" => pro.man(),
+        "sir" => pro.sir(),
         _ => return None,
     })
 }
