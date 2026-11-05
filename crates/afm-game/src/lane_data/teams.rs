@@ -43,7 +43,7 @@ use crate::views::{self, TeamRef};
 
 /// How a number is written.
 #[derive(Clone, Copy, PartialEq)]
-enum Fmt {
+pub(super) enum Fmt {
     One,
     Two,
     Pct,
@@ -57,21 +57,21 @@ enum Fmt {
 /// offense only. `depth`: 0 any box score, 1 play-by-play charting, 2 film
 /// (`analytics::depth`). `up`: more is better for the offense (None: no
 /// better way).
-struct TStat {
-    key: &'static str,
-    label: &'static str,
-    unit: u8,
-    depth: u8,
-    up: Option<bool>,
-    fmt: Fmt,
-    f: fn(&Sq, usize, &Lv) -> Option<f64>,
+pub(super) struct TStat {
+    pub(super) key: &'static str,
+    pub(super) label: &'static str,
+    pub(super) unit: u8,
+    pub(super) depth: u8,
+    pub(super) up: Option<bool>,
+    pub(super) fmt: Fmt,
+    pub(super) f: fn(&Sq, usize, &Lv) -> Option<f64>,
 }
 
 /// What a number needs from the level: its share of passes defensed
 /// picked off that season (expected turnovers).
 #[derive(Clone, Copy, Default)]
-struct Lv {
-    pick_share: f64,
+pub(super) struct Lv {
+    pub(super) pick_share: f64,
 }
 
 fn ratio(n: f64, d: f64) -> Option<f64> {
@@ -98,7 +98,7 @@ fn expected_to(s: &Sq, lv: &Lv) -> (f64, f64) {
     (take / games_of(s), give / games_of(s))
 }
 
-const STATS: &[TStat] = &[
+pub(super) const STATS: &[TStat] = &[
     TStat {
         key: "TmPtsG",
         label: "Points a game",
@@ -512,7 +512,7 @@ pub(crate) fn stat_keys() -> impl Iterator<Item = &'static str> {
     STATS.iter().map(|s| s.key)
 }
 
-fn text(fmt: Fmt, v: f64) -> String {
+pub(super) fn text(fmt: Fmt, v: f64) -> String {
     match fmt {
         Fmt::One => format!("{v:.1}"),
         Fmt::Two => format!("{v:.2}"),
@@ -526,14 +526,14 @@ fn text(fmt: Fmt, v: f64) -> String {
 }
 
 /// Better for this side: more, less, or neither.
-fn better(st: &TStat, side: usize) -> Option<bool> {
+pub(super) fn better(st: &TStat, side: usize) -> Option<bool> {
     st.up.map(|u| if side == 1 { !u } else { u })
 }
 
 // ---------------------------------------------------------------------
 // The level's teams in a season.
 
-fn level_of(tier: Tier) -> Level {
+pub(super) fn level_of(tier: Tier) -> Level {
     match tier {
         Tier::College => Level::College,
         Tier::Nfl => Level::Nfl,
@@ -541,7 +541,7 @@ fn level_of(tier: Tier) -> Level {
     }
 }
 
-fn tier_of(t: TeamRef) -> Option<(Tier, usize)> {
+pub(super) fn tier_of(t: TeamRef) -> Option<(Tier, usize)> {
     match t {
         TeamRef::College(p) => Some((Tier::College, p)),
         TeamRef::Nfl(i) => Some((Tier::Nfl, i)),
@@ -550,7 +550,7 @@ fn tier_of(t: TeamRef) -> Option<(Tier, usize)> {
     }
 }
 
-fn team_of(tier: Tier, t: usize) -> Team {
+pub(super) fn team_of(tier: Tier, t: usize) -> Team {
     match tier {
         Tier::College => Team::College(t),
         Tier::Nfl => Team::Nfl(t),
@@ -584,7 +584,7 @@ fn world_key(w: &World) -> usize {
     w as *const World as usize ^ w.tally_dir().map_or(0, |p| p.as_os_str().len())
 }
 
-fn pool(w: &World, level: Level, season: i32) -> Arc<Vec<Sq>> {
+pub(super) fn pool(w: &World, level: Level, season: i32) -> Arc<Vec<Sq>> {
     let read = || {
         let mut v = Vec::new();
         if season == w.tally_open_season() {
@@ -612,7 +612,7 @@ fn pool(w: &World, level: Level, season: i32) -> Arc<Vec<Sq>> {
 }
 
 /// The level's share of passes defensed that were picked off that season.
-fn level_numbers(all: &[Sq]) -> Lv {
+pub(super) fn level_numbers(all: &[Sq]) -> Lv {
     let (pd, picks) = all.iter().fold((0.0, 0.0), |a, s| (a.0 + s.luck_of("pd"), a.1 + s.luck_of("picks")));
     Lv { pick_share: if pd > 0.0 { picks / pd } else { 0.22 } }
 }
@@ -620,7 +620,7 @@ fn level_numbers(all: &[Sq]) -> Lv {
 /// The group a team is ranked in: its college division that season, the
 /// NFL, or its state's high schools of its class (proposed, not
 /// confirmed: a state's class, as its playoffs are).
-fn group_name(w: &World, tier: Tier, team: usize, year: i32) -> String {
+pub(super) fn group_name(w: &World, tier: Tier, team: usize, year: i32) -> String {
     match tier {
         Tier::College => super::season_place(w, team, year).0.name().to_string(),
         Tier::Nfl => "the NFL".into(),
@@ -637,15 +637,15 @@ fn group_name(w: &World, tier: Tier, team: usize, year: i32) -> String {
 }
 
 /// A season's teams in one group, with the group's own numbers.
-struct Group {
-    rows: Vec<Sq>,
-    lv: Lv,
-    name: String,
+pub(super) struct Group {
+    pub(super) rows: Vec<Sq>,
+    pub(super) lv: Lv,
+    pub(super) name: String,
 }
 
 /// The teams in a team's group that season: its division's programs, the
 /// NFL's clubs, its state's schools of its class.
-fn members(w: &World, tier: Tier, team: usize, year: i32) -> Vec<u32> {
+pub(super) fn members(w: &World, tier: Tier, team: usize, year: i32) -> Vec<u32> {
     match tier {
         Tier::College => {
             let d = super::season_place(w, team, year).0;
@@ -663,7 +663,7 @@ fn members(w: &World, tier: Tier, team: usize, year: i32) -> Vec<u32> {
 }
 
 /// Some teams' squad rows in a season (only their frames are read).
-fn rows_for(w: &World, level: Level, season: i32, ids: &[u32]) -> Vec<Sq> {
+pub(super) fn rows_for(w: &World, level: Level, season: i32, ids: &[u32]) -> Vec<Sq> {
     if season == w.tally_open_season() {
         return ids.iter().filter_map(|&t| w.tally_squad(level, season, t)).collect();
     }
@@ -679,14 +679,14 @@ fn rows_for(w: &World, level: Level, season: i32, ids: &[u32]) -> Vec<Sq> {
     v
 }
 
-fn group(w: &World, tier: Tier, team: usize, year: i32) -> Group {
+pub(super) fn group(w: &World, tier: Tier, team: usize, year: i32) -> Group {
     let rows = rows_for(w, level_of(tier), year, &members(w, tier, team, year));
     let lv = level_numbers(&rows);
     Group { rows, lv, name: group_name(w, tier, team, year) }
 }
 
 /// A number's rank in its group (1 best) and the group's middle.
-fn rank_of(st: &TStat, side: usize, g: &Group, v: f64) -> (Option<usize>, Option<f64>) {
+pub(super) fn rank_of(st: &TStat, side: usize, g: &Group, v: f64) -> (Option<usize>, Option<f64>) {
     let vals: Vec<f64> = g.rows.iter().filter_map(|s| (st.f)(s, side, &g.lv)).collect();
     let avg = (!vals.is_empty()).then(|| vals.iter().sum::<f64>() / vals.len() as f64);
     let rank =
@@ -694,7 +694,7 @@ fn rank_of(st: &TStat, side: usize, g: &Group, v: f64) -> (Option<usize>, Option
     (rank, avg)
 }
 
-fn depth_for(w: &World, tier: Tier, team: usize, year: i32) -> Option<u8> {
+pub(super) fn depth_for(w: &World, tier: Tier, team: usize, year: i32) -> Option<u8> {
     let division = (tier == Tier::College).then(|| super::season_place(w, team, year).0);
     super::charting(w, tier, division).map(|c| c.depth)
 }
@@ -715,7 +715,7 @@ fn year_arg(w: &World, args: &Value, years: &[i32], first: Option<i32>) -> i32 {
 /// The seasons a team has in the squads tally, newest first, and the one
 /// a page opens on: the season being played once it has a game, else the
 /// last one counted.
-fn team_years(w: &World, tier: Tier, team: usize) -> (Vec<i32>, Option<i32>) {
+pub(super) fn team_years(w: &World, tier: Tier, team: usize) -> (Vec<i32>, Option<i32>) {
     let open = w.tally_open_season();
     let mut ys: Vec<i32> = w
         .tally_seasons()
@@ -881,7 +881,7 @@ fn flag_rate(t: &teams::Season, yes: &str, no: &str) -> Option<String> {
     (a + b > 0.0).then(|| text(Fmt::Pct, a / (a + b)))
 }
 
-fn tendencies(w: &World, tier: Tier, team: usize, year: i32, me: &Sq, g: &Group, depth: u8) -> Value {
+pub(super) fn tendencies(w: &World, tier: Tier, team: usize, year: i32, me: &Sq, g: &Group, depth: u8) -> Value {
     let mut out = json!({ "calls": tend_rows(me, g) });
     if depth < 2 {
         return out;
@@ -1002,7 +1002,7 @@ fn box_rows(t: &teams::Season) -> Vec<Value> {
 // ---------------------------------------------------------------------
 // Games, unit grades and snap shares (item 21).
 
-fn games_list(w: &World, tier: Tier, team: usize, year: i32, depth: u8) -> Value {
+pub(super) fn games_list(w: &World, tier: Tier, team: usize, year: i32, depth: u8) -> Value {
     let level = level_of(tier);
     let t = team as u32;
     let mut rows = Vec::new();
@@ -1527,7 +1527,7 @@ const BY_UNIT: [&[&str]; 3] = [
     &["TmFgPct", "TmXpPct", "TmPuntNet", "TmPuntIn20", "TmKoTb", "TmKrAvg", "TmPrAvg"],
 ];
 
-fn stat_by(key: &str) -> Option<&'static TStat> {
+pub(super) fn stat_by(key: &str) -> Option<&'static TStat> {
     STATS.iter().find(|s| s.key == key)
 }
 
