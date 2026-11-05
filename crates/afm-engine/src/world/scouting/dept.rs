@@ -347,10 +347,15 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
     w.scouting.dept.asks.retain(|a| !done.iter().any(|x| x.0 == a.0 && x.1 == a.1));
 }
 
-/// NFL: your assignments on top of the built year. A scout on a player sees
-/// him every second week from September to April (fall school calls, all-star
-/// week, spring film); a national scout on cross-checks takes the top of the
-/// club's list; the director follows your focus.
+/// NFL: your assignments on top of the built year, each Wednesday from
+/// September to April. A scout on a player sees him every second week
+/// (fall school calls, spring film); on a position group he writes film
+/// reports on its top names, five a week; on a region he makes its school
+/// calls in the fall and studies its prospects' film after
+/// (`pro::scouts::region_week`); on cross-checks he takes three a week from
+/// the top of your board that he hasn't seen himself (minor bug 265). The
+/// days he spends on them are holes in his own region's fall calls
+/// (`pro::scouts::fall`). The director follows your focus.
 fn nfl_day(w: &mut World, t: usize, d: Date) {
     let (_, m, _) = d.parts();
     let season_on = matches!(m, 9..=12 | 1..=4);
@@ -359,9 +364,12 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
     }
     let assignments = w.scouting.dept.assignments.clone();
     let week = d.0 / 7;
+    let scouts = w.clubs.get(t).map_or(0, |c| c.scouts.len());
     for a in assignments {
         let who = a.who;
-        if who >= 250 {
+        // A scout's place in your department (a guard: the May review
+        // fills a let-go man's place, and the place keeps its assignment).
+        if who >= 250 || who as usize >= scouts {
             continue;
         }
         match a.target {
@@ -387,7 +395,8 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
                     club_look(w, t, id, who as u8, crate::world::pro::scouts::LookKind::Film, d);
                 }
             }
-            Target::CrossCheck | Target::Region(_) => {}
+            Target::Region(r) => crate::world::pro::scouts::region_week(w, t, who as u8, r, d, a.since),
+            Target::CrossCheck => cross_check_week(w, t, who as u8, d),
         }
     }
     // F21 "Small schools too": your area scouts add six film looks a week
@@ -440,6 +449,27 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
     }
 }
 
+/// Your scout on cross-checks (minor bug 265): a second look at the top of
+/// your board (`board::seat_grades`: your staff's grades, the public's read
+/// where you have no file yet), three a week on three days, at men he
+/// hasn't seen himself. The director's looks are his own kind.
+fn cross_check_week(w: &mut World, t: usize, k: u8, d: Date) {
+    use crate::world::pro::scouts::{LookKind, Role};
+    let Some(role) = w.clubs.get(t).and_then(|c| c.scouts.get(k as usize)).map(|s| s.role) else { return };
+    let grades = super::board::seat_grades(w);
+    let files = &w.clubs[t].files;
+    let mut top: Vec<(f64, u32)> = grades
+        .into_iter()
+        .filter(|(id, _)| !files.get(id).is_some_and(|f| f.iter().any(|l| l.who == k)))
+        .map(|(id, g)| (g, id))
+        .collect();
+    top.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let kind = if role == Role::Director { LookKind::Director } else { LookKind::CrossCheck };
+    for (j, &(_, id)) in top.iter().take(3).enumerate() {
+        club_look(w, t, id, k, kind, d.add(j as i32));
+    }
+}
+
 /// A look in your club's own file (the board reads it).
 pub(crate) fn club_look(w: &mut World, t: usize, id: u32, who: u8, kind: crate::world::pro::scouts::LookKind, d: Date) {
     if let Some(c) = w.clubs.get_mut(t) {
@@ -484,7 +514,16 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
         let staff = readers::personnel(w, prog);
         let hudl = w.year >= 2008;
         if wd == Weekday::Mon && !staff.is_empty() {
-            film_slice(w, prog, d, &board, staff.len(), hudl);
+            let away: Vec<u32> = w
+                .scouting
+                .dept
+                .assignments
+                .iter()
+                .filter(|a| (PERSONNEL..PERSONNEL + staff.len() as u32).contains(&a.who))
+                .map(|a| a.who)
+                .collect();
+            film_slice(w, prog, d, &board, staff.len(), hudl, &away);
+            assigned_film(w, prog, d, &board, staff.len(), hudl);
         }
         if wd == Weekday::Tue && matches!(period, Period::Contact | Period::Evaluation | Period::Quiet) {
             // The area recruiter calls his kids' coaches, teachers and counselor.
@@ -521,16 +560,61 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
             let per = if fall { ((lim_fall as f64) / 24.0).ceil() as u16 } else { 14 };
             let today = left.min(per);
             if today > 0 {
+                // Seen this recruiting year: since the fall's first day
+                // (the spring window reads back to last fall; before, it
+                // read from the coming fall and saw no one, so the spring
+                // picked the fall's kids again).
+                let seen_since = recruiting_year(d);
+                let seen = |w: &World, i: usize| {
+                    w.scouting.dept.looks.get(&w.people[i].player.id).is_some_and(|v| {
+                        v.iter()
+                            .any(|l| matches!(l.kind, Kind::Practice | Kind::Game | Kind::Camp) && l.date >= seen_since)
+                    })
+                };
+                // Your coaches on assignments go first, one place a day
+                // each (minor bug 265): his player; the best recruit of his
+                // state or his position group nobody of yours has seen in
+                // person this season; or, on cross-checks, the top of the
+                // board another coach has seen and he hasn't. A coach no
+                // longer on the staff goes nowhere, and with more coaches
+                // out than the day's quota they take turns.
                 let mut picks: Vec<(u32, usize)> = Vec::new();
-                for a in w.scouting.dept.assignments.clone() {
-                    if let Target::Player(id) = a.target
-                        && a.who >= COACH
-                        && let Some(i) = super::place(w, id)
-                        && matches!(w.people[i].stage, Stage::HighSchool | Stage::PrepSchool)
-                    {
+                let mut sent: Vec<Assignment> = w
+                    .scouting
+                    .dept
+                    .assignments
+                    .iter()
+                    .filter(|a| a.who >= COACH && on_staff(&w.programs[prog], (a.who - COACH) as usize))
+                    .cloned()
+                    .collect();
+                if !sent.is_empty() {
+                    let used = if fall { used_f } else { used_s } as usize;
+                    let n = sent.len();
+                    sent.rotate_left(used % n);
+                }
+                for a in sent {
+                    let open =
+                        |w: &World, i: usize, picks: &[(u32, usize)]| !seen(w, i) && !picks.iter().any(|p| p.1 == i);
+                    let pick = match a.target {
+                        Target::Player(id) => super::place(w, id)
+                            .filter(|&i| matches!(w.people[i].stage, Stage::HighSchool | Stage::PrepSchool)),
+                        Target::Region(st) => recruits_where(w, prog, |q| q.home_state as u8 == st)
+                            .into_iter()
+                            .find(|&i| open(w, i, &picks)),
+                        Target::Group(g) => {
+                            recruits_where(w, prog, |q| crate::world::coach::Group::of(q.player.position) as u8 == g)
+                                .into_iter()
+                                .find(|&i| open(w, i, &picks))
+                        }
+                        Target::CrossCheck => cross_check_list(w, &board, a.who, Some(seen_since))
+                            .into_iter()
+                            .find(|&i| !picks.iter().any(|p| p.1 == i)),
+                    };
+                    if let Some(i) = pick {
                         picks.push((a.who, i));
                     }
                 }
+                let out: Vec<u32> = picks.iter().map(|p| p.0).collect();
                 let asks: Vec<u32> =
                     w.scouting.dept.asks.iter().filter(|a| a.1 == Kind::Practice).map(|a| a.0).collect();
                 for id in asks {
@@ -540,7 +624,6 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                         picks.push((COACH + c as u32, i));
                     }
                 }
-                let seen_since = Date::ymd(season, 9, 1);
                 for &i in &board {
                     if picks.len() >= today as usize {
                         break;
@@ -548,12 +631,12 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                     if w.people[i].stage == Stage::College {
                         continue;
                     }
-                    let id = w.people[i].player.id;
-                    let seen = w.scouting.dept.looks.get(&id).is_some_and(|v| {
-                        v.iter()
-                            .any(|l| matches!(l.kind, Kind::Practice | Kind::Game | Kind::Camp) && l.date >= seen_since)
-                    });
-                    if !seen && let Some(c) = evaluator_for(w, prog, i) {
+                    // A coach out on your assignment is not here to see him.
+                    if !seen(w, i)
+                        && !picks.iter().any(|p| p.1 == i)
+                        && let Some(c) = evaluator_for(w, prog, i)
+                        && !out.contains(&(COACH + c as u32))
+                    {
                         picks.push((COACH + c as u32, i));
                     }
                 }
@@ -642,20 +725,123 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
 
 /// One Monday's film study by the personnel staff: a quarter of the board
 /// each week, shared out among the `n` staffers.
-fn film_slice(w: &mut World, prog: usize, d: Date, board: &[usize], n: usize, hudl: bool) {
+fn film_slice(w: &mut World, prog: usize, d: Date, board: &[usize], n: usize, hudl: bool, away: &[u32]) {
     let slice = (board.len() / 4).max(1);
     let k = (d.0 / 7) as usize % 4;
     for (j, &i) in board.iter().enumerate().skip(k * slice).take(slice) {
-        let id = w.people[i].player.id;
         let who = PERSONNEL + (j % n) as u32;
-        let small = w.high_schools.get(w.people[i].hs).is_some_and(|h| h.classification <= 2);
-        // Before Hudl a small school's tape was what a coach mailed.
-        if !hudl && small && !readers::chance(Staff::Program(prog), 0x7A9E ^ d.0 as u64, id, 0.35) {
+        // A staffer on one of your assignments leaves his share undone.
+        if away.contains(&who) {
             continue;
         }
-        let kind = if w.people[i].stage == Stage::College { Kind::CollegeFilm } else { Kind::HsFilm };
-        add(w, id, who, kind, d);
+        film_look(w, prog, d, i, who, hudl);
     }
+}
+
+/// One film look by a staffer. Before Hudl a small school's tape was what
+/// a coach mailed: it gets through 35% of the time.
+fn film_look(w: &mut World, prog: usize, d: Date, i: usize, who: u32, hudl: bool) {
+    let id = w.people[i].player.id;
+    let small = w.high_schools.get(w.people[i].hs).is_some_and(|h| h.classification <= 2);
+    if !hudl && small && !readers::chance(Staff::Program(prog), 0x7A9E ^ d.0 as u64, id, 0.35) {
+        return;
+    }
+    let kind = if w.people[i].stage == Stage::College { Kind::CollegeFilm } else { Kind::HsFilm };
+    add(w, id, who, kind, d);
+}
+
+/// Your personnel staffers on assignments (minor bug 265): on Mondays each
+/// studies film on his target instead of his share of the board, as many
+/// tapes as his share: one player's latest tape; a state's recruits or a
+/// position group's, the best first and on from where he left off; or, on
+/// cross-checks, the top of the board someone else has seen and he hasn't.
+fn assigned_film(w: &mut World, prog: usize, d: Date, board: &[usize], n: usize, hudl: bool) {
+    let share = ((board.len() / 4).max(1)).div_ceil(n.max(1)).max(1);
+    for a in w.scouting.dept.assignments.clone() {
+        if !(PERSONNEL..PERSONNEL + n as u32).contains(&a.who) {
+            continue;
+        }
+        let week = ((d.0 - a.since.0).max(0) / 7) as usize;
+        let list: Vec<usize> = match a.target {
+            Target::Player(id) => super::place(w, id).into_iter().collect(),
+            Target::Region(st) => recruits_where(w, prog, |q| q.home_state as u8 == st),
+            Target::Group(g) => {
+                recruits_where(w, prog, |q| crate::world::coach::Group::of(q.player.position) as u8 == g)
+            }
+            Target::CrossCheck => cross_check_list(w, board, a.who, None),
+        };
+        if list.is_empty() {
+            continue;
+        }
+        let rotate = matches!(a.target, Target::Region(_) | Target::Group(_));
+        let take = if matches!(a.target, Target::Player(_)) { 1 } else { share.min(list.len()) };
+        for j in 0..take {
+            let i = if rotate { list[(week * take + j) % list.len()] } else { list[j] };
+            film_look(w, prog, d, i, a.who, hudl);
+        }
+    }
+}
+
+/// The recruits of the next two classes who pass `f`, ranked as the board
+/// ranks them (yours first, then stars and how near), beyond the board's
+/// cut: an assignment is how a staff finds the kids its board misses.
+fn recruits_where(w: &World, prog: usize, f: impl Fn(&crate::world::Person) -> bool) -> Vec<usize> {
+    let p = &w.programs[prog];
+    let season = w.dates.season;
+    let mut scored: Vec<(f64, usize)> = w
+        .people
+        .iter()
+        .enumerate()
+        .filter(|(_, q)| {
+            matches!(q.stage, Stage::HighSchool | Stage::PrepSchool)
+                && q.class_of > season
+                && q.class_of <= season + 2
+                && q.player.age >= 15
+                && f(q)
+        })
+        .map(|(i, q)| {
+            let ours = q.cal.offers.contains(&prog)
+                || q.cal.visits.iter().any(|v| v.0 == prog)
+                || q.cal.commit.is_some_and(|c| c.0 == prog);
+            let near = p.footprint[q.home_state.min(50)] + 0.5 * p.pipeline[q.home_state.min(50)];
+            (if ours { 100.0 } else { 0.0 } + q.stars as f64 * 2.0 + near * 3.0, i)
+        })
+        .collect();
+    scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    scored.truncate(400);
+    scored.into_iter().map(|x| x.1).collect()
+}
+
+/// The top of the board seen by someone else of yours and not by `who`:
+/// in person since `in_person` (a coach's cross-check, this recruiting
+/// year) or by any look (a staffer's film cross-check).
+fn cross_check_list(w: &World, board: &[usize], who: u32, in_person: Option<Date>) -> Vec<usize> {
+    let counts = |l: &SeatLook| {
+        in_person.is_none_or(|since| matches!(l.kind, Kind::Practice | Kind::Game | Kind::Camp) && l.date >= since)
+    };
+    board
+        .iter()
+        .copied()
+        .filter(|&i| matches!(w.people[i].stage, Stage::HighSchool | Stage::PrepSchool))
+        .filter(|&i| {
+            w.scouting.dept.looks.get(&w.people[i].player.id).is_some_and(|v| {
+                v.iter().any(|l| l.who != who && counts(l)) && !v.iter().any(|l| l.who == who && counts(l))
+            })
+        })
+        .collect()
+}
+
+/// The recruiting year a day belongs to starts with the fall's evaluation
+/// period: September 1 of this year from September, else of last year.
+fn recruiting_year(d: Date) -> Date {
+    let (y, m, _) = d.parts();
+    Date::ymd(if m >= 9 { y } else { y - 1 }, 9, 1)
+}
+
+/// Whether a coach is on a program's staff now: head coach, a coordinator
+/// or a position coach.
+fn on_staff(p: &crate::world::program::Program, c: usize) -> bool {
+    p.head_coach == Some(c) || p.oc == Some(c) || p.dc == Some(c) || p.position_coaches.contains(&Some(c))
 }
 
 /// The first day of your present job (the career's first day for the job
@@ -701,7 +887,7 @@ pub(crate) fn inherit(w: &mut World) {
     if n > 0 {
         let mut d = since.add(-1).on_or_before(Weekday::Mon);
         for _ in 0..8 {
-            film_slice(w, prog, d, &board, n, d.year() >= 2008);
+            film_slice(w, prog, d, &board, n, d.year() >= 2008, &[]);
             d = d.add(-7);
         }
     }
