@@ -970,8 +970,17 @@ function jobFile(st, j) {
   }
   kv += `<span>Expectation</span><span>${esc(j.expectation)}</span><span>The calendar</span><span>${esc(j.calendar)}</span>`;
   const grades = j.grades ? `<div class="pg-grades-h">What recruits see · program grades</div><div class="pg-grades">${j.grades.map(([n, v]) => `<div><span>${esc(n[0].toUpperCase() + n.slice(1))}</span><b>${v}</b></div>`).join("")}</div>` : "";
+  // Start with no offers out: the old staff's offers go on day one, so the
+  // board you recruit from is your own.
+  const clean = st.level === "college"
+    ? `<div class="pg-grades-h">The recruiting board you inherit</div><div class="pg-clean">
+      <div><b>Start with no offers out</b><small>${st.noOffers
+        ? "The old staff's scholarship offers are pulled the day you take over, their commitments with them, and your board starts empty. Players who signed stay signed."
+        : "You inherit the old staff's offers and commitments. For your first month you can still pull any of them, one at a time or all at once."} A new staff resetting the board is how a coaching change goes: no recruit or high school coach holds it against you.</small></div>
+      <div class="pg-seg"><button class="${st.noOffers ? "" : "on"}" data-pg="nooffers" data-k="0">Off</button><button class="${st.noOffers ? "on" : ""}" data-pg="nooffers" data-k="1">On</button></div></div>`
+    : "";
   return `<aside class="pg-panel pg-jobfile"><div class="pg-filehead">${pgMark(j, true)}<div><b>${esc(j.name)}</b><small>${esc(j.city || j.town ? `${j.city || j.town + ", " + j.state} · ${j.line}` : j.line)}</small></div></div>
-    <div class="pg-kv">${kv}</div>${grades}</aside>`;
+    <div class="pg-kv">${kv}</div>${grades}${clean}</aside>`;
 }
 // The three ways in (lane 10): a head job, an assistant's job on a staff,
 // or no job yet, hired through the market like any other coach.
@@ -1376,6 +1385,7 @@ document.addEventListener("click", async (ev) => {
     }
     case "pick-job": st.job = { kind: d.kind, id: Number(d.id) }; render(); break;
     case "calls": st.calls = d.k; render(); break;
+    case "nooffers": st.noOffers = d.k === "1"; render(); break;
     // Lane 10: the seat you start in, and your last stops.
     case "mode": st.mode = d.k; st.sort = { k: null, desc: true }; render(); break;
     case "role": st.role = d.k; render(); break;
@@ -1395,7 +1405,9 @@ document.addEventListener("click", async (ev) => {
         // Every seat starts through the front office's setup (lane 10):
         // the people who know you and your last stops come with you.
         const job = st.mode === "free" ? {} : { job: st.job };
-        S.status = await api("start_career_seat", { ...startArgs(st), ...job, start: st.mode, role: st.role, level: st.freeLevel, stops: stopArgs(st) });
+        // Start with no offers out: a college head job only.
+        const clean = st.mode === "head" && !!st.job && st.job.kind === "college" && !!st.noOffers;
+        S.status = await api("start_career_seat", { ...startArgs(st), ...job, start: st.mode, role: st.role, level: st.freeLevel, stops: stopArgs(st), no_offers: clean });
         hideBusy();
         S.savedOn = null;
         S.lastSaveName = null;

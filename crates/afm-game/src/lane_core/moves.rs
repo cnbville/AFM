@@ -232,7 +232,17 @@ fn college_moves(w: &World, k: usize, j: usize, own: bool, out: &mut Vec<Value>)
     // Offers and pulls wait on the board's owner: your coordinator's while
     // he runs it.
     if w.front_office.owner(Duty::Board) == Owner::You {
-        out.push(main(if offered { mv("pull", "Pull the offer") } else { mv("offer", "Offer a scholarship") }));
+        // The old staff's offer in your fresh start: pulling it costs nothing.
+        let free = board.is_some_and(|t| fc::free_pull(w, t));
+        out.push(main(if free {
+            let mut m = mv("pull", "Pull the old staff's offer");
+            m["free"] = json!(true);
+            m
+        } else if offered {
+            mv("pull", "Pull the offer")
+        } else {
+            mv("offer", "Offer a scholarship")
+        }));
     }
     if board.is_none() {
         out.push(main(mv("board", "Add to the board")));
