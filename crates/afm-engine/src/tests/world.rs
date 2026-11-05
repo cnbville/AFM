@@ -18,8 +18,10 @@ fn real_data_loads() {
     assert_eq!((count(Division::D3), count(Division::NAIA), count(Division::JUCO)), (244, 96, 113));
     assert_eq!(STATES.len(), 51);
     // On3 (May 2026) counted 46 states plus DC; South Carolina barred it
-    // in June 2025 (minor bug B20), so 45 states plus DC.
-    assert_eq!(STATES.iter().filter(|s| hs_nil(&s.code)).count(), 46);
+    // in June 2025 (minor bug B20), and Arkansas, Missouri and Texas allow
+    // it only around a college signing (N3), so 42 states plus DC open to
+    // every high schooler.
+    assert_eq!(STATES.iter().filter(|s| hs_nil(&s.code)).count(), 43);
     assert!(!hs_nil("AL") && hs_nil("CA") && !hs_nil("SC"));
     // B19: no state before California's 2021, and every allowing state
     // has its first season.

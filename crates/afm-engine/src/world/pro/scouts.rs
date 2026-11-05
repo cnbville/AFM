@@ -1216,6 +1216,12 @@ fn clubs(w: &World) -> Vec<usize> {
 /// or three schools a week at their work rate, big programs twice, and
 /// note the unlisted seniors their eye and network catch. Then the
 /// cross-checkers and the director see the top of the club's own list.
+///
+/// The files keep what was filed since the last draft (minor bug 265):
+/// the GM's looks at the man his club hunts, a high school coach's word,
+/// and your own staff's assignments and asks. Each day one of your area
+/// scouts spent on those in the fall is a school call he doesn't make in
+/// his own region, his best schools still called first in the days left.
 pub(crate) fn fall(w: &mut World) {
     if w.clubs.is_empty() || w.nfl.is_empty() {
         return;
@@ -1223,10 +1229,131 @@ pub(crate) fn fall(w: &mut World) {
     let year = w.year;
     let draft_year = year + 1;
     staff(w, false, draft_year);
+    let last_draft = crate::calendar::YearDates::new(year).draft[0].date;
     for c in w.clubs.iter_mut() {
-        c.files.clear();
+        let n = c.scouts.len();
+        c.files.retain(|_, v| {
+            v.retain(|l| l.date > last_draft && (l.who >= GM || (l.who as usize) < n));
+            !v.is_empty()
+        });
     }
-    // The seniors at each program, and the spring list.
+    let fl = fall_list(w, draft_year);
+    let slots = (crate::career::PIPELINE.draft_picks * w.options.scale).round().max(1.0) as usize;
+    let by_region: Vec<Vec<usize>> = (0..REGIONS).map(|r| region_schools(w, &fl, r)).collect();
+    // SK18: each service grades every rising senior in the spring; its
+    // member clubs start their fall calls from its list.
+    use crate::world::scouting::own::{self as own_side, Service};
+    let lists =
+        [service_list(w, &fl.seniors, slots, Service::National), service_list(w, &fl.seniors, slots, Service::Blesto)];
+    let fall_start = Date::ymd(year, 9, 1);
+    let mine = w.seat.and_then(|s| s.nfl_team);
+    for t in clubs(w) {
+        let svc = own_side::service_of(w, t);
+        let on_list = match svc {
+            Service::National => &lists[0],
+            Service::Blesto => &lists[1],
+            _ => &fl.on_list,
+        };
+        let member = matches!(svc, Service::National | Service::Blesto);
+        // The days each of your scouts spent on your assignments this fall.
+        let mut away: HashMap<u8, HashSet<i32>> = HashMap::new();
+        if Some(t) == mine {
+            for l in w.clubs[t].files.values().flatten() {
+                if l.who < GM && l.date >= fall_start && l.date < fall_start.add(FALL_DAYS) {
+                    away.entry(l.who).or_default().insert(l.date.0 - fall_start.0);
+                }
+            }
+        }
+        let scouts = w.clubs[t].scouts.clone();
+        let areas = scouts.iter().filter(|s| s.role == Role::Area).count().max(1) as u8;
+        let last_area = scouts.iter().rposition(|s| s.role == Role::Area);
+        for (k, s) in scouts.iter().enumerate() {
+            if s.role != Role::Area {
+                continue;
+            }
+            // About 35-45 school calls a fall (topic 3), fewer with the
+            // long flights of the West and the mountains.
+            let regions = covers(s.region, areas as usize);
+            // A member club lends one area scout to its service for part
+            // of the fall (proposed, not confirmed).
+            let lent = if member && Some(k) == last_area { 0.6 } else { 1.0 };
+            let busy = away.get(&(k as u8));
+            let calls = fall_calls(s, &regions, member, lent).saturating_sub(busy.map_or(0, |b| b.len()));
+            let mut schools: Vec<usize> = Vec::new();
+            for &r in &regions {
+                // A split region's schools alternate between its men.
+                let men: Vec<u8> = scouts
+                    .iter()
+                    .filter(|x| x.role == Role::Area && covers(x.region, areas as usize).contains(&r))
+                    .map(|x| x.region)
+                    .collect();
+                let rank = men.iter().filter(|&&m| m < s.region).count();
+                let n = men.len().max(1);
+                schools
+                    .extend(by_region[r as usize].iter().enumerate().filter(|(j, _)| j % n == rank).map(|(_, &c)| c));
+            }
+            schools.sort_by(|&a, &b| fl.pull[b].total_cmp(&fl.pull[a]).then(a.cmp(&b)));
+            // A scout who distrusts small schools gets to fewer of them.
+            if s.bias == Bias::SmallSchools {
+                schools.sort_by_key(|&c| w.programs[c].division != Division::FBS);
+            }
+            let visits = visit_list(&schools, &fl.count, calls);
+            // His free days: the fall's, less the days he was away; yours
+            // up to today, so a call you can still send him on later this
+            // week is never a day he was booked at home.
+            let upto = if Some(t) == mine { (w.today.0 - fall_start.0).clamp(1, FALL_DAYS) } else { FALL_DAYS };
+            let free: Vec<i32> = (0..upto).filter(|d| busy.is_none_or(|b| !b.contains(d))).collect();
+            let n = visits.len().max(1);
+            for (j, &c) in visits.iter().enumerate() {
+                let day = free.get(j * free.len() / n).copied().unwrap_or((j * upto as usize / n) as i32);
+                school_call(w, t, k as u8, s, &fl.seniors[c], on_list, fl.bar, fall_start.add(day));
+            }
+        }
+    }
+    cross_checks(w, Date::ymd(year, 12, 1), 150, 60, 80, false);
+}
+
+/// The fall's school calls run from September 1 for 90 days.
+const FALL_DAYS: i32 = 90;
+
+/// An area scout's school calls in a fall: about 35-45 (topic 3), fewer
+/// with the long flights of the West and the mountains; a club outside the
+/// services spends the fee on more travel (proposed, not confirmed).
+fn fall_calls(s: &Scout, regions: &[u8], member: bool, lent: f64) -> usize {
+    let travel = if regions.iter().any(|&r| r >= 6) { 0.85 } else { 1.0 };
+    let own_way = if member { 1.0 } else { 1.12 };
+    (38.0 * (0.75 + 0.025 * s.work as f64) * travel * lent * own_way).round() as usize
+}
+
+/// The calls in order: the schools by their draw, a big program (three or
+/// more listed seniors) twice, up to `calls`.
+fn visit_list(schools: &[usize], count: &[usize], calls: usize) -> Vec<usize> {
+    let mut visits: Vec<usize> = Vec::new();
+    for &c in schools {
+        if visits.len() >= calls {
+            break;
+        }
+        visits.push(c);
+        if count[c] >= 3 && visits.len() < calls {
+            visits.push(c);
+        }
+    }
+    visits
+}
+
+/// The fall's list: the class's seniors by program (four-year programs),
+/// the top 5 × draft slots by last December's read, the bar an unlisted
+/// senior must clear (the list's median overall) and each program's draw
+/// (its listed seniors, the best counting most).
+struct FallList {
+    seniors: Vec<Vec<usize>>,
+    on_list: HashSet<usize>,
+    bar: f64,
+    pull: Vec<f64>,
+    count: Vec<usize>,
+}
+
+fn fall_list(w: &World, draft_year: i32) -> FallList {
     let mut seniors: Vec<Vec<usize>> = vec![Vec::new(); w.programs.len()];
     let mut listed: Vec<(usize, f64)> = Vec::new();
     for (i, p) in w.people.iter().enumerate() {
@@ -1254,7 +1381,6 @@ pub(crate) fn fall(w: &mut World) {
     let mut overalls: Vec<f64> = listed.iter().map(|x| w.people[x.0].player.overall()).collect();
     overalls.sort_by(|a, b| a.total_cmp(b));
     let bar = overalls.get(overalls.len() / 2).copied().unwrap_or(60.0);
-    // Each program's draw for a scout: its listed seniors, the best counting most.
     let top = listed.first().map_or(0.0, |x| x.1);
     let mut pull = vec![0.0f64; w.programs.len()];
     let mut count = vec![0usize; w.programs.len()];
@@ -1264,101 +1390,126 @@ pub(crate) fn fall(w: &mut World) {
             count[c] += 1;
         }
     }
-    let by_region: Vec<Vec<usize>> = (0..REGIONS)
-        .map(|r| {
-            let mut v: Vec<usize> = (0..w.programs.len())
-                .filter(|&c| !seniors[c].is_empty() && region_of(w.programs[c].state) == r)
-                .collect();
-            v.sort_by(|&a, &b| pull[b].total_cmp(&pull[a]).then(a.cmp(&b)));
-            v
-        })
+    FallList { seniors, on_list, bar, pull, count }
+}
+
+/// A region's programs with seniors, by their draw.
+fn region_schools(w: &World, fl: &FallList, r: u8) -> Vec<usize> {
+    let mut v: Vec<usize> =
+        (0..w.programs.len()).filter(|&c| !fl.seniors[c].is_empty() && region_of(w.programs[c].state) == r).collect();
+    v.sort_by(|&a, &b| fl.pull[b].total_cmp(&fl.pull[a]).then(a.cmp(&b)));
+    v
+}
+
+/// A service's spring list: its top 5 × draft slots by its grade.
+fn service_list(
+    w: &World,
+    seniors: &[Vec<usize>],
+    slots: usize,
+    svc: crate::world::scouting::own::Service,
+) -> HashSet<usize> {
+    let mut v: Vec<(usize, f64)> = seniors
+        .iter()
+        .flatten()
+        .filter_map(|&i| crate::world::scouting::own::service_grade(w, svc, i).map(|g| (i, g)))
         .collect();
-    // SK18: each service grades every rising senior in the spring; its
-    // member clubs start their fall calls from its list.
-    use crate::world::scouting::own::{self as own_side, Service};
-    let svc_list = |svc: Service| -> HashSet<usize> {
-        let mut v: Vec<(usize, f64)> =
-            seniors.iter().flatten().filter_map(|&i| own_side::service_grade(w, svc, i).map(|g| (i, g))).collect();
-        v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-        v.into_iter().take(slots * 5).map(|x| x.0).collect()
-    };
-    let lists = [svc_list(Service::National), svc_list(Service::Blesto)];
-    let fall_start = Date::ymd(year, 9, 1);
-    for t in clubs(w) {
-        let svc = own_side::service_of(w, t);
-        let on_list = match svc {
-            Service::National => &lists[0],
-            Service::Blesto => &lists[1],
-            _ => &on_list,
+    v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    v.into_iter().take(slots * 5).map(|x| x.0).collect()
+}
+
+/// One school call: the listed seniors, and the unlisted ones his eye and
+/// his sources (trainers, coaches) put on the radar.
+#[allow(clippy::too_many_arguments)]
+fn school_call(
+    w: &mut World,
+    t: usize,
+    k: u8,
+    s: &Scout,
+    seniors: &[usize],
+    on_list: &HashSet<usize>,
+    bar: f64,
+    date: Date,
+) {
+    for &i in seniors {
+        let id = w.people[i].player.id as u64;
+        let seen = on_list.contains(&i) || {
+            let eye = w.people[i].player.overall() + 5.0 * sharp(s.judge as f64) * key_normal(s.key ^ 0xD15C, id);
+            eye >= bar && key_uniform(s.key ^ 0xD15D, id) < 0.4 + 0.03 * (s.network as f64 - 10.0)
         };
-        let member = matches!(svc, Service::National | Service::Blesto);
-        let scouts = w.clubs[t].scouts.clone();
-        let areas = scouts.iter().filter(|s| s.role == Role::Area).count().max(1) as u8;
-        let last_area = scouts.iter().rposition(|s| s.role == Role::Area);
-        for (k, s) in scouts.iter().enumerate() {
-            if s.role != Role::Area {
-                continue;
-            }
-            // About 35-45 school calls a fall (topic 3), fewer with the
-            // long flights of the West and the mountains.
-            let regions = covers(s.region, areas as usize);
-            let travel = if regions.iter().any(|&r| r >= 6) { 0.85 } else { 1.0 };
-            // A member club lends one area scout to its service for part
-            // of the fall; a club outside the services spends the fee on
-            // more travel (proposed, not confirmed).
-            let lent = if member && Some(k) == last_area { 0.6 } else { 1.0 };
-            let own_way = if member { 1.0 } else { 1.12 };
-            let calls = (38.0 * (0.75 + 0.025 * s.work as f64) * travel * lent * own_way).round() as usize;
-            let mut schools: Vec<usize> = Vec::new();
-            for &r in &regions {
-                // A split region's schools alternate between its men.
-                let men: Vec<u8> = scouts
-                    .iter()
-                    .filter(|x| x.role == Role::Area && covers(x.region, areas as usize).contains(&r))
-                    .map(|x| x.region)
-                    .collect();
-                let rank = men.iter().filter(|&&m| m < s.region).count();
-                let n = men.len().max(1);
-                schools
-                    .extend(by_region[r as usize].iter().enumerate().filter(|(j, _)| j % n == rank).map(|(_, &c)| c));
-            }
-            schools.sort_by(|&a, &b| pull[b].total_cmp(&pull[a]).then(a.cmp(&b)));
-            // A scout who distrusts small schools gets to fewer of them.
-            if s.bias == Bias::SmallSchools {
-                schools.sort_by_key(|&c| w.programs[c].division != Division::FBS);
-            }
-            let mut visits: Vec<usize> = Vec::new();
-            for &c in &schools {
-                if visits.len() >= calls {
-                    break;
-                }
-                visits.push(c);
-                if count[c] >= 3 && visits.len() < calls {
-                    visits.push(c);
-                }
-            }
-            let n = visits.len().max(1);
-            for (j, &c) in visits.iter().enumerate() {
-                let date = fall_start.add((j * 90 / n) as i32);
-                for &i in &seniors[c] {
-                    let id = w.people[i].player.id as u64;
-                    let seen = if on_list.contains(&i) {
-                        true
-                    } else {
-                        // An unlisted senior: his eye and his sources
-                        // (trainers, coaches) put him on the radar.
-                        let eye =
-                            w.people[i].player.overall() + 5.0 * sharp(s.judge as f64) * key_normal(s.key ^ 0xD15C, id);
-                        eye >= bar && key_uniform(s.key ^ 0xD15D, id) < 0.4 + 0.03 * (s.network as f64 - 10.0)
-                    };
-                    if seen {
-                        file(w, t, i, k as u8, LookKind::School, date);
-                    }
-                }
-            }
+        if seen {
+            file(w, t, i, k, LookKind::School, date);
         }
     }
-    cross_checks(w, Date::ymd(year, 12, 1), 150, 60, 80, false);
+}
+
+/// Your scout sent to a region (topic 3, minor bug 265). In the fall his
+/// week's school calls go to its programs, the best first and on from
+/// where he left off, at his work rate (as `fall`: two to four a week,
+/// one a day from the Wednesday); the days are holes in his own region
+/// when `fall` makes its calls. From December to April he studies the
+/// film of the region's prospects (seniors and declared men), five a week.
+pub(crate) fn region_week(w: &mut World, t: usize, k: u8, region: u8, d: Date, since: Date) {
+    let Some(s) = w.clubs.get(t).and_then(|c| c.scouts.get(k as usize)).cloned() else { return };
+    if region >= REGIONS {
+        return;
+    }
+    // Weeks from his start in this scouting year (it starts September 1).
+    let (y, m, _) = d.parts();
+    let fall_start = Date::ymd(if m >= 9 { y } else { y - 1 }, 9, 1);
+    let start = since.max(fall_start);
+    let week = ((d.0 - start.0).max(0) / 7) as usize;
+    // School calls until the regular season ends (the fall's calls are
+    // made the day after); film after.
+    if m >= 9 && d < fall_start.add(FALL_DAYS) && d <= w.dates.fbs_regular_end {
+        let draft_year = y + 1;
+        let fl = fall_list(w, draft_year);
+        use crate::world::scouting::own::{self as own_side, Service};
+        let svc = own_side::service_of(w, t);
+        let member = matches!(svc, Service::National | Service::Blesto);
+        let list = if member {
+            let slots = (crate::career::PIPELINE.draft_picks * w.options.scale).round().max(1.0) as usize;
+            service_list(w, &fl.seniors, slots, svc)
+        } else {
+            fl.on_list.clone()
+        };
+        let schools = region_schools(w, &fl, region);
+        let visits = visit_list(&schools, &fl.count, usize::MAX);
+        if visits.is_empty() {
+            return;
+        }
+        let per = (fall_calls(&s, &[region], member, 1.0) as f64 * 7.0 / FALL_DAYS as f64).round().max(1.0) as usize;
+        for j in 0..per {
+            let c = visits[(week * per + j) % visits.len()];
+            let date = d.add(j as i32);
+            if date >= fall_start.add(FALL_DAYS) || date > w.dates.fbs_regular_end {
+                break;
+            }
+            school_call(w, t, k, &s, &fl.seniors[c], &list, fl.bar, date);
+        }
+    } else {
+        let draft_year = coming_draft(w);
+        let mut v: Vec<(f64, usize)> = w
+            .people
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| {
+                (p.stage == Stage::Declared || (p.stage == Stage::College && draft_year - p.class_of >= 4))
+                    && p.college.is_some_and(|c| {
+                        w.programs[c].division != Division::JUCO && region_of(w.programs[c].state) == region
+                    })
+            })
+            .filter_map(|(i, p)| p.cal.draft_read.map(|r| (r.score, i)))
+            .collect();
+        v.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        v.truncate(60);
+        if v.is_empty() {
+            return;
+        }
+        for j in 0..5.min(v.len()) {
+            let i = v[(week * 5 + j) % v.len()].1;
+            file(w, t, i, k, LookKind::Film, d);
+        }
+    }
 }
 
 /// The second looks at the top of each club's own list: national scouts
@@ -1389,13 +1540,18 @@ fn cross_checks(w: &mut World, date: Date, nat: usize, nat2: usize, dir: usize, 
     }
 }
 
-/// The people any club has a file on (place in the world), sorted.
+/// The coming draft's men any club has a file on (place in the world),
+/// sorted: the declared, and seniors at college. A file on an underclassman
+/// (a GM's look at the man his club hunts, a high school coach's word)
+/// doesn't put him on this draft's lists (minor bug 265).
 fn filed(w: &World) -> Vec<usize> {
     let ids: HashSet<u32> = w.clubs.iter().flat_map(|c| c.files.keys().copied()).collect();
+    let draft_year = coming_draft(w);
     (0..w.people.len())
         .filter(|&i| {
             let p = &w.people[i];
-            matches!(p.stage, Stage::College | Stage::Declared) && ids.contains(&p.player.id)
+            (p.stage == Stage::Declared || (p.stage == Stage::College && draft_year - p.class_of >= 4))
+                && ids.contains(&p.player.id)
         })
         .collect()
 }
