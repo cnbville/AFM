@@ -829,6 +829,21 @@ impl Coach {
         self.renown = clamp(now + speed * 0.3 * (target - now), 1.0, 20.0);
     }
 
+    /// An off-field coach's season (C36; minor bug 252): a graduate
+    /// assistant, analyst or quality-control coach is part of his staff's
+    /// year, so its form counts in his buzz and his standing moves toward
+    /// what his work shows at an assistant's pace (proposed, not
+    /// confirmed). Before, a junior's standing stayed at his first day's for
+    /// as long as he held the post.
+    pub fn junior_reputation(&mut self, vs_expectation: f64) {
+        self.recent.push(vs_expectation);
+        if self.recent.len() > 6 {
+            self.recent.remove(0);
+        }
+        let shown = self.ability.head_coach_value() + 12.0 * vs_expectation;
+        self.reputation = clamp(self.reputation + 0.5 * 0.3 * (shown - self.reputation), 1.0, 20.0);
+    }
+
     /// His name (C10), 1-20.
     pub fn name_value(&self) -> f64 {
         if self.renown > 0.0 { self.renown } else { clamp(self.fame.max(0.5 * self.reputation), 1.0, 20.0) }

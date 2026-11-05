@@ -2642,6 +2642,17 @@ fn black_monday(w: &mut World, d: Date) {
             w.coaches[c].season_reputation(0.5 * vs + unit, 0.0, false);
         }
     }
+    // Quality-control coaches share their club's year (minor bug 252).
+    for c in 0..w.coaches.len() {
+        if let Some(j) = w.coaches[c].junior_now()
+            && let super::coach::Employer::Nfl(t) = j.employer
+            && s.active.get(t).copied().unwrap_or(false)
+        {
+            let games = (s.wins[t] + s.losses[t] + s.ties[t]).max(1);
+            let share = (s.wins[t] as f64 + 0.5 * s.ties[t] as f64) / games as f64;
+            w.coaches[c].junior_reputation(0.5 * (share - s.expect[t] / games as f64));
+        }
+    }
     // The playoff field: division winners first, then wild cards, by record.
     let per_conf = (w.rules.nfl_playoff_teams / 2) as usize;
     let mut alive: [Vec<usize>; 2] = [Vec::new(), Vec::new()];
