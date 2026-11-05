@@ -141,6 +141,11 @@ pub struct Collective {
     /// NIL money the program can pay players this offseason, in dollars:
     /// zero before July 2021 (`ncaa::nil_budget`).
     pub budget: f64,
+    /// The school's own revenue share inside `budget` (House settlement,
+    /// from July 2025; B18): the pot the school pays itself, apart from the
+    /// collective's booster money (`ncaa::school_pot`).
+    #[serde(default)]
+    pub school: f64,
     /// Steady money from the wider booster base.
     pub base: f64,
     /// One big booster's yearly money, if the school has one.
@@ -574,6 +579,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         collective: Collective {
             // Set each year from the era (`ncaa::nil_budget`); the world starts before NIL.
             budget: 0.0,
+            school: 0.0,
             base,
             big_booster,
             trend: NilTrend::Steady,
@@ -876,6 +882,7 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, rn
     }
     let level = c.drying_years;
     p.collective.budget = super::ncaa::nil_budget(p, next);
+    p.collective.school = super::ncaa::revenue_share(p, next);
     level
 }
 

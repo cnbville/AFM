@@ -53,7 +53,9 @@ function toast(text, open) {
     t.onclick = () => { t.remove(); go(open.go, open.args || {}); };
   }
   $("#toasts").appendChild(t);
-  setTimeout(() => t.remove(), open && open.go ? 8000 : 4200);
+  // A long answer (a player's first word on your money, N1) stays long
+  // enough to read.
+  setTimeout(() => t.remove(), open && open.go ? 8000 : Math.min(12000, Math.max(4200, String(text).length * 55)));
 }
 function setColors(c) {
   if (!c) return;

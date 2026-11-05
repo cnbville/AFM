@@ -63,7 +63,7 @@ function hnBank(x, y) {
   const b = y.bank;
   if (x.seat === "college") {
     const nil = b.nil_era
-      ? `<div class="hn-kv"><span>Set aside</span><span><b>${money(b.nil) || "$0"}</b> a year · ${money(b.left)} left in your budget</span><span>Your promise</span><span>${b.promise != null ? money(b.promise) : "None yet: the collective's usual offer"}</span></div>
+      ? `<div class="hn-kv"><span>Set aside</span><span><b>${money(b.nil) || "$0"}</b> a year · ${money(b.left)} left in your budget</span><span>Your promise</span><span>${b.promise != null ? money(b.promise) : "None yet: the usual offer"}</span></div>
         <div class="hn-row"><input class="hn-in" type="number" min="0" step="25000" value="${Math.round(b.nil)}" aria-label="NIL money set aside a year">${hnBtn("hnnil", {}, "Set aside")}</div>`
       : `<div class="hn-empty">No NIL money before July 2021: what you have is the scholarship and your time.</div>`;
     const hold = `<label class="hn-check"><input type="checkbox" data-act="hnhold" ${b.hold ? "checked" : ""}> Hold a scholarship at his position: the others there share one fewer until he decides.</label>`;

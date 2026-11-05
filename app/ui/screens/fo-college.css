@@ -109,6 +109,11 @@
 .fc-next { margin-top: auto; display: flex; gap: 14px; align-items: baseline; padding-top: 10px; border-top: 1px solid var(--warm-hair); font-size: 13.5px; }
 .fc-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .fc-nil { display: grid; gap: 6px; padding-top: 6px; }
+/* A player's first answer to your money (N1). */
+.fc-answer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; padding: 8px 10px; border-radius: 10px; background: var(--fill-1); font-size: 13px; line-height: 1.45; color: var(--fg2); }
+.fc-answer .st-pill { flex: none; }
+.fc-answer small { color: var(--fg3); }
+.st-pill.fc-bad { background: color-mix(in oklab, var(--live) 18%, transparent); color: color-mix(in oklab, var(--live) 55%, var(--fg)); }
 .fc-moneyin { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg2); }
 .fc-moneyin input { width: 84px; border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 10px; padding: 6px 8px; font: inherit; font-variant-numeric: tabular-nums; text-align: right; }
 .fc-nilrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

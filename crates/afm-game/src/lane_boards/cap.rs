@@ -325,7 +325,7 @@ fn college(w: &World, j: usize) -> Reply {
             "group": group(p.player.position),
             "cls": views::class_text(w, p),
             "hit": deal.round(),
-            "pct": if b.total > 0.0 { (1000.0 * deal / b.total).round() / 10.0 } else { 0.0 },
+            "pct": if b.yours > 0.0 { (1000.0 * deal / b.yours).round() / 10.0 } else { 0.0 },
             "left": left,
             "usual": suggested,
             "income": p.nil_income.round(),
@@ -361,12 +361,15 @@ fn college(w: &World, j: usize) -> Reply {
         "level": "college",
         "team": views::team_brief(w, TeamRef::College(j)),
         "era": era,
-        "house": w.today.year() >= ncaa::HOUSE_START,
+        // Two pots from July 2025 (B18): the school's revenue share is
+        // what you hand out; the collective pays its own deals.
+        "house": ncaa::two_pots(w.today),
         "moneyYear": money_year,
         "groups": GROUPS,
         "blocks": blocks,
         "budget": {
-            "total": b.total.round(), "revenue": b.revenue_share.round(), "collective": b.collective.round(),
+            "total": b.yours.round(), "revenue": b.revenue_share.round(), "collective": b.collective.round(),
+            "collectiveRoster": b.collective_roster.round(), "nilGoHeld": b.nil_go_held.round(),
             // The deals set (what the desk counts), and the usual split
             // when the blocks show it instead.
             "roster": b.roster.round(), "recruits": b.recruits.round(), "portal": b.portal.round(),
@@ -375,7 +378,7 @@ fn college(w: &World, j: usize) -> Reply {
             // year. With the usual split only suggested, what it would
             // leave.
             "left": b.left.round(),
-            "leftUsual": (!use_set).then(|| (b.total - to_roster - b.recruits - b.portal).round()),
+            "leftUsual": (!use_set).then(|| (b.yours - to_roster - b.recruits - b.portal).round()),
             "setAny": !set.is_empty(), "yours": yours, "usual": suggested,
         },
         "scholarships": {

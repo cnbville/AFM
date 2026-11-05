@@ -121,19 +121,13 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
         "college_cut" => desk::cut(w, id_arg(args)?)?,
         "nil_set" => desk::set_deal(w, id_arg(args)?, money_arg(args, "amount").ok_or("Missing amount.")?)?,
         "nil_usual" => {
-            let deals = desk::usual_deals(w, j);
-            w.front_office.college.deals.clear();
-            w.front_office.college.deals_year = desk::deals_year(w);
-            let mut n = 0;
-            for (id, x) in deals {
-                if desk::set_deal(w, id, (x / 500.0).round() * 500.0).is_ok() {
-                    n += 1;
-                }
-            }
-            format!(
-                "{n} {} set at the collective's usual split. Adjust any of them.",
-                afm_engine::world::folk::noun(n, "deal")
-            )
+            let n = desk::set_usual_deals(w)?;
+            let what = if ncaa::two_pots(w.today) {
+                "the school's usual revenue-share split"
+            } else {
+                "the collective's usual split"
+            };
+            format!("{n} {} set at {what}. Adjust any of them.", afm_engine::world::folk::noun(n, "deal"))
         }
         "nil_clear" => {
             w.front_office.college.deals.clear();
@@ -528,14 +522,7 @@ fn reason(w: &World, j: usize, i: usize, rival: Option<usize>) -> String {
         }
         if ncaa::nil_era(w.year) && wants.money > 0.3 {
             let theirs = desk::usual_offer(w, r, p.player.id);
-            let ours = w
-                .front_office
-                .college
-                .board
-                .iter()
-                .find(|t| t.id == p.player.id)
-                .and_then(|t| t.nil)
-                .unwrap_or_else(|| desk::usual_offer(w, j, p.player.id));
+            let ours = desk::weighed_offer(w, j, p.player.id);
             if theirs > 1.4 * ours + 10_000.0 {
                 return format!(
                     "Money matters to {}: {rn}'s collective can pay more.",
@@ -667,7 +654,8 @@ fn recruit_row(
     let it = interest(w, j, i, offered);
     let s = desk::standing(p, j);
     let hs = p.hs;
-    let usual = if ncaa::nil_era(w.year) { desk::usual_offer(w, j, p.player.id) } else { 0.0 };
+    // The usual offer as you hand it out (in two pots the school's part; B18).
+    let usual = if ncaa::nil_era(w.year) { desk::usual_parts(w, j, p.player.id).0 } else { 0.0 };
     let next = next_step(w, p);
     let offers = views::offers_of(p).len();
     json!({
@@ -1289,6 +1277,11 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
     v["recruitable"] = json!(desk::recruitable(w, i).is_ok());
     v["visits_yours"] = json!(w.front_office.owner(Duty::Visits) == Owner::You);
     v["nil_max"] = json!(ncaa::position_nil_max(p.player.position));
+    // In two pots the collective adds its own deal, through NIL Go (B18);
+    // his first answer to your promise (N1).
+    v["two_pots"] = json!(ncaa::two_pots(w.today));
+    v["collective_own"] = json!(desk::usual_parts(w, j, p.player.id).1);
+    v["answer"] = desk::reaction(w, p.player.id, desk::MoneyKind::Promise).map_or(Value::Null, answer_json);
     v["budget"] = budget_json(w, j);
     v["high_school"] = json!(w.school_name(p.hs));
     // Your own film session (bug 82): its hours, or why not today.
@@ -1488,6 +1481,8 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
     let d = &w.front_office.college;
     let one_time = w.changes.rules(w.year + 1).one_time_transfer;
     let mine_div = w.programs[j].division;
+    // The money you hand out: the school's revenue share in two pots (B18).
+    let pot = desk::budget(w, j).yours;
     let mut entrants: Vec<(f64, Value)> = Vec::new();
     let mut in_portal = 0;
     for p in w.people.iter() {
@@ -1529,7 +1524,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
                 "days": today.days_to(e.decide_by).max(0), "held": e.held,
                 "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil),
                 "contacted": t.is_some_and(|t| t.contacted.is_some()), "sits": sits,
-                "usual": if ncaa::nil_era(w.year) { w.programs[j].collective.budget / 40.0 } else { 0.0 },
+                "usual": if ncaa::nil_era(w.year) { pot / 40.0 } else { 0.0 },
             }),
         ));
     }
@@ -1617,6 +1612,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
                 "id": t.id, "name": p.name, "pos": p.player.position.name(), "from": brief(w, t.from),
                 "status": status, "offered": t.offered.map(short_date), "nil": t.nil,
                 "decide": p.cal.portal.map(|e| short_date(e.decide_by)), "settled": t.settled,
+                "answer": desk::reaction(w, t.id, desk::MoneyKind::Portal).map(answer_json),
             }))
         })
         .collect();
@@ -1665,10 +1661,16 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
 
 // --- NIL --------------------------------------------------------------------------------
 
+/// A player's first answer to your money (N1), for a screen.
+fn answer_json(r: &desk::Reaction) -> Value {
+    json!({ "mood": r.mood.key(), "word": r.mood.word(), "text": r.text, "date": short_date(r.date), "money": r.money })
+}
+
 fn budget_json(w: &World, j: usize) -> Value {
     let b = desk::budget(w, j);
     json!({
         "total": b.total, "revenue_share": b.revenue_share, "collective": b.collective,
+        "two_pots": b.two_pots, "yours": b.yours, "collective_roster": b.collective_roster, "nil_go_held": b.nil_go_held,
         "roster": b.roster, "recruits": b.recruits, "portal": b.portal, "left": b.left,
         "total_text": dollars(b.total), "left_text": dollars(b.left),
     })
@@ -1679,6 +1681,8 @@ fn nil(w: &World, j: usize) -> Reply {
     let d = &w.front_office.college;
     let year = desk::deals_year(w);
     let usual: HashMap<u32, f64> = desk::usual_deals(w, j).into_iter().collect();
+    // The collective's own deals in two pots, as NIL Go clears them (B18).
+    let own: HashMap<u32, (f64, f64)> = desk::collective_deals(w, j).into_iter().map(|x| (x.0, (x.1, x.2))).collect();
     let deals: HashMap<u32, f64> =
         if d.deals_year == year { d.deals.iter().copied().collect() } else { HashMap::new() };
     let mut rows: Vec<Value> = Vec::new();
@@ -1692,6 +1696,8 @@ fn nil(w: &World, j: usize) -> Reply {
             "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "cls": views::class_text(w, p),
             "role": p.last_role.map(views::role_words), "read": reads::overall(w, i).json(), "yours": reads::mine(w, i).json(),
             "usual": usual.get(&p.player.id).copied().unwrap_or(0.0), "deal": deals.get(&p.player.id).copied(),
+            "own": own.get(&p.player.id).map(|x| x.0), "held": own.get(&p.player.id).map(|x| x.1).filter(|&x| x >= 1.0),
+            "answer": desk::reaction(w, p.player.id, desk::MoneyKind::Deal).map(answer_json),
             "now": p.nil_income, "stars": stars_of(p), "left": eligibility_left(w, p),
             // Public: his followers and the brand money he earns himself,
             // apart from the collective (lane 1's fame); his presence on
@@ -1735,7 +1741,7 @@ fn nil(w: &World, j: usize) -> Reply {
     Ok(json!({
         "team": brief(w, j),
         "era": ncaa::nil_era(w.today.year()) || w.today >= Date::ymd(ncaa::NIL_START, 6, 1),
-        "house": w.today.year() >= ncaa::HOUSE_START,
+        "house": ncaa::two_pots(w.today),
         "yours": w.front_office.owner(Duty::Nil) == Owner::You,
         "year": year,
         "pay_day": short_date(Date::ymd(if w.today >= Date::ymd(w.today.year(), 7, 1) { w.today.year() + 1 } else { w.today.year() }, 7, 1)),
