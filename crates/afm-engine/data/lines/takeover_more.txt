@@ -698,7 +698,7 @@ Cool. Winning's more fun anyway. ~ loose
 I've always thought this group had it in us. Good to hear you think so too. ~ loyal
 We were building toward something before you got here. If you see it too, good. ~ loyal
 That's a lot for day one. I'll keep showing up, same as before. ~ steady
-Yes sir. ~ quiet hs
+Yes {coach_sir}. ~ quiet hs
 Understood, Coach. ~ quiet
 Good. ~ quiet
 We'll see. ~ quiet !loyal

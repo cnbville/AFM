@@ -65,8 +65,8 @@ pub const RUNBACK_MIN: f32 = 2.0;
 pub const QUICK_MIN: f32 = 20.0;
 
 /// Your eye moving on (Cain 2026-11-04): a settled trait's chance is
-/// halved, one not caught yet this cut-up gains 5 points (proposed, not
-/// confirmed).
+/// halved, one not caught yet this cut-up gains 5 points (confirmed
+/// 2026-11-05).
 pub const EYE_SETTLED: f64 = 0.5;
 pub const EYE_FRESH: f64 = 0.05;
 

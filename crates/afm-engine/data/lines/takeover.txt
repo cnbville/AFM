@@ -39,7 +39,7 @@ Starts over? I've got a whole season on tape, Coach. I'll be fine, but I'm not g
 Respectfully, some of us already proved it. But okay. I'll prove it again. ~ ego !hot
 You can open it up all you want. Nobody's taking my spot. ~ ego hot
 Every new coach says that the first day. We'll see if it's real when the depth chart comes out. ~ !competitor
-Yes sir. ~ quiet
+Yes {coach_sir}. ~ quiet
 I'll make sure the young guys hear it right. Open doesn't mean wait for somebody to mess up. It means go take it. ~ leader
 Half the room sat up in their chairs. The two-deep is going to be a fight this spring. ~ college
 The JV guys are going to be flying around tomorrow, Coach. That's good for us. ~ hs
@@ -56,7 +56,7 @@ Coach {old_last} would've liked hearing that. I might tell him you said it. ~ lo
 Respecting the past is cool. I'm more interested in what's going to be different. ~ competitor
 Sounded good. Guys have heard nice speeches before, though. ~ !loyal !leader
 That was the right way to do it. The seniors bought in right there. ~ leader !nfl
-Yes sir. Appreciate that. ~ quiet
+Yes {coach_sir}. Appreciate that. ~ quiet
 My dad played here. He's going to like that you said that. ~ hs
 Smart. There are a lot of good pros in this building who did it the right way. You didn't have to blow it up to make your mark. ~ nfl
 Finish it? Cool. As long as finishing it means getting the ball to the guys who make plays. ~ ego
@@ -75,7 +75,7 @@ Championship's a big word on day one. I like it, but we've got to stack some day
 Championship's a big word on day one. ~ calm
 I don't have three years left in me. So yeah, I'll take now. ~ nfl vet
 Good. Put it on us. ~ ego
-Yes sir. Let's go. ~ quiet
+Yes {coach_sir}. Let's go. ~ quiet
 Everybody says championship in the first meeting. Let's see what it looks like in August. ~ !competitor
 The whole town's going to hear about that by Friday, Coach. Hope you meant it. ~ hs
 The room got loud. Now we've got to back it up in the weight room. ~ leader
@@ -203,7 +203,7 @@ If something's off in the locker room, you'll hear it from me. I'd want the same
 Guys are nervous. That's normal. Give us a standard and we'll hit it.
 I've been through a coaching change before. The guys who make it are the ones who show up the first week. I'll be there. ~ !young
 I've seen a few head coaches come through here. Tell me what you want the room to look like and I'll make sure it looks like that. ~ nfl vet
-Yes sir. I'll get the guys in the weight room. Some of them need rides, but I'll figure it out. ~ hs
+Yes {coach_sir}. I'll get the guys in the weight room. Some of them need rides, but I'll figure it out. ~ hs
 If somebody's slacking, you won't have to hear about it from me. You'll just see it fixed.
 Tell me the three things you care about most. Every guy will know them by Monday.
 Change is change. This group's tougher than people think. ~ calm
@@ -215,7 +215,7 @@ We'll see, Coach. Guys are waiting to see what you're about.
 Honestly? I don't know you yet. Nothing personal.
 I'm going to watch how you treat the walk-ons. That'll tell me a lot. ~ college
 Every coach says the right stuff the first week. I'll know more in August.
-Yes sir. We'll see how it goes. ~ quiet
+Yes {coach_sir}. We'll see how it goes. ~ quiet
 The guys respect you being here. That's different from trusting you.
 In this league you see a lot of coaches come and go. Show me. ~ nfl
 Half the room looked you up last night. Now we want to see the real thing. ~ modern
