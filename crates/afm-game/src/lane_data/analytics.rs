@@ -123,6 +123,18 @@ pub(super) fn charted_now(
     (now, Some(since))
 }
 
+/// College's season in progress up to your staff's charting, every man's
+/// line (lane NB11's prospect pages). The charting's delay comes off as
+/// it does for your own division.
+pub(super) fn college_now(w: &World) -> Vec<NowLine> {
+    let division = match views::mine(w) {
+        Some(views::TeamRef::College(p)) => w.programs[p].division,
+        _ => Division::FBS,
+    };
+    let place = Place { tier: Tier::College, division: Some(division), state: None };
+    charted_now(w, place, marks::season_now(w, Tier::College, None)).0
+}
+
 #[allow(clippy::too_many_arguments)]
 fn row_from(
     id: u32,

@@ -56,6 +56,24 @@
 //!   `conds`, `cols`, `sort`) and `stat_finder_stats`: every season,
 //!   career, game or streak that meets the conditions (item 32,
 //!   `finder.rs`).
+//! - `your_numbers` and `next_opponent` (`kind`, `id`): your rank in what
+//!   decides games at your level with five seasons, the verdict, the
+//!   drivers, this week's movers and alerts on your players, and the next
+//!   opponent's numbers, tendencies, best players and the matchups that
+//!   tilt (lane NB11, items 41 and 33; `yours.rs`);
+//! - `prospects` (`level`, `class`, `pos`, `state`) and `prospect_card`
+//!   (`id`): the draft's prospects and a high school class, a college
+//!   prospect's production card and a high schooler's game log, lines,
+//!   testing, offers and stars over time (items 34 and 35; `prospects.rs`);
+//! - `draft_data`, `recruit_data` and `portal_data` (`tab`, `level`,
+//!   `division` and each page's own): draft outcomes and hit rates, class
+//!   rankings and who develops, and the transfer portal by program
+//!   (items 36-38; `drafts.rs`);
+//! - `coach_data` (`level`, `role`, `window`): coordinators and head
+//!   coaches ranked by their units (item 39; `coaches.rs`);
+//! - `money_data` (`kind`, `id`, `year`): the cap, NIL and the revenue
+//!   share, or a high school's budget, against results (item 40;
+//!   `money.rs`).
 //!
 //! Everything is read from the stat book, the record store
 //! (`world::marks`), the players' seasons and the teams' seasons: the
@@ -67,14 +85,19 @@ mod books;
 pub(crate) use books::title_case;
 mod careers;
 mod champs;
+mod coaches;
 mod compare;
 mod deep;
+mod drafts;
 mod finder;
 pub(crate) mod glossary;
+mod money;
+mod prospects;
 pub(crate) mod situ;
 mod teams;
 pub(crate) mod tgame;
 mod trends;
+mod yours;
 
 use afm_engine::calendar::Level as CalLevel;
 use afm_engine::world::World;
@@ -112,6 +135,15 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "compare_find" => compare::compare_find,
         "stat_finder" => finder::stat_finder,
         "stat_finder_stats" => finder::finder_stats,
+        "draft_data" => drafts::draft_data,
+        "recruit_data" => drafts::recruit_data,
+        "portal_data" => drafts::portal_data,
+        "your_numbers" => yours::your_numbers,
+        "next_opponent" => yours::next_opponent,
+        "prospects" => prospects::prospects,
+        "prospect_card" => prospects::prospect_card,
+        "coach_data" => coaches::coach_data,
+        "money_data" => money::money_data,
         _ => return None,
     };
     let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };

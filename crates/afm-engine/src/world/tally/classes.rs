@@ -30,7 +30,7 @@ pub struct Career {
 }
 
 impl Career {
-    fn add(&mut self, s: &players::Season, season: i32) {
+    pub(crate) fn add(&mut self, s: &players::Season, season: i32) {
         if s.games == 0 {
             return;
         }

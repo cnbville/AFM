@@ -243,6 +243,8 @@ pub(crate) fn record(w: &mut World, class_of: i32, d: Date) {
     // Classes that have signed and gone keep nothing here.
     let oldest = w.year - 1;
     w.scouting.rankings.classes.retain(|c| c.class_of >= oldest);
+    // The prospects tally keeps each update (lane NB11).
+    w.tally_ranks(class_of, d);
 }
 
 /// A class's latest order, if the services have ranked it.

@@ -71,7 +71,7 @@ pub(super) struct TStat {
 /// picked off that season (expected turnovers).
 #[derive(Clone, Copy, Default)]
 pub(super) struct Lv {
-    pick_share: f64,
+    pub(super) pick_share: f64,
 }
 
 fn ratio(n: f64, d: f64) -> Option<f64> {
@@ -550,7 +550,7 @@ pub(super) fn tier_of(t: TeamRef) -> Option<(Tier, usize)> {
     }
 }
 
-fn team_of(tier: Tier, t: usize) -> Team {
+pub(super) fn team_of(tier: Tier, t: usize) -> Team {
     match tier {
         Tier::College => Team::College(t),
         Tier::Nfl => Team::Nfl(t),
@@ -637,10 +637,10 @@ pub(super) fn group_name(w: &World, tier: Tier, team: usize, year: i32) -> Strin
 }
 
 /// A season's teams in one group, with the group's own numbers.
-struct Group {
-    rows: Vec<Sq>,
-    lv: Lv,
-    name: String,
+pub(super) struct Group {
+    pub(super) rows: Vec<Sq>,
+    pub(super) lv: Lv,
+    pub(super) name: String,
 }
 
 /// The teams in a team's group that season: its division's programs, the
@@ -663,7 +663,7 @@ pub(super) fn members(w: &World, tier: Tier, team: usize, year: i32) -> Vec<u32>
 }
 
 /// Some teams' squad rows in a season (only their frames are read).
-fn rows_for(w: &World, level: Level, season: i32, ids: &[u32]) -> Vec<Sq> {
+pub(super) fn rows_for(w: &World, level: Level, season: i32, ids: &[u32]) -> Vec<Sq> {
     if season == w.tally_open_season() {
         return ids.iter().filter_map(|&t| w.tally_squad(level, season, t)).collect();
     }
@@ -679,14 +679,14 @@ fn rows_for(w: &World, level: Level, season: i32, ids: &[u32]) -> Vec<Sq> {
     v
 }
 
-fn group(w: &World, tier: Tier, team: usize, year: i32) -> Group {
+pub(super) fn group(w: &World, tier: Tier, team: usize, year: i32) -> Group {
     let rows = rows_for(w, level_of(tier), year, &members(w, tier, team, year));
     let lv = level_numbers(&rows);
     Group { rows, lv, name: group_name(w, tier, team, year) }
 }
 
 /// A number's rank in its group (1 best) and the group's middle.
-fn rank_of(st: &TStat, side: usize, g: &Group, v: f64) -> (Option<usize>, Option<f64>) {
+pub(super) fn rank_of(st: &TStat, side: usize, g: &Group, v: f64) -> (Option<usize>, Option<f64>) {
     let vals: Vec<f64> = g.rows.iter().filter_map(|s| (st.f)(s, side, &g.lv)).collect();
     let avg = (!vals.is_empty()).then(|| vals.iter().sum::<f64>() / vals.len() as f64);
     let rank =
@@ -881,7 +881,7 @@ fn flag_rate(t: &teams::Season, yes: &str, no: &str) -> Option<String> {
     (a + b > 0.0).then(|| text(Fmt::Pct, a / (a + b)))
 }
 
-fn tendencies(w: &World, tier: Tier, team: usize, year: i32, me: &Sq, g: &Group, depth: u8) -> Value {
+pub(super) fn tendencies(w: &World, tier: Tier, team: usize, year: i32, me: &Sq, g: &Group, depth: u8) -> Value {
     let mut out = json!({ "calls": tend_rows(me, g) });
     if depth < 2 {
         return out;
@@ -1002,7 +1002,7 @@ fn box_rows(t: &teams::Season) -> Vec<Value> {
 // ---------------------------------------------------------------------
 // Games, unit grades and snap shares (item 21).
 
-fn games_list(w: &World, tier: Tier, team: usize, year: i32, depth: u8) -> Value {
+pub(super) fn games_list(w: &World, tier: Tier, team: usize, year: i32, depth: u8) -> Value {
     let level = level_of(tier);
     let t = team as u32;
     let mut rows = Vec::new();
@@ -1527,7 +1527,7 @@ const BY_UNIT: [&[&str]; 3] = [
     &["TmFgPct", "TmXpPct", "TmPuntNet", "TmPuntIn20", "TmKoTb", "TmKrAvg", "TmPrAvg"],
 ];
 
-fn stat_by(key: &str) -> Option<&'static TStat> {
+pub(super) fn stat_by(key: &str) -> Option<&'static TStat> {
     STATS.iter().find(|s| s.key == key)
 }
 

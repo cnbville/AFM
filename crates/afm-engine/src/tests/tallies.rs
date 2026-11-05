@@ -86,7 +86,8 @@ fn the_tallies_only_watch_and_add_up() {
             assert_eq!(f.header.kind, kind);
             let mut n = 0;
             f.each(|_, _| n += 1).unwrap();
-            assert!(n > 0, "no {kind} records in {s}");
+            // A small world can see no portal entry in a season.
+            assert!(n > 0 || kind == "moves", "no {kind} records in {s}");
             assert_eq!(n as u64, f.header.records);
         }
     }
@@ -302,6 +303,48 @@ fn the_tallies_only_watch_and_add_up() {
     for x in &c.signees {
         assert_eq!(x.out.college.games, games_in(Level::College, x.id, x.class), "signee {} games", x.id);
     }
+    // Prospects (lane NB11): followed kids' game lines, each pointing at
+    // its game in the games file, the services' rankings in date order,
+    // and the season's Division I signees with their last ranking.
+    let (mut kids, mut ranked, mut lines, mut signed, mut keyed) = (0, 0, 0, 0, 0);
+    b.tally_prospects_each(s, |r| match r {
+        tally::prospects::Row::Prospect(p) => {
+            kids += 1;
+            ranked += (!p.ranks.is_empty()) as usize;
+            lines += p.games.len();
+            assert!(p.ranks.windows(2).all(|x| x[0].date < x[1].date), "kid {} rankings out of order", p.id);
+            for g in p.games.iter().take(1) {
+                if let Some(k) = g.key
+                    && keyed < 20
+                {
+                    keyed += 1;
+                    let row = b.tally_game_row(s, k).expect("a kid's game is in the games file");
+                    assert_eq!(row.level, Level::Hs as u8);
+                    assert!(row.teams.contains(&g.school) && row.teams.contains(&g.opp), "kid {} game {k}", p.id);
+                }
+            }
+        }
+        tally::prospects::Row::Signed(x) => {
+            signed += 1;
+            assert_eq!(x.class, s);
+        }
+    });
+    assert!(kids > 0 && ranked > 0 && lines > 0 && keyed > 0, "{kids} kids, {ranked} ranked, {lines} lines");
+    assert_eq!(signed, b.tally_signed(s).len());
+    assert_eq!(signed, c.signees.iter().filter(|x| x.class == s).count(), "signees of the {s} class");
+    // Moves: every portal record taken in, each with its old school.
+    let m = b.tally_moves();
+    assert_eq!(m.seen, b.recruiting_log.portal.len());
+    assert!(m.moves.iter().all(|x| x.to.is_none() || !x.returned));
+    // Money: every NFL club, the programs with money, the high schools.
+    let nfl = b.tally_money_level(Level::Nfl, s);
+    assert_eq!(nfl.len(), b.nfl.len());
+    assert!(nfl.iter().all(|r| r.vals.len() == tally::money::NFL_VALS.len() && r.val("cap") > 0.0));
+    assert!(nfl.iter().any(|r| !r.pay.is_empty() && r.pay.iter().all(|p| p.a >= 0.0)));
+    let college = b.tally_money_level(Level::College, s);
+    assert!(college.iter().all(|r| r.vals.len() == tally::money::COLLEGE_VALS.len()));
+    let hs = b.tally_money_level(Level::Hs, s);
+    assert!(!hs.is_empty() && hs.iter().all(|r| r.vals.len() == 2 * crate::world::finance::hs::N + 2));
     // A save carries the season being counted; a reopened world reads the
     // closed ones from the folder.
     let open_rows = b.tallies.players.rows().len();

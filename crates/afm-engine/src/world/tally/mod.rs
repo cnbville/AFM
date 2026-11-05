@@ -26,6 +26,13 @@
 //!   played (deep throws, play action, the backfield, the blitz) and how
 //!   big its starters were, for the Trends page's 30 years (lane NB10,
 //!   `trends.rs`).
+//! - `prospects`: high school prospects' game lines and the services'
+//!   rankings, and each Division I signee's last ranking (lane NB11,
+//!   `prospects.rs`).
+//! - `moves`: every transfer portal entry with how he did before and after
+//!   (lane NB11, `moves.rs`).
+//! - `money`: each team's money for its players in a season (lane NB11,
+//!   `money.rs`).
 //!
 //! The season being played is in the world, so a save carries it. When the
 //! season closes (the day after the Super Bowl, `clock.rs`, `rollover`)
@@ -45,8 +52,11 @@ pub mod depth;
 pub mod expect;
 pub mod file;
 pub mod games;
+pub mod money;
+pub mod moves;
 pub mod people;
 pub mod players;
+pub mod prospects;
 pub mod squads;
 pub mod teams;
 pub mod trends;
@@ -58,7 +68,8 @@ use super::World;
 /// The folder beside a world or save: `name.afmdata`.
 pub const EXT: &str = "afmdata";
 /// The kinds, each its own folder of season files.
-pub const KINDS: [&str; 8] = ["players", "teams", "games", "classes", "people", "squads", "calls", "trends"];
+pub const KINDS: [&str; 11] =
+    ["players", "teams", "games", "classes", "people", "squads", "calls", "trends", "prospects", "moves", "money"];
 
 /// The level a tally belongs to (its code in files).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -92,6 +103,12 @@ pub struct Tallies {
     pub classes: classes::Store,
     #[serde(default)]
     pub calls: calls::Open,
+    /// High school prospects' games and rankings (lane NB11).
+    #[serde(default)]
+    pub prospects: prospects::Open,
+    /// Every portal move with what came of it (lane NB11).
+    #[serde(default)]
+    pub moves: moves::Store,
     /// Seasons closed, oldest first.
     #[serde(default)]
     pub closed: Vec<i32>,
@@ -158,10 +175,11 @@ impl World {
         self.tallies.dir.take()
     }
 
-    /// Adds a game played (its tallies built where it was played).
-    pub(crate) fn tally_game(&mut self, part: games::Part) {
+    /// Adds a game played (its tallies built where it was played); its key
+    /// in the season's games file.
+    pub(crate) fn tally_game(&mut self, part: games::Part) -> Option<u64> {
         if !self.tallying() {
-            return;
+            return None;
         }
         let t = &mut self.tallies;
         let key = t.games.add(part.level, part.date, &part.row);
@@ -181,6 +199,40 @@ impl World {
         let [a, b] = part.squads;
         t.squads.add(part.level, part.teams[0], a, [&part.adv[0], &part.adv[1]], part.score);
         t.squads.add(part.level, part.teams[1], b, [&part.adv[1], &part.adv[0]], [part.score[1], part.score[0]]);
+        Some(key)
+    }
+
+    /// A high school game's lines for the prospects tally (lane NB11): each
+    /// followed kid's line.
+    pub(crate) fn tally_hs_lines(
+        &mut self,
+        date: crate::calendar::Date,
+        key: Option<u64>,
+        schools: [usize; 2],
+        lines: &[Vec<(usize, [i32; crate::world::hs_year::HS_STAT_COUNT], bool)>; 2],
+        score: [u32; 2],
+        neutral: bool,
+    ) {
+        if !self.tallying() {
+            return;
+        }
+        let mut open = std::mem::take(&mut self.tallies.prospects);
+        open.game(self, date, key, schools, lines, score, neutral);
+        self.tallies.prospects = open;
+    }
+
+    /// The services' order for a class on a day, for the prospects tally
+    /// (lane NB11).
+    pub(crate) fn tally_ranks(&mut self, class_of: i32, d: crate::calendar::Date) {
+        if !self.tallying() {
+            return;
+        }
+        let Some(c) = super::scouting::services::class_ranks(self, class_of) else { return };
+        let comp = super::scouting::services::composite(self, c);
+        let ids = c.ids.clone();
+        let mut open = std::mem::take(&mut self.tallies.prospects);
+        open.ranks(self, class_of, d, &ids, &comp);
+        self.tallies.prospects = open;
     }
 
     /// The draft's picks: (person index, overall pick, round, club).
@@ -240,6 +292,13 @@ impl World {
         let mut classes = std::mem::take(&mut self.tallies.classes);
         classes.close(self, season, &self.tallies.players);
         self.tallies.classes = classes;
+        // Lane NB11: the portal moves and the prospects.
+        let mut moves = std::mem::take(&mut self.tallies.moves);
+        moves.close(self, season, &self.tallies.players);
+        self.tallies.moves = moves;
+        let mut prospects = std::mem::take(&mut self.tallies.prospects);
+        let prospect_rows = prospects.close(self, season, &self.tallies.classes.signees);
+        self.tallies.prospects = prospects;
         let mut files: Vec<(&'static str, Vec<u8>)> = Vec::new();
         let mut f = file::Frames::new(file::LEVEL_CLOSE);
         for (k, s) in self.tallies.players.rows() {
@@ -303,6 +362,25 @@ impl World {
             f.push(k, &file::encode(s));
         }
         files.push(("calls", f.file_bytes("calls", season)));
+        // Lane NB11: prospects, moves and money.
+        let mut f = file::Frames::new(file::LEVEL_CLOSE);
+        for (k, r) in &prospect_rows {
+            f.push(*k, &file::encode(r));
+        }
+        files.push(("prospects", f.file_bytes("prospects", season)));
+        let mut f = file::Frames::new(file::LEVEL_CLOSE);
+        let mut keyed: Vec<(u64, &moves::Move)> =
+            self.tallies.moves.moves.iter().enumerate().map(|(k, m)| (moves::key(m.year, k), m)).collect();
+        keyed.sort_by_key(|x| x.0);
+        for (k, m) in keyed {
+            f.push(k, &file::encode(m));
+        }
+        files.push(("moves", f.file_bytes("moves", season)));
+        let mut f = file::Frames::new(file::LEVEL_CLOSE);
+        for (k, r) in money::rows(self, season) {
+            f.push(k, &file::encode(&r));
+        }
+        files.push(("money", f.file_bytes("money", season)));
         let g = std::mem::take(&mut self.tallies.games);
         files.push(("games", g.frames.file_bytes("games", season)));
         let t = &mut self.tallies;
@@ -376,6 +454,15 @@ impl World {
             out.insert((Level::Hs as u8, s.team), v.to_vec());
         }
         out
+    }
+
+    /// What each college and high school roster has brought so far in the
+    /// open season, read as the close reads it (lane NB11's coach pages).
+    pub fn tally_talent_now(&self) -> std::collections::HashMap<(u8, u32), Vec<f32>> {
+        if !self.tallying() {
+            return Default::default();
+        }
+        self.close_talent(self.tallies.season)
     }
 
     /// The seasons with tallies, oldest first (the open one last).
@@ -638,5 +725,80 @@ impl World {
     /// The classes as they stand.
     pub fn tally_classes(&self) -> &classes::Store {
         &self.tallies.classes
+    }
+
+    /// Every portal move so far, with what came of it (lane NB11).
+    pub fn tally_moves(&self) -> &moves::Store {
+        &self.tallies.moves
+    }
+
+    /// A kid's season in the prospects file (lane NB11): the open season's
+    /// from the world.
+    pub fn tally_prospect(&self, season: i32, id: u32) -> Option<prospects::Prospect> {
+        if season == self.tallies.season {
+            return self.tallies.prospects.rows.get(&id).cloned();
+        }
+        let mut out = None;
+        let _ = self.tally_get("prospects", season, &[prospects::key(id)], |_, r| {
+            if let Some(prospects::Row::Prospect(p)) = file::decode(r) {
+                out = Some(p);
+            }
+        });
+        out
+    }
+
+    /// Every record of a season's prospects file (the open season's kids).
+    pub fn tally_prospects_each(&self, season: i32, mut f: impl FnMut(&prospects::Row)) {
+        if season == self.tallies.season {
+            for p in self.tallies.prospects.rows.values() {
+                f(&prospects::Row::Prospect(p.clone()));
+            }
+            return;
+        }
+        let _ = self.tally_each("prospects", season, |_, r| {
+            if let Some(x) = file::decode::<prospects::Row>(r) {
+                f(&x)
+            }
+        });
+    }
+
+    /// The signees of a season's prospects file, with their last ranking.
+    pub fn tally_signed(&self, season: i32) -> Vec<prospects::Signed> {
+        let mut out = Vec::new();
+        let _ = self.tally_each("prospects", season, |k, r| {
+            if k >= 1 << 62
+                && let Some(prospects::Row::Signed(s)) = file::decode(r)
+            {
+                out.push(s);
+            }
+        });
+        out
+    }
+
+    /// A team's money in a closed season (lane NB11); the season being
+    /// played is worked out from the world as it stands.
+    pub fn tally_money(&self, level: Level, season: i32, team: u32) -> Option<money::Row> {
+        if season == self.tallies.season {
+            return money::rows(self, season).into_iter().find(|r| r.0 == money::key(level, team)).map(|r| r.1);
+        }
+        let mut out = None;
+        let _ = self.tally_get("money", season, &[money::key(level, team)], |_, r| out = file::decode(r));
+        out
+    }
+
+    /// Every team's money at a level in a season.
+    pub fn tally_money_level(&self, level: Level, season: i32) -> Vec<money::Row> {
+        if season == self.tallies.season {
+            return money::rows(self, season).into_iter().filter(|r| r.1.level == level as u8).map(|r| r.1).collect();
+        }
+        let mut out = Vec::new();
+        let _ = self.tally_each("money", season, |k, r| {
+            if (k >> 32) as u8 == level as u8
+                && let Some(x) = file::decode::<money::Row>(r)
+            {
+                out.push(x);
+            }
+        });
+        out
     }
 }

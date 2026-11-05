@@ -1733,6 +1733,305 @@ pub const TERMS: &[Term] = &[
         "1 minus the average gap in percentiles (out of 100) across the card's numbers and playing time, less 0.03 for each year of age between them.",
         1,
     ),
+    // ---- Lane NB11: prospects, drafts, recruiting, the portal, coaches and money ----
+    t(
+        "Dominator",
+        "Dominator rating",
+        "His share of his team's production at his spot: for a receiver, half his share of the team's receiving yards plus half his share of its receiving touchdowns; for a back, the same for yards and touchdowns from scrimmage; for a pass rusher, his share of the team's sacks and tackles for loss.",
+        "His yards over the team's, plus his touchdowns over the team's, halved.",
+        1,
+    ),
+    t(
+        "BreakoutAge",
+        "Breakout age",
+        "How old he was, on 1 September of that season, the first time his dominator rating reached 20% (15% for a tight end). The younger a player breaks out, the better his odds in the pros.",
+        "",
+        -1,
+    ),
+    t(
+        "AgeAdjDom",
+        "Age-adjusted dominator",
+        "His dominator rating read against his age: each year younger than 21 on 1 September adds a tenth, each year older takes a tenth off.",
+        "Dominator times one plus a tenth for each year under 21.",
+        1,
+    ),
+    t(
+        "PcAya",
+        "Adjusted yards an attempt",
+        "Passing yards an attempt with a bonus for touchdowns and a penalty for interceptions.",
+        "Yards plus 20 a touchdown less 45 an interception, over attempts.",
+        1,
+    ),
+    t(
+        "PcCpoe",
+        "Completion over expected",
+        "How many more of his passes were caught than the throws' difficulty predicted, as a share of his attempts.",
+        "Completions less expected completions, over attempts.",
+        1,
+    ),
+    t(
+        "PcBtt",
+        "Big-time throw rate",
+        "The share of his dropbacks that ended in a throw only a few passers make: tight windows, deep and on time.",
+        "",
+        1,
+    ),
+    t(
+        "PcTwp",
+        "Turnover-worthy rate",
+        "The share of his dropbacks that ended in a throw or a hold that should have been a turnover, caught or not.",
+        "",
+        -1,
+    ),
+    t(
+        "PcYco",
+        "Yards after contact a carry",
+        "The yards he gained after the first defender touched him, on each carry.",
+        "",
+        1,
+    ),
+    t("PcMtf", "Missed tackles forced a touch", "The tackles he made defenders miss for each carry and catch.", "", 1),
+    t("PcExplRun", "Explosive run rate", "The share of his carries that went for 10 yards or more.", "", 1),
+    t(
+        "PcYprr",
+        "Yards a route run",
+        "His receiving yards for each route he ran: how much he gets done whether or not he is the target.",
+        "Receiving yards over routes run.",
+        1,
+    ),
+    t(
+        "PcTprr",
+        "Targets a route",
+        "How often he is thrown to when he runs a route: how open he gets and how much the quarterback trusts him.",
+        "",
+        1,
+    ),
+    t("PcDrop", "Drop rate", "The share of catchable passes thrown his way that he dropped.", "", -1),
+    t(
+        "PcPressAllowed",
+        "Pressure rate allowed",
+        "The share of his pass-blocking snaps on which his man pressured the quarterback.",
+        "",
+        -1,
+    ),
+    t("PcRbwr", "Run block win rate", "The share of his run-blocking snaps on which he held or moved his man.", "", 1),
+    t(
+        "PcPrwr",
+        "Pass rush win rate",
+        "The share of his pass rushes on which he beat his blocker inside two and a half seconds.",
+        "",
+        1,
+    ),
+    t("PcPressRate", "Pressure rate", "The share of his pass rushes that pressured the quarterback.", "", 1),
+    t("PcStops", "Stops a game", "Tackles that counted as a failure for the offense, each game.", "", 1),
+    t("PcMissed", "Missed tackle rate", "The share of his tackle tries that he missed.", "", -1),
+    t(
+        "PcYpcs",
+        "Yards a coverage snap",
+        "The yards allowed in his coverage for each snap he spent in coverage.",
+        "",
+        -1,
+    ),
+    t(
+        "PcBall",
+        "Plays on the ball a target",
+        "Interceptions and passes broken up for each pass thrown at the man he covered.",
+        "",
+        1,
+    ),
+    t(
+        "CombinePct",
+        "Combine percentile",
+        "Where his test result sits among the real combine invitees at his position since 2000: the 90th percentile beats nine in ten of them. Times read the other way, quicker being better.",
+        "",
+        1,
+    ),
+    t(
+        "SizePct",
+        "Size percentile",
+        "Where his height or weight sits among the real combine invitees at his position since 2000.",
+        "",
+        0,
+    ),
+    t(
+        "PublicRank",
+        "Public rank",
+        "Where the public's draft boards, the media's and the analysts' together, have him.",
+        "",
+        -1,
+    ),
+    t(
+        "StaffRange",
+        "Staff's read",
+        "How good your staff thinks he is now, as a range: the wider it is, the less they have seen. Never his true rating.",
+        "",
+        0,
+    ),
+    t(
+        "HitRate",
+        "Hit rate",
+        "The share of the picks who started 32 games or more in the NFL, counted for drafts at least four years old.",
+        "",
+        1,
+    ),
+    t("ProBowlRate", "Pro Bowl rate", "The share of the picks who made at least one Pro Bowl.", "", 1),
+    t(
+        "ValueOverSlot",
+        "Value over slot",
+        "How many more seasons as a starter a club's picks gave than picks in the same slots usually give, a pick.",
+        "Each pick's starts a season less his slot's average, summed and divided by the picks.",
+        1,
+    ),
+    t("StartsPerSeason", "Starts a season", "The NFL games he started for each season since he was drafted.", "", 1),
+    t(
+        "BoardRecord",
+        "Board record",
+        "How well a board's order matched how the players turned out, as a rank correlation from -1 to 1 against their NFL starts.",
+        "",
+        1,
+    ),
+    t(
+        "ClassScore",
+        "Class score",
+        "A recruiting class's points the way the services count them: each signee's composite rating, the best weighed most and each one after weighed a little less, so a big class can't win on numbers alone.",
+        "",
+        1,
+    ),
+    t(
+        "BlueChipShare",
+        "Blue-chip share",
+        "The share of a roster's signees from the last four classes who were four or five stars. Teams under half rarely win a national title.",
+        "",
+        1,
+    ),
+    t(
+        "DevelopOver",
+        "Developed over stars",
+        "How many more draft picks a program produced than its signees' stars predicted, for each hundred signees.",
+        "",
+        1,
+    ),
+    t(
+        "PipelineStay",
+        "Stayed home",
+        "The share of a state's Division I signees who signed with a school in their home state.",
+        "",
+        0,
+    ),
+    t("PortalNet", "Portal net", "Players who came in through the transfer portal less those who left.", "", 0),
+    t(
+        "PortalPlayed",
+        "Played after the move",
+        "The share of those who moved who played in at least half their new team's games the season after.",
+        "",
+        1,
+    ),
+    t(
+        "CoachPct",
+        "Unit percentile",
+        "Where his unit finished at its level, as a percentile: 100 the best, 50 the middle. Several seasons are weighed by games.",
+        "",
+        1,
+    ),
+    t(
+        "OverTalent",
+        "Over talent",
+        "How many places his unit finished above where its talent ranked: positive, it did more with what it had.",
+        "Talent rank less the unit's rank.",
+        1,
+    ),
+    t(
+        "TalentRank",
+        "Talent rank",
+        "Where the unit's talent ranked at its level: the services' average stars of its men at college, the cap dollars spent on it in the NFL.",
+        "",
+        -1,
+    ),
+    t(
+        "CapHit",
+        "Cap hit",
+        "What a contract counts against the salary cap this league year: the salary, the share of the signing bonus spread over the deal and the bonuses.",
+        "",
+        0,
+    ),
+    t(
+        "CashPaid",
+        "Cash paid",
+        "The money actually paid to the player this league year, bonuses included, whatever the cap counts.",
+        "",
+        0,
+    ),
+    t(
+        "DeadMoney",
+        "Dead money",
+        "Cap charges for players no longer on the roster: the bonus money still to be counted when a club cuts or trades a man.",
+        "",
+        -1,
+    ),
+    t("CashPerWin", "Money a win", "What a team paid its players for each game it won.", "", -1),
+    t(
+        "SnapsPerMoney",
+        "Snaps for the money",
+        "The snaps a man played for each $1M of his NFL cap hit, or each $100K of his college money: who gives the most play for the pay.",
+        "",
+        1,
+    ),
+    t(
+        "RevenueShare",
+        "Revenue share",
+        "The money a school pays its own players directly from its athletics revenue since July 2025, under the House settlement's cap.",
+        "",
+        0,
+    ),
+    t(
+        "CollectiveNil",
+        "Collective NIL",
+        "The money a booster collective pays players for their name, image and likeness, on top of the school's revenue share.",
+        "",
+        0,
+    ),
+    t(
+        "BrandDeals",
+        "Brand deals",
+        "What companies pay a player to promote them: his own money, outside the school and the collective.",
+        "",
+        0,
+    ),
+    t(
+        "MoneyRank",
+        "Money rank",
+        "Where a team's spending on a position group ranks among its peers: 1 the most.",
+        "",
+        0,
+    ),
+    t(
+        "ResultRank",
+        "Result rank",
+        "Where the number that best shows that group's work ranks among its peers: 1 the best.",
+        "",
+        -1,
+    ),
+    t(
+        "StateClassPct",
+        "State and class percentile",
+        "Where a high schooler's season sits among every player at his position in his state that year, and among his class nationwide.",
+        "",
+        1,
+    ),
+    t(
+        "CampTime",
+        "Camp time",
+        "A time from a college camp or a showcase on laser gates, or a track meet, as it was run that day.",
+        "",
+        -1,
+    ),
+    t(
+        "Movers",
+        "This week's movers",
+        "Your numbers whose rank among the level's teams moved most with the last seven days' games.",
+        "",
+        0,
+    ),
 ];
 
 /// Table headers that name a stat: (the table's first header in lower
@@ -2116,6 +2415,26 @@ mod tests {
             for college in [false, true] {
                 assert!(rate_key(k, college).is_some_and(has), "rate {k} has no entry");
             }
+        }
+        // Lane NB11's screens: every hover key written in desk.js (a
+        // CamelCase word in quotes, or one after data-h8) and "Dominator".
+        let js = include_str!("../../../../app/ui/screens/desk.js");
+        let mut found = 0;
+        for part in js.split('"').skip(1).step_by(2) {
+            let inner = part.chars().skip(1).any(|c| c.is_ascii_uppercase());
+            let word = !part.is_empty() && part.chars().all(|c| c.is_ascii_alphabetic());
+            let camel = word
+                && part.starts_with(|c: char| c.is_ascii_uppercase())
+                && part.chars().nth(1).is_some_and(|c| c.is_ascii_lowercase())
+                && inner;
+            if camel || part == "Dominator" {
+                assert!(has(part), "desk.js hover {part} has no entry");
+                found += 1;
+            }
+        }
+        assert!(found >= 25, "desk.js hovers not found ({found})");
+        for k in super::super::prospects::MARKER_KEYS {
+            assert!(has(k), "prospect marker {k} has no entry");
         }
     }
 }

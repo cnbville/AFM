@@ -1708,9 +1708,9 @@ fn engine_games(
         crate::training::seat::game_injuries(w, day, &g.injuries, [0.0; 2], side);
         // The record store's game marks (update 3, lane L20).
         super::marks::hs_game(w, [h, a], g.score, &g.lines, g.neutral);
-        if let Some(p) = g.data {
-            w.tally_game(p);
-        }
+        let game_key = g.data.and_then(|p| w.tally_game(p));
+        // Lane NB11: the prospects' game lines.
+        w.tally_hs_lines(day, game_key, [h, a], &g.lines, g.score, g.neutral);
         if let Some((full, film, replay, talks)) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref(), talks);
             w.seat_line(Level::HighSchool, [h, a], None, g.neutral);

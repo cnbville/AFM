@@ -105,7 +105,7 @@ pub fn box_get(b: &[f32], name: &str) -> f64 {
     BOX.iter().position(|&n| n == name).and_then(|k| b.get(k)).map_or(0.0, |&v| v as f64)
 }
 
-fn add_vec(into: &mut Vec<f32>, from: &[f32]) {
+pub fn add_vec(into: &mut Vec<f32>, from: &[f32]) {
     if into.len() < from.len() {
         into.resize(from.len(), 0.0);
     }
