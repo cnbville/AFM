@@ -44,6 +44,10 @@ impl Pro {
     pub fn man(self) -> &'static str {
         if self.she { "woman" } else { "man" }
     }
+    /// What a player calls a coach to his face: "Yes sir" / "Yes ma'am".
+    pub fn sir(self) -> &'static str {
+        if self.she { "ma'am" } else { "sir" }
+    }
     /// A stored phrase written for a man ("not retained when his contract
     /// ran out") in this person's words. The stored phrase stays the key
     /// the world and its book match on; only what you read changes.

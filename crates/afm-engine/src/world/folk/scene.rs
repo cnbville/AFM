@@ -135,6 +135,10 @@ pub struct Said {
     pub name: String,
     pub text: String,
     pub tell: Option<String>,
+    /// How it went over (a one-on-one's answers): his trust and mood moving,
+    /// as far as your read catches it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub went: Option<String>,
 }
 
 /// An answer you can pick: what you say, the move and tone it is, and what
@@ -232,16 +236,16 @@ impl Scene {
     }
 
     pub fn narrate(&mut self, text: impl Into<String>) {
-        self.lines.push(Said { by: 0, name: String::new(), text: text.into(), tell: None });
+        self.lines.push(Said { by: 0, name: String::new(), text: text.into(), tell: None, went: None });
     }
     pub fn you(&mut self, name: &str, text: impl Into<String>) {
-        self.lines.push(Said { by: 1, name: name.to_string(), text: text.into(), tell: None });
+        self.lines.push(Said { by: 1, name: name.to_string(), text: text.into(), tell: None, went: None });
     }
     pub fn them(&mut self, name: &str, text: impl Into<String>, tell: Option<String>) {
-        self.lines.push(Said { by: 2, name: name.to_string(), text: text.into(), tell });
+        self.lines.push(Said { by: 2, name: name.to_string(), text: text.into(), tell, went: None });
     }
     pub fn other(&mut self, name: &str, text: impl Into<String>) {
-        self.lines.push(Said { by: 3, name: name.to_string(), text: text.into(), tell: None });
+        self.lines.push(Said { by: 3, name: name.to_string(), text: text.into(), tell: None, went: None });
     }
     pub fn pick(&mut self, code: u32, label: impl Into<String>, mv: &str, tone: &str, hint: &str) {
         self.picks.push(Pick { label: label.into(), mv: mv.into(), tone: tone.into(), hint: hint.into(), code });

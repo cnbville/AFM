@@ -326,18 +326,34 @@ async function tkFaceToFace(s, lead, pp, st) {
     else cur.them.push(l);
   }
   const lastThem = [...s.lines].reverse().find((l) => l.by === 2);
-  const so = ex.map((e, k) => `<li><span class="tk-fn">${k + 1}</span><div>${e.you ? `<p class="tk-fyou">${rich(e.you)}</p>` : ""}${e.notes.map((n) => `<p class="tk-fnote">${rich(n)}</p>`).join("")}${e.them.map((t) => `<p>"${rich(t.text)}"</p>${t.tell ? `<p class="tk-fnote">${esc(t.tell)}</p>` : ""}`).join("")}</div></li>`).join("");
+  // Under what he said: his tell, then how it went over as far as your read
+  // catches it (new bugs, Cain 2026-11-03).
+  const so = ex.map((e, k) => `<li><span class="tk-fn">${k + 1}</span><div>${e.you ? `<p class="tk-fyou">${rich(e.you)}</p>` : ""}${e.notes.map((n) => `<p class="tk-fnote">${rich(n)}</p>`).join("")}${e.them.map((t) => `<p>"${rich(t.text)}"</p>${t.tell ? `<p class="tk-fnote">${esc(t.tell)}</p>` : ""}${t.went ? `<p class="tk-fwent">${esc(t.went)}</p>` : ""}`).join("")}</div></li>`).join("");
 
-  // How he is: words with thin bars (yours only), and your staff's read.
-  const bar = (v, bad) => `<span class="tk-fbar ${bad ? "bad" : ""}"><i style="width:${Math.round(100 * Math.max(0, Math.min(1, v)))}%"></i></span>`;
+  // How he is: words with thin bars (yours only), and your staff's read. In a
+  // one-on-one the bars move with each line, with a mark where he came in.
+  const pct = (v) => Math.round(100 * Math.max(0, Math.min(1, v)));
+  const bar = (v, bad, from) => {
+    if (from == null) return `<span class="tk-fbar ${bad ? "bad" : ""}"><i style="width:${pct(v)}%"></i></span>`;
+    const a = pct(from), b = pct(v), lo = Math.min(a, b), d = b - a;
+    return `<span class="tk-fbar mv ${bad ? "bad" : ""}" title="Came in at ${a}, now ${b}"><i style="width:${lo}%"></i>${d ? `<s class="${d > 0 ? "up" : "down"}" style="left:${lo}%;width:${Math.abs(d)}%"></s>` : ""}<u style="left:${a}%"></u></span>`;
+  };
+  const moved = (now, from) => {
+    const d = Math.round(100 * (now - from));
+    return d ? `<small class="tk-fdelta ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"}</small>` : "";
+  };
   let how = "";
   if (s.clock) {
     how = `<div class="tk-fsec"><b>The clock</b><div class="tk-frow"><span>Minutes left</span><em>${s.clock.left} of ${s.clock.of}</em></div>${bar(s.clock.left / Math.max(1, s.clock.of), s.clock.left <= 3)}<p class="tk-fnote">Each question takes minutes; a follow-up shows how he handles being pushed.</p></div>`;
   }
   if (pp && pp.mine) {
-    const mood = pp.mood.value, low = mood < -0.2;
-    how += `<div class="tk-fsec"><b>How he is</b>${pp.trust ? `<div class="tk-frow"><span>Trust in you</span><em>${esc(pp.trust.words)}</em></div>${bar(pp.trust.value, pp.trust.value < 0.35)}` : ""}
-      <div class="tk-frow"><span>Mood</span><em class="${low ? "tk-warn" : ""}">${esc(pp.mood.words)}</em></div>${bar((mood + 1) / 2, low)}
+    const bt = s.bars && s.bars.trust, bm = s.bars && s.bars.mood;
+    const trust = bt ? { value: bt.now, words: bt.words } : pp.trust;
+    const mood = bm ? bm.now : pp.mood.value, low = mood < -0.2;
+    const moodWords = bm ? bm.words : pp.mood.words;
+    how += `<div class="tk-fsec"><b>How he is</b>${trust ? `<div class="tk-frow"><span>Trust in you${bt ? moved(bt.now, bt.from) : ""}</span><em>${esc(ppCap(trust.words))}</em></div>${bar(trust.value, trust.value < 0.35, bt ? bt.from : null)}` : ""}
+      <div class="tk-frow"><span>Mood${bm ? moved(bm.now, bm.from) : ""}</span><em class="${low ? "tk-warn" : ""}">${esc(ppCap(moodWords))}</em></div>${bar((mood + 1) / 2, low, bm ? (bm.from + 1) / 2 : null)}
+      ${s.bars ? `<p class="tk-fnote">The mark is where he came in.</p>` : ""}
       ${pp.reasons && pp.reasons[0] ? `<p class="tk-fnote">Lately: ${esc(ppCap(pp.reasons[0].why))}.</p>` : ""}</div>`;
     if (pp.staffSays) how += `<div class="tk-fsec"><b>Your staff's read</b><p>"${esc(pp.staffSays)}"</p></div>`;
   }

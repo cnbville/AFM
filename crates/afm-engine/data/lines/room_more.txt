@@ -541,7 +541,7 @@ I knew better. I'll show you I learned something. ~ freshman
 I knew better. I've been around long enough to know better. ~ senior
 I knew better. I've been around long enough to know better. ~ vet nfl
 Alright. My bad, Coach.
-Yes sir. Understood. It won't happen again.
+Yes {coach_sir}. Understood. It won't happen again.
 That's fair. I don't want special treatment. ~ !ego
 I knew where the line was and I stepped over it.
 No excuse, Coach. None.
@@ -602,8 +602,8 @@ You've got a whole team to think about. I get it.
 You've got to treat me the same as a walk-on. I'd want that. ~ college !walkon
 Stars don't get a pass here. Good. ~ ego
 I'm no different from anybody else on this team. ~ !ego
-Yes sir. No back talk from me. ~ south
-Yes sir, I hear you. ~ south
+Yes {coach_sir}. No back talk from me. ~ south
+Yes {coach_sir}, I hear you. ~ south
 I was raised better than that. That's fair. ~ steady
 I'll handle it like a man, Coach.
 Fair's fair.
@@ -729,7 +729,7 @@ Say less, Coach. ~ young loose
 No cap, that's fair. ~ young loose
 It's whatever. I earned it. ~ loose
 Respect, Coach. That's fair. ~ young
-Yes sir. That's right and fair. ~ south
+Yes {coach_sir}. That's right and fair. ~ south
 I'll take it, Coach. Lord knows I earned it. ~ south
 Reckon that's fair. ~ south quiet
 Fair enough, Coach. That's how it was done where I grew up too. ~ texas
@@ -878,8 +878,8 @@ I'm glad it was you handling it. ~ loyal
 Coming from you, I'll take it. ~ loyal
 I'll take it and say my prayers. ~ south
 Church folks back home would say the same thing. ~ south
-Yes sir. I'll do right from here on. ~ south
-I was brought up to say yes sir and take it. So, yes sir. ~ south
+Yes {coach_sir}. I'll do right from here on. ~ south
+I was brought up to say yes {coach_sir} and take it. So, yes {coach_sir}. ~ south
 Where I'm from, you own it and you get back to work. ~ texas
 Alright, alright. You're right. Done. ~ northeast
 No sense fighting it. It's fair. ~ northeast
@@ -995,7 +995,7 @@ Seniors set the tone. I set the wrong one. ~ hs senior
 Fair. I'd be the first one complaining if somebody else got away with it.
 I'm not going to ask you to go easier. It's fair.
 Fair. Next time you call me in here, it'll be for something good.
-Yes sir. I've got no defense. ~ south
+Yes {coach_sir}. I've got no defense. ~ south
 I'd rather take it than have the guys wonder. ~ leader
 Fair. The film doesn't lie, and neither do the rules. ~ pro
 That's fair. My coaches growing up would've done the same. ~ steady
@@ -1012,7 +1012,7 @@ I hear you. I won't put you in that spot again. ~ calm
 Appreciate it, Coach. You won't hear about me again. ~ young
 I figured I was in real trouble. ~ shaky
 Got it. Thank you for not making a big thing of it. ~ quiet
-Yes sir. Thank you.
+Yes {coach_sir}. Thank you.
 That's it? Alright, I'll take it. ~ loose
 I won't take it for granted. ~ humble
 I'll make sure the young guys don't think it's nothing. ~ leader vet
@@ -1379,7 +1379,7 @@ Thank you. That keeps it between us and out of the league's business. ~ nfl
 Thank you. I'll be ready if you ever call my name. ~ psquad
 Thank you. I've fought for everything here, and this helps. ~ undrafted
 Appreciate it. I'm going to live up to where I got picked. ~ firstround
-Yes sir. I appreciate you more than you know. ~ south
+Yes {coach_sir}. I appreciate you more than you know. ~ south
 God's good, and so are you, Coach. ~ south
 Coach, that's as fair as it gets. Thank you. ~ texas
 Thanks. I won't make you look like a pushover. ~ northeast
@@ -2399,7 +2399,7 @@ That boy keeps his chin up in public. Away from everybody, it's a different stor
 He's a good boy, Coach. I'd like him treated like one. ~ south
 Somebody on that staff needs to put an arm around that boy. Just once. ~ south
 I've seen that boy play hurt, play sick, play in the rain. He's never once asked to come out. ~ south
-He calls you sir and means it. I'd like him to get a little respect back. ~ south
+He calls you {coach_sir} and means it. I'd like him to get a little respect back. ~ south
 He's been playing this game since he could walk. Football's in his bones. ~ texas
 He's a gamer. Put him in a big game and watch. ~ texas
 That boy's tougher than a two-dollar steak. Use him. ~ texas

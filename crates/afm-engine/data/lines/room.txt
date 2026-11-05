@@ -22,7 +22,7 @@ My agent's going to hear about this. ~ nfl
 I'm gonna have to call my dad. ~ hs young
 
 @key rules.react.fair
-Yes sir. Understood.
+Yes {coach_sir}. Understood.
 That's fair. I messed up.
 I knew the rule. That's on me.
 I'll take it. Won't happen again.
@@ -32,7 +32,7 @@ Fair enough. I'll get it right.
 Rules are rules. ~ pro
 I let the guys down. I'll own it. ~ leader
 Understood. I'll tell the guys myself. ~ leader
-Yes sir. ~ quiet
+Yes {coach_sir}. ~ quiet
 I know, I know. I'll be there. ~ young loose
 My mom's gonna be worse than you, Coach. ~ hs young
 
@@ -41,7 +41,7 @@ That's it?
 Okay. Thank you, Coach.
 I thought it'd be worse, honestly.
 I appreciate that. I won't make you regret it.
-Yes sir. Lesson learned.
+Yes {coach_sir}. Lesson learned.
 I owe you one, Coach.
 Alright. That I can live with.
 Appreciate the break. I won't need another one.

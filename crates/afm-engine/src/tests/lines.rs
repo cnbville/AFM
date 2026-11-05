@@ -63,9 +63,14 @@ fn asked() -> Vec<String> {
         v.push(format!("talk.open.{m}"));
         v.push(format!("talk.open.portal.{m}"));
     }
-    for s in ["role", "usage", "money", "behavior", "life", "team", "future"] {
+    for s in ["role", "usage", "money", "behavior", "life", "team", "future", "friend"] {
         v.push(format!("talk.open.{s}"));
         v.push(format!("talk.reveal.{s}"));
+    }
+    // His friend who just left (new bugs, Cain 2026-11-03).
+    for o in ["good", "bad", "flat"] {
+        v.push(format!("talk.reply.friend.{o}"));
+        v.push(format!("talk.reply.friend.hand.{o}"));
     }
     for m in ["ask", "straight", "praise", "challenge", "criticize", "promise", "warn", "hand", "listen"] {
         for o in ["good", "bad", "flat"] {
