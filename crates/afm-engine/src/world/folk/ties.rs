@@ -374,8 +374,13 @@ fn your_week(w: &mut World, d: Date) {
             t.together = true;
         }
     }
-    // Who left whom, for the talk about it: four weeks.
+    // Who left whom, for the talk about it: four weeks. Your first look
+    // after taking the job only brings the ties up to date: who left before
+    // you came is old news to them.
     w.folk.ties.gone.retain(|g| g.3.days_to(d) <= 28);
+    if w.folk.mine.since.is_some_and(|s| s.days_to(d) < 7) {
+        gone.clear();
+    }
     for &(id, left, s) in &gone {
         w.folk.ties.gone.push((id, left, s, d));
         talks::mood_event(w, id, Reason::FriendLeft, -0.12 * s as f32 / 70.0);

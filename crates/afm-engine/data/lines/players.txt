@@ -45,7 +45,7 @@ Coach, good to see you. What are we talking about? ~ pro
 I brought my notebook. Figured you'd want to go over something. ~ pro young
 Yes {coach_sir}. I'm all ears. ~ humble
 Coach! [Man,|Hey,] that [lift|practice] this morning was crazy. ~ young competitor
-The head man wants to see me, huh? ~ ego loose
+The head coach wants to see me, huh? ~ ego loose
 
 @key talk.open.flat
 You wanted to see me, Coach?

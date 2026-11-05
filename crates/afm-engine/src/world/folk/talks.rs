@@ -288,6 +288,11 @@ fn check_promises(w: &mut World, d: Date) {
         .collect();
     for k in due {
         let p = w.folk.promises[k].clone();
+        // A promise of his place lapses, quietly, once he left on his own.
+        if lapsed(w, &p) {
+            w.folk.promises[k].kept = Some(true);
+            continue;
+        }
         let kept = kept(w, &p);
         w.folk.promises[k].kept = Some(kept);
         let cost = if p.public { 2.0 } else { 1.0 };
@@ -360,6 +365,28 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
         (_, PromiseKind::Booster(want)) => super::boss::want_met(w, want),
         (PromiseTo::Coach(c), PromiseKind::Raise) => w.folk.staff.raised_since(c, p.made),
         _ => true,
+    }
+}
+
+/// A promise of his place has lapsed once he left your team on his own:
+/// he graduated or moved up a level, transferred, declared or left
+/// football. A club that cut or traded him, or a program or school that
+/// dismissed him, broke it (`kept`).
+pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
+    let (PromiseTo::Player(id), PromiseKind::Place(_)) = (p.to, p.kind) else { return false };
+    let Some(i) = super::person(w, id) else { return true };
+    let Some(team) = Team::seat(w) else { return false };
+    if team.roster(w).contains(&i) {
+        return false;
+    }
+    let pp = &w.people[i];
+    match team {
+        Team::Nfl(_) | Team::Other(_) => pp.stage == Stage::Done,
+        Team::College(c) => {
+            matches!(pp.stage, Stage::Pro | Stage::Declared | Stage::Done | Stage::Away)
+                || pp.college.is_some_and(|x| x != c)
+        }
+        Team::High(h) => pp.stage != Stage::HighSchool || pp.hs != h,
     }
 }
 
@@ -568,33 +595,46 @@ pub fn spend(w: &mut World, hours: f32) -> bool {
 /// What is really on his mind (topic 3's hidden parts and topic 6's events):
 /// the reason, and the words he'd use if he opened up.
 pub fn concern(w: &World, i: usize) -> (Subject, String) {
+    worry(w, i).unwrap_or_else(|| {
+        if w.people[i].mood < -0.2 {
+            (Subject::Role, "he isn't happy, and won't say why".into())
+        } else {
+            (Subject::Team, "nothing much: he's settled".into())
+        }
+    })
+}
+
+/// What is really on his mind, when something is: none when he's settled
+/// or unhappy without a reason he'd name (`concern`'s two fallbacks), so a
+/// tell never shows a worry he doesn't have.
+fn worry(w: &World, i: usize) -> Option<(Subject, String)> {
     let p = &w.people[i];
     if let Some(e) = super::life::open_event(w, p.player.id) {
-        return (Subject::Life, e);
+        return Some((Subject::Life, e));
     }
     if p.stage == Stage::College && p.cal.lean > 0.25 {
-        return (Subject::Future, "he's been thinking about the portal".into());
+        return Some((Subject::Future, "he's been thinking about the portal".into()));
     }
     if let Some(f) = friend_gone(w, p.player.id).and_then(|f| super::person(w, f)) {
         let first = first_name(&w.people[f].name);
-        return (Subject::Friend, format!("{first} leaving the team hit him harder than he lets on"));
+        return Some((Subject::Friend, format!("{first} leaving the team hit him harder than he lets on")));
     }
-    match Why::from_u8(p.mood_why) {
+    Some(match Why::from_u8(p.mood_why) {
         Why::Role => (Subject::Role, "he thinks he should be playing more".into()),
         Why::Money => (Subject::Money, "he thinks he's underpaid".into()),
         Why::Losing => (Subject::Team, "the losing is eating at him".into()),
         Why::Coach => (Subject::Team, "he doesn't trust the staff yet".into()),
         Why::Life => (Subject::Life, "something at home".into()),
         Why::Room => (Subject::Team, "the locker room is wearing on him".into()),
-        _ if p.mood < -0.2 => (Subject::Role, "he isn't happy, and won't say why".into()),
-        _ => (Subject::Team, "nothing much: he's settled".into()),
-    }
+        _ => return None,
+    })
 }
 
 /// The close friend who left your team lately and still weighs on him: a
-/// cut, trade, transfer or graduation in the last four weeks, from a tie
-/// strong enough to dip his mood by 0.05 or more (`ties::your_week`), and
-/// not back on the roster since. The strongest such tie, by the friend's id.
+/// cut, trade, transfer or graduation in the last four weeks, from a close
+/// tie (35+, as `ties::friends`; a family tie counts) whose leaving dipped
+/// his mood (`ties::your_week`), and not back on the roster since. The
+/// strongest such tie, by the friend's id.
 pub fn friend_gone(w: &World, id: u32) -> Option<u32> {
     let today = w.today;
     let gone = &w.folk.ties.gone;
@@ -609,9 +649,9 @@ pub fn friend_gone(w: &World, id: u32) -> Option<u32> {
         .map(|g| g.1)
 }
 
-/// The tie strength whose leaving dips his mood by 0.05 or more (0.12 x
-/// strength / 70, `ties::your_week`).
-const FRIEND_HIT: u8 = 27;
+/// A close friend (`ties::friends`): his leaving dips the mood by 0.06 or
+/// more (0.12 x strength / 70, `ties::your_week`).
+const FRIEND_HIT: u8 = 35;
 
 /// His closest friend still on your roster.
 fn friend_here(w: &World, id: u32) -> Option<usize> {
@@ -765,7 +805,7 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
         }
         (true, false) => open_fallback(subject, mood),
     };
-    let tell = if subject == concern(w, i).0 && subject != Subject::Role {
+    let tell = if worry(w, i).is_some_and(|x| x.0 == subject) {
         subject_tell(w, i, true)
     } else {
         read_tell(w, i, if trust < 0.4 { -1 } else { 0 })
@@ -809,7 +849,10 @@ pub fn change_subject(w: &mut World, id: u32, subject: Subject) -> Result<(), St
     let name = w.people[i].name.clone();
     // Turning to what's really on his mind shows; turning away from it, a
     // sharp read sees his mind is elsewhere.
-    let tell = subject_tell(w, i, subject == concern(w, i).0);
+    let tell = match worry(w, i) {
+        Some((real, _)) => subject_tell(w, i, real == subject),
+        None => read_tell(w, i, 0),
+    };
     s.them(&name, line, tell);
     let used: Vec<Move> =
         Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
@@ -1361,10 +1404,11 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             s.them(&name, if line.is_empty() { "I'm good, Coach. Really.".into() } else { line }, read_tell(w, i, -1));
         }
     } else {
-        // On his friend leaving he answers about that (a promise still gets
-        // its own "I'll hold you to it"); asked to lean on a teammate, he
-        // answers about that.
-        let line = if subject == Subject::Friend && m != Move::Promise {
+        // On his friend leaving he answers about what you told him (a
+        // promise still gets its own "I'll hold you to it", listening and
+        // asking their own); asked to lean on a teammate, he answers about
+        // that.
+        let line = if subject == Subject::Friend && !matches!(m, Move::Promise | Move::Listen | Move::Ask) {
             let own = if m == Move::Hand { format!("talk.reply.friend.hand.{outcome}") } else { String::new() };
             let line = if own.is_empty() { String::new() } else { pen.line(&[&own], &spk, &f) };
             if line.is_empty() {
@@ -1481,7 +1525,7 @@ fn reply_fallback(m: Move, outcome: &str) -> String {
         (Move::Praise, "good") => "Means a lot coming from you.".into(),
         (Move::Praise, _) => "Thanks.".into(),
         (Move::Warn, "bad") => "Understood.".into(),
-        (Move::Warn, _) => "Yes sir. I hear you.".into(),
+        (Move::Warn, _) => "I hear you, Coach.".into(),
         (Move::Hand, _) => "I won't let you down.".into(),
         (Move::Listen, "good") => "Thanks for hearing me out. Nobody's asked.".into(),
         (Move::Listen, _) => "So... what are you going to do about it?".into(),
@@ -1833,7 +1877,13 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     match s.kind {
         Kind::OneOnOne => {
             // His position coach has the talk instead: a smaller version.
+            // What you said before handing it over still lands (trust moved
+            // on each line; his mood lands now, as at a talk's end).
             let id = s.a as u32;
+            let spoke = s.lines.iter().any(|l| l.by == 1);
+            if spoke {
+                mood_event(w, id, Reason::Talk, s.f[1]);
+            }
             if let Some(i) = super::person(w, id) {
                 let rel = position_coach_rel(w, i);
                 let d = 0.02 * (rel - 9.0) as f32 / 5.0;
@@ -1845,8 +1895,11 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
                 }
             }
             s.handed = Some("his position coach".into());
-            s.outcome
-                .push("His position coach talked to him instead. It's not the same as hearing it from you.".into());
+            s.outcome.push(if spoke {
+                "His position coach finished the talk for you.".into()
+            } else {
+                "His position coach talked to him instead. It's not the same as hearing it from you.".into()
+            });
         }
         Kind::TeamMeeting | Kind::Parents | Kind::Holdover => super::takeover::hand(w, s),
         Kind::ParentCall => {

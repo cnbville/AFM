@@ -1155,7 +1155,7 @@ Hey, Coach. Fire away. I'm feeling good. ~ calm
 Coach. I'm good. Whatever you need. ~ calm steady
 Coach! Perfect day, isn't it?
 Afternoon, Coach. Couldn't ask for a better one.
-There he is! The man with the big desk.
+There {coach_he} is! The {coach_man} with the big desk.
 Knock knock. You called for me?
 Look at this, the head coach's office. I'm honored. What's up?
 Present and accounted for, Coach.
@@ -1202,7 +1202,7 @@ I walked in here whistling, Coach. That's a first.
 Everything feels easy today, Coach. Hope this keeps it that way.
 Couldn't wipe this grin off if I tried. What's going on, Coach?
 In such a good mood I almost hugged the equipment guy, Coach.
-Oh, it's [you|the big man]. Come on, what's the news?
+Oh, it's [you|the boss]. Come on, what's the news?
 Sure, Coach, I've got time. All the time in the world today.
 Well, look who wants to talk. I'm all yours, Coach.
 Coach. Feels like I can see clearly today. Go ahead.

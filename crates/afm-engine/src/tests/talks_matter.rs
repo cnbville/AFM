@@ -104,6 +104,32 @@ fn a_friend_leaving_is_his_subject_and_takes_a_promise() {
     w.people[a].last_role = Some(PlayingTime::Starter);
     w.programs[p].roster.retain(|&j| j != a);
     assert!(!talks::kept(&w, &made), "gone from the team breaks it");
+    assert!(!talks::lapsed(&w, &made), "dismissed: you broke it");
+    // Left on his own, it lapses quietly: drafted, or at another school.
+    w.people[a].stage = Stage::Pro;
+    assert!(talks::lapsed(&w, &made), "drafted");
+    w.people[a].stage = Stage::College;
+    w.people[a].college = Some(if p == 0 { 1 } else { 0 });
+    assert!(talks::lapsed(&w, &made), "transferred");
+}
+
+#[test]
+fn what_you_said_lands_when_you_hand_the_talk_over() {
+    let (mut w, _, v) = room(1);
+    let a = v[0];
+    let ia = id(&w, a);
+    let sid = talks::start_talk(&mut w, ia, Subject::Role).unwrap();
+    let s = scene::open(&mut w, sid).unwrap();
+    let praise = s.picks.iter().find(|x| x.mv == "Praise").or(s.picks.first()).unwrap().code;
+    let s = scene::answer(&mut w, sid, praise).unwrap();
+    let said = (s.f[1] * 100.0).round() as i8;
+    assert!(!s.done && said != 0, "one line in, mood so far {}", s.f[1]);
+    scene::hand(&mut w, sid).unwrap();
+    let notes = &w.folk.moods.iter().find(|x| x.0 == ia).unwrap().1;
+    assert!(
+        notes.iter().any(|&(_, why, v)| why == talks::Reason::Talk as u8 && v == said),
+        "the talk so far lands: {notes:?}, {said}"
+    );
 }
 
 #[test]
