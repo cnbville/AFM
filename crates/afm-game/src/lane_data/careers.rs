@@ -430,6 +430,9 @@ fn season_gap(a: (&[Option<f64>], Option<f64>), b: (&[Option<f64>], Option<f64>)
     (!pairs.is_empty() && pairs.len() * 2 > a.0.len()).then(|| pairs.iter().sum::<f64>() / pairs.len() as f64)
 }
 
+/// A player's seasons in a field: (season, row), oldest first.
+type Seq = Vec<(usize, usize)>;
+
 pub fn career_comps(w: &World, args: &Value) -> Value {
     let Some(id) = args.get("id").and_then(Value::as_u64).map(|x| x as u32) else {
         return json!({ "error": "No player." });
@@ -453,7 +456,8 @@ pub fn career_comps(w: &World, args: &Value) -> Value {
     let me = take(mine);
     let at = |&(s, i): &(usize, usize)| (f.seasons[s].pcts[i].as_slice(), f.seasons[s].vol_pct[i]);
     let my_age = bios.age(id, f.seasons[me[0].0].year);
-    let mut found: Vec<(f64, u32, Vec<(usize, usize)>)> = Vec::new();
+    // (gap, his id, his seasons matched)
+    let mut found: Vec<(f64, u32, Seq)> = Vec::new();
     for (&oid, seq) in &by {
         if oid == id || seq.len() < n {
             continue;

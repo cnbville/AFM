@@ -344,7 +344,7 @@ pub fn compare_find(w: &World, args: &Value) -> Value {
     };
     let mut items = Vec::new();
     if args.get("kind").and_then(Value::as_str) == Some("teams") {
-        for (k, p) in w.programs.iter().enumerate().filter(|(k, _)| hit(&w.program_name(*k))).take(8) {
+        for (k, p) in w.programs.iter().enumerate().filter(|(k, _)| hit(w.program_name(*k))).take(8) {
             items.push(
                 json!({ "ref": { "kind": "college", "id": k }, "name": w.program_name(k), "sub": p.division.name() }),
             );
@@ -352,7 +352,7 @@ pub fn compare_find(w: &World, args: &Value) -> Value {
         for (k, _) in w.nfl.iter().enumerate().filter(|(k, _)| hit(&w.nfl_team_name(*k))).take(4) {
             items.push(json!({ "ref": { "kind": "nfl", "id": k }, "name": w.nfl_team_name(k), "sub": "NFL" }));
         }
-        for (k, h) in w.high_schools.iter().enumerate().filter(|(k, _)| hit(&w.school_name(*k))).take(6) {
+        for (k, h) in w.high_schools.iter().enumerate().filter(|(k, _)| hit(w.school_name(*k))).take(6) {
             let st = w.states.get(h.state).map_or("", |s| s.code.as_str());
             items.push(json!({ "ref": { "kind": "hs", "id": k }, "name": w.school_name(k), "sub": format!("High school, {st}") }));
         }

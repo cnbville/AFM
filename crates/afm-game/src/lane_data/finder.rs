@@ -375,7 +375,9 @@ fn each_season(w: &World, q: &Query, mut f: impl FnMut(u32, Position, usize, i32
     match q.tier {
         Tier::College => {
             for y in q.from..=q.to {
+                let mut filed = false;
                 for r in w.stats.year(y) {
+                    filed = true;
                     if q.division.is_some_and(|d| d != r.division) || !q.pos_ok(r.pos) {
                         continue;
                     }
@@ -384,6 +386,17 @@ fn each_season(w: &World, q: &Query, mut f: impl FnMut(u32, Position, usize, i32
                         *a = r.get(Stat::ALL[k]) as f32;
                     }
                     f(r.id, r.pos, r.program as usize, y, r.games as f64, &all);
+                }
+                // The season being played: its lines so far, until the
+                // stat book files them at the close.
+                if y == w.year && !filed {
+                    for l in marks::season_now(w, Tier::College, None) {
+                        let division = (l.team < w.programs.len()).then(|| super::season_place(w, l.team, y).0);
+                        if l.games == 0 || q.division.is_some_and(|d| Some(d) != division) || !q.pos_ok(l.pos) {
+                            continue;
+                        }
+                        f(l.id, l.pos, l.team, y, l.games as f64, &l.all);
+                    }
                 }
             }
         }
@@ -406,6 +419,18 @@ fn each_season(w: &World, q: &Query, mut f: impl FnMut(u32, Position, usize, i32
             }
         }
         Tier::Hs => {
+            // The season being played, for those whose lines aren't filed
+            // yet.
+            if (q.from..=q.to).contains(&w.year) {
+                for l in marks::season_now(w, Tier::Hs, q.state) {
+                    let filed = views::person_index(w, l.id)
+                        .is_some_and(|k| w.people[k].hs_lines.iter().any(|h| h.year as i32 == w.year));
+                    if filed || !q.pos_ok(l.pos) {
+                        continue;
+                    }
+                    f(l.id, l.pos, l.team, w.year, l.games as f64, &l.all);
+                }
+            }
             for x in &w.people {
                 for l in &x.hs_lines {
                     let y = l.year as i32;
@@ -437,10 +462,14 @@ fn seasons(w: &World, q: &Query, bios: &Bios) -> (Vec<Found>, usize) {
     (out, n)
 }
 
+/// A career's sums, games, seasons, first and last season, last team and
+/// position.
+type Career = (Box<[f64; STAT_COUNT]>, f64, u32, i32, i32, usize, Position);
+
 fn careers_of(w: &World, q: &Query, bios: &Bios) -> (Vec<Found>, usize) {
     let mut cache = HashMap::new();
     // id -> (sums, games, seasons, first, last, last team, position)
-    let mut acc: HashMap<u32, (Box<[f64; STAT_COUNT]>, f64, u32, i32, i32, usize, Position)> = HashMap::new();
+    let mut acc: HashMap<u32, Career> = HashMap::new();
     each_season(w, q, |id, pos, team, year, games, all| {
         if !q.bio_ok(bios, &mut cache, id, year) {
             return;
@@ -588,10 +617,14 @@ struct Streak {
     running: bool,
 }
 
+/// One of his games: date, season, team, whether it met every condition,
+/// position.
+type GameMet = (i32, i32, usize, bool, Position);
+
 fn streaks(w: &World, q: &Query, bios: &Bios, min_len: u32) -> (Vec<Streak>, Vec<i32>) {
     let mut cache = HashMap::new();
     // id -> his games in order: (date, season, team, met, position)
-    let mut by: HashMap<u32, Vec<(i32, i32, usize, bool, Position)>> = HashMap::new();
+    let mut by: HashMap<u32, Vec<GameMet>> = HashMap::new();
     let seasons = each_line(w, q, |_, g, l, side| {
         let all = l.all();
         let get = |s: Stat| all[s as usize] as f64;
