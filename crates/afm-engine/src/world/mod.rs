@@ -191,6 +191,20 @@ pub struct StateInfo {
     pub schools: Vec<usize>,
 }
 
+/// A season's game reps (minor bug 247): his offensive and defensive
+/// snaps as a share of a full starter's season at his level, kept when a
+/// season played on the engine ends and read by his next development step
+/// (`season::develop`), as the NFL reads last season's snaps at camp.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Reps {
+    /// The season they were taken in.
+    pub year: i32,
+    /// Taken in college (else high school): a step reads only its own
+    /// level's, so a freshman's first college step reads his depth chart.
+    pub college: bool,
+    pub share: f32,
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Person {
     pub name: String,
@@ -249,6 +263,11 @@ pub struct Person {
     /// count as game experience).
     pub last_snaps: u32,
     pub college_snaps: u32,
+    /// His last season's game reps on the engine, for his next step (minor
+    /// bug 247). None after a season on the stand-in, a planned redshirt or
+    /// sit-out year, or at a kicking spot: then his depth chart role decides.
+    #[serde(default)]
+    pub reps: Option<Reps>,
     pub last_performance: Option<f64>,
     pub transfers: u32,
     pub juco: bool,
@@ -2084,6 +2103,7 @@ fn new_kid(
         hs_lines: Vec::new(),
         last_snaps: 0,
         college_snaps: 0,
+        reps: None,
         last_performance: None,
         transfers: 0,
         juco: false,

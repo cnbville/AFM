@@ -2049,6 +2049,49 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
     }
 }
 
+/// Each varsity player's game reps for his next step (minor bug 247): his
+/// offensive and defensive snaps as a share of a full varsity starter's
+/// season (`season::HS_STARTER_SNAPS`). Only varsity snaps count: other
+/// schools' JV and freshman games aren't played, so your school's aren't
+/// read either and it develops as any other (lane 10; a varsity-level
+/// player you put on JV reads a JV starter's role that season,
+/// `front_office::school::squad_roles`). A school's season counts when its
+/// games were on the engine (yours always are). In such a season every
+/// game is played there; a forfeit is a game nobody played, so it counts
+/// as none (`engine_games`). A transfer who sat the year, a suspension that
+/// kept him out of every game and the kicking spots leave it to his depth
+/// chart role, and so does a school that played no game.
+fn keep_reps(w: &mut World, s: usize, filed: &[(usize, HsLine)]) {
+    let year = w.year;
+    let Some(hs) = w.hs_season.as_ref() else { return };
+    let engine = hs.on_engine;
+    let seat = w.seat_school();
+    let played: HashSet<usize> = filed.iter().map(|(_, l)| l.school as usize).collect();
+    let lines: HashMap<usize, (f64, u32)> =
+        filed.iter().map(|(i, l)| (*i, (l.get(HsStat::SnapsOff) + l.get(HsStat::SnapsDef), l.games as u32))).collect();
+    let mut kept: Vec<(usize, Option<super::Reps>)> = Vec::new();
+    for &h in &w.states[s].schools {
+        let counted = (engine || seat == Some(h)) && played.contains(&h);
+        for &i in &w.high_schools[h].roster {
+            let p = &w.people[i];
+            if p.stage != Stage::HighSchool {
+                continue;
+            }
+            let (n, games) = lines.get(&i).copied().unwrap_or((0.0, 0));
+            let sat = season::sat_season(p.last_role, games, p.cal.trouble, 0);
+            let reps = (counted && !sat && !p.player.position.is_specialist()).then(|| super::Reps {
+                year,
+                college: false,
+                share: (n / season::HS_STARTER_SNAPS as f64) as f32,
+            });
+            kept.push((i, reps));
+        }
+    }
+    for (i, reps) in kept {
+        w.people[i].reps = reps;
+    }
+}
+
 /// A state's season goes on its players' records: each line to his
 /// record, and into the state's record books (single season and career
 /// in the state, the best ten; section 8, choice 2).
@@ -2083,6 +2126,7 @@ fn file_lines(w: &mut World, s: usize) {
         w.people[i].hs_lines.push(line);
         filed.push((i, line));
     }
+    keep_reps(w, s, &filed);
     if !w.recording {
         return;
     }
