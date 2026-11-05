@@ -279,7 +279,9 @@ pub fn adv(g: &GameStats) -> [Adv; 2] {
             x.trip_td += (d.result == "Touchdown") as u32;
             x.trip_fg += (d.result == "Field goal") as u32;
         }
-        if d.plays <= 3 && d.result == "Punt" {
+        // The punt is the drive's fourth play (`game/drives.rs` counts it),
+        // so a three-and-out is four plays or fewer that end in a punt.
+        if d.plays <= 4 && d.result == "Punt" {
             x.three_outs += 1;
         }
         if d.red_zone {

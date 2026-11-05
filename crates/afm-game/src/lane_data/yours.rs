@@ -94,8 +94,15 @@ struct Read {
 fn read(st: &TStat, side: usize, me: &Sq, g: &Group) -> Option<Read> {
     let v = (st.f)(me, side, &g.lv)?;
     let (rank, avg) = rank_of(st, side, g, v);
-    let n = g.rows.iter().filter(|s| (st.f)(s, side, &g.lv).is_some()).count();
-    let pct = rank.filter(|_| n > 1).map(|r| 100.0 * (n.saturating_sub(r)) as f64 / (n - 1) as f64);
+    let vals: Vec<f64> = g.rows.iter().filter_map(|s| (st.f)(s, side, &g.lv)).collect();
+    let n = vals.len();
+    // The share of the group below him, ties counted half, so a number
+    // the whole group shares reads as the middle, not the top.
+    let pct = rank.filter(|_| n > 1).map(|r| {
+        let ties = vals.iter().filter(|&&x| (x - v).abs() <= 1e-9).count().max(1);
+        let worse = n.saturating_sub(r + ties - 1);
+        100.0 * (worse as f64 + 0.5 * (ties - 1) as f64) / (n - 1) as f64
+    });
     Some(Read { v, rank, n, pct, avg })
 }
 
@@ -320,7 +327,7 @@ fn drivers(w: &World, tier: Tier, team: usize, year: i32, d: u8, tl: &[Tile], me
             "h": side_label(s, *side),
             "key": s.key,
             "t": format!(
-                "{}, {} of {}; the middle of {} is {}",
+                "{}, {} of {}; the {} average is {}",
                 text(s.fmt, r.v),
                 ord(r.rank.unwrap_or(0)),
                 r.n,
@@ -340,12 +347,13 @@ fn drivers(w: &World, tier: Tier, team: usize, year: i32, d: u8, tl: &[Tile], me
         out.push(json!({
             "h": "4th downs",
             "t": format!(
-                "You went for it {} times in the {} the model called a clear go; {} of {} calls were the model's best or within a point of it, {:.1}% win chance left on the table",
+                "You went for it {} of the {} time{} the model called a clear go; {} of your {} calls were its best or within a point of it, and together they gave up {:.2} wins in win chance",
                 s.went_said_go,
                 s.said_go,
+                if s.said_go == 1 { "" } else { "s" },
                 s.agreed,
                 s.weighed,
-                100.0 * s.lost
+                s.lost
             ),
             "good": s.agreed * 4 >= s.weighed * 3,
             "go": "decisions",
@@ -472,6 +480,25 @@ struct Players {
 
 fn players(w: &World, tier: Tier, team: usize, year: i32, group: usize) -> Players {
     let v = super::analytics::table(w, &table_args(w, tier, team, year, group));
+    let cols = v.get("columns").and_then(Value::as_array).cloned().unwrap_or_default();
+    let rows = v.get("rows").and_then(Value::as_array).cloned().unwrap_or_default();
+    Players { cols, rows }
+}
+
+/// A group for the matchups: its qualified men, or, where fewer than two
+/// qualify (early in a season, or a line that rotates), the men with half
+/// the table's minimum (proposed, not confirmed).
+fn group_men(w: &World, tier: Tier, team: usize, year: i32, group: usize) -> Players {
+    let mut args = table_args(w, tier, team, year, group);
+    let v = super::analytics::table(w, &args);
+    let rows = v.get("rows").and_then(Value::as_array).cloned().unwrap_or_default();
+    let min = v.get("min").and_then(Value::as_f64).unwrap_or(0.0);
+    let v = if rows.len() < 2 && min > 0.0 {
+        args["min"] = json!((min / 2.0).round());
+        super::analytics::table(w, &args)
+    } else {
+        v
+    };
     let cols = v.get("columns").and_then(Value::as_array).cloned().unwrap_or_default();
     let rows = v.get("rows").and_then(Value::as_array).cloned().unwrap_or_default();
     Players { cols, rows }
@@ -704,11 +731,11 @@ pub fn next_opponent(w: &World, args: &Value) -> Value {
     let shown: Vec<usize> = (0..an::GROUPS.len()).filter(|&gi| !matches!(an::GROUPS[gi], "K" | "P" | "RET")).collect();
     let mut cache: HashMap<(usize, usize), Players> = HashMap::new();
     for &gi in &shown {
-        cache.insert((oteam, gi), players(w, tier, oteam, year, gi));
+        cache.insert((oteam, gi), group_men(w, tier, oteam, year, gi));
     }
     for (mg, _, _) in MATCHUPS {
         let gi = group_index(mg);
-        cache.entry((team, gi)).or_insert_with(|| players(w, tier, team, year, gi));
+        cache.entry((team, gi)).or_insert_with(|| group_men(w, tier, team, year, gi));
     }
     let get = |t: usize, gi: usize| -> &Players { &cache[&(t, gi)] };
     let mut best = Vec::new();

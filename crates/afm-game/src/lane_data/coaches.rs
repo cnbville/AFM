@@ -18,7 +18,7 @@ use afm_engine::world::World;
 use afm_engine::world::coach::Role;
 use afm_engine::world::folk::Team;
 use afm_engine::world::marks::Tier;
-use afm_engine::world::tally::Level;
+use afm_engine::world::tally::{Level, squads};
 use afm_engine::world::units::Charge;
 use serde_json::{Value, json};
 
@@ -103,10 +103,23 @@ fn talent(w: &World, tier: Tier, year: i32, role: Role, teams_in: &[u32]) -> Has
                 Role::DefensiveCoordinator => "stars_def",
                 _ => "stars",
             };
-            let pool = teams::pool(w, Level::College, year);
-            for s in pool.iter().filter(|s| teams_in.contains(&s.team)) {
-                if let Some(v) = s.talent_of(name) {
-                    vals.push((s.team, v));
+            if year == w.tally_open_season() {
+                // The season in progress: its rosters so far.
+                let k = squads::TALENT_COLLEGE.iter().position(|&n| n == name).unwrap_or(0);
+                for ((level, team), t) in w.tally_talent_now() {
+                    if level == Level::College as u8
+                        && teams_in.contains(&team)
+                        && t.get(k + 3).is_some_and(|&n| n > 0.0)
+                    {
+                        vals.push((team, t[k] as f64));
+                    }
+                }
+            } else {
+                let pool = teams::pool(w, Level::College, year);
+                for s in pool.iter().filter(|s| teams_in.contains(&s.team)) {
+                    if let Some(v) = s.talent_of(name) {
+                        vals.push((s.team, v));
+                    }
                 }
             }
         }

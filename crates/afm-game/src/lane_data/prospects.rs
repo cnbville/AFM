@@ -20,8 +20,10 @@ use std::sync::LazyLock;
 
 use afm_engine::calendar::Date;
 use afm_engine::positions::{POSITION_COUNT, Position};
+use afm_engine::world::data::Division;
 use afm_engine::world::hs_year::{HsLine, HsStat};
-use afm_engine::world::records::{SeasonRecord, Stat};
+use afm_engine::world::marks::{NowLine, Tier};
+use afm_engine::world::records::{SeasonRecord, Stat, StatSet};
 use afm_engine::world::scouting::{Kind, board, file, readers};
 use afm_engine::world::tally::prospects::{HsGame, Rank};
 use afm_engine::world::{Person, Stage, Visit, World};
@@ -93,8 +95,56 @@ const SHARE: [Stat; 7] =
 
 /// What a team made each season: the stat book's lines of every man on the
 /// program, summed (only the seasons asked for are read).
-fn team_totals(w: &World, keys: &HashSet<(u16, i16)>) -> HashMap<(u16, i16), [f64; 7]> {
+/// College's season in progress by player, up to your staff's charting.
+fn now_lines(w: &World) -> HashMap<u32, NowLine> {
+    super::analytics::college_now(w).into_iter().map(|l| (l.id, l)).collect()
+}
+
+/// His college seasons: the stat book's, then the season in progress (the
+/// stat book files it at the season's close).
+fn career_now(w: &World, id: u32, now: &HashMap<u32, NowLine>) -> Vec<SeasonRecord> {
+    let mut v: Vec<SeasonRecord> = w.stats.career(id).into_iter().cloned().collect();
+    let year = w.year;
+    if let Some(l) = now.get(&id)
+        && l.games > 0
+        && !v.iter().any(|r| r.year as i32 == year)
+    {
+        v.push(SeasonRecord {
+            id,
+            year: year as i16,
+            division: super::season_place(w, l.team, year).0,
+            pos: l.pos,
+            program: l.team as u16,
+            games: l.games.min(255) as u8,
+            footprint: 0,
+            sos: 0.0,
+            s: StatSet::from(l.all),
+        });
+    }
+    v
+}
+
+/// How deep your staff's charting of a division goes (0: box scores).
+fn depth_at(w: &World, d: Division) -> u8 {
+    super::charting(w, Tier::College, Some(d)).map_or(0, |c| c.depth)
+}
+
+fn team_totals(w: &World, keys: &HashSet<(u16, i16)>, now: &HashMap<u32, NowLine>) -> HashMap<(u16, i16), [f64; 7]> {
     let mut out: HashMap<(u16, i16), [f64; 7]> = HashMap::new();
+    // The season in progress: every line so far.
+    let year = w.year as i16;
+    if keys.iter().any(|k| k.1 == year) && !w.stats.year_index.iter().any(|x| x.0 == w.year) {
+        for l in now.values() {
+            let key = (l.team as u16, year);
+            if !keys.contains(&key) {
+                continue;
+            }
+            let e = out.entry(key).or_default();
+            for (k, st) in SHARE.iter().enumerate() {
+                e[k] += l.all[*st as usize] as f64;
+            }
+        }
+    }
     let years: HashSet<i32> = keys.iter().map(|k| k.1 as i32).collect();
     let idx = &w.stats.year_index;
     for (n, &(y, start)) in idx.iter().enumerate() {
@@ -160,7 +210,10 @@ fn age_at(born: Date, d: Date) -> f64 {
 }
 
 /// A season's line in words, by spot.
-fn line_cells(pos: Position, r: &SeasonRecord) -> Vec<Value> {
+/// His season's line at his spot: the box score's counts, and the
+/// charted ones where your staff charts his division (play-by-play: snaps
+/// and targets; film: pressures and coverage).
+fn line_cells(pos: Position, r: &SeasonRecord, d: u8) -> Vec<Value> {
     let g = |s: Stat| r.get(s);
     let f = |l: &str, v: f64| json!([l, v.round() as i64]);
     let mut v = vec![f("G", r.games as f64)];
@@ -175,19 +228,30 @@ fn line_cells(pos: Position, r: &SeasonRecord) -> Vec<Value> {
             v.extend([f("Rec", g(Stat::Rec)), f("Rec yds", g(Stat::RecYds))]);
         }
         Position::WR | Position::TE => {
-            v.extend([f("Tgt", g(Stat::Targets)), f("Rec", g(Stat::Rec)), f("Yds", g(Stat::RecYds))]);
-            v.push(f("TD", g(Stat::RecTd)));
+            if d >= 1 {
+                v.push(f("Tgt", g(Stat::Targets)));
+            }
+            v.extend([f("Rec", g(Stat::Rec)), f("Yds", g(Stat::RecYds)), f("TD", g(Stat::RecTd))]);
         }
         Position::OT | Position::IOL => {
-            v.extend([f("Snaps", g(Stat::SnapsOff)), f("Press allowed", g(Stat::PressuresAllowed))]);
-            v.push(f("Sacks allowed", g(Stat::SacksAllowed)));
+            if d >= 1 {
+                v.push(f("Snaps", g(Stat::SnapsOff)));
+            }
+            if d >= 2 {
+                v.extend([f("Press allowed", g(Stat::PressuresAllowed)), f("Sacks allowed", g(Stat::SacksAllowed))]);
+            }
         }
         Position::EDGE | Position::DT | Position::LB => {
             v.extend([f("Tkl", g(Stat::Tackles)), f("TFL", g(Stat::Tfl)), f("Sacks", g(Stat::Sacks))]);
-            v.push(f("Pressures", g(Stat::Pressures)));
+            if d >= 2 {
+                v.push(f("Pressures", g(Stat::Pressures)));
+            }
         }
         Position::CB | Position::S => {
-            v.extend([f("Tkl", g(Stat::Tackles)), f("Tgt", g(Stat::TgtAllowed)), f("Yds", g(Stat::YdsAllowed))]);
+            v.push(f("Tkl", g(Stat::Tackles)));
+            if d >= 2 {
+                v.extend([f("Tgt", g(Stat::TgtAllowed)), f("Yds", g(Stat::YdsAllowed))]);
+            }
             v.extend([f("Int", g(Stat::Ints)), f("PBU", g(Stat::Pbus))]);
         }
         Position::K => v.extend([f("FG", g(Stat::FgMade)), f("FGA", g(Stat::FgAtt)), f("Long", g(Stat::FgLong))]),
@@ -196,9 +260,42 @@ fn line_cells(pos: Position, r: &SeasonRecord) -> Vec<Value> {
     v
 }
 
+/// The charting a marker needs: 0 the box score, 1 play-by-play, 2 film.
+fn marker_depth(key: &str) -> u8 {
+    match key {
+        "PcAya" => 0,
+        "PcCpoe" | "PcExplRun" | "PcStops" => 1,
+        _ => 2,
+    }
+}
+
+/// Every key `markers` writes (the glossary's test checks each has its
+/// plain words).
+#[cfg(test)]
+pub(super) const MARKER_KEYS: [&str; 18] = [
+    "PcAya",
+    "PcCpoe",
+    "PcBtt",
+    "PcTwp",
+    "PcYco",
+    "PcMtf",
+    "PcExplRun",
+    "PcYprr",
+    "PcTprr",
+    "PcDrop",
+    "PcPressAllowed",
+    "PcRbwr",
+    "PcPrwr",
+    "PcPressRate",
+    "PcStops",
+    "PcMissed",
+    "PcYpcs",
+    "PcBall",
+];
+
 /// The markers analysts carry from college to the NFL at each spot, from
 /// his stat book line (proposed, not confirmed: the list per spot).
-fn markers(pos: Position, r: &SeasonRecord) -> Vec<Value> {
+fn markers(pos: Position, r: &SeasonRecord, d: u8) -> Vec<Value> {
     let g = |s: Stat| r.get(s);
     let rate = |a: f64, b: f64| (b > 0.0).then(|| a / b);
     let mut v: Vec<(&str, &str, Option<f64>, &str)> = Vec::new();
@@ -264,6 +361,7 @@ fn markers(pos: Position, r: &SeasonRecord) -> Vec<Value> {
         _ => {}
     }
     v.into_iter()
+        .filter(|x| marker_depth(x.1) <= d)
         .filter_map(|(label, key, x, fmt)| {
             let x = x?;
             let text = match fmt {
@@ -336,6 +434,15 @@ pub fn prospect_card(w: &World, args: &Value) -> Value {
     if let (Some(o), Value::Object(m)) = (out.as_object_mut(), more) {
         o.extend(m);
     }
+    // A college man still keeps his high school years on the card (an
+    // early enrollee in March has no college season yet).
+    if p.stage == Stage::College {
+        let hs = hs_card(w, p);
+        let any = ["ranks", "games", "lines", "times"].iter().any(|k| hs[*k].as_array().is_some_and(|a| !a.is_empty()));
+        if any {
+            out["high_school"] = hs;
+        }
+    }
     out
 }
 
@@ -343,9 +450,10 @@ fn college_card(w: &World, k: usize) -> Value {
     let p = &w.people[k];
     let id = p.player.id;
     let pos = p.player.position;
-    let career = w.stats.career(id);
+    let now = now_lines(w);
+    let career = career_now(w, id, &now);
     let keys: HashSet<(u16, i16)> = career.iter().map(|r| (r.program, r.year)).collect();
-    let totals = team_totals(w, &keys);
+    let totals = team_totals(w, &keys, &now);
     let mut breakout: Option<(i16, f64)> = None;
     let mut best_adj: Option<f64> = None;
     let seasons: Vec<Value> = career
@@ -366,14 +474,14 @@ fn college_card(w: &World, k: usize) -> Value {
                 "division": r.division.name(),
                 "pos": r.pos.name(),
                 "age": format!("{age:.1}"),
-                "line": line_cells(r.pos, r),
+                "line": line_cells(r.pos, r, depth_at(w, r.division)),
                 "dominator": dom.map(|d| format!("{:.1}%", 100.0 * d)),
                 "age_adjusted": dom.map(|d| format!("{:.1}%", 100.0 * age_adjusted(d, age))),
-                "markers": markers(r.pos, r),
+                "markers": markers(r.pos, r, depth_at(w, r.division)),
             })
         })
         .collect();
-    let last = career.last().copied();
+    let last = career.last();
     // His analytics card for the last season: markers with percentiles and
     // the seasons most like his.
     let card = last.map(|r| super::analytics::card(w, &json!({ "id": id, "level": "college", "year": r.year })));
@@ -428,7 +536,7 @@ fn college_card(w: &World, k: usize) -> Value {
     });
     let dy = draft_year(w);
     let public = if matches!(p.stage, Stage::College | Stage::Declared) {
-        board::public_ranks(w).get(&id).copied()
+        board::public_ranks(w).get(&id).map(|r| r + 1)
     } else {
         None
     };
@@ -703,6 +811,7 @@ pub fn prospects(w: &World, args: &Value) -> Value {
 
 fn college_list(w: &World, pos: Option<Position>) -> Value {
     let dy = draft_year(w);
+    let now = now_lines(w);
     let public = board::public_ranks(w);
     let mut ids: Vec<(usize, u32)> = public.iter().map(|(&id, &r)| (r, id)).collect();
     // The declared who aren't on the public board come after it.
@@ -720,16 +829,16 @@ fn college_list(w: &World, pos: Option<Position>) -> Value {
         .collect();
     let keys: HashSet<(u16, i16)> = picked
         .iter()
-        .flat_map(|&(_, k)| w.stats.career(w.people[k].player.id).into_iter().map(|r| (r.program, r.year)))
+        .flat_map(|&(_, k)| career_now(w, w.people[k].player.id, &now).into_iter().map(|r| (r.program, r.year)))
         .collect();
-    let totals = team_totals(w, &keys);
+    let totals = team_totals(w, &keys, &now);
     let ours: HashMap<u32, usize> = w.scouting.board.order.iter().enumerate().map(|(n, &id)| (id, n + 1)).collect();
     let rows: Vec<Value> = picked
         .iter()
         .map(|&(r, k)| {
             let p = &w.people[k];
             let id = p.player.id;
-            let career = w.stats.career(id);
+            let career = career_now(w, id, &now);
             let mut breakout = None;
             let mut best: Option<f64> = None;
             let mut last_dom = None;
@@ -750,7 +859,7 @@ fn college_list(w: &World, pos: Option<Position>) -> Value {
                 "team": views::team_of(w, p).map(|t| views::team_brief(w, t)),
                 "class": views::class_text(w, p),
                 "age": format!("{:.1}", age_at(p.born, draft_day(dy))),
-                "public": (r != usize::MAX).then_some(r),
+                "public": (r != usize::MAX).then_some(r + 1),
                 "ours": ours.get(&id),
                 "declared": p.stage == Stage::Declared,
                 "games": career.iter().map(|s| s.games as u32).sum::<u32>(),

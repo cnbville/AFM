@@ -104,6 +104,13 @@ fn paid(level: Level, p: &Pay) -> f64 {
     }
 }
 
+/// An NFL club's cash for a league year: the books' total once the year is
+/// paid out (at its close), else what its contracts pay that year.
+fn nfl_cash(r: &Row) -> f64 {
+    let c = r.val("cash");
+    if c > 0.0 { c } else { r.pay.iter().map(|p| p.b as f64).sum() }
+}
+
 fn rank_desc(vals: &[(u32, f64)], team: u32) -> Option<usize> {
     let mine = vals.iter().find(|x| x.0 == team)?.1;
     Some(1 + vals.iter().filter(|x| x.1 > mine + 1e-9).count())
@@ -120,12 +127,13 @@ pub fn money_data(w: &World, args: &Value) -> Value {
     let level = teams::level_of(tier);
     let mut years: Vec<i32> = w.tally_seasons();
     years.sort_unstable_by(|a, b| b.cmp(a));
-    let year = args
-        .get("year")
-        .and_then(Value::as_i64)
-        .map(|y| y as i32)
-        .filter(|y| years.contains(y))
-        .unwrap_or(w.tally_open_season());
+    let year =
+        args.get("year").and_then(Value::as_i64).map(|y| y as i32).filter(|y| years.contains(y)).unwrap_or_else(|| {
+            // The season being played, or the last one until its first game.
+            let open = w.tally_open_season();
+            let played = w.tally_squad(level, open, team as u32).is_some_and(|s| s.games > 0);
+            if played || !years.contains(&(open - 1)) { open } else { open - 1 }
+        });
     let mut out = json!({
         "team": views::team_brief(w, t),
         "level": tier_key(tier),
@@ -155,15 +163,16 @@ fn peers(w: &World, tier: Tier, team: usize, year: i32, rows: &[Row]) -> (Vec<u3
         Tier::College => {
             let (d, conf) = super::season_place(w, team, year);
             let conf = conf.to_string();
-            let ids: Vec<u32> = rows
-                .iter()
-                .map(|r| r.team)
-                .filter(|&p| {
-                    let (pd, pc) = super::season_place(w, p as usize, year);
-                    if conf.is_empty() { pd == d } else { pc == conf }
-                })
-                .collect();
-            (ids, if conf.is_empty() { d.name().to_string() } else { conf })
+            let in_conf = |p: u32| super::season_place(w, p as usize, year).1 == conf;
+            let in_div = |p: u32| super::season_place(w, p as usize, year).0 == d;
+            // An independent (or a conference too small to rank in) is
+            // ranked in its division.
+            let ids: Vec<u32> = rows.iter().map(|r| r.team).filter(|&p| in_conf(p)).collect();
+            if conf.is_empty() || conf.contains("Independent") || ids.len() < 6 {
+                (rows.iter().map(|r| r.team).filter(|&p| in_div(p)).collect(), d.name().to_string())
+            } else {
+                (ids, conf)
+            }
         }
         _ => (rows.iter().map(|r| r.team).collect(), "the NFL".into()),
     }
@@ -240,10 +249,13 @@ fn pro_college(w: &World, tier: Tier, team: usize, year: i32, rows: &[Row], me: 
     let wins = |t: u32| g.rows.iter().find(|s| s.team == t).map(|s| s.wins);
     let my_wins = wins(team as u32).unwrap_or(0);
     let total_paid: f64 = mine_g.iter().sum();
+    // A season in progress pays its year's money over the games so far.
+    let season_games = afm_engine::world::marks::season_games(w, tier, year).max(1) as f64;
     let per_win = |r: &Row| -> Option<f64> {
-        let w_ = wins(r.team)? as f64;
-        let money = if level == Level::Nfl { r.val("cash") } else { r.val("paid") };
-        (w_ > 0.0).then(|| money / w_)
+        let s = g.rows.iter().find(|s| s.team == r.team)?;
+        let money = if level == Level::Nfl { nfl_cash(r) } else { r.val("paid") };
+        let share = (s.games as f64 / season_games).min(1.0);
+        (s.wins > 0).then(|| money * share / s.wins as f64)
     };
     let med_per_win = median(peer_rows.iter().filter_map(|r| per_win(r)).collect());
     let most = gap_best.filter(|b| b.0 > 0).map(|(_, k, m, r)| {
@@ -257,7 +269,12 @@ fn pro_college(w: &World, tier: Tier, team: usize, year: i32, rows: &[Row], me: 
             { "label": "Cap used", "value": money_text(me.val("charges")), "sub": format!("of {}; {} to spare", money_text(cap), money_text(cap - me.val("charges"))) },
             { "label": "Cash a win", "value": per_win(me).map(money_text), "sub": format!("{my_wins} wins; the NFL's middle {}", med_per_win.map_or("-".into(), money_text)) },
             { "label": "Most money, least back", "value": most.as_ref().map(|m| m["group"].clone()), "sub": most.as_ref().map(|m| m["text"].clone()) },
-            { "label": "Dead money", "value": money_text(dead), "sub": format!("{:.1}% of the cap; the NFL's middle {}", 100.0 * dead / me.val("cap").max(1.0), med_dead.map_or("-".into(), |x| format!("{:.1}%", 100.0 * x))) },
+            if dead >= 0.0 {
+                json!({ "label": "Dead money", "value": money_text(dead), "sub": format!("{:.1}% of the cap; the NFL's middle {}", 100.0 * dead / me.val("cap").max(1.0), med_dead.map_or("-".into(), |x| format!("{:.1}%", 100.0 * x))) })
+            } else {
+                // Unearned incentives credited back outweigh the charges.
+                json!({ "label": "Dead money", "value": "None", "sub": format!("a {} credit from unearned incentives", money_text(-dead)) })
+            },
         ])
     } else {
         json!([
@@ -300,7 +317,7 @@ fn scatter(w: &World, tier: Tier, team: usize, year: i32, ids: &[u32]) -> Value 
         let sq = teams::rows_for(w, level, y, ids);
         for r in rows.iter().filter(|r| ids.contains(&r.team)) {
             let Some(s) = sq.iter().find(|s| s.team == r.team) else { continue };
-            let money = if level == Level::Nfl { r.val("cash") } else { r.val("budget") };
+            let money = if level == Level::Nfl { nfl_cash(r) } else { r.val("budget") };
             let e = sums.entry(r.team).or_default();
             e.0 += money;
             e.1 += 1;

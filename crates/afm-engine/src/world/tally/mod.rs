@@ -444,6 +444,15 @@ impl World {
         out
     }
 
+    /// What each college and high school roster has brought so far in the
+    /// open season, read as the close reads it (lane NB11's coach pages).
+    pub fn tally_talent_now(&self) -> std::collections::HashMap<(u8, u32), Vec<f32>> {
+        if !self.tallying() {
+            return Default::default();
+        }
+        self.close_talent(self.tallies.season)
+    }
+
     /// The seasons with tallies, oldest first (the open one last).
     pub fn tally_seasons(&self) -> Vec<i32> {
         let mut v = self.tallies.closed.clone();
