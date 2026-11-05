@@ -1034,7 +1034,9 @@ fn recruit_kept(w: &World, g: Group, class: i32) -> (bool, bool) {
                 x.class_of == class
                     && x.stars >= 4
                     && Group::of(x.player.position) == g
-                    && t.nil.is_none_or(|n| n >= crate::world::front_office::college::usual_offer(w, p, t.id))
+                    && (t.nil.is_none()
+                        || crate::world::front_office::college::weighed_offer(w, p, t.id)
+                            >= crate::world::front_office::college::usual_offer(w, p, t.id))
             })
             && desk
                 .visits

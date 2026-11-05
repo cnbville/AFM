@@ -262,6 +262,13 @@ async function fcTargets(x, k) {
 
 // One recruit's file: who he is, your staff's read, where his recruitment
 // stands, and every move the rules allow you today.
+// A player's first answer to your money (N1): his mood in a word, then
+// what he or his family said. His decision still comes in its own time.
+const FC_MOOD_TONE = { thrilled: "good", pleased: "good", fine: "", wants_more: "gold", insulted: "fc-bad" };
+function fcAnswer(a) {
+  if (!a) return "";
+  return `<div class="fc-answer"><span class="st-pill ${FC_MOOD_TONE[a.mood] || ""}">${esc(a.word)}</span><span>${esc(a.text)}</span><small>${esc(a.date)}</small></div>`;
+}
 function fcFile(f, ctx, compact) {
   const [c1, c2] = f.hs_colors || ["#444", "#222"];
   const schools = f.schools.length
@@ -331,14 +338,19 @@ function fcActions(f) {
   }
   let nil = "";
   if (f.nil_era && !closed) {
-    // Your own number for him, whoever runs NIL (minor bug 59).
+    // Your own number for him, whoever runs NIL (minor bug 59). From July
+    // 2025 it is the school's revenue share, and the collective adds its
+    // own deal through NIL Go (B18).
+    const own = f.two_pots && f.collective_own >= 1000 ? ` The collective adds its own deal, about ${money(f.collective_own)}, once NIL Go clears it.` : "";
     if (f.board_yours) {
-      nil = `<div class="fc-nil"><span class="st-label">NIL promise</span>
+      const usual = f.two_pots ? `The school's usual revenue share for him: ${money(f.usual)}.${own}` : `The collective's usual offer: ${money(f.usual)}.`;
+      nil = `<div class="fc-nil"><span class="st-label">${f.two_pots ? "Revenue-share promise" : "NIL promise"}</span>
         <div class="fc-nilrow"><label class="fc-moneyin">$<input type="number" min="0" step="5" value="${f.nil != null ? Math.round(f.nil / 1000) : ""}" placeholder="${Math.round(f.usual / 1000)}" data-fcin="promise" data-id="${f.id}">thousand a year</label><button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
-        <small class="sub">The collective's usual offer: ${money(f.usual)}. The going rate for his position tops out near ${money(f.nil_max)}, but only your budget limits you: ${money(f.budget.left)} left this year.</small>
+        <small class="sub">${usual} The going rate for his position tops out near ${money(f.nil_max)}, but only your ${f.two_pots ? "revenue share" : "budget"} limits you: ${money(f.budget.left)} left this year.</small>
+        ${fcAnswer(f.answer)}
         ${f.nil != null ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Back to the usual offer</button>` : ""}</div>`;
     } else {
-      nil = `<div class="fc-nil"><span class="st-label">NIL</span><small class="sub">Your collective offers about ${money(f.usual)} a year.</small></div>`;
+      nil = `<div class="fc-nil"><span class="st-label">NIL</span><small class="sub">${f.two_pots ? `Your school's usual revenue share for him is about ${money(f.usual)} a year.${own}` : `Your collective offers about ${money(f.usual)} a year.`}</small>${fcAnswer(f.answer)}</div>`;
     }
   }
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${nil}</div>`;
@@ -563,6 +575,7 @@ screens.portal_desk = async () => {
       { k: "status", t: "Where it stands", l: true, div: true },
       { k: "offered", t: "Offered", l: true, f: (r) => esc(r.offered || "-") },
       { k: "nil", t: "NIL", f: (r) => (r.nil != null ? money(r.nil) : '<span class="muted">usual</span>') },
+      { k: "answer", t: "His answer", l: true, wrap: true, v: (r) => (r.answer ? r.answer.word : ""), f: (r) => (r.answer ? `<span class="st-pill ${FC_MOOD_TONE[r.answer.mood] || ""}">${esc(r.answer.word)}</span> <small class="sub">${esc(r.answer.text)}</small>` : '<span class="muted">-</span>') },
       { k: "decide", t: "Decides", l: true, f: (r) => esc(r.decide || "-") },
       { k: "act", t: "", l: true, f: (r) => (r.settled ? "" : `<button class="st-btn small glass" data-fc="pforget" data-id="${r.id}">Forget him</button>`) },
     ], x.targets, { empty: "No targets yet. Offer an entrant, or reach out quietly to a player with whispers about him." });
@@ -622,16 +635,24 @@ screens.nil_desk = async () => {
   }
   const deals = fcSum(x.rows.map((r) => ({ v: r.deal != null ? r.deal : 0 })), "v");
   const m = (v) => (v === 0 ? "$0" : money(v));
-  const ledger = `<div class="st-ledger fc-ledger"><div><span class="st-label">Money in</span>
-      <div class="item"><span>Collective</span><b>${m(b.collective)}</b></div>
-      ${x.house ? `<div class="item"><span>Revenue share (House settlement)</span><b>${m(b.revenue_share)}</b></div>` : ""}
-      <div class="item tot"><span>This year</span><b>${m(b.total)}</b></div></div>
-    <div><span class="st-label">Money out</span>
-      <div class="item"><span>Roster deals</span><b>${m(b.roster)}</b></div>
+  // Two pots from July 2025 (B18): the school's revenue share is yours to
+  // set; the collective pays its own deals, each through NIL Go.
+  const out = `<div class="item"><span>Roster deals</span><b>${m(b.roster)}</b></div>
       <div class="item"><span>Promised to recruits</span><b>${m(b.recruits)}</b></div>
       <div class="item"><span>Offered in the portal</span><b>${m(b.portal)}</b></div>
-      <div class="item tot"><span>Left</span><b class="${b.left < 0 ? "fc-over" : ""}">${m(b.left)}</b></div></div></div>`;
-  const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)}</small></h2>${fcTiles([[m(b.total), "Budget"], [m(b.left), "Left"], [String(x.rows.filter((r) => r.deal != null).length), "Deals set"], [x.trend, "Boosters"], ...aid])}`;
+      <div class="item tot"><span>Left</span><b class="${b.left < 0 ? "fc-over" : ""}">${m(b.left)}</b></div>`;
+  const ledger = x.house
+    ? `<div class="st-ledger fc-ledger"><div><span class="st-label">The school's revenue share · yours to set</span>
+      <div class="item tot"><span>This year</span><b>${m(b.revenue_share)}</b></div>${out}</div>
+    <div><span class="st-label">The collective · its own deals</span>
+      <div class="item"><span>From boosters this year</span><b>${m(b.collective)}</b></div>
+      <div class="item"><span>Its split to your roster, as NIL Go cleared it</span><b>${m(b.collective_roster)}</b></div>
+      <div class="item tot"><span>NIL Go wouldn't clear</span><b>${m(b.nil_go_held)}</b></div></div></div>`
+    : `<div class="st-ledger fc-ledger"><div><span class="st-label">Money in</span>
+      <div class="item"><span>Collective</span><b>${m(b.collective)}</b></div>
+      <div class="item tot"><span>This year</span><b>${m(b.total)}</b></div></div>
+    <div><span class="st-label">Money out</span>${out}</div></div>`;
+  const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)}</small></h2>${fcTiles([[m(b.yours), x.house ? "Revenue share" : "Budget"], [m(b.left), "Left"], [String(x.rows.filter((r) => r.deal != null).length), "Deals set"], ...(x.house ? [[m(b.collective_roster), "Collective's deals"]] : []), [x.trend, "Boosters"], ...aid])}`;
   const cols = [
     { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
     { k: "pos", t: "Pos", l: true },
@@ -643,8 +664,10 @@ screens.nil_desk = async () => {
     { k: "brand", t: "His own deals", tip: "Brand and ad money he earns himself, apart from the collective (a public estimate for the year)", v: (r) => r.brand || 0, f: (r) => (r.brand ? money(r.brand) : '<span class="muted">-</span>') },
     { k: "followers", t: "Followers", tip: "Social media followers, every platform", v: (r) => r.followers || 0, f: (r) => (r.followers ? fcFollow(r.followers) : '<span class="muted">-</span>') },
     { k: "camera", t: "On camera", l: true, hide: true, tip: "His position coach's word for how he comes across in front of a camera", f: (r) => `<span class="sub">${esc(r.camera || "")}</span>` },
-    { k: "usual", t: "Collective's split", div: true, f: (r) => (r.usual ? money(r.usual) : '<span class="muted">-</span>') },
-    { k: "deal", t: "Your deal", div: true, v: (r) => (r.deal != null ? r.deal : -1), f: (r) => `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.deal != null ? Math.round(r.deal / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="deal" data-id="${r.id}">k</label>` },
+    ...(x.house ? [{ k: "own", t: "Collective's own", div: true, tip: "The collective's own deal with him this money year, as NIL Go clears it: past the top of his range it isn't cleared, and the collective resubmits at the top", v: (r) => r.own || 0, f: (r) => (r.own ? money(r.own) : '<span class="muted">-</span>') + (r.held ? ` <span class="st-pill gold" title="NIL Go wouldn't clear ${esc(money(r.held))} more">NIL Go</span>` : "") }] : []),
+    { k: "usual", t: x.house ? "School's usual" : "Collective's split", div: true, tip: x.house ? "The usual revenue-share split for a player in his role" : "", f: (r) => (r.usual ? money(r.usual) : '<span class="muted">-</span>') },
+    { k: "deal", t: x.house ? "Your revenue share" : "Your deal", div: true, v: (r) => (r.deal != null ? r.deal : -1), f: (r) => `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.deal != null ? Math.round(r.deal / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="deal" data-id="${r.id}">k</label>` },
+    { k: "answer", t: "His answer", l: true, tip: "His first word on the deal you set", v: (r) => (r.answer ? r.answer.word : ""), f: (r) => (r.answer ? `<span class="st-pill ${FC_MOOD_TONE[r.answer.mood] || ""}" title="${esc(r.answer.text)}">${esc(r.answer.word)}</span>` : '<span class="muted">-</span>') },
   ];
   const promised = x.promised.length
     ? x.promised.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} · ${p.stars ? p.stars + "★" : "unrated"}${p.standing === "committed" ? " · committed" : p.standing === "signed" ? " · signed" : ""}</small></span></div>`).join("")
@@ -656,11 +679,15 @@ screens.nil_desk = async () => {
     ? `<div class="tbl warm"><table><thead><tr><th class="l">Season</th><th>NIL budget</th><th>From boosters</th></tr></thead><tbody>${x.history.map((h) => `<tr><td class="l">${h.season}</td><td>${m(h.budget)}</td><td>${m(h.boosters)}</td></tr>`).join("")}</tbody></table></div>`
     : '<div class="empty">No seasons yet.</div>';
   const buttons = x.yours
-    ? `<div class="fc-acts"><button class="st-btn small glass" data-fc="nilusual">Use the collective's split</button><button class="st-btn small glass" data-fc="nilclear">Clear every deal</button></div>`
+    ? `<div class="fc-acts"><button class="st-btn small glass" data-fc="nilusual">${x.house ? "Use the school's usual split" : "Use the collective's split"}</button><button class="st-btn small glass" data-fc="nilclear">Clear every deal</button></div>`
     : "";
-  const deal = x.yours
-    ? `<p class="sub">Set each player's deal for the money year in thousands. A player left without one gets nothing from the collective; one paid well under his worth hears about it, and the portal is a phone call away. ${money(deals)} set so far.</p>`
-    : `<p class="sub">Your collective pays the usual split. A deal you set for a player is his number instead (SC6); one paid well under his worth hears about it. ${money(deals)} set so far.</p>`;
+  const deal = x.house
+    ? x.yours
+      ? `<p class="sub">Set each player's revenue share for the money year in thousands: the school pays it, under the House cap. The collective pays its own deals beside it, and NIL Go clears each one only within the range players like him are paid. A player paid well under his worth hears about it, and the portal is a phone call away. Each answers when you set his number. ${money(deals)} set so far.</p>`
+      : `<p class="sub">Your staff pays the school's usual revenue-share split, and the collective pays its own deals through NIL Go. A revenue share you set for a player is his number instead (SC6); one paid well under his worth hears about it. ${money(deals)} set so far.</p>`
+    : x.yours
+      ? `<p class="sub">Set each player's deal for the money year in thousands. A player left without one gets nothing from the collective; one paid well under his worth hears about it, and the portal is a phone call away. Each answers when you set his number. ${money(deals)} set so far.</p>`
+      : `<p class="sub">Your collective pays the usual split. A deal you set for a player is his number instead (SC6); one paid well under his worth hears about it. ${money(deals)} set so far.</p>`;
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: `<span>${x.house ? "Revenue sharing and the collective" : "The collective"}${x.big_booster ? " · a big booster behind it" : ""}</span>`, sub: esc(x.trend_line), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar"><div class="st-label">The roster's deals</div>${fcGoto([["roster", "Squad"], ["portal_desk", "Transfer portal"], ["recruit_board", "Recruiting board"], ["depth", "Depth chart"]])}</div>

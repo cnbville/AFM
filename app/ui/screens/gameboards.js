@@ -666,9 +666,9 @@ function bdCapCollege(x, st) {
     { kind: b.left < 0 ? "dead" : "space", title: b.left < 0 ? "Over the budget" : "Left", sub: b.left < 0 ? "more promised than there is" : "not yet promised", v: Math.abs(b.left) },
   ];
   const clocks = bdCells([
-    { k: "Budget", v: bdMoney(b.total) },
+    { k: x.house ? "Revenue share" : "Budget", v: bdMoney(b.total), sub: x.house ? "the school's, yours to set" : "" },
     b.usualRoster != null
-      ? { k: "To the roster", v: bdMoney(b.usualRoster), sub: x.budget.yours ? "the usual split, no deals set" : "the collective's usual split" }
+      ? { k: "To the roster", v: bdMoney(b.usualRoster), sub: x.budget.yours ? "the usual split, no deals set" : x.house ? "the school's usual split" : "the collective's usual split" }
       : { k: "To the roster", v: bdMoney(b.roster) },
     { k: "Promised", v: bdMoney(b.recruits + b.portal), sub: "recruits and the portal" },
     b.leftUsual != null
@@ -696,15 +696,16 @@ function bdCapCollege(x, st) {
     card = `<div class="bd-card">
       <div class="bd-line2"><span class="st-label">${esc(sel.pos)} · ${esc(sel.cls)}${sel.walkOn ? " · walk-on" : ""}</span><span class="bd-dim">${sel.left} ${sel.left === 1 ? "season" : "seasons"} of eligibility left</span></div>
       <span class="bd-mtitle">${playerLink(sel.id, sel.name)}</span>
-      <div class="bd-hero"><b class="bd-cond bd-big">${bdMoney(sel.hit)}</b><span class="bd-how"><span>his deal for ${x.moneyYear}</span><span class="bd-dim">${sel.pct}% of the budget${sel.usual ? " · the collective's usual split, no deal set yet" : ""}</span></span></div>
+      <div class="bd-hero"><b class="bd-cond bd-big">${bdMoney(sel.hit)}</b><span class="bd-how"><span>his deal for ${x.moneyYear}</span><span class="bd-dim">${sel.pct}% of the ${x.house ? "revenue share" : "budget"}${sel.usual ? ` · the ${x.house ? "school's" : "collective's"} usual split, no deal set yet` : ""}</span></span></div>
       ${bdCells([{ k: "NIL income", v: bdMoney(sel.income), sub: "all his deals so far" }, { k: "Eligibility", v: `${sel.left} left` }, { k: "Your read", html: range(sel.read, "your staff", { p: sel.id, k: "ovr" }) }])}
       <div class="bd-links"><a class="link" data-go="player" data-id="${sel.id}">His page ›</a><a class="link" data-go="nil_desk">NIL deals ›</a><a class="link" data-go="money">Finances ›</a></div></div>`;
   }
   const budget = `<div class="bd-card"><div class="bd-line2"><span class="st-label">Where the budget comes from</span><span class="bd-dim">${x.house ? "revenue sharing era" : "collective era"}</span></div>
     ${[["Revenue share", b.revenue], ["The collective", b.collective]].map(([k, v]) => `<div class="bd-kv"><span>${k}</span><b class="bd-cond">${bdMoney(v)}</b></div>`).join("")}
-    <span class="st-label">Where it goes</span>
+    ${x.house ? `<small class="bd-dim">The school pays its revenue share, under the House cap: that is what you hand out below. The collective pays its own deals beside it, ${bdMoney(b.collectiveRoster)} to your roster this year as NIL Go cleared them${b.nilGoHeld > 0 ? ` (${bdMoney(b.nilGoHeld)} it wouldn't clear)` : ""}.</small>` : ""}
+    <span class="st-label">${x.house ? "Where the revenue share goes" : "Where it goes"}</span>
     ${[["The roster", b.usualRoster ?? b.roster], ["Recruits", b.recruits], ["Portal", b.portal], ["Left", b.leftUsual ?? b.left]].map(([k, v]) => `<div class="bd-kv"><span>${k}</span><span class="bd-kvbar"><i style="width:${b.total > 0 ? Math.max(0, Math.min(100, (100 * v) / b.total)).toFixed(1) : 0}%"></i></span><b class="bd-cond${v < 0 ? " bad" : ""}">${bdMoney(v)}</b></div>`).join("")}
-    ${b.usual ? `<small class="bd-dim">No deals set yet for ${x.moneyYear}: the blocks show the collective's usual split. On 1 July only the deals you set are paid; <a class="link" data-go="nil_desk">set them</a> or hand NIL to your staff.</small>` : b.yours ? "" : '<small class="bd-dim">Your staff hands out the NIL money: the collective\'s usual split.</small>'}</div>`;
+    ${b.usual ? `<small class="bd-dim">No deals set yet for ${x.moneyYear}: the blocks show the ${x.house ? "school's" : "collective's"} usual split. On 1 July only the deals you set are paid; <a class="link" data-go="nil_desk">set them</a> or hand NIL to your staff.</small>` : b.yours ? "" : `<small class="bd-dim">Your staff hands out the NIL money: the ${x.house ? "school's" : "collective's"} usual split.</small>`}</div>`;
   return `<div class="pad bd bd-cap">
     <header class="bd-head"><span class="bd-crest">${mark(x.team, 40)}</span><div class="bd-head-copy"><span class="st-label">${esc(x.team.name)} · NIL money year ${x.moneyYear}</span><h1 class="bd-h1">Where the money goes</h1></div>${clocks}</header>
     <div class="bd-cols">
