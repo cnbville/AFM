@@ -28,7 +28,7 @@ Dates marked "source-checked" were verified against real sources during the desi
 
 ## Topic 1. The clock (confirmed)
 
-1. **One day at a time.** Continue skips quiet days and stops when something needs you.
+1. **One day at a time.** Continue skips quiet days and stops when something needs you. Replaced 2026-10-30 by the six-part day: Continue stops at every section, six times a day (`day-sections.md`).
 2. **One real clock for every level.** High school plays Friday night, college Saturday, the NFL Sunday, plus Thursday and Monday night, Thanksgiving, Christmas and late-season Saturday games.
 3. **Dates are worked out each year from real anchors,** so the year shifts the way it really does. Examples: the NFL opener is the Thursday after Labor Day, the Super Bowl is the second Sunday in February, the draft is the last Thursday to Saturday of April. 2026 uses the real 2026 dates.
 4. **A save starts the day after the Super Bowl** (mid-February, from the roadmap answers).
@@ -214,7 +214,7 @@ Decisions (Raichel: "yes and yes"):
 
 ## Topic 10. Time controls and handing work to staff (confirmed)
 
-- **Continue** moves the game forward, skips quiet days, and stops when something needs you.
+- **Continue** moves the game forward, skips quiet days, and stops when something needs you. Replaced 2026-10-30 by the six-part day: Continue stops at every section, six times a day (`day-sections.md`).
 - **Holiday mode** (like FM) lets staff run everything until a date you pick. It always stops for the huge moments, like the draft.
 - **Handing off tasks:** any task can go to a staff member (scouting to the scouting director, the cap to the cap manager, the game plan to a coordinator), with instructions like "never trade a first-round pick" or "ask me before cutting a starter".
 
