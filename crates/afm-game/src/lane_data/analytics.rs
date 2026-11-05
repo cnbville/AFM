@@ -23,25 +23,25 @@ use super::{charted, division_arg, state_arg, team_json, tier_arg, tier_key};
 use crate::views;
 
 /// One player's season in a pool.
-struct Row {
-    id: u32,
-    team: usize,
-    pos: Position,
-    games: u32,
-    year: i32,
-    vol: f64,
-    vals: Vec<Option<f64>>,
+pub(super) struct Row {
+    pub(super) id: u32,
+    pub(super) team: usize,
+    pub(super) pos: Position,
+    pub(super) games: u32,
+    pub(super) year: i32,
+    pub(super) vol: f64,
+    pub(super) vals: Vec<Option<f64>>,
 }
 
 /// Where a pool is drawn from.
 #[derive(Clone, Copy)]
-struct Place {
-    tier: Tier,
-    division: Option<Division>,
-    state: Option<usize>,
+pub(super) struct Place {
+    pub(super) tier: Tier,
+    pub(super) division: Option<Division>,
+    pub(super) state: Option<usize>,
 }
 
-fn place_of(w: &World, args: &Value) -> Place {
+pub(super) fn place_of(w: &World, args: &Value) -> Place {
     let tier = tier_arg(w, args);
     Place {
         tier,
@@ -50,7 +50,7 @@ fn place_of(w: &World, args: &Value) -> Place {
     }
 }
 
-fn group_arg(args: &Value) -> usize {
+pub(super) fn group_arg(args: &Value) -> usize {
     match args.get("group") {
         Some(Value::String(g)) => an::GROUPS.iter().position(|x| x.eq_ignore_ascii_case(g)).unwrap_or(0),
         Some(Value::Number(n)) => (n.as_u64().unwrap_or(0) as usize).min(an::GROUPS.len() - 1),
@@ -67,7 +67,7 @@ fn view_arg(args: &Value, group: usize) -> usize {
 /// The group's card at a place: the charted one (the view asked for) as
 /// deep as your seat's charting goes there (Data overhaul item 2), or the
 /// box score one.
-fn card_of(w: &World, p: Place, group: usize, view: usize) -> (Vec<Cm>, Stat, &'static str, bool) {
+pub(super) fn card_of(w: &World, p: Place, group: usize, view: usize) -> (Vec<Cm>, Stat, &'static str, bool) {
     let ch = charted(w, p.tier, p.division);
     let views = an::views(group);
     let card = match super::charting(w, p.tier, p.division) {
@@ -83,7 +83,11 @@ fn card_of(w: &World, p: Place, group: usize, view: usize) -> (Vec<Cm>, Stat, &'
 /// last `days` days come off each man's line (the box score card is whole
 /// at once). The NFL's tracking is a day behind; your own staff's charting
 /// follows your analytics head (item 2).
-fn charted_now(w: &World, p: Place, now: Vec<NowLine>) -> (Vec<NowLine>, Option<afm_engine::calendar::Date>) {
+pub(super) fn charted_now(
+    w: &World,
+    p: Place,
+    now: Vec<NowLine>,
+) -> (Vec<NowLine>, Option<afm_engine::calendar::Date>) {
     let Some(c) = super::charting(w, p.tier, p.division) else { return (now, None) };
     let level = if p.tier == Tier::Nfl { tally::Level::Nfl } else { tally::Level::College };
     let since = afm_engine::calendar::Date(w.today.0 - (c.days as i32 - 1));
@@ -161,7 +165,7 @@ fn pro_all(
 
 /// The seasons a level keeps, newest first, and the one in progress
 /// (`now`, from `marks::season_now`).
-fn years(w: &World, p: Place, now: &[NowLine]) -> Vec<i32> {
+pub(super) fn years(w: &World, p: Place, now: &[NowLine]) -> Vec<i32> {
     let mut v: Vec<i32> = match p.tier {
         Tier::College => w.stats.year_index.iter().map(|x| x.0).collect(),
         Tier::Nfl => {
@@ -195,7 +199,7 @@ fn years(w: &World, p: Place, now: &[NowLine]) -> Vec<i32> {
 
 /// A season's pool at a place for a group (`now`: the season in progress,
 /// read only for this year).
-fn pool(w: &World, p: Place, year: i32, group: usize, view: usize, now: &[NowLine], src: &Src) -> Vec<Row> {
+pub(super) fn pool(w: &World, p: Place, year: i32, group: usize, view: usize, now: &[NowLine], src: &Src) -> Vec<Row> {
     let mut out = pool_all(w, p, year, group, view, now, src);
     // Returners: any man with a return.
     if group == an::RET {
@@ -345,7 +349,7 @@ fn hs_pools(
 }
 
 /// Every past season's pool at a place (the season in progress left out).
-fn past_pools(w: &World, p: Place, group: usize, ys: &[i32]) -> Vec<(i32, Vec<Row>)> {
+pub(super) fn past_pools(w: &World, p: Place, group: usize, ys: &[i32]) -> Vec<(i32, Vec<Row>)> {
     if p.tier == Tier::Hs {
         return hs_pools(w, p, group, 0, None).into_iter().filter(|(y, _)| *y != w.year).collect();
     }
@@ -353,7 +357,7 @@ fn past_pools(w: &World, p: Place, group: usize, ys: &[i32]) -> Vec<(i32, Vec<Ro
 }
 
 /// Each metric's percentile (0-100, 100 the best) among the qualifiers.
-fn percentiles(rows: &[Row], qual: &[bool], card: &[Cm]) -> Vec<Vec<Option<f64>>> {
+pub(super) fn percentiles(rows: &[Row], qual: &[bool], card: &[Cm]) -> Vec<Vec<Option<f64>>> {
     let mut out = vec![vec![None; card.len()]; rows.len()];
     for (k, cm) in card.iter().enumerate() {
         // A number that only says how he plays shades high as more.
@@ -378,7 +382,7 @@ fn percentiles(rows: &[Row], qual: &[bool], card: &[Cm]) -> Vec<Vec<Option<f64>>
     out
 }
 
-fn fmt_cell(cm: Cm, v: f64) -> String {
+pub(super) fn fmt_cell(cm: Cm, v: f64) -> String {
     match cm.about().2 {
         Fmt::Whole => format!("{v:.0}"),
         Fmt::One => format!("{v:.1}"),
@@ -388,13 +392,13 @@ fn fmt_cell(cm: Cm, v: f64) -> String {
     }
 }
 
-fn name(w: &World, id: u32) -> String {
+pub(super) fn name(w: &World, id: u32) -> String {
     marks::name_of(w, id).unwrap_or_else(|| "a former player".into())
 }
 
 /// Which way a number is better, for the page: "high", "low", or "none"
 /// for one that only says how he plays.
-fn better_word(cm: Cm) -> &'static str {
+pub(super) fn better_word(cm: Cm) -> &'static str {
     if cm.neutral() {
         "none"
     } else if cm.about().3 {
@@ -606,7 +610,7 @@ fn base(
 
 /// The minimum a season needs to qualify: the page's, or two thirds of a
 /// starter's volume at the level, cut down while a season is young.
-fn min_for(w: &World, p: Place, group: usize, year: i32, ch: bool, args: &Value, now: &[NowLine]) -> f64 {
+pub(super) fn min_for(w: &World, p: Place, group: usize, year: i32, ch: bool, args: &Value, now: &[NowLine]) -> f64 {
     if let Some(m) = args.get("min").and_then(Value::as_f64) {
         return m.max(0.0);
     }
@@ -624,13 +628,13 @@ fn min_for(w: &World, p: Place, group: usize, year: i32, ch: bool, args: &Value,
 /// What the class filter reads of a player: his high school class, birth
 /// date, college years and pro career, from the people still in the world
 /// or the ones who left it.
-struct Bio<'a> {
-    class_of: i32,
-    born: afm_engine::calendar::Date,
-    staff: &'a [(i32, usize, Option<usize>, Option<usize>)],
-    pro: Option<&'a afm_engine::world::pro::ProCareer>,
-    stars: u8,
-    home: usize,
+pub(super) struct Bio<'a> {
+    pub(super) class_of: i32,
+    pub(super) born: afm_engine::calendar::Date,
+    pub(super) staff: &'a [(i32, usize, Option<usize>, Option<usize>)],
+    pub(super) pro: Option<&'a afm_engine::world::pro::ProCareer>,
+    pub(super) stars: u8,
+    pub(super) home: usize,
 }
 
 /// The table's filter by class (Cain, 2026-11-02): his class that season
@@ -732,7 +736,7 @@ impl Filter {
 /// four or fewer from 2018) makes him a redshirt from then on. Under the
 /// five-year model (Division I from 2026) every year counts. High school by
 /// grade; the NFL by year in the league.
-fn class_in(w: &World, tier: Tier, id: u32, b: &Bio, year: i32) -> (u8, bool) {
+pub(super) fn class_in(w: &World, tier: Tier, id: u32, b: &Bio, year: i32) -> (u8, bool) {
     match tier {
         Tier::College => {
             let book = w.stats.career(id);
@@ -773,7 +777,7 @@ fn class_in(w: &World, tier: Tier, id: u32, b: &Bio, year: i32) -> (u8, bool) {
 
 /// His age on 31 August of a season (from his high school class when the
 /// world has no birth date for him).
-fn age_in(b: &Bio, year: i32) -> u32 {
+pub(super) fn age_in(b: &Bio, year: i32) -> u32 {
     if b.born == afm_engine::calendar::born::UNKNOWN {
         (year - b.class_of + 18).max(0) as u32
     } else {
@@ -1007,7 +1011,7 @@ pub fn table(w: &World, args: &Value) -> Value {
 }
 
 /// Where a player is now, for "seasons like his".
-fn now_text(w: &World, id: u32) -> String {
+pub(super) fn now_text(w: &World, id: u32) -> String {
     let Some(k) = views::person_index(w, id) else { return "Out of football".into() };
     let x = &w.people[k];
     match x.stage {
@@ -1028,7 +1032,7 @@ fn now_text(w: &World, id: u32) -> String {
 /// His listed position in one season at a place, read where `pool` reads
 /// that season, else (no line there, or an older NFL file's seasons, which
 /// keep none) his position now.
-fn season_pos(w: &World, k: usize, p: Place, year: i32, now: &[NowLine]) -> Position {
+pub(super) fn season_pos(w: &World, k: usize, p: Place, year: i32, now: &[NowLine]) -> Position {
     let x = &w.people[k];
     let id = x.player.id;
     let listed = if year == w.year && !now.is_empty() {

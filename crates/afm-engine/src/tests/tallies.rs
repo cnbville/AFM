@@ -241,6 +241,37 @@ fn the_tallies_only_watch_and_add_up() {
         assert_eq!(grid, c.grid, "team {} {} grid", c.level, c.team);
     });
     assert!(called > 30 && cc && garbage, "{called} teams with calls, concepts {cc}, garbage time {garbage}");
+    // Trends (lane NB10): every level's teams with their starters' sizes;
+    // college and NFL rows' style counts match their situation cells, and
+    // their passers' dropbacks sit within the team's.
+    let (mut trended, mut sized, mut dbs) = ([0usize; 3], 0, [0f64; 2]);
+    let _ = b.tally_each("trends", s, |_, r| {
+        let t: tally::trends::Season = file::decode(r).expect("a trends row");
+        trended[t.level as usize] += 1;
+        if let Some((n, h, wt)) = t.sizes.iter().map(|x| x.0).next().and_then(|p| t.size_of(&[p])) {
+            assert!(n > 0.0 && (60.0..84.0).contains(&h) && (140.0..400.0).contains(&wt), "{n} {h} {wt}");
+            sized += 1;
+        }
+        if t.level == Level::Hs as u8 {
+            assert!(t.style.is_empty() && t.pass.is_empty());
+            return;
+        }
+        let level = if t.level == Level::Nfl as u8 { Level::Nfl } else { Level::College };
+        let Some(c) = b.tally_team(level, s, t.team) else { return };
+        let n = |k: &str| c.get(k)[0] as f64;
+        assert_eq!(t.style_of(0, "runs"), n("o|kind|run"), "team {} {}", t.level, t.team);
+        assert_eq!(t.style_of(1, "dropbacks"), n("d|kind|pass"));
+        assert_eq!(t.style_of(0, "play_action"), n("o|play action|true"));
+        assert!(
+            t.style_of(0, "deep") <= t.style_of(0, "aimed") && t.style_of(0, "aimed") <= t.style_of(0, "dropbacks")
+        );
+        if level == Level::College {
+            dbs[0] += t.pass_of("db");
+            dbs[1] += t.style_of(0, "dropbacks");
+        }
+    });
+    assert!(trended.iter().all(|&n| n > 0) && sized > 30, "trends rows by level {trended:?}, {sized} sized");
+    assert!((dbs[0] - dbs[1]).abs() < 0.1 * dbs[1], "passers' dropbacks {} against the teams' {}", dbs[0], dbs[1]);
     // People: coordinators and head coaches with their ranks.
     let mut units = 0;
     b.tally_units(s, |u| {
