@@ -79,6 +79,8 @@ fn every_board(g: &mut Game, level: &str) -> Vec<Value> {
     let roster = board(g, "sb_roster", json!({}));
     let rows = roster["rows"].as_array().unwrap().clone();
     assert!(!rows.is_empty(), "{level}: a roster");
+    quick_filter(level, &roster);
+    quick_filter(level, &ok(g, "roster", json!({})));
     let ids: Vec<u64> = rows.iter().filter_map(|r| r["id"].as_u64()).collect();
 
     // The needs map's starters now are on the roster, with the roster's read.
@@ -130,6 +132,33 @@ fn every_board(g: &mut Game, level: &str) -> Vec<Value> {
     rows
 }
 
+/// The quick filter's data (Cain, 2026-11-04): every row carries each of
+/// the 67 attributes as your staff's range (or not seen), never one
+/// number, and the fields name the rating and the 67, never a ceiling.
+fn quick_filter(level: &str, v: &Value) {
+    let fields: Vec<&Value> = v["qf"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{level}: no quick filter fields"))
+        .iter()
+        .flat_map(|g| g["fields"].as_array().unwrap())
+        .collect();
+    assert_eq!(fields.iter().filter(|f| f["kind"] == "read").count(), 68, "{level}: the rating and the 67 attributes");
+    assert!(fields.iter().any(|f| f["label"] == "Speed"), "{level}");
+    for f in &fields {
+        let l = f["label"].as_str().unwrap().to_lowercase();
+        assert!(!l.contains("potential") && !l.contains("ceiling"), "{level}: {l} is hidden");
+    }
+    for r in v["rows"].as_array().unwrap() {
+        let a = r["attrs"].as_array().unwrap_or_else(|| panic!("{level}: {} has no attributes", r["name"]));
+        assert_eq!(a.len(), 67, "{level}");
+        for x in a.iter().filter(|x| !x.is_null()) {
+            let (lo, hi) = (x[0].as_f64().unwrap(), x[1].as_f64().unwrap());
+            let least = if lo <= 1.0 || hi >= 99.0 { 1.0 } else { 2.0 };
+            assert!(hi - lo >= least, "{level}: {x} is too sure to be a staff's read");
+        }
+    }
+}
+
 #[test]
 fn the_boards_at_every_seat() {
     let t = std::time::Instant::now();
@@ -159,6 +188,17 @@ fn the_boards_at_every_seat() {
     assert!(
         rows.iter().any(|r| r["last6"].as_array().is_some_and(|x| x.iter().any(Value::is_number))),
         "grades from the game"
+    );
+    // The quick filter's production: the game's lines, this season.
+    let squad = ok(&mut g, "squad", json!({}));
+    assert!(
+        squad["qf"].as_array().unwrap().iter().any(|g| g["name"] == "Production, this season in your games"),
+        "{}",
+        squad["qf"]
+    );
+    assert!(
+        squad["rows"].as_array().unwrap().iter().any(|r| r["prod"]["g"].as_u64().unwrap_or(0) > 0),
+        "production from the game"
     );
 
     // A backup moved up is the order the staff plays; given back, it's theirs.

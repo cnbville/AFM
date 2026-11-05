@@ -43,6 +43,7 @@ pub mod lane_storylines;
 pub mod lane_training;
 pub mod lane_views;
 pub mod memory;
+pub mod quick_filter;
 pub mod reads;
 pub mod setup;
 pub mod tallies;
@@ -320,4 +321,37 @@ pub fn default_home() -> PathBuf {
     }
     let home = std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("."));
     if cfg!(target_os = "macos") { home.join("Library/Application Support/AFM") } else { home.join(".afm") }
+}
+
+/// The screens share one page: a top-level name declared in two scripts
+/// lets the later one silently replace the earlier (bug 251, and the film
+/// stills' drawer that broke Find's board button, 2026-11-04).
+#[cfg(test)]
+mod screen_names {
+    #[test]
+    fn no_two_screens_declare_the_same_name() {
+        let ui = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../app/ui");
+        let index = std::fs::read_to_string(ui.join("index.html")).unwrap();
+        let mut seen: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut clashes = Vec::new();
+        for src in index.split("<script src=\"").skip(1).filter_map(|s| s.split('"').next()) {
+            let Ok(text) = std::fs::read_to_string(ui.join(src)) else { continue };
+            for line in text.lines() {
+                let rest = ["async function ", "function ", "const ", "let ", "var ", "class "]
+                    .iter()
+                    .find_map(|k| line.strip_prefix(k));
+                let Some(rest) = rest else { continue };
+                let name: String = rest.chars().take_while(|c| c.is_alphanumeric() || *c == '_' || *c == '$').collect();
+                if name.is_empty() {
+                    continue;
+                }
+                if let Some(first) = seen.insert(name.clone(), src.to_string())
+                    && first != src
+                {
+                    clashes.push(format!("{name}: {first} and {src}"));
+                }
+            }
+        }
+        assert!(clashes.is_empty(), "names declared in two screens: {clashes:?}");
+    }
 }

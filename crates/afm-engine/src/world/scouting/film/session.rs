@@ -64,6 +64,12 @@ pub const SNAP_MIN: f32 = 4.0;
 pub const RUNBACK_MIN: f32 = 2.0;
 pub const QUICK_MIN: f32 = 20.0;
 
+/// Your eye moving on (Cain 2026-11-04): a settled trait's chance is
+/// halved, one not caught yet this cut-up gains 5 points (proposed, not
+/// confirmed).
+pub const EYE_SETTLED: f64 = 0.5;
+pub const EYE_FRESH: f64 = 0.05;
+
 /// Your tags (SK44).
 pub const TAGS: [&str; 4] = ["Plus", "Minus", "Ask him about this", "Show the staff"];
 
@@ -190,6 +196,81 @@ pub struct Report {
     /// A team's tape: the kept tape it came from (date, home, away).
     #[serde(default)]
     pub tape_key: Option<(Date, usize, usize)>,
+    /// What your eye caught, one note a trait (Cain 2026-11-04).
+    #[serde(default)]
+    pub notes: Vec<Note>,
+}
+
+/// What your eye caught of one trait across a cut-up (Cain 2026-11-04:
+/// "I'm fine with repetition but make it at least build up to
+/// something"): each snap you caught it on with his band there, the
+/// down, and how many snaps watched had it on the tape.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Note {
+    pub attr: u8,
+    /// (snap, band) each time your eye caught it.
+    pub seen: Vec<(u8, u8)>,
+    /// The down and distance of each ("3rd & 7").
+    pub downs: Vec<String>,
+    /// Snaps watched that had it on the tape.
+    pub of: u8,
+}
+
+impl Note {
+    pub fn attr(&self) -> Attr {
+        Attr::ALL[(self.attr as usize).min(Attr::ALL.len() - 1)]
+    }
+    pub fn bands(&self) -> Vec<u8> {
+        self.seen.iter().map(|x| x.1).collect()
+    }
+    /// Three or more of a piece: settled, and your eye moves on (proposed,
+    /// not confirmed).
+    pub fn settled(&self) -> bool {
+        let b = self.bands();
+        b.len() >= 3 && b.iter().max().unwrap_or(&0) - b.iter().min().unwrap_or(&0) <= 1
+    }
+    /// The note in one line, for the report's list.
+    pub fn line(&self) -> String {
+        format!("{}: {}", self.attr().label(), words::note_head(&self.bands(), self.of as usize))
+    }
+}
+
+/// Your notes on a player's cut-up through snap `upto` (not included):
+/// one a trait you caught, the most seen first.
+pub fn notes(s: &Session, upto: usize) -> Vec<Note> {
+    let mut out: Vec<Note> = Vec::new();
+    if !matches!(s.target, Target::Player(_)) {
+        return out;
+    }
+    let mut of = [0u8; crate::attributes::ATTRIBUTE_COUNT];
+    for k in 0..upto.min(s.snaps.len()) {
+        let (sn, seen) = (&s.snaps[k], &s.seen[k]);
+        if seen.is_empty() {
+            continue;
+        }
+        for (j, &(a, b)) in sn.cues.iter().enumerate() {
+            of[a.index()] = of[a.index()].saturating_add(1);
+            if !matches!(seen.get(j), Some(&CLEAR) | Some(&REPLAYED)) {
+                continue;
+            }
+            let down = sn.sit.split(" · ").nth(1).and_then(|x| x.split(',').next()).unwrap_or("").to_string();
+            let ai = a.index() as u8;
+            let n = match out.iter().position(|n| n.attr == ai) {
+                Some(n) => n,
+                None => {
+                    out.push(Note { attr: ai, ..Default::default() });
+                    out.len() - 1
+                }
+            };
+            out[n].seen.push((k as u8, b));
+            out[n].downs.push(down);
+        }
+    }
+    for n in &mut out {
+        n.of = of[n.attr as usize].max(n.seen.len() as u8);
+    }
+    out.sort_by_key(|n| std::cmp::Reverse(n.seen.len()));
+    out
 }
 
 // --- Opening ----------------------------------------------------------------------------------
@@ -669,6 +750,9 @@ fn resolve(w: &mut World, s: &mut Session) {
     let t = super::time::tiredness(w);
     s.tired[at] = t > 0.25;
     let qa: Vec<u8> = s.ask.as_ref().map(|q| q.attrs.clone()).unwrap_or_default();
+    // Your eye moves on (Cain 2026-11-04): a trait you have settled draws
+    // it half as often, one you haven't caught yet a little more.
+    let so_far = notes(s, at);
     let mut seen = Vec::with_capacity(snap.cues.len().max(1));
     let mut his = Vec::with_capacity(snap.cues.len().max(1));
     let n_cues = if matches!(s.target, Target::Team(_)) { 1 } else { snap.cues.len() };
@@ -683,8 +767,21 @@ fn resolve(w: &mut World, s: &mut Session) {
         };
         let called_right =
             matches!(s.target, Target::Team(_)) && snap.call.as_ref().is_some_and(|c| s.picks[at] == Some(c.right));
-        let p_clear = clamp(0.30 + 0.035 * (e - 10.0) - 0.40 * subtle + if on_q { 0.12 } else { 0.0 }, 0.04, 0.95)
-            * (1.0 - 0.5 * t);
+        let (fresh, settled) = match s.target {
+            Target::Player(_) => {
+                let n = so_far.iter().find(|n| n.attr == snap.cues[k].0.index() as u8);
+                (n.is_none() && at > 0, n.is_some_and(Note::settled))
+            }
+            Target::Team(_) => (false, false),
+        };
+        let p_clear = clamp(
+            0.30 + 0.035 * (e - 10.0) - 0.40 * subtle
+                + if on_q { 0.12 } else { 0.0 }
+                + if fresh { EYE_FRESH } else { 0.0 },
+            0.04,
+            0.95,
+        ) * (1.0 - 0.5 * t)
+            * if settled { EYE_SETTLED } else { 1.0 };
         let p_half = if s.mode == Mode::Quick { 0.0 } else { 0.35 * (1.0 - 0.6 * t) };
         let u = roll(s, w, at, k, 0x5EE0);
         let v = if called_right || u < p_clear {
@@ -956,12 +1053,12 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
     let mut found_hints: Vec<String> = Vec::new();
     let mut catches: Vec<Catch> = Vec::new();
     let watched = s.seen.iter().filter(|v| !v.is_empty()).count();
+    let notes_now = notes(&s, s.snaps.len());
     match s.target {
         Target::Player(id) => {
             if let Some(i) = super::super::place(w, id) {
-                let (c, lines) = caught(w, &s);
-                catches.extend(c);
-                caught_lines.extend(lines);
+                catches.extend(caught(w, &s));
+                caught_lines.extend(notes_now.iter().map(Note::line));
                 // The look in his file under your name; your coach's notes
                 // in your staff's file (his read, not yours).
                 let kind = film_kind(&w.people[i]);
@@ -1117,6 +1214,7 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
         numbers: s.numbers.clone(),
         coach_answer,
         tape_key: s.tape_key,
+        notes: notes_now,
     };
     let fr = &mut w.scouting.film;
     super::add_catches(&mut fr.catches, catches);
@@ -1174,13 +1272,12 @@ fn snap_key(w: &World, s: &Session, snap: &Snap) -> u64 {
 }
 
 /// What your eye (and your analyst beside you) caught on the snaps
-/// watched: the catches and their lines. Pure, so the film room can
+/// watched: the catches (the lines are the notes, `notes`). Pure, so the film room can
 /// show your read narrowing as you watch (SK52).
-pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
+pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
     let mut catches: Vec<Catch> = Vec::new();
-    let mut caught_lines: Vec<String> = Vec::new();
-    let Target::Player(id) = s.target else { return (catches, caught_lines) };
-    let Some(i) = super::super::place(w, id) else { return (catches, caught_lines) };
+    let Target::Player(id) = s.target else { return catches };
+    let Some(i) = super::super::place(w, id) else { return catches };
     let d = w.today;
     let e = eye(w, s.pos);
     let t = super::time::tiredness(w);
@@ -1193,7 +1290,7 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
         // The same snap watched again shows the same thing: what your eye
         // read on it is keyed on the snap, not the day.
         let sk = snap_key(w, s, snap);
-        for (j, &(a, b)) in snap.cues.iter().enumerate() {
+        for (j, &(a, _)) in snap.cues.iter().enumerate() {
             let v = s.seen[k].get(j).copied().unwrap_or(0);
             if v == CLEAR || v == REPLAYED {
                 let noise = key_normal(w.options.seed as u64 ^ 0xCA7C ^ sk, id as u64 ^ (j as u64) << 50);
@@ -1207,7 +1304,6 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
                     by: 0,
                     key: sk,
                 });
-                caught_lines.push(words::cue(a, b as usize).to_string());
             }
         }
         // A weak eye mostly sees the result (SK43): one wide,
@@ -1257,5 +1353,5 @@ pub fn caught(w: &World, s: &Session) -> (Vec<Catch>, Vec<String>) {
             }
         }
     }
-    (catches, caught_lines)
+    catches
 }

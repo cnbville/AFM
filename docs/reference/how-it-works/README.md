@@ -30,6 +30,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [hunt.md](hunt.md) | The hunt: your one target over seasons at each seat, heat, his say, the boss, look-backs, the AI's hunts and the generational prospect |
 | [book.md](book.md) | The world reader's book: one SQLite file per world, its tables, checks against real, odd things, known issues, knobs, coverage, `afm_read` |
 | [records-and-data.md](records-and-data.md) | Record books at every level, single games, team books, rate records, the era column, records that fell, chasing now, player analytics and seasons like his |
+| [squad-filter.md](squad-filter.md) | The squad's quick filter: search, any attribute or stat against a number, positions; what it reads (your staff's ranges, your games) |
 | [tallies.md](tallies.md) | The Data section's running tallies: players, teams, games, classes, people and squads files per season beside each world and save, the expected pass model, charting depth and delay by your analytics head |
 
 Code that does something its comment or design says it shouldn't: [oddities.md](oddities.md).

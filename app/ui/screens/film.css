@@ -53,6 +53,10 @@
 .fm-tile { padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.035); box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; line-height: 1.45; }
 .fm-tile.gold { box-shadow: inset 0 0 0 1px rgba(255,214,10,.45); }
 .fm-tile .st-label { margin-bottom: 3px; }
+.fm-trait { display: flex; flex-direction: column; gap: 4px; }
+.fm-trait-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.fm-trait-q { color: var(--sl-dim); font-style: italic; }
+.fm-trait-r { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; padding-top: 4px; border-top: 1px solid var(--hair); }
 .fm-items { display: flex; flex-direction: column; }
 .fm-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--hair); flex-wrap: wrap; }
 .fm-item:first-child { border-top: 0; padding-top: 2px; }

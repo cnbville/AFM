@@ -21,7 +21,7 @@
 //! only ever a word.
 
 mod college;
-mod fields;
+pub(crate) mod fields;
 mod nfl;
 mod query;
 mod race;
