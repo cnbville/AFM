@@ -777,6 +777,12 @@ pub struct World {
     /// Ids, not places in `people`, since the people list is purged.
     #[serde(skip)]
     pub(crate) hurt_pros: (Vec<u32>, Option<crate::calendar::Date>),
+    /// How many times someone already in `people` or `coaches` took a new
+    /// name (a legacy son takes his father's, an athlete from another
+    /// sport his own, your assistant his): what lets the game keep its
+    /// name indexes between stops (`World::rename`). Not saved.
+    #[serde(skip)]
+    pub names_changed: u64,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -1367,6 +1373,7 @@ impl World {
             next_person: 1,
             today: dates.start,
             played: 0,
+            names_changed: 0,
             rules: changes.rules(year),
             dates,
             prev_dates: None,
@@ -1499,6 +1506,13 @@ impl World {
 }
 
 impl World {
+    /// Gives someone already in the world a new name, and counts it
+    /// (`names_changed`).
+    pub(crate) fn rename(&mut self, i: usize, name: String) {
+        self.people[i].name = name;
+        self.names_changed += 1;
+    }
+
     /// Memory tooling: the people list's spare capacity, then drops one
     /// part of every person by name (`memory_check`).
     #[cfg(feature = "debug")]

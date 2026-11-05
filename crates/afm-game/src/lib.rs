@@ -114,6 +114,7 @@ impl Game {
                 // How many history seasons play high school on the engine
                 // (quick checks pass 0; live seasons always do).
                 let hs_engine_years = num("hs_engine_years").map_or(d.hs_engine_years, |n| Some(n as u32));
+                lane_core::links::forget_names();
                 self.world = Some(World::new(WorldOptions {
                     seed,
                     history_years: years,
@@ -164,6 +165,7 @@ impl Game {
                 let w = setup::read(path)?;
                 // The last world goes first, with its log's writer.
                 self.world = None;
+                lane_core::links::forget_names();
                 self.world = Some(w);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
                 if let Some(w) = self.world.as_mut() {

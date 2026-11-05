@@ -620,7 +620,7 @@ fn son_arrives(w: &mut World, h: usize) {
     {
         full = format!("{full} {last}");
     }
-    w.people[i].name = full.clone();
+    w.rename(i, full.clone());
     let id = w.people[i].player.id;
     w.legacy.hs.son = Some((k as u32, id));
     memo(

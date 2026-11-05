@@ -10,12 +10,99 @@
 //! linked exactly, and any name still plain is found by its words when a
 //! screen shows the line (`Linker`).
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use afm_engine::calendar::{Date, Event, Level, Link, Ref};
 use afm_engine::world::{Stage, World};
+use rayon::prelude::*;
 
 use crate::views::TeamRef;
+
+/// What a name index was built from: the world (where it sits and its
+/// seed), its list's length and ends (people are only appended, in id
+/// order, or dropped; coaches only appended) and the world's renames. Any
+/// change builds it again.
+#[derive(Clone, Copy, PartialEq)]
+struct NamesKey {
+    world: usize,
+    seed: u32,
+    len: usize,
+    first: u32,
+    last: u32,
+    renamed: u64,
+}
+
+/// Each name's hash with its place in the list, sorted.
+type NameIndex = Option<(NamesKey, Vec<(u64, u32)>)>;
+
+thread_local! {
+    /// The people's and the coaches' name indexes: the six-part day writes
+    /// mail at every stop, and hashing every name in the world each time
+    /// was most of a stop's cost.
+    static PEOPLE: RefCell<NameIndex> = const { RefCell::new(None) };
+    static COACHES: RefCell<NameIndex> = const { RefCell::new(None) };
+}
+
+/// Drops the name indexes (a world opened, loaded or built).
+pub fn forget_names() {
+    PEOPLE.with(|c| *c.borrow_mut() = None);
+    COACHES.with(|c| *c.borrow_mut() = None);
+}
+
+/// The places in a list whose names hash to these, each in list order,
+/// from the list's kept index (built again when `key` changed).
+fn named(
+    cache: &'static std::thread::LocalKey<RefCell<NameIndex>>,
+    key: NamesKey,
+    names: impl Fn() -> Vec<(u64, u32)>,
+    wanted: &std::collections::HashSet<u64>,
+) -> HashMap<u64, Vec<usize>> {
+    // Taken out while in use, so nothing holds the cell across the build.
+    let v = match cache.with(|c| c.borrow_mut().take()) {
+        Some((k, v)) if k == key => v,
+        _ => {
+            let mut v = names();
+            v.par_sort_unstable();
+            v
+        }
+    };
+    let mut out: HashMap<u64, Vec<usize>> = HashMap::new();
+    for &h in wanted {
+        let from = v.partition_point(|x| x.0 < h);
+        for &(_, k) in v[from..].iter().take_while(|x| x.0 == h) {
+            out.entry(h).or_default().push(k as usize);
+        }
+    }
+    cache.with(|c| *c.borrow_mut() = Some((key, v)));
+    out
+}
+
+fn people_named(w: &World, wanted: &std::collections::HashSet<u64>) -> HashMap<u64, Vec<usize>> {
+    let key = NamesKey {
+        world: std::ptr::from_ref(w) as usize,
+        seed: w.options.seed,
+        len: w.people.len(),
+        first: w.people.first().map_or(0, |p| p.player.id),
+        last: w.people.last().map_or(0, |p| p.player.id),
+        renamed: w.names_changed,
+    };
+    let names = || w.people.par_iter().enumerate().map(|(k, p)| (fnv(&p.name), k as u32)).collect();
+    named(&PEOPLE, key, names, wanted)
+}
+
+fn coaches_named(w: &World, wanted: &std::collections::HashSet<u64>) -> HashMap<u64, Vec<usize>> {
+    let key = NamesKey {
+        world: std::ptr::from_ref(w) as usize,
+        seed: w.options.seed,
+        len: w.coaches.len(),
+        first: 0,
+        last: 0,
+        renamed: w.names_changed,
+    };
+    let names = || w.coaches.par_iter().enumerate().map(|(k, c)| (fnv(&c.name), k as u32)).collect();
+    named(&COACHES, key, names, wanted)
+}
 
 /// Text that may hold `[[` or `|` is made safe to sit inside markup.
 fn clean(s: &str) -> String {
@@ -189,22 +276,8 @@ impl<'a> Linker<'a> {
                 }
             }
         }
-        let mut people: HashMap<u64, Vec<usize>> = HashMap::new();
-        let mut coaches: HashMap<u64, Vec<usize>> = HashMap::new();
-        if !wanted.is_empty() {
-            for (k, p) in w.people.iter().enumerate() {
-                let h = fnv(&p.name);
-                if wanted.contains(&h) {
-                    people.entry(h).or_default().push(k);
-                }
-            }
-            for (k, c) in w.coaches.iter().enumerate() {
-                let h = fnv(&c.name);
-                if wanted.contains(&h) {
-                    coaches.entry(h).or_default().push(k);
-                }
-            }
-        }
+        let (people, coaches) =
+            if wanted.is_empty() { Default::default() } else { (people_named(w, &wanted), coaches_named(w, &wanted)) };
         Linker { w, teams, people, coaches }
     }
 

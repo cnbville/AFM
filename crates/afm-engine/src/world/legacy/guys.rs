@@ -880,7 +880,7 @@ fn sons(w: &mut World) {
             .map(|(i, _)| i);
         let Some(i) = son else { continue };
         let first = w.people[i].name.split_whitespace().next().unwrap_or("").to_string();
-        w.people[i].name = format!("{first} {last}");
+        w.rename(i, format!("{first} {last}"));
         let id = w.people[i].player.id;
         w.legacy.sons.push((id, father));
         let fname = find(w, father).map_or(String::new(), |k| w.legacy.guys[k].name.clone());

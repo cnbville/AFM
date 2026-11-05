@@ -223,8 +223,8 @@ pub fn sign(w: &mut World, key: u64) -> Result<String, String> {
         Staff::Program(j) => crate::world::pro::leagues::outside_freshman(w, j, pos, a.truth, a.age, seed),
         Staff::School(_) => return Err("At a high school, talk to the athletes in your building.".into()),
     };
+    w.rename(i, name.clone());
     let p = &mut w.people[i];
-    p.name = name.clone();
     let age = p.player.age;
     p.note(format!("At {age} he came to football from {sport} ({from})."));
     w.scouting.outside.push(key);
