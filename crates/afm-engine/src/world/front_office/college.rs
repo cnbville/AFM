@@ -202,7 +202,18 @@ pub struct CollegeDesk {
     /// Each player's first answer to your money (N1), the latest for each
     /// player and kind of offer.
     pub reactions: Vec<Reaction>,
+    /// The last day of your fresh start at this job: a new staff resets the
+    /// board it inherits, so pulling the old staff's offers until then
+    /// costs you nothing with the recruits or their coaches. None on a
+    /// desk from before the fresh start existed.
+    pub fresh_until: Option<Date>,
 }
+
+/// How long a new head coach's fresh start lasts, the day he takes over
+/// counted (proposed, not confirmed): about a month, the weeks a new staff
+/// takes to go through the old staff's offers and commitments and decide
+/// whom it re-offers.
+pub const FRESH_DAYS: i32 = 30;
 
 /// Which money a player answered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -563,8 +574,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
 pub fn ready(w: &mut World) -> Option<usize> {
     let j = super::program(w)?;
     if w.front_office.college.program != Some(j) {
-        // A new job: a new desk, set up from the staff's work there.
-        w.front_office.college = CollegeDesk { program: Some(j), ..Default::default() };
+        // A new job: a new desk, set up from the staff's work there, and a
+        // fresh start to go through the board you inherit.
+        let fresh_until = Some(w.today.add(FRESH_DAYS - 1));
+        w.front_office.college = CollegeDesk { program: Some(j), fresh_until, ..Default::default() };
     }
     if !w.front_office.college.seeded {
         seed(w, j);
@@ -1448,7 +1461,11 @@ fn offer_at(w: &mut World, j: usize, id: u32, by: Source, why: Option<String>) -
     if !p.cal.offers.contains(&j) {
         p.cal.offers.push(j);
     }
-    let first = p.cal.early_offers.is_empty() && p.cal.offers.len() <= 1;
+    // A pulled offer leaves his lists, so his history says whether he has
+    // had a first one already.
+    let first = p.cal.early_offers.is_empty()
+        && p.cal.offers.len() <= 1
+        && !p.notes.iter().any(|n| n.contains("first scholarship offer"));
     if p.class_of > sign_year && !p.cal.early_offers.iter().any(|o| o.0 == j) {
         p.cal.early_offers.push((j, today));
     }
@@ -1485,67 +1502,225 @@ fn offer_at(w: &mut World, j: usize, id: u32, by: Source, why: Option<String>) -
 /// Pulls an offer. A commitment goes with it.
 pub fn pull(w: &mut World, id: u32) -> Result<String, String> {
     let j = need(w, Duty::Board)?;
-    let text = pull_at(w, j, id)?;
-    super::chain::on_pull(w, id);
+    let (text, free) = pull_at(w, j, id, true)?;
+    // A coach of yours who wanted him is overruled, unless the offer was
+    // the old staff's and your fresh start is on.
+    super::chain::on_pull(w, id, !free);
     Ok(text)
 }
 
 /// A pull your staff asked for, signed (SK26).
 pub(crate) fn pull_by_chain(w: &mut World, j: usize, id: u32) -> Result<String, String> {
-    pull_at(w, j, id)
+    pull_at(w, j, id, true).map(|x| x.0)
 }
 
-fn pull_at(w: &mut World, j: usize, id: u32) -> Result<String, String> {
+/// The last day of your fresh start at this job, while it lasts.
+pub fn fresh_until(w: &World) -> Option<Date> {
+    w.front_office.college.fresh_until.filter(|&d| w.today <= d)
+}
+
+/// Whether pulling this offer costs you nothing: an offer the old staff
+/// made, pulled in your fresh start (a new staff resets the board).
+pub fn free_pull(w: &World, t: &Target) -> bool {
+    t.by == Source::Inherited && t.offered.is_some() && t.pulled.is_none() && fresh_until(w).is_some()
+}
+
+/// The old staff's offers still out to recruits who haven't signed:
+/// (id, committed to you), in board order.
+pub fn inherited_out(w: &World) -> Vec<(u32, bool)> {
+    let Some(j) = super::program(w) else { return Vec::new() };
+    let board = &w.front_office.college.board;
+    let at = indices(w, &board.iter().map(|t| t.id).collect::<Vec<_>>());
+    board
+        .iter()
+        .filter(|t| t.by == Source::Inherited && t.offered.is_some() && t.pulled.is_none())
+        .filter_map(|t| {
+            let p = &w.people[*at.get(&t.id)?];
+            (p.cal.signed.is_none()).then(|| (t.id, p.cal.commit.is_some_and(|c| c.0 == j)))
+        })
+        .collect()
+}
+
+/// Pulls several offers at once (the board's ticks): each one a pull as
+/// above, in one line for the desk.
+pub fn pull_many(w: &mut World, ids: &[u32]) -> Result<String, String> {
+    let j = need(w, Duty::Board)?;
+    // Pulled, commitments among them, not free, commitments among those, held none.
+    let mut c = [0usize; 5];
+    for &id in ids {
+        let committed = super::index_of(w, id).is_some_and(|i| w.people[i].cal.commit.is_some_and(|c| c.0 == j));
+        match pull_at(w, j, id, false) {
+            Ok((_, free)) => {
+                super::chain::on_pull(w, id, !free);
+                c[0] += 1;
+                c[1] += committed as usize;
+                c[2] += !free as usize;
+                c[3] += (committed && !free) as usize;
+            }
+            Err(_) => c[4] += 1,
+        }
+    }
+    if c[0] == 0 {
+        return Err("None of them holds an offer you can pull.".into());
+    }
+    let text = pulled_words(c);
+    note(w, text.clone(), None);
+    Ok(text)
+}
+
+/// Pulls every offer the old staff made that is still out (the fresh
+/// start's reset): the commitments too, unless `keep_commits`. The
+/// recruits pulled leave your board, so the board left is yours.
+pub fn reset_board(w: &mut World, keep_commits: bool) -> Result<String, String> {
+    need(w, Duty::Board)?;
+    let ids: Vec<u32> = inherited_out(w).into_iter().filter(|&(_, c)| !keep_commits || !c).map(|x| x.0).collect();
+    if ids.is_empty() {
+        return Err("No offer of the old staff's is still out.".into());
+    }
+    let text = pull_many(w, &ids)?;
+    w.front_office.college.board.retain(|t| !(t.pulled.is_some() && ids.contains(&t.id)));
+    Ok(format!("{text} They're off your board."))
+}
+
+/// A new save that starts with no offers out (the setup's switch): the
+/// old staff's offers to every recruit who hasn't signed are pulled on
+/// your first day, commitments with them, and leave your board, so you
+/// build your own. Returns (offers pulled, commitments among them).
+pub fn start_clean(w: &mut World) -> (usize, usize) {
+    let Some(j) = ready(w) else { return (0, 0) };
+    let out = inherited_out(w);
+    let commits = out.iter().filter(|x| x.1).count();
+    let mut n = 0;
+    for &(id, _) in &out {
+        if pull_at(w, j, id, false).is_ok() {
+            n += 1;
+        }
+    }
+    let gone: Vec<u32> = out.iter().map(|x| x.0).collect();
+    w.front_office.college.board.retain(|t| !gone.contains(&t.id));
+    if n > 0 {
+        let today = w.today;
+        let school = w.programs[j].name(w.options.names).to_string();
+        let held = if commits > 0 { format!(", {} with them", count(commits, "commitment")) } else { String::new() };
+        tell(
+            w,
+            today,
+            format!(
+                "A clean board: {school}'s {} from before you came {} pulled on your first day{held}. A new staff resets the board, so no recruit or high school coach holds it against you. The players who signed stay signed.",
+                count(n, "offer"),
+                if n == 1 { "was" } else { "were" }
+            ),
+            false,
+        );
+        note(w, format!("Started with a clean board: {} pulled{held}.", count(n, "offer")), None);
+    }
+    (n, commits)
+}
+
+/// The desk's line for a bulk pull: [pulled, commitments among them, not
+/// free, commitments among those, held no offer].
+fn pulled_words([n, commits, costly, costly_commits, skipped]: [usize; 5]) -> String {
+    let mut text = format!("Pulled {}", count(n, "offer"));
+    if commits > 0 {
+        text += &format!(", {} with them", count(commits, "commitment"));
+    }
+    text += ".";
+    let schools = if costly_commits > 0 { " A pulled commitment's high school remembers." } else { "" };
+    if costly == 0 {
+        text += " They were the old staff's: a new staff resets the board, and it costs you nothing.";
+    } else if costly < n {
+        let free = n - costly;
+        text += &format!(
+            " {} the old staff's and cost nothing; the rest were yours.{schools}",
+            if free == 1 { "One was".to_string() } else { format!("{free} were") }
+        );
+    } else {
+        text += schools;
+    }
+    if skipped > 0 {
+        text += &format!(" {} held no offer to pull.", count(skipped, "other"));
+    }
+    text
+}
+
+/// One pull: the offer leaves his list (an early one too, so it doesn't
+/// come back at the next signing stage), a commitment goes with it. Off
+/// your fresh start, a pulled commitment cools his high school toward you
+/// and makes the news; `log` writes the desk's line. Returns the words and
+/// whether it was free.
+fn pull_at(w: &mut World, j: usize, id: u32, log: bool) -> Result<(String, bool), String> {
     let i = super::index_of(w, id).ok_or("No such player.")?;
     if w.people[i].cal.signed.is_some_and(|s| s.program == j) {
         return Err("He signed his letter with you: only a release frees him.".into());
     }
     let today = w.today;
+    let fresh = fresh_until(w).is_some();
     let t = w.front_office.college.board.iter_mut().find(|t| t.id == id).ok_or("He isn't on your board.")?;
     if t.offered.is_none() || t.pulled.is_some() {
         return Err("He holds no offer from you.".into());
     }
+    let free = fresh && t.by == Source::Inherited;
     t.pulled = Some(today);
     t.priority = false;
     let school = w.programs[j].name(w.options.names).to_string();
     let p = &mut w.people[i];
     p.cal.offers.retain(|&x| x != j);
+    // An early offer pulled is gone too: the next signing stage puts every
+    // early offer back on his list, and the first school to offer keeps an
+    // edge with him.
+    p.cal.early_offers.retain(|o| o.0 != j);
     let committed = p.cal.commit.is_some_and(|c| c.0 == j);
     let age = p.row_age();
     let (name, hs) = (p.name.clone(), p.hs);
-    let mut text = format!("Pulled the offer to {name}.");
+    let mut text =
+        if free { format!("Pulled the old staff's offer to {name}.") } else { format!("Pulled the offer to {name}.") };
     if committed {
         p.cal.commit = None;
-        p.note(format!("At {age} {school} pulled his scholarship offer, and his commitment with it."));
         w.log.decommits += 1;
-        // His high school coach remembers (a pipeline cools).
-        if let Some(e) = w.programs[j].hs_pipeline.get_mut(&hs) {
-            e.0 *= 0.85;
-        }
-        text = format!(
-            "Pulled the offer to {name}; his commitment is over. His high school's staff won't forget it soon."
-        );
-        if recruiting_stars(&w.people[i]) >= 3 {
-            let stars = recruiting_stars(&w.people[i]);
-            w.calendar.post(
-                Event::new(
-                    today,
-                    Level::Recruiting,
-                    Kind::Commitment,
-                    Loudness::Small,
-                    format!("{school} pulls its offer to {stars}-star commit {name}."),
-                )
-                .program(j),
+        if free {
+            // A new staff going through the commitments it inherited: the
+            // kid and his coach know how a coaching change goes.
+            p.note(format!(
+                "At {age} {school}'s new staff pulled the scholarship offer the old staff had made, and his commitment with it."
+            ));
+            text = format!(
+                "Pulled the old staff's offer to {name}; his commitment is over. A new staff resets the board: it costs you nothing."
             );
+        } else {
+            p.note(format!("At {age} {school} pulled his scholarship offer, and his commitment with it."));
+            // His high school coach remembers (a pipeline cools).
+            if let Some(e) = w.programs[j].hs_pipeline.get_mut(&hs) {
+                e.0 *= 0.85;
+            }
+            text = format!(
+                "Pulled the offer to {name}; his commitment is over. His high school's staff won't forget it soon."
+            );
+            if recruiting_stars(&w.people[i]) >= 3 {
+                let stars = recruiting_stars(&w.people[i]);
+                w.calendar.post(
+                    Event::new(
+                        today,
+                        Level::Recruiting,
+                        Kind::Commitment,
+                        Loudness::Small,
+                        format!("{school} pulls its offer to {stars}-star commit {name}."),
+                    )
+                    .program(j),
+                );
+            }
         }
         if let Some(t) = w.front_office.college.board.iter_mut().find(|t| t.id == id) {
             t.seen = Standing::Open;
         }
+    } else if free {
+        p.note(format!("At {age} {school}'s new staff pulled the scholarship offer the old staff had made."));
     } else {
         p.note(format!("At {age} {school} pulled its scholarship offer."));
     }
-    note(w, text.clone(), Some(id));
-    Ok(text)
+    if log {
+        note(w, text.clone(), Some(id));
+    }
+    Ok((text, free))
 }
 
 /// Your NIL promise to a recruit (None: the collective's usual offer). The
