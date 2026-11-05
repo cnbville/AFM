@@ -1561,6 +1561,178 @@ pub const TERMS: &[Term] = &[
         "",
         0,
     ),
+    // ---- Stat finder and Trends (lane NB10) ----
+    t("SnapsOff", "Offensive snaps", "Plays he was on the field for on offense.", "", 0),
+    t("SnapsDef", "Defensive snaps", "Plays he was on the field for on defense.", "", 0),
+    t(
+        "ScrimYds",
+        "Yards from scrimmage",
+        "Rushing yards and receiving yards added together: every yard he gained with the ball from a snap.",
+        "Rushing yards + receiving yards.",
+        1,
+    ),
+    t("Touches", "Touches", "Times he had the ball from a snap: carries and catches.", "Carries + catches.", 0),
+    t(
+        "TotTd",
+        "Total touchdowns",
+        "Touchdowns he scored himself: rushing, receiving and returns. A quarterback's touchdown passes are not his.",
+        "Rushing + receiving + return touchdowns.",
+        1,
+    ),
+    t(
+        "TrDeep",
+        "Deep throw rate",
+        "The share of a team's aimed passes thrown 20 or more yards past the line of scrimmage.",
+        "Aimed throws of 20+ air yards ÷ aimed throws (throwaways and spikes left out).",
+        0,
+    ),
+    t(
+        "TrScreen",
+        "Throws behind the line",
+        "The share of a team's aimed passes caught or thrown behind the line of scrimmage: screens, swings and flips.",
+        "Aimed throws with negative air yards ÷ aimed throws.",
+        0,
+    ),
+    t(
+        "TrAdot",
+        "Depth of target",
+        "How far past the line of scrimmage a team's passes travel in the air, on average, whether caught or not.",
+        "Air yards on aimed throws ÷ aimed throws.",
+        0,
+    ),
+    t(
+        "TrTtt",
+        "Time to throw",
+        "How long a team's passers hold the ball, on average, from the snap to the throw.",
+        "Seconds from snap to release ÷ pass attempts.",
+        0,
+    ),
+    t(
+        "TrPa",
+        "Play action rate",
+        "The share of a team's dropbacks that start with a fake handoff.",
+        "Play action dropbacks ÷ dropbacks.",
+        0,
+    ),
+    t(
+        "TrGun",
+        "Shotgun and pistol",
+        "The share of a team's snaps with the quarterback standing back from the center, in the shotgun or the pistol.",
+        "Shotgun and pistol snaps ÷ snaps.",
+        0,
+    ),
+    t(
+        "TrUc",
+        "Under center",
+        "The share of a team's snaps with the quarterback's hands under the center.",
+        "Under center snaps ÷ snaps.",
+        0,
+    ),
+    t(
+        "Tr11",
+        "11 personnel",
+        "The share of a team's snaps with one back and one tight end, so three wide receivers: the modern default.",
+        "Snaps in 11 ÷ snaps.",
+        0,
+    ),
+    t(
+        "Tr12",
+        "12 personnel",
+        "The share of a team's snaps with one back and two tight ends.",
+        "Snaps in 12 ÷ snaps.",
+        0,
+    ),
+    t(
+        "Tr21",
+        "21 personnel",
+        "The share of a team's snaps with two backs (usually a fullback) and one tight end.",
+        "Snaps in 21 ÷ snaps.",
+        0,
+    ),
+    t(
+        "TrMotion",
+        "Motion rate",
+        "The share of a team's snaps with a player moving before the ball is snapped.",
+        "Snaps with motion ÷ snaps.",
+        0,
+    ),
+    t(
+        "TrNoHuddle",
+        "No-huddle rate",
+        "The share of a team's snaps run without a huddle first, the tempo offenses' way.",
+        "No-huddle snaps ÷ snaps.",
+        0,
+    ),
+    t(
+        "TrRpo",
+        "RPO rate",
+        "The share of a team's snaps that were run-pass options: the quarterback reads a defender after the snap and hands off or throws.",
+        "RPO snaps ÷ snaps.",
+        0,
+    ),
+    t(
+        "TrBox8",
+        "Runs into 8+ in the box",
+        "The share of a team's runs that went at eight or more defenders packed near the line. Lower is easier running.",
+        "Runs against a box of 8 or more ÷ runs.",
+        -1,
+    ),
+    t(
+        "TrBlitz",
+        "Blitz rate",
+        "The share of the other side's dropbacks where a defense sent five or more pass rushers.",
+        "Blitzes ÷ dropbacks faced.",
+        0,
+    ),
+    t(
+        "TrMan",
+        "Man coverage rate",
+        "The share of the other side's dropbacks where a defense played man to man rather than zone.",
+        "Man coverage dropbacks ÷ dropbacks faced.",
+        0,
+    ),
+    t(
+        "TrNickel",
+        "Nickel and dime",
+        "The share of a defense's snaps with five or more defensive backs on the field.",
+        "Nickel and dime snaps ÷ snaps.",
+        0,
+    ),
+    t(
+        "SzWt",
+        "Starters' weight",
+        "How heavy a team's starters at these positions were, on average, as listed at the end of the season.",
+        "Each starter's listed weight counted once per game he started.",
+        0,
+    ),
+    t(
+        "SzHt",
+        "Starters' height",
+        "How tall a team's starters at these positions were, on average, as listed at the end of the season.",
+        "Each starter's listed height counted once per game he started.",
+        0,
+    ),
+    t(
+        "TrBand",
+        "Middle half",
+        "The band runs from the team a quarter of the way up the league to the team three quarters of the way up, so half of all teams sit inside it.",
+        "",
+        0,
+    ),
+    t(
+        "TrCurve",
+        "Usual curve",
+        "What the season's qualifiers at his position put up at each age, on average: the usual path a player at his spot follows.",
+        "The mean of every qualifying season at that age and position, himself left out; an age needs 8 seasons to show.",
+        0,
+    ),
+    t(
+        "CompMatch",
+        "Match",
+        "How closely another player's seasons looked like his, from 0 to 1: 1 is the same percentiles in every number and the same age.",
+        "1 minus the average gap in percentiles (out of 100) across the card's numbers and playing time, less 0.03 for each year of age between them.",
+        1,
+    ),
 ];
 
 /// Table headers that name a stat: (the table's first header in lower
@@ -1930,6 +2102,9 @@ mod tests {
         }
         for k in super::super::teams::stat_keys() {
             assert!(has(k), "team number {k} has no entry");
+        }
+        for k in super::super::trends::h8_keys().into_iter().chain(["TrBand", "TrCurve", "CompMatch"]) {
+            assert!(has(k), "trends number {k} has no entry");
         }
         for c in crate::lane_core::tables::COLS {
             assert!(has(c.key), "leaderboard column {} has no entry", c.key);
