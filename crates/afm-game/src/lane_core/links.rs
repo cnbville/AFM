@@ -10,8 +10,8 @@
 //! linked exactly, and any name still plain is found by its words when a
 //! screen shows the line (`Linker`).
 
-use std::cell::RefCell;
 use std::collections::HashMap;
+use std::sync::{Mutex, PoisonError};
 
 use afm_engine::calendar::{Date, Event, Level, Link, Ref};
 use afm_engine::world::{Stage, World};
@@ -36,30 +36,35 @@ struct NamesKey {
 /// Each name's hash with its place in the list, sorted.
 type NameIndex = Option<(NamesKey, Vec<(u64, u32)>)>;
 
-thread_local! {
-    /// The people's and the coaches' name indexes: the six-part day writes
-    /// mail at every stop, and hashing every name in the world each time
-    /// was most of a stop's cost.
-    static PEOPLE: RefCell<NameIndex> = const { RefCell::new(None) };
-    static COACHES: RefCell<NameIndex> = const { RefCell::new(None) };
+/// The people's and the coaches' name indexes: the six-part day writes
+/// mail at every stop, and hashing every name in the world each time was
+/// most of a stop's cost. One for the whole app, not one per thread: the
+/// desktop app answers calls on a pool of threads, and a world opened on
+/// one must clear them all.
+static PEOPLE: Mutex<NameIndex> = Mutex::new(None);
+static COACHES: Mutex<NameIndex> = Mutex::new(None);
+
+fn kept(cache: &Mutex<NameIndex>) -> std::sync::MutexGuard<'_, NameIndex> {
+    cache.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 /// Drops the name indexes (a world opened, loaded or built).
 pub fn forget_names() {
-    PEOPLE.with(|c| *c.borrow_mut() = None);
-    COACHES.with(|c| *c.borrow_mut() = None);
+    *kept(&PEOPLE) = None;
+    *kept(&COACHES) = None;
 }
 
 /// The places in a list whose names hash to these, each in list order,
 /// from the list's kept index (built again when `key` changed).
 fn named(
-    cache: &'static std::thread::LocalKey<RefCell<NameIndex>>,
+    cache: &Mutex<NameIndex>,
     key: NamesKey,
     names: impl Fn() -> Vec<(u64, u32)>,
     wanted: &std::collections::HashSet<u64>,
 ) -> HashMap<u64, Vec<usize>> {
-    // Taken out while in use, so nothing holds the cell across the build.
-    let v = match cache.with(|c| c.borrow_mut().take()) {
+    // Taken out while in use, so nothing holds the lock across the build.
+    let taken = kept(cache).take();
+    let v = match taken {
         Some((k, v)) if k == key => v,
         _ => {
             let mut v = names();
@@ -74,7 +79,7 @@ fn named(
             out.entry(h).or_default().push(k as usize);
         }
     }
-    cache.with(|c| *c.borrow_mut() = Some((key, v)));
+    *kept(cache) = Some((key, v));
     out
 }
 
