@@ -261,6 +261,8 @@ pub(crate) fn advance_day(w: &mut World) {
         hs_nil_states(w);
         timed("hs transfers", || recruiting::high_school_transfers(w));
         w.rebuild_rosters();
+        // High schoolers' NIL deals follow the new rules and the moves (N3).
+        super::fame::hs_nil_day(w);
     }
     if d == y.money_year {
         timed("nil", || recruiting::nil_payouts(w));

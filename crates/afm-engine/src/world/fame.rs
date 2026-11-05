@@ -18,6 +18,7 @@
 //! There is no quarterback pay premium for looks or Aura (F16): contracts
 //! read football only.
 
+use super::data::HsNilScope;
 use super::{Person, Stage, World};
 use crate::player::PlayingTime;
 use crate::positions::Position;
@@ -182,6 +183,99 @@ fn reach(year: i32) -> f64 {
     }
 }
 
+/// Whether his school's state lets him earn NIL money today (N3). The
+/// state association's or legislature's rule binds the school he plays for
+/// (a boarder at IMG plays under Florida's). Open to every player once the
+/// state's first season has come (`StateInfo::hs_nil`, switched on by the
+/// clock) and he is old enough; in Arkansas and Missouri only once he has
+/// signed with a college in the state, from the law's season. Texas lets a
+/// 17-year-old sign only with a college, paid once his high school days
+/// are over, so a Texas high schooler earns nothing.
+pub fn hs_nil_open(w: &World, p: &Person) -> bool {
+    if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
+        return false;
+    }
+    let Some(s) = w.high_schools.get(p.hs).map(|h| h.state) else { return false };
+    let Some(state) = w.states.get(s) else { return false };
+    let rule = super::data::hs_nil_rule(&state.code);
+    if state.hs_nil {
+        return p.age_on(w.today) >= rule.min_age;
+    }
+    match rule.scope {
+        HsNilScope::SignedInState => {
+            rule.from.is_some_and(|y| y <= w.year)
+                && p.cal.signed.as_ref().is_some_and(|g| w.programs.get(g.program).is_some_and(|c| c.state == s))
+        }
+        _ => false,
+    }
+}
+
+/// A five-star quarterback starter's fame in high school (stars 0.55 x play
+/// about 0.9 + first-team all-state 0.06) and what his deals bring a year
+/// with ordinary Aura (proposed, not confirmed). Real: Faizon Brandon's
+/// Leaf card deal, $1.2 million over two years (North Carolina, 2025);
+/// four-star Antwann Hill's, $600,000-750,000 over several years (Georgia,
+/// 2024); Julian Lewis six figures; Malachi Nelson nearly $1 million by the
+/// time he enrolled (California, 2022).
+const HS_NIL_FAME: f64 = 0.56;
+const HS_NIL_TOP: f64 = 300_000.0;
+/// How steeply brands follow fame in high school (proposed, not
+/// confirmed): only the best-known get national deals. Real: Georgia's
+/// association counted 44-87 athletes with deals a year out of 430,000,
+/// only 2-3 of them over $1,000; North Carolina 12-21 athletes a year, the
+/// usual deal $200-700 or the product itself; Ohio 32 deals in its first
+/// months (2024-26 reports).
+const HS_NIL_FAME_POWER: i32 = 6;
+const HS_NIL_AURA_POWER: i32 = 2;
+/// The smallest deal worth making: the gear-and-a-post deals of $200-700
+/// (North Carolina's 2025-26 report).
+const HS_NIL_SMALLEST: f64 = 200.0;
+
+/// Whether his family takes deals at all (proposed, not confirmed): most do;
+/// a comfortable family that cares little for money often turns them down,
+/// as the Mannings did. Drawn once for him, so the answer holds.
+fn takes_hs_deals(w: &World, p: &Person) -> bool {
+    let need = 0.25 + 0.75 * (1.0 - p.bg.money);
+    let want = p.family.decider_wants.money;
+    let chance = clamp(0.35 + 0.5 * need + 1.5 * (want - 1.0 / 6.0), 0.15, 0.95);
+    super::season::key_uniform(w.options.seed as u64 ^ 0x45_D1A1, p.player.id as u64) < chance
+}
+
+/// A high schooler's NIL money a year where his state allows it (N3): local
+/// businesses, gear and posts for the locally known, trading cards, jewelry
+/// and an apparel brand for the national names. Fame drives it steeply and
+/// Aura gently: fame / 0.56 to the 6th x (Aura's multiplier / ordinary)
+/// squared x $300,000; nothing under $200 or where the family says no.
+pub fn hs_nil_money(w: &World, i: usize, fame: f64) -> f64 {
+    let p = &w.people[i];
+    if !hs_nil_open(w, p) || !takes_hs_deals(w, p) {
+        return 0.0;
+    }
+    hs_nil_offered(p, fame)
+}
+
+/// What brands would pay him a year in high school, before his state's rule
+/// and his family's say (N3; the formula above).
+pub fn hs_nil_offered(p: &Person, fame: f64) -> f64 {
+    let aura = aura_mult(p.player.personality.traits.aura) / aura_mult(10);
+    let money = HS_NIL_TOP * (fame / HS_NIL_FAME).powi(HS_NIL_FAME_POWER) * aura.powi(HS_NIL_AURA_POWER);
+    if money < HS_NIL_SMALLEST { 0.0 } else { money }
+}
+
+/// Who pays a high schooler's NIL money, by its size (the screens' words):
+/// real high school deals are local businesses and gear at the bottom,
+/// trading cards and autograph signings in the middle, and an apparel brand
+/// beside the cards at the top.
+pub fn hs_nil_kinds(money: f64) -> &'static str {
+    match money {
+        m if m >= 50_000.0 => "a trading card deal and an apparel brand",
+        m if m >= 5_000.0 => "trading cards and autograph signings",
+        m if m >= 1_000.0 => "local businesses and posts",
+        m if m > 0.0 => "gear and a post or two",
+        _ => "",
+    }
+}
+
 /// His yearly money from ads, brand NIL deals and endorsements, in dollars
 /// (proposed, not confirmed). NFL: about $50 million for the most famous
 /// star with the most Aura (Patrick Mahomes earned about $60 million off
@@ -189,7 +283,7 @@ fn reach(year: i32) -> f64 {
 /// backup; the market was about a third of today's in 1996. College: brand
 /// deals only from July 2021 (NIL), up to about $2.5 million (the
 /// collectives' money is separate, `recruiting::nil_payouts`). High
-/// schoolers' deals stay with their state rules and are not modelled.
+/// school: his state's rules (`hs_nil_money`, N3).
 pub fn brand_money(w: &World, i: usize, fame: f64) -> f64 {
     let p = &w.people[i];
     let appeal = aura_appeal(p, fame);
@@ -201,6 +295,7 @@ pub fn brand_money(w: &World, i: usize, fame: f64) -> f64 {
             80e6 * appeal.powi(4) * era
         }
         Stage::College | Stage::Declared if super::ncaa::nil_era(year) => 4e6 * appeal.powi(4),
+        Stage::HighSchool | Stage::PrepSchool => hs_nil_money(w, i, fame),
         Stage::Done => p.brand as f64 * 0.55,
         _ => 0.0,
     }
@@ -234,6 +329,7 @@ pub(crate) fn year_book(w: &mut World) {
             (f, brand_money(w, i, f))
         })
         .collect();
+    let news = hs_news(w, update.iter().enumerate().map(|(i, u)| (i, u.1)));
     let programs = &w.programs;
     w.people.par_iter_mut().zip(update).for_each(|(p, (f, money))| {
         let id = p.player.id as u64;
@@ -256,8 +352,73 @@ pub(crate) fn year_book(w: &mut World) {
         let now = p.followers as f64;
         let next = if target >= now { now + 0.6 * (target - now) } else { (now * 0.93).max(target) };
         p.followers = next.round().min(u32::MAX as f64) as u32;
+        hs_payday(p, money);
         p.brand = money as f32;
     });
+    post_hs_news(w, &news);
+}
+
+/// A high schooler's first deals past $250,000 a year are a payday for the
+/// development step, as a college deal is (fix list 4.5; N3).
+fn hs_payday(p: &mut Person, money: f64) {
+    if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && money > 250_000.0 && p.brand as f64 <= 250_000.0 {
+        p.cal.payday = true;
+    }
+}
+
+/// The high schoolers whose deals pass $100,000 a year for the first time:
+/// the national names, whose card and apparel deals make the news (N3).
+fn hs_news(w: &World, money: impl Iterator<Item = (usize, f64)>) -> Vec<(usize, f64)> {
+    money
+        .filter(|&(i, m)| {
+            let p = &w.people[i];
+            matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && m >= 100_000.0 && (p.brand as f64) < 100_000.0
+        })
+        .collect()
+}
+
+fn post_hs_news(w: &mut World, news: &[(usize, f64)]) {
+    use crate::calendar::events::{Event, Kind, Level, Loudness};
+    for &(i, money) in news {
+        let p = &w.people[i];
+        let stars = match p.stars {
+            5 => "Five-star ",
+            4 => "Four-star ",
+            3 => "Three-star ",
+            _ => "",
+        };
+        let school = w.school_name(p.hs).to_string();
+        let state = w.high_schools.get(p.hs).and_then(|h| w.states.get(h.state)).map_or("", |s| s.code.as_str());
+        let amount = super::season_page::money_words((money / 1e4).round() * 1e4);
+        let text = format!(
+            "{stars}{} {} of {school} ({state}) signs NIL deals with {} worth about {amount} a year.",
+            p.player.position.name(),
+            p.name,
+            hs_nil_kinds(money)
+        );
+        let e = Event::new(w.today, Level::HighSchool, Kind::News, Loudness::Small, text).person(p.player.id, &p.name);
+        w.calendar.post(e);
+    }
+}
+
+/// June 15, after the year's new state rules and the high school transfers
+/// (N3): a high schooler's deals follow his school's state, his age and his
+/// signing (a move to a state that bars it ends them; a Missouri senior who
+/// signed at home starts his).
+pub(crate) fn hs_nil_day(w: &mut World) {
+    use rayon::prelude::*;
+    let money: Vec<(usize, f64)> = (0..w.people.len())
+        .into_par_iter()
+        .filter(|&i| matches!(w.people[i].stage, Stage::HighSchool | Stage::PrepSchool))
+        .map(|i| (i, brand_money(w, i, fame(w, i))))
+        .collect();
+    let news = hs_news(w, money.iter().copied());
+    for &(i, m) in &money {
+        let p = &mut w.people[i];
+        hs_payday(p, m);
+        p.brand = m as f32;
+    }
+    post_hs_news(w, &news);
 }
 
 /// Followers and brand money set straight to what fame and Aura hold now,

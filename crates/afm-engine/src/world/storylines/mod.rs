@@ -1091,13 +1091,17 @@ fn fame(w: &World, cast: &[Member]) -> f32 {
     best
 }
 
-/// A player's fame, 0-1: followers, stars and a pro's standing.
+/// A player's fame, 0-1: followers, stars, a pro's standing and his brand
+/// money on the followers' log scale ($10 million a year is all of it; the
+/// dollars were read as 0-1 before, so any brand money at all counted
+/// fully: N3, now that high schoolers earn some).
 pub(crate) fn player_fame(w: &World, i: usize) -> f32 {
     let p = &w.people[i];
     let followers = ((p.followers as f32 + 1.0).log10() / 6.5).clamp(0.0, 1.0);
     let stars = p.stars as f32 / 5.0;
     let pro = if p.pro.is_some() { 0.15 } else { 0.0 };
-    (0.55 * followers + 0.3 * stars + pro + 0.2 * p.brand.clamp(0.0, 1.0)).clamp(0.0, 1.0)
+    let brand = ((p.brand.max(0.0) + 1.0).log10() / 7.0).clamp(0.0, 1.0);
+    (0.55 * followers + 0.3 * stars + pro + 0.2 * brand).clamp(0.0, 1.0)
 }
 
 /// A team's market, 0-1: how many people follow it.

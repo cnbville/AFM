@@ -149,3 +149,123 @@ fn promise_answers(house: bool) {
     assert!(matches!(r.mood, Mood::WantsMore | Mood::Insulted), "{:?}: {}", r.mood, r.text);
     assert_eq!(w.people[i].cal.commit.map(|c| c.0), commit.map(|c| c.0), "his decision keeps its own clock");
 }
+
+// --- High school NIL (N3) ---------------------------------------------------------------
+
+/// A world with a class of 17-year-olds early in 2026 and no state open yet
+/// (the clock opens them), plus a five-star quarterback starter, first-team
+/// all-state, moved to a school in `code`.
+fn hs_star(code: &str) -> (World, usize) {
+    let mut w = World::empty(crate::world::WorldOptions { scale: 0.004, ..Default::default() });
+    w.year = 2025;
+    w.today = Date::ymd(2026, 2, 4);
+    w.add_class_aged(17);
+    let s = crate::world::geo::state_index(code).expect("a state");
+    let school = w.high_schools.iter().position(|h| h.state == s).expect("a school there");
+    let i = w.people.iter().position(|p| p.stage == Stage::HighSchool).expect("a high schooler");
+    let p = &mut w.people[i];
+    p.hs = school;
+    p.stars = 5;
+    p.player.position = crate::positions::Position::QB;
+    p.last_role = Some(crate::player::PlayingTime::Starter);
+    p.cal.all_state = 2;
+    p.player.personality.traits.aura = 14;
+    p.born = Date::ymd(2008, 9, 1);
+    (w, i)
+}
+
+/// Opens every state whose rule is open to all by 2025, as the clock does.
+fn open_states(w: &mut World) {
+    for st in w.states.iter_mut() {
+        let rule = crate::world::data::hs_nil_rule(&st.code);
+        st.hs_nil = rule.scope == crate::world::data::HsNilScope::All && rule.from.is_some_and(|y| y <= 2025);
+    }
+}
+
+#[test]
+fn the_state_rules_come_from_the_data() {
+    use crate::world::data::{HsNilScope as S, hs_nil_rule};
+    assert_eq!(hs_nil_rule("CA").scope, S::All);
+    assert_eq!(hs_nil_rule("CA").from, Some(2021));
+    for code in ["AL", "HI", "MS", "SC", "WY"] {
+        assert_eq!(hs_nil_rule(code).scope, S::Barred, "{code}");
+        assert_eq!(hs_nil_rule(code).from, None, "{code}");
+    }
+    assert_eq!(hs_nil_rule("AR").scope, S::SignedInState);
+    assert_eq!(hs_nil_rule("MO").scope, S::SignedInState);
+    assert_eq!(hs_nil_rule("TX").scope, S::CollegeAfterHs);
+    assert_eq!(hs_nil_rule("TX").min_age, 17);
+    // Research corrections (N3): Kansas since 2021's ruling, Wisconsin since
+    // its 2025 vote, Ohio from its November 2025 referendum's next season.
+    assert_eq!(hs_nil_rule("KS").from, Some(2022));
+    assert_eq!(hs_nil_rule("WI").from, Some(2025));
+    assert_eq!(hs_nil_rule("OH").from, Some(2026));
+    assert!(!hs_nil_rule("FL").note.is_empty());
+}
+
+#[test]
+fn a_high_schooler_earns_only_where_his_state_lets_him() {
+    use crate::world::fame;
+    // Open in California: a five-star quarterback is offered six figures.
+    let (mut w, i) = hs_star("CA");
+    assert!(!fame::hs_nil_open(&w, &w.people[i]), "no state open before the clock opens it");
+    assert_eq!(fame::hs_nil_money(&w, i, fame::fame(&w, i)), 0.0);
+    open_states(&mut w);
+    assert!(fame::hs_nil_open(&w, &w.people[i]));
+    let f = fame::fame(&w, i);
+    let offered = fame::hs_nil_offered(&w.people[i], f);
+    assert!(offered > 10_000.0, "fame {f:.3}, offered {offered:.0}");
+    let money = fame::hs_nil_money(&w, i, f);
+    assert!(money == offered || money == 0.0, "his family takes it or turns it down");
+    // A three-star backup in the same school is offered nothing.
+    let p = &mut w.people[i];
+    p.stars = 3;
+    p.last_role = Some(crate::player::PlayingTime::Backup);
+    p.cal.all_state = 0;
+    assert_eq!(fame::hs_nil_offered(&w.people[i], fame::fame(&w, i)), 0.0);
+    // Barred in Alabama and, while he plays, in Texas.
+    for code in ["AL", "TX"] {
+        let (mut w, i) = hs_star(code);
+        open_states(&mut w);
+        assert!(!fame::hs_nil_open(&w, &w.people[i]), "{code}");
+        assert_eq!(fame::hs_nil_money(&w, i, fame::fame(&w, i)), 0.0, "{code}");
+    }
+    // Missouri: only once he signs with a Missouri college.
+    let (mut w, i) = hs_star("MO");
+    open_states(&mut w);
+    assert!(!fame::hs_nil_open(&w, &w.people[i]));
+    let mo = crate::world::geo::state_index("MO").unwrap();
+    let ks = crate::world::geo::state_index("KS").unwrap();
+    let signed = |w: &mut World, s: usize| {
+        let j = w.programs.iter().position(|c| c.state == s).expect("a college there");
+        w.people[i].cal.signed = Some(crate::world::Signed {
+            program: j,
+            walk_on: false,
+            date: w.today,
+            early_enrollee: false,
+            flipped: false,
+        });
+    };
+    signed(&mut w, ks);
+    assert!(!fame::hs_nil_open(&w, &w.people[i]), "signed out of state");
+    signed(&mut w, mo);
+    assert!(fame::hs_nil_open(&w, &w.people[i]), "signed at home");
+}
+
+#[test]
+fn the_year_book_pays_high_schoolers_in_open_states_only() {
+    let (mut w, _) = hs_star("CA");
+    open_states(&mut w);
+    crate::world::fame::year_book(&mut w);
+    let hs: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::HighSchool).collect();
+    for &i in &hs {
+        let p = &w.people[i];
+        if p.brand > 0.0 {
+            assert!(crate::world::fame::hs_nil_open(&w, p), "{} earns in a closed state", p.name);
+            assert!(p.brand >= 200.0, "no deal under the smallest: {}", p.brand);
+        }
+    }
+    // Under a few in a hundred earn anything (real: about 1% or less).
+    let earning = hs.iter().filter(|&&i| w.people[i].brand > 0.0).count();
+    assert!(earning * 20 < hs.len(), "{earning} of {}", hs.len());
+}

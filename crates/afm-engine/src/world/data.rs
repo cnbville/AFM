@@ -442,6 +442,71 @@ pub fn hs_nil(code: &str) -> bool {
     t.rows.iter().any(|r| r[state] == code && r.get(col).is_some_and(|v| v.trim().eq_ignore_ascii_case("yes")))
 }
 
+/// Who a state's high school NIL rules let earn (NIL update N3).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum HsNilScope {
+    /// Barred for everyone (Alabama, South Carolina).
+    Barred,
+    /// Any high school player, within the usual limits: no school marks,
+    /// no pay for play, no recruiting inducement.
+    All,
+    /// Only a senior who has signed with a college in the state (Arkansas'
+    /// Act 589, Missouri's 2023 law).
+    SignedInState,
+    /// Deals only with a college, paid once his high school eligibility
+    /// ends (Texas' HB 126, 2025): nothing while he plays high school ball.
+    CollegeAfterHs,
+}
+
+/// A state's high school NIL rule from `hs_states.csv` (N3): who may earn,
+/// from which season, from what age, and its note for the screens.
+#[derive(Clone, Debug)]
+pub struct HsNilRule {
+    pub scope: HsNilScope,
+    pub from: Option<i32>,
+    pub min_age: u32,
+    pub note: String,
+}
+
+static HS_NIL_RULES: LazyLock<HashMap<String, HsNilRule>> = LazyLock::new(|| {
+    let t = Table::parse(HS_STATES_CSV);
+    let at = |name: &str| t.header.iter().position(|h| h == name);
+    let (allowed, from, scope, age, note) =
+        (at("hs_nil_allowed"), at("hs_nil_from"), at("hs_nil_scope"), at("hs_nil_min_age"), at("hs_nil_note"));
+    let state = t.col("state");
+    let cell = |r: &Vec<String>, c: Option<usize>| c.and_then(|c| r.get(c)).map_or("", |v| v.trim()).to_string();
+    t.rows
+        .iter()
+        .map(|r| {
+            let allowed = cell(r, allowed).to_ascii_lowercase();
+            let scope = match (allowed.as_str(), cell(r, scope).as_str()) {
+                ("yes", _) => HsNilScope::All,
+                ("limited", "signed_in_state") => HsNilScope::SignedInState,
+                ("limited", _) => HsNilScope::CollegeAfterHs,
+                _ => HsNilScope::Barred,
+            };
+            let rule = HsNilRule {
+                scope,
+                from: if scope == HsNilScope::Barred { None } else { cell(r, from).parse().ok() },
+                min_age: cell(r, age).parse().unwrap_or(0),
+                note: cell(r, note),
+            };
+            (r[state].clone(), rule)
+        })
+        .collect()
+});
+
+/// A state's high school NIL rule (N3); a state missing from the data is
+/// barred.
+pub fn hs_nil_rule(code: &str) -> HsNilRule {
+    HS_NIL_RULES.get(code).cloned().unwrap_or(HsNilRule {
+        scope: HsNilScope::Barred,
+        from: None,
+        min_age: 0,
+        note: String::new(),
+    })
+}
+
 /// The first football season a state's high school players could earn NIL
 /// money (minor bug B19): California first, in 2021; the year each
 /// association or legislature allowed it, from the `hs_nil_from` column

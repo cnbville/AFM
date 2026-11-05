@@ -2235,6 +2235,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "where": where_now(w, p),
         "followers": (p.followers > 0).then_some(p.followers),
         "brand": (p.brand >= 1000.0).then_some((p.brand as f64 / 1000.0).round() * 1000.0),
+        "hs_nil": hs_nil_json(w, p),
         "on_camera": afm_engine::world::fame::aura_read(p, if own { 13.0 } else { 9.0 }, reader),
         "mine": own,
         "home": hometown(w, p),
@@ -2267,6 +2268,50 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
 }
 
 /// A date of birth as the player page writes it: "14 March 2009".
+/// A high schooler's NIL line (NIL update N3): what his deals bring a year,
+/// who pays, and his school's state rule in a sentence with its note. The
+/// money is public, as the associations that collect deal reports publish
+/// their counts; under $10,000 it is shown to the $100.
+pub(crate) fn hs_nil_json(w: &World, p: &Person) -> Option<Value> {
+    use afm_engine::world::data::{HsNilScope, hs_nil_rule};
+    use afm_engine::world::fame;
+    if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) || w.others.national(p.player.id) {
+        return None;
+    }
+    let school = w.high_schools.get(p.hs)?;
+    let state = w.states.get(school.state)?;
+    let name = state_name(&state.code);
+    let rule = hs_nil_rule(&state.code);
+    let text = if state.hs_nil {
+        match rule.from {
+            _ if rule.min_age > 0 => format!("{name} allows it from age {}", rule.min_age),
+            Some(y) if y <= w.year => format!("{name} allows it, since {y}"),
+            _ => format!("{name} allows it"),
+        }
+    } else {
+        match (rule.scope, rule.from) {
+            (HsNilScope::All, Some(y)) => format!("{name} allows it from the {y} season"),
+            (HsNilScope::SignedInState, Some(y)) if y <= w.year => {
+                format!("{name} allows it only once he signs with a college in {name}")
+            }
+            (HsNilScope::CollegeAfterHs, Some(y)) if y <= w.year => {
+                format!("{name} lets him sign only with a college, paid once his high school days are over")
+            }
+            _ => format!("{name} bars high school NIL"),
+        }
+    };
+    let money = p.brand as f64;
+    let shown = if money >= 10_000.0 { (money / 1000.0).round() * 1000.0 } else { (money / 100.0).round() * 100.0 };
+    Some(json!({
+        "state": name,
+        "rule": text,
+        "note": rule.note,
+        "open": fame::hs_nil_open(w, p),
+        "money": (shown > 0.0).then_some(shown),
+        "kinds": fame::hs_nil_kinds(money),
+    }))
+}
+
 pub(crate) fn born_text(d: Date) -> Option<String> {
     const MONTHS: [&str; 12] = [
         "January",

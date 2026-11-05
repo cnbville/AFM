@@ -1536,7 +1536,14 @@ function readCard(p) {
   const who = p.mine ? "Your position coach" : "Your scouts";
   return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl" data-h3="${p.id}" tabindex="0"><b>${esc(lvlParts(p.level_rating).n)}</b><small>${esc(lvlParts(p.level_rating).words)}</small></div>` : ""}</div>
     ${pot ? `<p class="sub">Staff ${esc(words(pot.sure))}.${pot.hints && pot.hints.length ? " " + pot.hints.map(esc).join(". ") + "." : ""}</p>` : `<p class="sub">${p.ovr ? "Your staff rates what he is now; nobody has projected what he could become." : "Nobody on your staff has seen him. Only his measurables and public profile are known."}</p>`}
-    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Your own read</dt><dd>${yourRange(p.yours, p.yours_looks)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
+    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Your own read</dt><dd>${yourRange(p.yours, p.yours_looks)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.hs_nil ? hsNil(p.hs_nil) : p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
+}
+// A high schooler's NIL line (N3): his deals a year and who pays, then his
+// school's state rule, its note on hover.
+function hsNil(n) {
+  const usd = (v) => (v >= 1e4 ? money(v) : "$" + Math.round(v).toLocaleString());
+  const deals = n.money ? `${usd(n.money)} <small class="sub">a year, reported · ${esc(n.kinds)}</small>` : `<span class="muted">${n.open ? "No deals" : "None"}</span>`;
+  return `<dt>NIL deals</dt><dd>${deals}<br><small class="sub" title="${esc(n.note)}">${esc(n.rule)}</small></dd>`;
 }
 const fans = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "k" : n.toLocaleString());
 const PT = {

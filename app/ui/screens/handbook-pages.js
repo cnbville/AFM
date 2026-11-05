@@ -162,10 +162,11 @@ hbAdd({
     ["The windows", "Players enter only in the transfer windows, or when their head coach leaves. Since the 2025 season there is one window, in January (January 2-16 in 2026, then ten days from the first business day of the year), and a head coach's change gives his players 15 days from five days after the new hire. From 2022 to 2024 there were two windows, in December and in the spring; before 2022 a player could enter any time."],
     ["Recruiting the portal", "A transfer picks a school by his own wants, like a recruit: playing time, money, the level and the people he knows."],
     ["NIL", "From July 2021 players earn from brand deals and the school's collective. Stars with a big following earn the most."],
+    ["High school NIL", "Each state sets its own rule. Most allow deals from local businesses, gear, trading cards and apparel brands, with no school logos, no pay for play and no money to move schools; Alabama, Hawaii, Mississippi, South Carolina and Wyoming bar it. Arkansas and Missouri allow it only once a senior signs with a college in the state, and Texas only with a college, paid after high school. Few high schoolers earn anything: the famous five-star quarterbacks most. A player's page shows his deals and his state's rule."],
   ],
   lv: {
     college: "Your roster changes every winter and spring. Keep players playing and happy, and watch the NIL budget.",
-    hs: "No portal at high school. Your players' next step comes through recruiting.",
+    hs: "No portal at high school. Your players' next step comes through recruiting. Where your state allows it, your stars can earn NIL money of their own; you can't arrange it.",
     nfl: "No portal in the NFL. Free agency, trades and waivers move players, and contracts take NIL's place.",
   },
   where: [["Portal", "portal_desk"], ["NIL", "nil_desk"], ["People", "people"]],
