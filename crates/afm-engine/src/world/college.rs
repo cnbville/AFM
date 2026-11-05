@@ -3016,6 +3016,15 @@ pub(crate) fn record_regular_season(w: &mut World) {
         }
         w.college.as_mut().unwrap().credited[p] = (t.wins, t.losses);
     }
+    // The off-field staff share their program's year (minor bug 252).
+    for c in 0..w.coaches.len() {
+        if let Some(j) = w.coaches[c].junior_now()
+            && let super::coach::Employer::College(p) = j.employer
+            && results[p].games() > 0
+        {
+            w.coaches[c].junior_reputation(results[p].vs_expectation());
+        }
+    }
     // Coach buzz from the units' numbers (world item 5).
     super::records::unit_buzz(w, year, &results);
 }

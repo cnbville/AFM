@@ -9,6 +9,11 @@
 //!   by more than the move's season (the book's `S7.no_overlap`).
 //! - High school champions (129): how often a school starts the season after
 //!   a state title with a new head coach, and the schools that change most.
+//! - The pipeline (252, 243, 244): where FBS on-field hires since 2016 came
+//!   from (off-field posts, FBS, FCS, smaller, high school) with their Black
+//!   share, who a search can call now, where let-go FBS assistants went
+//!   next, and where the NFL's head coaches and coordinators of 2003-18 came
+//!   from, with the head coaches' tenure by color.
 //!
 //! Usage: carousel_check [history_years] [seed] [scale] [future]
 //! (`AFM_ENGINE_FROM=2100` keeps the history on the stand-in, for speed).
@@ -255,7 +260,258 @@ fn who(w: &World) {
     }
     nfl_by_season(w);
     staff_hires(w);
+    sources(w);
+    pools(w);
+    nfl_sources(w);
     high_schools(w);
+}
+
+/// Bug 252: who an FBS position search can call now, by kind: FBS and FCS
+/// position coaches, FBS juniors (graduate assistants, analysts), out of
+/// work (n, mean reputation, mean teaching in his own room, mean age,
+/// Black share).
+fn pools(w: &World) {
+    let mut by: BTreeMap<String, (f64, f64, f64, f64, f64)> = BTreeMap::new();
+    for co in &w.coaches {
+        if co.retired {
+            continue;
+        }
+        let (kind, g) = match (co.job, co.junior_now()) {
+            (Some(j), _) => match (j.employer, j.role) {
+                (Employer::College(p), Role::PositionCoach(g)) => (format!("{:?} PC", w.programs[p].division), g),
+                _ => continue,
+            },
+            (None, Some(j)) => match j.employer {
+                Employer::College(p) => (
+                    format!(
+                        "{:?} {:?}{}",
+                        w.programs[p].division,
+                        j.post,
+                        if co.history.is_empty() { "" } else { ", coached on the field before" }
+                    ),
+                    j.group,
+                ),
+                Employer::Nfl(_) => ("NFL QC".to_string(), j.group),
+                _ => continue,
+            },
+            (None, None) if !co.history.is_empty() && co.age < 66 => ("out of work".to_string(), co.came_up),
+            _ => continue,
+        };
+        if kind.contains("D2") || kind.contains("D3") || kind.contains("NAIA") || kind.contains("JUCO") {
+            continue;
+        }
+        let k = by.entry(kind).or_default();
+        k.0 += 1.0;
+        k.1 += co.reputation;
+        k.2 += afm_engine::debug::coach_ability(co).teaching[g as usize];
+        k.3 += co.age as f64;
+        k.4 += f64::from(u8::from(co.ethnicity == Ethnicity::Black));
+    }
+    println!("\n252 who a search can call now (n, reputation, teaching his room, age, Black)");
+    for (k, (n, r, t, a, b)) in &by {
+        println!("    {k}: {n}, {:.1}, {:.1}, {:.0}, {:.0}%", r / n, t / n, a / n, 100.0 * b / n);
+    }
+}
+
+/// A coach's stints in order: his record, then the job he holds.
+fn stints(w: &World, co: &afm_engine::world::coach::Coach) -> Vec<(Employer, Role, i32, i32)> {
+    let mut s: Vec<(Employer, Role, i32, i32)> =
+        co.history.iter().map(|h| (h.employer, h.role, h.from, h.to)).collect();
+    if let Some(j) = co.job {
+        s.push((j.employer, j.role, j.since, w.year));
+    }
+    s
+}
+
+/// Where a stint's hire came from: the junior post that ended with it (a
+/// graduate assistant, analyst or quality-control post), else the stint
+/// before it, a season or more out of work, or new to coaching.
+fn source(
+    w: &World,
+    co: &afm_engine::world::coach::Coach,
+    s: &[(Employer, Role, i32, i32)],
+    i: usize,
+) -> (&'static str, Option<(Employer, Role)>) {
+    let (e, _, from, _) = s[i];
+    let prev = i.checked_sub(1).map(|k| s[k]);
+    let junior = co
+        .junior
+        .filter(|j| j.until.is_some_and(|u| u >= from - 1 && u <= from + 1) && prev.is_none_or(|x| x.3 <= j.since + 1));
+    if let Some(j) = junior {
+        let src = match j.employer {
+            Employer::College(q) if division(w, q, j.since) == Some(Division::FBS) => {
+                if j.employer == e {
+                    "off-field FBS, own staff"
+                } else {
+                    "off-field FBS, another staff"
+                }
+            }
+            Employer::Nfl(_) => "off-field NFL",
+            _ => "off-field FCS and below",
+        };
+        return (src, None);
+    }
+    let Some((pe, pr, _, to)) = prev else { return ("new to coaching", None) };
+    if to < from - 1 {
+        return ("out of work a season or more", Some((pe, pr)));
+    }
+    let src = match pe {
+        x if x == e => "same staff",
+        Employer::College(q) => match division(w, q, to) {
+            Some(Division::FBS) => "FBS staff",
+            Some(Division::FCS) => "FCS staff",
+            _ => "D2 and below",
+        },
+        Employer::HighSchool(_) => "high school",
+        Employer::Nfl(_) => "NFL staff",
+        Employer::Other(_) => "other leagues",
+    };
+    (src, Some((pe, pr)))
+}
+
+/// Bug 252: where every FBS on-field hire since 2016 came from (all hires,
+/// not only the men still in the job). Real: 247Sports' 2023-24 audit, 529
+/// FBS hires and promotions: 106 support staff (20%), 70 from FCS (13%);
+/// CBS Sports' 2024-25 audit, 550: 138 support staff (25%), 89 from FCS
+/// (16%), 9 from D2, D3 or NAIA (1.6%), 5 from high school (0.9%); 2021-22,
+/// 570 on-field changes: 12 from high school (2.1%), 8 from D2 or below.
+fn sources(w: &World) {
+    let mut by: BTreeMap<(&str, &str), (usize, usize)> = BTreeMap::new();
+    for co in &w.coaches {
+        let s = stints(w, co);
+        for i in 0..s.len() {
+            let (e, r, from, _) = s[i];
+            let Employer::College(p) = e else { continue };
+            if from < 2016 || division(w, p, from) != Some(Division::FBS) {
+                continue;
+            }
+            let (src, _) = source(w, co, &s, i);
+            let role = if matches!(r, Role::PositionCoach(_)) { "PC" } else { "HC, OC, DC" };
+            for key in [(role, src), (role, "all"), ("all", src), ("all", "all")] {
+                let k = by.entry(key).or_default();
+                k.0 += usize::from(co.ethnicity == Ethnicity::Black);
+                k.1 += 1;
+            }
+        }
+    }
+    println!("\n252 FBS on-field hires since 2016 by where they came from (share of hires, Black share, n)");
+    println!("  real: support staff 20-25%, FCS 13-16%, D2 and below 1.4-1.6%, high school 0.9-2.1%");
+    for role in ["all", "PC", "HC, OC, DC"] {
+        let n = by.get(&(role, "all")).map_or(0, |x| x.1);
+        let row: Vec<String> = by
+            .iter()
+            .filter(|((r, s), _)| *r == role && *s != "all")
+            .map(|((_, s), (b, k))| format!("{s} {:.1}% ({:.0}% Black, {k})", pct(*k, n), pct(*b, *k)))
+            .collect();
+        println!("  {role} ({n}): {}", row.join("; "));
+    }
+    // Where FBS assistants went next after a job that ended 2016-2023.
+    let mut next: BTreeMap<(&str, &str), usize> = BTreeMap::new();
+    for co in &w.coaches {
+        for (i, st) in co.history.iter().enumerate() {
+            let Employer::College(p) = st.employer else { continue };
+            if st.role == Role::HeadCoach
+                || !(2016..=2023).contains(&st.to)
+                || division(w, p, st.to) != Some(Division::FBS)
+            {
+                continue;
+            }
+            let why = if st.ended.starts_with("left") { "left" } else { "let go" };
+            let after = co.history.get(i + 1).map(|s| (s.employer, s.from)).or(co.job.map(|j| (j.employer, j.since)));
+            let kind = match after {
+                None => "no on-field job again",
+                Some((_, f)) if f > st.to + 1 => "a season or more out",
+                Some((Employer::College(q), f)) => match division(w, q, f) {
+                    Some(Division::FBS) => "FBS",
+                    Some(Division::FCS) => "FCS",
+                    _ => "D2 and below",
+                },
+                Some((Employer::Nfl(_), _)) => "NFL",
+                Some((Employer::HighSchool(_), _)) => "high school",
+                Some((Employer::Other(_), _)) => "other leagues",
+            };
+            *next.entry((why, kind)).or_default() += 1;
+            *next.entry((why, "all")).or_default() += 1;
+        }
+    }
+    for why in ["let go", "left"] {
+        let n = next.get(&(why, "all")).copied().unwrap_or(0);
+        let row: Vec<String> = next
+            .iter()
+            .filter(|((y, k), _)| *y == why && *k != "all")
+            .map(|((_, k), m)| format!("{k} {:.0}%", pct(*m, n)))
+            .collect();
+        println!("  FBS assistants {why} 2016-2023 ({n}), next on-field job: {}", row.join(", "));
+    }
+}
+
+/// Bug 244: where the NFL's head coaches and coordinators were hired from,
+/// 2003-2018, of color against all.
+fn nfl_sources(w: &World) {
+    let mut by: BTreeMap<(&str, String), (usize, usize)> = BTreeMap::new();
+    for co in &w.coaches {
+        let s = stints(w, co);
+        for i in 0..s.len() {
+            let (e, r, from, _) = s[i];
+            if !matches!(e, Employer::Nfl(_)) || !(2003..=2018).contains(&from) || matches!(r, Role::PositionCoach(_)) {
+                continue;
+            }
+            let (src, prev) = source(w, co, &s, i);
+            let role = if r == Role::HeadCoach { "HC" } else { "coordinator" };
+            let what = match prev {
+                Some((_, pr)) => format!(
+                    "{src} {}",
+                    match pr {
+                        Role::HeadCoach => "HC",
+                        Role::OffensiveCoordinator => "OC",
+                        Role::DefensiveCoordinator => "DC",
+                        Role::PositionCoach(_) => "PC",
+                    }
+                ),
+                None => src.to_string(),
+            };
+            for key in [(role, what), (role, "all".to_string())] {
+                let k = by.entry(key).or_default();
+                k.0 += usize::from(co.ethnicity != Ethnicity::White);
+                k.1 += 1;
+            }
+        }
+    }
+    // How long the head coaches hired 2003-2018 lasted (seasons, finished
+    // and running), of color against white, and how many were fired.
+    let mut tenure: BTreeMap<bool, (usize, f64, usize)> = BTreeMap::new();
+    for co in &w.coaches {
+        for h in &co.history {
+            if matches!(h.employer, Employer::Nfl(_)) && h.role == Role::HeadCoach && (2003..=2018).contains(&h.from) {
+                let k = tenure.entry(co.ethnicity != Ethnicity::White).or_default();
+                k.0 += 1;
+                k.1 += (h.to - h.from + 1) as f64;
+                k.2 += usize::from(h.ended.starts_with("fired"));
+            }
+        }
+        if let Some(j) = co.job
+            && matches!(j.employer, Employer::Nfl(_))
+            && j.role == Role::HeadCoach
+            && (2003..=2018).contains(&j.since)
+        {
+            let k = tenure.entry(co.ethnicity != Ethnicity::White).or_default();
+            k.0 += 1;
+            k.1 += (w.year - j.since) as f64;
+        }
+    }
+    for (color, (n, s, f)) in &tenure {
+        println!(
+            "  NFL head coaches hired 2003-2018, {}: {n}, {:.1} seasons on average, {f} fired",
+            if *color { "of color" } else { "white" },
+            s / (*n).max(1) as f64
+        );
+    }
+    println!("\n244 NFL hires 2003-2018 by where they came from (of color, n)");
+    for role in ["HC", "coordinator"] {
+        let row: Vec<String> =
+            by.iter().filter(|((r, _), _)| *r == role).map(|((_, s), (k, n))| format!("{s} {k}/{n}")).collect();
+        println!("  {role}: {}", row.join("; "));
+    }
 }
 
 /// Bug 244: NFL head coaches of color in each season (of 32), against real
