@@ -38,7 +38,9 @@ impl Run {
         let t = Instant::now();
         let r = g.call(cmd, &args);
         let ms = t.elapsed().as_millis();
-        if ms > 1500 && !matches!(cmd, "continue" | "save" | "load" | "open_world" | "build_world" | "start_career") {
+        if ms > 1500
+            && !matches!(cmd, "continue" | "day" | "save" | "load" | "open_world" | "build_world" | "start_career")
+        {
             self.slow.push(format!("{cmd} {args} took {ms} ms"));
         }
         match r {
@@ -1238,13 +1240,16 @@ fn main() {
         // The six-part day's speed gate: each world day's Continue time and
         // stops (a quiet day is one with exactly six stops).
         let mut by_day: std::collections::BTreeMap<i32, (f64, usize)> = std::collections::BTreeMap::new();
+        let step_cmd = std::env::var("AFM_SEAT_CMD").unwrap_or_else(|_| "continue".to_string());
         while g.world.as_ref().map(|w| begin.days_to(w.today)).unwrap_or(days) < days
             && stops < days as usize * 10 + 100
         {
             let tc = Instant::now();
             let from = g.world.as_ref().map(|w| w.today.pretty()).unwrap_or_default();
             let day0 = g.world.as_ref().map(|w| w.today.0).unwrap_or_default();
-            let r = run.call(&mut g, "continue", json!({}));
+            // AFM_SEAT_CMD=day plays whole days without the section stops,
+            // to weigh what the stops themselves cost.
+            let r = run.call(&mut g, step_cmd.as_str(), json!({}));
             let e = by_day.entry(day0).or_default();
             e.0 += tc.elapsed().as_secs_f64();
             e.1 += 1;
@@ -1387,7 +1392,7 @@ fn main() {
         total_errors += run.errors.len();
         report
             .push(json!({ "seat": seat, "stops": stops, "calls": run.calls, "secs": secs, "longest_continue": longest, "longest_span": longest_span,
-            "peak_gb": peak, "games": games, "won": won, "lost": lost, "errors": run.errors, "smells": run.smells, "slow": run.slow }));
+            "peak_gb": peak, "by_day": by_day.iter().map(|(d, x)| json!([d, x.0, x.1])).collect::<Vec<_>>(), "games": games, "won": won, "lost": lost, "errors": run.errors, "smells": run.smells, "slow": run.slow }));
     }
     if let Ok(p) = std::env::var("AFM_SEAT_OUT") {
         let _ = std::fs::write(p, serde_json::to_string_pretty(&report).unwrap_or_default());

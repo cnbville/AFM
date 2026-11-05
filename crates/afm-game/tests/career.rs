@@ -405,6 +405,15 @@ fn a_college_career_plays_through_its_first_games() {
     assert!(ok(&mut g, "compare_find", json!({ "q": name }))["items"].as_array().is_some_and(|i| !i.is_empty()));
     assert!(!ok(&mut g, "stat_finder_stats", json!({}))["stats"].as_array().unwrap().is_empty());
     let cond = json!([{ "stat": "PassYds", "op": ">=", "v": 1 }]);
+    // A streak takes two games: when only the first week is in, play on to
+    // the second.
+    let streaks = json!({ "find": "streaks", "division": "all", "pos": "QB", "conds": cond, "min_len": 2 });
+    for _ in 0..10 {
+        if ok(&mut g, "stat_finder", streaks.clone())["rows"].as_array().is_some_and(|r| !r.is_empty()) {
+            break;
+        }
+        ok(&mut g, "day", json!({}));
+    }
     for find in ["seasons", "careers", "games", "streaks"] {
         let f = ok(
             &mut g,
