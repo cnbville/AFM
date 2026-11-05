@@ -521,7 +521,7 @@ fn games(w: &World, tier: Tier, year: i32, s: &players::Season, group: usize) ->
         ),
     };
     let mut rows = Vec::new();
-    w.tally_games(year, Some(&s.played), |_, g| {
+    w.tally_games(year, Some(&s.played), |key, g| {
         let Some(line) = g.lines.iter().find(|l| l.id == s.id) else { return };
         let side = line.side as usize;
         let opp = g.teams[1 - side.min(1)] as usize;
@@ -546,6 +546,8 @@ fn games(w: &World, tier: Tier, year: i32, s: &players::Season, group: usize) ->
             "opp": super::team_json(w, tier, opp),
             "result": format!("{res} {us}-{them}"),
             "kind": g.kind,
+            "key": key,
+            "year": year,
             "cells": stats.iter().map(|&k| super::fmt_num(line.get(k))).collect::<Vec<_>>(),
         }));
     });

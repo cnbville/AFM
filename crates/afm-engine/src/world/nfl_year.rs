@@ -2466,9 +2466,10 @@ fn play_day(w: &mut World, d: Date) {
     }
     // The Data section's tallies (lane NB1).
     if w.tallying() {
-        for (f, o) in fixtures.iter().zip(&outcomes) {
+        for ((&(k, g), f), o) in todays.iter().zip(&fixtures).zip(&outcomes) {
             if let Some((r, sides)) = o {
-                pro_games::tally_game(w, f, r, sides, "regular");
+                let line = w.nfl_season.as_ref().and_then(|s| s.slots[k][g].line);
+                pro_games::tally_game(w, f, r, sides, "regular", line);
             }
         }
     }
@@ -2715,7 +2716,7 @@ fn play_round(w: &mut World, round: u32, d: Date) {
             head.insert("round".into(), 4.into());
             head.insert("line".into(), serde_json::json!(line));
             pro_games::log_game(w, head, &fixture, r, sides);
-            pro_games::tally_game(w, &fixture, r, sides, "super bowl");
+            pro_games::tally_game(w, &fixture, r, sides, "super bowl", Some(line));
             w.seat_line(Level::Nfl, [a, b], Some(line), true);
             let [x, y] = r.stats.score;
             score = Some([x.max(0) as u32, y.max(0) as u32]);
@@ -2846,7 +2847,7 @@ fn play_round_games(w: &mut World, d: Date) {
             head.insert("attendance".into(), gate.attendance.into());
             pro_games::log_game(w, head, f, r, sides);
             let kind = ["wild card", "divisional", "conference title"][(g.0 as usize).clamp(1, 3) - 1];
-            pro_games::tally_game(w, f, r, sides, kind);
+            pro_games::tally_game(w, f, r, sides, kind, Some(*line));
             w.seat_line(Level::Nfl, [g.2, g.3], Some(*line), false);
             let [x, y] = r.stats.score;
             settle_line(w, g.2, g.3, Some(*line), Some([x.max(0) as u32, y.max(0) as u32]));

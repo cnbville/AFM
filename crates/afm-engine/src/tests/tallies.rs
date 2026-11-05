@@ -1,6 +1,6 @@
 //! The Data section's running tallies (lane NB1) only watch: a world
 //! counting them plays exactly as one that doesn't, every person on every
-//! day, and each season's six files read back and add up to the stat book.
+//! day, and each season's files read back and add up to the stat book.
 
 use crate::world::records::Stat;
 use crate::world::tally::{self, Level, file, players};
@@ -175,6 +175,8 @@ fn the_tallies_only_watch_and_add_up() {
             t.cells.keys().any(|k| k.starts_with("o|personnel|")) && t.cells.keys().any(|k| k.starts_with("d|box|"))
         );
         assert!(t.games > 0 && t.wins + t.losses <= t.games);
+        // The charting delay's last game stays out of the files.
+        assert!(t.last.is_none(), "team {} {} kept its last game", t.level, t.team);
     });
     assert!(teams > 30, "{teams} teams");
     // Squads (lane NB7): every level, each row's box adds up to its score,
@@ -211,6 +213,34 @@ fn the_tallies_only_watch_and_add_up() {
     });
     assert!(squads.iter().all(|&n| n > 0), "squads by level {squads:?}");
     assert_eq!(b.tally_squad(Level::Nfl, s, 3).map(|t| (t.level, t.team)), Some((Level::Nfl as u8, 3)));
+    // Calls (lane NB8): each college and NFL team's 4th downs match its
+    // situation counts (high school keeps calls but no situation cells),
+    // and its rows give back the sums; concepts against coverages and
+    // garbage time are counted.
+    let (mut called, mut cc, mut garbage) = (0, false, false);
+    b.tally_calls(s, |c| {
+        called += 1;
+        if c.level == Level::Hs as u8 {
+            assert!(c.fourths.is_empty() && c.sum.went <= c.sum.fourths && c.sum.twos <= c.sum.tries);
+            return;
+        }
+        let level = if c.level == Level::Nfl as u8 { Level::Nfl } else { Level::College };
+        let t = b.tally_team(level, s, c.team).expect("a college or NFL team with calls has its situations");
+        let n = |k: &str| t.get(k)[0] as u32;
+        assert_eq!(n("o|fourth|go"), c.sum.went, "team {} {} went", c.level, c.team);
+        assert_eq!(n("o|fourth|go") + n("o|fourth|punt") + n("o|fourth|fg"), c.sum.fourths);
+        cc |= t.cells.keys().any(|k| k.starts_with("o|cc|"));
+        garbage |= t.cells.keys().any(|k| k.starts_with("o|garbage|"));
+        let f: Vec<&tally::calls::Fourth> = c.fourths.iter().collect();
+        let tr: Vec<&tally::calls::Try> = c.tries.iter().collect();
+        let (sum, grid) = tally::calls::sums_of(&f, &tr);
+        assert_eq!(
+            (sum.fourths, sum.went, sum.agreed, sum.tries),
+            (c.sum.fourths, c.sum.went, c.sum.agreed, c.sum.tries)
+        );
+        assert_eq!(grid, c.grid, "team {} {} grid", c.level, c.team);
+    });
+    assert!(called > 30 && cc && garbage, "{called} teams with calls, concepts {cc}, garbage time {garbage}");
     // People: coordinators and head coaches with their ranks.
     let mut units = 0;
     b.tally_units(s, |u| {

@@ -848,6 +848,13 @@ pub fn concept(name: &str) -> usize {
     PASS_CONCEPTS.iter().position(|c| c.name == name).unwrap_or(0)
 }
 
+/// A designed play's number by the name the call ends with (the Data
+/// section's charting files it under its library look, `film_concept`).
+pub fn designed_named(call: &str) -> Option<usize> {
+    let d = DESIGNED.read().ok()?;
+    d.iter().position(|c| !c.name.is_empty() && call.ends_with(c.name)).map(|k| PASS_CONCEPTS.len() + k)
+}
+
 /// The library concept a play is filed under on the other side's film
 /// (update 3, F28). A library play is itself; a designed play is read as
 /// the library concept it looks most like: the same route by the same
