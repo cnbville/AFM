@@ -125,6 +125,10 @@ impl World {
     /// Your game today as the day will play it, if you have one on the
     /// engine (section 9).
     pub fn seat_setup_today(&self) -> Option<SeatSetup> {
+        // Booked already: today's game is over.
+        if self.seat_kept_on(self.today).is_some() {
+            return None;
+        }
         let (level, t) = self.seat_team()?;
         match level {
             Level::College => super::college::seat_setup(self, t),
@@ -145,6 +149,13 @@ impl World {
             return Ok(());
         }
         let s = self.seat_setup_today().ok_or("You have no game today.")?;
+        // The game plays in its kickoff's section (the six-part day).
+        if !self.kickoff_come() {
+            return Err(match self.seat_kickoff(self.today) {
+                Some(k) => format!("Your game kicks off at {}.", self.clock_of(k)),
+                None => "You have no game today.".to_string(),
+            });
+        }
         let (_, t) = self.seat_team().ok_or("You have no team.")?;
         let side = if s.teams[0] == t { 0 } else { 1 };
         let opp = s.teams[1 - side];

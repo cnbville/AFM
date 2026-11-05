@@ -27,6 +27,18 @@ fn to_game_morning(g: &mut Game) {
     panic!("never reached a game morning");
 }
 
+/// Continue to your kickoff (the six-part day: the sections before it are
+/// game morning, and the game plays in its kickoff's section).
+fn to_kickoff(g: &mut Game) {
+    for _ in 0..8 {
+        if ok(g, "gameday_now", json!({}))["at_kick"] == json!(true) {
+            return;
+        }
+        ok(g, "continue", json!({}));
+    }
+    panic!("never reached the kickoff");
+}
+
 /// What the morning builds is what the day plays.
 fn dry_score(g: &Game) -> ([i32; 2], usize) {
     let w = g.world.as_ref().unwrap();
@@ -100,6 +112,10 @@ fn game_day_from_the_morning_to_the_game_page() {
     let hub = ok(&mut g, "gameday", json!({}));
     assert_eq!(hub["has_game"], true, "{hub}");
     assert_eq!(hub["today"], true);
+    assert_eq!(hub["can_kick_off"], false, "the game waits for its kickoff: {hub}");
+    assert!(g.call("gameday_kickoff", &json!({})).is_err(), "no kickoff on game morning");
+    to_kickoff(&mut g);
+    let hub = ok(&mut g, "gameday", json!({}));
     assert_eq!(hub["can_kick_off"], true, "{hub}");
     assert!(hub["weather"]["text"].is_string());
     // Every snap stops, on the learning clock.
@@ -167,6 +183,7 @@ fn game_day_from_the_morning_to_the_game_page() {
     let hub = ok(&mut g, "gameday_hint", add);
     assert!(hub["finds"].as_array().unwrap().iter().any(|f| f["added"] == true), "{}", hub["finds"]);
     ok(&mut g, "gameday_settings", json!({ "stop": "situations" }));
+    to_kickoff(&mut g);
     let mut st = ok(&mut g, "gameday_kickoff", json!({}));
     for _ in 0..6 {
         if st["status"] != "live" {

@@ -874,7 +874,8 @@ pub(crate) fn staff_meeting_day(w: &mut World, d: Date) {
     w.folk.dialogue.met = Some(g.date);
     check_case(w, &g, me);
     let Some((coach, kind, before)) = case_from(w, &g, me) else { return };
-    let date = d.add(1);
+    // The morning after the game (this step runs before the day's games).
+    let date = g.date.add(1);
     let role = if kind <= 1 { "DC" } else { "OC" };
     let mut s = Scene::new(Kind::StaffMeeting, date, format!("Staff meeting: your {role} wants a change"));
     s.place = "The staff room, 7:00 a.m.".into();

@@ -575,8 +575,8 @@ fn lines_on(
     // the windows your seat cares about.
     let evs: Vec<&Event> = w
         .calendar
-        .on(d)
-        .iter()
+        // The world day: the night after Eastern midnight stays on it.
+        .on_day(d)
         .filter(|e| e.kind != Kind::Game)
         // Nothing shows before its hour (the six-part day).
         .filter(|e| crate::views::shown(w, e))

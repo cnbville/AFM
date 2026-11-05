@@ -323,8 +323,7 @@ fn now(w: &World) -> Value {
     };
     // The clock stands at your kickoff (the six-part day: the game plays in
     // its kickoff's section; the sections before it are game morning).
-    let at_kick = w.live_moment_now().is_some_and(|m| m.what == "Kickoff")
-        || w.seat_kickoff(w.today).is_some_and(|k| k <= w.now());
+    let at_kick = w.kickoff_come();
     json!({ "today": today, "live": live.unwrap_or("none"), "stop": stop, "at_kick": at_kick,
         "kick": w.seat_kickoff(w.today).map(|k| w.clock_of(k)) })
 }
@@ -500,7 +499,7 @@ fn hub(w: &World) -> Value {
         "records": records,
         "weather": weather,
         "live": live,
-        "can_kick_off": today && setup.is_some(),
+        "can_kick_off": today && setup.is_some() && w.kickoff_come(),
         "settings": settings,
         "rules": rules,
         "plan": {

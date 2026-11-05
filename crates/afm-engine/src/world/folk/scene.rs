@@ -306,7 +306,9 @@ fn cal_text(s: &Scene) -> String {
 /// or handed.
 fn clear_mark(w: &mut World, s: &Scene) {
     let text = cal_text(s);
-    if let Some(list) = w.calendar.events.get_mut(&s.date) {
+    // Its world day: a line posted after midnight Eastern is filed under
+    // the next date.
+    for (_, list) in w.calendar.events.range_mut(s.date..=s.date.add(1)) {
         for e in list.iter_mut().filter(|e| e.needs_decision && e.text == text) {
             e.needs_decision = false;
         }
@@ -408,11 +410,20 @@ pub fn due(w: &World, d: Date) -> Option<String> {
 /// scene that waited a week (a press availability, a call) lapses the same
 /// way.
 pub(crate) fn day(w: &mut World, d: Date) {
+    // A meeting with its hour waits for it: it is handed only once its hour
+    // has passed (the six-part day, topic 8), the next morning's office
+    // hours at the latest.
+    let now = crate::calendar::zone::moment(d, super::super::clock::hour::OFFICE);
+    let z = w.seat_zone();
+    let due = |s: &Scene| match s.minute {
+        Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
+        _ => s.date <= d,
+    };
     let late: Vec<u32> = w
         .folk
         .scenes
         .iter()
-        .filter(|s| !s.done && ((s.stops && s.date <= d) || (!s.stops && s.date.add(7) <= d)))
+        .filter(|s| !s.done && ((s.stops && due(s)) || (!s.stops && s.date.add(7) <= d)))
         .map(|s| s.id)
         .collect();
     for id in late {
@@ -529,10 +540,13 @@ pub fn your_name(w: &World) -> String {
 /// minutes after midnight.
 pub fn hour_in(place: &str) -> Option<u16> {
     let low = place.to_lowercase();
+    let word = |x: &str| low.split(|c: char| !c.is_ascii_alphanumeric()).any(|t| t == x);
     let (k, pm) = match (low.rfind(" a.m."), low.rfind(" p.m.")) {
         (Some(a), Some(p)) => (a.max(p), p > a),
         (Some(a), None) => (a, false),
         (None, Some(p)) => (p, true),
+        _ if word("noon") => return Some(12 * 60),
+        _ if word("midnight") => return Some(0),
         _ => return None,
     };
     let start = low[..k].rfind(|c: char| !(c.is_ascii_digit() || c == ':')).map_or(0, |i| i + 1);
@@ -578,6 +592,7 @@ fn default_hour(w: &World, s: &Scene) -> Option<u16> {
             after_practice()
         }
         Kind::Press => super::press::press_hour(w, s),
+        Kind::PressIntro => Some(12 * 60),
         _ => None,
     }
 }
@@ -590,5 +605,7 @@ mod hour_tests {
         assert_eq!(super::hour_in("The media room, 11 a.m."), Some(11 * 60));
         assert_eq!(super::hour_in("The athletic director's office, 3 p.m."), Some(15 * 60));
         assert_eq!(super::hour_in("The media room"), None);
+        assert_eq!(super::hour_in("The facility's auditorium, noon"), Some(12 * 60));
+        assert_eq!(super::hour_in("The weight room, in the afternoon"), None);
     }
 }

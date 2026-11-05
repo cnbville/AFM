@@ -490,6 +490,11 @@ pub fn stat_line(pos: Position, g: impl Fn(Stat) -> f64) -> String {
     }
 }
 
+/// The weekly recruiting digest's subject, and how many days before its
+/// Monday its lines go back (the week before, and a day).
+const DIGEST: &str = "Recruiting desk:";
+const DIGEST_SPAN: i32 = 8;
+
 /// Files the mail for the days since the inbox was last filed (the clock
 /// calls it after Continue, a day and a holiday). Mail older than 30 days
 /// is never written, so a long holiday costs nothing.
@@ -502,8 +507,9 @@ pub fn after_days(w: &mut World) {
     let start = c.desk.through.map_or(c.started, |t| t.add(1)).max(today.add(-KEEP_DAYS));
     let mut mails = Vec::new();
     let mut reveals = Vec::new();
+    let mut first = Vec::new();
     if first_time {
-        welcome(w, me, &mut mails, &mut reveals);
+        welcome(w, me, &mut first, &mut reveals);
     }
     // The six-part day: today so far is written too, and a letter is
     // filed only once its stamp has come; the rest waits for a later stop.
@@ -514,13 +520,26 @@ pub fn after_days(w: &mut World) {
         w.has_come(w.seat_zone().to_eastern(afm_engine::calendar::Moment { date: m.date, minute: m.minute }))
     });
     // A day is done once nothing written from it waits: a letter waits at
-    // most a day past what it answers.
-    let done = held.iter().map(|m| m.date.add(-2)).min().map_or(last, |d| d.min(last));
+    // most a day past what it answers, the recruiting digest a week.
+    let done = held
+        .iter()
+        .map(|m| m.date.add(if m.subject.starts_with(DIGEST) { -DIGEST_SPAN } else { -2 }))
+        .min()
+        .map_or(last, |d| d.min(last));
     let Some(c) = w.career.as_mut() else { return };
     let desk = &mut c.desk;
-    for m in mails {
+    for m in first.into_iter().chain(mails) {
         if !desk.has(m.id) {
             desk.mails.push(m);
+        } else if let Some(old) = desk.mails.iter_mut().find(|x| x.id == m.id)
+            && old.answered.is_none()
+            && (m.body.len() > old.body.len() || m.table.len() > old.table.len())
+        {
+            // A day's letter written before the day was over (the six-part
+            // day): the lines posted since join it, and it is new again.
+            (old.subject, old.body, old.table, old.ids, old.why) = (m.subject, m.body, m.table, m.ids, m.why);
+            old.keys |= m.keys;
+            old.read = false;
         }
     }
     desk.mails.sort_by_key(|m| (m.date, m.minute));
@@ -569,6 +588,10 @@ fn welcome(w: &World, me: TeamRef, mails: &mut Vec<Mail>, reveals: &mut Vec<Reve
     // A pro club takes "the": everyone at the Carolina Panthers (minor bug 35).
     let the = if matches!(me, TeamRef::Nfl(_) | TeamRef::Other(_)) { "the " } else { "" };
     let mut m = pen.boss_letter("welcome", d, 8 * 60, format!("Welcome to {the}{team}"));
+    // On your desk when you walk in (the six-part day: stamped the moment
+    // the career starts, so it shows at once).
+    let at = w.local_now();
+    (m.date, m.minute) = (at.date, at.minute);
     let expect = expectation(w, me);
     let (rec, note) = views::season_record(w, me);
     m.body = vec![
@@ -1170,20 +1193,21 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 ];
                 pen.out.push(m);
             }
-            // Offers and official visits: one digest a week (Mondays), so a
-            // busy staff's work doesn't bury the inbox.
+            // Offers and official visits: one digest a week, the Monday
+            // after (8 AM), so a busy staff's work doesn't bury the inbox.
+            // It waits for its Monday whole (`DIGEST_SPAN`).
             if !offers.is_empty() || !visits.is_empty() {
                 let mut weeks: HashMap<i32, (Vec<usize>, Vec<usize>)> = HashMap::new();
                 for (d, k) in offers {
-                    weeks.entry(d.on_or_after(Weekday::Mon).0).or_default().0.push(k);
+                    weeks.entry(d.add(1).on_or_after(Weekday::Mon).0).or_default().0.push(k);
                 }
                 for (d, k) in visits {
-                    weeks.entry(d.on_or_after(Weekday::Mon).0).or_default().1.push(k);
+                    weeks.entry(d.add(1).on_or_after(Weekday::Mon).0).or_default().1.push(k);
                 }
                 let mut list: Vec<_> = weeks.into_iter().collect();
                 list.sort_by_key(|x| x.0);
                 for (wk, (of, vi)) in list {
-                    let d = Date(wk).min(to.add(1));
+                    let d = Date(wk);
                     let mut m = pen.memo(
                         &format!("recruiting|{wk}"),
                         d,

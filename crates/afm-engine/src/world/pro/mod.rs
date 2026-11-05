@@ -1163,6 +1163,13 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
     }
     let y = w.dates.clone();
     let mut changed = false;
+    // Cutdown at the league's own deadline (4 PM Eastern; 6 PM in 2026).
+    if d == y.cutdown.date && t == crate::calendar::zone::world_day(y.cutdown).1 {
+        cutdown(w, d);
+        fill_holes(w, d, false);
+        fill_roster(w, d);
+        changed = true;
+    }
     match t {
         hour::OFFICE => {
             if w.market.agents.is_empty() {
@@ -1280,12 +1287,6 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             }
             if d == y.fifth_year_option {
                 market::fifth_year_options(w, d);
-            }
-            if d == y.cutdown.date {
-                cutdown(w, d);
-                fill_holes(w, d, false);
-                fill_roster(w, d);
-                changed = true;
             }
             // Waiver claims each day a player is on the wire.
             super::clock::timed("pro claims", || market::claims(w, d));

@@ -676,7 +676,6 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         advance_brackets(w);
         return;
     }
-    stakes_for_day(w, &idx);
     // The books hang a line on every FBS and FCS game (C8).
     super::finance::college::pregame(w, &idx);
     let cs = w.college.as_ref().unwrap();
@@ -1466,6 +1465,27 @@ fn game_day(
     let opp = g.opponent(me);
     use super::folk::Team;
     super::folk::gametalk::day_for(w, Team::College(me), Team::College(opp), stakes, rival, dressed)
+}
+
+/// The day's stakes, once before any kickoff (the six-part day): the
+/// record chases and what each game means, on the morning's standings.
+pub(crate) fn day_stakes(w: &mut World, date: Date) {
+    let Some(cs) = w.college.as_ref() else { return };
+    if !cs.started {
+        return;
+    }
+    let idx: Vec<usize> = (0..cs.games.len())
+        .filter(|&k| {
+            let g = &cs.games[k];
+            g.date == date
+                && g.played.is_none()
+                && w.programs[g.home].roster.len() >= 22
+                && w.programs[g.away].roster.len() >= 22
+        })
+        .collect();
+    if !idx.is_empty() {
+        stakes_for_day(w, &idx);
+    }
 }
 
 fn stakes_for_day(w: &mut World, idx: &[usize]) {

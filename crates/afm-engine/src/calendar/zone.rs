@@ -164,7 +164,10 @@ impl Zone {
 
     /// An Eastern moment on this zone's clock (local wall-clock time).
     pub fn local(self, at: Moment) -> Moment {
-        at.add_minutes(-60 * self.behind(at.date))
+        // The offset of the moment's world day, as `stops` uses: after
+        // Eastern midnight the night still belongs to the day before.
+        let d = if at.timed() { world_day(at).0 } else { at.date };
+        at.add_minutes(-60 * self.behind(d))
     }
 
     /// A local wall-clock moment on Eastern clocks.

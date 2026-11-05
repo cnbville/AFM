@@ -772,8 +772,9 @@ pub(crate) fn pinned(w: &World) -> Vec<Value> {
     let seat = w.seat;
     w.calendar
         .events
-        .range(w.today.add(-14)..=w.today)
+        .range(w.today.add(-14)..=w.today.add(1))
         .flat_map(|(d, evs)| evs.iter().map(move |e| (d, e)))
+        .filter(|(d, e)| on_screen(w, **d, e))
         .filter(|(_, e)| {
             e.needs_decision
                 && e.rule != "people: meeting"
@@ -803,7 +804,13 @@ pub(crate) fn pinned(w: &World) -> Vec<Value> {
 /// what you're doing now and what's due before the next stop, on your local
 /// clock; and the rooms a stop opens (your game, a meeting, the war room).
 /// `from` is the moment of the stop before.
-pub fn stopped(w: &World, from: afm_engine::calendar::Moment, games_before: usize) -> Value {
+/// The ids of the letters on your desk (before a Continue, so its stop
+/// card can list the letters it filed).
+pub fn desk_ids(w: &World) -> Vec<u64> {
+    w.career.as_ref().map_or(Vec::new(), |c| c.desk.mails.iter().map(|m| m.id).collect())
+}
+
+pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> Value {
     use afm_engine::calendar::{Kind, Moment, Zone, zone};
     use afm_engine::world::sections::day_text;
     let seat = w.seat;
@@ -890,7 +897,9 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, games_before: usiz
         let z = w.seat_zone();
         for m in &c.desk.mails {
             let at = z.to_eastern(Moment { date: m.date, minute: m.minute });
-            if at > from && at <= now {
+            // Shown now, and new at this stop: its stamp came since the
+            // last stop, or it was filed at this one.
+            if at <= now && (at > from || !filed.contains(&m.id)) {
                 rows.push((
                     at,
                     json!({ "t": w.clock_of(at), "k": "Mail", "x": format!("{}: {}", m.from, m.subject), "mine": true, "dl": false,
@@ -948,7 +957,7 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, games_before: usiz
     let now_line = now_line(w, live.as_ref().map(|l| l.what.as_str()), first_stop);
     // The rooms a stop opens.
     let games = w.seat_games();
-    let game = (games.len() > games_before).then(|| games.len() - 1).map(|k| {
+    let game = games.iter().rposition(|g| g.whistle.is_some_and(|m| m > from && m <= now)).map(|k| {
         let g = &games[k];
         json!({ "index": k, "text": format!("{} {} at {} {}", g.names[1], g.stats.score[1], g.names[0], g.stats.score[0]) })
     });
@@ -1013,7 +1022,7 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, games_before: usiz
         "live": live.as_ref().map(|l| l.what.clone()),
         "mark": mark,
         "items": items,
-        "more": total.saturating_sub(12),
+        "more": total - items.len(),
         "now": now_line,
         "due": due,
         "due_none": format!("Nothing due before {}.", name(next)),
@@ -1277,6 +1286,13 @@ pub(crate) fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> boo
 /// Whether a line may show yet (the six-part day, topic 4: nothing shows
 /// before its hour). What is scheduled shows ahead: a date, a window, a
 /// deadline, your day's slots and practice.
+/// Whether a line filed under date `d` is on screen now: its hour has
+/// come, and a line filed under tomorrow's date (after Eastern midnight)
+/// only once that hour has come.
+pub(crate) fn on_screen(w: &World, d: Date, e: &afm_engine::calendar::Event) -> bool {
+    shown(w, e) && (d <= w.today || (e.when.timed() && w.has_come(e.when)))
+}
+
 pub(crate) fn shown(w: &World, e: &afm_engine::calendar::Event) -> bool {
     use afm_engine::calendar::Kind;
     w.has_come(e.when)
@@ -1421,11 +1437,12 @@ pub fn inbox(w: &World, days: i32) -> Value {
     let picked: Vec<(&Date, &afm_engine::calendar::Event)> = w
         .calendar
         .events
-        .range(from..=w.today)
+        .range(from..=w.today.add(1))
         .rev()
         .flat_map(|(d, evs)| evs.iter().rev().map(move |e| (d, e)))
-        // Nothing shows before its hour (the six-part day).
-        .filter(|(_, e)| shown(w, e))
+        // Nothing shows before its hour (the six-part day); the night's
+        // lines after Eastern midnight are filed under tomorrow.
+        .filter(|(d, e)| on_screen(w, **d, e))
         .filter(|(_, e)| {
             // Conference moves reach the coaches they matter to (1b): FBS
             // moves every college coach, lower ones only their own level.
@@ -1496,9 +1513,10 @@ pub fn news(w: &World, args: &Value) -> Value {
     let wire: Vec<(&Date, &afm_engine::calendar::Event)> = w
         .calendar
         .events
-        .range(..=w.today)
+        .range(..=w.today.add(1))
         .rev()
         .flat_map(|(d, evs)| evs.iter().rev().map(move |e| (d, e)))
+        .filter(|(d, e)| on_screen(w, **d, e))
         .filter(|(_, e)| !mine_only || ours(e))
         .take(limit)
         .collect();

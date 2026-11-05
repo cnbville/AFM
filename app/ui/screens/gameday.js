@@ -93,6 +93,7 @@
     if (live && !live.over) action = `<button class="st-btn primary" data-go="live">Back to the game · ${esc(live.quarter)} ${esc(live.clock)}</button>`;
     else if (live && live.over) action = `<button class="st-btn primary" data-go="live">The final whistle</button>`;
     else if (h.can_kick_off) action = `<button class="st-btn primary" data-go="talk" title="The locker room before kickoff: your talk, or a captain's">Pregame talk</button><button class="st-btn glass" data-act="gd-kick" title="Kick off now; without your talk, your staff reads the room for you">Kick off</button><button class="st-btn glass" data-act="gd-delegate" title="Your staff coaches the whole game with your plan and rules; you see the result">Let the staff coach it</button>`;
+    else if (h.today && h.kick) action = `<button class="st-btn primary" data-go="talk" title="The locker room before kickoff: your talk, or a captain's">Pregame talk</button><span class="muted">Game morning: kickoff at ${esc(h.kick)}, and Continue takes you there.</span>`;
     const wx = h.weather;
     const why = [h.name, ...(h.why || [])].filter(Boolean);
     const hero = `<div class="st-room gd-room"><i></i><i></i><i></i>

@@ -102,6 +102,15 @@ fn the_cfl_starts_seven_canadians() {
     assert!(starting(&t) >= 7, "{} Canadians start", starting(&t));
 }
 
+/// A day of the other leagues as the clock runs it: the office hour, then
+/// each week's final whistle (the six-part day).
+fn whole_day(w: &mut World, d: Date) {
+    o::day(w, d);
+    for t in o::final_whistles(w, d) {
+        o::games_at(w, d, t);
+    }
+}
+
 /// A spring league plays its season through to its title game on the
 /// engine: every team's ten games, a champion, rosters filled from the
 /// street and below it, the coaches' seats filled by the carousel.
@@ -112,7 +121,7 @@ fn the_xfl_of_2001_plays_to_a_champion() {
     let mut d = Date::ymd(2001, 1, 1);
     while d < Date::ymd(2001, 5, 1) {
         w.today = d;
-        o::day(&mut w, d);
+        whole_day(&mut w, d);
         d = d.add(1);
     }
     let s = w.others.seasons.iter().find(|s| s.league == XFL01 && s.year == 2001).expect("the XFL's season");
@@ -171,7 +180,7 @@ fn your_club_in_another_league_plays_its_season() {
         let today = w.seat_setup_today();
         let before = w.seat_games.len();
         let dry = today.as_ref().map(|s| crate::game::play_game(&s.params.setup(&s.home, &s.away)));
-        o::day(&mut w, d);
+        whole_day(&mut w, d);
         // Injuries heal a day at a time after the day's games, as the
         // world's clock runs it (`nfl_year::day`; this world has no NFL).
         let y = w.dates.clone();

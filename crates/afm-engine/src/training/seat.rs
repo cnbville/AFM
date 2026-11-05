@@ -473,6 +473,10 @@ pub struct SeatTraining {
     /// staff's).
     #[serde(default)]
     pub practice_at: Option<u16>,
+    /// Today's practice hour when it was changed after the practice began
+    /// (the date and the hour in force): the new hour starts the next day.
+    #[serde(default)]
+    pub today_at: Option<(Date, Option<u16>)>,
 }
 
 /// A testing day's results (TR5).
@@ -1678,22 +1682,14 @@ fn heat_week(w: &mut World, st: &SeatTeam, d: Date, pw: &PlannedWeek, seed: u64,
                 hurt_today.push((id, p.name.clone()));
             }
         }
+        // It shows when that day's practice ends (the six-part day).
+        let at = super::days::seat_practice_end(w, date);
         for (id, name) in hurt_today {
-            w.training.hurt.push(Hurt {
-                id,
-                kind: None,
-                from: date,
-                until: date.add(3),
-                how: "heat illness at practice".into(),
-            });
-            w.training.note(
-                date,
-                id,
-                "trainers",
-                format!(
-                    "[[p:{id}|{name}]] went down with heat illness at practice (heat index {hi:.0} F); out three days."
-                ),
+            let hurt = Hurt { id, kind: None, from: date, until: date.add(3), how: "heat illness at practice".into() };
+            let note = format!(
+                "[[p:{id}|{name}]] went down with heat illness at practice (heat index {hi:.0} F); out three days."
             );
+            w.training.pending.push((at, hurt, note));
             n += 1;
         }
     }
@@ -1949,6 +1945,26 @@ pub fn practice_kind(rng: &mut Rng, contact: f64, soft: f64) -> InjuryKind {
     rng.weighted(&mix)
 }
 
+/// The days of a week with field work, Monday first (bit k); a game day's
+/// walkthrough is not a practice.
+pub fn field_days(wk: &Week) -> u8 {
+    wk.days
+        .iter()
+        .enumerate()
+        .filter(|(_, x)| !x.game && x.periods.iter().any(|p| p.kind.on_field()))
+        .fold(0, |b, (k, _)| b | 1 << k)
+}
+
+/// The day of the week a practice injury happens: one of the days with
+/// field work (None in a week without any).
+pub fn injury_day(rng: &mut Rng, days: u8) -> Option<i32> {
+    let list: Vec<i32> = (0..7).filter(|k| days & 1 << k != 0).collect();
+    if list.is_empty() {
+        return None;
+    }
+    Some(list[rng.int(0, list.len() as i32 - 1) as usize])
+}
+
 /// The week's mobility work against the neutral week's (TR21): looser
 /// hips mean fewer soft-tissue injuries.
 pub fn limber_of(week: &Week, neutral: &Week) -> f64 {
@@ -2002,7 +2018,9 @@ fn practice_injuries(
         let kind = practice_kind(&mut rng, contact, soft);
         let weeks = crate::game::sim::injury_weeks(kind, &mut rng) * (1.3 - 0.03 * p.player.game.recovery);
         let days = (weeks * 7.0).round().max(1.0) as i32;
-        let day = rng.int(0, 5);
+        // A day the week practices (the six-part day: it shows when that
+        // day's practice ends).
+        let Some(day) = injury_day(&mut rng, field_days(&pw.week)) else { continue };
         let name = p.name.clone();
         // It shows when that day's practice ends (the six-part day).
         let at = super::days::seat_practice_end(w, d.add(day));

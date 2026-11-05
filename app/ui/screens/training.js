@@ -1415,7 +1415,11 @@ document.addEventListener("change", async (ev) => {
       trLocal();
       break;
     }
-    case "tr-hour": if (await trDo("practice_hour", { at: el.value === "" ? null : Number(el.value) }, "Practice hour set.")) { TR.week = null; trRedraw(); } break;
+    case "tr-hour": if (await trDo("practice_hour", { at: el.value === "" ? null : Number(el.value) }, "Practice hour set.")) {
+      // The day's clock moves with the hour; a week you're still editing stays.
+      if (!TR.week || !TR.week.dirty) TR.week = null;
+      trRedraw();
+    } break;
     case "tr-focus": await trDo("practice_plan", { id: Number(d.id), focus: el.value }, "Plan saved."); break;
     case "tr-dev": {
       const id = Number(d.id);

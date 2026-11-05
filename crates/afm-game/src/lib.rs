@@ -209,29 +209,29 @@ impl Game {
             "card" => Ok(cards::card(self.w()?)),
             "continue" => {
                 let w = self.wm()?;
-                let (from, games) = (w.now(), w.seat_games().len());
+                let (from, filed) = (w.now(), views::desk_ids(w));
                 w.continue_until_needed();
                 lane_core::after_days(w);
                 memory::hand_back();
-                Ok(views::stopped(w, from, games))
+                Ok(views::stopped(w, from, &filed))
             }
             "day" => {
                 // A whole day (the debug tools): the rest of today, then to
                 // your next stop.
                 let w = self.wm()?;
-                let (from, games) = (w.now(), w.seat_games().len());
+                let (from, filed) = (w.now(), views::desk_ids(w));
                 w.next_day();
                 lane_core::after_days(w);
-                Ok(views::stopped(w, from, games))
+                Ok(views::stopped(w, from, &filed))
             }
             "holiday" => {
                 let days = num("days").unwrap_or(7) as i32;
                 let w = self.wm()?;
-                let (from, games) = (w.now(), w.seat_games().len());
+                let (from, filed) = (w.now(), views::desk_ids(w));
                 let today = w.today;
                 w.holiday_to(today.add(days));
                 lane_core::after_days(w);
-                Ok(views::stopped(w, from, games))
+                Ok(views::stopped(w, from, &filed))
             }
             "home" => Ok(views::home(self.w()?)),
             "inbox" => Ok(views::inbox(self.w()?, num("days").unwrap_or(60) as i32)),

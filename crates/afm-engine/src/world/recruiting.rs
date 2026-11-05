@@ -1417,7 +1417,7 @@ pub(crate) fn night_of(round: u32) -> usize {
 /// The draft's steps on world day `d`: each night's opening minute (the
 /// six-part day: the three days run on their own days).
 pub(crate) fn draft_steps(w: &World, d: Date) -> Vec<u16> {
-    let under_way = w.draft_run.is_some() || w.scouting.live.as_ref().is_some_and(|l| l.waiting);
+    let under_way = draft_under_way(w);
     let mut v: Vec<u16> = w
         .dates
         .draft
@@ -1426,6 +1426,18 @@ pub(crate) fn draft_steps(w: &World, d: Date) -> Vec<u16> {
         .filter(|&(k, _)| k == 0 || under_way)
         .filter_map(|(_, &m)| crate::calendar::zone::day_minute(d, m))
         .collect();
+    // Each pick still to come today, at its own minute (the war room makes
+    // its own picks while it holds the clock).
+    if let Some(run) = w.draft_run.as_ref() {
+        let stamps = pick_stamps(run.year, &run.board, w.options.scale, w.dates.draft);
+        v.extend(
+            stamps
+                .iter()
+                .skip(run.next.saturating_sub(1) as usize)
+                .filter_map(|&m| crate::calendar::zone::day_minute(d, m)),
+        );
+    }
+    v.sort_unstable();
     v.dedup();
     v
 }
@@ -1438,14 +1450,18 @@ pub(crate) fn draft_at(w: &mut World, d: Date, t: u16) {
             super::clock::timed("draft", || draft_night(w, k));
         }
     }
+    if w.draft_run.is_some() {
+        super::clock::timed("draft", || draft_due(w, crate::calendar::zone::moment(d, t)));
+    }
 }
 
 fn draft_under_way(w: &World) -> bool {
     w.draft_run.is_some() || w.scouting.live.as_ref().is_some_and(|l| l.waiting)
 }
 
-/// Night `k` of the draft: its rounds' picks, on the books that night; the
-/// undrafted rush after the last.
+/// Night `k` of the draft opens: the first sets the draft up (or opens your
+/// war room), a later one opens your war room again. The clubs' own picks
+/// come at their minutes (`draft_due`).
 fn draft_night(w: &mut World, k: usize) {
     if k == 0 && !draft_under_way(w) && w.scouting.live.is_none() {
         let mut run = draft_begin(w);
@@ -1457,10 +1473,15 @@ fn draft_night(w: &mut World, k: usize) {
     // Your war room opens again for its next night.
     if w.scouting.live.as_ref().is_some_and(|l| l.waiting) {
         super::scouting::live::open_night(w, k);
-        return;
     }
+}
+
+/// The picks whose minute has come, each on the books at its minute; the
+/// undrafted rush after the last pick.
+fn draft_due(w: &mut World, now: Moment) {
     let Some(mut run) = w.draft_run.take() else { return };
-    while !run.done() && night_of(run.board[run.next as usize - 1].1) <= k {
+    let stamps = pick_stamps(run.year, &run.board, w.options.scale, w.dates.draft);
+    while !run.done() && stamps.get(run.next as usize - 1).is_some_and(|&m| m <= now) {
         draft_step(w, &mut run, None, None);
     }
     commit_picks(w, &mut run);
@@ -1999,7 +2020,8 @@ pub(crate) fn commit_picks(w: &mut World, run: &mut DraftRun) {
     let stamps = pick_stamps(draft_year, &run.board, w.options.scale, y.draft);
     // The trades on the clock, on the books and in the news, each at its
     // pick's minute: the deal is announced as the buyer goes on the clock.
-    let swaps: Vec<_> = run.swaps.iter().filter(|s| s.2 > from).cloned().collect();
+    let upto = if run.done() { run.board.len() as u32 } else { run.next.saturating_sub(1) };
+    let swaps: Vec<_> = run.swaps.iter().filter(|s| s.2 > from && s.2 <= upto).cloned().collect();
     for (buyer, seller, pick, what, future) in swaps {
         let night = stamps.get(pick as usize - 1).map_or(y.draft[0], |m| m.add_minutes(-2));
         if let Some(r) = future {

@@ -814,14 +814,8 @@ fn press_day(w: &World, team: Team) -> Weekday {
 pub(super) fn press_hour(w: &World, s: &Scene) -> Option<u16> {
     let team = s.team?;
     if s.c == 2 {
-        let k = w.seat_kickoff(s.date)?;
-        let len = match team {
-            Team::College(_) => crate::world::clock::hour::COLLEGE_GAME,
-            Team::High(_) => crate::world::clock::hour::HS_GAME,
-            _ => crate::world::clock::hour::NFL_GAME,
-        };
-        let end = w.local(k.add_minutes(len as i32 + 15));
-        return Some(end.minute);
+        let (_, whistle) = w.seat_game_window(s.date)?;
+        return Some(w.local(whistle.add_minutes(15)).minute);
     }
     Some(match team {
         Team::High(_) => 18 * 60 + 45,

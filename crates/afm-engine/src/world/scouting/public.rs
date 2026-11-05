@@ -153,9 +153,10 @@ pub(crate) fn staff_desks(w: &mut World) {
     w.scouting.desks = desks;
 }
 
-/// The draft the public is working toward.
+/// The draft the public is working toward: this year's through its last
+/// day (the six-part day: the draft runs three days).
 pub fn draft_year(w: &World) -> i32 {
-    if w.today <= w.dates.draft[0].date { w.year } else { w.year + 1 }
+    if w.today <= w.dates.draft[2].date { w.year } else { w.year + 1 }
 }
 
 /// A desk's read of a draft prospect on the aligned draft scale: the
@@ -279,7 +280,9 @@ pub(crate) fn day(w: &mut World, d: Date) {
         1..=4 => dy == y,
         _ => false,
     };
-    if !in_season {
+    // While the draft runs the boards and mocks stand as they were, to be
+    // scored when it ends.
+    if !in_season || (dy == w.year && d >= w.dates.draft[0].date) {
         return;
     }
     let weekly = matches!(m, 1..=4) || (m == 12 && day >= 15);

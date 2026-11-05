@@ -149,11 +149,25 @@ fn practice_hour(w: &World, tier: Tier, d: Date) -> Value {
 }
 
 fn set_practice_hour(w: &mut World, args: &Value) -> Result<(), String> {
+    use afm_engine::training::days;
     let st = w.training_team().ok_or("You have no team.")?;
+    let (_, t) = w.seat_team().ok_or("You have no team.")?;
+    // Today's practice keeps its hour once it is under way, or would be
+    // under way at the new hour (the six-part day: a practice is rolled
+    // once, at its end).
+    let today = w.today;
+    let begun = |w: &World, m: u16| {
+        w.has_come(w.seat_zone().to_eastern(afm_engine::calendar::Moment::at(today, m / 60, m % 60)))
+    };
+    let old = days::practice_start(w, st.tier, t, today);
+    let keep_today = w.training.today_at.is_none_or(|(d, _)| d != today);
+    let was = w.training.practice_at;
     match args.get("at").and_then(Value::as_u64) {
         None => w.training.practice_at = None,
         Some(m) => {
-            let (from, to) = afm_engine::training::days::start_limits(st.tier, w.today);
+            // The options' week (`practice`): practice_start keeps each
+            // day's own limits.
+            let (from, to) = days::start_limits(st.tier, week_monday(w));
             if m < from as u64 || m > to as u64 {
                 return Err(format!(
                     "Your level's rules allow a start from {} to {}.",
@@ -163,6 +177,10 @@ fn set_practice_hour(w: &mut World, args: &Value) -> Result<(), String> {
             }
             w.training.practice_at = Some(m as u16);
         }
+    }
+    let new = days::practice_start(w, st.tier, t, today);
+    if keep_today && new != old && (begun(w, old) || begun(w, new)) {
+        w.training.today_at = Some((today, was));
     }
     Ok(())
 }
@@ -206,6 +224,13 @@ fn monday_of(d: Date) -> Date {
         m = m.add(-1);
     }
     m
+}
+
+/// The week the training screen plans: this one, and on Sunday the coming
+/// one (the head coach drafts the week on Sunday; the six-part day runs
+/// Monday's plan at 7 AM Eastern, before a western seat's first stop).
+fn week_monday(w: &World) -> Date {
+    if afm_engine::training::plan::weekday_index(w.today) == 6 { w.today.add(1) } else { monday_of(w.today) }
 }
 
 const WEEKDAYS: [&str; 7] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -546,7 +571,7 @@ fn plan_json(w: &World, id: u32, pos: Position) -> Value {
 
 fn practice(w: &World) -> Reply {
     let (t, st) = team_of(w)?;
-    let monday = monday_of(w.today);
+    let monday = week_monday(w);
     let pw = ts::planned(w, &st, monday);
     let reader = reader_key(w);
     let block = pw.block;
@@ -813,6 +838,8 @@ fn practice(w: &World) -> Reply {
         .notes
         .iter()
         .rev()
+        // A note about a later day waits for it (the six-part day).
+        .filter(|n| n.date <= w.today)
         .take(60)
         .map(|n| json!({ "date": date_text(n.date), "id": n.id, "dept": n.dept, "text": n.text }))
         .collect();
@@ -830,7 +857,11 @@ fn practice(w: &World) -> Reply {
                 "practices": l.week.days.iter().filter(|d| d.periods.iter().any(|p| p.kind.practice())).count(),
                 "minutes": l.week.days.iter().map(|d| d.field()).sum::<u32>(),
                 "snaps": l.snaps,
-                "injuries": l.injuries,
+                // Only the injuries that have happened (the rest wait for
+                // their practice's end).
+                "injuries": l.injuries.saturating_sub(
+                    w.training.pending.iter().filter(|x| x.1.from >= l.monday && x.1.from < l.monday.add(7)).count() as u32
+                ),
                 "fitted": l.fitted,
                 "best": named(&l.best),
                 "worst": named(&l.worst),
@@ -955,7 +986,7 @@ fn practice(w: &World) -> Reply {
 /// first, with what your staff says.
 pub(crate) fn prep_report(w: &World) -> Value {
     let Ok((_, st)) = team_of(w) else { return Value::Null };
-    let monday = monday_of(w.today);
+    let monday = week_monday(w);
     let pw = ts::planned(w, &st, monday);
     if pw.books.iter().all(|b| !b.coaches) {
         return Value::Null;
@@ -1006,7 +1037,7 @@ fn save_week(w: &mut World, args: &Value) -> Result<(), String> {
     mine_head(w)?;
     let days = parse_days(args)?;
     let push = args.get("push").and_then(Value::as_bool).unwrap_or(false);
-    let monday = monday_of(w.today);
+    let monday = week_monday(w);
     let mut wk = Week { days };
     // The game days stay where the schedule has them.
     let st = w.training_team().ok_or("You have no team.")?;
@@ -1134,7 +1165,7 @@ fn dev(w: &World, id: u32) -> Reply {
         .notes
         .iter()
         .rev()
-        .filter(|n| n.id == id)
+        .filter(|n| n.id == id && n.date <= w.today)
         .take(14)
         .map(|n| json!({ "date": date_text(n.date), "dept": n.dept, "text": n.text }))
         .collect();

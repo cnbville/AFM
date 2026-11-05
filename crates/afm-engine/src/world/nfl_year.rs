@@ -3135,7 +3135,11 @@ pub(crate) fn playoff_field(s: &NflSeason) -> Vec<(usize, usize)> {
 /// Your club's game today, as the day builds its fixture (section 9): the
 /// regular season, a playoff round or the Super Bowl.
 pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
-    let d = w.today;
+    seat_fixture_on(w, t, w.today)
+}
+
+/// Club `t`'s game still to play on world day `d`, if any.
+pub(crate) fn seat_fixture_on(w: &World, t: usize, d: Date) -> Option<Fixture> {
     let s = w.nfl_season.as_ref()?;
     if !s.started {
         return None;
@@ -3172,7 +3176,7 @@ pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
             });
         }
     }
-    if d == w.dates.super_bowl && s.booked {
+    if d == w.dates.super_bowl && s.booked && s.champion.is_none() {
         let (a, b) = (s.alive[0].first().copied()?, s.alive[1].first().copied()?);
         if a == t || b == t {
             let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ 4u64 << 4 ^ 0x504F;

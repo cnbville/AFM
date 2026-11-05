@@ -425,7 +425,8 @@ fn game_talks(run: &mut Run, g: &mut Game, lived: &mut bool) {
         run.call(g, "talk_room", json!({ "move": "captain", "tone": "calm", "who": c }));
     }
     run.call(g, "talk_say", json!({ "move": "straight", "tone": "firm", "subject": "us" }));
-    if *lived {
+    // The game kicks off at its kickoff stop (the six-part day).
+    if *lived || now["at_kick"] != json!(true) {
         return;
     }
     *lived = true;

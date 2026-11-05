@@ -98,6 +98,23 @@ fn line(what: &str, t: &Instant) {
     }
 }
 
+/// The draft live from your chair (lane 7): the staff picks through the
+/// night, then the rush on the last.
+fn war_room(g: &mut Game) {
+    for _ in 0..400 {
+        let room = g.call("draft_live", &json!({})).expect("draft_live");
+        if !room["live"].as_bool().unwrap_or(false) || room["waiting"] == json!(true) {
+            break;
+        }
+        if room["rush"].as_bool().unwrap_or(false) {
+            g.call("draft_rush", &json!({})).expect("draft_rush");
+            break;
+        }
+        let cmd = if room["on_clock"].as_bool().unwrap_or(false) { "draft_auto" } else { "draft_go" };
+        g.call(cmd, &json!({ "until": "yours" })).expect(cmd);
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let path = args.get(1).expect("usage: memory_season <world file> [kind] [id] [weigh]");
@@ -134,7 +151,11 @@ fn main() {
     if weigh_at == "days" {
         let mut peak = 0.0;
         loop {
-            g.call("day", &json!({})).expect("day");
+            let r = g.call("day", &json!({})).expect("day");
+            // The war room holds the clock: the staff makes the night's picks.
+            if r["studio"]["screen"] == json!("warroom") {
+                war_room(&mut g);
+            }
             afm_game::memory::hand_back();
             let w = g.world.as_ref().expect("world");
             let (y, m, d) = w.today.parts();
@@ -153,18 +174,7 @@ fn main() {
         // The draft live from your chair (lane 7): the staff picks, then the rush.
         if r["studio"]["screen"] == json!("warroom") {
             line("war room open", &t);
-            for _ in 0..400 {
-                let room = g.call("draft_live", &json!({})).expect("draft_live");
-                if !room["live"].as_bool().unwrap_or(false) || room["waiting"] == json!(true) {
-                    break;
-                }
-                if room["rush"].as_bool().unwrap_or(false) {
-                    g.call("draft_rush", &json!({})).expect("draft_rush");
-                    break;
-                }
-                let cmd = if room["on_clock"].as_bool().unwrap_or(false) { "draft_auto" } else { "draft_go" };
-                g.call(cmd, &json!({ "until": "yours" })).expect(cmd);
-            }
+            war_room(&mut g);
             line("draft done", &t);
         }
         let w = g.world.as_ref().expect("world");

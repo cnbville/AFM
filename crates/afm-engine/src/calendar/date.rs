@@ -153,6 +153,11 @@ impl Moment {
     pub fn timed(self) -> bool {
         self.minute < Moment::ALL_DAY
     }
+    /// The world day the moment belongs to (the six-part day): before 5 AM
+    /// Eastern the night is still the day before's.
+    pub fn world_date(self) -> Date {
+        if self.timed() && self.minute < 5 * 60 { self.date.add(-1) } else { self.date }
+    }
     /// "4:00pm ET".
     pub fn clock(self) -> String {
         if !self.timed() {

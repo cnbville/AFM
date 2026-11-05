@@ -101,9 +101,18 @@ impl World {
         at <= self.now()
     }
 
+    /// Your game kept on world day `d`, once the day has booked it.
+    pub(crate) fn seat_kept_on(&self, d: Date) -> Option<&super::seat::SeatGame> {
+        let (level, t) = self.seat_team()?;
+        self.seat_games.iter().rev().take(3).find(|g| g.date == d && g.level == level && g.teams.contains(&t))
+    }
+
     /// Your kickoff on world day `d`, Eastern, while your game is still to
     /// play.
     pub fn seat_kickoff(&self, d: Date) -> Option<Moment> {
+        if self.seat_kept_on(d).is_some() {
+            return None;
+        }
         let (level, t) = self.seat_team()?;
         match level {
             Level::College => {
@@ -113,18 +122,14 @@ impl World {
                     .find(|f| f.date == d && f.score.is_none() && !f.cancelled)?;
                 Some(Moment::at(d, f.kickoff.0, f.kickoff.1))
             }
-            Level::Nfl => {
-                let f = self.nfl_fixtures(Some(t)).into_iter().find(|f| f.when == Some(d) && !f.played);
-                if let Some(f) = f {
-                    return Some(Moment { date: d, minute: f.minute.unwrap_or(13 * 60) });
-                }
-                let s = self.nfl_season.as_ref()?;
-                s.round_games.iter().find(|g| g.4.date == d && (g.2 == t || g.3 == t)).map(|g| g.4)
-            }
+            // The season's weeks, the playoffs and the Super Bowl.
+            Level::Nfl => super::nfl_year::seat_fixture_on(self, t, d).map(|f| f.at),
             Level::HighSchool => {
                 self.hs_fixtures(t).into_iter().find(|f| f.date == d)?;
-                // 7 PM local (`hs_year::seat_setup`).
-                Some(self.seat_zone().to_eastern(Moment::at(d, 19, 0)))
+                // 7 PM in the state's own zone, as the state's games are
+                // played (`hs_year::state_final`).
+                let code = &self.states[self.high_schools[t].state].code;
+                Some(Zone::of_state(code).to_eastern(Moment::at(d, 19, 0)))
             }
             Level::Other => {
                 super::pro::other::seat_fixtures(self).into_iter().find(|f| f.0 == d)?;
@@ -132,6 +137,22 @@ impl World {
             }
             _ => None,
         }
+    }
+
+    /// Whether your game's kickoff has come today (topic 7: the game plays
+    /// in its kickoff's section; the sections before it are game morning).
+    pub fn kickoff_come(&self) -> bool {
+        self.seat_kickoff(self.today).is_some_and(|k| k <= self.now())
+    }
+
+    /// Your game's kickoff and final whistle on world day `d`, played or
+    /// not (the day's live moments).
+    pub(crate) fn seat_game_window(&self, d: Date) -> Option<(Moment, Moment)> {
+        let len = self.seat_game_length() as i32;
+        if let Some(g) = self.seat_kept_on(d) {
+            return g.whistle.map(|m| (m.add_minutes(-len), m));
+        }
+        self.seat_kickoff(d).map(|k| (k, k.add_minutes(len)))
     }
 
     /// The live moments of world day `d` at your seat (topic 2 item 2):
@@ -147,9 +168,9 @@ impl World {
                 v.push(LiveMoment { minute: m, date: d, what: what.to_string() });
             }
         };
-        if let Some(k) = self.seat_kickoff(d) {
+        if let Some((k, f)) = self.seat_game_window(d) {
             add(k, "Kickoff");
-            add(k.add_minutes(self.seat_game_length() as i32), "Final whistle");
+            add(f, "Final whistle");
         }
         match s.level {
             Level::Nfl => {
@@ -161,7 +182,9 @@ impl World {
                 }
                 add(y.league_year, "The new league year: free agency opens");
                 add(y.trade_deadline, "The trade deadline");
-                add(y.cutdown, "Cutdown day: the 53 is due");
+                // An hour before the deadline, so your cut plan still counts
+                // (proposed, not confirmed).
+                add(y.cutdown.add_minutes(-60), "Cutdown day: the 53 is due within the hour");
             }
             Level::College | Level::HighSchool => {
                 let z = self.seat_zone();

@@ -242,8 +242,17 @@ pub mod hour {
 }
 
 /// One day on the clock: every step left of today, then the next morning.
+/// An open war room lets the staff make the night's picks (the tools and
+/// the tests run whole days).
 pub(crate) fn advance_day(w: &mut World) {
     play_through(w, zone::DAY - 1);
+    for _ in 0..8 {
+        if !super::scouting::live::holds(w) {
+            break;
+        }
+        super::scouting::live::finish(w);
+        play_through(w, zone::DAY - 1);
+    }
     end_day(w);
 }
 
@@ -264,6 +273,10 @@ pub(crate) fn next_day(w: &mut World) {
 /// (inclusive): a stop at `last` stands at `last + 1`.
 pub(crate) fn play_through(w: &mut World, last: u16) {
     let d = w.today;
+    // Your draft war room holds the clock where it opened.
+    if super::scouting::live::holds(w) {
+        return;
+    }
     while let Some(t) = next_step(w, d, w.played).filter(|&t| t <= last) {
         run_step(w, t);
         w.played = t + 1;
@@ -289,8 +302,13 @@ fn timed_steps(w: &World, d: Date) -> Vec<u16> {
     let mut v = college::final_whistles(w, d);
     v.extend(nfl_year::final_whistles(w, d));
     v.extend(hs_year::final_whistles(w, d));
+    v.extend(super::pro::other::final_whistles(w, d));
     v.extend(recruiting::draft_steps(w, d));
     v.extend(crate::training::days::practice_steps(w, d));
+    // Cutdown at its anchor's minute (`pro::step`).
+    if d == w.dates.cutdown.date {
+        v.push(zone::world_day(w.dates.cutdown).1);
+    }
     v
 }
 
@@ -306,10 +324,15 @@ fn run_step(w: &mut World, t: u16) {
     timed("college games", || college::play_at(w, d, t));
     nfl_year::games_at(w, d, t);
     timed("hs", || hs_year::games_at(w, d, t));
+    timed("other leagues", || super::pro::other::games_at(w, d, t));
     recruiting::draft_at(w, d, t);
     crate::training::days::practice_at(w, d, t);
     match t {
-        hour::DAWN => dawn(w, d, &y),
+        hour::DAWN => {
+            dawn(w, d, &y);
+            // What each college game means, once before any kickoff.
+            college::day_stakes(w, d);
+        }
         hour::PAPER => anniversaries(w, d),
         hour::PLAN => plan(w, d),
         hour::OFFICE => office(w, d, &y),
@@ -889,7 +912,7 @@ fn rollover(w: &mut World) {
         // the memory a 30-year world keeps (proposed, not confirmed).
         let mut kept: Vec<Event> = Vec::new();
         let small = w.recording;
-        for e in w.calendar.all().filter(|e| (small || e.loud >= Loudness::Medium) && e.when.date < w.today) {
+        for e in w.calendar.all().filter(|e| (small || e.loud >= Loudness::Medium) && e.when.world_date() < w.today) {
             let past = e.season.filter(|&s| s != w.year).and_then(|s| w.event_history.iter().rposition(|h| h.0 == s));
             match past {
                 Some(k) => w.event_history[k].1.push(e.clone()),
@@ -1273,6 +1296,24 @@ mod tests {
         while w.today < y.draft[0].date {
             advance_day(&mut w);
         }
+        // A world with no history has no college class to draft: the oldest
+        // high schoolers declare, and the draft runs at a size with picks in
+        // every round (this world's own scale holds a single pick).
+        let c = w.programs.iter().position(|p| p.division == super::Division::FBS).unwrap();
+        w.add_class_aged(17);
+        let mut kids: Vec<usize> =
+            (0..w.people.len()).filter(|&i| w.people[i].stage == super::super::Stage::HighSchool).collect();
+        kids.sort_by_key(|&i| std::cmp::Reverse(w.people[i].player.age));
+        for (k, &i) in kids.iter().take(120).enumerate() {
+            let p = &mut w.people[i];
+            p.stage = super::super::Stage::Declared;
+            p.college = Some(c);
+            p.college_seasons = 4;
+            p.cal.draft_read = Some(super::super::DraftRead { grade: 80.0 - k as f64 * 0.3, score: 0.0, round: 1 });
+        }
+        w.rebuild_rosters();
+        let scale = w.options.scale;
+        w.options.scale = 0.1;
         let picks = |w: &World| -> Vec<(Moment, bool)> {
             w.calendar
                 .events
@@ -1291,10 +1332,14 @@ mod tests {
         while w.today <= y.draft[2].date {
             continue_until_needed(&mut w);
             let now = w.now();
-            for (at, come) in picks(&w) {
+            // Every pick on the books has its minute, and has come: a pick
+            // is made at its minute, so the drafted are the picks shown.
+            let shown = picks(&w);
+            for &(at, come) in &shown {
                 assert!(at.timed(), "a pick without its minute");
-                assert_eq!(come, at <= now);
+                assert!(come, "a pick on the books before its minute: {at:?} at {now:?}");
             }
+            assert_eq!(shown.len(), drafted(&w, 1), "the drafted are the picks shown at {now:?}");
             if now < y.draft[1] {
                 assert_eq!(drafted(&w, 2), 0, "a round 2 pick before the second night");
             }
@@ -1304,6 +1349,7 @@ mod tests {
         }
         assert!(drafted(&w, 1) > 0 && drafted(&w, 4) > 0, "the draft ran");
         assert!(w.draft_run.is_none(), "the draft closed");
+        w.options.scale = scale;
         // Play to the first Saturday with a 3:30 PM and a 7:30 PM kickoff in
         // the East.
         let east = |w: &World, t: usize| w.team_zone(Level::College, t) == Zone::Eastern;

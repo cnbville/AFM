@@ -117,8 +117,12 @@ pub fn practice_start(w: &World, tier: Tier, t: usize, d: Date) -> u16 {
         Tier::College => Level::College,
         Tier::Pro => Level::Nfl,
     };
+    let at = match w.training.today_at {
+        Some((day, at)) if day == d => at,
+        _ => w.training.practice_at,
+    };
     if w.seat_team() == Some((level, t))
-        && let Some(at) = w.training.practice_at
+        && let Some(at) = at
     {
         // An hour set in the summer moves inside the school year's rules.
         let (from, to) = start_limits(tier, d);
@@ -216,8 +220,19 @@ pub(crate) fn practice_at(w: &mut World, d: Date, t: u16) {
     w.training.pending = keep;
     for (_, hurt, note) in mine {
         let (from, id) = (hurt.from, hurt.id);
-        w.training.hurt.push(hurt);
-        w.training.note(from, id, "trainers", note);
+        // Already out (hurt in a game since the roll): the longer layoff
+        // stands, and the trainers write only when practice adds time.
+        match w.training.hurt.iter_mut().find(|h| h.id == id && h.until > from) {
+            Some(h) if hurt.until > h.until => {
+                *h = hurt;
+                w.training.note(from, id, "trainers", note);
+            }
+            Some(_) => {}
+            None => {
+                w.training.hurt.push(hurt);
+                w.training.note(from, id, "trainers", note);
+            }
+        }
     }
     let (others, keep): (Vec<_>, Vec<_>) =
         std::mem::take(&mut w.training.others_pending).into_iter().partition(|x| due(x.0));

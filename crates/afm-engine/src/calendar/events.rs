@@ -432,7 +432,16 @@ impl Calendar {
     /// Events dated `keep_from` or later stay: a signing day after the
     /// Super Bowl, or news posted ahead, belongs to the new year (part C 1).
     pub fn close_year(&mut self, keep_from: Date) {
-        let ahead = self.events.split_off(&keep_from);
+        let mut ahead = self.events.split_off(&keep_from);
+        // The night after the year's last day (before 5 AM Eastern) closes
+        // with it.
+        let mut night = Vec::new();
+        if let Some(list) = ahead.get_mut(&keep_from) {
+            let (n, day): (Vec<Event>, Vec<Event>) =
+                std::mem::take(list).into_iter().partition(|e| e.when.world_date() < keep_from);
+            *list = day;
+            night = n;
+        }
         for (_, list) in std::mem::replace(&mut self.events, ahead) {
             for e in list {
                 if e.loud >= Loudness::Big {
@@ -440,6 +449,7 @@ impl Calendar {
                 }
             }
         }
+        self.history.extend(night.into_iter().filter(|e| e.loud >= Loudness::Big));
         if self.resolved.len() > 2000 {
             let cut = self.resolved.len() - 2000;
             self.resolved.drain(..cut);

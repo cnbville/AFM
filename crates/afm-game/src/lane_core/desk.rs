@@ -114,9 +114,11 @@ pub fn list(w: &World, args: &Value) -> Value {
     let bit = KEYWORDS.iter().position(|k| *k == key).map(|i| 1u16 << i);
     let q = args.get("q").and_then(Value::as_str).unwrap_or("").trim();
     let saved = args.get("saved").and_then(Value::as_bool).unwrap_or(false);
-    let mails = &c.desk.mails;
+    // Mail arrives at its stamp (the six-part day): nothing shows before
+    // its hour.
+    let mails: Vec<&Mail> = c.desk.mails.iter().filter(|m| shown(w, m)).collect();
     let mut counts = vec![0u32; KEYWORDS.len()];
-    for m in mails {
+    for m in &mails {
         for (i, n) in counts.iter_mut().enumerate() {
             if m.keys & (1 << i) != 0 {
                 *n += 1;
@@ -139,7 +141,7 @@ pub fn list(w: &World, args: &Value) -> Value {
     json!({
         "rows": rows,
         "total": mails.len(),
-        "unread": c.desk.unread(),
+        "unread": unread(w),
         "saved": mails.iter().filter(|m| m.saved).count(),
         "keywords": KEYWORDS.iter().zip(counts).map(|(k, n)| json!({ "name": k, "count": n })).collect::<Vec<_>>(),
         "notes": notes_count(w),
@@ -209,20 +211,22 @@ pub fn open(w: &mut World, id: u64) -> Result<Value, String> {
         "saved": m.saved,
         "clears_in": clears_in(today, &m),
         "notes": notes,
-        "unread": w.career.as_ref().map_or(0, |c| c.desk.unread()),
+        "unread": unread(w),
     }))
 }
 
 /// Read, unread, saved or deleted (10b, 10f).
 pub fn set(w: &mut World, args: &Value) -> Result<Value, String> {
     let today = w.today;
+    let here: Vec<u64> =
+        w.career.as_ref().map_or(Vec::new(), |c| c.desk.mails.iter().filter(|m| shown(w, m)).map(|m| m.id).collect());
     let c = w.career.as_mut().ok_or("No career.")?;
     let ids: Vec<u64> = match args.get("ids").and_then(Value::as_array) {
         Some(a) => a.iter().filter_map(|v| v.as_str().and_then(|s| s.parse().ok())).collect(),
         None => args.get("id").and_then(Value::as_str).and_then(|s| s.parse().ok()).into_iter().collect(),
     };
     let all = args.get("all").and_then(Value::as_bool).unwrap_or(false);
-    for m in c.desk.mails.iter_mut().filter(|m| all || ids.contains(&m.id)) {
+    for m in c.desk.mails.iter_mut().filter(|m| (all && here.contains(&m.id)) || ids.contains(&m.id)) {
         if let Some(r) = args.get("read").and_then(Value::as_bool) {
             m.read = r;
         }
@@ -237,7 +241,7 @@ pub fn set(w: &mut World, args: &Value) -> Result<Value, String> {
         c.desk.gone.extend(gone);
     }
     c.desk.clear_old(today);
-    Ok(json!({ "unread": c.desk.unread() }))
+    Ok(json!({ "unread": unread(w) }))
 }
 
 // ---- Notes (10g) ----
@@ -558,5 +562,11 @@ pub fn pinned(w: &World) -> Vec<Value> {
 }
 
 pub fn unread(w: &World) -> usize {
-    w.career.as_ref().map_or(0, |c| c.desk.unread())
+    w.career.as_ref().map_or(0, |c| c.desk.mails.iter().filter(|m| !m.read && shown(w, m)).count())
+}
+
+/// Whether a letter's stamp has come on the clock (the six-part day: mail
+/// arrives at its stamp).
+pub fn shown(w: &World, m: &Mail) -> bool {
+    w.has_come(w.seat_zone().to_eastern(afm_engine::calendar::Moment { date: m.date, minute: m.minute }))
 }

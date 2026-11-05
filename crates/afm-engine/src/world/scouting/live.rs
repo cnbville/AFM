@@ -175,7 +175,17 @@ pub enum Until {
 
 /// Whether your club is on the clock now.
 pub fn on_clock(l: &LiveDraft) -> bool {
-    !l.rush && !l.waiting && !l.run.done() && l.run.board[l.run.next as usize - 1].0 == l.team
+    !l.rush && !l.waiting && !l.run.done() && !night_over(l) && l.run.board[l.run.next as usize - 1].0 == l.team
+}
+
+/// After a pick: when the night's last pick is in, its picks go on the
+/// books and the room waits for the next night.
+fn close_night(w: &mut World, l: &mut LiveDraft) {
+    if !l.rush && !l.waiting && night_over(l) {
+        recruiting::commit_picks(w, &mut l.run);
+        l.waiting = true;
+        l.offers.clear();
+    }
 }
 
 /// Whether the next pick belongs to a later night than the one under way.
@@ -286,6 +296,7 @@ pub fn pick(w: &mut World, id: u32) -> Result<(), String> {
     if l.run.done() {
         l.rush = true;
     }
+    close_night(w, &mut l);
     w.scouting.live = Some(l);
     Ok(())
 }
@@ -406,6 +417,10 @@ pub fn auto_pick(w: &mut World) -> Result<(), String> {
             let before = l.run.swaps.len();
             recruiting::draft_step(w, &mut l.run, None, None);
             push_feed(w, &mut l, before);
+            if l.run.done() {
+                l.rush = true;
+            }
+            close_night(w, &mut l);
             w.scouting.live = Some(l);
             Ok(())
         }
