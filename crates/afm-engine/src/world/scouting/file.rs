@@ -31,6 +31,12 @@ const LEAN: f64 = 0.6;
 const NOISE: f64 = 0.4;
 const MIX_SD: f64 = 0.7211;
 
+/// How wide a guess is (rating points each side at FBS, times his
+/// visibility): what his tape can't show (Cain 2026-11-04: "I should have
+/// a read on every stat, it should just be wide"). Proposed, not
+/// confirmed.
+pub const GUESS_SD: f64 = 12.0;
+
 /// How sharp a rating makes a read (10 is 1.0, 20 is 0.6, 1 is 1.36).
 pub fn sharp(r: f64) -> f64 {
     1.4 - 0.04 * r
@@ -98,9 +104,11 @@ impl Reader {
     }
 
     /// How many days after the look his report is written (1 to 3 weeks,
-    /// faster with a hard worker; measurements at once).
+    /// faster with a hard worker; measurements at once). Your own look is
+    /// in your head the day you take it, and your film is written as you
+    /// watch (Cain 2026-11-04: six hours of tape and no read).
     pub fn lag(&self, kind: Kind, id: u32, date: Date) -> i32 {
-        if kind.instant() || self.link == Link::Event {
+        if kind.instant() || matches!(self.link, Link::Event | Link::You) {
             return 0;
         }
         let base = 7.0 + 0.7 * (20.0 - self.work.clamp(1.0, 20.0));
@@ -434,12 +442,16 @@ pub struct AttrRead {
     pub seen: bool,
     pub chips: u8,
     pub readers: u8,
+    /// Not seen, but his tape is in the file: a wide guess from his type
+    /// and the word on him, shown as a range (`GUESS_SD`). Nothing reads a
+    /// guess as something an eye saw.
+    pub guess: bool,
 }
 
 impl AttrRead {
     /// The range on the 1-99 scale.
     pub fn range(&self) -> Option<(u8, u8)> {
-        if !self.seen {
+        if !self.seen && !self.guess {
             return None;
         }
         let half = self.sd.max(1.0);
@@ -637,6 +649,9 @@ pub fn read(
     } else {
         0.0
     };
+    // Any film of his in the file (a pro's too), by an eye, not a stopwatch.
+    let any_tape =
+        looks.iter().any(|l| (l.kind.tape() || l.kind == Kind::ProFilm) && readers[l.reader].link != Link::Event);
     let mut attrs = vec![AttrRead::default(); ATTRIBUTE_COUNT];
     let mut per_reader = vec![vec![None; ATTRIBUTE_COUNT]; n_r];
     for a in Attr::ALL {
@@ -707,7 +722,15 @@ pub fn read(
                 seen: true,
                 chips: chips[k],
                 readers: nread,
+                guess: false,
             };
+        } else if any_tape {
+            // His tape is in the file but can't show this (a skill his
+            // role never tested, or what film never shows): the overall's
+            // own wide guess below, shown wider, never a blank.
+            let v = 9.0 * vis * key_normal(0x9A10 ^ (cat_index(cat) as u64) << 40, id);
+            attrs[k] =
+                AttrRead { centre: clamp(truth + v, 1.0, 99.0), sd: GUESS_SD * vis, guess: true, ..Default::default() };
         }
     }
     // The overall now: what nobody saw comes from the services' word only
