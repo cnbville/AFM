@@ -29,6 +29,19 @@ GOTO.film = () => (scSeat() === "nfl"
     : [["Evaluation", "evaluate"], ["Squad", "roster"], ["Game day", "gameday"]]);
 
 const frBtn = (act, data, html, cls = "") => `<button class="st-btn small ${cls || "glass"}" data-act="${act}" ${Object.entries(data).map(([k, v]) => `data-${k}="${esc(String(v))}"`).join(" ")}>${html}</button>`;
+// What your eye caught, one note a trait (Cain 2026-11-04: repeats build
+// up to something): what it came to, the line behind it, the downs, and
+// your read beside your staff's.
+const fmTraitRead = (r) => (r ? `${r[0]}-${r[1]}` : "not seen");
+const fmTraits = (r) =>
+  r.notes
+    .map(
+      (n) => `<div class="fm-tile fm-trait${n.settled ? " gold" : ""}"><div class="fm-trait-h"><b>${esc(n.label)}</b><span class="fm-dim">caught on ${n.count[0]} of ${n.count[1]} snap${n.count[1] === 1 ? "" : "s"}</span></div>
+      <div>${esc(n.head)}</div>${n.lines.map((l) => `<div class="fm-trait-q">“${esc(l)}”</div>`).join("")}
+      ${n.downs.length ? `<div class="fm-dim">${esc(n.downs.join(" · "))}</div>` : ""}
+      <div class="fm-trait-r"><span>Your read <b>${fmTraitRead(n.you)}</b></span><span>Your staff <b>${fmTraitRead(n.staff)}</b></span>${n.settled ? '<span class="fm-dim">Settled: your eye moved on</span>' : ""}</div></div>`
+    )
+    .join("") + (r.also || []).map((c) => `<div class="fm-tile">${esc(c)}</div>`).join("");
 const frCard = (label, body, cls = "") => `<section class="fm-card ${cls}"><div class="st-label">${label}</div>${body}</section>`;
 const frCell = (label, big, cap) => `<div class="fm-cell"><div class="st-label">${esc(label)}</div><b>${esc(big)}</b>${cap ? `<small>${esc(cap)}</small>` : ""}</div>`;
 const frBar = (pct, cls = "") => `<div class="fm-bar"><i class="${cls}" style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>`;
@@ -157,7 +170,7 @@ function frReads(r, speed) {
 // One SVG unit is one yard both ways, so nothing is stretched.
 const FR_W = 160 / 3; // the field's width, yards
 const FR_WHO = ["", "him", "faced", "ball", "qb"];
-function frBoard(b, small) {
+function fmBoard(b, small) {
   const end = frAngle !== "side";
   const P = (d, a) => (end ? [a, -d] : [d, a]);
   const f = (v) => Math.round(v * 100) / 100;
@@ -242,9 +255,9 @@ function frStills(sn, at) {
   const big = sn.stills[show];
   const strip = sn.stills.map((st, k) => (!st || st.veiled
     ? `<div class="fm-thumb veiled"><span class="st-label">${FR_STEPS[k]}</span><div class="fm-board small veiled"><span>Not played yet</span></div></div>`
-    : `<button class="fm-thumb${k === show ? " on" : ""}" data-act="frshow" data-k="${k}"><span class="st-label">${FR_STEPS[k]}</span>${st.board ? frBoard(st.board, true) : ""}</button>`)).join("");
+    : `<button class="fm-thumb${k === show ? " on" : ""}" data-act="frshow" data-k="${k}"><span class="st-label">${FR_STEPS[k]}</span>${st.board ? fmBoard(st.board, true) : ""}</button>`)).join("");
   const key = `<div class="fm-legend"><span><i class="kd s2"></i>Him</span><span><i class="kd s1"></i>His side</span><span><i class="kd s0"></i>Theirs</span><span><i class="kl k0"></i>His path</span><span><i class="kl k1"></i>The man he faced</span><span><i class="kl k2"></i>The ball</span><span><i class="kl los"></i>Line of scrimmage</span><span><i class="kl fd"></i>First down</span></div>`;
-  return `<div class="fm-view"><div class="fm-bigstill"><div class="st-label">${FR_STEPS[show]}</div>${frBoard(big.board, false)}<p class="fm-capbig">${esc(big.caption)}</p>${key}</div><div class="fm-strip">${strip}</div></div>`;
+  return `<div class="fm-view"><div class="fm-bigstill"><div class="st-label">${FR_STEPS[show]}</div>${fmBoard(big.board, false)}<p class="fm-capbig">${esc(big.caption)}</p>${key}</div><div class="fm-strip">${strip}</div></div>`;
 }
 
 // ---------- a still from before the true-scale field ----------
@@ -316,7 +329,7 @@ function frReport(x) {
   const r = x.report;
   if (!r) return frHome({});
   title(r.name, "Film report");
-  const kept = r.snaps.length ? frCard("The look-back · the snaps it rests on", r.snaps.map((sn) => `<div class="fm-kept"><b>${esc(sn.sit)}</b> <span class="fm-dim">${esc(sn.job)} · ${esc(sn.result)}</span><div class="fm-stills small">${sn.stills.map((st, k) => (st && st.board ? `<div class="fm-still"><div class="st-label">${FR_STEPS[k]}</div>${frBoard(st.board, true)}<small>${esc(st.caption)}</small></div>` : frStill(st, FR_STEPS[k]))).join("")}</div></div>`).join("")) : "";
+  const kept = r.snaps.length ? frCard("The look-back · the snaps it rests on", r.snaps.map((sn) => `<div class="fm-kept"><b>${esc(sn.sit)}</b> <span class="fm-dim">${esc(sn.job)} · ${esc(sn.result)}</span><div class="fm-stills small">${sn.stills.map((st, k) => (st && st.board ? `<div class="fm-still"><div class="st-label">${FR_STEPS[k]}</div>${fmBoard(st.board, true)}<small>${esc(st.caption)}</small></div>` : frStill(st, FR_STEPS[k]))).join("")}</div></div>`).join("")) : "";
   return `<div class="pad sl fm">
     <header class="fm-head"><div><div class="st-label">Film report · ${esc(r.date)}</div><h1 class="fm-h1">${r.id != null ? frWho(r.id, r.name) : esc(r.name)}</h1><p class="fm-sub">${esc(r.ask || "")}</p></div></header>
     ${x.said ? `<p class="fm-note">${esc(x.said)}</p>` : ""}
@@ -328,10 +341,10 @@ function frReport(x) {
       ${frCell("Carried forward", r.carried.length ? r.carried.join(", ") : "Nothing", "tags for the interview room and the board")}
       ${r.analyst ? frCell("The analyst's view", r.analyst, r.numbers) : ""}
     </div>
-    ${r.caught.length ? frCard("What your eye caught", r.caught.map((c) => `<div class="fm-tile">${esc(c)}</div>`).join("")) : ""}
+    ${r.notes && r.notes.length ? frCard("What your eye caught", fmTraits(r)) : r.caught.length ? frCard("What your eye caught", r.caught.map((c) => `<div class="fm-tile">${esc(c)}</div>`).join("")) : ""}
     ${r.hints.length ? frCard("Into the game plan", `<p class="fm-dim">${r.hints.length} hint${r.hints.length === 1 ? "" : "s"} went into your plan. See game day.</p>`) : ""}
     ${kept}
-    <div class="fm-seg"><button class="st-btn small glass" data-go="film">Back to the film room</button>${r.id != null ? `<button class="st-btn small glass" data-go="scout" data-id="${r.id}">His file</button>` : ""}</div></div>`;
+    <div class="fm-seg">${r.id != null ? `${frBtn("fragain", { id: r.id, cut: r.cut, ask: r.ask_key || "" }, "▶ Watch again", "primary")}<button class="st-btn small glass" data-go="film" data-id="${r.id}">Other cut-ups</button>` : ""}<button class="st-btn small glass" data-go="film">Back to the film room</button>${r.id != null ? `<button class="st-btn small glass" data-go="scout" data-id="${r.id}">His file</button>` : ""}</div></div>`;
 }
 
 // ---------- being there ----------
@@ -423,6 +436,11 @@ Object.assign(CORE_MORE, {
     const id = Number(el.dataset.id);
     const k = keep("frq:" + id, {});
     frDo(el, "film_open", { id, mode: el.dataset.mode, cut: k.cut, ask: k.q }, () => go("film", el.dataset.mode === "quick" ? { report: "last" } : { id }));
+  },
+  // From his report: the same cut-up again, straight in (Cain 2026-11-04).
+  fragain: (el) => {
+    const id = Number(el.dataset.id);
+    frDo(el, "film_open", { id, mode: "full", cut: el.dataset.cut, ask: el.dataset.ask || undefined }, () => go("film", { id }));
   },
   fropp: (el) => frDo(el, "film_opp", { date: Number(el.dataset.date), home: Number(el.dataset.home), away: Number(el.dataset.away), mode: el.dataset.mode }, (r) => go("film", r.open ? {} : { report: "last" })),
   frplay: (el) => frDo(el, "film_snap", {}),

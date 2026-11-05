@@ -530,6 +530,51 @@ pub fn cue(a: Attr, band: usize) -> &'static str {
     lines[b]
 }
 
+/// A band in a few words, against the level's mark.
+pub fn band_word(b: u8) -> &'static str {
+    ["a liability", "below the level", "ordinary", "good", "a standout"][b.min(4) as usize]
+}
+
+/// What a trait's catches across a cut-up come to (Cain 2026-11-04: build
+/// up to something): one snap is not a read, two lean, three of a piece
+/// are a pattern, and catches that disagree are up and down.
+pub fn note_head(bands: &[u8], of: usize) -> String {
+    let n = bands.len();
+    let (lo, hi) = (*bands.iter().min().unwrap_or(&2), *bands.iter().max().unwrap_or(&2));
+    let mid = (bands.iter().map(|&b| b as f64).sum::<f64>() / n.max(1) as f64).round() as u8;
+    match n {
+        0 | 1 => "one snap. Not a read yet.".into(),
+        _ if hi - lo >= 2 => format!("up and down, {} at best and {} at worst.", band_word(hi), band_word(lo)),
+        2 if lo == hi => format!("{} both times. Leaning that way.", band_word(lo)),
+        2 => format!("twice, {} and {}. Leaning that way.", band_word(lo), band_word(hi)),
+        _ if lo == hi && n == of => format!("a pattern, {} on every snap that showed it.", band_word(mid)),
+        _ if lo == hi => format!("a pattern, {} every time you caught it.", band_word(mid)),
+        _ => format!("a pattern, mostly {}.", band_word(mid)),
+    }
+}
+
+/// A catch as it lands in a cut-up (Cain 2026-11-04): the line, then
+/// "again", then the pattern forming.
+pub fn running(a: Attr, band: u8, n: usize) -> String {
+    let line = cue(a, band as usize);
+    match n {
+        0 | 1 => line.to_string(),
+        2 => format!("Again, his {}: {line}", short(a)),
+        _ => format!("His {} for the {} time: {line} A pattern.", short(a), nth(n)),
+    }
+}
+
+fn nth(n: usize) -> String {
+    let suffix = match (n % 10, n % 100) {
+        (_, 11..=13) => "th",
+        (1, _) => "st",
+        (2, _) => "nd",
+        (3, _) => "rd",
+        _ => "th",
+    };
+    format!("{n}{suffix}")
+}
+
 /// A half-seen moment's prompt (SK49): what caught your eye without your
 /// seeing it clearly.
 pub fn hint_of(a: Attr) -> &'static str {

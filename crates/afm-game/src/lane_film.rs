@@ -521,13 +521,17 @@ fn session_view(w: &World) -> Value {
     let mut half = None;
     let mut replayed = None;
     let mut slipped = 0;
+    // How often each trait has been caught through this snap: the line,
+    // then "again", then the pattern forming (Cain 2026-11-04).
+    let so_far = session::notes(s, at + 1);
+    let times = |a: Attr| so_far.iter().find(|n| n.attr == a.index() as u8).map_or(1, |n| n.seen.len());
     if s.step >= 2 {
         for (k, &v) in seen.iter().enumerate() {
             let cue = snap.cues.get(k);
             match v {
                 session::CLEAR => {
                     if let Some(&(a, b)) = cue {
-                        caught.push(fm::words::cue(a, b as usize).to_string());
+                        caught.push(fm::words::running(a, b, times(a)));
                     } else if let Some(c) = &snap.call {
                         caught.push(c.truth.clone());
                     }
@@ -582,7 +586,7 @@ fn session_view(w: &World) -> Value {
             }
         })
         .collect();
-    let (extra, _) = session::caught(w, s);
+    let extra = session::caught(w, s);
     let attrs = s.ask.as_ref().map(|q| q.attrs.clone()).unwrap_or_default();
     let reads = match s.target {
         fm::Target::Player(id) => reads_json(w, id, &attrs, &extra),
@@ -678,10 +682,13 @@ fn report(w: &World, k: usize) -> Reply {
             "cut": r.cut.key(),
             "mode": r.mode.key(),
             "ask": r.ask.as_ref().map(|q| q.text.clone()),
+            "ask_key": r.ask.as_ref().map(|q| q.key.clone()),
             "verdict": r.verdict.map(|v| ["Yes", "No", "Not sure"][v.min(2) as usize]),
             "settled": r.settled,
             "calls": [r.calls.0, r.calls.1],
             "caught": r.caught,
+            "notes": notes_json(w, r),
+            "also": r.caught.get(r.notes.len()..).unwrap_or_default(),
             "marks": r.marks.iter().map(|m| json!({ "snap": m.0 + 1, "tag": session::TAGS[m.1 as usize], "line": m.2 })).collect::<Vec<_>>(),
             "carried": tags_on,
             "minutes": r.minutes,
@@ -694,6 +701,49 @@ fn report(w: &World, k: usize) -> Reply {
             "snaps": r.snaps.iter().map(|x| json!({ "sit": x.sit, "job": x.job, "result": x.result, "stills": x.stills.iter().map(still_json).collect::<Vec<_>>() })).collect::<Vec<_>>(),
         }
     }))
+}
+
+/// A report's notes (Cain 2026-11-04): one a trait, what it came to, the
+/// lines behind it, the downs, and where your read and your staff's stand
+/// on it today.
+fn notes_json(w: &World, r: &session::Report) -> Vec<Value> {
+    let fm::Target::Player(id) = r.target else { return Vec::new() };
+    let staff = readers::seat_staff(w);
+    let sr = staff.and_then(|st| readers::read(w, st, id));
+    let own = staff.and_then(|st| yours::own_read(w, st, id, sr.as_ref().map(|x| &x.2)));
+    r.notes
+        .iter()
+        .map(|n| {
+            let a = n.attr();
+            let bands = n.bands();
+            let (lo, hi) = (*bands.iter().min().unwrap_or(&2), *bands.iter().max().unwrap_or(&2));
+            let mid = (bands.iter().map(|&b| b as f64).sum::<f64>() / bands.len().max(1) as f64).round() as usize;
+            // The line behind it; both ends when it was up and down.
+            let lines: Vec<&str> = if hi - lo >= 2 {
+                vec![fm::words::cue(a, hi as usize), fm::words::cue(a, lo as usize)]
+            } else {
+                vec![fm::words::cue(a, mid)]
+            };
+            let k = a.index();
+            let staff = sr.as_ref().and_then(|x| x.2.attrs.get(k)).and_then(|x| x.range());
+            let you = own.as_ref().and_then(|o| o.attrs.get(k).copied().flatten()).map(yours::range);
+            json!({
+                "label": a.label(),
+                "head": cap_first(&fm::words::note_head(&bands, n.of as usize)),
+                "lines": lines,
+                "count": [n.seen.len(), n.of],
+                "downs": n.downs.iter().filter(|d| !d.is_empty()).collect::<Vec<_>>(),
+                "settled": n.settled(),
+                "you": you.map(|r| [r.0, r.1]),
+                "staff": staff.map(|r| [r.0, r.1]),
+            })
+        })
+        .collect()
+}
+
+fn cap_first(t: &str) -> String {
+    let mut c = t.chars();
+    c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
 }
 
 // ------------------------------------------------------------ your next opponent (SK54)

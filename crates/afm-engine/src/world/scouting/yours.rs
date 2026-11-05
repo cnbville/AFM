@@ -87,19 +87,32 @@ pub fn own_read_with(
     extra: &[super::film::Catch],
 ) -> Option<OwnRead> {
     let i = super::place(w, id)?;
-    readers::you(w)?;
+    let you = readers::you(w)?;
     let (rds, looks, _) = readers::evidence(w, staff, id);
     let me = rds.iter().position(|r| r.link == Link::You);
-    let mine = me.and_then(|r| {
-        let mut rd = rds[r].clone();
+    // Your film of him (Cain 2026-11-04: six hours of tape and no read):
+    // each cut-up you watched is a look of its own, so more tape keeps
+    // narrowing what film shows, and a cut-up still open counts from its
+    // first snap, before anything is in his file.
+    let (cut_ups, last) = cut_ups(w, id);
+    let group = crate::world::coach::Group::of(w.people[i].player.position) as usize;
+    let rd = match me {
+        Some(r) => Some(rds[r].clone()),
+        None if cut_ups > 0 => readers::reader(w, staff, readers::COACH + you as u32, group),
+        None => None,
+    };
+    let mine = rd.and_then(|mut rd| {
         // Alone in the room, your say is your weight.
         rd.say = 1.0;
-        let lk: Vec<file::Evidence> = looks
+        let mut lk: Vec<file::Evidence> = looks
             .iter()
-            .filter(|l| l.reader == r)
+            .filter(|l| Some(l.reader) == me)
             .filter(|l| l.date.add(rd.lag(l.kind, id, l.date)) <= w.today)
             .map(|l| file::Evidence { reader: 0, ..*l })
             .collect();
+        let kind = super::film::session::film_kind(&w.people[i]);
+        let filed = lk.iter().filter(|l| l.kind == kind).count();
+        lk.extend((filed..cut_ups).map(|_| file::Evidence { reader: 0, kind, date: last }));
         if lk.is_empty() {
             return None;
         }
@@ -114,8 +127,14 @@ pub fn own_read_with(
             Some(w.today),
         );
         // Only what your own eye saw counts as yours: a shared measurement
-        // isn't in your looks.
-        let attrs = f.per_reader.first().cloned().unwrap_or_default();
+        // isn't in your looks. What your tape can't show is a wide guess.
+        let mut attrs = f.per_reader.first().cloned().unwrap_or_default();
+        attrs.resize(crate::attributes::ATTRIBUTE_COUNT, None);
+        for (k, a) in f.attrs.iter().enumerate() {
+            if a.guess && attrs[k].is_none() {
+                attrs[k] = Some((a.centre, a.sd));
+            }
+        }
         Some((f.now, attrs, n))
     });
     let first = staff_read.and_then(|f| impression(w, id, f));
@@ -135,4 +154,33 @@ pub fn own_read_with(
         super::film::sharpen_with(w, id, w.people[i].player.position, &mut r.now, &mut r.attrs, extra);
     }
     out
+}
+
+/// Your cut-ups of a player (one a six snaps watched, a quick one two;
+/// not from the stands, which the trip filed), with the day of the last:
+/// the reports kept and a session open on him.
+pub fn cut_ups(w: &World, id: u32) -> (usize, crate::calendar::Date) {
+    use super::film::{Target, session::Mode};
+    let fr = &w.scouting.film;
+    let of = |watched: usize| watched.div_ceil(6);
+    let mut n = 0;
+    let mut last = w.today;
+    let mut latest = None;
+    for r in fr.reports.iter().filter(|r| r.target == Target::Player(id) && r.mode != Mode::Live) {
+        n += of(r.watched as usize);
+        latest = latest.max(Some(r.date));
+    }
+    if let Some(s) = fr.open.as_ref().filter(|s| s.target == Target::Player(id) && s.mode != Mode::Live) {
+        // A snap stopped for your call is on the screen too.
+        let started = usize::from(s.step > 0 || s.at > 0);
+        let watched = s.seen.iter().filter(|v| !v.is_empty()).count().max(started);
+        if watched > 0 {
+            n += of(watched);
+            latest = Some(w.today);
+        }
+    }
+    if let Some(d) = latest {
+        last = d;
+    }
+    (n, last)
 }
