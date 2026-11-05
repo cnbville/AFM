@@ -201,6 +201,7 @@ impl Game {
             "start_career" => {
                 let w = self.wm()?;
                 setup::start(w, args)?;
+                lane_frontoffice::college::start_clean(w, args);
                 lane_handbook::on_start(w, args);
                 lane_core::after_days(w);
                 Ok(views::status(w))

@@ -129,10 +129,19 @@ function fcOfferCell(r) {
 }
 
 // ---------- the recruiting board ----------
+// The board's rows by id, for the move bar's counts (its ticks are the table's).
+let FC_ROWS = new Map();
+let FC_FRESH = null;
+// Whether the board is yours to offer and pull on (else your coordinator's).
+let FC_YOURS = true;
 screens.recruit_board = async (a) => {
   const x = await api("recruit_board");
   setColors(x.team.colors);
-  const k = keep("fcb", { tab: "targets", sel: null, order: "mine", cls: "next", pos: "ALL" });
+  FC_ROWS = new Map(x.rows.map((r) => [r.id, r]));
+  FC_YOURS = x.duties.list.find((d) => d.key === "board").yours;
+  FC_FRESH = FC_YOURS ? x.fresh : null;
+  const k = keep("fcb", { tab: "targets", sel: null, order: "mine", cls: "next", pos: "ALL", offers: "all" });
+  k.offers ??= "all";
   if (a && a.id) { k.sel = a.id; k.tab = "targets"; }
   if (a && a.tab) { k.tab = a.tab; a.tab = null; }
   const c = x.class;
@@ -169,9 +178,33 @@ screens.recruit_board = async (a) => {
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · ${esc(x.conference)} · Recruiting`, title: `Class of ${year}`, line: heroLine, sub, big: String(year).slice(2), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar">${fcTabs("fcb", tabs, k.tab)}${fcGoto([["recruit_find", "Find recruits"], ["visits_desk", "Visits"], ["scouting", "Scouting"], ["calendar", "Calendar"], ["roster", "Squad"]])}</div>
-    ${yours ? "" : fcDuty(x.duties, "board")}
+    ${yours ? fcFresh(x) : fcDuty(x.duties, "board")}
     ${body}
   </div></div>`;
+};
+
+// Your fresh start at a new job: the old staff's offers still out, and a
+// new staff's reset of the board, free until its last day.
+function fcFresh(x) {
+  const f = x.fresh;
+  if (!f) return "";
+  const open = f.offers - f.commits;
+  const btns = [`<button class="st-btn small primary" data-fc="reset" data-keep="0">Pull all ${f.offers}</button>`];
+  if (f.commits && open) btns.push(`<button class="st-btn small glass" data-fc="reset" data-keep="1">Pull the ${open} not committed</button>`);
+  btns.push(`<button class="st-btn small glass" data-fc="oldpick">Pick them on the full board</button>`);
+  return `<div class="fc-fresh"><div><span class="st-label">Your fresh start · until ${esc(f.until)} · ${fcPlural(f.days, "day")} left</span>
+    <p><b>The old staff left ${fcPlural(f.offers, "offer")} out${f.commits ? `, ${fcPlural(f.commits, "commitment")} among them` : ""}.</b> A new staff goes through the board it inherits and decides whom it re-offers. Until ${esc(f.until)}, pulling any of the old staff's offers costs you nothing with the recruit, his family or his high school coach. A commitment goes with its offer; players who signed stay signed.</p></div>
+    <div class="fc-acts">${btns.join("")}</div></div>`;
+}
+// The board's own buttons on its move bar: pull the ticked recruits'
+// offers, or take the ones without an offer off the board.
+MOVEBAR_EXTRA.fcboard = (ids) => {
+  const rows = ids.map((id) => FC_ROWS.get(id)).filter(Boolean);
+  // With your coordinator on the board, his offers and pulls wait on your staff's word.
+  const live = FC_YOURS ? rows.filter((r) => r.offered && !["signed", "enrolled"].includes(r.standing)) : [];
+  const off = rows.filter((r) => r.on_board && !r.offered);
+  return (live.length ? `<button class="st-btn small primary" data-fc="mbpull">Pull ${live.length === 1 ? "the offer" : `${live.length} offers`}</button>` : "")
+    + (off.length ? `<button class="st-btn small glass" data-fc="mbunboard">Take ${off.length} off the board</button>` : "");
 };
 
 // ---------- the offer chain (lane 7, SK26-SK31) ----------
@@ -327,7 +360,7 @@ function fcActions(f) {
   if (!f.board_yours) {
     b.push(`<p class="sub">Your coordinator runs the board: his offers and order stand until you take it back.</p>`);
   } else if (!closed) {
-    if (f.offered) b.push(`<button class="st-btn small glass" data-fc="pull" data-id="${f.id}">Pull the offer</button>`);
+    if (f.offered) b.push(f.free_pull ? `<button class="st-btn small glass" data-fc="pull" data-id="${f.id}" data-free="1" title="Your fresh start is on: a new staff resets the board, and it costs you nothing">Pull the old staff's offer</button>` : `<button class="st-btn small glass" data-fc="pull" data-id="${f.id}">Pull the offer</button>`);
     else b.push(`<button class="st-btn small primary" data-fc="offer" data-id="${f.id}">Offer a scholarship</button>`);
     if (f.on_board) {
       b.push(`<button class="st-btn small glass" data-fc="prio" data-id="${f.id}" data-on="${f.priority ? 0 : 1}">${f.priority ? "Leave him to his position coach" : "Give him your own time"}</button>`);
@@ -377,6 +410,12 @@ function fcBoardTable(x, k, yours) {
   const classes = [["next", `Class of ${year}`], ["later", "Younger classes"], ["all", "Everyone"]];
   let rows = x.rows.filter((r) => (k.cls === "next" ? r.class_of === year || r.juco : k.cls === "later" ? r.class_of > year && !r.juco : true));
   if (k.pos !== "ALL") rows = rows.filter((r) => r.pos === k.pos);
+  // Whose offers: yours out, the old staff's still out, or the ones pulled.
+  const live = (r) => r.offered && !["signed", "enrolled", "signed_elsewhere", "gone"].includes(r.standing);
+  const offerOpts = [["all", "Everyone"], ["out", "Offers out"], ...(x.rows.some((r) => r.inherited && live(r)) || k.offers === "old" ? [["old", "The old staff's"]] : []), ...(x.rows.some((r) => r.pulled && !r.offered) || k.offers === "pulled" ? [["pulled", "Pulled"]] : [])];
+  if (k.offers === "out") rows = rows.filter(live);
+  else if (k.offers === "old") rows = rows.filter((r) => r.inherited && live(r));
+  else if (k.offers === "pulled") rows = rows.filter((r) => r.pulled && !r.offered);
   const posOpts = [["ALL", "All"], ...x.class.by_pos.map((p) => [p.pos, p.pos])].filter(([v]) => v === "ALL" || x.rows.some((r) => r.pos === v));
   const cols = [
     { k: "place", t: "#", tip: "Your order: commitments first, then this order decides who can commit when the class fills", f: (r) => fcLink("recruit_file", String(r.place), { id: r.id }) },
@@ -398,12 +437,12 @@ function fcBoardTable(x, k, yours) {
     ...(yours
       ? [{ k: "act", t: "", l: true, v: () => 0, f: (r) => {
           const closed = ["signed", "enrolled", "signed_elsewhere", "gone"].includes(r.standing);
-          return `<span class="fc-rowacts"><button class="fc-ib" data-fc="move" data-id="${r.id}" data-to="${Math.max(0, r.place - 2)}" title="Up one place">▲</button><button class="fc-ib" data-fc="move" data-id="${r.id}" data-to="${r.place}" title="Down one place">▼</button><button class="fc-ib ${r.priority ? "on" : ""}" data-fc="prio" data-id="${r.id}" data-on="${r.priority ? 0 : 1}" title="${r.priority ? "Leave him to his position coach" : "Give him your own time"}">●</button>${closed ? "" : r.offered ? `<button class="st-btn small glass" data-fc="pull" data-id="${r.id}">Pull</button>` : `<button class="st-btn small primary" data-fc="offer" data-id="${r.id}">Offer</button>`}</span>`;
+          return `<span class="fc-rowacts"><button class="fc-ib" data-fc="move" data-id="${r.id}" data-to="${Math.max(0, r.place - 2)}" title="Up one place">▲</button><button class="fc-ib" data-fc="move" data-id="${r.id}" data-to="${r.place}" title="Down one place">▼</button><button class="fc-ib ${r.priority ? "on" : ""}" data-fc="prio" data-id="${r.id}" data-on="${r.priority ? 0 : 1}" title="${r.priority ? "Leave him to his position coach" : "Give him your own time"}">●</button>${closed ? "" : r.offered ? `<button class="st-btn small glass" data-fc="pull" data-id="${r.id}"${r.free_pull ? ' data-free="1" title="The old staff\'s offer: free to pull in your fresh start"' : ""}>Pull</button>` : `<button class="st-btn small primary" data-fc="offer" data-id="${r.id}">Offer</button>`}</span>`;
         } }]
       : []),
   ];
-  const note = `${rows.length} of ${x.rows.length} shown. Rest on a row for his staff's reason; a row opens his file.`;
-  return `<div class="filters">${fcSeg("fcb", "cls", classes, k.cls)}${fcSeg("fcb", "pos", posOpts, k.pos)}${fcSeg("fcb", "order", [["mine", "Your order"], ["pos", "By position"]], k.order)}<span class="sub fc-note">${esc(note)}</span></div>
+  const note = `${rows.length} of ${x.rows.length} shown. Rest on a row for his staff's reason; a row opens his file.${yours ? " Tick rows to pull their offers together." : ""}`;
+  return `<div class="filters">${fcSeg("fcb", "cls", classes, k.cls)}${fcSeg("fcb", "pos", posOpts, k.pos)}${fcSeg("fcb", "offers", offerOpts, k.offers)}${fcSeg("fcb", "order", [["mine", "Your order"], ["pos", "By position"]], k.order)}<span class="sub fc-note">${esc(note)}</span></div>
     ${table("fcboard", cols, rows, { groupBy: k.order === "pos" ? (r) => r.pos : null, empty: "Nobody on the board in this view.", groups: [{ t: "Recruit", span: 7 }, { t: "Your staff", who: "position coaches", span: 4, div: true }, { t: "His recruitment", span: 3, div: true }, { t: "Yours", span: yours ? 3 : 2, div: true }] })}`;
 }
 
@@ -745,7 +784,50 @@ document.addEventListener(
       case "remove": fcDo("recruit_remove", { id }); break;
       case "offer": fcDo("recruit_offer", { id }); break;
       case "l7film": api("scout_ask", { id, kind: "Watch his film now" }).then((r) => { toast(r.said); render($(".view") && $(".view").scrollTop); }).catch((e) => toast(e.message || String(e))); break;
-      case "pull": if (await sure("Pull the offer?", "A committed recruit's commitment goes with it, and his high school coach remembers.", "Pull it")) fcDo("recruit_pull", { id }); break;
+      case "pull": if (await sure(...pullWords(d.free === "1"))) fcDo("recruit_pull", { id }); break;
+      // The fresh start's reset: every old offer, or all but the commitments.
+      case "reset": {
+        const f = FC_FRESH;
+        if (!f) break;
+        const keepC = d.keep === "1";
+        const n = keepC ? f.offers - f.commits : f.offers;
+        if (!(await sure(`Pull ${n === 1 ? "the old staff's offer" : `the old staff's ${n} offers`}?`, `${keepC ? "The commitments stay. " : f.commits ? `${fcCap(fcPlural(f.commits, "commitment"))} ${f.commits === 1 ? "goes" : "go"} with ${f.commits === 1 ? "its offer" : "their offers"}. ` : ""}Your fresh start is on: a new staff resets the board, so it costs you nothing. They leave your board; Find recruits still has every one of them.`, "Pull them"))) break;
+        // The ones that leave the board leave the ticks too.
+        const gone = [...FC_ROWS.values()].filter((r) => r.inherited && r.offered && (!keepC || r.standing !== "committed")).map((r) => r.id);
+        if (await fcDo("recruit_reset", { keep_commits: keepC })) {
+          const st = S.keep["tbl:fcboard"];
+          if (st) st.picked = st.picked.filter((x) => !gone.includes(x));
+        }
+        break;
+      }
+      case "oldpick": { const k = keep("fcb", {}); Object.assign(k, { tab: "board", offers: "old", cls: "all", pos: "ALL" }); render(); break; }
+      // The move bar's own buttons on the full board (its ticks are the table's).
+      case "mbpull": case "mbunboard": {
+        const st = S.keep["tbl:fcboard"];
+        if (!st) break;
+        const rows = st.picked.map((x) => FC_ROWS.get(x)).filter(Boolean);
+        if (d.fc === "mbunboard") {
+          const ids = rows.filter((r) => r.on_board && !r.offered).map((r) => r.id);
+          if (!ids.length) break;
+          const r = await fcDo("recruit_remove_many", { ids });
+          if (r) st.picked = st.picked.filter((x) => !ids.includes(x));
+          break;
+        }
+        const ids = rows.filter((r) => r.offered && !["signed", "enrolled"].includes(r.standing)).map((r) => r.id);
+        if (!ids.length) break;
+        // The pulled stay ticked, in view: Take off the board is the next click.
+        if (!(await sure(...pullWords(rows.filter((r) => ids.includes(r.id)).every((r) => r.free_pull), ids.length)))) break;
+        try {
+          const r = await api("recruit_pull_many", { ids });
+          toast(r.text);
+          const k = keep("fcb", {});
+          if (k.offers === "old" || k.offers === "out") k.offers = "pulled";
+          render($(".view") && $(".view").scrollTop);
+        } catch (e) {
+          toast(e.message || String(e));
+        }
+        break;
+      }
       case "prio": fcDo("recruit_priority", { id, on: d.on === "1" }); break;
       case "move": fcDo("recruit_move", { id, to: Number(d.to) }); break;
       case "promise": {
