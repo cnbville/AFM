@@ -18,7 +18,7 @@ Let's just get it over with. ~ hot young
 Before you say anything, I've got some stuff too. ~ hot
 I got lift in [twenty minutes|half an hour], so. ~ young
 Can we make this quick? I got class. ~ college young
-Yes sir. ~ quiet
+Yes {coach_sir}. ~ quiet
 I don't have a lot to say, Coach. But okay. ~ quiet
 I'm not in a great place right now. Just so you know. ~ humble
 Coach, I'm gonna keep it a hundred with you today. ~ young modern
@@ -35,7 +35,7 @@ Coach! You wanted me?
 Good to see you, Coach. Been a good week.
 Hey. Want me to [close|get] the door?
 What's good, Coach? ~ young modern
-[Yes sir|Yessir]. What you need? ~ south
+Yes {coach_sir}. What you need? ~ south
 Hey, Coach. Haven't been in this office since my [official visit|visit]. ~ college young
 Hey Coach. My mom says hi, by the way. ~ hs young
 Sorry, I'm here. Treatment ran long. ~ !hs
@@ -43,15 +43,15 @@ Coach. Body feels good, head feels good. What's up? ~ vet
 You rang? ~ loose
 Coach, good to see you. What are we talking about? ~ pro
 I brought my notebook. Figured you'd want to go over something. ~ pro young
-Yes sir. I'm all ears. ~ humble
+Yes {coach_sir}. I'm all ears. ~ humble
 Coach! [Man,|Hey,] that [lift|practice] this morning was crazy. ~ young competitor
-The head man wants to see me, huh? ~ ego loose
+The head coach wants to see me, huh? ~ ego loose
 
 @key talk.open.flat
 You wanted to see me, Coach?
 Hey, Coach.
 What's going on?
-Yes sir?
+Yes {coach_sir}?
 You asked for me?
 They told me to come see you.
 Hey Coach. What's this about?
@@ -133,7 +133,7 @@ Who'd you hear it from? ~ hot
 Let me guess. Somebody told you something. ~ ego
 I'm not gonna make excuses. ~ pro
 Whatever it is, I'll own it. ~ leader
-Yes sir. I messed up. ~ humble
+Yes {coach_sir}. I messed up. ~ humble
 I know, I know. I'm on thin ice. ~ loose
 Am I in trouble? ~ hs young
 My dad already got on me about it, if that helps. ~ hs young
@@ -363,7 +363,7 @@ My dad's gonna want to hear that from you, not me. ~ hs
 @key talk.reply.straight.flat
 Okay.
 I hear you.
-Yes sir.
+Yes {coach_sir}.
 Alright. If that's how it is.
 Understood.
 I figured as much.
@@ -397,7 +397,7 @@ Cool. ~ young loose
 @key talk.reply.praise.flat
 Thanks, Coach.
 Appreciate it.
-Yes sir. Thank you.
+Yes {coach_sir}. Thank you.
 Okay. Thanks.
 I'll keep at it.
 Just doing my job. ~ pro
@@ -408,7 +408,7 @@ That's all I needed to hear.
 Alright. Tomorrow, then.
 Good. I play better when somebody tells me I can't.
 I'm not going anywhere, Coach. I'm going to win this.
-Yes sir. Put me with the ones and see what happens.
+Yes {coach_sir}. Put me with the ones and see what happens.
 You're gonna have to play me. I promise you that. ~ competitor
 Say less. ~ young nil
 Okay. Then I'm coming for it. ~ competitor
@@ -426,7 +426,7 @@ Whatever you say, Coach. ~ ego
 Okay. ~ quiet
 
 @key talk.reply.challenge.flat
-Yes sir.
+Yes {coach_sir}.
 I'll be ready.
 We'll see.
 Alright. I hear you.
@@ -442,7 +442,7 @@ That's on me. All of it.
 No excuses. I'll fix it. ~ pro
 I hear you. I'm embarrassed, honestly. ~ humble
 That's fair. I'll handle it with the guys myself. ~ leader
-Yes sir. I'll be better. ~ young
+Yes {coach_sir}. I'll be better. ~ young
 
 @key talk.reply.criticize.bad
 You didn't even ask what happened.
@@ -460,7 +460,7 @@ I'll be sure to tell my agent how you feel. ~ nfl ego
 @key talk.reply.criticize.flat
 Okay.
 I hear you, Coach.
-Yes sir.
+Yes {coach_sir}.
 Alright. Noted.
 Fair enough.
 Understood.
@@ -496,7 +496,7 @@ I hope so.
 We'll see how it plays out. ~ calm
 
 @key talk.reply.warn.good
-Yes sir. It won't come to that.
+Yes {coach_sir}. It won't come to that.
 Understood. You won't have to.
 I know. I'm done with that.
 Message received, Coach.
@@ -518,7 +518,7 @@ Got it. ~ quiet
 Other teams would love to have me, you know. ~ ego !hs
 
 @key talk.reply.warn.flat
-Yes sir. I hear you.
+Yes {coach_sir}. I hear you.
 Okay.
 Understood, Coach.
 Got it. Won't happen.
@@ -547,7 +547,7 @@ Okay. Sure. ~ quiet
 
 @key talk.reply.hand.flat
 Okay. Thank you.
-Yes sir.
+Yes {coach_sir}.
 Alright. If you think that's best.
 Appreciate it.
 I'll think about it.
@@ -613,6 +613,6 @@ I'll see you, Coach.
 I'm gonna head out.
 Anything else you need from me?
 See you on the field.
-Yes sir. I'll get out of your hair.
+Yes {coach_sir}. I'll get out of your hair.
 I'll be around if you need me.
 Cool. Thanks, Coach. ~ young

@@ -33,8 +33,7 @@ const MIX_SD: f64 = 0.7211;
 
 /// How wide a guess is (rating points each side at FBS, times his
 /// visibility): what his tape can't show (Cain 2026-11-04: "I should have
-/// a read on every stat, it should just be wide"). Proposed, not
-/// confirmed.
+/// a read on every stat, it should just be wide"). Confirmed 2026-11-05.
 pub const GUESS_SD: f64 = 12.0;
 
 /// How sharp a rating makes a read (10 is 1.0, 20 is 0.6, 1 is 1.36).

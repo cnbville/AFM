@@ -874,7 +874,7 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
         s.them(
             &name,
             if line.is_empty() {
-                (if gap > 1 { "That's a lot for what I did, Coach." } else { "Yes sir. Understood." }).to_string()
+                (if gap > 1 { "That's a lot for what I did, Coach." } else { "Understood, Coach." }).to_string()
             } else {
                 line
             },

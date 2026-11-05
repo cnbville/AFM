@@ -157,13 +157,13 @@ Bruh. Okay. Sorry. Coach. ~ young loose modern
 Lowkey been a bad week, Coach. ~ young modern
 Not gonna cap, I'm in my feelings a little. ~ young modern
 I'm not trying to be on one. It's just been a lot. ~ young modern
-Yes sir. Sorry, I'm just tired. ~ south
+Yes {coach_sir}. Sorry, I'm just tired. ~ south
 I'm alright, I reckon. Been better. ~ south
-Yes sir, I'm here. Ain't been the best week. ~ south
+Yes {coach_sir}, I'm here. Ain't been the best week. ~ south
 Coach, I'll be honest with you, I'm worn slap out. ~ south
 Y'all got me running on fumes, Coach. ~ south young
 I'm fixin' to go to treatment after this, so. ~ south !hs
-Yes sir. Go ahead. I'm not real happy, but go ahead. ~ texas
+Yes {coach_sir}. Go ahead. I'm not real happy, but go ahead. ~ texas
 I'm here. Hot as fire out there and I'm hot in here too. ~ texas
 I'm not trying to be rude, Coach. It's just been a heck of a week. ~ midwest
 Alright, Coach. Not the best week, but I'll survive. ~ midwest
@@ -236,7 +236,7 @@ Look, I'm not in the best place, but I respect you calling me in.
 I'm good. I'm fine. Okay, I'm not fine.
 I've been bottling it up, Coach. That's the honest answer.
 Fine. What is it this time?
-Sir. ~ quiet
+{coach_sir}. ~ quiet
 Give me a second to cool off first.
 Not gonna fake a smile in here, Coach.
 Don't mind my face. It's been that kind of stretch.
@@ -383,12 +383,12 @@ Yeah, {coach}. Present and miserable.
 {friend} told me to come up. I'm not in the best way.
 Guarded today, Coach. Don't read too much into it.
 My ride's already texting me, Coach, so. ~ hs modern
-Yes sir. Sorry. Today chewed me up. ~ hs young
+Yes {coach_sir}. Sorry. Today chewed me up. ~ hs young
 Told my ride ten minutes. Hope that's enough. ~ hs
 Came straight from the practice field. Didn't even change. ~ hs
 Everybody in the field house saw me walk in here. Thanks for that. ~ hs
 Coach, the parking lot's clearing out and I still need a ride, so. ~ hs
-Yes sir. Kind of a sorry day for me, so go easy. ~ hs
+Yes {coach_sir}. Kind of a sorry day for me, so go easy. ~ hs
 Practice ran me into the ground, and now this. Okay, Coach. ~ hs young
 Came over from the other side of campus, Coach. Give me a second. ~ college
 Left a full plate in the dining hall for this, Coach. ~ college
@@ -616,7 +616,7 @@ Marine layer mood today, Coach. Gray and heavy. ~ west
 Got people waiting on me outside, Coach. ~ hs
 Sorry, Coach. Today's been a lot, and I've still got a whole night ahead of me. ~ hs young
 Do I need to call for a ride? Is this gonna be long? ~ hs
-Yes sir. Just worn out on today. ~ hs south
+Yes {coach_sir}. Just worn out on today. ~ hs south
 My whole day's been scheduled to the minute, and this wasn't on it. ~ college
 Between lift, meetings and everything else, I'm a shell of myself today. ~ college
 About ten minutes before my next thing, Coach. And I'm not in a good place. ~ college
@@ -738,7 +738,7 @@ Snappy today. I'm keeping a lid on it.
 My legs are jelly and I still gotta walk out to my ride. ~ hs
 Coach, I never get called in here, so I'm already on edge. ~ hs young
 Sorry, Coach. Teenagers have bad days too, I guess. ~ hs
-Sir, I'll be honest. I'm in a mood. ~ hs
+{coach_sir}, I'll be honest. I'm in a mood. ~ hs
 Everybody's waiting on me at the car, Coach, so. ~ hs
 Still got my gear on, Coach. Can we do this fast? ~ hs
 The coaches' office is the last place I wanted to end up today, no offense. ~ hs
@@ -1012,13 +1012,13 @@ I'm doing alright, Coach. Better than alright. ~ steady
 Coach! What's happening? ~ hot young
 I'm fired up today, Coach. In a good way. ~ hot
 Coach, I'm feeling it. What you need? ~ hot young
-Yes sir. ~ quiet
+Yes {coach_sir}. ~ quiet
 Hey, Coach. ~ quiet
 You wanted to see me? I'm good, yeah. ~ quiet
 Hi, Coach. ~ quiet young
 Hey. Good day today. ~ quiet
 Coach. Thank you for having me in. ~ humble
-Yes sir, Coach. Thanks for making time for me. ~ humble
+Yes {coach_sir}, Coach. Thanks for making time for me. ~ humble
 I'm grateful you'd want to talk, Coach. ~ humble
 I'm just happy to be here, Coach. What's up? ~ humble
 Coach. I hope I'm not in the way. You wanted me? ~ humble young
@@ -1090,10 +1090,10 @@ We chillin', Coach. What's up? ~ young modern
 No cap, I've been feeling good, Coach. What's up? ~ young modern
 Coach! You need me? Bet. ~ young modern
 Hey Coach. I just saw your post, that was funny. ~ young modern
-Yes sir, Coach. How y'all doing? ~ south
+Yes {coach_sir}, Coach. How y'all doing? ~ south
 Hey, Coach. Beautiful day out there, ain't it? ~ south
 Coach! Doing good, doing good. What's going on? ~ south
-Yes sir, I'm good. Mama sent some food for the guys, by the way. ~ south young
+Yes {coach_sir}, I'm good. Mama sent some food for the guys, by the way. ~ south young
 Coach. Doing fine, thank you. What can I do for you? ~ south
 Howdy, Coach. ~ texas
 Coach! Good to see you. Hot one out there today. ~ texas
@@ -1123,7 +1123,7 @@ Hey Coach. You look like you've got something good to tell me.
 It's a good day, Coach. Let's keep it that way.
 Coach, I've got nothing but time.
 Hey Coach, door open or closed? Either's fine.
-Yes sir. Good to be here.
+Yes {coach_sir}. Good to be here.
 Coach. Been looking forward to talking.
 Hey, Coach. I feel like we're rolling right now.
 Coach. Things are good. I'm smiling, look.
@@ -1155,11 +1155,11 @@ Hey, Coach. Fire away. I'm feeling good. ~ calm
 Coach. I'm good. Whatever you need. ~ calm steady
 Coach! Perfect day, isn't it?
 Afternoon, Coach. Couldn't ask for a better one.
-There he is! The man with the big desk.
+There {coach_he} is! The {coach_man} with the big desk.
 Knock knock. You called for me?
 Look at this, the head coach's office. I'm honored. What's up?
 Present and accounted for, Coach.
-Reporting as ordered, sir. In a fine mood, too.
+Reporting as ordered, {coach_sir}. In a fine mood, too.
 Man, I'm feeling light today. What can I do for you?
 I've got a smile I can't get rid of, Coach. Just ignore it.
 Coach, you picked a good time. I'm in a generous mood.
@@ -1191,18 +1191,18 @@ Lay it on me, Coach. Nothing can bother me right now.
 Oh, perfect. I wanted an excuse to come say hi anyway.
 Hello, Coach! Lovely afternoon.
 Whatever this is, Coach, I'm smiling through it.
-Good to see you, sir. Things are bright on my end.
+Good to see you, {coach_sir}. Things are bright on my end.
 I've got a good feeling about today, Coach.
 {friend} said you were looking for me. Good timing, I'm in a great mood.
 Coach! {friend} and I have been cracking up all day. What's up?
-Sir! What a day. What can I do for you?
+{coach_sir}! What a day. What can I do for you?
 Afternoon! Wasn't expecting the call, but I'm glad to be here.
 You know what, Coach? Life is good. What's up?
 I walked in here whistling, Coach. That's a first.
 Everything feels easy today, Coach. Hope this keeps it that way.
 Couldn't wipe this grin off if I tried. What's going on, Coach?
 In such a good mood I almost hugged the equipment guy, Coach.
-Oh, it's [you|the big man]. Come on, what's the news?
+Oh, it's [you|the boss]. Come on, what's the news?
 Sure, Coach, I've got time. All the time in the world today.
 Well, look who wants to talk. I'm all yours, Coach.
 Coach. Feels like I can see clearly today. Go ahead.
@@ -1233,7 +1233,7 @@ Been feeling unstoppable lately, Coach. You probably noticed. ~ ego
 Picked the right guy to talk to. I'm feeling like a superstar today. ~ ego young
 Thank you for calling me in, Coach. I'm doing well, really. ~ humble
 Just thankful, Coach. Every day here is a good one. ~ humble
-Sir. I'm doing well, thank you for asking. Oh, you didn't ask yet. ~ humble young
+{coach_sir}. I'm doing well, thank you for asking. Oh, you didn't ask yet. ~ humble young
 I don't want to take too much of your time, Coach. I'm good, though. ~ humble
 Doing well, Coach. Just trying to stay grateful. ~ humble
 Yeah, Coach. I'm good. ~ quiet
@@ -1357,7 +1357,7 @@ Everything tastes better today, Coach. I don't know what it is.
 Had a good laugh in the training room. Still giggling. What's going on?
 Parked right next to your spot. Took it as a sign. What's up, Coach? ~ !freshman
 Glad you grabbed me, Coach. I'm feeling [awesome|outstanding|terrific].
-Sir, I am in an excellent mood. What can I do for you?
+{coach_sir}, I am in an excellent mood. What can I do for you?
 Doing great, Coach. Honestly, never better.
 Hi, Coach! Did you get outside yet? Gorgeous out.
 Couldn't be happier to be here. What's on your mind?
@@ -1378,7 +1378,7 @@ You're welcome for the good mood I just brought in here. ~ ego
 I look good, I feel good. You know how it goes, Coach. ~ ego
 Grateful to be here, Coach. Every single day. ~ humble
 Thanks for thinking of me, Coach. I'm doing well. ~ humble
-Whatever you need, sir. I'm doing really well, thank you. ~ humble
+Whatever you need, {coach_sir}. I'm doing really well, thank you. ~ humble
 Good, thanks. What's up? ~ quiet
 Hey, Coach. Smooth day. ~ quiet
 Well enough to smile. What's up? ~ quiet
@@ -1496,7 +1496,7 @@ What can I do you for, Coach?
 Been laughing all day. Something in the water, I think.
 All right, all right. What's the word?
 Phew, it's warm out there. Feels great, though. What's up?
-Good afternoon, sir. Thanks for having me in.
+Good afternoon, {coach_sir}. Thanks for having me in.
 Ooh, the big chair. You look comfortable in it, Coach.
 Happy to see you. Happy in general. What's going on?
 Can't lie, I feel incredible right now.
@@ -1532,7 +1532,7 @@ They don't make many like me, Coach. Lucky you, you got one. ~ ego
 Felt like a highlight reel all day. What's up? ~ ego
 Feeling like the main event today, Coach. ~ ego
 Just glad to be a part of all this, Coach. Truly. ~ humble
-Good to see you, sir. I don't take days like this for granted. ~ humble
+Good to see you, {coach_sir}. I don't take days like this for granted. ~ humble
 Thank you, Coach. For calling me in, for all of it. ~ humble
 Good day. Honestly. ~ quiet
 Mm-hm. Feeling good. ~ quiet
@@ -1680,8 +1680,8 @@ Is this where I get the corner office? Kidding. What's up? ~ loose
 Can't lie, Coach, I'm feeling myself today. ~ ego
 Best mood in the building and the best player in it. Kidding. Half kidding. ~ ego
 Called in the big dog. Good choice, Coach. ~ ego
-Blessed to be here, sir. I don't forget it. ~ humble
-Whatever you need from me, sir, I'm happy to help. ~ humble
+Blessed to be here, {coach_sir}. I don't forget it. ~ humble
+Whatever you need from me, {coach_sir}, I'm happy to help. ~ humble
 Doing better than I ever thought I would, Coach. ~ humble
 Yeah, good. You? ~ quiet
 Good. Thanks for asking. ~ quiet
@@ -1791,7 +1791,7 @@ Wanted to tell you, Coach, I'm in a really good groove.
 Let's do it. Whatever it is, I'm in the mood.
 Positive vibes walking in, Coach. Hope they're catching.
 Didn't even need coffee today. Woke up ready.
-Afternoon, sir. Isn't it a fine day?
+Afternoon, {coach_sir}. Isn't it a fine day?
 Bright and cheerful over here. What's up?
 Feel like I'm floating a little. In a good way.
 Everything's a little sore and I still feel amazing.
@@ -1915,7 +1915,7 @@ Hey. I came straight up.
 Okay, I'm here. What's up?
 Hey, Coach. I got your note.
 Coach, you asked for me?
-Yes sir. You wanted me?
+Yes {coach_sir}. You wanted me?
 Hey Coach. What's the deal?
 Alright. What are we talking about?
 Hey. I wasn't sure what this was about.
@@ -1947,8 +1947,8 @@ You called? ~ quiet
 I'm here. ~ quiet
 Okay. ~ quiet
 What's up? ~ quiet young
-Yes sir, Coach? ~ humble
-Yes sir. What can I do? ~ humble
+Yes {coach_sir}, Coach? ~ humble
+Yes {coach_sir}. What can I do? ~ humble
 Coach. Whatever you need. ~ humble
 Hey Coach. Thanks for having me in. ~ humble
 I hope I'm not in trouble. What's up? ~ humble young
@@ -2019,10 +2019,10 @@ Coach. I've got my kid's thing later, but go ahead. ~ nfl vet
 Hey, Coach. What do you need from me? ~ nfl vet
 Coach. Been doing this long enough to know when we need to talk. ~ nfl vet
 Coach. I was just in with the trainers. What's going on? ~ nfl
-Yes sir, Coach. What can I do for you? ~ south
+Yes {coach_sir}, Coach. What can I do for you? ~ south
 Hey Coach. How y'all doing? ~ south
-Coach. What's going on, sir? ~ south
-Yes sir. They told me to come see you. ~ south young
+Coach. What's going on, {coach_sir}? ~ south
+Yes {coach_sir}. They told me to come see you. ~ south young
 Howdy, Coach. You wanted me? ~ texas
 Hey Coach. What's going on? ~ midwest
 Coach. What can I do for you? ~ midwest
@@ -2066,7 +2066,7 @@ Hi, Coach. You needed to see me?
 Got word you were asking around for me.
 Didn't know what to expect, so I just came up.
 Give me one second to catch my breath, Coach.
-Sir. You wanted a minute?
+{coach_sir}. You wanted a minute?
 I've been trying to guess what this is the whole walk over.
 Where do you want to begin, Coach?
 I can stay as long as you need, Coach.
@@ -2100,14 +2100,14 @@ Just tell me where to sit, Coach.
 You've got a few minutes for me, Coach?
 Came the second I saw it was you asking.
 Mind if I leave my bag by the door?
-Okay, [sir|Coach]. Ready.
+Okay, {coach_sir}. Ready.
 What's the occasion, Coach?
 I'm here. What are we doing?
 All right. Lay it out for me.
 Took the stairs. Give me a [second|sec].
 I'm guessing you've got something specific in mind.
 Didn't expect the call, but here I am.
-Here, sir. What do you need?
+Here, {coach_sir}. What do you need?
 I'm good on time. Go ahead.
 Hope I didn't keep you, Coach.
 Okay. Let's hear it.
@@ -2193,7 +2193,7 @@ Scout guys were still out there when they sent me up. What do you need? ~ nfl ps
 Came in from the indoor. Was working with the specialists. ~ kicker
 Still not used to being up here, Coach. Do I sit? ~ hs freshman
 Lot of years in college ball, Coach. I've learned to just come and listen. ~ college senior
-Yes sir, Coach. Came as quick as I could. ~ south
+Yes {coach_sir}, Coach. Came as quick as I could. ~ south
 Fixin' to go grab some food, but I'm here. ~ texas
 Sure thing, Coach. What can I help with? ~ midwest
 Alright, what are we doing here, Coach? Let's go. ~ northeast
@@ -2213,7 +2213,7 @@ Not sure what I'm walking into here. What's going on?
 Sorry. They had me running all over the building.
 You had someone come get me? What's going on?
 Hey there, Coach.
-Good afternoon, sir.
+Good afternoon, {coach_sir}.
 Right. I'm here. Go ahead.
 Sorry for the hoodie. Didn't have time to change.
 Haven't even showered yet. Hope that's okay.
@@ -2232,7 +2232,7 @@ Okay. Let me get settled.
 Is it bad news, or just news?
 Fair warning, I just ate, so I'm a little slow.
 How are you doing, Coach? Then we can get into it.
-How's your day going, sir?
+How's your day going, {coach_sir}?
 Before we get going, how've you been?
 That coffee smells strong. Long day for you too?
 You look like you've been up here since sunrise.
@@ -2275,7 +2275,7 @@ Whatever it is, I'd rather hear it now. ~ competitor
 I figured this was coming. Go ahead. ~ ego
 You needed the best guy in the building? Here I am. ~ ego
 I'll try not to waste your time, Coach. ~ humble
-Yes sir. I'll listen first. ~ humble
+Yes {coach_sir}. I'll listen first. ~ humble
 Are we okay? Like, me and you. Are we good? ~ shaky
 I ran through everything in my head on the way up here. ~ shaky
 Nothing new on my end, Coach. What's on yours? ~ steady
@@ -2333,9 +2333,9 @@ Never figured I'd be sitting in this chair, Coach. ~ college walkon
 One of the seniors showed me where your office was. ~ hs freshman
 New guy, big office. I'll keep quiet and listen. ~ college transfer
 Juniors were stacking mats in the weight room. Came as soon as I could. ~ hs junior
-Afternoon, sir. Y'all needed me? ~ south
-Yes sir. Reporting like you asked. ~ south
-Yes sir. Came straight up. Didn't even stop for a Dr Pepper. ~ texas
+Afternoon, {coach_sir}. Y'all needed me? ~ south
+Yes {coach_sir}. Reporting like you asked. ~ south
+Yes {coach_sir}. Came straight up. Didn't even stop for a Dr Pepper. ~ texas
 Oh, hey, Coach. What can I do ya for? ~ midwest
 Let's hear it, Coach. What's the situation? ~ northeast
 Just vibing, Coach. What's going on? ~ west young
@@ -2344,13 +2344,13 @@ Saw the text from ops. Here I am. ~ modern !hs
 Phone's on silent. Go ahead. ~ modern
 Didn't recognize the number at first. Then I figured it out. ~ modern
 Hey. Good to see you, Coach. What's going on?
-Alright, sir. Where do you want me?
+Alright, {coach_sir}. Where do you want me?
 I'm here, Coach. Sorry for the wait.
 Huh. Okay. What's [up|this]?
 Sorry, I was halfway out the door when I heard.
 Let me guess. You want a word.
 I had my earbuds in. Took me a second to hear them.
-Ready whenever, sir. Or now. Now's fine.
+Ready whenever, {coach_sir}. Or now. Now's fine.
 Is this about me, or are you talking to everybody?
 Sure. What's up?
 Alright then. Go ahead.
@@ -2420,7 +2420,7 @@ For you, Coach, I always have time. ~ loyal
 You know I've got your back. What's going on? ~ loyal
 Didn't think you'd need me for much, Coach. What can I do? ~ humble
 However I can help, Coach, I'm here. ~ humble
-Yes sir. Just tell me what you need from me. ~ humble
+Yes {coach_sir}. Just tell me what you need from me. ~ humble
 Left the guys running the walkthrough on their own. What do you need? ~ leader
 Told the group I'd be right back. What's going on? ~ leader
 If you need me to handle something, say the word. ~ leader
@@ -2432,9 +2432,9 @@ No windup, Coach. Just say it. ~ hot
 Let's just get it out there. ~ hot
 Whatever's on your mind, we've got time. ~ calm
 Relaxed and ready. Go ahead. ~ calm
-Okay, sir. ~ quiet
+Okay, {coach_sir}. ~ quiet
 Mm. Alright, Coach. ~ quiet
-Sir? You needed me? ~ quiet
+{coach_sir}? You needed me? ~ quiet
 I like to know what I'm walking into. What are we covering? ~ pro
 I've got [thirty|twenty] minutes blocked off. Will that cover it? ~ pro
 Hit me with whatever it is. I'll handle it. ~ competitor
@@ -2488,9 +2488,9 @@ Third year in the program and this office still feels serious. ~ college junior
 People stare when I come up these stairs. What's going on? ~ nfl firstround
 Walk-on life. I'll take any time I can get with you, Coach. ~ college walkon
 Been here long enough to know the shortcut through the weight room. ~ college redshirt
-Sir. Didn't mean to keep you waiting. ~ south
-Sir, how are you? What's going on? ~ south
-Yes sir, Coach. What can I help y'all with? ~ texas
+{coach_sir}. Didn't mean to keep you waiting. ~ south
+{coach_sir}, how are you? What's going on? ~ south
+Yes {coach_sir}, Coach. What can I help y'all with? ~ texas
 Ope, sorry, didn't see the chair there. Okay. What's up? ~ midwest
 Hey there. What can I help you with, Coach? ~ midwest
 What's the scoop, Coach? ~ northeast
@@ -2505,7 +2505,7 @@ Okay. You've got the floor.
 Your move, Coach.
 Is now still a good time, or did something come up?
 Sounded official when they said it. Is it official?
-I'm here, sir. Say the word.
+I'm here, {coach_sir}. Say the word.
 Not gonna lie, I'm a little curious.
 Been wondering what this is since they told me.
 I'm not reading anything into it. Go on.
@@ -2536,7 +2536,7 @@ Should I get the door? Got it.
 You good, Coach?
 Anything said in here stays in here, Coach.
 Bring me up to speed.
-Alright, sir. Here.
+Alright, {coach_sir}. Here.
 Tell me what we're doing, Coach, and we'll do it.
 Haven't been up here in a bit. Same old office.
 Am I early? They said now.
@@ -2578,7 +2578,7 @@ I don't like sitting still, Coach. Let's go. ~ competitor
 I'm a busy man, Coach, but okay. ~ ego
 Alright, I'm here. The building can breathe now. ~ ego
 Means a lot that you'd want to talk to me, Coach. ~ humble
-Sir, I'll just listen and learn. ~ humble
+{coach_sir}, I'll just listen and learn. ~ humble
 I keep checking your face to see what this is. ~ shaky
 Sorry. My hands get sweaty when I come in here. ~ shaky
 Business as usual for me. What's going on? ~ steady
@@ -2635,7 +2635,7 @@ Junior now. Guess that means I get called up more. ~ hs junior
 Walked on here, and now I'm across the desk from the head coach. Funny how that goes. ~ college walkon
 Redshirt year taught me patience. Take your time. ~ college redshirt
 Sophomore year, still figuring out where everything is. ~ college sophomore
-Sir. Hope your day's treating you right. ~ south
+{coach_sir}. Hope your day's treating you right. ~ south
 Mighty quiet up here, Coach. ~ south
 Reckon you wanted to see me, Coach? ~ texas
 Hiya, Coach. What's going on? ~ midwest
@@ -2669,7 +2669,7 @@ Brought you one of these waters too.
 Passed your door twice before I saw the light on.
 They didn't say bring anything. Hope that's right.
 Cover whatever you want. I'm good.
-I'm listening close, sir.
+I'm listening close, {coach_sir}.
 Not sure if it's my turn or someone else's. Me?
 Should I be standing at attention? Kidding. Go ahead.
 Couldn't get much out of the guy who sent me up. What's up?
@@ -2716,7 +2716,7 @@ Let's get after it, Coach. What's up? ~ competitor
 If we're doing this, let's do it right. ~ competitor
 Figured the big office would come calling. ~ ego
 Okay. You've got my attention, and that's not easy. ~ ego
-Yes sir. Sorry if I'm interrupting anything. ~ humble
+Yes {coach_sir}. Sorry if I'm interrupting anything. ~ humble
 Just grateful you'd make the time, Coach. ~ humble
 Okay. I'm okay. What's going on? ~ shaky
 Already overthinking this. Sorry. Go ahead. ~ shaky
@@ -2766,8 +2766,8 @@ Still new on campus. Hope this is the right office. ~ college freshman
 Junior year's busy, but here I am. ~ hs junior
 Walk-ons don't get many invites up here. What's up? ~ college walkon
 Redshirt guys hear everything. I heard you wanted me. ~ college redshirt
-Hope all's well with you, sir. ~ south
-Yes sir. Came running like it was two-a-days. ~ texas
+Hope all's well with you, {coach_sir}. ~ south
+Yes {coach_sir}. Came running like it was two-a-days. ~ texas
 Hey, no problem at all. What's going on? ~ midwest
 Yeah, yeah. What's going on, Coach? ~ northeast
 Easy day so far. Hit me, Coach. ~ west
@@ -2892,7 +2892,7 @@ Real talk, I want more run, Coach. ~ young modern
 Lowkey I've been wanting to talk about my spot. ~ young modern
 I just want to know where I'm at. No cap. ~ young modern
 I'm trying to see the field, Coach. That's what this is about. ~ young
-Yes sir. I figured it's about where I'm at. ~ south
+Yes {coach_sir}. I figured it's about where I'm at. ~ south
 I reckon this is about my spot, Coach. ~ south
 I'll be honest, Coach, I want to know where I stand. ~ midwest
 I want to know what's going on with my spot. Straight up. ~ northeast
@@ -3288,7 +3288,7 @@ I know how a young guy gets brought along. Is that what's happening at my spot? 
 I've earned a straight answer. Am I still your guy? ~ vet
 I'm new to all this. How does the chart work here, and where am I? ~ young
 Back home the board was up in the field house. Here I'm not sure where I am. ~ texas south !hs
-Sir, I'd just like to know where I am on the chart. ~ south
+{coach_sir}, I'd just like to know where I am on the chart. ~ south
 Not to be a bother, but where am I on the chart? ~ midwest
 Skip the warmup. Where am I? ~ northeast
 Where I grew up, nobody made a fuss about the chart. I'd still like to know mine. ~ west
@@ -3456,7 +3456,7 @@ I want to cook, Coach. I just need the chances. ~ young modern
 I feel like we're not using me right, no cap. ~ young modern
 I've got stuff in my bag you haven't seen yet. ~ young modern loose skill
 Is it about the plan? I got ideas. ~ young loose
-Yes sir. I reckon you want to talk about how I'm being used. ~ south
+Yes {coach_sir}. I reckon you want to talk about how I'm being used. ~ south
 I just want to help the team however I can, Coach. ~ south humble
 I've got some thoughts on the game plan, if you'll hear them. ~ midwest
 I'm not getting used the right way. That's my take. ~ northeast
@@ -3846,7 +3846,7 @@ Long as I'm out there doing my thing, I'm good. What's the plan? ~ loose
 However you use me, I'll do it the same way every time. What's the plan? ~ steady
 I know my body and I know what I do well. Let's use both right. ~ vet
 Still figuring out the playbook. What's my part in it? ~ young
-I'll do it how you want it done, sir. Just want to know how that is. ~ south
+I'll do it how you want it done, {coach_sir}. Just want to know how that is. ~ south
 No fuss. Just want to know my job out there. ~ midwest
 Back home, plays got drawn up a certain way. What's the plan for me here? ~ texas south !hs
 Talk to me. What's the plan for me in this thing? ~ northeast
@@ -4031,7 +4031,7 @@ I've got a plan for my money. I just need to know what's coming. ~ steady
 Real talk, I need to secure the bag, Coach. ~ young modern
 Lowkey I'm broke, Coach. ~ young modern
 The bag is the bag. I'm just being real. ~ young modern greedy
-Yes sir, it's about money. I hate it. ~ south
+Yes {coach_sir}, it's about money. I hate it. ~ south
 I ain't trying to be ugly about it, Coach, but it's money. ~ south
 I'll be straight with you. It's money. ~ midwest
 I'm not gonna beat around the bush. It's money. ~ northeast
@@ -4201,7 +4201,7 @@ Where I'm from, you don't talk money at the table. But okay. ~ midwest
 Back home we'd call this a business talk. Let's have it. ~ south
 Money, huh. Let's just get into it, no dancing around. ~ northeast
 Money stuff? Cool, let's keep it simple. ~ west
-Yes sir. Money's fine to talk about, long as we're honest. ~ texas
+Yes {coach_sir}. Money's fine to talk about, long as we're honest. ~ texas
 Lowkey, is this about the bag? ~ young
 Real talk, if it's money, I've got questions too. ~ young
 What I'd like to know is how the money side works here, start to finish.
@@ -4362,7 +4362,7 @@ Back where I'm from, a dollar's a dollar. I'll hear you out. ~ south
 Money, okay. We don't waste words on it at home either. ~ midwest
 Talk numbers to me. I grew up around people who did. ~ northeast
 I'm pretty laid back about money, but I'll listen. ~ west
-Yes sir, money. Down home we'd say let's get it settled. ~ texas
+Yes {coach_sir}, money. Down home we'd say let's get it settled. ~ texas
 Bag talk? Bet. ~ young
 Okay, money talk. Say less. ~ young
 Facts. Let's talk numbers. ~ young
@@ -4495,7 +4495,7 @@ Where I come from, you shake on it and that's the end of it. Let's talk. ~ south
 Plain talk about money, the way we do it back home. ~ midwest
 Money? Fine. Let's not waste each other's time. ~ northeast
 Money talk, okay. No pressure, let's figure it out. ~ west
-Yes sir. Money's a family matter where I'm from, so I'll be careful. ~ texas
+Yes {coach_sir}. Money's a family matter where I'm from, so I'll be careful. ~ texas
 Where I grew up, nobody talked about money out loud. I'll try. ~ midwest
 Okay, bag talk. I'm locked in. ~ young
 Run it. Where are we at with the bag? ~ young
@@ -4566,7 +4566,7 @@ I've been in this league long enough to know better. That's on me. ~ nfl vet
 I know the young guys are watching me. I set a bad example. ~ nfl vet
 Okay. Yeah. I know. ~ quiet
 I'm sorry, Coach. ~ quiet
-Yes sir. I know. ~ quiet
+Yes {coach_sir}. I know. ~ quiet
 I don't really know what to say about it. ~ quiet
 I know. I should have told you myself. ~ quiet
 I'm so sorry, Coach. It won't happen again. ~ humble
@@ -4616,7 +4616,7 @@ Am I still starting? ~ young competitor
 I know it hurt the team. That's what bothers me most. ~ competitor
 Whatever you need me to do to make up for it, I'll do. ~ competitor
 I'll run till I puke if that's what it takes. ~ competitor young
-Yes sir. I know I messed up bad. ~ south
+Yes {coach_sir}. I know I messed up bad. ~ south
 I ain't gonna lie to you, Coach. I messed up. ~ south
 Mama already got on me about it. ~ south young
 I know. I'm not going to make excuses. ~ midwest
@@ -4774,7 +4774,7 @@ Whatever it is, I don't want it reflecting on you. ~ loyal
 How I compete in drills? I'll dial it back where it needs it. Not all the way. ~ competitor
 Wait, what'd I do? ~ young
 I've been around long enough to know a conduct talk when I see one. Go ahead. ~ vet
-Yes sir. What's this about, if you don't mind me asking? ~ south
+Yes {coach_sir}. What's this about, if you don't mind me asking? ~ south
 Okay. Point me at it and we'll fix it. ~ midwest
 What'd I do? Just say it. ~ northeast
 So what's up? Did I do something? ~ west
@@ -4908,7 +4908,7 @@ Whatever it is, I'd bet somebody's jealous. ~ ego
 People watch everything I do. What'd they see this time? ~ ego
 If I let anybody down, I want to make it right. ~ humble
 Whatever I did, I'd like to fix it before it gets bigger. ~ humble
-Yes sir. Which part was wrong? ~ quiet
+Yes {coach_sir}. Which part was wrong? ~ quiet
 Should I say something, or just listen? ~ quiet
 Something I let slide in the room? That's on me as a leader. ~ leader
 Whatever it is, I'd rather address it with the team myself afterward. ~ leader
@@ -4925,7 +4925,7 @@ Me going too hard in a drill? I don't really have another gear. ~ competitor
 If it costs me money, I want to know how much. ~ greedy !hs
 Wait, am I in trouble trouble, or just regular trouble? ~ young
 It's been a while since I got one of these talks. What is it? ~ vet
-Yes sir. Whatever it is, I'll answer for it. ~ south
+Yes {coach_sir}. Whatever it is, I'll answer for it. ~ south
 Alright. If I messed up, lay it on me. ~ midwest
 Don't sugarcoat it. What'd I do? ~ northeast
 No stress. Somebody say something about me? ~ west
@@ -5059,7 +5059,7 @@ Pretty sure I'm a little late to everything. Is it that? ~ loose
 You know how people get about guys like me. What's the story? ~ ego
 I'm sure it's been blown up. What's the small version? ~ ego
 I don't want special treatment. If I did something, hold me to it. ~ humble
-I figured it was something I did. Go ahead, sir. ~ quiet
+I figured it was something I did. Go ahead, {coach_sir}. ~ quiet
 If I messed up, just tell me. I'll listen. ~ quiet
 If guys followed me into something, put that on me. ~ leader
 Where did I fall short as a leader? I want the honest version. ~ leader
@@ -5073,7 +5073,7 @@ Jawing in competition period? That's how I get going. ~ competitor
 Fines come out of my pocket, so I'd like the details. ~ greedy !hs
 My bad in advance, Coach. What are we talking about? ~ young
 Been doing this a long time. Whatever it is, let's be adults about it. ~ vet
-Yes sir. Whatever it is, my folks raised me to face it. ~ south
+Yes {coach_sir}. Whatever it is, my folks raised me to face it. ~ south
 Okay, Coach. Let's hear it and get it fixed. ~ midwest
 You got something on me? Let's hear it. ~ northeast
 All right, what's the vibe? Am I in trouble? ~ west young
@@ -5163,7 +5163,7 @@ Life be lifing, Coach. ~ young modern loose
 It's been a lot, no cap. ~ young modern
 I'm just trying to stay off my phone, Coach. It's been a lot online. ~ young modern
 People back home keep hitting me up. It's a lot. ~ young modern
-Yes sir. Family stuff. ~ south
+Yes {coach_sir}. Family stuff. ~ south
 I've been worried about my folks back home. ~ south
 My folks have been going through it. ~ midwest
 It's been a crazy few weeks at home, Coach. ~ midwest
@@ -5314,7 +5314,7 @@ I run my life like a season. What do you want to know? ~ competitor
 Even away from here I'm chasing something. Is that what this is about? ~ competitor
 Where I'm from, people don't really ask that. I appreciate it, though. ~ midwest
 Where I'm from, you keep home stuff at home. I'll try, though. ~ south
-Yes sir. Ask me whatever you want about life. ~ south
+Yes {coach_sir}. Ask me whatever you want about life. ~ south
 I'm from a small town. Everybody knows your business there. Here, not so much. ~ midwest
 Life here runs at a different pace than back home. ~ west
 Straight up? Life outside is fine. What's the real question? ~ northeast
@@ -5613,7 +5613,7 @@ Back home we'd fish to clear our heads. I still find ways to do that. ~ south
 Midwest folks keep it close to the vest. But I'll try for you. ~ midwest
 Up north where I'm from, you just handle things. But okay, ask me. ~ northeast
 Where I'm from, people take their downtime seriously. I do too. ~ west
-Texas raised me to say yes sir and tell the truth. So ask. ~ texas
+Texas raised me to say yes {coach_sir} and tell the truth. So ask. ~ texas
 My people down south pray on everything. That's how I live too. ~ south
 Back home in the Midwest it's work, church, and your people. I try to keep that here. ~ midwest
 Not to be dramatic, but sleep is my whole personality right now. ~ young
@@ -5728,7 +5728,7 @@ Is it about the drama on the group chat? ~ young modern
 The group chat's been crazy, Coach. ~ young modern
 Is it about the stuff on social media between guys? ~ modern
 The room's been lowkey divided, Coach. ~ young modern
-Yes sir. You want to know about the boys. ~ south
+Yes {coach_sir}. You want to know about the boys. ~ south
 I reckon you want to know about the locker room. ~ south
 Y'all want to know how the team's doing? ~ south young
 Is this about the team, Coach? I'll be honest with you. ~ midwest
@@ -6040,7 +6040,7 @@ Where I'm from in the Midwest, it's all about how you work. That's how I read a 
 Where I grew up, people say what they mean. So here's the team, straight. ~ northeast
 Back home out west we play loose. This team's got its own feel. ~ west
 Texas taught me a team gets built in the summer heat. I'll tell you how ours is built. ~ texas
-Yes sir. The guys. Fire away. ~ south
+Yes {coach_sir}. The guys. Fire away. ~ south
 The team chat tells you a lot. Want the summary, no screenshots? ~ young modern
 Bet. You want the scoop on the guys. ~ young
 Real ones know what's going on in there. I'll tell you. ~ young
@@ -6290,7 +6290,7 @@ Lowkey I've been thinking about the future a lot. ~ young modern
 I've been getting a lot of DMs about my future. ~ young modern
 Ha. The future. I barely know what I'm doing this weekend. ~ loose young
 I'm just living, Coach. But okay, the future. ~ loose
-Yes sir. I've been praying on my future. ~ south
+Yes {coach_sir}. I've been praying on my future. ~ south
 I'd like to stay close to my folks, if it works out. ~ south
 I've been thinking about staying close to home. ~ midwest
 I'm going to be honest about my future. ~ northeast
@@ -6716,7 +6716,7 @@ Next year better be about winning. That's where my head is. ~ competitor
 A few good years left in me. Where they go is worth talking about. ~ vet
 I know what the back end of a career looks like. Let's plan mine. ~ vet
 Planning years ahead is new to me. Bear with me. ~ young
-Yes sir. What comes next, I'd like to talk it through with you. ~ south
+Yes {coach_sir}. What comes next, I'd like to talk it through with you. ~ south
 Folks from my part of Texas don't do much planning out loud. But okay. ~ texas
 Where I come from, you plan for the long winter. Next year, then. ~ midwest
 Lay it out for me. I'd rather know than guess. ~ northeast
@@ -7051,3 +7051,87 @@ I want my next school to be my choice. I'm thinking about leaving. ~ reason=choi
 I didn't pick this place on my own. I'm thinking about picking for myself. ~ reason=choice
 I'm finishing my degree, and I'm thinking about a grad transfer. ~ reason=grad
 I've got a year left after I graduate. I'm thinking about where to spend it. ~ reason=grad
+# His friend who just left the team (new bugs, Cain 2026-11-03): the subject
+# part when you raise it, and his whole opening when his mood is good. Fact:
+# gone (the friend's first name). Never says why or where the friend went (a
+# cut, a trade, the portal, graduation), so every line fits every way out.
+@key talk.open.friend
+Is this about {gone}?
+Is this about {gone}, Coach?
+You heard about {gone}, huh.
+I figured you'd want to talk after {gone} left.
+I had a feeling this was about {gone}.
+If this is about {gone}, I'm alright. I think.
+Is this a check-in because of {gone}?
+I know why I'm here. It's {gone}, right?
+Somebody told you {gone} and I were close.
+It's been strange without {gone} around.
+I keep walking past {gone}'s locker.
+Did somebody say I've been off since {gone} left?
+You want to know how I'm taking {gone} leaving.
+It's quiet without {gone}. That's all.
+I didn't think anybody noticed {gone} and me.
+I'm still getting used to {gone} not being here.
+{gone} leaving caught me off guard, if that's what this is.
+It's about {gone}, isn't it? Everybody keeps asking me.
+I'm fine, Coach. Mostly. It's just {gone}.
+You don't have to tiptoe around it. I know {gone}'s gone.
+Is this about me and {gone}?
+Before you ask, yeah, I miss {gone}.
+I knew somebody would bring up {gone} eventually.
+If this is about {gone}, I'd rather just get it out.
+Feels like the room changed when {gone} left.
+I keep reaching for my phone to tell {gone} about practice.
+I figured {gone} would come up.
+I've been trying not to think about {gone} leaving.
+You saw I've been quiet since {gone} left, huh.
+Is this about {gone}? I'm handling it.
+I talked to {gone} last night, if you're wondering how he's doing.
+Is this because {gone}'s not here anymore?
+I'm guessing this is about {gone} and not my footwork.
+It's weird looking over and not seeing {gone} there.
+If you want to talk about {gone}, I'm okay with that.
+{gone}? Yeah. It's been a strange couple of weeks.
+I guess it shows, huh. {gone} leaving.
+Is this about {gone}? I didn't want to make it a thing.
+I'm still not used to it, Coach. {gone}, I mean.
+I know. {gone}. I know.
+Did {gone} say something to you before he left?
+It's been different since {gone} left. I won't lie.
+So this is about {gone}.
+You noticed. It's {gone}.
+I was wondering when you'd ask about {gone}.
+I've got a lot of guys here, but {gone} was the one.
+Yes, Coach. It's about {gone}, isn't it? ~ hs
+My mom asked me about {gone} too. I'm alright, Coach. ~ hs young
+I'm guessing my parents called you about {gone}. ~ hs
+Is this about {gone}? I didn't think you'd heard. ~ hs
+Is this about {gone}? It's been a weird couple of weeks around the building. ~ college
+The guys have been asking me about {gone} all week. ~ college
+I figured you'd call me in about {gone}. ~ college
+I've been a little off since {gone} left. I know. ~ college young
+It's the league. Guys leave. {gone} was different, though. ~ nfl
+Business is business. I know that. {gone} was still my guy. ~ nfl
+I've seen a lot of guys come and go. {gone} hit different. ~ nfl vet
+I know how this league works. Still stings about {gone}. ~ nfl vet
+First time I've lost a close one in this league. {gone}. ~ nfl young
+Is this about {gone}? I don't really talk about it. ~ quiet
+{gone}? ~ quiet
+I'm okay. It's {gone}, mostly. ~ quiet
+If this is about {gone}, I already said my piece in the locker room, Coach. ~ hot
+I'm not going to lie, I was heated when {gone} left. ~ hot
+{gone} was family to me. You know that. ~ loyal
+When one of mine leaves, it sticks with me. {gone} especially. ~ loyal
+Is this about keeping the guys together since {gone} left? I've got it. ~ leader
+Some of the younger guys took {gone} leaving hard. Me too, honestly. ~ leader
+{gone} leaving doesn't change my game, if that's what you're worried about. ~ ego
+I'll be fine. {gone} leaving doesn't slow me down. ~ ego
+Sorry if I've been off since {gone} left, Coach. ~ humble
+I didn't want to bother you about {gone}. It's not a big deal. ~ humble
+I haven't really been myself since {gone} left. ~ shaky
+It's been a lot since {gone} left. More than I thought. ~ shaky
+I'm handling it, Coach. {gone} would want me to. ~ steady
+{gone} leaving? I'm okay. I've got my routine. ~ steady
+I miss competing with {gone} every day. That's the truth. ~ competitor
+Nobody pushes me in practice like {gone} did. ~ competitor
+{gone} and I had our own thing going. I'm still figuring it out without him. ~ loose

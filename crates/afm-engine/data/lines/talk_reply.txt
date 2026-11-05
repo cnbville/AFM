@@ -85,7 +85,7 @@ I'm going to tell the people back home we talked. They've been worried. ~ young 
 I didn't even tell my roommate that stuff. ~ college young
 Nobody at school knows any of that. ~ hs young
 Thank you, Coach. I mean it. ~ south
-Yes sir. That helped a lot. ~ south
+Yes {coach_sir}. That helped a lot. ~ south
 I appreciate that more than I can say. ~ south
 That was good, Coach. I appreciate it. ~ midwest
 That's the truth. Glad it's out. ~ midwest
@@ -266,7 +266,7 @@ I didn't think it was important enough to bother you with. Thank you for asking 
 I really didn't expect you to care that much. Thank you. ~ humble
 Thank you for making time for somebody like me. ~ humble
 I hope that wasn't too much. It helped me a lot. ~ humble
-Yes sir, thank you. I feel a lot better about things. ~ humble
+Yes {coach_sir}, thank you. I feel a lot better about things. ~ humble
 I spend so much time listening to the guys. It's good to be the one talking for once. ~ leader
 If I'm going to lead, I have to be honest. Thanks for making that easy. ~ leader
 I can't show this stuff in the locker room. I'm glad I can show it in here. ~ leader
@@ -376,7 +376,7 @@ Defense is about trust, and so is this. Thanks, {coach}. ~ defense
 Where I'm from, folks don't ask twice. I appreciate it. ~ south
 I'm much obliged, Coach. ~ south
 That's a load off. I reckon I needed it. ~ south
-Yes sir. That helped more than y'all know. ~ texas
+Yes {coach_sir}. That helped more than y'all know. ~ texas
 Back home we'd say you've got a good heart. You do. ~ texas
 Shoot, that helped, Coach. More than I figured. ~ south
 Ope, didn't mean to unload all that. But thanks. ~ midwest
@@ -462,7 +462,7 @@ I'd rather talk to somebody back home about it. ~ young !nfl
 Can I just go to class? ~ college young
 I've got to get home. Can we stop? ~ hs young
 I ain't trying to get into it, Coach. ~ south
-No sir. Not today. ~ south
+No {coach_sir}. Not today. ~ south
 I'd rather not, Coach. ~ midwest
 Let's just leave it. ~ midwest
 I'm not going there. ~ northeast
@@ -731,7 +731,7 @@ I play defense. I hit stuff, I don't talk about it. ~ defense
 Special teams guys keep it simple. So keep it simple. ~ special
 I ain't saying no more, {coach}. ~ south
 Y'all always want more than a man's got to give. ~ south
-No sir. That's all you get. ~ south
+No {coach_sir}. That's all you get. ~ south
 Now you're just meddling, Coach. ~ south
 I'm fixing to walk out if this keeps up. ~ texas
 Where I'm from we don't air it all out. I'm done. ~ texas
@@ -809,7 +809,7 @@ That's it. Business as usual. ~ nfl
 That's it. I've got class. ~ college
 That's it, Coach. I've got to catch my ride. ~ hs young
 That's about it, I reckon. ~ south
-Yes sir. That's it. ~ south
+Yes {coach_sir}. That's it. ~ south
 That's it. Nothing more. ~ northeast
 That's where I am. ~ west
 I mean, I told you most of it.
@@ -950,7 +950,7 @@ Honestly, I've moved past it already. ~ ego
 I don't sweat stuff like this. That's it. ~ ego
 You got it all. I don't hold stuff back. ~ ego
 I don't want to take up more of your time. That's it. ~ humble
-I think that's all, sir. Sorry if it wasn't much. ~ humble
+I think that's all, {coach_sir}. Sorry if it wasn't much. ~ humble
 I'm sorry, I don't really have more than that. ~ humble
 I don't want to make a fuss. That's all it was. ~ humble
 It's probably not as big as I made it sound. ~ humble
@@ -1135,7 +1135,7 @@ That's more than my last coach ever told me. ~ vet
 Thank you. I'll tell them at home what you said. ~ hs young
 Okay. That makes sense for my recruiting too. ~ hs
 I can work with that this offseason. ~ !nfl
-Yes sir. That's fair. ~ south
+Yes {coach_sir}. That's fair. ~ south
 I appreciate that, Coach. I truly do. ~ south
 That's fair. I can live with that. ~ midwest
 That's honest. I like that. ~ midwest
@@ -1216,9 +1216,9 @@ Alright, that's honest. Let's get to work.
 You know what, I needed somebody to be blunt with me.
 Thank you, {coach}. That's going to stick with me.
 Okay. You told me, I heard you, and we're good.
-Thank you, sir. I know I'm not there yet. ~ humble
+Thank you, {coach_sir}. I know I'm not there yet. ~ humble
 I'm just grateful you'd take the time to tell me. ~ humble
-Yes sir. I'll take every word of that to heart. ~ humble south
+Yes {coach_sir}. I'll take every word of that to heart. ~ humble south
 You were honest, so I'll be honest back. I'm going to change your mind. ~ ego competitor
 That's fair. Doesn't mean it stays that way. ~ ego
 Respect. Most people are too scared to tell me stuff like that. ~ ego
@@ -1270,7 +1270,7 @@ That's grown man talk. I appreciate it, Coach. ~ hs young
 I'm going to remember this when I'm older. ~ hs young
 Most coaches I had growing up just yelled. This was better. ~ hs
 That helps. Everybody's got an opinion on me, so it's good to hear the real one. ~ hs junior
-Yes sir. I'll get after it. ~ hs
+Yes {coach_sir}. I'll get after it. ~ hs
 That's more honest than anybody was on my visits. ~ college !walkon
 Nobody on campus talks to me like that. I needed it. ~ college
 That's more than I ever got from my last staff. ~ transfer
@@ -1289,7 +1289,7 @@ Where I got picked doesn't buy me anything in here. I get that. ~ firstround
 The whole facility talks around you. You just told me the truth. ~ nfl
 I've been around long enough to know a straight shooter when I hear one. ~ vet
 I appreciate y'all being square with me. ~ south
-Yes sir. That's as straight as it comes. ~ south
+Yes {coach_sir}. That's as straight as it comes. ~ south
 Where I'm from, folks talk straight. I appreciate it. ~ texas
 That's plain talk. I respect plain talk. ~ midwest
 Okay. No fluff. Good. ~ northeast
@@ -1358,7 +1358,7 @@ I didn't know you cared enough to tell me. Thank you. ~ humble
 {coach}, I'm grateful. I really am. ~ humble
 I know I've got a ways to go. Thank you for being clear. ~ humble
 Thank you, {coach}. I mean that. ~ humble
-Yes sir. Thank you, sir. ~ humble south
+Yes {coach_sir}. Thank you, {coach_sir}. ~ humble south
 I'll lead the right way off this. You have my word. ~ leader
 If I'm going to lead, I need to hear it like that. ~ leader
 That's how a locker room gets fixed. Straight talk. ~ leader vet
@@ -1509,7 +1509,7 @@ That's not what I heard on my visit. ~ college
 The people at home are going to want to hear that from you. ~ hs young
 I don't know how I'm telling them that at home. ~ hs young
 That ain't right, Coach. ~ south
-I don't think that's fair to me, sir. ~ south
+I don't think that's fair to me, {coach_sir}. ~ south
 I don't see it that way at all. ~ midwest
 That's not right. ~ midwest
 That's garbage, Coach. With respect. ~ northeast
@@ -1837,7 +1837,7 @@ Cool. ~ loose
 Okay. Business. ~ nfl
 I've heard worse in this league. ~ nfl vet
 Okay. I'll tell them at home. ~ hs young
-Yes sir. I understand. ~ south
+Yes {coach_sir}. I understand. ~ south
 Alright then. ~ midwest
 Okay. Got it. ~ northeast
 Okay. I hear it. ~ west
@@ -1943,8 +1943,8 @@ Alright. Not much I can do about it.
 Got a lot on my mind. I'll think about it.
 I'll talk it over with {friend}.
 Hm. ~ quiet
-Okay, sir. ~ quiet humble
-Yes sir. I'll keep working at it. ~ humble
+Okay, {coach_sir}. ~ quiet humble
+Yes {coach_sir}. I'll keep working at it. ~ humble
 Okay. I'll do what I can. ~ humble
 Sure. Doesn't change what I think of myself. ~ ego
 That's one opinion. ~ ego
@@ -1978,9 +1978,9 @@ Word. ~ young
 Heard it before. Okay. ~ vet
 Seen it all. It's fine. ~ vet
 Alright. Not my first time hearing something like that. ~ vet
-Okay, Coach. Yes sir. ~ hs
+Okay, Coach. Yes {coach_sir}. ~ hs
 Okay, Coach. I'll be in the weight room. ~ hs young
-Yes sir. I'll think about it, sir. ~ hs
+Yes {coach_sir}. I'll think about it, {coach_sir}. ~ hs
 Okay. Can I still come to you if I have questions? ~ hs young
 Okay. I'm still figuring stuff out. ~ hs freshman
 Alright. Lot of noise on campus, but I heard you. ~ college
@@ -1997,7 +1997,7 @@ Lot to take in as a rookie. ~ rookie
 Okay. I've been on the outside before. ~ undrafted
 Alright. I'll be out there with the scout team like always. ~ psquad
 People expect a lot from me. I get it. ~ firstround
-Yes sir. Alright. ~ south
+Yes {coach_sir}. Alright. ~ south
 Alrighty. ~ midwest
 Okay. Fair. ~ northeast
 I reckon that's how it is. ~ texas
@@ -2046,7 +2046,7 @@ Okay. Thanks, I think.
 Was there something else, {coach}?
 I see. Alright.
 Sure, {coach}.
-Yes sir, {coach}. ~ south
+Yes {coach_sir}, {coach}. ~ south
 Alright. I've had worse news. ~ vet
 Yeah, okay. I'll get my work in. ~ pro
 Okay. Same work either way. ~ pro steady
@@ -2072,8 +2072,8 @@ Okay. That comes with being picked high. ~ firstround
 Yeah, sounds good, I guess. ~ midwest
 Yeah, fine. ~ northeast
 Okay. No stress. ~ west
-Yes sir. That's fine. ~ texas
-I hear you, sir. ~ south
+Yes {coach_sir}. That's fine. ~ texas
+I hear you, {coach_sir}. ~ south
 Okay. Next read. ~ qb
 Gap integrity, Coach. I'll stay in mine. ~ lb
 Okay. I'll just kick. ~ kicker
@@ -2169,9 +2169,9 @@ Back home they're going to love hearing that. ~ young !nfl
 I'm telling everybody at home you said that. ~ hs young
 I can't wait to tell everybody back home. ~ young
 Thank you, Coach. I'm going to call home. ~ college young
-Yes sir. Thank you. ~ south
+Yes {coach_sir}. Thank you. ~ south
 Thank you, Coach. I appreciate it, I sure do. ~ south
-Thank you, sir. ~ south humble
+Thank you, {coach_sir}. ~ south humble
 Thanks, Coach. Means a lot. ~ midwest
 Appreciate that, Coach. ~ midwest
 That means a lot, Coach. No joke. ~ northeast
@@ -2313,7 +2313,7 @@ That's more than I deserve, Coach. ~ humble
 I'm just glad I'm helping. ~ humble
 Thank you. I'm just blessed to be here. ~ humble
 I'll give the credit to the guys who taught me. ~ humble
-Yes sir. I'll keep my head down and work. ~ humble south
+Yes {coach_sir}. I'll keep my head down and work. ~ humble south
 I'm just one piece, Coach. But that feels good. ~ humble
 Okay. Yeah. Thank you. ~ quiet
 I'm not good with words. But that means something. ~ quiet
@@ -2418,7 +2418,7 @@ Thank you, Coach. That makes me want to stay after every practice. ~ hs
 I'm only a sophomore. I didn't think anybody noticed. ~ sophomore
 That means a lot. I want to make the most of being a junior. ~ junior
 I want to leave something here before I graduate. That helps. ~ senior hs
-Yes sir. I won't let it go to my head. ~ hs south
+Yes {coach_sir}. I won't let it go to my head. ~ hs south
 That's why I came here. ~ college
 I walked on hoping somebody would say that someday. ~ walkon
 Nobody gave me anything. Hearing that means I earned it. ~ walkon
@@ -2455,7 +2455,7 @@ I'll keep flying around for you. ~ lb
 I take pride in the dirty work up front. Thank you. ~ dl
 I'll keep my coverage tight. Thank you, Coach. ~ cover
 Thanks, Coach. The guys up front make me look good. ~ skill
-Yes sir. That means a whole lot. ~ south
+Yes {coach_sir}. That means a whole lot. ~ south
 Shoot, Coach. Thank you. ~ south
 Y'all have done a lot for me. That means something. ~ south
 Well, I'll be. Thank you, {coach}. ~ texas
@@ -2962,7 +2962,7 @@ Alright, {coach}. Thanks.
 Thanks, {coach}. Back at it.
 Okay, {coach}. Good to know.
 Noted, {coach}.
-Yes sir, {coach}.
+Yes {coach_sir}, {coach}.
 Thanks, {coach}. I'll keep it going.
 Mm-hm. ~ quiet
 Right. Okay. ~ quiet
@@ -3018,7 +3018,7 @@ I don't know about that, but thanks. ~ humble
 Oh. I'm just doing what I'm told. ~ humble
 Thanks, Coach. I don't really think about it. ~ humble
 I'm not sure I deserve it, but okay. ~ humble
-Oh. Thank you, sir. ~ humble south
+Oh. Thank you, {coach_sir}. ~ humble south
 Okay. You know I'll keep working for you. ~ loyal
 Thanks. Whatever you need. ~ loyal
 Alright. I'm here for whatever. ~ loyal
@@ -3078,8 +3078,8 @@ Alright. I'll keep snapping. ~ snapper
 Okay. I'll keep getting after it up front. ~ dl
 Thanks. I'll keep hitting the hole. ~ rb
 Okay. I'll keep doing my job on the edge. ~ rusher
-Yes sir. Okay. ~ south
-Alright, sir. ~ south
+Yes {coach_sir}. Okay. ~ south
+Alright, {coach_sir}. ~ south
 Well, thank you kindly. ~ south calm
 Well, alright. Thanks. ~ midwest
 Yeah, alright. Thanks. ~ northeast
@@ -3121,7 +3121,7 @@ Alright. No more excuses from me.
 That's how you get the best out of me.
 That's a deal. I'll do it.
 Okay. I'll do it. ~ quiet
-Yes sir. I'll show you. ~ quiet
+Yes {coach_sir}. I'll show you. ~ quiet
 I'll let my play talk. ~ quiet
 I'll work harder than I ever have. ~ humble
 I won't waste the chance. ~ humble
@@ -3165,7 +3165,7 @@ I'll make the scouts notice. ~ college
 I'll make this my year. ~ college
 I'll make the college coaches notice. ~ hs
 I'll be ready by Friday. ~ hs
-Yes sir. I'll get after it. ~ south
+Yes {coach_sir}. I'll get after it. ~ south
 I'm fixing to show you something, Coach. ~ south
 I'll get it done. ~ midwest
 Alright. I'm all in. ~ midwest
@@ -3252,7 +3252,7 @@ You're right. I've got a lot to learn and I want to learn it. ~ humble
 Thank you, {coach}. I'll keep my head down and work. ~ humble
 I didn't know you thought that about me. I'll try to live up to it. ~ humble
 I'm grateful you'd even say that to me. ~ humble
-Yes sir. I just want to get better, so show me how. ~ humble
+Yes {coach_sir}. I just want to get better, so show me how. ~ humble
 I know I'm nothing special yet. I'll get there. ~ humble
 Okay. I'll raise mine, and I'll raise everybody's with me. ~ leader
 If I go, the guys go. I'll set the tone. ~ leader
@@ -3314,14 +3314,14 @@ Put anybody in front of me. I'll beat him. ~ competitor
 I want every competition drill. All of them. ~ competitor
 Keep score, then. I want to see it. ~ competitor
 You know I can't turn a challenge down. ~ competitor
-Yes sir, {coach}! I'm going to show everybody at this school. ~ hs
+Yes {coach_sir}, {coach}! I'm going to show everybody at this school. ~ hs
 I want to be the one people come out to see on Friday nights. ~ hs ego
 I'll be in the weight room before first period. ~ hs
 I'll get my homework done early so I can stay late. ~ hs
-Yes sir. I'll show you I'm not just some kid. ~ hs young
+Yes {coach_sir}. I'll show you I'm not just some kid. ~ hs young
 I'll get the other guys in my grade going too. ~ hs leader
 I'll make the upperclassmen nervous. ~ hs freshman
-Senior year, no regrets. Yes sir. ~ hs senior
+Senior year, no regrets. Yes {coach_sir}. ~ hs senior
 I'm not wasting my last go-round here. ~ hs senior
 I want to be the best junior in the state. Watch. ~ hs junior
 I'll be the hardest working sophomore you've ever had. ~ hs sophomore
@@ -3410,7 +3410,7 @@ I didn't come here to be just okay.
 You'll see it in my effort first. Then everywhere else.
 That's coaching. I appreciate it.
 I'll make sure you never have to have this talk with me again.
-[Yeah|Yes sir]. I can do that, and I will.
+[Yeah|Yes]. I can do that, and I will.
 I'm already thinking about what to fix first.
 I'm going to go look at myself on film and get to work.
 Okay. Nothing's going to outwork me.
@@ -3457,12 +3457,12 @@ I'll make my position coach's job easy.
 That's a good kind of pressure. I like it.
 I'm going to pick the brains of every coach in here.
 I'll be the guy asking for one more rep.
-Yes sir. You'll get it. ~ south
+Yes {coach_sir}. You'll get it. ~ south
 Absolutely, Coach. I'll take care of it. ~ midwest
 Bring it. I'm not scared of hard. ~ northeast competitor
 That's dope, Coach. I'm locked in. ~ west young
 Bet. I'm about to cook. ~ young loose
-I'll make it my mission, sir. ~ pro calm
+I'll make it my mission, {coach_sir}. ~ pro calm
 
 @key talk.reply.challenge.bad
 I've been doing that. You just haven't seen it.
@@ -3515,7 +3515,7 @@ I've been in this league a long time. I don't need to be challenged like a rooki
 My agent's going to love hearing that. ~ nfl
 I'll be honest, that sounds like something you'd say to a freshman. ~ college !freshman
 I've been doing that since summer workouts. ~ hs
-I've been working, sir. Hard. ~ south
+I've been working, {coach_sir}. Hard. ~ south
 That's not right, Coach. ~ midwest
 Come on. ~ northeast
 I'm already giving it. ~ west
@@ -3710,7 +3710,7 @@ I do the dirty work on special teams and nobody notices. ~ special
 I'm the hardest working guy on this defense and you know it. ~ defense
 I'm out there giving this offense everything. ~ offense
 Now hold on a minute, {coach}. ~ south
-I've been working my tail off, sir. Y'all just don't see it. ~ south
+I've been working my tail off, {coach_sir}. Y'all just don't see it. ~ south
 That ain't right. ~ south
 Where I come from, you don't talk to folks like that. ~ texas
 I was raised to work. Don't tell me I don't. ~ texas
@@ -3836,7 +3836,7 @@ I'll try, Coach. ~ shaky
 For you, Coach. ~ loyal
 Bet. ~ young modern
 Alright. Business as usual. ~ nfl vet
-Yes sir. I'll get to it. ~ south
+Yes {coach_sir}. I'll get to it. ~ south
 Okay. ~ northeast
 I'll keep pushing. ~ west
 Okay. I'll see what I can do.
@@ -3916,10 +3916,10 @@ I'll get some extra stuff in when I can.
 I'll find a spot for it.
 Yeah. That makes sense.
 Okay. I'll work. ~ quiet
-Understood, sir. ~ quiet
+Understood, {coach_sir}. ~ quiet
 Okay. Yeah. ~ quiet
-I'll try to be better, sir. ~ humble
-Yes sir. I'll keep trying. ~ humble
+I'll try to be better, {coach_sir}. ~ humble
+Yes {coach_sir}. I'll keep trying. ~ humble
 I'll do what I can. I'm still learning. ~ humble
 Okay. I'll try to earn it. ~ humble
 I'm already pretty good, but okay. ~ ego
@@ -3961,9 +3961,9 @@ I'll keep doing it the same way and push a bit. ~ steady
 I always want more anyway. ~ competitor
 Yeah. I'm always trying to win. ~ competitor
 Sure. Put a drill in front of me and I'll compete. ~ competitor
-Yes sir. I'll try to stay after school more. ~ hs
+Yes {coach_sir}. I'll try to stay after school more. ~ hs
 I've got a lot of homework, but I'll try. ~ hs
-Yes sir. I'll try harder. ~ hs young
+Yes {coach_sir}. I'll try harder. ~ hs young
 Okay. I'll ask my position coach what he wants. ~ hs
 I'll see if I can fit more in around class. ~ college
 Okay. I'll talk to the strength staff. ~ college
@@ -3997,9 +3997,9 @@ Alright. I'll watch some cut-ups of my runs. ~ rb
 Blocking, I guess. I can look at that. ~ te
 Okay. I'll look at my technique up front. ~ lineman
 My eyes could be cleaner, probably. ~ cover
-Yes sir. I'll see about it. ~ south
+Yes {coach_sir}. I'll see about it. ~ south
 I reckon I can. ~ south
-Yes sir, I'll look into it. ~ texas
+Yes {coach_sir}, I'll look into it. ~ texas
 Okay, can do. ~ midwest
 Yeah, I can do that, sure. ~ midwest
 Yeah, alright. ~ northeast
@@ -4043,7 +4043,7 @@ Okay. I'll fit it in.
 Sure, I can find some time.
 Time's tight, but I'll look.
 Alright, {coach}. I'll try to do better.
-Okay, sir. I'll try.
+Okay, {coach_sir}. I'll try.
 Okay. I'll see where I'm at.
 I'll go figure out where I'm short.
 Okay, yeah. I'll look into it.
@@ -4139,7 +4139,7 @@ That's fair. The young guys see that. I'll fix it. ~ nfl vet
 I'll make it right. I'm not a rookie anymore. ~ nfl !rookie
 I'll get it together. ~ college young
 I'm going to hear it at home too. You're right. ~ hs young
-Yes sir. You're right. ~ south
+Yes {coach_sir}. You're right. ~ south
 I hear you, Coach. I'm sorry. ~ south
 That's fair. ~ midwest
 That's on me. I'll fix it. ~ midwest
@@ -4332,11 +4332,11 @@ I won't make you have this talk with me again, {coach}.
 {friend} would've told me the same thing. You're both right.
 I can already hear {friend} saying I told you so. You're right.
 {team} deserves better than that from me.
-Yes sir. Nobody's ever been that straight with me. ~ hs
+Yes {coach_sir}. Nobody's ever been that straight with me. ~ hs
 I'm sorry, Coach. I'm still learning how all this works. ~ hs
 I want to be the kind of player the little guys look up to on Friday nights. ~ hs
 I don't want to be the guy everybody at school talks about. I'll fix it. ~ hs
-Yes sir. I want to make this program proud. ~ hs young
+Yes {coach_sir}. I want to make this program proud. ~ hs young
 I'll show you I'm not just some freshman. ~ hs freshman
 I'm a senior. I should know better, and now I do. ~ hs senior
 I'm almost an upperclassman. I've got to start acting like one. ~ hs sophomore
@@ -4378,10 +4378,10 @@ Receivers get a reputation fast. I don't want that one. ~ wr
 I get hit every play. I can take a hit in here too. ~ rb
 Tight ends do a little bit of everything. I'll do a little better at everything. ~ te
 Special teams is all details. I'll get mine right. ~ special
-Yes sir. I'll get it straightened out. ~ south
+Yes {coach_sir}. I'll get it straightened out. ~ south
 I hear you loud and clear, Coach. I reckon I needed that. ~ south
-Where I'm from, you take your lumps and get back to work. Yes sir. ~ texas
-Yes sir. Ain't nobody going to have to tell me again. ~ south
+Where I'm from, you take your lumps and get back to work. Yes {coach_sir}. ~ texas
+Yes {coach_sir}. Ain't nobody going to have to tell me again. ~ south
 Y'all have been patient with me. I'll make it right. ~ south
 Back home they'd have said it a lot louder. You're right. ~ texas
 Yeah, no, that's fair. I'll get after it. ~ midwest
@@ -4511,7 +4511,7 @@ I've been doing this longer than some of your coaches. ~ nfl vet
 I'll talk to the front office. ~ nfl ego
 They're going to hear about this at home. ~ hs young
 You can't talk to me like that, Coach. ~ hs young
-I don't appreciate that, sir. ~ south
+I don't appreciate that, {coach_sir}. ~ south
 That ain't right. ~ south
 That's not fair to me. ~ midwest
 Come on, Coach. That's not right. ~ northeast
@@ -4529,7 +4529,7 @@ Nobody gets to talk to me like that.
 Where is this even coming from?
 That's rich.
 You said it, and I heard it. I won't forget it.
-You want me to just say yes sir and smile?
+You want me to just say yes {coach_sir} and smile?
 I can't do anything right in your eyes.
 Nothing I do is ever enough for you.
 Why does it always come back to me?
@@ -4699,7 +4699,7 @@ I sacrifice my body for this team every day. ~ rb
 I do whatever you ask, block, run, whatever. And this is what I hear? ~ te
 I'm the last guy anybody should be worried about. ~ snapper
 Now hold on, Coach. That ain't fair and you know it. ~ south
-With all due respect, sir, I don't think that's right. ~ south
+With all due respect, {coach_sir}, I don't think that's right. ~ south
 Y'all always put it on me. ~ south
 Where I'm from, you don't talk to a man like that. ~ texas
 Well, that's a heck of a thing to say. ~ midwest
@@ -4758,8 +4758,8 @@ I'm leaving. Don't follow me. ~ hot
 I'm sorry I'm such a disappointment to you. ~ humble
 I didn't know you felt that way about me. ~ humble
 I'm going to go. I need to think. ~ humble quiet
-Sir, that hurt to hear. ~ humble south
-I've done everything you've asked, sir. ~ hs south
+{coach_sir}, that hurt to hear. ~ humble south
+I've done everything you've asked, {coach_sir}. ~ hs south
 I'm out here every day. Every day. ~ competitor
 You're judging me off one look. ~ pro
 Until I see it on tape, I'm not buying it. ~ pro
@@ -4945,8 +4945,8 @@ Right, {coach}. Sure.
 I'll try, I guess. ~ quiet
 Mm. Okay. ~ quiet
 Okay. I'll go now. ~ quiet
-Yes sir. I'll see if I can do better. ~ humble
-Yes sir. I'll keep chipping away at it. ~ humble
+Yes {coach_sir}. I'll see if I can do better. ~ humble
+Yes {coach_sir}. I'll keep chipping away at it. ~ humble
 I'll do whatever you think is best. ~ humble
 Sure. You're the coach. ~ ego
 I don't really see it, but okay. ~ ego
@@ -4987,10 +4987,10 @@ Okay. I didn't know. ~ young
 I've heard it before. I'll handle it. ~ vet
 Yep. Got it. ~ vet
 Been doing this long enough. I'll sort it out. ~ vet
-Yes sir. I'll do it how you want. ~ hs
+Yes {coach_sir}. I'll do it how you want. ~ hs
 Okay, Coach. Can I go to class now? ~ hs
-Yes sir. I'll try harder. ~ hs
-Yes sir. I'll ask the assistant coaches what to do. ~ hs
+Yes {coach_sir}. I'll try harder. ~ hs
+Yes {coach_sir}. I'll ask the assistant coaches what to do. ~ hs
 Okay. I'll bring it up in my position meeting. ~ college
 Alright. I'll look at it between classes. ~ college
 Okay. I'll work it into my schedule. ~ college
@@ -5001,7 +5001,7 @@ Okay. I'll keep doing what I'm doing on the scout team. ~ psquad
 People expect a lot from a first-rounder. I get it. ~ firstround
 Okay. I'm used to hearing stuff like that. ~ undrafted
 Okay. Still learning how you like things done here. ~ transfer
-Yes sir. I'll just keep showing up and working. ~ walkon
+Yes {coach_sir}. I'll just keep showing up and working. ~ walkon
 Okay. I've got time to figure it out. ~ redshirt
 Okay. I'm still figuring stuff out. ~ freshman
 I've been around here long enough to take a note. Okay. ~ college senior
@@ -5011,12 +5011,12 @@ Snappers don't get a lot of notes. I'll take it. ~ snapper
 Okay. The receivers coach and I can go over it. ~ wr
 Alright. Special teams coach can help me with that. ~ special
 Okay. I'll bring it up in the DB room. ~ db
-Sir, I'll get with it. ~ south
+{coach_sir}, I'll get with it. ~ south
 Alright then. I'll see about it. ~ south
 I reckon so. ~ south
 Okay, sure. Y'all know best. ~ south
-Fixing to get on it. Yes sir. ~ texas
-Well, alright, sir. I'll work at it. ~ texas
+Fixing to get on it. Yes {coach_sir}. ~ texas
+Well, alright, {coach_sir}. I'll work at it. ~ texas
 Yeah, okay. Could be. ~ midwest
 Well, I suppose that's fair. ~ midwest
 Yeah, yeah, I got it. ~ northeast
@@ -5057,12 +5057,12 @@ Linebackers get told stuff like that all the time. I'll look at it. ~ lb
 Alright. I'll figure it out in the trenches. ~ dl
 Tight ends get pulled in a lot of directions. I'll sort it out. ~ te
 Okay. I'll work it out on my own, like always. ~ kicker
-Alright, sir. I'll see to it. ~ south
+Alright, {coach_sir}. I'll see to it. ~ south
 Well, okay then. ~ midwest
 Yeah, alright. Fine. ~ northeast
 Okay, I'm down to work on it. ~ west young
 Okay, {coach}. I'll get with somebody on it. ~ pro
-Yes sir, {coach}. I'll look at it. ~ south
+Yes {coach_sir}, {coach}. I'll look at it. ~ south
 Okay, {coach}. I'll give it a go. ~ shaky
 Alright, {coach}. I'll get it sorted. ~ steady
 Yeah, yeah, {coach}. I got you. ~ loose
@@ -5128,7 +5128,7 @@ That means a lot at this point in my career. ~ nfl vet
 Everybody back home is going to be so happy. ~ young !nfl
 I can't wait to call home. ~ young !nfl
 They're going to want to hear that from you at home too. ~ hs young
-Yes sir. I'll hold you to it. ~ south
+Yes {coach_sir}. I'll hold you to it. ~ south
 Thank you, Coach. I mean that. ~ south
 Okay. That's good. Thank you. ~ midwest
 Alright. That works. ~ northeast
@@ -5275,7 +5275,7 @@ I don't want to let you down after that. ~ humble
 That's more than I'd ever ask for. ~ humble
 I'll try to be worth it. ~ humble
 I don't know what I did to deserve that. ~ humble
-Thank you, sir. I'll keep working. ~ humble
+Thank you, {coach_sir}. I'll keep working. ~ humble
 I'm blessed, Coach. Thank you. ~ humble
 That's humbling, honestly. ~ humble
 I just want to be worthy of that. ~ humble
@@ -5346,11 +5346,11 @@ Not many coaches say that to a guy my age. ~ vet
 I've been around long enough to know when a man means it. You mean it. ~ vet
 Good. That's one less thing for an old man to worry about. ~ vet
 I appreciate it. Guys my age don't get a lot of that. ~ vet nfl
-Yes sir. I'm going to work so hard. ~ hs young
+Yes {coach_sir}. I'm going to work so hard. ~ hs young
 Thank you, Coach. I'll keep my head right in class too. ~ hs
 That makes Friday nights feel different already. ~ hs
 Okay. I'm not going to mess this up. ~ hs young
-Thank you, sir. I'll be the first one in the weight room. ~ hs humble
+Thank you, {coach_sir}. I'll be the first one in the weight room. ~ hs humble
 That's the coach I thought I was coming to play for. ~ college
 Okay. I can actually focus on school and ball now. ~ college
 That's the kind of thing you don't hear on a visit. You hear it from a real coach. ~ college !walkon
@@ -5383,7 +5383,7 @@ Okay. I'll go run through somebody for you. ~ rb
 That means a lot to a guy who lives in the trenches. ~ ol
 I'll go fly around and hit somebody. ~ defense
 Well, I appreciate that, Coach. I surely do. ~ south
-Yes sir. Much obliged. ~ south
+Yes {coach_sir}. Much obliged. ~ south
 Appreciate you, Coach. Y'all have been good to me. ~ south
 Alright, I'm fixin' to go to work then. ~ texas
 Okay, that's real good. Thank you. ~ midwest
@@ -5439,7 +5439,7 @@ I've been in this league too long to trust a promise. ~ nfl vet
 Every team promises. Then they cut you. ~ nfl vet
 That's what everybody said in recruiting. ~ college
 That's what the last coach said. ~ hs
-I've heard that one, sir. ~ south
+I've heard that one, {coach_sir}. ~ south
 We'll see. ~ midwest
 Yeah, okay. ~ northeast
 I'll see it when I see it. ~ west
@@ -5642,7 +5642,7 @@ When I was young I'd have believed that. ~ vet
 Been there. Heard that. ~ vet
 I've had coaches promise me the moon. ~ vet
 Grown men have promised me stuff before. ~ hs
-Sir, I've heard that from teachers too. ~ hs
+{coach_sir}, I've heard that from teachers too. ~ hs
 That's recruiting talk, Coach. ~ college
 Every coach that came into my living room said the same thing. ~ college !walkon
 That sounds like something off a recruiting mailer. ~ college
@@ -5669,7 +5669,7 @@ Nobody keeps promises to a long snapper. ~ snapper
 Receivers hear that all the time. ~ wr
 I cover guys all day. I can tell when somebody's bluffing. ~ db
 Up front, we don't trust words. We trust what happens. ~ ol
-I've heard that, sir. Don't mean much. ~ south
+I've heard that, {coach_sir}. Don't mean much. ~ south
 That dog won't hunt, Coach. ~ south
 Bless your heart, Coach. ~ south
 Y'all always say that. ~ south
@@ -5692,7 +5692,7 @@ I don't know if I can trust anybody anymore. ~ shaky
 Nah. I can't do that again. ~ shaky young
 I've been in a lot of rooms like this one, Coach. ~ vet
 Save it for the young guys. ~ vet
-Sir, with respect, I've heard plenty of those. ~ south
+{coach_sir}, with respect, I've heard plenty of those. ~ south
 Y'all are all the same. ~ texas
 That's a bunch of nothing, honestly. ~ northeast
 Oh, geez. I don't believe that one. ~ midwest
@@ -5731,7 +5731,7 @@ Bet. ~ young modern
 Okay. ~ young
 Cool. ~ loose
 Okay. My agent will follow up. ~ nfl
-Yes sir. ~ south
+Yes {coach_sir}. ~ south
 Okay. ~ northeast
 Okay. Thanks. ~ west
 Okay. I'll keep that in mind.
@@ -5873,7 +5873,7 @@ Uh, okay. Thanks, I guess. ~ young
 I've heard a few of these. Okay. ~ vet
 Alright. I'll see it through. ~ vet
 Okay. At my age you just wait and see. ~ vet
-Okay, sir. I'll keep at it. ~ hs
+Okay, {coach_sir}. I'll keep at it. ~ hs
 Okay, Coach. I'll just keep showing up to practice. ~ hs
 Okay. I'll keep my head down on campus and see. ~ college
 I'll pass that along to my people. ~ nfl
@@ -5901,8 +5901,8 @@ Okay. I'll keep my eyes on my man. ~ db
 Alright. I'll keep hunting the quarterback. ~ rusher
 Okay. I'll keep hitting the hole hard. ~ rb
 Okay. I'll keep doing my job on special teams. ~ special
-Yes sir. We'll see. ~ south
-Alright, sir. Reckon we'll see. ~ south
+Yes {coach_sir}. We'll see. ~ south
+Alright, {coach_sir}. Reckon we'll see. ~ south
 Well, alright then. ~ texas
 Yeah, okay. That's fine. ~ midwest
 Okay. Sounds alright. ~ midwest
@@ -5929,7 +5929,7 @@ Okay. Don't forget, because I won't. ~ ego
 Alright. I'll act like I didn't hear it until it happens. ~ hot
 Okay. Thanks for telling me. ~ quiet
 I'll take that back to the room and see how it sits. ~ leader
-If it comes, it comes, sir. ~ south humble
+If it comes, it comes, {coach_sir}. ~ south humble
 Okay. Y'all do what y'all do. ~ texas
 I hear you, Coach. We'll see where it lands. ~ midwest
 Eh. We'll see. ~ northeast
@@ -5961,7 +5961,7 @@ Okay. I know where the line is now.
 I won't make you regret giving me a shot.
 Understood. I'll make sure of it.
 That's a wake-up call. I needed it.
-Yes sir. ~ quiet
+Yes {coach_sir}. ~ quiet
 Understood. ~ quiet
 It won't happen. ~ quiet
 I'm grateful for the warning. I'll fix it. ~ humble
@@ -5993,7 +5993,7 @@ I hear you. I've got a family to think about too. ~ nfl vet
 I'll stay out of trouble. ~ college young
 They'd kill me at home first. ~ hs young
 I don't want to lose my spot. I'll be good. ~ hs
-Yes sir. You won't have to. ~ south
+Yes {coach_sir}. You won't have to. ~ south
 I hear you, Coach. ~ midwest
 Understood. ~ northeast
 I hear you. I'll do better. ~ west
@@ -6114,12 +6114,12 @@ That's fair, {coach}. I'll handle it the right way.
 I appreciate you, {coach}. Really.
 I'm not going to embarrass {team}. You have my word.
 {friend} always said you were fair about stuff like this. He was right.
-Yes sir. Thank you for telling me first. ~ south
-Yes sir. I won't give you cause. ~ south
+Yes {coach_sir}. Thank you for telling me first. ~ south
+Yes {coach_sir}. I won't give you cause. ~ south
 I appreciate y'all looking out for me like that. ~ south
-Yes sir. I'll do right. ~ south humble
+Yes {coach_sir}. I'll do right. ~ south humble
 I'm fixing to get it together, Coach. ~ texas
-Yes sir. I was raised better than that. ~ texas
+Yes {coach_sir}. I was raised better than that. ~ texas
 That's a fair shake. I'll take it. ~ midwest
 I appreciate that, Coach. I'll get it squared away. ~ midwest
 You won't have to tell me again. Honest. ~ midwest
@@ -6178,7 +6178,7 @@ I appreciate it. I know I'm not above it. ~ ego
 I'm sorry I put you in this position. ~ humble
 I don't deserve the warning. Thank you for it anyway. ~ humble
 I'm grateful you even took the time. ~ humble
-Yes sir. Thank you, sir. ~ humble
+Yes {coach_sir}. Thank you, {coach_sir}. ~ humble
 Thank you. I'll fix it. ~ quiet
 Won't happen again, Coach. ~ quiet
 Okay. Thank you for telling me in private. ~ quiet
@@ -6200,16 +6200,16 @@ I know people are watching me closer. I'll be careful. ~ firstround
 I know a lot of people are counting on me. I'll be right. ~ firstround
 I'm just trying to stay up here. I'll do whatever you say. ~ psquad
 I'm still fighting to stick. I'll keep it clean. ~ psquad
-Yes sir. I didn't come to campus to waste it. ~ college
+Yes {coach_sir}. I didn't come to campus to waste it. ~ college
 Nobody handed me anything here. I'm not going to waste it now. ~ walkon
 I picked this place for a reason. I'm not going to wreck it. ~ transfer
 I already packed up and moved once. I'm not doing that again. ~ transfer
-Yes sir. I'm not going to waste my redshirt year being dumb. ~ redshirt
+Yes {coach_sir}. I'm not going to waste my redshirt year being dumb. ~ redshirt
 I've been in this program long enough to know better. ~ college senior
 I should be the one keeping the young guys in line. Not this. ~ college senior
 I'm still learning how it works here. Thanks for telling me. ~ college freshman
-Yes sir. I don't want to let this program down. ~ hs
-Yes sir. Friday nights mean too much to me to mess this up. ~ hs
+Yes {coach_sir}. I don't want to let this program down. ~ hs
+Yes {coach_sir}. Friday nights mean too much to me to mess this up. ~ hs
 I'm only a freshman. Thank you for being patient with me. ~ hs freshman
 I've got too much ahead of me to blow it. ~ hs junior
 This is my last go around here. I'm not going to mess it up. ~ hs senior
@@ -6225,7 +6225,7 @@ I don't want to be a receiver with a reputation. ~ wr
 I'll keep it as tight as my coverage. ~ db
 I'll be the most disciplined guy in the linebacker room. ~ lb
 Special teams guys can't afford to be a headache. Got it. ~ special
-Yes sir. You've got my word on that. ~ south
+Yes {coach_sir}. You've got my word on that. ~ south
 I'll be squared away, Coach. Count on it. ~ midwest
 Thanks for being up front. That's all I ask. ~ calm
 That scared me straight a little. Good. ~ loose
@@ -6241,7 +6241,7 @@ I know what you're saying. You won't have to do anything. ~ calm
 Okay. I want to compete the right way. ~ competitor
 I'll win this one too. Watch. ~ competitor
 It's handled. Thank you for coming to me like a man. ~ nfl vet
-Yes sir. Thank you for not giving up on me. ~ hs
+Yes {coach_sir}. Thank you for not giving up on me. ~ hs
 I don't want to be the guy everybody in school talks about. Thanks. ~ hs
 I'm grateful for the warning. A lot of guys on campus don't get one. ~ college
 I hear you. I'm not trying to end up in the portal over this. ~ college
@@ -6305,7 +6305,7 @@ My agent's going to have a field day with this. ~ nfl
 I've seen guys get warned like this. I know what comes next. ~ nfl vet
 I'll just go to the portal, then. ~ college nil ego
 This is going to get back home. ~ hs young
-I don't need threats, sir. ~ south
+I don't need threats, {coach_sir}. ~ south
 That's not right. ~ midwest
 Whatever, Coach. ~ northeast
 That's not cool. ~ west
@@ -6431,7 +6431,7 @@ Okay. I'll go. ~ quiet
 I don't know what I did to you. ~ quiet
 Wow. ~ quiet
 I thought I was doing okay. ~ humble
-I'm trying my best, sir. That hurts. ~ humble
+I'm trying my best, {coach_sir}. That hurts. ~ humble
 I don't know what else I can do. ~ humble
 I'd never cause you trouble on purpose. ~ humble
 That really hurt to hear. ~ humble
@@ -6536,8 +6536,8 @@ After all this time here? Wow. ~ college senior
 I'm a senior. I don't need this. ~ hs senior
 I'm only a freshman. Why are you coming at me? ~ hs freshman
 Wow. I thought this was supposed to be a team. ~ hs
-That's not fair, sir. I'm just a kid. ~ hs young
-Yes sir. Whatever you say, sir. ~ south
+That's not fair, {coach_sir}. I'm just a kid. ~ hs young
+Yes {coach_sir}. Whatever you say, {coach_sir}. ~ south
 I don't care for that one bit. ~ south
 Where I'm from, you don't talk to a man like that. ~ south
 Y'all are something else. ~ south
@@ -6565,7 +6565,7 @@ I block, I do everything you ask. And this? ~ te
 I hit people all day. A talk doesn't scare me. ~ lb
 
 @key talk.reply.warn.flat
-Yes sir.
+Yes {coach_sir}.
 Understood.
 Got it.
 Noted.
@@ -6594,7 +6594,7 @@ Got it. That it?
 Alright. I'll handle it.
 Understood. I'll be on my way.
 Yeah, I got it.
-Understood, sir.
+Understood, {coach_sir}.
 I know where the line is.
 Okay. Point taken.
 Will do.
@@ -6670,12 +6670,12 @@ That's clear, {coach}.
 Okay, {coach}. Anything else?
 Got it, {coach}.
 {coach}, I hear you.
-Yes sir. Understood. ~ south
-Yes sir. Won't be a problem. ~ south
-Yes sir. I'll mind it. ~ south
+Yes {coach_sir}. Understood. ~ south
+Yes {coach_sir}. Won't be a problem. ~ south
+Yes {coach_sir}. I'll mind it. ~ south
 Reckon so. ~ south
-I hear you, sir. ~ south
-Yes sir. I got it. ~ texas
+I hear you, {coach_sir}. ~ south
+Yes {coach_sir}. I got it. ~ texas
 Okay. Will do. ~ midwest
 Yep. Got it. ~ midwest
 Okay, sounds good. ~ midwest
@@ -6713,13 +6713,13 @@ Got it. Not worried. ~ ego
 Sure. I'm good. ~ ego
 I'll be fine. I always am. ~ ego
 Yeah, okay. Doesn't really apply to me, but okay. ~ ego
-Yes sir. I'll do my best. ~ humble
-Yes sir. I'll be careful. ~ humble
+Yes {coach_sir}. I'll do my best. ~ humble
+Yes {coach_sir}. I'll be careful. ~ humble
 Got it. I'll pass that along to the room. ~ leader
 Understood. I'll keep the guys in line too. ~ leader
 Okay. I'll handle it and handle the room. ~ leader
 Okay. It's your call. ~ loyal
-Yes sir. Whatever you need. ~ loyal
+Yes {coach_sir}. Whatever you need. ~ loyal
 I hear you. Same as always. ~ loyal
 Okay. Okay. I get it. ~ shaky
 I'll try not to mess it up. ~ shaky
@@ -6746,16 +6746,16 @@ Understood. Business as usual. ~ nfl
 Got it. It's a business. ~ nfl
 Okay. I know the league. ~ nfl vet
 Understood. I'll keep my head down in the facility. ~ nfl
-Yes sir. I'm still learning the rules up here. ~ rookie
+Yes {coach_sir}. I'm still learning the rules up here. ~ rookie
 Got it. Still new up here. ~ rookie
 Understood. I don't make waves. ~ undrafted
 Got it. I'm just trying to stick. ~ psquad
 Okay. I know people are watching. ~ firstround
-Yes sir. Okay. ~ hs
+Yes {coach_sir}. Okay. ~ hs
 Okay. I'll keep it together at school too. ~ hs
-Okay, sir. ~ hs
+Okay, {coach_sir}. ~ hs
 Got it. I won't mess up. ~ hs freshman
-Yes sir. It's my last year, I'll keep it clean. ~ hs senior
+Yes {coach_sir}. It's my last year, I'll keep it clean. ~ hs senior
 Got it. I'll keep it clean around campus. ~ college
 Understood. I'll keep it straight. ~ college
 Understood. I didn't come here to be a problem. ~ transfer
@@ -6821,7 +6821,7 @@ I've been in this league a long time. That's rare. Thank you. ~ nfl vet
 That's going to mean something back home too. ~ nfl vet
 Somebody back home is going to cry when I tell them. ~ young !nfl
 Thank you, Coach. That's going to help a lot. ~ college
-Yes sir. Thank you. ~ south
+Yes {coach_sir}. Thank you. ~ south
 Thank you kindly, Coach. ~ south
 Thanks, Coach. I appreciate that. ~ midwest
 Respect, Coach. ~ northeast
@@ -6937,7 +6937,7 @@ I don't know why me, but thank you. ~ humble
 There are guys who deserve it more. Thank you anyway. ~ humble
 I'll try to be worthy of it. ~ humble
 That's way more than I'd ask, Coach. ~ humble
-I'm grateful, sir. I'll take good care of it. ~ humble
+I'm grateful, {coach_sir}. I'll take good care of it. ~ humble
 I just try to keep my head down. I didn't expect anything like this. ~ humble
 About time. Thank you, though. ~ ego
 Good. Somebody around here finally noticed. ~ ego
@@ -6991,13 +6991,13 @@ Yo. For real? Thank you. ~ young
 That's fire, Coach. ~ young
 Coach, that's so cool. Thank you. ~ young
 I'm going to try not to freak out right now. ~ young
-Thank you, sir. I won't let you down. ~ young hs
+Thank you, {coach_sir}. I won't let you down. ~ young hs
 Guys my age don't get handed much. Thank you. ~ vet
 I've been around a long time. That's a classy thing to do. ~ vet
 That's a first for me, and I've been around. ~ vet
 I appreciate that more than the young guys would. ~ vet
 Thank you, Coach. I'm going to tell everybody. ~ hs young
-Yes sir. I'll be responsible. ~ hs
+Yes {coach_sir}. I'll be responsible. ~ hs
 I'm just a kid and you trust me with that? Thank you. ~ hs
 That's something I'll remember long after I leave campus. ~ college
 Coming to this school was the right call. ~ college
@@ -7026,7 +7026,7 @@ Receivers get attention, but not this kind. Thank you. ~ wr
 I'll run with it, Coach. ~ rb
 I'll go hit somebody extra hard for you. ~ defense
 I sure do appreciate that, Coach. ~ south
-Yes sir. That's mighty kind. ~ south
+Yes {coach_sir}. That's mighty kind. ~ south
 That's real kind of y'all. ~ south
 Well, I'll be. Thank you, Coach. ~ texas
 Oh, wow. That's really nice of you, Coach. ~ midwest
@@ -7043,7 +7043,7 @@ I'll make it mean something.
 I won't make you look bad for it.
 I feel a lot better about everything now.
 Thank you. That shows me where your heart is.
-That's mighty generous, sir. ~ south humble
+That's mighty generous, {coach_sir}. ~ south humble
 Wow, okay. Thanks, Coach. ~ quiet young
 That's going to help me focus. ~ calm pro
 I'll be a better teammate for it. ~ leader humble
@@ -7112,7 +7112,7 @@ That's not going to help me get paid. ~ nfl greedy
 I don't need that. I need my contract right. ~ nfl
 I'd rather be in class than get special treatment. ~ college
 I don't want the guys to think I'm soft. ~ hs young
-I don't need that, sir. ~ south
+I don't need that, {coach_sir}. ~ south
 No thanks. ~ midwest
 Nah. ~ northeast
 That's not what I need. ~ west
@@ -7278,7 +7278,7 @@ I've seen that move a dozen times. ~ vet
 You give that to rookies, not to me. ~ vet nfl
 Guys my age see right through that. ~ vet
 That's what teachers do when they want you to stop talking. ~ hs
-Sir, that's not what I needed. ~ hs
+{coach_sir}, that's not what I needed. ~ hs
 That's a recruiting move, Coach. I'm already here. ~ college
 I didn't come to this school for that. ~ college
 That's what coaches do to keep guys out of the portal. ~ college
@@ -7304,7 +7304,7 @@ Even the long snapper knows a brush-off. ~ snapper
 That's not how you treat a tight end who does the dirty work. ~ te
 I'm a running back. I know when I'm getting juked. ~ rb
 I'm a DB. I can see that coming from a mile away. ~ db
-No sir. That won't do. ~ south
+No {coach_sir}. That won't do. ~ south
 Y'all think that fixes it? ~ south
 Now hold on. That's not it at all. ~ texas
 Yeah, no. That doesn't work for me. ~ midwest
@@ -7346,11 +7346,11 @@ That's mid, Coach. ~ young
 I've been in this league long enough to spot a gesture. ~ nfl vet
 I don't need you babysitting me. ~ nfl
 I'm not a recruit you need to win over. ~ college
-Sir, I'm just being honest. That's not what I need. ~ hs humble
+{coach_sir}, I'm just being honest. That's not what I need. ~ hs humble
 That's what you give a guy you're about to forget about. ~ undrafted
 Quarterbacks get babied enough. I don't want it. ~ qb
 Edge guys don't do gifts. ~ rusher
-I appreciate it, sir, but it ain't what I need. ~ south
+I appreciate it, {coach_sir}, but it ain't what I need. ~ south
 That's whack, Coach. ~ west
 What is this? ~ northeast
 Well, that's not gonna help, Coach. ~ midwest
@@ -7374,7 +7374,7 @@ I'll tell the guys. ~ leader
 Thanks, Coach. ~ loyal
 Bet. ~ young modern
 Cool. ~ loose
-Yes sir. Thank you. ~ south
+Yes {coach_sir}. Thank you. ~ south
 Thanks. ~ midwest
 Thanks. ~ west
 Okay. Didn't see that coming.
@@ -7468,7 +7468,7 @@ Mm. Thanks. ~ quiet
 I don't really need it, but thank you. ~ humble
 Okay. If you think I should. ~ humble
 Thank you. I'm not sure I'm the right guy, but okay. ~ humble
-Okay, sir. Thank you. ~ humble
+Okay, {coach_sir}. Thank you. ~ humble
 It's not much, but okay. ~ ego
 Fine. I'll accept it. ~ ego
 Okay. I figured. ~ ego
@@ -7508,7 +7508,7 @@ Okay. That's lowkey cool. ~ young
 Okay. I've had stuff like that before. ~ vet
 At my age you take what you get. Thanks. ~ vet
 Sure. I've been around long enough to just say thanks. ~ vet
-Okay. Thank you, sir. ~ hs
+Okay. Thank you, {coach_sir}. ~ hs
 Thanks, Coach. I'll still do my homework. ~ hs young
 Okay. I'll work it around class. ~ college
 Okay. Got a lot going on with school, but okay. ~ college
@@ -7532,7 +7532,7 @@ Okay. I'll keep my routes sharp. ~ wr
 Okay. I'll keep my eyes on film. ~ db
 Okay. I'll keep my footwork right. ~ ol
 Well, alright. Thank you kindly. ~ south
-Yes sir. I appreciate it, I suppose. ~ south
+Yes {coach_sir}. I appreciate it, I suppose. ~ south
 Alright. Y'all know best. ~ south
 Well, alright. I reckon that's fine. ~ texas
 Okay. Yeah, that's alright. ~ midwest
@@ -7563,7 +7563,7 @@ Okay, sounds good, I guess. Cool. ~ loose
 I guess that's okay. I'm not sure. ~ shaky
 That's cool, I guess. Thanks. ~ young
 Alright. I've done this long enough to know it's fine. ~ vet nfl
-Yes sir. I'll do that. ~ hs
+Yes {coach_sir}. I'll do that. ~ hs
 Okay. A tight end does what he's told. ~ te
 Okay. Running backs roll with it. ~ rb
 Alrighty. Thank you. ~ midwest
@@ -7618,7 +7618,7 @@ I've been in this league long enough to know coaches don't usually just listen. 
 That doesn't happen much in this business. ~ nfl
 I'm going to call home and tell them I talked to you. ~ young !nfl
 Thank you, Coach. That helped more than you know. ~ south
-Yes sir. I feel better. ~ south
+Yes {coach_sir}. I feel better. ~ south
 That helped, Coach. ~ midwest
 Thanks for hearing me out. ~ northeast
 I needed that. Thank you. ~ west
@@ -7762,7 +7762,7 @@ It's hard for me to say stuff. Thanks for letting me take my time. ~ quiet
 Thank you for taking the time for somebody like me. ~ humble
 I don't want to be a bother. Thank you for listening. ~ humble
 I'm grateful you'd sit here and listen to all that. ~ humble
-You didn't have to do that. I appreciate it, sir. ~ humble
+You didn't have to do that. I appreciate it, {coach_sir}. ~ humble
 I'm sorry for going on. Thank you for being so patient. ~ humble
 I don't usually need anybody. That helped though. ~ ego
 Not a lot of people get to hear me like that. ~ ego
@@ -7841,16 +7841,16 @@ I didn't know anybody here to say that to. Thank you. ~ transfer
 It's a weird year for me. Thanks for listening. ~ redshirt
 I've been here a long time and that's the first time I said all that. ~ college senior
 Thank you, Coach. I can't talk to my teachers like that. ~ hs
-That helped a lot, sir. ~ hs young
-Thank you for listening, sir. Nobody at school does. ~ hs
+That helped a lot, {coach_sir}. ~ hs young
+Thank you for listening, {coach_sir}. Nobody at school does. ~ hs
 I didn't think you'd care about all that. Thank you. ~ hs young
 I feel a lot better. Thanks, Coach. ~ hs freshman
 Thanks, Coach. Senior year's a lot. ~ hs senior
 I feel like a grown up talking to you like that. Thanks. ~ hs sophomore
-Yes sir. That meant a lot. ~ south
+Yes {coach_sir}. That meant a lot. ~ south
 I appreciate y'all making time for me like that. ~ south
 I sure needed that. ~ south
-That helped, sir. I'm obliged. ~ texas
+That helped, {coach_sir}. I'm obliged. ~ texas
 Thanks for listening, Coach. I mean it. ~ texas
 That was real nice of you. Thanks. ~ midwest
 Appreciate it. I feel a whole lot better. ~ midwest
@@ -7921,7 +7921,7 @@ Ha. Great talk, Coach. ~ loose
 I've had GMs listen better than that. ~ nfl vet
 I'll talk to my agent. He'll do something. ~ nfl
 Okay. I'll ask my position coach. ~ !nfl
-Yes sir. I guess that's it. ~ south
+Yes {coach_sir}. I guess that's it. ~ south
 Okay. That's that, then. ~ midwest
 Come on, Coach. Give me something. ~ northeast
 That didn't help. ~ west
@@ -8066,7 +8066,7 @@ I'm sorry. I thought you might know what to do. ~ humble
 I don't want to bother you. I just hoped you'd help. ~ humble
 I understand if you're busy. I just needed some help. ~ humble
 I guess I'm not important enough for an answer. ~ humble
-I'm sorry, sir. I thought you could help. ~ humble
+I'm sorry, {coach_sir}. I thought you could help. ~ humble
 I don't come in here for nothing. Do something. ~ ego
 I'm not here to talk. I'm here for results. ~ ego
 If I was anybody else I'd understand. But it's me. ~ ego
@@ -8147,11 +8147,11 @@ Nobody tells a redshirt anything. Now you won't either. ~ redshirt
 I've been here long enough to deserve an answer. ~ college senior
 I thought coaches were supposed to help. ~ hs young
 My teachers at least tell me what to do. ~ hs
-Sir? Are you going to help me? ~ hs
+{coach_sir}? Are you going to help me? ~ hs
 I'm just a sophomore. I don't know what to do. ~ hs sophomore
 I'm a senior. I don't have time for nothing. ~ hs senior
 Well, I reckon that's my answer. ~ south
-Yes sir. I was hoping for a little more than that. ~ south
+Yes {coach_sir}. I was hoping for a little more than that. ~ south
 Y'all just going to let it ride? ~ south
 That's a whole lot of nothing. ~ texas
 I'd have liked some help, Coach. ~ texas
@@ -8340,7 +8340,7 @@ Okay. Done. ~ quiet
 Sorry. That's all. ~ quiet
 Don't know. ~ quiet
 Sorry for taking up your time. ~ humble
-I hope that made sense, sir. ~ humble
+I hope that made sense, {coach_sir}. ~ humble
 I don't know if I should have brought that up. ~ humble
 Sorry. I'm not good at explaining. ~ humble
 Well. That's how I see it. ~ ego
@@ -8396,14 +8396,14 @@ Anyway. Different place, different deal. ~ transfer
 Anyway, I'm just a walk on. It's fine. ~ walkon
 It's a weird year. That's all. ~ redshirt
 I've seen a lot here. That's just another thing. ~ college senior
-I don't know, sir. That's it, I guess. ~ hs
-Sorry, sir. I'll go. ~ hs
-I don't know how to say it better, sir. ~ hs young
+I don't know, {coach_sir}. That's it, I guess. ~ hs
+Sorry, {coach_sir}. I'll go. ~ hs
+I don't know how to say it better, {coach_sir}. ~ hs young
 Sorry, I'm not good at this. ~ hs freshman
 Yeah. That's what's going on. ~ hs junior
 Well, that's about the size of it. ~ south
 Reckon I've said my piece. ~ south
-Yes sir. That's about all. ~ south
+Yes {coach_sir}. That's about all. ~ south
 Well. That's the long and short of it. ~ texas
 Ope, I talked a lot. Anyway. ~ midwest
 Yeah, so. That's kinda it. ~ midwest
@@ -8500,7 +8500,7 @@ I'm going to go call home. ~ college young
 I've got to catch my ride. Thanks, Coach. ~ hs young
 My ride's outside. Thanks, Coach. ~ hs young
 I'll see you after school. ~ hs young
-Yes sir. Thank you. ~ south
+Yes {coach_sir}. Thank you. ~ south
 Thank you kindly, Coach. ~ south
 Thanks, Coach. ~ midwest
 Alright. Let's go. ~ northeast
@@ -8619,13 +8619,13 @@ All right. Let's be great.
 Alright. Fist bump and I'm gone.
 Bring it in, Coach.
 Okay, I'm hugging you. Deal with it. ~ loose
-Thank you, sir. ~ quiet
+Thank you, {coach_sir}. ~ quiet
 Okay. Good. ~ quiet
 Mm. Thanks, Coach. ~ quiet
 Yeah. Okay. Thank you. ~ quiet
 I'll go. Thanks. ~ quiet
 Right. Good. ~ quiet
-Yes sir. Thanks. ~ quiet
+Yes {coach_sir}. Thanks. ~ quiet
 That was good. Thank you. ~ quiet humble
 Thanks. See you out there. ~ quiet
 I'll try to be worth it. ~ humble
@@ -8701,11 +8701,11 @@ I'm going to go win every drill. ~ competitor
 Let's go. I'm hungry. ~ competitor young
 Thanks, Coach. Time to go put on for the school. ~ hs
 Okay, Coach. I'm going to go lift with the guys. ~ hs young
-Yes sir. Thank you, Coach. ~ hs young
+Yes {coach_sir}. Thank you, Coach. ~ hs young
 I won't let the team down. ~ hs
 Friday nights, Coach. Let's go. ~ hs
 Thanks, Coach. You're the best coach I've had. ~ hs young
-Yes sir. I'll be in the weight room. ~ hs
+Yes {coach_sir}. I'll be in the weight room. ~ hs
 Saturdays, Coach. That's what this is for. ~ college
 I'll go find the strength staff. ~ college
 I'll go knock out some film before class. ~ college
@@ -8718,7 +8718,7 @@ Appreciate you, man. ~ nfl vet
 That's why guys want to play for you. ~ vet
 I've been around a while. That was a good one. ~ vet
 Okay. I'm going to go learn everything I can. ~ freshman
-Thank you, sir. I'm still figuring it all out. ~ freshman young
+Thank you, {coach_sir}. I'm still figuring it all out. ~ freshman young
 I'll make sure the young guys see me working. ~ senior
 I've been around long enough to know where I stand with you. ~ senior
 I'll keep stacking good days. ~ redshirt
@@ -8726,7 +8726,7 @@ I'm glad I came here, Coach. ~ transfer
 This is why I picked this place. ~ transfer
 I'm going to keep proving I belong. ~ walkon
 I won't waste a second of this, Coach. ~ walkon
-Yes sir. I'll go find the vets and learn. ~ rookie
+Yes {coach_sir}. I'll go find the vets and learn. ~ rookie
 I'm learning, Coach. I'll get there. ~ rookie
 I'll keep scrapping, Coach. ~ undrafted
 I'll live up to it. Every day. ~ firstround
@@ -8743,10 +8743,10 @@ Going to go watch some tape with the backers. ~ lb
 Back to my backpedal. ~ db
 I'll go kick a few. ~ kicker
 I'll go snap a few hundred. ~ snapper
-Yes sir. Preciate you, Coach. ~ south
+Yes {coach_sir}. Preciate you, Coach. ~ south
 Alright now. Thank you, Coach. ~ south
 Y'all are good people. ~ south
-Thank you, sir. Let's ride. ~ texas
+Thank you, {coach_sir}. Let's ride. ~ texas
 Sounds good, Coach. Thanks a bunch. ~ midwest
 Okay. Appreciate ya. ~ midwest
 Alright, I'm outta here. Thanks. ~ northeast
@@ -8772,7 +8772,7 @@ I'm good. Better than good. ~ ego
 Okay. I'll keep doing what I do. ~ steady
 Thank you, Coach. I'll see you around campus. ~ college
 Ope, I'll get out of your hair. Thanks, Coach. ~ midwest
-Fixing to go get some work in. Thank you, sir. ~ texas
+Fixing to go get some work in. Thank you, {coach_sir}. ~ texas
 Alright, I'm going to grab a bite and get back at it. ~ young
 Good looking out, Coach. ~ northeast
 Hella appreciate it, Coach. ~ west young
@@ -8824,7 +8824,7 @@ I'm calling my agent. ~ nfl
 I've got a meeting. ~ nfl
 I've got class. ~ !nfl
 My ride's waiting. ~ hs young
-Yes sir. I'll go. ~ south
+Yes {coach_sir}. I'll go. ~ south
 I'm going to head out. ~ midwest
 I'm done. ~ northeast
 I'll see myself out.
@@ -8952,7 +8952,7 @@ No. I'm going. ~ quiet
 I'm sorry I took up your time. ~ humble
 I understand. I'll go. ~ humble
 Excuse me, Coach. ~ humble
-Yes sir. Excuse me. ~ humble
+Yes {coach_sir}. Excuse me. ~ humble
 I'll keep my head down. I'm sorry. ~ humble
 You'll see. Everybody will. ~ ego
 You need me more than I need this. ~ ego
@@ -9009,7 +9009,7 @@ You just lit a fire. Not the good kind. ~ competitor
 I'll go take it out on somebody in drills. ~ competitor
 Somebody on the scout team is about to have a bad day. ~ competitor
 I'm going to go sit outside for a minute. ~ hs young
-Yes sir. Can I go now? ~ hs young
+Yes {coach_sir}. Can I go now? ~ hs young
 I've got a ride waiting. I'm going. ~ hs young
 Whatever. I'll be in the locker room. ~ hs young
 I'd rather be with my teammates right now. ~ hs young
@@ -9022,13 +9022,13 @@ I've been in this league too long for this. ~ nfl vet
 It's a business. I'll treat it like one. ~ nfl
 I've got a lift with my guys. Excuse me. ~ nfl
 Grown men don't need this. I'm out. ~ vet
-Yes sir. Sorry. Can I go? ~ freshman young
+Yes {coach_sir}. Sorry. Can I go? ~ freshman young
 I've given this place everything. ~ senior
 I don't have time for this anymore. ~ senior
 I left somewhere else for this? ~ transfer
 Same stuff, different place. ~ transfer
 Guys like me don't get heard. I know. ~ walkon
-Yes sir. I'll stay in my lane. ~ rookie
+Yes {coach_sir}. I'll stay in my lane. ~ rookie
 I've been doubted before. ~ undrafted
 Everybody's got something to say to me. ~ firstround
 I'll keep my head down like always. ~ psquad
@@ -9043,7 +9043,7 @@ Somebody's quarterback is going to pay for this. ~ rusher
 Film room. By myself. ~ lb
 Fine. I'll go block somebody. ~ te
 I'll go snap into the net. ~ snapper
-Yes sir. I'll be going now. ~ south
+Yes {coach_sir}. I'll be going now. ~ south
 Alright then. Y'all have a good one. ~ south
 Bless your heart, Coach. ~ south
 I'm fixing to leave, Coach. ~ texas
@@ -9130,7 +9130,7 @@ Okay, Coach. ~ young
 I've got treatment. ~ nfl
 I've got class. ~ college
 My ride's here. ~ hs young
-Yes sir. ~ south
+Yes {coach_sir}. ~ south
 See ya, Coach. ~ midwest
 Later, Coach. ~ northeast
 Catch you later. ~ west
@@ -9244,9 +9244,9 @@ Alright. Go {team}.
 Alright. Bye. ~ quiet
 I'll go. ~ quiet
 See ya. ~ quiet
-Thank you for your time, sir. ~ humble
+Thank you for your time, {coach_sir}. ~ humble
 Okay, Coach. I'll keep working. ~ humble
-Yes sir. I'll do my best. ~ humble
+Yes {coach_sir}. I'll do my best. ~ humble
 Alright. I'll be me. ~ ego
 Cool. I'm good either way. ~ ego
 Okay. You know where I'm at. ~ ego
@@ -9283,11 +9283,11 @@ I've got a position meeting. See you. ~ nfl
 Alright. I've got a massage booked. ~ nfl vet
 Okay. I'm going to go see the strength guys. ~ nfl
 Alright, man. ~ nfl vet
-Okay. Yes sir. ~ freshman young
+Okay. Yes {coach_sir}. ~ freshman young
 Alright. I've been through enough of these. ~ senior
 Okay. Still figuring this place out. ~ transfer
 Alright. I'll keep at it. ~ walkon
-Okay. Yes sir. I'll go find my vet. ~ rookie
+Okay. Yes {coach_sir}. I'll go find my vet. ~ rookie
 Okay. I'll go get my work in with the scout guys. ~ psquad
 Alright. Scout team calls. ~ redshirt
 Okay. I'll go watch some tape on my drops. ~ qb
@@ -9300,7 +9300,7 @@ Alright. Linebacker room's waiting. ~ lb
 Okay. I'll go work on some footwork. ~ db
 Okay. I'll go get some kicks in. ~ kicker
 Alright. I'll go get some snaps in. ~ snapper
-Alright, Coach. Yes sir. ~ south
+Alright, Coach. Yes {coach_sir}. ~ south
 Alright now. ~ south
 Okay. I'm fixing to head out. ~ texas
 Okie doke. ~ midwest
@@ -9337,7 +9337,7 @@ Alright. I'll be in the players' lounge. ~ nfl
 Okay. I'll go find my locker. ~ freshman young
 Okay. Seen this before. ~ senior
 Alright. I've got a lot to think about. ~ junior
-Okay. Yes sir. I'll go. ~ sophomore young
+Okay. Yes {coach_sir}. I'll go. ~ sophomore young
 Alright. I'll keep learning. ~ redshirt
 Okay. I'll keep learning the playbook. ~ transfer
 Okay. Back to it, then. ~ walkon
@@ -9354,8 +9354,8 @@ Okay. I'll go study some coverage. ~ cover
 Alright. I'll go hit a few into the net. ~ kicker
 Okay. I'll be with the specialists. ~ snapper
 Alright. Specialists' corner it is. ~ special
-Alright then, sir. ~ south
-Alright, sir. I'm headed out. ~ texas
+Alright then, {coach_sir}. ~ south
+Alright, {coach_sir}. I'm headed out. ~ texas
 Okay, then. Take care now. ~ midwest
 Alright, I'm gonna get outta here. ~ northeast
 Okay. I'm gonna cruise. ~ west
@@ -9508,9 +9508,9 @@ I'll be alright. I pray on it. ~ humble
 I'd hate to waste your time with it. ~ humble
 It's small, Coach. Somebody's always got it worse. ~ humble
 I'm just trying to do my part. ~ humble
-Yes sir, I'm alright. Thank you for checking. ~ humble
+Yes {coach_sir}, I'm alright. Thank you for checking. ~ humble
 I don't want to be a bother. ~ humble
-It's nothing, sir. I'm fine, honest. ~ humble
+It's nothing, {coach_sir}. I'm fine, honest. ~ humble
 Coach, I'm built for this. ~ ego
 Nothing gets to me. You know that. ~ ego
 Pressure is a privilege, Coach. I'm good. ~ ego
@@ -9643,8 +9643,8 @@ I'm good. I'm just itching to hit somebody. ~ competitor
 I'm a teenager, Coach. We're all like this. ~ hs young
 It's just high school stuff, Coach. You don't want to hear it. ~ hs
 I'm good, Coach. Honest. ~ hs young
-Nothing, sir. I'm just tired from getting up so early. ~ hs young
-Yes sir, I'm fine. Can I go back to the guys? ~ hs young
+Nothing, {coach_sir}. I'm just tired from getting up so early. ~ hs young
+Yes {coach_sir}, I'm fine. Can I go back to the guys? ~ hs young
 Nah, Coach, I'm good. For real for real. ~ hs young
 I'm good, Coach. I probably just need to eat more. ~ hs young
 Nothing, Coach. I'll tell you if it gets serious. ~ hs
@@ -9714,7 +9714,7 @@ We offense guys think too much. I'm fine. ~ offense
 I'm still getting used to everything. That's all. ~ freshman
 It's all new, Coach. I'm fine. ~ freshman young
 Freshman stuff. I'll figure it out. ~ freshman
-I'm good, sir. Just trying to keep up. ~ freshman
+I'm good, {coach_sir}. Just trying to keep up. ~ freshman
 I've been through worse around here. I'm fine. ~ senior
 I've seen it all here. This is nothing. ~ senior
 Senior year brain, Coach. I'm good. ~ senior
@@ -9726,14 +9726,14 @@ I've moved around enough to handle anything. ~ transfer
 I'm just happy to be here. Really. ~ walkon
 I'm used to fighting for everything. I'm fine. ~ walkon
 Rookie stuff. I'll figure it out. ~ rookie
-Yes sir, I'm alright. Still learning the ropes. ~ rookie
+Yes {coach_sir}, I'm alright. Still learning the ropes. ~ rookie
 I've been through worse than whatever this is. ~ undrafted
 Nobody ever gave me anything. I'll handle this too. ~ undrafted
 Everybody wants to know what's going on with me. Nothing. ~ firstround
 I'm used to the attention. I'm fine. ~ firstround
 I'm good, Coach. Same grind. ~ psquad
 I'm alright, Coach. Ain't no thing. ~ south
-I'm doing fine, sir. Just tired is all. ~ south
+I'm doing fine, {coach_sir}. Just tired is all. ~ south
 Shoot, I'm good, Coach. ~ south
 Y'all worry too much. ~ south
 I'm good, Coach. Just a little worn out is all. ~ texas
@@ -9754,7 +9754,7 @@ It's all love, Coach. I'm good. ~ west
 Just vibing, Coach. Nothing heavy. ~ west
 I'm good, man. Just riding the wave. ~ west
 It's all gravy, Coach. ~ west
-I'm alright, sir. Thank you though.
+I'm alright, {coach_sir}. Thank you though.
 That's kind of you, Coach. I'm okay.
 I appreciate you, but there's nothing there.
 Thanks for looking out. I'm good, honestly.
@@ -10038,3 +10038,165 @@ I'm good. I'm just a little in my feelings.
 Some days are heavy. This one's not that bad.
 Nothing worth repeating, Coach.
 Mostly I just need a nap.
+# His answer on his friend who just left (new bugs, Cain 2026-11-03), to any
+# move but a promise (which keeps talk.reply.promise): by how it landed.
+# talk.reply.friend.hand is asking a teammate to look out for him ({friend}
+# is his closest friend still on the team, who is who you'd ask first).
+# Fact: gone (the friend who left's first name). Never says why or where the
+# friend went.
+@key talk.reply.friend.good
+Yeah. {gone} would want me to keep going.
+You're right. I can't sit around missing him.
+Thanks, Coach. I needed to hear something.
+Okay. I'll be alright.
+That helps. Honestly.
+I'll call {gone} tonight and tell him I'm good.
+I'm still here. I'm going to make it count.
+Okay. One day at a time.
+That makes it easier.
+{gone} would be on me if I let this get to me.
+I'll be good, Coach. I just needed a minute.
+It still stings. But I hear you.
+That's fair. I've got guys here too.
+Alright. Time to get back to work.
+I feel better about it now.
+I appreciate you checking on me, Coach.
+Thanks for caring about more than football.
+Okay. I'm going to play for him too.
+You're right. This is still my team.
+I needed somebody to say that out loud.
+That's the first time this week I've felt okay about it.
+Alright. I'm with you.
+Thanks. That means more than you know.
+I can do that.
+Okay. Head down, keep working.
+I'll be there for the guys like {gone} was for me.
+Yeah. I'm not done here.
+That's real. Thank you.
+I didn't expect that from you, Coach. Thanks.
+Okay. I'll stop moping and start working.
+Yes, Coach. I'll be alright. ~ hs
+Thanks, Coach. I'll tell my mom we talked. ~ hs young
+Thank you, Coach. Really. ~ hs
+That helps, Coach. I'll be ready Saturday. ~ college
+Okay. I'm locked in. ~ college
+Appreciate it. I'll be ready Sunday. ~ nfl
+Respect, Coach. I'll handle my business. ~ nfl
+Yeah. I know how this league goes. I'm good. ~ nfl vet
+Thanks. ~ quiet
+Okay. That helps. ~ quiet
+Alright. I'll take it out on the field. ~ hot
+Thank you. I needed that from you. ~ loyal
+Okay. I'll keep the guys together. ~ leader
+I'll be fine. I always am. ~ ego
+Thank you, Coach. I'm sorry for being off. ~ humble
+Okay. I feel steadier. ~ shaky
+Good. I need something to chase. ~ competitor
+@key talk.reply.friend.flat
+I hear you. It's just weird without him.
+Yeah. Okay.
+I guess.
+It is what it is.
+I'll figure it out.
+Maybe. We'll see.
+I know. Still stings.
+Thanks. I'm just not there yet.
+Okay, Coach.
+I get it. It's going to take time.
+Sure. I'll try.
+Yeah, I know.
+I'll be okay. Eventually.
+I'm working on it.
+That's fair, I guess.
+I hear you. I just miss him.
+Okay. Can I think about it?
+I know you mean well.
+Right.
+Alright.
+It's not that easy, but okay.
+Maybe you're right.
+I'll get there.
+Okay. It's just a lot right now.
+I know he's not coming back. I get it.
+Okay, Coach. ~ hs
+I'll try, Coach. ~ hs
+I hear you, Coach. ~ college
+Yeah. Business, right. ~ nfl
+I've been through this before. I'll be fine. ~ nfl vet
+Okay. ~ quiet
+Mm. ~ quiet
+Fine. ~ hot
+I'll keep my head down. ~ steady
+Okay. I'm still a little shaken. ~ shaky
+@key talk.reply.friend.bad
+With respect, Coach, you don't know what he meant to me.
+That's not really what I needed to hear.
+I don't think you get it.
+He was my guy. It's not that simple.
+Okay. Can I go?
+I'll deal with it on my own.
+You make it sound easy.
+I didn't come in here for a speech.
+I'm not trying to be difficult. It just isn't that simple.
+That's easy to say when it's not your friend.
+I know you're trying, Coach. That's not it.
+I just need some time, I guess.
+That kind of makes it worse.
+I'm not ready to talk about it like that.
+I'll be fine. I don't need to talk about it.
+Can we not do this right now?
+I don't want to talk about {gone} like he's a problem.
+I hear you, Coach. I just don't feel it.
+Okay. I'm going to go.
+With respect, Coach, I'd rather not. ~ hs
+I'm sorry, Coach. I just can't right now. ~ hs
+With respect, that's not how it feels from where I'm sitting. ~ college
+Respectfully, that's easy for you to say. You weren't close with him. ~ !hs
+You don't get to tell me how to feel about that. ~ nfl hot
+That's the business talking. I'm talking about my friend. ~ nfl
+I've heard that speech before. ~ nfl vet
+... ~ quiet
+I'm done talking about it. ~ quiet
+I'm going to say something I regret, Coach. Can I go? ~ hot
+I'd do the same for any of these guys. You should know that. ~ loyal
+I'm good on my own. I don't need this. ~ ego
+I'm sorry. I just can't think about it right now. ~ humble
+I don't know. I'm all over the place. ~ shaky
+@key talk.reply.friend.hand.good
+{friend}'s good people. Thanks, Coach.
+I appreciate that. It helps knowing somebody's got my back.
+Okay. That actually helps.
+{friend} and I already talk a lot. That'll be good.
+Thanks for thinking about that, Coach.
+That's good. I don't want to be alone in this.
+It'll be nice having somebody to lean on.
+That means a lot. Thank you.
+I'll look out for him too. Both ways.
+Okay. I'll sit with {friend} at meals.
+That's smart. Thank you, Coach.
+Thanks. I didn't want to ask anybody myself.
+Thank you, Coach. That helps. ~ hs
+Appreciate that, Coach. ~ nfl
+Okay. Thanks. ~ quiet
+Good. I'll pay it forward with the young guys. ~ leader
+@key talk.reply.friend.hand.flat
+Okay. I mean, I'm fine, but okay.
+Sure. That works.
+I guess that's good.
+Alright. We'll see how it goes.
+Okay, Coach.
+I don't really need it, but thanks.
+{friend}'s cool. Okay.
+Alright. Whatever helps.
+That's fine.
+Okay. ~ quiet
+@key talk.reply.friend.hand.bad
+I don't need a babysitter, Coach.
+With respect, I can find my own friends.
+I'd rather you didn't make it a thing with the guys.
+Now everybody's going to know.
+Okay, but please don't make a big deal of it.
+I'm not a kid, Coach. ~ !hs
+I'm good on my own. ~ ego
+Please don't tell the guys about this. ~ quiet
+I don't need anybody watching me. ~ hot
