@@ -2011,6 +2011,69 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
     }
 }
 
+/// Each varsity player's game reps for his next step (minor bug 247): his
+/// offensive and defensive snaps as a share of a full varsity starter's
+/// season (`season::HS_STARTER_SNAPS`), with your JV and freshman games'
+/// added (shorter games on a running clock, so a full JV season reads
+/// about like a rotation player's). A school's season counts when its
+/// games were on the engine (yours always are); a school that couldn't
+/// field a team some weeks plays those on the stand-in, so its players'
+/// varsity snaps are read against the games it played on the engine, and
+/// with fewer than half there his role decides. A transfer who sat the
+/// year and the kicking spots leave it to his depth chart role.
+fn keep_reps(w: &mut World, s: usize, filed: &[(usize, HsLine)]) {
+    let year = w.year;
+    let Some(hs) = w.hs_season.as_ref() else { return };
+    let engine = hs.on_engine;
+    let seat = w.seat_school();
+    let mut on_engine: HashMap<usize, u32> = HashMap::new();
+    for (_, l) in filed {
+        let e = on_engine.entry(l.school as usize).or_default();
+        *e = (*e).max(l.games as u32);
+    }
+    let scale = |h: usize| {
+        let e = on_engine.get(&h).copied().unwrap_or(0);
+        let all = hs.results.get(h).map_or(0, |r| r.games()).max(e);
+        (e > 0 && 2 * e >= all).then(|| all as f64 / e as f64)
+    };
+    let mut snaps: HashMap<usize, f64> = filed
+        .iter()
+        .map(|(i, l)| {
+            let k = scale(l.school as usize).unwrap_or(1.0);
+            (*i, k * (l.get(HsStat::SnapsOff) + l.get(HsStat::SnapsDef)))
+        })
+        .collect();
+    if seat.is_some_and(|h| w.high_schools[h].state == s) {
+        for l in &w.front_office.school.lines {
+            if let Some(i) = super::front_office::index_of(w, l.id) {
+                let n = l.s[HsStat::SnapsOff as usize] + l.s[HsStat::SnapsDef as usize];
+                *snaps.entry(i).or_default() += n.max(0) as f64;
+            }
+        }
+    }
+    let mut kept: Vec<(usize, Option<super::Reps>)> = Vec::new();
+    for &h in &w.states[s].schools {
+        let counted = (engine || seat == Some(h)) && scale(h).is_some();
+        for &i in &w.high_schools[h].roster {
+            let p = &w.people[i];
+            if p.stage != Stage::HighSchool {
+                continue;
+            }
+            let n = snaps.get(&i).copied();
+            let sat = p.last_role == Some(PlayingTime::Redshirt) && n.is_none();
+            let reps = (counted && !sat && !p.player.position.is_specialist()).then(|| super::Reps {
+                year,
+                college: false,
+                share: (n.unwrap_or(0.0) / season::HS_STARTER_SNAPS as f64) as f32,
+            });
+            kept.push((i, reps));
+        }
+    }
+    for (i, reps) in kept {
+        w.people[i].reps = reps;
+    }
+}
+
 /// A state's season goes on its players' records: each line to his
 /// record, and into the state's record books (single season and career
 /// in the state, the best ten; section 8, choice 2).
@@ -2045,6 +2108,7 @@ fn file_lines(w: &mut World, s: usize) {
         w.people[i].hs_lines.push(line);
         filed.push((i, line));
     }
+    keep_reps(w, s, &filed);
     if !w.recording {
         return;
     }

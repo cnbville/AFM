@@ -314,6 +314,8 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
     let year = w.year as u64;
     let seed = w.options.seed as u64;
     let people = &w.people;
+    let seat = w.seat_school();
+    let order = if seat.is_some() { w.seat_order() } else { Vec::new() };
     schools
         .par_iter()
         .map(|&h| {
@@ -328,6 +330,9 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
                 })
                 .collect();
             let mut chart = depth_chart(&mut entries, None, &|_| false, &|_| false);
+            if seat == Some(h) {
+                your_order(&mut chart, &entries, &order, &|i| people[i].player.id);
+            }
             for (i, role) in chart.iter_mut() {
                 let p = &people[*i];
                 if p.sit_out >= 1.0 && transfer_sits(seed, year, p) {
@@ -346,6 +351,7 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
     let year = w.year as u64;
     let seed = w.options.seed as u64;
     let people = &w.people;
+    let order = w.seat_order();
     w.programs
         .par_iter()
         .map(|prog| {
@@ -364,7 +370,7 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
                     (i, p.player.position, seen)
                 })
                 .collect();
-            depth_chart(
+            let mut chart = depth_chart(
                 &mut entries,
                 Some(travel_limit(prog, year as i32)),
                 &|i| {
@@ -375,10 +381,137 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
                     let p = &people[i];
                     p.academic_redshirt || p.cal.spring_ineligible || p.cal.transfer_sit
                 },
-            )
+            );
+            if w.seat_program(prog.id) {
+                your_order(&mut chart, &entries, &order, &|i| people[i].player.id);
+            }
+            chart
         })
         .flatten()
         .collect()
+}
+
+/// Your depth chart on your own team (minor bug 247): the roles the
+/// year's development step reads come from the chart your games are
+/// played with, not the staff's camp ranking. At each position where you
+/// set an order, the players you listed come first, in your order, and
+/// the staff's ranking fills the rest, as the game-day chart takes it
+/// (`game::roster::depth_chart`); positions you left alone keep the
+/// staff's. A player listed at another position takes that spot's role
+/// when it is better than his own. A player you list in the two-deep
+/// plays, so the staff doesn't make him a camp redshirt (proposed, not
+/// confirmed); one you list deeper keeps the staff's call, which you can
+/// change on the redshirt screen.
+pub(crate) fn your_order(
+    chart: &mut [(usize, PlayingTime)],
+    entries: &[(usize, Position, f64)],
+    order: &[(Position, Vec<u32>)],
+    id_of: &dyn Fn(usize) -> u32,
+) {
+    if order.is_empty() {
+        return;
+    }
+    // The staff's ranking at each position, as `depth_chart` sorts it.
+    let mut staff: [Vec<(usize, f64)>; POSITION_COUNT] = Default::default();
+    for &(i, pos, seen) in entries {
+        staff[pos.index()].push((i, seen));
+    }
+    for list in staff.iter_mut() {
+        list.sort_by(|a, b| b.1.total_cmp(&a.1));
+    }
+    let on_team: std::collections::HashMap<u32, usize> = entries.iter().map(|&(i, _, _)| (id_of(i), i)).collect();
+    let own: std::collections::HashMap<usize, Position> = entries.iter().map(|&(i, pos, _)| (i, pos)).collect();
+    let rank = |r: PlayingTime| match r {
+        PlayingTime::Starter => 0,
+        PlayingTime::Rotation => 1,
+        _ => 2,
+    };
+    // Each player's best place on the positions you ordered: (rank, listed
+    // by you in the two-deep).
+    let mut best: std::collections::HashMap<usize, (u8, bool)> = std::collections::HashMap::new();
+    let mut ordered = [false; POSITION_COUNT];
+    for (pos, ids) in order {
+        let pos = *pos;
+        ordered[pos.index()] = true;
+        let mut list: Vec<usize> = Vec::new();
+        for id in ids {
+            if let Some(&i) = on_team.get(id)
+                && !list.contains(&i)
+            {
+                list.push(i);
+            }
+        }
+        let yours = list.len();
+        for &(i, _) in &staff[pos.index()] {
+            if !list.contains(&i) {
+                list.push(i);
+            }
+        }
+        let slots = depth_slots(pos);
+        for (k, &i) in list.iter().enumerate() {
+            let r = if k < slots.starters {
+                0
+            } else if k < slots.starters + slots.rotation.max(1) {
+                1
+            } else {
+                2
+            };
+            // A player's place counts at his own position, and elsewhere
+            // only where you listed him yourself.
+            if k >= yours && own.get(&i) != Some(&pos) {
+                continue;
+            }
+            let e = best.entry(i).or_insert((2, false));
+            e.0 = e.0.min(r);
+            e.1 |= k < yours && r < 2;
+        }
+    }
+    for (i, role) in chart.iter_mut() {
+        let Some(&(r, two_deep)) = best.get(i) else { continue };
+        let own_ordered = own.get(i).is_some_and(|p| ordered[p.index()]);
+        let staff_rank = rank(*role);
+        // At his own position your order replaces the staff's place; a spot
+        // you gave him elsewhere only lifts it.
+        let r = if own_ordered || *role == PlayingTime::Redshirt { r } else { r.min(staff_rank) };
+        if *role == PlayingTime::Redshirt && !two_deep {
+            continue;
+        }
+        *role = match r {
+            0 => PlayingTime::Starter,
+            1 => PlayingTime::Rotation,
+            _ => PlayingTime::Backup,
+        };
+    }
+}
+
+/// A full varsity starter's season of snaps on one side of the ball, the
+/// share a high school step's reps are read against (minor bug 247; college
+/// reads `SEASON_SNAPS`, the NFL `NFL_SEASON_SNAPS`): about 52 plays a game
+/// over 10 regular-season games and a playoff game (proposed, not
+/// confirmed). An every-down starter on the engine plays about this many.
+pub(crate) const HS_STARTER_SNAPS: u32 = 550;
+
+/// What a step reads of his last season's reps (minor bug 247): the share,
+/// when they were taken last season at the level he plays now, he plays
+/// this season (no redshirt, sit or suspension) and he isn't a kicker,
+/// punter or snapper. None: his depth chart role decides.
+pub(crate) fn reps_read(
+    reps: Option<super::Reps>,
+    year: i32,
+    stage: Stage,
+    role: PlayingTime,
+    trouble: bool,
+    pos: Position,
+) -> Option<f64> {
+    let level_ok = match stage {
+        Stage::College => true,
+        Stage::HighSchool => false,
+        _ => return None,
+    };
+    reps.filter(|r| {
+        r.year + 1 == year && r.college == level_ok && !trouble && role != PlayingTime::Redshirt && !pos.is_specialist()
+    })
+    .map(|r| r.share as f64)
 }
 
 /// The college trouble roll's base before his personality, background and
@@ -587,6 +720,13 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             p.bg.gpa = clamp(p.bg.gpa + effort + p.rng.normal(0.0, 0.1), 0.0, 4.0);
         }
         let role = if academic_sit { PlayingTime::Redshirt } else { role };
+        // Last season's real snaps at this level (minor bug 247), as the
+        // NFL reads them at camp (`pro::camp`): they decide growth,
+        // potential's lean and veteran learning; his depth chart role the
+        // rest. A first season at the level, a season after a stand-in
+        // year, a planned redshirt or sit-out year, or a kicking spot reads
+        // the role alone, and so does a year he sits or is suspended.
+        let snaps = reps_read(p.reps.take(), year as i32, p.stage, role, trouble.is_some(), p.player.position);
         // Section 6: his mood and his room's, his strength and medical staff.
         let prog = (p.stage == Stage::College).then(|| &programs[p.college.unwrap_or(0)]);
         let room = prog.map_or(0.0, |g| g.team_mood);
@@ -605,6 +745,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             medical,
             focus: focus.get(&i).copied(),
             defer,
+            snaps,
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         // Last year's growth that the calendar never reached lands first

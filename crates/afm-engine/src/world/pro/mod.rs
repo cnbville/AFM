@@ -747,6 +747,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         hs_lines: Vec::new(),
         last_snaps: 0,
         college_snaps: 0,
+        reps: None,
         last_performance: None,
         transfers: 0,
         juco: false,
@@ -1721,6 +1722,10 @@ fn camp(w: &mut World, d: Date) {
         });
         let spring = p.pro.as_ref().map_or(0.0, |c| c.spring_snaps);
         let snaps = if spring > 0.0 { Some(snaps.unwrap_or(0.0) + spring) } else { snaps };
+        // Kickers, punters and snappers take no offensive or defensive
+        // snaps, so a starter read none and grew as a backup: their role
+        // decides, as in college and high school (minor bug 264).
+        let snaps = snaps.filter(|_| !p.player.position.is_specialist());
         // A holdout misses camp and plays below his rating while he catches
         // up (proposed, not confirmed: a 0.3 dip; update 3, F1 fixed the sign).
         let missed_camp = if p.pro.as_ref().is_some_and(|c| c.hold == market::Hold::Out) { 0.3 } else { 0.0 };

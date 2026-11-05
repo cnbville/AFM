@@ -3214,6 +3214,7 @@ pub(crate) fn finish(w: &mut World) {
     // Snaps become game experience.
     let on_engine = w.college.as_ref().unwrap().on_engine;
     let snaps = std::mem::take(&mut w.college.as_mut().unwrap().snaps);
+    let scale = engine_share(w, &snaps);
     for p in w.people.iter_mut() {
         if !matches!(p.stage, Stage::College | Stage::Declared) {
             continue;
@@ -3230,6 +3231,17 @@ pub(crate) fn finish(w: &mut World) {
         };
         p.last_snaps = n;
         p.college_snaps += n;
+        // His game reps for next year's step (minor bug 247): real snaps
+        // only. A planned redshirt or sit-out year (four games or fewer)
+        // and the kicking spots leave it to his depth chart role.
+        let games = snaps.get(&p.player.id).map_or(0, |s| s.1);
+        let sat = p.last_role == Some(PlayingTime::Redshirt) && games <= 4;
+        let k = p.college.and_then(|c| scale.get(c).copied().flatten()).filter(|_| on_engine);
+        p.reps = k.filter(|_| !sat && !p.player.position.is_specialist()).map(|k| super::Reps {
+            year,
+            college: true,
+            share: (n as f64 * k / season::SEASON_SNAPS as f64) as f32,
+        });
     }
     w.college.as_mut().unwrap().snaps = snaps;
     if w.options.keep_game_log && w.recording {
@@ -3259,6 +3271,32 @@ pub(crate) fn finish(w: &mut World) {
     v.sort();
     w.log.huge_by_team = v;
     w.college.as_mut().unwrap().finished = true;
+}
+
+/// Each team's games over the ones it played on the engine (minor bug
+/// 247): a team short of 30 players plays its games on the stand-in, and
+/// so do its opponents that day, so a player's snaps are read against the
+/// engine games he could take them in (the most any of its players
+/// played). None for a team with fewer than half its games on the engine:
+/// then his depth chart role decides.
+fn engine_share(w: &World, snaps: &HashMap<u32, (u32, u32)>) -> Vec<Option<f64>> {
+    let cs = w.college.as_ref().unwrap();
+    let mut engine = vec![0u32; w.programs.len()];
+    for p in w.people.iter().filter(|p| matches!(p.stage, Stage::College | Stage::Declared)) {
+        if let Some(&(_, g)) = snaps.get(&p.player.id)
+            && let Some(e) = p.college.and_then(|c| engine.get_mut(c))
+        {
+            *e = (*e).max(g);
+        }
+    }
+    engine
+        .iter()
+        .zip(&cs.results)
+        .map(|(&e, r)| {
+            let all = r.games().max(e);
+            (e > 0 && 2 * e >= all).then(|| all as f64 / e as f64)
+        })
+        .collect()
 }
 
 /// Whether this season counts against a player's eligibility, settled when

@@ -14,6 +14,7 @@ mod foundations;
 mod front_office;
 mod game_stats;
 mod gameplan;
+mod growth_reps;
 mod hiring;
 mod hs_playoffs;
 mod hunt;
