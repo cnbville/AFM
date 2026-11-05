@@ -14,20 +14,47 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
         Some("build") => {
+            // Saved after every recorded year as `<out>.part`, so a build cut
+            // short (a machine restart) goes on from the last year.
             let n = |k: usize| args[k].parse::<f64>().expect("a number");
-            let opts = WorldOptions {
-                seed: n(2) as u32,
-                history_years: n(3) as u32,
-                scale: n(4),
-                start_year: n(5) as i32,
-                keep_game_log: false,
-                engine_from: Some(2100),
-                ..Default::default()
+            let start_year = n(5) as i32;
+            let out = Path::new(&args[6]);
+            let part = out.with_extension("part");
+            let save = |w: &World, to: &Path| {
+                afm_engine::save::write_world(w, to, "nil_check", "nil_check", None).expect("write");
             };
             let t = std::time::Instant::now();
-            let w = World::new(opts);
+            let w = if part.exists() {
+                let mut w = afm_engine::save::read_world(&part).expect("read the part");
+                eprintln!("going on from {:?}", w.today);
+                while w.year < start_year {
+                    w.advance_year();
+                    save(&w, &part);
+                    eprintln!("year {} at {:.0}s", w.year, t.elapsed().as_secs_f64());
+                }
+                w
+            } else {
+                let opts = WorldOptions {
+                    seed: n(2) as u32,
+                    history_years: n(3) as u32,
+                    scale: n(4),
+                    start_year,
+                    keep_game_log: false,
+                    engine_from: Some(2100),
+                    ..Default::default()
+                };
+                let first = start_year - opts.history_years as i32;
+                World::new_recorded(opts, None, None, |w, _| {
+                    if w.year > first {
+                        save(w, &part);
+                    }
+                    eprintln!("year {} at {:.0}s", w.year, t.elapsed().as_secs_f64());
+                    true
+                })
+                .expect("never stopped")
+            };
             eprintln!("built in {:.0}s, {:?}", t.elapsed().as_secs_f64(), w.today);
-            afm_engine::save::write_world(&w, Path::new(&args[6]), "nil_check", "nil_check", None).expect("write");
+            save(&w, out);
         }
         Some("play") => {
             let mut w = afm_engine::save::read_world(Path::new(&args[2])).expect("read the world");
@@ -126,7 +153,8 @@ fn offers(w: &World, year: i32) {
     for g in ["P4", "G5", "FCS"] {
         let mut by: [Vec<f64>; 6] = Default::default();
         for j in (0..w.programs.len()).filter(|&j| group(w, j) == Some(g)) {
-            for o in w.programs[j].era.offers.iter().filter(|o| o.0 == year) {
+            // Kept by the season before: the class of 2026 signs in the 2025 season.
+            for o in w.programs[j].era.offers.iter().filter(|o| o.0 == year - 1) {
                 by[o.2.min(5) as usize].push(o.3);
             }
         }
