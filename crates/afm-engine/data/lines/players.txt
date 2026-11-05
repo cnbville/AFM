@@ -14,7 +14,7 @@ You wanted to see me.
 I figured you'd call me in eventually.
 Okay. I'm listening. ~ calm
 Alright. Let's do it. ~ hot
-Let's just get it over with. ~ hot young
+Let's just get it over with. ~ hot young brash
 Before you say anything, I've got some stuff too. ~ hot
 I got lift in [twenty minutes|half an hour], so. ~ young
 Can we make this quick? I got class. ~ college young
@@ -234,7 +234,7 @@ Stuff at home has had me on edge. I took it out on the wrong people.
 I'm not trying to disrespect anybody. It just feels like nobody listens unless I'm loud.
 I've got a temper. I know that. It's been worse lately, and I don't really know why. ~ hot
 Honestly, I was bored. That's not an excuse. That's just the truth. ~ young loose
-I know I'm better than how I've been acting. I don't need you to tell me that. ~ ego
+I know I'm better than how I've been acting. I don't need you to tell me that. ~ ego brash
 
 @key talk.reveal.life
 It's home, Coach. I'm here, but my head's back there.
@@ -323,9 +323,9 @@ I don't know what else you want me to say.
 I'd rather keep the rest between me and my family.
 Can we move on?
 That's it. That's all there is. ~ quiet
-Why does it matter now? ~ hot
-I'm not doing this twice. ~ hot
-You're the head coach. You should already know. ~ ego
+Why does it matter now? ~ hot brash
+I'm not doing this twice. ~ hot brash
+You're the head coach. You should already know. ~ ego brash
 
 @key talk.reply.ask.flat
 That's about it.
@@ -354,8 +354,8 @@ Wow. Okay.
 I hear you. I don't agree, but I hear you.
 You could've told me that a month ago.
 Yeah. Okay. ~ quiet
-So I'm just a guy. Got it. ~ ego
-Must be nice to say that from that side of the desk. ~ hot
+So I'm just a guy. Got it. ~ ego brash
+Must be nice to say that from that side of the desk. ~ hot brash
 That's not what I was told when I signed here. ~ college
 My agent's not gonna like hearing that. ~ nfl
 My dad's gonna want to hear that from you, not me. ~ hs
@@ -389,8 +389,8 @@ Thanks. I guess.
 Okay, but that's not what I came in here to talk about.
 You say that, but nothing's changed.
 Everybody tells me that.
-Respectfully, I don't need to be told I'm working hard. I know I am. ~ ego
-Nice words. I need more than words. ~ hot
+Respectfully, I don't need to be told I'm working hard. I know I am. ~ ego brash
+Nice words. I need more than words. ~ hot brash
 That's what coaches say right before the bad news. ~ vet
 Cool. ~ young loose
 
@@ -420,9 +420,9 @@ Yeah. Okay.
 That's easy to say when you're the one deciding.
 That's not fair, Coach, and you know it.
 I've been trying to do that since camp.
-I've been doing that. You just haven't been looking. ~ hot
+I've been doing that. You just haven't been looking. ~ hot brash
 So it's on me. It's always on me. ~ shaky
-Whatever you say, Coach. ~ ego
+Whatever you say, Coach. ~ ego brash
 Okay. ~ quiet
 
 @key talk.reply.challenge.flat
@@ -451,10 +451,10 @@ Wow. Good to know where I stand.
 You don't know what I'm dealing with, Coach.
 So I'm the problem. Got it.
 Funny. Nobody said anything when somebody else did it.
-You're gonna talk to me like that? Okay. ~ hot
-I'm done talking. ~ hot
+You're gonna talk to me like that? Okay. ~ hot brash
+I'm done talking. ~ hot brash
 I don't have anything to say to that. ~ quiet
-Selfish? I'm the reason we win games around here. ~ ego
+Selfish? I'm the reason we win games around here. ~ ego brash
 I'll be sure to tell my agent how you feel. ~ nfl ego
 
 @key talk.reply.criticize.flat
@@ -490,7 +490,7 @@ That's what they told me on my visit, too. ~ college
 Okay. We'll see.
 I'll hold you to it.
 Alright, Coach.
-If you say so.
+If you say so. ~ brash
 Okay. Thank you.
 I hope so.
 We'll see how it plays out. ~ calm
@@ -506,16 +506,16 @@ Okay. I'm locked in from here. ~ young
 My mom would kill me before you got the chance. ~ hs young
 
 @key talk.reply.warn.bad
-I heard you the first time.
+I heard you the first time. ~ brash
 Yeah. I know where the door is.
 Understood.
 So it's like that.
 Do what you gotta do, Coach.
 Funny how it's never a warning for some guys.
-Sit me, then. ~ hot
-You threatening me now? ~ hot ego
+Sit me, then. ~ hot brash
+You threatening me now? ~ hot ego brash
 Got it. ~ quiet
-Other teams would love to have me, you know. ~ ego !hs
+Other teams would love to have me, you know. ~ ego !hs brash
 
 @key talk.reply.warn.flat
 Yes {coach_sir}. I hear you.
@@ -542,7 +542,7 @@ I didn't ask for that.
 That's not what I needed from you.
 Feels like you're just trying to get me out of your office.
 I'd rather just play, Coach.
-Is that supposed to fix it? ~ hot
+Is that supposed to fix it? ~ hot brash
 Okay. Sure. ~ quiet
 
 @key talk.reply.hand.flat
@@ -570,9 +570,9 @@ So... are you going to do anything about it?
 You're just gonna sit there?
 Say something, Coach.
 This is what I mean. Nobody does anything.
-I didn't come in here to talk to a wall. ~ hot
+I didn't come in here to talk to a wall. ~ hot brash
 I need answers, not a nod. ~ competitor
-Cool. So nothing changes. ~ ego
+Cool. So nothing changes. ~ ego brash
 
 @key talk.reply.listen.flat
 So, yeah. That's it.
@@ -598,13 +598,13 @@ I'm gonna go call my mom. ~ young !nfl
 Thanks for not making it weird. ~ young loose
 
 @key talk.close.bad
-Can I go?
-Are we done?
+Can I go? ~ brash
+Are we done? ~ brash
 I gotta get to treatment.
 Anything else?
 Got it. We're good.
 I'll be at practice. That's what you want, right?
-I'm gonna go. ~ hot
+I'm gonna go. ~ hot brash
 I've got class, Coach. ~ !nfl
 
 @key talk.close.flat

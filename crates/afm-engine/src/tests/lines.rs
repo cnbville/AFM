@@ -16,7 +16,7 @@ const TAGS: &str = concat!(
     // level
     "hs college nfl ",
     // players
-    "young vet ego humble leader quiet hot calm loyal greedy pro loose shaky steady competitor ",
+    "young vet ego humble leader quiet hot calm loyal greedy pro loose shaky steady competitor brash ",
     // a player's position
     "qb rb wr te ol dl lb db kicker snapper offense defense special skill cover rusher lineman ",
     // where he is in his career
@@ -379,6 +379,12 @@ fn a_season_of_talks_counts_its_repeats() {
                     if r.chance(0.16) {
                         tags.push(t);
                     }
+                }
+                // Who talks back, as `Speaker::player` (a college player's
+                // trust taken as low).
+                let (ego, hot) = (tags.contains(&"ego"), tags.contains(&"hot"));
+                if (*level == "nfl" && (ego || hot)) || (*level == "college" && ego && hot) {
+                    tags.push("brash");
                 }
                 let region = regions[r.int(0, 4) as usize];
                 tags.push(region);
