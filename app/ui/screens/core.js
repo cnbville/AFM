@@ -235,7 +235,14 @@ function table(key, cols, rows, opts = {}) {
     : "";
   const text = (c) => typeof cellValue(c, rows[0] || {}) === "string";
   const arrow = (c) => (s.k === c.k ? ((text(c) ? s.dir > 0 : s.dir < 0) ? "sorted-desc" : "sorted-asc") : s.k2 === c.k ? "sorted-2" : "");
-  const pick = opts.select ? `<th class="pickcol" title="Pick up to five to compare"></th>` : "";
+  // A table with the move bar ticks every row it shows at once (the header's box).
+  const ids = opts.movebar ? shownIds(list, opts) : [];
+  const all = ids.length > 0 && ids.every((id) => st.picked.includes(id));
+  const pick = opts.select
+    ? opts.movebar
+      ? `<th class="pickcol" title="Tick every row shown, or untick them"><input type="checkbox" data-act="pickall" data-key="${esc(key)}" ${all ? "checked" : ""} aria-label="Tick every row shown"></th>`
+      : `<th class="pickcol" title="Pick up to five to compare"></th>`
+    : "";
   // A column that names a stat (h8) explains itself on hover (help.js).
   const head = pick + shown.map((c) => `<th data-sort="${key}|${c.k}" class="${c.l ? "l" : ""} ${c.div ? "div" : ""} ${arrow(c)}" ${c.h8 ? `data-h8="${esc(c.h8)}"` : `title="${esc((c.tip || c.t) + " · click to sort, shift-click for a second sort")}"`}>${esc(c.t)}</th>`).join("");
   let body = "";
@@ -267,10 +274,27 @@ function table(key, cols, rows, opts = {}) {
 const MOVEBAR_DESK = {
   fo_cut: [["53", "keep", "Keep on the 53"], ["Squad", "squad", "Cut and try for the practice squad"], ["Cut", "release", "Release"]],
 };
-const BULK = ["board", "unboard", "offer", "squad", "predraft", "block", "keep"];
+// A screen's own buttons on its table's move bar (the recruiting board's
+// pulls): a function of the ticked ids, its clicks the screen's.
+const MOVEBAR_EXTRA = {};
+const BULK = ["board", "unboard", "offer", "pull", "squad", "predraft", "block", "keep"];
+// The most rows a table keeps ticked.
+const PICK_MAX = 300;
+// The ids of the rows a table shows, in its order, as many as can be ticked.
+function shownIds(list, opts) {
+  return list.map((r) => opts.select(r)).filter((id) => id != null).slice(0, PICK_MAX);
+}
+// What pulling an offer costs, for the confirm: nothing for the old staff's
+// offers in your fresh start at a new job (a new staff resets the board).
+function pullWords(free, n = 1) {
+  const what = n === 1 ? "the offer" : `${n} offers`;
+  return free
+    ? [`Pull ${n === 1 ? "the old staff's offer" : `${n} of the old staff's offers`}?`, "Your fresh start is on: a new staff resets the board it inherits, so it costs you nothing with the recruit, his family or his high school coach. A commitment goes with its offer.", n === 1 ? "Pull it" : "Pull them"]
+    : [`Pull ${what}?`, "A committed recruit's commitment goes with it, and his high school coach remembers.", n === 1 ? "Pull it" : "Pull them"];
+}
 function moveBar(key, picked) {
   if (!picked.length) return "";
-  const desk = (MOVEBAR_DESK[key] || []).map(([, cut, t]) => `<button class="st-btn small glass" data-act="mbplan" data-key="${esc(key)}" data-cut="${cut}">${esc(t)}</button>`).join("");
+  const desk = (MOVEBAR_DESK[key] || []).map(([, cut, t]) => `<button class="st-btn small glass" data-act="mbplan" data-key="${esc(key)}" data-cut="${cut}">${esc(t)}</button>`).join("") + (MOVEBAR_EXTRA[key] ? MOVEBAR_EXTRA[key](picked) : "");
   return `<div class="movebar" data-key="${esc(key)}"><b>${picked.length} ticked</b>${picked.length >= 2 ? `<button class="st-btn small primary" data-act="compare" data-key="${esc(key)}">Compare${picked.length > 5 ? " the first five" : ""}</button>` : ""}<button class="st-btn small glass" data-act="mblist" data-key="${esc(key)}">Add to my players</button>${desk}<button class="st-btn small glass" data-act="mbmore" data-key="${esc(key)}">More moves ▾</button><span class="tspace"></span><button class="st-btn small glass" data-act="mbclear" data-key="${esc(key)}">Clear</button></div>`;
 }
 async function moveBarAct(act, el) {
@@ -300,7 +324,19 @@ async function moveBarAct(act, el) {
       const common = (lists[0] || []).filter((m) => BULK.includes(m.k) && lists.every((l) => l.some((x) => sig(x) === sig(m))));
       const r = el.getBoundingClientRect();
       const cmd = { board: "recruit_add", unboard: "recruit_remove", offer: "recruit_offer", squad: "set_squad", predraft: "board_list", block: "fo_block", keep: "keep_talk" };
-      const items = common.map((m) => ({ label: m.t, run: () => each(cmd[m.k], (id) => ({ id, squad: m.squad, list: m.list, on: m.on }), (n) => `${m.t}: ${n} done.`) }));
+      const pullAll = async () => {
+        const free = lists.every((l) => l.some((x) => x.k === "pull" && x.free));
+        if (!(await sure(...pullWords(free, ids.length)))) return;
+        try { toast((await api("recruit_pull_many", { ids })).text); } catch (e) { toast(e.message || String(e)); }
+        peekForget();
+        S.status = null;
+        refresh(el);
+      };
+      // Pulls go out in one call, with one answer: the old staff's offers in
+      // your fresh start cost nothing, and a mix says which did.
+      const pullMove = (l) => l.find((x) => x.k === "pull");
+      const pulls = lists.every(pullMove) ? [{ label: `Pull ${ids.length === 1 ? "the offer" : `the ${ids.length} offers`}`, run: pullAll }] : [];
+      const items = [...pulls, ...common.filter((m) => m.k !== "pull").map((m) => ({ label: m.t, run: () => each(cmd[m.k], (id) => ({ id, squad: m.squad, list: m.list, on: m.on }), (n) => `${m.t}: ${n} done.`) }))];
       ctxMenu({ preventDefault() {}, clientX: r.left, clientY: r.top - 8 - 32 * Math.max(1, items.length) }, items.length ? items : [{ label: "No other move fits every ticked player", run: () => {} }]);
       return true;
     }
@@ -395,7 +431,21 @@ async function tableAct(act, el) {
     }
     case "pick": {
       const id = Number(el.dataset.id);
-      st.picked = el.checked ? [...st.picked.filter((x) => x !== id), id].slice(-60) : st.picked.filter((x) => x !== id);
+      st.picked = el.checked ? [...st.picked.filter((x) => x !== id), id].slice(-PICK_MAX) : st.picked.filter((x) => x !== id);
+      refresh(el);
+      return true;
+    }
+    case "pickall": {
+      // Every row the table shows now, after its filters, in its order (the
+      // first PICK_MAX of a longer table).
+      const list = sortRows(applyFilters(T.rows, T.cols, st), T.cols, keep("sort:" + key, { k: T.opts.sort || null, dir: -1 }));
+      const all = list.map((r) => T.opts.select(r)).filter((id) => id != null);
+      const shown = shownIds(list, T.opts);
+      if (el.checked) {
+        const rest = st.picked.filter((x) => !all.includes(x));
+        st.picked = [...rest.slice(-(PICK_MAX - shown.length)), ...shown];
+        if (all.length > shown.length) toast(`Ticked the first ${shown.length} of ${all.length}.`);
+      } else st.picked = st.picked.filter((x) => !all.includes(x));
       refresh(el);
       return true;
     }
@@ -754,7 +804,7 @@ async function runMove(m, who, at) {
     case "cut": if (await sure(`Cut ${name}?`, m.words, "Cut him")) moveDo("college_cut", { id }); return;
     case "portal": return go("portal_desk", { id });
     case "offer": return moveDo("recruit_offer", { id });
-    case "pull": if (await sure("Pull the offer?", "A committed recruit's commitment goes with it, and his high school coach remembers.", "Pull it")) moveDo("recruit_pull", { id }); return;
+    case "pull": if (await sure(...pullWords(m.free))) moveDo("recruit_pull", { id }); return;
     case "board": return moveDo("recruit_add", { id });
     case "unboard": return moveDo("recruit_remove", { id });
     case "visit_plan":
@@ -1124,7 +1174,7 @@ async function holiday() {
 // ---------- clicks this lane answers ----------
 async function coreAct(act, el, ev) {
   if (!act) return false;
-  if (["tchip", "tfdel", "tcols", "tfilter", "tsave", "tcsv", "pick", "compare"].includes(act)) return tableAct(act, el);
+  if (["tchip", "tfdel", "tcols", "tfilter", "tsave", "tcsv", "pick", "pickall", "compare"].includes(act)) return tableAct(act, el);
   if (["mbclear", "mblist", "mbplan", "mbmore"].includes(act)) return moveBarAct(act, el);
   if (CORE_MORE[act]) { CORE_MORE[act](el, ev); return true; }
   const d = el.dataset;

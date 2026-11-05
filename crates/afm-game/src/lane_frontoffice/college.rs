@@ -31,9 +31,28 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "nil_desk" => with(game, nil),
         "recruit_chain" => with(game, chain_view),
         "chain_sign" | "chain_decline" | "chain_sign_all" | "chain_back" => chain_act(game, cmd, args),
-        "recruit_add" | "recruit_remove" | "recruit_move" | "recruit_priority" | "recruit_offer" | "recruit_pull"
-        | "recruit_promise" | "visit_set" | "visit_cancel" | "portal_offer" | "portal_pull" | "portal_forget"
-        | "portal_contact" | "keep_talk" | "nil_set" | "nil_usual" | "nil_clear" | "college_duty" | "college_fill"
+        "recruit_add"
+        | "recruit_remove"
+        | "recruit_move"
+        | "recruit_priority"
+        | "recruit_offer"
+        | "recruit_pull"
+        | "recruit_pull_many"
+        | "recruit_remove_many"
+        | "recruit_reset"
+        | "recruit_promise"
+        | "visit_set"
+        | "visit_cancel"
+        | "portal_offer"
+        | "portal_pull"
+        | "portal_forget"
+        | "portal_contact"
+        | "keep_talk"
+        | "nil_set"
+        | "nil_usual"
+        | "nil_clear"
+        | "college_duty"
+        | "college_fill"
         | "college_cut" => act(game, cmd, args),
         _ => return None,
     };
@@ -77,6 +96,26 @@ fn id_arg(args: &Value) -> Result<u32, String> {
     args.get("id").and_then(Value::as_u64).map(|v| v as u32).ok_or_else(|| "Missing id.".into())
 }
 
+/// The setup's "Start with no offers out" (a college head seat): the old
+/// staff's offers to recruits who haven't signed are pulled on your first
+/// day and leave your board.
+pub(crate) fn start_clean(w: &mut World, args: &Value) {
+    if args.get("no_offers").and_then(Value::as_bool) == Some(true)
+        && matches!(views::mine(w), Some(TeamRef::College(_)))
+    {
+        desk::start_clean(w);
+    }
+}
+
+fn ids_arg(args: &Value) -> Result<Vec<u32>, String> {
+    let ids: Vec<u32> = args
+        .get("ids")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(Value::as_u64).map(|v| v as u32).collect())
+        .unwrap_or_default();
+    if ids.is_empty() { Err("Tick at least one recruit.".into()) } else { Ok(ids) }
+}
+
 fn money_arg(args: &Value, k: &str) -> Option<f64> {
     args.get(k).and_then(Value::as_f64)
 }
@@ -98,6 +137,23 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
         }
         "recruit_offer" => desk::offer(w, id_arg(args)?)?,
         "recruit_pull" => desk::pull(w, id_arg(args)?)?,
+        // The board's ticks, and the fresh start's reset of the old staff's offers.
+        "recruit_pull_many" => desk::pull_many(w, &ids_arg(args)?)?,
+        "recruit_remove_many" => {
+            let ids = ids_arg(args)?;
+            let n = ids.iter().filter(|&&id| desk::remove(w, id).is_ok()).count();
+            let noun = afm_engine::world::folk::noun;
+            match (n, ids.len() - n) {
+                (0, _) => {
+                    return Err("Pull their offers first: a recruit holding your offer stays on the board.".into());
+                }
+                (n, 0) => format!("Took {n} {} off your board.", noun(n, "recruit")),
+                (n, k) => {
+                    format!("Took {n} {} off your board; {k} still holding your offer stayed.", noun(n, "recruit"))
+                }
+            }
+        }
+        "recruit_reset" => desk::reset_board(w, args.get("keep_commits").and_then(Value::as_bool).unwrap_or(false))?,
         "recruit_promise" => desk::set_promise(w, id_arg(args)?, money_arg(args, "nil"))?,
         "visit_set" | "visit_cancel" => {
             let kind =
@@ -658,7 +714,7 @@ fn recruit_row(
     let usual = if ncaa::nil_era(w.year) { desk::usual_parts(w, j, p.player.id).0 } else { 0.0 };
     let next = next_step(w, p);
     let offers = views::offers_of(p).len();
-    json!({
+    let mut v = json!({
         "id": p.player.id,
         "name": p.name,
         "pos": p.player.position.name(),
@@ -699,7 +755,12 @@ fn recruit_row(
         "next": next.map(|n| json!({ "date": short_date(n.0), "what": n.1 })),
         "on_board": t.is_some(),
         "reader": reader_name(w, j, p.player.position),
-    })
+    });
+    // The old staff's offer, and whether pulling it now costs nothing (your
+    // fresh start at a new job).
+    v["inherited"] = json!(t.is_some_and(|t| t.by == Source::Inherited));
+    v["free_pull"] = json!(t.is_some_and(|t| desk::free_pull(w, t)));
+    v
 }
 
 // --- The board --------------------------------------------------------------------------
@@ -918,7 +979,24 @@ fn board(w: &World, j: usize) -> Reply {
         "nil_yours": w.front_office.owner(Duty::Nil) == Owner::You,
         "budget": budget_json(w, j),
         "classes": [sign_year, sign_year + 1, sign_year + 2],
+        "fresh": fresh_json(w),
     }))
+}
+
+/// Your fresh start at this job (a new staff resets the board): its last
+/// day, the days left and the old staff's offers still out, while both last.
+fn fresh_json(w: &World) -> Value {
+    let Some(until) = desk::fresh_until(w) else { return Value::Null };
+    let out = desk::inherited_out(w);
+    if out.is_empty() {
+        return Value::Null;
+    }
+    json!({
+        "until": date(until),
+        "days": w.today.days_to(until) + 1,
+        "offers": out.len(),
+        "commits": out.iter().filter(|x| x.1).count(),
+    })
 }
 
 // --- The map (screens topic 7) -----------------------------------------------------------

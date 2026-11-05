@@ -442,13 +442,17 @@ pub(crate) fn on_offer(w: &mut World, id: u32) {
     }
 }
 
-/// You pull an offer a coach of yours recommended (SK28): overruling him.
-pub(crate) fn on_pull(w: &mut World, id: u32) {
+/// You pull an offer a coach of yours recommended (SK28): overruling him,
+/// unless `overrule_him` is off (the old staff's offer in your fresh start).
+pub(crate) fn on_pull(w: &mut World, id: u32, overrule_him: bool) {
     let today = w.today;
     let chain = &mut w.front_office.chain;
     if let Some(r) = chain.recs.iter_mut().find(|r| r.id == id && r.pull && r.answer == Answer::Waiting) {
         r.answer = Answer::Signed;
         r.answered = Some(today);
+        return;
+    }
+    if !overrule_him {
         return;
     }
     let by = chain.calls.iter().rev().find(|c| c.id == id && c.wanted && !c.overruled).map(|c| (c.coach, c.conviction));
