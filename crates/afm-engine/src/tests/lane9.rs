@@ -241,3 +241,91 @@ fn his_tape_is_his_side_of_the_ball() {
     assert_eq!(fm::words::cut_ask(Position::CB, tape::Cut::Pressure), Some("cb_press"));
     assert_eq!(fm::words::cut_ask(Position::CB, tape::Cut::ThirdDowns), None);
 }
+
+/// Six hours of tape and no read (Cain 2026-11-04): your film counts the
+/// day you watch it, every attribute gets a read (a wide guess where the
+/// tape can't show it), each cut-up narrows what film shows, and what
+/// your eye caught builds into one note a trait.
+#[test]
+fn film_reads_every_attribute_and_narrows_with_tape() {
+    use crate::attributes::{ATTRIBUTE_COUNT, Attr};
+    use crate::world::scouting::{file, yours};
+    let mut w = nfl_world();
+    let staff = readers::seat_staff(&w).unwrap();
+    let fresh: Vec<u32> = pros(&w).into_iter().filter(|&id| readers::read(&w, staff, id).is_none()).collect();
+    assert!(!fresh.is_empty(), "players your staff hasn't seen");
+    let id = fresh
+        .into_iter()
+        .find(|&id| session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_ok())
+        .expect("a player nobody has seen, with tape");
+    let read = |w: &World| {
+        let sr = readers::read(w, staff, id);
+        yours::own_read(w, staff, id, sr.as_ref().map(|x| &x.2))
+    };
+    assert!(read(&w).is_none(), "nothing of him has reached you yet");
+    // The first snap: a read on every attribute already.
+    session::play(&mut w).unwrap();
+    let mid = read(&w).expect("a read from the first snap");
+    assert!(mid.attrs.iter().all(Option::is_some), "every attribute from the first snap");
+    // Through the cut-up: your verdict saves it, and your read and your
+    // staff's have every attribute today, not in three weeks.
+    let mut guard = 0;
+    while w.scouting.film.open.as_ref().unwrap().step != 3 {
+        guard += 1;
+        assert!(guard < 40);
+        match w.scouting.film.open.as_ref().unwrap().step {
+            0 => session::play(&mut w).unwrap(),
+            1 => session::call(&mut w, 0).unwrap(),
+            _ => session::next(&mut w).unwrap(),
+        }
+    }
+    session::verdict(&mut w, 2).unwrap();
+    let one = read(&w).expect("your read");
+    assert_eq!(one.attrs.iter().filter(|a| a.is_some()).count(), ATTRIBUTE_COUNT);
+    let (_, _, f) = readers::read(&w, staff, id).expect("your look in his file today");
+    assert!(f.attrs.iter().all(|a| a.range().is_some()), "your staff's file too");
+    // What film can't show is a wide guess, never something an eye saw.
+    let i = sc::place(&w, id).unwrap();
+    let com = Attr::Communication.index();
+    assert!(f.attrs[com].guess && !f.attrs[com].seen);
+    assert!(one.attrs[com].unwrap().1 >= file::GUESS_SD * file::visibility(&w, i) - 1e-6);
+    // The notes: one a trait, each caught no more often than shown.
+    let r = w.scouting.film.reports.last().unwrap();
+    let lines: Vec<String> = r.notes.iter().map(session::Note::line).collect();
+    assert_eq!(r.caught[..r.notes.len()], lines[..], "the report's list is the notes");
+    for n in &r.notes {
+        assert!(!n.seen.is_empty() && n.seen.len() <= n.of as usize, "{n:?}");
+        assert_eq!(r.notes.iter().filter(|m| m.attr == n.attr).count(), 1, "one note a trait");
+    }
+    // More cut-ups narrow what film shows; the guess stays wide.
+    let speed = Attr::Acceleration.index();
+    let before = one.attrs[speed].unwrap().1;
+    let mut done = 0;
+    for cut in tape::Cut::ALL {
+        w.advance_day();
+        if session::open_player(&mut w, id, cut, session::Mode::Quick, None).is_ok() {
+            done += 1;
+        }
+        let _ = session::close(&mut w);
+    }
+    assert!(done >= 2, "more cut-ups of him");
+    let more = read(&w).unwrap();
+    assert!(more.attrs[speed].unwrap().1 < before, "{} -> {}", before, more.attrs[speed].unwrap().1);
+    assert!(more.attrs[com].unwrap().1 >= file::GUESS_SD * file::visibility(&w, i) - 1e-6);
+    assert!(yours::cut_ups(&w, id).0 > done);
+}
+
+#[test]
+fn what_your_eye_caught_builds_up() {
+    use fm::words::note_head;
+    assert!(note_head(&[0], 6).contains("Not a read yet"));
+    assert!(note_head(&[3, 3], 6).contains("both times"));
+    assert!(note_head(&[0, 0, 0, 0], 4).contains("every snap that showed it"));
+    assert!(note_head(&[0, 0, 1], 6).contains("mostly"));
+    assert!(note_head(&[4, 1, 3], 6).starts_with("up and down"));
+    let n = session::Note { attr: 0, seen: vec![(0, 1), (2, 1), (4, 2)], downs: vec![], of: 5 };
+    assert!(n.settled());
+    let m = session::Note { attr: 0, seen: vec![(0, 0), (2, 3)], downs: vec![], of: 5 };
+    assert!(!m.settled());
+    assert!(fm::words::running(crate::attributes::Attr::Press, 1, 3).contains("3rd time"));
+}
