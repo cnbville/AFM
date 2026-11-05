@@ -1,13 +1,13 @@
 # The Data section's tallies: how it works today
 
-Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04. Lane NB7's squads file and the expected pass model over main 57b7009 on 2026-11-04. Lane NB8 (Data overhaul items 24-27: the calls file, the analysts' model, garbage time, concepts against coverages, the advanced box extras and the teams' charting delay) over main c6e3194 on 2026-11-04. Lane NB11 (Data overhaul items 33-41: the prospects, moves and money files) over main b2dae7d on 2026-11-05.
+Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04. Lane NB7's squads file and the expected pass model over main 57b7009 on 2026-11-04. Lane NB8 (Data overhaul items 24-27: the calls file, the analysts' model, garbage time, concepts against coverages, the advanced box extras and the teams' charting delay) over main c6e3194 on 2026-11-04. Lane NB10's trends file (Data overhaul item 29) over main b2dae7d on 2026-11-05. Lane NB11 (Data overhaul items 33-41: the prospects, moves and money files) over main 80bf9ef on 2026-11-05.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `.github/`. "Proposed, not confirmed" marks Claude's own picks in this lane, which Cain hasn't answered.
 
 ## Quick answers
 
 - What are the tallies? Counts the world keeps as its games are played, for the Data section's pages, so they don't need the world log (about 40 GB for a 30-year world) (`world/tally/mod.rs`, module notes).
-- Which kinds? Ten, each its own file per season: `players`, `teams`, `games`, `classes`, `people`, `squads` (lane NB7), `calls` (lane NB8), `prospects`, `moves` and `money` (lane NB11) (`world/tally/mod.rs`, `KINDS`).
+- Which kinds? Eleven, each its own file per season: `players`, `teams`, `games`, `classes`, `people`, `squads` (lane NB7), `calls` (lane NB8), `trends` (lane NB10), `prospects`, `moves` and `money` (lane NB11) (`world/tally/mod.rs`, `KINDS`).
 - Where do they live? In a folder beside the world file or save, `name.afmdata`, one file per kind and season: `name.afmdata/<kind>/<season>.tally` (`world/tally/mod.rs`, `EXT`, `path`; `crates/afm-game/src/tallies.rs`, `beside`).
 - And the season being played? In the world itself (`World::tallies`), so a save carries it (`world/mod.rs`).
 - When is a season written? When the football year closes, the day after the Super Bowl, after the world log's year end. The open store then starts over, so memory stays flat (`world/clock.rs`, `rollover`; `world/tally/mod.rs`, `tally_close`).
@@ -81,6 +81,15 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - The model agrees when the choice is within 1 point of win chance of its best; it says go when going beats the next choice by 1 point or more (proposed, not confirmed; `calls.rs`, `CLEAR`, `judge`, `judge_try`).
 - Rows and sums agree: each 4th down is weighed at the precision its row keeps (0.1 of a point), and `sums_of` gives the sums back from the rows, which the pages use to leave out games not charted yet (`calls.rs`, `kept`, `sums_of`).
 
+## The trends file (lane NB10)
+
+- One small row a team a season at every level, written when the season closes, so the Trends page reads the league's 30 years and a team's ten without the teams file's heavy cells (`world/tally/trends.rs`, `Season`, `rows`; written in `world/tally/mod.rs`, `tally_close`).
+- `style` (college and the NFL; empty at high school): 22 counts a side, with the ball and then without it, read off the teams file's cells: snaps, runs, dropbacks, aimed throws, deep throws (20+ air yards), throws behind the line, play action, shotgun, pistol, under center, motion, no huddle, RPOs, 11, 12 and 21 personnel, the blitz, man coverage, pressure, nickel, dime and runs into eight or more in the box (`STYLE`, `style_side`). Read with `style_of(side, name)`.
+- `pass` (college and the NFL): its passers' dropbacks, attempts, aimed throws, air yards and time to throw, summed from the players file's depth counts by the player's team (`PASS`, `pass_of`).
+- `sizes` (every level): the listed height and weight of every man who started its games, by his position, each counted once per start, as listed when the season closes: a body grows and shrinks, so a past season's sizes can only be read at the time (proposed, not confirmed; `sizes`, `size_of`). The game folds OT and IOL into the offensive line.
+- Only reads the open stores and the people: nothing in the world reads it back (`tests/tallies.rs`, the same-seed test, checks a world with and without tallies and the file's rows against the teams file).
+- Read with `World::tally_each("trends", season, ...)`; the season being played comes from the open stores (`trends::rows`). The game keeps 40 closed seasons' rows in memory once read (`crates/afm-game/src/lane_data/trends.rs`, `KEEP`).
+
 ## The analysts' model (lane NB8)
 
 - Every 4th down is weighed as nfl4th weighs the NFL's: the win chance after going (converting at the level's rate from that distance and gaining the level's average yards on a conversion, else the other side's ball at the spot), punting (the other side's ball where the level's punts from that spot leave it) and kicking (made at the level's rate from that distance, else the other side's ball at the spot of the kick, at least its own 20) (`tally/decide.rs`, `Model::fourth_at`, `hand_over`, `after_td`, `fg_make`).
@@ -152,6 +161,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - In the games file a college game is about 2.6 KB packed (lines and the win chance), an NFL game 2.2 KB, a high school game 0.3 KB (facts and boxes).
 - The open season at its biggest (the end of the football year) packs to 85 MB before compression (63 MB before the depth counts); just after the close the tallies weigh 5 MB of heap. Memory stays flat from season to season: closed seasons live only on disk. The whole world's heap was 0.91 GB after the future season and its peak resident 1.67 GB.
 - The squads file (lane NB7, not measured): a college or NFL row is about 2.5 KB before compression (the boxes, the 21 situations and some 30 starters), a high school row about 1.5 KB; at 0.1 that is roughly 1.5 MB a season before compression and well under 1 MB on disk (Claude's estimate from the row's fields).
+- The trends file (lane NB10, not measured): a college or NFL row is 44 style counts, 5 passing sums and some 12 positions' sizes, about 0.4 KB before compression, a high school row about 0.15 KB; at 0.1 well under 0.5 MB a season on disk (Claude's estimate from the row's fields).
 - At full size (not measured): college and NFL counts barely change with scale, high school games are about ten times as many and college player rows somewhat more, so a season comes to roughly 55-65 MB and a 30-year world's folder to about 1.8 GB; the open season adds roughly 0.2 GB of heap at the football year's end, after the summer's high (Claude's estimate from the 0.1 numbers).
 
 - Lane NB11's files (not measured, Claude's estimate from the rows): prospects about 4 MB a season at full size before compression (about 20,000 followed kids, a dozen games and a few rankings each), moves about 0.6 MB and growing about 0.03 MB a season (the store holds every move), money about 1.5 MB (some 1,700 NFL contracts, the programs' players with money and 16,000 high school budgets).
@@ -165,6 +175,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - `world/tally/decide.rs`: the analysts' tables (`CONV`, `CONV_GOAL`, `GAIN`, `PUNT`, `FG`, `XP`, `TWO`, `PGWE`, refitted by `decide_fit`), `PLAY_SECS`, the garbage time lines (`garbage`).
 - `world/tally/calls.rs`: `CLEAR` (1 point of win chance), the grid's rows and zones.
 - `world/tally/squads.rs`: `BOX`, `LUCK`, `ST`, `TEND`, `TALENT_COLLEGE`, `TALENT_HS`, `regular` (half its games); `world/tally/expect.rs`: `XPASS`.
+- `world/tally/trends.rs`: `STYLE`, `PASS` (what each row counts).
 - `world/analytics.rs`: `charting` (depth and delay by rating), `depth` (which numbers need which depth).
 - `world/tally/prospects.rs`: `followed` (who is kept); `world/tally/money.rs`: `NFL_VALS`, `COLLEGE_VALS`, `HS_EXTRA` (append only).
 

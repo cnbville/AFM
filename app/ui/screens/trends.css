@@ -1,0 +1,108 @@
+/* Lane NB10: Trends, Compare, Career comps and the Stat finder (boards 52,
+   54, 55, 56, 58). The page carries .sl and .dt, so lane 1's tokens and the
+   Data pages' panels apply. Series colours are the four checked for colour
+   blindness on both themes (one fixed order: the first player or team is
+   always blue); the reference line and the middle half stay neutral. Every
+   class is tr- or sf-. */
+
+.tr {
+  --tr1: #3987e5; --tr2: #d95926; --tr3: #199e70; --tr4: #c98500;
+  --tr-ref: #9aa0aa; --tr-band: rgba(255, 255, 255, .07); --tr-grid: rgba(255, 255, 255, .07);
+}
+:root[data-theme="light"] .tr {
+  --tr1: #2a78d6; --tr2: #eb6834; --tr3: #1baf7a; --tr4: #eda100;
+  --tr-ref: #6b707a; --tr-band: rgba(0, 0, 0, .06); --tr-grid: rgba(0, 0, 0, .07);
+}
+.tr-body { display: grid; gap: 12px; margin-top: 12px; min-width: 0; }
+.tr-grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+.beside-body .tr-grid3 { grid-template-columns: minmax(0, 1fr); }
+.tr-panel header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+
+/* The chart. */
+.tr-chart { position: relative; }
+.tr-chart.wide { max-width: 980px; }
+.tr-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tr-grid { stroke: var(--tr-grid); stroke-width: 1; }
+.tr-yl { fill: var(--sl-faint); font-size: 12.5px; text-anchor: end; }
+.tr-xl { fill: var(--sl-faint); font-size: 12.5px; text-anchor: middle; }
+.tr-band { fill: var(--tr-band); }
+.tr-bandv { stroke: var(--tr-band); stroke-width: 10; stroke-linecap: round; }
+.tr-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tr-line.dash { stroke-dasharray: 5 4; }
+.tr-dot { stroke: var(--raised); stroke-width: 2; }
+.tr-line.tr-s1 { stroke: var(--tr1); } .tr-dot.tr-s1 { fill: var(--tr1); }
+.tr-line.tr-ref { stroke: var(--tr-ref); } .tr-dot.tr-ref { fill: var(--tr-ref); }
+.tr-tag { fill: var(--sl-text2); font-size: 12.5px; }
+.tr-cross { stroke: var(--sl-faint); stroke-width: 1; stroke-dasharray: 2 3; }
+.tr-hit { fill: transparent; cursor: crosshair; }
+.tr-tip { position: absolute; top: 4px; z-index: 5; pointer-events: none; display: grid; gap: 2px; min-width: 150px; max-width: 260px; padding: 8px 10px; border-radius: 10px; background: var(--raised); border: 1px solid var(--edge); box-shadow: var(--shadow-float); font-size: 12px; color: var(--sl-text2); }
+.tr-tip[hidden] { display: none; }
+.tr-tip b { color: var(--fg); }
+.tr-tip small { color: var(--sl-faint); }
+
+/* Legends and swatches: identity is never colour alone (names beside). */
+.tr-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--sl-text2); }
+.tr-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tr-sw { display: inline-block; width: 14px; height: 4px; border-radius: 4px; vertical-align: middle; background: var(--tr-ref); }
+.tr-sw.tr-s1 { background: var(--tr1); } .tr-sw.tr-s2 { background: var(--tr2); } .tr-sw.tr-s3 { background: var(--tr3); } .tr-sw.tr-s4 { background: var(--tr4); }
+.tr-sw.tr-ref { background: repeating-linear-gradient(90deg, var(--tr-ref) 0 5px, transparent 5px 8px); }
+.tr-sw.tr-bandsw { height: 10px; background: var(--tr-band); border: 1px solid var(--tr-grid); }
+
+/* Pickers and finders. */
+.tr-picks { flex-wrap: wrap; gap: 6px; }
+.tr-pick { display: inline-flex; align-items: center; gap: 2px; }
+.tr-find { position: relative; display: inline-block; }
+.tr-find input { min-width: 220px; }
+.tr-hits { position: absolute; z-index: 6; top: 100%; left: 0; display: grid; min-width: 280px; max-height: 320px; overflow: auto; background: var(--raised); border: 1px solid var(--edge); border-radius: 10px; box-shadow: var(--shadow-float); }
+.tr-hits:empty { display: none; }
+.tr-hit2 { all: unset; cursor: pointer; display: grid; padding: 6px 10px; font-size: 12.5px; }
+.tr-hit2:hover, .tr-hit2:focus-visible { background: var(--fill-1); }
+.tr-hit2 small { color: var(--sl-faint); }
+.tr-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--fill-1); font-size: 12.5px; }
+.tr-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--sl-text2); }
+
+/* Career comps. */
+.tr-comps header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.tr-clist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.tr-clist li { display: grid; grid-template-columns: minmax(180px, 1.1fr) repeat(auto-fit, minmax(150px, 1fr)) minmax(170px, 1fr) 80px; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--sl-line); font-size: 12.5px; }
+.tr-clist li.tr-me { border-top: 0; color: var(--sl-text2); }
+.tr-cw { display: grid; gap: 2px; }
+.tr-cw small { color: var(--sl-faint); }
+.tr-cs { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.tr-cs em { font-style: normal; color: var(--sl-faint); }
+.tr-cs b { color: var(--sl-text2); font-weight: 600; }
+.tr-next { display: grid; gap: 2px; color: var(--sl-text2); }
+.tr-next small { color: var(--sl-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; }
+.tr-match { text-align: right; color: var(--sl-warm); }
+@media (max-width: 900px) { .tr-clist li { grid-template-columns: minmax(0, 1fr); } .tr-match { text-align: left; } }
+
+/* Compare. */
+.tr-line2 { display: flex; flex-wrap: wrap; gap: 6px; }
+.tr-cmp { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tr-cmp li { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 12.5px; }
+.tr-bars { display: grid; gap: 3px; }
+.tr-bar { display: grid; grid-template-columns: minmax(0, 1fr) 64px 26px; gap: 8px; align-items: center; }
+.tr-bar::before { content: ""; grid-row: 1; grid-column: 1; height: 6px; border-radius: 4px; background: var(--sl-track-dim); }
+.tr-bar > i { grid-row: 1; grid-column: 1; height: 6px; border-radius: 4px; background: var(--tr1); max-width: 100%; }
+.tr-bar > i.tr-s2 { background: var(--tr2); } .tr-bar > i.tr-s3 { background: var(--tr3); } .tr-bar > i.tr-s4 { background: var(--tr4); }
+.tr-bar b { text-align: right; font-weight: 600; }
+.tr-bar small { color: var(--sl-faint); text-align: right; }
+.tr-bar.sm { grid-template-columns: 60px 56px 64px; }
+.tr-mini { display: inline-block; margin-right: 10px; color: var(--sl-text2); }
+.tr-mini small { color: var(--sl-faint); }
+.tr-next2 { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.tr-next2 li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tr-next2 span { color: var(--sl-text2); }
+.tr-unit td { text-align: left; padding-top: 12px; color: var(--sl-warm); font-size: 11.5px; letter-spacing: .03em; text-transform: uppercase; }
+.tr-ttbl th small { font-weight: 400; }
+
+/* The stat finder. */
+.sf-bar, .sf-conds { flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sf-cond { display: inline-flex; align-items: center; gap: 4px; padding: 2px; border-radius: 10px; background: var(--fill-1); }
+.sf-v { width: 90px; }
+.sf-n { width: 56px; }
+.sf-say { margin: 10px 0; font-size: 13.5px; color: var(--sl-warm); }
+.sf-say .muted { font-size: 12.5px; }
+.sf-saved ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sf-saved li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; }
+.sf .tbl { margin-bottom: 12px; }

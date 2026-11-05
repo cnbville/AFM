@@ -3,7 +3,7 @@
 //! instead of from the world reader's game log (a 30-year world's log is
 //! about 40 GB, far too big to ship).
 //!
-//! Six kinds, one file each per season, so later data lanes can each grow
+//! Eight kinds, one file each per season, so later data lanes can each grow
 //! their own (`KINDS`):
 //! - `players`: each college and NFL player's season: games, starts, snaps,
 //!   the games he played and his numbers split by situation (`players.rs`).
@@ -22,6 +22,10 @@
 //! - `calls`: each team's 4th downs and tries against the analysts' model,
 //!   its timeouts and challenges (lane NB8, `calls.rs`; the models in
 //!   `decide.rs`).
+//! - `trends`: one small row per team a season at every level: how it
+//!   played (deep throws, play action, the backfield, the blitz) and how
+//!   big its starters were, for the Trends page's 30 years (lane NB10,
+//!   `trends.rs`).
 //! - `prospects`: high school prospects' game lines and the services'
 //!   rankings, and each Division I signee's last ranking (lane NB11,
 //!   `prospects.rs`).
@@ -55,6 +59,7 @@ pub mod players;
 pub mod prospects;
 pub mod squads;
 pub mod teams;
+pub mod trends;
 
 use std::path::{Path, PathBuf};
 
@@ -63,8 +68,8 @@ use super::World;
 /// The folder beside a world or save: `name.afmdata`.
 pub const EXT: &str = "afmdata";
 /// The kinds, each its own folder of season files.
-pub const KINDS: [&str; 10] =
-    ["players", "teams", "games", "classes", "people", "squads", "calls", "prospects", "moves", "money"];
+pub const KINDS: [&str; 11] =
+    ["players", "teams", "games", "classes", "people", "squads", "calls", "trends", "prospects", "moves", "money"];
 
 /// The level a tally belongs to (its code in files).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -316,6 +321,13 @@ impl World {
                 s.talent = t.clone();
             }
         }
+        // Lane NB10: each team's style and its starters' sizes, read off
+        // the open stores and the people as the season closes.
+        let mut f = file::Frames::new(file::LEVEL_CLOSE);
+        for (k, s) in trends::rows(self) {
+            f.push(k, &file::encode(&s));
+        }
+        files.push(("trends", f.file_bytes("trends", season)));
         let teams = self.tallies.teams.rows();
         let mut f = file::Frames::new(file::LEVEL_CLOSE);
         for (k, s) in &teams {

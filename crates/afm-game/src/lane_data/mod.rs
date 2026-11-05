@@ -40,6 +40,22 @@
 //! - `tally_game` (`year`, `key`): any game's page from the tallies, the
 //!   box for anyone and the advanced box, win chance and decisions where
 //!   your staff charts it (lane NB8, item 24; `tgame.rs`);
+//! - `trends` (`tab` "league", "team" or "player", `level`, `division`,
+//!   `state`, `stats`, `kind`, `id`, `all`): the league's years with the
+//!   middle half of teams, a team's last seasons, a player against the
+//!   usual curve at his spot (lane NB10, item 29; `trends.rs`, the player
+//!   tab in `careers.rs`);
+//! - `data_compare` (`kind` "players" or "teams", `ids` or `teams`, `line`,
+//!   `at`, `year`) and `compare_find` (`q`, `kind`): two to four players or
+//!   teams side by side (item 30, `compare.rs`);
+//! - `career_comps` and `player_trend` (`id`, `level`, `division`,
+//!   `seasons`, `mode`, `drafted`, `n`): the players whose seasons looked
+//!   like his and what became of them (item 31, `careers.rs`);
+//! - `stat_finder` (`mode` "seasons", "careers", "games" or "streaks",
+//!   `level`, `division`, `state`, `from`, `to`, `pos`, `class`, `age`,
+//!   `conds`, `cols`, `sort`) and `stat_finder_stats`: every season,
+//!   career, game or streak that meets the conditions (item 32,
+//!   `finder.rs`).
 //! - `your_numbers` and `next_opponent` (`kind`, `id`): your rank in what
 //!   decides games at your level with five seasons, the verdict, the
 //!   drivers, this week's movers and alerts on your players, and the next
@@ -67,16 +83,20 @@
 mod analytics;
 mod books;
 pub(crate) use books::title_case;
+mod careers;
 mod champs;
 mod coaches;
+mod compare;
 mod deep;
 mod drafts;
+mod finder;
 pub(crate) mod glossary;
 mod money;
 mod prospects;
 pub(crate) mod situ;
 mod teams;
 pub(crate) mod tgame;
+mod trends;
 mod yours;
 
 use afm_engine::calendar::Level as CalLevel;
@@ -108,6 +128,13 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "team_data" => teams::team_data,
         "team_seasons" => teams::team_seasons,
         "team_leaders" => teams::team_leaders,
+        "trends" => trends::trends,
+        "player_trend" => careers::player_trend,
+        "career_comps" => careers::career_comps,
+        "data_compare" => compare::data_compare,
+        "compare_find" => compare::compare_find,
+        "stat_finder" => finder::stat_finder,
+        "stat_finder_stats" => finder::finder_stats,
         "draft_data" => drafts::draft_data,
         "recruit_data" => drafts::recruit_data,
         "portal_data" => drafts::portal_data,

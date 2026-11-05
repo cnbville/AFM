@@ -346,6 +346,63 @@ fn a_college_career_plays_through_its_first_games() {
     }
     ok(&mut g, "team_data", json!({ "kind": "nfl", "id": 0 }));
     ok(&mut g, "team_data", json!({ "kind": "hs", "id": 0 }));
+    // Lane NB10: trends, compare, career comps and the stat finder.
+    for level in ["college", "nfl", "hs"] {
+        let t = ok(&mut g, "trends", json!({ "tab": "league", "level": level }));
+        assert!(t["stats"].as_array().is_some_and(|s| !s.is_empty()) && t["menu"].is_array(), "{level}: {t}");
+        if level == "college" {
+            let rows = t["rows"].as_array().unwrap();
+            assert!(!rows.is_empty(), "college trends have seasons: {t}");
+            let c = &rows[0]["cells"][0];
+            assert!(
+                c["lo"].as_f64() <= c["v"].as_f64() && c["v"].as_f64() <= c["hi"].as_f64(),
+                "the band holds the mean: {c}"
+            );
+        }
+    }
+    let sizes = ok(&mut g, "trends", json!({ "tab": "league", "stats": ["SzOLWt", "SzQBHt"] }));
+    assert_eq!(sizes["stats"].as_array().unwrap().len(), 2, "{sizes}");
+    let tt = ok(&mut g, "trends", json!({ "tab": "team", "stats": ["TmPtsG", "TmPtsG|d"] }));
+    assert!(tt["rows"].as_array().is_some_and(|r| !r.is_empty()) && tt["error"].is_null(), "{tt}");
+    let qb = qbs["rows"][0]["id"].clone();
+    let pt = ok(&mut g, "trends", json!({ "tab": "player", "id": qb }));
+    assert!(pt["seasons"].as_array().is_some_and(|s| !s.is_empty()) && pt["curve"].is_array(), "{pt}");
+    let comps = ok(&mut g, "career_comps", json!({ "id": qb, "n": 5 }));
+    assert!(comps["comps"].is_array() && comps["mine"].as_array().is_some_and(|m| !m.is_empty()), "{comps}");
+    for c in comps["comps"].as_array().unwrap() {
+        assert!((0.0..=1.0).contains(&c["match"].as_f64().unwrap()) && c["outcome"]["text"].is_string(), "{c}");
+    }
+    let other = qbs["rows"][1]["id"].clone();
+    for line in ["class", "age", "year", "career"] {
+        let c = ok(&mut g, "data_compare", json!({ "kind": "players", "ids": [qb, other], "line": line }));
+        assert_eq!(c["players"].as_array().map(|p| p.len()), Some(2), "{line}: {c}");
+    }
+    let ct = ok(
+        &mut g,
+        "data_compare",
+        json!({ "kind": "teams", "teams": [{ "kind": "college", "id": 0 }, { "kind": "college", "id": 1 }] }),
+    );
+    assert!(
+        ct["teams"].as_array().is_some_and(|t| t.len() == 2) && ct["rows"].as_array().is_some_and(|r| !r.is_empty()),
+        "{ct}"
+    );
+    let name = pt["name"].as_str().unwrap().split(' ').next_back().unwrap().to_string();
+    assert!(ok(&mut g, "compare_find", json!({ "q": name }))["items"].as_array().is_some_and(|i| !i.is_empty()));
+    assert!(!ok(&mut g, "stat_finder_stats", json!({}))["stats"].as_array().unwrap().is_empty());
+    let cond = json!([{ "stat": "PassYds", "op": ">=", "v": 1 }]);
+    for find in ["seasons", "careers", "games", "streaks"] {
+        let f = ok(
+            &mut g,
+            "stat_finder",
+            json!({ "find": find, "division": "all", "pos": "QB", "conds": cond, "min_len": 2 }),
+        );
+        assert!(f["rows"].as_array().is_some_and(|r| !r.is_empty()), "{find}: {f}");
+        for r in f["rows"].as_array().unwrap().iter().filter(|r| r["v"].is_array()) {
+            assert!(r["v"][0].as_f64().unwrap() >= 1.0, "{find}: the condition holds: {r}");
+        }
+    }
+    let hs = ok(&mut g, "stat_finder", json!({ "level": "hs", "find": "seasons" }));
+    assert!(hs["rows"].is_array(), "{hs}");
     // Save and load: the loaded career plays on.
     let saved = ok(&mut g, "save", json!({ "name": "test career" }));
     let path = saved["saved"].as_str().unwrap().to_string();
