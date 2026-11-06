@@ -75,13 +75,30 @@ function frComp(r) {
 function frBoard(r) {
   return r.on_board ? fcLink("recruit_file", "On board", { id: r.id }) : `<button class="fr-btn" data-fc="add" data-id="${r.id}" title="Add him to your recruiting board">+ Board</button>`;
 }
-// Your read against the services' (or the desks'), short under its header;
-// the full sentence on hover.
-function frVs(v) {
-  if (v === "unseen") return frMute("Not seen");
+// Your read against the services' (or, for a club, the desks'), short
+// under its header; on hover, what it means.
+const FR_VS_TIP = {
+  services: {
+    "You're higher": "Your staff reads his ceiling at least a tier above his stars: you think the services underrate him.",
+    "Level": "Your staff reads his ceiling in the same tier as his stars: you agree with the services.",
+    "You're lower": "Your staff reads his ceiling at least a tier below his stars: you think the services overrate him.",
+    unseen: "Your staff has no read of his ceiling yet (or none as sure as you asked for).",
+    head: "Your staff's read of his ceiling against the services' stars. It marks Higher or Lower only a whole tier apart (unranked, 2, 3, 4 or 5 stars); otherwise Level.",
+  },
+  desks: {
+    "You're higher": "Your board has him at least 12 places (or a third of your rank) ahead of the desks' consensus.",
+    "Level": "Your board has him within 12 places (and a third of your rank) of the desks' consensus.",
+    "You're lower": "Your board has him at least 12 places (or a third of your rank) behind the desks' consensus.",
+    unseen: "He isn't on your board yet.",
+    head: "Your board's rank against the desks' consensus. It marks Higher or Lower only 12 places (or a third of your rank) apart; otherwise Level.",
+  },
+};
+function frVs(v, by = "services") {
+  const tip = FR_VS_TIP[by];
+  if (v === "unseen") return `<span title="${esc(tip.unseen)}">${frMute("Not seen")}</span>`;
   if (!v) return frMute("—");
   const short = { "You're higher": "Higher", "You're lower": "Lower" }[v] || v;
-  return `<span title="${esc(v)}">${frWord(short, v === "You're higher" ? "hi" : v === "You're lower" ? "lo" : "")}</span>`;
+  return `<span title="${esc(tip[v] || v)}">${frWord(short, v === "You're higher" ? "hi" : v === "You're lower" ? "lo" : "")}</span>`;
 }
 
 // ---------- the college's column views ----------
@@ -94,7 +111,7 @@ const FR_COLLEGE = {
     { t: "Ht · Wt", k: "ht", f: (r) => `<span class="fr-num">${esc(r.ht)}</span><div class="fr-l2 fr-num">${esc(r.wt)} lb</div>` },
     { t: "Your staff's read", k: "now", hw: true, f: (r) => frRead(r.read, r.id) },
     { t: "Could play", k: "proj", f: (r) => (r.proj ? `${esc(r.proj)}<div class="fr-l2">${esc(r.sure || "")}</div>` : frMute("Not seen")) },
-    { t: "You vs the services", k: "vs", hw: true, f: (r) => frVs(r.vs) },
+    { t: "You vs the services", k: "vs", hw: true, tip: FR_VS_TIP.services.head, f: (r) => frVs(r.vs) },
     { t: "Where it stands", f: frStands, wrap: true },
     { t: "Offers", k: "offers", r: true, f: frOffers },
     { t: "", f: frBoard },
@@ -107,7 +124,7 @@ const FR_COLLEGE = {
     { t: "Rank · nat, pos, state", k: "nat", hw: true, f: (r) => frRank(r) },
     { t: x.prev_since ? `Since ${x.prev_since}` : "Movement", k: "move", hw: true, f: (r) => frMove(r.move) },
     { t: "Insider pick", k: "insider_conf", wrap: true, f: (r) => (r.insider ? `${teamLink(r.insider.team)} <span class="fr-l2">${r.insider.conf}%</span><div class="fr-l2"><a class="link" data-act="fr-insider" data-desk="${r.insider.k}">${esc(r.insider.name)}</a>, ${esc(r.insider.desk)}${r.insider.pct != null ? ` · ${r.insider.pct}% right last year` : ""}</div>` : frMute("No pick yet")) },
-    { t: "You vs the services", k: "vs", hw: true, f: (r) => frVs(r.vs) },
+    { t: "You vs the services", k: "vs", hw: true, tip: FR_VS_TIP.services.head, f: (r) => frVs(r.vs) },
   ] },
   athletic: { label: "Body and testing", cols: () => [
     { t: "Recruit", k: "name", f: frName },
@@ -170,7 +187,7 @@ const FR_COLLEGE = {
 const frNfl = {
   name: (r) => `<div class="fr-who">${playerLink(r.id, r.name)}${r.early ? ' <span class="fr-new" title="An early entrant">Early</span>' : ""}</div>`,
   school: (r) => `${frTeam(r.school)}<div class="fr-l2">${esc(r.conf || "")}</div>`,
-  vs: (r) => frVs(r.vs),
+  vs: (r) => frVs(r.vs, "desks"),
   grade: (r) => (r.grade ? `${esc(r.grade)}<div class="fr-l2">${esc(r.proj || "")}${r.sure ? ` · ${esc(r.sure)}` : ""}</div>` : frMute("Not graded")),
 };
 const FR_NFL = {
@@ -185,7 +202,7 @@ const FR_NFL = {
     { t: "Read", k: "now", f: (r) => frRead(r.read, r.id) },
     { t: "Consensus", k: "cons", r: true, f: (r) => (r.cons ? `<span class="fr-num">${r.cons}</span>` : frMute("—")) },
     { t: "Mock drafts", k: "mock_hi", f: (r) => (r.mock ? esc(r.mock) : frMute("Not mocked")) },
-    { t: "You vs the desks", k: "vsd", f: frNfl.vs },
+    { t: "You vs the desks", k: "vsd", tip: FR_VS_TIP.desks.head, f: frNfl.vs },
   ] },
   desks: { label: "Public desks", cols: (x) => [
     { t: "Prospect", k: "name", f: frNfl.name },
@@ -336,7 +353,7 @@ function frTable(x, st, views) {
     const on = c.k && x.sort === c.k;
     const arrow = on ? (x.dir === -1 ? " ▼" : " ▲") : "";
     const cl = `${c.r ? "r" : ""}${c.hw ? " hw" : ""}`;
-    return c.k ? `<th class="${cl}${on ? " on" : ""}"><button class="fr-th" data-act="fr-sort" data-k="${esc(c.k)}" title="Sort by ${esc(c.t)}">${esc(c.t)}${arrow}</button></th>` : `<th class="${cl}">${esc(c.t)}</th>`;
+    return c.k ? `<th class="${cl}${on ? " on" : ""}"><button class="fr-th" data-act="fr-sort" data-k="${esc(c.k)}" title="${c.tip ? `${esc(c.tip)} ` : ""}Sort by ${esc(c.t)}">${esc(c.t)}${arrow}</button></th>` : `<th class="${cl}">${esc(c.t)}</th>`;
   }).join("");
   const picked = new Set(st.picked);
   const body = x.rows.map((r) => `<tr class="${picked.has(r.id) ? "on" : ""}"><td class="fr-tick"><input type="checkbox" data-act="fr-tick" data-id="${r.id}" ${picked.has(r.id) ? "checked" : ""} aria-label="Pick ${esc(r.name)} to compare"></td>${cols.map((c) => `<td class="${c.r ? "r" : ""}${c.wrap ? " wrap" : ""}">${c.f(r)}</td>`).join("")}</tr>`).join("");
