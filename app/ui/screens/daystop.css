@@ -51,19 +51,22 @@
 .ds-row .ds-go { font-size: 12.5px; font-weight: 600; color: var(--fg2); white-space: nowrap; }
 .ds-row .ds-go:hover { color: var(--fg); }
 
-/* under it: one line for what you are doing now, one for what is due before the next stop */
-.ds-under { display: grid; gap: 2px; padding-top: 6px; border-top: 1px solid var(--hair); }
-.ds-line { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 8px 8px; border-radius: 10px; font-size: 14px; line-height: 1.42; }
-.ds-line > .st-label { font-size: 10.5px; color: var(--fg3); }
-.ds-line p { margin: 0; color: var(--fg); }
-.ds-line.now { background: var(--fill-1); }
-.ds-line.now p { font-weight: 600; }
-.ds-due { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline; }
-.ds-due .ds-d b { font-variant-numeric: tabular-nums; margin-right: 8px; }
-.ds-due .ds-none { color: var(--fg2); }
-.ds-due .ds-next { color: var(--fg2); }
-.ds-due .ds-next b { color: var(--fg); font-variant-numeric: tabular-nums; }
-.ds-due .tag { margin-right: 6px; vertical-align: 1px; }
+/* under it, two tiles (layout A, Cain 2026-11-06): what you are doing now, and what is
+   due before the next stop with the next date under a hairline. One label size, one text size. */
+.ds-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 12px; border-top: 1px solid var(--hair); }
+.ds-tile { display: grid; align-content: start; gap: 9px; min-width: 0; padding: 13px 15px 14px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.ds-tile.now { background: color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, #fff) 9%, transparent); box-shadow: inset 3px 0 0 color-mix(in oklab, var(--accent) 55%, #fff), inset 0 0 0 1px var(--hair); }
+.ds-tile > .st-label, .ds-next > .st-label { font-size: 10.5px; }
+.ds-v { margin: 0; font-size: 15px; line-height: 1.38; color: var(--fg); }
+.ds-tile.now .ds-v { font-weight: 650; }
+.ds-v.quiet { color: var(--fg2); }
+.ds-dues { display: grid; }
+.ds-d { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--hair); font-size: 15px; line-height: 1.38; }
+.ds-d:first-child { border-top: 0; padding-top: 0; }
+.ds-d b { font-weight: 600; color: var(--fg2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ds-d.dl b { color: var(--gold); }
+.ds-d em { font-style: normal; color: var(--fg3); white-space: nowrap; }
+.ds-next { display: grid; gap: 9px; padding-top: 11px; margin-top: 2px; border-top: 1px solid var(--hair); }
 .ds-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--fg3); }
 .ds-links .gochip { font-size: 12px; padding: 3px 10px; }
 .ds-links .ds-hint { margin-left: auto; }
@@ -77,7 +80,7 @@
 .ds-drop .ds-notch { position: absolute; top: -7px; right: 150px; width: 14px; height: 14px; transform: rotate(45deg); border-radius: 3px 0 0 0; background: var(--raised); box-shadow: -1px -1px 0 var(--edge); }
 .ds-drop .ds-head { grid-template-columns: 1fr; gap: 12px; padding-right: 34px; }
 .ds-drop .ds-day { width: 100%; }
-.ds-drop .ds-line, .ds-drop .ds-row { grid-template-columns: 66px 82px minmax(0, 1fr) auto; }
+.ds-drop .ds-row { grid-template-columns: 66px 82px minmax(0, 1fr) auto; }
 
 .ds-row .ds-go { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--fg2); }
 .ds-more { padding: 4px 8px 0; color: var(--fg3); font-size: 12px; }
@@ -85,5 +88,5 @@
   .ds-drop { left: 12px; right: 12px; width: auto; }
   .ds-drop .ds-row { grid-template-columns: 58px minmax(0, 1fr); }
   .ds-drop .ds-row .ds-k, .ds-drop .ds-row .ds-go { display: none; }
-  .ds-drop .ds-line { grid-template-columns: 1fr; gap: 4px; }
+  .ds-drop .ds-tiles { grid-template-columns: 1fr; }
 }
