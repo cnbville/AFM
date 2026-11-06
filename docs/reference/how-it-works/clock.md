@@ -1,6 +1,6 @@
 # The clock: how it works today
 
-Checked against the six-part day lane (player immersion I1) on 2026-11-05, before it merged to main.
+Checked against the six-part day lane (player immersion I1) on 2026-11-05, before it merged to main; the stop card's two tiles on 2026-11-06.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. The spec is `docs/design/day-sections.md`; what each section holds at each level is `docs/design/day-sections-map.md`. Hours the code sets that Cain hasn't answered are marked in code as proposed, not confirmed.
 
@@ -19,7 +19,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - What hides a line until its hour? Screens show a line once its moment has come, and a line with no hour from the start of its day, the day's first stop included (so a line about your own move made there, or as your career starts, is on your desk at once); a scheduled one (a date, a window, a deadline, your day's slots and practice) shows ahead (`world/sections.rs`, `has_come`; `crates/afm-game/src/views.rs`, `shown`, `on_screen`). Lines posted after Eastern midnight are filed under the next date but belong to the world day before: the inbox, the news and the calendar's day panels read them there, and the year closes with them (`calendar/date.rs`, `Moment::world_date`; `calendar/events.rs`, `on_day`, `close_year`; `world/clock.rs`, `rollover`).
 - How does holiday mode work? It passes the sections without stopping and comes back at the first section of the day you picked, or at the section after a huge moment (`world/clock.rs`, `holiday_to`).
 - What does the top bar say? Your local date and section, "Fri 30 Oct, 7 PM" (`world/sections.rs`, `clock_text`; `crates/afm-game/src/views.rs`, `status`).
-- What does a stop show? A card under the top bar: what came since the last stop, what you're doing now and what's due before the next stop (`crates/afm-game/src/views.rs`, `stopped`; `app/ui/screens/daystop.js`).
+- What does a stop show? A card under the top bar: what came since the last stop, what you're doing now and what's due before the next stop (`crates/afm-game/src/views.rs`, `stopped`; `app/ui/screens/daystop.js`). Now and Due are two tiles side by side, with the next date under Due (`daystop.js`, `dsCard`).
 
 ## The steps of a day
 

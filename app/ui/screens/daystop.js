@@ -26,9 +26,11 @@ function dsGo(r) {
 function dsCard(c) {
   const rows = c.items.map((r) => `<div class="ds-row${r.mine ? " mine" : ""}${r.dl ? " dl" : ""}"><span class="ds-t">${esc(r.t)}</span><span class="ds-k">${esc(r.k)}</span><span class="ds-x">${rich(r.x)}</span>${dsGo(r)}</div>`).join("");
   const none = `<div class="ds-row"><span class="ds-t"></span><span class="ds-k"></span><span class="ds-x">Nothing new for you since ${esc(c.since)}.</span><span></span></div>`;
+  // Two tiles under the list (layout A, Cain 2026-11-06): one label size and one text size.
   const due = c.due.length
-    ? c.due.map((d) => `<span class="ds-d"><b>${esc(d.when)}</b>${d.tag ? `<span class="tag gold">${esc(d.tag)}</span> ` : ""}${rich(d.what)}</span>`).join("")
-    : `<span class="ds-none">${esc(c.due_none)}</span>${c.next ? `<span class="ds-next">Next: <b>${esc(c.next.when)}</b>, ${rich(c.next.what)}</span>` : ""}`;
+    ? `<div class="ds-dues">${c.due.map((d) => `<div class="ds-d${d.tag ? " dl" : ""}"><b>${esc(d.when)}</b><span>${rich(d.what)}${d.tag ? ` <em>· ${esc(d.tag)}</em>` : ""}</span></div>`).join("")}</div>`
+    : `<p class="ds-v quiet">${esc(c.due_none)}</p>`;
+  const next = c.next ? `<div class="ds-next"><span class="st-label">Next · ${esc(c.next.when)}</span><p class="ds-v">${rich(c.next.what)}</p></div>` : "";
   const links = `<div class="ds-links"><a class="gochip" data-go="inbox">Inbox</a><a class="gochip" data-go="news">News</a><a class="gochip" data-go="calendar">Today, hour by hour</a><span class="ds-hint">Click anywhere to close</span></div>`;
   const head = c.live ? `Live · ${esc(c.live)}` : `Section stop · ${esc(c.stop)} to ${esc(c.next_stop)}`;
   return `<section class="ds-card" aria-label="Since ${esc(c.since)}">
@@ -38,9 +40,9 @@ function dsCard(c) {
       ${dsRail(c)}
     </header>
     <div class="ds-since"><div class="ds-sh"><b>Since ${esc(c.since)}</b><small>${c.items.length + (c.more || 0)} new · in clock order</small></div><div class="ds-rows">${rows || none}</div>${c.more ? `<div class="ds-more">And ${c.more} more on the calendar and in the news.</div>` : ""}</div>
-    <div class="ds-under">
-      <div class="ds-line now"><span class="st-label">Now</span><p>${rich(c.now)}</p></div>
-      <div class="ds-line"><span class="st-label">Due before ${esc(c.next_stop)}</span><div class="ds-due">${due}</div></div>
+    <div class="ds-tiles">
+      <div class="ds-tile now"><span class="st-label">Now · ${esc(c.stop)}</span><p class="ds-v">${rich(c.now)}</p></div>
+      <div class="ds-tile"><span class="st-label">Due before ${esc(c.next_stop)}${c.due.length ? ` · ${c.due.length}` : ""}</span>${due}${next}</div>
     </div>
     ${links}
   </section>`;

@@ -1025,7 +1025,7 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> 
         "more": total - items.len(),
         "now": now_line,
         "due": due,
-        "due_none": format!("Nothing due before {}.", name(next)),
+        "due_none": "Nothing due.",
         "next": upcoming.map(|u| json!({ "when": u["date"], "what": u["text"] })),
     });
     json!({
