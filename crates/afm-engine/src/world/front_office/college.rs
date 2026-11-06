@@ -82,7 +82,8 @@ pub struct Target {
     pub pulled: Option<Date>,
     /// The head coach's own target: he gives this recruit his time.
     pub priority: bool,
-    /// Your NIL promise a year in dollars; None is the collective's usual offer.
+    /// Your NIL promise a year in dollars; None is none (the scholarship
+    /// alone) with the board yours, your coordinator's usual offer with it his.
     pub nil: Option<f64>,
     /// Your coordinator's reason, when he made the offer.
     #[serde(default)]
@@ -283,7 +284,9 @@ pub(crate) struct StageOffer {
     pub person: usize,
     pub priority: bool,
     /// The money he weighs from your promise (in two pots your school's
-    /// number plus the collective's own cleared deal; B18).
+    /// number plus the collective's own cleared deal; B18): with the board
+    /// yours and no number, none of yours. None: your coordinator's usual
+    /// offer.
     pub nil: Option<f64>,
 }
 
@@ -328,11 +331,19 @@ pub(crate) fn stage_board(w: &World) -> Option<StageBoard> {
     let desk = &w.front_office.college;
     let live: Vec<&Target> = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).collect();
     let at = indices(w, &live.iter().map(|t| t.id).collect::<Vec<_>>());
+    // Your offers carry your number, or with the board yours nothing but
+    // the scholarship (`money_from`); your coordinator's carry his usual.
+    let yours = mine(w, Duty::Board).is_some();
     let offers = live
         .iter()
         .filter_map(|t| {
             let person = *at.get(&t.id)?;
-            Some(StageOffer { person, priority: t.priority, nil: t.nil.map(|x| weighed(w, person, x)) })
+            let nil = match t.nil {
+                Some(x) => Some(weighed(w, person, x)),
+                None if yours => Some(weighed(w, person, 0.0)),
+                None => None,
+            };
+            Some(StageOffer { person, priority: t.priority, nil })
         })
         .collect();
     Some(StageBoard { program: j, offers, fill: w.front_office.fill_board })
@@ -1108,7 +1119,7 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
     schools.sort_unstable();
     schools.dedup();
     let mut ranked: Vec<(f64, usize)> = schools.iter().map(|&x| (rec::appeal(w, i, x, None), x)).collect();
-    let mine = rec::appeal(w, i, j, promise_of(w, i)) - if offered { 0.0 } else { 0.12 };
+    let mine = rec::appeal(w, i, j, None) - if offered { 0.0 } else { 0.12 };
     ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
     let ahead: Vec<usize> = ranked.iter().filter(|r| r.0 > mine).map(|r| r.1).collect();
     let draw = key(w, 0x1515 ^ kind as u64, p.player.id as u64 ^ (d.0 as u64) << 32);
@@ -1325,11 +1336,22 @@ fn offered_here(w: &World, id: u32) -> bool {
     w.front_office.college.board.iter().any(|t| t.id == id && t.offered.is_some() && t.pulled.is_none())
 }
 
-/// The money a recruit weighs from your promise, if you made one.
-fn promise_of(w: &World, i: usize) -> Option<f64> {
+/// The NIL money a recruit weighs from your program `j` today (None for
+/// another school, or with your coordinator on the board: his usual
+/// offer). With the board yours an offer carries only what you promise, as
+/// a real one does: a scholarship offer needs no money behind it, so with
+/// no number it is the scholarship alone (Cain's bug report, 2026-11-06).
+/// In two pots the collective's own deal comes beside it (B18).
+pub(crate) fn money_from(w: &World, j: usize, i: usize) -> Option<f64> {
+    if super::program(w) != Some(j) {
+        return None;
+    }
     let id = w.people[i].player.id;
-    let x = w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.nil)?;
-    Some(weighed(w, i, x))
+    match w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.nil) {
+        Some(x) => Some(weighed(w, i, x)),
+        None if mine(w, Duty::Board).is_some() => Some(weighed(w, i, 0.0)),
+        None => None,
+    }
 }
 
 /// What a recruit weighs from your number (B18): in two pots your
@@ -1470,7 +1492,11 @@ fn offer_at(w: &mut World, j: usize, id: u32, by: Source, why: Option<String>) -
     let first = p.cal.early_offers.is_empty()
         && p.cal.offers.len() <= 1
         && !p.notes.iter().any(|n| n.contains("first scholarship offer"));
-    if p.class_of > sign_year && !p.cal.early_offers.iter().any(|o| o.0 == j) {
+    // An offer before his class's first commitment wave (his junior
+    // spring) is an early one, as the staffs' dated offers to his class
+    // are (their last pass comes at junior days): he remembers who came
+    // first, and his file lists it in order.
+    if (p.class_of > sign_year || today < rec::first_wave(p.class_of)) && !p.cal.early_offers.iter().any(|o| o.0 == j) {
         p.cal.early_offers.push((j, today));
     }
     let school = w.programs[j].name(w.options.names).to_string();
@@ -1727,7 +1753,7 @@ fn pull_at(w: &mut World, j: usize, id: u32, log: bool) -> Result<(String, bool)
     Ok((text, free))
 }
 
-/// Your NIL promise to a recruit (None: the collective's usual offer). The
+/// Your NIL promise to a recruit (None: no money, the scholarship alone). The
 /// collective pays the number you name for him even while it runs the rest
 /// of the money (minor bug 59).
 pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, String> {
@@ -1763,7 +1789,10 @@ pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, S
     Ok(match nil {
         Some(x) if two => format!("Your revenue-share promise: {} a year. {said}", dollars(x)),
         Some(x) => format!("Your NIL promise: {} a year. {said}", dollars(x)),
-        None => format!("The usual offer stands. {said}"),
+        None if mine(w, Duty::Board).is_some() => {
+            format!("No money promised: your offer is the scholarship alone. {said}")
+        }
+        None => format!("Your coordinator's usual offer stands. {said}"),
     })
 }
 
@@ -2049,16 +2078,21 @@ pub fn answers_between(w: &World, from: crate::calendar::Moment, to: crate::cale
 }
 
 /// A recruit's first answer to your promise (N1): the money he would weigh
-/// from you against the best his other schools' collectives usually offer
-/// and what he expected from yours, where it leaves you on his list, and
-/// where he stands. Read from the same appeal his decision weighs; his
+/// from you against the best his other schools usually offer, where it
+/// leaves you on his list, and where he stands. He measures you only by
+/// the money on the table: who offered him is public and each school's
+/// usual offer reads only his stars and its budget, never what he is
+/// really worth, and a lone offer has nothing to beat (Cain's bug report,
+/// 2026-11-06). Read from the same appeal his decision weighs; his
 /// decision itself still comes on his own timeline. `before` and `after`
-/// are your numbers (None: the usual offer).
+/// are your numbers (None: nothing promised).
 fn promise_reaction(w: &World, i: usize, j: usize, before: Option<f64>, after: Option<f64>) -> Reaction {
     let p = &w.people[i];
-    let usual = rec::usual_nil_offer(w, j, i);
-    let mine_before = before.map_or(usual, |x| weighed(w, i, x));
-    let mine_after = after.map_or(usual, |x| weighed(w, i, x));
+    // No number: the scholarship alone with the board yours, your
+    // coordinator's usual offer with it his (`money_from`).
+    let unpromised = if mine(w, Duty::Board).is_some() { weighed(w, i, 0.0) } else { rec::usual_nil_offer(w, j, i) };
+    let mine_before = before.map_or(unpromised, |x| weighed(w, i, x));
+    let mine_after = after.map_or(unpromised, |x| weighed(w, i, x));
     let mut schools: Vec<usize> = p.cal.offers.iter().copied().chain(p.cal.early_offers.iter().map(|o| o.0)).collect();
     schools.extend(p.cal.commit.map(|c| c.0));
     schools.retain(|&x| x != j);
@@ -2067,10 +2101,11 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<f64>, after: O
     let others: Vec<(usize, f64, f64)> =
         schools.iter().map(|&x| (x, rec::usual_nil_offer(w, x, i), rec::appeal(w, i, x, None))).collect();
     let best = others.iter().copied().max_by(|a, b| a.1.total_cmp(&b.1)).filter(|b| b.1 >= 1_000.0);
-    let reference = best.map_or(0.0, |b| b.1).max(usual);
     let (place, top) = money_place(&rec::reason_weights(w, i));
     let cares = place < 3;
-    let mood = match mood_of(mine_after, reference) {
+    // With no other money on the table, any money of yours is a plus and
+    // none is what he has anyway (`mood_of`).
+    let mood = match mood_of(mine_after, best.map_or(0.0, |b| b.1)) {
         Mood::Insulted if !cares => Mood::WantsMore,
         Mood::Thrilled if !cares => Mood::Pleased,
         m => m,
@@ -2094,15 +2129,16 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<f64>, after: O
         (Mood::Pleased, Some(b)) if mine_after > b.1 => {
             format!("It tops {}'s money (about {}).", name(b.0), dollars(b.1))
         }
+        (Mood::Pleased, None) => "No other school has put money on the table for him, so yours stands out.".into(),
         (Mood::Pleased, _) => format!("It's more than {who_l} expected from you."),
         (Mood::Fine, Some(b)) => format!("It's in line with {}'s money (about {}).", name(b.0), dollars(b.1)),
-        (Mood::Fine, None) => format!("It's about what {who_l} expected from you."),
+        (Mood::Fine, None) => {
+            "No other school has put money on the table for him: your scholarship is what counts.".into()
+        }
         (Mood::WantsMore, Some(b)) if b.1 > mine_after => {
             format!("{} offers more, about {}, and {who_l} let you know.", name(b.0), dollars(b.1))
         }
-        (Mood::WantsMore, _) => {
-            format!("It's under your collective's usual offer (about {}), and {who_l} noticed.", dollars(usual))
-        }
+        (Mood::WantsMore, _) => format!("{who} hoped for more, and let you know."),
         (Mood::Insulted, Some(b)) if b.1 > mine_after => {
             format!("{who} took it as a lowball: {} offers about {}.", name(b.0), dollars(b.1))
         }
@@ -2149,7 +2185,7 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<f64>, after: O
         id: p.player.id,
         kind: MoneyKind::Promise,
         date: w.today,
-        money: after.unwrap_or(usual),
+        money: after.unwrap_or(unpromised),
         mood,
         text: v.join(" "),
         due: None,
@@ -2612,13 +2648,7 @@ pub fn race_at(w: &World, i: usize) -> Vec<(usize, f64)> {
     }
     schools.sort_unstable();
     schools.dedup();
-    let mut v: Vec<(usize, f64)> = schools
-        .into_iter()
-        .map(|x| {
-            let nil = if Some(x) == j { promise_of(w, i) } else { None };
-            (x, rec::appeal(w, i, x, nil))
-        })
-        .collect();
+    let mut v: Vec<(usize, f64)> = schools.into_iter().map(|x| (x, rec::appeal(w, i, x, None))).collect();
     v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     v
 }
@@ -2626,8 +2656,7 @@ pub fn race_at(w: &World, i: usize) -> Vec<(usize, f64)> {
 /// What program `j` means to a recruit today, in `race`'s units (your own
 /// program with your NIL promise).
 pub fn appeal_of(w: &World, i: usize, j: usize) -> f64 {
-    let nil = if super::program(w) == Some(j) { promise_of(w, i) } else { None };
-    rec::appeal(w, i, j, nil)
+    rec::appeal(w, i, j, None)
 }
 
 /// What a school means to a recruit reason by reason (board 8), in
@@ -2636,8 +2665,7 @@ pub fn appeal_of(w: &World, i: usize, j: usize) -> f64 {
 /// Each is (appeal points, the school's score 0-1); they add up to its
 /// appeal in `race`.
 pub fn reasons(w: &World, i: usize, j: usize) -> [(f64, f64); 7] {
-    let nil = if super::program(w) == Some(j) { promise_of(w, i) } else { None };
-    rec::reason_parts(w, i, j, nil)
+    rec::reason_parts(w, i, j, None)
 }
 
 /// How much each of the six weighed reasons counts with whoever decides for
@@ -2666,15 +2694,13 @@ pub fn usual_parts(w: &World, j: usize, id: u32) -> (f64, f64) {
     if ncaa::two_pots(w.today) { (school, coll) } else { (school + coll, 0.0) }
 }
 
-/// The NIL money a recruit weighs from program `j` today: your promise as
-/// he weighs it (with the collective's own deal in two pots, B18) where you
-/// made one, else the usual offer.
+/// The NIL money a recruit weighs from program `j` today: from yours what
+/// you promise as he weighs it (with the collective's own deal in two pots,
+/// B18), nothing but the scholarship without a number while the board is
+/// yours; from any other school its usual offer.
 pub fn weighed_offer(w: &World, j: usize, id: u32) -> f64 {
     let Some(i) = super::index_of(w, id) else { return 0.0 };
-    match promise_of(w, i) {
-        Some(x) if super::program(w) == Some(j) => x,
-        _ => rec::usual_nil_offer(w, j, i),
-    }
+    rec::offer_money(w, j, i)
 }
 
 /// Whether his transcript meets your division's academic line today (the

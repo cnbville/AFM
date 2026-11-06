@@ -375,15 +375,22 @@ function fcActions(f) {
     // 2025 it is the school's revenue share, and the collective adds its
     // own deal through NIL Go (B18).
     const own = f.two_pots && f.collective_own >= 1000 ? ` The collective adds its own deal, about ${money(f.collective_own)}, once NIL Go clears it.` : "";
+    // NIL is optional on an offer (Cain, 2026-11-06): with no number your
+    // offer is the scholarship. The going rate reads only his public stars
+    // and your money, never what he is really worth.
+    const kind = `${f.stars ? `a ${f.stars}★` : "an unranked"} ${f.pos}`;
+    const market = `Schools like yours usually pay ${kind} about ${money(f.usual)}${f.two_pots ? " from the revenue share" : ""}.`;
     if (f.board_yours) {
-      const usual = f.two_pots ? `The school's usual revenue share for him: ${money(f.usual)}.${own}` : `The collective's usual offer: ${money(f.usual)}.`;
-      nil = `<div class="fc-nil"><span class="st-label">${f.two_pots ? "Revenue-share promise" : "NIL promise"}</span>
-        <div class="fc-nilrow"><label class="fc-moneyin">$<input type="number" min="0" step="5" value="${f.nil != null ? Math.round(f.nil / 1000) : ""}" placeholder="${Math.round(f.usual / 1000)}" data-fcin="promise" data-id="${f.id}">thousand a year</label><button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
-        <small class="sub">${usual} The going rate for his position tops out near ${money(f.nil_max)}, but only your ${f.two_pots ? "revenue share" : "budget"} limits you: ${money(f.budget.left)} left this year.</small>
+      const state = f.nil != null
+        ? `You promised ${money(f.nil)} a year${f.two_pots ? " from the revenue share" : ""}.${own}`
+        : f.two_pots ? `No revenue share promised: your offer is the scholarship.${own}` : "No NIL promised: your offer is the scholarship alone.";
+      nil = `<div class="fc-nil"><span class="st-label">${f.two_pots ? "Revenue-share promise" : "NIL promise"} <small>optional</small></span>
+        <div class="fc-nilrow"><label class="fc-moneyin">$<input type="number" min="0" step="5" value="${f.nil != null ? Math.round(f.nil / 1000) : ""}" placeholder="none" data-fcin="promise" data-id="${f.id}">thousand a year</label><button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
+        <small class="sub">${state} ${market} The going rate for his position tops out near ${money(f.nil_max)}, but only your ${f.two_pots ? "revenue share" : "budget"} limits you: ${money(f.budget.left)} left this year.</small>
         ${fcAnswer(f.answer)}
-        ${f.nil != null ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Back to the usual offer</button>` : ""}</div>`;
+        ${f.nil != null ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Take the promise back</button>` : ""}</div>`;
     } else {
-      nil = `<div class="fc-nil"><span class="st-label">NIL</span><small class="sub">${f.two_pots ? `Your school's usual revenue share for him is about ${money(f.usual)} a year.${own}` : `Your collective offers about ${money(f.usual)} a year.`}</small>${fcAnswer(f.answer)}</div>`;
+      nil = `<div class="fc-nil"><span class="st-label">NIL</span><small class="sub">Your coordinator's offers carry the usual money: ${f.two_pots ? `the school's revenue share for ${kind} is about ${money(f.usual)} a year.${own}` : `your collective pays ${kind} about ${money(f.usual)} a year.`}</small>${fcAnswer(f.answer)}</div>`;
     }
   }
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${nil}</div>`;

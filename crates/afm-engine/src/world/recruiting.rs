@@ -8202,16 +8202,32 @@ pub(crate) fn usual_nil_parts(w: &World, j: usize, i: usize) -> (f64, f64) {
     pots(prog, w.today, money, nil_go_top_recruit(p))
 }
 
+/// The NIL money a recruit weighs from program `j` today: from your own
+/// program what you promise (with the board yours, nothing but the
+/// scholarship until you name a number; `money_from`), from any other its
+/// usual offer.
+pub(crate) fn offer_money(w: &World, j: usize, i: usize) -> f64 {
+    fo::college::money_from(w, j, i).unwrap_or_else(|| usual_nil_offer(w, j, i))
+}
+
+/// The day his class's first commitment wave signs (its junior spring,
+/// the first of the summer waves): offers before it are early ones.
+pub(crate) fn first_wave(class_of: i32) -> Date {
+    let (m, d) = super::clock::COMMIT_WAVES[0];
+    Date::ymd(class_of - 1, m, d)
+}
+
 /// What a school means to a recruit today (lane 10): the same appeal his
 /// signing day weighs (his decider's wants, the school, its money, his own
 /// feel for it), with what each staff has done for him so far: the visits
 /// he took, a commitment's hold. `nil` is the money on the table (None: the
-/// collective's usual offer). It leaves out the position room and the
-/// relationship a staff builds over the year, which signing day adds.
+/// money the school offers him today, `offer_money`). It leaves out the
+/// position room and the relationship a staff builds over the year, which
+/// signing day adds.
 pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     let p = &w.people[i];
     let prog = &w.programs[j];
-    let nil = nil.unwrap_or_else(|| usual_nil_offer(w, j, i));
+    let nil = nil.unwrap_or_else(|| offer_money(w, j, i));
     let wants = p.family.decider_wants;
     let mut u = utility(&w.system_norms, p, &wants, prog, w.year, nil, 0.6, home_weight(&w.programs, p, w.year));
     let seed = w.options.seed as u64 ^ (p.class_of as u64) << 20;
@@ -8245,7 +8261,7 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
 pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [(f64, f64); 7] {
     let p = &w.people[i];
     let prog = &w.programs[j];
-    let nil = nil.unwrap_or_else(|| usual_nil_offer(w, j, i));
+    let nil = nil.unwrap_or_else(|| offer_money(w, j, i));
     let wants = p.family.decider_wants;
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
     let close = closeness(geo::miles(p.home_state, prog.state));

@@ -330,7 +330,8 @@ pub fn page(w: &World, args: &Value) -> Reply {
         geo::miles_between(home, geo::campus(pr.state, &pr.city)).round()
     };
     // Your promise as he weighs it (with the collective's own deal in two
-    // pots, B18), else each school's usual offer.
+    // pots, B18; none but the scholarship without one while the board is
+    // yours), else each school's usual offer.
     let nil_of = |j: usize| -> f64 { desk::weighed_offer(w, j, id) };
     let grade = |j: usize, g: GradeCat| w.programs[j].grades[g as usize];
     let reasons: Vec<Value> = REASONS

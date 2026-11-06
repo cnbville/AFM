@@ -4,8 +4,10 @@
 use super::legacy::seat;
 use crate::calendar::Date;
 use crate::world::front_office::college::{
-    MoneyKind, Mood, budget, collective_deals, reaction, set_deal, set_promise, usual_deals,
+    MoneyKind, Mood, budget, collective_deals, offer, race, reaction, set_deal, set_promise, stage_board, usual_deals,
+    weighed_offer,
 };
+use crate::world::front_office::{Duty, Owner};
 use crate::world::recruiting as rec;
 use crate::world::{Stage, World, ncaa};
 
@@ -162,11 +164,96 @@ fn promise_answers(house: bool) {
     assert!(matches!(r.mood, Mood::Thrilled | Mood::Pleased), "{:?}: {}", r.mood, r.text);
     assert!(r.text.contains("only a number"), "no scholarship offer yet: {}", r.text);
     (w.today, w.played) = now;
+    // Another school offers him, with money of its own: nothing from you
+    // is under it now.
+    let x = (0..w.programs.len()).find(|&x| x != j && w.programs[x].division == w.programs[j].division).unwrap();
+    w.programs[x].collective.budget = 20.0e6;
+    w.programs[x].collective.school = 12.0e6;
+    w.people[i].cal.offers.push(x);
     set_promise(&mut w, id, Some(0.0)).unwrap();
     to_next_section(&mut w);
     let r = reaction(&w, id, MoneyKind::Promise).unwrap();
     assert!(matches!(r.mood, Mood::WantsMore | Mood::Insulted), "{:?}: {}", r.mood, r.text);
     assert_eq!(w.people[i].cal.commit.map(|c| c.0), commit.map(|c| c.0), "his decision keeps its own clock");
+}
+
+// --- Cain's NIL bug report (2026-11-06) ----------------------------------------------------
+
+/// A four-star of the class signing next with no offers yet, as Cain's
+/// guard was.
+fn lone_recruit(w: &mut World, skip: Option<u32>) -> (usize, u32) {
+    let class = rec::next_class(w);
+    let i = w
+        .people
+        .iter()
+        .position(|p| p.stage == Stage::HighSchool && p.class_of == class && Some(p.player.id) != skip)
+        .unwrap();
+    let p = &mut w.people[i];
+    p.stars = 4;
+    p.cal.offers.clear();
+    p.cal.early_offers.clear();
+    p.cal.commit = None;
+    (i, p.player.id)
+}
+
+#[test]
+fn an_offer_needs_no_money_and_a_lone_one_leads_and_is_never_a_lowball() {
+    for house in [false, true] {
+        lone_offer(house);
+    }
+}
+
+fn lone_offer(house: bool) {
+    let (mut w, j) = college(house);
+    let (i, id) = lone_recruit(&mut w, None);
+    let (school, collective) = rec::usual_nil_parts(&w, j, i);
+    assert!(school + collective > 1_000.0, "a four-star's usual money: {school} + {collective}");
+    offer(&mut w, id).unwrap();
+    // No number: the scholarship alone, with the collective's own deal
+    // beside it in two pots.
+    let own = if house { collective } else { 0.0 };
+    assert!((weighed_offer(&w, j, id) - own).abs() < 1.0, "{} against {own}", weighed_offer(&w, j, id));
+    let b = stage_board(&w).unwrap();
+    let o = b.offers.iter().find(|o| o.person == i).expect("the offer goes out");
+    assert!(o.nil.is_some_and(|x| (x - own).abs() < 1.0), "{:?}", o.nil);
+    // His only offer leads his list, whatever the money.
+    assert_eq!(race(&w, id).first().map(|r| r.0), Some(j));
+    // With nobody else paying, nothing from you is no lowball (and the
+    // collective's own deal is money he didn't have).
+    set_promise(&mut w, id, Some(0.0)).unwrap();
+    to_next_section(&mut w);
+    let r = reaction(&w, id, MoneyKind::Promise).expect("an answer");
+    assert_eq!(r.mood, if house { Mood::Pleased } else { Mood::Fine }, "{}", r.text);
+    assert!(r.text.contains("No other school"), "{}", r.text);
+    // A number is what he weighs.
+    set_promise(&mut w, id, Some(50_000.0)).unwrap();
+    assert!((weighed_offer(&w, j, id) - 50_000.0 - own).abs() < 1.0);
+    to_next_section(&mut w);
+    assert_eq!(reaction(&w, id, MoneyKind::Promise).unwrap().mood, Mood::Pleased);
+    // With your coordinator on the board his offers carry the usual money.
+    set_promise(&mut w, id, None).unwrap();
+    w.front_office.set_owner(Duty::Board, Owner::Staff);
+    let usual = rec::usual_nil_offer(&w, j, i);
+    assert!((weighed_offer(&w, j, id) - usual).abs() < 1.0, "{} against {usual}", weighed_offer(&w, j, id));
+    assert!(stage_board(&w).unwrap().offers.iter().find(|o| o.person == i).unwrap().nil.is_none());
+}
+
+#[test]
+fn your_offer_before_his_class_first_wave_is_an_early_one() {
+    let (mut w, j) = college(false);
+    let class = rec::next_class(&w);
+    assert!(w.today < rec::first_wave(class), "{:?} {class}", w.today);
+    // The class signing next, before its first wave: his junior spring.
+    let (i, id) = lone_recruit(&mut w, None);
+    offer(&mut w, id).unwrap();
+    assert_eq!(w.people[i].cal.early_offers.iter().map(|o| o.0).collect::<Vec<_>>(), vec![j]);
+    // From the first wave on an offer is no early one.
+    w.today = rec::first_wave(class).add(1);
+    assert_eq!(rec::next_class(&w), class);
+    let (k, other) = lone_recruit(&mut w, Some(id));
+    offer(&mut w, other).unwrap();
+    assert!(w.people[k].cal.early_offers.is_empty(), "{:?}", w.people[k].cal.early_offers);
+    assert_eq!(w.people[k].cal.offers, vec![j]);
 }
 
 // --- High school NIL (N3) ---------------------------------------------------------------
