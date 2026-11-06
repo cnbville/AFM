@@ -143,14 +143,14 @@ function frBrief(b) {
   const q = b.questions.find((x) => x.key === pickQ.q) || b.questions[0];
   const qs = b.questions.map((x) => `<button class="st-btn small ${x.key === (q && q.key) ? "on" : "glass"}" data-act="frpickq" data-id="${b.id}" data-q="${esc(x.key)}">${esc(x.text)}</button>`).join("");
   const cuts = b.cuts.map((c) => `<button class="st-btn small ${c.key === pickQ.cut ? "on" : "glass"}" data-act="frpickcut" data-id="${b.id}" data-cut="${c.key}"${c.ask ? ` data-ask="${esc(c.ask)}"` : ""}>${esc(c.label)}</button>`).join("");
-  const mins = 6 * b.snap_min;
+  const mins = (b.full_snaps || 6) * b.snap_min;
   return `<div class="pad sl fm">
     <header class="fm-head"><div><div class="st-label">Film room · his tape</div><h1 class="fm-h1">${esc(b.name)}</h1><p class="fm-sub">${esc(b.meta)}</p></div>
       <div class="fm-tops"><div class="fm-top"><span class="st-label">Film time left this week</span><b>${frH(b.left)}</b>${frBar(b.budget ? (b.left / b.budget) * 100 : 0)}<small>of ${frH(b.budget)}</small></div></div></header>
     <div class="fm-cols"><div class="fm-main">
       ${frCard("The question to settle", `<div class="fm-big">${esc(q ? q.text : "What does his tape say?")}</div><p class="fm-dim">${esc(q ? q.why : "")}</p><div class="fm-seg wrap">${qs}</div>`)}
       ${frCard(`The cut-up · about ${mins} min`, `<div class="fm-seg wrap">${cuts}</div>
-        <p class="fm-dim">Six of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end.${b.full_through ? ` The full tape plays straight through with your coach in the room: no stops to call a snap, a half-seen moment run back while your hours last (${b.runback_min} min each), then your verdict. The quick watch is twice the snaps, a first look only, with no coach.` : ""}</p>
+        <p class="fm-dim">${b.full_snaps || 6} of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end.${b.full_through ? ` The full tape plays straight through with your coach in the room: no stops to call a snap, a half-seen moment run back while your hours last (${b.runback_min} min each), then your verdict. The quick watch skims the same snaps: a first look only, with no coach.` : ""}</p>
         <div class="fm-seg">${frBtn("fropen", { id: b.id, mode: "full" }, b.full_through ? `▶ Watch the full tape · about ${mins} min` : "Watch it snap by snap", "primary")}${frBtn("fropen", { id: b.id, mode: "quick" }, `Watch it quick · ${b.quick_min} min`)}<button class="st-btn small glass" data-go="film">Back to the queue</button></div>`)}
     </div><div class="fm-side">${frReads(b.reads, null)}</div></div></div>`;
 }

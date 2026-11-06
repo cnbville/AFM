@@ -54,7 +54,7 @@ fn a_session_watched_snap_by_snap_becomes_your_report() {
         .expect("a player with tape");
     let s = w.scouting.film.open.as_ref().unwrap();
     let n = s.snaps.len();
-    assert!((3..=6).contains(&n), "a cut-up of a few snaps: {n}");
+    assert!((3..=session::CUT_SNAPS).contains(&n), "a cut-up of a few snaps: {n}");
     assert!(s.ask.is_some(), "a question to settle");
     for st in &s.snaps[0].stills {
         assert!(!st.dots.is_empty(), "each still draws the men");
@@ -120,8 +120,8 @@ fn a_session_watched_snap_by_snap_becomes_your_report() {
 // The full tape played straight through (Cain 2026-11-06, the game's
 // temporary override): no stops for a call, every snap charged, run-backs
 // while the hours last, the room in it, and it stops at the verdict. It
-// costs more than the quick watch and buys more: the coach's own look and
-// the look-back, against a first look at twice the snaps.
+// costs more than the quick watch and buys more: the same snaps studied,
+// with the coach's own look and the look-back, against a first look.
 #[test]
 fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
     let (mut wf, mut wq) = (nfl_world(), nfl_world());
@@ -175,6 +175,7 @@ fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
         snaps(&quick),
         got(&quick)
     );
+    assert!(raw(&wf, 0) > raw(&wq, 0), "the full tape catches more than the quick watch");
     // The hours: snaps at four minutes and run-backs at two, off the one ledger.
     let spent = left_f - time::left(&wf);
     let charged: f32 = full.iter().map(|r| r.minutes as f32).sum::<f32>() / 60.0;

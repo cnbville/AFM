@@ -427,6 +427,7 @@ fn brief(w: &World, id: u32, ask: Option<&str>) -> Reply {
         "quick_min": session::QUICK_MIN,
         "runback_min": session::RUNBACK_MIN,
         "full_through": FULL_RUNS_THROUGH,
+        "full_snaps": session::CUT_SNAPS,
         "left": (time::left(w) * 10.0).round() / 10.0,
         "budget": time::budget(w),
         "watchers": there::watchers(w, id),
