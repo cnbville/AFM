@@ -127,7 +127,8 @@ fn backing(w: &World, i: usize, j: usize) -> [f64; 7] {
     let p = &w.people[i];
     let prog = &w.programs[j];
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
-    let nil = crate::world::recruiting::usual_nil_offer(w, j, i);
+    // What the school really offers him: yours only what you promised.
+    let nil = crate::world::recruiting::offer_money(w, j, i);
     let money = (nil / 1.0e6).powf(0.6).min(1.0).max(0.6 * g(GradeCat::Nil));
     let near = crate::world::recruiting::closeness(crate::world::geo::miles(p.home_state, prog.state));
     let family = prog.head_coach.map_or(0.3, |c| {

@@ -1322,10 +1322,19 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
     v["visits"] = json!(visits_of(w, j, p));
     v["reader_role"] = json!(reader_role(w, j, p.player.position));
     v["options"] = json!(visit_options(w, i, id));
+    // His offers in order: the dated early ones first (yours among them),
+    // then the ones the signing stages brought, as many as the file's
+    // count says.
     let offers: Vec<Value> = {
         let mut early = p.cal.early_offers.clone();
         early.sort_by_key(|o| o.1);
-        early.iter().map(|o| json!({ "team": brief(w, o.0), "date": short_date(o.1) })).collect()
+        views::offers_of(p)
+            .into_iter()
+            .map(|x| {
+                let date = early.iter().find(|o| o.0 == x).map_or_else(|| "Later".to_string(), |o| short_date(o.1));
+                json!({ "team": brief(w, x), "date": date })
+            })
+            .collect()
     };
     v["early"] = json!(offers);
     let fam = desk::family_read(w, i);

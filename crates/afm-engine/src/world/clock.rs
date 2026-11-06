@@ -109,11 +109,10 @@ pub(crate) fn portal_windows(season: i32, rule: TransferRule) -> Vec<(Date, Date
 /// days (part D 12), after the spring evaluation period, in mid-June after
 /// the camps and junior officials (part D 13), at the end of summer and at
 /// the end of October.
+pub(crate) const COMMIT_WAVES: [(u32, u32); 5] = [(3, 20), (4, 30), (6, 15), (8, 31), (10, 31)];
+
 fn commit_wave(y: &YearDates, d: Date) -> Option<u8> {
-    [(3, 20), (4, 30), (6, 15), (8, 31), (10, 31)]
-        .iter()
-        .position(|&(m, day)| Date::ymd(y.season, m, day) == d)
-        .map(|k| k as u8)
+    COMMIT_WAVES.iter().position(|&(m, day)| Date::ymd(y.season, m, day) == d).map(|k| k as u8)
 }
 
 /// The college all-star games of a football year's January, with their dates.
