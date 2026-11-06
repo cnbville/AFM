@@ -299,7 +299,7 @@ async function stepWorld(st) {
           : `<div class="pg-empty">Your library is empty. Download a ready-built world below, import a world folder, or build one.</div>`}
         ${progress}${offline}
       </div>
-      ${story ? `<div class="pg-panel"><div class="pg-ph"><span>The world's story ${wc ? `<small>· what ${esc(yrs(wc.history_years))} left behind</small>` : ""}</span></div>${story}</div>` : ""}
+      ${story ? `<div class="pg-panel"><div class="pg-ph"><span>The world's story ${wc ? `<small>· what ${esc(yrs(wc.history_years))} left behind</small>` : ""}</span>${sel ? '<span class="pg-acts"><button class="pg-btn s" data-pg="delete-world">Delete this world…</button></span>' : ""}</div>${story}</div>` : ""}
     </div>
     <aside class="pg-aside">
       <div class="pg-panel"><div class="pg-ph"><span>Names</span><small>fixed for the whole career</small></div>
@@ -1293,6 +1293,20 @@ document.addEventListener("click", async (ev) => {
       break;
     }
     case "pick-world": st.world = d.path; render(); break;
+    case "delete-world": {
+      const w = st && PG.lib && PG.lib.worlds.find((x) => x.path === st.world);
+      if (!w) break;
+      const ok = await sure(`Delete ${worldTitle(w)}?`, "The world file goes from your library, with its story, world log and data beside it. Your saves keep their own copy of their world, so no career is lost. This can't be undone.", "Delete it");
+      if (!ok) break;
+      try {
+        await api("delete_world", { path: w.path });
+        // The world open for this new career was that file: the next pick opens afresh.
+        if (st.loaded === w.path) { st.loaded = null; PG.loaded = null; }
+        st.world = null;
+        render();
+      } catch (e) { toast(e.message); }
+      break;
+    }
     case "import": {
       const path = isMac() && window.__TAURI__.dialog
         ? await window.__TAURI__.dialog.open(d.file ? { multiple: false, filters: [{ name: "AFM world", extensions: ["afmworld", "001"] }] } : { directory: true, multiple: false })

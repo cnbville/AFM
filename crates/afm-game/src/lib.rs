@@ -195,6 +195,7 @@ impl Game {
             }
             "rename_save" => setup::rename_save(self, args),
             "delete_save" => setup::delete_save(self, args),
+            "delete_world" => setup::delete_world(self, args),
             "reveal" => setup::reveal(self, args),
             "setup" => Ok(setup::options(self.w()?)),
             "similar" => Ok(setup::similar(self.w()?, args)),
