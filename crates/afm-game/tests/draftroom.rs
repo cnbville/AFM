@@ -121,7 +121,12 @@ fn the_draft_room_and_the_outlook() {
     assert!(g.call("dr_outlook", &json!({})).is_err(), "the outlook is for a college or a high school");
     let mut steps = 0;
     while !ok(&mut g, "draft_live", json!({}))["live"].as_bool().unwrap() && steps < 300 {
-        ok(&mut g, "continue", json!({ "max_days": 60 }));
+        ok(&mut g, "day", json!({}));
+        steps += 1;
+    }
+    // Your first pick may come on a later night: Continue on to it.
+    while ok(&mut g, "draft_live", json!({}))["waiting"] == json!(true) && steps < 340 {
+        ok(&mut g, "continue", json!({}));
         steps += 1;
     }
     println!("to the draft in {:.0}s", t.elapsed().as_secs_f64());
@@ -145,8 +150,11 @@ fn the_draft_room_and_the_outlook() {
     }
     let mut guard = 0;
     let mut r = r;
-    while !r["rush"].as_bool().unwrap() && guard < 60 {
-        if r["on_clock"].as_bool().unwrap() {
+    while !r["rush"].as_bool().unwrap() && guard < 120 {
+        if ok(&mut g, "draft_live", json!({}))["waiting"] == json!(true) {
+            // Between the draft's nights: the clock runs on to the next.
+            ok(&mut g, "continue", json!({}));
+        } else if r["on_clock"].as_bool().unwrap() {
             ok(&mut g, "draft_auto", json!({}));
         } else {
             ok(&mut g, "draft_go", json!({ "until": "yours" }));

@@ -1,13 +1,13 @@
 # Injuries: how it works today
 
-Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30.
+Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
 There are four injury sources, and they do not talk to each other much:
 
 1. The match engine: hits on each snap, at every level (`game/sim.rs`, `injury_check`).
-2. NFL practice: every club, every Tuesday from veterans' report to the Super Bowl (`world/pro/games.rs`, `practice_injuries`).
+2. NFL practice: every club, on its own practice days from veterans' report to the Super Bowl, when its practice ends (`world/pro/games.rs`, `practice_injuries`; `training/days.rs`, `nfl_practice`).
 3. Your own college or high school team's practices (`training/seat.rs`, `practice_injuries`, `heat_week`, `report_day`).
 4. The yearly roll at each checkpoint, for everyone: the injury that costs growth, games on the season row and sometimes burst for good (`development.rs`, `develop_season`).
 
@@ -51,14 +51,14 @@ There are four injury sources, and they do not talk to each other much:
 
 ## NFL practice injuries
 
-- Every Tuesday from veterans' report to the Super Bowl, every healthy roster or practice-squad player (`world/pro/mod.rs`, the daily step; `world/pro/games.rs`, `practice_injuries`).
-- Weekly chance: base × prone × age × specialist × plan × load. Base 0.0155 before the cutdown, 0.009 after. Prone = 0.55 + proneness / 18. Age = 1 + 0.03 × max(age − 26, 0). Specialist 0.25. Plan = the club's week against an average staff's: clamp(sqrt((full-contact minutes + 10) / (neutral + 10)) × ((field minutes + 30) / (neutral + 30))^0.3, 0.5, 2.0) (`training/week.rs`, `team_week`, `risk`; stored in `training.club_risk`). Your own club's plan is the same read of your own week × (0.77 + 0.23 × limber), limber = clamp(1 − 0.1 × (mobility minutes − neutral) / (neutral + 15), 0.9, 1.1) (`training/seat.rs`, `week`, `my_risk`, `limber`; `training/week.rs`, `monday`). Load = 1 + 0.8 × (spike − 1.3) above a 1.3 spike (`training/mod.rs`, `Train::spike`).
+- Each club on its own practice days from veterans' report to the Super Bowl, every healthy roster or practice-squad player, when that club's practice ends (the six-part day): in camp every day but a preseason game's and the day after, a sixth of the week's chance each; in season the three days before a game that aren't the day after one, a third each (`training/days.rs`, `nfl_practice`, `practice_at`; `world/pro/games.rs`, `practice_injuries`). See [clock.md](clock.md).
+- Weekly chance (split over the practice days as above): base × prone × age × specialist × plan × load. Base 0.0155 before the cutdown, 0.009 after. Prone = 0.55 + proneness / 18. Age = 1 + 0.03 × max(age − 26, 0). Specialist 0.25. Plan = the club's week against an average staff's: clamp(sqrt((full-contact minutes + 10) / (neutral + 10)) × ((field minutes + 30) / (neutral + 30))^0.3, 0.5, 2.0) (`training/week.rs`, `team_week`, `risk`; stored in `training.club_risk`). Your own club's plan is the same read of your own week × (0.77 + 0.23 × limber), limber = clamp(1 − 0.1 × (mobility minutes − neutral) / (neutral + 15), 0.9, 1.1) (`training/seat.rs`, `week`, `my_risk`, `limber`; `training/week.rs`, `monday`). Load = 1 + 0.8 × (spike − 1.3) above a 1.3 spike (`training/mod.rs`, `Train::spike`).
 - Mix: hamstring 22, ankle 15, knee 14, bruise 10, shoulder 7, back 6, hand 6, high ankle 4, concussion 4, ACL 2.5, ribs 2, fracture 2. Length: `injury_weeks` × (1.3 − 0.03 × recovery) × (1 − 0.12 × medical z), ceil; 0 weeks is no injury.
 - Reserve: in camp 6+ weeks and vested; in season past `ir_minimum` and not on the practice squad.
 
 ## Your college or high school team's practices
 
-- Run weekly on staff weeks, from the planned week (`training/seat.rs`, `week`, `practice_injuries`). Every player not already hurt and not absent from a voluntary week rolls; heat illness too (`practice_injuries`, `heat_week`, `absent_ids`). AI college and high school teams roll the same chance in the weekly world pass, from their own week's block, practices, contact and mobility work; the injury goes in `training.others_hurt` and he sits the games until back (`training/week.rs`, `monday`; `practice_kind`).
+- Run weekly on staff weeks, from the planned week (`training/seat.rs`, `week`, `practice_injuries`). Every player not already hurt and not absent from a voluntary week rolls; heat illness too (`practice_injuries`, `heat_week`, `absent_ids`). AI college and high school teams roll the same chance in the weekly world pass, from their own week's block, practices, contact and mobility work; the injury goes in `training.others_hurt` and he sits the games until back (`training/week.rs`, `monday`; `practice_kind`). Both are rolled with Monday's week but wait for their practice day's end before they land, yours in `SeatTraining.pending`, the others' in `others_pending` (`training/days.rs`, `practice_at`).
 - Rate per practice: camp 0.0037, spring 0.0023, season and postseason 0.00115, other 0.0008; high school × 0.4 (`training/seat.rs`, `practice_rate`).
 - Chance over the week: 1 − (1 − rate × contact × prone × exposure × sqrt(soft))^practices (`injury_chance`), then × (0.77 + 0.23 × limber) for the week's mobility work (`practice_injuries`, `limber`). Contact = ((full-contact minutes + 10) / (neutral + 10))^0.7. Prone = 0.42 + proneness / 18. Exposure 0.25 for specialists. Soft = 1 + 1.5 × (spike − 1.3) above 1.3 (`soft_tissue`).
 - Mix as the NFL practice mix, with hamstring weight × soft × limber and concussion and shoulder × contact (`practice_injuries`).

@@ -1085,62 +1085,115 @@ fn assign_weeks(
 }
 
 /// The NFL day.
-pub(crate) fn day(w: &mut World, d: Date) {
+/// The NFL's steps of day `d` at day minute `t` (the six-part day): the
+/// year's dated lines at dawn, Black Monday's firings early, the league's
+/// business in office hours, the schedule's release at 8 PM, the pros' own
+/// day on its hours (`pro::step`) and a day's healing once the games are
+/// over. The games themselves play at their final whistles (`games_at`).
+pub(crate) fn step(w: &mut World, d: Date, t: u16) {
+    use super::clock::hour;
     if w.nfl.is_empty() || w.nfl_season.is_none() {
         return;
     }
     let y = w.dates.clone();
-    dated_events(w, d, &y);
-    super::new_teams::nfl::day(w, d);
-    if d == y.combine_invites {
-        recruiting::combine_invites(w);
+    match t {
+        hour::DAWN => dated_events(w, d, &y),
+        hour::EARLY => {
+            if d == y.black_monday {
+                black_monday(w, d);
+            }
+        }
+        hour::OFFICE => {
+            super::new_teams::nfl::day(w, d);
+            if d == y.combine_invites {
+                recruiting::combine_invites(w);
+            }
+            if d == y.annual_meeting.0 {
+                league_meeting(w, d);
+            }
+            // The season kicks off on the opener's own day, before its game.
+            let first = w
+                .nfl_season
+                .as_ref()
+                .and_then(|s| s.slots.iter().flatten().map(|x| x.at.date).min())
+                .unwrap_or(y.nfl_kickoff);
+            if d == first {
+                kickoff(w, d);
+            }
+            flex(w, d, &y);
+            if d == y.wild_card {
+                start_round(w, 1, d);
+            }
+            if d == y.divisional {
+                start_round(w, 2, d);
+            }
+            if d == y.conference_title_games {
+                start_round(w, 3, d);
+            }
+        }
+        hour::AFTERNOON => {
+            // NFL hires after the conference title games: weeks of
+            // interviews, and a playoff team's coaches can't take a job
+            // until it is out (T9).
+            if d == y.conference_title_games.add(1) {
+                staff::carousel(w, staff::Scope::NflHires);
+            }
+        }
+        hour::AWARDS => {
+            if d == y.combine_end {
+                recruiting::combine(w);
+            }
+        }
+        hour::EVENING if d == y.schedule_release => build_schedule(w, d),
+        _ => {}
     }
-    if d == y.combine_end {
-        recruiting::combine(w);
+    // The pros' own day: the league year, free agency, camp, cutdowns,
+    // the street and the season's end (section 5).
+    super::clock::timed("nfl people", || super::pro::step(w, d, t));
+    // Injuries heal a day at a time, after the day's games, so the day
+    // plays the game its morning showed (B1).
+    if t == hour::HEAL {
+        super::pro::heal_day(w, d, &y);
     }
-    if d == y.annual_meeting.0 {
-        league_meeting(w, d);
+}
+
+/// The day minute an NFL game kicking off at `at` ends.
+fn nfl_final(at: Moment) -> u16 {
+    (crate::calendar::zone::world_day(at).1 + super::clock::hour::NFL_GAME).min(crate::calendar::zone::DAY - 1)
+}
+
+/// The Super Bowl's kickoff, 6:30 PM Eastern.
+fn super_bowl_kick(d: Date) -> Moment {
+    Moment::at(d, 18, 30)
+}
+
+/// The final whistles of the day's NFL games: the season's, the playoffs'
+/// and the Super Bowl's.
+pub(crate) fn final_whistles(w: &World, d: Date) -> Vec<u16> {
+    let Some(s) = w.nfl_season.as_ref() else { return Vec::new() };
+    let mut v = Vec::new();
+    if s.started {
+        v.extend(s.slots.iter().flatten().filter(|x| x.at.date == d && !x.played).map(|x| nfl_final(x.at)));
     }
-    if d == y.schedule_release {
-        build_schedule(w, d);
+    v.extend(s.round_games.iter().filter(|g| g.4.date == d).map(|g| nfl_final(g.4)));
+    if d == w.dates.super_bowl && s.booked && s.alive.iter().all(|a| !a.is_empty()) {
+        v.push(nfl_final(super_bowl_kick(d)));
     }
-    // The season kicks off on the opener's own day, before its game.
-    let first =
-        w.nfl_season.as_ref().and_then(|s| s.slots.iter().flatten().map(|x| x.at.date).min()).unwrap_or(y.nfl_kickoff);
-    if d == first {
-        kickoff(w, d);
+    v
+}
+
+/// The NFL games whose final whistle is at day minute `t`.
+pub(crate) fn games_at(w: &mut World, d: Date, t: u16) {
+    if w.nfl.is_empty() || w.nfl_season.is_none() {
+        return;
     }
-    flex(w, d, &y);
-    super::clock::timed("nfl games", || play_day(w, d));
-    if d == y.black_monday {
-        black_monday(w, d);
-    }
-    if d == y.wild_card {
-        start_round(w, 1, d);
-    }
-    if d == y.divisional {
-        start_round(w, 2, d);
-    }
-    if d == y.conference_title_games {
-        start_round(w, 3, d);
-    }
-    play_round_games(w, d);
-    // NFL hires after the conference title games: weeks of interviews, and
-    // a playoff team's coaches can't take a job until it is out (T9).
-    if d == y.conference_title_games.add(1) {
-        staff::carousel(w, staff::Scope::NflHires);
-    }
-    if d == y.super_bowl {
+    super::clock::timed("nfl games", || play_day(w, d, t));
+    play_round_games(w, d, t);
+    if d == w.dates.super_bowl && nfl_final(super_bowl_kick(d)) == t {
         play_round(w, 4, d);
         // The Super Bowl teams' coordinators are free to go now.
         staff::carousel(w, staff::Scope::NflHires);
     }
-    // The pros' own day: the league year, free agency, camp, cutdowns,
-    // the street and the season's end (section 5).
-    super::clock::timed("nfl people", || super::pro::day(w, d));
-    // Injuries heal a day at a time, after the day's games, so the day
-    // plays the game its morning showed (B1).
-    super::pro::heal_day(w, d, &y);
 }
 
 fn post(w: &mut World, d: Date, kind: Kind, loud: Loudness, rule: &'static str, text: impl Into<String>) {
@@ -2318,7 +2371,7 @@ type Played = ([usize; 2], [f64; 2], Option<[f32; 2]>, bool);
 /// The day's games (T1.2): each is played on its own day and kickoff. A
 /// week's stakes are read before its first game; its lines open after its
 /// last.
-fn play_day(w: &mut World, d: Date) {
+fn play_day(w: &mut World, d: Date, t: u16) {
     let Some(s) = w.nfl_season.as_ref() else { return };
     if !s.started {
         return;
@@ -2326,7 +2379,7 @@ fn play_day(w: &mut World, d: Date) {
     let mut todays: Vec<(usize, usize)> = Vec::new();
     for (k, week) in s.slots.iter().enumerate() {
         for (g, x) in week.iter().enumerate() {
-            if x.at.date == d && !x.played {
+            if x.at.date == d && !x.played && nfl_final(x.at) == t {
                 todays.push((k, g));
             }
         }
@@ -2481,7 +2534,7 @@ fn play_day(w: &mut World, d: Date) {
         w.calendar.post(
             Event::new(x.at.date, Level::Nfl, Kind::Game, Loudness::Small, text)
                 .team(wn)
-                .at(x.at)
+                .at(x.at.add_minutes(super::clock::hour::NFL_GAME as i32))
                 .club_link(wn, w.nfl[wn].name)
                 .club_link(l, w.nfl[l].name),
         );
@@ -2714,7 +2767,7 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     let (Some(a), Some(b)) = (a, b) else { return };
     let p = win_prob(&s, a, b, 0.0);
     let line = super::finance::lines::nfl(w, p, a, b);
-    let at = Moment::at(d, 18, 30);
+    let at = super_bowl_kick(d);
     let fixture = Fixture { home: a, away: b, at, neutral: true, loud: 0.0, seed: seed ^ 0x5B, playoff: true };
     let game = engine_games(w, std::slice::from_ref(&fixture));
     let mut score = None;
@@ -2814,15 +2867,16 @@ fn start_round(w: &mut World, round: u32, d: Date) {
 }
 
 /// The day's playoff games; when a round is done, the winners are reseeded.
-fn play_round_games(w: &mut World, d: Date) {
+fn play_round_games(w: &mut World, d: Date, t: u16) {
     let Some(s) = w.nfl_season.as_ref() else { return };
-    if s.round_games.iter().all(|g| g.4.date != d) {
+    let now = |at: Moment| at.date == d && nfl_final(at) == t;
+    if s.round_games.iter().all(|g| !now(g.4)) {
         return;
     }
     let mut s = s.clone();
     let mut results = Vec::new();
     let mut left = Vec::new();
-    let today: Vec<_> = s.round_games.iter().filter(|g| g.4.date == d).copied().collect();
+    let today: Vec<_> = s.round_games.iter().filter(|g| now(g.4)).copied().collect();
     let fixtures: Vec<Fixture> = today
         .iter()
         .map(|&(round, c, hi, lo, at)| {
@@ -2870,7 +2924,7 @@ fn play_round_games(w: &mut World, d: Date) {
     }
     for g in std::mem::take(&mut s.round_games) {
         let (round, c, hi, lo, at) = g;
-        if at.date != d {
+        if !now(at) {
             left.push(g);
             continue;
         }
@@ -2904,7 +2958,7 @@ fn play_round_games(w: &mut World, d: Date) {
         w.calendar.post(
             Event::new(at.date, Level::Nfl, Kind::Game, Loudness::Huge, text)
                 .team(wn)
-                .at(at)
+                .at(at.add_minutes(super::clock::hour::NFL_GAME as i32))
                 .club_link(wn, w.nfl[wn].name)
                 .club_link(l, w.nfl[l].name),
         );
@@ -2955,6 +3009,7 @@ fn super_bowl_book(w: &mut World, champ: usize, loser: usize, d: Date) {
         let coach = head.map_or(String::new(), |h| format!(" under head coach {}", w.coaches[h].name));
         let mut item = NewsItem {
             date: Some(d),
+            at: None,
             year,
             kind: NewsKind::NationalTitle,
             channel: Channel::News,
@@ -3080,7 +3135,11 @@ pub(crate) fn playoff_field(s: &NflSeason) -> Vec<(usize, usize)> {
 /// Your club's game today, as the day builds its fixture (section 9): the
 /// regular season, a playoff round or the Super Bowl.
 pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
-    let d = w.today;
+    seat_fixture_on(w, t, w.today)
+}
+
+/// Club `t`'s game still to play on world day `d`, if any.
+pub(crate) fn seat_fixture_on(w: &World, t: usize, d: Date) -> Option<Fixture> {
     let s = w.nfl_season.as_ref()?;
     if !s.started {
         return None;
@@ -3117,7 +3176,7 @@ pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
             });
         }
     }
-    if d == w.dates.super_bowl && s.booked {
+    if d == w.dates.super_bowl && s.booked && s.champion.is_none() {
         let (a, b) = (s.alive[0].first().copied()?, s.alive[1].first().copied()?);
         if a == t || b == t {
             let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ 4u64 << 4 ^ 0x504F;
@@ -3385,6 +3444,13 @@ mod tests {
         // Later weeks have no limit, but only a night game that lost its
         // stakes is flexed out (part D 35: real one to four a season).
         assert!(late >= 1, "later weeks have no limit ({late})");
+    }
+
+    /// Every NFL hour of day `d`, without the rest of the world.
+    fn day(w: &mut World, d: Date) {
+        for t in crate::world::clock::hour::FIXED {
+            step(w, d, t);
+        }
     }
 
     /// The season kicks off on the opener's own day, not the day before.

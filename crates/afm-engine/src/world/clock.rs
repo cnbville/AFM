@@ -13,6 +13,7 @@ use super::data::Division;
 use super::{CalendarLog, World, hs_year, nfl_year, recruiting, staff};
 use crate::calendar::data::MEDIA_DAYS;
 use crate::calendar::rules::TransferRule;
+use crate::calendar::zone;
 use crate::calendar::{Date, Event, Kind, Level, Loudness, Moment, Weekday, YearDates};
 
 /// Time spent per step, printed each year with AFM_PROFILE set (tooling).
@@ -168,17 +169,241 @@ fn grow_bodies(w: &mut World, d: Date) {
     }
 }
 
-/// Day `d` of football year `y`.
+/// The world's steps at their Eastern hours (the six-part day, player
+/// immersion I1, `docs/design/day-sections.md`): day minutes after 5:00 AM
+/// Eastern (`calendar::zone::et`). The day runs a step at a time in clock
+/// order, so a decision made at the 1 PM stop reaches the 4 PM step of the
+/// same day. Where real life sets the hour the step keeps it (the 4 PM
+/// deadlines, the draft nights, kickoffs); where it sets none the hour is
+/// the sender's own day (office hours, the evening's recruiting calls, the
+/// overnight stories). The hours without a source are proposed, not
+/// confirmed (see `docs/reference/how-it-works/clock.md`).
+pub mod hour {
+    use crate::calendar::zone::et;
+    /// 5:00 AM: the day's bookkeeping and its lines for the whole day.
+    pub const DAWN: u16 = et(5, 0);
+    /// 6:00 AM: the morning paper ("on this day").
+    pub const PAPER: u16 = et(6, 0);
+    /// 7:00 AM: staff meetings and the week's training plan.
+    pub const PLAN: u16 = et(7, 0);
+    /// 8:00 AM: Black Monday's firings.
+    pub const EARLY: u16 = et(8, 0);
+    /// 10:00 AM: office hours (the books, compliance, the front offices).
+    pub const OFFICE: u16 = et(10, 0);
+    /// 11:00 AM: the NFL's moves of the day.
+    pub const WIRE: u16 = et(11, 0);
+    /// Noon: poll and bracket releases, all-star rosters.
+    pub const NOON: u16 = et(12, 0);
+    /// 1:00 PM: college Sunday's moves, press conferences, trade calls.
+    pub const AFTERNOON: u16 = et(13, 0);
+    /// 2:00 PM: Sunday's polls.
+    pub const POLLS: u16 = et(14, 0);
+    /// 3:00 PM: declarations, coaching hires.
+    pub const LATER: u16 = et(15, 0);
+    /// 4:00 PM: the NFL's deadlines (claims, tags, the league year, cutdown).
+    pub const DEADLINE: u16 = et(16, 0);
+    /// 5:00 PM: the free agents' agreed deals.
+    pub const MARKET: u16 = et(17, 0);
+    /// 6:00 PM: award finalists, signing day's class rankings.
+    pub const AWARDS: u16 = et(18, 0);
+    /// 6:30 PM: after the afternoon's practices.
+    pub const PRACTICE: u16 = et(18, 30);
+    /// 7:30 PM: the playoff committee's Tuesday rankings.
+    pub const CFP: u16 = et(19, 30);
+    /// 8:00 PM: recruiting's evening (offers, visits, commitments).
+    pub const EVENING: u16 = et(20, 0);
+    /// 8:45 PM: the Heisman.
+    pub const HEISMAN: u16 = et(20, 45);
+    /// 9:00 PM: award shows, the Hall of Fame class.
+    pub const SHOW: u16 = et(21, 0);
+    /// 10:30 PM: transfers' commitments break online.
+    pub const NIGHT: u16 = et(22, 30);
+    /// 11:30 PM: the night after the Super Bowl.
+    pub const LATE_NIGHT: u16 = et(23, 30);
+    /// 1:00 AM: the season's end after a night title game.
+    pub const OVERNIGHT: u16 = et(1, 0);
+    /// 4:00 AM: the day's stories, after every game is over.
+    pub const LATE: u16 = et(4, 0);
+    /// 4:30 AM: injuries heal a day.
+    pub const HEAL: u16 = et(4, 30);
+
+    /// Every fixed step, in clock order.
+    pub const FIXED: [u16; 23] = [
+        DAWN, PAPER, PLAN, EARLY, OFFICE, WIRE, NOON, AFTERNOON, POLLS, LATER, DEADLINE, MARKET, AWARDS, PRACTICE, CFP,
+        EVENING, HEISMAN, SHOW, NIGHT, LATE_NIGHT, OVERNIGHT, LATE, HEAL,
+    ];
+
+    /// How long a game runs, kickoff to final whistle, in minutes: the
+    /// NFL about 3 hours, college about 3:15, high school about 2:30
+    /// (proposed, not confirmed).
+    pub const NFL_GAME: u16 = 185;
+    pub const COLLEGE_GAME: u16 = 195;
+    pub const HS_GAME: u16 = 150;
+}
+
+/// One day on the clock: every step left of today, then the next morning.
+/// An open war room lets the staff make the night's picks (the tools and
+/// the tests run whole days).
 pub(crate) fn advance_day(w: &mut World) {
+    play_through(w, zone::DAY - 1);
+    for _ in 0..8 {
+        if !super::scouting::live::holds(w) {
+            break;
+        }
+        super::scouting::live::finish(w);
+        play_through(w, zone::DAY - 1);
+    }
+    end_day(w);
+}
+
+/// A whole day from where the clock stands (the game's Day button and the
+/// tests): the rest of today, then on to your next stop. An open war room
+/// holds the clock where it opened, as Continue does.
+pub(crate) fn next_day(w: &mut World) {
+    play_through(w, zone::DAY - 1);
+    if super::scouting::live::holds(w) {
+        return;
+    }
+    end_day(w);
+    let (d, m) = w.next_stop();
+    run_to(w, d, m);
+}
+
+/// Plays today's steps in clock order through day minute `last`
+/// (inclusive): a stop at `last` stands at `last + 1`.
+pub(crate) fn play_through(w: &mut World, last: u16) {
+    let d = w.today;
+    // Your draft war room holds the clock where it opened.
+    if super::scouting::live::holds(w) {
+        return;
+    }
+    while let Some(t) = next_step(w, d, w.played).filter(|&t| t <= last) {
+        run_step(w, t);
+        w.played = t + 1;
+        // Your draft war room holds the clock where it opened.
+        if super::scouting::live::holds(w) {
+            return;
+        }
+    }
+    w.played = w.played.max(last + 1);
+}
+
+/// The next step of day `d` at or after day minute `from`: a fixed hour or
+/// a game's final whistle.
+pub(crate) fn next_step(w: &World, d: Date, from: u16) -> Option<u16> {
+    let fixed = hour::FIXED.iter().copied().find(|&t| t >= from);
+    let more = timed_steps(w, d).into_iter().filter(|&t| t >= from).min();
+    [fixed, more].into_iter().flatten().min()
+}
+
+/// The day's steps that come with their own minute: each game's final
+/// whistle, each draft night's opening, each team's practice.
+fn timed_steps(w: &World, d: Date) -> Vec<u16> {
+    let mut v = college::final_whistles(w, d);
+    v.extend(nfl_year::final_whistles(w, d));
+    v.extend(hs_year::final_whistles(w, d));
+    v.extend(super::pro::other::final_whistles(w, d));
+    v.extend(recruiting::draft_steps(w, d));
+    v.extend(crate::training::days::practice_steps(w, d));
+    // Cutdown at its anchor's minute (`pro::step`).
+    if d == w.dates.cutdown.date {
+        v.push(zone::world_day(w.dates.cutdown).1);
+    }
+    v
+}
+
+/// One step: every system's work at day minute `t`, its lines stamped
+/// with the step's moment.
+fn run_step(w: &mut World, t: u16) {
+    let d = w.today;
+    let at = zone::moment(d, t);
+    let stamp = if t == hour::DAWN { Moment { date: d, minute: Moment::ALL_DAY } } else { at };
+    w.calendar.now = Some((d, stamp));
+    let y = w.dates.clone();
+    // The games whose final whistle is now: their results come first.
+    timed("college games", || college::play_at(w, d, t));
+    nfl_year::games_at(w, d, t);
+    timed("hs", || hs_year::games_at(w, d, t));
+    timed("other leagues", || super::pro::other::games_at(w, d, t));
+    recruiting::draft_at(w, d, t);
+    crate::training::days::practice_at(w, d, t);
+    match t {
+        hour::DAWN => {
+            dawn(w, d, &y);
+            // What each college game means, once before any kickoff.
+            college::day_stakes(w, d);
+        }
+        hour::PAPER => anniversaries(w, d),
+        hour::PLAN => plan(w, d),
+        hour::OFFICE => office(w, d, &y),
+        hour::NOON => noon(w, d, &y),
+        hour::AFTERNOON => afternoon(w, d, &y),
+        hour::POLLS => sunday_polls(w, d, &y),
+        hour::LATER => later(w, d, &y),
+        hour::DEADLINE => deadline(w, d, &y),
+        hour::MARKET => market(w, d, &y),
+        hour::AWARDS => awards(w, d, &y),
+        hour::PRACTICE => college::bowl_practices(w, d),
+        hour::CFP => cfp(w, d, &y),
+        hour::EVENING => evening(w, d, &y),
+        hour::HEISMAN => {
+            if d == y.heisman {
+                college::awards(w, "heisman");
+            }
+        }
+        hour::SHOW => show(w, d, &y),
+        hour::NIGHT => {
+            // Entrants decide on their own days (T3, T9).
+            if !w.portal_pending.is_empty() {
+                timed("portal day", || recruiting::portal_day(w, false));
+            }
+        }
+        hour::LATE_NIGHT => late_night(w, d, &y),
+        hour::OVERNIGHT => {
+            // The college season ends with its last title game.
+            if d >= y.title_game
+                && w.college.as_ref().is_some_and(|c| c.started && !c.finished)
+                && college::all_played(w)
+            {
+                timed("college finish", || college::finish(w));
+            }
+        }
+        hour::LATE => late(w, d),
+        _ => {}
+    }
+    // The NFL and the people keep their own hours.
+    timed("nfl", || nfl_year::step(w, d, t));
+    timed("people", || super::folk::step(w, d, t));
+    // News written in this step comes out at its moment.
+    for n in w.news.iter_mut().rev() {
+        if n.date.is_some() {
+            break;
+        }
+        n.date = Some(d);
+        n.at = Some(at);
+    }
+    w.calendar.now = None;
+}
+
+/// The day is over: the clock moves to the next morning.
+fn end_day(w: &mut World) {
+    w.today = w.today.add(1);
+    w.played = 0;
+    if w.today > w.dates.super_bowl {
+        rollover(w);
+    }
+}
+
+/// 5:00 AM: the day's bookkeeping, before anything acts, and the lines for
+/// the whole day (windows opening, the week's rhythm).
+fn dawn(w: &mut World, d: Date, y: &YearDates) {
     // The world log's snapshots of the key dates, before anything acts.
-    super::wlog::day(w, w.today);
+    super::wlog::day(w, d);
     // A war room left open (a day passed without finishing the draft): the
     // staff finish it on the board.
-    if w.scouting.live.is_some() {
+    if super::scouting::live::holds(w) {
         super::scouting::live::finish(w);
     }
-    let d = w.today;
-    let y = w.dates.clone();
     grow_bodies(w, d);
     // A live game left from a day gone by (called off, or never booked).
     if w.live.as_ref().is_some_and(|l| l.date < d) {
@@ -187,35 +412,12 @@ pub(crate) fn advance_day(w: &mut World) {
     if d == y.start {
         year_start(w);
     }
-    // --- Days of last football year that fall after its Super Bowl ----------------
-    if let Some(p) = w.prev_dates.clone()
-        && d == p.signing_day
-        && d > p.super_bowl
-    {
-        signing_day_and_book(w, p.season);
-    }
-
-    // --- The books: every club's money, projects and the dated money days ------------
-    timed("money", || super::finance::day(w, d));
-
-    anniversaries(w, d);
-    timed("recruiting days", || recruiting::recruiting_day(w, d));
-    recruiting::announce_commitments(w, d);
-
-    // --- The NFL year (T2, A1-A17): its own dated steps -----------------------------
-    timed("nfl", || nfl_year::day(w, d));
-    // Your front office's day: reminders, answers, calls (lane 10).
-    super::front_office::day(w, d);
-
     // --- Spring: college spring practice and high school spring ball (T4.1) ----------
     if d == y.spring_practice.0 {
         hs_year::spring_notices(w);
         // Staffs install their systems for the year (S3-S5).
         super::systems::spring_install(w);
         super::systems::set_spots(w);
-    }
-    if d == y.spring_game {
-        hs_year::spring_game(w);
     }
     if d == y.junior_days.0 {
         post(
@@ -230,18 +432,62 @@ pub(crate) fn advance_day(w: &mut World) {
     if d == y.official_visits_from && w.rules.junior_officials {
         post(w, d, Level::Recruiting, Kind::Window, Loudness::Small, "Juniors may take official visits from today.");
     }
-    // The draft: three days in April (T2), on the anchors' hours.
-    if d == y.draft[0].date {
-        timed("draft", || recruiting::draft(w));
+    if d == y.spring_term_end {
+        college::spring_term_check(w);
     }
+    if d >= y.media_days.0 && d <= y.media_days.1 && d.weekday() != Weekday::Sat && d.weekday() != Weekday::Sun {
+        let k = y.media_days.0.days_to(d) as usize;
+        if let Some(conf) = MEDIA_DAYS.get(k) {
+            let text = format!("{conf} media days.");
+            post(w, d, Level::College, Kind::Date, Loudness::Small, &text);
+        }
+    }
+    // --- Fall: camp, the new high school year ----------------------------------------
+    if d == y.fall_camp {
+        // Last offseason's coaching changes are done with.
+        w.late_windows.clear();
+        w.coach_follows.clear();
+        recruiting::camp_walk_ons(w);
+        timed("college start", || college::start(w));
+        college::lean_checkpoint(w, college::LeanCheck::FallCamp);
+    }
+    if d == y.finals_week.0 {
+        college::finals_week(w);
+    }
+    hs_year::dawn(w, d);
+    // The week's rhythm, for the record and the future screens (T6), and
+    // the training blocks of every level (T7).
+    timed("rhythm", || rhythm(w, d, y));
+    nfl_year::training_blocks(w, d, y);
+}
+
+/// 7:00 AM: staffs in early, and on Mondays every team's training week
+/// (section 6b) and the growth it earned.
+fn plan(w: &mut World, d: Date) {
+    if d.weekday() == Weekday::Mon {
+        timed("training", || crate::training::week::monday(w, d));
+    }
+}
+
+/// 10:00 AM: office hours. The books, compliance (portal names, the
+/// enrollments), ceremonies and the front offices.
+fn office(w: &mut World, d: Date, y: &YearDates) {
+    // Days of last football year that fall after its Super Bowl.
+    if let Some(p) = w.prev_dates.clone()
+        && d == p.signing_day
+        && d > p.super_bowl
+    {
+        signing_day_and_book(w, p.season);
+    }
+    // --- The books: every club's money, projects and the dated money days ------------
+    timed("money", || super::finance::day(w, d));
+    // Your front office's day: reminders, answers, calls (lane 10).
+    super::front_office::day(w, d);
     // The spring portal window (2023-2025).
     for (open, close, which) in portal_windows(w.year - 1, transfer_rule_of(w, w.year - 1)) {
         if which == PortalWindow::Spring && d == open {
             timed("portal open", || recruiting::portal_open(w, which, close));
         }
-    }
-    if d == y.spring_term_end {
-        college::spring_term_check(w);
     }
     // Commencement, the second Saturday of May, and the graduate transfers
     // who move after it (part B 36): exempt from the windows until 2024.
@@ -257,7 +503,7 @@ pub(crate) fn advance_day(w: &mut World) {
         super::eligibility::summer_roads(w);
         recruiting::enroll(w, false);
     }
-    if d == hs_transfer_day(&y) {
+    if d == hs_transfer_day(y) {
         hs_nil_states(w);
         timed("hs transfers", || recruiting::high_school_transfers(w));
         w.rebuild_rosters();
@@ -268,76 +514,120 @@ pub(crate) fn advance_day(w: &mut World) {
         timed("nil", || recruiting::nil_payouts(w));
         college_changes(w);
     }
-    if d >= y.media_days.0 && d <= y.media_days.1 && d.weekday() != Weekday::Sat && d.weekday() != Weekday::Sun {
-        let k = y.media_days.0.days_to(d) as usize;
-        if let Some(conf) = MEDIA_DAYS.get(k) {
-            let text = format!("{conf} media days.");
-            post(w, d, Level::College, Kind::Date, Loudness::Small, &text);
-        }
+    timed("hs", || hs_year::office(w, d));
+    super::times::day(w, d);
+    if d == Date::ymd(y.season + 1, 1, 31) && w.recording {
+        staff::diversity_report(w);
     }
-    // Dated offers before a class's first wave (part B 34).
+    if Some(d) == y.early_signing {
+        timed("sign early", || recruiting::signing_stage(w, recruiting::SignStage::Early, w.year));
+    }
+    if d == Date::ymd(w.year, 12, 15) {
+        recruiting::advisory_grades(w);
+    }
+    if d == y.december_graduation {
+        college::december_graduation(w);
+    }
+    // --- The offseason's windows (T3): portal, draft deadlines, enrollment ----------
     let season = w.year;
-    for (date, class_of, pass) in [
-        (y.junior_days.0.add(14), season + 1, 4),
-        (Date::ymd(season, 6, 15), season + 2, 1),
-        (Date::ymd(season, 9, 1), season + 2, 2),
-        (Date::ymd(season + 1, 1, 15), season + 3, 0),
-        (Date::ymd(season + 1, 1, 15), season + 2, 3),
-    ] {
-        if d == date {
-            timed("early offers", || recruiting::early_offers(w, d, class_of, pass));
+    let rule = w.rules.transfer;
+    // The season's eligibility settles before a window that opens the same
+    // day reads it (lane 10: a burned redshirt counted only after).
+    if d == Date::ymd(season + 1, 1, 2) {
+        college::settle_eligibility(w);
+    }
+    for (open, close, which) in portal_windows(season, rule) {
+        if which == PortalWindow::Winter && d == open {
+            recruiting::portal_open(w, which, close);
         }
     }
-    if let Some(wave) = commit_wave(&y, d) {
-        timed("sign summer", || recruiting::signing_stage(w, recruiting::SignStage::Summer(wave), w.year));
+    if let Some((open, close)) = w.coach_window
+        && d == open
+    {
+        w.coach_window = None;
+        recruiting::portal_open(w, PortalWindow::CoachChange, close);
     }
+    // A head coach who left after that window opened: his players' own
+    // window, five days after the new hire (minor bug 88), the day's
+    // programs together.
+    if w.late_windows.iter().any(|x| x.1.is_some_and(|(open, _)| open == d)) {
+        let (today, later): (Vec<_>, Vec<_>) =
+            w.late_windows.iter().copied().partition(|x| x.1.is_some_and(|(open, _)| open == d));
+        w.late_windows = later;
+        let close = today.iter().filter_map(|x| x.1.map(|t| t.1)).max().unwrap_or(d);
+        w.window_programs = today.iter().map(|x| x.0).collect();
+        recruiting::portal_open(w, PortalWindow::CoachChange, close);
+        w.window_programs.clear();
+    }
+    // Your players who talked to you first decide on their day.
+    if !w.portal_intents.is_empty() {
+        recruiting::intents_day(w);
+    }
+    if d == y.early_enrollment {
+        if y.early_signing.is_none() {
+            // Before the early signing period, early enrollees signed aid
+            // agreements in January and enrolled at once.
+            recruiting::signing_stage(w, recruiting::SignStage::JanuaryEnrollees, w.year);
+        }
+        recruiting::enroll(w, true);
+    }
+    // The college all-star games name their rosters together
+    // (all_star_roster_day), the Senior Bowl first and the others from what
+    // is left: the order of the game dates does not decide the tiers.
+    if d == all_star_roster_day(y) {
+        for name in recruiting::ALL_STAR_ORDER {
+            recruiting::all_star_invites(w, name);
+        }
+    }
+    if d == hs_carousel_day(y) {
+        timed("carousel hs", || staff::carousel(w, staff::Scope::HighSchool));
+        staff::hs_staff_year(w);
+        staff::age_coaches(w);
+    }
+    if d == y.signing_day && d <= y.super_bowl {
+        timed("signing day", || signing_day_and_book(w, y.season));
+    }
+}
 
-    // --- Fall: camp, the new high school year, polls -------------------------------
-    if d == y.fall_camp {
-        // Last offseason's coaching changes are done with.
-        w.late_windows.clear();
-        w.coach_follows.clear();
-        recruiting::camp_walk_ons(w);
-        timed("college start", || college::start(w));
-        college::lean_checkpoint(w, college::LeanCheck::FallCamp);
-    }
+/// Noon: poll and bracket releases and all-star rosters.
+fn noon(w: &mut World, d: Date, y: &YearDates) {
     if d == y.coaches_preseason_poll {
         college::release_poll(w, d, PollKind::CoachesPreseason);
     }
     if d == y.ap_preseason_poll {
         college::release_poll(w, d, PollKind::ApPreseason);
     }
-    timed("hs", || hs_year::day(w, d));
-    super::times::day(w, d);
-
-    // --- College Saturdays and the weeks around them (T3, T6) ------------------------
-    timed("college games", || college::play_day(w, d));
-    college::bowl_practices(w, d);
-    if d.weekday() == Weekday::Sun && d > y.cfb_weeks[0] && d <= y.selection_day {
-        let kind = if d == y.selection_day { None } else { Some(PollKind::Ap) };
-        if let Some(k) = kind {
-            college::release_poll(w, d, PollKind::Coaches);
-            college::release_poll(w, d, k);
-            // The Harris poll (2005-2013) from the season's fifth week.
-            if harris_year(w) && y.cfb_weeks.len() > 4 && d > y.cfb_weeks[4] {
-                college::release_poll(w, d, PollKind::Harris);
-            }
-            if w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && d >= y.cfb_weeks[0].add(7 * 7 + 1) {
-                college::release_poll(w, d, PollKind::Bcs);
-            }
+    if d == y.selection_day {
+        // The human polls vote after the title games; the BCS standings
+        // read them, the committee ranks on its own.
+        college::release_poll(w, d, PollKind::Coaches);
+        college::release_poll(w, d, PollKind::Ap);
+        if harris_year(w) {
+            college::release_poll(w, d, PollKind::Harris);
+        }
+        match w.rules.cfb_postseason {
+            crate::calendar::CfbPostseason::Bcs => college::release_poll(w, d, PollKind::Bcs),
+            crate::calendar::CfbPostseason::PollsOnly => {}
+            _ => college::release_poll(w, d, PollKind::Cfp),
+        }
+        timed("selection", || college::selection_day(w));
+        college::lean_checkpoint(w, college::LeanCheck::Bowls);
+    }
+    if d == y.all_america {
+        recruiting::honors(w);
+    }
+    // The January games name their rosters in the senior fall (part B 35).
+    for (date, name) in
+        [(Date::ymd(w.year, 10, 15), "All-American Bowl"), (Date::ymd(w.year, 11, 1), "Polynesian Bowl")]
+    {
+        if d == date {
+            hs_year::all_star_rosters(w, name);
         }
     }
-    // Playoff committee rankings on Tuesdays (2014 on).
-    if d.weekday() == Weekday::Tue
-        && d >= y.first_cfp_ranking
-        && d < y.selection_day
-        && matches!(
-            w.rules.cfb_postseason,
-            crate::calendar::CfbPostseason::FourTeam | crate::calendar::CfbPostseason::TwelveTeam
-        )
-    {
-        college::release_poll(w, d, PollKind::Cfp);
-    }
+}
+
+/// 1:00 PM: college Sunday (firings, the carousel, the staffs' reads).
+fn afternoon(w: &mut World, d: Date, y: &YearDates) {
     if y.cfb_weeks.len() > 4 && d == y.cfb_weeks[4].add(1) {
         college::redshirt_trick(w);
     }
@@ -381,94 +671,32 @@ pub(crate) fn advance_day(w: &mut World) {
     if d.weekday() == Weekday::Sun && (4..=10).any(|k| y.cfb_weeks.get(k).is_some_and(|s| d == s.add(1))) {
         staff::in_season_firings(w);
     }
+}
+
+/// 2:00 PM Sundays: the weekly polls.
+fn sunday_polls(w: &mut World, d: Date, y: &YearDates) {
+    if d.weekday() == Weekday::Sun && d > y.cfb_weeks[0] && d <= y.selection_day {
+        let kind = if d == y.selection_day { None } else { Some(PollKind::Ap) };
+        if let Some(k) = kind {
+            college::release_poll(w, d, PollKind::Coaches);
+            college::release_poll(w, d, k);
+            // The Harris poll (2005-2013) from the season's fifth week.
+            if harris_year(w) && y.cfb_weeks.len() > 4 && d > y.cfb_weeks[4] {
+                college::release_poll(w, d, PollKind::Harris);
+            }
+            if w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && d >= y.cfb_weeks[0].add(7 * 7 + 1) {
+                college::release_poll(w, d, PollKind::Bcs);
+            }
+        }
+    }
+}
+
+/// 3:00 PM: early entrants' announcements and coaching searches' hires.
+fn later(w: &mut World, d: Date, y: &YearDates) {
     // College coaching searches decide on their own days (part D 18); at
     // fall camp any still open decide at once.
     if !w.searches.is_empty() {
         timed("searches", || staff::college_searches_day(w, d == y.fall_camp));
-    }
-    if d == Date::ymd(y.season + 1, 1, 31) && w.recording {
-        staff::diversity_report(w);
-    }
-    if d == y.selection_day {
-        // The human polls vote after the title games; the BCS standings
-        // read them, the committee ranks on its own.
-        college::release_poll(w, d, PollKind::Coaches);
-        college::release_poll(w, d, PollKind::Ap);
-        if harris_year(w) {
-            college::release_poll(w, d, PollKind::Harris);
-        }
-        match w.rules.cfb_postseason {
-            crate::calendar::CfbPostseason::Bcs => college::release_poll(w, d, PollKind::Bcs),
-            crate::calendar::CfbPostseason::PollsOnly => {}
-            _ => college::release_poll(w, d, PollKind::Cfp),
-        }
-        timed("selection", || college::selection_day(w));
-        college::lean_checkpoint(w, college::LeanCheck::Bowls);
-    }
-    if d == y.heisman_finalists {
-        college::awards(w, "finalists");
-    }
-    if d == y.all_america {
-        recruiting::honors(w);
-    }
-    if d == y.awards_show {
-        college::awards(w, "show");
-    }
-    if d == y.heisman {
-        college::awards(w, "heisman");
-    }
-    if Some(d) == y.early_signing {
-        timed("sign early", || recruiting::signing_stage(w, recruiting::SignStage::Early, w.year));
-        recruiting::class_rankings_news(w, w.year + 1, "Early signing period");
-        college::lean_checkpoint(w, college::LeanCheck::EarlySigning);
-    }
-    if d == Date::ymd(w.year, 12, 15) {
-        recruiting::advisory_grades(w);
-    }
-    if d == y.finals_week.0 {
-        college::finals_week(w);
-    }
-    if d == y.december_graduation {
-        college::december_graduation(w);
-    }
-    // --- The offseason's windows (T3): portal, draft deadlines, enrollment ----------
-    let season = w.year;
-    let rule = w.rules.transfer;
-    // The season's eligibility settles before a window that opens the same
-    // day reads it (lane 10: a burned redshirt counted only after).
-    if d == Date::ymd(season + 1, 1, 2) {
-        college::settle_eligibility(w);
-    }
-    for (open, close, which) in portal_windows(season, rule) {
-        if which == PortalWindow::Winter && d == open {
-            recruiting::portal_open(w, which, close);
-        }
-    }
-    if let Some((open, close)) = w.coach_window
-        && d == open
-    {
-        w.coach_window = None;
-        recruiting::portal_open(w, PortalWindow::CoachChange, close);
-    }
-    // A head coach who left after that window opened: his players' own
-    // window, five days after the new hire (minor bug 88), the day's
-    // programs together.
-    if w.late_windows.iter().any(|x| x.1.is_some_and(|(open, _)| open == d)) {
-        let (today, later): (Vec<_>, Vec<_>) =
-            w.late_windows.iter().copied().partition(|x| x.1.is_some_and(|(open, _)| open == d));
-        w.late_windows = later;
-        let close = today.iter().filter_map(|x| x.1.map(|t| t.1)).max().unwrap_or(d);
-        w.window_programs = today.iter().map(|x| x.0).collect();
-        recruiting::portal_open(w, PortalWindow::CoachChange, close);
-        w.window_programs.clear();
-    }
-    // Your players who talked to you first decide on their day.
-    if !w.portal_intents.is_empty() {
-        recruiting::intents_day(w);
-    }
-    // Entrants decide on their own days (T3, T9).
-    if !w.portal_pending.is_empty() {
-        timed("portal day", || recruiting::portal_day(w, false));
     }
     // Early entrants announce on their own days (part D 17).
     if d > y.fbs_regular_end && d < y.declare_deadline {
@@ -488,66 +716,106 @@ pub(crate) fn advance_day(w: &mut World) {
     if d == y.title_game.add(4 + 3) && y.title_game.add(4) > y.declare_deadline {
         recruiting::declarations(w, recruiting::Declare::Withdraw);
     }
-    if d == y.early_enrollment {
-        if y.early_signing.is_none() {
-            // Before the early signing period, early enrollees signed aid
-            // agreements in January and enrolled at once.
-            recruiting::signing_stage(w, recruiting::SignStage::JanuaryEnrollees, w.year);
-        }
-        recruiting::enroll(w, true);
+}
+
+/// 4:00 PM: the All-American Bowl's final (a 1 PM Eastern kickoff).
+fn deadline(w: &mut World, d: Date, y: &YearDates) {
+    all_star(w, d, y.all_american_bowl, "All-American Bowl", Level::HighSchool);
+}
+
+/// 5:00 PM: the Senior Bowl's and HBCU Legacy Bowl's finals (afternoon
+/// kickoffs).
+fn market(w: &mut World, d: Date, y: &YearDates) {
+    all_star(w, d, y.senior_bowl, "Senior Bowl", Level::College);
+    all_star(w, d, y.hbcu_bowl, "HBCU Legacy Bowl", Level::College);
+}
+
+/// 6:00 PM: award finalists, the early signing day's class rankings, the
+/// NFLPA Collegiate Bowl's final.
+fn awards(w: &mut World, d: Date, y: &YearDates) {
+    if d == y.heisman_finalists {
+        college::awards(w, "finalists");
     }
-    // The January games name their rosters in the senior fall (part B 35).
-    for (date, name) in
-        [(Date::ymd(w.year, 10, 15), "All-American Bowl"), (Date::ymd(w.year, 11, 1), "Polynesian Bowl")]
+    if Some(d) == y.early_signing {
+        recruiting::class_rankings_news(w, w.year + 1, "Early signing period");
+        college::lean_checkpoint(w, college::LeanCheck::EarlySigning);
+    }
+    all_star(w, d, y.nflpa_bowl, "NFLPA Collegiate Bowl", Level::College);
+}
+
+/// 7:30 PM Tuesdays: the playoff committee's rankings (2014 on).
+fn cfp(w: &mut World, d: Date, y: &YearDates) {
+    if d.weekday() == Weekday::Tue
+        && d >= y.first_cfp_ranking
+        && d < y.selection_day
+        && matches!(
+            w.rules.cfb_postseason,
+            crate::calendar::CfbPostseason::FourTeam | crate::calendar::CfbPostseason::TwelveTeam
+        )
     {
+        college::release_poll(w, d, PollKind::Cfp);
+    }
+}
+
+/// 8:00 PM: recruiting's evening. Offers, visits, commitments and the
+/// summer's commitment waves post in the evening (proposed, not
+/// confirmed), and spring games are played.
+fn evening(w: &mut World, d: Date, y: &YearDates) {
+    timed("recruiting days", || recruiting::recruiting_day(w, d));
+    recruiting::announce_commitments(w, d);
+    if d == y.spring_game {
+        hs_year::spring_game(w);
+    }
+    // Dated offers before a class's first wave (part B 34).
+    let season = w.year;
+    for (date, class_of, pass) in [
+        (y.junior_days.0.add(14), season + 1, 4),
+        (Date::ymd(season, 6, 15), season + 2, 1),
+        (Date::ymd(season, 9, 1), season + 2, 2),
+        (Date::ymd(season + 1, 1, 15), season + 3, 0),
+        (Date::ymd(season + 1, 1, 15), season + 2, 3),
+    ] {
         if d == date {
-            hs_year::all_star_rosters(w, name);
+            timed("early offers", || recruiting::early_offers(w, d, class_of, pass));
         }
     }
-    for (date, name) in [(y.all_american_bowl, "All-American Bowl"), (y.polynesian_bowl, "Polynesian Bowl")] {
-        if d == date {
-            if crate::calendar::anchors::cancelled(name, y.season) {
-                post(w, d, Level::HighSchool, Kind::Game, Loudness::Medium, &format!("The {name} is called off."));
-            } else {
-                hs_year::all_star_game(w, name);
-            }
-        }
+    if let Some(wave) = commit_wave(y, d) {
+        timed("sign summer", || recruiting::signing_stage(w, recruiting::SignStage::Summer(wave), w.year));
     }
-    // The college all-star games name their rosters together
-    // (all_star_roster_day), the Senior Bowl first and the others from what
-    // is left: the order of the game dates does not decide the tiers.
-    if d == all_star_roster_day(&y) {
-        for name in recruiting::ALL_STAR_ORDER {
-            recruiting::all_star_invites(w, name);
-        }
+}
+
+/// 9:00 PM: award shows.
+fn show(w: &mut World, d: Date, y: &YearDates) {
+    if d == y.awards_show {
+        college::awards(w, "show");
     }
-    for (date, name) in all_star_games(&y) {
-        if d == date {
-            if crate::calendar::anchors::cancelled(name, y.season) {
-                post(w, d, Level::College, Kind::Game, Loudness::Medium, &format!("The {name} is called off."));
-            } else {
-                recruiting::all_star_game(w, name);
-            }
-        }
+}
+
+/// 11:30 PM: the night games' all-star finals (the Shrine Bowl and the
+/// Polynesian Bowl kick off at 8 PM Eastern).
+fn late_night(w: &mut World, d: Date, y: &YearDates) {
+    all_star(w, d, y.shrine_bowl, "East-West Shrine Bowl", Level::College);
+    all_star(w, d, y.polynesian_bowl, "Polynesian Bowl", Level::HighSchool);
+}
+
+/// An all-star game played on its day, or called off.
+fn all_star(w: &mut World, d: Date, date: Date, name: &'static str, level: Level) {
+    if d != date {
+        return;
     }
-    // The college season ends with its last title game.
-    if d >= y.title_game && w.college.as_ref().is_some_and(|c| c.started && !c.finished) && college::all_played(w) {
-        timed("college finish", || college::finish(w));
+    let season = w.dates.season;
+    if crate::calendar::anchors::cancelled(name, season) {
+        post(w, d, level, Kind::Game, Loudness::Medium, &format!("The {name} is called off."));
+    } else if level == Level::HighSchool {
+        hs_year::all_star_game(w, name);
+    } else {
+        recruiting::all_star_game(w, name);
     }
-    if d == hs_carousel_day(&y) {
-        timed("carousel hs", || staff::carousel(w, staff::Scope::HighSchool));
-        staff::hs_staff_year(w);
-        staff::age_coaches(w);
-    }
-    if d == y.signing_day && d <= y.super_bowl {
-        timed("signing day", || signing_day_and_book(w, y.season));
-    }
-    // The week's rhythm, for the record and the future screens (T6), and
-    // the training blocks of every level (T7).
-    timed("rhythm", || rhythm(w, d, &y));
-    nfl_year::training_blocks(w, d, &y);
-    // Section 6's people (lane 6): ties, lives, courts, staffs and your agenda.
-    timed("people", || super::folk::day(w, d));
+}
+
+/// 4:00 AM: the day's stories and everything that reads its games, once
+/// the night games are over.
+fn late(w: &mut World, d: Date) {
     // The stories around the day's football (final build lane 8).
     timed("stories", || super::stories::day(w, d));
     // The storyline engine (update 2): stories that last.
@@ -560,22 +828,6 @@ pub(crate) fn advance_day(w: &mut World) {
     // Update 2, lane 5: the call sheet drafted on plan day, the week's
     // keys, and the call words.
     timed("plans", || super::plans::day(w, d));
-    // Section 6b: every team's training week, and the growth it earned.
-    if d.weekday() == Weekday::Mon {
-        timed("training", || crate::training::week::monday(w, d));
-    }
-
-    // News items of the day get the day's date.
-    for n in w.news.iter_mut().rev() {
-        if n.date.is_some() {
-            break;
-        }
-        n.date = Some(d);
-    }
-    w.today = d.add(1);
-    if w.today > y.super_bowl {
-        rollover(w);
-    }
 }
 
 fn transfer_rule_of(w: &World, season: i32) -> TransferRule {
@@ -662,7 +914,7 @@ fn rollover(w: &mut World) {
         // the memory a 30-year world keeps (proposed, not confirmed).
         let mut kept: Vec<Event> = Vec::new();
         let small = w.recording;
-        for e in w.calendar.all().filter(|e| (small || e.loud >= Loudness::Medium) && e.when.date < w.today) {
+        for e in w.calendar.all().filter(|e| (small || e.loud >= Loudness::Medium) && e.when.world_date() < w.today) {
             let past = e.season.filter(|&s| s != w.year).and_then(|s| w.event_history.iter().rposition(|h| h.0 == s));
             match past {
                 Some(k) => w.event_history[k].1.push(e.clone()),
@@ -859,35 +1111,31 @@ fn anniversaries(w: &mut World, d: Date) {
     }
 }
 
-/// T10: Continue skips quiet days and stops on the first day with an event
-/// that needs a decision, a big moment that matters to the manager (his
-/// team or his level) or a huge moment anywhere (T8: a big moment stops the
-/// game and shows its own screen, such as free agency opening). Returns the
-/// day it stopped on: a day played (today is the morning after), or the
-/// morning of your game or a decision day, not yet played (today).
-pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
-    // N58 (Cain): Big moments that matter to the manager, Huge ones anywhere.
-    let seat = w.seat;
-    let stops = |e: &Event| e.needs_decision || huge_for(seat, e) || (e.loud == Loudness::Big && cares(seat, e));
-    for i in 0..max_days {
-        let d = w.today;
-        // The draft is live in your war room: nothing moves until it's done.
-        if w.scouting.live.is_some() {
-            return d;
+/// Plays on to world day `d`, through day minute `m` (inclusive): the
+/// days before it whole, then `d` to that minute. Holds where your draft
+/// war room opens.
+pub(crate) fn run_to(w: &mut World, d: Date, m: u16) {
+    while w.today < d {
+        play_through(w, zone::DAY - 1);
+        if super::scouting::live::holds(w) {
+            return;
         }
-        // The morning of your game, or of a day you decide things on: stop
-        // before it plays, so you get there first. Pressed that morning,
-        // Continue plays it.
-        if i > 0 && w.morning_stop(d).is_some() {
-            return d;
-        }
-        let kept = w.seat_games.last().map(|g| (g.date, g.teams));
-        advance_day(w);
-        // Your own game day always stops, as a manager's match day does.
-        if w.calendar.on(d).iter().any(stops) || w.seat_games.last().map(|g| (g.date, g.teams)) != kept {
-            return d;
-        }
+        end_day(w);
     }
+    play_through(w, m);
+}
+
+/// Continue (the six-part day, topic 1 and 2): plays to your next stop,
+/// the first minute of your next section or a live moment inside it, and
+/// stands there. What you decide at a stop happens at that hour. Returns
+/// the world day it stopped on.
+pub fn continue_until_needed(w: &mut World) -> Date {
+    // The draft is live in your war room: nothing moves until it's done.
+    if super::scouting::live::holds(w) {
+        return w.today;
+    }
+    let (d, m) = w.next_stop();
+    run_to(w, d, m);
     w.today
 }
 
@@ -903,18 +1151,24 @@ fn huge_for(seat: Option<super::Seat>, e: &Event) -> bool {
     e.loud == Loudness::Huge && (!e.regular || cares(seat, e))
 }
 
-/// T10: holiday mode to a chosen date. Staff run things; it always stops for
-/// a huge moment. Returns the day it stopped on.
+/// T10: holiday mode to a chosen date. Staff run things and the sections
+/// pass without stopping (topic 9); it comes back early for a huge moment,
+/// at the section stop after it. Returns the day it stopped on: the first
+/// section of `until`, or the day of the huge moment.
 pub fn holiday_to(w: &mut World, until: Date) -> Date {
     let seat = w.seat;
-    while w.today < until {
-        let d = w.today;
-        advance_day(w);
-        if w.calendar.on(d).iter().any(|e| huge_for(seat, e)) {
-            return d;
+    loop {
+        if super::scouting::live::holds(w) {
+            return w.today;
+        }
+        let from = w.now();
+        let (d, m) = w.next_section_stop();
+        run_to(w, d, m);
+        let huge = w.calendar.between(from, w.now()).into_iter().any(|e| huge_for(seat, e));
+        if huge || w.today >= until {
+            return w.today;
         }
     }
-    w.today
 }
 
 /// The BCS read the Harris poll as its human poll from 2005 to 2013.
@@ -925,62 +1179,229 @@ fn harris_year(w: &World) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calendar::Zone;
 
-    /// T8, T10: Continue stops on a big moment too (the franchise tag
-    /// deadline, long before the draft), and every day it skips is quiet.
-    #[test]
-    fn continue_stops_on_big_moments() {
-        let options = super::super::WorldOptions {
+    fn small() -> World {
+        World::empty(super::super::WorldOptions {
             scale: 0.002,
             history_years: 0,
+            seed: 68,
             names: super::super::names::NameMode::Fictional,
             ..Default::default()
+        })
+    }
+
+    /// A seat at `level` whose town is in `zone`.
+    fn seat_in(w: &World, level: Level, zone: Zone) -> super::super::Seat {
+        let n = match level {
+            Level::Nfl => w.clubs.len(),
+            Level::College => w.programs.len(),
+            _ => w.high_schools.len(),
         };
-        let mut w = World::empty(options);
-        let start = w.today;
-        let stop = continue_until_needed(&mut w, 120);
-        assert!(stop < w.dates.draft[0].date, "stopped on {}", stop.pretty());
-        assert!(w.calendar.on(stop).iter().any(|e| e.loud == Loudness::Big), "stopped on {}", stop.pretty());
-        let mut d = start;
-        while d < stop {
-            assert!(w.calendar.on(d).iter().all(|e| e.loud < Loudness::Big && !e.needs_decision));
-            d = d.add(1);
+        let t = (0..n)
+            .find(|&t| w.team_zone(level, t) == zone)
+            .unwrap_or_else(|| panic!("no {level:?} team in {}", zone.name()));
+        match level {
+            Level::Nfl => super::super::Seat { level, nfl_team: Some(t), program: None, other: None },
+            _ => super::super::Seat { level, nfl_team: None, program: Some(t), other: None },
         }
     }
 
-    /// Continue stops the morning of each day an NFL seat acts on (Cain
-    /// 2026-10-29: it played twelve days past the combine): the tag window,
-    /// the combine, the tag deadline, the negotiating window, free agency,
-    /// the offseason program and the draft.
+    /// Proof 1: Continue stops six times on a quiet day, at 5:00, 8:00,
+    /// 1:00, 4:00, 7:00 and 10:00 local, at all three levels, in an
+    /// Eastern, a Pacific and an Arizona seat.
     #[test]
-    fn continue_stops_on_your_days() {
-        let options = super::super::WorldOptions {
-            scale: 0.002,
-            history_years: 0,
-            names: super::super::names::NameMode::Fictional,
-            ..Default::default()
-        };
-        let mut w = World::empty(options);
-        w.seat = Some(super::super::Seat { level: Level::Nfl, nfl_team: Some(3), program: None, other: None });
-        let y = w.dates.clone();
-        let mut mornings = Vec::new();
-        while w.today <= y.draft[0].date {
-            // The war room would wait for you: the staff finish the draft.
-            if w.scouting.live.is_some() {
-                super::super::scouting::live::finish(&mut w);
-            }
-            let from = w.today;
-            let stop = continue_until_needed(&mut w, 400);
-            if stop == w.today && stop > from {
-                mornings.push(stop);
+    fn continue_stops_at_every_section() {
+        let mut w = small();
+        for level in [Level::Nfl, Level::College, Level::HighSchool] {
+            for zone in [Zone::Eastern, Zone::Pacific, Zone::Arizona] {
+                if w.played > 0 {
+                    advance_day(&mut w);
+                }
+                w.seat = Some(seat_in(&w, level, zone));
+                let d = w.today;
+                assert!(w.live_moments(d).is_empty(), "{} is not quiet: {:?}", d.pretty(), w.live_moments(d));
+                let mut got = Vec::new();
+                loop {
+                    continue_until_needed(&mut w);
+                    let now = w.local_now();
+                    let day = if now.minute < 5 * 60 { now.date.add(-1) } else { now.date };
+                    if w.today != d {
+                        assert_eq!(day, d.add(1), "{level:?} {}: the night ran past the next morning", zone.name());
+                        assert_eq!(now.minute, 5 * 60);
+                        break;
+                    }
+                    got.push(now.minute / 60);
+                }
+                assert_eq!(got, [5, 8, 13, 16, 19, 22], "{level:?} in {} on {}", zone.name(), d.pretty());
             }
         }
-        let program = crate::training::rules::Frame::pro(&y, false).phase1;
-        let mut want = vec![y.tag_window_open, y.combine_start, y.tag_deadline.date, y.league_year.date, program];
-        want.extend(y.tampering_open.map(|m| m.date));
-        want.push(y.draft[0].date);
-        for d in want {
-            assert!(mornings.contains(&d), "Continue played through {} without stopping that morning", d.pretty());
+    }
+
+    /// Proof 6: stopping at every section with no choices gives the same
+    /// world, seed for seed, as playing the days straight through.
+    #[test]
+    fn sections_play_the_same_world() {
+        let prints = |w: &World| {
+            use crate::world::wlog::fp::of;
+            [of(&w.rng), of(&w.people), of(&w.programs), of(&w.clubs), of(&w.news), of(&w.calendar.events)]
+        };
+        let (mut a, mut b) = (small(), small());
+        let seat = seat_in(&a, Level::College, Zone::Pacific);
+        a.seat = Some(seat);
+        b.seat = Some(seat);
+        let end = a.today.add(10);
+        while b.today < end {
+            continue_until_needed(&mut b);
+        }
+        run_to(&mut a, b.today, b.played - 1);
+        assert_eq!(a.played, b.played);
+        assert_eq!(prints(&a), prints(&b), "stopping at the sections changed the world");
+    }
+
+    /// Proof 2: a choice made at a stop reaches that day's later hours (the
+    /// world runs a section at a time, in clock order).
+    #[test]
+    fn a_stop_comes_before_the_hours_after_it() {
+        let mut w = small();
+        w.seat = Some(seat_in(&w, Level::Nfl, Zone::Eastern));
+        // Stand at 1 PM Eastern.
+        continue_until_needed(&mut w);
+        continue_until_needed(&mut w);
+        continue_until_needed(&mut w);
+        assert_eq!(w.local_now().minute, 13 * 60);
+        assert!(w.played <= hour::DEADLINE, "the 4 PM step ran before the 1 PM stop");
+        continue_until_needed(&mut w);
+        assert_eq!(w.local_now().minute, 16 * 60);
+        assert_eq!(w.played, hour::DEADLINE + 1, "the 4 PM stop opens after the 4 PM step");
+        // A Pacific seat stands at 8 AM local at 11 AM Eastern, before the
+        // 4 PM Eastern step too.
+        advance_day(&mut w);
+        w.seat = Some(seat_in(&w, Level::Nfl, Zone::Pacific));
+        continue_until_needed(&mut w);
+        continue_until_needed(&mut w);
+        assert_eq!(w.local_now().minute, 8 * 60);
+        assert!(w.played <= hour::DEADLINE);
+    }
+
+    /// Proofs 3, 4 and 5 on one world (seed 68): no draft pick before its
+    /// minute and the draft's nights on their own days; a 3:30 PM college
+    /// result first shows at the 7 PM stop; your 7:30 PM game plays in S5
+    /// with game morning before it; and no line keeps the old 9:00 AM
+    /// default.
+    #[test]
+    fn everything_at_its_hour() {
+        let mut w = small();
+        w.seat = Some(seat_in(&w, Level::College, Zone::Eastern));
+        let y = w.dates.clone();
+        // The draft: play to its first night, then stop by stop.
+        while w.today < y.draft[0].date {
+            advance_day(&mut w);
+        }
+        // A world with no history has no college class to draft: the oldest
+        // high schoolers declare, and the draft runs at a size with picks in
+        // every round (this world's own scale holds a single pick).
+        let c = w.programs.iter().position(|p| p.division == super::Division::FBS).unwrap();
+        w.add_class_aged(17);
+        let mut kids: Vec<usize> =
+            (0..w.people.len()).filter(|&i| w.people[i].stage == super::super::Stage::HighSchool).collect();
+        kids.sort_by_key(|&i| std::cmp::Reverse(w.people[i].player.age));
+        for (k, &i) in kids.iter().take(120).enumerate() {
+            let p = &mut w.people[i];
+            p.stage = super::super::Stage::Declared;
+            p.college = Some(c);
+            p.college_seasons = 4;
+            p.cal.draft_read = Some(super::super::DraftRead { grade: 80.0 - k as f64 * 0.3, score: 0.0, round: 1 });
+        }
+        w.rebuild_rosters();
+        let scale = w.options.scale;
+        w.options.scale = 0.1;
+        let picks = |w: &World| -> Vec<(Moment, bool)> {
+            w.calendar
+                .events
+                .values()
+                .flatten()
+                .filter(|e| e.kind == Kind::DraftPick)
+                .map(|e| (e.when, w.has_come(e.when)))
+                .collect()
+        };
+        let drafted = |w: &World, round: u32| {
+            w.people
+                .iter()
+                .filter(|p| p.pro.as_ref().and_then(|c| c.draft).is_some_and(|x| x.0 == w.year && x.1 >= round))
+                .count()
+        };
+        while w.today <= y.draft[2].date {
+            continue_until_needed(&mut w);
+            let now = w.now();
+            // Every pick on the books has its minute, and has come: a pick
+            // is made at its minute, so the drafted are the picks shown.
+            let shown = picks(&w);
+            for &(at, come) in &shown {
+                assert!(at.timed(), "a pick without its minute");
+                assert!(come, "a pick on the books before its minute: {at:?} at {now:?}");
+            }
+            assert_eq!(shown.len(), drafted(&w, 1), "the drafted are the picks shown at {now:?}");
+            if now < y.draft[1] {
+                assert_eq!(drafted(&w, 2), 0, "a round 2 pick before the second night");
+            }
+            if now < y.draft[2] {
+                assert_eq!(drafted(&w, 4), 0, "a round 4 pick before the last day");
+            }
+        }
+        assert!(drafted(&w, 1) > 0 && drafted(&w, 4) > 0, "the draft ran");
+        assert!(w.draft_run.is_none(), "the draft closed");
+        w.options.scale = scale;
+        // Play to the first Saturday with a 3:30 PM and a 7:30 PM kickoff in
+        // the East.
+        let east = |w: &World, t: usize| w.team_zone(Level::College, t) == Zone::Eastern;
+        let find = |w: &World, kick: (u16, u16)| {
+            w.college.as_ref().filter(|c| c.started).and_then(|c| {
+                c.games
+                    .iter()
+                    .position(|g| g.date == w.today && g.kickoff == kick && g.played.is_none() && east(w, g.home))
+            })
+        };
+        let mut n = 0;
+        while find(&w, (15, 30)).is_none() || find(&w, (19, 30)).is_none() {
+            advance_day(&mut w);
+            n += 1;
+            assert!(n < 300, "no Saturday with both kickoffs");
+        }
+        let d = w.today;
+        let early = find(&w, (15, 30)).unwrap();
+        let night = find(&w, (19, 30)).unwrap();
+        let home = w.college.as_ref().unwrap().games[night].home;
+        w.seat = Some(super::super::Seat { level: Level::College, nfl_team: None, program: Some(home), other: None });
+        let played = |w: &World, k: usize| w.college.as_ref().unwrap().games[k].played.is_some();
+        let mut stops = Vec::new();
+        while w.today == d {
+            continue_until_needed(&mut w);
+            if w.today != d {
+                break;
+            }
+            let m = w.local_now().minute;
+            stops.push(m);
+            match m {
+                // Game morning: the day's first stop says so.
+                300 => assert!(w.morning_stop(d).is_some_and(|x| x.starts_with("Game day"))),
+                960 => assert!(!played(&w, early), "the 3:30 PM result showed at the 4 PM stop"),
+                1140 => assert!(played(&w, early), "the 3:30 PM result is not in at the 7 PM stop"),
+                1170 => {
+                    assert_eq!(w.section(), 4, "your 7:30 PM game is not in S5");
+                    assert!(!played(&w, night));
+                    assert_eq!(w.live_moment_now().map(|x| x.what), Some("Kickoff".to_string()));
+                }
+                _ => {}
+            }
+        }
+        assert!(played(&w, night));
+        assert_eq!(stops, [300, 480, 780, 960, 1140, 1170, 1365], "the day's stops");
+        // Proof 4: every line has its hour or the whole day, and none keeps
+        // the old 9:00 AM default (nothing in the world runs at 9:00).
+        for e in w.calendar.events.values().flatten() {
+            assert_ne!(e.when.minute, Moment::UNSET, "{}", e.text);
+            assert_ne!(e.when.minute, 9 * 60, "at the old default: {}", e.text);
         }
     }
 

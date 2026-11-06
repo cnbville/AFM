@@ -402,7 +402,7 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
     // F21 "Small schools too": your area scouts add six film looks a week
     // on the best prospects below the FBS nobody of yours has seen.
     if w.scouting.dept.instructions.contains(&Instruction::SmallSchools) {
-        let draft_year = if w.today <= w.dates.draft[0].date { w.year } else { w.year + 1 };
+        let draft_year = if w.today <= w.dates.draft[2].date { w.year } else { w.year + 1 };
         let mut small: Vec<(f64, u32)> = w
             .people
             .iter()
@@ -482,7 +482,7 @@ pub(crate) fn club_look(w: &mut World, t: usize, id: u32, who: u8, kind: crate::
 
 /// The class's best at a position group by the public's December read.
 fn top_of_group(w: &World, g: u8, n: usize) -> Vec<u32> {
-    let draft_year = if w.today <= w.dates.draft[0].date { w.year } else { w.year + 1 };
+    let draft_year = if w.today <= w.dates.draft[2].date { w.year } else { w.year + 1 };
     let mut v: Vec<(f64, u32)> = w
         .people
         .iter()

@@ -25,7 +25,7 @@ use super::season::{self, COLLEGE_SPREAD, CoachContext, TeamResult, key_normal, 
 use super::{Stage, World, division_level, geo};
 use crate::calendar::data::{BOWLS, CELEBRATION_BOWL, INDOOR_PROGRAMS, RIVALRIES, et_offset};
 use crate::calendar::weather::{self, Severe};
-use crate::calendar::{CfbPostseason, Date, Event, Kind, Level as CalLevel, Loudness};
+use crate::calendar::{CfbPostseason, Date, Event, Kind, Level as CalLevel, Loudness, Moment};
 use crate::game::{Conditions, GameTeam, Venue, quick_game_in};
 use crate::player::PlayingTime;
 use crate::rng::clamp;
@@ -576,13 +576,37 @@ pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
 }
 
 /// The day's college games.
-pub(crate) fn play_day(w: &mut World, date: Date) {
+/// The day minute (`calendar::zone`) a game ends: its kickoff (Eastern)
+/// and about three hours and a quarter.
+pub(crate) fn final_whistle(g: &Game) -> u16 {
+    let kick = Moment::at(g.date, g.kickoff.0, g.kickoff.1);
+    let (_, m) = crate::calendar::zone::world_day(kick);
+    (m + super::clock::hour::COLLEGE_GAME).min(crate::calendar::zone::DAY - 1)
+}
+
+/// The final whistles of the day's college games still to play.
+pub(crate) fn final_whistles(w: &World, date: Date) -> Vec<u16> {
+    let Some(cs) = w.college.as_ref().filter(|c| c.started) else { return Vec::new() };
+    let mut v: Vec<u16> = cs.games.iter().filter(|g| g.date == date && g.played.is_none()).map(final_whistle).collect();
+    v.sort_unstable();
+    v.dedup();
+    v
+}
+
+/// The day's college games whose final whistle is at day minute `t`
+/// (the six-part day: a result posts at the final whistle, never before).
+pub(crate) fn play_at(w: &mut World, date: Date, t: u16) {
+    play_games(w, date, |g| final_whistle(g) == t);
+}
+
+fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
     let Some(cs) = w.college.as_ref() else { return };
     if !cs.started {
         return;
     }
-    let mut idx: Vec<usize> =
-        (0..cs.games.len()).filter(|&k| cs.games[k].date == date && cs.games[k].played.is_none()).collect();
+    let mut idx: Vec<usize> = (0..cs.games.len())
+        .filter(|&k| cs.games[k].date == date && cs.games[k].played.is_none() && now(&cs.games[k]))
+        .collect();
     if idx.is_empty() {
         return;
     }
@@ -652,7 +676,6 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         advance_brackets(w);
         return;
     }
-    stakes_for_day(w, &idx);
     // The books hang a line on every FBS and FCS game (C8).
     super::finance::college::pregame(w, &idx);
     let cs = w.college.as_ref().unwrap();
@@ -1442,6 +1465,27 @@ fn game_day(
     let opp = g.opponent(me);
     use super::folk::Team;
     super::folk::gametalk::day_for(w, Team::College(me), Team::College(opp), stakes, rival, dressed)
+}
+
+/// The day's stakes, once before any kickoff (the six-part day): the
+/// record chases and what each game means, on the morning's standings.
+pub(crate) fn day_stakes(w: &mut World, date: Date) {
+    let Some(cs) = w.college.as_ref() else { return };
+    if !cs.started {
+        return;
+    }
+    let idx: Vec<usize> = (0..cs.games.len())
+        .filter(|&k| {
+            let g = &cs.games[k];
+            g.date == date
+                && g.played.is_none()
+                && w.programs[g.home].roster.len() >= 22
+                && w.programs[g.away].roster.len() >= 22
+        })
+        .collect();
+    if !idx.is_empty() {
+        stakes_for_day(w, &idx);
+    }
 }
 
 fn stakes_for_day(w: &mut World, idx: &[usize]) {
@@ -3192,6 +3236,7 @@ pub(crate) fn finish(w: &mut World) {
             w.news.push(
                 NewsItem {
                     date: None,
+                    at: None,
                     year,
                     kind: NewsKind::NationalTitle,
                     channel: Channel::News,

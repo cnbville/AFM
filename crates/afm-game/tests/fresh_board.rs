@@ -72,7 +72,21 @@ fn a_new_staff_resets_the_board() {
     let mut g = Game::new(dir.clone());
     ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
-    let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
+    // The job among the top ones whose old staff left the most offers out
+    // (a small world's numbers move with the engine).
+    let jobs = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"].as_array().unwrap().clone();
+    let mut job = jobs[0]["ref"].clone();
+    let mut most = 0;
+    for j in jobs.iter().take(10) {
+        ok(&mut g, "open_world", json!({ "path": fresh }));
+        start(&mut g, &j["ref"], false);
+        // The board takes over the old staff's offers when you first open it.
+        let n = ok(&mut g, "recruit_board", json!({}))["fresh"]["offers"].as_u64().unwrap_or(0);
+        if n > most {
+            (most, job) = (n, j["ref"].clone());
+        }
+    }
+    ok(&mut g, "open_world", json!({ "path": fresh }));
 
     // 1. Start with no offers out: every old offer is pulled on day one and
     // leaves the board; the signed stay signed.

@@ -201,6 +201,11 @@ pub struct Scene {
     pub c: i64,
     pub f: [f32; 4],
     pub team: Option<Team>,
+    /// When it is held, minutes after your local midnight (the six-part
+    /// day: a meeting keeps its real hour; None opens it at the day's first
+    /// stop).
+    #[serde(default)]
+    pub minute: Option<u16>,
 }
 
 impl Scene {
@@ -226,6 +231,7 @@ impl Scene {
             c: 0,
             f: [0.0; 4],
             team: None,
+            minute: None,
         }
     }
 
@@ -263,6 +269,9 @@ pub fn add(w: &mut World, mut s: Scene) -> u32 {
     w.folk.next_scene += 1;
     s.id = w.folk.next_scene;
     s.team = s.team.or(Team::seat(w));
+    if s.minute.is_none() {
+        s.minute = hour_in(&s.place).or_else(|| default_hour(w, &s));
+    }
     let id = s.id;
     if s.stops {
         let text = cal_text(&s);
@@ -301,7 +310,9 @@ fn cal_text(s: &Scene) -> String {
 /// or handed.
 fn clear_mark(w: &mut World, s: &Scene) {
     let text = cal_text(s);
-    if let Some(list) = w.calendar.events.get_mut(&s.date) {
+    // Its world day: a line posted after midnight Eastern is filed under
+    // the next date.
+    for (_, list) in w.calendar.events.range_mut(s.date..=s.date.add(1)) {
         for e in list.iter_mut().filter(|e| e.needs_decision && e.text == text) {
             e.needs_decision = false;
         }
@@ -403,11 +414,20 @@ pub fn due(w: &World, d: Date) -> Option<String> {
 /// scene that waited a week (a press availability, a call) lapses the same
 /// way.
 pub(crate) fn day(w: &mut World, d: Date) {
+    // A meeting with its hour waits for it: it is handed only once its hour
+    // has passed (the six-part day, topic 8), the next morning's office
+    // hours at the latest.
+    let now = crate::calendar::zone::moment(d, super::super::clock::hour::OFFICE);
+    let z = w.seat_zone();
+    let due = |s: &Scene| match s.minute {
+        Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
+        _ => s.date <= d,
+    };
     let late: Vec<u32> = w
         .folk
         .scenes
         .iter()
-        .filter(|s| !s.done && ((s.stops && s.date <= d) || (!s.stops && s.date.add(7) <= d)))
+        .filter(|s| !s.done && ((s.stops && due(s)) || (!s.stops && s.date.add(7) <= d)))
         .map(|s| s.id)
         .collect();
     for id in late {
@@ -518,4 +538,78 @@ pub fn your_last(w: &World) -> String {
 
 pub fn your_name(w: &World) -> String {
     w.career.as_ref().map_or("You".to_string(), |c| c.you.name.clone())
+}
+
+/// The hour a place line names ("the team room, 7:30 p.m.", "11 a.m."), in
+/// minutes after midnight.
+pub fn hour_in(place: &str) -> Option<u16> {
+    let low = place.to_lowercase();
+    let word = |x: &str| low.split(|c: char| !c.is_ascii_alphanumeric()).any(|t| t == x);
+    let (k, pm) = match (low.rfind(" a.m."), low.rfind(" p.m.")) {
+        (Some(a), Some(p)) => (a.max(p), p > a),
+        (Some(a), None) => (a, false),
+        (None, Some(p)) => (p, true),
+        _ if word("noon") => return Some(12 * 60),
+        _ if word("midnight") => return Some(0),
+        _ => return None,
+    };
+    let start = low[..k].rfind(|c: char| !(c.is_ascii_digit() || c == ':')).map_or(0, |i| i + 1);
+    let t = &low[start..k];
+    let (h, m) = match t.split_once(':') {
+        Some((h, m)) => (h.parse::<u16>().ok()?, m.parse::<u16>().ok()?),
+        None => (t.parse::<u16>().ok()?, 0),
+    };
+    if !(1..=12).contains(&h) || m > 59 {
+        return None;
+    }
+    let h24 = match (h, pm) {
+        (12, false) => 0,
+        (12, true) => 12,
+        (h, true) => h + 12,
+        (h, false) => h,
+    };
+    Some(h24 * 60 + m)
+}
+
+/// A meeting's hour where its line names none (the six-part day, topic 8,
+/// proposed, not confirmed): the boss in office hours (10 AM), a booster
+/// or the parents in the evening (7 PM), a recruit by phone at night
+/// (8 PM), a player or a staff talk after practice, the weekly press at the
+/// program's own hour. Others open at the day's first stop.
+fn default_hour(w: &World, s: &Scene) -> Option<u16> {
+    let after_practice = || {
+        let (level, t) = w.seat_team()?;
+        let tier = match level {
+            crate::calendar::Level::HighSchool => crate::training::rules::Tier::High,
+            crate::calendar::Level::Nfl => crate::training::rules::Tier::Pro,
+            _ => crate::training::rules::Tier::College,
+        };
+        let d =
+            crate::training::days::practice_start(w, tier, t, s.date) + crate::training::days::practice_length(tier);
+        Some(d + 15)
+    };
+    match s.kind {
+        Kind::BossFirst | Kind::BossMeeting | Kind::Firing | Kind::Interview | Kind::Plan => Some(10 * 60),
+        Kind::Booster | Kind::Parents => Some(19 * 60),
+        Kind::Recruiting | Kind::ReachOut => Some(20 * 60),
+        Kind::OneOnOne | Kind::Discipline | Kind::StarPower | Kind::Trainer | Kind::StaffReport | Kind::StaffLine => {
+            after_practice()
+        }
+        Kind::Press => super::press::press_hour(w, s),
+        Kind::PressIntro => Some(12 * 60),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod hour_tests {
+    #[test]
+    fn hours_in_place_lines() {
+        assert_eq!(super::hour_in("Ross-Ade Pavilion, the team room, 7:30 p.m."), Some(19 * 60 + 30));
+        assert_eq!(super::hour_in("The media room, 11 a.m."), Some(11 * 60));
+        assert_eq!(super::hour_in("The athletic director's office, 3 p.m."), Some(15 * 60));
+        assert_eq!(super::hour_in("The media room"), None);
+        assert_eq!(super::hour_in("The facility's auditorium, noon"), Some(12 * 60));
+        assert_eq!(super::hour_in("The weight room, in the afternoon"), None);
+    }
 }

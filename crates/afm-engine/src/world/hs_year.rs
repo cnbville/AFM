@@ -738,7 +738,48 @@ pub(crate) fn add_school(w: &mut World, h: usize) {
 }
 
 /// The high school day.
-pub(crate) fn day(w: &mut World, d: Date) {
+/// The day minute (`calendar::zone`) a state's games end: 7 PM local
+/// kickoffs about two and a half hours long (proposed, not confirmed).
+pub(crate) fn state_final(w: &World, s: usize, d: Date) -> u16 {
+    let behind = crate::calendar::Zone::of_state(&w.states[s].code).behind(d) as u16;
+    crate::calendar::zone::et(19, 0) + 60 * behind + super::clock::hour::HS_GAME
+}
+
+/// Whether state `s` plays on `d` (a week, a playoff round or the finals).
+fn plays_on(st: &StateSeason, d: Date) -> bool {
+    !st.done && (st.weeks.contains(&d) || st.rounds.contains(&d) || st.finals == d)
+}
+
+/// The final whistles of the day's high school games, by state.
+pub(crate) fn final_whistles(w: &World, d: Date) -> Vec<u16> {
+    let Some(hs) = w.hs_season.as_ref() else { return Vec::new() };
+    hs.states.iter().enumerate().filter(|(_, st)| plays_on(st, d)).map(|(s, _)| state_final(w, s, d)).collect()
+}
+
+/// The states whose games end at day minute `t`: their weeks, playoff
+/// rounds and finals.
+pub(crate) fn games_at(w: &mut World, d: Date, t: u16) {
+    let Some(hs) = w.hs_season.as_ref() else { return };
+    let n_states = hs.states.len();
+    for s in 0..n_states {
+        let st = w.hs_season.as_ref().unwrap().states[s].clone();
+        if !plays_on(&st, d) || state_final(w, s, d) != t {
+            continue;
+        }
+        if let Some(k) = st.weeks.iter().position(|&g| g == d) {
+            super::clock::timed("hs week", || play_week(w, s, k, d));
+        }
+        if let Some(r) = st.rounds.iter().position(|&x| x == d) {
+            super::clock::timed("hs playoffs", || play_round(w, s, r, d));
+        }
+        if d == st.finals {
+            super::clock::timed("hs finish", || finish_state(w, s, d));
+        }
+    }
+}
+
+/// 5:00 AM: the new class arrives on its day.
+pub(crate) fn dawn(w: &mut World, d: Date) {
     let Some(hs) = w.hs_season.as_ref() else { return };
     if d == hs.class_day {
         super::clock::timed("hs class", || {
@@ -753,6 +794,12 @@ pub(crate) fn day(w: &mut World, d: Date) {
             w.rebuild_rosters();
         });
     }
+}
+
+/// Office hours: the states' seasons start, polls, brackets, ratings and
+/// the year's other high school days.
+pub(crate) fn office(w: &mut World, d: Date) {
+    let Some(_) = w.hs_season.as_ref() else { return };
     let n_states = w.states.len();
     for s in 0..n_states {
         let st = w.hs_season.as_ref().unwrap().states[s].clone();
@@ -764,20 +811,11 @@ pub(crate) fn day(w: &mut World, d: Date) {
             super::clock::timed("hs start", || start_state(w, s));
             poll(w, s, d, "Preseason");
         }
-        if let Some(k) = st.weeks.iter().position(|&g| g == d) {
-            super::clock::timed("hs week", || play_week(w, s, k, d));
-        }
         if st.weeks.iter().any(|&g| g.add(3) == d) {
             super::clock::timed("hs poll", || poll(w, s, d, "Weekly"));
         }
         if d == st.rounds[0] {
             seed_playoffs(w, s);
-        }
-        if let Some(r) = st.rounds.iter().position(|&x| x == d) {
-            super::clock::timed("hs playoffs", || play_round(w, s, r, d));
-        }
-        if d == st.finals {
-            super::clock::timed("hs finish", || finish_state(w, s, d));
         }
     }
     let hs = w.hs_season.as_ref().unwrap();

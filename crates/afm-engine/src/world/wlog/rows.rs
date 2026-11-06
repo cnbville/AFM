@@ -474,7 +474,7 @@ pub(super) fn year_end(w: &World) {
     let Some(log) = w.wlog.as_deref() else { return };
     let season = w.year;
     let date = w.today;
-    for e in w.calendar.all().filter(|e| e.when.date < w.today) {
+    for e in w.calendar.all().filter(|e| e.when.world_date() < w.today) {
         log.put("events", &EventRow { season: e.season.unwrap_or(season), event: e });
     }
     for (pending, at, outcome) in w.calendar.resolved.iter().filter(|r| r.1.date >= w.dates.start) {

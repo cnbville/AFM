@@ -1866,8 +1866,7 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
         for _ in 0..7 {
             let evs: Vec<&Event> = w
                 .calendar
-                .on(d)
-                .iter()
+                .on_day(d)
                 .filter(|e| my_slot(e) || !matches!(e.kind, Kind::Slot | Kind::Rhythm | Kind::Game))
                 .filter(|e| {
                     yours(e)
@@ -1900,7 +1899,7 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
     }
     // The picked day in full.
     let day = picked.map(|p| {
-        let evs: Vec<&Event> = w.calendar.on(p).iter().filter(|e| my_slot(e) || !matches!(e.kind, Kind::Slot | Kind::Rhythm)).collect();
+        let evs: Vec<&Event> = w.calendar.on_day(p).filter(|e| my_slot(e) || !matches!(e.kind, Kind::Slot | Kind::Rhythm)).collect();
         let texts: Vec<&str> = evs.iter().map(|e| e.text.as_str()).take(60).collect();
         let lk = Linker::new(w, &texts, matches!(me, Some(TeamRef::HighSchool(_))));
         json!({

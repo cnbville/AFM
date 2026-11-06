@@ -100,8 +100,16 @@ fn your_money_is_the_schools_revenue_share() {
     assert!((left - (b.left - 1.0e6 + replaced)).abs() < 1.0, "a deal comes out of the revenue share: {left}");
 }
 
+/// Stands the clock at your next section's first minute without playing
+/// anything (the answer only waits for its hour).
+fn to_next_section(w: &mut World) {
+    let (d, m) = w.next_section_stop();
+    w.today = d;
+    w.played = m + 1;
+}
+
 #[test]
-fn a_player_answers_your_deal_at_once_and_nothing_moves_yet() {
+fn a_player_answers_your_deal_at_your_next_section_and_nothing_moves_yet() {
     for house in [false, true] {
         deal_answers(house);
     }
@@ -113,11 +121,17 @@ fn deal_answers(house: bool) {
     assert!(usual > 25_000.0, "{usual}");
     let i = w.people.iter().position(|p| p.player.id == id).unwrap();
     let lean = w.people[i].cal.lean;
+    // The six-part day: he answers at your next section.
     let text = set_deal(&mut w, id, 0.0).unwrap();
+    assert!(text.contains("He'll get back to you by"), "{text}");
+    assert!(reaction(&w, id, MoneyKind::Deal).is_none(), "no answer before its hour");
+    let now = (w.today, w.played);
+    to_next_section(&mut w);
     let r = reaction(&w, id, MoneyKind::Deal).expect("an answer");
-    assert!(text.contains(&r.text), "{text}");
     assert!(matches!(r.mood, Mood::WantsMore | Mood::Insulted), "{:?}: {}", r.mood, r.text);
+    (w.today, w.played) = now;
     set_deal(&mut w, id, 3.0 * usual).unwrap();
+    to_next_section(&mut w);
     let r = reaction(&w, id, MoneyKind::Deal).unwrap();
     assert_eq!(r.mood, Mood::Thrilled, "{}", r.text);
     assert_eq!(w.front_office.college.reactions.iter().filter(|r| r.id == id).count(), 1, "the latest only");
@@ -125,7 +139,7 @@ fn deal_answers(house: bool) {
 }
 
 #[test]
-fn a_recruit_answers_your_promise_at_once_and_decides_in_his_own_time() {
+fn a_recruit_answers_your_promise_at_your_next_section_and_decides_in_his_own_time() {
     for house in [false, true] {
         promise_answers(house);
     }
@@ -140,11 +154,16 @@ fn promise_answers(house: bool) {
     assert!(usual > 1_000.0, "{usual}");
     let commit = w.people[i].cal.commit;
     let text = set_promise(&mut w, id, Some(10.0 * usual + 1.0e6)).unwrap();
+    assert!(text.contains("He'll get back to you by"), "{text}");
+    assert!(reaction(&w, id, MoneyKind::Promise).is_none(), "no answer before its hour");
+    let now = (w.today, w.played);
+    to_next_section(&mut w);
     let r = reaction(&w, id, MoneyKind::Promise).expect("an answer");
-    assert!(text.contains(&r.text), "{text}");
     assert!(matches!(r.mood, Mood::Thrilled | Mood::Pleased), "{:?}: {}", r.mood, r.text);
     assert!(r.text.contains("only a number"), "no scholarship offer yet: {}", r.text);
+    (w.today, w.played) = now;
     set_promise(&mut w, id, Some(0.0)).unwrap();
+    to_next_section(&mut w);
     let r = reaction(&w, id, MoneyKind::Promise).unwrap();
     assert!(matches!(r.mood, Mood::WantsMore | Mood::Insulted), "{:?}: {}", r.mood, r.text);
     assert_eq!(w.people[i].cal.commit.map(|c| c.0), commit.map(|c| c.0), "his decision keeps its own clock");

@@ -12,6 +12,18 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
     }
 }
 
+/// A day at a time to the eve of your next game (Continue stops six times a
+/// day, so a whole offseason of Continues is slow in a test).
+fn to_game_eve(g: &mut Game) {
+    for _ in 0..400 {
+        let hub = ok(g, "gameday", json!({}));
+        if hub["has_game"] == json!(true) && hub["in"].as_i64().is_some_and(|d| d <= 1) {
+            return;
+        }
+        ok(g, "day", json!({}));
+    }
+}
+
 #[test]
 fn a_college_career_plays_through_its_first_games() {
     let t = std::time::Instant::now();
@@ -120,11 +132,14 @@ fn a_college_career_plays_through_its_first_games() {
     // Play into the season: Continue until your team has a kept game. It
     // stops the morning of the game, before kickoff, and again once it is
     // played, naming it.
+    // A day at a time to the eve of the game, then Continue's six stops a
+    // day.
+    to_game_eve(&mut g);
     let mut steps = 0;
     let mut stopped_on_game = false;
     let mut game_morning = false;
     while ok(&mut g, "games", json!({}))["games"].as_array().unwrap().is_empty() && steps < 400 {
-        let r = ok(&mut g, "continue", json!({ "max_days": 300 }));
+        let r = ok(&mut g, "continue", json!({}));
         stopped_on_game |= r["game"].is_object();
         game_morning |= r["morning"] == json!(true)
             && r["why"][0]["text"].as_str().is_some_and(|t| t.starts_with("Game day"))
@@ -218,7 +233,7 @@ fn a_college_career_plays_through_its_first_games() {
         if qbs["total"].as_u64().unwrap_or(0) > 0 {
             break;
         }
-        ok(&mut g, "continue", json!({ "max_days": 1 }));
+        ok(&mut g, "day", json!({}));
         qbs = passers(&mut g);
     }
     assert!(qbs["charted"] == true && qbs["total"].as_u64().unwrap() > 0, "your division's charted passers: {qbs}");
@@ -417,7 +432,7 @@ fn a_college_career_plays_through_its_first_games() {
     let path = saved["saved"].as_str().unwrap().to_string();
     ok(&mut g, "load", json!({ "path": path }));
     assert_eq!(ok(&mut g, "player", json!({ "id": id }))["notes"].as_array().unwrap().len(), 1);
-    ok(&mut g, "continue", json!({ "max_days": 10 }));
+    ok(&mut g, "continue", json!({}));
     let lib = ok(&mut g, "library", json!({}));
     assert_eq!(lib["saves"].as_array().unwrap().len(), 2);
     assert!(lib["saves"].as_array().unwrap().iter().any(|s| s["card"]["seat"].is_object()), "{lib}");
@@ -446,7 +461,7 @@ fn a_college_career_plays_through_its_first_games() {
     );
     let mut steps = 0;
     while ok(&mut g, "games", json!({}))["games"].as_array().unwrap().is_empty() && steps < 400 {
-        ok(&mut g, "continue", json!({ "max_days": 300 }));
+        ok(&mut g, "day", json!({}));
         steps += 1;
     }
     let game = ok(&mut g, "game", json!({ "index": 0 }));

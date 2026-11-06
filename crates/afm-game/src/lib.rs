@@ -114,6 +114,7 @@ impl Game {
                 // How many history seasons play high school on the engine
                 // (quick checks pass 0; live seasons always do).
                 let hs_engine_years = num("hs_engine_years").map_or(d.hs_engine_years, |n| Some(n as u32));
+                lane_core::links::forget_names();
                 self.world = Some(World::new(WorldOptions {
                     seed,
                     history_years: years,
@@ -164,6 +165,7 @@ impl Game {
                 let w = setup::read(path)?;
                 // The last world goes first, with its log's writer.
                 self.world = None;
+                lane_core::links::forget_names();
                 self.world = Some(w);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
                 if let Some(w) = self.world.as_mut() {
@@ -209,28 +211,30 @@ impl Game {
             "status" => Ok(views::status(self.w()?)),
             "card" => Ok(cards::card(self.w()?)),
             "continue" => {
-                let max = num("max_days").unwrap_or(400) as u32;
                 let w = self.wm()?;
-                let from = w.today;
-                let stopped = w.continue_until_needed(max);
+                let (from, filed) = (w.now(), views::desk_ids(w));
+                w.continue_until_needed();
                 lane_core::after_days(w);
                 memory::hand_back();
-                Ok(views::stopped(w, from, stopped))
+                Ok(views::stopped(w, from, &filed))
             }
             "day" => {
+                // A whole day (the debug tools): the rest of today, then to
+                // your next stop.
                 let w = self.wm()?;
-                let from = w.today;
-                w.advance_day();
+                let (from, filed) = (w.now(), views::desk_ids(w));
+                w.next_day();
                 lane_core::after_days(w);
-                Ok(views::stopped(w, from, from))
+                Ok(views::stopped(w, from, &filed))
             }
             "holiday" => {
                 let days = num("days").unwrap_or(7) as i32;
                 let w = self.wm()?;
-                let from = w.today;
-                let stopped = w.holiday_to(from.add(days));
+                let (from, filed) = (w.now(), views::desk_ids(w));
+                let today = w.today;
+                w.holiday_to(today.add(days));
                 lane_core::after_days(w);
-                Ok(views::stopped(w, from, stopped))
+                Ok(views::stopped(w, from, &filed))
             }
             "home" => Ok(views::home(self.w()?)),
             "inbox" => Ok(views::inbox(self.w()?, num("days").unwrap_or(60) as i32)),

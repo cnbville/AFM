@@ -41,6 +41,9 @@ pub struct TeamWeek {
     pub practices: f64,
     pub contact: f64,
     pub limber: f64,
+    /// The days with field work, Monday first (bit k): a practice injury
+    /// lands on one of them.
+    pub field_days: u8,
 }
 
 /// The year's frames: each college division, the NFL, each state.
@@ -288,9 +291,10 @@ pub fn team_week(f: &Frame, block: Block, bk: &[Book; 7], wk: &Week, nk: &Week) 
     let battle = if own { Vec::new() } else { super::practice::team_snaps(wk) };
     let prep = super::prep::prep_week(wk, nk, camp, own);
     let practices = wk.days.iter().filter(|x| x.periods.iter().any(|p| p.kind.on_field())).count() as f64;
+    let field_days = super::seat::field_days(wk);
     let contact = ((full + 10.0) / (nfull + 10.0)).powf(0.7);
     let limber = super::seat::limber_of(wk, nk);
-    TeamWeek { block, r, load, risk, own, voluntary, battle, prep, practices, contact, limber }
+    TeamWeek { block, r, load, risk, own, voluntary, battle, prep, practices, contact, limber, field_days }
 }
 
 /// How hard a player works on his own (topic 9): his professionalism and
@@ -653,7 +657,7 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     // already or absent from a voluntary week.
     let hurt_seed = w.options.seed ^ d.0 as u32 ^ 0x1A7E;
     let others_hurt = &w.training.others_hurt;
-    let new_hurt: Vec<(u32, Date, crate::game::sim::InjuryKind)> = w
+    let new_hurt: Vec<(crate::calendar::Moment, u32, Date, crate::game::sim::InjuryKind)> = w
         .people
         .par_iter()
         .enumerate()
@@ -661,9 +665,9 @@ pub(crate) fn monday(w: &mut World, d: Date) {
             if skip[i] {
                 return None;
             }
-            let (tw, tier) = match p.stage {
-                Stage::HighSchool | Stage::PrepSchool => (worked.get(&school_key[p.hs])?, Tier::High),
-                Stage::College => (worked.get(&prog_key[p.college?])?, Tier::College),
+            let (tw, tier, team) = match p.stage {
+                Stage::HighSchool | Stage::PrepSchool => (worked.get(&school_key[p.hs])?, Tier::High, p.hs),
+                Stage::College => (worked.get(&prog_key[p.college?])?, Tier::College, p.college?),
                 _ => return None,
             };
             if tw.own || tw.practices == 0.0 || others_hurt.get(&p.player.id).is_some_and(|x| x.0 > d) {
@@ -692,16 +696,14 @@ pub(crate) fn monday(w: &mut World, d: Date) {
             let kind = super::seat::practice_kind(&mut rng, tw.contact, super::seat::soft_tissue(spike) * tw.limber);
             let weeks = crate::game::sim::injury_weeks(kind, &mut rng) * (1.3 - 0.03 * p.player.game.recovery);
             let days = (weeks * 7.0).round().max(1.0) as i32;
-            let day = rng.int(0, 5);
-            Some((id, d.add(day + days), kind))
+            // A day the team practiced (the six-part day: it shows when
+            // that day's practice ends).
+            let day = super::seat::injury_day(&mut rng, tw.field_days)?;
+            let at = super::days::practice_end(w, tier, team, d.add(day));
+            Some((at, id, d.add(day + days), kind))
         })
         .collect();
-    for (id, back, kind) in new_hurt {
-        let e = w.training.others_hurt.entry(id).or_insert((back, Some(kind)));
-        if back > e.0 {
-            *e = (back, Some(kind));
-        }
-    }
+    w.training.others_pending.extend(new_hurt);
     // The week's growth reaches the college teams kept for the season.
     refresh_college_teams(w);
 }

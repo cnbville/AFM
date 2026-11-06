@@ -683,6 +683,10 @@ pub fn status(w: &World) -> Value {
     }
     json!({
         "today": date_text(w.today),
+        // The top bar: your local date and section (the six-part day).
+        "clock": w.clock_text(),
+        "section": w.section(),
+        "zone": w.seat_zone().name(),
         "season": w.year,
         "mine": mine(w).map(|t| team_brief(w, t)),
         "you": w.career.as_ref().map(|c| c.you.name.clone()),
@@ -768,8 +772,9 @@ pub(crate) fn pinned(w: &World) -> Vec<Value> {
     let seat = w.seat;
     w.calendar
         .events
-        .range(w.today.add(-14)..=w.today)
+        .range(w.today.add(-14)..=w.today.add(1))
         .flat_map(|(d, evs)| evs.iter().map(move |e| (d, e)))
+        .filter(|(d, e)| on_screen(w, **d, e))
         .filter(|(_, e)| {
             e.needs_decision
                 && e.rule != "people: meeting"
@@ -794,24 +799,200 @@ pub(crate) fn pinned(w: &World) -> Vec<Value> {
 }
 
 /// After Continue: the days that ran and why it stopped.
-pub fn stopped(w: &World, from: Date, at: Date) -> Value {
+/// A section stop (the six-part day, topic 5): what came since the last
+/// stop (your mail, results, news, other teams' moves, deadlines passed),
+/// what you're doing now and what's due before the next stop, on your local
+/// clock; and the rooms a stop opens (your game, a meeting, the war room).
+/// `from` is the moment of the stop before.
+/// The ids of the letters on your desk (before a Continue, so its stop
+/// card can list the letters it filed).
+pub fn desk_ids(w: &World) -> Vec<u64> {
+    w.career.as_ref().map_or(Vec::new(), |c| c.desk.mails.iter().map(|m| m.id).collect())
+}
+
+pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> Value {
+    use afm_engine::calendar::{Kind, Moment, Zone, zone};
+    use afm_engine::world::sections::day_text;
     let seat = w.seat;
-    // Stopped on the morning of a day still to play: what it holds. A stop
-    // at the end of a day leaves you on the next morning, and the next
-    // Continue plays that day, so its morning shows too (a story meeting on
-    // the eve of your game no longer skips the game morning).
-    let morning_day = if at == w.today && at > from { Some(at) } else { (at.add(1) == w.today).then_some(w.today) };
-    let morning = morning_day.and_then(|d| w.morning_stop(d));
-    let mut why: Vec<Value> = w
+    let now = w.now();
+    let (nd, nm) = w.next_stop();
+    let next = zone::moment(nd, nm);
+    let yours = yours_test(w);
+    let cares = |e: &afm_engine::calendar::Event| seat.is_none_or(|s| s.cares(e));
+    let live = w.live_moment_now();
+    let local_now = w.local_now();
+    let section = Zone::section_of(local_now.minute);
+    let first_stop = live.is_none() && local_now.minute == 5 * 60;
+    // A stop's name: "1 PM" at a section's first minute, else "7:30 PM".
+    let name = |m: Moment| {
+        let l = w.local(m);
+        if zone::SECTION_HOURS.iter().any(|&h| h * 60 == l.minute) {
+            zone::short_clock(l.minute)
+        } else {
+            zone::clock(l.minute)
+        }
+    };
+    // Since the last stop.
+    let picked: Vec<&afm_engine::calendar::Event> = w
         .calendar
-        .on(at)
-        .iter()
+        .between(from, now)
+        .into_iter()
+        .filter(|e| !matches!(e.kind, Kind::Rhythm | Kind::Anniversary) || yours(e))
         .filter(|e| {
-            e.needs_decision || e.loud == Loudness::Huge || (e.loud == Loudness::Big && seat.is_none_or(|s| s.cares(e)))
+            yours(e)
+                || e.needs_decision
+                || (e.loud == Loudness::Huge && (!e.regular || cares(e)))
+                || (e.loud >= Loudness::Big && cares(e))
+                || (e.loud >= Loudness::Medium
+                    && cares(e)
+                    && seat.is_none_or(|s| s.level == e.level)
+                    && matches!(
+                        e.kind,
+                        Kind::Transfer | Kind::Signing | Kind::Coaching | Kind::DraftPick | Kind::Deadline
+                    ))
         })
+        .collect();
+    let link = Linker::new(w, picked.iter().flat_map(|e| e.refs.iter()));
+    let kind_word = |k: Kind| match k {
+        Kind::Game => "Result",
+        Kind::Transfer => "Move",
+        Kind::Signing => "Signing",
+        Kind::DraftPick | Kind::DraftChoice => "Draft",
+        Kind::Commitment => "Commit",
+        Kind::Offer => "Offer",
+        Kind::Deadline => "Deadline",
+        Kind::Window => "Window",
+        Kind::Poll => "Poll",
+        Kind::Award => "Award",
+        Kind::Coaching => "Coaching",
+        Kind::Practice => "Practice",
+        Kind::Slot => "Your day",
+        Kind::Weather => "Weather",
+        Kind::Whisper => "Rumor",
+        Kind::Visit => "Visit",
+        Kind::Academic => "School",
+        Kind::RuleChange => "Rules",
+        Kind::Ceremony => "Ceremony",
+        _ => "News",
+    };
+    let mut rows: Vec<(Moment, Value)> = picked
+        .iter()
         .map(|e| {
-            let mut v = json!({ "text": e.text, "loud": e.loud.name(), "decision": e.needs_decision });
+            let parts = link.parts(w, &e.text, &e.refs, e.program, e.nfl_team);
+            let mut v = json!({
+                "t": w.clock_of(e.when),
+                "k": kind_word(e.kind),
+                "x": rich_parts(&parts),
+                "mine": yours(e),
+                "dl": e.kind == Kind::Deadline,
+            });
             if let Some((go, args)) = decision_go(e).filter(|_| e.needs_decision) {
+                v["go"] = json!({ "screen": go, "args": args, "label": "Answer" });
+            }
+            (e.when, v)
+        })
+        .collect();
+    // Your letters.
+    if let Some(c) = &w.career {
+        let z = w.seat_zone();
+        for m in &c.desk.mails {
+            let at = z.to_eastern(Moment { date: m.date, minute: m.minute });
+            // Shown now, and new at this stop: its stamp came since the
+            // last stop, or it was filed at this one.
+            if at <= now && (at > from || !filed.contains(&m.id)) {
+                rows.push((
+                    at,
+                    json!({ "t": w.clock_of(at), "k": "Mail", "x": format!("{}: {}", m.from, m.subject), "mine": true, "dl": false,
+                        "go": { "mail": m.id.to_string(), "label": "Open" } }),
+                ));
+            }
+        }
+    }
+    // Answers to your money (NIL), at the section after you asked.
+    for r in afm_engine::world::front_office::college::answers_between(w, from, now) {
+        let at = r.due.unwrap_or(now);
+        let name = w.people.iter().find(|p| p.player.id == r.id).map_or(String::new(), |p| p.name.clone());
+        rows.push((
+            at,
+            json!({ "t": w.clock_of(at), "k": "Answer", "x": format!("[[p:{}|{name}]] {}: {}", r.id, r.mood.word(), r.text), "mine": true, "dl": false }),
+        ));
+    }
+    rows.sort_by_key(|x| x.0);
+    let total = rows.len();
+    // Your own and the deadlines first when the list runs long.
+    if rows.len() > 12 {
+        let keep: Vec<bool> = rows
+            .iter()
+            .map(|(_, v)| v["mine"].as_bool().unwrap_or(false) || v["dl"].as_bool().unwrap_or(false))
+            .collect();
+        let mut out = Vec::new();
+        let room = 12usize.saturating_sub(keep.iter().filter(|&&k| k).count());
+        let mut others = 0;
+        for (k, r) in rows.into_iter().enumerate() {
+            if keep[k] {
+                out.push(r);
+            } else if others < room {
+                others += 1;
+                out.push(r);
+            }
+        }
+        rows = out;
+    }
+    let items: Vec<Value> = rows.into_iter().map(|x| x.1).collect();
+    // Due before the next stop.
+    let due: Vec<Value> = w
+        .calendar
+        .between(now, next)
+        .into_iter()
+        .filter(|e| e.when.timed())
+        .filter(|e| (e.kind == Kind::Deadline && (cares(e) || yours(e))) || (e.needs_decision && yours(e)))
+        .take(4)
+        .map(|e| {
+            let parts = Linker::new(w, e.refs.iter()).parts(w, &e.text, &e.refs, e.program, e.nfl_team);
+            json!({ "when": w.clock_of(e.when), "what": rich_parts(&parts), "tag": (e.kind == Kind::Deadline).then_some("Deadline") })
+        })
+        .collect();
+    let upcoming = next_dates(w, 1).into_iter().next();
+    // Now: the live moment, or your day's next thing.
+    let now_line = now_line(w, live.as_ref().map(|l| l.what.as_str()), first_stop);
+    // The rooms a stop opens.
+    let games = w.seat_games();
+    let game = games.iter().rposition(|g| g.whistle.is_some_and(|m| m > from && m <= now)).map(|k| {
+        let g = &games[k];
+        json!({ "index": k, "text": format!("{} {} at {} {}", g.names[1], g.stats.score[1], g.names[0], g.stats.score[0]) })
+    });
+    let meeting = w
+        .folk
+        .scenes
+        .iter()
+        .filter(|s| !s.done && s.stops && s.kind != afm_engine::world::folk::scene::Kind::Story)
+        .filter(|s| match s.minute {
+            Some(m) => {
+                let at = w.seat_zone().to_eastern(Moment::at(s.date, m / 60, m % 60));
+                at > from && at <= now
+            }
+            None => s.date == w.today && first_stop,
+        })
+        .map(|s| s.id)
+        .min();
+    let studio = afm_engine::world::scouting::live::holds(w).then(|| json!({ "screen": "warroom" }));
+    let story = w
+        .folk
+        .scenes
+        .iter()
+        .filter(|s| !s.done && s.stops && s.kind == afm_engine::world::folk::scene::Kind::Story)
+        .filter(|s| s.date >= from.date && s.date <= w.today)
+        .map(|s| s.id)
+        .min();
+    // The morning's reasons (your game, a meeting, a day you decide things
+    // on), at the day's first stop.
+    let morning = first_stop.then(|| w.morning_stop(w.today)).flatten();
+    let mut why: Vec<Value> = picked
+        .iter()
+        .filter(|e| e.needs_decision)
+        .map(|e| {
+            let mut v = json!({ "text": e.text, "loud": e.loud.name(), "decision": true });
+            if let Some((go, args)) = decision_go(e) {
                 v["go"] = json!(go);
                 v["args"] = args;
             }
@@ -821,39 +1002,127 @@ pub fn stopped(w: &World, from: Date, at: Date) -> Value {
     if let Some(m) = &morning {
         why.insert(0, json!({ "text": m, "loud": "Big", "decision": false }));
     }
-    // Your game that day, if you played: the screens open its page.
-    let games = w.seat_games();
-    let game = games.iter().rposition(|g| g.date == at && at >= from).map(|k| {
-        let g = &games[k];
-        json!({ "index": k, "text": format!("{} {} at {} {}", g.names[1], g.stats.score[1], g.names[0], g.stats.score[0]) })
+    // The day's six sections, with a live moment marked in its own.
+    let mark = live.as_ref().map(|l| {
+        let lm = w.local(zone::moment(l.date, l.minute)).minute;
+        let sec = Zone::section_of(lm);
+        let start = zone::SECTION_HOURS[sec] * 60;
+        let end = if sec == 5 { 29 * 60 } else { zone::SECTION_HOURS[sec + 1] * 60 };
+        let at = if lm < 5 * 60 { lm + 24 * 60 } else { lm };
+        let pct = ((at - start) as f64 / (end - start) as f64 * 100.0).round();
+        json!({ "sec": sec, "pct": pct, "label": format!("{} · {}", zone::clock(lm), l.what) })
     });
-    // A meeting waiting this morning (people): the screens open it.
-    let meeting = morning.as_ref().and_then(|_| {
-        w.folk
-            .scenes
-            .iter()
-            .filter(|s| {
-                !s.done
-                    && s.stops
-                    && Some(s.date) == morning_day
-                    && s.kind != afm_engine::world::folk::scene::Kind::Story
-            })
-            .map(|s| s.id)
-            .min()
+    let date = if local_now.minute < 5 * 60 { local_now.date.add(-1) } else { local_now.date };
+    let card = json!({
+        "stop": name(now),
+        "next_stop": name(next),
+        "since": name(from),
+        "date": day_text(date),
+        "section": section,
+        "live": live.as_ref().map(|l| l.what.clone()),
+        "mark": mark,
+        "items": items,
+        "more": total - items.len(),
+        "now": now_line,
+        "due": due,
+        "due_none": format!("Nothing due before {}.", name(next)),
+        "next": upcoming.map(|u| json!({ "when": u["date"], "what": u["text"] })),
     });
-    // The draft live from your chair (scouting): the screens open the war room.
-    let studio = w.scouting.live.as_ref().map(|_| json!({ "screen": "warroom" }));
-    // A story meeting that stopped Continue (storylines): the screens show
-    // it over Home.
-    let story = w
-        .folk
-        .scenes
-        .iter()
-        .filter(|s| !s.done && s.stops && s.kind == afm_engine::world::folk::scene::Kind::Story)
-        .filter(|s| s.date >= from && s.date <= w.today)
-        .map(|s| s.id)
-        .min();
-    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "meeting": meeting, "story": story, "studio": studio, "status": status(w) })
+    json!({
+        "from": date_text(from.date),
+        "days": from.date.days_to(w.today),
+        "stopped_on": date_text(w.today),
+        "morning": morning.is_some(),
+        "today": date_text(w.today),
+        "why": why,
+        "game": game,
+        "meeting": meeting,
+        "story": story,
+        "studio": studio,
+        "card": card,
+        "status": status(w),
+    })
+}
+
+/// What you're doing now, from your seat's day (topic 5 item 2): the live
+/// moment, else the next thing on your day: your game, a meeting, practice.
+fn now_line(w: &World, live: Option<&str>, first_stop: bool) -> String {
+    use afm_engine::calendar::{Moment, zone};
+    if let Some(l) = live {
+        return format!("{l}.");
+    }
+    let now = w.now();
+    let z = w.seat_zone();
+    let mut items: Vec<(Moment, String)> = Vec::new();
+    if let Some(k) = w.seat_kickoff(w.today) {
+        items.push((k, format!("kickoff at {}", w.clock_of(k))));
+    }
+    for s in w.folk.scenes.iter().filter(|s| !s.done && s.date == w.today) {
+        if let Some(m) = s.minute {
+            items.push((
+                z.to_eastern(Moment::at(s.date, m / 60, m % 60)),
+                format!("{} at {}", s.title.to_lowercase(), zone::clock(m)),
+            ));
+        }
+    }
+    if let Some((level, t)) = w.seat_team()
+        && let Some(st) = w.training_team()
+        && practice_day(w)
+    {
+        let start = afm_engine::training::days::practice_start(w, st.tier, t, w.today);
+        let at = z.to_eastern(Moment::at(w.today, start / 60, start % 60));
+        let _ = level;
+        items.push((at, format!("practice at {}", zone::clock(start))));
+    }
+    items.retain(|x| x.0 > now);
+    items.sort_by_key(|x| x.0);
+    let lead = if first_stop { w.morning_stop(w.today) } else { None };
+    let mut line = match items.as_slice() {
+        [] => String::new(),
+        [a] => format!("Next: {}.", a.1),
+        [a, b, ..] => format!("Next: {}, then {}.", a.1, b.1),
+    };
+    if let Some(m) = lead {
+        line = if line.is_empty() { format!("{m}.") } else { format!("{m}. {line}") };
+    }
+    if line.is_empty() {
+        let quiet = ["The day starts", "Office hours", "The afternoon", "Late afternoon", "The evening", "Late night"];
+        line = format!(
+            "{}: nothing on your day until the next stop.",
+            quiet[afm_engine::calendar::Zone::section_of(w.local_now().minute)]
+        );
+    }
+    let mut c = line.chars();
+    c.next().map_or(line.clone(), |f| f.to_uppercase().collect::<String>() + c.as_str())
+}
+
+/// Whether your team practices today (a day of its week with work on the
+/// field).
+fn practice_day(w: &World) -> bool {
+    let Some(st) = w.training_team() else { return false };
+    let monday = w.today.add(-(w.today.weekday() as i32));
+    let pw = afm_engine::training::seat::planned(w, &st, monday);
+    let k = monday.days_to(w.today) as usize;
+    pw.week.days.get(k).is_some_and(|d| !d.game && d.periods.iter().any(|p| p.kind.on_field()))
+}
+
+/// The screens' rich text (`[[p:id|Name]]`) from a line's linked parts.
+pub(crate) fn rich_parts(parts: &Value) -> String {
+    let mut out = String::new();
+    for p in parts.as_array().into_iter().flatten() {
+        let t = p["t"].as_str().unwrap_or("").replace(['[', ']', '|'], "");
+        match p["go"].as_str() {
+            Some("player") => out += &format!("[[p:{}|{t}]]", p["id"]),
+            Some("coach") => out += &format!("[[c:{}|{t}]]", p["id"]),
+            Some("team") => out += &format!("[[t:{}:{}|{t}]]", p["kind"].as_str().unwrap_or(""), p["id"]),
+            Some("game") => out += &format!("[[g:{}|{t}]]", p["index"]),
+            Some("schedule") => {
+                out += &format!("[[s:schedule?kind={}&id={}|{t}]]", p["kind"].as_str().unwrap_or(""), p["id"])
+            }
+            _ => out += &t,
+        }
+    }
+    out
 }
 
 pub fn home(w: &World) -> Value {
@@ -1014,6 +1283,22 @@ pub(crate) fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> boo
     people.iter().any(|n| named(n, false)) || (e.level == CalLevel::HighSchool && named(school, true))
 }
 
+/// Whether a line may show yet (the six-part day, topic 4: nothing shows
+/// before its hour). What is scheduled shows ahead: a date, a window, a
+/// deadline, your day's slots and practice.
+/// Whether a line filed under date `d` is on screen now: its hour has
+/// come, and a line filed under tomorrow's date (after Eastern midnight)
+/// only once that hour has come.
+pub(crate) fn on_screen(w: &World, d: Date, e: &afm_engine::calendar::Event) -> bool {
+    shown(w, e) && (d <= w.today || (e.when.timed() && w.has_come(e.when)))
+}
+
+pub(crate) fn shown(w: &World, e: &afm_engine::calendar::Event) -> bool {
+    use afm_engine::calendar::Kind;
+    w.has_come(e.when)
+        || matches!(e.kind, Kind::Date | Kind::Window | Kind::Deadline | Kind::Slot | Kind::Practice | Kind::Rhythm)
+}
+
 /// Whether a calendar line is about your own team: your program or club,
 /// at any loudness, or a high school seat's school and players by name.
 pub(crate) fn yours_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<> {
@@ -1152,9 +1437,12 @@ pub fn inbox(w: &World, days: i32) -> Value {
     let picked: Vec<(&Date, &afm_engine::calendar::Event)> = w
         .calendar
         .events
-        .range(from..=w.today)
+        .range(from..=w.today.add(1))
         .rev()
         .flat_map(|(d, evs)| evs.iter().rev().map(move |e| (d, e)))
+        // Nothing shows before its hour (the six-part day); the night's
+        // lines after Eastern midnight are filed under tomorrow.
+        .filter(|(d, e)| on_screen(w, **d, e))
         .filter(|(_, e)| {
             // Conference moves reach the coaches they matter to (1b): FBS
             // moves every college coach, lower ones only their own level.
@@ -1225,9 +1513,10 @@ pub fn news(w: &World, args: &Value) -> Value {
     let wire: Vec<(&Date, &afm_engine::calendar::Event)> = w
         .calendar
         .events
-        .range(..=w.today)
+        .range(..=w.today.add(1))
         .rev()
         .flat_map(|(d, evs)| evs.iter().rev().map(move |e| (d, e)))
+        .filter(|(d, e)| on_screen(w, **d, e))
         .filter(|(_, e)| !mine_only || ours(e))
         .take(limit)
         .collect();
@@ -1670,7 +1959,7 @@ pub fn schedule(w: &World, t: TeamRef) -> Value {
                 json!({
                     "week": g.week,
                     "date": g.when.map(date_text),
-                    "kick": g.minute.map(|m| format!("{}:{:02} ET", m / 60, m % 60)),
+                    "kick": g.minute.zip(g.when).map(|(m, d)| w.clock_of(afm_engine::calendar::Moment { date: d, minute: m })),
                     "opp": team_brief(w, TeamRef::Nfl(opp)),
                     "at": if home { "vs" } else { "at" },
                     "result": result,

@@ -773,6 +773,10 @@ fn week_mail(w: &World, me: TeamRef) -> Vec<(afm_engine::world::desk::Mail, Opti
     let (dear, to) = you_line(w);
     let (from, role) = number_two(w, me);
     let team = views::team_name(w, me);
+    // Day one's note is on your desk when you walk in (the six-part day:
+    // mail shows once its stamp has come).
+    let start = w.career.as_ref().map(|c| c.started);
+    let now = w.local_now();
     wk.tasks
         .iter()
         .enumerate()
@@ -780,10 +784,11 @@ fn week_mail(w: &World, me: TeamRef) -> Vec<(afm_engine::world::desk::Mail, Opti
         .filter_map(|(k, t)| {
             let d = def(&t.key)?;
             let (ask, why) = task_text(w, me, &t.key);
+            let minute = if Some(t.day) == start && now.date == t.day { (7 * 60 + 5).min(now.minute) } else { 7 * 60 + 5 };
             let mut m = mail::letter(
                 &format!("l8week|{}|{}", t.key, wk.team),
                 t.day,
-                7 * 60 + 5,
+                minute,
                 Head::Memo,
                 team.clone(),
                 "Football office".to_string(),

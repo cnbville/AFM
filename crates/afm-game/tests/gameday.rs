@@ -15,15 +15,28 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
     }
 }
 
-/// Continue to the morning of your next game.
+/// A day at a time to the morning of your next game (each day's first
+/// stop names what the day holds).
 fn to_game_morning(g: &mut Game) {
-    for _ in 0..80 {
-        let r = ok(g, "continue", json!({ "max_days": 300 }));
+    for _ in 0..400 {
+        let r = ok(g, "day", json!({}));
         if r["morning"] == json!(true) && r["why"][0]["text"].as_str().is_some_and(|t| t.starts_with("Game day")) {
             return;
         }
     }
     panic!("never reached a game morning");
+}
+
+/// Continue to your kickoff (the six-part day: the sections before it are
+/// game morning, and the game plays in its kickoff's section).
+fn to_kickoff(g: &mut Game) {
+    for _ in 0..8 {
+        if ok(g, "gameday_now", json!({}))["at_kick"] == json!(true) {
+            return;
+        }
+        ok(g, "continue", json!({}));
+    }
+    panic!("never reached the kickoff");
 }
 
 /// What the morning builds is what the day plays.
@@ -99,6 +112,10 @@ fn game_day_from_the_morning_to_the_game_page() {
     let hub = ok(&mut g, "gameday", json!({}));
     assert_eq!(hub["has_game"], true, "{hub}");
     assert_eq!(hub["today"], true);
+    assert_eq!(hub["can_kick_off"], false, "the game waits for its kickoff: {hub}");
+    assert!(g.call("gameday_kickoff", &json!({})).is_err(), "no kickoff on game morning");
+    to_kickoff(&mut g);
+    let hub = ok(&mut g, "gameday", json!({}));
     assert_eq!(hub["can_kick_off"], true, "{hub}");
     assert!(hub["weather"]["text"].is_string());
     // Every snap stops, on the learning clock.
@@ -166,6 +183,7 @@ fn game_day_from_the_morning_to_the_game_page() {
     let hub = ok(&mut g, "gameday_hint", add);
     assert!(hub["finds"].as_array().unwrap().iter().any(|f| f["added"] == true), "{}", hub["finds"]);
     ok(&mut g, "gameday_settings", json!({ "stop": "situations" }));
+    to_kickoff(&mut g);
     let mut st = ok(&mut g, "gameday_kickoff", json!({}));
     for _ in 0..6 {
         if st["status"] != "live" {

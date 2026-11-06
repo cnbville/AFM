@@ -81,7 +81,7 @@ fn every_seat_starts_and_the_school_desk_runs() {
     let you = ok(&mut g, "you", json!({}));
     assert!(you["title"].as_str().is_some_and(|t| t.starts_with("Out of coaching")), "{}", you["title"]);
     // The days run without a team.
-    ok(&mut g, "continue", json!({ "max_days": 40 }));
+    ok(&mut g, "day", json!({}));
     assert!(ok(&mut g, "status", json!({}))["you"].is_string());
 
     // A high school head job at the biggest public school in Texas, with a
@@ -169,12 +169,12 @@ fn every_seat_starts_and_the_school_desk_runs() {
         assert!(!r["teams"][0]["players"].as_array().unwrap().iter().any(|x| x["id"] == p["id"]));
     }
     // Into the season: Thursday's JV games are played on the engine.
-    for _ in 0..200 {
+    for _ in 0..400 {
         let st = ok(&mut g, "status", json!({}));
         if st["today"].as_str().is_some_and(|d| d.contains("Oct")) {
             break;
         }
-        ok(&mut g, "continue", json!({ "max_days": 60 }));
+        ok(&mut g, "day", json!({}));
     }
     let sq = ok(&mut g, "school_squads", json!({}));
     if let Some(jv) = find(&sq, "teams", |t| t["key"] == "jv") {
@@ -207,12 +207,12 @@ fn every_seat_starts_and_the_school_desk_runs() {
     let lg = ok(&mut g, "leagues", json!({}));
     assert_eq!(lg["league"]["short"], "CFL", "your own league first");
     let mut played = 0;
-    for _ in 0..60 {
+    for _ in 0..400 {
         played = g.world.as_ref().map_or(0, |w| w.seat_games().len());
         if played >= 3 {
             break;
         }
-        ok(&mut g, "continue", json!({ "max_days": 60 }));
+        ok(&mut g, "day", json!({}));
     }
     assert!(played >= 3, "your club's games are kept: {played}");
     let games = ok(&mut g, "games", json!({}));

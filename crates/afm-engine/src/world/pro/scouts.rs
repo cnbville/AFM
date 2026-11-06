@@ -1194,10 +1194,10 @@ fn file(w: &mut World, t: usize, i: usize, who: u8, kind: LookKind, date: Date) 
     w.market.year_mut(year).scout_looks += 1;
 }
 
-/// The draft the clubs are working toward: this year's until its first
-/// night, then next year's (the fall, the all-star games in January).
+/// The draft the clubs are working toward: this year's through its last
+/// day, then next year's (the fall, the all-star games in January).
 fn coming_draft(w: &World) -> i32 {
-    if w.today <= w.dates.draft[0].date { w.year } else { w.year + 1 }
+    if w.today <= w.dates.draft[2].date { w.year } else { w.year + 1 }
 }
 
 /// The clubs that scout now: those that pick in the coming draft (a new

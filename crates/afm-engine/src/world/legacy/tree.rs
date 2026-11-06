@@ -463,6 +463,7 @@ pub(crate) fn promote_assistant(w: &mut World, i: usize) -> Option<usize> {
     let me = super::you(w)?.0;
     let state = w.seat_school().map_or(0, |h| w.high_schools[h].state);
     let c = crate::world::staff::new_hs_coach(w, state, a.age);
+    w.names_changed += 1;
     let co = &mut w.coaches[c];
     co.name = a.name.clone();
     co.born = a.born;

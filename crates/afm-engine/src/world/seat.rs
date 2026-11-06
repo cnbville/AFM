@@ -4,7 +4,7 @@
 //! need. Nothing here changes an AI team; a world without a seat plays
 //! exactly as before.
 
-use crate::calendar::Date;
+use crate::calendar::{Date, Moment};
 use crate::game::GameStats;
 use crate::positions::Position;
 
@@ -41,6 +41,10 @@ pub struct SeatGame {
     /// The game's talks (dialogue D4-D6).
     #[serde(default)]
     pub talks: crate::game::talk::Record,
+    /// The final whistle's moment, Eastern (the six-part day). None for
+    /// games kept before.
+    #[serde(default)]
+    pub whistle: Option<Moment>,
 }
 
 /// A drawing on a paused frame of the film: a line, an arrow, a circle or
@@ -116,6 +120,7 @@ impl World {
             gone: Vec::new(),
             spread: None,
             talks: talks.clone(),
+            whistle: self.calendar.now.map(|(_, m)| m),
         });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;

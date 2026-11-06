@@ -181,7 +181,7 @@ fn the_boards_at_every_seat() {
     // Continue stops for the day's news too: step until a game is kept.
     let mut steps = 0;
     while ok(&mut g, "games", json!({}))["games"].as_array().unwrap().is_empty() && steps < 400 {
-        ok(&mut g, "continue", json!({ "max_days": 300 }));
+        ok(&mut g, "day", json!({}));
         steps += 1;
     }
     let rows = every_board(&mut g, "college");

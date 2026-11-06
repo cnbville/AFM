@@ -18,6 +18,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [draft.md](draft.md) | NFL draft value and boards, declaring, combine effects, the live draft, undrafted, rookie deals |
 | [recruiting.md](recruiting.md) | Stars and rankings, offers, what a recruit weighs, visits, signing, the portal, NIL |
 | [staff-and-coaches.md](staff-and-coaches.md) | Coach and staff ratings, what each role affects, the ladder, hiring and firing, job security |
+| [clock.md](clock.md) | The six-part day: the day's steps in clock order, the sections and where Continue stops, live moments, your seat's time zone, when results and lines show, practice and meeting hours, the draft's three nights |
 | [training.md](training.md) | The practice week per level, time budgets, plans, who teaches, how training becomes growth |
 | [injuries.md](injuries.md) | Injury odds in games and practice, what reads them, types and lengths, recovery, carry-over |
 | [nfl.md](nfl.md) | The living NFL: contracts, the cap, free agency, tags, trades, waivers, retirement, honors |

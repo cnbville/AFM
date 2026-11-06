@@ -17,7 +17,7 @@ use rayon::prelude::*;
 
 use super::Status;
 use super::leagues::{LEAGUES, USFL_2022};
-use crate::calendar::{Date, Kind, Loudness, Weekday};
+use crate::calendar::{Date, Kind, Loudness, Moment, Weekday};
 use crate::game::books::Book;
 use crate::game::roster::{Caller, OffScheme, Staff as GameStaff};
 use crate::game::{GamePlayer, GameResult, GameTeam, Venue};
@@ -832,12 +832,45 @@ pub(crate) fn day(w: &mut World, d: Date) {
         if d >= camp && d < f.start.add(7 * f.games as i32) && !begun {
             open(w, d, k, &f);
         }
-        let Some(li) = w.others.live.iter().position(|l| l.league == k && l.year == year && !l.done) else {
-            continue;
-        };
-        // A week is played on its day, or caught up when it is past.
-        let wk = w.others.live[li].week as i32;
-        if d >= f.start.add(7 * wk) {
+    }
+}
+
+/// A league's week due on world day `d` (its day, or caught up when it is
+/// past): the season's index.
+fn week_due(w: &World, d: Date, k: u8) -> Option<(usize, Format)> {
+    let year = d.year();
+    if !full(k, year) {
+        return None;
+    }
+    let f = format(k, year)?;
+    let li = w.others.live.iter().position(|l| l.league == k && l.year == year && !l.done)?;
+    (d >= f.start.add(7 * w.others.live[li].week as i32)).then_some((li, f))
+}
+
+/// The minute a league's week is booked on world day `d`: its games' final
+/// whistle (the six-part day), 7 PM at your club when you coach in that
+/// league, else 7 PM Eastern, and a game's length (the NFL's; proposed,
+/// not confirmed).
+fn week_minute(w: &World, d: Date, k: u8) -> u16 {
+    let seven = Moment::at(d, 19, 0);
+    let kick = match seat_league(w) {
+        Some((fr, _, _)) if league_of(fr) == k => w.seat_zone().to_eastern(seven),
+        _ => seven,
+    };
+    crate::calendar::zone::world_day(kick.add_minutes(crate::world::clock::hour::NFL_GAME as i32)).1
+}
+
+/// The final whistles of the weeks due on world day `d`.
+pub(crate) fn final_whistles(w: &World, d: Date) -> Vec<u16> {
+    (0..LEAGUE_COUNT as u8).filter(|&k| week_due(w, d, k).is_some()).map(|k| week_minute(w, d, k)).collect()
+}
+
+/// The weeks whose final whistle is now are booked.
+pub(crate) fn games_at(w: &mut World, d: Date, t: u16) {
+    for k in 0..LEAGUE_COUNT as u8 {
+        if let Some((li, f)) = week_due(w, d, k)
+            && week_minute(w, d, k) == t
+        {
             play_week(w, d, li, &f);
         }
     }

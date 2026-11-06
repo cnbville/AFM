@@ -47,6 +47,10 @@ pub enum NewsKind {
 pub struct NewsItem {
     /// The day it came out (section 4); stamped by the clock.
     pub date: Option<crate::calendar::Date>,
+    /// The moment it came out, Eastern (the six-part day): stamped by the
+    /// clock's step that wrote it. None in a world saved before.
+    #[serde(default)]
+    pub at: Option<crate::calendar::Moment>,
     pub year: i32,
     pub kind: NewsKind,
     pub channel: Channel,
@@ -98,6 +102,7 @@ pub fn nil_warnings(
     vec![
         NewsItem {
             date: None,
+            at: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::Inbox,
@@ -107,6 +112,7 @@ pub fn nil_warnings(
         },
         NewsItem {
             date: None,
+            at: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::News,
@@ -117,6 +123,7 @@ pub fn nil_warnings(
         .link(crate::calendar::Link::Program(program as u32), name),
         NewsItem {
             date: None,
+            at: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::GradeArrow,

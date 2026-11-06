@@ -227,7 +227,9 @@ impl Event {
         let text: String = text.into();
         let text = if text.contains("..") { text.replace("Jr..", "Jr.").replace("Sr..", "Sr.") } else { text };
         Event {
-            when: Moment { date, minute: 9 * 60 },
+            // The clock's step gives it its moment when it is posted
+            // (the six-part day: a line lands at its real hour).
+            when: Moment { date, minute: Moment::UNSET },
             level,
             kind,
             loud,
@@ -341,10 +343,22 @@ pub struct Calendar {
     /// still shows on its day.
     pub filing: Option<i32>,
     next_id: u64,
+    /// The clock's step under way (the six-part day): the world's day and
+    /// the step's Eastern moment. A line posted without a time of its own
+    /// for that day takes the step's moment; for another day it is a line
+    /// for the whole day. None between steps.
+    #[serde(skip)]
+    pub now: Option<(Date, Moment)>,
 }
 
 impl Calendar {
     pub fn post(&mut self, mut e: Event) {
+        if e.when.minute == Moment::UNSET {
+            e.when = match self.now {
+                Some((day, at)) if e.when.date == day => at,
+                _ => Moment { date: e.when.date, minute: Moment::ALL_DAY },
+            };
+        }
         e.season = e.season.or(self.filing);
         e.refs.shrink_to_fit();
         *self.counts.entry((e.level.name(), format!("{:?}", e.kind))).or_default() += 1;
@@ -360,6 +374,29 @@ impl Calendar {
         let mut v: Vec<&Event> = self.on(d).iter().collect();
         v.sort_by_key(|e| e.when.minute);
         v
+    }
+
+    /// The world day `d`'s events (5 AM to 5 AM Eastern: its own date's
+    /// from 5 AM, the next date's before 5 AM), in the order posted.
+    pub fn on_day(&self, d: Date) -> impl Iterator<Item = &Event> {
+        let early = 5 * 60;
+        self.on(d)
+            .iter()
+            .filter(move |e| e.when.minute >= early)
+            .chain(self.on(d.add(1)).iter().filter(move |e| e.when.minute < early))
+    }
+
+    /// Events from `from` up to and including `to` (Eastern moments), by
+    /// date and in the order posted: what a stop shows since the last one.
+    pub fn between(&self, from: Moment, to: Moment) -> Vec<&Event> {
+        self.events
+            .range(from.date..=to.date)
+            .flat_map(|(_, v)| v.iter())
+            .filter(|e| {
+                let at = if e.when.timed() { e.when } else { Moment { date: e.when.date, minute: 5 * 60 } };
+                at > from && at <= to
+            })
+            .collect()
     }
 
     /// Opens a pending answer and returns its id.
@@ -395,7 +432,16 @@ impl Calendar {
     /// Events dated `keep_from` or later stay: a signing day after the
     /// Super Bowl, or news posted ahead, belongs to the new year (part C 1).
     pub fn close_year(&mut self, keep_from: Date) {
-        let ahead = self.events.split_off(&keep_from);
+        let mut ahead = self.events.split_off(&keep_from);
+        // The night after the year's last day (before 5 AM Eastern) closes
+        // with it.
+        let mut night = Vec::new();
+        if let Some(list) = ahead.get_mut(&keep_from) {
+            let (n, day): (Vec<Event>, Vec<Event>) =
+                std::mem::take(list).into_iter().partition(|e| e.when.world_date() < keep_from);
+            *list = day;
+            night = n;
+        }
         for (_, list) in std::mem::replace(&mut self.events, ahead) {
             for e in list {
                 if e.loud >= Loudness::Big {
@@ -403,6 +449,7 @@ impl Calendar {
                 }
             }
         }
+        self.history.extend(night.into_iter().filter(|e| e.loud >= Loudness::Big));
         if self.resolved.len() > 2000 {
             let cut = self.resolved.len() - 2000;
             self.resolved.drain(..cut);

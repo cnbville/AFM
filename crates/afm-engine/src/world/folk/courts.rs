@@ -10,7 +10,7 @@
 //! at a time) and the newest closed ones. Rates no source publishes are
 //! Claude's picks (proposed, not confirmed).
 
-use crate::calendar::{Date, Level, Loudness, Weekday};
+use crate::calendar::{Date, Level, Loudness};
 use crate::world::World;
 
 /// One case on its way through the courts or an appeal.
@@ -336,8 +336,10 @@ fn step(w: &mut World, d: Date) {
     }
 }
 
-pub(crate) fn day(w: &mut World, d: Date) {
-    if d.weekday() == Weekday::Wed {
+/// New cases open the night they happen (the six-part day: every night,
+/// no longer in a Wednesday batch).
+pub(crate) fn opens(w: &mut World) {
+    {
         mirror(w);
         // Your college or high school players in trouble with the police
         // this season run the courts too.
@@ -367,5 +369,9 @@ pub(crate) fn day(w: &mut World, d: Date) {
             }
         }
     }
+}
+
+/// Cases move on their own due dates, in office hours.
+pub(crate) fn day(w: &mut World, d: Date) {
     step(w, d);
 }

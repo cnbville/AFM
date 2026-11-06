@@ -666,13 +666,21 @@ function twHow() {
 function twLeague(x) {
   return `${twPh("Across the league", "")}<ul class="tw-list tw-block">${x.league.map((l) => `<li><b>${esc(l.head)}</b><span class="muted">${l.id != null ? `${esc(l.line)} ${playerLink(l.id, "His page")}` : esc(l.line)}</span></li>`).join("")}</ul>`;
 }
+// Your practice hour (the six-part day): when practice starts, inside
+// your level's rules; the staff's hour by default.
+function twHour(x) {
+  const h = x.practice_hour;
+  if (!h) return "";
+  const opts = h.options.map((o) => `<option value="${o.at}" ${h.mine && o.at === h.at ? "selected" : ""}>${esc(o.text)}</option>`).join("");
+  return `<label class="tw-hour" title="Practice runs to ${esc(h.ends)}"><span class="st-label">Practice starts</span><select data-act="tr-hour"><option value="" ${h.mine ? "" : "selected"}>Staff's hour: ${esc(h.staff_text)}</option>${opts}</select></label>`;
+}
 function weekTab(x) {
   const draft = trDraft(x);
   const own = x.own;
   const edit = x.head && !own;
   const s = twSums(x, draft.days);
   const chips = edit
-    ? `<div class="tw-acts"><button class="st-btn small ${draft.dirty ? "primary" : "glass"}" data-act="tr-wsave" ${draft.dirty ? "" : "disabled"}>Save this week</button>${draft.dirty ? '<button class="st-btn small glass" data-act="tr-wundo">Undo changes</button>' : ""}<button class="st-btn small glass" data-act="tr-wtpl" title="Keep this week as the template for every ${esc(x.slot_label.toLowerCase())}">Keep as the template for this block</button>${x.yours ? '<button class="st-btn small glass" data-act="tr-wreset">Back to the staff\'s week</button>' : ""}</div>`
+    ? `<div class="tw-acts"><button class="st-btn small ${draft.dirty ? "primary" : "glass"}" data-act="tr-wsave" ${draft.dirty ? "" : "disabled"}>Save this week</button>${draft.dirty ? '<button class="st-btn small glass" data-act="tr-wundo">Undo changes</button>' : ""}<button class="st-btn small glass" data-act="tr-wtpl" title="Keep this week as the template for every ${esc(x.slot_label.toLowerCase())}">Keep as the template for this block</button>${x.yours ? '<button class="st-btn small glass" data-act="tr-wreset">Back to the staff\'s week</button>' : ""}${twHour(x)}</div>`
     : "";
   const note = own
     ? "The players are on their own: the rules keep your staff away. The strength staff's numbers and the facility log say who is doing the work."
@@ -1407,6 +1415,11 @@ document.addEventListener("change", async (ev) => {
       trLocal();
       break;
     }
+    case "tr-hour": if (await trDo("practice_hour", { at: el.value === "" ? null : Number(el.value) }, "Practice hour set.")) {
+      // The day's clock moves with the hour; a week you're still editing stays.
+      if (!TR.week || !TR.week.dirty) TR.week = null;
+      trRedraw();
+    } break;
     case "tr-focus": await trDo("practice_plan", { id: Number(d.id), focus: el.value }, "Plan saved."); break;
     case "tr-dev": {
       const id = Number(d.id);

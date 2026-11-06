@@ -224,8 +224,14 @@ fn my_games(w: &World, t: TeamRef, from: Date, to: Date) -> Vec<MyGame> {
     };
     let on_page = |d: Date| -> Option<&PageGame> { page.as_ref().and_then(|p| p.games.iter().find(|g| g.date == d)) };
     let mut out = Vec::new();
-    let mut push = |g: MyGame| {
+    let mut push = |mut g: MyGame| {
         if g.date >= from && g.date < to {
+            // On your local clock (a high school's kickoff is its town's).
+            if !matches!(g.opp, TeamRef::HighSchool(_)) {
+                g.kick = g
+                    .kick
+                    .map(|k| w.local(afm_engine::calendar::Moment { date: g.date, minute: k as u16 }).minute as u32);
+            }
             out.push(g);
         }
     };
@@ -569,9 +575,11 @@ fn lines_on(
     // the windows your seat cares about.
     let evs: Vec<&Event> = w
         .calendar
-        .on(d)
-        .iter()
+        // The world day: the night after Eastern midnight stays on it.
+        .on_day(d)
         .filter(|e| e.kind != Kind::Game)
+        // Nothing shows before its hour (the six-part day).
+        .filter(|e| crate::views::shown(w, e))
         .filter(|e| {
             yours(e)
                 || my_slot(e)
@@ -590,12 +598,10 @@ fn lines_on(
         let s = my_slot(e);
         let k = kind_of(e, y, s, lv);
         let linked = tidy(&lk.event(e));
-        // A time only where the line was set for one: the world's default
-        // morning stamp reads as the whole day.
-        let timed = e.when.minute != 9 * 60 || matches!(e.kind, Kind::Slot | Kind::Deadline | Kind::Practice);
+        // A time only where the line has one, on your local clock.
         out.push(Line {
             k,
-            minute: timed.then_some(e.when.minute as u32),
+            minute: e.when.timed().then(|| w.local(e.when).minute as u32),
             short: short_of(&e.text),
             full: linked,
             sub: if e.rule.is_empty() || e.rule.starts_with("Your ") { String::new() } else { e.rule.to_string() },

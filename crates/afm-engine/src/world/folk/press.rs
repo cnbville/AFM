@@ -791,6 +791,40 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
 
 /// Weekly in season: your availabilities, and stories from reporters with
 /// sources inside your building.
+/// A program's weekly press day (proposed, not confirmed: Monday for two
+/// programs in five, Tuesday for two, Wednesday for one).
+fn press_day(w: &World, team: Team) -> Weekday {
+    let k = match team {
+        Team::College(p) | Team::Nfl(p) | Team::High(p) | Team::Other(p) => p as u64,
+    };
+    let x = crate::world::season::key_uniform(w.options.seed as u64 ^ 0x9E55, k);
+    if x < 0.4 {
+        Weekday::Mon
+    } else if x < 0.8 {
+        Weekday::Tue
+    } else {
+        Weekday::Wed
+    }
+}
+
+/// A press scene's hour, local (proposed, not confirmed): the weekly one at
+/// the program's own hour (11 AM, noon or 1 PM), the NFL's at noon, the
+/// local paper's call after practice (6:45 PM), the postgame podium a
+/// quarter hour after the final whistle.
+pub(super) fn press_hour(w: &World, s: &Scene) -> Option<u16> {
+    let team = s.team?;
+    if s.c == 2 {
+        let (_, whistle) = w.seat_game_window(s.date)?;
+        return Some(w.local(whistle.add_minutes(15)).minute);
+    }
+    Some(match team {
+        Team::High(_) => 18 * 60 + 45,
+        Team::College(p) => [11 * 60, 12 * 60, 13 * 60]
+            [(crate::world::season::key_uniform(w.options.seed as u64 ^ 0x9E56, p as u64) * 3.0) as usize % 3],
+        _ => 12 * 60,
+    })
+}
+
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(team) = Team::seat(w) else { return };
     let Some(since) = w.folk.mine.since else { return };
@@ -827,11 +861,15 @@ pub(crate) fn day(w: &mut World, d: Date) {
         _ if nfl => {
             matches!(d.weekday(), Weekday::Mon | Weekday::Wed | Weekday::Fri) && !games.iter().any(|g| g.0 == d)
         }
+        // Each program holds its weekly press on its own day (the six-part
+        // day, topic 8: South Carolina's is Tuesday at 1 PM).
+        Level::College => d.weekday() == press_day(w, team),
         _ => d.weekday() == Weekday::Mon,
     };
     if weekly {
         let title = match (level, d.weekday()) {
             (Level::HighSchool, _) => "The local paper calls",
+            (_, Weekday::Tue) => "Tuesday press conference",
             (_, Weekday::Wed) => "Wednesday press availability",
             (_, Weekday::Fri) => "Friday press availability",
             _ => "Monday press availability",
