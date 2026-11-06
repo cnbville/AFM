@@ -28,13 +28,7 @@ GOTO.film = () => (scSeat() === "nfl"
     ? [["Recruit board", "recruitboard"], ["Evaluation", "evaluate"], ["Game day", "gameday"]]
     : [["Evaluation", "evaluate"], ["Squad", "roster"], ["Game day", "gameday"]]);
 
-// Temporary override (Cain 2026-11-06): the snap-by-snap session's
-// predictive questions ("will this guard's block hold?") feel like a
-// nuisance, so until the film revamp every full watch runs as the 20-minute
-// quick watch, his tape and an opponent's alike. The full session's code is
-// all still here: set this to false to bring it back.
-const FR_FULL_AS_QUICK = true;
-const frMode = (m) => (m === "quick" || FR_FULL_AS_QUICK ? "quick" : "full");
+const frMode = (m) => (m === "quick" ? "quick" : "full");
 const frBtn = (act, data, html, cls = "") => `<button class="st-btn small ${cls || "glass"}" data-act="${act}" ${Object.entries(data).map(([k, v]) => `data-${k}="${esc(String(v))}"`).join(" ")}>${html}</button>`;
 // What your eye caught, one note a trait (Cain 2026-11-04: repeats build
 // up to something): what it came to, the line behind it, the downs, and
@@ -121,7 +115,7 @@ function frHome(x) {
       <small class="fm-dim">${esc(qi.meta)}</small><div class="fm-say">${esc(qi.from)}, ${esc(qi.job)}: “${esc(qi.why)}”</div>${acts}</div>`;
   }).join("") : `<p class="fm-dim">${x.seat === "hs" ? "A high school coach cuts his own tape: open any of your players from the squad or his file." : "Nothing sent this week. Your staff send cut-ups on Mondays."}</p>`;
   const queue = frCard(`Your film queue <span class="fm-r">Sent by your staff</span>`, q);
-  const opp = x.opp.length ? frCard("Your next opponent's tape", `<div class="fm-items">${x.opp.map((t) => `<div class="fm-item"><div><b>${esc(t.label)}</b><small>${esc(t.date_text)} · ${esc(t.score)}${t.studied ? " · studied" : ""}</small></div><div class="fm-seg">${FR_FULL_AS_QUICK ? "" : frBtn("fropp", { date: t.date, home: t.home, away: t.away, mode: "full" }, "Watch with your coordinator", t.studied ? "glass" : "primary")}${frBtn("fropp", { date: t.date, home: t.home, away: t.away, mode: "quick" }, "Watch it quick", FR_FULL_AS_QUICK && !t.studied ? "primary" : "")}</div></div>`).join("")}</div><p class="fm-dim">What you catch goes into the game plan as its hints, with their counts. Each tape is a small sample.</p>`) : "";
+  const opp = x.opp.length ? frCard("Your next opponent's tape", `<div class="fm-items">${x.opp.map((t) => `<div class="fm-item"><div><b>${esc(t.label)}</b><small>${esc(t.date_text)} · ${esc(t.score)}${t.studied ? " · studied" : ""}</small></div><div class="fm-seg">${frBtn("fropp", { date: t.date, home: t.home, away: t.away, mode: "full" }, "Watch with your coordinator", t.studied ? "glass" : "primary")}${frBtn("fropp", { date: t.date, home: t.home, away: t.away, mode: "quick" }, "Watch it quick")}</div></div>`).join("")}</div><p class="fm-dim">What you catch goes into the game plan as its hints, with their counts. Each tape is a small sample.</p>`) : "";
   const reps = x.reports.length ? `<table class="tbl fm-tbl"><thead><tr><th>Player</th><th>Date</th><th>The question</th><th>Verdict</th><th class="num">Calls</th><th class="num">Caught</th><th></th></tr></thead><tbody>${x.reports.map((r) => `<tr><td>${frWho(r.id, r.name)}</td><td class="fm-dim">${esc(r.date)}</td><td>${esc(r.ask || (r.mode === "quick" ? "Watched quick" : "—"))}</td><td>${r.verdict ? esc(r.verdict) : '<span class="fm-dim">—</span>'}${r.settled != null ? ` <span class="${r.settled ? "fm-gold" : "fm-amber"}">${r.settled ? "held up" : "missed"}</span>` : ""}</td><td class="num">${r.calls[1] ? `${r.calls[0]} of ${r.calls[1]}` : "—"}</td><td class="num">${r.caught}</td><td><a class="link" data-go="film" data-args='{"report":${r.k}}'>${r.stills ? "The look-back" : "Report"}</a></td></tr>`).join("")}</tbody></table>` : `<p class="fm-dim">Each session becomes your report in his file.</p>`;
   const year = frCard("Your film year", `<div class="fm-year"><b>${Math.round(x.year_hours)}</b><small>hours of film this year</small></div>
     <div class="st-label fm-mt">Your eye by position · hours watched</div>
@@ -149,15 +143,15 @@ function frBrief(b) {
   const q = b.questions.find((x) => x.key === pickQ.q) || b.questions[0];
   const qs = b.questions.map((x) => `<button class="st-btn small ${x.key === (q && q.key) ? "on" : "glass"}" data-act="frpickq" data-id="${b.id}" data-q="${esc(x.key)}">${esc(x.text)}</button>`).join("");
   const cuts = b.cuts.map((c) => `<button class="st-btn small ${c.key === pickQ.cut ? "on" : "glass"}" data-act="frpickcut" data-id="${b.id}" data-cut="${c.key}"${c.ask ? ` data-ask="${esc(c.ask)}"` : ""}>${esc(c.label)}</button>`).join("");
-  const mins = FR_FULL_AS_QUICK ? b.quick_min : 6 * b.snap_min;
+  const mins = 6 * b.snap_min;
   return `<div class="pad sl fm">
     <header class="fm-head"><div><div class="st-label">Film room · his tape</div><h1 class="fm-h1">${esc(b.name)}</h1><p class="fm-sub">${esc(b.meta)}</p></div>
       <div class="fm-tops"><div class="fm-top"><span class="st-label">Film time left this week</span><b>${frH(b.left)}</b>${frBar(b.budget ? (b.left / b.budget) * 100 : 0)}<small>of ${frH(b.budget)}</small></div></div></header>
     <div class="fm-cols"><div class="fm-main">
       ${frCard("The question to settle", `<div class="fm-big">${esc(q ? q.text : "What does his tape say?")}</div><p class="fm-dim">${esc(q ? q.why : "")}</p><div class="fm-seg wrap">${qs}</div>`)}
       ${frCard(`The cut-up · about ${mins} min`, `<div class="fm-seg wrap">${cuts}</div>
-        <p class="fm-dim">${FR_FULL_AS_QUICK ? "Twelve of his snaps, played on the engine from his real team against real opponents, a first look at each. What your eye catches goes in his file." : "Six of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end."}</p>
-        <div class="fm-seg">${FR_FULL_AS_QUICK ? "" : frBtn("fropen", { id: b.id, mode: "full" }, "Watch it snap by snap", "primary")}${frBtn("fropen", { id: b.id, mode: "quick" }, FR_FULL_AS_QUICK ? `▶ Watch his tape · ${b.quick_min} min` : `Watch it quick · ${b.quick_min} min`, FR_FULL_AS_QUICK ? "primary" : "")}<button class="st-btn small glass" data-go="film">Back to the queue</button></div>`)}
+        <p class="fm-dim">Six of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end.${b.full_through ? ` The full tape plays straight through with your coach in the room: no stops to call a snap, a half-seen moment run back while your hours last (${b.runback_min} min each), then your verdict. The quick watch is twice the snaps, a first look only, with no coach.` : ""}</p>
+        <div class="fm-seg">${frBtn("fropen", { id: b.id, mode: "full" }, b.full_through ? `▶ Watch the full tape · about ${mins} min` : "Watch it snap by snap", "primary")}${frBtn("fropen", { id: b.id, mode: "quick" }, `Watch it quick · ${b.quick_min} min`)}<button class="st-btn small glass" data-go="film">Back to the queue</button></div>`)}
     </div><div class="fm-side">${frReads(b.reads, null)}</div></div></div>`;
 }
 
@@ -443,7 +437,7 @@ Object.assign(CORE_MORE, {
     const id = Number(el.dataset.id);
     const k = keep("frq:" + id, {});
     const mode = frMode(el.dataset.mode);
-    frDo(el, "film_open", { id, mode, cut: k.cut, ask: k.q }, () => go("film", mode === "quick" ? { report: "last" } : { id }));
+    frDo(el, "film_open", { id, mode, cut: k.cut, ask: k.q }, (r) => go("film", mode === "quick" || !r.open ? { report: "last" } : { id }));
   },
   // From his report: the same session again, straight in (Cain 2026-11-04):
   // the same cut-up, question and length, so a quick watch repeats quick
@@ -451,9 +445,9 @@ Object.assign(CORE_MORE, {
   fragain: (el) => {
     const id = Number(el.dataset.id);
     const mode = frMode(el.dataset.mode);
-    frDo(el, "film_open", { id, mode, cut: el.dataset.cut, ask: el.dataset.ask || undefined }, () => go("film", mode === "quick" ? { report: "last" } : { id }));
+    frDo(el, "film_open", { id, mode, cut: el.dataset.cut, ask: el.dataset.ask || undefined }, (r) => go("film", mode === "quick" || !r.open ? { report: "last" } : { id }));
   },
-  fropp: (el) => frDo(el, "film_opp", { date: Number(el.dataset.date), home: Number(el.dataset.home), away: Number(el.dataset.away), mode: frMode(el.dataset.mode) }, (r) => go("film", r.open ? {} : { report: "last" })),
+  fropp: (el) => frDo(el, "film_opp", { date: Number(el.dataset.date), home: Number(el.dataset.home), away: Number(el.dataset.away), mode: el.dataset.mode }, (r) => go("film", r.open ? {} : { report: "last" })),
   frplay: (el) => frDo(el, "film_snap", {}),
   frcall: (el) => frDo(el, "film_call", { pick: Number(el.dataset.pick) }),
   frrunback: (el) => frDo(el, "film_runback", {}),

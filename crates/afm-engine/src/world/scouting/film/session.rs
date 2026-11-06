@@ -1023,6 +1023,38 @@ pub fn close(w: &mut World) -> Result<String, String> {
     Ok(finish(w, s, None))
 }
 
+/// The full tape played straight through on one press (Cain 2026-11-06,
+/// a temporary override the game turns on until the film revamp): the
+/// tape never stops for a call, every snap is played and charged as in a
+/// full session with the room in it, a half-seen moment is run back while
+/// your hours last, and a player's tape stops at your verdict. A team's
+/// tape, or one your hours ran out on, is saved at once: Some(what was
+/// said). None means the verdict waits.
+pub fn run_through(w: &mut World) -> Result<Option<String>, String> {
+    let s = w.scouting.film.open.as_mut().ok_or("No film open.")?;
+    for sn in &mut s.snaps {
+        sn.call = None;
+    }
+    loop {
+        let (step, half) = {
+            let s = w.scouting.film.open.as_ref().ok_or("No film open.")?;
+            (s.step, s.seen.get(s.at).is_some_and(|v| v.contains(&HALF)))
+        };
+        match step {
+            0 => {
+                if let Err(e) = play(w) {
+                    return close(w).map(|said| Some(format!("{e} {said}")));
+                }
+            }
+            2 if half && runback(w).is_ok() => {}
+            2 => next(w)?,
+            _ => break,
+        }
+    }
+    let team = w.scouting.film.open.as_ref().is_some_and(|s| matches!(s.target, Target::Team(_)));
+    if team { close(w).map(Some) } else { Ok(None) }
+}
+
 /// "Watch it quick" (SK53): the cut-up for twenty minutes, what your eye
 /// catches the first time through, no calls, replays or coach talk.
 fn quick(w: &mut World) -> Result<String, String> {

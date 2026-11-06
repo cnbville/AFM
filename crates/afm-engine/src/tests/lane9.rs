@@ -117,6 +117,65 @@ fn a_session_watched_snap_by_snap_becomes_your_report() {
     assert!((sc::own::film_left(&w) - time::left(&w)).abs() < 1e-4, "lane 7's ledger is the same");
 }
 
+// The full tape played straight through (Cain 2026-11-06, the game's
+// temporary override): no stops for a call, every snap charged, run-backs
+// while the hours last, the room in it, and it stops at the verdict. It
+// costs more than the quick watch and buys more: the coach's own look and
+// the look-back, against a first look at twice the snaps.
+#[test]
+fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
+    let (mut wf, mut wq) = (nfl_world(), nfl_world());
+    let ids = pros(&wf);
+    let (left_f, left_q) = (time::left(&wf), time::left(&wq));
+    let (mut full, mut quick, mut runbacks) = (Vec::new(), Vec::new(), 0usize);
+    for &id in &ids {
+        if full.len() == 4 {
+            break;
+        }
+        if session::open_player(&mut wf, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_err() {
+            continue;
+        }
+        // Out of hours, what was watched is saved at once.
+        if session::run_through(&mut wf).unwrap().is_some() {
+            break;
+        }
+        let s = wf.scouting.film.open.as_ref().unwrap();
+        assert_eq!(s.step, 3, "played to the verdict");
+        assert!(s.picks.iter().all(Option::is_none) && s.snaps.iter().all(|x| x.call.is_none()), "no calls");
+        assert!(s.seen.iter().all(|v| !v.contains(&session::HALF)), "nothing left half-seen");
+        runbacks += s.seen.iter().flatten().filter(|&&x| x == session::REPLAYED || x == session::REPLAY_MISSED).count();
+        session::verdict(&mut wf, 2).unwrap();
+        let r = wf.scouting.film.reports.last().unwrap().clone();
+        assert_eq!(r.mode, session::Mode::Full);
+        assert_eq!(r.calls.1, 0, "no calls asked");
+        assert!(!r.snaps.is_empty(), "the verdict keeps the look-back");
+        full.push(r);
+        session::open_player(&mut wq, id, tape::Cut::BestOpponent, session::Mode::Quick, None).unwrap();
+        quick.push(wq.scouting.film.reports.last().unwrap().clone());
+    }
+    assert!(full.len() >= 2, "full tapes watched: {}", full.len());
+    let mins = |v: &[session::Report]| v.iter().map(|r| r.minutes as f32).sum::<f32>() / v.len() as f32;
+    let got = |v: &[session::Report]| v.iter().map(|r| r.caught.len() as f32).sum::<f32>() / v.len() as f32;
+    let snaps = |v: &[session::Report]| v.iter().map(|r| r.watched as f32).sum::<f32>() / v.len() as f32;
+    eprintln!(
+        "full tape: {:.1} min, {:.1} snaps, {:.1} caught, {runbacks} run-backs, coach in the room {} of {} | quick: {:.1} min, {:.1} snaps, {:.1} caught",
+        mins(&full),
+        snaps(&full),
+        got(&full),
+        full.iter().filter(|r| r.coach.is_some()).count(),
+        full.len(),
+        mins(&quick),
+        snaps(&quick),
+        got(&quick)
+    );
+    // The hours: snaps at four minutes and run-backs at two, off the one ledger.
+    let spent = left_f - time::left(&wf);
+    let charged: f32 = full.iter().map(|r| r.minutes as f32).sum::<f32>() / 60.0;
+    assert!((spent - charged).abs() < 0.05, "spent {spent} h, charged {charged} h");
+    assert!((left_q - time::left(&wq) - quick.len() as f32 * session::QUICK_MIN / 60.0).abs() < 0.05);
+    assert!(quick.iter().all(|r| r.coach.is_none()), "no coach in a quick watch");
+}
+
 #[test]
 fn work_hours_set_the_film_and_a_long_day_tires_the_eye() {
     let mut w = nfl_world();

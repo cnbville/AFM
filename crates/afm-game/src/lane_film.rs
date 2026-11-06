@@ -19,6 +19,23 @@ use serde_json::{Value, json};
 use crate::lane_gameday::{self as gd, film as gdfilm};
 use crate::{Game, Reply};
 
+/// Temporary override (Cain 2026-11-06): the full tape plays straight
+/// through on one press like the quick watch, with no stops to call a snap
+/// ("will this guard's block hold?"), but keeps the full session's hours and
+/// what they buy: the room, run-backs while your hours last, and your verdict
+/// (`session::run_through`). The snap-by-snap session is all still there for
+/// the film revamp: set this to false to bring it back.
+pub const FULL_RUNS_THROUGH: bool = true;
+
+/// Opens to the snap-by-snap session, or plays it through while the
+/// override is on.
+fn through(w: &mut World, mode: session::Mode, said: String) -> Result<String, String> {
+    if !FULL_RUNS_THROUGH || mode != session::Mode::Full {
+        return Ok(said);
+    }
+    Ok(session::run_through(w)?.unwrap_or(said))
+}
+
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let id = || args.get("id").and_then(Value::as_u64).map(|x| x as u32).ok_or_else(|| "Missing id.".to_string());
     let num = |k: &str| args.get(k).and_then(Value::as_u64).ok_or_else(|| format!("Missing {k}."));
@@ -38,6 +55,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             };
             let ask = args.get("ask").and_then(Value::as_str);
             let said = session::open_player(w, id()?, cut, mode, ask)?;
+            let said = through(w, mode, said)?;
             Ok(with_said(session_view(w), said))
         }),
         "film_opp" => game.wm().and_then(|w| open_opp(w, args)),
@@ -407,6 +425,8 @@ fn brief(w: &World, id: u32, ask: Option<&str>) -> Reply {
         "cuts": cuts,
         "snap_min": session::SNAP_MIN,
         "quick_min": session::QUICK_MIN,
+        "runback_min": session::RUNBACK_MIN,
+        "full_through": FULL_RUNS_THROUGH,
         "left": (time::left(w) * 10.0).round() / 10.0,
         "budget": time::budget(w),
         "watchers": there::watchers(w, id),
@@ -773,6 +793,7 @@ fn open_opp(w: &mut World, a: &Value) -> Reply {
     };
     let name = tp.names[side as usize].clone();
     let said = session::open_team(w, next.opp as u16, name, games, snaps, hints, (d, h, aw), mode)?;
+    let said = through(w, mode, said)?;
     after_team(w);
     Ok(with_said(session_view(w), said))
 }
