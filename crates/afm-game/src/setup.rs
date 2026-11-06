@@ -126,6 +126,46 @@ pub fn delete_save(g: &Game, args: &Value) -> Result<Value, String> {
     Ok(json!({ "deleted": true }))
 }
 
+/// A world in your library, by its path: nothing outside it is touched.
+fn world_in(g: &Game, path: &str) -> Result<PathBuf, String> {
+    let dir = g.home.join("worlds").canonicalize().map_err(|e| e.to_string())?;
+    let full = PathBuf::from(path).canonicalize().map_err(|_| "That world isn't there any more.".to_string())?;
+    if full.parent() != Some(dir.as_path()) || full.extension().is_none_or(|x| x != "afmworld") {
+        return Err("Only worlds in your library can be deleted.".into());
+    }
+    Ok(full)
+}
+
+/// Deletes a library world (the World step asks first) with everything
+/// kept beside it: its card, world log and tallies, and what a build or
+/// import cut off left of it. Saves keep their own copy of their world, so
+/// none is touched.
+pub fn delete_world(g: &Game, args: &Value) -> Result<Value, String> {
+    let p = world_in(g, args.get("path").and_then(Value::as_str).ok_or("Missing path.")?)?;
+    let name = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    // A build or download of this very world still writes beside it.
+    let busy = g.job.lock().ok().and_then(|j| j.as_ref().filter(|j| !j.finished).map(|j| j.name.clone()));
+    if busy.is_some_and(|n| n == name || n.starts_with(&format!("{name}."))) {
+        return Err("This world is being built or downloaded right now. Stop that first.".into());
+    }
+    std::fs::remove_file(&p).map_err(|e| format!("Could not delete the world: {e}"))?;
+    let gone = |q: PathBuf| {
+        let _ = if q.is_dir() { std::fs::remove_dir_all(&q) } else { std::fs::remove_file(&q) };
+    };
+    gone(crate::cards::beside(&p));
+    crate::world_log::on_delete(&p);
+    crate::tallies::on_delete(&p);
+    let dir = p.parent().unwrap_or(Path::new("."));
+    gone(p.with_extension("afmworld.part"));
+    gone(dir.join(format!("{name}.{}.partial", afm_engine::world::tally::EXT)));
+    // A half-built world of the same name carries on from these.
+    if !dir.join(format!("{name}.{}", crate::jobs::HALF)).exists() {
+        gone(dir.join(format!("{name}.{}.part", afm_engine::world::wlog::EXT)));
+        gone(dir.join(format!("{name}.{}.part", afm_engine::world::tally::EXT)));
+    }
+    Ok(json!({ "deleted": true }))
+}
+
 /// Shows a file in Finder (or the folder in the system's file browser):
 /// only the game folder and what is in it, else the saves folder.
 pub fn reveal(g: &Game, args: &Value) -> Result<Value, String> {
@@ -1106,4 +1146,66 @@ pub fn bug_pack(g: &Game, args: &Value) -> Result<Value, String> {
     let _ = std::fs::copy(g.home.join("logs").join("slow-calls.log"), dir.join("slow-calls.log"));
     write(w, &dir.join("world.afmsave"))?;
     Ok(json!({ "folder": dir.display().to_string() }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deleting_a_world_takes_what_is_beside_it_and_nothing_else() {
+        let home = std::env::temp_dir().join(format!("afm-delete-world-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let g = Game::new(home.clone());
+        let worlds = home.join("worlds");
+        for f in
+            ["w.afmworld", "w.afmworld.card.json", "w.afmworld.part", "other.afmworld", "h.afmworld", "h.afmworld.half"]
+        {
+            std::fs::write(worlds.join(f), b"x").unwrap();
+        }
+        for d in [
+            "w.afmlog",
+            "w.afmdata",
+            "w.afmlog.part",
+            "w.afmdata.part",
+            "w.afmdata.partial",
+            "other.afmlog",
+            "h.afmlog.part",
+        ] {
+            std::fs::create_dir_all(worlds.join(d)).unwrap();
+            std::fs::write(worlds.join(d).join("meta.json"), b"{}").unwrap();
+        }
+        let save = home.join("saves").join("w.afmsave");
+        std::fs::write(&save, b"x").unwrap();
+        let del = |p: PathBuf| delete_world(&g, &json!({ "path": p.display().to_string() }));
+
+        del(worlds.join("w.afmworld")).unwrap();
+        let left: Vec<String> = std::fs::read_dir(&worlds)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| n.starts_with("w."))
+            .collect();
+        assert!(left.is_empty(), "left beside the deleted world: {left:?}");
+        assert!(worlds.join("other.afmworld").exists() && worlds.join("other.afmlog/meta.json").exists());
+        assert!(save.exists(), "a save is never touched");
+
+        // Only library worlds: not a save, not a file elsewhere, not one gone.
+        assert!(del(save.clone()).is_err());
+        assert!(del(PathBuf::from("/etc/hosts")).is_err());
+        assert!(del(worlds.join("w.afmworld")).is_err());
+
+        // A half-built world of the same name keeps its log so far.
+        del(worlds.join("h.afmworld")).unwrap();
+        assert!(worlds.join("h.afmworld.half").exists() && worlds.join("h.afmlog.part").exists());
+
+        // Not while that very world is being built or downloaded.
+        *g.job.lock().unwrap() = Some(crate::jobs::Job { name: "other.afmworld.001".into(), ..Default::default() });
+        assert!(del(worlds.join("other.afmworld")).is_err());
+        g.job.lock().unwrap().as_mut().unwrap().finished = true;
+        del(worlds.join("other.afmworld")).unwrap();
+        assert!(!worlds.join("other.afmlog").exists());
+
+        let _ = std::fs::remove_dir_all(&home);
+    }
 }

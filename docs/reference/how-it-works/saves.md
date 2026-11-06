@@ -1,6 +1,6 @@
 # Saves and world files: how it works today
 
-Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1).
+Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06.
 
 ## Quick answers
 
@@ -14,6 +14,7 @@ Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies f
 - How many cores does a save use? All of them: each part is packed on its own core, one more thread writes them (`save.rs`, `on_every_core`, `write_world`).
 - How many cores does a load use? All of them for format 2: every part is read on its own file handle (`save.rs`, `read_parts`). A format 1 file reads on one core.
 - What sits beside a save? Its world log (`name.afmlog`) and the Data section's tallies (`name.afmdata`, one file per kind and closed season; the season being played is in the save). Both are linked from the game folder's live copies, not copied (`crates/afm-game/src/tallies.rs`, `on_save`; [tallies.md](tallies.md)).
+- Can the game delete them? Saves: Load game, Delete (`setup.rs`, `delete_save`). Library worlds: the World step, "Delete this world…", which takes its card, log and tallies beside it and never a save (`setup.rs`, `delete_world`). Both only touch files in their own folder of the game folder (`~/Library/Application Support/AFM` on a Mac).
 - Is a half-written save possible? No: the game writes `name.partial` and renames it over the old save when done (`crates/afm-game/src/files.rs`, `write_world`).
 - Is the file the same bytes each time? No: parts land in the order they finish and hash maps keep no fixed order. The table says where each part is (`save.rs`, `write_world`).
 - How long does it take? On the 30-year world at the first game, 4-core Linux: save 17-18 s, load 14.4 s with `after_load`, peak 3.77 GB (`docs/game.md`, "Lane 19").
