@@ -95,9 +95,13 @@ impl World {
     }
 
     /// Whether a moment has come on the clock (the six-part day: nothing
-    /// shows before its hour). An untimed line shows from 5 AM of its day.
+    /// shows before its hour). An untimed line shows from the start of its
+    /// day, the day's first stop included, so a line about your own move
+    /// made there (or as your career starts) is on your desk at once.
     pub fn has_come(&self, at: Moment) -> bool {
-        let at = if at.timed() { at } else { Moment { date: at.date, minute: 5 * 60 } };
+        if !at.timed() {
+            return at.date <= self.today;
+        }
         at <= self.now()
     }
 
