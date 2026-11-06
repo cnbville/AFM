@@ -394,3 +394,4 @@ function mdHs(x) {
   const part = (inc) => dkTable([inc ? "Money in" : "Money out", "Budget", "So far", `Rank of ${x.of}`], x.lines.filter((l) => l.income === inc).map((l) => [esc(l.name), usd(l.budget), `<b>${usd(l.books)}</b>`, l.rank ?? "–"]));
   return `${tiles}<div class="dk-grid">${tdPanel("Money in", part(true))}${tdPanel("Money out", part(false))}</div><p class="muted small">Ranked among ${esc(x.among)}'s schools by budget.</p>`;
 }
+// CI fast path test (throwaway, never merged)
