@@ -127,7 +127,7 @@ fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
     let (mut wf, mut wq) = (nfl_world(), nfl_world());
     let ids = pros(&wf);
     let (left_f, left_q) = (time::left(&wf), time::left(&wq));
-    let (mut full, mut quick, mut runbacks) = (Vec::new(), Vec::new(), 0usize);
+    let (mut full, mut quick, mut runbacks, mut seen_ids) = (Vec::new(), Vec::new(), 0usize, Vec::new());
     for &id in &ids {
         if full.len() == 4 {
             break;
@@ -150,6 +150,7 @@ fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
         assert_eq!(r.calls.1, 0, "no calls asked");
         assert!(!r.snaps.is_empty(), "the verdict keeps the look-back");
         full.push(r);
+        seen_ids.push(id);
         session::open_player(&mut wq, id, tape::Cut::BestOpponent, session::Mode::Quick, None).unwrap();
         quick.push(wq.scouting.film.reports.last().unwrap().clone());
     }
@@ -157,6 +158,12 @@ fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
     let mins = |v: &[session::Report]| v.iter().map(|r| r.minutes as f32).sum::<f32>() / v.len() as f32;
     let got = |v: &[session::Report]| v.iter().map(|r| r.caught.len() as f32).sum::<f32>() / v.len() as f32;
     let snaps = |v: &[session::Report]| v.iter().map(|r| r.watched as f32).sum::<f32>() / v.len() as f32;
+    // Each clear catch a session: your eye's (by 0) and the analyst's points.
+    let raw = |w: &World, by: u8| {
+        w.scouting.film.catches.iter().filter(|c| c.by == by && seen_ids.contains(&c.id)).count() as f32
+            / seen_ids.len() as f32
+    };
+    eprintln!("eye catches a session: full {:.1} (+{:.1} analyst), quick {:.1}", raw(&wf, 0), raw(&wf, 1), raw(&wq, 0));
     eprintln!(
         "full tape: {:.1} min, {:.1} snaps, {:.1} caught, {runbacks} run-backs, coach in the room {} of {} | quick: {:.1} min, {:.1} snaps, {:.1} caught",
         mins(&full),
