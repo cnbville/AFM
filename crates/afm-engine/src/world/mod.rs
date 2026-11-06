@@ -1592,6 +1592,21 @@ impl World {
         season::game_team(self, &self.programs[prog])
     }
 
+    /// An NFL club's game-day team as the match engine sees it today, each
+    /// player with his whole person (trial tooling only: `ab_check` changes
+    /// bodies on the world's own rosters).
+    #[cfg(feature = "debug")]
+    pub fn debug_nfl_team(&self, club: usize) -> Option<(crate::game::GameTeam, Vec<Player>)> {
+        let side = pro::games::game_side(self, club)?;
+        let people = side
+            .team
+            .players
+            .iter()
+            .map(|gp| side.who.get(&gp.id).map(|&(i, _)| self.people[i].player.clone()))
+            .collect::<Option<Vec<_>>>()?;
+        Some((side.team, people))
+    }
+
     pub fn program_name(&self, id: usize) -> &str {
         self.programs[id].name(self.options.names)
     }

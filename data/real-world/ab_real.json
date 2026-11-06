@@ -1,0 +1,2980 @@
+{
+ "source": "nflverse play-by-play, snap counts, PFR advanced stats, Next Gen Stats, combine and players, NFL regular seasons 2018-2025; arms and 10-yard splits from MockDraftable",
+ "made_by": "data/real-world/scripts/ab_real.py",
+ "use": "real numbers for the engine's A/B tests (afm/ab-tests/plan.md): engine pure slope against held, as-recruited against raw",
+ "notes": {
+  "rates": "fractions, not percents (except qb_cpoe, in percentage points, and passer rating)",
+  "held": "body plus log(overall pick), undrafted = pick 260 with an undrafted dummy, plus season dummies",
+  "bands": "95%, cluster-robust by player, weighted least squares with the sample as weight",
+  "sd_true": "sqrt(max(0, var - mean noise var)); noise is binomial, Poisson, or per-play variance over the sample",
+  "means": "pooled over the qualified rows of each spread key (sum over sum, or sample-weighted)"
+ },
+ "arm_search": {
+  "result": "no free, licensed, downloadable file of combine arm lengths or 10-yard splits; MockDraftable's site API is read instead (mockdraftable.py), and only the fitted numbers are kept here",
+  "checked": [
+   "nflverse combine release (combine.csv): height, weight, forty, bench, vertical, broad jump, cone, shuttle; no arms, hands or splits",
+   "MockDraftable (arm, hand, wingspan, 10- and 20-yard splits per player): web pages only, no bulk export; its code (github.com/marcusdarmstrong/mockdraftable-web, MIT) holds code, not the data",
+   "github.com/mario-j/combine-parser: a scraper of MockDraftable, no data file, no licence",
+   "github.com/Johnny-Codes/NFL-Combine-Data: a 2018 scraper of nflcombineresults.com (hand size, arm length, no splits), no licence, so not used",
+   "github.com/rmcurtis43/combineR (MIT): reads Pro Football Reference combine pages, which carry no arms or splits",
+   "AFIT-R MODA R package: a 1999-2015 combine set with a ten-yard column; its page (rdrr.io) is not reachable from this machine, and its players mostly retired before 2018",
+   "nflcombineresults.com: not reachable from this machine"
+  ],
+  "used": "MockDraftable through its site API (/api/search, /api/multiple-players), the 2005-2025 draft classes, read once and cached outside the repo"
+ },
+ "arms": {
+  "source": "MockDraftable, draft classes 2005-2025, linked to nflverse position groups; splits from the combine only",
+  "link": {
+   "mockdraftable players": 6697,
+   "linked to a pfr_id": 6010,
+   "with arms": 4906,
+   "with a combine 10-yard split": 1898
+  },
+  "groups": {
+   "QB": {
+    "arm": {
+     "n": 234,
+     "mean": 31.89,
+     "sd": 1.16,
+     "p10": 30.5,
+     "p50": 32.0,
+     "p90": 33.34
+    },
+    "split": {
+     "n": 69,
+     "mean": 1.652,
+     "sd": 0.071,
+     "p10": 1.566,
+     "p50": 1.65,
+     "p90": 1.742
+    },
+    "hand": {
+     "n": 235,
+     "mean": 9.58,
+     "sd": 0.47,
+     "p10": 9.0,
+     "p50": 9.5,
+     "p90": 10.12
+    },
+    "wingspan": {
+     "n": 90,
+     "mean": 75.85,
+     "sd": 2.14,
+     "p10": 73.34,
+     "p50": 75.94,
+     "p90": 78.26
+    }
+   },
+   "RB": {
+    "arm": {
+     "n": 456,
+     "mean": 30.89,
+     "sd": 1.08,
+     "p10": 29.5,
+     "p50": 30.88,
+     "p90": 32.25
+    },
+    "split": {
+     "n": 185,
+     "mean": 1.571,
+     "sd": 0.054,
+     "p10": 1.51,
+     "p50": 1.57,
+     "p90": 1.636
+    },
+    "hand": {
+     "n": 455,
+     "mean": 9.27,
+     "sd": 0.47,
+     "p10": 8.62,
+     "p50": 9.25,
+     "p90": 9.88
+    },
+    "wingspan": {
+     "n": 186,
+     "mean": 74.29,
+     "sd": 2.4,
+     "p10": 71.19,
+     "p50": 74.25,
+     "p90": 77.06
+    }
+   },
+   "WR": {
+    "arm": {
+     "n": 744,
+     "mean": 31.84,
+     "sd": 1.3,
+     "p10": 30.12,
+     "p50": 31.88,
+     "p90": 33.5
+    },
+    "split": {
+     "n": 371,
+     "mean": 1.55,
+     "sd": 0.05,
+     "p10": 1.5,
+     "p50": 1.54,
+     "p90": 1.62
+    },
+    "hand": {
+     "n": 745,
+     "mean": 9.38,
+     "sd": 0.51,
+     "p10": 8.75,
+     "p50": 9.38,
+     "p90": 10.0
+    },
+    "wingspan": {
+     "n": 272,
+     "mean": 76.32,
+     "sd": 3.02,
+     "p10": 72.5,
+     "p50": 76.62,
+     "p90": 79.61
+    }
+   },
+   "TE": {
+    "arm": {
+     "n": 312,
+     "mean": 32.99,
+     "sd": 0.94,
+     "p10": 31.75,
+     "p50": 33.0,
+     "p90": 34.25
+    },
+    "split": {
+     "n": 106,
+     "mean": 1.625,
+     "sd": 0.058,
+     "p10": 1.56,
+     "p50": 1.62,
+     "p90": 1.7
+    },
+    "hand": {
+     "n": 311,
+     "mean": 9.83,
+     "sd": 0.49,
+     "p10": 9.25,
+     "p50": 9.75,
+     "p90": 10.5
+    },
+    "wingspan": {
+     "n": 122,
+     "mean": 79.09,
+     "sd": 2.04,
+     "p10": 76.62,
+     "p50": 79.0,
+     "p90": 81.88
+    }
+   },
+   "OT": {
+    "arm": {
+     "n": 316,
+     "mean": 34.21,
+     "sd": 0.95,
+     "p10": 33.0,
+     "p50": 34.0,
+     "p90": 35.5
+    },
+    "split": {
+     "n": 101,
+     "mean": 1.789,
+     "sd": 0.071,
+     "p10": 1.7,
+     "p50": 1.79,
+     "p90": 1.87
+    },
+    "hand": {
+     "n": 315,
+     "mean": 10.07,
+     "sd": 0.52,
+     "p10": 9.43,
+     "p50": 10.0,
+     "p90": 10.75
+    },
+    "wingspan": {
+     "n": 136,
+     "mean": 82.35,
+     "sd": 2.15,
+     "p10": 79.81,
+     "p50": 82.25,
+     "p90": 85.12
+    }
+   },
+   "IOL": {
+    "arm": {
+     "n": 487,
+     "mean": 33.14,
+     "sd": 1.0,
+     "p10": 32.0,
+     "p50": 33.12,
+     "p90": 34.25
+    },
+    "split": {
+     "n": 175,
+     "mean": 1.793,
+     "sd": 0.061,
+     "p10": 1.72,
+     "p50": 1.8,
+     "p90": 1.86
+    },
+    "hand": {
+     "n": 488,
+     "mean": 9.93,
+     "sd": 0.51,
+     "p10": 9.25,
+     "p50": 10.0,
+     "p90": 10.62
+    },
+    "wingspan": {
+     "n": 215,
+     "mean": 79.94,
+     "sd": 2.14,
+     "p10": 77.17,
+     "p50": 79.75,
+     "p90": 82.62
+    }
+   },
+   "DT": {
+    "arm": {
+     "n": 435,
+     "mean": 33.25,
+     "sd": 1.05,
+     "p10": 32.0,
+     "p50": 33.25,
+     "p90": 34.62
+    },
+    "split": {
+     "n": 159,
+     "mean": 1.751,
+     "sd": 0.067,
+     "p10": 1.67,
+     "p50": 1.75,
+     "p90": 1.842
+    },
+    "hand": {
+     "n": 435,
+     "mean": 9.95,
+     "sd": 0.52,
+     "p10": 9.25,
+     "p50": 10.0,
+     "p90": 10.62
+    },
+    "wingspan": {
+     "n": 181,
+     "mean": 80.15,
+     "sd": 2.43,
+     "p10": 76.88,
+     "p50": 80.12,
+     "p90": 83.75
+    }
+   },
+   "EDGE": {
+    "arm": {
+     "n": 476,
+     "mean": 33.38,
+     "sd": 1.04,
+     "p10": 32.12,
+     "p50": 33.38,
+     "p90": 34.62
+    },
+    "split": {
+     "n": 198,
+     "mean": 1.639,
+     "sd": 0.06,
+     "p10": 1.567,
+     "p50": 1.635,
+     "p90": 1.72
+    },
+    "hand": {
+     "n": 476,
+     "mean": 9.83,
+     "sd": 0.51,
+     "p10": 9.25,
+     "p50": 9.88,
+     "p90": 10.5
+    },
+    "wingspan": {
+     "n": 187,
+     "mean": 80.15,
+     "sd": 2.56,
+     "p10": 77.33,
+     "p50": 80.25,
+     "p90": 83.0
+    }
+   },
+   "LB": {
+    "arm": {
+     "n": 479,
+     "mean": 32.22,
+     "sd": 1.8,
+     "p10": 30.75,
+     "p50": 32.25,
+     "p90": 33.5
+    },
+    "split": {
+     "n": 170,
+     "mean": 1.607,
+     "sd": 0.058,
+     "p10": 1.54,
+     "p50": 1.595,
+     "p90": 1.68
+    },
+    "hand": {
+     "n": 477,
+     "mean": 9.6,
+     "sd": 0.47,
+     "p10": 9.0,
+     "p50": 9.5,
+     "p90": 10.25
+    },
+    "wingspan": {
+     "n": 189,
+     "mean": 77.25,
+     "sd": 2.25,
+     "p10": 74.35,
+     "p50": 77.38,
+     "p90": 80.25
+    }
+   },
+   "CB": {
+    "arm": {
+     "n": 516,
+     "mean": 31.46,
+     "sd": 1.04,
+     "p10": 30.12,
+     "p50": 31.5,
+     "p90": 32.75
+    },
+    "split": {
+     "n": 205,
+     "mean": 1.541,
+     "sd": 0.046,
+     "p10": 1.484,
+     "p50": 1.54,
+     "p90": 1.6
+    },
+    "hand": {
+     "n": 516,
+     "mean": 9.13,
+     "sd": 0.48,
+     "p10": 8.5,
+     "p50": 9.12,
+     "p90": 9.75
+    },
+    "wingspan": {
+     "n": 226,
+     "mean": 75.8,
+     "sd": 2.22,
+     "p10": 72.88,
+     "p50": 75.75,
+     "p90": 78.62
+    }
+   },
+   "S": {
+    "arm": {
+     "n": 374,
+     "mean": 31.5,
+     "sd": 0.99,
+     "p10": 30.25,
+     "p50": 31.5,
+     "p90": 32.75
+    },
+    "split": {
+     "n": 142,
+     "mean": 1.564,
+     "sd": 0.054,
+     "p10": 1.5,
+     "p50": 1.56,
+     "p90": 1.63
+    },
+    "hand": {
+     "n": 374,
+     "mean": 9.33,
+     "sd": 0.47,
+     "p10": 8.75,
+     "p50": 9.38,
+     "p90": 10.0
+    },
+    "wingspan": {
+     "n": 151,
+     "mean": 75.77,
+     "sd": 2.13,
+     "p10": 72.88,
+     "p50": 75.5,
+     "p90": 78.38
+    }
+   }
+  }
+ },
+ "links": {
+  "play-by-play passer seasons (gsis_id)": {
+   "rows": 885,
+   "with_position": 885,
+   "with_combine": 740,
+   "with_pfr_id": 885
+  },
+  "PFR passing seasons (pfr_id)": {
+   "rows": 844,
+   "with_position": 844,
+   "with_combine": 709,
+   "with_pfr_id": 844
+  },
+  "play-by-play rusher seasons (gsis_id)": {
+   "rows": 2695,
+   "with_position": 2695,
+   "with_combine": 2110,
+   "with_pfr_id": 2693
+  },
+  "PFR rushing seasons (pfr_id)": {
+   "rows": 2798,
+   "with_position": 2796,
+   "with_combine": 2186,
+   "with_pfr_id": 2798
+  },
+  "NGS rushing season rows, 100+ rushes (gsis_id)": {
+   "rows": 375,
+   "with_position": 375,
+   "with_combine": 328,
+   "with_pfr_id": 375
+  },
+  "play-by-play target seasons (gsis_id)": {
+   "rows": 4071,
+   "with_position": 4071,
+   "with_combine": 2926,
+   "with_pfr_id": 4064
+  },
+  "PFR receiving seasons (pfr_id)": {
+   "rows": 4079,
+   "with_position": 4072,
+   "with_combine": 2934,
+   "with_pfr_id": 4079
+  },
+  "NGS receiving season rows, 40+ targets (gsis_id)": {
+   "rows": 995,
+   "with_position": 995,
+   "with_combine": 871,
+   "with_pfr_id": 995
+  },
+  "PFR defense seasons with snap counts": {
+   "rows": 7371,
+   "with_snaps": 7367
+  },
+  "PFR defense seasons (pfr_id)": {
+   "rows": 7371,
+   "with_position": 7363,
+   "with_combine": 5336,
+   "with_pfr_id": 7369
+  },
+  "snap-count player seasons (pfr_id)": {
+   "rows": 17248,
+   "with_position": 17217,
+   "with_combine": 11730,
+   "with_pfr_id": 17248
+  },
+  "players.csv rows with both gsis_id and pfr_id": "22702 of 24867",
+  "combine rows with pfr_id": "7437 of 8968",
+  "team seasons with PFR pressures": "254 of 256",
+  "note": "rows are player seasons before any sample cut; with_position = a position group found through players.csv or the combine; with_combine = a combine row (height or forty); each slope's n against n_qualified says how many qualified rows had the body measure"
+ },
+ "slopes": {
+  "qb_forty__scramble_rate": {
+   "x": "forty",
+   "y": "scrambles a dropback",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00823,
+    "lo": -0.01146,
+    "hi": -0.005
+   },
+   "held": {
+    "b": -0.0082,
+    "lo": -0.01152,
+    "hi": -0.00488
+   },
+   "n": 250,
+   "n_held": 250,
+   "n_qualified": 329,
+   "players": 67,
+   "mean_y": 0.0425,
+   "min_sample": "QB, 150+ dropbacks",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (qb_scramble / qb_dropback)"
+  },
+  "qb_forty__yds_per_scramble": {
+   "x": "forty",
+   "y": "yards a scramble",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.22161,
+    "lo": -0.35187,
+    "hi": -0.09134
+   },
+   "held": {
+    "b": -0.22064,
+    "lo": -0.34348,
+    "hi": -0.09779
+   },
+   "n": 183,
+   "n_held": 183,
+   "n_qualified": 250,
+   "players": 54,
+   "mean_y": 7.5206,
+   "min_sample": "QB, 150+ dropbacks and 10+ scrambles",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "qb_forty__sack_rate": {
+   "x": "forty",
+   "y": "sacks a dropback",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00431,
+    "lo": -0.0065,
+    "hi": -0.00211
+   },
+   "held": {
+    "b": -0.00433,
+    "lo": -0.00662,
+    "hi": -0.00204
+   },
+   "n": 250,
+   "n_held": 250,
+   "n_qualified": 329,
+   "players": 67,
+   "mean_y": 0.061,
+   "min_sample": "QB, 150+ dropbacks",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "qb_ht__mid_cmp_pct": {
+   "x": "height",
+   "y": "completion rate, middle of the field",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00537,
+    "lo": -0.00966,
+    "hi": -0.00107
+   },
+   "held": {
+    "b": -0.00636,
+    "lo": -0.01065,
+    "hi": -0.00207
+   },
+   "n": 327,
+   "n_held": 327,
+   "n_qualified": 327,
+   "players": 98,
+   "mean_y": 0.6721,
+   "min_sample": "QB, 150+ dropbacks and 20+ middle attempts",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (pass_location middle)"
+  },
+  "qb_ht__batted_per_att": {
+   "x": "height",
+   "y": "batted balls an attempt",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00015,
+    "lo": -0.00096,
+    "hi": 0.00065
+   },
+   "held": {
+    "b": 5e-05,
+    "lo": -0.00085,
+    "hi": 0.00095
+   },
+   "n": 279,
+   "n_held": 279,
+   "n_qualified": 279,
+   "players": 88,
+   "mean_y": 0.0202,
+   "min_sample": "QB, 150+ attempts",
+   "source": "PFR advanced passing (batted_balls / pass_attempts), 2018-2025"
+  },
+  "rb_wt__short_yd_conv": {
+   "x": "weight",
+   "y": "conversion rate on 3rd and 4th and 1",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.00911,
+    "lo": -0.00998,
+    "hi": 0.0282
+   },
+   "held": {
+    "b": 0.01163,
+    "lo": -0.00651,
+    "hi": 0.02977
+   },
+   "n": 341,
+   "n_held": 341,
+   "n_qualified": 341,
+   "players": 128,
+   "mean_y": 0.6838,
+   "min_sample": "RB, 100+ designed rushes and 3+ carries on 3rd or 4th and 1",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (first down or touchdown)"
+  },
+  "rb_wt__run20_rate": {
+   "x": "weight",
+   "y": "rushes of 20+ yards a carry",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00011,
+    "lo": -0.00219,
+    "hi": 0.00197
+   },
+   "held": {
+    "b": -0.00048,
+    "lo": -0.00279,
+    "hi": 0.00183
+   },
+   "n": 375,
+   "n_held": 375,
+   "n_qualified": 375,
+   "players": 134,
+   "mean_y": 0.0245,
+   "min_sample": "RB, 100+ designed rushes",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "rb_wt__fumble_per_touch": {
+   "x": "weight",
+   "y": "fumbles a touch",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00021,
+    "lo": -0.00087,
+    "hi": 0.00045
+   },
+   "held": {
+    "b": -0.00014,
+    "lo": -0.0008,
+    "hi": 0.00052
+   },
+   "n": 375,
+   "n_held": 375,
+   "n_qualified": 375,
+   "players": 134,
+   "mean_y": 0.0076,
+   "min_sample": "RB, 100+ designed rushes",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (fumbles on his carries and catches, lost or not)"
+  },
+  "rb_forty__run20_rate": {
+   "x": "forty",
+   "y": "rushes of 20+ yards a carry",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.0048,
+    "lo": -0.00689,
+    "hi": -0.00271
+   },
+   "held": {
+    "b": -0.00484,
+    "lo": -0.00733,
+    "hi": -0.00236
+   },
+   "n": 307,
+   "n_held": 307,
+   "n_qualified": 375,
+   "players": 108,
+   "mean_y": 0.0242,
+   "min_sample": "RB, 100+ designed rushes",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "rb_wt__yaco_per_att": {
+   "x": "weight",
+   "y": "yards after contact a carry",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.06067,
+    "lo": -8e-05,
+    "hi": 0.12142
+   },
+   "held": {
+    "b": 0.06459,
+    "lo": 0.00231,
+    "hi": 0.12688
+   },
+   "n": 375,
+   "n_held": 375,
+   "n_qualified": 375,
+   "players": 134,
+   "mean_y": 2.0763,
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_wt__brk_tkl_per_att": {
+   "x": "weight",
+   "y": "broken tackles a carry",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.00181,
+    "lo": -0.00166,
+    "hi": 0.00527
+   },
+   "held": {
+    "b": 0.002,
+    "lo": -0.00146,
+    "hi": 0.00546
+   },
+   "n": 375,
+   "n_held": 375,
+   "n_qualified": 375,
+   "players": 134,
+   "mean_y": 0.0703,
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_wt__ybc_per_att": {
+   "x": "weight",
+   "y": "yards before contact a carry",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.11077,
+    "lo": -0.176,
+    "hi": -0.04554
+   },
+   "held": {
+    "b": -0.12362,
+    "lo": -0.19769,
+    "hi": -0.04956
+   },
+   "n": 375,
+   "n_held": 375,
+   "n_qualified": 375,
+   "players": 134,
+   "mean_y": 2.3155,
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_forty__ybc_per_att": {
+   "x": "forty",
+   "y": "yards before contact a carry",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.18185,
+    "lo": -0.24737,
+    "hi": -0.11634
+   },
+   "held": {
+    "b": -0.16887,
+    "lo": -0.24067,
+    "hi": -0.09707
+   },
+   "n": 307,
+   "n_held": 307,
+   "n_qualified": 375,
+   "players": 108,
+   "mean_y": 2.3176,
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_cone__ybc_per_att": {
+   "x": "3-cone",
+   "y": "yards before contact a carry",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.05376,
+    "lo": -0.11358,
+    "hi": 0.00607
+   },
+   "held": {
+    "b": -0.05399,
+    "lo": -0.10363,
+    "hi": -0.00436
+   },
+   "n": 138,
+   "n_held": 138,
+   "n_qualified": 375,
+   "players": 49,
+   "mean_y": 2.3061,
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_cone__brk_tkl_per_att": {
+   "x": "3-cone",
+   "y": "broken tackles a carry",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00263,
+    "lo": -0.00044,
+    "hi": 0.00569
+   },
+   "held": {
+    "b": 0.00292,
+    "lo": -0.00053,
+    "hi": 0.00636
+   },
+   "n": 138,
+   "n_held": 138,
+   "n_qualified": 375,
+   "players": 49,
+   "mean_y": 0.0712,
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_forty__ryoe_per_att": {
+   "x": "forty",
+   "y": "rush yards over expected a carry",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.16191,
+    "lo": -0.24052,
+    "hi": -0.0833
+   },
+   "held": {
+    "b": -0.12746,
+    "lo": -0.21352,
+    "hi": -0.04139
+   },
+   "n": 307,
+   "n_held": 307,
+   "n_qualified": 375,
+   "players": 108,
+   "mean_y": 0.1983,
+   "min_sample": "RB, 100+ rushes (NGS season row)",
+   "source": "Next Gen Stats rushing, 2018-2025"
+  },
+  "wr_ht__rz_td_per_rz_tgt": {
+   "x": "height",
+   "y": "touchdowns a red zone target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00542,
+    "lo": 0.00075,
+    "hi": 0.01009
+   },
+   "held": {
+    "b": 0.00571,
+    "lo": 0.00101,
+    "hi": 0.01042
+   },
+   "n": 773,
+   "n_held": 773,
+   "n_qualified": 773,
+   "players": 265,
+   "mean_y": 0.2574,
+   "min_sample": "WR, 40+ targets and 3+ inside the 20",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (targets inside the 20, his touchdown)"
+  },
+  "wr_ht__catch_rate": {
+   "x": "height",
+   "y": "catches a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00647,
+    "lo": -0.00969,
+    "hi": -0.00324
+   },
+   "held": {
+    "b": -0.00613,
+    "lo": -0.00955,
+    "hi": -0.00271
+   },
+   "n": 792,
+   "n_held": 792,
+   "n_qualified": 792,
+   "players": 268,
+   "mean_y": 0.6389,
+   "min_sample": "WR, 40+ targets",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "wr_forty__adot": {
+   "x": "forty",
+   "y": "air yards a target",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.79583,
+    "lo": -1.14532,
+    "hi": -0.44635
+   },
+   "held": {
+    "b": -0.79092,
+    "lo": -1.2073,
+    "hi": -0.37454
+   },
+   "n": 596,
+   "n_held": 596,
+   "n_qualified": 792,
+   "players": 191,
+   "mean_y": 10.7152,
+   "min_sample": "WR, 40+ targets",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (air_yards on targets)"
+  },
+  "te_ht__rz_td_per_rz_tgt": {
+   "x": "height",
+   "y": "touchdowns a red zone target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.0014,
+    "lo": -0.011,
+    "hi": 0.0138
+   },
+   "held": {
+    "b": 0.00062,
+    "lo": -0.01123,
+    "hi": 0.01248
+   },
+   "n": 282,
+   "n_held": 282,
+   "n_qualified": 282,
+   "players": 99,
+   "mean_y": 0.2862,
+   "min_sample": "TE, 40+ targets and 3+ inside the 20",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (targets inside the 20, his touchdown)"
+  },
+  "te_ht__catch_rate": {
+   "x": "height",
+   "y": "catches a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00509,
+    "lo": -0.01226,
+    "hi": 0.00208
+   },
+   "held": {
+    "b": -0.00492,
+    "lo": -0.01187,
+    "hi": 0.00202
+   },
+   "n": 286,
+   "n_held": 286,
+   "n_qualified": 286,
+   "players": 101,
+   "mean_y": 0.6965,
+   "min_sample": "TE, 40+ targets",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "te_forty__adot": {
+   "x": "forty",
+   "y": "air yards a target",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.31001,
+    "lo": -0.78671,
+    "hi": 0.16669
+   },
+   "held": {
+    "b": -0.23636,
+    "lo": -0.68198,
+    "hi": 0.20926
+   },
+   "n": 210,
+   "n_held": 210,
+   "n_qualified": 286,
+   "players": 67,
+   "mean_y": 7.36,
+   "min_sample": "TE, 40+ targets",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (air_yards on targets)"
+  },
+  "wr_arm__catch_rate": {
+   "x": "arm length",
+   "y": "catches a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.01307,
+    "lo": -0.01854,
+    "hi": -0.00761
+   },
+   "held": {
+    "b": -0.0131,
+    "lo": -0.01859,
+    "hi": -0.00761
+   },
+   "n": 697,
+   "n_held": 697,
+   "n_qualified": 792,
+   "players": 226,
+   "mean_y": 0.6376,
+   "min_sample": "WR, 40+ targets",
+   "source": "nflverse play-by-play, regular seasons 2018-2025; arms from MockDraftable"
+  },
+  "wr_arm__deep_catch_rate": {
+   "x": "arm length",
+   "y": "catches a deep target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00061,
+    "lo": -0.00911,
+    "hi": 0.00789
+   },
+   "held": {
+    "b": -0.00105,
+    "lo": -0.00981,
+    "hi": 0.0077
+   },
+   "n": 676,
+   "n_held": 676,
+   "n_qualified": 769,
+   "players": 217,
+   "mean_y": 0.381,
+   "min_sample": "WR, 40+ targets and 3+ deep",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (air_yards >= 20); arms from MockDraftable"
+  },
+  "wr_ht__deep_catch_rate": {
+   "x": "height",
+   "y": "catches a deep target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00078,
+    "lo": -0.00406,
+    "hi": 0.00562
+   },
+   "held": {
+    "b": 0.00091,
+    "lo": -0.00408,
+    "hi": 0.00591
+   },
+   "n": 769,
+   "n_held": 769,
+   "n_qualified": 769,
+   "players": 259,
+   "mean_y": 0.3805,
+   "min_sample": "WR, 40+ targets and 3+ deep",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (air_yards >= 20)"
+  },
+  "wr_forty__deep_tgt_share": {
+   "x": "forty",
+   "y": "share of targets 20+ yards downfield",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.02816,
+    "lo": -0.03637,
+    "hi": -0.01996
+   },
+   "held": {
+    "b": -0.02853,
+    "lo": -0.03847,
+    "hi": -0.0186
+   },
+   "n": 596,
+   "n_held": 596,
+   "n_qualified": 792,
+   "players": 191,
+   "mean_y": 0.1647,
+   "min_sample": "WR, 40+ targets",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (air_yards >= 20)"
+  },
+  "wr_wt__yac_per_rec": {
+   "x": "weight",
+   "y": "yards after the catch a catch",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.03411,
+    "lo": -0.13179,
+    "hi": 0.06357
+   },
+   "held": {
+    "b": -0.0371,
+    "lo": -0.13636,
+    "hi": 0.06216
+   },
+   "n": 792,
+   "n_held": 792,
+   "n_qualified": 792,
+   "players": 268,
+   "mean_y": 4.3498,
+   "min_sample": "WR, 40+ targets (PFR)",
+   "source": "PFR advanced receiving, 2018-2025"
+  },
+  "wr_wt__brk_tkl_per_rec": {
+   "x": "weight",
+   "y": "broken tackles a catch",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.0018,
+    "lo": -0.0013,
+    "hi": 0.0049
+   },
+   "held": {
+    "b": 0.00167,
+    "lo": -0.00148,
+    "hi": 0.00482
+   },
+   "n": 792,
+   "n_held": 792,
+   "n_qualified": 792,
+   "players": 268,
+   "mean_y": 0.0515,
+   "min_sample": "WR, 40+ targets (PFR)",
+   "source": "PFR advanced receiving, 2018-2025"
+  },
+  "wr_forty__separation": {
+   "x": "forty",
+   "y": "yards of separation at the catch point",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.01826,
+    "lo": -0.08773,
+    "hi": 0.0512
+   },
+   "held": {
+    "b": -0.0395,
+    "lo": -0.11925,
+    "hi": 0.04025
+   },
+   "n": 565,
+   "n_held": 565,
+   "n_qualified": 742,
+   "players": 177,
+   "mean_y": 2.8715,
+   "min_sample": "WR, 40+ targets (NGS season row)",
+   "source": "Next Gen Stats receiving, 2018-2025"
+  },
+  "te_forty__separation": {
+   "x": "forty",
+   "y": "yards of separation at the catch point",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.0174,
+    "lo": -0.07937,
+    "hi": 0.11418
+   },
+   "held": {
+    "b": -0.01027,
+    "lo": -0.10319,
+    "hi": 0.08264
+   },
+   "n": 189,
+   "n_held": 189,
+   "n_qualified": 252,
+   "players": 58,
+   "mean_y": 3.2403,
+   "min_sample": "TE, 40+ targets (NGS season row)",
+   "source": "Next Gen Stats receiving, 2018-2025"
+  },
+  "wr_forty__cushion": {
+   "x": "forty",
+   "y": "yards of cushion at the snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.06275,
+    "lo": -0.15839,
+    "hi": 0.03289
+   },
+   "held": {
+    "b": -0.08539,
+    "lo": -0.18794,
+    "hi": 0.01717
+   },
+   "n": 565,
+   "n_held": 565,
+   "n_qualified": 742,
+   "players": 177,
+   "mean_y": 6.009,
+   "min_sample": "WR, 40+ targets (NGS season row)",
+   "source": "Next Gen Stats receiving, 2018-2025"
+  },
+  "dt_wt__prss_per_snap": {
+   "x": "weight",
+   "y": "pressures a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00211,
+    "lo": -0.00291,
+    "hi": -0.00131
+   },
+   "held": {
+    "b": -0.00216,
+    "lo": -0.00287,
+    "hi": -0.00145
+   },
+   "n": 1113,
+   "n_held": 1113,
+   "n_qualified": 1113,
+   "players": 314,
+   "mean_y": 0.0202,
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "dt_wt__sack_per_snap": {
+   "x": "weight",
+   "y": "sacks a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00059,
+    "lo": -0.00084,
+    "hi": -0.00035
+   },
+   "held": {
+    "b": -0.0006,
+    "lo": -0.00082,
+    "hi": -0.00038
+   },
+   "n": 1113,
+   "n_held": 1113,
+   "n_qualified": 1113,
+   "players": 314,
+   "mean_y": 0.005,
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "dt_forty__prss_per_snap": {
+   "x": "forty",
+   "y": "pressures a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00251,
+    "lo": -0.00341,
+    "hi": -0.00162
+   },
+   "held": {
+    "b": -0.00217,
+    "lo": -0.00301,
+    "hi": -0.00133
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 1113,
+   "players": 201,
+   "mean_y": 0.0212,
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__prss_per_snap": {
+   "x": "weight",
+   "y": "pressures a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 5e-05,
+    "lo": -0.00107,
+    "hi": 0.00117
+   },
+   "held": {
+    "b": -0.00024,
+    "lo": -0.00132,
+    "hi": 0.00084
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0344,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_forty__prss_per_snap": {
+   "x": "forty",
+   "y": "pressures a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00116,
+    "lo": -0.00212,
+    "hi": -0.00021
+   },
+   "held": {
+    "b": -0.00038,
+    "lo": -0.0015,
+    "hi": 0.00075
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0358,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_forty__sack_per_snap": {
+   "x": "forty",
+   "y": "sacks a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00059,
+    "lo": -0.00089,
+    "hi": -0.00029
+   },
+   "held": {
+    "b": -0.00025,
+    "lo": -0.00059,
+    "hi": 9e-05
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0099,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__mtkl_pct": {
+   "x": "weight",
+   "y": "missed tackle share",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00545,
+    "lo": -0.00966,
+    "hi": -0.00124
+   },
+   "held": {
+    "b": -0.0053,
+    "lo": -0.00935,
+    "hi": -0.00125
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0842,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts (missed / (missed + combined))"
+  },
+  "lb_forty__cmp_allowed": {
+   "x": "forty",
+   "y": "completions allowed a target",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00362,
+    "lo": -0.01201,
+    "hi": 0.00476
+   },
+   "held": {
+    "b": -0.00493,
+    "lo": -0.01398,
+    "hi": 0.00412
+   },
+   "n": 350,
+   "n_held": 350,
+   "n_qualified": 504,
+   "players": 113,
+   "mean_y": 0.7373,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__yds_per_tgt": {
+   "x": "forty",
+   "y": "yards allowed a target",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.14172,
+    "lo": -0.00359,
+    "hi": 0.28704
+   },
+   "held": {
+    "b": 0.1381,
+    "lo": -0.03898,
+    "hi": 0.31518
+   },
+   "n": 350,
+   "n_held": 350,
+   "n_qualified": 504,
+   "players": 113,
+   "mean_y": 6.8483,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__cmp_allowed": {
+   "x": "height",
+   "y": "completions allowed a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00041,
+    "lo": -0.00543,
+    "hi": 0.0046
+   },
+   "held": {
+    "b": 0.00036,
+    "lo": -0.00479,
+    "hi": 0.00551
+   },
+   "n": 504,
+   "n_held": 504,
+   "n_qualified": 504,
+   "players": 176,
+   "mean_y": 0.7403,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_ht__cmp_allowed": {
+   "x": "height",
+   "y": "completions allowed a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00644,
+    "lo": -0.01033,
+    "hi": -0.00254
+   },
+   "held": {
+    "b": -0.00573,
+    "lo": -0.00961,
+    "hi": -0.00185
+   },
+   "n": 856,
+   "n_held": 856,
+   "n_qualified": 856,
+   "players": 302,
+   "mean_y": 0.6129,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_ht__int_per_tgt": {
+   "x": "height",
+   "y": "interceptions a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00026,
+    "lo": -0.0007,
+    "hi": 0.00122
+   },
+   "held": {
+    "b": 0.00019,
+    "lo": -0.00081,
+    "hi": 0.00119
+   },
+   "n": 856,
+   "n_held": 856,
+   "n_qualified": 856,
+   "players": 302,
+   "mean_y": 0.0199,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_ht__pbu_per_tgt": {
+   "x": "height",
+   "y": "breakups a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00336,
+    "lo": 0.00101,
+    "hi": 0.00572
+   },
+   "held": {
+    "b": 0.0026,
+    "lo": 0.0005,
+    "hi": 0.0047
+   },
+   "n": 856,
+   "n_held": 856,
+   "n_qualified": 856,
+   "players": 302,
+   "mean_y": 0.0993,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "play-by-play pass_defense_1/2 on incompletions over PFR targets"
+  },
+  "cb_ht__yds_per_tgt": {
+   "x": "height",
+   "y": "yards allowed a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.04167,
+    "lo": -0.02823,
+    "hi": 0.11156
+   },
+   "held": {
+    "b": 0.04785,
+    "lo": -0.02187,
+    "hi": 0.11757
+   },
+   "n": 856,
+   "n_held": 856,
+   "n_qualified": 856,
+   "players": 302,
+   "mean_y": 7.3423,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_ht__rating_allowed": {
+   "x": "height",
+   "y": "passer rating allowed",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.45754,
+    "lo": -1.32434,
+    "hi": 0.40925
+   },
+   "held": {
+    "b": -0.30004,
+    "lo": -1.14425,
+    "hi": 0.54418
+   },
+   "n": 856,
+   "n_held": 856,
+   "n_qualified": 856,
+   "players": 302,
+   "mean_y": 90.5906,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_ht__tgt_per_snap": {
+   "x": "height",
+   "y": "targets a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00011,
+    "lo": -0.00115,
+    "hi": 0.00093
+   },
+   "held": {
+    "b": 0.00023,
+    "lo": -0.00081,
+    "hi": 0.00127
+   },
+   "n": 1002,
+   "n_held": 1002,
+   "n_qualified": 1002,
+   "players": 339,
+   "mean_y": 0.0931,
+   "min_sample": "CB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_wt__yac_per_cmp": {
+   "x": "weight",
+   "y": "yards after the catch a completion allowed",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.03553,
+    "lo": -0.16926,
+    "hi": 0.0982
+   },
+   "held": {
+    "b": -0.02739,
+    "lo": -0.15877,
+    "hi": 0.10399
+   },
+   "n": 856,
+   "n_held": 856,
+   "n_qualified": 856,
+   "players": 302,
+   "mean_y": 4.3542,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_wt__mtkl_pct": {
+   "x": "weight",
+   "y": "missed tackle share",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00484,
+    "lo": -0.01,
+    "hi": 0.00033
+   },
+   "held": {
+    "b": -0.00571,
+    "lo": -0.01071,
+    "hi": -0.00071
+   },
+   "n": 1002,
+   "n_held": 1002,
+   "n_qualified": 1002,
+   "players": 339,
+   "mean_y": 0.1048,
+   "min_sample": "CB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_forty__yds_per_cmp": {
+   "x": "forty",
+   "y": "yards a completion allowed",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.05268,
+    "lo": -0.18747,
+    "hi": 0.0821
+   },
+   "held": {
+    "b": -0.02467,
+    "lo": -0.17608,
+    "hi": 0.12673
+   },
+   "n": 638,
+   "n_held": 638,
+   "n_qualified": 856,
+   "players": 205,
+   "mean_y": 12.0687,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_forty__dadot": {
+   "x": "forty",
+   "y": "depth of target when targeted",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.37395,
+    "lo": -0.54682,
+    "hi": -0.20107
+   },
+   "held": {
+    "b": -0.33082,
+    "lo": -0.51465,
+    "hi": -0.14698
+   },
+   "n": 638,
+   "n_held": 638,
+   "n_qualified": 856,
+   "players": 205,
+   "mean_y": 10.3483,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_cone__cmp_allowed": {
+   "x": "3-cone",
+   "y": "completions allowed a target",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00196,
+    "lo": -0.00225,
+    "hi": 0.00617
+   },
+   "held": {
+    "b": 0.0001,
+    "lo": -0.0043,
+    "hi": 0.00451
+   },
+   "n": 346,
+   "n_held": 346,
+   "n_qualified": 856,
+   "players": 107,
+   "mean_y": 0.6065,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "s_wt__mtkl_pct": {
+   "x": "weight",
+   "y": "missed tackle share",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.0015,
+    "lo": -0.00486,
+    "hi": 0.00185
+   },
+   "held": {
+    "b": -0.0013,
+    "lo": -0.005,
+    "hi": 0.00239
+   },
+   "n": 916,
+   "n_held": 916,
+   "n_qualified": 916,
+   "players": 279,
+   "mean_y": 0.0928,
+   "min_sample": "S, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "s_wt__ff_per_tkl": {
+   "x": "weight",
+   "y": "forced fumbles a tackle",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00019,
+    "lo": -0.00139,
+    "hi": 0.00102
+   },
+   "held": {
+    "b": -0.00031,
+    "lo": -0.00147,
+    "hi": 0.00084
+   },
+   "n": 895,
+   "n_held": 895,
+   "n_qualified": 895,
+   "players": 271,
+   "mean_y": 0.0088,
+   "min_sample": "S, 200+ defense snaps and 20+ tackles",
+   "source": "play-by-play forced fumbles over play-by-play tackles"
+  },
+  "s_ht__cmp_allowed": {
+   "x": "height",
+   "y": "completions allowed a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00291,
+    "lo": -0.00747,
+    "hi": 0.00165
+   },
+   "held": {
+    "b": -0.00323,
+    "lo": -0.00752,
+    "hi": 0.00106
+   },
+   "n": 586,
+   "n_held": 586,
+   "n_qualified": 586,
+   "players": 203,
+   "mean_y": 0.6558,
+   "min_sample": "S, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "s_forty__yds_per_cmp": {
+   "x": "forty",
+   "y": "yards a completion allowed",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.10338,
+    "lo": -0.23889,
+    "hi": 0.44565
+   },
+   "held": {
+    "b": -0.01042,
+    "lo": -0.40704,
+    "hi": 0.3862
+   },
+   "n": 418,
+   "n_held": 418,
+   "n_qualified": 586,
+   "players": 132,
+   "mean_y": 11.9514,
+   "min_sample": "S, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "dt_arm__prss_per_snap": {
+   "x": "arm length",
+   "y": "pressures a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00168,
+    "lo": -5e-05,
+    "hi": 0.0034
+   },
+   "held": {
+    "b": 0.00092,
+    "lo": -0.00077,
+    "hi": 0.00262
+   },
+   "n": 866,
+   "n_held": 866,
+   "n_qualified": 1113,
+   "players": 227,
+   "mean_y": 0.0206,
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "dt_arm__sack_per_snap": {
+   "x": "arm length",
+   "y": "sacks a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00024,
+    "lo": -0.00026,
+    "hi": 0.00073
+   },
+   "held": {
+    "b": 5e-05,
+    "lo": -0.00043,
+    "hi": 0.00054
+   },
+   "n": 866,
+   "n_held": 866,
+   "n_qualified": 1113,
+   "players": 227,
+   "mean_y": 0.0051,
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "dt_split__prss_per_snap": {
+   "x": "10-yard split",
+   "y": "pressures a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00724,
+    "lo": -0.01271,
+    "hi": -0.00176
+   },
+   "held": {
+    "b": -0.00623,
+    "lo": -0.01078,
+    "hi": -0.00167
+   },
+   "n": 338,
+   "n_held": 338,
+   "n_qualified": 1113,
+   "players": 89,
+   "mean_y": 0.0219,
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "dt_split__sack_per_snap": {
+   "x": "10-yard split",
+   "y": "sacks a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00233,
+    "lo": -0.00393,
+    "hi": -0.00073
+   },
+   "held": {
+    "b": -0.00195,
+    "lo": -0.00327,
+    "hi": -0.00064
+   },
+   "n": 338,
+   "n_held": 338,
+   "n_qualified": 1113,
+   "players": 89,
+   "mean_y": 0.0056,
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__prss_per_snap": {
+   "x": "arm length",
+   "y": "pressures a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00066,
+    "lo": -0.00236,
+    "hi": 0.00105
+   },
+   "held": {
+    "b": -0.00115,
+    "lo": -0.00275,
+    "hi": 0.00045
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.035,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__sack_per_snap": {
+   "x": "arm length",
+   "y": "sacks a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.0,
+    "lo": -0.00064,
+    "hi": 0.00064
+   },
+   "held": {
+    "b": -0.00016,
+    "lo": -0.00071,
+    "hi": 0.0004
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.0096,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__prss_per_snap": {
+   "x": "10-yard split",
+   "y": "pressures a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00038,
+    "lo": -0.00406,
+    "hi": 0.00482
+   },
+   "held": {
+    "b": 0.0049,
+    "lo": -6e-05,
+    "hi": 0.00986
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.0359,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__sack_per_snap": {
+   "x": "10-yard split",
+   "y": "sacks a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00072,
+    "lo": -0.00224,
+    "hi": 0.00079
+   },
+   "held": {
+    "b": 0.00045,
+    "lo": -0.0012,
+    "hi": 0.0021
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.0098,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "cb_arm__cmp_allowed": {
+   "x": "arm length",
+   "y": "completions allowed a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.01267,
+    "lo": -0.01949,
+    "hi": -0.00585
+   },
+   "held": {
+    "b": -0.01132,
+    "lo": -0.01822,
+    "hi": -0.00443
+   },
+   "n": 694,
+   "n_held": 694,
+   "n_qualified": 856,
+   "players": 231,
+   "mean_y": 0.6106,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "cb_arm__int_per_tgt": {
+   "x": "arm length",
+   "y": "interceptions a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00076,
+    "lo": -0.00124,
+    "hi": 0.00277
+   },
+   "held": {
+    "b": 0.00061,
+    "lo": -0.00148,
+    "hi": 0.0027
+   },
+   "n": 694,
+   "n_held": 694,
+   "n_qualified": 856,
+   "players": 231,
+   "mean_y": 0.0202,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "cb_arm__pbu_per_tgt": {
+   "x": "arm length",
+   "y": "breakups a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00499,
+    "lo": 0.00068,
+    "hi": 0.0093
+   },
+   "held": {
+    "b": 0.00444,
+    "lo": 0.00056,
+    "hi": 0.00833
+   },
+   "n": 694,
+   "n_held": 694,
+   "n_qualified": 856,
+   "players": 231,
+   "mean_y": 0.1003,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "play-by-play pass_defense_1/2 on incompletions over PFR targets; arms and combine 10-yard splits from MockDraftable"
+  },
+  "cb_arm__rating_allowed": {
+   "x": "arm length",
+   "y": "passer rating allowed",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -1.64846,
+    "lo": -3.02651,
+    "hi": -0.27041
+   },
+   "held": {
+    "b": -1.39571,
+    "lo": -2.7752,
+    "hi": -0.01623
+   },
+   "n": 694,
+   "n_held": 694,
+   "n_qualified": 856,
+   "players": 231,
+   "mean_y": 90.238,
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  }
+ },
+ "spreads": {
+  "qb_scramble_rate": {
+   "p5": 0.0064,
+   "p50": 0.0429,
+   "p95": 0.0967,
+   "mean": 0.047,
+   "sd": 0.029,
+   "n": 329,
+   "sd_true": 0.0268,
+   "noise_sd": 0.011,
+   "noise": "binomial",
+   "min_sample": "QB, 150+ dropbacks",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "qb_adot": {
+   "p5": 6.32,
+   "p50": 7.83,
+   "p95": 9.39,
+   "mean": 7.86,
+   "sd": 1.02,
+   "n": 329,
+   "sd_true": 0.85,
+   "noise_sd": 0.55,
+   "noise": "per throw",
+   "min_sample": "QB, 150+ dropbacks",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (air_yards on attempts)"
+  },
+  "qb_deep_share": {
+   "p5": 0.0761,
+   "p50": 0.1141,
+   "p95": 0.1554,
+   "mean": 0.1159,
+   "sd": 0.0277,
+   "n": 329,
+   "sd_true": 0.0214,
+   "noise_sd": 0.0175,
+   "noise": "binomial",
+   "min_sample": "QB, 150+ dropbacks",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (air_yards >= 20)"
+  },
+  "qb_int_rate": {
+   "p5": 0.0105,
+   "p50": 0.0216,
+   "p95": 0.0394,
+   "mean": 0.023,
+   "sd": 0.0093,
+   "n": 329,
+   "sd_true": 0.0038,
+   "noise_sd": 0.0085,
+   "noise": "binomial",
+   "min_sample": "QB, 150+ dropbacks",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "qb_sack_rate": {
+   "p5": 0.0337,
+   "p50": 0.0614,
+   "p95": 0.102,
+   "mean": 0.0647,
+   "sd": 0.0217,
+   "n": 329,
+   "sd_true": 0.0174,
+   "noise_sd": 0.0129,
+   "noise": "binomial",
+   "min_sample": "QB, 150+ dropbacks",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "qb_cpoe": {
+   "p5": -5.61,
+   "p50": 0.15,
+   "p95": 4.69,
+   "mean": -0.12,
+   "sd": 3.24,
+   "n": 317,
+   "sd_true": 2.41,
+   "noise_sd": 2.16,
+   "noise": "per throw, from game rows",
+   "min_sample": "QB, 150+ attempts (NGS season row)",
+   "source": "Next Gen Stats passing, 2018-2025",
+   "unit": "percentage points"
+  },
+  "qb_ttt": {
+   "p5": 2.544,
+   "p50": 2.79,
+   "p95": 3.045,
+   "mean": 2.788,
+   "sd": 0.159,
+   "n": 317,
+   "sd_true": 0.144,
+   "noise_sd": 0.067,
+   "noise": "per throw, from game rows",
+   "min_sample": "QB, 150+ attempts (NGS season row)",
+   "source": "Next Gen Stats passing, 2018-2025"
+  },
+  "qb_sacks_per_pressure": {
+   "p5": 0.1725,
+   "p50": 0.2881,
+   "p95": 0.4237,
+   "mean": 0.2908,
+   "sd": 0.0803,
+   "n": 313,
+   "sd_true": 0.0639,
+   "noise_sd": 0.0486,
+   "noise": "binomial",
+   "min_sample": "QB, 150+ attempts and 30+ pressures",
+   "source": "PFR advanced passing, game rows (times_sacked / times_pressured)"
+  },
+  "qb_throwaway_rate": {
+   "p5": 0.0135,
+   "p50": 0.0339,
+   "p95": 0.0654,
+   "mean": 0.0364,
+   "sd": 0.0161,
+   "n": 317,
+   "sd_true": 0.0126,
+   "noise_sd": 0.0101,
+   "noise": "binomial",
+   "min_sample": "QB, 150+ attempts",
+   "source": "PFR advanced passing (throwaways / attempts)"
+  },
+  "qb_bad_throw_pct": {
+   "p5": 0.1176,
+   "p50": 0.1661,
+   "p95": 0.2175,
+   "mean": 0.1663,
+   "sd": 0.0307,
+   "n": 317,
+   "sd_true": 0.0228,
+   "noise_sd": 0.0205,
+   "noise": "binomial",
+   "min_sample": "QB, 150+ attempts",
+   "source": "PFR advanced passing (bad_throws / (attempts - throwaways - spikes))"
+  },
+  "qb_pa_ypa": {
+   "p5": 6.14,
+   "p50": 8.41,
+   "p95": 10.73,
+   "mean": 8.45,
+   "sd": 1.47,
+   "n": 165,
+   "sd_true": 1.05,
+   "noise_sd": 1.03,
+   "noise": "per throw, league-wide variance",
+   "min_sample": "QB, 150+ attempts and 40+ play-action attempts",
+   "source": "PFR advanced passing (pa_pass_yards / pa_pass_att), 2019-2023 only (the file has no play action for 2018, 2024, 2025)"
+  },
+  "team_sack_rate": {
+   "p5": 0.0364,
+   "p50": 0.0624,
+   "p95": 0.0952,
+   "mean": 0.0639,
+   "sd": 0.0181,
+   "n": 256,
+   "sd_true": 0.0152,
+   "noise_sd": 0.0098,
+   "noise": "binomial",
+   "min_sample": "team season, all",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "team_pressure_rate": {
+   "p5": 0.1617,
+   "p50": 0.2206,
+   "p95": 0.286,
+   "mean": 0.2219,
+   "sd": 0.0399,
+   "n": 254,
+   "sd_true": 0.0363,
+   "noise_sd": 0.0166,
+   "noise": "binomial",
+   "min_sample": "team season, all",
+   "source": "PFR advanced passing game rows (times_pressured summed per team) over play-by-play dropbacks"
+  },
+  "rb_ryoe_per_att": {
+   "p5": -0.621,
+   "p50": 0.119,
+   "p95": 1.109,
+   "mean": 0.162,
+   "sd": 0.553,
+   "n": 375,
+   "sd_true": 0.332,
+   "noise_sd": 0.441,
+   "noise": "per carry, from game rows",
+   "min_sample": "RB, 100+ rushes (NGS season row)",
+   "source": "Next Gen Stats rushing"
+  },
+  "rb_yaco_per_att": {
+   "p5": 1.497,
+   "p50": 2.015,
+   "p95": 2.824,
+   "mean": 2.059,
+   "sd": 0.402,
+   "n": 375,
+   "sd_true": 0.263,
+   "noise_sd": 0.305,
+   "noise": "per carry, from game rows",
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_ybc_per_att": {
+   "p5": 1.528,
+   "p50": 2.276,
+   "p95": 3.168,
+   "mean": 2.302,
+   "sd": 0.511,
+   "n": 375,
+   "sd_true": 0.355,
+   "noise_sd": 0.368,
+   "noise": "per carry, from game rows",
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_brk_tkl_per_att": {
+   "p5": 0.0251,
+   "p50": 0.0669,
+   "p95": 0.1229,
+   "mean": 0.0691,
+   "sd": 0.0301,
+   "n": 375,
+   "sd_true": 0.0223,
+   "noise_sd": 0.0202,
+   "noise": "Poisson",
+   "min_sample": "RB, 100+ rushes (PFR)",
+   "source": "PFR advanced rushing, 2018-2025"
+  },
+  "rb_fumble_per_touch": {
+   "p5": 0.0,
+   "p50": 0.0069,
+   "p95": 0.0184,
+   "mean": 0.0075,
+   "sd": 0.006,
+   "n": 375,
+   "sd_true": 0.0,
+   "noise_sd": 0.0061,
+   "noise": "binomial",
+   "min_sample": "RB, 100+ designed rushes",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "rb_ypc": {
+   "p5": 3.43,
+   "p50": 4.363,
+   "p95": 5.407,
+   "mean": 4.361,
+   "sd": 0.623,
+   "n": 375,
+   "sd_true": 0.402,
+   "noise_sd": 0.477,
+   "noise": "per carry",
+   "min_sample": "RB, 100+ designed rushes",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (designed runs)"
+  },
+  "wr_catch_rate": {
+   "p5": 0.5,
+   "p50": 0.6364,
+   "p95": 0.7578,
+   "mean": 0.6325,
+   "sd": 0.0797,
+   "n": 792,
+   "sd_true": 0.0571,
+   "noise_sd": 0.0556,
+   "noise": "binomial",
+   "min_sample": "WR, 40+ targets",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "te_catch_rate": {
+   "p5": 0.5803,
+   "p50": 0.6949,
+   "p95": 0.8103,
+   "mean": 0.6956,
+   "sd": 0.0709,
+   "n": 286,
+   "sd_true": 0.0426,
+   "noise_sd": 0.0567,
+   "noise": "binomial",
+   "min_sample": "TE, 40+ targets",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "wr_drop_pct": {
+   "p5": 0.0073,
+   "p50": 0.0441,
+   "p95": 0.0947,
+   "mean": 0.0457,
+   "sd": 0.0262,
+   "n": 792,
+   "sd_true": 0.0097,
+   "noise_sd": 0.0244,
+   "noise": "binomial",
+   "min_sample": "WR, 40+ targets (PFR)",
+   "source": "PFR advanced receiving, 2018-2025 (drops / targets)"
+  },
+  "wr_yac_per_rec": {
+   "p5": 2.223,
+   "p50": 4.141,
+   "p95": 6.973,
+   "mean": 4.288,
+   "sd": 1.476,
+   "n": 792,
+   "sd_true": 1.148,
+   "noise_sd": 0.928,
+   "noise": "per catch",
+   "min_sample": "WR, 40+ targets (PFR)",
+   "source": "PFR advanced receiving, 2018-2025; noise from his play-by-play catches"
+  },
+  "wr_separation": {
+   "p5": 2.143,
+   "p50": 2.879,
+   "p95": 3.69,
+   "mean": 2.897,
+   "sd": 0.497,
+   "n": 742,
+   "sd_true": 0.418,
+   "noise_sd": 0.27,
+   "noise": "per target, from game rows",
+   "min_sample": "WR, 40+ targets (NGS season row)",
+   "source": "Next Gen Stats receiving, 2018-2025"
+  },
+  "te_separation": {
+   "p5": 2.468,
+   "p50": 3.277,
+   "p95": 4.16,
+   "mean": 3.284,
+   "sd": 0.487,
+   "n": 252,
+   "sd_true": 0.376,
+   "noise_sd": 0.309,
+   "noise": "per target, from game rows",
+   "min_sample": "TE, 40+ targets (NGS season row)",
+   "source": "Next Gen Stats receiving, 2018-2025"
+  },
+  "dt_prss_per_snap": {
+   "p5": 0.0033,
+   "p50": 0.0165,
+   "p95": 0.0392,
+   "mean": 0.0183,
+   "sd": 0.0117,
+   "n": 1113,
+   "sd_true": 0.0099,
+   "noise_sd": 0.0062,
+   "noise": "binomial",
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "dt_sack_per_snap": {
+   "p5": 0.0,
+   "p50": 0.0038,
+   "p95": 0.0126,
+   "mean": 0.0045,
+   "sd": 0.004,
+   "n": 1113,
+   "sd_true": 0.0025,
+   "noise_sd": 0.0031,
+   "noise": "binomial",
+   "min_sample": "DT, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_prss_per_snap": {
+   "p5": 0.0113,
+   "p50": 0.0321,
+   "p95": 0.057,
+   "mean": 0.0329,
+   "sd": 0.0136,
+   "n": 983,
+   "sd_true": 0.0109,
+   "noise_sd": 0.0082,
+   "noise": "binomial",
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_sack_per_snap": {
+   "p5": 0.0,
+   "p50": 0.0085,
+   "p95": 0.0184,
+   "mean": 0.0089,
+   "sd": 0.0053,
+   "n": 983,
+   "sd_true": 0.0031,
+   "noise_sd": 0.0043,
+   "noise": "binomial",
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_mtkl_pct": {
+   "p5": 0.0279,
+   "p50": 0.0808,
+   "p95": 0.1601,
+   "mean": 0.0863,
+   "sd": 0.0418,
+   "n": 793,
+   "sd_true": 0.0254,
+   "noise_sd": 0.0332,
+   "noise": "binomial",
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts (missed / (missed + combined))"
+  },
+  "lb_cmp_allowed": {
+   "p5": 0.6133,
+   "p50": 0.7429,
+   "p95": 0.8544,
+   "mean": 0.7403,
+   "sd": 0.073,
+   "n": 504,
+   "sd_true": 0.0395,
+   "noise_sd": 0.0615,
+   "noise": "binomial",
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_yds_per_tgt": {
+   "p5": 4.866,
+   "p50": 6.849,
+   "p95": 9.145,
+   "mean": 6.875,
+   "sd": 1.309,
+   "n": 504,
+   "sd_true": 0.58,
+   "noise_sd": 1.174,
+   "noise": "per target, from game rows",
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_mtkl_pct": {
+   "p5": 0.0264,
+   "p50": 0.1,
+   "p95": 0.1957,
+   "mean": 0.1047,
+   "sd": 0.0533,
+   "n": 1002,
+   "sd_true": 0.0259,
+   "noise_sd": 0.0466,
+   "noise": "binomial",
+   "min_sample": "CB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts (missed / (missed + combined))"
+  },
+  "cb_cmp_allowed": {
+   "p5": 0.4886,
+   "p50": 0.6154,
+   "p95": 0.7551,
+   "mean": 0.6175,
+   "sd": 0.0785,
+   "n": 856,
+   "sd_true": 0.0468,
+   "noise_sd": 0.0631,
+   "noise": "binomial",
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_yds_per_tgt": {
+   "p5": 5.24,
+   "p50": 7.324,
+   "p95": 9.693,
+   "mean": 7.413,
+   "sd": 1.434,
+   "n": 856,
+   "sd_true": 0.512,
+   "noise_sd": 1.34,
+   "noise": "per target, from game rows",
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "s_mtkl_pct": {
+   "p5": 0.0312,
+   "p50": 0.0895,
+   "p95": 0.172,
+   "mean": 0.0943,
+   "sd": 0.044,
+   "n": 916,
+   "sd_true": 0.0206,
+   "noise_sd": 0.0388,
+   "noise": "binomial",
+   "min_sample": "S, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts (missed / (missed + combined))"
+  },
+  "s_cmp_allowed": {
+   "p5": 0.5284,
+   "p50": 0.6584,
+   "p95": 0.7907,
+   "mean": 0.6567,
+   "sd": 0.0795,
+   "n": 586,
+   "sd_true": 0.0395,
+   "noise_sd": 0.069,
+   "noise": "binomial",
+   "min_sample": "S, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_int_per_tgt": {
+   "p5": 0.0,
+   "p50": 0.0161,
+   "p95": 0.0577,
+   "mean": 0.0189,
+   "sd": 0.02,
+   "n": 856,
+   "sd_true": 0.0101,
+   "noise_sd": 0.0173,
+   "noise": "binomial",
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "cb_pbu_per_tgt": {
+   "p5": 0.0312,
+   "p50": 0.096,
+   "p95": 0.1709,
+   "mean": 0.0986,
+   "sd": 0.0432,
+   "n": 856,
+   "sd_true": 0.0191,
+   "noise_sd": 0.0388,
+   "noise": "binomial",
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "play-by-play pass_defense_1/2 on incompletions over PFR targets"
+  },
+  "cb_rating_allowed": {
+   "p5": 62.05,
+   "p50": 91.15,
+   "p95": 124.12,
+   "mean": 91.7,
+   "sd": 18.59,
+   "n": 856,
+   "sd_true": 15.69,
+   "noise_sd": 9.97,
+   "noise": "per target, from game rows",
+   "min_sample": "CB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "s_ff_per_tkl": {
+   "p5": 0.0,
+   "p50": 0.0,
+   "p95": 0.0345,
+   "mean": 0.0086,
+   "sd": 0.0126,
+   "n": 895,
+   "sd_true": 0.0028,
+   "noise_sd": 0.0123,
+   "noise": "binomial",
+   "min_sample": "S, 200+ defense snaps and 20+ tackles",
+   "source": "play-by-play forced fumbles over play-by-play tackles"
+  },
+  "ol_holding_per_snap": {
+   "p5": 0.0,
+   "p50": 0.00178,
+   "p95": 0.00639,
+   "mean": 0.00214,
+   "sd": 0.00223,
+   "n": 1808,
+   "sd_true": 0.00107,
+   "noise_sd": 0.00196,
+   "noise": "Poisson",
+   "min_sample": "OT/IOL, 200+ offense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "ol_false_start_per_snap": {
+   "p5": 0.0,
+   "p50": 0.00182,
+   "p95": 0.00685,
+   "mean": 0.00225,
+   "sd": 0.00233,
+   "n": 1808,
+   "sd_true": 0.00112,
+   "noise_sd": 0.00204,
+   "noise": "Poisson",
+   "min_sample": "OT/IOL, 200+ offense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "dl_offside_per_snap": {
+   "p5": 0.0,
+   "p50": 0.0,
+   "p95": 0.00643,
+   "mean": 0.0017,
+   "sd": 0.00235,
+   "n": 2107,
+   "sd_true": 0.00133,
+   "noise_sd": 0.00194,
+   "noise": "Poisson",
+   "min_sample": "DT/EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts",
+   "def": "defensive offside, neutral zone infraction and encroachment"
+  },
+  "cb_dpi_per_snap": {
+   "p5": 0.0,
+   "p50": 0.00196,
+   "p95": 0.00642,
+   "mean": 0.00229,
+   "sd": 0.00223,
+   "n": 1006,
+   "sd_true": 0.00072,
+   "noise_sd": 0.00212,
+   "noise": "Poisson",
+   "min_sample": "CB, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "cb_holding_per_snap": {
+   "p5": 0.0,
+   "p50": 0.0,
+   "p95": 0.00462,
+   "mean": 0.00126,
+   "sd": 0.00174,
+   "n": 1006,
+   "sd_true": 0.00066,
+   "noise_sd": 0.00161,
+   "noise": "Poisson",
+   "min_sample": "CB, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "k_fg_pct_40_49": {
+   "p5": 0.5,
+   "p50": 0.8258,
+   "p95": 1.0,
+   "mean": 0.8068,
+   "sd": 0.143,
+   "n": 100,
+   "sd_true": 0.0925,
+   "noise_sd": 0.109,
+   "noise": "binomial",
+   "min_sample": "kicker season, 10+ attempts from 40-49 yards",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "k_fg_pct_50p": {
+   "p5": 0.3333,
+   "p50": 0.6667,
+   "p95": 0.9583,
+   "mean": 0.6632,
+   "sd": 0.1904,
+   "n": 171,
+   "sd_true": 0.0976,
+   "noise_sd": 0.1634,
+   "noise": "binomial",
+   "min_sample": "kicker season, 5+ attempts from 50+ yards",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "k_touchback_rate": {
+   "p5": 0.4028,
+   "p50": 0.6272,
+   "p95": 0.8163,
+   "mean": 0.6226,
+   "sd": 0.1361,
+   "n": 154,
+   "sd_true": 0.1246,
+   "noise_sd": 0.0547,
+   "noise": "binomial",
+   "min_sample": "kicker season, 40+ kickoffs (onside kicks left out), 2018-2022",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "k_touchback_rate_2024": {
+   "p5": 0.3481,
+   "p50": 0.7112,
+   "p95": 0.8432,
+   "mean": 0.6627,
+   "sd": 0.1675,
+   "n": 30,
+   "sd_true": 0.1594,
+   "noise_sd": 0.0514,
+   "noise": "binomial",
+   "min_sample": "kicker season, 40+ kickoffs (onside kicks left out), 2024",
+   "source": "nflverse play-by-play, regular seasons 2018-2025",
+   "note": "dynamic kickoff, touchback to the 30"
+  },
+  "k_touchback_rate_2025": {
+   "p5": 0.0878,
+   "p50": 0.1831,
+   "p95": 0.3182,
+   "mean": 0.2073,
+   "sd": 0.1209,
+   "n": 32,
+   "sd_true": 0.112,
+   "noise_sd": 0.0456,
+   "noise": "binomial",
+   "min_sample": "kicker season, 40+ kickoffs (onside kicks left out), 2025",
+   "source": "nflverse play-by-play, regular seasons 2018-2025",
+   "note": "dynamic kickoff, touchback to the 35"
+  },
+  "p_gross": {
+   "p5": 43.62,
+   "p50": 46.39,
+   "p95": 50.11,
+   "mean": 46.56,
+   "sd": 2.09,
+   "n": 246,
+   "sd_true": 1.74,
+   "noise_sd": 1.16,
+   "noise": "per punt",
+   "min_sample": "punter season, 40+ punts (blocked punts left out)",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "p_net": {
+   "p5": 38.02,
+   "p50": 41.45,
+   "p95": 44.53,
+   "mean": 41.35,
+   "sd": 1.9,
+   "n": 246,
+   "sd_true": 1.38,
+   "noise_sd": 1.3,
+   "noise": "per punt",
+   "min_sample": "punter season, 40+ punts (blocked punts left out)",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 (gross - return yards - 20 on a touchback)"
+  },
+  "p_inside20_rate": {
+   "p5": 0.2676,
+   "p50": 0.3851,
+   "p95": 0.5099,
+   "mean": 0.3858,
+   "sd": 0.0739,
+   "n": 246,
+   "sd_true": 0.0411,
+   "noise_sd": 0.0614,
+   "noise": "binomial",
+   "min_sample": "punter season, 40+ punts (blocked punts left out)",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "kr_avg": {
+   "p5": 19.5,
+   "p50": 23.87,
+   "p95": 29.77,
+   "mean": 24.16,
+   "sd": 3.25,
+   "n": 118,
+   "sd_true": 1.93,
+   "noise_sd": 2.61,
+   "noise": "per return",
+   "min_sample": "returner season, 15+ kickoff returns, 2018-2022",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "kr_avg_2024": {
+   "p5": 25.39,
+   "p50": 28.31,
+   "p95": 32.24,
+   "mean": 28.48,
+   "sd": 2.53,
+   "n": 17,
+   "sd_true": 0.0,
+   "noise_sd": 2.72,
+   "noise": "per return",
+   "min_sample": "returner season, 15+ kickoff returns, 2024",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "kr_avg_2025": {
+   "p5": 23.18,
+   "p50": 25.92,
+   "p95": 30.69,
+   "mean": 26.29,
+   "sd": 2.6,
+   "n": 58,
+   "sd_true": 1.75,
+   "noise_sd": 1.93,
+   "noise": "per return",
+   "min_sample": "returner season, 15+ kickoff returns, 2025",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "pr_avg": {
+   "p5": 6.18,
+   "p50": 9.47,
+   "p95": 14.9,
+   "mean": 9.99,
+   "sd": 2.77,
+   "n": 198,
+   "sd_true": 1.51,
+   "noise_sd": 2.32,
+   "noise": "per return",
+   "min_sample": "returner season, 15+ punt returns",
+   "source": "nflverse play-by-play, regular seasons 2018-2025"
+  },
+  "returner_muff_rate": {
+   "p5": 0.0,
+   "p50": 0.0235,
+   "p95": 0.0789,
+   "mean": 0.027,
+   "sd": 0.0283,
+   "n": 248,
+   "sd_true": 0.0,
+   "noise_sd": 0.0284,
+   "noise": "binomial",
+   "min_sample": "returner season, 20+ punts fielded (returned, fair caught or muffed)",
+   "source": "nflverse play-by-play, regular seasons 2018-2025 ('MUFFS' in the play text on punts)"
+  }
+ },
+ "deltas": {
+  "k_late_close": {
+   "def": "FG make rate in the 4th quarter or overtime with the score within 8, against every other attempt",
+   "bands": {
+    "30-39": {
+     "late_close": {
+      "att": 397,
+      "pct": 0.9244,
+      "mean_dist": 34.78
+     },
+     "rest": {
+      "att": 1926,
+      "pct": 0.9335,
+      "mean_dist": 34.6
+     },
+     "diff": {
+      "b": -0.0091,
+      "lo": -0.0374,
+      "hi": 0.0192
+     },
+     "diff_same_distance": {
+      "b": -0.0084,
+      "lo": -0.0344,
+      "hi": 0.0176
+     }
+    },
+    "40-49": {
+     "late_close": {
+      "att": 406,
+      "pct": 0.7685,
+      "mean_dist": 44.61
+     },
+     "rest": {
+      "att": 2016,
+      "pct": 0.7867,
+      "mean_dist": 44.47
+     },
+     "diff": {
+      "b": -0.0182,
+      "lo": -0.063,
+      "hi": 0.0265
+     },
+     "diff_same_distance": {
+      "b": -0.0136,
+      "lo": -0.0546,
+      "hi": 0.0275
+     }
+    },
+    "50+": {
+     "late_close": {
+      "att": 313,
+      "pct": 0.6422,
+      "mean_dist": 54.08
+     },
+     "rest": {
+      "att": 1333,
+      "pct": 0.6722,
+      "mean_dist": 53.67
+     },
+     "diff": {
+      "b": -0.03,
+      "lo": -0.0888,
+      "hi": 0.0288
+     },
+     "diff_same_distance": {
+      "b": -0.0211,
+      "lo": -0.0742,
+      "hi": 0.032
+     }
+    }
+   },
+   "source": "nflverse play-by-play, regular seasons 2018-2025",
+   "note": "diff_same_distance compares each late kick with the rest's rate at the same yard line"
+  },
+  "home_road_false_start": {
+   "def": "OL false starts a snap at home against on the road (OL offense snaps from the snap counts, home from the game id)",
+   "OL": {
+    "home": {
+     "flags": 1487,
+     "snaps": 710099,
+     "rate": 0.00209
+    },
+    "road": {
+     "flags": 1559,
+     "snaps": 702112,
+     "rate": 0.00222
+    },
+    "diff_home_minus_road": {
+     "b": -0.00013,
+     "lo": -0.00028,
+     "hi": 3e-05
+    },
+    "ratio_road_to_home": 1.06
+   },
+   "OL_without_2020": {
+    "home": {
+     "flags": 1353,
+     "snaps": 624908,
+     "rate": 0.00217
+    },
+    "road": {
+     "flags": 1403,
+     "snaps": 614519,
+     "rate": 0.00228
+    },
+    "diff_home_minus_road": {
+     "b": -0.00012,
+     "lo": -0.00028,
+     "hi": 5e-05
+    },
+    "ratio_road_to_home": 1.054
+   },
+   "OT": {
+    "home": {
+     "flags": 753,
+     "snaps": 277434,
+     "rate": 0.00271
+    },
+    "road": {
+     "flags": 898,
+     "snaps": 273161,
+     "rate": 0.00329
+    },
+    "diff_home_minus_road": {
+     "b": -0.00057,
+     "lo": -0.00086,
+     "hi": -0.00028
+    },
+    "ratio_road_to_home": 1.211
+   },
+   "IOL": {
+    "home": {
+     "flags": 734,
+     "snaps": 432665,
+     "rate": 0.0017
+    },
+    "road": {
+     "flags": 661,
+     "snaps": 428951,
+     "rate": 0.00154
+    },
+    "diff_home_minus_road": {
+     "b": 0.00016,
+     "lo": -1e-05,
+     "hi": 0.00033
+    },
+    "ratio_road_to_home": 0.908
+   },
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts",
+   "note": "tackles false start more on the road, interior linemen (centers most) more at home; 2020 had few or no crowds"
+  }
+ },
+ "means": {
+  "qb_scramble_rate": 0.046,
+  "qb_adot": 7.89,
+  "qb_deep_share": 0.1163,
+  "qb_int_rate": 0.0219,
+  "qb_sack_rate": 0.0625,
+  "qb_cpoe": 0.22,
+  "qb_ttt": 2.785,
+  "qb_sacks_per_pressure": 0.2826,
+  "qb_throwaway_rate": 0.0362,
+  "qb_bad_throw_pct": 0.1642,
+  "qb_pa_ypa": 8.47,
+  "team_sack_rate": 0.0636,
+  "team_pressure_rate": 0.2216,
+  "rb_ryoe_per_att": 0.204,
+  "rb_yaco_per_att": 2.076,
+  "rb_ybc_per_att": 2.315,
+  "rb_brk_tkl_per_att": 0.0703,
+  "rb_fumble_per_touch": 0.0076,
+  "rb_ypc": 4.392,
+  "wr_catch_rate": 0.6389,
+  "te_catch_rate": 0.6965,
+  "wr_drop_pct": 0.0446,
+  "wr_yac_per_rec": 4.35,
+  "wr_separation": 2.886,
+  "te_separation": 3.266,
+  "dt_prss_per_snap": 0.0202,
+  "dt_sack_per_snap": 0.005,
+  "edge_prss_per_snap": 0.0344,
+  "edge_sack_per_snap": 0.0094,
+  "lb_mtkl_pct": 0.0842,
+  "lb_cmp_allowed": 0.7403,
+  "lb_yds_per_tgt": 6.851,
+  "cb_mtkl_pct": 0.1048,
+  "cb_cmp_allowed": 0.6129,
+  "cb_yds_per_tgt": 7.342,
+  "s_mtkl_pct": 0.0928,
+  "s_cmp_allowed": 0.6558,
+  "cb_int_per_tgt": 0.0199,
+  "cb_pbu_per_tgt": 0.0993,
+  "cb_rating_allowed": 90.59,
+  "s_ff_per_tkl": 0.0088,
+  "ol_holding_per_snap": 0.00207,
+  "ol_false_start_per_snap": 0.00211,
+  "dl_offside_per_snap": 0.00177,
+  "cb_dpi_per_snap": 0.00232,
+  "cb_holding_per_snap": 0.00123,
+  "k_fg_pct_40_49": 0.7836,
+  "k_fg_pct_50p": 0.6665,
+  "k_touchback_rate": 0.613,
+  "k_touchback_rate_2024": 0.6549,
+  "k_touchback_rate_2025": 0.2108,
+  "p_gross": 46.47,
+  "p_net": 41.26,
+  "p_inside20_rate": 0.3814,
+  "kr_avg": 22.57,
+  "kr_avg_2024": 27.57,
+  "kr_avg_2025": 25.95,
+  "pr_avg": 9.49,
+  "returner_muff_rate": 0.0336
+ },
+ "gaps": [
+  "No free file has contested catches by defender or by receiver at the catch point (PFF and Sports Info Solutions are paid).",
+  "No free file has pressures or sacks allowed per blocker, so offensive line body slopes are not possible; only team pressure and sack rates.",
+  "Arm length, hand size, wingspan and the 10-yard split are not in the nflverse combine file; they come from MockDraftable (mockdraftable.py reads its site API: combine numbers first, pro day numbers where the combine has none; splits from the combine only), linked by name and draft class, and a name that appears twice in one class is left out (see arms.link for the counts).",
+  "10-yard splits were timed at the combine for only part of each class (the electronic split is not listed for every runner), so the split slopes rest on fewer players than the forty's.",
+  "Offensive tackle arm length against pressures allowed needs per-blocker pressures, which no free file has.",
+  "Forty and cone are combine runs only (no pro days), so players who skipped a drill drop out of that slope; the fastest and the top picks skip more often.",
+  "Combine weight is the weight at the combine; later playing weight is not tracked per season. Players with no combine row use players.csv height and weight (their current listing).",
+  "Position groups come from PFF's position in players.csv (ED is EDGE, DI is DT), else NGS, else the roster position (OLB without a PFF or NGS label counts as LB). One group per career.",
+  "Pressures and sacks are per defense snap, not per pass-rush snap: free files have no pass-rush snap count.",
+  "Play action comes from PFR passing for 2019-2023 only; the play-by-play has no play-action column.",
+  "Penalties count only the first flag on a play, as the play-by-play names it.",
+  "Tackles, forced fumbles and breakups come from the play-by-play's official stat columns; missed tackles and targets in coverage are PFR charting.",
+  "Separation and cushion are Next Gen Stats season rows, which list only receivers with enough targets; per-route separation is not free.",
+  "sd_true from game rows treats game-to-game changes in a player's true level as noise too, so it is a floor."
+ ]
+}

@@ -81,6 +81,19 @@ pub fn roster_counts(level: Level) -> [(Position, usize); POSITION_COUNT] {
 /// A synthetic team. `quality` shifts every player's rating (a good team +3,
 /// a bad one -3).
 pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme, seed: u32) -> GameTeam {
+    synthetic_team_people(name, level, quality, scheme, seed).0
+}
+
+/// A synthetic team with its players as people (trial tooling: a check that
+/// changes a body needs his whole body, not only what the game reads). The
+/// team is the same as `synthetic_team`'s.
+pub fn synthetic_team_people(
+    name: &str,
+    level: Level,
+    quality: f64,
+    scheme: OffScheme,
+    seed: u32,
+) -> (GameTeam, Vec<crate::player::Player>) {
     let mut rng = Rng::new(seed);
     // The long snapper draws from his own stream, so the rest of the team
     // is the same as before he was added.
@@ -154,7 +167,7 @@ fn finish_team(
     rng: &mut Rng,
     seed: u32,
     scheme: OffScheme,
-) -> GameTeam {
+) -> (GameTeam, Vec<crate::player::Player>) {
     let spots = crate::spots::choose_spots(&raw.iter().map(|r| &r.0).collect::<Vec<_>>());
     for (r, s) in raw.iter_mut().zip(spots) {
         crate::spots::set_spot(&mut r.0, s);
@@ -208,7 +221,7 @@ fn finish_team(
         staff.shell,
         staff.defense.aggressiveness,
     );
-    GameTeam::new(name.to_string(), players, staff)
+    (GameTeam::new(name.to_string(), players, staff), raw.into_iter().map(|r| r.0).collect())
 }
 
 /// A player read from a world trial's export (`tools/rosters/`): his
@@ -240,11 +253,16 @@ pub fn team_from_ratings(name: &str, level: Level, list: &[RatedPlayer], scheme:
         p.tend.was = rp.tend.map(|x| x as f32);
         raw.push((p, 0.86, 1.0 + (k % 3) as f64));
     }
-    finish_team(name, level, raw, &mut rng, seed, scheme)
+    finish_team(name, level, raw, &mut rng, seed, scheme).0
 }
 
 /// A league's worth of synthetic teams with a spread of quality and schemes.
 pub fn synthetic_league(level: Level, n: usize, seed: u32) -> Vec<GameTeam> {
+    synthetic_league_people(level, n, seed).into_iter().map(|t| t.0).collect()
+}
+
+/// The same league with each team's players as people (trial tooling).
+pub fn synthetic_league_people(level: Level, n: usize, seed: u32) -> Vec<(GameTeam, Vec<crate::player::Player>)> {
     let mut rng = Rng::new(seed ^ 0xA5A5);
     let schemes: &[OffScheme] = match level {
         Level::HS => {
@@ -269,7 +287,7 @@ pub fn synthetic_league(level: Level, n: usize, seed: u32) -> Vec<GameTeam> {
             // games). A team's quality spreads 6 points there (A7).
             let q = rng.normal(0.0, if level == Level::HS { 6.0 } else { 2.5 });
             let s = *rng.pick(schemes);
-            synthetic_team(&format!("Team {}", k + 1), level, q, s, seed.wrapping_add(k as u32 * 7919))
+            synthetic_team_people(&format!("Team {}", k + 1), level, q, s, seed.wrapping_add(k as u32 * 7919))
         })
         .collect()
 }
