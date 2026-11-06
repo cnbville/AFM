@@ -69,6 +69,11 @@ pub const QUICK_MIN: f32 = 20.0;
 /// 2026-11-05).
 pub const EYE_SETTLED: f64 = 0.5;
 pub const EYE_FRESH: f64 = 0.05;
+/// A snap studied on the full tape (Cain 2026-11-06: "it should obviously
+/// reward more than 20 minutes since it uses more hours"): four minutes on
+/// it against a quick skim's under two, so each trait's clear chance gains
+/// 10 points. The quick watch and the stands stay as they were.
+pub const EYE_STUDIED: f64 = 0.10;
 
 /// Your tags (SK44).
 pub const TAGS: [&str; 4] = ["Plus", "Minus", "Ask him about this", "Show the staff"];
@@ -777,7 +782,8 @@ fn resolve(w: &mut World, s: &mut Session) {
         let p_clear = clamp(
             0.30 + 0.035 * (e - 10.0) - 0.40 * subtle
                 + if on_q { 0.12 } else { 0.0 }
-                + if fresh { EYE_FRESH } else { 0.0 },
+                + if fresh { EYE_FRESH } else { 0.0 }
+                + if s.mode == Mode::Full { EYE_STUDIED } else { 0.0 },
             0.04,
             0.95,
         ) * (1.0 - 0.5 * t)
