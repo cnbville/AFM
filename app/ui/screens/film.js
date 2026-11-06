@@ -28,6 +28,7 @@ GOTO.film = () => (scSeat() === "nfl"
     ? [["Recruit board", "recruitboard"], ["Evaluation", "evaluate"], ["Game day", "gameday"]]
     : [["Evaluation", "evaluate"], ["Squad", "roster"], ["Game day", "gameday"]]);
 
+const frMode = (m) => (m === "quick" ? "quick" : "full");
 const frBtn = (act, data, html, cls = "") => `<button class="st-btn small ${cls || "glass"}" data-act="${act}" ${Object.entries(data).map(([k, v]) => `data-${k}="${esc(String(v))}"`).join(" ")}>${html}</button>`;
 // What your eye caught, one note a trait (Cain 2026-11-04: repeats build
 // up to something): what it came to, the line behind it, the downs, and
@@ -149,8 +150,8 @@ function frBrief(b) {
     <div class="fm-cols"><div class="fm-main">
       ${frCard("The question to settle", `<div class="fm-big">${esc(q ? q.text : "What does his tape say?")}</div><p class="fm-dim">${esc(q ? q.why : "")}</p><div class="fm-seg wrap">${qs}</div>`)}
       ${frCard(`The cut-up · about ${mins} min`, `<div class="fm-seg wrap">${cuts}</div>
-        <p class="fm-dim">Six of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end.</p>
-        <div class="fm-seg">${frBtn("fropen", { id: b.id, mode: "full" }, "Watch it snap by snap", "primary")}${frBtn("fropen", { id: b.id, mode: "quick" }, `Watch it quick · ${b.quick_min} min`)}<button class="st-btn small glass" data-go="film">Back to the queue</button></div>`)}
+        <p class="fm-dim">Six of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end.${b.full_through ? ` The full tape plays straight through with your coach in the room: no stops to call a snap, a half-seen moment run back while your hours last (${b.runback_min} min each), then your verdict. The quick watch is twice the snaps, a first look only, with no coach.` : ""}</p>
+        <div class="fm-seg">${frBtn("fropen", { id: b.id, mode: "full" }, b.full_through ? `▶ Watch the full tape · about ${mins} min` : "Watch it snap by snap", "primary")}${frBtn("fropen", { id: b.id, mode: "quick" }, `Watch it quick · ${b.quick_min} min`)}<button class="st-btn small glass" data-go="film">Back to the queue</button></div>`)}
     </div><div class="fm-side">${frReads(b.reads, null)}</div></div></div>`;
 }
 
@@ -344,7 +345,7 @@ function frReport(x) {
     ${r.notes && r.notes.length ? frCard("What your eye caught", fmTraits(r)) : r.caught.length ? frCard("What your eye caught", r.caught.map((c) => `<div class="fm-tile">${esc(c)}</div>`).join("")) : ""}
     ${r.hints.length ? frCard("Into the game plan", `<p class="fm-dim">${r.hints.length} hint${r.hints.length === 1 ? "" : "s"} went into your plan. See game day.</p>`) : ""}
     ${kept}
-    <div class="fm-seg">${r.id != null ? `${frBtn("fragain", { id: r.id, cut: r.cut, ask: r.ask_key || "" }, "▶ Watch again", "primary")}<button class="st-btn small glass" data-go="film" data-id="${r.id}">Other cut-ups</button>` : ""}<button class="st-btn small glass" data-go="film">Back to the film room</button>${r.id != null ? `<button class="st-btn small glass" data-go="scout" data-id="${r.id}">His file</button>` : ""}</div></div>`;
+    <div class="fm-seg">${r.id != null ? `${frBtn("fragain", { id: r.id, cut: r.cut, ask: r.ask_key || "", mode: frMode(r.mode) }, frMode(r.mode) === "quick" ? `▶ Watch again quick${r.mode === "quick" ? ` · ${r.minutes} min` : ""}` : "▶ Watch again", "primary")}<button class="st-btn small glass" data-go="film" data-id="${r.id}">Other cut-ups</button>` : ""}<button class="st-btn small glass" data-go="film">Back to the film room</button>${r.id != null ? `<button class="st-btn small glass" data-go="scout" data-id="${r.id}">His file</button>` : ""}</div></div>`;
 }
 
 // ---------- being there ----------
@@ -435,12 +436,16 @@ Object.assign(CORE_MORE, {
   fropen: (el) => {
     const id = Number(el.dataset.id);
     const k = keep("frq:" + id, {});
-    frDo(el, "film_open", { id, mode: el.dataset.mode, cut: k.cut, ask: k.q }, () => go("film", el.dataset.mode === "quick" ? { report: "last" } : { id }));
+    const mode = frMode(el.dataset.mode);
+    frDo(el, "film_open", { id, mode, cut: k.cut, ask: k.q }, (r) => go("film", mode === "quick" || !r.open ? { report: "last" } : { id }));
   },
-  // From his report: the same cut-up again, straight in (Cain 2026-11-04).
+  // From his report: the same session again, straight in (Cain 2026-11-04):
+  // the same cut-up, question and length, so a quick watch repeats quick
+  // (Cain 2026-11-06).
   fragain: (el) => {
     const id = Number(el.dataset.id);
-    frDo(el, "film_open", { id, mode: "full", cut: el.dataset.cut, ask: el.dataset.ask || undefined }, () => go("film", { id }));
+    const mode = frMode(el.dataset.mode);
+    frDo(el, "film_open", { id, mode, cut: el.dataset.cut, ask: el.dataset.ask || undefined }, (r) => go("film", mode === "quick" || !r.open ? { report: "last" } : { id }));
   },
   fropp: (el) => frDo(el, "film_opp", { date: Number(el.dataset.date), home: Number(el.dataset.home), away: Number(el.dataset.away), mode: el.dataset.mode }, (r) => go("film", r.open ? {} : { report: "last" })),
   frplay: (el) => frDo(el, "film_snap", {}),
