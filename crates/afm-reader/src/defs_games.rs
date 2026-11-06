@@ -597,7 +597,8 @@ pub const CHECKS: &[Check] = &[
         areas: "G7 G20",
         title: r#"Longest high school winning streak"#,
         unit: "games",
-        world: r#"SELECT MAX(_0) FROM stats__hs_streak"#,
+        world: r#"SELECT MAX(v) FROM (SELECT MAX(_0) AS v FROM stats__hs_streak UNION ALL SELECT MAX(_0__value) FROM stats__books
+                 WHERE json_extract(_key, '$[0].State') IS NOT NULL AND json_extract(_key, '$[1]') = 'WinStreak')"#,
         scale: 1.0,
         years: None,
         detail: None,
@@ -1559,7 +1560,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extract(b._key, '$[0].Conference') AS conf, json_extract(b._key, '$[0].State') AS state,
                  COALESCE(json_extract(b._key, '$[1].Season'), json_extract(b._key, '$[1].Career'), json_extract(b._key, '$[1].Streak')) AS stat,
                  CASE WHEN json_extract(b._key, '$[1].Season') IS NOT NULL THEN 'Season' WHEN json_extract(b._key, '$[1].Career') IS NOT NULL THEN 'Career'
-                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' ELSE 'Win streak' END AS book, b.*
+                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' WHEN json_extract(b._key, '$[1]') = 'WinStreak' THEN 'Win streak' ELSE 'Other' END AS book, b.*
             FROM stats__books b) SELECT _0__value FROM bk WHERE div = 'FBS' AND book = 'Season' AND stat = 0"#,
         scale: 1.0,
         years: None,
@@ -1581,7 +1582,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extract(b._key, '$[0].Conference') AS conf, json_extract(b._key, '$[0].State') AS state,
                  COALESCE(json_extract(b._key, '$[1].Season'), json_extract(b._key, '$[1].Career'), json_extract(b._key, '$[1].Streak')) AS stat,
                  CASE WHEN json_extract(b._key, '$[1].Season') IS NOT NULL THEN 'Season' WHEN json_extract(b._key, '$[1].Career') IS NOT NULL THEN 'Career'
-                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' ELSE 'Win streak' END AS book, b.*
+                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' WHEN json_extract(b._key, '$[1]') = 'WinStreak' THEN 'Win streak' ELSE 'Other' END AS book, b.*
             FROM stats__books b) SELECT _0__value FROM bk WHERE div = 'FBS' AND book = 'Season' AND stat = 1"#,
         scale: 1.0,
         years: None,
@@ -1603,7 +1604,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extract(b._key, '$[0].Conference') AS conf, json_extract(b._key, '$[0].State') AS state,
                  COALESCE(json_extract(b._key, '$[1].Season'), json_extract(b._key, '$[1].Career'), json_extract(b._key, '$[1].Streak')) AS stat,
                  CASE WHEN json_extract(b._key, '$[1].Season') IS NOT NULL THEN 'Season' WHEN json_extract(b._key, '$[1].Career') IS NOT NULL THEN 'Career'
-                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' ELSE 'Win streak' END AS book, b.*
+                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' WHEN json_extract(b._key, '$[1]') = 'WinStreak' THEN 'Win streak' ELSE 'Other' END AS book, b.*
             FROM stats__books b) SELECT _0__value FROM bk WHERE div = 'FBS' AND book = 'Season' AND stat = 2"#,
         scale: 1.0,
         years: None,
@@ -1625,7 +1626,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extract(b._key, '$[0].Conference') AS conf, json_extract(b._key, '$[0].State') AS state,
                  COALESCE(json_extract(b._key, '$[1].Season'), json_extract(b._key, '$[1].Career'), json_extract(b._key, '$[1].Streak')) AS stat,
                  CASE WHEN json_extract(b._key, '$[1].Season') IS NOT NULL THEN 'Season' WHEN json_extract(b._key, '$[1].Career') IS NOT NULL THEN 'Career'
-                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' ELSE 'Win streak' END AS book, b.*
+                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' WHEN json_extract(b._key, '$[1]') = 'WinStreak' THEN 'Win streak' ELSE 'Other' END AS book, b.*
             FROM stats__books b) SELECT _0__value FROM bk WHERE div = 'FBS' AND book = 'Season' AND stat = 5"#,
         scale: 1.0,
         years: None,
@@ -1647,7 +1648,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extract(b._key, '$[0].Conference') AS conf, json_extract(b._key, '$[0].State') AS state,
                  COALESCE(json_extract(b._key, '$[1].Season'), json_extract(b._key, '$[1].Career'), json_extract(b._key, '$[1].Streak')) AS stat,
                  CASE WHEN json_extract(b._key, '$[1].Season') IS NOT NULL THEN 'Season' WHEN json_extract(b._key, '$[1].Career') IS NOT NULL THEN 'Career'
-                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' ELSE 'Win streak' END AS book, b.*
+                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' WHEN json_extract(b._key, '$[1]') = 'WinStreak' THEN 'Win streak' ELSE 'Other' END AS book, b.*
             FROM stats__books b) SELECT _0__value FROM bk WHERE div = 'FBS' AND book = 'Season' AND stat = 8"#,
         scale: 1.0,
         years: None,
@@ -1669,7 +1670,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extract(b._key, '$[0].Conference') AS conf, json_extract(b._key, '$[0].State') AS state,
                  COALESCE(json_extract(b._key, '$[1].Season'), json_extract(b._key, '$[1].Career'), json_extract(b._key, '$[1].Streak')) AS stat,
                  CASE WHEN json_extract(b._key, '$[1].Season') IS NOT NULL THEN 'Season' WHEN json_extract(b._key, '$[1].Career') IS NOT NULL THEN 'Career'
-                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' ELSE 'Win streak' END AS book, b.*
+                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' WHEN json_extract(b._key, '$[1]') = 'WinStreak' THEN 'Win streak' ELSE 'Other' END AS book, b.*
             FROM stats__books b) SELECT _0__value FROM bk WHERE div = 'FBS' AND book = 'Season' AND stat = 9"#,
         scale: 1.0,
         years: None,
@@ -1688,7 +1689,7 @@ pub const CHECKS: &[Check] = &[
         world: r#"WITH bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extract(b._key, '$[0].Conference') AS conf, json_extract(b._key, '$[0].State') AS state,
                  COALESCE(json_extract(b._key, '$[1].Season'), json_extract(b._key, '$[1].Career'), json_extract(b._key, '$[1].Streak')) AS stat,
                  CASE WHEN json_extract(b._key, '$[1].Season') IS NOT NULL THEN 'Season' WHEN json_extract(b._key, '$[1].Career') IS NOT NULL THEN 'Career'
-                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' ELSE 'Win streak' END AS book, b.*
+                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' WHEN json_extract(b._key, '$[1]') = 'WinStreak' THEN 'Win streak' ELSE 'Other' END AS book, b.*
             FROM stats__books b) SELECT MAX(_0__value) FROM bk WHERE div = 'FBS' AND book = 'Win streak'"#,
         scale: 1.0,
         years: None,
@@ -1704,7 +1705,8 @@ pub const CHECKS: &[Check] = &[
         areas: "G20",
         title: r#"Longest high school winning streak"#,
         unit: "games",
-        world: r#"SELECT MAX(_0) FROM stats__hs_streak"#,
+        world: r#"SELECT MAX(v) FROM (SELECT MAX(_0) AS v FROM stats__hs_streak UNION ALL SELECT MAX(_0__value) FROM stats__books
+                 WHERE json_extract(_key, '$[0].State') IS NOT NULL AND json_extract(_key, '$[1]') = 'WinStreak')"#,
         scale: 1.0,
         years: None,
         detail: None,
@@ -3788,7 +3790,7 @@ pub const PANELS: &[Panel] = &[
         sql: r#"WITH bk AS (SELECT json_extract(b._key, '$[0].Division') AS div, json_extract(b._key, '$[0].Conference') AS conf, json_extract(b._key, '$[0].State') AS state,
                  COALESCE(json_extract(b._key, '$[1].Season'), json_extract(b._key, '$[1].Career'), json_extract(b._key, '$[1].Streak')) AS stat,
                  CASE WHEN json_extract(b._key, '$[1].Season') IS NOT NULL THEN 'Season' WHEN json_extract(b._key, '$[1].Career') IS NOT NULL THEN 'Career'
-                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' ELSE 'Win streak' END AS book, b.*
+                      WHEN json_extract(b._key, '$[1].Streak') IS NOT NULL THEN 'Streak' WHEN json_extract(b._key, '$[1]') = 'WinStreak' THEN 'Win streak' ELSE 'Other' END AS book, b.*
             FROM stats__books b), r(stat, real) AS (VALUES (0, 5967), (1, 62), (2, 2628), (5, 2060), (8, 24), (9, 14))
      SELECT COALESCE(bk.div, bk.conf, (SELECT code FROM states WHERE _row = bk.state)) AS scope, CASE WHEN bk.div IS NOT NULL THEN 'division' WHEN bk.conf IS NOT NULL THEN 'conference' ELSE 'state' END AS kind,
             bk.book, CASE WHEN bk.book = 'Streak' THEN (CASE bk.stat WHEN 0 THEN 'games with a TD pass' WHEN 1 THEN '100-yard rushing games' WHEN 2 THEN 'games with a catch' ELSE 'streak ' || bk.stat END) WHEN bk.book = 'Win streak' THEN 'straight wins' ELSE (CASE bk.stat WHEN 0 THEN 'passing yards' WHEN 1 THEN 'passing TDs' WHEN 2 THEN 'rushing yards' WHEN 3 THEN 'rushing TDs' WHEN 4 THEN 'receptions' WHEN 5 THEN 'receiving yards' WHEN 6 THEN 'receiving TDs' WHEN 7 THEN 'tackles' WHEN 8 THEN 'sacks' WHEN 9 THEN 'interceptions' WHEN 10 THEN 'tackles for loss' WHEN 11 THEN 'field goals' WHEN 12 THEN 'return TDs' ELSE 'stat ' || bk.stat END) END AS stat,
