@@ -725,9 +725,9 @@ mod tests {
                     let (a, b) = range.trim_start_matches("bytes=").split_once('-').unwrap();
                     let (a, b): (usize, usize) = (a.parse().unwrap(), b.parse().unwrap());
                     let mut part = body[a..=b].to_vec();
-                    let piece_start = a > 0 && a as u64 % piece == 0;
+                    let piece_start = a > 0 && (a as u64).is_multiple_of(piece);
                     if piece_start && seen.lock().unwrap().insert((i, a)) {
-                        if (a as u64 / piece) % 2 == 0 {
+                        if (a as u64 / piece).is_multiple_of(2) {
                             let _ = req.respond(tiny_http::Response::empty(500));
                             return;
                         }
