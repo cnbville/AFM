@@ -105,6 +105,7 @@ pub fn fingerprint(w: &afm_engine::world::World) -> u64 {
     h.finish()
 }
 
+pub mod ab;
 pub mod dashboard;
 pub mod raw;
 pub mod stats;

@@ -82,7 +82,7 @@ jobs:
       # a world goes in the skips here and runs in full-tests.yml.
       - name: Quick tests
         run: >-
-          cargo test --workspace --lib --test national_class --test match_engine --
+          cargo test --workspace --lib --test national_class --test match_engine --test ab_direction --
           --skip tests::world_log::
           --skip tests::tallies::
           --skip tests::split_build::
