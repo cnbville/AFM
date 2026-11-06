@@ -1625,3 +1625,4 @@ Every career writes the world log beside its save (`name.afmlog` next to `name.a
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
 - Season records keep 8-byte values (an exact-size list of 136-byte rows since the final build); making the values 4-byte would move results per seed, so it waits for a build that may move them.
 - Engine stats: a throwaway is no longer a target for any receiver, and a sack with no rusher on the quarterback (he went down to a tackle) goes to the tackler, so the box score's sacks match the play by play.
+<!-- CI fast path test (throwaway, never merged) -->
