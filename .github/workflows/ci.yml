@@ -41,6 +41,7 @@ jobs:
           cargo test --workspace --lib --test national_class --test match_engine --
           --skip tests::world_log::
           --skip tests::tallies::
+          --skip tests::split_build::
           --skip lane_find::tests::
           --skip lane_logos::tests::your_own_logo_wins_and_stays_with_the_save
       - run: cargo test --workspace --doc

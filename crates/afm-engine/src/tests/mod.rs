@@ -39,6 +39,7 @@ mod ratings;
 mod save;
 mod schedule;
 mod scouting;
+mod split_build;
 mod stories;
 mod storylines;
 mod tactics;

@@ -1203,8 +1203,19 @@ impl World {
         options: WorldOptions,
         log: Option<wlog::WorldLog>,
         tallies: Option<&std::path::Path>,
-        mut each: impl FnMut(&World, f64) -> bool,
+        each: impl FnMut(&World, f64) -> bool,
     ) -> Option<World> {
+        let mut w = World::begin_recorded(options, log, tallies);
+        w.play_history(each).then_some(w)
+    }
+
+    /// The world before its history plays (`play_history`), with its log
+    /// and tallies attached as in `new_recorded`.
+    pub fn begin_recorded(
+        options: WorldOptions,
+        log: Option<wlog::WorldLog>,
+        tallies: Option<&std::path::Path>,
+    ) -> World {
         let mut w = World::empty(options);
         if let Some(log) = log {
             w.attach_log(log);
@@ -1223,24 +1234,40 @@ impl World {
         // recruited with them (minor bug 131: a short world's draft classes
         // were all recruited blind, and too many went to FCS).
         program::seed_pipelines(&mut w);
-        for _ in 0..SPIN_UP_YEARS {
+        w
+    }
+
+    /// Seasons the history still has to play before `options.start_year`:
+    /// the spin-up's, then the recorded ones. 0 once the world is built.
+    pub fn history_left(&self) -> u32 {
+        (self.options.start_year - self.year).max(0) as u32
+    }
+
+    /// Plays the history's seasons left, calling `each` after each one:
+    /// true once the history is done, false when `each` stopped it. A world
+    /// stopped between seasons and written to a file (`save::write_world`)
+    /// carries on from that file where it stopped, the same as if it never
+    /// stopped: the world build runs over two GitHub jobs this way (NB13).
+    pub fn play_history(&mut self, mut each: impl FnMut(&World, f64) -> bool) -> bool {
+        let recorded_from = self.first_year() + SPIN_UP_YEARS as i32;
+        while self.year < self.options.start_year {
+            if !self.recording && self.year >= recorded_from {
+                self.start_recording();
+            }
             let t = std::time::Instant::now();
-            w.advance_year();
-            if !each(&w, t.elapsed().as_secs_f64()) {
-                return None;
+            // The last history season keeps every team's last tapes.
+            self.world_tapes = self.recording && self.year + 1 == self.options.start_year;
+            self.advance_year();
+            self.world_tapes = false;
+            if !each(self, t.elapsed().as_secs_f64()) {
+                return false;
             }
         }
-        w.start_recording();
-        for k in 0..w.options.history_years {
-            let t = std::time::Instant::now();
-            w.world_tapes = k + 1 == w.options.history_years;
-            w.advance_year();
-            w.world_tapes = false;
-            if !each(&w, t.elapsed().as_secs_f64()) {
-                return None;
-            }
+        // A world with no recorded years still ends its spin-up recording.
+        if !self.recording {
+            self.start_recording();
         }
-        Some(w)
+        true
     }
 
     /// The spin-up is over: recorded history starts.

@@ -2,22 +2,45 @@
 //! button does: `afm_world <seed> <years> <folder> [scale]`. The "Build a
 //! world" workflow runs it to publish worlds on the worlds page; a scale
 //! under 1 makes a smaller world for checks.
+//!
+//! With `AFM_PAUSE_AFTER=<minutes>` (over 0, and the world log off) the build stops
+//! at the first season's end after that many minutes and writes the world
+//! so far as `name.afmworld.half`, beside its tallies so far
+//! (`name.afmdata.part`); `afm_world resume <folder>/name.afmworld.half`
+//! carries it on, on this machine or another, and pauses the same way
+//! (NB13: a GitHub job may run six hours, and a 30-year world runs more).
+//! The seasons come out as in a build that never paused.
 
 use std::time::Instant;
 
+use afm_game::jobs::{self, Part};
+
 fn main() {
     let a: Vec<String> = std::env::args().collect();
-    let seed = a.get(1).and_then(|s| s.parse().ok()).unwrap_or(2026);
-    let years = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(30);
-    let dir = std::path::PathBuf::from(a.get(3).map_or(".", String::as_str));
-    let scale = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(1.0);
     let t = Instant::now();
-    let to = afm_game::jobs::build_world_file(&dir, seed, years, scale, |n, year| {
-        if n > 0 {
-            eprintln!("season {year} done ({n}), {:.0}s", t.elapsed().as_secs_f64());
-        }
-        true
-    })
-    .unwrap_or_else(|e| panic!("{e}"));
-    eprintln!("{} written in {:.0}s", to.display(), t.elapsed().as_secs_f64());
+    // Minutes; empty or 0 never pauses.
+    let pause_after = std::env::var("AFM_PAUSE_AFTER")
+        .ok()
+        .and_then(|m| m.trim().parse::<f64>().ok())
+        .filter(|&m| m > 0.0)
+        .map(|m| m * 60.0);
+    let pause = |w: &afm_engine::world::World| {
+        let s = t.elapsed().as_secs_f64();
+        eprintln!("season {} done, {s:.0}s, {} left", w.year - 1, w.history_left());
+        pause_after.is_some_and(|p| s >= p)
+    };
+    let part = if a.get(1).map(String::as_str) == Some("resume") {
+        let half = std::path::PathBuf::from(a.get(2).expect("afm_world resume <folder>/name.afmworld.half"));
+        jobs::resume_world_file(&half, pause)
+    } else {
+        let seed = a.get(1).and_then(|s| s.parse().ok()).unwrap_or(2026);
+        let years = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(30);
+        let dir = std::path::PathBuf::from(a.get(3).map_or(".", String::as_str));
+        let scale = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+        jobs::build_world_in_parts(&dir, seed, years, scale, pause)
+    };
+    match part.unwrap_or_else(|e| panic!("{e}")) {
+        Part::Done(to) => eprintln!("{} written in {:.0}s", to.display(), t.elapsed().as_secs_f64()),
+        Part::Half(half) => eprintln!("paused: {} written in {:.0}s", half.display(), t.elapsed().as_secs_f64()),
+    }
 }
