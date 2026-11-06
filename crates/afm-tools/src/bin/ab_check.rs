@@ -11,7 +11,9 @@
 //! `<out>/<level>/<group>.md` and `.json`. AFM_AB_WORLD: a world file whose
 //! NFL rosters also play each headline row (NFL only). AFM_AB_MAX: the most
 //! games an arm grows to (default 16,000). AFM_AB_REAL: the real numbers
-//! (default `data/real-world/ab_real.json`).
+//! (default `data/real-world/ab_real.json`). AFM_AB_RESUME: skip the tests
+//! an earlier run on the same seed already wrote (each test is written as
+//! soon as it is done, so a stopped run picks up where it was).
 
 extern crate afm_tools;
 use std::collections::BTreeMap;
@@ -80,23 +82,19 @@ fn main() {
     eprintln!("ab_check {what} {lv}: {} tests, {games} games an arm, seed {seed}", chosen.len());
     let base_league = base_rows(&cx, &chosen, false, games);
     let base_mine = base_rows(&cx, &chosen, true, games);
-    // One group at a time, each written as soon as it is done.
+    let resume = std::env::var("AFM_AB_RESUME").is_ok();
+    // One group at a time; each test is written as soon as it is done.
     for g in GROUPS {
         let list: Vec<&&Test> = chosen.iter().filter(|t| t.group == g).collect();
         if list.is_empty() {
             continue;
         }
-        let mut outs = Vec::new();
-        for t in list {
-            let tr = run_test(&cx, t, games, max, &real, world.as_deref());
-            let b = if t.mine { base_mine.get(t.id) } else { base_league.get(t.id) };
-            outs.push(report(&cx, &tr, b, &real));
-        }
         // Keep what an earlier run of other tests in this group wrote.
         let path = format!("{dir}/{g}.json");
-        let mut kept: BTreeMap<String, Value> = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        let old: Option<Value> = std::fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok());
+        let same_seed = old.as_ref().is_some_and(|v| v["seed"].as_u64() == Some(seed as u64));
+        let mut kept: BTreeMap<String, Value> = old
+            .as_ref()
             .and_then(|v| v["tests"].as_object().cloned())
             .map(|m| m.into_iter().collect())
             .unwrap_or_default();
@@ -108,28 +106,35 @@ fn main() {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
-        for o in &outs {
+        for t in list {
+            if resume && same_seed && kept.contains_key(t.id) && kept_md.contains_key(t.id) {
+                eprintln!("  {}: kept from the earlier run", t.id);
+                continue;
+            }
+            let tr = run_test(&cx, t, games, max, &real, world.as_deref());
+            let b = if t.mine { base_mine.get(t.id) } else { base_league.get(t.id) };
+            let o = report(&cx, &tr, b, &real);
             let id = o.json["id"].as_str().unwrap().to_string();
             kept.insert(id.clone(), o.json.clone());
             kept_md.insert(id.clone(), o.md.clone());
             kept_miss.insert(id, Value::Array(o.misses.clone()));
-        }
-        // Report order follows the table.
-        let order: Vec<&str> = all.iter().filter(|t| t.group == g).map(|t| t.id).collect();
-        let merged: Vec<afm_tools::ab::run::Out> = order
-            .iter()
-            .filter_map(|id| {
-                Some(afm_tools::ab::run::Out {
-                    md: kept_md.get(*id)?.clone(),
-                    json: kept.get(*id)?.clone(),
-                    misses: kept_miss.get(*id).and_then(|v| v.as_array().cloned()).unwrap_or_default(),
+            // Report order follows the table.
+            let order: Vec<&str> = all.iter().filter(|t| t.group == g).map(|t| t.id).collect();
+            let merged: Vec<afm_tools::ab::run::Out> = order
+                .iter()
+                .filter_map(|id| {
+                    Some(afm_tools::ab::run::Out {
+                        md: kept_md.get(*id)?.clone(),
+                        json: kept.get(*id)?.clone(),
+                        misses: kept_miss.get(*id).and_then(|v| v.as_array().cloned()).unwrap_or_default(),
+                    })
                 })
-            })
-            .collect();
-        std::fs::write(&path, json!({"level": lv, "seed": seed, "tests": kept}).to_string()).unwrap();
-        std::fs::write(format!("{dir}/{g}.parts.json"), serde_json::to_string(&kept_md).unwrap()).unwrap();
-        std::fs::write(format!("{dir}/{g}.misses.json"), serde_json::to_string(&kept_miss).unwrap()).unwrap();
-        std::fs::write(format!("{dir}/{g}.md"), group_md(level, g, &merged, seed)).unwrap();
+                .collect();
+            std::fs::write(&path, json!({"level": lv, "seed": seed, "tests": kept}).to_string()).unwrap();
+            std::fs::write(format!("{dir}/{g}.parts.json"), serde_json::to_string(&kept_md).unwrap()).unwrap();
+            std::fs::write(format!("{dir}/{g}.misses.json"), serde_json::to_string(&kept_miss).unwrap()).unwrap();
+            std::fs::write(format!("{dir}/{g}.md"), group_md(level, g, &merged, seed)).unwrap();
+        }
         eprintln!("wrote {dir}/{g}.md [{:.0} s so far]", t0.elapsed().as_secs_f64());
     }
     summary(&dir, level);
