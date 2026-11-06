@@ -1,6 +1,6 @@
 # The world log: how it works today
 
-Checked against main at 1bb5507 on 2026-10-28, with world reader lane R2; every game's rows, snaps and situation totals added by lane R1 on 2026-10-29; the recruiting and college bugs before the rebuild (minor bugs 86, 88, 99-105, 118, 126, 130, 131, 150) on 2026-10-30 and 31; the minor bugs hotfix (a person's regular talent in `people`) over main e581227 on 2026-11-01.
+Checked against main at 1bb5507 on 2026-10-28, with world reader lane R2; every game's rows, snaps and situation totals added by lane R1 on 2026-10-29; the recruiting and college bugs before the rebuild (minor bugs 86, 88, 99-105, 118, 126, 130, 131, 150) on 2026-10-30 and 31; the minor bugs hotfix (a person's regular talent in `people`) over main e581227 on 2026-11-01. The world build over two machines (NB13) over main f21c2c3 on 2026-11-06.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -74,7 +74,7 @@ Taken first thing in the morning, before any system acts that day (`world/wlog/s
 
 ## In the game
 
-- Building a world (the game's button and `afm_world`) writes `name.afmlog` beside `name.afmworld` from the same run and commit (`crates/afm-game/src/jobs.rs`, `build_world_file_named`).
+- Building a world (the game's button and `afm_world`) writes `name.afmlog` beside `name.afmworld` from the same run and commit (`crates/afm-game/src/jobs.rs`, `build_world_file_named`, `build_world_in_parts`). A world with its log is never split over two machines (NB13): the log is written as the history plays.
 - Importing a world brings the log beside it along and drops one from an older build (`crates/afm-game/src/files.rs`, `import_world`).
 - While you play, the log is written into `logs/live.afmlog` in the game folder. Opening a world or a save links its log there and writes on after it, a new session in `meta.json`; one without a log starts a new log that day (`crates/afm-game/src/world_log.rs`, `on_open`).
 - Saving links the live log beside the save; renaming and deleting a save do the same to its log (`world_log.rs`, `on_save`, `on_rename`, `on_delete`).

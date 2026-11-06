@@ -135,8 +135,26 @@ pub fn build_world_file_named(
     let names = if fictional { NameMode::Fictional } else { NameMode::Real };
     let opts =
         WorldOptions { seed, history_years: years, scale, names, fictional_league: fictional, ..Default::default() };
-    // The world log (world reader lane R2) goes beside the world file,
-    // written as the history plays.
+    let (log_part, data_part, mut w) = begin(worlds, &name, opts)?;
+    let done = w.play_history(|w, _| {
+        seasons += 1;
+        each(seasons, w.year - 1)
+    });
+    if !done {
+        drop(w);
+        let _ = std::fs::remove_dir_all(&log_part);
+        let _ = std::fs::remove_dir_all(&data_part);
+        return Err(STOPPED.into());
+    }
+    // Seasons done: 0 says the world is being written.
+    each(0, 0);
+    write_built(w, &to, &log_part, &data_part)
+}
+
+/// The world before its history plays, with its log (world reader lane
+/// R2) and its tallies (lane NB1) written beside it as the history plays:
+/// the log's and the tallies' part folders, and the world.
+fn begin(worlds: &Path, name: &str, opts: WorldOptions) -> Result<(PathBuf, PathBuf, World), String> {
     let log_part = worlds.join(format!("{name}.{}.part", afm_engine::world::wlog::EXT));
     let log = if crate::world_log::on() {
         let log = afm_engine::world::wlog::WorldLog::create(&log_part, &opts, crate::world_log::commit(), "");
@@ -144,42 +162,104 @@ pub fn build_world_file_named(
     } else {
         None
     };
-    // The Data section's tallies (lane NB1) go beside it too, a season at
-    // a time.
     let data_part = worlds.join(format!("{name}.{}.part", afm_engine::world::tally::EXT));
     if data_part.exists() {
         let _ = std::fs::remove_dir_all(&data_part);
     }
-    let built = World::new_recorded(opts, log, Some(&data_part), |w, _| {
-        seasons += 1;
-        each(seasons, w.year - 1)
-    });
-    let Some(mut w) = built else {
-        let _ = std::fs::remove_dir_all(&log_part);
-        let _ = std::fs::remove_dir_all(&data_part);
-        return Err(STOPPED.into());
-    };
-    // Seasons done: 0 says the world is being written.
-    each(0, 0);
+    let w = World::begin_recorded(opts, log, Some(&data_part));
+    Ok((log_part, data_part, w))
+}
+
+/// What [`build_world_in_parts`] and [`resume_world_file`] left in the
+/// folder.
+pub enum Part {
+    /// The finished world file, its tallies beside it.
+    Done(PathBuf),
+    /// A world stopped between two history seasons (`name.afmworld.half`,
+    /// its tallies so far in `name.afmdata.part`), for
+    /// [`resume_world_file`] to carry on, on this machine or another.
+    Half(PathBuf),
+}
+
+/// The ending of a half-built world's file.
+pub const HALF: &str = "afmworld.half";
+
+/// `build_world_file` for a build too long for one machine's turn (NB13:
+/// a GitHub job may run six hours): after each season, `pause` says
+/// whether to stop there and write the world so far as a half file (it is
+/// asked after every season, the last too, so it can print progress). A
+/// world with its log never pauses (the log is written as the history
+/// plays and cannot move machines).
+pub fn build_world_in_parts(
+    worlds: &Path,
+    seed: u32,
+    years: u32,
+    scale: f64,
+    mut pause: impl FnMut(&World) -> bool,
+) -> Result<Part, String> {
+    let name = world_name(seed, years);
+    let to = worlds.join(format!("{name}.afmworld"));
+    let opts = WorldOptions { seed, history_years: years, scale, ..Default::default() };
+    let logged = crate::world_log::on();
+    let (log_part, data_part, mut w) = begin(worlds, &name, opts)?;
+    if !w.play_history(|w, _| !(pause(w) && !logged && w.history_left() > 0)) {
+        return pause_half(&w, &worlds.join(format!("{name}.{HALF}"))).map(Part::Half);
+    }
+    write_built(w, &to, &log_part, &data_part).map(Part::Done)
+}
+
+/// Carries on a half-built world (`name.afmworld.half`, its tallies so far
+/// in `name.afmdata.part` beside it), pausing again where `pause` says, and
+/// writes the world file beside it once its history is done. The seasons
+/// it plays come out as in a build that never paused (`tests/split_build.rs`).
+pub fn resume_world_file(half: &Path, mut pause: impl FnMut(&World) -> bool) -> Result<Part, String> {
+    let file = half.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+    let name = file.strip_suffix(&format!(".{HALF}")).ok_or("Not a half-built world (name.afmworld.half).")?;
+    let dir = half.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let to = dir.join(format!("{name}.afmworld"));
+    let log_part = dir.join(format!("{name}.{}.part", afm_engine::world::wlog::EXT));
+    let data_part = dir.join(format!("{name}.{}.part", afm_engine::world::tally::EXT));
+    let mut w = afm_engine::save::read_world(half).map_err(|e| format!("Could not read {}: {e}", half.display()))?;
+    w.attach_tallies(&data_part).map_err(|e| format!("Could not open the tallies: {e}"))?;
+    if !w.play_history(|w, _| !(pause(w) && w.history_left() > 0)) {
+        return pause_half(&w, half).map(Part::Half);
+    }
+    std::fs::remove_file(half).map_err(|e| format!("Could not remove {}: {e}", half.display()))?;
+    write_built(w, &to, &log_part, &data_part).map(Part::Done)
+}
+
+/// Writes a world stopped part way through its history to `half`, through
+/// a part file, so a write cut off leaves no half file.
+fn pause_half(w: &World, half: &Path) -> Result<PathBuf, String> {
+    let part = half.with_extension("half.part");
+    afm_engine::save::write_world(w, &part, crate::world_log::commit(), &files::now_utc(), None)
+        .and_then(|_| std::fs::rename(&part, half))
+        .map_err(|e| format!("Could not write the half-built world: {e}"))?;
+    Ok(half.to_path_buf())
+}
+
+/// The world's history is done: its log and tallies go beside `to`, then
+/// the world file itself.
+fn write_built(mut w: World, to: &Path, log_part: &Path, data_part: &Path) -> Result<PathBuf, String> {
     if let Some(log) = w.detach_log() {
-        let to_log = crate::world_log::beside(&to);
+        let to_log = crate::world_log::beside(to);
         log.close()
             .and_then(|_| if to_log.exists() { std::fs::remove_dir_all(&to_log) } else { Ok(()) })
-            .and_then(|_| std::fs::rename(&log_part, &to_log))
+            .and_then(|_| std::fs::rename(log_part, &to_log))
             .map_err(|e| format!("Could not write the world log: {e}"))?;
     }
     w.detach_tallies();
-    let to_data = crate::tallies::beside(&to);
+    let to_data = crate::tallies::beside(to);
     if to_data.exists() {
         std::fs::remove_dir_all(&to_data).map_err(|e| format!("Could not replace the tallies: {e}"))?;
     }
-    std::fs::rename(&data_part, &to_data).map_err(|e| format!("Could not write the tallies: {e}"))?;
+    std::fs::rename(data_part, &to_data).map_err(|e| format!("Could not write the tallies: {e}"))?;
     let part = to.with_extension("afmworld.part");
     let commit = crate::world_log::commit();
     afm_engine::save::write_world(&w, &part, commit, &files::now_utc(), Some(crate::cards::card(&w)))
-        .and_then(|_| std::fs::rename(&part, &to))
+        .and_then(|_| std::fs::rename(&part, to))
         .map_err(|e| format!("Could not write the world: {e}"))?;
-    Ok(to)
+    Ok(to.to_path_buf())
 }
 
 /// Builds a full world on this machine, beside the game, into the library.
