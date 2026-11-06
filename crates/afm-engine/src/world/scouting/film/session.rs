@@ -74,6 +74,10 @@ pub const EYE_FRESH: f64 = 0.05;
 /// it against a quick skim's under two, so each trait's clear chance gains
 /// 10 points. The quick watch and the stands stay as they were.
 pub const EYE_STUDIED: f64 = 0.10;
+/// A cut-up's snaps, the full tape and the quick watch alike (Cain
+/// 2026-11-06): the full tape studies the snaps the quick watch skims, so
+/// it costs more and catches more. The full tape had 6.
+pub const CUT_SNAPS: usize = 12;
 
 /// Your tags (SK44).
 pub const TAGS: [&str; 4] = ["Plus", "Minus", "Ask him about this", "Show the staff"];
@@ -440,7 +444,7 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
         tape::player_tape(w, id)?
     };
     let cut = if ours && cut == Cut::Ours { Cut::Ours } else { cut };
-    let n = if mode == Mode::Quick { 12 } else { 6 };
+    let n = CUT_SNAPS;
     let qs = questions(w, id);
     // No question picked: the one the cut-up is made for, else the default.
     let fits = words::cut_ask(w.people[i].player.position, cut);
