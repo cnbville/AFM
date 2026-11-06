@@ -5,6 +5,11 @@ name: CI
 # the few unit tests skipped below) run in "Full tests" (full-tests.yml):
 # nightly on main, by hand on any branch, and once on main before the world
 # rebuild (Cain 2026-10-29: merge on a quick check, one finishing test).
+# A pull request that only touches the screens (app/ui, reader/ui,
+# ui/showtime) or docs skips the engine (Cain 2026-11-06): "scope" reads the
+# files it changes, "test", "app" and "reader" are skipped, and "ui" checks
+# the screens in a few minutes. A skipped job counts as passed, so a required
+# check never waits on it. If "scope" can't tell, everything runs.
 on:
   push:
     branches: [main]
@@ -15,7 +20,46 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  # engine=false when every file the pull request changes is a screen or a
+  # doc. docs/reference/how-it-works counts as code: afm-reader's build.rs
+  # reads its knob tables. screens=true when app/ui changed (the game has
+  # tests that read it). A push to main always runs everything.
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      engine: ${{ steps.paths.outputs.engine }}
+      screens: ${{ steps.paths.outputs.screens }}
+    steps:
+      # A pull request's checkout is its merge into the base: parent 1 is the
+      # base, so the diff against it is everything the merge would change.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: paths
+        run: |
+          engine=true
+          screens=false
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] && files=$(git diff --name-only --no-renames HEAD^1 HEAD); then
+            engine=false
+            while IFS= read -r f; do
+              case "$f" in
+                '') ;;
+                app/ui/*) screens=true ;;
+                reader/ui/* | ui/showtime/*) ;;
+                docs/reference/how-it-works/* | crates/*) engine=true ;;
+                docs/* | *.md) ;;
+                *) engine=true ;;
+              esac
+            done <<< "$files"
+            printf '%s\n' "$files"
+          fi
+          echo "engine=$engine screens=$screens"
+          echo "engine=$engine" >> "$GITHUB_OUTPUT"
+          echo "screens=$screens" >> "$GITHUB_OUTPUT"
   test:
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.engine != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -45,10 +89,48 @@ jobs:
           --skip lane_find::tests::
           --skip lane_logos::tests::your_own_logo_wins_and_stays_with_the_save
       - run: cargo test --workspace --doc
+  # Every screen script and data file must parse, on every pull request. On
+  # one that skips the engine and changes app/ui, the game's two tests that
+  # read app/ui run here, with the engine and the game built unoptimised (the
+  # libraries they use come from main's "test" cache).
+  ui:
+    needs: scope
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      UI_TESTS: ${{ needs.scope.outputs.engine == 'false' && needs.scope.outputs.screens == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every screen script parses
+        run: |
+          git ls-files -z 'app/ui/*.js' 'reader/ui/*.js' 'ui/showtime/*.js' | xargs -0 -n1 node --check
+          git ls-files -z 'app/ui/*.json' 'reader/ui/*.json' 'ui/showtime/*.json' |
+            xargs -0 -n1 node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))'
+      - if: env.UI_TESTS == 'true'
+        uses: dtolnay/rust-toolchain@stable
+      - if: env.UI_TESTS == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+          save-if: false
+      - if: env.UI_TESTS == 'true'
+        name: The game's tests that read the screens
+        run: >-
+          cargo test -p afm-game --lib
+          --config 'profile.test.package.afm-engine.opt-level=0'
+          --config 'profile.test.package.afm-engine.debug=0'
+          --config 'profile.test.package.afm-game.opt-level=0'
+          --config 'profile.test.package.afm-game.debug=0'
+          -- --exact
+          screen_names::no_two_screens_declare_the_same_name
+          lane_data::glossary::tests::every_stat_the_game_shows_explains_itself
   # The desktop app (app/src-tauri, outside the workspace) is built on the Mac
   # only on main (mac-app.yml); this checks that it still compiles against the
   # game on every pull request.
   app:
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.engine != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -63,6 +145,8 @@ jobs:
   # The same for the World Reader's desktop app (reader/src-tauri), which
   # reader-app.yml builds on the Mac only on main.
   reader:
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.engine != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
