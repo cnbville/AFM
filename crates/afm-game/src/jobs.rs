@@ -3,8 +3,9 @@
 //! on its own thread, never holding the game, and writes its progress where
 //! the screens read it. One job at a time.
 
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -418,6 +419,239 @@ fn newer_build(local: &Value, tag: &str, date: &str) -> bool {
     date.get(..16).unwrap_or(date) > written.get(..16).unwrap_or(&written)
 }
 
+/// Connections a world download uses at once, and the size of each piece.
+/// One connection to GitHub's release files runs far below a fast home line
+/// (2026-11-06: Cain saw about 2 a second on a 400 Mbit line; from a US data
+/// centre the seed 41 world came down at 26.6 MB/s on one connection and
+/// about 93 MB/s on eight). So a download is cut into 32 MiB pieces, fetched
+/// eight at a time.
+const LINES: usize = 8;
+const PIECE: u64 = 32 << 20;
+/// Tries per piece before a download gives up. Each try picks up where the
+/// last one broke off, and a try that got bytes starts the count again.
+const TRIES: u32 = 6;
+
+/// The agent for the world files themselves (not the GitHub API): it keeps
+/// one idle connection per line.
+fn file_agent() -> ureq::Agent {
+    ureq::AgentBuilder::new()
+        .timeout_connect(std::time::Duration::from_secs(10))
+        .timeout_read(std::time::Duration::from_secs(60))
+        .max_idle_connections_per_host(LINES)
+        .build()
+}
+
+/// Bytes `from..to` of file `file`.
+#[derive(Debug, PartialEq)]
+struct Piece {
+    file: usize,
+    from: u64,
+    to: u64,
+}
+
+/// The pieces of files of these sizes, file by file.
+fn pieces(sizes: &[u64], piece: u64) -> Vec<Piece> {
+    let mut v = Vec::new();
+    for (file, &size) in sizes.iter().enumerate() {
+        let mut from = 0;
+        while from < size {
+            let to = (from + piece).min(size);
+            v.push(Piece { file, from, to });
+            from = to;
+        }
+    }
+    v
+}
+
+/// Whether the server sends a part of `url` when asked for one (GitHub does).
+fn sends_parts(agent: &ureq::Agent, url: &str) -> bool {
+    agent.get(url).set("User-Agent", "AFM").set("Range", "bytes=0-0").call().is_ok_and(|r| r.status() == 206)
+}
+
+/// Downloads `files` (name, size, url) into `dir`: in pieces over `LINES`
+/// connections when the server sends parts and every size is known, else one
+/// file after another on one connection. `got` hears the bytes so far (about
+/// four times a second in pieces); `stop` ends it.
+fn fetch_files(
+    files: &[(String, u64, String)],
+    dir: &Path,
+    piece: u64,
+    stop: &(dyn Fn() -> bool + Sync),
+    got: &mut dyn FnMut(u64),
+) -> Result<(), String> {
+    let agent = file_agent();
+    let paths: Vec<PathBuf> = files.iter().map(|f| dir.join(&f.0)).collect();
+    let in_pieces = files.iter().all(|f| f.1 > 0) && files.first().is_some_and(|f| sends_parts(&agent, &f.2));
+    if !in_pieces {
+        return fetch_in_turn(&agent, files, &paths, stop, got);
+    }
+    for (f, path) in files.iter().zip(&paths) {
+        std::fs::File::create(path).and_then(|o| o.set_len(f.1)).map_err(|e| e.to_string())?;
+    }
+    let list = pieces(&files.iter().map(|f| f.1).collect::<Vec<_>>(), piece);
+    let (next, done, quit) = (AtomicUsize::new(0), AtomicU64::new(0), AtomicBool::new(false));
+    let halt = || quit.load(Ordering::Relaxed) || stop();
+    let (list, next, done, quit, halt, agent, paths) = (&list, &next, &done, &quit, &halt, &agent, &paths);
+    std::thread::scope(|s| {
+        let lines: Vec<_> = (0..LINES.min(list.len()))
+            .map(|_| {
+                s.spawn(move || -> Result<(), String> {
+                    while let Some(p) = list.get(next.fetch_add(1, Ordering::Relaxed)) {
+                        if halt() {
+                            break;
+                        }
+                        if let Err(e) = fetch_piece(agent, &files[p.file].2, &paths[p.file], p, done, halt) {
+                            quit.store(true, Ordering::Relaxed);
+                            return Err(e);
+                        }
+                    }
+                    Ok(())
+                })
+            })
+            .collect();
+        while !lines.iter().all(|l| l.is_finished()) {
+            std::thread::sleep(std::time::Duration::from_millis(250));
+            got(done.load(Ordering::Relaxed));
+        }
+        got(done.load(Ordering::Relaxed));
+        let broke: Vec<String> = lines
+            .into_iter()
+            .filter_map(|l| l.join().unwrap_or_else(|_| Err("A download line broke.".into())).err())
+            .collect();
+        if stop() {
+            return Err(STOPPED.into());
+        }
+        // A line that stopped because another broke says "stopped": give the break.
+        let first = broke.iter().find(|e| *e != STOPPED).or(broke.first());
+        first.map_or(Ok(()), |e| Err(e.clone()))
+    })
+}
+
+/// Downloads one piece into its place in its file, trying again from where
+/// it broke off.
+fn fetch_piece(
+    agent: &ureq::Agent,
+    url: &str,
+    path: &Path,
+    p: &Piece,
+    done: &AtomicU64,
+    halt: &dyn Fn() -> bool,
+) -> Result<(), String> {
+    let mut buf = vec![0u8; 256 << 10];
+    let (mut at, mut tries, mut why) = (p.from, 0u32, String::new());
+    while at < p.to {
+        if tries == TRIES {
+            return Err(format!("The download broke off: {why}"));
+        }
+        if tries > 0 {
+            // Half a second, then one, two, four and eight.
+            let until = Instant::now() + std::time::Duration::from_millis(500 << (tries - 1));
+            while Instant::now() < until && !halt() {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
+        if halt() {
+            return Err(STOPPED.into());
+        }
+        let before = at;
+        if let Err(e) = fetch_range(agent, url, path, &mut at, p.to, &mut buf, done, halt) {
+            why = e;
+        }
+        tries = if at > before { 1 } else { tries + 1 };
+    }
+    Ok(())
+}
+
+/// One try at bytes `at..to` of `url`, written in place; `at` moves on with
+/// every byte on disk.
+#[allow(clippy::too_many_arguments)]
+fn fetch_range(
+    agent: &ureq::Agent,
+    url: &str,
+    path: &Path,
+    at: &mut u64,
+    to: u64,
+    buf: &mut [u8],
+    done: &AtomicU64,
+    halt: &dyn Fn() -> bool,
+) -> Result<(), String> {
+    let r = agent
+        .get(url)
+        .set("User-Agent", "AFM")
+        .set("Range", &format!("bytes={}-{}", *at, to - 1))
+        .call()
+        .map_err(|e| e.to_string())?;
+    if r.status() != 206 {
+        return Err(format!("the worlds page answered {} to a part", r.status()));
+    }
+    let mut from = r.into_reader();
+    let mut out = std::fs::OpenOptions::new().write(true).open(path).map_err(|e| e.to_string())?;
+    out.seek(SeekFrom::Start(*at)).map_err(|e| e.to_string())?;
+    while *at < to {
+        if halt() {
+            return Err(STOPPED.into());
+        }
+        let want = buf.len().min((to - *at) as usize);
+        let (mut n, mut broke) = (0, None);
+        while n < want {
+            match from.read(&mut buf[n..want]) {
+                Ok(0) => {
+                    broke = Some("the connection closed early".to_string());
+                    break;
+                }
+                Ok(k) => n += k,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => {
+                    broke = Some(e.to_string());
+                    break;
+                }
+            }
+        }
+        out.write_all(&buf[..n]).map_err(|e| e.to_string())?;
+        *at += n as u64;
+        done.fetch_add(n as u64, Ordering::Relaxed);
+        if let Some(e) = broke {
+            return Err(e);
+        }
+    }
+    // Reading the end hands the connection back for the next piece.
+    let _ = from.read(&mut buf[..1]);
+    Ok(())
+}
+
+/// The old way, for a server that won't send parts: each file whole, one
+/// after another.
+fn fetch_in_turn(
+    agent: &ureq::Agent,
+    files: &[(String, u64, String)],
+    paths: &[PathBuf],
+    stop: &dyn Fn() -> bool,
+    got: &mut dyn FnMut(u64),
+) -> Result<(), String> {
+    let (mut sum, mut buf) = (0u64, vec![0u8; 1 << 20]);
+    for ((_, _, url), path) in files.iter().zip(paths) {
+        let r = agent.get(url).set("User-Agent", "AFM").call().map_err(|e| match e {
+            ureq::Error::Status(code, _) => format!("The worlds page answered {code}."),
+            ureq::Error::Transport(t) => format!("Could not reach the worlds page ({t})."),
+        })?;
+        let mut from = r.into_reader();
+        let mut out = std::fs::File::create(path).map_err(|e| e.to_string())?;
+        loop {
+            if stop() {
+                return Err(STOPPED.into());
+            }
+            let n = from.read(&mut buf).map_err(|e| format!("The download broke off: {e}"))?;
+            if n == 0 {
+                break;
+            }
+            out.write_all(&buf[..n]).map_err(|e| e.to_string())?;
+            sum += n as u64;
+            got(sum);
+        }
+    }
+    Ok(())
+}
+
 /// Downloads one world from the worlds page into the library.
 pub fn download(shared: &Shared, worlds: &Path, tag: &str) -> Result<(), String> {
     let release: Value = get(&format!("https://api.github.com/repos/{WORLDS_REPO}/releases/tags/{tag}"))?
@@ -435,34 +669,20 @@ pub fn download(shared: &Shared, worlds: &Path, tag: &str) -> Result<(), String>
         let dir = worlds.join(".download");
         let r = (|| -> Result<PathBuf, String> {
             std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-            let mut got = 0u64;
-            let mut buf = vec![0u8; 1 << 20];
-            for (name, _, url) in &assets {
-                let mut from = get(url)?.into_reader();
-                let mut out = std::fs::File::create(dir.join(name)).map_err(|e| e.to_string())?;
-                loop {
-                    if stopping(&shared) {
-                        return Err(STOPPED.into());
-                    }
-                    let n = from.read(&mut buf).map_err(|e| format!("The download broke off: {e}"))?;
-                    if n == 0 {
-                        break;
-                    }
-                    out.write_all(&buf[..n]).map_err(|e| e.to_string())?;
-                    got += n as u64;
-                    let secs = t.elapsed().as_secs_f64();
-                    set(&shared, |j| {
-                        j.done = 0.97 * got as f64 / total as f64;
-                        j.seconds = secs;
-                        j.text = format!(
-                            "{:.0} of {:.0} MB, {:.0} MB a second",
-                            got as f64 / 1e6,
-                            total as f64 / 1e6,
-                            got as f64 / 1e6 / secs.max(0.1)
-                        );
-                    });
-                }
-            }
+            let mut got = |n: u64| {
+                let secs = t.elapsed().as_secs_f64();
+                set(&shared, |j| {
+                    j.done = 0.97 * n as f64 / total as f64;
+                    j.seconds = secs;
+                    j.text = format!(
+                        "{:.0} of {:.0} MB, {:.0} MB a second",
+                        n as f64 / 1e6,
+                        total as f64 / 1e6,
+                        n as f64 / 1e6 / secs.max(0.1)
+                    );
+                });
+            };
+            fetch_files(&assets, &dir, PIECE, &|| stopping(&shared), &mut got)?;
             set(&shared, |j| j.text = "Adding it to your library…".into());
             files::import_world(&dir.join(&first), &worlds)
         })();
@@ -474,8 +694,86 @@ pub fn download(shared: &Shared, worlds: &Path, tag: &str) -> Result<(), String>
 
 #[cfg(test)]
 mod tests {
-    use super::{newer_build, newest_first};
+    use super::{Piece, fetch_files, newer_build, newest_first, pieces};
     use serde_json::json;
+    use std::collections::HashSet;
+    use std::sync::{Arc, Mutex};
+
+    /// File `i`'s bytes, all different.
+    fn bytes(i: usize, size: usize) -> Vec<u8> {
+        (0..size).map(|k| (k * 31 + k / 251 + i * 7) as u8).collect()
+    }
+
+    /// A local worlds page serving these files at `/0`, `/1`, ... When it
+    /// sends parts, the first ask for each piece fails once: a 500 for even
+    /// pieces, half the bytes for odd ones.
+    fn serve(files: Vec<Vec<u8>>, parts: bool, piece: u64) -> String {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let addr = server.server_addr().to_ip().unwrap();
+        let (files, seen) = (Arc::new(files), Arc::new(Mutex::new(HashSet::new())));
+        std::thread::spawn(move || {
+            for req in server.incoming_requests() {
+                let (files, seen) = (files.clone(), seen.clone());
+                std::thread::spawn(move || {
+                    let i: usize = req.url().trim_start_matches('/').parse().unwrap();
+                    let range = req.headers().iter().find(|h| h.field.equiv("Range")).map(|h| h.value.to_string());
+                    let body = &files[i];
+                    let Some(range) = range.filter(|_| parts) else {
+                        let _ = req.respond(tiny_http::Response::from_data(body.clone()));
+                        return;
+                    };
+                    let (a, b) = range.trim_start_matches("bytes=").split_once('-').unwrap();
+                    let (a, b): (usize, usize) = (a.parse().unwrap(), b.parse().unwrap());
+                    let mut part = body[a..=b].to_vec();
+                    let piece_start = a > 0 && a as u64 % piece == 0;
+                    if piece_start && seen.lock().unwrap().insert((i, a)) {
+                        if (a as u64 / piece) % 2 == 0 {
+                            let _ = req.respond(tiny_http::Response::empty(500));
+                            return;
+                        }
+                        part.truncate(part.len() / 2);
+                    }
+                    let _ = req.respond(tiny_http::Response::from_data(part).with_status_code(206));
+                });
+            }
+        });
+        format!("http://{addr}")
+    }
+
+    fn fetch_back(name: &str, parts: bool) {
+        let sizes = [10_000, 3_333, 1, 1_000];
+        let piece = 1_000;
+        let files: Vec<Vec<u8>> = sizes.iter().enumerate().map(|(i, &n)| bytes(i, n)).collect();
+        let url = serve(files.clone(), parts, piece);
+        let list: Vec<(String, u64, String)> =
+            sizes.iter().enumerate().map(|(i, &n)| (format!("f{i}"), n as u64, format!("{url}/{i}"))).collect();
+        let dir = std::env::temp_dir().join(format!("afm-download-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut last = 0;
+        fetch_files(&list, &dir, piece, &|| false, &mut |n| last = n).unwrap();
+        for (i, f) in files.iter().enumerate() {
+            assert_eq!(&std::fs::read(dir.join(format!("f{i}"))).unwrap(), f, "file {i}");
+        }
+        assert_eq!(last, sizes.iter().sum::<usize>() as u64);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_world_is_cut_into_pieces() {
+        let p = pieces(&[2_500, 0, 1_000], 1_000);
+        let want = [(0, 0, 1_000), (0, 1_000, 2_000), (0, 2_000, 2_500), (2, 0, 1_000)];
+        assert_eq!(p, want.map(|(file, from, to)| Piece { file, from, to }));
+    }
+
+    #[test]
+    fn a_download_comes_in_pieces_and_mends_its_breaks() {
+        fetch_back("pieces", true);
+    }
+
+    #[test]
+    fn a_download_without_parts_comes_whole() {
+        fetch_back("whole", false);
+    }
 
     #[test]
     fn the_worlds_page_lists_newest_first() {
