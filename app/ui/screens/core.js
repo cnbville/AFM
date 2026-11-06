@@ -348,7 +348,7 @@ function tableTools(key, cols, st, rows, opts) {
   const has = (k) => rows.some((r) => r[k]);
   const chip = (k, label) => `<button class="tchip" data-act="tchip" data-key="${esc(key)}" data-k="${k}" aria-pressed="${!!st.chips[k]}">${label}</button>`;
   const chips = [has("listed") || st.chips.listed ? chip("listed", '<i class="chipdot listed"></i>On my list') : "", has("noted") || st.chips.noted ? chip("noted", '<i class="chipdot noted"></i>Has my note') : "", opts.mineChip ? chip("mine", "Mine") : ""].join("");
-  const filters = st.filters.map((f, i) => `<span class="tfilter">${esc((cols.find((c) => c.k === f.k) || {}).t || f.k)} ${esc(f.op === "has" ? "has" : f.op)} <b>${esc(f.v)}</b><button data-act="tfdel" data-key="${esc(key)}" data-i="${i}" aria-label="Remove filter">×</button></span>`).join("");
+  const filters = st.filters.map((f, i) => `<span class="tfilter">${esc(colName(cols.find((c) => c.k === f.k) || {}) || f.k)} ${esc(FILTER_OPS[f.op] || f.op)} <b>${esc(f.v)}</b><button data-act="tfdel" data-key="${esc(key)}" data-i="${i}" aria-label="Remove filter">×</button></span>`).join("");
   const views = (prefs.views && prefs.views[key]) || [];
   const compare = opts.movebar ? "" : opts.select && st.picked.length >= 2 ? `<button class="st-btn small primary" data-act="compare" data-key="${esc(key)}">Compare ${st.picked.length}</button>` : opts.select && st.picked.length ? `<span class="muted small">${st.picked.length} picked · up to five</span>` : "";
   return `<div class="ttools">${chips}${filters}<button class="tbtn" data-act="tfilter" data-key="${esc(key)}">+ Filter</button><span class="tspace"></span>${compare}${views.length ? `<select class="tview" data-act="tview" data-key="${esc(key)}"><option value="">Saved views</option>${views.map((v, i) => `<option value="${i}">${esc(v.name)}</option>`).join("")}</select>` : ""}<button class="tbtn" data-act="tsave" data-key="${esc(key)}" title="Keep these columns, filters and sort as a view">Save view</button><button class="tbtn" data-act="tcols" data-key="${esc(key)}">Columns</button>${opts.csv !== false ? `<button class="tbtn" data-act="tcsv" data-key="${esc(key)}" title="Save the table as a CSV file">CSV</button>` : ""}</div>`;
@@ -368,6 +368,23 @@ function menuAt(el, html, onClick) {
   return m;
 }
 function closeMenu() { document.querySelectorAll(".popmenu").forEach((m) => m.remove()); }
+// A column's short name for menus and filter chips: its title when it has
+// words, else the head of its tip ("#" with "Your order: ..." reads "Your
+// order"). The tip stays on the option as its hover text.
+function colName(c) {
+  const t = String(c.t || "").trim();
+  if (/\p{L}/u.test(t)) return t;
+  if (t === "★") return "Stars";
+  const head = String(c.tip || "").split(/[:(]/)[0].trim();
+  return head.length && head.length <= 24 ? head : t === "#" ? "Rank" : t;
+}
+const FILTER_OPS = { ">=": "at least", "<=": "at most", "=": "is", has: "contains" };
+// The add-a-filter form both filter menus share: the field on its own line,
+// then how, the value and Add on one line, sized to fit with no scrolling.
+function filterForm(ids, fields, ops) {
+  const opt = ([v, t, tip]) => `<option value="${esc(v)}"${tip ? ` title="${esc(tip)}"` : ""}>${esc(t)}</option>`;
+  return `<div class="st-label">Add a filter</div><div class="fbuild"><select id="${ids[0]}" aria-label="Field">${fields.map(opt).join("")}</select><div class="frow"><select id="${ids[1]}" aria-label="How">${ops.map((o) => opt([o, FILTER_OPS[o]])).join("")}</select><input id="${ids[2]}" placeholder="Value" aria-label="Value" autocomplete="off"><button class="fadd" data-x="add">Add</button></div></div>`;
+}
 
 async function tableAct(act, el) {
   const key = el.dataset.key;
@@ -378,7 +395,7 @@ async function tableAct(act, el) {
     case "tchip": st.chips[el.dataset.k] = !st.chips[el.dataset.k]; refresh(el); return true;
     case "tfdel": st.filters.splice(Number(el.dataset.i), 1); refresh(el); return true;
     case "tcols": {
-      menuAt(el, `<div class="st-label">Columns</div><div class="mcols">${T.cols.map((c) => `<label class="mrow"><input type="checkbox" data-k="${esc(c.k)}" ${st.hidden.includes(c.k) ? "" : "checked"}> ${esc(c.tip || c.t)}</label>`).join("")}</div>`, (ev) => {
+      menuAt(el, `<div class="st-label">Columns</div><div class="mcols">${T.cols.map((c) => `<label class="mrow"${c.tip ? ` title="${esc(c.tip)}"` : ""}><input type="checkbox" data-k="${esc(c.k)}" ${st.hidden.includes(c.k) ? "" : "checked"}> ${esc(colName(c) || c.k)}</label>`).join("")}</div>`, (ev) => {
         const cb = ev.target.closest("input[data-k]");
         if (!cb) return;
         const k = cb.dataset.k;
@@ -394,7 +411,8 @@ async function tableAct(act, el) {
       return true;
     }
     case "tfilter": {
-      const m = menuAt(el, `<div class="st-label">Add a filter</div><div class="fbuild"><select id="fk">${T.cols.map((c) => `<option value="${esc(c.k)}">${esc(c.tip || c.t)}</option>`).join("")}</select><select id="fop"><option value=">=">at least</option><option value="<=">at most</option><option value="=">is</option><option value="has">contains</option></select><input id="fv" placeholder="Value"><button class="st-btn small primary" data-x="add">Add</button></div>`, (ev) => {
+      const fields = T.cols.filter((c) => colName(c)).map((c) => [c.k, colName(c), c.tip]);
+      const m = menuAt(el, filterForm(["fk", "fop", "fv"], fields, [">=", "<=", "=", "has"]), (ev) => {
         if (!ev.target.closest('[data-x="add"]')) return;
         const v = m.querySelector("#fv").value.trim();
         if (!v) return;
@@ -1338,7 +1356,9 @@ async function coreAct(act, el, ev) {
     }
     case "fadd": {
       const F = keep("finder", { filters: [] });
-      const m = menuAt(el, `<div class="st-label">Add a filter</div><div class="fbuild"><select id="ff">${FINDER_FIELDS.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select><select id="fo"><option value="=">is</option><option value=">=">at least</option><option value="<=">at most</option></select><input id="fv2" placeholder="Value"><button class="st-btn small primary" data-x="add">Add</button></div>`, (e) => {
+      // Short names in the list; the examples ("QB, CB, DL…") go in the value box.
+      const hint = (t) => (t.match(/ \((.*)\)$/) || [])[1];
+      const m = menuAt(el, filterForm(["ff", "fo", "fv2"], FINDER_FIELDS.map(([k, t]) => [k, t.replace(/ \(.*\)$/, "")]), ["=", ">=", "<="]), (e) => {
         if (!e.target.closest('[data-x="add"]')) return;
         const field = m.querySelector("#ff").value;
         const flag = ["listed", "noted", "mine"].includes(field);
@@ -1348,7 +1368,20 @@ async function coreAct(act, el, ev) {
         closeMenu();
         refresh();
       });
-      m.querySelector("#fv2").focus();
+      const box = m.querySelector("#fv2");
+      const sel = m.querySelector("#ff");
+      const place = () => {
+        const f = FINDER_FIELDS.find((x) => x[0] === sel.value) || [];
+        const flag = ["listed", "noted", "mine"].includes(sel.value);
+        const h = hint(f[1] || "") || "";
+        const ex = h.split(", ").length > 2 ? h.split(", ")[0] : h;
+        box.placeholder = flag ? "No value needed" : ex ? `Like ${ex}` : "Value";
+        box.title = h;
+      };
+      sel.addEventListener("change", place);
+      place();
+      box.focus();
+      box.addEventListener("keydown", (ev) => { if (ev.key === "Enter") m.querySelector('[data-x="add"]').click(); });
       return true;
     }
     case "fdel": { const F = keep("finder", { filters: [] }); F.filters.splice(Number(d.i), 1); refresh(el); return true; }
