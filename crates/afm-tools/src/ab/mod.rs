@@ -18,6 +18,7 @@ use std::collections::{HashMap, HashSet};
 use afm_engine::Rng;
 use afm_engine::attributes::{Attr, Attributes, MAX_RATING, MIN_RATING};
 use afm_engine::body::{Body, Drills, body_now, forty_weight};
+use afm_engine::game::scrimmage::DSlot;
 use afm_engine::game::sim::{FoulKind, Move};
 use afm_engine::game::stats::{PlayRecord, PlayType};
 use afm_engine::game::{Conditions, GamePlayer, GameResult, GameTeam, Venue, quick_game_in};
@@ -395,6 +396,8 @@ pub struct Cx<'a> {
     pub pos: &'a HashMap<u32, Position>,
     /// My team's side in this game (0 home, 1 away), in the my team view.
     pub mine: Option<usize>,
+    /// Each player's weight and forty in this arm (the linebacker job rows).
+    pub body: &'a HashMap<u32, [f64; 2]>,
 }
 
 impl Cx<'_> {
@@ -555,7 +558,7 @@ pub fn stats() -> Vec<Stat> {
     use PlayType as T;
     use Position as P;
     use Unit::*;
-    vec![
+    let mut v = vec![
         // --- the quarterback (focus: the quarterbacks)
         play!("qb_scr", "scrambles a dropback", Pct, |r, c| if dropback(r) && c.fo(qb_of(r)) {
             rc(bf(r.kind == T::Scramble), 1.0)
@@ -1204,6 +1207,36 @@ pub fn stats() -> Vec<Stat> {
         } else {
             Z
         }),
+        // The defense with the focus men on the field, as play-by-play
+        // counts it (the linebacker research's team rows).
+        play!("def_out_ypc", "yards a carry allowed outside the tackles", Num, |r, c| match (
+            run(r) && c.my_def(r) && c.on(r) > 0.0,
+            r.tend.cross
+        ) {
+            (true, Some((dy, _))) if dy.abs() > 4.0 => rc(r.yards, 1.0),
+            _ => Z,
+        }),
+        play!(
+            "def_run_succ",
+            "run success allowed (EPA above 0)",
+            Pct,
+            |r, c| if run(r) && c.my_def(r) && c.on(r) > 0.0 { rc(bf(r.epa > 0.0), 1.0) } else { Z }
+        ),
+        play!("def_cmp", "completion allowed an attempt", Pct, |r, c| if attempt(r) && c.my_def(r) && c.on(r) > 0.0 {
+            rc(bf(r.complete), 1.0)
+        } else {
+            Z
+        }),
+        play!("def_epa_db", "EPA a dropback allowed", Num, |r, c| if dropback(r) && c.my_def(r) && c.on(r) > 0.0 {
+            rc(r.epa, 1.0)
+        } else {
+            Z
+        }),
+        play!("def_blitz", "blitz rate a dropback", Pct, |r, c| if dropback(r) && c.my_def(r) && c.on(r) > 0.0 {
+            rc(bf(r.blitz), 1.0)
+        } else {
+            Z
+        }),
         play!(
             "def_sack",
             "team sacks a dropback (defense)",
@@ -1693,7 +1726,181 @@ pub fn stats() -> Vec<Stat> {
         } else {
             Z
         }),
-    ]
+    ];
+    v.extend(lb_jobs());
+    v
+}
+
+// ------------------------------------------------------- linebacker jobs
+
+/// Focus men lined up at defensive slot `S` on this snap (`PlayRecord::roles`).
+fn at_slot<'a, const S: u8>(r: &'a PlayRecord, c: &'a Cx) -> impl Iterator<Item = u32> + 'a {
+    r.on_field[1].iter().zip(&r.roles[1]).filter(move |(i, s)| **s == S && c.f(**i)).map(|(i, _)| *i)
+}
+fn n_at<const S: u8>(r: &PlayRecord, c: &Cx) -> f64 {
+    at_slot::<S>(r, c).count() as f64
+}
+fn is_at<const S: u8>(r: &PlayRecord, c: &Cx, id: Option<u32>) -> bool {
+    id.is_some_and(|x| at_slot::<S>(r, c).any(|i| i == x))
+}
+fn j_share<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !(scrimmage(r) && c.my_def(r)) {
+        return Z;
+    }
+    rc(n_at::<S>(r, c), r.on_field[1].iter().filter(|i| c.f(**i)).count() as f64)
+}
+fn j_rtk<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !(scrimmage(r) && c.my_def(r)) {
+        return Z;
+    }
+    let ok = matches!(r.kind, PlayType::Run | PlayType::Scramble);
+    rc(if ok { r.tacklers.iter().filter(|i| is_at::<S>(r, c, Some(**i))).count() as f64 } else { 0.0 }, n_at::<S>(r, c))
+}
+fn j_stop<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !(scrimmage(r) && c.my_def(r)) {
+        return Z;
+    }
+    let ok = matches!(r.kind, PlayType::Run | PlayType::Scramble) && r.yards <= 3.0;
+    rc(if ok { r.tacklers.iter().filter(|i| is_at::<S>(r, c, Some(**i))).count() as f64 } else { 0.0 }, n_at::<S>(r, c))
+}
+fn j_miss<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !scrimmage(r) {
+        return Z;
+    }
+    let m = r.missed_tackles.iter().filter(|x| is_at::<S>(r, c, Some(x.0))).count() as f64;
+    let t = r.tacklers.iter().filter(|i| is_at::<S>(r, c, Some(**i))).count() as f64;
+    rc(m, m + t)
+}
+fn j_tgt<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !(scrimmage(r) && c.my_def(r)) {
+        return Z;
+    }
+    rc(bf(thrown(r) && is_at::<S>(r, c, r.defender)), n_at::<S>(r, c))
+}
+fn j_cmp<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if thrown(r) && is_at::<S>(r, c, r.defender) { rc(bf(r.complete), 1.0) } else { Z }
+}
+fn j_adot<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if thrown(r) && is_at::<S>(r, c, r.defender) { rc(r.air_yards, 1.0) } else { Z }
+}
+fn j_prs<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !(scrimmage(r) && c.my_def(r)) {
+        return Z;
+    }
+    let n = if dropback(r) { at_slot::<S>(r, c).filter(|i| pressured_by(r, *i)).count() as f64 } else { 0.0 };
+    rc(n, n_at::<S>(r, c))
+}
+fn j_wt<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !(scrimmage(r) && c.my_def(r)) {
+        return Z;
+    }
+    let w: f64 = at_slot::<S>(r, c).map(|i| c.body.get(&i).map_or(0.0, |b| b[0])).sum();
+    rc(w, n_at::<S>(r, c))
+}
+fn j_forty<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !(scrimmage(r) && c.my_def(r)) {
+        return Z;
+    }
+    let w: f64 = at_slot::<S>(r, c).map(|i| c.body.get(&i).map_or(0.0, |b| b[1])).sum();
+    rc(w, n_at::<S>(r, c))
+}
+
+/// The same rows for each linebacker job (Mike, Sam, Will): how the man who
+/// lines up there plays it, against the real jobs on NFL depth charts
+/// (`afm/ab-tests/research-linebackers.md`).
+fn lb_jobs() -> Vec<Stat> {
+    use Unit::*;
+    macro_rules! job {
+        ($n:literal, $s:expr) => {
+            [
+                Stat {
+                    key: concat!("lj_", $n, "_share"),
+                    label: concat!("share of his snaps at ", $n),
+                    unit: Pct,
+                    play: Some(j_share::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_rtk"),
+                    label: concat!("run tackles a snap at ", $n),
+                    unit: Pct,
+                    play: Some(j_rtk::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_stop"),
+                    label: concat!("run stops (3 yards or less) a snap at ", $n),
+                    unit: Pct,
+                    play: Some(j_stop::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_miss"),
+                    label: concat!("missed tackle rate at ", $n),
+                    unit: Pct,
+                    play: Some(j_miss::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_tgt"),
+                    label: concat!("targets a snap at ", $n),
+                    unit: Pct,
+                    play: Some(j_tgt::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_cmp"),
+                    label: concat!("catch rate allowed at ", $n),
+                    unit: Pct,
+                    play: Some(j_cmp::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_adot"),
+                    label: concat!("depth of targets on him at ", $n),
+                    unit: Num,
+                    play: Some(j_adot::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_prs"),
+                    label: concat!("pressures a snap at ", $n),
+                    unit: Pct,
+                    play: Some(j_prs::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_wt"),
+                    label: concat!("weight of the man at ", $n),
+                    unit: Num,
+                    play: Some(j_wt::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("lj_", $n, "_forty"),
+                    label: concat!("forty of the man at ", $n),
+                    unit: Num,
+                    play: Some(j_forty::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+            ]
+        };
+    }
+    let mut v = Vec::new();
+    v.extend(job!("mike", DSlot::Mike));
+    v.extend(job!("sam", DSlot::Sam));
+    v.extend(job!("will", DSlot::Will));
+    v
 }
 
 pub mod run;

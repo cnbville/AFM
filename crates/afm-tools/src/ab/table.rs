@@ -58,6 +58,81 @@ pub struct Test {
     pub mine: bool,
 }
 
+/// A linebacker body test's rows against every real linebacker
+/// (`afm/ab-tests/research-linebackers.md`).
+const LB_BODY: &[&str] = &[
+    "tk_run_snap",
+    "tk_run_stop",
+    "tk_run_long",
+    "tk_rate",
+    "tk_miss",
+    "cv_tgt_snap",
+    "cv_cmp",
+    "cv_ypt",
+    "cv_yac",
+    "cv_adot",
+    "dl_press_snap",
+    "dl_sack_snap",
+    "def_ypc",
+    "def_out_ypc",
+    "def_run_succ",
+    "def_cmp",
+    "def_epa_db",
+    "def_blitz",
+];
+/// The same rows for each job, Mike, Sam and Will, with the body of the
+/// man who plays it (`ab::lb_jobs`). The real jobs are in the research.
+const LB_JOBS: &[&str] = &[
+    "lj_mike_share",
+    "lj_mike_rtk",
+    "lj_mike_stop",
+    "lj_mike_miss",
+    "lj_mike_tgt",
+    "lj_mike_cmp",
+    "lj_mike_adot",
+    "lj_mike_prs",
+    "lj_mike_wt",
+    "lj_mike_forty",
+    "lj_sam_share",
+    "lj_sam_rtk",
+    "lj_sam_stop",
+    "lj_sam_miss",
+    "lj_sam_tgt",
+    "lj_sam_cmp",
+    "lj_sam_adot",
+    "lj_sam_prs",
+    "lj_sam_wt",
+    "lj_sam_forty",
+    "lj_will_share",
+    "lj_will_rtk",
+    "lj_will_stop",
+    "lj_will_miss",
+    "lj_will_tgt",
+    "lj_will_cmp",
+    "lj_will_adot",
+    "lj_will_prs",
+    "lj_will_wt",
+    "lj_will_forty",
+];
+macro_rules! lb_real {
+    ($x:literal) => {
+        &[
+            ("tk_run_snap", concat!("lb_", $x, "__rtk_per_snap")),
+            ("tk_run_stop", concat!("lb_", $x, "__rstop_per_snap")),
+            ("tk_run_long", concat!("lb_", $x, "__rlong_share")),
+            ("tk_rate", concat!("lb_", $x, "__tkl_per_snap")),
+            ("tk_miss", concat!("lb_", $x, "__mtkl_pct")),
+            ("cv_tgt_snap", concat!("lb_", $x, "__tgt_per_snap")),
+            ("cv_cmp", concat!("lb_", $x, "__cmp_allowed")),
+            ("cv_ypt", concat!("lb_", $x, "__yds_per_tgt")),
+            ("cv_yac", concat!("lb_", $x, "__yac_per_cmp")),
+            ("cv_adot", concat!("lb_", $x, "__dadot")),
+            ("dl_press_snap", concat!("lb_", $x, "__prss_per_snap")),
+            ("dl_sack_snap", concat!("lb_", $x, "__sack_per_snap")),
+        ]
+    };
+}
+
 fn t(id: &'static str, group: &'static str, name: &'static str, pos: &[Position], kind: Kind) -> Test {
     Test {
         id,
@@ -75,12 +150,22 @@ fn t(id: &'static str, group: &'static str, name: &'static str, pos: &[Position]
 }
 
 impl Test {
+    /// Adds rows (each once; a second call adds to the first).
     fn chain(mut self, c: &[&'static str]) -> Test {
-        self.chain = c.to_vec();
+        for k in c {
+            if !self.chain.contains(k) {
+                self.chain.push(k);
+            }
+        }
         self
     }
+    /// Adds real checks (each row once).
     fn real(mut self, r: &[(&'static str, &'static str)]) -> Test {
-        self.real = r.to_vec();
+        for e in r {
+            if !self.real.iter().any(|x| x.0 == e.0) {
+                self.real.push(*e);
+            }
+        }
         self
     }
     fn sign(mut self, s: f64) -> Test {
@@ -578,19 +663,32 @@ pub fn all() -> Vec<Test> {
         // ---------------------------------------------------- linebacker
         t("lb_weight", "lb", "Weight (225 / 237 / 249 lb)", lb, drawn(Weight, [225.0, 237.0, 249.0]))
             .chain(&["tk_miss", "tk_yaco", "dl_run_shed", "cv_cmp", "cv_ypt", "tk_far"])
-            .real(&[("tk_miss", "lb_wt__mtkl_pct")])
+            .chain(LB_BODY)
+            .chain(LB_JOBS)
+            .real(lb_real!("wt"))
             .sign(-1.0),
         t("lb_speed", "lb", "Speed (forty 4.89 / 4.69 / 4.50)", lb, drawn(Forty, [4.89, 4.69, 4.50]))
             .chain(&["cv_cmp", "cv_ypt", "cv_back_cmp", "tk_far", "tk_rate", "lb_blitz_press", "def_ypc"])
-            .real(&[("cv_cmp", "lb_forty__cmp_allowed"), ("cv_ypt", "lb_forty__yds_per_tgt")])
+            .chain(LB_BODY)
+            .chain(LB_JOBS)
+            .real(lb_real!("forty"))
             .sign(-1.0)
             .headline(),
         t("lb_height", "lb", "Height (5'11 / 6'1.5 / 6'3.5)", lb, body(Height, [71.0, 73.5, 75.5]))
             .chain(&["cv_te_cmp", "cv_cmp", "cv_cont"])
-            .real(&[("cv_cmp", "lb_ht__cmp_allowed")])
+            .chain(LB_BODY)
+            .chain(LB_JOBS)
+            .real(lb_real!("ht"))
             .sign(-1.0),
+        t("lb_arm", "lb", "Arms (30.75 / 32.25 / 33.75 in)", lb, body(Arm, [30.75, 32.25, 33.75]))
+            .chain(&["dl_run_shed", "cv_cmp", "cv_cont", "tk_miss"])
+            .chain(LB_BODY)
+            .chain(LB_JOBS)
+            .real(lb_real!("arm"))
+            .sign(1.0),
         t("lb_recognition", "lb", "Play Recognition", lb, r(&[A::PlayRecognition]))
             .chain(&["def_bust", "tk_rate", "def_ypc", "def_pa_ypa"])
+            .chain(LB_JOBS)
             .sign(-1.0),
         t("lb_tackling", "lb", "Tackling", lb, r(&[A::Tackling]))
             .chain(&["tk_miss", "tk_rate", "def_ypc"])
