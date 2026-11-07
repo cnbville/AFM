@@ -1775,6 +1775,9 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         "record": format!("{}-{}", s.wins, s.losses),
                         "conf": s.conference_title,
                         "nat": s.national_title,
+                        // The title's own level: "National", "FCS" (bug 293).
+                        "nat_word": s.national_title
+                            .then(|| upper_first(college_title(season_division(p, s)).one.trim_end_matches(" title"))),
                         "coach": s.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone()),
                         "pf": s.totals.points_for, "pa": s.totals.points_against, "g": s.totals.games,
                     }))
@@ -1855,6 +1858,45 @@ pub fn team(w: &World, t: TeamRef) -> Value {
         }
     }
     v
+}
+
+/// What a college title is called: a title keeps the name of the level it
+/// was won at, so a program that moved up keeps its FCS titles as FCS
+/// titles (James Madison: 2004 and 2016), never national ones (bug 293).
+pub(crate) struct TitleWords {
+    /// "a" or "an", for "a national title", "an FCS title".
+    pub a: &'static str,
+    pub one: &'static str,
+    pub many: &'static str,
+    pub champs: &'static str,
+}
+
+pub(crate) fn college_title(d: afm_engine::world::data::Division) -> TitleWords {
+    use afm_engine::world::data::Division as D;
+    let (a, one, many, champs) = match d {
+        D::FBS => ("a", "national title", "national titles", "national champions"),
+        D::FCS => ("an", "FCS title", "FCS titles", "FCS champions"),
+        D::D2 => ("a", "Division II title", "Division II titles", "Division II champions"),
+        D::NAIA => ("an", "NAIA title", "NAIA titles", "NAIA champions"),
+        D::D3 => ("a", "Division III title", "Division III titles", "Division III champions"),
+        D::JUCO => ("a", "junior college title", "junior college titles", "junior college champions"),
+    };
+    TitleWords { a, one, many, champs }
+}
+
+/// The first letter upper case: "National champions", "FCS champions".
+pub(crate) fn upper_first(t: &str) -> String {
+    let mut c = t.chars();
+    c.next().map_or_else(String::new, |f| f.to_uppercase().chain(c).collect())
+}
+
+/// The level a program played a season at: the season's own, or today's
+/// for a season from an older file.
+pub(crate) fn season_division(
+    p: &afm_engine::world::program::Program,
+    s: &afm_engine::world::program::ProgramSeason,
+) -> afm_engine::world::data::Division {
+    s.division.unwrap_or(p.division)
 }
 
 pub(crate) fn prestige_words(rel: f64) -> &'static str {

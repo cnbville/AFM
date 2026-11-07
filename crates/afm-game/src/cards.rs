@@ -103,11 +103,13 @@ fn world_part(w: &World) -> Value {
     let first = o.start_year - o.history_years as i32;
     let last = o.start_year - 1;
     let in_history = |y: i32| y >= first && y <= last;
-    // National champions: the top division's, season by season.
+    // National champions: the top division's, season by season. A title
+    // counts at the level it was won at, so a program that moved up keeps its
+    // FCS titles out of the list (bug 293).
     let mut nat: Vec<(i32, String, usize, u32)> = Vec::new();
     for p in &w.programs {
         for s in p.seasons.iter().filter(|s| s.national_title && in_history(s.year)) {
-            if p.division == afm_engine::world::data::Division::FBS {
+            if views::season_division(p, s) == afm_engine::world::data::Division::FBS {
                 nat.push((s.year, w.program_name(p.id).to_string(), p.id, s.losses));
             }
         }

@@ -867,7 +867,10 @@ fn summary(w: &World, t: TeamRef, y: i32) -> Option<Value> {
     let coach = |c: Option<usize>| c.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone());
     match t {
         TeamRef::College(p) => w.programs[p].seasons.iter().find(|s| s.year == y).map(|s| {
-            json!({ "record": format!("{}-{}", s.wins, s.losses), "coach": coach(s.coach), "pf": s.totals.points_for, "pa": s.totals.points_against, "conf_title": s.conference_title, "title": s.national_title })
+            // The title at the level it was won at: "FCS champions" (bug 293).
+            let champs = s.national_title
+                .then(|| views::upper_first(views::college_title(views::season_division(&w.programs[p], s)).champs));
+            json!({ "record": format!("{}-{}", s.wins, s.losses), "coach": coach(s.coach), "pf": s.totals.points_for, "pa": s.totals.points_against, "conf_title": s.conference_title, "title": s.national_title, "champs": champs })
         }),
         TeamRef::Nfl(c) => w.nfl_seasons.iter().find(|s| s.team == c && s.year == y).map(|s| {
             json!({ "record": wlt([s.wins, s.losses, s.ties]), "coach": coach(s.coach), "title": s.round == 5 })

@@ -624,7 +624,8 @@ pub fn all() -> Vec<Test> {
         t("cb_height", "cb", "Height (5'9 / 5'11 / 6'2)", cb, drawn(Height, [69.0, 71.0, 74.0]))
             .chain(&[
                 "cv_cmp", "cv_cont", "cv_tight", "cv_deep", "cv_his_int", "cv_int", "cv_pbu", "cv_rate", "cv_ypt",
-                "cv_yac", "cv_sep", "cv_tgt", "cv_pi",
+                "cv_yac", "cv_sep", "cv_tgt", "cv_pi", "cv_dh", "cv_adot", "cv_ypc", "dl_press_snap", "dl_sack_snap",
+                "tk_run_snap", "tk_run_stop", "tk_rate", "tk_miss",
             ])
             .real(&[
                 ("cv_cmp", "cb_ht__cmp_allowed"),
@@ -633,30 +634,87 @@ pub fn all() -> Vec<Test> {
                 ("cv_ypt", "cb_ht__yds_per_tgt"),
                 ("cv_rate", "cb_ht__rating_allowed"),
                 ("cv_tgt_snap", "cb_ht__tgt_per_snap"),
+                ("cv_yac", "cb_ht__yac_per_cmp"),
+                ("cv_adot", "cb_ht__dadot"),
+                ("cv_ypc", "cb_ht__yds_per_cmp"),
+                ("cv_pi", "cb_ht__dpi_per_snap"),
+                ("cv_dh", "cb_ht__dhold_per_snap"),
+                ("dl_press_snap", "cb_ht__prss_per_snap"),
+                ("dl_sack_snap", "cb_ht__sack_per_snap"),
+                ("tk_run_snap", "cb_ht__rtk_per_snap"),
+                ("tk_run_stop", "cb_ht__rstop_per_snap"),
+                ("tk_rate", "cb_ht__tkl_per_snap"),
+                ("tk_miss", "cb_ht__mtkl_pct"),
             ])
             .sign(-1.0)
             .headline()
             .note("a corner's height is read at the catch point only: not in separation, not in the jam"),
         t("cb_arm", "cb", "Arms (30.5 / 31.75 / 33 in)", cb, body(Arm, [30.5, 31.75, 33.0]))
-            .chain(&["cv_cont", "cv_pbu", "cv_his_int", "cv_cmp", "cv_rate", "cv_sep", "tk_miss"])
+            .chain(&[
+                "cv_cont", "cv_pbu", "cv_his_int", "cv_cmp", "cv_rate", "cv_sep", "tk_miss", "cv_yac", "cv_adot", "cv_ypc",
+                "cv_pi", "cv_dh", "dl_press_snap",
+            ])
             .real(&[
                 ("cv_his_int", "cb_arm__int_per_tgt"),
                 ("cv_pbu", "cb_arm__pbu_per_tgt"),
                 ("cv_cmp", "cb_arm__cmp_allowed"),
                 ("cv_rate", "cb_arm__rating_allowed"),
+                ("cv_yac", "cb_arm__yac_per_cmp"),
+                ("cv_adot", "cb_arm__dadot"),
+                ("cv_ypc", "cb_arm__yds_per_cmp"),
+                ("cv_pi", "cb_arm__dpi_per_snap"),
+                ("cv_dh", "cb_arm__dhold_per_snap"),
+                ("dl_press_snap", "cb_arm__prss_per_snap"),
+                ("tk_miss", "cb_arm__mtkl_pct"),
             ])
             .sign(-1.0),
         t("cb_weight", "cb", "Weight (179 / 193 / 206 lb)", cb, body(Weight, [179.0, 193.0, 206.0]))
-            .chain(&["cv_yac", "tk_miss", "cv_sep", "cv_cmp"])
-            .real(&[("cv_yac", "cb_wt__yac_per_cmp"), ("tk_miss", "cb_wt__mtkl_pct")])
+            .chain(&[
+                "cv_yac", "tk_miss", "cv_sep", "cv_cmp", "cv_ypt", "cv_pbu", "cv_pi", "cv_dh", "dl_press_snap", "tk_run_snap",
+                "tk_run_stop", "tk_rate", "tk_ff",
+            ])
+            .real(&[
+                ("cv_yac", "cb_wt__yac_per_cmp"),
+                ("tk_miss", "cb_wt__mtkl_pct"),
+                ("cv_cmp", "cb_wt__cmp_allowed"),
+                ("cv_ypt", "cb_wt__yds_per_tgt"),
+                ("cv_pbu", "cb_wt__pbu_per_tgt"),
+                ("cv_pi", "cb_wt__dpi_per_snap"),
+                ("cv_dh", "cb_wt__dhold_per_snap"),
+                ("dl_press_snap", "cb_wt__prss_per_snap"),
+                ("tk_run_snap", "cb_wt__rtk_per_snap"),
+                ("tk_run_stop", "cb_wt__rstop_per_snap"),
+                ("tk_rate", "cb_wt__tkl_per_snap"),
+                ("tk_ff", "cb_wt__ff_per_tkl"),
+            ])
             .sign(-1.0),
         t("cb_speed", "cb", "Speed (forty 4.63 / 4.49 / 4.36)", cb, drawn(Forty, [4.63, 4.49, 4.36]))
-            .chain(&["cv_deep", "cv_ypc", "cv_adot", "cv_ypt", "cv_sep"])
-            .real(&[("cv_ypc", "cb_forty__yds_per_cmp"), ("cv_adot", "cb_forty__dadot")])
+            .chain(&[
+                "cv_deep", "cv_ypc", "cv_adot", "cv_ypt", "cv_sep", "cv_yac", "cv_cmp", "cv_pbu", "tk_run_snap", "tk_miss",
+                "tk_ff",
+            ])
+            .real(&[
+                ("cv_ypc", "cb_forty__yds_per_cmp"),
+                ("cv_adot", "cb_forty__dadot"),
+                ("cv_yac", "cb_forty__yac_per_cmp"),
+                ("cv_cmp", "cb_forty__cmp_allowed"),
+                ("cv_pbu", "cb_forty__pbu_per_tgt"),
+                ("cv_ypt", "cb_forty__yds_per_tgt"),
+                ("tk_run_snap", "cb_forty__rtk_per_snap"),
+                ("tk_miss", "cb_forty__mtkl_pct"),
+                ("tk_ff", "cb_forty__ff_per_tkl"),
+            ])
             .sign(-1.0),
         t("cb_cone", "cb", "Agility and flexibility (3-cone 7.25 / 6.94 / 6.63)", cb, body(Cone, [7.25, 6.94, 6.63]))
-            .chain(&["cv_sep", "cv_cmp", "cv_ypt"])
-            .real(&[("cv_cmp", "cb_cone__cmp_allowed")])
+            .chain(&["cv_sep", "cv_cmp", "cv_ypt", "cv_pbu", "cv_yac", "tk_miss", "tk_run_snap"])
+            .real(&[
+                ("cv_cmp", "cb_cone__cmp_allowed"),
+                ("cv_ypt", "cb_cone__yds_per_tgt"),
+                ("cv_pbu", "cb_cone__pbu_per_tgt"),
+                ("cv_yac", "cb_cone__yac_per_cmp"),
+                ("tk_miss", "cb_cone__mtkl_pct"),
+                ("tk_run_snap", "cb_cone__rtk_per_snap"),
+            ])
             .sign(-1.0),
         t("cb_press", "cb", "Press", cb, r(&[A::Press])).chain(&["cv_sep", "cv_cmp", "cv_ypt"]).sign(-1.0),
         t("cb_man", "cb", "Man Coverage", cb, r(&[A::ManCoverage]))

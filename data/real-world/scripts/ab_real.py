@@ -717,6 +717,41 @@ for key, grp, k, snap_col in (("ol_holding_per_snap", ("OT", "IOL"), "holding", 
            SRC_PEN, s[k].sum() / s[snap_col].sum(), "Poisson", 5)
 SPREADS["dl_offside_per_snap"]["def"] = "defensive offside, neutral zone infraction and encroachment"
 
+# A corner's body against coverage, tackling, blitzing and flags (the cornerback research,
+# afm/ab-tests/research-cornerbacks.md): the rows the corner body tests read.
+cbf = dd.join(pc[["dpi", "dholding"]], on=["season", "pfr_id"])
+cbf = cbf[cbf.group == "CB"].copy()
+cbf[["dpi", "dholding"]] = cbf[["dpi", "dholding"]].fillna(0)
+cbf["dpi_per_snap"] = cbf.dpi / cbf.dfn
+cbf["dhold_per_snap"] = cbf.dholding / cbf.dfn
+CB_Y = {"yac_per_cmp": ("yac_per_cmp", "cmp", MS_C, "yards after the catch a completion allowed"),
+        "dadot": ("dadot_", "tgt", MS_C, "depth of target when targeted"),
+        "yds_per_cmp": ("yds_per_cmp", "cmp", MS_C, "yards a completion allowed"),
+        "cmp_allowed": ("cmp_allowed", "tgt", MS_C, "completions allowed a target"),
+        "yds_per_tgt": ("yds_per_tgt", "tgt", MS_C, "yards allowed a target"),
+        "pbu_per_tgt": ("pbu_per_tgt", "tgt", MS_C, "breakups a target"),
+        "dpi_per_snap": ("dpi_per_snap", "dfn", MS_D, "pass interference a defense snap"),
+        "dhold_per_snap": ("dhold_per_snap", "dfn", MS_D, "defensive holding a defense snap"),
+        "prss_per_snap": ("prss_per_snap", "dfn", MS_D, "pressures a defense snap"),
+        "sack_per_snap": ("sack_per_snap", "dfn", MS_D, "sacks a defense snap"),
+        "rtk_per_snap": ("rtk_per_snap", "dfn", MS_D, "run tackles a defense snap"),
+        "rstop_per_snap": ("rstop_per_snap", "dfn", MS_D, "run tackles at 3 yards or less a defense snap"),
+        "tkl_per_snap": ("tkl_per_snap", "dfn", MS_D, "tackles a defense snap"),
+        "mtkl_pct": ("mtkl_pct", "mt_n", MS_D, "missed tackle share"),
+        "ff_per_tkl": ("ff_per_tkl", "pbp_tkl", MS_D + " and 20+ tackles", "forced fumbles a tackle")}
+CB_ROWS = {"ht": ("yac_per_cmp", "dadot", "yds_per_cmp", "dpi_per_snap", "dhold_per_snap", "prss_per_snap",
+                  "sack_per_snap", "rtk_per_snap", "rstop_per_snap", "tkl_per_snap", "mtkl_pct"),
+           "arm": ("yac_per_cmp", "dadot", "yds_per_cmp", "dpi_per_snap", "dhold_per_snap", "prss_per_snap", "mtkl_pct"),
+           "wt": ("cmp_allowed", "yds_per_tgt", "pbu_per_tgt", "dpi_per_snap", "dhold_per_snap", "prss_per_snap",
+                  "rtk_per_snap", "rstop_per_snap", "tkl_per_snap", "ff_per_tkl"),
+           "forty": ("yac_per_cmp", "cmp_allowed", "pbu_per_tgt", "yds_per_tgt", "rtk_per_snap", "mtkl_pct", "ff_per_tkl"),
+           "cone": ("yds_per_tgt", "pbu_per_tgt", "yac_per_cmp", "mtkl_pct", "rtk_per_snap")}
+for _xb, _names in CB_ROWS.items():
+    for _n in _names:
+        _y, _w, _ms, _lab = CB_Y[_n]
+        _src = SRC_PEN if _n.startswith(("dpi", "dhold")) else SRC_DEF
+        slope(f"cb_{_xb}__{_n}", cbf, _xb, _y, _w, "CB, " + _ms, _src + (SRC_MD if _xb == "arm" else ""), _lab)
+
 # ---------------------------------------------------------------- kickers, punters, returners
 fg = pbp[(pbp.field_goal_attempt == 1) & pbp.kick_distance.notna()].copy()
 fg["good"] = (fg.field_goal_result == "made").astype(float)

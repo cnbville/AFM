@@ -97,7 +97,7 @@ function schSummary(x) {
   return `<div class="sch-panel sch-sumonly">
     <div class="sch-ph"><span class="st-label">${x.season} in the book</span><span class="st-label">Game by game is kept for this season and last, and for your own seasons</span></div>
     <div class="sch-hero"><b>${esc(s.record)}</b><span>${s.coach ? `under ${esc(s.coach)}` : ""}</span></div>
-    <div class="sch-cells">${schCell("Points for", s.pf != null ? schNum(s.pf) : "-")}${schCell("Points against", s.pa != null ? schNum(s.pa) : "-")}${schCell("Title", s.title ? (x.level === "hs" ? "State champions" : x.level === "nfl" ? "Won the Super Bowl" : "National champions") : s.conf_title ? "Conference champions" : "-")}</div>
+    <div class="sch-cells">${schCell("Points for", s.pf != null ? schNum(s.pf) : "-")}${schCell("Points against", s.pa != null ? schNum(s.pa) : "-")}${schCell("Title", s.title ? (x.level === "hs" ? "State champions" : x.level === "nfl" ? "Won the Super Bowl" : s.champs || "National champions") : s.conf_title ? "Conference champions" : "-")}</div>
   </div>`;
 }
 
