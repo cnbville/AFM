@@ -754,6 +754,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
                     j["expectation"] = json!(college_expectation(p.prestige_rel));
                     j["grades"] = json!(grades);
                     j["titles"] = json!(p.titles);
+                    j["titles_text"] = json!(college_titles_text(p));
                     j["calendar"] = json!(calendar);
                     j["sub"] = json!(format!(
                         "{} · {} · {}, {}",
@@ -1146,6 +1147,34 @@ pub fn bug_pack(g: &Game, args: &Value) -> Result<Value, String> {
     let _ = std::fs::copy(g.home.join("logs").join("slow-calls.log"), dir.join("slow-calls.log"));
     write(w, &dir.join("world.afmsave"))?;
     Ok(json!({ "folder": dir.display().to_string() }))
+}
+
+/// A college job file's titles, each counted at the level it was won at:
+/// "No national titles · 5 FCS titles" for a program that moved up (bug 293).
+fn college_titles_text(p: &afm_engine::world::program::Program) -> String {
+    use afm_engine::world::data::Division;
+    let mut other = [0u32; afm_engine::world::data::DIVISION_COUNT];
+    for s in p.seasons.iter().filter(|s| s.national_title) {
+        let d = crate::views::season_division(p, s);
+        if d != p.division {
+            other[d as usize] += 1;
+        }
+    }
+    let n = |k: u32, d: Division| {
+        let t = crate::views::college_title(d);
+        format!("{k} {}", if k == 1 { t.one } else { t.many })
+    };
+    let here = p.titles.saturating_sub(other.iter().sum());
+    let mut parts: Vec<String> = Vec::new();
+    if here > 0 {
+        parts.push(n(here, p.division));
+    }
+    for d in Division::ALL {
+        if other[d as usize] > 0 {
+            parts.push(n(other[d as usize], d));
+        }
+    }
+    if parts.is_empty() { format!("No {}", crate::views::college_title(p.division).many) } else { parts.join(" · ") }
 }
 
 #[cfg(test)]

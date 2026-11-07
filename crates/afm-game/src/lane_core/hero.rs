@@ -67,6 +67,8 @@ struct Season {
     conf: bool,
     /// The NFL's playoff round reached (0 none, 5 the Super Bowl won).
     round: u32,
+    /// The college level it played that season (programs move up).
+    div: Option<afm_engine::world::data::Division>,
 }
 
 impl Season {
@@ -75,6 +77,22 @@ impl Season {
     }
     fn winning(&self) -> bool {
         self.w > self.l
+    }
+    /// What its big title is called: ("a", "national title", "national
+    /// titles", "national champions"). A college title keeps the name of the
+    /// level it was won at, so a program that moved up keeps its FCS titles
+    /// as FCS titles (bug 293).
+    fn big(&self, lv: Lv) -> (&'static str, &'static str, &'static str, &'static str) {
+        match (lv, self.div) {
+            (Lv::College, Some(d)) => {
+                let t = views::college_title(d);
+                (t.a, t.one, t.many, t.champs)
+            }
+            (Lv::Hs, _) => ("a", "state title", "state titles", "state champions"),
+            (Lv::College, None) => ("a", "national title", "national titles", "national champions"),
+            (Lv::Nfl, _) => ("a", "Super Bowl", "Super Bowls", "Super Bowl champions"),
+            (Lv::Other, _) => ("a", "league title", "league titles", "league champions"),
+        }
     }
 }
 
@@ -170,6 +188,7 @@ fn seasons(w: &World, t: TeamRef) -> Vec<Season> {
                 title: s.national_title,
                 conf: s.conference_title,
                 round: 0,
+                div: Some(views::season_division(&w.programs[p], s)),
             })
             .collect(),
         TeamRef::Nfl(i) => w
@@ -185,6 +204,7 @@ fn seasons(w: &World, t: TeamRef) -> Vec<Season> {
                 title: s.round == 5,
                 conf: false,
                 round: s.round,
+                div: None,
             })
             .collect(),
         TeamRef::HighSchool(h) => w.high_schools[h]
@@ -199,6 +219,7 @@ fn seasons(w: &World, t: TeamRef) -> Vec<Season> {
                 title: s.state_title,
                 conf: false,
                 round: 0,
+                div: None,
             })
             .collect(),
         TeamRef::Other(i) => afm_engine::world::pro::other::team_seasons(w, i)
@@ -212,6 +233,7 @@ fn seasons(w: &World, t: TeamRef) -> Vec<Season> {
                 title: note.starts_with("won"),
                 conf: false,
                 round: 0,
+                div: None,
             })
             .collect(),
     };
@@ -353,14 +375,11 @@ fn story(c: &Ctx) -> (String, String) {
     } else {
         format!("{} in {} under {coach}.", last.rec(), last.year)
     };
-    let titles: Vec<i32> = s.iter().filter(|x| x.title).map(|x| x.year).collect();
-    let streak = s.iter().rev().take_while(|x| x.title).count();
-    let big = match c.lv {
-        Lv::Hs => "state titles",
-        Lv::College => "national titles",
-        Lv::Nfl => "Super Bowls",
-        Lv::Other => "league titles",
-    };
+    // Titles count at the level they were won at (bug 293): a run of
+    // national titles never takes in the FCS titles from before a move up.
+    let (_, _, big, champs) = last.big(c.lv);
+    let titles: Vec<i32> = s.iter().filter(|x| x.title && x.big(c.lv).2 == big).map(|x| x.year).collect();
+    let streak = s.iter().rev().take_while(|x| x.title && x.big(c.lv).2 == big).count();
     if streak >= 2 {
         return (
             format!("{} straight {big}.", word(streak)),
@@ -368,20 +387,14 @@ fn story(c: &Ctx) -> (String, String) {
         );
     }
     if streak == 1 {
-        let champs = match c.lv {
-            Lv::Hs => "state champions",
-            Lv::College => "national champions",
-            Lv::Nfl => "Super Bowl champions",
-            Lv::Other => "league champions",
-        };
         return (format!("The defending {champs}."), lead);
     }
     if let Some(t) = s.iter().rev().find(|x| x.title)
         && last.year - t.year <= 5
     {
-        let one = &big[..big.len() - 1];
+        let (a, one, _, _) = t.big(c.lv);
         return (
-            format!("{} years from a {one}.", word((last.year - t.year) as usize)),
+            format!("{} years from {a} {one}.", word((last.year - t.year) as usize)),
             format!("{lead} The {one} came in {}, {}, under {}.", t.year, t.rec(), c.coach_name(t.coach)),
         );
     }
@@ -841,16 +854,7 @@ fn stadium(c: &Ctx) -> Value {
     let page = c.pages().into_iter().find(|p| p.games.iter().any(|g| g.score.is_some() || g.won.is_some()));
     let rec_label = match (page, c.seasons.last()) {
         (Some(p), _) if c.in_season() => format!("this season · {}", p.year),
-        (_, Some(s)) if s.title => format!(
-            "{} · {}",
-            match c.lv {
-                Lv::Hs => "state champions",
-                Lv::College => "national champions",
-                Lv::Nfl => "Super Bowl champions",
-                Lv::Other => "league champions",
-            },
-            s.year
-        ),
+        (_, Some(s)) if s.title => format!("{} · {}", s.big(c.lv).3, s.year),
         (Some(p), Some(s)) if p.year == s.year && p.place.is_some() => {
             let (k, _) = p.place.unwrap_or((0, 0));
             format!("{}, {} · {}", ord(k as usize), p.league_name, p.year)
@@ -1123,7 +1127,13 @@ fn marks(c: &Ctx) -> Vec<Mark> {
             } else {
                 push("R1".into(), "A first-round pick", "None on record.".into(), ("open", None), None);
             }
-            if prev.iter().all(|s| !s.title) {
+            // A title at today's level: FCS titles from before a move up
+            // don't take the goal away (bug 293).
+            let today = match c.me {
+                TeamRef::College(p) => Some(w.programs[p].division),
+                _ => None,
+            };
+            if prev.iter().all(|s| !s.title || s.div != today) {
                 push("No. 1".into(), "A national title", none_on_record(c), ("open", None), None);
             }
         }
