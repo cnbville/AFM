@@ -98,7 +98,7 @@ Built now: tests check the simulation against real rates (about 60% of 5-stars d
 
 ## Trial 3 (2026-10-10), after Raichel's notes "too easy to be 99 rated HS and NCAA" and "D2 rarely or never gets drafted (UDFA), and if they do it's day 3 max"
 Built (locally, not pushed), as calibration of decisions already made:
-- **Level ratings** follow EA College Football rarity. High schoolers are ranked against everyone their age nationally; college players against every FBS player (FCS and D2 cards take the scouts' competition discount). About 100–120 college players a season are 90+, about 10 at 95+, and 99 needs a player about 5 points clear of the No. 2 (EA had 0, 0 and 1 at 99 at launch in CFB 25–27). Per class: 0–1 HS seniors at 99, about 10 at 95+, about 110 at 90+.
+- **Level ratings** follow EA College Football rarity (replaced on 2026-10-24 by real honours: see `docs/development-model.md`, "Level ratings"). High schoolers are ranked against everyone their age nationally; college players against every FBS player (FCS and D2 cards take the scouts' competition discount). About 100–120 college players a season are 90+, about 10 at 95+, and 99 needs a player about 5 points clear of the No. 2 (EA had 0, 0 and 1 at 99 at launch in CFB 25–27). Per class: 0–1 HS seniors at 99, about 10 at 95+, about 110 at 90+.
 - **D2 drafting:** no D2 pick before round 4 (Raichel's rule). Test classes drafted 0, 3, 0 and 0 D2 players, 5–9 sign as UDFAs. Real: 0 in 2025 and 2026, about 4 a year earlier, 83% on day 3.
 - **Transfer portal (up only):** about 340 FCS→FBS, 140 D2→FBS and 100 D2→FCS per class, close to real volumes; 9–14 of them get drafted.
 - **Draft rounds** use real sizes (32, 32, 38, 36, 38, 40, 41 picks).
