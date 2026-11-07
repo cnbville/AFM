@@ -467,37 +467,37 @@ pub fn all() -> Vec<Test> {
         // ---------------------------------------------------- defensive tackle
         t("dt_weight", "dt", "Weight (284 / 307 / 330 lb)", dt, drawn(Weight, [284.0, 307.0, 330.0]))
             .chain(&["dl_run_shed", "dl_tfl", "def_ypc", "dl_shed", "dl_power_win", "dl_win", "dl_press", "dl_sack"])
-            .real(&[("dl_press", "dt_wt__prss_per_snap"), ("dl_sack", "dt_wt__sack_per_snap")])
+            .real(&[("dl_press_snap", "dt_wt__prss_per_snap"), ("dl_sack_snap", "dt_wt__sack_per_snap")])
             .sign(-1.0)
             .headline(),
         t("dt_getoff", "dt", "Get-off (10-yard split 1.84 / 1.76 / 1.68)", dt, drawn(Split, [1.84, 1.76, 1.68]))
             .chain(&rush)
-            .real(&[("dl_press", "dt_split__prss_per_snap"), ("dl_sack", "dt_split__sack_per_snap")])
+            .real(&[("dl_press_snap", "dt_split__prss_per_snap"), ("dl_sack_snap", "dt_split__sack_per_snap")])
             .sign(-1.0),
         t("dt_snap", "dt", "Snap timing habit (4 / 16)", dt, Kind::Tend(Tend::SnapTiming))
             .chain(&["dl_contact", "dl_off", "dl_win", "dl_press"])
             .sign(-1.0),
         t("dt_arm", "dt", "Arms (32 / 33.5 / 35 in)", dt, body(Arm, [32.0, 33.5, 35.0]))
             .chain(&["dl_bat", "dl_shed", "dl_run_shed", "dl_press", "dl_sack"])
-            .real(&[("dl_press", "dt_arm__prss_per_snap"), ("dl_sack", "dt_arm__sack_per_snap")])
+            .real(&[("dl_press_snap", "dt_arm__prss_per_snap"), ("dl_sack_snap", "dt_arm__sack_per_snap")])
             .sign(1.0),
         t("dt_height", "dt", "Height (6'1 / 6'3 / 6'5)", dt, body(Height, [73.0, 75.0, 77.0]))
             .chain(&["dl_bat", "dl_shed", "dl_press"])
             .sign(1.0),
         t("dt_power", "dt", "Power Rush", dt, r(&[A::PowerRush]))
             .chain(&["dl_power_win", "dl_win", "dl_press", "dl_sack"])
-            .real(&[("dl_press", "dt_prss_per_snap"), ("dl_sack", "dt_sack_per_snap")])
+            .real(&[("dl_press_snap", "dt_prss_per_snap"), ("dl_sack_snap", "dt_sack_per_snap")])
             .sign(1.0),
         t("dt_shed", "dt", "Block Shedding", dt, r(&[A::BlockShedding]))
             .chain(&["dl_run_shed", "dl_tfl", "def_ypc"])
             .sign(1.0),
         t("dt_strength", "dt", "Strength", dt, r(&[A::Strength]))
             .chain(&["dl_run_shed", "dl_power_win", "dl_press", "def_ypc"])
-            .real(&[("dl_press", "dt_prss_per_snap")])
+            .real(&[("dl_press_snap", "dt_prss_per_snap")])
             .sign(1.0),
         t("dt_hands", "dt", "Hand Use", dt, r(&[A::HandUse]))
             .chain(&["dl_shed", "dl_win", "dl_press", "dl_run_shed"])
-            .real(&[("dl_press", "dt_prss_per_snap")])
+            .real(&[("dl_press_snap", "dt_prss_per_snap")])
             .sign(1.0),
         t("dt_recognition", "dt", "Play Recognition", dt, r(&[A::PlayRecognition]))
             .chain(&["dl_run_shed", "dl_tfl", "def_ypc", "dl_press"])
@@ -524,7 +524,7 @@ pub fn all() -> Vec<Test> {
                 "dl_run_shed",
                 "def_ypc",
             ])
-            .real(&[("dl_press", "edge_arm__prss_per_snap"), ("dl_sack", "edge_arm__sack_per_snap")])
+            .real(&[("dl_press_snap", "edge_arm__prss_per_snap"), ("dl_sack_snap", "edge_arm__sack_per_snap")])
             .sign(1.0)
             .headline()
             .note("arm inches are not read in the hand fight, only through the Length link (nothing below about the top 30%) and batted balls"),
@@ -544,33 +544,33 @@ pub fn all() -> Vec<Test> {
                 "def_ypc",
                 "def_sack",
             ])
-            .real(&[("dl_press", "edge_split__prss_per_snap"), ("dl_sack", "edge_split__sack_per_snap")])
+            .real(&[("dl_press_snap", "edge_split__prss_per_snap"), ("dl_sack_snap", "edge_split__sack_per_snap")])
             .sign(-1.0),
         t("edge_snap", "edge", "Snap timing habit (4 / 16)", ed, Kind::Tend(Tend::SnapTiming))
             .chain(&["dl_contact", "dl_off", "dl_win", "dl_press"])
             .sign(-1.0),
         t("edge_speed", "edge", "Speed (forty 5.03 / 4.79 / 4.55)", ed, drawn(Forty, [5.03, 4.79, 4.55]))
             .chain(&["dl_speed_win", "dl_win", "dl_press", "dl_sack", "def_scr_yds"])
-            .real(&[("dl_press", "edge_forty__prss_per_snap"), ("dl_sack", "edge_forty__sack_per_snap")])
+            .real(&[("dl_press_snap", "edge_forty__prss_per_snap"), ("dl_sack_snap", "edge_forty__sack_per_snap")])
             .sign(1.0),
         t("edge_bend", "edge", "Flexibility (bend)", ed, r(&[A::Flexibility]))
             .chain(&["dl_speed_win", "dl_win", "dl_press"])
             .sign(1.0),
         t("edge_weight", "edge", "Weight (243 / 264 / 285 lb)", ed, drawn(Weight, [243.0, 264.0, 285.0]))
             .chain(&["dl_power_win", "dl_speed_win", "dl_press", "dl_run_shed", "def_ypc"])
-            .real(&[("dl_press", "edge_wt__prss_per_snap")])
+            .real(&[("dl_press_snap", "edge_wt__prss_per_snap")])
             .sign(0.0),
         t("edge_finesse", "edge", "Finesse Rush", ed, r(&[A::FinesseRush]))
             .chain(&["dl_finesse_win", "dl_win", "dl_press", "dl_sack"])
-            .real(&[("dl_press", "edge_prss_per_snap"), ("dl_sack", "edge_sack_per_snap")])
+            .real(&[("dl_press_snap", "edge_prss_per_snap"), ("dl_sack_snap", "edge_sack_per_snap")])
             .sign(1.0),
         t("edge_power", "edge", "Power Rush", ed, r(&[A::PowerRush]))
             .chain(&["dl_power_win", "dl_win", "dl_press", "dl_sack"])
-            .real(&[("dl_press", "edge_prss_per_snap"), ("dl_sack", "edge_sack_per_snap")])
+            .real(&[("dl_press_snap", "edge_prss_per_snap"), ("dl_sack_snap", "edge_sack_per_snap")])
             .sign(1.0),
         t("edge_hands", "edge", "Hand Use", ed, r(&[A::HandUse]))
             .chain(&["dl_shed", "dl_win", "dl_press", "dl_sack"])
-            .real(&[("dl_press", "edge_prss_per_snap")])
+            .real(&[("dl_press_snap", "edge_prss_per_snap")])
             .sign(1.0),
         t("edge_upfield", "edge", "Upfield habit (4 / 16)", ed, Kind::Tend(Tend::Upfield))
             .chain(&["dl_press", "def_scr_yds", "def_ypc"])
@@ -632,7 +632,7 @@ pub fn all() -> Vec<Test> {
                 ("cv_pbu", "cb_ht__pbu_per_tgt"),
                 ("cv_ypt", "cb_ht__yds_per_tgt"),
                 ("cv_rate", "cb_ht__rating_allowed"),
-                ("cv_tgt", "cb_ht__tgt_per_snap"),
+                ("cv_tgt_snap", "cb_ht__tgt_per_snap"),
             ])
             .sign(-1.0)
             .headline()
@@ -882,6 +882,14 @@ pub fn all() -> Vec<Test> {
     v.push(link("link_bend", Link::Bend, &[P::EDGE], &["dl_speed_win", "dl_press"]));
     v.push(link("link_lungs", Link::Lungs, &[P::EDGE, P::DT], &["st_snaps", "st_q4_press"]));
     v.push(link("link_pocket", Link::PocketFrame, &[P::QB], &["qb_batted", "qb_sack_press", "qb_ttt"]).sign(-1.0));
+    // Every stat with a real number is measured, after the chain.
+    for t in &mut v {
+        for (s, _) in t.real.clone() {
+            if !t.chain.contains(&s) {
+                t.chain.push(s);
+            }
+        }
+    }
     v
 }
 
