@@ -407,6 +407,20 @@ impl Speaker {
         if p.player.personality.competitiveness >= 14.0 {
             tags.push("competitor");
         }
+        // Who talks back in your office (Cain 2026-11-05, "Yes, tag them"):
+        // a high school player never; a college player only with a big ego,
+        // a hot temper and little trust in his coach; an NFL ego or temper
+        // keeps its edge. Low trust is under 0.4, below where a new coach
+        // starts (about 0.5; proposed, not confirmed).
+        const BRASH_TRUST: f32 = 0.4;
+        let brash = match tags[1] {
+            "nfl" => hi(Trait::Ego) || hi(Trait::Temper),
+            "college" => hi(Trait::Ego) && hi(Trait::Temper) && p.trust < BRASH_TRUST,
+            _ => false,
+        };
+        if brash {
+            tags.push("brash");
+        }
         Self::position(&mut tags, p.player.position);
         // Where he is in his career, so a line about a senior year, a
         // redshirt or a rookie deal comes only from a man who has one.

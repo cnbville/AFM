@@ -25,6 +25,7 @@ use super::rules::Rules;
 use super::sim::*;
 use crate::attributes::Attr;
 use crate::links::Link;
+use crate::positions::Position;
 use crate::rng::{Rng, clamp};
 use crate::tendencies::Tend;
 
@@ -369,7 +370,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         if s.fake_punt.is_some() { return_spots(s, &agents, &role_of) } else { align_defense(s, &agents, &role_of) };
     for (k, &(d, p)) in s.defense.iter().enumerate() {
         let gp = super::sim::hampered(&s.teams[1][p], s.hurt[1][p]);
-        let mut a = Agent::new(1, p, &gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]);
+        let spot = def_spots[k];
+        let mut a = Agent::new(1, p, &gp, d.label(), spot, s.energy[1][p], s.edge[1][p]);
         if let Some(t) = s.pulse[1].get(p) {
             (a.focus20, a.poise20, a.heat) = (t.focus, t.poise, t.heat);
         }
@@ -2347,8 +2349,15 @@ fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
     // engine_targets.json), proposed, not confirmed.
     // (A tenth quicker again with the plays and tactics build: man was
     // still completed 74% of the time against 57% real.)
+    // The typical receiver against the typical man defender keeps the old
+    // 0.0065 a point; only how far each is from his own position's typical
+    // man reads at `MAN_LAG_RR` (minor bug 283).
+    let gap = ra.a(Attr::RouteRunning) - da.a(Attr::ManCoverage);
+    let gap_typ = super::synthetic::typical(sim.level, sim.player(r).position, Attr::RouteRunning)
+        - super::synthetic::typical(sim.level, sim.player(d).position, Attr::ManCoverage);
     let lag = clamp(
-        0.12 + 0.0065 * (ra.a(Attr::RouteRunning) - da.a(Attr::ManCoverage))
+        0.12 + 0.0065 * gap_typ
+            + MAN_LAG_RR * (gap - gap_typ)
             + 0.003 * (ra.a(Attr::Agility) - (0.6 * da.a(Attr::Agility) + 0.4 * da.a(Attr::Flexibility))),
         0.1,
         0.75,
@@ -2776,9 +2785,10 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
     }
     let _ = trail;
     if next < n_pts {
+        let rr_typ = super::synthetic::typical(sim.level, sim.player(i).position, Attr::RouteRunning);
         let a = &sim.agents[i];
         let Job::Route { pts, .. } = &a.job else { return };
-        let (target, speed, done) = route_step(a, pts, next, settle);
+        let (target, speed, done) = route_step(a, pts, next, settle, rr_typ);
         if done && let Job::Route { next: n, .. } = &mut sim.agents[i].job {
             *n += 1;
         }
@@ -2870,7 +2880,7 @@ fn route_pace(a: &Agent) -> f64 {
 
 /// One tick of a route: the point he runs at, how fast, and whether he has
 /// reached it (he moves on to the next point).
-fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool) -> (V2, f64, bool) {
+fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool, rr_typ: f64) -> (V2, f64, bool) {
     let target = pts[next];
     // Good route runners cut sharper: they start the break later and keep speed.
     let rr = a.a(Attr::RouteRunning);
@@ -2895,7 +2905,8 @@ fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool) -> (V2, f64, boo
         let into = (target - a.pos).norm();
         let out = (pts[next + 1] - target).norm();
         let turn = into.dot(out).clamp(-1.0, 1.0).acos();
-        let corner = vmax * (1.0 - (0.62 - 0.004 * (rr - 50.0)) * (turn / 1.57).min(1.4)).max(0.15);
+        let corner =
+            vmax * (1.0 - (0.62 - 0.004 * (rr - 50.0) - BREAK_RR * (rr - rr_typ)) * (turn / 1.57).min(1.4)).max(0.15);
         let limit = (corner * corner + 2.0 * brake * 0.9 * (dist - 0.5).max(0.0)).sqrt();
         (vmax * urg).min(limit)
     } else {
@@ -3154,6 +3165,100 @@ const READ_NEED: f64 = 0.3;
 /// sacks a third short; proposed, not confirmed).
 const READ_START: f64 = 0.1;
 
+// Minor bugs batch 9 (the A/B tests, 2026-11-07; sizes proposed, not
+// confirmed, each fitted so `ab_check` lands in the real band or spread).
+// Each new read is taken about the level's typical player at the position
+// (`synthetic::typical`), so the levels' averages stay where they were and
+// only how much players differ within a level changes.
+
+/// Route running against man coverage: the man defender's reaction lag, a
+/// second a rating point of each man's distance from his position's typical
+/// man (minor bug 283; it was 0.0065 on the raw gap, and Route Running
+/// moved separation 0.02 of real starters' spread).
+const MAN_LAG_RR: f64 = 0.02;
+
+/// Route running through the break: the speed a sharp cut keeps, a rating
+/// point about his level's typical route runner (minor bug 283).
+const BREAK_RR: f64 = 0.004;
+
+/// A fast quarterback holds the ball (minor bug 276): his clock gains this
+/// a 10 Speed points over his level's typical passer (61 in the NFL, about
+/// a 4.84 forty), and he waits this much longer before a rusher
+/// he sees makes him hurry. Real fast quarterbacks extend plays and take
+/// more sacks; the engine's took fewer.
+const LEGS_HOLD: f64 = 0.2;
+const LEGS_WAIT: f64 = 0.07;
+
+/// The share of that extra time his choice to run waits too (minor bug
+/// 276). All of it and a fast man's scrambles came late and lost their
+/// extra yards (real fast scramblers gain more a run); none of it and his
+/// scrambles rose 1.8 times as fast as real fast passers' and his sacks
+/// fell to 0.4 times real's slope. At half, scrambles, yards a scramble
+/// and sacks all land in the real bands (`ab_check qb_speed`; proposed,
+/// not confirmed).
+const LEGS_RUN: f64 = 0.5;
+
+/// Decisions: the room a careful passer wants before he throws, a rating
+/// point about his level's typical passer (minor bug 283; it was 0.008 from
+/// 60, and Decisions moved picks 0.06 of real starters' spread). The level's
+/// typical passer keeps the old room.
+const DECISIONS_CAUTION: f64 = 0.02;
+
+/// A defender's reach to the ball at the catch point, yards an inch of
+/// height and of arm about his level's typical man at his position (minor
+/// bug 274; they were 0.012 and 0.02, and a corner's arms barely moved the
+/// catch rate he allowed). Real height moves it little once the depth of
+/// target is held (-0.13 pts an inch; tall corners cover the deeper routes),
+/// arms -0.67 an inch (the cornerback research, 2026-11-07).
+const D_REACH_HEIGHT: f64 = 0.025;
+const D_REACH_ARM: f64 = 0.10;
+
+/// Throws 15+ yards deep: the passer trusts a man who can run under it
+/// (his deep speed over his level's typical receiver's, minor bug 280) and
+/// his own arm (Arm Strength over his level's typical passer's, minor bug
+/// 283), in windows of the read's scale a 10 points.
+const DEEP_LEGS: f64 = 0.4;
+const DEEP_ARM: f64 = 0.4;
+
+/// A tall passer sees the middle over his line (minor bug 277): in the
+/// pocket he trusts a tighter window inside, 0.7 of a window unit every 2
+/// inches over his level's typical passer (6'3 in the NFL).
+const OVER_LINE: f64 = 0.7;
+
+/// A big receiver gets the harder balls (minor bug 275): downfield and in
+/// the red zone the passer trusts his size in a tighter window, a window
+/// unit every 4 inches of height (arm counting twice) over his level's
+/// typical man at his position.
+const BIG_TRUST: f64 = 1.0;
+
+/// The passer takes his best target, so a trust that differs from man to
+/// man makes him throw more often even where it averages zero: more deep
+/// balls and picks, fewer throwaways and scrambles. These come off the big
+/// receiver's and the deep man's trust so the level's throws stay where
+/// they were (`match_check`, NFL and FBS: 20+ yard share, throwaways,
+/// scrambles; proposed, not confirmed). High school takes none off the big
+/// man: there 0.35 cut 0.3 points a team game, sent 0.9 points more of the
+/// throws behind the line and added 0.13 sacks, where none keeps its throws
+/// where they were. FCS and small colleges take college's.
+const BIG_BASE: f64 = 0.35;
+const DEEP_BASE: f64 = 0.1;
+fn big_base(level: crate::player::Level) -> f64 {
+    if level == crate::player::Level::HS { 0.0 } else { BIG_BASE }
+}
+
+/// Pocket Presence in the sack escape, logit a 10 points over his level's
+/// typical passer (minor bug 283; it moved sacks 0.09 of real starters'
+/// spread).
+const POCKET_ESCAPE: f64 = 0.5;
+
+/// When a quarterback is pressured (minor bug 284): the nearest rusher
+/// within this many yards (an engaged one counts 1.5 yards farther unless
+/// he is winning), from this many seconds after the snap; the men credited
+/// are the nearest and any free or winning rusher within `PRESS_CAUSE`.
+const PRESS_NEAR: f64 = 3.2;
+const PRESS_FROM: f64 = 0.6;
+const PRESS_CAUSE: f64 = 2.6;
+
 /// A typical quarterback's pre-snap read of the coverage (topic 3.5).
 const PRE_READ: f64 = 0.45;
 
@@ -3170,6 +3275,10 @@ fn quarterback(
     // Pressure he can see or feel.
     let mut pressure = 0.0f64;
     let mut nearest = f64::INFINITY;
+    let mut nearest_d = None;
+    // The rushers close enough to be the pressure: free, or beating their
+    // block (minor bug 284).
+    let mut causing: Vec<usize> = Vec::new();
     let mut threat = V2::default();
     // How soon the first free rusher he knows about will be on him, seconds.
     let mut soon = f64::INFINITY;
@@ -3193,6 +3302,10 @@ fn quarterback(
         let close = if free { dist } else { dist + 1.5 * (1.0 - winning) };
         if close < nearest {
             nearest = close;
+            nearest_d = Some(d);
+        }
+        if (free || winning > 0.0) && close < PRESS_CAUSE && ps.pressured_at.is_none() && t >= PRESS_FROM {
+            causing.push(d);
         }
         if free && dist < 7.0 {
             let seen = sim.sees(qb, a.pos) || sim.rng.chance(0.15 + 0.005 * feel);
@@ -3210,14 +3323,26 @@ fn quarterback(
             threat = threat + (me - a.pos).norm().scale(feel);
         }
     }
-    if nearest < 2.6 && ps.pressured_at.is_none() {
+    // A pressure (minor bug 284): the nearest rusher within 3.2 yards once
+    // the snap and the first punch are past (0.6 s). Before that a tackle
+    // lined up over the center sat within 2.6 yards of a quarterback under
+    // center or in his first steps, and the old rule counted it: 60% of
+    // the engine's pressures came then, and defensive tackles were
+    // credited 8.6 times PFR's. The credit goes to the men who made it:
+    // the nearest, and any free or winning rusher within 2.6 yards (it was
+    // everyone within 2.8 of the quarterback). Team pressure lands at 22.6%
+    // of dropbacks (PFR 22.2%); tackles and edges at 1.4 times PFR's a
+    // snap, their ratio at real's 0.6 (proposed, not confirmed).
+    if nearest < PRESS_NEAR && ps.pressured_at.is_none() && t >= PRESS_FROM {
         ps.pressured_at = Some(t);
-        let ids: Vec<u32> = (0..sim.agents.len())
-            .filter(|&d| sim.agents[d].side == 1 && sim.agents[d].pos.dist(me) < 2.8)
-            .map(|d| sim.agents[d].id)
-            .collect();
-        for id in ids {
-            sim.notes.pressures.push((id, t));
+        let mut by = causing;
+        if let Some(n) = nearest_d
+            && !by.contains(&n)
+        {
+            by.push(n);
+        }
+        for d in by {
+            sim.notes.pressures.push((sim.agents[d].id, t));
         }
     }
     // Footwork: drop, then hang in the pocket or slide away from pressure.
@@ -3285,30 +3410,39 @@ fn quarterback(
     // longer or shorter, and early on he wants more than an open man
     // underneath (or takes him at once).
     let hold = sim.lean(qb, Tend::Hold);
+    let typ = |a: Attr| super::synthetic::typical(sim.level, Position::QB, a);
+    let legs = (sim.agents[qb].a(Attr::Speed) - typ(Attr::Speed)) / 10.0;
     let clock = clamp(3.6 - 0.01 * (decide - 60.0) - 0.004 * (feel - 60.0), 3.1, 4.1)
         + if ps.concept.drop == Drop::Deep { 0.3 } else { 0.0 }
-        + 1.0 * hold;
+        + 1.0 * hold
+        + LEGS_HOLD * legs;
     // Gunslinger or checkdown (tendencies): how much room he wants before
     // he lets it go, more so downfield; a checkdown man takes the short
     // throw sooner.
     let sling = sim.lean(qb, Tend::Gunslinger);
     let late = t > clock;
+    // His legs buy time for the throw more than for the run: when he takes
+    // off he waits only part of the extra time (`LEGS_RUN`).
+    let late_run = t > clock - (1.0 - LEGS_RUN) * LEGS_HOLD * legs;
     // A free man coming at him (the beaten block, the blitzer nobody
     // picked up): he is done going through his reads and takes the best
     // he has now, the hot or check-down man included, rather than eat it
     // (proposed, not confirmed: about 0.85 of a second away, a little
     // sooner for a poised passer who trusts his pocket; the world's FBS
     // rosters then take a sack on about 6% of dropbacks, real 6.0%).
-    let urgent = soon < 0.85 - 0.004 * (poise - 60.0) && !screen;
+    let urgent = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_WAIT * legs && !screen;
+    let urgent_run = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_RUN * LEGS_WAIT * legs && !screen;
     // Off schedule out of the pocket, the progression is gone: he takes
     // whoever comes open.
     let over = ps.read >= ps.reads.len() || late || urgent || ps.extend.is_some();
+    let over_run = ps.read >= ps.reads.len() || late_run || urgent_run || ps.extend.is_some();
     // A good quarterback holds the safety with his eyes before coming back.
     // (Eye manipulation: nothing for most, up to a full pull for the best.)
     let manip = clamp((sim.agents[qb].a(Attr::EyeManipulation) - 60.0) / 30.0, 0.0, 1.0);
     ps.look_off = if ps.read == 0 && t - ps.read_since < 0.6 { manip } else { 0.0 };
     let tired = t - ps.set_at;
-    let caution = 0.008 * (sim.agents[qb].a(Attr::Decisions) - 60.0);
+    let caution = DECISIONS_CAUTION * (sim.agents[qb].a(Attr::Decisions) - typ(Attr::Decisions))
+        + 0.008 * (typ(Attr::Decisions) - 60.0);
     let panic = pressure * clamp(1.6 - 1.4 * poise / 100.0, 0.15, 1.5);
     let (cand, thresh): (Vec<usize>, f64) = if urgent {
         // Under the gun: anyone with a window, a tighter one than he'd
@@ -3355,7 +3489,39 @@ fn quarterback(
         // but a catch is worth a chunk, so real quarterbacks give their man
         // a chance at a contested ball far more readily than underneath.
         let depth = (p.x - s.los) * sim.goal;
+        let run_under = if depth > 15.0 {
+            let wr = |a: Attr| super::synthetic::typical(sim.level, Position::WR, a);
+            let deep_typ = 0.4 * wr(Attr::Acceleration) + 0.6 * wr(Attr::Speed);
+            DEEP_LEGS * (super::roster::deep_speed(sim.player(r)) - deep_typ) / 10.0
+                + DEEP_ARM * (sim.agents[qb].a(Attr::ArmStrength) - typ(Attr::ArmStrength)) / 10.0
+                - DEEP_BASE
+        } else {
+            0.0
+        };
+        // A tall passer sees the middle over his line (minor bug 277): he
+        // trusts a tighter window inside, from the pocket (out of it there
+        // is no line in front of him).
+        let pocket = ps.extend.is_none() && (me.y - s.ball_y).abs() <= 4.0;
+        let inside = pocket && (p.y - mid()).abs() < 9.0 && depth > 4.0;
+        let over_line = if inside {
+            OVER_LINE * (sim.player(qb).height - super::synthetic::typical_body(sim.level, Position::QB).0) / 2.0
+        } else {
+            0.0
+        };
+        // A big receiver gets the harder balls (minor bug 275): the passer
+        // trusts his reach in a tighter window downfield and near the goal.
+        let red_zone = s.los + depth >= 88.0;
+        let big = if depth >= 5.0 || red_zone && depth >= 2.0 {
+            let pl = sim.player(r);
+            let (ht, _, arm) = super::synthetic::typical_body(sim.level, pl.position);
+            BIG_TRUST * ((pl.height - ht) + 2.0 * (pl.arm - arm)) / 4.0 - big_base(sim.level)
+        } else {
+            0.0
+        };
         let need = thresh
+            - run_under
+            - over_line
+            - big
             - (0.05 * (depth - 12.0).max(0.0)).min(1.2)
             - 1.0 * sling
             - if depth > 12.0 { 0.4 * sling } else { 0.0 }
@@ -3546,7 +3712,7 @@ fn quarterback(
     // and runs three times as readily.
     let leaves = (1.0 + 1.2 * sim.lean(qb, Tend::Scramble)).max(0.1);
     let extended = ps.give_up || ps.extend.is_some_and(|(_, at)| t - at > EXTEND_RUN);
-    let want_run = (over || pressure > 0.5)
+    let want_run = (over_run || pressure > 0.5)
         && lane
         && t > 2.0
         && sim.rng.chance(clamp(0.03 + 0.004 * (speed - 50.0), 0.01, 0.2) * leaves * if extended { 3.0 } else { 1.0 });
@@ -3750,11 +3916,12 @@ impl<'s> Predict<'s> {
             return v2(p.x.min(end_line() - 1.0), clamp(p.y, 1.5, width() - 1.5));
         };
         let steps = (dt / DT).round() as usize;
+        let rr_typ = super::synthetic::typical(self.sim.level, self.sim.player(self.r).position, Attr::RouteRunning);
         while self.spots.len() <= steps {
             if !self.stopped {
                 let a = &mut self.a;
                 if self.next < pts.len() {
-                    let (target, speed, done) = route_step(a, pts, self.next, *settle);
+                    let (target, speed, done) = route_step(a, pts, self.next, *settle, rr_typ);
                     if done {
                         self.next += 1;
                     }
@@ -3995,9 +4162,12 @@ fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
     let t = sim.t;
     // Pocket frame (Dynamic Links): a big quarterback's high release, about
     // what five quick-release points save.
+    // The passer's own height is left out (minor bug 277: real batted
+    // balls don't move with it); his level's typical height keeps the
+    // level's rate where it was (it read -6% an inch from 6'3).
+    let tall = super::synthetic::typical_body(sim.level, Position::QB).0 - 75.0;
     let passer = clamp(
-        1.0 - 0.06 * (sim.player(qb).height - 75.0)
-            - 0.008 * (sim.agents[qb].a(Attr::QuickRelease) + sim.link(qb, &[Link::PocketFrame]) - 60.0),
+        1.0 - 0.06 * tall - 0.008 * (sim.agents[qb].a(Attr::QuickRelease) + sim.link(qb, &[Link::PocketFrame]) - 60.0),
         0.4,
         1.8,
     );
@@ -4133,7 +4303,13 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let tk =
         0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility) + sim.link(d, &[Link::Length]);
     let seen = sim.sees(qb, r.pos);
-    let logit = -2.4 + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 } + if grabbing { 1.2 } else { 0.0 };
+    let logit = -2.4
+        + (esc - tk) / 12.0
+        + if seen { 0.0 } else { -1.0 }
+        + if grabbing { 1.2 } else { 0.0 }
+        + POCKET_ESCAPE
+            * (q.a(Attr::PocketPresence) - super::synthetic::typical(sim.level, Position::QB, Attr::PocketPresence))
+            / 10.0;
     if sim.rng.chance(1.0 / (1.0 + (-logit).exp())) {
         let (rid, qid) = (r.id, q.id);
         sim.notes.missed.push((rid, qid));
@@ -4634,7 +4810,11 @@ fn cover_inner(
             if rd < 0.9
                 && t > 0.8
                 && t < 2.6
-                && sim.rng.chance(0.0105 * sim.crew.holding * (1.6 - sim.trait20(i, Attr::Discipline) / 14.0))
+                && sim.rng.chance(
+                    0.0105
+                        * sim.crew.holding
+                        * (0.886 + 0.7 * (10.0 - sim.trait20(i, Attr::Discipline)) / 14.0).max(0.1),
+                )
             {
                 let (id, at) = (sim.agents[i].id, me.x);
                 let ok = pass.as_ref().is_some_and(|p| p.thrown.is_none());
@@ -4899,10 +5079,17 @@ fn catch_point(
     // this test (the coverage) is read the same way. A high school
     // receiver's radius was a third smaller than a pro's, and 41% of high
     // school throws missed their man (22% in the NFL).
+    // Height and arm length (minor bug 275): 0.0075 yard an inch and 0.01
+    // within the level, about his level's typical man at his position,
+    // whose radius stays what it was (0.015 and 0.02 an inch from 6'0 and
+    // 32 inches).
+    let (typ_h, _, typ_arm) = super::synthetic::typical_body(sim.level, sim.player(r).position);
     let radius = 0.95
-        + 0.015 * (gp_h - 72.0)
+        + 0.015 * (typ_h - 72.0)
+        + 0.02 * (typ_arm - 32.0)
+        + 0.0075 * (gp_h - typ_h)
         + 0.004 * (pro(ra.a(Attr::Jumping)) - 50.0)
-        + 0.02 * (gp_arm - 32.0)
+        + 0.01 * (gp_arm - typ_arm)
         + 0.0015 * (pro(ra.a(Attr::BodyControl)) - 60.0);
     // His high point (D1): a ball put over his reach sails past him.
     let rec_reach = high_reach(sim, r, true);
@@ -4964,10 +5151,16 @@ fn catch_point(
         let broke = sim.notes.tend.jump == Some((da.id, true));
         // His reach to the ball: height, jump and arms (D1: the arms were
         // left out, so a long corner played like a short-armed one).
+        // Within the level the slope is D_REACH_HEIGHT and D_REACH_ARM
+        // (minor bug 274); his level's typical man at his position reaches
+        // what he did (0.012 and 0.02 an inch from 6'0 and 31.5 inches).
+        let (typ_h, _, typ_arm) = super::synthetic::typical_body(sim.level, sim.player(d).position);
         let d_reach = 1.05
-            + 0.012 * (sim.player(d).height - 72.0)
+            + 0.012 * (typ_h - 72.0)
+            + 0.02 * (typ_arm - 31.5)
+            + D_REACH_HEIGHT * (sim.player(d).height - typ_h)
             + 0.004 * (da.a(Attr::Jumping) - 50.0)
-            + 0.02 * (sim.player(d).arm - 31.5)
+            + D_REACH_ARM * (sim.player(d).arm - typ_arm)
             + if broke { 0.6 } else { 0.0 };
         // Size at the catch point (D1): each man's highest reach is his
         // standing reach plus the jump he has left at his speed, against

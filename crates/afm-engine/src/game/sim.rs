@@ -954,6 +954,22 @@ const SPACE_BLOCK_LEAVE: f64 = 0.6;
 /// game, real 0.024; minor bug 163, proposed, not confirmed).
 const LAST_MAN_LEAD: f64 = 1.4;
 
+/// An edge rusher's get-off: the share of it from raw Acceleration (the
+/// rest of the 0.6 moves to Finesse Rush and Flexibility), and the share of
+/// his speed rush's Speed and Acceleration kept (the rest moves to Finesse
+/// Rush, Flexibility and Hand Use). Minor bug 286: they were 0.6 and 1.0,
+/// and the 10-yard split was the edge's strongest body number, where real
+/// shows none once talent is known (proposed, not confirmed).
+const EDGE_BURST: f64 = 0.15;
+const EDGE_ARC_LEGS: f64 = 0.5;
+
+/// The hitter's part in a forced fumble, a point of 0.5 Strength + 0.5
+/// Tackling about his level's typical man at his position (minor bug 282:
+/// at the carrier's 0.025 a safety's
+/// Hitting swung forced fumbles 1.06 times real regulars' spread; proposed,
+/// not confirmed).
+const FUMBLE_HIT: f64 = 0.020;
+
 /// Rating points a road line loses off the snap at full crowd noise.
 /// Fitted with the other home-field causes to the real home margin
 /// (`scrimmage.rs`, `NOISE_LOAD`; minor bug 143: 24 before; proposed, not
@@ -1317,9 +1333,35 @@ impl<'a> Sim<'a> {
         // sooner on the snaps he guesses right (offside is the cost).
         // Dynamic Links: Get-off is the first step itself; Length lands the
         // first hands (on both sides, the longer man's punch lands first).
+        // An edge rusher's get-off leans on his rush craft (Finesse Rush and
+        // bend) more than raw burst (minor bug 286: real edges' 10-yard
+        // split says nothing about their pressures once talent is known).
+        // An interior rusher's first step reads his body too: Acceleration
+        // as his 10-yard split shows it at his weight, a pound off his
+        // level's typical man at his position worth 0.64 Acceleration points
+        // (`links::ten_split`; minor bug 285, heavy tackles pressured more).
+        // An edge's weight already costs him on his arc (his burst and cut,
+        // `game/roster.rs`), and real heavy edges pressure no less.
         use crate::links::Link;
-        let get_off = de.a(Attr::Acceleration) * 0.6
-            + de.a(Attr::Anticipation) * 0.4
+        let edge_rusher = pass && matches!(de.job, Job::Rush { contain, .. } if contain != 0.0);
+        let k_acc = if edge_rusher { EDGE_BURST } else { 0.6 };
+        let heft = if pass && !edge_rusher {
+            let (_, wt, _) = super::synthetic::typical_body(self.level, self.player(d).position);
+            0.64 * k_acc * (de.mass - wt)
+        } else {
+            0.0
+        };
+        // The share moved off raw burst reads his craft about his level's
+        // typical man at his position, who gets off as before.
+        let typ = |a: Attr| super::synthetic::typical(self.level, self.player(d).position, a);
+        let craft = if k_acc < 0.6 {
+            typ(Attr::Acceleration)
+                + 0.5 * (de.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
+                + 0.5 * (de.a(Attr::Flexibility) - typ(Attr::Flexibility))
+        } else {
+            0.0
+        };
+        let get_off = de.a(Attr::Acceleration) * k_acc + (0.6 - k_acc) * craft + de.a(Attr::Anticipation) * 0.4 - heft
             + 12.0 * self.lean(d, Tend::SnapTiming)
             + self.link(d, &[Link::GetOff])
             + self.link(d, &[Link::Length]);
@@ -1434,11 +1476,27 @@ impl<'a> Sim<'a> {
             + gift
             + match mv {
                 Move::Speed => {
+                    // An edge's arc leans on the craft of it, half his raw
+                    // speed and burst (minor bug 286).
+                    // The craft reads about his level's typical man at his
+                    // position, whose arc wins as before.
+                    let k = if edge { EDGE_ARC_LEGS } else { 1.0 };
+                    let freed = if edge {
+                        let typ = |x: Attr| super::synthetic::typical(self.level, self.player(d).position, x);
+                        0.35 * (1.0 - k)
+                            * ((0.2 * typ(Attr::Speed) + 0.15 * typ(Attr::Acceleration)) / 0.35
+                                + 0.45 * (a.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
+                                + 0.3 * (a.a(Attr::Flexibility) - typ(Attr::Flexibility))
+                                + 0.25 * (a.a(Attr::HandUse) - typ(Attr::HandUse)))
+                    } else {
+                        0.0
+                    };
                     0.4 * a.a(Attr::FinesseRush)
-                        + 0.2 * a.a(Attr::Speed)
-                        + 0.15 * a.a(Attr::Acceleration)
+                        + 0.2 * k * a.a(Attr::Speed)
+                        + 0.15 * k * a.a(Attr::Acceleration)
                         + 0.15 * a.a(Attr::Flexibility)
                         + 0.1 * a.a(Attr::HandUse)
+                        + freed
                 }
                 Move::Power => {
                     0.4 * a.a(Attr::PowerRush)
@@ -1489,24 +1547,39 @@ impl<'a> Sim<'a> {
                 + (a.mass - 300.0) * 0.08;
         }
         let pb = a.a(Attr::PassBlocking);
-        match mv {
-            // Mirroring the arc: feet, bend and a punch that lands.
-            Move::Speed => {
-                0.5 * pb + 0.2 * a.a(Attr::Agility) + 0.15 * a.a(Attr::Flexibility) + 0.15 * a.a(Attr::HandUse)
+        // A tackle's reach in the hand fight (minor bug 288, Cain's yes
+        // 2026-11-07): a rating point an inch of arm over 34 against speed
+        // and hands, so a 32-inch tackle loses a little to them.
+        let gp = &self.teams[a.side][a.p];
+        let reach = match mv {
+            Move::Speed | Move::Finesse if gp.position == crate::positions::Position::OT => {
+                // 34 inches in the NFL; the other levels' pivot moves with
+                // their typical tackle's arm, so their typical man blocks as
+                // before.
+                let ot = |l| super::synthetic::typical_body(l, crate::positions::Position::OT).2;
+                gp.arm - (34.0 + ot(self.level) - ot(Level::NFL))
             }
-            // The anchor against the bull rush.
-            Move::Power => {
-                0.4 * pb
-                    + 0.3 * a.a(Attr::Anchor)
-                    + 0.15 * a.a(Attr::Strength)
-                    + 0.15 * a.a(Attr::Balance)
-                    + (a.mass - 300.0) * 0.08
+            _ => 0.0,
+        };
+        reach
+            + match mv {
+                // Mirroring the arc: feet, bend and a punch that lands.
+                Move::Speed => {
+                    0.5 * pb + 0.2 * a.a(Attr::Agility) + 0.15 * a.a(Attr::Flexibility) + 0.15 * a.a(Attr::HandUse)
+                }
+                // The anchor against the bull rush.
+                Move::Power => {
+                    0.4 * pb
+                        + 0.3 * a.a(Attr::Anchor)
+                        + 0.15 * a.a(Attr::Strength)
+                        + 0.15 * a.a(Attr::Balance)
+                        + (a.mass - 300.0) * 0.08
+                }
+                // Hands against hands.
+                Move::Finesse => {
+                    0.45 * pb + 0.3 * a.a(Attr::HandUse) + 0.15 * a.a(Attr::Agility) + 0.1 * a.a(Attr::FootballIq)
+                }
             }
-            // Hands against hands.
-            Move::Finesse => {
-                0.45 * pb + 0.3 * a.a(Attr::HandUse) + 0.15 * a.a(Attr::Agility) + 0.1 * a.a(Attr::FootballIq)
-            }
-        }
     }
 
     fn shed_power(&self, d: usize) -> f64 {
@@ -2148,9 +2221,18 @@ impl<'a> Sim<'a> {
         // Dynamic Links: Sudden makes the first man miss; a Sudden tackler
         // mirrors the cut.
         use crate::links::Link;
-        let evade = 0.5 * r.a(Attr::Elusiveness) + 0.3 * r.a(Attr::Agility) + 0.2 * r.a(Attr::Speed)
-            - size_cost(r.mass, 210.0)
-            + self.link(c, &[Link::Sudden]);
+        // The make-a-man-miss skill is Elusiveness: real broken tackles
+        // don't move with a carrier's weight or 3-cone once talent is known
+        // (minor bug 279). Weight still costs him burst, braking and cut,
+        // and his agility his cut (`game/roster.rs`). His level's typical
+        // man at his position evades as before (it read 0.5 Elusiveness,
+        // 0.3 Agility and size_cost from 210 lb), so only the spread within
+        // the level changes.
+        let pos = self.player(c).position;
+        let typ = |a: Attr| super::synthetic::typical(self.level, pos, a);
+        let was = 0.3 * (typ(Attr::Agility) - typ(Attr::Elusiveness))
+            - size_cost(super::synthetic::typical_body(self.level, pos).1, 210.0);
+        let evade = 0.8 * r.a(Attr::Elusiveness) + 0.2 * r.a(Attr::Speed) + was + self.link(c, &[Link::Sudden]);
         let tackle = 0.6 * d.a(Attr::Tackling)
             + 0.2 * d.a(Attr::Agility)
             + 0.2 * d.a(Attr::Pursuit)
@@ -2236,10 +2318,19 @@ impl<'a> Sim<'a> {
         // about 0.45 in the NFL and 0.4 in FBS (proposed, not confirmed).
         let carry = r.a(Attr::BallSecurity);
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
+        let hit_typ = {
+            let pos = self.player(i).position;
+            let typ = |a: Attr| super::synthetic::typical(self.level, pos, a);
+            0.5 * typ(Attr::Strength) + 0.5 * typ(Attr::Tackling)
+        };
         let rain = (if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * self.cond.cold_unused);
         // Going for the strip (tendencies): the punch-out.
         let strip = (1.0 + 1.15 * self.lean(i, Tend::Strip)).max(0.1);
-        let p = 0.018 * (force / 1700.0).powf(1.5) * clamp(1.0 + 0.025 * (hit - carry), 0.25, 2.5) * rain * strip;
+        let p = 0.018
+            * (force / 1700.0).powf(1.5)
+            * clamp(1.0 + 0.025 * (hit - carry) - (0.025 - FUMBLE_HIT) * (hit - hit_typ), 0.25, 2.5)
+            * rain
+            * strip;
         if self.notes.fumbled.is_none() && self.rng.chance(p) {
             self.notes.fumbled = Some(r.id);
             self.notes.forced_fumble = Some(d.id);

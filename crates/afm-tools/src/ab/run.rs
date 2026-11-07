@@ -159,6 +159,8 @@ pub fn play(
     st: &[Stat],
     pos: &HashMap<u32, Position>,
 ) -> Vec<Rows> {
+    let body: HashMap<u32, [f64; 2]> =
+        teams.iter().flat_map(|t| t.players.iter().map(|p| (p.id, [p.weight, p.forty()]))).collect();
     let per: Vec<Vec<Vec<C>>> = (from..to)
         .into_par_iter()
         .map(|g| {
@@ -167,7 +169,7 @@ pub fn play(
             lenses
                 .iter()
                 .map(|ln| {
-                    let cx = Cx { focus: &ln.focus, pos, mine: side };
+                    let cx = Cx { focus: &ln.focus, pos, mine: side, body: &body };
                     ln.stats
                         .iter()
                         .map(|&k| {

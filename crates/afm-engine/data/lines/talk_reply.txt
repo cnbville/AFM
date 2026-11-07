@@ -427,11 +427,11 @@ I'm sorry, Coach. I can't. ~ humble
 I don't want to burden you with it. ~ humble
 I'm not trying to be difficult. I just can't talk about it. ~ humble
 You don't need to know everything about me. ~ ego
-I don't need to explain myself. ~ ego
-I've got it handled. Stop asking. ~ ego
+I don't need to explain myself. ~ ego brash
+I've got it handled. Stop asking. ~ ego brash
 Why do you keep asking me that? ~ hot
-I said I'm good. Drop it. ~ hot
-You don't get to ask me that. ~ hot
+I said I'm good. Drop it. ~ hot brash
+You don't get to ask me that. ~ hot brash
 I'm getting annoyed, Coach. ~ hot
 I don't want to go there. ~ hot
 I keep work and life separate, Coach. Let's keep it that way. ~ pro
@@ -489,7 +489,7 @@ I don't owe anybody the whole story.
 Wow, okay. I'm done.
 You heard me the first time.
 I knew I shouldn't have said anything.
-Can I go now?
+Can I go now? ~ brash
 Don't make me sorry I trusted you.
 I'm not some project you get to dig into.
 I already feel stupid for saying it. Don't make it worse.
@@ -538,10 +538,10 @@ You want more, go find it somewhere else.
 I feel like you're fishing.
 Now you sound like everybody else.
 I'm not doing the whole sob story.
-Whatever I say next, you'll use against me. So nothing.
+Whatever I say next, you'll use against me. So nothing. ~ brash
 This is why guys don't come in here.
-I'm out of words for it. And patience.
-Don't take this the wrong way, but back off.
+I'm out of words for it. And patience. ~ brash
+Don't take this the wrong way, but back off. ~ brash
 You already know more than most people.
 I let you in a little and you're trying to knock the door down.
 It's not a puzzle for you to solve.
@@ -603,22 +603,22 @@ It's not yours to fix, {coach}.
 You're treating me like I'm fragile.
 I feel like I said it into a microphone.
 That's going to stay between me and me.
-Are we done? I'd like to be done.
+Are we done? I'd like to be done. ~ brash
 That wasn't easy for me, and you just kept going.
 I wish I'd kept my mouth shut.
-You don't get to know everything about everybody.
+You don't get to know everything about everybody. ~ brash
 Only {friend} gets the rest of it. Not you.
 Even {friend} doesn't know all of it. You're not going to either.
 I'd rather talk to {friend} about it, honestly.
 This is {team}, not a counseling office.
-I already gave you more than most people get. Be happy with that. ~ ego
+I already gave you more than most people get. Be happy with that. ~ ego brash
 {name} doesn't do sob stories. ~ ego
 I'm not about to cry in your office, Coach. ~ ego
-You think I need you to fix me? I don't. ~ ego
-I don't need a shoulder. I need you to drop it. ~ ego
+You think I need you to fix me? I don't. ~ ego brash
+I don't need a shoulder. I need you to drop it. ~ ego brash
 I'm bigger than whatever this is. Let's move on. ~ ego
 Nah, you don't get the whole me. Nobody does. ~ ego
-You're not going to break me down in here, {coach}. ~ ego
+You're not going to break me down in here, {coach}. ~ ego brash
 I don't do the vulnerable thing. Sorry. ~ ego
 I'm sorry. I just can't go any further with it. ~ humble
 I don't want to be rude, {coach}. But please stop asking. ~ humble
@@ -632,15 +632,15 @@ Nope. ~ quiet
 I've talked enough. ~ quiet
 Please stop. ~ quiet
 That's it. No. ~ quiet
-Back off, {coach}. ~ hot
-You keep pushing and I'm going to say something I regret. ~ hot
-Are you serious right now? ~ hot
-Man, I knew it. You open up once and they never stop. ~ hot
-I'm getting heated. You should stop asking. ~ hot
-Don't. Just don't. ~ hot
+Back off, {coach}. ~ hot brash
+You keep pushing and I'm going to say something I regret. ~ hot brash
+Are you serious right now? ~ hot brash
+Man, I knew it. You open up once and they never stop. ~ hot brash
+I'm getting heated. You should stop asking. ~ hot brash
+Don't. Just don't. ~ hot brash
 Why are you pressing me like this? ~ hot
-I said that's it! ~ hot
-You want to see me lose it? Keep going. ~ hot
+I said that's it! ~ hot brash
+You want to see me lose it? Keep going. ~ hot brash
 This is exactly what I didn't want, {coach}. ~ hot
 I'd like to stop here. ~ calm
 I've said what I'm willing to say. Let's leave it at that. ~ calm
@@ -652,17 +652,17 @@ I'd do anything for you, {coach}. Except this. ~ loyal
 I've got your back. I need you to respect this. ~ loyal
 This doesn't feel like you, Coach. ~ loyal
 I came to you because I trust you. Don't make me rethink that. ~ loyal
-If you want more from me, show me something first. ~ greedy
-What do I get for telling you the rest? ~ greedy
+If you want more from me, show me something first. ~ greedy brash
+What do I get for telling you the rest? ~ greedy brash
 I don't hand out more than I get back. ~ greedy
-You want the rest, earn it. ~ greedy
+You want the rest, earn it. ~ greedy brash
 Telling you more doesn't do anything for me. ~ greedy
 I've given you what's relevant. The rest is personal. ~ pro
 I'd prefer we keep this professional. ~ pro
 That's the part that affects my work. The rest doesn't. ~ pro
 With respect, that's outside what we need to discuss. ~ pro
 I'm not going to discuss personal matters further, {coach}. ~ pro
-Whoa, Coach, chill. That's enough heart to heart. ~ loose
+Whoa, Coach, chill. That's enough heart to heart. ~ loose brash
 Ha, nah. You don't get the director's cut. ~ loose
 Okay, we're getting way too deep for me. ~ loose
 Man, you're killing my vibe, Coach. ~ loose young
@@ -683,7 +683,7 @@ Let me handle it my way, {coach}. I always do. ~ competitor
 I don't need to talk it to death. I need to go compete. ~ competitor
 I can't have this getting back to the guys. ~ leader
 I'm supposed to be the one holding it together. Don't make me fall apart in here. ~ leader
-If the guys see me walk out of here messed up, that's on you. ~ leader
+If the guys see me walk out of here messed up, that's on you. ~ leader brash
 I hold enough for everybody else. Let me hold this one. ~ leader
 Man, why you doing me like this, Coach? ~ young
 My business isn't the whole school's business. ~ hs
@@ -736,10 +736,10 @@ Now you're just meddling, Coach. ~ south
 I'm fixing to walk out if this keeps up. ~ texas
 Where I'm from we don't air it all out. I'm done. ~ texas
 That's about enough, I'd say. ~ midwest
-Yeah, no. I'm done with this. ~ midwest
+Yeah, no. I'm done with this. ~ midwest brash
 I'd rather just leave it, if it's all the same to you. ~ midwest
-Seriously, we're done here, {coach}. ~ northeast
-Come on. Enough already. ~ northeast
+Seriously, we're done here, {coach}. ~ northeast brash
+Come on. Enough already. ~ northeast brash
 You're breaking my chops here, Coach. ~ northeast
 Nah, hard pass on that. ~ west
 That's not a vibe, Coach. ~ west
@@ -753,7 +753,7 @@ I'm not trying to be rude. I'm trying to be done.
 You just made it harder to come in here next time.
 I'm not a reality show, Coach. ~ loose
 I've got a reputation to keep. Breaking down in here isn't part of it. ~ ego
-You want more? There isn't any. Happy? ~ hot
+You want more? There isn't any. Happy? ~ hot brash
 Respect the line I drew, {coach}.
 I'm a junior. I'm old enough to keep some stuff to myself. ~ hs junior
 I'm a sophomore, not a little kid. ~ hs sophomore
@@ -1205,7 +1205,7 @@ That's the clearest anybody's ever been with me.
 Alright. I know where the line is now.
 You could've let me keep guessing. Thanks for not doing that.
 That's honest. I'll make something out of it.
-Okay. I respect the [heck|hell] out of that.
+Okay. I respect the [heck|hell] out of that. ~ brash
 Okay, so we both know. Good.
 I appreciate you shooting straight with me.
 That's more respect than I expected, honestly.
@@ -1231,7 +1231,7 @@ Okay. Yeah. Thanks. ~ quiet
 Thank you. That's enough for me. ~ quiet calm
 Okay, I'm good. I just needed it straight. ~ hot
 I was about to argue, and then I realized you're right. ~ hot
-You're lucky I respect you, {coach}, because that's dead on. ~ hot
+You're lucky I respect you, {coach}, because that's dead on. ~ hot brash
 That's reasonable. Thank you. ~ calm
 I understand completely. That helps. ~ calm pro
 Nothing changes for me. I'm with you. ~ loyal
@@ -1471,15 +1471,15 @@ I don't have anything to say to that. ~ quiet
 I'm sorry I'm not what you want. ~ humble
 I thought I was doing better than that. ~ humble
 I'll try harder, I guess. But that hurt. ~ humble
-You're wrong about me. You'll see. ~ ego
-I'm better than that, and you know it. ~ ego
-That's your opinion. ~ ego
-I don't need you to tell me what I am. ~ ego
+You're wrong about me. You'll see. ~ ego brash
+I'm better than that, and you know it. ~ ego brash
+That's your opinion. ~ ego brash
+I don't need you to tell me what I am. ~ ego brash
 Nobody else in this league thinks that about me. ~ ego nfl
-You're really going to say that to my face? ~ hot
+You're really going to say that to my face? ~ hot brash
 I'm trying real hard not to say something I'll regret. ~ hot
 That's messed up, Coach. ~ hot
-I'm out. ~ hot young
+I'm out. ~ hot young brash
 That's not professional, Coach. ~ pro
 I don't agree with the evaluation. I'll keep doing my job. ~ pro
 I'll take it under advisement. ~ pro
@@ -1498,7 +1498,7 @@ I'm trying not to cry, Coach. ~ shaky young
 Bruh. Okay. ~ young modern
 That's crazy, Coach. ~ young modern
 Wow. Okay. Noted. ~ young
-Ha. Okay. Cool. Real cool. ~ loose
+Ha. Okay. Cool. Real cool. ~ loose brash
 Well. That's a buzzkill. ~ loose
 That's the business, I guess. ~ nfl vet
 I'm calling my agent after this. ~ nfl
@@ -1561,7 +1561,7 @@ Where is this coming from?
 You could have at least pretended.
 I can handle honest. That was brutal.
 That's a lot of truth from somebody who hasn't watched me that close.
-Sure. Whatever you say.
+Sure. Whatever you say. ~ brash
 I'm going to remember this talk.
 I'll prove you wrong. And I won't forget this.
 You just lost me a little there.
@@ -1594,7 +1594,7 @@ I wish I hadn't heard that.
 That's not what I see when I look in the mirror.
 So that's the real you.
 I'm not going to sit here and nod at that.
-You picked a hell of a way to say it.
+You picked a hell of a way to say it. ~ brash
 I trusted you, and that's what I get.
 That's a lot of words to tell me I'm not good enough.
 Okay. I guess honesty cuts both ways, then.
@@ -1631,21 +1631,21 @@ Yeah, I don't think we're going to agree on that one.
 You could've said it different. You didn't.
 That's a slap in the face.
 You've got no idea what you've got in me. ~ ego
-That's the dumbest read on me I've ever heard. ~ ego hot
-{name} doesn't get talked to like that. ~ ego
+That's the dumbest read on me I've ever heard. ~ ego hot brash
+{name} doesn't get talked to like that. ~ ego brash
 I've been better than that my whole life. You'll see. ~ ego competitor
-Everybody else sees it. Funny you don't. ~ ego
-That's cute. I'll be fine without your opinion. ~ ego
-Funny. Nobody else talks to me like that. ~ ego
-One day you'll brag that you coached me. Remember this talk when you do. ~ ego
-Say it again. I dare you. ~ hot
-Don't talk to me like that. ~ hot
-I swear, {coach}. Unbelievable. ~ hot
+Everybody else sees it. Funny you don't. ~ ego brash
+That's cute. I'll be fine without your opinion. ~ ego brash
+Funny. Nobody else talks to me like that. ~ ego brash
+One day you'll brag that you coached me. Remember this talk when you do. ~ ego brash
+Say it again. I dare you. ~ hot brash
+Don't talk to me like that. ~ hot brash
+I swear, {coach}. Unbelievable. ~ hot brash
 I need to get out of here before I lose it. ~ hot
-You want honest? That was garbage. ~ hot
-Keep talking like that and see where it gets us. ~ hot
-You think I'm just going to sit here and take that? ~ hot
-Man, forget this. ~ hot young
+You want honest? That was garbage. ~ hot brash
+Keep talking like that and see where it gets us. ~ hot brash
+You think I'm just going to sit here and take that? ~ hot brash
+Man, forget this. ~ hot young brash
 I didn't know I was letting you down that much. ~ humble
 I'm sorry. I thought I was doing things right. ~ humble
 I guess I'm not who I thought I was. ~ humble
@@ -1683,12 +1683,12 @@ That shook me. Not much does. ~ steady
 I'll stay calm about it. I'm not okay with it. ~ calm
 That was unnecessary, and I think you know it. ~ calm
 I'm going to choose my words carefully, because that hurt. ~ calm
-Damn, Coach. Chill. ~ loose
+Damn, Coach. Chill. ~ loose brash
 Ha, okay. Didn't need the roast. ~ loose
-Wow, okay, way to kill the vibe. ~ loose young
+Wow, okay, way to kill the vibe. ~ loose young brash
 Yikes. Didn't know we were doing this. ~ loose
 Keep that energy. I'm going to make you eat it. ~ competitor
-Fine. I'll make you regret saying that. ~ competitor
+Fine. I'll make you regret saying that. ~ competitor brash
 Write it down, {coach}. I'm going to make you take that back. ~ competitor
 Talk to my agent from here on. We're done. ~ nfl ego
 That's not how you talk to a pro. ~ nfl
@@ -1722,7 +1722,7 @@ Well, that's a heck of a thing to say. ~ texas
 That's a real lousy thing to say. ~ midwest
 Geez, {coach}. That's not fair. ~ midwest
 Get outta here with that. ~ northeast
-You serious right now? Come on. ~ northeast
+You serious right now? Come on. ~ northeast brash
 That's not cool, {coach}. At all. ~ west
 That's a weird energy, Coach. Not feeling it. ~ west young
 I read defenses all day. I can read you too, and that was a cheap shot. ~ qb
@@ -1775,29 +1775,29 @@ That's how you talk to people you trust?
 That's not the guy I thought you were.
 I'm going to call {friend}. I need to talk to somebody who's on my side.
 That's not what {team} is supposed to be about.
-You're talking to a grown man, {coach}. ~ vet
-I don't need to hear that from you, {coach}. ~ ego
-I'll remember this, {coach}. ~ hot
+You're talking to a grown man, {coach}. ~ vet brash
+I don't need to hear that from you, {coach}. ~ ego brash
+I'll remember this, {coach}. ~ hot brash
 With respect, {coach}, that's wrong. ~ pro
 Okay, {coach}. If that's how you want it. ~ calm
-I don't need this, {coach}. ~ hot young
+I don't need this, {coach}. ~ hot young brash
 That's a bad read, {coach}. You're seeing ghosts. ~ qb
-I cover the best guys in this building. Don't tell me that. ~ db
+I cover the best guys in this building. Don't tell me that. ~ db brash
 I'd eat double teams all day for you. That's how you talk to me? ~ dl
 I block for everybody in here. Guess nobody blocks for me. ~ ol
 I run my tail off for you. That's it? ~ skill
 Every running back hears that eventually. Didn't think it'd come from you. ~ rb
-I study more film than you think. Don't tell me that. ~ lb
+I study more film than you think. Don't tell me that. ~ lb brash
 I've got more range than you think, {coach}. More pride, too. ~ kicker
-Whatever, Coach. ~ hs young
+Whatever, Coach. ~ hs young brash
 Maybe I'll just go to another school, then. ~ hs
 I work my butt off for this team, {coach}. ~ hs
 I could've gone a lot of places, you know. ~ college ego !walkon
 Everybody on campus thinks I'm doing fine. Except you, apparently. ~ college
 Shoot. I didn't deserve all that. ~ south
 I'll be honest with y'all, that hurt. ~ texas
-That's bull, {coach}. ~ northeast
-That's harsh for no reason, man. ~ west
+That's bull, {coach}. ~ northeast brash
+That's harsh for no reason, man. ~ west brash
 Man, that's not chill at all. ~ west young
 
 @key talk.reply.straight.flat
@@ -1825,7 +1825,7 @@ That's what I needed to know. ~ pro
 Alright. I'll take it from here. ~ steady
 Okay. I'll sit with it. ~ calm
 Alright. We'll see what happens. ~ ego
-If you say so. ~ ego
+If you say so. ~ ego brash
 We'll see. ~ competitor
 Okay. I'll keep working. ~ competitor
 Okay. I'll let the guys know where things stand. ~ leader
@@ -1946,8 +1946,8 @@ Hm. ~ quiet
 Okay, {coach_sir}. ~ quiet humble
 Yes {coach_sir}. I'll keep working at it. ~ humble
 Okay. I'll do what I can. ~ humble
-Sure. Doesn't change what I think of myself. ~ ego
-That's one opinion. ~ ego
+Sure. Doesn't change what I think of myself. ~ ego brash
+That's one opinion. ~ ego brash
 I know what I am. That's all. ~ ego
 Alright. I'm not going to get worked up about it. ~ hot
 Okay. I'm good. I'm calm. ~ hot
@@ -1965,7 +1965,7 @@ Alright. Business as usual. ~ greedy
 Ha. Sure, why not. ~ loose
 Eh. Okay. ~ loose
 No big deal, Coach. ~ loose
-Alright, man. Whatever. ~ loose young
+Alright, man. Whatever. ~ loose young brash
 Okay. I'll try not to think about it too much. ~ shaky
 I'm fine. Really, it's fine. ~ shaky
 Same as always, then. ~ steady
@@ -2053,8 +2053,8 @@ Okay. Same work either way. ~ pro steady
 I'll stay ready. ~ steady
 I'll handle it. ~ calm
 Okay. Doesn't bother me much. ~ calm
-Whatever. Okay. ~ loose
-Sure, sure. ~ loose
+Whatever. Okay. ~ loose brash
+Sure, sure. ~ loose brash
 Okay. I'll go lift. ~ quiet
 Fine. I'll just keep proving it. ~ ego
 Alright. I'll handle the room either way. ~ leader
@@ -2503,9 +2503,9 @@ I know I'm working hard. I don't need to be told. ~ ego
 Don't butter me up. ~ ego
 I know what I am. That's not the problem. ~ ego
 Everybody knows I'm good. That's not what this is about. ~ ego
-Don't just tell me I'm good. Show me. ~ hot
-That's not going to work on me. ~ hot
-Stop. That's not it. ~ hot
+Don't just tell me I'm good. Show me. ~ hot brash
+That's not going to work on me. ~ hot brash
+Stop. That's not it. ~ hot brash
 That doesn't help me do my job better. ~ pro
 I'm not here for feedback. I'm here for answers. ~ pro
 It's appreciated, but it doesn't change the situation. ~ pro
@@ -2519,7 +2519,7 @@ I want to believe you. I'm having a hard time. ~ shaky
 Then why does it feel like this? ~ shaky
 I've heard that from you before. I'm still waiting. ~ loyal
 That's cap, Coach. ~ young modern
-Okay. Whatever. ~ young
+Okay. Whatever. ~ young brash
 That's what coaches say right before they cut you. ~ nfl
 I don't need a speech. I need a contract. ~ nfl greedy
 I've heard that in a lot of buildings. ~ nfl vet
@@ -2567,7 +2567,7 @@ That's a deflection, {coach}.
 Then act like it.
 You must want something.
 I'm not falling for that.
-That's a nice speech.
+That's a nice speech. ~ brash
 That isn't what I asked.
 Mm-hm. Sure.
 You sound like you're talking to reporters.
@@ -2589,10 +2589,10 @@ Wow. Okay. I see how it is.
 I didn't ask how I'm doing.
 That's frustrating to hear, honestly.
 I'd trust it more if something came with it.
-Great. Can I go now?
+Great. Can I go now? ~ brash
 You're being nice so I won't be mad.
 Save that for the cameras.
-I'm a grown man, Coach. Talk to me like one. ~ !hs
+I'm a grown man, Coach. Talk to me like one. ~ !hs brash
 That's how you talk to somebody you don't want to deal with.
 I didn't ask for a pep talk.
 You're good at this. That's the problem.
@@ -2663,9 +2663,9 @@ I asked a real question.
 You're not taking me seriously.
 Okay, but I wasn't fishing for that.
 I didn't need that from you. I needed something else.
-All due respect, that's a cop-out.
-That's what you say when you don't have an answer.
-You think I'm that easy to fool?
+All due respect, that's a cop-out. ~ brash
+That's what you say when you don't have an answer. ~ brash
+You think I'm that easy to fool? ~ brash
 Come on, {coach}. That's not it.
 Don't do that, {coach}.
 That's a dodge, {coach}.
@@ -2676,32 +2676,32 @@ That's a lot of sugar, {coach}.
 Right. ~ quiet
 Okay then. ~ quiet
 Uh huh. ~ quiet
-Whatever you say. ~ quiet
+Whatever you say. ~ quiet brash
 Not really what I needed. ~ quiet
-I don't need you to tell me who I am. ~ ego
-Tell me something I don't know. ~ ego
-I'm the best player in this building and you know it. Start acting like it. ~ ego
-Flattery doesn't work on me, {coach}. ~ ego
+I don't need you to tell me who I am. ~ ego brash
+Tell me something I don't know. ~ ego brash
+I'm the best player in this building and you know it. Start acting like it. ~ ego brash
+Flattery doesn't work on me, {coach}. ~ ego brash
 {name} doesn't need compliments, Coach. {name} needs answers. ~ ego
-You think I need you to tell me that? ~ ego
+You think I need you to tell me that? ~ ego brash
 I've been hearing that since I was ten. ~ ego
-Nice. Old news. ~ ego
-I already know. Now what are you going to do about it? ~ ego
-Everybody tells me I'm special. I'm waiting to be treated like it. ~ ego
+Nice. Old news. ~ ego brash
+I already know. Now what are you going to do about it? ~ ego brash
+Everybody tells me I'm special. I'm waiting to be treated like it. ~ ego brash
 Compliments are for guys who need them. ~ ego
-Don't hype me up like I'm some project. ~ ego
-Are you serious right now? ~ hot
-Don't do that to me, Coach! ~ hot
-That's garbage and you know it. ~ hot
-Man, come on! ~ hot
-You're really going to sit there and compliment me? ~ hot
+Don't hype me up like I'm some project. ~ ego brash
+Are you serious right now? ~ hot brash
+Don't do that to me, Coach! ~ hot brash
+That's garbage and you know it. ~ hot brash
+Man, come on! ~ hot brash
+You're really going to sit there and compliment me? ~ hot brash
 That makes me angrier, honestly. ~ hot
-I didn't come in here to be patted on the head! ~ hot
-Cut it out, Coach. ~ hot
-Don't play me like that. ~ hot young
-That's a joke, right? ~ hot
-I'm about to lose it, Coach. Don't do that. ~ hot
-You think that's going to cool me off? ~ hot
+I didn't come in here to be patted on the head! ~ hot brash
+Cut it out, Coach. ~ hot brash
+Don't play me like that. ~ hot young brash
+That's a joke, right? ~ hot brash
+I'm about to lose it, Coach. Don't do that. ~ hot brash
+You think that's going to cool me off? ~ hot brash
 I appreciate the thought. It doesn't address anything. ~ calm
 That's kind, but I'd like a real answer. ~ calm
 I'll be honest. That didn't help. ~ calm
@@ -2731,10 +2731,10 @@ I'd do anything for you. Don't hand me a line. ~ loyal
 I trusted you more than that. ~ loyal
 That hurts, Coach. I thought we were past that kind of talk. ~ loyal
 I'm loyal to you. I need you to be real with me. ~ loyal
-Talk is cheap, Coach. I learned that a long time ago. ~ greedy
+Talk is cheap, Coach. I learned that a long time ago. ~ greedy brash
 Everybody loves me until it's time to prove it. ~ greedy
 I've heard nice words from everybody who wanted something from me. ~ greedy
-That's sweet. I'm more interested in what you're going to do. ~ greedy
+That's sweet. I'm more interested in what you're going to do. ~ greedy brash
 People say nice things right before they leave. ~ shaky
 I don't trust it when people get nice out of nowhere. ~ shaky
 Is something wrong? Why are you saying that? ~ shaky
@@ -2757,12 +2757,12 @@ I'm not looking to be praised. I just want to be treated fair. ~ humble
 I don't need to hear I'm doing well. I need to know where things are. ~ humble
 That makes me uncomfortable, honestly. ~ humble
 I'm not after compliments. I'm after the truth. ~ humble
-Ha. Okay. You're funny, Coach. ~ loose
-Is that a bit? That's a bit, right? ~ loose young
-Wow, Coach. Smooth. Real smooth. ~ loose
-Did somebody write that for you? ~ loose
-That's cute. ~ loose
-Bro, you're doing the thing grown-ups do. ~ young hs
+Ha. Okay. You're funny, Coach. ~ loose brash
+Is that a bit? That's a bit, right? ~ loose young brash
+Wow, Coach. Smooth. Real smooth. ~ loose brash
+Did somebody write that for you? ~ loose brash
+That's cute. ~ loose brash
+Bro, you're doing the thing grown-ups do. ~ young hs brash
 You sound like a guidance counselor. ~ hs
 That's lowkey insulting, Coach. ~ young
 Coach, that's mid. ~ young
@@ -2784,7 +2784,7 @@ You said stuff like that on my visit too. ~ college !walkon
 Is that what you told guys in the portal? ~ college transfer
 I didn't transfer here for compliments. ~ transfer
 Redshirts get that line a lot. ~ redshirt
-I'm a freshman, not dumb. ~ freshman
+I'm a freshman, not dumb. ~ freshman brash
 I've been on this campus long enough to know that line. ~ senior college
 Guys in this league learn what that kind of talk means. ~ nfl
 Love it. Doesn't change a thing in this building, though. ~ nfl
@@ -2805,7 +2805,7 @@ Big guys up front don't need to be babied, Coach. ~ lineman
 Special teams guys always get that line. ~ special
 Well, bless your heart, {coach}. ~ south
 Get outta here with that. ~ northeast
-C'mon. You think I'm stupid? ~ northeast hot
+C'mon. You think I'm stupid? ~ northeast hot brash
 Yeah, no. That's not it. ~ midwest
 Okay, that's kind of a lot. Not feeling it. ~ west
 That's a hard pass. ~ west young
@@ -2867,7 +2867,7 @@ Thanks. Just doing what I do.
 Mm. Thanks.
 Well, okay. Thanks.
 I'll take your word for it.
-If you say so, Coach.
+If you say so, Coach. ~ brash
 Okay. Thanks for telling me.
 Hm. Alright.
 Good to hear, I suppose.
@@ -3030,7 +3030,7 @@ Okay. I'll try to hang on to that. ~ shaky
 Ha. Okay. Sure. ~ loose
 Word. ~ loose young
 Ha. Alright, Coach. ~ loose
-Okay, cool. We done here? ~ loose young
+Okay, cool. We done here? ~ loose young brash
 Okay. Neat. ~ loose
 Ha. I'll take it, I guess. ~ loose
 For real? Okay. ~ young
@@ -3040,10 +3040,10 @@ Aight. Thanks, Coach. ~ young
 Ight. ~ young
 Okay, cool. Yeah. ~ young
 Thanks. My bad, I'm kind of tired. ~ young
-Yeah, yeah. Okay. ~ hot
+Yeah, yeah. Okay. ~ hot brash
 Fine. Thanks. ~ hot
 Alright. Whatever works. ~ hot
-Okay. Can we move on? ~ hot
+Okay. Can we move on? ~ hot brash
 Nice. We'll see if it matters. ~ greedy
 Okay. Good to know you think so. ~ greedy
 Okay. I'll remember that for later. ~ greedy
@@ -3246,7 +3246,7 @@ Good. Now I'm going to embarrass some people. ~ ego
 I've been holding back. Not anymore. ~ ego
 {name} doesn't back down from a challenge. Never has. ~ ego
 Oh, I'm going to make this look easy. ~ ego
-Nobody here can do what I'm about to do. ~ ego competitor
+Nobody here can do what I'm about to do. ~ ego competitor brash
 I'll do whatever it takes. I know I'm not there yet. ~ humble
 You're right. I've got a lot to learn and I want to learn it. ~ humble
 Thank you, {coach}. I'll keep my head down and work. ~ humble
@@ -3486,16 +3486,16 @@ I'm doing everything I can.
 That's not motivating. That's frustrating.
 I don't feel challenged. I feel dismissed.
 Okay. Sure. ~ quiet
-If you say so. ~ quiet
+If you say so. ~ quiet brash
 I'll try. ~ quiet
 I'm already giving all I've got, Coach. ~ humble
 I don't know how much more I have. ~ humble
 I've been doing more than anybody. ~ ego
-I don't need to prove anything to anybody. ~ ego
+I don't need to prove anything to anybody. ~ ego brash
 I've already proven it. You're just not seeing it. ~ ego
-Don't challenge me. Play me. ~ hot
+Don't challenge me. Play me. ~ hot brash
 That's an insult, Coach. ~ hot
-I'm not your project. ~ hot
+I'm not your project. ~ hot brash
 I'm out here killing myself and you tell me that? ~ hot
 I'm doing my job. That's all I can do. ~ pro
 I've done everything I've been asked. ~ pro
@@ -3509,7 +3509,7 @@ I don't know if I can do more. ~ shaky
 I feel like I'm failing you. ~ shaky
 I've been here for you. That's what I get? ~ loyal
 That's crazy, Coach. ~ young modern
-Bruh. ~ young modern loose
+Bruh. ~ young modern loose brash
 That's what I've been doing. ~ young
 I've been in this league a long time. I don't need to be challenged like a rookie. ~ nfl vet
 My agent's going to love hearing that. ~ nfl
@@ -3551,16 +3551,16 @@ Of all people, me?
 I'm the last guy who needs to hear that.
 Sounds like you've already made up your mind about me.
 Feels like you're looking for a reason.
-I've heard that speech before. It never meant anything.
+I've heard that speech before. It never meant anything. ~ brash
 More, more, more. That's all I ever hear.
 I'm going as hard as I can go. I don't know what you want from me.
 Tell me one thing I'm not doing. One.
-Name one rep I took off. Go ahead.
+Name one rep I took off. Go ahead. ~ brash
 I show up every single day. Every one.
 I'm out here busting it and this is what I get.
 Great. Another pep talk.
 That's real motivating, {coach}.
-Wow, inspiring. ~ loose
+Wow, inspiring. ~ loose brash
 Cool. Anything else?
 If that's all, I'm going to go.
 I don't even know how to respond to that.
@@ -3578,7 +3578,7 @@ Fine. But don't act like I haven't been working.
 I'm trying. Can you even see that?
 You have no idea what I put into this.
 That felt like a shot.
-Was that supposed to fire me up? Because it didn't.
+Was that supposed to fire me up? Because it didn't. ~ brash
 That doesn't help me, {coach}.
 I hear you. I just don't agree.
 With all due respect, I'm already doing it.
@@ -3586,7 +3586,7 @@ Respectfully, no. I'm giving it all.
 I'm going to be honest. That made me mad.
 Honestly, I'm a little insulted.
 Don't treat me like I'm soft.
-I don't need a speech. I need a fair shake.
+I don't need a speech. I need a fair shake. ~ brash
 I'll keep working. Not because of this talk, though.
 Are you trying to run me off?
 If you want me gone, just say so.
@@ -3595,18 +3595,18 @@ I respect you, {coach}, but that's wrong.
 {friend} warned me you'd say something like this.
 I've given {team} everything I have, and this is what I get.
 That's rich.
-Unbelievable. ~ hot
+Unbelievable. ~ hot brash
 You could have just said you're not happy with me.
-I'm the best player you have. Go challenge somebody else. ~ ego
-My level is already higher than anybody's in this building. ~ ego
-I don't need you to tell me how good I can be. ~ ego
-You should be thanking me, not challenging me. ~ ego
-Look at the film first. Then go challenge somebody who needs it. ~ ego
-I'm already the standard around here. ~ ego
-{name} doesn't need a pep talk. ~ ego
-Funny. Nobody else around here is doing what I do. ~ ego
-You must be confusing me with somebody else. ~ ego
-I'm carrying this whole thing and you want more from me? ~ ego
+I'm the best player you have. Go challenge somebody else. ~ ego brash
+My level is already higher than anybody's in this building. ~ ego brash
+I don't need you to tell me how good I can be. ~ ego brash
+You should be thanking me, not challenging me. ~ ego brash
+Look at the film first. Then go challenge somebody who needs it. ~ ego brash
+I'm already the standard around here. ~ ego brash
+{name} doesn't need a pep talk. ~ ego brash
+Funny. Nobody else around here is doing what I do. ~ ego brash
+You must be confusing me with somebody else. ~ ego brash
+I'm carrying this whole thing and you want more from me? ~ ego brash
 I'm sorry. I really thought I was giving you everything. ~ humble
 I thought I was doing okay. I guess not. ~ humble
 That's hard to hear. I've been trying so hard. ~ humble
@@ -3616,15 +3616,15 @@ Yeah. Sure. ~ quiet
 Okay, I guess. ~ quiet
 I'm already trying. ~ quiet
 Can I go? ~ quiet
-Don't call me in here and tell me I'm not working! ~ hot
-You've got some nerve, {coach}. ~ hot
+Don't call me in here and tell me I'm not working! ~ hot brash
+You've got some nerve, {coach}. ~ hot brash
 I leave everything out there and you tell me that? ~ hot
-Don't ever question my effort. ~ hot
-Question my effort again and we've got a problem. ~ hot
-That's garbage and you know it. ~ hot
-You want more? Fine! Watch me and see if you're ever happy. ~ hot
-I'm out of here. ~ hot
-Nah. Nah, you're wrong for that. ~ hot young
+Don't ever question my effort. ~ hot brash
+Question my effort again and we've got a problem. ~ hot brash
+That's garbage and you know it. ~ hot brash
+You want more? Fine! Watch me and see if you're ever happy. ~ hot brash
+I'm out of here. ~ hot brash
+Nah. Nah, you're wrong for that. ~ hot young brash
 I understand what you're saying. I just don't think it's fair. ~ calm
 I don't think that's accurate, and I'll say it plainly. ~ calm
 I hear the words. They don't match what I'm doing. ~ calm
@@ -3635,16 +3635,16 @@ I've been with you through all of it. That stings. ~ loyal
 I'd do anything for you. I thought you knew that. ~ loyal
 I never thought you'd be the one to doubt me. ~ loyal
 More for what, though? ~ greedy
-You want more from me, I want more from you. ~ greedy
-I'll do more when I see something come back for it. ~ greedy
+You want more from me, I want more from you. ~ greedy brash
+I'll do more when I see something come back for it. ~ greedy brash
 Everybody wants more from me. Nobody gives more back. ~ greedy
 If the standard changed, I'd like to see it in writing. ~ pro
 I've hit every mark you've ever given me. ~ pro
 Show me the film where I'm falling short. ~ pro
 I'd like specifics. Otherwise that's just a feeling. ~ pro
 I prepare like a professional every day. That's disappointing to hear. ~ pro
-Man, chill. I'm out here. ~ loose
-Bro, I'm working. Relax. ~ loose young
+Man, chill. I'm out here. ~ loose brash
+Bro, I'm working. Relax. ~ loose young brash
 Do I look like I'm not trying? ~ loose
 Come on. Don't stress me out like that. ~ loose
 I'm the one keeping guys together and you call me in for this? ~ leader
@@ -3672,15 +3672,15 @@ I'm a senior. I don't need to be pushed like a freshman. ~ hs senior
 I've got classes, film, lifts and practice. There aren't any more hours. ~ college
 I didn't come to campus to get torn down. ~ college
 I could have gone anywhere, you know. ~ college !walkon
-Keep it up and I'll find a coach who actually sees me. ~ college hot
+Keep it up and I'll find a coach who actually sees me. ~ college hot brash
 There's a portal for a reason, {coach}. ~ college
 I've been here through everything. I don't need this from you. ~ college senior
-I walked on and earned every bit of this. Don't tell me about effort. ~ walkon
+I walked on and earned every bit of this. Don't tell me about effort. ~ walkon brash
 I transferred here because I thought you saw me. ~ transfer
 I left everything to come here and this is what I hear. ~ transfer
 I'm learning as fast as I can. I'm a freshman. ~ college freshman
 I do all the dirty work as a redshirt and nobody notices. Now this? ~ redshirt
-I bet the scouts see more than you do. ~ college ego
+I bet the scouts see more than you do. ~ college ego brash
 I've been in this league long enough to know my level. ~ nfl vet
 You think I'd still be in this league if I didn't work? ~ nfl
 I'm in the facility before anybody. Ask security. ~ nfl
@@ -3697,9 +3697,9 @@ I've seen coaches come and go. This is how it starts with them. ~ nfl vet
 I'm reading everything right. Go look at the tape. ~ qb
 I throw extra every day. What more do you want? ~ qb
 Every route, full speed. Every single one. ~ wr
-I run my routes like they count, every rep. Don't tell me that. ~ wr
+I run my routes like they count, every rep. Don't tell me that. ~ wr brash
 I'm blocking my tail off every snap. ~ ol
-I'm in the trenches getting hit every play. Don't tell me about effort. ~ lineman
+I'm in the trenches getting hit every play. Don't tell me about effort. ~ lineman brash
 I'm in the backfield all the time. Watch the film. ~ dl
 Nobody's catching anything on me. Check it. ~ db
 I'm flying around on every play. Look at it. ~ lb
@@ -3712,12 +3712,12 @@ I'm out there giving this offense everything. ~ offense
 Now hold on a minute, {coach}. ~ south
 I've been working my tail off, {coach_sir}. Y'all just don't see it. ~ south
 That ain't right. ~ south
-Where I come from, you don't talk to folks like that. ~ texas
-I was raised to work. Don't tell me I don't. ~ texas
+Where I come from, you don't talk to folks like that. ~ texas brash
+I was raised to work. Don't tell me I don't. ~ texas brash
 Well, that's just not fair. ~ midwest
 Gee, thanks. ~ midwest
-Are you kidding me right now? ~ northeast
-You gotta be kidding me. ~ northeast hot
+Are you kidding me right now? ~ northeast brash
+You gotta be kidding me. ~ northeast hot brash
 That's harsh, man. ~ west
 That's kind of a bummer to hear, honestly. ~ west
 Yo, that's crazy. ~ west young
@@ -3743,7 +3743,7 @@ I'm not a machine, {coach}.
 You're squeezing a guy who's already dry.
 You're asking me to find something that isn't there.
 I'm doing my part. Ask about the rest of them. ~ pro
-Save it for somebody who's actually slacking.
+Save it for somebody who's actually slacking. ~ brash
 Pick on somebody else.
 You picked the wrong guy for this one.
 I'm not the guy you need to worry about.
@@ -3780,9 +3780,9 @@ Thanks for the vote of confidence.
 Way to make a guy feel good.
 Nice. Really nice.
 Okay. I see how it is.
-You know what, forget it.
+You know what, forget it. ~ brash
 Message received. Loud and clear.
-Nah, I'm good on that. ~ loose
+Nah, I'm good on that. ~ loose brash
 I don't want to hear that right now.
 I'd rather you just tell me what's really wrong.
 What's this really about, {coach}?
@@ -3923,7 +3923,7 @@ Yes {coach_sir}. I'll keep trying. ~ humble
 I'll do what I can. I'm still learning. ~ humble
 Okay. I'll try to earn it. ~ humble
 I'm already pretty good, but okay. ~ ego
-Okay. I'll humor you. ~ ego
+Okay. I'll humor you. ~ ego brash
 I guess I could do more. Could. ~ ego
 Sure. I'm already up there, but sure. ~ ego
 We'll see if there's anything left to improve. ~ ego
@@ -3947,8 +3947,8 @@ Noted, {coach}. I'll adjust where I can. ~ pro
 I'll review my tape and see where I can gain. ~ pro
 I'll work it into my plan. ~ pro
 Understood. I'll evaluate it. ~ pro
-Yeah, yeah. I got you. ~ loose
-Sure. I'll get to it eventually. ~ loose
+Yeah, yeah. I got you. ~ loose brash
+Sure. I'll get to it eventually. ~ loose brash
 Okay, okay. I'll lock in. Probably. ~ loose
 Cool, cool. ~ loose
 Yeah, I hear you, {coach}. We good? ~ loose
@@ -4231,7 +4231,7 @@ I've got a lot to learn still. That's part of it. ~ humble young
 Most guys couldn't get away with saying that to me. You can, because you're right. ~ ego
 Nobody tells me that, and maybe somebody should have. I'll fix it. ~ ego
 I'm better than that, and everybody knows it. So I'll go prove it. ~ ego
-Fine, you're right. Don't get used to being right about me. ~ ego
+Fine, you're right. Don't get used to being right about me. ~ ego brash
 I don't hear that a lot. I'll make sure I don't hear it again. ~ ego
 {name} doesn't need to hear that twice. I'll handle it. ~ ego
 The guys follow what I do. I've got to be better than that. ~ leader
@@ -4465,7 +4465,7 @@ Don't talk to me like I'm a kid.
 That's disrespectful.
 I've never heard you say that to anybody else.
 I'm not going to take this.
-Okay. I'm out.
+Okay. I'm out. ~ brash
 You're just looking for someone to blame.
 ... ~ quiet
 I don't have anything to say. ~ quiet
@@ -4474,16 +4474,16 @@ I'm going to go now. ~ quiet
 I'm trying, Coach. I really am. ~ humble
 I didn't think you saw me like that. ~ humble
 I don't know what else to do. ~ humble
-Selfish? I'm the reason we win. ~ ego
-You'd be nothing without me out there. ~ ego
-I don't have to listen to this. ~ ego
-Find somebody else to blame. ~ ego
-I'm the best player you've got. Remember that. ~ ego
-Don't come at me like that. ~ hot
-You're going to talk to me like that? ~ hot
-I'm not doing this. ~ hot
-You want me to lose it? Keep going. ~ hot
-Say it again. Go ahead. ~ hot young
+Selfish? I'm the reason we win. ~ ego brash
+You'd be nothing without me out there. ~ ego brash
+I don't have to listen to this. ~ ego brash
+Find somebody else to blame. ~ ego brash
+I'm the best player you've got. Remember that. ~ ego brash
+Don't come at me like that. ~ hot brash
+You're going to talk to me like that? ~ hot brash
+I'm not doing this. ~ hot brash
+You want me to lose it? Keep going. ~ hot brash
+Say it again. Go ahead. ~ hot young brash
 That's not a professional way to handle it. ~ pro
 I'd like to see the film before I accept that. ~ pro
 I'll talk to my position coach. Not you. ~ pro !hs
@@ -4501,16 +4501,16 @@ I already feel terrible. Why would you say that? ~ shaky
 I'm trying so hard and it's never enough. ~ shaky
 I don't know why I even try. ~ shaky
 That's crazy. You crazy, Coach. ~ young modern
-Bruh. I'm out. ~ young modern loose
+Bruh. I'm out. ~ young modern loose brash
 That's mad disrespectful. ~ young modern
-Okay. Whatever. ~ young
+Okay. Whatever. ~ young brash
 Ha. Okay. Got it. ~ loose
 I'll be sure to tell my agent how you feel. ~ nfl
 I'm a vet in this league. Don't talk to me like that. ~ nfl vet
 I've been doing this longer than some of your coaches. ~ nfl vet
 I'll talk to the front office. ~ nfl ego
 They're going to hear about this at home. ~ hs young
-You can't talk to me like that, Coach. ~ hs young
+You can't talk to me like that, Coach. ~ hs young brash
 I don't appreciate that, {coach_sir}. ~ south
 That ain't right. ~ south
 That's not fair to me. ~ midwest
@@ -4528,7 +4528,7 @@ Cool. Anything else you want to pile on?
 Nobody gets to talk to me like that.
 Where is this even coming from?
 That's rich.
-You said it, and I heard it. I won't forget it.
+You said it, and I heard it. I won't forget it. ~ brash
 You want me to just say yes {coach_sir} and smile?
 I can't do anything right in your eyes.
 Nothing I do is ever enough for you.
@@ -4540,7 +4540,7 @@ Somebody's been in your ear. Who was it?
 Who told you that?
 That's one way to see it. It's the wrong way.
 I'm not going to sit here and get torn down.
-You want to tear me down? Go ahead.
+You want to tear me down? Go ahead. ~ brash
 I'm not your punching bag.
 Real nice. Really motivating stuff.
 Is that supposed to make me better?
@@ -4549,7 +4549,7 @@ I don't even know what to say to that.
 You don't see half of what I do.
 You only notice when something goes wrong.
 So that's the thanks I get.
-I'm done with this conversation.
+I'm done with this conversation. ~ brash
 Are we finished here?
 You're wrong, and I think you know you're wrong.
 I'm not going to apologize for something I didn't do.
@@ -4575,7 +4575,7 @@ Everybody slips up. Why are you acting like I'm the only one?
 Give me a break.
 Unbelievable.
 Great. Anything else you want to hit me with?
-Whatever helps you sleep at night.
+Whatever helps you sleep at night. ~ brash
 You've been looking for a reason to say that.
 Feels like you've had that one saved up for a while.
 That came out pretty easy for you.
@@ -4600,10 +4600,10 @@ Don't expect me to just sit here and nod.
 I've heard enough.
 You've said your piece.
 Fine. I'll keep my mouth shut, then.
-Head down, mouth shut. That what you want?
+Head down, mouth shut. That what you want? ~ brash
 That's not the kind of thing you come back from easy.
 I'll do what I'm told. Don't expect more than that.
-Don't worry about me. Clearly you don't anyway.
+Don't worry about me. Clearly you don't anyway. ~ brash
 From now on I'll just keep everything to myself.
 That's a cheap thing to say, {coach}.
 Not you, {coach}. I never figured you'd say that.
@@ -4625,18 +4625,18 @@ I've been trying so hard. I guess it doesn't show. ~ humble
 Hearing that from you stings. ~ humble
 I don't know how to be better than I've been. ~ humble
 I keep my head down and work, and that's what I get back? ~ humble
-You know how many coaches would kill to have me? ~ ego
-I don't get coached like that. Not by anybody. ~ ego
-Without me, what have you got? ~ ego
-{name} doesn't take that from anybody. ~ ego
-You need me a lot more than I need you. ~ ego
-I'm the last guy in this building you should be coming at. ~ ego
-Keep talking like that and see what happens. ~ hot
-You don't want to keep pushing me right now. ~ hot
-You got something else to say? Say it. ~ hot
-I'm about two seconds from walking out. ~ hot
-I'm not one of your freshmen. Watch how you talk to me. ~ hot college !freshman
-Nah. Nah, don't do that. ~ hot young
+You know how many coaches would kill to have me? ~ ego brash
+I don't get coached like that. Not by anybody. ~ ego brash
+Without me, what have you got? ~ ego brash
+{name} doesn't take that from anybody. ~ ego brash
+You need me a lot more than I need you. ~ ego brash
+I'm the last guy in this building you should be coming at. ~ ego brash
+Keep talking like that and see what happens. ~ hot brash
+You don't want to keep pushing me right now. ~ hot brash
+You got something else to say? Say it. ~ hot brash
+I'm about two seconds from walking out. ~ hot brash
+I'm not one of your freshmen. Watch how you talk to me. ~ hot college !freshman brash
+Nah. Nah, don't do that. ~ hot young brash
 I think you're wrong, and I'll leave it there. ~ calm
 I disagree. I'm not going to argue about it. ~ calm
 I'll let that sit. I don't think it was fair. ~ calm
@@ -4644,17 +4644,17 @@ I'll go cool off. I don't think you were right. ~ calm steady
 I've always had your back. I didn't think I'd need to ask for the same. ~ loyal
 I've stood up for you to people. Don't make me regret it. ~ loyal
 I thought loyalty went both ways. ~ loyal
-Somebody else would appreciate what I bring. ~ greedy
-I know what I'm worth, even if you don't. ~ greedy
+Somebody else would appreciate what I bring. ~ greedy brash
+I know what I'm worth, even if you don't. ~ greedy brash
 Fine. I'll look out for me, then. ~ greedy
 I'd appreciate specifics, not a general shot at me. ~ pro
 That's not constructive. I don't know what to do with it. ~ pro
 I'll take that under advisement. ~ pro
 I'm going to keep it professional. I'd ask you to do the same. ~ pro
-Man, chill. ~ loose
-Okay, Coach, relax. Dang. ~ loose
-Whatever, man. I'm good. ~ loose
-Ha. You're funny, Coach. ~ loose
+Man, chill. ~ loose brash
+Okay, Coach, relax. Dang. ~ loose brash
+Whatever, man. I'm good. ~ loose brash
+Ha. You're funny, Coach. ~ loose brash
 Everybody gives up on me eventually. I guess you're next. ~ shaky
 I knew it. I knew you'd turn on me too. ~ shaky
 I can't ever do anything right, can I? ~ shaky
@@ -4665,7 +4665,7 @@ Nobody in this building wants it more than me, and you know it. ~ competitor
 Don't you ever question my fight. ~ competitor
 You think I don't hate falling short more than you do? ~ competitor
 You call me out like that and the guys hear about it. How does that help anybody? ~ leader
-I hold that locker room together. Don't forget it. ~ leader
+I hold that locker room together. Don't forget it. ~ leader brash
 The guys come to me with their problems. Who am I supposed to go to? ~ leader
 My other coaches never came at me like that. ~ hs
 I'm still in high school, Coach. Ease up. ~ hs
@@ -4673,7 +4673,7 @@ I'm a freshman. How am I supposed to know? ~ hs freshman
 I'm a senior. I thought that meant some respect around here. ~ hs senior
 Everybody at school is going to know you said that. ~ hs young
 I didn't come to this campus to get treated like that. ~ college
-I could've gone a lot of places. I picked here for this? ~ college ego !walkon
+I could've gone a lot of places. I picked here for this? ~ college ego !walkon brash
 I didn't transfer here to get talked to like that. ~ transfer
 I've earned every single thing here, and that's how you see me? ~ walkon
 I'm doing everything right as a redshirt, and this is what I hear? ~ redshirt
@@ -4701,19 +4701,19 @@ I'm the last guy anybody should be worried about. ~ snapper
 Now hold on, Coach. That ain't fair and you know it. ~ south
 With all due respect, {coach_sir}, I don't think that's right. ~ south
 Y'all always put it on me. ~ south
-Where I'm from, you don't talk to a man like that. ~ texas
+Where I'm from, you don't talk to a man like that. ~ texas brash
 Well, that's a heck of a thing to say. ~ midwest
 Gee, thanks, Coach. ~ midwest
-You serious right now? Come on. ~ northeast
-Are you kidding me with this? ~ northeast hot
+You serious right now? Come on. ~ northeast brash
+Are you kidding me with this? ~ northeast hot brash
 Nah. That's not it, Coach. ~ west
-That's lame, Coach. For real. ~ west young
+That's lame, Coach. For real. ~ west young brash
 That's so unfair. ~ young
 Why are you always on me? ~ young
 You'd never come at the older guys like that. ~ young
-I've been talked to by better coaches than you. ~ vet ego
+I've been talked to by better coaches than you. ~ vet ego brash
 I'm too old for this kind of thing. ~ vet
-You think you're the first coach to try that on me? ~ vet
+You think you're the first coach to try that on me? ~ vet brash
 That's what you call leadership? ~ leader
 I'd never talk to one of my guys like that. ~ leader
 You just made my job in that locker room a whole lot harder. ~ leader
@@ -4729,32 +4729,32 @@ That one's going to stick, and not in a good way. ~ steady
 I can't believe that came from you of all people. ~ loyal
 I've gone to war for you. You know that. ~ loyal
 I'd have turned down anybody to stay loyal to you. ~ loyal
-Okay. Then I'll go where I'm valued. ~ greedy
-You don't want to get on my bad side. ~ hot
-Funny how it's my fault and somebody else's credit. ~ greedy
+Okay. Then I'll go where I'm valued. ~ greedy brash
+You don't want to get on my bad side. ~ hot brash
+Funny how it's my fault and somebody else's credit. ~ greedy brash
 I'm not a robot, Coach. ~ loose
-You done? Cool. ~ loose
-Man, why you got to kill the vibe like that? ~ loose young
-Whatever you think of me, I'm going to keep being me. ~ loose ego
+You done? Cool. ~ loose brash
+Man, why you got to kill the vibe like that? ~ loose young brash
+Whatever you think of me, I'm going to keep being me. ~ loose ego brash
 I'm trying, and that's what you see? ~ shaky
 See, this is why I don't trust people. ~ shaky
 Nobody ever thinks I'm good enough. Not even you. ~ shaky
 I don't need another person telling me I'm not good enough. ~ shaky
 I'm going to beat you on this. Watch. ~ competitor
 I'll prove you wrong. Don't worry. ~ competitor
-I'll use that, but not the way you want. ~ competitor ego
+I'll use that, but not the way you want. ~ competitor ego brash
 Nobody puts in what I put in, and you know that. ~ competitor
-I'm the best thing that's happened to this program. ~ ego !nfl
-You think you can coach me? Okay. ~ ego
-The guys know who I am. You clearly don't. ~ ego
-I could go anywhere. Remember that. ~ ego !walkon
-I'm not even going to dignify that. ~ ego
-Big talk from somebody who never has to do it himself. ~ ego hot
-You'd better hope you're right about that. ~ hot
-I'm not taking that from you. ~ hot
-Don't. Just don't. ~ hot
-Say one more thing like that. ~ hot
-I'm leaving. Don't follow me. ~ hot
+I'm the best thing that's happened to this program. ~ ego !nfl brash
+You think you can coach me? Okay. ~ ego brash
+The guys know who I am. You clearly don't. ~ ego brash
+I could go anywhere. Remember that. ~ ego !walkon brash
+I'm not even going to dignify that. ~ ego brash
+Big talk from somebody who never has to do it himself. ~ ego hot brash
+You'd better hope you're right about that. ~ hot brash
+I'm not taking that from you. ~ hot brash
+Don't. Just don't. ~ hot brash
+Say one more thing like that. ~ hot brash
+I'm leaving. Don't follow me. ~ hot brash
 I'm sorry I'm such a disappointment to you. ~ humble
 I didn't know you felt that way about me. ~ humble
 I'm going to go. I need to think. ~ humble quiet
@@ -4803,7 +4803,7 @@ Thanks for nothing, {coach}.
 That's how it's going to be, {coach}? Fine.
 I'm not hearing it, {coach}. Not like that.
 {coach}, you don't know the half of it.
-Save it, {coach}. ~ hot
+Save it, {coach}. ~ hot brash
 Respectfully, {coach}, no. ~ calm
 I'll be fine, {coach}. No thanks to you. ~ steady
 
@@ -4822,7 +4822,7 @@ Got it.
 I understand, Coach. ~ humble
 I'll do better. ~ humble
 Understood. I'll correct it. ~ pro
-Whatever you say. ~ ego
+Whatever you say. ~ ego brash
 I'll handle it. ~ steady
 Okay. I'll sit with it. ~ calm
 I'll fix it. ~ competitor
@@ -4938,7 +4938,7 @@ Okay, {coach}. I'll put some time into it.
 Alright, {coach}. If you're seeing it, I'll look.
 Understood, {coach}. I'll get to work on it.
 Hm, maybe, {coach}. I'll look at it.
-Okay, {coach}. If you say so.
+Okay, {coach}. If you say so. ~ brash
 Right, {coach}. Sure.
 {coach}, I hear you. I'll figure it out.
 {friend} would probably say the same. Okay.
@@ -4948,9 +4948,9 @@ Okay. I'll go now. ~ quiet
 Yes {coach_sir}. I'll see if I can do better. ~ humble
 Yes {coach_sir}. I'll keep chipping away at it. ~ humble
 I'll do whatever you think is best. ~ humble
-Sure. You're the coach. ~ ego
+Sure. You're the coach. ~ ego brash
 I don't really see it, but okay. ~ ego
-Maybe you're onto something. Maybe not. ~ ego
+Maybe you're onto something. Maybe not. ~ ego brash
 Alright. I'm still me, though. ~ ego
 Okay. I'll see if the guys see it too. ~ leader
 I'll keep it in mind for the room. ~ leader
@@ -4963,12 +4963,12 @@ That's reasonable. I'll look at it. ~ calm
 Okay. If you think so, I'll work on it. ~ loyal
 You've been right before. I'll look at it. ~ loyal
 Okay. Does it change anything for me? ~ greedy
-Alright. What do I get if I fix it? ~ greedy
+Alright. What do I get if I fix it? ~ greedy brash
 Understood. I'll review it. ~ pro
 Acknowledged. ~ pro
 I'll take it to my position coach. ~ pro !hs
 Okay. I'll add it to my notes. ~ pro
-Yeah, yeah. Okay. ~ loose
+Yeah, yeah. Okay. ~ loose brash
 Okay, okay. My fault, I guess. ~ loose
 Say less. ~ loose young
 Ha. Alright. ~ loose
@@ -4982,7 +4982,7 @@ Alright. I'll go get better. ~ competitor
 Okay. I'll add it to the list. ~ competitor
 Fine. I'll outwork it. ~ competitor
 Okay, Coach. Yeah. ~ young
-Alright. Can I go now? ~ young
+Alright. Can I go now? ~ young brash
 Okay. I didn't know. ~ young
 I've heard it before. I'll handle it. ~ vet
 Yep. Got it. ~ vet
@@ -5019,7 +5019,7 @@ Fixing to get on it. Yes {coach_sir}. ~ texas
 Well, alright, {coach_sir}. I'll work at it. ~ texas
 Yeah, okay. Could be. ~ midwest
 Well, I suppose that's fair. ~ midwest
-Yeah, yeah, I got it. ~ northeast
+Yeah, yeah, I got it. ~ northeast brash
 Okay. Your call. ~ northeast
 Alright, cool, cool. ~ west young
 Yeah, I can see that, kind of. ~ west
@@ -5065,7 +5065,7 @@ Okay, {coach}. I'll get with somebody on it. ~ pro
 Yes {coach_sir}, {coach}. I'll look at it. ~ south
 Okay, {coach}. I'll give it a go. ~ shaky
 Alright, {coach}. I'll get it sorted. ~ steady
-Yeah, yeah, {coach}. I got you. ~ loose
+Yeah, yeah, {coach}. I got you. ~ loose brash
 
 @key talk.reply.promise.good
 That's what I needed.
@@ -5096,7 +5096,7 @@ I'm grateful, Coach. I won't waste it. ~ humble
 Thank you. I'll work for it. ~ humble
 I don't take that lightly. ~ humble
 Good. That's what I deserve. ~ ego
-That's more like it. ~ ego
+That's more like it. ~ ego brash
 Finally. Thank you. ~ ego
 Now we're talking. ~ ego young
 Then I'll go get it done. ~ competitor
@@ -5281,12 +5281,12 @@ That's humbling, honestly. ~ humble
 I just want to be worthy of that. ~ humble
 That's the right call. ~ ego
 About time somebody said it. ~ ego
-Smart man. ~ ego
+Smart man. ~ ego brash
 You won't regret betting on me. ~ ego
-I knew you'd see it my way. ~ ego
+I knew you'd see it my way. ~ ego brash
 Good. Now I can go be great. ~ ego
 {name} appreciates that. ~ ego
-Now we understand each other. ~ ego
+Now we understand each other. ~ ego brash
 I'm going to make that look like the easiest decision you ever made. ~ ego
 Good. You picked the right guy to say that to. ~ ego competitor
 That's what happens when you're the best guy in the building. ~ ego nfl
@@ -5417,12 +5417,12 @@ Okay. ~ quiet
 I've heard it before. ~ quiet
 I don't want to get my hopes up. ~ humble
 I'll wait to see it. ~ humble
-Put it in writing. ~ ego
+Put it in writing. ~ ego brash
 I'm not stupid, Coach. ~ ego
-I've got options if that doesn't happen. ~ ego
+I've got options if that doesn't happen. ~ ego brash
 Don't promise me something you can't do. ~ hot
-That's what you said last time. ~ hot
-Don't play with me, Coach. ~ hot
+That's what you said last time. ~ hot brash
+Don't play with me, Coach. ~ hot brash
 I'd rather have it done than promised. ~ pro
 Promises don't show up on my contract. ~ pro nfl
 The guys have heard promises like that before. ~ leader
@@ -5499,8 +5499,8 @@ Will you remember saying that? Because I will.
 That's a sales pitch, Coach.
 You're selling, and I'm not buying.
 That's not a promise. That's a hope.
-That's what you say when you don't have an answer.
-You don't have to make stuff up to keep me happy.
+That's what you say when you don't have an answer. ~ brash
+You don't have to make stuff up to keep me happy. ~ brash
 I'd rather you told me the truth than promised me something.
 Just be honest with me. Don't promise.
 I'm not a kid, Coach. Don't do that.
@@ -5556,7 +5556,7 @@ You just made it harder to trust you.
 I'm not going to lie, that felt cheap.
 I didn't need a promise. I needed honesty.
 That's not the kind of thing you can promise.
-Okay. Write it down somewhere so you don't forget.
+Okay. Write it down somewhere so you don't forget. ~ brash
 I've been on the wrong end of a lot of promises.
 It's always a promise. It's never a plan.
 Where's the plan? All I hear is a promise.
@@ -5586,18 +5586,18 @@ You don't have to promise me anything. I'd rather you didn't. ~ humble
 Please don't. I don't want to be let down again. ~ humble shaky
 I'm not asking for promises, Coach. ~ humble
 You think a promise is going to keep me happy? ~ ego
-I'm not some kid you can wave a promise at. ~ ego !hs
-Guys like me don't need promises. We need it done. ~ ego
+I'm not some kid you can wave a promise at. ~ ego !hs brash
+Guys like me don't need promises. We need it done. ~ ego brash
 Promises are for guys you're worried about losing. ~ ego
 {name} has heard every promise in the book. ~ ego
 Do I look like I need a promise? ~ ego
-Don't sweet-talk me. I know what I bring. ~ ego
-Don't stand there and promise me something. ~ hot
+Don't sweet-talk me. I know what I bring. ~ ego brash
+Don't stand there and promise me something. ~ hot brash
 Come on, Coach. That's an insult. ~ hot
 I'm sick of promises. ~ hot
 Every promise somebody makes me just makes me madder. ~ hot
 That's exactly the kind of thing that sets me off. ~ hot
-I swear, if that falls through, we're going to have a problem. ~ hot
+I swear, if that falls through, we're going to have a problem. ~ hot brash
 I appreciate it, but I've learned to wait for proof. ~ calm
 I'll be honest. I don't put much stock in promises. ~ calm
 I hear you. I just don't believe it yet. ~ calm
@@ -5610,7 +5610,7 @@ I've always trusted you. That one I can't. ~ loyal
 I'd follow you anywhere. But I don't believe that. ~ loyal
 I don't want promises from you. I just want you straight with me. ~ loyal
 A promise doesn't do anything for me. ~ greedy
-What's a promise worth, Coach? Nothing. ~ greedy
+What's a promise worth, Coach? Nothing. ~ greedy brash
 I don't get anything out of a promise. ~ greedy hot
 I'd rather deal in facts than promises. ~ pro
 I've been around this enough to know promises don't hold up. ~ pro
@@ -5622,11 +5622,11 @@ If I tell the guys that and it doesn't happen, I look like a fool. ~ leader
 I'm not going to sell that to the room. ~ leader
 Promises don't win anything. ~ competitor
 I don't compete for promises. ~ competitor
-Ha. That's funny, Coach. ~ loose
-Sure, sure. And I'm the president. ~ loose
-Okay, Coach. Pinky promise? ~ loose
-Ha. You almost had me. ~ loose
-That's a good one, Coach. Real good. ~ loose
+Ha. That's funny, Coach. ~ loose brash
+Sure, sure. And I'm the president. ~ loose brash
+Okay, Coach. Pinky promise? ~ loose brash
+Ha. You almost had me. ~ loose brash
+That's a good one, Coach. Real good. ~ loose brash
 Everybody promises me stuff and then they're gone. ~ shaky
 Please don't do that to me. ~ shaky
 I can't keep getting my hopes up. ~ shaky
@@ -5678,20 +5678,20 @@ I don't know about that, Coach. Sounds too easy. ~ midwest
 Yeah, no. ~ midwest
 Come on. You can't be serious. ~ northeast
 Yeah, right. ~ northeast
-Okay, dude. Sure. ~ west
+Okay, dude. Sure. ~ west brash
 That's kind of sketchy, Coach. ~ west
 I'm not vibing with that. ~ west young
-I've heard that from people a lot bigger than you, Coach. ~ ego
-You want me to just nod and say thank you? ~ hot
+I've heard that from people a lot bigger than you, Coach. ~ ego brash
+You want me to just nod and say thank you? ~ hot brash
 Don't treat me like I'm stupid. ~ hot
-Funny. That's the exact line I figured I'd get. ~ loose
+Funny. That's the exact line I figured I'd get. ~ loose brash
 I'll show up either way. I just don't believe it. ~ pro
 The guys see through that stuff, Coach. So do I. ~ leader
 Keep it. I'd rather fight for things. ~ competitor
 I don't know if I can trust anybody anymore. ~ shaky
 Nah. I can't do that again. ~ shaky young
 I've been in a lot of rooms like this one, Coach. ~ vet
-Save it for the young guys. ~ vet
+Save it for the young guys. ~ vet brash
 {coach_sir}, with respect, I've heard plenty of those. ~ south
 Y'all are all the same. ~ texas
 That's a bunch of nothing, honestly. ~ northeast
@@ -5834,7 +5834,7 @@ We'll see if you deliver. ~ ego
 Fine. But I'm keeping score. ~ ego
 Okay. Make sure it happens. ~ ego
 Alright. I expect it, then. ~ ego
-Okay. I'll let you know if I'm satisfied. ~ ego
+Okay. I'll let you know if I'm satisfied. ~ ego brash
 Okay. Fine. ~ hot
 Okay. I'm not going to make a thing of it. ~ hot
 Okay. Let's see how it unfolds. ~ calm
@@ -5909,7 +5909,7 @@ Okay. Sounds alright. ~ midwest
 Alright. We'll see what's what. ~ northeast
 Sure. Fine. ~ northeast
 Cool. Sounds good, Coach. ~ west
-Yeah, dude. We'll see. ~ west
+Yeah, dude. We'll see. ~ west brash
 Okay. I'm going to wait before I get excited about anything.
 I'll leave it at that, then.
 Alright. That's all I can ask for, I guess.
@@ -6275,18 +6275,18 @@ That's not how you motivate people.
 I'm not your problem, Coach.
 That's a lot.
 You're making a mistake.
-Bench me, then.
+Bench me, then. ~ brash
 So it's your way or nothing.
 Okay. ~ quiet
 Yeah. ~ quiet
 I don't know why you'd say that to me. ~ humble
 I thought we were better than that. ~ humble
-Other teams would love to have me. ~ ego !hs
-You need me more than I need this. ~ ego
-Go ahead. See what happens. ~ ego
-You threatening me now? ~ hot
-Don't push me, Coach. ~ hot
-Try it. ~ hot young
+Other teams would love to have me. ~ ego !hs brash
+You need me more than I need this. ~ ego brash
+Go ahead. See what happens. ~ ego brash
+You threatening me now? ~ hot brash
+Don't push me, Coach. ~ hot brash
+Try it. ~ hot young brash
 I'd like that in writing. ~ pro
 I've done nothing wrong. ~ pro
 The guys are going to see that as a threat. ~ leader
@@ -6297,17 +6297,17 @@ I don't respond well to threats. ~ calm
 After all I've done here? ~ loyal
 I can't take any more of this. ~ shaky
 That's wild, Coach. ~ young modern
-Bruh. ~ young modern loose
+Bruh. ~ young modern loose brash
 Okay, Coach. Okay. ~ young
 Ha. Alright. ~ loose
 Cut me, then. Somebody'll sign me. ~ nfl ego
 My agent's going to have a field day with this. ~ nfl
 I've seen guys get warned like this. I know what comes next. ~ nfl vet
-I'll just go to the portal, then. ~ college nil ego
+I'll just go to the portal, then. ~ college nil ego brash
 This is going to get back home. ~ hs young
 I don't need threats, {coach_sir}. ~ south
 That's not right. ~ midwest
-Whatever, Coach. ~ northeast
+Whatever, Coach. ~ northeast brash
 That's not cool. ~ west
 So I'm the problem now.
 Why is it always me?
@@ -6384,7 +6384,7 @@ You've made your point. Too well.
 I'm not going to forget this conversation.
 That's low.
 You think I don't already know that?
-Yeah, okay. Whatever you say.
+Yeah, okay. Whatever you say. ~ brash
 So much for trust.
 I thought you trusted me.
 I'll be fine. With or without you.
@@ -6393,13 +6393,13 @@ Wow. You really think that little of me.
 I'm not going to be bullied.
 That's not coaching. That's intimidation.
 Okay. I know how this ends, then.
-Go ahead and write me off.
+Go ahead and write me off. ~ brash
 Don't threaten me. Talk to me.
 I'm not afraid of you.
 You're blowing this way out of proportion.
 Wow. And you say you care about me.
 That's the respect I get?
-I'll handle my business. Not because you threatened me.
+I'll handle my business. Not because you threatened me. ~ brash
 You're the boss, I know. You don't have to remind me.
 There it is. The threat.
 I knew this was coming.
@@ -6407,8 +6407,8 @@ I don't need to be babysat.
 You want me to fall in line or else. Got it.
 That's not how you talk to somebody you believe in.
 That's what I get for being honest with you.
-Fine. I'll be perfect. Happy?
-You know what, forget it.
+Fine. I'll be perfect. Happy? ~ brash
+You know what, forget it. ~ brash
 Lesson learned. Don't trust coaches.
 This is why guys don't come in here.
 That stings. And not in a good way.
@@ -6436,27 +6436,27 @@ I don't know what else I can do. ~ humble
 I'd never cause you trouble on purpose. ~ humble
 That really hurt to hear. ~ humble
 I've been nothing but respectful to you. ~ humble
-You can't threaten me. ~ ego
-You know who I am, right? ~ ego
-People don't talk to me like that. ~ ego
-Good luck replacing me. ~ ego
-You'd be making the biggest mistake of your career. ~ ego
-You don't win without me and you know it. ~ ego
-I make this place go. Remember that. ~ ego
-{name} doesn't get threatened. ~ ego
-I'm the last guy you should be warning. ~ ego
-Okay. Let's see who blinks first. ~ ego
-Everybody knows who the best player in this building is. ~ ego
-{team} is lucky to have me and you talk to me like this? ~ ego
-Don't talk to me like that. ~ hot
-You want to go there? Let's go there. ~ hot
-I'm about to lose it. ~ hot
-Say that again. ~ hot
-Keep pushing and see what you get. ~ hot
-I'm out of here. ~ hot
+You can't threaten me. ~ ego brash
+You know who I am, right? ~ ego brash
+People don't talk to me like that. ~ ego brash
+Good luck replacing me. ~ ego brash
+You'd be making the biggest mistake of your career. ~ ego brash
+You don't win without me and you know it. ~ ego brash
+I make this place go. Remember that. ~ ego brash
+{name} doesn't get threatened. ~ ego brash
+I'm the last guy you should be warning. ~ ego brash
+Okay. Let's see who blinks first. ~ ego brash
+Everybody knows who the best player in this building is. ~ ego brash
+{team} is lucky to have me and you talk to me like this? ~ ego brash
+Don't talk to me like that. ~ hot brash
+You want to go there? Let's go there. ~ hot brash
+I'm about to lose it. ~ hot brash
+Say that again. ~ hot brash
+Keep pushing and see what you get. ~ hot brash
+I'm out of here. ~ hot brash
 I'm trying real hard not to say something right now. ~ hot
-Get off my back. ~ hot
-You don't want to see me mad. ~ hot
+Get off my back. ~ hot brash
+You don't want to see me mad. ~ hot brash
 Wow. I need to leave before I say something. ~ hot
 I'd like to know exactly what the policy is. ~ pro
 I'll be reaching out to the people I need to reach out to. ~ pro
@@ -6490,26 +6490,26 @@ I need to get out of here. ~ shaky
 That's not okay. ~ steady
 I don't think I deserved that. ~ steady
 Okay. I'll be keeping my distance for a while. ~ steady
-Fine. I'll go where they appreciate me. ~ greedy !hs
-I've got options too. ~ greedy !hs
+Fine. I'll go where they appreciate me. ~ greedy !hs brash
+I've got options too. ~ greedy !hs brash
 Okay. I'll look out for number one, then. ~ greedy
 Threaten me all you want. I'm still going to compete. ~ competitor
 I'm out here busting it every day and I get warned? ~ competitor
 Nobody works harder than me and you know it. ~ competitor
 You want me soft? Because that's how you get me soft. ~ competitor
 That's fuel. Just not the kind you want. ~ competitor
-Bro. Really? ~ young
+Bro. Really? ~ young brash
 That's so messed up. ~ young
 I'm not even trying to be bad. ~ young
 Why me though? ~ young
 That's not fair. I'm still learning. ~ young
 Everybody else does way worse. ~ young
 Ha. Wow. Okay. ~ loose
-Man, chill. ~ loose young
-Relax, Coach. It's not that deep. ~ loose
-You're stressing way too hard about me. ~ loose
+Man, chill. ~ loose young brash
+Relax, Coach. It's not that deep. ~ loose brash
+You're stressing way too hard about me. ~ loose brash
 I'm just having fun out here and now I'm in trouble? ~ loose
-Whatever. It's not like I care that much. ~ loose
+Whatever. It's not like I care that much. ~ loose brash
 I've been in this league a long time. Nobody's talked to me like that. ~ nfl vet
 I'm a veteran. Don't treat me like a rookie. ~ vet nfl
 I've played for a lot of coaches. That's a first. ~ vet
@@ -6526,8 +6526,8 @@ I know I'm easy to get rid of. You don't have to remind me. ~ undrafted
 You think I don't know how thin the ice is on the practice squad? ~ psquad
 Because I'm a high pick, I'm under a microscope now? ~ firstround
 Everybody's waiting for me to fail. Now you too. ~ firstround
-Keep talking like that and I'll be in the portal. ~ college hot
-I could have gone anywhere. ~ college ego !walkon
+Keep talking like that and I'll be in the portal. ~ college hot brash
+I could have gone anywhere. ~ college ego !walkon brash
 I walked on here and busted my tail. And I get this? ~ walkon
 You think I don't know how easy it would be to get rid of a walk on? ~ walkon
 I didn't transfer here for this. ~ transfer
@@ -6537,17 +6537,17 @@ I'm a senior. I don't need this. ~ hs senior
 I'm only a freshman. Why are you coming at me? ~ hs freshman
 Wow. I thought this was supposed to be a team. ~ hs
 That's not fair, {coach_sir}. I'm just a kid. ~ hs young
-Yes {coach_sir}. Whatever you say, {coach_sir}. ~ south
+Yes {coach_sir}. Whatever you say, {coach_sir}. ~ south brash
 I don't care for that one bit. ~ south
-Where I'm from, you don't talk to a man like that. ~ south
-Y'all are something else. ~ south
+Where I'm from, you don't talk to a man like that. ~ south brash
+Y'all are something else. ~ south brash
 That ain't right, Coach. ~ south
 I was raised to respect people. That wasn't respect. ~ texas
 That's not how we do things back home. ~ texas
 Okay. That's pretty rough. ~ midwest
 I don't think that was called for. ~ midwest
 Gee, thanks. ~ midwest
-Are you kidding me? ~ northeast
+Are you kidding me? ~ northeast brash
 Yeah, okay. Real nice. ~ northeast
 Give me a break. ~ northeast
 That's whack. ~ west
@@ -6679,8 +6679,8 @@ Yes {coach_sir}. I got it. ~ texas
 Okay. Will do. ~ midwest
 Yep. Got it. ~ midwest
 Okay, sounds good. ~ midwest
-Yeah, yeah. I got it. ~ northeast
-Understood. We done? ~ northeast
+Yeah, yeah. I got it. ~ northeast brash
+Understood. We done? ~ northeast brash
 Yeah. Fine. ~ northeast
 Yeah, I hear you. ~ northeast
 For sure. ~ west
@@ -6712,7 +6712,7 @@ I know. I don't need it said twice. ~ ego
 Got it. Not worried. ~ ego
 Sure. I'm good. ~ ego
 I'll be fine. I always am. ~ ego
-Yeah, okay. Doesn't really apply to me, but okay. ~ ego
+Yeah, okay. Doesn't really apply to me, but okay. ~ ego brash
 Yes {coach_sir}. I'll do my best. ~ humble
 Yes {coach_sir}. I'll be careful. ~ humble
 Got it. I'll pass that along to the room. ~ leader
@@ -6733,7 +6733,7 @@ Okay. Whatever's best for me. ~ greedy
 Okay. I know what's good for me. ~ greedy
 Understood. I'll look out for myself. ~ greedy
 Ha. Sure. ~ loose
-Yeah, yeah. Got it. ~ loose
+Yeah, yeah. Got it. ~ loose brash
 Okay, okay. Heard. ~ loose
 No worries, Coach. ~ loose
 Yeah, no stress. ~ loose
@@ -7091,10 +7091,10 @@ Okay. ~ quiet
 I'd rather earn things. ~ humble
 I don't want people thinking I get favors. ~ humble
 You're not going to buy me off. ~ ego
-That's cute. ~ ego
-That's not what I need. Give me what I need. ~ ego
+That's cute. ~ ego brash
+That's not what I need. Give me what I need. ~ ego brash
 That's not going to calm me down. ~ hot
-Don't try to handle me. ~ hot
+Don't try to handle me. ~ hot brash
 I don't need perks. I need answers. ~ pro
 That's not a solution. ~ pro
 The guys are going to think I'm getting special treatment. ~ leader
@@ -7106,7 +7106,7 @@ I appreciate it. But no. ~ calm
 I don't need that from you. ~ loyal
 That's going to make me feel worse. ~ shaky
 Nah, that's not it. ~ young modern
-Okay. Cool. Whatever. ~ young
+Okay. Cool. Whatever. ~ young brash
 Ha. That's not it. ~ loose
 That's not going to help me get paid. ~ nfl greedy
 I don't need that. I need my contract right. ~ nfl
@@ -7227,14 +7227,14 @@ I'm not comfortable with that. ~ humble
 That makes me feel like I'm asking for too much. ~ humble shaky
 That's it? That's what I get? ~ ego
 You really think that's enough for a guy like me? ~ ego
-That's small, Coach. ~ ego
+That's small, Coach. ~ ego brash
 I'm worth more than a gesture. ~ ego
-{name} doesn't need handouts. ~ ego
-Do you know who you're talking to? ~ ego
+{name} doesn't need handouts. ~ ego brash
+Do you know who you're talking to? ~ ego brash
 That's what you give a guy you don't care about. ~ ego
 Don't do that. Don't try to buy me. ~ hot
 That makes me madder, honestly. ~ hot
-You're kidding me. ~ hot
+You're kidding me. ~ hot brash
 I don't want your gift. I want you to listen. ~ hot
 Honestly? That's insulting. ~ hot
 I appreciate the thought. It doesn't address anything. ~ calm
@@ -7247,9 +7247,9 @@ I thought you knew me better. ~ loyal
 After everything, that's what you do? ~ loyal
 I'd do anything for you. I didn't think you'd handle me like this. ~ loyal
 That's not like you, Coach. ~ loyal
-That's nice. What else? ~ greedy
+That's nice. What else? ~ greedy brash
 That's not the kind of thing I'm after. ~ greedy
-What am I supposed to do with that? ~ greedy
+What am I supposed to do with that? ~ greedy brash
 I'd prefer we deal with the actual issue. ~ pro
 With respect, that's a gesture, not a resolution. ~ pro
 That doesn't address what we're here for. ~ pro
@@ -7260,15 +7260,15 @@ I lead by example. This isn't the example I want. ~ leader
 I'm not here for gifts. I'm here to win. ~ competitor
 That doesn't make me better. ~ competitor
 Give me something to fight for, not something to hold. ~ competitor
-Ha, okay. You can keep that one. ~ loose
-Nah, Coach. Hard pass. ~ loose
-That's a weird flex, Coach. ~ loose young
-Is this a joke? ~ loose
+Ha, okay. You can keep that one. ~ loose brash
+Nah, Coach. Hard pass. ~ loose brash
+That's a weird flex, Coach. ~ loose young brash
+Is this a joke? ~ loose brash
 That feels like you're getting rid of me. ~ shaky
 I don't know why, but that made it worse. ~ shaky
 Everybody gives me stuff instead of actually listening. ~ shaky
 I just wanted somebody to listen. ~ shaky
-Bruh. Really? ~ young
+Bruh. Really? ~ young brash
 Coach, no. That's so not it. ~ young
 Nah, I'm straight. ~ young
 That's so random, Coach. ~ young
@@ -7309,10 +7309,10 @@ Y'all think that fixes it? ~ south
 Now hold on. That's not it at all. ~ texas
 Yeah, no. That doesn't work for me. ~ midwest
 I don't know, Coach. That's not really what I meant. ~ midwest
-You gotta be kidding me. ~ northeast
+You gotta be kidding me. ~ northeast brash
 Come on. Seriously? ~ northeast
 That's not the vibe, Coach. ~ west
-Dude. No. ~ west
+Dude. No. ~ west brash
 That's what you hand somebody to make them feel better. I don't feel better.
 That's a quick fix for something that isn't quick.
 I don't need something. I need things to change.
@@ -7331,16 +7331,16 @@ Sure. That'll fix everything.
 Oh good. Problem solved, right?
 That's a nice way of saying go away.
 I'd have respected a straight no more than that.
-I'm not some guy you can shut up with a little something. ~ ego hot
-Don't play me like that. ~ hot young
+I'm not some guy you can shut up with a little something. ~ ego hot brash
+Don't play me like that. ~ hot young brash
 I'll politely pass. ~ calm
 That doesn't feel right to me. ~ steady
 I wanted my coach. Not a gift. ~ loyal
-If you're going to give me something, give me something that matters. ~ greedy ego
+If you're going to give me something, give me something that matters. ~ greedy ego brash
 That's a nice touch. It's not a fix. ~ pro
 Something like that splits a locker room. ~ leader
 I don't want something to make me feel better. I want to get better. ~ competitor
-You're funny, Coach. No. ~ loose
+You're funny, Coach. No. ~ loose brash
 That feels like the last thing somebody does before they give up on you. ~ shaky
 That's mid, Coach. ~ young
 I've been in this league long enough to spot a gesture. ~ nfl vet
@@ -7540,7 +7540,7 @@ Sure, Coach. That's fine and dandy. ~ midwest
 Alright, fine. Thanks. ~ northeast
 Yeah, sure. ~ northeast
 Okay, cool. I guess. ~ west
-Sure, dude. ~ west young
+Sure, dude. ~ west young brash
 Alright. I didn't ask for it, but alright.
 Okay. That's a nice little thing.
 Thank you. I'll see what it's like.
@@ -7551,7 +7551,7 @@ Sure. Sounds fine.
 Okay, thanks. I wasn't expecting anything.
 Alright, I'll accept that.
 Okay. Yeah. ~ quiet
-I'll take it. Didn't need it. ~ ego
+I'll take it. Didn't need it. ~ ego brash
 That's fine. I'll make room for it. ~ calm
 Okay. I'll make sure it doesn't knock me off track. ~ steady
 Okay. I'll do it if you want me to. ~ loyal humble
@@ -7896,14 +7896,14 @@ I wanted a plan. Not silence.
 You don't have anything for me?
 Okay. ~ quiet
 I shouldn't have said anything. ~ quiet
-Forget it. ~ quiet
+Forget it. ~ quiet brash
 I'm sorry for wasting your time. ~ humble
 I thought you'd tell me what to do. ~ humble
-You're the head coach. Act like it. ~ ego
-I don't need you to listen. I need you to fix it. ~ ego
-Cool. So you're not going to do anything. ~ ego
-Don't just sit there. ~ hot
-That's even worse than yelling. ~ hot
+You're the head coach. Act like it. ~ ego brash
+I don't need you to listen. I need you to fix it. ~ ego brash
+Cool. So you're not going to do anything. ~ ego brash
+Don't just sit there. ~ hot brash
+That's even worse than yelling. ~ hot brash
 I'm getting more mad. ~ hot
 I need action items, Coach. ~ pro
 I'd like a response. ~ pro
@@ -7915,9 +7915,9 @@ I thought you'd have my back. ~ loyal
 So I'm on my own with this. ~ shaky
 Nobody ever does anything. ~ shaky
 That's crazy. You just gonna sit there? ~ young modern
-Bruh. Say something. ~ young modern loose
-Okay. Whatever. ~ young
-Ha. Great talk, Coach. ~ loose
+Bruh. Say something. ~ young modern loose brash
+Okay. Whatever. ~ young brash
+Ha. Great talk, Coach. ~ loose brash
 I've had GMs listen better than that. ~ nfl vet
 I'll talk to my agent. He'll do something. ~ nfl
 Okay. I'll ask my position coach. ~ !nfl
@@ -8007,7 +8007,7 @@ I didn't come here for sympathy.
 I don't want understanding. I want something done.
 You just sat there. Wow.
 I said a lot. You said nothing.
-That felt like a waste.
+That felt like a waste. ~ brash
 Do you agree with me or not?
 I can't tell what you're thinking and it's driving me crazy.
 You're going to have to give me something.
@@ -8033,13 +8033,13 @@ Is that a yes? A no? I can't tell.
 Fine. I'll figure it out.
 This felt one sided.
 I've been talking to myself this whole time.
-You don't say much, do you?
+You don't say much, do you? ~ brash
 Okay. Well, that went nowhere.
 I thought you'd at least take notes.
 So I'm supposed to just wait and see?
 I needed you in my corner. I don't know where you are.
 That's not helpful, honestly.
-I'm out of words. And you never had any.
+I'm out of words. And you never had any. ~ brash
 {coach}, I need more than that.
 {coach}, are you going to do anything?
 With respect, {coach}, I needed an answer.
@@ -8067,21 +8067,21 @@ I don't want to bother you. I just hoped you'd help. ~ humble
 I understand if you're busy. I just needed some help. ~ humble
 I guess I'm not important enough for an answer. ~ humble
 I'm sorry, {coach_sir}. I thought you could help. ~ humble
-I don't come in here for nothing. Do something. ~ ego
-I'm not here to talk. I'm here for results. ~ ego
-If I was anybody else I'd understand. But it's me. ~ ego
-You know how much I bring. Act like it. ~ ego
-{name} needs answers, not a nod. ~ ego
-I don't do therapy. I do results. ~ ego
-So I'm supposed to sit here and hope? I don't do hope. ~ ego
-Say something! ~ hot
+I don't come in here for nothing. Do something. ~ ego brash
+I'm not here to talk. I'm here for results. ~ ego brash
+If I was anybody else I'd understand. But it's me. ~ ego brash
+You know how much I bring. Act like it. ~ ego brash
+{name} needs answers, not a nod. ~ ego brash
+I don't do therapy. I do results. ~ ego brash
+So I'm supposed to sit here and hope? I don't do hope. ~ ego brash
+Say something! ~ hot brash
 Are you serious? Nothing? ~ hot
 This is making me crazy. ~ hot
-I'm about to walk out of here. ~ hot
-I'm getting heated and you're just sitting there. ~ hot
-Answer me. ~ hot
-I swear, if you nod one more time. ~ hot
-Unreal. I'm out. ~ hot
+I'm about to walk out of here. ~ hot brash
+I'm getting heated and you're just sitting there. ~ hot brash
+Answer me. ~ hot brash
+I swear, if you nod one more time. ~ hot brash
+Unreal. I'm out. ~ hot brash
 I'd appreciate a clear response. ~ pro
 I need a timeline. Or at least a next step. ~ pro
 Respectfully, I came in for a decision. ~ pro
@@ -8112,21 +8112,21 @@ I don't know who else to go to. ~ shaky
 I need somebody to do something for once. ~ shaky
 Okay, but what does that get me? ~ greedy
 Listening doesn't get me anywhere. ~ greedy
-I've got to look out for myself if you won't. ~ greedy
+I've got to look out for myself if you won't. ~ greedy brash
 I want a fix, not a hug. ~ competitor
 Let's solve it. Don't just sit there. ~ competitor
 I need a game plan for this. ~ competitor
 Nodding doesn't win anything. ~ competitor
-Bro, you're not gonna say anything? ~ young
+Bro, you're not gonna say anything? ~ young brash
 Wait. That's it? ~ young
 Man, I thought you'd help. ~ young
 I don't get it. What do I do? ~ young
 This is so weird. Say something. ~ young
 I'm just a kid. I need somebody to tell me what to do. ~ hs young
-Ha, okay. That was a waste. ~ loose
-Cool talk. Real helpful. ~ loose
-Well, that was a bust. ~ loose
-Nice chat. Didn't fix anything. ~ loose
+Ha, okay. That was a waste. ~ loose brash
+Cool talk. Real helpful. ~ loose brash
+Well, that was a bust. ~ loose brash
+Nice chat. Didn't fix anything. ~ loose brash
 I've been around too long to vent for fun. I need action. ~ vet
 I don't need a listener at this stage of my career. ~ vet
 I've had coaches who at least pretended to have an answer. ~ vet
@@ -8162,7 +8162,7 @@ Come on. Help me out here. ~ northeast
 What am I, talking to myself here? ~ northeast
 That was kind of a dead end. ~ west
 I'm not feeling that, Coach. ~ west
-I make decisions in two seconds out there. You can't make one now? ~ qb
+I make decisions in two seconds out there. You can't make one now? ~ qb brash
 I read defenses all day. I can't read you at all. ~ qb
 Linemen don't come in here unless it matters. ~ lineman
 Nobody ever talks to the kicker, and now you won't either. ~ kicker
@@ -8344,9 +8344,9 @@ I hope that made sense, {coach_sir}. ~ humble
 I don't know if I should have brought that up. ~ humble
 Sorry. I'm not good at explaining. ~ humble
 Well. That's how I see it. ~ ego
-I said what I said. ~ ego
+I said what I said. ~ ego brash
 Okay. You heard me. ~ ego
-That's my take. Take it or leave it. ~ ego
+That's my take. Take it or leave it. ~ ego brash
 I'm kind of calmer, I guess. ~ hot
 I don't know. I'm still kind of worked up. ~ hot
 That's the situation as I see it. ~ pro
@@ -8377,7 +8377,7 @@ Whatever. It'll work out. ~ loose
 So yeah. Vibes. ~ loose young
 I don't know, it's just a lot. ~ young
 I dunno. That's it. ~ young
-Is that it? Can I go? ~ young
+Is that it? Can I go? ~ young brash
 My bad, I talk too much. Anyway. ~ young
 So, yeah. That's what's been going on. ~ young
 That's the way it goes. ~ vet
@@ -8407,7 +8407,7 @@ Yes {coach_sir}. That's about all. ~ south
 Well. That's the long and short of it. ~ texas
 Ope, I talked a lot. Anyway. ~ midwest
 Yeah, so. That's kinda it. ~ midwest
-Whatever. That's the deal. ~ northeast
+Whatever. That's the deal. ~ northeast brash
 So yeah. That's what it is. ~ northeast
 It is what it is, you know? ~ northeast
 It's all good. Or whatever. ~ west
@@ -8789,7 +8789,7 @@ I'm going to go.
 I'll see you, I guess.
 I need to think.
 I've got somewhere to be.
-We done?
+We done? ~ brash
 Fine.
 Got it. I'm out.
 I need to be by myself for a minute.
@@ -8801,11 +8801,11 @@ Okay. ~ quiet
 I'm going. ~ quiet
 I'm sorry. I need to go. ~ humble
 Thank you, I guess. ~ humble
-I've got better things to do. ~ ego
-Don't call me in again for this. ~ ego
-We're done. ~ ego
+I've got better things to do. ~ ego brash
+Don't call me in again for this. ~ ego brash
+We're done. ~ ego brash
 I'm out. ~ hot
-Don't follow me. ~ hot
+Don't follow me. ~ hot brash
 I need to leave before I say something. ~ hot
 I'll see you at work. ~ pro
 I'll do my job. That's it. ~ pro
@@ -8817,9 +8817,9 @@ I'll be alright. Eventually. ~ shaky
 I need to go call somebody. ~ shaky
 I thought you were different. ~ loyal
 I'm out, Coach. ~ young modern
-Aight. Bye. ~ young modern loose
-Whatever. ~ young
-Ha. Cool. Bye. ~ loose
+Aight. Bye. ~ young modern loose brash
+Whatever. ~ young brash
+Ha. Cool. Bye. ~ loose brash
 I'm calling my agent. ~ nfl
 I've got a meeting. ~ nfl
 I've got class. ~ !nfl
@@ -8833,7 +8833,7 @@ Can I leave now?
 Am I free to go?
 Okay. I'm gone.
 Yep. Bye.
-Sure. Whatever you say.
+Sure. Whatever you say. ~ brash
 Cool. I'll go.
 I'll get out of your way.
 Don't worry. I'll show up.
@@ -8878,7 +8878,7 @@ I'll be in the locker room. Alone.
 I'll go do my job, Coach. Just my job.
 Understood, {coach}.
 Yes, {coach}. Can I go now?
-If that's everything, {coach}, I've got places to be.
+If that's everything, {coach}, I've got places to be. ~ brash
 I'll see you around, {coach}.
 Have a good day, {coach}.
 That's all, {coach}?
@@ -8893,7 +8893,7 @@ Okay. Got it. Leaving now.
 Enjoy your day, Coach.
 I need to clear my head.
 I'll go sit with this for a while.
-Whatever you say, Coach.
+Whatever you say, Coach. ~ brash
 Okay. Bye now.
 Don't hold your breath.
 Sure, Coach. I'll be there.
@@ -8920,16 +8920,16 @@ Let me out of here.
 I'll go before I say too much.
 Right. Okay. I'm gonna go.
 Okay, Coach. You win.
-Cool. Can I go?
+Cool. Can I go? ~ brash
 That's it. I'm done.
 I'll go take it out on the weights.
 I'm going to go lift something heavy.
-I've got things to do.
+I've got things to do. ~ brash
 I'll see you when I see you.
 Don't bother walking me out.
 I need to go. Now.
 Wow. Alright. I'm going.
-Nah, I'm done. Bye.
+Nah, I'm done. Bye. ~ brash
 I'll be fine on my own.
 I'll let you get back to your day.
 Okay. That's enough for me.
@@ -8955,18 +8955,18 @@ Excuse me, Coach. ~ humble
 Yes {coach_sir}. Excuse me. ~ humble
 I'll keep my head down. I'm sorry. ~ humble
 You'll see. Everybody will. ~ ego
-You need me more than I need this. ~ ego
-I don't need this. ~ ego
-Call me when you figure it out. ~ ego
+You need me more than I need this. ~ ego brash
+I don't need this. ~ ego brash
+Call me when you figure it out. ~ ego brash
 {name} is out, Coach. ~ ego
-I'm too good for this, Coach. ~ ego
-Somebody's going to regret this, and it isn't me. ~ ego
+I'm too good for this, Coach. ~ ego brash
+Somebody's going to regret this, and it isn't me. ~ ego brash
 I'm about to lose it. I'm going. ~ hot
-Don't say another word. I'm leaving. ~ hot
+Don't say another word. I'm leaving. ~ hot brash
 I swear, I'm out of here. ~ hot
 I need to hit something. ~ hot
-Nope. Not doing this. ~ hot
-Just so you know, I'm slamming this door. ~ hot young
+Nope. Not doing this. ~ hot brash
+Just so you know, I'm slamming this door. ~ hot young brash
 I'm out before I do something stupid. ~ hot
 I'll think about it. Somewhere else. ~ calm
 Okay. I'll go collect myself. ~ calm
@@ -8986,12 +8986,12 @@ I'll be on time. Same as always. ~ pro
 I'll keep it between these walls. ~ pro
 I'll be professional about it. ~ pro
 My work won't change. I can't say the same for anything else. ~ pro
-Ha. Okay. Peace out. ~ loose
-Welp. That was fun. ~ loose
-Good chat, Coach. Not. ~ loose young
-Bet. Whatever. ~ loose young
-Cool story, Coach. ~ loose young
-Okay, I'm going to go do literally anything else. ~ loose
+Ha. Okay. Peace out. ~ loose brash
+Welp. That was fun. ~ loose brash
+Good chat, Coach. Not. ~ loose young brash
+Bet. Whatever. ~ loose young brash
+Cool story, Coach. ~ loose young brash
+Okay, I'm going to go do literally anything else. ~ loose brash
 I knew this would happen. ~ shaky
 I need to go. Please. ~ shaky
 I can't do this right now. ~ shaky
@@ -9011,7 +9011,7 @@ Somebody on the scout team is about to have a bad day. ~ competitor
 I'm going to go sit outside for a minute. ~ hs young
 Yes {coach_sir}. Can I go now? ~ hs young
 I've got a ride waiting. I'm going. ~ hs young
-Whatever. I'll be in the locker room. ~ hs young
+Whatever. I'll be in the locker room. ~ hs young brash
 I'd rather be with my teammates right now. ~ hs young
 I've got study hall. ~ college
 I'm going back to my room. ~ college young
@@ -9021,7 +9021,7 @@ I've seen this movie before. ~ nfl vet
 I've been in this league too long for this. ~ nfl vet
 It's a business. I'll treat it like one. ~ nfl
 I've got a lift with my guys. Excuse me. ~ nfl
-Grown men don't need this. I'm out. ~ vet
+Grown men don't need this. I'm out. ~ vet brash
 Yes {coach_sir}. Sorry. Can I go? ~ freshman young
 I've given this place everything. ~ senior
 I don't have time for this anymore. ~ senior
@@ -9049,14 +9049,14 @@ Bless your heart, Coach. ~ south
 I'm fixing to leave, Coach. ~ texas
 Okay then. Have a good one. ~ midwest
 Well. Okay then. ~ midwest
-Yeah, whatever. I'm out. ~ northeast
-Forget it. ~ northeast
+Yeah, whatever. I'm out. ~ northeast brash
+Forget it. ~ northeast brash
 It is what it is. Later. ~ west
-Not my vibe, Coach. I'm out. ~ west young
+Not my vibe, Coach. I'm out. ~ west young brash
 Don't come looking for me, Coach.
-Okay. That's on you.
+Okay. That's on you. ~ brash
 I'll be in the building. Leave me alone for a bit.
-Fine. Have it your way.
+Fine. Have it your way. ~ brash
 I'll keep to myself for a while.
 I hope you're happy.
 Excuse me.
@@ -9068,7 +9068,7 @@ I'll keep my distance for a bit.
 I'm going to go somewhere I can breathe.
 That's enough of that.
 Alright. Bye, then.
-Well, that was a waste.
+Well, that was a waste. ~ brash
 Yeah. No. I'm going.
 Alright. Have fun with that.
 My bad for showing up.
@@ -9077,7 +9077,7 @@ You'll have my best on the field. That's all you're getting.
 Hmph. Okay. ~ quiet
 Okay, {coach}. I'll show myself out.
 Respectfully, {coach}, I'm done here.
-Cool, cool, cool. Bye. ~ loose young
+Cool, cool, cool. Bye. ~ loose young brash
 That's crazy. Okay. ~ young
 I'm going to go call {friend}.
 Go {team}, I guess.
@@ -9091,7 +9091,7 @@ I'll be at the facility if anybody actually needs me. ~ nfl
 This is why guys stop talking. ~ vet
 Real nice, Coach. ~ northeast
 Okay. I'm heading out. Take care. ~ midwest
-Y'all are going to do what y'all want anyway. ~ south
+Y'all are going to do what y'all want anyway. ~ south brash
 Ain't no use talking. I'm going. ~ south
 
 @key talk.close.flat
@@ -9516,7 +9516,7 @@ Nothing gets to me. You know that. ~ ego
 Pressure is a privilege, Coach. I'm good. ~ ego
 Do I look like a guy with problems? ~ ego
 I've got everything handled. Like always. ~ ego
-The day I need help, I'll let you know. Don't hold your breath. ~ ego
+The day I need help, I'll let you know. Don't hold your breath. ~ ego brash
 {name} doesn't have problems, Coach. {name} solves them. ~ ego
 {name} is good. Don't worry about {name}. ~ ego
 I'm the most dialed in guy in this building. ~ ego
@@ -9534,20 +9534,20 @@ Nothing I'd want the guys seeing, and they won't. ~ leader
 I'm good. Somebody's got to be. ~ leader
 I'd rather you spend this time on somebody who needs it. ~ leader
 Why is this a thing? ~ hot
-Man, I said I'm good. ~ hot
-Is this an interrogation? ~ hot
+Man, I said I'm good. ~ hot brash
+Is this an interrogation? ~ hot brash
 I don't want to talk about it. Period. ~ hot
 Can we drop it? ~ hot
 Somebody running their mouth? ~ hot
-Nothing. Stop asking. ~ hot
-I'm good. Don't push it, {coach}. ~ hot
-You really want to do this right now? ~ hot
-Coach, leave it alone. ~ hot
-It's nothing. Now can we move on? ~ hot
-I'm fine! Dang. ~ hot young
-If I wanted to talk about it, I would. ~ hot
+Nothing. Stop asking. ~ hot brash
+I'm good. Don't push it, {coach}. ~ hot brash
+You really want to do this right now? ~ hot brash
+Coach, leave it alone. ~ hot brash
+It's nothing. Now can we move on? ~ hot brash
+I'm fine! Dang. ~ hot young brash
+If I wanted to talk about it, I would. ~ hot brash
 I don't need everybody in my business. ~ hot
-Do I have to spell it out? I'm fine. ~ hot
+Do I have to spell it out? I'm fine. ~ hot brash
 Come on, Coach. Not this. ~ hot
 I'm not in the mood to talk about it. ~ hot
 It's alright, Coach. These things pass. ~ calm
@@ -9569,7 +9569,7 @@ You know I'd come to you, Coach. There's nothing. ~ loyal
 Whatever it is, it won't change anything between us. ~ loyal
 I'm your guy, Coach. Always. I'm fine. ~ loyal
 You'd be the first person I'd come to. I'm okay. ~ loyal
-Ask me again when it matters. ~ greedy
+Ask me again when it matters. ~ greedy brash
 I'm good for now. ~ greedy
 I'm good. I know what I'm doing. ~ greedy
 Let's just say I'm handling my business. ~ greedy
@@ -9962,7 +9962,7 @@ I'm just a guy trying to get better. I'm fine. ~ humble
 I'll worry about me later. The room comes first. ~ leader
 What did you hear? Who told you? ~ hot
 Nothing, Coach. And I'd appreciate it if we left it there. ~ hot
-Ugh. Nothing. ~ hot young
+Ugh. Nothing. ~ hot young brash
 It's water off a duck's back, Coach. ~ calm
 I don't sweat much. This included. ~ calm
 I'm good, Coach. You and me are good, that's what matters. ~ loyal
@@ -10014,7 +10014,7 @@ I'm good, Coach. Just grinding it out. ~ psquad
 I'm fine, Coach. Don't go fussing over me. ~ south
 I'm alright, I promise you that. ~ south
 Nah, I'm good, Coach. Just a little tuckered out. ~ midwest
-I'm good, Coach. Seriously. Drop it. ~ northeast
+I'm good, Coach. Seriously. Drop it. ~ northeast brash
 No stress, Coach. I'm good. ~ west
 Shoot, Coach, I'm fine as can be. ~ texas
 Coach, I'm good. Go grab a coffee, you look like you need it.
@@ -10136,7 +10136,7 @@ He was my guy. It's not that simple.
 Okay. Can I go?
 I'll deal with it on my own.
 You make it sound easy.
-I didn't come in here for a speech.
+I didn't come in here for a speech. ~ brash
 I'm not trying to be difficult. It just isn't that simple.
 That's easy to say when it's not your friend.
 I know you're trying, Coach. That's not it.
@@ -10159,7 +10159,7 @@ I've heard that speech before. ~ nfl vet
 I'm done talking about it. ~ quiet
 I'm going to say something I regret, Coach. Can I go? ~ hot
 I'd do the same for any of these guys. You should know that. ~ loyal
-I'm good on my own. I don't need this. ~ ego
+I'm good on my own. I don't need this. ~ ego brash
 I'm sorry. I just can't think about it right now. ~ humble
 I don't know. I'm all over the place. ~ shaky
 @key talk.reply.friend.hand.good

@@ -2985,6 +2985,2360 @@
    "mean_y": 0.0205,
    "min_sample": "CB, 200+ defense snaps",
    "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__rtk_per_snap": {
+   "x": "weight",
+   "y": "run tackles a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.00142,
+    "lo": -0.00125,
+    "hi": 0.00408
+   },
+   "held": {
+    "b": 0.00199,
+    "lo": -0.00038,
+    "hi": 0.00436
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0754,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__rstop_per_snap": {
+   "x": "weight",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.00109,
+    "lo": -0.00058,
+    "hi": 0.00276
+   },
+   "held": {
+    "b": 0.0015,
+    "lo": 9e-05,
+    "hi": 0.00291
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0404,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__rlong_share": {
+   "x": "weight",
+   "y": "share of his run tackles after 10+ yards",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00622,
+    "lo": -0.01041,
+    "hi": -0.00203
+   },
+   "held": {
+    "b": -0.00727,
+    "lo": -0.01131,
+    "hi": -0.00322
+   },
+   "n": 757,
+   "n_held": 757,
+   "n_qualified": 757,
+   "players": 243,
+   "mean_y": 0.0726,
+   "min_sample": "LB, 200+ defense snaps and 15+ run tackles",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__tkl_per_snap": {
+   "x": "weight",
+   "y": "tackles a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00022,
+    "lo": -0.00384,
+    "hi": 0.00341
+   },
+   "held": {
+    "b": 0.00067,
+    "lo": -0.00254,
+    "hi": 0.00388
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.129,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__tgt_per_snap": {
+   "x": "weight",
+   "y": "targets a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00123,
+    "lo": -0.00296,
+    "hi": 0.00051
+   },
+   "held": {
+    "b": -0.00155,
+    "lo": -0.00346,
+    "hi": 0.00036
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.063,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__cmp_allowed": {
+   "x": "weight",
+   "y": "completions allowed a target",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.00695,
+    "lo": -0.00164,
+    "hi": 0.01554
+   },
+   "held": {
+    "b": 0.00916,
+    "lo": 0.00102,
+    "hi": 0.0173
+   },
+   "n": 504,
+   "n_held": 504,
+   "n_qualified": 504,
+   "players": 176,
+   "mean_y": 0.7403,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__yds_per_tgt": {
+   "x": "weight",
+   "y": "yards allowed a target",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.09491,
+    "lo": -0.03076,
+    "hi": 0.22058
+   },
+   "held": {
+    "b": 0.10891,
+    "lo": -0.01542,
+    "hi": 0.23323
+   },
+   "n": 504,
+   "n_held": 504,
+   "n_qualified": 504,
+   "players": 176,
+   "mean_y": 6.8514,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__yac_per_cmp": {
+   "x": "weight",
+   "y": "yards after the catch a completion allowed",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.06866,
+    "lo": -0.05154,
+    "hi": 0.18886
+   },
+   "held": {
+    "b": 0.09866,
+    "lo": -0.02131,
+    "hi": 0.21863
+   },
+   "n": 504,
+   "n_held": 504,
+   "n_qualified": 504,
+   "players": 176,
+   "mean_y": 5.9732,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__dadot": {
+   "x": "weight",
+   "y": "depth of target when targeted",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.09152,
+    "lo": -0.31302,
+    "hi": 0.12998
+   },
+   "held": {
+    "b": -0.14161,
+    "lo": -0.36863,
+    "hi": 0.08541
+   },
+   "n": 504,
+   "n_held": 504,
+   "n_qualified": 504,
+   "players": 176,
+   "mean_y": 4.0859,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__prss_per_snap": {
+   "x": "weight",
+   "y": "pressures a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.00031,
+    "lo": -0.00041,
+    "hi": 0.00103
+   },
+   "held": {
+    "b": 0.00025,
+    "lo": -0.00049,
+    "hi": 0.00099
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0076,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_wt__sack_per_snap": {
+   "x": "weight",
+   "y": "sacks a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -6e-05,
+    "lo": -0.00026,
+    "hi": 0.00015
+   },
+   "held": {
+    "b": -7e-05,
+    "lo": -0.00029,
+    "hi": 0.00015
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0022,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__rtk_per_snap": {
+   "x": "height",
+   "y": "run tackles a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00051,
+    "lo": -0.00205,
+    "hi": 0.00103
+   },
+   "held": {
+    "b": -0.0004,
+    "lo": -0.00192,
+    "hi": 0.00111
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0754,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__rstop_per_snap": {
+   "x": "height",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00073,
+    "lo": -0.00181,
+    "hi": 0.00035
+   },
+   "held": {
+    "b": -0.00068,
+    "lo": -0.00172,
+    "hi": 0.00037
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0404,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__rlong_share": {
+   "x": "height",
+   "y": "share of his run tackles after 10+ yards",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00243,
+    "lo": 1e-05,
+    "hi": 0.00486
+   },
+   "held": {
+    "b": 0.00235,
+    "lo": -6e-05,
+    "hi": 0.00477
+   },
+   "n": 757,
+   "n_held": 757,
+   "n_qualified": 757,
+   "players": 243,
+   "mean_y": 0.0726,
+   "min_sample": "LB, 200+ defense snaps and 15+ run tackles",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__tkl_per_snap": {
+   "x": "height",
+   "y": "tackles a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00085,
+    "lo": -0.00282,
+    "hi": 0.00111
+   },
+   "held": {
+    "b": -0.00066,
+    "lo": -0.0026,
+    "hi": 0.00128
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.129,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__mtkl_pct": {
+   "x": "height",
+   "y": "missed tackle share",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00201,
+    "lo": -0.00472,
+    "hi": 0.0007
+   },
+   "held": {
+    "b": -0.00186,
+    "lo": -0.00457,
+    "hi": 0.00085
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0842,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__tgt_per_snap": {
+   "x": "height",
+   "y": "targets a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00136,
+    "lo": -0.00262,
+    "hi": -0.0001
+   },
+   "held": {
+    "b": -0.00141,
+    "lo": -0.00264,
+    "hi": -0.00018
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.063,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__yds_per_tgt": {
+   "x": "height",
+   "y": "yards allowed a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.02505,
+    "lo": -0.11625,
+    "hi": 0.06615
+   },
+   "held": {
+    "b": -0.02932,
+    "lo": -0.11909,
+    "hi": 0.06045
+   },
+   "n": 504,
+   "n_held": 504,
+   "n_qualified": 504,
+   "players": 176,
+   "mean_y": 6.8514,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__yac_per_cmp": {
+   "x": "height",
+   "y": "yards after the catch a completion allowed",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.0062,
+    "lo": -0.09328,
+    "hi": 0.08087
+   },
+   "held": {
+    "b": -0.00843,
+    "lo": -0.09926,
+    "hi": 0.08241
+   },
+   "n": 504,
+   "n_held": 504,
+   "n_qualified": 504,
+   "players": 176,
+   "mean_y": 5.9732,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__dadot": {
+   "x": "height",
+   "y": "depth of target when targeted",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.01133,
+    "lo": -0.12359,
+    "hi": 0.10093
+   },
+   "held": {
+    "b": -0.02476,
+    "lo": -0.13918,
+    "hi": 0.08965
+   },
+   "n": 504,
+   "n_held": 504,
+   "n_qualified": 504,
+   "players": 176,
+   "mean_y": 4.0859,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__prss_per_snap": {
+   "x": "height",
+   "y": "pressures a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00014,
+    "lo": -0.00054,
+    "hi": 0.00026
+   },
+   "held": {
+    "b": -0.0002,
+    "lo": -0.00061,
+    "hi": 0.00021
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0076,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_ht__sack_per_snap": {
+   "x": "height",
+   "y": "sacks a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -9e-05,
+    "lo": -0.00022,
+    "hi": 5e-05
+   },
+   "held": {
+    "b": -0.00011,
+    "lo": -0.00024,
+    "hi": 3e-05
+   },
+   "n": 793,
+   "n_held": 793,
+   "n_qualified": 793,
+   "players": 254,
+   "mean_y": 0.0022,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_arm__rtk_per_snap": {
+   "x": "arm length",
+   "y": "run tackles a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00106,
+    "lo": -0.00276,
+    "hi": 0.00064
+   },
+   "held": {
+    "b": -0.0006,
+    "lo": -0.00207,
+    "hi": 0.00087
+   },
+   "n": 576,
+   "n_held": 576,
+   "n_qualified": 793,
+   "players": 177,
+   "mean_y": 0.075,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__rstop_per_snap": {
+   "x": "arm length",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00059,
+    "lo": -0.00187,
+    "hi": 0.00069
+   },
+   "held": {
+    "b": -0.00028,
+    "lo": -0.00139,
+    "hi": 0.00082
+   },
+   "n": 576,
+   "n_held": 576,
+   "n_qualified": 793,
+   "players": 177,
+   "mean_y": 0.0397,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__rlong_share": {
+   "x": "arm length",
+   "y": "share of his run tackles after 10+ yards",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00245,
+    "lo": -0.00022,
+    "hi": 0.00512
+   },
+   "held": {
+    "b": 0.00205,
+    "lo": -0.00051,
+    "hi": 0.00461
+   },
+   "n": 553,
+   "n_held": 553,
+   "n_qualified": 757,
+   "players": 171,
+   "mean_y": 0.0739,
+   "min_sample": "LB, 200+ defense snaps and 15+ run tackles",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__tkl_per_snap": {
+   "x": "arm length",
+   "y": "tackles a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00185,
+    "lo": -0.00437,
+    "hi": 0.00067
+   },
+   "held": {
+    "b": -0.00106,
+    "lo": -0.0031,
+    "hi": 0.00099
+   },
+   "n": 576,
+   "n_held": 576,
+   "n_qualified": 793,
+   "players": 177,
+   "mean_y": 0.1278,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__mtkl_pct": {
+   "x": "arm length",
+   "y": "missed tackle share",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00089,
+    "lo": -0.00302,
+    "hi": 0.00125
+   },
+   "held": {
+    "b": -0.00142,
+    "lo": -0.00359,
+    "hi": 0.00074
+   },
+   "n": 576,
+   "n_held": 576,
+   "n_qualified": 793,
+   "players": 177,
+   "mean_y": 0.0823,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__tgt_per_snap": {
+   "x": "arm length",
+   "y": "targets a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00011,
+    "lo": -0.00082,
+    "hi": 0.00104
+   },
+   "held": {
+    "b": -4e-05,
+    "lo": -0.00092,
+    "hi": 0.00084
+   },
+   "n": 576,
+   "n_held": 576,
+   "n_qualified": 793,
+   "players": 177,
+   "mean_y": 0.0628,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__cmp_allowed": {
+   "x": "arm length",
+   "y": "completions allowed a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00016,
+    "lo": -0.00649,
+    "hi": 0.00682
+   },
+   "held": {
+    "b": 0.00251,
+    "lo": -0.00485,
+    "hi": 0.00987
+   },
+   "n": 385,
+   "n_held": 385,
+   "n_qualified": 504,
+   "players": 129,
+   "mean_y": 0.7371,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__yds_per_tgt": {
+   "x": "arm length",
+   "y": "yards allowed a target",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00292,
+    "lo": -0.10047,
+    "hi": 0.09464
+   },
+   "held": {
+    "b": 0.00584,
+    "lo": -0.11046,
+    "hi": 0.12214
+   },
+   "n": 385,
+   "n_held": 385,
+   "n_qualified": 504,
+   "players": 129,
+   "mean_y": 6.8217,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__yac_per_cmp": {
+   "x": "arm length",
+   "y": "yards after the catch a completion allowed",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.01286,
+    "lo": -0.10227,
+    "hi": 0.07655
+   },
+   "held": {
+    "b": 0.05696,
+    "lo": -0.04822,
+    "hi": 0.16215
+   },
+   "n": 385,
+   "n_held": 385,
+   "n_qualified": 504,
+   "players": 129,
+   "mean_y": 6.0019,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__dadot": {
+   "x": "arm length",
+   "y": "depth of target when targeted",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.05843,
+    "lo": -0.0731,
+    "hi": 0.18996
+   },
+   "held": {
+    "b": -0.03386,
+    "lo": -0.17181,
+    "hi": 0.1041
+   },
+   "n": 385,
+   "n_held": 385,
+   "n_qualified": 504,
+   "players": 129,
+   "mean_y": 4.0641,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__prss_per_snap": {
+   "x": "arm length",
+   "y": "pressures a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00048,
+    "lo": -0.00091,
+    "hi": -4e-05
+   },
+   "held": {
+    "b": -0.0006,
+    "lo": -0.00114,
+    "hi": -7e-05
+   },
+   "n": 576,
+   "n_held": 576,
+   "n_qualified": 793,
+   "players": 177,
+   "mean_y": 0.0075,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_arm__sack_per_snap": {
+   "x": "arm length",
+   "y": "sacks a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -8e-05,
+    "lo": -0.00024,
+    "hi": 8e-05
+   },
+   "held": {
+    "b": -0.0001,
+    "lo": -0.00028,
+    "hi": 8e-05
+   },
+   "n": 576,
+   "n_held": 576,
+   "n_qualified": 793,
+   "players": 177,
+   "mean_y": 0.0022,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "lb_forty__rtk_per_snap": {
+   "x": "forty",
+   "y": "run tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.0027,
+    "lo": 0.00061,
+    "hi": 0.00479
+   },
+   "held": {
+    "b": 0.00375,
+    "lo": 0.00144,
+    "hi": 0.00606
+   },
+   "n": 497,
+   "n_held": 497,
+   "n_qualified": 793,
+   "players": 149,
+   "mean_y": 0.074,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__rstop_per_snap": {
+   "x": "forty",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.0013,
+    "lo": -0.00017,
+    "hi": 0.00277
+   },
+   "held": {
+    "b": 0.00171,
+    "lo": 7e-05,
+    "hi": 0.00335
+   },
+   "n": 497,
+   "n_held": 497,
+   "n_qualified": 793,
+   "players": 149,
+   "mean_y": 0.0392,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__rlong_share": {
+   "x": "forty",
+   "y": "share of his run tackles after 10+ yards",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00277,
+    "lo": -0.00667,
+    "hi": 0.00113
+   },
+   "held": {
+    "b": -0.00276,
+    "lo": -0.00723,
+    "hi": 0.00171
+   },
+   "n": 482,
+   "n_held": 482,
+   "n_qualified": 757,
+   "players": 145,
+   "mean_y": 0.0743,
+   "min_sample": "LB, 200+ defense snaps and 15+ run tackles",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__tkl_per_snap": {
+   "x": "forty",
+   "y": "tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00133,
+    "lo": -0.00141,
+    "hi": 0.00408
+   },
+   "held": {
+    "b": 0.00215,
+    "lo": -0.00092,
+    "hi": 0.00522
+   },
+   "n": 497,
+   "n_held": 497,
+   "n_qualified": 793,
+   "players": 149,
+   "mean_y": 0.1269,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__mtkl_pct": {
+   "x": "forty",
+   "y": "missed tackle share",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00199,
+    "lo": -0.0025,
+    "hi": 0.00647
+   },
+   "held": {
+    "b": -0.00145,
+    "lo": -0.00657,
+    "hi": 0.00367
+   },
+   "n": 497,
+   "n_held": 497,
+   "n_qualified": 793,
+   "players": 149,
+   "mean_y": 0.0822,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__tgt_per_snap": {
+   "x": "forty",
+   "y": "targets a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00064,
+    "lo": -0.00226,
+    "hi": 0.00097
+   },
+   "held": {
+    "b": -0.00103,
+    "lo": -0.00282,
+    "hi": 0.00076
+   },
+   "n": 497,
+   "n_held": 497,
+   "n_qualified": 793,
+   "players": 149,
+   "mean_y": 0.0639,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__yac_per_cmp": {
+   "x": "forty",
+   "y": "yards after the catch a completion allowed",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.07287,
+    "lo": -0.08973,
+    "hi": 0.23547
+   },
+   "held": {
+    "b": 0.0664,
+    "lo": -0.09163,
+    "hi": 0.22444
+   },
+   "n": 350,
+   "n_held": 350,
+   "n_qualified": 504,
+   "players": 113,
+   "mean_y": 5.9795,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__dadot": {
+   "x": "forty",
+   "y": "depth of target when targeted",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.20034,
+    "lo": 0.03597,
+    "hi": 0.36472
+   },
+   "held": {
+    "b": 0.20993,
+    "lo": 0.01214,
+    "hi": 0.40772
+   },
+   "n": 350,
+   "n_held": 350,
+   "n_qualified": 504,
+   "players": 113,
+   "mean_y": 4.1239,
+   "min_sample": "LB, 200+ defense snaps and 30+ targets in coverage",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__prss_per_snap": {
+   "x": "forty",
+   "y": "pressures a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00067,
+    "lo": -0.00141,
+    "hi": 6e-05
+   },
+   "held": {
+    "b": -0.00058,
+    "lo": -0.00128,
+    "hi": 0.00012
+   },
+   "n": 497,
+   "n_held": 497,
+   "n_qualified": 793,
+   "players": 149,
+   "mean_y": 0.0074,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "lb_forty__sack_per_snap": {
+   "x": "forty",
+   "y": "sacks a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00025,
+    "lo": -0.00049,
+    "hi": -1e-05
+   },
+   "held": {
+    "b": -0.00029,
+    "lo": -0.00057,
+    "hi": -0.0
+   },
+   "n": 497,
+   "n_held": 497,
+   "n_qualified": 793,
+   "players": 149,
+   "mean_y": 0.0022,
+   "min_sample": "LB, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__sack_per_snap": {
+   "x": "weight",
+   "y": "sacks a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00019,
+    "lo": -0.0006,
+    "hi": 0.00021
+   },
+   "held": {
+    "b": -0.00026,
+    "lo": -0.00061,
+    "hi": 0.0001
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0094,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__hrry_per_snap": {
+   "x": "weight",
+   "y": "hurries a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 9e-05,
+    "lo": -0.0004,
+    "hi": 0.00058
+   },
+   "held": {
+    "b": -0.00012,
+    "lo": -0.00058,
+    "hi": 0.00034
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0133,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__sk_per_prss": {
+   "x": "weight",
+   "y": "sacks a pressure",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00617,
+    "lo": -0.01417,
+    "hi": 0.00183
+   },
+   "held": {
+    "b": -0.00491,
+    "lo": -0.01263,
+    "hi": 0.00281
+   },
+   "n": 723,
+   "n_held": 723,
+   "n_qualified": 723,
+   "players": 223,
+   "mean_y": 0.2744,
+   "min_sample": "EDGE, 200+ defense snaps and 10+ pressures",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__rtk_per_snap": {
+   "x": "weight",
+   "y": "run tackles a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.0001,
+    "lo": -0.00092,
+    "hi": 0.00112
+   },
+   "held": {
+    "b": 0.00039,
+    "lo": -0.00057,
+    "hi": 0.00135
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0442,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__rstop_per_snap": {
+   "x": "weight",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": 0.00074,
+    "lo": 0.0,
+    "hi": 0.00149
+   },
+   "held": {
+    "b": 0.0009,
+    "lo": 0.00017,
+    "hi": 0.00162
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0296,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__tkl_per_snap": {
+   "x": "weight",
+   "y": "tackles a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00224,
+    "lo": -0.00373,
+    "hi": -0.00076
+   },
+   "held": {
+    "b": -0.0019,
+    "lo": -0.00332,
+    "hi": -0.00047
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0642,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__mtkl_pct": {
+   "x": "weight",
+   "y": "missed tackle share",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -0.00075,
+    "lo": -0.00446,
+    "hi": 0.00295
+   },
+   "held": {
+    "b": -0.0021,
+    "lo": -0.00545,
+    "hi": 0.00125
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0917,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_wt__off_per_snap": {
+   "x": "weight",
+   "y": "offside, neutral zone and encroachment a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -3e-05,
+    "lo": -0.00023,
+    "hi": 0.00017
+   },
+   "held": {
+    "b": -8e-05,
+    "lo": -0.00027,
+    "hi": 0.00012
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0021,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_wt__rtp_per_snap": {
+   "x": "weight",
+   "y": "roughing the passer a defense snap",
+   "unit": "per +10 lb",
+   "raw": {
+    "b": -3e-05,
+    "lo": -0.00011,
+    "hi": 5e-05
+   },
+   "held": {
+    "b": -4e-05,
+    "lo": -0.00013,
+    "hi": 4e-05
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0007,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_ht__prss_per_snap": {
+   "x": "height",
+   "y": "pressures a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00016,
+    "lo": -0.00075,
+    "hi": 0.00108
+   },
+   "held": {
+    "b": -0.00035,
+    "lo": -0.00122,
+    "hi": 0.00052
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0344,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_ht__sack_per_snap": {
+   "x": "height",
+   "y": "sacks a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 9e-05,
+    "lo": -0.00018,
+    "hi": 0.00036
+   },
+   "held": {
+    "b": -0.00011,
+    "lo": -0.00038,
+    "hi": 0.00015
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0094,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_ht__hrry_per_snap": {
+   "x": "height",
+   "y": "hurries a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00021,
+    "lo": -0.00065,
+    "hi": 0.00023
+   },
+   "held": {
+    "b": -0.00035,
+    "lo": -0.00075,
+    "hi": 5e-05
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0133,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_ht__sk_per_prss": {
+   "x": "height",
+   "y": "sacks a pressure",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.0013,
+    "lo": -0.00426,
+    "hi": 0.00685
+   },
+   "held": {
+    "b": -0.00076,
+    "lo": -0.00658,
+    "hi": 0.00506
+   },
+   "n": 723,
+   "n_held": 723,
+   "n_qualified": 723,
+   "players": 223,
+   "mean_y": 0.2744,
+   "min_sample": "EDGE, 200+ defense snaps and 10+ pressures",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_ht__rtk_per_snap": {
+   "x": "height",
+   "y": "run tackles a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00054,
+    "lo": -0.00039,
+    "hi": 0.00146
+   },
+   "held": {
+    "b": 0.00082,
+    "lo": -5e-05,
+    "hi": 0.00169
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0442,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_ht__rstop_per_snap": {
+   "x": "height",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00054,
+    "lo": -0.00017,
+    "hi": 0.00126
+   },
+   "held": {
+    "b": 0.00062,
+    "lo": -0.0001,
+    "hi": 0.00135
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0296,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_ht__tkl_per_snap": {
+   "x": "height",
+   "y": "tackles a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00059,
+    "lo": -0.00185,
+    "hi": 0.00066
+   },
+   "held": {
+    "b": -0.00024,
+    "lo": -0.00141,
+    "hi": 0.00093
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0642,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_ht__mtkl_pct": {
+   "x": "height",
+   "y": "missed tackle share",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00093,
+    "lo": -0.00446,
+    "hi": 0.00259
+   },
+   "held": {
+    "b": -0.00114,
+    "lo": -0.00434,
+    "hi": 0.00205
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0917,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_ht__off_per_snap": {
+   "x": "height",
+   "y": "offside, neutral zone and encroachment a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -2e-05,
+    "lo": -0.00019,
+    "hi": 0.00014
+   },
+   "held": {
+    "b": -9e-05,
+    "lo": -0.00026,
+    "hi": 8e-05
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0021,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_ht__rtp_per_snap": {
+   "x": "height",
+   "y": "roughing the passer a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 3e-05,
+    "lo": -4e-05,
+    "hi": 9e-05
+   },
+   "held": {
+    "b": 2e-05,
+    "lo": -4e-05,
+    "hi": 9e-05
+   },
+   "n": 983,
+   "n_held": 983,
+   "n_qualified": 983,
+   "players": 293,
+   "mean_y": 0.0007,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_arm__hrry_per_snap": {
+   "x": "arm length",
+   "y": "hurries a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00027,
+    "lo": -0.00088,
+    "hi": 0.00034
+   },
+   "held": {
+    "b": -0.00048,
+    "lo": -0.00109,
+    "hi": 0.00013
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.0134,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__sk_per_prss": {
+   "x": "arm length",
+   "y": "sacks a pressure",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00661,
+    "lo": -0.00283,
+    "hi": 0.01606
+   },
+   "held": {
+    "b": 0.00648,
+    "lo": -0.00239,
+    "hi": 0.01535
+   },
+   "n": 662,
+   "n_held": 662,
+   "n_qualified": 723,
+   "players": 193,
+   "mean_y": 0.2758,
+   "min_sample": "EDGE, 200+ defense snaps and 10+ pressures",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__rtk_per_snap": {
+   "x": "arm length",
+   "y": "run tackles a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.00057,
+    "lo": -0.00077,
+    "hi": 0.00192
+   },
+   "held": {
+    "b": 0.00084,
+    "lo": -0.0004,
+    "hi": 0.00208
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.044,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__rstop_per_snap": {
+   "x": "arm length",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": 0.0007,
+    "lo": -0.00022,
+    "hi": 0.00163
+   },
+   "held": {
+    "b": 0.0008,
+    "lo": -9e-05,
+    "hi": 0.00169
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.0296,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__tkl_per_snap": {
+   "x": "arm length",
+   "y": "tackles a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00073,
+    "lo": -0.00238,
+    "hi": 0.00093
+   },
+   "held": {
+    "b": -0.00043,
+    "lo": -0.00198,
+    "hi": 0.00112
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.0639,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__mtkl_pct": {
+   "x": "arm length",
+   "y": "missed tackle share",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -0.00165,
+    "lo": -0.00656,
+    "hi": 0.00326
+   },
+   "held": {
+    "b": -0.00216,
+    "lo": -0.00667,
+    "hi": 0.00235
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.0918,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__off_per_snap": {
+   "x": "arm length",
+   "y": "offside, neutral zone and encroachment a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -5e-05,
+    "lo": -0.00035,
+    "hi": 0.00025
+   },
+   "held": {
+    "b": -0.00012,
+    "lo": -0.00036,
+    "hi": 0.00012
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.0021,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_arm__rtp_per_snap": {
+   "x": "arm length",
+   "y": "roughing the passer a defense snap",
+   "unit": "per +1 inch",
+   "raw": {
+    "b": -5e-05,
+    "lo": -0.00014,
+    "hi": 4e-05
+   },
+   "held": {
+    "b": -6e-05,
+    "lo": -0.00016,
+    "hi": 4e-05
+   },
+   "n": 873,
+   "n_held": 873,
+   "n_qualified": 983,
+   "players": 242,
+   "mean_y": 0.0007,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_forty__hrry_per_snap": {
+   "x": "forty",
+   "y": "hurries a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00041,
+    "lo": -0.00085,
+    "hi": 3e-05
+   },
+   "held": {
+    "b": -0.00027,
+    "lo": -0.00075,
+    "hi": 0.00021
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0139,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_forty__sk_per_prss": {
+   "x": "forty",
+   "y": "sacks a pressure",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00793,
+    "lo": -0.01324,
+    "hi": -0.00262
+   },
+   "held": {
+    "b": -0.00408,
+    "lo": -0.00983,
+    "hi": 0.00168
+   },
+   "n": 564,
+   "n_held": 564,
+   "n_qualified": 723,
+   "players": 158,
+   "mean_y": 0.276,
+   "min_sample": "EDGE, 200+ defense snaps and 10+ pressures",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_forty__rtk_per_snap": {
+   "x": "forty",
+   "y": "run tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00055,
+    "lo": -0.0003,
+    "hi": 0.0014
+   },
+   "held": {
+    "b": 0.0002,
+    "lo": -0.00069,
+    "hi": 0.0011
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0435,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_forty__rstop_per_snap": {
+   "x": "forty",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00053,
+    "lo": -0.00012,
+    "hi": 0.00118
+   },
+   "held": {
+    "b": 0.0006,
+    "lo": -0.00013,
+    "hi": 0.00133
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0293,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_forty__tkl_per_snap": {
+   "x": "forty",
+   "y": "tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00034,
+    "lo": -0.00146,
+    "hi": 0.00077
+   },
+   "held": {
+    "b": -0.00089,
+    "lo": -0.00198,
+    "hi": 0.00021
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0632,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_forty__mtkl_pct": {
+   "x": "forty",
+   "y": "missed tackle share",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00034,
+    "lo": -0.00339,
+    "hi": 0.00406
+   },
+   "held": {
+    "b": 0.0004,
+    "lo": -0.00362,
+    "hi": 0.00443
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0948,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_forty__off_per_snap": {
+   "x": "forty",
+   "y": "offside, neutral zone and encroachment a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.0001,
+    "lo": -0.00028,
+    "hi": 9e-05
+   },
+   "held": {
+    "b": 2e-05,
+    "lo": -0.00016,
+    "hi": 0.0002
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0022,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_forty__rtp_per_snap": {
+   "x": "forty",
+   "y": "roughing the passer a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -2e-05,
+    "lo": -8e-05,
+    "hi": 4e-05
+   },
+   "held": {
+    "b": -2e-05,
+    "lo": -9e-05,
+    "hi": 6e-05
+   },
+   "n": 722,
+   "n_held": 722,
+   "n_qualified": 983,
+   "players": 195,
+   "mean_y": 0.0007,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_split__hrry_per_snap": {
+   "x": "10-yard split",
+   "y": "hurries a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00064,
+    "lo": -0.00246,
+    "hi": 0.00118
+   },
+   "held": {
+    "b": 0.00136,
+    "lo": -0.00067,
+    "hi": 0.00339
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.0144,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__sk_per_prss": {
+   "x": "10-yard split",
+   "y": "sacks a pressure",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.02074,
+    "lo": -0.04317,
+    "hi": 0.00168
+   },
+   "held": {
+    "b": -0.02079,
+    "lo": -0.04533,
+    "hi": 0.00375
+   },
+   "n": 236,
+   "n_held": 236,
+   "n_qualified": 723,
+   "players": 66,
+   "mean_y": 0.2735,
+   "min_sample": "EDGE, 200+ defense snaps and 10+ pressures",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__rtk_per_snap": {
+   "x": "10-yard split",
+   "y": "run tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00072,
+    "lo": -0.00314,
+    "hi": 0.00458
+   },
+   "held": {
+    "b": -0.00155,
+    "lo": -0.00591,
+    "hi": 0.00282
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.044,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__rstop_per_snap": {
+   "x": "10-yard split",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00093,
+    "lo": -0.00182,
+    "hi": 0.00367
+   },
+   "held": {
+    "b": 0.00075,
+    "lo": -0.00218,
+    "hi": 0.00368
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.0297,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__tkl_per_snap": {
+   "x": "10-yard split",
+   "y": "tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00116,
+    "lo": -0.00504,
+    "hi": 0.00273
+   },
+   "held": {
+    "b": -0.00402,
+    "lo": -0.00912,
+    "hi": 0.00108
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.0631,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__mtkl_pct": {
+   "x": "10-yard split",
+   "y": "missed tackle share",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00357,
+    "lo": -0.00892,
+    "hi": 0.01606
+   },
+   "held": {
+    "b": 0.01262,
+    "lo": -0.00022,
+    "hi": 0.02547
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.1012,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__off_per_snap": {
+   "x": "10-yard split",
+   "y": "offside, neutral zone and encroachment a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.0001,
+    "lo": -0.00064,
+    "hi": 0.00085
+   },
+   "held": {
+    "b": 0.00086,
+    "lo": 0.00033,
+    "hi": 0.00139
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.0023,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_split__rtp_per_snap": {
+   "x": "10-yard split",
+   "y": "roughing the passer a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.0,
+    "lo": -0.00031,
+    "hi": 0.00031
+   },
+   "held": {
+    "b": 0.00018,
+    "lo": -0.00021,
+    "hi": 0.00057
+   },
+   "n": 302,
+   "n_held": 302,
+   "n_qualified": 983,
+   "players": 87,
+   "mean_y": 0.0007,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts; arms and combine 10-yard splits from MockDraftable"
+  },
+  "edge_cone__prss_per_snap": {
+   "x": "3-cone",
+   "y": "pressures a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00062,
+    "lo": -0.00146,
+    "hi": 0.00021
+   },
+   "held": {
+    "b": -0.00025,
+    "lo": -0.0011,
+    "hi": 0.0006
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.036,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_cone__sack_per_snap": {
+   "x": "3-cone",
+   "y": "sacks a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00035,
+    "lo": -0.00063,
+    "hi": -7e-05
+   },
+   "held": {
+    "b": -0.00022,
+    "lo": -0.00051,
+    "hi": 7e-05
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0098,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_cone__hrry_per_snap": {
+   "x": "3-cone",
+   "y": "hurries a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00018,
+    "lo": -0.00055,
+    "hi": 0.00019
+   },
+   "held": {
+    "b": -4e-05,
+    "lo": -0.00037,
+    "hi": 0.00029
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0139,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_cone__sk_per_prss": {
+   "x": "3-cone",
+   "y": "sacks a pressure",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00476,
+    "lo": -0.00876,
+    "hi": -0.00076
+   },
+   "held": {
+    "b": -0.00401,
+    "lo": -0.00824,
+    "hi": 0.00022
+   },
+   "n": 431,
+   "n_held": 431,
+   "n_qualified": 723,
+   "players": 111,
+   "mean_y": 0.2733,
+   "min_sample": "EDGE, 200+ defense snaps and 10+ pressures",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_cone__rtk_per_snap": {
+   "x": "3-cone",
+   "y": "run tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00045,
+    "lo": -0.00038,
+    "hi": 0.00128
+   },
+   "held": {
+    "b": 0.00026,
+    "lo": -0.00059,
+    "hi": 0.00112
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0434,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_cone__rstop_per_snap": {
+   "x": "3-cone",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 0.00019,
+    "lo": -0.00047,
+    "hi": 0.00085
+   },
+   "held": {
+    "b": 0.00011,
+    "lo": -0.00058,
+    "hi": 0.00081
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0292,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_cone__tkl_per_snap": {
+   "x": "3-cone",
+   "y": "tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00032,
+    "lo": -0.00134,
+    "hi": 0.00071
+   },
+   "held": {
+    "b": -0.00056,
+    "lo": -0.00157,
+    "hi": 0.00044
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.063,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_cone__mtkl_pct": {
+   "x": "3-cone",
+   "y": "missed tackle share",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00097,
+    "lo": -0.00383,
+    "hi": 0.00189
+   },
+   "held": {
+    "b": -0.0009,
+    "lo": -0.00378,
+    "hi": 0.00197
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0971,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_cone__off_per_snap": {
+   "x": "3-cone",
+   "y": "offside, neutral zone and encroachment a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -8e-05,
+    "lo": -0.00022,
+    "hi": 5e-05
+   },
+   "held": {
+    "b": -3e-05,
+    "lo": -0.00017,
+    "hi": 0.00011
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0021,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_cone__rtp_per_snap": {
+   "x": "3-cone",
+   "y": "roughing the passer a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -1e-05,
+    "lo": -6e-05,
+    "hi": 4e-05
+   },
+   "held": {
+    "b": 0.0,
+    "lo": -5e-05,
+    "hi": 5e-05
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0008,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_shuttle__prss_per_snap": {
+   "x": "shuttle",
+   "y": "pressures a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00206,
+    "lo": -0.0035,
+    "hi": -0.00062
+   },
+   "held": {
+    "b": -0.00173,
+    "lo": -0.00324,
+    "hi": -0.00021
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.036,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_shuttle__sack_per_snap": {
+   "x": "shuttle",
+   "y": "sacks a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00063,
+    "lo": -0.00109,
+    "hi": -0.00016
+   },
+   "held": {
+    "b": -0.00046,
+    "lo": -0.00092,
+    "hi": 1e-05
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0098,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_shuttle__hrry_per_snap": {
+   "x": "shuttle",
+   "y": "hurries a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00084,
+    "lo": -0.00137,
+    "hi": -0.00031
+   },
+   "held": {
+    "b": -0.00079,
+    "lo": -0.00134,
+    "hi": -0.00024
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0139,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_shuttle__sk_per_prss": {
+   "x": "shuttle",
+   "y": "sacks a pressure",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00178,
+    "lo": -0.00836,
+    "hi": 0.00481
+   },
+   "held": {
+    "b": -0.00012,
+    "lo": -0.00744,
+    "hi": 0.0072
+   },
+   "n": 432,
+   "n_held": 432,
+   "n_qualified": 723,
+   "players": 110,
+   "mean_y": 0.2732,
+   "min_sample": "EDGE, 200+ defense snaps and 10+ pressures",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_shuttle__rtk_per_snap": {
+   "x": "shuttle",
+   "y": "run tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": 7e-05,
+    "lo": -0.00108,
+    "hi": 0.00122
+   },
+   "held": {
+    "b": -0.0001,
+    "lo": -0.00122,
+    "hi": 0.00102
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0434,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_shuttle__rstop_per_snap": {
+   "x": "shuttle",
+   "y": "run tackles at 3 yards or less a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00024,
+    "lo": -0.00106,
+    "hi": 0.00059
+   },
+   "held": {
+    "b": -0.00029,
+    "lo": -0.00113,
+    "hi": 0.00054
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0292,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_shuttle__tkl_per_snap": {
+   "x": "shuttle",
+   "y": "tackles a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00089,
+    "lo": -0.00244,
+    "hi": 0.00066
+   },
+   "held": {
+    "b": -0.00108,
+    "lo": -0.00262,
+    "hi": 0.00045
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.063,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_shuttle__mtkl_pct": {
+   "x": "shuttle",
+   "y": "missed tackle share",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00053,
+    "lo": -0.00545,
+    "hi": 0.00439
+   },
+   "held": {
+    "b": -0.00106,
+    "lo": -0.00601,
+    "hi": 0.0039
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0957,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "PFR advanced defense 2018-2025, defense snaps from nflverse snap counts"
+  },
+  "edge_shuttle__off_per_snap": {
+   "x": "shuttle",
+   "y": "offside, neutral zone and encroachment a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -0.00016,
+    "lo": -0.00037,
+    "hi": 4e-05
+   },
+   "held": {
+    "b": -0.0001,
+    "lo": -0.00031,
+    "hi": 0.00011
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0021,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
+  },
+  "edge_shuttle__rtp_per_snap": {
+   "x": "shuttle",
+   "y": "roughing the passer a defense snap",
+   "unit": "per +0.1 s",
+   "raw": {
+    "b": -6e-05,
+    "lo": -0.00015,
+    "hi": 2e-05
+   },
+   "held": {
+    "b": -6e-05,
+    "lo": -0.00015,
+    "hi": 2e-05
+   },
+   "n": 552,
+   "n_held": 552,
+   "n_qualified": 983,
+   "players": 138,
+   "mean_y": 0.0007,
+   "min_sample": "EDGE, 200+ defense snaps",
+   "source": "play-by-play penalty_player_id and penalty_type (first flag on a play) over nflverse snap counts"
   }
  },
  "spreads": {

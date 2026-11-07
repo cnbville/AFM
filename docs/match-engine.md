@@ -753,6 +753,97 @@ Still off:
 - **NFL time between snaps on a stopped clock is short** (12.6 s against 15.2, late in halves 6.0 against 8.4), so the NFL runs 63.4 plays a team game (real 61.9), from before this lane; it is minor bug 254.
 - In the last diagnostic build the NFL's throwaways came in the pocket about 1.9% of dropbacks against real 1.4 and outside it about 0.5% against 2.1 (FTN charting): the scramble drill gets few passers out before the play is dead.
 
+## What bodies and ratings change: the A/B test fixes (minor bugs 274-289, 2026-11-07)
+
+The A/B tests (`ab_check`, `afm/ab-tests/report.md` in the project folder) move one body number or rating for every player at a position, play the same games on the same seeds, and set the change in a stat against the real NFL's slope (nflverse, PFR and MockDraftable 2018-25, held equal on draft slot) or against how much real regulars differ. Bugs 274-287 are their misses; 288 and 289 are Cain's two yeses to the report's proposals (2026-11-07). Every size here is proposed, not confirmed, fitted so the A/B row lands in the real band.
+
+What was wrong and what changed (`game/scrimmage.rs`, `game/sim.rs`, `game/flow.rs`, `game/kicking.rs`, `game/synthetic.rs`, `links.rs`):
+
+- **A corner's arms barely moved the catch rate he allowed (274).** His reach at the catch point read 0.012 yard an inch of height and 0.02 an inch of arm; now 0.025 and 0.10 (`D_REACH_HEIGHT`, `D_REACH_ARM`). The cornerback research (2026-11-07) corrected the real target: with the depth of target held, height moves the catch rate allowed only -0.13 pts an inch (tall corners cover the deeper routes, bug 300), arms -0.67.
+- **A tall, long receiver caught more of his targets; real ones catch fewer (275).** Real tall receivers get the harder balls. The passer now trusts a big man in a tighter window 5+ yards downfield and in the red zone, a window unit every 4 inches of height (arm counting twice) over his level's typical man at his position (`BIG_TRUST`), and the receiver's own catch radius reads half what it did an inch (0.0075 and 0.01).
+- **A fast quarterback took fewer sacks; real fast ones take more (276).** Real scramblers hold the ball to extend plays. His clock gains 0.2 s and his hurry waits 0.07 s more a 10 Speed points over his level's typical passer (`LEGS_HOLD`, `LEGS_WAIT`); his choice to take off waits half of that (`LEGS_RUN`): all of it and his scrambles came late and lost their extra yards, none of it and they rose 1.8 times real's slope while his sacks fell to 0.4 times real's.
+- **A tall quarterback had fewer batted balls and completed more over the middle (277).** Real batted balls don't move with height. The batted-ball check drops his own height (his level's typical height stays in it), and a tall passer in the pocket trusts a tighter window inside, 0.7 of a window unit every 2 inches over his level's typical passer (`OVER_LINE`).
+- **A heavy carrier forced fewer missed tackles; real ones force as many (279).** The first tackler's whiff check read 0.5 Elusiveness, 0.3 Agility and his weight; now 0.8 Elusiveness and 0.2 Speed, with weight and agility left to his burst, braking and cut.
+- **A fast receiver drew too few deep targets (280).** Past 15 yards the passer trusts a man who can run under it, 0.4 a 10 points of deep speed over his level's typical receiver, and his own arm the same over his level's typical passer (`DEEP_LEGS`, `DEEP_ARM`, the arm for bug 283).
+- **Three ratings swung their stat more than real regulars differ (282).** Corner Discipline in defensive holding (×0.7), the hitter's part in forced fumbles (0.020 a point against the carrier's 0.025, `FUMBLE_HIT`) and Punt Power (0.14 yard a point, was 0.215; the net punt's swing is 0.90 of real regulars' spread, was 1.28).
+- **Many ratings barely moved their stat (283), the ones with a clear place:** Arm Strength on deep throws (above), Decisions in the room a passer wants (0.02 a point, was 0.008), Pocket Presence in the sack escape (0.5 on the logit a 10 points), Route Running against man (0.02 s of the defender's lag a point of each man's distance from his position's typical man, was 0.0065 on the raw gap) and through the break (`BREAK_RR`).
+- **Defensive tackles were credited 8.6 times PFR's pressures (284).** A pressure was logged when the nearest rusher got within 2.6 yards from the snap, with everyone within 2.8 credited, so a tackle lined up over the center counted next to a quarterback under center (60% of all pressures). Now the nearest rusher within 3.2 yards once 0.6 s are gone, crediting the nearest and any free or winning rusher within 2.6 (`PRESS_NEAR`, `PRESS_FROM`, `PRESS_CAUSE`). It is a label: play reads the passer's felt pressure, not this. Team pressure is 23.3% of dropbacks (PFR 22.2%), and the tackles' rate a snap is 0.6 of the edges' (real 0.6).
+- **Heavy defensive tackles pressured more; real heavy ones pressure less (285).** An interior rusher's get-off now reads his Acceleration as his 10-yard split shows it at his weight: 0.38 a pound off his level's typical man at his position. Improved, not closed (below).
+- **An edge's 10-yard split drove his pressures; real shows it doesn't once talent is known (286).** An edge on contain takes 0.15 of his get-off from raw Acceleration (was 0.6, the rest to Finesse Rush and Flexibility, `EDGE_BURST`) and half his speed rush's Speed and Acceleration (the rest to Finesse Rush, Flexibility and Hand Use, `EDGE_ARC_LEGS`), both read about his level's typical edge, who rushes as before. Improved, not closed.
+- **Consistency wasn't game-to-game form (287).** Each man now draws his form once a game, N(0, 3) rating points on everything, 4.1 at Consistency 4 and 1.9 at 16 (`FORM_SD`). The engine's passers already varied from game to game a little more than real ones (true sd of EPA a dropback 0.167 against nflverse's 0.154), so form stays small: at 5 it added 1.4 points of runs stuffed at the line.
+- **A tackle's arm length gave no reach in the hand fight (288, Cain's yes).** A rating point an inch over 34 in his pass set against speed and finesse in the NFL (`block_base`); at the other levels the pivot moves with their typical tackle's arm, so their typical tackle blocks as before.
+- **The Scramble habit didn't enter the spy (289, Cain's yes).** The running threat a defense spies adds 0.5 × (Scramble - 10.5) / 9.5 (`qb_spy`).
+
+Two rules keep the levels where they were:
+
+- **Each new read is about the level's typical player** at the position (`synthetic::typical`, `typical_body`: mean ratings and body on 64 synthetic teams a level, the rosters `trait_norm` was measured on). Centred on NFL players, the deep reads took 2 window units off every FBS deep throw and the legs read 0.26 s off every NFL clock: FBS yards an attempt fell from 7.12 to 6.77 and NFL sacks from 1.90 to 1.69. Old reads whose slope changed keep their old value at the level's typical man (the corner's reach, the catch radius, the fumble, the punt, Decisions, the man lag).
+- **A base off the trust a passer has in a big or fast man** (0.35 and 0.1 window units, `BIG_BASE`, `DEEP_BASE`; high school takes none off the big man, where 0.35 cut 0.3 points a team game and sent more throws behind the line, `big_base`). He takes his best target, so a trust that differs from man to man makes him throw more often even where it averages zero: without the base the NFL's 20+ yard share went from 11.1% to 12.2%, interceptions from 0.81 to 0.85 a team game and throwaways from 2.3% to 1.7%.
+
+2,000 `match_check` games a level, main and after (real NFL from nflverse 2021-25, PFR for pressure; FBS real from cfbfastR 2022-24):
+
+| | main | after | real |
+|---|---|---|---|
+| NFL points a team game / sd | 24.4 / 10.45 | 24.5 / 10.83 | 22.5 / 9.9 |
+| NFL sacks a team game | 1.90 | 1.89 | 2.41 |
+| NFL pressure rate (PFR's count) | 31.8% | 23.3% | 22.2% |
+| NFL sacks per pressure | 0.15 | 0.20 | 0.28 |
+| NFL completion % / yards an attempt | 65.0% / 7.14 | 65.2% / 7.20 | 64.5% / 7.05 |
+| NFL interceptions a team game | 0.81 | 0.81 | 0.76 |
+| NFL 20+ yard share of throws | 11.1% | 11.2% | 11.5% |
+| NFL scramble rate / throwaways an attempt | 4.8% / 2.3% | 5.0% / 2.1% | 4.9% / about 3% |
+| NFL targets to tight ends | 17.2% | 17.8% | 21.9% |
+| NFL runs for 0 or less | 19.4% | 20.2% | 18.2% |
+| NFL offensive holding a team game | 1.42 | 1.49 | 1.26 |
+| FBS points a team game | 22.4 | 22.4 | 27.0 |
+| FBS sacks a team game | 2.01 | 2.11 | 2.00 |
+| FBS completion % / yards an attempt | 59.9% / 7.12 | 60.3% / 7.15 | 60.6% / 7.29 |
+| FBS interceptions a team game | 0.66 | 0.69 | 0.80 |
+| High school points / yards an attempt / sacks | 18.3 / 6.42 / 2.21 | 17.7 / 6.39 / 2.22 | |
+
+The A/B rows after the fixes, NFL, 2,000 games an arm (high against low; real held equal):
+
+| Bug | What moves | Stat | Engine | Real (band) | |
+|---|---|---|---|---|---|
+| 274 | corner height, an inch | catch rate allowed | -0.20 pts | -0.13 (-0.42 to +0.17), depth held | in band |
+| 274 | corner arm, an inch | catch rate allowed | -0.87 pts | -0.67 (-0.14 to -1.21), depth held | in band |
+| 274 | corner arm, an inch | breakups | +0.93 pts | +0.44 (+0.06 to +0.83) | at the edge |
+| 275 | receiver height / arm, an inch | catch rate | -0.51 / -1.00 pts | -0.61 / -1.31 | in band |
+| 275 | receiver height, an inch | red zone touchdowns a target | +0.17 pts | +0.57 (+0.10 to +1.04) | in band |
+| 276 | QB forty, 0.1 s slower | scrambles / yards a scramble / sacks | -0.99 pts / -0.12 / -0.25 pts | -0.82 / -0.22 / -0.43 | all in band |
+| 277 | QB height, an inch | batted passes / completion over the middle | +0.01 / -0.59 pts | +0.01 / -0.64 | flat, in band |
+| 278 | back's forty, 0.1 s slower | runs of 20+ | -0.16 pts | -0.48 | 0.3× (waits on 292) |
+| 279 | back's weight, 10 lb | missed tackles forced / yards after contact | +0.05 pts / +0.04 | +0.20 / +0.06 | flat, in band |
+| 279 | back's weight, 10 lb | yards before contact | -0.04 | -0.12 (-0.05 to -0.20) | 0.3× (main -0.07, bug 304) |
+| 279 | back's 3-cone, 0.1 s slower | missed tackles forced | -0.20 pts | +0.29 (-0.05 to +0.64) | miss (main -0.64) |
+| 280 | receiver forty, 0.1 s slower | share of targets 20+ yards | -2.11 pts | -2.85 (-1.86 to -3.85) | in band |
+| 281 | corner forty, 0.1 s slower | depth of targets on him | +0.01 (flat) | -0.33 | miss (role) |
+| 282 | corner Discipline / safety Hitting / Punt Power ±15 | holding / forced fumbles / net punt | 0.85 / 0.80 / 0.85 of real regulars' spread | 0.1 to 1.0 | in range |
+| 283 | Arm Strength ±15 | air yards / 20+ share | 0.35 / 0.41 of the spread | 0.1 to 1.0 | in range |
+| 283 | Pocket Presence, Route Running ±15 | sacks / separation | 0.11 / 0.11 | 0.1 to 1.0 | in range |
+| 283 | Decisions ±15 | time to throw / picks / sacks | 0.05 / 0.07 / 0.01 | 0.1 to 1.0 | still small |
+| 285 | DT weight, 10 lb | pressures a defense snap | +0.42 pts | -0.22 (-0.15 to -0.29) | miss |
+| 286 | edge 10-yard split, 0.1 s slower | pressures a defense snap | -1.92 pts | +0.49 (-0.01 to +0.99) | miss |
+| 286 | edge forty / weight | pressures a defense snap | -0.18 pts a 0.1 s / -0.42 a 10 lb | -0.04 / -0.02 | miss |
+| 287 | everyone's Consistency, 4 against 16 | QB's game-to-game EPA form | -0.012 | | no clear effect yet |
+| 288 | tackle arm, 32.5 to 35.5 in | his man's pressures a pass block | -0.25 pts | | the right way (was flat) |
+
+Raw rows: `afm/ab-tests/batch9/` in the project folder.
+
+Expected completions (`game::stats::XCOMP`) refitted at every level with `xcomp_fit -- 600`: the pressure flag moved, so the old weights read CPOE -0.5 to +0.3. The analysts' tables (`decide_fit -- 1500 1`), expected rush and YAC (`xyards_fit -- 600`) and expected pass rate (`xpass_fit -- 600 7`) were refitted on the same engine; none of them feeds play. The coaches' call table was not rebuilt: it is played between two average NFL teams, where every new read is zero by construction.
+
+Still off:
+
+- **285, heavy defensive tackles still pressure more** (+0.42 pts a 10 lb, real -0.22). From 284 to 307 lb the slope is +0.11; the step comes above that (3.05% to 4.71% of snaps at 330 lb), from the Anchor and Battering ram links and the power rush's 0.08 a pound, which by design are the bull rush. Real's negative slope is likely role: heavy tackles are two-gap noses who come off the field on passing downs. A passing-down package is the likely fix.
+- **286, the edge's split still drives his pressures** (-1.92 pts a 0.1 s, main -1.97; real +0.49), and his weight now costs more (-0.42 a 10 lb, main -0.24, real -0.02): the new pressure count credits the rusher who wins, and a heavy edge's power wins come slower than a light one's arc. Moving his get-off and arc to rush craft barely moved the split, so the rest likely sits in how fast he covers the ground, not in the rush scores.
+- **278, a fast back's long runs** waits on bug 292 (safeties' run tackles, proposal 4).
+- **281, fast corners see shallower targets**: real fast corners are the ones sent to cover deep threats; the engine's corners keep their spots whatever their speed, so it belongs with who covers whom (bug 300, proposal C1 of the cornerback research).
+- **A heavy back's yards before contact** fall 0.04 a 10 lb (real 0.12, main 0.07): his weight used to cost him the first tackler's whiff, which the real broken-tackle numbers say it shouldn't (279). Real heavy backs reach the line slower; logged as minor bug 304.
+- **Long corners gain at the catch without their flag cost** (bug 301: real long and heavy corners draw more holding). The cornerback research says fix them together (proposals C2 and C3); C3 waits with C1.
+- **FBS sacks 2.11 a team game** (main 2.01, real 2.00): fast passers holding the ball add more sacks than slow ones save. NFL sacks stay under real (1.89 against 2.41), the gap minor bug 135 left.
+- **The score spread widened** (NFL sd 10.83, main 10.45, real 9.9): more of a game rides on who the players are (the trust reads, form).
+- **High school points fell 0.5** (18.3 to 17.7, no real target): form is a weakest-link cost (a bad day on the line hurts more than a good day helps), 0.4 of it in high school; the rest is noise at 2,000 games.
+- **Runs stuffed at the line rose 0.8 points** (form; real 18.2%) and NFL offensive holding 1.49 a team game (main 1.42, real 1.26).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.
