@@ -10,6 +10,11 @@
 //! carries it on, on this machine or another, and pauses the same way
 //! (NB13: a GitHub job may run six hours, and a 30-year world runs more).
 //! The seasons come out as in a build that never paused.
+//!
+//! With `AFM_PRINTS=<file>` each season's end appends a line to `file`: the
+//! season and a fingerprint of every store of the world (`fp::field_prints`).
+//! Two builds of one seed must write the same lines (the world speed lane's
+//! proof); the time they take is left out of the times printed.
 
 use std::time::Instant;
 
@@ -24,8 +29,21 @@ fn main() {
         .and_then(|m| m.trim().parse::<f64>().ok())
         .filter(|&m| m > 0.0)
         .map(|m| m * 60.0);
+    let prints = std::env::var_os("AFM_PRINTS").map(std::path::PathBuf::from);
+    let mut printing = 0.0;
     let pause = |w: &afm_engine::world::World| {
-        let s = t.elapsed().as_secs_f64();
+        if let Some(to) = &prints {
+            let p = Instant::now();
+            let line: Vec<String> = afm_engine::world::wlog::fp::field_prints(w)
+                .iter()
+                .map(|(k, v)| format!("{k}={v:016x}"))
+                .collect();
+            let line = format!("{} {}\n", w.year - 1, line.join(" "));
+            let mut f = std::fs::OpenOptions::new().create(true).append(true).open(to).expect("AFM_PRINTS file");
+            std::io::Write::write_all(&mut f, line.as_bytes()).expect("AFM_PRINTS write");
+            printing += p.elapsed().as_secs_f64();
+        }
+        let s = t.elapsed().as_secs_f64() - printing;
         eprintln!("season {} done, {s:.0}s, {} left", w.year - 1, w.history_left());
         pause_after.is_some_and(|p| s >= p)
     };

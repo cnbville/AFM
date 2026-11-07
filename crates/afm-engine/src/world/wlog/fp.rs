@@ -271,3 +271,113 @@ impl SerializeMap for Map<'_> {
         Ok(())
     }
 }
+
+/// Each top-level field's fingerprint of a struct (a whole world), in field
+/// order: what two builds of one seed must share, store by store (the
+/// world speed lane's proof, `afm_world` with `AFM_PRINTS`). A value that
+/// is not a struct gives one print named "value".
+pub fn field_prints<T: Serialize + ?Sized>(v: &T) -> Vec<(&'static str, u64)> {
+    let mut f = Fields(Vec::new());
+    if v.serialize(&mut f).is_err() || f.0.is_empty() {
+        return vec![("value", of(v))];
+    }
+    f.0
+}
+
+struct Fields(Vec<(&'static str, u64)>);
+
+macro_rules! not_a_struct {
+    ($($name:ident($($t:ty),*)),* $(,)?) => {
+        $(fn $name(self, $(_: $t),*) -> R { Err(Never) })*
+    };
+}
+
+impl<'a> Serializer for &'a mut Fields {
+    type Ok = ();
+    type Error = Never;
+    type SerializeSeq = ser::Impossible<(), Never>;
+    type SerializeTuple = ser::Impossible<(), Never>;
+    type SerializeTupleStruct = ser::Impossible<(), Never>;
+    type SerializeTupleVariant = ser::Impossible<(), Never>;
+    type SerializeMap = ser::Impossible<(), Never>;
+    type SerializeStruct = Self;
+    type SerializeStructVariant = ser::Impossible<(), Never>;
+
+    not_a_struct!(
+        serialize_bool(bool),
+        serialize_i8(i8),
+        serialize_i16(i16),
+        serialize_i32(i32),
+        serialize_i64(i64),
+        serialize_u8(u8),
+        serialize_u16(u16),
+        serialize_u32(u32),
+        serialize_u64(u64),
+        serialize_f32(f32),
+        serialize_f64(f64),
+        serialize_char(char),
+        serialize_str(&str),
+        serialize_bytes(&[u8]),
+        serialize_none(),
+        serialize_unit(),
+        serialize_unit_struct(&'static str),
+        serialize_unit_variant(&'static str, u32, &'static str),
+    );
+    fn serialize_some<T: Serialize + ?Sized>(self, _: &T) -> R {
+        Err(Never)
+    }
+    fn serialize_newtype_struct<T: Serialize + ?Sized>(self, _: &'static str, v: &T) -> R {
+        v.serialize(self)
+    }
+    fn serialize_newtype_variant<T: Serialize + ?Sized>(self, _: &'static str, _: u32, _: &'static str, _: &T) -> R {
+        Err(Never)
+    }
+    fn serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq, Never> {
+        Err(Never)
+    }
+    fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple, Never> {
+        Err(Never)
+    }
+    fn serialize_tuple_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeTupleStruct, Never> {
+        Err(Never)
+    }
+    fn serialize_tuple_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeTupleVariant, Never> {
+        Err(Never)
+    }
+    fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap, Never> {
+        Err(Never)
+    }
+    fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self, Never> {
+        Ok(self)
+    }
+    fn serialize_struct_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeStructVariant, Never> {
+        Err(Never)
+    }
+}
+
+impl ser::SerializeStruct for &mut Fields {
+    type Ok = ();
+    type Error = Never;
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, k: &'static str, v: &T) -> R {
+        self.0.push((k, of(v)));
+        Ok(())
+    }
+    fn skip_field(&mut self, _: &'static str) -> R {
+        Ok(())
+    }
+    fn end(self) -> R {
+        Ok(())
+    }
+}
