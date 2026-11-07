@@ -397,6 +397,14 @@ pub fn broad(attrs: &Attributes, weight: f64) -> f64 {
     87.6 + 0.448 * burst(attrs) - 0.089 * (weight - 220.0)
 }
 
+/// The real combine's mean height (in), weight (lb) and arm (in) at a
+/// position: what the match engine reads a man's size against when a
+/// level has no typical man at that position.
+pub fn combine_mean(pos: Position) -> (f64, f64, f64) {
+    let c = &COMBINE[pos.index()];
+    (c.ht.0, c.wt.0, c.arm.0)
+}
+
 /// His standing at his position in one part (z against the combine).
 pub fn part_z(part: Part, pos: Position, b: &Body, attrs: &Attributes, recovery: f64) -> f64 {
     let c = &COMBINE[pos.index()];

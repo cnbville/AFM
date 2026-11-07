@@ -1,6 +1,6 @@
 # Body and combine: how it works today
 
-Checked against main at 6200524 with update 3 lanes 1 and 4 (bodies, the speed core, recorded times) on 2026-10-29.
+Checked against main at 6200524 with update 3 lanes 1 and 4 (bodies, the speed core, recorded times) on 2026-10-29. The first-contact miss without weight (minor bug 279) checked over main 460d534 on 2026-11-07.
 
 ## Quick answers
 
@@ -117,7 +117,7 @@ Test day (`body.rs`, `combine`): forty + track offset (normal(0, 0.04), fixed pe
 - `sprint_tau()` = clamp(0.78 + 0.003 × (60 - acceleration) + 0.0006 × (weight - 220), 0.55, 1.0) s.
 - `accel()` = 4.65 + 0.008 × (acc - 60) at 60+, 4.65 + 0.0046 × (acc - 60) below, minus 0.006 × (weight - 220), clamped 2.2-7.5 yd/s².
 - `cut()` = 0.99 + 0.004 × (agility - 60) at 60+, 0.99 + 0.0022 × (agility - 60) below, minus 0.002 × (weight - 220), clamped 0.4-1.7.
-So weight costs a big man straight-line speed, burst and cutting, with the same speed rating. Every make-a-man-miss check reads weight too (A3; `game/sim.rs`, `size_cost`; see [match-engine.md](match-engine.md)).
+So weight costs a big man straight-line speed, burst and cutting, with the same speed rating. The sack escape, a QB run's moves and a returner's danger read weight too (A3; `game/sim.rs`, `size_cost`; see [match-engine.md](match-engine.md)); the first tackler's miss check doesn't since minor bug 279 (2026-11-07: real broken tackles don't move with weight once talent is known), so a heavy carrier pays in burst, braking and cut instead.
 
 ## Recorded times (update 3, lane 4)
 

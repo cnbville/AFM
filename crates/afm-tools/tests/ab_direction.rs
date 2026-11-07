@@ -12,7 +12,9 @@
 //! safety's weight: see `afm/ab-tests/`) has no direction to keep and is
 //! left out until it gets one. So is a receiver's height: its catch rate
 //! points against real, and its contested catches are not clear on this
-//! seed.
+//! seed. A heavy back's row is his yards after contact: since minor bug 279
+//! his weight no longer costs him the first tackler's whiff, so his yards
+//! before contact fall only 0.04 a 10 lb (z 1.4 here, real 0.12).
 
 use afm_engine::player::Level;
 use afm_tools::ab::run::direction;
@@ -20,7 +22,7 @@ use afm_tools::ab::run::direction;
 /// (test, stat, expected sign of high minus low).
 const LIST: &[(&str, &str, f64)] = &[
     ("qb_speed", "qb_scr", 1.0),
-    ("rb_weight", "rb_ybc", -1.0),
+    ("rb_weight", "rb_yaco", 1.0),
     ("ot_feet", "blk_lost_speed", -1.0),
     ("iol_weight", "blk_run_won", 1.0),
     ("dt_weight", "dl_power_win", 1.0),

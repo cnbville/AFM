@@ -1295,19 +1295,23 @@ fn main() {
         row(name, g(k) / g("punt_kicked").max(1.0), Some(real));
     }
     row("kickoff touchback", g("ko_tb") / g("kickoffs"), Some(0.22));
-    // FTN 2021-25 (engine_targets.json, dropbacks by pressure): pressured on
-    // 28.3% of dropbacks, 48.9% completed then; scrambles 4.9% of dropbacks.
-    // Time to throw (engine_targets.json): mean 2.71 s, p10 1.6, p50 2.5,
-    // p90 3.94; a pressured dropback ends in a sack 13.9% of the time.
-    row("pressure rate", g("pressures") / g("dropbacks"), Some(0.283));
+    // Pressure as PFR counts it (ab_real.json means, 2018-25): the passer
+    // pressured on 22.2% of dropbacks (times pressured over play-by-play
+    // dropbacks), 28.3% of those a sack. The engine's flag follows PFR's
+    // since minor bug 284 (the nearest rusher inside 3.2 yards after 0.6 s).
+    // FTN's charting flag is wider and leaves some sacks out (28.3% of
+    // dropbacks, 13.9% of them sacks, 48.9% completed), so it is not the
+    // same count. Scrambles 4.9% of dropbacks (FTN 2021-25). Time to throw
+    // (engine_targets.json): mean 2.71 s, p10 1.6, p50 2.5, p90 3.94.
+    row("pressure rate", g("pressures") / g("dropbacks"), Some(0.222));
     row("scramble rate", g("scrambles") / g("dropbacks"), Some(0.049));
     row("time to throw", g("ttt") / g("att"), Some(2.71));
     row("  thrown under 1.6 s", g("ttt_u16") / g("att"), Some(0.1));
     row("  thrown under 2.5 s", g("ttt_u25") / g("att"), Some(0.5));
     row("  thrown after 3.94 s", g("ttt_o39") / g("att"), Some(0.1));
-    row("sacks per pressure", g("pr_sack") / g("pr_n"), Some(0.139));
+    row("sacks per pressure", g("pr_sack") / g("pr_n"), Some(0.283));
     row("dropbacks with a rush win", g("rw_any") / g("rw_n"), None);
-    row("completions per pressure", g("pr_comp") / g("pr_n"), Some(0.489));
+    row("completions per pressure", g("pr_comp") / g("pr_n"), None);
     row("air yards per att", g("air_yards") / g("att"), None);
     row("drops per att", g("drops") / g("att"), None);
     row("broken up per att", g("inc_pbu") / g("att"), None);

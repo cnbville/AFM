@@ -463,6 +463,16 @@ fn sd(c: &C) -> f64 {
     (c[2] / c[0] - m * m).max(0.0).sqrt()
 }
 
+/// A spread with the sample noise taken out: slot 3 holds each game's noise
+/// variance (minor bug 287: real game logs are measured the same way).
+fn true_sd(c: &C) -> f64 {
+    if c[0] < 2.0 {
+        return f64::NAN;
+    }
+    let m = c[1] / c[0];
+    (c[2] / c[0] - m * m - c[3] / c[0]).max(0.0).sqrt()
+}
+
 /// The NFL passer rating from attempts, completions, yards, touchdowns and
 /// interceptions.
 fn rating(c: &C) -> f64 {
@@ -749,6 +759,57 @@ pub fn stats() -> Vec<Stat> {
                 out
             }),
             value: sd,
+        },
+        Stat {
+            key: "qb_epa_form",
+            label: "game-to-game form of a QB's EPA a dropback (noise taken out)",
+            unit: Num,
+            play: None,
+            game: Some(|g, c| {
+                let mut m: HashMap<u32, (f64, f64, f64)> = HashMap::new();
+                for r in g.stats.plays.iter().filter(|r| dropback(r) && c.fo(qb_of(r))) {
+                    let e = m.entry(qb_of(r).unwrap()).or_default();
+                    e.0 += 1.0;
+                    e.1 += r.epa;
+                    e.2 += r.epa * r.epa;
+                }
+                let mut out = Z;
+                for (n, y, yy) in m.values().filter(|v| v.0 >= 20.0) {
+                    let x = y / n;
+                    // The sample noise in this game's mean: the plays' spread over n.
+                    let noise = (yy / n - x * x) * n / (n - 1.0) / n;
+                    out[0] += 1.0;
+                    out[1] += x;
+                    out[2] += x * x;
+                    out[3] += noise;
+                }
+                out
+            }),
+            value: true_sd,
+        },
+        Stat {
+            key: "qb_cmp_form",
+            label: "game-to-game form of a QB's completion rate (noise taken out)",
+            unit: Pct,
+            play: None,
+            game: Some(|g, c| {
+                let mut m: HashMap<u32, (f64, f64)> = HashMap::new();
+                for r in g.stats.plays.iter().filter(|r| attempt(r) && c.fo(r.passer)) {
+                    let e = m.entry(r.passer.unwrap()).or_default();
+                    e.0 += 1.0;
+                    e.1 += bf(r.complete);
+                }
+                let mut out = Z;
+                for (n, k) in m.values().filter(|v| v.0 >= 15.0) {
+                    let x = k / n;
+                    out[0] += 1.0;
+                    out[1] += x;
+                    out[2] += x * x;
+                    out[3] += x * (1.0 - x) / (n - 1.0);
+                }
+                out
+            }),
+            value: true_sd,
         },
         // --- the run game (focus: the ball carriers)
         play!("rb_ypc", "yards a carry", Num, |r, c| if run(r) && c.fo(r.carrier) { rc(r.yards, 1.0) } else { Z }),
