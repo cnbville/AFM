@@ -688,8 +688,17 @@ pub fn all() -> Vec<Test> {
             .sign(1.0),
         // ---------------------------------------------------- safety
         t("s_weight", "s", "Weight (193 / 207 / 221 lb)", sf, drawn(Weight, [193.0, 207.0, 221.0]))
-            .chain(&["tk_miss", "tk_ff", "cv_yac", "tk_yaco", "cv_te_cmp"])
-            .real(&[("tk_miss", "s_wt__mtkl_pct"), ("tk_ff", "s_wt__ff_per_tkl")])
+            .chain(&["tk_miss", "tk_ff", "cv_yac", "tk_yaco", "cv_te_cmp", "tk_run_snap", "tk_run_stop", "tk_run_long", "tk_rate", "cv_cmp", "cv_pbu"])
+            .real(&[
+                ("tk_miss", "s_wt__mtkl_pct"),
+                ("tk_ff", "s_wt__ff_per_tkl"),
+                ("tk_run_snap", "s_wt__rtk_per_snap"),
+                ("tk_run_stop", "s_wt__rstop_per_snap"),
+                ("tk_run_long", "s_wt__rlong_share"),
+                ("tk_rate", "s_wt__tkl_per_snap"),
+                ("cv_cmp", "s_wt__cmp_allowed"),
+                ("cv_pbu", "s_wt__pbu_per_tgt"),
+            ])
             .sign(-1.0)
             .headline(),
         t("s_height", "s", "Height (5'10 / 6'0 / 6'2.5)", sf, body(Height, [70.0, 72.0, 74.5]))

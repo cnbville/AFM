@@ -571,6 +571,17 @@ ff = ids(pbp, ["forced_fumble_player_1_player_id", "forced_fumble_player_2_playe
 pdef = pd.concat([pbu.rename("pbu"), tk.rename("pbp_tkl"), ff.rename("ff")], axis=1).fillna(0).reset_index()
 pdef["pfr_id"] = pdef.gsis_id.map(gsis_to_pfr)
 pdef = pdef.dropna(subset=["pfr_id"]).groupby(["season", "pfr_id"])[["pbu", "pbp_tkl", "ff"]].sum()
+_tc = ["solo_tackle_1_player_id", "solo_tackle_2_player_id", "assist_tackle_1_player_id",
+       "assist_tackle_2_player_id", "assist_tackle_3_player_id", "assist_tackle_4_player_id",
+       "tackle_with_assist_1_player_id", "tackle_with_assist_2_player_id"]
+_runs = pbp[(pbp.play_type == "run") & (pbp.qb_kneel.fillna(0) == 0) & (pbp.two_point_attempt == 0)]
+_x = pd.concat([ids(_runs, _tc).groupby(["season", "gsis_id"]).size().rename("rtk"),
+                ids(_runs[_runs.yards_gained <= 3], _tc).groupby(["season", "gsis_id"]).size().rename("rstop"),
+                ids(_runs[_runs.yards_gained >= 10], _tc).groupby(["season", "gsis_id"]).size().rename("rlong")],
+               axis=1).fillna(0).reset_index()
+_x["pfr_id"] = _x.gsis_id.map(gsis_to_pfr)
+_x = _x.dropna(subset=["pfr_id"]).groupby(["season", "pfr_id"])[["rtk", "rstop", "rlong"]].sum()
+pdef = pdef.join(_x, how="left").fillna(0)
 
 dd = adv_def.merge(snap_season[["season", "pfr_id", "dfn"]], on=["season", "pfr_id"], how="left")
 LINKS["PFR defense seasons with snap counts"] = {"rows": int(len(dd)), "with_snaps": int(dd.dfn.notna().sum())}
@@ -625,6 +636,23 @@ slope("s_wt__ff_per_tkl", sf, "wt", "ff_per_tkl", "pbp_tkl", "S, " + MS_D + " an
       "play-by-play forced fumbles over play-by-play tackles", "forced fumbles a tackle")
 slope("s_ht__cmp_allowed", sf, "ht", "cmp_allowed", "tgt", "S, " + MS_C, SRC_DEF, "completions allowed a target")
 slope("s_forty__yds_per_cmp", sf, "forty", "yds_per_cmp", "cmp", "S, " + MS_C, SRC_DEF, "yards a completion allowed")
+for _c in ("rtk", "rstop", "rlong"):
+    dd[_c] = dd[_c].fillna(0)
+dd["rtk_per_snap"] = dd.rtk / dd.dfn
+dd["rstop_per_snap"] = dd.rstop / dd.dfn
+dd["rlong_share"] = (dd.rlong / dd.rtk).where(dd.rtk >= 15)
+dd["tkl_per_snap"] = dd.pbp_tkl / dd.dfn
+# Run support and coverage by a safety's weight (proposal 4 of the A/B
+# report): run tackles and stops a defense snap, the share of his run
+# tackles 10+ yards downfield, all tackles, and coverage per target.
+sf = dd[dd.group == "S"]
+for _y, _w, _ms, _lab in (("rtk_per_snap", "dfn", MS_D, "run tackles a defense snap"),
+                          ("rstop_per_snap", "dfn", MS_D, "run tackles at 3 yards or less a defense snap"),
+                          ("rlong_share", "rtk", MS_D + " and 15+ run tackles", "share of his run tackles after 10+ yards"),
+                          ("tkl_per_snap", "dfn", MS_D, "tackles a defense snap"),
+                          ("pbu_per_tgt", "tgt", MS_C, "breakups a target"),
+                          ("cmp_allowed", "tgt", MS_C, "completions allowed a target")):
+    slope(f"s_wt__{_y}", sf, "wt", _y, _w, "S, " + _ms, SRC_DEF, _lab)
 SRC_MD = "; arms and combine 10-yard splits from MockDraftable"
 for g, p, s_ in (("DT", "dt", dt), ("EDGE", "edge", edge)):
     for xb in ("arm", "split"):
