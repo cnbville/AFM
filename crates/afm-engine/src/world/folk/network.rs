@@ -65,7 +65,16 @@ impl Contact {
     pub fn coach_id(&self) -> Option<usize> {
         (self.other.is_none() && self.coach != NOBODY).then_some(self.coach)
     }
+
+    /// Moves the favour balance (+ he owes you one more, - you owe him),
+    /// held to five either way on every path.
+    pub fn shift(&mut self, by: i8) {
+        self.balance = self.balance.saturating_add(by).clamp(-MAX_BALANCE, MAX_BALANCE);
+    }
 }
+
+/// The most favours a contact's balance holds either way.
+pub const MAX_BALANCE: i8 = 5;
 
 /// Who a contact is: the coach a former player became counts as the coach.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -184,7 +193,7 @@ pub fn owe(w: &mut World, who: Whom, words: String) {
         add(w, who, 0.05, "a call about a coach".into(), false);
     }
     if let Some(x) = w.folk.network.contacts.iter_mut().find(|x| Whom::of(x) == who) {
-        x.balance = (x.balance - 1).max(-5);
+        x.shift(-1);
     }
     let (coach, other) = match who {
         Whom::Coach(c) => (c, None),
@@ -562,11 +571,16 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
     if needy {
         text.push_str(" He picked up, but you could hear him wondering what you wanted this time.");
     }
+    // Whether he did what you asked: a favour is owed only then (minor bug
+    // 331: a yes with no name to give, or from a coach with no next-level
+    // staff, still cost you one).
+    let mut done = yes;
     match why {
         Why::CatchUp => text.push_str(" You talked about everything but football for a while."),
         Why::Name => {
             if yes {
                 let pick = name_from(w, c);
+                done = pick.is_some();
                 match pick {
                     Some(n) => {
                         add_contact(w, n, 0.3, format!("recommended by {name}"));
@@ -598,12 +612,17 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
             let Some(i) = super::person(w, pid) else { return Err("No such player.".into()) };
             let his = super::facts::team_of_coach(w, c);
             let at_next = his.is_some_and(|t| matches!(t, Team::College(_) | Team::Nfl(_)));
+            done = yes && at_next;
             if yes && at_next {
                 let name = w.people[i].name.clone();
-                match (Team::seat(w), his) {
+                match his {
                     // Minor bug 21: a high school coach's word is a call
-                    // to that staff, which every signing stage reads.
-                    (Some(Team::High(_)), Some(Team::College(prog))) => {
+                    // to that staff, which every signing stage reads. A
+                    // college or NFL coach's word to a college staff is the
+                    // same call (minor bug 324: it added 0.12 to his
+                    // visibility, which the next signing stage rebuilt from
+                    // scratch, so it never reached an offer).
+                    Some(Team::College(prog)) => {
                         w.scouting.hs.promoted.push(crate::world::scouting::hs::Promo {
                             id: pid,
                             program: Some(prog),
@@ -614,7 +633,7 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
                         });
                     }
                     // A word to an NFL staff is a film look in its file.
-                    (_, Some(Team::Nfl(t))) => {
+                    Some(Team::Nfl(t)) => {
                         crate::world::scouting::dept::club_look(
                             w,
                             t,
@@ -624,10 +643,7 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
                             today,
                         );
                     }
-                    _ => {
-                        let p = &mut w.people[i];
-                        p.visibility = (p.visibility + 0.12).min(1.0);
-                    }
+                    _ => {}
                 }
                 text.push_str(&format!(" He'll have his staff look at {name}'s film."));
             } else if !at_next {
@@ -637,14 +653,14 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
             }
         }
     }
-    if asking && yes {
+    if asking && done {
         let words = match why {
             Why::Name => "a name for your staff",
             Why::Grapevine => "what he was hearing",
             _ => "a look at your player",
         };
         w.folk.network.ledger.push(Favour { date: today, coach: c, words: words.into(), asked: true, other: None });
-        w.folk.network.contacts[k].balance -= 1;
+        w.folk.network.contacts[k].shift(-1);
     }
     let x = &mut w.folk.network.contacts[k];
     x.warmth = (x.warmth + dw).clamp(0.0, 1.0);
@@ -1108,7 +1124,7 @@ fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
     if code == 85 {
         talks::charge(w, if s.b == 1 { 5.0 } else { 1.0 });
         if let Some(k) = k {
-            w.folk.network.contacts[k].balance = (w.folk.network.contacts[k].balance + 1).min(5);
+            w.folk.network.contacts[k].shift(1);
             w.folk.network.contacts[k].warmth = (w.folk.network.contacts[k].warmth + 0.08).min(1.0);
         }
         let kid = (s.b == 2).then(|| crate::world::scouting::place(w, s.c as u32)).flatten();
