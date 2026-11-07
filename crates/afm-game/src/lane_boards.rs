@@ -40,6 +40,13 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     if !COMMANDS.contains(&cmd) {
         return None;
     }
+    // Your college deals as July 1 pays them: every player of yours has one
+    // (every NIL dollar is yours, Cain 2026-11-07).
+    if cmd == "board_cap"
+        && let Some(w) = game.world.as_mut()
+    {
+        afm_engine::world::front_office::college::fill_deals(w);
+    }
     let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };
     let index = || args.get("index").and_then(Value::as_u64).map(|v| v as usize).ok_or("Missing index.".to_string());
     Some(match cmd {

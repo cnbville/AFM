@@ -76,12 +76,16 @@ fn chain_act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
 fn with(game: &mut Game, f: fn(&World, usize) -> Reply) -> Reply {
     let w = game.world.as_mut().ok_or("No world is loaded.")?;
     desk::ready(w);
+    // Every player of yours has a deal before a screen shows them (a job
+    // just taken, a save from before).
+    desk::fill_deals(w);
     f(w, program(w)?)
 }
 
 fn with_args(game: &mut Game, args: &Value, f: fn(&World, usize, &Value) -> Reply) -> Reply {
     let w = game.world.as_mut().ok_or("No world is loaded.")?;
     desk::ready(w);
+    desk::fill_deals(w);
     f(w, program(w)?, args)
 }
 
@@ -154,7 +158,7 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
             }
         }
         "recruit_reset" => desk::reset_board(w, args.get("keep_commits").and_then(Value::as_bool).unwrap_or(false))?,
-        "recruit_promise" => desk::set_promise(w, id_arg(args)?, money_arg(args, "nil"))?,
+        "recruit_promise" => desk::set_promise(w, id_arg(args)?, money_arg(args, "nil"), money_arg(args, "coll"))?,
         "visit_set" | "visit_cancel" => {
             let kind =
                 args.get("kind").and_then(Value::as_str).and_then(VisitKind::from_key).ok_or("Missing visit kind.")?;
@@ -169,29 +173,37 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
                 }
             }
         }
-        "portal_offer" => desk::portal_offer(w, id_arg(args)?, money_arg(args, "nil"))?,
+        "portal_offer" => desk::portal_offer(w, id_arg(args)?, money_arg(args, "nil"), money_arg(args, "coll"))?,
         "portal_pull" => desk::portal_pull(w, id_arg(args)?)?,
         "portal_forget" => desk::portal_forget(w, id_arg(args)?)?,
         "portal_contact" => desk::portal_contact(w, id_arg(args)?)?,
         "keep_talk" => desk::keep_talk(w, id_arg(args)?)?,
         "college_cut" => desk::cut(w, id_arg(args)?)?,
-        "nil_set" => desk::set_deal(w, id_arg(args)?, money_arg(args, "amount").ok_or("Missing amount.")?)?,
+        "nil_set" => desk::set_deal(w, id_arg(args)?, money_arg(args, "amount"), money_arg(args, "coll"))?,
         "nil_usual" => {
             let n = desk::set_usual_deals(w)?;
-            let what = if ncaa::two_pots(w.today) {
-                "the school's usual revenue-share split"
+            if n == 0 {
+                "Every box already has a number.".into()
             } else {
-                "the collective's usual split"
-            };
-            format!("{n} {} set at {what}. Adjust any of them.", afm_engine::world::folk::noun(n, "deal"))
+                format!(
+                    "{n} empty {} filled at the going rate. Adjust any of them.",
+                    afm_engine::world::folk::noun(n, "box")
+                )
+            }
         }
         "nil_clear" => {
-            w.front_office.college.deals.clear();
-            "Every deal cleared.".into()
+            let n = desk::clear_deals(w)?;
+            format!(
+                "{n} {} set to nothing. Each pays nothing on July 1 until you set it.",
+                afm_engine::world::folk::noun(n, "deal")
+            )
         }
         "college_duty" => {
             let duty = args.get("duty").and_then(Value::as_str).and_then(Duty::from_key).ok_or("Missing duty.")?;
-            if !matches!(duty, Duty::Board | Duty::Visits | Duty::Portal | Duty::Nil) {
+            if duty == Duty::Nil {
+                return Err("NIL is always yours: you set every player's money.".into());
+            }
+            if !matches!(duty, Duty::Board | Duty::Visits | Duty::Portal) {
                 return Err("That duty isn't the college desk's.".into());
             }
             let yours = args.get("owner").and_then(Value::as_str) == Some("you");
@@ -711,7 +723,7 @@ fn recruit_row(
     let s = desk::standing(p, j);
     let hs = p.hs;
     // The usual offer as you hand it out (in two pots the school's part; B18).
-    let usual = if ncaa::nil_era(w.year) { desk::usual_parts(w, j, p.player.id).0 } else { 0.0 };
+    let (usual, usual_coll) = if ncaa::nil_era(w.year) { desk::usual_parts(w, j, p.player.id) } else { (0.0, 0.0) };
     let next = next_step(w, p);
     let offers = views::offers_of(p).len();
     let mut v = json!({
@@ -759,6 +771,9 @@ fn recruit_row(
     // The old staff's offer, and whether pulling it now costs nothing (your
     // fresh start at a new job).
     v["inherited"] = json!(t.is_some_and(|t| t.by == Source::Inherited));
+    // Your collective deal beside your revenue share (two pots, B18).
+    v["nil_coll"] = json!(t.and_then(|t| t.nil_coll));
+    v["usual_coll"] = json!(usual_coll);
     v["free_pull"] = json!(t.is_some_and(|t| desk::free_pull(w, t)));
     v
 }
@@ -893,7 +908,8 @@ fn class_ranks(w: &World, j: usize, sign_year: i32) -> (Option<u32>, usize, Opti
 
 fn duties(w: &World, j: usize) -> Value {
     let who = desk::coordinator_name(w, j);
-    let list: Vec<Value> = [Duty::Board, Duty::Visits, Duty::Portal, Duty::Nil]
+    // NIL is always yours (Cain 2026-11-07), so it has no switch.
+    let list: Vec<Value> = [Duty::Board, Duty::Visits, Duty::Portal]
         .into_iter()
         .map(|d| {
             json!({
@@ -976,7 +992,6 @@ fn board(w: &World, j: usize) -> Reply {
         "rows": rows,
         "homes": homes,
         "nil_era": ncaa::nil_era(w.year),
-        "nil_yours": w.front_office.owner(Duty::Nil) == Owner::You,
         "budget": budget_json(w, j),
         "classes": [sign_year, sign_year + 1, sign_year + 2],
         "fresh": fresh_json(w),
@@ -1358,16 +1373,14 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
         views::reader_key(w)
     ));
     v["nil_era"] = json!(ncaa::nil_era(w.year));
-    v["nil_yours"] = json!(w.front_office.owner(Duty::Nil) == Owner::You);
     v["board_yours"] = json!(w.front_office.owner(Duty::Board) == Owner::You);
     // Whether he can be recruited now: a player page shows your moves only then (minor bug 58).
     v["recruitable"] = json!(desk::recruitable(w, i).is_ok());
     v["visits_yours"] = json!(w.front_office.owner(Duty::Visits) == Owner::You);
     v["nil_max"] = json!(ncaa::position_nil_max(p.player.position));
-    // In two pots the collective adds its own deal, through NIL Go (B18);
-    // his first answer to your promise (N1).
+    // In two pots your promise is a revenue share and a collective deal,
+    // the second through NIL Go (B18); his first answer to it (N1).
     v["two_pots"] = json!(ncaa::two_pots(w.today));
-    v["collective_own"] = json!(desk::usual_parts(w, j, p.player.id).1);
     v["answer"] = desk::reaction(w, p.player.id, desk::MoneyKind::Promise).map_or(Value::Null, answer_json);
     v["budget"] = budget_json(w, j);
     v["high_school"] = json!(w.school_name(p.hs));
@@ -1568,8 +1581,11 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
     let d = &w.front_office.college;
     let one_time = w.changes.rules(w.year + 1).one_time_transfer;
     let mine_div = w.programs[j].division;
-    // The money you hand out: the school's revenue share in two pots (B18).
-    let pot = desk::budget(w, j).yours;
+    // The money you hand out: the school's revenue share and the
+    // collective's pot in two pots (B18).
+    let b = desk::budget(w, j);
+    let pot = b.yours;
+    let coll_pot = if b.two_pots { b.collective } else { 0.0 };
     let mut entrants: Vec<(f64, Value)> = Vec::new();
     let mut in_portal = 0;
     for p in w.people.iter() {
@@ -1610,8 +1626,10 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
                 "why": e.why, "entered": short_date(e.entered), "decide": short_date(e.decide_by),
                 "days": today.days_to(e.decide_by).max(0), "held": e.held,
                 "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil),
+                "coll": t.and_then(|t| t.nil_coll),
                 "contacted": t.is_some_and(|t| t.contacted.is_some()), "sits": sits,
                 "usual": if ncaa::nil_era(w.year) { pot / 40.0 } else { 0.0 },
+                "coll_usual": if ncaa::nil_era(w.year) { coll_pot / 40.0 } else { 0.0 },
             }),
         ));
     }
@@ -1697,7 +1715,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             };
             Some(json!({
                 "id": t.id, "name": p.name, "pos": p.player.position.name(), "from": brief(w, t.from),
-                "status": status, "offered": t.offered.map(short_date), "nil": t.nil,
+                "status": status, "offered": t.offered.map(short_date), "nil": t.nil, "coll": t.nil_coll,
                 "decide": p.cal.portal.map(|e| short_date(e.decide_by)), "settled": t.settled,
                 "answer": desk::reaction(w, t.id, desk::MoneyKind::Portal).map(answer_json),
             }))
@@ -1739,8 +1757,9 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
         "targets": targets,
         "talks": d.talks.len(),
         "yours": w.front_office.owner(Duty::Portal) == Owner::You,
-        "nil_yours": w.front_office.owner(Duty::Nil) == Owner::You,
         "nil_era": ncaa::nil_era(w.year),
+        // Two pots from July 2025 (B18): a revenue share and a collective deal.
+        "house": ncaa::two_pots(w.today),
         "budget": budget_json(w, j),
         "duties": duties(w, j),
     }))
@@ -1759,6 +1778,7 @@ fn budget_json(w: &World, j: usize) -> Value {
         "total": b.total, "revenue_share": b.revenue_share, "collective": b.collective,
         "two_pots": b.two_pots, "yours": b.yours, "collective_roster": b.collective_roster, "nil_go_held": b.nil_go_held,
         "roster": b.roster, "recruits": b.recruits, "portal": b.portal, "left": b.left,
+        "coll_roster": b.coll_roster, "coll_recruits": b.coll_recruits, "coll_portal": b.coll_portal, "coll_left": b.coll_left,
         "total_text": dollars(b.total), "left_text": dollars(b.left),
     })
 }
@@ -1767,11 +1787,15 @@ fn nil(w: &World, j: usize) -> Reply {
     let reader = views::reader_key(w);
     let d = &w.front_office.college;
     let year = desk::deals_year(w);
+    let two = ncaa::two_pots(w.today);
+    // The going rate in each pot: the usual split, the collective's as NIL
+    // Go clears it (B18).
     let usual: HashMap<u32, f64> = desk::usual_deals(w, j).into_iter().collect();
-    // The collective's own deals in two pots, as NIL Go clears them (B18).
-    let own: HashMap<u32, (f64, f64)> = desk::collective_deals(w, j).into_iter().map(|x| (x.0, (x.1, x.2))).collect();
-    let deals: HashMap<u32, f64> =
-        if d.deals_year == year { d.deals.iter().copied().collect() } else { HashMap::new() };
+    let own: HashMap<u32, f64> = desk::collective_deals(w, j).into_iter().map(|x| (x.0, x.1)).collect();
+    // Your deals: every NIL dollar is yours, and each stands until you
+    // change it (Cain 2026-11-07).
+    let deals: HashMap<u32, f64> = d.deals.iter().copied().collect();
+    let coll: HashMap<u32, f64> = d.coll_deals.iter().copied().collect();
     let mut rows: Vec<Value> = Vec::new();
     for &i in &w.programs[j].roster {
         let p = &w.people[i];
@@ -1783,7 +1807,9 @@ fn nil(w: &World, j: usize) -> Reply {
             "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "cls": views::class_text(w, p),
             "role": p.last_role.map(views::role_words), "read": reads::overall(w, i).json(), "yours": reads::mine(w, i).json(),
             "usual": usual.get(&p.player.id).copied().unwrap_or(0.0), "deal": deals.get(&p.player.id).copied(),
-            "own": own.get(&p.player.id).map(|x| x.0), "held": own.get(&p.player.id).map(|x| x.1).filter(|&x| x >= 1.0),
+            "coll_usual": own.get(&p.player.id).copied().unwrap_or(0.0),
+            "coll": coll.get(&p.player.id).copied(),
+            "cleared": coll.get(&p.player.id).filter(|_| two).map(|&x| desk::coll_cleared(w, j, p.player.id, x)),
             "answer": desk::reaction(w, p.player.id, desk::MoneyKind::Deal).map(answer_json),
             "now": p.nil_income, "stars": stars_of(p), "left": eligibility_left(w, p),
             // Public: his followers and the brand money he earns himself,
@@ -1794,26 +1820,27 @@ fn nil(w: &World, j: usize) -> Reply {
             "camera": afm_engine::world::fame::aura_read(p, eye, reader),
         }));
     }
-    let ids: Vec<u32> = d.board.iter().filter(|t| t.nil.is_some()).map(|t| t.id).collect();
+    let money = |a: Option<f64>, b: Option<f64>| a.unwrap_or(0.0) + b.unwrap_or(0.0);
+    let ids: Vec<u32> = d.board.iter().filter(|t| t.nil.is_some() || t.nil_coll.is_some()).map(|t| t.id).collect();
     let at = index_map(w, &ids);
     let promised: Vec<Value> = d
         .board
         .iter()
-        .filter(|t| t.nil.is_some() && t.offered.is_some() && t.pulled.is_none())
+        .filter(|t| (t.nil.is_some() || t.nil_coll.is_some()) && t.offered.is_some() && t.pulled.is_none())
         .filter_map(|t| {
             let p = &w.people[*at.get(&t.id)?];
-            Some(json!({ "id": t.id, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p), "nil": t.nil, "standing": standing_key(desk::standing(p, j)) }))
+            Some(json!({ "id": t.id, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p), "nil": money(t.nil, t.nil_coll), "school": t.nil, "coll": t.nil_coll, "standing": standing_key(desk::standing(p, j)) }))
         })
         .collect();
-    let ids: Vec<u32> = d.portal.iter().filter(|t| t.nil.is_some()).map(|t| t.id).collect();
+    let ids: Vec<u32> = d.portal.iter().filter(|t| t.nil.is_some() || t.nil_coll.is_some()).map(|t| t.id).collect();
     let at = index_map(w, &ids);
     let portal: Vec<Value> = d
         .portal
         .iter()
-        .filter(|t| t.nil.is_some() && t.offered.is_some() && !t.settled)
+        .filter(|t| (t.nil.is_some() || t.nil_coll.is_some()) && t.offered.is_some() && !t.settled)
         .filter_map(|t| {
             let p = &w.people[*at.get(&t.id)?];
-            Some(json!({ "id": t.id, "name": p.name, "pos": p.player.position.name(), "nil": t.nil, "from": brief(w, t.from) }))
+            Some(json!({ "id": t.id, "name": p.name, "pos": p.player.position.name(), "nil": money(t.nil, t.nil_coll), "school": t.nil, "coll": t.nil_coll, "from": brief(w, t.from) }))
         })
         .collect();
     let prog = &w.programs[j];
@@ -1828,8 +1855,8 @@ fn nil(w: &World, j: usize) -> Reply {
     Ok(json!({
         "team": brief(w, j),
         "era": ncaa::nil_era(w.today.year()) || w.today >= Date::ymd(ncaa::NIL_START, 6, 1),
-        "house": ncaa::two_pots(w.today),
-        "yours": w.front_office.owner(Duty::Nil) == Owner::You,
+        "house": two,
+        "yours": true,
         "year": year,
         "pay_day": short_date(Date::ymd(if w.today >= Date::ymd(w.today.year(), 7, 1) { w.today.year() + 1 } else { w.today.year() }, 7, 1)),
         "budget": budget_json(w, j),

@@ -9,7 +9,6 @@
 use afm_engine::calendar::{Date, Level as CalLevel};
 use afm_engine::positions::Position;
 use afm_engine::world::front_office::college as desk;
-use afm_engine::world::front_office::{Duty, Owner};
 use afm_engine::world::pro::{self, money};
 use afm_engine::world::{Stage, World, ncaa};
 use serde_json::{Value, json};
@@ -278,16 +277,15 @@ fn college(w: &World, j: usize) -> Reply {
     let era = ncaa::nil_era(w.today.year()) || w.today >= Date::ymd(ncaa::NIL_START, 6, 1);
     let b = desk::budget(w, j);
     let fo = &w.front_office.college;
+    // Your program's deals stand until you change them (every NIL dollar
+    // is yours, Cain 2026-11-07); a blank or $0 box pays nothing. Another
+    // program's roster shows its usual split.
+    let yours = fo.program == Some(j);
     let set: std::collections::HashMap<u32, f64> =
-        if fo.deals_year == money_year { fo.deals.iter().copied().collect() } else { Default::default() };
+        if yours { fo.deals.iter().copied().collect() } else { Default::default() };
     let usual: std::collections::HashMap<u32, f64> = desk::usual_deals(w, j).into_iter().collect();
-    // What 1 July pays: your deals when NIL is yours (a man without one
-    // gets nothing), the collective's usual split when your staff runs it.
-    // With NIL yours and nothing set, the blocks show the usual split as a
-    // suggestion.
-    let yours = w.front_office.owner(Duty::Nil) == Owner::You;
-    let use_set = yours && !set.is_empty();
-    let suggested = yours && set.is_empty();
+    let use_set = yours;
+    let suggested = false;
     let mut to_roster = 0.0;
     let mut blocks: Vec<Value> = Vec::new();
     let whole = ncaa::whole_roster_limit(prog, season);
@@ -310,8 +308,7 @@ fn college(w: &World, j: usize) -> Reply {
             on_aid += 1;
         }
         let id = p.player.id;
-        // His deal this money year: the one set, else the collective's
-        // usual split.
+        // His deal: yours as set, else (another program) the usual split.
         let deal = if use_set { set.get(&id).copied().unwrap_or(0.0) } else { usual.get(&id).copied().unwrap_or(0.0) };
         if !era || deal <= 0.0 {
             continue;
