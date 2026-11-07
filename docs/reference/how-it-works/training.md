@@ -1,6 +1,6 @@
 # Training: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. The college coaching mix checked at d994f96 on 2026-11-07.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Nearly every size in the training week and in prep is marked in code as Claude's (proposed, not confirmed); `docs/world-model.md`, "Training: the week's frame and prep", lists them.
 
@@ -207,7 +207,7 @@ Set per player through `plans_set` / `set_plan` (`crates/afm-game/src/lane_train
 ## Who teaches
 
 - The year's coaching input (set at the checkpoint, read by every week's landing) (`world/season.rs`, `develop`):
-  - College: 0.2 × head coach + 0.35 × coordinator + 0.3 × position coach + 0.15 × (6 + 12 × facilities), each coach's `teaching(group)` on 1-20; missing coaches fall back up the chain.
+  - College: 0.2 × head coach + 0.25 × the coordinator's unit + 0.4 × position coach + 0.15 × (6 + 12 × facilities) (C57, C60), each on 1-20; missing coaches fall back up the chain.
   - High school: 0.6 × head coach's teaching + 0.4 × staff (your school's real assistants, else 4 + 12 × resources).
   - NFL: the club's `coaching` = 0.5 × head coach value + 0.25 × each coordinator's side quality (`world/staff.rs`, `set_nfl_coaching`, `side_quality`; used in `world/pro/mod.rs`).
 - Then `coaching_mult = 0.75 + 0.025 × coaching`, `boost = 1 + (mult − 1) × (0.6 + 0.04 × coachability)` (`development.rs`, `develop_season`).
