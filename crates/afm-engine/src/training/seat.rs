@@ -1914,34 +1914,63 @@ pub fn injury_chance(
     1.0 - (1.0 - practice_rate(tier, block) * contact * prone * exposure * soft_tissue(spike).sqrt()).powf(practices)
 }
 
+/// The factor on a practice injury's chance that keeps every kind but the
+/// guarded ones where they were (minor bug 303): the strength staff's guard
+/// takes `guard` off hamstrings and backs in the mix (`practice_kind`).
+pub fn practice_guarded(contact: f64, soft: f64, guard: f64) -> f64 {
+    if guard == 1.0 {
+        return 1.0;
+    }
+    let weigh = |hamstring: f64, back: f64| {
+        PRACTICE_MIX
+            .iter()
+            .map(|&(k, wgt)| {
+                wgt * match k {
+                    InjuryKind::Hamstring => hamstring,
+                    InjuryKind::Back => back,
+                    InjuryKind::Concussion | InjuryKind::Shoulder => contact,
+                    _ => 1.0,
+                }
+            })
+            .sum::<f64>()
+    };
+    weigh(soft * guard, guard) / weigh(soft, 1.0)
+}
+
+/// The practice injury mix (topic 7), before the week's pulls.
+const PRACTICE_MIX: [(InjuryKind, f64); 12] = [
+    (InjuryKind::Hamstring, 22.0),
+    (InjuryKind::AnkleSprain, 15.0),
+    (InjuryKind::Knee, 14.0),
+    (InjuryKind::Bruise, 10.0),
+    (InjuryKind::Shoulder, 7.0),
+    (InjuryKind::Back, 6.0),
+    (InjuryKind::Hand, 6.0),
+    (InjuryKind::HighAnkleSprain, 4.0),
+    (InjuryKind::Concussion, 4.0),
+    (InjuryKind::Acl, 2.5),
+    (InjuryKind::Ribs, 2.0),
+    (InjuryKind::Fracture, 2.0),
+];
+
 /// The practice injury mix (topic 7): hamstrings up with a load spike and
 /// tight hips (`soft`), concussions and shoulders up with contact.
 pub fn practice_kind(rng: &mut Rng, contact: f64, soft: f64) -> InjuryKind {
-    const MIX: [(InjuryKind, f64); 12] = [
-        (InjuryKind::Hamstring, 22.0),
-        (InjuryKind::AnkleSprain, 15.0),
-        (InjuryKind::Knee, 14.0),
-        (InjuryKind::Bruise, 10.0),
-        (InjuryKind::Shoulder, 7.0),
-        (InjuryKind::Back, 6.0),
-        (InjuryKind::Hand, 6.0),
-        (InjuryKind::HighAnkleSprain, 4.0),
-        (InjuryKind::Concussion, 4.0),
-        (InjuryKind::Acl, 2.5),
-        (InjuryKind::Ribs, 2.0),
-        (InjuryKind::Fracture, 2.0),
-    ];
-    let mix: Vec<(InjuryKind, f64)> = MIX
-        .iter()
-        .map(|&(k, wgt)| {
-            let m = match k {
-                InjuryKind::Hamstring => soft,
-                InjuryKind::Concussion | InjuryKind::Shoulder => contact,
-                _ => 1.0,
-            };
-            (k, wgt * m)
-        })
-        .collect();
+    guarded_practice_kind(rng, contact, soft, 1.0)
+}
+
+/// The practice mix with the strength staff's guard on hamstrings and backs
+/// (minor bug 303; 1 changes nothing).
+pub fn guarded_practice_kind(rng: &mut Rng, contact: f64, soft: f64, guard: f64) -> InjuryKind {
+    let mix = PRACTICE_MIX.map(|(k, wgt)| {
+        let m = match k {
+            InjuryKind::Hamstring => soft * guard,
+            InjuryKind::Back => guard,
+            InjuryKind::Concussion | InjuryKind::Shoulder => contact,
+            _ => 1.0,
+        };
+        (k, wgt * m)
+    });
     rng.weighted(&mix)
 }
 
@@ -1996,6 +2025,25 @@ fn practice_injuries(
     let contact = ((full + 10.0) / (neutral_full + 10.0)).powf(0.7);
     let limber = limber(pw);
     let med = 1.0;
+    // The strength staff's guard on muscle strains and backs (minor bug
+    // 303): a college program's or a club's head against the level's typical.
+    let seat = w.seat.as_ref();
+    let guard = match st.tier {
+        Tier::College => seat.and_then(|s| s.program).map_or(1.0, |c| {
+            let g = &w.programs[c];
+            crate::game::sim::strength_guard(
+                crate::world::season::strength_head(g),
+                crate::world::season::typical_strength(w, g.division),
+            )
+        }),
+        Tier::Pro => seat.and_then(|s| s.nfl_team).map_or(1.0, |t| {
+            crate::game::sim::strength_guard(
+                crate::world::season::club_strength_head(w, t),
+                crate::world::season::nfl_typical_strength(w),
+            )
+        }),
+        _ => 1.0,
+    };
     let seed = w.options.seed ^ d.0 as u32 ^ 0x1A7D;
     let mut n = 0;
     for &i in &st.roster {
@@ -2010,12 +2058,13 @@ fn practice_injuries(
         let spike = p.player.train.spike();
         let soft = soft_tissue(spike) * limber;
         let chance = injury_chance(st.tier, pw.block, practices, contact, p.player.injury_proneness, exposure, spike)
-            * (0.77 + 0.23 * limber);
+            * (0.77 + 0.23 * limber)
+            * practice_guarded(contact, soft, guard);
         let mut rng = Rng::new(seed ^ id.wrapping_mul(0x9E37_79B1));
         if !rng.chance(chance / med) {
             continue;
         }
-        let kind = practice_kind(&mut rng, contact, soft);
+        let kind = guarded_practice_kind(&mut rng, contact, soft, guard);
         let weeks = crate::game::sim::injury_weeks(kind, &mut rng) * (1.3 - 0.03 * p.player.game.recovery);
         let days = (weeks * 7.0).round().max(1.0) as i32;
         // A day the week practices (the six-part day: it shows when that

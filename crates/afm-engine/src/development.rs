@@ -66,6 +66,15 @@ pub struct SeasonContext {
     /// (`training::land`), instead of all at once. Attributes that have
     /// stopped growing or decline this year still settle at once.
     pub defer: bool,
+    /// The coaching mix for his physical attributes (minor bug 302), on the
+    /// same 1-20 scale as `coaching`: the strength staff takes the position
+    /// coach's share there. None where no strength staff works with him
+    /// (high school, a year away): `coaching` stands.
+    pub physical_coaching: Option<f64>,
+    /// His strength head's rating against the level's typical one (rating
+    /// points): taken out of `physical` for growth, since the strength staff
+    /// now counts through `physical_coaching`.
+    pub strength_dev: f64,
 }
 
 impl SeasonContext {
@@ -88,6 +97,8 @@ impl SeasonContext {
             medical: 0.0,
             focus: None,
             defer: false,
+            physical_coaching: None,
+            strength_dev: 0.0,
         }
     }
 }
@@ -98,6 +109,8 @@ impl SeasonContext {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GrowthCtx {
     pub coaching_boost: f64,
+    /// Coaching as it sticks for the physical attributes (minor bug 302).
+    pub physical_boost: f64,
     pub snaps_mult: f64,
     pub work_mult: f64,
     pub form: f64,
@@ -116,7 +129,8 @@ impl GrowthCtx {
     /// year (the yearly step's rate, unchanged).
     pub fn rate(&self, key: Attr, age_factor: f64) -> f64 {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
-        let coaching = self.coaching_boost.powf(profile.coachability);
+        let boost = if profile.group == AttributeGroup::Physical { self.physical_boost } else { self.coaching_boost };
+        let coaching = boost.powf(profile.coachability);
         let snaps = self.snaps_mult.powf(profile.experience);
         let redshirt_lift = if self.redshirt && profile.group == AttributeGroup::Physical { 1.35 } else { 1.0 };
         // College staffs teach the technique and the reads high school never did, so the raw catch up there.
@@ -516,7 +530,14 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         * position.profile().injury_risk
         * (0.55 + player.injury_proneness * 0.045)
         // A suspended or dismissed player is at most at practice, like a redshirt.
-        * if ctx.trouble.is_some() || no_games { 0.5 } else if pt == PlayingTime::Starter { 1.15 } else { 0.9 };
+        * if ctx.trouble.is_some() || no_games { 0.5 } else if pt == PlayingTime::Starter { 1.15 } else { 0.9 }
+        // His strength staff's guard on muscle strains and backs (minor bug
+        // 303), on their share of the game mix.
+        * crate::game::sim::guarded_mix(
+            &crate::game::sim::GAME_INJURIES,
+            crate::game::sim::strength_guard(10.0 + ctx.strength_dev, 10.0),
+        )
+        .1;
     why.injury_chance = injury_chance;
     if rng.chance(injury_chance) {
         let roll = rng.next();
@@ -791,6 +812,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // fall after that. Direction is driven by personality, coaching and snaps;
     // luck plays a smaller part.
     let plasticity = potential_plasticity(player.age);
+    // Strength, speed and conditioning are the strength staff's (minor bug
+    // 302): its mix replaces the position coach's share for the physical
+    // attributes, here on their ceilings and below on their growth.
+    let physical_coaching = ctx.physical_coaching.map_or(ctx.coaching, |c| clamp(c, 1.0, 20.0));
     if plasticity > 0.0 {
         // A young pro sitting behind a veteran still practises against NFL players
         // with an NFL staff: unlike a buried college backup, his ceiling doesn't sag.
@@ -805,6 +830,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             * snaps_factor;
         let luck = rng.normal(0.0, 0.9);
         let drive = work + coachability + coaching + surroundings + playing - setback + luck;
+        // The physical attributes' drive reads the strength staff's mix in
+        // place of the teaching mix (minor bug 302).
+        let coachability_p =
+            ((personality.coachability - 10.0) / 10.0) * 0.25 * ((physical_coaching - 10.0) / 10.0 + 0.5);
+        let coaching_p = ((physical_coaching - 10.0) / 10.0) * 0.35;
+        let physical_extra = (coachability_p + coaching_p - coachability - coaching) * 1.7 * plasticity;
         why.plasticity = plasticity;
         why.drive = drive;
         why.drive_work = work;
@@ -823,6 +854,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         for key in Attr::ALL {
             let physical = key.profile().group == AttributeGroup::Physical;
             let mut d = shared + rng.normal(0.0, 1.2 * plasticity);
+            if physical {
+                d += physical_extra;
+            }
             if spurt && physical {
                 d += rng.range(2.0, 6.0) * if key == Attr::Strength { 1.3 } else { 0.8 };
             }
@@ -889,7 +923,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // gives -1.5 to 1.5; it was cut at 1, so the room added nothing to a
     // player already at his limit).
     let morale_mult = 1.0 + 0.10 * clamp(ctx.morale, -1.5, 1.5);
-    let physical_mult = 1.0 + 0.08 * clamp(ctx.physical, -1.0, 1.0);
+    // The strength staff's mix for the physical attributes (minor bug 302),
+    // and its part of `physical` comes out so it counts once.
+    let physical_boost = 1.0 + (0.75 + physical_coaching * 0.025 - 1.0) * coachability_lean;
+    let physical_mult = 1.0 + 0.08 * clamp(ctx.physical - 0.06 * ctx.strength_dev, -1.0, 1.0);
     let mut settling = [false; ATTRIBUTE_COUNT];
     // The plan's focus (section 6b topic 5; proposed, not confirmed: the
     // share each other skill gives up so the year's total stays about even).
@@ -902,6 +939,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     why.focus_take = focus_take;
     let g = GrowthCtx {
         coaching_boost,
+        physical_boost,
         snaps_mult,
         work_mult,
         form,

@@ -1675,6 +1675,15 @@ fn camp(w: &mut World, d: Date) {
     }
     let focus = w.focus_by_person();
     let defer = !w.options.yearly_growth;
+    // The league's typical staff and strength head (minor bug 302), so the
+    // strength staff's share moves growth around the league's average.
+    let heads: Vec<f64> =
+        w.clubs.iter().map(|c| 10.0 + 10.0 * super::people::Support::z(c.support.strength.rating)).collect();
+    let (t_coach, t_strength) = {
+        let live: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
+        let n = live.len().max(1) as f64;
+        (live.iter().map(|&t| w.nfl[t].coaching).sum::<f64>() / n, live.iter().map(|&t| heads[t]).sum::<f64>() / n)
+    };
     for i in pros {
         let (team, status, first, new_team, payday) = {
             let c = w.people[i].pro.as_ref().unwrap();
@@ -1695,6 +1704,16 @@ fn camp(w: &mut World, d: Date) {
                     PlayingTime::Backup
                 }
             }
+        };
+        // Strength, speed and conditioning (minor bug 302): the strength
+        // staff takes 0.4 of the staff's pull there, as a college position
+        // coach's share of technique.
+        let (physical_coaching, strength_dev) = match team {
+            Some(t) => {
+                let dev = heads[t] - t_strength;
+                (Some(0.6 * w.nfl[t].coaching + 0.4 * (t_coach + dev)), dev)
+            }
+            None => (None, 0.0),
         };
         let (coaching, situation) = match team {
             Some(t) => {
@@ -1783,6 +1802,8 @@ fn camp(w: &mut World, d: Date) {
             morale,
             physical,
             medical,
+            physical_coaching,
+            strength_dev,
             focus: focus.get(&i).copied(),
             defer,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
