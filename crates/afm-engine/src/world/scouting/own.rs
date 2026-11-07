@@ -424,7 +424,7 @@ pub fn personnel_market(w: &World) -> Vec<Hire> {
             let past = (0..stops)
                 .filter_map(|_| others.get(rng.int(0, others.len().max(1) as i32 - 1) as usize).copied())
                 .collect();
-            let p = clamp(0.35 + 0.025 * (judge as f64 - 10.0), 0.1, 0.7);
+            let p = scouts::held_chance(judge);
             let reads = (years * 4).min(60) as u16;
             let held = (0..reads).filter(|_| rng.chance(p)).count() as u16;
             let job = match k % 6 {
