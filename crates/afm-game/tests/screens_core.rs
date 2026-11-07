@@ -167,3 +167,59 @@ fn the_desk_files_answers_and_clears_its_mail() {
     assert!(lib["saves"].as_array().unwrap().iter().any(|s| s["meta"]["no_fire"].is_string()), "{lib}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A title keeps the level it was won at (minor bug 293): a program that moved
+/// up to FBS keeps its FCS titles as FCS on the world card, the History
+/// champions, its banner, its team page, and its job file ("2 FCS titles").
+#[test]
+fn titles_keep_the_level_they_were_won_at() {
+    use afm_engine::world::data::Division;
+    use afm_game::views::TeamRef;
+    let dir = std::env::temp_dir().join(format!("afm-titles-{}", std::process::id()));
+    let mut g = Game::new(dir.clone());
+    ok(&mut g, "build_world", json!({ "seed": 11, "history_years": 2, "scale": 0.04, "engine_from": 2026 }));
+    let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
+    let job =
+        jobs["jobs"].as_array().unwrap().iter().find(|j| j["division"] == "FBS").unwrap_or_else(|| panic!("{jobs}"));
+    let p = job["ref"]["id"].as_u64().unwrap() as usize;
+
+    // Every season on record was an FCS title, won before the move up.
+    let w = g.world.as_mut().unwrap();
+    let prog = &mut w.programs[p];
+    assert_eq!(prog.division, Division::FBS);
+    for s in prog.seasons.iter_mut() {
+        s.division = Some(Division::FCS);
+        s.national_title = true;
+    }
+    let n = prog.seasons.len();
+    assert!(n >= 2, "{n} seasons");
+    prog.titles = n as u32;
+    let name = w.program_name(p).to_string();
+    let w = g.world.as_ref().unwrap();
+
+    // The world card's national champions and story leave them out.
+    let card = afm_game::cards::card(w);
+    assert!(card["world"]["nc"].as_array().unwrap().iter().all(|r| r[0] != name.as_str()), "{}", card["world"]);
+    assert!(card["world"]["story"].to_string().find(&name).is_none(), "{}", card["world"]["story"]);
+
+    // History's champions file them under FCS.
+    let champs = ok(&mut g, "history", json!({ "tab": "champions" }));
+    let mine: Vec<&Value> =
+        champs["body"].as_array().unwrap().iter().filter(|r| r["team"]["name"] == name.as_str()).collect();
+    assert_eq!(mine.len(), n, "{champs}");
+    assert!(mine.iter().all(|r| r["level"] == "FCS"), "{mine:?}");
+
+    // The banner calls them FCS titles, never national ones.
+    let w = g.world.as_ref().unwrap();
+    let banner = afm_game::lane_core::hero::slides(w, TeamRef::College(p))[0].clone();
+    let text = format!("{} {}", banner["title"], banner["sub"]);
+    assert!(text.contains("FCS titles") && !text.contains("national"), "{text}");
+
+    // The team page's seasons and the job file say FCS too.
+    let page = ok(&mut g, "team_page", json!({ "kind": "college", "id": p }));
+    assert!(page["seasons"].as_array().unwrap().iter().all(|s| s["nat_word"] == "FCS"), "{}", page["seasons"]);
+    let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
+    let job = jobs["jobs"].as_array().unwrap().iter().find(|j| j["ref"]["id"] == p).unwrap();
+    assert_eq!(job["titles_text"], format!("{n} FCS titles"), "{job}");
+    let _ = std::fs::remove_dir_all(dir);
+}

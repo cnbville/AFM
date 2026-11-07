@@ -1324,11 +1324,12 @@ pub fn history(w: &World, args: &Value) -> Value {
             })).collect::<Vec<_>>() })
         }
         _ => {
-            // Champions by year.
+            // Champions by year, each title at the level it was won at: a
+            // program that moved up keeps its FCS titles as FCS (bug 293).
             let mut rows: Vec<Value> = Vec::new();
             for p in &w.programs {
                 for s in p.seasons.iter().filter(|s| s.national_title) {
-                    rows.push(json!({ "year": s.year, "level": p.division.name(), "team": views::team_brief(w, TeamRef::College(p.id)), "record": format!("{}-{}", s.wins, s.losses), "coach": s.coach.map(|c| json!({ "id": c, "name": w.coaches[c].name })) }));
+                    rows.push(json!({ "year": s.year, "level": views::season_division(p, s).name(), "team": views::team_brief(w, TeamRef::College(p.id)), "record": format!("{}-{}", s.wins, s.losses), "coach": s.coach.map(|c| json!({ "id": c, "name": w.coaches[c].name })) }));
                 }
             }
             for (y, t) in &w.nfl_champions {

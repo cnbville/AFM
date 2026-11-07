@@ -955,7 +955,7 @@ function jobFile(st, j) {
   let kv = `<span>2025</span><span>${esc(j.record)}${j.playoffs ? " · " + esc(j.playoffs) : ""}</span>`;
   if (st.level === "college") {
     kv += `<span>Stadium</span><span>${thousands(j.stadium)} seats</span><span>NIL budget</span><span>${j.nil ? money0(j.nil) + " a year" : "-"}</span>
-      <span>Titles</span><span>${j.titles ? `${j.titles} national` : "No national titles"}</span>
+      <span>Titles</span><span>${j.titles_text ? esc(j.titles_text) : j.titles ? `${j.titles} national` : "No national titles"}</span>
       <span>You replace</span><span>${esc(replace)}</span><span>Your boss</span><span>${j.ad ? `${esc(j.ad.name)}, athletic director since ${j.ad.since}` : "The athletic director's job is open"}</span>`;
   } else if (st.level === "nfl") {
     kv += `<span>Super Bowls</span><span>${j.titles ? `${j.titles}, the last in ${j.last_title}` : "None yet"}</span><span>Cap room</span><span>${money(j.cap_room)} for ${esc(PG.opts.year)}</span>
