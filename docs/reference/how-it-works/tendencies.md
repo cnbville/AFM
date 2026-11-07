@@ -1,6 +1,6 @@
 # Tendencies: how it works today
 
-Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28.
+Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28. The Scramble habit in the spy (minor bug 289) checked over main 460d534 on 2026-11-07.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -153,7 +153,7 @@ Where each is read (all through `lean` unless noted):
 | Contact | receiver short-arms over the middle with a hitter closing | `game/scrimmage.rs`, `catch_point` |
 | Hold | time per read x(1 + 0.6 lean); throw clock + 1.0 lean seconds | `game/scrimmage.rs`, `quarterback` |
 | Gunslinger | room he wants before throwing, more downfield | `game/scrimmage.rs`, `quarterback` |
-| Scramble | how readily he leaves the pocket, x(1 + 1.2 lean) | `game/scrimmage.rs`, `quarterback` |
+| Scramble | how readily he leaves the pocket, x(1 + 1.2 lean); the running threat a defense spies adds 0.5 × (Scramble - 10.5) / 9.5 (minor bug 289) | `game/scrimmage.rs`, `quarterback`; `game/flow.rs`, `qb_spy` |
 | Upfield | contain rusher's arc and the QB's escape lanes; deeper run squeeze | `game/scrimmage.rs`, `quarterback`, `defend`; `game/sim.rs`, `rush_power` (arc 10 x lean) |
 | SnapTiming | get-off + 12 x lean | `game/sim.rs`, `engage` |
 | HandsUp | batted pass chance x clamp(1 + 1.1 lean, 0.15, 2.4); rush power - 2.5 x lean | `game/scrimmage.rs`, `batter`; `game/sim.rs`, `rush_power` |

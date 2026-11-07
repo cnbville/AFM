@@ -792,7 +792,7 @@ pub fn all() -> Vec<Test> {
             .chain(&["st_snaps", "st_q4_press", "st_q1_press"])
             .sign(1.0),
         t("all_consistency", "all", "Consistency (hidden, 4 / 16)", every, Kind::Consistency)
-            .chain(&["qb_ypa_sd", "rb_ypc_sd"])
+            .chain(&["qb_ypa_sd", "qb_epa_form", "qb_cmp_form", "rb_ypc_sd"])
             .sign(-1.0),
         t("all_composure", "all", "Composure", every, r(&[A::Composure]))
             .chain(&["qb_late_cmp", "k_fg_late", "pen"])

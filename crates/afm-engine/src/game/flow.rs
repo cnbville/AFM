@@ -32,6 +32,10 @@ type Lineup = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>);
 /// (proposed, not confirmed).
 const BALL_SPOTTED: f64 = 7.0;
 
+/// A man's game-to-game form, rating points of sd at Consistency 10 (minor
+/// bug 287; proposed, not confirmed).
+const FORM_SD: f64 = 3.0;
+
 /// The play clock after an administrative stoppage such as a penalty,
 /// from the ready signal (40 seconds otherwise, from the end of the play).
 const ADMIN_PLAY_CLOCK: f64 = 25.0;
@@ -136,6 +140,9 @@ struct Side<'a> {
     depth: Depth,
     energy: Vec<f64>,
     edge: Vec<f64>,
+    /// His form today in rating points (minor bug 287): drawn once a game,
+    /// its spread falling with his hidden Consistency.
+    form: Vec<f64>,
     trust: Vec<f64>,
     out: Vec<bool>,
     hurt: Vec<Option<InjuryKind>>,
@@ -226,6 +233,7 @@ impl<'a> Side<'a> {
             depth,
             energy: vec![team.prep.fresh.clamp(0.5, 1.0); n],
             edge: vec![0.0; n],
+            form: vec![0.0; n],
             trust: team.players.iter().map(|p| p.trust).collect(),
             out: vec![false; n],
             hurt: vec![None; n],
@@ -810,6 +818,20 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
     let t = setup.rules.timeouts;
     let mut sides =
         [Side::new(setup.home, setup.two_way_margin[0], t), Side::new(setup.away, setup.two_way_margin[1], t)];
+    // Form (minor bug 287): each man's level today, drawn once a game on his
+    // own stream, N(0, 3) rating points at Consistency 10, 4.1 at 4 and 1.9
+    // at 16 (proposed, not confirmed). The engine's passers already varied
+    // from game to game a little more than real ones (EPA a dropback, true
+    // sd 0.167 against nflverse's 0.154), so form stays small: at 5 points
+    // it added 1.4 points of runs stuffed at or behind the line (a run is
+    // stuffed by the one block that loses) and widened the score spread.
+    for side in sides.iter_mut() {
+        for (i, p) in side.team.players.iter().enumerate() {
+            let mut r = Rng::new(((setup.seed >> 21) as u32) ^ (setup.seed as u32).rotate_left(9) ^ p.id ^ 0x0F0E_2870);
+            let steady = clamp(1.0 + 0.6 * (10.0 - p.traits.consistency) / 10.0, 0.2, 2.0);
+            side.form[i] = FORM_SD * steady * r.normal(0.0, 1.0);
+        }
+    }
     // Game prep: each staff studies the other's film (plays and tactics
     // topic 5.1) and makes its matchup plan (5.4).
     let (hs, as_) = (setup.home.staff, setup.away.staff);
@@ -863,7 +885,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             let their_cbs = rated(them, Position::CB, 2, Spot::CB);
             let their_wrs = rated(them, Position::WR, 3, Spot::WR);
             let our_cbs: Vec<f64> = rated(me, Position::CB, 2, Spot::CB).iter().map(|x| x.1).collect();
-            let qb_run = them.depth.list(Position::QB).first().map_or(0.0, |&i| qb_run(&them.team.players[i]));
+            let qb_run = them.depth.list(Position::QB).first().map_or(0.0, |&i| qb_spy(&them.team.players[i]));
             // Their rushers on our pass blockers (A8).
             let mut rushers = rated(them, Position::EDGE, 2, Spot::EDGE);
             rushers.extend(rated(them, Position::DT, 2, Spot::DT));
@@ -3383,7 +3405,8 @@ impl<'a> Game<'a> {
                 again = true;
             }
         }
-        let mut dctx = calling::DefCtx { qb_run: qb_threat, ..Default::default() };
+        let qb_watch = qb.map_or(0.0, |i| qb_spy(&self.sides[o].team.players[i]));
+        let mut dctx = calling::DefCtx { qb_run: qb_watch, ..Default::default() };
         // Our call words in their hands (update 2, G5): someone who left
         // with them reads the call like a tell.
         let leak = self.sides[o].team.prep.leak[0];
@@ -3421,12 +3444,12 @@ impl<'a> Game<'a> {
                 let mut p = self.pending(Ask::Defense);
                 p.staff_def = Some(dcall);
                 p.their_personnel = Some(call.formation.personnel);
-                p.def_options = self.def_options(&sit, &call, &dcall, qb_threat);
+                p.def_options = self.def_options(&sit, &call, &dcall, qb_watch);
                 self.hold(p);
                 return PlayRecord::new(0, self.quarter, self.clock, o, PlayType::NoPlay);
             }
             if let Some(Input::Call { defense: Some(dc), .. }) = dinput {
-                let sheet = self.def_options(&sit, &call, &dcall, qb_threat);
+                let sheet = self.def_options(&sit, &call, &dcall, qb_watch);
                 let on_sheet = (dcall.coverage == dc.coverage && dcall.pressure == dc.pressure)
                     || sheet.iter().any(|x| x.coverage == dc.coverage && x.pressure == dc.pressure);
                 self.mark.1 = true;
@@ -3627,10 +3650,20 @@ impl<'a> Game<'a> {
         // the call), then the talks' lift rides on the momentum edge
         // (dialogue D4-D6).
         self.settle_words();
-        let mut hurt_edge_o: Vec<f64> =
-            self.sides[o].edge.iter().zip(&self.sides[o].pulse).map(|(e, p)| e + p.lift).collect();
-        let mut hurt_edge_d: Vec<f64> =
-            self.sides[d].edge.iter().zip(&self.sides[d].pulse).map(|(e, p)| e + p.lift).collect();
+        let mut hurt_edge_o: Vec<f64> = self.sides[o]
+            .edge
+            .iter()
+            .zip(&self.sides[o].pulse)
+            .zip(&self.sides[o].form)
+            .map(|((e, p), f)| e + p.lift + f)
+            .collect();
+        let mut hurt_edge_d: Vec<f64> = self.sides[d]
+            .edge
+            .iter()
+            .zip(&self.sides[d].pulse)
+            .zip(&self.sides[d].form)
+            .map(|((e, p), f)| e + p.lift + f)
+            .collect();
         // A man at a spot he doesn't know plays below his rating there (3.3);
         // the punt units' jobs are their own.
         if fake.is_none() {
@@ -5776,6 +5809,14 @@ pub fn fg_make(p: &GamePlayer, dist: f64) -> f64 {
 pub fn qb_run(p: &GamePlayer) -> f64 {
     let moves = 0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - super::sim::size_cost(p.weight, 222.0);
     clamp((moves - 68.0) / 20.0, 0.0, 1.0)
+}
+
+/// The running threat a defense spies (minor bug 289): his speed and
+/// elusiveness, and how often he leaves the pocket (the Scramble habit).
+pub fn qb_spy(p: &GamePlayer) -> f64 {
+    let moves = 0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - super::sim::size_cost(p.weight, 222.0);
+    let habit = (p.tend.get(crate::tendencies::Tend::Scramble) - crate::tendencies::MID) / 9.5;
+    clamp((moves - 68.0) / 20.0 + 0.5 * habit, 0.0, 1.0)
 }
 
 // ------------------------------------------------------------ talks
