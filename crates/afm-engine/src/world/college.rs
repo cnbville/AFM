@@ -167,6 +167,12 @@ pub(crate) struct CollegeSeason {
     pub started: bool,
     /// Offensive and defensive snaps, and games played (any snap), by player id.
     pub snaps: HashMap<u32, (u32, u32)>,
+    /// Games started, by player id: on the field for his side's first snap
+    /// with the ball or its first without it, as the tallies count a start
+    /// (`tally::games::starters`). His season row's role reads it once the
+    /// season is over (`real_role`).
+    #[serde(default)]
+    pub starts: HashMap<u32, u32>,
     pub lines: HashMap<u32, Line>,
     /// Every player's summed game lines at every division, for the career
     /// stats record (section 3, topic 8).
@@ -284,6 +290,7 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
         on_engine: w.options.engine_from.is_none_or(|from| w.year >= from),
         started: false,
         snaps: HashMap::new(),
+        starts: HashMap::new(),
         lines: HashMap::new(),
         book: HashMap::new(),
         out: HashMap::new(),
@@ -908,6 +915,7 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         }
         let mut streak_in: Vec<(u32, usize, [bool; 3], [bool; 3])> = Vec::new();
         if let Some(r) = &r {
+            let started = super::tally::games::starters(&r.stats);
             let [sa, sb] = &r.stats.team;
             cs.results[home].totals.add(sa, sb);
             cs.results[away].totals.add(sb, sa);
@@ -942,6 +950,9 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
                             streak_in.push((id, prog, eligible, hit));
                         }
                     }
+                }
+                for &id in &started[side] {
+                    *cs.starts.entry(id).or_default() += 1;
                 }
                 for (&id, l) in &r.stats.players[side] {
                     let e = cs.snaps.entry(id).or_default();
@@ -3259,7 +3270,21 @@ pub(crate) fn finish(w: &mut World) {
     // Snaps become game experience.
     let on_engine = w.college.as_ref().unwrap().on_engine;
     let snaps = std::mem::take(&mut w.college.as_mut().unwrap().snaps);
+    let starts = std::mem::take(&mut w.college.as_mut().unwrap().starts);
     let scale = engine_share(w, &snaps, year);
+    let team_games = engine_games(w, &snaps, year);
+    // Who was out hurt at some point of the season (practice or games):
+    // a player who never got on the field keeps his camp role only then.
+    let first_game = w.college.as_ref().unwrap().games.iter().map(|g| g.date).min();
+    let hurt: HashSet<u32> = first_game.map_or_else(HashSet::new, |f| {
+        let t = &w.training;
+        t.others_hurt
+            .iter()
+            .filter(|x| x.1.0 > f)
+            .map(|x| *x.0)
+            .chain(t.hurt.iter().filter(|h| h.until > f).map(|h| h.id))
+            .collect()
+    });
     for p in w.people.iter_mut() {
         if !matches!(p.stage, Stage::College | Stage::Declared) {
             continue;
@@ -3291,8 +3316,35 @@ pub(crate) fn finish(w: &mut World) {
             college: true,
             share: (n as f64 * k / season::SEASON_SNAPS as f64) as f32,
         });
+        // His season row and role say what he really played (`real_role`):
+        // a season on the engine for his team and a row from this season's
+        // camp, not a camp redshirt (settled with his eligibility) or a
+        // kicking spot (no scrimmage snaps to read). A player who never got
+        // on the field keeps his camp role when he was out hurt; otherwise
+        // (benched, or sitting out a transfer or academic year) he was a
+        // backup (proposed, not confirmed).
+        let team = played_for(p, year).and_then(|c| team_games.get(c).copied()).unwrap_or(games);
+        let started = starts.get(&p.player.id).copied().unwrap_or(0);
+        let was_hurt = hurt.contains(&p.player.id);
+        if let Some(k) = k
+            && !p.player.position.is_specialist()
+            && p.last_role.is_some_and(|r| r != PlayingTime::Redshirt)
+            && let Some(h) =
+                p.player.history.last_mut().filter(|h| h.level.is_college() && h.playing_time != PlayingTime::Redshirt)
+        {
+            let role = if games > 0 {
+                real_role(started, games, team, n as f64 * k / season::SEASON_SNAPS as f64)
+            } else if was_hurt {
+                h.playing_time
+            } else {
+                PlayingTime::Backup
+            };
+            h.playing_time = role;
+            p.last_role = Some(role);
+        }
     }
     w.college.as_mut().unwrap().snaps = snaps;
+    w.college.as_mut().unwrap().starts = starts;
     if w.options.keep_game_log && w.recording {
         for p in w.people.iter().filter(|p| matches!(p.stage, Stage::College | Stage::Declared)) {
             if let Some(s) = w.game_log.players.get_mut(&(year, p.player.id)) {
@@ -3337,6 +3389,18 @@ fn played_for(p: &super::Person, year: i32) -> Option<usize> {
 /// then his depth chart role decides.
 fn engine_share(w: &World, snaps: &HashMap<u32, (u32, u32)>, year: i32) -> Vec<Option<f64>> {
     let cs = w.college.as_ref().unwrap();
+    engine_games(w, snaps, year)
+        .iter()
+        .zip(&cs.results)
+        .map(|(&e, r)| {
+            let all = r.games().max(e);
+            (e > 0 && 2 * e >= all).then(|| all as f64 / e as f64)
+        })
+        .collect()
+}
+
+/// Each team's games on the engine: the most any of its players played.
+fn engine_games(w: &World, snaps: &HashMap<u32, (u32, u32)>, year: i32) -> Vec<u32> {
     let mut engine = vec![0u32; w.programs.len()];
     for p in w.people.iter().filter(|p| matches!(p.stage, Stage::College | Stage::Declared)) {
         if let Some(&(_, g)) = snaps.get(&p.player.id)
@@ -3346,13 +3410,37 @@ fn engine_share(w: &World, snaps: &HashMap<u32, (u32, u32)>, year: i32) -> Vec<O
         }
     }
     engine
-        .iter()
-        .zip(&cs.results)
-        .map(|(&e, r)| {
-            let all = r.games().max(e);
-            (e > 0 && 2 * e >= all).then(|| all as f64 / e as f64)
-        })
-        .collect()
+}
+
+/// The role his season really was, read from the games he played once the
+/// season is over (Cain 2026-11-07: an Alabama receiver whose row said
+/// "Starter" caught one ball in ten games). His role from fall camp is the
+/// staff's camp ranking, which holds first- and second-year players back
+/// by a block and their first-year dip; the game-day chart ranks by rating
+/// and practice alone, so a weaker upperclassman the camp ranking started
+/// can sit behind them all season and play only on special teams.
+///
+/// - Starter: he started at least half the games he played, and either a
+///   quarter of his team's games on the engine or every game he played (a
+///   starter hurt early); or he played half a full starter's snaps (a
+///   third receiver or a nickel corner the first snap's personnel leaves
+///   off).
+/// - Rotation: a fifth of a full starter's snaps.
+/// - Backup: less.
+///
+/// `share` is his snaps over a full starter's season (`SEASON_SNAPS`),
+/// scaled to his team's games as his reps are; `played` is at least one
+/// (`finish` reads a season without a game). Thresholds proposed, not
+/// confirmed.
+pub(crate) fn real_role(started: u32, played: u32, team_games: u32, share: f64) -> PlayingTime {
+    let starts = started > 0 && 2 * started >= played && (4 * started >= team_games || started == played);
+    if starts || share >= 0.5 {
+        PlayingTime::Starter
+    } else if share >= 0.2 {
+        PlayingTime::Rotation
+    } else {
+        PlayingTime::Backup
+    }
 }
 
 /// Whether this season counts against a player's eligibility, settled when
