@@ -446,6 +446,10 @@ pub struct GrowthWhy {
     /// Ceiling points earned by veteran learning (summed).
     pub veteran_learned: f64,
     pub coaching_boost: f64,
+    /// The strength staff's boost on the physical attributes' growth, and
+    /// its extra move on their ceilings (minor bug 302).
+    pub physical_boost: f64,
+    pub drive_physical: f64,
     pub snaps_mult: f64,
     pub work_mult: f64,
     pub morale_mult: f64,
@@ -526,6 +530,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // --- Injuries: the main source of setbacks -------------------------------
     let mut growth_multiplier = 1.0;
     let mut snaps_factor = 1.0;
+    let guarded = crate::game::sim::guarded_mix(
+        &crate::game::sim::GAME_INJURIES,
+        crate::game::sim::strength_guard(10.0 + ctx.strength_dev, 10.0),
+    )
+    .1;
     let injury_chance = level_injury_rate(ctx.level)
         * position.profile().injury_risk
         * (0.55 + player.injury_proneness * 0.045)
@@ -533,17 +542,22 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         * if ctx.trouble.is_some() || no_games { 0.5 } else if pt == PlayingTime::Starter { 1.15 } else { 0.9 }
         // His strength staff's guard on muscle strains and backs (minor bug
         // 303), on their share of the game mix.
-        * crate::game::sim::guarded_mix(
-            &crate::game::sim::GAME_INJURIES,
-            crate::game::sim::strength_guard(10.0 + ctx.strength_dev, 10.0),
-        )
-        .1;
+        * guarded;
     why.injury_chance = injury_chance;
     if rng.chance(injury_chance) {
         let roll = rng.next();
-        let severity = if roll < 0.62 {
+        // Strains and backs are minor or moderate, so the guard leaves the
+        // major injury's chance where it was: its share of the roll moves
+        // against the guard and minor and moderate split the rest 62:27.
+        let (minor, moderate) = if guarded == 1.0 {
+            (0.62, 0.89)
+        } else {
+            let major = (0.11 / guarded).min(1.0);
+            ((1.0 - major) * 0.62 / 0.89, 1.0 - major)
+        };
+        let severity = if roll < minor {
             Ev::MinorInjury
-        } else if roll < 0.89 {
+        } else if roll < moderate {
             Ev::ModerateInjury
         } else {
             Ev::MajorInjury
@@ -835,7 +849,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let coachability_p =
             ((personality.coachability - 10.0) / 10.0) * 0.25 * ((physical_coaching - 10.0) / 10.0 + 0.5);
         let coaching_p = ((physical_coaching - 10.0) / 10.0) * 0.35;
-        let physical_extra = (coachability_p + coaching_p - coachability - coaching) * 1.7 * plasticity;
+        // Grouped so equal mixes give exactly 0 (no strength staff: as before).
+        let physical_extra = ((coachability_p - coachability) + (coaching_p - coaching)) * 1.7 * plasticity;
+        why.drive_physical = physical_extra;
         why.plasticity = plasticity;
         why.drive = drive;
         why.drive_work = work;
@@ -932,6 +948,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // share each other skill gives up so the year's total stays about even).
     let focus_take = clamp(0.6 + 0.02 * personality.coachability, 0.6, 1.0);
     why.coaching_boost = coaching_boost;
+    why.physical_boost = physical_boost;
     why.snaps_mult = snaps_mult;
     why.work_mult = work_mult;
     why.morale_mult = morale_mult;

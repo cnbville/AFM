@@ -1369,6 +1369,12 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     }
     let fresh = w.coaches.len();
     let mut candidates = candidate_pool(w, o, moved, buzz);
+    // Nobody rehires the man the same employer let go this cycle or last.
+    let cy = cycle_year(w);
+    candidates.retain(|&c| {
+        let co = &w.coaches[c];
+        co.job.is_some() || co.history.last().is_none_or(|s| !(s.employer == o.employer && s.to >= cy - 1))
+    });
     // You are on the list when you put your name in or the job is the kind
     // you let it be known you want; never otherwise (lane 10).
     let me = market::me(w);
@@ -2046,7 +2052,14 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
         return;
     }
     // He keeps his job and reshapes his staff (minor bug 263).
-    if matches!(division, Division::FBS | Division::FCS) && tenure >= 1 && !market::is_you(w, c) {
+    // Not while his team still plays for a title, and not after a season
+    // the program didn't play (a build year or a dark span).
+    if matches!(division, Division::FBS | Division::FCS)
+        && tenure >= 1
+        && !contending
+        && w.programs[p].fields_games(year)
+        && !market::is_you(w, c)
+    {
         let hot = w.coaches[c].prove_it == Some(year) || (tenure >= 3 && wp2 < 0.4);
         staff_review(w, p, last + 0.5 * before, hot, openings);
     }
@@ -2078,9 +2091,12 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
 /// it starts so FBS on-field turnover lands near the real 40% (proposed,
 /// not confirmed: the base, the coordinators' extra exposure, the season
 /// and hot-seat reads and the cap of four a year; FCS takes the FBS rate,
-/// no data). At 0.09 a 30-year world at 0.1 (seed 69) had 357 FBS on-field
-/// hires a season, 24%.
-const STAFF_TURN: f64 = 0.2;
+/// no data). In 30-year worlds at 0.1, FBS on-field hires a season in
+/// 2016-25: 357 (24%) at 0.09 (seed 69), 494 (34%) at 0.2 (seed 71, before
+/// playoff teams were left out), 519 (35%) at 0.3 (seed 73), against 529 in
+/// 247Sports' 2023-24 audit and 550 in CBS Sports' 2024-25. A bad season is
+/// already at the 60% and four-a-year caps, so a higher base adds little.
+const STAFF_TURN: f64 = 0.3;
 const STAFF_TURN_COORDINATOR: f64 = 1.4;
 const STAFF_TURN_MAX: usize = 4;
 
@@ -2109,11 +2125,10 @@ fn staff_review(w: &mut World, p: usize, form: f64, hot: bool, openings: &mut Ve
     }
     let mean = staff.iter().map(|&(r, a)| quality(w, a, r)).sum::<f64>() / staff.len() as f64;
     let season = clamp((-6.0 * form).exp(), 0.4, 3.0);
-    let mut gone = 0;
+    // Every man is weighed; when more are marked than he lets go in a year,
+    // the weakest go first.
+    let mut marked: Vec<(Role, usize, f64)> = Vec::new();
     for (role, a) in staff {
-        if gone >= STAFF_TURN_MAX {
-            break;
-        }
         let Some(job) = w.coaches[a].job else { continue };
         if year - job.since < 1 {
             continue;
@@ -2122,7 +2137,17 @@ fn staff_review(w: &mut World, p: usize, form: f64, hot: bool, openings: &mut Ve
         let seat = if hot && coordinator { 1.6 } else { 1.0 };
         let weak = clamp((-0.15 * (quality(w, a, role) - mean)).exp(), 0.5, 2.0);
         let rate = STAFF_TURN * if coordinator { STAFF_TURN_COORDINATOR } else { 1.0 } * season * seat * weak;
-        if !w.rng.chance(clamp(rate, 0.0, 0.6)) || market::spared(w, a, "let go by the head coach") {
+        if w.rng.chance(clamp(rate, 0.0, 0.6)) {
+            marked.push((role, a, weak));
+        }
+    }
+    marked.sort_by(|x, y| y.2.total_cmp(&x.2));
+    let mut gone = 0;
+    for (role, a, _) in marked {
+        if gone >= STAFF_TURN_MAX {
+            break;
+        }
+        if market::spared(w, a, "let go by the head coach") {
             continue;
         }
         leave(w, a, "let go by the head coach");

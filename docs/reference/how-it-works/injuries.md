@@ -74,7 +74,7 @@ There are four injury sources, and they do not talk to each other much:
 
 ## The yearly roll (every player, every checkpoint)
 
-- Chance: level rate × position risk × (0.55 + 0.045 × proneness) × role × the strength staff's factor on the game mix's soft-tissue share (about 17.5%, so at most ±2.6%) (`development.rs`, `develop_season`). Level rate: high school 0.13, small college 0.16, FCS 0.17, FBS 0.19, NFL 0.24 (`level_injury_rate`). Role: 1.15 starter, 0.9 otherwise, 0.5 for a year without games or in trouble.
+- Chance: level rate × position risk × (0.55 + 0.045 × proneness) × role × the strength staff's factor on the game mix's soft-tissue share (18.1%, so at most ±2.7%) (`development.rs`, `develop_season`). Strains and backs are minor or moderate, so the major injury's chance stays where it was: its share of the severity roll is 0.11 / that factor, and minor and moderate split the rest 62:27. Level rate: high school 0.13, small college 0.16, FCS 0.17, FBS 0.19, NFL 0.24 (`level_injury_rate`). Role: 1.15 starter, 0.9 otherwise, 0.5 for a year without games or in trouble.
 - Severity: 62% minor, 27% moderate, 11% major (`develop_season`).
 - Games missed (`season_games`: HS 10, small college and FCS 11, FBS 12, NFL 17): minor 0-2, moderate 2-6, major from half to all. Minor and moderate × (1.3 − 0.03 × recovery) × (1 − 0.15 × medical), rounded. A year with no games records 0.
 - Cost to the year: minor growth × 0.95 and snaps factor 0.9; moderate × 0.85 and 0.65; major × 0.5 and 0.2 (`develop_season`, `growth_multiplier`, `snaps_factor`). With weekly training, the growth multiplier is stored in the year's form and lands through the weeks (`training/mod.rs`, `Train::open`).

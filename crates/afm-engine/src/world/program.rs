@@ -873,7 +873,9 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, rn
     let before = p.collective.boosters();
     let mood = (win_pct - 0.5) * 0.18 + (p.prestige - 0.5) * 0.04;
     // Donations follow results, and drift back toward what the brand can raise.
-    let target = nil_target(p.division, p.power_conference(next), p.fans, p.recent);
+    // The era of the season its conference is from: the one just played
+    // (a move to a new conference lands with that season's realignment).
+    let target = nil_target(p.division, p.power_conference(next - 1), p.fans, p.recent);
     let c = &mut p.collective;
     // New money gets harder to find as the boosters near what the biggest
     // real collectives raise, and they never pass it (11.7). Losses aren't

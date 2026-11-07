@@ -9779,7 +9779,7 @@
    ]
   },
   {
-   "what": "Quotas from the 247 Composite",
+   "what": "Quotas from ESPN's 2013-2026 means",
    "where": "crates/afm-engine/src/world/recruiting.rs SERVICE_TIERS",
    "status": "cited in code",
    "areas": [
@@ -12981,7 +12981,7 @@
    "college_people.json:recruiting.five_star_spread_by_5yr",
    "college_people.json:recruiting.blue_chips_per_class_top_school",
    "college_people.json:recruiting.distance_from_home",
-   "in code: Quotas from the 247 Composite"
+   "in code: Quotas from ESPN's 2013-2026 means"
   ],
   "C32": [
    "in code: Crystal Ball accuracy 80-92% for top analysts"

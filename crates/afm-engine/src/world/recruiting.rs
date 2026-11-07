@@ -7899,14 +7899,23 @@ fn star_nil(stars: u8) -> f64 {
 /// quarterbacks at $750K-1M and Power 4 quarterback signees at $100-300K.
 /// Now set so a top class of three five-stars, fifteen four-stars and seven
 /// three-stars averages about $175K: four-stars about $185K, three-stars
-/// about $60K. Payday's split keeps `star_nil`.
+/// about $60K (proposed, not confirmed). At 0.45, 0.1 and 0.035 a 30-year
+/// world at 0.1 (seed 72) signed Power 4 four-stars at $289-299K,
+/// three-stars at $77-79K and two-stars at $26-28K, five-stars at
+/// $443-517K and its one five-star quarterback at $798K. Four-stars sit
+/// under two caps (the position's going rate and NIL Go's range on the
+/// collective's part), so above about 0.2 their money falls more slowly
+/// than the factor: played on from saved worlds (seeds 70 and 72, classes of
+/// 2026 and 2027) they signed at $227-254K at 0.28, $182-194K at 0.18 and
+/// $139-149K at 0.13, with three-stars at $60-66K, two-stars at $20-23K and
+/// five-stars at $460-615K. Payday's split keeps `star_nil`.
 fn offer_star_nil(stars: u8) -> f64 {
     match stars {
         5 => 2.5,
-        4 => 0.45,
-        3 => 0.1,
-        2 => 0.035,
-        _ => 0.012,
+        4 => 0.18,
+        3 => 0.075,
+        2 => 0.025,
+        _ => 0.01,
     }
 }
 
