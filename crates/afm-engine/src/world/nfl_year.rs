@@ -2517,13 +2517,23 @@ fn play_day(w: &mut World, d: Date, t: u16) {
             pro_games::log_game(w, head, f, r, sides);
         }
     }
-    // The Data section's tallies (lane NB1).
+    // The Data section's tallies (lane NB1): worked out on all cores, then
+    // added in the games' order.
     if w.tallying() {
-        for ((&(k, g), f), o) in todays.iter().zip(&fixtures).zip(&outcomes) {
-            if let Some((r, sides)) = o {
-                let line = w.nfl_season.as_ref().and_then(|s| s.slots[k][g].line);
-                pro_games::tally_game(w, f, r, sides, "regular", line);
-            }
+        use rayon::prelude::*;
+        let world: &World = w;
+        let parts: Vec<_> = todays
+            .par_iter()
+            .zip(fixtures.par_iter())
+            .zip(outcomes.par_iter())
+            .filter_map(|((&(k, g), f), o)| {
+                let (r, sides) = o.as_ref()?;
+                let line = world.nfl_season.as_ref().and_then(|s| s.slots[k][g].line);
+                Some(pro_games::tally_part(world, f, r, sides, "regular", line))
+            })
+            .collect();
+        for part in parts {
+            w.tally_game(part);
         }
     }
     // The national windows and the games abroad make the news.

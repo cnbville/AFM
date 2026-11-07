@@ -378,6 +378,10 @@ pub struct Open {
     /// (item 2's delay); older ones drop off as days pass.
     #[serde(default)]
     pub recent: Vec<(i32, u8, u32, super::depth::Depth)>,
+    /// The oldest date in `recent` (None: not known yet), so a game only
+    /// walks `recent` when a day has dropped off (world speed lane).
+    #[serde(skip)]
+    oldest: Option<i32>,
 }
 
 /// How many days of games `Open::recent` keeps: the longest charting
@@ -387,8 +391,13 @@ pub const RECENT_DAYS: i32 = 4;
 impl Open {
     pub fn add(&mut self, level: Level, date: crate::calendar::Date, team: u32, key: u64, g: Game) {
         if !g.depth.is_empty() {
-            self.recent.retain(|r| r.0 > date.0 - RECENT_DAYS);
+            let cut = date.0 - RECENT_DAYS;
+            if self.oldest.is_none_or(|o| o <= cut) {
+                self.recent.retain(|r| r.0 > cut);
+                self.oldest = self.recent.iter().map(|r| r.0).min();
+            }
             self.recent.push((date.0, level as u8, g.id, g.depth.clone()));
+            self.oldest = Some(self.oldest.map_or(date.0, |o| o.min(date.0)));
         }
         let m = if level == Level::Nfl { &mut self.nfl } else { &mut self.seasons };
         let s = m.entry(g.id).or_insert_with(|| Season { id: g.id, level: level as u8, ..Default::default() });

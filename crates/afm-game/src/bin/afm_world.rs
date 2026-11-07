@@ -15,10 +15,17 @@
 //! season and a fingerprint of every store of the world (`fp::field_prints`).
 //! Two builds of one seed must write the same lines (the world speed lane's
 //! proof); the time they take is left out of the times printed.
+//! `afm_world prints <world file>` prints a written world's store prints.
 
 use std::time::Instant;
 
 use afm_game::jobs::{self, Part};
+
+/// A faster allocator for the world build (world speed lane): the match
+/// engine makes and drops many small buffers every snap, on every core.
+/// Results don't depend on it (the trial tools have used it all along).
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
@@ -34,10 +41,8 @@ fn main() {
     let pause = |w: &afm_engine::world::World| {
         if let Some(to) = &prints {
             let p = Instant::now();
-            let line: Vec<String> = afm_engine::world::wlog::fp::field_prints(w)
-                .iter()
-                .map(|(k, v)| format!("{k}={v:016x}"))
-                .collect();
+            let line: Vec<String> =
+                afm_engine::world::wlog::fp::field_prints(w).iter().map(|(k, v)| format!("{k}={v:016x}")).collect();
             let line = format!("{} {}\n", w.year - 1, line.join(" "));
             let mut f = std::fs::OpenOptions::new().create(true).append(true).open(to).expect("AFM_PRINTS file");
             std::io::Write::write_all(&mut f, line.as_bytes()).expect("AFM_PRINTS write");
@@ -47,6 +52,15 @@ fn main() {
         eprintln!("season {} done, {s:.0}s, {} left", w.year - 1, w.history_left());
         pause_after.is_some_and(|p| s >= p)
     };
+    // `afm_world prints <world file>`: the store prints of a written world.
+    if a.get(1).map(String::as_str) == Some("prints") {
+        let path = std::path::PathBuf::from(a.get(2).expect("afm_world prints <world file>"));
+        let w = afm_engine::save::read_world(&path).unwrap_or_else(|e| panic!("{e}"));
+        for (k, v) in afm_engine::world::wlog::fp::field_prints(&w) {
+            println!("{k}={v:016x}");
+        }
+        return;
+    }
     let part = if a.get(1).map(String::as_str) == Some("resume") {
         let half = std::path::PathBuf::from(a.get(2).expect("afm_world resume <folder>/name.afmworld.half"));
         jobs::resume_world_file(&half, pause)

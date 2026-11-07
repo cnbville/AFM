@@ -533,53 +533,60 @@ fn camp_redshirt(p: &super::Person) -> bool {
 /// redshirt).
 pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
     let four = w.rules.four_game_redshirt;
-    let mut held = HashSet::new();
-    for prog in &w.programs {
-        // Five years to play five (S11): every year counts, so nobody is
-        // held out to save one.
-        if super::eligibility::five_in_five(w.year, prog.division) {
-            continue;
-        }
-        let mut able = [0usize; crate::positions::POSITION_COUNT];
-        let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
-        for &i in &prog.roster {
-            let p = &w.people[i];
-            if p.stage != Stage::College || cs.out.contains_key(&p.player.id) {
-                continue;
+    // Each program on its own, on all cores (world speed lane): the set is
+    // the same whatever the order.
+    let held: Vec<Vec<u32>> = w
+        .programs
+        .par_iter()
+        .map(|prog| {
+            let mut held = Vec::new();
+            // Five years to play five (S11): every year counts, so nobody is
+            // held out to save one.
+            if super::eligibility::five_in_five(w.year, prog.division) {
+                return held;
             }
-            if camp_redshirt(p) {
-                planned.push((p.player.position, p.player.overall(), p.player.id));
-            } else {
-                able[p.player.position.index()] += 1;
+            let mut able = [0usize; crate::positions::POSITION_COUNT];
+            let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
+            for &i in &prog.roster {
+                let p = &w.people[i];
+                if p.stage != Stage::College || cs.out.contains_key(&p.player.id) {
+                    continue;
+                }
+                if camp_redshirt(p) {
+                    planned.push((p.player.position, p.player.overall(), p.player.id));
+                } else {
+                    able[p.player.position.index()] += 1;
+                }
             }
-        }
-        if planned.is_empty() {
-            continue;
-        }
-        // First those who cost nothing today: the year already counts (any
-        // game before 2018, five or more from 2018), or games are left
-        // under the four-game rule.
-        let mut rest = Vec::new();
-        for (pos, ov, id) in planned {
-            let games = cs.snaps.get(&id).map_or(0, |s| s.1);
-            let gone = games > 0 && (!four || games > 4);
-            if gone || (four && games < 4) {
-                able[pos.index()] += 1;
-            } else {
-                rest.push((pos, ov, id));
+            if planned.is_empty() {
+                return held;
             }
-        }
-        // Then the best of the rest, only while the position is short.
-        rest.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
-        for (pos, _, id) in rest {
-            if able[pos.index()] < season::two_deep(pos) {
-                able[pos.index()] += 1;
-            } else {
-                held.insert(id);
+            // First those who cost nothing today: the year already counts (any
+            // game before 2018, five or more from 2018), or games are left
+            // under the four-game rule.
+            let mut rest = Vec::new();
+            for (pos, ov, id) in planned {
+                let games = cs.snaps.get(&id).map_or(0, |s| s.1);
+                let gone = games > 0 && (!four || games > 4);
+                if gone || (four && games < 4) {
+                    able[pos.index()] += 1;
+                } else {
+                    rest.push((pos, ov, id));
+                }
             }
-        }
-    }
-    held
+            // Then the best of the rest, only while the position is short.
+            rest.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
+            for (pos, _, id) in rest {
+                if able[pos.index()] < season::two_deep(pos) {
+                    able[pos.index()] += 1;
+                } else {
+                    held.push(id);
+                }
+            }
+            held
+        })
+        .collect();
+    held.into_iter().flatten().collect()
 }
 
 /// The day's college games.
@@ -696,8 +703,9 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         teams: Option<(GameTeam, GameTeam)>,
         context: [crate::game::garbage::Context; 2],
     }
+    // Each game's setup only reads the world: on all cores, in order.
     let jobs: Vec<Job> = idx
-        .iter()
+        .par_iter()
         .map(|&k| {
             let g = &cs.games[k];
             let (mut venue, played, _) = conditions(w, g, k);

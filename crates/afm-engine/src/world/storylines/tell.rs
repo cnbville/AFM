@@ -449,6 +449,16 @@ fn keys(s: &Story, what: BeatKind, extra: Option<&str>) -> Vec<String> {
 }
 
 /// A beat's line from the bank, with the story's names and history.
+/// The lines another story told that a story must not tell again: all of
+/// them from its own season, else those told this season (`line`).
+fn told_lines(o: &Story, season: i32, now: i32) -> impl Iterator<Item = String> + '_ {
+    let same = o.season == season;
+    o.beats
+        .iter()
+        .filter(move |b| !b.text.is_empty() && (same || super::told_season(b.date) == now))
+        .map(|b| b.text.clone())
+}
+
 pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>, f: &Fill) -> Option<String> {
     let seed = w.options.seed;
     let year = w.year;
@@ -458,22 +468,22 @@ pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>
     // football year, so the lines of the weeks before count by their dates.
     let lead = s.lead();
     let now = super::told_season(w.today);
-    let others: Vec<String> = w
-        .storylines
-        .open
-        .iter()
-        .chain(&w.storylines.ended)
-        .filter(|o| {
-            o.id != s.id && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
-        })
-        .flat_map(|o| {
-            let same = o.season == s.season;
-            o.beats
-                .iter()
-                .filter(move |b| !b.text.is_empty() && (same || super::told_season(b.date) == now))
-                .map(|b| b.text.clone())
-        })
-        .collect();
+    let kin = |o: &Story| {
+        o.id != s.id && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
+    };
+    let (open, ended) = (&w.storylines.open, &w.storylines.ended);
+    // A long list of stories is walked on all cores, in the same order
+    // (world speed lane).
+    let others: Vec<String> = if open.len() + ended.len() >= 2048 {
+        use rayon::prelude::*;
+        open.par_iter()
+            .chain(ended.par_iter())
+            .filter(|o| kin(*o))
+            .flat_map_iter(|o| told_lines(o, s.season, now))
+            .collect()
+    } else {
+        open.iter().chain(ended).filter(|o| kin(*o)).flat_map(|o| told_lines(o, s.season, now)).collect()
+    };
     let said: Vec<&str> = s
         .beats
         .iter()
