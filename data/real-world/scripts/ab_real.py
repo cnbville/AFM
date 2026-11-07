@@ -752,6 +752,24 @@ for _xb, _names in CB_ROWS.items():
         _src = SRC_PEN if _n.startswith(("dpi", "dhold")) else SRC_DEF
         slope(f"cb_{_xb}__{_n}", cbf, _xb, _y, _w, "CB, " + _ms, _src + (SRC_MD if _xb == "arm" else ""), _lab)
 
+# A linebacker's body against run support, tackling, coverage and pressure, every linebacker (the
+# linebacker research, afm/ab-tests/research-linebackers.md): the rows the linebacker body tests read.
+lbf = dd.join(pc[["dpi", "dholding"]], on=["season", "pfr_id"])
+lbf = lbf[lbf.group == "LB"].copy()
+lbf[["dpi", "dholding"]] = lbf[["dpi", "dholding"]].fillna(0)
+lbf["dpi_per_snap"] = lbf.dpi / lbf.dfn
+lbf["dhold_per_snap"] = lbf.dholding / lbf.dfn
+CB_Y["rlong_share"] = ("rlong_share", "rtk", MS_D + " and 15+ run tackles", "share of his run tackles after 10+ yards")
+CB_Y["tgt_per_snap"] = ("tgt_per_snap", "dfn", MS_D, "targets a defense snap")
+LB_ALL = ("rtk_per_snap", "rstop_per_snap", "rlong_share", "tkl_per_snap", "mtkl_pct", "tgt_per_snap", "cmp_allowed",
+          "yds_per_tgt", "yac_per_cmp", "dadot", "prss_per_snap", "sack_per_snap")
+for _xb in ("wt", "ht", "arm", "forty"):
+    for _n in LB_ALL:
+        if f"lb_{_xb}__{_n}" in SLOPES:
+            continue
+        _y, _w, _ms, _lab = CB_Y[_n]
+        slope(f"lb_{_xb}__{_n}", lbf, _xb, _y, _w, "LB, " + _ms, SRC_DEF + (SRC_MD if _xb == "arm" else ""), _lab)
+
 # ---------------------------------------------------------------- kickers, punters, returners
 fg = pbp[(pbp.field_goal_attempt == 1) & pbp.kick_distance.notna()].copy()
 fg["good"] = (fg.field_goal_result == "made").astype(float)
