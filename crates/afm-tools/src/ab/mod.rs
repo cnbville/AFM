@@ -1102,6 +1102,23 @@ pub fn stats() -> Vec<Stat> {
         } else {
             Z
         }),
+        // Per defense snap, runs included, as the real numbers count them
+        // (PFR pressures and sacks over all defense snaps).
+        play!("dl_press_snap", "pressures a defense snap", Pct, |r, c| if scrimmage(r) && c.my_def(r) {
+            let n = if dropback(r) {
+                r.on_field.iter().flatten().filter(|i| c.f(**i) && pressured_by(r, **i)).count()
+            } else {
+                0
+            };
+            rc(n as f64, c.on(r))
+        } else {
+            Z
+        }),
+        play!("dl_sack_snap", "sacks a defense snap", Pct, |r, c| if scrimmage(r) && c.my_def(r) {
+            rc(r.sackers.iter().filter(|i| c.f(**i)).count() as f64, c.on(r))
+        } else {
+            Z
+        }),
         play!("dl_off", "offside a snap", Pct, |r, c| rc(fouls(r, c, &[FoulKind::Offside]), snaps(r, c))),
         play!("dl_bat", "batted passes a rush snap", Pct, |r, c| if attempt(r) && c.my_def(r) {
             rc(bf(r.tend.hands_up.is_some_and(|i| c.f(i))), c.on(r))
@@ -1199,6 +1216,11 @@ pub fn stats() -> Vec<Stat> {
         }),
         // --- coverage (focus: the nearest defender at the catch point)
         play!("cv_tgt", "targets a coverage snap", Pct, |r, c| if dropback(r) && c.my_def(r) {
+            rc(bf(thrown(r) && c.fo(r.defender)), c.on(r))
+        } else {
+            Z
+        }),
+        play!("cv_tgt_snap", "targets a defense snap", Pct, |r, c| if scrimmage(r) && c.my_def(r) {
             rc(bf(thrown(r) && c.fo(r.defender)), c.on(r))
         } else {
             Z
