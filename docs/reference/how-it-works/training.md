@@ -1,6 +1,6 @@
 # Training: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. The strength staff (minor bugs 302 and 303) checked with that change on 2026-11-07.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Nearly every size in the training week and in prep is marked in code as Claude's (proposed, not confirmed); `docs/world-model.md`, "Training: the week's frame and prep", lists them.
 

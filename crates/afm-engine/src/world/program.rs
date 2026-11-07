@@ -506,7 +506,7 @@ impl Program {
     }
 }
 
-/// The major independents of the 1980s (minor bug 304): the FBS
+/// The major independents of the 1980s (minor bug 311): the FBS
 /// independents that went straight into a power conference when the Big
 /// East formed in 1991 and the ACC, SEC and Big Ten grew in 1992-93 (Miami
 /// won the 1983, 1987 and 1989 titles, Penn State 1982 and 1986, as
@@ -558,7 +558,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
         _ => 10_000,
     });
     let scale = division_scale(row.division);
-    // A power program in the season it starts (minor bug 304): the Pac-10,
+    // A power program in the season it starts (minor bug 311): the Pac-10,
     // Big Eight and Southwest Conference of 1984 and its major independents
     // too, not only today's four.
     let p4 = row.name == "Notre Dame"

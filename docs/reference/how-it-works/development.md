@@ -1,6 +1,6 @@
 # Development: how it works today
 
-Checked against main at 6200524 with update 3 lanes 1 (bodies and the speed core), 3 and 4, and world reader lane R2 on 2026-10-29, the playoff snaps (minor bug 53) on 2026-11-01, and lane NB12 (growth from the depth chart, minor bug 247) on eab31aa, 2026-11-05.
+Checked against main at 6200524 with update 3 lanes 1 (bodies and the speed core), 3 and 4, and world reader lane R2 on 2026-10-29, the playoff snaps (minor bug 53) on 2026-11-01, and lane NB12 (growth from the depth chart, minor bug 247) on eab31aa, 2026-11-05. The strength staff's mix (minor bug 302) checked with that change on 2026-11-07.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 

@@ -1,6 +1,6 @@
 # Injuries: how it works today
 
-Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main.
+Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. The strength staff's guard (minor bug 303) checked with that change on 2026-11-07.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
