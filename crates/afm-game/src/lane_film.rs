@@ -22,27 +22,50 @@ use crate::{Game, Reply};
 /// Temporary override (Cain 2026-11-06): the full tape plays straight
 /// through on one press like the quick watch, with no stops to call a snap
 /// ("will this guard's block hold?"), but keeps the full session's hours and
-/// what they buy: the room, run-backs while your hours last, and your verdict
-/// (`session::run_through`). The snap-by-snap session is all still there for
-/// the film revamp: set this to false to bring it back.
+/// what they buy: the room and run-backs while your hours last
+/// (`session::run_through`). No verdict is asked either: the report lands
+/// on the same press (Cain 2026-11-07, minor bug 312). The snap-by-snap
+/// session is all still there for the film revamp: set this to false to
+/// bring it back.
 pub const FULL_RUNS_THROUGH: bool = true;
 
-/// Opens to the snap-by-snap session, or plays it through while the
-/// override is on.
+/// Opens to the snap-by-snap session, or plays it through and saves it
+/// while the override is on.
 fn through(w: &mut World, mode: session::Mode, said: String) -> Result<String, String> {
     if !FULL_RUNS_THROUGH || mode != session::Mode::Full {
         return Ok(said);
     }
-    Ok(session::run_through(w)?.unwrap_or(said))
+    session::run_through(w)
+}
+
+/// A full tape an older build left open (snap by snap, or stopped at the
+/// verdict) is played through and saved as soon as the film room is
+/// opened, so it never asks and never blocks the next tape (minor bug 312).
+fn settle(w: &mut World) {
+    if FULL_RUNS_THROUGH && w.scouting.film.open.as_ref().is_some_and(|s| s.mode == session::Mode::Full) {
+        let v = w.scouting.film.version;
+        let _ = session::run_through(w);
+        // A team's tape goes into the plan only if it was saved: nothing
+        // played (your hours ran out) saves nothing.
+        if w.scouting.film.version != v {
+            after_team(w);
+        }
+    }
 }
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let id = || args.get("id").and_then(Value::as_u64).map(|x| x as u32).ok_or_else(|| "Missing id.".to_string());
     let num = |k: &str| args.get(k).and_then(Value::as_u64).ok_or_else(|| format!("Missing {k}."));
     let r = match cmd {
-        "film_home" => game.w().map(home),
+        "film_home" => game.wm().map(|w| {
+            settle(w);
+            home(w)
+        }),
         "film_brief" => game.w().and_then(|w| brief(w, id()?, args.get("ask").and_then(Value::as_str))),
-        "film_session" => game.w().map(session_view),
+        "film_session" => game.wm().map(|w| {
+            settle(w);
+            session_view(w)
+        }),
         "film_open" => game.wm().and_then(|w| {
             let cut = args
                 .get("cut")
@@ -54,11 +77,15 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
                 _ => session::Mode::Full,
             };
             let ask = args.get("ask").and_then(Value::as_str);
+            settle(w);
             let said = session::open_player(w, id()?, cut, mode, ask)?;
             let said = through(w, mode, said)?;
             Ok(with_said(session_view(w), said))
         }),
-        "film_opp" => game.wm().and_then(|w| open_opp(w, args)),
+        "film_opp" => game.wm().and_then(|w| {
+            settle(w);
+            open_opp(w, args)
+        }),
         "film_snap" => game.wm().and_then(|w| step(w, session::play)),
         "film_call" => game.wm().and_then(|w| {
             let k = num("pick")? as u8;
