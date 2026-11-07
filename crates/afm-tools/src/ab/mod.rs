@@ -1208,6 +1208,38 @@ pub fn stats() -> Vec<Stat> {
         } else {
             Z
         }),
+        // Run support as PFR and play-by-play count it: runs and scrambles,
+        // per defense snap he played.
+        play!("tk_run_snap", "run tackles a defense snap", Pct, |r, c| if scrimmage(r) && c.my_def(r) {
+            let n =
+                if matches!(r.kind, T::Run | T::Scramble) { r.tacklers.iter().filter(|i| c.f(**i)).count() } else { 0 };
+            rc(n as f64, c.on(r))
+        } else {
+            Z
+        }),
+        play!(
+            "tk_run_stop",
+            "run tackles at 3 yards or less a defense snap",
+            Pct,
+            |r, c| if scrimmage(r) && c.my_def(r) {
+                let n = if matches!(r.kind, T::Run | T::Scramble) && r.yards <= 3.0 {
+                    r.tacklers.iter().filter(|i| c.f(**i)).count()
+                } else {
+                    0
+                };
+                rc(n as f64, c.on(r))
+            } else {
+                Z
+            }
+        ),
+        play!("tk_run_long", "his run tackles after 10+ yards", Pct, |r, c| if scrimmage(r)
+            && matches!(r.kind, T::Run | T::Scramble)
+        {
+            let t = r.tacklers.iter().filter(|i| c.f(**i)).count() as f64;
+            rc(if r.yards >= 10.0 { t } else { 0.0 }, t)
+        } else {
+            Z
+        }),
         play!("lb_blitz_press", "pressures a blitz snap", Pct, |r, c| if dropback(r) && r.blitz && c.my_def(r) {
             let n = r.on_field.iter().flatten().filter(|i| c.f(**i) && pressured_by(r, **i)).count();
             rc(n as f64, c.on(r))
