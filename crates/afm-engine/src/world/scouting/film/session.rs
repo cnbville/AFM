@@ -1036,14 +1036,19 @@ pub fn close(w: &mut World) -> Result<String, String> {
 /// The full tape played straight through on one press (Cain 2026-11-06,
 /// a temporary override the game turns on until the film revamp): the
 /// tape never stops for a call, every snap is played and charged as in a
-/// full session with the room in it, a half-seen moment is run back while
-/// your hours last, and a player's tape stops at your verdict. A team's
-/// tape, or one your hours ran out on, is saved at once: Some(what was
-/// said). None means the verdict waits.
-pub fn run_through(w: &mut World) -> Result<Option<String>, String> {
+/// full session with the room in it, and a half-seen moment is run back
+/// while your hours last. The tape is saved at once with no verdict asked
+/// (Cain 2026-11-07, minor bug 312: one click and the result lands), a
+/// player's or a team's, or what was watched when your hours ran out.
+/// It also finishes a full tape an older build left open: stopped for a
+/// call (the snap plays on without one; calls already made keep theirs)
+/// or waiting for the verdict.
+pub fn run_through(w: &mut World) -> Result<String, String> {
     let s = w.scouting.film.open.as_mut().ok_or("No film open.")?;
-    for sn in &mut s.snaps {
-        sn.call = None;
+    for (sn, pick) in s.snaps.iter_mut().zip(&s.picks) {
+        if pick.is_none() {
+            sn.call = None;
+        }
     }
     loop {
         let (step, half) = {
@@ -1053,16 +1058,21 @@ pub fn run_through(w: &mut World) -> Result<Option<String>, String> {
         match step {
             0 => {
                 if let Err(e) = play(w) {
-                    return close(w).map(|said| Some(format!("{e} {said}")));
+                    return close(w).map(|said| format!("{e} {said}"));
                 }
+            }
+            1 => {
+                let mut s = take(w)?;
+                resolve(w, &mut s);
+                put(w, s);
             }
             2 if half && runback(w).is_ok() => {}
             2 => next(w)?,
             _ => break,
         }
     }
-    let team = w.scouting.film.open.as_ref().is_some_and(|s| matches!(s.target, Target::Team(_)));
-    if team { close(w).map(Some) } else { Ok(None) }
+    let s = take(w)?;
+    Ok(finish(w, s, None))
 }
 
 /// "Watch it quick" (SK53): the cut-up for twenty minutes, what your eye
@@ -1287,6 +1297,10 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
     match s.mode {
         Mode::Quick => {
             format!("Watched quick: your eye caught {n} thing{} the first time through.", if n == 1 { "" } else { "s" })
+        }
+        // Played straight through: no calls were asked.
+        _ if made == 0 => {
+            format!("Saved to his file: {watched} snaps, {n} thing{} caught.", if n == 1 { "" } else { "s" })
         }
         _ => format!(
             "Saved to his file: {watched} snaps, {right} of {made} calls right, {n} thing{} caught.",

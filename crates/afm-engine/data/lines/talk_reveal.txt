@@ -64,7 +64,7 @@ I didn't want to make a fuss. I've just been sitting with it. ~ quiet humble
 I know I'm not the best player out there. I just want a fair look. ~ humble
 I know I've got stuff to work on. I just want to know I'm being considered. ~ humble
 I'd take any role. I just want to feel like I matter to what we're doing. ~ humble
-I'm better than the guy in front of me. Everybody in the room knows it. ~ ego
+I'm better than the guy in front of me. Everybody in the room knows it. ~ ego brash
 I'm not built to sit, Coach. I've never sat. ~ ego
 I should be the guy. I'm not going to pretend I don't think that. ~ ego
 It's embarrassing, honestly. People back home don't believe I'm not starting. ~ ego
@@ -198,7 +198,7 @@ Young guys can play too. I'm young, not unready. ~ young
 I don't wanna wait three years to find out if I'm good. I wanna find out now. ~ young
 I've been around long enough to recognize a guy getting phased out. I hope that's not me. I've got more. ~ vet
 My body's still good, Coach. Better than people think. I want the snaps to prove it. ~ vet
-I'm the most talented guy in that position room. I shouldn't have to say it out loud. ~ ego
+I'm the most talented guy in that position room. I shouldn't have to say it out loud. ~ ego brash
 Put me out there more and you'll wonder why you waited. ~ ego
 I don't want to take anything from anybody. I just think I could help us a little more. ~ humble
 If I'm not ready, tell me what to fix. If I am, I'd love a few more snaps. ~ humble
@@ -274,7 +274,7 @@ I want the kind of role where you plan around me showing up.
 If my spot's mine to lose, tell me. If it's mine to win, tell me how.
 Lately I've been playing not to mess up instead of playing to earn more. That comes from this.
 Football's the one thing I've always been good at. Right now I don't feel good at it.
-My people ask how it's going and I make excuses for you. I'm tired of making them.
+My people ask how it's going and I make excuses for you. I'm tired of making them. ~ brash
 No shortcut, Coach. I just want a clear line to more time.
 Some days I catch myself hoping somebody slips so I get more time. I don't like that in me.
 A little more rope. That's all I'm after.
@@ -345,8 +345,8 @@ Being young isn't a reason to wait if I'm already good enough. ~ young
 People say I've got time. I don't want time. I want snaps. ~ young
 Experience counts for something. I see the game before it happens. Let me use that more. ~ vet
 Every year somebody younger comes in. I'm still here because I can play. Let me play more. ~ vet
-Everybody in the building knows I'm one of the best players here. The chart doesn't. ~ ego
-Never been anybody's second choice. Not about to start now. ~ ego
+Everybody in the building knows I'm one of the best players here. The chart doesn't. ~ ego brash
+Never been anybody's second choice. Not about to start now. ~ ego brash
 Maybe I'm not the best player out there. But I think I've earned a few more chances. ~ humble
 Whatever role you've got, I'll do it. I just hope there's a bit more of it someday. ~ humble
 I'm one of the voices in that locker room. I want my play to back it up more. ~ leader
@@ -650,7 +650,7 @@ Everybody says I'm the future. I'd like to be some of the present too. ~ young
 Don't protect me, Coach. I can handle more than you think. ~ young
 I've earned some trust over the years. I'd like to spend some of it on more snaps. ~ vet
 I know how this ends for guys my age. I'm not ready for it to end yet. ~ vet
-Somebody's getting snaps that belong to me. I won't apologize for thinking that. ~ ego
+Somebody's getting snaps that belong to me. I won't apologize for thinking that. ~ ego brash
 I've been the best player on every team I've played on. This one too. ~ ego
 Nothing big. Just a few more chances to help. ~ humble
 I don't think I'm better than anybody. I just think I'm ready. ~ humble
@@ -853,7 +853,7 @@ I play best with my eyes on the quarterback. Most of the time I've got my back t
 I want to be around the ball. Right now I'm playing so deep nothing comes near me. ~ db
 I'm best going forward and attacking. Too much of my job is sitting back and waiting. ~ cover
 You keep asking my leg to do the safe thing. It can do more than that. ~ kicker
-Other teams game-plan for me. We don't. Think about that. ~ ego
+Other teams game-plan for me. We don't. Think about that. ~ ego brash
 Defenses are scared of me and we keep giving them the night off. ~ ego
 I don't want to step on the plan. I just think there's more I could do inside it. ~ humble
 When I'm doing more, the guys around me play looser. I've seen it. ~ leader
@@ -942,8 +942,8 @@ Stopping the run is part of it. It just shouldn't be all of it for me. ~ dl
 Sideline to sideline is how I play. We keep me in the box taking on guards. ~ lb
 Give me their best guy every snap, wherever he lines up. ~ db
 Some of our calls have me guessing between two jobs on the same snap. Let me just do one. ~ db
-You've got a star and you're using him like a role player. ~ ego
-Every film session I watch myself do a job I'm too good for. ~ ego
+You've got a star and you're using him like a role player. ~ ego brash
+Every film session I watch myself do a job I'm too good for. ~ ego brash
 If I need to earn a bigger job, I'll earn it. I'd just like the chance. ~ humble
 The young guys watch how I'm used. If I'm a decoy, what does that tell them? ~ leader
 I don't speak up in meetings. But I've got ideas for how I could help more. ~ quiet
@@ -2535,7 +2535,7 @@ I'm a senior. People look at me for answers I don't have. ~ hs senior
 Snapping is rhythm, front and back. The rhythm's off everywhere around here. ~ snapper
 A back sees every face in the huddle. Lately none of the faces look right. ~ rb
 I can carry a lot. I can't carry everybody. ~ ego
-I didn't come here to be part of something average. It feels average. ~ ego
+I didn't come here to be part of something average. It feels average. ~ ego brash
 Maybe I'm reading it wrong. I hope I am. But it feels heavy here. ~ humble
 Just one guy's opinion, and maybe it doesn't count for much. But it's heavy. ~ humble
 Lifting everybody up is supposed to be my job. Lately I've got nothing to lift with. ~ leader
@@ -2845,7 +2845,7 @@ First-round guys get looked at to change things. I feel that weight and I don't 
 On the practice squad I see both sides. Neither side looks happy. ~ nfl psquad
 Ninth graders like me just want to belong somewhere. I don't feel like I belong to anything here. ~ hs freshman
 A year of sitting out and watching taught me a lot. What I see now worries me. ~ college redshirt
-I know what I bring. I'm not sure what the rest of us are bringing. ~ ego
+I know what I bring. I'm not sure what the rest of us are bringing. ~ ego brash
 Guys like me need a stage. Right now the stage feels shaky. ~ ego
 Not pointing fingers at anybody. I just feel it, and figured you'd want to know. ~ humble
 Could be I'm wrong. But the feeling hasn't gone away. ~ humble
@@ -3293,7 +3293,7 @@ Taking up a roster spot you could give someone better bothers me. That's part of
 I've been the one telling guys to stay. Now I'm the one thinking about going. ~ leader
 Been looking. Didn't want to say it. ~ quiet
 Leaving's on my mind a lot. I just don't talk about it. ~ quiet
-If somebody already has my spot planned for next year, say it to my face. ~ hot
+If somebody already has my spot planned for next year, say it to my face. ~ hot brash
 Hearing about my own future secondhand. I'm done with that. ~ hot
 Either way I'll be at peace. I just want to be honest that I'm looking. ~ calm
 Four years here is what I said. Breaking that would eat at me. ~ college loyal
@@ -3392,7 +3392,7 @@ I've always believed I'm a starter in this conference. If not here, somewhere. ~
 Not trying to make this about me. But I need to know if the plan includes me. ~ college humble
 If I leave, I want to tell the guys myself. Not have them see it on a list. ~ college nil leader
 Nobody else knows this. Just you. I've been thinking about the portal. ~ college nil quiet
-If you're recruiting over me, I'm not going to sit here and wait for it. ~ college hot
+If you're recruiting over me, I'm not going to sit here and wait for it. ~ college hot brash
 Whatever I decide, I'll decide with a clear head. But I'm looking at it seriously. ~ college calm
 I signed here for a reason. I'm trying to remember it every day. ~ college loyal
 What's the number here next year? Because I know the number somewhere else. ~ college nil greedy
@@ -3487,7 +3487,7 @@ Better than people here think. Somewhere else already thinks so. ~ ego
 I'll be fine wherever I go. I just wanted to be honest with you first. ~ humble
 The guys look to me. If I leave, I want them to understand why. ~ leader
 Don't take it personal. I've been looking. ~ quiet
-Sticking around to be strung along isn't happening. If I'm not in it, say so now. ~ hot
+Sticking around to be strung along isn't happening. If I'm not in it, say so now. ~ hot brash
 Leaving here would break my heart. But I've thought about it. ~ loyal
 If I go, it's for the money and the spot. Not for nothing. ~ greedy
 Weighed like a business decision, the numbers say I should at least listen. ~ pro
@@ -3590,7 +3590,7 @@ I'm good. Thanks for asking though. ~ humble
 I don't want to bother you with it. I'm okay. ~ humble
 It's nothing you need to worry about. ~ humble
 I appreciate you, Coach. I'm good. ~ humble
-I'm fine. I don't need a therapy session. ~ ego
+I'm fine. I don't need a therapy session. ~ ego brash
 I'm good. Worry about the other guys. ~ ego
 I'm the last guy you need to worry about. ~ ego
 I'm straight. Trust me. ~ ego
