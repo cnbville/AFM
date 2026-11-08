@@ -445,33 +445,46 @@ pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
 /// read of every school and every college room for each of the 51
 /// states, 22 seconds a season.
 pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, PlayingTime)]) {
+    use rayon::prelude::*;
     let role_of: std::collections::HashMap<usize, PlayingTime> = roles.iter().copied().collect();
-    let mut read_ids = Vec::new();
-    for &s in schools {
-        let roster = w.high_schools[s].roster.clone();
-        if roster.is_empty() {
-            continue;
-        }
-        let bars = starter_bars(w, &roster);
-        let coach = w.high_schools[s].coach;
-        let motivation = coach.map_or(10.0, |c| w.coaches[c].ability().motivation);
-        for &i in &roster {
-            let Some(&role) = role_of.get(&i) else { continue };
-            let p = &w.people[i];
-            let parts = Parts {
-                role: clamp(
-                    role_value(role) - expected(self_view(p), bars[p.player.position.index()]) + 0.2,
-                    -1.0,
-                    1.0,
-                ),
-                win: 0.0,
-                money: 0.0,
-                life: 0.5 * (p.bg.stability - 10.0) / 10.0,
-                room: 0.0,
-            };
-            read(&mut w.people[i], coach, motivation, parts);
-            read_ids.push(i);
-        }
+    // Each school's reads worked out on all cores from what the reads
+    // don't change (ratings, traits, home), then made in school order
+    // (world speed lane).
+    let world: &World = w;
+    let reads: Vec<(usize, Option<usize>, f64, Parts)> = schools
+        .par_iter()
+        .flat_map_iter(|&s| {
+            let roster = &world.high_schools[s].roster;
+            let mut out = Vec::new();
+            if roster.is_empty() {
+                return out;
+            }
+            let bars = starter_bars(world, roster);
+            let coach = world.high_schools[s].coach;
+            let motivation = coach.map_or(10.0, |c| world.coaches[c].ability().motivation);
+            for &i in roster {
+                let Some(&role) = role_of.get(&i) else { continue };
+                let p = &world.people[i];
+                let parts = Parts {
+                    role: clamp(
+                        role_value(role) - expected(self_view(p), bars[p.player.position.index()]) + 0.2,
+                        -1.0,
+                        1.0,
+                    ),
+                    win: 0.0,
+                    money: 0.0,
+                    life: 0.5 * (p.bg.stability - 10.0) / 10.0,
+                    room: 0.0,
+                };
+                out.push((i, coach, motivation, parts));
+            }
+            out
+        })
+        .collect();
+    let mut read_ids = Vec::with_capacity(reads.len());
+    for (i, coach, motivation, parts) in reads {
+        read(&mut w.people[i], coach, motivation, parts);
+        read_ids.push(i);
     }
     read_ids.sort_unstable();
     super::folk::talks::reapply(w, &read_ids);
@@ -846,47 +859,53 @@ pub(crate) fn pro_arrests_day(w: &mut World, d: Date) {
     // the night it happens, not in Tuesday's batch).
     let base = if year < 2014 { 0.03 } else { 0.022 } / 365.25;
     let seed = w.options.seed as u64 ^ 0x7E0B_1E00 ^ (d.0 as u64) << 24;
-    let mut new: Vec<(usize, Trouble)> = Vec::new();
-    for i in 0..w.people.len() {
-        let p = &w.people[i];
-        let Some(c) = p.pro.as_ref() else { continue };
-        if p.stage != Stage::Pro || !c.held() {
-            continue;
-        }
-        let t = &p.player.personality.traits;
-        let age = p.player.age as f64;
-        let room = c.team.map_or(0.0, |t| w.clubs[t].team_mood as f64);
-        let risk =
-            base * clamp(
-                1.0 - 0.5 * t.z(Trait::Professionalism) - 0.3 * (p.bg.stability - 10.0) / 10.0
-                    + 0.3 * t.z(Trait::Temper),
-                0.25,
-                2.5,
-            ) * clamp(1.0 - 0.04 * (age - 25.0), 0.6, 1.3)
-                * (1.0 - 0.15 * room);
-        if key_uniform(seed, i as u64) >= risk {
-            continue;
-        }
-        let mut mix = kind_mix(year);
-        for m in mix.iter_mut() {
-            match m.0 {
-                Trouble::Gambling => m.1 *= 1.0 + t.z(Trait::Greed).max(0.0),
-                Trouble::Assault | Trouble::Domestic => m.1 *= 1.0 + t.z(Trait::Temper).max(0.0),
-                _ => {}
+    // Every pro's roll is keyed by the day and the person, so the walk runs
+    // on all cores and keeps person order (world speed lane).
+    use rayon::prelude::*;
+    let new: Vec<(usize, Trouble)> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
+        .filter_map(|i| {
+            let p = &w.people[i];
+            let c = p.pro.as_ref()?;
+            if p.stage != Stage::Pro || !c.held() {
+                return None;
             }
-        }
-        let total: f64 = mix.iter().map(|m| m.1).sum();
-        let mut u = key_uniform(seed ^ 0x51, i as u64) * total;
-        let mut kind = Trouble::Dui;
-        for m in mix {
-            if u < m.1 {
-                kind = m.0;
-                break;
+            let t = &p.player.personality.traits;
+            let age = p.player.age as f64;
+            let room = c.team.map_or(0.0, |t| w.clubs[t].team_mood as f64);
+            let risk =
+                base * clamp(
+                    1.0 - 0.5 * t.z(Trait::Professionalism) - 0.3 * (p.bg.stability - 10.0) / 10.0
+                        + 0.3 * t.z(Trait::Temper),
+                    0.25,
+                    2.5,
+                ) * clamp(1.0 - 0.04 * (age - 25.0), 0.6, 1.3)
+                    * (1.0 - 0.15 * room);
+            if key_uniform(seed, i as u64) >= risk {
+                return None;
             }
-            u -= m.1;
-        }
-        new.push((i, kind));
-    }
+            let mut mix = kind_mix(year);
+            for m in mix.iter_mut() {
+                match m.0 {
+                    Trouble::Gambling => m.1 *= 1.0 + t.z(Trait::Greed).max(0.0),
+                    Trouble::Assault | Trouble::Domestic => m.1 *= 1.0 + t.z(Trait::Temper).max(0.0),
+                    _ => {}
+                }
+            }
+            let total: f64 = mix.iter().map(|m| m.1).sum();
+            let mut u = key_uniform(seed ^ 0x51, i as u64) * total;
+            let mut kind = Trouble::Dui;
+            for m in mix {
+                if u < m.1 {
+                    kind = m.0;
+                    break;
+                }
+                u -= m.1;
+            }
+            Some((i, kind))
+        })
+        .collect();
     for (i, kind) in new {
         let guilty = matches!(kind, Trouble::Ped | Trouble::Gambling | Trouble::Dui)
             || key_uniform(seed ^ 0x9117, i as u64) < 0.45;
@@ -930,27 +949,19 @@ pub(crate) fn pro_rulings_day(w: &mut World, d: Date) {
 /// A week of games served: suspensions and the exempt list count down each
 /// Tuesday.
 pub(crate) fn pro_trouble_week(w: &mut World, d: Date) {
+    use rayon::prelude::*;
     let in_season = d > w.dates.nfl_kickoff && d <= w.dates.super_bowl;
-    if in_season {
-        for p in w.people.iter_mut() {
-            if let Some(c) = p.pro.as_mut() {
-                if c.suspended > 0 && c.team.is_some() {
-                    c.suspended -= 1;
-                }
-                if c.exempt > 0 {
-                    c.exempt -= 1;
-                }
+    // Each person's own counters: any order gives the same world.
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
+        if let Some(c) = p.pro.as_mut() {
+            if in_season && c.suspended > 0 && c.team.is_some() {
+                c.suspended -= 1;
             }
-        }
-    } else {
-        for p in w.people.iter_mut() {
-            if let Some(c) = p.pro.as_mut()
-                && c.exempt > 0
-            {
+            if c.exempt > 0 {
                 c.exempt -= 1;
             }
         }
-    }
+    });
 }
 
 /// The league rules on a case (topic 7): games without pay, the year's

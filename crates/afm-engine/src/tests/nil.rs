@@ -164,27 +164,45 @@ fn inherited_signees_old_desks_and_screens_keep_their_money() {
     let had = w.front_office.college.signed.iter().find(|x| x.0 == signee).copied();
     assert!(had.is_some_and(|x| x.1 + x.2 > 0.0), "the old staff's usual money: {had:?}");
     assert_eq!(w.front_office.college.nil_rev, NIL_REV, "a new desk is on the new rules");
-    // A screen's read: a player without a deal shows the one he starts on,
-    // and nothing is written.
-    let (id, _) = usual_deals(&w, j)[0];
+    // The roster you inherit keeps the old staff's deals.
+    let (id, usual) = usual_deals(&w, j).into_iter().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
+    assert!(
+        usual > 0.0 && (deal_of(&w, id).unwrap().0 - usual).abs() <= 250.0,
+        "{:?} against {usual}",
+        deal_of(&w, id)
+    );
+    // A player without a deal has none: nothing is filled in for you, on a
+    // screen or on July 1 (Cain 2026-11-08), and a read writes nothing.
     w.front_office.college.deals.retain(|d| d.0 != id);
     w.front_office.college.coll_deals.retain(|d| d.0 != id);
     let before = serde_json::to_string(&w.front_office).unwrap();
     let (s, c) = deals_now(&w, j).unwrap();
-    assert!(s.contains_key(&id) && c.contains_key(&id));
+    assert!(!s.contains_key(&id) && !c.contains_key(&id), "no going rate is filled in");
     assert!(budget(&w, j).roster > 0.0);
     assert_eq!(serde_json::to_string(&w.front_office).unwrap(), before, "a read never writes");
-    // A desk from before: last money year's deals lapse to the going rate.
     fill_deals(&mut w);
+    assert!(deal_of(&w, id).is_none(), "nor on the day: {:?}", deal_of(&w, id));
+    // A desk from before: the deals you set stand at their numbers, whatever
+    // money year they were for, and nobody gets the going rate.
     w.front_office.college.nil_rev = 0;
     w.front_office.college.deals_year = deals_year(&w) - 1;
     for d in w.front_office.college.deals.iter_mut() {
         d.1 = 1.0;
     }
+    let set = w.front_office.college.deals.len();
+    let said = |w: &World, what: &str| w.calendar.on(w.today).iter().filter(|e| e.text.contains(what)).count();
     after_load(&mut w);
     assert_eq!(w.front_office.college.nil_rev, NIL_REV);
-    assert!(w.front_office.college.deals.iter().all(|d| d.1 != 1.0), "lapsed deals start on the going rate");
+    assert_eq!(w.front_office.college.deals.len(), set, "nobody is filled in");
+    assert!(w.front_office.college.deals.iter().all(|d| d.1 == 1.0), "your deals stand");
+    assert!(deal_of(&w, id).is_none());
+    assert_eq!(said(&w, "no deal yet"), 1, "the inbox says who has no deal");
     after_load(&mut w);
+    // A desk the last version brought up keeps its deals and hears why.
+    w.front_office.college.nil_rev = 1;
+    after_load(&mut w);
+    assert_eq!(w.front_office.college.deals.len(), set);
+    assert_eq!(said(&w, "The last version put the going rate"), 1);
     // A player who leaves loses his deals.
     let i = w.people.iter().position(|p| p.player.id == id).unwrap();
     let x = (0..w.programs.len()).find(|&x| x != j && w.programs[x].division == w.programs[j].division).unwrap();
@@ -192,6 +210,50 @@ fn inherited_signees_old_desks_and_screens_keep_their_money() {
     w.rebuild_rosters();
     fill_deals(&mut w);
     assert!(deal_of(&w, id).is_none(), "{:?}", deal_of(&w, id));
+}
+
+/// Cain's answers (2026-11-08): the game never names money for you. A man
+/// who joins later has no deal until you set one, and a recruit your
+/// coordinator offered signs for nothing, his offer having named none.
+#[test]
+fn nothing_is_filled_in_for_you() {
+    use crate::world::front_office::college::after_stage;
+    let (mut w, j) = college(true);
+    fill_deals(&mut w);
+    let i = w.people.iter().position(|p| p.stage == Stage::Pro).unwrap();
+    let id = w.people[i].player.id;
+    let p = &mut w.people[i];
+    p.stage = Stage::College;
+    p.pro = None;
+    p.college = Some(j);
+    p.college_seasons = 1;
+    w.rebuild_rosters();
+    fill_deals(&mut w);
+    assert!(deal_of(&w, id).is_none(), "{:?}", deal_of(&w, id));
+    assert!(budget(&w, j).roster > 0.0, "the roster you inherited keeps its deals");
+    let class = rec::next_class(&w);
+    let k = w
+        .people
+        .iter()
+        .position(|p| {
+            p.stage == Stage::HighSchool
+                && p.class_of == class
+                && !w.front_office.college.board.iter().any(|t| t.id == p.player.id)
+        })
+        .unwrap();
+    let rid = w.people[k].player.id;
+    w.people[k].cal.signed = Some(crate::world::Signed {
+        program: j,
+        walk_on: false,
+        date: w.today,
+        early_enrollee: false,
+        flipped: false,
+        committed: None,
+    });
+    after_stage(&mut w, j, &[rid], false);
+    let t = w.front_office.college.board.iter().find(|t| t.id == rid).expect("on your board as his");
+    assert!(t.nil.is_none() && t.nil_coll.is_none());
+    assert_eq!(w.front_office.college.signed.iter().find(|x| x.0 == rid).map(|x| (x.1, x.2)), Some((0.0, 0.0)));
 }
 
 /// Stands the clock at your next section's first minute without playing
@@ -330,12 +392,13 @@ fn lone_offer(house: bool) {
     } else {
         assert!(set_promise(&mut w, id, Some(50_000.0), Some(10_000.0)).is_err(), "one pot before July 2025");
     }
-    // With your coordinator on the board his offers carry the usual money.
+    // With your coordinator on the board his offers name no money either:
+    // only you do (Cain 2026-11-08, "I want the only offering control").
     set_promise(&mut w, id, None, None).unwrap();
     w.front_office.set_owner(Duty::Board, Owner::Staff);
-    let usual = rec::usual_nil_offer(&w, j, i);
-    assert!((weighed_offer(&w, j, id) - usual).abs() < 1.0, "{} against {usual}", weighed_offer(&w, j, id));
-    assert!(stage_board(&w).unwrap().offers.iter().find(|o| o.person == i).unwrap().nil.is_none());
+    assert!(weighed_offer(&w, j, id).abs() < 1.0, "{}", weighed_offer(&w, j, id));
+    let o = stage_board(&w).unwrap().offers.into_iter().find(|o| o.person == i).unwrap();
+    assert!(o.nil.is_some_and(|x| x.abs() < 1.0), "{:?}", o.nil);
 }
 
 #[test]

@@ -391,9 +391,16 @@ impl Open {
         s.points_against += score[1].max(0) as u32;
         let mut last = Last { date, score, adv: *adv[0], adv_against: *adv[1], ..Default::default() };
         for (k, v) in g.cells {
-            let e = s.cells.entry(k.clone()).or_insert([0.0; 8]);
-            for i in 0..8 {
-                e[i] += v[i];
+            // The key is copied only when the season hasn't had it yet.
+            let add = |e: &mut [f32; 8]| {
+                for i in 0..8 {
+                    e[i] += v[i];
+                }
+            };
+            if let Some(e) = s.cells.get_mut(&k) {
+                add(e);
+            } else {
+                add(s.cells.entry(k.clone()).or_insert([0.0; 8]));
             }
             last.cells.insert(k, v);
         }
