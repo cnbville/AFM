@@ -972,9 +972,17 @@ pub struct League {
 /// trials at the read (proposed, not confirmed): until the league has
 /// played that much, its centre leans toward the fit's.
 pub const CENTRE_PRIOR: f64 = 2.0;
+/// A man's peers for the league's centre: the men at his level and
+/// position within the same this many rating points of the read's skill
+/// (60-69, 70-79 and so on). Without it the fit's straight line read the
+/// best pass rushers as playing under their ratings each season, so the
+/// NFL's starters lost rush and sacks a dropback fell 7 and 11% on seeds
+/// 77 and 78 (proposed, not confirmed).
+pub const BAND: f64 = 10.0;
 
-fn league_key(level: Level, read: Read, pos: Position, practice: bool) -> u32 {
-    table::index(row(level), read.index(), pos.index()) as u32 | (practice as u32) << 16
+fn league_key(level: Level, read: Read, pos: Position, practice: bool, skill: f64) -> u32 {
+    let band = (skill / BAND).floor().clamp(0.0, 15.0) as u32;
+    table::index(row(level), read.index(), pos.index()) as u32 | (practice as u32) << 16 | band << 17
 }
 
 impl Book {
@@ -986,9 +994,21 @@ impl Book {
         self.league.retain(|_, x| x.year >= year);
     }
 
-    /// Adds a man's evidence on a read to his level's season.
-    pub fn add(&mut self, level: Level, read: Read, pos: Position, practice: bool, year: i32, n: f64, s: f64) {
-        let x = self.league.entry(league_key(level, read, pos, practice)).or_default();
+    /// Adds a man's evidence on a read to his level's season, with his
+    /// peers on the read's skill (`BAND`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn add(
+        &mut self,
+        level: Level,
+        read: Read,
+        pos: Position,
+        practice: bool,
+        skill: f64,
+        year: i32,
+        n: f64,
+        s: f64,
+    ) {
+        let x = self.league.entry(league_key(level, read, pos, practice, skill)).or_default();
         if x.year != year {
             *x = League { year, ..League::default() };
         }
@@ -996,18 +1016,19 @@ impl Book {
         x.s += s;
     }
 
-    /// The league's centre on a read at a position this season: the mean
-    /// shown level over every man's rating at his level so far, leaning
-    /// on the fit's (0) until `CENTRE_PRIOR` seasons of trials are in. A
-    /// man is judged against the league as it plays, as real stats over
-    /// expected are each season: a shift every man at the position shares
-    /// (his matchups in this world against the fit's synthetic teams, a
-    /// line that wins more than the fit's) moves nobody, so it can't feed
-    /// on itself (one side's rise making the other's fall). Practice keeps
-    /// its own centre.
-    pub fn centre(&self, level: Level, read: Read, pos: Position, practice: bool, year: i32) -> f64 {
+    /// The league's centre on a read at a position this season, among a
+    /// man's peers on the read's skill (the same `BAND` of rating points):
+    /// their mean shown level over their ratings at his level so far,
+    /// leaning on the fit's (0) until `CENTRE_PRIOR` seasons of trials are
+    /// in. A man is judged against men rated like him as the league plays,
+    /// as real stats over expected are each season: a shift his peers
+    /// share (his matchups in this world against the fit's synthetic
+    /// teams, a line that wins more than the fit's, a straight-line fit
+    /// that misses at the top of the scale) moves nobody, so it can't feed
+    /// on itself. Practice keeps its own centre.
+    pub fn centre(&self, level: Level, read: Read, pos: Position, practice: bool, skill: f64, year: i32) -> f64 {
         let prior = CENTRE_PRIOR * fit(level, read, pos).season.max(1.0);
-        match self.league.get(&league_key(level, read, pos, practice)) {
+        match self.league.get(&league_key(level, read, pos, practice, skill)) {
             Some(x) if x.year == year => x.s / (x.n + prior),
             _ => 0.0,
         }
@@ -1042,15 +1063,19 @@ pub(crate) fn world_game(
     // The league's season first, this game in it; then each man's season
     // is read against it (`Book::centre`, `apply_in`).
     for (_, i, _, m) in &men {
-        let pos = w.people[*i].player.position;
+        let p = &w.people[*i].player;
         for &(r, n, s) in &m.reads {
-            w.results.add(level, r, pos, m.practice, year, n as f64, s as f64);
+            let skill = p.attributes.get(r.attr());
+            w.results.add(level, r, p.position, m.practice, skill, year, n as f64, s as f64);
         }
     }
     for (id, i, team, m) in men {
-        let pos = w.people[i].player.position;
-        let cs: Vec<(Read, f64)> =
-            m.reads.iter().map(|x| (x.0, w.results.centre(level, x.0, pos, m.practice, year))).collect();
+        let q = &w.people[i].player;
+        let cs: Vec<(Read, f64)> = m
+            .reads
+            .iter()
+            .map(|x| (x.0, w.results.centre(level, x.0, q.position, m.practice, q.attributes.get(x.0.attr()), year)))
+            .collect();
         let centre = |r: Read| cs.iter().find(|x| x.0 == r).map_or(0.0, |x| x.1);
         let p = &mut w.people[i].player;
         let l = w.results.ledgers.entry(id).or_insert_with(|| Ledger { year, ..Ledger::default() });
