@@ -121,6 +121,7 @@ impl Game {
                 // (quick checks pass 0; live seasons always do).
                 let hs_engine_years = num("hs_engine_years").map_or(d.hs_engine_years, |n| Some(n as u32));
                 lane_core::links::forget_names();
+                let _ = jobs::take_handoff(std::path::Path::new(""));
                 self.world = Some(World::new(WorldOptions {
                     seed,
                     history_years: years,
@@ -149,8 +150,25 @@ impl Game {
                 let years = num("history_years").unwrap_or(30).clamp(1, 60) as u32;
                 let scale = args.get("scale").and_then(Value::as_f64).unwrap_or(1.0);
                 let fictional = args.get("names").and_then(Value::as_str) == Some("fictional");
+                // Where the world stops (the Jan 1 start): Jan 1 unless asked for the morning after the Super Bowl.
+                let jan1 = args.get("stop").and_then(Value::as_str) != Some("feb9");
                 let worlds = self.home.join("worlds");
-                Ok(json!({ "name": jobs::build_named(&self.job, &worlds, seed, years, scale, fictional)? }))
+                // A played-on world still kept in memory goes first.
+                let _ = jobs::take_handoff(std::path::Path::new(""));
+                Ok(json!({ "name": jobs::build_named(&self.job, &worlds, seed, years, scale, fictional, jan1)? }))
+            }
+            // The Jan 1 start: a library world plays on to Jan 1 once and
+            // stays in the library as its own world (minutes, beside the game).
+            "play_on" => {
+                let path = PathBuf::from(args.get("path").and_then(Value::as_str).ok_or("Missing path.")?);
+                // A played-on world still kept in memory goes first.
+                let _ = jobs::take_handoff(std::path::Path::new(""));
+                let name = jobs::play_on(&self.job, &self.home.join("worlds"), &path)?;
+                // Only one full world in memory: the open one goes once the
+                // play-on has started (the screens closed its career first).
+                self.world = None;
+                self.save_path = None;
+                Ok(json!({ "name": name }))
             }
             "online_worlds" => jobs::online(&self.home.join("worlds")),
             "download_world" => {
@@ -168,7 +186,11 @@ impl Game {
             }
             "open_world" | "load" => {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
-                let w = setup::read(path)?;
+                // A world the play-on just wrote is still in memory.
+                let w = match jobs::take_handoff(std::path::Path::new(path)) {
+                    Some(w) => w,
+                    None => setup::read(path)?,
+                };
                 // The last world goes first, with its log's writer.
                 self.world = None;
                 lane_core::links::forget_names();

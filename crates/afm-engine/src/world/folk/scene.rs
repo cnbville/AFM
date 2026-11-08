@@ -69,6 +69,9 @@ pub enum Kind {
     /// Your sit-down with a transfer: at his home, or at the end of his
     /// campus visit.
     PortalVisit,
+    /// A December signee asks to be let out of his signing once his head
+    /// coach is gone (Jan 1 start).
+    SigneeRelease,
 }
 
 impl Kind {
@@ -119,6 +122,7 @@ impl Kind {
             Kind::CombineTalk => "Combine interview",
             Kind::PortalCall => "A call to a transfer",
             Kind::PortalVisit => "Transfer visit",
+            Kind::SigneeRelease => "A signee asks out",
         }
     }
 }
@@ -464,7 +468,12 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::Discipline | Kind::Ritual => "rules",
         Kind::ReachOut | Kind::Trip | Kind::JobCall | Kind::Backchannel => "network",
         Kind::Story => "press",
-        Kind::HomeVisit | Kind::CollegeCall | Kind::CombineTalk | Kind::PortalCall | Kind::PortalVisit => "recruiting",
+        Kind::HomeVisit
+        | Kind::CollegeCall
+        | Kind::CombineTalk
+        | Kind::PortalCall
+        | Kind::PortalVisit
+        | Kind::SigneeRelease => "recruiting",
         Kind::JobInterview => "network",
         Kind::StaffMeeting => "staff",
         _ => "place",

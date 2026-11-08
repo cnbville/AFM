@@ -453,6 +453,12 @@ fn main() {
     let mut first_tackle = [[0.0f64; 2]; 3];
     // Seconds between snaps: [running, stopped] x [normal, late, two-minute] x [seconds, plays].
     let mut between = [[[0.0f64; 2]; 3]; 2];
+    // Stopped-clock snaps by why the clock stopped: [incomplete, out of
+    // bounds, penalty, touchdown] x [normal, late, two-minute] x [seconds, plays].
+    let mut stop_why = [[[0.0f64; 2]; 3]; 4];
+    // Designed runs by where they crossed the line (outside the tackles,
+    // the real "end" gap, against inside) and by the call: [runs, yards].
+    let mut run_dir = [[0.0f64; 2]; 4];
     let mut emergencies = 0.0;
     // Targets by route group: [targets, catches, yards].
     let mut by_route = [[0.0f64; 5]; ROUTE_GROUPS.len()];
@@ -693,6 +699,20 @@ fn main() {
             let e = &mut between[stopped as usize][tb];
             e[0] += gap;
             e[1] += 1.0;
+            if stopped {
+                let why = if a.touchdown {
+                    3
+                } else if a.penalties.iter().any(|x| x.4) {
+                    2
+                } else if incomplete {
+                    0
+                } else {
+                    1
+                };
+                let e = &mut stop_why[why][tb];
+                e[0] += gap;
+                e[1] += 1.0;
+            }
         }
         if !burners.is_empty() {
             for p in s.plays.iter().filter(|p| p.kind == PlayType::Pass && !p.nullified && !p.throw_away) {
@@ -879,6 +899,15 @@ fn main() {
                         };
                         by_box[bx][0] += 1.0;
                         by_box[bx][1] += y;
+                        if let Some((dy, _)) = p.tend.cross {
+                            let e = &mut run_dir[(dy.abs() > 4.0) as usize];
+                            e[0] += 1.0;
+                            e[1] += y;
+                        }
+                        let gap = afm_engine::world::tally::expect::run_gap(&p.call);
+                        let e = &mut run_dir[2 + matches!(gap, 0 | 4) as usize];
+                        e[0] += 1.0;
+                        e[1] += y;
                     }
                     *m.entry("missed_tackles").or_default() += p.missed_tackles.len() as f64;
                 }
@@ -1064,6 +1093,17 @@ fn main() {
                 let e = between[si][ti];
                 let real = sit["seconds_between_snaps"][format!("{sname}_{tname}")].as_f64();
                 row(&format!("snap to snap, {sname} {tname}"), e[0] / e[1].max(1.0), real);
+            }
+        }
+        // By why it stopped (nflverse 2021-25, the same rows as
+        // nfl_situations.py: penalty first, then incomplete, then out of
+        // bounds; touchdowns before all).
+        let real_why = [[5.0, 5.0, 4.8], [33.8, 15.9, 6.3], [21.5, 12.6, 8.3], [5.9, 5.85, 5.2]];
+        for (wi, wname) in ["incomplete", "out of bounds", "penalty", "touchdown"].iter().enumerate() {
+            for (ti, tname) in ["normal", "late", "two_minute"].iter().enumerate() {
+                let e = stop_why[wi][ti];
+                row(&format!("  stopped {tname}, {wname}"), e[0] / e[1].max(1.0), Some(real_why[wi][ti]));
+                row(&format!("  share of stopped {tname}, {wname}"), e[1] / between[1][ti][1].max(1.0), None);
             }
         }
         let all = |si: usize| between[si].iter().map(|e| e[1]).sum::<f64>();
@@ -1396,6 +1436,18 @@ fn main() {
             runs["by_box"][name]["ypc"].as_f64(),
         );
         row(&format!("share of runs, {name} in box"), by_box[k][0] / rn.max(1.0), None);
+    }
+    // Where designed runs crossed the line against nflverse 2021-25's run
+    // gaps (end 5.06 a carry, 23% of designed runs; guard, tackle and
+    // middle 4.05), and by the call (outside zone, toss, sweep, option).
+    if games > 0 {
+        let rd = |k: usize| run_dir[k][1] / run_dir[k][0].max(1.0);
+        row("ypc, crossed inside the tackles", rd(0), Some(4.05));
+        row("ypc, crossed outside the tackles", rd(1), Some(5.06));
+        row("share crossing outside", run_dir[1][0] / (run_dir[0][0] + run_dir[1][0]).max(1.0), Some(0.231));
+        row("ypc, inside calls", rd(2), None);
+        row("ypc, outside calls", rd(3), None);
+        row("share of outside calls", run_dir[3][0] / (run_dir[2][0] + run_dir[3][0]).max(1.0), None);
     }
     let tt: f64 = tgt_pos.iter().sum::<f64>().max(1.0);
     row("emergency snaps per game", emergencies / games as f64, None);

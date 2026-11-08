@@ -135,7 +135,7 @@ fn backing_with(w: &World, i: usize, j: usize, money: f64) -> [f64; 7] {
     let p = &w.people[i];
     let prog = &w.programs[j];
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
-    let near = crate::world::recruiting::closeness(crate::world::geo::miles(p.home_state, prog.state));
+    let near = crate::world::recruiting::closeness(crate::world::recruiting::home_miles(&w.high_schools, p, prog));
     let family = prog.head_coach.map_or(0.3, |c| {
         let years = w.coaches[c].job.map_or(0, |jb| (w.year - jb.since).max(0)) as f64;
         (0.25 + 0.06 * years.min(8.0) + 0.02 * (w.coaches[c].ability().relationships - 10.0)).clamp(0.1, 1.0)
