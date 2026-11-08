@@ -1410,8 +1410,11 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
                     super::super::dept::add(w, id, you, kind, d);
                 }
                 super::queue::watched(w, id);
+                // The club's file keeps a copy for the board (from the
+                // stands, the trip's copy is already there).
                 if let Some(Staff::Club(c)) = readers::seat_staff(w)
                     && w.nfl.get(c).and_then(|x| x.head_coach) == readers::you(w)
+                    && s.mode != Mode::Live
                 {
                     super::super::dept::club_look(
                         w,

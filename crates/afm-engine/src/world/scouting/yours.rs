@@ -98,20 +98,53 @@ pub fn own_read_with(
     // bug 352). An NFL head coach is also the head coach in his club's
     // file, which holds looks of his own (the board's spring film study)
     // and, for the board, a copy of each watch, trip and asked workout of
-    // his the same day: one act counts once.
-    let mine: Vec<usize> = (0..rds.len()).filter(|&r| rds[r].link == Link::You).collect();
+    // his the same day: one act counts once. A coordinator's code is yours
+    // only while you hold the job (a vacant one's notes read as the head
+    // coach's for the board).
+    use crate::world::pro::scouts::{DC, HC, OC};
+    let job = |code: u32| {
+        let tm = match staff {
+            Staff::Club(t) => w.nfl.get(t),
+            _ => None,
+        };
+        code == readers::COACH + you as u32
+            || tm.is_some_and(|tm| match u8::try_from(code) {
+                Ok(HC) => tm.head_coach == Some(you),
+                Ok(OC) => tm.oc == Some(you),
+                Ok(DC) => tm.dc == Some(you),
+                _ => false,
+            })
+    };
+    let mine: Vec<usize> = (0..rds.len()).filter(|&r| rds[r].link == Link::You && job(codes[r])).collect();
     let me = mine.iter().copied().find(|&r| codes[r] == readers::COACH + you as u32).or(mine.first().copied());
     let seat = w.scouting.dept.looks.get(&id).map_or(&[][..], Vec::as_slice);
     let club = match staff {
         Staff::Club(t) => w.clubs.get(t).and_then(|c| c.files.get(&id)).map_or(&[][..], Vec::as_slice),
         _ => &[][..],
     };
-    let yours_code = |code: u32| codes.iter().position(|&c| c == code).is_some_and(|r| mine.contains(&r));
-    let copy = |l: &file::Evidence| {
+    // The club's copies: under the head coach's code, one for each look of
+    // yours that day it copies (two of the same kind that day are two acts:
+    // an asked workout and the board's film study on the same Tuesday).
+    let mut left: Vec<(Kind, crate::calendar::Date, usize)> = Vec::new();
+    let mut copy = |l: &file::Evidence| {
         let code = codes[l.reader];
-        club.iter().any(|c| c.who as u32 == code && Kind::from_nfl(c.kind) == l.kind && c.date == l.date)
-            && !seat.iter().any(|s| s.who == code && s.kind == l.kind && s.date == l.date)
-            && seat.iter().any(|s| s.date == l.date && yours_code(s.who) && copies(l.kind, s.kind))
+        if code != HC as u32
+            || !club.iter().any(|c| c.who == HC && Kind::from_nfl(c.kind) == l.kind && c.date == l.date)
+            || seat.iter().any(|s| s.who == code && s.kind == l.kind && s.date == l.date)
+        {
+            return false;
+        }
+        let k = match left.iter().position(|x| x.0 == l.kind && x.1 == l.date) {
+            Some(k) => k,
+            None => {
+                let acts = seat.iter().filter(|s| s.date == l.date && job(s.who) && copies(l.kind, s.kind)).count();
+                left.push((l.kind, l.date, acts));
+                left.len() - 1
+            }
+        };
+        let is_copy = left[k].2 > 0;
+        left[k].2 = left[k].2.saturating_sub(1);
+        is_copy
     };
     let own_looks: Vec<file::Evidence> =
         looks.iter().filter(|l| mine.contains(&l.reader) && !copy(l)).copied().collect();
@@ -219,12 +252,13 @@ pub fn own_read_with(
 
 /// The club file's copy of a look of yours (minor bug 352): the kind the
 /// club's file gives it beside the look under your name the same day (the
-/// film room's watches and the hunt's games as film, a game from the
-/// stands as film and as a coach's look, a trip or an asked workout as a
-/// coach's or an all-star look: `dept::club_look`).
+/// film room's watches and the hunt's games as film, a trip or an asked
+/// workout as a coach's or an all-star look: `dept::club_look`; a watch
+/// from the stands at a game or an all-star week also as film in a save
+/// from before this).
 fn copies(club: Kind, yours: Kind) -> bool {
     match club {
-        Kind::Film => matches!(yours, Kind::ProFilm | Kind::CollegeFilm | Kind::HsFilm | Kind::Game),
+        Kind::Film => matches!(yours, Kind::ProFilm | Kind::CollegeFilm | Kind::HsFilm | Kind::Game | Kind::AllStar),
         Kind::Coach => matches!(yours, Kind::Game | Kind::Practice | Kind::ProDay | Kind::Workout | Kind::HsFilm),
         Kind::AllStar => yours == Kind::AllStar,
         _ => false,

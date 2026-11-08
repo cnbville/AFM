@@ -779,7 +779,14 @@ fn your_tape_shares_your_eye_and_more_never_widens_a_read() {
             sc::dept::add(&mut w, id, hc as u32, sc::Kind::Workout, yesterday);
             sc::dept::club_look(&mut w, t, id, hc, LookKind::Coach, yesterday);
             assert_eq!(looks(&w), n + 2, "the asked workout counts once");
-            no_wider(&spring, &own(&w, id), "an asked workout");
+            let worked = own(&w, id);
+            no_wider(&spring, &worked, "an asked workout");
+            // The board's film study filed the same day, beside the
+            // workout's copy: an act of its own.
+            let study = crate::world::pro::scouts::Look { who: hc, kind: LookKind::Coach, date: yesterday };
+            w.clubs[t].files.get_mut(&id).unwrap().push(study);
+            assert_eq!(looks(&w), n + 3, "the board's study beside your workout");
+            no_wider(&worked, &own(&w, id), "the board's study beside your workout");
             done = true;
             break;
         }
