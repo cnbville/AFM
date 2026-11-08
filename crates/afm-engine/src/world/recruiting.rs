@@ -2287,14 +2287,15 @@ fn tryout_sticks(d: Division) -> f64 {
 /// Fall camp (topic 5): walk-ons who played their way into the two-deep go
 /// on scholarship where one is free (5.4), and a few students make a team
 /// at an open tryout, the best of the state's new graduates who never
-/// signed (5.5). Division III, the Ivy League and the Pioneer League give
-/// no athletic aid, so their walk-ons stay as they are.
+/// signed (5.5). Division III and the leagues without athletic aid (the Ivy
+/// League, the Pioneer League, the Patriot League before 2013: `ncaa::aid`)
+/// give none, so their walk-ons stay as they are.
 pub(crate) fn camp_walk_ons(w: &mut World) {
     let season = w.year;
     w.rebuild_rosters();
     let mut awards: Vec<(usize, usize)> = Vec::new();
     for (j, prog) in w.programs.iter().enumerate() {
-        let no_aid = prog.division == Division::D3 || matches!(prog.conference.as_str(), "Ivy" | "PFL");
+        let no_aid = prog.division == Division::D3 || super::ncaa::aid(prog, season) != super::ncaa::Aid::Athletic;
         if !prog.plays(season) || no_aid {
             continue;
         }
@@ -2830,8 +2831,10 @@ const SERVICE_MATURITY: f64 = 1.6;
 const SERVICE_MISREAD: f64 = 6.0;
 
 /// How many of a class of 250,000 the services rate at 5, 4, 3 and 2
-/// stars (minor bug 17). The 247 Composite's own counts: about 32 five-stars
-/// and 350 four-stars a class (the final Top247), and about 2,600 three-stars
+/// stars (minor bug 17). Five- and four-stars at ESPN's 2013-2026 means,
+/// 46.3 and 300.6 a class (`rates.json` recruits_per_star_per_class, the
+/// count the world's checks read; minor bug 269: the 247 Composite's 32
+/// and 350 put the five-stars far under it), and about 2,600 three-stars
 /// signing with FBS, FCS and Division II programs each year (2,200 of them
 /// FBS; CFBD's composite ratings of the 2022-2025 signees), with more who
 /// sign nowhere rated. The two-stars fill the rated pool to its old size,
@@ -2840,7 +2843,7 @@ const SERVICE_MISREAD: f64 = 6.0;
 /// short and full of 2-stars, which the composite almost never gives an
 /// SEC signee. The standalone class sim keeps `PIPELINE.star_shares`.
 const SERVICE_TIERS: [(u8, f64); 4] =
-    [(5, 33.0 / 250_000.0), (4, 350.0 / 250_000.0), (3, 2_800.0 / 250_000.0), (2, 3_200.0 / 250_000.0)];
+    [(5, 46.0 / 250_000.0), (4, 301.0 / 250_000.0), (3, 2_800.0 / 250_000.0), (2, 3_236.0 / 250_000.0)];
 
 /// How the services' standard drifts from class to class (minor bug 102):
 /// how many kids a service grades a five- or four-star moves with its
@@ -2933,15 +2936,16 @@ pub(crate) fn recruiting_stars(p: &Person) -> u8 {
 
 /// What a walk-on spot costs a recruit: his family's tuition, as at the
 /// Pioneer League schools, which give no athletic aid. Schools that give
-/// none anyway cost no tuition extra. Out of state tuition costs about 1.77
-/// times as much (a public four-year school's full cost, $44,090 against
-/// $24,920 in state, College Board 2024-25), so walk-ons are mostly local
-/// (fix list 5.2; private schools charge everyone the same, not modeled).
-fn walk_on_cost(p: &Person, prog: &Program) -> f64 {
+/// none anyway (`ncaa::aid`, the season he would arrive) cost no tuition
+/// extra. Out of state tuition costs about 1.77 times as much (a public
+/// four-year school's full cost, $44,090 against $24,920 in state, College
+/// Board 2024-25), so walk-ons are mostly local (fix list 5.2; private
+/// schools charge everyone the same, not modeled).
+fn walk_on_cost(p: &Person, prog: &Program, season: i32) -> f64 {
     let away = if prog.state == p.home_state { 1.0 } else { 1.77 };
-    match prog.conference.as_str() {
-        "PFL" | "Ivy" => 0.0,
-        _ => 0.8 * (1.0 - 0.6 * p.bg.money) * away,
+    match super::ncaa::aid(prog, season) {
+        super::ncaa::Aid::Athletic => 0.8 * (1.0 - 0.6 * p.bg.money) * away,
+        _ => 0.0,
     }
 }
 
@@ -3244,12 +3248,14 @@ fn utility_fit(
         + wants.academics * academics
         + (wants.development + path_w) * development
         + path_w * playing;
-    // No athletic scholarships: the Pioneer League gives none (the family pays),
-    // the Ivy League only need-based aid. A scholarship offer elsewhere usually wins.
-    match prog.conference.as_str() {
-        "PFL" => u -= 0.8 * (1.0 - 0.6 * p.bg.money),
-        "Ivy" => u -= 0.4,
-        _ => {}
+    // No athletic scholarships the season he would arrive (`ncaa::aid`): the
+    // Pioneer League gives none (the family pays), the Ivy League and the
+    // Patriot League before 2013 only need-based aid. A scholarship offer
+    // elsewhere usually wins.
+    match super::ncaa::aid(prog, year + 1) {
+        super::ncaa::Aid::None => u -= 0.8 * (1.0 - 0.6 * p.bg.money),
+        super::ncaa::Aid::NeedBased => u -= 0.4,
+        super::ncaa::Aid::Athletic => {}
     }
     // Teammates and older kids from his school already there: a pipeline school feels familiar.
     if let Some(&(v, _)) = prog.hs_pipeline.get(&p.hs) {
@@ -5355,7 +5361,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             return x + super::ncaa::booster_cash(prog, pool[k].person);
         }
         let p = &w.people[pool[k].person];
-        let talent = star_nil(recruiting_stars(p)) * (1.3 - 0.6 * rank);
+        let talent = offer_star_nil(recruiting_stars(p)) * (1.3 - 0.6 * rank);
         // Your collective's split puts more or less into the class (L9).
         let q = super::legacy::college::split_q(w, j, 2);
         let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
@@ -5716,7 +5722,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             // A walk-on is last in line for reps, wherever he sits on the board.
             scholarship: utility_fit(&pool_fits[k], p, &wants, prog, year, offer, 1.0 - rank, home_w[k]) + ties,
             walk_on: utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0, home_w[k])
-                + (ties - walk_on_cost(p, prog)),
+                + (ties - walk_on_cost(p, prog, year + 1)),
             ties,
         }
     };
@@ -5928,7 +5934,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let u = utility_fit(&pool_fits[k], p, &wants, &programs[j], year, 0.0, standing, home_w[k])
                     + relationship(j, k)
                     + feel(j, k)
-                    - if walk_on { walk_on_cost(p, &programs[j]) } else { 0.0 };
+                    - if walk_on { walk_on_cost(p, &programs[j], year + 1) } else { 0.0 };
                 options.push((u, j, walk_on, special));
             }
             // A walk-on place costs him the best scholarship he turns down for it.
@@ -6016,7 +6022,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let u = utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0, home_w[k])
                     + relationship(j, k)
                     + feel(j, k)
-                    - walk_on_cost(p, prog);
+                    - walk_on_cost(p, prog, year + 1);
                 if let Some(h) = held[k] {
                     let given_up = if h.walk_on { 0.0 } else { scholarship_given_up(pos, &programs[h.program]) };
                     if u - given_up <= h.base {
@@ -7888,7 +7894,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     }
 }
 
-/// The recruit market's read of his stars (`offer_for`, `usual_nil_offer`).
+/// A player's stars as the NIL market weighs them on a roster (`nil_weight`:
+/// payday's split and NIL Go's range).
 fn star_nil(stars: u8) -> f64 {
     match stars {
         5 => 2.5,
@@ -7896,6 +7903,34 @@ fn star_nil(stars: u8) -> f64 {
         3 => 0.3,
         2 => 0.08,
         _ => 0.03,
+    }
+}
+
+/// The recruit market's read of his stars (`offer_for`, `usual_nil_offer`).
+/// Minor bug 261: it was `star_nil`, and Power 4 four-stars signed for
+/// $300-410K a year and three-stars $170-180K, against real 2026 classes of
+/// about $85-253K a recruit at the top Power 4 programs (On3 class tables via
+/// SI: Oregon $253K, Maryland $190K, Texas $178K, Miami $155K), five-star
+/// quarterbacks at $750K-1M and Power 4 quarterback signees at $100-300K.
+/// Now set so a top class of three five-stars, fifteen four-stars and seven
+/// three-stars averages about $175K: four-stars about $185K, three-stars
+/// about $60K (proposed, not confirmed). At 0.45, 0.1 and 0.035 a 30-year
+/// world at 0.1 (seed 72) signed Power 4 four-stars at $289-299K,
+/// three-stars at $77-79K and two-stars at $26-28K, five-stars at
+/// $443-517K and its one five-star quarterback at $798K. Four-stars sit
+/// under two caps (the position's going rate and NIL Go's range on the
+/// collective's part), so above about 0.2 their money falls more slowly
+/// than the factor: played on from saved worlds (seeds 70 and 72, classes of
+/// 2026 and 2027) they signed at $227-254K at 0.28, $182-194K at 0.18 and
+/// $139-149K at 0.13, with three-stars at $60-66K, two-stars at $20-23K and
+/// five-stars at $460-615K. Payday's split keeps `star_nil`.
+fn offer_star_nil(stars: u8) -> f64 {
+    match stars {
+        5 => 2.5,
+        4 => 0.18,
+        3 => 0.075,
+        2 => 0.025,
+        _ => 0.01,
     }
 }
 
@@ -8228,7 +8263,7 @@ pub(crate) fn usual_nil_parts(w: &World, j: usize, i: usize) -> (f64, f64) {
     if prog.collective.budget <= 0.0 {
         return (0.0, 0.0);
     }
-    let talent = star_nil(recruiting_stars(p));
+    let talent = offer_star_nil(recruiting_stars(p));
     let q = super::legacy::college::split_q(w, j, 2);
     let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
     let money = (position_nil(p.player.position) * talent * pay)

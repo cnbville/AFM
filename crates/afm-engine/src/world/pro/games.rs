@@ -292,6 +292,12 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     }
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
+    // The strength staff's guard on muscle strains and backs (minor bug 303).
+    let guard = crate::game::sim::strength_guard(
+        crate::world::season::club_strength_head(w, t),
+        crate::world::season::nfl_typical_strength(w),
+    ) as f32;
+    team.players.iter_mut().for_each(|g| g.soft = guard);
     super::super::chemistry::apply(w, &mut team, super::super::chemistry::Unit::Nfl);
     Some(Side { team, who })
 }
@@ -775,8 +781,12 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date, clubs: 
         (K::Fracture, 2.0),
     ];
     let seed = w.options.seed as u64 ^ 0x9AC7 ^ (d.0 as u64) << 20;
+    let typical = crate::world::season::nfl_typical_strength(w);
     for &t in clubs {
         let med = crate::world::people::Support::z(w.clubs[t].support.medical.rating);
+        // The strength staff's guard on muscle strains and backs (minor bug 303).
+        let guard = crate::game::sim::strength_guard(crate::world::season::club_strength_head(w, t), typical);
+        let (mix, guarded) = crate::game::sim::guarded_mix(&MIX, guard);
         let name = w.nfl[t].name;
         let roster = w.clubs[t].roster.clone();
         // The week's practice plan (section 6b): more padded and full-speed
@@ -794,11 +804,11 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date, clubs: 
             // A sudden jump in load (topic 7): soft tissue gives.
             let spike = p.player.train.spike();
             let load = if spike > 1.3 { 1.0 + 0.8 * (spike - 1.3) } else { 1.0 };
-            if key_uniform(seed, p.player.id as u64) >= base * prone * age * spec * plan * load {
+            if key_uniform(seed, p.player.id as u64) >= base * prone * age * spec * plan * load * guarded {
                 continue;
             }
             let mut rng = crate::rng::Rng::new((seed as u32) ^ p.player.id.wrapping_mul(0x9E37_79B1));
-            let kind = rng.weighted(&MIX);
+            let kind = rng.weighted(&mix);
             let recovery = p.player.game.recovery;
             let weeks = injury_weeks(kind, &mut rng) * (1.3 - 0.03 * recovery) * (1.0 - 0.12 * med);
             // Day by day from tomorrow (B1).

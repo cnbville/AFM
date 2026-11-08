@@ -107,6 +107,10 @@ pub struct GrowthYear {
     pub physical: u8,
     /// The year's form times its injuries: v / 4000.
     pub form: u16,
+    /// Coaching as it sticks to his physical attributes (minor bug 302):
+    /// 0.5 + v / 250; 0 in an older save, which reads `coach`.
+    #[serde(default)]
+    pub pcoach: u8,
 }
 
 /// A player's training store (section 6b, about 34 bytes): the year's
@@ -169,6 +173,7 @@ impl Train {
                 morale: q(g.morale_mult, 0.8, 600.0),
                 physical: q(g.physical_mult, 0.9, 1200.0),
                 form: clamp((g.form * g.growth_multiplier * 4000.0).round(), 0.0, 65535.0) as u16,
+                pcoach: q(g.physical_boost, 0.5, 250.0).max(1),
             },
             covered: [0; FAMILIES],
             due: [0; FAMILIES],
@@ -212,6 +217,7 @@ impl Train {
         let y = &self.year;
         GrowthCtx {
             coaching_boost: 0.5 + y.coach as f64 / 250.0,
+            physical_boost: 0.5 + if y.pcoach == 0 { y.coach } else { y.pcoach } as f64 / 250.0,
             snaps_mult: y.snaps as f64 / 200.0,
             work_mult: 0.75 + work_ethic * 0.025,
             form: y.form as f64 / 4000.0,
