@@ -858,6 +858,7 @@ fn run_return(
         level: rules.level,
         // The sim's side 0 is the return team.
         mood: k.mood.swap(),
+        tend_memo: super::sim::tend_memo(),
     };
     // Reorder so the return team (side 0) comes first.
     let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();

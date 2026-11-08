@@ -9,8 +9,8 @@
   "unconfirmed": "a proposal Raichel hasn't answered"
  },
  "counts": {
-  "files": 66,
-  "figures": 690,
+  "files": 67,
+  "figures": 691,
   "debug_lab_figures": 15,
   "in_code": 146,
   "memory_notes": 320,
@@ -1296,6 +1296,19 @@
    },
    "added": "2026-10-28",
    "bytes": 18147
+  },
+  "college_facilities.csv": {
+   "source": "Wikipedia program, stadium and facility articles (cached API reads) and web search results naming school releases and local news; a source URL on every row",
+   "years": "projects opened 1975-2028 (ground broken by 2025)",
+   "level": "FBS (the 138 programs of 2026)",
+   "status": "sourced",
+   "holes": "199 of 637 projects have no cost found (the median of their kind and tier stands in) and many lack a groundbreaking year (the kind's usual build time stands in); upgrades under about $3M are left out; older buildings' costs before 1990 are mostly unknown",
+   "areas": [
+    "C1",
+    "C14"
+   ],
+   "added": "2026-11-08",
+   "bytes": 277971
   }
  },
  "unlisted_files": [
@@ -9259,6 +9272,30 @@
     "C3"
    ],
    "note": "the day each pair met in November (thanksgiving, black_friday, or the weekday); FBS v FBS games on each holiday by year"
+  },
+  {
+   "key": "college_facilities.csv",
+   "file": "college_facilities.csv",
+   "years": "1970-2027",
+   "status": "sourced",
+   "columns": [
+    "school",
+    "project",
+    "kind",
+    "team_spaces",
+    "houses_football_ops",
+    "cost_musd",
+    "cost_basis",
+    "groundbreak",
+    "opened",
+    "status",
+    "source",
+    "source2",
+    "confidence",
+    "note",
+    "cost_in"
+   ],
+   "rows": 637
   }
  ],
  "debug_lab": [
@@ -12919,7 +12956,8 @@
    "college_start_records.csv",
    "college_titles.csv",
    "college_seats.csv",
-   "college_altitude.csv"
+   "college_altitude.csv",
+   "college_facilities.csv"
   ],
   "C2": [
    "colleges.csv",
@@ -13022,6 +13060,7 @@
    "rates.json",
    "colleges.csv",
    "college_seats.csv",
+   "college_facilities.csv",
    "hole: NIL dollars below the Power 4, follower counts by level, endorsement earnings, jersey sales"
   ],
   "C15": [

@@ -270,6 +270,49 @@ pub fn spot_rating(spot: Spot, a: &Attributes, weight: f64, height: f64) -> f64 
     }
 }
 
+/// His rating at every spot, in `Spot::ALL` order: `spot_rating` at each,
+/// with each position's overall and each spot's lean worked out once (world
+/// speed lane). The same sums in the same order, so the same numbers; keep
+/// it in step with `spot_rating`.
+pub fn spot_ratings(a: &Attributes, weight: f64, height: f64) -> [f64; SPOT_COUNT] {
+    let mut overall = [0.0; crate::positions::POSITION_COUNT];
+    for pos in Position::ALL {
+        overall[pos.index()] = overall_for(pos, a);
+    }
+    let lv = Spot::ALL.map(|s| lean_value(s, a, weight, height));
+    Spot::ALL.map(|spot| match spot {
+        // The fullback, as `spot_rating`.
+        Spot::FB => {
+            let lead = 0.35 * a.get(BlockingInSpace)
+                + 0.15 * a.get(RunBlocking)
+                + 0.15 * a.get(Strength)
+                + 0.1 * a.get(Anchor)
+                + 0.05 * a.get(LegDrive)
+                + 0.2 * a.get(Catching);
+            0.5 * overall[Position::TE.index()] + 0.5 * lead
+        }
+        _ => {
+            let pos = spot.position();
+            let base = overall[pos.index()];
+            // His group's other spots, as `spot_rating` lists them (three
+            // spots at most, so no list is built).
+            let mut sibs = [spot; 3];
+            let mut n = 0;
+            for &s in spots_of(pos) {
+                if s != spot && s != Spot::FB {
+                    sibs[n] = s;
+                    n += 1;
+                }
+            }
+            if n == 0 || lean(spot).is_empty() {
+                return base;
+            }
+            let other = sibs[..n].iter().map(|&s| lv[s.index()]).sum::<f64>() / n as f64;
+            base + LEAN * (lv[spot.index()] - other) / 2.0
+        }
+    })
+}
+
 /// Rating points a man listed at `from` loses at a spot he has never been
 /// listed at (3.3): footwork from the other side, and at center the snap
 /// and the line calls, at middle linebacker the defensive calls. Interior

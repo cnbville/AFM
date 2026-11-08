@@ -6,7 +6,7 @@ use crate::body::body_now;
 use crate::player::{GameTraits, Level, Personality, Player};
 use crate::positions::{POSITION_COUNT, Position, overall_for};
 use crate::rng::clamp;
-use crate::spots::{self, SPOT_COUNT, Spot, fill_in, spot_rating};
+use crate::spots::{self, SPOT_COUNT, Spot, fill_in};
 
 use super::calling::Film;
 use super::playbook::{Backfield, FAMILY_COUNT, Personnel, PlayKind, Set};
@@ -143,7 +143,7 @@ impl GamePlayer {
             trust: 0.5,
             spot: p.spot,
             spots_played: p.spots_played | p.spot.bit(),
-            spot_r: Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight, b.height)),
+            spot_r: spots::spot_ratings(&p.attributes, b.weight, b.height),
             tend: p.tend,
             orders: Default::default(),
             chem: TYPICAL_CHEM,
@@ -164,7 +164,7 @@ impl GamePlayer {
         self.height = b.height;
         self.weight = b.weight;
         self.arm = b.arm;
-        self.spot_r = Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight, b.height));
+        self.spot_r = spots::spot_ratings(&p.attributes, b.weight, b.height);
         self.tend = p.tend;
         self.impression = crate::training::impression(&p.train);
         self.prep = prep_of(p);

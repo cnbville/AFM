@@ -1036,6 +1036,10 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
     let mut off: Vec<Entry> = Vec::new();
     for &k in &OFF_BOXES {
         let (sits, n) = box_spec(k, college, two_from);
+        // His weights in each of the box's situations, worked out once: the
+        // staff, film and context never change here (`CallMemo`: the same
+        // calls, draw for draw).
+        let mut memo = crate::game::calling::CallMemo::default();
         for hash in if by_hash(k) { vec![1u8, 2] } else { vec![0u8] } {
             let want = if hash == 0 { n } else { n.div_ceil(2) };
             let mut counts: Vec<(SheetPlay, f64)> = Vec::new();
@@ -1046,7 +1050,14 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
             let top = runs_f.max(pass_f) * if fav_first { 2.5 } else { 1.0 };
             for i in 0..140 {
                 let s = &sits[i % sits.len()];
-                let c = crate::game::calling::call_offense(&staff, &mem, s, &ctx, &mut rng);
+                let c = crate::game::calling::call_offense_memo(
+                    &staff,
+                    &mem,
+                    s,
+                    &ctx,
+                    &mut rng,
+                    Some((&mut memo, i % sits.len())),
+                );
                 let Some(mut p) = to_sheet(&c, hash) else { continue };
                 if k == sheet::SHOTS
                     && !matches!(p.play, SheetKind::Pass(i) if pass_concept(i as usize).depth == PassDepth::Deep || pass_concept(i as usize).play_action)
@@ -1215,10 +1226,21 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         let (sits, _) = box_spec(if k == sheet::SHOTS { sheet::THIRD_MEDIUM } else { k }, college, two_from);
         let n = if k == sheet::SHOTS { 4 } else { 3 };
         let mut counts: Vec<(DefSheetCall, f64)> = Vec::new();
+        // His coverage weights for each situation and look, worked out once
+        // (`CallMemo`: the same calls, draw for draw).
+        let mut memo = crate::game::calling::CallMemo::default();
         for i in 0..120 {
             let s = &sits[i % sits.len()];
             let f = rng.weighted(&looks);
-            let d: DefCall = crate::game::calling::call_defense(&dstaff, &dmem, s, &f, &DefCtx::default(), &mut rng);
+            let d: DefCall = crate::game::calling::call_defense_memo(
+                &dstaff,
+                &dmem,
+                s,
+                &f,
+                &DefCtx::default(),
+                &mut rng,
+                Some((&mut memo, i % sits.len())),
+            );
             if k == sheet::SHOTS && d.pressure.extra() == 0 {
                 continue;
             }
@@ -1247,6 +1269,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
     // downs, each testing something on their offense.
     {
         let (sits, _) = box_spec(sheet::SCRIPT, college, two_from);
+        let mut memo = crate::game::calling::CallMemo::default();
         let mut seen: Vec<DefSheetCall> = Vec::new();
         let mut script: Vec<DefSheetCall> = Vec::new();
         for i in 0..160 {
@@ -1255,7 +1278,15 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
             }
             let s = &sits[i % sits.len()];
             let f = rng.weighted(&looks);
-            let d: DefCall = crate::game::calling::call_defense(&dstaff, &dmem, s, &f, &DefCtx::default(), &mut rng);
+            let d: DefCall = crate::game::calling::call_defense_memo(
+                &dstaff,
+                &dmem,
+                s,
+                &f,
+                &DefCtx::default(),
+                &mut rng,
+                Some((&mut memo, i % sits.len())),
+            );
             let key = (d.coverage, d.pressure);
             // Variety first: each call once, then repeats.
             if !seen.contains(&key) || i >= 100 {
