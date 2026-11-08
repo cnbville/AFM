@@ -354,7 +354,8 @@ pub fn bar(w: &World) -> f32 {
 }
 
 /// The questions on offer for a player (SK47), the default first: where
-/// your own read is widest, where your staff disagree most, and the rest.
+/// your own read has the most left to learn (widest above your eye's
+/// floor), where your staff disagree most, and the rest.
 pub fn questions(w: &World, id: u32) -> Vec<Question> {
     let Some(i) = super::super::place(w, id) else { return Vec::new() };
     let pos = w.people[i].player.position;
@@ -392,9 +393,23 @@ pub fn questions(w: &World, id: u32) -> Vec<Question> {
         attrs: a.attrs.iter().map(|x| x.index() as u8).collect(),
         bar: b,
     };
+    // How far your read sits above your eye's floor there: what more of
+    // his tape can still teach you (minor bug 352: each trait has its own
+    // floor, so the subtlest question isn't always the widest).
+    let steady = lasting_eye(w, pos);
+    let room = |a: &words::Ask| -> f64 {
+        wide(a) - a.attrs.iter().map(|&x| super::lean_sd(steady, x)).sum::<f64>() / a.attrs.len().max(1) as f64
+    };
     let mut out = Vec::new();
-    if let Some(a) = asks.iter().max_by(|x, y| wide(x).total_cmp(&wide(y))) {
-        out.push(make(a, "Your own read is widest here: you haven't seen it yourself.".into()));
+    if let Some(a) = asks.iter().max_by(|x, y| room(x).total_cmp(&room(y))) {
+        let seen =
+            own.as_ref().is_some_and(|r| a.attrs.iter().any(|x| r.attrs.get(x.index()).copied().flatten().is_some()));
+        let why = if seen {
+            "Your own read has the most left to learn here."
+        } else {
+            "Your own read is widest here: you haven't seen it yourself."
+        };
+        out.push(make(a, why.into()));
     }
     if let Some(a) = asks.iter().filter(|a| split(a) >= 3.0).max_by(|x, y| split(x).total_cmp(&split(y)))
         && !out.iter().any(|q| q.key == a.key)
@@ -896,9 +911,17 @@ fn put(w: &mut World, s: Session) {
 
 /// Your eye on this session's player (SK43, SK63): your evaluation, what
 /// your hours at his position taught you, less a long day's tiredness.
-pub(crate) fn eye(w: &World, pos: Position) -> f64 {
+fn eye(w: &World, pos: Position) -> f64 {
     let base = super::super::yours::your_eye(w).unwrap_or(10.0);
     base + super::time::position_edge(w, pos)
+}
+
+/// Your eye at rest on his position (minor bug 352): your evaluation and
+/// what your hours there taught it, without the weeks' wear. It sizes your
+/// lasting misjudgment of him (`lean_sd`), which a tired week doesn't move.
+pub(crate) fn lasting_eye(w: &World, pos: Position) -> f64 {
+    let base = super::super::yours::your_eye(w).unwrap_or(10.0);
+    base + super::time::hours_edge(w, pos)
 }
 
 fn roll(s: &Session, w: &World, snap: usize, k: usize, salt: u64) -> f64 {
@@ -1790,7 +1813,8 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
     let sd_c = (3.5 * file::sharp(e) * (1.0 + 0.3 * t)) as f32;
     // Your eye's lasting misjudgment (minor bugs 320 and 352): the same in
     // every catch of a trait, so tape narrows toward it, not to the truth.
-    let floor = |a: Attr| super::lean_sd(e, a);
+    let steady = lasting_eye(w, s.pos);
+    let floor = |a: Attr| super::lean_sd(steady, a);
     // What one game shows of him is that game (minor bug 338): the same
     // in every catch of it, so a read firms up over games, not snaps.
     let form = super::GAME_SD * file::sharp(e);

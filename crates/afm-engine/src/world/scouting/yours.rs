@@ -22,6 +22,10 @@ use crate::world::season::key_normal;
 /// overall (proposed, not confirmed: sd 3.5, so up to about 7 points off).
 pub const IMPRESSION_SD: f64 = 3.5;
 
+/// Your tape's own draws in your file (minor bug 352): read apart from
+/// your other looks, it errs on its own.
+const TAPE_KEY: u64 = 0x7A9E_5EED_0000;
+
 /// Your own read of a player.
 #[derive(Clone, Debug)]
 pub struct OwnRead {
@@ -89,8 +93,20 @@ pub fn own_read_with(
 ) -> Option<OwnRead> {
     let i = super::place(w, id)?;
     let you = readers::you(w)?;
-    let (rds, looks, _) = readers::evidence(w, staff, id);
-    let me = rds.iter().position(|r| r.link == Link::You);
+    let (rds, looks, codes) = readers::evidence(w, staff, id);
+    // Your looks: every reader that is you, read as one man's file (minor
+    // bug 352). An NFL head coach is also the head coach in his club's
+    // file, which keeps its own copy of each watch and visit of yours the
+    // same day (dropped here, so an act counts once) and looks of his own:
+    // the board's spring film study, the workouts you ask for.
+    let mine: Vec<usize> = (0..rds.len()).filter(|&r| rds[r].link == Link::You).collect();
+    let me = mine.iter().copied().find(|&r| codes[r] == readers::COACH + you as u32).or(mine.first().copied());
+    let own_looks: Vec<file::Evidence> = looks
+        .iter()
+        .filter(|l| mine.contains(&l.reader))
+        .filter(|l| Some(l.reader) == me || !looks.iter().any(|m| Some(m.reader) == me && m.date == l.date))
+        .copied()
+        .collect();
     // Your film of him (Cain 2026-11-04: six hours of tape and no read):
     // each cut-up you watched is a look of its own, so more tape keeps
     // narrowing what film shows, and a cut-up still open counts from its
@@ -105,9 +121,8 @@ pub fn own_read_with(
     let mine = rd.and_then(|mut rd| {
         // Alone in the room, your say is your weight.
         rd.say = 1.0;
-        let mut lk: Vec<file::Evidence> = looks
+        let mut lk: Vec<file::Evidence> = own_looks
             .iter()
-            .filter(|l| Some(l.reader) == me)
             .filter(|l| l.date.add(rd.lag(l.kind, id, l.date)) <= w.today)
             .map(|l| file::Evidence { reader: 0, ..*l })
             .collect();
@@ -118,43 +133,55 @@ pub fn own_read_with(
             return None;
         }
         let n = lk.len();
-        let read = |lk: &[file::Evidence]| {
-            file::read(
+        let read = |rd: &file::Reader, some: &[file::Evidence]| {
+            file::read_in(
                 w,
                 i,
-                std::slice::from_ref(&rd),
-                lk,
+                std::slice::from_ref(rd),
+                some,
+                Some(lk.as_slice()),
                 &readers::norms(w, i),
                 readers::medical_rating(w, staff),
                 Some(w.today),
             )
         };
-        let f = read(&lk);
+        let f = read(&rd, &lk);
         // Only what your own eye saw counts as yours: a shared measurement
         // isn't in your looks. What your tape can't show is a wide guess.
-        let mut attrs = f.per_reader.first().cloned().unwrap_or_default();
-        attrs.resize(crate::attributes::ATTRIBUTE_COUNT, None);
-        for (k, a) in f.attrs.iter().enumerate() {
-            if a.guess && attrs[k].is_none() {
-                attrs[k] = Some((a.centre, a.sd));
+        let yours_of = |f: &file::FileRead, guesses: bool| {
+            let mut v = f.per_reader.first().cloned().unwrap_or_default();
+            v.resize(crate::attributes::ATTRIBUTE_COUNT, None);
+            for (k, a) in f.attrs.iter().enumerate() {
+                if guesses && a.guess && v[k].is_none() {
+                    v[k] = Some((a.centre, a.sd));
+                }
             }
-        }
-        // Your eye on his tape apart from your other looks (minor bug 352):
-        // your eye's lasting misjudgment rides on all your tape, and the
-        // catches join the tape it carries, not what you saw in person.
+            v
+        };
+        let attrs = yours_of(&f, true);
+        // Your tape apart from your other looks (minor bug 352): your eye's
+        // lasting misjudgment rides on your tape, not on what you saw in
+        // person. The two are read on draws of their own, so what one gets
+        // wrong isn't what the other does and they join as two reads.
         let (mut tape, mut others) = (Vec::new(), Vec::new());
         if lk.iter().any(|l| on_tape(l.kind)) {
-            let yours_of = |f: file::FileRead| f.per_reader.into_iter().next().unwrap_or_default();
-            let rest: Vec<file::Evidence> = lk.iter().filter(|l| !on_tape(l.kind)).copied().collect();
-            if rest.is_empty() {
-                tape = f.per_reader.first().cloned().unwrap_or_default();
+            let (tapes, rest): (Vec<file::Evidence>, Vec<file::Evidence>) =
+                lk.iter().copied().partition(|l| on_tape(l.kind));
+            let mut on_film = rd.clone();
+            on_film.key ^= TAPE_KEY;
+            tape = yours_of(&read(&on_film, &tapes), false);
+            others = if rest.is_empty() {
+                vec![None; crate::attributes::ATTRIBUTE_COUNT]
             } else {
-                let tapes: Vec<file::Evidence> = lk.iter().filter(|l| on_tape(l.kind)).copied().collect();
-                tape = yours_of(read(&tapes));
-                others = yours_of(read(&rest));
+                yours_of(&read(&rd, &rest), true)
+            };
+            // What your other looks can't read keeps the file's wide guess,
+            // so a trait your tape reads for the first time keeps it too.
+            for (k, o) in others.iter_mut().enumerate() {
+                if o.is_none() {
+                    *o = Some(file::guess(w, i, crate::attributes::Attr::ALL[k]));
+                }
             }
-            tape.resize(crate::attributes::ATTRIBUTE_COUNT, None);
-            others.resize(crate::attributes::ATTRIBUTE_COUNT, None);
         }
         Some((f.now, attrs, n, tape, others))
     });
@@ -183,10 +210,12 @@ pub fn own_read_with(
 }
 
 /// Your eye on his tape (minor bug 352): a film look of yours (the film
-/// room files one under your name for each watch, and as a head coach in
-/// your club's file too; the hunt's games; old film), a cross-check, a
-/// director's or a GM's look. They carry your eye's lasting misjudgment
-/// of him, as your catches do (`film::sharpen_with`).
+/// room files one under your name for each watch; the hunt's games; old
+/// film), a cross-check, a director's or a GM's look: the looks the file
+/// sorts as film (`Kind::family`, but the analysts' numbers). They carry
+/// your eye's lasting misjudgment of him, as your catches do
+/// (`film::sharpen_with`). A coach's film and drills at a pro day or a
+/// workout (`Kind::Coach`) reads as in person, as the file sorts it.
 fn on_tape(k: Kind) -> bool {
     matches!(
         k,

@@ -74,8 +74,8 @@ pub struct Catch {
 /// watches three to five games before he trusts a read: one game's 200
 /// catches can't read him much better than one game can. With your eye's
 /// lasting misjudgment (`lean_sd`), an elite eye reads a well-shown trait
-/// within about 2 after a game, 1.2 after four and 1 after a season; an
-/// ordinary eye within about 4.9, 4.2 and 4, its blind spots for good.
+/// within about 2 after a game, 1.3 after four and 1.1 after a season; an
+/// ordinary eye within about 4.5, 4.1 and 4, its blind spots for good.
 pub const GAME_SD: f64 = 3.0;
 
 /// One game's (or one day's) key for its catches of a man: `Catch::game`.
@@ -91,13 +91,13 @@ pub(crate) fn game_key(label: &str, season: i32) -> u64 {
 /// without it any eye read anyone exactly after a few hours. An analyst's
 /// numbers carry none (SK57: tape with a top analyst beside you can take
 /// your read all the way).
-pub const EYE_LEAN: f64 = 3.5;
+pub const EYE_LEAN: f64 = 4.0;
 
 /// Your eye's lasting misjudgment of a trait, its sd in rating points:
 /// `EYE_LEAN` × (0.85 + 0.6 × how hard film makes the trait to see,
 /// `words::subtle`) × sharp(eye)³, so it falls steeply as the eye rises: a
-/// 20 eye 0.73 to 0.96, a 15 eye 1.7 to 2.3, a 10 eye 3.4 to 4.4, a 5 eye
-/// 5.9 to 7.7 (results traits such as arm strength and speed to technique
+/// 20 eye 0.84 to 1.10, a 15 eye 2.0 to 2.6, a 10 eye 3.9 to 5.1, a 5 eye
+/// 6.7 to 8.8 (results traits such as arm strength and speed to technique
 /// and mental ones such as play recognition and footwork). Proposed, not
 /// confirmed: the cube and the trait weights.
 pub fn lean_sd(eye: f64, a: Attr) -> f64 {
@@ -365,8 +365,8 @@ pub fn catches_with(w: &World, id: u32, extra: &[Catch]) -> Vec<Option<(f64, f64
 
 /// One trait's film read in its parts (minor bug 352): your eye's centre,
 /// the part of its variance more tape shrinks and its lasting lean (an sd,
-/// `Catch::lean`); your analyst's centre and variance; his real number
-/// once the read is exact.
+/// your eye's as it is now, `lean_sd`); your analyst's centre and
+/// variance; his real number once the read is exact.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct Split {
     eye: Option<(f64, f64, f64)>,
@@ -401,6 +401,11 @@ pub(crate) fn split_with(w: &World, id: u32, extra: &[Catch]) -> Vec<Option<Spli
         stored.iter().chain(fresh).filter(|c| c.id == id && (c.attr as usize) < ATTRIBUTE_COUNT).collect();
     his.sort_by_key(|c| (c.attr, c.by.min(1), c.game));
     let i = super::place(w, id);
+    // Your eye's lasting misjudgment as your eye is now (minor bug 352):
+    // a catch keeps the lean of the eye that made it (an older save's, at
+    // another position, on a visit), so each trait's is moved to today's
+    // and every catch of it shares one. More of them never widens it.
+    let steady = i.map(|i| session::lasting_eye(w, w.people[i].player.position));
     let mut out = vec![None; ATTRIBUTE_COUNT];
     for cs in his.chunk_by(|a, b| a.attr == b.attr) {
         let k = cs[0].attr as usize;
@@ -421,7 +426,15 @@ pub(crate) fn split_with(w: &World, id: u32, extra: &[Catch]) -> Vec<Option<Spli
             }
             let lean = el / ew;
             if eye[0].by == 0 {
-                sp.eye = Some((es / ew, 1.0 / ew, lean));
+                let a = Attr::ALL[k];
+                let (c, l) = match steady {
+                    Some(e) => {
+                        let l = lean_sd(e, a);
+                        (es / ew + (l - lean) * eye_lean(w, id, a), l)
+                    }
+                    None => (es / ew, lean),
+                };
+                sp.eye = Some((c, 1.0 / ew, l));
             } else {
                 sp.analyst = Some((es / ew, 1.0 / ew + lean * lean));
             }
@@ -445,17 +458,20 @@ pub fn sharpen(w: &World, id: u32, pos: Position, now: &mut (f64, f64), attrs: &
 }
 
 /// Your eye's catches folded into your own read (SK43), trait by trait,
-/// and the overall narrowed by how much of his position's weight they
-/// pinned down. Your eye on his tape is one read (minor bug 352): what
-/// your film looks of him read of the trait (`tape`: the film room's, the
-/// hunt's games, old film) and your eye's catches share your eye's lasting
+/// and the overall moved and narrowed by what they pinned down of his
+/// position's weight. Your eye on his tape is one eye (minor bug 352): what
+/// your film looks of him read of a trait (`tape`: the film room's, the
+/// hunt's games, old film) and your catches share your eye's lasting
 /// misjudgment of him, so more tape narrows toward it and never past it.
 /// Before, the two joined as if apart and averaged it away, so a weak eye
-/// read nearly as close as a strong one. What your other looks read
-/// (`others`: practices, games in person, camps, visits) and your
-/// analyst's points join it apart, so more of anything never widens a
-/// read. An empty `tape`: none of your looks is on tape, and `attrs` is
-/// what your other looks read.
+/// read nearly as close as a strong one. Three reads that share no error
+/// join: your eye's (your tape and your catches), your other looks'
+/// (`others`: practices, games and visits in person, camps, read on draws
+/// of their own; the file's wide guess where they can't read the trait)
+/// and your analyst's points. Each only narrows as its looks and catches
+/// come in, so more of anything never widens a read and nothing moves
+/// without a new look. An empty `tape`: none of your looks is on tape, and
+/// `attrs` is what your other looks read.
 #[allow(clippy::too_many_arguments)]
 pub fn sharpen_with(
     w: &World,
@@ -471,9 +487,12 @@ pub fn sharpen_with(
     if film.iter().all(Option::is_none) && tape.iter().all(Option::is_none) {
         return;
     }
-    let e = session::eye(w, pos);
+    let e = session::lasting_eye(w, pos);
     attrs.resize(ATTRIBUTE_COUNT, None);
-    let (mut shift, mut cov, mut total) = (0.0, 0.0, 0.0);
+    // The overall's move, how much of its spread the reads pinned down, and
+    // what is left in them of your eye's misjudgment (each trait's its own,
+    // so in the overall it mostly averages out).
+    let (mut shift, mut cov, mut total, mut misjudged) = (0.0, 0.0, 0.0, 0.0);
     for a in Attr::ALL {
         let wt = weight(pos, a);
         total += wt;
@@ -484,50 +503,67 @@ pub fn sharpen_with(
             continue;
         }
         let before = attrs[k];
-        let after = if let Some(x) = sp.and_then(|s| s.exact) {
-            (x, 0.0)
-        } else {
-            let z = eye_lean(w, id, a);
-            let lt = lean_sd(e, a);
-            // Your eye on his tape: the file's film read moved by your
-            // eye's misjudgment, joined with your catches that carry it.
-            let eye = match (t, sp.and_then(|s| s.eye)) {
-                (Some((ct, st)), Some((ce, ve, le))) => {
-                    let (x, y) = (1.0 / (st * st).max(0.01), 1.0 / ve.max(1e-6));
-                    let lean = (x * lt + y * le) / (x + y);
-                    Some((((ct + lt * z) * x + ce * y) / (x + y), lean * lean + 1.0 / (x + y)))
+        // Centre, variance and the sd of your eye's misjudgment in it.
+        let (c, var, lean) = match sp.and_then(|s| s.exact) {
+            Some(x) => (x, 0.0, 0.0),
+            None => {
+                let l = lean_sd(e, a);
+                let catches = sp.and_then(|s| s.eye);
+                let analyst = sp.and_then(|s| s.analyst).map(|(c, v)| (c, v, 0.0));
+                // Your eye's read: the file's read of your tape moved by your
+                // misjudgment, joined with your catches, which carry the
+                // same one: only their own noise averages out.
+                let eyed = match (t, catches) {
+                    (Some((ct, st)), Some((ce, ve, _))) => {
+                        let (x, y) = (1.0 / (st * st).max(0.01), 1.0 / ve.max(1e-6));
+                        let ct = ct + l * eye_lean(w, id, a);
+                        Some(((ct * x + ce * y) / (x + y), l * l + 1.0 / (x + y), l))
+                    }
+                    (Some((ct, st)), None) => Some((ct + l * eye_lean(w, id, a), st * st + l * l, l)),
+                    (None, Some((ce, ve, l))) => Some((ce, ve + l * l, l)),
+                    (None, None) => None,
+                };
+                // Your other looks: with none on tape, all your file reads.
+                let other = if tape.is_empty() { before } else { others.get(k).copied().flatten() };
+                match join([other.map(|(c, sd)| (c, (sd * sd).max(0.01), 0.0)), eyed, analyst]) {
+                    Some(r) => r,
+                    None => continue,
                 }
-                (Some((ct, st)), None) => Some((ct + lt * z, st * st + lt * lt)),
-                (None, Some((ce, ve, le))) => Some((ce, ve + le * le)),
-                (None, None) => None,
-            };
-            let other = if tape.is_empty() { before } else { others.get(k).copied().flatten() };
-            let (mut s, mut wsum) = (0.0, 0.0);
-            for (c, v) in
-                eye.into_iter().chain(other.map(|(c, sd)| (c, (sd * sd).max(0.01)))).chain(sp.and_then(|s| s.analyst))
-            {
-                s += c / v;
-                wsum += 1.0 / v;
             }
-            if wsum <= 0.0 {
-                continue;
-            }
-            ((s / wsum).clamp(1.0, 99.0), (1.0 / wsum).sqrt())
         };
+        let c = c.clamp(1.0, 99.0);
+        // What the read pinned down, its misjudgment apart.
+        let rest = (var - lean * lean).max(0.0);
         if let Some(b) = before {
-            shift += wt * (after.0 - b.0);
-            cov += wt * (1.0 - (after.1 * after.1) / (b.1 * b.1).max(0.01)).clamp(0.0, 1.0);
+            // From the centre the overall was read from (clamped there).
+            shift += wt * (c - b.0.clamp(1.0, 99.0));
+            cov += wt * (1.0 - rest / (b.1 * b.1).max(0.01)).clamp(0.0, 1.0);
         } else {
             // Read for the first time: how much of a wide guess (9 points)
             // the tape replaced.
-            cov += wt * (1.0 - (after.1 / 9.0).powi(2)).clamp(0.0, 1.0);
+            cov += wt * (1.0 - rest / 81.0).clamp(0.0, 1.0);
         }
-        attrs[k] = Some(after);
+        misjudged += (wt * lean).powi(2);
+        attrs[k] = Some((c, var.sqrt()));
     }
     if total > 0.0 {
         now.0 = (now.0 + shift / total).clamp(1.0, 99.0);
-        now.1 = (now.1 * (1.0 - cov / total).max(0.0).sqrt()).max(if cov >= total * 0.999 { 0.0 } else { 0.5 });
+        let pinned = now.1 * now.1 * (1.0 - cov / total).max(0.0);
+        now.1 = (pinned + misjudged / (total * total)).sqrt().max(if cov >= total * 0.999 { 0.0 } else { 0.5 });
     }
+}
+
+/// Reads with errors apart joined by inverse variance: the centre, the
+/// variance and the sd of your eye's misjudgment left in it (the reads that
+/// carry it carry the same one).
+fn join<const N: usize>(parts: [Option<(f64, f64, f64)>; N]) -> Option<(f64, f64, f64)> {
+    let (mut s, mut wsum, mut lean) = (0.0, 0.0, 0.0);
+    for (c, v, l) in parts.into_iter().flatten() {
+        s += c / v;
+        wsum += 1.0 / v;
+        lean += l / v;
+    }
+    (wsum > 0.0).then(|| (s / wsum, 1.0 / wsum, lean / wsum))
 }
 
 /// The film room's day: the week turns over on Monday (your hours logged,
