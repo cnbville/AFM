@@ -53,6 +53,7 @@ mod tendencies;
 mod training;
 mod update3;
 mod views;
+mod waivers;
 mod win_chance;
 mod world;
 mod world_log;
