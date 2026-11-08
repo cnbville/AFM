@@ -9,11 +9,11 @@
   "unconfirmed": "a proposal Raichel hasn't answered"
  },
  "counts": {
-  "files": 63,
-  "figures": 687,
+  "files": 66,
+  "figures": 690,
   "debug_lab_figures": 15,
   "in_code": 146,
-  "memory_notes": 314,
+  "memory_notes": 320,
   "memory_notes_checked": 11,
   "memory_checks_that_differ": 3,
   "figures_from_memory": 2,
@@ -104,7 +104,7 @@
     "C27",
     "G7"
    ],
-   "bytes": 47468
+   "bytes": 49026
   },
   "talent_by_state.csv": {
    "source": "computed: sportsdataverse cfb_recruits + cfbfastR-data rosters + nflverse draft_picks (method in README)",
@@ -138,7 +138,7 @@
     "G5",
     "N31"
    ],
-   "bytes": 195035
+   "bytes": 194413
   },
   "colleges_lower.csv": {
    "source": "Wikipedia lists of NAIA, D3 and JUCO programs (URL per row)",
@@ -174,6 +174,45 @@
     "T13"
    ],
    "bytes": 5813
+  },
+  "college_start_records.csv": {
+   "source": "Wikipedia standings templates of the 1979-1983 seasons (NCAA Division I-A, I-AA, II, III, NAIA Divisions I and II) and team season articles (URL per row); scripts/college_past.py",
+   "years": "1979-1983",
+   "level": "college",
+   "status": "sourced",
+   "holes": "no junior college records (no standings on Wikipedia); Division II, III and NAIA programs with no 1979-83 row, most of which had no team then",
+   "areas": [
+    "C1",
+    "C2"
+   ],
+   "bytes": 337258
+  },
+  "college_titles.csv": {
+   "source": "Wikipedia: the FBS major selectors' table by year, the NCAA I-AA/FCS, Division II and III, NAIA and NJCAA champions (URL per row); scripts/college_past.py",
+   "years": "1869-2025",
+   "level": "college",
+   "status": "sourced",
+   "holes": "small-college polls before 1973 and black college national titles left out (not national titles in the record books); vacated titles left out",
+   "areas": [
+    "C1",
+    "C2",
+    "C5",
+    "C13"
+   ],
+   "bytes": 71700
+  },
+  "college_seats.csv": {
+   "source": "Wikipedia stadium articles (infobox capacity history and dated lines) and team articles, read per school (URL per row)",
+   "years": "1984-2025",
+   "level": "college",
+   "status": "sourced",
+   "holes": "seasons the pages do not settle are left out (1,861 program seasons over 110 programs; the last known seats carry on); no rows for 7 FCS programs, 87 Division II programs, dropped programs, or Division III, NAIA and junior colleges (they keep today's seats)",
+   "areas": [
+    "C1",
+    "C2",
+    "C14"
+   ],
+   "bytes": 97082
   },
   "tendency_spreads.json": {
    "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases): play-by-play, Next Gen Stats, PFR advanced defense",
@@ -1260,6 +1299,7 @@
   }
  },
  "unlisted_files": [
+  "ab_real.json",
   "college_candidates.csv",
   "college_expected_points.csv"
  ],
@@ -2242,7 +2282,7 @@
   {
    "key": "hs_states.csv",
    "file": "hs_states.csv",
-   "years": "2026",
+   "years": "2021-2026",
    "status": "sourced",
    "columns": [
     "state",
@@ -2260,7 +2300,10 @@
     "transfer_source_url",
     "hs_nil_allowed",
     "hs_nil_note",
-    "hs_nil_source_url"
+    "hs_nil_source_url",
+    "hs_nil_from",
+    "hs_nil_scope",
+    "hs_nil_min_age"
    ],
    "rows": 51
   },
@@ -2371,6 +2414,49 @@
     "source_url"
    ],
    "rows": 50
+  },
+  {
+   "key": "college_start_records.csv",
+   "file": "college_start_records.csv",
+   "years": "1979-1983",
+   "status": "sourced",
+   "columns": [
+    "name",
+    "season",
+    "wins",
+    "losses",
+    "ties",
+    "source_url"
+   ],
+   "rows": 2879
+  },
+  {
+   "key": "college_titles.csv",
+   "file": "college_titles.csv",
+   "years": "1869-2025",
+   "status": "sourced",
+   "columns": [
+    "name",
+    "season",
+    "level",
+    "source_url"
+   ],
+   "rows": 697
+  },
+  {
+   "key": "college_seats.csv",
+   "file": "college_seats.csv",
+   "years": "1984-2025",
+   "status": "sourced",
+   "columns": [
+    "name",
+    "first_season",
+    "last_season",
+    "seats",
+    "stadium",
+    "source_url"
+   ],
+   "rows": 973
   },
   {
    "key": "tendency_spreads.json:stats.scramble_rate",
@@ -9779,7 +9865,7 @@
    ]
   },
   {
-   "what": "Quotas from ESPN's 2013-2026 means",
+   "what": "Quotas from the 247 Composite",
    "where": "crates/afm-engine/src/world/recruiting.rs SERVICE_TIERS",
    "status": "cited in code",
    "areas": [
@@ -10894,7 +10980,7 @@
   },
   {
    "file": "crates/afm-reader/src/defs_world.rs",
-   "line": 2506,
+   "line": 2507,
    "text": "note: r#\"Star farewell seasons with their gifts, signature celebrations by when they were born, and one-day contracts to retire with a club, beside the real one-day contracts (one_day_contracts.csv, some rows from memory",
    "status": "from memory"
   },
@@ -10918,61 +11004,61 @@
   },
   {
    "file": "crates/afm-reader/src/defs_programs.rs",
-   "line": 1395,
+   "line": 1403,
    "text": "note: r#\"Every NCAA case the world opened: the program, when, what was found and the penalty (`ProgramEra.cases`). Real: a few major football cases a decade (from memory).\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_programs.rs",
-   "line": 1611,
+   "line": 1619,
    "text": "note: r#\"Each FBS program's season records (passing, rushing and receiving yards, sacks; `Program.season_records`), the best first. Real FBS records (from memory, not checked): passing 5,833, rushing 2,628, receiving 2,0",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_programs.rs",
-   "line": 1934,
+   "line": 1942,
    "text": "note: r#\"The schools that pull from out of state (`high_school.rs` NATIONAL_POWERHOUSES): prestige, state titles, roster size, how many of the roster have a home in another state (a boarder keeps his; a family that moves",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_programs.rs",
-   "line": 2045,
+   "line": 2053,
    "text": "note: r#\"For each school, the most state titles it won in any 15 straight seasons, with the seasons; the top 50. Real powerhouses rarely win more than about 10 in 15 (from memory, no open record book).\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_programs.rs",
-   "line": 2234,
+   "line": 2242,
    "text": "note: r#\"The share of seasons a school starts with a new head coach (the season's coach against last season's), by prestige band, and the season after a state title. Real dynasties keep their coach for decades (Bruce Rol",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_programs.rs",
-   "line": 2368,
+   "line": 2376,
    "text": "note: r#\"Each engine year's high school totals per team game (the calendar log). Real points about 26 a team game, from memory.\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_programs.rs",
-   "line": 2424,
+   "line": 2432,
    "text": "note: r#\"The best season in the world's high school lines (engine years) for each record-book stat, against a real season mark where trial 10 has one (from memory: receiving 1,500 yards is common among leaders, sacks rec",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_programs.rs",
-   "line": 3370,
+   "line": 3378,
    "text": "note: r#\"Coaches by the size of their tree: direct protégés (his mentor link), protégés who held a head job, protégés who are college head coaches now and grand-protégés. Real big trees (Saban's, Walsh's) run to a dozen ",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_people.rs",
-   "line": 2960,
+   "line": 3038,
    "text": "note: r#\"Mean scholarship offers of this year's high school seniors by stars. Real: top-100 recruits about 20-40 offers (from memory, to source).\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_list.rs",
-   "line": 350,
+   "line": 352,
    "text": "real: Real::Memory(26.0, \"trial 10: real about 26, from memory (no open high school data)\"),",
    "status": "from memory"
   },
@@ -10984,133 +11070,133 @@
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1569,
+   "line": 1570,
    "text": "r#\"Bailey Zappe, Western Kentucky 2021 (from memory; to verify against the NCAA record book)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1591,
+   "line": 1592,
    "text": "r#\"Bailey Zappe, Western Kentucky 2021 (from memory; to verify against the NCAA record book)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1613,
+   "line": 1614,
    "text": "r#\"Barry Sanders, Oklahoma State 1988 (from memory; to verify against the NCAA record book)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1635,
+   "line": 1636,
    "text": "r#\"Trevor Insley, Nevada 1999 (from memory; to verify against the NCAA record book)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1657,
+   "line": 1658,
    "text": "r#\"Terrell Suggs, Arizona State 2002 (from memory; to verify against the NCAA record book)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1677,
+   "line": 1678,
    "text": "real: Real::Memory(14.0, r#\"Al Worley, Washington 1968 (from memory; to verify against the NCAA record book)\"#),",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1696,
+   "line": 1697,
    "text": "real: Real::Memory(47.0, r#\"Oklahoma 1953-57 (from memory)\"#),",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1711,
+   "line": 1713,
    "text": "real: Real::Memory(151.0, r#\"De La Salle (Concord, CA) 1992-2004 (from memory); trial 10 had 248\"#),",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1745,
+   "line": 1747,
    "text": "r#\"20 of the 25 Heisman winners 2000-2024 were quarterbacks; Bush, Ingram, Henry, DeVonta Smith and Hunter were not (from memory)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1877,
+   "line": 1879,
    "text": "r#\"21 of the 25 NFL MVPs 2000-2024 were quarterbacks; Faulk, Alexander, Tomlinson and Peterson were not (from memory)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1895,
+   "line": 1897,
    "text": "r#\"players inducted 2010-2025 without the 2020 centennial class: 94 in 15 classes, modern era and seniors (from memory); coaches and contributors come on top\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1913,
+   "line": 1915,
    "text": "r#\"5 coaches in the 15 classes 2010-2025 without 2020: Parcells, Dungy, Flores, Vermeil, Coryell (from memory)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1929,
+   "line": 1931,
    "text": "real: Real::Memory(17.0, r#\"about 1 in 6 modern-era inductees are receivers or tight ends (from memory)\"#),",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1947,
+   "line": 1949,
    "text": "r#\"the real national high school season sack record is near 40 (from memory, world-trial10.md)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 1966,
+   "line": 1968,
    "text": "r#\"real state leaders pass 1,500 receiving yards every year and the top seasons reach about 2,500 (from memory)\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 2527,
+   "line": 2529,
    "text": "note: r#\"Each season's ten highest and ten lowest points a game among FBS programs, from the programs' season totals (every season of the world, spin-up years included). Real: the best FBS offenses score about 45 a game ",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 2901,
+   "line": 2903,
    "text": "note: r#\"The world's yearly totals: engine games, points and plays a team game (log_history hs_totals). Engine games run for the high school years set in the world options; earlier seasons ran on the stand-in and score n",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 2928,
+   "line": 2930,
    "text": "note: r#\"High school engine games in the game log (both teams and the score, since the world reader): points, plays, running-clock games and shutouts. Real from memory: about 26 points a team game; no open national figur",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 3787,
+   "line": 3789,
    "text": "note: r#\"The holder of each book in each division and in each conference and state: single season, career and streaks, with the runner-up and whether the mark is still running. Real FBS single-season records, written fro",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 4020,
+   "line": 4022,
    "text": "note: r#\"MVP, Offensive and Defensive Player and Rookie of the Year, Comeback Player and Super Bowl MVP, each with the winner's position and club. Real: QBs win most MVPs (21 of 25 in 2000-2024, from memory).\"#,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 4062,
+   "line": 4064,
    "text": "note: r#\"Each record: the stat, single season or career, the value, the holder and year, and whether a world player holds it (the book is seeded with real marks before 1984, from memory, to verify). Below, every record b",
    "status": "from memory"
   },
   {
    "file": "crates/afm-reader/src/defs_games.rs",
-   "line": 4089,
+   "line": 4091,
    "text": "note: r#\"The best high school seasons in each stat, from every kept high school line (engine games 2014 on; players who left football are not kept). Real, from memory (world trial 10 notes; real high school books need a ",
    "status": "from memory"
   },
@@ -11130,44 +11216,56 @@
    "check": "trades: 40-102 a year 2002-2025 (86-96 since 2021); comp picks: 29-38 a year; free agents, tags, offer sheets, options and claims stay unsourced (OverTheCap, Spotrac)"
   },
   {
+   "file": "crates/afm-tools/src/bin/carousel_check.rs",
+   "line": 518,
+   "text": "/// counted by name (from memory, as in `afm/race-check/released-worlds.md`).",
+   "status": "from memory"
+  },
+  {
    "file": "crates/afm-engine/src/world/recruiting.rs",
-   "line": 1172,
+   "line": 1316,
    "text": "// snapper (from memory, to verify): two of each at most, however well",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/recruiting.rs",
-   "line": 1904,
+   "line": 1498,
+   "text": "/// the last day (real recent drafts, from memory: round 1 about 6 minutes a",
+   "status": "from memory"
+  },
+  {
+   "file": "crates/afm-engine/src/world/recruiting.rs",
+   "line": 2217,
    "text": "/// participation counts over teams, from memory, to verify).",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 1788,
+   "line": 1891,
    "text": "// The real fields (from memory, to verify): Division III 16 teams",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 1981,
+   "line": 2084,
    "text": "// The Stagg Bowl (from memory, to verify): Phenix City 1985-89,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 1991,
+   "line": 2094,
    "text": "// The NAIA final (from memory, to verify): Rome, Georgia 2008-13,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 2445,
+   "line": 2548,
    "text": "/// now and then and almost never to a defender (2000-2024, from memory, to",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 3389,
+   "line": 3653,
    "text": "/// Clemson 2018, and a few dozen a year since (from memory, to verify).",
    "status": "from memory"
   },
@@ -11188,7 +11286,7 @@
   },
   {
    "file": "crates/afm-engine/src/world/nfl_year.rs",
-   "line": 1540,
+   "line": 1828,
    "text": "/// International games a season (the real counts to 2025, from memory, to",
    "status": "from memory",
    "checked_by": "nfl_history.json schedule_facts.games_abroad",
@@ -11197,19 +11295,19 @@
   },
   {
    "file": "crates/afm-engine/src/world/nfl_year.rs",
-   "line": 1669,
+   "line": 1957,
    "text": "// on the schedule as released (real cap, from memory, to verify).",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/nfl_year.rs",
-   "line": 1776,
+   "line": 2064,
    "text": "// 2020 (2022: 11 games on Dec 24, 3 on Dec 25; from memory, to verify).",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/nfl_year.rs",
-   "line": 1857,
+   "line": 2145,
    "text": "/// `schedule_facts`; earlier years from memory), three a year after 2025",
    "status": "from memory",
    "checked_by": "nfl_history.json schedule_facts.christmas_day",
@@ -11218,12 +11316,18 @@
   },
   {
    "file": "crates/afm-engine/src/world/nfl_year.rs",
-   "line": 1873,
+   "line": 2161,
    "text": "/// (weeks 13-17, 28 days ahead, two a season) flex too (from memory, to",
    "status": "from memory",
    "checked_by": null,
    "result": "partial",
    "check": "no open schedule-release data; stays memory"
+  },
+  {
+   "file": "crates/afm-engine/src/world/scouting/live.rs",
+   "line": 102,
+   "text": "/// 2008 too (from memory: the 2008 change cut only rounds 1 and 2).",
+   "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/stories/numbers.rs",
@@ -11241,26 +11345,32 @@
    "status": "from memory"
   },
   {
+   "file": "crates/afm-engine/src/world/finance/college.rs",
+   "line": 346,
+   "text": "/// contributions run about $4-8M (Knight-Newhouse, from memory). Proposed,",
+   "status": "from memory"
+  },
+  {
    "file": "crates/afm-engine/src/world/pro/honors.rs",
-   "line": 63,
+   "line": 67,
    "text": "/// The real NFL records before the 1984 season (from memory, to verify):",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/pro/honors.rs",
-   "line": 249,
+   "line": 253,
    "text": "/// All-Pro places per team at each position (the AP's teams, from memory,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/pro/honors.rs",
-   "line": 261,
+   "line": 265,
    "text": "/// Pro Bowl places per conference (from memory, to verify).",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/pro/honors.rs",
-   "line": 546,
+   "line": 634,
    "text": "// three from 2023 (the real rules, from memory); the bar of 16 is",
    "status": "from memory"
   },
@@ -11356,14 +11466,8 @@
   },
   {
    "file": "crates/afm-engine/src/calendar/anchors.rs",
-   "line": 775,
+   "line": 801,
    "text": "/// The NFL's dated steps by era (from memory, to verify): the trade",
-   "status": "from memory"
-  },
-  {
-   "file": "crates/afm-engine/src/calendar/rules.rs",
-   "line": 212,
-   "text": "// kept from 2022 (from memory, to verify); 17 from 2025 as first",
    "status": "from memory"
   },
   {
@@ -11728,49 +11832,49 @@
   },
   {
    "file": "tools/reader-defs/g_y.py",
-   "line": 80,
+   "line": 85,
    "text": "Fixed(853000.0, \"parades.csv: 18 NFL parades 2002-2025 with a crowd estimate average about 853,000 (several rows from memory, to verify)\", \"2002-2025\"), (0.3, 0.6, 0.0),",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_y.py",
-   "line": 128,
+   "line": 134,
    "text": "Memory(30.0, \"Forbes 2024: the top NFL players earn about $10-50M a year off the field (from memory)\"), (0.4, 0.8, 0.0), \"The largest yearly brand money (ads, NIL, endorsements) of any player.\")",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_y.py",
-   "line": 131,
+   "line": 137,
    "text": "Memory(8.0, \"real 2024 Instagram followings: about a third of the most-followed active NFL players are quarterbacks (from memory)\"), (0.4, 0.8, 0.0),",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_y.py",
-   "line": 184,
+   "line": 190,
    "text": "Memory(8.0, \"real: about 6-10 NFL clubs open camp with a named quarterback competition each year (from memory)\"), (0.4, 0.8, 0.0), \"NFL quarterback battles opened per season.\")",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_y.py",
-   "line": 187,
+   "line": 193,
    "text": "Memory(6.8, \"real: about 6-8 NFL head coaches replaced a year 2000-2025 (from memory)\"), (0.25, 0.5, 0.0), \"Clubs with a new head coach the next season, per year.\")",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_y.py",
-   "line": 234,
+   "line": 240,
    "text": "\"Star farewell seasons with their gifts, signature celebrations by when they were born, and one-day contracts to retire with a club, beside the real one-day contracts (one_day_contracts.csv, some rows from memory).\",",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_y.py",
-   "line": 255,
+   "line": 261,
    "text": "Memory(4.0, \"NFLPA top-10 jersey sales 2019-2024: about four quarterbacks a year (from memory)\"), (0.3, 0.6, 0.0), \"Quarterbacks among each year's ten best-selling NFL jerseys.\")",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_y.py",
-   "line": 264,
+   "line": 270,
    "text": "Fixed(1.1, \"one_day_contracts.csv: 24 one-day contracts 2005-2026 (some rows from memory, to verify)\", \"2005-2026\"), (0.4, 0.8, 0.0), \"One-day contracts signed per year.\")",
    "status": "from memory"
   },
@@ -11788,19 +11892,19 @@
   },
   {
    "file": "tools/reader-defs/g_w.py",
-   "line": 222,
+   "line": 225,
    "text": "Memory(40.0, \"Knight-Newhouse: Group of 5 departments take about a third to a half of their revenue from institutional support and student fees (from memory)\"), (0.25, 0.5, 0.0),",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_w.py",
-   "line": 229,
+   "line": 232,
    "text": "Memory(0.55, \"FBS-FCS guarantee contracts 2023-2025: about $400,000-700,000 (from memory; the inventory's $1-2M is the Group of 5 visitor's range)\"), (0.3, 0.6, 0.0),",
    "status": "from memory"
   },
   {
    "file": "tools/reader-defs/g_w.py",
-   "line": 306,
+   "line": 309,
    "text": "Memory(60.0, \"real: no head coach with 100+ games stays far beyond 60% against the spread (from memory)\"), (0.05, 0.12, 0.0), \"The best cover rate among coaches with 100 or more games.\")",
    "status": "from memory"
   },
@@ -11928,26 +12032,44 @@
    "status": "from memory"
   },
   {
+   "file": "docs/world-model.md",
+   "line": 717,
+   "text": "- **Group of 5 money (minor bug 150):** below the power conferences the annual fund carries the giving, not the seat donation, so a Group of 5 school's gifts are 2.6 times its collective's booster money and didn't halve ",
+   "status": "from memory"
+  },
+  {
+   "file": "docs/match-engine.md",
+   "line": 626,
+   "text": "- **The engine's** (4,000 `match_check nfl` games, every designed run traced at the 10 and the 20): the tosses and jet sweeps, run at the sideline, were already real (21% of their runs past 20 went past 40, 35% ended out",
+   "status": "from memory"
+  },
+  {
+   "file": "docs/match-engine.md",
+   "line": 646,
+   "text": "Tried and dropped (each over 4,000 games): the runner's pace with the ball (0.90 of his top speed instead of 0.95 brings the 40+ share to 32% and 0.85 to 13%, but real ball carriers reach about their top speed on long ru",
+   "status": "from memory"
+  },
+  {
    "file": "docs/game.md",
-   "line": 656,
+   "line": 661,
    "text": "- College kickoffs and networks are set 12 days ahead (the real 6- and 12-day picks), the first weeks from June 1; which game of a window goes to which network is by the game's draw (ranks, rivalry, the programs' standin",
    "status": "from memory"
   },
   {
    "file": "docs/game.md",
-   "line": 663,
+   "line": 668,
    "text": "- The stadium names of the FBS schools, the NFL's, the bowls' and the neutral sites' by their years, from memory.",
    "status": "from memory"
   },
   {
    "file": "docs/game.md",
-   "line": 1337,
+   "line": 1367,
    "text": "- Hall: the seniors' bar 16, the coach's case NFL wins / 10 + 5 a title with a bar of 20; contributors are not in the world. The Hall check counts players from 2010 against 6.3 (from memory) and coaches against 0.33.",
    "status": "from memory"
   },
   {
    "file": "docs/game.md",
-   "line": 1338,
+   "line": 1368,
    "text": "- Holdouts: the rookie-deal bar (push over 0.55, was from 2020) from 2011, when that CBA made a rookie-deal holdout's fines unwaivable (from memory).",
    "status": "from memory"
   },
@@ -12793,10 +12915,16 @@
    "colleges_lower.csv",
    "college_history.csv",
    "college_history_dropped.csv",
+   "college_start_records.csv",
+   "college_titles.csv",
+   "college_seats.csv",
    "college_altitude.csv"
   ],
   "C2": [
    "colleges.csv",
+   "college_start_records.csv",
+   "college_titles.csv",
+   "college_seats.csv",
    "trial3_baselines.json",
    "college_history.json",
    "college_ap_polls.csv",
@@ -12822,6 +12950,7 @@
   ],
   "C5": [
    "colleges.csv",
+   "college_titles.csv",
    "trial3_baselines.json",
    "college_history.json",
    "college_history.json:champions",
@@ -12882,6 +13011,7 @@
   "C13": [
    "colleges.csv",
    "colleges_lower.csv",
+   "college_titles.csv",
    "college_history.json",
    "college_history.json:champions",
    "in code: D3 and NAIA field sizes are marked 'from memory, to verify'",
@@ -12890,6 +13020,7 @@
   "C14": [
    "rates.json",
    "colleges.csv",
+   "college_seats.csv",
    "hole: NIL dollars below the Power 4, follower counts by level, endorsement earnings, jersey sales"
   ],
   "C15": [
@@ -12981,7 +13112,7 @@
    "college_people.json:recruiting.five_star_spread_by_5yr",
    "college_people.json:recruiting.blue_chips_per_class_top_school",
    "college_people.json:recruiting.distance_from_home",
-   "in code: Quotas from ESPN's 2013-2026 means"
+   "in code: Quotas from the 247 Composite"
   ],
   "C32": [
    "in code: Crystal Ball accuracy 80-92% for top analysts"
