@@ -732,10 +732,14 @@ pub const CHECKS: &[Check] = &[
         scale: 1.0,
         years: None,
         detail: None,
-        real: Real::Key(r#"engine_targets.json:contracts_cap_pct.QB#top1"#, 100.0),
+        real: Real::Fixed(
+            21.5,
+            r#"Prescott's $60M a year over the 2025 cap of $279.2M (OverTheCap), the top QB deal against the cap it is paid under; contracts_cap_pct's 24.5% is each deal over the cap the year it was signed (Burrow's $55M on 2023's $224.8M)"#,
+            r#"2025"#,
+        ),
         tol: (0.15, 0.35, 0.0),
         needs: W,
-        how: r#"The largest QB average per year now over this year's cap. Real: OverTheCap 2025."#,
+        how: r#"The largest QB average per year now over this year's cap. Real: OverTheCap 2025, read the same way (minor bug 270: it was read against the share each deal had the year it was signed, a different measure, and the world's market also held every deal to the top five's average)."#,
     },
     Check {
         id: "N7.top_edge",

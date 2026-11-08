@@ -451,14 +451,21 @@ pub fn top5_share(pos: Position) -> f64 {
 /// quarterbacks' top five, Parsons 1.12 times the edge rushers', Chase
 /// 1.12 times the receivers'). No ask or offer goes past it.
 pub fn record_apy(year: i32, pos: Position) -> f64 {
-    price_cap(year) * top5_share(pos) * 1.08
+    price_cap(year) * top5_share(pos) * RECORD
 }
 
+/// A record deal over the top five's average (see `record_apy`).
+pub const RECORD: f64 = 1.08;
+
 /// What a veteran of this grade costs a year on the open market, as a share
-/// of the cap: the minimum at 66 rising to the top five at 90.
+/// of the cap: the minimum at 66 rising to the top five at 90, and past it
+/// to the record deal at the top of the pay ladder (`market::market_grade`
+/// reads the league's best at 1.12-1.15 times the top five). Minor bug
+/// 270: the grade stopped at 90, so no deal passed the top five's average
+/// and the world's best quarterback was paid like its fifth best.
 pub fn market_share(pos: Position, grade: f64) -> f64 {
     let min = 0.004;
-    min + (top5_share(pos) - min) * clamp((grade - 66.0) / 24.0, 0.0, 1.0).powf(1.6)
+    min + (top5_share(pos) - min) * clamp((grade - 66.0) / 24.0, 0.0, RECORD.powf(1.0 / 1.6)).powf(1.6)
 }
 
 /// Contract length a team offers by age and grade (proposed, not
@@ -616,6 +623,19 @@ pub fn tender_price(year: i32, t: Tender) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Minor bug 270: the top of the pay ladder pays past the top five's
+    /// average, up to the record deal and never past it.
+    #[test]
+    fn the_best_at_a_position_can_pass_the_top_five() {
+        for pos in [Position::QB, Position::EDGE, Position::WR] {
+            let top = top5_share(pos);
+            assert!((market_share(pos, 90.0) - top).abs() < 1e-9);
+            assert!(market_share(pos, 91.0) > top);
+            assert!((market_share(pos, 99.0) - (0.004 + (top - 0.004) * RECORD)).abs() < 1e-9);
+            assert!(market_share(pos, 99.0) <= top * RECORD);
+        }
+    }
 
     #[test]
     fn deals_charge_the_cap_as_written() {
