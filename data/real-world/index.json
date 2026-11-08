@@ -9,8 +9,8 @@
   "unconfirmed": "a proposal Raichel hasn't answered"
  },
  "counts": {
-  "files": 64,
-  "figures": 688,
+  "files": 67,
+  "figures": 691,
   "debug_lab_figures": 15,
   "in_code": 146,
   "memory_notes": 320,
@@ -138,7 +138,7 @@
     "G5",
     "N31"
    ],
-   "bytes": 195035
+   "bytes": 194379
   },
   "colleges_lower.csv": {
    "source": "Wikipedia lists of NAIA, D3 and JUCO programs (URL per row)",
@@ -174,6 +174,45 @@
     "T13"
    ],
    "bytes": 5813
+  },
+  "college_start_records.csv": {
+   "source": "Wikipedia standings templates of the 1979-1983 seasons (NCAA Division I-A, I-AA, II, III, NAIA Divisions I and II) and team season articles (URL per row); scripts/college_past.py",
+   "years": "1979-1983",
+   "level": "college",
+   "status": "sourced",
+   "holes": "no junior college records (no standings on Wikipedia); Division II, III and NAIA programs with no 1979-83 row, most of which had no team then",
+   "areas": [
+    "C1",
+    "C2"
+   ],
+   "bytes": 337258
+  },
+  "college_titles.csv": {
+   "source": "Wikipedia: the FBS major selectors' table by year, the NCAA I-AA/FCS, Division II and III, NAIA and NJCAA champions (URL per row); scripts/college_past.py",
+   "years": "1869-2025",
+   "level": "college",
+   "status": "sourced",
+   "holes": "small-college polls before 1973 and black college national titles left out (not national titles in the record books); vacated titles left out",
+   "areas": [
+    "C1",
+    "C2",
+    "C5",
+    "C13"
+   ],
+   "bytes": 71805
+  },
+  "college_seats.csv": {
+   "source": "Wikipedia stadium articles (infobox capacity history and dated lines) and team articles, read per school (URL per row)",
+   "years": "1984-2025",
+   "level": "college",
+   "status": "sourced",
+   "holes": "seasons the pages do not settle are left out (1,740 seasons a program played, over 106 programs; the last known seats carry on); no rows for 8 FCS programs, 87 Division II programs, dropped programs, or Division III, NAIA and junior colleges (they keep today's seats)",
+   "areas": [
+    "C1",
+    "C2",
+    "C14"
+   ],
+   "bytes": 97288
   },
   "tendency_spreads.json": {
    "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases): play-by-play, Next Gen Stats, PFR advanced defense",
@@ -2389,6 +2428,49 @@
     "source_url"
    ],
    "rows": 50
+  },
+  {
+   "key": "college_start_records.csv",
+   "file": "college_start_records.csv",
+   "years": "1979-1983",
+   "status": "sourced",
+   "columns": [
+    "name",
+    "season",
+    "wins",
+    "losses",
+    "ties",
+    "source_url"
+   ],
+   "rows": 2879
+  },
+  {
+   "key": "college_titles.csv",
+   "file": "college_titles.csv",
+   "years": "1869-2025",
+   "status": "sourced",
+   "columns": [
+    "name",
+    "season",
+    "level",
+    "source_url"
+   ],
+   "rows": 698
+  },
+  {
+   "key": "college_seats.csv",
+   "file": "college_seats.csv",
+   "years": "1984-2025",
+   "status": "sourced",
+   "columns": [
+    "name",
+    "first_season",
+    "last_season",
+    "seats",
+    "stadium",
+    "source_url"
+   ],
+   "rows": 975
   },
   {
    "key": "tendency_spreads.json:stats.scramble_rate",
@@ -12871,11 +12953,17 @@
    "colleges_lower.csv",
    "college_history.csv",
    "college_history_dropped.csv",
+   "college_start_records.csv",
+   "college_titles.csv",
+   "college_seats.csv",
    "college_altitude.csv",
    "college_facilities.csv"
   ],
   "C2": [
    "colleges.csv",
+   "college_start_records.csv",
+   "college_titles.csv",
+   "college_seats.csv",
    "trial3_baselines.json",
    "college_history.json",
    "college_ap_polls.csv",
@@ -12901,6 +12989,7 @@
   ],
   "C5": [
    "colleges.csv",
+   "college_titles.csv",
    "trial3_baselines.json",
    "college_history.json",
    "college_history.json:champions",
@@ -12961,6 +13050,7 @@
   "C13": [
    "colleges.csv",
    "colleges_lower.csv",
+   "college_titles.csv",
    "college_history.json",
    "college_history.json:champions",
    "in code: D3 and NAIA field sizes are marked 'from memory, to verify'",
@@ -12969,6 +13059,7 @@
   "C14": [
    "rates.json",
    "colleges.csv",
+   "college_seats.csv",
    "college_facilities.csv",
    "hole: NIL dollars below the Power 4, follower counts by level, endorsement earnings, jersey sales"
   ],
