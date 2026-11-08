@@ -137,6 +137,14 @@ impl V2 {
     pub fn dist(self, o: V2) -> f64 {
         (self - o).len()
     }
+    /// The squared distance: `dist` before its root. The same subtraction,
+    /// products and sum, so `dist(o)` is `dist_sq(o).sqrt()`, bit for bit.
+    /// A sum of squares, it is never negative or -0 (world speed lane).
+    #[inline]
+    pub fn dist_sq(self, o: V2) -> f64 {
+        let d = self - o;
+        d.x * d.x + d.y * d.y
+    }
     #[inline]
     pub fn norm(self) -> V2 {
         let l = self.len();
@@ -158,6 +166,43 @@ impl V2 {
         let d = self.norm().dot(o.norm()).clamp(-1.0, 1.0);
         d.acos()
     }
+}
+
+/// `q.sqrt() < r`, bit for bit, mostly without the root (world speed
+/// lane). Below `r² (1 - 1e-9)` the root is below the double before `r`,
+/// and above `r² (1 + 1e-9)` it is above `r`; the square root is correctly
+/// rounded and monotone, so the answer is known. The band dwarfs the three
+/// roundings in working out its ends. Inside it, for `r` outside 1e-100 to
+/// 1e100 (where `r²` could leave the normal range), and for a NaN or
+/// negative `q`, the root is taken as before. Any `r`: its square needn't
+/// be exact.
+#[inline]
+pub fn sq_lt(q: f64, r: f64) -> bool {
+    if r > 1e-100 && r < 1e100 {
+        let r2 = r * r;
+        if q >= 0.0 && q < r2 * (1.0 - 1e-9) {
+            return true;
+        }
+        if q > r2 * (1.0 + 1e-9) {
+            return false;
+        }
+    }
+    q.sqrt() < r
+}
+
+/// `q.sqrt() >= r`, bit for bit: the same band as `sq_lt`.
+#[inline]
+pub fn sq_ge(q: f64, r: f64) -> bool {
+    if r > 1e-100 && r < 1e100 {
+        let r2 = r * r;
+        if q > r2 * (1.0 + 1e-9) {
+            return true;
+        }
+        if q >= 0.0 && q < r2 * (1.0 - 1e-9) {
+            return false;
+        }
+    }
+    q.sqrt() >= r
 }
 
 impl std::ops::Add for V2 {
