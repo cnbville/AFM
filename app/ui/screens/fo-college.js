@@ -836,7 +836,7 @@ screens.nil_desk = async () => {
     { k: "followers", t: "Followers", tip: "Social media followers, every platform", v: (r) => r.followers || 0, f: (r) => (r.followers ? fcFollow(r.followers) : '<span class="muted">-</span>') },
     { k: "camera", t: "On camera", l: true, hide: true, tip: "His position coach's word for how he comes across in front of a camera", f: (r) => `<span class="sub">${esc(r.camera || "")}</span>` },
     { k: "usual", t: "Going rate", div: true, tip: "What players in his role usually get from the school's revenue share: only a guide", f: (r) => going(r.usual) },
-    { k: "deal", t: "Yours", v: (r) => r.deal || 0, f: (r) => box(r, "deal", r.deal) + (two ? "" : setBtn(r)) },
+    { k: "deal", t: "Yours", v: (r) => r.deal || 0, f: (r) => box(r, "deal", r.deal) + setBtn(r) },
     ...(two
       ? [
           { k: "coll_usual", t: "Going rate", div: true, tip: "What players in his role usually get from the collective, as NIL Go clears it: only a guide", f: (r) => going(r.coll_usual) },
@@ -943,10 +943,22 @@ screens.walkons_desk = async () => {
 // Captured before the frame's own handler, so a button in a row acts and
 // never opens the row's first link.
 async function fcDo(cmd, args, msg) {
+  // Money boxes typed in but not sent yet, in other rows, survive the redraw.
+  const sent = args && args.id != null ? String(args.id) : null;
+  const dirty = [...document.querySelectorAll("input[data-was]")]
+    .filter((i) => i.value !== i.dataset.was && i.dataset.id !== sent)
+    .map((i) => [i.dataset.fcin, i.dataset.id, i.value]);
   try {
     const r = await api(cmd, args);
     toast(msg || (r && r.text) || "Done.");
-    render($(".view") && $(".view").scrollTop);
+    await render($(".view") && $(".view").scrollTop);
+    for (const [k, id, v] of dirty) {
+      const i = document.querySelector(`input[data-fcin="${k}"][data-id="${id}"]`);
+      if (i) {
+        i.value = v;
+        i.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
     return r;
   } catch (e) {
     toast(e.message || String(e));
@@ -1108,10 +1120,12 @@ document.addEventListener("keydown", (ev) => {
 document.addEventListener("input", (ev) => {
   const t = ev.target;
   if (!t.dataset || t.dataset.was == null) return;
-  const row = t.closest("tr, .fc-rowacts");
-  const btn = row && row.querySelector("[data-fcsave]");
+  // The button beside the box: on the NIL desk each pot's cell has its own
+  // (either sends the whole row), on the portal the row's Change.
+  const cell = t.closest(".fc-rowacts, td");
+  const btn = cell && cell.querySelector("[data-fcsave]");
   if (!btn) return;
-  btn.hidden = ![...row.querySelectorAll("input[data-was]")].some((i) => i.value !== i.dataset.was);
+  btn.hidden = ![...cell.querySelectorAll("input[data-was]")].some((i) => i.value !== i.dataset.was);
 });
 // The desk's selects save on change.
 document.addEventListener("change", (ev) => {

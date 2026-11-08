@@ -83,8 +83,8 @@ pub struct Target {
     /// The head coach's own target: he gives this recruit his time.
     pub priority: bool,
     /// Your NIL promise a year in dollars (in two pots the school's revenue
-    /// share); None with `nil_coll` None too is none (the scholarship alone)
-    /// with the board yours, your coordinator's usual offer with it his.
+    /// share); None with `nil_coll` None too is none (the scholarship alone),
+    /// whoever holds the board (Cain 2026-11-08).
     pub nil: Option<f64>,
     /// Your collective deal for him a year in two pots (B18): yours to set
     /// as the revenue share is (Cain 2026-11-07); NIL Go reviews it.
@@ -2256,10 +2256,7 @@ pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>, coll: Option<f64>) 
             )
         }
         Some((x, _)) => format!("Your NIL promise: {} a year. {said}{yes}", dollars(x)),
-        None if mine(w, Duty::Board).is_some() => {
-            format!("No money promised: your offer is the scholarship alone. {said}{yes}")
-        }
-        None => format!("Your coordinator's usual offer stands. {said}{yes}"),
+        None => format!("No money promised: your offer is the scholarship alone. {said}{yes}"),
     })
 }
 

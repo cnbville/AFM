@@ -5402,9 +5402,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let theirs: Vec<(usize, f64, bool)> =
                     boards[j][i].iter().copied().filter(|e| !mb[i].iter().any(|x| x.0 == e.0)).collect();
                 // Your coordinator's offers name no money: only you do (Cain
-                // 2026-11-08), so each is the scholarship alone.
+                // 2026-11-08), so each carries your number where you set one
+                // (as he will be paid it) and is the scholarship alone where
+                // you didn't.
                 for e in &theirs {
-                    promise.entry(e.0).or_insert(0.0);
+                    let x = fo::college::money_from(w, j, pool[e.0].person).unwrap_or(0.0);
+                    promise.entry(e.0).or_insert(x);
                 }
                 coordinator.extend(theirs.iter().map(|e| e.0));
                 mb[i].extend(theirs);
@@ -6823,6 +6826,9 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
                         s + if free { c } else { nil_go(today, c, nil_go_top(&w.people[i], v)) }
                     }
                     Some((s, _)) => s,
+                    // Yours with no deal: the game names no money for you
+                    // (Cain 2026-11-08), as July 1 pays him nothing.
+                    None if mine == Some(j) => 0.0,
                     None => {
                         cleared(&w.programs[j], today, budget * v / pool.max(1e-9), nil_go_top(&w.people[i], v), free)
                     }
