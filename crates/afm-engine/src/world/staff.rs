@@ -49,6 +49,22 @@ pub(crate) fn live(w: &World) -> impl Iterator<Item = &Coach> + '_ {
         .chain(w.coaches[upto..].iter())
 }
 
+/// The live coaches who pass `keep`, by index, in the order `live` walks
+/// them, the test run on all cores (world speed lane). `keep` only reads.
+pub(crate) fn live_where(w: &World, keep: impl Fn(&Coach) -> bool + Sync) -> Vec<usize> {
+    use rayon::prelude::*;
+    let upto = w.live_coaches.upto.min(w.coaches.len());
+    // The ids are in index order, so `live`'s take-while is this prefix.
+    let ids = &w.live_coaches.ids;
+    let cut = ids.partition_point(|&c| c < upto);
+    let mut out: Vec<usize> =
+        ids[..cut].par_iter().with_min_len(1024).copied().filter(|&c| keep(&w.coaches[c])).collect();
+    let tail: Vec<usize> =
+        (upto..w.coaches.len()).into_par_iter().with_min_len(1024).filter(|&c| keep(&w.coaches[c])).collect();
+    out.extend(tail);
+    out
+}
+
 fn tier_of(d: Division) -> CoachTier {
     match d {
         Division::FBS => CoachTier::Fbs,
@@ -2620,12 +2636,12 @@ fn out_of_work(w: &World, role: Role, div: Division, moved: &HashSet<usize>) -> 
         Employer::Nfl(_) => true,
         _ => false,
     };
-    live(w)
-        // An analyst between jobs is still a name every search knows.
-        .filter(|c| c.job.is_none() && !c.retired && c.age < 66)
-        .filter(|c| !moved.contains(&c.id) && !barred(w, c.id))
-        .filter(|c| {
-            c.history.iter().rev().take_while(|s| s.to >= cy - 3).any(|s| {
+    // An analyst between jobs is still a name every search knows.
+    live_where(w, |c| {
+        c.job.is_none()
+            && !c.retired
+            && c.age < 66
+            && c.history.iter().rev().take_while(|s| s.to >= cy - 3).any(|s| {
                 level(s.employer)
                     && match s.role {
                         Role::HeadCoach => {
@@ -2637,9 +2653,9 @@ fn out_of_work(w: &World, role: Role, div: Division, moved: &HashSet<usize>) -> 
                         Role::PositionCoach(_) => false,
                     }
             })
-        })
-        .map(|c| c.id)
-        .collect()
+            && !moved.contains(&c.id)
+            && !barred(w, c.id)
+    })
 }
 
 /// Who a search looks at for an opening.
@@ -2667,11 +2683,12 @@ pub(crate) fn ready_at_home(w: &mut World, p: usize, g: Group, moved: &HashSet<u
         return None;
     }
     let bar = sum / n - 1.5;
-    let own: Vec<usize> = live(w)
-        .filter(|c| !c.retired && !moved.contains(&c.id) && !market::is_you(w, c.id))
-        .filter(|c| c.junior_now().is_some_and(|j| j.employer == Employer::College(p) && j.group == g))
-        .map(|c| c.id)
-        .collect();
+    let own: Vec<usize> = live_where(w, |c| {
+        c.junior_now().is_some_and(|j| j.employer == Employer::College(p) && j.group == g)
+            && !c.retired
+            && !moved.contains(&c.id)
+            && !market::is_you(w, c.id)
+    });
     let mut best: Option<(usize, f64)> = None;
     for c in own {
         let read = w.coaches[c].ability().teaching[g as usize] + w.rng.normal(0.0, 1.0);
@@ -2756,6 +2773,32 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
         Employer::College(p) => {
             let div = w.programs[p].division;
             let mut list: Vec<usize> = Vec::new();
+            let fits = |role: Role, same: bool, below: bool, above: bool| -> bool {
+                match (o.role, role) {
+                    (Role::HeadCoach, Role::PositionCoach(_)) => false,
+                    // A coordinator a level down rarely jumps straight to a
+                    // head job; head coaches there do (note 5).
+                    (Role::HeadCoach, Role::HeadCoach) => same || below,
+                    (Role::HeadCoach, _) => same,
+                    // Coordinators come from coordinators, head coaches a level
+                    // down, and position coaches on that side of the ball.
+                    (Role::OffensiveCoordinator | Role::DefensiveCoordinator, Role::HeadCoach) => below,
+                    (Role::OffensiveCoordinator | Role::DefensiveCoordinator, _) => {
+                        (same || below || above) && role.offense() == o.role.offense()
+                    }
+                    // Position coaches move sideways, up from a level down, or
+                    // down from a level up into a coordinator job's shadow.
+                    (Role::PositionCoach(g), Role::PositionCoach(h)) => g == h && (same || below || above),
+                    (Role::PositionCoach(g), Role::OffensiveCoordinator | Role::DefensiveCoordinator) => {
+                        below && role.offense() == Some(g.offense())
+                    }
+                    (Role::PositionCoach(_), Role::HeadCoach) => false,
+                }
+            };
+            // Only the slots that can fit at some level are looked at (world
+            // speed lane): `fits` only ever asks for a level, never against
+            // one, so a slot that fits at none of them fits nowhere.
+            let roles: Vec<Role> = college_roles().filter(|&role| fits(role, true, true, true)).collect();
             for q in 0..w.programs.len() {
                 if q == p {
                     continue;
@@ -2765,30 +2808,13 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                 // One level down: FCS head coaches move up to FBS (Cignetti at JMU).
                 let below = (qd as usize) == div as usize + 1;
                 let above = (qd as usize) + 1 == div as usize;
+                if !(same || below || above) {
+                    continue;
+                }
                 let prog = &w.programs[q];
-                for role in college_roles() {
+                for &role in &roles {
                     let Some(c) = slot(prog, role) else { continue };
-                    let fits = match (o.role, role) {
-                        (Role::HeadCoach, Role::PositionCoach(_)) => false,
-                        // A coordinator a level down rarely jumps straight to a
-                        // head job; head coaches there do (note 5).
-                        (Role::HeadCoach, Role::HeadCoach) => same || below,
-                        (Role::HeadCoach, _) => same,
-                        // Coordinators come from coordinators, head coaches a level
-                        // down, and position coaches on that side of the ball.
-                        (Role::OffensiveCoordinator | Role::DefensiveCoordinator, Role::HeadCoach) => below,
-                        (Role::OffensiveCoordinator | Role::DefensiveCoordinator, _) => {
-                            (same || below || above) && role.offense() == o.role.offense()
-                        }
-                        // Position coaches move sideways, up from a level down, or
-                        // down from a level up into a coordinator job's shadow.
-                        (Role::PositionCoach(g), Role::PositionCoach(h)) => g == h && (same || below || above),
-                        (Role::PositionCoach(g), Role::OffensiveCoordinator | Role::DefensiveCoordinator) => {
-                            below && role.offense() == Some(g.offense())
-                        }
-                        (Role::PositionCoach(_), Role::HeadCoach) => false,
-                    };
-                    if fits && !moved.contains(&c) && !barred(w, c) {
+                    if fits(role, same, below, above) && !moved.contains(&c) && !barred(w, c) {
                         list.push(c);
                     }
                 }
@@ -2875,15 +2901,19 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     .filter(|&c| !moved.contains(&c) && w.coaches[c].units[g as usize].growth_read() > 0.1)
                     .collect();
                 sample(w, &hs_coords, k_co, &mut pool);
-                let (own, other) = live(w)
-                    .filter(|c| !c.retired && !moved.contains(&c.id))
-                    .filter_map(|c| c.junior_now().filter(|j| j.group == g).map(|j| (c.id, j.employer)))
-                    .filter(|(_, e)| match e {
-                        Employer::College(q) => (w.programs[*q].division as usize) <= div as usize + 1,
-                        Employer::Nfl(_) => true,
-                        _ => false,
-                    })
-                    .partition::<Vec<(usize, Employer)>, _>(|(_, e)| *e == Employer::College(p));
+                let near = |e: Employer| match e {
+                    Employer::College(q) => (w.programs[q].division as usize) <= div as usize + 1,
+                    Employer::Nfl(_) => true,
+                    _ => false,
+                };
+                let (own, other) = live_where(w, |c| {
+                    c.junior_now().is_some_and(|j| j.group == g && near(j.employer))
+                        && !c.retired
+                        && !moved.contains(&c.id)
+                })
+                .into_iter()
+                .filter_map(|c| w.coaches[c].junior_now().map(|j| (c, j.employer)))
+                .partition::<Vec<(usize, Employer)>, _>(|(_, e)| *e == Employer::College(p));
                 pool.extend(own.into_iter().map(|x| x.0));
                 let other: Vec<usize> = other.into_iter().map(|x| x.0).collect();
                 sample(w, &other, 3, &mut pool);
@@ -2892,10 +2922,11 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                 // NFL's): a name every search there knows (minor bug 252;
                 // proposed, not confirmed).
                 let cy = cycle_year(w);
-                let out: Vec<usize> = live(w)
-                    .filter(|c| c.job.is_none() && !c.retired && c.age < 66 && !moved.contains(&c.id))
-                    .filter(|c| {
-                        c.history.last().is_some_and(|s| {
+                let out: Vec<usize> = live_where(w, |c| {
+                    c.job.is_none()
+                        && !c.retired
+                        && c.age < 66
+                        && c.history.last().is_some_and(|s| {
                             s.to >= cy - 1
                                 && s.role == Role::PositionCoach(g)
                                 && match s.employer {
@@ -2904,10 +2935,9 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                                     _ => false,
                                 }
                         })
-                    })
-                    .filter(|c| !barred(w, c.id))
-                    .map(|c| c.id)
-                    .collect();
+                        && !moved.contains(&c.id)
+                        && !barred(w, c.id)
+                });
                 pool.extend(hottest(w, &out, 3));
                 if w.rng.chance(0.12) {
                     let tier = tier_of(div);
@@ -2989,15 +3019,16 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                 }
             }
             // Out-of-work NFL coaches: former head coaches, and coordinators on that side.
-            for c in live(w).filter(|c| c.job.is_none() && !c.retired && c.age < 66) {
-                let fits = c.history.iter().any(|s| {
-                    matches!(s.employer, Employer::Nfl(_))
-                        && (s.role == Role::HeadCoach || (!head && s.role.offense() == side))
-                });
-                if fits && !moved.contains(&c.id) {
-                    pool.push(c.id);
-                }
-            }
+            pool.extend(live_where(w, |c| {
+                c.job.is_none()
+                    && !c.retired
+                    && c.age < 66
+                    && c.history.iter().any(|s| {
+                        matches!(s.employer, Employer::Nfl(_))
+                            && (s.role == Role::HeadCoach || (!head && s.role.offense() == side))
+                    })
+                    && !moved.contains(&c.id)
+            }));
             // The hottest college names: FBS head coaches for a head job, FBS
             // coordinators on that side for a coordinator job (proposed: 8 and 5).
             let college: Vec<usize> = w
@@ -3067,15 +3098,16 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     }
                 }
             }
-            for c in live(w).filter(|c| c.job.is_none() && !c.retired && c.age < 68) {
-                let fits = c.history.iter().any(|s| {
-                    matches!(s.employer, Employer::Nfl(_) | Employer::College(_) | Employer::Other(_))
-                        && (s.role == Role::HeadCoach || (!head && s.role.offense() == side))
-                });
-                if fits && !moved.contains(&c.id) {
-                    pool.push(c.id);
-                }
-            }
+            pool.extend(live_where(w, |c| {
+                c.job.is_none()
+                    && !c.retired
+                    && c.age < 68
+                    && c.history.iter().any(|s| {
+                        matches!(s.employer, Employer::Nfl(_) | Employer::College(_) | Employer::Other(_))
+                            && (s.role == Role::HeadCoach || (!head && s.role.offense() == side))
+                    })
+                    && !moved.contains(&c.id)
+            }));
             let college: Vec<usize> = w
                 .programs
                 .iter()

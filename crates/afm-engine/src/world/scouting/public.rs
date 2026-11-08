@@ -163,6 +163,14 @@ pub fn draft_year(w: &World) -> i32 {
 /// public grade plus its lasting lean and the week's noise, tilted by its
 /// bias by a little.
 pub fn desk_grade(w: &World, desk: &Desk, i: usize, week: i32) -> Option<f64> {
+    w.people[i].cal.draft_read?;
+    desk_grade_with(w, desk, i, week, &super::footage::footage(w, i))
+}
+
+/// `desk_grade` with his tape already read (`footage::footage`). The tape
+/// is read on the calling thread: its units' cache is the thread's own
+/// (world speed lane).
+fn desk_grade_with(w: &World, desk: &Desk, i: usize, week: i32, f: &super::footage::Footage) -> Option<f64> {
     let p = &w.people[i];
     let r = p.cal.draft_read?;
     let id = p.player.id as u64;
@@ -177,7 +185,6 @@ pub fn desk_grade(w: &World, desk: &Desk, i: usize, week: i32) -> Option<f64> {
         .is_some_and(|c| w.programs[c].division == crate::world::data::Division::FBS && w.programs[c].prestige >= 0.6);
     let size = crate::body::combine_size(p.player.position);
     let z_size = clamp((p.player.body.weight - size.2) / size.3.max(1.0), -1.5, 1.5);
-    let f = super::footage::footage(w, i);
     g += match desk.lean {
         Lean::BigPrograms if big => 1.0,
         Lean::Size => 0.8 * z_size,
@@ -192,8 +199,8 @@ pub fn desk_grade(w: &World, desk: &Desk, i: usize, week: i32) -> Option<f64> {
     // and read the same numbers; by the spring's all-star games and the
     // combine the best have been seen against good players.
     let spring = matches!(w.today.parts().1, 2..=4);
-    g += super::footage::scout_tilt(&f, desk.skill as f64, spring, false)
-        - super::footage::scout_tilt(&f, 12.0, false, false);
+    g += super::footage::scout_tilt(f, desk.skill as f64, spring, false)
+        - super::footage::scout_tilt(f, 12.0, false, false);
     Some(g)
 }
 
@@ -222,8 +229,26 @@ pub fn consensus(w: &World) -> Option<Vec<u32>> {
 
 /// A desk's big board: the top 100 by its read.
 pub fn big_board(w: &World, desk: &Desk, pool: &[usize], week: i32) -> Vec<u32> {
-    let mut v: Vec<(f64, u32)> =
-        pool.iter().filter_map(|&i| desk_grade(w, desk, i, week).map(|g| (g, w.people[i].player.id))).collect();
+    big_board_with(w, desk, &tapes(w, pool), week)
+}
+
+/// The pool's tapes, read on the calling thread, for the boards and mocks:
+/// only a prospect with a read is graded, so only his tape is read.
+fn tapes(w: &World, pool: &[usize]) -> Vec<(usize, super::footage::Footage)> {
+    pool.iter()
+        .filter(|&&i| w.people[i].cal.draft_read.is_some())
+        .map(|&i| (i, super::footage::footage(w, i)))
+        .collect()
+}
+
+/// `big_board` from the tapes: every grade on all cores, kept in pool
+/// order (world speed lane).
+fn big_board_with(w: &World, desk: &Desk, tapes: &[(usize, super::footage::Footage)], week: i32) -> Vec<u32> {
+    use rayon::prelude::*;
+    let mut v: Vec<(f64, u32)> = tapes
+        .par_iter()
+        .filter_map(|(i, f)| desk_grade_with(w, desk, *i, week, f).map(|g| (g, w.people[*i].player.id)))
+        .collect();
     v.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     v.truncate(100);
     v.into_iter().map(|x| x.1).collect()
@@ -233,12 +258,21 @@ pub fn big_board(w: &World, desk: &Desk, pool: &[usize], week: i32) -> Vec<u32> 
 /// weighed by the club's need as the desk reads it.
 pub fn mock(w: &World, desk: &Desk, pool: &[usize], week: i32, picks: usize) -> Vec<u32> {
     // While the season runs, the standings so far: never last April's order.
+    if super::super::nfl_year::mock_order(w).unwrap_or_default().is_empty() {
+        return Vec::new();
+    }
+    mock_with(w, desk, &tapes(w, pool), week, picks)
+}
+
+/// `mock` from the tapes, its grades on all cores (world speed lane).
+fn mock_with(w: &World, desk: &Desk, tapes: &[(usize, super::footage::Footage)], week: i32, picks: usize) -> Vec<u32> {
+    use rayon::prelude::*;
     let order = super::super::nfl_year::mock_order(w).unwrap_or_default();
     if order.is_empty() {
         return Vec::new();
     }
     let mut cands: Vec<(f64, usize)> =
-        pool.iter().filter_map(|&i| desk_grade(w, desk, i, week).map(|g| (g, i))).collect();
+        tapes.par_iter().filter_map(|(i, f)| desk_grade_with(w, desk, *i, week, f).map(|g| (g, *i))).collect();
     cands.sort_by(|a, b| b.0.total_cmp(&a.0));
     cands.truncate(picks * 3);
     let mut out = Vec::new();
@@ -304,10 +338,15 @@ pub(crate) fn day(w: &mut World, d: Date) {
         .filter(|(_, x)| x.kind == DeskKind::Analyst && x.active(dy))
         .map(|(k, x)| (k as u8, x.clone()))
         .collect();
+    // The tapes are read where the desks would read them, and only then: a
+    // mock with no order yet reads none.
+    let reads =
+        !desks.is_empty() && (board_day || !super::super::nfl_year::mock_order(w).unwrap_or_default().is_empty());
+    let tapes = if reads { tapes(w, &pool) } else { Vec::new() };
     if board_day {
         let mut tally: HashMap<u32, f64> = HashMap::new();
         for (k, desk) in &desks {
-            let b = big_board(w, desk, &pool, week);
+            let b = big_board_with(w, desk, &tapes, week);
             for (r, id) in b.iter().enumerate() {
                 *tally.entry(*id).or_default() += 100.0 - r as f64;
             }
@@ -331,7 +370,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         let teams = crate::world::franchise::active_teams_in(w, dy).len().max(1);
         for (k, desk) in &desks {
             let n = if last_week { 2 * teams } else { teams };
-            let mk = mock(w, desk, &pool, week, n);
+            let mk = mock_with(w, desk, &tapes, week, n);
             let s = &mut w.scouting.public;
             for (pick, id) in mk.iter().enumerate() {
                 let e = s.best_mock.entry(*id).or_insert(u16::MAX);

@@ -369,75 +369,13 @@ fn ai_week(w: &mut World, d: Date) {
         teams.extend((0..w.high_schools.len()).map(Team::High));
     }
     let year = w.year;
-    let mut acts: Vec<(Team, usize, RuleKind, Response)> = Vec::new();
-    for t in teams {
-        if Some(t) == seat {
-            continue;
-        }
-        let roster = t.roster(w);
-        if roster.is_empty() {
-            continue;
-        }
-        let level = t.level();
-        let coach = t.head_coach(w).filter(|&c| c < w.coaches.len());
-        let book = coach.map_or_else(|| standard(level), |c| ai_book(w, c, level));
-        let kinds: Vec<(RuleKind, u8)> = book.rules.iter().copied().filter(|x| x.0.at(level)).collect();
-        if kinds.is_empty() {
-            continue;
-        }
-        let disc = coach.map_or(10.0, |c| w.coaches[c].ability().discipline);
-        let see = (0.45 + 0.025 * disc as f32).clamp(0.4, 0.95);
-        let room = talks::team_mood(w, t);
-        let base = rules_base(level);
-        for i in roster {
-            let id = w.people[i].player.id;
-            if dismissed(w, id, d) {
-                continue;
-            }
-            if super::roll(w, 0xA17E ^ d.0 as u64, id as u64) as f32 >= risk(w, i, &book, room, base) {
-                continue;
-            }
-            if super::roll(w, 0xA180 ^ d.0 as u64, id as u64) as f32 > see {
-                continue;
-            }
-            let tot: f32 = kinds.iter().map(|x| x.1 as f32).sum();
-            let mut u = super::roll(w, 0xA17F ^ d.0 as u64, id as u64) as f32 * tot;
-            let mut kind = kinds[0].0;
-            for (k, s) in &kinds {
-                if u < *s as f32 {
-                    kind = *k;
-                    break;
-                }
-                u -= *s as f32;
-            }
-            let prior = w.folk.ai_priors.get(&id).filter(|x| x.1 >= year - 1).map_or(0, |x| x.0);
-            let shift = if disc >= 14.0 {
-                1
-            } else if disc <= 6.0 {
-                -1
-            } else {
-                0
-            };
-            let soft = (disc < 12.0 && is_star(w, i)) as i32;
-            let sev = (kind.weight() as i32 + prior.min(3) as i32 - 1 + shift - soft).clamp(0, 6);
-            let resp = match sev {
-                0 => Response::Talk,
-                1 if level == Level::Nfl => Response::Fine,
-                1 => Response::Running,
-                2 => Response::BenchStart,
-                3 => Response::BenchGame,
-                4 => Response::Suspend(1),
-                5 => Response::Suspend(2),
-                // Released only for conduct or drugs; otherwise the longest
-                // suspension.
-                _ if level == Level::Nfl && !matches!(kind, RuleKind::Conduct | RuleKind::DrugTests) => {
-                    Response::Suspend(3)
-                }
-                _ => Response::Dismiss,
-            };
-            acts.push((t, i, kind, resp));
-        }
-    }
+    // Each team's week read on all cores (world speed lane): every roll is
+    // keyed and nothing is written until all are read, then the acts go in
+    // team order as before.
+    use rayon::prelude::*;
+    let world: &World = w;
+    let acts: Vec<(Team, usize, RuleKind, Response)> =
+        teams.par_iter().with_min_len(16).flat_map_iter(|&t| team_week(world, t, d, seat, year)).collect();
     for (t, i, kind, resp) in acts {
         let id = w.people[i].player.id;
         let level = t.level();
@@ -484,6 +422,79 @@ fn ai_week(w: &mut World, d: Date) {
     if d.weekday() == Weekday::Mon && w.folk.ai_priors.len() > 4096 {
         w.folk.ai_priors.retain(|_, x| x.1 >= year - 1);
     }
+}
+
+/// One team's week under its head coach's rules (`ai_week`): who broke
+/// which rule and his answer, read from the world as it stands.
+fn team_week(w: &World, t: Team, d: Date, seat: Option<Team>, year: i32) -> Vec<(Team, usize, RuleKind, Response)> {
+    let mut acts = Vec::new();
+    if Some(t) == seat {
+        return acts;
+    }
+    let roster = t.roster(w);
+    if roster.is_empty() {
+        return acts;
+    }
+    let level = t.level();
+    let coach = t.head_coach(w).filter(|&c| c < w.coaches.len());
+    let book = coach.map_or_else(|| standard(level), |c| ai_book(w, c, level));
+    let kinds: Vec<(RuleKind, u8)> = book.rules.iter().copied().filter(|x| x.0.at(level)).collect();
+    if kinds.is_empty() {
+        return acts;
+    }
+    let disc = coach.map_or(10.0, |c| w.coaches[c].ability().discipline);
+    let see = (0.45 + 0.025 * disc as f32).clamp(0.4, 0.95);
+    let room = talks::team_mood(w, t);
+    let base = rules_base(level);
+    for i in roster {
+        let id = w.people[i].player.id;
+        if dismissed(w, id, d) {
+            continue;
+        }
+        if super::roll(w, 0xA17E ^ d.0 as u64, id as u64) as f32 >= risk(w, i, &book, room, base) {
+            continue;
+        }
+        if super::roll(w, 0xA180 ^ d.0 as u64, id as u64) as f32 > see {
+            continue;
+        }
+        let tot: f32 = kinds.iter().map(|x| x.1 as f32).sum();
+        let mut u = super::roll(w, 0xA17F ^ d.0 as u64, id as u64) as f32 * tot;
+        let mut kind = kinds[0].0;
+        for (k, s) in &kinds {
+            if u < *s as f32 {
+                kind = *k;
+                break;
+            }
+            u -= *s as f32;
+        }
+        let prior = w.folk.ai_priors.get(&id).filter(|x| x.1 >= year - 1).map_or(0, |x| x.0);
+        let shift = if disc >= 14.0 {
+            1
+        } else if disc <= 6.0 {
+            -1
+        } else {
+            0
+        };
+        let soft = (disc < 12.0 && is_star(w, i)) as i32;
+        let sev = (kind.weight() as i32 + prior.min(3) as i32 - 1 + shift - soft).clamp(0, 6);
+        let resp = match sev {
+            0 => Response::Talk,
+            1 if level == Level::Nfl => Response::Fine,
+            1 => Response::Running,
+            2 => Response::BenchStart,
+            3 => Response::BenchGame,
+            4 => Response::Suspend(1),
+            5 => Response::Suspend(2),
+            // Released only for conduct or drugs; otherwise the longest
+            // suspension.
+            _ if level == Level::Nfl && !matches!(kind, RuleKind::Conduct | RuleKind::DrugTests) => {
+                Response::Suspend(3)
+            }
+            _ => Response::Dismiss,
+        };
+        acts.push((t, i, kind, resp));
+    }
+    acts
 }
 
 /// Weekly: your players break your rules, and your staff sees some of them.

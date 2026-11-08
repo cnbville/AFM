@@ -4023,6 +4023,137 @@ pub(crate) fn official_visit_allowed(season: i32, d: Date, class_of: i32, junior
     junior_officials && d >= Date::ymd(season, 4, 1) && d <= Date::ymd(season, 6, 30)
 }
 
+/// What a recruiting day is (`recruiting_day`), for each recruit's plan.
+struct VisitDay<'a> {
+    d: Date,
+    season: i32,
+    sign_year: i32,
+    junior_officials: bool,
+    fall: bool,
+    official_day: bool,
+    game_day: bool,
+    drop_day: bool,
+    junior_day: bool,
+    home_day: bool,
+    fall_officials: bool,
+    seed: u64,
+    vj: Option<usize>,
+    planned: Option<&'a (usize, std::collections::HashSet<u32>)>,
+    home_today: &'a std::collections::HashSet<usize>,
+    home_tomorrow: &'a std::collections::HashSet<usize>,
+}
+
+/// One recruit's visits today (`recruiting_day`): the offers whose official
+/// visit he would take, in order, before the school cap is counted (none
+/// unless his roll and his own cap say he takes one), and his other visits
+/// in the order they go in. None when he has no day.
+fn plan_visits(w: &World, i: usize, c: &VisitDay) -> Option<(Vec<usize>, Vec<(usize, super::Visit)>)> {
+    use super::Visit;
+    let VisitDay {
+        d,
+        season,
+        sign_year,
+        junior_officials,
+        fall,
+        official_day,
+        game_day,
+        drop_day,
+        junior_day,
+        home_day,
+        fall_officials,
+        seed,
+        vj,
+        planned,
+        home_today,
+        home_tomorrow,
+    } = *c;
+    let p = &w.people[i];
+    if p.stage != Stage::HighSchool
+        || p.cal.signed.is_some()
+        || (p.cal.offers.is_empty() && p.cal.early_offers.is_empty())
+        || p.class_of > sign_year + 1
+    {
+        return None;
+    }
+    if junior_day {
+        // Junior days are for the class signing next (in the spring of
+        // the football year, the juniors).
+        if p.class_of != sign_year {
+            return None;
+        }
+        let id = p.player.id as u64;
+        let pick = p.cal.early_offers.iter().map(|o| o.0).find(|&j| {
+            Some(j) != vj
+                && geo::miles(p.home_state, w.programs[j].state) <= 500.0
+                && !p.cal.visits.iter().any(|v| v.0 == j)
+                && key_uniform(seed ^ 4 ^ j as u64, id) < 0.3
+        });
+        return pick.map(|j| (Vec::new(), vec![(j, Visit::Unofficial)]));
+    }
+    // The class signing next: seniors from September, juniors before.
+    let senior = p.class_of == sign_year && fall;
+    let id = p.player.id as u64;
+    let mut official: Vec<usize> = Vec::new();
+    let mut new: Vec<(usize, Visit)> = Vec::new();
+    if official_day && official_visit_allowed(season, d, p.class_of, junior_officials) {
+        // The official you set and he accepted holds one of his five.
+        let taken = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count()
+            + usize::from(planned.is_some_and(|(_, ids)| ids.contains(&p.player.id)));
+        let yours_set = |j: usize| planned.is_some_and(|(pj, ids)| *pj == j && ids.contains(&p.player.id));
+        if official_cap(d).is_none_or(|cap| taken < cap) && key_uniform(seed ^ 1, id) < 0.12 {
+            official = p
+                .cal
+                .offers
+                .iter()
+                .copied()
+                .filter(|&j| {
+                    Some(j) != vj
+                        && !yours_set(j)
+                        && !p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official)
+                        && (!fall_officials || home_tomorrow.contains(&j))
+                })
+                .collect();
+        }
+    }
+    if game_day {
+        for &j in p.cal.offers.iter().filter(|&&j| home_today.contains(&j) && Some(j) != vj) {
+            if geo::miles(p.home_state, w.programs[j].state) <= 250.0 && key_uniform(seed ^ 2 ^ j as u64, id) < 0.25 {
+                new.push((j, Visit::Unofficial));
+                break;
+            }
+        }
+    }
+    if drop_day && senior {
+        for &j in p.cal.offers.iter().filter(|&&j| Some(j) != vj) {
+            let committed = p.cal.commit.is_some_and(|c| c.0 == j);
+            let near = geo::miles(p.home_state, w.programs[j].state) <= 250.0;
+            if (near || committed) && key_uniform(seed ^ 3 ^ j as u64, id) < if committed { 0.4 } else { 0.2 } {
+                new.push((j, Visit::DropIn));
+            }
+        }
+    }
+    if home_day && p.class_of == sign_year {
+        for &j in p.cal.offers.iter().filter(|&&j| Some(j) != vj) {
+            if p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Home) {
+                continue;
+            }
+            let committed = p.cal.commit.is_some_and(|c| c.0 == j);
+            let near = geo::miles(p.home_state, w.programs[j].state) <= 400.0;
+            let chance = if committed {
+                0.08
+            } else if near && p.stars >= 3 {
+                0.015
+            } else {
+                0.0
+            };
+            if chance > 0.0 && key_uniform(seed ^ 5 ^ (j as u64) << 8, id) < chance {
+                new.push((j, Visit::Home));
+            }
+        }
+    }
+    (!official.is_empty() || !new.is_empty()).then_some((official, new))
+}
+
 /// The day's recruiting actions (T5.3, T5.4), only where the NCAA period
 /// allows them: official visits on Fridays outside dead periods, for the
 /// class signing next once it may take them (`official_visit_allowed`); in
@@ -4084,99 +4215,47 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     let mut posts = Vec::new();
     let mut homes = Vec::new();
     let (mut off, mut unoff, mut drops) = (0u32, 0u32, 0u32);
-    let n = w.people.len();
-    for i in 0..n {
-        let p = &w.people[i];
-        if p.stage != Stage::HighSchool
-            || p.cal.signed.is_some()
-            || (p.cal.offers.is_empty() && p.cal.early_offers.is_empty())
-            || p.class_of > sign_year + 1
-        {
-            continue;
-        }
-        if junior_day {
-            // Junior days are for the class signing next (in the spring of
-            // the football year, the juniors).
-            if p.class_of != sign_year {
-                continue;
-            }
-            let id = p.player.id as u64;
-            let pick = p.cal.early_offers.iter().map(|o| o.0).find(|&j| {
-                Some(j) != vj
-                    && geo::miles(p.home_state, w.programs[j].state) <= 500.0
-                    && !p.cal.visits.iter().any(|v| v.0 == j)
-                    && key_uniform(seed ^ 4 ^ j as u64, id) < 0.3
-            });
-            if let Some(j) = pick {
-                w.people[i].cal.visits.push((j, d, Visit::Unofficial));
-                unoff += 1;
-            }
-            continue;
-        }
-        // The class signing next: seniors from September, juniors before.
-        let senior = p.class_of == sign_year && fall;
-        let id = p.player.id as u64;
+    // Each recruit's day planned on all cores (world speed lane): his own
+    // visits and keyed rolls only. The official visit's school cap counts
+    // the visitors taken before him, so his pick among the offers that pass
+    // everything else is made here, in person order, as the visits go in.
+    let day = VisitDay {
+        d,
+        season,
+        sign_year,
+        junior_officials,
+        fall,
+        official_day,
+        game_day,
+        drop_day,
+        junior_day,
+        home_day,
+        fall_officials,
+        seed,
+        vj,
+        planned: planned.as_ref(),
+        home_today: &home_today,
+        home_tomorrow: &home_tomorrow,
+    };
+    let world: &World = w;
+    let plans: Vec<(usize, Vec<usize>, Vec<(usize, Visit)>)> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
+        .filter_map(|i| plan_visits(world, i, &day).map(|(official, rest)| (i, official, rest)))
+        .collect();
+    for (i, official, rest) in plans {
         let mut new: Vec<(usize, Visit)> = Vec::new();
-        if official_day && official_visit_allowed(season, d, p.class_of, junior_officials) {
-            // The official you set and he accepted holds one of his five.
-            let taken = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count()
-                + usize::from(planned.as_ref().is_some_and(|(_, ids)| ids.contains(&p.player.id)));
-            let yours_set = |j: usize| planned.as_ref().is_some_and(|(pj, ids)| *pj == j && ids.contains(&p.player.id));
-            let next = p.cal.offers.iter().find(|&&j| {
-                Some(j) != vj
-                    && !yours_set(j)
-                    && !p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official)
-                    && (!fall_officials || home_tomorrow.contains(&j))
-                    && !school_cap.is_some_and(|(cap, _)| capped[j] && hosted.as_ref().is_some_and(|h| h[j] >= cap))
-            });
-            if official_cap(d).is_none_or(|cap| taken < cap)
-                && let Some(&j) = next
-                && key_uniform(seed ^ 1, id) < 0.12
-            {
-                new.push((j, Visit::Official));
-            }
+        if let Some(&j) = official
+            .iter()
+            .find(|&&j| !school_cap.is_some_and(|(cap, _)| capped[j] && hosted.as_ref().is_some_and(|h| h[j] >= cap)))
+        {
+            new.push((j, Visit::Official));
         }
-        if game_day {
-            for &j in p.cal.offers.iter().filter(|&&j| home_today.contains(&j) && Some(j) != vj) {
-                if geo::miles(p.home_state, w.programs[j].state) <= 250.0 && key_uniform(seed ^ 2 ^ j as u64, id) < 0.25
-                {
-                    new.push((j, Visit::Unofficial));
-                    break;
-                }
-            }
-        }
-        if drop_day && senior {
-            for &j in p.cal.offers.iter().filter(|&&j| Some(j) != vj) {
-                let committed = p.cal.commit.is_some_and(|c| c.0 == j);
-                let near = geo::miles(p.home_state, w.programs[j].state) <= 250.0;
-                if (near || committed) && key_uniform(seed ^ 3 ^ j as u64, id) < if committed { 0.4 } else { 0.2 } {
-                    new.push((j, Visit::DropIn));
-                }
-            }
-        }
-        if home_day && p.class_of == sign_year {
-            for &j in p.cal.offers.iter().filter(|&&j| Some(j) != vj) {
-                if p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Home) {
-                    continue;
-                }
-                let committed = p.cal.commit.is_some_and(|c| c.0 == j);
-                let near = geo::miles(p.home_state, w.programs[j].state) <= 400.0;
-                let chance = if committed {
-                    0.08
-                } else if near && p.stars >= 3 {
-                    0.015
-                } else {
-                    0.0
-                };
-                if chance > 0.0 && key_uniform(seed ^ 5 ^ (j as u64) << 8, id) < chance {
-                    new.push((j, Visit::Home));
-                    homes.push((i, j));
-                }
-            }
-        }
+        new.extend(rest);
         if new.is_empty() {
             continue;
         }
+        let p = &w.people[i];
         let stars = p.stars;
         let name = p.name.clone();
         let p = &mut w.people[i];
@@ -4197,8 +4276,12 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
                         ));
                     }
                 }
+                Visit::Home => {
+                    homes.push((i, j));
+                    drops += 1;
+                }
                 Visit::Unofficial => unoff += 1,
-                Visit::DropIn | Visit::Home => drops += 1,
+                Visit::DropIn => drops += 1,
             }
         }
     }
@@ -4607,24 +4690,35 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let mut pos_stats: [(f64, f64, f64); POSITION_COUNT] = [(0.0, 0.0, 0.0); POSITION_COUNT];
     let mut candidates: Vec<usize> = Vec::new();
     let played = hs_played(w);
-    for i in 0..n {
-        let p = &w.people[i];
-        let unsigned = p.cal.signed.is_none();
-        let in_class = p.stage == Stage::HighSchool && p.class_of <= sign_year;
-        let senior = in_class && unsigned;
-        let prep = p.stage == Stage::PrepSchool && unsigned && stage == SignStage::Final;
-        let juco = p.stage == Stage::College
-            && unsigned
-            && !matches!(stage, SignStage::Summer(_))
-            && p.college.is_some_and(|c| w.programs[c].division == Division::JUCO)
-            && p.college_seasons + p.cal.count_pending as u32 >= 1;
-        if senior || prep || juco {
+    // Each person read on all cores (world speed lane), then added up in
+    // person order, so the sums are the same as one walk.
+    let world: &World = w;
+    let looks: Vec<(usize, bool, Option<f64>)> = (0..n)
+        .into_par_iter()
+        .with_min_len(4096)
+        .filter_map(|i| {
+            let p = &world.people[i];
+            let unsigned = p.cal.signed.is_none();
+            let in_class = p.stage == Stage::HighSchool && p.class_of <= sign_year;
+            let senior = in_class && unsigned;
+            let prep = p.stage == Stage::PrepSchool && unsigned && stage == SignStage::Final;
+            let juco = p.stage == Stage::College
+                && unsigned
+                && !matches!(stage, SignStage::Summer(_))
+                && p.college.is_some_and(|c| world.programs[c].division == Division::JUCO)
+                && p.college_seasons + p.cal.count_pending as u32 >= 1;
+            let candidate = senior || prep || juco;
+            // Film is aligned against the whole class, signed or not.
+            let film = in_class.then(|| film_raw(p, &played));
+            (candidate || film.is_some()).then_some((i, candidate, film))
+        })
+        .collect();
+    for (i, candidate, film) in looks {
+        if candidate {
             candidates.push(i);
         }
-        // Film is aligned against the whole class, signed or not.
-        if in_class {
-            let f = film_raw(p, &played);
-            let s = &mut pos_stats[p.player.position.index()];
+        if let Some(f) = film {
+            let s = &mut pos_stats[w.people[i].player.position.index()];
             s.0 += 1.0;
             s.1 += f;
             s.2 += f * f;
@@ -4696,12 +4790,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     pool.extend(recruits);
     // Older brothers already playing college football, from the same high school (topic 5).
     let mut alumni_of: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
-    for p in w.people.iter() {
-        if p.stage == Stage::College
-            && let Some(c) = p.college
-        {
-            alumni_of.entry(p.hs).or_default().push(c);
-        }
+    let in_college: Vec<(usize, usize)> = w
+        .people
+        .par_iter()
+        .with_min_len(4096)
+        .filter_map(|p| if p.stage == Stage::College { p.college.map(|c| (p.hs, c)) } else { None })
+        .collect();
+    for (hs, c) in in_college {
+        alumni_of.entry(hs).or_default().push(c);
     }
     for r in pool.iter() {
         if r.juco_mover || !rating {

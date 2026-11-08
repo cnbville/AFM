@@ -258,12 +258,16 @@ pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
         }
     }
     let mut rooms = vec![[0u32; POSITION_COUNT]; counted.len()];
-    for p in w.people.iter() {
-        if let Some(t) = team(p)
-            && counted[t]
-        {
-            rooms[t][p.player.position.index()] += 1;
-        }
+    // Everyone on a counted team found on all cores, then counted (world
+    // speed lane: whole counts, so the order they come in never matters).
+    let hits: Vec<(usize, usize)> = w
+        .people
+        .par_iter()
+        .with_min_len(4096)
+        .filter_map(|p| team(p).filter(|&t| counted[t]).map(|t| (t, p.player.position.index())))
+        .collect();
+    for (t, k) in hits {
+        rooms[t][k] += 1;
     }
     let mut made: Vec<(usize, Position)> = Vec::with_capacity(moves.len());
     for (i, to) in moves {
