@@ -353,7 +353,7 @@ pub fn bank(w: &mut World, nil: Option<f64>, hold: Option<bool>) -> Result<Strin
             return Err("NIL deals are allowed from July 1, 2021.".into());
         }
         let b = crate::world::front_office::college::budget(w, j);
-        if x - current > b.left + 1.0 {
+        if !b.fits(x - current) {
             return Err(format!(
                 "That's more than the {} left in your NIL budget.",
                 crate::world::front_office::dollars(b.left.max(0.0))

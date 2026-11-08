@@ -1882,11 +1882,19 @@ pub(crate) fn draft_end(
             .collect()
     } else {
         let limit = w.rules.nfl_offseason as usize;
+        // Sandbox mode's roster limits: every call your war room makes has
+        // room on your club (AI clubs keep the 90).
+        let seat_calls =
+            seat_rush.as_ref().filter(|s| super::front_office::roster_lifted(w, s.0)).map(|s| (s.0, s.1.len()));
         let mut room: Vec<usize> = (0..w.nfl.len())
             .map(|t| {
                 if t < w.clubs.len() && super::franchise::active_in(w, t, draft_year) {
                     // The picks are on the roster already.
-                    limit.saturating_sub(w.clubs[t].roster.len())
+                    let r = limit.saturating_sub(w.clubs[t].roster.len());
+                    match seat_calls {
+                        Some((st, n)) if st == t => r.max(n),
+                        _ => r,
+                    }
                 } else {
                     0
                 }
@@ -2287,8 +2295,9 @@ fn tryout_sticks(d: Division) -> f64 {
 /// Fall camp (topic 5): walk-ons who played their way into the two-deep go
 /// on scholarship where one is free (5.4), and a few students make a team
 /// at an open tryout, the best of the state's new graduates who never
-/// signed (5.5). Division III, the Ivy League and the Pioneer League give
-/// no athletic aid, so their walk-ons stay as they are.
+/// signed (5.5). Division III and the leagues without athletic aid (the Ivy
+/// League, the Pioneer League, the Patriot League before 2013: `ncaa::aid`)
+/// give none, so their walk-ons stay as they are.
 pub(crate) fn camp_walk_ons(w: &mut World) {
     let season = w.year;
     w.rebuild_rosters();
@@ -2298,7 +2307,7 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
     let mut word: Option<(usize, Vec<usize>, usize)> = None;
     let mut awards: Vec<(usize, usize)> = Vec::new();
     for (j, prog) in w.programs.iter().enumerate() {
-        let no_aid = prog.division == Division::D3 || matches!(prog.conference.as_str(), "Ivy" | "PFL");
+        let no_aid = prog.division == Division::D3 || super::ncaa::aid(prog, season) != super::ncaa::Aid::Athletic;
         if !prog.plays(season) || no_aid {
             continue;
         }
@@ -2844,8 +2853,10 @@ const SERVICE_MATURITY: f64 = 1.6;
 const SERVICE_MISREAD: f64 = 6.0;
 
 /// How many of a class of 250,000 the services rate at 5, 4, 3 and 2
-/// stars (minor bug 17). The 247 Composite's own counts: about 32 five-stars
-/// and 350 four-stars a class (the final Top247), and about 2,600 three-stars
+/// stars (minor bug 17). Five- and four-stars at ESPN's 2013-2026 means,
+/// 46.3 and 300.6 a class (`rates.json` recruits_per_star_per_class, the
+/// count the world's checks read; minor bug 269: the 247 Composite's 32
+/// and 350 put the five-stars far under it), and about 2,600 three-stars
 /// signing with FBS, FCS and Division II programs each year (2,200 of them
 /// FBS; CFBD's composite ratings of the 2022-2025 signees), with more who
 /// sign nowhere rated. The two-stars fill the rated pool to its old size,
@@ -2854,7 +2865,7 @@ const SERVICE_MISREAD: f64 = 6.0;
 /// short and full of 2-stars, which the composite almost never gives an
 /// SEC signee. The standalone class sim keeps `PIPELINE.star_shares`.
 const SERVICE_TIERS: [(u8, f64); 4] =
-    [(5, 33.0 / 250_000.0), (4, 350.0 / 250_000.0), (3, 2_800.0 / 250_000.0), (2, 3_200.0 / 250_000.0)];
+    [(5, 46.0 / 250_000.0), (4, 301.0 / 250_000.0), (3, 2_800.0 / 250_000.0), (2, 3_236.0 / 250_000.0)];
 
 /// How the services' standard drifts from class to class (minor bug 102):
 /// how many kids a service grades a five- or four-star moves with its
@@ -2947,15 +2958,16 @@ pub(crate) fn recruiting_stars(p: &Person) -> u8 {
 
 /// What a walk-on spot costs a recruit: his family's tuition, as at the
 /// Pioneer League schools, which give no athletic aid. Schools that give
-/// none anyway cost no tuition extra. Out of state tuition costs about 1.77
-/// times as much (a public four-year school's full cost, $44,090 against
-/// $24,920 in state, College Board 2024-25), so walk-ons are mostly local
-/// (fix list 5.2; private schools charge everyone the same, not modeled).
-fn walk_on_cost(p: &Person, prog: &Program) -> f64 {
+/// none anyway (`ncaa::aid`, the season he would arrive) cost no tuition
+/// extra. Out of state tuition costs about 1.77 times as much (a public
+/// four-year school's full cost, $44,090 against $24,920 in state, College
+/// Board 2024-25), so walk-ons are mostly local (fix list 5.2; private
+/// schools charge everyone the same, not modeled).
+fn walk_on_cost(p: &Person, prog: &Program, season: i32) -> f64 {
     let away = if prog.state == p.home_state { 1.0 } else { 1.77 };
-    match prog.conference.as_str() {
-        "PFL" | "Ivy" => 0.0,
-        _ => 0.8 * (1.0 - 0.6 * p.bg.money) * away,
+    match super::ncaa::aid(prog, season) {
+        super::ncaa::Aid::Athletic => 0.8 * (1.0 - 0.6 * p.bg.money) * away,
+        _ => 0.0,
     }
 }
 
@@ -3258,12 +3270,14 @@ fn utility_fit(
         + wants.academics * academics
         + (wants.development + path_w) * development
         + path_w * playing;
-    // No athletic scholarships: the Pioneer League gives none (the family pays),
-    // the Ivy League only need-based aid. A scholarship offer elsewhere usually wins.
-    match prog.conference.as_str() {
-        "PFL" => u -= 0.8 * (1.0 - 0.6 * p.bg.money),
-        "Ivy" => u -= 0.4,
-        _ => {}
+    // No athletic scholarships the season he would arrive (`ncaa::aid`): the
+    // Pioneer League gives none (the family pays), the Ivy League and the
+    // Patriot League before 2013 only need-based aid. A scholarship offer
+    // elsewhere usually wins.
+    match super::ncaa::aid(prog, year + 1) {
+        super::ncaa::Aid::None => u -= 0.8 * (1.0 - 0.6 * p.bg.money),
+        super::ncaa::Aid::NeedBased => u -= 0.4,
+        super::ncaa::Aid::Athletic => {}
     }
     // Teammates and older kids from his school already there: a pipeline school feels familiar.
     if let Some(&(v, _)) = prog.hs_pipeline.get(&p.hs) {
@@ -4127,8 +4141,17 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
         let mut new: Vec<(usize, Visit)> = Vec::new();
         if official_day && official_visit_allowed(season, d, p.class_of, junior_officials) {
             // The official you set and he accepted holds one of his five.
-            let taken = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count()
-                + usize::from(planned.as_ref().is_some_and(|(_, ids)| ids.contains(&p.player.id)));
+            // Counted by school: sandbox mode's contact rules can give your
+            // program more than one, and they hold a single place.
+            let vs = &p.cal.visits;
+            let taken = (0..vs.len())
+                .filter(|&k| {
+                    vs[k].2 == Visit::Official && !vs[..k].iter().any(|u| u.0 == vs[k].0 && u.2 == Visit::Official)
+                })
+                .count()
+                + usize::from(planned.as_ref().is_some_and(|(pj, ids)| {
+                    ids.contains(&p.player.id) && !vs.iter().any(|u| u.0 == *pj && u.2 == Visit::Official)
+                }));
             let yours_set = |j: usize| planned.as_ref().is_some_and(|(pj, ids)| *pj == j && ids.contains(&p.player.id));
             let next = p.cal.offers.iter().find(|&&j| {
                 Some(j) != vj
@@ -5323,6 +5346,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let mut promise: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     if let Some(m) = &mine {
         let j = m.program;
+        // Sandbox mode's roster limits (a test switch): your offers sign
+        // past your class plan, the yearly signee cap and the roster limit.
+        let lift_roster = w.sandbox(super::sandbox::Switch::RosterLimits);
         let k_of: std::collections::HashMap<usize, usize> =
             pool.iter().enumerate().map(|(k, r)| (r.person, k)).collect();
         let mut mb: Vec<Board> = vec![Vec::new(); POSITION_COUNT];
@@ -5364,10 +5390,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     .iter()
                     .filter(|e| w.people[pool[e.0].person].cal.commit.is_some_and(|c| c.0 == j && !c.2))
                     .count();
-                plans[j].scholarship[i] = own_at[i].min(need.max(held));
+                plans[j].scholarship[i] = if lift_roster { own_at[i] } else { own_at[i].min(need.max(held)) };
             }
         }
         boards[j] = mb;
+        if lift_roster {
+            plans[j].slots = plans[j].slots.max(pool.len());
+        }
     }
     let mj = mine.as_ref().map(|m| m.program);
     let fill = mine.as_ref().is_some_and(|m| m.fill);
@@ -5489,6 +5518,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             reach[j] && money + BUY_RANKS <= standing
         })
         .collect();
+    let go_free = nil_go_free(w);
     let offer_for = |j: usize, k: usize, rank: f64| -> f64 {
         let prog = &programs[j];
         // Your promise, where you made one (lane 10).
@@ -5498,7 +5528,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             return x + super::ncaa::booster_cash(prog, pool[k].person);
         }
         let p = &w.people[pool[k].person];
-        let talent = star_nil(recruiting_stars(p)) * (1.3 - 0.6 * rank);
+        let talent = offer_star_nil(recruiting_stars(p)) * (1.3 - 0.6 * rank);
         // Your collective's split puts more or less into the class (L9).
         let q = super::legacy::college::split_q(w, j, 2);
         let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
@@ -5517,7 +5547,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             usual
         };
         // From July 2025 the collective's part goes through NIL Go (B18).
-        cleared(prog, w.today, money, nil_go_top_recruit(p)) + super::ncaa::booster_cash(prog, pool[k].person)
+        cleared(prog, w.today, money, nil_go_top_recruit(p), go_free == Some(j))
+            + super::ncaa::booster_cash(prog, pool[k].person)
     };
     // The next offer a staff makes: (position, walk-on spot).
     let next_offer = |j: usize,
@@ -5687,6 +5718,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // rest of his allowance goes to the schools he likes best.
                 let mut official: Vec<usize> =
                     p.cal.visits.iter().filter(|v| v.2 == super::Visit::Official).map(|v| v.0).collect();
+                // One place a school: sandbox mode's contact rules can give
+                // your program more than one official.
+                official.sort_unstable();
+                official.dedup();
                 for x in liked.iter() {
                     if official.len() >= officials {
                         break;
@@ -5859,7 +5894,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             // A walk-on is last in line for reps, wherever he sits on the board.
             scholarship: utility_fit(&pool_fits[k], p, &wants, prog, year, offer, 1.0 - rank, home_w[k]) + ties,
             walk_on: utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0, home_w[k])
-                + (ties - walk_on_cost(p, prog)),
+                + (ties - walk_on_cost(p, prog, year + 1)),
             ties,
         }
     };
@@ -5955,8 +5990,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         super::ncaa::position_nil_max(seat.pos)
                     };
                     // The raise's collective part goes through NIL Go too (B18).
-                    let raised =
-                        cleared(prog, w.today, (offer * 1.5).min(cap).min(top.max(offer)), nil_go_top_recruit(p));
+                    let raised = cleared(
+                        prog,
+                        w.today,
+                        (offer * 1.5).min(cap).min(top.max(offer)),
+                        nil_go_top_recruit(p),
+                        go_free == Some(j),
+                    );
                     let ru = utility_fit(&pool_fits[k], p, &wants, prog, year, raised, 1.0 - rank, home_w[k])
                         + fx.ties
                         + fit;
@@ -6071,7 +6111,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let u = utility_fit(&pool_fits[k], p, &wants, &programs[j], year, 0.0, standing, home_w[k])
                     + relationship(j, k)
                     + feel(j, k)
-                    - if walk_on { walk_on_cost(p, &programs[j]) } else { 0.0 };
+                    - if walk_on { walk_on_cost(p, &programs[j], year + 1) } else { 0.0 };
                 options.push((u, j, walk_on, special));
             }
             // A walk-on place costs him the best scholarship he turns down for it.
@@ -6160,7 +6200,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let u = utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0, home_w[k])
                     + relationship(j, k)
                     + feel(j, k)
-                    - walk_on_cost(p, prog);
+                    - walk_on_cost(p, prog, year + 1);
                 if let Some(h) = held[k] {
                     let given_up = if h.walk_on { 0.0 } else { scholarship_given_up(pos, &programs[h.program]) };
                     if u - given_up <= h.base {
@@ -6719,9 +6759,13 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
         w.log.early_enrollees += n;
     }
     w.rebuild_rosters();
+    // Your signees start on what they signed for (every NIL dollar is yours).
+    fo::college::fill_deals(w);
     // An early enrollee's collective pays him from January, on the split
-    // July 1 will make (minor bug 100: he held nothing until July).
+    // July 1 will make (minor bug 100: he held nothing until July); yours
+    // on the deal he signed.
     if early {
+        let mine = fo::program(w);
         let medians = nil_medians(w);
         let none = std::collections::HashSet::new();
         for j in 0..w.programs.len() {
@@ -6744,7 +6788,18 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
             for i in fresh {
                 let v = nil_value(&w.people[i], div, &medians);
                 // The collective's part through NIL Go (B18).
-                let money = cleared(&w.programs[j], today, budget * v / pool.max(1e-9), nil_go_top(&w.people[i], v));
+                // Sandbox mode's NIL Go switch: your collective's deals
+                // clear in full.
+                let free = nil_go_free(w) == Some(j);
+                let money = match fo::college::deal_of(w, w.people[i].player.id).filter(|_| mine == Some(j)) {
+                    Some((s, c)) if super::ncaa::two_pots(today) => {
+                        s + if free { c } else { nil_go(today, c, nil_go_top(&w.people[i], v)) }
+                    }
+                    Some((s, _)) => s,
+                    None => {
+                        cleared(&w.programs[j], today, budget * v / pool.max(1e-9), nil_go_top(&w.people[i], v), free)
+                    }
+                };
                 let p = &mut w.people[i];
                 if money > 250_000.0 {
                     p.cal.payday = true;
@@ -7834,6 +7889,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     // rosters already, so only the day's own add to it (the market's `adds`
     // keeps the whole cycle's, for its cap of ten).
     let counted = counted_rosters(w, season);
+    let go_free = nil_go_free(w);
+    // Sandbox mode's roster limits: your offers land past your roster limit.
+    let lift_portal = w.sandbox(super::sandbox::Switch::RosterLimits);
     let mut today_adds = vec![0usize; pn];
     let seed = w.options.seed as u64 ^ ((market.label as u64) << 24) ^ 0xFA11;
     // The day's landings (person, program), applied to the rosters in
@@ -7855,6 +7913,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         // Someone who left college meanwhile is out of the market.
         let Some(c) = w.people[i].college.filter(|_| w.people[i].stage == Stage::College) else {
             w.people[i].cal.portal = None;
+            super::folk::backchannel::settled(w, w.people[i].player.id);
             continue;
         };
         let from = w.programs[c].division;
@@ -7886,6 +7945,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let perf = perf_of(&w.people[i]);
         let serious = market.serious.contains(&i);
         w.people[i].cal.portal = None;
+        // A placement is read on this, his decision day, then spent (minor
+        // bug 325: the Monday cleanup dropped it at entry, before the day).
+        super::folk::backchannel::settled(w, id);
         // His old head coach's new school (minor bug 86), asked until he decides.
         let followed = w.coach_follows.iter().find(|f| f.0 == id).map(|f| f.1);
         // His move is made: last season's reasons to leave are spent, so a
@@ -7924,7 +7986,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 {
                     let o = m.offers.get(&wr.people[i].player.id)?;
                     let limit = super::ncaa::roster_limits(&wr.programs[j], season).0;
-                    if j == c || counted[j] + today_adds[j] >= limit {
+                    if j == c || (!lift_portal && counted[j] + today_adds[j] >= limit) {
                         return None;
                     }
                     // His old head coach's new school takes him at any level (minor bug 86).
@@ -7943,15 +8005,21 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                     let perf = perf - competition_discount(from) + competition_discount(d);
                     let ahead = mk.depth[j][k].iter().take_while(|&&v| v >= perf).count();
                     let role = role_at(ahead, slots);
-                    let q = super::legacy::college::split_q(wr, j, 1);
-                    let (school, coll) = portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d), wr.today);
-                    // Your number is the school's money in two pots, and the
-                    // collective adds its own cleared deal (B18); before, your
-                    // number was the whole of it.
-                    let nil = match o.nil {
-                        Some(x) if super::ncaa::two_pots(wr.today) => x + coll * q,
-                        Some(x) => x,
-                        None => (school + coll) * q,
+                    // Your numbers are all his money from you (every NIL dollar
+                    // is yours, Cain 2026-11-07): in two pots your revenue
+                    // share and your collective deal as NIL Go clears it at
+                    // the place he'd have (B18); before, one number. An offer
+                    // without a number is the place alone.
+                    let nil = match (o.nil, o.coll) {
+                        (None, None) => 0.0,
+                        (x, c) if super::ncaa::two_pots(wr.today) => {
+                            let v = nil_weight(Some(role), p.player.position, recruiting_stars(p), perf - median(d));
+                            let c = c.unwrap_or(0.0);
+                            // Sandbox mode's NIL Go switch: your deal clears in full.
+                            x.unwrap_or(0.0)
+                                + if go_free == Some(j) { c } else { nil_go(wr.today, c, nil_go_top(p, v)) }
+                        }
+                        (x, c) => x.unwrap_or(0.0) + c.unwrap_or(0.0),
                     };
                     let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
                         + mk.view.fit(
@@ -8018,7 +8086,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 }
                 let p = &wr.people[i];
                 let role = role_at(ahead, slots);
-                let (school, coll) = portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d), wr.today);
+                let (school, coll) =
+                    portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d), wr.today, go_free == Some(j));
                 let nil = (school + coll) * super::legacy::college::split_q(wr, j, 1);
                 let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
                     + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars))
@@ -8195,7 +8264,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     }
 }
 
-/// The recruit market's read of his stars (`offer_for`, `usual_nil_offer`).
+/// A player's stars as the NIL market weighs them on a roster (`nil_weight`:
+/// payday's split and NIL Go's range).
 fn star_nil(stars: u8) -> f64 {
     match stars {
         5 => 2.5,
@@ -8206,30 +8276,90 @@ fn star_nil(stars: u8) -> f64 {
     }
 }
 
+/// The recruit market's read of his stars (`offer_for`, `usual_nil_offer`).
+/// Minor bug 261: it was `star_nil`, and Power 4 four-stars signed for
+/// $300-410K a year and three-stars $170-180K, against real 2026 classes of
+/// about $85-253K a recruit at the top Power 4 programs (On3 class tables via
+/// SI: Oregon $253K, Maryland $190K, Texas $178K, Miami $155K), five-star
+/// quarterbacks at $750K-1M and Power 4 quarterback signees at $100-300K.
+/// Now set so a top class of three five-stars, fifteen four-stars and seven
+/// three-stars averages about $175K: four-stars about $185K, three-stars
+/// about $60K (proposed, not confirmed). At 0.45, 0.1 and 0.035 a 30-year
+/// world at 0.1 (seed 72) signed Power 4 four-stars at $289-299K,
+/// three-stars at $77-79K and two-stars at $26-28K, five-stars at
+/// $443-517K and its one five-star quarterback at $798K. Four-stars sit
+/// under two caps (the position's going rate and NIL Go's range on the
+/// collective's part), so above about 0.2 their money falls more slowly
+/// than the factor: played on from saved worlds (seeds 70 and 72, classes of
+/// 2026 and 2027) they signed at $227-254K at 0.28, $182-194K at 0.18 and
+/// $139-149K at 0.13, with three-stars at $60-66K, two-stars at $20-23K and
+/// five-stars at $460-615K. Payday's split keeps `star_nil`.
+fn offer_star_nil(stars: u8) -> f64 {
+    match stars {
+        5 => 2.5,
+        4 => 0.18,
+        3 => 0.075,
+        2 => 0.025,
+        _ => 0.01,
+    }
+}
+
 /// Collectives pay starters (minor bug 100: a flat split paid every P4
 /// backup $10-30K, so 20% of Power 4 players earned under $10K against a
 /// real 66.5%). A rotation player is worth this share of a starter in his
 /// spot, a backup next to nothing; a newcomer with no college season is
 /// paid on his stars, as the market read him; play against the level's
-/// starters moves it about 5% a point (all proposed, not confirmed).
+/// starters moves it about 3% a point (all proposed, not confirmed; minor
+/// bug 335 took the play step from 5%, which alone spread Power 4 starters'
+/// pay 2.2x from the 25th to the 90th percentile, against a real 1.7-2.2x
+/// for all of it: The NIL Standard's 2026 starters, interior line
+/// $424-787K, corners $476-802K, backs $458K-1M).
 const NIL_ROTATION: f64 = 0.25;
 const NIL_DEPTH: f64 = 0.02;
 const NIL_FRESHMAN: f64 = 0.2;
-const NIL_PLAY: f64 = 0.05;
+const NIL_PLAY: f64 = 0.03;
+
+/// How much his recruiting stars still price a player once he has played a
+/// college season (minor bug 335): the market reads his college play, so
+/// his stars count as `star_nil`^0.2 (a 3-star 0.79 of a 4-star, a 2-star
+/// 0.60), where the square root before (0.55 and 0.28) gave Power 4
+/// starters a 3.6x spread from their stars alone and paid the top tenth of
+/// starting interior linemen $2.4M+ against a real $787K (The NIL
+/// Standard's 2026 valuations of Power 4 starters: P25 $424K, median
+/// $525K, P90 $787K; the College Sports Commission's 2025-26 pay, Power 4
+/// offensive linemen paid at all: P90 $726K). Fitted to those figures.
+const NIL_STARS_PLAYED: f64 = 0.2;
+
+/// An interior lineman's market against a tackle's (minor bug 335): Power 4
+/// starters' 2026 medians $525K and $907K (The NIL Standard); ESPN's 2025
+/// and 2026 surveys put guards and centers at $200-700K and tackles at
+/// $600K-1.3M. The going rates (`position_nil`) read one line range.
+const NIL_IOL: f64 = 0.58;
+
+/// A defensive tackle's market against an edge rusher's (minor bug 335):
+/// tackles' typical 2026 starter $500K-1M (ESPN's survey, The NIL
+/// Standard), their average $500-700K (247Sports), against an edge
+/// rusher's median $929K (The NIL Standard): 0.65-0.81, the middle 0.73.
+const NIL_DT: f64 = 0.73;
 
 /// A player's weight in his collective's payroll (what `nil_payouts` splits
 /// a budget by on 1 July): his role there (None: no college season yet),
 /// his position's going rate, his stars and how he played against the
 /// level's starters at his spot (`edge`, points).
-fn nil_weight(role: Option<PlayingTime>, pos: Position, stars: u8, edge: f64) -> f64 {
-    let market = position_nil(pos) / position_nil(Position::WR);
+pub(crate) fn nil_weight(role: Option<PlayingTime>, pos: Position, stars: u8, edge: f64) -> f64 {
+    let line = match pos {
+        Position::IOL => NIL_IOL,
+        Position::DT => NIL_DT,
+        _ => 1.0,
+    };
+    let market = line * position_nil(pos) / position_nil(Position::WR);
     let w = match role {
         None => return NIL_FRESHMAN * star_nil(stars) * market,
         Some(PlayingTime::Starter) => 1.0,
         Some(PlayingTime::Rotation) => NIL_ROTATION,
         _ => NIL_DEPTH,
     };
-    w * star_nil(stars).sqrt() * market * (NIL_PLAY * edge.clamp(-15.0, 15.0)).exp()
+    w * star_nil(stars).powf(NIL_STARS_PLAYED) * market * (NIL_PLAY * edge.clamp(-15.0, 15.0)).exp()
 }
 
 /// What NIL Go's range adds for each follower he has (B18): the same $1.20
@@ -8267,18 +8397,33 @@ pub(crate) fn nil_go(today: Date, deal: f64, top: f64) -> f64 {
 /// deal as NIL Go clears it. The split follows the program's money: its
 /// school pot over its whole budget. Before July 2025 it is all the
 /// collective's, and nothing reviews it.
-pub(crate) fn pots(prog: &Program, today: Date, money: f64, top: f64) -> (f64, f64) {
+/// `free`: sandbox mode's NIL Go switch on your program (`nil_go_free`),
+/// where NIL Go clears the collective's part in full.
+pub(crate) fn pots(prog: &Program, today: Date, money: f64, top: f64, free: bool) -> (f64, f64) {
     let total = prog.collective.budget;
     let s = if total > 0.0 { (super::ncaa::school_pot(prog, today) / total).clamp(0.0, 1.0) } else { 0.0 };
     let school = money * s;
-    (school, nil_go(today, money - school, top))
+    (school, if free { money - school } else { nil_go(today, money - school, top) })
 }
 
 /// The money a player gets from a program's usual offer once NIL Go has
 /// read the collective's part (B18).
-pub(crate) fn cleared(prog: &Program, today: Date, money: f64, top: f64) -> f64 {
-    let (s, c) = pots(prog, today, money, top);
+pub(crate) fn cleared(prog: &Program, today: Date, money: f64, top: f64, free: bool) -> f64 {
+    let (s, c) = pots(prog, today, money, top, free);
     s + c
+}
+
+/// Sandbox mode's NIL Go switch (a test switch): your program, whose
+/// collective's deals NIL Go clears in full; None otherwise. Every other
+/// program's deals go through NIL Go as always.
+pub(crate) fn nil_go_free(w: &World) -> Option<usize> {
+    if w.sandbox(super::sandbox::Switch::NilGo) { fo::program(w) } else { None }
+}
+
+/// NIL Go on one of program `j`'s collective deals (`nil_go`), or the whole
+/// deal for your program under sandbox mode's NIL Go switch.
+pub(crate) fn nil_go_at(w: &World, j: usize, deal: f64, top: f64) -> f64 {
+    if nil_go_free(w) == Some(j) { deal } else { nil_go(w.today, deal, top) }
 }
 
 /// Starters' median play by division and position, the bar a player's NIL
@@ -8344,11 +8489,19 @@ fn nil_pool(
 /// his stars, and moved by how he played against the level's starters at
 /// his position (`nil_weight`). A starting quarterback who played well
 /// draws seven figures at a big program; a backup lineman a few thousand.
-fn portal_nil(prog: &Program, pool: f64, p: &Person, role: PlayingTime, edge: f64, today: Date) -> (f64, f64) {
+fn portal_nil(
+    prog: &Program,
+    pool: f64,
+    p: &Person,
+    role: PlayingTime,
+    edge: f64,
+    today: Date,
+    free: bool,
+) -> (f64, f64) {
     let v = nil_weight(Some(role), p.player.position, recruiting_stars(p), edge);
     let pool = if pool > 0.0 { pool } else { 12.0 };
     // In two pots from July 2025, the collective's part through NIL Go (B18).
-    pots(prog, today, prog.collective.budget * 0.6 * v / (pool + v), nil_go_top(p, v))
+    pots(prog, today, prog.collective.budget * 0.6 * v / (pool + v), nil_go_top(p, v), free)
 }
 
 /// The collective's usual portal money for an entrant at program `j`, the
@@ -8371,8 +8524,25 @@ pub(crate) fn portal_usual(w: &World, j: usize, i: usize) -> (f64, f64) {
     };
     let role = p.last_role.unwrap_or(PlayingTime::Rotation);
     let q = super::legacy::college::split_q(w, j, 1);
-    let (school, coll) = portal_nil(&w.programs[j], pool, p, role, edge, w.today);
+    let (school, coll) = portal_nil(&w.programs[j], pool, p, role, edge, w.today, nil_go_free(w) == Some(j));
     (school * q, coll * q)
+}
+
+/// The top of NIL Go's range for an entrant at program `j` (B18), read the
+/// way `portal_usual` reads him: his role as the one he has now, his play
+/// at that level.
+pub(crate) fn portal_top(w: &World, j: usize, i: usize) -> f64 {
+    let p = &w.people[i];
+    let medians = nil_medians(w);
+    let div = w.programs[j].division;
+    let from = p.college.map_or(div, |c| w.programs[c].division);
+    let m = medians[div as usize][p.player.position.index()];
+    let edge = match p.last_performance {
+        Some(x) if m.is_finite() => x - competition_discount(from) + competition_discount(div) - m,
+        _ => 0.0,
+    };
+    let role = p.last_role.unwrap_or(PlayingTime::Rotation);
+    nil_go_top(p, nil_weight(Some(role), p.player.position, recruiting_stars(p), edge))
 }
 
 /// July 1, the new money year (T3, 11.5): each collective (and from 2025
@@ -8380,13 +8550,16 @@ pub(crate) fn portal_usual(w: &World, j: usize, i: usize) -> (f64, f64) {
 pub(crate) fn nil_payouts(w: &mut World) {
     let pn = w.programs.len();
     w.rebuild_rosters();
-    // Your deals, when the money is yours to hand out (lane 10).
+    // Your deals: every NIL dollar of yours is yours to hand out (lane 10;
+    // Cain 2026-11-07), and every arrival has his (`fill_deals`).
+    fo::college::fill_deals(w);
     let deals = fo::college::roster_deals(w);
     let today = w.today;
     let mut short: Vec<(u32, f64, f64)> = Vec::new();
     // Your collective's deals NIL Go held back: (players, dollars).
     let mut held = (0usize, 0.0f64);
     let medians = nil_medians(w);
+    let go_free = nil_go_free(w);
     for j in 0..pn {
         let budget = w.programs[j].collective.budget * 0.6 * super::legacy::college::split_q(w, j, 0);
         let roster = w.programs[j].roster.clone();
@@ -8409,7 +8582,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
         let split = |p: &Person| {
             let x = worth(p);
             let school = x * s;
-            let coll = nil_go(today, x - school, nil_go_top(p, value(p)));
+            let coll = if go_free == Some(j) { x - school } else { nil_go(today, x - school, nil_go_top(p, value(p))) };
             (school, coll, x - school - coll)
         };
         let mut paid: Vec<(f64, usize)> = match deals.as_ref().filter(|d| d.0 == j) {
@@ -8421,18 +8594,26 @@ pub(crate) fn nil_payouts(w: &mut World) {
                 let mut v = Vec::with_capacity(roster.len());
                 for &i in &roster {
                     let p = &mut w.people[i];
-                    let (school, coll, back) = split(p);
+                    let (school, coll, _) = split(p);
                     let fair = school + coll;
-                    if back > 0.0 {
+                    // Your revenue share and your collective deal, which NIL
+                    // Go clears to the top of his range (B18); before two
+                    // pots one deal. A player with no deal gets nothing.
+                    let id = p.player.id;
+                    let written = if two { d.2.get(&id).copied().unwrap_or(0.0) } else { 0.0 };
+                    // Sandbox mode's NIL Go switch: your deals clear in full.
+                    let paid = if !two {
+                        0.0
+                    } else if go_free == Some(j) {
+                        written
+                    } else {
+                        nil_go(today, written, nil_go_top(p, value(p)))
+                    };
+                    if written - paid > 0.5 {
                         held.0 += 1;
-                        held.1 += back;
+                        held.1 += written - paid;
                     }
-                    // With your staff on NIL, a player you set no deal for
-                    // gets the usual split (SC6). In two pots your deal is
-                    // the school's money and the collective adds its own.
-                    let usual = if two { school } else { fair };
-                    let own = if two { coll } else { 0.0 };
-                    let money = d.1.get(&p.player.id).copied().unwrap_or(if d.2 { usual } else { 0.0 }) + own;
+                    let money = d.1.get(&id).copied().unwrap_or(0.0) + paid;
                     if fair >= 25_000.0 && money < 0.5 * fair && p.college_seasons < 4 {
                         p.cal.lean = clamp(p.cal.lean * 1.35 + 0.01, 0.0, 0.95);
                         p.cal.lean_events.push((today, "his NIL deal fell short of his worth", 1.35));
@@ -8515,13 +8696,13 @@ pub(crate) fn usual_nil_parts(w: &World, j: usize, i: usize) -> (f64, f64) {
     if prog.collective.budget <= 0.0 {
         return (0.0, 0.0);
     }
-    let talent = star_nil(recruiting_stars(p));
+    let talent = offer_star_nil(recruiting_stars(p));
     let q = super::legacy::college::split_q(w, j, 2);
     let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
     let money = (position_nil(p.player.position) * talent * pay)
         .min(prog.collective.budget * 0.6 * 0.25 * q)
         .min(super::ncaa::position_nil_max(p.player.position));
-    pots(prog, w.today, money, nil_go_top_recruit(p))
+    pots(prog, w.today, money, nil_go_top_recruit(p), nil_go_free(w) == Some(j))
 }
 
 /// The NIL money a recruit weighs from program `j` today: from your own

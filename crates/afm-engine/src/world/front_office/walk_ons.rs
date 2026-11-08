@@ -88,10 +88,10 @@ pub fn aid_room(w: &World, j: usize) -> Result<(usize, usize), String> {
     if prog.division == Division::D3 {
         return Err("Division III gives no athletic aid.".into());
     }
-    if matches!(prog.conference.as_str(), "Ivy" | "PFL") {
-        return Err(format!("The {} gives no athletic scholarships.", prog.conference));
-    }
     let season = w.dates.season;
+    if ncaa::aid(prog, season) != ncaa::Aid::Athletic {
+        return Err(format!("{} gives no athletic scholarships.", prog.real_name));
+    }
     let limit = ncaa::roster_limits(prog, season).0;
     let on_aid = prog
         .roster

@@ -145,6 +145,11 @@ pub struct Talk {
     pub lines: Vec<Line>,
     /// Until when the agent won't take your call after ending talks.
     pub cold_until: Option<Date>,
+    /// What each claim in the history says, in plain words: the agent words
+    /// a claim his own way each time, so a claim he makes again is told by
+    /// its meaning, not its words. Older saves start it empty.
+    #[serde(default)]
+    pub claims: Vec<String>,
 }
 
 /// Your NFL club's standing choices and talks.
@@ -219,6 +224,9 @@ pub struct Answer {
     pub read: Option<String>,
     /// How close you are, in his agent's tone: "far apart" to "there".
     pub gap: &'static str,
+    /// The claim in plain words, which says whether it is news.
+    #[serde(skip)]
+    pub claim_plain: Option<String>,
 }
 
 /// Your club.
@@ -409,14 +417,18 @@ fn check(w: &World, t: usize, i: usize, p: &Proposal, kind: TalkKind) -> Result<
         return Err("The signing bonus is part of the guarantee: it can't be larger.".into());
     }
     let limit = super::roster::roster_limit(w);
-    if matches!(kind, TalkKind::FreeAgent | TalkKind::OfferSheet) && pro::count(w, t, Status::Roster) >= limit {
+    if matches!(kind, TalkKind::FreeAgent | TalkKind::OfferSheet)
+        && !super::roster_lifted(w, t)
+        && pro::count(w, t, Status::Roster) >= limit
+    {
         return Err(format!("Your roster is full ({limit}): release someone first."));
     }
     if p.void_years > 0 && !void_years_allowed(year) {
         return Err("Void years aren't used in this era.".into());
     }
-    // Year one's cap number must fit (an extension's new money starts next year).
-    if money::capped(year) {
+    // Year one's cap number must fit (an extension's new money starts next
+    // year), unless sandbox mode lifted your cap.
+    if money::capped(year) && !super::cap_lifted(w, t) {
         let start = if kind == TalkKind::Extension { year + 1 } else { year };
         let age = w.people[i].player.age;
         let deal = money::build(t, money::Kind::Veteran, start, &p.terms(start, age));
@@ -488,6 +500,7 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
             patience: 1.0,
             lines: Vec::new(),
             cold_until: None,
+            claims: Vec::new(),
         });
     }
     let ideal = ideal_of(w, i, kind);
@@ -508,6 +521,7 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
         claim: None,
         read: None,
         gap: gap_words(s),
+        claim_plain: None,
     };
     match kind {
         TalkKind::ReSign | TalkKind::Extension => {
@@ -552,9 +566,11 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
     // What the agent says.
     if answer.verdict != Verdict::Signed && answer.verdict != Verdict::Broken {
         answer.ask = Some(ask);
-        let (claim, read) = agent_claim(w, i, t, kind, s, &ideal);
-        answer.claim = claim;
-        answer.read = read;
+        if let Some((claim, read, plain)) = agent_claim(w, i, t, kind, s, &ideal) {
+            answer.claim = Some(claim);
+            answer.read = Some(read);
+            answer.claim_plain = Some(plain);
+        }
         // In the agent's own voice (lane 14, D10); the numbers are the market's.
         let f = Facts::new().with("name", name.clone()).with("money", super::dollars(ask.apy));
         let (part, plain) = match kind {
@@ -604,10 +620,14 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
         let talk = w.front_office.nfl.talks.iter_mut().rev().find(|x| x.player == id).unwrap();
         talk.lines.push(Line { date: today, ours: true, text: said.clone() });
         talk.lines.push(Line { date: today, ours: false, text: answer.text.clone() });
-        // The same claim again isn't news: it's written once.
-        if let Some(c) = &answer.claim
+        // The same claim again isn't news: it's written once, however he
+        // words it this time (a talk from an older save has no plain words
+        // kept, so its claims are told by their text).
+        if let (Some(c), Some(k)) = (&answer.claim, &answer.claim_plain)
+            && !talk.claims.contains(k)
             && !talk.lines.iter().any(|l| !l.ours && &l.text == c)
         {
+            talk.claims.push(k.clone());
             talk.lines.push(Line { date: today, ours: false, text: c.clone() });
         }
         talk.ask = answer.ask;
@@ -635,24 +655,26 @@ fn free_now(w: &World, i: usize) -> bool {
     w.people[i].pro.as_ref().is_some_and(|c| c.status == Status::FreeAgent && c.team.is_none() && !c.on_waivers)
 }
 
-/// What the agent claims about other interest, and your read of it. An
+/// What the agent claims about other interest, your read of it, and the
+/// claim in plain words (what it means, whatever his wording). An
 /// honest agent tells you what's out there; a less honest one claims
 /// interest that isn't there (the market's bluff, topic 3). Your
 /// negotiating reads it the way the AI GM's skill does in `bluff`.
 fn agent_claim(
-    w: &World,
+    w: &mut World,
     i: usize,
     t: usize,
     kind: TalkKind,
     s: f64,
     ideal: &Ideal,
-) -> (Option<String>, Option<String>) {
-    let Some(a) = w.people[i].pro.as_ref().and_then(|c| c.agent) else { return (None, None) };
+) -> Option<(String, String, String)> {
+    let a = w.people[i].pro.as_ref().and_then(|c| c.agent)?;
     let agent = &w.market.agents[a];
+    let (honesty, rel) = (agent.honesty, agent.rel.get(t).copied().unwrap_or(0.0));
     let id = w.people[i].player.id as u64;
     let day = w.today.0 as u64;
     if s >= 1.0 {
-        return (None, None);
+        return None;
     }
     // Real interest: AI clubs whose own offer would beat yours.
     let rivals: Vec<(usize, f64)> = if kind == TalkKind::FreeAgent {
@@ -665,7 +687,7 @@ fn agent_claim(
         Vec::new()
     };
     let best = rivals.iter().max_by(|a, b| a.1.total_cmp(&b.1)).copied();
-    let bluffs = super::key(w, 0xB1A0 ^ day, id) > 1.0 - (1.0 - agent.honesty) * 0.8;
+    let bluffs = super::key(w, 0xB1A0 ^ day, id) > 1.0 - (1.0 - honesty) * 0.8;
     let name = w.people[i].name.clone();
     let (part, f, plain, true_claim) = match (kind, best, bluffs) {
         (TalkKind::FreeAgent, Some((o, apy)), _) => {
@@ -689,12 +711,11 @@ fn agent_claim(
                 "\"He knows what the market pays, and he'd like to stay. Meet us near our number.\"".to_string();
             ("claim.stay", Facts::new().with("name", name.clone()), plain, true)
         }
-        _ => return (None, None),
+        _ => return None,
     };
-    let text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain);
+    let text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain.clone());
     // Your read: right more often the better you negotiate and the more
     // you know this agent (his history with your club).
-    let rel = agent.rel.get(t).copied().unwrap_or(0.0);
     let skill = negotiating(w);
     let read_p = clamp(0.45 + 0.03 * (skill - 10.0) + 0.15 * rel.abs(), 0.2, 0.95);
     let right = super::key(w, 0xB1A1 ^ day, id) < read_p;
@@ -711,7 +732,7 @@ fn agent_claim(
     } else {
         format!("Your read: he's bluffing ({sure}).")
     };
-    (Some(text), Some(read))
+    Some((text, read, plain))
 }
 
 /// Your words for a proposal: "4 years, $48.0M ($12.0M a year), $26.4M guaranteed".
@@ -818,10 +839,13 @@ pub(crate) fn seat_offer(
     })?;
     let p = talk.offer?;
     let year = w.year;
-    if pro::count(w, t, Status::Roster) >= super::roster::roster_limit(w) {
+    if !super::roster_lifted(w, t) && pro::count(w, t, Status::Roster) >= super::roster::roster_limit(w) {
         return None;
     }
-    if money::capped(year) && pro::cap_room(w, t, year) - committed.get(t).copied().unwrap_or(0.0) < p.apy * 0.75 {
+    if money::capped(year)
+        && !super::cap_lifted(w, t)
+        && pro::cap_room(w, t, year) - committed.get(t).copied().unwrap_or(0.0) < p.apy * 0.75
+    {
         return None;
     }
     let o = p.offer(t);
@@ -991,7 +1015,7 @@ pub fn tag(w: &mut World, id: u32, what: &str) -> Result<String, String> {
         _ => f,
     };
     let voids = pro::void_ahead(w, i);
-    if money::capped(year) && pro::cap_room(w, t, year) < price + voids {
+    if money::capped(year) && !super::cap_lifted(w, t) && pro::cap_room(w, t, year) < price + voids {
         return Err(if voids > 0.0 {
             format!(
                 "The tag counts {} the moment it's placed, and his old deal's void years land {} more on this year's cap with it: you are {} short. Clear room on the cap sheet first.",
@@ -1097,7 +1121,7 @@ pub fn tender(w: &mut World, id: u32, level: &str) -> Result<String, String> {
         )
     };
     let voids = pro::void_ahead(w, i);
-    if money::capped(year) && pro::cap_room(w, t, year) < deal_price + voids {
+    if money::capped(year) && !super::cap_lifted(w, t) && pro::cap_room(w, t, year) < deal_price + voids {
         return Err(format!(
             "The tender counts {} the moment it's placed{}: you are {} short. Clear room on the cap sheet first.",
             super::dollars(deal_price),
@@ -1239,6 +1263,7 @@ pub fn restructure(w: &mut World, id: u32, voids: u32) -> Result<String, String>
     let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
     let keep = money::minimum(year, credited);
     let voids = if void_years_allowed(year) { voids.min(4) } else { 0 };
+    let lifted = super::cap_lifted(w, t);
     let c = w.people[i].pro.as_mut().ok_or("No such pro.")?;
     if c.team != Some(t) {
         return Err("He isn't yours.".into());
@@ -1253,7 +1278,9 @@ pub fn restructure(w: &mut World, id: u32, voids: u32) -> Result<String, String>
     if saved < 100_000.0 {
         return Err("There's little base salary above the minimum to convert.".into());
     }
-    if trial.years.iter().any(|y| y.year > year && y.cap_hit() > money::price_cap(y.year) * money::CAP_HIT_MAX) {
+    if !lifted
+        && trial.years.iter().any(|y| y.year > year && y.cap_hit() > money::price_cap(y.year) * money::CAP_HIT_MAX)
+    {
         return Err("That would push a later year's cap number past anything a club has carried.".into());
     }
     *k = trial;
@@ -1314,7 +1341,7 @@ pub fn visit(w: &mut World, id: u32) -> Result<String, String> {
     if negotiable(w, i) != Some(TalkKind::FreeAgent) {
         return Err("He isn't a free agent you can bring in.".into());
     }
-    if w.today < w.dates.league_year.date {
+    if w.today < w.dates.league_year.date && !w.sandbox(crate::world::sandbox::Switch::ContactRules) {
         return Err("Visits wait for the new league year; the negotiating window allows talks only.".into());
     }
     if visited_recently(w, id) {

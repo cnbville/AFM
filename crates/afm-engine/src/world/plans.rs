@@ -771,7 +771,7 @@ pub fn can_study(w: &World) -> Result<(), String> {
     if !played {
         return Err("Your staff studies its own film in a bye week: no game this season on tape yet.".into());
     }
-    if n.date.0 - w.today.0 <= 8 {
+    if n.date.0 - w.today.0 <= 8 && !w.sandbox(crate::world::sandbox::Switch::StaffTime) {
         return Err(format!(
             "Your staff studies its own film in a bye week: the next game is in {} {} and the week belongs to the opponent.",
             n.date.0 - w.today.0,

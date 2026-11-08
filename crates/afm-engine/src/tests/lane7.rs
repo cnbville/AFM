@@ -78,17 +78,22 @@ fn you_watch_film_today_on_your_own_hours() {
     // Not the same player twice in a day, and the file says so first.
     assert!(sc::own::film_blocked(&w, ids[0]).is_some_and(|m| m.contains("today")));
     assert!(sc::own::watch_film(&mut w, ids[0]).is_err());
-    // The week's hours run out.
-    let mut spent = hours;
+    // A quick watch spends 20 seconds a snap, twenty minutes at most
+    // (minor bug 318), and the week's hours run out.
+    let mut spent = budget - sc::own::film_left(&w);
+    assert!(spent > 0.0 && spent <= hours + 1e-3, "the first watch took {spent} hours");
     for &id in &ids[1..] {
         let h = sc::own::film_cost(&w, id).unwrap().1;
         let blocked = sc::own::film_blocked(&w, id);
+        let left = sc::own::film_left(&w);
         if sc::own::watch_film(&mut w, id).is_err() {
             assert!(spent + h > budget, "refused with {spent} of {budget} spent");
             assert!(blocked.is_some_and(|m| m.contains("spent")), "the file shows why before the click");
             break;
         }
-        spent += h;
+        let took = left - sc::own::film_left(&w);
+        assert!(took > 0.0 && took <= h + 1e-3, "a quick watch took {took} hours");
+        spent += took;
     }
     assert!(spent <= budget + 1e-3);
     assert!((sc::own::film_left(&w) - (budget - spent)).abs() < 1e-3);

@@ -21,6 +21,7 @@ use crate::world::World;
 use crate::world::scouting::file;
 use crate::world::scouting::readers::{self, COACH, Staff};
 use crate::world::season::{key_normal, key_uniform};
+use std::collections::HashSet;
 
 /// Why a second cut-up can't open: the one on the screen comes first.
 pub const OPEN: &str = "Finish the cut-up you have open in the film room first.";
@@ -58,11 +59,22 @@ pub const REPLAY_MISSED: u8 = 4;
 pub const MOVED_ON: u8 = 5;
 pub const SLIPPED: u8 = 6;
 
-/// Minutes a snap takes (SK46: about 20 minutes a cut-up of five or six),
-/// a run-back, and a quick cut-up.
-pub const SNAP_MIN: f32 = 4.0;
-pub const RUNBACK_MIN: f32 = 2.0;
+/// Minutes a studied snap takes, and its run-back (minor bug 318): a
+/// scout studies a whole game of one player in about an hour (SK46), a
+/// starter's 60-odd snaps, so a snap at speed and again slowed is 36
+/// seconds and running back its half-seen moment 24 more. They were 4 and
+/// 2 minutes, an hour for 12 snaps.
+pub const SNAP_MIN: f32 = 0.6;
+pub const RUNBACK_MIN: f32 = 0.4;
+/// The quick watch (SK53): his snaps once at game speed, 20 seconds each
+/// (one side's snaps of a condensed game run about 20 minutes), at most 20
+/// minutes.
 pub const QUICK_MIN: f32 = 20.0;
+pub const QUICK_SNAP_MIN: f32 = 1.0 / 3.0;
+/// His game from the stands is the night's game, about three hours
+/// whatever his snaps in it (it was 4 minutes a snap of his, then 36
+/// seconds once a studied snap was; proposed, not confirmed).
+pub const LIVE_MIN: f32 = 180.0;
 
 /// Your eye moving on (Cain 2026-11-04): a settled trait's chance is
 /// halved, one not caught yet this cut-up gains 5 points (confirmed
@@ -70,14 +82,24 @@ pub const QUICK_MIN: f32 = 20.0;
 pub const EYE_SETTLED: f64 = 0.5;
 pub const EYE_FRESH: f64 = 0.05;
 /// A snap studied on the full tape (Cain 2026-11-06: "it should obviously
-/// reward more than 20 minutes since it uses more hours"): four minutes on
-/// it against a quick skim's under two, so each trait's clear chance gains
-/// 10 points. The quick watch and the stands stay as they were.
+/// reward more than 20 minutes since it uses more hours"): 36 seconds on
+/// it and a run-back against a quick skim's 20 at game speed, so each
+/// trait's clear chance gains 10 points. The quick watch and the stands
+/// stay as they were.
 pub const EYE_STUDIED: f64 = 0.10;
 /// A cut-up's snaps, the full tape and the quick watch alike (Cain
 /// 2026-11-06): the full tape studies the snaps the quick watch skims, so
-/// it costs more and catches more. The full tape had 6.
-pub const CUT_SNAPS: usize = 12;
+/// it costs more and catches more. A cut-up is every snap of his in its
+/// situation, up to a game's worth (minor bug 318: it was 12 snaps, and
+/// the full tape had 6 before).
+pub const CUT_SNAPS: usize = 60;
+/// His season's film in sets of three games (minor bug 319): once you
+/// have watched most of a cut-up in one set, the next watch plays his
+/// next three games, up to twelve (nine at a high school).
+pub const TAPE_SETS: u8 = 4;
+/// The snaps of his a look-back keeps with a verdict, the ones that bear
+/// on the question first.
+pub const KEPT_SNAPS: usize = 12;
 
 /// Your tags (SK44).
 pub const TAGS: [&str; 4] = ["Plus", "Minus", "Ask him about this", "Show the staff"];
@@ -136,6 +158,10 @@ pub struct Session {
     pub tape_key: Option<(Date, usize, usize)>,
     /// Seconds of your day already watched when the session opened.
     pub salt: u64,
+    /// Your own read of each attribute when the session opened, for what
+    /// the tape gave you (`Report::moved`).
+    #[serde(default)]
+    pub before: Vec<Option<(f64, f64)>>,
 }
 
 impl Session {
@@ -208,6 +234,33 @@ pub struct Report {
     /// What your eye caught, one note a trait (Cain 2026-11-04).
     #[serde(default)]
     pub notes: Vec<Note>,
+    /// What the tape gave you (minor bug 322): each attribute your own read
+    /// narrowed, its range before and after (none before: read for the
+    /// first time).
+    #[serde(default)]
+    pub moved: Vec<(u8, Option<[u8; 2]>, [u8; 2])>,
+    /// How many of the snaps watched were new to you (none on reports
+    /// saved before minor bug 322).
+    #[serde(default)]
+    pub fresh: Option<u8>,
+    /// The games of his the snaps watched came from (`game_key`): each is
+    /// one film look in your read, however often you watch it (minor bug
+    /// 338; none on reports saved before, which count a look a six snaps).
+    #[serde(default)]
+    pub games: Vec<u64>,
+    /// How many of those games no earlier watch of him had played (none on
+    /// reports saved before): the report says so when nothing narrowed.
+    #[serde(default)]
+    pub new_games: Option<u8>,
+}
+
+/// The games of his a session's watched snaps came from (`game_key`).
+pub(crate) fn seen_games(w: &World, s: &Session) -> Vec<u64> {
+    let mut g: Vec<u64> =
+        (0..s.snaps.len()).filter(|&k| !s.seen[k].is_empty()).map(|k| game_of(w, &s.games, &s.snaps[k])).collect();
+    g.sort_unstable();
+    g.dedup();
+    g
 }
 
 /// What your eye caught of one trait across a cut-up (Cain 2026-11-04:
@@ -232,8 +285,8 @@ impl Note {
     pub fn bands(&self) -> Vec<u8> {
         self.seen.iter().map(|x| x.1).collect()
     }
-    /// Three or more of a piece: settled, and your eye moves on (proposed,
-    /// not confirmed).
+    /// Three or more of a piece: settled, and your eye moves on (confirmed
+    /// 2026-11-05).
     pub fn settled(&self) -> bool {
         let b = self.bands();
         b.len() >= 3 && b.iter().max().unwrap_or(&0) - b.iter().min().unwrap_or(&0) <= 1
@@ -436,38 +489,19 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
     }
     super::time::can_watch(w, mode)?;
     let ours = is_ours(w, id);
-    let tape = if mode == Mode::Live {
-        tape::live_tape(w, id)?
-    } else if ours {
-        tape::our_tape(w, id)?
-    } else {
-        tape::player_tape(w, id)?
-    };
-    let cut = if ours && cut == Cut::Ours { Cut::Ours } else { cut };
-    let n = CUT_SNAPS;
+    let cut0 = if ours && cut == Cut::Ours { Cut::Ours } else { cut };
     let qs = questions(w, id);
     // No question picked: the one the cut-up is made for, else the default.
-    let fits = words::cut_ask(w.people[i].player.position, cut);
+    let fits = words::cut_ask(w.people[i].player.position, cut0);
     let ask = match ask.or(fits) {
         Some(k) => qs.iter().find(|q| q.key == k).cloned().or_else(|| qs.first().cloned()),
         None => qs.first().cloned(),
     };
     let qa: Vec<u8> = ask.as_ref().map(|q| q.attrs.clone()).unwrap_or_default();
-    // From the stands (SK32): his snaps of tonight's game, in order.
-    let picks = if mode == Mode::Live {
-        (0..tape.snaps.len())
-            .filter(|&k| tape.snaps[k].game == 0 && tape.snaps[k].role != Role::Away)
-            .take(10)
-            .collect()
-    } else {
-        tape::cut_on(&tape, cut, n, &qa)
-    };
-    // Watch it quick takes whatever cut-up his tape has.
-    let (cut, picks) = if picks.is_empty() && mode == Mode::Quick {
-        Cut::ALL.iter().map(|&c| (c, tape::cut_on(&tape, c, n, &qa))).find(|x| !x.1.is_empty()).unwrap_or((cut, picks))
-    } else {
-        (cut, picks)
-    };
+    // The snaps of his you have watched before (minor bug 319): a watch
+    // again pulls the ones you haven't seen first, then his next games.
+    let old = watched_keys(w, id);
+    let (tape, cut, picks) = pull(w, id, cut0, mode, ours, &qa, &old)?;
     if picks.is_empty() {
         return Err("He has no snaps of that kind on his tape: try another cut-up.".into());
     }
@@ -494,7 +528,7 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
         }
     }
     let (coach, analyst) = if mode == Mode::Full { (room_coach(w, pos), room_analyst(w)) } else { (None, None) };
-    let numbers = analyst.as_ref().map_or(String::new(), |(nm, _)| numbers_line(&tape, cut, pos, nm));
+    let numbers = analyst.as_ref().map_or(String::new(), |(nm, _)| numbers_line(&tape, cut, &picks, pos, nm));
     let len = snaps.len();
     let s = Session {
         target: Target::Player(id),
@@ -522,6 +556,7 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
         hints: Vec::new(),
         tape_key: None,
         salt: w.scouting.film.version as u64 ^ (w.scouting.film.reports.len() as u64) << 20,
+        before: own_now(w, id),
     };
     let _ = staff;
     w.scouting.film.open = Some(s);
@@ -529,6 +564,196 @@ pub fn open_player(w: &mut World, id: u32, cut: Cut, mode: Mode, ask: Option<&st
         return quick(w);
     }
     Ok(format!("{}: {} snaps of {name}.", cut.words(pos), len))
+}
+
+/// The set a watch plays, its cut-up, the snaps it plays and which of the
+/// set's snaps you have seen (`Film::choose`).
+type Chosen = (usize, Cut, Vec<usize>, Vec<bool>);
+
+/// His film for a watch, each set of games built once (minor bug 319):
+/// from the stands tonight's game, your own player his snaps for you,
+/// else his season in sets of three games.
+struct Film<'a> {
+    w: &'a World,
+    id: u32,
+    mode: Mode,
+    ours: bool,
+    sets: Vec<Option<Result<tape::Tape, String>>>,
+}
+
+impl<'a> Film<'a> {
+    fn new(w: &'a World, id: u32, mode: Mode, ours: bool) -> Self {
+        let n = match super::super::place(w, id) {
+            Some(i) if mode != Mode::Live && !ours => tape::sets(&w.people[i]).max(1) as usize,
+            _ => 1,
+        };
+        Film { w, id, mode, ours, sets: (0..n).map(|_| None).collect() }
+    }
+
+    fn set(&mut self, k: usize) -> &Result<tape::Tape, String> {
+        let (w, id, mode, ours) = (self.w, self.id, self.mode, self.ours);
+        self.sets[k].get_or_insert_with(|| {
+            if mode == Mode::Live {
+                tape::live_tape(w, id)
+            } else if ours {
+                tape::our_tape(w, id)
+            } else {
+                tape::player_tape_set(w, id, k as u8)
+            }
+        })
+    }
+
+    /// The set of his games a watch of the cut-up plays and the snaps it
+    /// plays, with which of the set's snaps you have seen: the first set
+    /// whose cut-up is mostly new to you (its snaps and its games), else
+    /// the one with the most games you haven't watched for the question,
+    /// then the most snaps new to you. The cut-up asked for is looked for
+    /// in every set first; watched quick, another cut-up only when no set
+    /// has it (the brief shows the cut-up the watch plays).
+    fn choose(&mut self, cut0: Cut, qa: &[u8], old: &HashSet<u64>) -> Result<Chosen, String> {
+        let (w, mode) = (self.w, self.mode);
+        let mut best: Option<((usize, usize), Chosen)> = None;
+        for other in [false, true] {
+            if other && (mode != Mode::Quick || best.as_ref().is_some_and(|b| !b.1.2.is_empty())) {
+                break;
+            }
+            for k in 0..self.sets.len() {
+                let t = match self.set(k) {
+                    Ok(t) => t,
+                    Err(e) if k == 0 => return Err(e.clone()),
+                    Err(_) => break,
+                };
+                let (cut, picks, seen) = pick(w, t, cut0, mode, qa, old, other);
+                if mode == Mode::Live || tape::mostly_new(t, cut, CUT_SNAPS, qa, &picks, &seen) {
+                    return Ok((k, cut, picks, seen));
+                }
+                let fresh = picks.iter().filter(|&&j| !seen[j]).count();
+                let value = (tape::new_games(t, &picks, qa, &seen).1, fresh);
+                if best.as_ref().is_none_or(|b| value > b.0 || (b.1.2.is_empty() && !picks.is_empty())) {
+                    best = Some((value, (k, cut, picks, seen)));
+                }
+            }
+        }
+        best.map(|b| b.1).ok_or_else(|| "There is no film of him.".into())
+    }
+
+    /// The tape of a set, taken out of the film.
+    fn take(mut self, k: usize) -> Result<tape::Tape, String> {
+        self.sets.get_mut(k).and_then(Option::take).unwrap_or_else(|| Err("There is no film of him.".into()))
+    }
+}
+
+/// The snaps of one tape a watch of the cut-up plays, and which of the
+/// tape's snaps you have seen: from the stands his snaps of tonight's
+/// game; watched quick with `other`, any cut-up his tape has when this
+/// one is empty.
+fn pick(
+    w: &World,
+    tape: &tape::Tape,
+    cut0: Cut,
+    mode: Mode,
+    qa: &[u8],
+    old: &HashSet<u64>,
+    other: bool,
+) -> (Cut, Vec<usize>, Vec<bool>) {
+    let seen: Vec<bool> = tape.snaps.iter().map(|sn| old.contains(&key_of(w, &tape.games, sn))).collect();
+    if mode == Mode::Live {
+        let picks = (0..tape.snaps.len())
+            .filter(|&k| tape.snaps[k].game == 0 && tape.snaps[k].role != Role::Away)
+            .take(10)
+            .collect();
+        return (cut0, picks, seen);
+    }
+    let picks = tape::cut_for(tape, cut0, CUT_SNAPS, qa, &seen);
+    if picks.is_empty()
+        && mode == Mode::Quick
+        && other
+        && let Some((c, p)) =
+            Cut::ALL.iter().map(|&c| (c, tape::cut_for(tape, c, CUT_SNAPS, qa, &seen))).find(|x| !x.1.is_empty())
+    {
+        return (c, p, seen);
+    }
+    (cut0, picks, seen)
+}
+
+/// Why his tape can't be had now, if it can't (the brief says so in
+/// place of empty cut-ups).
+pub fn tape_error(w: &World, id: u32) -> Option<String> {
+    let mut f = Film::new(w, id, Mode::Full, is_ours(w, id));
+    f.set(0).as_ref().err().cloned()
+}
+
+/// The tape a watch plays from, its cut-up and the snaps it plays (minor
+/// bug 319): a watch again moves on to his next games once you have seen
+/// most of a cut-up.
+fn pull(
+    w: &World,
+    id: u32,
+    cut0: Cut,
+    mode: Mode,
+    ours: bool,
+    qa: &[u8],
+    old: &HashSet<u64>,
+) -> Result<(tape::Tape, Cut, Vec<usize>), String> {
+    let mut f = Film::new(w, id, mode, ours);
+    let (k, cut, picks, _) = f.choose(cut0, qa, old)?;
+    Ok((f.take(k)?, cut, picks))
+}
+
+/// What a cut-up holds before you watch it (minor bug 322): the snaps a
+/// watch plays, how many are new to you, the games they come from, and
+/// how many show each of the question's ratings.
+#[derive(Clone, Debug)]
+pub struct Preview {
+    pub cut: Cut,
+    pub snaps: usize,
+    pub fresh: usize,
+    pub games: Vec<String>,
+    /// How many of those games you haven't watched for the question
+    /// (minor bug 338: a game is one look of him).
+    pub new_games: usize,
+    /// Each of the question's ratings (`Attr::index`) and the snaps that
+    /// show it.
+    pub shows: Vec<(u8, usize)>,
+}
+
+/// Every cut-up's preview for a player and a question (minor bug 322):
+/// each set of his games is built once.
+pub fn preview(w: &World, id: u32, ask: Option<&str>) -> Vec<Preview> {
+    let Some(i) = super::super::place(w, id) else { return Vec::new() };
+    let pos = w.people[i].player.position;
+    let ours = is_ours(w, id);
+    let qs = questions(w, id);
+    let old = watched_keys(w, id);
+    let mut f = Film::new(w, id, Mode::Full, ours);
+    let mut cuts: Vec<Cut> = Cut::ALL.to_vec();
+    if ours {
+        cuts.insert(0, Cut::Ours);
+    }
+    let mut out = Vec::new();
+    for c in cuts {
+        let key = ask.or(words::cut_ask(pos, c));
+        let qa: Vec<u8> =
+            qs.iter().find(|q| Some(q.key.as_str()) == key).or(qs.first()).map(|q| q.attrs.clone()).unwrap_or_default();
+        let Ok((k, cut, picks, seen)) = f.choose(c, &qa, &old) else { continue };
+        let Some(Some(Ok(t))) = f.sets.get(k) else { continue };
+        let shows = qa
+            .iter()
+            .map(|&a| (a, picks.iter().filter(|&&j| t.snaps[j].cues.iter().any(|x| x.0.index() as u8 == a)).count()))
+            .collect();
+        let mut games: Vec<u8> = picks.iter().map(|&j| t.snaps[j].game).collect();
+        games.sort_unstable();
+        games.dedup();
+        out.push(Preview {
+            cut,
+            snaps: picks.len(),
+            fresh: picks.iter().filter(|&&j| !seen[j]).count(),
+            games: games.iter().filter_map(|&g| t.games.get(g as usize).map(|x| x.label.clone())).collect(),
+            new_games: tape::new_games(t, &picks, &qa, &seen).1,
+            shows,
+        });
+    }
+    out
 }
 
 /// Opens a team's tape (SK54): snaps built by the game's film room from a
@@ -587,6 +812,7 @@ pub fn open_team(
         hints,
         tape_key: Some(tape_key),
         salt: w.scouting.film.version as u64 ^ 0x7EA4,
+        before: Vec::new(),
     };
     w.scouting.film.open = Some(s);
     if mode == Mode::Quick {
@@ -613,10 +839,11 @@ fn room_coordinator(w: &World) -> Option<Room> {
 }
 
 /// The analyst's numbers for the cut-up (SK57).
-fn numbers_line(t: &tape::Tape, cut: Cut, pos: Position, who: &str) -> String {
-    let ks = tape::cut(t, cut, 99);
+/// The analyst's numbers on the snaps the watch plays (a watch again
+/// plays his next games, and his numbers are theirs).
+fn numbers_line(t: &tape::Tape, cut: Cut, ks: &[usize], pos: Position, who: &str) -> String {
     let mut s = tape::Stat::default();
-    for &k in &ks {
+    for &k in ks {
         let x = t.snaps[k].stat;
         s.targets += x.targets;
         s.catches += x.catches;
@@ -699,7 +926,7 @@ pub fn play(w: &mut World) -> Result<(), String> {
         }
         s.minutes += SNAP_MIN;
     } else if s.mode == Mode::Live {
-        s.minutes += SNAP_MIN;
+        s.minutes = LIVE_MIN;
     }
     if s.snaps[s.at].call.is_some() {
         s.step = 1;
@@ -912,14 +1139,17 @@ fn coach_line(s: &Session, at: usize, first: &str) -> String {
     String::new()
 }
 
-/// A half-seen moment: run it back (SK49).
+/// A half-seen moment: run it back (SK49). Running the snap back shows
+/// everything half-seen on it again, each by your eye (minor bug 318: one
+/// thing a run-back).
 pub fn runback(w: &mut World) -> Result<(), String> {
     let mut s = take(w)?;
     let at = s.at;
-    let Some(k) = s.seen.get(at).and_then(|v| v.iter().position(|&x| x == HALF)) else {
+    let halves: Vec<usize> = s.seen.get(at).map_or(Vec::new(), |v| (0..v.len()).filter(|&k| v[k] == HALF).collect());
+    if halves.is_empty() {
         put(w, s);
         return Err("Nothing to run back on this snap.".into());
-    };
+    }
     if let Err(e) = super::time::spend(w, RUNBACK_MIN / 60.0, s.charge()) {
         put(w, s);
         return Err(e);
@@ -928,9 +1158,17 @@ pub fn runback(w: &mut World) -> Result<(), String> {
     let e = eye(w, s.pos);
     let t = super::time::tiredness(w);
     let p = clamp(0.60 + 0.03 * (e - 10.0), 0.30, 0.97) * (1.0 - 0.3 * t);
-    let got = roll(&s, w, at, k, 0x2BAC) < p;
-    s.seen[at][k] = if got { REPLAYED } else { REPLAY_MISSED };
-    if got && let (Some(r), Target::Player(_)) = (s.coach.clone(), s.target) {
+    let mut first_got = None;
+    for &k in &halves {
+        let got = roll(&s, w, at, k, 0x2BAC) < p;
+        s.seen[at][k] = if got { REPLAYED } else { REPLAY_MISSED };
+        if got && first_got.is_none() {
+            first_got = Some(k);
+        }
+    }
+    if let Some(k) = first_got
+        && let (Some(r), Target::Player(_)) = (s.coach.clone(), s.target)
+    {
         let first = first_name(&r.name);
         let line = if s.his[at].get(k) == Some(&true) {
             format!("{first}: “You saw it too. Good.”")
@@ -1020,7 +1258,7 @@ pub fn verdict(w: &mut World, answer: u8) -> Result<String, String> {
         put(w, s);
         return Err("Watch the cut-up first.".into());
     }
-    Ok(finish(w, s, Some(answer.min(2))))
+    Ok(finish(w, s, Some(answer.min(2)), false))
 }
 
 /// Leave the film room: what you watched still counts.
@@ -1030,7 +1268,7 @@ pub fn close(w: &mut World) -> Result<String, String> {
     if watched == 0 {
         return Ok("Closed before a snap was played.".into());
     }
-    Ok(finish(w, s, None))
+    Ok(finish(w, s, None, false))
 }
 
 /// The full tape played straight through on one press (Cain 2026-11-06,
@@ -1072,24 +1310,51 @@ pub fn run_through(w: &mut World) -> Result<String, String> {
         }
     }
     let s = take(w)?;
-    Ok(finish(w, s, None))
+    Ok(finish(w, s, None, true))
 }
 
 /// "Watch it quick" (SK53): the cut-up for twenty minutes, what your eye
 /// catches the first time through, no calls, replays or coach talk.
 fn quick(w: &mut World) -> Result<String, String> {
     let mut s = take(w)?;
-    if let Err(e) = super::time::spend(w, QUICK_MIN / 60.0, s.charge()) {
-        w.scouting.film.open = Some(s);
-        return Err(e);
+    // His snaps once at game speed, as many as your hours left allow.
+    // A quick watch opens and plays at once: one that can't play leaves
+    // nothing open in the film room.
+    let afford = ((super::time::left(w) * 60.0 + 0.01) / QUICK_SNAP_MIN).floor() as usize;
+    let n = s.snaps.len().min(afford).min((QUICK_MIN / QUICK_SNAP_MIN).round() as usize);
+    if n == 0 {
+        return Err(super::time::can_watch(w, Mode::Quick).err().unwrap_or_else(|| "No film hours left.".into()));
     }
-    s.minutes = QUICK_MIN;
+    if n < s.snaps.len() {
+        // Cut short by your hours: the snaps that show the question's
+        // rarest ratings first, as the cut-up was picked, in tape order.
+        let qa: Vec<u8> = s.ask.as_ref().map(|q| q.attrs.clone()).unwrap_or_default();
+        let shows = |x: &Snap, a: u8| x.cues.iter().any(|c| c.0.index() as u8 == a);
+        let rare: Vec<(u8, f64)> =
+            qa.iter().map(|&a| (a, 1.0 / s.snaps.iter().filter(|x| shows(x, a)).count().max(1) as f64)).collect();
+        let score = |x: &Snap| rare.iter().filter(|r| shows(x, r.0)).map(|r| r.1).sum::<f64>();
+        let mut keep: Vec<usize> = (0..s.snaps.len()).collect();
+        keep.sort_by(|&a, &b| score(&s.snaps[b]).total_cmp(&score(&s.snaps[a])).then(a.cmp(&b)));
+        keep.truncate(n);
+        keep.sort_unstable();
+        let kept: Vec<Snap> = keep.iter().map(|&k| s.snaps[k].clone()).collect();
+        s.snaps = kept;
+    }
+    s.snaps.truncate(n);
+    s.picks.truncate(n);
+    s.seen.truncate(n);
+    s.his.truncate(n);
+    s.marks.truncate(n);
+    s.tired.truncate(n);
+    let mins = n as f32 * QUICK_SNAP_MIN;
+    super::time::spend(w, mins / 60.0, s.charge())?;
+    s.minutes = mins;
     for k in 0..s.snaps.len() {
         s.at = k;
         resolve(w, &mut s);
     }
     s.step = 3;
-    Ok(finish(w, s, None))
+    Ok(finish(w, s, None, false))
 }
 
 /// The session ends (SK58): catches into your own read, the looks into
@@ -1097,7 +1362,7 @@ fn quick(w: &mut World) -> Result<String, String> {
 /// into your coach's respect for your eye, the tags carried forward, the
 /// report kept, the hours counted (SK63), and maybe a kid off the tape
 /// (SK34).
-fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
+fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> String {
     let d = w.today;
     let you = readers::you(w).map(|c| COACH + c as u32);
     let e = eye(w, s.pos);
@@ -1226,7 +1491,7 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
         _ => None,
     };
     let keep_stills = verdict.is_some();
-    let report = Report {
+    let mut report = Report {
         target: s.target,
         name: s.name.clone(),
         date: d,
@@ -1248,15 +1513,21 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
         analyst: s.analyst.as_ref().map(|a| a.0.clone()),
         hints: found_hints,
         snaps: if keep_stills {
-            s.snaps
-                .iter()
-                .enumerate()
-                .filter(|(k, _)| !s.seen[*k].is_empty())
-                .map(|(_, sn)| Kept {
-                    sit: sn.sit.clone(),
-                    job: sn.job.clone(),
-                    result: sn.result.clone(),
-                    stills: sn.stills.clone(),
+            // The snaps that bear on the question first, at most a dozen.
+            let qa: Vec<u8> = s.ask.as_ref().map(|q| q.attrs.clone()).unwrap_or_default();
+            let mut ks: Vec<usize> = (0..s.snaps.len()).filter(|&k| !s.seen[k].is_empty()).collect();
+            ks.sort_by_key(|&k| !s.snaps[k].cues.iter().any(|c| qa.contains(&(c.0.index() as u8))));
+            ks.truncate(KEPT_SNAPS);
+            ks.sort_unstable();
+            ks.iter()
+                .map(|&k| {
+                    let sn = &s.snaps[k];
+                    Kept {
+                        sit: sn.sit.clone(),
+                        job: sn.job.clone(),
+                        result: sn.result.clone(),
+                        stills: sn.stills.clone(),
+                    }
                 })
                 .collect()
         } else {
@@ -1267,13 +1538,52 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
         coach_answer,
         tape_key: s.tape_key,
         notes: notes_now,
+        moved: Vec::new(),
+        fresh: None,
+        games: seen_games(w, &s),
+        new_games: None,
     };
-    let fr = &mut w.scouting.film;
-    super::add_catches(&mut fr.catches, catches);
-    if fr.catches.len() > 6000 {
-        let n = fr.catches.len();
-        fr.catches.drain(..n - 6000);
+    // The snaps watched, so the next watch pulls new ones (minor bug 319).
+    let keys: Vec<u64> = match s.target {
+        Target::Player(_) => {
+            (0..s.snaps.len()).filter(|&k| !s.seen[k].is_empty()).map(|k| snap_key(w, &s, &s.snaps[k])).collect()
+        }
+        Target::Team(_) => Vec::new(),
+    };
+    // A session an older build left open never measured your read before
+    // it: its report says nothing of what narrowed.
+    let measured = !s.before.is_empty();
+    if let Target::Player(id) = s.target
+        && measured
+    {
+        let old = watched_keys(w, id);
+        report.fresh = Some(keys.iter().filter(|k| !old.contains(k)).count().min(255) as u8);
+        let before: HashSet<u64> = w
+            .scouting
+            .film
+            .reports
+            .iter()
+            .filter(|r| r.target == s.target)
+            .flat_map(|r| r.games.iter().copied())
+            .collect();
+        report.new_games = Some(report.games.iter().filter(|g| !before.contains(g)).count().min(255) as u8);
     }
+    let fr = &mut w.scouting.film;
+    if let Target::Player(id) = s.target {
+        for k in keys {
+            if !fr.watched.iter().rev().take(400).any(|x| x.0 == id && x.1 == k) {
+                fr.watched.push((id, k));
+            }
+        }
+        let n = fr.watched.len();
+        if n > super::WATCHED_KEPT {
+            fr.watched.drain(..n - super::WATCHED_KEPT);
+        }
+    }
+    // The ratings this watch's tape showed your eye.
+    let shown: u128 = catches.iter().fold(0, |m, c| m | 1u128 << c.attr);
+    super::add_catches(&mut fr.catches, catches);
+    super::compact(&mut fr.catches, d);
     fr.reports.push(report);
     // Stills only for the newest 60 reports with a verdict.
     let with: Vec<usize> = (0..fr.reports.len()).filter(|&k| !fr.reports[k].snaps.is_empty()).collect();
@@ -1282,31 +1592,139 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>) -> String {
             fr.reports[k].snaps.clear();
         }
     }
-    // The oldest go past 400, but a verdict waits for its look-back.
-    let mut over = fr.reports.len().saturating_sub(400);
+    // What the tape gave you: each of your own ranges it narrowed, and a
+    // first read of each rating it showed you that you had none of, the
+    // question's ratings first (with this watch in his file).
+    let after = match s.target {
+        Target::Player(id) => own_now(w, id),
+        Target::Team(_) => Vec::new(),
+    };
+    let mut moved: Vec<(u8, Option<[u8; 2]>, [u8; 2])> = match s.target {
+        Target::Player(_) if !s.before.is_empty() => {
+            let rg = |x: Option<(f64, f64)>| x.map(super::super::yours::range).map(|r| [r.0, r.1]);
+            (0..crate::attributes::ATTRIBUTE_COUNT)
+                .filter_map(|k| {
+                    let (b, a) = (rg(s.before.get(k).copied().flatten()), rg(after.get(k).copied().flatten())?);
+                    let gave = match b {
+                        Some(b) => a[1] - a[0] < b[1] - b[0],
+                        None => (shown >> k) & 1 == 1,
+                    };
+                    gave.then_some((k as u8, b, a))
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    };
+    let qa: Vec<u8> = s.ask.as_ref().map(|q| q.attrs.clone()).unwrap_or_default();
+    moved.sort_by_key(|x| (qa.iter().position(|&a| a == x.0).unwrap_or(usize::MAX), x.1.is_none(), x.0));
+    let first = moved.iter().filter(|x| x.1.is_none()).count();
+    let m = moved.len() - first;
+    // A tape played straight through asks no verdict (minor bug 312): your
+    // read's answer to the question goes on the record, so the look-back
+    // checks it three years on (proposed, not confirmed). No stills.
+    let says = match (&s.ask, s.target) {
+        (Some(q), Target::Player(_)) if read_says && verdict.is_none() && !q.attrs.is_empty() => {
+            Some(read_answer(&after, q))
+        }
+        _ => None,
+    };
+    let fr = &mut w.scouting.film;
+    if let Some(r) = fr.reports.last_mut() {
+        r.moved = moved;
+        if says.is_some() {
+            r.verdict = says;
+        }
+    }
+    // The oldest go past 400, but a verdict waits for its look-back,
+    // keeping only what the look-back reads, and doesn't count against
+    // the 400 (so the others aren't dropped watch by watch once 400 wait);
+    // this watch's report stays.
+    let waits = |r: &Report| r.settled.is_none() && matches!(r.verdict, Some(0 | 1)) && r.date.days_to(d) < 1200;
+    let newest = fr.reports.len().saturating_sub(1);
+    let mut over = fr.reports.iter().filter(|r| !waits(r)).count().saturating_sub(400);
+    let mut k = 0;
     fr.reports.retain(|r| {
-        let waits = r.settled.is_none() && matches!(r.verdict, Some(0 | 1)) && r.date.days_to(d) < 1200;
-        if over > 0 && !waits {
+        let waits = waits(r);
+        k += 1;
+        if over > 0 && !waits && k - 1 != newest {
             over -= 1;
             return false;
         }
         true
     });
+    let old = fr.reports.len().saturating_sub(400);
+    for r in &mut fr.reports[..old] {
+        r.notes.clear();
+        r.caught.clear();
+        r.moved.clear();
+        r.fresh = None;
+        r.marks.clear();
+        r.numbers.clear();
+    }
     fr.version = fr.version.wrapping_add(1);
+    let rec = match says {
+        Some(0) => " On the record from your read: yes.",
+        Some(1) => " On the record from your read: no.",
+        Some(_) => " On the record from your read: not sure.",
+        None => "",
+    };
     let n = caught_lines.len();
+    let narrowed = match (s.target, m, first) {
+        (Target::Team(_), ..) => String::new(),
+        _ if !measured => String::new(),
+        (_, m, 0) => format!(", {m} of your ratings of him narrowed"),
+        (_, 0, f) => format!(", {f} of his ratings read for the first time"),
+        (_, m, f) => format!(", {m} of your ratings of him narrowed and {f} read for the first time"),
+    };
     match s.mode {
-        Mode::Quick => {
-            format!("Watched quick: your eye caught {n} thing{} the first time through.", if n == 1 { "" } else { "s" })
-        }
+        Mode::Quick => format!(
+            "Watched quick: {watched} snaps at game speed, your eye caught {n} thing{} the first time through{narrowed}.",
+            if n == 1 { "" } else { "s" }
+        ),
         // Played straight through: no calls were asked.
         _ if made == 0 => {
-            format!("Saved to his file: {watched} snaps, {n} thing{} caught.", if n == 1 { "" } else { "s" })
+            format!(
+                "Saved to his file: {watched} snaps, {n} thing{} caught{narrowed}.{rec}",
+                if n == 1 { "" } else { "s" }
+            )
         }
         _ => format!(
-            "Saved to his file: {watched} snaps, {right} of {made} calls right, {n} thing{} caught.",
+            "Saved to his file: {watched} snaps, {right} of {made} calls right, {n} thing{} caught{narrowed}.{rec}",
             if n == 1 { "" } else { "s" }
         ),
     }
+}
+
+/// Your read's answer to a question (minor bug 312, proposed, not
+/// confirmed): the mean of your read's centres on its ratings against its
+/// bar, yes or no only when it clears the bar by two points and by your
+/// read's own spread there; not sure without a read of each.
+fn read_answer(after: &[Option<(f64, f64)>], q: &Question) -> u8 {
+    let got: Vec<(f64, f64)> = q.attrs.iter().filter_map(|&a| after.get(a as usize).copied().flatten()).collect();
+    if got.is_empty() || got.len() < q.attrs.len() {
+        return 2;
+    }
+    let n = got.len() as f64;
+    let (m, sd) = (got.iter().map(|x| x.0).sum::<f64>() / n, got.iter().map(|x| x.1).sum::<f64>() / n);
+    let (v, edge) = (m - q.bar as f64, sd.max(2.0));
+    if v >= edge {
+        0
+    } else if v <= -edge {
+        1
+    } else {
+        2
+    }
+}
+
+/// Your own read of each of his attributes now: None for one you have no
+/// read of yet, and empty without a seat.
+fn own_now(w: &World, id: u32) -> Vec<Option<(f64, f64)>> {
+    let Some(staff) = readers::seat_staff(w) else { return Vec::new() };
+    let sr = readers::read(w, staff, id);
+    let mut v =
+        super::super::yours::own_read(w, staff, id, sr.as_ref().map(|x| &x.2)).map(|o| o.attrs).unwrap_or_default();
+    v.resize(crate::attributes::ATTRIBUTE_COUNT, None);
+    v
 }
 
 /// The look kind a player's film goes in his file as.
@@ -1322,9 +1740,32 @@ pub fn film_kind(p: &crate::world::Person) -> super::super::Kind {
 /// Which snap this is, the same whenever it is watched: its game's label,
 /// the season and the play's number. Never 0 (0 is a look in person).
 fn snap_key(w: &World, s: &Session, snap: &Snap) -> u64 {
-    let label = s.games.get(snap.game as usize).map_or("", |g| g.label.as_str());
+    key_of(w, &s.games, snap)
+}
+
+/// The game a snap is from, for its catches (`Catch::game`, minor bug 338).
+fn game_of(w: &World, games: &[Game], snap: &Snap) -> u64 {
+    super::game_key(games.get(snap.game as usize).map_or("", |g| g.label.as_str()), w.dates.season)
+}
+
+/// The same from a tape's games.
+fn key_of(w: &World, games: &[Game], snap: &Snap) -> u64 {
+    let label = games.get(snap.game as usize).map_or("", |g| g.label.as_str());
     let h = label.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x0100_0000_01b3));
     (h ^ (w.dates.season as u64) << 48 ^ (snap.n as u64) << 20) | 1
+}
+
+/// The snaps of his you have watched before: those kept on the film room's
+/// list, and (for watches before the list) the snaps your catches of him
+/// were read on.
+fn watched_keys(w: &World, id: u32) -> HashSet<u64> {
+    let fr = &w.scouting.film;
+    let mut out: HashSet<u64> = fr.watched.iter().filter(|x| x.0 == id).map(|x| x.1).collect();
+    for c in fr.catches.iter().filter(|c| c.id == id && c.key != 0) {
+        out.insert(c.key);
+        out.insert(c.key ^ 0x2E5);
+    }
+    out
 }
 
 /// What your eye (and your analyst beside you) caught on the snaps
@@ -1339,6 +1780,12 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
     let t = super::time::tiredness(w);
     let p = &w.people[i];
     let sd_c = (3.5 * file::sharp(e) * (1.0 + 0.3 * t)) as f32;
+    // Your eye's lasting misjudgment (minor bug 320): the same in every
+    // catch of a trait, so tape narrows toward it, not to the truth.
+    let floor = super::EYE_LEAN * 3.5 * file::sharp(e);
+    // What one game shows of him is that game (minor bug 338): the same
+    // in every catch of it, so a read firms up over games, not snaps.
+    let form = super::GAME_SD * file::sharp(e);
     for (k, snap) in s.snaps.iter().enumerate() {
         if s.seen[k].is_empty() {
             continue;
@@ -1346,19 +1793,25 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
         // The same snap watched again shows the same thing: what your eye
         // read on it is keyed on the snap, not the day.
         let sk = snap_key(w, s, snap);
+        let gk = game_of(w, &s.games, snap);
+        let game_look =
+            |a: Attr| form * key_normal(w.options.seed as u64 ^ 0x6A3E ^ gk, id as u64 ^ (a.index() as u64) << 50);
         for (j, &(a, _)) in snap.cues.iter().enumerate() {
             let v = s.seen[k].get(j).copied().unwrap_or(0);
             if v == CLEAR || v == REPLAYED {
-                let noise = key_normal(w.options.seed as u64 ^ 0xCA7C ^ sk, id as u64 ^ (j as u64) << 50);
+                let noise = key_normal(w.options.seed as u64 ^ 0xCA7C ^ sk, id as u64 ^ (a.index() as u64) << 50);
                 let truth = p.player.attributes.get(a);
                 catches.push(Catch {
                     id,
                     attr: a.index() as u8,
-                    v: (truth + noise * sd_c as f64) as f32,
+                    v: (truth + noise * sd_c as f64 + floor * super::eye_lean(w, id, a) + game_look(a)) as f32,
                     sd: sd_c,
                     date: d,
                     by: 0,
                     key: sk,
+                    lean: floor as f32,
+                    game: gk,
+                    form: form as f32,
                 });
             }
         }
@@ -1372,38 +1825,52 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
             catches.push(Catch {
                 id,
                 attr: a.index() as u8,
-                v: (truth + 4.0 * snap.grade as f64 + 6.0 * noise) as f32,
+                v: (truth + 4.0 * snap.grade as f64 + 6.0 * noise + floor * super::eye_lean(w, id, a) + game_look(a))
+                    as f32,
                 sd: 8.0,
                 date: d,
                 by: 0,
                 key: sk ^ 0x2E5,
+                lean: floor as f32,
+                game: gk,
+                form: form as f32,
             });
         }
         // The analyst's points count toward your own read too
         // (SK57): a top analyst beside you can take it all the
-        // way, for what the tape shows.
+        // way, for what the tape shows. His numbers on one game are
+        // that game too (minor bug 338), his own look at it, so even
+        // a top analyst gets there over games, not snaps.
         if let Some((_, r)) = &s.analyst {
             let r = *r as f64;
             let f = super::super::footage::footage(w, i);
             let sd_a = (6.0 * (1.5 - 0.065 * r).max(0.15)) as f32;
             let pa = clamp(0.35 + 0.04 * (r - 10.0), 0.1, 0.95);
-            for (j, &(a, _)) in snap.cues.iter().enumerate() {
+            let form_a = super::GAME_SD * file::sharp(r);
+            for &(a, _) in snap.cues.iter() {
                 if !super::super::footage::numbers_see(&f, a, p.player.position)
                     && !matches!(snap.role, Role::Cover | Role::Target | Role::PassPro | Role::Rusher)
                 {
                     continue;
                 }
-                let u = key_uniform(w.options.seed as u64 ^ 0xA7A1 ^ sk, id as u64 ^ (j as u64) << 50);
+                let u = key_uniform(w.options.seed as u64 ^ 0xA7A1 ^ sk, id as u64 ^ (a.index() as u64) << 50);
                 if u < pa {
-                    let noise = key_normal(w.options.seed as u64 ^ 0xA7A2 ^ sk, id as u64 ^ (j as u64) << 50);
+                    let noise = key_normal(w.options.seed as u64 ^ 0xA7A2 ^ sk, id as u64 ^ (a.index() as u64) << 50);
                     catches.push(Catch {
                         id,
                         attr: a.index() as u8,
-                        v: (p.player.attributes.get(a) + noise * sd_a as f64) as f32,
+                        v: (p.player.attributes.get(a)
+                            + noise * sd_a as f64
+                            + form_a
+                                * key_normal(w.options.seed as u64 ^ 0x6A3F ^ gk, id as u64 ^ (a.index() as u64) << 50))
+                            as f32,
                         sd: sd_a,
                         date: d,
                         by: 1,
                         key: sk,
+                        lean: 0.0,
+                        game: gk,
+                        form: form_a as f32,
                     });
                 }
             }

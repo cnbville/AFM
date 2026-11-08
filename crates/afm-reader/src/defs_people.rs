@@ -706,7 +706,7 @@ pub const CHECKS: &[Check] = &[
         ),
         tol: (0.15, 0.35, 0.0),
         needs: W,
-        how: r#"Each signing class's five-stars since 2013. The world's stars are sized on the 247 Composite (about 33 five-stars and 350 four-stars a class, recruiting.rs SERVICE_TIERS), which gives fewer five-stars and more four-stars than ESPN (minor bug 102: the real value was the 2016-2024 mean, 40.5, labelled 2013-2026)."#,
+        how: r#"Each signing class's five-stars since 2013. The world's stars are sized on ESPN's 2013-2026 means (about 46 five-stars and 301 four-stars a class, recruiting.rs SERVICE_TIERS; minor bug 269: they were the 247 Composite's 33 and 350, which put the five-stars far under ESPN) (minor bug 102: the real value was the 2016-2024 mean, 40.5, labelled 2013-2026)."#,
     },
     Check {
         id: "C31.five_spread",
@@ -763,7 +763,7 @@ pub const CHECKS: &[Check] = &[
         ),
         tol: (0.15, 0.35, 0.0),
         needs: W,
-        how: r#"Each signing class's four-stars since 2013, against ESPN's count; the world's are sized on the 247 Composite (minor bug 102: the real value was the 2016-2024 mean, 271, labelled 2013-2026)."#,
+        how: r#"Each signing class's four-stars since 2013, against ESPN's count; the world's are sized on ESPN's 2013-2026 mean (301, minor bug 269; minor bug 102: the real value was the 2016-2024 mean, 271, labelled 2013-2026)."#,
     },
     Check {
         id: "C36.decommit_share",

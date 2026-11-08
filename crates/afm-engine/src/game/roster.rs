@@ -78,6 +78,10 @@ pub struct GamePlayer {
     /// you): how much of a talk reaches him (dialogue D4).
     #[serde(default = "half")]
     pub belief: f32,
+    /// His strength staff's guard on muscle strains and backs (minor bug
+    /// 303, `sim::strength_guard`): 1 changes nothing.
+    #[serde(default = "no_prep")]
+    pub soft: f32,
 }
 
 fn half() -> f32 {
@@ -133,6 +137,7 @@ impl GamePlayer {
             prep: prep_of(p),
             mood: 0.0,
             belief: 0.5,
+            soft: 1.0,
         }
     }
 
