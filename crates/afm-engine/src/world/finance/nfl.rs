@@ -223,6 +223,43 @@ pub fn metro(city: &str) -> f64 {
     }
 }
 
+/// The metro a club's city belongs to, grouped as `metro` groups them.
+fn market_of(city: &str) -> &str {
+    match city {
+        "East Rutherford" | "New York" => "New York",
+        "Los Angeles" | "Inglewood" | "Anaheim" | "Carson" => "Los Angeles",
+        "San Francisco" | "Santa Clara" | "Oakland" => "San Francisco",
+        "Arlington" | "Irving" | "Dallas" => "Dallas",
+        "Landover" | "Washington" => "Washington",
+        "Miami Gardens" | "Miami" => "Miami",
+        "Glendale" | "Tempe" | "Phoenix" => "Phoenix",
+        "Foxborough" | "Boston" => "Boston",
+        "Detroit" | "Pontiac" => "Detroit",
+        "Charlotte" | "Clemson" => "Charlotte",
+        "Paradise" | "Las Vegas" => "Las Vegas",
+        "Orchard Park" | "Buffalo" => "Buffalo",
+        other => other,
+    }
+}
+
+/// A club's part of its metro's people that season: the metro over the
+/// clubs playing in it (minor bug 270). Before, the Giants and the Jets
+/// each read all of New York's 19.5 million and the Rams and the Chargers
+/// all of Los Angeles's 12.8, so in the shipped seed 41 world's 2024 the
+/// Giants took in $969M and the Jets $814M against Dallas's $872M, where
+/// Forbes has Dallas first every year; real clubs that share a market
+/// split its fans, suites and sponsors.
+pub fn metro_share(w: &World, t: usize, year: i32) -> f64 {
+    let (here, _) = city(w, t, year);
+    let people = metro(&here);
+    let at = market_of(&here);
+    let clubs = franchise::active_teams_in(w, year)
+        .into_iter()
+        .filter(|&u| u != t && u < w.finance.nfl.len() && market_of(&city(w, u, year).0) == at)
+        .count();
+    people / (clubs + 1) as f64
+}
+
 /// Where a club plays this season: its relocated city after 2026, else its era's.
 pub fn city(w: &World, t: usize, year: i32) -> (String, String) {
     if let Some(c) = w.finance.nfl.get(t).and_then(|c| c.city.clone()) {
@@ -361,14 +398,13 @@ pub(crate) fn add_club(w: &mut World, t: usize, city: &str, state: &str, dome: b
 
 /// The local money factor: market, stadium, brand and fans.
 fn local_factor(w: &World, t: usize, year: i32) -> f64 {
-    let (city, _) = city(w, t, year);
-    let m = (metro(&city) / 4.0).powf(0.22);
+    let m = (metro_share(w, t, year) / 4.0).powf(0.22);
     let c = &w.finance.nfl[t];
     let stad = 1.0 + 0.9 * c.home.premium(year);
     let brand = 0.72 + 0.56 * data::brand(t);
     let fans = w.clubs.get(t).map_or(0.0, |cl| cl.office.fans);
     let lame = if c.moving.is_some() { 0.85 } else { 1.0 };
-    m * stad * brand * (1.0 + 0.12 * fans) * lame / 1.32
+    m * stad * brand * (1.0 + 0.12 * fans) * lame * data::commercial(t, year) / 1.32
 }
 
 /// The owner's will to spend on football, 0-1: his traits and his money.
@@ -670,7 +706,7 @@ pub(crate) fn demand(w: &World, t: usize, opp: usize, d: Date, preseason: bool, 
     let fans = w.clubs.get(t).map_or(0.0, |cl| cl.office.fans);
     let brand = data::brand(t);
     let (city, _) = city(w, t, year);
-    let market = (metro(&city) / 4.0).ln().clamp(-1.2, 1.6);
+    let market = (metro_share(w, t, year) / 4.0).ln().clamp(-1.2, 1.6);
     let opp_brand = data::BRAND.get(opp).copied().unwrap_or(0.5);
     let (wins, losses, _) = w.nfl_record(t);
     let wp = if wins + losses > 0 { wins as f64 / (wins + losses) as f64 - 0.5 } else { 0.0 };

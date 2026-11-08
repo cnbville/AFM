@@ -373,14 +373,14 @@ pub const CHECKS: &[Check] = &[
         world: r#"SELECT AVG(age >= 30) FROM (SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
                    FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent
                   UNION ALL SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
-                   FROM people__pro__seasons s JOIN people x ON x._row = s._parent) WHERE starts >= 8 AND pos = 'QB'"#,
+                   FROM people__pro__seasons s JOIN people x ON x._row = s._parent) WHERE starts >= 8 AND pos = 'QB' AND year >= 2012"#,
         scale: 100.0,
         years: None,
         detail: None,
         real: Real::Key(r#"development_injuries.json:starter_age.QB#share_30_plus"#, 100.0),
         tol: (0.15, 0.35, 0.0),
         needs: W,
-        how: r#"Starter seasons (8+ starts) of quarterbacks, age from the class year."#,
+        how: r#"Starter seasons (8+ starts) of quarterbacks from 2012 on, the real data's years (nflverse snap counts begin in 2012), age from the class year. Minor bug 270: every year of the world counted, which read 27.0-27.8% on the NB13 worlds (seed 41 27.1%), while seed 41's 2012-2025 alone reads 37.3% (38.0% by the age on September 1, as real counts it)."#,
     },
     Check {
         id: "P15.nfl_missed",
@@ -771,11 +771,9 @@ pub const CHECKS: &[Check] = &[
         areas: "C36",
         title: r#"Verbal commitments broken"#,
         unit: "%",
-        world: r#"SELECT 1.0 * SUM(decommits + flips) / NULLIF(SUM(commits - json_extract(commits_by_month, '$[0]') - json_extract(commits_by_month, '$[1]') - json_extract(commits_by_month, '$[11]')), 0) FROM log_history WHERE year >= (SELECT MAX(year) - 9 FROM log_history)"#,
+        world: r#"SELECT 1.0 * SUM(blue_broken) / NULLIF(SUM(blue_verbal), 0) FROM log_history WHERE year >= (SELECT MAX(year) - 9 FROM log_history)"#,
         scale: 100.0,
-        years: Some(
-            r#"SELECT year, 1.0 * (decommits + flips) / NULLIF(commits - json_extract(commits_by_month, '$[0]') - json_extract(commits_by_month, '$[1]') - json_extract(commits_by_month, '$[11]'), 0) FROM log_history"#,
-        ),
+        years: Some(r#"SELECT year, 1.0 * blue_broken / NULLIF(blue_verbal, 0) FROM log_history"#),
         detail: None,
         real: Real::Fixed(
             15.0,
@@ -784,7 +782,7 @@ pub const CHECKS: &[Check] = &[
         ),
         tol: (0.25, 0.5, 0.0),
         needs: W,
-        how: r#"The last ten years: verbal commitments broken before signing (his place ran out, a fired coach's commits reopening, an offer pulled, and flips that signed elsewhere) over the verbal commitments made March to November. Signings with no commitment before them can't be broken and are left out (minor bug 98: they were two thirds of the count, and flips were left out). Every level, so a little below the top-100 real figure."#,
+        how: r#"The last ten years: verbal commitments broken before signing (his place ran out, a fired coach's commits reopening, an offer pulled, and flips that signed elsewhere) over the verbal commitments made March to November. Signings with no commitment before them can't be broken and are left out (minor bug 98: they were two thirds of the count, and flips were left out). Blue chips only (4 and 5 stars on the services' read, about the top 350 of a class), the nearest the yearly log comes to the real top 100 (minor bug 270: every level's read 11% on the NB13 worlds, where lower recruits' late commitments rarely break; on seed 41's notes, classes 2016-2025, unrated 4.7%, 2-stars 6.6%, 3-stars 14.3%, 4-stars 15.2%, 5-stars 9.9%). The every-level share is on the commitments-a-year chart (C36.decommits); a book from a world file made before this has no blue-chip counts, so the check reads no number there."#,
     },
     Check {
         id: "C37.fbs_signees",
@@ -1743,11 +1741,11 @@ pub const PANELS: &[Panel] = &[
         area: "P14",
         title: r#"NFL starters aged 30 and over by position"#,
         kind: "bars",
-        note: r#"Share of NFL starter seasons (8+ starts) played at 30 or older, by position group, against nflverse 2006-2025 (`development_injuries.json` starter_age.share_30_plus). Age from the class year."#,
+        note: r#"Share of NFL starter seasons (8+ starts) played at 30 or older, by position group, from 2012 on against nflverse 2012-2025 (`development_injuries.json` starter_age.share_30_plus, from the snap counts that begin in 2012). Age from the class year."#,
         sql: r#"WITH s AS (SELECT CASE pos WHEN 'OT' THEN 'OL' WHEN 'IOL' THEN 'OL' WHEN 'DT' THEN 'DL' ELSE pos END AS g, age FROM (SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, a.position AS pos, s.year - a.class_of + 18 AS age, a.pick AS pick, json_extract(a.pro__draft, '$[1]') AS round, json_extract(a.pro__draft, '$[0]') AS dyear, 'a' AS t
                    FROM alumni__pro__seasons s JOIN alumni a ON a._row = s._parent
                   UNION ALL SELECT s._parent, s.year, s.team, s.games, s.starts, s.stats__pass_yds, x.player__position, s.year - x.class_of + 18, NULL, json_extract(x.pro__draft, '$[1]'), json_extract(x.pro__draft, '$[0]'), 'p'
-                   FROM people__pro__seasons s JOIN people x ON x._row = s._parent) WHERE starts >= 8)
+                   FROM people__pro__seasons s JOIN people x ON x._row = s._parent) WHERE starts >= 8 AND year >= 2012)
          SELECT g AS label, 100.0 * AVG(age >= 30) AS world, 100.0 * json_extract((SELECT json FROM real_data WHERE file = 'development_injuries.json'), '$.starter_age.' || g || '.share_30_plus') AS real, COUNT(*) AS n
            FROM s GROUP BY g ORDER BY g"#,
         says: None,

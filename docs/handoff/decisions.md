@@ -372,6 +372,12 @@ The design is in `docs/design/dynamic-links.md`. Design only; Cain: "dynamic lin
 - **Many small links that stack** (20:40): "instead having one genetic freak trait, i want to have multiple smaller ones, which could be stacked up on each other... size, reach, jumping could get like a Highpointer trait".
 - **Agreed on all** (20:47): how a link works (2-4 body traits against the position's combine numbers, the weakest part sets its strength, smooth from about the top 30% to full near the top 5%, an edge only in its own situations, links stack, they change over a career, staffs name and value them, opponents plan for them); the 12 links (Highpointer, Burner, Sudden, Low center of gravity, Battering ram, Length, Big man who moves, Anchor, Get-off, Bend, Lungs, Pocket frame); 13 a full link is worth about 5 rating points in its situations; 14 body traits only, skills decide how well he uses the gift; 15 two links in the same situation: the stronger in full, the other at half. Built later, after the physics gaps the doc lists (then moved into the final build, 2026-10-21 20:57: "i want all features applied as we designed").
 
+## 20. The 2026-11-07/08 night's picks (confirmed 2026-11-08)
+
+Cain was asleep that night, so the threads made their own picks and marked them "proposed, not confirmed" (the full list, section by section, is `afm/overnight-choices.md` in the project folder). On 2026-11-08 14:21 UTC the coordinator listed 24 of them; Cain answered at 14:25: "agree on all propasals".
+- **Confirmed:** Claude's own picks in the film overhaul (PR #265; `docs/game.md`, "The film overhaul"), growth from game reps and results (PR #259; `docs/game.md`, "Growth from game reps and results"), Lane A's Jan 1 takeover start, the line bank run's tooling and the run itself (PRs #260 and #268), the spring and summer roster moves (lane B, PR #270) and the minor bugs batch before the rebuild.
+- **Not covered:** item 16 of growth from results (practice snaps counted as results) stays off until Cain says otherwise.
+
 ## Superseded decisions
 
 | Old | Replaced by | When |

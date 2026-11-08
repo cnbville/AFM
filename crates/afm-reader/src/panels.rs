@@ -130,7 +130,8 @@ const LOOKUPS: &str = "
         (10, 'MajorInjury', 'a major injury'), (11, 'FirstYear', 'the first-year dip'),
         (12, 'SpringBreakout', 'a spring breakout'), (13, 'LostBurst', 'lost burst for good'),
         (14, 'WeightGain', 'bad weight'), (15, 'Complacent', 'complacency after a payday'),
-        (16, 'PoorCoaching', 'poor coaching');";
+        (16, 'PoorCoaching', 'poor coaching'), (17, 'BigGame', 'the game of his season'),
+        (18, 'BigSeason', 'a breakout from his results'), (19, 'RoughSeason', 'a rough season by his results');";
 
 /// Every panel into the book.
 pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool) -> rusqlite::Result<usize> {

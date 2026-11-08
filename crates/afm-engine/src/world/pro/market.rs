@@ -362,7 +362,7 @@ pub(crate) fn set_ladders(w: &mut World) {
 /// What a veteran of this grade costs a year on the open market at his age,
 /// never past the position's record deal.
 pub(crate) fn market_price(year: i32, pos: Position, view: f64, credited: u32, age: u32) -> f64 {
-    let price = money::price_cap(year) * money::market_share(pos, view).min(money::top5_share(pos) * 1.08);
+    let price = money::price_cap(year) * money::market_share(pos, view).min(money::top5_share(pos) * money::RECORD);
     (price * decline(pos, age)).max(money::minimum(year, credited))
 }
 

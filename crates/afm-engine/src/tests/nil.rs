@@ -588,3 +588,31 @@ fn a_college_players_pay_reads_his_play_and_the_interior_line_costs_less() {
     assert!((w(P::IOL, 3, 0.0) / w(P::OT, 3, 0.0) - 0.58).abs() < 1e-9);
     assert!((w(P::DT, 3, 0.0) / w(P::EDGE, 3, 0.0) - 0.73).abs() < 1e-9);
 }
+
+/// Minor bug 336: in two pots the school spreads its whole revenue share
+/// over the roster by role and position, and the collective pays its
+/// roster share by its own weights.
+#[test]
+fn the_school_spreads_its_whole_share_by_role_and_position() {
+    use crate::player::PlayingTime as R;
+    use crate::positions::Position as P;
+    // $20M a year, 60% the school's: a player holding 1/50 of the school's
+    // weights and 1/20 of the collective's.
+    let (school, coll) = rec::july_split(20.0e6, 0.6, (1.0, 50.0), (1.0, 20.0));
+    assert!((school - 12.0e6 / 50.0).abs() < 1.0, "{school}");
+    assert!((coll - 8.0e6 * rec::NIL_ROSTER / 20.0).abs() < 1.0, "{coll}");
+    // Before two pots it is all the collective's.
+    let (school, coll) = rec::july_split(20.0e6, 0.0, (1.0, 50.0), (1.0, 20.0));
+    assert_eq!(school, 0.0);
+    assert!((coll - 20.0e6 * rec::NIL_ROSTER / 20.0).abs() < 1.0, "{coll}");
+    // Quarterbacks first, then the lines, then receivers; specialists last.
+    let w = |r, p| rec::share_weight(Some(r), p);
+    assert!(w(R::Starter, P::QB) > w(R::Starter, P::DT) && w(R::Starter, P::DT) > w(R::Starter, P::OT));
+    assert!(w(R::Starter, P::OT) > w(R::Starter, P::WR) && w(R::Starter, P::WR) > w(R::Starter, P::TE));
+    assert!(w(R::Starter, P::TE) > w(R::Starter, P::K));
+    // A starter over a rotation player over a backup; a backup still holds
+    // a real part (real schools pay most of the roster).
+    assert!(w(R::Starter, P::WR) > w(R::Rotation, P::WR) && w(R::Rotation, P::WR) > w(R::Backup, P::WR));
+    assert!(w(R::Backup, P::WR) >= 0.3 * w(R::Starter, P::WR));
+    assert_eq!(rec::share_weight(None, P::WR), w(R::Backup, P::WR));
+}

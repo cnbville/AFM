@@ -195,6 +195,10 @@ pub struct PlayRecord {
     /// the snap: the get-off the Data section shows.
     #[serde(default)]
     pub contact: Vec<(u32, f32)>,
+    /// The passer threw on the move (rolling out, off his spot): growth
+    /// from results reads it for his throw-on-the-move rating.
+    #[serde(default)]
+    pub moving: bool,
 }
 
 impl PlayRecord {
@@ -297,6 +301,7 @@ impl PlayRecord {
             hang: 0.0,
             pressure_at: 0.0,
             contact: Vec::new(),
+            moving: false,
         }
     }
 

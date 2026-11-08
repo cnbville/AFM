@@ -211,6 +211,10 @@ struct HsPlayed {
     situ: Option<super::game_log::GameSitu>,
     /// The Data section's tallies (lane NB1): the game's facts and boxes.
     data: Option<super::tally::games::Part>,
+    /// Growth from results: each man's evidence, and who he is (person,
+    /// and his school when it's yours, for the news).
+    #[allow(clippy::type_complexity)]
+    results: Option<(HashMap<u32, crate::results::Man>, HashMap<u32, (usize, Option<super::stories::TeamKey>)>)>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -901,6 +905,24 @@ fn start_state(w: &mut World, s: usize) {
         .map(|i| (i, w.people[i].sit_out))
         .collect();
     super::clock::timed("hs develop", || season::develop(w, &roles));
+    // On a season the engine plays his row counts the Fridays he really
+    // misses hurt, game by game, and a major camp injury keeps him out of
+    // the games it costs (minor bug 315).
+    if w.hs_season.as_ref().is_some_and(|hs| hs.on_engine) {
+        let fridays = w.hs_season.as_ref().unwrap().states[s].weeks.clone();
+        let seat = w.seat_school();
+        for &(i, _) in &roles {
+            let p = &w.people[i];
+            let Some(h) = p.player.history.last() else { continue };
+            if p.stage != Stage::HighSchool || h.level != crate::player::Level::HS {
+                continue;
+            }
+            let n = (h.games_missed as usize).max(1);
+            let last = fridays.get(n - 1).or(fridays.last()).copied();
+            let yours = seat.is_some_and(|x| w.high_schools[x].roster.contains(&i));
+            season::camp_injury(w, i, last, yours);
+        }
+    }
     let people = &w.people;
     let mut res: Vec<(usize, TeamResult)> = Vec::with_capacity(schools.len());
     for &h in &schools {
@@ -1193,6 +1215,31 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         })
         .collect();
     squad_team(w, h, dressed, true)
+}
+
+/// The players a school would have dressed this week but for an injury
+/// (minor bug 315): out hurt today, and otherwise on its game team (its
+/// varsity squad at your school, freshmen only at a school short of 30
+/// older players, as `hs_team` dresses them).
+fn hurt_dressed(w: &World, h: usize, week: usize) -> Vec<usize> {
+    let school = &w.high_schools[h];
+    let today = w.today;
+    let older = school.roster.iter().filter(|&&i| can_play(w, i, week) && w.people[i].school_age() > 14).count();
+    let squads = super::front_office::school::varsity_filter(w, h);
+    school
+        .roster
+        .iter()
+        .copied()
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.stage == Stage::HighSchool
+                && w.training.hurt_out(p.player.id, today)
+                && match &squads {
+                    Some(v) => v.contains(&i),
+                    None => older < 30 || p.school_age() > 14,
+                }
+        })
+        .collect()
 }
 
 /// Whether a high schooler may play in week `week` (regular weeks, then
@@ -1570,6 +1617,7 @@ fn engine_games(
     let logging = w.logging();
     let trial_log = w.options.keep_game_log && w.recording;
     let tallying = w.tallying();
+    let results_on = w.options.results.on;
     let world: &World = w;
     // Your game, played live on the game day screens (section 9).
     let live = world.live_result(Level::HighSchool);
@@ -1672,8 +1720,19 @@ fn engine_games(
                 };
                 super::tally::games::part(facts, &r.stats, false, &|_, _| None)
             });
+            let results = results_on.then(|| {
+                let ev = crate::results::evidence(crate::player::Level::HS, &r.stats, [&home, &away]);
+                let key = |x: usize| seat.filter(|&s| s == x).map(|s| super::stories::TeamKey::Hs(s as u32));
+                let ids: HashMap<u32, (usize, Option<super::stories::TeamKey>)> = hid
+                    .iter()
+                    .map(|&(id, i)| (id, (i, key(h))))
+                    .chain(aid.iter().map(|&(id, i)| (id, (i, key(a)))))
+                    .collect();
+                (ev, ids)
+            });
             let injuries = std::mem::take(&mut r.injuries);
             Ok(HsPlayed {
+                results,
                 injuries,
                 score: [ha.max(0) as u32, hb.max(0) as u32],
                 team: r.stats.team.clone(),
@@ -1710,6 +1769,9 @@ fn engine_games(
             }
         };
         let home_wins = if g.score[0] == g.score[1] { key & 1 == 0 } else { g.score[0] > g.score[1] };
+        if let Some((ev, ids)) = g.results {
+            crate::results::world_game(w, crate::player::Level::HS, ev, &|id| ids.get(&id).copied());
+        }
         if let Some(situ) = g.situ {
             let year = w.year;
             if w.options.keep_game_log && w.recording {
@@ -1737,6 +1799,16 @@ fn engine_games(
                 e.games = e.games.saturating_add(on as u8);
                 for (x, y) in e.s.iter_mut().zip(c) {
                     *x += y;
+                }
+            }
+        }
+        // Who missed it hurt (minor bug 315): each school's players it
+        // would have dressed but for an injury.
+        for school in [h, a] {
+            for i in hurt_dressed(w, school, week) {
+                if let Some(row) = w.people[i].player.history.last_mut().filter(|r| r.level == crate::player::Level::HS)
+                {
+                    row.games_missed += 1;
                 }
             }
         }
@@ -1985,6 +2057,21 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
     poll(w, s, d, "Final");
     all_state(w, s, d);
     file_lines(w, s);
+    // The row's injury is what kept him out (minor bug 315).
+    if w.hs_season.as_ref().is_some_and(|hs| hs.on_engine) {
+        let schools = w.states[s].schools.clone();
+        for h in schools {
+            let roster = w.high_schools[h].roster.clone();
+            for i in roster {
+                let p = &mut w.people[i];
+                if p.stage == Stage::HighSchool
+                    && let Some(r) = p.player.history.last_mut().filter(|r| r.level == crate::player::Level::HS)
+                {
+                    season::mark_real_injury(r);
+                }
+            }
+        }
+    }
     if !w.recording {
         return;
     }
