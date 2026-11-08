@@ -533,7 +533,67 @@ pub enum InjuryKind {
     Quad,
 }
 
+/// The strength staff's guard on soft-tissue injuries (minor bug 303): 2%
+/// fewer muscle strains and backs for each point his strength head stands
+/// over the level's typical one, 2% more for each point under, capped at
+/// 15% either way, so the level's injury totals stay where they were.
+/// Strength work cuts sports injuries to about a third (Lauersen 2014) and
+/// Nordic hamstring work halves strains (van Dyk 2019); every college and
+/// NFL staff lifts, so the gap between staffs is a small share of that.
+/// Proposed, not confirmed: the 2% and the cap.
+pub fn strength_guard(head: f64, typical: f64) -> f64 {
+    clamp(1.0 - 0.02 * (head - typical), 0.85, 1.15)
+}
+
+/// An injury mix with its soft-tissue kinds times `guard` (minor bug 303),
+/// and the factor on the injury's chance that keeps every other kind's
+/// chance where it was.
+pub fn guarded_mix<const N: usize>(mix: &[(InjuryKind, f64); N], guard: f64) -> ([(InjuryKind, f64); N], f64) {
+    let total: f64 = mix.iter().map(|e| e.1).sum();
+    let soft: f64 = mix.iter().filter(|e| e.0.soft_tissue()).map(|e| e.1).sum();
+    let out = mix.map(|(k, wgt)| (k, if k.soft_tissue() { wgt * guard } else { wgt }));
+    (out, (total + (guard - 1.0) * soft) / total)
+}
+
+/// The game injury mix (`Sim::injury_check`), set so the injuries that cost
+/// a week or more fall by body part as real game-status reports do
+/// (nflverse 2012-2025, `development_injuries.json`: knee 17.2%, ankle
+/// 14.3%, hamstring 12.9%, concussion 11.1%, shoulder 5.6%, foot 4.4%,
+/// groin 4.3%, calf 3.8%, back 2.6%, neck 2.3%, hip 2.0%, quad 1.9%, the
+/// rest here as bruises, ribs, hands and broken bones). Knees and ankles
+/// were 24.7% and 21.1% (minor bug 145); knee against ACL and ankle against
+/// high ankle keep their old split.
+pub const GAME_INJURIES: [(InjuryKind, f64); 18] = [
+    (InjuryKind::Bruise, 23.2),
+    (InjuryKind::AnkleSprain, 9.5),
+    (InjuryKind::HighAnkleSprain, 3.6),
+    (InjuryKind::Knee, 7.9),
+    (InjuryKind::Acl, 1.7),
+    (InjuryKind::Shoulder, 4.6),
+    (InjuryKind::Concussion, 10.7),
+    (InjuryKind::Ribs, 5.0),
+    (InjuryKind::Hand, 6.1),
+    (InjuryKind::Fracture, 3.1),
+    (InjuryKind::Back, 2.8),
+    (InjuryKind::Hamstring, 7.4),
+    (InjuryKind::Foot, 3.1),
+    (InjuryKind::Groin, 3.4),
+    (InjuryKind::Calf, 3.0),
+    (InjuryKind::Neck, 1.8),
+    (InjuryKind::Hip, 1.7),
+    (InjuryKind::Quad, 1.5),
+];
+
 impl InjuryKind {
+    /// Muscle strains and backs: what the weight room and the strength
+    /// staff's prevention work guard against (minor bug 303).
+    pub fn soft_tissue(self) -> bool {
+        matches!(
+            self,
+            InjuryKind::Hamstring | InjuryKind::Back | InjuryKind::Groin | InjuryKind::Calf | InjuryKind::Quad
+        )
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             InjuryKind::Bruise => "bruise",
@@ -2555,42 +2615,18 @@ impl<'a> Sim<'a> {
         let prone = 0.55 + gp.injury_proneness / 18.0;
         let tough = gp.trait20(Attr::Toughness, self.level);
         let turf = if self.cond.turf { 1.12 } else { 1.0 };
+        // His strength staff's guard on muscle strains and backs (minor bug 303).
+        let (mix, guarded) = guarded_mix(&GAME_INJURIES, gp.soft as f64);
         // Tired muscles and slower reactions get hurt more (update 3, F8;
         // proposed, not confirmed: up to 60% more for a man at the 0.25
         // energy floor, about 15% after a long drive).
         let tired = 1.0 + 0.8 * self.agents[i].tired;
-        let p = self.injury_scale * 0.022 * share * (force / 1700.0).powf(1.6) * prone * turf * tired;
+        let p = self.injury_scale * 0.022 * share * (force / 1700.0).powf(1.6) * prone * turf * tired * guarded;
         if !self.rng.chance(p) {
             return;
         }
-        // The mix is set so the injuries that cost a week or more fall by
-        // body part as real game-status reports do (nflverse 2012-2025,
-        // `development_injuries.json`: knee 17.2%, ankle 14.3%, hamstring
-        // 12.9%, concussion 11.1%, shoulder 5.6%, foot 4.4%, groin 4.3%,
-        // calf 3.8%, back 2.6%, neck 2.3%, hip 2.0%, quad 1.9%, the rest
-        // here as bruises, ribs, hands and broken bones). Knees and ankles
-        // were 24.7% and 21.1% (minor bug 145); knee against ACL and ankle
-        // against high ankle keep their old split.
-        let kind = self.rng.weighted(&[
-            (InjuryKind::Bruise, 23.2),
-            (InjuryKind::AnkleSprain, 9.5),
-            (InjuryKind::HighAnkleSprain, 3.6),
-            (InjuryKind::Knee, 7.9),
-            (InjuryKind::Acl, 1.7),
-            (InjuryKind::Shoulder, 4.6),
-            (InjuryKind::Concussion, 10.7),
-            (InjuryKind::Ribs, 5.0),
-            (InjuryKind::Hand, 6.1),
-            (InjuryKind::Fracture, 3.1),
-            (InjuryKind::Back, 2.8),
-            (InjuryKind::Hamstring, 7.4),
-            (InjuryKind::Foot, 3.1),
-            (InjuryKind::Groin, 3.4),
-            (InjuryKind::Calf, 3.0),
-            (InjuryKind::Neck, 1.8),
-            (InjuryKind::Hip, 1.7),
-            (InjuryKind::Quad, 1.5),
-        ]);
+        // The mix by body part (`GAME_INJURIES`).
+        let kind = self.rng.weighted(&mix);
         // Some bodies heal faster (hidden recovery; proposed, not confirmed).
         let weeks = injury_weeks(kind, self.rng) * (1.3 - 0.03 * gp_recovery);
         // Playing through it is a choice (topic 6): toughness against how bad it is.
