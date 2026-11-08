@@ -284,19 +284,21 @@ pub struct Drills {
 /// of it from the ratings would make an average high schooler a second
 /// slower. (bend middle, 3-cone stretch, 3-cone knack sd, quickness middle,
 /// shuttle stretch, shuttle knack sd), measured with `positions` on 8 seeds;
-/// kickers, punters and snappers are left as they were.
+/// kickers, punters and snappers are left as they were. The bend middles
+/// moved with E1's bend weights by k/(k-1) times the shift in the drafted
+/// players' average bend (8 seeds), so each position's average 3-cone holds.
 const AGILE_SPREAD: [(f64, f64, f64, f64, f64, f64); POSITION_COUNT] = [
-    (72.80, 3.23, 0.18, 72.03, 3.27, 0.13), // QB
-    (81.83, 3.86, 0.18, 82.97, 3.76, 0.12), // RB
-    (80.94, 3.29, 0.16, 81.91, 3.26, 0.11), // WR
-    (80.34, 3.19, 0.16, 80.61, 3.09, 0.11), // TE
-    (74.72, 3.85, 0.25, 73.95, 3.38, 0.15), // OT
-    (71.91, 3.97, 0.25, 71.17, 3.83, 0.16), // IOL
-    (80.97, 4.09, 0.21, 81.66, 3.88, 0.14), // EDGE
-    (73.97, 3.88, 0.22, 73.65, 3.75, 0.15), // DT
-    (81.07, 3.42, 0.17, 81.71, 3.51, 0.12), // LB
-    (83.23, 3.31, 0.15, 83.85, 3.44, 0.11), // CB
-    (81.24, 3.54, 0.16, 81.94, 3.54, 0.11), // S
+    (73.84, 3.23, 0.18, 72.03, 3.27, 0.13), // QB
+    (80.87, 3.86, 0.18, 82.97, 3.76, 0.12), // RB
+    (79.82, 3.29, 0.16, 81.91, 3.26, 0.11), // WR
+    (79.98, 3.19, 0.16, 80.61, 3.09, 0.11), // TE
+    (75.68, 3.85, 0.25, 73.95, 3.38, 0.15), // OT
+    (73.02, 3.97, 0.25, 71.17, 3.83, 0.16), // IOL
+    (80.11, 4.09, 0.21, 81.66, 3.88, 0.14), // EDGE
+    (74.55, 3.88, 0.22, 73.65, 3.75, 0.15), // DT
+    (80.45, 3.42, 0.17, 81.71, 3.51, 0.12), // LB
+    (82.63, 3.31, 0.15, 83.85, 3.44, 0.11), // CB
+    (80.58, 3.54, 0.16, 81.94, 3.54, 0.11), // S
     (0.0, 1.00, 0.0, 0.0, 1.00, 0.0),       // K
     (0.0, 1.00, 0.0, 0.0, 1.00, 0.0),       // P
     (0.0, 1.00, 0.0, 0.0, 1.00, 0.0),       // LS
@@ -320,9 +322,13 @@ impl Drills {
     }
 
     /// The 3-cone is the scouts' bend test for edge rushers: it reads hip
-    /// flexibility as well as feet.
+    /// flexibility as well as feet. E1 (Cain's yes 2026-11-08): bend's share
+    /// rose from 0.2 to 0.35 (Agility 0.55 to 0.45, Acceleration 0.25 to
+    /// 0.2), so a 3-cone tells a scout about bend as real scouts read it;
+    /// each position's bend middle in `AGILE_SPREAD` moved to keep its
+    /// average 3-cone (proposed, not confirmed).
     pub fn bend(&self) -> f64 {
-        0.55 * self.agility + 0.25 * self.accel + 0.2 * self.flexibility
+        0.45 * self.agility + 0.2 * self.accel + 0.35 * self.flexibility
     }
 
     /// The short shuttle is change of direction.
@@ -375,8 +381,20 @@ fn tested(forty: f64, vertical: f64, broad: f64, bench: f64, cone: f64, shuttle:
 pub fn drill_knack(p: &Player) -> (f64, f64) {
     let (_, _, cone, _, _, shuttle) = AGILE_SPREAD[p.position.index()];
     let mut rng = Rng::new(p.id ^ 0xC0_4E5);
-    (rng.normal(0.0, cone), rng.normal(0.0, shuttle))
+    let (a, b) = (rng.normal(0.0, 1.0), rng.normal(0.0, 1.0));
+    // An edge who runs one change-of-direction drill well runs the other
+    // well too (E1): real edges' 3-cone and shuttle go together 0.62; with
+    // independent knacks the engine's drafted edges gave 0.41.
+    let r = if p.position == Position::EDGE { EDGE_KNACK_TOGETHER } else { 0.0 };
+    (cone * a, shuttle * (r * a + (1.0 - r * r).sqrt() * b))
 }
+
+/// How much an edge's 3-cone and shuttle knacks go together (E1), set so
+/// drafted edges' two drills go together as real ones do (0.62, 2005-2025
+/// combine edges with both): 0.42 gave 0.42 and 0.8 gave 0.68 (`positions`,
+/// one class). Other positions keep independent knacks (proposed, not
+/// confirmed).
+const EDGE_KNACK_TOGETHER: f64 = 0.7;
 
 /// Combine results from his attributes and body, with test-day noise.
 pub fn combine(p: &Player, rng: &mut Rng) -> Combine {

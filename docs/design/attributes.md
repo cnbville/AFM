@@ -149,7 +149,8 @@ Claude's picks inside the agreed list, for Raichel to adjust:
 - the handedness rates above;
 - the combine: the 40 reads game speed plus a stable track offset (sd 0.04 s;
   some play faster than they time) and 0.03 s of noise a run; the 3-cone also
-  reads flexibility, as scouts use it as the bend test;
+  reads flexibility, as scouts use it as the bend test (0.35 of its bend
+  since E1, 2026-11-08);
 - the trait norms by level (NFL 67, measured on rosters like the world's);
 - the hidden traits' drift with age;
 - the retune on the new list (`docs/match-engine.md`, "The 67 attributes and
