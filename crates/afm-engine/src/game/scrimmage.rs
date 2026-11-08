@@ -382,7 +382,8 @@ thread_local! {
     /// The trails of `run_snap`, kept on this thread between snaps and
     /// emptied at each one's start: only their room is reused, so a snap
     /// allocates none of them.
-    static TRAILS: std::cell::Cell<Trails> = const { std::cell::Cell::new(Trails { n: 0, ticks: 0, rows: Vec::new() }) };
+    static TRAILS: std::cell::Cell<Trails> =
+        const { std::cell::Cell::new(Trails { n: 0, ticks: 0, rows: Vec::new() }) };
 }
 
 /// Run a snap.
@@ -4192,8 +4193,7 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         if !far {
             let v0 = clamp(a.vel.dot((p - a.pos).norm()), -2.0, a.vmax);
             let drift = v0 * (flight - tau);
-            let close =
-                drift + pace * (a.vmax * tau - (a.vmax - v0) * a.tau * (1.0 - (-tau / a.tau).exp())).max(0.0);
+            let close = drift + pace * (a.vmax * tau - (a.vmax - v0) * a.tau * (1.0 - (-tau / a.tau).exp())).max(0.0);
             let gap = dist - close;
             w = w.min(gap);
         }
@@ -4767,16 +4767,7 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
 
 // ------------------------------------------------------------- defense
 
-#[allow(clippy::too_many_arguments)]
-fn defend(
-    sim: &mut Sim,
-    i: usize,
-    s: &Snap,
-    qb: usize,
-    pass: &Option<Pass>,
-    trail: &Trails,
-    in_air: bool,
-) {
+fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, trail: &Trails, in_air: bool) {
     let t = sim.t;
     let job = sim.agents[i].job.clone();
     let carrier = sim.carrier();
@@ -5161,16 +5152,7 @@ fn bitten(sim: &Sim, i: usize) -> Option<V2> {
     (sim.t < at + turn).then_some(spot)
 }
 
-#[allow(clippy::too_many_arguments)]
-fn cover(
-    sim: &mut Sim,
-    i: usize,
-    job: &Job,
-    s: &Snap,
-    qb: usize,
-    pass: &Option<Pass>,
-    trail: &Trails,
-) {
+fn cover(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &Option<Pass>, trail: &Trails) {
     cover_inner(sim, i, job, s, qb, pass, trail);
     // The end line: nobody covers anything behind it.
     let a = &mut sim.agents[i];
@@ -5180,16 +5162,7 @@ fn cover(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn cover_inner(
-    sim: &mut Sim,
-    i: usize,
-    job: &Job,
-    s: &Snap,
-    qb: usize,
-    pass: &Option<Pass>,
-    trail: &Trails,
-) {
+fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &Option<Pass>, trail: &Trails) {
     let t = sim.t;
     match *job {
         Job::Man { target, cushion, lag } => {
