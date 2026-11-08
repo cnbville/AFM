@@ -24,11 +24,11 @@ use crate::world::folk::voice::{Facts, Look, Pen, Speaker, bank, remember_shown_
 const BAR: f64 = 0.02;
 
 /// Until the run's lines land, game day and staff talk are held to the
-/// shares measured on today's bank (81% and 54%, where most of their parts
-/// have 6 to 16 versions), rounded up, so the proof still guards what is
-/// there. Recruiting, the AD's office, agents and the room already meet
+/// shares measured on today's bank (58% and 54%, where most of their parts
+/// have 6 to 16 versions) and a point more, so the proof still guards what
+/// is there. Recruiting, the AD's office, agents and the room already meet
 /// `BAR`. The run's data PR empties this list.
-const TODAY: &[(&str, f64)] = &[("gameday", 0.82), ("staff", 0.55)];
+const TODAY: &[(&str, f64)] = &[("gameday", 0.59), ("staff", 0.55)];
 
 fn bar(family: &str) -> f64 {
     TODAY.iter().find(|x| x.0 == family).map_or(BAR, |x| x.1)
@@ -275,9 +275,12 @@ const WORDS: [(&str, &str); 8] = [
     ("listen", "calm"),
 ];
 
-/// One room drawn on screen: your talk for this pick, both coordinators'
-/// reads and both captains' five lines (`lane_gameday/talk.rs`, `room_json`).
-fn room(sim: &mut Sim, caps: &[Speaker; 2], staff: &[Speaker; 2], halftime: bool, rival: bool) {
+/// One room drawn on screen: your talk for this pick and both coordinators'
+/// reads, and on the draw you say, when you hand him the room, the first
+/// captain's five lines (`lane_gameday/talk.rs`, `room_json` and
+/// `captains_json`: a screen draws a captain's words only once he has
+/// spoken, and the one-click hand-off goes to the first captain).
+fn room(sim: &mut Sim, caps: &[Speaker; 2], staff: &[Speaker; 2], halftime: bool, rival: bool, yours: bool) {
     let tone = TONES[sim.r.int(0, 3) as usize];
     let captain = sim.r.chance(0.1);
     let mv = if captain { "captain" } else { MOVES[sim.r.int(0, 7) as usize] };
@@ -306,11 +309,9 @@ fn room(sim: &mut Sim, caps: &[Speaker; 2], staff: &[Speaker; 2], halftime: bool
         let f = Facts::new().with("player", "Marcus");
         sim.look("staff", &format!("gameday.staff.{read}"), c, &f, seed ^ k as u64);
     }
-    for c in caps {
+    if captain && yours {
         for k in ["open", "own", "us", "job", "break"] {
-            let mut g = f.clone();
-            g.set("years", "four");
-            sim.look("gameday", &format!("gameday.captain.{k}"), c, &g, seed ^ 0xCA97_A100);
+            sim.look("gameday", &format!("gameday.captain.{k}"), &caps[0], &f, seed ^ 0xCA97_A100);
         }
     }
     sim.shown();
@@ -403,8 +404,8 @@ fn season(level: &'static str, li: u64) -> HashMap<&'static str, Ear> {
     for g in 0..games {
         sim.day = 61 + 7 * g;
         let rival = g == games / 2;
-        for _ in 0..3 {
-            room(&mut sim, &caps, &staff, false, rival);
+        for k in 0..3 {
+            room(&mut sim, &caps, &staff, false, rival, k == 2);
         }
         if sim.r.chance(0.34) {
             let them = sim.player(base + 500 + g as u64);
@@ -427,8 +428,8 @@ fn season(level: &'static str, li: u64) -> HashMap<&'static str, Ear> {
             }
             sim.shown();
         }
-        for _ in 0..3 {
-            room(&mut sim, &caps, &staff, true, rival);
+        for k in 0..3 {
+            room(&mut sim, &caps, &staff, true, rival, k == 2);
         }
         // The staff meeting the next morning.
         sim.day += 1;
@@ -682,14 +683,19 @@ fn a_screen_shows_the_same_words_and_remembers_them() {
     let other = Look::over(&folk, day, 10).part(key, &you, &f).unwrap();
     assert_ne!(other, first);
     remember_shown_in(&mut folk, day);
+    assert_eq!(folk.shown.lines.len(), 2, "two moments shown today");
     let next = day.add(7);
+    let mut seen = vec![first, other];
     for s in 0..(n as u64 - 2) {
         let w = Look::over(&folk, next, 100 + s).part(key, &you, &f).unwrap();
-        assert!(w != first && w != other, "a word came back inside the season: {w}");
+        assert!(!seen.contains(&w), "a word came back inside the season: {w}");
+        seen.push(w);
         remember_shown_in(&mut folk, next);
     }
-    // A new day starts the list of what was shown.
+    // A new day starts the list of what was shown: only its own moments.
     assert_eq!(folk.shown.day, next);
+    assert_eq!(folk.shown.lines.len(), n - 2, "the old day's lines are cleared");
+    assert!(folk.shown.lines.iter().all(|l| l.0 >= 100), "only the new day's moments");
 }
 
 /// The listener-wide rest (question 4): a wording waits until every other

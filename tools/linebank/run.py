@@ -235,9 +235,13 @@ def plan_round(st, targets, per_part, keep_rate, rnd):
     out = []
     short = shortfall(st, targets)
     i = 0
-    # The parts the proposal fills first go first, so a batch trimmed at the
-    # cap keeps them.
-    for key in sorted(short, key=lambda k: (not k.startswith(FIRST), -short[k])):
+    # The thinnest parts go first (by tenths of their target), so a batch
+    # trimmed at the cap fills the parts furthest behind and leaves none at
+    # nothing; among parts as thin, the ones the proposal fills first.
+    def order(k):
+        return (int(10 * (1 - short[k] / max(1, targets[k]))), not k.startswith(FIRST), -short[k])
+
+    for key in sorted(short, key=order):
         miss = short[key]
         if miss <= max(2, DONE_SHARE * targets[key]):
             continue
@@ -443,6 +447,17 @@ def code_check(st, rec, bid, texts, targets):
 FLAGS = 'FLAGS:'
 NUMBERED = re.compile(r'\s*[*_`>-]*\s*(\d+)\s*[:.)-]\s*(.*?)[*_`\s]*$')
 FINE = re.compile(r"(?<!not )\b(fine|ok|okay|no issue|no problem|not flagged|skip|skipped)\W*$", re.I)
+# A flag the checker takes back in its last words: "fine; no flag",
+# "acceptable (ignore)", "(withdrawn)".
+TAKEN_BACK = {'ignore', 'ignored', 'withdrawn', 'retracted', 'retract', 'no flag', 'no flags', 'not a flag',
+              'not flagged', 'none', 'keep', 'kept', 'acceptable', 'passes', 'disregard', 'fine', 'ok', 'okay',
+              'no issue', 'no problem', 'skip', 'skipped'}
+
+
+def taken_back(rule):
+    pieces = [x.strip(' "\'*_`-:').lower() for x in re.split(r'[;,.()\[\]]', rule)]
+    pieces = [x for x in pieces if x]
+    return bool(FINE.search(rule)) or bool(pieces) and pieces[-1] in TAKEN_BACK
 
 
 def checker_flags(text, n):
@@ -465,7 +480,7 @@ def checker_flags(text, n):
     bad = {}
     for g in (found[-1] if found else []):
         k, rule = int(g.group(1)), g.group(2).strip()
-        if 1 <= k <= n and not FINE.search(rule):
+        if 1 <= k <= n and not taken_back(rule):
             bad[k - 1] = rule
     return bad
 
@@ -625,6 +640,27 @@ def resume(c, st, targets, args):
             finish_write(c, st, bid, targets, args.cap)
 
 
+def repool(st, targets):
+    """Read every checker batch's saved replies again with today's parser and
+    pool the lines that now pass (a parser fix after the fact). Nothing is
+    called or spent, and lines already pooled are skipped."""
+    kept = added = 0
+    for bid, rec in sorted(st.s['batches'].items(), key=lambda x: x[1]['round']):
+        if rec['kind'] != 'check' or not rec.get('pooled'):
+            continue
+        good, flagged, waiting = check_results(st, rec, bid, replies(st, bid))
+        kept += sum(len(v) for v in good.values())
+        pool = st.pool()
+        for key, lines in sorted(good.items()):
+            have = set(pool.get(key, []))
+            new = [x for x in lines if x not in have]
+            added += st.add_pool(key, new[:max(0, targets.get(key, 0) - len(have))])
+        st.log(f'repool {bid}: {flagged} flagged, {waiting} without an answer')
+    st.s['kept'] = kept
+    st.save()
+    st.log(f'repool: {kept} kept by the checker in all, {added} more added to the pool')
+
+
 def report(st, targets):
     pool = st.pool()
     fam = collections.defaultdict(lambda: [0, 0])
@@ -669,7 +705,7 @@ def merge(st):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('cmd', choices=['key', 'dry', 'pilot', 'run', 'status', 'merge', 'report'])
+    ap.add_argument('cmd', choices=['key', 'dry', 'pilot', 'run', 'status', 'merge', 'report', 'repool'])
     ap.add_argument('--state', default=DEFAULT_STATE)
     ap.add_argument('--cap', type=float, default=40.0, help='stop before this many dollars, all batches counted')
     ap.add_argument('--rounds', type=int, default=6)
@@ -686,6 +722,9 @@ def main():
         return merge(st)
     if args.cmd == 'report':
         return report(st, targets_for(args.pilot))
+    if args.cmd == 'repool':
+        repool(st, targets_for(False))
+        return report(st, targets_for(False))
     if args.cmd == 'dry':
         targets = targets_for(args.pilot)
         plan = plan_round(st, targets, args.per_part, keep_rate(st), st.s['round'] + 1)
