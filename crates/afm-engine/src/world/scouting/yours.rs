@@ -96,17 +96,25 @@ pub fn own_read_with(
     let (rds, looks, codes) = readers::evidence(w, staff, id);
     // Your looks: every reader that is you, read as one man's file (minor
     // bug 352). An NFL head coach is also the head coach in his club's
-    // file, which keeps its own copy of each watch and visit of yours the
-    // same day (dropped here, so an act counts once) and looks of his own:
-    // the board's spring film study, the workouts you ask for.
+    // file, which holds looks of his own (the board's spring film study)
+    // and, for the board, a copy of each watch, trip and asked workout of
+    // his the same day: one act counts once.
     let mine: Vec<usize> = (0..rds.len()).filter(|&r| rds[r].link == Link::You).collect();
     let me = mine.iter().copied().find(|&r| codes[r] == readers::COACH + you as u32).or(mine.first().copied());
-    let own_looks: Vec<file::Evidence> = looks
-        .iter()
-        .filter(|l| mine.contains(&l.reader))
-        .filter(|l| Some(l.reader) == me || !looks.iter().any(|m| Some(m.reader) == me && m.date == l.date))
-        .copied()
-        .collect();
+    let seat = w.scouting.dept.looks.get(&id).map_or(&[][..], Vec::as_slice);
+    let club = match staff {
+        Staff::Club(t) => w.clubs.get(t).and_then(|c| c.files.get(&id)).map_or(&[][..], Vec::as_slice),
+        _ => &[][..],
+    };
+    let yours_code = |code: u32| codes.iter().position(|&c| c == code).is_some_and(|r| mine.contains(&r));
+    let copy = |l: &file::Evidence| {
+        let code = codes[l.reader];
+        club.iter().any(|c| c.who as u32 == code && Kind::from_nfl(c.kind) == l.kind && c.date == l.date)
+            && !seat.iter().any(|s| s.who == code && s.kind == l.kind && s.date == l.date)
+            && seat.iter().any(|s| s.date == l.date && yours_code(s.who) && copies(l.kind, s.kind))
+    };
+    let own_looks: Vec<file::Evidence> =
+        looks.iter().filter(|l| mine.contains(&l.reader) && !copy(l)).copied().collect();
     // Your film of him (Cain 2026-11-04: six hours of tape and no read):
     // each cut-up you watched is a look of its own, so more tape keeps
     // narrowing what film shows, and a cut-up still open counts from its
@@ -207,6 +215,20 @@ pub fn own_read_with(
         super::film::sharpen_with(w, id, w.people[i].player.position, &mut r.now, &mut r.attrs, &tape, &others, extra);
     }
     out
+}
+
+/// The club file's copy of a look of yours (minor bug 352): the kind the
+/// club's file gives it beside the look under your name the same day (the
+/// film room's watches and the hunt's games as film, a game from the
+/// stands as film and as a coach's look, a trip or an asked workout as a
+/// coach's or an all-star look: `dept::club_look`).
+fn copies(club: Kind, yours: Kind) -> bool {
+    match club {
+        Kind::Film => matches!(yours, Kind::ProFilm | Kind::CollegeFilm | Kind::HsFilm | Kind::Game),
+        Kind::Coach => matches!(yours, Kind::Game | Kind::Practice | Kind::ProDay | Kind::Workout | Kind::HsFilm),
+        Kind::AllStar => yours == Kind::AllStar,
+        _ => false,
+    }
 }
 
 /// Your eye on his tape (minor bug 352): a film look of yours (the film

@@ -664,7 +664,7 @@ fn a_weak_eye_stays_wide_after_a_season_of_tape() {
 /// anything never widens a read: another watch, a trait your eye catches
 /// for the first time, tape of one of your own players beside your
 /// practices, or a look in your club's file under your head coach's code
-/// (where a copy of a watch of yours counts once).
+/// (where the club's copy of a watch or an asked workout counts once).
 #[test]
 fn your_tape_shares_your_eye_and_more_never_widens_a_read() {
     use crate::attributes::{ATTRIBUTE_COUNT, Attr};
@@ -763,13 +763,23 @@ fn your_tape_shares_your_eye_and_more_never_widens_a_read() {
             assert_eq!(after, own(&w, id), "the club's copy of your watch counts once");
             w.clubs[t].files.insert(id, file);
             // A look of the club's own under the head coach's code (the
-            // board's film study, weeks ago): yours too, never wider.
+            // board's spring film study, weeks ago): yours too, never wider.
+            use crate::world::pro::scouts::LookKind;
             let looks = |w: &World| yours::own_read(w, staff, id, None).map_or(0, |r| r.looks);
             let n = looks(&w);
-            let (film, weeks_ago) = (crate::world::pro::scouts::LookKind::Film, w.today.add(-60));
-            sc::dept::club_look(&mut w, t, id, hc, film, weeks_ago);
+            let weeks_ago = w.today.add(-60);
+            sc::dept::club_look(&mut w, t, id, hc, LookKind::Coach, weeks_ago);
             assert_eq!(looks(&w), n + 1, "the club's own look is yours");
-            no_wider(&after, &own(&w, id), "an old look in the club's file");
+            let spring = own(&w, id);
+            no_wider(&after, &spring, "an old look in the club's file");
+            // A workout you asked for: filed under the head coach's code,
+            // with the club's copy, yesterday, when you also practised him.
+            // It counts once, whatever else you did with him that day.
+            let yesterday = w.today.add(-1);
+            sc::dept::add(&mut w, id, hc as u32, sc::Kind::Workout, yesterday);
+            sc::dept::club_look(&mut w, t, id, hc, LookKind::Coach, yesterday);
+            assert_eq!(looks(&w), n + 2, "the asked workout counts once");
+            no_wider(&spring, &own(&w, id), "an asked workout");
             done = true;
             break;
         }
