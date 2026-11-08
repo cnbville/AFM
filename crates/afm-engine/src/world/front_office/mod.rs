@@ -22,6 +22,7 @@ pub mod redshirt;
 pub mod reserve;
 pub mod roster;
 pub mod school;
+pub mod walk_ons;
 
 use super::World;
 use crate::calendar::{Date, Event, Kind, Level, Loudness};
