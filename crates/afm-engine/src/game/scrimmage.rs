@@ -425,6 +425,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         stunt: None,
         level: s.rules.level,
         mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
+        tend_memo: super::sim::tend_memo(),
     };
     // The CFL's fifth receiver reads as the tight end in a set without one.
     let find = |r: ORole| {
