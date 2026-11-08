@@ -661,6 +661,39 @@ def repool(st, targets):
     st.log(f'repool: {kept} kept by the checker in all, {added} more added to the pool')
 
 
+def recheck(st):
+    """Today's per-line rules over the whole pool again (rules added after
+    lines were kept): a line may be rewritten (sir to {coach_sir}) or
+    dropped, and a rewrite that now repeats a version is dropped. Nothing is
+    called or spent; drops go to dropped/recheck.tsv."""
+    ck = K.Checker(repeats=False)
+    old = B.bank(skip={f for f in os.listdir(B.LINES) if f.endswith('_run.txt')})
+    changed = dropped = 0
+    with open(os.path.join(st.dir, 'dropped', 'recheck.tsv'), 'w') as fo:
+        for key, lines in sorted(st.pool().items()):
+            if key not in PARTS:
+                continue
+            seen = {B.norm(t) for t, _, _ in old.get(key, [])}
+            out = []
+            for x in lines:
+                line, why = ck.check(key, x)
+                if line is not None and B.norm(B.split(line)[0]) in seen:
+                    line, why = None, ['repeat after the recheck']
+                if line is None:
+                    dropped += 1
+                    fo.write(f'{key}\t{"; ".join(why)}\t{x}\n')
+                    continue
+                seen.add(B.norm(B.split(line)[0]))
+                changed += line != x
+                out.append(line)
+            if out != lines:
+                path = os.path.join(st.dir, 'pool', key + '.txt')
+                with open(path + '.tmp', 'w') as fo2:
+                    fo2.write(''.join(x + '\n' for x in out))
+                os.replace(path + '.tmp', path)
+    st.log(f'recheck: {changed} lines rewritten, {dropped} dropped')
+
+
 def report(st, targets):
     pool = st.pool()
     fam = collections.defaultdict(lambda: [0, 0])
@@ -705,7 +738,7 @@ def merge(st):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('cmd', choices=['key', 'dry', 'pilot', 'run', 'status', 'merge', 'report', 'repool'])
+    ap.add_argument('cmd', choices=['key', 'dry', 'pilot', 'run', 'status', 'merge', 'report', 'repool', 'recheck'])
     ap.add_argument('--state', default=DEFAULT_STATE)
     ap.add_argument('--cap', type=float, default=40.0, help='stop before this many dollars, all batches counted')
     ap.add_argument('--rounds', type=int, default=6)
@@ -722,6 +755,9 @@ def main():
         return merge(st)
     if args.cmd == 'report':
         return report(st, targets_for(args.pilot))
+    if args.cmd == 'recheck':
+        recheck(st)
+        return report(st, targets_for(False))
     if args.cmd == 'repool':
         repool(st, targets_for(False))
         return report(st, targets_for(False))
