@@ -416,8 +416,7 @@ fn main() {
         "| level | position | read | player-seasons | mean move | sd of the mean | trials a season | practice's share | games' centre | practice's centre |\n|---|---|---|---|---|---|---|---|---|---|"
     );
     for l in [Level::FBS, Level::NFL] {
-        let mut v: Vec<(&(usize, usize, usize), &[f64; 7])> =
-            by_read.iter().filter(|(k, x)| k.0 == l as usize && x[0] >= 200.0).collect();
+        let mut v: Vec<_> = by_read.iter().filter(|(k, x)| k.0 == l as usize && x[0] >= 200.0).collect();
         v.sort_by(|a, b| (b.1[1] / b.1[0]).abs().total_cmp(&(a.1[1] / a.1[0]).abs()).then(a.0.cmp(b.0)));
         let dt = Position::DT.index();
         let shown: Vec<_> = v.iter().take(12).chain(v.iter().skip(12).filter(|x| x.0.1 == dt)).collect();
