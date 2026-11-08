@@ -362,7 +362,7 @@ pub(crate) fn set_ladders(w: &mut World) {
 /// What a veteran of this grade costs a year on the open market at his age,
 /// never past the position's record deal.
 pub(crate) fn market_price(year: i32, pos: Position, view: f64, credited: u32, age: u32) -> f64 {
-    let price = money::price_cap(year) * money::market_share(pos, view).min(money::top5_share(pos) * 1.08);
+    let price = money::price_cap(year) * money::market_share(pos, view).min(money::top5_share(pos) * money::RECORD);
     (price * decline(pos, age)).max(money::minimum(year, credited))
 }
 
@@ -2295,10 +2295,35 @@ pub(crate) fn claims(w: &mut World, d: Date) {
             let worst_g = worst.map_or(0.0, |j| grade(w, t, j));
             let short = active.len() < depth_slots(pos).roster;
             let upgrade = g >= worst_g + 2.0 || (short && g >= 60.0);
-            let room = w.clubs[t].roster.len() < limit || worst.is_some();
+            // At its limit a club lets its worst player there go only if his
+            // release frees cap room: a claim never costs a club dead money
+            // beyond the release's savings (real: the spot goes to a cheap
+            // deal, and a claim must fit under the cap). Before, the worst
+            // by grade went whatever he was owed: a 2023 test world's
+            // Dolphins let a receiver go five months into a $158M extension
+            // for a claim, $109M of dead money, and cut to 9 players on
+            // opening day still over the cap.
+            let full = w.clubs[t].roster.len() >= limit;
+            let saves =
+                |j: usize| {
+                    w.people[j].pro.as_ref().and_then(|c| c.contract.as_ref()).map_or(0.0, |k| {
+                        if k.team == t { k.cut_savings(year, d, super::after_june1(w, d)) } else { 0.0 }
+                    })
+                };
+            let drop = if full {
+                active
+                    .iter()
+                    .copied()
+                    .filter(|&j| saves(j) >= 0.0 && (short || g >= grade(w, t, j) + 2.0))
+                    .min_by(|&a, &b| grade(w, t, a).total_cmp(&grade(w, t, b)))
+            } else {
+                None
+            };
+            let room = !full || drop.is_some();
+            let freed = drop.map_or(0.0, saves);
             let cost = w.people[i].pro.as_ref().unwrap().contract.as_ref().map_or(0.0, |k| k.cap_hit(year));
-            if upgrade && room && space(w, t, year) > cost {
-                claimed = Some((t, if w.clubs[t].roster.len() >= limit { worst } else { None }));
+            if upgrade && room && space(w, t, year) + freed > cost {
+                claimed = Some((t, drop));
                 break;
             }
         }

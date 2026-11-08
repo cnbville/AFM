@@ -137,6 +137,12 @@ pub struct WorldOptions {
     /// choice 1), to measure one against the other.
     #[serde(default)]
     pub yearly_growth: bool,
+    /// The history stops on January 1 of the start year (the Jan 1 start,
+    /// Cain 2026-11-08), the day before the January portal: its last season
+    /// plays to that morning instead of the morning after the Super Bowl,
+    /// so the start year's season is still a career's first.
+    #[serde(default)]
+    pub stop_jan1: bool,
     /// Growth from results (`crate::results::Mode`): results move skills
     /// after each game and snaps land the week they are played, with the
     /// A/B test's switches (items 14-16).
@@ -157,6 +163,7 @@ impl Default for WorldOptions {
             hs_engine_years: Some(12),
             keep_game_log: false,
             yearly_growth: false,
+            stop_jan1: false,
             results: crate::results::Mode::default(),
         }
     }
@@ -358,6 +365,9 @@ pub struct Signed {
     /// He signed somewhere other than where he was committed.
     #[serde(default)]
     pub flipped: bool,
+    /// The day he committed there, when he did before signing.
+    #[serde(default)]
+    pub committed: Option<crate::calendar::Date>,
 }
 
 /// A portal entrant's dates (T3): the day he entered and the day his
@@ -1083,6 +1093,9 @@ pub struct CalendarLog {
     pub commits: u32,
     pub commits_by_month: [u32; 12],
     pub decommits: u32,
+    /// Signees let out of their signing after their head coach left.
+    #[serde(default)]
+    pub signee_releases: u32,
     /// Walk-ons put on scholarship in fall camp (topic 5.4).
     pub walk_on_scholarships: u32,
     /// Students who made a team at an open tryout (topic 5.5).
@@ -1166,6 +1179,15 @@ pub struct CalendarLog {
     pub college_rolled: u32,
     #[serde(default)]
     pub college_trouble: u32,
+    /// Blue chips' verbal commitments March to November (4 and 5 stars on
+    /// the services' read), and theirs broken before signing (reopened,
+    /// pulled, flipped, fallen through): the real figure is the top 100's
+    /// (minor bug 270: the check read every level's, where most late
+    /// commitments by lower recruits never break).
+    #[serde(default)]
+    pub blue_verbal: u32,
+    #[serde(default)]
+    pub blue_broken: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team, college
@@ -1283,7 +1305,37 @@ impl World {
     /// Seasons the history still has to play before `options.start_year`:
     /// the spin-up's, then the recorded ones. 0 once the world is built.
     pub fn history_left(&self) -> u32 {
+        // A Jan 1 world's history ends on January 1 of the start year.
+        if self.options.stop_jan1 && self.today >= self.jan1() {
+            return 0;
+        }
         (self.options.start_year - self.year).max(0) as u32
+    }
+
+    /// The Jan 1 start's morning: January 1 of the start year, in the last
+    /// history season's winter, the day before its January portal.
+    pub fn jan1(&self) -> crate::calendar::Date {
+        crate::calendar::Date::ymd(self.options.start_year, 1, 1)
+    }
+
+    /// Plays the world on, a whole day at a time, to the morning of `d`
+    /// (nothing of that day played yet), calling `each` after every day:
+    /// false from it stops there. True once the world stands on `d`. The
+    /// Jan 1 start plays a library world on this way once (the game keeps
+    /// the result as its own world). Every team's tapes of the season are
+    /// kept, as the last history season's are.
+    pub fn play_on_to(&mut self, d: crate::calendar::Date, mut each: impl FnMut(&World) -> bool) -> bool {
+        let tapes = self.world_tapes;
+        self.world_tapes = self.recording;
+        while self.today < d {
+            self.advance_day();
+            if !each(self) {
+                self.world_tapes = tapes;
+                return false;
+            }
+        }
+        self.world_tapes = tapes;
+        true
     }
 
     /// Plays the history's seasons left, calling `each` after each one:
@@ -1291,16 +1343,25 @@ impl World {
     /// stopped between seasons and written to a file (`save::write_world`)
     /// carries on from that file where it stopped, the same as if it never
     /// stopped: the world build runs over two GitHub jobs this way (NB13).
+    /// A Jan 1 world's last season stops on the morning of January 1.
     pub fn play_history(&mut self, mut each: impl FnMut(&World, f64) -> bool) -> bool {
         let recorded_from = self.first_year() + SPIN_UP_YEARS as i32;
-        while self.year < self.options.start_year {
+        while self.history_left() > 0 {
             if !self.recording && self.year >= recorded_from {
                 self.start_recording();
             }
             let t = std::time::Instant::now();
             // The last history season keeps every team's last tapes.
-            self.world_tapes = self.recording && self.year + 1 == self.options.start_year;
-            self.advance_year();
+            let last = self.year + 1 == self.options.start_year;
+            self.world_tapes = self.recording && last;
+            if last && self.options.stop_jan1 {
+                let jan1 = self.jan1();
+                while self.today < jan1 {
+                    self.advance_day();
+                }
+            } else {
+                self.advance_year();
+            }
             self.world_tapes = false;
             if !each(self, t.elapsed().as_secs_f64()) {
                 return false;

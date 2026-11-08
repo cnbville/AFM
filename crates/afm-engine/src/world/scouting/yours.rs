@@ -110,7 +110,7 @@ pub fn own_read_with(
             .filter(|l| l.date.add(rd.lag(l.kind, id, l.date)) <= w.today)
             .map(|l| file::Evidence { reader: 0, ..*l })
             .collect();
-        let kind = super::film::session::film_kind(&w.people[i]);
+        let kind = super::film::session::film_kind(w, i);
         let filed = lk.iter().filter(|l| l.kind == kind).count();
         lk.extend((filed..cut_ups).map(|_| file::Evidence { reader: 0, kind, date: last }));
         if lk.is_empty() {
