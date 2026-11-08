@@ -1,26 +1,41 @@
 //! Fingerprints of stores: a 64-bit FNV-1a hash of a value's serde form,
 //! with each map's entries combined in any order, so a `HashMap`'s walk
-//! order (different per copy and per run) never changes the print.
+//! order (different per copy and per run) never changes the print. The
+//! loose print (`loose`) also combines each list's items in any order,
+//! because serde writes a `HashSet` as a plain list: it is the print two
+//! runs of one seed share even where a store holds sets.
 
 use serde::ser::{self, Serialize, SerializeMap, Serializer};
 
 /// The fingerprint of a value.
 pub(crate) fn of<T: Serialize + ?Sized>(v: &T) -> u64 {
-    let mut f = Fp(OFFSET);
+    hash(v, OFFSET, false)
+}
+
+/// The loose fingerprint of a value: lists count in any order too.
+pub(crate) fn loose<T: Serialize + ?Sized>(v: &T) -> u64 {
+    hash(v, OFFSET, true)
+}
+
+fn hash<T: Serialize + ?Sized>(v: &T, from: u64, loose: bool) -> u64 {
+    let mut f = Fp { h: from, loose };
     let _ = v.serialize(&mut f);
-    f.0
+    f.h
 }
 
 const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
 const PRIME: u64 = 0x0000_0100_0000_01b3;
 
-pub(crate) struct Fp(u64);
+pub(crate) struct Fp {
+    h: u64,
+    loose: bool,
+}
 
 impl Fp {
     fn bytes(&mut self, b: &[u8]) {
         for &x in b {
-            self.0 ^= x as u64;
-            self.0 = self.0.wrapping_mul(PRIME);
+            self.h ^= x as u64;
+            self.h = self.h.wrapping_mul(PRIME);
         }
     }
     fn tag(&mut self, t: u8) {
@@ -50,7 +65,7 @@ type R = Result<(), Never>;
 impl<'a> Serializer for &'a mut Fp {
     type Ok = ();
     type Error = Never;
-    type SerializeSeq = Self;
+    type SerializeSeq = Seq<'a>;
     type SerializeTuple = Self;
     type SerializeTupleStruct = Self;
     type SerializeTupleVariant = Self;
@@ -141,10 +156,10 @@ impl<'a> Serializer for &'a mut Fp {
         self.bytes(&i.to_le_bytes());
         v.serialize(self)
     }
-    fn serialize_seq(self, n: Option<usize>) -> Result<Self, Never> {
+    fn serialize_seq(self, n: Option<usize>) -> Result<Seq<'a>, Never> {
         self.tag(12);
         self.bytes(&(n.unwrap_or(0) as u64).to_le_bytes());
-        Ok(self)
+        Ok(Seq { parent: self, sum: 0, n: 0 })
     }
     fn serialize_tuple(self, _: usize) -> Result<Self, Never> {
         self.tag(13);
@@ -173,13 +188,32 @@ impl<'a> Serializer for &'a mut Fp {
     }
 }
 
-impl ser::SerializeSeq for &mut Fp {
+/// A list: its items in order, or (loose) each item hashed on its own and
+/// the items summed.
+pub(crate) struct Seq<'a> {
+    parent: &'a mut Fp,
+    sum: u64,
+    n: u64,
+}
+
+impl ser::SerializeSeq for Seq<'_> {
     type Ok = ();
     type Error = Never;
     fn serialize_element<T: Serialize + ?Sized>(&mut self, v: &T) -> R {
-        v.serialize(&mut **self)
+        if self.parent.loose {
+            self.sum = self.sum.wrapping_add(hash(v, OFFSET, true));
+            self.n += 1;
+            Ok(())
+        } else {
+            v.serialize(&mut *self.parent)
+        }
     }
     fn end(self) -> R {
+        if self.parent.loose {
+            self.parent.tag(18);
+            self.parent.bytes(&self.n.to_le_bytes());
+            self.parent.bytes(&self.sum.to_le_bytes());
+        }
         Ok(())
     }
 }
@@ -254,13 +288,13 @@ impl SerializeMap for Map<'_> {
     type Ok = ();
     type Error = Never;
     fn serialize_key<T: Serialize + ?Sized>(&mut self, k: &T) -> R {
-        self.key = of(k);
+        self.key = hash(k, OFFSET, self.parent.loose);
         Ok(())
     }
     fn serialize_value<T: Serialize + ?Sized>(&mut self, v: &T) -> R {
-        let mut f = Fp(self.key);
+        let mut f = Fp { h: self.key, loose: self.parent.loose };
         v.serialize(&mut f)?;
-        self.sum = self.sum.wrapping_add(f.0);
+        self.sum = self.sum.wrapping_add(f.h);
         self.n += 1;
         Ok(())
     }
@@ -272,19 +306,21 @@ impl SerializeMap for Map<'_> {
     }
 }
 
-/// Each top-level field's fingerprint of a struct (a whole world), in field
-/// order: what two builds of one seed must share, store by store (the
-/// world speed lane's proof, `afm_world` with `AFM_PRINTS`). A value that
-/// is not a struct gives one print named "value".
-pub fn field_prints<T: Serialize + ?Sized>(v: &T) -> Vec<(&'static str, u64)> {
+/// Each top-level field's fingerprints of a struct (a whole world), in field
+/// order, as (name, print, loose print): what two builds of one seed must
+/// share, store by store (the world speed lane's proof, `afm_world` with
+/// `AFM_PRINTS`). A store that holds a `HashSet` can differ in its print
+/// from run to run, never in its loose print. A value that is not a struct
+/// gives one row named "value".
+pub fn field_prints<T: Serialize + ?Sized>(v: &T) -> Vec<(&'static str, u64, u64)> {
     let mut f = Fields(Vec::new());
     if v.serialize(&mut f).is_err() || f.0.is_empty() {
-        return vec![("value", of(v))];
+        return vec![("value", of(v), loose(v))];
     }
     f.0
 }
 
-struct Fields(Vec<(&'static str, u64)>);
+struct Fields(Vec<(&'static str, u64, u64)>);
 
 macro_rules! not_a_struct {
     ($($name:ident($($t:ty),*)),* $(,)?) => {
@@ -371,7 +407,7 @@ impl ser::SerializeStruct for &mut Fields {
     type Ok = ();
     type Error = Never;
     fn serialize_field<T: Serialize + ?Sized>(&mut self, k: &'static str, v: &T) -> R {
-        self.0.push((k, of(v)));
+        self.0.push((k, of(v), loose(v)));
         Ok(())
     }
     fn skip_field(&mut self, _: &'static str) -> R {

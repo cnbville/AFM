@@ -12,9 +12,11 @@
 //! The seasons come out as in a build that never paused.
 //!
 //! With `AFM_PRINTS=<file>` each season's end appends a line to `file`: the
-//! season and a fingerprint of every store of the world (`fp::field_prints`).
-//! Two builds of one seed must write the same lines (the world speed lane's
-//! proof); the time they take is left out of the times printed.
+//! season and two fingerprints of every store of the world
+//! (`fp::field_prints`, as print/loose print). Two builds of one seed must
+//! write the same loose prints, and the same prints for every store that
+//! holds no `HashSet` (the world speed lane's proof); the time they take is
+//! left out of the times printed.
 //! `afm_world prints <world file>` prints a written world's store prints.
 
 use std::time::Instant;
@@ -41,8 +43,10 @@ fn main() {
     let pause = |w: &afm_engine::world::World| {
         if let Some(to) = &prints {
             let p = Instant::now();
-            let line: Vec<String> =
-                afm_engine::world::wlog::fp::field_prints(w).iter().map(|(k, v)| format!("{k}={v:016x}")).collect();
+            let line: Vec<String> = afm_engine::world::wlog::fp::field_prints(w)
+                .iter()
+                .map(|(k, v, l)| format!("{k}={v:016x}/{l:016x}"))
+                .collect();
             let line = format!("{} {}\n", w.year - 1, line.join(" "));
             let mut f = std::fs::OpenOptions::new().create(true).append(true).open(to).expect("AFM_PRINTS file");
             std::io::Write::write_all(&mut f, line.as_bytes()).expect("AFM_PRINTS write");
@@ -56,8 +60,8 @@ fn main() {
     if a.get(1).map(String::as_str) == Some("prints") {
         let path = std::path::PathBuf::from(a.get(2).expect("afm_world prints <world file>"));
         let w = afm_engine::save::read_world(&path).unwrap_or_else(|e| panic!("{e}"));
-        for (k, v) in afm_engine::world::wlog::fp::field_prints(&w) {
-            println!("{k}={v:016x}");
+        for (k, v, l) in afm_engine::world::wlog::fp::field_prints(&w) {
+            println!("{k}={v:016x}/{l:016x}");
         }
         return;
     }
