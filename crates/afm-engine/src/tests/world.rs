@@ -105,6 +105,17 @@ fn programs_start_from_their_real_past() {
     let tradition = |n: &str| program_from_row(0, &fcs_row(n), 1984, 1, &mut Rng::new(1)).tradition;
     // Eastern Kentucky's two I-AA titles against Texas State's two Division II ones.
     assert!(tradition("Eastern Kentucky") > tradition("Texas State"));
+    // A world's title count holds the real titles until its own record
+    // begins: 1996 in a 30-year world (Alabama's 1992 title stands in for
+    // the unrecorded spin-up), 1966 in a 60-year one (its recorded 1966-83
+    // seasons are not counted twice).
+    use crate::world::{World, WorldOptions};
+    let bama = |h: u32| {
+        let w = World::empty(WorldOptions { scale: 0.001, history_years: h, ..Default::default() });
+        w.programs.iter().find(|p| p.real_name == "Alabama").map(|p| (p.titles, p.titles_before)).unwrap()
+    };
+    assert_eq!(bama(30), (17, data::titles_before("Alabama", 1996)));
+    assert_eq!(bama(60).0, data::titles_before("Alabama", 1966).iter().sum::<u32>());
 }
 
 #[test]

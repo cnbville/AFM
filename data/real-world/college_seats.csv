@@ -228,6 +228,7 @@ Florida,1991,2002,83000,Ben Hill Griffin Stadium,https://en.wikipedia.org/wiki/B
 Florida,2003,2025,88548,Ben Hill Griffin Stadium,https://en.wikipedia.org/wiki/Ben_Hill_Griffin_Stadium
 Florida A&M,1984,2025,25500,Bragg Memorial Stadium,https://en.wikipedia.org/wiki/Bragg_Memorial_Stadium
 Florida Atlantic,2001,2001,75192,"Pro Player Stadium (Joe Robbie, now Hard Rock Stadium)",https://en.wikipedia.org/wiki/Hard_Rock_Stadium
+Florida Atlantic,2003,2010,20000,Lockhart Stadium,https://en.wikipedia.org/wiki/Lockhart_Stadium
 Florida Atlantic,2011,2025,30000,Flagler Credit Union Stadium,https://en.wikipedia.org/wiki/Flagler_Credit_Union_Stadium
 Florida State,1984,1984,55246,Doak Campbell Stadium,https://en.wikipedia.org/wiki/Doak_Campbell_Stadium
 Florida State,1985,1991,60519,Doak Campbell Stadium,https://en.wikipedia.org/wiki/Doak_Campbell_Stadium
@@ -289,6 +290,7 @@ Houston,1989,1989,60502,Astrodome,https://en.wikipedia.org/wiki/Astrodome
 Houston,1990,1991,62439,Astrodome,https://en.wikipedia.org/wiki/Astrodome
 Houston,1992,1993,62021,Astrodome,https://en.wikipedia.org/wiki/Astrodome
 Houston,1998,2012,32000,Robertson Stadium,https://en.wikipedia.org/wiki/Robertson_Stadium
+Houston,2014,2016,40000,TDECU Stadium,https://en.wikipedia.org/wiki/TDECU_Stadium
 Houston,2017,2025,39700,TDECU Stadium,https://en.wikipedia.org/wiki/TDECU_Stadium
 Houston Christian,2014,2025,5000,Husky Stadium (Houston Christian University),https://en.wikipedia.org/wiki/Husky_Stadium_(Houston_Christian_University)
 Howard,1984,1985,9000,Howard Stadium,https://en.wikipedia.org/wiki/William_H._Greene_Stadium
@@ -649,7 +651,9 @@ Pittsburgh,2007,2010,65050,Heinz Field (Acrisure Stadium),https://en.wikipedia.o
 Pittsburgh,2011,2014,65500,Heinz Field (Acrisure Stadium),https://en.wikipedia.org/wiki/Acrisure_Stadium
 Pittsburgh,2015,2025,68400,Acrisure Stadium,https://en.wikipedia.org/wiki/Acrisure_Stadium
 Portland State,2000,2000,7600,Hillsboro Stadium,https://en.wikipedia.org/wiki/Hillsboro_Stadium
+Portland State,2001,2009,19556,PGE Park (Providence Park),https://en.wikipedia.org/wiki/Providence_Park
 Portland State,2010,2010,7600,Hillsboro Stadium,https://en.wikipedia.org/wiki/Hillsboro_Stadium
+Portland State,2011,2017,19556,Providence Park,https://en.wikipedia.org/wiki/Providence_Park
 Portland State,2018,2025,7600,Hillsboro Stadium,https://en.wikipedia.org/wiki/Hillsboro_Stadium
 Prairie View A&M,2016,2025,15000,Panther Stadium at Blackshear Field,https://en.wikipedia.org/wiki/Panther_Stadium_at_Blackshear_Field
 Presbyterian,2002,2025,6500,Bailey Memorial Stadium,https://en.wikipedia.org/wiki/Bailey_Memorial_Stadium
@@ -675,8 +679,6 @@ Rutgers,2008,2008,42468,SHI Stadium,https://en.wikipedia.org/wiki/SHI_Stadium
 Rutgers,2009,2025,52454,SHI Stadium,https://en.wikipedia.org/wiki/SHI_Stadium
 SMU,2024,2025,33200,Gerald J. Ford Stadium,https://en.wikipedia.org/wiki/Gerald_J._Ford_Stadium
 Sacramento State,1993,2025,21195,Hornet Stadium (Sacramento),https://en.wikipedia.org/wiki/Hornet_Stadium_(Sacramento)
-Sacred Heart,1993,2009,13000,Campus Field,https://en.wikipedia.org/wiki/Campus_Field
-Sacred Heart,2010,2013,10734,Campus Field,https://en.wikipedia.org/wiki/Campus_Field
 Saginaw Valley State,1984,2025,6800,Harvey Randall Wickes Memorial Stadium,https://en.wikipedia.org/wiki/Harvey_Randall_Wickes_Memorial_Stadium
 Sam Houston,1986,2010,14000,Bowers Stadium,https://en.wikipedia.org/wiki/Bowers_Stadium
 Sam Houston,2011,2013,12976,Bowers Stadium,https://en.wikipedia.org/wiki/Bowers_Stadium
@@ -767,7 +769,7 @@ Temple,1992,1993,65178,Veterans Stadium,https://en.wikipedia.org/wiki/Veterans_S
 Temple,1994,1994,64241,Veterans Stadium,https://en.wikipedia.org/wiki/Veterans_Stadium
 Temple,1995,1996,64899,Veterans Stadium,https://en.wikipedia.org/wiki/Veterans_Stadium
 Temple,1997,2002,65352,Veterans Stadium,https://en.wikipedia.org/wiki/Veterans_Stadium
-Temple,2025,2025,67594,Lincoln Financial Field,https://en.wikipedia.org/wiki/Lincoln_Financial_Field
+Temple,2003,2025,67594,Lincoln Financial Field,https://en.wikipedia.org/wiki/Lincoln_Financial_Field
 Tennessee,1984,1986,91249,Neyland Stadium,https://en.wikipedia.org/wiki/Neyland_Stadium
 Tennessee,1990,1995,91902,Neyland Stadium,https://en.wikipedia.org/wiki/Neyland_Stadium
 Tennessee,1996,1996,102544,Neyland Stadium,https://en.wikipedia.org/wiki/Neyland_Stadium

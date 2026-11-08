@@ -381,8 +381,15 @@ for t, lvl in PAGES.items():
             if si is None:
                 continue
             season = seasons_in(cs[si])[0][1]
-            champ = next(([(a, d) for _, a, d in teams_in(c)] for c in cs[si + 1 :] if teams_in(c)), None)
-            if not champ or "vacated" in row.lower() or season < FLOOR[lvl] or season in best:
+            # The champion cell, without a team marked forfeited or vacated
+            # (Pacific Lutheran is the 1987 NAIA Division II champion; its
+            # final opponent forfeited the season). A footnote's name is not
+            # the text: only a visible "vacated" drops the season.
+            cell = next((c for c in cs[si + 1 :] if teams_in(c)), "")
+            keep = [x for x in re.split(r"<br\s*/?>", cell) if not re.search(r"forfeit|vacated", x, re.I)]
+            champ = [(a, d) for x in keep for _, a, d in teams_in(x)]
+            seen = re.sub(r"\{\{efn[^{}]*\}\}", "", row).lower()
+            if not champ or "vacated" in seen or season < FLOOR[lvl] or season in best:
                 continue
             best[season] = champ
     T += [(y, lvl, a, d, f) for y, champ in best.items() for a, d in champ]

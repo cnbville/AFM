@@ -138,7 +138,7 @@
     "G5",
     "N31"
    ],
-   "bytes": 194413
+   "bytes": 194379
   },
   "colleges_lower.csv": {
    "source": "Wikipedia lists of NAIA, D3 and JUCO programs (URL per row)",
@@ -199,20 +199,20 @@
     "C5",
     "C13"
    ],
-   "bytes": 71700
+   "bytes": 71805
   },
   "college_seats.csv": {
    "source": "Wikipedia stadium articles (infobox capacity history and dated lines) and team articles, read per school (URL per row)",
    "years": "1984-2025",
    "level": "college",
    "status": "sourced",
-   "holes": "seasons the pages do not settle are left out (1,861 program seasons over 110 programs; the last known seats carry on); no rows for 7 FCS programs, 87 Division II programs, dropped programs, or Division III, NAIA and junior colleges (they keep today's seats)",
+   "holes": "seasons the pages do not settle are left out (1,740 seasons a program played, over 106 programs; the last known seats carry on); no rows for 8 FCS programs, 87 Division II programs, dropped programs, or Division III, NAIA and junior colleges (they keep today's seats)",
    "areas": [
     "C1",
     "C2",
     "C14"
    ],
-   "bytes": 97082
+   "bytes": 97288
   },
   "tendency_spreads.json": {
    "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases): play-by-play, Next Gen Stats, PFR advanced defense",
@@ -2441,7 +2441,7 @@
     "level",
     "source_url"
    ],
-   "rows": 697
+   "rows": 698
   },
   {
    "key": "college_seats.csv",
@@ -2456,7 +2456,7 @@
     "stadium",
     "source_url"
    ],
-   "rows": 973
+   "rows": 975
   },
   {
    "key": "tendency_spreads.json:stats.scramble_rate",

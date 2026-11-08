@@ -555,7 +555,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
     // A shared or oversized stadium (Winston-Salem State plays in a 17,000-seat
     // city stadium) says little about a small program's crowds: cap by level.
     // The real seats are kept (a school that moves up plays in them: UCF's
-    // 45,000 seats were there in its Division II years, A4); what its crowds
+    // Citrus Bowl seats were there in its Division II years, A4); what its crowds
     // can be read from is capped by the level it plays at (`crowd_seats`).
     // Its real seats in the season it starts (minor bug 296): James
     // Madison's 12,500 in 1984, not today's 24,877.
