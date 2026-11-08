@@ -98,7 +98,12 @@ pub fn adult_body(id: u32, pos: Position, potential: f64, strength_z: f64, speed
     // The combine sees draft prospects. Kids who top out lower are smaller.
     let size = clamp((potential - 72.0) / 12.0, -2.5, 0.5);
     let h_z = 0.7 * size + rng.normal(0.0, 1.0);
-    let w_z = 0.3 + 1.3 * size + 0.45 * strength_z - 0.3 * speed_z + 0.25 * h_z + rng.normal(0.0, 0.8);
+    // A linebacker drafted high is no heavier than the combine's (bug 310:
+    // synthetic NFL linebackers ran 242-245 lb, real 4-3 starters 232-235).
+    // 0.6 sd off his weight brings them to 235-238 lb (proposed, not
+    // confirmed).
+    let off = if pos == Position::LB { 0.6 } else { 0.0 };
+    let w_z = 0.3 + 1.3 * size + 0.45 * strength_z - 0.3 * speed_z + 0.25 * h_z + rng.normal(0.0, 0.8) - off;
     let height = clamp(hm + hs * h_z, 64.0, 82.0);
     let weight = clamp(wm + ws * w_z, 150.0, 380.0);
     let arm_offset = if lineman(pos) {

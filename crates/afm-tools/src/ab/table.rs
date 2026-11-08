@@ -13,7 +13,7 @@ use afm_engine::positions::Position;
 use afm_engine::spots::Spot;
 use afm_engine::tendencies::Tend;
 
-use super::{Part, Who};
+use super::{Knob, Part, Who};
 
 #[derive(Clone, Debug)]
 pub enum Kind {
@@ -32,6 +32,11 @@ pub enum Kind {
     Grid { part: Part, v: [f64; 3], other: Who, opart: Part, ov: [f64; 3] },
     /// A Dynamic Link off and full.
     Link(Link),
+    /// One team's man built for job `a` and man built for job `b`, named
+    /// right ("lo") and swapped ("hi") on the board (linebacker L1: "if i
+    /// put a will in sam the results reflect that?"). `knows`: both have
+    /// played both jobs, so only the bodies and leanings differ.
+    Swap { a: Spot, b: Spot, ka: Vec<Knob>, kb: Vec<Knob>, knows: bool },
 }
 
 #[derive(Clone, Debug)]
@@ -244,6 +249,25 @@ impl Test {
         self.who.spot = Some(s);
         self
     }
+}
+
+/// The team rows for the job swap.
+const LB_SWAP: &[&str] =
+    &["def_run_succ", "def_ypc", "def_out_ypc", "def_cmp", "def_epa_db", "cv_te_cmp", "def_bust", "lb_blitz_press"];
+
+/// A Sam's build against a Will's: 248 lb and 4.68 against 228 lb and 4.56,
+/// with Strength and Block Shedding 6 up and Zone Coverage 6 down, and the
+/// other way round (Claude's picks, proposed, not confirmed).
+fn swap(knows: bool) -> Kind {
+    use Attr as A;
+    let lean = |d: f64| {
+        vec![Knob::Rating(A::Strength, d), Knob::Rating(A::BlockShedding, d), Knob::Rating(A::ZoneCoverage, -d)]
+    };
+    let mut ka = vec![Knob::Set(Part::Weight, 248.0), Knob::Set(Part::Forty, 4.68)];
+    ka.extend(lean(6.0));
+    let mut kb = vec![Knob::Set(Part::Weight, 228.0), Knob::Set(Part::Forty, 4.56)];
+    kb.extend(lean(-6.0));
+    Kind::Swap { a: Spot::SAM, b: Spot::OLB, ka, kb, knows }
 }
 
 fn body(part: Part, v: [f64; 3]) -> Kind {
@@ -772,6 +796,17 @@ pub fn all() -> Vec<Test> {
             .chain(LB_JOBS)
             .real(lb_real!("arm"))
             .sign(1.0),
+        // A Sam's build (heavy, strong, sheds) and a Will's (light, fast,
+        // covers), right and swapped on every team's board (on one team's board
+        // alone his Sam played under 1% of the snaps).
+        t("lb_swap", "lb", "A Will at Sam and a Sam at Will (every team; new to the job)", lb, swap(false))
+            .chain(LB_SWAP)
+            .chain(LB_JOBS)
+            .sign(1.0),
+        t("lb_swap_known", "lb", "A Will at Sam and a Sam at Will (every team; both know both jobs)", lb, swap(true))
+            .chain(LB_SWAP)
+            .chain(LB_JOBS)
+            .sign(1.0),
         t("lb_recognition", "lb", "Play Recognition", lb, r(&[A::PlayRecognition]))
             .chain(&["def_bust", "tk_rate", "def_ypc", "def_pa_ypa"])
             .chain(LB_JOBS)
@@ -855,7 +890,7 @@ pub fn all() -> Vec<Test> {
         t("cb_weight", "cb", "Weight (179 / 193 / 206 lb)", cb, body(Weight, [179.0, 193.0, 206.0]))
             .chain(&[
                 "cv_yac", "tk_miss", "cv_sep", "cv_cmp", "cv_ypt", "cv_pbu", "cv_pi", "cv_dh", "dl_press_snap", "tk_run_snap",
-                "tk_run_stop", "tk_rate", "tk_ff",
+                "tk_run_stop", "tk_rate", "tk_ff", "def_ypc", "def_blitz", "lb_blitz_press",
             ])
             .real(&[
                 ("cv_yac", "cb_wt__yac_per_cmp"),
@@ -930,7 +965,10 @@ pub fn all() -> Vec<Test> {
             .sign(1.0),
         // ---------------------------------------------------- safety
         t("s_weight", "s", "Weight (193 / 207 / 221 lb)", sf, drawn(Weight, [193.0, 207.0, 221.0]))
-            .chain(&["tk_miss", "tk_ff", "cv_yac", "tk_yaco", "cv_te_cmp", "tk_run_snap", "tk_run_stop", "tk_run_long", "tk_rate", "cv_cmp", "cv_pbu"])
+            .chain(&[
+                "tk_miss", "tk_ff", "cv_yac", "tk_yaco", "cv_te_cmp", "tk_run_snap", "tk_run_stop", "tk_run_long", "tk_rate",
+                "cv_cmp", "cv_pbu", "def_box", "def_ypc", "def_run_succ", "def_epa_db", "def_cmp",
+            ])
             .real(&[
                 ("tk_miss", "s_wt__mtkl_pct"),
                 ("tk_ff", "s_wt__ff_per_tkl"),

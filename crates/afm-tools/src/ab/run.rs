@@ -9,6 +9,7 @@ use afm_engine::attributes::Attr;
 use afm_engine::game::GameTeam;
 use afm_engine::player::Level;
 use afm_engine::positions::Position;
+use afm_engine::spots::Spot;
 use rayon::prelude::*;
 use serde_json::{Value, json};
 
@@ -216,6 +217,7 @@ fn knobs_for(kind: &Kind, end: usize) -> Vec<Knob> {
         Kind::RatingTend(a, _) => vec![Knob::Rating(*a, r)],
         Kind::Grid { part, v, .. } => vec![Knob::Set(*part, v[end])],
         Kind::Link(l) => vec![Knob::Link(*l, [0.0, 0.5, 1.0][end])],
+        Kind::Swap { .. } => Vec::new(),
     }
 }
 
@@ -273,6 +275,20 @@ pub fn arms(t: &Test, with_mine: bool) -> Vec<Arm> {
                         false,
                     ));
                 }
+            }
+        }
+        Kind::Swap { a, b, ka, kb, knows } => {
+            let at = |s: Spot| Who { pos: t.who.pos.clone(), spot: Some(s) };
+            for (l, ja, jb) in [("lo", *a, *b), ("hi", *b, *a)] {
+                let mut ga = ka.clone();
+                let mut gb = kb.clone();
+                ga.push(Knob::Board(ja));
+                gb.push(Knob::Board(jb));
+                if *knows {
+                    ga.extend([Knob::Knows(*a), Knob::Knows(*b)]);
+                    gb.extend([Knob::Knows(*a), Knob::Knows(*b)]);
+                }
+                v.push(mk(l, vec![(at(*a), ga), (at(*b), gb)], mine));
             }
         }
         Kind::Link(_) => {
@@ -621,6 +637,7 @@ pub fn report(cx: &Ctx, tr: &TestRun, base: Option<&Rows>, real: &Real) -> Out {
         };
         let names = match &t.kind {
             Kind::Link(_) => ("off", "full"),
+            Kind::Swap { .. } => ("named right", "swapped"),
             Kind::Tend(_) | Kind::Consistency => ("at 4", "at 16"),
             Kind::Rating(_) => ("−15", "+15"),
             _ => ("low", "high"),

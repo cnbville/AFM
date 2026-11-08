@@ -267,6 +267,10 @@ pub fn team_from_ratings(name: &str, level: Level, list: &[RatedPlayer], scheme:
 struct Typical {
     attrs: Vec<[f64; crate::attributes::ATTRIBUTE_COUNT]>,
     body: Vec<(f64, f64, f64)>,
+    /// The mean hitter read of the men listed at free and strong safety
+    /// (`scrimmage::hitter`): staffs list the hitter at strong safety, so
+    /// he reads about +1 at the NFL and the free safety about -0.2.
+    hit: [f64; 2],
 }
 
 static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| {
@@ -294,7 +298,18 @@ static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| 
                     men.iter().map(|p| p.arm).sum::<f64>() / n,
                 );
             }
-            Typical { attrs, body }
+            let s = Position::S.index();
+            let mut hit = [0.0; 2];
+            for (k, spot) in [crate::spots::Spot::FS, crate::spots::Spot::SS].into_iter().enumerate() {
+                let men: Vec<f64> = league
+                    .iter()
+                    .flat_map(|t| t.players.iter())
+                    .filter(|p| p.position == Position::S && p.spot == spot)
+                    .map(|p| super::scrimmage::hit_read(p, &|a| attrs[s][a.index()], body[s].1))
+                    .collect();
+                hit[k] = if men.is_empty() { 0.0 } else { men.iter().sum::<f64>() / men.len() as f64 };
+            }
+            Typical { attrs, body, hit }
         })
         .collect()
 });
@@ -318,6 +333,13 @@ pub fn typical(level: Level, pos: Position, a: Attr) -> f64 {
 /// player at `pos` at `level`.
 pub fn typical_body(level: Level, pos: Position) -> (f64, f64, f64) {
     TYPICAL[level_slot(level)].body[pos.index()]
+}
+
+/// The mean hitter read of the men a level's staffs list at free safety
+/// (`Spot::FS`) or strong safety (anything else), so a read can sit about
+/// the job's typical man.
+pub fn typical_hitter(level: Level, spot: crate::spots::Spot) -> f64 {
+    TYPICAL[level_slot(level)].hit[if spot == crate::spots::Spot::FS { 0 } else { 1 }]
 }
 
 /// A league's worth of synthetic teams with a spread of quality and schemes.
