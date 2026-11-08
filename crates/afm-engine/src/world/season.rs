@@ -861,6 +861,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         if let Some(l) = closing.get(&p.player.id) {
             crate::results::close(&mut p.player, l);
         }
+        let id = p.player.id;
+        crate::results::settle_reps(&mut p.player, closing.get(&id));
         // Last year's growth that the calendar never reached lands first
         // (section 6b topic 12), so this row starts where he really is.
         crate::training::close_year(&mut p.player, ctx.focus);

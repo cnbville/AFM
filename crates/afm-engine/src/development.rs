@@ -346,6 +346,14 @@ fn playing_time_growth(pt: PlayingTime) -> f64 {
 /// The rate a year opens at when his snaps land in season (growth from
 /// results): a backup's with no snaps yet; a redshirt, practice squad or
 /// unsigned year keeps its own.
+/// Whether last season at this level is read at this opening, as before
+/// growth from results: its snaps didn't land in season (`Train` flags bit
+/// 3, kept through `close_year` and cleared by `results::settle_reps` when
+/// none landed). A first season at a level has nothing to read.
+pub(crate) fn reads_late(p: &Player, level: Level) -> bool {
+    p.train.year.flags & 8 == 0 && p.history.last().is_some_and(|h| h.level == level)
+}
+
 pub(crate) fn reps_base(pt: PlayingTime) -> f64 {
     match pt {
         PlayingTime::Redshirt | PlayingTime::PracticeSquad | PlayingTime::Unsigned => playing_time_growth(pt),
@@ -1117,12 +1125,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // read a year late. The skills that settle here keep the old read.
         // Kickers, punters and snappers take no snaps to land: their role
         // decides, as before (minor bug 264). A season whose snaps never
-        // landed in season (results off, unsigned at camp, an older save)
-        // is read here as before, once, and this one's land as he plays.
+        // landed in season (results off, a team on the stand-in, unsigned
+        // at camp, an older save; `results::settle_reps`) is read here as
+        // before, once, and this one's land as he plays.
         let in_season = ctx.results.is_some_and(|m| m.on) && !position.is_specialist();
-        let landed = old.year.flags & 8 != 0;
         let mut gt = g;
-        if in_season && (landed || ctx.snaps.is_none()) {
+        if in_season && !reads_late(player, ctx.level) {
             gt.snaps_mult = reps_base(pt) * (0.7 + 0.3 * snaps_factor) * level_growth(ctx.level);
         }
         player.train = crate::training::Train::open(&gt, player.age, development_age, player.position, old.load);

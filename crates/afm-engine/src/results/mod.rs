@@ -957,6 +957,17 @@ pub fn reps(p: &mut Player, l: &mut Ledger, snaps: u32, level: Level, opp: f64, 
     gained
 }
 
+/// At his checkpoint, before the year closes: a year opened with snaps
+/// landing in season whose games landed none (a team on the stand-in, a
+/// season he never took an engine snap) is marked as not landed, so the
+/// next opening reads the season as before (his role, or his snaps) and it
+/// isn't lost (`development::develop_season`, `Train` flags bit 3).
+pub fn settle_reps(p: &mut Player, l: Option<&Ledger>) {
+    if l.is_none_or(|l| l.reps <= 0.0) {
+        p.train.year.flags &= !8;
+    }
+}
+
 /// Closes a season's ledger at his next checkpoint: the season's results
 /// name the row (a breakout from results, or a slump) and the ledger goes.
 pub fn close(p: &mut Player, l: &Ledger) {

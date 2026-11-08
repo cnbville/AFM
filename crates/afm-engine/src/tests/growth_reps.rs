@@ -401,12 +401,28 @@ fn snaps_that_never_landed_are_read_once_and_kickers_keep_their_role() {
         develop_season(&mut q, &ctx, &mut Rng::new("opened"));
         q.train.year.snaps
     };
-    let p = passer(1);
+    // Last season was at this level.
+    let mut p = passer(1);
+    if let Some(h) = p.history.last_mut() {
+        h.level = Level::FBS;
+    }
     // A season played with results off (or unsigned at camp, or an older
     // save) is read at the opening, as before: its snaps count once.
     assert_eq!(opened(&p, Position::QB, false, true), opened(&p, Position::QB, false, false));
     // A season whose snaps landed as he played opens at a backup's rate.
     assert!(opened(&p, Position::QB, true, true) < opened(&p, Position::QB, false, false));
+    // A first season at a level has no season there to read.
+    let mut fresh = p.clone();
+    if let Some(h) = fresh.history.last_mut() {
+        h.level = Level::HS;
+    }
+    assert_eq!(opened(&fresh, Position::QB, false, true), opened(&p, Position::QB, true, true));
+    // A season whose games landed no snaps (a team on the stand-in) is
+    // marked so at the checkpoint.
+    let mut stood = p.clone();
+    stood.train.year.flags |= 8;
+    results::settle_reps(&mut stood, None);
+    assert_eq!(stood.train.year.flags & 8, 0);
     // A kicker takes no snaps to land: his role decides (minor bug 264).
     assert_eq!(opened(&p, Position::K, true, true), opened(&p, Position::K, true, false));
 }

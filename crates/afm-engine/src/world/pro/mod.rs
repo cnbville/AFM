@@ -1819,9 +1819,10 @@ fn camp(w: &mut World, d: Date) {
         if let Some(l) = &closing {
             crate::results::close(&mut p.player, l);
         }
+        crate::results::settle_reps(&mut p.player, closing.as_ref());
         // A season whose snaps didn't land in season is read at this
         // opening, spring snaps with it (`develop_season`).
-        let read_late = p.player.train.year.flags & 8 == 0 && ctx.snaps.is_some();
+        let read_late = crate::development::reads_late(&p.player, Level::NFL);
         crate::training::close_year(&mut p.player, ctx.focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
         // His spring snaps (OTAs, minicamp) land now as reps of the new
