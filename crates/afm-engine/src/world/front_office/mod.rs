@@ -17,6 +17,7 @@ pub mod college;
 pub mod deals;
 pub mod market;
 pub mod nfl;
+pub mod portal;
 pub mod race;
 pub mod redshirt;
 pub mod reserve;

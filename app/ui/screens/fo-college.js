@@ -29,6 +29,7 @@ Object.assign(CRUMBS, {
   recruit_board: "Recruiting board",
   recruit_find: "Find recruits",
   recruit_file: "Recruit's file",
+  portal_file: "Transfer's file",
   visits_desk: "Visits",
   portal_desk: "Transfer portal",
   nil_desk: "NIL",
@@ -311,6 +312,13 @@ async function fcTargets(x, k) {
 // A player's first answer to your money (N1): his mood in a word, then
 // what he or his family said. His decision still comes in its own time.
 const FC_MOOD_TONE = { thrilled: "good", pleased: "good", fine: "", wants_more: "gold", insulted: "fc-bad" };
+// How close your offer is to what he needs to decide now (the satisfaction
+// bar), as your staff reads it: a bar and words, never his number.
+function fcBarMeter(b) {
+  if (!b) return "";
+  return `<div class="fc-barm" title="Your staff's read of how far your offer is from what he needs to commit now. Clear it and he says yes on the spot."><div class="st-meter thin"><span>What he needs</span><span class="t"><i style="width:${Math.round(b.m * 100)}%"></i></span><b></b></div><small class="sub">${fcDot(fcTone(b.tone))}${esc(b.words)}</small></div>`;
+}
+
 function fcAnswer(a) {
   if (!a) return "";
   return `<div class="fc-answer"><span class="st-pill ${FC_MOOD_TONE[a.mood] || ""}">${esc(a.word)}</span><span>${esc(a.text)}</span><small>${esc(a.date)}</small></div>`;
@@ -341,7 +349,7 @@ function fcFile(f, ctx, compact) {
   const mid = `<div class="fc-mid">
       <div class="fc-block"><div class="fc-h"><span class="st-label">Your staff's read</span>${compact ? fcLink("recruit_file", "Open his full file", { id: f.id }) : playerLink(f.id, "His player page")}</div>${read}</div>
       <div class="fc-block"><div class="fc-h"><span class="st-label">His interest in ${esc(ctx.team.name)}</span>${fcLink("recruit_race", "The race, month by month", { id: f.id })}</div>
-        <div class="fc-interest ${fcTone(f.tone)}">${fcDot(fcTone(f.tone))}<b>${esc(f.interest)}</b></div><p class="sub">${esc(f.reason)}</p></div>
+        <div class="fc-interest ${fcTone(f.tone)}">${fcDot(fcTone(f.tone))}<b>${esc(f.interest)}</b></div><p class="sub">${esc(f.reason)}</p>${fcBarMeter(f.bar)}</div>
       <div class="fc-block"><div class="fc-h"><span class="st-label">His top schools</span><small class="sub">${f.schools_n > 1 ? `${f.schools_n} schools after him · ` : ""}as your staff hears it</small></div><div class="fc-schools">${schools}</div></div>
       <div class="fc-next"><span class="st-label">Next contact</span><span>${nextLine}</span></div>
     </div>`;
@@ -517,6 +525,86 @@ screens.recruit_file = async (a) => {
   </div></div>`;
 };
 
+// ---------- a transfer's file ----------
+// The recruit's file for a portal entrant (portal recruiting, Cain
+// 2026-11-07): the same layout and moves a high school recruit has, on the
+// portal's clock. Call him, offer, promise a role, host him on campus or
+// see him at home; he says yes the day your offer clears what he needs.
+function fcPortalMoves(f) {
+  const b = [];
+  // A blank box is no money; the tip gives a typical transfer's share.
+  const box = (key, val, usual, what) => `<label class="fc-moneyin" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${val != null ? Math.round(val / 1000) : ""}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
+  const nilIn = f.nil_era ? box("pnil", f.nil, f.usual, f.two_pots ? "Revenue share" : "NIL") + (f.two_pots ? box("pcollp", f.coll, f.coll_usual, "Collective deal, reviewed by NIL Go") : "") : "";
+  if (f.committed) {
+    b.push(`<p class="sub">${fcDot("good")}He told you yes on ${esc(f.committed)}. He signs tonight.</p>`);
+  } else if (f.shopping) {
+    b.push(`<button class="st-btn small primary" data-fc="pcall" data-id="${f.id}" ${f.called_today ? 'disabled title="You called him today"' : 'title="You or his position coach on the phone: what you sell him, and a promise if you make one"'}>${f.called_today ? "Called today" : "Call him"}</button>`);
+    if (f.offered) b.push(`<button class="st-btn small glass" data-fc="ppull" data-id="${f.id}">Pull the offer</button>`);
+  }
+  let pay = "";
+  if (f.shopping && !f.committed && f.nil_era) {
+    const what = f.two_pots ? "revenue share" : "NIL";
+    pay = `<div class="fc-nil"><span class="st-label">Your offer <small>${what} a year, optional</small></span>
+      <div class="fc-nilrow">${nilIn}<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Change it" : "Offer"}</button></div>
+      <small class="sub">${f.nil != null ? `You offered ${money(f.nil)} a year.` : f.offered ? "Your offer carries the usual money." : "Empty is the usual money."} About ${money(f.usual)} is usual from a budget like yours; ${money(f.budget.left)} left this year.</small>${fcAnswer(f.answer)}</div>`;
+  } else if (f.shopping && !f.committed) {
+    b.push(`<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Offer stands" : "Offer a place"}</button>`);
+  }
+  const promise = f.promise
+    ? `<p class="sub">You promised ${esc(f.promise.words.toLowerCase())} on ${esc(f.promise.date)}. Once he's yours it's on your word: kept, he trusts you; broken, he and his friends remember.</p>`
+    : f.shopping ? `<p class="sub">A promise of a role is made in a call or a sit-down.</p>` : "";
+  return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${pay}${promise}</div>`;
+}
+function fcPortalVisits(f) {
+  if (!f.shopping || f.committed) return "";
+  const rows = f.options
+    .map((o) => {
+      if (o.set) return `<div class="fc-vopt"><b>${esc(o.name)}</b><span class="fc-vset"><span class="fc-vdone">${fcDot("good")}Set for ${esc(o.set.date)}</span><button class="st-btn small glass" data-fc="pvcancel" data-id="${f.id}" data-kind="${o.key}">Call off</button></span></div>`;
+      if (!o.days.length) return `<div class="fc-vopt"><b>${esc(o.name)}</b><small class="sub">${esc(o.why || "Not while he shops.")}</small></div>`;
+      return `<div class="fc-vopt"><b>${esc(o.name)}</b><span class="fc-vset"><select data-fcsel="pv-${f.id}-${o.key}">${o.days.map((d) => `<option value="${d.d}">${esc(d.date)}${d.word ? " · " + esc(d.word.replace(/ period$/, "")) : ""}</option>`).join("")}</select><button class="st-btn small glass" data-fc="pvisit" data-id="${f.id}" data-kind="${o.key}">Invite</button></span></div>`;
+    })
+    .join("");
+  return `<div class="fc-block"><div class="fc-h"><span class="st-label">Plan a visit</span><small class="sub">24 to 48 hours, before he decides</small></div><div class="fc-vopts">${rows}</div></div>`;
+}
+screens.portal_file = async (a) => {
+  const f = await api("portal_file", { id: a.id });
+  const [c1, c2] = f.colors || ["#444", "#222"];
+  const schools = f.schools.length
+    ? f.schools.map((s) => `<div class="fc-school ${s.yours ? "yours" : ""}"><span class="fc-n">${s.n}</span>${mark(s.team, 28)}<span><b>${teamLink(s.team)}</b><small>${esc(s.status)}</small></span>${s.pill ? `<span class="st-pill good">${esc(s.pill)}</span>` : ""}</div>`).join("")
+    : `<div class="empty">${f.shopping ? "Nobody has a place for him yet." : "He isn't shopping."}</div>`;
+  const read = `<div class="fc-read"><div><span class="l7-pair">${range(f.read, null, { p: f.id, k: "ovr" })}${yourRange(f.yours)}</span></div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
+    <small class="sub">Read by ${esc(f.reader)}${f.reader_role ? `, your ${esc(f.reader_role)}` : ""}, from his college tape.</small>`;
+  const next = (f.visits || []).find((v) => v.state === "Set");
+  const left = `<div class="st-room fc-idroom" style="--accent:${c1};--accent-2:${c2}"><i></i><i></i><i></i>
+      <div class="fc-id">
+        <div class="st-label">${esc(f.status)}</div>
+        <h2>${playerLink(f.id, f.name, "Recruiting")}</h2>
+        <div><b>${f.from ? teamLink(f.from) : ""}</b>${f.division ? ` <small>${esc(f.division)}</small>` : ""}<div class="fc-town">${esc(f.town)} · ${esc(f.cls)}</div></div>
+        <div class="fc-pills"><span class="st-pill">${esc(f.pos)}</span><span class="st-pill">${f.stars ? `${f.stars}★ out of high school` : "Unranked"}</span>${f.role ? `<span class="st-pill">${esc(f.role)}</span>` : ""}${f.sits ? '<span class="st-pill gold">Sits a year with you</span>' : ""}</div>
+        <dl class="fc-idkv">${f.why ? `<dt>Why he left</dt><dd>${esc(fcCap(f.why))}</dd>` : ""}${f.entered ? `<dt>Entered</dt><dd>${esc(f.entered)}</dd>` : ""}${f.decide ? `<dt>Decides</dt><dd>${esc(f.decide)}${f.days != null ? ` · ${esc(fcIn(f.days))}` : ""}</dd>` : ""}<dt>From campus</dt><dd>${Math.round(f.miles)} miles from home</dd></dl>
+        <div class="fc-meas"><b class="st-cond">${esc(f.ht)}</b><span>Height</span><b class="st-cond">${esc(f.wt)}</b><span>Weight, lbs</span><b class="st-cond">${f.left}</b><span>${f.left === 1 ? "Season left" : "Seasons left"}</span></div>
+      </div></div>`;
+  const mid = `<div class="fc-mid">
+      <div class="fc-block"><div class="fc-h"><span class="st-label">Your staff's read</span>${playerLink(f.id, "His player page")}</div>${read}</div>
+      ${f.interest ? `<div class="fc-block"><div class="fc-h"><span class="st-label">His interest in your program</span></div><div class="fc-interest ${fcTone(f.tone)}">${fcDot(fcTone(f.tone))}<b>${esc(f.interest)}</b></div><p class="sub">${esc(f.reason)}</p>${fcBarMeter(f.bar)}</div>` : ""}
+      <div class="fc-block"><div class="fc-h"><span class="st-label">His top schools</span><small class="sub">${f.schools_n > 1 ? `${f.schools_n} schools after him · ` : ""}as your staff hears it</small></div><div class="fc-schools">${schools}</div></div>
+      <div class="fc-next"><span class="st-label">Next contact</span><span>${next ? `<b>${esc(next.date)}</b> · ${esc(next.kind)}` : f.shopping ? "Nothing set: a call is open any day" : "Nothing set"}</span></div>
+    </div>`;
+  const right = `<div class="fc-right">${fcPortalMoves(f)}${fcPortalVisits(f)}</div>`;
+  const talks = f.talks.length
+    ? `<div class="items">${f.talks.map((t) => `<div class="item"><span class="when">${esc(t.date)}</span><span><b>${esc(t.place)}</b> · sold ${esc(t.pitch.toLowerCase())}<br><small class="sub">${esc(t.how)}</small></span></div>`).join("")}</div>`
+    : '<div class="empty">You haven\'t talked to him yet. Every staff with a place for him has called.</div>';
+  const visits = f.visits.length
+    ? `<div class="items">${f.visits.map((v) => `<div class="item"><span class="when">${esc(v.date)}</span><span><b>${esc(v.kind)}</b> · ${esc(v.state)}${v.note ? `<br><small class="sub">${esc(v.note)}</small>` : ""}</span></div>`).join("")}</div>`
+    : '<div class="empty">He hasn\'t been on your campus.</div>';
+  const go = fcGoto([["portal_desk", "Transfer portal"], ["player", "His player page", { id: f.id }], ["nil_desk", "NIL"], ["depth", "Depth chart"]]);
+  return `<div class="film"><div class="pad fc-pad">
+    <div class="fc-bar"><div><div class="st-label">Transfer portal${f.from ? ` · from ${esc(f.from.name)}` : ""}</div><div class="h1">${esc(f.name)}</div></div>${go}</div>
+    <section class="fc-file warm">${left}${mid}${right}</section>
+    <div class="grid3"><div class="panel"><h2>Your talks <small>the latest at each place counts</small></h2>${talks}</div><div class="panel"><h2>Visits <small>with your program</small></h2>${visits}</div><div class="panel"><h2>How a transfer decides</h2><p class="sub">He weighs the same things a recruit's family does, for himself: playing time against who's ahead of him, the money, the school, home, the staff, his shot at the league and winning. Every staff with a place for him calls; his finalists host him. When one school clearly gives him what he needs, he stops shopping and says yes, often days before his date.</p></div></div>
+  </div></div>`;
+};
+
 // Finding recruits is its own screen now: screens/find.js (update 2, lane 7).
 
 // ---------- visits ----------
@@ -619,7 +707,7 @@ screens.portal_desk = async () => {
   if (k.tab === "entrants") {
     const POS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"];
     const cols = [
-      { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name, "Recruiting")}${r.contacted ? ' <span class="st-pill" title="You reached out before he entered">Talked</span>' : ""}` },
+      { k: "name", t: "Player", l: true, f: (r) => `${fcLink("portal_file", r.name, { id: r.id })}${r.contacted ? ' <span class="st-pill" title="You reached out before he entered">Talked</span>' : ""}` },
       { k: "pos", t: "Pos", l: true },
       { k: "from", t: "From", l: true, v: (r) => r.from.name, f: (r) => `${teamLink(r.from)} <small class="sub">${esc(r.division)}</small>` },
       { k: "division", t: "Div", l: true, hide: true },
@@ -639,10 +727,12 @@ screens.portal_desk = async () => {
       ${table("fcportal", cols, x.entrants, { sort: null, empty: open ? "Nobody in the portal matches." : "The portal is closed: entrants come when a window opens.", groups: [{ t: "Player", span: 7 }, { t: "Your staff", span: 2, div: true }, { t: "His move", span: 3, div: true }, { t: "Yours", span: 1, div: true }] })}`;
   } else if (k.tab === "targets") {
     body = table("fcptargets", [
-      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
+      { k: "name", t: "Player", l: true, f: (r) => fcLink("portal_file", r.name, { id: r.id }) },
       { k: "pos", t: "Pos", l: true },
       { k: "from", t: "From", l: true, v: (r) => r.from.name, f: (r) => teamLink(r.from) },
-      { k: "status", t: "Where it stands", l: true, div: true },
+      { k: "status", t: "Where it stands", l: true, div: true, f: (r) => `${esc(r.committed ? `Committed to you, ${r.committed}` : r.status)}${r.promise ? `<br><small class="sub">Promised: ${esc(r.promise.toLowerCase())}</small>` : ""}` },
+      { k: "interest", t: "His interest", l: true, v: (r) => (r.interest ? r.interest.words : ""), f: (r) => (r.interest ? `${fcDot(fcTone(r.interest.tone))}${esc(r.interest.words)}` : '<span class="muted">-</span>') },
+      { k: "next", t: "Next contact", l: true, f: (r) => esc(r.next || "-") },
       { k: "offered", t: "Offered", l: true, f: (r) => esc(r.offered || "-") },
       { k: "nil", t: "NIL", tip: "Your offer's money a year: revenue share, and the collective's deal from July 2025", v: (r) => (r.nil || 0) + (r.coll || 0), f: (r) => (r.nil != null || r.coll != null ? money((r.nil || 0) + (r.coll || 0)) + (r.coll ? ` <small class="sub">${money(r.coll)} collective</small>` : "") : '<span class="muted">none</span>') },
       { k: "answer", t: "His answer", l: true, wrap: true, v: (r) => (r.answer ? r.answer.word : ""), f: (r) => (r.answer ? `<span class="st-pill ${FC_MOOD_TONE[r.answer.mood] || ""}">${esc(r.answer.word)}</span> <small class="sub">${esc(r.answer.text)}</small>` : '<span class="muted">-</span>') },
@@ -968,6 +1058,22 @@ document.addEventListener(
       case "fill": fcDo("college_fill", { on: d.on === "1" }); break;
       case "poffer": fcDo("portal_offer", fcPortalMoney(id)); break;
       case "ppull": fcDo("portal_pull", { id }); break;
+      case "pcall":
+        try {
+          const r = await api("portal_call", { id });
+          go("people_scene", { id: r.scene });
+        } catch (e) {
+          toast(e.message || String(e));
+        }
+        break;
+      case "pvisit": {
+        const sel = document.querySelector(`[data-fcsel="pv-${id}-${d.kind}"]`);
+        if (!sel) break;
+        const r = await fcDo("portal_visit_set", { id, kind: d.kind, date: Number(sel.value) });
+        if (r && r.declined) toast(r.text);
+        break;
+      }
+      case "pvcancel": fcDo("portal_visit_cancel", { id, kind: d.kind }); break;
       case "pforget": fcDo("portal_forget", { id }); break;
       case "pcontact":
         if (await sure(`Reach out to ${d.name}?`, "He isn't in the portal: a call now is tampering. It may sway him your way; about one call in eight gets out, and his coach and the press hear about it.", "Make the call")) fcDo("portal_contact", { id });

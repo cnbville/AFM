@@ -11,7 +11,7 @@ use afm_engine::player::PlayingTime;
 use afm_engine::positions::Position;
 use afm_engine::world::background::Decider;
 use afm_engine::world::front_office::college::{self as desk, Source, Standing, VisitKind, VisitState};
-use afm_engine::world::front_office::{Duty, Owner, chain, dollars, walk_ons as walk};
+use afm_engine::world::front_office::{Duty, Owner, chain, dollars, portal, walk_ons as walk};
 use afm_engine::world::program::NilTrend;
 use afm_engine::world::{Person, Stage, Visit, World, geo, ncaa};
 use serde_json::{Value, json};
@@ -28,6 +28,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "visits_desk" => with(game, visits),
         "visit_options" => with_args(game, args, visit_choice),
         "portal_desk" => with_args(game, args, portal),
+        "portal_file" => with_args(game, args, portal_file),
+        "portal_call" => portal_call(game, args),
         "nil_desk" => with(game, nil),
         "walkons_desk" => with(game, walk_ons),
         "recruit_chain" => with(game, chain_view),
@@ -48,6 +50,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         | "portal_pull"
         | "portal_forget"
         | "portal_contact"
+        | "portal_visit_set"
+        | "portal_visit_cancel"
         | "keep_talk"
         | "nil_set"
         | "nil_usual"
@@ -75,6 +79,15 @@ fn chain_act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
         _ => chain::sign_all(w)?,
     };
     Ok(json!({ "text": text }))
+}
+
+/// You call an entrant: the call is a scene, opened on its page.
+fn portal_call(game: &mut Game, args: &Value) -> Reply {
+    let w = game.world.as_mut().ok_or("No world is loaded.")?;
+    program(w)?;
+    desk::ready(w);
+    let sid = portal::call(w, id_arg(args)?)?;
+    Ok(json!({ "scene": sid }))
 }
 
 fn with(game: &mut Game, f: fn(&World, usize) -> Reply) -> Reply {
@@ -177,6 +190,22 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
         "portal_pull" => desk::portal_pull(w, id_arg(args)?)?,
         "portal_forget" => desk::portal_forget(w, id_arg(args)?)?,
         "portal_contact" => desk::portal_contact(w, id_arg(args)?)?,
+        "portal_visit_set" | "portal_visit_cancel" => {
+            let kind =
+                args.get("kind").and_then(Value::as_str).and_then(VisitKind::from_key).ok_or("Missing visit kind.")?;
+            if cmd == "portal_visit_cancel" {
+                portal::cancel_visit(w, id_arg(args)?, kind)?
+            } else {
+                let d = args.get("date").and_then(Value::as_i64).ok_or("Missing date.")? as i32;
+                match portal::set_visit(w, id_arg(args)?, kind, Date(d)) {
+                    Ok(t) => t,
+                    Err(t) if !t.starts_with("He isn't") && !t.starts_with("A ") && !t.starts_with("Offer") => {
+                        return Ok(json!({ "text": t, "declined": true }));
+                    }
+                    Err(t) => return Err(t),
+                }
+            }
+        }
         "keep_talk" => desk::keep_talk(w, id_arg(args)?)?,
         "college_cut" => desk::cut(w, id_arg(args)?)?,
         "college_scholarship" => walk::award(w, id_arg(args)?)?,
@@ -1370,6 +1399,16 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
         Decider::Handler => "A trainer close to the family steers it.",
     });
     v["schools_n"] = json!(desk::race_at(w, i).len());
+    // How close your offer is to what he needs to commit now (the
+    // satisfaction bar), while he holds it and isn't yours yet.
+    let open = p.stage == Stage::HighSchool && p.cal.signed.is_none() && p.cal.commit.is_none_or(|c| c.0 != j);
+    v["bar"] = t
+        .filter(|t| open && t.offered.is_some() && t.pulled.is_none() && p.class_of == desk::next_class(w))
+        .and_then(|_| desk::hs_meter(w, i))
+        .map_or(Value::Null, |m| {
+            let (words, tone) = bar_words(m);
+            json!({ "m": (m * 100.0).round() / 100.0, "words": words, "tone": tone })
+        });
     v["officials_used"] = json!(p.cal.visits.iter().filter(|e| e.2 == Visit::Official).count());
     // The NCAA's five to June 2023; no limit since (B1).
     v["official_cap"] = json!(desk::official_cap(w.today));
@@ -1726,6 +1765,9 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
                 "status": status, "offered": t.offered.map(short_date), "nil": t.nil, "coll": t.nil_coll,
                 "decide": p.cal.portal.map(|e| short_date(e.decide_by)), "settled": t.settled,
                 "answer": desk::reaction(w, t.id, desk::MoneyKind::Portal).map(answer_json),
+                "interest": (!t.settled && p.cal.portal.is_some()).then(|| { let it = portal_interest(w, j, i, t); json!({ "words": it.words, "tone": it.tone }) }),
+                "promise": t.promise.map(|x| promise_words(x.0)), "committed": t.committed.map(short_date),
+                "next": t.visits.iter().filter(|v| v.state == VisitState::Set && v.date >= today).min_by_key(|v| v.date).map(|v| format!("{}, {}", v.kind.name(), short_date(v.date))),
             }))
         })
         .collect();
@@ -1771,6 +1813,219 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
         "budget": budget_json(w, j),
         "duties": duties(w, j),
     }))
+}
+
+// --- A transfer's file (portal recruiting) ---------------------------------------------
+
+fn promise_words(kind: u8) -> &'static str {
+    if kind == 0 { "A starting job" } else { "A real role, every week" }
+}
+
+/// His interest in your program while he shops, in your staff's words.
+fn portal_interest(w: &World, j: usize, i: usize, t: &desk::PortalTarget) -> Interest {
+    let race = portal::race(w, i);
+    let first = w.people[i].name.split_whitespace().next().unwrap_or("He").to_string();
+    if t.committed.is_some() {
+        return Interest {
+            words: "Committed to you".into(),
+            tone: "good",
+            reason: format!("{first} told you yes. He signs tonight."),
+            leader: Some(j),
+        };
+    }
+    let mine = race.iter().find(|r| r.0 == j).map(|r| r.1);
+    let best = race.iter().find(|r| r.0 != j).copied();
+    let (Some(yours), true) = (mine, t.offered.is_some()) else {
+        return Interest {
+            words: match best {
+                Some(b) => format!("Looking at {}", name(w, b.0)),
+                None => "Nobody has called".into(),
+            },
+            tone: "",
+            reason: "Offer him to get into his race.".into(),
+            leader: best.map(|b| b.0),
+        };
+    };
+    let Some(b) = best else {
+        return Interest {
+            words: "Your offer is his only one".into(),
+            tone: "good",
+            reason: "Nobody else has a place for him. He may still wait for one.".into(),
+            leader: Some(j),
+        };
+    };
+    let gap = yours - b.1;
+    let other = name(w, b.0);
+    let (words, tone) = match gap {
+        g if g > 0.08 => ("Leaning your way".to_string(), "good"),
+        g if g > 0.025 => ("You lead".to_string(), "good"),
+        g if g > -0.025 => (format!("Even with {other}"), "warn"),
+        g if g > -0.08 => ("Listening, not leaning".to_string(), "warn"),
+        _ => (format!("Behind {other}, for now"), "bad"),
+    };
+    let reason = if t.talks.is_empty() {
+        "Call him: every staff with a place for him has.".to_string()
+    } else {
+        let (a, b) = afm_engine::world::folk::dialogue::transfer_weighs(w, i);
+        let p = afm_engine::world::folk::dialogue::PITCHES;
+        format!("{first} is after {} first, then {}.", p[a].1.to_lowercase(), p[b].1.to_lowercase())
+    };
+    Interest { words, tone, reason, leader: Some(if gap > 0.025 { j } else { b.0 }) }
+}
+
+/// How close your offer is to what he needs (the satisfaction bar), in
+/// your staff's words.
+fn bar_words(m: f64) -> (&'static str, &'static str) {
+    match m {
+        m if m >= 0.95 => ("There: he'd say yes", "good"),
+        m if m >= 0.75 => ("Close: a little more and he's yours", "good"),
+        m if m >= 0.5 => ("Getting there", "warn"),
+        m if m >= 0.25 => ("Short of what he wants", "warn"),
+        _ => ("Far off", "bad"),
+    }
+}
+
+/// `portal_file` (`id`): an entrant as your staff reads him while he
+/// shops, with your moves: who he is and where he played, your staff's
+/// read, his interest in your program and his top schools as your staff
+/// hears them, how close your offer is to what he needs, his clock, your
+/// calls, visits and promise, and what the rules allow.
+fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
+    let id = id_arg(args)?;
+    let i = views::person_index(w, id).ok_or("No such player.")?;
+    let p = &w.people[i];
+    let today = w.today;
+    let d = &w.front_office.college;
+    let t = d.portal.iter().find(|t| t.id == id && !t.settled);
+    let (read, pot, yours) = staff_read(w, p);
+    let e = p.cal.portal;
+    let c = p.college;
+    let shopping = e.is_some_and(|e| !e.held && e.entered <= today) && p.stage == Stage::College;
+    let race = if shopping { portal::race(w, i) } else { Vec::new() };
+    let it = t.filter(|_| shopping).map(|t| portal_interest(w, j, i, t));
+    let schools: Vec<Value> = race
+        .iter()
+        .take(6)
+        .enumerate()
+        .map(|(n, r)| {
+            json!({ "n": n + 1, "team": brief(w, r.0), "yours": r.0 == j, "status": format!("{} · {}", name(w, r.0).split(" (").next().unwrap_or(""), w.programs[r.0].division.name()), "pill": if n == 0 { "Leads" } else { "" } })
+        })
+        .collect();
+    let meter = t.filter(|t| t.offered.is_some() && shopping).and_then(|_| portal::meter(w, i));
+    let one_time = w.changes.rules(w.year + 1).one_time_transfer;
+    let sits = c.is_some_and(|c| {
+        desk::transfer_sits(
+            today,
+            one_time,
+            w.programs[j].division,
+            w.programs[c].division,
+            p.cal.graduated,
+            desk::four_year_transfers(w, p),
+        )
+    });
+    let talks: Vec<Value> = t
+        .map(|t| {
+            t.talks
+                .iter()
+                .map(|x| {
+                    let place = ["A call", "At his home", "On your campus"][x.at.min(2) as usize];
+                    let how = if x.lean > 0.006 {
+                        "He leaned your way"
+                    } else if x.lean > 0.0 {
+                        "It landed, a little"
+                    } else {
+                        "It cooled him"
+                    };
+                    json!({ "date": short_date(x.date), "place": place, "pitch": x.pitch, "how": how })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let visits: Vec<Value> = t
+        .map(|t| {
+            t.visits
+                .iter()
+                .map(|v| {
+                    let state = match v.state {
+                        VisitState::Set => "Set",
+                        VisitState::Declined => "Declined",
+                        VisitState::Off => "Off",
+                        VisitState::Done => "Done",
+                    };
+                    json!({ "date": date(v.date), "kind": v.kind.name(), "key": v.kind.key(), "state": state, "note": v.note })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let options: Vec<Value> = [VisitKind::Official, VisitKind::Home]
+        .into_iter()
+        .map(|k| {
+            let days = if shopping { portal::visit_dates(w, id, k) } else { Vec::new() };
+            let set = t.and_then(|t| t.visits.iter().find(|v| v.kind == k && v.state == VisitState::Set));
+            let had = t.is_some_and(|t| t.visits.iter().any(|v| v.kind == k && v.state == VisitState::Done));
+            let why = if had {
+                "Done.".to_string()
+            } else if days.is_empty() {
+                (1..=30).find_map(|n| portal::visit_rule(w, i, k, today.add(n))).unwrap_or_else(|| "Not while he shops.".into())
+            } else {
+                String::new()
+            };
+            json!({
+                "key": k.key(), "name": if k == VisitKind::Official { "Campus visit" } else { "Home visit" },
+                "set": set.map(|x| json!({ "d": x.date.0, "date": date(x.date), "note": x.note })),
+                "days": if had { Vec::new() } else { days.iter().map(|(d, w2)| json!({ "d": d.0, "date": short_date(*d), "word": w2 })).collect::<Vec<_>>() },
+                "why": why,
+            })
+        })
+        .collect();
+    let status = if shopping {
+        "In the portal".to_string()
+    } else if e.is_some() {
+        "His team is still playing: he enters when its season ends".to_string()
+    } else if c == Some(j) && t.is_none_or(|t| t.from != j) {
+        "On your roster".to_string()
+    } else if let Some(c) = c.filter(|_| p.stage == Stage::College) {
+        format!("At {}", name(w, c))
+    } else {
+        "Out of college football".to_string()
+    };
+    let b = desk::budget(w, j);
+    let (pot_total, coll_pot) = (b.yours, if b.two_pots { b.collective } else { 0.0 });
+    let mut v = json!({
+        "id": id, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p),
+        "from": c.map(|c| brief(w, c)), "division": c.map(|c| w.programs[c].division.name()),
+        "colors": c.map(|c| colors::college(&w.programs[c].real_name, c)),
+        "cls": views::class_text(w, p), "left": seasons_ahead(w, p, w.programs[j].division),
+        "role": p.last_role.map(views::role_words), "town": views::hometown(w, p),
+        "ht": afm_engine::body::height_text(afm_engine::body::body_now(&p.player).height),
+        "wt": afm_engine::body::body_now(&p.player).weight.round(),
+        "miles": geo::miles(p.home_state, w.programs[j].state).round(),
+        "read": read, "pot": pot, "yours": yours,
+        "reader": reader_name(w, j, p.player.position), "reader_role": reader_role(w, j, p.player.position),
+    });
+    let more = json!({
+        "status": status, "shopping": shopping, "why": e.map(|e| e.why.to_string()),
+        "entered": e.map(|e| short_date(e.entered)), "decide": e.map(|e| short_date(e.decide_by)),
+        "days": e.map(|e| today.days_to(e.decide_by).max(0)), "sits": sits,
+        "interest": it.as_ref().map(|it| it.words.clone()), "tone": it.as_ref().map(|it| it.tone), "reason": it.as_ref().map(|it| it.reason.clone()),
+        "schools": schools, "schools_n": race.len(),
+        "bar": meter.map(|m| { let (w2, tone) = bar_words(m); json!({ "m": (m * 100.0).round() / 100.0, "words": w2, "tone": tone }) }),
+        "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil), "coll": t.and_then(|t| t.nil_coll),
+        "usual": if ncaa::nil_era(w.year) { pot_total / 40.0 } else { 0.0 },
+        "coll_usual": if ncaa::nil_era(w.year) { coll_pot / 40.0 } else { 0.0 },
+        "answer": desk::reaction(w, id, desk::MoneyKind::Portal).map(answer_json),
+        "committed": t.and_then(|t| t.committed).map(short_date),
+        "promise": t.and_then(|t| t.promise).map(|x| json!({ "words": promise_words(x.0), "date": short_date(x.1) })),
+        "called_today": t.is_some_and(|t| t.called == Some(today)),
+        "contacted": t.and_then(|t| t.contacted).map(short_date),
+        "talks": talks, "visits": visits, "options": options,
+        "nil_era": ncaa::nil_era(w.year), "two_pots": ncaa::two_pots(today), "budget": budget_json(w, j),
+        "portal_yours": w.front_office.owner(Duty::Portal) == Owner::You,
+    });
+    if let (Value::Object(v), Value::Object(more)) = (&mut v, more) {
+        v.extend(more);
+    }
+    Ok(v)
 }
 
 // --- NIL --------------------------------------------------------------------------------

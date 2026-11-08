@@ -152,6 +152,16 @@ fn asked() -> Vec<String> {
         v.push(format!("homevisit.ask.{k}"));
     }
     v.push("homevisit.tell".into());
+    for k in ["playing", "nil", "school", "distance", "family", "development", "winning"] {
+        v.push(format!("portal.ask.{k}"));
+    }
+    v.push("portal.tell".into());
+    for m in ["good", "flat", "bad"] {
+        v.push(format!("portal.react.{m}"));
+    }
+    for k in ["knows", "believes", "doubts"] {
+        v.push(format!("portal.promise.{k}"));
+    }
     for m in ["good", "flat", "bad"] {
         v.push(format!("homevisit.react.{m}"));
         v.push(format!("interview.react.{m}"));
