@@ -211,6 +211,10 @@ struct HsPlayed {
     situ: Option<super::game_log::GameSitu>,
     /// The Data section's tallies (lane NB1): the game's facts and boxes.
     data: Option<super::tally::games::Part>,
+    /// Growth from results: each man's evidence, and who he is (person,
+    /// and his school when it's yours, for the news).
+    #[allow(clippy::type_complexity)]
+    results: Option<(HashMap<u32, crate::results::Man>, HashMap<u32, (usize, Option<super::stories::TeamKey>)>)>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1570,6 +1574,7 @@ fn engine_games(
     let logging = w.logging();
     let trial_log = w.options.keep_game_log && w.recording;
     let tallying = w.tallying();
+    let results_on = w.options.results.on;
     let world: &World = w;
     // Your game, played live on the game day screens (section 9).
     let live = world.live_result(Level::HighSchool);
@@ -1672,8 +1677,19 @@ fn engine_games(
                 };
                 super::tally::games::part(facts, &r.stats, false, &|_, _| None)
             });
+            let results = results_on.then(|| {
+                let ev = crate::results::evidence(crate::player::Level::HS, &r.stats, [&home, &away]);
+                let key = |x: usize| seat.filter(|&s| s == x).map(|s| super::stories::TeamKey::Hs(s as u32));
+                let ids: HashMap<u32, (usize, Option<super::stories::TeamKey>)> = hid
+                    .iter()
+                    .map(|&(id, i)| (id, (i, key(h))))
+                    .chain(aid.iter().map(|&(id, i)| (id, (i, key(a)))))
+                    .collect();
+                (ev, ids)
+            });
             let injuries = std::mem::take(&mut r.injuries);
             Ok(HsPlayed {
+                results,
                 injuries,
                 score: [ha.max(0) as u32, hb.max(0) as u32],
                 team: r.stats.team.clone(),
@@ -1710,6 +1726,9 @@ fn engine_games(
             }
         };
         let home_wins = if g.score[0] == g.score[1] { key & 1 == 0 } else { g.score[0] > g.score[1] };
+        if let Some((ev, ids)) = g.results {
+            crate::results::world_game(w, crate::player::Level::HS, ev, &|id| ids.get(&id).copied());
+        }
         if let Some(situ) = g.situ {
             let year = w.year;
             if w.options.keep_game_log && w.recording {

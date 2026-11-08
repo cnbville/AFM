@@ -314,7 +314,9 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
 /// starting spot (what preseason polls and media days read).
 pub(crate) fn projected_strength(w: &World, prog: usize) -> f64 {
     let p = &w.programs[prog];
-    let mut by_pos: HashMap<crate::positions::Position, Vec<f64>> = HashMap::new();
+    // By position in position order: the sum runs the same way on every
+    // run (a hash map's order changed its last bits from run to run).
+    let mut by_pos: BTreeMap<crate::positions::Position, Vec<f64>> = BTreeMap::new();
     for &i in &p.roster {
         let q = &w.people[i];
         if q.stage == Stage::College && !q.player.position.is_specialist() {
@@ -533,53 +535,60 @@ fn camp_redshirt(p: &super::Person) -> bool {
 /// redshirt).
 pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
     let four = w.rules.four_game_redshirt;
-    let mut held = HashSet::new();
-    for prog in &w.programs {
-        // Five years to play five (S11): every year counts, so nobody is
-        // held out to save one.
-        if super::eligibility::five_in_five(w.year, prog.division) {
-            continue;
-        }
-        let mut able = [0usize; crate::positions::POSITION_COUNT];
-        let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
-        for &i in &prog.roster {
-            let p = &w.people[i];
-            if p.stage != Stage::College || cs.out.contains_key(&p.player.id) {
-                continue;
+    // Each program on its own, on all cores (world speed lane): the set is
+    // the same whatever the order.
+    let held: Vec<Vec<u32>> = w
+        .programs
+        .par_iter()
+        .map(|prog| {
+            let mut held = Vec::new();
+            // Five years to play five (S11): every year counts, so nobody is
+            // held out to save one.
+            if super::eligibility::five_in_five(w.year, prog.division) {
+                return held;
             }
-            if camp_redshirt(p) {
-                planned.push((p.player.position, p.player.overall(), p.player.id));
-            } else {
-                able[p.player.position.index()] += 1;
+            let mut able = [0usize; crate::positions::POSITION_COUNT];
+            let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
+            for &i in &prog.roster {
+                let p = &w.people[i];
+                if p.stage != Stage::College || cs.out.contains_key(&p.player.id) {
+                    continue;
+                }
+                if camp_redshirt(p) {
+                    planned.push((p.player.position, p.player.overall(), p.player.id));
+                } else {
+                    able[p.player.position.index()] += 1;
+                }
             }
-        }
-        if planned.is_empty() {
-            continue;
-        }
-        // First those who cost nothing today: the year already counts (any
-        // game before 2018, five or more from 2018), or games are left
-        // under the four-game rule.
-        let mut rest = Vec::new();
-        for (pos, ov, id) in planned {
-            let games = cs.snaps.get(&id).map_or(0, |s| s.1);
-            let gone = games > 0 && (!four || games > 4);
-            if gone || (four && games < 4) {
-                able[pos.index()] += 1;
-            } else {
-                rest.push((pos, ov, id));
+            if planned.is_empty() {
+                return held;
             }
-        }
-        // Then the best of the rest, only while the position is short.
-        rest.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
-        for (pos, _, id) in rest {
-            if able[pos.index()] < season::two_deep(pos) {
-                able[pos.index()] += 1;
-            } else {
-                held.insert(id);
+            // First those who cost nothing today: the year already counts (any
+            // game before 2018, five or more from 2018), or games are left
+            // under the four-game rule.
+            let mut rest = Vec::new();
+            for (pos, ov, id) in planned {
+                let games = cs.snaps.get(&id).map_or(0, |s| s.1);
+                let gone = games > 0 && (!four || games > 4);
+                if gone || (four && games < 4) {
+                    able[pos.index()] += 1;
+                } else {
+                    rest.push((pos, ov, id));
+                }
             }
-        }
-    }
-    held
+            // Then the best of the rest, only while the position is short.
+            rest.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
+            for (pos, _, id) in rest {
+                if able[pos.index()] < season::two_deep(pos) {
+                    able[pos.index()] += 1;
+                } else {
+                    held.push(id);
+                }
+            }
+            held
+        })
+        .collect();
+    held.into_iter().flatten().collect()
 }
 
 /// The day's college games.
@@ -696,8 +705,9 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         teams: Option<(GameTeam, GameTeam)>,
         context: [crate::game::garbage::Context; 2],
     }
+    // Each game's setup only reads the world: on all cores, in order.
     let jobs: Vec<Job> = idx
-        .iter()
+        .par_iter()
         .map(|&k| {
             let g = &cs.games[k];
             let (mut venue, played, _) = conditions(w, g, k);
@@ -847,12 +857,29 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         Vec::new()
     }
     .into_iter();
+    // Growth from results: each game's evidence, worked out on all cores.
+    let mut to_results = if w.options.results.on {
+        outcomes
+            .par_iter()
+            .zip(jobs.par_iter())
+            .zip(levels.par_iter())
+            .map(|((r, j), &level)| {
+                let r = r.as_ref()?;
+                let (a, b) = j.teams.as_ref()?;
+                Some((level, crate::results::evidence(level, &r.stats, [a, b])))
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+    .into_iter();
     let first_date = cs.games.iter().map(|g| g.date).min().unwrap_or(date);
     let mut logged: Vec<(usize, serde_json::Value, Option<Vec<u8>>)> = Vec::new();
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
         let log_part = to_log.next().flatten();
         let tally_part = to_tally.next().flatten();
+        let results_part = to_results.next().flatten();
         let mut played = j.played;
         let (home, away, division, kind, conference) = {
             let g = &w.college.as_ref().unwrap().games[k];
@@ -894,6 +921,16 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
             let side = [home, away].iter().position(|&t| seat == Some(super::folk::Team::College(t)));
             let med = [home, away].map(|t| super::people::Support::z(w.programs[t].support.medical.rating));
             crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
+            // Growth from results: his plays move his skills, his snaps land.
+            if let Some((level, ev)) = results_part {
+                let mut ids: HashMap<u32, (usize, Option<super::stories::TeamKey>)> = HashMap::new();
+                for t in [home, away] {
+                    for &i in &w.programs[t].roster {
+                        ids.insert(w.people[i].player.id, (i, Some(super::stories::TeamKey::College(t as u32))));
+                    }
+                }
+                crate::results::world_game(w, level, ev, &|id| ids.get(&id).copied());
+            }
         }
         let cs = w.college.as_mut().unwrap();
         // Records.
@@ -1339,7 +1376,9 @@ pub(crate) fn ranking(w: &World, division: Division) -> Vec<(usize, f64)> {
             };
             next.insert(t, v);
         }
-        let mean = next.values().sum::<f64>() / next.len().max(1) as f64;
+        // Summed in program order, the same on every run (in the map's
+        // order its last bits changed from run to run).
+        let mean = members.iter().map(|t| next[t]).sum::<f64>() / members.len().max(1) as f64;
         for v in next.values_mut() {
             *v -= mean;
         }
@@ -2332,22 +2371,26 @@ pub(crate) fn selection_day(w: &mut World) {
         }
     }
     let n_bowls = games.iter().filter(|g| matches!(g.kind, GameKind::Bowl(_))).count();
-    let field_text = brackets.first().map_or(String::new(), |b| {
+    // The top four seeds, in seed order.
+    let top: Vec<usize> = brackets.first().map_or(Vec::new(), |b| {
         let mut top: Vec<(usize, usize)> = b.seed.iter().filter(|(_, s)| **s <= 4).map(|(&t, &s)| (s, t)).collect();
         top.sort();
-        let teams: Vec<&str> = top.iter().map(|&(_, t)| w.programs[t].real_name.as_str()).collect();
+        top.into_iter().map(|(_, t)| t).collect()
+    });
+    let field_text = brackets.first().map_or(String::new(), |b| {
+        let teams: Vec<&str> = top.iter().map(|&t| w.programs[t].real_name.as_str()).collect();
         format!(" The playoff field is set ({} teams; top seeds {}).", b.seed.len(), teams.join(", "))
     });
     // Nothing to announce while the world spins up and rosters fill.
     if n_bowls > 0 || !brackets.is_empty() {
         let text = format!("Selection day: {n_bowls} bowls filled.{field_text}");
         let mut e = Event::new(w.today, CalLevel::College, Kind::Date, Loudness::Big, text);
-        for b in brackets.first().iter() {
-            for (&t, &seed) in b.seed.iter() {
-                if seed <= 4 {
-                    e = e.school_link(t, &w.programs[t].real_name);
-                }
-            }
+        // Linked in the line's own order, so a name inside an earlier one is
+        // already taken: "Texas" after "Texas A&M" links the second (the
+        // seeds' map order once let "Texas" take "Texas A&M"'s place, a
+        // different link on every run of one seed).
+        for &t in &top {
+            e = e.school_link(t, &w.programs[t].real_name);
         }
         w.calendar.post(e);
     }
@@ -3764,7 +3807,9 @@ pub(crate) const COACH_GONE: &str = "his head coach is gone";
 pub(crate) fn coach_gone(w: &mut World, prog: usize) {
     let factor = crate::career::PIPELINE.portal_entry.coaching_change;
     let today = w.today;
-    for p in w.people.iter_mut() {
+    // Each player's own lean: any order gives the same world (world speed
+    // lane).
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
         if p.stage == Stage::College
             && p.college == Some(prog)
             && p.cal.lean > 0.0
@@ -3772,7 +3817,7 @@ pub(crate) fn coach_gone(w: &mut World, prog: usize) {
         {
             lean_push(p, today, COACH_GONE, factor);
         }
-    }
+    });
 }
 
 /// Reads and moves each college player's lean toward leaving (T3). The base

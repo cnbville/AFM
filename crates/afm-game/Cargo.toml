@@ -7,6 +7,8 @@ publish.workspace = true
 
 [dependencies]
 afm-engine = { workspace = true }
+# The world build's allocator (`bin/afm_world.rs` only; the game keeps the system one).
+mimalloc = "0.1.52"
 rayon = "1.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

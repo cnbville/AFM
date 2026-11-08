@@ -1301,7 +1301,8 @@
  "unlisted_files": [
   "ab_real.json",
   "college_candidates.csv",
-  "college_expected_points.csv"
+  "college_expected_points.csv",
+  "results_real.json"
  ],
  "figures": [
   {
@@ -11223,49 +11224,49 @@
   },
   {
    "file": "crates/afm-engine/src/world/recruiting.rs",
-   "line": 1316,
+   "line": 1368,
    "text": "// snapper (from memory, to verify): two of each at most, however well",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/recruiting.rs",
-   "line": 1498,
+   "line": 1550,
    "text": "/// the last day (real recent drafts, from memory: round 1 about 6 minutes a",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/recruiting.rs",
-   "line": 2217,
+   "line": 2269,
    "text": "/// participation counts over teams, from memory, to verify).",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 1891,
+   "line": 1930,
    "text": "// The real fields (from memory, to verify): Division III 16 teams",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 2084,
+   "line": 2123,
    "text": "// The Stagg Bowl (from memory, to verify): Phenix City 1985-89,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 2094,
+   "line": 2133,
    "text": "// The NAIA final (from memory, to verify): Rome, Georgia 2008-13,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 2548,
+   "line": 2591,
    "text": "/// now and then and almost never to a defender (2000-2024, from memory, to",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 3653,
+   "line": 3696,
    "text": "/// Clemson 2018, and a few dozen a year since (from memory, to verify).",
    "status": "from memory"
   },

@@ -418,7 +418,11 @@ fn regional(w: &mut World, d: Date, host: &str) {
     let Some(hs) = w.states.iter().position(|s| s.code == host) else { return };
     let key = w.options.seed as u64 ^ 0x5E61_0000 ^ (d.0 as u64) << 20;
     let mine = your_board(w);
+    // Read on all cores, in person order (world speed lane).
+    use rayon::prelude::*;
     let goes: Vec<usize> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
         .filter(|&i| {
             let p = &w.people[i];
             let Some(age) = camp_age(p, y) else { return false };
@@ -440,23 +444,34 @@ fn regional(w: &mut World, d: Date, host: &str) {
 fn national(w: &mut World, d: Date) {
     let y = d.year();
     let key = w.options.seed as u64 ^ 0x0FE2_0000 ^ (d.0 as u64) << 20;
+    // Each kid read on all cores, then listed in person order (world
+    // speed lane).
+    use rayon::prelude::*;
+    type Read = (Option<(f64, usize)>, Option<(f64, usize)>);
+    let reads: Vec<Read> = w
+        .people
+        .par_iter()
+        .enumerate()
+        .with_min_len(4096)
+        .filter_map(|(i, p)| {
+            if camp_age(p, y) != Some(1.0) {
+                return None;
+            }
+            let rated = if p.stars >= 3 { p.cal.service_read.map(|r| (r, i)) } else { None };
+            let s = seen(w, p);
+            let timed = if s.timed {
+                crate::body::play_speed(p.player.position, s.grown.0, s.grown.1).map(|mix| (mix, i))
+            } else {
+                None
+            };
+            Some((rated, timed))
+        })
+        .collect();
     let mut best: Vec<(f64, usize)> = Vec::new();
     let mut fast: Vec<(f64, usize)> = Vec::new();
-    for (i, p) in w.people.iter().enumerate() {
-        if camp_age(p, y) != Some(1.0) {
-            continue;
-        }
-        if p.stars >= 3
-            && let Some(r) = p.cal.service_read
-        {
-            best.push((r, i));
-        }
-        let s = seen(w, p);
-        if s.timed
-            && let Some(mix) = crate::body::play_speed(p.player.position, s.grown.0, s.grown.1)
-        {
-            fast.push((mix, i));
-        }
+    for (rated, timed) in reads {
+        best.extend(rated);
+        fast.extend(timed);
     }
     best.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     fast.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
@@ -499,35 +514,43 @@ fn camps(w: &mut World, d: Date) {
             in_state[g.state].push(j);
         }
     }
-    let mut goes: Vec<(usize, usize)> = Vec::new();
-    for (i, p) in w.people.iter().enumerate() {
-        let Some(age) = camp_age(p, y) else { continue };
-        let id = p.player.id as u64;
-        if key_uniform(key, id) >= camps_wanted(p, age) / 30.0 {
-            continue;
-        }
-        let offers: Vec<usize> = p
-            .cal
-            .offers
-            .iter()
-            .copied()
-            .chain(p.cal.early_offers.iter().map(|o| o.0))
-            .filter(|&j| Some(j) != yours)
-            .collect();
-        let host = if !offers.is_empty() && key_uniform(key ^ 1, id) < 0.6 {
-            offers[(key_uniform(key ^ 2, id) * offers.len() as f64) as usize % offers.len()]
-        } else {
-            let list = &in_state[p.home_state];
-            if list.is_empty() {
-                continue;
+    // Each kid's choice is keyed by the day and his id: found on all cores,
+    // kept in person order (world speed lane).
+    use rayon::prelude::*;
+    let goes: Vec<(usize, usize)> = w
+        .people
+        .par_iter()
+        .enumerate()
+        .with_min_len(4096)
+        .filter_map(|(i, p)| {
+            let age = camp_age(p, y)?;
+            let id = p.player.id as u64;
+            if key_uniform(key, id) >= camps_wanted(p, age) / 30.0 {
+                return None;
             }
-            list[(key_uniform(key ^ 3, id) * list.len() as f64) as usize % list.len()]
-        };
-        if super::geo::miles(w.programs[host].state, p.home_state) > 400.0 && p.bg.money < 0.5 {
-            continue;
-        }
-        goes.push((i, host));
-    }
+            let offers: Vec<usize> = p
+                .cal
+                .offers
+                .iter()
+                .copied()
+                .chain(p.cal.early_offers.iter().map(|o| o.0))
+                .filter(|&j| Some(j) != yours)
+                .collect();
+            let host = if !offers.is_empty() && key_uniform(key ^ 1, id) < 0.6 {
+                offers[(key_uniform(key ^ 2, id) * offers.len() as f64) as usize % offers.len()]
+            } else {
+                let list = &in_state[p.home_state];
+                if list.is_empty() {
+                    return None;
+                }
+                list[(key_uniform(key ^ 3, id) * list.len() as f64) as usize % list.len()]
+            };
+            if super::geo::miles(w.programs[host].state, p.home_state) > 400.0 && p.bg.money < 0.5 {
+                return None;
+            }
+            Some((i, host))
+        })
+        .collect();
     for (i, host) in goes {
         test(w, i, At::Camp(host as u16), d, key ^ 4, &[]);
     }
@@ -653,16 +676,25 @@ pub(crate) fn speed_floors(
     kids: &[usize],
     class: &[f64; POSITION_COUNT],
 ) -> std::collections::HashMap<usize, u8> {
+    // Each kid's read on all cores, listed in the kids' order (world speed
+    // lane).
+    use rayon::prelude::*;
+    let timed: Vec<(usize, f64, usize)> = kids
+        .par_iter()
+        .with_min_len(256)
+        .filter_map(|&i| {
+            let p = &w.people[i];
+            let s = seen(w, p);
+            if !s.timed {
+                return None;
+            }
+            crate::body::play_speed(p.player.position, s.grown.0, s.grown.1)
+                .map(|mix| (p.player.position.index(), mix, i))
+        })
+        .collect();
     let mut by_pos: Vec<Vec<(f64, usize)>> = vec![Vec::new(); POSITION_COUNT];
-    for &i in kids {
-        let p = &w.people[i];
-        let s = seen(w, p);
-        if !s.timed {
-            continue;
-        }
-        if let Some(mix) = crate::body::play_speed(p.player.position, s.grown.0, s.grown.1) {
-            by_pos[p.player.position.index()].push((mix, i));
-        }
+    for (k, mix, i) in timed {
+        by_pos[k].push((mix, i));
     }
     let mut out = std::collections::HashMap::new();
     for (k, list) in by_pos.iter_mut().enumerate() {

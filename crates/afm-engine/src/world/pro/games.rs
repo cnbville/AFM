@@ -403,14 +403,14 @@ pub(crate) struct Fixture {
 /// Plays a day's games on the engine, all cores. A team that can't field
 /// 30 players gets None (the stand-in decides).
 pub(crate) fn play(w: &World, games: &[Fixture]) -> Vec<Option<(GameResult, [Side; 2])>> {
-    let mut sides: HashMap<usize, Option<Side>> = HashMap::new();
-    for g in games {
-        for t in [g.home, g.away] {
-            sides.entry(t).or_insert_with(|| game_side(w, t));
-        }
-    }
+    // Each club's side and each game's setup only read the world: on all
+    // cores (world speed lane).
+    let mut teams: Vec<usize> = games.iter().flat_map(|g| [g.home, g.away]).collect();
+    teams.sort_unstable();
+    teams.dedup();
+    let sides: HashMap<usize, Option<Side>> = teams.par_iter().map(|&t| (t, game_side(w, t))).collect();
     let jobs: Vec<Option<(Side, Side, Venue, u64)>> = games
-        .iter()
+        .par_iter()
         .map(|g| {
             let mut a = sides.get(&g.home)?.clone()?;
             let mut b = sides.get(&g.away)?.clone()?;
@@ -482,10 +482,25 @@ pub(crate) fn tally_game(
     kind: &'static str,
     line: Option<[f32; 2]>,
 ) {
-    use crate::world::tally::{Level, games};
     if !w.tallying() {
         return;
     }
+    let part = tally_part(w, f, r, sides, kind, line);
+    w.tally_game(part);
+}
+
+/// An NFL game's tally part (`tally_game`), worked out from the world as
+/// it stands: it only reads, so a day's games can be worked out on all
+/// cores and added in their order.
+pub(crate) fn tally_part(
+    w: &World,
+    f: &Fixture,
+    r: &GameResult,
+    sides: &[Side; 2],
+    kind: &'static str,
+    line: Option<[f32; 2]>,
+) -> crate::world::tally::games::Part {
+    use crate::world::tally::{Level, games};
     let season = w.nfl_season.as_ref().map_or(w.year, |s| s.year);
     let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
     let pos: [std::collections::HashMap<u32, crate::positions::Position>; 2] =
@@ -510,8 +525,7 @@ pub(crate) fn tally_game(
         spread: line.map(|l| -l[0]),
         lv: Some(crate::player::Level::NFL),
     };
-    let part = games::part(facts, &r.stats, true, &|s, id| pos[s].get(&id).copied());
-    w.tally_game(part);
+    games::part(facts, &r.stats, true, &|s, id| pos[s].get(&id).copied())
 }
 
 /// The day a club brings into a game (dialogue D4): a division game is the
@@ -628,6 +642,15 @@ pub(crate) fn record(
 ) {
     let year = w.year;
     w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref(), &r.talks);
+    // Growth from results: his plays move his skills, his snaps land.
+    if w.options.results.on {
+        use crate::world::stories::TeamKey;
+        let ev = crate::results::evidence(crate::player::Level::NFL, &r.stats, [&sides[0].team, &sides[1].team]);
+        let ids: HashMap<u32, (usize, Option<TeamKey>)> = (0..2)
+            .flat_map(|s| sides[s].who.iter().map(move |(&id, &(i, _))| (id, (i, Some(TeamKey::Nfl(teams[s] as u16))))))
+            .collect();
+        crate::results::world_game(w, crate::player::Level::NFL, ev, &|id| ids.get(&id).copied());
+    }
     // The league's numbers for the game boards (lane 9), by season.
     let season = w.nfl_season.as_ref().map_or(year, |s| s.year);
     crate::world::charts::add_game(w, season, crate::world::charts::NFL, &r.stats);

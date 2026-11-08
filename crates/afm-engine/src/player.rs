@@ -259,10 +259,19 @@ pub enum DevelopmentEvent {
     /// Weak teaching or a scheme that doesn't fit him cost him ability, not
     /// only growth (fix list 4.6).
     PoorCoaching,
+    /// A game whose results lifted one skill `results::BIG_GAME` points
+    /// or more (growth from results): the mini explosion.
+    BigGame,
+    /// A season whose results lifted one skill `results::BIG_SEASON`
+    /// points or more: a breakout he earned on the field.
+    BigSeason,
+    /// A season whose results took `results::BIG_SEASON` points or more
+    /// off one skill: he played below his ratings all year.
+    RoughSeason,
 }
 
 impl DevelopmentEvent {
-    pub const ALL: [DevelopmentEvent; 17] = [
+    pub const ALL: [DevelopmentEvent; 20] = [
         DevelopmentEvent::GrowthSpurt,
         DevelopmentEvent::BodyStalled,
         DevelopmentEvent::Breakout,
@@ -280,6 +289,9 @@ impl DevelopmentEvent {
         DevelopmentEvent::WeightGain,
         DevelopmentEvent::Complacent,
         DevelopmentEvent::PoorCoaching,
+        DevelopmentEvent::BigGame,
+        DevelopmentEvent::BigSeason,
+        DevelopmentEvent::RoughSeason,
     ];
 
     pub fn name(self) -> &'static str {
@@ -301,6 +313,9 @@ impl DevelopmentEvent {
             DevelopmentEvent::WeightGain => "weightGain",
             DevelopmentEvent::Complacent => "complacent",
             DevelopmentEvent::PoorCoaching => "poorCoaching",
+            DevelopmentEvent::BigGame => "bigGame",
+            DevelopmentEvent::BigSeason => "bigSeason",
+            DevelopmentEvent::RoughSeason => "roughSeason",
         }
     }
 }
@@ -344,6 +359,11 @@ impl Default for OptF64 {
 
 impl OptF64 {
     pub const NONE: OptF64 = OptF64(f64::NAN);
+
+    #[inline]
+    pub fn some(v: f64) -> OptF64 {
+        OptF64(v)
+    }
 
     #[inline]
     pub fn get(self) -> Option<f64> {
@@ -448,6 +468,10 @@ pub struct SeasonRecord {
     pub depth: Option<String>,
     /// How his pro surroundings helped (+) or hurt (-) him that season, -1 to 1.
     pub situation: OptF64,
+    /// Overall points his game results moved him this season (growth from
+    /// results); none in a season without engine games.
+    #[serde(default)]
+    pub results: OptF64,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

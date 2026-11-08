@@ -170,7 +170,15 @@ pub struct Battles {
     pub lines: HashMap<u32, (f64, u32)>,
     pub plays: Vec<PlayRecord>,
     pub snaps: u32,
+    /// Growth from results, item 16 (behind its switch): each man's
+    /// practice evidence, at a quarter of a game snap, a sampled snap
+    /// standing for the week's snaps it samples.
+    pub results: HashMap<u32, crate::results::Man>,
 }
+
+/// A practice snap's weight against a game snap (item 16, proposed, not
+/// confirmed: a quarter).
+pub const PRACTICE_RESULTS: f64 = 0.25;
 
 /// Runs a week's battles for a team. `starters` and `backups` are player
 /// ids by their role this week.
@@ -183,9 +191,12 @@ pub fn run(
     starters: &HashSet<u32>,
     backups: &HashSet<u32>,
     keep_plays: bool,
+    results: bool,
     seed: u64,
 ) -> Battles {
     let mut out = Battles::default();
+    // A sampled snap stands for the week's snaps it samples.
+    let stand = if cap == 0 { 1.0 } else { (total(snaps) as f64 / cap as f64).max(1.0) };
     for (unit, list) in plan_snaps(snaps, cap, seed) {
         let owned;
         let side: &GameTeam = match unit {
@@ -208,6 +219,25 @@ pub fn run(
             }
         };
         let stats = practice_snaps(side, side, level, &list, seed ^ (unit as u64) << 40);
+        if results {
+            // The team against itself: the defense he faces is his own
+            // team's (item 5 in practice).
+            let w = (PRACTICE_RESULTS * stand) as f32;
+            for (id, m) in crate::results::evidence(level, &stats, [side, side]) {
+                let e = out.results.entry(id).or_default();
+                e.practice = true;
+                e.opp = m.opp;
+                for (r, n, s) in m.reads {
+                    match e.reads.iter_mut().find(|x| x.0 == r) {
+                        Some(x) => {
+                            x.1 += w * n;
+                            x.2 += w * s;
+                        }
+                        None => e.reads.push((r, w * n, w * s)),
+                    }
+                }
+            }
+        }
         absorb(&mut out, stats, keep_plays);
     }
     out
@@ -292,11 +322,21 @@ pub(crate) fn seat_battles(
             _ => {}
         }
     }
-    let b = run(&team, level, &snaps, 150, &starters, &backups, true, seed ^ 0xBA7);
+    let practice_results = w.options.results.on && w.options.results.practice;
+    let b = run(&team, level, &snaps, 150, &starters, &backups, true, practice_results, seed ^ 0xBA7);
     log.snaps = b.snaps;
+    if practice_results {
+        let ids: HashMap<u32, (usize, Option<crate::world::stories::TeamKey>)> =
+            st.roster.iter().map(|&i| (w.people[i].player.id, (i, None))).collect();
+        crate::results::world_game(w, level, b.results.clone(), &|id| ids.get(&id).copied());
+    }
     let by_id: HashMap<u32, usize> = st.roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
     let mut week: Vec<(u32, u8, u32)> = Vec::new();
-    for (&id, &(sum, n)) in &b.lines {
+    // In id order: the season's grades list keeps the same order on every
+    // run (a hash map's order changed it).
+    let mut lines: Vec<(u32, (f64, u32))> = b.lines.iter().map(|(&id, &v)| (id, v)).collect();
+    lines.sort_unstable_by_key(|x| x.0);
+    for (id, (sum, n)) in lines {
         let Some(&i) = by_id.get(&id) else { continue };
         let p = &mut w.people[i];
         let g = seen(grade(sum, n), &p.player, p.mood);
@@ -428,8 +468,10 @@ pub(crate) struct AiTeam {
 /// Every college and NFL team's sampled battles (not your team's): the
 /// grades into each man's practice grade.
 pub(crate) fn world_battles(w: &mut World, teams: Vec<(Vec<usize>, AiTeam)>, seed: u64) {
+    let practice_results = w.options.results.on && w.options.results.practice;
     let people = &w.people;
-    let results: Vec<Vec<(usize, u8)>> = teams
+    #[allow(clippy::type_complexity)]
+    let results: Vec<(Vec<(usize, u8)>, Level, HashMap<u32, crate::results::Man>, HashMap<u32, usize>)> = teams
         .par_iter()
         .enumerate()
         .map(|(k, (roster, t))| {
@@ -447,9 +489,20 @@ pub(crate) fn world_battles(w: &mut World, teams: Vec<(Vec<usize>, AiTeam)>, see
                     _ => {}
                 }
             }
-            let b = run(&t.team, t.level, &t.snaps, t.cap, &starters, &backups, false, seed ^ (k as u64) << 16);
+            let mut b = run(
+                &t.team,
+                t.level,
+                &t.snaps,
+                t.cap,
+                &starters,
+                &backups,
+                false,
+                practice_results,
+                seed ^ (k as u64) << 16,
+            );
             let by_id: HashMap<u32, usize> = roster.iter().map(|&i| (people[i].player.id, i)).collect();
-            b.lines
+            let grades = b
+                .lines
                 .iter()
                 .filter(|(_, (_, n))| *n >= 2)
                 .filter_map(|(id, &(sum, n))| {
@@ -457,12 +510,17 @@ pub(crate) fn world_battles(w: &mut World, teams: Vec<(Vec<usize>, AiTeam)>, see
                     let p = &people[i];
                     Some((i, blend(p.player.train.grade, seen(grade(sum, n), &p.player, p.mood))))
                 })
-                .collect()
+                .collect();
+            let ev = std::mem::take(&mut b.results);
+            (grades, t.level, ev, if practice_results { by_id } else { HashMap::new() })
         })
         .collect();
-    for v in results {
+    for (v, level, ev, by_id) in results {
         for (i, g) in v {
             w.people[i].player.train.grade = g;
+        }
+        if !ev.is_empty() {
+            crate::results::world_game(w, level, ev, &|id| by_id.get(&id).map(|&i| (i, None)));
         }
     }
 }
