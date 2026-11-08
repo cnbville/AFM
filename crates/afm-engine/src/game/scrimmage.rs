@@ -335,12 +335,14 @@ pub static THROW_SD: [std::sync::atomic::AtomicU64; 6] = [const { std::sync::ato
 /// `AFM_QBSTATS`).
 pub static BATTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+/// The trails' buffers (each player's spots, then velocities).
+type Trails = (Vec<Vec<V2>>, Vec<Vec<V2>>);
+
 thread_local! {
     /// The trails of `run_snap` (each player's spot and velocity at every
     /// tick), kept on this thread between snaps and emptied at each one's
     /// start: only their room is reused, so a snap allocates none of them.
-    static TRAILS: std::cell::Cell<(Vec<Vec<V2>>, Vec<Vec<V2>>)> =
-        const { std::cell::Cell::new((Vec::new(), Vec::new())) };
+    static TRAILS: std::cell::Cell<Trails> = const { std::cell::Cell::new((Vec::new(), Vec::new())) };
 }
 
 /// Run a snap.
