@@ -133,6 +133,62 @@ macro_rules! lb_real {
     };
 }
 
+/// An edge rusher body, drill or bend test's rows against every real edge
+/// (`afm/ab-tests/research-edge.md`): how he wins, how a pressure ends,
+/// pressure by how fast the ball comes out, run support, flags, the team.
+const ED_BODY: &[&str] = &[
+    "dl_press_snap",
+    "dl_sack_snap",
+    "dl_hurry_snap",
+    "dl_sack_prs",
+    "dl_press",
+    "dl_hit",
+    "dl_sack",
+    "dl_win",
+    "dl_win_t",
+    "dl_speed_win",
+    "dl_power_win",
+    "dl_finesse_win",
+    "dl_contact",
+    "dl_shed",
+    "dl_press_quick",
+    "dl_press_long",
+    "dl_bat",
+    "tk_run_snap",
+    "tk_run_stop",
+    "tk_rate",
+    "tk_miss",
+    "dl_tkl_run",
+    "dl_stop_run",
+    "dl_tfl",
+    "dl_run_shed",
+    "dl_off",
+    "dl_rtp",
+    "def_press",
+    "def_sack",
+    "def_ypc",
+    "def_out_ypc",
+    "def_run_succ",
+    "def_epa_db",
+    "def_scr_yds",
+];
+macro_rules! ed_real {
+    ($x:literal) => {
+        &[
+            ("dl_press_snap", concat!("edge_", $x, "__prss_per_snap")),
+            ("dl_sack_snap", concat!("edge_", $x, "__sack_per_snap")),
+            ("dl_hurry_snap", concat!("edge_", $x, "__hrry_per_snap")),
+            ("dl_sack_prs", concat!("edge_", $x, "__sk_per_prss")),
+            ("tk_run_snap", concat!("edge_", $x, "__rtk_per_snap")),
+            ("tk_run_stop", concat!("edge_", $x, "__rstop_per_snap")),
+            ("tk_rate", concat!("edge_", $x, "__tkl_per_snap")),
+            ("tk_miss", concat!("edge_", $x, "__mtkl_pct")),
+            ("dl_off", concat!("edge_", $x, "__off_per_snap")),
+            ("dl_rtp", concat!("edge_", $x, "__rtp_per_snap")),
+        ]
+    };
+}
+
 fn t(id: &'static str, group: &'static str, name: &'static str, pos: &[Position], kind: Kind) -> Test {
     Test {
         id,
@@ -609,7 +665,8 @@ pub fn all() -> Vec<Test> {
                 "dl_run_shed",
                 "def_ypc",
             ])
-            .real(&[("dl_press_snap", "edge_arm__prss_per_snap"), ("dl_sack_snap", "edge_arm__sack_per_snap")])
+            .chain(ED_BODY)
+            .real(ed_real!("arm"))
             .sign(1.0)
             .headline()
             .note("arm inches are not read in the hand fight, only through the Length link (nothing below about the top 30%) and batted balls"),
@@ -629,22 +686,51 @@ pub fn all() -> Vec<Test> {
                 "def_ypc",
                 "def_sack",
             ])
-            .real(&[("dl_press_snap", "edge_split__prss_per_snap"), ("dl_sack_snap", "edge_split__sack_per_snap")])
+            .chain(ED_BODY)
+            .real(ed_real!("split"))
             .sign(-1.0),
         t("edge_snap", "edge", "Snap timing habit (4 / 16)", ed, Kind::Tend(Tend::SnapTiming))
             .chain(&["dl_contact", "dl_off", "dl_win", "dl_press"])
             .sign(-1.0),
         t("edge_speed", "edge", "Speed (forty 5.03 / 4.79 / 4.55)", ed, drawn(Forty, [5.03, 4.79, 4.55]))
             .chain(&["dl_speed_win", "dl_win", "dl_press", "dl_sack", "def_scr_yds"])
-            .real(&[("dl_press_snap", "edge_forty__prss_per_snap"), ("dl_sack_snap", "edge_forty__sack_per_snap")])
+            .chain(ED_BODY)
+            .real(ed_real!("forty"))
             .sign(1.0),
         t("edge_bend", "edge", "Flexibility (bend)", ed, r(&[A::Flexibility]))
             .chain(&["dl_speed_win", "dl_win", "dl_press"])
+            .chain(ED_BODY)
             .sign(1.0),
         t("edge_weight", "edge", "Weight (243 / 264 / 285 lb)", ed, drawn(Weight, [243.0, 264.0, 285.0]))
             .chain(&["dl_power_win", "dl_speed_win", "dl_press", "dl_run_shed", "def_ypc"])
-            .real(&[("dl_press_snap", "edge_wt__prss_per_snap")])
+            .chain(ED_BODY)
+            .real(ed_real!("wt"))
             .sign(0.0),
+        // The edge research (afm/ab-tests/research-edge.md): height, the
+        // two agility drills (the 3-cone reads bend), Agility and Strength.
+        t("edge_height", "edge", "Height (6-2 / 6-3¾ / 6-5½)", ed, drawn(Height, [74.0, 75.75, 77.5]))
+            .chain(&["dl_press", "dl_speed_win", "dl_power_win", "dl_bat"])
+            .chain(ED_BODY)
+            .real(ed_real!("ht"))
+            .sign(0.0),
+        t("edge_cone", "edge", "3-cone (7.44 / 7.17 / 6.90)", ed, drawn(Cone, [7.44, 7.17, 6.90]))
+            .chain(&["dl_press", "dl_sack_prs", "dl_finesse_win", "dl_speed_win"])
+            .chain(ED_BODY)
+            .real(ed_real!("cone"))
+            .sign(1.0),
+        t("edge_shuttle", "edge", "Short shuttle (4.53 / 4.36 / 4.18)", ed, drawn(Shuttle, [4.53, 4.36, 4.18]))
+            .chain(&["dl_press", "dl_hurry_snap", "dl_tfl", "dl_finesse_win"])
+            .chain(ED_BODY)
+            .real(ed_real!("shuttle"))
+            .sign(1.0),
+        t("edge_agility", "edge", "Agility", ed, r(&[A::Agility]))
+            .chain(&["dl_finesse_win", "dl_win", "dl_press", "dl_sack_prs"])
+            .chain(ED_BODY)
+            .sign(1.0),
+        t("edge_strength", "edge", "Strength", ed, r(&[A::Strength]))
+            .chain(&["dl_power_win", "dl_win", "dl_press", "dl_run_shed"])
+            .chain(ED_BODY)
+            .sign(1.0),
         t("edge_finesse", "edge", "Finesse Rush", ed, r(&[A::FinesseRush]))
             .chain(&["dl_finesse_win", "dl_win", "dl_press", "dl_sack"])
             .real(&[("dl_press_snap", "edge_prss_per_snap"), ("dl_sack_snap", "edge_sack_per_snap")])
@@ -948,7 +1034,7 @@ pub fn all() -> Vec<Test> {
             .chain(&["st_snaps", "st_q4_press", "st_q1_press"])
             .sign(1.0),
         t("all_consistency", "all", "Consistency (hidden, 4 / 16)", every, Kind::Consistency)
-            .chain(&["qb_ypa_sd", "rb_ypc_sd"])
+            .chain(&["qb_ypa_sd", "qb_epa_form", "qb_cmp_form", "rb_ypc_sd"])
             .sign(-1.0),
         t("all_composure", "all", "Composure", every, r(&[A::Composure]))
             .chain(&["qb_late_cmp", "k_fg_late", "pen"])
@@ -990,6 +1076,20 @@ pub fn all() -> Vec<Test> {
         [32.5, 34.0, 35.5],
         &["dl_press", "dl_shed", "dl_win", "dl_sack"],
     ));
+    // The edge research's combinations: one edge's two numbers moved
+    // together (body first, then the drill at that body).
+    let ecombo: &[&'static str] =
+        &["dl_press", "dl_sack", "dl_sack_prs", "dl_speed_win", "dl_power_win", "dl_win", "dl_stop_run", "def_ypc"];
+    for (id, name, p, pv, q, qv) in [
+        ("grid_edge_wt_split", "Edge weight × get-off", Weight, [243.0, 264.0, 285.0], Split, [1.70, 1.62, 1.55]),
+        ("grid_edge_wt_forty", "Edge weight × speed", Weight, [243.0, 264.0, 285.0], Forty, [5.03, 4.79, 4.55]),
+        ("grid_edge_wt_cone", "Edge weight × 3-cone", Weight, [243.0, 264.0, 285.0], Cone, [7.44, 7.17, 6.90]),
+        ("grid_edge_ht_cone", "Edge height × 3-cone", Height, [74.0, 75.75, 77.5], Cone, [7.44, 7.17, 6.90]),
+        ("grid_edge_arm_split", "Edge arms × get-off", Arm, [32.1, 33.75, 35.4], Split, [1.70, 1.62, 1.55]),
+        ("grid_edge_arm_forty", "Edge arms × speed", Arm, [32.1, 33.75, 35.4], Forty, [5.03, 4.79, 4.55]),
+    ] {
+        v.push(grid(id, "edge", name, ed, p, pv, ed, q, qv, ecombo));
+    }
     v.push(grid(
         "grid_dt_iol",
         "dt",

@@ -150,7 +150,7 @@ function frBrief(b) {
     <div class="fm-cols"><div class="fm-main">
       ${frCard("The question to settle", `<div class="fm-big">${esc(q ? q.text : "What does his tape say?")}</div><p class="fm-dim">${esc(q ? q.why : "")}</p><div class="fm-seg wrap">${qs}</div>`)}
       ${frCard(`The cut-up · about ${mins} min`, `<div class="fm-seg wrap">${cuts}</div>
-        <p class="fm-dim">${b.full_snaps || 6} of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end.${b.full_through ? ` The full tape plays straight through with your coach in the room: no stops to call a snap, a half-seen moment run back while your hours last (${b.runback_min} min each), then your verdict. The quick watch skims the same snaps: a first look only, with no coach.` : ""}</p>
+        <p class="fm-dim">${b.full_snaps || 6} of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end.${b.full_through ? ` The full tape plays straight through with your coach in the room: no stops to call a snap, a half-seen moment run back while your hours last (${b.runback_min} min each), and the report lands in his file on the same click. The quick watch skims the same snaps: a first look only, with no coach.` : ""}</p>
         <div class="fm-seg">${frBtn("fropen", { id: b.id, mode: "full" }, b.full_through ? `▶ Watch the full tape · about ${mins} min` : "Watch it snap by snap", "primary")}${frBtn("fropen", { id: b.id, mode: "quick" }, `Watch it quick · ${b.quick_min} min`)}<button class="st-btn small glass" data-go="film">Back to the queue</button></div>`)}
     </div><div class="fm-side">${frReads(b.reads, null)}</div></div></div>`;
 }
@@ -335,9 +335,9 @@ function frReport(x) {
     <header class="fm-head"><div><div class="st-label">Film report · ${esc(r.date)}</div><h1 class="fm-h1">${r.id != null ? frWho(r.id, r.name) : esc(r.name)}</h1><p class="fm-sub">${esc(r.ask || "")}</p></div></header>
     ${x.said ? `<p class="fm-note">${esc(x.said)}</p>` : ""}
     <div class="fm-cells">
-      ${frCell("On the record", r.verdict || "No verdict", r.settled != null ? (r.settled ? "held up three years on" : "missed, three years on") : "")}
+      ${r.verdict ? frCell("On the record", r.verdict, r.settled != null ? (r.settled ? "held up three years on" : "missed, three years on") : "") : ""}
       ${r.coach ? frCell(`${r.coach.split(" ").pop()}'s answer`, r.coach_answer || "—", r.coach) : ""}
-      ${frCell("Your calls", r.calls[1] ? `${r.calls[0]} of ${r.calls[1]}` : "None", "with your coach in the room")}
+      ${r.calls[1] ? frCell("Your calls", `${r.calls[0]} of ${r.calls[1]}`, "with your coach in the room") : ""}
       ${frCell("Saved to his file", `${r.watched} snaps`, `${r.minutes} min, under your name`)}
       ${frCell("Carried forward", r.carried.length ? r.carried.join(", ") : "Nothing", "tags for the interview room and the board")}
       ${r.analyst ? frCell("The analyst's view", r.analyst, r.numbers) : ""}

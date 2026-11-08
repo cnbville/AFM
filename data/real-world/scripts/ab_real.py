@@ -770,6 +770,31 @@ for _xb in ("wt", "ht", "arm", "forty"):
         _y, _w, _ms, _lab = CB_Y[_n]
         slope(f"lb_{_xb}__{_n}", lbf, _xb, _y, _w, "LB, " + _ms, SRC_DEF + (SRC_MD if _xb == "arm" else ""), _lab)
 
+# An edge rusher's body and drills against the rush, how a pressure ends, run support and flags, every
+# edge (the edge research, afm/ab-tests/research-edge.md): the rows the edge body and drill tests read.
+PEN_E = {"e_off": PEN["offside"], "e_rtp": ["Roughing the Passer"]}
+pce = pd.DataFrame({k: pen[pen.penalty_type.isin(v)].groupby(["season", "pfr_id"]).size() for k, v in PEN_E.items()})
+edf = dd.join(pce.fillna(0), on=["season", "pfr_id"])
+edf = edf[edf.group == "EDGE"].copy()
+edf[list(PEN_E)] = edf[list(PEN_E)].fillna(0)
+edf["off_per_snap"] = edf.e_off / edf.dfn
+edf["rtp_per_snap"] = edf.e_rtp / edf.dfn
+edf["hrry_per_snap"] = edf.hrry.fillna(0) / edf.dfn
+edf["sk_per_prss"] = (edf.sk / edf.prss).where(edf.prss >= 10)
+CB_Y["off_per_snap"] = ("off_per_snap", "dfn", MS_D, "offside, neutral zone and encroachment a defense snap")
+CB_Y["rtp_per_snap"] = ("rtp_per_snap", "dfn", MS_D, "roughing the passer a defense snap")
+CB_Y["hrry_per_snap"] = ("hrry_per_snap", "dfn", MS_D, "hurries a defense snap")
+CB_Y["sk_per_prss"] = ("sk_per_prss", "prss", MS_D + " and 10+ pressures", "sacks a pressure")
+ED_ALL = ("prss_per_snap", "sack_per_snap", "hrry_per_snap", "sk_per_prss", "rtk_per_snap", "rstop_per_snap",
+          "tkl_per_snap", "mtkl_pct", "off_per_snap", "rtp_per_snap")
+for _xb in ("wt", "ht", "arm", "forty", "split", "cone", "shuttle"):
+    for _n in ED_ALL:
+        if f"edge_{_xb}__{_n}" in SLOPES:
+            continue
+        _y, _w, _ms, _lab = CB_Y[_n]
+        _src = SRC_PEN if _n in ("off_per_snap", "rtp_per_snap") else SRC_DEF
+        slope(f"edge_{_xb}__{_n}", edf, _xb, _y, _w, "EDGE, " + _ms, _src + (SRC_MD if _xb in ("arm", "split") else ""), _lab)
+
 # ---------------------------------------------------------------- kickers, punters, returners
 fg = pbp[(pbp.field_goal_attempt == 1) & pbp.kick_distance.notna()].copy()
 fg["good"] = (fg.field_goal_result == "made").astype(float)

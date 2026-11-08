@@ -102,8 +102,12 @@ impl Part {
             Part::Arm => gp.arm,
             Part::Forty => gp.forty(),
             Part::Split => afm_engine::links::ten_split(&gp.attrs, gp.weight),
-            Part::Cone => Drills::of(&q).expected().cone,
-            Part::Shuttle => Drills::of(&q).expected().shuttle,
+            Part::Cone | Part::Shuttle => {
+                let mut d = Drills::of(&q);
+                d.weight = gp.weight;
+                let e = d.expected();
+                if self == Part::Cone { e.cone } else { e.shuttle }
+            }
         }
     }
 }
@@ -277,10 +281,15 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
                         solve(&mut at, Attr::Acceleration, v, &|x| afm_engine::links::ten_split(x, w));
                     }
                     Part::Cone | Part::Shuttle => {
+                        // At the weight this arm gave him, not his own
+                        // (the combination grids move both).
+                        let w = b.weight;
                         let f = |x: &Attributes| {
                             let mut p = q.clone();
                             p.attributes = *x;
-                            let e = Drills::of(&p).expected();
+                            let mut d = Drills::of(&p);
+                            d.weight = w;
+                            let e = d.expected();
                             if part == Part::Cone { e.cone } else { e.shuttle }
                         };
                         solve(&mut at, Attr::Agility, v, &f);
@@ -461,6 +470,16 @@ fn sd(c: &C) -> f64 {
     }
     let m = c[1] / c[0];
     (c[2] / c[0] - m * m).max(0.0).sqrt()
+}
+
+/// A spread with the sample noise taken out: slot 3 holds each game's noise
+/// variance (minor bug 287: real game logs are measured the same way).
+fn true_sd(c: &C) -> f64 {
+    if c[0] < 2.0 {
+        return f64::NAN;
+    }
+    let m = c[1] / c[0];
+    (c[2] / c[0] - m * m - c[3] / c[0]).max(0.0).sqrt()
 }
 
 /// The NFL passer rating from attempts, completions, yards, touchdowns and
@@ -749,6 +768,57 @@ pub fn stats() -> Vec<Stat> {
                 out
             }),
             value: sd,
+        },
+        Stat {
+            key: "qb_epa_form",
+            label: "game-to-game form of a QB's EPA a dropback (noise taken out)",
+            unit: Num,
+            play: None,
+            game: Some(|g, c| {
+                let mut m: HashMap<u32, (f64, f64, f64)> = HashMap::new();
+                for r in g.stats.plays.iter().filter(|r| dropback(r) && c.fo(qb_of(r))) {
+                    let e = m.entry(qb_of(r).unwrap()).or_default();
+                    e.0 += 1.0;
+                    e.1 += r.epa;
+                    e.2 += r.epa * r.epa;
+                }
+                let mut out = Z;
+                for (n, y, yy) in m.values().filter(|v| v.0 >= 20.0) {
+                    let x = y / n;
+                    // The sample noise in this game's mean: the plays' spread over n.
+                    let noise = (yy / n - x * x) * n / (n - 1.0) / n;
+                    out[0] += 1.0;
+                    out[1] += x;
+                    out[2] += x * x;
+                    out[3] += noise;
+                }
+                out
+            }),
+            value: true_sd,
+        },
+        Stat {
+            key: "qb_cmp_form",
+            label: "game-to-game form of a QB's completion rate (noise taken out)",
+            unit: Pct,
+            play: None,
+            game: Some(|g, c| {
+                let mut m: HashMap<u32, (f64, f64)> = HashMap::new();
+                for r in g.stats.plays.iter().filter(|r| attempt(r) && c.fo(r.passer)) {
+                    let e = m.entry(r.passer.unwrap()).or_default();
+                    e.0 += 1.0;
+                    e.1 += bf(r.complete);
+                }
+                let mut out = Z;
+                for (n, k) in m.values().filter(|v| v.0 >= 15.0) {
+                    let x = k / n;
+                    out[0] += 1.0;
+                    out[1] += x;
+                    out[2] += x * x;
+                    out[3] += x * (1.0 - x) / (n - 1.0);
+                }
+                out
+            }),
+            value: true_sd,
         },
         // --- the run game (focus: the ball carriers)
         play!("rb_ypc", "yards a carry", Num, |r, c| if run(r) && c.fo(r.carrier) { rc(r.yards, 1.0) } else { Z }),
@@ -1140,6 +1210,73 @@ pub fn stats() -> Vec<Stat> {
                 o[1] += 1.0;
             }
             o
+        }),
+        // The edge research's rows (afm/ab-tests/research-edge.md): how a
+        // pressure ends, pressure by how fast the ball comes out, run
+        // support per run, flags.
+        play!(
+            "dl_hurry_snap",
+            "hurries (no hit, no sack) a defense snap",
+            Pct,
+            |r, c| if scrimmage(r) && c.my_def(r) {
+                let n =
+                    r.pressures.iter().filter(|i| c.f(**i) && !r.sackers.contains(*i) && !r.hits.contains(*i)).count();
+                rc(if dropback(r) { n as f64 } else { 0.0 }, c.on(r))
+            } else {
+                Z
+            }
+        ),
+        play!("dl_sack_prs", "sacks a pressure", Pct, |r, c| if dropback(r) && c.my_def(r) {
+            let p = r.on_field.iter().flatten().filter(|i| c.f(**i) && pressured_by(r, **i)).count();
+            rc(r.sackers.iter().filter(|i| c.f(**i)).count() as f64, p as f64)
+        } else {
+            Z
+        }),
+        play!("dl_press_quick", "pressures a rush snap, ball out under 2.5 s", Pct, |r, c| if attempt(r)
+            && c.my_def(r)
+            && r.time_to_throw < 2.5
+        {
+            let n = r.on_field.iter().flatten().filter(|i| c.f(**i) && pressured_by(r, **i)).count();
+            rc(n as f64, c.on(r))
+        } else {
+            Z
+        }),
+        play!("dl_press_long", "pressures a rush snap, ball out at 2.5 s or later", Pct, |r, c| if attempt(r)
+            && c.my_def(r)
+            && r.time_to_throw >= 2.5
+        {
+            let n = r.on_field.iter().flatten().filter(|i| c.f(**i) && pressured_by(r, **i)).count();
+            rc(n as f64, c.on(r))
+        } else {
+            Z
+        }),
+        play!("dl_tkl_run", "run tackles a run snap", Pct, |r, c| if run(r) && c.my_def(r) {
+            rc(r.tacklers.iter().filter(|i| c.f(**i)).count() as f64, c.on(r))
+        } else {
+            Z
+        }),
+        play!(
+            "dl_stop_run",
+            "run stops (his tackle, the run fails) a run snap",
+            Pct,
+            |r, c| if run(r) && c.my_def(r) {
+                let n = if r.epa <= 0.0 { r.tacklers.iter().filter(|i| c.f(**i)).count() } else { 0 };
+                rc(n as f64, c.on(r))
+            } else {
+                Z
+            }
+        ),
+        play!("dl_rtp", "roughing the passer a snap", Pct, |r, c| rc(
+            fouls(r, c, &[FoulKind::RoughingPasser]),
+            snaps(r, c)
+        )),
+        play!("def_press", "team pressure a dropback (defense)", Pct, |r, c| if dropback(r)
+            && c.my_def(r)
+            && c.on(r) > 0.0
+        {
+            rc(bf(r.pressured || r.kind == T::Sack), 1.0)
+        } else {
+            Z
         }),
         play!("def_ypc", "yards a carry allowed", Num, |r, c| if run(r) && c.my_def(r) && c.on(r) > 0.0 {
             rc(r.yards, 1.0)

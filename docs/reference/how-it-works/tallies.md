@@ -1,6 +1,6 @@
 # The Data section's tallies: how it works today
 
-Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04. Lane NB7's squads file and the expected pass model over main 57b7009 on 2026-11-04. Lane NB8 (Data overhaul items 24-27: the calls file, the analysts' model, garbage time, concepts against coverages, the advanced box extras and the teams' charting delay) over main c6e3194 on 2026-11-04. Lane NB10's trends file (Data overhaul item 29) over main b2dae7d on 2026-11-05. Lane NB11 (Data overhaul items 33-41: the prospects, moves and money files) over main 80bf9ef on 2026-11-05. The world build over two machines (NB13) over main f21c2c3 on 2026-11-06.
+Checked against main at a0dfde3 with lane NB1 (Data overhaul item 1, item 2 and minor bug 183) on 2026-11-04. Lane NB4's depth counts and game splits over main fbf431c on 2026-11-04. Lane NB7's squads file and the expected pass model over main 57b7009 on 2026-11-04. Lane NB8 (Data overhaul items 24-27: the calls file, the analysts' model, garbage time, concepts against coverages, the advanced box extras and the teams' charting delay) over main c6e3194 on 2026-11-04. Lane NB10's trends file (Data overhaul item 29) over main b2dae7d on 2026-11-05. Lane NB11 (Data overhaul items 33-41: the prospects, moves and money files) over main 80bf9ef on 2026-11-05. The world build over two machines (NB13) over main f21c2c3 on 2026-11-06. The expected pass model refitted after minor bugs batch 9 over main 460d534 on 2026-11-07.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `.github/`. "Proposed, not confirmed" marks Claude's own picks in this lane, which Cain hasn't answered.
 
@@ -60,7 +60,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 ## The expected pass model (lane NB7)
 
 - The chance a snap is a dropback, by the level's own play calling in that situation, as nflfastR's expected pass rate: logistic regression on the down, the log of the yards to go, two yards or less, the yards to the goal, inside the ten, the margin in touchdowns and the margin times the share of the game gone, the last two minutes of a half, the win chance and three yards or less on third or fourth down (proposed, not confirmed: the features; `world/tally/expect.rs`, `xpass_features`, `XPASS`).
-- Fitted on the engine's own snaps at each level (high school, FBS, FCS, small colleges, NFL) with `xpass_fit -- 600 7` on 2026-11-04: every down-and-distance band within 2.5 points of the engine's own rate, the lead and deficit bands within 3.5 (`crates/afm-tools/src/bin/xpass_fit.rs`). Rerun after engine changes that move play calling.
+- Fitted on the engine's own snaps at each level (high school, FBS, FCS, small colleges, NFL) with `xpass_fit -- 600 7` on 2026-11-04 and again after minor bugs batch 9 on 2026-11-07: every down-and-distance band within 2.0 points of the engine's own rate, the lead and deficit bands within 3.7 (`crates/afm-tools/src/bin/xpass_fit.rs`). Rerun after engine changes that move play calling.
 
 ## The games file
 

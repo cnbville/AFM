@@ -119,9 +119,10 @@ fn a_session_watched_snap_by_snap_becomes_your_report() {
 
 // The full tape played straight through (Cain 2026-11-06, the game's
 // temporary override): no stops for a call, every snap charged, run-backs
-// while the hours last, the room in it, and it stops at the verdict. It
-// costs more than the quick watch and buys more: the same snaps studied,
-// with the coach's own look and the look-back, against a first look.
+// while the hours last, the room in it, and saved on the same press with
+// no verdict asked (Cain 2026-11-07, minor bug 312). It costs more than
+// the quick watch and buys more: the same snaps studied, with the coach's
+// own look, against a first look.
 #[test]
 fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
     let (mut wf, mut wq) = (nfl_world(), nfl_world());
@@ -135,20 +136,22 @@ fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
         if session::open_player(&mut wf, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_err() {
             continue;
         }
+        let n = wf.scouting.film.open.as_ref().unwrap().snaps.len();
+        let said = session::run_through(&mut wf).unwrap();
+        assert!(wf.scouting.film.open.is_none(), "saved on the same press, nothing left to ask");
+        let r = wf.scouting.film.reports.last().unwrap().clone();
         // Out of hours, what was watched is saved at once.
-        if session::run_through(&mut wf).unwrap().is_some() {
+        if (r.watched as usize) < n {
             break;
         }
-        let s = wf.scouting.film.open.as_ref().unwrap();
-        assert_eq!(s.step, 3, "played to the verdict");
-        assert!(s.picks.iter().all(Option::is_none) && s.snaps.iter().all(|x| x.call.is_none()), "no calls");
-        assert!(s.seen.iter().all(|v| !v.contains(&session::HALF)), "nothing left half-seen");
-        runbacks += s.seen.iter().flatten().filter(|&&x| x == session::REPLAYED || x == session::REPLAY_MISSED).count();
-        session::verdict(&mut wf, 2).unwrap();
-        let r = wf.scouting.film.reports.last().unwrap().clone();
+        assert!(said.starts_with("Saved to his file") && !said.contains("calls"), "{said}");
         assert_eq!(r.mode, session::Mode::Full);
+        assert_eq!(r.verdict, None, "no verdict asked");
         assert_eq!(r.calls.1, 0, "no calls asked");
-        assert!(!r.snaps.is_empty(), "the verdict keeps the look-back");
+        assert!(r.snaps.is_empty(), "no stills kept without a verdict");
+        let extra = r.minutes as f32 - n as f32 * session::SNAP_MIN;
+        assert!(extra >= -0.5, "every snap charged: {} min for {n}", r.minutes);
+        runbacks += (extra / session::RUNBACK_MIN).round().max(0.0) as usize;
         full.push(r);
         seen_ids.push(id);
         session::open_player(&mut wq, id, tape::Cut::BestOpponent, session::Mode::Quick, None).unwrap();
@@ -182,6 +185,75 @@ fn the_full_tape_plays_through_and_buys_more_than_the_quick_watch() {
     assert!((spent - charged).abs() < 0.05, "spent {spent} h, charged {charged} h");
     assert!((left_q - time::left(&wq) - quick.len() as f32 * session::QUICK_MIN / 60.0).abs() < 0.05);
     assert!(quick.iter().all(|r| r.coach.is_none()), "no coach in a quick watch");
+}
+
+// A full tape an older build left open (minor bug 312) is played through
+// and saved with no verdict: the state the last build left in saves (every
+// call cleared, waiting at the verdict), and a snap-by-snap tape stopped at
+// a call after one call was made, which keeps its answer.
+#[test]
+fn a_full_tape_left_open_by_an_older_build_is_finished_without_asking() {
+    let mut w = nfl_world();
+    let ids = pros(&w);
+    let mut ids = ids.into_iter();
+    // Plays snap by snap until the tape stops for a call it hasn't made
+    // (Some(at)), or reaches the verdict (None); `make` calls made first.
+    let walk = |w: &mut World, mut make: usize| {
+        for _ in 0..80 {
+            match w.scouting.film.open.as_ref().unwrap().step {
+                0 => session::play(w).unwrap(),
+                1 if make > 0 => {
+                    let right =
+                        w.scouting.film.open.as_ref().map(|s| s.snaps[s.at].call.as_ref().unwrap().right).unwrap();
+                    session::call(w, right).unwrap();
+                    make -= 1;
+                }
+                1 => return Some(w.scouting.film.open.as_ref().unwrap().at),
+                2 => session::next(w).unwrap(),
+                _ => return None,
+            }
+        }
+        panic!("the tape never ended");
+    };
+    // The last build: no calls, stopped at the verdict.
+    let n = loop {
+        let id = ids.next().expect("a player with film");
+        if session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_err() {
+            continue;
+        }
+        let s = w.scouting.film.open.as_mut().unwrap();
+        s.snaps.iter_mut().for_each(|x| x.call = None);
+        let n = s.snaps.len();
+        assert_eq!(walk(&mut w, 0), None);
+        break n;
+    };
+    assert_eq!(w.scouting.film.open.as_ref().unwrap().step, 3, "waiting at the verdict");
+    let said = session::run_through(&mut w).unwrap();
+    assert!(w.scouting.film.open.is_none(), "saved, nothing left open: {said}");
+    let r = w.scouting.film.reports.last().unwrap();
+    assert_eq!((r.verdict, r.calls, r.watched as usize), (None, (0, 0), n), "no verdict, every snap");
+    // An older build, snap by snap: one call made, stopped at the next.
+    let (n, at) = loop {
+        let id = ids.next().expect("a tape with two calls");
+        assert!(time::left(&w) > 1.5, "the hours held out");
+        if session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_err() {
+            continue;
+        }
+        let n = w.scouting.film.open.as_ref().unwrap().snaps.len();
+        match walk(&mut w, 1) {
+            Some(at) => break (n, at),
+            None => {
+                session::close(&mut w).unwrap();
+            }
+        }
+    };
+    assert!(at < n);
+    session::run_through(&mut w).unwrap();
+    assert!(w.scouting.film.open.is_none(), "saved, nothing left open");
+    let r = w.scouting.film.reports.last().unwrap();
+    assert_eq!(r.verdict, None, "no verdict asked");
+    assert_eq!(r.watched as usize, n, "every snap played");
+    assert_eq!(r.calls, (1, 1), "the call made keeps its answer");
 }
 
 #[test]
