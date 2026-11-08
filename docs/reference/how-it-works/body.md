@@ -1,6 +1,6 @@
 # Body and combine: how it works today
 
-Checked against main at 6200524 with update 3 lanes 1 and 4 (bodies, the speed core, recorded times) on 2026-10-29. The first-contact miss without weight (minor bug 279) checked over main 460d534 on 2026-11-07. Linebacker weights and the safety and linebacker body leanings (bug 310, safeties D, linebackers L3) checked over main 8eba7e1 on 2026-11-08.
+Checked against main at 6200524 with update 3 lanes 1 and 4 (bodies, the speed core, recorded times) on 2026-10-29. The first-contact miss without weight (minor bug 279) checked over main 460d534 on 2026-11-07. The strength staff's mix (minor bug 302) checked with that change on 2026-11-07. Linebacker weights and the safety and linebacker body leanings (bug 310, safeties D, linebackers L3) checked over main 8eba7e1 on 2026-11-08.
 
 ## Quick answers
 
@@ -71,7 +71,8 @@ Physical attributes grow like the rest (`development.rs`, `GrowthCtx::rate`, `de
 - High school: physical growth at full rate (×1.0) except strength ×0.6 (`hs_group_growth`, `HS_STRENGTH_GROWTH`). Technical ×0.65, mental ×0.7.
 - College: the ×1.3 teaching boost (`COLLEGE_TEACHING`) skips physical attributes.
 - Redshirt year: physical growth ×1.35.
-- Strength staff and his professionalism: physical growth × (1 + 0.08 × `ctx.physical`, -1..1) (`develop_season`, `physical_mult`).
+- Strength staff and his professionalism: physical growth × (1 + 0.08 × clamp(`ctx.physical` − 0.06 × `strength_dev`, −1, 1)), so his own head's distance from the level's typical head comes out and only the typical head and his professionalism count here (`develop_season`, `physical_mult`).
+- Strength staff's mix (minor bug 302): in college and the NFL, physical attributes read `physical_coaching` (the strength head in the position coach's share, around the level's typical head; see [development.md](development.md), "What the world feeds in") in place of coaching, in growth (`physical_boost` in place of `coaching_boost`, `GrowthCtx::rate`) and in the ceiling drive (`physical_extra`). High school and a year away keep coaching.
 - Growth by development age (age - bloom): ×0.75 before the window, ×1.0 inside it, ×0.55^(years past) after (`development.rs`, `growth_age_factor`). Windows: speed 14-20, acceleration and agility 14-21, strength 15-24, stamina 14-24 (`attributes.rs`, `ATTRIBUTE_PROFILES`).
 - Growth spurt: age ≤ 17, 9% a year: physical ceilings +2-6 (strength ×1.3, others ×0.8) (`develop_season`, `GrowthSpurt`).
 - Body stalls: ages 18-20, chance 2.5% × e^(-0.7 × bloom) a year (early bloomers more): each physical ceiling drops to at most current + 0-2 and never rises again (`STALL_CHANCE`, `BodyStalled`).

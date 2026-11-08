@@ -498,9 +498,33 @@ impl Program {
     /// 2023, the Big East until 2013), or Notre Dame: the top of FBS as
     /// recruits and voters read it.
     pub fn power_conference(&self, year: i32) -> bool {
-        self.real_name == "Notre Dame" || super::voters::power_conf(&self.conference, year)
+        self.real_name == "Notre Dame"
+            || super::voters::power_conf(&self.conference, year)
+            || (year < 1993
+                && self.conference == "Independent"
+                && MAJOR_INDEPENDENTS.contains(&self.real_name.as_str()))
     }
 }
+
+/// The major independents of the 1980s (minor bug 311): the FBS
+/// independents that went straight into a power conference when the Big
+/// East formed in 1991 and the ACC, SEC and Big Ten grew in 1992-93 (Miami
+/// won the 1983, 1987 and 1989 titles, Penn State 1982 and 1986, as
+/// independents). Until they joined they recruit, raise money and read as a
+/// power program (proposed, not confirmed: the ones that joined by 1993).
+const MAJOR_INDEPENDENTS: [&str; 11] = [
+    "Boston College",
+    "Florida State",
+    "Miami (FL)",
+    "Penn State",
+    "Pittsburgh",
+    "Rutgers",
+    "South Carolina",
+    "Syracuse",
+    "Temple",
+    "Virginia Tech",
+    "West Virginia",
+];
 
 fn division_scale(d: Division) -> f64 {
     match d {
@@ -513,9 +537,10 @@ fn division_scale(d: Division) -> f64 {
     }
 }
 
-/// Builds a program from its real row. Prestige parts are seeded from real
-/// history: titles, 2021-25 record, stadium size, conference and academics.
-pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -> Program {
+/// Builds a program from its real row as it stood in `season`. Prestige
+/// parts are seeded from real history: titles, 2021-25 record, stadium
+/// size, conference and academics.
+pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng: &mut Rng) -> Program {
     let state = geo::state_index(&row.state).unwrap_or(0);
     // A shared or oversized stadium (Winston-Salem State plays in a 22,000-seat
     // city stadium) says little about a small program's crowds: cap by level.
@@ -533,7 +558,12 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         _ => 10_000,
     });
     let scale = division_scale(row.division);
-    let p4 = matches!(row.conference.as_str(), "SEC" | "Big Ten" | "Big 12" | "ACC") || row.name == "Notre Dame";
+    // A power program in the season it starts (minor bug 311): the Pac-10,
+    // Big Eight and Southwest Conference of 1984 and its major independents
+    // too, not only today's four.
+    let p4 = row.name == "Notre Dame"
+        || super::voters::power_conf(&row.conference, season)
+        || (season < 1993 && row.conference == "Independent" && MAJOR_INDEPENDENTS.contains(&row.name.as_str()));
     let titles = row.national_titles as f64;
     let tradition =
         clamp(scale * (0.25 + 0.12 * titles.sqrt() + if p4 { 0.25 } else { 0.0 }) + rng.normal(0.0, 0.05), 0.02, 1.0);
@@ -843,7 +873,9 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, rn
     let before = p.collective.boosters();
     let mood = (win_pct - 0.5) * 0.18 + (p.prestige - 0.5) * 0.04;
     // Donations follow results, and drift back toward what the brand can raise.
-    let target = nil_target(p.division, p.power_four(), p.fans, p.recent);
+    // The era of the season its conference is from: the one just played
+    // (a move to a new conference lands with that season's realignment).
+    let target = nil_target(p.division, p.power_conference(next - 1), p.fans, p.recent);
     let c = &mut p.collective;
     // New money gets harder to find as the boosters near what the biggest
     // real collectives raise, and they never pass it (11.7). Losses aren't

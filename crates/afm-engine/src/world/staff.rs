@@ -685,16 +685,33 @@ fn young_core(w: &World, p: usize) -> f64 {
     if starters == 0.0 { 0.0 } else { clamp((young / starters - 0.3) / 0.4, 0.0, 1.0) }
 }
 
-/// National titles a college head coach has won in his current job (A6):
-/// what draws the NFL, wears on him and lets him walk away on top.
+/// National titles a college head coach has won in his current job (A6),
+/// at any level: what wears on him and lets him walk away on top.
 fn national_titles_here(w: &World, c: usize) -> u32 {
+    titles_here(w, c, false)
+}
+
+/// His national titles in this head job won in FBS (minor bug 298): what an
+/// NFL owner and his own NFL ambition read. Real clubs hire off FBS titles
+/// (A6: Saban, Meyer, Harbaugh), not FCS or Division II ones (North Dakota
+/// State's Bohl, Klieman and Entz went to FBS jobs, none to the NFL). A
+/// season's own level counts; an older file without it reads today's.
+fn fbs_titles_here(w: &World, c: usize) -> u32 {
+    titles_here(w, c, true)
+}
+
+fn titles_here(w: &World, c: usize, fbs_only: bool) -> u32 {
     let Some(job) = w.coaches[c].job else { return 0 };
     let Employer::College(p) = job.employer else { return 0 };
     if job.role != Role::HeadCoach {
         return 0;
     }
-    w.programs[p].seasons.iter().filter(|s| s.year >= job.since && s.coach == Some(c) && s.national_title).count()
-        as u32
+    let prog = &w.programs[p];
+    prog.seasons
+        .iter()
+        .filter(|s| s.year >= job.since && s.coach == Some(c) && s.national_title)
+        .filter(|s| !fbs_only || s.division.unwrap_or(prog.division) == Division::FBS)
+        .count() as u32
 }
 
 /// A short name for an employer in a story line.
@@ -821,7 +838,7 @@ pub(crate) fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String>
         // A national champion has nothing left to prove in college; the
         // NFL is the test left (A6: Saban after the 2003 title, Carroll
         // after two, Harbaugh after the 2023 one).
-        let won = national_titles_here(w, c).min(2) as f64;
+        let won = fbs_titles_here(w, c).min(2) as f64;
         if won > 0.0 {
             parts.push((0.03 * won, "nothing left to prove in college".to_string()));
         }
@@ -1352,6 +1369,12 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     }
     let fresh = w.coaches.len();
     let mut candidates = candidate_pool(w, o, moved, buzz);
+    // Nobody rehires the man the same employer let go this cycle or last.
+    let cy = cycle_year(w);
+    candidates.retain(|&c| {
+        let co = &w.coaches[c];
+        co.job.is_some() || co.history.last().is_none_or(|s| !(s.employer == o.employer && s.to >= cy - 1))
+    });
     // You are on the list when you put your name in or the job is the kind
     // you let it be known you want; never otherwise (lane 10).
     let me = market::me(w);
@@ -1470,7 +1493,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                 // A national champion has shown he can build and run a team:
                 // owners doubt him less (A6; Saban, Meyer and Harbaugh were
                 // hired off college titles). 1.5 points a title, to two.
-                let champ = if o.role == Role::HeadCoach { national_titles_here(w, c).min(2) as f64 } else { 0.0 };
+                let champ = if o.role == Role::HeadCoach { fbs_titles_here(w, c).min(2) as f64 } else { 0.0 };
                 let doubt = if o.role == Role::HeadCoach { 1.6 } else { 1.5 };
                 s -= (4.0 - 1.5 * champ) * doubt;
             } else if !nfl && !is_hs && !has_coached(coach, false) && !matches!(o.role, Role::PositionCoach(_)) {
@@ -2028,6 +2051,18 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
         super::recruiting::decommit_after_firing(w, p);
         return;
     }
+    // He keeps his job and reshapes his staff (minor bug 263).
+    // Not while his team still plays for a title, and not after a season
+    // the program didn't play (a build year or a dark span).
+    if matches!(division, Division::FBS | Division::FCS)
+        && tenure >= 1
+        && !contending
+        && w.programs[p].fields_games(year)
+        && !market::is_you(w, c)
+    {
+        let hot = w.coaches[c].prove_it == Some(year) || (tenure >= 3 && wp2 < 0.4);
+        staff_review(w, p, last + 0.5 * before, hot, openings);
+    }
     // A new contract: after a good year with two seasons or fewer left, or when it runs out.
     let Some(k) = w.coaches[c].contract else { return };
     if (k.through - year <= 2 && (last > 0.03 || wp_last >= 0.6 || title)) || expired {
@@ -2045,6 +2080,80 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
                 format!("{name} extends head coach {coach_name}'s contract through the {through} season."),
             );
         }
+    }
+}
+
+/// How often a head coach who keeps his job lets an assistant go after an
+/// ordinary season, FBS and FCS (minor bug 263). Real: 570 FBS on-field
+/// staff changes in the 2021-22 cycle (247Sports via FootballScoop) among
+/// some 1,470 posts, about 40% a year, against 15-17% when only new head
+/// coaches, retirements and moves up changed staffs. Sized with the chains
+/// it starts so FBS on-field turnover lands near the real 40% (proposed,
+/// not confirmed: the base, the coordinators' extra exposure, the season
+/// and hot-seat reads and the cap of four a year; FCS takes the FBS rate,
+/// no data). In 30-year worlds at 0.1, FBS on-field hires a season in
+/// 2016-25: 357 (24%) at 0.09 (seed 69), 494 (34%) at 0.2 (seed 71, before
+/// playoff teams were left out), 519 (35%) at 0.3 (seed 73), against 529 in
+/// 247Sports' 2023-24 audit and 550 in CBS Sports' 2024-25. A bad season is
+/// already at the 60% and four-a-year caps, so a higher base adds little.
+const STAFF_TURN: f64 = 0.3;
+const STAFF_TURN_COORDINATOR: f64 = 1.4;
+const STAFF_TURN_MAX: usize = 4;
+
+/// A kept head coach's look at his staff after the season (minor bug 263):
+/// a season under what was expected costs assistants their jobs, the
+/// coordinators most, and a head coach on the hot seat fires his
+/// coordinators to save his own job (A6: the "change the staff, keep the
+/// coach" offseason). Within a staff the weaker men go first: a
+/// coordinator read on his side of the ball, a position coach on his room's
+/// teaching. A man in his first season stays.
+fn staff_review(w: &mut World, p: usize, form: f64, hot: bool, openings: &mut Vec<Opening>) {
+    let year = w.year;
+    let quality = |w: &World, a: usize, role: Role| -> f64 {
+        let c = &w.coaches[a];
+        match role {
+            Role::OffensiveCoordinator => side_quality(c, true),
+            Role::DefensiveCoordinator => side_quality(c, false),
+            Role::PositionCoach(g) => c.ability().teaching[g as usize],
+            Role::HeadCoach => 10.0,
+        }
+    };
+    let staff: Vec<(Role, usize)> =
+        college_roles().skip(1).filter_map(|r| slot(&w.programs[p], r).map(|a| (r, a))).collect();
+    if staff.is_empty() {
+        return;
+    }
+    let mean = staff.iter().map(|&(r, a)| quality(w, a, r)).sum::<f64>() / staff.len() as f64;
+    let season = clamp((-6.0 * form).exp(), 0.4, 3.0);
+    // Every man is weighed; when more are marked than he lets go in a year,
+    // the weakest go first.
+    let mut marked: Vec<(Role, usize, f64)> = Vec::new();
+    for (role, a) in staff {
+        let Some(job) = w.coaches[a].job else { continue };
+        if year - job.since < 1 {
+            continue;
+        }
+        let coordinator = matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator);
+        let seat = if hot && coordinator { 1.6 } else { 1.0 };
+        let weak = clamp((-0.15 * (quality(w, a, role) - mean)).exp(), 0.5, 2.0);
+        let rate = STAFF_TURN * if coordinator { STAFF_TURN_COORDINATOR } else { 1.0 } * season * seat * weak;
+        if w.rng.chance(clamp(rate, 0.0, 0.6)) {
+            marked.push((role, a, weak));
+        }
+    }
+    marked.sort_by(|x, y| y.2.total_cmp(&x.2));
+    let mut gone = 0;
+    for (role, a, _) in marked {
+        if gone >= STAFF_TURN_MAX {
+            break;
+        }
+        if market::spared(w, a, "let go by the head coach") {
+            continue;
+        }
+        leave(w, a, "let go by the head coach");
+        gone += 1;
+        let prestige = employer_prestige(w, Employer::College(p));
+        openings.push(Opening { employer: Employer::College(p), role, prestige });
     }
 }
 
@@ -3129,7 +3238,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         raw[i][GradeCat::Nil as usize] =
             if super::ncaa::nil_era(year) { p.collective.budget } else { p.collective.boosters() };
         raw[i][GradeCat::BrandExposure as usize] =
-            0.6 * p.fans + 0.2 * p.tradition + if p.power_four() { 0.2 } else { 0.0 };
+            0.6 * p.fans + 0.2 * p.tradition + if p.power_conference(year) { 0.2 } else { 0.0 };
         raw[i][GradeCat::ConferenceStrength as usize] = conf_strength(p);
         raw[i][GradeCat::StadiumAtmosphere as usize] =
             (p.crowd_seats() as f64).sqrt() * (0.5 + p.fans) * (0.7 + 0.3 * p.recent);

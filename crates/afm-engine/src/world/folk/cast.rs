@@ -443,7 +443,7 @@ pub fn slots(w: &World, team: Team, role: Role) -> u8 {
         (Team::College(p), Role::Booster) => {
             let prog = &w.programs[p];
             match prog.division {
-                Division::FBS if prog.power_four() => {
+                Division::FBS if prog.power_conference(year) => {
                     3 + (prog.prestige > 0.6) as u8 + prog.collective.big_booster.is_some() as u8
                 }
                 Division::FBS => 2 + (prog.prestige > 0.4) as u8,

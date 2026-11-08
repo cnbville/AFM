@@ -668,7 +668,7 @@ function bdCapCollege(x, st) {
   const clocks = bdCells([
     { k: x.house ? "Revenue share" : "Budget", v: bdMoney(b.total), sub: x.house ? "the school's, yours to set" : "" },
     b.usualRoster != null
-      ? { k: "To the roster", v: bdMoney(b.usualRoster), sub: x.budget.yours ? "the usual split, no deals set" : x.house ? "the school's usual split" : "the collective's usual split" }
+      ? { k: "To the roster", v: bdMoney(b.usualRoster), sub: x.house ? "the school's usual split" : "the collective's usual split" }
       : { k: "To the roster", v: bdMoney(b.roster) },
     { k: "Promised", v: bdMoney(b.recruits + b.portal), sub: "recruits and the portal" },
     b.leftUsual != null
@@ -702,10 +702,10 @@ function bdCapCollege(x, st) {
   }
   const budget = `<div class="bd-card"><div class="bd-line2"><span class="st-label">Where the budget comes from</span><span class="bd-dim">${x.house ? "revenue sharing era" : "collective era"}</span></div>
     ${[["Revenue share", b.revenue], ["The collective", b.collective]].map(([k, v]) => `<div class="bd-kv"><span>${k}</span><b class="bd-cond">${bdMoney(v)}</b></div>`).join("")}
-    ${x.house ? `<small class="bd-dim">The school pays its revenue share, under the House cap: that is what you hand out below. The collective pays its own deals beside it, ${bdMoney(b.collectiveRoster)} to your roster this year as NIL Go cleared them${b.nilGoHeld > 0 ? ` (${bdMoney(b.nilGoHeld)} it wouldn't clear)` : ""}.</small>` : ""}
+    ${x.house ? `<small class="bd-dim">The school pays its revenue share, under the House cap: that is what you hand out below. The collective's deals come from the boosters beside it${b.yours ? ", and you set those too" : ""}: ${bdMoney(b.collectiveRoster)} to the roster this year as NIL Go clears them${b.nilGoHeld > 0 ? ` (${bdMoney(b.nilGoHeld)} it holds back)` : ""}.</small>` : ""}
     <span class="st-label">${x.house ? "Where the revenue share goes" : "Where it goes"}</span>
     ${[["The roster", b.usualRoster ?? b.roster], ["Recruits", b.recruits], ["Portal", b.portal], ["Left", b.leftUsual ?? b.left]].map(([k, v]) => `<div class="bd-kv"><span>${k}</span><span class="bd-kvbar"><i style="width:${b.total > 0 ? Math.max(0, Math.min(100, (100 * v) / b.total)).toFixed(1) : 0}%"></i></span><b class="bd-cond${v < 0 ? " bad" : ""}">${bdMoney(v)}</b></div>`).join("")}
-    ${b.usual ? `<small class="bd-dim">No deals set yet for ${x.moneyYear}: the blocks show the ${x.house ? "school's" : "collective's"} usual split. On 1 July only the deals you set are paid; <a class="link" data-go="nil_desk">set them</a> or hand NIL to your staff.</small>` : b.yours ? "" : `<small class="bd-dim">Your staff hands out the NIL money: the ${x.house ? "school's" : "collective's"} usual split.</small>`}</div>`;
+    ${b.yours ? `<small class="bd-dim">Every player's money is yours to set, and each deal stands until you change it. A blank box pays nothing on 1 July: <a class="link" data-go="nil_desk">set them on the NIL desk</a>.</small>` : `<small class="bd-dim">This program's head coach sets its NIL deals: the blocks show the ${x.house ? "school's" : "collective's"} usual split.</small>`}</div>`;
   return `<div class="pad bd bd-cap">
     <header class="bd-head"><span class="bd-crest">${mark(x.team, 40)}</span><div class="bd-head-copy"><span class="st-label">${esc(x.team.name)} · NIL money year ${x.moneyYear}</span><h1 class="bd-h1">Where the money goes</h1></div>${clocks}</header>
     <div class="bd-cols">

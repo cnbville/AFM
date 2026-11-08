@@ -554,7 +554,15 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
         if (fall && (wd == Weekday::Thu || wd == Weekday::Fri)) || (spring && wd == Weekday::Thu) {
             let (lim_fall, lim_spring) = eval_limits(season, service_academy(&w.programs[prog]));
             let (_, used_f, used_s) = w.scouting.dept.eval_days;
-            let left = if fall { lim_fall.saturating_sub(used_f) } else { lim_spring.saturating_sub(used_s) };
+            // Sandbox mode's staff time: the season's days never run out
+            // (the weekly pace stays).
+            let left = if w.sandbox(crate::world::sandbox::Switch::StaffTime) {
+                u16::MAX
+            } else if fall {
+                lim_fall.saturating_sub(used_f)
+            } else {
+                lim_spring.saturating_sub(used_s)
+            };
             // How many days a week the staff spends (the fall's days spread
             // over its 12 weeks; the spring's over six).
             let per = if fall { ((lim_fall as f64) / 24.0).ceil() as u16 } else { 14 };

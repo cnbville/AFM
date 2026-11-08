@@ -115,7 +115,7 @@ fn deal_terms(w: &World, c: usize, e: Employer, r: Role) -> (i32, f32) {
     match e {
         Employer::Nfl(_) | Employer::Other(_) => (2 + (super::roll(w, 0xDEA1, c as u64) < 0.4) as i32, 0.0),
         Employer::College(p) => {
-            let big = w.programs[p].division == Division::FBS && w.programs[p].power_four();
+            let big = w.programs[p].division == Division::FBS && w.programs[p].power_conference(w.year);
             match (big, r) {
                 (true, Role::OffensiveCoordinator | Role::DefensiveCoordinator) => (3, 0.5),
                 (true, _) => (2, 0.3),
