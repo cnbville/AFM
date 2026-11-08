@@ -148,7 +148,7 @@ fn the_nil_budget_lifts_for_your_program_only() {
     assert!(!b.unlimited && !b.fits(b.left + 1.0e9));
     w.set_sandbox(true);
     let b = budget(&w, p);
-    assert!(b.unlimited && b.fits(1.0e12), "yours: any number");
+    assert!(b.unlimited && b.fits(1.0e12) && b.fits_coll(1.0e12), "yours: any number, in both pots");
     assert!(b.left.is_finite(), "what is left stays the true figure");
     assert!(!budget(&w, other).unlimited, "another program keeps its budget");
     // NIL Go: only your program's deals clear in full.

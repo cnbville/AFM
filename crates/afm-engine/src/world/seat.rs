@@ -1461,6 +1461,10 @@ impl World {
             c.family.mood = 0.62;
         }
         super::finance::after_load(self);
+        // NIL is always yours (Cain 2026-11-07): a desk from before is
+        // brought up to the new rules once, and every player of yours gets
+        // a deal.
+        super::front_office::college::after_load(self);
         self.batch6_dates_after_load();
     }
 

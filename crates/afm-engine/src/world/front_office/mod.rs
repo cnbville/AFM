@@ -140,10 +140,10 @@ impl Duty {
     /// roster are yours, the daily bookkeeping your staff's (Claude's pick:
     /// a real head coach with personnel power signs off on deals, trades
     /// and the 53, and leaves cap mechanics, the wire, the squad's weekly
-    /// churn and the collective's paperwork to the people hired for them).
+    /// churn to the people hired for them). NIL is always yours (`owner`).
     pub fn default_owner(self) -> Owner {
         match self {
-            Duty::Cap | Duty::Waivers | Duty::PracticeSquad | Duty::Nil => Owner::Staff,
+            Duty::Cap | Duty::Waivers | Duty::PracticeSquad => Owner::Staff,
             _ => Owner::You,
         }
     }
@@ -166,7 +166,7 @@ impl Duty {
             Duty::Board => "Your recruiting coordinator ranks the board and offers the players the program can sign.",
             Duty::Visits => "Your recruiting coordinator brings the board's top names in for visits.",
             Duty::Portal => "Your staff chases the transfers who fill the two-deep's holes.",
-            Duty::Nil => "Your collective pays the roster by what each player means to the team.",
+            Duty::Nil => "NIL is always yours: you set every player's revenue share and collective deal.",
             Duty::Squads => {
                 "Your staff puts the best varsity players up and the young ones on JV and the freshman team."
             }
@@ -232,10 +232,19 @@ const LOG_KEEP: usize = 400;
 
 impl FrontOffice {
     pub fn owner(&self, d: Duty) -> Owner {
+        // NIL is always yours (Cain 2026-11-07: "the user is ALWAYS the one
+        // deciding on NIL, it's NEVER left to the school/ai"); an old save
+        // that handed it to the staff has it back.
+        if d == Duty::Nil {
+            return Owner::You;
+        }
         self.owners.iter().find(|x| x.0 == d).map_or(d.default_owner(), |x| x.1)
     }
 
     pub fn set_owner(&mut self, d: Duty, o: Owner) {
+        if d == Duty::Nil {
+            return;
+        }
         self.owners.retain(|x| x.0 != d);
         if o != d.default_owner() {
             self.owners.push((d, o));
