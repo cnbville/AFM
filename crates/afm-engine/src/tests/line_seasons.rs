@@ -23,12 +23,11 @@ use crate::world::folk::voice::{Facts, Look, Pen, Speaker, bank, remember_shown_
 /// The bar: 2 lines in 100 said again by the same speaker in a season.
 const BAR: f64 = 0.02;
 
-/// Until the run's lines land, game day and staff talk are held to the
-/// shares measured on today's bank (58% and 54%, where most of their parts
-/// have 6 to 16 versions) and a point more, so the proof still guards what
-/// is there. Recruiting, the AD's office, agents and the room already meet
-/// `BAR`. The run's data PR empties this list.
-const TODAY: &[(&str, f64)] = &[("gameday", 0.59), ("staff", 0.55)];
+/// A family held above `BAR` for now: (family, its measured share and a
+/// point more). Before the line bank run's lines landed (2026-11-08), game
+/// day was held at 59% and staff talk at 55%; with them every family meets
+/// `BAR`, so the list is empty.
+const TODAY: &[(&str, f64)] = &[];
 
 fn bar(family: &str) -> f64 {
     TODAY.iter().find(|x| x.0 == family).map_or(BAR, |x| x.1)

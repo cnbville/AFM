@@ -68,11 +68,17 @@ SWEAR = re.compile(r"\b(fuck\w*|shit\w*|bitch\w*|ass|asses|asshole|bastard|godda
 MILD = re.compile(r"\b(damn\w*|hell|crap\w*|sucks?|sucked|pissed)\b")
 # Talking back to your face (PR #227's word scan, extended): only a brash
 # player says these, and never in high school.
-BACKTALK = re.compile(r"((^|[.!?]\s)whatever[.!?]|\b(save it|are we done|we done here|good luck replacing me|"
+BACKTALK = re.compile(r"((^|[.!?]\s)whatever[.!?]|"
+                      r"(^|[.!?]\s|\b(sure|okay|ok|fine|alright|eh|cool|yeah|bro|haha)[,.!]?\s)whatever you say\b|"
+                      r"\b(save it|are we done|we done here|good luck replacing me|sit me,? then|(this|that)( had)? better be good|"
                       r"that's cute|spare me|is that all\?|waste of my time|wasting my time|i don't need this|"
                       r"put my name|get to the point|not my problem|that's your problem|you don't get to|"
                       r"who do you think)\b)")
 TALK_BACK_PARTS = ('talk.', 'rules.react.', 'takeover.meeting.react_', 'takeover.leader.')
+# Sir or ma'am to your face follows your he or she: {coach_sir}. A line about
+# saying sir ("taught to say yes sir") can't be written that way.
+SIR = re.compile(r"\b(?:[Ss]ir|[Mm]a'am)\b")
+SIR_SAID = re.compile(r"\b(say|says|said|saying|call|calls|called)\b[^.!?]{0,25}\b(sir|ma'am)\b", re.I)
 # A name fact read as a team: never "the {them}", "a {team}", or a verb
 # whose number changes with the level (13f).
 TEAMISH = ('team', 'them', 'us', 'rival', 'club')
@@ -185,6 +191,11 @@ class Checker:
         if not line:
             return None, ['empty']
         text, tags = B.split(line)
+        # In a part that may name you, sir or ma'am is written {coach_sir};
+        # anywhere else the line is dropped below.
+        fixed = 'coach_sir' in p.facts and bool(SIR.search(text)) and not SIR_SAID.search(text)
+        if fixed:
+            text = SIR.sub('{coach_sir}', text)
         low = text.lower()
         need = [t for t in tags if not t.startswith('!') and '=' not in t]
         nots = [t[1:] for t in tags if t.startswith('!') and '=' not in t]
@@ -286,6 +297,8 @@ class Checker:
                 why.append(f'names a day or time ({d})')
         if SWEAR.search(low):
             why.append('swearing')
+        if SIR.search(text):
+            why.append("sir or ma'am outright (only {coach_sir}, in a part that names you)")
         # Talking back.
         if key.startswith(TALK_BACK_PARTS) and BACKTALK.search(low):
             if 'brash' not in B.TAGS:
@@ -324,8 +337,8 @@ class Checker:
             if MILD.search(low) and st.mild + 1 > max(1, (self.target.get(key, 0) or 20) // MILD_SHARE):
                 return None, ['mild swearing over 1 in 20']
         st.keep(text)
-        if add:
-            line = text + ' ~ ' + ' '.join(tags + add)
+        if add or fixed:
+            line = text + (' ~ ' + ' '.join(tags + add) if tags or add else '')
         return line, []
 
 
