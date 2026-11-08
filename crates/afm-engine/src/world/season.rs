@@ -552,10 +552,7 @@ pub(crate) fn camp_injury(w: &mut World, i: usize, last: Option<crate::calendar:
             how: "fall camp".into(),
         });
     } else {
-        let e = t.others_hurt.entry(id).or_insert((back, Some(kind)));
-        if back > e.0 {
-            *e = (back, Some(kind));
-        }
+        t.note_other_hurt(id, back, kind);
     }
 }
 
