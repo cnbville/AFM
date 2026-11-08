@@ -114,7 +114,8 @@ impl World {
     /// Your kickoff on world day `d`, Eastern, while your game is still to
     /// play.
     pub fn seat_kickoff(&self, d: Date) -> Option<Moment> {
-        if self.seat_kept_on(d).is_some() {
+        // A game under the interim is his (the Jan 1 start): the day plays it.
+        if self.seat_kept_on(d).is_some() || self.seat_interim().is_some() {
             return None;
         }
         let (level, t) = self.seat_team()?;

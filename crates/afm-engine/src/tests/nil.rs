@@ -152,8 +152,14 @@ fn inherited_signees_old_desks_and_screens_keep_their_money() {
     let class = rec::next_class(&w);
     let k = w.people.iter().position(|p| p.stage == Stage::HighSchool && p.class_of == class).unwrap();
     let signee = w.people[k].player.id;
-    w.people[k].cal.signed =
-        Some(crate::world::Signed { program: j, walk_on: false, date: w.today, early_enrollee: false, flipped: false });
+    w.people[k].cal.signed = Some(crate::world::Signed {
+        program: j,
+        walk_on: false,
+        date: w.today,
+        early_enrollee: false,
+        flipped: false,
+        committed: None,
+    });
     fill_deals(&mut w);
     let had = w.front_office.college.signed.iter().find(|x| x.0 == signee).copied();
     assert!(had.is_some_and(|x| x.1 + x.2 > 0.0), "the old staff's usual money: {had:?}");
@@ -236,8 +242,14 @@ fn nothing_is_filled_in_for_you() {
         })
         .unwrap();
     let rid = w.people[k].player.id;
-    w.people[k].cal.signed =
-        Some(crate::world::Signed { program: j, walk_on: false, date: w.today, early_enrollee: false, flipped: false });
+    w.people[k].cal.signed = Some(crate::world::Signed {
+        program: j,
+        walk_on: false,
+        date: w.today,
+        early_enrollee: false,
+        flipped: false,
+        committed: None,
+    });
     after_stage(&mut w, j, &[rid], false);
     let t = w.front_office.college.board.iter().find(|t| t.id == rid).expect("on your board as his");
     assert!(t.nil.is_none() && t.nil_coll.is_none());
@@ -501,6 +513,7 @@ fn a_high_schooler_earns_only_where_his_state_lets_him() {
             date: w.today,
             early_enrollee: false,
             flipped: false,
+            committed: None,
         });
     };
     signed(&mut w, ks);
