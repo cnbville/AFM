@@ -638,6 +638,11 @@ pub struct Notes {
     pub blocks: Vec<(u32, u32, bool, bool, f64, bool)>,
     /// Rush wins inside 2.5 s, with the move.
     pub rush_wins: Vec<(u32, Move, f64)>,
+    /// Every move a pass rusher tried, his counter too, on plays that keep
+    /// frames only (film tapes): what the tape shows of his rush, won or
+    /// not (minor bug 317).
+    #[serde(skip)]
+    pub rush_moves: Vec<(u32, Move)>,
     pub busts: Vec<u32>,
     pub freelance: Vec<(u32, bool)>,
     pub fouls: Vec<Foul>,
@@ -1265,6 +1270,9 @@ impl<'a> Sim<'a> {
             return;
         }
         let mv = if pass { self.pick_move(b, d) } else { Move::Power };
+        if pass && self.record.is_some() {
+            self.notes.rush_moves.push((self.agents[d].id, mv));
+        }
         let (bl, de) = (&self.agents[b], &self.agents[d]);
         // Get-off against the set: the first step decides a lot. The
         // rusher's jump is his burst and his read of the snap; the blocker
@@ -1586,6 +1594,9 @@ impl<'a> Sim<'a> {
                     if mv != e.mv && self.rush_power(d, mv) - self.block_power(b, mv, true) > edge {
                         self.eng[k].mv = mv;
                         edge = self.rush_power(d, mv) - self.block_power(b, mv, true);
+                        if self.record.is_some() {
+                            self.notes.rush_moves.push((self.agents[d].id, mv));
+                        }
                     }
                 }
             }

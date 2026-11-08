@@ -156,31 +156,41 @@ pub fn own_read_with(
     out
 }
 
-/// Your cut-ups of a player (one a six snaps watched, a quick one two;
-/// not from the stands, which the trip filed), with the day of the last:
-/// the reports kept and a session open on him.
+/// Your film looks of a player: one a game of his you have watched
+/// (minor bug 338: a game is one look of him, however many of its snaps
+/// and however often you watch it; reports saved before count one a six
+/// snaps watched; not from the stands, which the trip filed), with the
+/// day of the last: the reports kept and a session open on him.
 pub fn cut_ups(w: &World, id: u32) -> (usize, crate::calendar::Date) {
     use super::film::{Target, session::Mode};
     let fr = &w.scouting.film;
     let of = |watched: usize| watched.div_ceil(6);
     let mut n = 0;
+    let mut games: Vec<u64> = Vec::new();
     let mut last = w.today;
     let mut latest = None;
     for r in fr.reports.iter().filter(|r| r.target == Target::Player(id) && r.mode != Mode::Live) {
-        n += of(r.watched as usize);
+        if r.games.is_empty() {
+            n += of(r.watched as usize);
+        } else {
+            games.extend_from_slice(&r.games);
+        }
         latest = latest.max(Some(r.date));
     }
     if let Some(s) = fr.open.as_ref().filter(|s| s.target == Target::Player(id) && s.mode != Mode::Live) {
         // A snap stopped for your call is on the screen too.
-        let started = usize::from(s.step > 0 || s.at > 0);
-        let watched = s.seen.iter().filter(|v| !v.is_empty()).count().max(started);
-        if watched > 0 {
-            n += of(watched);
+        let started = s.step > 0 || s.at > 0;
+        let seen = super::film::session::seen_games(w, s);
+        if !seen.is_empty() || started {
+            n += usize::from(seen.is_empty());
+            games.extend(seen);
             latest = Some(w.today);
         }
     }
+    games.sort_unstable();
+    games.dedup();
     if let Some(d) = latest {
         last = d;
     }
-    (n, last)
+    (n + games.len(), last)
 }

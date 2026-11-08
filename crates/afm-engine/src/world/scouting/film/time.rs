@@ -218,8 +218,11 @@ pub fn can_watch(w: &World, mode: Mode) -> Result<(), String> {
     if mode == Mode::Live {
         return Ok(());
     }
-    let need = if mode == Mode::Quick { super::session::QUICK_MIN } else { super::session::SNAP_MIN } / 60.0;
-    if left(w) + 0.01 < need {
+    // One snap's worth: a watch plays as many as the hours left allow
+    // (in minutes, the slack the quick watch counts its snaps with: a
+    // snap is 20 or 36 seconds, under the old 0.01-hour slack).
+    let need = if mode == Mode::Quick { super::session::QUICK_SNAP_MIN } else { super::session::SNAP_MIN };
+    if left(w) * 60.0 + 0.01 < need {
         return Err(format!(
             "Your film hours are spent this week ({:.0} of {:.0}): work longer hours, give it to your staff, or watch on Monday.",
             used(w),
@@ -234,7 +237,9 @@ pub fn spend(w: &mut World, hours: f32, pos: Option<Position>) -> Result<(), Str
     if rested(w) {
         return Err("You're home resting: no film until you're back.".into());
     }
-    if left(w) + 0.01 < hours {
+    // In minutes: a snap is 20 or 36 seconds, so the old 0.01-hour slack
+    // let a week with no hours left keep watching.
+    if left(w) * 60.0 + 0.01 < hours * 60.0 {
         return Err(format!("Your film hours are spent this week ({:.0} of {:.0}).", used(w), budget(w)));
     }
     charge(w, hours, pos);
