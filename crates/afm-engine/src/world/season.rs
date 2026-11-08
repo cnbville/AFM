@@ -508,6 +508,74 @@ pub(crate) fn your_order(
 /// confirmed). An every-down starter on the engine plays about this many.
 pub(crate) const HS_STARTER_SNAPS: u32 = 550;
 
+/// The camp step's injury on a season the engine plays (minor bug 315).
+/// The yearly step rolls an injury at fall camp with the games it costs
+/// (`develop_season`: minor 0-2, moderate 2-6, major half the season or
+/// more) and wrote them on the row, but nothing kept him out of a game for
+/// it, so a row could say "an injury, missed 4 games" for a man who played
+/// all twelve, while what really kept men out (game and practice injuries)
+/// never reached the row. Now the row counts every game his team plays
+/// while he is out hurt, game by game, as an NFL row does (minor bug 96,
+/// where the engine's and practice's injuries alone give the real 1.2 games
+/// a season), so the roll's games start again at none. A minor or moderate
+/// roll keeps its cost to the year's growth and leaves the row's label to
+/// the real injuries (`mark_real_injury`). A major one is a real one: it
+/// costs half his growth and a year's rehab, so he sits its games, out from
+/// camp until the day after `last`, the last of his team's games he misses,
+/// with a torn ACL or a broken bone on a keyed draw (proposed, not
+/// confirmed).
+pub(crate) fn camp_injury(w: &mut World, i: usize, last: Option<crate::calendar::Date>, yours: bool) {
+    use crate::game::sim::InjuryKind as K;
+    use crate::player::DevelopmentEvent as Ev;
+    let today = w.today;
+    let seed = w.options.seed as u64 ^ 0xCA3F ^ (w.year as u64) << 20;
+    let p = &mut w.people[i];
+    let id = p.player.id;
+    let Some(h) = p.player.history.last_mut() else { return };
+    let games = std::mem::take(&mut h.games_missed);
+    if !h.events.has(Ev::MajorInjury) {
+        h.events.remove(Ev::MinorInjury);
+        h.events.remove(Ev::ModerateInjury);
+        return;
+    }
+    let (Some(last), true) = (last, games > 0) else { return };
+    let kind = if key_uniform(seed, id as u64) < 0.7 { K::Acl } else { K::Fracture };
+    let back = last.add(1);
+    let t = &mut w.training;
+    if yours {
+        t.hurt.retain(|x| x.id != id || x.until <= today);
+        t.hurt.push(crate::training::seat::Hurt {
+            id,
+            kind: Some(kind),
+            from: today,
+            until: back,
+            how: "fall camp".into(),
+        });
+    } else {
+        let e = t.others_hurt.entry(id).or_insert((back, Some(kind)));
+        if back > e.0 {
+            *e = (back, Some(kind));
+        }
+    }
+}
+
+/// The season row's injury from what really kept him out (minor bug 315):
+/// a man who missed games to a game or practice injury gets it on his row,
+/// a minor one for one or two games, otherwise an injury. A major injury is
+/// the yearly step's alone (it takes growth and burst and is rehabbed next
+/// year), so a game's torn ACL reads as an injury with its games missed.
+pub(crate) fn mark_real_injury(h: &mut crate::player::SeasonRecord) {
+    use crate::player::DevelopmentEvent as Ev;
+    if h.games_missed == 0
+        || h.events.has(Ev::MinorInjury)
+        || h.events.has(Ev::ModerateInjury)
+        || h.events.has(Ev::MajorInjury)
+    {
+        return;
+    }
+    h.events.add(if h.games_missed <= 2 { Ev::MinorInjury } else { Ev::ModerateInjury });
+}
+
 /// Whether a season leaves his next step to his depth chart role (minor
 /// bug 247): a redshirt or sit-out year with `redshirt_games` games or
 /// fewer (college four, the redshirt rule; high school none, a transfer's

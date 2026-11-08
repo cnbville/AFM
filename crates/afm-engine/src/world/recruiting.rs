@@ -3216,6 +3216,35 @@ pub(crate) fn closeness(miles: f64) -> f64 {
     1.0 / (1.0 + (miles / 300.0).powi(2))
 }
 
+/// Miles from his home, his high school's town, to a program's campus
+/// (minor bug 255). Before, a recruit read every school in his own state as
+/// 60 miles off and every other state from its center, so a Jacksonville
+/// kid read Miami, about 330 miles away, at 0.96 and Georgia Southern,
+/// about 150, at 0.52 (Florida to Georgia's center, 289 miles), and the big
+/// states' kids stayed home far more than real (Florida's FBS players in
+/// Florida 39-46% against 24, Texas's 60-62% against 47). A town the towns
+/// table lacks reads its state's center, as before.
+pub(crate) fn home_miles(schools: &[super::high_school::HighSchool], p: &Person, prog: &Program) -> f64 {
+    campus_miles(home_place(schools, p.hs, p.home_state), prog)
+}
+
+/// Where a recruit lives: his high school's town, or his state's center
+/// when the school or its town is unknown.
+pub(crate) fn home_place(schools: &[super::high_school::HighSchool], hs: usize, home_state: usize) -> (f64, f64) {
+    match schools.get(hs) {
+        Some(h) => geo::place(h.state, &h.town),
+        None => {
+            let (_, lat, lon) = geo::STATE_CENTERS[home_state.min(50)];
+            (lat, lon)
+        }
+    }
+}
+
+/// Miles from a place to a program's campus.
+pub(crate) fn campus_miles(place: (f64, f64), prog: &Program) -> f64 {
+    geo::miles_between(place, geo::campus(prog.state, &prog.city))
+}
+
 /// How much a recruit leans toward the school he grew up cheering for
 /// (fix list 2.3). Proposed, not confirmed.
 const CHILDHOOD_LEAN: f64 = 0.18;
@@ -3265,6 +3294,7 @@ pub(crate) fn home_weight(programs: &[Program], p: &Person, year: i32) -> f64 {
 #[allow(clippy::too_many_arguments)]
 fn utility(
     norms: &super::systems::SystemNorms,
+    schools: &[super::high_school::HighSchool],
     p: &Person,
     wants: &super::background::Wants,
     prog: &Program,
@@ -3274,7 +3304,7 @@ fn utility(
     home: f64,
 ) -> f64 {
     let fits = super::systems::fits(&p.player, p.player.position, norms);
-    utility_fit(&fits, p, wants, prog, year, nil_offer, eval_rank, home)
+    utility_fit(&fits, schools, p, wants, prog, year, nil_offer, eval_rank, home)
 }
 
 /// [`utility`] from his fits to every system, read once (`systems::fits`).
@@ -3283,6 +3313,7 @@ fn utility(
 #[allow(clippy::too_many_arguments)]
 fn utility_fit(
     fits: &[f64; 11],
+    schools: &[super::high_school::HighSchool],
     p: &Person,
     wants: &super::background::Wants,
     prog: &Program,
@@ -3292,7 +3323,7 @@ fn utility_fit(
     home: f64,
 ) -> f64 {
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
-    let close = closeness(geo::miles(p.home_state, prog.state));
+    let close = closeness(home_miles(schools, p, prog));
     let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
     let close_w = wants.close_to_home + if crisis { 0.15 } else { 0.0 };
     let prestige = (g(GradeCat::TitleChances)
@@ -3860,7 +3891,7 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
             .filter(|(j, _)| !p.cal.early_offers.iter().any(|o| o.0 == *j))
             .map(|&(j, pj)| {
                 let prog = &w.programs[j];
-                let close = closeness(geo::miles(p.home_state, prog.state));
+                let close = closeness(home_miles(&w.high_schools, p, prog));
                 let score = -6.0 * (pj - target - 0.05).max(0.0)
                     + 1.5 * prog.footprint[p.home_state]
                     + 0.5 * close
@@ -3951,6 +3982,7 @@ pub(crate) fn decommit_after_firing(w: &mut World, prog: usize) {
         });
         p.note(format!("At {age} he reopened his recruitment when {school} fired its head coach."));
         w.log.decommits += 1;
+        w.log.blue_broken += (stars >= 4) as u32;
         if stars >= 4 {
             posts.push((
                 format!("{stars}-star {pos} {name} decommits from {school} after the coach's firing."),
@@ -4081,9 +4113,12 @@ pub(crate) fn commit_now(w: &mut World, i: usize, j: usize, d: Date, walk_on: bo
     // second commitment.
     if flipped.is_some() {
         w.log.flips += 1;
+        // A blue chip's flip breaks his verbal (minor bug 270).
+        w.log.blue_broken += (recruiting_stars(p) >= 4) as u32;
     } else {
         w.log.commits += 1;
         w.log.commits_by_month[month] += 1;
+        w.log.blue_verbal += ((2..=10).contains(&month) && recruiting_stars(p) >= 4) as u32;
     }
     let age = p.player.age - started as u32;
     let stars = p.stars;
@@ -5313,6 +5348,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         })
         .collect();
     let programs = &w.programs;
+    let schools = &w.high_schools;
     // S7a: the schools whose good players keep moving up to bigger
     // programs: the Group of 5 and FCS (proposed, not confirmed: by level,
     // as the portal's real flow runs, not by each school's own losses).
@@ -5402,6 +5438,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             }
             // Its own region, where it reads every recruit (minor bug 246).
             let region = super::program::region(prog);
+            let academic = super::program::academic_reach(prog);
             let mut seen: Vec<(usize, f64, bool, Position)> = Vec::new();
             for c in &cands {
                 // A JUCO player moves up to a four-year school or nowhere.
@@ -5422,7 +5459,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // reaches it ([`FAR_READ`]); its region and its pipeline to
                 // his state count in full.
                 let near = (region[c.state] + 0.6 * prog.pipeline[c.state]).min(1.0);
-                let reach = near.max(FAR_READ[c.stars.min(5) as usize] * prog.footprint[c.state]);
+                // An academic name or an academy reads the students it can
+                // admit wherever they live, whatever their stars (minor bug
+                // 256).
+                let admits = c.gpa >= prog.admissions_bar && academic > 0.0;
+                let far_read = FAR_READ[c.stars.min(5) as usize];
+                let far_read = if admits { far_read.max(academic) } else { far_read };
+                let reach = near.max(far_read * prog.footprint[c.state]);
                 // A blue-chip is seen by everyone; others only inside a
                 // footprint (minor bug 246: a 3-star's 0.45 counted in every
                 // state, so about half of all FBS staffs had every 3-star in
@@ -5903,6 +5946,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     .map(|&(j, _, share)| {
                         let u = utility_fit(
                             &pool_fits[k],
+                            schools,
                             p,
                             &wants,
                             &programs[j],
@@ -6103,8 +6147,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         Fixed {
             offer,
             // A walk-on is last in line for reps, wherever he sits on the board.
-            scholarship: utility_fit(&pool_fits[k], p, &wants, prog, year, offer, 1.0 - rank, home_w[k]) + ties,
-            walk_on: utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0, home_w[k])
+            scholarship: utility_fit(&pool_fits[k], schools, p, &wants, prog, year, offer, 1.0 - rank, home_w[k])
+                + ties,
+            walk_on: utility_fit(&pool_fits[k], schools, p, &wants, prog, year, 0.0, 0.0, home_w[k])
                 + (ties - walk_on_cost(p, prog, year + 1)),
             ties,
         }
@@ -6208,7 +6253,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         nil_go_top_recruit(p),
                         go_free == Some(j),
                     );
-                    let ru = utility_fit(&pool_fits[k], p, &wants, prog, year, raised, 1.0 - rank, home_w[k])
+                    let ru = utility_fit(&pool_fits[k], schools, p, &wants, prog, year, raised, 1.0 - rank, home_w[k])
                         + fx.ties
                         + fit;
                     if ru > hu {
@@ -6319,7 +6364,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     continue;
                 }
                 let standing = if walk_on { 0.0 } else { 1.0 - share };
-                let u = utility_fit(&pool_fits[k], p, &wants, &programs[j], year, 0.0, standing, home_w[k])
+                let u = utility_fit(&pool_fits[k], schools, p, &wants, &programs[j], year, 0.0, standing, home_w[k])
                     + relationship(j, k)
                     + feel(j, k)
                     - if walk_on { walk_on_cost(p, &programs[j], year + 1) } else { 0.0 };
@@ -6408,7 +6453,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     continue;
                 }
                 let wants = p.family.decider_wants;
-                let u = utility_fit(&pool_fits[k], p, &wants, prog, year, 0.0, 0.0, home_w[k])
+                let u = utility_fit(&pool_fits[k], schools, p, &wants, prog, year, 0.0, 0.0, home_w[k])
                     + relationship(j, k)
                     + feel(j, k)
                     - walk_on_cost(p, prog, year + 1);
@@ -6620,10 +6665,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let p = &w.people[i];
                 let steered = p.family.decider != Decider::Himself && {
                     let own = p.family.own_wants;
-                    let mine = utility(&norms, p, &own, &w.programs[j], year, 1e5, 0.5, home_w[k]);
+                    let mine = utility(&norms, schools, p, &own, &w.programs[j], year, 1e5, 0.5, home_w[k]);
                     // His own favorite among the programs that wanted him.
                     offers[k].iter().any(|&jj| {
-                        jj != j && utility(&norms, p, &own, &w.programs[jj], year, 1e5, 0.5, home_w[k]) > mine + 0.06
+                        jj != j
+                            && utility(&norms, schools, p, &own, &w.programs[jj], year, 1e5, 0.5, home_w[k])
+                                > mine + 0.06
                     })
                 };
                 if w.recording && !r.juco_mover && !walk_on && division == Division::FBS {
@@ -6657,6 +6704,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     && c != j
                 {
                     w.log.flips += 1;
+                    w.log.blue_broken += (recruiting_stars(&w.people[i]) >= 4) as u32;
                     let from = w.program_name(c).to_string();
                     let age = w.people[i].row_age();
                     let text = if scrambled[k] {
@@ -6836,6 +6884,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 }
                 if committed.is_some() {
                     w.log.decommits += 1;
+                    w.log.blue_broken += (recruiting_stars(&w.people[i]) >= 4) as u32;
                 }
                 let fell_through = committed.map(|c| w.program_name(c).to_string());
                 // Unsigned on signing day with a staff that had him on its
@@ -8149,10 +8198,20 @@ fn suitors(
                 }
                 let p = &wr.people[i];
                 let (role, nil, perf, edge) = place_at(wr, mk, i, from, j, Some((o.nil, o.coll)));
-                let mut u = utility(norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
-                    + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars))
-                    + o.bond
-                    + bond;
+                let mut u =
+                    utility(norms, &wr.high_schools, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
+                        + mk.view.fit(
+                            j,
+                            i,
+                            p.player.position,
+                            &p.family.own_wants,
+                            perf,
+                            3,
+                            0.0,
+                            early_weight(p.stars),
+                        )
+                        + o.bond
+                        + bond;
                 // What you promised him, as far as he believes it, and your
                 // staff's call when it works the portal and you didn't call.
                 if let Some(kind) = o.promise {
@@ -8219,7 +8278,7 @@ fn suitors(
             let nil = if yours == Some(j) { 0.0 } else { (school + coll) * super::legacy::college::split_q(wr, j, 1) };
             // Its staff calls him within hours of his name going in (portal
             // recruiting): his position coach's pitch, as yours makes it.
-            let u = utility(norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
+            let u = utility(norms, &wr.high_schools, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
                 + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars))
                 + bond
                 + super::folk::dialogue::staff_call(wr, i, j, role, nil);
@@ -8917,6 +8976,75 @@ pub(crate) fn nil_value(p: &Person, div: Division, medians: &[[f64; POSITION_COU
     nil_weight(p.last_role, pos, stars, edge)
 }
 
+/// A player's weight in his school's revenue share (minor bug 336). Real
+/// schools spread the share over most of the roster, more to starters and
+/// by position, where the collectives pay their starters; before, the
+/// share followed the collective's split (a backup 0.02 of a starter), so
+/// on the shipped seed 41 world's July 2026 payday Power 4 offensive
+/// linemen paid at all took a median $26K against the College Sports
+/// Commission's $155K for 2025-26 ($133K of it revenue share), and every
+/// position's paid median ran $9-41K against real revenue-share medians of
+/// $93-230K. By position, the College Sports Commission's 2025-26
+/// revenue-share medians against a receiver's $112.5K: quarterbacks
+/// $230K, defensive linemen $150K, offensive linemen $133K, backs $108.5K,
+/// tight ends $93K; linebackers and defensive backs read as receivers and
+/// specialists at 0.4 (not in the data). By role: a starter 1, a rotation
+/// player and a backup less, a newcomer as a backup (all proposed, not
+/// confirmed).
+pub(crate) fn share_weight(role: Option<PlayingTime>, pos: Position) -> f64 {
+    let at = match pos {
+        Position::QB => 2.04,
+        Position::EDGE | Position::DT => 1.33,
+        Position::OT | Position::IOL => 1.18,
+        Position::RB => 0.96,
+        Position::TE => 0.83,
+        Position::WR | Position::LB | Position::CB | Position::S => 1.0,
+        Position::K | Position::P | Position::LS => 0.4,
+    };
+    let r = match role {
+        None => SHARE_DEPTH,
+        Some(PlayingTime::Starter) => 1.0,
+        Some(PlayingTime::Rotation) => SHARE_ROTATION,
+        _ => SHARE_DEPTH,
+    };
+    at * r
+}
+/// A rotation player's and a backup's revenue share against a starter's at
+/// his position (minor bug 336). Proposed, not confirmed.
+const SHARE_ROTATION: f64 = 0.6;
+const SHARE_DEPTH: f64 = 0.4;
+
+/// A college player's weight in his school's revenue share today (minor
+/// bug 336), read on the same role as his collective weight (`nil_value`).
+pub(crate) fn share_value(p: &Person) -> f64 {
+    let pos = p.player.position;
+    let last = p.player.history.iter().rev().find(|h| h.playing_time != PlayingTime::Unsigned);
+    if last.is_none_or(|h| !h.level.is_college()) {
+        return share_weight(None, pos);
+    }
+    if let Some((role, _)) = p.cal.nil_role {
+        return share_weight(Some(role), pos);
+    }
+    share_weight(p.last_role, pos)
+}
+
+/// A July split's two parts for one player in two pots (minor bug 336):
+/// the school's revenue share by `share_value` and the collective's money
+/// by `nil_value`, each over its own roster total. `money` is the
+/// program's year of money and `s` the school's share of it. The
+/// collective pays its roster `NIL_ROSTER` of its part and keeps the rest
+/// for the year's recruits and transfers; the school pays its whole
+/// revenue share to the roster, as real schools do (before, it paid 0.6
+/// of it too, and on the shipped seed 41 world's July 2026 payday every
+/// Power 4 position's median ran about 0.64 of the College Sports
+/// Commission's 2025-26 revenue-share medians once the split was spread).
+pub(crate) fn july_split(money: f64, s: f64, share: (f64, f64), coll: (f64, f64)) -> (f64, f64) {
+    let roster = money * NIL_ROSTER;
+    (money * s * share.0 / share.1.max(1e-9), roster * (1.0 - s) * coll.0 / coll.1.max(1e-9))
+}
+/// The share of a collective's money its July split pays the roster.
+pub(crate) const NIL_ROSTER: f64 = 0.6;
+
 /// A program's whole payroll weight (its roster by `nil_value`).
 fn nil_pool(
     w: &World,
@@ -9006,7 +9134,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
     let medians = nil_medians(w);
     let go_free = nil_go_free(w);
     for j in 0..pn {
-        let budget = w.programs[j].collective.budget * 0.6 * super::legacy::college::split_q(w, j, 0);
+        let year_money = w.programs[j].collective.budget * super::legacy::college::split_q(w, j, 0);
         let roster = w.programs[j].roster.clone();
         if roster.is_empty() {
             continue;
@@ -9014,10 +9142,11 @@ pub(crate) fn nil_payouts(w: &mut World) {
         let div = w.programs[j].division;
         let value = |p: &Person| nil_value(p, div, &medians);
         let total: f64 = roster.iter().map(|&i| value(&w.people[i])).sum();
-        let worth = |p: &Person| budget * value(p) / total.max(1e-9);
+        let shares: f64 = roster.iter().map(|&i| share_value(&w.people[i])).sum();
         // From July 2025 the school's revenue share and the collective pay
         // apart, and NIL Go clears the collective's deals (B18): each split
-        // is (school, collective as cleared, what NIL Go held back).
+        // is (school, collective as cleared, what NIL Go held back). The
+        // school spreads its share over the roster (minor bug 336).
         let two = super::ncaa::two_pots(today);
         let s = {
             let prog = &w.programs[j];
@@ -9025,10 +9154,9 @@ pub(crate) fn nil_payouts(w: &mut World) {
             if b > 0.0 { (super::ncaa::school_pot(prog, today) / b).clamp(0.0, 1.0) } else { 0.0 }
         };
         let split = |p: &Person| {
-            let x = worth(p);
-            let school = x * s;
-            let coll = if go_free == Some(j) { x - school } else { nil_go(today, x - school, nil_go_top(p, value(p))) };
-            (school, coll, x - school - coll)
+            let (school, meant) = july_split(year_money, s, (share_value(p), shares), (value(p), total));
+            let coll = if go_free == Some(j) { meant } else { nil_go(today, meant, nil_go_top(p, value(p))) };
+            (school, coll, meant - coll)
         };
         let mut paid: Vec<(f64, usize)> = match deals.as_ref().filter(|d| d.0 == j) {
             Some(d) => {
@@ -9177,7 +9305,17 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     let prog = &w.programs[j];
     let nil = nil.unwrap_or_else(|| offer_money(w, j, i));
     let wants = p.family.decider_wants;
-    let mut u = utility(&w.system_norms, p, &wants, prog, w.year, nil, 0.6, home_weight(&w.programs, p, w.year));
+    let mut u = utility(
+        &w.system_norms,
+        &w.high_schools,
+        p,
+        &wants,
+        prog,
+        w.year,
+        nil,
+        0.6,
+        home_weight(&w.programs, p, w.year),
+    );
     let seed = w.options.seed as u64 ^ (p.class_of as u64) << 20;
     u += FEEL_SD * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
     let contact = p.cal.visits.iter().filter(|v| v.0 == j).count().min(5) as f64;
@@ -9212,7 +9350,7 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
     let nil = nil.unwrap_or_else(|| offer_money(w, j, i));
     let wants = p.family.decider_wants;
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
-    let close = closeness(geo::miles(p.home_state, prog.state));
+    let close = closeness(home_miles(&w.high_schools, p, prog));
     let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
     let close_w = wants.close_to_home + if crisis { 0.15 } else { 0.0 };
     let prestige = (g(GradeCat::TitleChances)
@@ -9326,6 +9464,57 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Minor bug 255: a recruit reads a school's distance from his own town
+    /// to its campus. A Jacksonville kid has Georgia Southern, about 150
+    /// miles off, nearer than Miami, about 330, where reading every school
+    /// in his own state as 60 miles away had Miami at 0.96 and Georgia
+    /// Southern at 0.52.
+    #[test]
+    fn closeness_reads_his_town() {
+        let w = World::empty(super::super::WorldOptions { scale: 0.001, history_years: 0, ..Default::default() });
+        let prog = |n: &str| w.programs.iter().find(|p| p.real_name == n).expect(n);
+        let fl = geo::state_index("FL").unwrap();
+        let jax = geo::place(fl, "Jacksonville");
+        assert!(jax != (geo::STATE_CENTERS[fl].1, geo::STATE_CENTERS[fl].2), "the towns table has Jacksonville");
+        let (gs, miami, uf) = (
+            campus_miles(jax, prog("Georgia Southern")),
+            campus_miles(jax, prog("Miami (FL)")),
+            campus_miles(jax, prog("Florida")),
+        );
+        assert!((90.0..160.0).contains(&gs), "Georgia Southern {gs:.0} miles");
+        assert!((280.0..380.0).contains(&miami), "Miami {miami:.0} miles");
+        assert!(uf < gs, "Florida {uf:.0} miles");
+        assert!(closeness(gs) > closeness(miami) + 0.3);
+        // A school or town the tables lack reads his state's center.
+        let center = home_place(&[], 0, fl);
+        assert_eq!(center, (geo::STATE_CENTERS[fl].1, geo::STATE_CENTERS[fl].2));
+    }
+
+    /// Minor bug 256: the academies and the strict academic schools read the
+    /// whole country for students they can admit, by their bar; a school
+    /// without one reads only its region, its brand and the overflow states.
+    #[test]
+    fn academic_names_and_academies_read_the_country() {
+        use super::super::program::{ACADEMIC_NATIONAL, academic_reach, rebuild_footprint};
+        let mut w = World::empty(super::super::WorldOptions { scale: 0.001, history_years: 0, ..Default::default() });
+        let at = |w: &World, n: &str| w.programs.iter().position(|p| p.real_name == n).expect(n);
+        for (n, want) in
+            [("Army", 1.0), ("Navy", 1.0), ("Air Force", 1.0), ("Stanford", 1.0), ("Duke", 0.75), ("Iowa", 0.0)]
+        {
+            let r = academic_reach(&w.programs[at(&w, n)]);
+            assert!((r - want).abs() < 1e-9, "{n}: {r}");
+        }
+        let hi = geo::state_index("HI").unwrap();
+        let (army, iowa) = (at(&w, "Army"), at(&w, "Iowa"));
+        let flat = [0.0; 51];
+        for j in [army, iowa] {
+            let year = w.year;
+            rebuild_footprint(&mut w.programs[j], &flat, year);
+        }
+        assert!(w.programs[army].footprint[hi] >= ACADEMIC_NATIONAL - 1e-9, "Army in Hawaii");
+        assert!(w.programs[iowa].footprint[hi] < ACADEMIC_NATIONAL, "Iowa in Hawaii");
+    }
 
     /// T1.5: each pick lands in its own round's night, counted on the
     /// board's real rounds: round 1 Thursday from 8 PM to before midnight,

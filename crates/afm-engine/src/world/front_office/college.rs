@@ -2153,8 +2153,10 @@ fn pull_at(w: &mut World, j: usize, id: u32, log: bool) -> Result<(String, bool)
     let mut text =
         if free { format!("Pulled the old staff's offer to {name}.") } else { format!("Pulled the offer to {name}.") };
     if committed {
+        let blue = recruiting_stars(p) >= 4;
         p.cal.commit = None;
         w.log.decommits += 1;
+        w.log.blue_broken += blue as u32;
         if free {
             // A new staff going through the commitments it inherited: the
             // kid and his coach know how a coaching change goes.
@@ -2409,7 +2411,8 @@ pub fn budget(w: &World, j: usize) -> Budget {
 /// collective pays the second itself; before, the first is all of it.
 fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
     let prog = &w.programs[j];
-    let budget = prog.collective.budget * 0.6 * crate::world::legacy::college::split_q(w, j, 0);
+    let money = prog.collective.budget * crate::world::legacy::college::split_q(w, j, 0);
+    let budget = money * rec::NIL_ROSTER;
     let roster: Vec<usize> = prog
         .roster
         .iter()
@@ -2419,9 +2422,10 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
     let medians = rec::nil_medians(w);
     let value = |i: usize| rec::nil_value(&w.people[i], prog.division, &medians);
     let total: f64 = roster.iter().map(|&i| value(i)).sum();
+    let shares: f64 = roster.iter().map(|&i| rec::share_value(&w.people[i])).sum();
     let two = ncaa::two_pots(w.today);
     let s = if two && prog.collective.budget > 0.0 {
-        ncaa::school_pot(prog, w.today) / prog.collective.budget
+        (ncaa::school_pot(prog, w.today) / prog.collective.budget).clamp(0.0, 1.0)
     } else {
         0.0
     };
@@ -2430,17 +2434,14 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
     roster
         .iter()
         .map(|&i| {
-            let x = budget * value(i) / total.max(1e-9);
             if !two {
-                return (w.people[i].player.id, x, 0.0, 0.0);
+                return (w.people[i].player.id, budget * value(i) / total.max(1e-9), 0.0, 0.0);
             }
-            let school = x * s;
-            let coll = if free {
-                x - school
-            } else {
-                rec::nil_go(w.today, x - school, rec::nil_go_top(&w.people[i], value(i)))
-            };
-            (w.people[i].player.id, school, coll, x - school - coll)
+            // The school spreads its share over the roster (minor bug 336).
+            let (school, meant) =
+                rec::july_split(money, s, (rec::share_value(&w.people[i]), shares), (value(i), total));
+            let coll = if free { meant } else { rec::nil_go(w.today, meant, rec::nil_go_top(&w.people[i], value(i))) };
+            (w.people[i].player.id, school, coll, meant - coll)
         })
         .collect()
 }
