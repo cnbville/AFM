@@ -5401,6 +5401,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             if m.fill && own_at[i] < need {
                 let theirs: Vec<(usize, f64, bool)> =
                     boards[j][i].iter().copied().filter(|e| !mb[i].iter().any(|x| x.0 == e.0)).collect();
+                // Your coordinator's offers name no money: only you do (Cain
+                // 2026-11-08), so each is the scholarship alone.
+                for e in &theirs {
+                    promise.entry(e.0).or_insert(0.0);
+                }
                 coordinator.extend(theirs.iter().map(|e| e.0));
                 mb[i].extend(theirs);
             } else {
@@ -7924,6 +7929,8 @@ fn suitors(
     // limit, and NIL Go clears your collective's deals in full.
     let lift = w.sandbox(super::sandbox::Switch::RosterLimits);
     let go_free = nil_go_free(w);
+    // Your program: every NIL dollar there is yours (Cain 2026-11-08).
+    let yours = fo::college::paying(w);
     let wr: &World = w;
     (0..pn)
         .into_par_iter()
@@ -8019,7 +8026,10 @@ fn suitors(
             let role = role_at(ahead, slots);
             let (school, coll) =
                 portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d), wr.today, go_free == Some(j));
-            let nil = (school + coll) * super::legacy::college::split_q(wr, j, 1);
+            // Your staff working the portal for you names no money: only
+            // you do (Cain 2026-11-08, "I want the only offering control"),
+            // so a man it brings in weighs the place alone.
+            let nil = if yours == Some(j) { 0.0 } else { (school + coll) * super::legacy::college::split_q(wr, j, 1) };
             // Its staff calls him within hours of his name going in (portal
             // recruiting): his position coach's pitch, as yours makes it.
             let u = utility(norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)

@@ -165,9 +165,13 @@ impl Duty {
             Duty::PracticeSquad => {
                 "Your staff fills the squad, protects its best four and calls up a squad player when a spot thins."
             }
-            Duty::Board => "Your recruiting coordinator ranks the board and offers the players the program can sign.",
+            Duty::Board => {
+                "Your recruiting coordinator ranks the board and offers the players the program can sign. His offers carry no NIL money: you set it."
+            }
             Duty::Visits => "Your recruiting coordinator brings the board's top names in for visits.",
-            Duty::Portal => "Your staff chases the transfers who fill the two-deep's holes.",
+            Duty::Portal => {
+                "Your staff chases the transfers who fill the two-deep's holes. Its offers carry no NIL money: you set it."
+            }
             Duty::Nil => "NIL is always yours: you set every player's revenue share and collective deal.",
             Duty::Squads => {
                 "Your staff puts the best varsity players up and the young ones on JV and the freshman team."
