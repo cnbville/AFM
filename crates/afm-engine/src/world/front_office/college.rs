@@ -975,9 +975,8 @@ pub fn seed(w: &mut World, j: usize) {
         })
         .collect();
     // The roster you inherit keeps the deals the old staff gave it, the
-    // usual split it was paid (Cain's yes 2026-11-08 to an inherited
-    // signee on the old staff's money; proposed, not confirmed for the
-    // roster), rounded to $500. They stand until you change them.
+    // usual split it was paid (Cain's yes 2026-11-08), rounded to $500.
+    // They stand until you change them.
     let two = ncaa::two_pots(w.today);
     let inherited: Vec<(u32, f64, f64)> =
         splits(w, j).into_iter().map(|(id, s, c, held)| (id, round_rate(s), round_coll(c, held))).collect();
