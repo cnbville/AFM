@@ -215,6 +215,9 @@ pub struct Agent {
     pub fit: u8,
     pub gap_y: f64,
     pub misfit: bool,
+    /// A back on the force: the run came outside him on his side (bug 253).
+    #[serde(default)]
+    pub force: bool,
     /// A combination block (fix list S6.1): the linebacker he climbs to
     /// once the down lineman is controlled.
     pub climb: Option<usize>,
@@ -301,6 +304,7 @@ impl Agent {
             fit: 0,
             gap_y: 0.0,
             misfit: false,
+            force: false,
             climb: None,
             r,
             tired,
@@ -349,6 +353,7 @@ impl Agent {
             gap_y: self.gap_y,
             misfit: self.misfit,
             climb: self.climb,
+            force: self.force,
             r: self.r,
             tired: self.tired,
             beat_by: self.beat_by,
@@ -901,8 +906,29 @@ const RUN_EDGE: f64 = 0.035;
 /// 164: any block not sealed, at least a full 2 a second, so a lineman on a
 /// block makes the stop as the runner goes by him (real 43% of first
 /// tackles at 2.5 yards, PFF roles, nflverse 2021-24; the engine's 30% at
-/// 0.8); proposed, not confirmed.
-const SHED_RUNNER: f64 = 1.0;
+/// 0.8); proposed, not confirmed. Minor bug 253: 0.9, with the run block
+/// starting further ahead (`RUN_BLOCK_START`), so inside runs gain more
+/// (NFL test rosters inside the tackles 3.08 to 3.64 a carry, real 4.05)
+/// with linemen still making 40% of first tackles (real 43%; proposed, not
+/// confirmed).
+const SHED_RUNNER: f64 = 0.9;
+/// Where a run block starts, w (minor bug 253; -0.4 before): the blocker
+/// further ahead, so a lineman who makes the stop does it 2.3 yards on
+/// (real 2.5; 2.0 before). On the NFL test rosters with the force fit
+/// (`scrimmage.rs`, `FORCE_WIDE`) 4.52 a carry (real 4.50), 18.6% of runs
+/// for no gain or a loss (real 18.2%), inside the tackles 3.64 and outside
+/// 5.81 (real 4.05 and 5.06; 3.08 and 6.05 before), 3.39 against eight or
+/// more in the box (real 3.40; proposed, not confirmed). Past -0.75 it
+/// barely moves: -0.8 gave 4.44 and -0.7 4.40 with `SHED_RUNNER` at 1.
+const RUN_BLOCK_START: f64 = -0.75;
+/// How much of a ball carrier's own evade and break-tackle scores, over his
+/// level's typical man at his position, his miss and broken-tackle checks
+/// read (minor bug 334): with all of it a back's broken tackles a carry over
+/// two 182-carry blocks carried r 0.44 from one block to the next on the
+/// NFL test rosters, real 0.21 (nflverse 2018-25), since real broken
+/// tackles are mostly the play's luck; at 0.45 r 0.27 (proposed, not
+/// confirmed).
+const CARRIER_SPREAD: f64 = 0.45;
 /// The same pull for a second-level defender (1.5+ yards past the line, a
 /// linebacker a blocker climbed to): he sees the runner coming from 3.5
 /// yards and gets this much more (minor bug 164, linebackers 21% of first
@@ -1444,7 +1470,8 @@ impl<'a> Sim<'a> {
         // the runner goes by (`SHED_RUNNER`), the blocker starts further
         // ahead, -0.4: 4.38 a carry on the test rosters (real 4.50), 16.7%
         // of backs' runs stuffed (real 17.6%; proposed, not confirmed).
-        let w0 = if pass { -0.42 } else { -0.4 }
+        // Minor bug 253: further still (`RUN_BLOCK_START`).
+        let w0 = if pass { -0.42 } else { RUN_BLOCK_START }
             + 0.006 * (get_off + silent - set)
             + self.front_fit(de.label, pass)
             + 0.18 * gauss(self.rng);
@@ -2312,7 +2339,11 @@ impl<'a> Sim<'a> {
         let typ = |a: Attr| super::synthetic::typical(self.level, pos, a);
         let was = 0.3 * (typ(Attr::Agility) - typ(Attr::Elusiveness))
             - size_cost(super::synthetic::typical_body(self.level, pos).1, 210.0);
-        let evade = 0.8 * r.a(Attr::Elusiveness) + 0.2 * r.a(Attr::Speed) + was + self.link(c, &[Link::Sudden]);
+        let typ_evade = 0.8 * typ(Attr::Elusiveness) + 0.2 * typ(Attr::Speed);
+        let own = 0.8 * r.a(Attr::Elusiveness) + 0.2 * r.a(Attr::Speed);
+        // His own evade over the typical man's counts `CARRIER_SPREAD` of it
+        // (minor bug 334).
+        let evade = typ_evade + CARRIER_SPREAD * (own - typ_evade) + was + self.link(c, &[Link::Sudden]);
         let tackle = 0.6 * d.a(Attr::Tackling)
             + 0.2 * d.a(Attr::Agility)
             + 0.2 * d.a(Attr::Pursuit)
@@ -2473,10 +2504,12 @@ impl<'a> Sim<'a> {
                 + 0.4 * d.a(Attr::Strength)
                 + (d.mass - 215.0) * 0.08
                 + self.link(i, &[Link::BatteringRam, Link::Length]);
-            let rb = 0.5 * r.a(Attr::Strength)
-                + 0.5 * r.a(Attr::Elusiveness)
-                + (r.mass - 215.0) * 0.08
-                + self.link(c, &[Link::BatteringRam, Link::LowCenter]);
+            let pos = self.player(c).position;
+            let typ = |a: Attr| super::synthetic::typical(self.level, pos, a);
+            let tw = super::synthetic::typical_body(self.level, pos).1;
+            let typ_rb = 0.5 * typ(Attr::Strength) + 0.5 * typ(Attr::Elusiveness) + (tw - 215.0) * 0.08;
+            let own = 0.5 * r.a(Attr::Strength) + 0.5 * r.a(Attr::Elusiveness) + (r.mass - 215.0) * 0.08;
+            let rb = typ_rb + CARRIER_SPREAD * (own - typ_rb) + self.link(c, &[Link::BatteringRam, Link::LowCenter]);
             let p_break = 0.026 * (1.0 + (rb - tk) / 60.0).max(0.05);
             if self.rng.chance(p_break) {
                 if TRACE.load(std::sync::atomic::Ordering::Relaxed) {

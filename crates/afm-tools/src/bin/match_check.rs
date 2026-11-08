@@ -899,12 +899,17 @@ fn main() {
                         };
                         by_box[bx][0] += 1.0;
                         by_box[bx][1] += y;
-                        if let Some((dy, _)) = p.tend.cross {
-                            let e = &mut run_dir[(dy.abs() > 4.0) as usize];
-                            e[0] += 1.0;
-                            e[1] += y;
-                        }
                         let gap = afm_engine::world::tally::expect::run_gap(&p.call);
+                        // A run stopped behind the line counts where it was
+                        // called, as a charter logs it (nflverse's run gaps
+                        // cover every designed run, losses too).
+                        let out = match p.tend.cross {
+                            Some((dy, _)) => dy.abs() > 4.0,
+                            None => matches!(gap, 0 | 4),
+                        };
+                        let e = &mut run_dir[out as usize];
+                        e[0] += 1.0;
+                        e[1] += y;
                         let e = &mut run_dir[2 + matches!(gap, 0 | 4) as usize];
                         e[0] += 1.0;
                         e[1] += y;
@@ -1437,14 +1442,15 @@ fn main() {
         );
         row(&format!("share of runs, {name} in box"), by_box[k][0] / rn.max(1.0), None);
     }
-    // Where designed runs crossed the line against nflverse 2021-25's run
+    // Where designed runs crossed the line (or, stopped behind it, where
+    // they were called) against nflverse 2021-25's run
     // gaps (end 5.06 a carry, 23% of designed runs; guard, tackle and
     // middle 4.05), and by the call (outside zone, toss, sweep, option).
     if games > 0 {
         let rd = |k: usize| run_dir[k][1] / run_dir[k][0].max(1.0);
-        row("ypc, crossed inside the tackles", rd(0), Some(4.05));
-        row("ypc, crossed outside the tackles", rd(1), Some(5.06));
-        row("share crossing outside", run_dir[1][0] / (run_dir[0][0] + run_dir[1][0]).max(1.0), Some(0.231));
+        row("ypc, inside the tackles", rd(0), Some(4.05));
+        row("ypc, outside the tackles", rd(1), Some(5.06));
+        row("share outside the tackles", run_dir[1][0] / (run_dir[0][0] + run_dir[1][0]).max(1.0), Some(0.231));
         row("ypc, inside calls", rd(2), None);
         row("ypc, outside calls", rd(3), None);
         row("share of outside calls", run_dir[3][0] / (run_dir[2][0] + run_dir[3][0]).max(1.0), None);
@@ -1626,6 +1632,11 @@ fn run_diag(
     // the spread of yards a carry across blocks, all and within one back.
     let mut per_back = std::collections::HashMap::<u32, (f64, f64)>::new();
     let mut blocks: Vec<(u32, f64)> = Vec::new();
+    // Broken tackles a carry in blocks of 182 carries (the real qualifying
+    // season's mean, 100+ carries; minor bug 334): real sd 0.0301, season to
+    // season r 0.209 (nflverse 2018-25, `results_real.json`, Broken).
+    let mut bt_back = std::collections::HashMap::<u32, (f64, f64)>::new();
+    let mut bt_blocks: Vec<(u32, f64)> = Vec::new();
     let mut shed_by = std::collections::BTreeMap::<String, f64>::new();
     let mut contact_at = std::collections::BTreeMap::<String, [f64; 10]>::new();
     // Box 5..9 x first tackler group x [runs, yards, before contact]
@@ -1675,6 +1686,13 @@ fn run_diag(
                 box_sit[k][bx][2] += (p.yards < 0.5) as u8 as f64;
             }
             if let Some(c) = p.carrier {
+                let e = bt_back.entry(c).or_default();
+                e.0 += 1.0;
+                e.1 += p.missed_tackles.iter().filter(|m| m.1 == c).count() as f64;
+                if e.0 >= 182.0 {
+                    bt_blocks.push((c, e.1 / e.0));
+                    *e = (0.0, 0.0);
+                }
                 let e = per_back.entry(c).or_default();
                 e.0 += 1.0;
                 e.1 += p.yards;
@@ -1867,6 +1885,35 @@ fn run_diag(
         sd(&all),
         (within / wn.max(1.0)).sqrt()
     );
+    {
+        let v: Vec<f64> = bt_blocks.iter().map(|b| b.1).collect();
+        let m = v.iter().sum::<f64>() / v.len().max(1) as f64;
+        let (mut xs, mut ys) = (Vec::new(), Vec::new());
+        let mut bids: Vec<u32> = bt_blocks.iter().map(|b| b.0).collect();
+        bids.sort();
+        bids.dedup();
+        for id in &bids {
+            let v: Vec<f64> = bt_blocks.iter().filter(|b| b.0 == *id).map(|b| b.1).collect();
+            for w in v.windows(2) {
+                xs.push(w[0]);
+                ys.push(w[1]);
+            }
+        }
+        let mx = xs.iter().sum::<f64>() / xs.len().max(1) as f64;
+        let my = ys.iter().sum::<f64>() / ys.len().max(1) as f64;
+        let c: f64 = xs.iter().zip(&ys).map(|(x, y)| (x - mx) * (y - my)).sum();
+        let vx: f64 = xs.iter().map(|x| (x - mx) * (x - mx)).sum();
+        let vy: f64 = ys.iter().map(|y| (y - my) * (y - my)).sum();
+        println!(
+            "  backs' 182-carry blocks: {} from {} backs, broken tackles a carry {:.4}, sd {:.4} (real 0.0301; chance alone {:.4}), consecutive r {:.3} (real 0.209)",
+            v.len(),
+            bids.len(),
+            m,
+            sd(&v),
+            (m / 182.0).sqrt(),
+            c / (vx * vy).sqrt().max(1e-9)
+        );
+    }
     let mut w: Vec<_> = why.into_iter().collect();
     w.sort_by(|a, b| b.1.total_cmp(&a.1));
     for (k, v) in w.iter().take(12) {

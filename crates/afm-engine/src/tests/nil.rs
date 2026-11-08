@@ -560,12 +560,12 @@ fn an_old_world_file_takes_the_limited_states_off_and_fills_the_deals() {
 fn a_college_players_pay_reads_his_play_and_the_interior_line_costs_less() {
     use crate::player::PlayingTime::Starter;
     use crate::positions::Position as P;
-    let w = |pos, stars, edge| rec::nil_weight(Some(Starter), pos, stars, edge);
+    let w = |pos, stars, edge| rec::nil_weight(Some(Starter), pos, stars, edge, false);
     // Stars fade: a two-star starter is 0.6 of a four-star at the same play
     // (the square root before gave 0.28); a freshman keeps the full read.
     let r = w(P::WR, 2, 0.0) / w(P::WR, 4, 0.0);
     assert!((r - 0.08f64.powf(0.2)).abs() < 1e-9, "{r}");
-    let fresh = rec::nil_weight(None, P::WR, 2, 0.0) / rec::nil_weight(None, P::WR, 4, 0.0);
+    let fresh = rec::nil_weight(None, P::WR, 2, 0.0, false) / rec::nil_weight(None, P::WR, 4, 0.0, false);
     assert!((fresh - 0.08).abs() < 1e-9, "{fresh}");
     // Ten points of play over the level's starters: 3% a point.
     let up = w(P::CB, 3, 10.0) / w(P::CB, 3, 0.0);
@@ -585,11 +585,11 @@ fn the_school_spreads_its_whole_share_by_role_and_position() {
     use crate::positions::Position as P;
     // $20M a year, 60% the school's: a player holding 1/50 of the school's
     // weights and 1/20 of the collective's.
-    let (school, coll) = rec::july_split(20.0e6, 0.6, (1.0, 50.0), (1.0, 20.0));
+    let (school, coll) = rec::july_split(20.0e6, 0.6, (1.0, 50.0), (1.0, 20.0), true);
     assert!((school - 12.0e6 / 50.0).abs() < 1.0, "{school}");
-    assert!((coll - 8.0e6 * rec::NIL_ROSTER / 20.0).abs() < 1.0, "{coll}");
-    // Before two pots it is all the collective's.
-    let (school, coll) = rec::july_split(20.0e6, 0.0, (1.0, 50.0), (1.0, 20.0));
+    assert!((coll - 8.0e6 * rec::NIL_ROSTER_TWO / 20.0).abs() < 1.0, "{coll}");
+    // Before two pots it is all the collective's, which keeps some back.
+    let (school, coll) = rec::july_split(20.0e6, 0.0, (1.0, 50.0), (1.0, 20.0), false);
     assert_eq!(school, 0.0);
     assert!((coll - 20.0e6 * rec::NIL_ROSTER / 20.0).abs() < 1.0, "{coll}");
     // Quarterbacks first, then the lines, then receivers; specialists last.

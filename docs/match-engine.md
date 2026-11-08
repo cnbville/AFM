@@ -844,6 +844,54 @@ Still off:
 - **High school points fell 0.5** (18.3 to 17.7, no real target): form is a weakest-link cost (a bad day on the line hurts more than a good day helps), 0.4 of it in high school; the rest is noise at 2,000 games.
 - **Runs stuffed at the line rose 0.8 points** (form; real 18.2%) and NFL offensive holding 1.49 a team game (main 1.42, real 1.26).
 
+## Inside runs, the box and the carrier's spread (minor bugs 253, 342 and 334, 2026-11-08)
+
+The batch before the Jan 1 rebuild (gate row 13). Real numbers are nflverse play-by-play and participation 2021-25 (`data/real-world/engine_targets.json`): designed runs by where they crossed (outside the tackles 5.06 a carry on 23.1% of runs, inside 4.05) and by the box (6 or fewer / 7 / 8 or more: 45.9 / 36.3 / 16.0% of runs at 4.73 / 4.22 / 3.40 a carry).
+
+What was wrong on main (4,000 `match_check nfl` games, `AFM_RUNDIAG=1`):
+
+- **Outside runs gained 3 yards a carry more than inside ones (253):** outside 6.05, inside 3.08 (real 1.0 apart). Nobody turned a wide run back in: the back on that side kept his deep fit while the runner got outside the box, and inside runs died at the line (linemen made 40% of first tackles at 1.96 yards, real 43% at 2.50).
+- **Eight or more in the box on a quarter of runs (342):** 34.2 / 41.1 / 24.7%. Motion did it: against jet or across motion the strong safety spun down to 5.5 yards, inside the box count, whatever his depth before; and in zone the defender over the jet man lined up where he was in mid-motion, inside the tackles.
+- **A back's broken tackles followed him from block to block about twice as much as real (334):** over two 182-carry blocks, r 0.44 (real 0.21), sd 0.041 a carry (real 0.030, chance alone 0.029). The miss and break-tackle checks read the whole gap between his evade and strength scores and the typical back's.
+
+What changed (`game/scrimmage.rs`, `game/sim.rs`; every size proposed, not confirmed):
+
+- **The force.** Once the runner is 4 yards outside the ball on a back's side (`FORCE_WIDE`), that back (not a deep zone) takes the box fit and attacks the edge, and a corner on that side stops holding his outside leverage (`defend`; 3 and 5 yards moved outside runs about 0.1 a carry either way).
+- **The run block starts further ahead** (w -0.75 for runs, was -0.4, `RUN_BLOCK_START`) and **a lineman on a block sheds a little less as the runner goes by** (`SHED_RUNNER` 0.9, was 1.0), so the stops at the line come later. A start of -0.8 alone barely moved more (4.44 a carry); `SHED_RUNNER` 0.5-0.7 alone took linemen to 33-36% of first tackles.
+- **The strong safety spins at his own depth** (`ss_depth`, the depth he had before the motion: the typical man just outside the box, a hitter inside it), and **zone defenders set to the jet man's spot before the motion** (`align_defense`).
+- **The carrier's spread:** the miss and broken-tackle checks read 0.45 of his gap from his level's typical man at his position (`CARRIER_SPREAD`), who evades and breaks tackles as before.
+
+4,000 `match_check nfl` games, main and after:
+
+| NFL designed runs | main | after | real |
+|---|---|---|---|
+| yards a carry | 4.28 | 4.52 | 4.50 |
+| inside / outside the tackles | 3.08 / 6.05 | 3.64 / 5.81 | 4.05 / 5.06 |
+| crossing outside the tackles | 29.1% | 27.6% | 23.1% |
+| 0 or less / 1-3 / 4-9 yards | 22.6 / 35.2 / 32.1% | 18.6 / 33.4 / 38.5% | 18.2 / 37.1 / 34.2% |
+| 10-19 / 20-39 / 40+ yards | 8.9 / 1.0 / 0.3% | 8.3 / 0.9 / 0.3% | 8.2 / 1.8 / 0.5% |
+| box 6 or fewer / 7 / 8 or more, share | 34.2 / 41.1 / 24.7% | 42.4 / 43.2 / 14.4% | 45.9 / 36.3 / 16.0% |
+| box 6 or fewer / 7 / 8 or more, a carry | 4.23 / 3.99 / 3.45 | 4.47 / 4.29 / 3.39 | 4.73 / 4.22 / 3.40 |
+| first tackle: line | 39.9% at 1.96 | 39.7% at 2.34 | 43.1% at 2.50 |
+| first tackle: linebackers | 23.4% at 3.45 | 22.6% at 3.49 | 27.8% at 3.69 |
+| first tackle: backs | 31.6% at 6.48 | 32.9% at 6.75 | 29.1% at 6.96 |
+| backs' broken tackles over two 182-carry blocks, r | 0.44 | 0.27 | 0.21 |
+| yards an attempt | 7.37 | 7.33 | 7.05 |
+| points a team game | 24.5 | 25.1 | 22.5 |
+
+Points rise 0.6 with the runs: the passing side's excess (yards an attempt) is the rest, and NFL passing stays as it is for now (Raichel, 2026-10-19). FBS (2,000 games): yards a carry 4.66 to 4.95 (real 5.12), inside 3.33 to 4.05 and outside 6.69 to 6.40, points 22.6 to 23.5 (real 27.0; these rosters score low). High school (2,000 games): 5.54 to 5.86 a carry, points 17.4 to 18.5 (no real target).
+
+Tried and dropped: a contain end who widens with a runner outside him (no change); the carrier's pace in the open field (little change); a pursuer who leads a fast carrier as the typical man runs (no change); the press of the back's legs into the hole, read from his 10-yard split (no change); a linebacker who scrapes over the top by his speed and a slow one who fits under (bug 306: its A/B rows got worse).
+
+Still off: inside runs 0.4 a carry short and outside runs 0.75 long, too many runs cross outside, runs of 20+ are half of real (bug 278), and linebackers still make too few first tackles. The coaches' call table and the expected rush model are refit on the new runs with the other engine lanes before the Jan 1 rebuild (its step 1: `call_values`, `xyards_fit`, `decide_fit`, `xpass_fit`), so the numbers above are on the old table.
+
+Measured in the same batch, not fixed (`ab_check`, 2,000 NFL games an arm, seed 1, after the changes above):
+
+- **A fast back's long runs (278):** from a 4.78 to a 4.38 forty, runs of 20+ go 0.80% to 1.28% of his carries, 0.3× real's slope (real held equal +0.48 pts a 0.1 s). The run changes above left it where it was; the carrier's open-field pace and the pursuers' angle on a fast man did not move it.
+- **A heavy back's yards before contact (304):** -0.048 yards a carry a 10 lb (real -0.124, band -0.050 to -0.198), just outside the band, as on main (-0.047); missed tackles forced stay flat with weight, as real. The press of his legs into the hole did not move it.
+- **A linebacker's speed and run tackles (306):** across the whole position the fast men still collect the run tackles (-0.0017 a defense snap a 0.1 s slower, real +0.0037). Read within the field, against the linebackers beside him (`lb_tk_within`, the way real's same-draft-slot slope is a cross-section), the engine gives -0.2 to -1.0 pts a snap a 0.1 s slower, real +0.37: the miss is in the engine, not the measurement.
+- **A corner's speed and target depth (281):** read within the field, against the corners beside him (`cv_adot_within`), the engine gives -0.32 to -0.54 yards a 0.1 s slower (real -0.33, band -0.15 to -0.51), so the miss was the A/B's whole-position read, which can't show a cross-section.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.

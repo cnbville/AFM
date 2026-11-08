@@ -453,9 +453,17 @@ pub fn summarize(result: &CohortResult) -> Summary {
     let exit_overall: Vec<f64> =
         records.iter().filter(|r| r.college.is_some()).map(|r| last_amateur(r).overall).collect();
     let draft_overall: Vec<f64> = drafted.iter().map(|r| last_amateur(r).overall).collect();
-    // Consensus board: every prospect ranked by the grade teams saw.
-    let mut graded: Vec<&CareerRecord> = records.iter().filter(|r| r.draft_grade.is_some()).collect();
-    graded.sort_by(|a, b| b.draft_grade.unwrap().total_cmp(&a.draft_grade.unwrap()));
+    // Consensus board (minor bug 341): every prospect but the specialists,
+    // ranked as real public boards rank them, by the grade teams saw and
+    // his position's value (`career::position_value`), as the draft's own
+    // note and the world's public board do. Ranked on grade alone, a
+    // quarterback or edge graded 60th who went in round one counted as a
+    // reach though every real board has him higher.
+    let pos_of = |r: &CareerRecord| r.at_draft.as_deref().unwrap_or(&r.player).position;
+    let board = |r: &CareerRecord| r.draft_grade.unwrap_or(0.0) + afm_engine::career::position_value(pos_of(r));
+    let mut graded: Vec<&CareerRecord> =
+        records.iter().filter(|r| r.draft_grade.is_some() && !pos_of(r).is_specialist()).collect();
+    graded.sort_by(|a, b| board(b).total_cmp(&board(a)));
     let consensus_rank: std::collections::HashMap<u32, usize> =
         graded.iter().enumerate().map(|(i, r)| (r.player.id, i + 1)).collect();
     let veteran_gaps: Vec<f64> = records
@@ -542,7 +550,7 @@ pub fn summarize(result: &CohortResult) -> Summary {
             ),
             first_rounders_outside_top50: drafted
                 .iter()
-                .filter(|r| round_of(r) == 1 && consensus_rank[&r.player.id] > 50)
+                .filter(|r| round_of(r) == 1 && consensus_rank.get(&r.player.id).is_some_and(|&k| k > 50))
                 .count(),
         },
         nfl: Nfl {

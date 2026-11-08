@@ -511,6 +511,15 @@ fn sd(c: &C) -> f64 {
     (c[2] / c[0] - m * m).max(0.0).sqrt()
 }
 
+/// A least-squares slope from [n, sum x, sum y, sum xy, sum x squared];
+/// none when x hardly varies: a pure arm gives every man the same body, and
+/// the small spread left in a pure arm (an sd under 0.3 of x's unit)
+/// gave a slope of noise (-4.6 and -5.8 for linebackers' run tackles).
+fn slope(c: &C) -> f64 {
+    let v = c[4] - c[1] * c[1] / c[0];
+    if c[0] < 2.0 || v <= 0.09 * c[0] { f64::NAN } else { (c[3] - c[1] * c[2] / c[0]) / v }
+}
+
 /// A spread with the sample noise taken out: slot 3 holds each game's noise
 /// variance (minor bug 287: real game logs are measured the same way).
 fn true_sd(c: &C) -> f64 {
@@ -1504,6 +1513,69 @@ pub fn stats() -> Vec<Stat> {
         } else {
             Z
         }),
+        // Minor bug 281: real target depth by a corner's speed is a
+        // cross-section (each 0.1 s slower, 0.33 yd shallower, held equal),
+        // which moving every corner at once can't show. Here each target on
+        // a corner is set against the other corners on the field: the
+        // slope of air yards on his forty less theirs, per 0.1 s slower.
+        Stat {
+            key: "cv_adot_within",
+            label: "depth of targets on him per 0.1 s slower than the corners beside him",
+            unit: Num,
+            play: Some(|r, c| {
+                if !(thrown(r) && c.fo(r.defender) && c.is(r.defender, P::CB)) {
+                    return Z;
+                }
+                let forty = |i: &u32| c.body.get(i).map(|b| b[1]);
+                let cbs: Vec<f64> =
+                    r.on_field[1].iter().filter(|i| c.pos.get(*i) == Some(&P::CB)).filter_map(forty).collect();
+                let Some(me) = r.defender.and_then(|d| forty(&d)) else { return Z };
+                if cbs.len() < 2 {
+                    return Z;
+                }
+                let x = (me - cbs.iter().sum::<f64>() / cbs.len() as f64) / 0.1;
+                [1.0, x, r.air_yards, x * r.air_yards, x * x]
+            }),
+            game: None,
+            value: slope,
+        },
+        // Minor bug 306: real run tackles by a linebacker's speed are a
+        // cross-section too (each 0.1 s slower, +0.37 pts of run tackles a
+        // defense snap at the same draft slot): each snap sets every
+        // linebacker on the field against the others beside him, in pts of
+        // run tackles a snap per 0.1 s slower.
+        Stat {
+            key: "lb_tk_within",
+            label: "run tackles a snap per 0.1 s slower than the linebackers beside him, pts",
+            unit: Num,
+            play: Some(|r, c| {
+                if !scrimmage(r) {
+                    return Z;
+                }
+                let forty = |i: &u32| c.body.get(i).map(|b| b[1]);
+                let lbs: Vec<(u32, f64)> = r.on_field[1]
+                    .iter()
+                    .filter(|i| c.pos.get(*i) == Some(&P::LB))
+                    .filter_map(|i| forty(i).map(|f| (*i, f)))
+                    .collect();
+                if lbs.len() < 2 {
+                    return Z;
+                }
+                let mean = lbs.iter().map(|l| l.1).sum::<f64>() / lbs.len() as f64;
+                let run = matches!(r.kind, T::Run | T::Scramble);
+                let mut out = Z;
+                for (i, f) in lbs {
+                    let x = (f - mean) / 0.1;
+                    let y = if run && r.tacklers.contains(&i) { 100.0 } else { 0.0 };
+                    for (k, v) in [1.0, x, y, x * y, x * x].into_iter().enumerate() {
+                        out[k] += v;
+                    }
+                }
+                out
+            }),
+            game: None,
+            value: slope,
+        },
         play!("cv_int", "picks a target on him", Pct, |r, c| if thrown(r) && c.fo(r.defender) {
             rc(bf(r.interception), 1.0)
         } else {
