@@ -12,6 +12,10 @@ model checker pass, then merged into crates/afm-engine/data/lines/*_run.txt.
     run.py merge               write the 8 <family>_run.txt files from the kept lines
     run.py report              write report.md (counts, keep rate, cost, sample lines)
 
+--writer and --checker pick the model of each step (default Sonnet 5.5 for
+both, as the run had it). The top-up after the run (Cain 2026-11-08) wrote
+with Haiku 5.5 and checked with Sonnet 5.5: --writer claude-haiku-5-5.
+
 The key is read from AFM_LINEBANK_KEY only (never ANTHROPIC_API_KEY, so a
 Claude Code session can't take it as its own login) and never printed. The
 state (batch ids, money spent, kept and dropped lines) lives in --state, so a
@@ -34,12 +38,21 @@ import check as K  # noqa: E402
 from parts import FACT_WORDS, FILES, FIRST, NEVER, PARTS, PRONOUN_WORDS, TAG_WORDS, allocation  # noqa: E402
 
 MODEL = 'claude-sonnet-5-5'
+# Each model's price ($ per million tokens through the Batches API, half the
+# list price), its lowest thinking setting, its output tokens per version
+# asked (thinking included), and how many tokens it counts for the same text
+# against Sonnet's tokenizer.
+MODELS = {
+    # "disabled" is a 400 on Sonnet 5.5; between_tools is its lowest (pilot: 30.2 tokens a version).
+    'claude-sonnet-5-5': {'in': 1.00, 'out': 5.00, 'thinking': {'type': 'between_tools'}, 'per_line': 31, 'tokens': 1.0},
+    # Prompts of 100K tokens or fewer ($0.10 and $0.50 listed); 24.7 tokens a version in the 50-moment test.
+    'claude-haiku-5-5': {'in': 0.05, 'out': 0.25, 'thinking': {'type': 'disabled'}, 'per_line': 26, 'tokens': 1.3},
+}
+WRITER = CHECKER = MODEL                    # set by --writer and --checker
 BASE_URL = 'https://api.anthropic.com'      # set, because ANTHROPIC_BASE_URL is set on thread machines
 KEY_VAR = 'AFM_LINEBANK_KEY'
-PRICE_IN, PRICE_OUT = 1.00, 5.00            # $ per million tokens, Sonnet 5.5 through the Batches API (half price)
 PER_REQ = 120                               # versions asked in one request (one part per request)
 MAX_TOKENS = 6000                           # 120 versions are about 3,000 tokens, and the model may think first
-OUT_PER_LINE = 31                           # output tokens per version asked, thinking included (pilot: 30.2)
 SHOW = 600                                  # at most this many existing versions shown per request
 CHECK_PER_REQ = 250                         # lines one checker request reads
 CHECK_MAX_TOKENS = 4000                     # its notes and its answer (pilot: at most 850 for 184 lines)
@@ -154,8 +167,9 @@ def probe(c):
         sys.exit(f'Could not reach {BASE_URL}: {e}. Nothing was spent.')
 
 
-def cost(tin, tout):
-    return tin * PRICE_IN / 1e6 + tout * PRICE_OUT / 1e6
+def cost(tin, tout, model=MODEL):
+    m = MODELS[model]
+    return tin * m['in'] / 1e6 + tout * m['out'] / 1e6
 
 
 # ---------------------------------------------------------------------------
@@ -299,10 +313,9 @@ def build_requests(st, plan, rnd, targets):
         have = [t + (' ~ ' + ' '.join(g) if g else '') for t, g, _ in old.get(key, [])] + pool.get(key, [])
         used = used_openings(have, len(old.get(key, [])), targets.get(key, 0))
         params = {
-            'model': MODEL,
+            'model': WRITER,
             'max_tokens': MAX_TOKENS,
-            # The lowest thinking setting on Sonnet 5.5 ("disabled" is a 400).
-            'thinking': {'type': 'between_tools'},
+            'thinking': MODELS[WRITER]['thinking'],
             'system': system_prompt(PARTS[key].family),
             'messages': [{'role': 'user', 'content': user_prompt(key, n, angle, shown_for(key, have, rnd, cid),
                                                                  used)}],
@@ -319,12 +332,17 @@ def chars(req):
 
 def estimate(st, reqs):
     """(likely cost, worst cost) of a batch: the worst counts every request
-    writing to its token limit."""
+    writing to its token limit. Characters per token are measured on Sonnet's
+    tokenizer (spend() counts every batch that way), then scaled per model."""
     cpt = st.s['chars_in'] / st.s['tokens_in'] * 0.95 if st.s['tokens_in'] > 50000 else CHARS_PER_TOKEN
-    tin = sum(chars(r) for r in reqs) / cpt
-    likely_out = sum(min(r['params']['max_tokens'], OUT_PER_LINE * meta_n(r) + 150) for r in reqs)
-    worst_out = sum(r['params']['max_tokens'] for r in reqs)
-    return cost(tin, likely_out), cost(tin, worst_out)
+    likely = worst = 0.0
+    for r in reqs:
+        p = r['params']
+        m = MODELS[p['model']]
+        tin = chars(r) / cpt * m['tokens']
+        likely += cost(tin, min(p['max_tokens'], m['per_line'] * meta_n(r) + 150), p['model'])
+        worst += cost(tin, p['max_tokens'], p['model'])
+    return likely, worst
 
 
 def meta_n(r):
@@ -348,7 +366,7 @@ def fit_cap(st, reqs, cap):
 def submit(c, st, reqs, meta, kind, rnd):
     likely, worst = estimate(st, reqs)
     b = c.messages.batches.create(requests=reqs)
-    st.s['batches'][b.id] = {'kind': kind, 'round': rnd, 'meta': meta, 'ended': False,
+    st.s['batches'][b.id] = {'kind': kind, 'round': rnd, 'meta': meta, 'ended': False, 'model': reqs[0]['params']['model'],
                              'chars': sum(chars(r) for r in reqs), 'likely': likely, 'worst': worst}
     st.save()
     st.log(f'{kind} batch {b.id}: {len(reqs)} requests, likely ${likely:.2f}, at most ${worst:.2f} '
@@ -397,9 +415,10 @@ def collect(c, st, bid):
             n += use
             fo.write(json.dumps({'id': r.custom_id, 'stop': m.stop_reason, 'in': u.input_tokens,
                                  'out': u.output_tokens, 'use': use, 'text': text}) + '\n')
-    spent = cost(tin, tout)
+    model = rec.get('model', MODEL)            # the run's own batches were all Sonnet's
+    spent = cost(tin, tout, model)
     st.s['spent'] += spent
-    st.s['tokens_in'] += tin
+    st.s['tokens_in'] += round(tin / MODELS[model]['tokens'])   # on Sonnet's tokenizer, for estimate()
     st.s['tokens_out'] += tout
     st.s['chars_in'] += rec['chars']
     rec.update({'ended': True, 'cost': spent, 'tokens_in': tin, 'tokens_out': tout, 'failed': dict(bad)})
@@ -496,7 +515,7 @@ def check_submit(c, st, kept, rnd, cap):
             cid = f'c{rnd}-{i:05d}'
             i += 1
             reqs.append({'custom_id': cid, 'params': {
-                'model': MODEL, 'max_tokens': CHECK_MAX_TOKENS, 'thinking': {'type': 'between_tools'},
+                'model': CHECKER, 'max_tokens': CHECK_MAX_TOKENS, 'thinking': MODELS[CHECKER]['thinking'],
                 'system': checker_system(),
                 'messages': [{'role': 'user', 'content': checker_prompt(key, chunk)}]}})
             meta[cid] = {'key': key, 'lines': chunk, 'n': len(chunk)}
@@ -701,7 +720,7 @@ def report(st, targets):
         fam[PARTS[k].family][0] += len(pool.get(k, []))
         fam[PARTS[k].family][1] += t
     out = ['# Line bank run: where it stands', '',
-           f'Spent ${st.s["spent"]:.2f} ({st.s["tokens_in"]:,} tokens in, {st.s["tokens_out"]:,} out) over '
+           f'Spent ${st.s["spent"]:.2f} ({int(st.s["tokens_in"]):,} tokens in, {st.s["tokens_out"]:,} out) over '
            f'{st.s["round"]} rounds. Written {st.s["written"]:,}, kept by the code check {st.s["kept_code"]:,}, '
            f'kept after the checker pass {st.s["kept"]:,} ({100 * keep_rate(st):.0f}%).', '',
            '| Family | Kept | Target |', '|---|---|---|']
@@ -744,7 +763,11 @@ def main():
     ap.add_argument('--rounds', type=int, default=6)
     ap.add_argument('--per-part', type=int, default=12, help='requests per part in one round')
     ap.add_argument('--pilot', action='store_true')
+    ap.add_argument('--writer', choices=sorted(MODELS), default=MODEL, help='the model that writes the lines')
+    ap.add_argument('--checker', choices=sorted(MODELS), default=MODEL, help='the model of the checker pass')
     args = ap.parse_args()
+    global WRITER, CHECKER
+    WRITER, CHECKER = args.writer, args.checker
     st = State(args.state)
     if args.cmd == 'status':
         print(json.dumps({k: v for k, v in st.s.items() if k != 'batches'}, indent=1))
@@ -783,7 +806,8 @@ def main():
     if args.cmd == 'pilot':
         args.cap = min(args.cap, 3.0)
         args.rounds = 1
-    st.log(f'{args.cmd}: {sum(targets.values()):,} versions over {len(targets)} parts, cap ${args.cap:.2f}')
+    st.log(f'{args.cmd}: {sum(targets.values()):,} versions over {len(targets)} parts, cap ${args.cap:.2f}, '
+           f'writer {WRITER}, checker {CHECKER}')
     resume(c, st, targets, args)
     done = rounds(c, st, targets, args)
     report(st, targets)
