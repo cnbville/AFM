@@ -102,7 +102,18 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
             sure_words(own, eye, games)
         )
     } else {
-        "Public film and measurements only · not sure".to_string()
+        // Another team's player: what your staff's file holds on him
+        // (minor bug 355: it said public film only, and "not sure", even
+        // after your scouts' visits, interviews and workouts).
+        let s = reads::seen(w, i);
+        match s.looks {
+            0 => "Nobody on your staff has looked at him yet".to_string(),
+            n => format!(
+                "{n} look{} in your staff's file · {}",
+                if n == 1 { "" } else { "s" },
+                s.sure.unwrap_or("unsure")
+            ),
+        }
     };
     // The families, with each comparison.
     let fams = families(pos);

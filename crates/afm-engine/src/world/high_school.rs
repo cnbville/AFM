@@ -181,13 +181,17 @@ static TOWNS: std::sync::LazyLock<std::collections::HashMap<String, Vec<TownRow>
     map
 });
 
-/// Every town's place by state code and name.
-static PLACES: std::sync::LazyLock<std::collections::HashMap<(String, String), (f32, f32)>> =
+/// Every town's place, by state code, then name (nested so a lookup needs no new strings:
+/// recruiting reads a recruit's town for every school it weighs, minor bug
+/// 255).
+#[allow(clippy::type_complexity)]
+static PLACES: std::sync::LazyLock<std::collections::HashMap<String, std::collections::HashMap<String, (f32, f32)>>> =
     std::sync::LazyLock::new(|| {
-        let mut map = std::collections::HashMap::new();
+        let mut map: std::collections::HashMap<String, std::collections::HashMap<String, (f32, f32)>> =
+            std::collections::HashMap::new();
         for (code, towns) in TOWNS.iter() {
             for t in towns.iter().filter(|t| t.lat != 0.0 || t.lon != 0.0) {
-                map.entry((code.clone(), t.town.clone())).or_insert((t.lat, t.lon));
+                map.entry(code.clone()).or_default().entry(t.town.clone()).or_insert((t.lat, t.lon));
             }
         }
         map
@@ -195,7 +199,7 @@ static PLACES: std::sync::LazyLock<std::collections::HashMap<(String, String), (
 
 /// A town's latitude and longitude, when the table has it.
 pub fn town_place(code: &str, town: &str) -> Option<(f64, f64)> {
-    PLACES.get(&(code.to_string(), town.to_string())).map(|&(a, b)| (a as f64, b as f64))
+    PLACES.get(code).and_then(|m| m.get(town)).map(|&(a, b)| (a as f64, b as f64))
 }
 
 /// A state's real towns, biggest first (empty for a state the table lacks).

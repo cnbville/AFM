@@ -584,7 +584,7 @@ struct Film<'a> {
 impl<'a> Film<'a> {
     fn new(w: &'a World, id: u32, mode: Mode, ours: bool) -> Self {
         let n = match super::super::place(w, id) {
-            Some(i) if mode != Mode::Live && !ours => tape::sets(&w.people[i]).max(1) as usize,
+            Some(i) if mode != Mode::Live && !ours => tape::sets(w, i).max(1) as usize,
             _ => 1,
         };
         Film { w, id, mode, ours, sets: (0..n).map(|_| None).collect() }
@@ -1378,7 +1378,7 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
                 caught_lines.extend(notes_now.iter().map(Note::line));
                 // The look in his file under your name; your coach's notes
                 // in your staff's file (his read, not yours).
-                let kind = film_kind(&w.people[i]);
+                let kind = film_kind(w, i);
                 // From the stands the trip already put the game in his
                 // file; tape is a film look under your name.
                 if let Some(you) = you
@@ -1727,13 +1727,21 @@ fn own_now(w: &World, id: u32) -> Vec<Option<(f64, f64)>> {
     v
 }
 
-/// The look kind a player's film goes in his file as.
-pub fn film_kind(p: &crate::world::Person) -> super::super::Kind {
+/// The look kind a player's film goes in his file as: the level of the
+/// tape (a college player's high school tape is high school film, minor
+/// bug 353).
+pub fn film_kind(w: &World, i: usize) -> super::super::Kind {
+    use super::super::Kind;
     use crate::world::Stage;
-    match p.stage {
-        Stage::HighSchool | Stage::PrepSchool => super::super::Kind::HsFilm,
-        Stage::College | Stage::Declared => super::super::Kind::CollegeFilm,
-        _ => super::super::Kind::ProFilm,
+    match tape::source(w, i) {
+        Ok(tape::Source::School(_) | tape::Source::OldSchool(..)) => Kind::HsFilm,
+        Ok(tape::Source::Program(_)) => Kind::CollegeFilm,
+        Ok(tape::Source::Club(_)) => Kind::ProFilm,
+        Err(_) => match w.people[i].stage {
+            Stage::HighSchool | Stage::PrepSchool => Kind::HsFilm,
+            Stage::College | Stage::Declared => Kind::CollegeFilm,
+            _ => Kind::ProFilm,
+        },
     }
 }
 
